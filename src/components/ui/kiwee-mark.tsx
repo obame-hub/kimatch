@@ -1,0 +1,24 @@
+import { useId } from 'react'
+
+export function KiweeMark({ className }: { className?: string }) {
+  const gradientId = useId()
+
+  return (
+    <svg viewBox="0 0 100 100" className={className} xmlns="http://www.w3.org/2000/svg" role="img" aria-label="KiWee">
+      <defs>
+        <linearGradient id={gradientId} x1="10" y1="5" x2="90" y2="95" gradientUnits="userSpaceOnUse">
+          <stop offset="0" stopColor="#c8ec7a" />
+          <stop offset="0.55" stopColor="#74b524" />
+          <stop offset="1" stopColor="#497314" />
+        </linearGradient>
+      </defs>
+      <path
+        d="M50,8 C74,8 91,26 91,52 C91,73 75,89 54,91 C50,91.5 47,96 39,99 C41,89 37,86 29,80 C13,71 9,60 9,49 C9,24 25,8 50,8 Z"
+        fill={`url(#${gradientId})`}
+      />
+      <circle cx="32" cy="78" r="2.6" fill="#1c1c1f" opacity="0.85" />
+      <circle cx="40" cy="83" r="2.1" fill="#1c1c1f" opacity="0.75" />
+      <path d="M58,22 L37,54 L52,54 L44,82 L70,46 L54,46 Z" fill="#1c1c1f" opacity="0.92" />
+    </svg>
+  )
+}
