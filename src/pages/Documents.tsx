@@ -1,16 +1,123 @@
+import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { FileText } from 'lucide-react'
+import { FileText, Plus } from 'lucide-react'
 import { Topbar } from '@/components/layout/Topbar'
 import { PageHeader } from '@/components/ui/page-header'
 import { Card } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
+import { Button } from '@/components/ui/button'
 import { EntityLink } from '@/components/ui/entity-link'
-import { useDocuments } from '@/lib/data/documents'
+import { Dialog } from '@/components/ui/dialog'
+import { FormField, Input, Select } from '@/components/ui/form'
+import { useDocuments, useCreateDocument } from '@/lib/data/documents'
+import { useSites } from '@/lib/data/sites'
+import { useComptes } from '@/lib/data/comptes'
+import { useMandats } from '@/lib/data/mandats'
+import { useRecommandations } from '@/lib/data/recommandations'
+import { useContrats } from '@/lib/data/contrats'
+import { useReferenceTable } from '@/lib/data/referenceTables'
+import { FALLBACK_TYPES_DOCUMENTS } from '@/lib/referenceFallbacks'
 import { entityRoute } from '@/lib/entityRoute'
+
+const ENTITE_TYPE_OPTIONS = [
+  { value: 'site', label: 'Site' },
+  { value: 'compte', label: 'Compte' },
+  { value: 'mandat', label: 'Mandat' },
+  { value: 'recommandation', label: 'Recommandation' },
+  { value: 'contrat', label: 'Contrat' },
+]
+
+function CreateDocumentDialog({ open, onClose }: { open: boolean; onClose: () => void }) {
+  const { data: sites } = useSites()
+  const { data: comptes } = useComptes()
+  const { data: mandats } = useMandats()
+  const { data: recommandations } = useRecommandations()
+  const { data: contrats } = useContrats()
+  const { data: typesRef } = useReferenceTable('types_documents')
+  const types = typesRef && typesRef.length > 0 ? typesRef : FALLBACK_TYPES_DOCUMENTS
+  const createDocument = useCreateDocument()
+
+  const [nom, setNom] = useState('')
+  const [typeDocumentId, setTypeDocumentId] = useState('')
+  const [entiteType, setEntiteType] = useState('')
+  const [entiteId, setEntiteId] = useState('')
+  const [feedback, setFeedback] = useState<string | null>(null)
+
+  const entiteOptions =
+    entiteType === 'site' ? sites?.map((s) => ({ id: s.id, label: s.nom })) ?? [] :
+    entiteType === 'compte' ? comptes?.map((c) => ({ id: c.id, label: c.nom })) ?? [] :
+    entiteType === 'mandat' ? mandats?.map((m) => ({ id: m.id, label: m.compte_nom })) ?? [] :
+    entiteType === 'recommandation' ? recommandations?.map((r) => ({ id: r.id, label: r.titre })) ?? [] :
+    entiteType === 'contrat' ? contrats?.map((c) => ({ id: c.id, label: `${c.fournisseur_nom} — ${c.site_nom}` })) ?? [] :
+    []
+
+  function reset() {
+    setNom('')
+    setTypeDocumentId('')
+    setEntiteType('')
+    setEntiteId('')
+    setFeedback(null)
+  }
+
+  async function handleSubmit(e: React.FormEvent) {
+    e.preventDefault()
+    if (!entiteType || !entiteId) return
+    const type = types.find((t) => t.id === typeDocumentId)
+
+    const result = await createDocument.mutateAsync({
+      nom,
+      type_document_id: typeDocumentId || null,
+      type_document_libelle: type?.libelle ?? '',
+      entite_type: entiteType,
+      entite_id: entiteId,
+    })
+    setFeedback(result.persisted ? 'Document créé.' : 'Document ajouté localement (non synchronisé avec Supabase).')
+    setTimeout(() => {
+      reset()
+      onClose()
+    }, 700)
+  }
+
+  return (
+    <Dialog open={open} onClose={() => { reset(); onClose() }} title="Nouveau document" description="Rattacher un document à une fiche existante.">
+      <form onSubmit={handleSubmit} className="space-y-3">
+        <FormField label="Nom du document">
+          <Input value={nom} onChange={(e) => setNom(e.target.value)} required placeholder="Ex. Mandat signé — Cabinet Durand" />
+        </FormField>
+        <FormField label="Type de document">
+          <Select value={typeDocumentId} onChange={(e) => setTypeDocumentId(e.target.value)}>
+            <option value="">Sélectionner…</option>
+            {types.map((t) => <option key={t.id} value={t.id}>{t.libelle}</option>)}
+          </Select>
+        </FormField>
+        <FormField label="Rattaché à">
+          <Select value={entiteType} onChange={(e) => { setEntiteType(e.target.value); setEntiteId('') }} required>
+            <option value="">Type d'entité…</option>
+            {ENTITE_TYPE_OPTIONS.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
+          </Select>
+        </FormField>
+        {entiteType && (
+          <FormField label="Fiche">
+            <Select value={entiteId} onChange={(e) => setEntiteId(e.target.value)} required>
+              <option value="">Sélectionner…</option>
+              {entiteOptions.map((o) => <option key={o.id} value={o.id}>{o.label}</option>)}
+            </Select>
+          </FormField>
+        )}
+        {feedback && <p className="text-xs text-navy-500">{feedback}</p>}
+        <div className="flex justify-end gap-2 pt-2">
+          <Button type="button" variant="ghost" onClick={() => { reset(); onClose() }}>Annuler</Button>
+          <Button type="submit" disabled={createDocument.isPending}>Créer le document</Button>
+        </div>
+      </form>
+    </Dialog>
+  )
+}
 
 export default function Documents() {
   const { data: documents, isLoading } = useDocuments()
   const navigate = useNavigate()
+  const [showCreate, setShowCreate] = useState(false)
 
   return (
     <div>
@@ -19,6 +126,7 @@ export default function Documents() {
         <PageHeader
           title="Documents"
           description="Tous les documents (mandats, factures, contrats, recommandations) centralisés en un seul endroit."
+          actions={<Button onClick={() => setShowCreate(true)}><Plus className="h-4 w-4" />Nouveau document</Button>}
         />
 
         <div className="space-y-2.5">
@@ -53,6 +161,7 @@ export default function Documents() {
           ))}
         </div>
       </div>
+      <CreateDocumentDialog open={showCreate} onClose={() => setShowCreate(false)} />
     </div>
   )
 }

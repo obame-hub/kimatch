@@ -1,4 +1,4 @@
-import { useQuery } from '@tanstack/react-query'
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { isSupabaseConfigured, supabase } from '@/lib/supabase'
 import { mockDocuments } from '@/lib/mockData'
 import type { DocumentItem } from '@/types/domain'
@@ -51,4 +51,59 @@ async function fetchDocuments(): Promise<DocumentItem[]> {
 
 export function useDocuments() {
   return useQuery({ queryKey: ['documents'], queryFn: fetchDocuments })
+}
+
+interface CreateDocumentInput {
+  nom: string
+  type_document_id: string | null
+  type_document_libelle: string
+  entite_type: string
+  entite_id: string
+}
+
+interface CreateDocumentResult {
+  document: DocumentItem
+  persisted: boolean
+}
+
+export function useCreateDocument() {
+  const queryClient = useQueryClient()
+
+  return useMutation({
+    mutationFn: async (input: CreateDocumentInput): Promise<CreateDocumentResult> => {
+      const now = new Date().toISOString()
+      let persisted = false
+      let document: DocumentItem = {
+        id: `local-${Date.now()}`,
+        nom: input.nom,
+        type_document: input.type_document_libelle,
+        entite_type: input.entite_type,
+        entite_id: input.entite_id,
+        objet_lie: ENTITE_LABELS[input.entite_type] ?? input.entite_type,
+        auteur: '',
+        date_creation: now,
+      }
+
+      if (isSupabaseConfigured) {
+        const { data, error } = await supabase
+          .from('documents')
+          .insert({
+            nom: input.nom,
+            entite_type: input.entite_type,
+            entite_id: input.entite_id,
+            date_creation: now,
+            ...(input.type_document_id ? { type_document_id: input.type_document_id } : {}),
+          })
+          .select('id')
+          .single()
+        if (!error && data) {
+          document = { ...document, id: (data as { id: string }).id }
+          persisted = true
+        }
+      }
+
+      queryClient.setQueryData<DocumentItem[]>(['documents'], (old) => (old ? [document, ...old] : [document]))
+      return { document, persisted }
+    },
+  })
 }

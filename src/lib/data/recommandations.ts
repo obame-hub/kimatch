@@ -1,4 +1,4 @@
-import { useQuery } from '@tanstack/react-query'
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { isSupabaseConfigured, supabase } from '@/lib/supabase'
 import { mockRecommandations } from '@/lib/mockData'
 import type { Recommandation, VersionRecommandation } from '@/types/domain'
@@ -104,4 +104,79 @@ async function fetchRecommandations(): Promise<Recommandation[]> {
 
 export function useRecommandations() {
   return useQuery({ queryKey: ['recommandations'], queryFn: fetchRecommandations })
+}
+
+interface CreateRecommandationInput {
+  titre: string
+  mandat_id: string
+  compte_id: string
+  compte_nom: string
+  sites: { id: string; nom: string }[]
+  objectif_id: string | null
+  objectif_libelle: string
+  priorite: number
+  description: string
+  commentaire_interne: string
+}
+
+interface CreateRecommandationResult {
+  recommandation: Recommandation
+  persisted: boolean
+}
+
+export function useCreateRecommandation() {
+  const queryClient = useQueryClient()
+
+  return useMutation({
+    mutationFn: async (input: CreateRecommandationInput): Promise<CreateRecommandationResult> => {
+      const now = new Date().toISOString()
+      let persisted = false
+      let recommandation: Recommandation = {
+        id: `local-${Date.now()}`,
+        titre: input.titre,
+        compte_id: input.compte_id,
+        compte_nom: input.compte_nom,
+        sites: input.sites,
+        etape: 'A_PREPARER',
+        conseiller: '',
+        objectif: input.objectif_libelle,
+        description: input.description,
+        priorite: input.priorite,
+        commentaire_interne: input.commentaire_interne,
+        date_creation: now,
+        versions: [],
+      }
+
+      if (isSupabaseConfigured) {
+        const { data, error } = await supabase
+          .from('recommandations')
+          .insert({
+            titre: input.titre,
+            mandat_id: input.mandat_id,
+            description: input.description,
+            priorite: input.priorite,
+            commentaire_interne: input.commentaire_interne,
+            date_ouverture: now,
+            ...(input.objectif_id ? { objectif_id: input.objectif_id } : {}),
+          })
+          .select('id')
+          .single()
+        if (!error && data) {
+          const recoId = (data as { id: string }).id
+          recommandation = { ...recommandation, id: recoId }
+          persisted = true
+          if (input.sites.length > 0) {
+            await supabase
+              .from('recommandations_sites')
+              .insert(input.sites.map((s) => ({ recommandation_id: recoId, site_id: s.id })))
+          }
+        }
+      }
+
+      queryClient.setQueryData<Recommandation[]>(['recommandations'], (old) =>
+        old ? [recommandation, ...old] : [recommandation],
+      )
+      return { recommandation, persisted }
+    },
+  })
 }

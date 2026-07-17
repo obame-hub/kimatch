@@ -1,4 +1,4 @@
-import { useQuery } from '@tanstack/react-query'
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { isSupabaseConfigured, supabase } from '@/lib/supabase'
 import { mockCompteurs } from '@/lib/mockData'
 import type { Compteur } from '@/types/domain'
@@ -37,4 +37,58 @@ async function fetchCompteurs(): Promise<Compteur[]> {
 
 export function useCompteurs() {
   return useQuery({ queryKey: ['compteurs'], queryFn: fetchCompteurs })
+}
+
+interface CreateCompteurInput {
+  site_id: string
+  site_nom: string
+  type_energie_id: string | null
+  type_energie: 'electricite' | 'gaz'
+  numero_pdl: string
+  utilisation: string
+}
+
+interface CreateCompteurResult {
+  compteur: Compteur
+  persisted: boolean
+}
+
+export function useCreateCompteur() {
+  const queryClient = useQueryClient()
+
+  return useMutation({
+    mutationFn: async (input: CreateCompteurInput): Promise<CreateCompteurResult> => {
+      let persisted = false
+      let compteur: Compteur = {
+        id: `local-${Date.now()}`,
+        site_id: input.site_id,
+        site_nom: input.site_nom,
+        type_energie: input.type_energie,
+        numero_pdl: input.numero_pdl,
+        utilisation: input.utilisation,
+        statut: 'actif',
+      }
+
+      if (isSupabaseConfigured) {
+        const { data, error } = await supabase
+          .from('compteurs')
+          .insert({
+            site_id: input.site_id,
+            numero_point: input.numero_pdl,
+            utilisation: input.utilisation,
+            actif: true,
+            ...(input.type_energie_id ? { type_energie_id: input.type_energie_id } : {}),
+          })
+          .select('id')
+          .single()
+        if (!error && data) {
+          compteur = { ...compteur, id: (data as { id: string }).id }
+          persisted = true
+        }
+      }
+
+      queryClient.setQueryData<Compteur[]>(['compteurs'], (old) => (old ? [...old, compteur] : [compteur]))
+      return { compteur, persisted }
+    },
+  })
 }
