@@ -39,6 +39,14 @@ export function useCompteurs() {
   return useQuery({ queryKey: ['compteurs'], queryFn: fetchCompteurs })
 }
 
+interface GrdData {
+  segment?: string | null
+  tension?: string | null
+  fta?: string | null
+  puissance_souscrite_kva?: number | null
+  consommation_annuelle_mwh?: number | null
+}
+
 interface CreateCompteurInput {
   site_id: string
   site_nom: string
@@ -46,6 +54,7 @@ interface CreateCompteurInput {
   type_energie: 'electricite' | 'gaz'
   numero_pdl: string
   utilisation: string
+  grd?: GrdData
 }
 
 interface CreateCompteurResult {
@@ -59,6 +68,7 @@ export function useCreateCompteur() {
   return useMutation({
     mutationFn: async (input: CreateCompteurInput): Promise<CreateCompteurResult> => {
       let persisted = false
+      const derniereSynchro = input.grd ? new Date().toISOString() : null
       let compteur: Compteur = {
         id: `local-${Date.now()}`,
         site_id: input.site_id,
@@ -67,9 +77,19 @@ export function useCreateCompteur() {
         numero_pdl: input.numero_pdl,
         utilisation: input.utilisation,
         statut: 'actif',
+        segment: input.grd?.segment ?? null,
+        tension: input.grd?.tension ?? null,
+        fta: input.grd?.fta ?? null,
+        puissance_souscrite_kva: input.grd?.puissance_souscrite_kva ?? null,
+        consommation_annuelle_mwh: input.grd?.consommation_annuelle_mwh ?? null,
+        derniere_synchro_grd: derniereSynchro,
       }
 
       if (isSupabaseConfigured) {
+        // Les colonnes GRD (segment, tension, fta, puissance_souscrite_kva,
+        // consommation_annuelle_mwh, derniere_synchro_grd) doivent exister sur
+        // `compteurs` — si elles ne sont pas encore ajoutées, l'insert échoue
+        // et on retombe sur le cache local (mêmes garanties que les autres formulaires).
         const { data, error } = await supabase
           .from('compteurs')
           .insert({
@@ -78,6 +98,16 @@ export function useCreateCompteur() {
             utilisation: input.utilisation,
             actif: true,
             ...(input.type_energie_id ? { type_energie_id: input.type_energie_id } : {}),
+            ...(input.grd
+              ? {
+                  segment: input.grd.segment ?? null,
+                  tension: input.grd.tension ?? null,
+                  fta: input.grd.fta ?? null,
+                  puissance_souscrite_kva: input.grd.puissance_souscrite_kva ?? null,
+                  consommation_annuelle_mwh: input.grd.consommation_annuelle_mwh ?? null,
+                  derniere_synchro_grd: derniereSynchro,
+                }
+              : {}),
           })
           .select('id')
           .single()

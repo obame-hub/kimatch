@@ -100,6 +100,14 @@ export interface Compteur {
   numero_pdl: string
   utilisation: string
   statut: 'actif' | 'inactif'
+  // Champs enrichis par la synchronisation GRD (Enedis/GRDF) — absents tant
+  // que le compteur n'a jamais été synchronisé.
+  segment?: string | null
+  tension?: string | null
+  fta?: string | null
+  puissance_souscrite_kva?: number | null
+  consommation_annuelle_mwh?: number | null
+  derniere_synchro_grd?: string | null
 }
 
 export interface DocumentItem {
