@@ -5,6 +5,7 @@
 export interface Site {
   id: string
   nom: string
+  compte_id: string
   compte_nom: string
   type_site: string
   ville: string
@@ -34,16 +35,25 @@ export interface VersionRecommandation {
   date_creation: string
   gains_estimes: number | null
   resume: string
+  contenu: string | null
+  economie_pourcentage: number | null
+  niveau_confiance: number | null
+  date_validite_offres: string | null
+  document_url: string | null
 }
 
 export interface Recommandation {
   id: string
   titre: string
+  compte_id: string
   compte_nom: string
-  sites: string[]
+  sites: { id: string; nom: string }[]
   etape: string
   conseiller: string
   objectif: string
+  description: string
+  priorite: number
+  commentaire_interne: string
   date_creation: string
   versions: VersionRecommandation[]
 }
@@ -55,10 +65,12 @@ export interface ActionItem {
   responsable: string
   echeance: string
   cible_label: string
+  site_id: string | null
 }
 
 export interface Mandat {
   id: string
+  compte_id: string
   compte_nom: string
   statut: string
   date_signature: string | null
@@ -94,7 +106,39 @@ export interface DocumentItem {
   id: string
   nom: string
   type_document: string
+  entite_type: string
+  entite_id: string
   objet_lie: string
   auteur: string
   date_creation: string
+}
+
+export interface Interaction {
+  id: string
+  type_interaction: string
+  date_interaction: string
+  sens: string | null
+  objet: string | null
+  resume: string | null
+  resultat: string | null
+  auteur: string
+  compte_id: string | null
+  compte_nom: string
+  site_id: string | null
+  site_nom: string
+  contact_id: string | null
+  contact_nom: string
+}
+
+export interface Contrat {
+  id: string
+  site_id: string
+  site_nom: string
+  fournisseur_compte_id: string | null
+  fournisseur_nom: string
+  type_energie: 'electricite' | 'gaz'
+  reference_fournisseur: string | null
+  date_debut: string | null
+  date_fin: string | null
+  statut: string
 }

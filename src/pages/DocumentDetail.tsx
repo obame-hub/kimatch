@@ -4,7 +4,9 @@ import { Topbar } from '@/components/layout/Topbar'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
+import { EntityLink } from '@/components/ui/entity-link'
 import { useDocuments } from '@/lib/data/documents'
+import { entityRoute } from '@/lib/entityRoute'
 
 export default function DocumentDetail() {
   const { id } = useParams()
@@ -35,7 +37,14 @@ export default function DocumentDetail() {
             </CardHeader>
             <CardContent className="px-0 space-y-3 text-sm">
               <p><span className="text-navy-400">Type :</span> <Badge tone="neutral">{doc.type_document}</Badge></p>
-              <p><span className="text-navy-400">Objet lié :</span> {doc.objet_lie}</p>
+              <p>
+                <span className="text-navy-400">Objet lié :</span>{' '}
+                {entityRoute(doc.entite_type, doc.entite_id) ? (
+                  <EntityLink to={entityRoute(doc.entite_type, doc.entite_id) as string}>{doc.objet_lie}</EntityLink>
+                ) : (
+                  doc.objet_lie
+                )}
+              </p>
               <p><span className="text-navy-400">Auteur :</span> {doc.auteur}</p>
               <p><span className="text-navy-400">Date :</span> {new Date(doc.date_creation).toLocaleDateString('fr-FR')}</p>
             </CardContent>

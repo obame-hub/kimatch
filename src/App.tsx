@@ -17,6 +17,10 @@ import MandatDetail from '@/pages/MandatDetail'
 import Versions from '@/pages/Versions'
 import Documents from '@/pages/Documents'
 import DocumentDetail from '@/pages/DocumentDetail'
+import Interactions from '@/pages/Interactions'
+import InteractionDetail from '@/pages/InteractionDetail'
+import Contrats from '@/pages/Contrats'
+import ContratDetail from '@/pages/ContratDetail'
 
 function App() {
   return (
@@ -40,6 +44,10 @@ function App() {
           <Route path="/versions" element={<Versions />} />
           <Route path="/documents" element={<Documents />} />
           <Route path="/documents/:id" element={<DocumentDetail />} />
+          <Route path="/interactions" element={<Interactions />} />
+          <Route path="/interactions/:id" element={<InteractionDetail />} />
+          <Route path="/contrats" element={<Contrats />} />
+          <Route path="/contrats/:id" element={<ContratDetail />} />
         </Route>
       </Route>
     </Routes>

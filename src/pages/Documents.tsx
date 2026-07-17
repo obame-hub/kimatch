@@ -4,7 +4,9 @@ import { Topbar } from '@/components/layout/Topbar'
 import { PageHeader } from '@/components/ui/page-header'
 import { Card } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
+import { EntityLink } from '@/components/ui/entity-link'
 import { useDocuments } from '@/lib/data/documents'
+import { entityRoute } from '@/lib/entityRoute'
 
 export default function Documents() {
   const { data: documents, isLoading } = useDocuments()
@@ -33,7 +35,14 @@ export default function Documents() {
                 </span>
                 <div>
                   <p className="text-sm font-medium text-navy-800">{doc.nom}</p>
-                  <p className="text-xs text-navy-500">{doc.objet_lie} · {doc.auteur}</p>
+                  <p className="text-xs text-navy-500">
+                    {entityRoute(doc.entite_type, doc.entite_id) ? (
+                      <EntityLink to={entityRoute(doc.entite_type, doc.entite_id) as string}>{doc.objet_lie}</EntityLink>
+                    ) : (
+                      doc.objet_lie
+                    )}
+                    {' · '}{doc.auteur}
+                  </p>
                 </div>
               </div>
               <div className="flex items-center gap-3">

@@ -1,12 +1,12 @@
-import type { ActionItem, Compte, Compteur, DocumentItem, Mandat, Recommandation, Signal, Site } from '@/types/domain'
+import type { ActionItem, Compte, Compteur, Contrat, DocumentItem, Interaction, Mandat, Recommandation, Signal, Site } from '@/types/domain'
 
 export const mockSites: Site[] = [
-  { id: 's1', nom: 'Résidence Les Tilleuls', compte_nom: 'Cabinet Durand', type_site: 'Copropriété', ville: 'Lyon', code_postal: '69003', nb_compteurs: 4, nb_signaux_ouverts: 2, statut: 'actif' },
-  { id: 's2', nom: 'Siège social — Paris', compte_nom: 'Groupe Meridia', type_site: 'Immeuble tertiaire', ville: 'Paris', code_postal: '75008', nb_compteurs: 2, nb_signaux_ouverts: 1, statut: 'actif' },
-  { id: 's3', nom: 'Entrepôt Nord', compte_nom: 'Groupe Meridia', type_site: 'Entrepôt', ville: 'Lille', code_postal: '59000', nb_compteurs: 3, nb_signaux_ouverts: 0, statut: 'actif' },
-  { id: 's4', nom: 'Hôtel Belvédère', compte_nom: 'Hôtellerie du Sud', type_site: 'Hôtel', ville: 'Marseille', code_postal: '13001', nb_compteurs: 5, nb_signaux_ouverts: 1, statut: 'actif' },
-  { id: 's5', nom: 'Résidence Le Parc', compte_nom: 'Cabinet Durand', type_site: 'Copropriété', ville: 'Lyon', code_postal: '69006', nb_compteurs: 2, nb_signaux_ouverts: 3, statut: 'actif' },
-  { id: 's6', nom: 'Magasin Centre-ville', compte_nom: 'Retail Plus', type_site: 'Commerce', ville: 'Bordeaux', code_postal: '33000', nb_compteurs: 1, nb_signaux_ouverts: 0, statut: 'actif' },
+  { id: 's1', nom: 'Résidence Les Tilleuls', compte_id: 'c1', compte_nom: 'Cabinet Durand', type_site: 'Copropriété', ville: 'Lyon', code_postal: '69003', nb_compteurs: 4, nb_signaux_ouverts: 2, statut: 'actif' },
+  { id: 's2', nom: 'Siège social — Paris', compte_id: 'c2', compte_nom: 'Groupe Meridia', type_site: 'Immeuble tertiaire', ville: 'Paris', code_postal: '75008', nb_compteurs: 2, nb_signaux_ouverts: 1, statut: 'actif' },
+  { id: 's3', nom: 'Entrepôt Nord', compte_id: 'c2', compte_nom: 'Groupe Meridia', type_site: 'Entrepôt', ville: 'Lille', code_postal: '59000', nb_compteurs: 3, nb_signaux_ouverts: 0, statut: 'actif' },
+  { id: 's4', nom: 'Hôtel Belvédère', compte_id: 'c3', compte_nom: 'Hôtellerie du Sud', type_site: 'Hôtel', ville: 'Marseille', code_postal: '13001', nb_compteurs: 5, nb_signaux_ouverts: 1, statut: 'actif' },
+  { id: 's5', nom: 'Résidence Le Parc', compte_id: 'c1', compte_nom: 'Cabinet Durand', type_site: 'Copropriété', ville: 'Lyon', code_postal: '69006', nb_compteurs: 2, nb_signaux_ouverts: 3, statut: 'actif' },
+  { id: 's6', nom: 'Magasin Centre-ville', compte_id: 'c4', compte_nom: 'Retail Plus', type_site: 'Commerce', ville: 'Bordeaux', code_postal: '33000', nb_compteurs: 1, nb_signaux_ouverts: 0, statut: 'actif' },
 ]
 
 // Codes de statut alignés sur la vraie table statuts_signaux (NOUVEAU, A_CONTACTER,
@@ -27,37 +27,58 @@ export const mockRecommandations: Recommandation[] = [
   {
     id: 'r1',
     titre: 'Optimisation tarifaire — Siège Meridia',
+    compte_id: 'c2',
     compte_nom: 'Groupe Meridia',
-    sites: ['Siège social — Paris'],
+    sites: [{ id: 's2', nom: 'Siège social — Paris' }],
     etape: 'PRESENTEE',
     conseiller: 'William Goupil',
     objectif: 'Optimisation tarifaire',
+    description: 'Le contrat électricité actuel arrive à échéance et le marché propose des conditions plus favorables.',
+    priorite: 2,
+    commentaire_interne: 'Client sensible au prix, insister sur la sécurisation du prix sur 24 mois.',
     date_creation: '2026-06-28',
     versions: [
-      { id: 'v1', numero: 1, statut: 'PRESENTEE', motif_creation: 'Analyse initiale', date_creation: '2026-07-05', gains_estimes: 18400, resume: 'Renégociation puissance souscrite + mise en concurrence.' },
+      {
+        id: 'v1', numero: 1, statut: 'PRESENTEE', motif_creation: 'Analyse initiale', date_creation: '2026-07-05',
+        gains_estimes: 18400, resume: 'Renégociation puissance souscrite + mise en concurrence.',
+        contenu: 'Comparatif de 3 offres fournisseurs sur 24 mois, avec réduction de la puissance souscrite de 250 à 210 kVA.',
+        economie_pourcentage: 12.5, niveau_confiance: 85, date_validite_offres: '2026-08-05', document_url: null,
+      },
     ],
   },
   {
     id: 'r2',
     titre: 'Renouvellement contrat — Résidence Les Tilleuls',
+    compte_id: 'c1',
     compte_nom: 'Cabinet Durand',
-    sites: ['Résidence Les Tilleuls'],
+    sites: [{ id: 's1', nom: 'Résidence Les Tilleuls' }],
     etape: 'EN_ANALYSE',
     conseiller: 'Naoëlle Ghouma',
     objectif: 'Renouvellement de contrat',
+    description: "Le contrat des parties communes arrive à échéance dans 45 jours, étude de renouvellement en cours.",
+    priorite: 1,
+    commentaire_interne: '',
     date_creation: '2026-07-11',
     versions: [
-      { id: 'v2', numero: 1, statut: 'A_VALIDER', motif_creation: 'Signal échéance de contrat', date_creation: '2026-07-11', gains_estimes: null, resume: "Étude en cours sur l'échéance des parties communes." },
+      {
+        id: 'v2', numero: 1, statut: 'A_VALIDER', motif_creation: 'Signal échéance de contrat', date_creation: '2026-07-11',
+        gains_estimes: null, resume: "Étude en cours sur l'échéance des parties communes.",
+        contenu: null, economie_pourcentage: null, niveau_confiance: null, date_validite_offres: null, document_url: null,
+      },
     ],
   },
   {
     id: 'r3',
     titre: 'Étude énergétique — Hôtel Belvédère',
+    compte_id: 'c3',
     compte_nom: 'Hôtellerie du Sud',
-    sites: ['Hôtel Belvédère'],
+    sites: [{ id: 's4', nom: 'Hôtel Belvédère' }],
     etape: 'A_PREPARER',
     conseiller: 'William Goupil',
     objectif: 'Étude énergétique',
+    description: 'Le directeur de site souhaite un audit complet de la consommation énergétique de l\'hôtel.',
+    priorite: 3,
+    commentaire_interne: '',
     date_creation: '2026-07-13',
     versions: [],
   },
@@ -65,17 +86,17 @@ export const mockRecommandations: Recommandation[] = [
 
 // Codes alignés sur statuts_actions (A_FAIRE, EN_COURS, EN_ATTENTE, TERMINEE, ANNULEE).
 export const mockActions: ActionItem[] = [
-  { id: 'a1', type_action: 'Contacter le client', statut: 'A_FAIRE', responsable: 'Naoëlle Ghouma', echeance: '2026-07-17', cible_label: 'Résidence Les Tilleuls' },
-  { id: 'a2', type_action: 'Préparer le mandat', statut: 'A_FAIRE', responsable: 'William Goupil', echeance: '2026-07-18', cible_label: 'Hôtel Belvédère' },
-  { id: 'a3', type_action: 'Présenter la recommandation', statut: 'EN_COURS', responsable: 'William Goupil', echeance: '2026-07-16', cible_label: 'Siège social — Paris' },
-  { id: 'a4', type_action: 'Relancer le client', statut: 'A_FAIRE', responsable: 'Naoëlle Ghouma', echeance: '2026-07-20', cible_label: 'Résidence Le Parc' },
+  { id: 'a1', type_action: 'Contacter le client', statut: 'A_FAIRE', responsable: 'Naoëlle Ghouma', echeance: '2026-07-17', cible_label: 'Résidence Les Tilleuls', site_id: 's1' },
+  { id: 'a2', type_action: 'Préparer le mandat', statut: 'A_FAIRE', responsable: 'William Goupil', echeance: '2026-07-18', cible_label: 'Hôtel Belvédère', site_id: 's4' },
+  { id: 'a3', type_action: 'Présenter la recommandation', statut: 'EN_COURS', responsable: 'William Goupil', echeance: '2026-07-16', cible_label: 'Siège social — Paris', site_id: 's2' },
+  { id: 'a4', type_action: 'Relancer le client', statut: 'A_FAIRE', responsable: 'Naoëlle Ghouma', echeance: '2026-07-20', cible_label: 'Résidence Le Parc', site_id: 's5' },
 ]
 
 // Codes alignés sur statuts_mandats (A_PREPARER, ENVOYE, EN_SIGNATURE, SIGNE, ACTIF, EXPIRE, REVOQUE).
 export const mockMandats: Mandat[] = [
-  { id: 'm1', compte_nom: 'Cabinet Durand', statut: 'ACTIF', date_signature: '2026-05-02', nb_sites_couverts: 2 },
-  { id: 'm2', compte_nom: 'Groupe Meridia', statut: 'ACTIF', date_signature: '2026-03-14', nb_sites_couverts: 2 },
-  { id: 'm3', compte_nom: 'Hôtellerie du Sud', statut: 'EN_SIGNATURE', date_signature: null, nb_sites_couverts: 1 },
+  { id: 'm1', compte_id: 'c1', compte_nom: 'Cabinet Durand', statut: 'ACTIF', date_signature: '2026-05-02', nb_sites_couverts: 2 },
+  { id: 'm2', compte_id: 'c2', compte_nom: 'Groupe Meridia', statut: 'ACTIF', date_signature: '2026-03-14', nb_sites_couverts: 2 },
+  { id: 'm3', compte_id: 'c3', compte_nom: 'Hôtellerie du Sud', statut: 'EN_SIGNATURE', date_signature: null, nb_sites_couverts: 1 },
 ]
 
 // Les SIREN ci-dessous sont fictifs sauf celui d'EDF (réel, pour pouvoir démontrer
@@ -100,9 +121,21 @@ export const mockCompteurs: Compteur[] = [
 ]
 
 export const mockDocuments: DocumentItem[] = [
-  { id: 'd1', nom: 'Mandat signé — Cabinet Durand.pdf', type_document: 'Mandat', objet_lie: 'Cabinet Durand', auteur: 'Naoëlle Ghouma', date_creation: '2026-05-02' },
-  { id: 'd2', nom: 'Recommandation v1 — Siège Meridia.pdf', type_document: 'Recommandation', objet_lie: 'Optimisation tarifaire — Siège Meridia', auteur: 'William Goupil', date_creation: '2026-07-05' },
-  { id: 'd3', nom: 'Facture juin 2026 — Résidence Le Parc.pdf', type_document: 'Facture', objet_lie: 'Résidence Le Parc', auteur: 'Système', date_creation: '2026-07-01' },
-  { id: 'd4', nom: 'Offre EDF — Hôtel Belvédère.pdf', type_document: 'Offre fournisseur', objet_lie: 'Hôtel Belvédère', auteur: 'William Goupil', date_creation: '2026-07-13' },
-  { id: 'd5', nom: 'Contrat gaz — Résidence Les Tilleuls.pdf', type_document: 'Contrat', objet_lie: 'Résidence Les Tilleuls', auteur: 'Naoëlle Ghouma', date_creation: '2026-06-20' },
+  { id: 'd1', nom: 'Mandat signé — Cabinet Durand.pdf', type_document: 'Mandat', entite_type: 'compte', entite_id: 'c1', objet_lie: 'Cabinet Durand', auteur: 'Naoëlle Ghouma', date_creation: '2026-05-02' },
+  { id: 'd2', nom: 'Recommandation v1 — Siège Meridia.pdf', type_document: 'Recommandation', entite_type: 'recommandation', entite_id: 'r1', objet_lie: 'Optimisation tarifaire — Siège Meridia', auteur: 'William Goupil', date_creation: '2026-07-05' },
+  { id: 'd3', nom: 'Facture juin 2026 — Résidence Le Parc.pdf', type_document: 'Facture', entite_type: 'site', entite_id: 's5', objet_lie: 'Résidence Le Parc', auteur: 'Système', date_creation: '2026-07-01' },
+  { id: 'd4', nom: 'Offre EDF — Hôtel Belvédère.pdf', type_document: 'Offre fournisseur', entite_type: 'site', entite_id: 's4', objet_lie: 'Hôtel Belvédère', auteur: 'William Goupil', date_creation: '2026-07-13' },
+  { id: 'd5', nom: 'Contrat gaz — Résidence Les Tilleuls.pdf', type_document: 'Contrat', entite_type: 'site', entite_id: 's1', objet_lie: 'Résidence Les Tilleuls', auteur: 'Naoëlle Ghouma', date_creation: '2026-06-20' },
+]
+
+export const mockInteractions: Interaction[] = [
+  { id: 'i1', type_interaction: 'Appel', date_interaction: '2026-07-15T10:30:00', sens: 'sortant', objet: 'Point sur le renouvellement', resume: "Le syndic confirme vouloir étudier le renouvellement, en attente de l'analyse.", resultat: 'Intérêt confirmé', auteur: 'Naoëlle Ghouma', compte_id: 'c1', compte_nom: 'Cabinet Durand', site_id: 's1', site_nom: 'Résidence Les Tilleuls', contact_id: null, contact_nom: '' },
+  { id: 'i2', type_interaction: 'Email', date_interaction: '2026-07-13T14:00:00', sens: 'entrant', objet: 'Demande d\'audit énergétique', resume: "Le directeur de l'hôtel demande un audit énergétique complet de l'établissement.", resultat: null, auteur: 'William Goupil', compte_id: 'c3', compte_nom: 'Hôtellerie du Sud', site_id: 's4', site_nom: 'Hôtel Belvédère', contact_id: null, contact_nom: '' },
+  { id: 'i3', type_interaction: 'Réunion', date_interaction: '2026-07-08T09:00:00', sens: null, objet: 'Présentation de la recommandation', resume: 'Présentation de la première version de la recommandation tarifaire au client.', resultat: 'À actualiser', auteur: 'William Goupil', compte_id: 'c2', compte_nom: 'Groupe Meridia', site_id: 's2', site_nom: 'Siège social — Paris', contact_id: null, contact_nom: '' },
+]
+
+export const mockContrats: Contrat[] = [
+  { id: 'ct1', site_id: 's1', site_nom: 'Résidence Les Tilleuls', fournisseur_compte_id: 'c5', fournisseur_nom: 'EDF', type_energie: 'electricite', reference_fournisseur: 'EDF-778124', date_debut: '2024-09-01', date_fin: '2026-08-31', statut: 'ACTIF' },
+  { id: 'ct2', site_id: 's1', site_nom: 'Résidence Les Tilleuls', fournisseur_compte_id: 'c6', fournisseur_nom: 'ENGIE', type_energie: 'gaz', reference_fournisseur: 'ENG-33291', date_debut: '2023-11-01', date_fin: '2026-10-31', statut: 'ACTIF' },
+  { id: 'ct3', site_id: 's2', site_nom: 'Siège social — Paris', fournisseur_compte_id: 'c5', fournisseur_nom: 'EDF', type_energie: 'electricite', reference_fournisseur: 'EDF-445982', date_debut: '2025-01-01', date_fin: '2026-12-31', statut: 'ACTIF' },
 ]

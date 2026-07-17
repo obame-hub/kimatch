@@ -4,6 +4,7 @@ import { Topbar } from '@/components/layout/Topbar'
 import { PageHeader } from '@/components/ui/page-header'
 import { Card } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
+import { EntityLink } from '@/components/ui/entity-link'
 import { useCompteurs } from '@/lib/data/compteurs'
 
 export default function Compteurs() {
@@ -38,7 +39,7 @@ export default function Compteurs() {
                     {c.type_energie === 'electricite' ? <Zap className="h-4 w-4" /> : <Flame className="h-4 w-4" />}
                   </span>
                   <div>
-                    <p className="text-sm font-medium text-navy-800">{c.site_nom}</p>
+                    <p className="text-sm font-medium text-navy-800"><EntityLink to={`/sites/${c.site_id}`}>{c.site_nom}</EntityLink></p>
                     <p className="text-xs text-navy-500">{c.utilisation}</p>
                   </div>
                 </div>

@@ -3,6 +3,7 @@ import { Topbar } from '@/components/layout/Topbar'
 import { PageHeader } from '@/components/ui/page-header'
 import { Card } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
+import { EntityLink } from '@/components/ui/entity-link'
 import { useSites } from '@/lib/data/sites'
 
 export default function Sites() {
@@ -43,7 +44,9 @@ export default function Sites() {
                   className="cursor-pointer hover:bg-navy-50"
                 >
                   <td className="px-5 py-3 font-medium text-navy-800">{site.nom}</td>
-                  <td className="px-5 py-3 text-navy-600">{site.compte_nom}</td>
+                  <td className="px-5 py-3 text-navy-600">
+                    <EntityLink to={`/comptes/${site.compte_id}`}>{site.compte_nom}</EntityLink>
+                  </td>
                   <td className="px-5 py-3 text-navy-600">{site.type_site}</td>
                   <td className="px-5 py-3 text-navy-600">{site.ville} ({site.code_postal})</td>
                   <td className="px-5 py-3 text-navy-600">{site.nb_compteurs}</td>

@@ -4,6 +4,7 @@ import { Topbar } from '@/components/layout/Topbar'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
+import { EntityLink } from '@/components/ui/entity-link'
 import { useMandats } from '@/lib/data/mandats'
 import { useReferenceTable } from '@/lib/data/referenceTables'
 import { FALLBACK_STATUTS_MANDATS, STATUT_MANDAT_TONE } from '@/lib/referenceFallbacks'
@@ -30,7 +31,7 @@ export default function MandatDetail() {
         ) : (
           <Card className="max-w-xl p-6">
             <CardHeader className="px-0 pt-0">
-              <CardTitle>{mandat.compte_nom}</CardTitle>
+              <CardTitle><EntityLink to={`/comptes/${mandat.compte_id}`}>{mandat.compte_nom}</EntityLink></CardTitle>
             </CardHeader>
             <CardContent className="px-0 space-y-3 text-sm">
               <p>

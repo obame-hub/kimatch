@@ -5,6 +5,7 @@ import type { Mandat } from '@/types/domain'
 
 interface RawMandat {
   id: string
+  compte_id: string
   date_signature: string | null
   compte: { nom: string } | null
   statut: { code: string } | null
@@ -14,7 +15,7 @@ async function fetchMandats(): Promise<Mandat[]> {
   if (!isSupabaseConfigured) return mockMandats
   try {
     const [mandatsRes, sitesRes] = await Promise.all([
-      supabase.from('mandats').select('id, date_signature, compte:comptes(nom), statut:statuts_mandats(code)'),
+      supabase.from('mandats').select('id, compte_id, date_signature, compte:comptes(nom), statut:statuts_mandats(code)'),
       supabase.from('mandats_sites').select('mandat_id'),
     ])
     if (mandatsRes.error || !mandatsRes.data || mandatsRes.data.length === 0) throw mandatsRes.error ?? new Error('empty')
@@ -26,6 +27,7 @@ async function fetchMandats(): Promise<Mandat[]> {
 
     return (mandatsRes.data as unknown as RawMandat[]).map((m) => ({
       id: m.id,
+      compte_id: m.compte_id,
       compte_nom: m.compte?.nom ?? '',
       statut: m.statut?.code ?? '',
       date_signature: m.date_signature,

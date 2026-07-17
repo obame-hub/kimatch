@@ -97,3 +97,17 @@ export const STATUT_ACTION_TONE: Record<string, 'neutral' | 'amber' | 'kiwi' | '
   TERMINEE: 'kiwi',
   ANNULEE: 'neutral',
 }
+
+export const FALLBACK_STATUTS_CONTRATS: ReferenceRow[] = [
+  { id: '1', code: 'ACTIF', libelle: 'Actif', ordre: 10, couleur: null, icone: null },
+  { id: '2', code: 'A_RENOUVELER', libelle: 'À renouveler', ordre: 20, couleur: null, icone: null },
+  { id: '3', code: 'EXPIRE', libelle: 'Expiré', ordre: 30, couleur: null, icone: null },
+  { id: '4', code: 'RESILIE', libelle: 'Résilié', ordre: 40, couleur: null, icone: null },
+]
+
+export const STATUT_CONTRAT_TONE: Record<string, 'neutral' | 'amber' | 'kiwi' | 'blue' | 'red'> = {
+  ACTIF: 'kiwi',
+  A_RENOUVELER: 'amber',
+  EXPIRE: 'red',
+  RESILIE: 'red',
+}

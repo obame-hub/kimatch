@@ -1,3 +1,4 @@
+import { useNavigate } from 'react-router-dom'
 import { Radio, ListChecks, FileText, MapPin } from 'lucide-react'
 import { Topbar } from '@/components/layout/Topbar'
 import { StatCard } from '@/components/ui/stat-card'
@@ -20,6 +21,7 @@ const SIGNAL_TONE: Record<string, 'neutral' | 'amber' | 'kiwi' | 'blue'> = {
 }
 
 export default function Dashboard() {
+  const navigate = useNavigate()
   const { data } = useDashboardStats()
   const { data: statutsSignauxRef } = useReferenceTable('statuts_signaux')
   const { data: statutsActionsRef } = useReferenceTable('statuts_actions')
@@ -56,7 +58,11 @@ export default function Dashboard() {
               {data?.signauxRecents.map((signal) => {
                 const label = statutsSignaux.find((s) => s.code === signal.statut)?.libelle ?? signal.statut
                 return (
-                  <div key={signal.id} className="flex items-start justify-between gap-3 rounded-lg border border-navy-100 p-3 transition-colors hover:bg-navy-50">
+                  <div
+                    key={signal.id}
+                    onClick={() => navigate(`/sites/${signal.site_id}`)}
+                    className="flex cursor-pointer items-start justify-between gap-3 rounded-lg border border-navy-100 p-3 transition-colors hover:bg-navy-50"
+                  >
                     <div>
                       <p className="text-sm font-medium text-navy-800">{signal.site_nom}</p>
                       <p className="text-xs text-navy-500">{signal.type_signal}</p>
@@ -86,7 +92,11 @@ export default function Dashboard() {
             {data?.actionsPrioritaires.map((action) => {
               const label = statutsActions.find((s) => s.code === action.statut)?.libelle ?? action.statut
               return (
-                <div key={action.id} className="flex items-start justify-between gap-3 rounded-lg border border-navy-100 p-3 transition-colors hover:bg-navy-50">
+                <div
+                  key={action.id}
+                  onClick={() => action.site_id && navigate(`/sites/${action.site_id}`)}
+                  className={`flex items-start justify-between gap-3 rounded-lg border border-navy-100 p-3 transition-colors hover:bg-navy-50 ${action.site_id ? 'cursor-pointer' : ''}`}
+                >
                   <div>
                     <p className="text-sm font-medium text-navy-800">{action.type_action}</p>
                     <p className="text-xs text-navy-500">{action.cible_label} · {action.responsable}</p>

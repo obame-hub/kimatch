@@ -9,6 +9,8 @@ import {
   FileText,
   History,
   FolderClosed,
+  MessageSquare,
+  FileSignature,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { KiweeMark } from '@/components/ui/kiwee-mark'
@@ -20,8 +22,10 @@ const navItems = [
   { to: '/compteurs', label: 'Compteurs', icon: Gauge },
   { to: '/signaux', label: 'Signaux', icon: Radio },
   { to: '/mandats', label: 'Mandats', icon: FileCheck2 },
+  { to: '/contrats', label: 'Contrats', icon: FileSignature },
   { to: '/recommandations', label: 'Recommandations', icon: FileText },
   { to: '/versions', label: 'Versions', icon: History },
+  { to: '/interactions', label: 'Interactions', icon: MessageSquare },
   { to: '/documents', label: 'Documents', icon: FolderClosed },
 ]
 

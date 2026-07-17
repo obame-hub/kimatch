@@ -3,6 +3,7 @@ import { Topbar } from '@/components/layout/Topbar'
 import { PageHeader } from '@/components/ui/page-header'
 import { Card } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
+import { EntityLink } from '@/components/ui/entity-link'
 import { EtapeCompact } from '@/components/ui/etape-stepper'
 import { useRecommandations } from '@/lib/data/recommandations'
 import { useReferenceTable } from '@/lib/data/referenceTables'
@@ -37,7 +38,16 @@ export default function Recommandations() {
                   <p className="font-display font-medium text-navy-800">{reco.titre}</p>
                   <Badge tone={ETAPE_TONE[reco.etape] ?? 'neutral'}>{etapeLabel}</Badge>
                 </div>
-                <p className="text-xs text-navy-500">{reco.compte_nom} · {reco.sites.join(', ')}</p>
+                <p className="text-xs text-navy-500">
+                  <EntityLink to={`/comptes/${reco.compte_id}`}>{reco.compte_nom}</EntityLink>
+                  {' · '}
+                  {reco.sites.map((s, i) => (
+                    <span key={s.id}>
+                      {i > 0 && ', '}
+                      <EntityLink to={`/sites/${s.id}`}>{s.nom}</EntityLink>
+                    </span>
+                  ))}
+                </p>
 
                 <div className="mt-4">
                   <EtapeCompact steps={etapes} currentCode={reco.etape} />

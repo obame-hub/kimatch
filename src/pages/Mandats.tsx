@@ -3,6 +3,7 @@ import { Topbar } from '@/components/layout/Topbar'
 import { PageHeader } from '@/components/ui/page-header'
 import { Card } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
+import { EntityLink } from '@/components/ui/entity-link'
 import { useMandats } from '@/lib/data/mandats'
 import { useReferenceTable } from '@/lib/data/referenceTables'
 import { FALLBACK_STATUTS_MANDATS, STATUT_MANDAT_TONE } from '@/lib/referenceFallbacks'
@@ -33,7 +34,9 @@ export default function Mandats() {
                 className="animate-fade-up cursor-pointer p-5 transition-all hover:-translate-y-0.5 hover:shadow-lg"
               >
                 <div className="flex items-start justify-between">
-                  <p className="font-display font-medium text-navy-800">{m.compte_nom}</p>
+                  <p className="font-display font-medium text-navy-800">
+                    <EntityLink to={`/comptes/${m.compte_id}`}>{m.compte_nom}</EntityLink>
+                  </p>
                   <Badge tone={STATUT_MANDAT_TONE[m.statut] ?? 'neutral'}>{label}</Badge>
                 </div>
                 <div className="mt-4 space-y-1 text-xs text-navy-500">

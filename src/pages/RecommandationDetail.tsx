@@ -1,13 +1,16 @@
 import { useParams, useNavigate } from 'react-router-dom'
-import { ArrowLeft } from 'lucide-react'
+import { ArrowLeft, FileText } from 'lucide-react'
 import { Topbar } from '@/components/layout/Topbar'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
+import { EntityLink } from '@/components/ui/entity-link'
 import { EtapeStepper } from '@/components/ui/etape-stepper'
 import { useRecommandations } from '@/lib/data/recommandations'
 import { useReferenceTable } from '@/lib/data/referenceTables'
 import { FALLBACK_ETAPES_RECOMMANDATION, FALLBACK_STATUTS_VERSIONS, STATUT_VERSION_TONE } from '@/lib/referenceFallbacks'
+
+const PRIORITE_LABEL: Record<number, string> = { 1: 'Haute', 2: 'Normale', 3: 'Basse' }
 
 export default function RecommandationDetail() {
   const { id } = useParams()
@@ -43,11 +46,24 @@ export default function RecommandationDetail() {
                   <CardTitle>Dossier</CardTitle>
                 </CardHeader>
                 <CardContent className="space-y-2 text-sm">
-                  <p><span className="text-navy-400">Compte :</span> {reco.compte_nom}</p>
-                  <p><span className="text-navy-400">Sites :</span> {reco.sites.join(', ')}</p>
+                  <p><span className="text-navy-400">Compte :</span> <EntityLink to={`/comptes/${reco.compte_id}`}>{reco.compte_nom}</EntityLink></p>
+                  <p>
+                    <span className="text-navy-400">Sites :</span>{' '}
+                    {reco.sites.map((s, i) => (
+                      <span key={s.id}>
+                        {i > 0 && ', '}
+                        <EntityLink to={`/sites/${s.id}`}>{s.nom}</EntityLink>
+                      </span>
+                    ))}
+                  </p>
                   <p><span className="text-navy-400">Objectif :</span> {reco.objectif}</p>
+                  <p><span className="text-navy-400">Priorité :</span> {PRIORITE_LABEL[reco.priorite] ?? reco.priorite}</p>
                   <p><span className="text-navy-400">Conseiller :</span> {reco.conseiller}</p>
                   <p><span className="text-navy-400">Créée le :</span> {new Date(reco.date_creation).toLocaleDateString('fr-FR')}</p>
+                  {reco.description && <p className="text-navy-600">{reco.description}</p>}
+                  {reco.commentaire_interne && (
+                    <p className="rounded-lg bg-amber-50 p-2 text-xs text-amber-800">Note interne : {reco.commentaire_interne}</p>
+                  )}
                 </CardContent>
               </Card>
 
@@ -68,12 +84,37 @@ export default function RecommandationDetail() {
                           <Badge tone={STATUT_VERSION_TONE[version.statut] ?? 'neutral'}>{statutLabel}</Badge>
                         </div>
                         <p className="mt-1 text-sm text-navy-600">{version.resume}</p>
+                        {version.contenu && <p className="mt-1 text-xs text-navy-500">{version.contenu}</p>}
+
+                        <div className="mt-2 flex flex-wrap gap-3 text-xs text-navy-400">
+                          {version.economie_pourcentage !== null && (
+                            <span>Économie : <span className="font-medium text-kiwi-700">{version.economie_pourcentage}%</span></span>
+                          )}
+                          {version.niveau_confiance !== null && <span>Confiance : {version.niveau_confiance}%</span>}
+                          {version.date_validite_offres && (
+                            <span>Offres valables jusqu'au {new Date(version.date_validite_offres).toLocaleDateString('fr-FR')}</span>
+                          )}
+                        </div>
+
                         <div className="mt-2 flex items-center justify-between text-xs text-navy-400">
                           <span>Motif : {version.motif_creation}</span>
                           {version.gains_estimes !== null && (
                             <span className="font-medium text-kiwi-700">Gain estimé : {version.gains_estimes.toLocaleString('fr-FR')} €</span>
                           )}
                         </div>
+
+                        {version.document_url && (
+                          <a
+                            href={version.document_url}
+                            target="_blank"
+                            rel="noreferrer"
+                            onClick={(e) => e.stopPropagation()}
+                            className="mt-2 inline-flex items-center gap-1.5 text-xs font-medium text-kiwi-700 hover:underline"
+                          >
+                            <FileText className="h-3.5 w-3.5" />
+                            Voir le document
+                          </a>
+                        )}
                       </div>
                     )
                   })}

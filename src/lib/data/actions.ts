@@ -6,6 +6,7 @@ import type { ActionItem } from '@/types/domain'
 interface RawAction {
   id: string
   titre: string
+  site_id: string | null
   date_prevue: string | null
   type_action: { libelle: string } | null
   statut: { code: string } | null
@@ -19,7 +20,7 @@ async function fetchActions(): Promise<ActionItem[]> {
     const { data, error } = await supabase
       .from('actions')
       .select(
-        'id, titre, date_prevue, type_action:types_actions(libelle), statut:statuts_actions(code), responsable:profils(prenom, nom), site:sites(nom)',
+        'id, titre, site_id, date_prevue, type_action:types_actions(libelle), statut:statuts_actions(code), responsable:profils(prenom, nom), site:sites(nom)',
       )
       .order('date_prevue')
     if (error || !data || data.length === 0) throw error ?? new Error('empty')
@@ -31,6 +32,7 @@ async function fetchActions(): Promise<ActionItem[]> {
       responsable: a.responsable ? `${a.responsable.prenom} ${a.responsable.nom}` : '',
       echeance: a.date_prevue ?? '',
       cible_label: a.site?.nom ?? '',
+      site_id: a.site_id,
     }))
   } catch {
     return mockActions

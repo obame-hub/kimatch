@@ -5,6 +5,7 @@ import type { Site } from '@/types/domain'
 
 interface RawSite {
   id: string
+  compte_id: string
   nom: string
   ville: string | null
   code_postal: string | null
@@ -20,7 +21,7 @@ async function fetchSites(): Promise<Site[]> {
     const [sitesRes, compteursRes, signauxRes] = await Promise.all([
       supabase
         .from('sites')
-        .select('id, nom, ville, code_postal, actif, compte:comptes(nom), type_site:types_sites(libelle)')
+        .select('id, compte_id, nom, ville, code_postal, actif, compte:comptes(nom), type_site:types_sites(libelle)')
         .order('nom'),
       supabase.from('compteurs').select('site_id'),
       supabase.from('signaux').select('site_id, statut:statuts_signaux(est_cloture)'),
@@ -42,6 +43,7 @@ async function fetchSites(): Promise<Site[]> {
     return (sitesRes.data as unknown as RawSite[]).map((s) => ({
       id: s.id,
       nom: s.nom,
+      compte_id: s.compte_id,
       compte_nom: s.compte?.nom ?? '',
       type_site: s.type_site?.libelle ?? '',
       ville: s.ville ?? '',

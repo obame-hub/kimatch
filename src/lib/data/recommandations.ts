@@ -6,11 +6,14 @@ import type { Recommandation, VersionRecommandation } from '@/types/domain'
 interface RawRecommandation {
   id: string
   titre: string
+  description: string | null
+  priorite: number
+  commentaire_interne: string | null
   date_ouverture: string
   etape: { code: string } | null
   objectif: { libelle: string } | null
   responsable: { prenom: string; nom: string } | null
-  mandat: { compte: { nom: string } | null } | null
+  mandat: { compte: { id: string; nom: string } | null } | null
 }
 
 interface RawVersion {
@@ -18,7 +21,12 @@ interface RawVersion {
   recommandation_id: string
   numero_version: number
   resume: string | null
+  contenu: string | null
   gain_estime_annuel: number | null
+  economie_estimee_pourcentage: number | null
+  niveau_confiance: number | null
+  date_validite_offres: string | null
+  document_url: string | null
   date_creation: string
   statut: { code: string } | null
   motif: { libelle: string } | null
@@ -32,25 +40,25 @@ async function fetchRecommandations(): Promise<Recommandation[]> {
       supabase
         .from('recommandations')
         .select(
-          'id, titre, date_ouverture, etape:etapes_recommandation(code), objectif:types_objectifs(libelle), responsable:profils(prenom, nom), mandat:mandats(compte:comptes(nom))',
+          'id, titre, description, priorite, commentaire_interne, date_ouverture, etape:etapes_recommandation(code), objectif:types_objectifs(libelle), responsable:profils(prenom, nom), mandat:mandats(compte:comptes(id, nom))',
         )
         .order('date_ouverture', { ascending: false }),
-      supabase.from('recommandations_sites').select('recommandation_id, site:sites(nom)'),
+      supabase.from('recommandations_sites').select('recommandation_id, site:sites(id, nom)'),
       supabase
         .from('versions_recommandation')
         .select(
-          'id, recommandation_id, numero_version, resume, gain_estime_annuel, date_creation, statut:statuts_versions_recommandation(code), motif:motifs_versions_recommandation(libelle)',
+          'id, recommandation_id, numero_version, resume, contenu, gain_estime_annuel, economie_estimee_pourcentage, niveau_confiance, date_validite_offres, document_url, date_creation, statut:statuts_versions_recommandation(code), motif:motifs_versions_recommandation(libelle)',
         )
         .order('numero_version'),
     ])
 
     if (recosRes.error || !recosRes.data || recosRes.data.length === 0) throw recosRes.error ?? new Error('empty')
 
-    const sitesParReco = new Map<string, string[]>()
-    for (const rs of (sitesRes.data ?? []) as unknown as { recommandation_id: string; site: { nom: string } | null }[]) {
+    const sitesParReco = new Map<string, { id: string; nom: string }[]>()
+    for (const rs of (sitesRes.data ?? []) as unknown as { recommandation_id: string; site: { id: string; nom: string } | null }[]) {
       if (!rs.site) continue
       const list = sitesParReco.get(rs.recommandation_id) ?? []
-      list.push(rs.site.nom)
+      list.push(rs.site)
       sitesParReco.set(rs.recommandation_id, list)
     }
 
@@ -65,6 +73,11 @@ async function fetchRecommandations(): Promise<Recommandation[]> {
         date_creation: v.date_creation,
         gains_estimes: v.gain_estime_annuel,
         resume: v.resume ?? '',
+        contenu: v.contenu,
+        economie_pourcentage: v.economie_estimee_pourcentage,
+        niveau_confiance: v.niveau_confiance,
+        date_validite_offres: v.date_validite_offres,
+        document_url: v.document_url,
       })
       versionsParReco.set(v.recommandation_id, list)
     }
@@ -72,11 +85,15 @@ async function fetchRecommandations(): Promise<Recommandation[]> {
     return (recosRes.data as unknown as RawRecommandation[]).map((r) => ({
       id: r.id,
       titre: r.titre,
+      compte_id: r.mandat?.compte?.id ?? '',
       compte_nom: r.mandat?.compte?.nom ?? '',
       sites: sitesParReco.get(r.id) ?? [],
       etape: r.etape?.code ?? '',
       conseiller: r.responsable ? `${r.responsable.prenom} ${r.responsable.nom}` : '',
       objectif: r.objectif?.libelle ?? '',
+      description: r.description ?? '',
+      priorite: r.priorite,
+      commentaire_interne: r.commentaire_interne ?? '',
       date_creation: r.date_ouverture,
       versions: versionsParReco.get(r.id) ?? [],
     }))
