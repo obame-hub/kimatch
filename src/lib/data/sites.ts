@@ -1,4 +1,4 @@
-import { useQuery } from '@tanstack/react-query'
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { isSupabaseConfigured, supabase } from '@/lib/supabase'
 import { mockSites } from '@/lib/mockData'
 import type { Site } from '@/types/domain'
@@ -60,4 +60,63 @@ async function fetchSites(): Promise<Site[]> {
 
 export function useSites() {
   return useQuery({ queryKey: ['sites'], queryFn: fetchSites })
+}
+
+interface CreateSiteInput {
+  nom: string
+  compte_id: string
+  compte_nom: string
+  type_site_id: string | null
+  type_site_libelle: string
+  ville: string
+  code_postal: string
+}
+
+interface CreateSiteResult {
+  site: Site
+  persisted: boolean
+}
+
+export function useCreateSite() {
+  const queryClient = useQueryClient()
+
+  return useMutation({
+    mutationFn: async (input: CreateSiteInput): Promise<CreateSiteResult> => {
+      let persisted = false
+      let site: Site = {
+        id: `local-${Date.now()}`,
+        nom: input.nom,
+        compte_id: input.compte_id,
+        compte_nom: input.compte_nom,
+        type_site: input.type_site_libelle,
+        ville: input.ville,
+        code_postal: input.code_postal,
+        nb_compteurs: 0,
+        nb_signaux_ouverts: 0,
+        statut: 'actif',
+      }
+
+      if (isSupabaseConfigured) {
+        const { data, error } = await supabase
+          .from('sites')
+          .insert({
+            nom: input.nom,
+            compte_id: input.compte_id,
+            ville: input.ville,
+            code_postal: input.code_postal,
+            actif: true,
+            ...(input.type_site_id ? { type_site_id: input.type_site_id } : {}),
+          })
+          .select('id')
+          .single()
+        if (!error && data) {
+          site = { ...site, id: (data as { id: string }).id }
+          persisted = true
+        }
+      }
+
+      queryClient.setQueryData<Site[]>(['sites'], (old) => (old ? [...old, site] : [site]))
+      return { site, persisted }
+    },
+  })
 }

@@ -1,4 +1,4 @@
-import { useQuery } from '@tanstack/react-query'
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { isSupabaseConfigured, supabase } from '@/lib/supabase'
 import { mockSignaux } from '@/lib/mockData'
 import type { Signal } from '@/types/domain'
@@ -44,4 +44,59 @@ async function fetchSignaux(): Promise<Signal[]> {
 
 export function useSignaux() {
   return useQuery({ queryKey: ['signaux'], queryFn: fetchSignaux })
+}
+
+interface CreateSignalInput {
+  site_id: string
+  site_nom: string
+  type_signal_id: string | null
+  type_signal_libelle: string
+  description: string
+}
+
+interface CreateSignalResult {
+  signal: Signal
+  persisted: boolean
+}
+
+export function useCreateSignal() {
+  const queryClient = useQueryClient()
+
+  return useMutation({
+    mutationFn: async (input: CreateSignalInput): Promise<CreateSignalResult> => {
+      const now = new Date().toISOString()
+      let persisted = false
+      let signal: Signal = {
+        id: `local-${Date.now()}`,
+        site_id: input.site_id,
+        site_nom: input.site_nom,
+        type_signal: input.type_signal_libelle,
+        statut: 'NOUVEAU',
+        priorite: 'normale',
+        conseiller: '',
+        date_creation: now,
+        description: input.description,
+      }
+
+      if (isSupabaseConfigured) {
+        const { data, error } = await supabase
+          .from('signaux')
+          .insert({
+            site_id: input.site_id,
+            commentaire: input.description,
+            date_detection: now,
+            ...(input.type_signal_id ? { type_signal_id: input.type_signal_id } : {}),
+          })
+          .select('id')
+          .single()
+        if (!error && data) {
+          signal = { ...signal, id: (data as { id: string }).id }
+          persisted = true
+        }
+      }
+
+      queryClient.setQueryData<Signal[]>(['signaux'], (old) => (old ? [signal, ...old] : [signal]))
+      return { signal, persisted }
+    },
+  })
 }

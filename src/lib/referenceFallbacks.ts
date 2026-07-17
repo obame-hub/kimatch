@@ -111,3 +111,21 @@ export const STATUT_CONTRAT_TONE: Record<string, 'neutral' | 'amber' | 'kiwi' | 
   EXPIRE: 'red',
   RESILIE: 'red',
 }
+
+export const FALLBACK_TYPES_SITES: ReferenceRow[] = [
+  { id: '1', code: 'COPROPRIETE', libelle: 'Copropriété', ordre: 10, couleur: null, icone: null },
+  { id: '2', code: 'TERTIAIRE', libelle: 'Immeuble tertiaire', ordre: 20, couleur: null, icone: null },
+  { id: '3', code: 'ENTREPOT', libelle: 'Entrepôt', ordre: 30, couleur: null, icone: null },
+  { id: '4', code: 'HOTEL', libelle: 'Hôtel', ordre: 40, couleur: null, icone: null },
+  { id: '5', code: 'COMMERCE', libelle: 'Commerce', ordre: 50, couleur: null, icone: null },
+  { id: '6', code: 'AUTRE', libelle: 'Autre', ordre: 60, couleur: null, icone: null },
+]
+
+export const FALLBACK_TYPES_SIGNAUX: ReferenceRow[] = [
+  { id: '1', code: 'ECHEANCE_CONTRAT', libelle: 'Échéance de contrat', ordre: 10, couleur: null, icone: null },
+  { id: '2', code: 'PREAVIS', libelle: 'Préavis', ordre: 20, couleur: null, icone: null },
+  { id: '3', code: 'OPPORTUNITE_FOURNISSEUR', libelle: 'Opportunité fournisseur', ordre: 30, couleur: null, icone: null },
+  { id: '4', code: 'NOUVELLE_FACTURE', libelle: 'Nouvelle facture', ordre: 40, couleur: null, icone: null },
+  { id: '5', code: 'DEMANDE_CLIENT', libelle: 'Demande du client', ordre: 50, couleur: null, icone: null },
+  { id: '6', code: 'AUTRE', libelle: 'Autre', ordre: 60, couleur: null, icone: null },
+]

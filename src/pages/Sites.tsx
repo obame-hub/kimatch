@@ -1,14 +1,103 @@
+import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
+import { Plus } from 'lucide-react'
 import { Topbar } from '@/components/layout/Topbar'
 import { PageHeader } from '@/components/ui/page-header'
 import { Card } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
+import { Button } from '@/components/ui/button'
 import { EntityLink } from '@/components/ui/entity-link'
-import { useSites } from '@/lib/data/sites'
+import { Dialog } from '@/components/ui/dialog'
+import { FormField, Input, Select } from '@/components/ui/form'
+import { useSites, useCreateSite } from '@/lib/data/sites'
+import { useComptes } from '@/lib/data/comptes'
+import { useReferenceTable } from '@/lib/data/referenceTables'
+import { FALLBACK_TYPES_SITES } from '@/lib/referenceFallbacks'
+
+function CreateSiteDialog({ open, onClose }: { open: boolean; onClose: () => void }) {
+  const { data: comptes } = useComptes()
+  const { data: typesRef } = useReferenceTable('types_sites')
+  const types = typesRef && typesRef.length > 0 ? typesRef : FALLBACK_TYPES_SITES
+  const createSite = useCreateSite()
+
+  const [nom, setNom] = useState('')
+  const [compteId, setCompteId] = useState('')
+  const [typeSiteId, setTypeSiteId] = useState('')
+  const [ville, setVille] = useState('')
+  const [codePostal, setCodePostal] = useState('')
+  const [feedback, setFeedback] = useState<string | null>(null)
+
+  function reset() {
+    setNom('')
+    setCompteId('')
+    setTypeSiteId('')
+    setVille('')
+    setCodePostal('')
+    setFeedback(null)
+  }
+
+  async function handleSubmit(e: React.FormEvent) {
+    e.preventDefault()
+    const compte = comptes?.find((c) => c.id === compteId)
+    const type = types.find((t) => t.id === typeSiteId)
+    if (!nom || !compte) return
+
+    const result = await createSite.mutateAsync({
+      nom,
+      compte_id: compte.id,
+      compte_nom: compte.nom,
+      type_site_id: typeSiteId || null,
+      type_site_libelle: type?.libelle ?? '',
+      ville,
+      code_postal: codePostal,
+    })
+    setFeedback(result.persisted ? 'Site créé.' : 'Site ajouté localement (non synchronisé avec Supabase).')
+    setTimeout(() => {
+      reset()
+      onClose()
+    }, 700)
+  }
+
+  return (
+    <Dialog open={open} onClose={() => { reset(); onClose() }} title="Nouveau site" description="Ajouter un site au patrimoine d'un compte existant.">
+      <form onSubmit={handleSubmit} className="space-y-3">
+        <FormField label="Nom du site">
+          <Input value={nom} onChange={(e) => setNom(e.target.value)} required placeholder="Ex. Résidence Les Tilleuls" />
+        </FormField>
+        <FormField label="Compte">
+          <Select value={compteId} onChange={(e) => setCompteId(e.target.value)} required>
+            <option value="">Sélectionner un compte…</option>
+            {comptes?.map((c) => <option key={c.id} value={c.id}>{c.nom}</option>)}
+          </Select>
+        </FormField>
+        <FormField label="Type de site">
+          <Select value={typeSiteId} onChange={(e) => setTypeSiteId(e.target.value)}>
+            <option value="">Sélectionner un type…</option>
+            {types.map((t) => <option key={t.id} value={t.id}>{t.libelle}</option>)}
+          </Select>
+        </FormField>
+        <div className="grid grid-cols-2 gap-3">
+          <FormField label="Ville">
+            <Input value={ville} onChange={(e) => setVille(e.target.value)} />
+          </FormField>
+          <FormField label="Code postal">
+            <Input value={codePostal} onChange={(e) => setCodePostal(e.target.value)} />
+          </FormField>
+        </div>
+        {feedback && <p className="text-xs text-navy-500">{feedback}</p>}
+        <div className="flex justify-end gap-2 pt-2">
+          <Button type="button" variant="ghost" onClick={() => { reset(); onClose() }}>Annuler</Button>
+          <Button type="submit" disabled={createSite.isPending}>Créer le site</Button>
+        </div>
+      </form>
+    </Dialog>
+  )
+}
 
 export default function Sites() {
   const { data: sites, isLoading } = useSites()
   const navigate = useNavigate()
+  const [showCreate, setShowCreate] = useState(false)
 
   return (
     <div>
@@ -17,6 +106,7 @@ export default function Sites() {
         <PageHeader
           title="Sites"
           description="L'objet central du patrimoine énergétique — chaque recommandation, signal et contrat s'y rattache."
+          actions={<Button onClick={() => setShowCreate(true)}><Plus className="h-4 w-4" />Nouveau site</Button>}
         />
 
         <Card className="overflow-x-auto">
@@ -63,6 +153,7 @@ export default function Sites() {
           </table>
         </Card>
       </div>
+      <CreateSiteDialog open={showCreate} onClose={() => setShowCreate(false)} />
     </div>
   )
 }
