@@ -100,14 +100,22 @@ export interface Compteur {
   numero_pdl: string
   utilisation: string
   statut: 'actif' | 'inactif'
-  // Champs enrichis par la synchronisation GRD (Enedis/GRDF) — absents tant
-  // que le compteur n'a jamais été synchronisé.
+  // Champs portés par la table `compteurs` elle-même.
+  consommation_annuelle_mwh: number | null
+  synchro_eneo: boolean
+  date_derniere_synchro_eneo: string | null
+  // Champs enrichis via `compteurs_electricite` (segment, tension, ventilation
+  // conso/puissance par classe temporelle) — présents seulement pour un
+  // compteur électrique déjà synchronisé.
   segment?: string | null
   tension?: string | null
-  fta?: string | null
-  puissance_souscrite_kva?: number | null
-  consommation_annuelle_mwh?: number | null
-  derniere_synchro_grd?: string | null
+  tarif_distribution?: string | null
+  consoParClasseMwh?: Record<string, number>
+  puissanceParClasseKva?: Record<string, number>
+  // Champs enrichis via `compteurs_gaz`.
+  car_mwh?: number | null
+  profil_consommation?: string | null
+  zone_tarifaire?: string | null
 }
 
 export interface DocumentItem {

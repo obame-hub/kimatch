@@ -3,14 +3,62 @@ import { isSupabaseConfigured, supabase } from '@/lib/supabase'
 import { mockCompteurs } from '@/lib/mockData'
 import type { Compteur } from '@/types/domain'
 
+interface RawCompteurElec {
+  segment: string | null
+  tension: string | null
+  tarif_distribution: string | null
+  conso_base_mwh: number | null
+  conso_hp_mwh: number | null
+  conso_hc_mwh: number | null
+  conso_hpe_mwh: number | null
+  conso_hce_mwh: number | null
+  conso_hph_mwh: number | null
+  conso_hch_mwh: number | null
+  conso_pointe_mwh: number | null
+  puissance_base_kva: number | null
+  puissance_hp_kva: number | null
+  puissance_hc_kva: number | null
+  puissance_hpe_kva: number | null
+  puissance_hce_kva: number | null
+  puissance_hph_kva: number | null
+  puissance_hch_kva: number | null
+  puissance_pointe_kva: number | null
+}
+
+interface RawCompteurGaz {
+  car_mwh: number | null
+  profil_consommation: string | null
+  tarif_distribution: string | null
+  zone_tarifaire: string | null
+}
+
 interface RawCompteur {
   id: string
   site_id: string
   numero_point: string
   utilisation: string | null
   actif: boolean
+  consommation_annuelle_mwh: number | null
+  synchro_eneo: boolean
+  date_derniere_synchro_eneo: string | null
   type_energie: { code: string } | null
   site: { nom: string } | null
+  compteurs_electricite: RawCompteurElec | RawCompteurElec[] | null
+  compteurs_gaz: RawCompteurGaz | RawCompteurGaz[] | null
+}
+
+const first = <T>(v: T | T[] | null): T | null => (Array.isArray(v) ? v[0] ?? null : v)
+
+const CONSO_KEYS = ['base', 'hp', 'hc', 'hpe', 'hce', 'hph', 'hch', 'pointe'] as const
+
+function classeMap(elec: RawCompteurElec, prefix: 'conso' | 'puissance', suffix: 'mwh' | 'kva'): Record<string, number> {
+  const out: Record<string, number> = {}
+  for (const k of CONSO_KEYS) {
+    const key = `${prefix}_${k}_${suffix}` as keyof RawCompteurElec
+    const v = elec[key] as number | null
+    if (v != null) out[k.toUpperCase()] = v
+  }
+  return out
 }
 
 async function fetchCompteurs(): Promise<Compteur[]> {
@@ -18,18 +66,44 @@ async function fetchCompteurs(): Promise<Compteur[]> {
   try {
     const { data, error } = await supabase
       .from('compteurs')
-      .select('id, site_id, numero_point, utilisation, actif, type_energie:types_energies(code), site:sites(nom)')
+      .select(
+        'id, site_id, numero_point, utilisation, actif, consommation_annuelle_mwh, synchro_eneo, date_derniere_synchro_eneo, type_energie:types_energies(code), site:sites(nom), compteurs_electricite(*), compteurs_gaz(*)',
+      )
     if (error || !data || data.length === 0) throw error ?? new Error('empty')
 
-    return (data as unknown as RawCompteur[]).map((c) => ({
-      id: c.id,
-      site_id: c.site_id,
-      site_nom: c.site?.nom ?? '',
-      type_energie: (c.type_energie?.code?.toLowerCase() ?? 'electricite') as 'electricite' | 'gaz',
-      numero_pdl: c.numero_point,
-      utilisation: c.utilisation ?? '',
-      statut: c.actif ? 'actif' : 'inactif',
-    }))
+    return (data as unknown as RawCompteur[]).map((c) => {
+      const elec = first(c.compteurs_electricite)
+      const gaz = first(c.compteurs_gaz)
+      return {
+        id: c.id,
+        site_id: c.site_id,
+        site_nom: c.site?.nom ?? '',
+        type_energie: (c.type_energie?.code?.toLowerCase() ?? 'electricite') as 'electricite' | 'gaz',
+        numero_pdl: c.numero_point,
+        utilisation: c.utilisation ?? '',
+        statut: c.actif ? 'actif' : 'inactif',
+        consommation_annuelle_mwh: c.consommation_annuelle_mwh,
+        synchro_eneo: c.synchro_eneo,
+        date_derniere_synchro_eneo: c.date_derniere_synchro_eneo,
+        ...(elec
+          ? {
+              segment: elec.segment,
+              tension: elec.tension,
+              tarif_distribution: elec.tarif_distribution,
+              consoParClasseMwh: classeMap(elec, 'conso', 'mwh'),
+              puissanceParClasseKva: classeMap(elec, 'puissance', 'kva'),
+            }
+          : {}),
+        ...(gaz
+          ? {
+              car_mwh: gaz.car_mwh,
+              profil_consommation: gaz.profil_consommation,
+              tarif_distribution: gaz.tarif_distribution,
+              zone_tarifaire: gaz.zone_tarifaire,
+            }
+          : {}),
+      }
+    })
   } catch {
     return mockCompteurs
   }
@@ -39,12 +113,19 @@ export function useCompteurs() {
   return useQuery({ queryKey: ['compteurs'], queryFn: fetchCompteurs })
 }
 
-interface GrdData {
+interface GrdElecData {
   segment?: string | null
   tension?: string | null
-  fta?: string | null
-  puissance_souscrite_kva?: number | null
-  consommation_annuelle_mwh?: number | null
+  tarif_distribution?: string | null
+  consoParClasseMwh?: Record<string, number>
+  puissanceParClasseKva?: Record<string, number>
+}
+
+interface GrdGazData {
+  car_mwh?: number | null
+  profil_consommation?: string | null
+  tarif_distribution?: string | null
+  zone_tarifaire?: string | null
 }
 
 interface CreateCompteurInput {
@@ -54,7 +135,9 @@ interface CreateCompteurInput {
   type_energie: 'electricite' | 'gaz'
   numero_pdl: string
   utilisation: string
-  grd?: GrdData
+  consommation_annuelle_mwh?: number | null
+  grdElec?: GrdElecData
+  grdGaz?: GrdGazData
 }
 
 interface CreateCompteurResult {
@@ -62,13 +145,23 @@ interface CreateCompteurResult {
   persisted: boolean
 }
 
+function classeInsertRow(prefix: 'conso' | 'puissance', suffix: 'mwh' | 'kva', values?: Record<string, number>) {
+  const row: Record<string, number> = {}
+  if (!values) return row
+  for (const [code, v] of Object.entries(values)) {
+    row[`${prefix}_${code.toLowerCase()}_${suffix}`] = v
+  }
+  return row
+}
+
 export function useCreateCompteur() {
   const queryClient = useQueryClient()
 
   return useMutation({
     mutationFn: async (input: CreateCompteurInput): Promise<CreateCompteurResult> => {
+      const synchro = !!(input.grdElec || input.grdGaz)
+      const now = synchro ? new Date().toISOString() : null
       let persisted = false
-      const derniereSynchro = input.grd ? new Date().toISOString() : null
       let compteur: Compteur = {
         id: `local-${Date.now()}`,
         site_id: input.site_id,
@@ -77,19 +170,14 @@ export function useCreateCompteur() {
         numero_pdl: input.numero_pdl,
         utilisation: input.utilisation,
         statut: 'actif',
-        segment: input.grd?.segment ?? null,
-        tension: input.grd?.tension ?? null,
-        fta: input.grd?.fta ?? null,
-        puissance_souscrite_kva: input.grd?.puissance_souscrite_kva ?? null,
-        consommation_annuelle_mwh: input.grd?.consommation_annuelle_mwh ?? null,
-        derniere_synchro_grd: derniereSynchro,
+        consommation_annuelle_mwh: input.consommation_annuelle_mwh ?? null,
+        synchro_eneo: synchro,
+        date_derniere_synchro_eneo: now,
+        ...(input.grdElec ? { segment: input.grdElec.segment, tension: input.grdElec.tension, tarif_distribution: input.grdElec.tarif_distribution, consoParClasseMwh: input.grdElec.consoParClasseMwh, puissanceParClasseKva: input.grdElec.puissanceParClasseKva } : {}),
+        ...(input.grdGaz ? { car_mwh: input.grdGaz.car_mwh, profil_consommation: input.grdGaz.profil_consommation, tarif_distribution: input.grdGaz.tarif_distribution, zone_tarifaire: input.grdGaz.zone_tarifaire } : {}),
       }
 
       if (isSupabaseConfigured) {
-        // Les colonnes GRD (segment, tension, fta, puissance_souscrite_kva,
-        // consommation_annuelle_mwh, derniere_synchro_grd) doivent exister sur
-        // `compteurs` — si elles ne sont pas encore ajoutées, l'insert échoue
-        // et on retombe sur le cache local (mêmes garanties que les autres formulaires).
         const { data, error } = await supabase
           .from('compteurs')
           .insert({
@@ -97,23 +185,38 @@ export function useCreateCompteur() {
             numero_point: input.numero_pdl,
             utilisation: input.utilisation,
             actif: true,
+            consommation_annuelle_mwh: input.consommation_annuelle_mwh ?? null,
+            synchro_eneo: synchro,
+            date_derniere_synchro_eneo: now,
             ...(input.type_energie_id ? { type_energie_id: input.type_energie_id } : {}),
-            ...(input.grd
-              ? {
-                  segment: input.grd.segment ?? null,
-                  tension: input.grd.tension ?? null,
-                  fta: input.grd.fta ?? null,
-                  puissance_souscrite_kva: input.grd.puissance_souscrite_kva ?? null,
-                  consommation_annuelle_mwh: input.grd.consommation_annuelle_mwh ?? null,
-                  derniere_synchro_grd: derniereSynchro,
-                }
-              : {}),
           })
           .select('id')
           .single()
+
         if (!error && data) {
-          compteur = { ...compteur, id: (data as { id: string }).id }
+          const compteurId = (data as { id: string }).id
+          compteur = { ...compteur, id: compteurId }
           persisted = true
+
+          if (input.grdElec) {
+            await supabase.from('compteurs_electricite').insert({
+              compteur_id: compteurId,
+              segment: input.grdElec.segment ?? null,
+              tension: input.grdElec.tension ?? null,
+              tarif_distribution: input.grdElec.tarif_distribution ?? null,
+              ...classeInsertRow('conso', 'mwh', input.grdElec.consoParClasseMwh),
+              ...classeInsertRow('puissance', 'kva', input.grdElec.puissanceParClasseKva),
+            })
+          }
+          if (input.grdGaz) {
+            await supabase.from('compteurs_gaz').insert({
+              compteur_id: compteurId,
+              car_mwh: input.grdGaz.car_mwh ?? null,
+              profil_consommation: input.grdGaz.profil_consommation ?? null,
+              tarif_distribution: input.grdGaz.tarif_distribution ?? null,
+              zone_tarifaire: input.grdGaz.zone_tarifaire ?? null,
+            })
+          }
         }
       }
 

@@ -78,6 +78,15 @@ function CreateCompteurDialog({ open, onClose }: { open: boolean; onClose: () =>
     if (!site) return
     const typeEnergie = (energie?.code?.toLowerCase() === 'gaz' ? 'gaz' : 'electricite') as 'electricite' | 'gaz'
 
+    // Pour les segments C1..C4 (HTA/fort consommateur), Enedis ventile conso et
+    // puissance par classe temporelle (POINTE/HPH/HCH/HPE/HCE). Pour C5 (BT), une
+    // seule puissance souscrite existe — on la range dans la case "base".
+    const puissanceParClasseKva = grdResult?.isHTA
+      ? grdResult.puissancesParClasse ?? undefined
+      : grdResult?.puissanceSouscrite != null
+        ? { BASE: grdResult.puissanceSouscrite }
+        : undefined
+
     const result = await createCompteur.mutateAsync({
       site_id: site.id,
       site_nom: site.nom,
@@ -85,14 +94,15 @@ function CreateCompteurDialog({ open, onClose }: { open: boolean; onClose: () =>
       type_energie: typeEnergie,
       numero_pdl: numeroPdl,
       utilisation,
-      grd:
-        grdResult && grdResult.success
+      consommation_annuelle_mwh: grdResult?.success ? grdResult.consoTotaleMwh ?? null : null,
+      grdElec:
+        grdResult?.success
           ? {
               segment: grdResult.segment ?? null,
               tension: grdResult.domaineTension?.toUpperCase().startsWith('BT') ? 'BT' : grdResult.isHTA ? 'HTA' : null,
-              fta: grdResult.fta ?? null,
-              puissance_souscrite_kva: grdResult.puissanceSouscrite ?? null,
-              consommation_annuelle_mwh: grdResult.consoTotaleMwh ?? null,
+              tarif_distribution: grdResult.ftaLibelle ?? grdResult.fta ?? null,
+              consoParClasseMwh: grdResult.consoParClasseMwh ?? undefined,
+              puissanceParClasseKva,
             }
           : undefined,
     })

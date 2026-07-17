@@ -112,12 +112,12 @@ export const mockComptes: Compte[] = [
 ]
 
 export const mockCompteurs: Compteur[] = [
-  { id: 'cp1', site_id: 's1', site_nom: 'Résidence Les Tilleuls', type_energie: 'electricite', numero_pdl: 'PDL-30001245', utilisation: 'Parties communes', statut: 'actif' },
-  { id: 'cp2', site_id: 's1', site_nom: 'Résidence Les Tilleuls', type_energie: 'gaz', numero_pdl: 'GRD-88213456', utilisation: 'Chaufferie', statut: 'actif' },
-  { id: 'cp3', site_id: 's2', site_nom: 'Siège social — Paris', type_energie: 'electricite', numero_pdl: 'PDL-30009981', utilisation: 'Bureaux', statut: 'actif' },
-  { id: 'cp4', site_id: 's3', site_nom: 'Entrepôt Nord', type_energie: 'electricite', numero_pdl: 'PDL-30012783', utilisation: 'Entrepôt principal', statut: 'actif' },
-  { id: 'cp5', site_id: 's4', site_nom: 'Hôtel Belvédère', type_energie: 'gaz', numero_pdl: 'GRD-88245901', utilisation: 'Cuisine + chaufferie', statut: 'actif' },
-  { id: 'cp6', site_id: 's5', site_nom: 'Résidence Le Parc', type_energie: 'electricite', numero_pdl: 'PDL-30015567', utilisation: 'Ascenseurs', statut: 'actif' },
+  { id: 'cp1', site_id: 's1', site_nom: 'Résidence Les Tilleuls', type_energie: 'electricite', numero_pdl: 'PDL-30001245', utilisation: 'Parties communes', statut: 'actif', consommation_annuelle_mwh: 12.4, synchro_eneo: true, date_derniere_synchro_eneo: '2026-07-10T09:00:00', segment: 'C5', tension: 'BT', tarif_distribution: 'BTINFCU4' },
+  { id: 'cp2', site_id: 's1', site_nom: 'Résidence Les Tilleuls', type_energie: 'gaz', numero_pdl: 'GRD-88213456', utilisation: 'Chaufferie', statut: 'actif', consommation_annuelle_mwh: 34.8, synchro_eneo: false, date_derniere_synchro_eneo: null, car_mwh: 34.8, profil_consommation: 'P011', zone_tarifaire: 'Zone B' },
+  { id: 'cp3', site_id: 's2', site_nom: 'Siège social — Paris', type_energie: 'electricite', numero_pdl: 'PDL-30009981', utilisation: 'Bureaux', statut: 'actif', consommation_annuelle_mwh: 68.8, synchro_eneo: true, date_derniere_synchro_eneo: '2026-07-15T14:20:00', segment: 'C4', tension: 'BT', tarif_distribution: 'BTSUPCU4' },
+  { id: 'cp4', site_id: 's3', site_nom: 'Entrepôt Nord', type_energie: 'electricite', numero_pdl: 'PDL-30012783', utilisation: 'Entrepôt principal', statut: 'actif', consommation_annuelle_mwh: null, synchro_eneo: false, date_derniere_synchro_eneo: null },
+  { id: 'cp5', site_id: 's4', site_nom: 'Hôtel Belvédère', type_energie: 'gaz', numero_pdl: 'GRD-88245901', utilisation: 'Cuisine + chaufferie', statut: 'actif', consommation_annuelle_mwh: null, synchro_eneo: false, date_derniere_synchro_eneo: null },
+  { id: 'cp6', site_id: 's5', site_nom: 'Résidence Le Parc', type_energie: 'electricite', numero_pdl: 'PDL-30015567', utilisation: 'Ascenseurs', statut: 'actif', consommation_annuelle_mwh: null, synchro_eneo: false, date_derniere_synchro_eneo: null },
 ]
 
 export const mockDocuments: DocumentItem[] = [
