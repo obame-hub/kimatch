@@ -11,8 +11,16 @@ import { Dialog } from '@/components/ui/dialog'
 import { FormField, Input, Select } from '@/components/ui/form'
 import { useSites, useCreateSite } from '@/lib/data/sites'
 import { useComptes } from '@/lib/data/comptes'
+import { useSignaux } from '@/lib/data/signaux'
+import { useContrats } from '@/lib/data/contrats'
+import { useRecommandations } from '@/lib/data/recommandations'
+import { useMandats } from '@/lib/data/mandats'
+import { useActions } from '@/lib/data/actions'
+import { useCompteurs } from '@/lib/data/compteurs'
 import { useReferenceTable } from '@/lib/data/referenceTables'
 import { FALLBACK_TYPES_SITES } from '@/lib/referenceFallbacks'
+import { computeSiteHealth } from '@/lib/siteHealth'
+import { SiteHealthBadge } from '@/components/site/SiteHealthBadge'
 
 function CreateSiteDialog({ open, onClose }: { open: boolean; onClose: () => void }) {
   const { data: comptes } = useComptes()
@@ -96,6 +104,12 @@ function CreateSiteDialog({ open, onClose }: { open: boolean; onClose: () => voi
 
 export default function Sites() {
   const { data: sites, isLoading } = useSites()
+  const { data: signaux } = useSignaux()
+  const { data: contrats } = useContrats()
+  const { data: recommandations } = useRecommandations()
+  const { data: mandats } = useMandats()
+  const { data: actions } = useActions()
+  const { data: compteurs } = useCompteurs()
   const navigate = useNavigate()
   const [showCreate, setShowCreate] = useState(false)
 
@@ -119,36 +133,50 @@ export default function Sites() {
                 <th className="px-5 py-3 font-medium">Ville</th>
                 <th className="px-5 py-3 font-medium">Compteurs</th>
                 <th className="px-5 py-3 font-medium">Signaux ouverts</th>
+                <th className="px-5 py-3 font-medium">Santé</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-navy-100">
               {isLoading && (
                 <tr>
-                  <td colSpan={6} className="px-5 py-6 text-center text-navy-400">Chargement…</td>
+                  <td colSpan={7} className="px-5 py-6 text-center text-navy-400">Chargement…</td>
                 </tr>
               )}
-              {sites?.map((site) => (
-                <tr
-                  key={site.id}
-                  onClick={() => navigate(`/sites/${site.id}`)}
-                  className="cursor-pointer hover:bg-navy-50"
-                >
-                  <td className="px-5 py-3 font-medium text-navy-800">{site.nom}</td>
-                  <td className="px-5 py-3 text-navy-600">
-                    <EntityLink to={`/comptes/${site.compte_id}`}>{site.compte_nom}</EntityLink>
-                  </td>
-                  <td className="px-5 py-3 text-navy-600">{site.type_site}</td>
-                  <td className="px-5 py-3 text-navy-600">{site.ville} ({site.code_postal})</td>
-                  <td className="px-5 py-3 text-navy-600">{site.nb_compteurs}</td>
-                  <td className="px-5 py-3">
-                    {site.nb_signaux_ouverts > 0 ? (
-                      <Badge tone="amber">{site.nb_signaux_ouverts} ouvert{site.nb_signaux_ouverts > 1 ? 's' : ''}</Badge>
-                    ) : (
-                      <Badge tone="neutral">Aucun</Badge>
-                    )}
-                  </td>
-                </tr>
-              ))}
+              {sites?.map((site) => {
+                const health = computeSiteHealth({
+                  signaux: signaux?.filter((s) => s.site_id === site.id) ?? [],
+                  contrats: contrats?.filter((c) => c.site_id === site.id) ?? [],
+                  recommandations: recommandations?.filter((r) => r.sites.some((s) => s.id === site.id)) ?? [],
+                  mandat: mandats?.find((m) => m.compte_id === site.compte_id && m.site_ids.includes(site.id)),
+                  actions: actions?.filter((a) => a.site_id === site.id) ?? [],
+                  compteurs: compteurs?.filter((c) => c.site_id === site.id) ?? [],
+                })
+                return (
+                  <tr
+                    key={site.id}
+                    onClick={() => navigate(`/sites/${site.id}`)}
+                    className="cursor-pointer hover:bg-navy-50"
+                  >
+                    <td className="px-5 py-3 font-medium text-navy-800">{site.nom}</td>
+                    <td className="px-5 py-3 text-navy-600">
+                      <EntityLink to={`/comptes/${site.compte_id}`}>{site.compte_nom}</EntityLink>
+                    </td>
+                    <td className="px-5 py-3 text-navy-600">{site.type_site}</td>
+                    <td className="px-5 py-3 text-navy-600">{site.ville} ({site.code_postal})</td>
+                    <td className="px-5 py-3 text-navy-600">{site.nb_compteurs}</td>
+                    <td className="px-5 py-3">
+                      {site.nb_signaux_ouverts > 0 ? (
+                        <Badge tone="amber">{site.nb_signaux_ouverts} ouvert{site.nb_signaux_ouverts > 1 ? 's' : ''}</Badge>
+                      ) : (
+                        <Badge tone="neutral">Aucun</Badge>
+                      )}
+                    </td>
+                    <td className="px-5 py-3">
+                      <SiteHealthBadge health={health} />
+                    </td>
+                  </tr>
+                )
+              })}
             </tbody>
           </table>
         </Card>

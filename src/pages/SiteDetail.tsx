@@ -18,6 +18,8 @@ import { useDocuments } from '@/lib/data/documents'
 import { EnergyTimeline } from '@/components/site/EnergyTimeline'
 import { CoverageMatrix } from '@/components/site/CoverageMatrix'
 import { ActivityFeed } from '@/components/site/ActivityFeed'
+import { SiteHealthBadge } from '@/components/site/SiteHealthBadge'
+import { computeSiteHealth } from '@/lib/siteHealth'
 
 export default function SiteDetail() {
   const { id } = useParams()
@@ -43,6 +45,14 @@ export default function SiteDetail() {
   const actionsDuSite = actions?.filter((a) => a.site_id === id) ?? []
   const documentsDuSite = documents?.filter((d) => d.entite_type === 'site' && d.entite_id === id) ?? []
   const mandatDuSite = mandats?.find((m) => m.compte_id === site?.compte_id && m.site_ids.includes(id ?? ''))
+  const health = computeSiteHealth({
+    signaux: signauxDuSite,
+    contrats: contratsDuSite,
+    recommandations: recommandationsDuSite,
+    mandat: mandatDuSite,
+    actions: actionsDuSite,
+    compteurs: compteursDuSite,
+  })
 
   return (
     <div>
@@ -67,6 +77,12 @@ export default function SiteDetail() {
                 <p><span className="text-navy-400">Adresse :</span> {site.ville} ({site.code_postal})</p>
                 <p><span className="text-navy-400">Compteurs :</span> {site.nb_compteurs}</p>
                 <p><span className="text-navy-400">Statut :</span> <Badge tone={site.statut === 'actif' ? 'kiwi' : 'neutral'}>{site.statut}</Badge></p>
+                <p><span className="text-navy-400">Santé :</span> <SiteHealthBadge health={health} /></p>
+                {health.raisons.length > 0 && (
+                  <ul className="mt-1 list-inside list-disc text-xs text-navy-400">
+                    {health.raisons.map((r) => <li key={r}>{r}</li>)}
+                  </ul>
+                )}
               </CardContent>
             </Card>
 
