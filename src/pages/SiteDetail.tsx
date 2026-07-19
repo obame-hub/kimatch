@@ -12,6 +12,7 @@ import { useRecommandations } from '@/lib/data/recommandations'
 import { useContrats } from '@/lib/data/contrats'
 import { useInteractions } from '@/lib/data/interactions'
 import { useContacts } from '@/lib/data/contacts'
+import { EnergyTimeline } from '@/components/site/EnergyTimeline'
 
 export default function SiteDetail() {
   const { id } = useParams()
@@ -111,6 +112,19 @@ export default function SiteDetail() {
                     <p className="text-xs text-navy-500">{r.objectif}</p>
                   </div>
                 ))}
+              </CardContent>
+            </Card>
+
+            <Card className="lg:col-span-3">
+              <CardHeader>
+                <CardTitle>Frise énergétique</CardTitle>
+              </CardHeader>
+              <CardContent>
+                {compteursDuSite.length === 0 ? (
+                  <p className="text-sm text-navy-400">Aucun compteur pour ce site.</p>
+                ) : (
+                  <EnergyTimeline compteurs={compteursDuSite} contrats={contratsDuSite} />
+                )}
               </CardContent>
             </Card>
 
