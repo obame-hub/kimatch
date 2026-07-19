@@ -4,12 +4,100 @@ import { mockComptes } from '@/lib/mockData'
 import type { Compte, TypeCompte } from '@/types/domain'
 import type { EllisphereCompany, EllisphereScore } from '@/lib/data/ellisphere'
 
+interface RawCompteClient {
+  segment_compte_id: string | null
+  conseiller_referent_id: string | null
+  origine_acquisition: string | null
+  mandat_cadre_actif: boolean
+  note_interne: string | null
+  segment_compte: { libelle: string } | null
+  conseiller_referent: { prenom: string; nom: string } | null
+}
+
+interface RawCompteFournisseur {
+  fournit_electricite: boolean
+  fournit_gaz: boolean
+  contact_commercial_id: string | null
+  statut_partenariat: string
+  conditions_commerciales: string | null
+  commentaire: string | null
+  contact_commercial: { prenom: string; nom: string } | null
+}
+
+interface RawComptePartenaire {
+  type_partenariat: string | null
+  modele_remuneration: string | null
+  contact_referent_id: string | null
+  statut_partenariat: string
+  date_debut_partenariat: string | null
+  commentaire: string | null
+  contact_referent: { prenom: string; nom: string } | null
+}
+
+interface RawCompte extends Compte {
+  comptes_clients: RawCompteClient | RawCompteClient[] | null
+  comptes_fournisseurs: RawCompteFournisseur | RawCompteFournisseur[] | null
+  comptes_partenaires: RawComptePartenaire | RawComptePartenaire[] | null
+}
+
+const first = <T>(v: T | T[] | null): T | null => (Array.isArray(v) ? v[0] ?? null : v)
+
 async function fetchComptes(): Promise<Compte[]> {
   if (!isSupabaseConfigured) return mockComptes
   try {
-    const { data, error } = await supabase.from('comptes').select('*').order('nom')
+    const { data, error } = await supabase
+      .from('comptes')
+      .select(
+        `*,
+        comptes_clients(segment_compte_id, conseiller_referent_id, origine_acquisition, mandat_cadre_actif, note_interne, segment_compte:segments_comptes(libelle), conseiller_referent:profils(prenom, nom)),
+        comptes_fournisseurs(fournit_electricite, fournit_gaz, contact_commercial_id, statut_partenariat, conditions_commerciales, commentaire, contact_commercial:contacts(prenom, nom)),
+        comptes_partenaires(type_partenariat, modele_remuneration, contact_referent_id, statut_partenariat, date_debut_partenariat, commentaire, contact_referent:contacts(prenom, nom))`,
+      )
+      .order('nom')
     if (error || !data || data.length === 0) throw error ?? new Error('empty')
-    return data as unknown as Compte[]
+
+    return (data as unknown as RawCompte[]).map((c) => {
+      const { comptes_clients, comptes_fournisseurs, comptes_partenaires, ...base } = c
+      const client = first(comptes_clients)
+      const fournisseur = first(comptes_fournisseurs)
+      const partenaire = first(comptes_partenaires)
+      return {
+        ...base,
+        ...(client
+          ? {
+              segment_compte_id: client.segment_compte_id,
+              segment_compte_libelle: client.segment_compte?.libelle ?? null,
+              conseiller_referent_id: client.conseiller_referent_id,
+              conseiller_referent_nom: client.conseiller_referent ? `${client.conseiller_referent.prenom} ${client.conseiller_referent.nom}` : null,
+              origine_acquisition: client.origine_acquisition,
+              mandat_cadre_actif: client.mandat_cadre_actif,
+              note_interne: client.note_interne,
+            }
+          : {}),
+        ...(fournisseur
+          ? {
+              fournit_electricite: fournisseur.fournit_electricite,
+              fournit_gaz: fournisseur.fournit_gaz,
+              contact_commercial_id: fournisseur.contact_commercial_id,
+              contact_commercial_nom: fournisseur.contact_commercial ? `${fournisseur.contact_commercial.prenom} ${fournisseur.contact_commercial.nom}` : null,
+              statut_partenariat: fournisseur.statut_partenariat,
+              conditions_commerciales: fournisseur.conditions_commerciales,
+              commentaire_partenariat: fournisseur.commentaire,
+            }
+          : {}),
+        ...(partenaire
+          ? {
+              type_partenariat: partenaire.type_partenariat,
+              modele_remuneration: partenaire.modele_remuneration,
+              contact_referent_id: partenaire.contact_referent_id,
+              contact_referent_nom: partenaire.contact_referent ? `${partenaire.contact_referent.prenom} ${partenaire.contact_referent.nom}` : null,
+              statut_partenariat: partenaire.statut_partenariat,
+              date_debut_partenariat: partenaire.date_debut_partenariat,
+              commentaire_partenariat: partenaire.commentaire,
+            }
+          : {}),
+      }
+    })
   } catch {
     return mockComptes
   }
@@ -124,6 +212,115 @@ export function useCreateCompteFromEllisphere() {
       queryClient.setQueryData<Compte[]>(['comptes'], (old) => (old ? [...old, compte] : [compte]))
 
       return { compte, persisted }
+    },
+  })
+}
+
+interface UpdateResult {
+  persisted: boolean
+}
+
+function applyLocalUpdate(queryClient: ReturnType<typeof useQueryClient>, compteId: string, patch: Partial<Compte>) {
+  queryClient.setQueryData<Compte[]>(['comptes'], (old) => old?.map((c) => (c.id === compteId ? { ...c, ...patch } : c)))
+}
+
+interface UpdateCompteClientInput {
+  compteId: string
+  segment_compte_id: string | null
+  segment_compte_libelle: string | null
+  conseiller_referent_id: string | null
+  conseiller_referent_nom: string | null
+  origine_acquisition: string | null
+  mandat_cadre_actif: boolean
+  note_interne: string | null
+}
+
+export function useUpdateCompteClient() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: async (input: UpdateCompteClientInput): Promise<UpdateResult> => {
+      let persisted = false
+      if (isSupabaseConfigured) {
+        const { error } = await supabase.from('comptes_clients').upsert({
+          compte_id: input.compteId,
+          segment_compte_id: input.segment_compte_id,
+          conseiller_referent_id: input.conseiller_referent_id,
+          origine_acquisition: input.origine_acquisition,
+          mandat_cadre_actif: input.mandat_cadre_actif,
+          note_interne: input.note_interne,
+        })
+        persisted = !error
+      }
+      applyLocalUpdate(queryClient, input.compteId, input)
+      return { persisted }
+    },
+  })
+}
+
+interface UpdateCompteFournisseurInput {
+  compteId: string
+  fournit_electricite: boolean
+  fournit_gaz: boolean
+  contact_commercial_id: string | null
+  contact_commercial_nom: string | null
+  statut_partenariat: string
+  conditions_commerciales: string | null
+  commentaire_partenariat: string | null
+}
+
+export function useUpdateCompteFournisseur() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: async (input: UpdateCompteFournisseurInput): Promise<UpdateResult> => {
+      let persisted = false
+      if (isSupabaseConfigured) {
+        const { error } = await supabase.from('comptes_fournisseurs').upsert({
+          compte_id: input.compteId,
+          fournit_electricite: input.fournit_electricite,
+          fournit_gaz: input.fournit_gaz,
+          contact_commercial_id: input.contact_commercial_id,
+          statut_partenariat: input.statut_partenariat,
+          conditions_commerciales: input.conditions_commerciales,
+          commentaire: input.commentaire_partenariat,
+        })
+        persisted = !error
+      }
+      applyLocalUpdate(queryClient, input.compteId, input)
+      return { persisted }
+    },
+  })
+}
+
+interface UpdateComptePartenaireInput {
+  compteId: string
+  type_partenariat: string | null
+  modele_remuneration: string | null
+  contact_referent_id: string | null
+  contact_referent_nom: string | null
+  statut_partenariat: string
+  date_debut_partenariat: string | null
+  commentaire_partenariat: string | null
+}
+
+export function useUpdateComptePartenaire() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: async (input: UpdateComptePartenaireInput): Promise<UpdateResult> => {
+      let persisted = false
+      if (isSupabaseConfigured) {
+        const { error } = await supabase.from('comptes_partenaires').upsert({
+          compte_id: input.compteId,
+          type_partenariat: input.type_partenariat,
+          modele_remuneration: input.modele_remuneration,
+          contact_referent_id: input.contact_referent_id,
+          statut_partenariat: input.statut_partenariat,
+          date_debut_partenariat: input.date_debut_partenariat,
+          commentaire: input.commentaire_partenariat,
+        })
+        persisted = !error
+      }
+      applyLocalUpdate(queryClient, input.compteId, input)
+      return { persisted }
     },
   })
 }

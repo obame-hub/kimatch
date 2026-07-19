@@ -108,13 +108,13 @@ export const mockContacts: Contact[] = [
 // Les SIREN ci-dessous sont fictifs sauf celui d'EDF (réel, pour pouvoir démontrer
 // un vrai appel Ellisphere) — à remplacer par les vrais SIREN une fois les comptes réels importés.
 export const mockComptes: Compte[] = [
-  { id: 'c1', nom: 'Cabinet Durand', type_compte: 'client', segment: 'Syndic', nb_sites: 2, ville: 'Lyon', siren: '123456789', score_ellipro: null, score_ellipro_scale: null, score_ellipro_maj: null },
+  { id: 'c1', nom: 'Cabinet Durand', type_compte: 'client', segment: 'Syndic', nb_sites: 2, ville: 'Lyon', siren: '123456789', score_ellipro: null, score_ellipro_scale: null, score_ellipro_maj: null, segment_compte_libelle: 'Grand compte', conseiller_referent_nom: 'Naoëlle Ghouma', origine_acquisition: 'Recommandation', mandat_cadre_actif: true },
   { id: 'c2', nom: 'Groupe Meridia', type_compte: 'client', segment: 'Entreprise', nb_sites: 2, ville: 'Paris', siren: '234567891', score_ellipro: null, score_ellipro_scale: null, score_ellipro_maj: null },
   { id: 'c3', nom: 'Hôtellerie du Sud', type_compte: 'client', segment: 'Hôtellerie', nb_sites: 1, ville: 'Marseille', siren: '345678912', score_ellipro: null, score_ellipro_scale: null, score_ellipro_maj: null },
   { id: 'c4', nom: 'Retail Plus', type_compte: 'client', segment: 'Commerce', nb_sites: 1, ville: 'Bordeaux', siren: '456789123', score_ellipro: null, score_ellipro_scale: null, score_ellipro_maj: null },
-  { id: 'c5', nom: 'EDF', type_compte: 'fournisseur', segment: 'Fournisseur historique', nb_sites: 0, ville: 'Paris', siren: '552081317', score_ellipro: null, score_ellipro_scale: null, score_ellipro_maj: null },
-  { id: 'c6', nom: 'ENGIE', type_compte: 'fournisseur', segment: 'Fournisseur', nb_sites: 0, ville: 'Courbevoie', siren: '542107651', score_ellipro: null, score_ellipro_scale: null, score_ellipro_maj: null },
-  { id: 'c7', nom: 'Partenaire Immo Conseil', type_compte: 'partenaire', segment: 'Apporteur d’affaires', nb_sites: 0, ville: 'Lyon', siren: '567891234', score_ellipro: null, score_ellipro_scale: null, score_ellipro_maj: null },
+  { id: 'c5', nom: 'EDF', type_compte: 'fournisseur', segment: 'Fournisseur historique', nb_sites: 0, ville: 'Paris', siren: '552081317', score_ellipro: null, score_ellipro_scale: null, score_ellipro_maj: null, fournit_electricite: true, fournit_gaz: false, statut_partenariat: 'ACTIF' },
+  { id: 'c6', nom: 'ENGIE', type_compte: 'fournisseur', segment: 'Fournisseur', nb_sites: 0, ville: 'Courbevoie', siren: '542107651', score_ellipro: null, score_ellipro_scale: null, score_ellipro_maj: null, fournit_electricite: false, fournit_gaz: true, statut_partenariat: 'ACTIF' },
+  { id: 'c7', nom: 'Partenaire Immo Conseil', type_compte: 'partenaire', segment: 'Apporteur d’affaires', nb_sites: 0, ville: 'Lyon', siren: '567891234', score_ellipro: null, score_ellipro_scale: null, score_ellipro_maj: null, type_partenariat: 'Apporteur d’affaires', modele_remuneration: 'Commission 5%', statut_partenariat: 'ACTIF', date_debut_partenariat: '2026-02-01' },
 ]
 
 export const mockCompteurs: Compteur[] = [

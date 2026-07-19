@@ -107,6 +107,29 @@ export interface Compte {
   score_ellipro: string | null
   score_ellipro_scale: string | null
   score_ellipro_maj: string | null
+  // comptes_clients (type_compte === 'client')
+  segment_compte_id?: string | null
+  segment_compte_libelle?: string | null
+  conseiller_referent_id?: string | null
+  conseiller_referent_nom?: string | null
+  origine_acquisition?: string | null
+  mandat_cadre_actif?: boolean
+  note_interne?: string | null
+  // comptes_fournisseurs (type_compte === 'fournisseur')
+  fournit_electricite?: boolean
+  fournit_gaz?: boolean
+  contact_commercial_id?: string | null
+  contact_commercial_nom?: string | null
+  // comptes_partenaires (type_compte === 'partenaire')
+  type_partenariat?: string | null
+  modele_remuneration?: string | null
+  contact_referent_id?: string | null
+  contact_referent_nom?: string | null
+  date_debut_partenariat?: string | null
+  // partagé fournisseur/partenaire
+  statut_partenariat?: string | null
+  conditions_commerciales?: string | null
+  commentaire_partenariat?: string | null
 }
 
 export interface Compteur {
