@@ -86,10 +86,10 @@ export const mockRecommandations: Recommandation[] = [
 
 // Codes alignés sur statuts_actions (A_FAIRE, EN_COURS, EN_ATTENTE, TERMINEE, ANNULEE).
 export const mockActions: ActionItem[] = [
-  { id: 'a1', type_action: 'Contacter le client', statut: 'A_FAIRE', responsable: 'Naoëlle Ghouma', echeance: '2026-07-17', cible_label: 'Résidence Les Tilleuls', site_id: 's1' },
-  { id: 'a2', type_action: 'Préparer le mandat', statut: 'A_FAIRE', responsable: 'William Goupil', echeance: '2026-07-18', cible_label: 'Hôtel Belvédère', site_id: 's4' },
-  { id: 'a3', type_action: 'Présenter la recommandation', statut: 'EN_COURS', responsable: 'William Goupil', echeance: '2026-07-16', cible_label: 'Siège social — Paris', site_id: 's2' },
-  { id: 'a4', type_action: 'Relancer le client', statut: 'A_FAIRE', responsable: 'Naoëlle Ghouma', echeance: '2026-07-20', cible_label: 'Résidence Le Parc', site_id: 's5' },
+  { id: 'a1', titre: 'Contacter le client', type_action: 'Appel', statut: 'A_FAIRE', priorite: 50, responsable: 'Naoëlle Ghouma', echeance: '2026-07-17', date_realisation: null, commentaire: null, cible_label: 'Résidence Les Tilleuls', site_id: 's1', contact_id: 'ct1', contact_nom: 'Marc Lefebvre' },
+  { id: 'a2', titre: 'Préparer le mandat', type_action: 'Administratif', statut: 'A_FAIRE', priorite: 40, responsable: 'William Goupil', echeance: '2026-07-18', date_realisation: null, commentaire: null, cible_label: 'Hôtel Belvédère', site_id: 's4', contact_id: 'ct3', contact_nom: 'Antoine Perez' },
+  { id: 'a3', titre: 'Présenter la recommandation', type_action: 'Présentation', statut: 'EN_COURS', priorite: 60, responsable: 'William Goupil', echeance: '2026-07-16', date_realisation: null, commentaire: null, cible_label: 'Siège social — Paris', site_id: 's2', contact_id: 'ct2', contact_nom: 'Sophie Nguyen' },
+  { id: 'a4', titre: 'Relancer le client', type_action: 'Relance', statut: 'A_FAIRE', priorite: 30, responsable: 'Naoëlle Ghouma', echeance: '2026-07-20', date_realisation: null, commentaire: null, cible_label: 'Résidence Le Parc', site_id: 's5', contact_id: null, contact_nom: '' },
 ]
 
 // Codes alignés sur statuts_mandats (A_PREPARER, ENVOYE, EN_SIGNATURE, SIGNE, ACTIF, EXPIRE, REVOQUE).

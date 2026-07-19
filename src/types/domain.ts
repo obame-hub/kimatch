@@ -61,12 +61,18 @@ export interface Recommandation {
 
 export interface ActionItem {
   id: string
+  titre: string
   type_action: string
   statut: string
+  priorite: number
   responsable: string
   echeance: string
+  date_realisation: string | null
+  commentaire: string | null
   cible_label: string
   site_id: string | null
+  contact_id: string | null
+  contact_nom: string
 }
 
 export interface Mandat {

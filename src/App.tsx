@@ -23,6 +23,7 @@ import Contrats from '@/pages/Contrats'
 import ContratDetail from '@/pages/ContratDetail'
 import Contacts from '@/pages/Contacts'
 import ContactDetail from '@/pages/ContactDetail'
+import Taches from '@/pages/Taches'
 
 function App() {
   return (
@@ -52,6 +53,7 @@ function App() {
           <Route path="/contrats/:id" element={<ContratDetail />} />
           <Route path="/contacts" element={<Contacts />} />
           <Route path="/contacts/:id" element={<ContactDetail />} />
+          <Route path="/taches" element={<Taches />} />
         </Route>
       </Route>
     </Routes>

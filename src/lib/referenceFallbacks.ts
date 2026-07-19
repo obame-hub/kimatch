@@ -80,6 +80,14 @@ export const FALLBACK_STATUTS_ACTIONS: ReferenceRow[] = [
   { id: '5', code: 'ANNULEE', libelle: 'Annulée', ordre: 50, couleur: null, icone: null },
 ]
 
+export const FALLBACK_TYPES_ACTIONS: ReferenceRow[] = [
+  { id: '1', code: 'APPEL', libelle: 'Appel', ordre: 10, couleur: null, icone: null },
+  { id: '2', code: 'RELANCE', libelle: 'Relance', ordre: 20, couleur: null, icone: null },
+  { id: '3', code: 'ADMINISTRATIF', libelle: 'Administratif', ordre: 30, couleur: null, icone: null },
+  { id: '4', code: 'PRESENTATION', libelle: 'Présentation', ordre: 40, couleur: null, icone: null },
+  { id: '5', code: 'AUTRE', libelle: 'Autre', ordre: 50, couleur: null, icone: null },
+]
+
 export const STATUT_MANDAT_TONE: Record<string, 'neutral' | 'amber' | 'kiwi' | 'blue' | 'red'> = {
   A_PREPARER: 'neutral',
   ENVOYE: 'blue',
