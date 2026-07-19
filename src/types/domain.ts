@@ -135,6 +135,19 @@ export interface Compteur {
   zone_tarifaire?: string | null
 }
 
+export interface Consommation {
+  id: string
+  compteur_id: string
+  date_debut_periode: string
+  date_fin_periode: string
+  quantite: number
+  unite: string
+  poste_tarifaire: string
+  type_valeur: string
+  source: string | null
+  commentaire: string | null
+}
+
 export interface DocumentItem {
   id: string
   nom: string

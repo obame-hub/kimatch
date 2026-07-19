@@ -1,4 +1,4 @@
-import type { ActionItem, Compte, Compteur, Contact, Contrat, DocumentItem, Interaction, Mandat, Recommandation, Signal, Site } from '@/types/domain'
+import type { ActionItem, Compte, Compteur, Consommation, Contact, Contrat, DocumentItem, Interaction, Mandat, Recommandation, Signal, Site } from '@/types/domain'
 
 export const mockSites: Site[] = [
   { id: 's1', nom: 'Résidence Les Tilleuls', compte_id: 'c1', compte_nom: 'Cabinet Durand', type_site: 'Copropriété', ville: 'Lyon', code_postal: '69003', nb_compteurs: 4, nb_signaux_ouverts: 2, statut: 'actif' },
@@ -124,6 +124,13 @@ export const mockCompteurs: Compteur[] = [
   { id: 'cp4', site_id: 's3', site_nom: 'Entrepôt Nord', type_energie: 'electricite', numero_pdl: 'PDL-30012783', utilisation: 'Entrepôt principal', statut: 'actif', consommation_annuelle_mwh: null, synchro_eneo: false, date_derniere_synchro_eneo: null },
   { id: 'cp5', site_id: 's4', site_nom: 'Hôtel Belvédère', type_energie: 'gaz', numero_pdl: 'GRD-88245901', utilisation: 'Cuisine + chaufferie', statut: 'actif', consommation_annuelle_mwh: null, synchro_eneo: false, date_derniere_synchro_eneo: null },
   { id: 'cp6', site_id: 's5', site_nom: 'Résidence Le Parc', type_energie: 'electricite', numero_pdl: 'PDL-30015567', utilisation: 'Ascenseurs', statut: 'actif', consommation_annuelle_mwh: null, synchro_eneo: false, date_derniere_synchro_eneo: null },
+]
+
+export const mockConsommations: Consommation[] = [
+  { id: 'cs1', compteur_id: 'cp1', date_debut_periode: '2026-05-01', date_fin_periode: '2026-05-31', quantite: 1.05, unite: 'MWh', poste_tarifaire: 'TOTAL', type_valeur: 'MESUREE', source: 'Enedis', commentaire: null },
+  { id: 'cs2', compteur_id: 'cp1', date_debut_periode: '2026-06-01', date_fin_periode: '2026-06-30', quantite: 0.98, unite: 'MWh', poste_tarifaire: 'TOTAL', type_valeur: 'MESUREE', source: 'Enedis', commentaire: null },
+  { id: 'cs3', compteur_id: 'cp1', date_debut_periode: '2026-07-01', date_fin_periode: '2026-07-31', quantite: 1.12, unite: 'MWh', poste_tarifaire: 'TOTAL', type_valeur: 'MESUREE', source: 'Enedis', commentaire: null },
+  { id: 'cs4', compteur_id: 'cp2', date_debut_periode: '2026-06-01', date_fin_periode: '2026-06-30', quantite: 2.9, unite: 'MWh', poste_tarifaire: 'TOTAL', type_valeur: 'ESTIMEE', source: 'GRDF', commentaire: null },
 ]
 
 export const mockDocuments: DocumentItem[] = [
