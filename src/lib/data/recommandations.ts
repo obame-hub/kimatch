@@ -37,7 +37,7 @@ async function fetchRecommandations(): Promise<Recommandation[]> {
   if (!isSupabaseConfigured) return mockRecommandations
 
   try {
-    const [recosRes, sitesRes, versionsRes] = await Promise.all([
+    const [recosRes, sitesRes, versionsRes, versionsCompteursRes] = await Promise.all([
       supabase
         .from('recommandations')
         .select(
@@ -51,6 +51,7 @@ async function fetchRecommandations(): Promise<Recommandation[]> {
           'id, recommandation_id, numero_version, resume, contenu, gain_estime_annuel, economie_estimee_pourcentage, niveau_confiance, date_validite_offres, document_url, date_creation, statut:statuts_versions_recommandation(code), motif:motifs_versions_recommandation(libelle)',
         )
         .order('numero_version'),
+      supabase.from('versions_recommandation_compteurs').select('version_recommandation_id, compteur_id'),
     ])
 
     if (recosRes.error || !recosRes.data || recosRes.data.length === 0) throw recosRes.error ?? new Error('empty')
@@ -61,6 +62,13 @@ async function fetchRecommandations(): Promise<Recommandation[]> {
       const list = sitesParReco.get(rs.recommandation_id) ?? []
       list.push(rs.site)
       sitesParReco.set(rs.recommandation_id, list)
+    }
+
+    const compteurIdsParVersion = new Map<string, string[]>()
+    for (const vc of (versionsCompteursRes.data ?? []) as unknown as { version_recommandation_id: string; compteur_id: string }[]) {
+      const list = compteurIdsParVersion.get(vc.version_recommandation_id) ?? []
+      list.push(vc.compteur_id)
+      compteurIdsParVersion.set(vc.version_recommandation_id, list)
     }
 
     const versionsParReco = new Map<string, VersionRecommandation[]>()
@@ -79,6 +87,7 @@ async function fetchRecommandations(): Promise<Recommandation[]> {
         niveau_confiance: v.niveau_confiance,
         date_validite_offres: v.date_validite_offres,
         document_url: v.document_url,
+        compteur_ids: compteurIdsParVersion.get(v.id) ?? [],
       })
       versionsParReco.set(v.recommandation_id, list)
     }

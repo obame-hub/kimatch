@@ -22,13 +22,15 @@ async function fetchMandats(): Promise<Mandat[]> {
         .select(
           'id, compte_id, date_signature, contact_signataire_id, compte:comptes(nom), statut:statuts_mandats(code), contact_signataire:contacts(prenom, nom)',
         ),
-      supabase.from('mandats_sites').select('mandat_id'),
+      supabase.from('mandats_sites').select('mandat_id, site_id'),
     ])
     if (mandatsRes.error || !mandatsRes.data || mandatsRes.data.length === 0) throw mandatsRes.error ?? new Error('empty')
 
-    const sitesParMandat = new Map<string, number>()
-    for (const ms of (sitesRes.data ?? []) as unknown as { mandat_id: string }[]) {
-      sitesParMandat.set(ms.mandat_id, (sitesParMandat.get(ms.mandat_id) ?? 0) + 1)
+    const sitesParMandat = new Map<string, string[]>()
+    for (const ms of (sitesRes.data ?? []) as unknown as { mandat_id: string; site_id: string }[]) {
+      const list = sitesParMandat.get(ms.mandat_id) ?? []
+      list.push(ms.site_id)
+      sitesParMandat.set(ms.mandat_id, list)
     }
 
     return (mandatsRes.data as unknown as RawMandat[]).map((m) => ({
@@ -37,7 +39,8 @@ async function fetchMandats(): Promise<Mandat[]> {
       compte_nom: m.compte?.nom ?? '',
       statut: m.statut?.code ?? '',
       date_signature: m.date_signature,
-      nb_sites_couverts: sitesParMandat.get(m.id) ?? 0,
+      nb_sites_couverts: (sitesParMandat.get(m.id) ?? []).length,
+      site_ids: sitesParMandat.get(m.id) ?? [],
       contact_signataire_id: m.contact_signataire_id,
       contact_signataire_nom: m.contact_signataire ? `${m.contact_signataire.prenom} ${m.contact_signataire.nom}` : undefined,
     }))
@@ -77,6 +80,7 @@ export function useCreateMandat() {
         statut: 'A_PREPARER',
         date_signature: input.date_signature,
         nb_sites_couverts: input.site_ids.length,
+        site_ids: input.site_ids,
         contact_signataire_id: input.contact_signataire_id,
         contact_signataire_nom: input.contact_signataire_nom,
       }

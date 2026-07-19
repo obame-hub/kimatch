@@ -40,6 +40,7 @@ export interface VersionRecommandation {
   niveau_confiance: number | null
   date_validite_offres: string | null
   document_url: string | null
+  compteur_ids: string[]
 }
 
 export interface Recommandation {
@@ -82,6 +83,7 @@ export interface Mandat {
   statut: string
   date_signature: string | null
   nb_sites_couverts: number
+  site_ids: string[]
   contact_signataire_id?: string | null
   contact_signataire_nom?: string
 }

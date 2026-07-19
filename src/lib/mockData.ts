@@ -43,6 +43,7 @@ export const mockRecommandations: Recommandation[] = [
         gains_estimes: 18400, resume: 'Renégociation puissance souscrite + mise en concurrence.',
         contenu: 'Comparatif de 3 offres fournisseurs sur 24 mois, avec réduction de la puissance souscrite de 250 à 210 kVA.',
         economie_pourcentage: 12.5, niveau_confiance: 85, date_validite_offres: '2026-08-05', document_url: null,
+        compteur_ids: ['cp3'],
       },
     ],
   },
@@ -64,6 +65,7 @@ export const mockRecommandations: Recommandation[] = [
         id: 'v2', numero: 1, statut: 'A_VALIDER', motif_creation: 'Signal échéance de contrat', date_creation: '2026-07-11',
         gains_estimes: null, resume: "Étude en cours sur l'échéance des parties communes.",
         contenu: null, economie_pourcentage: null, niveau_confiance: null, date_validite_offres: null, document_url: null,
+        compteur_ids: ['cp1'],
       },
     ],
   },
@@ -94,9 +96,9 @@ export const mockActions: ActionItem[] = [
 
 // Codes alignés sur statuts_mandats (A_PREPARER, ENVOYE, EN_SIGNATURE, SIGNE, ACTIF, EXPIRE, REVOQUE).
 export const mockMandats: Mandat[] = [
-  { id: 'm1', compte_id: 'c1', compte_nom: 'Cabinet Durand', statut: 'ACTIF', date_signature: '2026-05-02', nb_sites_couverts: 2, contact_signataire_id: 'ct1', contact_signataire_nom: 'Marc Lefebvre' },
-  { id: 'm2', compte_id: 'c2', compte_nom: 'Groupe Meridia', statut: 'ACTIF', date_signature: '2026-03-14', nb_sites_couverts: 2, contact_signataire_id: 'ct2', contact_signataire_nom: 'Sophie Nguyen' },
-  { id: 'm3', compte_id: 'c3', compte_nom: 'Hôtellerie du Sud', statut: 'EN_SIGNATURE', date_signature: null, nb_sites_couverts: 1 },
+  { id: 'm1', compte_id: 'c1', compte_nom: 'Cabinet Durand', statut: 'ACTIF', date_signature: '2026-05-02', nb_sites_couverts: 2, site_ids: ['s1', 's5'], contact_signataire_id: 'ct1', contact_signataire_nom: 'Marc Lefebvre' },
+  { id: 'm2', compte_id: 'c2', compte_nom: 'Groupe Meridia', statut: 'ACTIF', date_signature: '2026-03-14', nb_sites_couverts: 2, site_ids: ['s2', 's3'], contact_signataire_id: 'ct2', contact_signataire_nom: 'Sophie Nguyen' },
+  { id: 'm3', compte_id: 'c3', compte_nom: 'Hôtellerie du Sud', statut: 'EN_SIGNATURE', date_signature: null, nb_sites_couverts: 1, site_ids: ['s4'] },
 ]
 
 export const mockContacts: Contact[] = [

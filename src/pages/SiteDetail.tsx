@@ -12,7 +12,9 @@ import { useRecommandations } from '@/lib/data/recommandations'
 import { useContrats } from '@/lib/data/contrats'
 import { useInteractions } from '@/lib/data/interactions'
 import { useContacts } from '@/lib/data/contacts'
+import { useMandats } from '@/lib/data/mandats'
 import { EnergyTimeline } from '@/components/site/EnergyTimeline'
+import { CoverageMatrix } from '@/components/site/CoverageMatrix'
 
 export default function SiteDetail() {
   const { id } = useParams()
@@ -24,6 +26,7 @@ export default function SiteDetail() {
   const { data: contrats } = useContrats()
   const { data: interactions } = useInteractions()
   const { data: contacts } = useContacts()
+  const { data: mandats } = useMandats()
 
   const site = sites?.find((s) => s.id === id)
   const signauxDuSite = signaux?.filter((s) => s.site_id === id) ?? []
@@ -32,6 +35,7 @@ export default function SiteDetail() {
   const contratsDuSite = contrats?.filter((c) => c.site_id === id) ?? []
   const interactionsDuSite = interactions?.filter((i) => i.site_id === id) ?? []
   const contactsDuSite = contacts?.filter((c) => c.sites.some((s) => s.id === id)) ?? []
+  const mandatDuSite = mandats?.find((m) => m.compte_id === site?.compte_id && m.site_ids.includes(id ?? ''))
 
   return (
     <div>
@@ -124,6 +128,24 @@ export default function SiteDetail() {
                   <p className="text-sm text-navy-400">Aucun compteur pour ce site.</p>
                 ) : (
                   <EnergyTimeline compteurs={compteursDuSite} contrats={contratsDuSite} />
+                )}
+              </CardContent>
+            </Card>
+
+            <Card className="lg:col-span-3">
+              <CardHeader>
+                <CardTitle>Matrice de couverture mandat × recommandation</CardTitle>
+              </CardHeader>
+              <CardContent>
+                {compteursDuSite.length === 0 ? (
+                  <p className="text-sm text-navy-400">Aucun compteur pour ce site.</p>
+                ) : (
+                  <CoverageMatrix
+                    compteurs={compteursDuSite}
+                    contrats={contratsDuSite}
+                    recommandations={recommandationsDuSite}
+                    mandat={mandatDuSite}
+                  />
                 )}
               </CardContent>
             </Card>
