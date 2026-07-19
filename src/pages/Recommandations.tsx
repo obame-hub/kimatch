@@ -14,7 +14,7 @@ import { useRecommandations, useCreateRecommandation } from '@/lib/data/recomman
 import { useMandats } from '@/lib/data/mandats'
 import { useSites } from '@/lib/data/sites'
 import { useReferenceTable } from '@/lib/data/referenceTables'
-import { FALLBACK_ETAPES_RECOMMANDATION, ETAPE_TONE, FALLBACK_TYPES_OBJECTIFS } from '@/lib/referenceFallbacks'
+import { FALLBACK_ETAPES_RECOMMANDATION, ETAPE_TONE, FALLBACK_TYPES_OBJECTIFS, FALLBACK_TYPES_ORIGINES } from '@/lib/referenceFallbacks'
 
 const PRIORITE_OPTIONS = [
   { value: 1, label: 'Haute' },
@@ -29,12 +29,15 @@ function CreateRecommandationDialog({ open, onClose }: { open: boolean; onClose:
   const objectifs = objectifsRef && objectifsRef.length > 0 ? objectifsRef : FALLBACK_TYPES_OBJECTIFS
   const { data: etapesRef } = useReferenceTable('etapes_recommandation')
   const etapes = etapesRef && etapesRef.length > 0 ? etapesRef : FALLBACK_ETAPES_RECOMMANDATION
+  const { data: originesRef } = useReferenceTable('types_origines')
+  const origines = originesRef && originesRef.length > 0 ? originesRef : FALLBACK_TYPES_ORIGINES
   const createRecommandation = useCreateRecommandation()
 
   const [titre, setTitre] = useState('')
   const [mandatId, setMandatId] = useState('')
   const [siteIds, setSiteIds] = useState<string[]>([])
   const [objectifId, setObjectifId] = useState('')
+  const [origineId, setOrigineId] = useState('')
   const [priorite, setPriorite] = useState(2)
   const [description, setDescription] = useState('')
   const [commentaireInterne, setCommentaireInterne] = useState('')
@@ -48,6 +51,7 @@ function CreateRecommandationDialog({ open, onClose }: { open: boolean; onClose:
     setMandatId('')
     setSiteIds([])
     setObjectifId('')
+    setOrigineId('')
     setPriorite(2)
     setDescription('')
     setCommentaireInterne('')
@@ -62,6 +66,7 @@ function CreateRecommandationDialog({ open, onClose }: { open: boolean; onClose:
     e.preventDefault()
     if (!mandat) return
     const objectif = objectifs.find((o) => o.id === objectifId)
+    const origine = origines.find((o) => o.id === origineId)
     const etapeAPreparer = etapes.find((e) => e.code === 'A_PREPARER')
     const sitesChoisis = sitesDuCompte.filter((s) => siteIds.includes(s.id)).map((s) => ({ id: s.id, nom: s.nom }))
 
@@ -74,6 +79,8 @@ function CreateRecommandationDialog({ open, onClose }: { open: boolean; onClose:
       etape_id: etapeAPreparer?.id ?? null,
       objectif_id: objectifId || null,
       objectif_libelle: objectif?.libelle ?? '',
+      origine_id: origineId || null,
+      origine_libelle: origine?.libelle,
       priorite,
       description,
       commentaire_interne: commentaireInterne,
@@ -126,6 +133,12 @@ function CreateRecommandationDialog({ open, onClose }: { open: boolean; onClose:
             </Select>
           </FormField>
         </div>
+        <FormField label="Origine">
+          <Select value={origineId} onChange={(e) => setOrigineId(e.target.value)}>
+            <option value="">Sélectionner…</option>
+            {origines.map((o) => <option key={o.id} value={o.id}>{o.libelle}</option>)}
+          </Select>
+        </FormField>
         <FormField label="Description">
           <Textarea rows={2} value={description} onChange={(e) => setDescription(e.target.value)} />
         </FormField>

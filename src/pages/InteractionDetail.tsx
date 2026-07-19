@@ -73,6 +73,9 @@ export default function InteractionDetail() {
               {interaction.resultat && (
                 <p><span className="text-navy-400">Résultat :</span> {interaction.resultat}</p>
               )}
+              {interaction.issue_libelle && (
+                <p><span className="text-navy-400">Motif / issue :</span> <Badge tone="amber">{interaction.issue_libelle}</Badge></p>
+              )}
               <p><span className="text-navy-400">Auteur :</span> {interaction.auteur}</p>
               <p><span className="text-navy-400">Date :</span> {new Date(interaction.date_interaction).toLocaleDateString('fr-FR')}</p>
             </CardContent>

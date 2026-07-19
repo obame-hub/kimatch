@@ -51,6 +51,7 @@ export interface Recommandation {
   etape: string
   conseiller: string
   objectif: string
+  origine?: string
   description: string
   priorite: number
   commentaire_interne: string
@@ -199,6 +200,8 @@ export interface Interaction {
   site_nom: string
   contact_id: string | null
   contact_nom: string
+  issue_libelle?: string
+  issue_couleur?: string | null
 }
 
 export interface Contrat {

@@ -12,6 +12,7 @@ interface RawRecommandation {
   date_ouverture: string
   etape: { code: string } | null
   objectif: { libelle: string } | null
+  origine: { libelle: string } | null
   responsable: { prenom: string; nom: string } | null
   mandat: { compte: { id: string; nom: string } | null } | null
 }
@@ -40,7 +41,7 @@ async function fetchRecommandations(): Promise<Recommandation[]> {
       supabase
         .from('recommandations')
         .select(
-          'id, titre, description, priorite, commentaire_interne, date_ouverture, etape:etapes_recommandation(code), objectif:types_objectifs(libelle), responsable:profils(prenom, nom), mandat:mandats(compte:comptes(id, nom))',
+          'id, titre, description, priorite, commentaire_interne, date_ouverture, etape:etapes_recommandation(code), objectif:types_objectifs(libelle), origine:types_origines(libelle), responsable:profils(prenom, nom), mandat:mandats(compte:comptes(id, nom))',
         )
         .order('date_ouverture', { ascending: false }),
       supabase.from('recommandations_sites').select('recommandation_id, site:sites(id, nom)'),
@@ -91,6 +92,7 @@ async function fetchRecommandations(): Promise<Recommandation[]> {
       etape: r.etape?.code ?? '',
       conseiller: r.responsable ? `${r.responsable.prenom} ${r.responsable.nom}` : '',
       objectif: r.objectif?.libelle ?? '',
+      origine: r.origine?.libelle,
       description: r.description ?? '',
       priorite: r.priorite,
       commentaire_interne: r.commentaire_interne ?? '',
@@ -115,6 +117,8 @@ interface CreateRecommandationInput {
   etape_id: string | null
   objectif_id: string | null
   objectif_libelle: string
+  origine_id: string | null
+  origine_libelle?: string
   priorite: number
   description: string
   commentaire_interne: string
@@ -141,6 +145,7 @@ export function useCreateRecommandation() {
         etape: 'A_PREPARER',
         conseiller: '',
         objectif: input.objectif_libelle,
+        origine: input.origine_libelle,
         description: input.description,
         priorite: input.priorite,
         commentaire_interne: input.commentaire_interne,
@@ -160,6 +165,7 @@ export function useCreateRecommandation() {
             date_ouverture: now,
             ...(input.objectif_id ? { objectif_id: input.objectif_id } : {}),
             ...(input.etape_id ? { etape_id: input.etape_id } : {}),
+            ...(input.origine_id ? { origine_id: input.origine_id } : {}),
           })
           .select('id')
           .single()

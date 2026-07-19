@@ -156,3 +156,28 @@ export const FALLBACK_TYPES_COMPTES: ReferenceRow[] = [
   { id: '3', code: 'PARTENAIRE', libelle: 'Partenaire', ordre: 30, couleur: null, icone: null },
   { id: '4', code: 'FOURNISSEUR', libelle: 'Fournisseur', ordre: 40, couleur: null, icone: null },
 ]
+
+export const FALLBACK_TYPES_ORIGINES: ReferenceRow[] = [
+  { id: '1', code: 'SIGNAL', libelle: 'Suite à un signal', ordre: 10, couleur: null, icone: null },
+  { id: '2', code: 'DEMANDE_CLIENT', libelle: 'Demande spontanée du client', ordre: 20, couleur: null, icone: null },
+  { id: '3', code: 'PROSPECTION', libelle: 'Prospection', ordre: 30, couleur: null, icone: null },
+  { id: '4', code: 'AUTRE', libelle: 'Autre', ordre: 40, couleur: null, icone: null },
+]
+
+export const FALLBACK_TYPES_INTERACTIONS: ReferenceRow[] = [
+  { id: '1', code: 'APPEL', libelle: 'Appel', ordre: 10, couleur: null, icone: null },
+  { id: '2', code: 'EMAIL', libelle: 'Email', ordre: 20, couleur: null, icone: null },
+  { id: '3', code: 'REUNION', libelle: 'Réunion', ordre: 30, couleur: null, icone: null },
+  { id: '4', code: 'VISITE', libelle: 'Visite site', ordre: 40, couleur: null, icone: null },
+  { id: '5', code: 'COURRIER', libelle: 'Courrier', ordre: 50, couleur: null, icone: null },
+  { id: '6', code: 'AUTRE', libelle: 'Autre', ordre: 60, couleur: null, icone: null },
+]
+
+export const FALLBACK_ISSUES_INTERACTIONS: ReferenceRow[] = [
+  { id: '1', code: 'INTERET_CONFIRME', libelle: 'Intérêt confirmé', ordre: 10, couleur: '#10B981', icone: null },
+  { id: '2', code: 'OBJECTION_PRIX', libelle: 'Objection prix', ordre: 20, couleur: '#F59E0B', icone: null },
+  { id: '3', code: 'OBJECTION_DELAI', libelle: 'Objection délai', ordre: 30, couleur: '#F59E0B', icone: null },
+  { id: '4', code: 'ACCORD', libelle: 'Accord de principe', ordre: 40, couleur: '#10B981', icone: null },
+  { id: '5', code: 'REFUS', libelle: 'Refus', ordre: 50, couleur: '#EF4444', icone: null },
+  { id: '6', code: 'SANS_SUITE', libelle: 'Sans suite', ordre: 60, couleur: '#94A3B8', icone: null },
+]
