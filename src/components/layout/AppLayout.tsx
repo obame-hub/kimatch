@@ -1,5 +1,6 @@
 import { Outlet } from 'react-router-dom'
 import { Sidebar } from '@/components/layout/Sidebar'
+import { InstallPrompt } from '@/components/layout/InstallPrompt'
 import { SidebarProvider } from '@/lib/layout'
 
 export function AppLayout() {
@@ -11,6 +12,7 @@ export function AppLayout() {
           <Outlet />
         </main>
       </div>
+      <InstallPrompt />
     </SidebarProvider>
   )
 }
