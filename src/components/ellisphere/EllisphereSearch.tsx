@@ -6,6 +6,8 @@ import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { useEllisphereSearch, useEllisphereScore, type EllisphereCompany } from '@/lib/data/ellisphere'
 import { useComptes, useCreateCompteFromEllisphere } from '@/lib/data/comptes'
+import { useReferenceTable } from '@/lib/data/referenceTables'
+import { FALLBACK_TYPES_COMPTES } from '@/lib/referenceFallbacks'
 import type { TypeCompte } from '@/types/domain'
 
 const typeOptions: { value: TypeCompte; label: string }[] = [
@@ -18,6 +20,8 @@ function ResultCard({ company }: { company: EllisphereCompany }) {
   const score = useEllisphereScore()
   const createCompte = useCreateCompteFromEllisphere()
   const { data: comptes } = useComptes()
+  const { data: typesComptesRef } = useReferenceTable('types_comptes')
+  const typesComptes = typesComptesRef && typesComptesRef.length > 0 ? typesComptesRef : FALLBACK_TYPES_COMPTES
   const navigate = useNavigate()
   const [typeCompte, setTypeCompte] = useState<TypeCompte>('client')
 
@@ -64,12 +68,13 @@ function ResultCard({ company }: { company: EllisphereCompany }) {
               <Button
                 type="button"
                 size="sm"
-                onClick={() =>
+                onClick={() => {
+                  const typeCompteId = typesComptes.find((t) => t.code === typeCompte.toUpperCase())?.id ?? null
                   createCompte.mutate(
-                    { company, typeCompte },
+                    { company, typeCompte, typeCompteId },
                     { onSuccess: (result) => navigate(`/comptes/${result.compte.id}`) },
                   )
-                }
+                }}
                 disabled={createCompte.isPending}
               >
                 <UserPlus className="h-4 w-4" />

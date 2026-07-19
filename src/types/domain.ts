@@ -121,6 +121,8 @@ export interface Compteur {
 export interface DocumentItem {
   id: string
   nom: string
+  nom_fichier: string
+  url: string
   type_document: string
   entite_type: string
   entite_id: string

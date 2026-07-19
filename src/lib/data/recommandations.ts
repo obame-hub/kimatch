@@ -112,6 +112,7 @@ interface CreateRecommandationInput {
   compte_id: string
   compte_nom: string
   sites: { id: string; nom: string }[]
+  etape_id: string | null
   objectif_id: string | null
   objectif_libelle: string
   priorite: number
@@ -158,6 +159,7 @@ export function useCreateRecommandation() {
             commentaire_interne: input.commentaire_interne,
             date_ouverture: now,
             ...(input.objectif_id ? { objectif_id: input.objectif_id } : {}),
+            ...(input.etape_id ? { etape_id: input.etape_id } : {}),
           })
           .select('id')
           .single()

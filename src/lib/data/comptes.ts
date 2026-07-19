@@ -70,6 +70,7 @@ export function useUpdateCompteScore() {
 interface CreateCompteInput {
   company: EllisphereCompany
   typeCompte: TypeCompte
+  typeCompteId: string | null
 }
 
 interface CreateCompteResult {
@@ -81,7 +82,7 @@ export function useCreateCompteFromEllisphere() {
   const queryClient = useQueryClient()
 
   return useMutation({
-    mutationFn: async ({ company, typeCompte }: CreateCompteInput): Promise<CreateCompteResult> => {
+    mutationFn: async ({ company, typeCompte, typeCompteId }: CreateCompteInput): Promise<CreateCompteResult> => {
       const nom = company.raisonSociale ?? company.nomCommercial ?? 'Entreprise sans nom'
       const base = {
         nom,
@@ -99,13 +100,17 @@ export function useCreateCompteFromEllisphere() {
       let compte: Compte = { id: `local-${Date.now()}`, ...base }
 
       if (isSupabaseConfigured) {
-        // La vraie table `comptes` a un champ `siret` (pas `siren`) et un `type_compte_id`
-        // en FK vers des sous-tables par type — schéma pas encore confirmé assez pour viser
-        // juste à tous les coups. On tente un insert plausible ; en cas d'échec de schéma,
-        // on retombe sur une création locale (cache) sans bloquer l'utilisatrice.
         const { data, error } = await supabase
           .from('comptes')
-          .insert({ nom, segment: base.segment, ville: base.ville, siret: company.siret })
+          .insert({
+            nom,
+            segment: base.segment,
+            ville: base.ville,
+            siret: company.siret,
+            siren: company.siren,
+            type_compte: typeCompte,
+            ...(typeCompteId ? { type_compte_id: typeCompteId } : {}),
+          })
           .select()
           .single()
         if (!error && data) {

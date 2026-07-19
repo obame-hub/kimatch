@@ -121,11 +121,11 @@ export const mockCompteurs: Compteur[] = [
 ]
 
 export const mockDocuments: DocumentItem[] = [
-  { id: 'd1', nom: 'Mandat signé — Cabinet Durand.pdf', type_document: 'Mandat', entite_type: 'compte', entite_id: 'c1', objet_lie: 'Cabinet Durand', auteur: 'Naoëlle Ghouma', date_creation: '2026-05-02' },
-  { id: 'd2', nom: 'Recommandation v1 — Siège Meridia.pdf', type_document: 'Recommandation', entite_type: 'recommandation', entite_id: 'r1', objet_lie: 'Optimisation tarifaire — Siège Meridia', auteur: 'William Goupil', date_creation: '2026-07-05' },
-  { id: 'd3', nom: 'Facture juin 2026 — Résidence Le Parc.pdf', type_document: 'Facture', entite_type: 'site', entite_id: 's5', objet_lie: 'Résidence Le Parc', auteur: 'Système', date_creation: '2026-07-01' },
-  { id: 'd4', nom: 'Offre EDF — Hôtel Belvédère.pdf', type_document: 'Offre fournisseur', entite_type: 'site', entite_id: 's4', objet_lie: 'Hôtel Belvédère', auteur: 'William Goupil', date_creation: '2026-07-13' },
-  { id: 'd5', nom: 'Contrat gaz — Résidence Les Tilleuls.pdf', type_document: 'Contrat', entite_type: 'site', entite_id: 's1', objet_lie: 'Résidence Les Tilleuls', auteur: 'Naoëlle Ghouma', date_creation: '2026-06-20' },
+  { id: 'd1', nom: 'Mandat signé — Cabinet Durand.pdf', nom_fichier: 'mandat-signe-cabinet-durand.pdf', url: 'https://example.com/documents/mandat-signe-cabinet-durand.pdf', type_document: 'Mandat', entite_type: 'compte', entite_id: 'c1', objet_lie: 'Cabinet Durand', auteur: 'Naoëlle Ghouma', date_creation: '2026-05-02' },
+  { id: 'd2', nom: 'Recommandation v1 — Siège Meridia.pdf', nom_fichier: 'recommandation-v1-siege-meridia.pdf', url: 'https://example.com/documents/recommandation-v1-siege-meridia.pdf', type_document: 'Recommandation', entite_type: 'recommandation', entite_id: 'r1', objet_lie: 'Optimisation tarifaire — Siège Meridia', auteur: 'William Goupil', date_creation: '2026-07-05' },
+  { id: 'd3', nom: 'Facture juin 2026 — Résidence Le Parc.pdf', nom_fichier: 'facture-juin-2026-residence-le-parc.pdf', url: 'https://example.com/documents/facture-juin-2026-residence-le-parc.pdf', type_document: 'Facture', entite_type: 'site', entite_id: 's5', objet_lie: 'Résidence Le Parc', auteur: 'Système', date_creation: '2026-07-01' },
+  { id: 'd4', nom: 'Offre EDF — Hôtel Belvédère.pdf', nom_fichier: 'offre-edf-hotel-belvedere.pdf', url: 'https://example.com/documents/offre-edf-hotel-belvedere.pdf', type_document: 'Offre fournisseur', entite_type: 'site', entite_id: 's4', objet_lie: 'Hôtel Belvédère', auteur: 'William Goupil', date_creation: '2026-07-13' },
+  { id: 'd5', nom: 'Contrat gaz — Résidence Les Tilleuls.pdf', nom_fichier: 'contrat-gaz-residence-les-tilleuls.pdf', url: 'https://example.com/documents/contrat-gaz-residence-les-tilleuls.pdf', type_document: 'Contrat', entite_type: 'site', entite_id: 's1', objet_lie: 'Résidence Les Tilleuls', auteur: 'Naoëlle Ghouma', date_creation: '2026-06-20' },
 ]
 
 export const mockInteractions: Interaction[] = [

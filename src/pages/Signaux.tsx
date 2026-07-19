@@ -42,6 +42,8 @@ function CreateSignalDialog({ open, onClose }: { open: boolean; onClose: () => v
   const { data: sites } = useSites()
   const { data: typesRef } = useReferenceTable('types_signaux')
   const types = typesRef && typesRef.length > 0 ? typesRef : FALLBACK_TYPES_SIGNAUX
+  const { data: statutsRef } = useReferenceTable('statuts_signaux')
+  const statuts = statutsRef && statutsRef.length > 0 ? statutsRef : FALLBACK_STATUTS_SIGNAUX
   const createSignal = useCreateSignal()
 
   const [siteId, setSiteId] = useState('')
@@ -60,6 +62,7 @@ function CreateSignalDialog({ open, onClose }: { open: boolean; onClose: () => v
     e.preventDefault()
     const site = sites?.find((s) => s.id === siteId)
     const type = types.find((t) => t.id === typeSignalId)
+    const statutNouveau = statuts.find((s) => s.code === 'NOUVEAU')
     if (!site) return
 
     const result = await createSignal.mutateAsync({
@@ -67,6 +70,7 @@ function CreateSignalDialog({ open, onClose }: { open: boolean; onClose: () => v
       site_nom: site.nom,
       type_signal_id: typeSignalId || null,
       type_signal_libelle: type?.libelle ?? '',
+      statut_id: statutNouveau?.id ?? null,
       description,
     })
     setFeedback(result.persisted ? 'Signal créé.' : 'Signal ajouté localement (non synchronisé avec Supabase).')

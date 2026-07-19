@@ -47,6 +47,13 @@ export default function DocumentDetail() {
               </p>
               <p><span className="text-navy-400">Auteur :</span> {doc.auteur}</p>
               <p><span className="text-navy-400">Date :</span> {new Date(doc.date_creation).toLocaleDateString('fr-FR')}</p>
+              {doc.url && (
+                <p>
+                  <a href={doc.url} target="_blank" rel="noreferrer" className="text-kiwi-700 underline hover:text-kiwi-800">
+                    Ouvrir le document ↗
+                  </a>
+                </p>
+              )}
             </CardContent>
           </Card>
         )}

@@ -149,3 +149,10 @@ export const FALLBACK_TYPES_DOCUMENTS: ReferenceRow[] = [
   { id: '4', code: 'RECOMMANDATION', libelle: 'Recommandation', ordre: 40, couleur: null, icone: null },
   { id: '5', code: 'AUTRE', libelle: 'Autre', ordre: 50, couleur: null, icone: null },
 ]
+
+export const FALLBACK_TYPES_COMPTES: ReferenceRow[] = [
+  { id: '1', code: 'KIWEE', libelle: 'KiWee', ordre: 10, couleur: null, icone: null },
+  { id: '2', code: 'CLIENT', libelle: 'Client', ordre: 20, couleur: null, icone: null },
+  { id: '3', code: 'PARTENAIRE', libelle: 'Partenaire', ordre: 30, couleur: null, icone: null },
+  { id: '4', code: 'FOURNISSEUR', libelle: 'Fournisseur', ordre: 40, couleur: null, icone: null },
+]

@@ -27,6 +27,8 @@ function CreateRecommandationDialog({ open, onClose }: { open: boolean; onClose:
   const { data: sites } = useSites()
   const { data: objectifsRef } = useReferenceTable('types_objectifs')
   const objectifs = objectifsRef && objectifsRef.length > 0 ? objectifsRef : FALLBACK_TYPES_OBJECTIFS
+  const { data: etapesRef } = useReferenceTable('etapes_recommandation')
+  const etapes = etapesRef && etapesRef.length > 0 ? etapesRef : FALLBACK_ETAPES_RECOMMANDATION
   const createRecommandation = useCreateRecommandation()
 
   const [titre, setTitre] = useState('')
@@ -60,6 +62,7 @@ function CreateRecommandationDialog({ open, onClose }: { open: boolean; onClose:
     e.preventDefault()
     if (!mandat) return
     const objectif = objectifs.find((o) => o.id === objectifId)
+    const etapeAPreparer = etapes.find((e) => e.code === 'A_PREPARER')
     const sitesChoisis = sitesDuCompte.filter((s) => siteIds.includes(s.id)).map((s) => ({ id: s.id, nom: s.nom }))
 
     const result = await createRecommandation.mutateAsync({
@@ -68,6 +71,7 @@ function CreateRecommandationDialog({ open, onClose }: { open: boolean; onClose:
       compte_id: mandat.compte_id,
       compte_nom: mandat.compte_nom,
       sites: sitesChoisis,
+      etape_id: etapeAPreparer?.id ?? null,
       objectif_id: objectifId || null,
       objectif_libelle: objectif?.libelle ?? '',
       priorite,

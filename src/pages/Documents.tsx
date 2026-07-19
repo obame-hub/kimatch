@@ -38,6 +38,7 @@ function CreateDocumentDialog({ open, onClose }: { open: boolean; onClose: () =>
   const createDocument = useCreateDocument()
 
   const [nom, setNom] = useState('')
+  const [url, setUrl] = useState('')
   const [typeDocumentId, setTypeDocumentId] = useState('')
   const [entiteType, setEntiteType] = useState('')
   const [entiteId, setEntiteId] = useState('')
@@ -53,6 +54,7 @@ function CreateDocumentDialog({ open, onClose }: { open: boolean; onClose: () =>
 
   function reset() {
     setNom('')
+    setUrl('')
     setTypeDocumentId('')
     setEntiteType('')
     setEntiteId('')
@@ -66,6 +68,7 @@ function CreateDocumentDialog({ open, onClose }: { open: boolean; onClose: () =>
 
     const result = await createDocument.mutateAsync({
       nom,
+      url,
       type_document_id: typeDocumentId || null,
       type_document_libelle: type?.libelle ?? '',
       entite_type: entiteType,
@@ -83,6 +86,15 @@ function CreateDocumentDialog({ open, onClose }: { open: boolean; onClose: () =>
       <form onSubmit={handleSubmit} className="space-y-3">
         <FormField label="Nom du document">
           <Input value={nom} onChange={(e) => setNom(e.target.value)} required placeholder="Ex. Mandat signé — Cabinet Durand" />
+        </FormField>
+        <FormField label="Lien du document (URL)">
+          <Input
+            type="url"
+            value={url}
+            onChange={(e) => setUrl(e.target.value)}
+            required
+            placeholder="https://…"
+          />
         </FormField>
         <FormField label="Type de document">
           <Select value={typeDocumentId} onChange={(e) => setTypeDocumentId(e.target.value)}>

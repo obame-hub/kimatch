@@ -51,6 +51,7 @@ interface CreateSignalInput {
   site_nom: string
   type_signal_id: string | null
   type_signal_libelle: string
+  statut_id: string | null
   description: string
 }
 
@@ -86,6 +87,7 @@ export function useCreateSignal() {
             commentaire: input.description,
             date_detection: now,
             ...(input.type_signal_id ? { type_signal_id: input.type_signal_id } : {}),
+            ...(input.statut_id ? { statut_id: input.statut_id } : {}),
           })
           .select('id')
           .single()
