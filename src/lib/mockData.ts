@@ -12,11 +12,11 @@ export const mockSites: Site[] = [
 // Codes de statut alignés sur la vraie table statuts_signaux (NOUVEAU, A_CONTACTER,
 // CONTACTE, REPORTE, INTERET_CONFIRME, REFUSE, TRANSFORME, CLOTURE).
 export const mockSignaux: Signal[] = [
-  { id: 'sig1', site_id: 's1', site_nom: 'Résidence Les Tilleuls', type_signal: 'Échéance de contrat', statut: 'A_CONTACTER', priorite: 'haute', conseiller: 'Naoëlle Ghouma', date_creation: '2026-07-10', description: 'Contrat électricité parties communes arrivant à échéance dans 45 jours.' },
-  { id: 'sig2', site_id: 's2', site_nom: 'Siège social — Paris', type_signal: 'Opportunité fournisseur', statut: 'INTERET_CONFIRME', priorite: 'normale', conseiller: 'William Goupil', date_creation: '2026-07-08', description: 'Nouvelle offre marché plus compétitive détectée sur le segment tertiaire.' },
-  { id: 'sig3', site_id: 's5', site_nom: 'Résidence Le Parc', type_signal: 'Nouvelle facture', statut: 'NOUVEAU', priorite: 'normale', conseiller: 'Naoëlle Ghouma', date_creation: '2026-07-14', description: 'Hausse de consommation inhabituelle détectée sur le compteur chaufferie.' },
-  { id: 'sig4', site_id: 's4', site_nom: 'Hôtel Belvédère', type_signal: 'Demande du client', statut: 'CONTACTE', priorite: 'haute', conseiller: 'William Goupil', date_creation: '2026-07-12', description: 'Le directeur de site demande un audit énergétique complet.' },
-  { id: 'sig5', site_id: 's1', site_nom: 'Résidence Les Tilleuls', type_signal: 'Préavis', statut: 'A_CONTACTER', priorite: 'normale', conseiller: 'Naoëlle Ghouma', date_creation: '2026-07-15', description: 'Période de préavis ouverte sur le contrat gaz chaufferie.' },
+  { id: 'sig1', site_id: 's1', site_nom: 'Résidence Les Tilleuls', type_signal: 'Échéance de contrat', statut: 'A_CONTACTER', severite: 'haute', date_snooze: null, conseiller: 'Naoëlle Ghouma', date_creation: '2026-07-10', description: 'Contrat électricité parties communes arrivant à échéance dans 45 jours.' },
+  { id: 'sig2', site_id: 's2', site_nom: 'Siège social — Paris', type_signal: 'Opportunité fournisseur', statut: 'INTERET_CONFIRME', severite: 'normale', date_snooze: null, conseiller: 'William Goupil', date_creation: '2026-07-08', description: 'Nouvelle offre marché plus compétitive détectée sur le segment tertiaire.' },
+  { id: 'sig3', site_id: 's5', site_nom: 'Résidence Le Parc', type_signal: 'Nouvelle facture', statut: 'NOUVEAU', severite: 'critique', date_snooze: null, conseiller: 'Naoëlle Ghouma', date_creation: '2026-07-14', description: 'Hausse de consommation inhabituelle détectée sur le compteur chaufferie.' },
+  { id: 'sig4', site_id: 's4', site_nom: 'Hôtel Belvédère', type_signal: 'Demande du client', statut: 'CONTACTE', severite: 'haute', date_snooze: null, conseiller: 'William Goupil', date_creation: '2026-07-12', description: 'Le directeur de site demande un audit énergétique complet.' },
+  { id: 'sig5', site_id: 's1', site_nom: 'Résidence Les Tilleuls', type_signal: 'Préavis', statut: 'A_CONTACTER', severite: 'basse', date_snooze: '2026-08-15T00:00:00', conseiller: 'Naoëlle Ghouma', date_creation: '2026-07-15', description: 'Période de préavis ouverte sur le contrat gaz chaufferie.' },
 ]
 
 // Codes d'étape alignés sur la vraie table etapes_recommandation (A_PREPARER, EN_ANALYSE,

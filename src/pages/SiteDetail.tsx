@@ -73,7 +73,7 @@ export default function SiteDetail() {
                   <div key={signal.id} className="rounded-lg border border-navy-100 p-3">
                     <div className="flex items-center justify-between">
                       <p className="text-sm font-medium text-navy-800">{signal.type_signal}</p>
-                      <Badge tone="amber">{signal.priorite}</Badge>
+                      <Badge tone="amber">{signal.severite}</Badge>
                     </div>
                     <p className="mt-1 text-xs text-navy-500">{signal.description}</p>
                   </div>

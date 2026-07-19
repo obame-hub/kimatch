@@ -21,7 +21,8 @@ export interface Signal {
   site_nom: string
   type_signal: string
   statut: string
-  priorite: 'basse' | 'normale' | 'haute'
+  severite: 'basse' | 'normale' | 'haute' | 'critique'
+  date_snooze: string | null
   conseiller: string
   date_creation: string
   description: string

@@ -6,7 +6,18 @@ import './index.css'
 import App from './App.tsx'
 import { AuthProvider } from '@/lib/auth'
 
-const queryClient = new QueryClient()
+// staleTime élevé + pas de refetch au focus : en mode démo (ou tant que les policies RLS
+// ne sont pas posées côté Supabase), un fetch réel ne renvoie jamais les créations locales
+// optimistes — un refetch-on-mount par défaut les efface silencieusement à chaque navigation.
+// Les mutations patchent déjà le cache elles-mêmes (setQueryData), donc pas besoin de refetch agressif.
+const queryClient = new QueryClient({
+  defaultOptions: {
+    queries: {
+      staleTime: 5 * 60 * 1000,
+      refetchOnWindowFocus: false,
+    },
+  },
+})
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
