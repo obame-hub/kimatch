@@ -21,7 +21,7 @@ export default function ContratDetail() {
   return (
     <div>
       <Topbar title={contrat?.fournisseur_nom ?? 'Contrat'} />
-      <div className="p-6">
+      <div className="p-4 sm:p-6">
         <Button variant="ghost" size="sm" className="mb-4" onClick={() => navigate('/contrats')}>
           <ArrowLeft className="h-4 w-4" />
           Retour aux contrats

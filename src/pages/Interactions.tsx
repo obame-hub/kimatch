@@ -162,7 +162,7 @@ export default function Interactions() {
   return (
     <div>
       <Topbar title="Interactions" />
-      <div className="p-6">
+      <div className="p-4 sm:p-6">
         <PageHeader
           title="Interactions"
           description="Historique des échanges (appels, emails, réunions) avec les comptes et contacts."

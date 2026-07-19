@@ -31,7 +31,7 @@ export default function Dashboard() {
   return (
     <div>
       <Topbar title="Tableau de bord" />
-      <div className="p-6">
+      <div className="p-4 sm:p-6">
         <div className="mb-6 animate-fade-up overflow-hidden rounded-xl bg-navy-950 px-6 py-7 text-white shadow-card">
           <div className="relative">
             <div className="pointer-events-none absolute -right-10 -top-16 h-56 w-56 rounded-full bg-kiwi-500/25 blur-3xl" />

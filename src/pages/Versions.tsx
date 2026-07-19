@@ -21,7 +21,7 @@ export default function Versions() {
   return (
     <div>
       <Topbar title="Versions" />
-      <div className="p-6">
+      <div className="p-4 sm:p-6">
         <PageHeader
           title="Versions"
           description="Chaque recommandation évolue par versions successives — une version présentée n'est jamais modifiée, on en crée une nouvelle."

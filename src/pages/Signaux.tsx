@@ -224,7 +224,7 @@ export default function Signaux() {
   return (
     <div>
       <Topbar title="Signaux" />
-      <div className="p-6">
+      <div className="p-4 sm:p-6">
         <PageHeader
           title="Signaux"
           description="Un signal attire l'attention — il ne déclenche jamais automatiquement une recommandation. Il suit un cycle : détection, contact, intérêt confirmé, puis mandat."

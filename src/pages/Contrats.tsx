@@ -152,7 +152,7 @@ export default function Contrats() {
   return (
     <div>
       <Topbar title="Contrats" />
-      <div className="p-6">
+      <div className="p-4 sm:p-6">
         <PageHeader
           title="Contrats"
           description="Contrats de fourniture d'énergie liés à chaque site — électricité et gaz."

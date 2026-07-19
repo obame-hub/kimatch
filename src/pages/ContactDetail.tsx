@@ -16,7 +16,7 @@ export default function ContactDetail() {
   return (
     <div>
       <Topbar title={contact ? `${contact.prenom} ${contact.nom}` : 'Contact'} />
-      <div className="p-6">
+      <div className="p-4 sm:p-6">
         <Button variant="ghost" size="sm" className="mb-4" onClick={() => navigate('/contacts')}>
           <ArrowLeft className="h-4 w-4" />
           Retour aux contacts

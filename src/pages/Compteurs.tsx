@@ -202,7 +202,7 @@ export default function Compteurs() {
   return (
     <div>
       <Topbar title="Compteurs" />
-      <div className="p-6">
+      <div className="p-4 sm:p-6">
         <PageHeader
           title="Compteurs"
           description="Les points de livraison qui alimentent chaque site en énergie — électricité et gaz sont suivis séparément."

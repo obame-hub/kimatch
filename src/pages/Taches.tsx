@@ -127,7 +127,7 @@ export default function Taches() {
   return (
     <div>
       <Topbar title="Tâches" />
-      <div className="p-6">
+      <div className="p-4 sm:p-6">
         <PageHeader
           title="Tâches"
           description="Les actions à faire pour vos comptes et sites — relances, préparations de mandat, présentations."

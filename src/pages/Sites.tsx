@@ -102,7 +102,7 @@ export default function Sites() {
   return (
     <div>
       <Topbar title="Sites" />
-      <div className="p-6">
+      <div className="p-4 sm:p-6">
         <PageHeader
           title="Sites"
           description="L'objet central du patrimoine énergétique — chaque recommandation, signal et contrat s'y rattache."

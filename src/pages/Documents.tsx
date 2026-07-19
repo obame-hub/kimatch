@@ -134,7 +134,7 @@ export default function Documents() {
   return (
     <div>
       <Topbar title="Documents" />
-      <div className="p-6">
+      <div className="p-4 sm:p-6">
         <PageHeader
           title="Documents"
           description="Tous les documents (mandats, factures, contrats, recommandations) centralisés en un seul endroit."

@@ -13,8 +13,11 @@ import { useContrats } from '@/lib/data/contrats'
 import { useInteractions } from '@/lib/data/interactions'
 import { useContacts } from '@/lib/data/contacts'
 import { useMandats } from '@/lib/data/mandats'
+import { useActions } from '@/lib/data/actions'
+import { useDocuments } from '@/lib/data/documents'
 import { EnergyTimeline } from '@/components/site/EnergyTimeline'
 import { CoverageMatrix } from '@/components/site/CoverageMatrix'
+import { ActivityFeed } from '@/components/site/ActivityFeed'
 
 export default function SiteDetail() {
   const { id } = useParams()
@@ -27,6 +30,8 @@ export default function SiteDetail() {
   const { data: interactions } = useInteractions()
   const { data: contacts } = useContacts()
   const { data: mandats } = useMandats()
+  const { data: actions } = useActions()
+  const { data: documents } = useDocuments()
 
   const site = sites?.find((s) => s.id === id)
   const signauxDuSite = signaux?.filter((s) => s.site_id === id) ?? []
@@ -35,12 +40,14 @@ export default function SiteDetail() {
   const contratsDuSite = contrats?.filter((c) => c.site_id === id) ?? []
   const interactionsDuSite = interactions?.filter((i) => i.site_id === id) ?? []
   const contactsDuSite = contacts?.filter((c) => c.sites.some((s) => s.id === id)) ?? []
+  const actionsDuSite = actions?.filter((a) => a.site_id === id) ?? []
+  const documentsDuSite = documents?.filter((d) => d.entite_type === 'site' && d.entite_id === id) ?? []
   const mandatDuSite = mandats?.find((m) => m.compte_id === site?.compte_id && m.site_ids.includes(id ?? ''))
 
   return (
     <div>
       <Topbar title={site?.nom ?? 'Site'} />
-      <div className="p-6">
+      <div className="p-4 sm:p-6">
         <Button variant="ghost" size="sm" className="mb-4" onClick={() => navigate('/sites')}>
           <ArrowLeft className="h-4 w-4" />
           Retour aux sites
@@ -65,19 +72,19 @@ export default function SiteDetail() {
 
             <Card className="lg:col-span-2">
               <CardHeader>
-                <CardTitle>Signaux liés à ce site</CardTitle>
+                <CardTitle>Activité</CardTitle>
               </CardHeader>
-              <CardContent className="space-y-3">
-                {signauxDuSite.length === 0 && <p className="text-sm text-navy-400">Aucun signal ouvert.</p>}
-                {signauxDuSite.map((signal) => (
-                  <div key={signal.id} className="rounded-lg border border-navy-100 p-3">
-                    <div className="flex items-center justify-between">
-                      <p className="text-sm font-medium text-navy-800">{signal.type_signal}</p>
-                      <Badge tone="amber">{signal.severite}</Badge>
-                    </div>
-                    <p className="mt-1 text-xs text-navy-500">{signal.description}</p>
-                  </div>
-                ))}
+              <CardContent>
+                <ActivityFeed
+                  siteId={site.id}
+                  siteNom={site.nom}
+                  compteId={site.compte_id}
+                  compteNom={site.compte_nom}
+                  signaux={signauxDuSite}
+                  interactions={interactionsDuSite}
+                  actions={actionsDuSite}
+                  documents={documentsDuSite}
+                />
               </CardContent>
             </Card>
 
@@ -164,25 +171,6 @@ export default function SiteDetail() {
                   >
                     <p className="text-sm font-medium text-navy-800">{c.fournisseur_nom}</p>
                     <p className="text-xs text-navy-500">{c.type_energie === 'gaz' ? 'Gaz' : 'Électricité'}</p>
-                  </div>
-                ))}
-              </CardContent>
-            </Card>
-
-            <Card className="lg:col-span-2">
-              <CardHeader>
-                <CardTitle>Interactions liées</CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-2">
-                {interactionsDuSite.length === 0 && <p className="text-sm text-navy-400">Aucune interaction pour ce site.</p>}
-                {interactionsDuSite.map((i) => (
-                  <div
-                    key={i.id}
-                    className="cursor-pointer rounded-lg border border-navy-100 p-3 transition-colors hover:bg-navy-50"
-                    onClick={() => navigate(`/interactions/${i.id}`)}
-                  >
-                    <p className="text-sm font-medium text-navy-800">{i.objet || i.type_interaction}</p>
-                    <p className="text-xs text-navy-500">{i.auteur} · {new Date(i.date_interaction).toLocaleDateString('fr-FR')}</p>
                   </div>
                 ))}
               </CardContent>

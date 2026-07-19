@@ -106,7 +106,7 @@ export default function CompteurDetail() {
   return (
     <div>
       <Topbar title={compteur ? `Compteur ${compteur.numero_pdl}` : 'Compteur'} />
-      <div className="p-6">
+      <div className="p-4 sm:p-6">
         <Button variant="ghost" size="sm" className="mb-4" onClick={() => navigate('/compteurs')}>
           <ArrowLeft className="h-4 w-4" />
           Retour aux compteurs
@@ -116,7 +116,7 @@ export default function CompteurDetail() {
           <p className="text-sm text-navy-500">Compteur introuvable.</p>
         ) : (
           <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
-            <Card className="p-6">
+            <Card className="p-4 sm:p-6">
               <CardHeader className="px-0 pt-0">
                 <CardTitle>Détail du compteur</CardTitle>
               </CardHeader>
@@ -160,7 +160,7 @@ export default function CompteurDetail() {
               </CardContent>
             </Card>
 
-            <Card className="p-6">
+            <Card className="p-4 sm:p-6">
               <CardHeader className="flex-row items-center justify-between px-0 pt-0">
                 <CardTitle>Historique de consommation</CardTitle>
                 <Button type="button" size="sm" variant="outline" onClick={() => setShowAdd(true)}>

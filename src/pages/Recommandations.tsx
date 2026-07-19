@@ -165,7 +165,7 @@ export default function Recommandations() {
   return (
     <div>
       <Topbar title="Recommandations" />
-      <div className="p-6">
+      <div className="p-4 sm:p-6">
         <PageHeader
           title="Recommandations"
           description="Le véritable produit de KiWee — jamais figée, elle évolue par versions successives."

@@ -120,7 +120,7 @@ export default function Mandats() {
   return (
     <div>
       <Topbar title="Mandats" />
-      <div className="p-6">
+      <div className="p-4 sm:p-6">
         <PageHeader
           title="Mandats"
           description="Le mandat autorise KiWee à intervenir sur un périmètre de sites — il ne se confond pas avec le périmètre étudié par une recommandation."

@@ -21,7 +21,7 @@ export default function Comptes() {
   return (
     <div>
       <Topbar title="Comptes" />
-      <div className="p-6">
+      <div className="p-4 sm:p-6">
         <PageHeader
           title="Comptes"
           description="Le compte représente la relation (client, fournisseur, partenaire) — la valeur se crée sur les sites qui lui sont rattachés."
