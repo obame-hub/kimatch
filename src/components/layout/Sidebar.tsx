@@ -14,6 +14,7 @@ import {
   User,
   CheckSquare,
   X,
+  Settings,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { KiweeMark } from '@/components/ui/kiwee-mark'
@@ -34,6 +35,7 @@ const navItems = [
   { to: '/taches', label: 'Tâches', icon: CheckSquare, badgeKey: 'taches' as const },
   { to: '/interactions', label: 'Interactions', icon: MessageSquare },
   { to: '/documents', label: 'Documents', icon: FolderClosed },
+  { to: '/parametres', label: 'Paramètres', icon: Settings },
 ]
 
 export function Sidebar() {

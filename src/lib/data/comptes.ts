@@ -3,6 +3,8 @@ import { isSupabaseConfigured, supabase } from '@/lib/supabase'
 import { mockComptes } from '@/lib/mockData'
 import type { Compte, TypeCompte } from '@/types/domain'
 import type { EllisphereCompany, EllisphereScore } from '@/lib/data/ellisphere'
+import { notifySlack } from '@/lib/data/slackSettings'
+import { buildAccountCreatedBlocks } from '@/lib/slackTemplates'
 
 interface RawCompteClient {
   segment_compte_id: string | null
@@ -210,6 +212,17 @@ export function useCreateCompteFromEllisphere() {
       }
 
       queryClient.setQueryData<Compte[]>(['comptes'], (old) => (old ? [...old, compte] : [compte]))
+
+      const TYPE_LABELS: Record<TypeCompte, string> = { client: 'Client', fournisseur: 'Fournisseur', partenaire: 'Partenaire', kiwee: 'KiWee' }
+      const tpl = buildAccountCreatedBlocks({
+        accountName: compte.nom,
+        accountUrl: `${window.location.origin}/comptes/${compte.id}`,
+        accountType: TYPE_LABELS[typeCompte],
+        siren: compte.siren,
+        ville: compte.ville,
+        segment: compte.segment,
+      })
+      void notifySlack({ module: 'compte', text: tpl.text, blocks: tpl.blocks })
 
       return { compte, persisted }
     },

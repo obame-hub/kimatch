@@ -2,6 +2,8 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { isSupabaseConfigured, supabase } from '@/lib/supabase'
 import { mockContrats } from '@/lib/mockData'
 import type { Contrat } from '@/types/domain'
+import { notifySlack } from '@/lib/data/slackSettings'
+import { buildContratCreatedBlocks } from '@/lib/slackTemplates'
 
 interface RawContrat {
   id: string
@@ -127,6 +129,19 @@ export function useCreateContrat() {
       }
 
       queryClient.setQueryData<Contrat[]>(['contrats'], (old) => (old ? [contrat, ...old] : [contrat]))
+
+      const tpl = buildContratCreatedBlocks({
+        siteName: contrat.site_nom,
+        siteUrl: `${window.location.origin}/sites/${contrat.site_id}`,
+        fournisseurName: contrat.fournisseur_nom,
+        energyType: contrat.type_energie,
+        dateDebut: contrat.date_debut,
+        dateFin: contrat.date_fin,
+        compteurs: contrat.compteurs.map((c) => ({ label: c.utilisation, numeroPdl: c.numero_pdl })),
+        contratUrl: `${window.location.origin}/contrats/${contrat.id}`,
+      })
+      void notifySlack({ module: 'contrat', text: tpl.text, blocks: tpl.blocks })
+
       return { contrat, persisted }
     },
   })

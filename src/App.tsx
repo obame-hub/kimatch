@@ -24,6 +24,7 @@ import ContratDetail from '@/pages/ContratDetail'
 import Contacts from '@/pages/Contacts'
 import ContactDetail from '@/pages/ContactDetail'
 import Taches from '@/pages/Taches'
+import Parametres from '@/pages/Parametres'
 
 function App() {
   return (
@@ -54,6 +55,7 @@ function App() {
           <Route path="/contacts" element={<Contacts />} />
           <Route path="/contacts/:id" element={<ContactDetail />} />
           <Route path="/taches" element={<Taches />} />
+          <Route path="/parametres" element={<Parametres />} />
         </Route>
       </Route>
     </Routes>
