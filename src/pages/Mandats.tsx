@@ -12,25 +12,30 @@ import { FormField, Input, Select } from '@/components/ui/form'
 import { useMandats, useCreateMandat } from '@/lib/data/mandats'
 import { useComptes } from '@/lib/data/comptes'
 import { useSites } from '@/lib/data/sites'
+import { useContacts } from '@/lib/data/contacts'
 import { useReferenceTable } from '@/lib/data/referenceTables'
 import { FALLBACK_STATUTS_MANDATS, STATUT_MANDAT_TONE } from '@/lib/referenceFallbacks'
 
 function CreateMandatDialog({ open, onClose }: { open: boolean; onClose: () => void }) {
   const { data: comptes } = useComptes()
   const { data: sites } = useSites()
+  const { data: contacts } = useContacts()
   const createMandat = useCreateMandat()
 
   const [compteId, setCompteId] = useState('')
   const [dateSignature, setDateSignature] = useState('')
   const [siteIds, setSiteIds] = useState<string[]>([])
+  const [contactSignataireId, setContactSignataireId] = useState('')
   const [feedback, setFeedback] = useState<string | null>(null)
 
   const sitesDuCompte = sites?.filter((s) => s.compte_id === compteId) ?? []
+  const contactsDuCompte = contacts?.filter((c) => c.compte_id === compteId) ?? []
 
   function reset() {
     setCompteId('')
     setDateSignature('')
     setSiteIds([])
+    setContactSignataireId('')
     setFeedback(null)
   }
 
@@ -42,12 +47,15 @@ function CreateMandatDialog({ open, onClose }: { open: boolean; onClose: () => v
     e.preventDefault()
     const compte = comptes?.find((c) => c.id === compteId)
     if (!compte) return
+    const contactSignataire = contactsDuCompte.find((c) => c.id === contactSignataireId)
 
     const result = await createMandat.mutateAsync({
       compte_id: compte.id,
       compte_nom: compte.nom,
       site_ids: siteIds,
       date_signature: dateSignature || null,
+      contact_signataire_id: contactSignataireId || null,
+      contact_signataire_nom: contactSignataire ? `${contactSignataire.prenom} ${contactSignataire.nom}` : undefined,
     })
     setFeedback(result.persisted ? 'Mandat créé.' : 'Mandat ajouté localement (non synchronisé avec Supabase).')
     setTimeout(() => {
@@ -68,6 +76,14 @@ function CreateMandatDialog({ open, onClose }: { open: boolean; onClose: () => v
         <FormField label="Date de signature">
           <Input type="date" value={dateSignature} onChange={(e) => setDateSignature(e.target.value)} />
         </FormField>
+        {compteId && contactsDuCompte.length > 0 && (
+          <FormField label="Contact signataire (optionnel)">
+            <Select value={contactSignataireId} onChange={(e) => setContactSignataireId(e.target.value)}>
+              <option value="">Sélectionner…</option>
+              {contactsDuCompte.map((c) => <option key={c.id} value={c.id}>{c.prenom} {c.nom}</option>)}
+            </Select>
+          </FormField>
+        )}
         {compteId && (
           <FormField label="Sites couverts">
             {sitesDuCompte.length === 0 ? (

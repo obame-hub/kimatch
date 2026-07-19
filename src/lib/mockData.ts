@@ -1,4 +1,4 @@
-import type { ActionItem, Compte, Compteur, Contrat, DocumentItem, Interaction, Mandat, Recommandation, Signal, Site } from '@/types/domain'
+import type { ActionItem, Compte, Compteur, Contact, Contrat, DocumentItem, Interaction, Mandat, Recommandation, Signal, Site } from '@/types/domain'
 
 export const mockSites: Site[] = [
   { id: 's1', nom: 'Résidence Les Tilleuls', compte_id: 'c1', compte_nom: 'Cabinet Durand', type_site: 'Copropriété', ville: 'Lyon', code_postal: '69003', nb_compteurs: 4, nb_signaux_ouverts: 2, statut: 'actif' },
@@ -94,9 +94,15 @@ export const mockActions: ActionItem[] = [
 
 // Codes alignés sur statuts_mandats (A_PREPARER, ENVOYE, EN_SIGNATURE, SIGNE, ACTIF, EXPIRE, REVOQUE).
 export const mockMandats: Mandat[] = [
-  { id: 'm1', compte_id: 'c1', compte_nom: 'Cabinet Durand', statut: 'ACTIF', date_signature: '2026-05-02', nb_sites_couverts: 2 },
-  { id: 'm2', compte_id: 'c2', compte_nom: 'Groupe Meridia', statut: 'ACTIF', date_signature: '2026-03-14', nb_sites_couverts: 2 },
+  { id: 'm1', compte_id: 'c1', compte_nom: 'Cabinet Durand', statut: 'ACTIF', date_signature: '2026-05-02', nb_sites_couverts: 2, contact_signataire_id: 'ct1', contact_signataire_nom: 'Marc Lefebvre' },
+  { id: 'm2', compte_id: 'c2', compte_nom: 'Groupe Meridia', statut: 'ACTIF', date_signature: '2026-03-14', nb_sites_couverts: 2, contact_signataire_id: 'ct2', contact_signataire_nom: 'Sophie Nguyen' },
   { id: 'm3', compte_id: 'c3', compte_nom: 'Hôtellerie du Sud', statut: 'EN_SIGNATURE', date_signature: null, nb_sites_couverts: 1 },
+]
+
+export const mockContacts: Contact[] = [
+  { id: 'ct1', compte_id: 'c1', compte_nom: 'Cabinet Durand', civilite: 'M.', prenom: 'Marc', nom: 'Lefebvre', fonction: 'Syndic', telephone: '01 23 45 67 89', email: 'marc.lefebvre@cabinet-durand.fr', contact_principal: true, actif: true, sites: [{ id: 's1', nom: 'Résidence Les Tilleuls', fonction_sur_site: 'Contact principal' }] },
+  { id: 'ct2', compte_id: 'c2', compte_nom: 'Groupe Meridia', civilite: 'Mme', prenom: 'Sophie', nom: 'Nguyen', fonction: 'Directrice des achats', telephone: '01 98 76 54 32', email: 's.nguyen@meridia.fr', contact_principal: true, actif: true, sites: [{ id: 's2', nom: 'Siège social — Paris', fonction_sur_site: null }] },
+  { id: 'ct3', compte_id: 'c3', compte_nom: 'Hôtellerie du Sud', civilite: 'M.', prenom: 'Antoine', nom: 'Perez', fonction: 'Directeur technique', telephone: '04 91 22 33 44', email: 'a.perez@hotellerie-sud.fr', contact_principal: false, actif: true, sites: [{ id: 's4', nom: 'Hôtel Belvédère', fonction_sur_site: 'Contact site' }] },
 ]
 
 // Les SIREN ci-dessous sont fictifs sauf celui d'EDF (réel, pour pouvoir démontrer

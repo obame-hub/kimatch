@@ -55,7 +55,14 @@ export default function InteractionDetail() {
                 )}
               </p>
               {interaction.contact_nom && (
-                <p><span className="text-navy-400">Contact :</span> {interaction.contact_nom}</p>
+                <p>
+                  <span className="text-navy-400">Contact :</span>{' '}
+                  {interaction.contact_id ? (
+                    <EntityLink to={`/contacts/${interaction.contact_id}`}>{interaction.contact_nom}</EntityLink>
+                  ) : (
+                    interaction.contact_nom
+                  )}
+                </p>
               )}
               {interaction.sens && (
                 <p><span className="text-navy-400">Sens :</span> {interaction.sens}</p>

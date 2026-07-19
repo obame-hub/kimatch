@@ -75,6 +75,23 @@ export interface Mandat {
   statut: string
   date_signature: string | null
   nb_sites_couverts: number
+  contact_signataire_id?: string | null
+  contact_signataire_nom?: string
+}
+
+export interface Contact {
+  id: string
+  compte_id: string
+  compte_nom: string
+  civilite: string | null
+  prenom: string
+  nom: string
+  fonction: string | null
+  telephone: string | null
+  email: string | null
+  contact_principal: boolean
+  actif: boolean
+  sites: { id: string; nom: string; fonction_sur_site: string | null }[]
 }
 
 export type TypeCompte = 'client' | 'fournisseur' | 'partenaire' | 'kiwee'

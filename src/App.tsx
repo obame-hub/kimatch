@@ -21,6 +21,8 @@ import Interactions from '@/pages/Interactions'
 import InteractionDetail from '@/pages/InteractionDetail'
 import Contrats from '@/pages/Contrats'
 import ContratDetail from '@/pages/ContratDetail'
+import Contacts from '@/pages/Contacts'
+import ContactDetail from '@/pages/ContactDetail'
 
 function App() {
   return (
@@ -48,6 +50,8 @@ function App() {
           <Route path="/interactions/:id" element={<InteractionDetail />} />
           <Route path="/contrats" element={<Contrats />} />
           <Route path="/contrats/:id" element={<ContratDetail />} />
+          <Route path="/contacts" element={<Contacts />} />
+          <Route path="/contacts/:id" element={<ContactDetail />} />
         </Route>
       </Route>
     </Routes>

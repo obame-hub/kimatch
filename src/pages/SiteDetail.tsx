@@ -11,6 +11,7 @@ import { useCompteurs } from '@/lib/data/compteurs'
 import { useRecommandations } from '@/lib/data/recommandations'
 import { useContrats } from '@/lib/data/contrats'
 import { useInteractions } from '@/lib/data/interactions'
+import { useContacts } from '@/lib/data/contacts'
 
 export default function SiteDetail() {
   const { id } = useParams()
@@ -21,6 +22,7 @@ export default function SiteDetail() {
   const { data: recommandations } = useRecommandations()
   const { data: contrats } = useContrats()
   const { data: interactions } = useInteractions()
+  const { data: contacts } = useContacts()
 
   const site = sites?.find((s) => s.id === id)
   const signauxDuSite = signaux?.filter((s) => s.site_id === id) ?? []
@@ -28,6 +30,7 @@ export default function SiteDetail() {
   const recommandationsDuSite = recommandations?.filter((r) => r.sites.some((s) => s.id === id)) ?? []
   const contratsDuSite = contrats?.filter((c) => c.site_id === id) ?? []
   const interactionsDuSite = interactions?.filter((i) => i.site_id === id) ?? []
+  const contactsDuSite = contacts?.filter((c) => c.sites.some((s) => s.id === id)) ?? []
 
   return (
     <div>
@@ -144,6 +147,25 @@ export default function SiteDetail() {
                   >
                     <p className="text-sm font-medium text-navy-800">{i.objet || i.type_interaction}</p>
                     <p className="text-xs text-navy-500">{i.auteur} · {new Date(i.date_interaction).toLocaleDateString('fr-FR')}</p>
+                  </div>
+                ))}
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardHeader>
+                <CardTitle>Contacts sur ce site</CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-2">
+                {contactsDuSite.length === 0 && <p className="text-sm text-navy-400">Aucun contact rattaché à ce site.</p>}
+                {contactsDuSite.map((c) => (
+                  <div
+                    key={c.id}
+                    className="cursor-pointer rounded-lg border border-navy-100 p-3 transition-colors hover:bg-navy-50"
+                    onClick={() => navigate(`/contacts/${c.id}`)}
+                  >
+                    <p className="text-sm font-medium text-navy-800">{c.prenom} {c.nom}</p>
+                    <p className="text-xs text-navy-500">{c.fonction || '—'}</p>
                   </div>
                 ))}
               </CardContent>

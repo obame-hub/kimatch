@@ -42,6 +42,16 @@ export default function MandatDetail() {
               </p>
               <p><span className="text-navy-400">Sites couverts :</span> {mandat.nb_sites_couverts}</p>
               <p><span className="text-navy-400">Date de signature :</span> {mandat.date_signature ? new Date(mandat.date_signature).toLocaleDateString('fr-FR') : '—'}</p>
+              {mandat.contact_signataire_nom && (
+                <p>
+                  <span className="text-navy-400">Contact signataire :</span>{' '}
+                  {mandat.contact_signataire_id ? (
+                    <EntityLink to={`/contacts/${mandat.contact_signataire_id}`}>{mandat.contact_signataire_nom}</EntityLink>
+                  ) : (
+                    mandat.contact_signataire_nom
+                  )}
+                </p>
+              )}
               <p className="text-xs text-navy-400">
                 Le mandat définit le périmètre de sites que KiWee est autorisé à analyser — une recommandation peut ne porter que sur une partie de ce périmètre.
               </p>

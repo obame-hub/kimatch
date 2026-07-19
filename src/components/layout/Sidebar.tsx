@@ -11,6 +11,7 @@ import {
   FolderClosed,
   MessageSquare,
   FileSignature,
+  User,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { KiweeMark } from '@/components/ui/kiwee-mark'
@@ -18,6 +19,7 @@ import { KiweeMark } from '@/components/ui/kiwee-mark'
 const navItems = [
   { to: '/', label: 'Tableau de bord', icon: LayoutDashboard, end: true },
   { to: '/comptes', label: 'Comptes', icon: Building2 },
+  { to: '/contacts', label: 'Contacts', icon: User },
   { to: '/sites', label: 'Sites', icon: MapPin },
   { to: '/compteurs', label: 'Compteurs', icon: Gauge },
   { to: '/signaux', label: 'Signaux', icon: Radio },

@@ -7,15 +7,21 @@ interface RawMandat {
   id: string
   compte_id: string
   date_signature: string | null
+  contact_signataire_id: string | null
   compte: { nom: string } | null
   statut: { code: string } | null
+  contact_signataire: { prenom: string; nom: string } | null
 }
 
 async function fetchMandats(): Promise<Mandat[]> {
   if (!isSupabaseConfigured) return mockMandats
   try {
     const [mandatsRes, sitesRes] = await Promise.all([
-      supabase.from('mandats').select('id, compte_id, date_signature, compte:comptes(nom), statut:statuts_mandats(code)'),
+      supabase
+        .from('mandats')
+        .select(
+          'id, compte_id, date_signature, contact_signataire_id, compte:comptes(nom), statut:statuts_mandats(code), contact_signataire:contacts(prenom, nom)',
+        ),
       supabase.from('mandats_sites').select('mandat_id'),
     ])
     if (mandatsRes.error || !mandatsRes.data || mandatsRes.data.length === 0) throw mandatsRes.error ?? new Error('empty')
@@ -32,6 +38,8 @@ async function fetchMandats(): Promise<Mandat[]> {
       statut: m.statut?.code ?? '',
       date_signature: m.date_signature,
       nb_sites_couverts: sitesParMandat.get(m.id) ?? 0,
+      contact_signataire_id: m.contact_signataire_id,
+      contact_signataire_nom: m.contact_signataire ? `${m.contact_signataire.prenom} ${m.contact_signataire.nom}` : undefined,
     }))
   } catch {
     return mockMandats
@@ -47,6 +55,8 @@ interface CreateMandatInput {
   compte_nom: string
   site_ids: string[]
   date_signature: string | null
+  contact_signataire_id: string | null
+  contact_signataire_nom?: string
 }
 
 interface CreateMandatResult {
@@ -67,12 +77,18 @@ export function useCreateMandat() {
         statut: 'A_PREPARER',
         date_signature: input.date_signature,
         nb_sites_couverts: input.site_ids.length,
+        contact_signataire_id: input.contact_signataire_id,
+        contact_signataire_nom: input.contact_signataire_nom,
       }
 
       if (isSupabaseConfigured) {
         const { data, error } = await supabase
           .from('mandats')
-          .insert({ compte_id: input.compte_id, date_signature: input.date_signature })
+          .insert({
+            compte_id: input.compte_id,
+            date_signature: input.date_signature,
+            ...(input.contact_signataire_id ? { contact_signataire_id: input.contact_signataire_id } : {}),
+          })
           .select('id')
           .single()
         if (!error && data) {

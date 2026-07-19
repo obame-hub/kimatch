@@ -6,6 +6,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { useComptes, useUpdateCompteScore } from '@/lib/data/comptes'
 import { useSites } from '@/lib/data/sites'
+import { useContacts } from '@/lib/data/contacts'
 import { useEllisphereScore } from '@/lib/data/ellisphere'
 import type { TypeCompte } from '@/types/domain'
 
@@ -21,10 +22,12 @@ export default function CompteDetail() {
   const navigate = useNavigate()
   const { data: comptes } = useComptes()
   const { data: sites } = useSites()
+  const { data: contacts } = useContacts()
   const ellisphereScore = useEllisphereScore()
   const updateScore = useUpdateCompteScore()
   const compte = comptes?.find((c) => c.id === id)
   const sitesDuCompte = sites?.filter((s) => s.compte_nom === compte?.nom) ?? []
+  const contactsDuCompte = contacts?.filter((c) => c.compte_id === id) ?? []
 
   async function handleScoreClick() {
     if (!compte?.siren) return
@@ -125,6 +128,25 @@ export default function CompteDetail() {
                   >
                     <p className="text-sm font-medium text-navy-800">{site.nom}</p>
                     <p className="text-xs text-navy-500">{site.type_site} · {site.ville} ({site.code_postal})</p>
+                  </div>
+                ))}
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardHeader>
+                <CardTitle>Contacts</CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-3">
+                {contactsDuCompte.length === 0 && <p className="text-sm text-navy-400">Aucun contact enregistré pour ce compte.</p>}
+                {contactsDuCompte.map((contact) => (
+                  <div
+                    key={contact.id}
+                    className="cursor-pointer rounded-lg border border-navy-100 p-3 transition-colors hover:bg-navy-50"
+                    onClick={() => navigate(`/contacts/${contact.id}`)}
+                  >
+                    <p className="text-sm font-medium text-navy-800">{contact.prenom} {contact.nom}</p>
+                    <p className="text-xs text-navy-500">{contact.fonction || '—'} {contact.email ? `· ${contact.email}` : ''}</p>
                   </div>
                 ))}
               </CardContent>

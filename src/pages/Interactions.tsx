@@ -42,6 +42,12 @@ export default function Interactions() {
                         <EntityLink to={`/sites/${i.site_id}`}>{i.site_nom}</EntityLink>
                       </>
                     )}
+                    {i.contact_id && (
+                      <>
+                        {' · '}
+                        <EntityLink to={`/contacts/${i.contact_id}`}>{i.contact_nom}</EntityLink>
+                      </>
+                    )}
                     {' · '}{i.auteur}
                   </p>
                 </div>
