@@ -1,19 +1,153 @@
+import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { FileSignature, Zap, Flame } from 'lucide-react'
+import { FileSignature, Zap, Flame, Plus } from 'lucide-react'
 import { Topbar } from '@/components/layout/Topbar'
 import { PageHeader } from '@/components/ui/page-header'
 import { Card } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
+import { Button } from '@/components/ui/button'
 import { EntityLink } from '@/components/ui/entity-link'
-import { useContrats } from '@/lib/data/contrats'
+import { Dialog } from '@/components/ui/dialog'
+import { FormField, Input, Select } from '@/components/ui/form'
+import { useContrats, useCreateContrat } from '@/lib/data/contrats'
+import { useSites } from '@/lib/data/sites'
+import { useComptes } from '@/lib/data/comptes'
+import { useCompteurs } from '@/lib/data/compteurs'
 import { useReferenceTable } from '@/lib/data/referenceTables'
-import { FALLBACK_STATUTS_CONTRATS, STATUT_CONTRAT_TONE } from '@/lib/referenceFallbacks'
+import { FALLBACK_STATUTS_CONTRATS, STATUT_CONTRAT_TONE, FALLBACK_TYPES_ENERGIES } from '@/lib/referenceFallbacks'
+
+function CreateContratDialog({ open, onClose }: { open: boolean; onClose: () => void }) {
+  const { data: sites } = useSites()
+  const { data: comptes } = useComptes()
+  const { data: compteurs } = useCompteurs()
+  const { data: energiesRef } = useReferenceTable('types_energies')
+  const energies = energiesRef && energiesRef.length > 0 ? energiesRef : FALLBACK_TYPES_ENERGIES
+  const { data: statutsRef } = useReferenceTable('statuts_contrats')
+  const statuts = statutsRef && statutsRef.length > 0 ? statutsRef : FALLBACK_STATUTS_CONTRATS
+  const createContrat = useCreateContrat()
+
+  const [siteId, setSiteId] = useState('')
+  const [fournisseurId, setFournisseurId] = useState('')
+  const [typeEnergieId, setTypeEnergieId] = useState('')
+  const [referenceFournisseur, setReferenceFournisseur] = useState('')
+  const [dateDebut, setDateDebut] = useState('')
+  const [dateFin, setDateFin] = useState('')
+  const [compteurIds, setCompteurIds] = useState<string[]>([])
+  const [feedback, setFeedback] = useState<string | null>(null)
+
+  const fournisseurs = comptes?.filter((c) => c.type_compte === 'fournisseur') ?? []
+  const compteursDuSite = compteurs?.filter((c) => c.site_id === siteId) ?? []
+
+  function reset() {
+    setSiteId('')
+    setFournisseurId('')
+    setTypeEnergieId('')
+    setReferenceFournisseur('')
+    setDateDebut('')
+    setDateFin('')
+    setCompteurIds([])
+    setFeedback(null)
+  }
+
+  function toggleCompteur(id: string) {
+    setCompteurIds((prev) => (prev.includes(id) ? prev.filter((c) => c !== id) : [...prev, id]))
+  }
+
+  async function handleSubmit(e: React.FormEvent) {
+    e.preventDefault()
+    const site = sites?.find((s) => s.id === siteId)
+    const fournisseur = fournisseurs.find((f) => f.id === fournisseurId)
+    const energie = energies.find((en) => en.id === typeEnergieId)
+    const statutActif = statuts.find((s) => s.code === 'ACTIF')
+    const compteursChoisis = compteursDuSite.filter((c) => compteurIds.includes(c.id)).map((c) => ({ id: c.id, numero_pdl: c.numero_pdl, utilisation: c.utilisation }))
+    if (!site) return
+    const typeEnergie = (energie?.code?.toLowerCase() === 'gaz' ? 'gaz' : 'electricite') as 'electricite' | 'gaz'
+
+    const result = await createContrat.mutateAsync({
+      site_id: site.id,
+      site_nom: site.nom,
+      fournisseur_compte_id: fournisseurId || null,
+      fournisseur_nom: fournisseur?.nom ?? '',
+      type_energie_id: typeEnergieId || null,
+      type_energie: typeEnergie,
+      statut_id: statutActif?.id ?? null,
+      reference_fournisseur: referenceFournisseur || null,
+      date_debut: dateDebut || null,
+      date_fin: dateFin || null,
+      compteur_ids: compteurIds,
+      compteurs: compteursChoisis,
+    })
+    setFeedback(result.persisted ? 'Contrat créé.' : 'Contrat ajouté localement (non synchronisé avec Supabase).')
+    setTimeout(() => {
+      reset()
+      onClose()
+    }, 700)
+  }
+
+  return (
+    <Dialog open={open} onClose={() => { reset(); onClose() }} title="Nouveau contrat" description="Contrat de fourniture d'énergie pour un site.">
+      <form onSubmit={handleSubmit} className="max-h-[75vh] space-y-3 overflow-y-auto pr-1">
+        <FormField label="Site">
+          <Select value={siteId} onChange={(e) => { setSiteId(e.target.value); setCompteurIds([]) }} required>
+            <option value="">Sélectionner un site…</option>
+            {sites?.map((s) => <option key={s.id} value={s.id}>{s.nom}</option>)}
+          </Select>
+        </FormField>
+        <FormField label="Fournisseur">
+          <Select value={fournisseurId} onChange={(e) => setFournisseurId(e.target.value)}>
+            <option value="">Sélectionner…</option>
+            {fournisseurs.map((f) => <option key={f.id} value={f.id}>{f.nom}</option>)}
+          </Select>
+        </FormField>
+        <FormField label="Énergie">
+          <Select value={typeEnergieId} onChange={(e) => setTypeEnergieId(e.target.value)} required>
+            <option value="">Sélectionner…</option>
+            {energies.map((en) => <option key={en.id} value={en.id}>{en.libelle}</option>)}
+          </Select>
+        </FormField>
+        <FormField label="Référence fournisseur">
+          <Input value={referenceFournisseur} onChange={(e) => setReferenceFournisseur(e.target.value)} />
+        </FormField>
+        <div className="grid grid-cols-2 gap-3">
+          <FormField label="Date de début">
+            <Input type="date" value={dateDebut} onChange={(e) => setDateDebut(e.target.value)} />
+          </FormField>
+          <FormField label="Date de fin">
+            <Input type="date" value={dateFin} onChange={(e) => setDateFin(e.target.value)} />
+          </FormField>
+        </div>
+        {siteId && (
+          <FormField label="Compteurs couverts">
+            {compteursDuSite.length === 0 ? (
+              <p className="text-xs text-navy-400">Ce site n'a aucun compteur.</p>
+            ) : (
+              <div className="max-h-32 space-y-1 overflow-y-auto rounded-lg border border-navy-200 p-2">
+                {compteursDuSite.map((c) => (
+                  <label key={c.id} className="flex items-center gap-2 text-sm text-navy-700">
+                    <input type="checkbox" checked={compteurIds.includes(c.id)} onChange={() => toggleCompteur(c.id)} />
+                    {c.numero_pdl} — {c.utilisation}
+                  </label>
+                ))}
+              </div>
+            )}
+          </FormField>
+        )}
+        {feedback && <p className="text-xs text-navy-500">{feedback}</p>}
+        <div className="flex justify-end gap-2 pt-2">
+          <Button type="button" variant="ghost" onClick={() => { reset(); onClose() }}>Annuler</Button>
+          <Button type="submit" disabled={createContrat.isPending}>Créer le contrat</Button>
+        </div>
+      </form>
+    </Dialog>
+  )
+}
 
 export default function Contrats() {
   const { data: contrats, isLoading } = useContrats()
   const { data: statutsRef } = useReferenceTable('statuts_contrats')
   const statuts = statutsRef && statutsRef.length > 0 ? statutsRef : FALLBACK_STATUTS_CONTRATS
   const navigate = useNavigate()
+  const [showCreate, setShowCreate] = useState(false)
 
   return (
     <div>
@@ -22,6 +156,7 @@ export default function Contrats() {
         <PageHeader
           title="Contrats"
           description="Contrats de fourniture d'énergie liés à chaque site — électricité et gaz."
+          actions={<Button onClick={() => setShowCreate(true)}><Plus className="h-4 w-4" />Nouveau contrat</Button>}
         />
 
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3">
@@ -52,6 +187,7 @@ export default function Contrats() {
                     {' → '}
                     {c.date_fin ? new Date(c.date_fin).toLocaleDateString('fr-FR') : '—'}
                   </p>
+                  {c.compteurs.length > 0 && <p>{c.compteurs.length} compteur{c.compteurs.length > 1 ? 's' : ''} couvert{c.compteurs.length > 1 ? 's' : ''}</p>}
                 </div>
               </Card>
             )
@@ -64,6 +200,7 @@ export default function Contrats() {
           </div>
         )}
       </div>
+      <CreateContratDialog open={showCreate} onClose={() => setShowCreate(false)} />
     </div>
   )
 }

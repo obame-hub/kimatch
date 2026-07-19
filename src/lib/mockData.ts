@@ -148,7 +148,7 @@ export const mockInteractions: Interaction[] = [
 ]
 
 export const mockContrats: Contrat[] = [
-  { id: 'ct1', site_id: 's1', site_nom: 'Résidence Les Tilleuls', fournisseur_compte_id: 'c5', fournisseur_nom: 'EDF', type_energie: 'electricite', reference_fournisseur: 'EDF-778124', date_debut: '2024-09-01', date_fin: '2026-08-31', statut: 'ACTIF' },
-  { id: 'ct2', site_id: 's1', site_nom: 'Résidence Les Tilleuls', fournisseur_compte_id: 'c6', fournisseur_nom: 'ENGIE', type_energie: 'gaz', reference_fournisseur: 'ENG-33291', date_debut: '2023-11-01', date_fin: '2026-10-31', statut: 'ACTIF' },
-  { id: 'ct3', site_id: 's2', site_nom: 'Siège social — Paris', fournisseur_compte_id: 'c5', fournisseur_nom: 'EDF', type_energie: 'electricite', reference_fournisseur: 'EDF-445982', date_debut: '2025-01-01', date_fin: '2026-12-31', statut: 'ACTIF' },
+  { id: 'cn1', site_id: 's1', site_nom: 'Résidence Les Tilleuls', fournisseur_compte_id: 'c5', fournisseur_nom: 'EDF', type_energie: 'electricite', reference_fournisseur: 'EDF-778124', date_debut: '2024-09-01', date_fin: '2026-08-31', statut: 'ACTIF', compteurs: [{ id: 'cp1', numero_pdl: 'PDL-30001245', utilisation: 'Parties communes' }] },
+  { id: 'cn2', site_id: 's1', site_nom: 'Résidence Les Tilleuls', fournisseur_compte_id: 'c6', fournisseur_nom: 'ENGIE', type_energie: 'gaz', reference_fournisseur: 'ENG-33291', date_debut: '2023-11-01', date_fin: '2026-10-31', statut: 'ACTIF', compteurs: [{ id: 'cp2', numero_pdl: 'GRD-88213456', utilisation: 'Chaufferie' }] },
+  { id: 'cn3', site_id: 's2', site_nom: 'Siège social — Paris', fournisseur_compte_id: 'c5', fournisseur_nom: 'EDF', type_energie: 'electricite', reference_fournisseur: 'EDF-445982', date_debut: '2025-01-01', date_fin: '2026-12-31', statut: 'ACTIF', compteurs: [{ id: 'cp3', numero_pdl: 'PDL-30009981', utilisation: 'Bureaux' }] },
 ]

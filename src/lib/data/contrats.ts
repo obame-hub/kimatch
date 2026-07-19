@@ -1,4 +1,4 @@
-import { useQuery } from '@tanstack/react-query'
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { isSupabaseConfigured, supabase } from '@/lib/supabase'
 import { mockContrats } from '@/lib/mockData'
 import type { Contrat } from '@/types/domain'
@@ -19,15 +19,26 @@ interface RawContrat {
 async function fetchContrats(): Promise<Contrat[]> {
   if (!isSupabaseConfigured) return mockContrats
   try {
-    const { data, error } = await supabase
-      .from('contrats')
-      .select(
-        'id, site_id, fournisseur_compte_id, reference_fournisseur, date_debut, date_fin, site:sites(nom), fournisseur:comptes(nom), type_energie:types_energies(code), statut:statuts_contrats(code)',
-      )
-      .order('date_debut', { ascending: false })
-    if (error || !data || data.length === 0) throw error ?? new Error('empty')
+    const [contratsRes, compteursRes] = await Promise.all([
+      supabase
+        .from('contrats')
+        .select(
+          'id, site_id, fournisseur_compte_id, reference_fournisseur, date_debut, date_fin, site:sites(nom), fournisseur:comptes(nom), type_energie:types_energies(code), statut:statuts_contrats(code)',
+        )
+        .order('date_debut', { ascending: false }),
+      supabase.from('contrats_compteurs').select('contrat_id, compteur:compteurs(id, numero_point, utilisation)'),
+    ])
+    if (contratsRes.error || !contratsRes.data || contratsRes.data.length === 0) throw contratsRes.error ?? new Error('empty')
 
-    return (data as unknown as RawContrat[]).map((c) => ({
+    const compteursParContrat = new Map<string, { id: string; numero_pdl: string; utilisation: string }[]>()
+    for (const cc of (compteursRes.data ?? []) as unknown as { contrat_id: string; compteur: { id: string; numero_point: string; utilisation: string | null } | null }[]) {
+      if (!cc.compteur) continue
+      const list = compteursParContrat.get(cc.contrat_id) ?? []
+      list.push({ id: cc.compteur.id, numero_pdl: cc.compteur.numero_point, utilisation: cc.compteur.utilisation ?? '' })
+      compteursParContrat.set(cc.contrat_id, list)
+    }
+
+    return (contratsRes.data as unknown as RawContrat[]).map((c) => ({
       id: c.id,
       site_id: c.site_id,
       site_nom: c.site?.nom ?? '',
@@ -38,6 +49,7 @@ async function fetchContrats(): Promise<Contrat[]> {
       date_debut: c.date_debut,
       date_fin: c.date_fin,
       statut: c.statut?.code ?? '',
+      compteurs: compteursParContrat.get(c.id) ?? [],
     }))
   } catch {
     return mockContrats
@@ -46,4 +58,76 @@ async function fetchContrats(): Promise<Contrat[]> {
 
 export function useContrats() {
   return useQuery({ queryKey: ['contrats'], queryFn: fetchContrats })
+}
+
+interface CreateContratInput {
+  site_id: string
+  site_nom: string
+  fournisseur_compte_id: string | null
+  fournisseur_nom: string
+  type_energie_id: string | null
+  type_energie: 'electricite' | 'gaz'
+  statut_id: string | null
+  reference_fournisseur: string | null
+  date_debut: string | null
+  date_fin: string | null
+  compteur_ids: string[]
+  compteurs: { id: string; numero_pdl: string; utilisation: string }[]
+}
+
+interface CreateContratResult {
+  contrat: Contrat
+  persisted: boolean
+}
+
+export function useCreateContrat() {
+  const queryClient = useQueryClient()
+
+  return useMutation({
+    mutationFn: async (input: CreateContratInput): Promise<CreateContratResult> => {
+      let persisted = false
+      let contrat: Contrat = {
+        id: `local-${Date.now()}`,
+        site_id: input.site_id,
+        site_nom: input.site_nom,
+        fournisseur_compte_id: input.fournisseur_compte_id,
+        fournisseur_nom: input.fournisseur_nom,
+        type_energie: input.type_energie,
+        reference_fournisseur: input.reference_fournisseur,
+        date_debut: input.date_debut,
+        date_fin: input.date_fin,
+        statut: 'ACTIF',
+        compteurs: input.compteurs,
+      }
+
+      if (isSupabaseConfigured) {
+        const { data, error } = await supabase
+          .from('contrats')
+          .insert({
+            site_id: input.site_id,
+            fournisseur_compte_id: input.fournisseur_compte_id,
+            reference_fournisseur: input.reference_fournisseur,
+            date_debut: input.date_debut,
+            date_fin: input.date_fin,
+            ...(input.type_energie_id ? { type_energie_id: input.type_energie_id } : {}),
+            ...(input.statut_id ? { statut_id: input.statut_id } : {}),
+          })
+          .select('id')
+          .single()
+        if (!error && data) {
+          const contratId = (data as { id: string }).id
+          contrat = { ...contrat, id: contratId }
+          persisted = true
+          if (input.compteur_ids.length > 0) {
+            await supabase
+              .from('contrats_compteurs')
+              .insert(input.compteur_ids.map((compteur_id) => ({ contrat_id: contratId, compteur_id })))
+          }
+        }
+      }
+
+      queryClient.setQueryData<Contrat[]>(['contrats'], (old) => (old ? [contrat, ...old] : [contrat]))
+      return { contrat, persisted }
+    },
+  })
 }

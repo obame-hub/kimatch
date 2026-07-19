@@ -212,4 +212,5 @@ export interface Contrat {
   date_debut: string | null
   date_fin: string | null
   statut: string
+  compteurs: { id: string; numero_pdl: string; utilisation: string }[]
 }

@@ -64,6 +64,18 @@ export default function ContratDetail() {
                 <span className="text-navy-400">Fin :</span>{' '}
                 {contrat.date_fin ? new Date(contrat.date_fin).toLocaleDateString('fr-FR') : '—'}
               </p>
+              {contrat.compteurs.length > 0 && (
+                <div>
+                  <span className="text-navy-400">Compteurs couverts :</span>
+                  <div className="mt-1.5 space-y-1">
+                    {contrat.compteurs.map((c) => (
+                      <p key={c.id}>
+                        <EntityLink to={`/compteurs/${c.id}`}>{c.numero_pdl} — {c.utilisation}</EntityLink>
+                      </p>
+                    ))}
+                  </div>
+                </div>
+              )}
             </CardContent>
           </Card>
         )}
