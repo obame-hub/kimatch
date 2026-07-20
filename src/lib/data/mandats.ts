@@ -8,6 +8,7 @@ interface RawMandat {
   compte_id: string
   date_signature: string | null
   contact_signataire_id: string | null
+  docusign_envelope_id: string | null
   compte: { nom: string } | null
   statut: { code: string } | null
   contact_signataire: { prenom: string; nom: string } | null
@@ -20,7 +21,7 @@ async function fetchMandats(): Promise<Mandat[]> {
       supabase
         .from('mandats')
         .select(
-          'id, compte_id, date_signature, contact_signataire_id, compte:comptes(nom), statut:statuts_mandats(code), contact_signataire:contacts(prenom, nom)',
+          'id, compte_id, date_signature, contact_signataire_id, docusign_envelope_id, compte:comptes(nom), statut:statuts_mandats(code), contact_signataire:contacts(prenom, nom)',
         ),
       supabase.from('mandats_sites').select('mandat_id, site_id'),
     ])
@@ -43,6 +44,7 @@ async function fetchMandats(): Promise<Mandat[]> {
       site_ids: sitesParMandat.get(m.id) ?? [],
       contact_signataire_id: m.contact_signataire_id,
       contact_signataire_nom: m.contact_signataire ? `${m.contact_signataire.prenom} ${m.contact_signataire.nom}` : undefined,
+      docusign_envelope_id: m.docusign_envelope_id,
     }))
   } catch {
     return mockMandats
@@ -109,6 +111,31 @@ export function useCreateMandat() {
 
       queryClient.setQueryData<Mandat[]>(['mandats'], (old) => (old ? [mandat, ...old] : [mandat]))
       return { mandat, persisted }
+    },
+  })
+}
+
+interface MarkMandatEnvoyeResult {
+  persisted: boolean
+}
+
+export function useMarkMandatEnvoye() {
+  const queryClient = useQueryClient()
+
+  return useMutation({
+    mutationFn: async ({ mandatId, envelopeId, statutId }: { mandatId: string; envelopeId: string; statutId: string | null }): Promise<MarkMandatEnvoyeResult> => {
+      let persisted = false
+      if (isSupabaseConfigured) {
+        const { error } = await supabase
+          .from('mandats')
+          .update({ docusign_envelope_id: envelopeId, ...(statutId ? { statut_id: statutId } : {}) })
+          .eq('id', mandatId)
+        persisted = !error
+      }
+      queryClient.setQueryData<Mandat[]>(['mandats'], (old) =>
+        old?.map((m) => (m.id === mandatId ? { ...m, docusign_envelope_id: envelopeId, statut: 'ENVOYE' } : m)),
+      )
+      return { persisted }
     },
   })
 }

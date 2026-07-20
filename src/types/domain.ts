@@ -87,6 +87,7 @@ export interface Mandat {
   site_ids: string[]
   contact_signataire_id?: string | null
   contact_signataire_nom?: string
+  docusign_envelope_id?: string | null
 }
 
 export interface Contact {
