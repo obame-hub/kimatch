@@ -1,6 +1,6 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
-import { ArrowLeft, Phone, StickyNote, Plus, Building2, Users, Copy, Zap, Flame, Clock, X, CalendarClock, FileText } from 'lucide-react'
+import { ArrowLeft, Phone, StickyNote, Plus, Building2, Users, Copy, Zap, Flame, Clock, X, CalendarClock, Sparkle } from 'lucide-react'
 import { Topbar } from '@/components/layout/Topbar'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
@@ -101,15 +101,50 @@ export default function SiteDetail() {
 
   const donutColor = health.tone === 'kiwi' ? '#0d7a5f' : health.tone === 'amber' ? '#b0763c' : '#c2452d'
 
-  const TABS: { key: TabKey; label: string; badge?: string; mobileOnly?: boolean }[] = [
-    { key: 'synthese', label: 'Synthèse' },
+  const TABS: { key: TabKey; label: string; labelMobile?: string; badge?: string; mobileOnly?: boolean }[] = [
+    { key: 'synthese', label: 'Site' },
     { key: 'contrats', label: 'Contrats' },
     { key: 'compteurs', label: 'Compteurs', badge: compteursDuSite.length ? String(compteursDuSite.length) : undefined },
-    { key: 'recommandations', label: 'Recommandations', badge: recommandationsDuSite.length ? String(recommandationsDuSite.length) : undefined },
+    { key: 'recommandations', label: 'Recommandations', labelMobile: 'Recos', badge: recommandationsDuSite.length ? String(recommandationsDuSite.length) : undefined },
     { key: 'signaux', label: 'Signaux', badge: signauxDuSite.length ? String(signauxDuSite.length) : undefined },
-    { key: 'mandats', label: 'Mandats' },
+    { key: 'mandats', label: 'Mandats', badge: mandatDuSite ? undefined : '!' },
     { key: 'activite', label: 'Activité', mobileOnly: true },
   ]
+
+  function planifierRelance() {
+    if (!site) return
+    const echeance = new Date()
+    echeance.setDate(echeance.getDate() + 7)
+    createAction.mutate({
+      titre: `Relance — ${site.nom}`,
+      type_action_id: null,
+      type_action_libelle: 'Relance',
+      site_id: site.id,
+      site_nom: site.nom,
+      contact_id: contactPrincipal?.id ?? null,
+      contact_nom: contactPrincipal ? `${contactPrincipal.prenom} ${contactPrincipal.nom}` : '',
+      priorite: 2,
+      echeance: echeance.toISOString(),
+      commentaire: null,
+      statut_id: null,
+    })
+    setSheetOpen(false)
+    showToast('✓ Relance planifiée dans 7 jours')
+  }
+
+  // Raccourcis clavier — 1-6 pour changer d'onglet, N pour la note, R pour la relance (comme le prototype de William)
+  useEffect(() => {
+    function onKeyDown(e: KeyboardEvent) {
+      const target = e.target as HTMLElement
+      if (target && (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA')) return
+      const map: Record<string, TabKey> = { '1': 'synthese', '2': 'contrats', '3': 'compteurs', '4': 'recommandations', '5': 'signaux', '6': 'mandats' }
+      if (map[e.key]) setTab(map[e.key])
+      if (e.key === 'n' || e.key === 'N') setTab('activite')
+      if (e.key === 'r' || e.key === 'R') planifierRelance()
+    }
+    window.addEventListener('keydown', onKeyDown)
+    return () => window.removeEventListener('keydown', onKeyDown)
+  }, [site?.id])
 
   if (!sites) {
     return (
@@ -133,26 +168,6 @@ export default function SiteDetail() {
         </div>
       </div>
     )
-  }
-
-  function planifierRelance() {
-    const echeance = new Date()
-    echeance.setDate(echeance.getDate() + 7)
-    createAction.mutate({
-      titre: `Relance — ${site.nom}`,
-      type_action_id: null,
-      type_action_libelle: 'Relance',
-      site_id: site.id,
-      site_nom: site.nom,
-      contact_id: contactPrincipal?.id ?? null,
-      contact_nom: contactPrincipal ? `${contactPrincipal.prenom} ${contactPrincipal.nom}` : '',
-      priorite: 2,
-      echeance: echeance.toISOString(),
-      commentaire: null,
-      statut_id: null,
-    })
-    setSheetOpen(false)
-    showToast('✓ Relance planifiée dans 7 jours')
   }
 
   return (
@@ -186,6 +201,12 @@ export default function SiteDetail() {
           <Button variant="outline" size="sm" onClick={() => setTab('activite')}>
             <StickyNote className="h-3.5 w-3.5" />
             Note
+            <span className="font-mono text-[9px] text-navy-300">N</span>
+          </Button>
+          <Button variant="outline" size="sm" onClick={planifierRelance}>
+            <CalendarClock className="h-3.5 w-3.5" />
+            Relance
+            <span className="font-mono text-[9px] text-navy-300">R</span>
           </Button>
           <Button size="sm" onClick={() => navigate('/recommandations')}>
             <Plus className="h-3.5 w-3.5" />
@@ -194,32 +215,34 @@ export default function SiteDetail() {
         </div>
       </div>
 
-      {/* Onglets — soulignés, comme la maquette (pas de pilule) */}
-      <div className="flex gap-0.5 overflow-x-auto border-b border-navy-100 bg-white px-4 sm:px-6">
-        {TABS.map((t) => (
-          <button
-            key={t.key}
-            type="button"
-            onClick={() => setTab(t.key)}
-            className={cn(
-              'inline-flex shrink-0 items-center gap-1.5 whitespace-nowrap border-b-2 px-3 py-2.5 text-[12.5px] transition-colors',
-              t.mobileOnly && 'lg:hidden',
-              tab === t.key ? 'border-navy-800 font-semibold text-navy-800' : 'border-transparent font-normal text-navy-500 hover:text-navy-700',
-            )}
-          >
-            {t.label}
-            {t.badge && (
-              <span
-                className={cn(
-                  'rounded px-1.5 py-0.5 text-[9.5px] font-bold',
-                  t.key === 'signaux' ? 'bg-red-500 text-white' : t.key === 'mandats' ? 'bg-amber-200 text-amber-700' : 'bg-navy-100 text-navy-500',
-                )}
-              >
-                {t.badge}
-              </span>
-            )}
-          </button>
-        ))}
+      {/* Onglets — pilules sur mobile, soulignés sur desktop, comme chez William */}
+      <div className="flex gap-1.5 overflow-x-auto border-b border-navy-100 bg-white px-4 pt-2.5 lg:gap-0.5 lg:pt-0 sm:px-6">
+        {TABS.map((t) => {
+          const isActive = tab === t.key
+          const badgeTone = t.key === 'signaux' ? 'bg-red-500 text-white' : t.key === 'mandats' ? 'bg-amber-200 text-amber-700' : 'bg-navy-100 text-navy-500'
+          return (
+            <button
+              key={t.key}
+              type="button"
+              onClick={() => setTab(t.key)}
+              className={cn(
+                'mb-2.5 inline-flex shrink-0 items-center gap-1.5 whitespace-nowrap rounded-full px-3.5 py-2 text-[12.5px] font-semibold transition-colors lg:mb-0 lg:rounded-none lg:border-b-2 lg:px-3 lg:py-2.5 lg:font-normal',
+                t.mobileOnly && 'lg:hidden',
+                isActive
+                  ? 'bg-navy-800 text-white lg:border-navy-800 lg:bg-transparent lg:font-semibold lg:text-navy-800'
+                  : 'border border-navy-200 bg-white text-navy-600 hover:bg-navy-50 lg:border-0 lg:border-b-2 lg:border-transparent lg:text-navy-500 lg:hover:bg-transparent lg:hover:text-navy-700',
+              )}
+            >
+              <span className="lg:hidden">{t.labelMobile ?? t.label}</span>
+              <span className="hidden lg:inline">{t.label}</span>
+              {t.badge && (
+                <span className={cn('rounded px-1.5 py-0.5 text-[9.5px] font-bold', isActive ? 'bg-white/20 text-white lg:bg-navy-100 lg:text-navy-500' : badgeTone)}>
+                  {t.badge}
+                </span>
+              )}
+            </button>
+          )
+        })}
       </div>
 
       {/* 3 zones */}
@@ -564,7 +587,7 @@ export default function SiteDetail() {
               onClick={() => { setSheetOpen(false); navigate('/recommandations') }}
               className="flex w-full items-center gap-3 rounded-xl px-3.5 py-3 text-left hover:bg-navy-50"
             >
-              <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-amber-100 text-amber-700"><FileText className="h-3.5 w-3.5" /></span>
+              <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-amber-100 text-amber-700"><Sparkle className="h-3.5 w-3.5" /></span>
               <span className="text-sm font-semibold text-navy-800">Nouvelle recommandation</span>
             </button>
             {contactPrincipal?.telephone && (
