@@ -1,9 +1,10 @@
 import { Fragment, useState } from 'react'
-import { ShieldCheck, Users } from 'lucide-react'
+import { ShieldCheck, Users, Mail, Trash2 } from 'lucide-react'
 import { Topbar } from '@/components/layout/Topbar'
 import { PageHeader } from '@/components/ui/page-header'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
-import { Select } from '@/components/ui/form'
+import { Button } from '@/components/ui/button'
+import { Input, Select } from '@/components/ui/form'
 import { Badge } from '@/components/ui/badge'
 import { cn } from '@/lib/utils'
 import {
@@ -14,9 +15,12 @@ import {
   useAssignRoleAcces,
   useToggleRolePermission,
   useIsAdmin,
+  useProfilsAutorises,
+  useAddProfilAutorise,
+  useRemoveProfilAutorise,
 } from '@/lib/data/roles'
 
-type Tab = 'utilisateurs' | 'permissions'
+type Tab = 'utilisateurs' | 'permissions' | 'acces'
 
 function UtilisateursTab() {
   const { data: profils, isLoading } = useProfilsAdmin()
@@ -128,6 +132,63 @@ function PermissionsTab() {
   )
 }
 
+function AccesAutorisesTab() {
+  const { data: emails, isLoading } = useProfilsAutorises()
+  const addEmail = useAddProfilAutorise()
+  const removeEmail = useRemoveProfilAutorise()
+  const [email, setEmail] = useState('')
+  const [feedback, setFeedback] = useState<string | null>(null)
+
+  async function handleSubmit(e: React.FormEvent) {
+    e.preventDefault()
+    setFeedback(null)
+    try {
+      await addEmail.mutateAsync(email)
+      setEmail('')
+    } catch (err) {
+      setFeedback(err instanceof Error ? err.message : 'Erreur inconnue')
+    }
+  }
+
+  return (
+    <div className="space-y-4">
+      <p className="text-sm text-navy-500">
+        Seules les adresses email listées ici peuvent créer un compte KiWee OS (recevoir un lien de connexion qui fonctionne).
+      </p>
+      <form onSubmit={handleSubmit} className="flex gap-2">
+        <Input type="email" required placeholder="prenom@kiwee-energie.fr" value={email} onChange={(e) => setEmail(e.target.value)} />
+        <Button type="submit" disabled={addEmail.isPending}>
+          <Mail className="h-4 w-4" />
+          Autoriser
+        </Button>
+      </form>
+      {feedback && <p className="text-xs text-red-600">{feedback}</p>}
+
+      {isLoading ? (
+        <p className="text-sm text-navy-400">Chargement…</p>
+      ) : !emails || emails.length === 0 ? (
+        <p className="text-sm text-navy-400">Aucune adresse autorisée pour l'instant.</p>
+      ) : (
+        <ul className="divide-y divide-navy-50">
+          {emails.map((a) => (
+            <li key={a.id} className="flex items-center justify-between py-2 text-sm">
+              <span className="text-navy-700">{a.email}</span>
+              <button
+                type="button"
+                onClick={() => removeEmail.mutate(a.id)}
+                className="text-navy-400 hover:text-red-600"
+                aria-label={`Retirer ${a.email}`}
+              >
+                <Trash2 className="h-4 w-4" />
+              </button>
+            </li>
+          ))}
+        </ul>
+      )}
+    </div>
+  )
+}
+
 export default function Administration() {
   const [tab, setTab] = useState<Tab>('utilisateurs')
   const isAdmin = useIsAdmin()
@@ -173,14 +234,27 @@ export default function Administration() {
             <ShieldCheck className="h-4 w-4" />
             Rôles & permissions
           </button>
+          <button
+            type="button"
+            onClick={() => setTab('acces')}
+            className={cn(
+              'flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-sm font-medium',
+              tab === 'acces' ? 'bg-kiwi-500/15 text-kiwi-700' : 'text-navy-500 hover:bg-navy-50',
+            )}
+          >
+            <Mail className="h-4 w-4" />
+            Accès autorisés
+          </button>
         </div>
 
         <Card>
           <CardHeader>
-            <CardTitle>{tab === 'utilisateurs' ? 'Utilisateurs' : 'Matrice des permissions par rôle'}</CardTitle>
+            <CardTitle>
+              {tab === 'utilisateurs' ? 'Utilisateurs' : tab === 'permissions' ? 'Matrice des permissions par rôle' : 'Emails autorisés à créer un compte'}
+            </CardTitle>
           </CardHeader>
           <CardContent>
-            {tab === 'utilisateurs' ? <UtilisateursTab /> : <PermissionsTab />}
+            {tab === 'utilisateurs' ? <UtilisateursTab /> : tab === 'permissions' ? <PermissionsTab /> : <AccesAutorisesTab />}
           </CardContent>
         </Card>
       </div>

@@ -174,3 +174,44 @@ export function useHasPermission(code: string) {
   const { data } = useCurrentAccess()
   return data?.permissions.has(code) ?? false
 }
+
+export interface ProfilAutorise {
+  id: string
+  email: string
+  date_creation: string
+}
+
+async function fetchProfilsAutorises(): Promise<ProfilAutorise[]> {
+  if (!isSupabaseConfigured) return []
+  const { data, error } = await supabase
+    .from('profils_autorises')
+    .select('id, email, date_creation')
+    .order('date_creation', { ascending: false })
+  if (error || !data) return []
+  return data as unknown as ProfilAutorise[]
+}
+export function useProfilsAutorises() {
+  return useQuery({ queryKey: ['profils-autorises'], queryFn: fetchProfilsAutorises })
+}
+
+export function useAddProfilAutorise() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: async (email: string) => {
+      const { error } = await supabase.from('profils_autorises').insert({ email: email.trim().toLowerCase() })
+      if (error) throw new Error(error.message)
+    },
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['profils-autorises'] }),
+  })
+}
+
+export function useRemoveProfilAutorise() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: async (id: string) => {
+      const { error } = await supabase.from('profils_autorises').delete().eq('id', id)
+      if (error) throw new Error(error.message)
+    },
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['profils-autorises'] }),
+  })
+}
