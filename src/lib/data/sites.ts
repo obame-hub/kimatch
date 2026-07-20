@@ -7,11 +7,21 @@ interface RawSite {
   id: string
   compte_id: string
   nom: string
+  adresse: string | null
   ville: string | null
   code_postal: string | null
   actif: boolean
   compte: { nom: string } | null
   type_site: { libelle: string } | null
+}
+
+interface RawSiteExtra {
+  id: string
+  latitude: number | null
+  longitude: number | null
+  annee_construction: number | null
+  surface_m2: number | null
+  date_derniere_ag: string | null
 }
 
 async function fetchSites(): Promise<Site[]> {
@@ -21,13 +31,23 @@ async function fetchSites(): Promise<Site[]> {
     const [sitesRes, compteursRes, signauxRes] = await Promise.all([
       supabase
         .from('sites')
-        .select('id, compte_id, nom, ville, code_postal, actif, compte:comptes(nom), type_site:types_sites(libelle)')
+        .select('id, compte_id, nom, adresse, ville, code_postal, actif, compte:comptes(nom), type_site:types_sites(libelle)')
         .order('nom'),
       supabase.from('compteurs').select('site_id'),
       supabase.from('signaux').select('site_id, statut:statuts_signaux(est_cloture)'),
     ])
 
     if (sitesRes.error || !sitesRes.data || sitesRes.data.length === 0) throw sitesRes.error ?? new Error('empty')
+
+    // Colonnes ajoutées ultérieurement (tâche #55) — sélectionnées à part : si elles n'existent
+    // pas encore en base, on retombe sur null pour elles sans perdre les vraies données du site.
+    const extraParSite = new Map<string, RawSiteExtra>()
+    const extraRes = await supabase.from('sites').select('id, latitude, longitude, annee_construction, surface_m2, date_derniere_ag')
+    if (!extraRes.error) {
+      for (const e of (extraRes.data ?? []) as unknown as RawSiteExtra[]) {
+        extraParSite.set(e.id, e)
+      }
+    }
 
     const compteursParSite = new Map<string, number>()
     for (const c of compteursRes.data ?? []) {
@@ -40,18 +60,27 @@ async function fetchSites(): Promise<Site[]> {
       }
     }
 
-    return (sitesRes.data as unknown as RawSite[]).map((s) => ({
-      id: s.id,
-      nom: s.nom,
-      compte_id: s.compte_id,
-      compte_nom: s.compte?.nom ?? '',
-      type_site: s.type_site?.libelle ?? '',
-      ville: s.ville ?? '',
-      code_postal: s.code_postal ?? '',
-      nb_compteurs: compteursParSite.get(s.id) ?? 0,
-      nb_signaux_ouverts: signauxOuvertsParSite.get(s.id) ?? 0,
-      statut: s.actif ? 'actif' : 'inactif',
-    }))
+    return (sitesRes.data as unknown as RawSite[]).map((s) => {
+      const extra = extraParSite.get(s.id)
+      return {
+        id: s.id,
+        nom: s.nom,
+        compte_id: s.compte_id,
+        compte_nom: s.compte?.nom ?? '',
+        type_site: s.type_site?.libelle ?? '',
+        adresse: s.adresse ?? '',
+        ville: s.ville ?? '',
+        code_postal: s.code_postal ?? '',
+        latitude: extra?.latitude ?? null,
+        longitude: extra?.longitude ?? null,
+        annee_construction: extra?.annee_construction ?? null,
+        surface_m2: extra?.surface_m2 ?? null,
+        date_derniere_ag: extra?.date_derniere_ag ?? null,
+        nb_compteurs: compteursParSite.get(s.id) ?? 0,
+        nb_signaux_ouverts: signauxOuvertsParSite.get(s.id) ?? 0,
+        statut: s.actif ? 'actif' : 'inactif',
+      }
+    })
   } catch {
     // Table vide (projet Supabase neuf) ou schéma pas encore confirmé — on retombe sur la démo.
     return mockSites
@@ -89,8 +118,14 @@ export function useCreateSite() {
         compte_id: input.compte_id,
         compte_nom: input.compte_nom,
         type_site: input.type_site_libelle,
+        adresse: '',
         ville: input.ville,
         code_postal: input.code_postal,
+        latitude: null,
+        longitude: null,
+        annee_construction: null,
+        surface_m2: null,
+        date_derniere_ag: null,
         nb_compteurs: 0,
         nb_signaux_ouverts: 0,
         statut: 'actif',

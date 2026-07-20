@@ -8,8 +8,14 @@ export interface Site {
   compte_id: string
   compte_nom: string
   type_site: string
+  adresse: string
   ville: string
   code_postal: string
+  latitude: number | null
+  longitude: number | null
+  annee_construction: number | null
+  surface_m2: number | null
+  date_derniere_ag: string | null
   nb_compteurs: number
   nb_signaux_ouverts: number
   statut: 'actif' | 'inactif'

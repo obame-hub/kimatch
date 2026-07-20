@@ -1,12 +1,12 @@
+import { useMemo, useState } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
-import { ArrowLeft } from 'lucide-react'
+import { ArrowLeft, Phone, StickyNote, Plus, Building2, Users, Copy, Zap, Flame, Clock, X } from 'lucide-react'
 import { Topbar } from '@/components/layout/Topbar'
 import { Button } from '@/components/ui/button'
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { EntityLink } from '@/components/ui/entity-link'
 import { useSites } from '@/lib/data/sites'
-import { useSignaux } from '@/lib/data/signaux'
+import { useSignaux, useSnoozeSignal } from '@/lib/data/signaux'
 import { useCompteurs } from '@/lib/data/compteurs'
 import { useRecommandations } from '@/lib/data/recommandations'
 import { useContrats } from '@/lib/data/contrats'
@@ -15,11 +15,35 @@ import { useContacts } from '@/lib/data/contacts'
 import { useMandats } from '@/lib/data/mandats'
 import { useActions } from '@/lib/data/actions'
 import { useDocuments } from '@/lib/data/documents'
+import { useComptes } from '@/lib/data/comptes'
 import { EnergyTimeline } from '@/components/site/EnergyTimeline'
 import { CoverageMatrix } from '@/components/site/CoverageMatrix'
 import { ActivityFeed } from '@/components/site/ActivityFeed'
-import { SiteHealthBadge } from '@/components/site/SiteHealthBadge'
 import { computeSiteHealth } from '@/lib/siteHealth'
+import { cn } from '@/lib/utils'
+import type { Signal, Compte, Contact } from '@/types/domain'
+
+type TabKey = 'synthese' | 'contrats' | 'compteurs' | 'recommandations' | 'signaux' | 'mandats' | 'activite'
+
+const SEVERITE_DOT: Record<Signal['severite'], string> = {
+  basse: 'bg-navy-300',
+  normale: 'bg-sky-400',
+  haute: 'bg-amber-500',
+  critique: 'bg-red-500',
+}
+
+const STATUT_CONTRAT_TONE: Record<string, 'kiwi' | 'amber' | 'neutral' | 'red'> = {
+  ACTIF: 'kiwi',
+  A_RENOUVELER: 'amber',
+  EXPIRE: 'neutral',
+  RESILIE: 'neutral',
+}
+
+function copyToClipboard(text: string, onDone: (msg: string) => void) {
+  if (!text) return
+  navigator.clipboard?.writeText(text).catch(() => {})
+  onDone(`⧉ Copié — ${text}`)
+}
 
 export default function SiteDetail() {
   const { id } = useParams()
@@ -34,17 +58,30 @@ export default function SiteDetail() {
   const { data: mandats } = useMandats()
   const { data: actions } = useActions()
   const { data: documents } = useDocuments()
+  const { data: comptes } = useComptes()
+  const snoozeSignal = useSnoozeSignal()
+
+  const [tab, setTab] = useState<TabKey>('synthese')
+  const [toast, setToast] = useState<string | null>(null)
+
+  function showToast(msg: string) {
+    setToast(msg)
+    setTimeout(() => setToast(null), 2200)
+  }
 
   const site = sites?.find((s) => s.id === id)
-  const signauxDuSite = signaux?.filter((s) => s.site_id === id) ?? []
-  const compteursDuSite = compteurs?.filter((c) => c.site_id === id) ?? []
-  const recommandationsDuSite = recommandations?.filter((r) => r.sites.some((s) => s.id === id)) ?? []
-  const contratsDuSite = contrats?.filter((c) => c.site_id === id) ?? []
-  const interactionsDuSite = interactions?.filter((i) => i.site_id === id) ?? []
-  const contactsDuSite = contacts?.filter((c) => c.sites.some((s) => s.id === id)) ?? []
-  const actionsDuSite = actions?.filter((a) => a.site_id === id) ?? []
-  const documentsDuSite = documents?.filter((d) => d.entite_type === 'site' && d.entite_id === id) ?? []
+  const compte = comptes?.find((c) => c.id === site?.compte_id)
+  const signauxDuSite = useMemo(() => signaux?.filter((s) => s.site_id === id) ?? [], [signaux, id])
+  const compteursDuSite = useMemo(() => compteurs?.filter((c) => c.site_id === id) ?? [], [compteurs, id])
+  const recommandationsDuSite = useMemo(() => recommandations?.filter((r) => r.sites.some((s) => s.id === id)) ?? [], [recommandations, id])
+  const contratsDuSite = useMemo(() => contrats?.filter((c) => c.site_id === id) ?? [], [contrats, id])
+  const interactionsDuSite = useMemo(() => interactions?.filter((i) => i.site_id === id) ?? [], [interactions, id])
+  const contactsDuSite = useMemo(() => contacts?.filter((c) => c.sites.some((s) => s.id === id)) ?? [], [contacts, id])
+  const actionsDuSite = useMemo(() => actions?.filter((a) => a.site_id === id) ?? [], [actions, id])
+  const documentsDuSite = useMemo(() => documents?.filter((d) => d.entite_type === 'site' && d.entite_id === id) ?? [], [documents, id])
   const mandatDuSite = mandats?.find((m) => m.compte_id === site?.compte_id && m.site_ids.includes(id ?? ''))
+  const autresMandatsDuCompte = (mandats ?? []).filter((m) => m.compte_id === site?.compte_id && m.id !== mandatDuSite?.id)
+
   const health = computeSiteHealth({
     signaux: signauxDuSite,
     contrats: contratsDuSite,
@@ -54,164 +91,583 @@ export default function SiteDetail() {
     compteurs: compteursDuSite,
   })
 
-  return (
-    <div>
-      <Topbar title={site?.nom ?? 'Site'} />
-      <div className="p-4 sm:p-6">
-        <Button variant="ghost" size="sm" className="mb-4" onClick={() => navigate('/sites')}>
-          <ArrowLeft className="h-4 w-4" />
-          Retour aux sites
-        </Button>
+  const contactPrincipal = contactsDuSite.find((c) => c.contact_principal) ?? contactsDuSite[0]
+  const adresse = [site?.adresse, site?.code_postal, site?.ville].filter(Boolean).join(' ')
+  const mapQuery = site?.latitude != null && site?.longitude != null
+    ? `${site.latitude},${site.longitude}`
+    : encodeURIComponent(adresse || site?.nom || '')
 
-        {!site ? (
+  const donutColor = health.tone === 'kiwi' ? '#0d7a5f' : health.tone === 'amber' ? '#b0763c' : '#c2452d'
+
+  const TABS: { key: TabKey; label: string; badge?: string; mobileOnly?: boolean }[] = [
+    { key: 'synthese', label: 'Synthèse' },
+    { key: 'contrats', label: 'Contrats' },
+    { key: 'compteurs', label: 'Compteurs', badge: compteursDuSite.length ? String(compteursDuSite.length) : undefined },
+    { key: 'recommandations', label: 'Recommandations', badge: recommandationsDuSite.length ? String(recommandationsDuSite.length) : undefined },
+    { key: 'signaux', label: 'Signaux', badge: signauxDuSite.length ? String(signauxDuSite.length) : undefined },
+    { key: 'mandats', label: 'Mandats' },
+    { key: 'activite', label: 'Activité', mobileOnly: true },
+  ]
+
+  if (!sites) {
+    return (
+      <div>
+        <Topbar crumb="Sites" title="Site" />
+        <div className="p-4 sm:p-6"><p className="text-sm text-navy-400">Chargement…</p></div>
+      </div>
+    )
+  }
+
+  if (!site) {
+    return (
+      <div>
+        <Topbar crumb="Sites" title="Site" />
+        <div className="p-4 sm:p-6">
+          <Button variant="ghost" size="sm" className="mb-4" onClick={() => navigate('/sites')}>
+            <ArrowLeft className="h-4 w-4" />
+            Retour aux sites
+          </Button>
           <p className="text-sm text-navy-500">Site introuvable.</p>
-        ) : (
-          <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
-            <Card className="lg:col-span-1">
-              <CardHeader>
-                <CardTitle>Informations générales</CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-2 text-sm">
-                <p><span className="text-navy-400">Compte :</span> <EntityLink to={`/comptes/${site.compte_id}`}>{site.compte_nom}</EntityLink></p>
-                <p><span className="text-navy-400">Type :</span> {site.type_site}</p>
-                <p><span className="text-navy-400">Adresse :</span> {site.ville} ({site.code_postal})</p>
-                <p><span className="text-navy-400">Compteurs :</span> {site.nb_compteurs}</p>
-                <p><span className="text-navy-400">Statut :</span> <Badge tone={site.statut === 'actif' ? 'kiwi' : 'neutral'}>{site.statut}</Badge></p>
-                <p><span className="text-navy-400">Santé :</span> <SiteHealthBadge health={health} /></p>
-                {health.raisons.length > 0 && (
-                  <ul className="mt-1 list-inside list-disc text-xs text-navy-400">
-                    {health.raisons.map((r) => <li key={r}>{r}</li>)}
-                  </ul>
+        </div>
+      </div>
+    )
+  }
+
+  return (
+    <div className="flex h-[calc(100vh-52px)] flex-col overflow-hidden">
+      <Topbar crumb="Sites" title={site.nom} />
+
+      {/* Bandeau site */}
+      <div className="flex flex-wrap items-center gap-3.5 border-b border-navy-100 bg-white px-4 py-3.5 sm:px-6">
+        <Button variant="ghost" size="icon" onClick={() => navigate('/sites')} title="Retour aux sites">
+          <ArrowLeft className="h-4 w-4" />
+        </Button>
+        <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-[10px] bg-gradient-to-br from-kiwi-500 to-kiwi-400 text-white">
+          <MapPinIcon />
+        </span>
+        <div className="min-w-0 flex-1">
+          <p className="truncate text-xl font-bold tracking-tight text-navy-800">{site.nom}</p>
+          <p className="truncate text-xs text-navy-500">{compte?.nom ?? site.compte_nom} · {compteursDuSite.length} compteur{compteursDuSite.length > 1 ? 's' : ''}</p>
+        </div>
+        <Badge tone={site.statut === 'actif' ? 'kiwi' : 'neutral'}>{site.statut}</Badge>
+        <div className="flex gap-1.5">
+          <Button
+            variant="outline"
+            size="sm"
+            disabled={!contactPrincipal?.telephone}
+            onClick={() => contactPrincipal?.telephone && (window.location.href = `tel:${contactPrincipal.telephone}`)}
+          >
+            <Phone className="h-3.5 w-3.5" />
+            Appeler
+          </Button>
+          <Button variant="outline" size="sm" onClick={() => setTab('activite')} className="lg:hidden">
+            <StickyNote className="h-3.5 w-3.5" />
+            Note
+          </Button>
+          <Button size="sm" onClick={() => navigate('/recommandations')}>
+            <Plus className="h-3.5 w-3.5" />
+            Recommandation
+          </Button>
+        </div>
+      </div>
+
+      {/* Onglets — soulignés, comme la maquette (pas de pilule) */}
+      <div className="flex gap-0.5 overflow-x-auto border-b border-navy-100 bg-white px-4 sm:px-6">
+        {TABS.map((t) => (
+          <button
+            key={t.key}
+            type="button"
+            onClick={() => setTab(t.key)}
+            className={cn(
+              'inline-flex shrink-0 items-center gap-1.5 whitespace-nowrap border-b-2 px-3 py-2.5 text-[12.5px] transition-colors',
+              t.mobileOnly && 'lg:hidden',
+              tab === t.key ? 'border-navy-800 font-semibold text-navy-800' : 'border-transparent font-normal text-navy-500 hover:text-navy-700',
+            )}
+          >
+            {t.label}
+            {t.badge && (
+              <span
+                className={cn(
+                  'rounded px-1.5 py-0.5 text-[9.5px] font-bold',
+                  t.key === 'signaux' ? 'bg-red-500 text-white' : t.key === 'mandats' ? 'bg-amber-200 text-amber-700' : 'bg-navy-100 text-navy-500',
                 )}
-              </CardContent>
-            </Card>
+              >
+                {t.badge}
+              </span>
+            )}
+          </button>
+        ))}
+      </div>
 
-            <Card className="lg:col-span-2">
-              <CardHeader>
-                <CardTitle>Activité</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <ActivityFeed
-                  siteId={site.id}
-                  siteNom={site.nom}
-                  compteId={site.compte_id}
-                  compteNom={site.compte_nom}
-                  signaux={signauxDuSite}
-                  interactions={interactionsDuSite}
-                  actions={actionsDuSite}
-                  documents={documentsDuSite}
-                />
-              </CardContent>
-            </Card>
+      {/* 3 zones */}
+      <div className="grid flex-1 grid-cols-1 overflow-hidden lg:grid-cols-[280px_1fr_304px]">
+        {/* Colonne gauche — Compte + Contacts (desktop uniquement) */}
+        <div className="hidden flex-col gap-3.5 overflow-y-auto border-r border-navy-100 bg-navy-50/60 p-3.5 lg:flex">
+          <ComptePanel compte={compte} compteNom={site.compte_nom} compteId={site.compte_id} onCopy={showToast} />
+          <ContactsPanel contacts={contactsDuSite} onCopy={showToast} />
+        </div>
 
-            <Card>
-              <CardHeader>
-                <CardTitle>Compteurs</CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-2">
-                {compteursDuSite.length === 0 && <p className="text-sm text-navy-400">Aucun compteur.</p>}
-                {compteursDuSite.map((c) => (
+        {/* Centre — contenu de l'onglet */}
+        <div className="overflow-y-auto bg-navy-50 p-4 sm:p-5">
+          {tab === 'synthese' && (
+            <div className="flex flex-col gap-3.5">
+              <HealthCard health={health} donutColor={donutColor} />
+              <div className="grid grid-cols-1 gap-3.5 lg:grid-cols-[1fr_1.2fr]">
+                <div className="flex flex-col overflow-hidden rounded-xl border border-navy-100 bg-white">
+                  <iframe
+                    title="Carte du site"
+                    src={`https://maps.google.com/maps?q=${mapQuery}&z=${site.latitude != null ? 16 : 13}&output=embed`}
+                    className="block h-[200px] w-full flex-1 border-0"
+                  />
+                  <div className="flex items-center gap-2 px-3.5 py-2.5">
+                    <span className="text-xs font-semibold text-navy-800">{adresse || 'Adresse non renseignée'}</span>
+                    <div className="flex-1" />
+                    {adresse && (
+                      <a href={`https://www.google.com/maps/search/?api=1&query=${mapQuery}`} target="_blank" rel="noreferrer" className="whitespace-nowrap text-[10.5px] font-semibold">
+                        Itinéraire ↗
+                      </a>
+                    )}
+                  </div>
+                </div>
+                <div className="rounded-xl border border-navy-100 bg-white p-4">
+                  <div className="mb-3 flex items-center">
+                    <span className="text-[10px] font-bold uppercase tracking-wide text-navy-400">Informations</span>
+                    <div className="flex-1" />
+                    <span className="text-[10px] text-navy-300">cliquer ⧉ pour copier</span>
+                  </div>
+                  <div className="grid grid-cols-2 gap-3.5">
+                    <InfoField label="Libellé du site" value={site.nom} onCopy={showToast} />
+                    <InfoField label="Type" value={site.type_site || '—'} onCopy={showToast} />
+                    <div className="col-span-2">
+                      <InfoField label="Adresse" value={site.adresse || '—'} onCopy={showToast} />
+                    </div>
+                    <InfoField label="Ville" value={site.ville || '—'} onCopy={showToast} />
+                    <InfoField label="Code postal" value={site.code_postal || '—'} onCopy={showToast} />
+                    {site.annee_construction && <InfoField label="Année de construction" value={String(site.annee_construction)} onCopy={showToast} />}
+                    {site.surface_m2 && <InfoField label="Surface" value={`${site.surface_m2.toLocaleString('fr-FR')} m²`} onCopy={showToast} />}
+                    {site.date_derniere_ag && (
+                      <InfoField label="Dernière AG" value={new Date(site.date_derniere_ag).toLocaleDateString('fr-FR')} onCopy={showToast} />
+                    )}
+                  </div>
+                  {site.latitude == null && (
+                    <p className="mt-3 text-[10.5px] italic text-navy-300">Coordonnées précises non renseignées — la carte se positionne sur l'adresse/ville.</p>
+                  )}
+                </div>
+              </div>
+
+              {/* Compte + Contacts inline sur mobile uniquement */}
+              <div className="flex flex-col gap-3.5 lg:hidden">
+                <ComptePanel compte={compte} compteNom={site.compte_nom} compteId={site.compte_id} onCopy={showToast} />
+                <ContactsPanel contacts={contactsDuSite} onCopy={showToast} />
+              </div>
+            </div>
+          )}
+
+          {tab === 'contrats' && (
+            <div className="flex flex-col gap-3.5">
+              {compteursDuSite.length === 0 ? (
+                <p className="text-sm text-navy-400">Aucun compteur pour ce site.</p>
+              ) : (
+                <EnergyTimeline compteurs={compteursDuSite} contrats={contratsDuSite} />
+              )}
+              <div>
+                <p className="mb-2 text-[10px] font-bold uppercase tracking-wide text-navy-400">Historique des contrats par compteur</p>
+                <div className="flex flex-col gap-2.5">
+                  {compteursDuSite.map((c) => {
+                    const historiqueContrats = contratsDuSite
+                      .filter((ct) => ct.compteurs.some((cc) => cc.id === c.id))
+                      .sort((a, b) => new Date(b.date_debut ?? 0).getTime() - new Date(a.date_debut ?? 0).getTime())
+                    const Icon = c.type_energie === 'gaz' ? Flame : Zap
+                    return (
+                      <div key={c.id} className="overflow-hidden rounded-lg border border-navy-100 bg-white">
+                        <div className="flex items-center gap-2 border-b border-navy-50 bg-navy-50/60 px-3.5 py-2.5">
+                          <span className={cn('flex h-6 w-6 items-center justify-center rounded-md', c.type_energie === 'gaz' ? 'bg-amber-100 text-amber-600' : 'bg-sky-100 text-sky-500')}>
+                            <Icon className="h-3 w-3" />
+                          </span>
+                          <span className="text-xs font-bold text-navy-800">{c.utilisation || c.numero_pdl}</span>
+                          <span className="font-mono text-[10px] text-navy-300">{c.numero_pdl}</span>
+                        </div>
+                        {historiqueContrats.length === 0 ? (
+                          <p className="px-3.5 py-2.5 text-xs text-navy-400">Aucun contrat.</p>
+                        ) : (
+                          historiqueContrats.map((ct) => (
+                            <div
+                              key={ct.id}
+                              onClick={() => navigate(`/contrats/${ct.id}`)}
+                              className="flex cursor-pointer items-center gap-3 border-t border-navy-50 px-3.5 py-2.5 hover:bg-navy-50/60"
+                            >
+                              <Badge tone={STATUT_CONTRAT_TONE[ct.statut] ?? 'neutral'}>{ct.statut}</Badge>
+                              <span className="flex-1 text-xs font-medium text-navy-700">{ct.fournisseur_nom}</span>
+                              <span className="font-mono text-[10px] text-navy-400">
+                                {ct.date_debut ? new Date(ct.date_debut).toLocaleDateString('fr-FR') : '—'} → {ct.date_fin ? new Date(ct.date_fin).toLocaleDateString('fr-FR') : 'sans échéance'}
+                              </span>
+                            </div>
+                          ))
+                        )}
+                      </div>
+                    )
+                  })}
+                </div>
+              </div>
+            </div>
+          )}
+
+          {tab === 'compteurs' && (
+            <div className="flex flex-col gap-2.5">
+              {compteursDuSite.length === 0 && <p className="text-sm text-navy-400">Aucun compteur pour ce site.</p>}
+              {compteursDuSite.map((c) => {
+                const contratActif = contratsDuSite.find((ct) => ct.compteurs.some((cc) => cc.id === c.id) && ct.statut === 'ACTIF')
+                const Icon = c.type_energie === 'gaz' ? Flame : Zap
+                return (
                   <div
                     key={c.id}
-                    className="cursor-pointer rounded-lg border border-navy-100 p-3 transition-colors hover:bg-navy-50"
                     onClick={() => navigate(`/compteurs/${c.id}`)}
+                    className="flex cursor-pointer items-center gap-3 rounded-xl border border-navy-100 bg-white p-3.5 hover:bg-navy-50/60"
                   >
-                    <p className="text-sm font-medium text-navy-800">{c.utilisation}</p>
-                    <p className="text-xs text-navy-500">{c.numero_pdl}</p>
+                    <span className={cn('flex h-9 w-9 shrink-0 items-center justify-center rounded-[10px]', c.type_energie === 'gaz' ? 'bg-amber-100 text-amber-600' : 'bg-sky-100 text-sky-500')}>
+                      <Icon className="h-4 w-4" />
+                    </span>
+                    <div className="min-w-0 flex-1">
+                      <p className="truncate text-sm font-bold text-navy-800">{c.utilisation || c.numero_pdl}</p>
+                      <p className="truncate font-mono text-[10px] text-navy-400">
+                        {c.numero_pdl} {contratActif ? `· ${contratActif.fournisseur_nom}` : ''} {c.consommation_annuelle_mwh ? `· ${c.consommation_annuelle_mwh} MWh` : ''}
+                      </p>
+                    </div>
+                    <Badge tone={c.statut === 'actif' ? 'kiwi' : 'neutral'}>{c.statut}</Badge>
                   </div>
-                ))}
-              </CardContent>
-            </Card>
+                )
+              })}
+            </div>
+          )}
 
-            <Card className="lg:col-span-2">
-              <CardHeader>
-                <CardTitle>Recommandations liées</CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-2">
-                {recommandationsDuSite.length === 0 && <p className="text-sm text-navy-400">Aucune recommandation pour ce site.</p>}
-                {recommandationsDuSite.map((r) => (
+          {tab === 'recommandations' && (
+            <div className="flex flex-col gap-2.5">
+              {recommandationsDuSite.length === 0 && <p className="text-sm text-navy-400">Aucune recommandation pour ce site.</p>}
+              {recommandationsDuSite.map((r) => {
+                const derniereVersion = r.versions[r.versions.length - 1]
+                return (
                   <div
                     key={r.id}
-                    className="cursor-pointer rounded-lg border border-navy-100 p-3 transition-colors hover:bg-navy-50"
                     onClick={() => navigate(`/recommandations/${r.id}`)}
+                    className="cursor-pointer rounded-xl border border-navy-100 bg-white p-3.5 hover:bg-navy-50/60"
                   >
-                    <p className="text-sm font-medium text-navy-800">{r.titre}</p>
-                    <p className="text-xs text-navy-500">{r.objectif}</p>
+                    <div className="flex items-center gap-2">
+                      <p className="flex-1 text-sm font-bold text-navy-800">{r.titre}</p>
+                      <Badge tone="amber">{r.etape}</Badge>
+                    </div>
+                    <p className="mt-1 text-xs text-navy-500">{r.objectif}</p>
+                    {derniereVersion && (
+                      <p className="mt-2 text-[11px] text-navy-400">
+                        V{derniereVersion.numero} · {derniereVersion.statut}
+                        {derniereVersion.gains_estimes ? ` · gain estimé ${derniereVersion.gains_estimes.toLocaleString('fr-FR')} €/an` : ''}
+                      </p>
+                    )}
                   </div>
-                ))}
-              </CardContent>
-            </Card>
+                )
+              })}
+            </div>
+          )}
 
-            <Card className="lg:col-span-3">
-              <CardHeader>
-                <CardTitle>Frise énergétique</CardTitle>
-              </CardHeader>
-              <CardContent>
-                {compteursDuSite.length === 0 ? (
-                  <p className="text-sm text-navy-400">Aucun compteur pour ce site.</p>
-                ) : (
-                  <EnergyTimeline compteurs={compteursDuSite} contrats={contratsDuSite} />
-                )}
-              </CardContent>
-            </Card>
-
-            <Card className="lg:col-span-3">
-              <CardHeader>
-                <CardTitle>Matrice de couverture mandat × recommandation</CardTitle>
-              </CardHeader>
-              <CardContent>
-                {compteursDuSite.length === 0 ? (
-                  <p className="text-sm text-navy-400">Aucun compteur pour ce site.</p>
-                ) : (
-                  <CoverageMatrix
-                    compteurs={compteursDuSite}
-                    contrats={contratsDuSite}
-                    recommandations={recommandationsDuSite}
-                    mandat={mandatDuSite}
-                  />
-                )}
-              </CardContent>
-            </Card>
-
-            <Card>
-              <CardHeader>
-                <CardTitle>Contrats</CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-2">
-                {contratsDuSite.length === 0 && <p className="text-sm text-navy-400">Aucun contrat.</p>}
-                {contratsDuSite.map((c) => (
-                  <div
-                    key={c.id}
-                    className="cursor-pointer rounded-lg border border-navy-100 p-3 transition-colors hover:bg-navy-50"
-                    onClick={() => navigate(`/contrats/${c.id}`)}
-                  >
-                    <p className="text-sm font-medium text-navy-800">{c.fournisseur_nom}</p>
-                    <p className="text-xs text-navy-500">{c.type_energie === 'gaz' ? 'Gaz' : 'Électricité'}</p>
+          {tab === 'signaux' && (
+            <div className="flex flex-col gap-2.5">
+              {signauxDuSite.length === 0 && (
+                <div className="rounded-xl border border-dashed border-kiwi-100 bg-white p-6 text-center text-sm font-semibold text-kiwi-600">
+                  ✓ Aucun signal ouvert — site sous contrôle
+                </div>
+              )}
+              {signauxDuSite.map((s) => {
+                const enVeille = !!s.date_snooze && new Date(s.date_snooze).getTime() > Date.now()
+                return (
+                  <div key={s.id} className="rounded-xl border border-navy-100 bg-white p-3.5">
+                    <div className="flex items-start gap-2.5">
+                      <span className={cn('mt-1 h-2 w-2 shrink-0 rounded-full', SEVERITE_DOT[s.severite])} />
+                      <div className="min-w-0 flex-1">
+                        <p className="text-sm font-bold text-navy-800">{s.type_signal}</p>
+                        <p className="mt-0.5 text-xs text-navy-500">{s.description}</p>
+                      </div>
+                    </div>
+                    <div className="mt-2.5 flex gap-2 border-t border-navy-50 pt-2.5">
+                      {enVeille ? (
+                        <button
+                          type="button"
+                          onClick={() => snoozeSignal.mutate({ id: s.id, date_snooze: null })}
+                          className="flex items-center gap-1 rounded-full bg-navy-100 px-2.5 py-1 text-[10.5px] font-medium text-navy-600 hover:bg-navy-200"
+                        >
+                          <X className="h-3 w-3" />
+                          En veille jusqu'au {new Date(s.date_snooze!).toLocaleDateString('fr-FR')}
+                        </button>
+                      ) : (
+                        <button
+                          type="button"
+                          onClick={() => {
+                            const date = new Date()
+                            date.setDate(date.getDate() + 30)
+                            snoozeSignal.mutate({ id: s.id, date_snooze: date.toISOString() })
+                          }}
+                          className="flex items-center gap-1 rounded-full border border-navy-200 px-2.5 py-1 text-[10.5px] font-medium text-navy-600 hover:bg-navy-50"
+                        >
+                          <Clock className="h-3 w-3" />
+                          Snoozer 30j
+                        </button>
+                      )}
+                      <Button variant="ghost" size="sm" className="ml-auto" onClick={() => navigate('/signaux')}>
+                        Voir dans Signaux
+                      </Button>
+                    </div>
                   </div>
-                ))}
-              </CardContent>
-            </Card>
+                )
+              })}
+            </div>
+          )}
 
-            <Card>
-              <CardHeader>
-                <CardTitle>Contacts sur ce site</CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-2">
-                {contactsDuSite.length === 0 && <p className="text-sm text-navy-400">Aucun contact rattaché à ce site.</p>}
-                {contactsDuSite.map((c) => (
-                  <div
-                    key={c.id}
-                    className="cursor-pointer rounded-lg border border-navy-100 p-3 transition-colors hover:bg-navy-50"
-                    onClick={() => navigate(`/contacts/${c.id}`)}
-                  >
-                    <p className="text-sm font-medium text-navy-800">{c.prenom} {c.nom}</p>
-                    <p className="text-xs text-navy-500">{c.fonction || '—'}</p>
+          {tab === 'mandats' && (
+            <div className="flex flex-col gap-3.5">
+              {mandatDuSite ? (
+                <div className="overflow-hidden rounded-xl border border-navy-100 bg-white">
+                  <div className="flex items-center gap-3 border-b border-navy-50 px-4 py-3.5">
+                    <span className="flex h-7 w-7 items-center justify-center rounded-lg bg-amber-200 text-amber-700">📄</span>
+                    <div className="flex-1">
+                      <p className="text-sm font-bold text-navy-800">Mandat {mandatDuSite.compte_nom}</p>
+                      <p className="text-[11px] text-navy-500">
+                        {mandatDuSite.contact_signataire_nom ? `Signataire ${mandatDuSite.contact_signataire_nom}` : 'Signataire non renseigné'}
+                        {mandatDuSite.date_signature ? ` · signé le ${new Date(mandatDuSite.date_signature).toLocaleDateString('fr-FR')}` : ''}
+                        {mandatDuSite.docusign_envelope_id ? ' · DocuSign ✓' : ''}
+                      </p>
+                    </div>
+                    <Badge tone={mandatDuSite.statut === 'ACTIF' ? 'kiwi' : 'amber'}>{mandatDuSite.statut}</Badge>
                   </div>
-                ))}
-              </CardContent>
-            </Card>
+                  <div className="px-4 py-3.5">
+                    <div className="mb-2.5 flex items-center gap-2">
+                      <span className="text-[10px] font-bold uppercase tracking-wide text-navy-400">Périmètre du mandat</span>
+                      <div className="flex-1" />
+                      <span className="text-[11px] font-bold text-kiwi-600">{mandatDuSite.nb_sites_couverts} site{mandatDuSite.nb_sites_couverts > 1 ? 's' : ''} couvert{mandatDuSite.nb_sites_couverts > 1 ? 's' : ''}</span>
+                    </div>
+                    {compteursDuSite.length > 0 && (
+                      <CoverageMatrix compteurs={compteursDuSite} contrats={contratsDuSite} recommandations={recommandationsDuSite} mandat={mandatDuSite} />
+                    )}
+                  </div>
+                </div>
+              ) : (
+                <div className="rounded-xl border border-dashed border-amber-200 bg-amber-50/60 p-4">
+                  <p className="text-sm font-bold text-amber-700">Aucun mandat actif ne couvre ce site</p>
+                  <p className="mt-1 text-xs text-amber-600">Impossible de lancer une consultation tant qu'un mandat signé ne couvre pas ce site.</p>
+                  <Button size="sm" className="mt-2.5" onClick={() => navigate('/mandats')}>
+                    <Plus className="h-3.5 w-3.5" />
+                    Préparer un mandat
+                  </Button>
+                </div>
+              )}
+
+              {autresMandatsDuCompte.length > 0 && (
+                <div>
+                  <p className="mb-2 text-[10px] font-bold uppercase tracking-wide text-navy-400">Autres mandats du compte</p>
+                  <div className="flex flex-col gap-2">
+                    {autresMandatsDuCompte.map((m) => (
+                      <div key={m.id} onClick={() => navigate('/mandats')} className="flex cursor-pointer items-center gap-3 rounded-lg border border-navy-100 bg-white p-3 hover:bg-navy-50/60">
+                        <Badge tone={m.statut === 'ACTIF' ? 'kiwi' : 'neutral'}>{m.statut}</Badge>
+                        <span className="flex-1 text-xs font-medium text-navy-700">{m.nb_sites_couverts} site{m.nb_sites_couverts > 1 ? 's' : ''}</span>
+                        <span className="text-[10.5px] text-navy-400">{m.contact_signataire_nom ?? '—'}</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+
+          {tab === 'activite' && (
+            <ActivityFeed
+              siteId={site.id}
+              siteNom={site.nom}
+              compteId={site.compte_id}
+              compteNom={site.compte_nom}
+              signaux={signauxDuSite}
+              interactions={interactionsDuSite}
+              actions={actionsDuSite}
+              documents={documentsDuSite}
+            />
+          )}
+        </div>
+
+        {/* Colonne droite — Activité persistante (desktop uniquement) */}
+        <div className="hidden flex-col border-l border-navy-100 bg-white lg:flex">
+          <div className="flex items-center gap-2 px-3.5 py-3">
+            <span className="text-[10px] font-bold uppercase tracking-wide text-navy-400">Activité</span>
+          </div>
+          <div className="flex-1 overflow-y-auto px-3.5 pb-3.5">
+            <ActivityFeed
+              siteId={site.id}
+              siteNom={site.nom}
+              compteId={site.compte_id}
+              compteNom={site.compte_nom}
+              signaux={signauxDuSite}
+              interactions={interactionsDuSite}
+              actions={actionsDuSite}
+              documents={documentsDuSite}
+            />
+          </div>
+        </div>
+      </div>
+
+      {toast && (
+        <div className="fixed bottom-6 left-1/2 z-50 -translate-x-1/2 whitespace-nowrap rounded-lg bg-navy-800 px-4 py-2.5 text-xs font-semibold text-white shadow-lg">
+          {toast}
+        </div>
+      )}
+    </div>
+  )
+}
+
+function MapPinIcon() {
+  return (
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M12 21s-7-4.8-7-10.7a7 7 0 0 1 14 0C19 16.2 12 21 12 21z" />
+      <circle cx="12" cy="10" r="2.5" />
+    </svg>
+  )
+}
+
+function InfoField({ label, value, onCopy }: { label: string; value: string; onCopy: (msg: string) => void }) {
+  return (
+    <div>
+      <div className="mb-0.5 text-[10px] uppercase tracking-wide text-navy-400">{label}</div>
+      <div className="flex items-center gap-1.5">
+        <span className="truncate text-xs font-semibold text-navy-800">{value}</span>
+        <button type="button" onClick={() => copyToClipboard(value, onCopy)} title="Copier" className="shrink-0 rounded p-0.5 text-navy-300 hover:bg-navy-100 hover:text-navy-700">
+          <Copy className="h-3 w-3" />
+        </button>
+      </div>
+    </div>
+  )
+}
+
+function HealthCard({ health, donutColor }: { health: ReturnType<typeof computeSiteHealth>; donutColor: string }) {
+  return (
+    <div className="grid grid-cols-1 overflow-hidden rounded-xl border border-navy-100 bg-white sm:grid-cols-[220px_1fr]">
+      <div className="flex flex-col items-center justify-center gap-2 border-b border-navy-50 bg-navy-50/60 p-4 sm:border-b-0 sm:border-r">
+        <div
+          className="relative flex h-[74px] w-[74px] items-center justify-center rounded-full"
+          style={{ background: `conic-gradient(${donutColor} 0 ${health.score}%, #eceae6 ${health.score}% 100%)` }}
+        >
+          <div className="flex h-14 w-14 flex-col items-center justify-center rounded-full bg-white">
+            <span className="text-xl font-bold leading-none text-navy-800">{health.score}</span>
+            <span className="text-[8.5px] font-bold text-navy-300">/ 100</span>
+          </div>
+        </div>
+        <div className="text-center">
+          <p className="text-xs font-bold text-navy-800">Santé du site</p>
+          <p className="text-[11px] font-semibold" style={{ color: donutColor }}>{health.label}</p>
+        </div>
+      </div>
+      <div className="p-3.5">
+        <p className="mb-2 text-[10px] font-bold uppercase tracking-wide text-navy-400">Détail du calcul</p>
+        <div className="flex flex-col">
+          {health.raisons.map((r) => (
+            <div key={r} className="flex items-center gap-2.5 rounded-lg px-2 py-1.5 hover:bg-navy-50">
+              <span className="h-1.5 w-1.5 shrink-0 rounded-full" style={{ background: donutColor }} />
+              <span className="flex-1 text-[11.5px] font-medium text-navy-700">{r}</span>
+            </div>
+          ))}
+        </div>
+      </div>
+    </div>
+  )
+}
+
+function ComptePanel({
+  compte,
+  compteNom,
+  compteId,
+  onCopy,
+}: {
+  compte: Compte | undefined
+  compteNom: string
+  compteId: string
+  onCopy: (msg: string) => void
+}) {
+  return (
+    <div className="rounded-xl border border-navy-100 bg-white p-3.5">
+      <div className="mb-2 flex items-center gap-1.5">
+        <span className="flex h-5 w-5 items-center justify-center rounded-md bg-sky-100 text-sky-500">
+          <Building2 className="h-2.5 w-2.5" />
+        </span>
+        <span className="text-[10px] font-bold uppercase tracking-wide text-navy-400">Compte</span>
+        <div className="flex-1" />
+        <EntityLink to={`/comptes/${compteId}`}>ouvrir →</EntityLink>
+      </div>
+      <p className="text-[13px] font-bold text-sky-500">{compte?.nom ?? compteNom}</p>
+      <div className="mt-2 flex flex-col gap-1.5 text-[11.5px]">
+        <div className="flex items-center justify-between">
+          <span className="text-navy-500">Type</span>
+          <span className="font-semibold text-navy-800">{compte?.type_compte ?? '—'}</span>
+        </div>
+        {compte?.score_ellipro && (
+          <div className="flex items-center justify-between">
+            <span className="text-navy-500">Note Ellisphere</span>
+            <span className="rounded bg-kiwi-50 px-1.5 py-0.5 text-[11px] font-extrabold text-kiwi-600">{compte.score_ellipro}</span>
           </div>
         )}
+        {compte?.siren && (
+          <div className="flex items-center justify-between">
+            <span className="text-navy-500">SIREN</span>
+            <button type="button" onClick={() => copyToClipboard(compte.siren ?? '', onCopy)} className="font-mono text-[10.5px] font-semibold hover:text-sky-500">
+              {compte.siren} ⧉
+            </button>
+          </div>
+        )}
+      </div>
+    </div>
+  )
+}
+
+function ContactsPanel({ contacts, onCopy }: { contacts: Contact[] | undefined; onCopy: (msg: string) => void }) {
+  const navigate = useNavigate()
+  const list = contacts ?? []
+  return (
+    <div className="rounded-xl border border-navy-100 bg-white p-3.5">
+      <div className="mb-2.5 flex items-center gap-1.5">
+        <span className="flex h-5 w-5 items-center justify-center rounded-md bg-violet-100 text-violet-500">
+          <Users className="h-2.5 w-2.5" />
+        </span>
+        <span className="text-[10px] font-bold uppercase tracking-wide text-navy-400">Contacts</span>
+      </div>
+      {list.length === 0 && <p className="text-xs text-navy-400">Aucun contact rattaché à ce site.</p>}
+      <div className="flex flex-col gap-3">
+        {list.map((c) => {
+          const initiales = `${c.prenom[0] ?? ''}${c.nom[0] ?? ''}`.toUpperCase()
+          return (
+            <div key={c.id}>
+              <div className="flex items-center gap-2.5">
+                <div className="flex h-[30px] w-[30px] shrink-0 items-center justify-center rounded-full border-[1.5px] border-violet-200 bg-violet-50 text-[10px] font-bold text-violet-600">
+                  {initiales}
+                </div>
+                <div className="min-w-0 flex-1">
+                  <button type="button" onClick={() => navigate(`/contacts/${c.id}`)} className="truncate text-left text-[12.5px] font-bold text-navy-800 hover:text-violet-600">
+                    {c.prenom} {c.nom}
+                  </button>
+                  <p className="truncate text-[10.5px] text-navy-400">{c.fonction || '—'}</p>
+                </div>
+                {c.telephone && (
+                  <a href={`tel:${c.telephone}`} title="Appeler" className="flex h-[26px] w-[26px] shrink-0 items-center justify-center rounded-md border border-kiwi-100 bg-kiwi-50 text-kiwi-600">
+                    <Phone className="h-3 w-3" />
+                  </a>
+                )}
+              </div>
+              <div className="ml-[39px] mt-1.5 flex flex-col gap-1 text-[11px]">
+                {c.email && (
+                  <button type="button" onClick={() => copyToClipboard(c.email!, onCopy)} className="flex items-center gap-1.5 text-left text-navy-600 hover:text-sky-500">
+                    {c.email}
+                  </button>
+                )}
+                {c.telephone && (
+                  <button type="button" onClick={() => copyToClipboard(c.telephone!, onCopy)} className="flex items-center gap-1.5 text-left font-mono text-[10.5px] text-navy-600 hover:text-kiwi-600">
+                    {c.telephone}
+                  </button>
+                )}
+              </div>
+            </div>
+          )
+        })}
       </div>
     </div>
   )
