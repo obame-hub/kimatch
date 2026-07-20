@@ -14,7 +14,7 @@ interface RawRecommandation {
   objectif: { libelle: string } | null
   origine: { libelle: string } | null
   responsable: { prenom: string; nom: string } | null
-  mandat: { compte: { id: string; nom: string } | null } | null
+  compte: { id: string; nom: string } | null
 }
 
 interface RawVersion {
@@ -68,7 +68,7 @@ async function fetchRecommandations(): Promise<Recommandation[]> {
       supabase
         .from('recommandations')
         .select(
-          'id, titre, description, priorite, commentaire_interne, date_ouverture, etape:etapes_recommandation(code), objectif:types_objectifs(libelle), origine:types_origines(libelle), responsable:profils(prenom, nom), mandat:mandats(compte:comptes(id, nom))',
+          'id, titre, description, priorite, commentaire_interne, date_ouverture, etape:etapes_recommandation(code), objectif:types_objectifs(libelle), origine:types_origines(libelle), responsable:profils(prenom, nom), compte:comptes(id, nom)',
         )
         .order('date_ouverture', { ascending: false }),
       supabase.from('recommandations_sites').select('recommandation_id, site:sites(id, nom)'),
@@ -177,8 +177,8 @@ async function fetchRecommandations(): Promise<Recommandation[]> {
     return (recosRes.data as unknown as RawRecommandation[]).map((r) => ({
       id: r.id,
       titre: r.titre,
-      compte_id: r.mandat?.compte?.id ?? '',
-      compte_nom: r.mandat?.compte?.nom ?? '',
+      compte_id: r.compte?.id ?? '',
+      compte_nom: r.compte?.nom ?? '',
       sites: sitesParReco.get(r.id) ?? [],
       etape: r.etape?.code ?? '',
       conseiller: r.responsable ? `${r.responsable.prenom} ${r.responsable.nom}` : '',
@@ -249,7 +249,7 @@ export function useCreateRecommandation() {
           .from('recommandations')
           .insert({
             titre: input.titre,
-            mandat_id: input.mandat_id,
+            compte_id: input.compte_id,
             description: input.description,
             priorite: input.priorite,
             commentaire_interne: input.commentaire_interne,
@@ -264,6 +264,9 @@ export function useCreateRecommandation() {
           const recoId = (data as { id: string }).id
           recommandation = { ...recommandation, id: recoId }
           persisted = true
+          await supabase
+            .from('recommandations_mandats')
+            .insert({ recommandation_id: recoId, mandat_id: input.mandat_id, principal: true })
           if (input.sites.length > 0) {
             await supabase
               .from('recommandations_sites')
