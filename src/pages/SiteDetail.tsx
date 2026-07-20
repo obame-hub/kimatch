@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
-import { ArrowLeft, Phone, StickyNote, Plus, Building2, Users, Copy, Zap, Flame, Clock, X } from 'lucide-react'
+import { ArrowLeft, Phone, StickyNote, Plus, Building2, Users, Copy, Zap, Flame, Clock, X, CalendarClock, FileText } from 'lucide-react'
 import { Topbar } from '@/components/layout/Topbar'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
@@ -13,7 +13,7 @@ import { useContrats } from '@/lib/data/contrats'
 import { useInteractions } from '@/lib/data/interactions'
 import { useContacts } from '@/lib/data/contacts'
 import { useMandats } from '@/lib/data/mandats'
-import { useActions } from '@/lib/data/actions'
+import { useActions, useCreateAction } from '@/lib/data/actions'
 import { useDocuments } from '@/lib/data/documents'
 import { useComptes } from '@/lib/data/comptes'
 import { EnergyTimeline } from '@/components/site/EnergyTimeline'
@@ -60,9 +60,11 @@ export default function SiteDetail() {
   const { data: documents } = useDocuments()
   const { data: comptes } = useComptes()
   const snoozeSignal = useSnoozeSignal()
+  const createAction = useCreateAction()
 
   const [tab, setTab] = useState<TabKey>('synthese')
   const [toast, setToast] = useState<string | null>(null)
+  const [sheetOpen, setSheetOpen] = useState(false)
 
   function showToast(msg: string) {
     setToast(msg)
@@ -133,8 +135,28 @@ export default function SiteDetail() {
     )
   }
 
+  function planifierRelance() {
+    const echeance = new Date()
+    echeance.setDate(echeance.getDate() + 7)
+    createAction.mutate({
+      titre: `Relance — ${site.nom}`,
+      type_action_id: null,
+      type_action_libelle: 'Relance',
+      site_id: site.id,
+      site_nom: site.nom,
+      contact_id: contactPrincipal?.id ?? null,
+      contact_nom: contactPrincipal ? `${contactPrincipal.prenom} ${contactPrincipal.nom}` : '',
+      priorite: 2,
+      echeance: echeance.toISOString(),
+      commentaire: null,
+      statut_id: null,
+    })
+    setSheetOpen(false)
+    showToast('✓ Relance planifiée dans 7 jours')
+  }
+
   return (
-    <div className="flex h-[calc(100vh-52px)] flex-col overflow-hidden">
+    <div className="flex h-[calc(100vh-52px-56px)] flex-col overflow-hidden md:h-[calc(100vh-52px)]">
       <Topbar crumb="Sites" title={site.nom} />
 
       {/* Bandeau site */}
@@ -150,7 +172,8 @@ export default function SiteDetail() {
           <p className="truncate text-xs text-navy-500">{compte?.nom ?? site.compte_nom} · {compteursDuSite.length} compteur{compteursDuSite.length > 1 ? 's' : ''}</p>
         </div>
         <Badge tone={site.statut === 'actif' ? 'kiwi' : 'neutral'}>{site.statut}</Badge>
-        <div className="flex gap-1.5">
+        {/* Actions rapides — desktop uniquement, remplacées par le FAB sur mobile comme chez William */}
+        <div className="hidden gap-1.5 lg:flex">
           <Button
             variant="outline"
             size="sm"
@@ -160,7 +183,7 @@ export default function SiteDetail() {
             <Phone className="h-3.5 w-3.5" />
             Appeler
           </Button>
-          <Button variant="outline" size="sm" onClick={() => setTab('activite')} className="lg:hidden">
+          <Button variant="outline" size="sm" onClick={() => setTab('activite')}>
             <StickyNote className="h-3.5 w-3.5" />
             Note
           </Button>
@@ -509,8 +532,64 @@ export default function SiteDetail() {
         </div>
       </div>
 
+      {/* FAB — mobile uniquement, remplace le bandeau d'actions comme chez William */}
+      <button
+        type="button"
+        onClick={() => setSheetOpen(true)}
+        className="fixed bottom-[70px] right-4 z-30 flex h-[52px] w-[52px] items-center justify-center rounded-full bg-kiwi-600 text-white shadow-lg shadow-kiwi-600/40 lg:hidden"
+        aria-label="Actions rapides"
+      >
+        <Plus className="h-6 w-6" />
+      </button>
+
+      {sheetOpen && (
+        <div className="fixed inset-0 z-40 lg:hidden">
+          <div className="absolute inset-0 bg-black/35" onClick={() => setSheetOpen(false)} />
+          <div className="absolute inset-x-2 bottom-[62px] rounded-[18px] bg-white p-2 shadow-2xl">
+            <div className="mx-auto mb-1.5 mt-0.5 h-1 w-9 rounded-full bg-navy-200" />
+            <button
+              type="button"
+              onClick={() => { setTab('activite'); setSheetOpen(false) }}
+              className="flex w-full items-center gap-3 rounded-xl px-3.5 py-3 text-left hover:bg-navy-50"
+            >
+              <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-amber-100 text-amber-700"><StickyNote className="h-3.5 w-3.5" /></span>
+              <span className="text-sm font-semibold text-navy-800">Ajouter une note</span>
+            </button>
+            <button type="button" onClick={planifierRelance} className="flex w-full items-center gap-3 rounded-xl px-3.5 py-3 text-left hover:bg-navy-50">
+              <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-amber-100 text-amber-700"><CalendarClock className="h-3.5 w-3.5" /></span>
+              <span className="text-sm font-semibold text-navy-800">Planifier une relance dans 7 jours</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => { setSheetOpen(false); navigate('/recommandations') }}
+              className="flex w-full items-center gap-3 rounded-xl px-3.5 py-3 text-left hover:bg-navy-50"
+            >
+              <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-amber-100 text-amber-700"><FileText className="h-3.5 w-3.5" /></span>
+              <span className="text-sm font-semibold text-navy-800">Nouvelle recommandation</span>
+            </button>
+            {contactPrincipal?.telephone && (
+              <button
+                type="button"
+                onClick={() => { setSheetOpen(false); window.location.href = `tel:${contactPrincipal.telephone}` }}
+                className="flex w-full items-center gap-3 rounded-xl px-3.5 py-3 text-left hover:bg-navy-50"
+              >
+                <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-kiwi-100 text-kiwi-600"><Phone className="h-3.5 w-3.5" /></span>
+                <span className="text-sm font-semibold text-navy-800">Appeler {contactPrincipal.prenom} {contactPrincipal.nom}</span>
+              </button>
+            )}
+            <button
+              type="button"
+              onClick={() => setSheetOpen(false)}
+              className="mt-1 w-full rounded-xl border-t border-navy-50 py-3 text-center text-sm font-semibold text-navy-400"
+            >
+              Annuler
+            </button>
+          </div>
+        </div>
+      )}
+
       {toast && (
-        <div className="fixed bottom-6 left-1/2 z-50 -translate-x-1/2 whitespace-nowrap rounded-lg bg-navy-800 px-4 py-2.5 text-xs font-semibold text-white shadow-lg">
+        <div className="fixed bottom-[70px] left-1/2 z-50 -translate-x-1/2 whitespace-nowrap rounded-lg bg-navy-800 px-4 py-2.5 text-xs font-semibold text-white shadow-lg lg:bottom-6">
           {toast}
         </div>
       )}

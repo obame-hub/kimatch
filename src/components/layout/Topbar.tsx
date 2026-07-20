@@ -1,14 +1,12 @@
 import { useEffect, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { LogOut, Menu, Search } from 'lucide-react'
+import { LogOut, Search } from 'lucide-react'
 import { useAuth } from '@/lib/auth'
-import { useSidebar } from '@/lib/layout'
 import { navItems } from '@/lib/navItems'
 import { cn } from '@/lib/utils'
 
 export function Topbar({ title, crumb }: { title: string; crumb?: string }) {
   const { signOut, demoMode } = useAuth()
-  const { toggle } = useSidebar()
   const navigate = useNavigate()
   const [query, setQuery] = useState('')
   const [focused, setFocused] = useState(false)
@@ -38,15 +36,6 @@ export function Topbar({ title, crumb }: { title: string; crumb?: string }) {
 
   return (
     <header className="relative flex h-[52px] items-center gap-3.5 border-b border-navy-100 bg-white px-4 sm:px-5">
-      <button
-        type="button"
-        onClick={toggle}
-        className="-ml-1 rounded-lg p-2 text-navy-500 hover:bg-navy-50 md:hidden"
-        aria-label="Ouvrir le menu"
-      >
-        <Menu className="h-5 w-5" />
-      </button>
-
       <div className="min-w-0 truncate text-[12px] text-navy-500">
         {crumb && <span>{crumb} / </span>}
         <span className="font-semibold text-navy-800">{title}</span>
