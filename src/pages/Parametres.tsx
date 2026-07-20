@@ -1,5 +1,5 @@
-import { useState } from 'react'
-import { RefreshCw, Hash, MessageSquare } from 'lucide-react'
+import { useEffect, useState } from 'react'
+import { RefreshCw, Hash, MessageSquare, Mail, CheckCircle2 } from 'lucide-react'
 import { Topbar } from '@/components/layout/Topbar'
 import { PageHeader } from '@/components/ui/page-header'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
@@ -19,6 +19,7 @@ import {
   buildContratCreatedBlocks,
   sampleContratCreatedData,
 } from '@/lib/slackTemplates'
+import { useGmailConnection, useDisconnectGmail, connectGmail } from '@/lib/data/gmail'
 
 const MODULE_LABELS: Record<SlackModule, string> = {
   compte: 'Nouveaux comptes',
@@ -107,12 +108,81 @@ function SlackModuleCard({ module }: { module: SlackModule }) {
   )
 }
 
+function GmailCard() {
+  const { data: connection, isLoading } = useGmailConnection()
+  const disconnect = useDisconnectGmail()
+  const [feedback, setFeedback] = useState<string | null>(null)
+  const [connecting, setConnecting] = useState(false)
+
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search)
+    const gmailStatus = params.get('gmail')
+    if (gmailStatus === 'connected') {
+      setFeedback('Compte Gmail connecté ✓')
+      window.history.replaceState({}, '', window.location.pathname)
+    } else if (gmailStatus === 'error') {
+      setFeedback(`Échec de la connexion Gmail (${params.get('reason') ?? 'inconnu'})`)
+      window.history.replaceState({}, '', window.location.pathname)
+    }
+  }, [])
+
+  async function handleConnect() {
+    setConnecting(true)
+    setFeedback(null)
+    try {
+      await connectGmail()
+    } catch (err) {
+      setFeedback(err instanceof Error ? err.message : 'Erreur inconnue')
+      setConnecting(false)
+    }
+  }
+
+  return (
+    <Card className="max-w-2xl">
+      <CardHeader>
+        <CardTitle className="flex items-center gap-2">
+          <Mail className="h-5 w-5 text-kiwi-600" />
+          Envoi d'emails (Gmail)
+        </CardTitle>
+      </CardHeader>
+      <CardContent className="space-y-3">
+        <p className="text-sm text-navy-500">
+          Chaque conseiller connecte son propre compte Gmail — les emails envoyés depuis KiWee OS partent de votre
+          propre adresse.
+        </p>
+        {isLoading ? (
+          <p className="text-sm text-navy-400">Chargement…</p>
+        ) : connection ? (
+          <div className="flex items-center justify-between rounded-lg border border-navy-100 p-4">
+            <div className="flex items-center gap-2 text-sm text-navy-700">
+              <CheckCircle2 className="h-4 w-4 text-kiwi-600" />
+              Connecté en tant que <span className="font-medium">{connection.email_gmail}</span>
+            </div>
+            <Button size="sm" variant="ghost" onClick={() => disconnect.mutate()} disabled={disconnect.isPending}>
+              Déconnecter
+            </Button>
+          </div>
+        ) : (
+          <div className="rounded-lg border border-navy-100 p-4">
+            <Button size="sm" onClick={handleConnect} disabled={connecting}>
+              Connecter mon compte Gmail
+            </Button>
+          </div>
+        )}
+        {feedback && <p className="text-xs text-navy-500">{feedback}</p>}
+      </CardContent>
+    </Card>
+  )
+}
+
 export default function Parametres() {
   return (
     <div>
       <Topbar title="Paramètres" />
-      <div className="p-4 sm:p-6">
+      <div className="p-4 sm:p-6 space-y-4">
         <PageHeader title="Paramètres" description="Intégrations et notifications de KiWee OS." />
+
+        <GmailCard />
 
         <Card className="max-w-2xl">
           <CardHeader>

@@ -1,16 +1,81 @@
+import { useState } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
-import { ArrowLeft, FileText } from 'lucide-react'
+import { ArrowLeft, FileText, Mail } from 'lucide-react'
 import { Topbar } from '@/components/layout/Topbar'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { EntityLink } from '@/components/ui/entity-link'
 import { EtapeStepper } from '@/components/ui/etape-stepper'
+import { Dialog } from '@/components/ui/dialog'
+import { FormField, Input, Textarea } from '@/components/ui/form'
 import { useRecommandations } from '@/lib/data/recommandations'
 import { useReferenceTable } from '@/lib/data/referenceTables'
+import { useContacts } from '@/lib/data/contacts'
+import { sendEmail } from '@/lib/data/gmail'
 import { FALLBACK_ETAPES_RECOMMANDATION, FALLBACK_STATUTS_VERSIONS, STATUT_VERSION_TONE } from '@/lib/referenceFallbacks'
+import type { Recommandation, VersionRecommandation } from '@/types/domain'
 
 const PRIORITE_LABEL: Record<number, string> = { 1: 'Haute', 2: 'Normale', 3: 'Basse' }
+
+function EnvoyerEmailDialog({
+  open,
+  onClose,
+  reco,
+  version,
+  defaultEmail,
+}: {
+  open: boolean
+  onClose: () => void
+  reco: Recommandation
+  version: VersionRecommandation
+  defaultEmail: string
+}) {
+  const [to, setTo] = useState(defaultEmail)
+  const [subject, setSubject] = useState(`KiWee Énergie — ${reco.titre} (version ${version.numero})`)
+  const [text, setText] = useState(
+    `Bonjour,\n\nVoici notre recommandation "${reco.titre}" (version ${version.numero}) :\n${version.resume}\n\n${version.document_url ? `Document : ${version.document_url}\n\n` : ''}Cordialement,`,
+  )
+  const [sending, setSending] = useState(false)
+  const [feedback, setFeedback] = useState<string | null>(null)
+
+  async function envoyer() {
+    setSending(true)
+    setFeedback(null)
+    try {
+      await sendEmail({ to, subject, text })
+      setFeedback('Email envoyé ✓')
+      setTimeout(onClose, 1200)
+    } catch (e) {
+      setFeedback(e instanceof Error ? e.message : 'Erreur inconnue')
+    } finally {
+      setSending(false)
+    }
+  }
+
+  return (
+    <Dialog open={open} onClose={onClose} title="Envoyer par email" description="Envoie cette version au destinataire choisi depuis votre propre compte Gmail.">
+      <div className="space-y-3">
+        <FormField label="Destinataire">
+          <Input type="email" value={to} onChange={(e) => setTo(e.target.value)} placeholder="email@exemple.fr" />
+        </FormField>
+        <FormField label="Objet">
+          <Input value={subject} onChange={(e) => setSubject(e.target.value)} />
+        </FormField>
+        <FormField label="Message">
+          <Textarea rows={6} value={text} onChange={(e) => setText(e.target.value)} />
+        </FormField>
+        {feedback && <p className="text-xs text-navy-600">{feedback}</p>}
+        <div className="flex justify-end gap-2 pt-2">
+          <Button type="button" variant="ghost" onClick={onClose}>Annuler</Button>
+          <Button type="button" onClick={envoyer} disabled={sending || !to}>
+            {sending ? 'Envoi…' : 'Envoyer'}
+          </Button>
+        </div>
+      </div>
+    </Dialog>
+  )
+}
 
 export default function RecommandationDetail() {
   const { id } = useParams()
@@ -18,9 +83,12 @@ export default function RecommandationDetail() {
   const { data: recommandations } = useRecommandations()
   const { data: etapesRef } = useReferenceTable('etapes_recommandation')
   const { data: statutsVersionsRef } = useReferenceTable('statuts_versions_recommandation')
+  const { data: contacts } = useContacts()
+  const [emailDialogVersion, setEmailDialogVersion] = useState<VersionRecommandation | null>(null)
   const etapes = etapesRef && etapesRef.length > 0 ? etapesRef : FALLBACK_ETAPES_RECOMMANDATION
   const statutsVersions = statutsVersionsRef && statutsVersionsRef.length > 0 ? statutsVersionsRef : FALLBACK_STATUTS_VERSIONS
   const reco = recommandations?.find((r) => r.id === id)
+  const contactPrincipal = contacts?.find((c) => c.compte_id === reco?.compte_id && c.contact_principal)
 
   return (
     <div>
@@ -143,18 +211,28 @@ export default function RecommandationDetail() {
                           </div>
                         )}
 
-                        {version.document_url && (
-                          <a
-                            href={version.document_url}
-                            target="_blank"
-                            rel="noreferrer"
-                            onClick={(e) => e.stopPropagation()}
-                            className="mt-2 inline-flex items-center gap-1.5 text-xs font-medium text-kiwi-700 hover:underline"
+                        <div className="mt-2 flex items-center gap-3">
+                          {version.document_url && (
+                            <a
+                              href={version.document_url}
+                              target="_blank"
+                              rel="noreferrer"
+                              onClick={(e) => e.stopPropagation()}
+                              className="inline-flex items-center gap-1.5 text-xs font-medium text-kiwi-700 hover:underline"
+                            >
+                              <FileText className="h-3.5 w-3.5" />
+                              Voir le document
+                            </a>
+                          )}
+                          <button
+                            type="button"
+                            onClick={() => setEmailDialogVersion(version)}
+                            className="inline-flex items-center gap-1.5 text-xs font-medium text-kiwi-700 hover:underline"
                           >
-                            <FileText className="h-3.5 w-3.5" />
-                            Voir le document
-                          </a>
-                        )}
+                            <Mail className="h-3.5 w-3.5" />
+                            Envoyer par email
+                          </button>
+                        </div>
                       </div>
                     )
                   })}
@@ -164,6 +242,15 @@ export default function RecommandationDetail() {
           </>
         )}
       </div>
+      {reco && emailDialogVersion && (
+        <EnvoyerEmailDialog
+          open={!!emailDialogVersion}
+          onClose={() => setEmailDialogVersion(null)}
+          reco={reco}
+          version={emailDialogVersion}
+          defaultEmail={contactPrincipal?.email ?? ''}
+        />
+      )}
     </div>
   )
 }
