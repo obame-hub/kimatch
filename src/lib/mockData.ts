@@ -44,6 +44,20 @@ export const mockRecommandations: Recommandation[] = [
         contenu: 'Comparatif de 3 offres fournisseurs sur 24 mois, avec réduction de la puissance souscrite de 250 à 210 kVA.',
         economie_pourcentage: 12.5, niveau_confiance: 85, date_validite_offres: '2026-08-05', document_url: null,
         compteur_ids: ['cp3'],
+        objectifs: [
+          {
+            id: 'ov1', titre: 'Réduire la facture électricité', type_objectif: 'Optimisation tarifaire',
+            strategies: [
+              {
+                id: 'so1', titre: 'Mise en concurrence 24 mois', type_strategie: 'Renégociation',
+                offres: [
+                  { id: 'of1', fournisseur_nom: 'EDF', reference_offre: 'EDF-2026-0142', titre: 'Offre Standard 24 mois', montant_annuel_ht: 42800, montant_total_ht: 85600, economie_annuelle_estimee: 5200, economie_pourcentage: 10.8, duree_mois: 24 },
+                  { id: 'of2', fournisseur_nom: 'ENGIE', reference_offre: 'ENG-2026-0871', titre: 'Offre Vert 24 mois', montant_annuel_ht: 41200, montant_total_ht: 82400, economie_annuelle_estimee: 6800, economie_pourcentage: 14.2, duree_mois: 24 },
+                ],
+              },
+            ],
+          },
+        ],
       },
     ],
   },
@@ -66,6 +80,7 @@ export const mockRecommandations: Recommandation[] = [
         gains_estimes: null, resume: "Étude en cours sur l'échéance des parties communes.",
         contenu: null, economie_pourcentage: null, niveau_confiance: null, date_validite_offres: null, document_url: null,
         compteur_ids: ['cp1'],
+        objectifs: [],
       },
     ],
   },

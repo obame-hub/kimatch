@@ -104,6 +104,45 @@ export default function RecommandationDetail() {
                           )}
                         </div>
 
+                        {version.objectifs.length > 0 && (
+                          <div className="mt-3 space-y-2 border-t border-navy-100 pt-3">
+                            {version.objectifs.map((objectif) => (
+                              <div key={objectif.id}>
+                                <p className="text-xs font-semibold uppercase tracking-wide text-navy-500">
+                                  {objectif.titre || objectif.type_objectif}
+                                </p>
+                                {objectif.strategies.map((strategie) => (
+                                  <div key={strategie.id} className="mt-1.5 pl-2">
+                                    <p className="text-xs font-medium text-navy-600">{strategie.titre || strategie.type_strategie}</p>
+                                    {strategie.offres.length === 0 ? (
+                                      <p className="pl-2 text-xs text-navy-400">Aucune offre pour cette stratégie.</p>
+                                    ) : (
+                                      <div className="mt-1 space-y-1.5 pl-2">
+                                        {strategie.offres.map((offre) => (
+                                          <div key={offre.id} className="flex items-center justify-between rounded-md bg-navy-50 px-2.5 py-1.5">
+                                            <div>
+                                              <p className="text-xs font-medium text-navy-800">{offre.fournisseur_nom}</p>
+                                              <p className="text-[11px] text-navy-500">{offre.titre || offre.reference_offre}{offre.duree_mois ? ` · ${offre.duree_mois} mois` : ''}</p>
+                                            </div>
+                                            <div className="text-right">
+                                              {offre.montant_annuel_ht !== null && (
+                                                <p className="text-xs font-semibold text-navy-800">{offre.montant_annuel_ht.toLocaleString('fr-FR')} €/an</p>
+                                              )}
+                                              {offre.economie_pourcentage !== null && (
+                                                <p className="text-[11px] font-medium text-kiwi-700">-{offre.economie_pourcentage}%</p>
+                                              )}
+                                            </div>
+                                          </div>
+                                        ))}
+                                      </div>
+                                    )}
+                                  </div>
+                                ))}
+                              </div>
+                            ))}
+                          </div>
+                        )}
+
                         {version.document_url && (
                           <a
                             href={version.document_url}
