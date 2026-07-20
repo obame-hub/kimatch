@@ -15,11 +15,13 @@ import {
   CheckSquare,
   X,
   Settings,
+  ShieldCheck,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { KiweeMark } from '@/components/ui/kiwee-mark'
 import { useActions } from '@/lib/data/actions'
 import { useSidebar } from '@/lib/layout'
+import { useIsAdmin } from '@/lib/data/roles'
 
 const navItems = [
   { to: '/', label: 'Tableau de bord', icon: LayoutDashboard, end: true },
@@ -42,6 +44,8 @@ export function Sidebar() {
   const { data: actions } = useActions()
   const nbTachesOuvertes = (actions ?? []).filter((a) => a.statut !== 'TERMINEE' && a.statut !== 'ANNULEE').length
   const { open, close } = useSidebar()
+  const isAdmin = useIsAdmin()
+  const items = isAdmin ? [...navItems, { to: '/administration', label: 'Administration', icon: ShieldCheck }] : navItems
 
   return (
     <>
@@ -75,7 +79,7 @@ export function Sidebar() {
         </div>
 
         <nav className="flex-1 space-y-1 overflow-y-auto px-3 py-2 scrollbar-thin">
-          {navItems.map(({ to, label, icon: Icon, end, badgeKey }) => (
+          {items.map(({ to, label, icon: Icon, end, badgeKey }) => (
             <NavLink
               key={to}
               to={to}

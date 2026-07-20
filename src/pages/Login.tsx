@@ -5,24 +5,24 @@ import { useAuth } from '@/lib/auth'
 import { KiweeMark } from '@/components/ui/kiwee-mark'
 
 export default function Login() {
-  const { signInWithPassword, enterDemoMode, demoMode } = useAuth()
+  const { signInWithMagicLink, enterDemoMode } = useAuth()
   const navigate = useNavigate()
   const [email, setEmail] = useState('')
-  const [password, setPassword] = useState('')
   const [error, setError] = useState<string | null>(null)
   const [submitting, setSubmitting] = useState(false)
+  const [sent, setSent] = useState(false)
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
     setSubmitting(true)
     setError(null)
-    const { error } = await signInWithPassword(email, password)
+    const { error } = await signInWithMagicLink(email)
     setSubmitting(false)
     if (error) {
       setError(error)
       return
     }
-    navigate('/')
+    setSent(true)
   }
 
   function handleDemoEntry() {
@@ -43,26 +43,27 @@ export default function Login() {
         </div>
 
         <form onSubmit={handleSubmit} className="rounded-xl border border-ink-800 bg-ink-900 p-6 shadow-card">
-          <label className="mb-1 block text-xs font-medium text-navy-300">Email</label>
-          <input
-            type="email"
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
-            className="mb-4 w-full rounded-lg border border-ink-700 bg-ink-800 px-3 py-2 text-sm text-white placeholder:text-navy-500 focus:border-kiwi-500 focus:outline-none"
-            placeholder="prenom@kiwee-energie.fr"
-          />
-          <label className="mb-1 block text-xs font-medium text-navy-300">Mot de passe</label>
-          <input
-            type="password"
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-            className="mb-4 w-full rounded-lg border border-ink-700 bg-ink-800 px-3 py-2 text-sm text-white placeholder:text-navy-500 focus:border-kiwi-500 focus:outline-none"
-            placeholder="••••••••"
-          />
-          {error && <p className="mb-3 text-xs text-red-400">{error}</p>}
-          <Button type="submit" className="w-full" disabled={submitting}>
-            {submitting ? 'Connexion…' : 'Se connecter'}
-          </Button>
+          {sent ? (
+            <p className="text-center text-sm text-navy-200">
+              Un lien de connexion a été envoyé à <span className="font-medium text-white">{email}</span>. Ouvre-le
+              depuis ta boîte mail pour te connecter (ton compte est créé automatiquement à la première connexion).
+            </p>
+          ) : (
+            <>
+              <label className="mb-1 block text-xs font-medium text-navy-300">Email</label>
+              <input
+                type="email"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                className="mb-4 w-full rounded-lg border border-ink-700 bg-ink-800 px-3 py-2 text-sm text-white placeholder:text-navy-500 focus:border-kiwi-500 focus:outline-none"
+                placeholder="prenom@kiwee-energie.fr"
+              />
+              {error && <p className="mb-3 text-xs text-red-400">{error}</p>}
+              <Button type="submit" className="w-full" disabled={submitting || !email}>
+                {submitting ? 'Envoi…' : 'Recevoir un lien de connexion'}
+              </Button>
+            </>
+          )}
 
           <div className="my-4 flex items-center gap-3">
             <div className="h-px flex-1 bg-ink-800" />
@@ -73,11 +74,9 @@ export default function Login() {
           <Button type="button" variant="subtle" className="w-full bg-ink-800 text-navy-100 hover:bg-ink-700" onClick={handleDemoEntry}>
             Continuer en mode démo
           </Button>
-          {demoMode && (
-            <p className="mt-3 text-center text-[11px] text-kiwi-300/80">
-              Aucun compte requis — explore l'app avec des données d'exemple.
-            </p>
-          )}
+          <p className="mt-3 text-center text-[11px] text-kiwi-300/80">
+            Aucun compte requis — explore l'app avec des données d'exemple.
+          </p>
         </form>
       </div>
     </div>

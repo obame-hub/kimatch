@@ -10,7 +10,7 @@ interface AuthContextValue {
   demoMode: boolean
   demoBypass: boolean
   enterDemoMode: () => void
-  signInWithPassword: (email: string, password: string) => Promise<{ error: string | null }>
+  signInWithMagicLink: (email: string) => Promise<{ error: string | null }>
   signOut: () => Promise<void>
 }
 
@@ -41,12 +41,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setDemoBypass(true)
   }
 
-  async function signInWithPassword(email: string, password: string) {
+  async function signInWithMagicLink(email: string) {
     if (!isSupabaseConfigured) {
       enterDemoMode()
       return { error: null }
     }
-    const { error } = await supabase.auth.signInWithPassword({ email, password })
+    const { error } = await supabase.auth.signInWithOtp({
+      email,
+      options: { emailRedirectTo: window.location.origin },
+    })
     return { error: error?.message ?? null }
   }
 
@@ -65,7 +68,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         demoMode: !isSupabaseConfigured || demoBypass,
         demoBypass,
         enterDemoMode,
-        signInWithPassword,
+        signInWithMagicLink,
         signOut,
       }}
     >
