@@ -48,33 +48,36 @@ export interface VersionRecommandation {
   date_validite_offres: string | null
   document_url: string | null
   compteur_ids: string[]
-  objectifs: ObjectifVersion[]
+  optimisations: Optimisation[]
 }
 
 export interface OffreFournisseur {
   id: string
   fournisseur_nom: string
   reference_offre: string | null
-  titre: string | null
+  nom: string | null
+  description: string | null
+  statut: string | null
   montant_annuel_ht: number | null
   montant_total_ht: number | null
   economie_annuelle_estimee: number | null
   economie_pourcentage: number | null
   duree_mois: number | null
+  est_offre_recommandee: boolean
 }
 
-export interface StrategieObjectif {
+export interface Optimisation {
   id: string
-  titre: string | null
-  type_strategie: string
+  nom: string | null
+  type_optimisation: string
+  description: string | null
+  resultat_attendu: string | null
+  gain_estime_annuel: number | null
+  cout_estime: number | null
+  roi_mois: number | null
+  priorite: number | null
+  est_retenue: boolean
   offres: OffreFournisseur[]
-}
-
-export interface ObjectifVersion {
-  id: string
-  titre: string | null
-  type_objectif: string
-  strategies: StrategieObjectif[]
 }
 
 export interface Recommandation {

@@ -1,7 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { isSupabaseConfigured, supabase } from '@/lib/supabase'
 import { mockRecommandations } from '@/lib/mockData'
-import type { Recommandation, VersionRecommandation, ObjectifVersion, StrategieObjectif, OffreFournisseur } from '@/types/domain'
+import type { Recommandation, VersionRecommandation, Optimisation, OffreFournisseur } from '@/types/domain'
 
 interface RawRecommandation {
   id: string
@@ -33,30 +33,33 @@ interface RawVersion {
   motif: { libelle: string } | null
 }
 
-interface RawObjectifVersion {
+interface RawOptimisation {
   id: string
   version_recommandation_id: string
-  titre: string | null
-  type_objectif: { libelle: string } | null
-}
-
-interface RawStrategieObjectif {
-  id: string
-  objectif_version_id: string
-  titre: string | null
-  type_strategie: { libelle: string } | null
+  nom: string | null
+  description: string | null
+  resultat_attendu: string | null
+  gain_estime_annuel: number | null
+  cout_estime: number | null
+  roi_mois: number | null
+  priorite: number | null
+  est_retenue: boolean
+  type_optimisation: { libelle: string } | null
 }
 
 interface RawOffreFournisseur {
   id: string
-  strategie_objectif_id: string
+  optimisation_id: string
   reference_offre: string | null
-  titre: string | null
+  nom: string | null
+  description: string | null
+  statut: string | null
   montant_annuel_ht: number | null
   montant_total_ht: number | null
   economie_annuelle_estimee: number | null
   economie_pourcentage: number | null
   duree_mois: number | null
+  est_offre_recommandee: boolean
   compte_fournisseur: { compte: { nom: string } | null } | null
 }
 
@@ -64,7 +67,7 @@ async function fetchRecommandations(): Promise<Recommandation[]> {
   if (!isSupabaseConfigured) return mockRecommandations
 
   try {
-    const [recosRes, sitesRes, versionsRes, versionsCompteursRes, objectifsRes, strategiesRes, offresRes] = await Promise.all([
+    const [recosRes, sitesRes, versionsRes, versionsCompteursRes, optimisationsRes, offresRes] = await Promise.all([
       supabase
         .from('recommandations')
         .select(
@@ -80,61 +83,57 @@ async function fetchRecommandations(): Promise<Recommandation[]> {
         .order('numero_version'),
       supabase.from('versions_recommandation_compteurs').select('version_recommandation_id, compteur_id'),
       supabase
-        .from('objectifs_version')
-        .select('id, version_recommandation_id, titre, type_objectif:types_objectifs(libelle)')
+        .from('optimisations')
+        .select(
+          'id, version_recommandation_id, nom, description, resultat_attendu, gain_estime_annuel, cout_estime, roi_mois, priorite, est_retenue, type_optimisation:types_optimisations(libelle)',
+        )
         .order('ordre'),
-      supabase
-        .from('strategies_objectif')
-        .select('id, objectif_version_id, titre, type_strategie:types_strategies(libelle)')
-        .order('priorite'),
       supabase
         .from('offres_fournisseurs')
         .select(
-          'id, strategie_objectif_id, reference_offre, titre, montant_annuel_ht, montant_total_ht, economie_annuelle_estimee, economie_pourcentage, duree_mois, compte_fournisseur:comptes_fournisseurs(compte:comptes(nom))',
+          'id, optimisation_id, reference_offre, nom, description, statut, montant_annuel_ht, montant_total_ht, economie_annuelle_estimee, economie_pourcentage, duree_mois, est_offre_recommandee, compte_fournisseur:comptes_fournisseurs(compte:comptes(nom))',
         ),
     ])
 
     if (recosRes.error) throw recosRes.error
 
-    const offresParStrategie = new Map<string, OffreFournisseur[]>()
+    const offresParOptimisation = new Map<string, OffreFournisseur[]>()
     for (const o of (offresRes.data ?? []) as unknown as RawOffreFournisseur[]) {
-      const list = offresParStrategie.get(o.strategie_objectif_id) ?? []
+      const list = offresParOptimisation.get(o.optimisation_id) ?? []
       list.push({
         id: o.id,
         fournisseur_nom: o.compte_fournisseur?.compte?.nom ?? '',
         reference_offre: o.reference_offre,
-        titre: o.titre,
+        nom: o.nom,
+        description: o.description,
+        statut: o.statut,
         montant_annuel_ht: o.montant_annuel_ht,
         montant_total_ht: o.montant_total_ht,
         economie_annuelle_estimee: o.economie_annuelle_estimee,
         economie_pourcentage: o.economie_pourcentage,
         duree_mois: o.duree_mois,
+        est_offre_recommandee: o.est_offre_recommandee,
       })
-      offresParStrategie.set(o.strategie_objectif_id, list)
+      offresParOptimisation.set(o.optimisation_id, list)
     }
 
-    const strategiesParObjectif = new Map<string, StrategieObjectif[]>()
-    for (const s of (strategiesRes.data ?? []) as unknown as RawStrategieObjectif[]) {
-      const list = strategiesParObjectif.get(s.objectif_version_id) ?? []
+    const optimisationsParVersion = new Map<string, Optimisation[]>()
+    for (const opt of (optimisationsRes.data ?? []) as unknown as RawOptimisation[]) {
+      const list = optimisationsParVersion.get(opt.version_recommandation_id) ?? []
       list.push({
-        id: s.id,
-        titre: s.titre,
-        type_strategie: s.type_strategie?.libelle ?? '',
-        offres: offresParStrategie.get(s.id) ?? [],
+        id: opt.id,
+        nom: opt.nom,
+        type_optimisation: opt.type_optimisation?.libelle ?? '',
+        description: opt.description,
+        resultat_attendu: opt.resultat_attendu,
+        gain_estime_annuel: opt.gain_estime_annuel,
+        cout_estime: opt.cout_estime,
+        roi_mois: opt.roi_mois,
+        priorite: opt.priorite,
+        est_retenue: opt.est_retenue,
+        offres: offresParOptimisation.get(opt.id) ?? [],
       })
-      strategiesParObjectif.set(s.objectif_version_id, list)
-    }
-
-    const objectifsParVersion = new Map<string, ObjectifVersion[]>()
-    for (const ov of (objectifsRes.data ?? []) as unknown as RawObjectifVersion[]) {
-      const list = objectifsParVersion.get(ov.version_recommandation_id) ?? []
-      list.push({
-        id: ov.id,
-        titre: ov.titre,
-        type_objectif: ov.type_objectif?.libelle ?? '',
-        strategies: strategiesParObjectif.get(ov.id) ?? [],
-      })
-      objectifsParVersion.set(ov.version_recommandation_id, list)
+      optimisationsParVersion.set(opt.version_recommandation_id, list)
     }
 
     const sitesParReco = new Map<string, { id: string; nom: string }[]>()
@@ -169,7 +168,7 @@ async function fetchRecommandations(): Promise<Recommandation[]> {
         date_validite_offres: v.date_validite_offres,
         document_url: v.document_url,
         compteur_ids: compteurIdsParVersion.get(v.id) ?? [],
-        objectifs: objectifsParVersion.get(v.id) ?? [],
+        optimisations: optimisationsParVersion.get(v.id) ?? [],
       })
       versionsParReco.set(v.recommandation_id, list)
     }
