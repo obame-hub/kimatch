@@ -45,7 +45,7 @@ export function Topbar({ title, crumb }: { title: string; crumb?: string }) {
       <img
         src={kiweeLogo}
         alt="KiWee"
-        className="pointer-events-none absolute left-1/2 top-1/2 hidden h-6 w-auto -translate-x-1/2 -translate-y-1/2 object-contain md:block"
+        className="pointer-events-none absolute left-1/2 top-1/2 hidden h-9 w-auto -translate-x-1/2 -translate-y-1/2 object-contain md:block"
       />
 
       <div className="relative hidden sm:block">
