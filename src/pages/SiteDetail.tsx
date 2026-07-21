@@ -259,7 +259,7 @@ export default function SiteDetail() {
         {/* Colonne gauche — Compte + Contacts (desktop uniquement) */}
         <div className="hidden flex-col gap-3.5 overflow-y-auto border-r border-navy-100 bg-navy-50/60 p-3.5 lg:flex">
           <ComptePanel compte={compte} compteNom={site.compte_nom} compteId={site.compte_id} onCopy={showToast} />
-          <ContactsPanel contacts={contactsDuSite} onCopy={showToast} />
+          <ContactsPanel contacts={contactsDuSite} />
         </div>
 
         {/* Centre — contenu de l'onglet */}
@@ -313,7 +313,7 @@ export default function SiteDetail() {
               {/* Compte + Contacts inline sur mobile uniquement */}
               <div className="flex flex-col gap-3.5 lg:hidden">
                 <ComptePanel compte={compte} compteNom={site.compte_nom} compteId={site.compte_id} onCopy={showToast} />
-                <ContactsPanel contacts={contactsDuSite} onCopy={showToast} />
+                <ContactsPanel contacts={contactsDuSite} />
               </div>
             </div>
           )}
@@ -736,7 +736,7 @@ function ComptePanel({
   )
 }
 
-function ContactsPanel({ contacts, onCopy }: { contacts: Contact[] | undefined; onCopy: (msg: string) => void }) {
+function ContactsPanel({ contacts }: { contacts: Contact[] | undefined }) {
   const navigate = useNavigate()
   const list = contacts ?? []
   return (
