@@ -4,6 +4,7 @@ import { LogOut, Search } from 'lucide-react'
 import { useAuth } from '@/lib/auth'
 import { navItems } from '@/lib/navItems'
 import { cn } from '@/lib/utils'
+import kiweeLogo from '@/assets/kiwee-logo.png'
 
 export function Topbar({ title, crumb }: { title: string; crumb?: string }) {
   const { signOut, demoMode } = useAuth()
@@ -40,6 +41,12 @@ export function Topbar({ title, crumb }: { title: string; crumb?: string }) {
         {crumb && <span>{crumb} / </span>}
         <span className="font-semibold text-navy-800">{title}</span>
       </div>
+
+      <img
+        src={kiweeLogo}
+        alt="KiWee"
+        className="pointer-events-none absolute left-1/2 top-1/2 hidden h-6 w-auto -translate-x-1/2 -translate-y-1/2 object-contain md:block"
+      />
 
       <div className="relative hidden sm:block">
         <div
