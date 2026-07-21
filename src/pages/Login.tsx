@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { Button } from '@/components/ui/button'
 import { useAuth } from '@/lib/auth'
-import { KiweeMark } from '@/components/ui/kiwee-mark'
+import kiweePicto from '@/assets/kiwee-picto.png'
 
 export default function Login() {
   const { signInWithMagicLink, enterDemoMode } = useAuth()
@@ -37,7 +37,7 @@ export default function Login() {
 
       <div className="relative w-full max-w-sm">
         <div className="mb-8 flex flex-col items-center text-center">
-          <KiweeMark className="mb-3 h-14 w-14 drop-shadow-[0_8px_20px_rgba(140,203,56,0.5)]" />
+          <img src={kiweePicto} alt="KiWee" className="mb-3 h-14 w-14 object-contain drop-shadow-[0_8px_20px_rgba(13,122,95,0.5)]" />
           <h1 className="font-display text-xl font-semibold text-white">KiWee OS</h1>
           <p className="mt-1 text-sm text-navy-300">Plateforme conseil énergie</p>
         </div>

@@ -1,7 +1,7 @@
 import { NavLink } from 'react-router-dom'
 import { X, ShieldCheck } from 'lucide-react'
 import { cn } from '@/lib/utils'
-import { KiweeMark } from '@/components/ui/kiwee-mark'
+import kiweePicto from '@/assets/kiwee-picto.png'
 import { useActions } from '@/lib/data/actions'
 import { useSidebar } from '@/lib/layout'
 import { useIsAdmin } from '@/lib/data/roles'
@@ -36,7 +36,7 @@ export function Sidebar() {
         )}
       >
         <div className="flex items-center gap-2.5 px-3.5 py-4">
-          <KiweeMark className="h-7 w-7 shrink-0 drop-shadow-[0_4px_10px_rgba(13,122,95,0.45)]" />
+          <img src={kiweePicto} alt="KiWee" className="h-7 w-7 shrink-0 object-contain drop-shadow-[0_4px_10px_rgba(13,122,95,0.45)]" />
           <div className="min-w-0 flex-1 opacity-100 transition-opacity duration-150 md:opacity-0 md:group-hover:opacity-100">
             <p className="whitespace-nowrap font-display text-sm font-semibold leading-none text-white">KiWee OS</p>
             <p className="whitespace-nowrap text-[11px] text-navy-400">Conseil énergie</p>
