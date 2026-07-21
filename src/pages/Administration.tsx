@@ -158,7 +158,7 @@ function AccesAutorisesTab() {
   return (
     <div className="space-y-4">
       <p className="text-sm text-navy-500">
-        Seules les adresses email listées ici peuvent créer un compte KiWee OS (recevoir un lien de connexion qui fonctionne). Le prénom et le nom renseignés ici sont automatiquement repris sur la fiche profil lors de la première connexion.
+        Seules les adresses email listées ici peuvent créer un compte Kimatch (recevoir un lien de connexion qui fonctionne). Le prénom et le nom renseignés ici sont automatiquement repris sur la fiche profil lors de la première connexion.
       </p>
       <form onSubmit={handleSubmit} className="flex flex-wrap gap-2">
         <Input placeholder="Prénom" value={prenom} onChange={(e) => setPrenom(e.target.value)} className="w-32" />
@@ -210,7 +210,7 @@ export default function Administration() {
       <div>
         <Topbar title="Administration" />
         <div className="p-4 sm:p-6">
-          <PageHeader title="Administration" description="Gestion des utilisateurs, rôles et permissions de KiWee OS." />
+          <PageHeader title="Administration" description="Gestion des utilisateurs, rôles et permissions de Kimatch." />
           <p className="text-sm text-navy-500">Accès réservé aux administrateurs.</p>
         </div>
       </div>

@@ -147,7 +147,7 @@ function GmailCard() {
       </CardHeader>
       <CardContent className="space-y-3">
         <p className="text-sm text-navy-500">
-          Chaque conseiller connecte son propre compte Gmail — les emails envoyés depuis KiWee OS partent de votre
+          Chaque conseiller connecte son propre compte Gmail — les emails envoyés depuis Kimatch partent de votre
           propre adresse.
         </p>
         {isLoading ? (
@@ -180,7 +180,7 @@ export default function Parametres() {
     <div>
       <Topbar title="Paramètres" />
       <div className="p-4 sm:p-6 space-y-4">
-        <PageHeader title="Paramètres" description="Intégrations et notifications de KiWee OS." />
+        <PageHeader title="Paramètres" description="Intégrations et notifications de Kimatch." />
 
         <GmailCard />
 

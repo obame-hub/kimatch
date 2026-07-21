@@ -60,14 +60,14 @@ export function InstallPrompt() {
       {deferredPrompt ? (
         <>
           <Download className="h-5 w-5 shrink-0 text-kiwi-600" />
-          <p className="flex-1 text-xs text-navy-700">Installez KiWee OS sur votre écran d'accueil pour un accès plus rapide.</p>
+          <p className="flex-1 text-xs text-navy-700">Installez Kimatch sur votre écran d'accueil pour un accès plus rapide.</p>
           <Button size="sm" onClick={() => void install()}>Installer</Button>
         </>
       ) : (
         <>
           <Share className="h-5 w-5 shrink-0 text-kiwi-600" />
           <p className="flex-1 text-xs text-navy-700">
-            Sur iPhone : appuyez sur <strong>Partager</strong> puis <strong>Sur l'écran d'accueil</strong> pour installer KiWee OS.
+            Sur iPhone : appuyez sur <strong>Partager</strong> puis <strong>Sur l'écran d'accueil</strong> pour installer Kimatch.
           </p>
         </>
       )}

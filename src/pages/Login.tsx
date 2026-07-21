@@ -38,7 +38,7 @@ export default function Login() {
       <div className="relative w-full max-w-sm">
         <div className="mb-8 flex flex-col items-center text-center">
           <img src={kiweePicto} alt="KiWee" className="mb-3 h-14 w-14 object-contain drop-shadow-[0_8px_20px_rgba(13,122,95,0.5)]" />
-          <h1 className="font-display text-xl font-semibold text-white">KiWee OS</h1>
+          <h1 className="font-display text-xl font-semibold text-white">Kimatch</h1>
           <p className="mt-1 text-sm text-navy-300">Plateforme conseil énergie</p>
         </div>
 
