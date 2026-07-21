@@ -14,7 +14,7 @@ import { useRecommandations, useCreateRecommandation } from '@/lib/data/recomman
 import { useMandats } from '@/lib/data/mandats'
 import { useSites } from '@/lib/data/sites'
 import { useReferenceTable } from '@/lib/data/referenceTables'
-import { FALLBACK_ETAPES_RECOMMANDATION, ETAPE_TONE, FALLBACK_TYPES_OBJECTIFS, FALLBACK_TYPES_ORIGINES } from '@/lib/referenceFallbacks'
+import { FALLBACK_ETAPES_RECOMMANDATION, ETAPE_TONE, FALLBACK_TYPES_ORIGINES } from '@/lib/referenceFallbacks'
 
 const PRIORITE_OPTIONS = [
   { value: 1, label: 'Haute' },
@@ -25,8 +25,6 @@ const PRIORITE_OPTIONS = [
 function CreateRecommandationDialog({ open, onClose }: { open: boolean; onClose: () => void }) {
   const { data: mandats } = useMandats()
   const { data: sites } = useSites()
-  const { data: objectifsRef } = useReferenceTable('types_objectifs')
-  const objectifs = objectifsRef && objectifsRef.length > 0 ? objectifsRef : FALLBACK_TYPES_OBJECTIFS
   const { data: etapesRef } = useReferenceTable('etapes_recommandation')
   const etapes = etapesRef && etapesRef.length > 0 ? etapesRef : FALLBACK_ETAPES_RECOMMANDATION
   const { data: originesRef } = useReferenceTable('types_origines')
@@ -36,7 +34,6 @@ function CreateRecommandationDialog({ open, onClose }: { open: boolean; onClose:
   const [titre, setTitre] = useState('')
   const [mandatId, setMandatId] = useState('')
   const [siteIds, setSiteIds] = useState<string[]>([])
-  const [objectifId, setObjectifId] = useState('')
   const [origineId, setOrigineId] = useState('')
   const [priorite, setPriorite] = useState(2)
   const [description, setDescription] = useState('')
@@ -50,7 +47,6 @@ function CreateRecommandationDialog({ open, onClose }: { open: boolean; onClose:
     setTitre('')
     setMandatId('')
     setSiteIds([])
-    setObjectifId('')
     setOrigineId('')
     setPriorite(2)
     setDescription('')
@@ -65,7 +61,6 @@ function CreateRecommandationDialog({ open, onClose }: { open: boolean; onClose:
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
     if (!mandat) return
-    const objectif = objectifs.find((o) => o.id === objectifId)
     const origine = origines.find((o) => o.id === origineId)
     const etapeAPreparer = etapes.find((e) => e.code === 'A_PREPARER')
     const sitesChoisis = sitesDuCompte.filter((s) => siteIds.includes(s.id)).map((s) => ({ id: s.id, nom: s.nom }))
@@ -77,8 +72,6 @@ function CreateRecommandationDialog({ open, onClose }: { open: boolean; onClose:
       compte_nom: mandat.compte_nom,
       sites: sitesChoisis,
       etape_id: etapeAPreparer?.id ?? null,
-      objectif_id: objectifId || null,
-      objectif_libelle: objectif?.libelle ?? '',
       origine_id: origineId || null,
       origine_libelle: origine?.libelle,
       priorite,
@@ -121,10 +114,10 @@ function CreateRecommandationDialog({ open, onClose }: { open: boolean; onClose:
           </FormField>
         )}
         <div className="grid grid-cols-2 gap-3">
-          <FormField label="Objectif">
-            <Select value={objectifId} onChange={(e) => setObjectifId(e.target.value)}>
+          <FormField label="Origine">
+            <Select value={origineId} onChange={(e) => setOrigineId(e.target.value)}>
               <option value="">Sélectionner…</option>
-              {objectifs.map((o) => <option key={o.id} value={o.id}>{o.libelle}</option>)}
+              {origines.map((o) => <option key={o.id} value={o.id}>{o.libelle}</option>)}
             </Select>
           </FormField>
           <FormField label="Priorité">
@@ -133,12 +126,6 @@ function CreateRecommandationDialog({ open, onClose }: { open: boolean; onClose:
             </Select>
           </FormField>
         </div>
-        <FormField label="Origine">
-          <Select value={origineId} onChange={(e) => setOrigineId(e.target.value)}>
-            <option value="">Sélectionner…</option>
-            {origines.map((o) => <option key={o.id} value={o.id}>{o.libelle}</option>)}
-          </Select>
-        </FormField>
         <FormField label="Description">
           <Textarea rows={2} value={description} onChange={(e) => setDescription(e.target.value)} />
         </FormField>
@@ -174,7 +161,7 @@ export default function Recommandations() {
 
         {!isLoading && recommandations?.length === 0 && (
           <p className="mb-4 text-sm text-navy-400">
-            Aucune recommandation pour l'instant — c'est le cœur du métier KiWee : une proposition chiffrée (objectif, stratégie, offres) pour un ou plusieurs sites. Utilise « Nouvelle recommandation » pour en créer une.
+            Aucune recommandation pour l'instant — c'est le cœur du métier KiWee : une proposition chiffrée (optimisations, offres) pour un ou plusieurs sites. Utilise « Nouvelle recommandation » pour en créer une.
           </p>
         )}
         <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">

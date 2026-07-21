@@ -5,13 +5,12 @@ import type { Recommandation, VersionRecommandation, Optimisation, OffreFourniss
 
 interface RawRecommandation {
   id: string
-  titre: string
+  nom: string
   description: string | null
   priorite: number
   commentaire_interne: string | null
   date_ouverture: string
   etape: { code: string } | null
-  objectif: { libelle: string } | null
   origine: { libelle: string } | null
   responsable: { prenom: string; nom: string } | null
   compte: { id: string; nom: string } | null
@@ -71,7 +70,7 @@ async function fetchRecommandations(): Promise<Recommandation[]> {
       supabase
         .from('recommandations')
         .select(
-          'id, titre, description, priorite, commentaire_interne, date_ouverture, etape:etapes_recommandation(code), objectif:types_objectifs(libelle), origine:types_origines(libelle), responsable:profils(prenom, nom), compte:comptes(id, nom)',
+          'id, nom, description, priorite, commentaire_interne, date_ouverture, etape:etapes_recommandation(code), origine:types_origines(libelle), responsable:profils(prenom, nom), compte:comptes(id, nom)',
         )
         .order('date_ouverture', { ascending: false }),
       supabase.from('recommandations_sites').select('recommandation_id, site:sites(id, nom)'),
@@ -175,13 +174,12 @@ async function fetchRecommandations(): Promise<Recommandation[]> {
 
     return ((recosRes.data ?? []) as unknown as RawRecommandation[]).map((r) => ({
       id: r.id,
-      titre: r.titre,
+      titre: r.nom,
       compte_id: r.compte?.id ?? '',
       compte_nom: r.compte?.nom ?? '',
       sites: sitesParReco.get(r.id) ?? [],
       etape: r.etape?.code ?? '',
       conseiller: r.responsable ? `${r.responsable.prenom} ${r.responsable.nom}` : '',
-      objectif: r.objectif?.libelle ?? '',
       origine: r.origine?.libelle,
       description: r.description ?? '',
       priorite: r.priorite,
@@ -206,8 +204,6 @@ interface CreateRecommandationInput {
   compte_nom: string
   sites: { id: string; nom: string }[]
   etape_id: string | null
-  objectif_id: string | null
-  objectif_libelle: string
   origine_id: string | null
   origine_libelle?: string
   priorite: number
@@ -235,7 +231,6 @@ export function useCreateRecommandation() {
         sites: input.sites,
         etape: 'A_PREPARER',
         conseiller: '',
-        objectif: input.objectif_libelle,
         origine: input.origine_libelle,
         description: input.description,
         priorite: input.priorite,
@@ -248,13 +243,12 @@ export function useCreateRecommandation() {
         const { data, error } = await supabase
           .from('recommandations')
           .insert({
-            titre: input.titre,
+            nom: input.titre,
             compte_id: input.compte_id,
             description: input.description,
             priorite: input.priorite,
             commentaire_interne: input.commentaire_interne,
             date_ouverture: now,
-            ...(input.objectif_id ? { objectif_id: input.objectif_id } : {}),
             ...(input.etape_id ? { etape_id: input.etape_id } : {}),
             ...(input.origine_id ? { origine_id: input.origine_id } : {}),
           })

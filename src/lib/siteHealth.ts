@@ -7,14 +7,10 @@ export interface SiteHealth {
   raisons: string[]
 }
 
-const SEVERITE_PENALTY: Record<Signal['severite'], number> = { basse: 5, normale: 10, haute: 15, critique: 25 }
+const SIGNAL_OUVERT_PENALTY = 10
 const SIGNAUX_FERMES = new Set(['CLOTURE', 'REFUSE', 'TRANSFORME'])
 const VERSIONS_INACTIVES = new Set(['REFUSEE', 'EXPIREE', 'ARCHIVEE', 'REMPLACEE'])
 const SEUIL_ECHEANCE_JOURS = 90
-
-function estSnooze(signal: Signal): boolean {
-  return !!signal.date_snooze && new Date(signal.date_snooze).getTime() > Date.now()
-}
 
 export function computeSiteHealth({
   signaux,
@@ -34,9 +30,9 @@ export function computeSiteHealth({
   let score = 100
   const raisons: string[] = []
 
-  const signauxOuverts = signaux.filter((s) => !SIGNAUX_FERMES.has(s.statut) && !estSnooze(s))
+  const signauxOuverts = signaux.filter((s) => !SIGNAUX_FERMES.has(s.statut))
   if (signauxOuverts.length > 0) {
-    for (const s of signauxOuverts) score -= SEVERITE_PENALTY[s.severite] ?? 10
+    score -= signauxOuverts.length * SIGNAL_OUVERT_PENALTY
     raisons.push(`${signauxOuverts.length} signal${signauxOuverts.length > 1 ? 'aux' : ''} ouvert${signauxOuverts.length > 1 ? 's' : ''}`)
   }
 

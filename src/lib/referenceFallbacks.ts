@@ -138,13 +138,6 @@ export const FALLBACK_TYPES_SIGNAUX: ReferenceRow[] = [
   { id: '6', code: 'AUTRE', libelle: 'Autre', ordre: 60, couleur: null, icone: null },
 ]
 
-export const FALLBACK_TYPES_OBJECTIFS: ReferenceRow[] = [
-  { id: '1', code: 'OPTIMISATION_TARIFAIRE', libelle: 'Optimisation tarifaire', ordre: 10, couleur: null, icone: null },
-  { id: '2', code: 'RENOUVELLEMENT_CONTRAT', libelle: 'Renouvellement de contrat', ordre: 20, couleur: null, icone: null },
-  { id: '3', code: 'ETUDE_ENERGETIQUE', libelle: 'Étude énergétique', ordre: 30, couleur: null, icone: null },
-  { id: '4', code: 'AUTRE', libelle: 'Autre', ordre: 40, couleur: null, icone: null },
-]
-
 export const FALLBACK_TYPES_ENERGIES: ReferenceRow[] = [
   { id: '1', code: 'ELECTRICITE', libelle: 'Électricité', ordre: 10, couleur: null, icone: null },
   { id: '2', code: 'GAZ', libelle: 'Gaz', ordre: 20, couleur: null, icone: null },

@@ -109,9 +109,9 @@ export function buildSearchIndex(data: SearchDatasets): SearchEntry[] {
       kind: 'recommandation',
       id: r.id,
       label: r.titre,
-      sublabel: [r.compte_nom, r.objectif].filter(Boolean).join(' · '),
+      sublabel: r.compte_nom,
       to: `/recommandations/${r.id}`,
-      fields: [r.titre, r.objectif, r.compte_nom, ...r.sites.map((s) => s.nom)],
+      fields: [r.titre, r.compte_nom, ...r.sites.map((s) => s.nom)],
     })
   }
   for (const c of data.contrats ?? []) {

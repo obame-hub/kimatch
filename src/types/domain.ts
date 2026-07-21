@@ -27,8 +27,6 @@ export interface Signal {
   site_nom: string
   type_signal: string
   statut: string
-  severite: 'basse' | 'normale' | 'haute' | 'critique'
-  date_snooze: string | null
   conseiller: string
   date_creation: string
   description: string
@@ -88,7 +86,6 @@ export interface Recommandation {
   sites: { id: string; nom: string }[]
   etape: string
   conseiller: string
-  objectif: string
   origine?: string
   description: string
   priorite: number

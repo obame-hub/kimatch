@@ -1,13 +1,13 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
-import { ArrowLeft, Phone, StickyNote, Plus, Building2, Users, Copy, Zap, Flame, Clock, X, CalendarClock, Sparkle } from 'lucide-react'
+import { ArrowLeft, Phone, StickyNote, Plus, Building2, Users, Copy, Zap, Flame, CalendarClock, Sparkle } from 'lucide-react'
 import { Topbar } from '@/components/layout/Topbar'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { EntityLink } from '@/components/ui/entity-link'
 import { PhoneLink, EmailLink } from '@/components/ui/contact-link'
 import { useSites } from '@/lib/data/sites'
-import { useSignaux, useSnoozeSignal } from '@/lib/data/signaux'
+import { useSignaux } from '@/lib/data/signaux'
 import { useCompteurs } from '@/lib/data/compteurs'
 import { useRecommandations } from '@/lib/data/recommandations'
 import { useContrats } from '@/lib/data/contrats'
@@ -22,24 +22,9 @@ import { CoverageMatrix } from '@/components/site/CoverageMatrix'
 import { ActivityFeed } from '@/components/site/ActivityFeed'
 import { computeSiteHealth } from '@/lib/siteHealth'
 import { cn } from '@/lib/utils'
-import type { Signal, Compte, Contact } from '@/types/domain'
+import type { Compte, Contact } from '@/types/domain'
 
 type TabKey = 'synthese' | 'contrats' | 'compteurs' | 'recommandations' | 'signaux' | 'mandats' | 'activite'
-
-const SEVERITE_DOT: Record<Signal['severite'], string> = {
-  basse: 'bg-navy-300',
-  normale: 'bg-sky-400',
-  haute: 'bg-amber-500',
-  critique: 'bg-red-500',
-}
-
-// Carte de signal avec fond teinté + ligne de couleur à gauche selon la sévérité, comme chez William.
-const SEVERITE_CARD: Record<Signal['severite'], { border: string; accent: string }> = {
-  basse: { border: '#e7e6e2', accent: '#a3a5a0' },
-  normale: { border: '#d7dde6', accent: '#3b5f8a' },
-  haute: { border: '#f0e4cd', accent: '#b57a24' },
-  critique: { border: '#eed7cd', accent: '#c2452d' },
-}
 
 const STATUT_CONTRAT_TONE: Record<string, 'kiwi' | 'amber' | 'neutral' | 'red'> = {
   ACTIF: 'kiwi',
@@ -68,7 +53,6 @@ export default function SiteDetail() {
   const { data: actions } = useActions()
   const { data: documents } = useDocuments()
   const { data: comptes } = useComptes()
-  const snoozeSignal = useSnoozeSignal()
   const createAction = useCreateAction()
 
   const [tab, setTab] = useState<TabKey>('synthese')
@@ -410,7 +394,6 @@ export default function SiteDetail() {
                       <p className="flex-1 text-sm font-bold text-navy-800">{r.titre}</p>
                       <Badge tone="amber">{r.etape}</Badge>
                     </div>
-                    <p className="mt-1 text-xs text-navy-500">{r.objectif}</p>
                     {derniereVersion && (
                       <p className="mt-2 text-[11px] text-navy-400">
                         V{derniereVersion.numero} · {derniereVersion.statut}
@@ -430,53 +413,19 @@ export default function SiteDetail() {
                   ✓ Aucun signal ouvert — site sous contrôle
                 </div>
               )}
-              {signauxDuSite.map((s) => {
-                const enVeille = !!s.date_snooze && new Date(s.date_snooze).getTime() > Date.now()
-                const sevStyle = SEVERITE_CARD[s.severite]
-                return (
-                  <div
-                    key={s.id}
-                    className="rounded-xl bg-white p-3.5"
-                    style={{ border: `1px solid ${sevStyle.border}`, borderLeft: `3px solid ${sevStyle.accent}` }}
-                  >
-                    <div className="flex items-start gap-2.5">
-                      <span className={cn('mt-1 h-2 w-2 shrink-0 rounded-full', SEVERITE_DOT[s.severite])} />
-                      <div className="min-w-0 flex-1">
-                        <p className="text-sm font-bold text-navy-800">{s.type_signal}</p>
-                        <p className="mt-0.5 text-xs text-navy-500">{s.description}</p>
-                      </div>
-                    </div>
-                    <div className="mt-2.5 flex gap-2 border-t border-navy-50 pt-2.5">
-                      {enVeille ? (
-                        <button
-                          type="button"
-                          onClick={() => snoozeSignal.mutate({ id: s.id, date_snooze: null })}
-                          className="flex items-center gap-1 rounded-full bg-navy-100 px-2.5 py-1 text-[10.5px] font-medium text-navy-600 hover:bg-navy-200"
-                        >
-                          <X className="h-3 w-3" />
-                          En veille jusqu'au {new Date(s.date_snooze!).toLocaleDateString('fr-FR')}
-                        </button>
-                      ) : (
-                        <button
-                          type="button"
-                          onClick={() => {
-                            const date = new Date()
-                            date.setDate(date.getDate() + 30)
-                            snoozeSignal.mutate({ id: s.id, date_snooze: date.toISOString() })
-                          }}
-                          className="flex items-center gap-1 rounded-full border border-navy-200 px-2.5 py-1 text-[10.5px] font-medium text-navy-600 hover:bg-navy-50"
-                        >
-                          <Clock className="h-3 w-3" />
-                          Snoozer 30j
-                        </button>
-                      )}
-                      <Button variant="ghost" size="sm" className="ml-auto" onClick={() => navigate('/signaux')}>
-                        Voir dans Signaux
-                      </Button>
-                    </div>
+              {signauxDuSite.map((s) => (
+                <div key={s.id} className="rounded-xl border border-navy-100 bg-white p-3.5">
+                  <div className="min-w-0 flex-1">
+                    <p className="text-sm font-bold text-navy-800">{s.type_signal}</p>
+                    <p className="mt-0.5 text-xs text-navy-500">{s.description}</p>
                   </div>
-                )
-              })}
+                  <div className="mt-2.5 flex gap-2 border-t border-navy-50 pt-2.5">
+                    <Button variant="ghost" size="sm" className="ml-auto" onClick={() => navigate('/signaux')}>
+                      Voir dans Signaux
+                    </Button>
+                  </div>
+                </div>
+              ))}
             </div>
           )}
 

@@ -124,7 +124,6 @@ export default function RecommandationDetail() {
                       </span>
                     ))}
                   </p>
-                  <p><span className="text-navy-400">Objectif :</span> {reco.objectif}</p>
                   {reco.origine && <p><span className="text-navy-400">Origine :</span> {reco.origine}</p>}
                   <p><span className="text-navy-400">Priorité :</span> {PRIORITE_LABEL[reco.priorite] ?? reco.priorite}</p>
                   <p><span className="text-navy-400">Conseiller :</span> {reco.conseiller}</p>
