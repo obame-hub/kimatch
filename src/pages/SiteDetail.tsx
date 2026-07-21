@@ -32,6 +32,14 @@ const SEVERITE_DOT: Record<Signal['severite'], string> = {
   critique: 'bg-red-500',
 }
 
+// Carte de signal avec fond teinté + ligne de couleur à gauche selon la sévérité, comme chez William.
+const SEVERITE_CARD: Record<Signal['severite'], { border: string; accent: string }> = {
+  basse: { border: '#e7e6e2', accent: '#a3a5a0' },
+  normale: { border: '#d7dde6', accent: '#3b5f8a' },
+  haute: { border: '#f0e4cd', accent: '#b57a24' },
+  critique: { border: '#eed7cd', accent: '#c2452d' },
+}
+
 const STATUT_CONTRAT_TONE: Record<string, 'kiwi' | 'amber' | 'neutral' | 'red'> = {
   ACTIF: 'kiwi',
   A_RENOUVELER: 'amber',
@@ -423,8 +431,13 @@ export default function SiteDetail() {
               )}
               {signauxDuSite.map((s) => {
                 const enVeille = !!s.date_snooze && new Date(s.date_snooze).getTime() > Date.now()
+                const sevStyle = SEVERITE_CARD[s.severite]
                 return (
-                  <div key={s.id} className="rounded-xl border border-navy-100 bg-white p-3.5">
+                  <div
+                    key={s.id}
+                    className="rounded-xl bg-white p-3.5"
+                    style={{ border: `1px solid ${sevStyle.border}`, borderLeft: `3px solid ${sevStyle.accent}` }}
+                  >
                     <div className="flex items-start gap-2.5">
                       <span className={cn('mt-1 h-2 w-2 shrink-0 rounded-full', SEVERITE_DOT[s.severite])} />
                       <div className="min-w-0 flex-1">

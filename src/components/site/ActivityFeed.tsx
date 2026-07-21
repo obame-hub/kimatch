@@ -1,7 +1,6 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { Phone, Mail, Users, Radio, CheckSquare, FileText, Send } from 'lucide-react'
-import { Badge } from '@/components/ui/badge'
 import { Textarea } from '@/components/ui/form'
 import { Button } from '@/components/ui/button'
 import { useCreateInteraction } from '@/lib/data/interactions'
@@ -70,11 +69,28 @@ const KIND_ICON: Record<ActivityItem['kind'], typeof Phone> = {
   document: FileText,
 }
 
-const KIND_TONE: Record<ActivityItem['kind'], 'neutral' | 'kiwi' | 'amber' | 'blue'> = {
-  signal: 'amber',
-  interaction: 'blue',
-  action: 'kiwi',
-  document: 'neutral',
+// Un type d'activité = un fond teinté + une ligne de couleur à gauche, comme chez William.
+type StyleKey = 'action' | 'note' | 'appel' | 'email' | 'signal' | 'document'
+const TYPE_STYLE: Record<StyleKey, { bg: string; border: string; accent: string; plate: string; fg: string }> = {
+  action: { bg: '#fdf9f0', border: '#f0e4cd', accent: '#b57a24', plate: '#f3e3c8', fg: '#8a6420' },
+  note: { bg: '#fbf8f3', border: '#f0e9de', accent: '#8a6d3b', plate: '#efe6d4', fg: '#8a6d3b' },
+  appel: { bg: '#f7fbf9', border: '#dcece5', accent: '#0d7a5f', plate: '#eaf4f0', fg: '#0d7a5f' },
+  email: { bg: '#ffffff', border: '#e7e6e2', accent: '#3b5f8a', plate: '#eef0f4', fg: '#3b5f8a' },
+  signal: { bg: '#fdf2ef', border: '#f5d9d0', accent: '#c2452d', plate: '#fbeae5', fg: '#c2452d' },
+  document: { bg: '#f6f6f4', border: '#e7e6e2', accent: '#5c5f66', plate: '#f0efec', fg: '#5c5f66' },
+}
+
+function interactionStyleKey(titre: string): 'appel' | 'note' | 'email' {
+  const t = titre.toLowerCase()
+  if (t.includes('note')) return 'note'
+  if (t.includes('appel')) return 'appel'
+  return 'email'
+}
+
+function styleKeyFor(item: ActivityItem): StyleKey {
+  if (item.kind === 'interaction') return interactionStyleKey(item.title)
+  if (item.kind === 'action') return 'action'
+  return item.kind
 }
 
 function interactionIcon(titre: string) {
@@ -162,19 +178,25 @@ export function ActivityFeed({
         {items.length === 0 && <p className="text-sm text-navy-400">Aucune activité pour ce site.</p>}
         {items.map((item) => {
           const Icon = item.kind === 'interaction' ? interactionIcon(item.title) : KIND_ICON[item.kind]
+          const style = TYPE_STYLE[styleKeyFor(item)]
           const content = (
-            <div className="flex items-start gap-2.5 rounded-lg border border-navy-100 p-2.5 transition-colors hover:bg-navy-50">
-              <span className={`mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-full ${item.kind === 'signal' ? 'bg-amber-50 text-amber-700' : item.kind === 'interaction' ? 'bg-blue-50 text-blue-700' : item.kind === 'action' ? 'bg-kiwi-50 text-kiwi-700' : 'bg-navy-100 text-navy-600'}`}>
-                <Icon className="h-3 w-3" />
+            <div
+              className="flex items-start gap-2.5 rounded-lg p-2.5 transition-colors"
+              style={{ background: style.bg, border: `1px solid ${style.border}`, borderLeft: `3px solid ${style.accent}` }}
+            >
+              <span
+                className="mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-lg"
+                style={{ background: style.plate, color: style.fg }}
+              >
+                <Icon className="h-3.5 w-3.5" />
               </span>
               <div className="min-w-0 flex-1">
                 <p className="truncate text-xs font-medium text-navy-800">{item.title}</p>
-                {item.subtitle && <p className="truncate text-[11px] text-navy-400">{item.subtitle}</p>}
+                {item.subtitle && <p className="truncate text-[11px] text-navy-500">{item.subtitle}</p>}
               </div>
-              <div className="flex shrink-0 flex-col items-end gap-1">
-                <Badge tone={KIND_TONE[item.kind]}>{item.kind}</Badge>
-                <span className="text-[10px] text-navy-400">{new Date(item.date).toLocaleDateString('fr-FR')}</span>
-              </div>
+              <span className="shrink-0 text-[10px] font-medium" style={{ color: style.accent }}>
+                {new Date(item.date).toLocaleDateString('fr-FR')}
+              </span>
             </div>
           )
           if (item.to) {
