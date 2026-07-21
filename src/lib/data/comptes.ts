@@ -56,9 +56,9 @@ async function fetchComptes(): Promise<Compte[]> {
         comptes_partenaires(type_partenariat, modele_remuneration, contact_referent_id, statut_partenariat, date_debut_partenariat, commentaire, contact_referent:contacts(prenom, nom))`,
       )
       .order('nom')
-    if (error || !data || data.length === 0) throw error ?? new Error('empty')
+    if (error) throw error
 
-    return (data as unknown as RawCompte[]).map((c) => {
+    return ((data ?? []) as unknown as RawCompte[]).map((c) => {
       const { comptes_clients, comptes_fournisseurs, comptes_partenaires, ...base } = c
       const client = first(comptes_clients)
       const fournisseur = first(comptes_fournisseurs)
@@ -100,8 +100,9 @@ async function fetchComptes(): Promise<Compte[]> {
           : {}),
       }
     })
-  } catch {
-    return mockComptes
+  } catch (error) {
+    console.error('fetchComptes', error)
+    return []
   }
 }
 

@@ -10,10 +10,11 @@ async function fetchConsommations(): Promise<Consommation[]> {
       .from('consommations')
       .select('id, compteur_id, date_debut_periode, date_fin_periode, quantite, unite, poste_tarifaire, type_valeur, source, commentaire')
       .order('date_debut_periode', { ascending: false })
-    if (error || !data || data.length === 0) throw error ?? new Error('empty')
-    return data as unknown as Consommation[]
-  } catch {
-    return mockConsommations
+    if (error) throw error
+    return (data ?? []) as unknown as Consommation[]
+  } catch (error) {
+    console.error('fetchConsommations', error)
+    return []
   }
 }
 

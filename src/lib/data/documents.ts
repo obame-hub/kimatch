@@ -34,9 +34,9 @@ async function fetchDocuments(): Promise<DocumentItem[]> {
       .from('documents')
       .select('id, nom, nom_fichier, url, entite_type, entite_id, date_creation, type_document:types_documents(libelle), auteur:profils(prenom, nom)')
       .order('date_creation', { ascending: false })
-    if (error || !data || data.length === 0) throw error ?? new Error('empty')
+    if (error) throw error
 
-    return (data as unknown as RawDocument[]).map((d) => ({
+    return ((data ?? []) as unknown as RawDocument[]).map((d) => ({
       id: d.id,
       nom: d.nom,
       nom_fichier: d.nom_fichier,
@@ -48,8 +48,9 @@ async function fetchDocuments(): Promise<DocumentItem[]> {
       auteur: d.auteur ? `${d.auteur.prenom} ${d.auteur.nom}` : '',
       date_creation: d.date_creation,
     }))
-  } catch {
-    return mockDocuments
+  } catch (error) {
+    console.error('fetchDocuments', error)
+    return []
   }
 }
 

@@ -156,6 +156,11 @@ export default function Contacts() {
           actions={<Button onClick={() => setShowCreate(true)}><Plus className="h-4 w-4" />Nouveau contact</Button>}
         />
 
+        {!isLoading && contacts?.length === 0 && (
+          <p className="mb-4 text-sm text-navy-400">
+            Aucun contact pour l'instant — un contact est une personne chez un compte (signataire, gestionnaire, interlocuteur technique…). Utilise « Nouveau contact » pour en créer un.
+          </p>
+        )}
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3">
           {isLoading && <p className="text-sm text-navy-400">Chargement…</p>}
           {contacts?.map((c) => (

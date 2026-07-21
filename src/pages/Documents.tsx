@@ -143,6 +143,11 @@ export default function Documents() {
 
         <div className="space-y-2.5">
           {isLoading && <p className="text-sm text-navy-400">Chargement…</p>}
+          {!isLoading && documents?.length === 0 && (
+            <p className="py-8 text-center text-sm text-navy-400">
+              Aucun document pour l'instant — mandats signés, factures, contrats et pièces jointes de recommandations apparaîtront ici.
+            </p>
+          )}
           {documents?.map((doc) => (
             <Card
               key={doc.id}

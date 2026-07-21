@@ -25,7 +25,7 @@ async function fetchMandats(): Promise<Mandat[]> {
         ),
       supabase.from('mandats_sites').select('mandat_id, site_id'),
     ])
-    if (mandatsRes.error || !mandatsRes.data || mandatsRes.data.length === 0) throw mandatsRes.error ?? new Error('empty')
+    if (mandatsRes.error) throw mandatsRes.error
 
     const sitesParMandat = new Map<string, string[]>()
     for (const ms of (sitesRes.data ?? []) as unknown as { mandat_id: string; site_id: string }[]) {
@@ -34,7 +34,7 @@ async function fetchMandats(): Promise<Mandat[]> {
       sitesParMandat.set(ms.mandat_id, list)
     }
 
-    return (mandatsRes.data as unknown as RawMandat[]).map((m) => ({
+    return ((mandatsRes.data ?? []) as unknown as RawMandat[]).map((m) => ({
       id: m.id,
       compte_id: m.compte_id,
       compte_nom: m.compte?.nom ?? '',
@@ -46,8 +46,9 @@ async function fetchMandats(): Promise<Mandat[]> {
       contact_signataire_nom: m.contact_signataire ? `${m.contact_signataire.prenom} ${m.contact_signataire.nom}` : undefined,
       docusign_envelope_id: m.docusign_envelope_id,
     }))
-  } catch {
-    return mockMandats
+  } catch (error) {
+    console.error('fetchMandats', error)
+    return []
   }
 }
 

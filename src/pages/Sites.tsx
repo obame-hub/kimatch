@@ -142,6 +142,13 @@ export default function Sites() {
                   <td colSpan={7} className="px-5 py-6 text-center text-navy-400">Chargement…</td>
                 </tr>
               )}
+              {!isLoading && sites?.length === 0 && (
+                <tr>
+                  <td colSpan={7} className="px-5 py-10 text-center text-sm text-navy-400">
+                    Aucun site pour l'instant — un site représente un bâtiment, un immeuble ou un local rattaché à un compte (syndic, entreprise…). Clique sur « Nouveau site » pour en créer un.
+                  </td>
+                </tr>
+              )}
               {sites?.map((site) => {
                 const health = computeSiteHealth({
                   signaux: signaux?.filter((s) => s.site_id === site.id) ?? [],

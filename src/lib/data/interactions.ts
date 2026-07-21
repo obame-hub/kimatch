@@ -30,9 +30,9 @@ async function fetchInteractions(): Promise<Interaction[]> {
         'id, date_interaction, sens, objet, resume, resultat, compte_id, site_id, contact_id, type_interaction:types_interactions(libelle), auteur:profils(prenom, nom), compte:comptes(nom), site:sites(nom), contact:contacts(prenom, nom), issue:issues_interactions(libelle, couleur)',
       )
       .order('date_interaction', { ascending: false })
-    if (error || !data || data.length === 0) throw error ?? new Error('empty')
+    if (error) throw error
 
-    return (data as unknown as RawInteraction[]).map((i) => ({
+    return ((data ?? []) as unknown as RawInteraction[]).map((i) => ({
       id: i.id,
       type_interaction: i.type_interaction?.libelle ?? '',
       date_interaction: i.date_interaction,
@@ -50,8 +50,9 @@ async function fetchInteractions(): Promise<Interaction[]> {
       issue_libelle: i.issue?.libelle,
       issue_couleur: i.issue?.couleur,
     }))
-  } catch {
-    return mockInteractions
+  } catch (error) {
+    console.error('fetchInteractions', error)
+    return []
   }
 }
 

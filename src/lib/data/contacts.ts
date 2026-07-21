@@ -33,7 +33,7 @@ async function fetchContacts(): Promise<Contact[]> {
         .order('nom'),
       supabase.from('contacts_sites').select('contact_id, fonction_sur_site, site:sites(id, nom)'),
     ])
-    if (contactsRes.error || !contactsRes.data || contactsRes.data.length === 0) throw contactsRes.error ?? new Error('empty')
+    if (contactsRes.error) throw contactsRes.error
 
     const sitesParContact = new Map<string, { id: string; nom: string; fonction_sur_site: string | null }[]>()
     for (const cs of (sitesRes.data ?? []) as unknown as RawContactSite[]) {
@@ -43,7 +43,7 @@ async function fetchContacts(): Promise<Contact[]> {
       sitesParContact.set(cs.contact_id, list)
     }
 
-    return (contactsRes.data as unknown as RawContact[]).map((c) => ({
+    return ((contactsRes.data ?? []) as unknown as RawContact[]).map((c) => ({
       id: c.id,
       compte_id: c.compte_id,
       compte_nom: c.compte?.nom ?? '',
@@ -57,8 +57,9 @@ async function fetchContacts(): Promise<Contact[]> {
       actif: c.actif,
       sites: sitesParContact.get(c.id) ?? [],
     }))
-  } catch {
-    return mockContacts
+  } catch (error) {
+    console.error('fetchContacts', error)
+    return []
   }
 }
 

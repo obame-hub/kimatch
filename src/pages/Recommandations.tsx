@@ -172,6 +172,11 @@ export default function Recommandations() {
           actions={<Button onClick={() => setShowCreate(true)}><Plus className="h-4 w-4" />Nouvelle recommandation</Button>}
         />
 
+        {!isLoading && recommandations?.length === 0 && (
+          <p className="mb-4 text-sm text-navy-400">
+            Aucune recommandation pour l'instant — c'est le cœur du métier KiWee : une proposition chiffrée (objectif, stratégie, offres) pour un ou plusieurs sites. Utilise « Nouvelle recommandation » pour en créer une.
+          </p>
+        )}
         <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
           {isLoading && <p className="text-sm text-navy-400">Chargement…</p>}
           {recommandations?.map((reco) => {

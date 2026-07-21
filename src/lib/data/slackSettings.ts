@@ -25,10 +25,11 @@ async function fetchSlackSettings(): Promise<SlackSetting[]> {
   if (!isSupabaseConfigured) return MOCK_SLACK_SETTINGS
   try {
     const { data, error } = await supabase.from('parametres_slack').select('module, channel_id, channel_name, enabled').order('module')
-    if (error || !data || data.length === 0) throw error ?? new Error('empty')
-    return data as SlackSetting[]
-  } catch {
-    return MOCK_SLACK_SETTINGS
+    if (error) throw error
+    return (data ?? []) as SlackSetting[]
+  } catch (error) {
+    console.error('fetchSlackSettings', error)
+    return []
   }
 }
 

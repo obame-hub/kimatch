@@ -127,6 +127,11 @@ export default function Mandats() {
           actions={<Button onClick={() => setShowCreate(true)}><Plus className="h-4 w-4" />Nouveau mandat</Button>}
         />
 
+        {!isLoading && mandats?.length === 0 && (
+          <p className="mb-4 text-sm text-navy-400">
+            Aucun mandat pour l'instant — le mandat signé par le client autorise KiWee à négocier sur un périmètre de sites précis. Utilise « Nouveau mandat » pour en créer un.
+          </p>
+        )}
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3">
           {isLoading && <p className="text-sm text-navy-400">Chargement…</p>}
           {mandats?.map((m) => {

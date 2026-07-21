@@ -171,6 +171,11 @@ export default function Interactions() {
 
         <div className="space-y-2.5">
           {isLoading && <p className="text-sm text-navy-400">Chargement…</p>}
+          {!isLoading && interactions?.length === 0 && (
+            <p className="py-8 text-center text-sm text-navy-400">
+              Aucune interaction pour l'instant — chaque appel, email ou réunion noté avec un compte/contact apparaîtra ici.
+            </p>
+          )}
           {interactions?.map((i) => (
             <Card
               key={i.id}

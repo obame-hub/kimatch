@@ -69,9 +69,9 @@ async function fetchCompteurs(): Promise<Compteur[]> {
       .select(
         'id, site_id, numero_point, utilisation, actif, consommation_annuelle_mwh, synchro_eneo, date_derniere_synchro_eneo, type_energie:types_energies(code), site:sites(nom), compteurs_electricite(*), compteurs_gaz(*)',
       )
-    if (error || !data || data.length === 0) throw error ?? new Error('empty')
+    if (error) throw error
 
-    return (data as unknown as RawCompteur[]).map((c) => {
+    return ((data ?? []) as unknown as RawCompteur[]).map((c) => {
       const elec = first(c.compteurs_electricite)
       const gaz = first(c.compteurs_gaz)
       return {
@@ -104,8 +104,9 @@ async function fetchCompteurs(): Promise<Compteur[]> {
           : {}),
       }
     })
-  } catch {
-    return mockCompteurs
+  } catch (error) {
+    console.error('fetchCompteurs', error)
+    return []
   }
 }
 

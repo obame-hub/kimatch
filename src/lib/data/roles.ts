@@ -178,6 +178,8 @@ export function useHasPermission(code: string) {
 export interface ProfilAutorise {
   id: string
   email: string
+  prenom: string | null
+  nom: string | null
   date_creation: string
 }
 
@@ -185,7 +187,7 @@ async function fetchProfilsAutorises(): Promise<ProfilAutorise[]> {
   if (!isSupabaseConfigured) return []
   const { data, error } = await supabase
     .from('profils_autorises')
-    .select('id, email, date_creation')
+    .select('id, email, prenom, nom, date_creation')
     .order('date_creation', { ascending: false })
   if (error || !data) return []
   return data as unknown as ProfilAutorise[]
@@ -197,8 +199,12 @@ export function useProfilsAutorises() {
 export function useAddProfilAutorise() {
   const queryClient = useQueryClient()
   return useMutation({
-    mutationFn: async (email: string) => {
-      const { error } = await supabase.from('profils_autorises').insert({ email: email.trim().toLowerCase() })
+    mutationFn: async ({ email, prenom, nom }: { email: string; prenom: string; nom: string }) => {
+      const { error } = await supabase.from('profils_autorises').insert({
+        email: email.trim().toLowerCase(),
+        prenom: prenom.trim() || null,
+        nom: nom.trim() || null,
+      })
       if (error) throw new Error(error.message)
     },
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ['profils-autorises'] }),

@@ -46,6 +46,13 @@ export default function Comptes() {
                   <td colSpan={5} className="px-5 py-6 text-center text-navy-400">Chargement…</td>
                 </tr>
               )}
+              {!isLoading && comptes?.length === 0 && (
+                <tr>
+                  <td colSpan={5} className="px-5 py-10 text-center text-sm text-navy-400">
+                    Aucun compte pour l'instant — cherche une entreprise ci-dessus (SIREN/SIRET) pour en créer un via Ellisphere, ou attends l'import des données réelles.
+                  </td>
+                </tr>
+              )}
               {comptes?.map((compte) => (
                 <tr
                   key={compte.id}

@@ -138,14 +138,18 @@ function AccesAutorisesTab() {
   const addEmail = useAddProfilAutorise()
   const removeEmail = useRemoveProfilAutorise()
   const [email, setEmail] = useState('')
+  const [prenom, setPrenom] = useState('')
+  const [nom, setNom] = useState('')
   const [feedback, setFeedback] = useState<string | null>(null)
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
     setFeedback(null)
     try {
-      await addEmail.mutateAsync(email)
+      await addEmail.mutateAsync({ email, prenom, nom })
       setEmail('')
+      setPrenom('')
+      setNom('')
     } catch (err) {
       setFeedback(err instanceof Error ? err.message : 'Erreur inconnue')
     }
@@ -154,10 +158,12 @@ function AccesAutorisesTab() {
   return (
     <div className="space-y-4">
       <p className="text-sm text-navy-500">
-        Seules les adresses email listées ici peuvent créer un compte KiWee OS (recevoir un lien de connexion qui fonctionne).
+        Seules les adresses email listées ici peuvent créer un compte KiWee OS (recevoir un lien de connexion qui fonctionne). Le prénom et le nom renseignés ici sont automatiquement repris sur la fiche profil lors de la première connexion.
       </p>
-      <form onSubmit={handleSubmit} className="flex gap-2">
-        <Input type="email" required placeholder="prenom@kiwee-energie.fr" value={email} onChange={(e) => setEmail(e.target.value)} />
+      <form onSubmit={handleSubmit} className="flex flex-wrap gap-2">
+        <Input placeholder="Prénom" value={prenom} onChange={(e) => setPrenom(e.target.value)} className="w-32" />
+        <Input placeholder="Nom" value={nom} onChange={(e) => setNom(e.target.value)} className="w-32" />
+        <Input type="email" required placeholder="prenom@kiwee-energie.fr" value={email} onChange={(e) => setEmail(e.target.value)} className="min-w-[220px] flex-1" />
         <Button type="submit" disabled={addEmail.isPending}>
           <Mail className="h-4 w-4" />
           Autoriser
@@ -173,7 +179,12 @@ function AccesAutorisesTab() {
         <ul className="divide-y divide-navy-50">
           {emails.map((a) => (
             <li key={a.id} className="flex items-center justify-between py-2 text-sm">
-              <EmailLink value={a.email} className="text-navy-700" />
+              <div>
+                {(a.prenom || a.nom) && (
+                  <p className="font-medium text-navy-800">{a.prenom} {a.nom}</p>
+                )}
+                <EmailLink value={a.email} className="text-navy-700" />
+              </div>
               <button
                 type="button"
                 onClick={() => removeEmail.mutate(a.id)}

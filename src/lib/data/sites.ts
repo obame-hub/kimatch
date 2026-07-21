@@ -37,7 +37,7 @@ async function fetchSites(): Promise<Site[]> {
       supabase.from('signaux').select('site_id, statut:statuts_signaux(est_cloture)'),
     ])
 
-    if (sitesRes.error || !sitesRes.data || sitesRes.data.length === 0) throw sitesRes.error ?? new Error('empty')
+    if (sitesRes.error) throw sitesRes.error
 
     // Colonnes ajoutées ultérieurement (tâche #55) — sélectionnées à part : si elles n'existent
     // pas encore en base, on retombe sur null pour elles sans perdre les vraies données du site.
@@ -60,7 +60,7 @@ async function fetchSites(): Promise<Site[]> {
       }
     }
 
-    return (sitesRes.data as unknown as RawSite[]).map((s) => {
+    return ((sitesRes.data ?? []) as unknown as RawSite[]).map((s) => {
       const extra = extraParSite.get(s.id)
       return {
         id: s.id,
@@ -81,9 +81,9 @@ async function fetchSites(): Promise<Site[]> {
         statut: s.actif ? 'actif' : 'inactif',
       }
     })
-  } catch {
-    // Table vide (projet Supabase neuf) ou schéma pas encore confirmé — on retombe sur la démo.
-    return mockSites
+  } catch (error) {
+    console.error('fetchSites', error)
+    return []
   }
 }
 

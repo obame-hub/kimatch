@@ -94,7 +94,7 @@ async function fetchRecommandations(): Promise<Recommandation[]> {
         ),
     ])
 
-    if (recosRes.error || !recosRes.data || recosRes.data.length === 0) throw recosRes.error ?? new Error('empty')
+    if (recosRes.error) throw recosRes.error
 
     const offresParStrategie = new Map<string, OffreFournisseur[]>()
     for (const o of (offresRes.data ?? []) as unknown as RawOffreFournisseur[]) {
@@ -174,7 +174,7 @@ async function fetchRecommandations(): Promise<Recommandation[]> {
       versionsParReco.set(v.recommandation_id, list)
     }
 
-    return (recosRes.data as unknown as RawRecommandation[]).map((r) => ({
+    return ((recosRes.data ?? []) as unknown as RawRecommandation[]).map((r) => ({
       id: r.id,
       titre: r.titre,
       compte_id: r.compte?.id ?? '',
@@ -190,8 +190,9 @@ async function fetchRecommandations(): Promise<Recommandation[]> {
       date_creation: r.date_ouverture,
       versions: versionsParReco.get(r.id) ?? [],
     }))
-  } catch {
-    return mockRecommandations
+  } catch (error) {
+    console.error('fetchRecommandations', error)
+    return []
   }
 }
 

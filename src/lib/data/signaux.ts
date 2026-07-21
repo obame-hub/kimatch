@@ -26,9 +26,9 @@ async function fetchSignaux(): Promise<Signal[]> {
         'id, site_id, date_detection, commentaire, severite, date_snooze, type_signal:types_signaux(libelle), statut:statuts_signaux(code), site:sites(nom), responsable:profils(prenom, nom)',
       )
       .order('date_detection', { ascending: false })
-    if (error || !data || data.length === 0) throw error ?? new Error('empty')
+    if (error) throw error
 
-    return (data as unknown as RawSignal[]).map((s) => ({
+    return ((data ?? []) as unknown as RawSignal[]).map((s) => ({
       id: s.id,
       site_id: s.site_id,
       site_nom: s.site?.nom ?? '',
@@ -40,8 +40,9 @@ async function fetchSignaux(): Promise<Signal[]> {
       date_creation: s.date_detection,
       description: s.commentaire ?? '',
     }))
-  } catch {
-    return mockSignaux
+  } catch (error) {
+    console.error('fetchSignaux', error)
+    return []
   }
 }
 

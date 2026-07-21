@@ -28,9 +28,9 @@ async function fetchActions(): Promise<ActionItem[]> {
         'id, titre, site_id, contact_id, date_prevue, date_realisation, priorite, commentaire, type_action:types_actions(libelle), statut:statuts_actions(code), responsable:profils(prenom, nom), site:sites(nom), contact:contacts(prenom, nom)',
       )
       .order('date_prevue')
-    if (error || !data || data.length === 0) throw error ?? new Error('empty')
+    if (error) throw error
 
-    return (data as unknown as RawAction[]).map((a) => ({
+    return ((data ?? []) as unknown as RawAction[]).map((a) => ({
       id: a.id,
       titre: a.titre,
       type_action: a.type_action?.libelle ?? a.titre,
@@ -45,8 +45,9 @@ async function fetchActions(): Promise<ActionItem[]> {
       contact_id: a.contact_id,
       contact_nom: a.contact ? `${a.contact.prenom} ${a.contact.nom}` : '',
     }))
-  } catch {
-    return mockActions
+  } catch (error) {
+    console.error('fetchActions', error)
+    return []
   }
 }
 

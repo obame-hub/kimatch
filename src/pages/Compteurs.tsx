@@ -209,6 +209,11 @@ export default function Compteurs() {
           actions={<Button onClick={() => setShowCreate(true)}><Plus className="h-4 w-4" />Nouveau compteur</Button>}
         />
 
+        {!isLoading && compteurs?.length === 0 && (
+          <p className="mb-4 text-sm text-navy-400">
+            Aucun compteur pour l'instant — un compteur est un point de livraison (PDL) électricité ou gaz rattaché à un site. Utilise « Nouveau compteur » pour en créer un.
+          </p>
+        )}
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-3">
           {isLoading && <p className="text-sm text-navy-400">Chargement…</p>}
           {compteurs?.map((c) => (

@@ -30,7 +30,7 @@ async function fetchContrats(): Promise<Contrat[]> {
         .order('date_debut', { ascending: false }),
       supabase.from('contrats_compteurs').select('contrat_id, compteur:compteurs(id, numero_point, utilisation)'),
     ])
-    if (contratsRes.error || !contratsRes.data || contratsRes.data.length === 0) throw contratsRes.error ?? new Error('empty')
+    if (contratsRes.error) throw contratsRes.error
 
     const compteursParContrat = new Map<string, { id: string; numero_pdl: string; utilisation: string }[]>()
     for (const cc of (compteursRes.data ?? []) as unknown as { contrat_id: string; compteur: { id: string; numero_point: string; utilisation: string | null } | null }[]) {
@@ -40,7 +40,7 @@ async function fetchContrats(): Promise<Contrat[]> {
       compteursParContrat.set(cc.contrat_id, list)
     }
 
-    return (contratsRes.data as unknown as RawContrat[]).map((c) => ({
+    return ((contratsRes.data ?? []) as unknown as RawContrat[]).map((c) => ({
       id: c.id,
       site_id: c.site_id,
       site_nom: c.site?.nom ?? '',
@@ -53,8 +53,9 @@ async function fetchContrats(): Promise<Contrat[]> {
       statut: c.statut?.code ?? '',
       compteurs: compteursParContrat.get(c.id) ?? [],
     }))
-  } catch {
-    return mockContrats
+  } catch (error) {
+    console.error('fetchContrats', error)
+    return []
   }
 }
 
