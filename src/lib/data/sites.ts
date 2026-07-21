@@ -1,5 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { isSupabaseConfigured, supabase } from '@/lib/supabase'
+import { supabase } from '@/lib/supabase'
+import { isDemoMode } from '@/lib/demoMode'
 import { mockSites } from '@/lib/mockData'
 import type { Site } from '@/types/domain'
 
@@ -25,7 +26,7 @@ interface RawSiteExtra {
 }
 
 async function fetchSites(): Promise<Site[]> {
-  if (!isSupabaseConfigured) return mockSites
+  if (isDemoMode()) return mockSites
 
   try {
     const [sitesRes, compteursRes, signauxRes] = await Promise.all([
@@ -131,7 +132,7 @@ export function useCreateSite() {
         statut: 'actif',
       }
 
-      if (isSupabaseConfigured) {
+      if (!isDemoMode()) {
         const { data, error } = await supabase
           .from('sites')
           .insert({

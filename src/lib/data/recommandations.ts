@@ -1,5 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { isSupabaseConfigured, supabase } from '@/lib/supabase'
+import { supabase } from '@/lib/supabase'
+import { isDemoMode } from '@/lib/demoMode'
 import { mockRecommandations } from '@/lib/mockData'
 import type { Recommandation, VersionRecommandation, Optimisation, OffreFournisseur } from '@/types/domain'
 
@@ -63,7 +64,7 @@ interface RawOffreFournisseur {
 }
 
 async function fetchRecommandations(): Promise<Recommandation[]> {
-  if (!isSupabaseConfigured) return mockRecommandations
+  if (isDemoMode()) return mockRecommandations
 
   try {
     const [recosRes, sitesRes, versionsRes, versionsCompteursRes, optimisationsRes, offresRes] = await Promise.all([
@@ -239,7 +240,7 @@ export function useCreateRecommandation() {
         versions: [],
       }
 
-      if (isSupabaseConfigured) {
+      if (!isDemoMode()) {
         const { data, error } = await supabase
           .from('recommandations')
           .insert({

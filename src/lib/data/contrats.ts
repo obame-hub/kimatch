@@ -1,5 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { isSupabaseConfigured, supabase } from '@/lib/supabase'
+import { supabase } from '@/lib/supabase'
+import { isDemoMode } from '@/lib/demoMode'
 import { mockContrats } from '@/lib/mockData'
 import type { Contrat } from '@/types/domain'
 import { notifySlack } from '@/lib/data/slackSettings'
@@ -19,7 +20,7 @@ interface RawContrat {
 }
 
 async function fetchContrats(): Promise<Contrat[]> {
-  if (!isSupabaseConfigured) return mockContrats
+  if (isDemoMode()) return mockContrats
   try {
     const [contratsRes, compteursRes] = await Promise.all([
       supabase
@@ -103,7 +104,7 @@ export function useCreateContrat() {
         compteurs: input.compteurs,
       }
 
-      if (isSupabaseConfigured) {
+      if (!isDemoMode()) {
         const { data, error } = await supabase
           .from('contrats')
           .insert({

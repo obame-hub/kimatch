@@ -1,5 +1,6 @@
 import { useQuery } from '@tanstack/react-query'
-import { isSupabaseConfigured, supabase } from '@/lib/supabase'
+import { supabase } from '@/lib/supabase'
+import { isDemoMode } from '@/lib/demoMode'
 
 export interface ReferenceRow {
   id: string
@@ -11,7 +12,7 @@ export interface ReferenceRow {
 }
 
 async function fetchReferenceTable(table: string): Promise<ReferenceRow[]> {
-  if (!isSupabaseConfigured) return []
+  if (isDemoMode()) return []
   try {
     const { data, error } = await supabase.from(table).select('id, code, libelle, ordre, couleur, icone').order('ordre')
     if (error || !data) throw error ?? new Error('empty')

@@ -1,5 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { isSupabaseConfigured, supabase } from '@/lib/supabase'
+import { supabase } from '@/lib/supabase'
+import { isDemoMode } from '@/lib/demoMode'
 import { mockContacts } from '@/lib/mockData'
 import type { Contact } from '@/types/domain'
 
@@ -24,7 +25,7 @@ interface RawContactSite {
 }
 
 async function fetchContacts(): Promise<Contact[]> {
-  if (!isSupabaseConfigured) return mockContacts
+  if (isDemoMode()) return mockContacts
   try {
     const [contactsRes, sitesRes] = await Promise.all([
       supabase
@@ -107,7 +108,7 @@ export function useCreateContact() {
         sites: input.sites,
       }
 
-      if (isSupabaseConfigured) {
+      if (!isDemoMode()) {
         const { data, error } = await supabase
           .from('contacts')
           .insert({

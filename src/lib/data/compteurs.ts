@@ -1,5 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { isSupabaseConfigured, supabase } from '@/lib/supabase'
+import { supabase } from '@/lib/supabase'
+import { isDemoMode } from '@/lib/demoMode'
 import { mockCompteurs } from '@/lib/mockData'
 import type { Compteur } from '@/types/domain'
 
@@ -62,7 +63,7 @@ function classeMap(elec: RawCompteurElec, prefix: 'conso' | 'puissance', suffix:
 }
 
 async function fetchCompteurs(): Promise<Compteur[]> {
-  if (!isSupabaseConfigured) return mockCompteurs
+  if (isDemoMode()) return mockCompteurs
   try {
     const { data, error } = await supabase
       .from('compteurs')
@@ -178,7 +179,7 @@ export function useCreateCompteur() {
         ...(input.grdGaz ? { car_mwh: input.grdGaz.car_mwh, profil_consommation: input.grdGaz.profil_consommation, tarif_distribution: input.grdGaz.tarif_distribution, zone_tarifaire: input.grdGaz.zone_tarifaire } : {}),
       }
 
-      if (isSupabaseConfigured) {
+      if (!isDemoMode()) {
         const { data, error } = await supabase
           .from('compteurs')
           .insert({

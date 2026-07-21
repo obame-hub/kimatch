@@ -1,5 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { isSupabaseConfigured, supabase } from '@/lib/supabase'
+import { supabase } from '@/lib/supabase'
+import { isDemoMode } from '@/lib/demoMode'
 import { mockMandats } from '@/lib/mockData'
 import type { Mandat } from '@/types/domain'
 
@@ -15,7 +16,7 @@ interface RawMandat {
 }
 
 async function fetchMandats(): Promise<Mandat[]> {
-  if (!isSupabaseConfigured) return mockMandats
+  if (isDemoMode()) return mockMandats
   try {
     const [mandatsRes, sitesRes] = await Promise.all([
       supabase
@@ -88,7 +89,7 @@ export function useCreateMandat() {
         contact_signataire_nom: input.contact_signataire_nom,
       }
 
-      if (isSupabaseConfigured) {
+      if (!isDemoMode()) {
         const { data, error } = await supabase
           .from('mandats')
           .insert({
@@ -126,7 +127,7 @@ export function useMarkMandatEnvoye() {
   return useMutation({
     mutationFn: async ({ mandatId, envelopeId, statutId }: { mandatId: string; envelopeId: string; statutId: string | null }): Promise<MarkMandatEnvoyeResult> => {
       let persisted = false
-      if (isSupabaseConfigured) {
+      if (!isDemoMode()) {
         const { error } = await supabase
           .from('mandats')
           .update({ docusign_envelope_id: envelopeId, ...(statutId ? { statut_id: statutId } : {}) })

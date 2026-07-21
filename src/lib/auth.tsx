@@ -1,8 +1,7 @@
 import { createContext, useContext, useEffect, useState, type ReactNode } from 'react'
 import type { Session } from '@supabase/supabase-js'
 import { isSupabaseConfigured, supabase } from '@/lib/supabase'
-
-const DEMO_BYPASS_KEY = 'kiwee-demo-bypass'
+import { DEMO_BYPASS_KEY } from '@/lib/demoMode'
 
 interface AuthContextValue {
   session: Session | null

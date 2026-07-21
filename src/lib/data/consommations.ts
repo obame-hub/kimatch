@@ -1,10 +1,11 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { isSupabaseConfigured, supabase } from '@/lib/supabase'
+import { supabase } from '@/lib/supabase'
+import { isDemoMode } from '@/lib/demoMode'
 import { mockConsommations } from '@/lib/mockData'
 import type { Consommation } from '@/types/domain'
 
 async function fetchConsommations(): Promise<Consommation[]> {
-  if (!isSupabaseConfigured) return mockConsommations
+  if (isDemoMode()) return mockConsommations
   try {
     const { data, error } = await supabase
       .from('consommations')
@@ -47,7 +48,7 @@ export function useCreateConsommation() {
       let persisted = false
       let consommation: Consommation = { id: `local-${Date.now()}`, ...input }
 
-      if (isSupabaseConfigured) {
+      if (!isDemoMode()) {
         const { data, error } = await supabase.from('consommations').insert(input).select('id').single()
         if (!error && data) {
           consommation = { ...consommation, id: (data as { id: string }).id }

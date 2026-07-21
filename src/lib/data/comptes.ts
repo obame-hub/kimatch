@@ -1,5 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { isSupabaseConfigured, supabase } from '@/lib/supabase'
+import { supabase } from '@/lib/supabase'
+import { isDemoMode } from '@/lib/demoMode'
 import { mockComptes } from '@/lib/mockData'
 import type { Compte, TypeCompte } from '@/types/domain'
 import type { EllisphereCompany, EllisphereScore } from '@/lib/data/ellisphere'
@@ -45,7 +46,7 @@ interface RawCompte extends Compte {
 const first = <T>(v: T | T[] | null): T | null => (Array.isArray(v) ? v[0] ?? null : v)
 
 async function fetchComptes(): Promise<Compte[]> {
-  if (!isSupabaseConfigured) return mockComptes
+  if (isDemoMode()) return mockComptes
   try {
     const { data, error } = await supabase
       .from('comptes')
@@ -131,7 +132,7 @@ export function useUpdateCompteScore() {
       const changed = previous?.score_ellipro !== score.score
 
       let persisted = false
-      if (isSupabaseConfigured) {
+      if (!isDemoMode()) {
         const { error } = await supabase
           .from('comptes')
           .update({
@@ -190,7 +191,7 @@ export function useCreateCompteFromEllisphere() {
       let persisted = false
       let compte: Compte = { id: `local-${Date.now()}`, ...base }
 
-      if (isSupabaseConfigured) {
+      if (!isDemoMode()) {
         const { data, error } = await supabase
           .from('comptes')
           .insert({
@@ -254,7 +255,7 @@ export function useUpdateCompteClient() {
   return useMutation({
     mutationFn: async (input: UpdateCompteClientInput): Promise<UpdateResult> => {
       let persisted = false
-      if (isSupabaseConfigured) {
+      if (!isDemoMode()) {
         const { error } = await supabase.from('comptes_clients').upsert({
           compte_id: input.compteId,
           segment_compte_id: input.segment_compte_id,
@@ -287,7 +288,7 @@ export function useUpdateCompteFournisseur() {
   return useMutation({
     mutationFn: async (input: UpdateCompteFournisseurInput): Promise<UpdateResult> => {
       let persisted = false
-      if (isSupabaseConfigured) {
+      if (!isDemoMode()) {
         const { error } = await supabase.from('comptes_fournisseurs').upsert({
           compte_id: input.compteId,
           fournit_electricite: input.fournit_electricite,
@@ -321,7 +322,7 @@ export function useUpdateComptePartenaire() {
   return useMutation({
     mutationFn: async (input: UpdateComptePartenaireInput): Promise<UpdateResult> => {
       let persisted = false
-      if (isSupabaseConfigured) {
+      if (!isDemoMode()) {
         const { error } = await supabase.from('comptes_partenaires').upsert({
           compte_id: input.compteId,
           type_partenariat: input.type_partenariat,

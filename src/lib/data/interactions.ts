@@ -1,5 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { isSupabaseConfigured, supabase } from '@/lib/supabase'
+import { supabase } from '@/lib/supabase'
+import { isDemoMode } from '@/lib/demoMode'
 import { mockInteractions } from '@/lib/mockData'
 import type { Interaction } from '@/types/domain'
 
@@ -22,7 +23,7 @@ interface RawInteraction {
 }
 
 async function fetchInteractions(): Promise<Interaction[]> {
-  if (!isSupabaseConfigured) return mockInteractions
+  if (isDemoMode()) return mockInteractions
   try {
     const { data, error } = await supabase
       .from('interactions')
@@ -107,7 +108,7 @@ export function useCreateInteraction() {
         issue_libelle: input.issue_libelle,
       }
 
-      if (isSupabaseConfigured) {
+      if (!isDemoMode()) {
         const { data, error } = await supabase
           .from('interactions')
           .insert({

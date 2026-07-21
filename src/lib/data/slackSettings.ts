@@ -1,5 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { isSupabaseConfigured, supabase } from '@/lib/supabase'
+import { supabase } from '@/lib/supabase'
+import { isDemoMode } from '@/lib/demoMode'
 
 export type SlackModule = 'compte' | 'contrat'
 
@@ -22,7 +23,7 @@ const MOCK_SLACK_SETTINGS: SlackSetting[] = [
 ]
 
 async function fetchSlackSettings(): Promise<SlackSetting[]> {
-  if (!isSupabaseConfigured) return MOCK_SLACK_SETTINGS
+  if (isDemoMode()) return MOCK_SLACK_SETTINGS
   try {
     const { data, error } = await supabase.from('parametres_slack').select('module, channel_id, channel_name, enabled').order('module')
     if (error) throw error
@@ -42,7 +43,7 @@ export function useUpdateSlackSetting() {
   return useMutation({
     mutationFn: async ({ module, patch }: { module: SlackModule; patch: Partial<Pick<SlackSetting, 'channel_id' | 'channel_name' | 'enabled'>> }) => {
       let persisted = false
-      if (isSupabaseConfigured) {
+      if (!isDemoMode()) {
         const { error } = await supabase.from('parametres_slack').update(patch).eq('module', module)
         persisted = !error
       }
@@ -69,7 +70,7 @@ export function useSlackChannels() {
       if (!res.ok) throw new Error(data.error ?? 'Erreur Slack')
       return { channels: data.channels ?? [], publicOnly: !!data.publicOnly }
     },
-    enabled: isSupabaseConfigured,
+    enabled: !isDemoMode(),
     retry: false,
   })
 }
@@ -82,7 +83,7 @@ interface NotifySlackInput {
 
 /** Fire-and-forget : ne lève jamais, se contente de logger un avertissement. */
 export async function notifySlack(input: NotifySlackInput): Promise<void> {
-  if (!isSupabaseConfigured) return
+  if (isDemoMode()) return
   try {
     const headers = await authHeader()
     if (!headers.Authorization) return

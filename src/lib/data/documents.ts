@@ -1,5 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { isSupabaseConfigured, supabase } from '@/lib/supabase'
+import { supabase } from '@/lib/supabase'
+import { isDemoMode } from '@/lib/demoMode'
 import { mockDocuments } from '@/lib/mockData'
 import type { DocumentItem } from '@/types/domain'
 
@@ -28,7 +29,7 @@ const ENTITE_LABELS: Record<string, string> = {
 }
 
 async function fetchDocuments(): Promise<DocumentItem[]> {
-  if (!isSupabaseConfigured) return mockDocuments
+  if (isDemoMode()) return mockDocuments
   try {
     const { data, error } = await supabase
       .from('documents')
@@ -99,7 +100,7 @@ export function useCreateDocument() {
         date_creation: now,
       }
 
-      if (isSupabaseConfigured) {
+      if (!isDemoMode()) {
         const { data, error } = await supabase
           .from('documents')
           .insert({

@@ -1,5 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { isSupabaseConfigured, supabase } from '@/lib/supabase'
+import { supabase } from '@/lib/supabase'
+import { isDemoMode } from '@/lib/demoMode'
 import { mockSignaux } from '@/lib/mockData'
 import type { Signal } from '@/types/domain'
 
@@ -15,7 +16,7 @@ interface RawSignal {
 }
 
 async function fetchSignaux(): Promise<Signal[]> {
-  if (!isSupabaseConfigured) return mockSignaux
+  if (isDemoMode()) return mockSignaux
 
   try {
     const { data, error } = await supabase
@@ -78,7 +79,7 @@ export function useCreateSignal() {
         description: input.description,
       }
 
-      if (isSupabaseConfigured) {
+      if (!isDemoMode()) {
         const { data, error } = await supabase
           .from('signaux')
           .insert({

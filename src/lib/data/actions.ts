@@ -1,5 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { isSupabaseConfigured, supabase } from '@/lib/supabase'
+import { supabase } from '@/lib/supabase'
+import { isDemoMode } from '@/lib/demoMode'
 import { mockActions } from '@/lib/mockData'
 import type { ActionItem } from '@/types/domain'
 
@@ -20,7 +21,7 @@ interface RawAction {
 }
 
 async function fetchActions(): Promise<ActionItem[]> {
-  if (!isSupabaseConfigured) return mockActions
+  if (isDemoMode()) return mockActions
   try {
     const { data, error } = await supabase
       .from('actions')
@@ -96,7 +97,7 @@ export function useCreateAction() {
         contact_nom: input.contact_nom,
       }
 
-      if (isSupabaseConfigured) {
+      if (!isDemoMode()) {
         const { data, error } = await supabase
           .from('actions')
           .insert({
@@ -134,7 +135,7 @@ export function useCompleteAction() {
     mutationFn: async (actionId: string): Promise<CompleteActionResult> => {
       const now = new Date().toISOString()
       let persisted = false
-      if (isSupabaseConfigured) {
+      if (!isDemoMode()) {
         const { error } = await supabase.from('actions').update({ date_realisation: now }).eq('id', actionId)
         persisted = !error
       }
