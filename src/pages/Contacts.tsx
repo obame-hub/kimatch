@@ -7,6 +7,7 @@ import { Card } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { EntityLink } from '@/components/ui/entity-link'
+import { PhoneLink, EmailLink } from '@/components/ui/contact-link'
 import { Dialog } from '@/components/ui/dialog'
 import { FormField, Input, Select } from '@/components/ui/form'
 import { useContacts, useCreateContact } from '@/lib/data/contacts'
@@ -177,8 +178,8 @@ export default function Contacts() {
               </div>
               <div className="mt-4 space-y-1 text-xs text-navy-500">
                 <p><EntityLink to={`/comptes/${c.compte_id}`}>{c.compte_nom}</EntityLink></p>
-                {c.email && <p>{c.email}</p>}
-                {c.telephone && <p>{c.telephone}</p>}
+                {c.email && <p><EmailLink value={c.email} /></p>}
+                {c.telephone && <p><PhoneLink value={c.telephone} /></p>}
               </div>
               {c.sites.length > 0 && (
                 <div className="mt-3 flex flex-wrap gap-1.5">

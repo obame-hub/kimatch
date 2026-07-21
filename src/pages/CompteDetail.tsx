@@ -6,6 +6,7 @@ import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Dialog } from '@/components/ui/dialog'
+import { EmailLink } from '@/components/ui/contact-link'
 import { FormField, Input, Select, Textarea } from '@/components/ui/form'
 import {
   useComptes,
@@ -383,7 +384,10 @@ export default function CompteDetail() {
                     onClick={() => navigate(`/contacts/${contact.id}`)}
                   >
                     <p className="text-sm font-medium text-navy-800">{contact.prenom} {contact.nom}</p>
-                    <p className="text-xs text-navy-500">{contact.fonction || '—'} {contact.email ? `· ${contact.email}` : ''}</p>
+                    <p className="text-xs text-navy-500">
+                      {contact.fonction || '—'}
+                      {contact.email && <> · <EmailLink value={contact.email} /></>}
+                    </p>
                   </div>
                 ))}
               </CardContent>

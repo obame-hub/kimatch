@@ -5,6 +5,7 @@ import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { EntityLink } from '@/components/ui/entity-link'
+import { PhoneLink, EmailLink } from '@/components/ui/contact-link'
 import { useContacts } from '@/lib/data/contacts'
 
 export default function ContactDetail() {
@@ -42,8 +43,8 @@ export default function ContactDetail() {
             <CardContent className="px-0 space-y-3 text-sm">
               <p><span className="text-navy-400">Compte :</span> <EntityLink to={`/comptes/${contact.compte_id}`}>{contact.compte_nom}</EntityLink></p>
               <p><span className="text-navy-400">Fonction :</span> {contact.fonction || '—'}</p>
-              <p><span className="text-navy-400">Téléphone :</span> {contact.telephone || '—'}</p>
-              <p><span className="text-navy-400">Email :</span> {contact.email || '—'}</p>
+              <p><span className="text-navy-400">Téléphone :</span> {contact.telephone ? <PhoneLink value={contact.telephone} /> : '—'}</p>
+              <p><span className="text-navy-400">Email :</span> {contact.email ? <EmailLink value={contact.email} /> : '—'}</p>
               <p><span className="text-navy-400">Statut :</span> <Badge tone={contact.actif ? 'kiwi' : 'neutral'}>{contact.actif ? 'actif' : 'inactif'}</Badge></p>
               {contact.sites.length > 0 && (
                 <div>

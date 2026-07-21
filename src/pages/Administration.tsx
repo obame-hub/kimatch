@@ -6,6 +6,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Input, Select } from '@/components/ui/form'
 import { Badge } from '@/components/ui/badge'
+import { EmailLink } from '@/components/ui/contact-link'
 import { cn } from '@/lib/utils'
 import {
   useProfilsAdmin,
@@ -45,7 +46,7 @@ function UtilisateursTab() {
           {profils.map((p) => (
             <tr key={p.id} className="border-b border-navy-50">
               <td className="py-2 pr-4 font-medium text-navy-800">{p.prenom} {p.nom}</td>
-              <td className="py-2 pr-4 text-navy-500">{p.email}</td>
+              <td className="py-2 pr-4 text-navy-500"><EmailLink value={p.email} /></td>
               <td className="py-2 pr-4">
                 <Select
                   value={p.role_acces?.id ?? ''}
@@ -172,7 +173,7 @@ function AccesAutorisesTab() {
         <ul className="divide-y divide-navy-50">
           {emails.map((a) => (
             <li key={a.id} className="flex items-center justify-between py-2 text-sm">
-              <span className="text-navy-700">{a.email}</span>
+              <EmailLink value={a.email} className="text-navy-700" />
               <button
                 type="button"
                 onClick={() => removeEmail.mutate(a.id)}

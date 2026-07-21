@@ -7,6 +7,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { EntityLink } from '@/components/ui/entity-link'
 import { Dialog } from '@/components/ui/dialog'
+import { EmailLink } from '@/components/ui/contact-link'
 import { FormField, Select } from '@/components/ui/form'
 import { useMandats, useMarkMandatEnvoye } from '@/lib/data/mandats'
 import { useContacts } from '@/lib/data/contacts'
@@ -78,7 +79,7 @@ function EnvoyerSignatureDialog({
           </FormField>
         )}
         {contact?.email && (
-          <p className="text-xs text-navy-500">Signataire : {contact.prenom} {contact.nom} ({contact.email})</p>
+          <p className="text-xs text-navy-500">Signataire : {contact.prenom} {contact.nom} (<EmailLink value={contact.email!} />)</p>
         )}
         {feedback && <p className="text-xs text-navy-600">{feedback}</p>}
         <div className="flex justify-end gap-2 pt-2">

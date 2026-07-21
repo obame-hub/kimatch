@@ -5,6 +5,7 @@ import { Topbar } from '@/components/layout/Topbar'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { EntityLink } from '@/components/ui/entity-link'
+import { PhoneLink, EmailLink } from '@/components/ui/contact-link'
 import { useSites } from '@/lib/data/sites'
 import { useSignaux, useSnoozeSignal } from '@/lib/data/signaux'
 import { useCompteurs } from '@/lib/data/compteurs'
@@ -769,16 +770,8 @@ function ContactsPanel({ contacts, onCopy }: { contacts: Contact[] | undefined; 
                 )}
               </div>
               <div className="ml-[39px] mt-1.5 flex flex-col gap-1 text-[11px]">
-                {c.email && (
-                  <button type="button" onClick={() => copyToClipboard(c.email!, onCopy)} className="flex items-center gap-1.5 text-left text-navy-600 hover:text-sky-500">
-                    {c.email}
-                  </button>
-                )}
-                {c.telephone && (
-                  <button type="button" onClick={() => copyToClipboard(c.telephone!, onCopy)} className="flex items-center gap-1.5 text-left font-mono text-[10.5px] text-navy-600 hover:text-kiwi-600">
-                    {c.telephone}
-                  </button>
-                )}
+                {c.email && <EmailLink value={c.email} className="text-navy-600" />}
+                {c.telephone && <PhoneLink value={c.telephone} className="text-[10.5px] text-navy-600" />}
               </div>
             </div>
           )
