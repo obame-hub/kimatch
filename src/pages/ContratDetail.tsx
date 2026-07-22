@@ -5,6 +5,7 @@ import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { EntityLink } from '@/components/ui/entity-link'
+import { HistoriqueDiscret } from '@/components/ui/historique-discret'
 import { useContrats } from '@/lib/data/contrats'
 import { useReferenceTable } from '@/lib/data/referenceTables'
 import { FALLBACK_STATUTS_CONTRATS, STATUT_CONTRAT_TONE } from '@/lib/referenceFallbacks'
@@ -76,6 +77,7 @@ export default function ContratDetail() {
                   </div>
                 </div>
               )}
+              <HistoriqueDiscret tableNom="contrats" ligneId={contrat.id} />
             </CardContent>
           </Card>
         )}

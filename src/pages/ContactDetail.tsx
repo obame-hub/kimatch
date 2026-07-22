@@ -6,6 +6,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { EntityLink } from '@/components/ui/entity-link'
 import { PhoneLink, EmailLink } from '@/components/ui/contact-link'
+import { HistoriqueDiscret } from '@/components/ui/historique-discret'
 import { useContacts } from '@/lib/data/contacts'
 
 export default function ContactDetail() {
@@ -59,6 +60,7 @@ export default function ContactDetail() {
                   </div>
                 </div>
               )}
+              <HistoriqueDiscret tableNom="contacts" ligneId={contact.id} />
             </CardContent>
           </Card>
         )}

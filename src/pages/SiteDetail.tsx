@@ -1,12 +1,18 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
-import { ArrowLeft, Phone, StickyNote, Plus, Building2, Users, Copy, Zap, Flame, CalendarClock, Sparkle } from 'lucide-react'
+import { ArrowLeft, Phone, StickyNote, Plus, Building2, Users, Copy, Zap, Flame, CalendarClock, Sparkle, Pencil, Trash2 } from 'lucide-react'
 import { Topbar } from '@/components/layout/Topbar'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { EntityLink } from '@/components/ui/entity-link'
 import { PhoneLink, EmailLink } from '@/components/ui/contact-link'
-import { useSites } from '@/lib/data/sites'
+import { Dialog } from '@/components/ui/dialog'
+import { FormField, Input, Select } from '@/components/ui/form'
+import { HistoriqueDiscret } from '@/components/ui/historique-discret'
+import { useSites, useUpdateSite, useDeleteSite } from '@/lib/data/sites'
+import { useReferenceTable } from '@/lib/data/referenceTables'
+import { FALLBACK_TYPES_SITES } from '@/lib/referenceFallbacks'
+import { useCanManage } from '@/lib/data/roles'
 import { useSignaux } from '@/lib/data/signaux'
 import { useCompteurs } from '@/lib/data/compteurs'
 import { useRecommandations } from '@/lib/data/recommandations'
@@ -22,7 +28,7 @@ import { CoverageMatrix } from '@/components/site/CoverageMatrix'
 import { ActivityFeed } from '@/components/site/ActivityFeed'
 import { computeSiteHealth } from '@/lib/siteHealth'
 import { cn } from '@/lib/utils'
-import type { Compte, Contact } from '@/types/domain'
+import type { Compte, Contact, Site } from '@/types/domain'
 
 type TabKey = 'synthese' | 'contrats' | 'compteurs' | 'recommandations' | 'signaux' | 'mandats' | 'activite'
 
@@ -54,10 +60,13 @@ export default function SiteDetail() {
   const { data: documents } = useDocuments()
   const { data: comptes } = useComptes()
   const createAction = useCreateAction()
+  const deleteSite = useDeleteSite()
 
   const [tab, setTab] = useState<TabKey>('synthese')
   const [toast, setToast] = useState<string | null>(null)
   const [sheetOpen, setSheetOpen] = useState(false)
+  const [editOpen, setEditOpen] = useState(false)
+  const [confirmDelete, setConfirmDelete] = useState(false)
 
   function showToast(msg: string) {
     setToast(msg)
@@ -65,6 +74,14 @@ export default function SiteDetail() {
   }
 
   const site = sites?.find((s) => s.id === id)
+  const canManage = useCanManage(site?.proprietaire_id)
+
+  async function handleDelete() {
+    if (!site) return
+    await deleteSite.mutateAsync(site.id)
+    navigate('/sites')
+  }
+
   const compte = comptes?.find((c) => c.id === site?.compte_id)
   const signauxDuSite = useMemo(() => signaux?.filter((s) => s.site_id === id) ?? [], [signaux, id])
   const compteursDuSite = useMemo(() => compteurs?.filter((c) => c.site_id === id) ?? [], [compteurs, id])
@@ -205,6 +222,18 @@ export default function SiteDetail() {
             <Plus className="h-3.5 w-3.5" />
             Recommandation
           </Button>
+          {canManage && (
+            <>
+              <Button variant="outline" size="sm" onClick={() => setEditOpen(true)}>
+                <Pencil className="h-3.5 w-3.5" />
+                Modifier
+              </Button>
+              <Button variant="outline" size="sm" onClick={() => setConfirmDelete(true)}>
+                <Trash2 className="h-3.5 w-3.5" />
+                Supprimer
+              </Button>
+            </>
+          )}
         </div>
       </div>
 
@@ -291,6 +320,7 @@ export default function SiteDetail() {
                   {site.latitude == null && (
                     <p className="mt-3 text-[10.5px] italic text-navy-300">Coordonnées précises non renseignées — la carte se positionne sur l'adresse/ville.</p>
                   )}
+                  <HistoriqueDiscret tableNom="sites" ligneId={site.id} />
                 </div>
               </div>
 
@@ -579,7 +609,124 @@ export default function SiteDetail() {
           {toast}
         </div>
       )}
+
+      <EditSiteDialog open={editOpen} onClose={() => setEditOpen(false)} site={site} onSaved={() => showToast('✓ Site mis à jour')} />
+
+      <Dialog
+        open={confirmDelete}
+        onClose={() => setConfirmDelete(false)}
+        title="Supprimer ce site ?"
+        description="Cette action est irréversible. Les compteurs, contrats et recommandations rattachés ne seront pas supprimés mais perdront leur lien à ce site."
+      >
+        <div className="flex justify-end gap-2 pt-2">
+          <Button type="button" variant="ghost" onClick={() => setConfirmDelete(false)}>Annuler</Button>
+          <Button type="button" variant="outline" className="border-red-200 text-red-600 hover:bg-red-50" disabled={deleteSite.isPending} onClick={handleDelete}>
+            Supprimer définitivement
+          </Button>
+        </div>
+      </Dialog>
     </div>
+  )
+}
+
+function EditSiteDialog({ open, onClose, site, onSaved }: { open: boolean; onClose: () => void; site: Site; onSaved: () => void }) {
+  const { data: typesRef } = useReferenceTable('types_sites')
+  const types = typesRef && typesRef.length > 0 ? typesRef : FALLBACK_TYPES_SITES
+  const updateSite = useUpdateSite()
+
+  const [nom, setNom] = useState(site.nom)
+  const [ville, setVille] = useState(site.ville)
+  const [codePostal, setCodePostal] = useState(site.code_postal)
+  const [typeSiteId, setTypeSiteId] = useState('')
+  const [anneeConstruction, setAnneeConstruction] = useState(site.annee_construction ? String(site.annee_construction) : '')
+  const [surfaceM2, setSurfaceM2] = useState(site.surface_m2 ? String(site.surface_m2) : '')
+  const [dateDerniereAg, setDateDerniereAg] = useState(site.date_derniere_ag ? site.date_derniere_ag.slice(0, 10) : '')
+  const [latitude, setLatitude] = useState(site.latitude != null ? String(site.latitude) : '')
+  const [longitude, setLongitude] = useState(site.longitude != null ? String(site.longitude) : '')
+  const [feedback, setFeedback] = useState<string | null>(null)
+
+  useEffect(() => {
+    if (!open) return
+    setNom(site.nom)
+    setVille(site.ville)
+    setCodePostal(site.code_postal)
+    setTypeSiteId('')
+    setAnneeConstruction(site.annee_construction ? String(site.annee_construction) : '')
+    setSurfaceM2(site.surface_m2 ? String(site.surface_m2) : '')
+    setDateDerniereAg(site.date_derniere_ag ? site.date_derniere_ag.slice(0, 10) : '')
+    setLatitude(site.latitude != null ? String(site.latitude) : '')
+    setLongitude(site.longitude != null ? String(site.longitude) : '')
+    setFeedback(null)
+  }, [open, site])
+
+  async function handleSubmit(e: React.FormEvent) {
+    e.preventDefault()
+    try {
+      await updateSite.mutateAsync({
+        id: site.id,
+        nom,
+        ville,
+        code_postal: codePostal,
+        type_site_id: typeSiteId || null,
+        annee_construction: anneeConstruction ? Number(anneeConstruction) : null,
+        surface_m2: surfaceM2 ? Number(surfaceM2) : null,
+        date_derniere_ag: dateDerniereAg || null,
+        latitude: latitude ? Number(latitude) : null,
+        longitude: longitude ? Number(longitude) : null,
+      })
+      onSaved()
+      onClose()
+    } catch (err) {
+      setFeedback(err instanceof Error ? err.message : 'Erreur inconnue')
+    }
+  }
+
+  return (
+    <Dialog open={open} onClose={onClose} title="Modifier le site" description="Mettre à jour les informations du site.">
+      <form onSubmit={handleSubmit} className="space-y-3">
+        <FormField label="Nom du site">
+          <Input value={nom} onChange={(e) => setNom(e.target.value)} required />
+        </FormField>
+        <FormField label="Type de site">
+          <Select value={typeSiteId} onChange={(e) => setTypeSiteId(e.target.value)}>
+            <option value="">{site.type_site || 'Sélectionner un type…'}</option>
+            {types.map((t) => <option key={t.id} value={t.id}>{t.libelle}</option>)}
+          </Select>
+        </FormField>
+        <div className="grid grid-cols-2 gap-3">
+          <FormField label="Ville">
+            <Input value={ville} onChange={(e) => setVille(e.target.value)} />
+          </FormField>
+          <FormField label="Code postal">
+            <Input value={codePostal} onChange={(e) => setCodePostal(e.target.value)} />
+          </FormField>
+        </div>
+        <div className="grid grid-cols-2 gap-3">
+          <FormField label="Année de construction">
+            <Input type="number" value={anneeConstruction} onChange={(e) => setAnneeConstruction(e.target.value)} placeholder="Ex. 1998" />
+          </FormField>
+          <FormField label="Surface (m²)">
+            <Input type="number" value={surfaceM2} onChange={(e) => setSurfaceM2(e.target.value)} placeholder="Ex. 1200" />
+          </FormField>
+        </div>
+        <FormField label="Date de la dernière AG">
+          <Input type="date" value={dateDerniereAg} onChange={(e) => setDateDerniereAg(e.target.value)} />
+        </FormField>
+        <div className="grid grid-cols-2 gap-3">
+          <FormField label="Latitude">
+            <Input type="number" step="any" value={latitude} onChange={(e) => setLatitude(e.target.value)} placeholder="Ex. 48.8566" />
+          </FormField>
+          <FormField label="Longitude">
+            <Input type="number" step="any" value={longitude} onChange={(e) => setLongitude(e.target.value)} placeholder="Ex. 2.3522" />
+          </FormField>
+        </div>
+        {feedback && <p className="text-xs text-red-600">{feedback}</p>}
+        <div className="flex justify-end gap-2 pt-2">
+          <Button type="button" variant="ghost" onClick={onClose}>Annuler</Button>
+          <Button type="submit" disabled={updateSite.isPending}>Enregistrer</Button>
+        </div>
+      </form>
+    </Dialog>
   )
 }
 

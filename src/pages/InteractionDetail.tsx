@@ -5,6 +5,7 @@ import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { EntityLink } from '@/components/ui/entity-link'
+import { HistoriqueDiscret } from '@/components/ui/historique-discret'
 import { useInteractions } from '@/lib/data/interactions'
 
 export default function InteractionDetail() {
@@ -78,6 +79,7 @@ export default function InteractionDetail() {
               )}
               <p><span className="text-navy-400">Auteur :</span> {interaction.auteur}</p>
               <p><span className="text-navy-400">Date :</span> {new Date(interaction.date_interaction).toLocaleDateString('fr-FR')}</p>
+              <HistoriqueDiscret tableNom="interactions" ligneId={interaction.id} />
             </CardContent>
           </Card>
         )}

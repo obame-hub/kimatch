@@ -19,6 +19,7 @@ export interface Site {
   nb_compteurs: number
   nb_signaux_ouverts: number
   statut: 'actif' | 'inactif'
+  proprietaire_id: string | null
 }
 
 export interface Signal {

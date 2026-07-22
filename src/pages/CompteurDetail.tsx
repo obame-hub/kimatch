@@ -7,6 +7,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Dialog } from '@/components/ui/dialog'
 import { FormField, Input, Select } from '@/components/ui/form'
+import { HistoriqueDiscret } from '@/components/ui/historique-discret'
 import { useCompteurs } from '@/lib/data/compteurs'
 import { useConsommations, useCreateConsommation } from '@/lib/data/consommations'
 
@@ -157,6 +158,7 @@ export default function CompteurDetail() {
                     ? `Synchronisé le ${compteur.date_derniere_synchro_eneo ? new Date(compteur.date_derniere_synchro_eneo).toLocaleDateString('fr-FR') : '—'}`
                     : 'Jamais synchronisé'}
                 </p>
+                <HistoriqueDiscret tableNom="compteurs" ligneId={compteur.id} />
               </CardContent>
             </Card>
 

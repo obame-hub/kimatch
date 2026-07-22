@@ -23,6 +23,7 @@ interface RawSiteExtra {
   annee_construction: number | null
   surface_m2: number | null
   date_derniere_ag: string | null
+  proprietaire_id: string | null
 }
 
 async function fetchSites(): Promise<Site[]> {
@@ -43,7 +44,7 @@ async function fetchSites(): Promise<Site[]> {
     // Colonnes ajoutées ultérieurement (tâche #55) — sélectionnées à part : si elles n'existent
     // pas encore en base, on retombe sur null pour elles sans perdre les vraies données du site.
     const extraParSite = new Map<string, RawSiteExtra>()
-    const extraRes = await supabase.from('sites').select('id, latitude, longitude, annee_construction, surface_m2, date_derniere_ag')
+    const extraRes = await supabase.from('sites').select('id, latitude, longitude, annee_construction, surface_m2, date_derniere_ag, proprietaire_id')
     if (!extraRes.error) {
       for (const e of (extraRes.data ?? []) as unknown as RawSiteExtra[]) {
         extraParSite.set(e.id, e)
@@ -77,6 +78,7 @@ async function fetchSites(): Promise<Site[]> {
         annee_construction: extra?.annee_construction ?? null,
         surface_m2: extra?.surface_m2 ?? null,
         date_derniere_ag: extra?.date_derniere_ag ?? null,
+        proprietaire_id: extra?.proprietaire_id ?? null,
         nb_compteurs: compteursParSite.get(s.id) ?? 0,
         nb_signaux_ouverts: signauxOuvertsParSite.get(s.id) ?? 0,
         statut: s.actif ? 'actif' : 'inactif',
@@ -127,6 +129,7 @@ export function useCreateSite() {
         annee_construction: null,
         surface_m2: null,
         date_derniere_ag: null,
+        proprietaire_id: null,
         nb_compteurs: 0,
         nb_signaux_ouverts: 0,
         statut: 'actif',
@@ -154,5 +157,53 @@ export function useCreateSite() {
       queryClient.setQueryData<Site[]>(['sites'], (old) => (old ? [...old, site] : [site]))
       return { site, persisted }
     },
+  })
+}
+
+export interface UpdateSiteInput {
+  id: string
+  nom: string
+  ville: string
+  code_postal: string
+  type_site_id: string | null
+  annee_construction: number | null
+  surface_m2: number | null
+  date_derniere_ag: string | null
+  latitude: number | null
+  longitude: number | null
+}
+
+export function useUpdateSite() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: async (input: UpdateSiteInput) => {
+      const { error } = await supabase
+        .from('sites')
+        .update({
+          nom: input.nom,
+          ville: input.ville,
+          code_postal: input.code_postal,
+          annee_construction: input.annee_construction,
+          surface_m2: input.surface_m2,
+          date_derniere_ag: input.date_derniere_ag,
+          latitude: input.latitude,
+          longitude: input.longitude,
+          ...(input.type_site_id ? { type_site_id: input.type_site_id } : {}),
+        })
+        .eq('id', input.id)
+      if (error) throw new Error(error.message)
+    },
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['sites'] }),
+  })
+}
+
+export function useDeleteSite() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: async (id: string) => {
+      const { error } = await supabase.from('sites').delete().eq('id', id)
+      if (error) throw new Error(error.message)
+    },
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['sites'] }),
   })
 }

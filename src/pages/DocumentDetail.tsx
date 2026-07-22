@@ -5,6 +5,7 @@ import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { EntityLink } from '@/components/ui/entity-link'
+import { HistoriqueDiscret } from '@/components/ui/historique-discret'
 import { useDocuments } from '@/lib/data/documents'
 import { entityRoute } from '@/lib/entityRoute'
 
@@ -54,6 +55,7 @@ export default function DocumentDetail() {
                   </a>
                 </p>
               )}
+              <HistoriqueDiscret tableNom="documents" ligneId={doc.id} />
             </CardContent>
           </Card>
         )}

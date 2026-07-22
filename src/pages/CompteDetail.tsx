@@ -7,6 +7,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Dialog } from '@/components/ui/dialog'
 import { EmailLink } from '@/components/ui/contact-link'
+import { HistoriqueDiscret } from '@/components/ui/historique-discret'
 import { FormField, Input, Select, Textarea } from '@/components/ui/form'
 import {
   useComptes,
@@ -256,6 +257,7 @@ export default function CompteDetail() {
                   <p><span className="text-navy-400">Ville :</span> {compte.ville}</p>
                   <p><span className="text-navy-400">Sites rattachés :</span> {compte.nb_sites}</p>
                   {compte.siren && <p><span className="text-navy-400">SIREN :</span> {compte.siren}</p>}
+                  <HistoriqueDiscret tableNom="comptes" ligneId={compte.id} />
                 </CardContent>
               </Card>
 

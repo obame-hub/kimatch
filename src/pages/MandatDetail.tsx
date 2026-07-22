@@ -9,6 +9,7 @@ import { EntityLink } from '@/components/ui/entity-link'
 import { Dialog } from '@/components/ui/dialog'
 import { EmailLink } from '@/components/ui/contact-link'
 import { FormField, Select } from '@/components/ui/form'
+import { HistoriqueDiscret } from '@/components/ui/historique-discret'
 import { useMandats, useMarkMandatEnvoye } from '@/lib/data/mandats'
 import { useContacts } from '@/lib/data/contacts'
 import { useDocuments } from '@/lib/data/documents'
@@ -152,6 +153,7 @@ export default function MandatDetail() {
                   <FileSignature className="h-4 w-4" />
                   Envoyer pour signature
                 </Button>
+                <HistoriqueDiscret tableNom="mandats" ligneId={mandat.id} />
               </CardContent>
             </Card>
 

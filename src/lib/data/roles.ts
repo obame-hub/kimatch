@@ -292,6 +292,14 @@ export function useHasPermission(code: string) {
   return data?.permissions.has(code) ?? false
 }
 
+export function useCanManage(proprietaireId: string | null | undefined) {
+  const isAdmin = useIsAdmin()
+  const { data: monProfil } = useMonProfil()
+  if (isAdmin) return true
+  if (!proprietaireId || !monProfil) return false
+  return monProfil.id === proprietaireId
+}
+
 export interface ProfilAutorise {
   id: string
   email: string

@@ -9,6 +9,7 @@ import { EntityLink } from '@/components/ui/entity-link'
 import { EtapeStepper } from '@/components/ui/etape-stepper'
 import { Dialog } from '@/components/ui/dialog'
 import { FormField, Input, Textarea } from '@/components/ui/form'
+import { HistoriqueDiscret } from '@/components/ui/historique-discret'
 import { useRecommandations } from '@/lib/data/recommandations'
 import { useReferenceTable } from '@/lib/data/referenceTables'
 import { useContacts } from '@/lib/data/contacts'
@@ -132,6 +133,7 @@ export default function RecommandationDetail() {
                   {reco.commentaire_interne && (
                     <p className="rounded-lg bg-amber-50 p-2 text-xs text-amber-800">Note interne : {reco.commentaire_interne}</p>
                   )}
+                  <HistoriqueDiscret tableNom="recommandations" ligneId={reco.id} />
                 </CardContent>
               </Card>
 
