@@ -20,6 +20,7 @@ interface RawInteraction {
   site: { nom: string } | null
   contact: { prenom: string; nom: string } | null
   issue: { libelle: string; couleur: string | null } | null
+  proprietaire_id: string | null
 }
 
 async function fetchInteractions(): Promise<Interaction[]> {
@@ -28,7 +29,7 @@ async function fetchInteractions(): Promise<Interaction[]> {
     const { data, error } = await supabase
       .from('interactions')
       .select(
-        'id, date_interaction, sens, objet, resume, resultat, compte_id, site_id, contact_id, type_interaction:types_interactions(libelle), auteur:profils(prenom, nom), compte:comptes(nom), site:sites(nom), contact:contacts(prenom, nom), issue:issues_interactions(libelle, couleur)',
+        'id, date_interaction, sens, objet, resume, resultat, compte_id, site_id, contact_id, type_interaction:types_interactions(libelle), auteur:profils(prenom, nom), compte:comptes(nom), site:sites(nom), contact:contacts(prenom, nom), issue:issues_interactions(libelle, couleur), proprietaire_id',
       )
       .order('date_interaction', { ascending: false })
     if (error) throw error
@@ -50,6 +51,7 @@ async function fetchInteractions(): Promise<Interaction[]> {
       contact_nom: i.contact ? `${i.contact.prenom} ${i.contact.nom}` : '',
       issue_libelle: i.issue?.libelle,
       issue_couleur: i.issue?.couleur,
+      proprietaire_id: i.proprietaire_id,
     }))
   } catch (error) {
     console.error('fetchInteractions', error)
@@ -106,6 +108,7 @@ export function useCreateInteraction() {
         contact_id: input.contact_id,
         contact_nom: input.contact_nom,
         issue_libelle: input.issue_libelle,
+        proprietaire_id: null,
       }
 
       if (!isDemoMode()) {
@@ -134,5 +137,45 @@ export function useCreateInteraction() {
       queryClient.setQueryData<Interaction[]>(['interactions'], (old) => (old ? [interaction, ...old] : [interaction]))
       return { interaction, persisted }
     },
+  })
+}
+
+export interface UpdateInteractionInput {
+  id: string
+  date_interaction: string
+  sens: string | null
+  objet: string | null
+  resume: string | null
+  resultat: string | null
+}
+
+export function useUpdateInteraction() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: async (input: UpdateInteractionInput) => {
+      const { error } = await supabase
+        .from('interactions')
+        .update({
+          date_interaction: input.date_interaction,
+          sens: input.sens,
+          objet: input.objet,
+          resume: input.resume,
+          resultat: input.resultat,
+        })
+        .eq('id', input.id)
+      if (error) throw new Error(error.message)
+    },
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['interactions'] }),
+  })
+}
+
+export function useDeleteInteraction() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: async (id: string) => {
+      const { error } = await supabase.from('interactions').delete().eq('id', id)
+      if (error) throw new Error(error.message)
+    },
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['interactions'] }),
   })
 }

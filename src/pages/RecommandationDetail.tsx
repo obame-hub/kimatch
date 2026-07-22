@@ -1,6 +1,6 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
-import { ArrowLeft, Mail, Lock } from 'lucide-react'
+import { ArrowLeft, Mail, Lock, Pencil, Trash2 } from 'lucide-react'
 import { Topbar } from '@/components/layout/Topbar'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
@@ -8,11 +8,12 @@ import { Badge } from '@/components/ui/badge'
 import { EntityLink } from '@/components/ui/entity-link'
 import { EtapeStepper } from '@/components/ui/etape-stepper'
 import { Dialog } from '@/components/ui/dialog'
-import { FormField, Input, Textarea } from '@/components/ui/form'
+import { FormField, Input, Select, Textarea } from '@/components/ui/form'
 import { HistoriqueDiscret } from '@/components/ui/historique-discret'
-import { useRecommandations } from '@/lib/data/recommandations'
+import { useRecommandations, useUpdateRecommandation, useDeleteRecommandation } from '@/lib/data/recommandations'
 import { useReferenceTable } from '@/lib/data/referenceTables'
 import { useContacts } from '@/lib/data/contacts'
+import { useCanManage } from '@/lib/data/roles'
 import { sendEmail } from '@/lib/data/gmail'
 import { FALLBACK_ETAPES_RECOMMANDATION, FALLBACK_STATUTS_VERSIONS, STATUT_VERSION_TONE } from '@/lib/referenceFallbacks'
 import type { Recommandation, VersionRecommandation } from '@/types/domain'
@@ -86,10 +87,20 @@ export default function RecommandationDetail() {
   const { data: statutsVersionsRef } = useReferenceTable('statuts_versions_recommandation')
   const { data: contacts } = useContacts()
   const [emailDialogVersion, setEmailDialogVersion] = useState<VersionRecommandation | null>(null)
+  const [editOpen, setEditOpen] = useState(false)
+  const [confirmDelete, setConfirmDelete] = useState(false)
   const etapes = etapesRef && etapesRef.length > 0 ? etapesRef : FALLBACK_ETAPES_RECOMMANDATION
   const statutsVersions = statutsVersionsRef && statutsVersionsRef.length > 0 ? statutsVersionsRef : FALLBACK_STATUTS_VERSIONS
   const reco = recommandations?.find((r) => r.id === id)
+  const canManage = useCanManage(reco?.proprietaire_id)
+  const deleteRecommandation = useDeleteRecommandation()
   const contactPrincipal = contacts?.find((c) => c.compte_id === reco?.compte_id && c.contact_principal)
+
+  async function handleDelete() {
+    if (!reco) return
+    await deleteRecommandation.mutateAsync(reco.id)
+    navigate('/recommandations')
+  }
 
   return (
     <div>
@@ -105,7 +116,21 @@ export default function RecommandationDetail() {
         ) : (
           <>
             <Card className="mb-4 p-6">
-              <p className="mb-5 font-display text-lg font-semibold text-navy-900">{reco.titre}</p>
+              <div className="mb-5 flex items-center justify-between gap-3">
+                <p className="font-display text-lg font-semibold text-navy-900">{reco.titre}</p>
+                {canManage && (
+                  <div className="flex shrink-0 gap-1.5">
+                    <Button variant="outline" size="sm" onClick={() => setEditOpen(true)}>
+                      <Pencil className="h-3.5 w-3.5" />
+                      Modifier
+                    </Button>
+                    <Button variant="outline" size="sm" onClick={() => setConfirmDelete(true)}>
+                      <Trash2 className="h-3.5 w-3.5" />
+                      Supprimer
+                    </Button>
+                  </div>
+                )}
+              </div>
               <EtapeStepper steps={etapes} currentCode={reco.etape} />
             </Card>
 
@@ -251,6 +276,95 @@ export default function RecommandationDetail() {
           defaultEmail={contactPrincipal?.email ?? ''}
         />
       )}
+      {reco && (
+        <EditRecommandationDialog open={editOpen} onClose={() => setEditOpen(false)} reco={reco} onSaved={() => {}} />
+      )}
+      <Dialog
+        open={confirmDelete}
+        onClose={() => setConfirmDelete(false)}
+        title="Supprimer cette recommandation ?"
+        description="Cette action est irréversible. Les versions, optimisations et offres liées à cette recommandation seront également perdues."
+      >
+        <div className="flex justify-end gap-2 pt-2">
+          <Button type="button" variant="ghost" onClick={() => setConfirmDelete(false)}>Annuler</Button>
+          <Button type="button" variant="outline" className="border-red-200 text-red-600 hover:bg-red-50" disabled={deleteRecommandation.isPending} onClick={handleDelete}>
+            Supprimer définitivement
+          </Button>
+        </div>
+      </Dialog>
     </div>
+  )
+}
+
+function EditRecommandationDialog({
+  open,
+  onClose,
+  reco,
+  onSaved,
+}: {
+  open: boolean
+  onClose: () => void
+  reco: Recommandation
+  onSaved: () => void
+}) {
+  const updateRecommandation = useUpdateRecommandation()
+  const [titre, setTitre] = useState(reco.titre)
+  const [description, setDescription] = useState(reco.description)
+  const [commentaireInterne, setCommentaireInterne] = useState(reco.commentaire_interne)
+  const [priorite, setPriorite] = useState(String(reco.priorite))
+  const [feedback, setFeedback] = useState<string | null>(null)
+
+  useEffect(() => {
+    if (!open) return
+    setTitre(reco.titre)
+    setDescription(reco.description)
+    setCommentaireInterne(reco.commentaire_interne)
+    setPriorite(String(reco.priorite))
+    setFeedback(null)
+  }, [open, reco])
+
+  async function handleSubmit(e: React.FormEvent) {
+    e.preventDefault()
+    try {
+      await updateRecommandation.mutateAsync({
+        id: reco.id,
+        titre,
+        description,
+        commentaire_interne: commentaireInterne,
+        priorite: Number(priorite),
+      })
+      onSaved()
+      onClose()
+    } catch (err) {
+      setFeedback(err instanceof Error ? err.message : 'Erreur inconnue')
+    }
+  }
+
+  return (
+    <Dialog open={open} onClose={onClose} title="Modifier la recommandation" description="Mettre à jour les informations de la recommandation.">
+      <form onSubmit={handleSubmit} className="space-y-3">
+        <FormField label="Titre">
+          <Input value={titre} onChange={(e) => setTitre(e.target.value)} required />
+        </FormField>
+        <FormField label="Description">
+          <Textarea rows={4} value={description} onChange={(e) => setDescription(e.target.value)} />
+        </FormField>
+        <FormField label="Commentaire interne">
+          <Textarea rows={3} value={commentaireInterne} onChange={(e) => setCommentaireInterne(e.target.value)} />
+        </FormField>
+        <FormField label="Priorité">
+          <Select value={priorite} onChange={(e) => setPriorite(e.target.value)}>
+            <option value="1">{PRIORITE_LABEL[1]}</option>
+            <option value="2">{PRIORITE_LABEL[2]}</option>
+            <option value="3">{PRIORITE_LABEL[3]}</option>
+          </Select>
+        </FormField>
+        {feedback && <p className="text-xs text-red-600">{feedback}</p>}
+        <div className="flex justify-end gap-2 pt-2">
+          <Button type="button" variant="ghost" onClick={onClose}>Annuler</Button>
+          <Button type="submit" disabled={updateRecommandation.isPending}>Enregistrer</Button>
+        </div>
+      </form>
+    </Dialog>
   )
 }

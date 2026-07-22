@@ -11,6 +11,7 @@ interface RawRecommandation {
   priorite: number
   commentaire_interne: string | null
   date_ouverture: string
+  proprietaire_id: string | null
   etape: { code: string } | null
   origine: { libelle: string } | null
   responsable: { prenom: string; nom: string } | null
@@ -74,7 +75,7 @@ async function fetchRecommandations(): Promise<Recommandation[]> {
       supabase
         .from('recommandations')
         .select(
-          'id, nom, description, priorite, commentaire_interne, date_ouverture, etape:etapes_recommandation(code), origine:types_origines(libelle), responsable:profils(prenom, nom), compte:comptes(id, nom)',
+          'id, nom, description, priorite, commentaire_interne, date_ouverture, proprietaire_id, etape:etapes_recommandation(code), origine:types_origines(libelle), responsable:profils(prenom, nom), compte:comptes(id, nom)',
         )
         .order('date_ouverture', { ascending: false }),
       supabase.from('recommandations_sites').select('recommandation_id, site:sites(id, nom)'),
@@ -193,6 +194,7 @@ async function fetchRecommandations(): Promise<Recommandation[]> {
       commentaire_interne: r.commentaire_interne ?? '',
       date_creation: r.date_ouverture,
       versions: versionsParReco.get(r.id) ?? [],
+      proprietaire_id: r.proprietaire_id,
     }))
   } catch (error) {
     console.error('fetchRecommandations', error)
@@ -244,6 +246,7 @@ export function useCreateRecommandation() {
         commentaire_interne: input.commentaire_interne,
         date_creation: now,
         versions: [],
+        proprietaire_id: null,
       }
 
       if (!isDemoMode()) {
@@ -281,5 +284,43 @@ export function useCreateRecommandation() {
       )
       return { recommandation, persisted }
     },
+  })
+}
+
+export interface UpdateRecommandationInput {
+  id: string
+  titre: string
+  description: string
+  commentaire_interne: string
+  priorite: number
+}
+
+export function useUpdateRecommandation() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: async (input: UpdateRecommandationInput) => {
+      const { error } = await supabase
+        .from('recommandations')
+        .update({
+          nom: input.titre,
+          description: input.description,
+          commentaire_interne: input.commentaire_interne,
+          priorite: input.priorite,
+        })
+        .eq('id', input.id)
+      if (error) throw new Error(error.message)
+    },
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['recommandations'] }),
+  })
+}
+
+export function useDeleteRecommandation() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: async (id: string) => {
+      const { error } = await supabase.from('recommandations').delete().eq('id', id)
+      if (error) throw new Error(error.message)
+    },
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['recommandations'] }),
   })
 }

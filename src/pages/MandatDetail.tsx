@@ -1,6 +1,6 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
-import { ArrowLeft, FileSignature } from 'lucide-react'
+import { ArrowLeft, FileSignature, Pencil, Trash2 } from 'lucide-react'
 import { Topbar } from '@/components/layout/Topbar'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
@@ -8,12 +8,13 @@ import { Badge } from '@/components/ui/badge'
 import { EntityLink } from '@/components/ui/entity-link'
 import { Dialog } from '@/components/ui/dialog'
 import { EmailLink } from '@/components/ui/contact-link'
-import { FormField, Select } from '@/components/ui/form'
+import { FormField, Input, Select } from '@/components/ui/form'
 import { HistoriqueDiscret } from '@/components/ui/historique-discret'
-import { useMandats, useMarkMandatEnvoye } from '@/lib/data/mandats'
+import { useMandats, useMarkMandatEnvoye, useUpdateMandat, useDeleteMandat } from '@/lib/data/mandats'
 import { useContacts } from '@/lib/data/contacts'
 import { useDocuments } from '@/lib/data/documents'
 import { useReferenceTable } from '@/lib/data/referenceTables'
+import { useCanManage } from '@/lib/data/roles'
 import { FALLBACK_STATUTS_MANDATS, STATUT_MANDAT_TONE } from '@/lib/referenceFallbacks'
 import { sendMandatForSignature } from '@/lib/data/docusign'
 import type { Mandat, DocumentItem, Contact } from '@/types/domain'
@@ -103,9 +104,19 @@ export default function MandatDetail() {
   const { data: contacts } = useContacts()
   const { data: documents } = useDocuments()
   const [showEnvoyer, setShowEnvoyer] = useState(false)
+  const [editOpen, setEditOpen] = useState(false)
+  const [confirmDelete, setConfirmDelete] = useState(false)
   const mandat = mandats?.find((m) => m.id === id)
+  const canManage = useCanManage(mandat?.proprietaire_id)
+  const deleteMandat = useDeleteMandat()
   const contactSignataire = contacts?.find((c) => c.id === mandat?.contact_signataire_id)
   const documentsDuMandat = documents?.filter((d) => d.entite_type === 'mandat' && d.entite_id === mandat?.id) ?? []
+
+  async function handleDelete() {
+    if (!mandat) return
+    await deleteMandat.mutateAsync(mandat.id)
+    navigate('/mandats')
+  }
 
   return (
     <div>
@@ -123,6 +134,18 @@ export default function MandatDetail() {
             <Card className="p-6">
               <CardHeader className="px-0 pt-0">
                 <CardTitle><EntityLink to={`/comptes/${mandat.compte_id}`}>{mandat.compte_nom}</EntityLink></CardTitle>
+                {canManage && (
+                  <div className="flex gap-1.5">
+                    <Button variant="outline" size="sm" onClick={() => setEditOpen(true)}>
+                      <Pencil className="h-3.5 w-3.5" />
+                      Modifier
+                    </Button>
+                    <Button variant="outline" size="sm" onClick={() => setConfirmDelete(true)}>
+                      <Trash2 className="h-3.5 w-3.5" />
+                      Supprimer
+                    </Button>
+                  </div>
+                )}
               </CardHeader>
               <CardContent className="px-0 space-y-3 text-sm">
                 <p>
@@ -187,6 +210,70 @@ export default function MandatDetail() {
           contact={contactSignataire}
         />
       )}
+      {mandat && (
+        <EditMandatDialog open={editOpen} onClose={() => setEditOpen(false)} mandat={mandat} onSaved={() => {}} />
+      )}
+      <Dialog
+        open={confirmDelete}
+        onClose={() => setConfirmDelete(false)}
+        title="Supprimer ce mandat ?"
+        description="Cette action est irréversible. Les recommandations et documents liés à ce mandat ne seront pas supprimés mais perdront leur lien à ce mandat."
+      >
+        <div className="flex justify-end gap-2 pt-2">
+          <Button type="button" variant="ghost" onClick={() => setConfirmDelete(false)}>Annuler</Button>
+          <Button type="button" variant="outline" className="border-red-200 text-red-600 hover:bg-red-50" disabled={deleteMandat.isPending} onClick={handleDelete}>
+            Supprimer définitivement
+          </Button>
+        </div>
+      </Dialog>
     </div>
+  )
+}
+
+function EditMandatDialog({
+  open,
+  onClose,
+  mandat,
+  onSaved,
+}: {
+  open: boolean
+  onClose: () => void
+  mandat: Mandat
+  onSaved: () => void
+}) {
+  const updateMandat = useUpdateMandat()
+  const [dateSignature, setDateSignature] = useState(mandat.date_signature ? mandat.date_signature.slice(0, 10) : '')
+  const [feedback, setFeedback] = useState<string | null>(null)
+
+  useEffect(() => {
+    if (!open) return
+    setDateSignature(mandat.date_signature ? mandat.date_signature.slice(0, 10) : '')
+    setFeedback(null)
+  }, [open, mandat])
+
+  async function handleSubmit(e: React.FormEvent) {
+    e.preventDefault()
+    try {
+      await updateMandat.mutateAsync({ id: mandat.id, date_signature: dateSignature || null })
+      onSaved()
+      onClose()
+    } catch (err) {
+      setFeedback(err instanceof Error ? err.message : 'Erreur inconnue')
+    }
+  }
+
+  return (
+    <Dialog open={open} onClose={onClose} title="Modifier le mandat" description="Mettre à jour la date de signature du mandat.">
+      <form onSubmit={handleSubmit} className="space-y-3">
+        <FormField label="Date de signature">
+          <Input type="date" value={dateSignature} onChange={(e) => setDateSignature(e.target.value)} />
+        </FormField>
+        {feedback && <p className="text-xs text-red-600">{feedback}</p>}
+        <div className="flex justify-end gap-2 pt-2">
+          <Button type="button" variant="ghost" onClick={onClose}>Annuler</Button>
+          <Button type="submit" disabled={updateMandat.isPending}>Enregistrer</Button>
+        </div>
+      </form>
+    </Dialog>
   )
 }

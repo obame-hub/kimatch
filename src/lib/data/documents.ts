@@ -12,6 +12,7 @@ interface RawDocument {
   entite_type: string
   entite_id: string
   date_creation: string
+  proprietaire_id: string | null
   type_document: { libelle: string } | null
   auteur: { prenom: string; nom: string } | null
 }
@@ -33,7 +34,7 @@ async function fetchDocuments(): Promise<DocumentItem[]> {
   try {
     const { data, error } = await supabase
       .from('documents')
-      .select('id, nom, nom_fichier, url, entite_type, entite_id, date_creation, type_document:types_documents(libelle), auteur:profils(prenom, nom)')
+      .select('id, nom, nom_fichier, url, entite_type, entite_id, date_creation, proprietaire_id, type_document:types_documents(libelle), auteur:profils(prenom, nom)')
       .order('date_creation', { ascending: false })
     if (error) throw error
 
@@ -48,6 +49,7 @@ async function fetchDocuments(): Promise<DocumentItem[]> {
       objet_lie: ENTITE_LABELS[d.entite_type] ?? d.entite_type,
       auteur: d.auteur ? `${d.auteur.prenom} ${d.auteur.nom}` : '',
       date_creation: d.date_creation,
+      proprietaire_id: d.proprietaire_id ?? null,
     }))
   } catch (error) {
     console.error('fetchDocuments', error)
@@ -98,6 +100,7 @@ export function useCreateDocument() {
         objet_lie: ENTITE_LABELS[input.entite_type] ?? input.entite_type,
         auteur: '',
         date_creation: now,
+        proprietaire_id: null,
       }
 
       if (!isDemoMode()) {
@@ -123,5 +126,41 @@ export function useCreateDocument() {
       queryClient.setQueryData<DocumentItem[]>(['documents'], (old) => (old ? [document, ...old] : [document]))
       return { document, persisted }
     },
+  })
+}
+
+export interface UpdateDocumentInput {
+  id: string
+  nom: string
+  nom_fichier: string
+  url: string
+}
+
+export function useUpdateDocument() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: async (input: UpdateDocumentInput) => {
+      const { error } = await supabase
+        .from('documents')
+        .update({
+          nom: input.nom,
+          nom_fichier: input.nom_fichier,
+          url: input.url,
+        })
+        .eq('id', input.id)
+      if (error) throw new Error(error.message)
+    },
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['documents'] }),
+  })
+}
+
+export function useDeleteDocument() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: async (id: string) => {
+      const { error } = await supabase.from('documents').delete().eq('id', id)
+      if (error) throw new Error(error.message)
+    },
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['documents'] }),
   })
 }

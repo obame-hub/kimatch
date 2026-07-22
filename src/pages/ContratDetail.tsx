@@ -1,14 +1,19 @@
+import { useEffect, useState } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
-import { ArrowLeft, Zap, Flame } from 'lucide-react'
+import { ArrowLeft, Zap, Flame, Pencil, Trash2 } from 'lucide-react'
 import { Topbar } from '@/components/layout/Topbar'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { EntityLink } from '@/components/ui/entity-link'
+import { Dialog } from '@/components/ui/dialog'
+import { FormField, Input } from '@/components/ui/form'
 import { HistoriqueDiscret } from '@/components/ui/historique-discret'
-import { useContrats } from '@/lib/data/contrats'
+import { useContrats, useUpdateContrat, useDeleteContrat } from '@/lib/data/contrats'
 import { useReferenceTable } from '@/lib/data/referenceTables'
+import { useCanManage } from '@/lib/data/roles'
 import { FALLBACK_STATUTS_CONTRATS, STATUT_CONTRAT_TONE } from '@/lib/referenceFallbacks'
+import type { Contrat } from '@/types/domain'
 
 export default function ContratDetail() {
   const { id } = useParams()
@@ -18,6 +23,17 @@ export default function ContratDetail() {
   const statuts = statutsRef && statutsRef.length > 0 ? statutsRef : FALLBACK_STATUTS_CONTRATS
   const contrat = contrats?.find((c) => c.id === id)
   const Icon = contrat?.type_energie === 'gaz' ? Flame : Zap
+  const canManage = useCanManage(contrat?.proprietaire_id)
+  const deleteContrat = useDeleteContrat()
+
+  const [editOpen, setEditOpen] = useState(false)
+  const [confirmDelete, setConfirmDelete] = useState(false)
+
+  async function handleDelete() {
+    if (!contrat) return
+    await deleteContrat.mutateAsync(contrat.id)
+    navigate('/contrats')
+  }
 
   return (
     <div>
@@ -46,9 +62,23 @@ export default function ContratDetail() {
                     )}
                   </CardTitle>
                 </div>
-                <Badge tone={STATUT_CONTRAT_TONE[contrat.statut] ?? 'neutral'}>
-                  {statuts.find((s) => s.code === contrat.statut)?.libelle ?? contrat.statut}
-                </Badge>
+                <div className="flex items-center gap-2">
+                  <Badge tone={STATUT_CONTRAT_TONE[contrat.statut] ?? 'neutral'}>
+                    {statuts.find((s) => s.code === contrat.statut)?.libelle ?? contrat.statut}
+                  </Badge>
+                  {canManage && (
+                    <>
+                      <Button variant="outline" size="sm" onClick={() => setEditOpen(true)}>
+                        <Pencil className="h-3.5 w-3.5" />
+                        Modifier
+                      </Button>
+                      <Button variant="outline" size="sm" onClick={() => setConfirmDelete(true)}>
+                        <Trash2 className="h-3.5 w-3.5" />
+                        Supprimer
+                      </Button>
+                    </>
+                  )}
+                </div>
               </div>
             </CardHeader>
             <CardContent className="px-0 space-y-3 text-sm">
@@ -82,6 +112,81 @@ export default function ContratDetail() {
           </Card>
         )}
       </div>
+
+      {contrat && (
+        <>
+          <EditContratDialog open={editOpen} onClose={() => setEditOpen(false)} contrat={contrat} />
+
+          <Dialog
+            open={confirmDelete}
+            onClose={() => setConfirmDelete(false)}
+            title="Supprimer ce contrat ?"
+            description="Cette action est irréversible. Les compteurs rattachés ne seront pas supprimés mais perdront leur lien à ce contrat."
+          >
+            <div className="flex justify-end gap-2 pt-2">
+              <Button type="button" variant="ghost" onClick={() => setConfirmDelete(false)}>Annuler</Button>
+              <Button type="button" variant="outline" className="border-red-200 text-red-600 hover:bg-red-50" disabled={deleteContrat.isPending} onClick={handleDelete}>
+                Supprimer définitivement
+              </Button>
+            </div>
+          </Dialog>
+        </>
+      )}
     </div>
+  )
+}
+
+function EditContratDialog({ open, onClose, contrat }: { open: boolean; onClose: () => void; contrat: Contrat }) {
+  const updateContrat = useUpdateContrat()
+
+  const [referenceFournisseur, setReferenceFournisseur] = useState(contrat.reference_fournisseur ?? '')
+  const [dateDebut, setDateDebut] = useState(contrat.date_debut ? contrat.date_debut.slice(0, 10) : '')
+  const [dateFin, setDateFin] = useState(contrat.date_fin ? contrat.date_fin.slice(0, 10) : '')
+  const [feedback, setFeedback] = useState<string | null>(null)
+
+  useEffect(() => {
+    if (!open) return
+    setReferenceFournisseur(contrat.reference_fournisseur ?? '')
+    setDateDebut(contrat.date_debut ? contrat.date_debut.slice(0, 10) : '')
+    setDateFin(contrat.date_fin ? contrat.date_fin.slice(0, 10) : '')
+    setFeedback(null)
+  }, [open, contrat])
+
+  async function handleSubmit(e: React.FormEvent) {
+    e.preventDefault()
+    try {
+      await updateContrat.mutateAsync({
+        id: contrat.id,
+        reference_fournisseur: referenceFournisseur || null,
+        date_debut: dateDebut || null,
+        date_fin: dateFin || null,
+      })
+      onClose()
+    } catch (err) {
+      setFeedback(err instanceof Error ? err.message : 'Erreur inconnue')
+    }
+  }
+
+  return (
+    <Dialog open={open} onClose={onClose} title="Modifier le contrat" description="Mettre à jour les informations du contrat.">
+      <form onSubmit={handleSubmit} className="space-y-3">
+        <FormField label="Référence fournisseur">
+          <Input value={referenceFournisseur} onChange={(e) => setReferenceFournisseur(e.target.value)} />
+        </FormField>
+        <div className="grid grid-cols-2 gap-3">
+          <FormField label="Date de début">
+            <Input type="date" value={dateDebut} onChange={(e) => setDateDebut(e.target.value)} />
+          </FormField>
+          <FormField label="Date de fin">
+            <Input type="date" value={dateFin} onChange={(e) => setDateFin(e.target.value)} />
+          </FormField>
+        </div>
+        {feedback && <p className="text-xs text-red-600">{feedback}</p>}
+        <div className="flex justify-end gap-2 pt-2">
+          <Button type="button" variant="ghost" onClick={onClose}>Annuler</Button>
+          <Button type="submit" disabled={updateContrat.isPending}>Enregistrer</Button>
+        </div>
+      </form>
+    </Dialog>
   )
 }

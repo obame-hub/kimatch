@@ -13,6 +13,7 @@ interface RawAction {
   date_realisation: string | null
   priorite: number
   commentaire: string | null
+  proprietaire_id: string | null
   type_action: { libelle: string } | null
   statut: { code: string } | null
   responsable: { prenom: string; nom: string } | null
@@ -26,7 +27,7 @@ async function fetchActions(): Promise<ActionItem[]> {
     const { data, error } = await supabase
       .from('actions')
       .select(
-        'id, titre, site_id, contact_id, date_prevue, date_realisation, priorite, commentaire, type_action:types_actions(libelle), statut:statuts_actions(code), responsable:profils(prenom, nom), site:sites(nom), contact:contacts(prenom, nom)',
+        'id, titre, site_id, contact_id, date_prevue, date_realisation, priorite, commentaire, proprietaire_id, type_action:types_actions(libelle), statut:statuts_actions(code), responsable:profils(prenom, nom), site:sites(nom), contact:contacts(prenom, nom)',
       )
       .order('date_prevue')
     if (error) throw error
@@ -45,6 +46,7 @@ async function fetchActions(): Promise<ActionItem[]> {
       site_id: a.site_id,
       contact_id: a.contact_id,
       contact_nom: a.contact ? `${a.contact.prenom} ${a.contact.nom}` : '',
+      proprietaire_id: a.proprietaire_id ?? null,
     }))
   } catch (error) {
     console.error('fetchActions', error)
@@ -95,6 +97,7 @@ export function useCreateAction() {
         site_id: input.site_id,
         contact_id: input.contact_id,
         contact_nom: input.contact_nom,
+        proprietaire_id: null,
       }
 
       if (!isDemoMode()) {
@@ -121,6 +124,48 @@ export function useCreateAction() {
       queryClient.setQueryData<ActionItem[]>(['actions'], (old) => (old ? [action, ...old] : [action]))
       return { action, persisted }
     },
+  })
+}
+
+export interface UpdateActionInput {
+  id: string
+  titre: string
+  priorite: number
+  echeance: string | null
+  commentaire: string | null
+  site_id: string | null
+  contact_id: string | null
+}
+
+export function useUpdateAction() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: async (input: UpdateActionInput) => {
+      const { error } = await supabase
+        .from('actions')
+        .update({
+          titre: input.titre,
+          priorite: input.priorite,
+          date_prevue: input.echeance,
+          commentaire: input.commentaire,
+          site_id: input.site_id,
+          contact_id: input.contact_id,
+        })
+        .eq('id', input.id)
+      if (error) throw new Error(error.message)
+    },
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['actions'] }),
+  })
+}
+
+export function useDeleteAction() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: async (id: string) => {
+      const { error } = await supabase.from('actions').delete().eq('id', id)
+      if (error) throw new Error(error.message)
+    },
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['actions'] }),
   })
 }
 

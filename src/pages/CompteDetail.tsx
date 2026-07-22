@@ -1,6 +1,6 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
-import { ArrowLeft, Gauge, Loader2, Pencil } from 'lucide-react'
+import { ArrowLeft, Gauge, Loader2, Pencil, Trash2 } from 'lucide-react'
 import { Topbar } from '@/components/layout/Topbar'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
@@ -15,11 +15,14 @@ import {
   useUpdateCompteClient,
   useUpdateCompteFournisseur,
   useUpdateComptePartenaire,
+  useUpdateCompte,
+  useDeleteCompte,
 } from '@/lib/data/comptes'
 import { useSites } from '@/lib/data/sites'
 import { useContacts } from '@/lib/data/contacts'
 import { useEllisphereScore } from '@/lib/data/ellisphere'
 import { useReferenceTable } from '@/lib/data/referenceTables'
+import { useCanManage } from '@/lib/data/roles'
 import type { Compte, TypeCompte } from '@/types/domain'
 
 const typeMeta: Record<TypeCompte, { label: string; tone: 'kiwi' | 'blue' | 'amber' | 'neutral' }> = {
@@ -214,6 +217,53 @@ function EditComptePartenaireDialog({ compte, contacts, open, onClose }: { compt
   )
 }
 
+function EditCompteDialog({ compte, open, onClose }: { compte: Compte; open: boolean; onClose: () => void }) {
+  const updateCompte = useUpdateCompte()
+  const [nom, setNom] = useState(compte.nom)
+  const [ville, setVille] = useState(compte.ville)
+  const [segment, setSegment] = useState(compte.segment)
+  const [feedback, setFeedback] = useState<string | null>(null)
+
+  useEffect(() => {
+    if (!open) return
+    setNom(compte.nom)
+    setVille(compte.ville)
+    setSegment(compte.segment)
+    setFeedback(null)
+  }, [open, compte])
+
+  async function handleSubmit(e: React.FormEvent) {
+    e.preventDefault()
+    try {
+      await updateCompte.mutateAsync({ id: compte.id, nom, ville, segment })
+      onClose()
+    } catch (err) {
+      setFeedback(err instanceof Error ? err.message : 'Erreur inconnue')
+    }
+  }
+
+  return (
+    <Dialog open={open} onClose={onClose} title="Modifier le compte" description="Mettre à jour les informations de base du compte.">
+      <form onSubmit={handleSubmit} className="space-y-3">
+        <FormField label="Nom">
+          <Input value={nom} onChange={(e) => setNom(e.target.value)} required />
+        </FormField>
+        <FormField label="Ville">
+          <Input value={ville} onChange={(e) => setVille(e.target.value)} />
+        </FormField>
+        <FormField label="Segment">
+          <Input value={segment} onChange={(e) => setSegment(e.target.value)} />
+        </FormField>
+        {feedback && <p className="text-xs text-red-600">{feedback}</p>}
+        <div className="flex justify-end gap-2 pt-2">
+          <Button type="button" variant="ghost" onClick={onClose}>Annuler</Button>
+          <Button type="submit" disabled={updateCompte.isPending}>Enregistrer</Button>
+        </div>
+      </form>
+    </Dialog>
+  )
+}
+
 export default function CompteDetail() {
   const { id } = useParams()
   const navigate = useNavigate()
@@ -226,6 +276,10 @@ export default function CompteDetail() {
   const sitesDuCompte = sites?.filter((s) => s.compte_nom === compte?.nom) ?? []
   const contactsDuCompte = contacts?.filter((c) => c.compte_id === id) ?? []
   const [showEditSubtype, setShowEditSubtype] = useState(false)
+  const [editOpen, setEditOpen] = useState(false)
+  const [confirmDelete, setConfirmDelete] = useState(false)
+  const canManage = useCanManage(compte?.proprietaire_id)
+  const deleteCompte = useDeleteCompte()
 
   async function handleScoreClick() {
     if (!compte?.siren) return
@@ -233,14 +287,34 @@ export default function CompteDetail() {
     updateScore.mutate({ compteId: compte.id, score })
   }
 
+  async function handleDelete() {
+    if (!compte) return
+    await deleteCompte.mutateAsync(compte.id)
+    navigate('/comptes')
+  }
+
   return (
     <div>
       <Topbar crumb="Comptes" title={compte?.nom ?? 'Compte'} />
       <div className="p-4 sm:p-6">
-        <Button variant="ghost" size="sm" className="mb-4" onClick={() => navigate('/comptes')}>
-          <ArrowLeft className="h-4 w-4" />
-          Retour aux comptes
-        </Button>
+        <div className="mb-4 flex items-center justify-between">
+          <Button variant="ghost" size="sm" onClick={() => navigate('/comptes')}>
+            <ArrowLeft className="h-4 w-4" />
+            Retour aux comptes
+          </Button>
+          {compte && canManage && (
+            <div className="flex gap-2">
+              <Button variant="outline" size="sm" onClick={() => setEditOpen(true)}>
+                <Pencil className="h-3.5 w-3.5" />
+                Modifier les infos
+              </Button>
+              <Button variant="outline" size="sm" onClick={() => setConfirmDelete(true)}>
+                <Trash2 className="h-3.5 w-3.5" />
+                Supprimer
+              </Button>
+            </div>
+          )}
+        </div>
 
         {!compte ? (
           <p className="text-sm text-navy-500">Compte introuvable.</p>
@@ -405,6 +479,25 @@ export default function CompteDetail() {
       )}
       {compte?.type_compte === 'partenaire' && (
         <EditComptePartenaireDialog compte={compte} contacts={contactsDuCompte} open={showEditSubtype} onClose={() => setShowEditSubtype(false)} />
+      )}
+
+      {compte && (
+        <>
+          <EditCompteDialog compte={compte} open={editOpen} onClose={() => setEditOpen(false)} />
+          <Dialog
+            open={confirmDelete}
+            onClose={() => setConfirmDelete(false)}
+            title="Supprimer ce compte ?"
+            description="Cette action est irréversible. Les sites, contacts et contrats rattachés ne seront pas supprimés mais perdront leur lien à ce compte."
+          >
+            <div className="flex justify-end gap-2 pt-2">
+              <Button type="button" variant="ghost" onClick={() => setConfirmDelete(false)}>Annuler</Button>
+              <Button type="button" variant="outline" className="border-red-200 text-red-600 hover:bg-red-50" disabled={deleteCompte.isPending} onClick={handleDelete}>
+                Supprimer définitivement
+              </Button>
+            </div>
+          </Dialog>
+        </>
       )}
     </div>
   )

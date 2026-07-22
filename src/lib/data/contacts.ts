@@ -16,6 +16,7 @@ interface RawContact {
   contact_principal: boolean
   actif: boolean
   compte: { nom: string } | null
+  proprietaire_id: string | null
 }
 
 interface RawContactSite {
@@ -30,7 +31,7 @@ async function fetchContacts(): Promise<Contact[]> {
     const [contactsRes, sitesRes] = await Promise.all([
       supabase
         .from('contacts')
-        .select('id, compte_id, civilite, prenom, nom, fonction, telephone, email, contact_principal, actif, compte:comptes(nom)')
+        .select('id, compte_id, civilite, prenom, nom, fonction, telephone, email, contact_principal, actif, compte:comptes(nom), proprietaire_id')
         .order('nom'),
       supabase.from('contacts_sites').select('contact_id, fonction_sur_site, site:sites(id, nom)'),
     ])
@@ -57,6 +58,7 @@ async function fetchContacts(): Promise<Contact[]> {
       contact_principal: c.contact_principal,
       actif: c.actif,
       sites: sitesParContact.get(c.id) ?? [],
+      proprietaire_id: c.proprietaire_id,
     }))
   } catch (error) {
     console.error('fetchContacts', error)
@@ -106,6 +108,7 @@ export function useCreateContact() {
         contact_principal: input.contact_principal,
         actif: true,
         sites: input.sites,
+        proprietaire_id: null,
       }
 
       if (!isDemoMode()) {
@@ -138,5 +141,51 @@ export function useCreateContact() {
       queryClient.setQueryData<Contact[]>(['contacts'], (old) => (old ? [contact, ...old] : [contact]))
       return { contact, persisted }
     },
+  })
+}
+
+export interface UpdateContactInput {
+  id: string
+  civilite: string | null
+  prenom: string
+  nom: string
+  fonction: string | null
+  telephone: string | null
+  email: string | null
+  contact_principal: boolean
+  actif: boolean
+}
+
+export function useUpdateContact() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: async (input: UpdateContactInput) => {
+      const { error } = await supabase
+        .from('contacts')
+        .update({
+          civilite: input.civilite,
+          prenom: input.prenom,
+          nom: input.nom,
+          fonction: input.fonction,
+          telephone: input.telephone,
+          email: input.email,
+          contact_principal: input.contact_principal,
+          actif: input.actif,
+        })
+        .eq('id', input.id)
+      if (error) throw new Error(error.message)
+    },
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['contacts'] }),
+  })
+}
+
+export function useDeleteContact() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: async (id: string) => {
+      const { error } = await supabase.from('contacts').delete().eq('id', id)
+      if (error) throw new Error(error.message)
+    },
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['contacts'] }),
   })
 }

@@ -31,6 +31,7 @@ export interface Signal {
   conseiller: string
   date_creation: string
   description: string
+  proprietaire_id: string | null
 }
 
 export interface VersionRecommandation {
@@ -96,6 +97,7 @@ export interface Recommandation {
   commentaire_interne: string
   date_creation: string
   versions: VersionRecommandation[]
+  proprietaire_id: string | null
 }
 
 export interface ActionItem {
@@ -112,6 +114,7 @@ export interface ActionItem {
   site_id: string | null
   contact_id: string | null
   contact_nom: string
+  proprietaire_id: string | null
 }
 
 export interface Mandat {
@@ -125,6 +128,7 @@ export interface Mandat {
   contact_signataire_id?: string | null
   contact_signataire_nom?: string
   docusign_envelope_id?: string | null
+  proprietaire_id: string | null
 }
 
 export interface Contact {
@@ -140,6 +144,7 @@ export interface Contact {
   contact_principal: boolean
   actif: boolean
   sites: { id: string; nom: string; fonction_sur_site: string | null }[]
+  proprietaire_id: string | null
 }
 
 export type TypeCompte = 'client' | 'fournisseur' | 'partenaire' | 'kiwee'
@@ -178,6 +183,7 @@ export interface Compte {
   statut_partenariat?: string | null
   conditions_commerciales?: string | null
   commentaire_partenariat?: string | null
+  proprietaire_id: string | null
 }
 
 export interface Compteur {
@@ -204,6 +210,7 @@ export interface Compteur {
   car_mwh?: number | null
   profil_consommation?: string | null
   zone_tarifaire?: string | null
+  proprietaire_id: string | null
 }
 
 export interface Consommation {
@@ -230,6 +237,7 @@ export interface DocumentItem {
   objet_lie: string
   auteur: string
   date_creation: string
+  proprietaire_id: string | null
 }
 
 export interface Interaction {
@@ -249,6 +257,7 @@ export interface Interaction {
   contact_nom: string
   issue_libelle?: string
   issue_couleur?: string | null
+  proprietaire_id: string | null
 }
 
 export interface Contrat {
@@ -263,4 +272,5 @@ export interface Contrat {
   date_fin: string | null
   statut: string
   compteurs: { id: string; numero_pdl: string; utilisation: string }[]
+  proprietaire_id: string | null
 }

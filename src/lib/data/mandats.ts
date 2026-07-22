@@ -10,6 +10,7 @@ interface RawMandat {
   date_signature: string | null
   contact_signataire_id: string | null
   docusign_envelope_id: string | null
+  proprietaire_id: string | null
   compte: { nom: string } | null
   statut: { code: string } | null
   contact_signataire: { prenom: string; nom: string } | null
@@ -22,7 +23,7 @@ async function fetchMandats(): Promise<Mandat[]> {
       supabase
         .from('mandats')
         .select(
-          'id, compte_id, date_signature, contact_signataire_id, docusign_envelope_id, compte:comptes(nom), statut:statuts_mandats(code), contact_signataire:contacts(prenom, nom)',
+          'id, compte_id, date_signature, contact_signataire_id, docusign_envelope_id, proprietaire_id, compte:comptes(nom), statut:statuts_mandats(code), contact_signataire:contacts(prenom, nom)',
         ),
       supabase.from('mandats_sites').select('mandat_id, site_id'),
     ])
@@ -46,6 +47,7 @@ async function fetchMandats(): Promise<Mandat[]> {
       contact_signataire_id: m.contact_signataire_id,
       contact_signataire_nom: m.contact_signataire ? `${m.contact_signataire.prenom} ${m.contact_signataire.nom}` : undefined,
       docusign_envelope_id: m.docusign_envelope_id,
+      proprietaire_id: m.proprietaire_id,
     }))
   } catch (error) {
     console.error('fetchMandats', error)
@@ -87,6 +89,7 @@ export function useCreateMandat() {
         site_ids: input.site_ids,
         contact_signataire_id: input.contact_signataire_id,
         contact_signataire_nom: input.contact_signataire_nom,
+        proprietaire_id: null,
       }
 
       if (!isDemoMode()) {
@@ -139,5 +142,35 @@ export function useMarkMandatEnvoye() {
       )
       return { persisted }
     },
+  })
+}
+
+export interface UpdateMandatInput {
+  id: string
+  date_signature: string | null
+}
+
+export function useUpdateMandat() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: async (input: UpdateMandatInput) => {
+      const { error } = await supabase
+        .from('mandats')
+        .update({ date_signature: input.date_signature })
+        .eq('id', input.id)
+      if (error) throw new Error(error.message)
+    },
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['mandats'] }),
+  })
+}
+
+export function useDeleteMandat() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: async (id: string) => {
+      const { error } = await supabase.from('mandats').delete().eq('id', id)
+      if (error) throw new Error(error.message)
+    },
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['mandats'] }),
   })
 }

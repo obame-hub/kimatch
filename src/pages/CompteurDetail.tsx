@@ -1,6 +1,6 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
-import { ArrowLeft, Zap, Flame, Plus } from 'lucide-react'
+import { ArrowLeft, Zap, Flame, Plus, Pencil, Trash2 } from 'lucide-react'
 import { Topbar } from '@/components/layout/Topbar'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
@@ -8,8 +8,10 @@ import { Badge } from '@/components/ui/badge'
 import { Dialog } from '@/components/ui/dialog'
 import { FormField, Input, Select } from '@/components/ui/form'
 import { HistoriqueDiscret } from '@/components/ui/historique-discret'
-import { useCompteurs } from '@/lib/data/compteurs'
+import { useCompteurs, useUpdateCompteur, useDeleteCompteur } from '@/lib/data/compteurs'
 import { useConsommations, useCreateConsommation } from '@/lib/data/consommations'
+import { useCanManage } from '@/lib/data/roles'
+import type { Compteur } from '@/types/domain'
 
 const POSTE_OPTIONS = ['TOTAL', 'HP', 'HC', 'POINTE', 'HPH', 'HCH', 'HPE', 'HCE']
 const TYPE_VALEUR_OPTIONS = ['MESUREE', 'ESTIMEE', 'CORRIGEE']
@@ -95,6 +97,54 @@ function AddConsommationDialog({ compteurId, open, onClose }: { compteurId: stri
   )
 }
 
+function EditCompteurDialog({ compteur, open, onClose }: { compteur: Compteur; open: boolean; onClose: () => void }) {
+  const updateCompteur = useUpdateCompteur()
+  const [utilisation, setUtilisation] = useState(compteur.utilisation)
+  const [consommationAnnuelleMwh, setConsommationAnnuelleMwh] = useState(
+    compteur.consommation_annuelle_mwh != null ? String(compteur.consommation_annuelle_mwh) : '',
+  )
+  const [feedback, setFeedback] = useState<string | null>(null)
+
+  useEffect(() => {
+    if (!open) return
+    setUtilisation(compteur.utilisation)
+    setConsommationAnnuelleMwh(compteur.consommation_annuelle_mwh != null ? String(compteur.consommation_annuelle_mwh) : '')
+    setFeedback(null)
+  }, [open, compteur])
+
+  async function handleSubmit(e: React.FormEvent) {
+    e.preventDefault()
+    try {
+      await updateCompteur.mutateAsync({
+        id: compteur.id,
+        utilisation,
+        consommation_annuelle_mwh: consommationAnnuelleMwh ? Number(consommationAnnuelleMwh) : null,
+      })
+      onClose()
+    } catch (err) {
+      setFeedback(err instanceof Error ? err.message : 'Erreur inconnue')
+    }
+  }
+
+  return (
+    <Dialog open={open} onClose={onClose} title="Modifier le compteur" description="Mettre à jour les informations de base du compteur.">
+      <form onSubmit={handleSubmit} className="space-y-3">
+        <FormField label="Utilisation">
+          <Input value={utilisation} onChange={(e) => setUtilisation(e.target.value)} placeholder="Ex. Chaufferie, éclairage…" />
+        </FormField>
+        <FormField label="Consommation annuelle (MWh)">
+          <Input type="number" step="any" value={consommationAnnuelleMwh} onChange={(e) => setConsommationAnnuelleMwh(e.target.value)} />
+        </FormField>
+        {feedback && <p className="text-xs text-red-600">{feedback}</p>}
+        <div className="flex justify-end gap-2 pt-2">
+          <Button type="button" variant="ghost" onClick={onClose}>Annuler</Button>
+          <Button type="submit" disabled={updateCompteur.isPending}>Enregistrer</Button>
+        </div>
+      </form>
+    </Dialog>
+  )
+}
+
 export default function CompteurDetail() {
   const { id } = useParams()
   const navigate = useNavigate()
@@ -103,15 +153,39 @@ export default function CompteurDetail() {
   const compteur = compteurs?.find((c) => c.id === id)
   const consommationsDuCompteur = consommations?.filter((c) => c.compteur_id === id) ?? []
   const [showAdd, setShowAdd] = useState(false)
+  const [editOpen, setEditOpen] = useState(false)
+  const [confirmDelete, setConfirmDelete] = useState(false)
+  const canManage = useCanManage(compteur?.proprietaire_id)
+  const deleteCompteur = useDeleteCompteur()
+
+  async function handleDelete() {
+    if (!compteur) return
+    await deleteCompteur.mutateAsync(compteur.id)
+    navigate('/compteurs')
+  }
 
   return (
     <div>
       <Topbar crumb="Compteurs" title={compteur ? `Compteur ${compteur.numero_pdl}` : 'Compteur'} />
       <div className="p-4 sm:p-6">
-        <Button variant="ghost" size="sm" className="mb-4" onClick={() => navigate('/compteurs')}>
-          <ArrowLeft className="h-4 w-4" />
-          Retour aux compteurs
-        </Button>
+        <div className="mb-4 flex items-center justify-between">
+          <Button variant="ghost" size="sm" onClick={() => navigate('/compteurs')}>
+            <ArrowLeft className="h-4 w-4" />
+            Retour aux compteurs
+          </Button>
+          {compteur && canManage && (
+            <div className="flex gap-2">
+              <Button variant="outline" size="sm" onClick={() => setEditOpen(true)}>
+                <Pencil className="h-3.5 w-3.5" />
+                Modifier
+              </Button>
+              <Button variant="outline" size="sm" onClick={() => setConfirmDelete(true)}>
+                <Trash2 className="h-3.5 w-3.5" />
+                Supprimer
+              </Button>
+            </div>
+          )}
+        </div>
 
         {!compteur ? (
           <p className="text-sm text-navy-500">Compteur introuvable.</p>
@@ -191,7 +265,25 @@ export default function CompteurDetail() {
           </div>
         )}
       </div>
-      {compteur && <AddConsommationDialog compteurId={compteur.id} open={showAdd} onClose={() => setShowAdd(false)} />}
+      {compteur && (
+        <>
+          <AddConsommationDialog compteurId={compteur.id} open={showAdd} onClose={() => setShowAdd(false)} />
+          <EditCompteurDialog compteur={compteur} open={editOpen} onClose={() => setEditOpen(false)} />
+          <Dialog
+            open={confirmDelete}
+            onClose={() => setConfirmDelete(false)}
+            title="Supprimer ce compteur ?"
+            description="Cette action est irréversible. L'historique de consommation et les contrats rattachés ne seront pas supprimés mais perdront leur lien à ce compteur."
+          >
+            <div className="flex justify-end gap-2 pt-2">
+              <Button type="button" variant="ghost" onClick={() => setConfirmDelete(false)}>Annuler</Button>
+              <Button type="button" variant="outline" className="border-red-200 text-red-600 hover:bg-red-50" disabled={deleteCompteur.isPending} onClick={handleDelete}>
+                Supprimer définitivement
+              </Button>
+            </div>
+          </Dialog>
+        </>
+      )}
     </div>
   )
 }

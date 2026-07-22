@@ -42,6 +42,7 @@ interface RawCompteur {
   consommation_annuelle_mwh: number | null
   synchro_eneo: boolean
   date_derniere_synchro_eneo: string | null
+  proprietaire_id: string | null
   type_energie: { code: string } | null
   site: { nom: string } | null
   compteurs_electricite: RawCompteurElec | RawCompteurElec[] | null
@@ -68,7 +69,7 @@ async function fetchCompteurs(): Promise<Compteur[]> {
     const { data, error } = await supabase
       .from('compteurs')
       .select(
-        'id, site_id, numero_point, utilisation, actif, consommation_annuelle_mwh, synchro_eneo, date_derniere_synchro_eneo, type_energie:types_energies(code), site:sites(nom), compteurs_electricite(*), compteurs_gaz(*)',
+        'id, site_id, numero_point, utilisation, actif, consommation_annuelle_mwh, synchro_eneo, date_derniere_synchro_eneo, proprietaire_id, type_energie:types_energies(code), site:sites(nom), compteurs_electricite(*), compteurs_gaz(*)',
       )
     if (error) throw error
 
@@ -86,6 +87,7 @@ async function fetchCompteurs(): Promise<Compteur[]> {
         consommation_annuelle_mwh: c.consommation_annuelle_mwh,
         synchro_eneo: c.synchro_eneo,
         date_derniere_synchro_eneo: c.date_derniere_synchro_eneo,
+        proprietaire_id: c.proprietaire_id ?? null,
         ...(elec
           ? {
               segment: elec.segment,
@@ -175,6 +177,7 @@ export function useCreateCompteur() {
         consommation_annuelle_mwh: input.consommation_annuelle_mwh ?? null,
         synchro_eneo: synchro,
         date_derniere_synchro_eneo: now,
+        proprietaire_id: null,
         ...(input.grdElec ? { segment: input.grdElec.segment, tension: input.grdElec.tension, tarif_distribution: input.grdElec.tarif_distribution, consoParClasseMwh: input.grdElec.consoParClasseMwh, puissanceParClasseKva: input.grdElec.puissanceParClasseKva } : {}),
         ...(input.grdGaz ? { car_mwh: input.grdGaz.car_mwh, profil_consommation: input.grdGaz.profil_consommation, tarif_distribution: input.grdGaz.tarif_distribution, zone_tarifaire: input.grdGaz.zone_tarifaire } : {}),
       }
@@ -225,5 +228,39 @@ export function useCreateCompteur() {
       queryClient.setQueryData<Compteur[]>(['compteurs'], (old) => (old ? [...old, compteur] : [compteur]))
       return { compteur, persisted }
     },
+  })
+}
+
+export interface UpdateCompteurInput {
+  id: string
+  utilisation: string
+  consommation_annuelle_mwh: number | null
+}
+
+export function useUpdateCompteur() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: async (input: UpdateCompteurInput) => {
+      const { error } = await supabase
+        .from('compteurs')
+        .update({
+          utilisation: input.utilisation,
+          consommation_annuelle_mwh: input.consommation_annuelle_mwh,
+        })
+        .eq('id', input.id)
+      if (error) throw new Error(error.message)
+    },
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['compteurs'] }),
+  })
+}
+
+export function useDeleteCompteur() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: async (id: string) => {
+      const { error } = await supabase.from('compteurs').delete().eq('id', id)
+      if (error) throw new Error(error.message)
+    },
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['compteurs'] }),
   })
 }

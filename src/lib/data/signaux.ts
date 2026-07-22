@@ -9,6 +9,7 @@ interface RawSignal {
   site_id: string
   date_creation: string
   commentaire: string | null
+  proprietaire_id: string | null
   type_signal: { libelle: string } | null
   statut: { code: string } | null
   site: { nom: string } | null
@@ -22,7 +23,7 @@ async function fetchSignaux(): Promise<Signal[]> {
     const { data, error } = await supabase
       .from('signaux')
       .select(
-        'id, site_id, date_creation, commentaire, type_signal:types_signaux(libelle), statut:statuts_signaux(code), site:sites(nom), responsable:profils(prenom, nom)',
+        'id, site_id, date_creation, commentaire, proprietaire_id, type_signal:types_signaux(libelle), statut:statuts_signaux(code), site:sites(nom), responsable:profils(prenom, nom)',
       )
       .order('date_creation', { ascending: false })
     if (error) throw error
@@ -36,6 +37,7 @@ async function fetchSignaux(): Promise<Signal[]> {
       conseiller: s.responsable ? `${s.responsable.prenom} ${s.responsable.nom}` : '',
       date_creation: s.date_creation,
       description: s.commentaire ?? '',
+      proprietaire_id: s.proprietaire_id ?? null,
     }))
   } catch (error) {
     console.error('fetchSignaux', error)
@@ -77,6 +79,7 @@ export function useCreateSignal() {
         conseiller: '',
         date_creation: now,
         description: input.description,
+        proprietaire_id: null,
       }
 
       if (!isDemoMode()) {

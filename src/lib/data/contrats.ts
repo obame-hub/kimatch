@@ -13,6 +13,7 @@ interface RawContrat {
   reference_fournisseur: string | null
   date_debut: string | null
   date_fin: string | null
+  proprietaire_id: string | null
   site: { nom: string } | null
   fournisseur: { nom: string } | null
   type_energie: { code: string } | null
@@ -26,7 +27,7 @@ async function fetchContrats(): Promise<Contrat[]> {
       supabase
         .from('contrats')
         .select(
-          'id, site_id, fournisseur_compte_id, reference_fournisseur, date_debut, date_fin, site:sites(nom), fournisseur:comptes(nom), type_energie:types_energies(code), statut:statuts_contrats(code)',
+          'id, site_id, fournisseur_compte_id, reference_fournisseur, date_debut, date_fin, proprietaire_id, site:sites(nom), fournisseur:comptes(nom), type_energie:types_energies(code), statut:statuts_contrats(code)',
         )
         .order('date_debut', { ascending: false }),
       supabase.from('contrats_compteurs').select('contrat_id, compteur:compteurs(id, numero_point, utilisation)'),
@@ -53,6 +54,7 @@ async function fetchContrats(): Promise<Contrat[]> {
       date_fin: c.date_fin,
       statut: c.statut?.code ?? '',
       compteurs: compteursParContrat.get(c.id) ?? [],
+      proprietaire_id: c.proprietaire_id ?? null,
     }))
   } catch (error) {
     console.error('fetchContrats', error)
@@ -102,6 +104,7 @@ export function useCreateContrat() {
         date_fin: input.date_fin,
         statut: 'ACTIF',
         compteurs: input.compteurs,
+        proprietaire_id: null,
       }
 
       if (!isDemoMode()) {
@@ -146,5 +149,41 @@ export function useCreateContrat() {
 
       return { contrat, persisted }
     },
+  })
+}
+
+export interface UpdateContratInput {
+  id: string
+  reference_fournisseur: string | null
+  date_debut: string | null
+  date_fin: string | null
+}
+
+export function useUpdateContrat() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: async (input: UpdateContratInput) => {
+      const { error } = await supabase
+        .from('contrats')
+        .update({
+          reference_fournisseur: input.reference_fournisseur,
+          date_debut: input.date_debut,
+          date_fin: input.date_fin,
+        })
+        .eq('id', input.id)
+      if (error) throw new Error(error.message)
+    },
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['contrats'] }),
+  })
+}
+
+export function useDeleteContrat() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: async (id: string) => {
+      const { error } = await supabase.from('contrats').delete().eq('id', id)
+      if (error) throw new Error(error.message)
+    },
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['contrats'] }),
   })
 }

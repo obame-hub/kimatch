@@ -189,7 +189,7 @@ export function useCreateCompteFromEllisphere() {
       }
 
       let persisted = false
-      let compte: Compte = { id: `local-${Date.now()}`, ...base }
+      let compte: Compte = { id: `local-${Date.now()}`, proprietaire_id: null, ...base }
 
       if (!isDemoMode()) {
         const { data, error } = await supabase
@@ -337,5 +337,41 @@ export function useUpdateComptePartenaire() {
       applyLocalUpdate(queryClient, input.compteId, input)
       return { persisted }
     },
+  })
+}
+
+export interface UpdateCompteInput {
+  id: string
+  nom: string
+  ville: string
+  segment: string
+}
+
+export function useUpdateCompte() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: async (input: UpdateCompteInput) => {
+      const { error } = await supabase
+        .from('comptes')
+        .update({
+          nom: input.nom,
+          ville: input.ville,
+          segment: input.segment,
+        })
+        .eq('id', input.id)
+      if (error) throw new Error(error.message)
+    },
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['comptes'] }),
+  })
+}
+
+export function useDeleteCompte() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: async (id: string) => {
+      const { error } = await supabase.from('comptes').delete().eq('id', id)
+      if (error) throw new Error(error.message)
+    },
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['comptes'] }),
   })
 }
