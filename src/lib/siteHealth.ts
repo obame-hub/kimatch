@@ -33,7 +33,7 @@ export function computeSiteHealth({
   const signauxOuverts = signaux.filter((s) => !SIGNAUX_FERMES.has(s.statut))
   if (signauxOuverts.length > 0) {
     score -= signauxOuverts.length * SIGNAL_OUVERT_PENALTY
-    raisons.push(`${signauxOuverts.length} signal${signauxOuverts.length > 1 ? 'aux' : ''} ouvert${signauxOuverts.length > 1 ? 's' : ''}`)
+    raisons.push(`${signauxOuverts.length} ${signauxOuverts.length > 1 ? 'signaux' : 'signal'} ouvert${signauxOuverts.length > 1 ? 's' : ''}`)
   }
 
   if (!mandat || mandat.statut !== 'ACTIF') {
