@@ -396,7 +396,7 @@ export default function SiteDetail() {
                     </div>
                     {derniereVersion && (
                       <p className="mt-2 text-[11px] text-navy-400">
-                        V{derniereVersion.numero} · {derniereVersion.statut}
+                        {derniereVersion.nom || 'Version'} · {derniereVersion.statut}
                         {derniereVersion.gains_estimes ? ` · gain estimé ${derniereVersion.gains_estimes.toLocaleString('fr-FR')} €/an` : ''}
                       </p>
                     )}

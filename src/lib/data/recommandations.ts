@@ -20,14 +20,17 @@ interface RawRecommandation {
 interface RawVersion {
   id: string
   recommandation_id: string
-  numero_version: number
+  nom: string | null
   resume: string | null
-  contenu: string | null
+  contexte_et_hypotheses: string | null
   gain_estime_annuel: number | null
   economie_estimee_pourcentage: number | null
   niveau_confiance: number | null
-  date_validite_offres: string | null
-  document_url: string | null
+  version_actuelle: boolean
+  est_figee: boolean
+  date_publication: string | null
+  date_presentation_client: string | null
+  date_decision_client: string | null
   date_creation: string
   statut: { code: string } | null
   motif: { libelle: string } | null
@@ -78,9 +81,9 @@ async function fetchRecommandations(): Promise<Recommandation[]> {
       supabase
         .from('versions_recommandation')
         .select(
-          'id, recommandation_id, numero_version, resume, contenu, gain_estime_annuel, economie_estimee_pourcentage, niveau_confiance, date_validite_offres, document_url, date_creation, statut:statuts_versions_recommandation(code), motif:motifs_versions_recommandation(libelle)',
+          'id, recommandation_id, nom, resume, contexte_et_hypotheses, gain_estime_annuel, economie_estimee_pourcentage, niveau_confiance, version_actuelle, est_figee, date_publication, date_presentation_client, date_decision_client, date_creation, statut:statuts_versions_recommandation(code), motif:motifs_versions_recommandation(libelle)',
         )
-        .order('numero_version'),
+        .order('date_creation'),
       supabase.from('versions_recommandation_compteurs').select('version_recommandation_id, compteur_id'),
       supabase
         .from('optimisations')
@@ -156,17 +159,20 @@ async function fetchRecommandations(): Promise<Recommandation[]> {
       const list = versionsParReco.get(v.recommandation_id) ?? []
       list.push({
         id: v.id,
-        numero: v.numero_version,
+        nom: v.nom,
         statut: v.statut?.code ?? '',
         motif_creation: v.motif?.libelle ?? '',
         date_creation: v.date_creation,
         gains_estimes: v.gain_estime_annuel,
         resume: v.resume ?? '',
-        contenu: v.contenu,
+        contexte_et_hypotheses: v.contexte_et_hypotheses,
         economie_pourcentage: v.economie_estimee_pourcentage,
         niveau_confiance: v.niveau_confiance,
-        date_validite_offres: v.date_validite_offres,
-        document_url: v.document_url,
+        version_actuelle: v.version_actuelle,
+        est_figee: v.est_figee,
+        date_publication: v.date_publication,
+        date_presentation_client: v.date_presentation_client,
+        date_decision_client: v.date_decision_client,
         compteur_ids: compteurIdsParVersion.get(v.id) ?? [],
         optimisations: optimisationsParVersion.get(v.id) ?? [],
       })

@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
-import { ArrowLeft, FileText, Mail } from 'lucide-react'
+import { ArrowLeft, Mail, Lock } from 'lucide-react'
 import { Topbar } from '@/components/layout/Topbar'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
@@ -32,9 +32,9 @@ function EnvoyerEmailDialog({
   defaultEmail: string
 }) {
   const [to, setTo] = useState(defaultEmail)
-  const [subject, setSubject] = useState(`KiWee Énergie — ${reco.titre} (version ${version.numero})`)
+  const [subject, setSubject] = useState(`KiWee Énergie — ${reco.titre}${version.nom ? ` (${version.nom})` : ''}`)
   const [text, setText] = useState(
-    `Bonjour,\n\nVoici notre recommandation "${reco.titre}" (version ${version.numero}) :\n${version.resume}\n\n${version.document_url ? `Document : ${version.document_url}\n\n` : ''}Cordialement,`,
+    `Bonjour,\n\nVoici notre recommandation "${reco.titre}"${version.nom ? ` (${version.nom})` : ''} :\n${version.resume}\n\nCordialement,`,
   )
   const [sending, setSending] = useState(false)
   const [feedback, setFeedback] = useState<string | null>(null)
@@ -147,20 +147,29 @@ export default function RecommandationDetail() {
                     const statutLabel = statutsVersions.find((s) => s.code === version.statut)?.libelle ?? version.statut
                     return (
                       <div key={version.id} className="rounded-lg border border-navy-100 p-4">
-                        <div className="flex items-center justify-between">
-                          <p className="text-sm font-semibold text-navy-800">Version {version.numero}</p>
-                          <Badge tone={STATUT_VERSION_TONE[version.statut] ?? 'neutral'}>{statutLabel}</Badge>
+                        <div className="flex items-center justify-between gap-2">
+                          <p className="flex items-center gap-1.5 text-sm font-semibold text-navy-800">
+                            {version.nom || 'Version'}
+                            {version.est_figee && <Lock className="h-3 w-3 text-navy-400" />}
+                          </p>
+                          <div className="flex items-center gap-1.5">
+                            {version.version_actuelle && <Badge tone="kiwi">Actuelle</Badge>}
+                            <Badge tone={STATUT_VERSION_TONE[version.statut] ?? 'neutral'}>{statutLabel}</Badge>
+                          </div>
                         </div>
                         <p className="mt-1 text-sm text-navy-600">{version.resume}</p>
-                        {version.contenu && <p className="mt-1 text-xs text-navy-500">{version.contenu}</p>}
+                        {version.contexte_et_hypotheses && <p className="mt-1 text-xs text-navy-500">{version.contexte_et_hypotheses}</p>}
 
                         <div className="mt-2 flex flex-wrap gap-3 text-xs text-navy-400">
                           {version.economie_pourcentage !== null && (
                             <span>Économie : <span className="font-medium text-kiwi-700">{version.economie_pourcentage}%</span></span>
                           )}
                           {version.niveau_confiance !== null && <span>Confiance : {version.niveau_confiance}%</span>}
-                          {version.date_validite_offres && (
-                            <span>Offres valables jusqu'au {new Date(version.date_validite_offres).toLocaleDateString('fr-FR')}</span>
+                          {version.date_presentation_client && (
+                            <span>Présentée le {new Date(version.date_presentation_client).toLocaleDateString('fr-FR')}</span>
+                          )}
+                          {version.date_decision_client && (
+                            <span>Décision le {new Date(version.date_decision_client).toLocaleDateString('fr-FR')}</span>
                           )}
                         </div>
 
@@ -213,18 +222,6 @@ export default function RecommandationDetail() {
                         )}
 
                         <div className="mt-2 flex items-center gap-3">
-                          {version.document_url && (
-                            <a
-                              href={version.document_url}
-                              target="_blank"
-                              rel="noreferrer"
-                              onClick={(e) => e.stopPropagation()}
-                              className="inline-flex items-center gap-1.5 text-xs font-medium text-kiwi-700 hover:underline"
-                            >
-                              <FileText className="h-3.5 w-3.5" />
-                              Voir le document
-                            </a>
-                          )}
                           <button
                             type="button"
                             onClick={() => setEmailDialogVersion(version)}

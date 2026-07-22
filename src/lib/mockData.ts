@@ -38,10 +38,11 @@ export const mockRecommandations: Recommandation[] = [
     date_creation: '2026-06-28',
     versions: [
       {
-        id: 'v1', numero: 1, statut: 'PRESENTEE', motif_creation: 'Analyse initiale', date_creation: '2026-07-05',
+        id: 'v1', nom: 'V1 — Renégociation + puissance', statut: 'PRESENTEE', motif_creation: 'Analyse initiale', date_creation: '2026-07-05',
         gains_estimes: 18400, resume: 'Renégociation puissance souscrite + mise en concurrence.',
-        contenu: 'Comparatif de 3 offres fournisseurs sur 24 mois, avec réduction de la puissance souscrite de 250 à 210 kVA.',
-        economie_pourcentage: 12.5, niveau_confiance: 85, date_validite_offres: '2026-08-05', document_url: null,
+        contexte_et_hypotheses: 'Comparatif de 3 offres fournisseurs sur 24 mois, avec réduction de la puissance souscrite de 250 à 210 kVA.',
+        economie_pourcentage: 12.5, niveau_confiance: 85,
+        version_actuelle: true, est_figee: false, date_publication: '2026-07-05', date_presentation_client: '2026-07-08', date_decision_client: null,
         compteur_ids: ['cp3'],
         optimisations: [
           {
@@ -70,9 +71,10 @@ export const mockRecommandations: Recommandation[] = [
     date_creation: '2026-07-11',
     versions: [
       {
-        id: 'v2', numero: 1, statut: 'A_VALIDER', motif_creation: 'Signal échéance de contrat', date_creation: '2026-07-11',
+        id: 'v2', nom: 'V1 — Étude en cours', statut: 'A_VALIDER', motif_creation: 'Signal échéance de contrat', date_creation: '2026-07-11',
         gains_estimes: null, resume: "Étude en cours sur l'échéance des parties communes.",
-        contenu: null, economie_pourcentage: null, niveau_confiance: null, date_validite_offres: null, document_url: null,
+        contexte_et_hypotheses: null, economie_pourcentage: null, niveau_confiance: null,
+        version_actuelle: true, est_figee: false, date_publication: null, date_presentation_client: null, date_decision_client: null,
         compteur_ids: ['cp1'],
         optimisations: [],
       },

@@ -57,7 +57,7 @@ export default function Versions() {
                   className="cursor-pointer transition-colors hover:bg-navy-50"
                 >
                   <td className="px-5 py-3 font-medium text-navy-800">{v.recoTitre}</td>
-                  <td className="px-5 py-3 text-navy-600">v{v.numero}</td>
+                  <td className="px-5 py-3 text-navy-600">{v.nom || '—'}</td>
                   <td className="px-5 py-3 text-navy-600">{v.motif_creation}</td>
                   <td className="px-5 py-3">
                     <Badge tone={STATUT_VERSION_TONE[v.statut] ?? 'neutral'}>

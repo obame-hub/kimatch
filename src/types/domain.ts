@@ -34,17 +34,20 @@ export interface Signal {
 
 export interface VersionRecommandation {
   id: string
-  numero: number
+  nom: string | null
   statut: string
   motif_creation: string
   date_creation: string
   gains_estimes: number | null
   resume: string
-  contenu: string | null
+  contexte_et_hypotheses: string | null
   economie_pourcentage: number | null
   niveau_confiance: number | null
-  date_validite_offres: string | null
-  document_url: string | null
+  version_actuelle: boolean
+  est_figee: boolean
+  date_publication: string | null
+  date_presentation_client: string | null
+  date_decision_client: string | null
   compteur_ids: string[]
   optimisations: Optimisation[]
 }
