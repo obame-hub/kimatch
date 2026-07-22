@@ -6,6 +6,7 @@ import Dashboard from '@/pages/Dashboard'
 import Sites from '@/pages/Sites'
 import SiteDetail from '@/pages/SiteDetail'
 import Signaux from '@/pages/Signaux'
+import SignalDetail from '@/pages/SignalDetail'
 import Recommandations from '@/pages/Recommandations'
 import RecommandationDetail from '@/pages/RecommandationDetail'
 import Comptes from '@/pages/Comptes'
@@ -24,6 +25,7 @@ import ContratDetail from '@/pages/ContratDetail'
 import Contacts from '@/pages/Contacts'
 import ContactDetail from '@/pages/ContactDetail'
 import Taches from '@/pages/Taches'
+import ActionDetail from '@/pages/ActionDetail'
 import Parametres from '@/pages/Parametres'
 import Administration from '@/pages/Administration'
 import MonProfil from '@/pages/MonProfil'
@@ -39,6 +41,7 @@ function App() {
           <Route path="/sites" element={<Sites />} />
           <Route path="/sites/:id" element={<SiteDetail />} />
           <Route path="/signaux" element={<Signaux />} />
+          <Route path="/signaux/:id" element={<SignalDetail />} />
           <Route path="/recommandations" element={<Recommandations />} />
           <Route path="/recommandations/:id" element={<RecommandationDetail />} />
           <Route path="/comptes" element={<Comptes />} />
@@ -57,6 +60,7 @@ function App() {
           <Route path="/contacts" element={<Contacts />} />
           <Route path="/contacts/:id" element={<ContactDetail />} />
           <Route path="/taches" element={<Taches />} />
+          <Route path="/taches/:id" element={<ActionDetail />} />
           <Route path="/parametres" element={<Parametres />} />
           <Route path="/administration" element={<Administration />} />
           <Route path="/profil" element={<MonProfil />} />

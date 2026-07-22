@@ -104,3 +104,30 @@ export function useCreateSignal() {
     },
   })
 }
+
+export interface UpdateSignalInput {
+  id: string
+  commentaire: string | null
+}
+
+export function useUpdateSignal() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: async (input: UpdateSignalInput) => {
+      const { error } = await supabase.from('signaux').update({ commentaire: input.commentaire }).eq('id', input.id)
+      if (error) throw new Error(error.message)
+    },
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['signaux'] }),
+  })
+}
+
+export function useDeleteSignal() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: async (id: string) => {
+      const { error } = await supabase.from('signaux').delete().eq('id', id)
+      if (error) throw new Error(error.message)
+    },
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['signaux'] }),
+  })
+}

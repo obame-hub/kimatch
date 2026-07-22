@@ -12,6 +12,7 @@ import { useSites } from '@/lib/data/sites'
 import { useCreateAction } from '@/lib/data/actions'
 import { useReferenceTable } from '@/lib/data/referenceTables'
 import { FALLBACK_STATUTS_SIGNAUX, FALLBACK_TYPES_SIGNAUX, FALLBACK_STATUTS_ACTIONS } from '@/lib/referenceFallbacks'
+import { EntityLink } from '@/components/ui/entity-link'
 import type { Signal } from '@/types/domain'
 import { cn } from '@/lib/utils'
 
@@ -45,11 +46,11 @@ function SignalCard({ signal }: { signal: Signal }) {
       <div
         role="button"
         tabIndex={0}
-        onClick={() => navigate(`/sites/${signal.site_id}`)}
-        onKeyDown={(e) => e.key === 'Enter' && navigate(`/sites/${signal.site_id}`)}
+        onClick={() => navigate(`/signaux/${signal.id}`)}
+        onKeyDown={(e) => e.key === 'Enter' && navigate(`/signaux/${signal.id}`)}
         className="cursor-pointer"
       >
-        <p className="text-sm font-medium text-navy-800">{signal.site_nom}</p>
+        <p className="text-sm font-medium text-navy-800"><EntityLink to={`/sites/${signal.site_id}`}>{signal.site_nom}</EntityLink></p>
         <p className="mt-1 text-xs text-navy-500">{signal.type_signal}</p>
         <p className="mt-2 line-clamp-2 text-xs text-navy-400">{signal.description}</p>
         <div className="mt-3 flex items-center justify-between text-[11px] text-navy-400">

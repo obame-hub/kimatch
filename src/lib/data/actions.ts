@@ -9,6 +9,8 @@ interface RawAction {
   titre: string
   site_id: string | null
   contact_id: string | null
+  recommandation_id: string | null
+  date_creation: string
   date_prevue: string | null
   date_realisation: string | null
   priorite: number
@@ -19,6 +21,7 @@ interface RawAction {
   responsable: { prenom: string; nom: string } | null
   site: { nom: string } | null
   contact: { prenom: string; nom: string } | null
+  recommandation: { titre: string } | null
 }
 
 async function fetchActions(): Promise<ActionItem[]> {
@@ -27,7 +30,7 @@ async function fetchActions(): Promise<ActionItem[]> {
     const { data, error } = await supabase
       .from('actions')
       .select(
-        'id, titre, site_id, contact_id, date_prevue, date_realisation, priorite, commentaire, proprietaire_id, type_action:types_actions(libelle), statut:statuts_actions(code), responsable:profils(prenom, nom), site:sites(nom), contact:contacts(prenom, nom)',
+        'id, titre, site_id, contact_id, recommandation_id, date_creation, date_prevue, date_realisation, priorite, commentaire, proprietaire_id, type_action:types_actions(libelle), statut:statuts_actions(code), responsable:profils(prenom, nom), site:sites(nom), contact:contacts(prenom, nom), recommandation:recommandations(titre)',
       )
       .order('date_prevue')
     if (error) throw error
@@ -39,6 +42,7 @@ async function fetchActions(): Promise<ActionItem[]> {
       statut: a.statut?.code ?? '',
       priorite: a.priorite,
       responsable: a.responsable ? `${a.responsable.prenom} ${a.responsable.nom}` : '',
+      date_creation: a.date_creation,
       echeance: a.date_prevue ?? '',
       date_realisation: a.date_realisation,
       commentaire: a.commentaire,
@@ -46,6 +50,8 @@ async function fetchActions(): Promise<ActionItem[]> {
       site_id: a.site_id,
       contact_id: a.contact_id,
       contact_nom: a.contact ? `${a.contact.prenom} ${a.contact.nom}` : '',
+      recommandation_id: a.recommandation_id,
+      recommandation_titre: a.recommandation?.titre ?? '',
       proprietaire_id: a.proprietaire_id ?? null,
     }))
   } catch (error) {
@@ -90,6 +96,7 @@ export function useCreateAction() {
         statut: 'A_FAIRE',
         priorite: input.priorite,
         responsable: '',
+        date_creation: new Date().toISOString(),
         echeance: input.echeance ?? '',
         date_realisation: null,
         commentaire: input.commentaire,
@@ -97,6 +104,8 @@ export function useCreateAction() {
         site_id: input.site_id,
         contact_id: input.contact_id,
         contact_nom: input.contact_nom,
+        recommandation_id: null,
+        recommandation_titre: '',
         proprietaire_id: null,
       }
 

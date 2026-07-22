@@ -138,10 +138,14 @@ export default function Taches() {
 
         <div className="space-y-2.5">
           {ouvertes.map((a) => (
-            <Card key={a.id} className="animate-fade-up flex items-center gap-4 p-4">
+            <Card
+              key={a.id}
+              onClick={() => navigate(`/taches/${a.id}`)}
+              className="animate-fade-up flex cursor-pointer items-center gap-4 p-4 hover:bg-navy-50/60"
+            >
               <button
                 type="button"
-                onClick={() => completeAction.mutate(a.id)}
+                onClick={(e) => { e.stopPropagation(); completeAction.mutate(a.id) }}
                 className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full border border-navy-300 text-navy-400 transition-colors hover:border-kiwi-500 hover:text-kiwi-600"
                 title="Marquer terminée"
               >
@@ -184,10 +188,14 @@ export default function Taches() {
             <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-navy-400">Terminées récemment</p>
             <div className="space-y-1.5">
               {terminees.slice(0, 10).map((a) => (
-                <div key={a.id} className="flex items-center gap-3 rounded-lg px-3 py-2 text-sm text-navy-400">
+                <div
+                  key={a.id}
+                  onClick={() => navigate(`/taches/${a.id}`)}
+                  className="flex cursor-pointer items-center gap-3 rounded-lg px-3 py-2 text-sm text-navy-400 hover:bg-navy-50/60"
+                >
                   <Check className="h-3.5 w-3.5 text-kiwi-600" />
                   <span className="flex-1 line-through">{a.titre}</span>
-                  {a.site_id && <span onClick={() => navigate(`/sites/${a.site_id}`)} className="cursor-pointer text-xs hover:underline">{a.cible_label}</span>}
+                  {a.site_id && <EntityLink to={`/sites/${a.site_id}`}>{a.cible_label}</EntityLink>}
                 </div>
               ))}
             </div>

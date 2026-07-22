@@ -107,6 +107,7 @@ export interface ActionItem {
   statut: string
   priorite: number
   responsable: string
+  date_creation: string
   echeance: string
   date_realisation: string | null
   commentaire: string | null
@@ -114,6 +115,8 @@ export interface ActionItem {
   site_id: string | null
   contact_id: string | null
   contact_nom: string
+  recommandation_id: string | null
+  recommandation_titre: string
   proprietaire_id: string | null
 }
 
