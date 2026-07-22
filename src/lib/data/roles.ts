@@ -171,6 +171,30 @@ export function useIsAdmin() {
   return data?.roleCode === 'SUPER_ADMIN' || data?.roleCode === 'ADMIN'
 }
 
+export interface MonProfil {
+  id: string
+  prenom: string
+  nom: string
+  email: string
+}
+
+async function fetchMonProfil(): Promise<MonProfil | null> {
+  if (isDemoMode()) return null
+  const { data: userData } = await supabase.auth.getUser()
+  if (!userData.user) return null
+  const { data, error } = await supabase
+    .from('profils')
+    .select('id, prenom, nom, email')
+    .eq('id', userData.user.id)
+    .maybeSingle()
+  if (error || !data) return null
+  return data as unknown as MonProfil
+}
+
+export function useMonProfil() {
+  return useQuery({ queryKey: ['mon-profil'], queryFn: fetchMonProfil })
+}
+
 export function useHasPermission(code: string) {
   const { data } = useCurrentAccess()
   return data?.permissions.has(code) ?? false

@@ -4,7 +4,7 @@ import { cn } from '@/lib/utils'
 import kiweePicto from '@/assets/kiwee-picto.png'
 import { useActions } from '@/lib/data/actions'
 import { useSidebar } from '@/lib/layout'
-import { useIsAdmin } from '@/lib/data/roles'
+import { useIsAdmin, useMonProfil } from '@/lib/data/roles'
 import { useAuth } from '@/lib/auth'
 import { navItems } from '@/lib/navItems'
 
@@ -14,10 +14,13 @@ export function Sidebar() {
   const { open, close } = useSidebar()
   const isAdmin = useIsAdmin()
   const { session } = useAuth()
+  const { data: profil } = useMonProfil()
   const items = isAdmin
     ? [...navItems, { to: '/administration', label: 'Administration', icon: ShieldCheck, accent: 'bg-ink-700', tint: 'text-navy-300' }]
     : navItems
-  const initiales = (session?.user.email ?? 'KW').slice(0, 2).toUpperCase()
+  const initiales = profil
+    ? `${profil.prenom[0] ?? ''}${profil.nom[0] ?? ''}`.toUpperCase()
+    : (session?.user.email ?? 'KW').slice(0, 2).toUpperCase()
 
   return (
     <>
@@ -97,14 +100,21 @@ export function Sidebar() {
           ))}
         </nav>
 
-        <div className="flex items-center gap-2.5 border-t border-ink-800 px-3.5 py-3.5 md:justify-center md:px-0">
+        <NavLink
+          to="/profil"
+          onClick={close}
+          className="group relative flex items-center gap-2.5 border-t border-ink-800 px-3.5 py-3.5 md:justify-center md:px-0"
+        >
           <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-ink-700 text-[10px] font-semibold text-navy-200">
             {initiales}
           </div>
           <p className="min-w-0 flex-1 truncate whitespace-nowrap text-[11px] text-navy-500 md:hidden">
             KiWee Énergie · MVP
           </p>
-        </div>
+          <span className="pointer-events-none absolute left-full top-1/2 z-50 ml-2 hidden -translate-y-1/2 whitespace-nowrap rounded-md bg-ink-800 px-2 py-1 text-xs font-medium text-white opacity-0 shadow-lg transition-opacity duration-100 group-hover:opacity-100 md:block">
+            Mon profil
+          </span>
+        </NavLink>
       </aside>
     </>
   )

@@ -26,6 +26,7 @@ import ContactDetail from '@/pages/ContactDetail'
 import Taches from '@/pages/Taches'
 import Parametres from '@/pages/Parametres'
 import Administration from '@/pages/Administration'
+import MonProfil from '@/pages/MonProfil'
 
 function App() {
   return (
@@ -58,6 +59,7 @@ function App() {
           <Route path="/taches" element={<Taches />} />
           <Route path="/parametres" element={<Parametres />} />
           <Route path="/administration" element={<Administration />} />
+          <Route path="/profil" element={<MonProfil />} />
         </Route>
       </Route>
     </Routes>
