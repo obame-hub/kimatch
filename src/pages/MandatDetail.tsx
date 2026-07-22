@@ -14,7 +14,7 @@ import { useMandats, useMarkMandatEnvoye, useUpdateMandat, useDeleteMandat } fro
 import { useContacts } from '@/lib/data/contacts'
 import { useDocuments } from '@/lib/data/documents'
 import { useReferenceTable } from '@/lib/data/referenceTables'
-import { useCanManage } from '@/lib/data/roles'
+import { useCanManage, useIsAdmin, useProfilsAdmin } from '@/lib/data/roles'
 import { FALLBACK_STATUTS_MANDATS, STATUT_MANDAT_TONE } from '@/lib/referenceFallbacks'
 import { sendMandatForSignature } from '@/lib/data/docusign'
 import type { Mandat, DocumentItem, Contact } from '@/types/domain'
@@ -242,19 +242,23 @@ function EditMandatDialog({
   onSaved: () => void
 }) {
   const updateMandat = useUpdateMandat()
+  const isAdmin = useIsAdmin()
+  const { data: profilsAdmin } = useProfilsAdmin()
   const [dateSignature, setDateSignature] = useState(mandat.date_signature ? mandat.date_signature.slice(0, 10) : '')
+  const [proprietaireId, setProprietaireId] = useState(mandat.proprietaire_id ?? '')
   const [feedback, setFeedback] = useState<string | null>(null)
 
   useEffect(() => {
     if (!open) return
     setDateSignature(mandat.date_signature ? mandat.date_signature.slice(0, 10) : '')
+    setProprietaireId(mandat.proprietaire_id ?? '')
     setFeedback(null)
   }, [open, mandat])
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
     try {
-      await updateMandat.mutateAsync({ id: mandat.id, date_signature: dateSignature || null })
+      await updateMandat.mutateAsync({ id: mandat.id, date_signature: dateSignature || null, proprietaire_id: proprietaireId || null })
       onSaved()
       onClose()
     } catch (err) {
@@ -268,6 +272,14 @@ function EditMandatDialog({
         <FormField label="Date de signature">
           <Input type="date" value={dateSignature} onChange={(e) => setDateSignature(e.target.value)} />
         </FormField>
+        {isAdmin && (
+          <FormField label="Propriétaire">
+            <Select value={proprietaireId} onChange={(e) => setProprietaireId(e.target.value)}>
+              <option value="">Aucun</option>
+              {profilsAdmin?.map((p) => <option key={p.id} value={p.id}>{p.prenom} {p.nom}</option>)}
+            </Select>
+          </FormField>
+        )}
         {feedback && <p className="text-xs text-red-600">{feedback}</p>}
         <div className="flex justify-end gap-2 pt-2">
           <Button type="button" variant="ghost" onClick={onClose}>Annuler</Button>

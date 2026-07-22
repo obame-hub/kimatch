@@ -10,7 +10,7 @@ import { Dialog } from '@/components/ui/dialog'
 import { FormField, Input, Select, Textarea } from '@/components/ui/form'
 import { HistoriqueDiscret } from '@/components/ui/historique-discret'
 import { useInteractions, useUpdateInteraction, useDeleteInteraction } from '@/lib/data/interactions'
-import { useCanManage } from '@/lib/data/roles'
+import { useCanManage, useIsAdmin, useProfilsAdmin } from '@/lib/data/roles'
 import type { Interaction } from '@/types/domain'
 
 const SENS_OPTIONS = [
@@ -146,12 +146,15 @@ export default function InteractionDetail() {
 
 function EditInteractionDialog({ open, onClose, interaction }: { open: boolean; onClose: () => void; interaction: Interaction }) {
   const updateInteraction = useUpdateInteraction()
+  const isAdmin = useIsAdmin()
+  const { data: profilsAdmin } = useProfilsAdmin()
 
   const [dateInteraction, setDateInteraction] = useState(interaction.date_interaction ? interaction.date_interaction.slice(0, 10) : '')
   const [sens, setSens] = useState(interaction.sens ?? '')
   const [objet, setObjet] = useState(interaction.objet ?? '')
   const [resume, setResume] = useState(interaction.resume ?? '')
   const [resultat, setResultat] = useState(interaction.resultat ?? '')
+  const [proprietaireId, setProprietaireId] = useState(interaction.proprietaire_id ?? '')
   const [feedback, setFeedback] = useState<string | null>(null)
 
   useEffect(() => {
@@ -161,6 +164,7 @@ function EditInteractionDialog({ open, onClose, interaction }: { open: boolean; 
     setObjet(interaction.objet ?? '')
     setResume(interaction.resume ?? '')
     setResultat(interaction.resultat ?? '')
+    setProprietaireId(interaction.proprietaire_id ?? '')
     setFeedback(null)
   }, [open, interaction])
 
@@ -174,6 +178,7 @@ function EditInteractionDialog({ open, onClose, interaction }: { open: boolean; 
         objet: objet || null,
         resume: resume || null,
         resultat: resultat || null,
+        proprietaire_id: proprietaireId || null,
       })
       onClose()
     } catch (err) {
@@ -203,6 +208,14 @@ function EditInteractionDialog({ open, onClose, interaction }: { open: boolean; 
         <FormField label="Résultat">
           <Input value={resultat} onChange={(e) => setResultat(e.target.value)} />
         </FormField>
+        {isAdmin && (
+          <FormField label="Propriétaire">
+            <Select value={proprietaireId} onChange={(e) => setProprietaireId(e.target.value)}>
+              <option value="">Aucun</option>
+              {profilsAdmin?.map((p) => <option key={p.id} value={p.id}>{p.prenom} {p.nom}</option>)}
+            </Select>
+          </FormField>
+        )}
         {feedback && <p className="text-xs text-red-600">{feedback}</p>}
         <div className="flex justify-end gap-2 pt-2">
           <Button type="button" variant="ghost" onClick={onClose}>Annuler</Button>

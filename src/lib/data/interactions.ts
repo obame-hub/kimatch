@@ -147,6 +147,7 @@ export interface UpdateInteractionInput {
   objet: string | null
   resume: string | null
   resultat: string | null
+  proprietaire_id: string | null
 }
 
 export function useUpdateInteraction() {
@@ -161,6 +162,7 @@ export function useUpdateInteraction() {
           objet: input.objet,
           resume: input.resume,
           resultat: input.resultat,
+          proprietaire_id: input.proprietaire_id,
         })
         .eq('id', input.id)
       if (error) throw new Error(error.message)

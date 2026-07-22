@@ -7,11 +7,11 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { EntityLink } from '@/components/ui/entity-link'
 import { Dialog } from '@/components/ui/dialog'
-import { FormField, Input } from '@/components/ui/form'
+import { FormField, Input, Select } from '@/components/ui/form'
 import { HistoriqueDiscret } from '@/components/ui/historique-discret'
 import { useContrats, useUpdateContrat, useDeleteContrat } from '@/lib/data/contrats'
 import { useReferenceTable } from '@/lib/data/referenceTables'
-import { useCanManage } from '@/lib/data/roles'
+import { useCanManage, useIsAdmin, useProfilsAdmin } from '@/lib/data/roles'
 import { FALLBACK_STATUTS_CONTRATS, STATUT_CONTRAT_TONE } from '@/lib/referenceFallbacks'
 import type { Contrat } from '@/types/domain'
 
@@ -138,10 +138,13 @@ export default function ContratDetail() {
 
 function EditContratDialog({ open, onClose, contrat }: { open: boolean; onClose: () => void; contrat: Contrat }) {
   const updateContrat = useUpdateContrat()
+  const isAdmin = useIsAdmin()
+  const { data: profilsAdmin } = useProfilsAdmin()
 
   const [referenceFournisseur, setReferenceFournisseur] = useState(contrat.reference_fournisseur ?? '')
   const [dateDebut, setDateDebut] = useState(contrat.date_debut ? contrat.date_debut.slice(0, 10) : '')
   const [dateFin, setDateFin] = useState(contrat.date_fin ? contrat.date_fin.slice(0, 10) : '')
+  const [proprietaireId, setProprietaireId] = useState(contrat.proprietaire_id ?? '')
   const [feedback, setFeedback] = useState<string | null>(null)
 
   useEffect(() => {
@@ -149,6 +152,7 @@ function EditContratDialog({ open, onClose, contrat }: { open: boolean; onClose:
     setReferenceFournisseur(contrat.reference_fournisseur ?? '')
     setDateDebut(contrat.date_debut ? contrat.date_debut.slice(0, 10) : '')
     setDateFin(contrat.date_fin ? contrat.date_fin.slice(0, 10) : '')
+    setProprietaireId(contrat.proprietaire_id ?? '')
     setFeedback(null)
   }, [open, contrat])
 
@@ -160,6 +164,7 @@ function EditContratDialog({ open, onClose, contrat }: { open: boolean; onClose:
         reference_fournisseur: referenceFournisseur || null,
         date_debut: dateDebut || null,
         date_fin: dateFin || null,
+        proprietaire_id: proprietaireId || null,
       })
       onClose()
     } catch (err) {
@@ -181,6 +186,14 @@ function EditContratDialog({ open, onClose, contrat }: { open: boolean; onClose:
             <Input type="date" value={dateFin} onChange={(e) => setDateFin(e.target.value)} />
           </FormField>
         </div>
+        {isAdmin && (
+          <FormField label="Propriétaire">
+            <Select value={proprietaireId} onChange={(e) => setProprietaireId(e.target.value)}>
+              <option value="">Aucun</option>
+              {profilsAdmin?.map((p) => <option key={p.id} value={p.id}>{p.prenom} {p.nom}</option>)}
+            </Select>
+          </FormField>
+        )}
         {feedback && <p className="text-xs text-red-600">{feedback}</p>}
         <div className="flex justify-end gap-2 pt-2">
           <Button type="button" variant="ghost" onClick={onClose}>Annuler</Button>

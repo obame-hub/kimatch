@@ -157,6 +157,7 @@ export interface UpdateContratInput {
   reference_fournisseur: string | null
   date_debut: string | null
   date_fin: string | null
+  proprietaire_id: string | null
 }
 
 export function useUpdateContrat() {
@@ -169,6 +170,7 @@ export function useUpdateContrat() {
           reference_fournisseur: input.reference_fournisseur,
           date_debut: input.date_debut,
           date_fin: input.date_fin,
+          proprietaire_id: input.proprietaire_id,
         })
         .eq('id', input.id)
       if (error) throw new Error(error.message)

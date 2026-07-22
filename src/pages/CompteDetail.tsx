@@ -22,7 +22,7 @@ import { useSites } from '@/lib/data/sites'
 import { useContacts } from '@/lib/data/contacts'
 import { useEllisphereScore } from '@/lib/data/ellisphere'
 import { useReferenceTable } from '@/lib/data/referenceTables'
-import { useCanManage } from '@/lib/data/roles'
+import { useCanManage, useIsAdmin, useProfilsAdmin } from '@/lib/data/roles'
 import type { Compte, TypeCompte } from '@/types/domain'
 
 const typeMeta: Record<TypeCompte, { label: string; tone: 'kiwi' | 'blue' | 'amber' | 'neutral' }> = {
@@ -219,9 +219,12 @@ function EditComptePartenaireDialog({ compte, contacts, open, onClose }: { compt
 
 function EditCompteDialog({ compte, open, onClose }: { compte: Compte; open: boolean; onClose: () => void }) {
   const updateCompte = useUpdateCompte()
+  const isAdmin = useIsAdmin()
+  const { data: profilsAdmin } = useProfilsAdmin()
   const [nom, setNom] = useState(compte.nom)
   const [ville, setVille] = useState(compte.ville)
   const [segment, setSegment] = useState(compte.segment)
+  const [proprietaireId, setProprietaireId] = useState(compte.proprietaire_id ?? '')
   const [feedback, setFeedback] = useState<string | null>(null)
 
   useEffect(() => {
@@ -229,13 +232,14 @@ function EditCompteDialog({ compte, open, onClose }: { compte: Compte; open: boo
     setNom(compte.nom)
     setVille(compte.ville)
     setSegment(compte.segment)
+    setProprietaireId(compte.proprietaire_id ?? '')
     setFeedback(null)
   }, [open, compte])
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
     try {
-      await updateCompte.mutateAsync({ id: compte.id, nom, ville, segment })
+      await updateCompte.mutateAsync({ id: compte.id, nom, ville, segment, proprietaire_id: proprietaireId || null })
       onClose()
     } catch (err) {
       setFeedback(err instanceof Error ? err.message : 'Erreur inconnue')
@@ -254,6 +258,14 @@ function EditCompteDialog({ compte, open, onClose }: { compte: Compte; open: boo
         <FormField label="Segment">
           <Input value={segment} onChange={(e) => setSegment(e.target.value)} />
         </FormField>
+        {isAdmin && (
+          <FormField label="Propriétaire">
+            <Select value={proprietaireId} onChange={(e) => setProprietaireId(e.target.value)}>
+              <option value="">Aucun</option>
+              {profilsAdmin?.map((p) => <option key={p.id} value={p.id}>{p.prenom} {p.nom}</option>)}
+            </Select>
+          </FormField>
+        )}
         {feedback && <p className="text-xs text-red-600">{feedback}</p>}
         <div className="flex justify-end gap-2 pt-2">
           <Button type="button" variant="ghost" onClick={onClose}>Annuler</Button>

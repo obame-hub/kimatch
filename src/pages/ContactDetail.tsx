@@ -11,7 +11,7 @@ import { Dialog } from '@/components/ui/dialog'
 import { FormField, Input, Select } from '@/components/ui/form'
 import { HistoriqueDiscret } from '@/components/ui/historique-discret'
 import { useContacts, useUpdateContact, useDeleteContact } from '@/lib/data/contacts'
-import { useCanManage } from '@/lib/data/roles'
+import { useCanManage, useIsAdmin, useProfilsAdmin } from '@/lib/data/roles'
 import type { Contact } from '@/types/domain'
 
 const CIVILITE_OPTIONS = ['M.', 'Mme', 'Autre']
@@ -123,6 +123,8 @@ export default function ContactDetail() {
 
 function EditContactDialog({ open, onClose, contact }: { open: boolean; onClose: () => void; contact: Contact }) {
   const updateContact = useUpdateContact()
+  const isAdmin = useIsAdmin()
+  const { data: profilsAdmin } = useProfilsAdmin()
 
   const [civilite, setCivilite] = useState(contact.civilite ?? '')
   const [prenom, setPrenom] = useState(contact.prenom)
@@ -132,6 +134,7 @@ function EditContactDialog({ open, onClose, contact }: { open: boolean; onClose:
   const [email, setEmail] = useState(contact.email ?? '')
   const [contactPrincipal, setContactPrincipal] = useState(contact.contact_principal)
   const [actif, setActif] = useState(contact.actif)
+  const [proprietaireId, setProprietaireId] = useState(contact.proprietaire_id ?? '')
   const [feedback, setFeedback] = useState<string | null>(null)
 
   useEffect(() => {
@@ -144,6 +147,7 @@ function EditContactDialog({ open, onClose, contact }: { open: boolean; onClose:
     setEmail(contact.email ?? '')
     setContactPrincipal(contact.contact_principal)
     setActif(contact.actif)
+    setProprietaireId(contact.proprietaire_id ?? '')
     setFeedback(null)
   }, [open, contact])
 
@@ -160,6 +164,7 @@ function EditContactDialog({ open, onClose, contact }: { open: boolean; onClose:
         email: email || null,
         contact_principal: contactPrincipal,
         actif,
+        proprietaire_id: proprietaireId || null,
       })
       onClose()
     } catch (err) {
@@ -203,6 +208,14 @@ function EditContactDialog({ open, onClose, contact }: { open: boolean; onClose:
           <input type="checkbox" checked={actif} onChange={(e) => setActif(e.target.checked)} />
           Actif
         </label>
+        {isAdmin && (
+          <FormField label="Propriétaire">
+            <Select value={proprietaireId} onChange={(e) => setProprietaireId(e.target.value)}>
+              <option value="">Aucun</option>
+              {profilsAdmin?.map((p) => <option key={p.id} value={p.id}>{p.prenom} {p.nom}</option>)}
+            </Select>
+          </FormField>
+        )}
         {feedback && <p className="text-xs text-red-600">{feedback}</p>}
         <div className="flex justify-end gap-2 pt-2">
           <Button type="button" variant="ghost" onClick={onClose}>Annuler</Button>

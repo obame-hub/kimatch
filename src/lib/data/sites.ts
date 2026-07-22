@@ -171,6 +171,7 @@ export interface UpdateSiteInput {
   date_derniere_ag: string | null
   latitude: number | null
   longitude: number | null
+  proprietaire_id: string | null
 }
 
 export function useUpdateSite() {
@@ -188,6 +189,7 @@ export function useUpdateSite() {
           date_derniere_ag: input.date_derniere_ag,
           latitude: input.latitude,
           longitude: input.longitude,
+          proprietaire_id: input.proprietaire_id,
           ...(input.type_site_id ? { type_site_id: input.type_site_id } : {}),
         })
         .eq('id', input.id)

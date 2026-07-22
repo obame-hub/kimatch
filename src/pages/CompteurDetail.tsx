@@ -10,7 +10,7 @@ import { FormField, Input, Select } from '@/components/ui/form'
 import { HistoriqueDiscret } from '@/components/ui/historique-discret'
 import { useCompteurs, useUpdateCompteur, useDeleteCompteur } from '@/lib/data/compteurs'
 import { useConsommations, useCreateConsommation } from '@/lib/data/consommations'
-import { useCanManage } from '@/lib/data/roles'
+import { useCanManage, useIsAdmin, useProfilsAdmin } from '@/lib/data/roles'
 import type { Compteur } from '@/types/domain'
 
 const POSTE_OPTIONS = ['TOTAL', 'HP', 'HC', 'POINTE', 'HPH', 'HCH', 'HPE', 'HCE']
@@ -99,16 +99,20 @@ function AddConsommationDialog({ compteurId, open, onClose }: { compteurId: stri
 
 function EditCompteurDialog({ compteur, open, onClose }: { compteur: Compteur; open: boolean; onClose: () => void }) {
   const updateCompteur = useUpdateCompteur()
+  const isAdmin = useIsAdmin()
+  const { data: profilsAdmin } = useProfilsAdmin()
   const [utilisation, setUtilisation] = useState(compteur.utilisation)
   const [consommationAnnuelleMwh, setConsommationAnnuelleMwh] = useState(
     compteur.consommation_annuelle_mwh != null ? String(compteur.consommation_annuelle_mwh) : '',
   )
+  const [proprietaireId, setProprietaireId] = useState(compteur.proprietaire_id ?? '')
   const [feedback, setFeedback] = useState<string | null>(null)
 
   useEffect(() => {
     if (!open) return
     setUtilisation(compteur.utilisation)
     setConsommationAnnuelleMwh(compteur.consommation_annuelle_mwh != null ? String(compteur.consommation_annuelle_mwh) : '')
+    setProprietaireId(compteur.proprietaire_id ?? '')
     setFeedback(null)
   }, [open, compteur])
 
@@ -119,6 +123,7 @@ function EditCompteurDialog({ compteur, open, onClose }: { compteur: Compteur; o
         id: compteur.id,
         utilisation,
         consommation_annuelle_mwh: consommationAnnuelleMwh ? Number(consommationAnnuelleMwh) : null,
+        proprietaire_id: proprietaireId || null,
       })
       onClose()
     } catch (err) {
@@ -135,6 +140,14 @@ function EditCompteurDialog({ compteur, open, onClose }: { compteur: Compteur; o
         <FormField label="Consommation annuelle (MWh)">
           <Input type="number" step="any" value={consommationAnnuelleMwh} onChange={(e) => setConsommationAnnuelleMwh(e.target.value)} />
         </FormField>
+        {isAdmin && (
+          <FormField label="Propriétaire">
+            <Select value={proprietaireId} onChange={(e) => setProprietaireId(e.target.value)}>
+              <option value="">Aucun</option>
+              {profilsAdmin?.map((p) => <option key={p.id} value={p.id}>{p.prenom} {p.nom}</option>)}
+            </Select>
+          </FormField>
+        )}
         {feedback && <p className="text-xs text-red-600">{feedback}</p>}
         <div className="flex justify-end gap-2 pt-2">
           <Button type="button" variant="ghost" onClick={onClose}>Annuler</Button>

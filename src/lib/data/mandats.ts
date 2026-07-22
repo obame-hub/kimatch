@@ -148,6 +148,7 @@ export function useMarkMandatEnvoye() {
 export interface UpdateMandatInput {
   id: string
   date_signature: string | null
+  proprietaire_id: string | null
 }
 
 export function useUpdateMandat() {
@@ -156,7 +157,7 @@ export function useUpdateMandat() {
     mutationFn: async (input: UpdateMandatInput) => {
       const { error } = await supabase
         .from('mandats')
-        .update({ date_signature: input.date_signature })
+        .update({ date_signature: input.date_signature, proprietaire_id: input.proprietaire_id })
         .eq('id', input.id)
       if (error) throw new Error(error.message)
     },

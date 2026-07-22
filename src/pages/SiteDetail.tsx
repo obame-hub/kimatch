@@ -12,7 +12,7 @@ import { HistoriqueDiscret } from '@/components/ui/historique-discret'
 import { useSites, useUpdateSite, useDeleteSite } from '@/lib/data/sites'
 import { useReferenceTable } from '@/lib/data/referenceTables'
 import { FALLBACK_TYPES_SITES } from '@/lib/referenceFallbacks'
-import { useCanManage } from '@/lib/data/roles'
+import { useCanManage, useIsAdmin, useProfilsAdmin } from '@/lib/data/roles'
 import { useSignaux } from '@/lib/data/signaux'
 import { useCompteurs } from '@/lib/data/compteurs'
 import { useRecommandations } from '@/lib/data/recommandations'
@@ -633,6 +633,8 @@ function EditSiteDialog({ open, onClose, site, onSaved }: { open: boolean; onClo
   const { data: typesRef } = useReferenceTable('types_sites')
   const types = typesRef && typesRef.length > 0 ? typesRef : FALLBACK_TYPES_SITES
   const updateSite = useUpdateSite()
+  const isAdmin = useIsAdmin()
+  const { data: profilsAdmin } = useProfilsAdmin()
 
   const [nom, setNom] = useState(site.nom)
   const [ville, setVille] = useState(site.ville)
@@ -643,6 +645,7 @@ function EditSiteDialog({ open, onClose, site, onSaved }: { open: boolean; onClo
   const [dateDerniereAg, setDateDerniereAg] = useState(site.date_derniere_ag ? site.date_derniere_ag.slice(0, 10) : '')
   const [latitude, setLatitude] = useState(site.latitude != null ? String(site.latitude) : '')
   const [longitude, setLongitude] = useState(site.longitude != null ? String(site.longitude) : '')
+  const [proprietaireId, setProprietaireId] = useState(site.proprietaire_id ?? '')
   const [feedback, setFeedback] = useState<string | null>(null)
 
   useEffect(() => {
@@ -656,6 +659,7 @@ function EditSiteDialog({ open, onClose, site, onSaved }: { open: boolean; onClo
     setDateDerniereAg(site.date_derniere_ag ? site.date_derniere_ag.slice(0, 10) : '')
     setLatitude(site.latitude != null ? String(site.latitude) : '')
     setLongitude(site.longitude != null ? String(site.longitude) : '')
+    setProprietaireId(site.proprietaire_id ?? '')
     setFeedback(null)
   }, [open, site])
 
@@ -673,6 +677,7 @@ function EditSiteDialog({ open, onClose, site, onSaved }: { open: boolean; onClo
         date_derniere_ag: dateDerniereAg || null,
         latitude: latitude ? Number(latitude) : null,
         longitude: longitude ? Number(longitude) : null,
+        proprietaire_id: proprietaireId || null,
       })
       onSaved()
       onClose()
@@ -720,6 +725,14 @@ function EditSiteDialog({ open, onClose, site, onSaved }: { open: boolean; onClo
             <Input type="number" step="any" value={longitude} onChange={(e) => setLongitude(e.target.value)} placeholder="Ex. 2.3522" />
           </FormField>
         </div>
+        {isAdmin && (
+          <FormField label="Propriétaire">
+            <Select value={proprietaireId} onChange={(e) => setProprietaireId(e.target.value)}>
+              <option value="">Aucun</option>
+              {profilsAdmin?.map((p) => <option key={p.id} value={p.id}>{p.prenom} {p.nom}</option>)}
+            </Select>
+          </FormField>
+        )}
         {feedback && <p className="text-xs text-red-600">{feedback}</p>}
         <div className="flex justify-end gap-2 pt-2">
           <Button type="button" variant="ghost" onClick={onClose}>Annuler</Button>

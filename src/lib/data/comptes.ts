@@ -345,6 +345,7 @@ export interface UpdateCompteInput {
   nom: string
   ville: string
   segment: string
+  proprietaire_id: string | null
 }
 
 export function useUpdateCompte() {
@@ -357,6 +358,7 @@ export function useUpdateCompte() {
           nom: input.nom,
           ville: input.ville,
           segment: input.segment,
+          proprietaire_id: input.proprietaire_id,
         })
         .eq('id', input.id)
       if (error) throw new Error(error.message)

@@ -235,6 +235,7 @@ export interface UpdateCompteurInput {
   id: string
   utilisation: string
   consommation_annuelle_mwh: number | null
+  proprietaire_id: string | null
 }
 
 export function useUpdateCompteur() {
@@ -246,6 +247,7 @@ export function useUpdateCompteur() {
         .update({
           utilisation: input.utilisation,
           consommation_annuelle_mwh: input.consommation_annuelle_mwh,
+          proprietaire_id: input.proprietaire_id,
         })
         .eq('id', input.id)
       if (error) throw new Error(error.message)

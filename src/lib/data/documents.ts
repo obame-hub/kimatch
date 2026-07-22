@@ -134,6 +134,7 @@ export interface UpdateDocumentInput {
   nom: string
   nom_fichier: string
   url: string
+  proprietaire_id: string | null
 }
 
 export function useUpdateDocument() {
@@ -146,6 +147,7 @@ export function useUpdateDocument() {
           nom: input.nom,
           nom_fichier: input.nom_fichier,
           url: input.url,
+          proprietaire_id: input.proprietaire_id,
         })
         .eq('id', input.id)
       if (error) throw new Error(error.message)

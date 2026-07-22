@@ -13,7 +13,7 @@ import { HistoriqueDiscret } from '@/components/ui/historique-discret'
 import { useRecommandations, useUpdateRecommandation, useDeleteRecommandation } from '@/lib/data/recommandations'
 import { useReferenceTable } from '@/lib/data/referenceTables'
 import { useContacts } from '@/lib/data/contacts'
-import { useCanManage } from '@/lib/data/roles'
+import { useCanManage, useIsAdmin, useProfilsAdmin } from '@/lib/data/roles'
 import { sendEmail } from '@/lib/data/gmail'
 import { FALLBACK_ETAPES_RECOMMANDATION, FALLBACK_STATUTS_VERSIONS, STATUT_VERSION_TONE } from '@/lib/referenceFallbacks'
 import type { Recommandation, VersionRecommandation } from '@/types/domain'
@@ -308,10 +308,13 @@ function EditRecommandationDialog({
   onSaved: () => void
 }) {
   const updateRecommandation = useUpdateRecommandation()
+  const isAdmin = useIsAdmin()
+  const { data: profilsAdmin } = useProfilsAdmin()
   const [titre, setTitre] = useState(reco.titre)
   const [description, setDescription] = useState(reco.description)
   const [commentaireInterne, setCommentaireInterne] = useState(reco.commentaire_interne)
   const [priorite, setPriorite] = useState(String(reco.priorite))
+  const [proprietaireId, setProprietaireId] = useState(reco.proprietaire_id ?? '')
   const [feedback, setFeedback] = useState<string | null>(null)
 
   useEffect(() => {
@@ -320,6 +323,7 @@ function EditRecommandationDialog({
     setDescription(reco.description)
     setCommentaireInterne(reco.commentaire_interne)
     setPriorite(String(reco.priorite))
+    setProprietaireId(reco.proprietaire_id ?? '')
     setFeedback(null)
   }, [open, reco])
 
@@ -332,6 +336,7 @@ function EditRecommandationDialog({
         description,
         commentaire_interne: commentaireInterne,
         priorite: Number(priorite),
+        proprietaire_id: proprietaireId || null,
       })
       onSaved()
       onClose()
@@ -359,6 +364,14 @@ function EditRecommandationDialog({
             <option value="3">{PRIORITE_LABEL[3]}</option>
           </Select>
         </FormField>
+        {isAdmin && (
+          <FormField label="Propriétaire">
+            <Select value={proprietaireId} onChange={(e) => setProprietaireId(e.target.value)}>
+              <option value="">Aucun</option>
+              {profilsAdmin?.map((p) => <option key={p.id} value={p.id}>{p.prenom} {p.nom}</option>)}
+            </Select>
+          </FormField>
+        )}
         {feedback && <p className="text-xs text-red-600">{feedback}</p>}
         <div className="flex justify-end gap-2 pt-2">
           <Button type="button" variant="ghost" onClick={onClose}>Annuler</Button>

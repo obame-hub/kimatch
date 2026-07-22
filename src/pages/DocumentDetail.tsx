@@ -7,10 +7,10 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { EntityLink } from '@/components/ui/entity-link'
 import { Dialog } from '@/components/ui/dialog'
-import { FormField, Input } from '@/components/ui/form'
+import { FormField, Input, Select } from '@/components/ui/form'
 import { HistoriqueDiscret } from '@/components/ui/historique-discret'
 import { useDocuments, useUpdateDocument, useDeleteDocument } from '@/lib/data/documents'
-import { useCanManage } from '@/lib/data/roles'
+import { useCanManage, useIsAdmin, useProfilsAdmin } from '@/lib/data/roles'
 import { entityRoute } from '@/lib/entityRoute'
 import type { DocumentItem } from '@/types/domain'
 
@@ -114,10 +114,13 @@ export default function DocumentDetail() {
 
 function EditDocumentDialog({ open, onClose, doc }: { open: boolean; onClose: () => void; doc: DocumentItem }) {
   const updateDocument = useUpdateDocument()
+  const isAdmin = useIsAdmin()
+  const { data: profilsAdmin } = useProfilsAdmin()
 
   const [nom, setNom] = useState(doc.nom)
   const [nomFichier, setNomFichier] = useState(doc.nom_fichier)
   const [url, setUrl] = useState(doc.url)
+  const [proprietaireId, setProprietaireId] = useState(doc.proprietaire_id ?? '')
   const [feedback, setFeedback] = useState<string | null>(null)
 
   useEffect(() => {
@@ -125,6 +128,7 @@ function EditDocumentDialog({ open, onClose, doc }: { open: boolean; onClose: ()
     setNom(doc.nom)
     setNomFichier(doc.nom_fichier)
     setUrl(doc.url)
+    setProprietaireId(doc.proprietaire_id ?? '')
     setFeedback(null)
   }, [open, doc])
 
@@ -136,6 +140,7 @@ function EditDocumentDialog({ open, onClose, doc }: { open: boolean; onClose: ()
         nom,
         nom_fichier: nomFichier,
         url,
+        proprietaire_id: proprietaireId || null,
       })
       onClose()
     } catch (err) {
@@ -155,6 +160,14 @@ function EditDocumentDialog({ open, onClose, doc }: { open: boolean; onClose: ()
         <FormField label="URL">
           <Input value={url} onChange={(e) => setUrl(e.target.value)} required />
         </FormField>
+        {isAdmin && (
+          <FormField label="Propriétaire">
+            <Select value={proprietaireId} onChange={(e) => setProprietaireId(e.target.value)}>
+              <option value="">Aucun</option>
+              {profilsAdmin?.map((p) => <option key={p.id} value={p.id}>{p.prenom} {p.nom}</option>)}
+            </Select>
+          </FormField>
+        )}
         {feedback && <p className="text-xs text-red-600">{feedback}</p>}
         <div className="flex justify-end gap-2 pt-2">
           <Button type="button" variant="ghost" onClick={onClose}>Annuler</Button>

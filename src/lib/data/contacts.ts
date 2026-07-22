@@ -154,6 +154,7 @@ export interface UpdateContactInput {
   email: string | null
   contact_principal: boolean
   actif: boolean
+  proprietaire_id: string | null
 }
 
 export function useUpdateContact() {
@@ -171,6 +172,7 @@ export function useUpdateContact() {
           email: input.email,
           contact_principal: input.contact_principal,
           actif: input.actif,
+          proprietaire_id: input.proprietaire_id,
         })
         .eq('id', input.id)
       if (error) throw new Error(error.message)

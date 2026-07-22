@@ -293,6 +293,7 @@ export interface UpdateRecommandationInput {
   description: string
   commentaire_interne: string
   priorite: number
+  proprietaire_id: string | null
 }
 
 export function useUpdateRecommandation() {
@@ -306,6 +307,7 @@ export function useUpdateRecommandation() {
           description: input.description,
           commentaire_interne: input.commentaire_interne,
           priorite: input.priorite,
+          proprietaire_id: input.proprietaire_id,
         })
         .eq('id', input.id)
       if (error) throw new Error(error.message)
