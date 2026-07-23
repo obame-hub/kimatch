@@ -100,6 +100,40 @@ function EnvoyerSignatureDialog({
   )
 }
 
+function ConversionPathCard({ mandat }: { mandat: Mandat }) {
+  const step = mandat.date_signature ? 2 : mandat.docusign_envelope_id ? 1 : 0
+  const steps = [
+    { label: 'Brouillon', icon: FileCheck2 },
+    { label: 'Envoyé', icon: FileSignature },
+    { label: 'Signé', icon: FileCheck2 },
+  ]
+  return (
+    <div className="rounded-xl border border-navy-100 bg-white p-4">
+      <p className="mb-3 text-[10px] font-bold uppercase tracking-wide text-navy-400">Chemin de conversion</p>
+      <div className="flex items-center">
+        {steps.map((s, i) => (
+          <div key={s.label} className="flex flex-1 items-center last:flex-none">
+            <div className="flex flex-col items-center gap-1.5">
+              <span
+                className={cn(
+                  'flex h-8 w-8 shrink-0 items-center justify-center rounded-full',
+                  i <= step ? 'bg-gradient-to-br from-amber-600 to-amber-500 text-white shadow-sm' : 'bg-navy-100 text-navy-400',
+                )}
+              >
+                <s.icon className="h-3.5 w-3.5" />
+              </span>
+              <span className={cn('whitespace-nowrap text-[11px] font-bold', i <= step ? 'text-navy-800' : 'text-navy-400')}>{s.label}</span>
+            </div>
+            {i < steps.length - 1 && (
+              <div className={cn('mx-1 h-1 flex-1 rounded', i < step ? 'bg-gradient-to-r from-amber-600 to-amber-500' : 'bg-navy-100')} />
+            )}
+          </div>
+        ))}
+      </div>
+    </div>
+  )
+}
+
 function AddFichierDialog({ open, onClose, mandatId, onSaved }: { open: boolean; onClose: () => void; mandatId: string; onSaved: () => void }) {
   const { data: typesRef } = useReferenceTable('types_documents')
   const types = typesRef && typesRef.length > 0 ? typesRef : FALLBACK_TYPES_DOCUMENTS
@@ -339,7 +373,9 @@ export default function MandatDetail() {
         {/* Centre */}
         <div className="bg-navy-50 p-4 sm:p-5">
           {tab === 'mandat' && (
-            <div className="rounded-xl border border-navy-100 bg-white p-4">
+            <div className="flex flex-col gap-3.5">
+              <ConversionPathCard mandat={mandat} />
+              <div className="rounded-xl border border-navy-100 bg-white p-4">
               <p className="mb-2.5 text-[10px] font-bold uppercase tracking-wide text-navy-400">Détail du mandat</p>
               <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
                 <div>
@@ -361,6 +397,7 @@ export default function MandatDetail() {
                 Le mandat définit le périmètre de sites que KiWee est autorisé à analyser — une recommandation peut ne porter que sur une partie de ce périmètre.
               </p>
               <HistoriqueDiscret tableNom="mandats" ligneId={mandat.id} />
+              </div>
             </div>
           )}
 

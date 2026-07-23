@@ -21,6 +21,45 @@ import type { Contrat } from '@/types/domain'
 
 type TabKey = 'contrat' | 'perimetre' | 'fichiers'
 
+function CycleDeVieCard({ dateDebut, dateFin }: { dateDebut: string; dateFin: string | null }) {
+  const debut = new Date(dateDebut).getTime()
+  const fin = dateFin ? new Date(dateFin).getTime() : null
+  const now = Date.now()
+  const pct = fin ? Math.min(100, Math.max(0, ((now - debut) / (fin - debut)) * 100)) : 0
+  const statutLabel = fin == null ? 'sans échéance' : now < debut ? 'à venir' : now > fin ? 'expiré' : 'en cours'
+  const joursRestants = fin != null ? Math.round((fin - now) / 86400000) : null
+
+  return (
+    <div className="rounded-xl border border-navy-100 bg-white p-4">
+      <div className="mb-2 flex items-center gap-2">
+        <span className="text-[10px] font-bold uppercase tracking-wide text-navy-400">Cycle de vie</span>
+        <div className="flex-1" />
+        {joursRestants != null && joursRestants >= 0 && (
+          <span className="text-[11px] font-bold text-amber-600">expire dans {joursRestants} jour{joursRestants > 1 ? 's' : ''}</span>
+        )}
+        {joursRestants != null && joursRestants < 0 && <span className="text-[11px] font-bold text-navy-400">{statutLabel}</span>}
+      </div>
+      {fin != null ? (
+        <>
+          <div className="relative h-2.5 rounded-full bg-navy-100">
+            <div className="absolute inset-y-0 left-0 rounded-full bg-gradient-to-r from-kiwi-500 to-kiwi-400" style={{ width: `${pct}%` }} />
+            {now >= debut && now <= fin && (
+              <div className="absolute -top-0.5 h-3.5 w-0.5 rounded bg-red-500" style={{ left: `${pct}%` }} />
+            )}
+          </div>
+          <div className="mt-1.5 flex justify-between font-mono text-[10px] text-navy-400">
+            <span>{new Date(dateDebut).toLocaleDateString('fr-FR')}</span>
+            {now >= debut && now <= fin && <span className="font-bold text-red-500">aujourd'hui</span>}
+            <span>{new Date(fin).toLocaleDateString('fr-FR')}</span>
+          </div>
+        </>
+      ) : (
+        <p className="text-xs text-navy-400">Débuté le {new Date(dateDebut).toLocaleDateString('fr-FR')} · sans date de fin renseignée.</p>
+      )}
+    </div>
+  )
+}
+
 function AddFichierDialog({ open, onClose, contratId, onSaved }: { open: boolean; onClose: () => void; contratId: string; onSaved: () => void }) {
   const { data: typesRef } = useReferenceTable('types_documents')
   const types = typesRef && typesRef.length > 0 ? typesRef : FALLBACK_TYPES_DOCUMENTS
@@ -250,7 +289,11 @@ export default function ContratDetail() {
         {/* Centre */}
         <div className="bg-navy-50 p-4 sm:p-5">
           {tab === 'contrat' && (
-            <div className="rounded-xl border border-navy-100 bg-white p-4">
+            <div className="flex flex-col gap-3.5">
+              {contrat.date_debut && (
+                <CycleDeVieCard dateDebut={contrat.date_debut} dateFin={contrat.date_fin} />
+              )}
+              <div className="rounded-xl border border-navy-100 bg-white p-4">
               <p className="mb-2.5 text-[10px] font-bold uppercase tracking-wide text-navy-400">Détail du contrat</p>
               <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
                 <div>
@@ -273,6 +316,7 @@ export default function ContratDetail() {
                 </div>
               </div>
               <HistoriqueDiscret tableNom="contrats" ligneId={contrat.id} />
+              </div>
             </div>
           )}
 
