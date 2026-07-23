@@ -3,6 +3,7 @@ import { supabase } from '@/lib/supabase'
 import { isDemoMode } from '@/lib/demoMode'
 import { mockMandats } from '@/lib/mockData'
 import type { Mandat } from '@/types/domain'
+import { fetchComptesVisibles, filterVisibles } from '@/lib/data/visibility'
 
 interface RawMandat {
   id: string
@@ -36,7 +37,9 @@ async function fetchMandats(): Promise<Mandat[]> {
       sitesParMandat.set(ms.mandat_id, list)
     }
 
-    return ((mandatsRes.data ?? []) as unknown as RawMandat[]).map((m) => ({
+    const comptesVisibles = await fetchComptesVisibles()
+
+    return filterVisibles(((mandatsRes.data ?? []) as unknown as RawMandat[]), comptesVisibles, (m) => m.compte_id).map((m) => ({
       id: m.id,
       compte_id: m.compte_id,
       compte_nom: m.compte?.nom ?? '',

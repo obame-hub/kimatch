@@ -222,13 +222,13 @@ export function useToggleRolePermission() {
   })
 }
 
-interface CurrentAccess {
+export interface CurrentAccess {
   roleCode: string | null
   roleLibelle: string | null
   permissions: Set<string>
 }
 
-async function fetchCurrentAccess(): Promise<CurrentAccess> {
+export async function fetchCurrentAccess(): Promise<CurrentAccess> {
   const empty: CurrentAccess = { roleCode: null, roleLibelle: null, permissions: new Set() }
   if (isDemoMode()) return empty
   const { data: userData } = await supabase.auth.getUser()

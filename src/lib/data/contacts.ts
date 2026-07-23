@@ -3,6 +3,7 @@ import { supabase } from '@/lib/supabase'
 import { isDemoMode } from '@/lib/demoMode'
 import { mockContacts } from '@/lib/mockData'
 import type { Contact } from '@/types/domain'
+import { fetchComptesVisibles, filterVisibles } from '@/lib/data/visibility'
 
 interface RawContact {
   id: string
@@ -45,7 +46,9 @@ async function fetchContacts(): Promise<Contact[]> {
       sitesParContact.set(cs.contact_id, list)
     }
 
-    return ((contactsRes.data ?? []) as unknown as RawContact[]).map((c) => ({
+    const comptesVisibles = await fetchComptesVisibles()
+
+    return filterVisibles(((contactsRes.data ?? []) as unknown as RawContact[]), comptesVisibles, (c) => c.compte_id).map((c) => ({
       id: c.id,
       compte_id: c.compte_id,
       compte_nom: c.compte?.nom ?? '',

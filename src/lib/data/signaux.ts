@@ -3,6 +3,7 @@ import { supabase } from '@/lib/supabase'
 import { isDemoMode } from '@/lib/demoMode'
 import { mockSignaux } from '@/lib/mockData'
 import type { Signal } from '@/types/domain'
+import { fetchComptesVisibles, fetchSitesVisiblesIds, filterVisibles } from '@/lib/data/visibility'
 
 interface RawSignal {
   id: string
@@ -28,7 +29,10 @@ async function fetchSignaux(): Promise<Signal[]> {
       .order('date_creation', { ascending: false })
     if (error) throw error
 
-    return ((data ?? []) as unknown as RawSignal[]).map((s) => ({
+    const comptesVisibles = await fetchComptesVisibles()
+    const sitesVisibles = await fetchSitesVisiblesIds(comptesVisibles)
+
+    return filterVisibles(((data ?? []) as unknown as RawSignal[]), sitesVisibles, (s) => s.site_id).map((s) => ({
       id: s.id,
       site_id: s.site_id,
       site_nom: s.site?.nom ?? '',

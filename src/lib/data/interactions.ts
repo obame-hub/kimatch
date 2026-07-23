@@ -3,6 +3,7 @@ import { supabase } from '@/lib/supabase'
 import { isDemoMode } from '@/lib/demoMode'
 import { mockInteractions } from '@/lib/mockData'
 import type { Interaction } from '@/types/domain'
+import { fetchComptesVisibles, fetchSitesVisiblesIds } from '@/lib/data/visibility'
 
 interface RawInteraction {
   id: string
@@ -34,7 +35,18 @@ async function fetchInteractions(): Promise<Interaction[]> {
       .order('date_interaction', { ascending: false })
     if (error) throw error
 
-    return ((data ?? []) as unknown as RawInteraction[]).map((i) => ({
+    const comptesVisibles = await fetchComptesVisibles()
+    const sitesVisibles = await fetchSitesVisiblesIds(comptesVisibles)
+
+    const visibles = comptesVisibles === null
+      ? (data ?? [])
+      : ((data ?? []) as unknown as RawInteraction[]).filter(
+          (i) =>
+            (i.compte_id != null && comptesVisibles.includes(i.compte_id)) ||
+            (i.site_id != null && (sitesVisibles ?? []).includes(i.site_id)),
+        )
+
+    return (visibles as unknown as RawInteraction[]).map((i) => ({
       id: i.id,
       type_interaction: i.type_interaction?.libelle ?? '',
       date_interaction: i.date_interaction,

@@ -3,6 +3,7 @@ import { supabase } from '@/lib/supabase'
 import { isDemoMode } from '@/lib/demoMode'
 import { mockActions } from '@/lib/mockData'
 import type { ActionItem } from '@/types/domain'
+import { fetchComptesVisibles, fetchSitesVisiblesIds } from '@/lib/data/visibility'
 
 interface RawAction {
   id: string
@@ -36,7 +37,16 @@ async function fetchActions(): Promise<ActionItem[]> {
       .order('date_prevue')
     if (error) throw error
 
-    return ((data ?? []) as unknown as RawAction[]).map((a) => ({
+    const comptesVisibles = await fetchComptesVisibles()
+    const sitesVisibles = await fetchSitesVisiblesIds(comptesVisibles)
+
+    // Une tâche sans site_id (ex. liée seulement à un contact, ou purement personnelle)
+    // reste visible — on ne restreint que celles clairement rattachées à un site hors périmètre.
+    const visibles = sitesVisibles === null
+      ? (data ?? [])
+      : ((data ?? []) as unknown as RawAction[]).filter((a) => a.site_id == null || sitesVisibles.includes(a.site_id))
+
+    return (visibles as unknown as RawAction[]).map((a) => ({
       id: a.id,
       titre: a.titre,
       type_action: a.type_action?.libelle ?? a.titre,

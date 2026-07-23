@@ -3,6 +3,7 @@ import { supabase } from '@/lib/supabase'
 import { isDemoMode } from '@/lib/demoMode'
 import { mockRecommandations } from '@/lib/mockData'
 import type { Recommandation, VersionRecommandation, Optimisation, OffreFournisseur } from '@/types/domain'
+import { fetchComptesVisibles, filterVisibles } from '@/lib/data/visibility'
 
 interface RawRecommandation {
   id: string
@@ -180,7 +181,9 @@ async function fetchRecommandations(): Promise<Recommandation[]> {
       versionsParReco.set(v.recommandation_id, list)
     }
 
-    return ((recosRes.data ?? []) as unknown as RawRecommandation[]).map((r) => ({
+    const comptesVisibles = await fetchComptesVisibles()
+
+    return filterVisibles(((recosRes.data ?? []) as unknown as RawRecommandation[]), comptesVisibles, (r) => r.compte?.id).map((r) => ({
       id: r.id,
       titre: r.nom,
       compte_id: r.compte?.id ?? '',

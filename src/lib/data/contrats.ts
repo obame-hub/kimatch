@@ -5,6 +5,7 @@ import { mockContrats } from '@/lib/mockData'
 import type { Contrat } from '@/types/domain'
 import { notifySlack } from '@/lib/data/slackSettings'
 import { buildContratCreatedBlocks } from '@/lib/slackTemplates'
+import { fetchComptesVisibles, fetchSitesVisiblesIds, filterVisibles } from '@/lib/data/visibility'
 
 interface RawContrat {
   id: string
@@ -42,7 +43,10 @@ async function fetchContrats(): Promise<Contrat[]> {
       compteursParContrat.set(cc.contrat_id, list)
     }
 
-    return ((contratsRes.data ?? []) as unknown as RawContrat[]).map((c) => ({
+    const comptesVisibles = await fetchComptesVisibles()
+    const sitesVisibles = await fetchSitesVisiblesIds(comptesVisibles)
+
+    return filterVisibles(((contratsRes.data ?? []) as unknown as RawContrat[]), sitesVisibles, (c) => c.site_id).map((c) => ({
       id: c.id,
       site_id: c.site_id,
       site_nom: c.site?.nom ?? '',

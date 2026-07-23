@@ -3,6 +3,7 @@ import { supabase } from '@/lib/supabase'
 import { isDemoMode } from '@/lib/demoMode'
 import { mockSites } from '@/lib/mockData'
 import type { Site } from '@/types/domain'
+import { fetchComptesVisibles, filterVisibles } from '@/lib/data/visibility'
 
 interface RawSite {
   id: string
@@ -62,7 +63,9 @@ async function fetchSites(): Promise<Site[]> {
       }
     }
 
-    return ((sitesRes.data ?? []) as unknown as RawSite[]).map((s) => {
+    const comptesVisibles = await fetchComptesVisibles()
+
+    return filterVisibles(((sitesRes.data ?? []) as unknown as RawSite[]), comptesVisibles, (s) => s.compte_id).map((s) => {
       const extra = extraParSite.get(s.id)
       return {
         id: s.id,

@@ -6,6 +6,7 @@ import type { Compte, TypeCompte } from '@/types/domain'
 import type { EllisphereCompany, EllisphereScore } from '@/lib/data/ellisphere'
 import { notifySlack } from '@/lib/data/slackSettings'
 import { buildAccountCreatedBlocks } from '@/lib/slackTemplates'
+import { fetchComptesVisibles, filterVisibles } from '@/lib/data/visibility'
 
 interface RawCompteClient {
   segment_compte_id: string | null
@@ -59,7 +60,9 @@ async function fetchComptes(): Promise<Compte[]> {
       .order('nom')
     if (error) throw error
 
-    return ((data ?? []) as unknown as RawCompte[]).map((c) => {
+    const comptesVisibles = await fetchComptesVisibles()
+
+    return filterVisibles(((data ?? []) as unknown as RawCompte[]), comptesVisibles, (c) => c.id).map((c) => {
       const { comptes_clients, comptes_fournisseurs, comptes_partenaires, ...base } = c
       const client = first(comptes_clients)
       const fournisseur = first(comptes_fournisseurs)

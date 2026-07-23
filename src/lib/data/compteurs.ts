@@ -3,6 +3,7 @@ import { supabase } from '@/lib/supabase'
 import { isDemoMode } from '@/lib/demoMode'
 import { mockCompteurs } from '@/lib/mockData'
 import type { Compteur } from '@/types/domain'
+import { fetchComptesVisibles, fetchSitesVisiblesIds, filterVisibles } from '@/lib/data/visibility'
 
 interface RawCompteurElec {
   segment: string | null
@@ -73,7 +74,10 @@ async function fetchCompteurs(): Promise<Compteur[]> {
       )
     if (error) throw error
 
-    return ((data ?? []) as unknown as RawCompteur[]).map((c) => {
+    const comptesVisibles = await fetchComptesVisibles()
+    const sitesVisibles = await fetchSitesVisiblesIds(comptesVisibles)
+
+    return filterVisibles(((data ?? []) as unknown as RawCompteur[]), sitesVisibles, (c) => c.site_id).map((c) => {
       const elec = first(c.compteurs_electricite)
       const gaz = first(c.compteurs_gaz)
       return {

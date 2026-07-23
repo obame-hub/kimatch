@@ -1,5 +1,5 @@
 import { Fragment, useState } from 'react'
-import { ShieldCheck, Users, Mail, Trash2, Plus, UserCog } from 'lucide-react'
+import { ShieldCheck, Users, Mail, Trash2, Plus, UserCog, Building2 } from 'lucide-react'
 import { Topbar } from '@/components/layout/Topbar'
 import { PageHeader } from '@/components/ui/page-header'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
@@ -10,6 +10,7 @@ import { EmailLink } from '@/components/ui/contact-link'
 import { cn } from '@/lib/utils'
 import { useAuth } from '@/lib/auth'
 import { useImpersonateProfil } from '@/lib/data/impersonation'
+import { useComptes } from '@/lib/data/comptes'
 import {
   useProfilsAdmin,
   useRolesAcces,
@@ -28,8 +29,14 @@ import {
   useRemoveProfilAutorise,
   useUpdateProfilAutorisePosteRole,
 } from '@/lib/data/roles'
+import {
+  useTypesRoles,
+  useProfilsComptes,
+  useAssignProfilCompte,
+  useRemoveProfilCompte,
+} from '@/lib/data/profilsComptes'
 
-type Tab = 'utilisateurs' | 'permissions' | 'acces'
+type Tab = 'utilisateurs' | 'permissions' | 'acces' | 'assignations'
 
 function UtilisateursTab() {
   const { session } = useAuth()
@@ -370,6 +377,84 @@ function AccesAutorisesTab() {
   )
 }
 
+function AssignationsTab() {
+  const { data: profils } = useProfilsAdmin()
+  const { data: comptes } = useComptes()
+  const { data: typesRoles } = useTypesRoles()
+  const { data: assignations, isLoading } = useProfilsComptes()
+  const assign = useAssignProfilCompte()
+  const remove = useRemoveProfilCompte()
+
+  const [profilId, setProfilId] = useState('')
+  const [compteId, setCompteId] = useState('')
+  const [typeRoleId, setTypeRoleId] = useState('')
+  const [feedback, setFeedback] = useState<string | null>(null)
+
+  async function handleSubmit(e: React.FormEvent) {
+    e.preventDefault()
+    setFeedback(null)
+    try {
+      await assign.mutateAsync({ profilId, compteId, typeRoleId })
+      setCompteId('')
+    } catch (err) {
+      setFeedback(err instanceof Error ? err.message : 'Erreur inconnue')
+    }
+  }
+
+  return (
+    <div className="space-y-4">
+      <p className="text-sm text-navy-500">
+        Détermine sur quels comptes chaque personne intervient — un administrateur (rôle d'accès SUPER_ADMIN/ADMIN) voit toujours tous les comptes, quelles que soient ses assignations ici.
+        Tant que la migration des données Salesforce n'est pas faite, la liste des comptes ci-dessous reste vide — c'est normal.
+      </p>
+      <form onSubmit={handleSubmit} className="flex flex-wrap gap-2">
+        <Select value={profilId} onChange={(e) => setProfilId(e.target.value)} required className="w-44">
+          <option value="">Personne…</option>
+          {(profils ?? []).map((p) => <option key={p.id} value={p.id}>{p.prenom} {p.nom}</option>)}
+        </Select>
+        <Select value={compteId} onChange={(e) => setCompteId(e.target.value)} required className="w-44">
+          <option value="">Compte…</option>
+          {(comptes ?? []).map((c) => <option key={c.id} value={c.id}>{c.nom}</option>)}
+        </Select>
+        <Select value={typeRoleId} onChange={(e) => setTypeRoleId(e.target.value)} required className="w-52">
+          <option value="">Rôle sur ce compte…</option>
+          {(typesRoles ?? []).map((r) => <option key={r.id} value={r.id}>{r.libelle}</option>)}
+        </Select>
+        <Button type="submit" disabled={assign.isPending || !profilId || !compteId || !typeRoleId}>
+          <Plus className="h-4 w-4" />
+          Assigner
+        </Button>
+      </form>
+      {feedback && <p className="text-xs text-red-600">{feedback}</p>}
+
+      {isLoading ? (
+        <p className="text-sm text-navy-400">Chargement…</p>
+      ) : !assignations || assignations.length === 0 ? (
+        <p className="text-sm text-navy-400">Aucune assignation pour l'instant.</p>
+      ) : (
+        <ul className="divide-y divide-navy-50">
+          {assignations.map((a) => (
+            <li key={a.id} className="flex flex-wrap items-center justify-between gap-2 py-2 text-sm">
+              <div>
+                <p className="font-medium text-navy-800">{a.profil_nom} <span className="font-normal text-navy-400">→</span> {a.compte_nom}</p>
+                <p className="text-xs text-navy-500">{a.type_role_libelle}</p>
+              </div>
+              <button
+                type="button"
+                onClick={() => remove.mutate(a.id)}
+                className="text-navy-400 hover:text-red-600"
+                aria-label={`Retirer ${a.profil_nom} de ${a.compte_nom}`}
+              >
+                <Trash2 className="h-4 w-4" />
+              </button>
+            </li>
+          ))}
+        </ul>
+      )}
+    </div>
+  )
+}
+
 export default function Administration() {
   const [tab, setTab] = useState<Tab>('utilisateurs')
   const isAdmin = useIsAdmin()
@@ -426,16 +511,33 @@ export default function Administration() {
             <Mail className="h-4 w-4" />
             Accès autorisés
           </button>
+          <button
+            type="button"
+            onClick={() => setTab('assignations')}
+            className={cn(
+              'flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-sm font-medium',
+              tab === 'assignations' ? 'bg-kiwi-500/15 text-kiwi-700' : 'text-navy-500 hover:bg-navy-50',
+            )}
+          >
+            <Building2 className="h-4 w-4" />
+            Assignations
+          </button>
         </div>
 
         <Card>
           <CardHeader>
             <CardTitle>
-              {tab === 'utilisateurs' ? 'Utilisateurs' : tab === 'permissions' ? 'Postes, rôles & permissions' : 'Emails autorisés à créer un compte'}
+              {tab === 'utilisateurs'
+                ? 'Utilisateurs'
+                : tab === 'permissions'
+                  ? 'Postes, rôles & permissions'
+                  : tab === 'acces'
+                    ? 'Emails autorisés à créer un compte'
+                    : 'Assignations profil ↔ compte'}
             </CardTitle>
           </CardHeader>
           <CardContent>
-            {tab === 'utilisateurs' ? <UtilisateursTab /> : tab === 'permissions' ? <PermissionsTab /> : <AccesAutorisesTab />}
+            {tab === 'utilisateurs' ? <UtilisateursTab /> : tab === 'permissions' ? <PermissionsTab /> : tab === 'acces' ? <AccesAutorisesTab /> : <AssignationsTab />}
           </CardContent>
         </Card>
       </div>
