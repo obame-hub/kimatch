@@ -29,6 +29,7 @@ import ActionDetail from '@/pages/ActionDetail'
 import Parametres from '@/pages/Parametres'
 import Administration from '@/pages/Administration'
 import MonProfil from '@/pages/MonProfil'
+import Support from '@/pages/Support'
 
 function App() {
   return (
@@ -64,6 +65,7 @@ function App() {
           <Route path="/parametres" element={<Parametres />} />
           <Route path="/administration" element={<Administration />} />
           <Route path="/profil" element={<MonProfil />} />
+          <Route path="/support" element={<Support />} />
         </Route>
       </Route>
     </Routes>

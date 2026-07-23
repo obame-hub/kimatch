@@ -7,6 +7,7 @@ import {
   Sparkle,
   User,
   Settings,
+  LifeBuoy,
 } from 'lucide-react'
 
 // Un module = une icône + une couleur d'accent, comme le rail CRM de référence (William).
@@ -23,5 +24,6 @@ export const navItems = [
   { to: '/compteurs', label: 'Compteurs', icon: Gauge, accent: 'bg-ink-700', tint: 'text-navy-300' },
   { to: '/signaux', label: 'Signaux', icon: Radio, accent: 'bg-red-500', tint: 'text-red-400' },
   { to: '/recommandations', label: 'Recommandations', icon: Sparkle, accent: 'bg-amber-500', tint: 'text-amber-300' },
+  { to: '/support', label: 'Support', icon: LifeBuoy, accent: 'bg-rose-500', tint: 'text-rose-400' },
   { to: '/parametres', label: 'Paramètres', icon: Settings, accent: 'bg-ink-700', tint: 'text-navy-300' },
 ]
