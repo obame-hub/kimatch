@@ -19,6 +19,7 @@ import {
   Sparkle,
   Radio,
   UploadCloud,
+  MapPin,
 } from 'lucide-react'
 import { Topbar } from '@/components/layout/Topbar'
 import { Button } from '@/components/ui/button'
@@ -64,7 +65,7 @@ import { useCanManage, useIsAdmin, useProfilsAdmin } from '@/lib/data/roles'
 import { ActivityFeed } from '@/components/site/ActivityFeed'
 import { cn } from '@/lib/utils'
 import { useGoBack } from '@/lib/useGoBack'
-import type { Compte, Contact, TypeCompte } from '@/types/domain'
+import type { Compte, Contact, Site, TypeCompte } from '@/types/domain'
 
 const typeMeta: Record<TypeCompte, { label: string; tone: 'kiwi' | 'blue' | 'amber' | 'neutral' }> = {
   client: { label: 'Client', tone: 'kiwi' },
@@ -430,53 +431,54 @@ export default function CompteDetail() {
           )}
 
           {tab === 'contrats' && (
-            <div className="flex flex-col gap-2.5">
-              {contratsDuCompte.length === 0 && <p className="text-sm text-navy-400">Aucun contrat pour ce compte.</p>}
-              {contratsDuCompte.map((ct) => {
+            <GroupedBySite
+              sites={sitesDuCompte}
+              itemsBySiteId={(siteId) => contratsDuCompte.filter((ct) => ct.site_id === siteId)}
+              renderItem={(ct: (typeof contratsDuCompte)[number]) => {
                 const Icon = ct.type_energie === 'gaz' ? Flame : Zap
                 return (
                   <div
                     key={ct.id}
                     onClick={() => navigate(`/contrats/${ct.id}`)}
-                    className="flex cursor-pointer items-center gap-3 rounded-xl border border-navy-100 bg-white p-3.5 hover:bg-navy-50/60"
+                    className="flex cursor-pointer items-center gap-3 px-3.5 py-2.5 hover:bg-navy-50/60"
                   >
-                    <span className={cn('flex h-9 w-9 shrink-0 items-center justify-center rounded-[10px]', ct.type_energie === 'gaz' ? 'bg-amber-100 text-amber-600' : 'bg-sky-100 text-sky-500')}>
-                      <Icon className="h-4 w-4" />
+                    <span className={cn('flex h-8 w-8 shrink-0 items-center justify-center rounded-lg', ct.type_energie === 'gaz' ? 'bg-amber-100 text-amber-600' : 'bg-sky-100 text-sky-500')}>
+                      <Icon className="h-3.5 w-3.5" />
                     </span>
-                    <div className="min-w-0 flex-1">
-                      <p className="truncate text-sm font-bold text-navy-800">{ct.fournisseur_nom}</p>
-                      <p className="truncate text-[10.5px] text-navy-400">{ct.site_nom}</p>
-                    </div>
+                    <p className="min-w-0 flex-1 truncate text-sm font-semibold text-navy-800">{ct.fournisseur_nom}</p>
                     <Badge tone={STATUT_CONTRAT_TONE[ct.statut] ?? 'neutral'}>{statutsContrats.find((s) => s.code === ct.statut)?.libelle ?? ct.statut}</Badge>
                   </div>
                 )
-              })}
-            </div>
+              }}
+              emptyLabel="Aucun contrat pour ce compte."
+            />
           )}
 
           {tab === 'compteurs' && (
-            <div className="flex flex-col gap-2.5">
-              {compteursDuCompte.length === 0 && <p className="text-sm text-navy-400">Aucun compteur pour ce compte.</p>}
-              {compteursDuCompte.map((c) => {
+            <GroupedBySite
+              sites={sitesDuCompte}
+              itemsBySiteId={(siteId) => compteursDuCompte.filter((c) => c.site_id === siteId)}
+              renderItem={(c: (typeof compteursDuCompte)[number]) => {
                 const Icon = c.type_energie === 'gaz' ? Flame : Zap
                 return (
                   <div
                     key={c.id}
                     onClick={() => navigate(`/compteurs/${c.id}`)}
-                    className="flex cursor-pointer items-center gap-3 rounded-xl border border-navy-100 bg-white p-3.5 hover:bg-navy-50/60"
+                    className="flex cursor-pointer items-center gap-3 px-3.5 py-2.5 hover:bg-navy-50/60"
                   >
-                    <span className={cn('flex h-9 w-9 shrink-0 items-center justify-center rounded-[10px]', c.type_energie === 'gaz' ? 'bg-amber-100 text-amber-600' : 'bg-sky-100 text-sky-500')}>
-                      <Icon className="h-4 w-4" />
+                    <span className={cn('flex h-8 w-8 shrink-0 items-center justify-center rounded-lg', c.type_energie === 'gaz' ? 'bg-amber-100 text-amber-600' : 'bg-sky-100 text-sky-500')}>
+                      <Icon className="h-3.5 w-3.5" />
                     </span>
                     <div className="min-w-0 flex-1">
-                      <p className="truncate text-sm font-bold text-navy-800">{c.utilisation || c.numero_pdl}</p>
-                      <p className="truncate text-[10.5px] text-navy-400">{c.numero_pdl} · <EntityLink to={`/sites/${c.site_id}`}>{c.site_nom}</EntityLink></p>
+                      <p className="truncate text-sm font-semibold text-navy-800">{c.utilisation || c.numero_pdl}</p>
+                      <p className="truncate font-mono text-[10px] text-navy-400">{c.numero_pdl}</p>
                     </div>
                     <Badge tone={c.statut === 'actif' ? 'kiwi' : 'neutral'}>{c.statut}</Badge>
                   </div>
                 )
-              })}
-            </div>
+              }}
+              emptyLabel="Aucun compteur pour ce compte."
+            />
           )}
 
           {tab === 'recommandations' && (
@@ -742,6 +744,43 @@ function InfoField({ label, value, onCopy }: { label: string; value: string; onC
           <Copy className="h-3 w-3" />
         </button>
       </div>
+    </div>
+  )
+}
+
+function GroupedBySite<T>({
+  sites,
+  itemsBySiteId,
+  renderItem,
+  emptyLabel,
+}: {
+  sites: Site[]
+  itemsBySiteId: (siteId: string) => T[]
+  renderItem: (item: T) => React.ReactNode
+  emptyLabel: string
+}) {
+  const navigate = useNavigate()
+  const groups = sites.map((s) => ({ site: s, items: itemsBySiteId(s.id) })).filter((g) => g.items.length > 0)
+
+  if (groups.length === 0) return <p className="text-sm text-navy-400">{emptyLabel}</p>
+
+  return (
+    <div className="flex flex-col gap-3.5">
+      {groups.map(({ site, items }) => (
+        <div key={site.id} className="overflow-hidden rounded-xl border border-navy-100 bg-white">
+          <div
+            onClick={() => navigate(`/sites/${site.id}`)}
+            className="flex cursor-pointer items-center gap-2.5 border-b border-navy-50 bg-navy-50/60 px-4 py-2.5 hover:bg-navy-50"
+          >
+            <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-kiwi-100 text-kiwi-600">
+              <MapPin className="h-3.5 w-3.5" />
+            </span>
+            <p className="min-w-0 flex-1 truncate text-[13px] font-bold text-navy-800">{site.nom}</p>
+            <span className="text-[10.5px] text-navy-400">{items.length} élément{items.length > 1 ? 's' : ''}</span>
+          </div>
+          <div className="divide-y divide-navy-50">{items.map((item) => renderItem(item))}</div>
+        </div>
+      ))}
     </div>
   )
 }
