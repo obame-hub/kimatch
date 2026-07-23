@@ -312,6 +312,10 @@ export default function CompteDetail() {
                     <InfoField label="Segment" value={compte.segment || '—'} onCopy={showToast} />
                     <InfoField label="Ville" value={compte.ville || '—'} onCopy={showToast} />
                     {compte.siren && <InfoField label="SIREN" value={compte.siren} onCopy={showToast} />}
+                    {compte.siret && <InfoField label="SIRET" value={compte.siret} onCopy={showToast} />}
+                    {compte.telephone && <InfoField label="Téléphone" value={compte.telephone} onCopy={showToast} />}
+                    {compte.email && <InfoField label="Email" value={compte.email} onCopy={showToast} />}
+                    {compte.site_web && <InfoField label="Site web" value={compte.site_web} onCopy={showToast} />}
                     {compte.score_ellipro && (
                       <div>
                         <div className="mb-0.5 text-[10px] uppercase tracking-wide text-navy-400">Note Ellisphere</div>

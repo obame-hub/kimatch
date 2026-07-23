@@ -14,6 +14,7 @@ interface RawContrat {
   reference_fournisseur: string | null
   date_debut: string | null
   date_fin: string | null
+  preavis_resiliation_jours: number | null
   proprietaire_id: string | null
   site: { nom: string } | null
   fournisseur: { nom: string } | null
@@ -28,7 +29,7 @@ async function fetchContrats(): Promise<Contrat[]> {
       supabase
         .from('contrats')
         .select(
-          'id, site_id, fournisseur_compte_id, reference_fournisseur, date_debut, date_fin, proprietaire_id, site:sites(nom), fournisseur:comptes(nom), type_energie:types_energies(code), statut:statuts_contrats(code)',
+          'id, site_id, fournisseur_compte_id, reference_fournisseur, date_debut, date_fin, preavis_resiliation_jours, proprietaire_id, site:sites(nom), fournisseur:comptes(nom), type_energie:types_energies(code), statut:statuts_contrats(code)',
         )
         .order('date_debut', { ascending: false }),
       supabase.from('contrats_compteurs').select('contrat_id, compteur:compteurs(id, numero_point, utilisation)'),
@@ -56,6 +57,7 @@ async function fetchContrats(): Promise<Contrat[]> {
       reference_fournisseur: c.reference_fournisseur,
       date_debut: c.date_debut,
       date_fin: c.date_fin,
+      preavis_resiliation_jours: c.preavis_resiliation_jours,
       statut: c.statut?.code ?? '',
       compteurs: compteursParContrat.get(c.id) ?? [],
       proprietaire_id: c.proprietaire_id ?? null,
@@ -106,6 +108,7 @@ export function useCreateContrat() {
         reference_fournisseur: input.reference_fournisseur,
         date_debut: input.date_debut,
         date_fin: input.date_fin,
+        preavis_resiliation_jours: null,
         statut: 'ACTIF',
         compteurs: input.compteurs,
         proprietaire_id: null,

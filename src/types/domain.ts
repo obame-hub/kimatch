@@ -26,7 +26,9 @@ export interface Signal {
   id: string
   site_id: string
   site_nom: string
+  contrat_id: string | null
   type_signal: string
+  gravite: number | null
   statut: string
   conseiller: string
   date_creation: string
@@ -127,6 +129,9 @@ export interface Mandat {
   compte_nom: string
   statut: string
   date_signature: string | null
+  date_envoi: string | null
+  date_debut_validite: string | null
+  date_fin_validite: string | null
   nb_sites_couverts: number
   site_ids: string[]
   contact_signataire_id?: string | null
@@ -161,6 +166,10 @@ export interface Compte {
   nb_sites: number
   ville: string
   siren: string | null
+  siret: string | null
+  telephone: string | null
+  email: string | null
+  site_web: string | null
   score_ellipro: string | null
   score_ellipro_scale: string | null
   score_ellipro_maj: string | null
@@ -274,6 +283,7 @@ export interface Contrat {
   reference_fournisseur: string | null
   date_debut: string | null
   date_fin: string | null
+  preavis_resiliation_jours: number | null
   statut: string
   compteurs: { id: string; numero_pdl: string; utilisation: string }[]
   proprietaire_id: string | null

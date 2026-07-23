@@ -8,10 +8,11 @@ import { fetchComptesVisibles, fetchSitesVisiblesIds, filterVisibles } from '@/l
 interface RawSignal {
   id: string
   site_id: string
+  contrat_id: string | null
   date_creation: string
   commentaire: string | null
   proprietaire_id: string | null
-  type_signal: { libelle: string } | null
+  type_signal: { libelle: string; poids_defaut: number | null } | null
   statut: { code: string } | null
   site: { nom: string } | null
   responsable: { prenom: string; nom: string } | null
@@ -24,7 +25,7 @@ async function fetchSignaux(): Promise<Signal[]> {
     const { data, error } = await supabase
       .from('signaux')
       .select(
-        'id, site_id, date_creation, commentaire, proprietaire_id, type_signal:types_signaux(libelle), statut:statuts_signaux(code), site:sites(nom), responsable:profils(prenom, nom)',
+        'id, site_id, contrat_id, date_creation, commentaire, proprietaire_id, type_signal:types_signaux(libelle, poids_defaut), statut:statuts_signaux(code), site:sites(nom), responsable:profils(prenom, nom)',
       )
       .order('date_creation', { ascending: false })
     if (error) throw error
@@ -36,7 +37,9 @@ async function fetchSignaux(): Promise<Signal[]> {
       id: s.id,
       site_id: s.site_id,
       site_nom: s.site?.nom ?? '',
+      contrat_id: s.contrat_id,
       type_signal: s.type_signal?.libelle ?? '',
+      gravite: s.type_signal?.poids_defaut ?? null,
       statut: s.statut?.code ?? '',
       conseiller: s.responsable ? `${s.responsable.prenom} ${s.responsable.nom}` : '',
       date_creation: s.date_creation,
@@ -78,7 +81,9 @@ export function useCreateSignal() {
         id: `local-${Date.now()}`,
         site_id: input.site_id,
         site_nom: input.site_nom,
+        contrat_id: null,
         type_signal: input.type_signal_libelle,
+        gravite: null,
         statut: 'NOUVEAU',
         conseiller: '',
         date_creation: now,

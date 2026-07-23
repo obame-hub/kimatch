@@ -314,6 +314,12 @@ export default function ContratDetail() {
                   <p className="mb-0.5 text-[10px] uppercase tracking-wide text-navy-400">Fin</p>
                   <p className="text-xs font-semibold text-navy-800">{contrat.date_fin ? new Date(contrat.date_fin).toLocaleDateString('fr-FR') : 'sans échéance'}</p>
                 </div>
+                {contrat.preavis_resiliation_jours != null && (
+                  <div>
+                    <p className="mb-0.5 text-[10px] uppercase tracking-wide text-navy-400">Préavis de résiliation</p>
+                    <p className="text-xs font-semibold text-navy-800">{contrat.preavis_resiliation_jours} jours</p>
+                  </div>
+                )}
               </div>
               <HistoriqueDiscret tableNom="contrats" ligneId={contrat.id} />
               </div>

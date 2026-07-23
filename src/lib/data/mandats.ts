@@ -9,6 +9,9 @@ interface RawMandat {
   id: string
   compte_id: string
   date_signature: string | null
+  date_envoi: string | null
+  date_debut_validite: string | null
+  date_fin_validite: string | null
   contact_signataire_id: string | null
   docusign_envelope_id: string | null
   proprietaire_id: string | null
@@ -24,7 +27,7 @@ async function fetchMandats(): Promise<Mandat[]> {
       supabase
         .from('mandats')
         .select(
-          'id, compte_id, date_signature, contact_signataire_id, docusign_envelope_id, proprietaire_id, compte:comptes(nom), statut:statuts_mandats(code), contact_signataire:contacts(prenom, nom)',
+          'id, compte_id, date_signature, date_envoi, date_debut_validite, date_fin_validite, contact_signataire_id, docusign_envelope_id, proprietaire_id, compte:comptes(nom), statut:statuts_mandats(code), contact_signataire:contacts(prenom, nom)',
         ),
       supabase.from('mandats_sites').select('mandat_id, site_id'),
     ])
@@ -45,6 +48,9 @@ async function fetchMandats(): Promise<Mandat[]> {
       compte_nom: m.compte?.nom ?? '',
       statut: m.statut?.code ?? '',
       date_signature: m.date_signature,
+      date_envoi: m.date_envoi,
+      date_debut_validite: m.date_debut_validite,
+      date_fin_validite: m.date_fin_validite,
       nb_sites_couverts: (sitesParMandat.get(m.id) ?? []).length,
       site_ids: sitesParMandat.get(m.id) ?? [],
       contact_signataire_id: m.contact_signataire_id,
@@ -88,6 +94,9 @@ export function useCreateMandat() {
         compte_nom: input.compte_nom,
         statut: 'A_PREPARER',
         date_signature: input.date_signature,
+        date_envoi: null,
+        date_debut_validite: input.date_signature,
+        date_fin_validite: null,
         nb_sites_couverts: input.site_ids.length,
         site_ids: input.site_ids,
         contact_signataire_id: input.contact_signataire_id,

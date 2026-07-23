@@ -101,7 +101,7 @@ function EnvoyerSignatureDialog({
 }
 
 function ConversionPathCard({ mandat }: { mandat: Mandat }) {
-  const step = mandat.date_signature ? 2 : mandat.docusign_envelope_id ? 1 : 0
+  const step = mandat.date_signature ? 2 : mandat.date_envoi || mandat.docusign_envelope_id ? 1 : 0
   const steps = [
     { label: 'Brouillon', icon: FileCheck2 },
     { label: 'Envoyé', icon: FileSignature },
@@ -129,6 +129,35 @@ function ConversionPathCard({ mandat }: { mandat: Mandat }) {
             )}
           </div>
         ))}
+      </div>
+    </div>
+  )
+}
+
+function ValiditeCard({ dateDebut, dateFin }: { dateDebut: string; dateFin: string }) {
+  const debut = new Date(dateDebut).getTime()
+  const fin = new Date(dateFin).getTime()
+  const now = Date.now()
+  const pct = Math.min(100, Math.max(0, ((now - debut) / (fin - debut)) * 100))
+  const joursRestants = Math.round((fin - now) / 86400000)
+
+  return (
+    <div className="rounded-xl border border-navy-100 bg-white p-4">
+      <div className="mb-2 flex items-center gap-2">
+        <span className="text-[10px] font-bold uppercase tracking-wide text-navy-400">Validité</span>
+        <div className="flex-1" />
+        <span className={cn('text-[11px] font-bold', joursRestants < 0 ? 'text-navy-400' : joursRestants < 60 ? 'text-red-500' : 'text-amber-600')}>
+          {joursRestants < 0 ? 'expiré' : `expire dans ${joursRestants} jour${joursRestants > 1 ? 's' : ''}`}
+        </span>
+      </div>
+      <div className="relative h-2.5 rounded-full bg-navy-100">
+        <div className="absolute inset-y-0 left-0 rounded-full bg-gradient-to-r from-kiwi-500 to-kiwi-400" style={{ width: `${pct}%` }} />
+        {now >= debut && now <= fin && <div className="absolute -top-0.5 h-3.5 w-0.5 rounded bg-red-500" style={{ left: `${pct}%` }} />}
+      </div>
+      <div className="mt-1.5 flex justify-between font-mono text-[10px] text-navy-400">
+        <span>{new Date(dateDebut).toLocaleDateString('fr-FR')}</span>
+        {now >= debut && now <= fin && <span className="font-bold text-red-500">aujourd'hui</span>}
+        <span>{new Date(dateFin).toLocaleDateString('fr-FR')}</span>
       </div>
     </div>
   )
@@ -375,6 +404,9 @@ export default function MandatDetail() {
           {tab === 'mandat' && (
             <div className="flex flex-col gap-3.5">
               <ConversionPathCard mandat={mandat} />
+              {mandat.date_fin_validite && (mandat.date_debut_validite || mandat.date_signature) && (
+                <ValiditeCard dateDebut={(mandat.date_debut_validite ?? mandat.date_signature) as string} dateFin={mandat.date_fin_validite} />
+              )}
               <div className="rounded-xl border border-navy-100 bg-white p-4">
               <p className="mb-2.5 text-[10px] font-bold uppercase tracking-wide text-navy-400">Détail du mandat</p>
               <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">

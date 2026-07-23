@@ -212,7 +212,7 @@ function CouvertureCard({
           </div>
         ))}
       </div>
-      <p className="mt-2 text-[9.5px] italic text-navy-300">Signaux comptés au niveau du site (non rattachés individuellement au compteur).</p>
+      <p className="mt-2 text-[9.5px] italic text-navy-300">Signaux liés à ce compteur via ses contrats.</p>
     </div>
   )
 }
@@ -347,7 +347,8 @@ export default function CompteurDetail() {
   const contratsDuCompteur = useMemo(() => contrats?.filter((ct) => ct.compteurs.some((cc) => cc.id === id)) ?? [], [contrats, id])
   const mandatDuCompteur = mandats?.find((m) => compteur && m.site_ids.includes(compteur.site_id))
   const documentsDuCompteur = useMemo(() => documents?.filter((d) => d.entite_type === 'compteur' && d.entite_id === id) ?? [], [documents, id])
-  const signauxDuSite = useMemo(() => signaux?.filter((s) => compteur && s.site_id === compteur.site_id) ?? [], [signaux, compteur])
+  const contratIdsDuCompteur = useMemo(() => new Set(contratsDuCompteur.map((c) => c.id)), [contratsDuCompteur])
+  const signauxDuCompteur = useMemo(() => signaux?.filter((s) => s.contrat_id && contratIdsDuCompteur.has(s.contrat_id)) ?? [], [signaux, contratIdsDuCompteur])
   const recoActiveDuSite = useMemo(
     () => recommandations?.find((r) => compteur && r.sites.some((s) => s.id === compteur.site_id) && !['ACCEPTEE', 'REFUSEE', 'CLOTUREE'].includes(r.etape)),
     [recommandations, compteur],
@@ -493,7 +494,7 @@ export default function CompteurDetail() {
           </div>
 
           <CouvertureCard
-            nbSignaux={signauxDuSite.length}
+            nbSignaux={signauxDuCompteur.length}
             mandatCouvert={Boolean(mandatDuCompteur)}
             recoEnCours={Boolean(recoActiveDuSite)}
             contratCouvert={contratsDuCompteur.length > 0}
