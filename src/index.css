@@ -28,3 +28,71 @@
     @apply bg-navy-200 rounded-full;
   }
 }
+
+/* Mode sombre — la palette "navy" va déjà du quasi-blanc (50) au quasi-noir (950), donc le
+   mode sombre inverse simplement l'usage de cette même échelle. Ces règles ciblent les
+   classes Tailwind déjà utilisées partout dans l'app plutôt que d'ajouter des variantes
+   dark: sur chaque fichier — la rail latérale (ink-*) reste volontairement sombre dans les
+   deux thèmes (design déjà "dark" assumé). */
+:root[data-theme='dark'],
+.dark {
+  color-scheme: dark;
+}
+
+.dark body {
+  background-color: #0a0b0d;
+}
+
+.dark .bg-white {
+  background-color: #16181d !important;
+}
+.dark .bg-navy-50 {
+  background-color: #101216 !important;
+}
+.dark .bg-navy-50\/60 {
+  background-color: rgb(16 18 22 / 0.6) !important;
+}
+.dark .bg-navy-100 {
+  background-color: #3f424a !important;
+}
+.dark .hover\:bg-navy-50:hover {
+  background-color: #16181d !important;
+}
+.dark .hover\:bg-navy-50\/60:hover {
+  background-color: rgb(22 24 29 / 0.6) !important;
+}
+.dark .hover\:bg-navy-100:hover {
+  background-color: #3f424a !important;
+}
+
+.dark .text-navy-900 {
+  color: #f6f6f4 !important;
+}
+.dark .text-navy-800 {
+  color: #e7e6e2 !important;
+}
+.dark .text-navy-700 {
+  color: #c9cbc6 !important;
+}
+.dark .text-navy-600 {
+  color: #a3a5a0 !important;
+}
+.dark .text-navy-500 {
+  color: #83868f !important;
+}
+.dark .text-navy-400 {
+  color: #5c5f66 !important;
+}
+.dark .text-navy-300 {
+  color: #3f424a !important;
+}
+
+.dark .border-navy-50 {
+  border-color: #16181d !important;
+}
+.dark .border-navy-100 {
+  border-color: #3f424a !important;
+}
+.dark .border-navy-200 {
+  border-color: #5c5f66 !important;
+}

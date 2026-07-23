@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
-import { User, ShieldCheck, Mail, CheckCircle2, Camera } from 'lucide-react'
+import { User, ShieldCheck, Mail, CheckCircle2, Camera, Moon, Sun } from 'lucide-react'
 import { Topbar } from '@/components/layout/Topbar'
 import { PageHeader } from '@/components/ui/page-header'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
@@ -8,6 +8,41 @@ import { EmailLink } from '@/components/ui/contact-link'
 import { useAuth } from '@/lib/auth'
 import { useMonProfil, useCurrentAccess, useUploadMaPhoto } from '@/lib/data/roles'
 import { useGmailConnection, useDisconnectGmail, connectGmail } from '@/lib/data/gmail'
+import { useTheme } from '@/lib/theme'
+import { cn } from '@/lib/utils'
+
+function AppearanceCard() {
+  const { theme, toggleTheme } = useTheme()
+  const isDark = theme === 'dark'
+
+  return (
+    <Card className="max-w-2xl">
+      <CardHeader>
+        <CardTitle className="flex items-center gap-2">
+          {isDark ? <Moon className="h-5 w-5 text-kiwi-600" /> : <Sun className="h-5 w-5 text-kiwi-600" />}
+          Apparence
+        </CardTitle>
+      </CardHeader>
+      <CardContent>
+        <div className="flex items-center justify-between">
+          <div>
+            <p className="text-sm font-medium text-navy-800">Mode sombre</p>
+            <p className="text-xs text-navy-400">{isDark ? 'Activé' : 'Désactivé'}</p>
+          </div>
+          <button
+            type="button"
+            role="switch"
+            aria-checked={isDark}
+            onClick={toggleTheme}
+            className={cn('relative h-6 w-11 shrink-0 rounded-full transition-colors', isDark ? 'bg-kiwi-600' : 'bg-navy-200')}
+          >
+            <span className={cn('absolute top-0.5 h-5 w-5 rounded-full bg-white shadow transition-transform', isDark ? 'translate-x-5' : 'translate-x-0.5')} />
+          </button>
+        </div>
+      </CardContent>
+    </Card>
+  )
+}
 
 function GmailCard() {
   const { data: connection, isLoading } = useGmailConnection()
@@ -150,6 +185,8 @@ export default function MonProfil() {
             </div>
           </CardContent>
         </Card>
+
+        <AppearanceCard />
 
         {!demoMode && (
           <Card className="max-w-2xl">
