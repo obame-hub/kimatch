@@ -7,6 +7,7 @@ import { useSidebar } from '@/lib/layout'
 import { useIsAdmin, useMonProfil } from '@/lib/data/roles'
 import { useAuth } from '@/lib/auth'
 import { navItems, bottomNavItems } from '@/lib/navItems'
+import { getImpersonationInfo } from '@/lib/data/impersonation'
 
 interface NavItemDef {
   to: string
@@ -67,6 +68,7 @@ export function Sidebar() {
   const initiales = profil
     ? `${profil.prenom[0] ?? ''}${profil.nom[0] ?? ''}`.toUpperCase()
     : (session?.user.email ?? 'KW').slice(0, 2).toUpperCase()
+  const impersonating = Boolean(getImpersonationInfo())
 
   return (
     <>
@@ -79,7 +81,8 @@ export function Sidebar() {
       )}
       <aside
         className={cn(
-          'fixed inset-y-0 left-0 z-50 flex flex-col overflow-hidden border-r border-ink-800 bg-ink-950 transition-transform duration-200 ease-out',
+          'fixed left-0 z-50 flex flex-col overflow-hidden border-r border-ink-800 bg-ink-950 transition-transform duration-200 ease-out',
+          impersonating ? 'top-7 bottom-0' : 'inset-y-0',
           'w-64 md:w-14 md:overflow-visible',
           open ? 'translate-x-0' : '-translate-x-full md:translate-x-0',
         )}

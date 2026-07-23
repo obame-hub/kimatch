@@ -1,5 +1,5 @@
 import { Fragment, useState } from 'react'
-import { ShieldCheck, Users, Mail, Trash2, Plus } from 'lucide-react'
+import { ShieldCheck, Users, Mail, Trash2, Plus, UserCog } from 'lucide-react'
 import { Topbar } from '@/components/layout/Topbar'
 import { PageHeader } from '@/components/ui/page-header'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
@@ -8,6 +8,8 @@ import { Input, Select } from '@/components/ui/form'
 import { Badge } from '@/components/ui/badge'
 import { EmailLink } from '@/components/ui/contact-link'
 import { cn } from '@/lib/utils'
+import { useAuth } from '@/lib/auth'
+import { useImpersonateProfil } from '@/lib/data/impersonation'
 import {
   useProfilsAdmin,
   useRolesAcces,
@@ -30,17 +32,30 @@ import {
 type Tab = 'utilisateurs' | 'permissions' | 'acces'
 
 function UtilisateursTab() {
+  const { session } = useAuth()
   const { data: profils, isLoading } = useProfilsAdmin()
   const { data: roles } = useRolesAcces()
   const { data: postes } = usePostes()
   const assignRole = useAssignRoleAcces()
   const assignPoste = useAssignPoste()
+  const impersonate = useImpersonateProfil()
+  const [feedback, setFeedback] = useState<string | null>(null)
 
   if (isLoading) return <p className="text-sm text-navy-400">Chargement…</p>
   if (!profils || profils.length === 0) return <p className="text-sm text-navy-400">Aucun utilisateur.</p>
 
+  async function handleImpersonate(profilId: string, nom: string) {
+    setFeedback(null)
+    try {
+      await impersonate.mutateAsync({ profilId, nom })
+    } catch (err) {
+      setFeedback(err instanceof Error ? err.message : 'Erreur inconnue')
+    }
+  }
+
   return (
     <div className="overflow-x-auto">
+      {feedback && <p className="mb-2 text-xs text-red-600">{feedback}</p>}
       <table className="w-full text-sm">
         <thead>
           <tr className="border-b border-navy-100 text-left text-xs uppercase tracking-wide text-navy-400">
@@ -49,6 +64,7 @@ function UtilisateursTab() {
             <th className="py-2 pr-4">Poste</th>
             <th className="py-2 pr-4">Rôle d'accès</th>
             <th className="py-2 pr-4">Statut</th>
+            <th className="py-2 pr-4"></th>
           </tr>
         </thead>
         <tbody>
@@ -88,6 +104,19 @@ function UtilisateursTab() {
               </td>
               <td className="py-2 pr-4">
                 <Badge tone={p.actif ? 'kiwi' : 'neutral'}>{p.actif ? 'Actif' : 'Inactif'}</Badge>
+              </td>
+              <td className="py-2 pr-4">
+                {p.id !== session?.user.id && (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    disabled={impersonate.isPending}
+                    onClick={() => handleImpersonate(p.id, `${p.prenom} ${p.nom}`)}
+                  >
+                    <UserCog className="h-3.5 w-3.5" />
+                    Se connecter en tant que
+                  </Button>
+                )}
               </td>
             </tr>
           ))}
