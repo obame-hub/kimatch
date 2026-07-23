@@ -613,7 +613,7 @@ export default function SiteDetail() {
           <div className="flex items-center gap-2 px-3.5 py-3">
             <span className="text-[10px] font-bold uppercase tracking-wide text-navy-400">Activité</span>
           </div>
-          <div className="flex-1 overflow-y-auto px-3.5 pb-3.5">
+          <div className="flex-1 overflow-hidden px-3.5 pb-3.5">
             <ActivityFeed
               siteId={site.id}
               siteNom={site.nom}

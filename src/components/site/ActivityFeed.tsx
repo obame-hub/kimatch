@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { Phone, Mail, Users, Radio, CheckSquare, FileText, Send } from 'lucide-react'
 import { Textarea } from '@/components/ui/form'
@@ -7,6 +7,7 @@ import { ActivityCard, type ActivityStyleKey } from '@/components/ui/activity-ca
 import { useCreateInteraction } from '@/lib/data/interactions'
 import { useReferenceTable } from '@/lib/data/referenceTables'
 import { FALLBACK_TYPES_INTERACTIONS } from '@/lib/referenceFallbacks'
+import { cn } from '@/lib/utils'
 import type { Signal, Interaction, ActionItem, DocumentItem } from '@/types/domain'
 
 interface ActivityItem {
@@ -17,6 +18,8 @@ interface ActivityItem {
   subtitle: string
   to?: string
   href?: string
+  siteNom?: string
+  contactNom?: string
 }
 
 function fromSignaux(signaux: Signal[]): ActivityItem[] {
@@ -26,6 +29,7 @@ function fromSignaux(signaux: Signal[]): ActivityItem[] {
     kind: 'signal',
     title: s.type_signal,
     subtitle: s.description || s.statut,
+    siteNom: s.site_nom,
   }))
 }
 
@@ -37,16 +41,19 @@ function fromInteractions(interactions: Interaction[]): ActivityItem[] {
     title: i.objet || i.type_interaction,
     subtitle: [i.auteur, i.resume].filter(Boolean).join(' — '),
     to: `/interactions/${i.id}`,
+    siteNom: i.site_nom || undefined,
+    contactNom: i.contact_nom || undefined,
   }))
 }
 
 function fromActions(actions: ActionItem[]): ActivityItem[] {
   const items: ActivityItem[] = []
   for (const a of actions) {
+    const tag = { contactNom: a.contact_nom || undefined }
     if (a.date_realisation) {
-      items.push({ id: `act-done-${a.id}`, date: a.date_realisation, kind: 'action', title: `Terminée : ${a.titre}`, subtitle: a.type_action, to: '/taches' })
+      items.push({ id: `act-done-${a.id}`, date: a.date_realisation, kind: 'action', title: `Terminée : ${a.titre}`, subtitle: a.type_action, to: '/taches', ...tag })
     } else if (a.echeance) {
-      items.push({ id: `act-${a.id}`, date: a.echeance, kind: 'action', title: a.titre, subtitle: `À faire · ${a.type_action}`, to: '/taches' })
+      items.push({ id: `act-${a.id}`, date: a.echeance, kind: 'action', title: a.titre, subtitle: `À faire · ${a.type_action}`, to: '/taches', ...tag })
     }
   }
   return items
@@ -90,6 +97,18 @@ function interactionIcon(titre: string) {
   return Mail
 }
 
+// Regroupe par date relative comme chez William : Demain / Aujourd'hui / Hier, puis dates absolues.
+function relativeGroupLabel(dateStr: string): string {
+  const d = new Date(dateStr)
+  const startOfDay = (dt: Date) => new Date(dt.getFullYear(), dt.getMonth(), dt.getDate()).getTime()
+  const diffDays = Math.round((startOfDay(d) - startOfDay(new Date())) / 86400000)
+  if (diffDays === 0) return "Aujourd'hui"
+  if (diffDays === 1) return 'Demain'
+  if (diffDays === -1) return 'Hier'
+  if (diffDays > 1 && diffDays <= 6) return d.toLocaleDateString('fr-FR', { weekday: 'long' })
+  return d.toLocaleDateString('fr-FR')
+}
+
 export function ActivityFeed({
   siteId,
   siteNom,
@@ -99,6 +118,7 @@ export function ActivityFeed({
   interactions,
   actions,
   documents,
+  filterDimension,
 }: {
   siteId?: string | null
   siteNom?: string
@@ -108,6 +128,8 @@ export function ActivityFeed({
   interactions: Interaction[]
   actions: ActionItem[]
   documents: DocumentItem[]
+  /** Active le sélecteur "Par site / Par contact" (fiche Compte). Sans ce prop, seuls les chips "Par contact" apparaissent si des contacts sont taggés. */
+  filterDimension?: 'site'
 }) {
   const navigate = useNavigate()
   const createInteraction = useCreateInteraction()
@@ -115,13 +137,43 @@ export function ActivityFeed({
   const types = typesRef && typesRef.length > 0 ? typesRef : FALLBACK_TYPES_INTERACTIONS
   const [note, setNote] = useState('')
   const [feedback, setFeedback] = useState<string | null>(null)
+  const [mode, setMode] = useState<'site' | 'contact'>('site')
+  const [filterValue, setFilterValue] = useState<string | null>(null)
 
-  const items = [
-    ...fromSignaux(signaux),
-    ...fromInteractions(interactions),
-    ...fromActions(actions),
-    ...fromDocuments(documents),
-  ].sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
+  const items = useMemo(
+    () =>
+      [
+        ...fromSignaux(signaux),
+        ...fromInteractions(interactions),
+        ...fromActions(actions),
+        ...fromDocuments(documents),
+      ].sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()),
+    [signaux, interactions, actions, documents],
+  )
+
+  const activeDimension = filterDimension === 'site' ? mode : 'contact'
+  const chipOptions = useMemo(() => {
+    const key = activeDimension === 'site' ? 'siteNom' : 'contactNom'
+    const values = new Set<string>()
+    items.forEach((i) => { const v = i[key]; if (v) values.add(v) })
+    return [...values]
+  }, [items, activeDimension])
+
+  const filteredItems = filterValue
+    ? items.filter((i) => (activeDimension === 'site' ? i.siteNom : i.contactNom) === filterValue)
+    : items
+
+  // Insère un en-tête à chaque changement de libellé de date relative (les items sont déjà triés du plus récent au plus ancien).
+  const rows: Array<{ type: 'header'; label: string } | { type: 'item'; item: ActivityItem }> = []
+  let lastLabel: string | null = null
+  for (const item of filteredItems) {
+    const label = relativeGroupLabel(item.date)
+    if (label !== lastLabel) {
+      rows.push({ type: 'header', label })
+      lastLabel = label
+    }
+    rows.push({ type: 'item', item })
+  }
 
   async function envoyerNote(e: React.FormEvent) {
     e.preventDefault()
@@ -149,13 +201,82 @@ export function ActivityFeed({
   }
 
   return (
-    <div className="space-y-3">
-      <form onSubmit={envoyerNote} className="flex items-start gap-2">
+    <div className="flex h-full flex-col gap-2.5">
+      {filterDimension === 'site' && (
+        <div className="flex gap-0.5 rounded-lg bg-navy-100 p-0.5">
+          {(['site', 'contact'] as const).map((m) => (
+            <button
+              key={m}
+              type="button"
+              onClick={() => { setMode(m); setFilterValue(null) }}
+              className={cn(
+                'flex-1 rounded-md px-2 py-1 text-[11px] font-semibold transition-colors',
+                mode === m ? 'bg-white text-navy-800 shadow-sm' : 'text-navy-500 hover:text-navy-700',
+              )}
+            >
+              {m === 'site' ? 'Par site' : 'Par contact'}
+            </button>
+          ))}
+        </div>
+      )}
+
+      {chipOptions.length > 0 && (
+        <div className="flex flex-wrap gap-1.5">
+          <button
+            type="button"
+            onClick={() => setFilterValue(null)}
+            className={cn(
+              'rounded-full px-2.5 py-1 text-[10.5px] font-semibold',
+              filterValue === null ? 'bg-navy-800 text-white' : 'bg-navy-100 text-navy-600 hover:bg-navy-200',
+            )}
+          >
+            Tous
+          </button>
+          {chipOptions.map((v) => (
+            <button
+              key={v}
+              type="button"
+              onClick={() => setFilterValue(v)}
+              className={cn(
+                'rounded-full px-2.5 py-1 text-[10.5px] font-semibold',
+                filterValue === v ? 'bg-navy-800 text-white' : 'bg-navy-100 text-navy-600 hover:bg-navy-200',
+              )}
+            >
+              {v}
+            </button>
+          ))}
+        </div>
+      )}
+
+      <div className="flex-1 space-y-1.5 overflow-y-auto pr-1">
+        {rows.length === 0 && <p className="text-sm text-navy-400">Aucune activité pour le moment.</p>}
+        {rows.map((row, idx) =>
+          row.type === 'header' ? (
+            <div key={`h-${idx}`} className="flex items-center gap-2 pt-2 first:pt-0">
+              <span className="text-[10px] font-bold uppercase tracking-wide text-navy-400">{row.label}</span>
+              <div className="h-px flex-1 bg-navy-100" />
+            </div>
+          ) : (
+            <ActivityCard
+              key={row.item.id}
+              styleKey={styleKeyFor(row.item)}
+              icon={row.item.kind === 'interaction' ? interactionIcon(row.item.title) : KIND_ICON[row.item.kind]}
+              title={row.item.title}
+              subtitle={row.item.subtitle}
+              trailing={new Date(row.item.date).toLocaleDateString('fr-FR')}
+              onClick={row.item.to ? () => navigate(row.item.to!) : undefined}
+              href={row.item.href}
+            />
+          ),
+        )}
+      </div>
+
+      <form onSubmit={envoyerNote} className="flex items-start gap-2 border-t border-navy-100 pt-2.5">
         <Textarea
           rows={2}
           value={note}
           onChange={(e) => setNote(e.target.value)}
-          placeholder="Ajouter une note rapide…"
+          placeholder="Écrire une note… (Entrée ↵)"
           className="flex-1"
         />
         <Button type="submit" size="sm" disabled={createInteraction.isPending || !note.trim()}>
@@ -163,22 +284,6 @@ export function ActivityFeed({
         </Button>
       </form>
       {feedback && <p className="text-xs text-navy-500">{feedback}</p>}
-
-      <div className="max-h-[420px] space-y-2 overflow-y-auto pr-1">
-        {items.length === 0 && <p className="text-sm text-navy-400">Aucune activité pour le moment.</p>}
-        {items.map((item) => (
-          <ActivityCard
-            key={item.id}
-            styleKey={styleKeyFor(item)}
-            icon={item.kind === 'interaction' ? interactionIcon(item.title) : KIND_ICON[item.kind]}
-            title={item.title}
-            subtitle={item.subtitle}
-            trailing={new Date(item.date).toLocaleDateString('fr-FR')}
-            onClick={item.to ? () => navigate(item.to!) : undefined}
-            href={item.href}
-          />
-        ))}
-      </div>
     </div>
   )
 }

@@ -18,6 +18,7 @@ import {
   FileText,
   Sparkle,
   Radio,
+  UploadCloud,
 } from 'lucide-react'
 import { Topbar } from '@/components/layout/Topbar'
 import { Button } from '@/components/ui/button'
@@ -114,6 +115,7 @@ export default function CompteDetail() {
   const [editOpen, setEditOpen] = useState(false)
   const [confirmDelete, setConfirmDelete] = useState(false)
   const [addFichierOpen, setAddFichierOpen] = useState(false)
+  const [ficCategorie, setFicCategorie] = useState<string | null>(null)
 
   function showToast(msg: string) {
     setToast(msg)
@@ -138,6 +140,8 @@ export default function CompteDetail() {
   )
   const actionsDuCompte = useMemo(() => actions?.filter((a) => siteIdsDuCompte.has(a.site_id ?? '')) ?? [], [actions, siteIdsDuCompte])
   const documentsDuCompte = useMemo(() => documents?.filter((d) => d.entite_type === 'compte' && d.entite_id === id) ?? [], [documents, id])
+  const categoriesFichiers = useMemo(() => [...new Set(documentsDuCompte.map((d) => d.type_document).filter(Boolean))], [documentsDuCompte])
+  const documentsFiltresParCategorie = ficCategorie ? documentsDuCompte.filter((d) => d.type_document === ficCategorie) : documentsDuCompte
 
   const contactPrincipal = contactsDuCompte.find((c) => c.contact_principal) ?? contactsDuCompte[0]
 
@@ -289,6 +293,7 @@ export default function CompteDetail() {
         {/* Colonne gauche — Contacts (desktop uniquement) */}
         <div className="hidden flex-col gap-3.5 overflow-y-auto border-r border-navy-100 bg-navy-50/60 p-3.5 lg:flex">
           <ContactsPanel contacts={contactsDuCompte} />
+          <CommentaireCard compte={compte} />
         </div>
 
         {/* Centre — contenu de l'onglet */}
@@ -567,17 +572,44 @@ export default function CompteDetail() {
 
           {tab === 'fichiers' && (
             <div className="flex flex-col gap-3.5">
-              <div className="flex items-center justify-end">
+              <div className="flex flex-wrap items-center gap-1.5">
+                <button
+                  type="button"
+                  onClick={() => setFicCategorie(null)}
+                  className={cn('rounded-full px-2.5 py-1 text-[11px] font-semibold', ficCategorie === null ? 'bg-navy-800 text-white' : 'bg-navy-100 text-navy-600 hover:bg-navy-200')}
+                >
+                  Tous
+                </button>
+                {categoriesFichiers.map((cat) => (
+                  <button
+                    key={cat}
+                    type="button"
+                    onClick={() => setFicCategorie(cat)}
+                    className={cn('rounded-full px-2.5 py-1 text-[11px] font-semibold', ficCategorie === cat ? 'bg-navy-800 text-white' : 'bg-navy-100 text-navy-600 hover:bg-navy-200')}
+                  >
+                    {cat}
+                  </button>
+                ))}
+                <div className="flex-1" />
                 <Button size="sm" onClick={() => setAddFichierOpen(true)}>
                   <Plus className="h-3.5 w-3.5" />
                   Ajouter un fichier
                 </Button>
               </div>
-              {documentsDuCompte.length === 0 ? (
-                <p className="text-sm text-navy-400">Aucun fichier pour ce compte.</p>
+              <button
+                type="button"
+                onClick={() => setAddFichierOpen(true)}
+                className="flex flex-col items-center gap-1.5 rounded-xl border-2 border-dashed border-navy-200 bg-white py-6 text-navy-400 hover:border-kiwi-300 hover:text-kiwi-600"
+              >
+                <UploadCloud className="h-[18px] w-[18px]" />
+                <span className="text-xs font-bold text-navy-700">Glissez-déposez vos fichiers ici</span>
+                <span className="text-[10.5px]">PDF, images, emails — catégorisés ensuite en un clic</span>
+              </button>
+              {documentsFiltresParCategorie.length === 0 ? (
+                <p className="text-sm text-navy-400">{ficCategorie ? 'Aucun fichier dans cette catégorie.' : 'Aucun fichier pour ce compte.'}</p>
               ) : (
                 <div className="overflow-hidden rounded-xl border border-navy-100 bg-white">
-                  {documentsDuCompte.map((d) => (
+                  {documentsFiltresParCategorie.map((d) => (
                     <div
                       key={d.id}
                       onClick={() => navigate(`/documents/${d.id}`)}
@@ -634,6 +666,7 @@ export default function CompteDetail() {
               interactions={interactionsDuCompte}
               actions={actionsDuCompte}
               documents={documentsDuCompte}
+              filterDimension="site"
             />
           )}
         </div>
@@ -641,9 +674,9 @@ export default function CompteDetail() {
         {/* Colonne droite — Activité persistante (desktop uniquement) */}
         <div className="hidden flex-col border-l border-navy-100 bg-white lg:flex">
           <div className="flex items-center gap-2 px-3.5 py-3">
-            <span className="text-[10px] font-bold uppercase tracking-wide text-navy-400">Activité</span>
+            <span className="text-[10px] font-bold uppercase tracking-wide text-navy-400">Activité · portefeuille</span>
           </div>
-          <div className="flex-1 overflow-y-auto px-3.5 pb-3.5">
+          <div className="flex-1 overflow-hidden px-3.5 pb-3.5">
             <ActivityFeed
               compteId={compte.id}
               compteNom={compte.nom}
@@ -651,6 +684,7 @@ export default function CompteDetail() {
               interactions={interactionsDuCompte}
               actions={actionsDuCompte}
               documents={documentsDuCompte}
+              filterDimension="site"
             />
           </div>
         </div>
@@ -714,6 +748,8 @@ function InfoField({ label, value, onCopy }: { label: string; value: string; onC
 
 function ContactsPanel({ contacts }: { contacts: Contact[] }) {
   const navigate = useNavigate()
+  const [expanded, setExpanded] = useState(false)
+  const visibles = expanded ? contacts : contacts.slice(0, 3)
   return (
     <div className="rounded-xl border border-navy-100 bg-white p-3.5">
       <div className="mb-2.5 flex items-center gap-1.5">
@@ -724,7 +760,7 @@ function ContactsPanel({ contacts }: { contacts: Contact[] }) {
       </div>
       {contacts.length === 0 && <p className="text-xs text-navy-400">Aucun contact enregistré pour ce compte.</p>}
       <div className="flex flex-col gap-3">
-        {contacts.map((c) => {
+        {visibles.map((c) => {
           const initiales = `${c.prenom[0] ?? ''}${c.nom[0] ?? ''}`.toUpperCase()
           return (
             <div key={c.id}>
@@ -752,6 +788,95 @@ function ContactsPanel({ contacts }: { contacts: Contact[] }) {
           )
         })}
       </div>
+      {contacts.length > 3 && (
+        <button type="button" onClick={() => setExpanded((v) => !v)} className="mt-2.5 block text-[10.5px] font-semibold text-violet-600 hover:underline">
+          {expanded ? '← Réduire' : `Voir les ${contacts.length} contacts →`}
+        </button>
+      )}
+    </div>
+  )
+}
+
+function CommentaireCard({ compte }: { compte: Compte }) {
+  const updateClient = useUpdateCompteClient()
+  const updateFournisseur = useUpdateCompteFournisseur()
+  const updatePartenaire = useUpdateComptePartenaire()
+  const isKiwee = compte.type_compte === 'kiwee'
+  const initialValue = isKiwee ? '' : compte.type_compte === 'client' ? (compte.note_interne ?? '') : (compte.commentaire_partenariat ?? '')
+
+  const [editing, setEditing] = useState(false)
+  const [draft, setDraft] = useState(initialValue)
+  const pending = updateClient.isPending || updateFournisseur.isPending || updatePartenaire.isPending
+
+  async function save() {
+    if (compte.type_compte === 'client') {
+      await updateClient.mutateAsync({
+        compteId: compte.id,
+        segment_compte_id: compte.segment_compte_id ?? null,
+        segment_compte_libelle: compte.segment_compte_libelle ?? null,
+        conseiller_referent_id: compte.conseiller_referent_id ?? null,
+        conseiller_referent_nom: compte.conseiller_referent_nom ?? null,
+        origine_acquisition: compte.origine_acquisition ?? null,
+        mandat_cadre_actif: compte.mandat_cadre_actif ?? false,
+        note_interne: draft || null,
+      })
+    } else if (compte.type_compte === 'fournisseur') {
+      await updateFournisseur.mutateAsync({
+        compteId: compte.id,
+        fournit_electricite: compte.fournit_electricite ?? false,
+        fournit_gaz: compte.fournit_gaz ?? false,
+        contact_commercial_id: compte.contact_commercial_id ?? null,
+        contact_commercial_nom: compte.contact_commercial_nom ?? null,
+        statut_partenariat: compte.statut_partenariat ?? 'À qualifier',
+        conditions_commerciales: compte.conditions_commerciales ?? null,
+        commentaire_partenariat: draft || null,
+      })
+    } else if (compte.type_compte === 'partenaire') {
+      await updatePartenaire.mutateAsync({
+        compteId: compte.id,
+        type_partenariat: compte.type_partenariat ?? null,
+        modele_remuneration: compte.modele_remuneration ?? null,
+        contact_referent_id: compte.contact_referent_id ?? null,
+        contact_referent_nom: compte.contact_referent_nom ?? null,
+        statut_partenariat: compte.statut_partenariat ?? 'À qualifier',
+        date_debut_partenariat: compte.date_debut_partenariat ?? null,
+        commentaire_partenariat: draft || null,
+      })
+    }
+    setEditing(false)
+  }
+
+  if (isKiwee) return null
+
+  return (
+    <div className="rounded-xl border border-navy-100 bg-white p-3.5">
+      <div className="mb-2 flex items-center gap-1.5">
+        <span className="text-[10px] font-bold uppercase tracking-wide text-navy-400">Commentaire</span>
+        <div className="flex-1" />
+        {!editing && (
+          <button type="button" onClick={() => { setDraft(initialValue); setEditing(true) }} title="Modifier" className="rounded p-0.5 text-navy-300 hover:bg-navy-100 hover:text-navy-700">
+            <Pencil className="h-3 w-3" />
+          </button>
+        )}
+      </div>
+      {editing ? (
+        <Textarea
+          rows={6}
+          autoFocus
+          value={draft}
+          onChange={(e) => setDraft(e.target.value)}
+          onBlur={save}
+          disabled={pending}
+          className="text-[11.5px]"
+        />
+      ) : (
+        <p
+          onClick={() => { setDraft(initialValue); setEditing(true) }}
+          className="cursor-pointer whitespace-pre-wrap rounded-lg p-1 text-[11.5px] leading-relaxed text-navy-700 hover:bg-navy-50"
+        >
+          {initialValue || <span className="text-navy-300">Cliquer pour ajouter un commentaire…</span>}
+        </p>
+      )}
     </div>
   )
 }
