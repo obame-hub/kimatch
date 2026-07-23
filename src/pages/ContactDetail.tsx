@@ -11,8 +11,11 @@ import { Dialog } from '@/components/ui/dialog'
 import { FormField, Input, Select } from '@/components/ui/form'
 import { HistoriqueDiscret } from '@/components/ui/historique-discret'
 import { useContacts, useUpdateContact, useDeleteContact } from '@/lib/data/contacts'
+import { useActions } from '@/lib/data/actions'
 import { useCanManage, useIsAdmin, useProfilsAdmin } from '@/lib/data/roles'
 import { useGoBack } from '@/lib/useGoBack'
+import { useReferenceTable } from '@/lib/data/referenceTables'
+import { FALLBACK_STATUTS_ACTIONS, STATUT_ACTION_TONE } from '@/lib/referenceFallbacks'
 import type { Contact } from '@/types/domain'
 
 const CIVILITE_OPTIONS = ['M.', 'Mme', 'Autre']
@@ -21,7 +24,11 @@ export default function ContactDetail() {
   const { id } = useParams()
   const navigate = useNavigate()
   const { data: contacts } = useContacts()
+  const { data: actions } = useActions()
+  const { data: statutsRef } = useReferenceTable('statuts_actions')
+  const statuts = statutsRef && statutsRef.length > 0 ? statutsRef : FALLBACK_STATUTS_ACTIONS
   const contact = contacts?.find((c) => c.id === id)
+  const tachesDuContact = (actions ?? []).filter((a) => a.contact_id === id)
   const deleteContact = useDeleteContact()
   const goBack = useGoBack('/contacts')
 
@@ -90,6 +97,23 @@ export default function ContactDetail() {
                         <EntityLink to={`/sites/${s.id}`}>{s.nom}</EntityLink>
                         {s.fonction_sur_site && <span className="text-navy-400"> — {s.fonction_sur_site}</span>}
                       </p>
+                    ))}
+                  </div>
+                </div>
+              )}
+              {tachesDuContact.length > 0 && (
+                <div>
+                  <span className="text-navy-400">Tâches :</span>
+                  <div className="mt-1.5 space-y-1.5">
+                    {tachesDuContact.map((t) => (
+                      <div
+                        key={t.id}
+                        onClick={() => navigate(`/taches/${t.id}`)}
+                        className="flex cursor-pointer items-center justify-between gap-2 rounded-md border border-navy-100 px-2.5 py-1.5 hover:bg-navy-50"
+                      >
+                        <span className="truncate text-navy-700">{t.titre}</span>
+                        <Badge tone={STATUT_ACTION_TONE[t.statut] ?? 'neutral'}>{statuts.find((s) => s.code === t.statut)?.libelle ?? t.statut}</Badge>
+                      </div>
                     ))}
                   </div>
                 </div>

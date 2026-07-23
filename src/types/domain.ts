@@ -107,6 +107,7 @@ export interface ActionItem {
   statut: string
   priorite: number
   responsable: string
+  responsable_id: string | null
   date_creation: string
   echeance: string
   date_realisation: string | null

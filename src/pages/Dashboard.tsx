@@ -1,13 +1,20 @@
 import { useNavigate } from 'react-router-dom'
-import { Radio, ListChecks, FileText, MapPin } from 'lucide-react'
+import { Radio, ListChecks, FileText, MapPin, Check } from 'lucide-react'
 import { Topbar } from '@/components/layout/Topbar'
 import { StatCard } from '@/components/ui/stat-card'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
+import { EntityLink } from '@/components/ui/entity-link'
 import { useDashboardStats } from '@/lib/data/dashboard'
+import { useActions, useCompleteAction } from '@/lib/data/actions'
+import { useMonProfil } from '@/lib/data/roles'
 import { useReferenceTable } from '@/lib/data/referenceTables'
 import { FALLBACK_STATUTS_SIGNAUX, FALLBACK_STATUTS_ACTIONS, STATUT_ACTION_TONE } from '@/lib/referenceFallbacks'
 import { SignalTypeChart } from '@/components/charts/SignalTypeChart'
+
+function todayIso() {
+  return new Date().toISOString().slice(0, 10)
+}
 
 const SIGNAL_TONE: Record<string, 'neutral' | 'amber' | 'kiwi' | 'blue'> = {
   NOUVEAU: 'neutral',
@@ -27,6 +34,13 @@ export default function Dashboard() {
   const { data: statutsActionsRef } = useReferenceTable('statuts_actions')
   const statutsSignaux = statutsSignauxRef && statutsSignauxRef.length > 0 ? statutsSignauxRef : FALLBACK_STATUTS_SIGNAUX
   const statutsActions = statutsActionsRef && statutsActionsRef.length > 0 ? statutsActionsRef : FALLBACK_STATUTS_ACTIONS
+  const { data: monProfil } = useMonProfil()
+  const { data: actions } = useActions()
+  const completeAction = useCompleteAction()
+  const today = todayIso()
+  const mesTachesDuJour = (actions ?? [])
+    .filter((a) => a.responsable_id === monProfil?.id && a.statut !== 'TERMINEE' && a.statut !== 'ANNULEE' && a.echeance && a.echeance.slice(0, 10) <= today)
+    .sort((a, b) => a.echeance.localeCompare(b.echeance))
 
   return (
     <div>
@@ -41,6 +55,42 @@ export default function Dashboard() {
             </p>
           </div>
         </div>
+
+        {mesTachesDuJour.length > 0 && (
+          <Card className="mb-6 animate-fade-up">
+            <CardHeader>
+              <CardTitle className="font-display text-base">Mes tâches du jour</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-2">
+              {mesTachesDuJour.map((tache) => (
+                <div
+                  key={tache.id}
+                  onClick={() => navigate(`/taches/${tache.id}`)}
+                  className="flex cursor-pointer items-center gap-3 rounded-lg border border-navy-100 p-3 transition-colors hover:bg-navy-50"
+                >
+                  <button
+                    type="button"
+                    onClick={(e) => { e.stopPropagation(); completeAction.mutate(tache.id) }}
+                    className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full border border-navy-300 text-navy-400 transition-colors hover:border-kiwi-500 hover:text-kiwi-600"
+                    title="Marquer terminée"
+                  >
+                    <Check className="h-3.5 w-3.5" />
+                  </button>
+                  <div className="min-w-0 flex-1">
+                    <p className="truncate text-sm font-medium text-navy-800">{tache.titre}</p>
+                    <p className="truncate text-xs text-navy-500">
+                      {tache.type_action}
+                      {tache.site_id && <> · <EntityLink to={`/sites/${tache.site_id}`}>{tache.cible_label}</EntityLink></>}
+                    </p>
+                  </div>
+                  <span className="shrink-0 text-xs text-navy-400">
+                    {tache.echeance.slice(0, 10) < today ? 'En retard' : "Aujourd'hui"}
+                  </span>
+                </div>
+              ))}
+            </CardContent>
+          </Card>
+        )}
 
         <div className="mb-6 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
           <StatCard label="Signaux ouverts" value={data?.signauxOuverts ?? 0} icon={Radio} tone="amber" />

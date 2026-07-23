@@ -16,6 +16,7 @@ interface RawAction {
   priorite: number
   commentaire: string | null
   proprietaire_id: string | null
+  responsable_profil_id: string | null
   type_action: { libelle: string } | null
   statut: { code: string } | null
   responsable: { prenom: string; nom: string } | null
@@ -30,7 +31,7 @@ async function fetchActions(): Promise<ActionItem[]> {
     const { data, error } = await supabase
       .from('actions')
       .select(
-        'id, titre, site_id, contact_id, recommandation_id, date_creation, date_prevue, date_realisation, priorite, commentaire, proprietaire_id, type_action:types_actions(libelle), statut:statuts_actions(code), responsable:profils(prenom, nom), site:sites(nom), contact:contacts(prenom, nom), recommandation:recommandations(titre)',
+        'id, titre, site_id, contact_id, recommandation_id, date_creation, date_prevue, date_realisation, priorite, commentaire, proprietaire_id, responsable_profil_id, type_action:types_actions(libelle), statut:statuts_actions(code), responsable:profils(prenom, nom), site:sites(nom), contact:contacts(prenom, nom), recommandation:recommandations(titre)',
       )
       .order('date_prevue')
     if (error) throw error
@@ -42,6 +43,7 @@ async function fetchActions(): Promise<ActionItem[]> {
       statut: a.statut?.code ?? '',
       priorite: a.priorite,
       responsable: a.responsable ? `${a.responsable.prenom} ${a.responsable.nom}` : '',
+      responsable_id: a.responsable_profil_id,
       date_creation: a.date_creation,
       echeance: a.date_prevue ?? '',
       date_realisation: a.date_realisation,
@@ -96,6 +98,7 @@ export function useCreateAction() {
         statut: 'A_FAIRE',
         priorite: input.priorite,
         responsable: '',
+        responsable_id: null,
         date_creation: new Date().toISOString(),
         echeance: input.echeance ?? '',
         date_realisation: null,
