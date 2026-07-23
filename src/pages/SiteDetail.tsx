@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
-import { ArrowLeft, Phone, StickyNote, Plus, Building2, Users, Copy, Zap, Flame, CalendarClock, Sparkle, Pencil, Trash2, FileCheck2 } from 'lucide-react'
+import { ArrowLeft, Phone, StickyNote, Plus, Building2, Users, Copy, Zap, Flame, CalendarClock, Sparkle, Pencil, Trash2, FileCheck2, FileText } from 'lucide-react'
 import { Topbar } from '@/components/layout/Topbar'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
@@ -20,6 +20,7 @@ import {
   FALLBACK_STATUTS_VERSIONS,
   FALLBACK_ETAPES_RECOMMANDATION,
   ETAPE_TONE,
+  FALLBACK_TYPES_DOCUMENTS,
 } from '@/lib/referenceFallbacks'
 import { useCanManage, useIsAdmin, useProfilsAdmin } from '@/lib/data/roles'
 import { useSignaux } from '@/lib/data/signaux'
@@ -30,7 +31,8 @@ import { useInteractions } from '@/lib/data/interactions'
 import { useContacts } from '@/lib/data/contacts'
 import { useMandats } from '@/lib/data/mandats'
 import { useActions, useCreateAction } from '@/lib/data/actions'
-import { useDocuments } from '@/lib/data/documents'
+import { useDocuments, useCreateDocument } from '@/lib/data/documents'
+import { useHistorique } from '@/lib/data/historique'
 import { useComptes } from '@/lib/data/comptes'
 import { EnergyTimeline } from '@/components/site/EnergyTimeline'
 import { CoverageMatrix } from '@/components/site/CoverageMatrix'
@@ -40,7 +42,7 @@ import { cn } from '@/lib/utils'
 import { useGoBack } from '@/lib/useGoBack'
 import type { Compte, Contact, Site } from '@/types/domain'
 
-type TabKey = 'synthese' | 'contrats' | 'compteurs' | 'recommandations' | 'signaux' | 'mandats' | 'activite'
+type TabKey = 'synthese' | 'contrats' | 'compteurs' | 'recommandations' | 'signaux' | 'mandats' | 'fichiers' | 'historique' | 'activite'
 
 function copyToClipboard(text: string, onDone: (msg: string) => void) {
   if (!text) return
@@ -78,6 +80,7 @@ export default function SiteDetail() {
   const [sheetOpen, setSheetOpen] = useState(false)
   const [editOpen, setEditOpen] = useState(false)
   const [confirmDelete, setConfirmDelete] = useState(false)
+  const [addFichierOpen, setAddFichierOpen] = useState(false)
 
   function showToast(msg: string) {
     setToast(msg)
@@ -115,6 +118,8 @@ export default function SiteDetail() {
     compteurs: compteursDuSite,
   })
 
+  const { data: historique } = useHistorique('sites', site?.id)
+
   const contactPrincipal = contactsDuSite.find((c) => c.contact_principal) ?? contactsDuSite[0]
   const adresse = [site?.adresse, site?.code_postal, site?.ville].filter(Boolean).join(' ')
   const mapQuery = site?.latitude != null && site?.longitude != null
@@ -130,6 +135,8 @@ export default function SiteDetail() {
     { key: 'recommandations', label: 'Recommandations', labelMobile: 'Recos', badge: recommandationsDuSite.length ? String(recommandationsDuSite.length) : undefined },
     { key: 'signaux', label: 'Signaux', badge: signauxDuSite.length ? String(signauxDuSite.length) : undefined },
     { key: 'mandats', label: 'Mandats', badge: mandatDuSite ? undefined : '!' },
+    { key: 'fichiers', label: 'Fichiers', badge: documentsDuSite.length ? String(documentsDuSite.length) : undefined },
+    { key: 'historique', label: 'Historique' },
     { key: 'activite', label: 'Activité', mobileOnly: true },
   ]
 
@@ -159,7 +166,7 @@ export default function SiteDetail() {
     function onKeyDown(e: KeyboardEvent) {
       const target = e.target as HTMLElement
       if (target && (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA')) return
-      const map: Record<string, TabKey> = { '1': 'synthese', '2': 'contrats', '3': 'compteurs', '4': 'recommandations', '5': 'signaux', '6': 'mandats' }
+      const map: Record<string, TabKey> = { '1': 'synthese', '2': 'contrats', '3': 'compteurs', '4': 'recommandations', '5': 'signaux', '6': 'mandats', '7': 'fichiers', '8': 'historique' }
       if (map[e.key]) setTab(map[e.key])
       if (e.key === 'n' || e.key === 'N') setTab('activite')
       if (e.key === 'r' || e.key === 'R') planifierRelance()
@@ -526,6 +533,67 @@ export default function SiteDetail() {
             </div>
           )}
 
+          {tab === 'fichiers' && (
+            <div className="flex flex-col gap-3.5">
+              <div className="flex items-center justify-end">
+                <Button size="sm" onClick={() => setAddFichierOpen(true)}>
+                  <Plus className="h-3.5 w-3.5" />
+                  Ajouter un fichier
+                </Button>
+              </div>
+              {documentsDuSite.length === 0 ? (
+                <p className="text-sm text-navy-400">Aucun fichier pour ce site.</p>
+              ) : (
+                <div className="overflow-hidden rounded-xl border border-navy-100 bg-white">
+                  {documentsDuSite.map((d) => (
+                    <div
+                      key={d.id}
+                      onClick={() => navigate(`/documents/${d.id}`)}
+                      className="flex cursor-pointer items-center gap-3 border-b border-navy-50 px-4 py-3 last:border-b-0 hover:bg-navy-50/60"
+                    >
+                      <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-navy-100 text-navy-500">
+                        <FileText className="h-4 w-4" />
+                      </span>
+                      <div className="min-w-0 flex-1">
+                        <p className="truncate text-sm font-bold text-navy-800">{d.nom}</p>
+                        <p className="truncate text-[10.5px] text-navy-400">{d.auteur} · {new Date(d.date_creation).toLocaleDateString('fr-FR')}</p>
+                      </div>
+                      <Badge tone="neutral">{d.type_document}</Badge>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
+
+          {tab === 'historique' && (
+            <div className="flex flex-col gap-2.5">
+              <p className="text-[11px] text-navy-400">{historique?.length ?? 0} changement{(historique?.length ?? 0) > 1 ? 's' : ''} tracé{(historique?.length ?? 0) > 1 ? 's' : ''} · tous horodatés</p>
+              <div className="overflow-hidden rounded-xl border border-navy-100 bg-white">
+                {!historique || historique.length === 0 ? (
+                  <p className="p-4 text-sm text-navy-400">Aucune modification enregistrée.</p>
+                ) : (
+                  historique.map((h) => (
+                    <div key={h.id} className="grid grid-cols-[110px_1fr] gap-3 border-b border-navy-50 px-4 py-3 last:border-b-0 sm:grid-cols-[110px_140px_140px_1fr]">
+                      <span className="font-mono text-[10.5px] text-navy-500">{new Date(h.date_modification).toLocaleString('fr-FR')}</span>
+                      <span className="hidden text-[11.5px] font-semibold text-navy-700 sm:block">{h.modifie_par_nom ?? 'Quelqu\'un'}</span>
+                      <span className="hidden text-[11.5px] font-medium text-navy-600 sm:block">{h.champ}</span>
+                      <span className="flex flex-wrap items-center gap-2 text-[11.5px]">
+                        {h.ancienne_valeur && (
+                          <>
+                            <span className="text-navy-400 line-through">{h.ancienne_valeur}</span>
+                            <span className="text-navy-300">→</span>
+                          </>
+                        )}
+                        <span className="font-semibold text-kiwi-600">{h.nouvelle_valeur ?? '—'}</span>
+                      </span>
+                    </div>
+                  ))
+                )}
+              </div>
+            </div>
+          )}
+
           {tab === 'activite' && (
             <ActivityFeed
               siteId={site.id}
@@ -623,6 +691,13 @@ export default function SiteDetail() {
       )}
 
       <EditSiteDialog open={editOpen} onClose={() => setEditOpen(false)} site={site} onSaved={() => showToast('✓ Site mis à jour')} />
+
+      <AddFichierDialog
+        open={addFichierOpen}
+        onClose={() => setAddFichierOpen(false)}
+        siteId={site.id}
+        onSaved={() => showToast('✓ Fichier ajouté')}
+      />
 
       <Dialog
         open={confirmDelete}
@@ -749,6 +824,69 @@ function EditSiteDialog({ open, onClose, site, onSaved }: { open: boolean; onClo
         <div className="flex justify-end gap-2 pt-2">
           <Button type="button" variant="ghost" onClick={onClose}>Annuler</Button>
           <Button type="submit" disabled={updateSite.isPending}>Enregistrer</Button>
+        </div>
+      </form>
+    </Dialog>
+  )
+}
+
+function AddFichierDialog({ open, onClose, siteId, onSaved }: { open: boolean; onClose: () => void; siteId: string; onSaved: () => void }) {
+  const { data: typesRef } = useReferenceTable('types_documents')
+  const types = typesRef && typesRef.length > 0 ? typesRef : FALLBACK_TYPES_DOCUMENTS
+  const createDocument = useCreateDocument()
+
+  const [nom, setNom] = useState('')
+  const [url, setUrl] = useState('')
+  const [typeDocumentId, setTypeDocumentId] = useState('')
+  const [feedback, setFeedback] = useState<string | null>(null)
+
+  function reset() {
+    setNom('')
+    setUrl('')
+    setTypeDocumentId('')
+    setFeedback(null)
+  }
+
+  async function handleSubmit(e: React.FormEvent) {
+    e.preventDefault()
+    const type = types.find((t) => t.id === typeDocumentId)
+    const result = await createDocument.mutateAsync({
+      nom,
+      url,
+      type_document_id: typeDocumentId || null,
+      type_document_libelle: type?.libelle ?? '',
+      entite_type: 'site',
+      entite_id: siteId,
+    })
+    onSaved()
+    if (!result.persisted) {
+      setFeedback('Ajouté localement (non synchronisé avec Supabase).')
+      setTimeout(() => { reset(); onClose() }, 700)
+    } else {
+      reset()
+      onClose()
+    }
+  }
+
+  return (
+    <Dialog open={open} onClose={() => { reset(); onClose() }} title="Ajouter un fichier" description="Rattacher un document à ce site.">
+      <form onSubmit={handleSubmit} className="space-y-3">
+        <FormField label="Nom du document">
+          <Input value={nom} onChange={(e) => setNom(e.target.value)} required placeholder="Ex. Facture EDF — janvier 2026" />
+        </FormField>
+        <FormField label="Lien du document (URL)">
+          <Input type="url" value={url} onChange={(e) => setUrl(e.target.value)} required placeholder="https://…" />
+        </FormField>
+        <FormField label="Type de document">
+          <Select value={typeDocumentId} onChange={(e) => setTypeDocumentId(e.target.value)}>
+            <option value="">Sélectionner…</option>
+            {types.map((t) => <option key={t.id} value={t.id}>{t.libelle}</option>)}
+          </Select>
+        </FormField>
+        {feedback && <p className="text-xs text-navy-500">{feedback}</p>}
+        <div className="flex justify-end gap-2 pt-2">
+          <Button type="button" variant="ghost" onClick={() => { reset(); onClose() }}>Annuler</Button>
+          <Button type="submit" disabled={createDocument.isPending}>Ajouter</Button>
         </div>
       </form>
     </Dialog>
