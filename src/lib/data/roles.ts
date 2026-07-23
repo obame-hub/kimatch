@@ -268,6 +268,7 @@ export interface MonProfil {
   prenom: string
   nom: string
   email: string
+  photo_url: string | null
 }
 
 async function fetchMonProfil(): Promise<MonProfil | null> {
@@ -276,7 +277,7 @@ async function fetchMonProfil(): Promise<MonProfil | null> {
   if (!userData.user) return null
   const { data, error } = await supabase
     .from('profils')
-    .select('id, prenom, nom, email')
+    .select('id, prenom, nom, email, photo_url')
     .eq('id', userData.user.id)
     .maybeSingle()
   if (error || !data) return null
@@ -285,6 +286,28 @@ async function fetchMonProfil(): Promise<MonProfil | null> {
 
 export function useMonProfil() {
   return useQuery({ queryKey: ['mon-profil'], queryFn: fetchMonProfil })
+}
+
+export function useUploadMaPhoto() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: async (file: File) => {
+      const { data: userData } = await supabase.auth.getUser()
+      if (!userData.user) throw new Error('Non connecté')
+      const extension = file.name.split('.').pop() ?? 'jpg'
+      const path = `${userData.user.id}/avatar.${extension}`
+      const { error: uploadError } = await supabase.storage.from('avatars').upload(path, file, { upsert: true })
+      if (uploadError) throw new Error(uploadError.message)
+      const { data: publicUrlData } = supabase.storage.from('avatars').getPublicUrl(path)
+      const photoUrl = `${publicUrlData.publicUrl}?t=${Date.now()}`
+      const { error: updateError } = await supabase.from('profils').update({ photo_url: photoUrl }).eq('id', userData.user.id)
+      if (updateError) throw new Error(updateError.message)
+      return photoUrl
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['mon-profil'] })
+    },
+  })
 }
 
 export function useHasPermission(code: string) {

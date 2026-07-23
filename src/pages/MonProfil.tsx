@@ -1,12 +1,12 @@
-import { useEffect, useState } from 'react'
-import { User, ShieldCheck, Mail, CheckCircle2 } from 'lucide-react'
+import { useEffect, useRef, useState } from 'react'
+import { User, ShieldCheck, Mail, CheckCircle2, Camera } from 'lucide-react'
 import { Topbar } from '@/components/layout/Topbar'
 import { PageHeader } from '@/components/ui/page-header'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { EmailLink } from '@/components/ui/contact-link'
 import { useAuth } from '@/lib/auth'
-import { useMonProfil, useCurrentAccess } from '@/lib/data/roles'
+import { useMonProfil, useCurrentAccess, useUploadMaPhoto } from '@/lib/data/roles'
 import { useGmailConnection, useDisconnectGmail, connectGmail } from '@/lib/data/gmail'
 
 function GmailCard() {
@@ -79,12 +79,29 @@ export default function MonProfil() {
   const { session, demoMode } = useAuth()
   const { data: profil, isLoading } = useMonProfil()
   const { data: access } = useCurrentAccess()
+  const uploadPhoto = useUploadMaPhoto()
+  const fileInputRef = useRef<HTMLInputElement>(null)
+  const [photoFeedback, setPhotoFeedback] = useState<string | null>(null)
 
   const email = profil?.email ?? session?.user.email ?? ''
   const nomComplet = profil ? `${profil.prenom} ${profil.nom}`.trim() : ''
   const initiales = profil
     ? `${profil.prenom[0] ?? ''}${profil.nom[0] ?? ''}`.toUpperCase()
     : (email || 'KW').slice(0, 2).toUpperCase()
+
+  async function handlePhotoChange(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0]
+    if (!file) return
+    setPhotoFeedback(null)
+    try {
+      await uploadPhoto.mutateAsync(file)
+      setPhotoFeedback('Photo mise à jour ✓')
+    } catch (err) {
+      setPhotoFeedback(err instanceof Error ? err.message : 'Erreur inconnue')
+    } finally {
+      e.target.value = ''
+    }
+  }
 
   return (
     <div>
@@ -94,8 +111,26 @@ export default function MonProfil() {
 
         <Card className="max-w-2xl">
           <CardContent className="flex items-center gap-4 p-5">
-            <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-full bg-ink-700 text-base font-semibold text-navy-100">
-              {initiales}
+            <div className="relative shrink-0">
+              {profil?.photo_url ? (
+                <img src={profil.photo_url} alt="" className="h-14 w-14 rounded-full object-cover" />
+              ) : (
+                <div className="flex h-14 w-14 items-center justify-center rounded-full bg-ink-700 text-base font-semibold text-navy-100">
+                  {initiales}
+                </div>
+              )}
+              {!demoMode && (
+                <button
+                  type="button"
+                  onClick={() => fileInputRef.current?.click()}
+                  disabled={uploadPhoto.isPending}
+                  title="Changer la photo"
+                  className="absolute -bottom-1 -right-1 flex h-6 w-6 items-center justify-center rounded-full border-2 border-white bg-navy-800 text-white hover:bg-navy-700"
+                >
+                  <Camera className="h-3 w-3" />
+                </button>
+              )}
+              <input ref={fileInputRef} type="file" accept="image/*" className="hidden" onChange={handlePhotoChange} />
             </div>
             <div className="min-w-0">
               {demoMode ? (
@@ -109,6 +144,7 @@ export default function MonProfil() {
                 <>
                   <p className="font-display text-lg font-semibold text-navy-900">{nomComplet || 'Profil'}</p>
                   {email && <EmailLink value={email} className="text-sm text-navy-500" />}
+                  {photoFeedback && <p className="mt-1 text-xs text-navy-500">{photoFeedback}</p>}
                 </>
               )}
             </div>

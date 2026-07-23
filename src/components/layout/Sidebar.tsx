@@ -94,9 +94,13 @@ export function Sidebar() {
           onClick={close}
           className="group relative flex items-center gap-2.5 border-t border-ink-800 px-3.5 py-3.5 md:justify-center md:px-0"
         >
-          <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-ink-700 text-[10px] font-semibold text-navy-200">
-            {initiales}
-          </div>
+          {profil?.photo_url ? (
+            <img src={profil.photo_url} alt="" className="h-7 w-7 shrink-0 rounded-full object-cover" />
+          ) : (
+            <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-ink-700 text-[10px] font-semibold text-navy-200">
+              {initiales}
+            </div>
+          )}
           <p className="min-w-0 flex-1 truncate whitespace-nowrap text-[11px] text-navy-500 md:hidden">
             KiWee Énergie · MVP
           </p>
