@@ -100,8 +100,8 @@ export function ActivityFeed({
   actions,
   documents,
 }: {
-  siteId: string
-  siteNom: string
+  siteId?: string | null
+  siteNom?: string
   compteId: string
   compteNom: string
   signaux: Signal[]
@@ -137,8 +137,8 @@ export function ActivityFeed({
       resultat: null,
       compte_id: compteId || null,
       compte_nom: compteNom,
-      site_id: siteId,
-      site_nom: siteNom,
+      site_id: siteId || null,
+      site_nom: siteNom ?? '',
       contact_id: null,
       contact_nom: '',
       issue_interaction_id: null,
@@ -155,7 +155,7 @@ export function ActivityFeed({
           rows={2}
           value={note}
           onChange={(e) => setNote(e.target.value)}
-          placeholder="Ajouter une note rapide sur ce site…"
+          placeholder="Ajouter une note rapide…"
           className="flex-1"
         />
         <Button type="submit" size="sm" disabled={createInteraction.isPending || !note.trim()}>
@@ -165,7 +165,7 @@ export function ActivityFeed({
       {feedback && <p className="text-xs text-navy-500">{feedback}</p>}
 
       <div className="max-h-[420px] space-y-2 overflow-y-auto pr-1">
-        {items.length === 0 && <p className="text-sm text-navy-400">Aucune activité pour ce site.</p>}
+        {items.length === 0 && <p className="text-sm text-navy-400">Aucune activité pour le moment.</p>}
         {items.map((item) => (
           <ActivityCard
             key={item.id}
