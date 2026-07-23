@@ -1,21 +1,30 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
-import { ArrowLeft, Zap, Flame, Plus, Pencil, Trash2 } from 'lucide-react'
+import { ArrowLeft, Zap, Flame, Plus, Pencil, Trash2, Building2, MapPin, FileCheck2, FileText } from 'lucide-react'
 import { Topbar } from '@/components/layout/Topbar'
 import { Button } from '@/components/ui/button'
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Dialog } from '@/components/ui/dialog'
 import { FormField, Input, Select } from '@/components/ui/form'
 import { HistoriqueDiscret } from '@/components/ui/historique-discret'
 import { useCompteurs, useUpdateCompteur, useDeleteCompteur } from '@/lib/data/compteurs'
 import { useConsommations, useCreateConsommation } from '@/lib/data/consommations'
+import { useSites } from '@/lib/data/sites'
+import { useComptes } from '@/lib/data/comptes'
+import { useContrats } from '@/lib/data/contrats'
+import { useMandats } from '@/lib/data/mandats'
+import { useDocuments, useCreateDocument } from '@/lib/data/documents'
+import { useReferenceTable } from '@/lib/data/referenceTables'
+import { FALLBACK_STATUTS_CONTRATS, STATUT_CONTRAT_TONE, FALLBACK_STATUTS_MANDATS, STATUT_MANDAT_TONE, FALLBACK_TYPES_DOCUMENTS } from '@/lib/referenceFallbacks'
 import { useCanManage, useIsAdmin, useProfilsAdmin } from '@/lib/data/roles'
+import { cn } from '@/lib/utils'
 import { useGoBack } from '@/lib/useGoBack'
 import type { Compteur } from '@/types/domain'
 
 const POSTE_OPTIONS = ['TOTAL', 'HP', 'HC', 'POINTE', 'HPH', 'HCH', 'HPE', 'HCE']
 const TYPE_VALEUR_OPTIONS = ['MESUREE', 'ESTIMEE', 'CORRIGEE']
+
+type TabKey = 'apercu' | 'contrats' | 'mandats' | 'fichiers'
 
 function AddConsommationDialog({ compteurId, open, onClose }: { compteurId: string; open: boolean; onClose: () => void }) {
   const createConsommation = useCreateConsommation()
@@ -159,16 +168,97 @@ function EditCompteurDialog({ compteur, open, onClose }: { compteur: Compteur; o
   )
 }
 
+function AddFichierDialog({ open, onClose, compteurId, onSaved }: { open: boolean; onClose: () => void; compteurId: string; onSaved: () => void }) {
+  const { data: typesRef } = useReferenceTable('types_documents')
+  const types = typesRef && typesRef.length > 0 ? typesRef : FALLBACK_TYPES_DOCUMENTS
+  const createDocument = useCreateDocument()
+
+  const [nom, setNom] = useState('')
+  const [url, setUrl] = useState('')
+  const [typeDocumentId, setTypeDocumentId] = useState('')
+  const [feedback, setFeedback] = useState<string | null>(null)
+
+  function reset() {
+    setNom('')
+    setUrl('')
+    setTypeDocumentId('')
+    setFeedback(null)
+  }
+
+  async function handleSubmit(e: React.FormEvent) {
+    e.preventDefault()
+    const type = types.find((t) => t.id === typeDocumentId)
+    const result = await createDocument.mutateAsync({
+      nom,
+      url,
+      type_document_id: typeDocumentId || null,
+      type_document_libelle: type?.libelle ?? '',
+      entite_type: 'compteur',
+      entite_id: compteurId,
+    })
+    onSaved()
+    if (!result.persisted) {
+      setFeedback('Ajouté localement (non synchronisé avec Supabase).')
+      setTimeout(() => { reset(); onClose() }, 700)
+    } else {
+      reset()
+      onClose()
+    }
+  }
+
+  return (
+    <Dialog open={open} onClose={() => { reset(); onClose() }} title="Ajouter un fichier" description="Rattacher un document à ce compteur.">
+      <form onSubmit={handleSubmit} className="space-y-3">
+        <FormField label="Nom du document">
+          <Input value={nom} onChange={(e) => setNom(e.target.value)} required placeholder="Ex. Relevé annuel — GI0483921" />
+        </FormField>
+        <FormField label="Lien du document (URL)">
+          <Input type="url" value={url} onChange={(e) => setUrl(e.target.value)} required placeholder="https://…" />
+        </FormField>
+        <FormField label="Type de document">
+          <Select value={typeDocumentId} onChange={(e) => setTypeDocumentId(e.target.value)}>
+            <option value="">Sélectionner…</option>
+            {types.map((t) => <option key={t.id} value={t.id}>{t.libelle}</option>)}
+          </Select>
+        </FormField>
+        {feedback && <p className="text-xs text-navy-500">{feedback}</p>}
+        <div className="flex justify-end gap-2 pt-2">
+          <Button type="button" variant="ghost" onClick={() => { reset(); onClose() }}>Annuler</Button>
+          <Button type="submit" disabled={createDocument.isPending}>Ajouter</Button>
+        </div>
+      </form>
+    </Dialog>
+  )
+}
+
 export default function CompteurDetail() {
   const { id } = useParams()
   const navigate = useNavigate()
   const { data: compteurs } = useCompteurs()
   const { data: consommations } = useConsommations()
+  const { data: sites } = useSites()
+  const { data: comptes } = useComptes()
+  const { data: contrats } = useContrats()
+  const { data: mandats } = useMandats()
+  const { data: documents } = useDocuments()
+  const { data: statutsContratsRef } = useReferenceTable('statuts_contrats')
+  const statutsContrats = statutsContratsRef && statutsContratsRef.length > 0 ? statutsContratsRef : FALLBACK_STATUTS_CONTRATS
+  const { data: statutsMandatsRef } = useReferenceTable('statuts_mandats')
+  const statutsMandats = statutsMandatsRef && statutsMandatsRef.length > 0 ? statutsMandatsRef : FALLBACK_STATUTS_MANDATS
+
   const compteur = compteurs?.find((c) => c.id === id)
-  const consommationsDuCompteur = consommations?.filter((c) => c.compteur_id === id) ?? []
+  const consommationsDuCompteur = useMemo(() => consommations?.filter((c) => c.compteur_id === id) ?? [], [consommations, id])
+  const site = sites?.find((s) => s.id === compteur?.site_id)
+  const compte = comptes?.find((c) => c.id === site?.compte_id)
+  const contratsDuCompteur = useMemo(() => contrats?.filter((ct) => ct.compteurs.some((cc) => cc.id === id)) ?? [], [contrats, id])
+  const mandatDuCompteur = mandats?.find((m) => compteur && m.site_ids.includes(compteur.site_id))
+  const documentsDuCompteur = useMemo(() => documents?.filter((d) => d.entite_type === 'compteur' && d.entite_id === id) ?? [], [documents, id])
+
+  const [tab, setTab] = useState<TabKey>('apercu')
   const [showAdd, setShowAdd] = useState(false)
   const [editOpen, setEditOpen] = useState(false)
   const [confirmDelete, setConfirmDelete] = useState(false)
+  const [addFichierOpen, setAddFichierOpen] = useState(false)
   const canManage = useCanManage(compteur?.proprietaire_id)
   const deleteCompteur = useDeleteCompteur()
   const goBack = useGoBack(compteur ? `/sites/${compteur.site_id}` : '/sites')
@@ -179,126 +269,291 @@ export default function CompteurDetail() {
     navigate(`/sites/${compteur.site_id}`)
   }
 
-  return (
-    <div>
-      <Topbar crumb="Sites" title={compteur ? `Compteur ${compteur.numero_pdl}` : 'Compteur'} />
-      <div className="p-4 sm:p-6">
-        <div className="mb-4 flex items-center justify-between">
-          <Button variant="ghost" size="sm" onClick={goBack}>
+  const TABS: { key: TabKey; label: string; badge?: string }[] = [
+    { key: 'apercu', label: 'Aperçu' },
+    { key: 'contrats', label: 'Contrats', badge: contratsDuCompteur.length ? String(contratsDuCompteur.length) : undefined },
+    { key: 'mandats', label: 'Mandats', badge: mandatDuCompteur ? undefined : '!' },
+    { key: 'fichiers', label: 'Fichiers', badge: documentsDuCompteur.length ? String(documentsDuCompteur.length) : undefined },
+  ]
+
+  if (!compteurs) {
+    return (
+      <div>
+        <Topbar crumb="Sites" title="Compteur" />
+        <div className="p-4 sm:p-6"><p className="text-sm text-navy-400">Chargement…</p></div>
+      </div>
+    )
+  }
+
+  if (!compteur) {
+    return (
+      <div>
+        <Topbar crumb="Sites" title="Compteur" />
+        <div className="p-4 sm:p-6">
+          <Button variant="ghost" size="sm" className="mb-4" onClick={goBack}>
             <ArrowLeft className="h-4 w-4" />
             Retour au site
           </Button>
-          {compteur && canManage && (
-            <div className="flex gap-2">
-              <Button variant="outline" size="sm" onClick={() => setEditOpen(true)}>
-                <Pencil className="h-3.5 w-3.5" />
-                Modifier
-              </Button>
-              <Button variant="outline" size="sm" onClick={() => setConfirmDelete(true)}>
-                <Trash2 className="h-3.5 w-3.5" />
-                Supprimer
-              </Button>
-            </div>
-          )}
-        </div>
-
-        {!compteur ? (
           <p className="text-sm text-navy-500">Compteur introuvable.</p>
-        ) : (
-          <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
-            <Card className="p-4 sm:p-6">
-              <CardHeader className="px-0 pt-0">
-                <CardTitle>Détail du compteur</CardTitle>
-              </CardHeader>
-              <CardContent className="px-0 space-y-3 text-sm">
-                <div className="flex items-center gap-3">
-                  <span
-                    className={
-                      'flex h-10 w-10 items-center justify-center rounded-lg ' +
-                      (compteur.type_energie === 'electricite' ? 'bg-sky-100 text-sky-500' : 'bg-amber-100 text-amber-600')
-                    }
-                  >
-                    {compteur.type_energie === 'electricite' ? <Zap className="h-5 w-5" /> : <Flame className="h-5 w-5" />}
-                  </span>
-                  <div>
-                    <p className="font-display font-medium text-navy-800">{compteur.utilisation}</p>
-                    <p className="font-mono text-xs text-navy-400">{compteur.numero_pdl}</p>
-                  </div>
-                </div>
-                <p><span className="text-navy-400">Type d'énergie :</span> {compteur.type_energie === 'electricite' ? 'Électricité' : 'Gaz'}</p>
-                <p><span className="text-navy-400">Statut :</span> <Badge tone={compteur.statut === 'actif' ? 'kiwi' : 'neutral'}>{compteur.statut}</Badge></p>
-                <p
-                  className="cursor-pointer text-navy-600 hover:text-kiwi-700 hover:underline"
-                  onClick={() => navigate(`/sites/${compteur.site_id}`)}
-                >
-                  Site : {compteur.site_nom} →
-                </p>
-                {compteur.consommation_annuelle_mwh != null && (
-                  <p><span className="text-navy-400">Consommation annuelle :</span> {compteur.consommation_annuelle_mwh} MWh</p>
-                )}
-                {compteur.segment && <p><span className="text-navy-400">Segment :</span> {compteur.segment}</p>}
-                {compteur.tension && <p><span className="text-navy-400">Tension :</span> {compteur.tension}</p>}
-                {compteur.tarif_distribution && <p><span className="text-navy-400">Tarif :</span> {compteur.tarif_distribution}</p>}
-                {compteur.car_mwh != null && <p><span className="text-navy-400">CAR :</span> {compteur.car_mwh} MWh</p>}
-                {compteur.profil_consommation && <p><span className="text-navy-400">Profil :</span> {compteur.profil_consommation}</p>}
-                {compteur.zone_tarifaire && <p><span className="text-navy-400">Zone tarifaire :</span> {compteur.zone_tarifaire}</p>}
-                <p className="text-xs text-navy-400">
-                  {compteur.synchro_eneo
-                    ? `Synchronisé le ${compteur.date_derniere_synchro_eneo ? new Date(compteur.date_derniere_synchro_eneo).toLocaleDateString('fr-FR') : '—'}`
-                    : 'Jamais synchronisé'}
-                </p>
-                <HistoriqueDiscret tableNom="compteurs" ligneId={compteur.id} />
-              </CardContent>
-            </Card>
+        </div>
+      </div>
+    )
+  }
 
-            <Card className="p-4 sm:p-6">
-              <CardHeader className="flex-row items-center justify-between px-0 pt-0">
-                <CardTitle>Historique de consommation</CardTitle>
-                <Button type="button" size="sm" variant="outline" onClick={() => setShowAdd(true)}>
-                  <Plus className="h-3.5 w-3.5" /> Ajouter
-                </Button>
-              </CardHeader>
-              <CardContent className="px-0 space-y-2">
-                {consommationsDuCompteur.length === 0 && <p className="text-sm text-navy-400">Aucune période enregistrée.</p>}
-                {consommationsDuCompteur.map((c) => (
-                  <div key={c.id} className="rounded-lg border border-navy-100 p-3 text-sm">
-                    <div className="flex items-center justify-between">
-                      <span className="font-medium text-navy-800">
-                        {new Date(c.date_debut_periode).toLocaleDateString('fr-FR')} → {new Date(c.date_fin_periode).toLocaleDateString('fr-FR')}
-                      </span>
-                      <span className="font-semibold text-navy-800">{c.quantite} {c.unite}</span>
-                    </div>
-                    <div className="mt-1 flex items-center gap-2 text-xs text-navy-500">
-                      <Badge tone="neutral">{c.poste_tarifaire}</Badge>
-                      <Badge tone={c.type_valeur === 'MESUREE' ? 'kiwi' : 'amber'}>{c.type_valeur}</Badge>
-                      {c.source && <span>{c.source}</span>}
-                    </div>
-                  </div>
-                ))}
-              </CardContent>
-            </Card>
+  const Icon = compteur.type_energie === 'electricite' ? Zap : Flame
+  const energyClasses = compteur.type_energie === 'electricite' ? 'bg-sky-100 text-sky-500' : 'bg-amber-100 text-amber-600'
+
+  return (
+    <div>
+      <Topbar crumb="Sites" title={`Compteur ${compteur.numero_pdl}`} />
+
+      {/* Bandeau compteur */}
+      <div className="flex flex-wrap items-center gap-3.5 border-b border-navy-100 bg-white px-4 py-3.5 sm:px-6">
+        <Button variant="ghost" size="icon" onClick={goBack} title="Retour au site">
+          <ArrowLeft className="h-4 w-4" />
+        </Button>
+        <span className={cn('flex h-10 w-10 shrink-0 items-center justify-center rounded-[10px]', energyClasses)}>
+          <Icon className="h-[18px] w-[18px]" />
+        </span>
+        <div className="min-w-0 flex-1">
+          <div className="flex flex-wrap items-center gap-2">
+            <p className="truncate text-xl font-bold tracking-tight text-navy-800">{compteur.utilisation || compteur.numero_pdl}</p>
+            <Badge tone={compteur.statut === 'actif' ? 'kiwi' : 'neutral'}>{compteur.statut}</Badge>
+          </div>
+          <p className="truncate font-mono text-xs text-navy-400">{compteur.numero_pdl}</p>
+        </div>
+        {canManage && (
+          <div className="flex gap-1.5">
+            <Button variant="outline" size="sm" onClick={() => setEditOpen(true)}>
+              <Pencil className="h-3.5 w-3.5" />
+              Modifier
+            </Button>
+            <Button variant="outline" size="sm" onClick={() => setConfirmDelete(true)}>
+              <Trash2 className="h-3.5 w-3.5" />
+              Supprimer
+            </Button>
           </div>
         )}
       </div>
-      {compteur && (
-        <>
-          <AddConsommationDialog compteurId={compteur.id} open={showAdd} onClose={() => setShowAdd(false)} />
-          <EditCompteurDialog compteur={compteur} open={editOpen} onClose={() => setEditOpen(false)} />
-          <Dialog
-            open={confirmDelete}
-            onClose={() => setConfirmDelete(false)}
-            title="Supprimer ce compteur ?"
-            description="Cette action est irréversible. L'historique de consommation et les contrats rattachés ne seront pas supprimés mais perdront leur lien à ce compteur."
-          >
-            <div className="flex justify-end gap-2 pt-2">
-              <Button type="button" variant="ghost" onClick={() => setConfirmDelete(false)}>Annuler</Button>
-              <Button type="button" variant="outline" className="border-red-200 text-red-600 hover:bg-red-50" disabled={deleteCompteur.isPending} onClick={handleDelete}>
-                Supprimer définitivement
-              </Button>
+
+      {/* Onglets */}
+      <div className="flex gap-1.5 overflow-x-auto border-b border-navy-100 bg-white px-4 pt-2.5 lg:gap-0.5 lg:pt-0 sm:px-6">
+        {TABS.map((t) => {
+          const isActive = tab === t.key
+          const badgeTone = t.key === 'mandats' ? 'bg-amber-200 text-amber-700' : 'bg-navy-100 text-navy-500'
+          return (
+            <button
+              key={t.key}
+              type="button"
+              onClick={() => setTab(t.key)}
+              className={cn(
+                'mb-2.5 inline-flex shrink-0 items-center gap-1.5 whitespace-nowrap rounded-full px-3.5 py-2 text-[12.5px] font-semibold transition-colors lg:mb-0 lg:rounded-none lg:border-b-2 lg:px-3 lg:py-2.5 lg:font-normal',
+                isActive
+                  ? 'bg-navy-800 text-white lg:border-navy-800 lg:bg-transparent lg:font-semibold lg:text-navy-800'
+                  : 'border border-navy-200 bg-white text-navy-600 hover:bg-navy-50 lg:border-0 lg:border-b-2 lg:border-transparent lg:text-navy-500 lg:hover:bg-transparent lg:hover:text-navy-700',
+              )}
+            >
+              {t.label}
+              {t.badge && (
+                <span className={cn('rounded px-1.5 py-0.5 text-[9.5px] font-bold', isActive ? 'bg-white/20 text-white lg:bg-navy-100 lg:text-navy-500' : badgeTone)}>
+                  {t.badge}
+                </span>
+              )}
+            </button>
+          )
+        })}
+      </div>
+
+      <div className="grid grid-cols-1 lg:grid-cols-[256px_1fr]">
+        {/* Colonne gauche — Hiérarchie (desktop uniquement) */}
+        <div className="hidden flex-col gap-3.5 border-r border-navy-100 bg-navy-50/60 p-3.5 lg:flex">
+          <div className="rounded-xl border border-navy-100 bg-white p-3.5">
+            <p className="mb-2 text-[10px] font-bold uppercase tracking-wide text-navy-400">Hiérarchie</p>
+            <div className="flex flex-col gap-0.5">
+              {compte && (
+                <button type="button" onClick={() => navigate(`/comptes/${compte.id}`)} className="flex items-center gap-2 rounded-lg px-1.5 py-1.5 text-left hover:bg-navy-50">
+                  <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-md bg-sky-100 text-sky-500"><Building2 className="h-3 w-3" /></span>
+                  <span className="flex-1 truncate text-xs font-semibold text-navy-800">{compte.nom}</span>
+                  <span className="text-navy-300">›</span>
+                </button>
+              )}
+              <div className="ml-[22px] h-2 w-0.5 bg-navy-100" />
+              {site && (
+                <button type="button" onClick={() => navigate(`/sites/${site.id}`)} className="flex items-center gap-2 rounded-lg px-1.5 py-1.5 text-left hover:bg-navy-50">
+                  <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-md bg-kiwi-100 text-kiwi-600"><MapPin className="h-3 w-3" /></span>
+                  <span className="flex-1 truncate text-xs font-semibold text-navy-800">{site.nom}</span>
+                  <span className="text-navy-300">›</span>
+                </button>
+              )}
+              <div className="ml-[22px] h-2 w-0.5 bg-navy-100" />
+              <div className="flex items-center gap-2 rounded-lg bg-navy-50 px-1.5 py-1.5">
+                <span className={cn('flex h-6 w-6 shrink-0 items-center justify-center rounded-md', energyClasses)}><Icon className="h-3 w-3" /></span>
+                <span className="flex-1 truncate text-xs font-bold text-navy-800">{compteur.utilisation || compteur.numero_pdl}</span>
+              </div>
             </div>
-          </Dialog>
-        </>
-      )}
+          </div>
+        </div>
+
+        {/* Centre */}
+        <div className="bg-navy-50 p-4 sm:p-5">
+          {tab === 'apercu' && (
+            <div className="grid grid-cols-1 gap-3.5 lg:grid-cols-2">
+              <div className="rounded-xl border border-navy-100 bg-white p-4">
+                <p className="mb-2.5 text-[10px] font-bold uppercase tracking-wide text-navy-400">Détail du compteur</p>
+                <div className="space-y-1.5 text-xs text-navy-700">
+                  <p><span className="text-navy-400">Type d'énergie :</span> {compteur.type_energie === 'electricite' ? 'Électricité' : 'Gaz'}</p>
+                  {compteur.consommation_annuelle_mwh != null && <p><span className="text-navy-400">Consommation annuelle :</span> {compteur.consommation_annuelle_mwh} MWh</p>}
+                  {compteur.segment && <p><span className="text-navy-400">Segment :</span> {compteur.segment}</p>}
+                  {compteur.tension && <p><span className="text-navy-400">Tension :</span> {compteur.tension}</p>}
+                  {compteur.tarif_distribution && <p><span className="text-navy-400">Tarif :</span> {compteur.tarif_distribution}</p>}
+                  {compteur.car_mwh != null && <p><span className="text-navy-400">CAR :</span> {compteur.car_mwh} MWh</p>}
+                  {compteur.profil_consommation && <p><span className="text-navy-400">Profil :</span> {compteur.profil_consommation}</p>}
+                  {compteur.zone_tarifaire && <p><span className="text-navy-400">Zone tarifaire :</span> {compteur.zone_tarifaire}</p>}
+                  <p className="text-navy-400">
+                    {compteur.synchro_eneo
+                      ? `Synchronisé le ${compteur.date_derniere_synchro_eneo ? new Date(compteur.date_derniere_synchro_eneo).toLocaleDateString('fr-FR') : '—'}`
+                      : 'Jamais synchronisé'}
+                  </p>
+                </div>
+                <HistoriqueDiscret tableNom="compteurs" ligneId={compteur.id} />
+              </div>
+
+              <div className="rounded-xl border border-navy-100 bg-white p-4">
+                <div className="mb-2.5 flex items-center justify-between">
+                  <span className="text-[10px] font-bold uppercase tracking-wide text-navy-400">Historique de consommation</span>
+                  <Button type="button" size="sm" variant="outline" onClick={() => setShowAdd(true)}>
+                    <Plus className="h-3.5 w-3.5" /> Ajouter
+                  </Button>
+                </div>
+                <div className="space-y-2">
+                  {consommationsDuCompteur.length === 0 && <p className="text-xs text-navy-400">Aucune période enregistrée.</p>}
+                  {consommationsDuCompteur.map((c) => (
+                    <div key={c.id} className="rounded-lg border border-navy-100 p-3 text-xs">
+                      <div className="flex items-center justify-between">
+                        <span className="font-medium text-navy-800">
+                          {new Date(c.date_debut_periode).toLocaleDateString('fr-FR')} → {new Date(c.date_fin_periode).toLocaleDateString('fr-FR')}
+                        </span>
+                        <span className="font-semibold text-navy-800">{c.quantite} {c.unite}</span>
+                      </div>
+                      <div className="mt-1 flex items-center gap-2 text-navy-500">
+                        <Badge tone="neutral">{c.poste_tarifaire}</Badge>
+                        <Badge tone={c.type_valeur === 'MESUREE' ? 'kiwi' : 'amber'}>{c.type_valeur}</Badge>
+                        {c.source && <span>{c.source}</span>}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
+          )}
+
+          {tab === 'contrats' && (
+            <div className="flex flex-col gap-2.5">
+              {contratsDuCompteur.length === 0 && <p className="text-sm text-navy-400">Aucun contrat ne couvre ce compteur.</p>}
+              {contratsDuCompteur.map((ct) => {
+                const CtIcon = ct.type_energie === 'gaz' ? Flame : Zap
+                return (
+                  <div
+                    key={ct.id}
+                    onClick={() => navigate(`/contrats/${ct.id}`)}
+                    className="flex cursor-pointer items-center gap-3 rounded-xl border border-navy-100 bg-white p-3.5 hover:bg-navy-50/60"
+                  >
+                    <span className={cn('flex h-9 w-9 shrink-0 items-center justify-center rounded-[10px]', ct.type_energie === 'gaz' ? 'bg-amber-100 text-amber-600' : 'bg-sky-100 text-sky-500')}>
+                      <CtIcon className="h-4 w-4" />
+                    </span>
+                    <div className="min-w-0 flex-1">
+                      <p className="truncate text-sm font-bold text-navy-800">{ct.fournisseur_nom}</p>
+                      <p className="truncate text-[10.5px] text-navy-400">
+                        {ct.date_debut ? new Date(ct.date_debut).toLocaleDateString('fr-FR') : '—'} → {ct.date_fin ? new Date(ct.date_fin).toLocaleDateString('fr-FR') : 'sans échéance'}
+                      </p>
+                    </div>
+                    <Badge tone={STATUT_CONTRAT_TONE[ct.statut] ?? 'neutral'}>{statutsContrats.find((s) => s.code === ct.statut)?.libelle ?? ct.statut}</Badge>
+                  </div>
+                )
+              })}
+            </div>
+          )}
+
+          {tab === 'mandats' && (
+            <div className="flex flex-col gap-2.5">
+              {mandatDuCompteur ? (
+                <div
+                  onClick={() => navigate(`/mandats/${mandatDuCompteur.id}`)}
+                  className="flex cursor-pointer items-center gap-3 rounded-xl border border-navy-100 bg-white p-3.5 hover:bg-navy-50/60"
+                >
+                  <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-[10px] bg-amber-100 text-amber-600">
+                    <FileCheck2 className="h-4 w-4" />
+                  </span>
+                  <div className="min-w-0 flex-1">
+                    <p className="truncate text-sm font-bold text-navy-800">Mandat {mandatDuCompteur.compte_nom}</p>
+                    <p className="truncate text-[10.5px] text-navy-400">{mandatDuCompteur.contact_signataire_nom ?? 'Signataire non renseigné'}</p>
+                  </div>
+                  <Badge tone={STATUT_MANDAT_TONE[mandatDuCompteur.statut] ?? 'neutral'}>{statutsMandats.find((s) => s.code === mandatDuCompteur.statut)?.libelle ?? mandatDuCompteur.statut}</Badge>
+                </div>
+              ) : (
+                <div className="rounded-xl border border-dashed border-amber-200 bg-amber-50/60 p-4">
+                  <p className="text-sm font-bold text-amber-700">Aucun mandat actif ne couvre ce compteur</p>
+                  <p className="mt-1 text-xs text-amber-600">Impossible de lancer une consultation tant qu'un mandat signé ne couvre pas ce PDL.</p>
+                  <Button size="sm" className="mt-2.5" onClick={() => navigate('/mandats')}>
+                    <Plus className="h-3.5 w-3.5" />
+                    Préparer un mandat
+                  </Button>
+                </div>
+              )}
+            </div>
+          )}
+
+          {tab === 'fichiers' && (
+            <div className="flex flex-col gap-3.5">
+              <div className="flex items-center justify-end">
+                <Button size="sm" onClick={() => setAddFichierOpen(true)}>
+                  <Plus className="h-3.5 w-3.5" />
+                  Ajouter un fichier
+                </Button>
+              </div>
+              {documentsDuCompteur.length === 0 ? (
+                <p className="text-sm text-navy-400">Aucun fichier pour ce compteur.</p>
+              ) : (
+                <div className="overflow-hidden rounded-xl border border-navy-100 bg-white">
+                  {documentsDuCompteur.map((d) => (
+                    <div
+                      key={d.id}
+                      onClick={() => navigate(`/documents/${d.id}`)}
+                      className="flex cursor-pointer items-center gap-3 border-b border-navy-50 px-4 py-3 last:border-b-0 hover:bg-navy-50/60"
+                    >
+                      <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-navy-100 text-navy-500">
+                        <FileText className="h-4 w-4" />
+                      </span>
+                      <div className="min-w-0 flex-1">
+                        <p className="truncate text-sm font-bold text-navy-800">{d.nom}</p>
+                        <p className="truncate text-[10.5px] text-navy-400">{d.auteur} · {new Date(d.date_creation).toLocaleDateString('fr-FR')}</p>
+                      </div>
+                      <Badge tone="neutral">{d.type_document}</Badge>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
+        </div>
+      </div>
+
+      <AddConsommationDialog compteurId={compteur.id} open={showAdd} onClose={() => setShowAdd(false)} />
+      <EditCompteurDialog compteur={compteur} open={editOpen} onClose={() => setEditOpen(false)} />
+      <AddFichierDialog open={addFichierOpen} onClose={() => setAddFichierOpen(false)} compteurId={compteur.id} onSaved={() => {}} />
+      <Dialog
+        open={confirmDelete}
+        onClose={() => setConfirmDelete(false)}
+        title="Supprimer ce compteur ?"
+        description="Cette action est irréversible. L'historique de consommation et les contrats rattachés ne seront pas supprimés mais perdront leur lien à ce compteur."
+      >
+        <div className="flex justify-end gap-2 pt-2">
+          <Button type="button" variant="ghost" onClick={() => setConfirmDelete(false)}>Annuler</Button>
+          <Button type="button" variant="outline" className="border-red-200 text-red-600 hover:bg-red-50" disabled={deleteCompteur.isPending} onClick={handleDelete}>
+            Supprimer définitivement
+          </Button>
+        </div>
+      </Dialog>
     </div>
   )
 }

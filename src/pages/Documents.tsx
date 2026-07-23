@@ -15,6 +15,7 @@ import { useComptes } from '@/lib/data/comptes'
 import { useMandats } from '@/lib/data/mandats'
 import { useRecommandations } from '@/lib/data/recommandations'
 import { useContrats } from '@/lib/data/contrats'
+import { useCompteurs } from '@/lib/data/compteurs'
 import { useReferenceTable } from '@/lib/data/referenceTables'
 import { FALLBACK_TYPES_DOCUMENTS } from '@/lib/referenceFallbacks'
 import { entityRoute } from '@/lib/entityRoute'
@@ -27,6 +28,7 @@ const ENTITE_TYPE_OPTIONS = [
   { value: 'mandat', label: 'Mandat' },
   { value: 'recommandation', label: 'Recommandation' },
   { value: 'contrat', label: 'Contrat' },
+  { value: 'compteur', label: 'Compteur' },
 ]
 
 function CreateDocumentDialog({ open, onClose }: { open: boolean; onClose: () => void }) {
@@ -35,6 +37,7 @@ function CreateDocumentDialog({ open, onClose }: { open: boolean; onClose: () =>
   const { data: mandats } = useMandats()
   const { data: recommandations } = useRecommandations()
   const { data: contrats } = useContrats()
+  const { data: compteurs } = useCompteurs()
   const { data: typesRef } = useReferenceTable('types_documents')
   const types = typesRef && typesRef.length > 0 ? typesRef : FALLBACK_TYPES_DOCUMENTS
   const createDocument = useCreateDocument()
@@ -52,6 +55,7 @@ function CreateDocumentDialog({ open, onClose }: { open: boolean; onClose: () =>
     entiteType === 'mandat' ? mandats?.map((m) => ({ id: m.id, label: m.compte_nom })) ?? [] :
     entiteType === 'recommandation' ? recommandations?.map((r) => ({ id: r.id, label: r.titre })) ?? [] :
     entiteType === 'contrat' ? contrats?.map((c) => ({ id: c.id, label: `${c.fournisseur_nom} — ${c.site_nom}` })) ?? [] :
+    entiteType === 'compteur' ? compteurs?.map((c) => ({ id: c.id, label: `${c.utilisation || c.numero_pdl} — ${c.site_nom}` })) ?? [] :
     []
 
   function reset() {

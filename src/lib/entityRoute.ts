@@ -12,6 +12,8 @@ export function entityRoute(entiteType: string, entiteId: string): string | null
       return `/recommandations/${entiteId}`
     case 'contrat':
       return `/contrats/${entiteId}`
+    case 'compteur':
+      return `/compteurs/${entiteId}`
     default:
       return null
   }
