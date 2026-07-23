@@ -7,7 +7,7 @@ interface StatCardProps {
   label: string
   value: number
   icon: LucideIcon
-  tone?: 'kiwi' | 'amber' | 'navy'
+  tone?: 'kiwi' | 'amber' | 'navy' | 'red'
   hint?: string
 }
 
@@ -15,6 +15,7 @@ const toneStyles: Record<string, string> = {
   kiwi: 'bg-kiwi-gradient text-white shadow-[0_8px_20px_-6px_rgba(116,181,36,0.55)]',
   amber: 'bg-amber-gradient text-white shadow-[0_8px_20px_-6px_rgba(201,146,46,0.5)]',
   navy: 'bg-ink-800 text-white shadow-[0_8px_20px_-6px_rgba(15,23,42,0.45)]',
+  red: 'bg-red-500 text-white shadow-[0_8px_20px_-6px_rgba(239,68,68,0.5)]',
 }
 
 export function StatCard({ label, value, icon: Icon, tone = 'navy', hint }: StatCardProps) {

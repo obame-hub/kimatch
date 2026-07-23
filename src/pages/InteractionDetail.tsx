@@ -54,7 +54,7 @@ export default function InteractionDetail() {
             <CardHeader className="px-0 pt-0">
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-3">
-                  <span className="flex h-10 w-10 items-center justify-center rounded-lg bg-navy-100 text-navy-500">
+                  <span className="flex h-10 w-10 items-center justify-center rounded-lg bg-sky-100 text-sky-500">
                     <MessageSquare className="h-5 w-5" />
                   </span>
                   <CardTitle className="font-display text-base">{interaction.objet || interaction.type_interaction}</CardTitle>

@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { Plus } from 'lucide-react'
+import { Plus, FileCheck2 } from 'lucide-react'
 import { Topbar } from '@/components/layout/Topbar'
 import { PageHeader } from '@/components/ui/page-header'
 import { Card } from '@/components/ui/card'
@@ -173,9 +173,14 @@ export default function Mandats() {
                 className="animate-fade-up cursor-pointer p-5 transition-all hover:-translate-y-0.5 hover:shadow-lg"
               >
                 <div className="flex items-start justify-between">
-                  <p className="font-display font-medium text-navy-800">
-                    <EntityLink to={`/comptes/${m.compte_id}`}>{m.compte_nom}</EntityLink>
-                  </p>
+                  <div className="flex items-center gap-2">
+                    <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-amber-100 text-amber-600">
+                      <FileCheck2 className="h-4 w-4" />
+                    </span>
+                    <p className="font-display font-medium text-navy-800">
+                      <EntityLink to={`/comptes/${m.compte_id}`}>{m.compte_nom}</EntityLink>
+                    </p>
+                  </div>
                   <Badge tone={STATUT_MANDAT_TONE[m.statut] ?? 'neutral'}>{label}</Badge>
                 </div>
                 <div className="mt-4 space-y-1 text-xs text-navy-500">

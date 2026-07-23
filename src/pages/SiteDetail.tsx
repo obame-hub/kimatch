@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
-import { ArrowLeft, Phone, StickyNote, Plus, Building2, Users, Copy, Zap, Flame, CalendarClock, Sparkle, Pencil, Trash2 } from 'lucide-react'
+import { ArrowLeft, Phone, StickyNote, Plus, Building2, Users, Copy, Zap, Flame, CalendarClock, Sparkle, Pencil, Trash2, FileCheck2 } from 'lucide-react'
 import { Topbar } from '@/components/layout/Topbar'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
@@ -476,7 +476,7 @@ export default function SiteDetail() {
               {mandatDuSite ? (
                 <div className="overflow-hidden rounded-xl border border-navy-100 bg-white">
                   <div className="flex items-center gap-3 border-b border-navy-50 px-4 py-3.5">
-                    <span className="flex h-7 w-7 items-center justify-center rounded-lg bg-amber-200 text-amber-700">📄</span>
+                    <span className="flex h-7 w-7 items-center justify-center rounded-lg bg-amber-200 text-amber-700"><FileCheck2 className="h-3.5 w-3.5" /></span>
                     <div className="flex-1">
                       <p className="text-sm font-bold text-navy-800">Mandat {mandatDuSite.compte_nom}</p>
                       <p className="text-[11px] text-navy-500">

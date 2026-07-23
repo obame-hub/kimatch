@@ -11,7 +11,7 @@ import {
   FileCheck2,
   Sparkle,
   FileSignature,
-  FolderClosed,
+  FileText,
   CheckSquare,
   MessageSquare,
 } from 'lucide-react'
@@ -41,7 +41,7 @@ const KIND_ICON: Record<SearchKind, typeof Building2> = {
   mandat: FileCheck2,
   recommandation: Sparkle,
   contrat: FileSignature,
-  document: FolderClosed,
+  document: FileText,
   tache: CheckSquare,
   interaction: MessageSquare,
 }

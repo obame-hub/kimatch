@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
-import { ArrowLeft, Mail, Lock, Pencil, Trash2 } from 'lucide-react'
+import { ArrowLeft, Mail, Lock, Pencil, Trash2, Sparkle } from 'lucide-react'
 import { Topbar } from '@/components/layout/Topbar'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
@@ -119,7 +119,12 @@ export default function RecommandationDetail() {
           <>
             <Card className="mb-4 p-6">
               <div className="mb-5 flex items-center justify-between gap-3">
-                <p className="font-display text-lg font-semibold text-navy-900">{reco.titre}</p>
+                <div className="flex items-center gap-3">
+                  <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-amber-100 text-amber-600">
+                    <Sparkle className="h-5 w-5" />
+                  </span>
+                  <p className="font-display text-lg font-semibold text-navy-900">{reco.titre}</p>
+                </div>
                 {canManage && (
                   <div className="flex shrink-0 gap-1.5">
                     <Button variant="outline" size="sm" onClick={() => setEditOpen(true)}>

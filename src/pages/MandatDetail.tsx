@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
-import { ArrowLeft, FileSignature, Pencil, Trash2 } from 'lucide-react'
+import { ArrowLeft, FileCheck2, FileSignature, Pencil, Trash2 } from 'lucide-react'
 import { Topbar } from '@/components/layout/Topbar'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
@@ -135,7 +135,12 @@ export default function MandatDetail() {
           <div className="grid max-w-3xl grid-cols-1 gap-4 lg:grid-cols-2">
             <Card className="p-6">
               <CardHeader className="px-0 pt-0">
-                <CardTitle><EntityLink to={`/comptes/${mandat.compte_id}`}>{mandat.compte_nom}</EntityLink></CardTitle>
+                <div className="flex items-center gap-3">
+                  <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-amber-100 text-amber-600">
+                    <FileCheck2 className="h-4 w-4" />
+                  </span>
+                  <CardTitle><EntityLink to={`/comptes/${mandat.compte_id}`}>{mandat.compte_nom}</EntityLink></CardTitle>
+                </div>
                 {canManage && (
                   <div className="flex gap-1.5">
                     <Button variant="outline" size="sm" onClick={() => setEditOpen(true)}>

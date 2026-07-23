@@ -1,5 +1,5 @@
 import { useNavigate } from 'react-router-dom'
-import { Radio, ListChecks, FileText, MapPin, Check, CheckSquare } from 'lucide-react'
+import { Radio, MapPin, Check, CheckSquare, Sparkle } from 'lucide-react'
 import { Topbar } from '@/components/layout/Topbar'
 import { StatCard } from '@/components/ui/stat-card'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
@@ -93,10 +93,10 @@ export default function Dashboard() {
         )}
 
         <div className="mb-6 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
-          <StatCard label="Signaux ouverts" value={data?.signauxOuverts ?? 0} icon={Radio} tone="amber" />
-          <StatCard label="Actions en attente" value={data?.actionsEnAttente ?? 0} icon={ListChecks} tone="navy" />
-          <StatCard label="Recommandations en cours" value={data?.recommandationsEnCours ?? 0} icon={FileText} tone="kiwi" />
-          <StatCard label="Sites actifs" value={data?.sitesActifs ?? 0} icon={MapPin} tone="navy" />
+          <StatCard label="Signaux ouverts" value={data?.signauxOuverts ?? 0} icon={Radio} tone="red" />
+          <StatCard label="Actions en attente" value={data?.actionsEnAttente ?? 0} icon={CheckSquare} tone="amber" />
+          <StatCard label="Recommandations en cours" value={data?.recommandationsEnCours ?? 0} icon={Sparkle} tone="amber" />
+          <StatCard label="Sites actifs" value={data?.sitesActifs ?? 0} icon={MapPin} tone="kiwi" />
         </div>
 
         <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">

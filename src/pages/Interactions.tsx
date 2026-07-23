@@ -206,7 +206,7 @@ export default function Interactions() {
               className="animate-fade-up flex cursor-pointer items-start justify-between gap-4 p-4 transition-all hover:-translate-y-0.5 hover:shadow-lg"
             >
               <div className="flex items-start gap-3">
-                <span className="mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-navy-100 text-navy-500">
+                <span className="mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-sky-100 text-sky-500">
                   <MessageSquare className="h-4 w-4" />
                 </span>
                 <div>

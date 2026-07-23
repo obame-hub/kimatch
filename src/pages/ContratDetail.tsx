@@ -14,6 +14,7 @@ import { useReferenceTable } from '@/lib/data/referenceTables'
 import { useCanManage, useIsAdmin, useProfilsAdmin } from '@/lib/data/roles'
 import { FALLBACK_STATUTS_CONTRATS, STATUT_CONTRAT_TONE } from '@/lib/referenceFallbacks'
 import { useGoBack } from '@/lib/useGoBack'
+import { cn } from '@/lib/utils'
 import type { Contrat } from '@/types/domain'
 
 export default function ContratDetail() {
@@ -53,7 +54,7 @@ export default function ContratDetail() {
             <CardHeader className="px-0 pt-0">
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-3">
-                  <span className="flex h-10 w-10 items-center justify-center rounded-lg bg-navy-100 text-navy-500">
+                  <span className={cn('flex h-10 w-10 items-center justify-center rounded-lg', contrat.type_energie === 'gaz' ? 'bg-amber-100 text-amber-600' : 'bg-sky-100 text-sky-500')}>
                     <Icon className="h-5 w-5" />
                   </span>
                   <CardTitle className="font-display text-base">

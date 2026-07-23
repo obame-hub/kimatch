@@ -59,7 +59,7 @@ export default function ContactDetail() {
             <CardHeader className="px-0 pt-0">
               <div className="flex items-center justify-between gap-3">
                 <div className="flex min-w-0 items-center gap-3">
-                  <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-navy-100 text-navy-500">
+                  <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-violet-100 text-violet-500">
                     <User className="h-5 w-5" />
                   </span>
                   <CardTitle className="truncate font-display text-base">{contact.civilite ? `${contact.civilite} ` : ''}{contact.prenom} {contact.nom}</CardTitle>

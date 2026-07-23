@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { Plus } from 'lucide-react'
+import { Plus, Sparkle } from 'lucide-react'
 import { Topbar } from '@/components/layout/Topbar'
 import { PageHeader } from '@/components/ui/page-header'
 import { Card } from '@/components/ui/card'
@@ -205,7 +205,12 @@ export default function Recommandations() {
                 onClick={() => navigate(`/recommandations/${reco.id}`)}
               >
                 <div className="mb-2 flex items-start justify-between gap-2">
-                  <p className="font-display font-medium text-navy-800">{reco.titre}</p>
+                  <div className="flex items-center gap-2">
+                    <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-amber-100 text-amber-600">
+                      <Sparkle className="h-4 w-4" />
+                    </span>
+                    <p className="font-display font-medium text-navy-800">{reco.titre}</p>
+                  </div>
                   <Badge tone={ETAPE_TONE[reco.etape] ?? 'neutral'}>{etapeLabel}</Badge>
                 </div>
                 <p className="text-xs text-navy-500">

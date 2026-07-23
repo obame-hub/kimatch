@@ -17,6 +17,7 @@ import { useReferenceTable } from '@/lib/data/referenceTables'
 import { FALLBACK_STATUTS_CONTRATS, STATUT_CONTRAT_TONE, FALLBACK_TYPES_ENERGIES } from '@/lib/referenceFallbacks'
 import { ListToolbar } from '@/components/ui/list-toolbar'
 import { useListControls } from '@/lib/useListControls'
+import { cn } from '@/lib/utils'
 
 function CreateContratDialog({ open, onClose }: { open: boolean; onClose: () => void }) {
   const { data: sites } = useSites()
@@ -204,7 +205,7 @@ export default function Contrats() {
               >
                 <div className="flex items-start justify-between">
                   <div className="flex items-center gap-2">
-                    <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-navy-100 text-navy-500">
+                    <span className={cn('flex h-8 w-8 items-center justify-center rounded-lg', c.type_energie === 'gaz' ? 'bg-amber-100 text-amber-600' : 'bg-sky-100 text-sky-500')}>
                       <Icon className="h-4 w-4" />
                     </span>
                     <p className="font-display font-medium text-navy-800">{c.fournisseur_nom}</p>

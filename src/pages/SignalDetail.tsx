@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
-import { ArrowLeft, AlertTriangle, Pencil, Trash2 } from 'lucide-react'
+import { ArrowLeft, Radio, Pencil, Trash2 } from 'lucide-react'
 import { Topbar } from '@/components/layout/Topbar'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
@@ -52,8 +52,8 @@ export default function SignalDetail() {
             <CardHeader className="px-0 pt-0">
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-3">
-                  <span className="flex h-10 w-10 items-center justify-center rounded-lg bg-amber-100 text-amber-600">
-                    <AlertTriangle className="h-5 w-5" />
+                  <span className="flex h-10 w-10 items-center justify-center rounded-lg bg-red-100 text-red-600">
+                    <Radio className="h-5 w-5" />
                   </span>
                   <CardTitle className="font-display text-base">{signal.type_signal}</CardTitle>
                 </div>

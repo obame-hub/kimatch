@@ -215,7 +215,7 @@ export default function CompteurDetail() {
                   <span
                     className={
                       'flex h-10 w-10 items-center justify-center rounded-lg ' +
-                      (compteur.type_energie === 'electricite' ? 'bg-amber-gradient text-white' : 'bg-navy-800 text-white')
+                      (compteur.type_energie === 'electricite' ? 'bg-sky-100 text-sky-500' : 'bg-amber-100 text-amber-600')
                     }
                   >
                     {compteur.type_energie === 'electricite' ? <Zap className="h-5 w-5" /> : <Flame className="h-5 w-5" />}

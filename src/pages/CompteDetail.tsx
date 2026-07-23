@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
-import { ArrowLeft, Gauge, Loader2, Pencil, Trash2 } from 'lucide-react'
+import { ArrowLeft, Building2, Gauge, Loader2, Pencil, Trash2 } from 'lucide-react'
 import { Topbar } from '@/components/layout/Topbar'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
@@ -334,6 +334,13 @@ export default function CompteDetail() {
           <p className="text-sm text-navy-500">Compte introuvable.</p>
         ) : (
           <div className="space-y-4">
+            <div className="flex items-center gap-3">
+              <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-sky-100 text-sky-500">
+                <Building2 className="h-5 w-5" />
+              </span>
+              <h1 className="font-display text-lg font-semibold text-navy-900">{compte.nom}</h1>
+            </div>
+
             <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
               <Card>
                 <CardHeader>

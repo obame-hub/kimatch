@@ -194,7 +194,7 @@ export default function Contacts() {
             >
               <div className="flex items-start justify-between gap-2">
                 <div className="flex items-center gap-2">
-                  <span className="flex h-9 w-9 items-center justify-center rounded-lg bg-navy-100 text-navy-500">
+                  <span className="flex h-9 w-9 items-center justify-center rounded-lg bg-violet-100 text-violet-500">
                     <User className="h-4 w-4" />
                   </span>
                   <div>
