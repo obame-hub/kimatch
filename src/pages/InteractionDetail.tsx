@@ -11,6 +11,7 @@ import { FormField, Input, Select, Textarea } from '@/components/ui/form'
 import { HistoriqueDiscret } from '@/components/ui/historique-discret'
 import { useInteractions, useUpdateInteraction, useDeleteInteraction } from '@/lib/data/interactions'
 import { useCanManage, useIsAdmin, useProfilsAdmin } from '@/lib/data/roles'
+import { useGoBack } from '@/lib/useGoBack'
 import type { Interaction } from '@/types/domain'
 
 const SENS_OPTIONS = [
@@ -25,6 +26,7 @@ export default function InteractionDetail() {
   const { data: interactions } = useInteractions()
   const interaction = interactions?.find((i) => i.id === id)
   const deleteInteraction = useDeleteInteraction()
+  const goBack = useGoBack('/interactions')
 
   const canManage = useCanManage(interaction?.proprietaire_id)
   const [editOpen, setEditOpen] = useState(false)
@@ -40,7 +42,7 @@ export default function InteractionDetail() {
     <div>
       <Topbar crumb="Interactions" title={interaction?.objet || interaction?.type_interaction || 'Interaction'} />
       <div className="p-4 sm:p-6">
-        <Button variant="ghost" size="sm" className="mb-4" onClick={() => navigate('/interactions')}>
+        <Button variant="ghost" size="sm" className="mb-4" onClick={goBack}>
           <ArrowLeft className="h-4 w-4" />
           Retour aux interactions
         </Button>

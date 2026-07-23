@@ -11,7 +11,16 @@ import { FormField, Input, Select } from '@/components/ui/form'
 import { HistoriqueDiscret } from '@/components/ui/historique-discret'
 import { useSites, useUpdateSite, useDeleteSite } from '@/lib/data/sites'
 import { useReferenceTable } from '@/lib/data/referenceTables'
-import { FALLBACK_TYPES_SITES } from '@/lib/referenceFallbacks'
+import {
+  FALLBACK_TYPES_SITES,
+  FALLBACK_STATUTS_CONTRATS,
+  STATUT_CONTRAT_TONE,
+  FALLBACK_STATUTS_MANDATS,
+  STATUT_MANDAT_TONE,
+  FALLBACK_STATUTS_VERSIONS,
+  FALLBACK_ETAPES_RECOMMANDATION,
+  ETAPE_TONE,
+} from '@/lib/referenceFallbacks'
 import { useCanManage, useIsAdmin, useProfilsAdmin } from '@/lib/data/roles'
 import { useSignaux } from '@/lib/data/signaux'
 import { useCompteurs } from '@/lib/data/compteurs'
@@ -28,16 +37,10 @@ import { CoverageMatrix } from '@/components/site/CoverageMatrix'
 import { ActivityFeed } from '@/components/site/ActivityFeed'
 import { computeSiteHealth } from '@/lib/siteHealth'
 import { cn } from '@/lib/utils'
+import { useGoBack } from '@/lib/useGoBack'
 import type { Compte, Contact, Site } from '@/types/domain'
 
 type TabKey = 'synthese' | 'contrats' | 'compteurs' | 'recommandations' | 'signaux' | 'mandats' | 'activite'
-
-const STATUT_CONTRAT_TONE: Record<string, 'kiwi' | 'amber' | 'neutral' | 'red'> = {
-  ACTIF: 'kiwi',
-  A_RENOUVELER: 'amber',
-  EXPIRE: 'neutral',
-  RESILIE: 'neutral',
-}
 
 function copyToClipboard(text: string, onDone: (msg: string) => void) {
   if (!text) return
@@ -61,6 +64,14 @@ export default function SiteDetail() {
   const { data: comptes } = useComptes()
   const createAction = useCreateAction()
   const deleteSite = useDeleteSite()
+  const { data: statutsContratsRef } = useReferenceTable('statuts_contrats')
+  const statutsContrats = statutsContratsRef && statutsContratsRef.length > 0 ? statutsContratsRef : FALLBACK_STATUTS_CONTRATS
+  const { data: statutsMandatsRef } = useReferenceTable('statuts_mandats')
+  const statutsMandats = statutsMandatsRef && statutsMandatsRef.length > 0 ? statutsMandatsRef : FALLBACK_STATUTS_MANDATS
+  const { data: statutsVersionsRef } = useReferenceTable('statuts_versions_recommandation')
+  const statutsVersions = statutsVersionsRef && statutsVersionsRef.length > 0 ? statutsVersionsRef : FALLBACK_STATUTS_VERSIONS
+  const { data: etapesRef } = useReferenceTable('etapes_recommandation')
+  const etapes = etapesRef && etapesRef.length > 0 ? etapesRef : FALLBACK_ETAPES_RECOMMANDATION
 
   const [tab, setTab] = useState<TabKey>('synthese')
   const [toast, setToast] = useState<string | null>(null)
@@ -75,6 +86,7 @@ export default function SiteDetail() {
 
   const site = sites?.find((s) => s.id === id)
   const canManage = useCanManage(site?.proprietaire_id)
+  const goBack = useGoBack('/sites')
 
   async function handleDelete() {
     if (!site) return
@@ -170,7 +182,7 @@ export default function SiteDetail() {
       <div>
         <Topbar crumb="Sites" title="Site" />
         <div className="p-4 sm:p-6">
-          <Button variant="ghost" size="sm" className="mb-4" onClick={() => navigate('/sites')}>
+          <Button variant="ghost" size="sm" className="mb-4" onClick={goBack}>
             <ArrowLeft className="h-4 w-4" />
             Retour aux sites
           </Button>
@@ -186,7 +198,7 @@ export default function SiteDetail() {
 
       {/* Bandeau site */}
       <div className="flex flex-wrap items-center gap-3.5 border-b border-navy-100 bg-white px-4 py-3.5 sm:px-6">
-        <Button variant="ghost" size="icon" onClick={() => navigate('/sites')} title="Retour aux sites">
+        <Button variant="ghost" size="icon" onClick={goBack} title="Retour aux sites">
           <ArrowLeft className="h-4 w-4" />
         </Button>
         <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-[10px] bg-gradient-to-br from-kiwi-500 to-kiwi-400 text-white">
@@ -365,7 +377,7 @@ export default function SiteDetail() {
                               onClick={() => navigate(`/contrats/${ct.id}`)}
                               className="flex cursor-pointer items-center gap-3 border-t border-navy-50 px-3.5 py-2.5 hover:bg-navy-50/60"
                             >
-                              <Badge tone={STATUT_CONTRAT_TONE[ct.statut] ?? 'neutral'}>{ct.statut}</Badge>
+                              <Badge tone={STATUT_CONTRAT_TONE[ct.statut] ?? 'neutral'}>{statutsContrats.find((s) => s.code === ct.statut)?.libelle ?? ct.statut}</Badge>
                               <span className="flex-1 text-xs font-medium text-navy-700">{ct.fournisseur_nom}</span>
                               <span className="font-mono text-[10px] text-navy-400">
                                 {ct.date_debut ? new Date(ct.date_debut).toLocaleDateString('fr-FR') : '—'} → {ct.date_fin ? new Date(ct.date_fin).toLocaleDateString('fr-FR') : 'sans échéance'}
@@ -422,11 +434,11 @@ export default function SiteDetail() {
                   >
                     <div className="flex items-center gap-2">
                       <p className="flex-1 text-sm font-bold text-navy-800">{r.titre}</p>
-                      <Badge tone="amber">{r.etape}</Badge>
+                      <Badge tone={ETAPE_TONE[r.etape] ?? 'amber'}>{etapes.find((e) => e.code === r.etape)?.libelle ?? r.etape}</Badge>
                     </div>
                     {derniereVersion && (
                       <p className="mt-2 text-[11px] text-navy-400">
-                        {derniereVersion.nom || 'Version'} · {derniereVersion.statut}
+                        {derniereVersion.nom || 'Version'} · {statutsVersions.find((s) => s.code === derniereVersion.statut)?.libelle ?? derniereVersion.statut}
                         {derniereVersion.gains_estimes ? ` · gain estimé ${derniereVersion.gains_estimes.toLocaleString('fr-FR')} €/an` : ''}
                       </p>
                     )}
@@ -473,7 +485,7 @@ export default function SiteDetail() {
                         {mandatDuSite.docusign_envelope_id ? ' · DocuSign ✓' : ''}
                       </p>
                     </div>
-                    <Badge tone={mandatDuSite.statut === 'ACTIF' ? 'kiwi' : 'amber'}>{mandatDuSite.statut}</Badge>
+                    <Badge tone={STATUT_MANDAT_TONE[mandatDuSite.statut] ?? 'neutral'}>{statutsMandats.find((s) => s.code === mandatDuSite.statut)?.libelle ?? mandatDuSite.statut}</Badge>
                   </div>
                   <div className="px-4 py-3.5">
                     <div className="mb-2.5 flex items-center gap-2">
@@ -503,7 +515,7 @@ export default function SiteDetail() {
                   <div className="flex flex-col gap-2">
                     {autresMandatsDuCompte.map((m) => (
                       <div key={m.id} onClick={() => navigate('/mandats')} className="flex cursor-pointer items-center gap-3 rounded-lg border border-navy-100 bg-white p-3 hover:bg-navy-50/60">
-                        <Badge tone={m.statut === 'ACTIF' ? 'kiwi' : 'neutral'}>{m.statut}</Badge>
+                        <Badge tone={STATUT_MANDAT_TONE[m.statut] ?? 'neutral'}>{statutsMandats.find((s) => s.code === m.statut)?.libelle ?? m.statut}</Badge>
                         <span className="flex-1 text-xs font-medium text-navy-700">{m.nb_sites_couverts} site{m.nb_sites_couverts > 1 ? 's' : ''}</span>
                         <span className="text-[10.5px] text-navy-400">{m.contact_signataire_nom ?? '—'}</span>
                       </div>

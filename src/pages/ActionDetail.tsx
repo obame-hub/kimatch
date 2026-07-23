@@ -15,6 +15,7 @@ import { useContacts } from '@/lib/data/contacts'
 import { useReferenceTable } from '@/lib/data/referenceTables'
 import { useCanManage } from '@/lib/data/roles'
 import { FALLBACK_STATUTS_ACTIONS, STATUT_ACTION_TONE } from '@/lib/referenceFallbacks'
+import { useGoBack } from '@/lib/useGoBack'
 import type { ActionItem } from '@/types/domain'
 
 export default function ActionDetail() {
@@ -27,6 +28,7 @@ export default function ActionDetail() {
   const canManage = useCanManage(action?.proprietaire_id)
   const deleteAction = useDeleteAction()
   const completeAction = useCompleteAction()
+  const goBack = useGoBack('/taches')
 
   const [editOpen, setEditOpen] = useState(false)
   const [confirmDelete, setConfirmDelete] = useState(false)
@@ -43,7 +45,7 @@ export default function ActionDetail() {
     <div>
       <Topbar crumb="Tâches" title={action?.titre ?? 'Tâche'} />
       <div className="p-4 sm:p-6">
-        <Button variant="ghost" size="sm" className="mb-4" onClick={() => navigate('/taches')}>
+        <Button variant="ghost" size="sm" className="mb-4" onClick={goBack}>
           <ArrowLeft className="h-4 w-4" />
           Retour aux tâches
         </Button>

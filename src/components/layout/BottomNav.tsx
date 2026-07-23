@@ -1,24 +1,20 @@
 import { NavLink } from 'react-router-dom'
-import { Home, Building2, MapPin, Sparkle, CheckSquare, Menu } from 'lucide-react'
+import { Home, Building2, MapPin, Sparkle, Radio, Menu } from 'lucide-react'
 import { cn } from '@/lib/utils'
-import { useActions } from '@/lib/data/actions'
 import { useSidebar } from '@/lib/layout'
 
-// Mêmes 5 destinations et couleurs que la barre du bas de William (Accueil/Comptes/Sites/Recos/Tâches).
-// "Plus" est ajouté en 6e pour atteindre les autres sections de l'app (le prototype n'en a que 5).
+// Destinations de premier niveau (Tâches retiré du menu — accessible via les objets liés
+// et le Tableau de bord). "Plus" est ajouté en dernier pour atteindre les autres sections.
 const items = [
   { to: '/', label: 'Accueil', icon: Home, end: true, tint: 'text-navy-800' },
   { to: '/comptes', label: 'Comptes', icon: Building2, tint: 'text-sky-500' },
   { to: '/sites', label: 'Sites', icon: MapPin, tint: 'text-kiwi-600' },
   { to: '/recommandations', label: 'Recos', icon: Sparkle, tint: 'text-amber-500' },
-  { to: '/taches', label: 'Tâches', icon: CheckSquare, tint: 'text-amber-600' },
+  { to: '/signaux', label: 'Signaux', icon: Radio, tint: 'text-red-500' },
 ]
 
 export function BottomNav() {
-  const { data: actions } = useActions()
   const { toggle } = useSidebar()
-  const nbTachesOuvertes = (actions ?? []).filter((a) => a.statut !== 'TERMINEE' && a.statut !== 'ANNULEE').length
-  const badges: Record<string, number> = { '/taches': nbTachesOuvertes }
 
   return (
     <nav className="fixed inset-x-0 bottom-0 z-40 flex border-t border-navy-100 bg-white/95 pb-[env(safe-area-inset-bottom)] backdrop-blur md:hidden">
@@ -33,9 +29,6 @@ export function BottomNav() {
             <>
               <Icon className={cn('h-[18px] w-[18px]', isActive && tint)} />
               <span className={cn('text-[9px] font-semibold', isActive && tint)}>{label}</span>
-              {!!badges[to] && (
-                <span className="absolute right-[calc(50%-16px)] top-1 h-1.5 w-1.5 rounded-full bg-red-500" />
-              )}
             </>
           )}
         </NavLink>

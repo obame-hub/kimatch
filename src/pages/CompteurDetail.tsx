@@ -11,6 +11,7 @@ import { HistoriqueDiscret } from '@/components/ui/historique-discret'
 import { useCompteurs, useUpdateCompteur, useDeleteCompteur } from '@/lib/data/compteurs'
 import { useConsommations, useCreateConsommation } from '@/lib/data/consommations'
 import { useCanManage, useIsAdmin, useProfilsAdmin } from '@/lib/data/roles'
+import { useGoBack } from '@/lib/useGoBack'
 import type { Compteur } from '@/types/domain'
 
 const POSTE_OPTIONS = ['TOTAL', 'HP', 'HC', 'POINTE', 'HPH', 'HCH', 'HPE', 'HCE']
@@ -170,6 +171,7 @@ export default function CompteurDetail() {
   const [confirmDelete, setConfirmDelete] = useState(false)
   const canManage = useCanManage(compteur?.proprietaire_id)
   const deleteCompteur = useDeleteCompteur()
+  const goBack = useGoBack('/compteurs')
 
   async function handleDelete() {
     if (!compteur) return
@@ -182,7 +184,7 @@ export default function CompteurDetail() {
       <Topbar crumb="Compteurs" title={compteur ? `Compteur ${compteur.numero_pdl}` : 'Compteur'} />
       <div className="p-4 sm:p-6">
         <div className="mb-4 flex items-center justify-between">
-          <Button variant="ghost" size="sm" onClick={() => navigate('/compteurs')}>
+          <Button variant="ghost" size="sm" onClick={goBack}>
             <ArrowLeft className="h-4 w-4" />
             Retour aux compteurs
           </Button>

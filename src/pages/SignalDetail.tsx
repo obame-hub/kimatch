@@ -13,6 +13,7 @@ import { useSignaux, useUpdateSignal, useDeleteSignal } from '@/lib/data/signaux
 import { useReferenceTable } from '@/lib/data/referenceTables'
 import { useCanManage } from '@/lib/data/roles'
 import { FALLBACK_STATUTS_SIGNAUX } from '@/lib/referenceFallbacks'
+import { useGoBack } from '@/lib/useGoBack'
 import type { Signal } from '@/types/domain'
 
 export default function SignalDetail() {
@@ -24,6 +25,7 @@ export default function SignalDetail() {
   const signal = signaux?.find((s) => s.id === id)
   const canManage = useCanManage(signal?.proprietaire_id)
   const deleteSignal = useDeleteSignal()
+  const goBack = useGoBack('/signaux')
 
   const [editOpen, setEditOpen] = useState(false)
   const [confirmDelete, setConfirmDelete] = useState(false)
@@ -38,7 +40,7 @@ export default function SignalDetail() {
     <div>
       <Topbar crumb="Signaux" title={signal?.type_signal ?? 'Signal'} />
       <div className="p-4 sm:p-6">
-        <Button variant="ghost" size="sm" className="mb-4" onClick={() => navigate('/signaux')}>
+        <Button variant="ghost" size="sm" className="mb-4" onClick={goBack}>
           <ArrowLeft className="h-4 w-4" />
           Retour aux signaux
         </Button>

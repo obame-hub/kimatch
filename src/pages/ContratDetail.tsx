@@ -13,6 +13,7 @@ import { useContrats, useUpdateContrat, useDeleteContrat } from '@/lib/data/cont
 import { useReferenceTable } from '@/lib/data/referenceTables'
 import { useCanManage, useIsAdmin, useProfilsAdmin } from '@/lib/data/roles'
 import { FALLBACK_STATUTS_CONTRATS, STATUT_CONTRAT_TONE } from '@/lib/referenceFallbacks'
+import { useGoBack } from '@/lib/useGoBack'
 import type { Contrat } from '@/types/domain'
 
 export default function ContratDetail() {
@@ -25,6 +26,7 @@ export default function ContratDetail() {
   const Icon = contrat?.type_energie === 'gaz' ? Flame : Zap
   const canManage = useCanManage(contrat?.proprietaire_id)
   const deleteContrat = useDeleteContrat()
+  const goBack = useGoBack('/contrats')
 
   const [editOpen, setEditOpen] = useState(false)
   const [confirmDelete, setConfirmDelete] = useState(false)
@@ -39,7 +41,7 @@ export default function ContratDetail() {
     <div>
       <Topbar crumb="Contrats" title={contrat?.fournisseur_nom ?? 'Contrat'} />
       <div className="p-4 sm:p-6">
-        <Button variant="ghost" size="sm" className="mb-4" onClick={() => navigate('/contrats')}>
+        <Button variant="ghost" size="sm" className="mb-4" onClick={goBack}>
           <ArrowLeft className="h-4 w-4" />
           Retour aux contrats
         </Button>

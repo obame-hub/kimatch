@@ -17,6 +17,7 @@ import { useReferenceTable } from '@/lib/data/referenceTables'
 import { useCanManage, useIsAdmin, useProfilsAdmin } from '@/lib/data/roles'
 import { FALLBACK_STATUTS_MANDATS, STATUT_MANDAT_TONE } from '@/lib/referenceFallbacks'
 import { sendMandatForSignature } from '@/lib/data/docusign'
+import { useGoBack } from '@/lib/useGoBack'
 import type { Mandat, DocumentItem, Contact } from '@/types/domain'
 
 function EnvoyerSignatureDialog({
@@ -109,6 +110,7 @@ export default function MandatDetail() {
   const mandat = mandats?.find((m) => m.id === id)
   const canManage = useCanManage(mandat?.proprietaire_id)
   const deleteMandat = useDeleteMandat()
+  const goBack = useGoBack('/mandats')
   const contactSignataire = contacts?.find((c) => c.id === mandat?.contact_signataire_id)
   const documentsDuMandat = documents?.filter((d) => d.entite_type === 'mandat' && d.entite_id === mandat?.id) ?? []
 
@@ -122,7 +124,7 @@ export default function MandatDetail() {
     <div>
       <Topbar crumb="Mandats" title={mandat ? `Mandat — ${mandat.compte_nom}` : 'Mandat'} />
       <div className="p-4 sm:p-6">
-        <Button variant="ghost" size="sm" className="mb-4" onClick={() => navigate('/mandats')}>
+        <Button variant="ghost" size="sm" className="mb-4" onClick={goBack}>
           <ArrowLeft className="h-4 w-4" />
           Retour aux mandats
         </Button>

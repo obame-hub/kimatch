@@ -12,6 +12,7 @@ import { HistoriqueDiscret } from '@/components/ui/historique-discret'
 import { useDocuments, useUpdateDocument, useDeleteDocument } from '@/lib/data/documents'
 import { useCanManage, useIsAdmin, useProfilsAdmin } from '@/lib/data/roles'
 import { entityRoute } from '@/lib/entityRoute'
+import { useGoBack } from '@/lib/useGoBack'
 import type { DocumentItem } from '@/types/domain'
 
 export default function DocumentDetail() {
@@ -21,6 +22,7 @@ export default function DocumentDetail() {
   const doc = documents?.find((d) => d.id === id)
   const canManage = useCanManage(doc?.proprietaire_id)
   const deleteDocument = useDeleteDocument()
+  const goBack = useGoBack('/documents')
 
   const [editOpen, setEditOpen] = useState(false)
   const [confirmDelete, setConfirmDelete] = useState(false)
@@ -35,7 +37,7 @@ export default function DocumentDetail() {
     <div>
       <Topbar crumb="Documents" title={doc?.nom ?? 'Document'} />
       <div className="p-4 sm:p-6">
-        <Button variant="ghost" size="sm" className="mb-4" onClick={() => navigate('/documents')}>
+        <Button variant="ghost" size="sm" className="mb-4" onClick={goBack}>
           <ArrowLeft className="h-4 w-4" />
           Retour aux documents
         </Button>

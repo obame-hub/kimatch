@@ -23,6 +23,7 @@ import { useContacts } from '@/lib/data/contacts'
 import { useEllisphereScore } from '@/lib/data/ellisphere'
 import { useReferenceTable } from '@/lib/data/referenceTables'
 import { useCanManage, useIsAdmin, useProfilsAdmin } from '@/lib/data/roles'
+import { useGoBack } from '@/lib/useGoBack'
 import type { Compte, TypeCompte } from '@/types/domain'
 
 const typeMeta: Record<TypeCompte, { label: string; tone: 'kiwi' | 'blue' | 'amber' | 'neutral' }> = {
@@ -92,7 +93,7 @@ function EditCompteFournisseurDialog({ compte, contacts, open, onClose }: { comp
   const [electricite, setElectricite] = useState(compte.fournit_electricite ?? false)
   const [gaz, setGaz] = useState(compte.fournit_gaz ?? false)
   const [contactId, setContactId] = useState(compte.contact_commercial_id ?? '')
-  const [statut, setStatut] = useState(compte.statut_partenariat ?? 'A_QUALIFIER')
+  const [statut, setStatut] = useState(compte.statut_partenariat ?? 'À qualifier')
   const [conditions, setConditions] = useState(compte.conditions_commerciales ?? '')
   const [commentaire, setCommentaire] = useState(compte.commentaire_partenariat ?? '')
   const [feedback, setFeedback] = useState<string | null>(null)
@@ -159,7 +160,7 @@ function EditComptePartenaireDialog({ compte, contacts, open, onClose }: { compt
   const [typePartenariat, setTypePartenariat] = useState(compte.type_partenariat ?? '')
   const [modeleRemuneration, setModeleRemuneration] = useState(compte.modele_remuneration ?? '')
   const [contactId, setContactId] = useState(compte.contact_referent_id ?? '')
-  const [statut, setStatut] = useState(compte.statut_partenariat ?? 'A_QUALIFIER')
+  const [statut, setStatut] = useState(compte.statut_partenariat ?? 'À qualifier')
   const [dateDebut, setDateDebut] = useState(compte.date_debut_partenariat ?? '')
   const [commentaire, setCommentaire] = useState(compte.commentaire_partenariat ?? '')
   const [feedback, setFeedback] = useState<string | null>(null)
@@ -292,6 +293,7 @@ export default function CompteDetail() {
   const [confirmDelete, setConfirmDelete] = useState(false)
   const canManage = useCanManage(compte?.proprietaire_id)
   const deleteCompte = useDeleteCompte()
+  const goBack = useGoBack('/comptes')
 
   async function handleScoreClick() {
     if (!compte?.siren) return
@@ -310,7 +312,7 @@ export default function CompteDetail() {
       <Topbar crumb="Comptes" title={compte?.nom ?? 'Compte'} />
       <div className="p-4 sm:p-6">
         <div className="mb-4 flex items-center justify-between">
-          <Button variant="ghost" size="sm" onClick={() => navigate('/comptes')}>
+          <Button variant="ghost" size="sm" onClick={goBack}>
             <ArrowLeft className="h-4 w-4" />
             Retour aux comptes
           </Button>
@@ -421,7 +423,7 @@ export default function CompteDetail() {
                     <>
                       <p><span className="text-navy-400">Fournit :</span> {[compte.fournit_electricite && 'Électricité', compte.fournit_gaz && 'Gaz'].filter(Boolean).join(', ') || '—'}</p>
                       <p><span className="text-navy-400">Contact commercial :</span> {compte.contact_commercial_nom || '—'}</p>
-                      <p><span className="text-navy-400">Statut partenariat :</span> <Badge tone="neutral">{compte.statut_partenariat || 'A_QUALIFIER'}</Badge></p>
+                      <p><span className="text-navy-400">Statut partenariat :</span> <Badge tone="neutral">{compte.statut_partenariat || 'À qualifier'}</Badge></p>
                       {compte.conditions_commerciales && <p><span className="text-navy-400">Conditions :</span> {compte.conditions_commerciales}</p>}
                       {compte.commentaire_partenariat && <p><span className="text-navy-400">Commentaire :</span> {compte.commentaire_partenariat}</p>}
                     </>
@@ -431,7 +433,7 @@ export default function CompteDetail() {
                       <p><span className="text-navy-400">Type de partenariat :</span> {compte.type_partenariat || '—'}</p>
                       <p><span className="text-navy-400">Modèle de rémunération :</span> {compte.modele_remuneration || '—'}</p>
                       <p><span className="text-navy-400">Contact référent :</span> {compte.contact_referent_nom || '—'}</p>
-                      <p><span className="text-navy-400">Statut partenariat :</span> <Badge tone="neutral">{compte.statut_partenariat || 'A_QUALIFIER'}</Badge></p>
+                      <p><span className="text-navy-400">Statut partenariat :</span> <Badge tone="neutral">{compte.statut_partenariat || 'À qualifier'}</Badge></p>
                       <p><span className="text-navy-400">Début du partenariat :</span> {compte.date_debut_partenariat ? new Date(compte.date_debut_partenariat).toLocaleDateString('fr-FR') : '—'}</p>
                       {compte.commentaire_partenariat && <p><span className="text-navy-400">Commentaire :</span> {compte.commentaire_partenariat}</p>}
                     </>

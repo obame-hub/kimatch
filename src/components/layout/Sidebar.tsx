@@ -2,15 +2,12 @@ import { NavLink } from 'react-router-dom'
 import { X, ShieldCheck } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import kiweePicto from '@/assets/kiwee-picto.png'
-import { useActions } from '@/lib/data/actions'
 import { useSidebar } from '@/lib/layout'
 import { useIsAdmin, useMonProfil } from '@/lib/data/roles'
 import { useAuth } from '@/lib/auth'
 import { navItems } from '@/lib/navItems'
 
 export function Sidebar() {
-  const { data: actions } = useActions()
-  const nbTachesOuvertes = (actions ?? []).filter((a) => a.statut !== 'TERMINEE' && a.statut !== 'ANNULEE').length
   const { open, close } = useSidebar()
   const isAdmin = useIsAdmin()
   const { session } = useAuth()
@@ -55,7 +52,7 @@ export function Sidebar() {
         </div>
 
         <nav className="flex-1 space-y-1 overflow-y-auto overflow-x-hidden px-2.5 py-1 scrollbar-thin md:overflow-visible md:px-0">
-          {items.map(({ to, label, icon: Icon, end, accent, tint, badgeKey }) => (
+          {items.map(({ to, label, icon: Icon, end, accent, tint }) => (
             <NavLink
               key={to}
               to={to}
@@ -82,14 +79,6 @@ export function Sidebar() {
                   <span className="min-w-0 flex-1 truncate whitespace-nowrap md:hidden">
                     {label}
                   </span>
-                  {badgeKey === 'taches' && nbTachesOuvertes > 0 && (
-                    <span className="shrink-0 whitespace-nowrap rounded-full bg-ink-700 px-1.5 py-0.5 text-[10px] font-semibold text-navy-200 md:hidden">
-                      {nbTachesOuvertes}
-                    </span>
-                  )}
-                  {badgeKey === 'taches' && nbTachesOuvertes > 0 && (
-                    <span className="absolute left-[26px] top-1.5 hidden h-1.5 w-1.5 rounded-full bg-red-500 md:block" />
-                  )}
                   {/* Info-bulle au survol : remplace le déploiement de la barre (retour William). */}
                   <span className="pointer-events-none absolute left-full top-1/2 z-50 ml-2 hidden -translate-y-1/2 whitespace-nowrap rounded-md bg-ink-800 px-2 py-1 text-xs font-medium text-white opacity-0 shadow-lg transition-opacity duration-100 group-hover:opacity-100 md:block">
                     {label}

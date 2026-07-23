@@ -16,6 +16,7 @@ import { useContacts } from '@/lib/data/contacts'
 import { useCanManage, useIsAdmin, useProfilsAdmin } from '@/lib/data/roles'
 import { sendEmail } from '@/lib/data/gmail'
 import { FALLBACK_ETAPES_RECOMMANDATION, FALLBACK_STATUTS_VERSIONS, STATUT_VERSION_TONE } from '@/lib/referenceFallbacks'
+import { useGoBack } from '@/lib/useGoBack'
 import type { Recommandation, VersionRecommandation } from '@/types/domain'
 
 const PRIORITE_LABEL: Record<number, string> = { 1: 'Haute', 2: 'Normale', 3: 'Basse' }
@@ -94,6 +95,7 @@ export default function RecommandationDetail() {
   const reco = recommandations?.find((r) => r.id === id)
   const canManage = useCanManage(reco?.proprietaire_id)
   const deleteRecommandation = useDeleteRecommandation()
+  const goBack = useGoBack('/recommandations')
   const contactPrincipal = contacts?.find((c) => c.compte_id === reco?.compte_id && c.contact_principal)
 
   async function handleDelete() {
@@ -106,7 +108,7 @@ export default function RecommandationDetail() {
     <div>
       <Topbar crumb="Recommandations" title={reco?.titre ?? 'Recommandation'} />
       <div className="p-4 sm:p-6">
-        <Button variant="ghost" size="sm" className="mb-4" onClick={() => navigate('/recommandations')}>
+        <Button variant="ghost" size="sm" className="mb-4" onClick={goBack}>
           <ArrowLeft className="h-4 w-4" />
           Retour aux recommandations
         </Button>

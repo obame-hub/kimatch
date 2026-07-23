@@ -12,6 +12,7 @@ import { FormField, Input, Select } from '@/components/ui/form'
 import { HistoriqueDiscret } from '@/components/ui/historique-discret'
 import { useContacts, useUpdateContact, useDeleteContact } from '@/lib/data/contacts'
 import { useCanManage, useIsAdmin, useProfilsAdmin } from '@/lib/data/roles'
+import { useGoBack } from '@/lib/useGoBack'
 import type { Contact } from '@/types/domain'
 
 const CIVILITE_OPTIONS = ['M.', 'Mme', 'Autre']
@@ -22,6 +23,7 @@ export default function ContactDetail() {
   const { data: contacts } = useContacts()
   const contact = contacts?.find((c) => c.id === id)
   const deleteContact = useDeleteContact()
+  const goBack = useGoBack('/contacts')
 
   const canManage = useCanManage(contact?.proprietaire_id)
   const [editOpen, setEditOpen] = useState(false)
@@ -37,7 +39,7 @@ export default function ContactDetail() {
     <div>
       <Topbar crumb="Contacts" title={contact ? `${contact.prenom} ${contact.nom}` : 'Contact'} />
       <div className="p-4 sm:p-6">
-        <Button variant="ghost" size="sm" className="mb-4" onClick={() => navigate('/contacts')}>
+        <Button variant="ghost" size="sm" className="mb-4" onClick={goBack}>
           <ArrowLeft className="h-4 w-4" />
           Retour aux contacts
         </Button>
