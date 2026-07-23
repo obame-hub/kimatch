@@ -3,7 +3,6 @@ import { useNavigate } from 'react-router-dom'
 import { Plus, Check, Circle } from 'lucide-react'
 import { Topbar } from '@/components/layout/Topbar'
 import { PageHeader } from '@/components/ui/page-header'
-import { Card } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { EntityLink } from '@/components/ui/entity-link'
@@ -16,6 +15,7 @@ import { useReferenceTable } from '@/lib/data/referenceTables'
 import { FALLBACK_TYPES_ACTIONS, FALLBACK_STATUTS_ACTIONS, STATUT_ACTION_TONE } from '@/lib/referenceFallbacks'
 import { ListToolbar } from '@/components/ui/list-toolbar'
 import { useListControls } from '@/lib/useListControls'
+import { ActivityCard } from '@/components/ui/activity-card'
 
 function CreateActionDialog({ open, onClose }: { open: boolean; onClose: () => void }) {
   const { data: sites } = useSites()
@@ -160,22 +160,22 @@ export default function Taches() {
 
         <div className="space-y-2.5">
           {ouvertes.map((a) => (
-            <Card
+            <ActivityCard
               key={a.id}
-              onClick={() => navigate(`/taches/${a.id}`)}
-              className="animate-fade-up flex cursor-pointer items-center gap-4 p-4 hover:bg-navy-50/60"
-            >
-              <button
-                type="button"
-                onClick={(e) => { e.stopPropagation(); completeAction.mutate(a.id) }}
-                className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full border border-navy-300 text-navy-400 transition-colors hover:border-kiwi-500 hover:text-kiwi-600"
-                title="Marquer terminée"
-              >
-                <Circle className="h-3.5 w-3.5" />
-              </button>
-              <div className="flex-1">
-                <p className="text-sm font-medium text-navy-800">{a.titre}</p>
-                <p className="text-xs text-navy-500">
+              styleKey="action"
+              leading={
+                <button
+                  type="button"
+                  onClick={(e) => { e.stopPropagation(); completeAction.mutate(a.id) }}
+                  className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full border border-navy-300 text-navy-400 transition-colors hover:border-kiwi-500 hover:text-kiwi-600"
+                  title="Marquer terminée"
+                >
+                  <Circle className="h-3.5 w-3.5" />
+                </button>
+              }
+              title={a.titre}
+              subtitle={
+                <>
                   {a.type_action}
                   {a.site_id && (
                     <>
@@ -190,15 +190,16 @@ export default function Taches() {
                     </>
                   )}
                   {a.responsable && ` · ${a.responsable}`}
-                </p>
-              </div>
-              <div className="flex shrink-0 items-center gap-2">
-                <Badge tone={STATUT_ACTION_TONE[a.statut] ?? 'neutral'}>{statuts.find((s) => s.code === a.statut)?.libelle ?? a.statut}</Badge>
-                {a.echeance && (
-                  <span className="text-xs text-navy-400">{new Date(a.echeance).toLocaleDateString('fr-FR')}</span>
-                )}
-              </div>
-            </Card>
+                </>
+              }
+              trailing={
+                <span className="flex flex-col items-end gap-1">
+                  <Badge tone={STATUT_ACTION_TONE[a.statut] ?? 'neutral'}>{statuts.find((s) => s.code === a.statut)?.libelle ?? a.statut}</Badge>
+                  {a.echeance && <span className="text-navy-400">{new Date(a.echeance).toLocaleDateString('fr-FR')}</span>}
+                </span>
+              }
+              onClick={() => navigate(`/taches/${a.id}`)}
+            />
           ))}
           {!isLoading && ouvertes.length === 0 && (
             <p className="py-8 text-center text-sm text-navy-400">Aucune tâche ouverte — tout est à jour ✓</p>

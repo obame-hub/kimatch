@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
-import { ArrowLeft, User, Star, Pencil, Trash2 } from 'lucide-react'
+import { ArrowLeft, User, Star, Pencil, Trash2, CheckSquare } from 'lucide-react'
 import { Topbar } from '@/components/layout/Topbar'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
@@ -10,6 +10,7 @@ import { PhoneLink, EmailLink } from '@/components/ui/contact-link'
 import { Dialog } from '@/components/ui/dialog'
 import { FormField, Input, Select } from '@/components/ui/form'
 import { HistoriqueDiscret } from '@/components/ui/historique-discret'
+import { ActivityCard } from '@/components/ui/activity-card'
 import { useContacts, useUpdateContact, useDeleteContact } from '@/lib/data/contacts'
 import { useActions } from '@/lib/data/actions'
 import { useCanManage, useIsAdmin, useProfilsAdmin } from '@/lib/data/roles'
@@ -106,14 +107,15 @@ export default function ContactDetail() {
                   <span className="text-navy-400">Tâches :</span>
                   <div className="mt-1.5 space-y-1.5">
                     {tachesDuContact.map((t) => (
-                      <div
+                      <ActivityCard
                         key={t.id}
+                        styleKey="action"
+                        icon={CheckSquare}
+                        title={t.titre}
+                        subtitle={t.type_action}
+                        trailing={<Badge tone={STATUT_ACTION_TONE[t.statut] ?? 'neutral'}>{statuts.find((s) => s.code === t.statut)?.libelle ?? t.statut}</Badge>}
                         onClick={() => navigate(`/taches/${t.id}`)}
-                        className="flex cursor-pointer items-center justify-between gap-2 rounded-md border border-navy-100 px-2.5 py-1.5 hover:bg-navy-50"
-                      >
-                        <span className="truncate text-navy-700">{t.titre}</span>
-                        <Badge tone={STATUT_ACTION_TONE[t.statut] ?? 'neutral'}>{statuts.find((s) => s.code === t.statut)?.libelle ?? t.statut}</Badge>
-                      </div>
+                      />
                     ))}
                   </div>
                 </div>
