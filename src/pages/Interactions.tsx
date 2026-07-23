@@ -15,6 +15,8 @@ import { useSites } from '@/lib/data/sites'
 import { useContacts } from '@/lib/data/contacts'
 import { useReferenceTable } from '@/lib/data/referenceTables'
 import { FALLBACK_TYPES_INTERACTIONS, FALLBACK_ISSUES_INTERACTIONS } from '@/lib/referenceFallbacks'
+import { ListToolbar } from '@/components/ui/list-toolbar'
+import { useListControls } from '@/lib/useListControls'
 
 const SENS_OPTIONS = [
   { value: '', label: '—' },
@@ -159,6 +161,16 @@ export default function Interactions() {
   const navigate = useNavigate()
   const [showCreate, setShowCreate] = useState(false)
 
+  const { query, setQuery, sortKey, setSortKey, items: filteredInteractions } = useListControls(interactions, {
+    searchFields: (i) => [i.objet, i.compte_nom, i.site_nom, i.contact_nom, i.auteur, i.type_interaction],
+    sorters: {
+      date_interaction: (a, b) => b.date_interaction.localeCompare(a.date_interaction),
+      compte_nom: (a, b) => a.compte_nom.localeCompare(b.compte_nom),
+      type_interaction: (a, b) => a.type_interaction.localeCompare(b.type_interaction),
+    },
+    defaultSort: 'date_interaction',
+  })
+
   return (
     <div>
       <Topbar title="Interactions" />
@@ -169,6 +181,14 @@ export default function Interactions() {
           actions={<Button onClick={() => setShowCreate(true)}><Plus className="h-4 w-4" />Nouvelle interaction</Button>}
         />
 
+        <ListToolbar query={query} onQueryChange={setQuery} placeholder="Rechercher un compte, un contact, un objet…">
+          <Select value={sortKey} onChange={(e) => setSortKey(e.target.value)} className="w-auto">
+            <option value="date_interaction">Trier par date</option>
+            <option value="compte_nom">Trier par compte</option>
+            <option value="type_interaction">Trier par type</option>
+          </Select>
+        </ListToolbar>
+
         <div className="space-y-2.5">
           {isLoading && <p className="text-sm text-navy-400">Chargement…</p>}
           {!isLoading && interactions?.length === 0 && (
@@ -176,7 +196,10 @@ export default function Interactions() {
               Aucune interaction pour l'instant — chaque appel, email ou réunion noté avec un compte/contact apparaîtra ici.
             </p>
           )}
-          {interactions?.map((i) => (
+          {!isLoading && interactions && interactions.length > 0 && filteredInteractions?.length === 0 && (
+            <p className="py-8 text-center text-sm text-navy-400">Aucune interaction ne correspond à la recherche.</p>
+          )}
+          {filteredInteractions?.map((i) => (
             <Card
               key={i.id}
               onClick={() => navigate(`/interactions/${i.id}`)}

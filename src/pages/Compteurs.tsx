@@ -14,6 +14,8 @@ import { useSites } from '@/lib/data/sites'
 import { useReferenceTable } from '@/lib/data/referenceTables'
 import { FALLBACK_TYPES_ENERGIES } from '@/lib/referenceFallbacks'
 import { useEnedisFetch, type EnedisElecResult } from '@/lib/data/enedis'
+import { ListToolbar } from '@/components/ui/list-toolbar'
+import { useListControls } from '@/lib/useListControls'
 
 function GrdDetailRow({ icon: Icon, label, value }: { icon: React.ElementType; label: string; value: React.ReactNode }) {
   return (
@@ -198,6 +200,19 @@ export default function Compteurs() {
   const { data: compteurs, isLoading } = useCompteurs()
   const navigate = useNavigate()
   const [showCreate, setShowCreate] = useState(false)
+  const [energieFilter, setEnergieFilter] = useState('')
+
+  const compteursFiltres = energieFilter ? compteurs?.filter((c) => c.type_energie === energieFilter) : compteurs
+
+  const { query, setQuery, sortKey, setSortKey, items: filteredCompteurs } = useListControls(compteursFiltres, {
+    searchFields: (c) => [c.site_nom, c.utilisation, c.numero_pdl],
+    sorters: {
+      site_nom: (a, b) => a.site_nom.localeCompare(b.site_nom),
+      numero_pdl: (a, b) => a.numero_pdl.localeCompare(b.numero_pdl),
+      statut: (a, b) => a.statut.localeCompare(b.statut),
+    },
+    defaultSort: 'site_nom',
+  })
 
   return (
     <div>
@@ -209,14 +224,30 @@ export default function Compteurs() {
           actions={<Button onClick={() => setShowCreate(true)}><Plus className="h-4 w-4" />Nouveau compteur</Button>}
         />
 
+        <ListToolbar query={query} onQueryChange={setQuery} placeholder="Rechercher un site, un PDL…">
+          <Select value={energieFilter} onChange={(e) => setEnergieFilter(e.target.value)} className="w-auto">
+            <option value="">Toutes les énergies</option>
+            <option value="electricite">Électricité</option>
+            <option value="gaz">Gaz</option>
+          </Select>
+          <Select value={sortKey} onChange={(e) => setSortKey(e.target.value)} className="w-auto">
+            <option value="site_nom">Trier par site</option>
+            <option value="numero_pdl">Trier par numéro PDL</option>
+            <option value="statut">Trier par statut</option>
+          </Select>
+        </ListToolbar>
+
         {!isLoading && compteurs?.length === 0 && (
           <p className="mb-4 text-sm text-navy-400">
             Aucun compteur pour l'instant — un compteur est un point de livraison (PDL) électricité ou gaz rattaché à un site. Utilise « Nouveau compteur » pour en créer un.
           </p>
         )}
+        {!isLoading && compteurs && compteurs.length > 0 && filteredCompteurs?.length === 0 && (
+          <p className="mb-4 text-sm text-navy-400">Aucun compteur ne correspond à la recherche.</p>
+        )}
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-3">
           {isLoading && <p className="text-sm text-navy-400">Chargement…</p>}
-          {compteurs?.map((c) => (
+          {filteredCompteurs?.map((c) => (
             <Card
               key={c.id}
               onClick={() => navigate(`/compteurs/${c.id}`)}

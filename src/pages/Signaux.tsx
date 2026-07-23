@@ -15,6 +15,7 @@ import { FALLBACK_STATUTS_SIGNAUX, FALLBACK_TYPES_SIGNAUX, FALLBACK_STATUTS_ACTI
 import { EntityLink } from '@/components/ui/entity-link'
 import type { Signal } from '@/types/domain'
 import { cn } from '@/lib/utils'
+import { ListToolbar } from '@/components/ui/list-toolbar'
 
 function SignalCard({ signal }: { signal: Signal }) {
   const navigate = useNavigate()
@@ -150,8 +151,12 @@ export default function Signaux() {
   const { data: statutsRef } = useReferenceTable('statuts_signaux')
   const columns = statutsRef && statutsRef.length > 0 ? statutsRef : FALLBACK_STATUTS_SIGNAUX
   const [showCreate, setShowCreate] = useState(false)
+  const [query, setQuery] = useState('')
 
-  const visibles = signaux ?? []
+  const q = query.trim().toLowerCase()
+  const visibles = (signaux ?? []).filter((s) =>
+    !q || [s.site_nom, s.type_signal, s.description, s.conseiller].some((f) => (f ?? '').toLowerCase().includes(q)),
+  )
 
   return (
     <div>
@@ -162,6 +167,8 @@ export default function Signaux() {
           description="Un signal attire l'attention — il ne déclenche jamais automatiquement une recommandation. Il suit un cycle : détection, contact, intérêt confirmé, puis mandat."
           actions={<Button onClick={() => setShowCreate(true)}><Plus className="h-4 w-4" />Nouveau signal</Button>}
         />
+
+        <ListToolbar query={query} onQueryChange={setQuery} placeholder="Rechercher un site, un type de signal…" />
 
         {isLoading ? (
           <p className="text-sm text-navy-400">Chargement…</p>

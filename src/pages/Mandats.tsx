@@ -15,6 +15,8 @@ import { useSites } from '@/lib/data/sites'
 import { useContacts } from '@/lib/data/contacts'
 import { useReferenceTable } from '@/lib/data/referenceTables'
 import { FALLBACK_STATUTS_MANDATS, STATUT_MANDAT_TONE } from '@/lib/referenceFallbacks'
+import { ListToolbar } from '@/components/ui/list-toolbar'
+import { useListControls } from '@/lib/useListControls'
 
 function CreateMandatDialog({ open, onClose }: { open: boolean; onClose: () => void }) {
   const { data: comptes } = useComptes()
@@ -116,6 +118,19 @@ export default function Mandats() {
   const statuts = statutsRef && statutsRef.length > 0 ? statutsRef : FALLBACK_STATUTS_MANDATS
   const navigate = useNavigate()
   const [showCreate, setShowCreate] = useState(false)
+  const [statutFilter, setStatutFilter] = useState('')
+
+  const mandatsFiltresParStatut = statutFilter ? mandats?.filter((m) => m.statut === statutFilter) : mandats
+
+  const { query, setQuery, sortKey, setSortKey, items: filteredMandats } = useListControls(mandatsFiltresParStatut, {
+    searchFields: (m) => [m.compte_nom],
+    sorters: {
+      compte_nom: (a, b) => a.compte_nom.localeCompare(b.compte_nom),
+      date_signature: (a, b) => (a.date_signature ?? '').localeCompare(b.date_signature ?? ''),
+      nb_sites_couverts: (a, b) => a.nb_sites_couverts - b.nb_sites_couverts,
+    },
+    defaultSort: 'compte_nom',
+  })
 
   return (
     <div>
@@ -127,14 +142,29 @@ export default function Mandats() {
           actions={<Button onClick={() => setShowCreate(true)}><Plus className="h-4 w-4" />Nouveau mandat</Button>}
         />
 
+        <ListToolbar query={query} onQueryChange={setQuery} placeholder="Rechercher un compte…">
+          <Select value={statutFilter} onChange={(e) => setStatutFilter(e.target.value)} className="w-auto">
+            <option value="">Tous les statuts</option>
+            {statuts.map((s) => <option key={s.id} value={s.code}>{s.libelle}</option>)}
+          </Select>
+          <Select value={sortKey} onChange={(e) => setSortKey(e.target.value)} className="w-auto">
+            <option value="compte_nom">Trier par compte</option>
+            <option value="date_signature">Trier par date de signature</option>
+            <option value="nb_sites_couverts">Trier par nb. de sites</option>
+          </Select>
+        </ListToolbar>
+
         {!isLoading && mandats?.length === 0 && (
           <p className="mb-4 text-sm text-navy-400">
             Aucun mandat pour l'instant — le mandat signé par le client autorise KiWee à négocier sur un périmètre de sites précis. Utilise « Nouveau mandat » pour en créer un.
           </p>
         )}
+        {!isLoading && mandats && mandats.length > 0 && filteredMandats?.length === 0 && (
+          <p className="mb-4 text-sm text-navy-400">Aucun mandat ne correspond à la recherche.</p>
+        )}
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3">
           {isLoading && <p className="text-sm text-navy-400">Chargement…</p>}
-          {mandats?.map((m) => {
+          {filteredMandats?.map((m) => {
             const label = statuts.find((s) => s.code === m.statut)?.libelle ?? m.statut
             return (
               <Card

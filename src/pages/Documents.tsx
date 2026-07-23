@@ -18,6 +18,8 @@ import { useContrats } from '@/lib/data/contrats'
 import { useReferenceTable } from '@/lib/data/referenceTables'
 import { FALLBACK_TYPES_DOCUMENTS } from '@/lib/referenceFallbacks'
 import { entityRoute } from '@/lib/entityRoute'
+import { ListToolbar } from '@/components/ui/list-toolbar'
+import { useListControls } from '@/lib/useListControls'
 
 const ENTITE_TYPE_OPTIONS = [
   { value: 'site', label: 'Site' },
@@ -131,6 +133,16 @@ export default function Documents() {
   const navigate = useNavigate()
   const [showCreate, setShowCreate] = useState(false)
 
+  const { query, setQuery, sortKey, setSortKey, items: filteredDocuments } = useListControls(documents, {
+    searchFields: (d) => [d.nom, d.objet_lie, d.auteur, d.type_document],
+    sorters: {
+      date_creation: (a, b) => b.date_creation.localeCompare(a.date_creation),
+      nom: (a, b) => a.nom.localeCompare(b.nom),
+      type_document: (a, b) => a.type_document.localeCompare(b.type_document),
+    },
+    defaultSort: 'date_creation',
+  })
+
   return (
     <div>
       <Topbar title="Documents" />
@@ -141,6 +153,14 @@ export default function Documents() {
           actions={<Button onClick={() => setShowCreate(true)}><Plus className="h-4 w-4" />Nouveau document</Button>}
         />
 
+        <ListToolbar query={query} onQueryChange={setQuery} placeholder="Rechercher un document, un auteur…">
+          <Select value={sortKey} onChange={(e) => setSortKey(e.target.value)} className="w-auto">
+            <option value="date_creation">Trier par date</option>
+            <option value="nom">Trier par nom</option>
+            <option value="type_document">Trier par type</option>
+          </Select>
+        </ListToolbar>
+
         <div className="space-y-2.5">
           {isLoading && <p className="text-sm text-navy-400">Chargement…</p>}
           {!isLoading && documents?.length === 0 && (
@@ -148,7 +168,10 @@ export default function Documents() {
               Aucun document pour l'instant — mandats signés, factures, contrats et pièces jointes de recommandations apparaîtront ici.
             </p>
           )}
-          {documents?.map((doc) => (
+          {!isLoading && documents && documents.length > 0 && filteredDocuments?.length === 0 && (
+            <p className="py-8 text-center text-sm text-navy-400">Aucun document ne correspond à la recherche.</p>
+          )}
+          {filteredDocuments?.map((doc) => (
             <Card
               key={doc.id}
               onClick={() => navigate(`/documents/${doc.id}`)}

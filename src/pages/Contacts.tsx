@@ -13,6 +13,8 @@ import { FormField, Input, Select } from '@/components/ui/form'
 import { useContacts, useCreateContact } from '@/lib/data/contacts'
 import { useComptes } from '@/lib/data/comptes'
 import { useSites } from '@/lib/data/sites'
+import { ListToolbar } from '@/components/ui/list-toolbar'
+import { useListControls } from '@/lib/useListControls'
 
 const CIVILITE_OPTIONS = ['M.', 'Mme', 'Autre']
 
@@ -146,6 +148,16 @@ export default function Contacts() {
   const navigate = useNavigate()
   const [showCreate, setShowCreate] = useState(false)
 
+  const { query, setQuery, sortKey, setSortKey, items: filteredContacts } = useListControls(contacts, {
+    searchFields: (c) => [c.prenom, c.nom, c.fonction, c.compte_nom, c.email, c.telephone],
+    sorters: {
+      nom: (a, b) => a.nom.localeCompare(b.nom),
+      compte_nom: (a, b) => a.compte_nom.localeCompare(b.compte_nom),
+      fonction: (a, b) => (a.fonction ?? '').localeCompare(b.fonction ?? ''),
+    },
+    defaultSort: 'nom',
+  })
+
   return (
     <div>
       <Topbar title="Contacts" />
@@ -156,14 +168,25 @@ export default function Contacts() {
           actions={<Button onClick={() => setShowCreate(true)}><Plus className="h-4 w-4" />Nouveau contact</Button>}
         />
 
+        <ListToolbar query={query} onQueryChange={setQuery} placeholder="Rechercher un contact, un compte…">
+          <Select value={sortKey} onChange={(e) => setSortKey(e.target.value)} className="w-auto">
+            <option value="nom">Trier par nom</option>
+            <option value="compte_nom">Trier par compte</option>
+            <option value="fonction">Trier par fonction</option>
+          </Select>
+        </ListToolbar>
+
         {!isLoading && contacts?.length === 0 && (
           <p className="mb-4 text-sm text-navy-400">
             Aucun contact pour l'instant — un contact est une personne chez un compte (signataire, gestionnaire, interlocuteur technique…). Utilise « Nouveau contact » pour en créer un.
           </p>
         )}
+        {!isLoading && contacts && contacts.length > 0 && filteredContacts?.length === 0 && (
+          <p className="mb-4 text-sm text-navy-400">Aucun contact ne correspond à la recherche.</p>
+        )}
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3">
           {isLoading && <p className="text-sm text-navy-400">Chargement…</p>}
-          {contacts?.map((c) => (
+          {filteredContacts?.map((c) => (
             <Card
               key={c.id}
               onClick={() => navigate(`/contacts/${c.id}`)}

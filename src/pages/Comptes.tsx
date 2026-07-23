@@ -3,8 +3,13 @@ import { Topbar } from '@/components/layout/Topbar'
 import { PageHeader } from '@/components/ui/page-header'
 import { Card } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
+import { Select } from '@/components/ui/form'
+import { ListToolbar } from '@/components/ui/list-toolbar'
+import { SortableTh } from '@/components/ui/sortable-th'
+import { useListControls } from '@/lib/useListControls'
 import { useComptes } from '@/lib/data/comptes'
 import { EllisphereSearch } from '@/components/ellisphere/EllisphereSearch'
+import { useState } from 'react'
 import type { TypeCompte } from '@/types/domain'
 
 const typeMeta: Record<TypeCompte, { label: string; tone: 'kiwi' | 'blue' | 'amber' | 'neutral' }> = {
@@ -17,6 +22,20 @@ const typeMeta: Record<TypeCompte, { label: string; tone: 'kiwi' | 'blue' | 'amb
 export default function Comptes() {
   const { data: comptes, isLoading } = useComptes()
   const navigate = useNavigate()
+  const [typeFilter, setTypeFilter] = useState('')
+
+  const comptesFiltresParType = typeFilter ? comptes?.filter((c) => c.type_compte === typeFilter) : comptes
+
+  const { query, setQuery, sortKey, sortDir, toggleSort, items: filteredComptes } = useListControls(comptesFiltresParType, {
+    searchFields: (c) => [c.nom, c.segment, c.ville],
+    sorters: {
+      nom: (a, b) => a.nom.localeCompare(b.nom),
+      segment: (a, b) => (a.segment ?? '').localeCompare(b.segment ?? ''),
+      ville: (a, b) => (a.ville ?? '').localeCompare(b.ville ?? ''),
+      nb_sites: (a, b) => a.nb_sites - b.nb_sites,
+    },
+    defaultSort: 'nom',
+  })
 
   return (
     <div>
@@ -29,15 +48,24 @@ export default function Comptes() {
 
         <EllisphereSearch />
 
+        <ListToolbar query={query} onQueryChange={setQuery} placeholder="Rechercher un compte, une ville…">
+          <Select value={typeFilter} onChange={(e) => setTypeFilter(e.target.value)} className="w-auto">
+            <option value="">Tous les types</option>
+            {(Object.keys(typeMeta) as TypeCompte[]).map((t) => (
+              <option key={t} value={t}>{typeMeta[t].label}</option>
+            ))}
+          </Select>
+        </ListToolbar>
+
         <Card className="overflow-x-auto">
           <table className="w-full min-w-[640px] text-sm">
             <thead className="border-b border-navy-100 bg-navy-50 text-left text-xs uppercase tracking-wide text-navy-400">
               <tr>
-                <th className="px-5 py-3 font-medium">Nom</th>
+                <SortableTh label="Nom" sortKey="nom" activeKey={sortKey} dir={sortDir} onSort={toggleSort} />
                 <th className="px-5 py-3 font-medium">Type</th>
-                <th className="px-5 py-3 font-medium">Segment</th>
-                <th className="px-5 py-3 font-medium">Ville</th>
-                <th className="px-5 py-3 font-medium">Sites</th>
+                <SortableTh label="Segment" sortKey="segment" activeKey={sortKey} dir={sortDir} onSort={toggleSort} />
+                <SortableTh label="Ville" sortKey="ville" activeKey={sortKey} dir={sortDir} onSort={toggleSort} />
+                <SortableTh label="Sites" sortKey="nb_sites" activeKey={sortKey} dir={sortDir} onSort={toggleSort} />
               </tr>
             </thead>
             <tbody className="divide-y divide-navy-100">
@@ -46,14 +74,16 @@ export default function Comptes() {
                   <td colSpan={5} className="px-5 py-6 text-center text-navy-400">Chargement…</td>
                 </tr>
               )}
-              {!isLoading && comptes?.length === 0 && (
+              {!isLoading && filteredComptes?.length === 0 && (
                 <tr>
                   <td colSpan={5} className="px-5 py-10 text-center text-sm text-navy-400">
-                    Aucun compte pour l'instant — cherche une entreprise ci-dessus (SIREN/SIRET) pour en créer un via Ellisphere, ou attends l'import des données réelles.
+                    {comptes?.length === 0
+                      ? "Aucun compte pour l'instant — cherche une entreprise ci-dessus (SIREN/SIRET) pour en créer un via Ellisphere, ou attends l'import des données réelles."
+                      : 'Aucun compte ne correspond à la recherche.'}
                   </td>
                 </tr>
               )}
-              {comptes?.map((compte) => (
+              {filteredComptes?.map((compte) => (
                 <tr
                   key={compte.id}
                   onClick={() => navigate(`/comptes/${compte.id}`)}

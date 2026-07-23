@@ -9,6 +9,9 @@ import { Button } from '@/components/ui/button'
 import { EntityLink } from '@/components/ui/entity-link'
 import { Dialog } from '@/components/ui/dialog'
 import { FormField, Input, Select } from '@/components/ui/form'
+import { ListToolbar } from '@/components/ui/list-toolbar'
+import { SortableTh } from '@/components/ui/sortable-th'
+import { useListControls } from '@/lib/useListControls'
 import { useSites, useCreateSite } from '@/lib/data/sites'
 import { useComptes } from '@/lib/data/comptes'
 import { useSignaux } from '@/lib/data/signaux'
@@ -113,6 +116,19 @@ export default function Sites() {
   const navigate = useNavigate()
   const [showCreate, setShowCreate] = useState(false)
 
+  const { query, setQuery, sortKey, sortDir, toggleSort, items: filteredSites } = useListControls(sites, {
+    searchFields: (s) => [s.nom, s.compte_nom, s.type_site, s.ville],
+    sorters: {
+      nom: (a, b) => a.nom.localeCompare(b.nom),
+      compte_nom: (a, b) => a.compte_nom.localeCompare(b.compte_nom),
+      type_site: (a, b) => (a.type_site ?? '').localeCompare(b.type_site ?? ''),
+      ville: (a, b) => (a.ville ?? '').localeCompare(b.ville ?? ''),
+      nb_compteurs: (a, b) => a.nb_compteurs - b.nb_compteurs,
+      nb_signaux_ouverts: (a, b) => a.nb_signaux_ouverts - b.nb_signaux_ouverts,
+    },
+    defaultSort: 'nom',
+  })
+
   return (
     <div>
       <Topbar title="Sites" />
@@ -123,16 +139,18 @@ export default function Sites() {
           actions={<Button onClick={() => setShowCreate(true)}><Plus className="h-4 w-4" />Nouveau site</Button>}
         />
 
+        <ListToolbar query={query} onQueryChange={setQuery} placeholder="Rechercher un site, compte, ville…" />
+
         <Card className="overflow-x-auto">
           <table className="w-full min-w-[720px] text-sm">
             <thead className="border-b border-navy-100 bg-navy-50 text-left text-xs uppercase tracking-wide text-navy-400">
               <tr>
-                <th className="px-5 py-3 font-medium">Site</th>
-                <th className="px-5 py-3 font-medium">Compte</th>
-                <th className="px-5 py-3 font-medium">Type</th>
-                <th className="px-5 py-3 font-medium">Ville</th>
-                <th className="px-5 py-3 font-medium">Compteurs</th>
-                <th className="px-5 py-3 font-medium">Signaux ouverts</th>
+                <SortableTh label="Site" sortKey="nom" activeKey={sortKey} dir={sortDir} onSort={toggleSort} />
+                <SortableTh label="Compte" sortKey="compte_nom" activeKey={sortKey} dir={sortDir} onSort={toggleSort} />
+                <SortableTh label="Type" sortKey="type_site" activeKey={sortKey} dir={sortDir} onSort={toggleSort} />
+                <SortableTh label="Ville" sortKey="ville" activeKey={sortKey} dir={sortDir} onSort={toggleSort} />
+                <SortableTh label="Compteurs" sortKey="nb_compteurs" activeKey={sortKey} dir={sortDir} onSort={toggleSort} />
+                <SortableTh label="Signaux ouverts" sortKey="nb_signaux_ouverts" activeKey={sortKey} dir={sortDir} onSort={toggleSort} />
                 <th className="px-5 py-3 font-medium">Santé</th>
               </tr>
             </thead>
@@ -142,14 +160,16 @@ export default function Sites() {
                   <td colSpan={7} className="px-5 py-6 text-center text-navy-400">Chargement…</td>
                 </tr>
               )}
-              {!isLoading && sites?.length === 0 && (
+              {!isLoading && filteredSites?.length === 0 && (
                 <tr>
                   <td colSpan={7} className="px-5 py-10 text-center text-sm text-navy-400">
-                    Aucun site pour l'instant — un site représente un bâtiment, un immeuble ou un local rattaché à un compte (syndic, entreprise…). Clique sur « Nouveau site » pour en créer un.
+                    {sites?.length === 0
+                      ? "Aucun site pour l'instant — un site représente un bâtiment, un immeuble ou un local rattaché à un compte (syndic, entreprise…). Clique sur « Nouveau site » pour en créer un."
+                      : 'Aucun site ne correspond à la recherche.'}
                   </td>
                 </tr>
               )}
-              {sites?.map((site) => {
+              {filteredSites?.map((site) => {
                 const health = computeSiteHealth({
                   signaux: signaux?.filter((s) => s.site_id === site.id) ?? [],
                   contrats: contrats?.filter((c) => c.site_id === site.id) ?? [],

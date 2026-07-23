@@ -6,6 +6,9 @@ import { Badge } from '@/components/ui/badge'
 import { useRecommandations } from '@/lib/data/recommandations'
 import { useReferenceTable } from '@/lib/data/referenceTables'
 import { FALLBACK_STATUTS_VERSIONS, STATUT_VERSION_TONE } from '@/lib/referenceFallbacks'
+import { ListToolbar } from '@/components/ui/list-toolbar'
+import { SortableTh } from '@/components/ui/sortable-th'
+import { useListControls } from '@/lib/useListControls'
 
 export default function Versions() {
   const { data: recommandations, isLoading } = useRecommandations()
@@ -13,10 +16,19 @@ export default function Versions() {
   const statuts = statutsRef && statutsRef.length > 0 ? statutsRef : FALLBACK_STATUTS_VERSIONS
   const navigate = useNavigate()
 
-  const versions =
-    recommandations
-      ?.flatMap((reco) => reco.versions.map((v) => ({ ...v, recoTitre: reco.titre, recoId: reco.id })))
-      .sort((a, b) => (a.date_creation < b.date_creation ? 1 : -1)) ?? []
+  const versionsBrutes = recommandations?.flatMap((reco) => reco.versions.map((v) => ({ ...v, recoTitre: reco.titre, recoId: reco.id }))) ?? []
+
+  const { query, setQuery, sortKey, sortDir, toggleSort, items: versionsResult } = useListControls(versionsBrutes, {
+    searchFields: (v) => [v.recoTitre, v.nom, v.motif_creation],
+    sorters: {
+      recoTitre: (a, b) => a.recoTitre.localeCompare(b.recoTitre),
+      statut: (a, b) => a.statut.localeCompare(b.statut),
+      gains_estimes: (a, b) => (a.gains_estimes ?? 0) - (b.gains_estimes ?? 0),
+      date_creation: (a, b) => b.date_creation.localeCompare(a.date_creation),
+    },
+    defaultSort: 'date_creation',
+  })
+  const versions = versionsResult ?? []
 
   return (
     <div>
@@ -27,16 +39,18 @@ export default function Versions() {
           description="Chaque recommandation évolue par versions successives — une version présentée n'est jamais modifiée, on en crée une nouvelle."
         />
 
+        <ListToolbar query={query} onQueryChange={setQuery} placeholder="Rechercher une recommandation, un motif…" />
+
         <Card className="overflow-x-auto">
           <table className="w-full min-w-[720px] text-sm">
             <thead className="border-b border-navy-100 bg-navy-50 text-left text-xs uppercase tracking-wide text-navy-400">
               <tr>
-                <th className="px-5 py-3 font-medium">Recommandation</th>
+                <SortableTh label="Recommandation" sortKey="recoTitre" activeKey={sortKey} dir={sortDir} onSort={toggleSort} />
                 <th className="px-5 py-3 font-medium">Version</th>
                 <th className="px-5 py-3 font-medium">Motif</th>
-                <th className="px-5 py-3 font-medium">Statut</th>
-                <th className="px-5 py-3 font-medium">Gain estimé</th>
-                <th className="px-5 py-3 font-medium">Date</th>
+                <SortableTh label="Statut" sortKey="statut" activeKey={sortKey} dir={sortDir} onSort={toggleSort} />
+                <SortableTh label="Gain estimé" sortKey="gains_estimes" activeKey={sortKey} dir={sortDir} onSort={toggleSort} />
+                <SortableTh label="Date" sortKey="date_creation" activeKey={sortKey} dir={sortDir} onSort={toggleSort} />
               </tr>
             </thead>
             <tbody className="divide-y divide-navy-100">
@@ -47,7 +61,9 @@ export default function Versions() {
               )}
               {versions.length === 0 && !isLoading && (
                 <tr>
-                  <td colSpan={6} className="px-5 py-6 text-center text-navy-400">Aucune version pour le moment.</td>
+                  <td colSpan={6} className="px-5 py-6 text-center text-navy-400">
+                    {versionsBrutes.length === 0 ? 'Aucune version pour le moment.' : 'Aucune version ne correspond à la recherche.'}
+                  </td>
                 </tr>
               )}
               {versions.map((v) => (

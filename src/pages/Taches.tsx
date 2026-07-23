@@ -14,6 +14,8 @@ import { useSites } from '@/lib/data/sites'
 import { useContacts } from '@/lib/data/contacts'
 import { useReferenceTable } from '@/lib/data/referenceTables'
 import { FALLBACK_TYPES_ACTIONS, FALLBACK_STATUTS_ACTIONS, STATUT_ACTION_TONE } from '@/lib/referenceFallbacks'
+import { ListToolbar } from '@/components/ui/list-toolbar'
+import { useListControls } from '@/lib/useListControls'
 
 function CreateActionDialog({ open, onClose }: { open: boolean; onClose: () => void }) {
   const { data: sites } = useSites()
@@ -117,12 +119,24 @@ function CreateActionDialog({ open, onClose }: { open: boolean; onClose: () => v
 
 export default function Taches() {
   const { data: actions, isLoading } = useActions()
+  const { data: statutsRef } = useReferenceTable('statuts_actions')
+  const statuts = statutsRef && statutsRef.length > 0 ? statutsRef : FALLBACK_STATUTS_ACTIONS
   const completeAction = useCompleteAction()
   const navigate = useNavigate()
   const [showCreate, setShowCreate] = useState(false)
 
-  const ouvertes = (actions ?? []).filter((a) => a.statut !== 'TERMINEE' && a.statut !== 'ANNULEE')
-  const terminees = (actions ?? []).filter((a) => a.statut === 'TERMINEE' || a.statut === 'ANNULEE')
+  const { query, setQuery, sortKey, setSortKey, items: filteredActions } = useListControls(actions, {
+    searchFields: (a) => [a.titre, a.cible_label, a.contact_nom, a.responsable, a.type_action],
+    sorters: {
+      echeance: (a, b) => (a.echeance ?? '').localeCompare(b.echeance ?? ''),
+      titre: (a, b) => a.titre.localeCompare(b.titre),
+      priorite: (a, b) => b.priorite - a.priorite,
+    },
+    defaultSort: 'echeance',
+  })
+
+  const ouvertes = (filteredActions ?? []).filter((a) => a.statut !== 'TERMINEE' && a.statut !== 'ANNULEE')
+  const terminees = (filteredActions ?? []).filter((a) => a.statut === 'TERMINEE' || a.statut === 'ANNULEE')
 
   return (
     <div>
@@ -133,6 +147,14 @@ export default function Taches() {
           description="Les actions à faire pour vos comptes et sites — relances, préparations de mandat, présentations."
           actions={<Button onClick={() => setShowCreate(true)}><Plus className="h-4 w-4" />Nouvelle tâche</Button>}
         />
+
+        <ListToolbar query={query} onQueryChange={setQuery} placeholder="Rechercher une tâche, un site, un contact…">
+          <Select value={sortKey} onChange={(e) => setSortKey(e.target.value)} className="w-auto">
+            <option value="echeance">Trier par échéance</option>
+            <option value="titre">Trier par titre</option>
+            <option value="priorite">Trier par priorité</option>
+          </Select>
+        </ListToolbar>
 
         {isLoading && <p className="text-sm text-navy-400">Chargement…</p>}
 
@@ -171,7 +193,7 @@ export default function Taches() {
                 </p>
               </div>
               <div className="flex shrink-0 items-center gap-2">
-                <Badge tone={STATUT_ACTION_TONE[a.statut] ?? 'neutral'}>{a.statut}</Badge>
+                <Badge tone={STATUT_ACTION_TONE[a.statut] ?? 'neutral'}>{statuts.find((s) => s.code === a.statut)?.libelle ?? a.statut}</Badge>
                 {a.echeance && (
                   <span className="text-xs text-navy-400">{new Date(a.echeance).toLocaleDateString('fr-FR')}</span>
                 )}

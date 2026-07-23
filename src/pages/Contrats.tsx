@@ -15,6 +15,8 @@ import { useComptes } from '@/lib/data/comptes'
 import { useCompteurs } from '@/lib/data/compteurs'
 import { useReferenceTable } from '@/lib/data/referenceTables'
 import { FALLBACK_STATUTS_CONTRATS, STATUT_CONTRAT_TONE, FALLBACK_TYPES_ENERGIES } from '@/lib/referenceFallbacks'
+import { ListToolbar } from '@/components/ui/list-toolbar'
+import { useListControls } from '@/lib/useListControls'
 
 function CreateContratDialog({ open, onClose }: { open: boolean; onClose: () => void }) {
   const { data: sites } = useSites()
@@ -148,6 +150,20 @@ export default function Contrats() {
   const statuts = statutsRef && statutsRef.length > 0 ? statutsRef : FALLBACK_STATUTS_CONTRATS
   const navigate = useNavigate()
   const [showCreate, setShowCreate] = useState(false)
+  const [statutFilter, setStatutFilter] = useState('')
+
+  const contratsFiltresParStatut = statutFilter ? contrats?.filter((c) => c.statut === statutFilter) : contrats
+
+  const { query, setQuery, sortKey, setSortKey, items: filteredContrats } = useListControls(contratsFiltresParStatut, {
+    searchFields: (c) => [c.fournisseur_nom, c.site_nom, c.reference_fournisseur],
+    sorters: {
+      site_nom: (a, b) => a.site_nom.localeCompare(b.site_nom),
+      fournisseur_nom: (a, b) => a.fournisseur_nom.localeCompare(b.fournisseur_nom),
+      date_debut: (a, b) => (a.date_debut ?? '').localeCompare(b.date_debut ?? ''),
+      date_fin: (a, b) => (a.date_fin ?? '').localeCompare(b.date_fin ?? ''),
+    },
+    defaultSort: 'site_nom',
+  })
 
   return (
     <div>
@@ -159,9 +175,25 @@ export default function Contrats() {
           actions={<Button onClick={() => setShowCreate(true)}><Plus className="h-4 w-4" />Nouveau contrat</Button>}
         />
 
+        <ListToolbar query={query} onQueryChange={setQuery} placeholder="Rechercher un fournisseur, un site…">
+          <Select value={statutFilter} onChange={(e) => setStatutFilter(e.target.value)} className="w-auto">
+            <option value="">Tous les statuts</option>
+            {statuts.map((s) => <option key={s.id} value={s.code}>{s.libelle}</option>)}
+          </Select>
+          <Select value={sortKey} onChange={(e) => setSortKey(e.target.value)} className="w-auto">
+            <option value="site_nom">Trier par site</option>
+            <option value="fournisseur_nom">Trier par fournisseur</option>
+            <option value="date_debut">Trier par date de début</option>
+            <option value="date_fin">Trier par date de fin</option>
+          </Select>
+        </ListToolbar>
+
+        {!isLoading && contrats && contrats.length > 0 && filteredContrats?.length === 0 && (
+          <p className="mb-4 text-sm text-navy-400">Aucun contrat ne correspond à la recherche.</p>
+        )}
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3">
           {isLoading && <p className="text-sm text-navy-400">Chargement…</p>}
-          {contrats?.map((c) => {
+          {filteredContrats?.map((c) => {
             const label = statuts.find((s) => s.code === c.statut)?.libelle ?? c.statut
             const Icon = c.type_energie === 'gaz' ? Flame : Zap
             return (

@@ -15,6 +15,8 @@ import { useMandats } from '@/lib/data/mandats'
 import { useSites } from '@/lib/data/sites'
 import { useReferenceTable } from '@/lib/data/referenceTables'
 import { FALLBACK_ETAPES_RECOMMANDATION, ETAPE_TONE, FALLBACK_TYPES_ORIGINES } from '@/lib/referenceFallbacks'
+import { ListToolbar } from '@/components/ui/list-toolbar'
+import { useListControls } from '@/lib/useListControls'
 
 const PRIORITE_OPTIONS = [
   { value: 1, label: 'Haute' },
@@ -148,6 +150,19 @@ export default function Recommandations() {
   const etapes = etapesRef && etapesRef.length > 0 ? etapesRef : FALLBACK_ETAPES_RECOMMANDATION
   const navigate = useNavigate()
   const [showCreate, setShowCreate] = useState(false)
+  const [etapeFilter, setEtapeFilter] = useState('')
+
+  const recommandationsFiltreesParEtape = etapeFilter ? recommandations?.filter((r) => r.etape === etapeFilter) : recommandations
+
+  const { query, setQuery, sortKey, setSortKey, items: filteredRecommandations } = useListControls(recommandationsFiltreesParEtape, {
+    searchFields: (r) => [r.titre, r.compte_nom, r.conseiller],
+    sorters: {
+      titre: (a, b) => a.titre.localeCompare(b.titre),
+      compte_nom: (a, b) => a.compte_nom.localeCompare(b.compte_nom),
+      priorite: (a, b) => a.priorite - b.priorite,
+    },
+    defaultSort: 'titre',
+  })
 
   return (
     <div>
@@ -159,14 +174,29 @@ export default function Recommandations() {
           actions={<Button onClick={() => setShowCreate(true)}><Plus className="h-4 w-4" />Nouvelle recommandation</Button>}
         />
 
+        <ListToolbar query={query} onQueryChange={setQuery} placeholder="Rechercher une recommandation, un compte…">
+          <Select value={etapeFilter} onChange={(e) => setEtapeFilter(e.target.value)} className="w-auto">
+            <option value="">Toutes les étapes</option>
+            {etapes.map((e) => <option key={e.id} value={e.code}>{e.libelle}</option>)}
+          </Select>
+          <Select value={sortKey} onChange={(e) => setSortKey(e.target.value)} className="w-auto">
+            <option value="titre">Trier par titre</option>
+            <option value="compte_nom">Trier par compte</option>
+            <option value="priorite">Trier par priorité</option>
+          </Select>
+        </ListToolbar>
+
         {!isLoading && recommandations?.length === 0 && (
           <p className="mb-4 text-sm text-navy-400">
             Aucune recommandation pour l'instant — c'est le cœur du métier KiWee : une proposition chiffrée (optimisations, offres) pour un ou plusieurs sites. Utilise « Nouvelle recommandation » pour en créer une.
           </p>
         )}
+        {!isLoading && recommandations && recommandations.length > 0 && filteredRecommandations?.length === 0 && (
+          <p className="mb-4 text-sm text-navy-400">Aucune recommandation ne correspond à la recherche.</p>
+        )}
         <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
           {isLoading && <p className="text-sm text-navy-400">Chargement…</p>}
-          {recommandations?.map((reco) => {
+          {filteredRecommandations?.map((reco) => {
             const etapeLabel = etapes.find((e) => e.code === reco.etape)?.libelle ?? reco.etape
             return (
               <Card
