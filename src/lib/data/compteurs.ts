@@ -153,7 +153,7 @@ interface CreateCompteurResult {
   persisted: boolean
 }
 
-function classeInsertRow(prefix: 'conso' | 'puissance', suffix: 'mwh' | 'kva', values?: Record<string, number>) {
+export function classeInsertRow(prefix: 'conso' | 'puissance', suffix: 'mwh' | 'kva', values?: Record<string, number>) {
   const row: Record<string, number> = {}
   if (!values) return row
   for (const [code, v] of Object.entries(values)) {
@@ -257,6 +257,74 @@ export function useUpdateCompteur() {
       if (error) throw new Error(error.message)
     },
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ['compteurs'] }),
+  })
+}
+
+export interface SyncCompteurElecResult {
+  segment?: string | null
+  tensionLivraison?: string | null
+  fta?: string | null
+  consoParClasseMwh?: Record<string, number> | null
+  puissancesParClasse?: Record<string, number> | null
+  consoTotaleMwh?: number | null
+  periodeDebut?: string | null
+  periodeFin?: string | null
+}
+
+export function useSyncCompteurElec() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: async ({ compteurId, result }: { compteurId: string; result: SyncCompteurElecResult }) => {
+      const now = new Date().toISOString()
+
+      const { error: eCompteur } = await supabase
+        .from('compteurs')
+        .update({
+          synchro_eneo: true,
+          date_derniere_synchro_eneo: now,
+          ...(result.consoTotaleMwh != null ? { consommation_annuelle_mwh: result.consoTotaleMwh } : {}),
+        })
+        .eq('id', compteurId)
+      if (eCompteur) throw new Error(eCompteur.message)
+
+      const { error: eElec } = await supabase.from('compteurs_electricite').upsert(
+        {
+          compteur_id: compteurId,
+          segment: result.segment ?? null,
+          tension: result.tensionLivraison ?? null,
+          tarif_distribution: result.fta ?? null,
+          ...classeInsertRow('conso', 'mwh', result.consoParClasseMwh ?? undefined),
+          ...classeInsertRow('puissance', 'kva', result.puissancesParClasse ?? undefined),
+        },
+        { onConflict: 'compteur_id' },
+      )
+      if (eElec) throw new Error(eElec.message)
+
+      if (result.consoParClasseMwh && result.periodeDebut && result.periodeFin) {
+        await supabase.from('consommations').delete().eq('compteur_id', compteurId).eq('source', 'Enedis')
+        const rows = Object.entries(result.consoParClasseMwh)
+          .filter(([, v]) => v > 0)
+          .map(([classe, v]) => ({
+            compteur_id: compteurId,
+            date_debut_periode: result.periodeDebut as string,
+            date_fin_periode: result.periodeFin as string,
+            quantite: v,
+            unite: 'MWh',
+            poste_tarifaire: classe,
+            type_valeur: 'MESUREE',
+            source: 'Enedis',
+            commentaire: null,
+          }))
+        if (rows.length) {
+          const { error: eConso } = await supabase.from('consommations').insert(rows)
+          if (eConso) throw new Error(eConso.message)
+        }
+      }
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['compteurs'] })
+      queryClient.invalidateQueries({ queryKey: ['consommations'] })
+    },
   })
 }
 

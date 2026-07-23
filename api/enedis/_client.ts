@@ -103,6 +103,8 @@ export interface EnedisElecResult {
   consoParClasseMwh?: Record<string, number> | null
   consoTotaleMwh?: number | null
   consoTotaleKwh?: number | null
+  periodeDebut?: string | null
+  periodeFin?: string | null
 }
 
 export async function fetchElecData(pdlId: string): Promise<EnedisElecResult> {
@@ -324,5 +326,7 @@ export async function fetchElecData(pdlId: string): Promise<EnedisElecResult> {
     consoParClasseMwh: orderObj(consoParClasseMwh, isHTA),
     consoTotaleMwh: Math.round(totalMwh * 1000) / 1000,
     consoTotaleKwh: Math.round(totalMwh * 1000),
+    periodeDebut: uniqueMonths.length ? `${uniqueMonths[uniqueMonths.length - 1]}-01` : null,
+    periodeFin: uniqueMonths.length ? `${uniqueMonths[0]}-01` : null,
   }
 }

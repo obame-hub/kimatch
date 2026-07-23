@@ -1,13 +1,14 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
-import { ArrowLeft, Zap, Flame, Plus, Pencil, Trash2, Building2, MapPin, FileCheck2, FileText } from 'lucide-react'
+import { ArrowLeft, Zap, Flame, Plus, Pencil, Trash2, Building2, MapPin, FileCheck2, FileText, RefreshCw } from 'lucide-react'
 import { Topbar } from '@/components/layout/Topbar'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Dialog } from '@/components/ui/dialog'
 import { FormField, Input, Select } from '@/components/ui/form'
 import { HistoriqueDiscret } from '@/components/ui/historique-discret'
-import { useCompteurs, useUpdateCompteur, useDeleteCompteur } from '@/lib/data/compteurs'
+import { useCompteurs, useUpdateCompteur, useDeleteCompteur, useSyncCompteurElec } from '@/lib/data/compteurs'
+import { useEnedisFetch } from '@/lib/data/enedis'
 import { useConsommations, useCreateConsommation } from '@/lib/data/consommations'
 import { useSites } from '@/lib/data/sites'
 import { useComptes } from '@/lib/data/comptes'
@@ -362,11 +363,30 @@ export default function CompteurDetail() {
   const canManage = useCanManage(compteur?.proprietaire_id)
   const deleteCompteur = useDeleteCompteur()
   const goBack = useGoBack(compteur ? `/sites/${compteur.site_id}` : '/sites')
+  const enedisFetch = useEnedisFetch()
+  const syncCompteurElec = useSyncCompteurElec()
+  const [syncFeedback, setSyncFeedback] = useState<string | null>(null)
 
   async function handleDelete() {
     if (!compteur) return
     await deleteCompteur.mutateAsync(compteur.id)
     navigate(`/sites/${compteur.site_id}`)
+  }
+
+  async function handleSyncEnedis() {
+    if (!compteur) return
+    setSyncFeedback(null)
+    try {
+      const result = await enedisFetch.mutateAsync(compteur.numero_pdl)
+      if (!result.success) {
+        setSyncFeedback(result.error ?? 'Échec de la synchronisation Enedis.')
+        return
+      }
+      await syncCompteurElec.mutateAsync({ compteurId: compteur.id, result })
+      setSyncFeedback('Synchronisation Enedis réussie.')
+    } catch (err) {
+      setSyncFeedback(err instanceof Error ? err.message : 'Échec de la synchronisation Enedis.')
+    }
   }
 
   const TABS: { key: TabKey; label: string; badge?: string }[] = [
@@ -518,11 +538,26 @@ export default function CompteurDetail() {
                   {compteur.car_mwh != null && <p><span className="text-navy-400">CAR :</span> {compteur.car_mwh} MWh</p>}
                   {compteur.profil_consommation && <p><span className="text-navy-400">Profil :</span> {compteur.profil_consommation}</p>}
                   {compteur.zone_tarifaire && <p><span className="text-navy-400">Zone tarifaire :</span> {compteur.zone_tarifaire}</p>}
-                  <p className="text-navy-400">
-                    {compteur.synchro_eneo
-                      ? `Synchronisé le ${compteur.date_derniere_synchro_eneo ? new Date(compteur.date_derniere_synchro_eneo).toLocaleDateString('fr-FR') : '—'}`
-                      : 'Jamais synchronisé'}
-                  </p>
+                  <div className="flex flex-wrap items-center justify-between gap-2 text-navy-400">
+                    <p>
+                      {compteur.synchro_eneo
+                        ? `Synchronisé le ${compteur.date_derniere_synchro_eneo ? new Date(compteur.date_derniere_synchro_eneo).toLocaleDateString('fr-FR') : '—'}`
+                        : 'Jamais synchronisé'}
+                    </p>
+                    {compteur.type_energie === 'electricite' && canManage && (
+                      <Button
+                        type="button"
+                        size="sm"
+                        variant="outline"
+                        disabled={enedisFetch.isPending || syncCompteurElec.isPending}
+                        onClick={handleSyncEnedis}
+                      >
+                        <RefreshCw className={cn('h-3.5 w-3.5', (enedisFetch.isPending || syncCompteurElec.isPending) && 'animate-spin')} />
+                        Synchroniser Enedis
+                      </Button>
+                    )}
+                  </div>
+                  {syncFeedback && <p className="text-navy-500">{syncFeedback}</p>}
                 </div>
                 <HistoriqueDiscret tableNom="compteurs" ligneId={compteur.id} />
               </div>

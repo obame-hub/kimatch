@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { Plus } from 'lucide-react'
+import { Plus, List, Map as MapIcon } from 'lucide-react'
 import { Topbar } from '@/components/layout/Topbar'
 import { PageHeader } from '@/components/ui/page-header'
 import { Card } from '@/components/ui/card'
@@ -24,6 +24,8 @@ import { useReferenceTable } from '@/lib/data/referenceTables'
 import { FALLBACK_TYPES_SITES } from '@/lib/referenceFallbacks'
 import { computeSiteHealth } from '@/lib/siteHealth'
 import { SiteHealthBadge } from '@/components/site/SiteHealthBadge'
+import { SitesMap } from '@/components/site/SitesMap'
+import { cn } from '@/lib/utils'
 
 function CreateSiteDialog({ open, onClose }: { open: boolean; onClose: () => void }) {
   const { data: comptes } = useComptes()
@@ -115,6 +117,7 @@ export default function Sites() {
   const { data: compteurs } = useCompteurs()
   const navigate = useNavigate()
   const [showCreate, setShowCreate] = useState(false)
+  const [view, setView] = useState<'liste' | 'carte'>('liste')
 
   const { query, setQuery, sortKey, sortDir, toggleSort, items: filteredSites } = useListControls(sites, {
     searchFields: (s) => [s.nom, s.compte_nom, s.type_site, s.ville],
@@ -139,8 +142,48 @@ export default function Sites() {
           actions={<Button onClick={() => setShowCreate(true)}><Plus className="h-4 w-4" />Nouveau site</Button>}
         />
 
-        <ListToolbar query={query} onQueryChange={setQuery} placeholder="Rechercher un site, compte, ville…" />
+        <div className="mb-3.5 flex items-center justify-between gap-3">
+          <ListToolbar query={query} onQueryChange={setQuery} placeholder="Rechercher un site, compte, ville…" />
+          <div className="flex shrink-0 gap-1 rounded-lg border border-navy-200 bg-white p-0.5">
+            <button
+              type="button"
+              onClick={() => setView('liste')}
+              className={cn('flex items-center gap-1.5 rounded-md px-2.5 py-1.5 text-xs font-semibold', view === 'liste' ? 'bg-navy-800 text-white' : 'text-navy-500 hover:bg-navy-50')}
+            >
+              <List className="h-3.5 w-3.5" /> Liste
+            </button>
+            <button
+              type="button"
+              onClick={() => setView('carte')}
+              className={cn('flex items-center gap-1.5 rounded-md px-2.5 py-1.5 text-xs font-semibold', view === 'carte' ? 'bg-navy-800 text-white' : 'text-navy-500 hover:bg-navy-50')}
+            >
+              <MapIcon className="h-3.5 w-3.5" /> Carte
+            </button>
+          </div>
+        </div>
 
+        {view === 'carte' && (
+          <SitesMap
+            sites={(filteredSites ?? []).map((site) => ({
+              id: site.id,
+              nom: site.nom,
+              ville: site.ville,
+              compte_nom: site.compte_nom,
+              latitude: site.latitude,
+              longitude: site.longitude,
+              tone: computeSiteHealth({
+                signaux: signaux?.filter((s) => s.site_id === site.id) ?? [],
+                contrats: contrats?.filter((c) => c.site_id === site.id) ?? [],
+                recommandations: recommandations?.filter((r) => r.sites.some((rs) => rs.id === site.id)) ?? [],
+                mandat: mandats?.find((m) => m.compte_id === site.compte_id && m.site_ids.includes(site.id)),
+                actions: actions?.filter((a) => a.site_id === site.id) ?? [],
+                compteurs: compteurs?.filter((c) => c.site_id === site.id) ?? [],
+              }).tone,
+            }))}
+          />
+        )}
+
+        {view === 'liste' && (
         <Card className="overflow-x-auto">
           <table className="w-full min-w-[720px] text-sm">
             <thead className="border-b border-navy-100 bg-navy-50 text-left text-xs uppercase tracking-wide text-navy-400">
@@ -207,6 +250,7 @@ export default function Sites() {
             </tbody>
           </table>
         </Card>
+        )}
       </div>
       <CreateSiteDialog open={showCreate} onClose={() => setShowCreate(false)} />
     </div>

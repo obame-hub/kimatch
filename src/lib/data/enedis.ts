@@ -21,6 +21,8 @@ export interface EnedisElecResult {
   consoParClasseMwh?: Record<string, number> | null
   consoTotaleMwh?: number | null
   consoTotaleKwh?: number | null
+  periodeDebut?: string | null
+  periodeFin?: string | null
 }
 
 export function useEnedisFetch() {
