@@ -13,13 +13,15 @@ import { useSites } from '@/lib/data/sites'
 import { useComptes } from '@/lib/data/comptes'
 import { useContrats } from '@/lib/data/contrats'
 import { useMandats } from '@/lib/data/mandats'
+import { useSignaux } from '@/lib/data/signaux'
+import { useRecommandations } from '@/lib/data/recommandations'
 import { useDocuments, useCreateDocument } from '@/lib/data/documents'
 import { useReferenceTable } from '@/lib/data/referenceTables'
 import { FALLBACK_STATUTS_CONTRATS, STATUT_CONTRAT_TONE, FALLBACK_STATUTS_MANDATS, STATUT_MANDAT_TONE, FALLBACK_TYPES_DOCUMENTS } from '@/lib/referenceFallbacks'
 import { useCanManage, useIsAdmin, useProfilsAdmin } from '@/lib/data/roles'
 import { cn } from '@/lib/utils'
 import { useGoBack } from '@/lib/useGoBack'
-import type { Compteur } from '@/types/domain'
+import type { Compteur, Consommation } from '@/types/domain'
 
 const POSTE_OPTIONS = ['TOTAL', 'HP', 'HC', 'POINTE', 'HPH', 'HCH', 'HPE', 'HCE']
 const TYPE_VALEUR_OPTIONS = ['MESUREE', 'ESTIMEE', 'CORRIGEE']
@@ -168,6 +170,96 @@ function EditCompteurDialog({ compteur, open, onClose }: { compteur: Compteur; o
   )
 }
 
+function CouvertureCard({
+  nbSignaux,
+  mandatCouvert,
+  recoEnCours,
+  contratCouvert,
+}: {
+  nbSignaux: number
+  mandatCouvert: boolean
+  recoEnCours: boolean
+  contratCouvert: boolean
+}) {
+  const items = [
+    { lbl: 'Signaux', ok: nbSignaux === 0, val: nbSignaux > 0 ? `${nbSignaux} ouvert${nbSignaux > 1 ? 's' : ''}` : 'Aucun' },
+    { lbl: 'Mandat', ok: mandatCouvert, val: mandatCouvert ? 'Couvert ✓' : 'Non couvert' },
+    { lbl: 'Reco', ok: true, warn: recoEnCours, val: recoEnCours ? 'En cours' : 'Aucune' },
+    { lbl: 'Contrat', ok: contratCouvert, val: contratCouvert ? 'Couvert ✓' : 'Aucun' },
+  ]
+  const score = items.filter((i) => i.ok).length
+  return (
+    <div className="rounded-xl border border-navy-100 bg-white p-3.5">
+      <div className="mb-2.5 flex items-center gap-1.5">
+        <span className="text-[10px] font-bold uppercase tracking-wide text-navy-400">Couverture</span>
+        <div className="flex-1" />
+        <span className={cn('rounded px-1.5 py-0.5 font-mono text-[10px] font-bold', score === items.length ? 'bg-kiwi-50 text-kiwi-600' : 'bg-amber-100 text-amber-700')}>
+          {score}/{items.length}
+        </span>
+      </div>
+      <div className="flex flex-col gap-1.5">
+        {items.map((it) => (
+          <div key={it.lbl} className="flex items-center justify-between rounded-lg border border-navy-50 bg-navy-50/60 px-2 py-1.5">
+            <span className="text-[11.5px] font-semibold text-navy-700">{it.lbl}</span>
+            <span
+              className={cn(
+                'rounded-full px-2 py-0.5 text-[9.5px] font-bold',
+                !it.ok ? 'bg-red-100 text-red-600' : it.warn ? 'bg-amber-100 text-amber-700' : 'bg-kiwi-50 text-kiwi-600',
+              )}
+            >
+              {it.val}
+            </span>
+          </div>
+        ))}
+      </div>
+      <p className="mt-2 text-[9.5px] italic text-navy-300">Signaux comptés au niveau du site (non rattachés individuellement au compteur).</p>
+    </div>
+  )
+}
+
+function ConsommationChart({ consommations }: { consommations: Consommation[] }) {
+  const sorted = useMemo(
+    () => [...consommations].sort((a, b) => new Date(a.date_debut_periode).getTime() - new Date(b.date_debut_periode).getTime()),
+    [consommations],
+  )
+  const max = Math.max(...sorted.map((c) => c.quantite), 1)
+  const postesUniques = [...new Set(sorted.map((c) => c.poste_tarifaire))]
+  const palette = ['bg-kiwi-500', 'bg-sky-500', 'bg-amber-500', 'bg-violet-500', 'bg-navy-500']
+  const posteColor = (poste: string) => palette[postesUniques.indexOf(poste) % palette.length]
+
+  return (
+    <div className="rounded-xl border border-navy-100 bg-white p-4">
+      <div className="mb-3 flex flex-wrap items-center gap-3">
+        <span className="text-[10px] font-bold uppercase tracking-wide text-navy-400">Consommation</span>
+        <span className="rounded bg-navy-100 px-1.5 py-0.5 text-[9.5px] font-bold text-navy-500">{sorted[0]?.unite ?? 'MWh'}</span>
+        {postesUniques.length > 1 && (
+          <div className="ml-auto flex flex-wrap gap-2.5">
+            {postesUniques.map((p) => (
+              <span key={p} className="flex items-center gap-1 text-[10px] text-navy-500">
+                <span className={cn('h-2 w-2 rounded-sm', posteColor(p))} />
+                {p}
+              </span>
+            ))}
+          </div>
+        )}
+      </div>
+      <div className="flex items-end gap-2 overflow-x-auto pb-1" style={{ height: 140 }}>
+        {sorted.map((c) => (
+          <div key={c.id} className="flex min-w-[28px] flex-1 flex-col items-center gap-1.5" title={`${c.quantite} ${c.unite} · ${c.poste_tarifaire} · ${c.type_valeur}`}>
+            <span className="text-[9px] font-semibold text-navy-600">{c.quantite}</span>
+            <div className="flex w-full flex-1 items-end">
+              <div className={cn('w-full rounded-t', posteColor(c.poste_tarifaire), c.type_valeur !== 'MESUREE' && 'opacity-60')} style={{ height: `${Math.max(6, (c.quantite / max) * 100)}%` }} />
+            </div>
+            <span className="whitespace-nowrap text-[9px] text-navy-400">
+              {new Date(c.date_debut_periode).toLocaleDateString('fr-FR', { month: 'short', year: '2-digit' })}
+            </span>
+          </div>
+        ))}
+      </div>
+    </div>
+  )
+}
+
 function AddFichierDialog({ open, onClose, compteurId, onSaved }: { open: boolean; onClose: () => void; compteurId: string; onSaved: () => void }) {
   const { data: typesRef } = useReferenceTable('types_documents')
   const types = typesRef && typesRef.length > 0 ? typesRef : FALLBACK_TYPES_DOCUMENTS
@@ -240,6 +332,8 @@ export default function CompteurDetail() {
   const { data: comptes } = useComptes()
   const { data: contrats } = useContrats()
   const { data: mandats } = useMandats()
+  const { data: signaux } = useSignaux()
+  const { data: recommandations } = useRecommandations()
   const { data: documents } = useDocuments()
   const { data: statutsContratsRef } = useReferenceTable('statuts_contrats')
   const statutsContrats = statutsContratsRef && statutsContratsRef.length > 0 ? statutsContratsRef : FALLBACK_STATUTS_CONTRATS
@@ -253,6 +347,11 @@ export default function CompteurDetail() {
   const contratsDuCompteur = useMemo(() => contrats?.filter((ct) => ct.compteurs.some((cc) => cc.id === id)) ?? [], [contrats, id])
   const mandatDuCompteur = mandats?.find((m) => compteur && m.site_ids.includes(compteur.site_id))
   const documentsDuCompteur = useMemo(() => documents?.filter((d) => d.entite_type === 'compteur' && d.entite_id === id) ?? [], [documents, id])
+  const signauxDuSite = useMemo(() => signaux?.filter((s) => compteur && s.site_id === compteur.site_id) ?? [], [signaux, compteur])
+  const recoActiveDuSite = useMemo(
+    () => recommandations?.find((r) => compteur && r.sites.some((s) => s.id === compteur.site_id) && !['ACCEPTEE', 'REFUSEE', 'CLOTUREE'].includes(r.etape)),
+    [recommandations, compteur],
+  )
 
   const [tab, setTab] = useState<TabKey>('apercu')
   const [showAdd, setShowAdd] = useState(false)
@@ -392,12 +491,21 @@ export default function CompteurDetail() {
               </div>
             </div>
           </div>
+
+          <CouvertureCard
+            nbSignaux={signauxDuSite.length}
+            mandatCouvert={Boolean(mandatDuCompteur)}
+            recoEnCours={Boolean(recoActiveDuSite)}
+            contratCouvert={contratsDuCompteur.length > 0}
+          />
         </div>
 
         {/* Centre */}
         <div className="bg-navy-50 p-4 sm:p-5">
           {tab === 'apercu' && (
-            <div className="grid grid-cols-1 gap-3.5 lg:grid-cols-2">
+            <div className="flex flex-col gap-3.5">
+              {consommationsDuCompteur.length > 0 && <ConsommationChart consommations={consommationsDuCompteur} />}
+              <div className="grid grid-cols-1 gap-3.5 lg:grid-cols-2">
               <div className="rounded-xl border border-navy-100 bg-white p-4">
                 <p className="mb-2.5 text-[10px] font-bold uppercase tracking-wide text-navy-400">Détail du compteur</p>
                 <div className="space-y-1.5 text-xs text-navy-700">
@@ -443,6 +551,7 @@ export default function CompteurDetail() {
                     </div>
                   ))}
                 </div>
+              </div>
               </div>
             </div>
           )}
