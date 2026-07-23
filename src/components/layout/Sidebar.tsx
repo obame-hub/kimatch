@@ -1,20 +1,69 @@
 import { NavLink } from 'react-router-dom'
+import type { LucideIcon } from 'lucide-react'
 import { X, ShieldCheck } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import kiweePicto from '@/assets/kiwee-picto.png'
 import { useSidebar } from '@/lib/layout'
 import { useIsAdmin, useMonProfil } from '@/lib/data/roles'
 import { useAuth } from '@/lib/auth'
-import { navItems } from '@/lib/navItems'
+import { navItems, bottomNavItems } from '@/lib/navItems'
+
+interface NavItemDef {
+  to: string
+  label: string
+  icon: LucideIcon
+  end?: boolean
+  accent: string
+  tint: string
+}
+
+function SidebarLink({ to, label, icon: Icon, end, accent, tint, onClick }: NavItemDef & { onClick: () => void }) {
+  return (
+    <NavLink
+      to={to}
+      end={end}
+      onClick={onClick}
+      className={({ isActive }) =>
+        cn(
+          'group relative flex items-center gap-3 rounded-lg py-2 pl-2 pr-3 text-sm font-medium transition-colors',
+          'md:justify-center md:px-0',
+          isActive ? 'text-white' : 'text-navy-300 hover:bg-ink-800 hover:text-white',
+        )
+      }
+    >
+      {({ isActive }) => (
+        <>
+          <span
+            className={cn(
+              'flex h-7 w-7 shrink-0 items-center justify-center rounded-lg transition-colors',
+              isActive ? accent : 'bg-transparent',
+            )}
+          >
+            <Icon className={cn('h-4 w-4', isActive ? 'text-white' : tint)} />
+          </span>
+          <span className="min-w-0 flex-1 truncate whitespace-nowrap md:hidden">
+            {label}
+          </span>
+          {/* Info-bulle au survol : remplace le déploiement de la barre (retour William). */}
+          <span className="pointer-events-none absolute left-full top-1/2 z-50 ml-2 hidden -translate-y-1/2 whitespace-nowrap rounded-md bg-ink-800 px-2 py-1 text-xs font-medium text-white opacity-0 shadow-lg transition-opacity duration-100 group-hover:opacity-100 md:block">
+            {label}
+          </span>
+        </>
+      )}
+    </NavLink>
+  )
+}
 
 export function Sidebar() {
   const { open, close } = useSidebar()
   const isAdmin = useIsAdmin()
   const { session } = useAuth()
   const { data: profil } = useMonProfil()
-  const items = isAdmin
-    ? [...navItems, { to: '/administration', label: 'Administration', icon: ShieldCheck, accent: 'bg-ink-700', tint: 'text-navy-300' }]
-    : navItems
+  // Support/Paramètres (et Administration pour les admins) sont séparés des objets métier
+  // ci-dessus : regroupés en bas du rail, juste au-dessus du profil.
+  const bottomItems: NavItemDef[] = isAdmin
+    ? [...bottomNavItems, { to: '/administration', label: 'Administration', icon: ShieldCheck, accent: 'bg-ink-700', tint: 'text-navy-300' }]
+    : bottomNavItems
   const initiales = profil
     ? `${profil.prenom[0] ?? ''}${profil.nom[0] ?? ''}`.toUpperCase()
     : (session?.user.email ?? 'KW').slice(0, 2).toUpperCase()
@@ -52,40 +101,14 @@ export function Sidebar() {
         </div>
 
         <nav className="flex-1 space-y-1 overflow-y-auto overflow-x-hidden px-2.5 py-1 scrollbar-thin md:overflow-visible md:px-0">
-          {items.map(({ to, label, icon: Icon, end, accent, tint }) => (
-            <NavLink
-              key={to}
-              to={to}
-              end={end}
-              onClick={close}
-              className={({ isActive }) =>
-                cn(
-                  'group relative flex items-center gap-3 rounded-lg py-2 pl-2 pr-3 text-sm font-medium transition-colors',
-                  'md:justify-center md:px-0',
-                  isActive ? 'text-white' : 'text-navy-300 hover:bg-ink-800 hover:text-white',
-                )
-              }
-            >
-              {({ isActive }) => (
-                <>
-                  <span
-                    className={cn(
-                      'flex h-7 w-7 shrink-0 items-center justify-center rounded-lg transition-colors',
-                      isActive ? accent : 'bg-transparent',
-                    )}
-                  >
-                    <Icon className={cn('h-4 w-4', isActive ? 'text-white' : tint)} />
-                  </span>
-                  <span className="min-w-0 flex-1 truncate whitespace-nowrap md:hidden">
-                    {label}
-                  </span>
-                  {/* Info-bulle au survol : remplace le déploiement de la barre (retour William). */}
-                  <span className="pointer-events-none absolute left-full top-1/2 z-50 ml-2 hidden -translate-y-1/2 whitespace-nowrap rounded-md bg-ink-800 px-2 py-1 text-xs font-medium text-white opacity-0 shadow-lg transition-opacity duration-100 group-hover:opacity-100 md:block">
-                    {label}
-                  </span>
-                </>
-              )}
-            </NavLink>
+          {navItems.map((item) => (
+            <SidebarLink key={item.to} {...item} onClick={close} />
+          ))}
+        </nav>
+
+        <nav className="space-y-1 border-t border-ink-800 px-2.5 py-2 md:px-0">
+          {bottomItems.map((item) => (
+            <SidebarLink key={item.to} {...item} onClick={close} />
           ))}
         </nav>
 

@@ -171,22 +171,22 @@ export default function CompteurDetail() {
   const [confirmDelete, setConfirmDelete] = useState(false)
   const canManage = useCanManage(compteur?.proprietaire_id)
   const deleteCompteur = useDeleteCompteur()
-  const goBack = useGoBack('/compteurs')
+  const goBack = useGoBack(compteur ? `/sites/${compteur.site_id}` : '/sites')
 
   async function handleDelete() {
     if (!compteur) return
     await deleteCompteur.mutateAsync(compteur.id)
-    navigate('/compteurs')
+    navigate(`/sites/${compteur.site_id}`)
   }
 
   return (
     <div>
-      <Topbar crumb="Compteurs" title={compteur ? `Compteur ${compteur.numero_pdl}` : 'Compteur'} />
+      <Topbar crumb="Sites" title={compteur ? `Compteur ${compteur.numero_pdl}` : 'Compteur'} />
       <div className="p-4 sm:p-6">
         <div className="mb-4 flex items-center justify-between">
           <Button variant="ghost" size="sm" onClick={goBack}>
             <ArrowLeft className="h-4 w-4" />
-            Retour aux compteurs
+            Retour au site
           </Button>
           {compteur && canManage && (
             <div className="flex gap-2">

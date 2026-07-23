@@ -57,14 +57,14 @@ export default function ContactDetail() {
         ) : (
           <Card className="max-w-xl p-6">
             <CardHeader className="px-0 pt-0">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-3">
-                  <span className="flex h-10 w-10 items-center justify-center rounded-lg bg-navy-100 text-navy-500">
+              <div className="flex items-center justify-between gap-3">
+                <div className="flex min-w-0 items-center gap-3">
+                  <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-navy-100 text-navy-500">
                     <User className="h-5 w-5" />
                   </span>
-                  <CardTitle className="font-display text-base">{contact.civilite ? `${contact.civilite} ` : ''}{contact.prenom} {contact.nom}</CardTitle>
+                  <CardTitle className="truncate font-display text-base">{contact.civilite ? `${contact.civilite} ` : ''}{contact.prenom} {contact.nom}</CardTitle>
                 </div>
-                <div className="flex items-center gap-2">
+                <div className="flex shrink-0 items-center gap-2">
                   {contact.contact_principal && (
                     <Badge tone="amber"><Star className="h-3 w-3" /> Contact principal</Badge>
                   )}

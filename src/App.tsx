@@ -11,7 +11,6 @@ import Recommandations from '@/pages/Recommandations'
 import RecommandationDetail from '@/pages/RecommandationDetail'
 import Comptes from '@/pages/Comptes'
 import CompteDetail from '@/pages/CompteDetail'
-import Compteurs from '@/pages/Compteurs'
 import CompteurDetail from '@/pages/CompteurDetail'
 import Mandats from '@/pages/Mandats'
 import MandatDetail from '@/pages/MandatDetail'
@@ -47,7 +46,6 @@ function App() {
           <Route path="/recommandations/:id" element={<RecommandationDetail />} />
           <Route path="/comptes" element={<Comptes />} />
           <Route path="/comptes/:id" element={<CompteDetail />} />
-          <Route path="/compteurs" element={<Compteurs />} />
           <Route path="/compteurs/:id" element={<CompteurDetail />} />
           <Route path="/mandats" element={<Mandats />} />
           <Route path="/mandats/:id" element={<MandatDetail />} />
