@@ -17,6 +17,7 @@ import { useReferenceTable } from '@/lib/data/referenceTables'
 import { FALLBACK_STATUTS_MANDATS, STATUT_MANDAT_TONE } from '@/lib/referenceFallbacks'
 import { ListToolbar } from '@/components/ui/list-toolbar'
 import { useListControls } from '@/lib/useListControls'
+import { ExtractDocumentButton } from '@/components/ui/document-extraction'
 
 function CreateMandatDialog({ open, onClose }: { open: boolean; onClose: () => void }) {
   const { data: comptes } = useComptes()
@@ -45,6 +46,11 @@ function CreateMandatDialog({ open, onClose }: { open: boolean; onClose: () => v
     setSiteIds((prev) => (prev.includes(id) ? prev.filter((s) => s !== id) : [...prev, id]))
   }
 
+  function handleExtracted(fields: Record<string, { value: string | number | null; confidence: number }>) {
+    const signature = fields.date_signature?.value
+    if (typeof signature === 'string' && signature) setDateSignature(signature)
+  }
+
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
     const compte = comptes?.find((c) => c.id === compteId)
@@ -69,6 +75,7 @@ function CreateMandatDialog({ open, onClose }: { open: boolean; onClose: () => v
   return (
     <Dialog open={open} onClose={() => { reset(); onClose() }} title="Nouveau mandat" description="Le mandat autorise KiWee à intervenir sur un périmètre de sites d'un compte.">
       <form onSubmit={handleSubmit} className="space-y-3">
+        <ExtractDocumentButton onExtracted={handleExtracted} />
         <FormField label="Compte">
           <Select value={compteId} onChange={(e) => { setCompteId(e.target.value); setSiteIds([]) }} required>
             <option value="">Sélectionner un compte…</option>

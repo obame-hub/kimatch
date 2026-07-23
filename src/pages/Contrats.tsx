@@ -17,6 +17,7 @@ import { useReferenceTable } from '@/lib/data/referenceTables'
 import { FALLBACK_STATUTS_CONTRATS, STATUT_CONTRAT_TONE, FALLBACK_TYPES_ENERGIES } from '@/lib/referenceFallbacks'
 import { ListToolbar } from '@/components/ui/list-toolbar'
 import { useListControls } from '@/lib/useListControls'
+import { ExtractDocumentButton } from '@/components/ui/document-extraction'
 import { cn } from '@/lib/utils'
 
 function CreateContratDialog({ open, onClose }: { open: boolean; onClose: () => void }) {
@@ -56,6 +57,25 @@ function CreateContratDialog({ open, onClose }: { open: boolean; onClose: () => 
     setCompteurIds((prev) => (prev.includes(id) ? prev.filter((c) => c !== id) : [...prev, id]))
   }
 
+  function handleExtracted(fields: Record<string, { value: string | number | null; confidence: number }>) {
+    const refFournisseur = fields.reference_fournisseur?.value
+    if (typeof refFournisseur === 'string' && refFournisseur) setReferenceFournisseur(refFournisseur)
+    const debut = fields.date_debut?.value
+    if (typeof debut === 'string' && debut) setDateDebut(debut)
+    const fin = fields.date_fin?.value
+    if (typeof fin === 'string' && fin) setDateFin(fin)
+    const fournNom = (fields.fournisseur_nom?.value ?? '').toString().toLowerCase()
+    if (fournNom) {
+      const match = fournisseurs.find((f) => f.nom.toLowerCase().includes(fournNom) || fournNom.includes(f.nom.toLowerCase()))
+      if (match) setFournisseurId(match.id)
+    }
+    const energieCode = (fields.type_energie?.value ?? '').toString().toLowerCase()
+    if (energieCode) {
+      const match = energies.find((en) => en.code?.toLowerCase() === energieCode)
+      if (match) setTypeEnergieId(match.id)
+    }
+  }
+
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
     const site = sites?.find((s) => s.id === siteId)
@@ -90,6 +110,7 @@ function CreateContratDialog({ open, onClose }: { open: boolean; onClose: () => 
   return (
     <Dialog open={open} onClose={() => { reset(); onClose() }} title="Nouveau contrat" description="Contrat de fourniture d'énergie pour un site.">
       <form onSubmit={handleSubmit} className="max-h-[75vh] space-y-3 overflow-y-auto pr-1">
+        <ExtractDocumentButton onExtracted={handleExtracted} />
         <FormField label="Site">
           <Select value={siteId} onChange={(e) => { setSiteId(e.target.value); setCompteurIds([]) }} required>
             <option value="">Sélectionner un site…</option>
