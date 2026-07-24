@@ -328,6 +328,45 @@ export function useSyncCompteurElec() {
   })
 }
 
+export interface SyncCompteurGazResult {
+  carMwh?: number | null
+  profil?: string | null
+  tarif?: string | null
+}
+
+export function useSyncCompteurGaz() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: async ({ compteurId, result }: { compteurId: string; result: SyncCompteurGazResult }) => {
+      const now = new Date().toISOString()
+
+      const { error: eCompteur } = await supabase
+        .from('compteurs')
+        .update({
+          synchro_eneo: true,
+          date_derniere_synchro_eneo: now,
+          ...(result.carMwh != null ? { consommation_annuelle_mwh: result.carMwh } : {}),
+        })
+        .eq('id', compteurId)
+      if (eCompteur) throw new Error(eCompteur.message)
+
+      const { error: eGaz } = await supabase.from('compteurs_gaz').upsert(
+        {
+          compteur_id: compteurId,
+          car_mwh: result.carMwh ?? null,
+          profil_consommation: result.profil ?? null,
+          tarif_distribution: result.tarif ?? null,
+        },
+        { onConflict: 'compteur_id' },
+      )
+      if (eGaz) throw new Error(eGaz.message)
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['compteurs'] })
+    },
+  })
+}
+
 export function useDeleteCompteur() {
   const queryClient = useQueryClient()
   return useMutation({

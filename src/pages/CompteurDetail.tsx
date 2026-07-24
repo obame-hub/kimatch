@@ -7,8 +7,9 @@ import { Badge } from '@/components/ui/badge'
 import { Dialog } from '@/components/ui/dialog'
 import { FormField, Input, Select } from '@/components/ui/form'
 import { HistoriqueDiscret } from '@/components/ui/historique-discret'
-import { useCompteurs, useUpdateCompteur, useDeleteCompteur, useSyncCompteurElec } from '@/lib/data/compteurs'
+import { useCompteurs, useUpdateCompteur, useDeleteCompteur, useSyncCompteurElec, useSyncCompteurGaz } from '@/lib/data/compteurs'
 import { useEnedisFetch } from '@/lib/data/enedis'
+import { useGrdFetch } from '@/lib/data/grd'
 import { useConsommations, useCreateConsommation } from '@/lib/data/consommations'
 import { useSites } from '@/lib/data/sites'
 import { useComptes } from '@/lib/data/comptes'
@@ -365,6 +366,8 @@ export default function CompteurDetail() {
   const goBack = useGoBack(compteur ? `/sites/${compteur.site_id}` : '/sites')
   const enedisFetch = useEnedisFetch()
   const syncCompteurElec = useSyncCompteurElec()
+  const grdFetch = useGrdFetch()
+  const syncCompteurGaz = useSyncCompteurGaz()
   const [syncFeedback, setSyncFeedback] = useState<string | null>(null)
 
   async function handleDelete() {
@@ -386,6 +389,27 @@ export default function CompteurDetail() {
       setSyncFeedback('Synchronisation Enedis réussie.')
     } catch (err) {
       setSyncFeedback(err instanceof Error ? err.message : 'Échec de la synchronisation Enedis.')
+    }
+  }
+
+  async function handleSyncGrd() {
+    if (!compteur) return
+    const codePostal = site?.code_postal
+    if (!codePostal) {
+      setSyncFeedback("Impossible de synchroniser : le site n'a pas de code postal renseigné.")
+      return
+    }
+    setSyncFeedback(null)
+    try {
+      const result = await grdFetch.mutateAsync({ pce: compteur.numero_pdl, codePostal })
+      if (!result.success) {
+        setSyncFeedback(result.error ?? 'Échec de la synchronisation GRDF.')
+        return
+      }
+      await syncCompteurGaz.mutateAsync({ compteurId: compteur.id, result })
+      setSyncFeedback('Synchronisation GRDF réussie.')
+    } catch (err) {
+      setSyncFeedback(err instanceof Error ? err.message : 'Échec de la synchronisation GRDF.')
     }
   }
 
@@ -554,6 +578,18 @@ export default function CompteurDetail() {
                       >
                         <RefreshCw className={cn('h-3.5 w-3.5', (enedisFetch.isPending || syncCompteurElec.isPending) && 'animate-spin')} />
                         Synchroniser Enedis
+                      </Button>
+                    )}
+                    {compteur.type_energie === 'gaz' && canManage && (
+                      <Button
+                        type="button"
+                        size="sm"
+                        variant="outline"
+                        disabled={grdFetch.isPending || syncCompteurGaz.isPending}
+                        onClick={handleSyncGrd}
+                      >
+                        <RefreshCw className={cn('h-3.5 w-3.5', (grdFetch.isPending || syncCompteurGaz.isPending) && 'animate-spin')} />
+                        Synchroniser GRDF
                       </Button>
                     )}
                   </div>
