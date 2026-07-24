@@ -52,8 +52,11 @@ export function ActivityCard({
         </span>
       ))}
       <div className="min-w-0 flex-1">
-        <p className="truncate text-xs font-medium text-navy-800">{title}</p>
-        {subtitle && <p className="truncate text-[11px] text-navy-500">{subtitle}</p>}
+        {/* Couleurs fixes (pas les classes text-navy-*) : le fond de la carte est un lavis
+            pastel toujours clair, quel que soit le thème — le texte doit rester sombre dessus
+            même en mode sombre (où text-navy-800/500 basculeraient en clair et deviendraient illisibles). */}
+        <p className="truncate text-xs font-medium" style={{ color: '#16181d' }}>{title}</p>
+        {subtitle && <p className="truncate text-[11px]" style={{ color: '#83868f' }}>{subtitle}</p>}
       </div>
       {trailing && <span className="shrink-0 text-[10px] font-medium" style={{ color: style.accent }}>{trailing}</span>}
     </div>

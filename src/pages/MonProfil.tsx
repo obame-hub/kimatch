@@ -125,7 +125,7 @@ export default function MonProfil() {
                   onClick={() => fileInputRef.current?.click()}
                   disabled={uploadPhoto.isPending}
                   title="Changer la photo"
-                  className="absolute -bottom-1 -right-1 flex h-6 w-6 items-center justify-center rounded-full border-2 border-white bg-navy-800 text-white hover:bg-navy-700"
+                  className="absolute -bottom-1 -right-1 flex h-6 w-6 items-center justify-center rounded-full border-2 border-white bg-ink-800 text-white hover:bg-ink-700"
                 >
                   <Camera className="h-3 w-3" />
                 </button>

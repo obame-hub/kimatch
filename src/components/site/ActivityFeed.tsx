@@ -227,7 +227,7 @@ export function ActivityFeed({
             onClick={() => setFilterValue(null)}
             className={cn(
               'rounded-full px-2.5 py-1 text-[10.5px] font-semibold',
-              filterValue === null ? 'bg-navy-800 text-white' : 'bg-navy-100 text-navy-600 hover:bg-navy-200',
+              filterValue === null ? 'bg-ink-800 text-white' : 'bg-navy-100 text-navy-600 hover:bg-navy-200',
             )}
           >
             Tous
@@ -239,7 +239,7 @@ export function ActivityFeed({
               onClick={() => setFilterValue(v)}
               className={cn(
                 'rounded-full px-2.5 py-1 text-[10.5px] font-semibold',
-                filterValue === v ? 'bg-navy-800 text-white' : 'bg-navy-100 text-navy-600 hover:bg-navy-200',
+                filterValue === v ? 'bg-ink-800 text-white' : 'bg-navy-100 text-navy-600 hover:bg-navy-200',
               )}
             >
               {v}

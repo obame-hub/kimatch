@@ -34,7 +34,7 @@ export function EtapeStepper({ steps, currentCode }: { steps: ReferenceRow[]; cu
               <span
                 className={cn(
                   'flex h-6 w-6 items-center justify-center rounded-full text-[11px] font-semibold transition-colors',
-                  done ? 'bg-kiwi-gradient text-white' : active ? 'bg-navy-900 text-white' : 'bg-navy-100 text-navy-400',
+                  done ? 'bg-kiwi-gradient text-white' : active ? 'bg-ink-900 text-white' : 'bg-navy-100 text-navy-400',
                 )}
               >
                 {done ? <Check className="h-3.5 w-3.5" /> : i + 1}

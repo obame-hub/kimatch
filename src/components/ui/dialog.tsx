@@ -22,7 +22,7 @@ export function Dialog({ open, onClose, title, description, children, className 
   if (!open) return null
 
   return (
-    <div className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-navy-950/40 p-4 pt-16 backdrop-blur-sm">
+    <div className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-ink-950/40 p-4 pt-16 backdrop-blur-sm">
       <div
         className={cn(
           'animate-fade-up w-full max-w-lg rounded-xl border border-navy-100 bg-white p-6 shadow-xl',

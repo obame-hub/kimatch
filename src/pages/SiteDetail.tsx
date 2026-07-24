@@ -270,7 +270,7 @@ export default function SiteDetail() {
                 'mb-2.5 inline-flex shrink-0 items-center gap-1.5 whitespace-nowrap rounded-full px-3.5 py-2 text-[12.5px] font-semibold transition-colors lg:mb-0 lg:rounded-none lg:border-b-2 lg:px-3 lg:py-2.5 lg:font-normal',
                 t.mobileOnly && 'lg:hidden',
                 isActive
-                  ? 'bg-navy-800 text-white lg:border-navy-800 lg:bg-transparent lg:font-semibold lg:text-navy-800'
+                  ? 'bg-ink-800 text-white lg:border-navy-800 lg:bg-transparent lg:font-semibold lg:text-navy-800'
                   : 'border border-navy-200 bg-white text-navy-600 hover:bg-navy-50 lg:border-0 lg:border-b-2 lg:border-transparent lg:text-navy-500 lg:hover:bg-transparent lg:hover:text-navy-700',
               )}
             >
@@ -685,7 +685,7 @@ export default function SiteDetail() {
       )}
 
       {toast && (
-        <div className="fixed bottom-[70px] left-1/2 z-50 -translate-x-1/2 whitespace-nowrap rounded-lg bg-navy-800 px-4 py-2.5 text-xs font-semibold text-white shadow-lg lg:bottom-6">
+        <div className="fixed bottom-[70px] left-1/2 z-50 -translate-x-1/2 whitespace-nowrap rounded-lg bg-ink-800 px-4 py-2.5 text-xs font-semibold text-white shadow-lg lg:bottom-6">
           {toast}
         </div>
       )}

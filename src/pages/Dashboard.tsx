@@ -47,11 +47,11 @@ export default function Dashboard() {
     <div>
       <Topbar title="Tableau de bord" />
       <div className="p-4 sm:p-6">
-        <div className="mb-6 animate-fade-up overflow-hidden rounded-xl bg-navy-950 px-6 py-7 text-white shadow-card">
+        <div className="mb-6 animate-fade-up overflow-hidden rounded-xl bg-ink-950 px-6 py-7 text-white shadow-card">
           <div className="relative">
             <div className="pointer-events-none absolute -right-10 -top-16 h-56 w-56 rounded-full bg-kiwi-500/25 blur-3xl" />
             <p className="font-display text-2xl font-semibold">Bonjour 👋</p>
-            <p className="mt-1 max-w-lg text-sm text-navy-300">
+            <p className="mt-1 max-w-lg text-sm text-ink-300">
               Voici les signaux, actions et recommandations qui méritent votre attention aujourd'hui — du patrimoine énergétique à la recommandation.
             </p>
           </div>

@@ -148,14 +148,14 @@ export default function Sites() {
             <button
               type="button"
               onClick={() => setView('liste')}
-              className={cn('flex items-center gap-1.5 rounded-md px-2.5 py-1.5 text-xs font-semibold', view === 'liste' ? 'bg-navy-800 text-white' : 'text-navy-500 hover:bg-navy-50')}
+              className={cn('flex items-center gap-1.5 rounded-md px-2.5 py-1.5 text-xs font-semibold', view === 'liste' ? 'bg-ink-800 text-white' : 'text-navy-500 hover:bg-navy-50')}
             >
               <List className="h-3.5 w-3.5" /> Liste
             </button>
             <button
               type="button"
               onClick={() => setView('carte')}
-              className={cn('flex items-center gap-1.5 rounded-md px-2.5 py-1.5 text-xs font-semibold', view === 'carte' ? 'bg-navy-800 text-white' : 'text-navy-500 hover:bg-navy-50')}
+              className={cn('flex items-center gap-1.5 rounded-md px-2.5 py-1.5 text-xs font-semibold', view === 'carte' ? 'bg-ink-800 text-white' : 'text-navy-500 hover:bg-navy-50')}
             >
               <MapIcon className="h-3.5 w-3.5" /> Carte
             </button>
