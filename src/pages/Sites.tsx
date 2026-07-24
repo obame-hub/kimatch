@@ -18,7 +18,6 @@ import { useSignaux } from '@/lib/data/signaux'
 import { useContrats } from '@/lib/data/contrats'
 import { useRecommandations } from '@/lib/data/recommandations'
 import { useMandats } from '@/lib/data/mandats'
-import { useActions } from '@/lib/data/actions'
 import { useCompteurs } from '@/lib/data/compteurs'
 import { useReferenceTable } from '@/lib/data/referenceTables'
 import { FALLBACK_TYPES_SITES } from '@/lib/referenceFallbacks'
@@ -113,7 +112,6 @@ export default function Sites() {
   const { data: contrats } = useContrats()
   const { data: recommandations } = useRecommandations()
   const { data: mandats } = useMandats()
-  const { data: actions } = useActions()
   const { data: compteurs } = useCompteurs()
   const navigate = useNavigate()
   const [showCreate, setShowCreate] = useState(false)
@@ -176,7 +174,6 @@ export default function Sites() {
                 contrats: contrats?.filter((c) => c.site_id === site.id) ?? [],
                 recommandations: recommandations?.filter((r) => r.sites.some((rs) => rs.id === site.id)) ?? [],
                 mandat: mandats?.find((m) => m.compte_id === site.compte_id && m.site_ids.includes(site.id)),
-                actions: actions?.filter((a) => a.site_id === site.id) ?? [],
                 compteurs: compteurs?.filter((c) => c.site_id === site.id) ?? [],
               }).tone,
             }))}
@@ -218,7 +215,6 @@ export default function Sites() {
                   contrats: contrats?.filter((c) => c.site_id === site.id) ?? [],
                   recommandations: recommandations?.filter((r) => r.sites.some((s) => s.id === site.id)) ?? [],
                   mandat: mandats?.find((m) => m.compte_id === site.compte_id && m.site_ids.includes(site.id)),
-                  actions: actions?.filter((a) => a.site_id === site.id) ?? [],
                   compteurs: compteurs?.filter((c) => c.site_id === site.id) ?? [],
                 })
                 return (

@@ -114,7 +114,6 @@ export default function SiteDetail() {
     contrats: contratsDuSite,
     recommandations: recommandationsDuSite,
     mandat: mandatDuSite,
-    actions: actionsDuSite,
     compteurs: compteursDuSite,
   })
 
