@@ -11,13 +11,20 @@ const SIGNAUX_FERMES = new Set(['CLOTURE', 'REFUSE', 'TRANSFORME'])
 const VERSIONS_INACTIVES = new Set(['REFUSEE', 'EXPIREE', 'ARCHIVEE', 'REMPLACEE'])
 const SEUIL_ECHEANCE_JOURS = 90
 
-// Malus moyen par signal ouvert. Le champ gravité (poids_defaut de types_signaux,
-// échelle 0-60) sert au tri de priorité des signaux ailleurs dans l'app — ce n'est
-// pas l'échelle "4 à 10 pts" décrite pour ce score, donc on applique le poids moyen
-// validé par l'exemple métier (3 signaux ouverts = -12, soit -4/signal).
-const MALUS_SIGNAL_OUVERT = 4
+// Malus par signal ouvert, pondéré par sa gravité individuelle (colonne signaux.gravite,
+// 0-100, ajoutée par Michel — indépendante de poids_defaut sur types_signaux qui sert
+// au tri de priorité ailleurs dans l'app). On la ramène sur l'échelle -4 (mineur) à -10
+// (critique) décrite dans le doc métier ; en son absence (signal pas encore qualifié),
+// on retombe sur le poids moyen validé par l'exemple (3 signaux ouverts = -12, soit -4/signal).
+const MALUS_SIGNAL_MIN = 4
+const MALUS_SIGNAL_MAX = 10
 const MALUS_PERIMETRE = 6
 const BONUS_RECO_ACTIVE = 8
+
+function malusSignal(gravite: number | null): number {
+  if (gravite == null) return MALUS_SIGNAL_MIN
+  return Math.round(MALUS_SIGNAL_MIN + (gravite / 100) * (MALUS_SIGNAL_MAX - MALUS_SIGNAL_MIN))
+}
 
 function malusEcheance(joursRestants: number): number {
   return Math.min(20, Math.round((20 * (90 - joursRestants)) / 90))
@@ -41,7 +48,7 @@ export function computeSiteHealth({
 
   const signauxOuverts = signaux.filter((s) => !SIGNAUX_FERMES.has(s.statut))
   if (signauxOuverts.length > 0) {
-    const malus = signauxOuverts.length * MALUS_SIGNAL_OUVERT
+    const malus = signauxOuverts.reduce((sum, s) => sum + malusSignal(s.gravite), 0)
     score -= malus
     raisons.push(`${signauxOuverts.length} ${signauxOuverts.length > 1 ? 'signaux' : 'signal'} ouvert${signauxOuverts.length > 1 ? 's' : ''} (-${malus})`)
   }

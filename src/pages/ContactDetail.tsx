@@ -7,7 +7,7 @@ import { Badge } from '@/components/ui/badge'
 import { EntityLink } from '@/components/ui/entity-link'
 import { PhoneLink, EmailLink } from '@/components/ui/contact-link'
 import { Dialog } from '@/components/ui/dialog'
-import { FormField, Input, Select } from '@/components/ui/form'
+import { FormField, Input, Select, Textarea } from '@/components/ui/form'
 import { HistoriqueDiscret } from '@/components/ui/historique-discret'
 import { ActivityFeed } from '@/components/site/ActivityFeed'
 import { useContacts, useUpdateContact, useDeleteContact } from '@/lib/data/contacts'
@@ -228,6 +228,11 @@ export default function ContactDetail() {
                 <div className="space-y-2 text-sm">
                   <p><span className="text-navy-400">Téléphone :</span> {contact.telephone ? <PhoneLink value={contact.telephone} /> : '—'}</p>
                   <p><span className="text-navy-400">Email :</span> {contact.email ? <EmailLink value={contact.email} /> : '—'}</p>
+                  {contact.linkedin_url && (
+                    <p><span className="text-navy-400">LinkedIn :</span> <a href={contact.linkedin_url} target="_blank" rel="noreferrer" className="text-sky-600 hover:underline">{contact.linkedin_url}</a></p>
+                  )}
+                  {contact.canal_communication && <p><span className="text-navy-400">Canal préféré :</span> {contact.canal_communication}</p>}
+                  {contact.disponibilites && <p><span className="text-navy-400">Disponibilités :</span> {contact.disponibilites}</p>}
                   <p><span className="text-navy-400">Statut :</span> <Badge tone={contact.actif ? 'kiwi' : 'neutral'}>{contact.actif ? 'actif' : 'inactif'}</Badge></p>
                 </div>
                 <HistoriqueDiscret tableNom="contacts" ligneId={contact.id} />
@@ -382,6 +387,10 @@ function EditContactDialog({ open, onClose, contact }: { open: boolean; onClose:
   const [contactPrincipal, setContactPrincipal] = useState(contact.contact_principal)
   const [actif, setActif] = useState(contact.actif)
   const [proprietaireId, setProprietaireId] = useState(contact.proprietaire_id ?? '')
+  const [linkedinUrl, setLinkedinUrl] = useState(contact.linkedin_url ?? '')
+  const [disponibilites, setDisponibilites] = useState(contact.disponibilites ?? '')
+  const [typeCanalId, setTypeCanalId] = useState(contact.type_canal_communication_id ?? '')
+  const { data: canauxRef } = useReferenceTable('types_canaux_communication')
   const [feedback, setFeedback] = useState<string | null>(null)
 
   useEffect(() => {
@@ -395,6 +404,9 @@ function EditContactDialog({ open, onClose, contact }: { open: boolean; onClose:
     setContactPrincipal(contact.contact_principal)
     setActif(contact.actif)
     setProprietaireId(contact.proprietaire_id ?? '')
+    setLinkedinUrl(contact.linkedin_url ?? '')
+    setDisponibilites(contact.disponibilites ?? '')
+    setTypeCanalId(contact.type_canal_communication_id ?? '')
     setFeedback(null)
   }, [open, contact])
 
@@ -412,6 +424,9 @@ function EditContactDialog({ open, onClose, contact }: { open: boolean; onClose:
         contact_principal: contactPrincipal,
         actif,
         proprietaire_id: proprietaireId || null,
+        linkedin_url: linkedinUrl || null,
+        disponibilites: disponibilites || null,
+        type_canal_communication_id: typeCanalId || null,
       })
       onClose()
     } catch (err) {
@@ -447,6 +462,20 @@ function EditContactDialog({ open, onClose, contact }: { open: boolean; onClose:
             <Input type="email" value={email} onChange={(e) => setEmail(e.target.value)} />
           </FormField>
         </div>
+        <div className="grid grid-cols-2 gap-3">
+          <FormField label="LinkedIn">
+            <Input value={linkedinUrl} onChange={(e) => setLinkedinUrl(e.target.value)} placeholder="https://linkedin.com/in/…" />
+          </FormField>
+          <FormField label="Canal de communication préféré">
+            <Select value={typeCanalId} onChange={(e) => setTypeCanalId(e.target.value)}>
+              <option value="">—</option>
+              {canauxRef?.map((c) => <option key={c.id} value={c.id}>{c.libelle}</option>)}
+            </Select>
+          </FormField>
+        </div>
+        <FormField label="Disponibilités">
+          <Textarea rows={2} value={disponibilites} onChange={(e) => setDisponibilites(e.target.value)} placeholder="Ex. Disponible en matinée, à privilégier le mardi/jeudi…" />
+        </FormField>
         <label className="flex items-center gap-2 text-sm text-navy-700">
           <input type="checkbox" checked={contactPrincipal} onChange={(e) => setContactPrincipal(e.target.checked)} />
           Contact principal du compte

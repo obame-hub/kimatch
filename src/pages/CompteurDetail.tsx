@@ -120,6 +120,8 @@ function EditCompteurDialog({ compteur, open, onClose }: { compteur: Compteur; o
     compteur.consommation_annuelle_mwh != null ? String(compteur.consommation_annuelle_mwh) : '',
   )
   const [proprietaireId, setProprietaireId] = useState(compteur.proprietaire_id ?? '')
+  const [typeUtilisationId, setTypeUtilisationId] = useState(compteur.type_utilisation_compteur_id ?? '')
+  const { data: typesUtilisationRef } = useReferenceTable('types_utilisations_compteur')
   const [feedback, setFeedback] = useState<string | null>(null)
 
   useEffect(() => {
@@ -127,6 +129,7 @@ function EditCompteurDialog({ compteur, open, onClose }: { compteur: Compteur; o
     setUtilisation(compteur.utilisation)
     setConsommationAnnuelleMwh(compteur.consommation_annuelle_mwh != null ? String(compteur.consommation_annuelle_mwh) : '')
     setProprietaireId(compteur.proprietaire_id ?? '')
+    setTypeUtilisationId(compteur.type_utilisation_compteur_id ?? '')
     setFeedback(null)
   }, [open, compteur])
 
@@ -138,6 +141,7 @@ function EditCompteurDialog({ compteur, open, onClose }: { compteur: Compteur; o
         utilisation,
         consommation_annuelle_mwh: consommationAnnuelleMwh ? Number(consommationAnnuelleMwh) : null,
         proprietaire_id: proprietaireId || null,
+        type_utilisation_compteur_id: typeUtilisationId || null,
       })
       onClose()
     } catch (err) {
@@ -151,6 +155,14 @@ function EditCompteurDialog({ compteur, open, onClose }: { compteur: Compteur; o
         <FormField label="Utilisation">
           <Input value={utilisation} onChange={(e) => setUtilisation(e.target.value)} placeholder="Ex. Chaufferie, éclairage…" />
         </FormField>
+        {compteur.type_energie === 'electricite' && (
+          <FormField label="Type d'utilisation (CU/MU/LU)">
+            <Select value={typeUtilisationId} onChange={(e) => setTypeUtilisationId(e.target.value)}>
+              <option value="">—</option>
+              {typesUtilisationRef?.map((t) => <option key={t.id} value={t.id}>{t.libelle}</option>)}
+            </Select>
+          </FormField>
+        )}
         <FormField label="Consommation annuelle (MWh)">
           <Input type="number" step="any" value={consommationAnnuelleMwh} onChange={(e) => setConsommationAnnuelleMwh(e.target.value)} />
         </FormField>
@@ -555,6 +567,7 @@ export default function CompteurDetail() {
                 <p className="mb-2.5 text-[10px] font-bold uppercase tracking-wide text-navy-400">Détail du compteur</p>
                 <div className="space-y-1.5 text-xs text-navy-700">
                   <p><span className="text-navy-400">Type d'énergie :</span> {compteur.type_energie === 'electricite' ? 'Électricité' : 'Gaz'}</p>
+                  {compteur.type_utilisation_compteur && <p><span className="text-navy-400">Type d'utilisation :</span> {compteur.type_utilisation_compteur}</p>}
                   {compteur.consommation_annuelle_mwh != null && <p><span className="text-navy-400">Consommation annuelle :</span> {compteur.consommation_annuelle_mwh} MWh</p>}
                   {compteur.segment && <p><span className="text-navy-400">Segment :</span> {compteur.segment}</p>}
                   {compteur.tension && <p><span className="text-navy-400">Tension :</span> {compteur.tension}</p>}

@@ -18,6 +18,10 @@ interface RawContact {
   actif: boolean
   compte: { nom: string } | null
   proprietaire_id: string | null
+  linkedin_url: string | null
+  disponibilites: string | null
+  type_canal_communication_id: string | null
+  canal_communication: { libelle: string } | null
 }
 
 interface RawContactSite {
@@ -32,7 +36,9 @@ async function fetchContacts(): Promise<Contact[]> {
     const [contactsRes, sitesRes] = await Promise.all([
       supabase
         .from('contacts')
-        .select('id, compte_id, civilite, prenom, nom, fonction, telephone, email, contact_principal, actif, compte:comptes(nom), proprietaire_id')
+        .select(
+          'id, compte_id, civilite, prenom, nom, fonction, telephone, email, contact_principal, actif, compte:comptes(nom), proprietaire_id, linkedin_url, disponibilites, type_canal_communication_id, canal_communication:types_canaux_communication(libelle)',
+        )
         .order('nom'),
       supabase.from('contacts_sites').select('contact_id, fonction_sur_site, site:sites(id, nom)'),
     ])
@@ -62,6 +68,10 @@ async function fetchContacts(): Promise<Contact[]> {
       actif: c.actif,
       sites: sitesParContact.get(c.id) ?? [],
       proprietaire_id: c.proprietaire_id,
+      linkedin_url: c.linkedin_url,
+      disponibilites: c.disponibilites,
+      type_canal_communication_id: c.type_canal_communication_id,
+      canal_communication: c.canal_communication?.libelle ?? null,
     }))
   } catch (error) {
     console.error('fetchContacts', error)
@@ -112,6 +122,10 @@ export function useCreateContact() {
         actif: true,
         sites: input.sites,
         proprietaire_id: null,
+        linkedin_url: null,
+        disponibilites: null,
+        type_canal_communication_id: null,
+        canal_communication: null,
       }
 
       if (!isDemoMode()) {
@@ -158,6 +172,9 @@ export interface UpdateContactInput {
   contact_principal: boolean
   actif: boolean
   proprietaire_id: string | null
+  linkedin_url: string | null
+  disponibilites: string | null
+  type_canal_communication_id: string | null
 }
 
 export function useUpdateContact() {
@@ -176,6 +193,9 @@ export function useUpdateContact() {
           contact_principal: input.contact_principal,
           actif: input.actif,
           proprietaire_id: input.proprietaire_id,
+          linkedin_url: input.linkedin_url,
+          disponibilites: input.disponibilites,
+          type_canal_communication_id: input.type_canal_communication_id,
         })
         .eq('id', input.id)
       if (error) throw new Error(error.message)

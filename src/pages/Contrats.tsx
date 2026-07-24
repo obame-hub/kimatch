@@ -82,7 +82,7 @@ function CreateContratDialog({ open, onClose }: { open: boolean; onClose: () => 
     const fournisseur = fournisseurs.find((f) => f.id === fournisseurId)
     const energie = energies.find((en) => en.id === typeEnergieId)
     const statutActif = statuts.find((s) => s.code === 'ACTIF')
-    const compteursChoisis = compteursDuSite.filter((c) => compteurIds.includes(c.id)).map((c) => ({ id: c.id, numero_pdl: c.numero_pdl, utilisation: c.utilisation }))
+    const compteursChoisis = compteursDuSite.filter((c) => compteurIds.includes(c.id)).map((c) => ({ id: c.id, contrat_compteur_id: null, numero_pdl: c.numero_pdl, utilisation: c.utilisation }))
     if (!site) return
     const typeEnergie = (energie?.code?.toLowerCase() === 'gaz' ? 'gaz' : 'electricite') as 'electricite' | 'gaz'
 

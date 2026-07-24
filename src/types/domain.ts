@@ -154,6 +154,10 @@ export interface Contact {
   actif: boolean
   sites: { id: string; nom: string; fonction_sur_site: string | null }[]
   proprietaire_id: string | null
+  linkedin_url: string | null
+  disponibilites: string | null
+  type_canal_communication_id: string | null
+  canal_communication: string | null
 }
 
 export type TypeCompte = 'client' | 'fournisseur' | 'partenaire' | 'kiwee'
@@ -206,6 +210,8 @@ export interface Compteur {
   type_energie: 'electricite' | 'gaz'
   numero_pdl: string
   utilisation: string
+  type_utilisation_compteur_id: string | null
+  type_utilisation_compteur: string | null
   statut: 'actif' | 'inactif'
   // Champs portés par la table `compteurs` elle-même.
   consommation_annuelle_mwh: number | null
@@ -285,6 +291,33 @@ export interface Contrat {
   date_fin: string | null
   preavis_resiliation_jours: number | null
   statut: string
-  compteurs: { id: string; numero_pdl: string; utilisation: string }[]
+  compteurs: { id: string; contrat_compteur_id: string | null; numero_pdl: string; utilisation: string }[]
   proprietaire_id: string | null
+  docusign_envelope_id: string | null
+  date_envoi_signature: string | null
+  date_signature: string | null
+  statut_signature: string | null
+}
+
+export interface TarifContratCompteur {
+  id: string
+  contrat_compteur_id: string
+  type_formule_tarifaire_id: string | null
+  formule_code: string | null
+  formule_libelle: string | null
+  indexation: string | null
+  prix_base_eur_mwh: number | null
+  prix_hp_eur_mwh: number | null
+  prix_hc_eur_mwh: number | null
+  prix_pointe_eur_mwh: number | null
+  prix_hph_eur_mwh: number | null
+  prix_hch_eur_mwh: number | null
+  prix_hpe_eur_mwh: number | null
+  prix_hce_eur_mwh: number | null
+  prix_gaz_eur_mwh: number | null
+  abonnement_mensuel_ht: number | null
+  abonnement_annuel_ht: number | null
+  date_debut_validite: string | null
+  date_fin_validite: string | null
+  actif: boolean
 }

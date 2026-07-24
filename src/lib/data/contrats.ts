@@ -16,6 +16,10 @@ interface RawContrat {
   date_fin: string | null
   preavis_resiliation_jours: number | null
   proprietaire_id: string | null
+  docusign_envelope_id: string | null
+  date_envoi_signature: string | null
+  date_signature: string | null
+  statut_signature: string | null
   site: { nom: string } | null
   fournisseur: { nom: string } | null
   type_energie: { code: string } | null
@@ -29,18 +33,18 @@ async function fetchContrats(): Promise<Contrat[]> {
       supabase
         .from('contrats')
         .select(
-          'id, site_id, fournisseur_compte_id, reference_fournisseur, date_debut, date_fin, preavis_resiliation_jours, proprietaire_id, site:sites(nom), fournisseur:comptes(nom), type_energie:types_energies(code), statut:statuts_contrats(code)',
+          'id, site_id, fournisseur_compte_id, reference_fournisseur, date_debut, date_fin, preavis_resiliation_jours, proprietaire_id, docusign_envelope_id, date_envoi_signature, date_signature, statut_signature, site:sites(nom), fournisseur:comptes(nom), type_energie:types_energies(code), statut:statuts_contrats(code)',
         )
         .order('date_debut', { ascending: false }),
-      supabase.from('contrats_compteurs').select('contrat_id, compteur:compteurs(id, numero_point, utilisation)'),
+      supabase.from('contrats_compteurs').select('id, contrat_id, compteur:compteurs(id, numero_point, utilisation)'),
     ])
     if (contratsRes.error) throw contratsRes.error
 
-    const compteursParContrat = new Map<string, { id: string; numero_pdl: string; utilisation: string }[]>()
-    for (const cc of (compteursRes.data ?? []) as unknown as { contrat_id: string; compteur: { id: string; numero_point: string; utilisation: string | null } | null }[]) {
+    const compteursParContrat = new Map<string, { id: string; contrat_compteur_id: string | null; numero_pdl: string; utilisation: string }[]>()
+    for (const cc of (compteursRes.data ?? []) as unknown as { id: string; contrat_id: string; compteur: { id: string; numero_point: string; utilisation: string | null } | null }[]) {
       if (!cc.compteur) continue
       const list = compteursParContrat.get(cc.contrat_id) ?? []
-      list.push({ id: cc.compteur.id, numero_pdl: cc.compteur.numero_point, utilisation: cc.compteur.utilisation ?? '' })
+      list.push({ id: cc.compteur.id, contrat_compteur_id: cc.id, numero_pdl: cc.compteur.numero_point, utilisation: cc.compteur.utilisation ?? '' })
       compteursParContrat.set(cc.contrat_id, list)
     }
 
@@ -61,6 +65,10 @@ async function fetchContrats(): Promise<Contrat[]> {
       statut: c.statut?.code ?? '',
       compteurs: compteursParContrat.get(c.id) ?? [],
       proprietaire_id: c.proprietaire_id ?? null,
+      docusign_envelope_id: c.docusign_envelope_id,
+      date_envoi_signature: c.date_envoi_signature,
+      date_signature: c.date_signature,
+      statut_signature: c.statut_signature,
     }))
   } catch (error) {
     console.error('fetchContrats', error)
@@ -87,6 +95,8 @@ interface CreateContratInput {
   compteurs: { id: string; numero_pdl: string; utilisation: string }[]
 }
 
+type CreateContratLocalCompteur = { id: string; contrat_compteur_id: string | null; numero_pdl: string; utilisation: string }
+
 interface CreateContratResult {
   contrat: Contrat
   persisted: boolean
@@ -110,8 +120,12 @@ export function useCreateContrat() {
         date_fin: input.date_fin,
         preavis_resiliation_jours: null,
         statut: 'ACTIF',
-        compteurs: input.compteurs,
+        compteurs: input.compteurs.map((c): CreateContratLocalCompteur => ({ ...c, contrat_compteur_id: null })),
         proprietaire_id: null,
+        docusign_envelope_id: null,
+        date_envoi_signature: null,
+        date_signature: null,
+        statut_signature: null,
       }
 
       if (!isDemoMode()) {
@@ -165,6 +179,10 @@ export interface UpdateContratInput {
   date_debut: string | null
   date_fin: string | null
   proprietaire_id: string | null
+  docusign_envelope_id?: string | null
+  date_envoi_signature?: string | null
+  date_signature?: string | null
+  statut_signature?: string | null
 }
 
 export function useUpdateContrat() {
@@ -178,6 +196,10 @@ export function useUpdateContrat() {
           date_debut: input.date_debut,
           date_fin: input.date_fin,
           proprietaire_id: input.proprietaire_id,
+          ...(input.docusign_envelope_id !== undefined ? { docusign_envelope_id: input.docusign_envelope_id } : {}),
+          ...(input.date_envoi_signature !== undefined ? { date_envoi_signature: input.date_envoi_signature } : {}),
+          ...(input.date_signature !== undefined ? { date_signature: input.date_signature } : {}),
+          ...(input.statut_signature !== undefined ? { statut_signature: input.statut_signature } : {}),
         })
         .eq('id', input.id)
       if (error) throw new Error(error.message)

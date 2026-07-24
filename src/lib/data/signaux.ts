@@ -9,6 +9,7 @@ interface RawSignal {
   id: string
   site_id: string
   contrat_id: string | null
+  gravite: number | null
   date_creation: string
   commentaire: string | null
   proprietaire_id: string | null
@@ -25,7 +26,7 @@ async function fetchSignaux(): Promise<Signal[]> {
     const { data, error } = await supabase
       .from('signaux')
       .select(
-        'id, site_id, contrat_id, date_creation, commentaire, proprietaire_id, type_signal:types_signaux(libelle, poids_defaut), statut:statuts_signaux(code), site:sites(nom), responsable:profils(prenom, nom)',
+        'id, site_id, contrat_id, gravite, date_creation, commentaire, proprietaire_id, type_signal:types_signaux(libelle, poids_defaut), statut:statuts_signaux(code), site:sites(nom), responsable:profils(prenom, nom)',
       )
       .order('date_creation', { ascending: false })
     if (error) throw error
@@ -39,7 +40,7 @@ async function fetchSignaux(): Promise<Signal[]> {
       site_nom: s.site?.nom ?? '',
       contrat_id: s.contrat_id,
       type_signal: s.type_signal?.libelle ?? '',
-      gravite: s.type_signal?.poids_defaut ?? null,
+      gravite: s.gravite,
       statut: s.statut?.code ?? '',
       conseiller: s.responsable ? `${s.responsable.prenom} ${s.responsable.nom}` : '',
       date_creation: s.date_creation,
@@ -117,13 +118,17 @@ export function useCreateSignal() {
 export interface UpdateSignalInput {
   id: string
   commentaire: string | null
+  gravite?: number | null
 }
 
 export function useUpdateSignal() {
   const queryClient = useQueryClient()
   return useMutation({
     mutationFn: async (input: UpdateSignalInput) => {
-      const { error } = await supabase.from('signaux').update({ commentaire: input.commentaire }).eq('id', input.id)
+      const { error } = await supabase
+        .from('signaux')
+        .update({ commentaire: input.commentaire, ...(input.gravite !== undefined ? { gravite: input.gravite } : {}) })
+        .eq('id', input.id)
       if (error) throw new Error(error.message)
     },
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ['signaux'] }),

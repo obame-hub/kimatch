@@ -7,7 +7,7 @@ import { Badge } from '@/components/ui/badge'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { EntityLink } from '@/components/ui/entity-link'
 import { Dialog } from '@/components/ui/dialog'
-import { FormField, Textarea } from '@/components/ui/form'
+import { FormField, Input, Textarea } from '@/components/ui/form'
 import { HistoriqueDiscret } from '@/components/ui/historique-discret'
 import { useSignaux, useUpdateSignal, useDeleteSignal } from '@/lib/data/signaux'
 import { useReferenceTable } from '@/lib/data/referenceTables'
@@ -78,6 +78,7 @@ export default function SignalDetail() {
               <p><span className="text-navy-400">Site :</span> <EntityLink to={`/sites/${signal.site_id}`}>{signal.site_nom}</EntityLink></p>
               {signal.conseiller && <p><span className="text-navy-400">Responsable :</span> {signal.conseiller}</p>}
               <p><span className="text-navy-400">Créé le :</span> {new Date(signal.date_creation).toLocaleDateString('fr-FR')}</p>
+              <p><span className="text-navy-400">Gravité :</span> {signal.gravite != null ? `${signal.gravite}/100` : 'Non qualifiée'}</p>
               {signal.description && <p className="text-navy-600">{signal.description}</p>}
               <HistoriqueDiscret tableNom="signaux" ligneId={signal.id} />
             </CardContent>
@@ -111,18 +112,24 @@ export default function SignalDetail() {
 function EditSignalDialog({ open, onClose, signal }: { open: boolean; onClose: () => void; signal: Signal }) {
   const updateSignal = useUpdateSignal()
   const [description, setDescription] = useState(signal.description ?? '')
+  const [gravite, setGravite] = useState(signal.gravite != null ? String(signal.gravite) : '')
   const [feedback, setFeedback] = useState<string | null>(null)
 
   useEffect(() => {
     if (!open) return
     setDescription(signal.description ?? '')
+    setGravite(signal.gravite != null ? String(signal.gravite) : '')
     setFeedback(null)
   }, [open, signal])
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
     try {
-      await updateSignal.mutateAsync({ id: signal.id, commentaire: description || null })
+      await updateSignal.mutateAsync({
+        id: signal.id,
+        commentaire: description || null,
+        gravite: gravite === '' ? null : Math.max(0, Math.min(100, Number(gravite))),
+      })
       onClose()
     } catch (err) {
       setFeedback(err instanceof Error ? err.message : 'Erreur inconnue')
@@ -134,6 +141,9 @@ function EditSignalDialog({ open, onClose, signal }: { open: boolean; onClose: (
       <form onSubmit={handleSubmit} className="space-y-3">
         <FormField label="Description">
           <Textarea rows={4} value={description} onChange={(e) => setDescription(e.target.value)} />
+        </FormField>
+        <FormField label="Gravité (0 à 100, laisser vide si non qualifiée)">
+          <Input type="number" min={0} max={100} value={gravite} onChange={(e) => setGravite(e.target.value)} placeholder="Ex. 70" />
         </FormField>
         {feedback && <p className="text-xs text-red-600">{feedback}</p>}
         <div className="flex justify-end gap-2 pt-2">
