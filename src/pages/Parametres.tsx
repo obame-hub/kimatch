@@ -1,11 +1,61 @@
 import { useState } from 'react'
-import { RefreshCw, Hash, MessageSquare } from 'lucide-react'
+import { RefreshCw, Hash, MessageSquare, Sun, Moon, Monitor } from 'lucide-react'
 import { Topbar } from '@/components/layout/Topbar'
 import { PageHeader } from '@/components/ui/page-header'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Select } from '@/components/ui/form'
+import { useTheme, type Theme } from '@/lib/theme'
 import { cn } from '@/lib/utils'
+
+const THEME_OPTIONS: { value: Theme; label: string; icon: typeof Sun }[] = [
+  { value: 'light', label: 'Clair', icon: Sun },
+  { value: 'dark', label: 'Sombre', icon: Moon },
+  { value: 'system', label: 'Système', icon: Monitor },
+]
+
+function AppearanceCard() {
+  const { theme, resolvedTheme, setTheme } = useTheme()
+
+  return (
+    <Card className="max-w-2xl">
+      <CardHeader>
+        <CardTitle className="flex items-center gap-2">
+          {resolvedTheme === 'dark' ? <Moon className="h-5 w-5 text-kiwi-600" /> : <Sun className="h-5 w-5 text-kiwi-600" />}
+          Apparence
+        </CardTitle>
+      </CardHeader>
+      <CardContent className="space-y-3">
+        <p className="text-sm text-navy-500">
+          Choisis l'apparence de l'application. "Système" suit automatiquement le réglage clair/sombre de ton
+          ordinateur ou téléphone, y compris s'il change en cours de journée.
+        </p>
+        <div className="inline-flex rounded-lg border border-navy-200 bg-navy-50 p-1">
+          {THEME_OPTIONS.map(({ value, label, icon: Icon }) => {
+            const active = theme === value
+            return (
+              <button
+                key={value}
+                type="button"
+                onClick={() => setTheme(value)}
+                className={cn(
+                  'flex items-center gap-1.5 rounded-md px-3 py-1.5 text-xs font-semibold transition-colors',
+                  active ? 'bg-white text-navy-800 shadow-card' : 'text-navy-500 hover:text-navy-700',
+                )}
+              >
+                <Icon className="h-3.5 w-3.5" />
+                {label}
+              </button>
+            )
+          })}
+        </div>
+        <p className="text-xs text-navy-400">
+          Réglage actuellement appliqué : <span className="font-semibold text-navy-600">{resolvedTheme === 'dark' ? 'Sombre' : 'Clair'}</span>
+        </p>
+      </CardContent>
+    </Card>
+  )
+}
 import {
   useSlackSettings,
   useUpdateSlackSetting,
@@ -113,6 +163,8 @@ export default function Parametres() {
       <Topbar title="Paramètres" />
       <div className="p-4 sm:p-6 space-y-4">
         <PageHeader title="Paramètres" description="Intégrations et notifications de l'application. Vos préférences personnelles (profil, Gmail) se gèrent depuis Mon profil." />
+
+        <AppearanceCard />
 
         <Card className="max-w-2xl">
           <CardHeader>

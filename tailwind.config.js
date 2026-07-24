@@ -6,18 +6,19 @@ export default {
     extend: {
       colors: {
         // Neutre principal — remappé sur la palette KiWee (chaud, quasi-noir) fournie par William.
+        // Valeurs pilotées par variables CSS (voir index.css) pour basculer en mode sombre.
         navy: {
-          50: '#f6f6f4',
-          100: '#e7e6e2',
-          200: '#e0dfdb',
-          300: '#c9cbc6',
-          400: '#a3a5a0',
-          500: '#83868f',
-          600: '#5c5f66',
-          700: '#3f424a',
-          800: '#16181d',
-          900: '#101216',
-          950: '#0a0b0d',
+          50: 'rgb(var(--color-navy-50) / <alpha-value>)',
+          100: 'rgb(var(--color-navy-100) / <alpha-value>)',
+          200: 'rgb(var(--color-navy-200) / <alpha-value>)',
+          300: 'rgb(var(--color-navy-300) / <alpha-value>)',
+          400: 'rgb(var(--color-navy-400) / <alpha-value>)',
+          500: 'rgb(var(--color-navy-500) / <alpha-value>)',
+          600: 'rgb(var(--color-navy-600) / <alpha-value>)',
+          700: 'rgb(var(--color-navy-700) / <alpha-value>)',
+          800: 'rgb(var(--color-navy-800) / <alpha-value>)',
+          900: 'rgb(var(--color-navy-900) / <alpha-value>)',
+          950: 'rgb(var(--color-navy-950) / <alpha-value>)',
         },
         ink: {
           50: '#f5f5f6',

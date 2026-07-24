@@ -3,8 +3,42 @@
 @tailwind utilities;
 
 @layer base {
+  /* Échelle "navy" pilotée par variables CSS (RGB espace-séparé, cf. rgb(var(--x) / <alpha-value>)
+     dans tailwind.config.js) : ça fait basculer TOUTES les classes navy-* (bg/text/border/divide/
+     ring, y compris les variantes d'opacité comme bg-navy-50/60) sans devoir les lister une par
+     une — contrairement à la précédente tentative de mode sombre qui ciblait des classes
+     Tailwind précises et en oubliait forcément (dividers, opacités, hover:, etc.). */
   :root {
     color-scheme: light;
+    --color-navy-50: 246 246 244;
+    --color-navy-100: 231 230 226;
+    --color-navy-200: 224 223 219;
+    --color-navy-300: 201 203 198;
+    --color-navy-400: 163 165 160;
+    --color-navy-500: 131 134 143;
+    --color-navy-600: 92 95 102;
+    --color-navy-700: 63 66 74;
+    --color-navy-800: 22 24 29;
+    --color-navy-900: 16 18 22;
+    --color-navy-950: 10 11 13;
+  }
+
+  /* Palette sombre dessinée à la main (pas un simple miroir 50↔950) pour garantir un
+     contraste correct entre fond/bordure/texte : ex. border-navy-200 doit rester visible
+     sur un fond bg-white (carte) ET sur bg-navy-50 (page), donc plus clair que les deux. */
+  .dark {
+    color-scheme: dark;
+    --color-navy-50: 10 11 13; /* fond de page (le plus sombre) */
+    --color-navy-100: 30 33 38; /* fond subtil / survol */
+    --color-navy-200: 42 45 51; /* bordures (cartes, inputs) */
+    --color-navy-300: 58 61 68; /* bordures marquées, séparateurs */
+    --color-navy-400: 107 110 118; /* texte discret / placeholder */
+    --color-navy-500: 139 142 150; /* texte secondaire */
+    --color-navy-600: 201 203 198; /* texte de corps */
+    --color-navy-700: 220 222 217; /* texte de corps marqué */
+    --color-navy-800: 236 238 234; /* titres */
+    --color-navy-900: 246 246 244; /* titres forts */
+    --color-navy-950: 250 250 249;
   }
 
   html,
@@ -27,4 +61,16 @@
   .scrollbar-thin::-webkit-scrollbar-thumb {
     @apply bg-navy-200 rounded-full;
   }
+}
+
+/* "white" reste un blanc pur théorique dans tout le reste de l'app (texte sur badge coloré,
+   overlay translucide sur fond de couleur, etc.) — seules les surfaces de carte (bg-white en
+   fond de page/carte) doivent devenir sombres en mode sombre. On les cible explicitement
+   plutôt que de redéfinir le token "white" global, ce qui casserait text-white sur les
+   boutons/badges colorés. */
+.dark .bg-white {
+  background-color: #16181d;
+}
+.dark .bg-white\/95 {
+  background-color: rgb(22 24 29 / 0.95);
 }
