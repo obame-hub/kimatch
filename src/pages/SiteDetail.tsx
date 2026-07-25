@@ -21,10 +21,11 @@ import {
   FALLBACK_ETAPES_RECOMMANDATION,
   ETAPE_TONE,
   FALLBACK_TYPES_DOCUMENTS,
+  FALLBACK_TYPES_ENERGIES,
 } from '@/lib/referenceFallbacks'
 import { useCanManage, useIsAdmin, useProfilsAdmin } from '@/lib/data/roles'
 import { useSignaux } from '@/lib/data/signaux'
-import { useCompteurs } from '@/lib/data/compteurs'
+import { useCompteurs, useCreateCompteur } from '@/lib/data/compteurs'
 import { useRecommandations } from '@/lib/data/recommandations'
 import { useContrats } from '@/lib/data/contrats'
 import { useInteractions } from '@/lib/data/interactions'
@@ -81,6 +82,7 @@ export default function SiteDetail() {
   const [editOpen, setEditOpen] = useState(false)
   const [confirmDelete, setConfirmDelete] = useState(false)
   const [addFichierOpen, setAddFichierOpen] = useState(false)
+  const [addCompteurOpen, setAddCompteurOpen] = useState(false)
 
   function showToast(msg: string) {
     setToast(msg)
@@ -401,6 +403,12 @@ export default function SiteDetail() {
 
           {tab === 'compteurs' && (
             <div className="flex flex-col gap-2.5">
+              <div className="flex items-center justify-end">
+                <Button size="sm" onClick={() => setAddCompteurOpen(true)}>
+                  <Plus className="h-3.5 w-3.5" />
+                  Ajouter un compteur
+                </Button>
+              </div>
               {compteursDuSite.length === 0 && <p className="text-sm text-navy-400">Aucun compteur pour ce site.</p>}
               {compteursDuSite.map((c) => {
                 const contratActif = contratsDuSite.find((ct) => ct.compteurs.some((cc) => cc.id === c.id) && ct.statut === 'ACTIF')
@@ -698,6 +706,14 @@ export default function SiteDetail() {
         onSaved={() => showToast('✓ Fichier ajouté')}
       />
 
+      <AddCompteurDialog
+        open={addCompteurOpen}
+        onClose={() => setAddCompteurOpen(false)}
+        siteId={site.id}
+        siteNom={site.nom}
+        onSaved={() => showToast('✓ Compteur ajouté')}
+      />
+
       <Dialog
         open={confirmDelete}
         onClose={() => setConfirmDelete(false)}
@@ -886,6 +902,96 @@ function AddFichierDialog({ open, onClose, siteId, onSaved }: { open: boolean; o
         <div className="flex justify-end gap-2 pt-2">
           <Button type="button" variant="ghost" onClick={() => { reset(); onClose() }}>Annuler</Button>
           <Button type="submit" disabled={createDocument.isPending}>Ajouter</Button>
+        </div>
+      </form>
+    </Dialog>
+  )
+}
+
+function AddCompteurDialog({
+  open,
+  onClose,
+  siteId,
+  siteNom,
+  onSaved,
+}: {
+  open: boolean
+  onClose: () => void
+  siteId: string
+  siteNom: string
+  onSaved: () => void
+}) {
+  const { data: energiesRef } = useReferenceTable('types_energies')
+  const energies = energiesRef && energiesRef.length > 0 ? energiesRef : FALLBACK_TYPES_ENERGIES
+  const { data: utilisationsRef } = useReferenceTable('types_utilisations_compteur')
+  const createCompteur = useCreateCompteur()
+
+  const [numeroPdl, setNumeroPdl] = useState('')
+  const [utilisation, setUtilisation] = useState('')
+  const [typeEnergieId, setTypeEnergieId] = useState('')
+  const [typeUtilisationId, setTypeUtilisationId] = useState('')
+  const [feedback, setFeedback] = useState<string | null>(null)
+
+  function reset() {
+    setNumeroPdl('')
+    setUtilisation('')
+    setTypeEnergieId('')
+    setTypeUtilisationId('')
+    setFeedback(null)
+  }
+
+  const energieChoisie = energies.find((e) => e.id === typeEnergieId)
+  const estElectricite = (energieChoisie?.code ?? '').toLowerCase() === 'electricite'
+
+  async function handleSubmit(e: React.FormEvent) {
+    e.preventDefault()
+    const typeEnergie = (energieChoisie?.code?.toLowerCase() === 'gaz' ? 'gaz' : 'electricite') as 'electricite' | 'gaz'
+    const result = await createCompteur.mutateAsync({
+      site_id: siteId,
+      site_nom: siteNom,
+      type_energie_id: typeEnergieId || null,
+      type_energie: typeEnergie,
+      numero_pdl: numeroPdl,
+      utilisation,
+      type_utilisation_compteur_id: typeUtilisationId || null,
+    })
+    onSaved()
+    if (!result.persisted) {
+      setFeedback('Ajouté localement (non synchronisé avec Supabase).')
+      setTimeout(() => { reset(); onClose() }, 700)
+    } else {
+      reset()
+      onClose()
+    }
+  }
+
+  return (
+    <Dialog open={open} onClose={() => { reset(); onClose() }} title="Ajouter un compteur" description="Rattacher un nouveau point de livraison à ce site.">
+      <form onSubmit={handleSubmit} className="space-y-3">
+        <FormField label="Type d'énergie">
+          <Select value={typeEnergieId} onChange={(e) => { setTypeEnergieId(e.target.value); setTypeUtilisationId('') }} required>
+            <option value="">Sélectionner…</option>
+            {energies.map((en) => <option key={en.id} value={en.id}>{en.libelle}</option>)}
+          </Select>
+        </FormField>
+        <FormField label={estElectricite ? 'Numéro de PDL' : 'Numéro de PCE'}>
+          <Input value={numeroPdl} onChange={(e) => setNumeroPdl(e.target.value)} required placeholder="Ex. 30001234567890" />
+        </FormField>
+        <FormField label="Utilisation">
+          <Input value={utilisation} onChange={(e) => setUtilisation(e.target.value)} placeholder="Ex. Parties communes, Chaufferie…" />
+        </FormField>
+        {estElectricite && utilisationsRef && utilisationsRef.length > 0 && (
+          <FormField label="Type d'utilisation (CU/MU/LU)">
+            <Select value={typeUtilisationId} onChange={(e) => setTypeUtilisationId(e.target.value)}>
+              <option value="">Non renseigné</option>
+              {utilisationsRef.map((u) => <option key={u.id} value={u.id}>{u.libelle}</option>)}
+            </Select>
+          </FormField>
+        )}
+        {feedback && <p className="text-xs text-navy-500">{feedback}</p>}
+        <div className="flex justify-end gap-2 pt-2">
+          <Button type="button" variant="ghost" onClick={() => { reset(); onClose() }}>Annuler</Button>
+          <Button type="submit" disabled={createCompteur.isPending}>Ajouter</Button>
         </div>
       </form>
     </Dialog>
