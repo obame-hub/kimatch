@@ -99,7 +99,7 @@ async function fetchRecommandations(): Promise<Recommandation[]> {
           'id, recommandation_id, nom, resume, contexte_et_hypotheses, gain_estime_annuel, economie_estimee_pourcentage, niveau_confiance, version_actuelle, est_figee, date_publication, date_presentation_client, date_decision_client, date_creation, statut:statuts_versions_recommandation(code), motif:motifs_versions_recommandation(libelle)',
         )
         .order('date_creation'),
-      supabase.from('versions_recommandation_compteurs').select('id, version_recommandation_id, compteur_id, compteur:compteurs(numero_point, utilisation)'),
+      supabase.from('versions_recommandation_compteurs').select('id, version_recommandation_id, compteur_id, compteur:compteurs(numero_point, libelle)'),
       supabase
         .from('optimisations')
         .select(
@@ -124,7 +124,7 @@ async function fetchRecommandations(): Promise<Recommandation[]> {
       id: string
       version_recommandation_id: string
       compteur_id: string
-      compteur: { numero_point: string; utilisation: string | null } | null
+      compteur: { numero_point: string; libelle: string | null } | null
     }
 
     const compteurIdsParVersion = new Map<string, string[]>()
@@ -133,7 +133,7 @@ async function fetchRecommandations(): Promise<Recommandation[]> {
       const list = compteurIdsParVersion.get(vc.version_recommandation_id) ?? []
       list.push(vc.compteur_id)
       compteurIdsParVersion.set(vc.version_recommandation_id, list)
-      versionCompteurById.set(vc.id, { compteurId: vc.compteur_id, label: vc.compteur?.utilisation || vc.compteur?.numero_point || '' })
+      versionCompteurById.set(vc.id, { compteurId: vc.compteur_id, label: vc.compteur?.libelle || vc.compteur?.numero_point || '' })
     }
 
     const detailsParOffre = new Map<string, OffreFournisseurCompteurType[]>()

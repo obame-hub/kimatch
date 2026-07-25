@@ -36,15 +36,15 @@ async function fetchContrats(): Promise<Contrat[]> {
           'id, site_id, fournisseur_compte_id, reference_fournisseur, date_debut, date_fin, preavis_resiliation_jours, proprietaire_id, docusign_envelope_id, date_envoi_signature, date_signature, statut_signature, site:sites(nom), fournisseur:comptes(nom), type_energie:types_energies(code), statut:statuts_contrats(code)',
         )
         .order('date_debut', { ascending: false }),
-      supabase.from('contrats_compteurs').select('id, contrat_id, compteur:compteurs(id, numero_point, utilisation)'),
+      supabase.from('contrats_compteurs').select('id, contrat_id, compteur:compteurs(id, numero_point, libelle)'),
     ])
     if (contratsRes.error) throw contratsRes.error
 
     const compteursParContrat = new Map<string, { id: string; contrat_compteur_id: string | null; numero_pdl: string; utilisation: string }[]>()
-    for (const cc of (compteursRes.data ?? []) as unknown as { id: string; contrat_id: string; compteur: { id: string; numero_point: string; utilisation: string | null } | null }[]) {
+    for (const cc of (compteursRes.data ?? []) as unknown as { id: string; contrat_id: string; compteur: { id: string; numero_point: string; libelle: string | null } | null }[]) {
       if (!cc.compteur) continue
       const list = compteursParContrat.get(cc.contrat_id) ?? []
-      list.push({ id: cc.compteur.id, contrat_compteur_id: cc.id, numero_pdl: cc.compteur.numero_point, utilisation: cc.compteur.utilisation ?? '' })
+      list.push({ id: cc.compteur.id, contrat_compteur_id: cc.id, numero_pdl: cc.compteur.numero_point, utilisation: cc.compteur.libelle ?? '' })
       compteursParContrat.set(cc.contrat_id, list)
     }
 

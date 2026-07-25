@@ -38,7 +38,7 @@ interface RawCompteur {
   id: string
   site_id: string
   numero_point: string
-  utilisation: string | null
+  libelle: string | null
   actif: boolean
   consommation_annuelle_mwh: number | null
   synchro_eneo: boolean
@@ -72,7 +72,7 @@ async function fetchCompteurs(): Promise<Compteur[]> {
     const { data, error } = await supabase
       .from('compteurs')
       .select(
-        'id, site_id, numero_point, utilisation, actif, consommation_annuelle_mwh, synchro_eneo, date_derniere_synchro_eneo, proprietaire_id, type_utilisation_compteur_id, type_energie:types_energies(code), type_utilisation:types_utilisations_compteur(libelle), site:sites(nom), compteurs_electricite(*), compteurs_gaz(*)',
+        'id, site_id, numero_point, libelle, actif, consommation_annuelle_mwh, synchro_eneo, date_derniere_synchro_eneo, proprietaire_id, type_utilisation_compteur_id, type_energie:types_energies(code), type_utilisation:types_utilisations_compteur(libelle), site:sites(nom), compteurs_electricite(*), compteurs_gaz(*)',
       )
     if (error) throw error
 
@@ -88,7 +88,7 @@ async function fetchCompteurs(): Promise<Compteur[]> {
         site_nom: c.site?.nom ?? '',
         type_energie: (c.type_energie?.code?.toLowerCase() ?? 'electricite') as 'electricite' | 'gaz',
         numero_pdl: c.numero_point,
-        utilisation: c.utilisation ?? '',
+        utilisation: c.libelle ?? '',
         type_utilisation_compteur_id: c.type_utilisation_compteur_id,
         type_utilisation_compteur: c.type_utilisation?.libelle ?? null,
         statut: c.actif ? 'actif' : 'inactif',
@@ -199,7 +199,7 @@ export function useCreateCompteur() {
           .insert({
             site_id: input.site_id,
             numero_point: input.numero_pdl,
-            utilisation: input.utilisation,
+            libelle: input.utilisation,
             actif: true,
             consommation_annuelle_mwh: input.consommation_annuelle_mwh ?? null,
             synchro_eneo: synchro,
@@ -258,7 +258,7 @@ export function useUpdateCompteur() {
       const { error } = await supabase
         .from('compteurs')
         .update({
-          utilisation: input.utilisation,
+          libelle: input.utilisation,
           consommation_annuelle_mwh: input.consommation_annuelle_mwh,
           proprietaire_id: input.proprietaire_id,
           ...(input.type_utilisation_compteur_id !== undefined ? { type_utilisation_compteur_id: input.type_utilisation_compteur_id } : {}),
