@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
-import { ArrowLeft, FileCheck2, FileSignature, Pencil, Trash2, Building2, MapPin, FileText, Plus, Phone, Mail } from 'lucide-react'
+import { ArrowLeft, FileCheck2, FileSignature, Pencil, Trash2, Building2, MapPin, Gauge, FileText, Plus, Phone, Mail } from 'lucide-react'
 import { Topbar } from '@/components/layout/Topbar'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
@@ -13,6 +13,7 @@ import { useMandats, useMarkMandatEnvoye, useUpdateMandat, useDeleteMandat } fro
 import { useContacts } from '@/lib/data/contacts'
 import { useComptes } from '@/lib/data/comptes'
 import { useSites } from '@/lib/data/sites'
+import { useCompteurs } from '@/lib/data/compteurs'
 import { useDocuments, useCreateDocument } from '@/lib/data/documents'
 import { useReferenceTable } from '@/lib/data/referenceTables'
 import { useCanManage, useIsAdmin, useProfilsAdmin } from '@/lib/data/roles'
@@ -235,6 +236,7 @@ export default function MandatDetail() {
   const { data: contacts } = useContacts()
   const { data: comptes } = useComptes()
   const { data: sites } = useSites()
+  const { data: compteurs } = useCompteurs()
   const { data: documents } = useDocuments()
   const [showEnvoyer, setShowEnvoyer] = useState(false)
   const [editOpen, setEditOpen] = useState(false)
@@ -248,6 +250,7 @@ export default function MandatDetail() {
   const compte = comptes?.find((c) => c.id === mandat?.compte_id)
   const contactSignataire = contacts?.find((c) => c.id === mandat?.contact_signataire_id)
   const sitesDuMandat = useMemo(() => sites?.filter((s) => mandat?.site_ids.includes(s.id)) ?? [], [sites, mandat])
+  const compteursDuMandat = useMemo(() => compteurs?.filter((c) => mandat?.compteur_ids.includes(c.id)) ?? [], [compteurs, mandat])
   const documentsDuMandat = useMemo(() => documents?.filter((d) => d.entite_type === 'mandat' && d.entite_id === mandat?.id) ?? [], [documents, mandat?.id])
 
   async function handleDelete() {
@@ -258,7 +261,7 @@ export default function MandatDetail() {
 
   const TABS: { key: TabKey; label: string; badge?: string }[] = [
     { key: 'mandat', label: 'Mandat' },
-    { key: 'perimetre', label: 'Périmètre', badge: sitesDuMandat.length ? String(sitesDuMandat.length) : undefined },
+    { key: 'perimetre', label: 'Périmètre', badge: compteursDuMandat.length ? String(compteursDuMandat.length) : undefined },
     { key: 'fichiers', label: 'Fichiers', badge: documentsDuMandat.length ? String(documentsDuMandat.length) : undefined },
   ]
 
@@ -434,26 +437,43 @@ export default function MandatDetail() {
           )}
 
           {tab === 'perimetre' && (
-            <div className="flex flex-col gap-2.5">
+            <div className="flex flex-col gap-3.5">
               {sitesDuMandat.length === 0 ? (
-                <p className="text-sm text-navy-400">Aucun site couvert par ce mandat.</p>
+                <p className="text-sm text-navy-400">Aucun compteur couvert par ce mandat.</p>
               ) : (
-                sitesDuMandat.map((s) => (
-                  <div
-                    key={s.id}
-                    onClick={() => navigate(`/sites/${s.id}`)}
-                    className="flex cursor-pointer items-center gap-3 rounded-xl border border-navy-100 bg-white p-3.5 hover:bg-navy-50/60"
-                  >
-                    <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-[10px] bg-kiwi-100 text-kiwi-600">
-                      <MapPin className="h-4 w-4" />
-                    </span>
-                    <div className="min-w-0 flex-1">
-                      <p className="truncate text-sm font-bold text-navy-800">{s.nom}</p>
-                      <p className="truncate text-[10.5px] text-navy-400">{s.type_site} · {s.ville}</p>
+                sitesDuMandat.map((s) => {
+                  const compteursDuSite = compteursDuMandat.filter((c) => c.site_id === s.id)
+                  return (
+                    <div key={s.id} className="rounded-xl border border-navy-100 bg-white p-3.5">
+                      <div
+                        onClick={() => navigate(`/sites/${s.id}`)}
+                        className="mb-2.5 flex cursor-pointer items-center gap-3 hover:opacity-80"
+                      >
+                        <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-[10px] bg-kiwi-100 text-kiwi-600">
+                          <MapPin className="h-4 w-4" />
+                        </span>
+                        <div className="min-w-0 flex-1">
+                          <p className="truncate text-sm font-bold text-navy-800">{s.nom}</p>
+                          <p className="truncate text-[10.5px] text-navy-400">{s.type_site} · {s.ville}</p>
+                        </div>
+                        <Badge tone={s.statut === 'actif' ? 'kiwi' : 'neutral'}>{s.statut}</Badge>
+                      </div>
+                      <div className="flex flex-col gap-1.5 border-t border-navy-50 pt-2.5">
+                        {compteursDuSite.map((c) => (
+                          <div
+                            key={c.id}
+                            onClick={() => navigate(`/compteurs/${c.id}`)}
+                            className="flex cursor-pointer items-center gap-2 rounded-lg px-1.5 py-1 hover:bg-navy-50/60"
+                          >
+                            <Gauge className="h-3 w-3 shrink-0 text-navy-400" />
+                            <p className="truncate text-xs font-semibold text-navy-700">{c.utilisation || c.numero_pdl}</p>
+                            <p className="truncate font-mono text-[10px] text-navy-400">{c.numero_pdl}</p>
+                          </div>
+                        ))}
+                      </div>
                     </div>
-                    <Badge tone={s.statut === 'actif' ? 'kiwi' : 'neutral'}>{s.statut}</Badge>
-                  </div>
-                ))
+                  )
+                })
               )}
             </div>
           )}

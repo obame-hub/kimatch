@@ -109,9 +109,9 @@ export const mockActions: ActionItem[] = [
 
 // Codes alignés sur statuts_mandats (A_PREPARER, ENVOYE, EN_SIGNATURE, SIGNE, ACTIF, EXPIRE, REVOQUE).
 export const mockMandats: Mandat[] = [
-  { id: 'm1', compte_id: 'c1', compte_nom: 'Cabinet Durand', statut: 'ACTIF', date_signature: '2026-05-02', date_envoi: '2026-04-28', date_debut_validite: '2026-05-02', date_fin_validite: '2028-05-02', nb_sites_couverts: 2, site_ids: ['s1', 's5'], contact_signataire_id: 'ct1', contact_signataire_nom: 'Marc Lefebvre', proprietaire_id: null },
-  { id: 'm2', compte_id: 'c2', compte_nom: 'Groupe Meridia', statut: 'ACTIF', date_signature: '2026-03-14', date_envoi: '2026-03-10', date_debut_validite: '2026-03-14', date_fin_validite: '2028-03-14', nb_sites_couverts: 2, site_ids: ['s2', 's3'], contact_signataire_id: 'ct2', contact_signataire_nom: 'Sophie Nguyen', proprietaire_id: null },
-  { id: 'm3', compte_id: 'c3', compte_nom: 'Hôtellerie du Sud', statut: 'EN_SIGNATURE', date_signature: null, date_envoi: '2026-07-10', date_debut_validite: null, date_fin_validite: null, nb_sites_couverts: 1, site_ids: ['s4'], proprietaire_id: null },
+  { id: 'm1', compte_id: 'c1', compte_nom: 'Cabinet Durand', statut: 'ACTIF', date_signature: '2026-05-02', date_envoi: '2026-04-28', date_debut_validite: '2026-05-02', date_fin_validite: '2028-05-02', nb_sites_couverts: 2, site_ids: ['s1', 's5'], compteur_ids: ['cp1', 'cp2', 'cp6'], contact_signataire_id: 'ct1', contact_signataire_nom: 'Marc Lefebvre', proprietaire_id: null },
+  { id: 'm2', compte_id: 'c2', compte_nom: 'Groupe Meridia', statut: 'ACTIF', date_signature: '2026-03-14', date_envoi: '2026-03-10', date_debut_validite: '2026-03-14', date_fin_validite: '2028-03-14', nb_sites_couverts: 2, site_ids: ['s2', 's3'], compteur_ids: ['cp3', 'cp4'], contact_signataire_id: 'ct2', contact_signataire_nom: 'Sophie Nguyen', proprietaire_id: null },
+  { id: 'm3', compte_id: 'c3', compte_nom: 'Hôtellerie du Sud', statut: 'EN_SIGNATURE', date_signature: null, date_envoi: '2026-07-10', date_debut_validite: null, date_fin_validite: null, nb_sites_couverts: 1, site_ids: ['s4'], compteur_ids: ['cp5'], proprietaire_id: null },
 ]
 
 export const mockContacts: Contact[] = [

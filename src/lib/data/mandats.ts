@@ -23,21 +23,27 @@ interface RawMandat {
 async function fetchMandats(): Promise<Mandat[]> {
   if (isDemoMode()) return mockMandats
   try {
-    const [mandatsRes, sitesRes] = await Promise.all([
+    const [mandatsRes, compteursRes] = await Promise.all([
       supabase
         .from('mandats')
         .select(
           'id, compte_id, date_signature, date_envoi, date_debut_validite, date_fin_validite, contact_signataire_id, docusign_envelope_id, proprietaire_id, compte:comptes(nom), statut:statuts_mandats(code), contact_signataire:contacts(prenom, nom)',
         ),
-      supabase.from('mandats_sites').select('mandat_id, site_id'),
+      supabase.from('mandats_compteurs').select('mandat_id, compteur:compteurs(id, site_id)'),
     ])
     if (mandatsRes.error) throw mandatsRes.error
 
-    const sitesParMandat = new Map<string, string[]>()
-    for (const ms of (sitesRes.data ?? []) as unknown as { mandat_id: string; site_id: string }[]) {
-      const list = sitesParMandat.get(ms.mandat_id) ?? []
-      list.push(ms.site_id)
-      sitesParMandat.set(ms.mandat_id, list)
+    const compteurIdsParMandat = new Map<string, string[]>()
+    const siteIdsParMandat = new Map<string, string[]>()
+    for (const mc of (compteursRes.data ?? []) as unknown as { mandat_id: string; compteur: { id: string; site_id: string } | null }[]) {
+      if (!mc.compteur) continue
+      const compteurList = compteurIdsParMandat.get(mc.mandat_id) ?? []
+      compteurList.push(mc.compteur.id)
+      compteurIdsParMandat.set(mc.mandat_id, compteurList)
+
+      const siteList = siteIdsParMandat.get(mc.mandat_id) ?? []
+      if (!siteList.includes(mc.compteur.site_id)) siteList.push(mc.compteur.site_id)
+      siteIdsParMandat.set(mc.mandat_id, siteList)
     }
 
     const comptesVisibles = await fetchComptesVisibles()
@@ -51,8 +57,9 @@ async function fetchMandats(): Promise<Mandat[]> {
       date_envoi: m.date_envoi,
       date_debut_validite: m.date_debut_validite,
       date_fin_validite: m.date_fin_validite,
-      nb_sites_couverts: (sitesParMandat.get(m.id) ?? []).length,
-      site_ids: sitesParMandat.get(m.id) ?? [],
+      nb_sites_couverts: (siteIdsParMandat.get(m.id) ?? []).length,
+      site_ids: siteIdsParMandat.get(m.id) ?? [],
+      compteur_ids: compteurIdsParMandat.get(m.id) ?? [],
       contact_signataire_id: m.contact_signataire_id,
       contact_signataire_nom: m.contact_signataire ? `${m.contact_signataire.prenom} ${m.contact_signataire.nom}` : undefined,
       docusign_envelope_id: m.docusign_envelope_id,
@@ -71,7 +78,8 @@ export function useMandats() {
 interface CreateMandatInput {
   compte_id: string
   compte_nom: string
-  site_ids: string[]
+  compteur_ids: string[]
+  compteurs: { id: string; site_id: string }[]
   date_signature: string | null
   contact_signataire_id: string | null
   contact_signataire_nom?: string
@@ -88,6 +96,7 @@ export function useCreateMandat() {
   return useMutation({
     mutationFn: async (input: CreateMandatInput): Promise<CreateMandatResult> => {
       let persisted = false
+      const siteIds = [...new Set(input.compteurs.map((c) => c.site_id))]
       let mandat: Mandat = {
         id: `local-${Date.now()}`,
         compte_id: input.compte_id,
@@ -97,8 +106,9 @@ export function useCreateMandat() {
         date_envoi: null,
         date_debut_validite: input.date_signature,
         date_fin_validite: null,
-        nb_sites_couverts: input.site_ids.length,
-        site_ids: input.site_ids,
+        nb_sites_couverts: siteIds.length,
+        site_ids: siteIds,
+        compteur_ids: input.compteur_ids,
         contact_signataire_id: input.contact_signataire_id,
         contact_signataire_nom: input.contact_signataire_nom,
         proprietaire_id: null,
@@ -118,10 +128,10 @@ export function useCreateMandat() {
           const mandatId = (data as { id: string }).id
           mandat = { ...mandat, id: mandatId }
           persisted = true
-          if (input.site_ids.length > 0) {
+          if (input.compteur_ids.length > 0) {
             await supabase
-              .from('mandats_sites')
-              .insert(input.site_ids.map((site_id) => ({ mandat_id: mandatId, site_id })))
+              .from('mandats_compteurs')
+              .insert(input.compteur_ids.map((compteur_id) => ({ mandat_id: mandatId, compteur_id })))
           }
         }
       }

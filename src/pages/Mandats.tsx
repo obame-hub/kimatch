@@ -12,6 +12,7 @@ import { FormField, Input, Select } from '@/components/ui/form'
 import { useMandats, useCreateMandat } from '@/lib/data/mandats'
 import { useComptes } from '@/lib/data/comptes'
 import { useSites } from '@/lib/data/sites'
+import { useCompteurs } from '@/lib/data/compteurs'
 import { useContacts } from '@/lib/data/contacts'
 import { useReferenceTable } from '@/lib/data/referenceTables'
 import { FALLBACK_STATUTS_MANDATS, STATUT_MANDAT_TONE } from '@/lib/referenceFallbacks'
@@ -22,28 +23,30 @@ import { ExtractDocumentButton } from '@/components/ui/document-extraction'
 function CreateMandatDialog({ open, onClose }: { open: boolean; onClose: () => void }) {
   const { data: comptes } = useComptes()
   const { data: sites } = useSites()
+  const { data: compteurs } = useCompteurs()
   const { data: contacts } = useContacts()
   const createMandat = useCreateMandat()
 
   const [compteId, setCompteId] = useState('')
   const [dateSignature, setDateSignature] = useState('')
-  const [siteIds, setSiteIds] = useState<string[]>([])
+  const [compteurIds, setCompteurIds] = useState<string[]>([])
   const [contactSignataireId, setContactSignataireId] = useState('')
   const [feedback, setFeedback] = useState<string | null>(null)
 
   const sitesDuCompte = sites?.filter((s) => s.compte_id === compteId) ?? []
+  const compteursDuCompte = compteurs?.filter((c) => sitesDuCompte.some((s) => s.id === c.site_id)) ?? []
   const contactsDuCompte = contacts?.filter((c) => c.compte_id === compteId) ?? []
 
   function reset() {
     setCompteId('')
     setDateSignature('')
-    setSiteIds([])
+    setCompteurIds([])
     setContactSignataireId('')
     setFeedback(null)
   }
 
-  function toggleSite(id: string) {
-    setSiteIds((prev) => (prev.includes(id) ? prev.filter((s) => s !== id) : [...prev, id]))
+  function toggleCompteur(id: string) {
+    setCompteurIds((prev) => (prev.includes(id) ? prev.filter((c) => c !== id) : [...prev, id]))
   }
 
   function handleExtracted(fields: Record<string, { value: string | number | null; confidence: number }>) {
@@ -56,11 +59,13 @@ function CreateMandatDialog({ open, onClose }: { open: boolean; onClose: () => v
     const compte = comptes?.find((c) => c.id === compteId)
     if (!compte) return
     const contactSignataire = contactsDuCompte.find((c) => c.id === contactSignataireId)
+    const compteursChoisis = compteursDuCompte.filter((c) => compteurIds.includes(c.id)).map((c) => ({ id: c.id, site_id: c.site_id }))
 
     const result = await createMandat.mutateAsync({
       compte_id: compte.id,
       compte_nom: compte.nom,
-      site_ids: siteIds,
+      compteur_ids: compteurIds,
+      compteurs: compteursChoisis,
       date_signature: dateSignature || null,
       contact_signataire_id: contactSignataireId || null,
       contact_signataire_nom: contactSignataire ? `${contactSignataire.prenom} ${contactSignataire.nom}` : undefined,
@@ -77,7 +82,7 @@ function CreateMandatDialog({ open, onClose }: { open: boolean; onClose: () => v
       <form onSubmit={handleSubmit} className="space-y-3">
         <ExtractDocumentButton onExtracted={handleExtracted} />
         <FormField label="Compte">
-          <Select value={compteId} onChange={(e) => { setCompteId(e.target.value); setSiteIds([]) }} required>
+          <Select value={compteId} onChange={(e) => { setCompteId(e.target.value); setCompteurIds([]) }} required>
             <option value="">Sélectionner un compte…</option>
             {comptes?.map((c) => <option key={c.id} value={c.id}>{c.nom}</option>)}
           </Select>
@@ -94,17 +99,28 @@ function CreateMandatDialog({ open, onClose }: { open: boolean; onClose: () => v
           </FormField>
         )}
         {compteId && (
-          <FormField label="Sites couverts">
+          <FormField label="Compteurs couverts">
             {sitesDuCompte.length === 0 ? (
               <p className="text-xs text-navy-400">Ce compte n'a aucun site.</p>
+            ) : compteursDuCompte.length === 0 ? (
+              <p className="text-xs text-navy-400">Aucun compteur pour ce compte.</p>
             ) : (
-              <div className="max-h-32 space-y-1 overflow-y-auto rounded-lg border border-navy-200 p-2">
-                {sitesDuCompte.map((s) => (
-                  <label key={s.id} className="flex items-center gap-2 text-sm text-navy-700">
-                    <input type="checkbox" checked={siteIds.includes(s.id)} onChange={() => toggleSite(s.id)} />
-                    {s.nom}
-                  </label>
-                ))}
+              <div className="max-h-48 space-y-2 overflow-y-auto rounded-lg border border-navy-200 p-2">
+                {sitesDuCompte.map((s) => {
+                  const compteursDuSite = compteursDuCompte.filter((c) => c.site_id === s.id)
+                  if (compteursDuSite.length === 0) return null
+                  return (
+                    <div key={s.id}>
+                      <p className="mb-1 text-[10px] font-bold uppercase tracking-wide text-navy-400">{s.nom}</p>
+                      {compteursDuSite.map((c) => (
+                        <label key={c.id} className="flex items-center gap-2 pl-1 text-sm text-navy-700">
+                          <input type="checkbox" checked={compteurIds.includes(c.id)} onChange={() => toggleCompteur(c.id)} />
+                          {c.utilisation || c.numero_pdl}
+                        </label>
+                      ))}
+                    </div>
+                  )
+                })}
               </div>
             )}
           </FormField>

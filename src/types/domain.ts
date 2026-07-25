@@ -134,6 +134,7 @@ export interface Mandat {
   date_fin_validite: string | null
   nb_sites_couverts: number
   site_ids: string[]
+  compteur_ids: string[]
   contact_signataire_id?: string | null
   contact_signataire_nom?: string
   docusign_envelope_id?: string | null
