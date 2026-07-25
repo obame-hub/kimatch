@@ -56,6 +56,19 @@ export interface VersionRecommandation {
   optimisations: Optimisation[]
 }
 
+export interface OffreFournisseurCompteur {
+  id: string
+  compteur_id: string
+  compteur_label: string
+  consommation_annuelle_reference_mwh: number | null
+  cout_fourniture_annuel_ht: number | null
+  cout_acheminement_annuel_ht: number | null
+  cout_taxes_annuel: number | null
+  cout_total_annuel_estime_ht: number | null
+  economie_annuelle_estimee: number | null
+  economie_pourcentage: number | null
+}
+
 export interface OffreFournisseur {
   id: string
   fournisseur_nom: string
@@ -69,6 +82,7 @@ export interface OffreFournisseur {
   economie_pourcentage: number | null
   duree_mois: number | null
   est_offre_recommandee: boolean
+  details_par_compteur: OffreFournisseurCompteur[]
 }
 
 export interface Optimisation {

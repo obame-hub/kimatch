@@ -2,7 +2,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { supabase } from '@/lib/supabase'
 import { isDemoMode } from '@/lib/demoMode'
 import { mockRecommandations } from '@/lib/mockData'
-import type { Recommandation, VersionRecommandation, Optimisation, OffreFournisseur } from '@/types/domain'
+import type { Recommandation, VersionRecommandation, Optimisation, OffreFournisseur, OffreFournisseurCompteur as OffreFournisseurCompteurType } from '@/types/domain'
 import { fetchComptesVisibles, filterVisibles } from '@/lib/data/visibility'
 
 interface RawRecommandation {
@@ -68,11 +68,24 @@ interface RawOffreFournisseur {
   compte_fournisseur: { compte: { nom: string } | null } | null
 }
 
+interface RawOffreFournisseurCompteur {
+  id: string
+  offre_fournisseur_id: string
+  version_recommandation_compteur_id: string
+  consommation_annuelle_reference_mwh: number | null
+  cout_fourniture_annuel_ht: number | null
+  cout_acheminement_annuel_ht: number | null
+  cout_taxes_annuel: number | null
+  cout_total_annuel_estime_ht: number | null
+  economie_annuelle_estimee: number | null
+  economie_pourcentage: number | null
+}
+
 async function fetchRecommandations(): Promise<Recommandation[]> {
   if (isDemoMode()) return mockRecommandations
 
   try {
-    const [recosRes, sitesRes, versionsRes, versionsCompteursRes, optimisationsRes, offresRes] = await Promise.all([
+    const [recosRes, sitesRes, versionsRes, versionsCompteursRes, optimisationsRes, offresRes, offresCompteursRes] = await Promise.all([
       supabase
         .from('recommandations')
         .select(
@@ -86,7 +99,7 @@ async function fetchRecommandations(): Promise<Recommandation[]> {
           'id, recommandation_id, nom, resume, contexte_et_hypotheses, gain_estime_annuel, economie_estimee_pourcentage, niveau_confiance, version_actuelle, est_figee, date_publication, date_presentation_client, date_decision_client, date_creation, statut:statuts_versions_recommandation(code), motif:motifs_versions_recommandation(libelle)',
         )
         .order('date_creation'),
-      supabase.from('versions_recommandation_compteurs').select('version_recommandation_id, compteur_id'),
+      supabase.from('versions_recommandation_compteurs').select('id, version_recommandation_id, compteur_id, compteur:compteurs(numero_point, utilisation)'),
       supabase
         .from('optimisations')
         .select(
@@ -98,9 +111,49 @@ async function fetchRecommandations(): Promise<Recommandation[]> {
         .select(
           'id, optimisation_id, reference_offre, nom, description, statut, montant_annuel_ht, montant_total_ht, economie_annuelle_estimee, economie_pourcentage, duree_mois, est_offre_recommandee, compte_fournisseur:comptes_fournisseurs(compte:comptes(nom))',
         ),
+      supabase
+        .from('offres_fournisseurs_compteurs')
+        .select(
+          'id, offre_fournisseur_id, version_recommandation_compteur_id, consommation_annuelle_reference_mwh, cout_fourniture_annuel_ht, cout_acheminement_annuel_ht, cout_taxes_annuel, cout_total_annuel_estime_ht, economie_annuelle_estimee, economie_pourcentage',
+        ),
     ])
 
     if (recosRes.error) throw recosRes.error
+
+    interface RawVersionCompteur {
+      id: string
+      version_recommandation_id: string
+      compteur_id: string
+      compteur: { numero_point: string; utilisation: string | null } | null
+    }
+
+    const compteurIdsParVersion = new Map<string, string[]>()
+    const versionCompteurById = new Map<string, { compteurId: string; label: string }>()
+    for (const vc of (versionsCompteursRes.data ?? []) as unknown as RawVersionCompteur[]) {
+      const list = compteurIdsParVersion.get(vc.version_recommandation_id) ?? []
+      list.push(vc.compteur_id)
+      compteurIdsParVersion.set(vc.version_recommandation_id, list)
+      versionCompteurById.set(vc.id, { compteurId: vc.compteur_id, label: vc.compteur?.utilisation || vc.compteur?.numero_point || '' })
+    }
+
+    const detailsParOffre = new Map<string, OffreFournisseurCompteurType[]>()
+    for (const dc of (offresCompteursRes.data ?? []) as unknown as RawOffreFournisseurCompteur[]) {
+      const vc = versionCompteurById.get(dc.version_recommandation_compteur_id)
+      const list = detailsParOffre.get(dc.offre_fournisseur_id) ?? []
+      list.push({
+        id: dc.id,
+        compteur_id: vc?.compteurId ?? '',
+        compteur_label: vc?.label ?? '',
+        consommation_annuelle_reference_mwh: dc.consommation_annuelle_reference_mwh,
+        cout_fourniture_annuel_ht: dc.cout_fourniture_annuel_ht,
+        cout_acheminement_annuel_ht: dc.cout_acheminement_annuel_ht,
+        cout_taxes_annuel: dc.cout_taxes_annuel,
+        cout_total_annuel_estime_ht: dc.cout_total_annuel_estime_ht,
+        economie_annuelle_estimee: dc.economie_annuelle_estimee,
+        economie_pourcentage: dc.economie_pourcentage,
+      })
+      detailsParOffre.set(dc.offre_fournisseur_id, list)
+    }
 
     const offresParOptimisation = new Map<string, OffreFournisseur[]>()
     for (const o of (offresRes.data ?? []) as unknown as RawOffreFournisseur[]) {
@@ -118,6 +171,7 @@ async function fetchRecommandations(): Promise<Recommandation[]> {
         economie_pourcentage: o.economie_pourcentage,
         duree_mois: o.duree_mois,
         est_offre_recommandee: o.est_offre_recommandee,
+        details_par_compteur: detailsParOffre.get(o.id) ?? [],
       })
       offresParOptimisation.set(o.optimisation_id, list)
     }
@@ -147,13 +201,6 @@ async function fetchRecommandations(): Promise<Recommandation[]> {
       const list = sitesParReco.get(rs.recommandation_id) ?? []
       list.push(rs.site)
       sitesParReco.set(rs.recommandation_id, list)
-    }
-
-    const compteurIdsParVersion = new Map<string, string[]>()
-    for (const vc of (versionsCompteursRes.data ?? []) as unknown as { version_recommandation_id: string; compteur_id: string }[]) {
-      const list = compteurIdsParVersion.get(vc.version_recommandation_id) ?? []
-      list.push(vc.compteur_id)
-      compteurIdsParVersion.set(vc.version_recommandation_id, list)
     }
 
     const versionsParReco = new Map<string, VersionRecommandation[]>()

@@ -233,19 +233,39 @@ export default function RecommandationDetail() {
                                 ) : (
                                   <div className="mt-1 space-y-1.5 pl-2">
                                     {optimisation.offres.map((offre) => (
-                                      <div key={offre.id} className="flex items-center justify-between rounded-md bg-navy-50 px-2.5 py-1.5">
-                                        <div>
-                                          <p className="text-xs font-medium text-navy-800">{offre.fournisseur_nom}</p>
-                                          <p className="text-[11px] text-navy-500">{offre.nom || offre.reference_offre}{offre.duree_mois ? ` · ${offre.duree_mois} mois` : ''}</p>
+                                      <div key={offre.id} className="rounded-md bg-navy-50 px-2.5 py-1.5">
+                                        <div className="flex items-center justify-between">
+                                          <div>
+                                            <p className="text-xs font-medium text-navy-800">{offre.fournisseur_nom}</p>
+                                            <p className="text-[11px] text-navy-500">{offre.nom || offre.reference_offre}{offre.duree_mois ? ` · ${offre.duree_mois} mois` : ''}</p>
+                                          </div>
+                                          <div className="text-right">
+                                            {offre.montant_annuel_ht !== null && (
+                                              <p className="text-xs font-semibold text-navy-800">{offre.montant_annuel_ht.toLocaleString('fr-FR')} €/an</p>
+                                            )}
+                                            {offre.economie_pourcentage !== null && (
+                                              <p className="text-[11px] font-medium text-kiwi-700">-{offre.economie_pourcentage}%</p>
+                                            )}
+                                          </div>
                                         </div>
-                                        <div className="text-right">
-                                          {offre.montant_annuel_ht !== null && (
-                                            <p className="text-xs font-semibold text-navy-800">{offre.montant_annuel_ht.toLocaleString('fr-FR')} €/an</p>
-                                          )}
-                                          {offre.economie_pourcentage !== null && (
-                                            <p className="text-[11px] font-medium text-kiwi-700">-{offre.economie_pourcentage}%</p>
-                                          )}
-                                        </div>
+                                        {offre.details_par_compteur.length > 0 && (
+                                          <details className="mt-1.5">
+                                            <summary className="cursor-pointer text-[10.5px] text-navy-400 hover:text-navy-600">
+                                              Détail par compteur ({offre.details_par_compteur.length})
+                                            </summary>
+                                            <div className="mt-1 space-y-1 border-t border-navy-100 pt-1.5">
+                                              {offre.details_par_compteur.map((d) => (
+                                                <div key={d.id} className="flex items-center justify-between text-[11px]">
+                                                  <span className="text-navy-600">{d.compteur_label || '—'}</span>
+                                                  <span className="font-medium text-navy-700">
+                                                    {d.cout_total_annuel_estime_ht !== null ? `${d.cout_total_annuel_estime_ht.toLocaleString('fr-FR')} €/an` : '—'}
+                                                    {d.economie_pourcentage !== null ? ` · -${d.economie_pourcentage}%` : ''}
+                                                  </span>
+                                                </div>
+                                              ))}
+                                            </div>
+                                          </details>
+                                        )}
                                       </div>
                                     ))}
                                   </div>
