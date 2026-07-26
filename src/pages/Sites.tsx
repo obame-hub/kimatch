@@ -1,5 +1,5 @@
-import { useState } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useEffect, useState } from 'react'
+import { useLocation, useNavigate } from 'react-router-dom'
 import { Plus, List, Map as MapIcon } from 'lucide-react'
 import { Topbar } from '@/components/layout/Topbar'
 import { PageHeader } from '@/components/ui/page-header'
@@ -26,7 +26,15 @@ import { SiteHealthBadge } from '@/components/site/SiteHealthBadge'
 import { SitesMap } from '@/components/site/SitesMap'
 import { cn } from '@/lib/utils'
 
-function CreateSiteDialog({ open, onClose }: { open: boolean; onClose: () => void }) {
+function CreateSiteDialog({
+  open,
+  onClose,
+  defaultCompteId,
+}: {
+  open: boolean
+  onClose: () => void
+  defaultCompteId?: string
+}) {
   const { data: comptes } = useComptes()
   const { data: typesRef } = useReferenceTable('types_sites')
   const types = typesRef && typesRef.length > 0 ? typesRef : FALLBACK_TYPES_SITES
@@ -38,6 +46,10 @@ function CreateSiteDialog({ open, onClose }: { open: boolean; onClose: () => voi
   const [ville, setVille] = useState('')
   const [codePostal, setCodePostal] = useState('')
   const [feedback, setFeedback] = useState<string | null>(null)
+
+  useEffect(() => {
+    if (open && defaultCompteId) setCompteId(defaultCompteId)
+  }, [open, defaultCompteId])
 
   function reset() {
     setNom('')
@@ -114,8 +126,15 @@ export default function Sites() {
   const { data: mandats } = useMandats()
   const { data: compteurs } = useCompteurs()
   const navigate = useNavigate()
-  const [showCreate, setShowCreate] = useState(false)
+  const location = useLocation()
+  const openCreateForCompteId = (location.state as { openCreateForCompteId?: string } | null)?.openCreateForCompteId
+  const [showCreate, setShowCreate] = useState(!!openCreateForCompteId)
   const [view, setView] = useState<'liste' | 'carte'>('liste')
+
+  useEffect(() => {
+    if (openCreateForCompteId) navigate(location.pathname, { replace: true, state: null })
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
 
   const { query, setQuery, sortKey, sortDir, toggleSort, items: filteredSites } = useListControls(sites, {
     searchFields: (s) => [s.nom, s.compte_nom, s.type_site, s.ville],
@@ -248,7 +267,7 @@ export default function Sites() {
         </Card>
         )}
       </div>
-      <CreateSiteDialog open={showCreate} onClose={() => setShowCreate(false)} />
+      <CreateSiteDialog open={showCreate} onClose={() => setShowCreate(false)} defaultCompteId={openCreateForCompteId} />
     </div>
   )
 }

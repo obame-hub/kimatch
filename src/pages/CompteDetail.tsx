@@ -240,7 +240,7 @@ export default function CompteDetail() {
             Note
             <span className="font-mono text-[9px] text-navy-300">N</span>
           </Button>
-          <Button size="sm" onClick={() => navigate('/sites')}>
+          <Button size="sm" onClick={() => navigate('/sites', { state: { openCreateForCompteId: compte.id } })}>
             <Plus className="h-3.5 w-3.5" />
             Site
           </Button>
