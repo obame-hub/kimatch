@@ -47,11 +47,21 @@ export const mockRecommandations: Recommandation[] = [
         compteur_ids: ['cp3'],
         optimisations: [
           {
-            id: 'opt1', nom: 'Mise en concurrence 24 mois', type_optimisation: 'Renégociation',
+            id: 'opt1', nom: 'Mise en concurrence 24 mois', type_optimisation: 'Renégociation', type_optimisation_code: 'MISE_EN_CONCURRENCE',
             description: null, resultat_attendu: 'Réduire la facture électricité', gain_estime_annuel: 6800, cout_estime: null, roi_mois: null, priorite: 1, est_retenue: true,
             offres: [
               { id: 'of1', fournisseur_nom: 'EDF', reference_offre: 'EDF-2026-0142', nom: 'Offre Standard 24 mois', description: null, statut: null, montant_annuel_ht: 42800, montant_total_ht: 85600, economie_annuelle_estimee: 5200, economie_pourcentage: 10.8, duree_mois: 24, est_offre_recommandee: false, details_par_compteur: [] },
               { id: 'of2', fournisseur_nom: 'ENGIE', reference_offre: 'ENG-2026-0871', nom: 'Offre Vert 24 mois', description: null, statut: null, montant_annuel_ht: 41200, montant_total_ht: 82400, economie_annuelle_estimee: 6800, economie_pourcentage: 14.2, duree_mois: 24, est_offre_recommandee: true, details_par_compteur: [] },
+            ],
+            fournisseurs_consultes: [
+              { id: 'fc1', fournisseur_compte_id: 'c5', fournisseur_nom: 'EDF', date_creation: '2026-07-01', statut_actuel: 'Réponse reçue', historique: [
+                { id: 'sc1', statut: 'Demande envoyée', date_evenement: '2026-07-01', commentaire: null, auteur_nom: 'Naoëlle Ghouma' },
+                { id: 'sc2', statut: 'Réponse reçue', date_evenement: '2026-07-08', commentaire: null, auteur_nom: 'Naoëlle Ghouma' },
+              ] },
+              { id: 'fc2', fournisseur_compte_id: 'c6', fournisseur_nom: 'ENGIE', date_creation: '2026-07-01', statut_actuel: 'Réponse reçue', historique: [
+                { id: 'sc3', statut: 'Demande envoyée', date_evenement: '2026-07-01', commentaire: null, auteur_nom: 'Naoëlle Ghouma' },
+                { id: 'sc4', statut: 'Réponse reçue', date_evenement: '2026-07-10', commentaire: null, auteur_nom: 'Naoëlle Ghouma' },
+              ] },
             ],
           },
         ],

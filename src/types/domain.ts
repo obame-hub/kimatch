@@ -85,10 +85,28 @@ export interface OffreFournisseur {
   details_par_compteur: OffreFournisseurCompteur[]
 }
 
+export interface SuiviConsultationFournisseur {
+  id: string
+  statut: string
+  date_evenement: string
+  commentaire: string | null
+  auteur_nom: string | null
+}
+
+export interface FournisseurConsulte {
+  id: string
+  fournisseur_compte_id: string
+  fournisseur_nom: string
+  date_creation: string
+  statut_actuel: string | null
+  historique: SuiviConsultationFournisseur[]
+}
+
 export interface Optimisation {
   id: string
   nom: string | null
   type_optimisation: string
+  type_optimisation_code: string
   description: string | null
   resultat_attendu: string | null
   gain_estime_annuel: number | null
@@ -97,6 +115,7 @@ export interface Optimisation {
   priorite: number | null
   est_retenue: boolean
   offres: OffreFournisseur[]
+  fournisseurs_consultes: FournisseurConsulte[]
 }
 
 export interface Recommandation {

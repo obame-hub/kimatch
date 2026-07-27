@@ -10,14 +10,22 @@ import { EtapeStepper } from '@/components/ui/etape-stepper'
 import { Dialog } from '@/components/ui/dialog'
 import { FormField, Input, Select, Textarea } from '@/components/ui/form'
 import { HistoriqueDiscret } from '@/components/ui/historique-discret'
-import { useRecommandations, useUpdateRecommandation, useDeleteRecommandation } from '@/lib/data/recommandations'
+import {
+  useRecommandations,
+  useUpdateRecommandation,
+  useDeleteRecommandation,
+  useAjouterFournisseurConsulte,
+  useAjouterSuiviConsultation,
+} from '@/lib/data/recommandations'
 import { useReferenceTable } from '@/lib/data/referenceTables'
 import { useContacts } from '@/lib/data/contacts'
+import { useComptes } from '@/lib/data/comptes'
 import { useCanManage, useIsAdmin, useProfilsAdmin } from '@/lib/data/roles'
 import { sendEmail } from '@/lib/data/gmail'
 import { FALLBACK_ETAPES_RECOMMANDATION, FALLBACK_STATUTS_VERSIONS, STATUT_VERSION_TONE } from '@/lib/referenceFallbacks'
 import { useGoBack } from '@/lib/useGoBack'
-import type { Recommandation, VersionRecommandation } from '@/types/domain'
+import type { Recommandation, VersionRecommandation, Optimisation, FournisseurConsulte } from '@/types/domain'
+const MISE_EN_CONCURRENCE = 'MISE_EN_CONCURRENCE'
 
 const PRIORITE_LABEL: Record<number, string> = { 1: 'Haute', 2: 'Normale', 3: 'Basse' }
 
@@ -80,6 +88,129 @@ function EnvoyerEmailDialog({
   )
 }
 
+function AjouterFournisseurConsulteDialog({
+  open,
+  onClose,
+  optimisation,
+}: {
+  open: boolean
+  onClose: () => void
+  optimisation: Optimisation | null
+}) {
+  const { data: comptes } = useComptes()
+  const fournisseurs = (comptes ?? []).filter((c) => c.type_compte === 'fournisseur')
+  const ajouter = useAjouterFournisseurConsulte()
+
+  const [fournisseurId, setFournisseurId] = useState('')
+  const [feedback, setFeedback] = useState<string | null>(null)
+
+  function reset() {
+    setFournisseurId('')
+    setFeedback(null)
+  }
+
+  async function handleSubmit(e: React.FormEvent) {
+    e.preventDefault()
+    const fournisseur = fournisseurs.find((f) => f.id === fournisseurId)
+    if (!optimisation || !fournisseur) return
+    try {
+      await ajouter.mutateAsync({ optimisationId: optimisation.id, fournisseurCompteId: fournisseur.id, fournisseurNom: fournisseur.nom })
+      reset()
+      onClose()
+    } catch (err) {
+      setFeedback(err instanceof Error ? err.message : 'Erreur inconnue')
+    }
+  }
+
+  return (
+    <Dialog open={open} onClose={() => { reset(); onClose() }} title="Ajouter un fournisseur consulté" description="Suivi de mise en concurrence — qui a été sollicité pour cette optimisation.">
+      <form onSubmit={handleSubmit} className="space-y-3">
+        <FormField label="Fournisseur">
+          <Select value={fournisseurId} onChange={(e) => setFournisseurId(e.target.value)} required>
+            <option value="">Sélectionner…</option>
+            {fournisseurs.map((f) => <option key={f.id} value={f.id}>{f.nom}</option>)}
+          </Select>
+        </FormField>
+        {feedback && <p className="text-xs text-red-600">{feedback}</p>}
+        <div className="flex justify-end gap-2 pt-2">
+          <Button type="button" variant="ghost" onClick={() => { reset(); onClose() }}>Annuler</Button>
+          <Button type="submit" disabled={ajouter.isPending}>Ajouter</Button>
+        </div>
+      </form>
+    </Dialog>
+  )
+}
+
+function AjouterSuiviDialog({
+  open,
+  onClose,
+  optimisationId,
+  fournisseurConsulte,
+}: {
+  open: boolean
+  onClose: () => void
+  optimisationId: string | null
+  fournisseurConsulte: FournisseurConsulte | null
+}) {
+  const { data: statutsRef } = useReferenceTable('statuts_consultations_fournisseurs')
+  const ajouter = useAjouterSuiviConsultation()
+
+  const [statutId, setStatutId] = useState('')
+  const [commentaire, setCommentaire] = useState('')
+  const [feedback, setFeedback] = useState<string | null>(null)
+
+  function reset() {
+    setStatutId('')
+    setCommentaire('')
+    setFeedback(null)
+  }
+
+  async function handleSubmit(e: React.FormEvent) {
+    e.preventDefault()
+    const statut = (statutsRef ?? []).find((s) => s.id === statutId)
+    if (!fournisseurConsulte || !optimisationId || !statut) return
+    try {
+      await ajouter.mutateAsync({
+        optimisationId,
+        optimisationFournisseurId: fournisseurConsulte.id,
+        statutId: statut.id,
+        statutLibelle: statut.libelle,
+        commentaire: commentaire || null,
+      })
+      reset()
+      onClose()
+    } catch (err) {
+      setFeedback(err instanceof Error ? err.message : 'Erreur inconnue')
+    }
+  }
+
+  return (
+    <Dialog
+      open={open}
+      onClose={() => { reset(); onClose() }}
+      title="Suivi de consultation"
+      description={fournisseurConsulte ? `Nouvel événement pour ${fournisseurConsulte.fournisseur_nom}.` : undefined}
+    >
+      <form onSubmit={handleSubmit} className="space-y-3">
+        <FormField label="Statut">
+          <Select value={statutId} onChange={(e) => setStatutId(e.target.value)} required>
+            <option value="">Sélectionner…</option>
+            {(statutsRef ?? []).map((s) => <option key={s.id} value={s.id}>{s.libelle}</option>)}
+          </Select>
+        </FormField>
+        <FormField label="Commentaire">
+          <Textarea rows={3} value={commentaire} onChange={(e) => setCommentaire(e.target.value)} placeholder="Optionnel" />
+        </FormField>
+        {feedback && <p className="text-xs text-red-600">{feedback}</p>}
+        <div className="flex justify-end gap-2 pt-2">
+          <Button type="button" variant="ghost" onClick={() => { reset(); onClose() }}>Annuler</Button>
+          <Button type="submit" disabled={ajouter.isPending}>Enregistrer</Button>
+        </div>
+      </form>
+    </Dialog>
+  )
+}
+
 export default function RecommandationDetail() {
   const { id } = useParams()
   const navigate = useNavigate()
@@ -90,6 +221,8 @@ export default function RecommandationDetail() {
   const [emailDialogVersion, setEmailDialogVersion] = useState<VersionRecommandation | null>(null)
   const [editOpen, setEditOpen] = useState(false)
   const [confirmDelete, setConfirmDelete] = useState(false)
+  const [ajouterFournisseurFor, setAjouterFournisseurFor] = useState<Optimisation | null>(null)
+  const [suiviFor, setSuiviFor] = useState<{ optimisationId: string; fc: FournisseurConsulte } | null>(null)
   const etapes = etapesRef && etapesRef.length > 0 ? etapesRef : FALLBACK_ETAPES_RECOMMANDATION
   const statutsVersions = statutsVersionsRef && statutsVersionsRef.length > 0 ? statutsVersionsRef : FALLBACK_STATUTS_VERSIONS
   const reco = recommandations?.find((r) => r.id === id)
@@ -270,6 +403,59 @@ export default function RecommandationDetail() {
                                     ))}
                                   </div>
                                 )}
+
+                                {optimisation.type_optimisation_code === MISE_EN_CONCURRENCE && (
+                                  <div className="mt-2 border-t border-navy-100 pt-2">
+                                    <div className="flex items-center justify-between">
+                                      <p className="text-[10.5px] font-semibold uppercase tracking-wide text-navy-400">Fournisseurs consultés</p>
+                                      <button
+                                        type="button"
+                                        onClick={() => setAjouterFournisseurFor(optimisation)}
+                                        className="text-[11px] font-medium text-kiwi-700 hover:underline"
+                                      >
+                                        + Ajouter
+                                      </button>
+                                    </div>
+                                    {optimisation.fournisseurs_consultes.length === 0 ? (
+                                      <p className="pl-2 text-xs text-navy-400">Aucun fournisseur consulté pour l'instant.</p>
+                                    ) : (
+                                      <div className="mt-1 space-y-1">
+                                        {optimisation.fournisseurs_consultes.map((fc) => (
+                                          <div key={fc.id} className="flex items-center justify-between rounded-md bg-navy-50 px-2.5 py-1.5">
+                                            <div>
+                                              <p className="text-xs font-medium text-navy-800">{fc.fournisseur_nom}</p>
+                                              {fc.historique.length > 0 && (
+                                                <details className="mt-0.5">
+                                                  <summary className="cursor-pointer text-[10.5px] text-navy-400 hover:text-navy-600">
+                                                    Historique ({fc.historique.length})
+                                                  </summary>
+                                                  <div className="mt-1 space-y-0.5 border-t border-navy-100 pt-1">
+                                                    {fc.historique.map((h) => (
+                                                      <p key={h.id} className="text-[11px] text-navy-500">
+                                                        {new Date(h.date_evenement).toLocaleDateString('fr-FR')} — {h.statut}
+                                                        {h.commentaire ? ` · ${h.commentaire}` : ''}
+                                                      </p>
+                                                    ))}
+                                                  </div>
+                                                </details>
+                                              )}
+                                            </div>
+                                            <div className="flex items-center gap-2">
+                                              {fc.statut_actuel && <Badge tone="neutral">{fc.statut_actuel}</Badge>}
+                                              <button
+                                                type="button"
+                                                onClick={() => setSuiviFor({ optimisationId: optimisation.id, fc })}
+                                                className="text-[11px] font-medium text-kiwi-700 hover:underline"
+                                              >
+                                                + Suivi
+                                              </button>
+                                            </div>
+                                          </div>
+                                        ))}
+                                      </div>
+                                    )}
+                                  </div>
+                                )}
                               </div>
                             ))}
                           </div>
@@ -306,6 +492,17 @@ export default function RecommandationDetail() {
       {reco && (
         <EditRecommandationDialog open={editOpen} onClose={() => setEditOpen(false)} reco={reco} onSaved={() => {}} />
       )}
+      <AjouterFournisseurConsulteDialog
+        open={!!ajouterFournisseurFor}
+        onClose={() => setAjouterFournisseurFor(null)}
+        optimisation={ajouterFournisseurFor}
+      />
+      <AjouterSuiviDialog
+        open={!!suiviFor}
+        onClose={() => setSuiviFor(null)}
+        optimisationId={suiviFor?.optimisationId ?? null}
+        fournisseurConsulte={suiviFor?.fc ?? null}
+      />
       <Dialog
         open={confirmDelete}
         onClose={() => setConfirmDelete(false)}

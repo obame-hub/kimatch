@@ -2,7 +2,15 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { supabase } from '@/lib/supabase'
 import { isDemoMode } from '@/lib/demoMode'
 import { mockRecommandations } from '@/lib/mockData'
-import type { Recommandation, VersionRecommandation, Optimisation, OffreFournisseur, OffreFournisseurCompteur as OffreFournisseurCompteurType } from '@/types/domain'
+import type {
+  Recommandation,
+  VersionRecommandation,
+  Optimisation,
+  OffreFournisseur,
+  OffreFournisseurCompteur as OffreFournisseurCompteurType,
+  FournisseurConsulte,
+  SuiviConsultationFournisseur,
+} from '@/types/domain'
 import { fetchComptesVisibles, filterVisibles } from '@/lib/data/visibility'
 
 interface RawRecommandation {
@@ -49,7 +57,24 @@ interface RawOptimisation {
   roi_mois: number | null
   priorite: number | null
   est_retenue: boolean
-  type_optimisation: { libelle: string } | null
+  type_optimisation: { code: string; libelle: string } | null
+}
+
+interface RawFournisseurConsulte {
+  id: string
+  optimisation_id: string
+  fournisseur_compte_id: string
+  date_creation: string
+  fournisseur: { nom: string } | null
+}
+
+interface RawSuiviConsultation {
+  id: string
+  optimisation_fournisseur_id: string
+  date_evenement: string
+  commentaire: string | null
+  statut: { libelle: string } | null
+  auteur: { prenom: string; nom: string } | null
 }
 
 interface RawOffreFournisseur {
@@ -85,7 +110,17 @@ async function fetchRecommandations(): Promise<Recommandation[]> {
   if (isDemoMode()) return mockRecommandations
 
   try {
-    const [recosRes, sitesRes, versionsRes, versionsCompteursRes, optimisationsRes, offresRes, offresCompteursRes] = await Promise.all([
+    const [
+      recosRes,
+      sitesRes,
+      versionsRes,
+      versionsCompteursRes,
+      optimisationsRes,
+      offresRes,
+      offresCompteursRes,
+      fournisseursConsultesRes,
+      suivisConsultationRes,
+    ] = await Promise.all([
       supabase
         .from('recommandations')
         .select(
@@ -103,7 +138,7 @@ async function fetchRecommandations(): Promise<Recommandation[]> {
       supabase
         .from('optimisations')
         .select(
-          'id, version_recommandation_id, nom, description, resultat_attendu, gain_estime_annuel, cout_estime, roi_mois, priorite, est_retenue, type_optimisation:types_optimisations(libelle)',
+          'id, version_recommandation_id, nom, description, resultat_attendu, gain_estime_annuel, cout_estime, roi_mois, priorite, est_retenue, type_optimisation:types_optimisations(code, libelle)',
         )
         .order('ordre'),
       supabase
@@ -116,6 +151,15 @@ async function fetchRecommandations(): Promise<Recommandation[]> {
         .select(
           'id, offre_fournisseur_id, version_recommandation_compteur_id, consommation_annuelle_reference_mwh, cout_fourniture_annuel_ht, cout_acheminement_annuel_ht, cout_taxes_annuel, cout_total_annuel_estime_ht, economie_annuelle_estimee, economie_pourcentage',
         ),
+      supabase
+        .from('optimisations_fournisseurs')
+        .select('id, optimisation_id, fournisseur_compte_id, date_creation, fournisseur:comptes(nom)'),
+      supabase
+        .from('suivis_consultations_fournisseurs')
+        .select(
+          'id, optimisation_fournisseur_id, date_evenement, commentaire, statut:statuts_consultations_fournisseurs(libelle), auteur:profils(prenom, nom)',
+        )
+        .order('date_evenement'),
     ])
 
     if (recosRes.error) throw recosRes.error
@@ -155,6 +199,34 @@ async function fetchRecommandations(): Promise<Recommandation[]> {
       detailsParOffre.set(dc.offre_fournisseur_id, list)
     }
 
+    const historiqueParFournisseur = new Map<string, SuiviConsultationFournisseur[]>()
+    for (const s of (suivisConsultationRes.data ?? []) as unknown as RawSuiviConsultation[]) {
+      const list = historiqueParFournisseur.get(s.optimisation_fournisseur_id) ?? []
+      list.push({
+        id: s.id,
+        statut: s.statut?.libelle ?? '',
+        date_evenement: s.date_evenement,
+        commentaire: s.commentaire,
+        auteur_nom: s.auteur ? `${s.auteur.prenom} ${s.auteur.nom}` : null,
+      })
+      historiqueParFournisseur.set(s.optimisation_fournisseur_id, list)
+    }
+
+    const fournisseursConsultesParOptimisation = new Map<string, FournisseurConsulte[]>()
+    for (const f of (fournisseursConsultesRes.data ?? []) as unknown as RawFournisseurConsulte[]) {
+      const historique = historiqueParFournisseur.get(f.id) ?? []
+      const list = fournisseursConsultesParOptimisation.get(f.optimisation_id) ?? []
+      list.push({
+        id: f.id,
+        fournisseur_compte_id: f.fournisseur_compte_id,
+        fournisseur_nom: f.fournisseur?.nom ?? '',
+        date_creation: f.date_creation,
+        statut_actuel: historique.length > 0 ? historique[historique.length - 1].statut : null,
+        historique,
+      })
+      fournisseursConsultesParOptimisation.set(f.optimisation_id, list)
+    }
+
     const offresParOptimisation = new Map<string, OffreFournisseur[]>()
     for (const o of (offresRes.data ?? []) as unknown as RawOffreFournisseur[]) {
       const list = offresParOptimisation.get(o.optimisation_id) ?? []
@@ -183,6 +255,7 @@ async function fetchRecommandations(): Promise<Recommandation[]> {
         id: opt.id,
         nom: opt.nom,
         type_optimisation: opt.type_optimisation?.libelle ?? '',
+        type_optimisation_code: opt.type_optimisation?.code ?? '',
         description: opt.description,
         resultat_attendu: opt.resultat_attendu,
         gain_estime_annuel: opt.gain_estime_annuel,
@@ -191,6 +264,7 @@ async function fetchRecommandations(): Promise<Recommandation[]> {
         priorite: opt.priorite,
         est_retenue: opt.est_retenue,
         offres: offresParOptimisation.get(opt.id) ?? [],
+        fournisseurs_consultes: fournisseursConsultesParOptimisation.get(opt.id) ?? [],
       })
       optimisationsParVersion.set(opt.version_recommandation_id, list)
     }
@@ -363,6 +437,91 @@ export function useUpdateRecommandation() {
       if (error) throw new Error(error.message)
     },
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ['recommandations'] }),
+  })
+}
+
+function patchOptimisation(
+  queryClient: ReturnType<typeof useQueryClient>,
+  optimisationId: string,
+  patch: (optimisation: Optimisation) => Optimisation,
+) {
+  queryClient.setQueryData<Recommandation[]>(['recommandations'], (old) =>
+    (old ?? []).map((r) => ({
+      ...r,
+      versions: r.versions.map((v) => ({
+        ...v,
+        optimisations: v.optimisations.map((o) => (o.id === optimisationId ? patch(o) : o)),
+      })),
+    })),
+  )
+}
+
+export function useAjouterFournisseurConsulte() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: async (input: { optimisationId: string; fournisseurCompteId: string; fournisseurNom: string }) => {
+      if (isDemoMode()) {
+        const fc: FournisseurConsulte = {
+          id: `local-${Date.now()}`,
+          fournisseur_compte_id: input.fournisseurCompteId,
+          fournisseur_nom: input.fournisseurNom,
+          date_creation: new Date().toISOString(),
+          statut_actuel: null,
+          historique: [],
+        }
+        patchOptimisation(queryClient, input.optimisationId, (o) => ({ ...o, fournisseurs_consultes: [...o.fournisseurs_consultes, fc] }))
+        return
+      }
+      const { error } = await supabase.from('optimisations_fournisseurs').insert({
+        optimisation_id: input.optimisationId,
+        fournisseur_compte_id: input.fournisseurCompteId,
+      })
+      if (error) throw new Error(error.message)
+    },
+    onSuccess: () => {
+      if (!isDemoMode()) queryClient.invalidateQueries({ queryKey: ['recommandations'] })
+    },
+  })
+}
+
+export function useAjouterSuiviConsultation() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: async (input: {
+      optimisationId: string
+      optimisationFournisseurId: string
+      statutId: string
+      statutLibelle: string
+      commentaire: string | null
+    }) => {
+      if (isDemoMode()) {
+        const suivi: SuiviConsultationFournisseur = {
+          id: `local-${Date.now()}`,
+          statut: input.statutLibelle,
+          date_evenement: new Date().toISOString(),
+          commentaire: input.commentaire,
+          auteur_nom: null,
+        }
+        patchOptimisation(queryClient, input.optimisationId, (o) => ({
+          ...o,
+          fournisseurs_consultes: o.fournisseurs_consultes.map((fc) =>
+            fc.id === input.optimisationFournisseurId
+              ? { ...fc, statut_actuel: suivi.statut, historique: [...fc.historique, suivi] }
+              : fc,
+          ),
+        }))
+        return
+      }
+      const { error } = await supabase.from('suivis_consultations_fournisseurs').insert({
+        optimisation_fournisseur_id: input.optimisationFournisseurId,
+        statut_id: input.statutId,
+        commentaire: input.commentaire,
+      })
+      if (error) throw new Error(error.message)
+    },
+    onSuccess: () => {
+      if (!isDemoMode()) queryClient.invalidateQueries({ queryKey: ['recommandations'] })
+    },
   })
 }
 
