@@ -38,10 +38,10 @@ import {
   useUpdateCompte,
   useDeleteCompte,
 } from '@/lib/data/comptes'
-import { useSites } from '@/lib/data/sites'
+import { useSites, useCreateSite, matchSitesPourCompteur } from '@/lib/data/sites'
 import { useContacts } from '@/lib/data/contacts'
 import { useSignaux } from '@/lib/data/signaux'
-import { useCompteurs } from '@/lib/data/compteurs'
+import { useCompteurs, useCreateCompteur } from '@/lib/data/compteurs'
 import { useRecommandations } from '@/lib/data/recommandations'
 import { useContrats } from '@/lib/data/contrats'
 import { useInteractions } from '@/lib/data/interactions'
@@ -60,6 +60,7 @@ import {
   FALLBACK_ETAPES_RECOMMANDATION,
   ETAPE_TONE,
   FALLBACK_TYPES_DOCUMENTS,
+  FALLBACK_TYPES_ENERGIES,
 } from '@/lib/referenceFallbacks'
 import { useCanManage, useIsAdmin, useProfilsAdmin } from '@/lib/data/roles'
 import { ActivityFeed } from '@/components/site/ActivityFeed'
@@ -117,6 +118,7 @@ export default function CompteDetail() {
   const [confirmDelete, setConfirmDelete] = useState(false)
   const [addFichierOpen, setAddFichierOpen] = useState(false)
   const [ficCategorie, setFicCategorie] = useState<string | null>(null)
+  const [addCompteurOpen, setAddCompteurOpen] = useState(false)
 
   function showToast(msg: string) {
     setToast(msg)
@@ -243,6 +245,10 @@ export default function CompteDetail() {
           <Button size="sm" onClick={() => navigate('/sites', { state: { openCreateForCompteId: compte.id } })}>
             <Plus className="h-3.5 w-3.5" />
             Site
+          </Button>
+          <Button variant="outline" size="sm" onClick={() => setAddCompteurOpen(true)}>
+            <Gauge className="h-3.5 w-3.5" />
+            Compteur
           </Button>
           {canManage && (
             <>
@@ -721,6 +727,14 @@ export default function CompteDetail() {
         onSaved={() => showToast('✓ Fichier ajouté')}
       />
 
+      <AddCompteurAutoSiteDialog
+        open={addCompteurOpen}
+        onClose={() => setAddCompteurOpen(false)}
+        compte={compte}
+        sites={sites ?? []}
+        onSaved={(message) => showToast(message)}
+      />
+
       <Dialog
         open={confirmDelete}
         onClose={() => setConfirmDelete(false)}
@@ -921,6 +935,179 @@ function CommentaireCard({ compte }: { compte: Compte }) {
         </p>
       )}
     </div>
+  )
+}
+
+function AddCompteurAutoSiteDialog({
+  open,
+  onClose,
+  compte,
+  sites,
+  onSaved,
+}: {
+  open: boolean
+  onClose: () => void
+  compte: Compte
+  sites: Site[]
+  onSaved: (message: string) => void
+}) {
+  const { data: energiesRef } = useReferenceTable('types_energies')
+  const energies = energiesRef && energiesRef.length > 0 ? energiesRef : FALLBACK_TYPES_ENERGIES
+  const createSite = useCreateSite()
+  const createCompteur = useCreateCompteur()
+
+  const [step, setStep] = useState<'form' | 'ambigu'>('form')
+  const [numeroPdl, setNumeroPdl] = useState('')
+  const [utilisation, setUtilisation] = useState('')
+  const [typeEnergieId, setTypeEnergieId] = useState('')
+  const [libelleSite, setLibelleSite] = useState('')
+  const [ville, setVille] = useState('')
+  const [codePostal, setCodePostal] = useState('')
+  const [candidats, setCandidats] = useState<Site[]>([])
+  const [choixSiteId, setChoixSiteId] = useState<string>('')
+  const [submitting, setSubmitting] = useState(false)
+
+  function reset() {
+    setStep('form')
+    setNumeroPdl('')
+    setUtilisation('')
+    setTypeEnergieId('')
+    setLibelleSite('')
+    setVille('')
+    setCodePostal('')
+    setCandidats([])
+    setChoixSiteId('')
+    setSubmitting(false)
+  }
+
+  const energieChoisie = energies.find((e) => e.id === typeEnergieId)
+  const typeEnergie = (energieChoisie?.code?.toLowerCase() === 'gaz' ? 'gaz' : 'electricite') as 'electricite' | 'gaz'
+
+  async function creerCompteurSurSite(site: { id: string; nom: string }, messageSite: string) {
+    await createCompteur.mutateAsync({
+      site_id: site.id,
+      site_nom: site.nom,
+      type_energie_id: typeEnergieId || null,
+      type_energie: typeEnergie,
+      numero_pdl: numeroPdl,
+      utilisation,
+    })
+    onSaved(messageSite)
+    reset()
+    onClose()
+  }
+
+  async function handleSubmit(e: React.FormEvent) {
+    e.preventDefault()
+    const match = matchSitesPourCompteur(sites, compte.id, ville, codePostal)
+    if (match.kind === 'auto') {
+      setSubmitting(true)
+      await creerCompteurSurSite(match.site, `✓ Compteur rattaché automatiquement au site « ${match.site.nom} »`)
+    } else if (match.kind === 'ambiguous') {
+      setCandidats(match.candidates)
+      setChoixSiteId(match.candidates[0]?.id ?? '')
+      setStep('ambigu')
+    } else {
+      setSubmitting(true)
+      const nomNouveauSite = libelleSite.trim() || ville.trim() || 'Nouveau site'
+      const result = await createSite.mutateAsync({
+        nom: nomNouveauSite,
+        compte_id: compte.id,
+        compte_nom: compte.nom,
+        type_site_id: null,
+        type_site_libelle: '',
+        ville,
+        code_postal: codePostal,
+      })
+      await creerCompteurSurSite(result.site, `✓ Nouveau site « ${nomNouveauSite} » créé automatiquement`)
+    }
+  }
+
+  async function handleConfirmAmbigu() {
+    setSubmitting(true)
+    if (choixSiteId === '__nouveau__') {
+      const nomNouveauSite = libelleSite.trim() || ville.trim() || 'Nouveau site'
+      const result = await createSite.mutateAsync({
+        nom: nomNouveauSite,
+        compte_id: compte.id,
+        compte_nom: compte.nom,
+        type_site_id: null,
+        type_site_libelle: '',
+        ville,
+        code_postal: codePostal,
+      })
+      await creerCompteurSurSite(result.site, `✓ Nouveau site « ${nomNouveauSite} » créé automatiquement`)
+    } else {
+      const site = candidats.find((s) => s.id === choixSiteId)
+      if (!site) return
+      await creerCompteurSurSite(site, `✓ Compteur rattaché au site « ${site.nom} »`)
+    }
+  }
+
+  return (
+    <Dialog
+      open={open}
+      onClose={() => { reset(); onClose() }}
+      title="Nouveau compteur"
+      description={
+        step === 'form'
+          ? "Kimatch retrouve ou crée automatiquement le site correspondant à partir de l'adresse."
+          : 'Plusieurs sites existants pourraient correspondre — confirme le bon rattachement.'
+      }
+    >
+      {step === 'form' && (
+        <form onSubmit={handleSubmit} className="space-y-3">
+          <FormField label="Type d'énergie">
+            <Select value={typeEnergieId} onChange={(e) => setTypeEnergieId(e.target.value)} required>
+              <option value="">Sélectionner…</option>
+              {energies.map((en) => <option key={en.id} value={en.id}>{en.libelle}</option>)}
+            </Select>
+          </FormField>
+          <FormField label={typeEnergie === 'electricite' ? 'Numéro de PDL' : 'Numéro de PCE'}>
+            <Input value={numeroPdl} onChange={(e) => setNumeroPdl(e.target.value)} required placeholder="Ex. 30001234567890" />
+          </FormField>
+          <FormField label="Utilisation">
+            <Input value={utilisation} onChange={(e) => setUtilisation(e.target.value)} placeholder="Ex. Parties communes, Chaufferie…" />
+          </FormField>
+          <FormField label="Libellé du site (si connu)">
+            <Input value={libelleSite} onChange={(e) => setLibelleSite(e.target.value)} placeholder="Ex. Résidence Les Tilleuls" />
+          </FormField>
+          <div className="grid grid-cols-2 gap-3">
+            <FormField label="Ville">
+              <Input value={ville} onChange={(e) => setVille(e.target.value)} required />
+            </FormField>
+            <FormField label="Code postal">
+              <Input value={codePostal} onChange={(e) => setCodePostal(e.target.value)} required />
+            </FormField>
+          </div>
+          <div className="flex justify-end gap-2 pt-2">
+            <Button type="button" variant="ghost" onClick={() => { reset(); onClose() }}>Annuler</Button>
+            <Button type="submit" disabled={submitting}>Continuer</Button>
+          </div>
+        </form>
+      )}
+
+      {step === 'ambigu' && (
+        <div className="space-y-3">
+          <div className="max-h-56 space-y-2 overflow-y-auto rounded-lg border border-navy-200 p-2">
+            {candidats.map((s) => (
+              <label key={s.id} className="flex items-center gap-2 rounded-md p-1.5 text-sm text-navy-700 hover:bg-navy-50">
+                <input type="radio" name="site-ambigu" checked={choixSiteId === s.id} onChange={() => setChoixSiteId(s.id)} />
+                <span>{s.nom} <span className="text-navy-400">— {s.ville} ({s.code_postal})</span></span>
+              </label>
+            ))}
+            <label className="flex items-center gap-2 rounded-md border-t border-navy-100 p-1.5 pt-2.5 text-sm text-navy-700 hover:bg-navy-50">
+              <input type="radio" name="site-ambigu" checked={choixSiteId === '__nouveau__'} onChange={() => setChoixSiteId('__nouveau__')} />
+              <span>Créer un nouveau site « {libelleSite.trim() || ville.trim() || 'Nouveau site'} »</span>
+            </label>
+          </div>
+          <div className="flex justify-end gap-2 pt-2">
+            <Button type="button" variant="ghost" onClick={() => setStep('form')}>Retour</Button>
+            <Button type="button" disabled={submitting || !choixSiteId} onClick={handleConfirmAmbigu}>Confirmer</Button>
+          </div>
+        </div>
+      )}
+    </Dialog>
   )
 }
 

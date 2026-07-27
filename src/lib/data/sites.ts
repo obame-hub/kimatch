@@ -202,6 +202,40 @@ export function useUpdateSite() {
   })
 }
 
+function normalizeTexte(s: string): string {
+  return s
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase()
+    .trim()
+}
+
+export type SiteMatch = { kind: 'auto'; site: Site } | { kind: 'ambiguous'; candidates: Site[] } | { kind: 'new' }
+
+/**
+ * Détermine si un compteur en cours de création correspond à un site existant du compte
+ * (même ville + code postal), à un groupe de sites ambigu à faire trancher par l'utilisateur,
+ * ou à aucun site connu (nouveau site à créer).
+ */
+export function matchSitesPourCompteur(sites: Site[], compteId: string, ville: string, codePostal: string): SiteMatch {
+  const sitesDuCompte = sites.filter((s) => s.compte_id === compteId)
+  const villeN = normalizeTexte(ville)
+  const cpN = codePostal.trim()
+
+  if (!villeN && !cpN) {
+    return sitesDuCompte.length > 0 ? { kind: 'ambiguous', candidates: sitesDuCompte } : { kind: 'new' }
+  }
+
+  const exact = sitesDuCompte.filter((s) => normalizeTexte(s.ville) === villeN && s.code_postal.trim() === cpN)
+  if (exact.length === 1) return { kind: 'auto', site: exact[0] }
+  if (exact.length > 1) return { kind: 'ambiguous', candidates: exact }
+
+  const partiel = sitesDuCompte.filter((s) => (cpN && s.code_postal.trim() === cpN) || (villeN && normalizeTexte(s.ville) === villeN))
+  if (partiel.length > 0) return { kind: 'ambiguous', candidates: partiel }
+
+  return { kind: 'new' }
+}
+
 export function useDeleteSite() {
   const queryClient = useQueryClient()
   return useMutation({
