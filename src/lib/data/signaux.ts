@@ -26,7 +26,7 @@ async function fetchSignaux(): Promise<Signal[]> {
     const { data, error } = await supabase
       .from('signaux')
       .select(
-        'id, site_id, contrat_id, gravite, date_creation, commentaire, proprietaire_id, type_signal:types_signaux(libelle, poids_defaut), statut:statuts_signaux(code), site:sites(nom), responsable:profils(prenom, nom)',
+        'id, site_id, contrat_id, gravite, date_creation, commentaire, proprietaire_id, type_signal:types_signaux(libelle, poids_defaut), statut:statuts_signaux(code), site:sites(nom), responsable:profils!signaux_responsable_profil_id_fkey(prenom, nom)',
       )
       .order('date_creation', { ascending: false })
     if (error) throw error

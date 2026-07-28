@@ -34,7 +34,7 @@ async function fetchDocuments(): Promise<DocumentItem[]> {
   try {
     const { data, error } = await supabase
       .from('documents')
-      .select('id, nom, nom_fichier, url, entite_type, entite_id, date_creation, proprietaire_id, type_document:types_documents(libelle), auteur:profils(prenom, nom)')
+      .select('id, nom, nom_fichier, url, entite_type, entite_id, date_creation, proprietaire_id, type_document:types_documents(libelle), auteur:profils!documents_auteur_profil_id_fkey(prenom, nom)')
       .order('date_creation', { ascending: false })
     if (error) throw error
 
