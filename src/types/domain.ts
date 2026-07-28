@@ -20,6 +20,9 @@ export interface Site {
   nb_signaux_ouverts: number
   statut: 'actif' | 'inactif'
   proprietaire_id: string | null
+  proprietaire_nom?: string | null
+  date_creation?: string
+  date_modification?: string
 }
 
 export interface Signal {
@@ -172,7 +175,10 @@ export interface Mandat {
   contact_signataire_nom?: string
   docusign_envelope_id?: string | null
   proprietaire_id: string | null
+  proprietaire_nom?: string | null
   courtier_codes: string[]
+  date_creation?: string
+  date_modification?: string
 }
 
 export interface Contact {
@@ -189,10 +195,13 @@ export interface Contact {
   actif: boolean
   sites: { id: string; nom: string; fonction_sur_site: string | null }[]
   proprietaire_id: string | null
+  proprietaire_nom?: string | null
   linkedin_url: string | null
   disponibilites: string | null
   type_canal_communication_id: string | null
   canal_communication: string | null
+  date_creation?: string
+  date_modification?: string
 }
 
 export type TypeCompte = 'client' | 'fournisseur' | 'partenaire' | 'kiwee'
@@ -238,6 +247,9 @@ export interface Compte {
   conditions_commerciales?: string | null
   commentaire_partenariat?: string | null
   proprietaire_id: string | null
+  proprietaire_nom?: string | null
+  date_creation?: string
+  date_modification?: string
 }
 
 export interface Compteur {
@@ -267,6 +279,9 @@ export interface Compteur {
   profil_consommation?: string | null
   zone_tarifaire?: string | null
   proprietaire_id: string | null
+  proprietaire_nom?: string | null
+  date_creation?: string
+  date_modification?: string
 }
 
 export interface Consommation {
@@ -330,12 +345,15 @@ export interface Contrat {
   statut: string
   compteurs: { id: string; contrat_compteur_id: string | null; numero_pdl: string; utilisation: string }[]
   proprietaire_id: string | null
+  proprietaire_nom?: string | null
   contact_signataire_id?: string | null
   contact_signataire_nom?: string
   docusign_envelope_id: string | null
   date_envoi_signature: string | null
   date_signature: string | null
   statut_signature: string | null
+  date_creation?: string
+  date_modification?: string
 }
 
 export interface TarifContratCompteur {

@@ -26,6 +26,9 @@ interface RawContrat {
   type_energie: { code: string } | null
   statut: { code: string } | null
   contact_signataire: { prenom: string; nom: string } | null
+  proprietaire: { prenom: string; nom: string } | null
+  date_creation: string
+  date_modification: string
 }
 
 async function fetchContrats(): Promise<Contrat[]> {
@@ -35,7 +38,7 @@ async function fetchContrats(): Promise<Contrat[]> {
       supabase
         .from('contrats')
         .select(
-          'id, site_id, fournisseur_compte_id, reference_fournisseur, date_debut, date_fin, preavis_resiliation_jours, proprietaire_id, docusign_envelope_id, date_envoi_signature, date_signature, statut_signature, contact_signataire_id, site:sites(nom), fournisseur:comptes(nom), type_energie:types_energies(code), statut:statuts_contrats(code), contact_signataire:contacts(prenom, nom)',
+          'id, site_id, fournisseur_compte_id, reference_fournisseur, date_debut, date_fin, preavis_resiliation_jours, proprietaire_id, docusign_envelope_id, date_envoi_signature, date_signature, statut_signature, contact_signataire_id, site:sites(nom), fournisseur:comptes(nom), type_energie:types_energies(code), statut:statuts_contrats(code), contact_signataire:contacts(prenom, nom), proprietaire:profils(prenom, nom), date_creation, date_modification',
         )
         .order('date_debut', { ascending: false }),
       supabase.from('contrats_compteurs').select('id, contrat_id, compteur:compteurs(id, numero_point, libelle)'),
@@ -67,9 +70,12 @@ async function fetchContrats(): Promise<Contrat[]> {
       statut: c.statut?.code ?? '',
       compteurs: compteursParContrat.get(c.id) ?? [],
       proprietaire_id: c.proprietaire_id ?? null,
+      proprietaire_nom: c.proprietaire ? `${c.proprietaire.prenom} ${c.proprietaire.nom}` : null,
       contact_signataire_id: c.contact_signataire_id,
       contact_signataire_nom: c.contact_signataire ? `${c.contact_signataire.prenom} ${c.contact_signataire.nom}` : undefined,
       docusign_envelope_id: c.docusign_envelope_id,
+      date_creation: c.date_creation,
+      date_modification: c.date_modification,
       date_envoi_signature: c.date_envoi_signature,
       date_signature: c.date_signature,
       statut_signature: c.statut_signature,

@@ -226,6 +226,10 @@ export default function CompteDetail() {
             <Badge tone={typeMeta[compte.type_compte].tone}>{typeMeta[compte.type_compte].label}</Badge>
           </div>
           <p className="truncate text-xs text-navy-500">{compte.segment} · {sitesDuCompte.length} site{sitesDuCompte.length > 1 ? 's' : ''} géré{sitesDuCompte.length > 1 ? 's' : ''}</p>
+          <p className="truncate text-[10.5px] text-navy-400">
+            {compte.date_creation && <>Créé le {new Date(compte.date_creation).toLocaleDateString('fr-FR')} · </>}
+            Propriétaire : {compte.proprietaire_nom || 'Aucun'}
+          </p>
         </div>
         <div className="hidden gap-1.5 lg:flex">
           <Button

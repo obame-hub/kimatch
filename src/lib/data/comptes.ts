@@ -42,6 +42,7 @@ interface RawCompte extends Compte {
   comptes_clients: RawCompteClient | RawCompteClient[] | null
   comptes_fournisseurs: RawCompteFournisseur | RawCompteFournisseur[] | null
   comptes_partenaires: RawComptePartenaire | RawComptePartenaire[] | null
+  proprietaire: { prenom: string; nom: string } | { prenom: string; nom: string }[] | null
 }
 
 const first = <T>(v: T | T[] | null): T | null => (Array.isArray(v) ? v[0] ?? null : v)
@@ -55,7 +56,8 @@ async function fetchComptes(): Promise<Compte[]> {
         `*,
         comptes_clients(segment_compte_id, conseiller_referent_id, origine_acquisition, mandat_cadre_actif, note_interne, segment_compte:segments_comptes(libelle), conseiller_referent:profils(prenom, nom)),
         comptes_fournisseurs(fournit_electricite, fournit_gaz, contact_commercial_id, statut_partenariat, conditions_commerciales, commentaire, contact_commercial:contacts(prenom, nom)),
-        comptes_partenaires(type_partenariat, modele_remuneration, contact_referent_id, statut_partenariat, date_debut_partenariat, commentaire, contact_referent:contacts(prenom, nom))`,
+        comptes_partenaires(type_partenariat, modele_remuneration, contact_referent_id, statut_partenariat, date_debut_partenariat, commentaire, contact_referent:contacts(prenom, nom)),
+        proprietaire:profils(prenom, nom)`,
       )
       .order('nom')
     if (error) throw error
@@ -63,12 +65,14 @@ async function fetchComptes(): Promise<Compte[]> {
     const comptesVisibles = await fetchComptesVisibles()
 
     return filterVisibles(((data ?? []) as unknown as RawCompte[]), comptesVisibles, (c) => c.id).map((c) => {
-      const { comptes_clients, comptes_fournisseurs, comptes_partenaires, ...base } = c
+      const { comptes_clients, comptes_fournisseurs, comptes_partenaires, proprietaire, ...base } = c
       const client = first(comptes_clients)
       const fournisseur = first(comptes_fournisseurs)
       const partenaire = first(comptes_partenaires)
+      const owner = first(proprietaire)
       return {
         ...base,
+        proprietaire_nom: owner ? `${owner.prenom} ${owner.nom}` : null,
         ...(client
           ? {
               segment_compte_id: client.segment_compte_id,

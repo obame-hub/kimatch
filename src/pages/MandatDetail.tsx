@@ -307,6 +307,10 @@ export default function MandatDetail() {
             <Badge tone={STATUT_MANDAT_TONE[mandat.statut] ?? 'neutral'}>{statuts.find((s) => s.code === mandat.statut)?.libelle ?? mandat.statut}</Badge>
           </div>
           <p className="truncate text-xs text-navy-500">{mandat.nb_sites_couverts} site{mandat.nb_sites_couverts > 1 ? 's' : ''} couvert{mandat.nb_sites_couverts > 1 ? 's' : ''}</p>
+          <p className="truncate text-[10.5px] text-navy-400">
+            {mandat.date_creation && <>Créé le {new Date(mandat.date_creation).toLocaleDateString('fr-FR')} · </>}
+            Propriétaire : {mandat.proprietaire_nom || 'Aucun'}
+          </p>
         </div>
         <div className="flex gap-1.5">
           <Button size="sm" onClick={() => setShowEnvoyer(true)}>

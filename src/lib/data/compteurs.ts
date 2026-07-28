@@ -50,6 +50,9 @@ interface RawCompteur {
   site: { nom: string } | null
   compteurs_electricite: RawCompteurElec | RawCompteurElec[] | null
   compteurs_gaz: RawCompteurGaz | RawCompteurGaz[] | null
+  proprietaire: { prenom: string; nom: string } | null
+  date_creation: string
+  date_modification: string
 }
 
 const first = <T>(v: T | T[] | null): T | null => (Array.isArray(v) ? v[0] ?? null : v)
@@ -72,7 +75,7 @@ async function fetchCompteurs(): Promise<Compteur[]> {
     const { data, error } = await supabase
       .from('compteurs')
       .select(
-        'id, site_id, numero_point, libelle, actif, consommation_annuelle_mwh, synchro_eneo, date_derniere_synchro_eneo, proprietaire_id, type_utilisation_compteur_id, type_energie:types_energies(code), type_utilisation:types_utilisations_compteur(libelle), site:sites(nom), compteurs_electricite(*), compteurs_gaz(*)',
+        'id, site_id, numero_point, libelle, actif, consommation_annuelle_mwh, synchro_eneo, date_derniere_synchro_eneo, proprietaire_id, type_utilisation_compteur_id, type_energie:types_energies(code), type_utilisation:types_utilisations_compteur(libelle), site:sites(nom), compteurs_electricite(*), compteurs_gaz(*), proprietaire:profils(prenom, nom), date_creation, date_modification',
       )
     if (error) throw error
 
@@ -96,6 +99,9 @@ async function fetchCompteurs(): Promise<Compteur[]> {
         synchro_eneo: c.synchro_eneo,
         date_derniere_synchro_eneo: c.date_derniere_synchro_eneo,
         proprietaire_id: c.proprietaire_id ?? null,
+        proprietaire_nom: c.proprietaire ? `${c.proprietaire.prenom} ${c.proprietaire.nom}` : null,
+        date_creation: c.date_creation,
+        date_modification: c.date_modification,
         ...(elec
           ? {
               segment: elec.segment,

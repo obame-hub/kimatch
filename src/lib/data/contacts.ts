@@ -22,6 +22,9 @@ interface RawContact {
   disponibilites: string | null
   type_canal_communication_id: string | null
   canal_communication: { libelle: string } | null
+  proprietaire: { prenom: string; nom: string } | null
+  date_creation: string
+  date_modification: string
 }
 
 interface RawContactSite {
@@ -37,7 +40,7 @@ async function fetchContacts(): Promise<Contact[]> {
       supabase
         .from('contacts')
         .select(
-          'id, compte_id, civilite, prenom, nom, fonction, telephone, email, contact_principal, actif, compte:comptes(nom), proprietaire_id, linkedin_url, disponibilites, type_canal_communication_id, canal_communication:types_canaux_communication(libelle)',
+          'id, compte_id, civilite, prenom, nom, fonction, telephone, email, contact_principal, actif, compte:comptes(nom), proprietaire_id, linkedin_url, disponibilites, type_canal_communication_id, canal_communication:types_canaux_communication(libelle), proprietaire:profils(prenom, nom), date_creation, date_modification',
         )
         .order('nom'),
       supabase.from('contacts_sites').select('contact_id, fonction_sur_site, site:sites(id, nom)'),
@@ -68,10 +71,13 @@ async function fetchContacts(): Promise<Contact[]> {
       actif: c.actif,
       sites: sitesParContact.get(c.id) ?? [],
       proprietaire_id: c.proprietaire_id,
+      proprietaire_nom: c.proprietaire ? `${c.proprietaire.prenom} ${c.proprietaire.nom}` : null,
       linkedin_url: c.linkedin_url,
       disponibilites: c.disponibilites,
       type_canal_communication_id: c.type_canal_communication_id,
       canal_communication: c.canal_communication?.libelle ?? null,
+      date_creation: c.date_creation,
+      date_modification: c.date_modification,
     }))
   } catch (error) {
     console.error('fetchContacts', error)

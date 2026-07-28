@@ -18,6 +18,9 @@ interface RawMandat {
   compte: { nom: string } | null
   statut: { code: string } | null
   contact_signataire: { prenom: string; nom: string } | null
+  proprietaire: { prenom: string; nom: string } | null
+  date_creation: string
+  date_modification: string
 }
 
 async function fetchMandats(): Promise<Mandat[]> {
@@ -27,7 +30,7 @@ async function fetchMandats(): Promise<Mandat[]> {
       supabase
         .from('mandats')
         .select(
-          'id, compte_id, date_signature, date_envoi, date_debut_validite, date_fin_validite, contact_signataire_id, docusign_envelope_id, proprietaire_id, compte:comptes(nom), statut:statuts_mandats(code), contact_signataire:contacts(prenom, nom)',
+          'id, compte_id, date_signature, date_envoi, date_debut_validite, date_fin_validite, contact_signataire_id, docusign_envelope_id, proprietaire_id, compte:comptes(nom), statut:statuts_mandats(code), contact_signataire:contacts(prenom, nom), proprietaire:profils(prenom, nom), date_creation, date_modification',
         ),
       supabase.from('mandats_compteurs').select('mandat_id, compteur:compteurs(id, site_id)'),
       supabase.from('mandats_courtiers').select('mandat_id, type_courtier:types_courtiers_mandat(code)'),
@@ -73,7 +76,10 @@ async function fetchMandats(): Promise<Mandat[]> {
       contact_signataire_nom: m.contact_signataire ? `${m.contact_signataire.prenom} ${m.contact_signataire.nom}` : undefined,
       docusign_envelope_id: m.docusign_envelope_id,
       proprietaire_id: m.proprietaire_id,
+      proprietaire_nom: m.proprietaire ? `${m.proprietaire.prenom} ${m.proprietaire.nom}` : null,
       courtier_codes: courtierCodesParMandat.get(m.id) ?? [],
+      date_creation: m.date_creation,
+      date_modification: m.date_modification,
     }))
   } catch (error) {
     console.error('fetchMandats', error)

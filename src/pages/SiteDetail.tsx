@@ -215,6 +215,10 @@ export default function SiteDetail() {
         <div className="min-w-0 flex-1">
           <p className="truncate text-xl font-bold tracking-tight text-navy-800">{site.nom}</p>
           <p className="truncate text-xs text-navy-500">{compte?.nom ?? site.compte_nom} · {compteursDuSite.length} compteur{compteursDuSite.length > 1 ? 's' : ''}</p>
+          <p className="truncate text-[10.5px] text-navy-400">
+            {site.date_creation && <>Créé le {new Date(site.date_creation).toLocaleDateString('fr-FR')} · </>}
+            Propriétaire : {site.proprietaire_nom || 'Aucun'}
+          </p>
         </div>
         <Badge tone={site.statut === 'actif' ? 'kiwi' : 'neutral'}>{site.statut}</Badge>
         {/* Actions rapides — desktop uniquement, remplacées par le FAB sur mobile comme chez William */}

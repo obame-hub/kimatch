@@ -376,6 +376,10 @@ export default function ContratDetail() {
             <Badge tone={STATUT_CONTRAT_TONE[contrat.statut] ?? 'neutral'}>{statuts.find((s) => s.code === contrat.statut)?.libelle ?? contrat.statut}</Badge>
           </div>
           <p className="truncate text-xs text-navy-500">{contrat.type_energie === 'gaz' ? 'Gaz' : 'Électricité'} · {site?.nom ?? contrat.site_nom}</p>
+          <p className="truncate text-[10.5px] text-navy-400">
+            {contrat.date_creation && <>Créé le {new Date(contrat.date_creation).toLocaleDateString('fr-FR')} · </>}
+            Propriétaire : {contrat.proprietaire_nom || 'Aucun'}
+          </p>
         </div>
         {canManage && (
           <div className="flex gap-1.5">

@@ -25,6 +25,9 @@ interface RawSiteExtra {
   surface_m2: number | null
   date_derniere_ag: string | null
   proprietaire_id: string | null
+  proprietaire: { prenom: string; nom: string } | null
+  date_creation: string | null
+  date_modification: string | null
 }
 
 async function fetchSites(): Promise<Site[]> {
@@ -45,7 +48,7 @@ async function fetchSites(): Promise<Site[]> {
     // Colonnes ajoutées ultérieurement (tâche #55) — sélectionnées à part : si elles n'existent
     // pas encore en base, on retombe sur null pour elles sans perdre les vraies données du site.
     const extraParSite = new Map<string, RawSiteExtra>()
-    const extraRes = await supabase.from('sites').select('id, latitude, longitude, annee_construction, surface_m2, date_derniere_ag, proprietaire_id')
+    const extraRes = await supabase.from('sites').select('id, latitude, longitude, annee_construction, surface_m2, date_derniere_ag, proprietaire_id, proprietaire:profils(prenom, nom), date_creation, date_modification')
     if (!extraRes.error) {
       for (const e of (extraRes.data ?? []) as unknown as RawSiteExtra[]) {
         extraParSite.set(e.id, e)
@@ -82,9 +85,12 @@ async function fetchSites(): Promise<Site[]> {
         surface_m2: extra?.surface_m2 ?? null,
         date_derniere_ag: extra?.date_derniere_ag ?? null,
         proprietaire_id: extra?.proprietaire_id ?? null,
+        proprietaire_nom: extra?.proprietaire ? `${extra.proprietaire.prenom} ${extra.proprietaire.nom}` : null,
         nb_compteurs: compteursParSite.get(s.id) ?? 0,
         nb_signaux_ouverts: signauxOuvertsParSite.get(s.id) ?? 0,
         statut: s.actif ? 'actif' : 'inactif',
+        date_creation: extra?.date_creation ?? undefined,
+        date_modification: extra?.date_modification ?? undefined,
       }
     })
   } catch (error) {

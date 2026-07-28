@@ -477,6 +477,10 @@ export default function CompteurDetail() {
             <Badge tone={compteur.statut === 'actif' ? 'kiwi' : 'neutral'}>{compteur.statut}</Badge>
           </div>
           <p className="truncate font-mono text-xs text-navy-400">{compteur.numero_pdl}</p>
+          <p className="truncate text-[10.5px] text-navy-400">
+            {compteur.date_creation && <>Créé le {new Date(compteur.date_creation).toLocaleDateString('fr-FR')} · </>}
+            Propriétaire : {compteur.proprietaire_nom || 'Aucun'}
+          </p>
         </div>
         {canManage && (
           <div className="flex gap-1.5">
