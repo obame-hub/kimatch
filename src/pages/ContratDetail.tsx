@@ -11,6 +11,7 @@ import { HistoriqueDiscret } from '@/components/ui/historique-discret'
 import { useContrats, useUpdateContrat, useDeleteContrat } from '@/lib/data/contrats'
 import { useSites } from '@/lib/data/sites'
 import { useComptes } from '@/lib/data/comptes'
+import { useContacts } from '@/lib/data/contacts'
 import { useDocuments, useCreateDocument } from '@/lib/data/documents'
 import { useReferenceTable } from '@/lib/data/referenceTables'
 import { useFormulesTarifaires, useTarifsByContratCompteurs, useCreateTarif, useDeleteTarif } from '@/lib/data/tarifs'
@@ -291,6 +292,7 @@ export default function ContratDetail() {
   const { data: contrats } = useContrats()
   const { data: sites } = useSites()
   const { data: comptes } = useComptes()
+  const { data: contacts } = useContacts()
   const { data: documents } = useDocuments()
   const { data: statutsRef } = useReferenceTable('statuts_contrats')
   const statuts = statutsRef && statutsRef.length > 0 ? statutsRef : FALLBACK_STATUTS_CONTRATS
@@ -298,6 +300,7 @@ export default function ContratDetail() {
   const site = sites?.find((s) => s.id === contrat?.site_id)
   const compte = comptes?.find((c) => c.id === site?.compte_id)
   const fournisseur = comptes?.find((c) => c.id === contrat?.fournisseur_compte_id)
+  const contactSignataire = contacts?.find((c) => c.id === contrat?.contact_signataire_id)
   const documentsDuContrat = useMemo(() => documents?.filter((d) => d.entite_type === 'contrat' && d.entite_id === id) ?? [], [documents, id])
   const canManage = useCanManage(contrat?.proprietaire_id)
   const deleteContrat = useDeleteContrat()
@@ -490,6 +493,12 @@ export default function ContratDetail() {
                     <p className="text-xs font-semibold text-navy-800">{contrat.preavis_resiliation_jours} jours</p>
                   </div>
                 )}
+                {contrat.contact_signataire_nom && (
+                  <div>
+                    <p className="mb-0.5 text-[10px] uppercase tracking-wide text-navy-400">Signataire</p>
+                    <p className="text-xs font-semibold text-navy-800">{contrat.contact_signataire_nom}</p>
+                  </div>
+                )}
               </div>
               <HistoriqueDiscret tableNom="contrats" ligneId={contrat.id} />
               </div>
@@ -671,12 +680,18 @@ function EditContratDialog({ open, onClose, contrat }: { open: boolean; onClose:
   const updateContrat = useUpdateContrat()
   const isAdmin = useIsAdmin()
   const { data: profilsAdmin } = useProfilsAdmin()
+  const { data: sites } = useSites()
+  const { data: contacts } = useContacts()
 
   const [referenceFournisseur, setReferenceFournisseur] = useState(contrat.reference_fournisseur ?? '')
   const [dateDebut, setDateDebut] = useState(contrat.date_debut ? contrat.date_debut.slice(0, 10) : '')
   const [dateFin, setDateFin] = useState(contrat.date_fin ? contrat.date_fin.slice(0, 10) : '')
   const [proprietaireId, setProprietaireId] = useState(contrat.proprietaire_id ?? '')
+  const [contactSignataireId, setContactSignataireId] = useState(contrat.contact_signataire_id ?? '')
   const [feedback, setFeedback] = useState<string | null>(null)
+
+  const compteDuSite = sites?.find((s) => s.id === contrat.site_id)?.compte_id
+  const contactsDuSite = contacts?.filter((c) => c.compte_id === compteDuSite) ?? []
 
   useEffect(() => {
     if (!open) return
@@ -684,6 +699,7 @@ function EditContratDialog({ open, onClose, contrat }: { open: boolean; onClose:
     setDateDebut(contrat.date_debut ? contrat.date_debut.slice(0, 10) : '')
     setDateFin(contrat.date_fin ? contrat.date_fin.slice(0, 10) : '')
     setProprietaireId(contrat.proprietaire_id ?? '')
+    setContactSignataireId(contrat.contact_signataire_id ?? '')
     setFeedback(null)
   }, [open, contrat])
 
@@ -696,6 +712,7 @@ function EditContratDialog({ open, onClose, contrat }: { open: boolean; onClose:
         date_debut: dateDebut || null,
         date_fin: dateFin || null,
         proprietaire_id: proprietaireId || null,
+        contact_signataire_id: contactSignataireId || null,
       })
       onClose()
     } catch (err) {
@@ -717,6 +734,14 @@ function EditContratDialog({ open, onClose, contrat }: { open: boolean; onClose:
             <Input type="date" value={dateFin} onChange={(e) => setDateFin(e.target.value)} />
           </FormField>
         </div>
+        {contactsDuSite.length > 0 && (
+          <FormField label="Contact signataire (optionnel)">
+            <Select value={contactSignataireId} onChange={(e) => setContactSignataireId(e.target.value)}>
+              <option value="">Aucun</option>
+              {contactsDuSite.map((c) => <option key={c.id} value={c.id}>{c.prenom} {c.nom}</option>)}
+            </Select>
+          </FormField>
+        )}
         {isAdmin && (
           <FormField label="Propriétaire">
             <Select value={proprietaireId} onChange={(e) => setProprietaireId(e.target.value)}>

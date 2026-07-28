@@ -13,6 +13,7 @@ import { useContrats, useCreateContrat } from '@/lib/data/contrats'
 import { useSites } from '@/lib/data/sites'
 import { useComptes } from '@/lib/data/comptes'
 import { useCompteurs } from '@/lib/data/compteurs'
+import { useContacts } from '@/lib/data/contacts'
 import { useReferenceTable } from '@/lib/data/referenceTables'
 import { FALLBACK_STATUTS_CONTRATS, STATUT_CONTRAT_TONE, FALLBACK_TYPES_ENERGIES } from '@/lib/referenceFallbacks'
 import { ListToolbar } from '@/components/ui/list-toolbar'
@@ -24,6 +25,7 @@ function CreateContratDialog({ open, onClose }: { open: boolean; onClose: () => 
   const { data: sites } = useSites()
   const { data: comptes } = useComptes()
   const { data: compteurs } = useCompteurs()
+  const { data: contacts } = useContacts()
   const { data: energiesRef } = useReferenceTable('types_energies')
   const energies = energiesRef && energiesRef.length > 0 ? energiesRef : FALLBACK_TYPES_ENERGIES
   const { data: statutsRef } = useReferenceTable('statuts_contrats')
@@ -37,10 +39,13 @@ function CreateContratDialog({ open, onClose }: { open: boolean; onClose: () => 
   const [dateDebut, setDateDebut] = useState('')
   const [dateFin, setDateFin] = useState('')
   const [compteurIds, setCompteurIds] = useState<string[]>([])
+  const [contactSignataireId, setContactSignataireId] = useState('')
   const [feedback, setFeedback] = useState<string | null>(null)
 
   const fournisseurs = comptes?.filter((c) => c.type_compte === 'fournisseur') ?? []
   const compteursDuSite = compteurs?.filter((c) => c.site_id === siteId) ?? []
+  const compteDuSite = sites?.find((s) => s.id === siteId)?.compte_id
+  const contactsDuSite = contacts?.filter((c) => c.compte_id === compteDuSite) ?? []
 
   function reset() {
     setSiteId('')
@@ -50,6 +55,7 @@ function CreateContratDialog({ open, onClose }: { open: boolean; onClose: () => 
     setDateDebut('')
     setDateFin('')
     setCompteurIds([])
+    setContactSignataireId('')
     setFeedback(null)
   }
 
@@ -81,6 +87,7 @@ function CreateContratDialog({ open, onClose }: { open: boolean; onClose: () => 
     const site = sites?.find((s) => s.id === siteId)
     const fournisseur = fournisseurs.find((f) => f.id === fournisseurId)
     const energie = energies.find((en) => en.id === typeEnergieId)
+    const contactSignataire = contactsDuSite.find((c) => c.id === contactSignataireId)
     const statutActif = statuts.find((s) => s.code === 'ACTIF')
     const compteursChoisis = compteursDuSite.filter((c) => compteurIds.includes(c.id)).map((c) => ({ id: c.id, contrat_compteur_id: null, numero_pdl: c.numero_pdl, utilisation: c.utilisation }))
     if (!site) return
@@ -99,6 +106,8 @@ function CreateContratDialog({ open, onClose }: { open: boolean; onClose: () => 
       date_fin: dateFin || null,
       compteur_ids: compteurIds,
       compteurs: compteursChoisis,
+      contact_signataire_id: contactSignataireId || null,
+      contact_signataire_nom: contactSignataire ? `${contactSignataire.prenom} ${contactSignataire.nom}` : undefined,
     })
     setFeedback(result.persisted ? 'Contrat créé.' : 'Contrat ajouté localement (non synchronisé avec Supabase).')
     setTimeout(() => {
@@ -112,7 +121,7 @@ function CreateContratDialog({ open, onClose }: { open: boolean; onClose: () => 
       <form onSubmit={handleSubmit} className="max-h-[75vh] space-y-3 overflow-y-auto pr-1">
         <ExtractDocumentButton onExtracted={handleExtracted} />
         <FormField label="Site">
-          <Select value={siteId} onChange={(e) => { setSiteId(e.target.value); setCompteurIds([]) }} required>
+          <Select value={siteId} onChange={(e) => { setSiteId(e.target.value); setCompteurIds([]); setContactSignataireId('') }} required>
             <option value="">Sélectionner un site…</option>
             {sites?.map((s) => <option key={s.id} value={s.id}>{s.nom}</option>)}
           </Select>
@@ -140,6 +149,14 @@ function CreateContratDialog({ open, onClose }: { open: boolean; onClose: () => 
             <Input type="date" value={dateFin} onChange={(e) => setDateFin(e.target.value)} />
           </FormField>
         </div>
+        {siteId && contactsDuSite.length > 0 && (
+          <FormField label="Contact signataire (optionnel)">
+            <Select value={contactSignataireId} onChange={(e) => setContactSignataireId(e.target.value)}>
+              <option value="">Sélectionner…</option>
+              {contactsDuSite.map((c) => <option key={c.id} value={c.id}>{c.prenom} {c.nom}</option>)}
+            </Select>
+          </FormField>
+        )}
         {siteId && (
           <FormField label="Compteurs couverts">
             {compteursDuSite.length === 0 ? (

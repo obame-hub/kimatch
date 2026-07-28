@@ -327,6 +327,8 @@ export interface Contrat {
   statut: string
   compteurs: { id: string; contrat_compteur_id: string | null; numero_pdl: string; utilisation: string }[]
   proprietaire_id: string | null
+  contact_signataire_id?: string | null
+  contact_signataire_nom?: string
   docusign_envelope_id: string | null
   date_envoi_signature: string | null
   date_signature: string | null

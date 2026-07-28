@@ -20,10 +20,12 @@ interface RawContrat {
   date_envoi_signature: string | null
   date_signature: string | null
   statut_signature: string | null
+  contact_signataire_id: string | null
   site: { nom: string } | null
   fournisseur: { nom: string } | null
   type_energie: { code: string } | null
   statut: { code: string } | null
+  contact_signataire: { prenom: string; nom: string } | null
 }
 
 async function fetchContrats(): Promise<Contrat[]> {
@@ -33,7 +35,7 @@ async function fetchContrats(): Promise<Contrat[]> {
       supabase
         .from('contrats')
         .select(
-          'id, site_id, fournisseur_compte_id, reference_fournisseur, date_debut, date_fin, preavis_resiliation_jours, proprietaire_id, docusign_envelope_id, date_envoi_signature, date_signature, statut_signature, site:sites(nom), fournisseur:comptes(nom), type_energie:types_energies(code), statut:statuts_contrats(code)',
+          'id, site_id, fournisseur_compte_id, reference_fournisseur, date_debut, date_fin, preavis_resiliation_jours, proprietaire_id, docusign_envelope_id, date_envoi_signature, date_signature, statut_signature, contact_signataire_id, site:sites(nom), fournisseur:comptes(nom), type_energie:types_energies(code), statut:statuts_contrats(code), contact_signataire:contacts(prenom, nom)',
         )
         .order('date_debut', { ascending: false }),
       supabase.from('contrats_compteurs').select('id, contrat_id, compteur:compteurs(id, numero_point, libelle)'),
@@ -65,6 +67,8 @@ async function fetchContrats(): Promise<Contrat[]> {
       statut: c.statut?.code ?? '',
       compteurs: compteursParContrat.get(c.id) ?? [],
       proprietaire_id: c.proprietaire_id ?? null,
+      contact_signataire_id: c.contact_signataire_id,
+      contact_signataire_nom: c.contact_signataire ? `${c.contact_signataire.prenom} ${c.contact_signataire.nom}` : undefined,
       docusign_envelope_id: c.docusign_envelope_id,
       date_envoi_signature: c.date_envoi_signature,
       date_signature: c.date_signature,
@@ -93,6 +97,8 @@ interface CreateContratInput {
   date_fin: string | null
   compteur_ids: string[]
   compteurs: { id: string; numero_pdl: string; utilisation: string }[]
+  contact_signataire_id: string | null
+  contact_signataire_nom?: string
 }
 
 type CreateContratLocalCompteur = { id: string; contrat_compteur_id: string | null; numero_pdl: string; utilisation: string }
@@ -122,6 +128,8 @@ export function useCreateContrat() {
         statut: 'ACTIF',
         compteurs: input.compteurs.map((c): CreateContratLocalCompteur => ({ ...c, contrat_compteur_id: null })),
         proprietaire_id: null,
+        contact_signataire_id: input.contact_signataire_id,
+        contact_signataire_nom: input.contact_signataire_nom,
         docusign_envelope_id: null,
         date_envoi_signature: null,
         date_signature: null,
@@ -139,6 +147,7 @@ export function useCreateContrat() {
             date_fin: input.date_fin,
             ...(input.type_energie_id ? { type_energie_id: input.type_energie_id } : {}),
             ...(input.statut_id ? { statut_id: input.statut_id } : {}),
+            ...(input.contact_signataire_id ? { contact_signataire_id: input.contact_signataire_id } : {}),
           })
           .select('id')
           .single()
@@ -179,6 +188,7 @@ export interface UpdateContratInput {
   date_debut: string | null
   date_fin: string | null
   proprietaire_id: string | null
+  contact_signataire_id?: string | null
   docusign_envelope_id?: string | null
   date_envoi_signature?: string | null
   date_signature?: string | null
@@ -196,6 +206,7 @@ export function useUpdateContrat() {
           date_debut: input.date_debut,
           date_fin: input.date_fin,
           proprietaire_id: input.proprietaire_id,
+          ...(input.contact_signataire_id !== undefined ? { contact_signataire_id: input.contact_signataire_id } : {}),
           ...(input.docusign_envelope_id !== undefined ? { docusign_envelope_id: input.docusign_envelope_id } : {}),
           ...(input.date_envoi_signature !== undefined ? { date_envoi_signature: input.date_envoi_signature } : {}),
           ...(input.date_signature !== undefined ? { date_signature: input.date_signature } : {}),
