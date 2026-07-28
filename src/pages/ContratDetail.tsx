@@ -292,7 +292,6 @@ export default function ContratDetail() {
   const { data: contrats } = useContrats()
   const { data: sites } = useSites()
   const { data: comptes } = useComptes()
-  const { data: contacts } = useContacts()
   const { data: documents } = useDocuments()
   const { data: statutsRef } = useReferenceTable('statuts_contrats')
   const statuts = statutsRef && statutsRef.length > 0 ? statutsRef : FALLBACK_STATUTS_CONTRATS
@@ -300,7 +299,6 @@ export default function ContratDetail() {
   const site = sites?.find((s) => s.id === contrat?.site_id)
   const compte = comptes?.find((c) => c.id === site?.compte_id)
   const fournisseur = comptes?.find((c) => c.id === contrat?.fournisseur_compte_id)
-  const contactSignataire = contacts?.find((c) => c.id === contrat?.contact_signataire_id)
   const documentsDuContrat = useMemo(() => documents?.filter((d) => d.entite_type === 'contrat' && d.entite_id === id) ?? [], [documents, id])
   const canManage = useCanManage(contrat?.proprietaire_id)
   const deleteContrat = useDeleteContrat()
