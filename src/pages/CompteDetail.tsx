@@ -386,6 +386,7 @@ export default function CompteDetail() {
                         <p><span className="text-navy-400">Conseiller référent :</span> {compte.conseiller_referent_nom || '—'}</p>
                         <p><span className="text-navy-400">Origine d'acquisition :</span> {compte.origine_acquisition || '—'}</p>
                         <p><span className="text-navy-400">Mandat-cadre actif :</span> {compte.mandat_cadre_actif ? 'Oui' : 'Non'}</p>
+                        <p><span className="text-navy-400">Apporteur d'affaires :</span> {comptes?.find((c) => c.id === compte.apporteur_partenaire_id)?.nom || '—'}</p>
                         {compte.note_interne && <p><span className="text-navy-400">Note interne :</span> {compte.note_interne}</p>}
                       </>
                     )}
@@ -394,6 +395,7 @@ export default function CompteDetail() {
                         <p><span className="text-navy-400">Fournit :</span> {[compte.fournit_electricite && 'Électricité', compte.fournit_gaz && 'Gaz'].filter(Boolean).join(', ') || '—'}</p>
                         <p><span className="text-navy-400">Contact commercial :</span> {compte.contact_commercial_nom || '—'}</p>
                         <p><span className="text-navy-400">Statut partenariat :</span> <Badge tone="neutral">{compte.statut_partenariat || 'À qualifier'}</Badge></p>
+                        <p><span className="text-navy-400">Limite Ellipro :</span> {compte.limite_ellipro ?? '—'}</p>
                         {compte.conditions_commerciales && <p><span className="text-navy-400">Conditions :</span> {compte.conditions_commerciales}</p>}
                         {compte.commentaire_partenariat && <p><span className="text-navy-400">Commentaire :</span> {compte.commentaire_partenariat}</p>}
                       </>
@@ -709,7 +711,7 @@ export default function CompteDetail() {
       )}
 
       {compte.type_compte === 'client' && (
-        <EditCompteClientDialog compte={compte} open={showEditSubtype} onClose={() => setShowEditSubtype(false)} />
+        <EditCompteClientDialog compte={compte} comptes={comptes ?? []} open={showEditSubtype} onClose={() => setShowEditSubtype(false)} />
       )}
       {compte.type_compte === 'fournisseur' && (
         <EditCompteFournisseurDialog compte={compte} contacts={contactsDuCompte} open={showEditSubtype} onClose={() => setShowEditSubtype(false)} />
@@ -876,6 +878,7 @@ function CommentaireCard({ compte }: { compte: Compte }) {
         origine_acquisition: compte.origine_acquisition ?? null,
         mandat_cadre_actif: compte.mandat_cadre_actif ?? false,
         note_interne: draft || null,
+        apporteur_partenaire_id: compte.apporteur_partenaire_id ?? null,
       })
     } else if (compte.type_compte === 'fournisseur') {
       await updateFournisseur.mutateAsync({
@@ -887,6 +890,7 @@ function CommentaireCard({ compte }: { compte: Compte }) {
         statut_partenariat: compte.statut_partenariat ?? 'À qualifier',
         conditions_commerciales: compte.conditions_commerciales ?? null,
         commentaire_partenariat: draft || null,
+        limite_ellipro: compte.limite_ellipro ?? null,
       })
     } else if (compte.type_compte === 'partenaire') {
       await updatePartenaire.mutateAsync({
@@ -1080,6 +1084,7 @@ function AddCompteurAutoSiteDialog({
               <Input value={codePostal} onChange={(e) => setCodePostal(e.target.value)} required />
             </FormField>
           </div>
+          <p className="text-[10.5px] text-navy-400">Vérifie que l'adresse correspond bien au site existant avant de valider.</p>
           <div className="flex justify-end gap-2 pt-2">
             <Button type="button" variant="ghost" onClick={() => { reset(); onClose() }}>Annuler</Button>
             <Button type="submit" disabled={submitting}>Continuer</Button>
@@ -1174,14 +1179,17 @@ function AddFichierDialog({ open, onClose, compteId, onSaved }: { open: boolean;
   )
 }
 
-function EditCompteClientDialog({ compte, open, onClose }: { compte: Compte; open: boolean; onClose: () => void }) {
+function EditCompteClientDialog({ compte, comptes, open, onClose }: { compte: Compte; comptes: Compte[]; open: boolean; onClose: () => void }) {
   const { data: segmentsRef } = useReferenceTable('segments_comptes')
   const update = useUpdateCompteClient()
   const [segmentId, setSegmentId] = useState(compte.segment_compte_id ?? '')
   const [origine, setOrigine] = useState(compte.origine_acquisition ?? '')
   const [mandatCadre, setMandatCadre] = useState(compte.mandat_cadre_actif ?? false)
   const [note, setNote] = useState(compte.note_interne ?? '')
+  const [apporteurId, setApporteurId] = useState(compte.apporteur_partenaire_id ?? '')
   const [feedback, setFeedback] = useState<string | null>(null)
+
+  const partenaires = comptes.filter((c) => c.type_compte === 'partenaire')
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
@@ -1195,6 +1203,7 @@ function EditCompteClientDialog({ compte, open, onClose }: { compte: Compte; ope
       origine_acquisition: origine || null,
       mandat_cadre_actif: mandatCadre,
       note_interne: note || null,
+      apporteur_partenaire_id: apporteurId || null,
     })
     setFeedback(result.persisted ? 'Enregistré.' : 'Enregistré localement (non synchronisé avec Supabase).')
     setTimeout(onClose, 700)
@@ -1212,6 +1221,14 @@ function EditCompteClientDialog({ compte, open, onClose }: { compte: Compte; ope
         <FormField label="Origine d'acquisition">
           <Input value={origine} onChange={(e) => setOrigine(e.target.value)} placeholder="Ex. Recommandation, salon, prospection…" />
         </FormField>
+        {partenaires.length > 0 && (
+          <FormField label="Apporteur d'affaires (optionnel)">
+            <Select value={apporteurId} onChange={(e) => setApporteurId(e.target.value)}>
+              <option value="">—</option>
+              {partenaires.map((p) => <option key={p.id} value={p.id}>{p.nom}</option>)}
+            </Select>
+          </FormField>
+        )}
         <label className="flex items-center gap-2 text-sm text-navy-700">
           <input type="checkbox" checked={mandatCadre} onChange={(e) => setMandatCadre(e.target.checked)} />
           Mandat-cadre actif
@@ -1237,6 +1254,7 @@ function EditCompteFournisseurDialog({ compte, contacts, open, onClose }: { comp
   const [statut, setStatut] = useState(compte.statut_partenariat ?? 'À qualifier')
   const [conditions, setConditions] = useState(compte.conditions_commerciales ?? '')
   const [commentaire, setCommentaire] = useState(compte.commentaire_partenariat ?? '')
+  const [limiteEllipro, setLimiteEllipro] = useState(compte.limite_ellipro != null ? String(compte.limite_ellipro) : '')
   const [feedback, setFeedback] = useState<string | null>(null)
 
   async function handleSubmit(e: React.FormEvent) {
@@ -1251,6 +1269,7 @@ function EditCompteFournisseurDialog({ compte, contacts, open, onClose }: { comp
       statut_partenariat: statut,
       conditions_commerciales: conditions || null,
       commentaire_partenariat: commentaire || null,
+      limite_ellipro: limiteEllipro ? Number(limiteEllipro) : null,
     })
     setFeedback(result.persisted ? 'Enregistré.' : 'Enregistré localement (non synchronisé avec Supabase).')
     setTimeout(onClose, 700)
@@ -1279,6 +1298,9 @@ function EditCompteFournisseurDialog({ compte, contacts, open, onClose }: { comp
         )}
         <FormField label="Statut du partenariat">
           <Input value={statut} onChange={(e) => setStatut(e.target.value)} />
+        </FormField>
+        <FormField label="Limite Ellipro">
+          <Input type="number" value={limiteEllipro} onChange={(e) => setLimiteEllipro(e.target.value)} placeholder="Ex. 5" />
         </FormField>
         <FormField label="Conditions commerciales">
           <Textarea rows={2} value={conditions} onChange={(e) => setConditions(e.target.value)} />

@@ -172,6 +172,7 @@ export interface Mandat {
   contact_signataire_nom?: string
   docusign_envelope_id?: string | null
   proprietaire_id: string | null
+  courtier_codes: string[]
 }
 
 export interface Contact {
@@ -219,11 +220,13 @@ export interface Compte {
   origine_acquisition?: string | null
   mandat_cadre_actif?: boolean
   note_interne?: string | null
+  apporteur_partenaire_id?: string | null
   // comptes_fournisseurs (type_compte === 'fournisseur')
   fournit_electricite?: boolean
   fournit_gaz?: boolean
   contact_commercial_id?: string | null
   contact_commercial_nom?: string | null
+  limite_ellipro?: number | null
   // comptes_partenaires (type_compte === 'partenaire')
   type_partenariat?: string | null
   modele_remuneration?: string | null

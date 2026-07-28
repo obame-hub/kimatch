@@ -15,7 +15,7 @@ import { useSites } from '@/lib/data/sites'
 import { useCompteurs } from '@/lib/data/compteurs'
 import { useContacts } from '@/lib/data/contacts'
 import { useReferenceTable } from '@/lib/data/referenceTables'
-import { FALLBACK_STATUTS_MANDATS, STATUT_MANDAT_TONE } from '@/lib/referenceFallbacks'
+import { FALLBACK_STATUTS_MANDATS, STATUT_MANDAT_TONE, FALLBACK_TYPES_COURTIERS_MANDAT } from '@/lib/referenceFallbacks'
 import { ListToolbar } from '@/components/ui/list-toolbar'
 import { useListControls } from '@/lib/useListControls'
 import { ExtractDocumentButton } from '@/components/ui/document-extraction'
@@ -25,12 +25,15 @@ function CreateMandatDialog({ open, onClose }: { open: boolean; onClose: () => v
   const { data: sites } = useSites()
   const { data: compteurs } = useCompteurs()
   const { data: contacts } = useContacts()
+  const { data: courtiersRef } = useReferenceTable('types_courtiers_mandat')
+  const courtiers = courtiersRef && courtiersRef.length > 0 ? courtiersRef : FALLBACK_TYPES_COURTIERS_MANDAT
   const createMandat = useCreateMandat()
 
   const [compteId, setCompteId] = useState('')
   const [dateSignature, setDateSignature] = useState('')
   const [compteurIds, setCompteurIds] = useState<string[]>([])
   const [contactSignataireId, setContactSignataireId] = useState('')
+  const [courtierCodes, setCourtierCodes] = useState<string[]>(['KIWI', 'ENERGIX'])
   const [feedback, setFeedback] = useState<string | null>(null)
 
   const sitesDuCompte = sites?.filter((s) => s.compte_id === compteId) ?? []
@@ -42,11 +45,16 @@ function CreateMandatDialog({ open, onClose }: { open: boolean; onClose: () => v
     setDateSignature('')
     setCompteurIds([])
     setContactSignataireId('')
+    setCourtierCodes(['KIWI', 'ENERGIX'])
     setFeedback(null)
   }
 
   function toggleCompteur(id: string) {
     setCompteurIds((prev) => (prev.includes(id) ? prev.filter((c) => c !== id) : [...prev, id]))
+  }
+
+  function toggleCourtier(code: string) {
+    setCourtierCodes((prev) => (prev.includes(code) ? prev.filter((c) => c !== code) : [...prev, code]))
   }
 
   function handleExtracted(fields: Record<string, { value: string | number | null; confidence: number }>) {
@@ -69,6 +77,8 @@ function CreateMandatDialog({ open, onClose }: { open: boolean; onClose: () => v
       date_signature: dateSignature || null,
       contact_signataire_id: contactSignataireId || null,
       contact_signataire_nom: contactSignataire ? `${contactSignataire.prenom} ${contactSignataire.nom}` : undefined,
+      courtier_codes: courtierCodes,
+      courtier_type_ids: courtiers.filter((c) => courtierCodes.includes(c.code)).map((c) => c.id),
     })
     setFeedback(result.persisted ? 'Mandat créé.' : 'Mandat ajouté localement (non synchronisé avec Supabase).')
     setTimeout(() => {
@@ -89,6 +99,16 @@ function CreateMandatDialog({ open, onClose }: { open: boolean; onClose: () => v
         </FormField>
         <FormField label="Date de signature">
           <Input type="date" value={dateSignature} onChange={(e) => setDateSignature(e.target.value)} />
+        </FormField>
+        <FormField label="Courtiers couverts">
+          <div className="flex gap-4">
+            {courtiers.map((c) => (
+              <label key={c.id} className="flex items-center gap-2 text-sm text-navy-700">
+                <input type="checkbox" checked={courtierCodes.includes(c.code)} onChange={() => toggleCourtier(c.code)} />
+                {c.libelle}
+              </label>
+            ))}
+          </div>
         </FormField>
         {compteId && contactsDuCompte.length > 0 && (
           <FormField label="Contact signataire (optionnel)">

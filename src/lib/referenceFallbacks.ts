@@ -72,6 +72,11 @@ export const FALLBACK_STATUTS_MANDATS: ReferenceRow[] = [
   { id: '7', code: 'REVOQUE', libelle: 'Révoqué', ordre: 70, couleur: null, icone: null },
 ]
 
+export const FALLBACK_TYPES_COURTIERS_MANDAT: ReferenceRow[] = [
+  { id: '1', code: 'KIWI', libelle: 'Kiwi', ordre: 10, couleur: null, icone: null },
+  { id: '2', code: 'ENERGIX', libelle: 'Energix', ordre: 20, couleur: null, icone: null },
+]
+
 export const FALLBACK_STATUTS_ACTIONS: ReferenceRow[] = [
   { id: '1', code: 'A_FAIRE', libelle: 'À faire', ordre: 10, couleur: null, icone: null },
   { id: '2', code: 'EN_COURS', libelle: 'En cours', ordre: 20, couleur: null, icone: null },

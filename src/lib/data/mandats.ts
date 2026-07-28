@@ -23,13 +23,14 @@ interface RawMandat {
 async function fetchMandats(): Promise<Mandat[]> {
   if (isDemoMode()) return mockMandats
   try {
-    const [mandatsRes, compteursRes] = await Promise.all([
+    const [mandatsRes, compteursRes, courtiersRes] = await Promise.all([
       supabase
         .from('mandats')
         .select(
           'id, compte_id, date_signature, date_envoi, date_debut_validite, date_fin_validite, contact_signataire_id, docusign_envelope_id, proprietaire_id, compte:comptes(nom), statut:statuts_mandats(code), contact_signataire:contacts(prenom, nom)',
         ),
       supabase.from('mandats_compteurs').select('mandat_id, compteur:compteurs(id, site_id)'),
+      supabase.from('mandats_courtiers').select('mandat_id, type_courtier:types_courtiers_mandat(code)'),
     ])
     if (mandatsRes.error) throw mandatsRes.error
 
@@ -44,6 +45,14 @@ async function fetchMandats(): Promise<Mandat[]> {
       const siteList = siteIdsParMandat.get(mc.mandat_id) ?? []
       if (!siteList.includes(mc.compteur.site_id)) siteList.push(mc.compteur.site_id)
       siteIdsParMandat.set(mc.mandat_id, siteList)
+    }
+
+    const courtierCodesParMandat = new Map<string, string[]>()
+    for (const mc of (courtiersRes.data ?? []) as unknown as { mandat_id: string; type_courtier: { code: string } | null }[]) {
+      if (!mc.type_courtier) continue
+      const list = courtierCodesParMandat.get(mc.mandat_id) ?? []
+      list.push(mc.type_courtier.code)
+      courtierCodesParMandat.set(mc.mandat_id, list)
     }
 
     const comptesVisibles = await fetchComptesVisibles()
@@ -64,6 +73,7 @@ async function fetchMandats(): Promise<Mandat[]> {
       contact_signataire_nom: m.contact_signataire ? `${m.contact_signataire.prenom} ${m.contact_signataire.nom}` : undefined,
       docusign_envelope_id: m.docusign_envelope_id,
       proprietaire_id: m.proprietaire_id,
+      courtier_codes: courtierCodesParMandat.get(m.id) ?? [],
     }))
   } catch (error) {
     console.error('fetchMandats', error)
@@ -83,6 +93,8 @@ interface CreateMandatInput {
   date_signature: string | null
   contact_signataire_id: string | null
   contact_signataire_nom?: string
+  courtier_codes: string[]
+  courtier_type_ids: string[]
 }
 
 interface CreateMandatResult {
@@ -112,6 +124,7 @@ export function useCreateMandat() {
         contact_signataire_id: input.contact_signataire_id,
         contact_signataire_nom: input.contact_signataire_nom,
         proprietaire_id: null,
+        courtier_codes: input.courtier_codes,
       }
 
       if (!isDemoMode()) {
@@ -132,6 +145,11 @@ export function useCreateMandat() {
             await supabase
               .from('mandats_compteurs')
               .insert(input.compteur_ids.map((compteur_id) => ({ mandat_id: mandatId, compteur_id })))
+          }
+          if (input.courtier_type_ids.length > 0) {
+            await supabase
+              .from('mandats_courtiers')
+              .insert(input.courtier_type_ids.map((type_courtier_id) => ({ mandat_id: mandatId, type_courtier_id })))
           }
         }
       }

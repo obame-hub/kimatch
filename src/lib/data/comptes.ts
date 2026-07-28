@@ -255,6 +255,7 @@ interface UpdateCompteClientInput {
   origine_acquisition: string | null
   mandat_cadre_actif: boolean
   note_interne: string | null
+  apporteur_partenaire_id: string | null
 }
 
 export function useUpdateCompteClient() {
@@ -263,15 +264,18 @@ export function useUpdateCompteClient() {
     mutationFn: async (input: UpdateCompteClientInput): Promise<UpdateResult> => {
       let persisted = false
       if (!isDemoMode()) {
-        const { error } = await supabase.from('comptes_clients').upsert({
-          compte_id: input.compteId,
-          segment_compte_id: input.segment_compte_id,
-          conseiller_referent_id: input.conseiller_referent_id,
-          origine_acquisition: input.origine_acquisition,
-          mandat_cadre_actif: input.mandat_cadre_actif,
-          note_interne: input.note_interne,
-        })
-        persisted = !error
+        const [{ error: clientError }, { error: compteError }] = await Promise.all([
+          supabase.from('comptes_clients').upsert({
+            compte_id: input.compteId,
+            segment_compte_id: input.segment_compte_id,
+            conseiller_referent_id: input.conseiller_referent_id,
+            origine_acquisition: input.origine_acquisition,
+            mandat_cadre_actif: input.mandat_cadre_actif,
+            note_interne: input.note_interne,
+          }),
+          supabase.from('comptes').update({ apporteur_partenaire_id: input.apporteur_partenaire_id }).eq('id', input.compteId),
+        ])
+        persisted = !clientError && !compteError
       }
       applyLocalUpdate(queryClient, input.compteId, input)
       return { persisted }
@@ -288,6 +292,7 @@ interface UpdateCompteFournisseurInput {
   statut_partenariat: string
   conditions_commerciales: string | null
   commentaire_partenariat: string | null
+  limite_ellipro: number | null
 }
 
 export function useUpdateCompteFournisseur() {
@@ -296,16 +301,19 @@ export function useUpdateCompteFournisseur() {
     mutationFn: async (input: UpdateCompteFournisseurInput): Promise<UpdateResult> => {
       let persisted = false
       if (!isDemoMode()) {
-        const { error } = await supabase.from('comptes_fournisseurs').upsert({
-          compte_id: input.compteId,
-          fournit_electricite: input.fournit_electricite,
-          fournit_gaz: input.fournit_gaz,
-          contact_commercial_id: input.contact_commercial_id,
-          statut_partenariat: input.statut_partenariat,
-          conditions_commerciales: input.conditions_commerciales,
-          commentaire: input.commentaire_partenariat,
-        })
-        persisted = !error
+        const [{ error: fournisseurError }, { error: compteError }] = await Promise.all([
+          supabase.from('comptes_fournisseurs').upsert({
+            compte_id: input.compteId,
+            fournit_electricite: input.fournit_electricite,
+            fournit_gaz: input.fournit_gaz,
+            contact_commercial_id: input.contact_commercial_id,
+            statut_partenariat: input.statut_partenariat,
+            conditions_commerciales: input.conditions_commerciales,
+            commentaire: input.commentaire_partenariat,
+          }),
+          supabase.from('comptes').update({ limite_ellipro: input.limite_ellipro }).eq('id', input.compteId),
+        ])
+        persisted = !fournisseurError && !compteError
       }
       applyLocalUpdate(queryClient, input.compteId, input)
       return { persisted }

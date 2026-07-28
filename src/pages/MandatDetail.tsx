@@ -421,6 +421,10 @@ export default function MandatDetail() {
                   <p className="mb-0.5 text-[10px] uppercase tracking-wide text-navy-400">Sites couverts</p>
                   <p className="text-xs font-semibold text-navy-800">{mandat.nb_sites_couverts}</p>
                 </div>
+                <div>
+                  <p className="mb-0.5 text-[10px] uppercase tracking-wide text-navy-400">Courtiers couverts</p>
+                  <p className="text-xs font-semibold text-navy-800">{mandat.courtier_codes.length > 0 ? mandat.courtier_codes.join(', ') : '—'}</p>
+                </div>
                 {mandat.docusign_envelope_id && (
                   <div className="sm:col-span-2">
                     <p className="mb-0.5 text-[10px] uppercase tracking-wide text-navy-400">Enveloppe DocuSign</p>
