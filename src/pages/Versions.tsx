@@ -39,7 +39,7 @@ export default function Versions() {
           description="Chaque recommandation évolue par versions successives — une version présentée n'est jamais modifiée, on en crée une nouvelle."
         />
 
-        <ListToolbar query={query} onQueryChange={setQuery} placeholder="Rechercher une recommandation, un motif…" />
+        <ListToolbar query={query} onQueryChange={setQuery} placeholder="Rechercher une recommandation, un motif…" count={versionsResult?.length} />
 
         <Card className="overflow-x-auto">
           <table className="w-full min-w-[720px] text-sm">

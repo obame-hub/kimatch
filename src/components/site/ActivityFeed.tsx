@@ -29,6 +29,7 @@ function fromSignaux(signaux: Signal[]): ActivityItem[] {
     kind: 'signal',
     title: s.type_signal,
     subtitle: s.description || s.statut,
+    to: `/signaux/${s.id}`,
     siteNom: s.site_nom,
   }))
 }

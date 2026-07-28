@@ -168,7 +168,7 @@ export default function Signaux() {
           actions={<Button onClick={() => setShowCreate(true)}><Plus className="h-4 w-4" />Nouveau signal</Button>}
         />
 
-        <ListToolbar query={query} onQueryChange={setQuery} placeholder="Rechercher un site, un type de signal…" />
+        <ListToolbar query={query} onQueryChange={setQuery} placeholder="Rechercher un site, un type de signal…" count={visibles.length} />
 
         {isLoading ? (
           <p className="text-sm text-navy-400">Chargement…</p>

@@ -130,7 +130,7 @@ export default function Support() {
           actions={<Button onClick={() => setShowCreate(true)}><Plus className="h-4 w-4" />Signaler</Button>}
         />
 
-        <ListToolbar query={query} onQueryChange={setQuery} placeholder="Rechercher une demande, un auteur…">
+        <ListToolbar query={query} onQueryChange={setQuery} placeholder="Rechercher une demande, un auteur…" count={filteredDemandes?.length}>
           <Select value={typeFilter} onChange={(e) => setTypeFilter(e.target.value)} className="w-auto">
             <option value="">Tous les types</option>
             <option value="bug">Bug</option>

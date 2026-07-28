@@ -148,7 +148,7 @@ export default function Taches() {
           actions={<Button onClick={() => setShowCreate(true)}><Plus className="h-4 w-4" />Nouvelle tâche</Button>}
         />
 
-        <ListToolbar query={query} onQueryChange={setQuery} placeholder="Rechercher une tâche, un site, un contact…">
+        <ListToolbar query={query} onQueryChange={setQuery} placeholder="Rechercher une tâche, un site, un contact…" count={filteredActions?.length}>
           <Select value={sortKey} onChange={(e) => setSortKey(e.target.value)} className="w-auto">
             <option value="echeance">Trier par échéance</option>
             <option value="titre">Trier par titre</option>

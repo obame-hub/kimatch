@@ -168,7 +168,7 @@ export default function Contacts() {
           actions={<Button onClick={() => setShowCreate(true)}><Plus className="h-4 w-4" />Nouveau contact</Button>}
         />
 
-        <ListToolbar query={query} onQueryChange={setQuery} placeholder="Rechercher un contact, un compte…">
+        <ListToolbar query={query} onQueryChange={setQuery} placeholder="Rechercher un contact, un compte…" count={filteredContacts?.length}>
           <Select value={sortKey} onChange={(e) => setSortKey(e.target.value)} className="w-auto">
             <option value="nom">Trier par nom</option>
             <option value="compte_nom">Trier par compte</option>

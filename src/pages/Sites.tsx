@@ -160,7 +160,7 @@ export default function Sites() {
         />
 
         <div className="mb-3.5 flex items-center justify-between gap-3">
-          <ListToolbar query={query} onQueryChange={setQuery} placeholder="Rechercher un site, compte, ville…" />
+          <ListToolbar query={query} onQueryChange={setQuery} placeholder="Rechercher un site, compte, ville…" count={filteredSites?.length} />
           <div className="flex shrink-0 gap-1 rounded-lg border border-navy-200 bg-white p-0.5">
             <button
               type="button"

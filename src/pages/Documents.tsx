@@ -157,7 +157,7 @@ export default function Documents() {
           actions={<Button onClick={() => setShowCreate(true)}><Plus className="h-4 w-4" />Nouveau document</Button>}
         />
 
-        <ListToolbar query={query} onQueryChange={setQuery} placeholder="Rechercher un document, un auteur…">
+        <ListToolbar query={query} onQueryChange={setQuery} placeholder="Rechercher un document, un auteur…" count={filteredDocuments?.length}>
           <Select value={sortKey} onChange={(e) => setSortKey(e.target.value)} className="w-auto">
             <option value="date_creation">Trier par date</option>
             <option value="nom">Trier par nom</option>

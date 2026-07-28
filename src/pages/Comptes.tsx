@@ -48,7 +48,7 @@ export default function Comptes() {
 
         <EllisphereSearch />
 
-        <ListToolbar query={query} onQueryChange={setQuery} placeholder="Rechercher un compte, une ville…">
+        <ListToolbar query={query} onQueryChange={setQuery} placeholder="Rechercher un compte, une ville…" count={filteredComptes?.length}>
           <Select value={typeFilter} onChange={(e) => setTypeFilter(e.target.value)} className="w-auto">
             <option value="">Tous les types</option>
             {(Object.keys(typeMeta) as TypeCompte[]).map((t) => (

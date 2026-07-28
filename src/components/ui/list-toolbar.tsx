@@ -6,11 +6,14 @@ export function ListToolbar({
   query,
   onQueryChange,
   placeholder = 'Rechercher…',
+  count,
   children,
 }: {
   query: string
   onQueryChange: (value: string) => void
   placeholder?: string
+  /** Nombre de lignes actuellement affichées (après recherche/filtre/tri) — affiché à droite de la barre. */
+  count?: number
   children?: ReactNode
 }) {
   return (
@@ -20,6 +23,9 @@ export function ListToolbar({
         <Input value={query} onChange={(e) => onQueryChange(e.target.value)} placeholder={placeholder} className="pl-9" />
       </div>
       {children}
+      {count != null && (
+        <span className="ml-auto whitespace-nowrap text-xs text-navy-400">{count} résultat{count > 1 ? 's' : ''}</span>
+      )}
     </div>
   )
 }

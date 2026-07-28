@@ -181,7 +181,7 @@ export default function Interactions() {
           actions={<Button onClick={() => setShowCreate(true)}><Plus className="h-4 w-4" />Nouvelle interaction</Button>}
         />
 
-        <ListToolbar query={query} onQueryChange={setQuery} placeholder="Rechercher un compte, un contact, un objet…">
+        <ListToolbar query={query} onQueryChange={setQuery} placeholder="Rechercher un compte, un contact, un objet…" count={filteredInteractions?.length}>
           <Select value={sortKey} onChange={(e) => setSortKey(e.target.value)} className="w-auto">
             <option value="date_interaction">Trier par date</option>
             <option value="compte_nom">Trier par compte</option>

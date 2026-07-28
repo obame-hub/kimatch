@@ -174,7 +174,7 @@ export default function Recommandations() {
           actions={<Button onClick={() => setShowCreate(true)}><Plus className="h-4 w-4" />Nouvelle recommandation</Button>}
         />
 
-        <ListToolbar query={query} onQueryChange={setQuery} placeholder="Rechercher une recommandation, un compte…">
+        <ListToolbar query={query} onQueryChange={setQuery} placeholder="Rechercher une recommandation, un compte…" count={filteredRecommandations?.length}>
           <Select value={etapeFilter} onChange={(e) => setEtapeFilter(e.target.value)} className="w-auto">
             <option value="">Toutes les étapes</option>
             {etapes.map((e) => <option key={e.id} value={e.code}>{e.libelle}</option>)}

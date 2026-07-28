@@ -185,7 +185,7 @@ export default function Mandats() {
           actions={<Button onClick={() => setShowCreate(true)}><Plus className="h-4 w-4" />Nouveau mandat</Button>}
         />
 
-        <ListToolbar query={query} onQueryChange={setQuery} placeholder="Rechercher un compte…">
+        <ListToolbar query={query} onQueryChange={setQuery} placeholder="Rechercher un compte…" count={filteredMandats?.length}>
           <Select value={statutFilter} onChange={(e) => setStatutFilter(e.target.value)} className="w-auto">
             <option value="">Tous les statuts</option>
             {statuts.map((s) => <option key={s.id} value={s.code}>{s.libelle}</option>)}

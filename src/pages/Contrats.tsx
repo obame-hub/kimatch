@@ -214,7 +214,7 @@ export default function Contrats() {
           actions={<Button onClick={() => setShowCreate(true)}><Plus className="h-4 w-4" />Nouveau contrat</Button>}
         />
 
-        <ListToolbar query={query} onQueryChange={setQuery} placeholder="Rechercher un fournisseur, un site…">
+        <ListToolbar query={query} onQueryChange={setQuery} placeholder="Rechercher un fournisseur, un site…" count={filteredContrats?.length}>
           <Select value={statutFilter} onChange={(e) => setStatutFilter(e.target.value)} className="w-auto">
             <option value="">Tous les statuts</option>
             {statuts.map((s) => <option key={s.id} value={s.code}>{s.libelle}</option>)}
