@@ -75,7 +75,7 @@ async function fetchCompteurs(): Promise<Compteur[]> {
     const { data, error } = await supabase
       .from('compteurs')
       .select(
-        'id, site_id, numero_point, libelle, actif, consommation_annuelle_mwh, synchro_eneo, date_derniere_synchro_eneo, proprietaire_id, type_utilisation_compteur_id, type_energie:types_energies(code), type_utilisation:types_utilisations_compteur(libelle), site:sites(nom), compteurs_electricite(*), compteurs_gaz(*), proprietaire:profils(prenom, nom), date_creation, date_modification',
+        'id, site_id, numero_point, libelle, actif, consommation_annuelle_mwh, synchro_eneo, date_derniere_synchro_eneo, proprietaire_id, type_utilisation_compteur_id, type_energie:types_energies(code), type_utilisation:types_utilisations_compteur(libelle), site:sites(nom), compteurs_electricite(*), compteurs_gaz(*), proprietaire:profils!compteurs_proprietaire_id_fkey(prenom, nom), date_creation, date_modification',
       )
     if (error) throw error
 

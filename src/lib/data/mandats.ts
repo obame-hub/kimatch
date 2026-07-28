@@ -30,7 +30,7 @@ async function fetchMandats(): Promise<Mandat[]> {
       supabase
         .from('mandats')
         .select(
-          'id, compte_id, date_signature, date_envoi, date_debut_validite, date_fin_validite, contact_signataire_id, docusign_envelope_id, proprietaire_id, compte:comptes(nom), statut:statuts_mandats(code), contact_signataire:contacts(prenom, nom), proprietaire:profils(prenom, nom), date_creation, date_modification',
+          'id, compte_id, date_signature, date_envoi, date_debut_validite, date_fin_validite, contact_signataire_id, docusign_envelope_id, proprietaire_id, compte:comptes(nom), statut:statuts_mandats(code), contact_signataire:contacts(prenom, nom), proprietaire:profils!mandats_proprietaire_id_fkey(prenom, nom), date_creation, date_modification',
         ),
       supabase.from('mandats_compteurs').select('mandat_id, compteur:compteurs(id, site_id)'),
       supabase.from('mandats_courtiers').select('mandat_id, type_courtier:types_courtiers_mandat(code)'),

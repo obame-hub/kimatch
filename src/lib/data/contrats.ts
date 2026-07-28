@@ -38,7 +38,7 @@ async function fetchContrats(): Promise<Contrat[]> {
       supabase
         .from('contrats')
         .select(
-          'id, site_id, fournisseur_compte_id, reference_fournisseur, date_debut, date_fin, preavis_resiliation_jours, proprietaire_id, docusign_envelope_id, date_envoi_signature, date_signature, statut_signature, contact_signataire_id, site:sites(nom), fournisseur:comptes(nom), type_energie:types_energies(code), statut:statuts_contrats(code), contact_signataire:contacts(prenom, nom), proprietaire:profils(prenom, nom), date_creation, date_modification',
+          'id, site_id, fournisseur_compte_id, reference_fournisseur, date_debut, date_fin, preavis_resiliation_jours, proprietaire_id, docusign_envelope_id, date_envoi_signature, date_signature, statut_signature, contact_signataire_id, site:sites(nom), fournisseur:comptes(nom), type_energie:types_energies(code), statut:statuts_contrats(code), contact_signataire:contacts(prenom, nom), proprietaire:profils!contrats_proprietaire_id_fkey(prenom, nom), date_creation, date_modification',
         )
         .order('date_debut', { ascending: false }),
       supabase.from('contrats_compteurs').select('id, contrat_id, compteur:compteurs(id, numero_point, libelle)'),

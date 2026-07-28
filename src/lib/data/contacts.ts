@@ -40,7 +40,7 @@ async function fetchContacts(): Promise<Contact[]> {
       supabase
         .from('contacts')
         .select(
-          'id, compte_id, civilite, prenom, nom, fonction, telephone, email, contact_principal, actif, compte:comptes(nom), proprietaire_id, linkedin_url, disponibilites, type_canal_communication_id, canal_communication:types_canaux_communication(libelle), proprietaire:profils(prenom, nom), date_creation, date_modification',
+          'id, compte_id, civilite, prenom, nom, fonction, telephone, email, contact_principal, actif, compte:comptes(nom), proprietaire_id, linkedin_url, disponibilites, type_canal_communication_id, canal_communication:types_canaux_communication(libelle), proprietaire:profils!contacts_proprietaire_id_fkey(prenom, nom), date_creation, date_modification',
         )
         .order('nom'),
       supabase.from('contacts_sites').select('contact_id, fonction_sur_site, site:sites(id, nom)'),

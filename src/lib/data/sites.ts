@@ -48,7 +48,7 @@ async function fetchSites(): Promise<Site[]> {
     // Colonnes ajoutées ultérieurement (tâche #55) — sélectionnées à part : si elles n'existent
     // pas encore en base, on retombe sur null pour elles sans perdre les vraies données du site.
     const extraParSite = new Map<string, RawSiteExtra>()
-    const extraRes = await supabase.from('sites').select('id, latitude, longitude, annee_construction, surface_m2, date_derniere_ag, proprietaire_id, proprietaire:profils(prenom, nom), date_creation, date_modification')
+    const extraRes = await supabase.from('sites').select('id, latitude, longitude, annee_construction, surface_m2, date_derniere_ag, proprietaire_id, proprietaire:profils!sites_proprietaire_id_fkey(prenom, nom), date_creation, date_modification')
     if (!extraRes.error) {
       for (const e of (extraRes.data ?? []) as unknown as RawSiteExtra[]) {
         extraParSite.set(e.id, e)

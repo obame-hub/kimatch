@@ -57,7 +57,7 @@ async function fetchComptes(): Promise<Compte[]> {
         comptes_clients(segment_compte_id, conseiller_referent_id, origine_acquisition, mandat_cadre_actif, note_interne, segment_compte:segments_comptes(libelle), conseiller_referent:profils(prenom, nom)),
         comptes_fournisseurs(fournit_electricite, fournit_gaz, contact_commercial_id, statut_partenariat, conditions_commerciales, commentaire, contact_commercial:contacts(prenom, nom)),
         comptes_partenaires(type_partenariat, modele_remuneration, contact_referent_id, statut_partenariat, date_debut_partenariat, commentaire, contact_referent:contacts(prenom, nom)),
-        proprietaire:profils(prenom, nom)`,
+        proprietaire:profils!comptes_proprietaire_id_fkey(prenom, nom)`,
       )
       .order('nom')
     if (error) throw error
