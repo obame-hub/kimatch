@@ -73,7 +73,7 @@ export const FALLBACK_STATUTS_MANDATS: ReferenceRow[] = [
 ]
 
 export const FALLBACK_TYPES_COURTIERS_MANDAT: ReferenceRow[] = [
-  { id: '1', code: 'KIWI', libelle: 'Kiwi', ordre: 10, couleur: null, icone: null },
+  { id: '1', code: 'KIWI', libelle: 'KiWee', ordre: 10, couleur: null, icone: null },
   { id: '2', code: 'ENERGIX', libelle: 'Energix', ordre: 20, couleur: null, icone: null },
 ]
 
