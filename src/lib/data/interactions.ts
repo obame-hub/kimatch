@@ -27,15 +27,31 @@ interface RawInteraction {
 const INTERACTIONS_SELECT =
   'id, date_interaction, sens, objet, resume, resultat, compte_id, site_id, contact_id, type_interaction:types_interactions(libelle), auteur:profils!interactions_auteur_profil_id_fkey(prenom, nom), compte:comptes(nom), site:sites(nom), contact:contacts(prenom, nom), issue:issues_interactions(libelle, couleur), proprietaire_id'
 
+async function fetchInteractionsPage(from: number, pageSize: number, attempt = 0): Promise<RawInteraction[]> {
+  const { data, error } = await supabase
+    .from('interactions')
+    .select(INTERACTIONS_SELECT)
+    .order('date_interaction', { ascending: false })
+    .range(from, from + pageSize - 1)
+  if (error) {
+    // Supabase renvoie parfois 500/503 quand trop de requetes lourdes (avec jointures) partent
+    // en meme temps -- on retente avant d'abandonner plutot que de faire echouer tout le fetch.
+    if (attempt < 2) return fetchInteractionsPage(from, pageSize, attempt + 1)
+    throw error
+  }
+  return (data ?? []) as unknown as RawInteraction[]
+}
+
 // PostgREST plafonne chaque requête (par défaut 1000 lignes) : sans pagination, les interactions
 // les plus anciennes disparaissent silencieusement dès que la table dépasse ce plafond — repéré
 // le 29/07/2026 quand des comptes avec des interactions réelles mais plus anciennes que les 1000
 // interactions les plus récentes de toute la base n'affichaient plus rien.
-// Les pages sont recuperees en parallele (pas en boucle sequentielle) : avec les jointures de
-// cette requete, un aller-retour prend plusieurs secondes, et 16000+ lignes = 17 pages -> une
-// boucle sequentielle mettrait plus d'une minute a charger la fiche compte.
+// Les pages sont recuperees en parallele avec une limite de concurrence : tout envoyer d'un coup
+// (17 pages avec ces jointures) sature Supabase (500/503 observes), alors qu'une boucle
+// strictement sequentielle prend plus d'une minute -- un compromis a CONCURRENCY pages a la fois.
 async function fetchAllInteractionsPages(): Promise<RawInteraction[]> {
   const PAGE_SIZE = 1000
+  const CONCURRENCY = 4
   const { count, error: countError } = await supabase
     .from('interactions')
     .select('id', { count: 'exact', head: true })
@@ -46,18 +62,16 @@ async function fetchAllInteractionsPages(): Promise<RawInteraction[]> {
   for (let from = 0; from < total; from += PAGE_SIZE) pageStarts.push(from)
   if (pageStarts.length === 0) return []
 
-  const pages = await Promise.all(
-    pageStarts.map(async (from) => {
-      const { data, error } = await supabase
-        .from('interactions')
-        .select(INTERACTIONS_SELECT)
-        .order('date_interaction', { ascending: false })
-        .range(from, from + PAGE_SIZE - 1)
-      if (error) throw error
-      return (data ?? []) as unknown as RawInteraction[]
-    }),
-  )
-  return pages.flat()
+  const results: RawInteraction[][] = new Array(pageStarts.length)
+  let nextIndex = 0
+  async function worker() {
+    while (nextIndex < pageStarts.length) {
+      const idx = nextIndex++
+      results[idx] = await fetchInteractionsPage(pageStarts[idx], PAGE_SIZE)
+    }
+  }
+  await Promise.all(Array.from({ length: Math.min(CONCURRENCY, pageStarts.length) }, worker))
+  return results.flat()
 }
 
 async function fetchInteractions(): Promise<Interaction[]> {
