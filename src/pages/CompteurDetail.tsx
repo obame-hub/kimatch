@@ -189,17 +189,25 @@ function CouvertureCard({
   mandatCouvert,
   recoEnCours,
   contratCouvert,
+  onSignaux,
+  onMandat,
+  onReco,
+  onContrat,
 }: {
   nbSignaux: number
   mandatCouvert: boolean
   recoEnCours: boolean
   contratCouvert: boolean
+  onSignaux?: () => void
+  onMandat?: () => void
+  onReco?: () => void
+  onContrat?: () => void
 }) {
   const items = [
-    { lbl: 'Signaux', ok: nbSignaux === 0, val: nbSignaux > 0 ? `${nbSignaux} ouvert${nbSignaux > 1 ? 's' : ''}` : 'Aucun' },
-    { lbl: 'Mandat', ok: mandatCouvert, val: mandatCouvert ? 'Couvert ✓' : 'Non couvert' },
-    { lbl: 'Reco', ok: true, warn: recoEnCours, val: recoEnCours ? 'En cours' : 'Aucune' },
-    { lbl: 'Contrat', ok: contratCouvert, val: contratCouvert ? 'Couvert ✓' : 'Aucun' },
+    { lbl: 'Signaux', ok: nbSignaux === 0, val: nbSignaux > 0 ? `${nbSignaux} ouvert${nbSignaux > 1 ? 's' : ''}` : 'Aucun', onClick: nbSignaux > 0 ? onSignaux : undefined },
+    { lbl: 'Mandat', ok: mandatCouvert, val: mandatCouvert ? 'Couvert ✓' : 'Non couvert', onClick: mandatCouvert ? onMandat : undefined },
+    { lbl: 'Reco', ok: true, warn: recoEnCours, val: recoEnCours ? 'En cours' : 'Aucune', onClick: recoEnCours ? onReco : undefined },
+    { lbl: 'Contrat', ok: contratCouvert, val: contratCouvert ? 'Couvert ✓' : 'Aucun', onClick: contratCouvert ? onContrat : undefined },
   ]
   const score = items.filter((i) => i.ok).length
   return (
@@ -213,7 +221,14 @@ function CouvertureCard({
       </div>
       <div className="flex flex-col gap-1.5">
         {items.map((it) => (
-          <div key={it.lbl} className="flex items-center justify-between rounded-lg border border-navy-50 bg-navy-50/60 px-2 py-1.5">
+          <div
+            key={it.lbl}
+            onClick={it.onClick}
+            className={cn(
+              'flex items-center justify-between rounded-lg border border-navy-50 bg-navy-50/60 px-2 py-1.5',
+              it.onClick && 'cursor-pointer hover:bg-navy-100/60',
+            )}
+          >
             <span className="text-[11.5px] font-semibold text-navy-700">{it.lbl}</span>
             <span
               className={cn(
@@ -558,6 +573,10 @@ export default function CompteurDetail() {
             mandatCouvert={Boolean(mandatDuCompteur)}
             recoEnCours={Boolean(recoActiveDuSite)}
             contratCouvert={contratsDuCompteur.length > 0}
+            onSignaux={() => navigate(`/signaux/${signauxDuCompteur[0].id}`)}
+            onMandat={() => setTab('mandats')}
+            onReco={() => recoActiveDuSite && navigate(`/recommandations/${recoActiveDuSite.id}`)}
+            onContrat={() => setTab('contrats')}
           />
         </div>
 
