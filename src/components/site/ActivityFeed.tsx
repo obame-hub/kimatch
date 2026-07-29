@@ -202,7 +202,7 @@ export function ActivityFeed({
   }
 
   return (
-    <div className="flex h-full flex-col gap-2.5">
+    <div className="flex h-full min-h-0 flex-col gap-2.5">
       {filterDimension === 'site' && (
         <div className="flex gap-0.5 rounded-lg bg-navy-100 p-0.5">
           {(['site', 'contact'] as const).map((m) => (
