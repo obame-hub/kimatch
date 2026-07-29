@@ -31,23 +31,33 @@ const INTERACTIONS_SELECT =
 // les plus anciennes disparaissent silencieusement dès que la table dépasse ce plafond — repéré
 // le 29/07/2026 quand des comptes avec des interactions réelles mais plus anciennes que les 1000
 // interactions les plus récentes de toute la base n'affichaient plus rien.
+// Les pages sont recuperees en parallele (pas en boucle sequentielle) : avec les jointures de
+// cette requete, un aller-retour prend plusieurs secondes, et 16000+ lignes = 17 pages -> une
+// boucle sequentielle mettrait plus d'une minute a charger la fiche compte.
 async function fetchAllInteractionsPages(): Promise<RawInteraction[]> {
   const PAGE_SIZE = 1000
-  const all: RawInteraction[] = []
-  let from = 0
-  while (true) {
-    const { data, error } = await supabase
-      .from('interactions')
-      .select(INTERACTIONS_SELECT)
-      .order('date_interaction', { ascending: false })
-      .range(from, from + PAGE_SIZE - 1)
-    if (error) throw error
-    const page = (data ?? []) as unknown as RawInteraction[]
-    all.push(...page)
-    if (page.length < PAGE_SIZE) break
-    from += PAGE_SIZE
-  }
-  return all
+  const { count, error: countError } = await supabase
+    .from('interactions')
+    .select('id', { count: 'exact', head: true })
+  if (countError) throw countError
+
+  const total = count ?? 0
+  const pageStarts: number[] = []
+  for (let from = 0; from < total; from += PAGE_SIZE) pageStarts.push(from)
+  if (pageStarts.length === 0) return []
+
+  const pages = await Promise.all(
+    pageStarts.map(async (from) => {
+      const { data, error } = await supabase
+        .from('interactions')
+        .select(INTERACTIONS_SELECT)
+        .order('date_interaction', { ascending: false })
+        .range(from, from + PAGE_SIZE - 1)
+      if (error) throw error
+      return (data ?? []) as unknown as RawInteraction[]
+    }),
+  )
+  return pages.flat()
 }
 
 async function fetchInteractions(): Promise<Interaction[]> {
