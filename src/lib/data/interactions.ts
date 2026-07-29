@@ -24,16 +24,36 @@ interface RawInteraction {
   proprietaire_id: string | null
 }
 
+const INTERACTIONS_SELECT =
+  'id, date_interaction, sens, objet, resume, resultat, compte_id, site_id, contact_id, type_interaction:types_interactions(libelle), auteur:profils!interactions_auteur_profil_id_fkey(prenom, nom), compte:comptes(nom), site:sites(nom), contact:contacts(prenom, nom), issue:issues_interactions(libelle, couleur), proprietaire_id'
+
+// PostgREST plafonne chaque requête (par défaut 1000 lignes) : sans pagination, les interactions
+// les plus anciennes disparaissent silencieusement dès que la table dépasse ce plafond — repéré
+// le 29/07/2026 quand des comptes avec des interactions réelles mais plus anciennes que les 1000
+// interactions les plus récentes de toute la base n'affichaient plus rien.
+async function fetchAllInteractionsPages(): Promise<RawInteraction[]> {
+  const PAGE_SIZE = 1000
+  const all: RawInteraction[] = []
+  let from = 0
+  while (true) {
+    const { data, error } = await supabase
+      .from('interactions')
+      .select(INTERACTIONS_SELECT)
+      .order('date_interaction', { ascending: false })
+      .range(from, from + PAGE_SIZE - 1)
+    if (error) throw error
+    const page = (data ?? []) as unknown as RawInteraction[]
+    all.push(...page)
+    if (page.length < PAGE_SIZE) break
+    from += PAGE_SIZE
+  }
+  return all
+}
+
 async function fetchInteractions(): Promise<Interaction[]> {
   if (isDemoMode()) return mockInteractions
   try {
-    const { data, error } = await supabase
-      .from('interactions')
-      .select(
-        'id, date_interaction, sens, objet, resume, resultat, compte_id, site_id, contact_id, type_interaction:types_interactions(libelle), auteur:profils!interactions_auteur_profil_id_fkey(prenom, nom), compte:comptes(nom), site:sites(nom), contact:contacts(prenom, nom), issue:issues_interactions(libelle, couleur), proprietaire_id',
-      )
-      .order('date_interaction', { ascending: false })
-    if (error) throw error
+    const data = await fetchAllInteractionsPages()
 
     const comptesVisibles = await fetchComptesVisibles()
     const sitesVisibles = await fetchSitesVisiblesIds(comptesVisibles)
