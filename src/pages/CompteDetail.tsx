@@ -53,7 +53,6 @@ import { useEllisphereScore } from '@/lib/data/ellisphere'
 import { useReferenceTable } from '@/lib/data/referenceTables'
 import {
   FALLBACK_STATUTS_CONTRATS,
-  STATUT_CONTRAT_TONE,
   FALLBACK_STATUTS_MANDATS,
   STATUT_MANDAT_TONE,
   FALLBACK_STATUTS_VERSIONS,
@@ -429,26 +428,12 @@ export default function CompteDetail() {
           )}
 
           {tab === 'contrats' && (
-            <GroupedBySite
+            <ContratsTabContent
               sites={sitesDuCompte}
-              itemsBySiteId={(siteId) => contratsDuCompte.filter((ct) => ct.site_id === siteId)}
-              renderItem={(ct: (typeof contratsDuCompte)[number]) => {
-                const Icon = ct.type_energie === 'gaz' ? Flame : Zap
-                return (
-                  <div
-                    key={ct.id}
-                    onClick={() => navigate(`/contrats/${ct.id}`)}
-                    className="flex cursor-pointer items-center gap-3 px-3.5 py-2.5 hover:bg-navy-50/60"
-                  >
-                    <span className={cn('flex h-8 w-8 shrink-0 items-center justify-center rounded-lg', ct.type_energie === 'gaz' ? 'bg-amber-100 text-amber-600' : 'bg-sky-100 text-sky-500')}>
-                      <Icon className="h-3.5 w-3.5" />
-                    </span>
-                    <p className="min-w-0 flex-1 truncate text-sm font-semibold text-navy-800">{ct.fournisseur_nom}</p>
-                    <Badge tone={STATUT_CONTRAT_TONE[ct.statut] ?? 'neutral'}>{statutsContrats.find((s) => s.code === ct.statut)?.libelle ?? ct.statut}</Badge>
-                  </div>
-                )
-              }}
-              emptyLabel="Aucun contrat pour ce compte."
+              contrats={contratsDuCompte}
+              recommandations={recommandationsDuCompte}
+              statutsContrats={statutsContrats}
+              onNavigate={(id) => navigate(`/contrats/${id}`)}
             />
           )}
 
@@ -965,6 +950,120 @@ function RecordMetaCard({ compte, canManage, onToast }: { compte: Compte; canMan
           ))}
         </div>
       )}
+    </div>
+  )
+}
+
+const LIFECYCLE_ACTIF = new Set(['ACTIF'])
+const LIFECYCLE_A_VENIR = new Set(['A_VENIR', 'EN_PREPARATION', 'A_SIGNER'])
+const LIFECYCLE_EXPIRE = new Set(['TERMINE', 'RESILIE', 'ANNULE'])
+
+function contratLifecycle(statut: string): 'actif' | 'a_venir' | 'expire' | 'autre' {
+  if (LIFECYCLE_ACTIF.has(statut)) return 'actif'
+  if (LIFECYCLE_A_VENIR.has(statut)) return 'a_venir'
+  if (LIFECYCLE_EXPIRE.has(statut)) return 'expire'
+  return 'autre'
+}
+
+const LIFECYCLE_STYLE: Record<string, { dot: string; label: string; badge: string }> = {
+  actif: { dot: 'bg-kw-green', label: 'Actif', badge: 'bg-kw-green-light text-kw-green' },
+  a_venir: { dot: 'bg-kw-amber', label: 'À venir', badge: 'bg-kw-amber-border text-kw-amber-dark' },
+  expire: { dot: 'bg-kw-faint', label: 'Expiré', badge: 'bg-kw-muted text-kw-label' },
+  autre: { dot: 'bg-kw-faint', label: 'Autre', badge: 'bg-kw-muted text-kw-label' },
+}
+
+function ContratsTabContent({
+  sites, contrats, recommandations, statutsContrats, onNavigate,
+}: {
+  sites: Site[]
+  contrats: Contrat[]
+  recommandations: Recommandation[]
+  statutsContrats: { code: string; libelle: string }[]
+  onNavigate: (id: string) => void
+}) {
+  const total = contrats.length
+  const nbCompteurs = new Set(contrats.flatMap((c) => c.compteurs.map((cp) => cp.id))).size
+  const nbSites = new Set(contrats.map((c) => c.site_id)).size
+  const actifs = contrats.filter((c) => contratLifecycle(c.statut) === 'actif')
+  const aVenir = contrats.filter((c) => contratLifecycle(c.statut) === 'a_venir')
+  const expires = contrats.filter((c) => contratLifecycle(c.statut) === 'expire')
+
+  const dans12mois = new Date()
+  dans12mois.setMonth(dans12mois.getMonth() + 12)
+  const echeances = actifs.filter((c) => c.date_fin && new Date(c.date_fin) <= dans12mois)
+  const prochaine = echeances.slice().sort((a, b) => new Date(a.date_fin!).getTime() - new Date(b.date_fin!).getTime())[0]
+
+  const sitesAvecReco = new Set(recommandations.flatMap((r) => r.sites?.map((s) => s.id) ?? []))
+  const sansReco = actifs.filter((c) => !sitesAvecReco.has(c.site_id))
+
+  const [filtre, setFiltre] = useState<'all' | 'actifs' | 'echeances' | 'sans_reco'>('all')
+  const filtres: Record<typeof filtre, Contrat[]> = { all: contrats, actifs, echeances, sans_reco: sansReco }
+  const contratsAffiches = filtres[filtre]
+
+  if (total === 0) return <p className="text-sm text-kw-faint">Aucun contrat pour ce compte.</p>
+
+  return (
+    <div className="flex flex-col gap-3">
+      <div className="grid grid-cols-2 gap-px overflow-hidden rounded-kw-3xl border border-kw-border bg-kw-border md:grid-cols-4">
+        {[
+          { key: 'all' as const, label: 'Contrats', value: total, sub: `${nbCompteurs} compteurs · ${nbSites} sites`, color: 'text-kw-ink' },
+          { key: 'actifs' as const, label: 'Actifs', value: actifs.length, sub: `+ ${aVenir.length} à venir · ${expires.length} expirés`, color: 'text-kw-green' },
+          { key: 'echeances' as const, label: 'Échéances < 12 mois', value: echeances.length, sub: prochaine ? `prochaine : ${new Date(prochaine.date_fin!).toLocaleDateString('fr-FR')}` : '—', color: 'text-kw-red' },
+          { key: 'sans_reco' as const, label: 'Sans reco lancée', value: sansReco.length, sub: 'à couvrir avant l\'hiver', color: 'text-kw-amber' },
+        ].map((hub) => (
+          <button
+            key={hub.key}
+            type="button"
+            onClick={() => setFiltre(hub.key)}
+            className={cn('flex flex-col gap-1 bg-kw-surface px-4 py-3 text-left transition-colors hover:bg-kw-subtle', filtre === hub.key && 'bg-kw-subtle ring-1 ring-inset ring-kw-green/30')}
+          >
+            <span className="text-kw-xs font-bold uppercase tracking-wide text-kw-faint">{hub.label}</span>
+            <span className={cn('font-mono text-[22px] font-bold', hub.color)}>{hub.value}</span>
+            <span className="text-kw-sm text-kw-meta">{hub.sub}</span>
+          </button>
+        ))}
+      </div>
+
+      {filtre !== 'all' && (
+        <div className="flex items-center gap-2">
+          <span className="inline-flex items-center gap-1.5 rounded-kw-pill bg-kw-ink px-3 py-1 text-kw-sm font-bold text-white">
+            Filtre : {filtre === 'actifs' ? 'Actifs' : filtre === 'echeances' ? 'Échéances < 12 mois' : 'Sans reco lancée'}
+            <button type="button" onClick={() => setFiltre('all')} className="opacity-70 hover:opacity-100">✕</button>
+          </span>
+          <span className="text-kw-sm text-kw-meta">{contratsAffiches.length} contrat{contratsAffiches.length > 1 ? 's' : ''} correspondant{contratsAffiches.length > 1 ? 's' : ''}</span>
+        </div>
+      )}
+
+      <GroupedBySite
+        sites={sites}
+        itemsBySiteId={(siteId) => contratsAffiches.filter((ct) => ct.site_id === siteId)}
+        renderItem={(ct: Contrat) => {
+          const Icon = ct.type_energie === 'gaz' ? Flame : Zap
+          const lc = LIFECYCLE_STYLE[contratLifecycle(ct.statut)]
+          return (
+            <div
+              key={ct.id}
+              onClick={() => onNavigate(ct.id)}
+              className="flex cursor-pointer items-center gap-3 px-3.5 py-2.5 hover:bg-kw-muted"
+            >
+              <span className={cn('flex h-8 w-8 shrink-0 items-center justify-center rounded-kw-lg', ct.type_energie === 'gaz' ? 'bg-kw-gas-light text-kw-gas' : 'bg-kw-gold-light text-kw-gold')}>
+                <Icon className="h-3.5 w-3.5" />
+              </span>
+              <div className="min-w-0 flex-1">
+                <p className="truncate text-kw-h4 font-semibold text-kw-ink">{ct.fournisseur_nom || 'Fournisseur non renseigné'}</p>
+                {ct.date_fin && <p className="text-kw-sm text-kw-meta">Fin {new Date(ct.date_fin).toLocaleDateString('fr-FR')}</p>}
+              </div>
+              <span className="flex items-center gap-1.5">
+                <span className={cn('h-1.5 w-1.5 rounded-full', lc.dot)} />
+                <span className={cn('rounded px-1.5 py-0.5 text-kw-xs font-semibold', lc.badge)}>
+                  {lc.label !== 'Autre' ? lc.label : (statutsContrats.find((s) => s.code === ct.statut)?.libelle ?? ct.statut)}
+                </span>
+              </span>
+            </div>
+          )
+        }}
+        emptyLabel="Aucun contrat pour ce filtre."
+      />
     </div>
   )
 }

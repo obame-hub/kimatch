@@ -21,6 +21,14 @@ interface RawContrat {
   date_signature: string | null
   statut_signature: string | null
   contact_signataire_id: string | null
+  prix_molecule_eur_mwh: number | null
+  type_prix: string | null
+  clause_tacite_reconduction: boolean | null
+  clause_renegociation_anticipee: boolean | null
+  clause_engagement_consommation: boolean | null
+  clause_energie_verte: boolean | null
+  clause_indexation_prix: boolean | null
+  clause_penalites_resiliation: boolean | null
   site: { nom: string } | null
   fournisseur: { nom: string } | null
   type_energie: { code: string } | null
@@ -38,7 +46,7 @@ async function fetchContrats(): Promise<Contrat[]> {
       supabase
         .from('contrats')
         .select(
-          'id, site_id, fournisseur_compte_id, reference_fournisseur, date_debut, date_fin, preavis_resiliation_jours, proprietaire_id, docusign_envelope_id, date_envoi_signature, date_signature, statut_signature, contact_signataire_id, site:sites(nom), fournisseur:comptes(nom), type_energie:types_energies(code), statut:statuts_contrats(code), contact_signataire:contacts(prenom, nom), proprietaire:profils!contrats_proprietaire_id_fkey(prenom, nom), date_creation, date_modification',
+          'id, site_id, fournisseur_compte_id, reference_fournisseur, date_debut, date_fin, preavis_resiliation_jours, proprietaire_id, docusign_envelope_id, date_envoi_signature, date_signature, statut_signature, contact_signataire_id, prix_molecule_eur_mwh, type_prix, clause_tacite_reconduction, clause_renegociation_anticipee, clause_engagement_consommation, clause_energie_verte, clause_indexation_prix, clause_penalites_resiliation, site:sites(nom), fournisseur:comptes(nom), type_energie:types_energies(code), statut:statuts_contrats(code), contact_signataire:contacts(prenom, nom), proprietaire:profils!contrats_proprietaire_id_fkey(prenom, nom), date_creation, date_modification',
         )
         .order('date_debut', { ascending: false }),
       supabase.from('contrats_compteurs').select('id, contrat_id, compteur:compteurs(id, numero_point, libelle)'),
@@ -79,6 +87,14 @@ async function fetchContrats(): Promise<Contrat[]> {
       date_envoi_signature: c.date_envoi_signature,
       date_signature: c.date_signature,
       statut_signature: c.statut_signature,
+      prix_molecule_eur_mwh: c.prix_molecule_eur_mwh,
+      type_prix: c.type_prix,
+      clause_tacite_reconduction: c.clause_tacite_reconduction,
+      clause_renegociation_anticipee: c.clause_renegociation_anticipee,
+      clause_engagement_consommation: c.clause_engagement_consommation,
+      clause_energie_verte: c.clause_energie_verte,
+      clause_indexation_prix: c.clause_indexation_prix,
+      clause_penalites_resiliation: c.clause_penalites_resiliation,
     }))
   } catch (error) {
     console.error('fetchContrats', error)

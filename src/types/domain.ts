@@ -364,6 +364,16 @@ export interface Contrat {
   statut_signature: string | null
   date_creation?: string
   date_modification?: string
+  // Clauses + pricing (fiche Contrat, handoff design William 30/07/2026) -- colonnes ajoutees
+  // le 30/07/2026, toutes nullable en attendant d'etre renseignees contrat par contrat.
+  prix_molecule_eur_mwh?: number | null
+  type_prix?: string | null
+  clause_tacite_reconduction?: boolean | null
+  clause_renegociation_anticipee?: boolean | null
+  clause_engagement_consommation?: boolean | null
+  clause_energie_verte?: boolean | null
+  clause_indexation_prix?: boolean | null
+  clause_penalites_resiliation?: boolean | null
 }
 
 export interface TarifContratCompteur {
