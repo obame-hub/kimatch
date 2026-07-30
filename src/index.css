@@ -48,8 +48,7 @@
   }
 
   body {
-    @apply bg-navy-50 text-navy-900 antialiased;
-    font-family: Inter, system-ui, ui-sans-serif, sans-serif;
+    @apply bg-navy-50 text-navy-900 antialiased font-sans;
   }
 }
 
