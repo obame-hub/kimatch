@@ -1,0 +1,128 @@
+{
+  "_meta": {
+    "purpose": "Brief a fresh Claude Code session on this project instantly, and list exactly which tokens/tools to set up so investigation/verification happens via Bash (fast, reliable) instead of Claude in Chrome (slow, flaky, real browser round-trips).",
+    "generated": "2026-07-30",
+    "generated_by": "Claude, at Naoelle's request after a session where excessive Chrome automation for Supabase SQL Editor caused repeated timeouts/session-expiry and slow turnaround",
+    "standing_rule": "NEVER assume a fact about the database, schema, or data state. ALWAYS verify with a targeted, specific query (not a long aggregate that can silently truncate). This applies especially hard to anything touching real production data (migration counts, role assignments, row existence).",
+    "how_to_use": "At the start of a new session working on kiwee-os, read this file first. It replaces re-deriving project identity from scratch. Update it (via Edit) whenever a fact here goes stale, a token gets set up, or a major architectural discovery is made — do not let it rot."
+  },
+
+  "project_identity": {
+    "name": "Kimatch (internal codename kiwee-os)",
+    "what_it_is": "Internal CRM / energy-portfolio management app for KiWee Energie, replacing Salesforce. Domain model: compte -> site -> compteur -> contrat/mandat -> signal -> recommandation -> version_recommandation, plus interactions (activity log) and documents.",
+    "local_path": "C:\\Users\\nghou\\kiwee-os",
+    "stack": "Vite + React 18 + TypeScript + Tailwind + TanStack Query + React Router 7 + Supabase JS client + Recharts + Leaflet",
+    "package_manager": "npm",
+    "build_command": "npx tsc -b && vite build (run `npx tsc -b` alone before any push to catch the same errors Vercel's build catches -- plain `tsc --noEmit` is NOT equivalent, it misses unused-variable errors that break the Vercel build)",
+    "dev_command": "npm run dev (vite, port 5173)",
+    "git_repo": "https://github.com/naoelleghouma/kiwee-os.git (private, Naoelle's personal GitHub account, branch: master, no PR workflow -- direct commits)",
+    "git_policy": "Naoelle has asked Claude to commit and push directly without asking for confirmation each time, for every change (see feedback_commit_push memory). Still: never force-push, never amend published commits.",
+    "deploy": {
+      "provider": "Vercel",
+      "org_project": "vercel.com/kimach/kiwee-os",
+      "trigger": "auto-deploy on every push to master",
+      "production_domain": "https://kimatch.fr (OVH domain, points to the same Vercel deployment as the old kiwee-os.vercel.app URL)",
+      "vercel_cli_status": "NOT installed / NOT logged in on this machine as of 2026-07-30 -- `vercel` command exists nowhere in PATH. Installing + `vercel login` would let deployment status be checked via Bash instead of the Vercel dashboard in Chrome."
+    },
+    "serverless_api_dir": "kiwee-os/api/ -- contains: admin (impersonation), docusign, ellisphere (scoring), enedis, gmail, grd (GRDF), ocr, slack. Never expose these services' credentials client-side; they live in Vercel env vars."
+  },
+
+  "supabase": {
+    "project_ref": "llktvzbbfadmnhfjatrh",
+    "project_url": "https://llktvzbbfadmnhfjatrh.supabase.co",
+    "dashboard_url": "https://supabase.com/dashboard/project/llktvzbbfadmnhfjatrh",
+    "logged_in_as_in_chrome": "obame@kiwee-energie.fr (this is Michel's Supabase account, not Naoelle's -- shared browser session, worth remembering if a future session reuses this same Chrome profile)",
+    "cli_status": "supabase CLI NOT installed on this machine as of 2026-07-30, and no supabase/config.toml present -- only a supabase/migrations_proposees/ folder with hand-written SQL proposals, not an initialized CLI project.",
+    "how_claude_should_query_without_chrome": {
+      "read_only_sql_introspection": "Use the Supabase Management API: POST https://api.supabase.com/v1/projects/llktvzbbfadmnhfjatrh/database/query with header Authorization: Bearer <PAT> and body {\"query\": \"...\"} -- runs arbitrary SQL (including information_schema, pg_catalog, trigger/function definitions) via a single curl/fetch call from Bash. No browser needed. THIS IS THE FIX for the slowness this session hit repeatedly hammering the SQL Editor via Claude in Chrome.",
+      "pat_needed": "A Supabase Personal Access Token (format sbp_...), generated at supabase.com/dashboard/account/tokens. Naoelle has provided one before (described as 'never expires') but it is NEVER persisted to disk or memory by design -- must be re-supplied per session, ideally by Naoelle setting it as a permanent Windows/PowerShell environment variable (e.g. SUPABASE_MANAGEMENT_PAT) so it's just always in the shell env without needing to paste it into chat each time.",
+      "read_via_postgrest_alternative": "For simple table reads (no joins/introspection needed), the anon key (public, embedded in the frontend bundle already, VITE_SUPABASE_ANON_KEY in .env.local) works fine against public.* tables with RLS allowing `authenticated_all` -- but anon role may be blocked by RLS depending on policy, so the Management API PAT route is more reliable for ad-hoc diagnostics.",
+      "writes_ddl_dml": "NEVER executed by Claude directly, ever -- this is a hard standing rule (see feedback_db_changes_via_michel memory). Claude writes the SQL or the Node script; Naoelle (or Michel) runs it herself, either by pasting SQL into the SQL Editor UI or running a Node script locally with $env:SUPABASE_SERVICE_ROLE_KEY set. This rule is about who executes, not a technical limitation -- do not work around it even if a faster path exists."
+    },
+    "schema_facts_confirmed_2026-07-30": {
+      "profils.id": "equals auth.users.id (no FK constraint enforced at the DB level, but the app code and the handle_new_user trigger both assume this equality -- confirmed via information_schema, profils.id's only constraint is its own PRIMARY KEY, no FK to auth.users)",
+      "auth_user_creation_trigger": "AFTER INSERT trigger `on_auth_user_created` on auth.users calls public.handle_new_user(). On any new auth.users row it: (1) looks up public.profils_autorises by matching email to get prenom/nom/poste_id/role_acces_id, (2) creates the public.profils row (id=new.id) if missing, (3) links to the 'KIWEE_FR' organisation, (4) assigns role_acces (from profils_autorises, or defaults to 'CONSEILLER' if none pre-set), (5) assigns poste only if profils_autorises had one set. Full function body was pulled via pg_get_functiondef and is in the session transcript of 2026-07-30 if needed again.",
+      "profils_autorises_mechanism": "This is the pre-authorization allowlist (email, prenom, nom, poste_id, role_acces_id) already wired into the Administration UI (src/lib/data/roles.ts: useProfilsAutorises/useAddProfilAutorise/useUpdateProfilAutorisePosteRole/useRemoveProfilAutorise). To create a real user account WITHOUT them clicking a magic-link email first: (a) ensure a profils_autorises row exists for their email with the right poste_id/role_acces_id, (b) call the Supabase Auth Admin API POST {SUPABASE_URL}/auth/v1/admin/users with body {email, email_confirm:true} using the service_role key -- the trigger fires immediately and creates a fully-formed profils row. They can still log in later via the normal magic-link flow; it will authenticate into this same pre-created account.",
+      "interactions_table_pagination_bug_fixed_2026-07-30": "fetchInteractions() in src/lib/data/interactions.ts had no .range()/.limit(), so PostgREST's default 1000-row cap silently truncated the table to only the 1000 globally-most-recent rows once the Salesforce migration pushed it past ~16900 rows -- any account whose most recent interaction was older than that global cutoff showed an empty activity feed. Fixed with a paginated fetch (4-at-a-time parallel + retries, see git log 'Limite la concurrence du fetch pagine des interactions'). If any OTHER table's useX() hook is later found silently empty despite real data existing, check first whether that table has grown past 1000 rows and whether its fetch function has pagination -- this exact bug class can recur.",
+      "compte_id_backfill_bug_fixed_2026-07-30": "fix_interactions.js/import_emails.js/add_molinier.js only set interactions.compte_id when the Salesforce WhatId/RelatedToId literally pointed at the Account (prefix 001) -- Tasks/Emails linked to an Opportunity/Contract/nothing left compte_id NULL even though the contact (and therefore the compte) was always resolvable. Fixed in the migration scripts (always fall back to the contact's own compte_id) AND backfilled once in production via a one-off UPDATE (see chat history 2026-07-30 for the exact statement). 6048/16913 rows were affected before the fix.",
+      "layout_bug_fixed_2026-07-30": "CompteDetail.tsx's 3-column grid and the ActivityFeed component were missing `min-h-0` on flex/grid children -- a classic Tailwind/flexbox gotcha where a flex child grows to fit all its content instead of respecting the parent's bounded height, so `overflow-y-auto` never had anything to actually scroll. Invisible with small demo datasets, became visible once real accounts had 200+ interactions. If a future 'this panel doesn't scroll' report comes in anywhere else in the app, check for the same missing min-h-0 pattern first.",
+      "rls_policy_pattern": "All tables use a blanket `authenticated_all` policy (for all to authenticated using (true) with check (true)) -- RLS is a coarse authenticated-vs-not gate only; the REAL visibility restriction (who sees which comptes) lives in application code via src/lib/data/visibility.ts (fetchComptesVisibles/fetchSitesVisiblesIds), driven by the profils_comptes table. Do not assume a table is unreadable just because RLS is enabled -- check for a missing authenticated_all policy specifically (this has been a recurring real bug, see kiwee_os_project memory for the audit history)."
+    }
+  },
+
+  "salesforce": {
+    "org_alias": "KiweeOrg (sf CLI, already authenticated)",
+    "org": "KIWEE ENERGIE FRANCE production org, ~2754 total accounts",
+    "cli_quirk": "The `sf` CLI must be invoked from PowerShell, not Bash -- Bash's invocation of `sf` fails on this machine due to a Windows path-with-space issue. All `sf data query` calls this session went through the PowerShell tool.",
+    "cutoff_deadline": "2026-07-31 -- Salesforce access ends this date, hard deadline, no safety net after.",
+    "migration_status_2026-07-30": {
+      "pilot_batch": "100 accounts fully migrated (comptes, contacts, sites reconstructed from PDL, compteurs, contrats, mandats, recommandations, versions, signaux, interactions from Task+EmailMessage, files) -- validated against Salesforce via a 20-account line-by-line cross-check, all exact-matched.",
+      "molinier_added_separately": "Cabinet Molinier (SF Account 001J6000003nsXCIAY) was discovered NOT to be part of the original 100-account pilot batch despite being used as a validation reference account -- added afterward via a dedicated one-off script (add_molinier.js). Lesson: before treating any account as a 'reference' to validate an approach, verify it's actually in the imported dataset first.",
+      "remaining": "~2650 accounts not yet migrated -- urgent, blocked on nothing technical at this point (pipeline proven twice now), just needs to be run at scale before 2026-07-31.",
+      "scripts_location": "C:\\Users\\nghou\\sf_import\\ (source of truth, edited here) mirrored into C:\\Users\\nghou\\Desktop\\import-pilote-kimatch\\ (execution copy Naoelle actually runs -- ALWAYS copy edited scripts here after changing them, this has been forgotten and caused confusion before)",
+      "key_scripts": [
+        "transform.js -- original 100-account SQL-generation script (comptes through interactions)",
+        "fix_interactions.js -- rebuilds Task-based interactions with full polymorphic linking (compte/site/reco/signal) + Allo recording-URL extraction",
+        "import_emails.js -- imports EmailMessage+EmailMessageRelation as interactions (separate Salesforce object family from Task, NOT a duplicate of Task-logged emails -- verified 0 overlap by subject+date)",
+        "import_files.js -- migrates mandat/contrat documents from Salesforce ContentVersion to Supabase Storage",
+        "add_molinier.js / import_molinier_files.js -- single-account version of the same pipeline",
+        "create_comptes_utilisateurs.js -- creates real Supabase Auth accounts for pre-authorized team members (see profils_autorises mechanism above)"
+      ],
+      "known_prior_bugs_fixed_in_scripts": "sens must be uppercase ('ENTRANT'/'SORTANT'/'INTERNE', matching the DB CHECK constraint) -- a first attempt used lowercase and failed 10842/10842 email inserts. resume/objet fields have NO length limit in the DB (text, unconstrained) -- earlier scripts self-imposed a 500/4000 char truncation that has since been removed."
+    },
+    "allo_vs_aircall": "Call summaries/transcripts/recording URLs come from 'Allo' (KiWee's actual telephony/AI tool), embedded as unstructured text inside Task.Description ending in 'Enregistrement: https://api.withallo.com/...'. The aircall__* custom fields on Task exist in the schema but are always null in practice -- do not mistake them for the real data source."
+  },
+
+  "team_roster": {
+    "note": "See user_role_kiwee and kiwee_os_project memory files for full role/access details. Summarized here just for account-creation purposes.",
+    "already_have_real_accounts_2026-07-30": ["n.ghouma@kiwee-energie.fr (Naoelle, ADMIN/DEVELOPPEMENT)", "obame@kiwee-energie.fr (Michel, SUPER_ADMIN/DIRECTION)", "w.goupil@kiwee-energie.fr (William, ADMIN/RESPONSABLE)"],
+    "pre_authorized_pending_account_creation_2026-07-30": [
+      {"email": "a.boccone@kiwee-energie.fr", "prenom": "Agathe", "nom": "Boccone", "poste": "SERVICE_CLIENT", "role_acces": "SERVICE_CLIENT"},
+      {"email": "e.ozimo@kiwee-energie.fr", "prenom": "Erwan", "nom": "Ozimo", "poste": "COTATION", "role_acces": "CONSEILLER"},
+      {"email": "f.dubarry@kiwee-energie.fr", "prenom": "Fabien", "nom": "Dubarry", "poste": "COMMERCIAL", "role_acces": "CONSEILLER"},
+      {"email": "g.gilles@kiwee-energie.fr", "prenom": "Guillaume", "nom": "Gilles", "poste": "COMMERCIAL", "role_acces": "CONSEILLER"},
+      {"email": "m.bruere@kiwee-energie.fr", "prenom": "Matthieu", "nom": "Bruere", "poste": "COMMERCIAL", "role_acces": "CONSEILLER"},
+      {"email": "m.thonnard@kiwee-energie.fr", "prenom": "Marie", "nom": "Thonnard", "poste": "COMMERCIAL", "role_acces": "CONSEILLER"},
+      {"email": "t.leguen@kiwee-energie.fr", "prenom": "Thomas", "nom": "Le Guen", "poste": "COMMERCIAL", "role_acces": "CONSEILLER"}
+    ],
+    "creation_status": "Blocked as of 2026-07-30 on a truncated SUPABASE_SERVICE_ROLE_KEY paste (401 Invalid API key) -- script (create_comptes_utilisateurs.js) is correct and ready, just needs a clean key. Verify key length in PowerShell with $env:SUPABASE_SERVICE_ROLE_KEY.Length (expect ~200-250 chars) before re-running."
+  },
+
+  "tokens_and_tools_to_set_up_to_minimize_claude_in_chrome": [
+    {
+      "what": "Supabase Management API Personal Access Token",
+      "format": "sbp_...",
+      "where_to_get": "supabase.com/dashboard/account/tokens (Naoelle's or Michel's account, whoever has project access)",
+      "unlocks": "Arbitrary read-only SQL (schema introspection, ad-hoc SELECTs, trigger/function definitions) via a single Bash curl call -- this is what would have avoided ~90% of the Chrome round-trips in the 2026-07-30 session.",
+      "how_to_supply": "Best: set as a persistent environment variable (e.g. SUPABASE_MANAGEMENT_PAT) in Windows so it's already in every new PowerShell/Bash session. Otherwise: paste fresh each session -- never write the literal value into any file, memory, or this JSON.",
+      "status_2026-07-30": "Not currently available in session context -- was provided in a past session but is not persisted by design."
+    },
+    {
+      "what": "SUPABASE_SERVICE_ROLE_KEY",
+      "format": "JWT, ~200-250 chars, starts with eyJ...",
+      "where_to_get": "Supabase dashboard -> Settings -> API -> JWT Keys -> service_role (use the copy-icon, do not manually select text -- manual selection has caused truncated pastes)",
+      "unlocks": "Running the migration/admin Node scripts in sf_import/ (bypasses RLS entirely) -- already the established pattern, Naoelle sets it in her own PowerShell session per script run, Claude never sees the value.",
+      "status": "Working pattern, no change needed -- just watch for copy-paste truncation (see 2026-07-30 401 error)."
+    },
+    {
+      "what": "Vercel API token or `vercel` CLI login",
+      "where_to_get": "vercel.com/account/tokens, or `vercel login` (interactive, needs Naoelle)",
+      "unlocks": "Checking deployment status (Ready/Error/build logs) via Bash instead of navigating vercel.com in Chrome.",
+      "status_2026-07-30": "Neither installed nor configured on this machine yet."
+    },
+    {
+      "what": "Local dev server for Kimatch UI verification",
+      "already_set_up": true,
+      "how": ".claude/launch.json already configures `npm run dev` on port 5173 -- use the Browser pane's preview_start({name:'kiwee-os-dev'}) tool (Claude_Browser, the sandboxed in-app browser) to verify UI changes against localhost BEFORE pushing, instead of waiting for a Vercel deploy and checking production. Requires .env.local to have real (not placeholder) Supabase credentials, which it already does.",
+      "important_distinction": "This uses the Claude_Browser tool family (mcp__Claude_Browser__*), NOT Claude in Chrome (mcp__claude-in-chrome__*). The in-app Browser pane is faster and has none of the session-expiry/tab-closing flakiness that hit Claude in Chrome this session. Reserve actual Claude in Chrome for the rare cases that need Naoelle's own authenticated dashboard sessions (Supabase dashboard, Vercel dashboard, Salesforce Lightning UI) that aren't reachable via API/token."
+    }
+  ],
+
+  "standing_process_rules": [
+    "Never execute DDL/DML directly against production -- write the SQL or script, Naoelle (or Michel) runs it. This is a deliberate process choice, not a technical limitation; don't route around it even when a faster path exists.",
+    "Never assume a fact about data/schema state -- always verify with a targeted, specific query before asserting something exists, is empty, or has a certain count. A long aggregate query can silently truncate; prefer `select count(*) from x where y` over trusting a big joined dump.",
+    "Commit and push directly to master without asking for confirmation each time, for every code change (but never force-push, never amend published commits, never skip hooks).",
+    "After editing any sf_import/*.js script, copy it to Desktop\\import-pilote-kimatch\\ before telling Naoelle to run it -- the execution copy and the source copy have drifted before.",
+    "Before designating any account as a 'known-good reference' to validate an approach, verify it's actually inside whatever dataset/batch is being discussed -- Cabinet Molinier looked like a valid reference account but wasn't even in the imported pilot batch."
+  ]
+}
