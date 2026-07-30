@@ -1,0 +1,1371 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Instrument+Sans:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<style>
+html,body{margin:0;height:100%;background:#f6f6f4;font-family:'Instrument Sans',system-ui,sans-serif;color:#16181d;overflow:auto}
+a{color:#0d7a5f;text-decoration:none}a:hover{color:#095c47;text-decoration:underline}
+*{box-sizing:border-box}
+@keyframes toastIn{from{opacity:0;transform:translate(-50%,8px)}to{opacity:1;transform:translate(-50%,0)}}
+@keyframes fadeSlide{from{opacity:0;transform:translateY(-4px)}to{opacity:1;transform:none}}
+::placeholder{color:#a3a5a0}
+html[data-theme="dark"]{filter:invert(94%) hue-rotate(180deg);background:#0f1012}
+html[data-theme="dark"] img,html[data-theme="dark"] iframe,html[data-theme="dark"] [data-noinvert]{filter:invert(100%) hue-rotate(180deg)}
+</style>
+<script>try{if(localStorage.getItem('kiwee-theme')==='sombre')document.documentElement.setAttribute('data-theme','dark')}catch(e){}</script>
+</helmet>
+
+<div style="display:grid;grid-template-columns:56px 1fr;height:100vh;overflow:auto;min-width:1280px">
+  <!-- RAIL CRM -->
+  <div data-noinvert="true" style="background:#16181d;display:flex;flex-direction:column;align-items:center;padding:14px 0;gap:5px">
+    <span style="width:26px;height:26px;border-radius:8px;background:#0d7a5f;display:inline-flex;align-items:center;justify-content:center;color:#fff;font-weight:700;font-size:12px;margin-bottom:10px">K</span>
+    <span title="Rechercher (⌘K)" style="width:34px;height:34px;border-radius:9px;display:flex;align-items:center;justify-content:center;color:#8b8e96;cursor:pointer" style-hover="background:#2c2f36;color:#fff"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="7"></circle><path d="m21 21-4-4"></path></svg></span>
+    <span title="Accueil" style="width:34px;height:34px;border-radius:9px;display:flex;align-items:center;justify-content:center;color:#8b8e96;cursor:pointer" style-hover="background:#2c2f36;color:#fff"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 11 12 4l9 7"></path><path d="M5.5 9.5V20h13V9.5"></path></svg></span>
+    <span title="Comptes" style="width:34px;height:34px;border-radius:9px;display:flex;align-items:center;justify-content:center;color:#fff;background:#3b5f8a;cursor:pointer"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 20V5a1 1 0 0 1 1-1h8a1 1 0 0 1 1 1v15"></path><path d="M15 9h3a1 1 0 0 1 1 1v10"></path><path d="M3 20h18"></path><path d="M8.5 8h2M8.5 12h2M8.5 16h2"></path></svg></span>
+    <span title="Sites" style="width:34px;height:34px;border-radius:9px;display:flex;align-items:center;justify-content:center;color:#5db396;cursor:pointer" style-hover="background:#2c2f36"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 21s-7-4.8-7-10.7a7 7 0 0 1 14 0C19 16.2 12 21 12 21z"></path><circle cx="12" cy="10" r="2.5"></circle></svg></span>
+    <span title="Contacts" style="width:34px;height:34px;border-radius:9px;display:flex;align-items:center;justify-content:center;color:#a795c4;cursor:pointer" style-hover="background:#2c2f36"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="7.5" r="3.5"></circle><path d="M4.5 21c.6-4 3.6-6 7.5-6s6.9 2 7.5 6"></path></svg></span>
+    <span title="Recommandations" style="width:34px;height:34px;border-radius:9px;display:flex;align-items:center;justify-content:center;color:#c99e6a;cursor:pointer" style-hover="background:#2c2f36"><svg width="15" height="15" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2l2.3 7.7L22 12l-7.7 2.3L12 22l-2.3-7.7L2 12l7.7-2.3z"></path></svg></span>
+    <span title="Tâches" style="position:relative;width:34px;height:34px;border-radius:9px;display:flex;align-items:center;justify-content:center;color:#d1b06b;cursor:pointer" style-hover="background:#2c2f36"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="4" width="16" height="16" rx="3"></rect><path d="m8.5 12.5 2.5 2.5 5-5"></path></svg><span style="position:absolute;top:3px;right:3px;width:7px;height:7px;border-radius:50%;background:#c2452d"></span></span>
+    <span title="Marché" style="width:34px;height:34px;border-radius:9px;display:flex;align-items:center;justify-content:center;color:#6fb5ad;cursor:pointer" style-hover="background:#2c2f36"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 17l5.5-5.5 3.5 3.5L21 6"></path><path d="M15.5 6H21v5.5"></path></svg></span>
+    <div style="flex:1"></div>
+    <span onClick="{{ toggleTheme }}" title="Mode sombre / clair" style="width:34px;height:34px;border-radius:9px;display:flex;align-items:center;justify-content:center;color:#8b8e96;cursor:pointer;font-size:15px;user-select:none;margin-bottom:4px" style-hover="background:#2c2f36;color:#fff">{{ themeIcon }}</span>
+    <div style="width:28px;height:28px;border-radius:50%;background:#3a3d45;display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:600;color:#c9cbd2">TM</div>
+  </div>
+
+  <!-- MAIN -->
+  <div style="display:flex;flex-direction:column;min-width:0;height:100vh;overflow:hidden">
+    <!-- topbar -->
+    <div style="display:flex;align-items:center;gap:14px;padding:9px 22px;border-bottom:1px solid #e7e6e2;background:#fff;flex:none">
+      <span style="font-size:12px;color:#83868f">Comptes / <span style="color:#16181d;font-weight:600">Foncia Lyon Rhône</span></span>
+      <div style="display:flex;align-items:center;gap:8px;font-size:11.5px;color:#83868f;border:1px solid #e7e6e2;border-radius:7px;padding:5px 12px;background:#f6f6f4;min-width:230px;cursor:pointer" style-hover="border-color:#c9cbc6">⌕ Rechercher, agir…<span style="flex:1"></span><span style="font-family:'JetBrains Mono',monospace;font-size:9px;border:1px solid #e0dfdb;border-radius:3px;padding:0 4px;background:#fff">⌘K</span></div>
+      <div style="flex:1"></div>
+      <sc-if value="{{ showTicker }}" hint-placeholder-val="{{ true }}">
+        <div style="display:flex;align-items:center;gap:12px;font-size:11px;font-family:'JetBrains Mono',monospace;color:#83868f;background:#f6f6f4;border:1px solid #e7e6e2;border-radius:7px;padding:5px 12px"><span>PEG Cal27 <b style="color:#0d7a5f">31,4 ▾2,1%</b></span><span style="color:#d5d4cf">│</span><span>BASE Cal27 <b style="color:#c2452d">68,9 ▴0,8%</b></span></div>
+      </sc-if>
+      <span style="font-size:11.5px;color:#0d7a5f;font-weight:600">✓ enregistré</span>
+    </div>
+    <!-- account band -->
+    <div style="display:flex;align-items:center;gap:16px;padding:14px 22px 0;background:#fff;flex:none">
+      <div style="width:40px;height:40px;border-radius:10px;background:linear-gradient(135deg,#3b5f8a,#4f78ab);display:flex;align-items:center;justify-content:center;color:#fff"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 20V5a1 1 0 0 1 1-1h8a1 1 0 0 1 1 1v15"></path><path d="M15 9h3a1 1 0 0 1 1 1v10"></path><path d="M3 20h18"></path><path d="M8.5 8h2M8.5 12h2M8.5 16h2"></path></svg></div>
+      <div style="flex:1;min-width:0;display:flex;flex-direction:column;gap:6px">
+        <div style="display:flex;align-items:center;gap:12px">
+          <span style="font-size:20px;font-weight:700;letter-spacing:-.01em">Foncia Lyon Rhône</span>
+          <span style="font-size:10px;font-weight:600;color:#3b5f8a;background:#eef0f4;border-radius:5px;padding:2px 8px">Syndic de copropriété</span>
+          <span onClick="{{ cycleTypo }}" title="Typologie du compte — cliquer pour changer" style="{{ typoStyle }}">{{ typoDot }}{{ typoLabel }}</span>
+          <span style="font-size:11px;color:#83868f"><b style="color:#16181d">8</b> sites gérés</span>
+        </div>
+      </div>
+      <div style="display:flex;gap:7px">
+        <span style="display:flex;align-items:center;gap:6px;font-size:11.5px;font-weight:600;border:1px solid #e0dfdb;border-radius:8px;padding:8px 12px;background:#fff;cursor:pointer" style-hover="background:#f6f6f4"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72c.127.96.361 1.903.7 2.81a2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45c.907.339 1.85.573 2.81.7A2 2 0 0 1 22 16.92z"></path></svg>Appeler</span>
+        <span onClick="{{ focusNote }}" style="font-size:11.5px;font-weight:600;border:1px solid #e0dfdb;border-radius:8px;padding:8px 12px;background:#fff;cursor:pointer" style-hover="background:#f6f6f4">Note <span style="font-family:'JetBrains Mono',monospace;font-size:9px;color:#b6b8b3">N</span></span>
+        <span style="font-size:11.5px;font-weight:600;border:1px solid #e0dfdb;border-radius:8px;padding:8px 12px;background:#fff;cursor:pointer" style-hover="background:#f6f6f4">Relance <span style="font-family:'JetBrains Mono',monospace;font-size:9px;color:#b6b8b3">R</span></span>
+        <span style="font-size:11.5px;font-weight:600;border-radius:8px;padding:8px 13px;background:#16181d;color:#fff;cursor:pointer" style-hover="background:#2c2f36">＋ Site</span>
+      </div>
+      <div style="display:flex;flex-direction:column;gap:3px;align-items:flex-start;border:1px solid #f0efec;background:#fbfbfa;border-radius:10px;padding:6px 11px;flex:none">
+        <span onClick="{{ cycleOwner }}" title="Propriétaire — cliquer pour réattribuer" style="display:inline-flex;align-items:center;gap:6px;cursor:pointer;user-select:none" style-hover="opacity:.8">
+          <span style="width:16px;height:16px;border-radius:50%;background:#e4ded2;color:#6b6355;font-size:7.5px;font-weight:700;display:inline-flex;align-items:center;justify-content:center">{{ ownerIni }}</span>
+          <span style="font-size:10px;font-weight:700;color:#5c5f66">{{ owner }}</span>
+          <svg width="8" height="8" viewBox="0 0 24 24" fill="none" stroke="#b6b8b3" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M8 3 4 7l4 4"></path><path d="M4 7h16"></path><path d="m16 21 4-4-4-4"></path><path d="M20 17H4"></path></svg>
+        </span>
+        <span style="font-size:9px;color:#a3a5a0;white-space:nowrap">Créé 03/05/2021 · Modifié {{ modifie }}</span>
+      </div>
+    </div>
+    <!-- tabs -->
+    <div style="display:flex;gap:2px;padding:10px 22px 0;background:#fff;border-bottom:1px solid #e7e6e2;flex:none">
+      <sc-for list="{{ tabs }}" as="t" hint-placeholder-count="6">
+        <span onClick="{{ t.go }}" style="{{ t.style }}">{{ t.label }}<sc-if value="{{ t.badge }}" hint-placeholder-val="{{ false }}"><span style="{{ t.badgeStyle }}">{{ t.badge }}</span></sc-if></span>
+      </sc-for>
+      <div style="flex:1"></div>
+      <span style="font-size:10px;color:#c0c2bd;align-self:center;padding-right:4px;font-family:'JetBrains Mono',monospace">1–8 pour naviguer</span>
+    </div>
+
+    <!-- 3 zones -->
+    <div style="display:grid;grid-template-columns:280px 1fr 304px;flex:1;min-height:0">
+
+      <!-- ══ LEFT PANEL : CONTACTS ══ -->
+      <div style="border-right:1px solid #e7e6e2;padding:14px 16px;display:flex;flex-direction:column;gap:14px;background:#fbfbfa;overflow-y:auto">
+        <div style="background:#fff;border:1px solid #e7e6e2;border-radius:11px;padding:13px 14px">
+          <div style="display:flex;align-items:center;gap:7px;margin-bottom:11px"><span style="width:20px;height:20px;border-radius:6px;background:#f1edf7;color:#7c5bb0;display:inline-flex;align-items:center;justify-content:center"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="7.5" r="3.5"></circle><path d="M4.5 21c.6-4 3.6-6 7.5-6s6.9 2 7.5 6"></path></svg></span><span style="font-size:10px;font-weight:700;letter-spacing:.08em;color:#a3a5a0;text-transform:uppercase">Contacts</span><span style="flex:1"></span><a href="#" style="font-size:10.5px;font-weight:600;color:#7c5bb0">＋</a></div>
+          <div style="display:flex;align-items:center;gap:6px;margin-bottom:7px"><span style="width:16px;height:16px;border-radius:4px;background:#eef0f4;color:#3b5f8a;display:inline-flex;align-items:center;justify-content:center"><svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M5 20V5a1 1 0 0 1 1-1h8a1 1 0 0 1 1 1v15"></path><path d="M3 20h18"></path></svg></span><span style="font-size:9px;font-weight:800;letter-spacing:.07em;color:#3b5f8a;text-transform:uppercase">Cabinet · partagés portefeuille</span></div>
+          <div style="display:flex;flex-direction:column;gap:9px">
+            <div style="background:#fbfbfa;border:1px solid #f0efec;border-radius:11px;padding:11px 12px" style-hover="border-color:#d7dde6">
+              <div style="display:flex;align-items:center;gap:10px">
+                <div style="width:36px;height:36px;border-radius:50%;background:#eef0f4;color:#3b5f8a;border:1.5px solid #d7dde6;font-size:11px;font-weight:700;display:flex;align-items:center;justify-content:center;flex:none">CV</div>
+                <div style="flex:1;min-width:0"><div style="font-size:13px;font-weight:700;display:flex;align-items:center;gap:5px"><a href="Fiche Contact.dc.html" style="color:inherit;text-decoration:none" style-hover="color:#7c5bb0;text-decoration:underline">Claire Vasseur</a><span title="Signataire des mandats" style="width:15px;height:15px;border-radius:4px;background:#f3e3c8;display:inline-flex;align-items:center;justify-content:center;flex:none"><svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="#8a6420" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z"></path></svg></span></div><div style="font-size:11px;color:#83868f;margin-top:1px">Gestionnaire · 5 sites</div></div>
+              </div>
+              <div style="display:flex;gap:6px;margin-top:10px">
+                <span style="flex:1;display:flex;align-items:center;justify-content:center;gap:6px;font-size:10.5px;font-weight:600;border:1px solid #e0dfdb;border-radius:8px;padding:7px 0;background:#fff;cursor:pointer;color:#5c5f66" style-hover="background:#eaf4f0;color:#0d7a5f;border-color:#d3e5de"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72c.127.96.361 1.903.7 2.81a2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45c.907.339 1.85.573 2.81.7A2 2 0 0 1 22 16.92z"></path></svg>Appeler</span>
+                <span style="flex:1;display:flex;align-items:center;justify-content:center;gap:6px;font-size:10.5px;font-weight:600;border:1px solid #e0dfdb;border-radius:8px;padding:7px 0;background:#fff;cursor:pointer;color:#5c5f66" style-hover="background:#eef0f4;color:#3b5f8a;border-color:#d7dde6"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="4" width="20" height="16" rx="2"></rect><path d="m22 7-10 5L2 7"></path></svg>Email</span>
+              </div>
+            </div>
+            <div style="background:#fbfbfa;border:1px solid #f0efec;border-radius:11px;padding:11px 12px" style-hover="border-color:#d7dde6">
+              <div style="display:flex;align-items:center;gap:10px">
+                <div style="width:36px;height:36px;border-radius:50%;background:#eef0f4;color:#3b5f8a;border:1.5px solid #d7dde6;font-size:11px;font-weight:700;display:flex;align-items:center;justify-content:center;flex:none">JP</div>
+                <div style="flex:1;min-width:0"><div style="font-size:13px;font-weight:700">Julien Perrin</div><div style="font-size:11px;color:#83868f;margin-top:1px">Gestionnaire · 3 sites</div></div>
+              </div>
+              <div style="display:flex;gap:6px;margin-top:10px">
+                <span style="flex:1;display:flex;align-items:center;justify-content:center;gap:6px;font-size:10.5px;font-weight:600;border:1px solid #e0dfdb;border-radius:8px;padding:7px 0;background:#fff;cursor:pointer;color:#5c5f66" style-hover="background:#eaf4f0;color:#0d7a5f;border-color:#d3e5de"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72c.127.96.361 1.903.7 2.81a2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45c.907.339 1.85.573 2.81.7A2 2 0 0 1 22 16.92z"></path></svg>Appeler</span>
+                <span style="flex:1;display:flex;align-items:center;justify-content:center;gap:6px;font-size:10.5px;font-weight:600;border:1px solid #e0dfdb;border-radius:8px;padding:7px 0;background:#fff;cursor:pointer;color:#5c5f66" style-hover="background:#eef0f4;color:#3b5f8a;border-color:#d7dde6"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="4" width="20" height="16" rx="2"></rect><path d="m22 7-10 5L2 7"></path></svg>Email</span>
+              </div>
+            </div>
+            <div style="background:#fbfbfa;border:1px solid #f0efec;border-radius:11px;padding:11px 12px" style-hover="border-color:#d7dde6">
+              <div style="display:flex;align-items:center;gap:10px">
+                <div style="width:36px;height:36px;border-radius:50%;background:#eef0f4;color:#3b5f8a;border:1.5px solid #d7dde6;font-size:11px;font-weight:700;display:flex;align-items:center;justify-content:center;flex:none">SL</div>
+                <div style="flex:1;min-width:0"><div style="font-size:13px;font-weight:700">Sophie Lambert</div><div style="font-size:11px;color:#83868f;margin-top:1px">Direction · comptabilité</div></div>
+              </div>
+              <div style="display:flex;gap:6px;margin-top:10px">
+                <span style="flex:1;display:flex;align-items:center;justify-content:center;gap:6px;font-size:10.5px;font-weight:600;border:1px solid #e0dfdb;border-radius:8px;padding:7px 0;background:#fff;cursor:pointer;color:#5c5f66" style-hover="background:#eaf4f0;color:#0d7a5f;border-color:#d3e5de"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72c.127.96.361 1.903.7 2.81a2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45c.907.339 1.85.573 2.81.7A2 2 0 0 1 22 16.92z"></path></svg>Appeler</span>
+                <span style="flex:1;display:flex;align-items:center;justify-content:center;gap:6px;font-size:10.5px;font-weight:600;border:1px solid #e0dfdb;border-radius:8px;padding:7px 0;background:#fff;cursor:pointer;color:#5c5f66" style-hover="background:#eef0f4;color:#3b5f8a;border-color:#d7dde6"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="4" width="20" height="16" rx="2"></rect><path d="m22 7-10 5L2 7"></path></svg>Email</span>
+              </div>
+            </div>
+          </div>
+          <a href="#" style="display:block;font-size:10.5px;font-weight:600;color:#7c5bb0;margin-top:9px;padding:2px 0">Voir les 12 contacts →</a>
+          <div style="border-top:1px solid #f5f4f1;margin-top:11px;padding-top:11px">
+            <div style="display:flex;align-items:center;gap:6px;margin-bottom:7px"><span style="width:16px;height:16px;border-radius:4px;background:#f1edf7;color:#7c5bb0;display:inline-flex;align-items:center;justify-content:center"><svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="8" r="3"></circle><path d="M2.5 20c.5-3.3 3-5 6.5-5s6 1.7 6.5 5"></path><circle cx="17.5" cy="9.5" r="2.3"></circle><path d="M17 15c2.6.2 4.3 1.7 4.7 4.5"></path></svg></span><span style="font-size:9px;font-weight:800;letter-spacing:.07em;color:#7c5bb0;text-transform:uppercase">Conseils syndicaux · par site</span></div>
+            <div style="display:flex;flex-direction:column;gap:5px;font-size:11px">
+              <div style="display:flex;align-items:center;gap:7px;padding:8px 8px;border-radius:8px;cursor:pointer" style-hover="background:#f6f6f4"><span style="width:6px;height:6px;border-radius:50%;background:#0d7a5f"></span><span style="flex:1"><b>M. Bianchi</b> · Terrasses du Parc</span><span style="color:#c9cbc6">›</span></div>
+              <div style="display:flex;align-items:center;gap:7px;padding:8px 8px;border-radius:8px;cursor:pointer" style-hover="background:#f6f6f4"><span style="width:6px;height:6px;border-radius:50%;background:#0d7a5f"></span><span style="flex:1"><b>A. Keller</b> · Rés. les Chartreux</span><span style="color:#c9cbc6">›</span></div>
+              <div style="display:flex;align-items:center;gap:7px;padding:8px 8px;border-radius:8px;cursor:pointer" style-hover="background:#f6f6f4"><span style="width:6px;height:6px;border-radius:50%;background:#0d7a5f"></span><span style="flex:1"><b>P. Roussel</b> · Le Clos Montchat</span><span style="color:#c9cbc6">›</span></div>
+              <a href="#" style="font-size:10.5px;font-weight:600;color:#7c5bb0;padding:3px 7px">tous les conseils (8) →</a>
+            </div>
+          </div>
+        </div>
+        <div style="background:#fff;border:1px solid #e7e6e2;border-radius:11px;padding:13px 14px">
+          <div style="display:flex;align-items:center;gap:7px;margin-bottom:9px"><span style="width:20px;height:20px;border-radius:6px;background:#f0efec;color:#5c5f66;display:inline-flex;align-items:center;justify-content:center"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path></svg></span><span style="font-size:10px;font-weight:700;letter-spacing:.08em;color:#a3a5a0;text-transform:uppercase">Commentaire</span><span style="flex:1"></span><span onClick="{{ editComment }}" title="Modifier" style="width:20px;height:20px;border-radius:5px;display:inline-flex;align-items:center;justify-content:center;color:#c9cbc6;cursor:pointer" style-hover="background:#f0efec;color:#16181d"><svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z"></path></svg></span></div>
+          <sc-if value="{{ eComment }}" hint-placeholder-val="{{ false }}">
+            <textarea value="{{ dC }}" onChange="{{ chC }}" onBlur="{{ commitComment }}" autoFocus="{{ true }}" rows="6" style="width:100%;border:1px solid #0d7a5f;border-radius:8px;padding:8px 10px;font-size:11.5px;line-height:1.6;font-family:'Instrument Sans',sans-serif;outline:none;resize:vertical;box-shadow:0 0 0 3px rgba(13,122,95,.12);color:#16181d"></textarea>
+          </sc-if>
+          <sc-if value="{{ vComment }}" hint-placeholder-val="{{ true }}">
+            <div onClick="{{ editComment }}" title="Cliquer pour modifier" style="{{ commentStyle }}" style-hover="background:#fbfbfa">{{ commentDisp }}</div>
+          </sc-if>
+        </div>
+      </div>
+
+      <!-- ══ CENTER ══ -->
+      <div style="background:#f6f6f4;overflow-y:auto;padding:18px 22px">
+
+        <!-- ═ ONGLET COMPTE (défaut) ═ -->
+        <sc-if value="{{ tabCompte }}" hint-placeholder-val="{{ true }}">
+          <div style="display:flex;flex-direction:column;gap:14px;animation:fadeSlide .18s ease-out">
+            <!-- VALEUR + IDENTITÉ -->
+            <div style="display:grid;grid-template-columns:1fr 1.25fr;gap:14px;align-items:stretch">
+              <div style="background:#fff;border:1px solid #d7dde6;border-radius:12px;padding:14px 16px;box-shadow:0 1px 4px rgba(59,95,138,.06)">
+                <div style="display:flex;align-items:center;gap:12px">
+                  <div style="position:relative;width:58px;height:58px;border-radius:50%;background:conic-gradient(#3b5f8a 0 81%,#e8ecf1 81% 100%);display:flex;align-items:center;justify-content:center;flex:none"><div style="width:44px;height:44px;border-radius:50%;background:#fff;display:flex;flex-direction:column;align-items:center;justify-content:center"><span style="font-size:16px;font-weight:700;line-height:1;color:#3b5f8a">81</span><span style="font-size:7.5px;color:#a3a5a0;font-weight:700">/ 100</span></div></div>
+                  <div><div style="font-size:12.5px;font-weight:700">Valeur du compte</div><div style="font-size:11px;color:#3b5f8a;font-weight:600">Scoring commercial · fort potentiel</div></div>
+                </div>
+                <div style="display:flex;flex-direction:column;gap:6px;margin-top:12px;font-size:11px">
+                  <div style="display:flex;align-items:center;gap:8px"><span style="width:7px;height:7px;border-radius:50%;background:#3b5f8a;flex:none"></span><span style="flex:1">Ancienneté relation · 5 ans</span><span style="font-size:10px;font-weight:800;color:#3b5f8a;background:#eef0f4;border-radius:5px;padding:2px 7px;font-family:'JetBrains Mono',monospace">+22</span></div>
+                  <div style="display:flex;align-items:center;gap:8px"><span style="width:7px;height:7px;border-radius:50%;background:#3b5f8a;flex:none"></span><span style="flex:1">6/8 sites client (75 %)</span><span style="font-size:10px;font-weight:800;color:#3b5f8a;background:#eef0f4;border-radius:5px;padding:2px 7px;font-family:'JetBrains Mono',monospace">+31</span></div>
+                  <div style="display:flex;align-items:center;gap:8px"><span style="width:7px;height:7px;border-radius:50%;background:#b57a24;flex:none"></span><span style="flex:1">2 prospects convertibles · ≈ 180 MWh/an</span><span style="font-size:10px;font-weight:800;color:#8a6420;background:#f3e3c8;border-radius:5px;padding:2px 7px;font-family:'JetBrains Mono',monospace">+28</span></div>
+                </div>
+                <div style="border-top:1px solid #f0efec;margin-top:11px;padding-top:9px;display:flex;align-items:center;gap:8px"><span style="font-size:11px;color:#83868f;flex:1">Priorité : convertir les Balcons de la Saône</span><span style="font-size:10.5px;font-weight:600;background:#3b5f8a;color:#fff;border-radius:7px;padding:5px 11px;cursor:pointer" style-hover="background:#2f4d70">Plan d'action</span></div>
+              </div>
+              <div style="background:#fff;border:1px solid #e7e6e2;border-radius:12px;padding:16px 18px">
+                <div style="display:flex;align-items:center;gap:7px;margin-bottom:14px"><span style="width:20px;height:20px;border-radius:6px;background:#eef0f4;color:#3b5f8a;display:inline-flex;align-items:center;justify-content:center"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 20V5a1 1 0 0 1 1-1h8a1 1 0 0 1 1 1v15"></path><path d="M15 9h3a1 1 0 0 1 1 1v10"></path><path d="M3 20h18"></path></svg></span><span style="font-size:10px;font-weight:700;letter-spacing:.08em;color:#a3a5a0;text-transform:uppercase">Identité</span><span style="flex:1"></span><span style="font-size:10px;color:#b6b8b3">cliquer une valeur pour modifier · ⧉ pour copier</span></div>
+                <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px 22px">
+                  <div>
+                    <div style="font-size:10px;color:#a3a5a0;text-transform:uppercase;letter-spacing:.05em;margin-bottom:3px">Type de compte</div>
+                    <sc-if value="{{ eType }}" hint-placeholder-val="{{ false }}">
+                      <input value="{{ dV }}" onChange="{{ chV }}" onKeyDown="{{ onDraftKey }}" onBlur="{{ commitEdit }}" autoFocus="{{ true }}" style="width:100%;border:1px solid #0d7a5f;border-radius:7px;padding:5px 9px;font-size:12px;font-weight:600;font-family:'Instrument Sans',sans-serif;outline:none;box-shadow:0 0 0 3px rgba(13,122,95,.12)">
+                    </sc-if>
+                    <sc-if value="{{ vType }}" hint-placeholder-val="{{ true }}">
+                      <span onClick="{{ editType }}" title="Cliquer pour modifier" style="{{ sType }}" style-hover="border-color:#0d7a5f;color:#5c5f66">{{ cType }}</span>
+                    </sc-if>
+                  </div>
+                  <div>
+                    <div style="font-size:10px;color:#a3a5a0;text-transform:uppercase;letter-spacing:.05em;margin-bottom:3px">Typologie</div>
+                    <span onClick="{{ cycleTypo }}" title="Cliquer pour changer de typologie" style="{{ typoStyle }}">{{ typoDot }}{{ typoLabel }}</span>
+                  </div>
+                  <div>
+                    <div style="font-size:10px;color:#a3a5a0;text-transform:uppercase;letter-spacing:.05em;margin-bottom:3px">Statut</div>
+                    <span onClick="{{ toggleStatut }}" title="Cliquer pour basculer client / prospect" style="{{ statutStyle }}">{{ statutLabel }}</span>
+                  </div>
+                  <div>
+                    <div style="font-size:10px;color:#a3a5a0;text-transform:uppercase;letter-spacing:.05em;margin-bottom:3px">SIRET</div>
+                    <div style="display:flex;align-items:center;gap:6px"><span onClick="{{ copySiret }}" title="Cliquer pour copier" style="font-family:'JetBrains Mono',monospace;font-size:12px;font-weight:600;cursor:copy" style-hover="color:#3b5f8a">512 345 678 00042</span><span onClick="{{ copySiret }}" title="Copier" style="width:18px;height:18px;border-radius:5px;display:inline-flex;align-items:center;justify-content:center;color:#c9cbc6;cursor:pointer;flex:none" style-hover="background:#f0efec;color:#16181d"><svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="12" height="12" rx="2"></rect><path d="M5 15V5a2 2 0 0 1 2-2h10"></path></svg></span></div>
+                  </div>
+                  <div>
+                    <div style="font-size:10px;color:#a3a5a0;text-transform:uppercase;letter-spacing:.05em;margin-bottom:3px">SIREN</div>
+                    <div style="display:flex;align-items:center;gap:6px"><span onClick="{{ copySiren }}" title="Cliquer pour copier" style="font-family:'JetBrains Mono',monospace;font-size:12px;font-weight:600;cursor:copy" style-hover="color:#3b5f8a">512 345 678</span><span onClick="{{ copySiren }}" title="Copier" style="width:18px;height:18px;border-radius:5px;display:inline-flex;align-items:center;justify-content:center;color:#c9cbc6;cursor:pointer;flex:none" style-hover="background:#f0efec;color:#16181d"><svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="12" height="12" rx="2"></rect><path d="M5 15V5a2 2 0 0 1 2-2h10"></path></svg></span></div>
+                  </div>
+                  <div>
+                    <div style="font-size:10px;color:#a3a5a0;text-transform:uppercase;letter-spacing:.05em;margin-bottom:3px">Code NAF</div>
+                    <sc-if value="{{ eNaf }}" hint-placeholder-val="{{ false }}">
+                      <input value="{{ dV }}" onChange="{{ chV }}" onKeyDown="{{ onDraftKey }}" onBlur="{{ commitEdit }}" autoFocus="{{ true }}" style="width:100%;border:1px solid #0d7a5f;border-radius:7px;padding:5px 9px;font-size:12px;font-weight:600;font-family:'JetBrains Mono',monospace;outline:none;box-shadow:0 0 0 3px rgba(13,122,95,.12)">
+                    </sc-if>
+                    <sc-if value="{{ vNaf }}" hint-placeholder-val="{{ true }}">
+                      <span onClick="{{ editNaf }}" title="Cliquer pour modifier" style="{{ sNaf }}" style-hover="border-color:#0d7a5f;color:#5c5f66">{{ cNaf }}</span>
+                    </sc-if>
+                  </div>
+                  <div>
+                    <div style="font-size:10px;color:#a3a5a0;text-transform:uppercase;letter-spacing:.05em;margin-bottom:3px">Libellé APE</div>
+                    <sc-if value="{{ eApe }}" hint-placeholder-val="{{ false }}">
+                      <input value="{{ dV }}" onChange="{{ chV }}" onKeyDown="{{ onDraftKey }}" onBlur="{{ commitEdit }}" autoFocus="{{ true }}" style="width:100%;border:1px solid #0d7a5f;border-radius:7px;padding:5px 9px;font-size:12px;font-weight:600;font-family:'Instrument Sans',sans-serif;outline:none;box-shadow:0 0 0 3px rgba(13,122,95,.12)">
+                    </sc-if>
+                    <sc-if value="{{ vApe }}" hint-placeholder-val="{{ true }}">
+                      <span onClick="{{ editApe }}" title="Cliquer pour modifier" style="{{ sApe }}" style-hover="border-color:#0d7a5f;color:#5c5f66">{{ cApe }}</span>
+                    </sc-if>
+                  </div>
+                  <div>
+                    <div style="font-size:10px;color:#a3a5a0;text-transform:uppercase;letter-spacing:.05em;margin-bottom:3px">Note Ellipro</div>
+                    <span style="display:flex;align-items:center;gap:6px"><span style="display:flex;gap:2px"><span style="width:14px;height:5px;border-radius:3px;background:#0d7a5f"></span><span style="width:14px;height:5px;border-radius:3px;background:#0d7a5f"></span><span style="width:14px;height:5px;border-radius:3px;background:#0d7a5f"></span><span style="width:14px;height:5px;border-radius:3px;background:#0d7a5f"></span><span style="width:14px;height:5px;border-radius:3px;background:#eceae6"></span></span><span style="font-size:11px;font-weight:800;color:#0d7a5f;background:#eaf4f0;border-radius:5px;padding:2px 7px">8/10</span></span>
+                  </div>
+                  <div style="grid-column:span 2">
+                    <div style="font-size:10px;color:#a3a5a0;text-transform:uppercase;letter-spacing:.05em;margin-bottom:3px">Siège social</div>
+                    <sc-if value="{{ eSiege }}" hint-placeholder-val="{{ false }}">
+                      <div style="display:flex;flex-direction:column;gap:6px;position:relative">
+                        <div style="display:flex;align-items:center;gap:8px;border:1px solid #4285f4;border-radius:8px;padding:6px 10px;background:#fff;box-shadow:0 0 0 3px rgba(66,133,244,.10)">
+                          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#4285f4" stroke-width="2.2" stroke-linecap="round"><circle cx="11" cy="11" r="7"></circle><path d="m21 21-4-4"></path></svg>
+                          <input value="{{ gQ }}" onChange="{{ chGQ }}" autoFocus="{{ true }}" placeholder="Rechercher une adresse…" style="flex:1;border:0;outline:none;font-size:12px;font-family:'Instrument Sans',sans-serif;color:#16181d;background:transparent">
+                          <span style="font-size:8.5px;font-weight:700;letter-spacing:.04em;color:#a3a5a0">GOOGLE</span>
+                        </div>
+                        <sc-if value="{{ gOpen }}" hint-placeholder-val="{{ false }}">
+                          <div style="position:absolute;top:34px;left:0;right:0;background:#fff;border:1px solid #e0dfdb;border-radius:9px;box-shadow:0 10px 26px rgba(0,0,0,.14);z-index:20;overflow:hidden">
+                            <sc-for list="{{ gSugg }}" as="s" hint-placeholder-count="3">
+                              <div onClick="{{ s.pick }}" style="display:flex;align-items:center;gap:8px;padding:8px 11px;cursor:pointer;font-size:11.5px" style-hover="background:#f6f6f4"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="#a3a5a0" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 21s-7-4.8-7-10.7a7 7 0 0 1 14 0C19 16.2 12 21 12 21z"></path><circle cx="12" cy="10" r="2.5"></circle></svg><span style="flex:1">{{ s.lbl }}</span></div>
+                            </sc-for>
+                          </div>
+                        </sc-if>
+                        <div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap">
+                          <input value="{{ dRue }}" onChange="{{ chRue }}" onKeyDown="{{ onDraftKey }}" placeholder="Rue" style="flex:2;min-width:150px;border:1px solid #0d7a5f;border-radius:7px;padding:5px 9px;font-size:12px;font-weight:600;font-family:'Instrument Sans',sans-serif;outline:none">
+                          <input value="{{ dCp }}" onChange="{{ chCp }}" onKeyDown="{{ onDraftKey }}" placeholder="Code postal" style="width:82px;border:1px solid #0d7a5f;border-radius:7px;padding:5px 9px;font-size:12px;font-weight:600;font-family:'JetBrains Mono',monospace;outline:none">
+                          <input value="{{ dVille }}" onChange="{{ chVille }}" onKeyDown="{{ onDraftKey }}" placeholder="Ville" style="flex:1;min-width:90px;border:1px solid #0d7a5f;border-radius:7px;padding:5px 9px;font-size:12px;font-weight:600;font-family:'Instrument Sans',sans-serif;outline:none">
+                          <span onClick="{{ commitEdit }}" title="Valider" style="width:24px;height:24px;border-radius:7px;background:#0d7a5f;color:#fff;display:inline-flex;align-items:center;justify-content:center;cursor:pointer;flex:none">✓</span>
+                        </div>
+                        <span style="font-size:9.5px;color:#a3a5a0">Recherche Google pour standardiser · Entrée ↵ pour valider · Échap pour annuler</span>
+                      </div>
+                    </sc-if>
+                    <sc-if value="{{ vSiege }}" hint-placeholder-val="{{ true }}">
+                      <div style="display:flex;align-items:center;gap:6px"><span onClick="{{ editSiege }}" title="Cliquer pour modifier" style="{{ sSiege }}" style-hover="border-color:#0d7a5f;color:#5c5f66">{{ cSiege }}</span><span onClick="{{ copySiege }}" title="Copier" style="width:18px;height:18px;border-radius:5px;display:inline-flex;align-items:center;justify-content:center;color:#c9cbc6;cursor:pointer;flex:none" style-hover="background:#f0efec;color:#16181d"><svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="12" height="12" rx="2"></rect><path d="M5 15V5a2 2 0 0 1 2-2h10"></path></svg></span></div>
+                    </sc-if>
+                  </div>
+                  <div>
+                    <div style="font-size:10px;color:#a3a5a0;text-transform:uppercase;letter-spacing:.05em;margin-bottom:3px">Département</div>
+                    <sc-if value="{{ eZone }}" hint-placeholder-val="{{ false }}">
+                      <div style="display:flex;gap:6px;align-items:center">
+                        <input value="{{ dDeptNum }}" onChange="{{ chDeptNum }}" onKeyDown="{{ onDraftKey }}" autoFocus="{{ true }}" style="width:44px;border:1px solid #0d7a5f;border-radius:7px;padding:5px 9px;font-size:12px;font-weight:600;font-family:'JetBrains Mono',monospace;outline:none;box-shadow:0 0 0 3px rgba(13,122,95,.12)">
+                        <input value="{{ dDeptNom }}" onChange="{{ chDeptNom }}" onKeyDown="{{ onDraftKey }}" style="flex:1;min-width:60px;border:1px solid #0d7a5f;border-radius:7px;padding:5px 9px;font-size:12px;font-weight:600;font-family:'Instrument Sans',sans-serif;outline:none">
+                        <span onClick="{{ commitEdit }}" title="Valider" style="width:24px;height:24px;border-radius:7px;background:#0d7a5f;color:#fff;display:inline-flex;align-items:center;justify-content:center;cursor:pointer;flex:none">✓</span>
+                      </div>
+                    </sc-if>
+                    <sc-if value="{{ vZone }}" hint-placeholder-val="{{ true }}">
+                      <span onClick="{{ editZone }}" title="Cliquer pour modifier" style="{{ sZone }}" style-hover="border-color:#0d7a5f;color:#5c5f66">{{ cZone }}</span>
+                    </sc-if>
+                  </div>
+
+                </div>
+              </div>
+            </div>
+            <!-- CARTE MULTI-PINS navigable (Leaflet) -->
+            <div style="background:#fff;border:1px solid #e7e6e2;border-radius:12px;overflow:hidden">
+              <div id="cpt-map" style="position:relative;height:320px;z-index:0;background:#eceae6"></div>
+              <div style="display:flex;align-items:center;gap:12px;padding:9px 14px;border-top:1px solid #f0efec;flex-wrap:wrap">
+                <span style="font-size:11.5px;font-weight:600;white-space:nowrap">8 sites · Lyon métropole</span>
+                <span style="display:flex;gap:10px;font-size:10px;color:#5c5f66;flex-wrap:wrap"><span><span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:#0d7a5f;vertical-align:-1px"></span> bonne santé</span><span><span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:#e0a83c;vertical-align:-1px"></span> attention</span><span><span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:#c2452d;vertical-align:-1px"></span> critique</span><span><span style="display:inline-block;width:8px;height:8px;border-radius:50%;border:1.5px dashed #83868f;vertical-align:-1px"></span> prospect</span></span>
+                <span style="flex:1"></span>
+                <span style="font-size:10px;color:#a3a5a0">navigation libre — les pins restent affichés · clic sur un pin → fiche Site</span>
+              </div>
+            </div>
+            <!-- HISTORIQUE RELATION -->
+            <div style="background:#fff;border:1px solid #e7e6e2;border-radius:12px;padding:14px 16px">
+              <div style="display:flex;align-items:center;gap:8px;margin-bottom:11px"><span style="font-size:10px;font-weight:700;letter-spacing:.08em;color:#a3a5a0;text-transform:uppercase">Historique de la relation</span><span style="font-size:10px;color:#a3a5a0">· tous sites confondus</span></div>
+              <div style="display:flex;flex-direction:column">
+                <sc-for list="{{ relEvents }}" as="e" hint-placeholder-count="5">
+                  <div style="display:flex;gap:11px">
+                    <div style="display:flex;flex-direction:column;align-items:center;width:26px;flex:none"><span style="{{ e.iconStyle }}">{{ e.icon }}</span><sc-if value="{{ e.notLast }}" hint-placeholder-val="{{ true }}"><span style="width:2px;flex:1;background:#f0efec;min-height:10px"></span></sc-if></div>
+                    <div onClick="{{ e.toggle }}" style="{{ e.rowStyle }}">
+                      <div style="display:flex;align-items:center;gap:8px"><span style="font-size:10px;color:#a3a5a0;font-family:'JetBrains Mono',monospace;width:74px;flex:none">{{ e.date }}</span><span style="flex:1;font-size:12px;font-weight:600">{{ e.titre }}</span><span style="{{ e.tagStyle }}">{{ e.tag }}</span><span style="color:#c9cbc6;font-size:10px">{{ e.chev }}</span></div>
+                      <sc-if value="{{ e.open }}" hint-placeholder-val="{{ false }}">
+                        <div style="margin:7px 0 4px 82px;padding:8px 11px;background:#fbfbfa;border:1px solid #f0efec;border-radius:8px;font-size:11px;color:#5c5f66;line-height:1.55;animation:fadeSlide .15s ease-out">{{ e.detail }}</div>
+                      </sc-if>
+                    </div>
+                  </div>
+                </sc-for>
+              </div>
+            </div>
+          </div>
+        </sc-if>
+
+        <!-- ═ CONTRATS ═ -->
+        <sc-if value="{{ tabContrats }}" hint-placeholder-val="{{ false }}">
+          <div style="display:flex;flex-direction:column;gap:12px;animation:fadeSlide .18s ease-out">
+            <div style="background:#fff;border:1px solid #e7e6e2;border-radius:14px;display:grid;grid-template-columns:230px 1fr 1fr 1fr;overflow:hidden">
+              <div onClick="{{ hAll }}" title="Afficher tous les contrats" style="{{ hs0 }}">
+                <span style="display:flex;align-items:center;gap:7px"><span style="width:22px;height:22px;border-radius:6px;background:#eaf4f0;color:#0d7a5f;display:inline-flex;align-items:center;justify-content:center"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 3h9l4 4v14a1 1 0 0 1-1 1H6a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1z"></path><path d="M9 12h6M9 16h6"></path></svg></span><span style="font-size:10px;font-weight:700;letter-spacing:.08em;color:#a3a5a0;text-transform:uppercase">Contrats</span></span>
+                <span style="font-size:30px;font-weight:700;letter-spacing:-.02em;line-height:1.15">22</span>
+                <span style="font-size:11px;color:#83868f">16 compteurs · 8 sites</span>
+              </div>
+              <div onClick="{{ hAct }}" title="Filtrer : contrats actifs" style="{{ hs1 }}"><span style="font-size:10px;font-weight:700;letter-spacing:.08em;color:#a3a5a0;text-transform:uppercase">Actifs</span><span style="font-size:22px;font-weight:700;color:#0d7a5f;font-family:'JetBrains Mono',monospace">16</span><span style="font-size:10.5px;color:#83868f">+ 1 à venir · 5 expirés</span></div>
+              <div onClick="{{ hEch }}" title="Filtrer : échéances &lt; 12 mois" style="{{ hs2 }}"><span style="font-size:10px;font-weight:700;letter-spacing:.08em;color:#a3a5a0;text-transform:uppercase">Échéances &lt; 12 mois</span><span style="font-size:22px;font-weight:700;color:#c2452d;font-family:'JetBrains Mono',monospace">3</span><span style="font-size:10.5px;color:#83868f">prochaine : J−42 · Clos Montchat</span></div>
+              <div onClick="{{ hSr }}" title="Filtrer : sans reco lancée" style="{{ hs3 }}"><span style="font-size:10px;font-weight:700;letter-spacing:.08em;color:#a3a5a0;text-transform:uppercase">Sans reco lancée</span><span style="font-size:22px;font-weight:700;color:#b57a24;font-family:'JetBrains Mono',monospace">3</span><span style="font-size:10.5px;color:#83868f">à couvrir avant l'hiver</span></div>
+            </div>
+            <sc-if value="{{ hfOn }}" hint-placeholder-val="{{ false }}">
+              <div style="display:flex;align-items:center;gap:8px"><span style="font-size:10.5px;font-weight:700;color:#fff;background:#16181d;border-radius:13px;padding:5px 12px;display:inline-flex;align-items:center;gap:7px">Filtre : {{ hfLabel }}<span onClick="{{ hAll }}" style="cursor:pointer;opacity:.7">✕</span></span><span style="font-size:10.5px;color:#83868f">{{ nbContrats }} contrats correspondants</span></div>
+            </sc-if>
+            <div style="display:flex;align-items:center;gap:8px;background:#fff;border:1px solid #e0dfdb;border-radius:9px;padding:9px 13px" style-focus="border-color:#0d7a5f">
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#a3a5a0" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="7"></circle><path d="m21 21-4-4"></path></svg>
+              <input value="{{ qc }}" onChange="{{ onQc }}" placeholder="Rechercher un site, un compteur, un fournisseur…" style="flex:1;border:0;outline:none;font-size:12px;font-family:'Instrument Sans',sans-serif;background:transparent;color:#16181d">
+              <span style="font-size:10.5px;color:#83868f">{{ nbContrats }} contrats</span>
+            </div>
+            <div style="display:flex;align-items:center;gap:14px;font-size:10px;color:#5c5f66;padding:0 2px">
+              <span style="display:flex;align-items:center;gap:5px"><span style="width:16px;height:9px;border-radius:3px;background:#0d7a5f"></span>en cours</span>
+              <span style="display:flex;align-items:center;gap:5px"><span style="width:16px;height:9px;border-radius:3px;background:#dcdad5"></span>expiré</span>
+              <span style="display:flex;align-items:center;gap:5px"><span style="width:16px;height:9px;border-radius:3px;border:1.5px solid #3b5f8a;background:#eef0f4"></span>à venir</span>
+              <span style="display:flex;align-items:center;gap:5px"><span style="width:16px;height:9px;border-radius:3px;background:#8a8d94"></span>non géré</span>
+              <span style="display:flex;align-items:center;gap:5px"><span style="width:2px;height:11px;background:#c2452d;border-radius:1px"></span>aujourd'hui</span>
+              <span style="flex:1"></span>
+              <span style="color:#a3a5a0">cliquez un site, puis un compteur, pour déplier</span>
+            </div>
+            <sc-for list="{{ contratGroups }}" as="g" hint-placeholder-count="3">
+              <div style="background:#fff;border:1px solid #e7e6e2;border-radius:12px;overflow:hidden">
+                <div onClick="{{ g.toggle }}" style="display:flex;align-items:center;gap:9px;padding:12px 15px;cursor:pointer;user-select:none" style-hover="background:#fbfbfa">
+                  <span style="width:24px;height:24px;border-radius:7px;background:#eaf4f0;color:#0d7a5f;display:inline-flex;align-items:center;justify-content:center;flex:none"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 21s-7-4.8-7-10.7a7 7 0 0 1 14 0C19 16.2 12 21 12 21z"></path><circle cx="12" cy="10" r="2.5"></circle></svg></span>
+                  <a href="Fiche Site.dc.html" style="font-size:12.5px;font-weight:700;color:inherit;text-decoration:none" style-hover="color:#0d7a5f;text-decoration:underline">{{ g.site }}</a>
+                  <span style="{{ g.statutStyle }}">{{ g.statut }}</span>
+                  <span style="flex:1"></span>
+                  <span style="font-size:10.5px;color:#83868f">{{ g.nbm }} compteurs · {{ g.nb }} contrats</span>
+                  <span style="color:#a3a5a0;font-size:11px">{{ g.chev }}</span>
+                </div>
+                <sc-if value="{{ g.open }}" hint-placeholder-val="{{ false }}">
+                <div style="border-top:1px solid #f0efec">
+                <sc-for list="{{ g.meters }}" as="m" hint-placeholder-count="2">
+                  <div>
+                    <div onClick="{{ m.toggle }}" style="display:flex;align-items:center;gap:8px;row-gap:5px;flex-wrap:wrap;padding:9px 15px 9px 30px;position:relative;border-bottom:1px solid #f5f4f1;cursor:pointer;user-select:none" style-hover="background:#fdfdfc">
+                      <span style="position:absolute;left:16px;top:0;bottom:0;width:2px;background:#f0efec"></span>
+                      <span style="{{ m.iconStyle }}">{{ m.icon }}</span>
+                      <span style="font-size:11.5px;font-weight:700;white-space:nowrap">{{ m.nom }}</span>
+                      <span style="font-size:10px;font-weight:600;color:#3f4249;background:#f0efec;border-radius:4px;padding:1px 6px;font-family:'JetBrains Mono',monospace;white-space:nowrap">{{ m.pdl }}</span>
+                      <span style="{{ m.relStyle }}">{{ m.rel }}</span>
+                      <span style="flex:1"></span>
+                      <span title="Échéance du contrat en cours" style="{{ m.echStyle }}">{{ m.ech }}</span>
+                      <span style="font-size:10.5px;color:#83868f;white-space:nowrap">{{ m.nbc }} contrats</span>
+                      <span style="color:#a3a5a0;font-size:11px">{{ m.chev }}</span>
+                    </div>
+                    <sc-if value="{{ m.open }}" hint-placeholder-val="{{ false }}">
+                    <div style="padding:14px 15px 4px 52px;background:#fdfdfc;animation:fadeSlide .15s ease-out">
+                      <div style="position:relative;height:32px;background:#f4f3f0;border-radius:8px">
+                        <sc-for list="{{ m.bars }}" as="b" hint-placeholder-count="2">
+                          <span title="{{ b.tip }}" style="{{ b.style }}">{{ b.lbl }}</span>
+                        </sc-for>
+                        <span title="Aujourd'hui" style="position:absolute;left:61.7%;top:-3px;bottom:-3px;width:2px;background:#c2452d;border-radius:1px;z-index:2"></span>
+                      </div>
+                      <div style="display:flex;justify-content:space-between;font-size:8.5px;color:#a3a5a0;font-family:'JetBrains Mono',monospace;padding:5px 2px 0"><span>2021</span><span>2023</span><span>2025</span><span>2027</span><span>2029</span></div>
+                    </div>
+                    <div style="padding:6px 15px 12px 52px;background:#fdfdfc;border-bottom:1px solid #f5f4f1">
+                      <sc-for list="{{ m.contrats }}" as="c" hint-placeholder-count="2">
+                        <div style="display:flex;align-items:center;gap:12px;padding:5px 0">
+                          <span style="{{ c.stStyle }}">{{ c.st }}</span>
+                          <span style="font-size:11px;font-weight:600;flex:1">{{ c.lbl }} <sc-if value="{{ c.note }}" hint-placeholder-val="{{ false }}"><span style="{{ c.noteStyle }}">{{ c.note }}</span></sc-if></span>
+                          <span style="font-size:10.5px;font-family:'JetBrains Mono',monospace;color:#5c5f66">{{ c.prix }}</span>
+                          <span style="font-size:10px;color:#a3a5a0;font-family:'JetBrains Mono',monospace">{{ c.dates }}</span>
+                        </div>
+                      </sc-for>
+                    </div>
+                    </sc-if>
+                  </div>
+                </sc-for>
+                </div>
+                </sc-if>
+              </div>
+            </sc-for>
+            <sc-if value="{{ qcEmpty }}" hint-placeholder-val="{{ false }}">
+              <div style="background:#fff;border:1px dashed #e0dfdb;border-radius:11px;padding:22px;text-align:center;font-size:12px;color:#83868f">Aucun contrat ne correspond à « {{ qc }} »</div>
+            </sc-if>
+          </div>
+        </sc-if>
+
+        <!-- ═ COMPTEURS ═ -->
+        <sc-if value="{{ tabCompteurs }}" hint-placeholder-val="{{ false }}">
+          <div style="display:flex;flex-direction:column;gap:12px;animation:fadeSlide .18s ease-out">
+            <!-- HÉRO -->
+            <div style="background:#fff;border:1px solid #e7e6e2;border-radius:14px;display:grid;grid-template-columns:210px 1fr 1fr 1.15fr;overflow:hidden">
+              <div style="padding:18px 20px;border-right:1px solid #f0efec;background:#fbfbfa;display:flex;flex-direction:column;justify-content:center;gap:3px">
+                <span style="display:flex;align-items:center;gap:7px"><span style="width:22px;height:22px;border-radius:6px;background:#f0efec;color:#5c5f66;display:inline-flex;align-items:center;justify-content:center"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 16a7 7 0 1 1 14 0"></path><path d="M12 16l3.5-3.5"></path><path d="M4 20h16"></path></svg></span><span style="font-size:10px;font-weight:700;letter-spacing:.08em;color:#a3a5a0;text-transform:uppercase">Parc compteurs</span></span>
+                <span style="font-size:32px;font-weight:700;letter-spacing:-.02em;line-height:1.15">16</span>
+                <span style="font-size:11px;color:#83868f">répartis sur 8 sites</span>
+              </div>
+              <div style="padding:18px 20px;border-right:1px solid #f0efec;display:flex;flex-direction:column;justify-content:center;gap:9px">
+                <span style="font-size:10px;font-weight:700;letter-spacing:.08em;color:#a3a5a0;text-transform:uppercase">Énergie</span>
+                <div style="display:flex;gap:2px;height:10px"><div style="width:75%;background:#c9a227;border-radius:5px 2px 2px 5px"></div><div style="width:25%;background:#4a7fa5;border-radius:2px 5px 5px 2px"></div></div>
+                <div style="display:flex;gap:14px;font-size:11px">
+                  <span style="display:flex;align-items:center;gap:5px;font-weight:700;color:#c8940a"><svg width="10" height="10" viewBox="0 0 24 24" fill="currentColor"><path d="M13 2 3 14h7l-1 8 10-12h-7l1-8z"></path></svg>12 élec</span>
+                  <span style="display:flex;align-items:center;gap:5px;font-weight:700;color:#4a7fa5"><svg width="10" height="10" viewBox="0 0 24 24" fill="currentColor"><path d="M12 22c4.4 0 8-3.6 8-8 0-3.5-2-6.5-4-8.5-.3 1.5-1.2 2.9-2.5 3.5C13 6.5 12 4 9.5 2c.3 2.5-.5 4-2 5.5C5.6 9.4 4 11.5 4 14c0 4.4 3.6 8 8 8z"></path></svg>4 gaz</span>
+                </div>
+              </div>
+              <div style="padding:18px 20px;border-right:1px solid #f0efec;display:flex;flex-direction:column;justify-content:center;gap:9px">
+                <span style="font-size:10px;font-weight:700;letter-spacing:.08em;color:#a3a5a0;text-transform:uppercase">Relation</span>
+                <div style="display:flex;gap:2px;height:10px"><div style="width:75%;background:#0d7a5f;border-radius:5px 2px 2px 5px"></div><div style="width:25%;background:#d5d3ce;border-radius:2px 5px 5px 2px"></div></div>
+                <div style="display:flex;gap:14px;font-size:11px"><span style="font-weight:700;color:#0d7a5f">12 client</span><span style="font-weight:700;color:#5c5f66">4 prospect</span></div>
+              </div>
+              <div style="padding:18px 20px;display:flex;flex-direction:column;justify-content:center;gap:7px">
+                <span style="font-size:10px;font-weight:700;letter-spacing:.08em;color:#a3a5a0;text-transform:uppercase">À surveiller</span>
+                <div style="display:flex;align-items:center;gap:7px;font-size:11px"><span style="width:7px;height:7px;border-radius:50%;background:#c2452d;flex:none"></span><span style="flex:1;font-weight:600">2 échéances &lt; 6 mois</span><span style="font-size:10px;color:#c2452d;font-weight:800;font-family:'JetBrains Mono',monospace">J−42 · J−76</span></div>
+                <div style="display:flex;align-items:center;gap:7px;font-size:11px"><span style="width:7px;height:7px;border-radius:50%;background:#b57a24;flex:none"></span><span style="flex:1;font-weight:600">2 puissances optimisables</span><span style="font-size:10px;color:#8a6420;font-weight:800;font-family:'JetBrains Mono',monospace">≈ 1 060 €/an</span></div>
+              </div>
+            </div>
+            <div style="display:flex;align-items:center;gap:8px;background:#fff;border:1px solid #e0dfdb;border-radius:9px;padding:9px 13px">
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#a3a5a0" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="7"></circle><path d="m21 21-4-4"></path></svg>
+              <input value="{{ qk }}" onChange="{{ onQk }}" placeholder="Rechercher un site, un PDL, un fournisseur…" style="flex:1;border:0;outline:none;font-size:12px;font-family:'Instrument Sans',sans-serif;background:transparent;color:#16181d">
+              <span style="font-size:10.5px;color:#83868f">{{ nbCompteurs }} compteurs</span>
+            </div>
+            <sc-for list="{{ compteurGroups }}" as="g" hint-placeholder-count="3">
+              <div style="background:#fff;border:1px solid #e7e6e2;border-radius:12px;overflow:hidden">
+                <div style="display:flex;align-items:center;gap:9px;padding:10px 15px;background:#fbfbfa;border-bottom:1px solid #f0efec">
+                  <span style="width:24px;height:24px;border-radius:7px;background:#eaf4f0;color:#0d7a5f;display:inline-flex;align-items:center;justify-content:center;flex:none"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 21s-7-4.8-7-10.7a7 7 0 0 1 14 0C19 16.2 12 21 12 21z"></path><circle cx="12" cy="10" r="2.5"></circle></svg></span>
+                  <a href="Fiche Site.dc.html" style="font-size:12.5px;font-weight:700;color:inherit;text-decoration:none" style-hover="color:#0d7a5f;text-decoration:underline">{{ g.site }}</a>
+                  <span style="{{ g.statutStyle }}">{{ g.statut }}</span>
+                  <span style="flex:1"></span>
+                  <span style="font-size:10.5px;color:#83868f">{{ g.nb }} compteurs</span>
+                </div>
+                <div style="padding:4px 15px 10px 27px">
+                  <div style="border-left:2px solid #eceae6;display:flex;flex-direction:column">
+                    <sc-for list="{{ g.rows }}" as="r" hint-placeholder-count="2">
+                      <div style="display:flex;align-items:center;gap:10px;row-gap:6px;flex-wrap:wrap;padding:9px 12px 9px 16px;position:relative;border-radius:0 9px 9px 0" style-hover="background:#fbfbfa">
+                        <span style="position:absolute;left:0;top:22px;width:11px;height:2px;background:#eceae6"></span>
+                        <span style="{{ r.iconStyle }}">{{ r.icon }}</span>
+                        <div style="flex:1;min-width:190px">
+                          <div style="font-size:11.5px;font-weight:700;white-space:nowrap">{{ r.nom }}</div>
+                          <div style="display:flex;align-items:center;gap:6px;margin-top:3px"><span style="font-size:10px;font-weight:600;color:#3f4249;background:#f0efec;border-radius:4px;padding:1px 6px;font-family:'JetBrains Mono',monospace;white-space:nowrap">{{ r.pdl }}</span><span style="font-size:9.5px;color:#a3a5a0;white-space:nowrap">{{ r.fournisseur }}</span></div>
+                        </div>
+                        <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-left:auto">
+                          <span style="font-size:11px;font-family:'JetBrains Mono',monospace;color:#5c5f66;white-space:nowrap">{{ r.conso }}</span>
+                          <span title="{{ r.echTip }}" style="{{ r.echStyle }}">{{ r.ech }}</span>
+                          <span style="{{ r.relStyle }}">{{ r.rel }}</span>
+                          <span style="{{ r.mandStyle }}">{{ r.mand }}</span>
+                          <span style="{{ r.statutStyle }}">{{ r.statut }}</span>
+                        </div>
+                      </div>
+                    </sc-for>
+                  </div>
+                </div>
+              </div>
+            </sc-for>
+            <sc-if value="{{ qkEmpty }}" hint-placeholder-val="{{ false }}">
+              <div style="background:#fff;border:1px dashed #e0dfdb;border-radius:11px;padding:22px;text-align:center;font-size:12px;color:#83868f">Aucun compteur ne correspond à « {{ qk }} »</div>
+            </sc-if>
+          </div>
+        </sc-if>
+
+        <!-- ═ RECOS ═ -->
+        <sc-if value="{{ tabRecos }}" hint-placeholder-val="{{ false }}">
+          <div style="display:flex;flex-direction:column;gap:10px;animation:fadeSlide .18s ease-out">
+            <div style="font-size:10px;font-weight:700;letter-spacing:.08em;color:#a3a5a0;text-transform:uppercase">2 recommandations actives · portefeuille</div>
+            <div style="background:#fff;border:1px solid #d3e5de;border-radius:11px;padding:12px 15px;display:flex;align-items:center;gap:12px"><span style="width:26px;height:26px;border-radius:7px;background:#f6efdf;color:#b0763c;display:inline-flex;align-items:center;justify-content:center;flex:none"><svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2l2.3 7.7L22 12l-7.7 2.3L12 22l-2.3-7.7L2 12l7.7-2.3z"></path></svg></span><div style="flex:1"><div style="font-size:12px;font-weight:700">Renouvellement gaz chaufferie <span style="font-size:9.5px;font-weight:700;color:#fff;background:#b0763c;border-radius:4px;padding:1px 6px">V2</span></div><div style="font-size:10.5px;color:#83868f">Terrasses du Parc · consultation · 1/2 offres · échéance 30/09/2026</div></div><div style="display:flex;font-size:9.5px;font-weight:600"><span style="padding:3px 8px;background:#eaf4f0;color:#0d7a5f;border-radius:5px 0 0 5px">Stratégie ✓</span><span style="padding:3px 8px;background:#0d7a5f;color:#fff">Consultation</span><span style="padding:3px 8px;background:#f0efec;color:#a3a5a0;border-radius:0 5px 5px 0">Comparatif</span></div><span onClick="{{ goSite }}" style="font-size:10.5px;font-weight:600;border:1px solid #e0dfdb;border-radius:6px;padding:5px 10px;cursor:pointer" style-hover="background:#f6f6f4">Ouvrir</span></div>
+            <div style="background:#fff;border:1px solid #d3e5de;border-radius:11px;padding:12px 15px;display:flex;align-items:center;gap:12px"><span style="width:26px;height:26px;border-radius:7px;background:#f6efdf;color:#b0763c;display:inline-flex;align-items:center;justify-content:center;flex:none"><svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2l2.3 7.7L22 12l-7.7 2.3L12 22l-2.3-7.7L2 12l7.7-2.3z"></path></svg></span><div style="flex:1"><div style="font-size:12px;font-weight:700">Renouvellement gaz <span style="font-size:9.5px;font-weight:700;color:#fff;background:#b0763c;border-radius:4px;padding:1px 6px">V1</span></div><div style="font-size:10.5px;color:#83868f">Le Clos Montchat · stratégie en rédaction · échéance 31/08/2026 ⚠</div></div><div style="display:flex;font-size:9.5px;font-weight:600"><span style="padding:3px 8px;background:#0d7a5f;color:#fff;border-radius:5px 0 0 5px">Stratégie</span><span style="padding:3px 8px;background:#f0efec;color:#a3a5a0">Consultation</span><span style="padding:3px 8px;background:#f0efec;color:#a3a5a0;border-radius:0 5px 5px 0">Comparatif</span></div><span style="font-size:10.5px;font-weight:600;border:1px solid #e0dfdb;border-radius:6px;padding:5px 10px;cursor:pointer" style-hover="background:#f6f6f4">Ouvrir</span></div>
+            <div style="display:flex;align-items:center;gap:10px;margin-top:8px"><span style="font-size:10px;font-weight:700;letter-spacing:.08em;color:#a3a5a0;text-transform:uppercase">Historique portefeuille</span><div style="flex:1;height:1px;background:#e7e6e2"></div></div>
+            <div style="background:#fff;border:1px solid #e7e6e2;border-radius:11px;padding:11px 15px;display:flex;align-items:center;gap:12px"><span style="font-size:9px;font-weight:800;color:#0d7a5f;background:#eaf4f0;border-radius:4px;padding:3px 8px;width:64px;text-align:center">GAGNÉE</span><div style="flex:1"><div style="font-size:12px;font-weight:600">Renouvellement élec Bât. A + B · Terrasses du Parc</div><div style="font-size:10.5px;color:#83868f">signée TotalEnergies · −4 100 €/an</div></div><span style="font-size:10px;color:#a3a5a0;font-family:'JetBrains Mono',monospace">02/2024</span></div>
+            <div style="background:#fff;border:1px solid #e7e6e2;border-radius:11px;padding:11px 15px;display:flex;align-items:center;gap:12px"><span style="font-size:9px;font-weight:800;color:#0d7a5f;background:#eaf4f0;border-radius:4px;padding:3px 8px;width:64px;text-align:center">GAGNÉE</span><div style="flex:1"><div style="font-size:12px;font-weight:600">Renouvellement élec · Rés. les Chartreux</div><div style="font-size:10.5px;color:#83868f">signée Vattenfall · −2 700 €/an</div></div><span style="font-size:10px;color:#a3a5a0;font-family:'JetBrains Mono',monospace">11/2023</span></div>
+            <div style="background:#fff;border:1px solid #e7e6e2;border-radius:11px;padding:11px 15px;display:flex;align-items:center;gap:12px"><span style="font-size:9px;font-weight:800;color:#c2452d;background:#fbeae5;border-radius:4px;padding:3px 8px;width:64px;text-align:center">PERDUE</span><div style="flex:1"><div style="font-size:12px;font-weight:600">Optimisation puissances · Terrasses du Parc</div><div style="font-size:10.5px;color:#83868f">refusée en AG — budget travaux prioritaire</div></div><span style="font-size:10px;color:#a3a5a0;font-family:'JetBrains Mono',monospace">09/2023</span></div>
+          </div>
+        </sc-if>
+
+        <!-- ═ SIGNAUX ═ -->
+        <sc-if value="{{ tabSignaux }}" hint-placeholder-val="{{ false }}">
+          <div style="display:flex;flex-direction:column;gap:10px;animation:fadeSlide .18s ease-out">
+            <div style="display:flex;align-items:center;gap:10px"><span style="font-size:10px;font-weight:700;letter-spacing:.08em;color:#a3a5a0;text-transform:uppercase">⚡ {{ nbSignaux }} signaux ouverts · portefeuille</span><span style="flex:1"></span><span style="font-size:10.5px;color:#83868f">trier : priorité ▾</span></div>
+            <sc-for list="{{ signaux }}" as="s" hint-placeholder-count="4">
+              <div style="{{ s.cardStyle }}">
+                <div style="flex:1"><div style="font-size:12.5px;font-weight:700">{{ s.titre }} <span style="{{ s.siteStyle }}">{{ s.site }}</span></div><div style="font-size:11px;color:#83868f;margin-top:2px">{{ s.detail }}</div></div>
+                <span onClick="{{ s.snooze }}" style="font-size:11px;font-weight:600;border:1px solid #e0dfdb;border-radius:7px;padding:6px 11px;color:#5c5f66;cursor:pointer;background:#fff" style-hover="background:#f0efec">Snoozer 30 j</span>
+                <span onClick="{{ s.clore }}" style="{{ s.ctaStyle }}">{{ s.cta }}</span>
+              </div>
+            </sc-for>
+            <sc-if value="{{ aucunSignal }}" hint-placeholder-val="{{ false }}">
+              <div style="background:#fff;border:1px dashed #d3e5de;border-radius:11px;padding:22px;text-align:center;font-size:12px;color:#0d7a5f;font-weight:600">✓ Aucun signal ouvert — portefeuille sous contrôle</div>
+            </sc-if>
+          </div>
+        </sc-if>
+
+        <!-- ═ MANDATS ═ -->
+        <sc-if value="{{ tabMandats }}" hint-placeholder-val="{{ false }}">
+          <div style="display:flex;flex-direction:column;gap:14px;animation:fadeSlide .18s ease-out">
+            <div style="background:#fff;border:1px solid #e7e6e2;border-radius:12px;overflow:hidden">
+              <div style="display:flex;align-items:center;gap:12px;padding:14px 18px;border-bottom:1px solid #f0efec">
+                <span style="width:26px;height:26px;border-radius:7px;background:#f3e3c8;color:#8a6420;display:inline-flex;align-items:center;justify-content:center"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l7 2.5V11c0 4.6-3 8.6-7 10-4-1.4-7-5.4-7-10V5.5z"></path><path d="m9 11.5 2 2 4-4"></path></svg></span>
+                <div style="flex:1"><div style="font-size:14px;font-weight:700">Mandat cadre Foncia Lyon Rhône <span style="font-size:10px;font-weight:700;color:#0d7a5f;background:#eaf4f0;border-radius:4px;padding:2px 7px;margin-left:4px">ACTIF</span></div><div style="font-size:11px;color:#83868f;margin-top:2px">Signataire <b style="color:#7c5bb0">Claire Vasseur</b> · 12 PDL sur 6 sites · DocuSign ✓</div></div>
+                <span style="font-size:11px;font-weight:600;border:1px solid #e0dfdb;border-radius:7px;padding:6px 11px;cursor:pointer" style-hover="background:#f6f6f4">Document PDF</span>
+                <span onClick="{{ nvMandat }}" style="font-size:11px;font-weight:600;background:#16181d;color:#fff;border-radius:7px;padding:6px 12px;cursor:pointer" style-hover="background:#2c2f36">＋ Nouveau mandat</span>
+              </div>
+              <div style="padding:14px 18px">
+                <div style="display:flex;align-items:baseline;gap:8px;margin-bottom:8px"><span style="font-size:10px;font-weight:700;letter-spacing:.08em;color:#a3a5a0;text-transform:uppercase">Validité</span><span style="flex:1"></span><span style="font-size:11px;font-weight:700;color:#b57a24">expire dans 237 jours</span></div>
+                <div style="position:relative;height:10px;border-radius:5px;background:#eceae6">
+                  <div style="position:absolute;left:0;width:67%;top:0;bottom:0;border-radius:5px;background:linear-gradient(90deg,#0d7a5f,#199b78)"></div>
+                  <div style="position:absolute;left:67%;top:-3px;width:2px;height:16px;background:#c2452d;border-radius:1px"></div>
+                </div>
+                <div style="display:flex;justify-content:space-between;font-size:10px;color:#a3a5a0;font-family:'JetBrains Mono',monospace;margin-top:6px"><span>signé 14/03/2025</span><span style="color:#c2452d;font-weight:700">aujourd'hui</span><span>fin 14/03/2027</span></div>
+              </div>
+            </div>
+            <div style="background:linear-gradient(135deg,#fdf9f0,#fcf5e8);border:1.5px dashed #e0c690;border-radius:12px;padding:14px 18px">
+              <div style="display:flex;align-items:center;gap:10px;margin-bottom:10px">
+                <span style="width:26px;height:26px;border-radius:7px;background:#fff;border:1px solid #eddebc;color:#b57a24;display:inline-flex;align-items:center;justify-content:center"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l7 2.5V11c0 4.6-3 8.6-7 10-4-1.4-7-5.4-7-10V5.5z"></path><path d="m9.5 9.5 5 5M14.5 9.5l-5 5"></path></svg></span>
+                <div style="flex:1"><span style="font-size:12.5px;font-weight:700;color:#8a6420">Hors périmètre</span><span style="font-size:11px;color:#b08a3e"> · 4 PDL non travaillables sur 3 sites — un nouveau mandat est nécessaire</span></div>
+              </div>
+              <div style="display:flex;flex-direction:column;gap:7px">
+                <div style="background:#fff;border:1px solid #eddebc;border-radius:10px;padding:10px 13px;display:flex;align-items:center;gap:11px"><div style="flex:1"><div style="font-size:11.5px;font-weight:700">Parking sous-sol · Terrasses du Parc</div><div style="font-size:9.5px;color:#a3a5a0;font-family:'JetBrains Mono',monospace">1 PDL · EDF TRV</div></div><span onClick="{{ nvMandat }}" style="font-size:10px;font-weight:700;color:#fff;background:#b57a24;border-radius:7px;padding:6px 11px;cursor:pointer" style-hover="background:#9a6116">＋ Nouveau mandat</span></div>
+                <div style="background:#fff;border:1px solid #eddebc;border-radius:10px;padding:10px 13px;display:flex;align-items:center;gap:11px"><div style="flex:1"><div style="font-size:11.5px;font-weight:700">Les Balcons de la Saône <span style="font-size:9px;color:#5c5f66;background:#f0efec;border-radius:4px;padding:1px 5px;font-weight:700">PROSPECT</span></div><div style="font-size:9.5px;color:#a3a5a0;font-family:'JetBrains Mono',monospace">2 PDL · aucun mandat</div></div><span onClick="{{ nvMandat }}" style="font-size:10px;font-weight:700;color:#fff;background:#b57a24;border-radius:7px;padding:6px 11px;cursor:pointer" style-hover="background:#9a6116">＋ Nouveau mandat</span></div>
+                <div style="background:#fff;border:1px solid #eddebc;border-radius:10px;padding:10px 13px;display:flex;align-items:center;gap:11px"><div style="flex:1"><div style="font-size:11.5px;font-weight:700">Le Panoramique <span style="font-size:9px;color:#5c5f66;background:#f0efec;border-radius:4px;padding:1px 5px;font-weight:700">PROSPECT</span></div><div style="font-size:9.5px;color:#a3a5a0;font-family:'JetBrains Mono',monospace">1 PDL · aucun mandat</div></div><span onClick="{{ nvMandat }}" style="font-size:10px;font-weight:700;color:#fff;background:#b57a24;border-radius:7px;padding:6px 11px;cursor:pointer" style-hover="background:#9a6116">＋ Nouveau mandat</span></div>
+              </div>
+            </div>
+            <div>
+              <div style="font-size:10px;font-weight:700;letter-spacing:.08em;color:#a3a5a0;text-transform:uppercase;margin-bottom:9px">Historique des mandats</div>
+              <div style="display:flex;flex-direction:column;gap:8px">
+                <div style="background:#fff;border:1px solid #e7e6e2;border-radius:11px;padding:11px 15px;display:flex;align-items:center;gap:12px"><span style="font-size:9px;font-weight:800;color:#0d7a5f;background:#eaf4f0;border-radius:4px;padding:3px 8px;width:64px;text-align:center">ACTIF</span><div style="flex:1"><div style="font-size:12px;font-weight:600">Mandat cadre · 12 PDL / 6 sites</div><div style="font-size:10.5px;color:#83868f">Signataire Claire Vasseur · remplace le mandat 2023</div></div><span style="font-size:10px;color:#a3a5a0;font-family:'JetBrains Mono',monospace">14/03/2025 → 14/03/2027</span><span style="font-size:10.5px;font-weight:600;border:1px solid #e0dfdb;border-radius:6px;padding:4px 10px;cursor:pointer" style-hover="background:#f6f6f4">PDF</span></div>
+                <div style="background:#fff;border:1px solid #e7e6e2;border-radius:11px;padding:11px 15px;display:flex;align-items:center;gap:12px;opacity:.85"><span style="font-size:9px;font-weight:800;color:#a3a5a0;background:#f0efec;border-radius:4px;padding:3px 8px;width:64px;text-align:center">EXPIRÉ</span><div style="flex:1"><div style="font-size:12px;font-weight:600">Mandat · 8 PDL / 4 sites</div><div style="font-size:10.5px;color:#83868f">Signataire Julien Perrin</div></div><span style="font-size:10px;color:#a3a5a0;font-family:'JetBrains Mono',monospace">10/01/2023 → 10/01/2025</span><span style="font-size:10.5px;font-weight:600;border:1px solid #e0dfdb;border-radius:6px;padding:4px 10px;cursor:pointer" style-hover="background:#f6f6f4">PDF</span></div>
+                <div style="background:#fff;border:1px solid #e7e6e2;border-radius:11px;padding:11px 15px;display:flex;align-items:center;gap:12px;opacity:.85"><span style="font-size:9px;font-weight:800;color:#a3a5a0;background:#f0efec;border-radius:4px;padding:3px 8px;width:64px;text-align:center">EXPIRÉ</span><div style="flex:1"><div style="font-size:12px;font-weight:600">Mandat initial · 3 PDL / 2 sites</div><div style="font-size:10.5px;color:#83868f">Signataire Julien Perrin · début de la relation</div></div><span style="font-size:10px;color:#a3a5a0;font-family:'JetBrains Mono',monospace">03/05/2021 → 03/05/2023</span><span style="font-size:10.5px;font-weight:600;border:1px solid #e0dfdb;border-radius:6px;padding:4px 10px;cursor:pointer" style-hover="background:#f6f6f4">PDF</span></div>
+              </div>
+            </div>
+          </div>
+        </sc-if>
+
+        <!-- ═ FICHIERS ═ -->
+        <sc-if value="{{ tabFichiers }}" hint-placeholder-val="{{ false }}">
+          <div style="display:flex;flex-direction:column;gap:12px;animation:fadeSlide .18s ease-out">
+            <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap">
+              <sc-for list="{{ ficChips }}" as="f" hint-placeholder-count="6">
+                <span onClick="{{ f.go }}" style="{{ f.style }}">{{ f.label }}</span>
+              </sc-for>
+              <span style="flex:1"></span>
+              <span onClick="{{ addFic }}" style="font-size:11px;font-weight:600;background:#16181d;color:#fff;border-radius:7px;padding:6px 12px;cursor:pointer;white-space:nowrap" style-hover="background:#2c2f36">＋ Ajouter un fichier</span>
+            </div>
+            <div onDragOver="{{ dzOver }}" onDragEnter="{{ dzOver }}" onDragLeave="{{ dzLeave }}" onDrop="{{ dzDrop }}" style="{{ dzStyle }}">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 16V4"></path><path d="m6 10 6-6 6 6"></path><path d="M4 20h16"></path></svg>
+              <span style="font-size:12px;font-weight:700">Glissez-déposez vos fichiers ici</span>
+              <span style="font-size:10.5px;opacity:.75">PDF, images, emails — catégorisés ensuite en un clic</span>
+            </div>
+            <div style="background:#fff;border:1px solid #e7e6e2;border-radius:12px;overflow:hidden">
+              <sc-for list="{{ fichiers }}" as="f" hint-placeholder-count="4">
+                <div style="display:flex;align-items:center;gap:11px;padding:10px 16px;border-bottom:1px solid #f5f4f1;flex-wrap:wrap" style-hover="background:#fbfbfa">
+                  <span style="{{ f.plate }}">{{ f.ext }}</span>
+                  <div style="flex:1;min-width:170px"><div style="font-size:12px;font-weight:700">{{ f.nom }}</div><div style="font-size:10px;color:#a3a5a0;margin-top:1px">{{ f.meta }}</div></div>
+                  <span style="{{ f.catStyle }}">{{ f.cat }}</span>
+                  <span style="font-size:10.5px;font-weight:600;border:1px solid #e0dfdb;border-radius:6px;padding:4px 10px;cursor:pointer" style-hover="background:#f6f6f4">Ouvrir</span>
+                </div>
+              </sc-for>
+              <sc-if value="{{ ficEmpty }}" hint-placeholder-val="{{ false }}">
+                <div style="padding:20px;text-align:center;font-size:12px;color:#83868f">Aucun fichier dans cette catégorie</div>
+              </sc-if>
+            </div>
+          </div>
+        </sc-if>
+
+        <!-- ═ HISTORIQUE ═ -->
+        <sc-if value="{{ tabHisto }}" hint-placeholder-val="{{ false }}">
+          <div style="display:flex;flex-direction:column;gap:12px;animation:fadeSlide .18s ease-out">
+            <div style="display:flex;align-items:center;gap:8px"><span style="font-size:10px;font-weight:700;letter-spacing:.08em;color:#a3a5a0;text-transform:uppercase">Historique des modifications</span><span style="font-size:10.5px;color:#a3a5a0">· {{ nbHisto }} changements tracés · tous horodatés</span></div>
+            <div style="background:#fff;border:1px solid #e7e6e2;border-radius:12px;overflow:hidden">
+              <div style="display:grid;grid-template-columns:150px 160px 170px 1fr;font-size:10px;font-weight:700;letter-spacing:.05em;color:#a3a5a0;text-transform:uppercase;border-bottom:1px solid #f0efec;padding:11px 18px;gap:14px">
+                <span>Quand</span><span>Par</span><span>Champ</span><span>Modification</span>
+              </div>
+              <sc-for list="{{ histo }}" as="h" hint-placeholder-count="6">
+                <div style="display:grid;grid-template-columns:150px 160px 170px 1fr;align-items:center;gap:14px;padding:12px 18px;border-bottom:1px solid #f5f4f1" style-hover="background:#fbfbfa">
+                  <span style="font-size:10.5px;color:#83868f;font-family:'JetBrains Mono',monospace">{{ h.dt }}</span>
+                  <span style="display:flex;align-items:center;gap:7px"><span style="width:22px;height:22px;border-radius:50%;background:#e4ded2;color:#6b6355;font-size:8.5px;font-weight:700;display:inline-flex;align-items:center;justify-content:center;flex:none">{{ h.ini }}</span><span style="font-size:11.5px;font-weight:600">{{ h.user }}</span></span>
+                  <span><span style="{{ h.champStyle }}">{{ h.champ }}</span></span>
+                  <span style="display:flex;align-items:center;gap:9px;min-width:0;flex-wrap:wrap">
+                    <sc-if value="{{ h.old }}" hint-placeholder-val="{{ true }}"><span style="font-size:11.5px;color:#a3a5a0;text-decoration:line-through">{{ h.old }}</span><span style="color:#c9cbc6;font-size:11px">→</span></sc-if>
+                    <span style="font-size:11.5px;font-weight:700;color:#0d7a5f">{{ h.neu }}</span>
+                  </span>
+                </div>
+              </sc-for>
+              <div style="padding:10px 18px;font-size:10.5px;color:#a3a5a0">Chaque modification de champ est tracée automatiquement — champ, auteur, horodatage, ancienne et nouvelle valeur.</div>
+            </div>
+          </div>
+        </sc-if>
+
+      </div>
+
+      <!-- ══ RIGHT ACTIVITY ══ -->
+      <div style="border-left:1px solid #e7e6e2;background:#fff;display:flex;flex-direction:column;min-height:0">
+        <div style="padding:13px 16px 8px;display:flex;align-items:center;gap:8px;flex:none"><span style="font-size:10px;font-weight:700;letter-spacing:.08em;color:#a3a5a0;text-transform:uppercase">Activité · portefeuille</span></div>
+        <div style="padding:0 13px 7px;display:flex;flex:none">
+          <div style="display:inline-flex;background:#f0efec;border-radius:9px;padding:2px;gap:2px">
+            <span onClick="{{ modeSite }}" style="{{ msStyle }}">Par site</span>
+            <span onClick="{{ modeContact }}" style="{{ mcStyle }}">Par contact</span>
+          </div>
+        </div>
+        <div style="padding:0 13px 8px;display:flex;gap:5px;flex-wrap:wrap;flex:none">
+          <sc-for list="{{ actFiltres }}" as="f" hint-placeholder-count="3">
+            <span onClick="{{ f.go }}" style="{{ f.style }}">{{ f.label }}</span>
+          </sc-for>
+        </div>
+        <div style="flex:1;overflow-y:auto;padding:0 13px 8px;display:flex;flex-direction:column;gap:7px">
+          <sc-for list="{{ actFlat }}" as="a" hint-placeholder-count="8">
+            <sc-if value="{{ a.isHeader }}" hint-placeholder-val="{{ false }}">
+              <div style="display:flex;align-items:center;gap:9px;padding:10px 2px 3px"><span style="{{ a.hStyle }}">{{ a.label }}</span><div style="flex:1;height:1.5px;background:#e7e6e2"></div></div>
+            </sc-if>
+            <sc-if value="{{ a.isItem }}" hint-placeholder-val="{{ true }}">
+              <div onClick="{{ a.toggle }}" style="{{ a.cardStyle }}">
+                <span onClick="{{ a.iconClick }}" title="{{ a.iconTitle }}" style="{{ a.iconStyle }}">{{ a.icon }}</span>
+                <div style="flex:1;min-width:0">
+                  <div style="{{ a.textStyle }}">{{ a.texte }}</div>
+                  <div style="{{ a.metaStyle }}">{{ a.meta }}</div>
+                  <sc-if value="{{ a.open }}" hint-placeholder-val="{{ false }}">
+                    <div style="{{ a.detailStyle }}"><div style="{{ a.detailLabelStyle }}">{{ a.detailLabel }}</div>{{ a.detail }}</div>
+                  </sc-if>
+                </div>
+                <span style="{{ a.chevStyle }}">{{ a.chev }}</span>
+              </div>
+            </sc-if>
+          </sc-for>
+        </div>
+        <div style="padding:11px 13px;border-top:1px solid #f0efec;flex:none">
+          <input ref="{{ noteRef }}" value="{{ noteDraft }}" onChange="{{ onNoteChange }}" onKeyDown="{{ onNoteKey }}" placeholder="Écrire une note… (Entrée ↵)" style="width:100%;border:1px solid #e0dfdb;border-radius:9px;padding:9px 12px;font-size:11.5px;font-family:'Instrument Sans',sans-serif;outline:none;background:#fff;color:#16181d" style-focus="border-color:#0d7a5f;box-shadow:0 0 0 3px rgba(13,122,95,.12)">
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<sc-if value="{{ toast }}" hint-placeholder-val="{{ false }}">
+  <div style="position:fixed;bottom:22px;left:50%;transform:translateX(-50%);background:#16181d;color:#fff;font-size:12px;font-weight:600;border-radius:10px;padding:10px 18px;box-shadow:0 8px 24px rgba(0,0,0,.25);animation:toastIn .2s ease-out;z-index:50;font-family:'Instrument Sans',sans-serif">{{ toast }}</div>
+</sc-if>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;tickerMarche&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:true,&quot;tsType&quot;:&quot;boolean&quot;,&quot;section&quot;:&quot;Affichage&quot;},&quot;densiteActivite&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;options&quot;:[&quot;confort&quot;,&quot;compact&quot;],&quot;default&quot;:&quot;confort&quot;,&quot;tsType&quot;:&quot;string&quot;,&quot;section&quot;:&quot;Affichage&quot;},&quot;ongletDefaut&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;options&quot;:[&quot;compte&quot;,&quot;contrats&quot;,&quot;compteurs&quot;,&quot;recos&quot;,&quot;signaux&quot;,&quot;mandats&quot;],&quot;default&quot;:&quot;compte&quot;,&quot;tsType&quot;:&quot;string&quot;,&quot;section&quot;:&quot;Comportement&quot;}}">
+class Component extends DCLogic {
+  state = {
+    tab: null,
+    toast: null,
+    noteDraft: '',
+    filtre: 'tous',
+    sortKey: 'ech', sortDir: 1,
+    relOpen: null,
+    actFilter: 'tous',
+    expanded: null,
+    qc: '', qk: '', openSitesC: {}, openMetersC: {},
+    compte: { type: 'Syndic de copropriété', rue: '140 rue Garibaldi', cp: '69006', ville: 'Lyon', deptNum: '69', deptNom: 'Rhône', statut: 'Client', naf: '68.32A', ape: 'Administration d\u2019immeubles' },
+    gQ: '',
+    editField: null, drafts: {}, mapNav: false, heroFilter: null,
+    owner: 'Thomas Marchand', modifie: '18/07/2026 · 16:05', typologie: 'Client',
+    comment: 'Cabinet exigeant sur les délais de restitution. Préfère un point téléphonique mensuel avec Claire Vasseur plutôt que des emails. AG groupées en juin-juillet : préparer les comparatifs dès avril. Objectif 2026 : convertir les Balcons de la Saône et le Panoramique.',
+    eComment: false, cDraft: '', actMode: 'site',
+    histo: [
+      { dt: '18/07/2026 · 16:05', user: 'Thomas Marchand', ini: 'TM', champ: 'Note Ellipro', old: '7/10', neu: '8/10' },
+      { dt: '02/06/2026 · 10:31', user: 'Julie Renard', ini: 'JR', champ: 'Commentaire', old: 'Point mensuel avec C. Vasseur…', neu: 'Objectif 2026 : convertir les Balcons…' },
+      { dt: '15/04/2026 · 14:48', user: 'Thomas Marchand', ini: 'TM', champ: 'Propriétaire', old: 'Julie Renard', neu: 'Thomas Marchand' },
+      { dt: '14/03/2025 · 09:22', user: 'Thomas Marchand', ini: 'TM', champ: 'Statut', old: 'Prospect', neu: 'Client' },
+      { dt: '10/01/2025 · 11:07', user: 'Julie Renard', ini: 'JR', champ: 'Zone de couverture', old: '69 — Lyon intra-muros', neu: '69 — Rhône · métropole' },
+      { dt: '22/09/2023 · 17:12', user: 'Samir Benali', ini: 'SB', champ: 'Siège social', old: '18 quai Sarrail, 69006 Lyon', neu: '140 rue Garibaldi, 69006 Lyon' },
+      { dt: '03/05/2021 · 09:14', user: 'Julie Renard', ini: 'JR', champ: 'Création', old: '', neu: 'Enregistrement créé' }
+    ],
+    signaux: [
+      { id: 1, sev: 'high', site: 'Le Clos Montchat', titre: 'Échéance gaz < 60 jours sans reco', detail: 'Contrat Eni au 31/08/2026 · aucune recommandation lancée — lancer d\u2019urgence', cta: '→ Créer une reco', kind: 'green' },
+      { id: 2, sev: 'high', site: 'Terrasses du Parc', titre: 'Échéance PCE chaufferie < 12 mois', detail: 'Reco V2 lancée le 03/06 ✓ — clore quand la consultation aboutit', cta: 'Clore ✓', kind: 'dark' },
+      { id: 3, sev: 'mid', site: 'Terrasses du Parc', titre: 'Marché gaz −18 % vs signature Engie', detail: 'PEG Cal27 à 31,4 €/MWh contre 38,3 à la signature · renégociation possible', cta: '→ Créer une reco', kind: 'green' },
+      { id: 4, sev: 'mid', site: 'Rés. les Chartreux', titre: 'Client a demandé une consultation', detail: 'A. Keller a appelé le 12/07 — souhaite consulter avant l\u2019échéance EDF de novembre', cta: '→ Créer une reco', kind: 'green' },
+      { id: 5, sev: 'mid', site: 'Terrasses du Parc', titre: 'Puissance Bât. A surdimensionnée', detail: '36 kVA souscrits, max 21 kVA · optimisation ≈ 640 €/an', cta: 'Clore ✓', kind: 'dark' },
+      { id: 6, sev: 'mid', site: 'Rés. Gerland Parc', titre: 'Puissance surdimensionnée', detail: '24 kVA souscrits, max 13 kVA · optimisation ≈ 420 €/an', cta: 'Clore ✓', kind: 'dark' },
+      { id: 7, sev: 'mid', site: 'Balcons de la Saône', titre: 'Prospect : TRV > offres marché de 22 %', detail: 'Argument de conversion — économie estimée 3 800 €/an sur 2 PDL', cta: '→ Plan d\u2019action', kind: 'green' }
+    ],
+    sites: [
+      { nom: 'Les Terrasses du Parc', statut: 'client', sante: 72, ville: 'Lyon 3ᵉ · 69', contrats: 3, ech: 76, echTxt: '30/09/2026 · J−76', sig: 3 },
+      { nom: 'Rés. les Chartreux', statut: 'client', sante: 45, ville: 'Lyon 4ᵉ · 69', contrats: 2, ech: 118, echTxt: '15/11/2026', sig: 1 },
+      { nom: 'Le Clos Montchat', statut: 'client', sante: 31, ville: 'Lyon 3ᵉ · 69', contrats: 1, ech: 42, echTxt: '31/08/2026 · J−42', sig: 1 },
+      { nom: 'Villa Tête d\u2019Or', statut: 'client', sante: 84, ville: 'Lyon 6ᵉ · 69', contrats: 2, ech: 346, echTxt: '01/07/2027', sig: 0 },
+      { nom: 'Rés. Gerland Parc', statut: 'client', sante: 78, ville: 'Lyon 7ᵉ · 69', contrats: 2, ech: 590, echTxt: '01/03/2028', sig: 1 },
+      { nom: 'Cour des Brotteaux', statut: 'client', sante: 69, ville: 'Lyon 6ᵉ · 69', contrats: 2, ech: 210, echTxt: '15/02/2027', sig: 0 },
+      { nom: 'Les Balcons de la Saône', statut: 'prospect', sante: 58, ville: 'Caluire · 69', contrats: 2, ech: 163, echTxt: '30/12/2026', sig: 1 },
+      { nom: 'Le Panoramique', statut: 'prospect', sante: 62, ville: 'Villeurbanne · 69', contrats: 1, ech: 290, echTxt: '05/05/2027', sig: 0 }
+    ],
+    relEvents: [
+      { id: 1, date: '24/07/2026', type: 'ag', titre: 'AG des Terrasses du Parc — comparatif à présenter', tag: 'À VENIR', detail: 'Claire Vasseur présente le comparatif gaz V2. Slide économies à fournir avant le 23/07. Enjeu : validation du prix fixe 24 ou 36 mois.' },
+      { id: 2, date: '02/06/2025', type: 'mandat', titre: 'Nouveau mandat — ajout du Bât. B au périmètre', tag: 'MANDAT', detail: 'Extension du périmètre : ajout du PDL Communs Bât. B (Terrasses du Parc). Signé par Claire Vasseur via DocuSign.' },
+      { id: 3, date: '14/03/2025', type: 'mandat', titre: 'Signature du mandat cadre · 12 PDL / 6 sites', tag: 'MANDAT', detail: 'Mandat cadre consolidant les mandats site par site. Signataire : Claire Vasseur (remplace Julien Perrin). Validité 2 ans.' },
+      { id: 4, date: '02/2024', type: 'renew', titre: 'Renouvellement élec A + B gagné · Terrasses du Parc', tag: 'GAGNÉ', detail: 'Signature TotalEnergies fixe 24 mois · économie réalisée −4 100 €/an vs contrat EDF précédent.' },
+      { id: 5, date: '11/2023', type: 'renew', titre: 'Renouvellement élec gagné · Rés. les Chartreux', tag: 'GAGNÉ', detail: 'Signature Vattenfall fixe 36 mois · économie −2 700 €/an.' },
+      { id: 6, date: '09/2023', type: 'litige', titre: 'Litige facturation résolu · Rés. les Chartreux', tag: 'LITIGE', detail: 'Double facturation EDF sur le PDL communs (juin–août). Avoir de 1 840 € obtenu après 3 relances. Clos le 28/09/2023.' },
+      { id: 7, date: '03/05/2021', type: 'mandat', titre: 'Début de la relation — premier mandat · 3 PDL', tag: 'MANDAT', detail: 'Premier mandat signé par Julien Perrin sur 2 sites (Terrasses du Parc, Villa Tête d\u2019Or). Entrée en portefeuille KiWee.' }
+    ],
+    activites: [
+      { id: 1, type: 'tache', site: 'Terrasses du Parc', texte: 'Relancer Engie · offre 36 mois', meta: 'TÂCHE · 09:00 · Terrasses', group: 'Demain', detail: 'Offre 36 mois promise pour le 21/07. Si silence à 10h, appeler K. Moreau (KAM Engie).' },
+      { id: 2, type: 'tache', site: 'Le Clos Montchat', texte: 'Lancer la reco gaz Clos Montchat — J−42 ⚠', meta: 'TÂCHE · 10:00 · Clos Montchat', group: 'Demain', detail: 'Échéance Eni au 31/08. Stratégie à rédiger et consultation à lancer cette semaine.' },
+      { id: 3, type: 'note', site: 'Terrasses du Parc', texte: 'Appel C. Vasseur — comparatif avant l\u2019AG du 24/07.', meta: 'NOTE · 14:20 · Terrasses · moi', group: 'Aujourd\u2019hui', detail: 'Liée à la reco V2 · tâche « slide économies » planifiée demain 14:00.' },
+      { id: 4, type: 'appel', site: 'Rés. les Chartreux', texte: 'Appel entrant — A. Keller · 9 min', meta: 'APPEL · 11:40 · Chartreux', group: 'Aujourd\u2019hui', detail: 'Souhaite lancer une consultation avant l\u2019échéance EDF de novembre. Signal créé. Sentiment : positif.' },
+      { id: 5, type: 'appel', site: 'Terrasses du Parc', texte: 'Appel sortant — Claire Vasseur · 6 min', meta: 'APPEL · 11:05 · Terrasses · moi', group: 'Aujourd\u2019hui', detail: 'Valide la stratégie prix fixe, demande un point sur l\u2019offre 36 mois avant vendredi.' },
+      { id: 6, type: 'sys', site: 'Terrasses du Parc', texte: 'Statut reco V2 passé à « Consultation »', meta: 'SYSTÈME · 09:12 · Terrasses', group: 'Aujourd\u2019hui' },
+      { id: 7, type: 'email', site: 'Terrasses du Parc', texte: 'RE: Consultation gaz — Engie · offre 24 mois jointe', meta: 'EMAIL · 17:03 · Terrasses', group: 'Hier', detail: '« Offre GAZ EUROPÉEN 24 mois à 48,2 €/MWh, ferme 5 jours ouvrés. » · 1 PJ' },
+      { id: 8, type: 'email', site: 'Balcons de la Saône', texte: 'Proposition de RDV — conversion Balcons de la Saône', meta: 'EMAIL · 10:15 · Balcons · moi', group: 'Hier', detail: 'Envoi du diagnostic TRV vs marché (−22 %) au conseil syndical. RDV proposé semaine 31.' },
+      { id: 9, type: 'sys', site: 'Rés. Gerland Parc', texte: 'Signal « puissance surdimensionnée » détecté', meta: 'SYSTÈME · 08:00 · Gerland', group: 'Hier' },
+      { id: 10, type: 'email', site: 'Compte', texte: 'Envoi du mandat cadre pour signature — DocuSign', meta: 'EMAIL · 14/03/2025', group: '14/03/2025', detail: '« Mandat_cadre_Foncia.pdf envoyé à claire.vasseur@foncia.fr » · Signé le 14/03/2025 ✓' }
+    ]
+  };
+  noteRef = React.createRef();
+  groupOrder = ['Demain', 'Aujourd\u2019hui', 'Hier', '14/03/2025'];
+  pinsData = [
+    { nom: 'Les Terrasses du Parc', ini: 'TP', x: 58, y: 56, sante: 72, statut: 'client' },
+    { nom: 'Rés. les Chartreux', ini: 'CH', x: 46, y: 28, sante: 45, statut: 'client' },
+    { nom: 'Le Clos Montchat', ini: 'CM', x: 70, y: 58, sante: 31, statut: 'client' },
+    { nom: 'Villa Tête d\u2019Or', ini: 'VT', x: 54, y: 33, sante: 84, statut: 'client' },
+    { nom: 'Rés. Gerland Parc', ini: 'GP', x: 50, y: 80, sante: 78, statut: 'client' },
+    { nom: 'Cour des Brotteaux', ini: 'CB', x: 59, y: 41, sante: 69, statut: 'client' },
+    { nom: 'Les Balcons de la Saône', ini: 'BS', x: 43, y: 14, sante: 58, statut: 'prospect' },
+    { nom: 'Le Panoramique', ini: 'PA', x: 73, y: 37, sante: 62, statut: 'prospect' }
+  ];
+  contratsData = [
+    { site: 'Les Terrasses du Parc', statut: 'client', meters: [
+      { nom: 'Chaufferie collective', pdl: 'GI0483921', type: 'gaz', contrats: [
+        { st: 'EXPIRÉ', kind: 'exp', s: 19.4, w: 22.2, lbl: 'Eni · fixe', prix: '61,0 €/MWh', dates: '01/10/2022 → 30/09/2024' },
+        { st: 'EN COURS', kind: 'cur', s: 41.7, w: 22.2, lbl: 'Engie · fixe', note: 'J−76', noteKind: 'red', prix: '52,8 €/MWh', dates: '01/10/2024 → 30/09/2026' }] },
+      { nom: 'Communs Bât. A', pdl: '14425 019 884 210', type: 'elec', contrats: [
+        { st: 'EXPIRÉ', kind: 'exp', s: 1.9, w: 33.3, lbl: 'EDF · fixe · commun A+B', prix: '82,1 €/MWh', dates: '01/03/2021 → 29/02/2024' },
+        { st: 'EN COURS', kind: 'cur', s: 35.2, w: 33.3, lbl: 'TotalEnergies · fixe', note: 'sans reco', noteKind: 'amber', prix: '71,4 €/MWh', dates: '01/03/2024 → 28/02/2027' }] },
+      { nom: 'Communs Bât. B', pdl: '14425 019 884 211', type: 'elec', contrats: [
+        { st: 'EXPIRÉ', kind: 'exp', s: 1.9, w: 33.3, lbl: 'EDF · fixe · commun A+B', prix: '82,1 €/MWh', dates: '01/03/2021 → 29/02/2024' },
+        { st: 'EN COURS', kind: 'cur', s: 35.2, w: 42.2, lbl: 'TotalEnergies · fixe', prix: '69,9 €/MWh', dates: '01/03/2024 → 31/12/2027' },
+        { st: 'À VENIR', kind: 'fut', s: 77.8, w: 22.2, lbl: 'Vattenfall · fixe', prix: '66,2 €/MWh', dates: '01/01/2028 → 31/12/2029' }] },
+      { nom: 'Parking sous-sol', pdl: '14425 019 884 212', type: 'elec', contrats: [
+        { st: 'EN COURS', kind: 'off', s: 5, w: 95, lbl: 'EDF · TRV', note: 'non géré', noteKind: 'gray', prix: '', dates: 'depuis le 01/06/2021' }] }] },
+    { site: 'Rés. les Chartreux', statut: 'client', meters: [
+      { nom: 'Communs', pdl: '14425 021 337 502', type: 'elec', contrats: [
+        { st: 'EXPIRÉ', kind: 'exp', s: 0, w: 32, lbl: 'Engie · fixe', prix: '79,4 €/MWh', dates: '15/11/2020 → 14/11/2023' },
+        { st: 'EN COURS', kind: 'cur', s: 32, w: 33.3, lbl: 'EDF · fixe', note: 'sans reco', noteKind: 'amber', prix: '73,8 €/MWh', dates: '15/11/2023 → 15/11/2026' }] },
+      { nom: 'Chaufferie', pdl: 'GI0507112', type: 'gaz', contrats: [
+        { st: 'EN COURS', kind: 'cur', s: 43.5, w: 33.3, lbl: 'Vattenfall · fixe', prix: '49,6 €/MWh', dates: '01/12/2024 → 30/11/2027' }] }] },
+    { site: 'Le Clos Montchat', statut: 'client', meters: [
+      { nom: 'Chaufferie', pdl: 'GI0512844', type: 'gaz', contrats: [
+        { st: 'EXPIRÉ', kind: 'exp', s: 18.5, w: 22.2, lbl: 'EDF · fixe', prix: '58,3 €/MWh', dates: '01/09/2022 → 31/08/2024' },
+        { st: 'EN COURS', kind: 'cur', s: 40.7, w: 22.2, lbl: 'Eni · fixe', note: 'J−42', noteKind: 'red', prix: '54,1 €/MWh', dates: '01/09/2024 → 31/08/2026' }] }] },
+    { site: 'Villa Tête d\u2019Or', statut: 'client', meters: [
+      { nom: 'Communs', pdl: '14425 020 118 907', type: 'elec', contrats: [
+        { st: 'EN COURS', kind: 'cur', s: 38.9, w: 33.3, lbl: 'TotalEnergies · fixe', prix: '70,2 €/MWh', dates: '01/07/2024 → 01/07/2027' }] },
+      { nom: 'Ascenseurs', pdl: '14425 020 118 908', type: 'elec', contrats: [
+        { st: 'EN COURS', kind: 'cur', s: 38.9, w: 33.3, lbl: 'TotalEnergies · fixe', prix: '70,2 €/MWh', dates: '01/07/2024 → 01/07/2027' }] }] },
+    { site: 'Rés. Gerland Parc', statut: 'client', meters: [
+      { nom: 'Communs', pdl: '14425 022 450 331', type: 'elec', contrats: [
+        { st: 'EN COURS', kind: 'cur', s: 46.3, w: 33.3, lbl: 'Vattenfall · fixe', prix: '68,7 €/MWh', dates: '01/03/2025 → 01/03/2028' }] },
+      { nom: 'Parking', pdl: '14425 022 450 332', type: 'elec', contrats: [
+        { st: 'EN COURS', kind: 'cur', s: 46.3, w: 33.3, lbl: 'Vattenfall · fixe', prix: '68,7 €/MWh', dates: '01/03/2025 → 01/03/2028' }] }] },
+    { site: 'Cour des Brotteaux', statut: 'client', meters: [
+      { nom: 'Communs', pdl: '14425 019 220 114', type: 'elec', contrats: [
+        { st: 'EN COURS', kind: 'cur', s: 34.3, w: 33.3, lbl: 'EDF · fixe', prix: '72,5 €/MWh', dates: '15/02/2024 → 15/02/2027' }] },
+      { nom: 'Chaufferie', pdl: 'GI0498230', type: 'gaz', contrats: [
+        { st: 'EN COURS', kind: 'cur', s: 44.4, w: 33.3, lbl: 'Engie · fixe', prix: '51,2 €/MWh', dates: '01/01/2025 → 31/12/2027' }] }] },
+    { site: 'Les Balcons de la Saône', statut: 'prospect', meters: [
+      { nom: 'Communs Bât. 1', pdl: '14425 023 660 201', type: 'elec', contrats: [
+        { st: 'EN COURS', kind: 'off', s: 0, w: 100, lbl: 'EDF · TRV', note: 'non géré · +22 % vs marché', noteKind: 'gray', prix: '', dates: 'depuis le 30/12/2020' }] },
+      { nom: 'Communs Bât. 2', pdl: '14425 023 660 202', type: 'elec', contrats: [
+        { st: 'EN COURS', kind: 'off', s: 0, w: 100, lbl: 'EDF · TRV', note: 'non géré', noteKind: 'gray', prix: '', dates: 'depuis le 30/12/2020' }] }] },
+    { site: 'Le Panoramique', statut: 'prospect', meters: [
+      { nom: 'Communs', pdl: '14425 024 771 405', type: 'elec', contrats: [
+        { st: 'EN COURS', kind: 'off', s: 3.7, w: 96.3, lbl: 'EDF · TRV', note: 'non géré', noteKind: 'gray', prix: '', dates: 'depuis le 05/05/2021' }] }] }
+  ];
+  compteursData = [
+    { site: 'Les Terrasses du Parc', statut: 'client', rows: [
+      { nom: 'Chaufferie collective', pdl: 'GI0483921', type: 'gaz', fournisseur: 'Engie', conso: '412 MWh', ech: '30/09/2026 · J−76', echKind: 'red', statut: 'RECO ✓', stKind: 'green' },
+      { nom: 'Communs Bât. A', pdl: '14425 019 884 210', type: 'elec', fournisseur: 'TotalEnergies', conso: '118 MWh', ech: '28/02/2027', echKind: 'amber', statut: 'OPTIMISABLE', stKind: 'amber' },
+      { nom: 'Communs Bât. B', pdl: '14425 019 884 211', type: 'elec', fournisseur: 'TotalEnergies', conso: '64 MWh', ech: '31/12/2027', echKind: 'gray', statut: 'OK', stKind: 'gray' },
+      { nom: 'Parking sous-sol', pdl: '14425 019 884 212', type: 'elec', fournisseur: 'EDF · TRV', conso: '24 MWh', ech: '—', echKind: 'gray', statut: 'OK', stKind: 'gray' }] },
+    { site: 'Rés. les Chartreux', statut: 'client', rows: [
+      { nom: 'Communs', pdl: '14425 021 337 502', type: 'elec', fournisseur: 'EDF', conso: '96 MWh', ech: '15/11/2026', echKind: 'amber', statut: 'SANS RECO', stKind: 'amber' },
+      { nom: 'Chaufferie', pdl: 'GI0507112', type: 'gaz', fournisseur: 'Vattenfall', conso: '287 MWh', ech: '30/11/2027', echKind: 'gray', statut: 'OK', stKind: 'gray' }] },
+    { site: 'Le Clos Montchat', statut: 'client', rows: [
+      { nom: 'Chaufferie', pdl: 'GI0512844', type: 'gaz', fournisseur: 'Eni', conso: '195 MWh', ech: '31/08/2026 · J−42', echKind: 'red', statut: 'SANS RECO', stKind: 'red' }] },
+    { site: 'Villa Tête d\u2019Or', statut: 'client', rows: [
+      { nom: 'Communs', pdl: '14425 020 118 907', type: 'elec', fournisseur: 'TotalEnergies', conso: '58 MWh', ech: '01/07/2027', echKind: 'gray', statut: 'OK', stKind: 'gray' },
+      { nom: 'Ascenseurs', pdl: '14425 020 118 908', type: 'elec', fournisseur: 'TotalEnergies', conso: '21 MWh', ech: '01/07/2027', echKind: 'gray', statut: 'OK', stKind: 'gray' }] },
+    { site: 'Rés. Gerland Parc', statut: 'client', rows: [
+      { nom: 'Communs', pdl: '14425 022 450 331', type: 'elec', fournisseur: 'Vattenfall', conso: '84 MWh', ech: '01/03/2028', echKind: 'gray', statut: 'OPTIMISABLE', stKind: 'amber' },
+      { nom: 'Parking', pdl: '14425 022 450 332', type: 'elec', fournisseur: 'Vattenfall', conso: '18 MWh', ech: '01/03/2028', echKind: 'gray', statut: 'OK', stKind: 'gray' }] },
+    { site: 'Cour des Brotteaux', statut: 'client', rows: [
+      { nom: 'Communs', pdl: '14425 019 220 114', type: 'elec', fournisseur: 'EDF', conso: '72 MWh', ech: '15/02/2027', echKind: 'gray', statut: 'OK', stKind: 'gray' },
+      { nom: 'Chaufferie', pdl: 'GI0498230', type: 'gaz', fournisseur: 'Engie', conso: '241 MWh', ech: '31/12/2027', echKind: 'gray', statut: 'OK', stKind: 'gray' }] },
+    { site: 'Les Balcons de la Saône', statut: 'prospect', rows: [
+      { nom: 'Communs Bât. 1', pdl: '14425 023 660 201', type: 'elec', fournisseur: 'EDF · TRV', conso: '65 MWh', ech: '—', echKind: 'gray', statut: 'OPPORTUNITÉ', stKind: 'blue' },
+      { nom: 'Communs Bât. 2', pdl: '14425 023 660 202', type: 'elec', fournisseur: 'EDF · TRV', conso: '48 MWh', ech: '—', echKind: 'gray', statut: 'OPPORTUNITÉ', stKind: 'blue' }] },
+    { site: 'Le Panoramique', statut: 'prospect', rows: [
+      { nom: 'Communs', pdl: '14425 024 771 405', type: 'elec', fournisseur: 'EDF · TRV', conso: '67 MWh', ech: '—', echKind: 'gray', statut: 'OPPORTUNITÉ', stKind: 'blue' }] }
+  ];
+
+  componentDidMount() {
+    this.onKey = (e) => {
+      const t = e.target;
+      if (t && (t.tagName === 'INPUT' || t.tagName === 'TEXTAREA')) return;
+      const map = { '1': 'compte', '2': 'contrats', '3': 'compteurs', '4': 'recos', '5': 'signaux', '6': 'mandats', '7': 'fichiers', '8': 'historique' };
+      if (map[e.key]) this.setState({ tab: map[e.key] });
+      if (e.key === 'n' || e.key === 'N') { e.preventDefault(); this.noteRef.current && this.noteRef.current.focus(); }
+    };
+    window.addEventListener('keydown', this.onKey);
+    try { this._theme = localStorage.getItem('kiwee-theme') === 'sombre' ? 'sombre' : 'clair'; } catch (e) { this._theme = 'clair'; }
+    this._mapT = setInterval(() => {
+      const el = document.getElementById('cpt-map');
+      if (!window.L || !el || el._leaflet_id) return;
+      clearInterval(this._mapT);
+      const pts = [
+        { nom: 'Les Terrasses du Parc', lat: 45.757, lng: 4.855, s: 72, c: '#0d7a5f' },
+        { nom: 'Rés. les Chartreux', lat: 45.774, lng: 4.827, s: 45, c: '#e0a83c' },
+        { nom: 'Le Clos Montchat', lat: 45.749, lng: 4.879, s: 31, c: '#c2452d' },
+        { nom: 'Villa Tête d\u2019Or', lat: 45.772, lng: 4.852, s: 84, c: '#0d7a5f' },
+        { nom: 'Rés. Gerland Parc', lat: 45.727, lng: 4.832, s: 78, c: '#0d7a5f' },
+        { nom: 'Cour des Brotteaux', lat: 45.766, lng: 4.859, s: 69, c: '#0d7a5f' },
+        { nom: 'Les Balcons de la Saône', lat: 45.796, lng: 4.842, s: 58, c: '#e0a83c', p: true },
+        { nom: 'Le Panoramique', lat: 45.771, lng: 4.889, s: 62, c: '#e0a83c', p: true }
+      ];
+      const m = window.L.map(el, { scrollWheelZoom: true, zoomControl: true });
+      window.L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { attribution: '© OpenStreetMap' }).addTo(m);
+      pts.forEach(p => {
+        window.L.circleMarker([p.lat, p.lng], { radius: 9, color: '#fff', weight: 2.5, fillColor: p.c, fillOpacity: 1, dashArray: p.p ? '3 4' : null })
+          .addTo(m)
+          .bindTooltip(p.nom + ' · santé ' + p.s + (p.p ? ' · prospect' : ''), { direction: 'top', offset: [0, -8] })
+          .on('click', () => this.showToast('→ Ouverture de la fiche ' + p.nom + ' (démo)'));
+      });
+      m.fitBounds(pts.map(p => [p.lat, p.lng]), { padding: [34, 34] });
+      this._map = m;
+    }, 250);
+  }
+  componentWillUnmount() { window.removeEventListener('keydown', this.onKey); clearInterval(this._mapT); if (this._map) this._map.remove(); }
+
+  applyTheme(t) {
+    this._theme = t;
+    try { document.documentElement.setAttribute('data-theme', t === 'sombre' ? 'dark' : 'light'); localStorage.setItem('kiwee-theme', t); } catch (e) {}
+    this.forceUpdate();
+    this.showToast(t === 'sombre' ? '☾ Mode sombre' : '☀ Mode clair');
+  }
+  showToast(msg) {
+    this.setState({ toast: msg });
+    clearTimeout(this._tt);
+    this._tt = setTimeout(() => this.setState({ toast: null }), 2200);
+  }
+  copy(txt) {
+    try { navigator.clipboard.writeText(txt); } catch (e) {}
+    this.showToast('⧉ Copié — ' + txt);
+  }
+  fieldView(v, mono) {
+    const empty = !v || !String(v).trim();
+    return {
+      text: empty ? '＋ Ajouter' : v,
+      style: empty
+        ? { display: 'inline-block', fontSize: 11, fontWeight: 600, fontStyle: 'italic', color: '#a3a5a0', border: '1px dashed #c9cbc6', borderRadius: 7, padding: '3px 10px', cursor: 'pointer', userSelect: 'none', background: '#fbfbfa' }
+        : { fontSize: mono ? 12 : 12.5, fontWeight: 600, borderBottom: '1px dashed #c9cbc6', cursor: 'text', fontFamily: mono ? "'JetBrains Mono',monospace" : undefined }
+    };
+  }
+  gAddr = [
+    { lbl: '140 rue Garibaldi, 69006 Lyon', rue: '140 rue Garibaldi', cp: '69006', ville: 'Lyon' },
+    { lbl: '12 rue Garibaldi, 69003 Lyon', rue: '12 rue Garibaldi', cp: '69003', ville: 'Lyon' },
+    { lbl: '8 quai Saint-Antoine, 69002 Lyon', rue: '8 quai Saint-Antoine', cp: '69002', ville: 'Lyon' },
+    { lbl: '45 avenue Berthelot, 69007 Lyon', rue: '45 avenue Berthelot', cp: '69007', ville: 'Lyon' },
+    { lbl: '3 place Bellecour, 69002 Lyon', rue: '3 place Bellecour', cp: '69002', ville: 'Lyon' },
+    { lbl: '22 grande rue de la Croix-Rousse, 69004 Lyon', rue: '22 grande rue de la Croix-Rousse', cp: '69004', ville: 'Lyon' },
+    { lbl: '140 avenue Roger Salengro, 69120 Vaulx-en-Velin', rue: '140 avenue Roger Salengro', cp: '69120', ville: 'Vaulx-en-Velin' }
+  ];
+  dzVals() {
+    const on = !!this.state.dzOn;
+    return {
+      dzOver: (e) => { e.preventDefault(); if (!this.state.dzOn) this.setState({ dzOn: true }); },
+      dzLeave: () => this.setState({ dzOn: false }),
+      dzDrop: (e) => {
+        e.preventDefault();
+        const fs = Array.from((e.dataTransfer && e.dataTransfer.files) || []);
+        const items = fs.map(f => ({ nom: f.name.replace(/\.[^.]+$/, ''), ext: (f.name.split('.').pop() || 'DOC').toUpperCase().slice(0, 4), cat: 'À CLASSER', meta: 'ajouté à l\u2019instant · ' + Math.max(1, Math.round(f.size / 1024)) + ' Ko · moi' }));
+        this.setState(st => ({ dzOn: false, extraFics: [...items, ...(st.extraFics || [])] }));
+        if (items.length) this.showToast('✓ ' + items.length + ' fichier(s) ajouté(s) — à classer');
+      },
+      dzStyle: { display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4, padding: '16px', border: '1.5px dashed ' + (on ? '#0d7a5f' : '#c9cbc6'), borderRadius: 12, background: on ? '#eaf4f0' : '#fbfbfa', color: on ? '#0d7a5f' : '#83868f', transition: 'all .15s ease', cursor: 'copy' }
+    };
+  }
+  fichiersData = [
+    { nom: 'Mandat cadre Foncia 2025-2027', ext: 'PDF', cat: 'CONTRAT', meta: 'ajouté le 14/03/2025 · 2,1 Mo · C. Vasseur (DocuSign)' },
+    { nom: 'Contrat Engie — chaufferie Terrasses', ext: 'PDF', cat: 'CONTRAT', meta: 'ajouté le 02/10/2024 · 1,8 Mo · T. Marchand' },
+    { nom: 'Facture Engie juin 2026', ext: 'PDF', cat: 'FACTURE', meta: 'ajouté le 05/07/2026 · 1,2 Mo · import auto' },
+    { nom: 'Facture EDF Chartreux juin 2026', ext: 'PDF', cat: 'FACTURE', meta: 'ajouté le 03/07/2026 · 1,0 Mo · import auto' },
+    { nom: 'Nouveau mandat — ajout Bât. B', ext: 'PDF', cat: 'AVENANT', meta: 'ajouté le 02/06/2025 · 540 Ko · J. Renard' },
+    { nom: 'Proposition RDV — Balcons de la Saône', ext: 'EML', cat: 'MAIL', meta: 'ajouté le 20/07/2026 · 62 Ko · T. Marchand' },
+    { nom: 'Photo façade — Clos Montchat', ext: 'JPG', cat: 'PHOTO', meta: 'ajouté le 12/05/2026 · 3,1 Mo · S. Benali' }
+  ];
+  catCfg = {
+    CONTRAT: { fg: '#0d7a5f', bg: '#eaf4f0' },
+    FACTURE: { fg: '#3b5f8a', bg: '#eef0f4' },
+    AVENANT: { fg: '#8a6420', bg: '#f3e3c8' },
+    MAIL: { fg: '#7c5bb0', bg: '#f1edf7' },
+    PHOTO: { fg: '#4f5aa8', bg: '#edeff8' },
+    'À CLASSER': { fg: '#5c5f66', bg: '#f0efec' }
+  };
+  ficVals() {
+    const ff = this.state.ficFilter || 'tous';
+    const cats = ['tous', 'CONTRAT', 'FACTURE', 'AVENANT', 'MAIL', 'PHOTO'];
+    const chipS = (on) => ({ fontSize: 10.5, fontWeight: 700, borderRadius: 13, padding: '5px 12px', cursor: 'pointer', userSelect: 'none', background: on ? '#16181d' : '#fff', color: on ? '#fff' : '#5c5f66', border: '1px solid ' + (on ? '#16181d' : '#e0dfdb') });
+    const fics = (this.state.extraFics || []).concat(this.fichiersData).filter(f => ff === 'tous' || f.cat === ff);
+    return {
+      ficChips: cats.map(c => ({ label: c === 'tous' ? 'Tous' : c.charAt(0) + c.slice(1).toLowerCase() + 's', go: () => this.setState({ ficFilter: c }), style: chipS(ff === c) })),
+      fichiers: fics.map(f => {
+        const cc = this.catCfg[f.cat];
+        return { ...f,
+          plate: { width: 30, height: 30, borderRadius: 8, background: cc.bg, color: cc.fg, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', flex: 'none', fontSize: 8, fontWeight: 800, letterSpacing: '.03em' },
+          catStyle: { fontSize: 8.5, fontWeight: 800, letterSpacing: '.05em', color: cc.fg, background: cc.bg, borderRadius: 4, padding: '3px 8px', flex: 'none' } };
+      }),
+      ficEmpty: fics.length === 0,
+      addFic: () => this.showToast('＋ Dépôt de fichier (démo)'),
+      ...this.dzVals()
+    };
+  }
+  fmtAdr(c) { return [c.rue, [c.cp, c.ville].filter(Boolean).join(' ')].filter(Boolean).join(', '); }
+  startEdit(field) {
+    const c = this.state.compte;
+    const drafts = field === 'adresse' ? { rue: c.rue, cp: c.cp, ville: c.ville }
+      : field === 'dept' ? { num: c.deptNum, nom: c.deptNom }
+      : { v: c[field] };
+    this.setState({ editField: field, drafts, gQ: '' });
+  }
+  pushHisto(champ, old, neu) {
+    if (old === neu) return;
+    const entry = { dt: '21/07/2026 · maintenant', user: this.state.owner, ini: this.state.owner.split(' ').map(w => w[0]).join(''), champ, old, neu };
+    this.setState(st => ({ histo: [entry, ...st.histo], modifie: 'à l\u2019instant' }));
+  }
+  commit = () => {
+    const { editField, drafts, compte } = this.state;
+    if (!editField) return;
+    const nc = { ...compte };
+    let label, old, neu;
+    if (editField === 'adresse') {
+      label = 'Siège social';
+      old = this.fmtAdr(compte);
+      nc.rue = (drafts.rue || '').trim(); nc.cp = (drafts.cp || '').trim(); nc.ville = (drafts.ville || '').trim();
+      neu = this.fmtAdr(nc);
+    } else if (editField === 'dept') {
+      label = 'Département';
+      old = [compte.deptNum, compte.deptNom].filter(Boolean).join(' — ');
+      nc.deptNum = (drafts.num || '').trim(); nc.deptNom = (drafts.nom || '').trim();
+      neu = [nc.deptNum, nc.deptNom].filter(Boolean).join(' — ');
+    } else {
+      const labels = { type: 'Type de compte', naf: 'Code NAF', ape: 'Libellé APE' };
+      label = labels[editField] || editField;
+      old = compte[editField];
+      nc[editField] = (drafts.v || '').trim();
+      neu = nc[editField];
+    }
+    this.setState({ compte: nc, editField: null });
+    this.pushHisto(label, old || '(vide)', neu || '(vide)');
+    this.showToast(neu ? '✓ Enregistré' : '✓ Champ vidé');
+  };
+  cloreSignal(id, snoozed) {
+    this.setState(st => ({ signaux: st.signaux.filter(x => x.id !== id) }));
+    this.showToast(snoozed ? '⏸ Signal snoozé 30 jours' : '✓ Signal traité');
+  }
+  setSort(k) { this.setState(st => ({ sortKey: k, sortDir: st.sortKey === k ? -st.sortDir : 1 })); }
+  svgIcon(paths, fill) {
+    return React.createElement('svg', fill
+      ? { width: 12, height: 12, viewBox: '0 0 24 24', fill: 'currentColor' }
+      : { width: 13, height: 13, viewBox: '0 0 24 24', fill: 'none', stroke: 'currentColor', strokeWidth: 2, strokeLinecap: 'round', strokeLinejoin: 'round' },
+      paths.map((d, i) => React.createElement('path', { key: i, d })));
+  }
+  energyIcon(type) {
+    return type === 'gaz'
+      ? { icon: this.svgIcon(['M12 22c4.4 0 8-3.6 8-8 0-3.5-2-6.5-4-8.5-.3 1.5-1.2 2.9-2.5 3.5C13 6.5 12 4 9.5 2c.3 2.5-.5 4-2 5.5C5.6 9.4 4 11.5 4 14c0 4.4 3.6 8 8 8z'], true), style: { width: 22, height: 22, borderRadius: 6, background: '#e9f1f7', color: '#4a7fa5', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', flex: 'none' } }
+      : { icon: this.svgIcon(['M13 2 3 14h7l-1 8 10-12h-7l1-8z'], true), style: { width: 22, height: 22, borderRadius: 6, background: '#fdf1c8', color: '#c8940a', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', flex: 'none' } };
+  }
+
+  renderVals() {
+    const { signaux, filtre, sortKey, sortDir, relOpen, actFilter, qc, qk } = this.state;
+    const tab = this.state.tab || (this.props.ongletDefaut ?? 'compte');
+    const go = (t) => () => this.setState({ tab: t });
+    const tabDefs = [
+      ['compte', 'Compte', null], ['contrats', 'Contrats', '22'], ['compteurs', 'Compteurs', '16'],
+      ['recos', 'Recommandations', '2'], ['signaux', 'Signaux', signaux.length ? String(signaux.length) : null], ['mandats', 'Mandats', '!'],
+      ['fichiers', 'Fichiers', '6'], ['historique', 'Historique', null]
+    ];
+    const tabs = tabDefs.map(([k, label, badge]) => ({
+      label, badge, go: go(k),
+      style: {
+        fontSize: 12.5, padding: '9px 13px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 6, userSelect: 'none',
+        fontWeight: tab === k ? 600 : 400, color: tab === k ? '#16181d' : '#83868f',
+        borderBottom: tab === k ? '2px solid #16181d' : '2px solid transparent'
+      },
+      badgeStyle: k === 'signaux'
+        ? { fontSize: 9.5, fontWeight: 700, background: '#c2452d', color: '#fff', borderRadius: 6, padding: '1px 5px' }
+        : k === 'mandats'
+        ? { fontSize: 9.5, fontWeight: 700, background: '#f3e3c8', color: '#8a6420', borderRadius: 6, padding: '1px 5px' }
+        : { fontSize: 9.5, fontWeight: 700, background: '#f0efec', color: '#5c5f66', borderRadius: 6, padding: '1px 5px' }
+    }));
+    // pins carte
+    const santeColor = (v) => v >= 65 ? '#0d7a5f' : v >= 40 ? '#e0a83c' : '#c2452d';
+    const pins = this.pinsData.map(p => ({
+      initials: p.ini,
+      tip: p.nom + ' · santé ' + p.sante + ' · ' + p.statut,
+      style: {
+        position: 'absolute', left: p.x + '%', top: p.y + '%', transform: 'translate(-50%,-50%)',
+        width: 26, height: 26, borderRadius: '50%', background: santeColor(p.sante), color: '#fff',
+        display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 9, fontWeight: 800,
+        border: p.statut === 'prospect' ? '2px dashed #fff' : '2px solid #fff',
+        boxShadow: '0 2px 8px rgba(0,0,0,.3)', cursor: 'pointer', zIndex: 3
+      }
+    }));
+    // signaux
+    const sevColor = { high: '#c2452d', mid: '#b57a24' };
+    const sigs = signaux.map(s => ({
+      ...s,
+      siteStyle: { fontSize: 9.5, fontWeight: 700, color: '#0d7a5f', background: '#eaf4f0', borderRadius: 4, padding: '1px 6px', marginLeft: 4 },
+      cardStyle: { background: '#fff', border: '1px solid ' + (s.sev === 'high' ? '#eed7cd' : '#f0e4cd'), borderLeft: '3px solid ' + sevColor[s.sev], borderRadius: 11, padding: '12px 15px', display: 'flex', alignItems: 'center', gap: 14 },
+      ctaStyle: { fontSize: 11, fontWeight: 600, background: s.kind === 'green' ? '#0d7a5f' : '#16181d', color: '#fff', borderRadius: 7, padding: '6px 11px', cursor: 'pointer', whiteSpace: 'nowrap' },
+      clore: () => this.cloreSignal(s.id, false),
+      snooze: () => this.cloreSignal(s.id, true)
+    }));
+    // tableau sites
+    const pill = (on) => ({ fontSize: 10.5, fontWeight: 700, borderRadius: 13, padding: '4px 11px', cursor: 'pointer', userSelect: 'none', background: on ? '#16181d' : '#fff', color: on ? '#fff' : '#5c5f66', border: '1px solid ' + (on ? '#16181d' : '#e0dfdb') });
+    const filtres = [
+      { label: 'Tous', go: () => this.setState({ filtre: 'tous' }), style: pill(filtre === 'tous') },
+      { label: 'Client', go: () => this.setState({ filtre: 'client' }), style: pill(filtre === 'client') },
+      { label: 'Prospect', go: () => this.setState({ filtre: 'prospect' }), style: pill(filtre === 'prospect') }
+    ];
+    let rows = this.state.sites.filter(s => filtre === 'tous' || s.statut === filtre);
+    const cmp = { nom: (a, b) => a.nom.localeCompare(b.nom), sante: (a, b) => a.sante - b.sante, ech: (a, b) => a.ech - b.ech };
+    rows = [...rows].sort((a, b) => cmp[sortKey](a, b) * sortDir);
+    const santePill = (v) => v >= 65 ? ['#0d7a5f', '#eaf4f0'] : v >= 40 ? ['#8a6420', '#f3e3c8'] : ['#c2452d', '#fbeae5'];
+    const sitesRows = rows.map(s => {
+      const [fg, bg] = santePill(s.sante);
+      return {
+        ...s, sig: s.sig || null, noSig: !s.sig,
+        statut: s.statut === 'client' ? 'CLIENT' : 'PROSPECT',
+        statutStyle: { fontSize: 9, fontWeight: 700, color: s.statut === 'client' ? '#0d7a5f' : '#5c5f66', background: s.statut === 'client' ? '#eaf4f0' : '#f0efec', borderRadius: 4, padding: '2px 7px' },
+        santeStyle: { fontSize: 10.5, fontWeight: 800, color: fg, background: bg, borderRadius: 10, padding: '2px 8px', fontFamily: "'JetBrains Mono',monospace" },
+        echeance: s.echTxt,
+        echStyle: { padding: '0 8px', fontSize: 11, fontWeight: s.ech < 90 ? 700 : 400, color: s.ech < 90 ? '#c2452d' : s.ech < 240 ? '#b57a24' : '#83868f', fontFamily: "'JetBrains Mono',monospace" }
+      };
+    });
+    const arrow = (k) => sortKey === k ? (sortDir === 1 ? '↑' : '↓') : '';
+    // timeline relation
+    const relTypes = {
+      mandat: { fg: '#8a6420', bg: '#f3e3c8', icon: this.svgIcon(['M12 3l7 2.5V11c0 4.6-3 8.6-7 10-4-1.4-7-5.4-7-10V5.5z']) },
+      renew: { fg: '#0d7a5f', bg: '#eaf4f0', icon: this.svgIcon(['M12 2l2.3 7.7L22 12l-7.7 2.3L12 22l-2.3-7.7L2 12l7.7-2.3z']) },
+      litige: { fg: '#c2452d', bg: '#fbeae5', icon: this.svgIcon(['M12 8v5', 'M12 16.5v.5', 'M10.3 3.8 2.6 17a2 2 0 0 0 1.7 3h15.4a2 2 0 0 0 1.7-3L13.7 3.8a2 2 0 0 0-3.4 0z']) },
+      ag: { fg: '#7c5bb0', bg: '#f1edf7', icon: this.svgIcon(['M8 2v3M16 2v3', 'M4.5 5.5h15A1.5 1.5 0 0 1 21 7v13a1.5 1.5 0 0 1-1.5 1.5h-15A1.5 1.5 0 0 1 3 20V7a1.5 1.5 0 0 1 1.5-1.5z', 'M3 10h18']) }
+    };
+    const relEvents = this.state.relEvents.map((e, i) => {
+      const t = relTypes[e.type];
+      const open = relOpen === e.id;
+      return {
+        date: e.date, titre: e.titre, tag: e.tag, detail: e.detail, open,
+        notLast: i < this.state.relEvents.length - 1,
+        icon: t.icon,
+        iconStyle: { width: 26, height: 26, borderRadius: 8, background: t.bg, color: t.fg, display: 'flex', alignItems: 'center', justifyContent: 'center', flex: 'none' },
+        tagStyle: { fontSize: 8.5, fontWeight: 800, letterSpacing: '.05em', color: t.fg, background: t.bg, borderRadius: 4, padding: '2px 7px', flex: 'none' },
+        rowStyle: { flex: 1, padding: '4px 6px 10px', cursor: 'pointer', userSelect: 'none', borderRadius: 8 },
+        chev: open ? '▾' : '▸',
+        toggle: () => this.setState(st => ({ relOpen: st.relOpen === e.id ? null : e.id }))
+      };
+    });
+    // CONTRATS groupés + recherche
+    const stStyles = {
+      'EXPIRÉ': { fontSize: 9, fontWeight: 700, color: '#a3a5a0', background: '#f0efec', borderRadius: 4, padding: '2px 7px', width: 60, textAlign: 'center', flex: 'none' },
+      'EN COURS': { fontSize: 9, fontWeight: 700, color: '#0d7a5f', background: '#eaf4f0', borderRadius: 4, padding: '2px 7px', width: 60, textAlign: 'center', flex: 'none' },
+      'À VENIR': { fontSize: 9, fontWeight: 700, color: '#3b5f8a', background: '#eef0f4', borderRadius: 4, padding: '2px 7px', width: 60, textAlign: 'center', flex: 'none' }
+    };
+    const noteStyles = {
+      red: { fontSize: 9.5, color: '#c2452d', fontWeight: 700 },
+      amber: { fontSize: 9.5, color: '#b57a24', fontWeight: 700 },
+      gray: { fontSize: 9, color: '#5c5f66', background: '#f0efec', borderRadius: 4, padding: '1px 5px', fontWeight: 700 }
+    };
+    const statutBadge = (s) => ({ fontSize: 9, fontWeight: 700, color: s === 'client' ? '#0d7a5f' : '#5c5f66', background: s === 'client' ? '#eaf4f0' : '#f0efec', borderRadius: 4, padding: '2px 7px' });
+    const q = qc.trim().toLowerCase();
+    let nbContrats = 0;
+    const barKinds = {
+      exp: { background: '#dcdad5', color: '#6b6d66' },
+      cur: { background: '#0d7a5f', color: '#fff' },
+      fut: { background: '#eef0f4', color: '#3b5f8a', border: '1.5px solid #3b5f8a' },
+      off: { background: '#8a8d94', color: '#fff' }
+    };
+    const hf = this.state.heroFilter;
+    const cpred = (c) => !hf ? true
+      : hf === 'act' ? c.st === 'EN COURS'
+      : hf === 'ech' ? (c.note === 'J−76' || c.note === 'J−42' || c.dates.includes('15/11/2026'))
+      : (c.noteKind === 'amber' || c.dates.includes('31/08/2026'));
+    const forceOpen = !!q || !!hf;
+    const contratGroups = this.contratsData.map(g => {
+      const meters = g.meters.filter(m => !q
+        || g.site.toLowerCase().includes(q) || m.nom.toLowerCase().includes(q) || m.pdl.toLowerCase().includes(q)
+        || m.contrats.some(c => c.lbl.toLowerCase().includes(q)))
+        .map(m => ({ ...m, contrats: m.contrats.filter(cpred) }))
+        .filter(m => m.contrats.length);
+      const nb = meters.reduce((n, m) => n + m.contrats.length, 0);
+      nbContrats += nb;
+      const open = forceOpen ? true : !!this.state.openSitesC[g.site];
+      return {
+        site: g.site, nb, nbm: meters.length,
+        statut: g.statut === 'client' ? 'CLIENT' : 'PROSPECT',
+        statutStyle: statutBadge(g.statut),
+        open, chev: open ? '▾' : '▸',
+        toggle: () => this.setState(st => ({ openSitesC: { ...st.openSitesC, [g.site]: !st.openSitesC[g.site] } })),
+        meters: meters.map(m => {
+          const key = g.site + '·' + m.nom;
+          const mOpen = forceOpen ? true : !!this.state.openMetersC[key];
+          const ei = this.energyIcon(m.type);
+          const mProspect = g.statut === 'prospect' || m.nom === 'Parking sous-sol';
+          const mCur = m.contrats.find(c => c.st === 'EN COURS');
+          const mFin = mCur ? (mCur.dates.split('→ ')[1] || '').trim() : '';
+          const mKind = mCur && mCur.noteKind === 'red' ? 'red' : mCur && mCur.noteKind === 'amber' ? 'amber' : 'gray';
+          return {
+            nom: m.nom, pdl: m.pdl, icon: ei.icon, iconStyle: ei.style,
+            nbc: m.contrats.length,
+            ech: mFin || '—',
+            echStyle: { fontSize: 11, fontWeight: mKind === 'red' ? 700 : 500, color: { red: '#c2452d', amber: '#b57a24', gray: '#83868f' }[mKind], fontFamily: "'JetBrains Mono',monospace", whiteSpace: 'nowrap' },
+            rel: mProspect ? 'PROSPECT' : 'CLIENT',
+            relStyle: statutBadge(mProspect ? 'prospect' : 'client'),
+            open: mOpen, chev: mOpen ? '▾' : '▸',
+            toggle: () => this.setState(st => ({ openMetersC: { ...st.openMetersC, [key]: !st.openMetersC[key] } })),
+            bars: m.contrats.map(c => {
+              const fin = (c.dates.split('→ ')[1] || '').trim();
+              return {
+                lbl: c.lbl.split(' · ')[0] + (fin ? ' → ' + fin : ''),
+                tip: c.st + ' — ' + c.lbl + (c.prix ? ' · ' + c.prix : '') + ' · ' + c.dates,
+                style: { position: 'absolute', left: c.s + '%', width: c.w + '%', top: 3, bottom: 3, borderRadius: 6, display: 'flex', alignItems: 'center', padding: '0 7px', fontSize: 9, fontWeight: 700, whiteSpace: 'nowrap', overflow: 'hidden', ...barKinds[c.kind] }
+              };
+            }),
+            contrats: m.contrats.map(c => ({
+              st: c.st, lbl: c.lbl, prix: c.prix, dates: c.dates,
+              stStyle: stStyles[c.st],
+              note: c.note || null, noteStyle: c.noteKind ? noteStyles[c.noteKind] : null
+            }))
+          };
+        })
+      };
+    }).filter(g => g.meters.length);
+    // COMPTEURS groupés + recherche
+    const q2 = qk.trim().toLowerCase();
+    let nbCompteurs = 0;
+    const rowStKinds = {
+      green: { fontSize: 9.5, fontWeight: 700, color: '#0d7a5f', background: '#eaf4f0', borderRadius: 5, padding: '3px 0', width: 92, textAlign: 'center', flex: 'none' },
+      amber: { fontSize: 9.5, fontWeight: 700, color: '#8a6420', background: '#f3e3c8', borderRadius: 5, padding: '3px 0', width: 92, textAlign: 'center', flex: 'none' },
+      red: { fontSize: 9.5, fontWeight: 700, color: '#fff', background: '#c2452d', borderRadius: 5, padding: '3px 0', width: 92, textAlign: 'center', flex: 'none' },
+      gray: { fontSize: 9.5, fontWeight: 700, color: '#5c5f66', background: '#f0efec', borderRadius: 5, padding: '3px 0', width: 92, textAlign: 'center', flex: 'none' },
+      blue: { fontSize: 9.5, fontWeight: 700, color: '#3b5f8a', background: '#eef0f4', borderRadius: 5, padding: '3px 0', width: 92, textAlign: 'center', flex: 'none' }
+    };
+    const echColor = { red: '#c2452d', amber: '#b57a24', gray: '#83868f' };
+    const compteurGroups = this.compteursData.map(g => {
+      const rws = g.rows.filter(r => !q2
+        || g.site.toLowerCase().includes(q2) || r.nom.toLowerCase().includes(q2)
+        || r.pdl.toLowerCase().includes(q2) || r.fournisseur.toLowerCase().includes(q2));
+      nbCompteurs += rws.length;
+      return {
+        site: g.site, nb: rws.length,
+        statut: g.statut === 'client' ? 'CLIENT' : 'PROSPECT',
+        statutStyle: statutBadge(g.statut),
+        rows: rws.map(r => {
+          const ei = this.energyIcon(r.type);
+          const prospect = g.statut === 'prospect' || r.nom === 'Parking sous-sol';
+          const echParts = r.ech.split(' · ');
+          return {
+            ...r, ech: echParts[0], echTip: r.ech, icon: ei.icon,
+            iconStyle: { ...ei.style, width: 26, height: 26, borderRadius: 7 },
+            echStyle: { fontSize: 11, fontWeight: r.echKind === 'red' ? 700 : 400, color: echColor[r.echKind], fontFamily: "'JetBrains Mono',monospace", width: 106, textAlign: 'right', flex: 'none' },
+            rel: prospect ? 'PROSPECT' : 'CLIENT',
+            relStyle: { fontSize: 9, fontWeight: 700, color: prospect ? '#5c5f66' : '#0d7a5f', background: prospect ? '#f0efec' : '#eaf4f0', borderRadius: 4, padding: '3px 0', width: 62, textAlign: 'center', flex: 'none' },
+            mand: prospect ? 'SANS MANDAT' : '⛨ MANDAT',
+            mandStyle: prospect
+              ? { fontSize: 8.5, fontWeight: 700, color: '#b57a24', background: '#fff', border: '1px dashed #e0c690', borderRadius: 4, padding: '2px 0', width: 82, textAlign: 'center', flex: 'none' }
+              : { fontSize: 8.5, fontWeight: 700, color: '#8a6420', background: '#f3e3c8', borderRadius: 4, padding: '3px 0', width: 82, textAlign: 'center', flex: 'none' },
+            statutStyle: rowStKinds[r.stKind]
+          };
+        })
+      };
+    }).filter(g => g.rows.length);
+    // activité
+    const actPill = (on) => ({ fontSize: 9.5, fontWeight: 700, borderRadius: 11, padding: '4px 9px', cursor: 'pointer', userSelect: 'none', background: on ? '#16181d' : '#f6f6f4', color: on ? '#fff' : '#5c5f66', border: '1px solid ' + (on ? '#16181d' : '#e7e6e2') });
+    const actMode = this.state.actMode;
+    const siteChips = ['Terrasses', 'Chartreux', 'Clos Montchat'];
+    const siteVals = ['Terrasses du Parc', 'Rés. les Chartreux', 'Le Clos Montchat'];
+    const contactVals = ['C. Vasseur', 'A. Keller', 'K. Moreau'];
+    const chips = actMode === 'site' ? siteVals : contactVals;
+    const chipLbls = actMode === 'site' ? siteChips : contactVals;
+    const actFiltres = [{ label: 'Tous', go: () => this.setState({ actFilter: 'tous' }), style: actPill(actFilter === 'tous') }]
+      .concat(chips.map((v, i) => ({ label: chipLbls[i], go: () => this.setState({ actFilter: v }), style: actPill(actFilter === v) })));
+    const segStyle = (on) => ({ fontSize: 10, fontWeight: 700, borderRadius: 7, padding: '4px 11px', cursor: 'pointer', userSelect: 'none', background: on ? '#fff' : 'transparent', color: on ? '#16181d' : '#83868f', boxShadow: on ? '0 1px 3px rgba(0,0,0,.08)' : 'none' });
+    const P = {
+      pen: ['M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z'],
+      mail: ['M4 5.5A1.5 1.5 0 0 1 5.5 4h13A1.5 1.5 0 0 1 20 5.5v13a1.5 1.5 0 0 1-1.5 1.5h-13A1.5 1.5 0 0 1 4 18.5z', 'm20 7-8 5-8-5'],
+      phone: ['M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72c.127.96.361 1.903.7 2.81a2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45c.907.339 1.85.573 2.81.7A2 2 0 0 1 22 16.92z'],
+      check: ['M4 5.5A1.5 1.5 0 0 1 5.5 4h13A1.5 1.5 0 0 1 20 5.5v13a1.5 1.5 0 0 1-1.5 1.5h-13A1.5 1.5 0 0 1 4 18.5z', 'm8.5 12.5 2.5 2.5 5-5']
+    };
+    const T = {
+      tache: { bg: '#fdf9f0', accent: '#b57a24', plate: '#f3e3c8', fg: '#8a6420', paths: P.check, metaColor: '#b57a24', bold: true },
+      note: { bg: '#fbf8f3', accent: '#8a6d3b', plate: '#efe6d4', fg: '#8a6d3b', paths: P.pen, metaColor: '#a3a5a0' },
+      appel: { bg: '#f7fbf9', accent: '#0d7a5f', plate: '#eaf4f0', fg: '#0d7a5f', paths: P.phone, metaColor: '#a3a5a0' },
+      email: { bg: '#fff', accent: '#3b5f8a', plate: '#eef0f4', fg: '#3b5f8a', paths: P.mail, metaColor: '#a3a5a0' }
+    };
+    const compact = (this.props.densiteActivite ?? 'confort') === 'compact';
+    const decorate = (a) => {
+      if (a.type === 'sys') return {
+        texte: a.texte, meta: a.meta, icon: '•', iconTitle: ' ', chev: ' ', chevStyle: { display: 'none' },
+        cardStyle: { padding: '2px 4px', display: 'flex', gap: 10, alignItems: 'flex-start' },
+        iconStyle: { width: 28, display: 'flex', justifyContent: 'center', color: '#c9cbc6', fontSize: 16, lineHeight: '16px', flex: 'none' },
+        textStyle: { fontSize: 11, color: '#83868f', lineHeight: 1.45 },
+        metaStyle: { fontSize: 9.5, color: '#c0c2bd', marginTop: 1 }
+      };
+      const t = T[a.type];
+      const labels = { appel: 'Résumé IA ✦', email: 'Contenu', tache: 'Commentaires', note: 'Détail' };
+      const open = !!a.detail && this.state.expanded === a.id;
+      const isTask = a.type === 'tache';
+      const done = isTask && !!(this.state.doneTasks || {})[a.id];
+      return {
+        texte: a.texte,
+        meta: done ? 'TERMINÉE ✓ · à l\u2019instant' : a.meta,
+        icon: isTask ? this.svgIcon(done ? ['M4 5.5A1.5 1.5 0 0 1 5.5 4h13A1.5 1.5 0 0 1 20 5.5v13a1.5 1.5 0 0 1-1.5 1.5h-13A1.5 1.5 0 0 1 4 18.5z', 'm8.5 12.5 2.5 2.5 5-5'] : ['M4 5.5A1.5 1.5 0 0 1 5.5 4h13A1.5 1.5 0 0 1 20 5.5v13a1.5 1.5 0 0 1-1.5 1.5h-13A1.5 1.5 0 0 1 4 18.5z']) : this.svgIcon(t.paths),
+        iconClick: isTask ? ((ev) => { ev.stopPropagation(); const d = { ...(this.state.doneTasks || {}) }; d[a.id] = !d[a.id]; this.setState({ doneTasks: d }); this.showToast(d[a.id] ? '✓ Tâche accomplie' : '↺ Tâche rouverte'); }) : undefined,
+        iconTitle: isTask ? (done ? 'Rouvrir la tâche' : 'Cocher : marquer comme accomplie') : ' ',
+        open, detail: a.detail || '', detailLabel: labels[a.type] || 'Détail',
+        toggle: a.detail ? (() => this.setState(st => ({ expanded: st.expanded === a.id ? null : a.id }))) : undefined,
+        chev: a.detail ? (open ? '▾' : '▸') : '',
+        chevStyle: { color: '#c9cbc6', fontSize: 10, flex: 'none', marginTop: 3 },
+        detailStyle: { marginTop: 8, padding: '8px 10px', background: '#fff', border: '1px solid #eceae6', borderRadius: 8, fontSize: 11, color: '#5c5f66', lineHeight: 1.55, animation: 'fadeSlide .15s ease-out' },
+        detailLabelStyle: { fontSize: 8.5, fontWeight: 800, letterSpacing: '.08em', textTransform: 'uppercase', color: t.fg, marginBottom: 3 },
+        cardStyle: { background: done ? '#f4f9f6' : t.bg, border: '1px solid ' + (done ? '#d3e5de' : '#eceae6'), borderLeft: '3px solid ' + (done ? '#0d7a5f' : t.accent), borderRadius: 10, padding: compact ? '6px 9px' : '10px 11px', display: 'flex', gap: compact ? 8 : 10, alignItems: 'flex-start', cursor: a.detail ? 'pointer' : 'default', userSelect: 'none' },
+        iconStyle: { width: compact ? 20 : 28, height: compact ? 20 : 28, borderRadius: compact ? 6 : 8, background: t.plate, color: t.fg, display: 'flex', alignItems: 'center', justifyContent: 'center', flex: 'none' },
+        textStyle: { fontSize: compact ? 11 : 11.5, fontWeight: t.bold ? 600 : 400, textDecoration: done ? 'line-through' : 'none', color: done ? '#83868f' : undefined, lineHeight: 1.4 },
+        metaStyle: { fontSize: 9.5, color: done ? '#0d7a5f' : t.metaColor, fontWeight: 600, marginTop: 2, letterSpacing: '.03em' }
+      };
+    };
+    const actFlat = [];
+    this.groupOrder.forEach(l => {
+      const contactById = { 1: 'K. Moreau', 3: 'C. Vasseur', 4: 'A. Keller', 5: 'C. Vasseur', 7: 'K. Moreau', 8: 'A. Keller', 10: 'C. Vasseur' };
+      const items = this.state.activites.filter(a => a.group === l && (actFilter === 'tous' || (actMode === 'site' ? a.site === actFilter : contactById[a.id] === actFilter)));
+      if (items.length) {
+        const hs = l === 'Aujourd\u2019hui' ? ['#0d7a5f', '#fff'] : l === 'À venir' || l === 'Demain' ? ['#b57a24', '#fff'] : l === 'Hier' ? ['#16181d', '#fff'] : ['#f0efec', '#5c5f66'];
+        actFlat.push({ isHeader: true, isItem: false, label: l, hStyle: { fontSize: 10, fontWeight: 800, letterSpacing: '.06em', textTransform: 'uppercase', background: hs[0], color: hs[1], borderRadius: 12, padding: '3px 11px', whiteSpace: 'nowrap' } });
+        items.forEach(a => actFlat.push({ isHeader: false, isItem: true, ...decorate(a) }));
+      }
+    });
+    const cpt = this.state.compte;
+    const ef = this.state.editField;
+    const isClient = cpt.statut === 'Client';
+    const heroCell = { padding: '16px 20px', display: 'flex', flexDirection: 'column', justifyContent: 'center', gap: 2, cursor: 'pointer', userSelect: 'none' };
+    const owners = ['Thomas Marchand', 'Julie Renard', 'Samir Benali'];
+    const typos = ['Client', 'Partenaire', 'Fournisseur'];
+    const typoCfg = {
+      Client: { fg: '#0d7a5f', bg: '#eaf4f0', bd: '#d3e5de' },
+      Partenaire: { fg: '#7c5bb0', bg: '#f1edf7', bd: '#e2d9ef' },
+      Fournisseur: { fg: '#3b5f8a', bg: '#eef0f4', bd: '#d7dde6' }
+    };
+    const tc = typoCfg[this.state.typologie];
+    const histoChampStyle = (champ) => champ === 'Création'
+      ? { fontSize: 9.5, fontWeight: 800, color: '#3b5f8a', background: '#eef0f4', borderRadius: 5, padding: '3px 9px' }
+      : { fontSize: 9.5, fontWeight: 700, color: '#5c5f66', background: '#f0efec', borderRadius: 5, padding: '3px 9px' };
+    return {
+      tabs, pins,
+      tabHisto: tab === 'historique',
+      tabFichiers: tab === 'fichiers',
+      ...this.ficVals(),
+      histo: this.state.histo.map(h => ({ ...h, old: h.old || null, champStyle: histoChampStyle(h.champ) })),
+      nbHisto: this.state.histo.length,
+      owner: this.state.owner,
+      ownerIni: this.state.owner.split(' ').map(w => w[0]).join(''),
+      modifie: this.state.modifie,
+      cycleOwner: () => {
+        const cur = this.state.owner;
+        const next = owners[(owners.indexOf(cur) + 1) % owners.length];
+        this.setState({ owner: cur });
+        this.pushHisto('Propriétaire', cur, next);
+        this.setState({ owner: next });
+        this.showToast('✓ Propriétaire : ' + next);
+      },
+      typoLabel: this.state.typologie.toUpperCase(),
+      typoDot: React.createElement('span', { style: { width: 7, height: 7, borderRadius: '50%', background: tc.fg, display: 'inline-block', marginRight: 6, verticalAlign: '1px' } }),
+      typoStyle: { display: 'inline-flex', alignItems: 'center', fontSize: 10, fontWeight: 700, color: tc.fg, background: tc.bg, border: '1px solid ' + tc.bd, borderRadius: 12, padding: '3px 10px', cursor: 'pointer', userSelect: 'none', letterSpacing: '.03em' },
+      cycleTypo: () => {
+        const cur = this.state.typologie;
+        const next = typos[(typos.indexOf(cur) + 1) % typos.length];
+        this.setState({ typologie: next });
+        this.pushHisto('Typologie', cur, next);
+        this.showToast('✓ Typologie : ' + next);
+      },
+      copySiren: () => this.copy('512345678'),
+      cNaf: this.fieldView(cpt.naf, true).text, sNaf: this.fieldView(cpt.naf, true).style,
+      eNaf: this.state.editField === 'naf', vNaf: this.state.editField !== 'naf', editNaf: () => this.startEdit('naf'),
+      cApe: this.fieldView(cpt.ape).text, sApe: this.fieldView(cpt.ape).style,
+      eApe: this.state.editField === 'ape', vApe: this.state.editField !== 'ape', editApe: () => this.startEdit('ape'),
+      commentDisp: this.state.comment || '＋ Ajouter un commentaire — contexte, préférences du client, objectifs…',
+      commentStyle: this.state.comment
+        ? { fontSize: 11.5, lineHeight: 1.65, color: '#3f4249', cursor: 'text', whiteSpace: 'pre-wrap', borderRadius: 7, padding: '2px 3px' }
+        : { fontSize: 11, lineHeight: 1.6, fontStyle: 'italic', color: '#a3a5a0', cursor: 'pointer', border: '1px dashed #c9cbc6', borderRadius: 8, padding: '9px 11px', background: '#fbfbfa', userSelect: 'none' },
+      eComment: this.state.eComment, vComment: !this.state.eComment,
+      editComment: () => this.setState({ eComment: true, cDraft: this.state.comment }),
+      dC: this.state.cDraft, chC: (e) => this.setState({ cDraft: e.target.value }),
+      commitComment: () => {
+        const nv = this.state.cDraft.trim();
+        const old = this.state.comment;
+        this.setState({ comment: nv, eComment: false });
+        if (nv !== old) { this.pushHisto('Commentaire', old ? old.slice(0, 32) + '…' : '(vide)', nv ? nv.slice(0, 32) + '…' : '(vide)'); this.showToast('✓ Commentaire enregistré'); }
+      },
+      modeSite: () => this.setState({ actMode: 'site', actFilter: 'tous' }),
+      modeContact: () => this.setState({ actMode: 'contact', actFilter: 'tous' }),
+      msStyle: segStyle(actMode === 'site'), mcStyle: segStyle(actMode === 'contact'),
+      showTicker: this.props.tickerMarche ?? true,
+      cType: this.fieldView(cpt.type).text, sType: this.fieldView(cpt.type).style,
+      cSiege: this.fieldView(this.fmtAdr(cpt)).text, sSiege: this.fieldView(this.fmtAdr(cpt)).style,
+      cZone: this.fieldView([cpt.deptNum, cpt.deptNom].filter(Boolean).join(' — ')).text,
+      sZone: this.fieldView([cpt.deptNum, cpt.deptNom].filter(Boolean).join(' — ')).style,
+      eType: ef === 'type', vType: ef !== 'type', editType: () => this.startEdit('type'),
+      eSiege: ef === 'adresse', vSiege: ef !== 'adresse', editSiege: () => this.startEdit('adresse'),
+      eZone: ef === 'dept', vZone: ef !== 'dept', editZone: () => this.startEdit('dept'),
+      dV: this.state.drafts.v ?? '', chV: (e) => this.setState(st => ({ drafts: { ...st.drafts, v: e.target.value } })),
+      dRue: this.state.drafts.rue ?? '', chRue: (e) => this.setState(st => ({ drafts: { ...st.drafts, rue: e.target.value } })),
+      dCp: this.state.drafts.cp ?? '', chCp: (e) => this.setState(st => ({ drafts: { ...st.drafts, cp: e.target.value } })),
+      dVille: this.state.drafts.ville ?? '', chVille: (e) => this.setState(st => ({ drafts: { ...st.drafts, ville: e.target.value } })),
+      dDeptNum: this.state.drafts.num ?? '', chDeptNum: (e) => this.setState(st => ({ drafts: { ...st.drafts, num: e.target.value } })),
+      dDeptNom: this.state.drafts.nom ?? '', chDeptNom: (e) => this.setState(st => ({ drafts: { ...st.drafts, nom: e.target.value } })),
+      gQ: this.state.gQ, chGQ: (e) => this.setState({ gQ: e.target.value }),
+      gOpen: this.state.gQ.trim().length >= 2 && this.gAddr.some(a => a.lbl.toLowerCase().includes(this.state.gQ.trim().toLowerCase())),
+      gSugg: this.gAddr.filter(a => a.lbl.toLowerCase().includes(this.state.gQ.trim().toLowerCase())).slice(0, 4).map(a => ({
+        lbl: a.lbl,
+        pick: () => { this.setState(st => ({ drafts: { ...st.drafts, rue: a.rue, cp: a.cp, ville: a.ville }, gQ: '' })); this.showToast('✓ Adresse standardisée (Google)'); }
+      })),
+      onDraftKey: (e) => { if (e.key === 'Enter') this.commit(); if (e.key === 'Escape') this.setState({ editField: null }); },
+      commitEdit: this.commit,
+      copySiege: () => this.copy(this.fmtAdr(cpt)),
+      statutLabel: cpt.statut,
+      statutStyle: { display: 'inline-block', fontSize: 11, fontWeight: 700, borderRadius: 14, padding: '4px 12px', cursor: 'pointer', userSelect: 'none', color: isClient ? '#0d7a5f' : '#5c5f66', background: isClient ? '#eaf4f0' : '#f0efec', border: '1px solid ' + (isClient ? '#d3e5de' : '#e0dfdb') },
+      toggleStatut: () => { this.setState(st => ({ compte: { ...st.compte, statut: st.compte.statut === 'Client' ? 'Prospect' : 'Client' } })); this.showToast('✓ Statut modifié'); },
+      mapNav: this.state.mapNav, showPins: !this.state.mapNav,
+      mapIfStyle: { position: 'absolute', inset: 0, width: '100%', height: '100%', border: 0, pointerEvents: this.state.mapNav ? 'auto' : 'none', filter: this.state.mapNav ? 'none' : 'saturate(.6) contrast(.95)' },
+      mapNavLbl: this.state.mapNav ? 'Revenir à la vue pins' : 'Naviguer sur la carte',
+      mapNavBtnStyle: { fontSize: 10.5, fontWeight: 700, borderRadius: 8, padding: '6px 12px', cursor: 'pointer', userSelect: 'none', background: this.state.mapNav ? '#16181d' : '#fff', color: this.state.mapNav ? '#fff' : '#5c5f66', border: '1px solid ' + (this.state.mapNav ? '#16181d' : '#e0dfdb') },
+      toggleMapNav: () => this.setState(st => ({ mapNav: !st.mapNav })),
+      hAll: () => this.setState({ heroFilter: null }),
+      hAct: () => this.setState(st => ({ heroFilter: st.heroFilter === 'act' ? null : 'act' })),
+      hEch: () => this.setState(st => ({ heroFilter: st.heroFilter === 'ech' ? null : 'ech' })),
+      hSr: () => this.setState(st => ({ heroFilter: st.heroFilter === 'sr' ? null : 'sr' })),
+      hs0: { ...heroCell, gap: 3, borderRight: '1px solid #f0efec', background: '#fbfbfa' },
+      hs1: { ...heroCell, borderRight: '1px solid #f0efec', background: hf === 'act' ? '#eaf4f0' : '#fff' },
+      hs2: { ...heroCell, borderRight: '1px solid #f0efec', background: hf === 'ech' ? '#fbeae5' : '#fff' },
+      hs3: { ...heroCell, background: hf === 'sr' ? '#fdf3e0' : '#fff' },
+      hfOn: !!hf, hfLabel: hf === 'act' ? 'Actifs' : hf === 'ech' ? 'Échéances < 12 mois' : 'Sans reco lancée',
+      tabCompte: tab === 'compte', tabContrats: tab === 'contrats', tabCompteurs: tab === 'compteurs',
+      tabRecos: tab === 'recos', tabSignaux: tab === 'signaux', tabMandats: tab === 'mandats',
+      goSignaux: go('signaux'),
+      goSite: () => this.showToast('→ Ouverture de la fiche Site (démo)'),
+      signaux: sigs, nbSignaux: signaux.length, aucunSignal: signaux.length === 0,
+      filtres, sitesRows, nbSitesShown: rows.length,
+      sortNom: () => this.setSort('nom'), sortSante: () => this.setSort('sante'), sortEch: () => this.setSort('ech'),
+      arrNom: arrow('nom'), arrSante: arrow('sante'), arrEch: arrow('ech'),
+      relEvents,
+      qc, onQc: (e) => this.setState({ qc: e.target.value }), contratGroups, nbContrats, qcEmpty: contratGroups.length === 0,
+      qk, onQk: (e) => this.setState({ qk: e.target.value }), compteurGroups, nbCompteurs, qkEmpty: compteurGroups.length === 0,
+      actFiltres, actFlat,
+      toast: this.state.toast,
+      toggleTheme: () => this.applyTheme(this._theme === 'sombre' ? 'clair' : 'sombre'),
+      themeIcon: this._theme === 'sombre' ? '☀' : '☾',
+      copySiret: () => this.copy('51234567800042'),
+      nvMandat: () => this.showToast('⛨ Nouveau mandat préparé — envoyé à C. Vasseur'),
+      noteRef: this.noteRef,
+      noteDraft: this.state.noteDraft,
+      onNoteChange: (e) => this.setState({ noteDraft: e.target.value }),
+      onNoteKey: (e) => {
+        if (e.key === 'Enter' && this.state.noteDraft.trim()) {
+          const txt = this.state.noteDraft.trim();
+          this.setState(st => ({ noteDraft: '', activites: [{ id: Date.now(), type: 'note', site: 'Compte', texte: txt, meta: 'NOTE · à l\u2019instant · moi', group: 'Aujourd\u2019hui' }, ...st.activites] }));
+          this.showToast('✓ Note enregistrée');
+        }
+      },
+      focusNote: () => this.noteRef.current && this.noteRef.current.focus()
+    };
+  }
+}
+</script>
+</body>
+</html>
