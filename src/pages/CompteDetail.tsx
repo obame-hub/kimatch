@@ -3,6 +3,7 @@ import { useParams, useNavigate } from 'react-router-dom'
 import {
   ArrowLeft,
   Phone,
+  Mail,
   Plus,
   Building2,
   Users,
@@ -23,7 +24,6 @@ import { Topbar } from '@/components/layout/Topbar'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { EntityLink } from '@/components/ui/entity-link'
-import { PhoneLink, EmailLink } from '@/components/ui/contact-link'
 import { Dialog } from '@/components/ui/dialog'
 import { FormField, Input, Select, Textarea } from '@/components/ui/form'
 import { HistoriqueDiscret } from '@/components/ui/historique-discret'
@@ -321,8 +321,8 @@ export default function CompteDetail() {
       {/* 3 zones */}
       <div className="grid min-h-0 flex-1 grid-cols-1 overflow-hidden lg:grid-cols-[300px_minmax(0,1fr)_340px]">
         {/* Colonne gauche — Contacts (desktop uniquement) */}
-        <div className="hidden min-h-0 flex-col gap-3.5 overflow-y-auto border-r border-navy-100 bg-navy-50/60 p-3.5 lg:flex">
-          <ContactsPanel contacts={contactsDuCompte} />
+        <div className="hidden min-h-0 flex-col gap-3.5 overflow-y-auto border-r border-kw-border bg-kw-subtle p-3.5 lg:flex">
+          <ContactsPanel contacts={contactsDuCompte} compteId={compte.id} />
           <CommentaireCard compte={compte} />
         </div>
 
@@ -1006,50 +1006,68 @@ function GroupedBySite<T>({
   )
 }
 
-function ContactsPanel({ contacts }: { contacts: Contact[] }) {
+function ContactsPanel({ contacts, compteId }: { contacts: Contact[]; compteId: string }) {
   const navigate = useNavigate()
   const [expanded, setExpanded] = useState(false)
   const visibles = expanded ? contacts : contacts.slice(0, 3)
   return (
-    <div className="rounded-xl border border-navy-100 bg-white p-3.5">
+    <div className="rounded-kw-2xl border border-kw-border bg-kw-surface p-3.5">
       <div className="mb-2.5 flex items-center gap-1.5">
-        <span className="flex h-5 w-5 items-center justify-center rounded-md bg-violet-100 text-violet-500">
-          <Users className="h-2.5 w-2.5" />
-        </span>
-        <span className="text-[10px] font-bold uppercase tracking-wide text-navy-400">Contacts</span>
+        <span className="flex h-5 w-5 items-center justify-center rounded-kw-sm bg-kw-purple/15 text-kw-purple"><Users className="h-2.5 w-2.5" /></span>
+        <span className="text-kw-xs font-bold uppercase tracking-wide text-kw-faint">Contacts</span>
+        <div className="flex-1" />
+        <button type="button" onClick={() => navigate('/contacts', { state: { openCreateForCompteId: compteId } })} className="text-kw-sm font-semibold text-kw-purple">＋</button>
       </div>
-      {contacts.length === 0 && <p className="text-xs text-navy-400">Aucun contact enregistré pour ce compte.</p>}
-      <div className="flex flex-col gap-3">
+      {contacts.length === 0 && <p className="text-kw-lg text-kw-faint">Aucun contact enregistré pour ce compte.</p>}
+      <div className="flex flex-col gap-2">
         {visibles.map((c) => {
           const initiales = `${c.prenom[0] ?? ''}${c.nom[0] ?? ''}`.toUpperCase()
           return (
-            <div key={c.id}>
+            <div key={c.id} className="rounded-kw-xl border border-kw-border-faint bg-kw-subtle p-2.5">
               <div className="flex items-center gap-2.5">
-                <div className="flex h-[30px] w-[30px] shrink-0 items-center justify-center rounded-full border-[1.5px] border-violet-200 bg-violet-50 text-[10px] font-bold text-violet-600">
+                <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full border-[1.5px] border-kw-purple/30 bg-kw-purple/10 text-kw-lg font-bold text-kw-purple">
                   {initiales}
                 </div>
                 <div className="min-w-0 flex-1">
-                  <button type="button" onClick={() => navigate(`/contacts/${c.id}`)} className="truncate text-left text-[12.5px] font-bold text-navy-800 hover:text-violet-600">
-                    {c.prenom} {c.nom}
-                  </button>
-                  <p className="truncate text-[10.5px] text-navy-400">{c.fonction || '—'}</p>
+                  <div className="flex items-center gap-1.5">
+                    <button type="button" onClick={() => navigate(`/contacts/${c.id}`)} className="truncate text-left text-kw-h4 font-bold text-kw-ink hover:text-kw-purple">
+                      {c.prenom} {c.nom}
+                    </button>
+                    {c.contact_principal && (
+                      <span title="Signataire des mandats" className="flex h-[15px] w-[15px] shrink-0 items-center justify-center rounded-kw-xs bg-kw-amber-border">
+                        <FileCheck2 className="h-2.5 w-2.5 text-kw-amber-dark" />
+                      </span>
+                    )}
+                  </div>
+                  <p className="truncate text-kw-lg text-kw-meta">{c.fonction || '—'}{c.sites.length > 0 ? ` · ${c.sites.length} site${c.sites.length > 1 ? 's' : ''}` : ''}</p>
                 </div>
-                {c.telephone && (
-                  <a href={`tel:${c.telephone}`} title="Appeler" className="flex h-[26px] w-[26px] shrink-0 items-center justify-center rounded-md border border-kiwi-100 bg-kiwi-50 text-kiwi-600">
-                    <Phone className="h-3 w-3" />
-                  </a>
-                )}
               </div>
-              <div className="ml-[39px] mt-1.5 flex flex-col gap-1 text-[11px]">
-                {c.email && <EmailLink value={c.email} className="text-navy-600" />}
-                {c.telephone && <PhoneLink value={c.telephone} className="text-[10.5px] text-navy-600" />}
+              <div className="mt-2 flex gap-1.5">
+                <a
+                  href={c.telephone ? `tel:${c.telephone}` : undefined}
+                  className={cn(
+                    'flex flex-1 items-center justify-center gap-1.5 rounded-kw-md border border-kw-border-strong bg-kw-surface py-1.5 text-kw-sm font-semibold text-kw-label transition-colors',
+                    c.telephone ? 'hover:border-kw-green-border hover:bg-kw-green-light hover:text-kw-green' : 'pointer-events-none opacity-40',
+                  )}
+                >
+                  <Phone className="h-2.5 w-2.5" /> Appeler
+                </a>
+                <a
+                  href={c.email ? `mailto:${c.email}` : undefined}
+                  className={cn(
+                    'flex flex-1 items-center justify-center gap-1.5 rounded-kw-md border border-kw-border-strong bg-kw-surface py-1.5 text-kw-sm font-semibold text-kw-label transition-colors',
+                    c.email ? 'hover:border-kw-blue-light hover:bg-kw-blue-light hover:text-kw-blue' : 'pointer-events-none opacity-40',
+                  )}
+                >
+                  <Mail className="h-2.5 w-2.5" /> Email
+                </a>
               </div>
             </div>
           )
         })}
       </div>
       {contacts.length > 3 && (
-        <button type="button" onClick={() => setExpanded((v) => !v)} className="mt-2.5 block text-[10.5px] font-semibold text-violet-600 hover:underline">
+        <button type="button" onClick={() => setExpanded((v) => !v)} className="mt-2.5 block text-kw-sm font-semibold text-kw-purple hover:underline">
           {expanded ? '← Réduire' : `Voir les ${contacts.length} contacts →`}
         </button>
       )}
@@ -1111,12 +1129,12 @@ function CommentaireCard({ compte }: { compte: Compte }) {
   if (isKiwee) return null
 
   return (
-    <div className="rounded-xl border border-navy-100 bg-white p-3.5">
+    <div className="rounded-kw-2xl border border-kw-border bg-kw-surface p-3.5">
       <div className="mb-2 flex items-center gap-1.5">
-        <span className="text-[10px] font-bold uppercase tracking-wide text-navy-400">Commentaire</span>
+        <span className="text-kw-xs font-bold uppercase tracking-wide text-kw-faint">Commentaire</span>
         <div className="flex-1" />
         {!editing && (
-          <button type="button" onClick={() => { setDraft(initialValue); setEditing(true) }} title="Modifier" className="rounded p-0.5 text-navy-300 hover:bg-navy-100 hover:text-navy-700">
+          <button type="button" onClick={() => { setDraft(initialValue); setEditing(true) }} title="Modifier" className="rounded p-0.5 text-kw-ghost hover:bg-kw-muted hover:text-kw-ink">
             <Pencil className="h-3 w-3" />
           </button>
         )}
@@ -1129,14 +1147,14 @@ function CommentaireCard({ compte }: { compte: Compte }) {
           onChange={(e) => setDraft(e.target.value)}
           onBlur={save}
           disabled={pending}
-          className="text-[11.5px]"
+          className="text-kw-md"
         />
       ) : (
         <p
           onClick={() => { setDraft(initialValue); setEditing(true) }}
-          className="cursor-pointer whitespace-pre-wrap rounded-lg p-1 text-[11.5px] leading-relaxed text-navy-700 hover:bg-navy-50"
+          className="cursor-pointer whitespace-pre-wrap rounded-kw-lg p-1 text-kw-md leading-relaxed text-kw-body hover:bg-kw-muted"
         >
-          {initialValue || <span className="text-navy-300">Cliquer pour ajouter un commentaire…</span>}
+          {initialValue || <span className="text-kw-faint">Cliquer pour ajouter un commentaire…</span>}
         </p>
       )}
     </div>
