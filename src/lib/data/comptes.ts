@@ -386,6 +386,18 @@ export function useUpdateCompte() {
   })
 }
 
+/** Edition inline champ par champ (fiche Compte, handoff design William) -- un PATCH par appel. */
+export function useUpdateCompteField() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: async ({ id, patch }: { id: string; patch: Partial<Compte> }) => {
+      const { error } = await supabase.from('comptes').update(patch).eq('id', id)
+      if (error) throw new Error(error.message)
+    },
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['comptes'] }),
+  })
+}
+
 export function useDeleteCompte() {
   const queryClient = useQueryClient()
   return useMutation({

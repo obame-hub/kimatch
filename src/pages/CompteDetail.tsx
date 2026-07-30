@@ -6,7 +6,6 @@ import {
   Plus,
   Building2,
   Users,
-  Copy,
   Zap,
   Flame,
   Gauge,
@@ -36,6 +35,7 @@ import {
   useUpdateCompteFournisseur,
   useUpdateComptePartenaire,
   useUpdateCompte,
+  useUpdateCompteField,
   useDeleteCompte,
 } from '@/lib/data/comptes'
 import { useSites, useCreateSite, matchSitesPourCompteur } from '@/lib/data/sites'
@@ -66,7 +66,9 @@ import { useCanManage, useIsAdmin, useProfilsAdmin } from '@/lib/data/roles'
 import { ActivityFeed } from '@/components/site/ActivityFeed'
 import { cn } from '@/lib/utils'
 import { useGoBack } from '@/lib/useGoBack'
-import type { Compte, Contact, Site, TypeCompte } from '@/types/domain'
+import type { Compte, Contact, Site, TypeCompte, Signal, Contrat, Mandat, Compteur, Recommandation } from '@/types/domain'
+import { SitesMap, type SitesMapItem } from '@/components/site/SitesMap'
+import { computeSiteHealth } from '@/lib/siteHealth'
 
 const typeMeta: Record<TypeCompte, { label: string; tone: 'kiwi' | 'blue' | 'amber' | 'neutral' }> = {
   client: { label: 'Client', tone: 'kiwi' },
@@ -328,68 +330,46 @@ export default function CompteDetail() {
         <div className="min-h-0 overflow-y-auto bg-navy-50 p-4 sm:p-5">
           {tab === 'synthese' && (
             <div className="flex flex-col gap-3.5">
-              <div className="grid grid-cols-1 gap-3.5 lg:grid-cols-2">
-                <div className="rounded-xl border border-navy-100 bg-white p-4">
-                  <div className="mb-3 flex items-center">
-                    <span className="text-[10px] font-bold uppercase tracking-wide text-navy-400">Identité</span>
-                    <div className="flex-1" />
-                    <span className="text-[10px] text-navy-300">cliquer ⧉ pour copier</span>
-                  </div>
-                  <div className="grid grid-cols-2 gap-3.5">
-                    <InfoField label="Segment" value={compte.segment || '—'} onCopy={showToast} />
-                    <InfoField label="Ville" value={compte.ville || '—'} onCopy={showToast} />
-                    {compte.siren && <InfoField label="SIREN" value={compte.siren} onCopy={showToast} />}
-                    {compte.siret && <InfoField label="SIRET" value={compte.siret} onCopy={showToast} />}
-                    {compte.telephone && <InfoField label="Téléphone" value={compte.telephone} onCopy={showToast} />}
-                    {compte.email && <InfoField label="Email" value={compte.email} onCopy={showToast} />}
-                    {compte.site_web && <InfoField label="Site web" value={compte.site_web} onCopy={showToast} />}
-                    {compte.score_ellipro && (
-                      <div>
-                        <div className="mb-0.5 text-[10px] uppercase tracking-wide text-navy-400">Note Ellisphere</div>
-                        <span className="rounded bg-kiwi-50 px-1.5 py-0.5 text-[11px] font-extrabold text-kiwi-600">
-                          {compte.score_ellipro}{compte.score_ellipro_scale ? ` / ${compte.score_ellipro_scale}` : ''}
-                        </span>
+              <div className="grid grid-cols-1 gap-3.5 lg:grid-cols-[1fr_1.25fr]">
+                <ValeurCompteCard compte={compte} sitesDuCompte={sitesDuCompte} />
+                <IdentiteCard compte={compte} onToast={showToast} />
+              </div>
+
+              <div className="rounded-xl border border-navy-100 bg-kw-surface p-4">
+                <div className="mb-3 flex items-center">
+                  <span className="text-[10px] font-bold uppercase tracking-wide text-navy-400">Score Ellisphere</span>
+                </div>
+                {!compte.siren ? (
+                  <p className="text-xs text-navy-400">Aucun SIREN renseigné — impossible d'interroger Ellisphere.</p>
+                ) : (
+                  <div className="flex flex-col gap-2.5">
+                    {compte.score_ellipro ? (
+                      <div className="flex items-center gap-2 rounded-lg bg-kiwi-50 px-3 py-2">
+                        <Gauge className="h-4 w-4 text-kiwi-700" />
+                        <p className="text-xs text-kiwi-800">
+                          Score actuel : <span className="font-semibold">{compte.score_ellipro}</span>
+                          {compte.score_ellipro_scale && ` / ${compte.score_ellipro_scale}`}
+                        </p>
                       </div>
+                    ) : (
+                      <p className="text-xs text-navy-400">Aucun score interrogé pour le moment.</p>
+                    )}
+                    {compte.score_ellipro_maj && (
+                      <p className="text-[10.5px] text-navy-400">Dernière interrogation : {new Date(compte.score_ellipro_maj).toLocaleString('fr-FR')}</p>
+                    )}
+                    <Button type="button" variant="outline" size="sm" onClick={handleScoreClick} disabled={ellisphereScore.isPending} className="self-start">
+                      {ellisphereScore.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Gauge className="h-4 w-4" />}
+                      {ellisphereScore.isPending ? 'Interrogation…' : 'Interroger Ellisphere'}
+                    </Button>
+                    {ellisphereScore.isError && <p className="text-xs text-red-600">{(ellisphereScore.error as Error).message}</p>}
+                    {updateScore.isSuccess && (
+                      <p className="text-[10.5px] text-navy-400">
+                        {updateScore.data.changed ? 'Score mis à jour.' : 'Score inchangé depuis la dernière interrogation.'}
+                      </p>
                     )}
                   </div>
-                  <HistoriqueDiscret tableNom="comptes" ligneId={compte.id} />
-                </div>
-
-                <div className="rounded-xl border border-navy-100 bg-white p-4">
-                  <div className="mb-3 flex items-center">
-                    <span className="text-[10px] font-bold uppercase tracking-wide text-navy-400">Score Ellisphere</span>
-                  </div>
-                  {!compte.siren ? (
-                    <p className="text-xs text-navy-400">Aucun SIREN renseigné — impossible d'interroger Ellisphere.</p>
-                  ) : (
-                    <div className="flex flex-col gap-2.5">
-                      {compte.score_ellipro ? (
-                        <div className="flex items-center gap-2 rounded-lg bg-kiwi-50 px-3 py-2">
-                          <Gauge className="h-4 w-4 text-kiwi-700" />
-                          <p className="text-xs text-kiwi-800">
-                            Score actuel : <span className="font-semibold">{compte.score_ellipro}</span>
-                            {compte.score_ellipro_scale && ` / ${compte.score_ellipro_scale}`}
-                          </p>
-                        </div>
-                      ) : (
-                        <p className="text-xs text-navy-400">Aucun score interrogé pour le moment.</p>
-                      )}
-                      {compte.score_ellipro_maj && (
-                        <p className="text-[10.5px] text-navy-400">Dernière interrogation : {new Date(compte.score_ellipro_maj).toLocaleString('fr-FR')}</p>
-                      )}
-                      <Button type="button" variant="outline" size="sm" onClick={handleScoreClick} disabled={ellisphereScore.isPending} className="self-start">
-                        {ellisphereScore.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Gauge className="h-4 w-4" />}
-                        {ellisphereScore.isPending ? 'Interrogation…' : 'Interroger Ellisphere'}
-                      </Button>
-                      {ellisphereScore.isError && <p className="text-xs text-red-600">{(ellisphereScore.error as Error).message}</p>}
-                      {updateScore.isSuccess && (
-                        <p className="text-[10.5px] text-navy-400">
-                          {updateScore.data.changed ? 'Score mis à jour.' : 'Score inchangé depuis la dernière interrogation.'}
-                        </p>
-                      )}
-                    </div>
-                  )}
-                </div>
+                )}
+                <HistoriqueDiscret tableNom="comptes" ligneId={compte.id} />
               </div>
 
               {compte.type_compte !== 'kiwee' && (
@@ -435,31 +415,16 @@ export default function CompteDetail() {
                 </div>
               )}
 
-              <div>
-                <p className="mb-2 text-[10px] font-bold uppercase tracking-wide text-navy-400">Sites rattachés</p>
-                {sitesDuCompte.length === 0 ? (
-                  <p className="text-sm text-navy-400">Aucun site rattaché à ce compte.</p>
-                ) : (
-                  <div className="flex flex-col gap-2.5">
-                    {sitesDuCompte.map((site) => (
-                      <div
-                        key={site.id}
-                        onClick={() => navigate(`/sites/${site.id}`)}
-                        className="flex cursor-pointer items-center gap-3 rounded-xl border border-navy-100 bg-white p-3.5 hover:bg-navy-50/60"
-                      >
-                        <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-[10px] bg-kiwi-100 text-kiwi-600">
-                          <Building2 className="h-4 w-4" />
-                        </span>
-                        <div className="min-w-0 flex-1">
-                          <p className="truncate text-sm font-bold text-navy-800">{site.nom}</p>
-                          <p className="truncate text-[10.5px] text-navy-400">{site.type_site} · {site.ville} ({site.code_postal})</p>
-                        </div>
-                        <Badge tone={site.statut === 'actif' ? 'kiwi' : 'neutral'}>{site.statut}</Badge>
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </div>
+              {/* Carte multi-pins -- remplace l'ancienne liste "Sites rattachés" (anomalie QA
+                  William du 30/07 : les sites ne doivent pas être listés dans l'onglet Compte). */}
+              <CompteSitesMap
+                sitesDuCompte={sitesDuCompte}
+                signaux={signauxDuCompte}
+                contrats={contratsDuCompte}
+                recommandations={recommandationsDuCompte}
+                mandats={mandatsDuCompte}
+                compteurs={compteursDuCompte}
+              />
             </div>
           )}
 
@@ -775,6 +740,186 @@ export default function CompteDetail() {
   )
 }
 
+function CompteSitesMap({
+  sitesDuCompte, signaux, contrats, recommandations, mandats, compteurs,
+}: {
+  sitesDuCompte: Site[]
+  signaux: Signal[]
+  contrats: Contrat[]
+  recommandations: Recommandation[]
+  mandats: Mandat[]
+  compteurs: Compteur[]
+}) {
+  const items: SitesMapItem[] = sitesDuCompte.map((site) => {
+    const health = computeSiteHealth({
+      signaux: signaux.filter((s) => s.site_id === site.id),
+      contrats: contrats.filter((c) => c.site_id === site.id),
+      recommandations: recommandations.filter((r) => r.sites?.some((s) => s.id === site.id)),
+      mandat: mandats.find((m) => m.site_ids?.includes(site.id)),
+      compteurs: compteurs.filter((c) => c.site_id === site.id),
+    })
+    return { id: site.id, nom: site.nom, ville: site.ville, compte_nom: site.compte_nom, latitude: site.latitude, longitude: site.longitude, tone: health.tone }
+  })
+  const villes = [...new Set(sitesDuCompte.map((s) => s.ville).filter(Boolean))]
+
+  return (
+    <div className="overflow-hidden rounded-xl border border-navy-100 bg-kw-surface">
+      <SitesMap sites={items} />
+      <div className="flex flex-wrap items-center gap-3 border-t border-kw-border-subtle px-3.5 py-2">
+        <span className="whitespace-nowrap text-kw-md font-semibold text-kw-ink">
+          {sitesDuCompte.length} site{sitesDuCompte.length > 1 ? 's' : ''}{villes.length > 0 ? ` · ${villes.slice(0, 2).join(', ')}` : ''}
+        </span>
+        <span className="flex flex-wrap gap-2.5 text-kw-xs text-kw-label">
+          <span><span className="mr-1 inline-block h-2 w-2 rounded-full bg-kw-green align-middle" />bonne santé</span>
+          <span><span className="mr-1 inline-block h-2 w-2 rounded-full bg-[#e0a83c] align-middle" />attention</span>
+          <span><span className="mr-1 inline-block h-2 w-2 rounded-full bg-kw-red align-middle" />critique</span>
+        </span>
+        <div className="flex-1" />
+        <span className="text-kw-xs text-kw-faint">clic sur un pin → fiche Site</span>
+      </div>
+    </div>
+  )
+}
+
+function ValeurCompteCard({ compte, sitesDuCompte }: { compte: Compte; sitesDuCompte: Site[] }) {
+  const anneeCreation = compte.date_creation ? new Date(compte.date_creation) : null
+  const anciennete = anneeCreation ? Math.max(0, new Date().getFullYear() - anneeCreation.getFullYear()) : 0
+  const sitesActifs = sitesDuCompte.filter((s) => s.statut === 'actif').length
+  const ratioClient = sitesDuCompte.length > 0 ? sitesActifs / sitesDuCompte.length : 0
+  const prospects = sitesDuCompte.length - sitesActifs
+
+  const ancienneteScore = Math.min(30, anciennete * 5)
+  const ratioScore = Math.round(ratioClient * 40)
+  const prospectsScore = Math.min(20, prospects * 8)
+  const score = Math.min(100, ancienneteScore + ratioScore + prospectsScore)
+
+  const drivers = [
+    { label: `Ancienneté relation · ${anciennete} an${anciennete > 1 ? 's' : ''}`, value: ancienneteScore, tone: 'green' as const },
+    { label: `${sitesActifs}/${sitesDuCompte.length || 0} sites client (${Math.round(ratioClient * 100)} %)`, value: ratioScore, tone: 'green' as const },
+    ...(prospects > 0 ? [{ label: `${prospects} prospect${prospects > 1 ? 's' : ''} convertible${prospects > 1 ? 's' : ''}`, value: prospectsScore, tone: 'amber' as const }] : []),
+  ]
+
+  const dotColor = { green: 'bg-kw-green', amber: 'bg-kw-amber' }
+  const chipStyle = { green: 'bg-kw-blue-light text-kw-blue', amber: 'bg-kw-amber-border text-kw-amber-dark' }
+
+  return (
+    <div className="rounded-xl border border-kw-blue/20 bg-kw-surface p-4 shadow-sm">
+      <div className="flex items-center gap-3">
+        <div
+          className="relative flex h-[58px] w-[58px] shrink-0 items-center justify-center rounded-full"
+          style={{ background: `conic-gradient(#3b5f8a 0 ${score}%, #e8ecf1 ${score}% 100%)` }}
+        >
+          <div className="flex h-11 w-11 flex-col items-center justify-center rounded-full bg-kw-surface">
+            <span className="text-[16px] font-bold leading-none text-kw-blue">{score}</span>
+            <span className="text-[7.5px] font-bold text-kw-faint">/ 100</span>
+          </div>
+        </div>
+        <div>
+          <div className="text-kw-xl font-bold text-kw-ink">Valeur du compte</div>
+          <div className="text-kw-lg font-semibold text-kw-blue">Scoring commercial</div>
+        </div>
+      </div>
+      <div className="mt-3 flex flex-col gap-1.5">
+        {drivers.map((d, i) => (
+          <div key={i} className="flex items-center gap-2 text-kw-lg">
+            <span className={cn('h-1.5 w-1.5 shrink-0 rounded-full', dotColor[d.tone])} />
+            <span className="flex-1 text-kw-body">{d.label}</span>
+            <span className={cn('rounded px-1.5 py-0.5 font-mono text-kw-xs font-extrabold', chipStyle[d.tone])}>+{d.value}</span>
+          </div>
+        ))}
+        {drivers.length === 0 && <p className="text-kw-lg text-kw-faint">Pas assez de données pour établir un score.</p>}
+      </div>
+    </div>
+  )
+}
+
+function IdentiteCard({ compte, onToast }: { compte: Compte; onToast: (msg: string) => void }) {
+  const updateField = useUpdateCompteField()
+  const [editingAddress, setEditingAddress] = useState(false)
+  const [addrDraft, setAddrDraft] = useState({ rue: compte.rue ?? '', code_postal: compte.code_postal ?? '', ville: compte.ville ?? '' })
+
+  function commit(patch: Partial<Compte>) {
+    return updateField.mutateAsync({ id: compte.id, patch }).then(() => onToast('✓ enregistré')).catch((err) => onToast(`Erreur : ${err.message}`))
+  }
+
+  const statutClient = useMemo(() => true, []) // dérivé du statut réel des sites, câblé une fois l'onglet Sites/Compteurs aligné
+
+  async function saveAddress() {
+    await commit({ rue: addrDraft.rue || null, code_postal: addrDraft.code_postal || null, ville: addrDraft.ville })
+    setEditingAddress(false)
+  }
+
+  return (
+    <div className="rounded-xl border border-navy-100 bg-kw-surface p-4">
+      <div className="mb-3.5 flex items-center gap-1.5">
+        <span className="flex h-5 w-5 items-center justify-center rounded-md bg-kw-blue-light text-kw-blue"><Building2 className="h-2.5 w-2.5" /></span>
+        <span className="text-kw-xs font-bold uppercase tracking-wide text-kw-faint">Identité</span>
+        <div className="flex-1" />
+        <span className="text-kw-xs text-kw-ghost">cliquer une valeur pour modifier · ⧉ pour copier</span>
+      </div>
+      <div className="grid grid-cols-2 gap-4">
+        <InlineField variant="select" label="Type de compte" value={compte.type_compte} options={[{ value: 'client', label: 'Client' }, { value: 'fournisseur', label: 'Fournisseur' }, { value: 'partenaire', label: 'Partenaire' }, { value: 'kiwee', label: 'KiWee' }]} onCommit={(v) => commit({ type_compte: v as TypeCompte })} onSaved={() => onToast('✓ enregistré')} />
+        <InlineField variant="text" label="Typologie" value={compte.segment || ''} emptyLabel="ajouter" onCommit={(v) => commit({ segment: v })} onSaved={() => onToast('✓ enregistré')} />
+        <div>
+          <div className="mb-0.5 text-kw-xs font-semibold uppercase tracking-wide text-kw-faint">Statut</div>
+          <span className={cn('rounded px-2 py-0.5 text-kw-xs font-semibold', statutClient ? 'bg-kw-green-light text-kw-green' : 'bg-kw-muted text-kw-label')}>
+            {statutClient ? 'Client' : 'Prospect'}
+          </span>
+        </div>
+        {compte.siret && <InfoFieldKw label="SIRET" value={compte.siret} onCopy={onToast} mono />}
+        {compte.siren && <InfoFieldKw label="SIREN" value={compte.siren} onCopy={onToast} mono />}
+        <InlineField variant="text" label="Code NAF" mono value={compte.code_naf || ''} emptyLabel="ajouter" onCommit={(v) => commit({ code_naf: v || null })} onSaved={() => onToast('✓ enregistré')} />
+        <InlineField variant="text" label="Libellé APE" value={compte.libelle_ape || ''} emptyLabel="ajouter" onCommit={(v) => commit({ libelle_ape: v || null })} onSaved={() => onToast('✓ enregistré')} />
+        {compte.score_ellipro && (
+          <div>
+            <div className="mb-0.5 text-kw-xs font-semibold uppercase tracking-wide text-kw-faint">Note Ellipro</div>
+            <span className="rounded bg-kw-green-light px-1.5 py-0.5 text-kw-lg font-extrabold text-kw-green">
+              {compte.score_ellipro}{compte.score_ellipro_scale ? ` / ${compte.score_ellipro_scale}` : ''}
+            </span>
+          </div>
+        )}
+        <div className="col-span-2">
+          <div className="mb-0.5 text-kw-xs font-semibold uppercase tracking-wide text-kw-faint">Siège social</div>
+          {editingAddress ? (
+            <div className="flex flex-wrap items-center gap-1.5">
+              <input value={addrDraft.rue} onChange={(e) => setAddrDraft((d) => ({ ...d, rue: e.target.value }))} placeholder="Rue" className="min-w-[150px] flex-[2] rounded-kw-sm border border-kw-green px-1.5 py-1 text-kw-lg outline-none" />
+              <input value={addrDraft.code_postal} onChange={(e) => setAddrDraft((d) => ({ ...d, code_postal: e.target.value }))} placeholder="Code postal" className="w-20 rounded-kw-sm border border-kw-green px-1.5 py-1 font-mono text-kw-lg outline-none" />
+              <input value={addrDraft.ville} onChange={(e) => setAddrDraft((d) => ({ ...d, ville: e.target.value }))} placeholder="Ville" className="min-w-[90px] flex-1 rounded-kw-sm border border-kw-green px-1.5 py-1 text-kw-lg outline-none" />
+              <button type="button" onClick={saveAddress} className="flex h-6 w-6 shrink-0 items-center justify-center rounded-kw-sm bg-kw-green text-white">✓</button>
+            </div>
+          ) : (
+            <div className="flex items-center gap-1.5">
+              <button type="button" onClick={() => { setAddrDraft({ rue: compte.rue ?? '', code_postal: compte.code_postal ?? '', ville: compte.ville ?? '' }); setEditingAddress(true) }} className="truncate rounded-kw-sm px-1.5 py-0.5 text-left text-kw-lg text-kw-ink hover:bg-kw-muted">
+                {compte.rue || compte.code_postal || compte.ville ? `${compte.rue ? compte.rue + ', ' : ''}${compte.code_postal ?? ''} ${compte.ville ?? ''}`.trim() : <span className="text-kw-faint">＋ ajouter</span>}
+              </button>
+            </div>
+          )}
+        </div>
+        <div>
+          <div className="mb-0.5 text-kw-xs font-semibold uppercase tracking-wide text-kw-faint">Département</div>
+          <div className="flex items-center gap-2">
+            <InlineField variant="text" mono value={compte.departement_code || ''} emptyLabel="—" onCommit={(v) => commit({ departement_code: v || null })} onSaved={() => onToast('✓ enregistré')} className="w-12" />
+            <InlineField variant="text" value={compte.departement_nom || ''} emptyLabel="nom" onCommit={(v) => commit({ departement_nom: v || null })} onSaved={() => onToast('✓ enregistré')} />
+          </div>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+function InfoFieldKw({ label, value, onCopy, mono }: { label: string; value: string; onCopy: (msg: string) => void; mono?: boolean }) {
+  return (
+    <div>
+      <div className="mb-0.5 text-kw-xs font-semibold uppercase tracking-wide text-kw-faint">{label}</div>
+      <div className="flex items-center gap-1.5">
+        <button type="button" onClick={() => copyToClipboard(value, onCopy)} title="Cliquer pour copier" className={cn('truncate text-kw-lg font-semibold text-kw-ink hover:text-kw-blue', mono && 'font-mono')}>
+          {value}
+        </button>
+      </div>
+    </div>
+  )
+}
+
 function RecordMetaCard({ compte, canManage, onToast }: { compte: Compte; canManage: boolean; onToast: (msg: string) => void }) {
   const updateCompte = useUpdateCompte()
   const { data: profilsAdmin } = useProfilsAdmin()
@@ -820,20 +965,6 @@ function RecordMetaCard({ compte, canManage, onToast }: { compte: Compte; canMan
           ))}
         </div>
       )}
-    </div>
-  )
-}
-
-function InfoField({ label, value, onCopy }: { label: string; value: string; onCopy: (msg: string) => void }) {
-  return (
-    <div>
-      <div className="mb-0.5 text-[10px] uppercase tracking-wide text-navy-400">{label}</div>
-      <div className="flex items-center gap-1.5">
-        <span className="truncate text-xs font-semibold text-navy-800">{value}</span>
-        <button type="button" onClick={() => copyToClipboard(value, onCopy)} title="Copier" className="shrink-0 rounded p-0.5 text-navy-300 hover:bg-navy-100 hover:text-navy-700">
-          <Copy className="h-3 w-3" />
-        </button>
-      </div>
     </div>
   )
 }

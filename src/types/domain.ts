@@ -250,6 +250,16 @@ export interface Compte {
   proprietaire_nom?: string | null
   date_creation?: string
   date_modification?: string
+  // Identite (fiche Compte, handoff design William 30/07/2026) -- colonnes ajoutees le 30/07/2026,
+  // toutes nullable en attendant d'etre renseignees compte par compte.
+  code_naf?: string | null
+  libelle_ape?: string | null
+  rue?: string | null
+  code_postal?: string | null
+  departement_code?: string | null
+  departement_nom?: string | null
+  latitude?: number | null
+  longitude?: number | null
 }
 
 export interface Compteur {
