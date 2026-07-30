@@ -3,7 +3,6 @@ import { useParams, useNavigate } from 'react-router-dom'
 import {
   ArrowLeft,
   Phone,
-  StickyNote,
   Plus,
   Building2,
   Users,
@@ -29,6 +28,7 @@ import { PhoneLink, EmailLink } from '@/components/ui/contact-link'
 import { Dialog } from '@/components/ui/dialog'
 import { FormField, Input, Select, Textarea } from '@/components/ui/form'
 import { HistoriqueDiscret } from '@/components/ui/historique-discret'
+import { InlineField } from '@/components/ui/inline-field'
 import {
   useComptes,
   useUpdateCompteScore,
@@ -100,6 +100,7 @@ export default function CompteDetail() {
   const ellisphereScore = useEllisphereScore()
   const updateScore = useUpdateCompteScore()
   const deleteCompte = useDeleteCompte()
+  const updateCompte = useUpdateCompte()
   const goBack = useGoBack('/comptes')
 
   const { data: statutsContratsRef } = useReferenceTable('statuts_contrats')
@@ -213,94 +214,110 @@ export default function CompteDetail() {
       <Topbar crumb="Comptes" title={compte.nom} />
 
       {/* Bandeau compte */}
-      <div className="flex flex-wrap items-center gap-3.5 border-b border-navy-100 bg-white px-4 py-3.5 sm:px-6">
-        <Button variant="ghost" size="icon" onClick={goBack} title="Retour aux comptes">
+      <div className="flex flex-wrap items-start gap-4 bg-kw-surface px-4 pt-3.5 sm:px-[22px]">
+        <Button variant="ghost" size="icon" onClick={goBack} title="Retour aux comptes" className="mt-1">
           <ArrowLeft className="h-4 w-4" />
         </Button>
-        <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-[10px] bg-gradient-to-br from-sky-500 to-sky-400 text-white">
+        <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-kw-xl bg-gradient-to-br from-kw-blue to-[#4f78ab] text-white">
           <Building2 className="h-[18px] w-[18px]" />
         </span>
-        <div className="min-w-0 flex-1">
-          <div className="flex flex-wrap items-center gap-2">
-            <p className="truncate text-xl font-bold tracking-tight text-navy-800">{compte.nom}</p>
-            <Badge tone={typeMeta[compte.type_compte].tone}>{typeMeta[compte.type_compte].label}</Badge>
+        <div className="flex min-w-0 flex-1 flex-col gap-1.5">
+          <div className="flex flex-wrap items-center gap-3">
+            {canManage ? (
+              <InlineField
+                variant="text"
+                value={compte.nom}
+                onCommit={(nom) => updateCompte.mutateAsync({ id: compte.id, nom, ville: compte.ville, segment: compte.segment, proprietaire_id: compte.proprietaire_id ?? null })}
+                onSaved={() => showToast('✓ enregistré')}
+                onError={(err) => showToast(`Erreur : ${err.message}`)}
+                className="text-[20px] font-bold tracking-tight text-kw-ink"
+              />
+            ) : (
+              <span className="text-[20px] font-bold tracking-tight text-kw-ink">{compte.nom}</span>
+            )}
+            <span className="rounded-kw-xs bg-kw-blue-light px-2 py-0.5 text-kw-xs font-semibold text-kw-blue">
+              {typeMeta[compte.type_compte].label}
+            </span>
+            {compte.segment && (
+              <span className="rounded-kw-xs bg-kw-muted px-2 py-0.5 text-kw-xs font-semibold text-kw-label">{compte.segment}</span>
+            )}
+            <span className="text-kw-lg text-kw-meta"><b className="text-kw-ink">{sitesDuCompte.length}</b> site{sitesDuCompte.length > 1 ? 's' : ''} géré{sitesDuCompte.length > 1 ? 's' : ''}</span>
           </div>
-          <p className="truncate text-xs text-navy-500">{compte.segment} · {sitesDuCompte.length} site{sitesDuCompte.length > 1 ? 's' : ''} géré{sitesDuCompte.length > 1 ? 's' : ''}</p>
-          <p className="truncate text-[10.5px] text-navy-400">
-            {compte.date_creation && <>Créé le {new Date(compte.date_creation).toLocaleDateString('fr-FR')} · </>}
-            Propriétaire : {compte.proprietaire_nom || 'Aucun'}
-          </p>
         </div>
-        <div className="hidden gap-1.5 lg:flex">
-          <Button
-            variant="outline"
-            size="sm"
+        <div className="flex flex-wrap gap-1.5">
+          <button
+            type="button"
             disabled={!contactPrincipal?.telephone}
             onClick={() => contactPrincipal?.telephone && (window.location.href = `tel:${contactPrincipal.telephone}`)}
+            className="flex items-center gap-1.5 rounded-kw-md border border-kw-border-strong bg-kw-surface px-3 py-2 text-kw-md font-semibold text-kw-ink transition-colors hover:bg-kw-bg disabled:opacity-40"
           >
-            <Phone className="h-3.5 w-3.5" />
-            Appeler
-          </Button>
-          <Button variant="outline" size="sm" onClick={() => setTab('activite')}>
-            <StickyNote className="h-3.5 w-3.5" />
-            Note
-            <span className="font-mono text-[9px] text-navy-300">N</span>
-          </Button>
-          <Button size="sm" onClick={() => navigate('/sites', { state: { openCreateForCompteId: compte.id } })}>
-            <Plus className="h-3.5 w-3.5" />
-            Site
-          </Button>
-          <Button variant="outline" size="sm" onClick={() => setAddCompteurOpen(true)}>
-            <Gauge className="h-3.5 w-3.5" />
-            Compteur
-          </Button>
+            <Phone className="h-3 w-3" /> Appeler
+          </button>
+          <button
+            type="button"
+            onClick={() => setTab('activite')}
+            className="flex items-center gap-1.5 rounded-kw-md border border-kw-border-strong bg-kw-surface px-3 py-2 text-kw-md font-semibold text-kw-ink transition-colors hover:bg-kw-bg"
+          >
+            Note <span className="font-mono text-kw-tiny text-kw-ghost">N</span>
+          </button>
+          <button
+            type="button"
+            onClick={() => navigate('/sites', { state: { openCreateForCompteId: compte.id } })}
+            className="flex items-center gap-1.5 rounded-kw-md bg-kw-ink px-3.5 py-2 text-kw-md font-semibold text-white transition-colors hover:bg-[#2c2f36]"
+          >
+            ＋ Site
+          </button>
+          <button
+            type="button"
+            onClick={() => setAddCompteurOpen(true)}
+            className="flex items-center gap-1.5 rounded-kw-md border border-kw-border-strong bg-kw-surface px-3 py-2 text-kw-md font-semibold text-kw-ink transition-colors hover:bg-kw-bg"
+          >
+            <Gauge className="h-3 w-3" /> Compteur
+          </button>
           {canManage && (
-            <>
-              <Button variant="outline" size="sm" onClick={() => setEditOpen(true)}>
-                <Pencil className="h-3.5 w-3.5" />
-                Modifier
-              </Button>
-              <Button variant="outline" size="sm" onClick={() => setConfirmDelete(true)}>
-                <Trash2 className="h-3.5 w-3.5" />
-                Supprimer
-              </Button>
-            </>
+            <button
+              type="button"
+              onClick={() => setConfirmDelete(true)}
+              className="flex items-center gap-1.5 rounded-kw-md border border-kw-border-strong bg-kw-surface px-3 py-2 text-kw-md font-semibold text-kw-red transition-colors hover:bg-kw-red-light"
+            >
+              <Trash2 className="h-3 w-3" /> Supprimer
+            </button>
           )}
         </div>
+        <RecordMetaCard compte={compte} canManage={canManage} onToast={showToast} />
       </div>
 
       {/* Onglets */}
-      <div className="flex gap-1.5 overflow-x-auto border-b border-navy-100 bg-white px-4 pt-2.5 lg:gap-0.5 lg:pt-0 sm:px-6">
+      <div className="flex items-center gap-0.5 overflow-x-auto border-b border-kw-border bg-kw-surface px-4 pt-2.5 sm:px-[22px]">
         {TABS.map((t) => {
           const isActive = tab === t.key
-          const badgeTone = t.key === 'signaux' ? 'bg-red-500 text-white' : t.key === 'mandats' ? 'bg-amber-200 text-amber-700' : 'bg-navy-100 text-navy-500'
           return (
             <button
               key={t.key}
               type="button"
               onClick={() => setTab(t.key)}
               className={cn(
-                'mb-2.5 inline-flex shrink-0 items-center gap-1.5 whitespace-nowrap rounded-full px-3.5 py-2 text-[12.5px] font-semibold transition-colors lg:mb-0 lg:rounded-none lg:border-b-2 lg:px-3 lg:py-2.5 lg:font-normal',
+                'inline-flex shrink-0 items-center gap-1.5 whitespace-nowrap border-b-2 px-3 py-2.5 text-kw-md font-medium transition-colors',
                 t.mobileOnly && 'lg:hidden',
-                isActive
-                  ? 'bg-ink-800 text-white lg:border-navy-800 lg:bg-transparent lg:font-semibold lg:text-navy-800'
-                  : 'border border-navy-200 bg-white text-navy-600 hover:bg-navy-50 lg:border-0 lg:border-b-2 lg:border-transparent lg:text-navy-500 lg:hover:bg-transparent lg:hover:text-navy-700',
+                isActive ? 'border-kw-ink font-semibold text-kw-ink' : 'border-transparent text-kw-meta hover:text-kw-ink',
               )}
             >
               <span className="lg:hidden">{t.labelMobile ?? t.label}</span>
               <span className="hidden lg:inline">{t.label}</span>
               {t.badge && (
-                <span className={cn('rounded px-1.5 py-0.5 text-[9.5px] font-bold', isActive ? 'bg-white/20 text-white lg:bg-navy-100 lg:text-navy-500' : badgeTone)}>
+                <span className={cn('rounded px-1.5 py-0.5 text-kw-tiny font-bold', isActive ? 'bg-kw-muted text-kw-label' : 'bg-kw-muted text-kw-meta')}>
                   {t.badge}
                 </span>
               )}
             </button>
           )
         })}
+        <div className="flex-1" />
+        <span className="hidden pr-1 font-mono text-kw-tiny text-kw-ghost lg:inline">1–8 pour naviguer</span>
       </div>
 
       {/* 3 zones */}
-      <div className="grid min-h-0 flex-1 grid-cols-1 overflow-hidden lg:grid-cols-[280px_1fr_304px]">
+      <div className="grid min-h-0 flex-1 grid-cols-1 overflow-hidden lg:grid-cols-[300px_minmax(0,1fr)_340px]">
         {/* Colonne gauche — Contacts (desktop uniquement) */}
         <div className="hidden min-h-0 flex-col gap-3.5 overflow-y-auto border-r border-navy-100 bg-navy-50/60 p-3.5 lg:flex">
           <ContactsPanel contacts={contactsDuCompte} />
@@ -754,6 +771,55 @@ export default function CompteDetail() {
           </Button>
         </div>
       </Dialog>
+    </div>
+  )
+}
+
+function RecordMetaCard({ compte, canManage, onToast }: { compte: Compte; canManage: boolean; onToast: (msg: string) => void }) {
+  const updateCompte = useUpdateCompte()
+  const { data: profilsAdmin } = useProfilsAdmin()
+  const [open, setOpen] = useState(false)
+
+  const initiales = compte.proprietaire_nom ? compte.proprietaire_nom.split(' ').map((p) => p[0]).slice(0, 2).join('').toUpperCase() : '—'
+
+  async function reassign(profilId: string) {
+    setOpen(false)
+    const profil = profilsAdmin?.find((p) => p.id === profilId)
+    try {
+      await updateCompte.mutateAsync({ id: compte.id, nom: compte.nom, ville: compte.ville, segment: compte.segment, proprietaire_id: profilId || null })
+      onToast(`✓ Propriétaire : ${profil ? `${profil.prenom} ${profil.nom}` : 'Aucun'}`)
+    } catch (err) {
+      onToast(`Erreur : ${err instanceof Error ? err.message : 'inconnue'}`)
+    }
+  }
+
+  return (
+    <div className="relative flex shrink-0 flex-col items-start gap-0.5 rounded-kw-xl border border-kw-border-subtle bg-kw-subtle px-2.5 py-1.5">
+      <button
+        type="button"
+        disabled={!canManage}
+        onClick={() => setOpen((v) => !v)}
+        title="Propriétaire — cliquer pour réattribuer"
+        className="flex items-center gap-1.5 disabled:cursor-default"
+      >
+        <span className="flex h-4 w-4 items-center justify-center rounded-full bg-[#e4ded2] text-[7.5px] font-bold text-[#6b6355]">{initiales}</span>
+        <span className="text-kw-xs font-bold text-kw-label">{compte.proprietaire_nom || 'Aucun propriétaire'}</span>
+        {canManage && <span className="text-kw-ghost">▾</span>}
+      </button>
+      <span className="whitespace-nowrap text-kw-tiny text-kw-faint">
+        {compte.date_creation && <>Créé {new Date(compte.date_creation).toLocaleDateString('fr-FR')} · </>}
+        Modifié {compte.date_modification ? new Date(compte.date_modification).toLocaleDateString('fr-FR') : '—'}
+      </span>
+      {open && (
+        <div className="absolute right-0 top-full z-30 mt-1 max-h-64 w-52 overflow-y-auto rounded-kw-lg border border-kw-border bg-kw-surface py-1 shadow-kw-panel">
+          <button type="button" onClick={() => reassign('')} className="block w-full px-3 py-1.5 text-left text-kw-lg text-kw-body hover:bg-kw-muted">Aucun</button>
+          {profilsAdmin?.map((p) => (
+            <button key={p.id} type="button" onClick={() => reassign(p.id)} className="block w-full px-3 py-1.5 text-left text-kw-lg text-kw-body hover:bg-kw-muted">
+              {p.prenom} {p.nom}
+            </button>
+          ))}
+        </div>
+      )}
     </div>
   )
 }
