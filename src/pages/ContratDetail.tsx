@@ -98,6 +98,33 @@ function CycleDeVieCard({ dateDebut, dateFin }: { dateDebut: string; dateFin: st
   )
 }
 
+const CLAUSES: { key: keyof Pick<Contrat, 'clause_tacite_reconduction' | 'clause_renegociation_anticipee' | 'clause_engagement_consommation' | 'clause_energie_verte' | 'clause_indexation_prix' | 'clause_penalites_resiliation'>; label: string }[] = [
+  { key: 'clause_tacite_reconduction', label: 'Tacite reconduction' },
+  { key: 'clause_renegociation_anticipee', label: 'Renégociation anticipée' },
+  { key: 'clause_engagement_consommation', label: 'Engagement de consommation' },
+  { key: 'clause_energie_verte', label: 'Énergie verte' },
+  { key: 'clause_indexation_prix', label: 'Indexation de prix' },
+  { key: 'clause_penalites_resiliation', label: 'Pénalités de résiliation anticipée' },
+]
+
+function ClausesCard({ contrat }: { contrat: Contrat }) {
+  const renseignees = CLAUSES.filter((c) => contrat[c.key] != null)
+  if (renseignees.length === 0) return null
+  return (
+    <div className="rounded-xl border border-navy-100 bg-white p-4">
+      <p className="mb-2.5 text-[10px] font-bold uppercase tracking-wide text-navy-400">Clauses</p>
+      <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+        {renseignees.map((c) => (
+          <div key={c.key} className="flex items-center justify-between gap-2 rounded-lg bg-navy-50/60 px-3 py-2">
+            <span className="text-xs text-navy-700">{c.label}</span>
+            <Badge tone={contrat[c.key] ? 'kiwi' : 'neutral'}>{contrat[c.key] ? 'Oui' : 'Non'}</Badge>
+          </div>
+        ))}
+      </div>
+    </div>
+  )
+}
+
 function AddFichierDialog({ open, onClose, contratId, onSaved }: { open: boolean; onClose: () => void; contratId: string; onSaved: () => void }) {
   const { data: typesRef } = useReferenceTable('types_documents')
   const types = typesRef && typesRef.length > 0 ? typesRef : FALLBACK_TYPES_DOCUMENTS
@@ -501,13 +528,41 @@ export default function ContratDetail() {
                     <p className="text-xs font-semibold text-navy-800">{contrat.contact_signataire_nom}</p>
                   </div>
                 )}
+                {contrat.date_signature && (
+                  <div>
+                    <p className="mb-0.5 text-[10px] uppercase tracking-wide text-navy-400">Date de signature</p>
+                    <p className="text-xs font-semibold text-navy-800">{new Date(contrat.date_signature).toLocaleDateString('fr-FR')}</p>
+                  </div>
+                )}
+                {contrat.date_debut && contrat.date_fin && (
+                  <div>
+                    <p className="mb-0.5 text-[10px] uppercase tracking-wide text-navy-400">Durée</p>
+                    <p className="text-xs font-semibold text-navy-800">
+                      {Math.round((new Date(contrat.date_fin).getTime() - new Date(contrat.date_debut).getTime()) / (1000 * 60 * 60 * 24 * 30.44))} mois
+                    </p>
+                  </div>
+                )}
+                {contrat.type_prix && (
+                  <div>
+                    <p className="mb-0.5 text-[10px] uppercase tracking-wide text-navy-400">Type de prix</p>
+                    <Badge tone={contrat.type_prix === 'Fixe' ? 'kiwi' : 'amber'}>{contrat.type_prix}</Badge>
+                  </div>
+                )}
+                {contrat.prix_molecule_eur_mwh != null && (
+                  <div>
+                    <p className="mb-0.5 text-[10px] uppercase tracking-wide text-navy-400">Prix molécule</p>
+                    <p className="font-mono text-xs font-semibold text-navy-800">{contrat.prix_molecule_eur_mwh.toLocaleString('fr-FR')} €/MWh</p>
+                  </div>
+                )}
               </div>
               <HistoriqueDiscret tableNom="contrats" ligneId={contrat.id} />
               </div>
 
+              <ClausesCard contrat={contrat} />
+
               {(contrat.statut_signature || contrat.docusign_envelope_id) && (
                 <div className="rounded-xl border border-navy-100 bg-white p-4">
-                  <p className="mb-2.5 text-[10px] font-bold uppercase tracking-wide text-navy-400">Signature</p>
+                  <p className="mb-2.5 text-[10px] font-bold uppercase tracking-wide text-navy-400">Signature (DocuSign)</p>
                   <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
                     {contrat.statut_signature && (
                       <div>
@@ -519,12 +574,6 @@ export default function ContratDetail() {
                       <div>
                         <p className="mb-0.5 text-[10px] uppercase tracking-wide text-navy-400">Envoyé le</p>
                         <p className="text-xs font-semibold text-navy-800">{new Date(contrat.date_envoi_signature).toLocaleDateString('fr-FR')}</p>
-                      </div>
-                    )}
-                    {contrat.date_signature && (
-                      <div>
-                        <p className="mb-0.5 text-[10px] uppercase tracking-wide text-navy-400">Signé le</p>
-                        <p className="text-xs font-semibold text-navy-800">{new Date(contrat.date_signature).toLocaleDateString('fr-FR')}</p>
                       </div>
                     )}
                   </div>
