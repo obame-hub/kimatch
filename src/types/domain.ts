@@ -142,8 +142,12 @@ export interface Recommandation {
   date_creation: string
   versions: VersionRecommandation[]
   proprietaire_id: string | null
-  /** Contact signataire (Opportunity.Contact__c en Salesforce) -- ajoute le 31/07/2026. */
+  /** Contact signataire (Opportunity.Contact__c en Salesforce) -- ajoute le 31/07/2026, jamais
+   * affiche a l'ecran avant ce meme jour (colonne presente en base, invisible cote UI). */
   contact_signataire_id?: string | null
+  contact_signataire_nom?: string | null
+  contact_signataire_email?: string | null
+  contact_signataire_telephone?: string | null
   /** Marges (Opportunity.Amount / Montant_commission_nette_kiwee__c / Montant_commission_interne__c /
    * R_mun_ration_ap__c en Salesforce) -- ajoute le 31/07/2026. */
   marge_brute?: number | null

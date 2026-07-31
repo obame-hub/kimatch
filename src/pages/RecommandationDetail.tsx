@@ -294,6 +294,14 @@ export default function RecommandationDetail() {
                   <p><span className="text-navy-400">Priorité :</span> {PRIORITE_LABEL[reco.priorite] ?? reco.priorite}</p>
                   <p><span className="text-navy-400">Conseiller :</span> {reco.conseiller}</p>
                   <p><span className="text-navy-400">Créée le :</span> {new Date(reco.date_creation).toLocaleDateString('fr-FR')}</p>
+                  {reco.contact_signataire_id && (
+                    <div className="space-y-1 rounded-lg bg-navy-50 p-2.5">
+                      <p className="text-[11px] font-semibold uppercase tracking-wide text-navy-400">Contact</p>
+                      <p><EntityLink to={`/contacts/${reco.contact_signataire_id}`}>{reco.contact_signataire_nom}</EntityLink></p>
+                      {reco.contact_signataire_email && <p className="text-xs text-navy-500">{reco.contact_signataire_email}</p>}
+                      {reco.contact_signataire_telephone && <p className="text-xs text-navy-500">{reco.contact_signataire_telephone}</p>}
+                    </div>
+                  )}
                   {(reco.marge_brute != null || reco.marge_nette != null || reco.marge_nette_coeff != null || reco.marge_apporteur != null) && (
                     <div className="space-y-1 rounded-lg bg-navy-50 p-2.5">
                       <p className="text-[11px] font-semibold uppercase tracking-wide text-navy-400">Marges</p>

@@ -31,6 +31,7 @@ interface RawRecommandation {
   origine: { libelle: string } | null
   responsable: { prenom: string; nom: string } | null
   compte: { id: string; nom: string } | null
+  contact_signataire: { prenom: string; nom: string; email: string | null; telephone: string | null } | null
 }
 
 interface RawVersion {
@@ -127,7 +128,7 @@ async function fetchRecommandations(): Promise<Recommandation[]> {
       await Promise.all([
         fetchAllRows<RawRecommandation>(
           'recommandations',
-          'id, nom, description, priorite, commentaire_interne, date_ouverture, proprietaire_id, contact_signataire_id, marge_brute, marge_nette, marge_nette_coeff, marge_apporteur, etape:etapes_recommandation(code), origine:types_origines(libelle), responsable:profils!recommandations_responsable_profil_id_fkey(prenom, nom), compte:comptes(id, nom)',
+          'id, nom, description, priorite, commentaire_interne, date_ouverture, proprietaire_id, contact_signataire_id, marge_brute, marge_nette, marge_nette_coeff, marge_apporteur, etape:etapes_recommandation(code), origine:types_origines(libelle), responsable:profils!recommandations_responsable_profil_id_fkey(prenom, nom), compte:comptes(id, nom), contact_signataire:contacts(prenom, nom, email, telephone)',
           (q) => q.order('date_ouverture', { ascending: false }),
         ),
         fetchAllRows<RawRecoSite>('recommandations_sites', 'recommandation_id, site:sites(id, nom)'),
@@ -322,6 +323,9 @@ async function fetchRecommandations(): Promise<Recommandation[]> {
       versions: versionsParReco.get(r.id) ?? [],
       proprietaire_id: r.proprietaire_id,
       contact_signataire_id: r.contact_signataire_id,
+      contact_signataire_nom: r.contact_signataire ? `${r.contact_signataire.prenom} ${r.contact_signataire.nom}` : null,
+      contact_signataire_email: r.contact_signataire?.email ?? null,
+      contact_signataire_telephone: r.contact_signataire?.telephone ?? null,
       marge_brute: r.marge_brute,
       marge_nette: r.marge_nette,
       marge_nette_coeff: r.marge_nette_coeff,
