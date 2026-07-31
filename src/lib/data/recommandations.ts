@@ -128,7 +128,7 @@ async function fetchRecommandations(): Promise<Recommandation[]> {
       await Promise.all([
         fetchAllRows<RawRecommandation>(
           'recommandations',
-          'id, nom, description, priorite, commentaire_interne, date_ouverture, proprietaire_id, contact_signataire_id, marge_brute, marge_nette, marge_nette_coeff, marge_apporteur, etape:etapes_recommandation(code), origine:types_origines(libelle), responsable:profils!recommandations_responsable_profil_id_fkey(prenom, nom), compte:comptes(id, nom), contact_signataire:contacts(prenom, nom, email, telephone)',
+          'id, nom, description, priorite, commentaire_interne, date_ouverture, proprietaire_id, contact_signataire_id, marge_brute, marge_nette, marge_nette_coeff, marge_apporteur, etape:etapes_recommandation(code), origine:types_origines(libelle), responsable:profils!recommandations_responsable_profil_id_fkey(prenom, nom), compte:comptes(id, nom), contact_signataire:contacts!recommandations_contact_signataire_id_fkey(prenom, nom, email, telephone)',
           (q) => q.order('date_ouverture', { ascending: false }),
         ),
         fetchAllRows<RawRecoSite>('recommandations_sites', 'recommandation_id, site:sites(id, nom)'),
