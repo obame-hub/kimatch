@@ -46,9 +46,13 @@ interface RawCompteur {
   date_derniere_synchro_eneo: string | null
   proprietaire_id: string | null
   type_utilisation_compteur_id: string | null
+  responsable_contact_id: string | null
+  contact_conseil_syndical_id: string | null
   type_energie: { code: string } | null
   type_utilisation: { libelle: string } | null
   site: { nom: string } | null
+  responsable_contact: { prenom: string; nom: string } | null
+  contact_conseil_syndical: { prenom: string; nom: string } | null
   compteurs_electricite: RawCompteurElec | RawCompteurElec[] | null
   compteurs_gaz: RawCompteurGaz | RawCompteurGaz[] | null
   proprietaire: { prenom: string; nom: string } | null
@@ -77,7 +81,7 @@ async function fetchCompteurs(): Promise<Compteur[]> {
   try {
     const data = await fetchAllRows<RawCompteur>(
       'compteurs',
-      'id, site_id, numero_point, libelle, actif, consommation_annuelle_mwh, synchro_eneo, date_derniere_synchro_eneo, proprietaire_id, type_utilisation_compteur_id, type_energie:types_energies(code), type_utilisation:types_utilisations_compteur(libelle), site:sites(nom), compteurs_electricite(*), compteurs_gaz(*), proprietaire:profils!compteurs_proprietaire_id_fkey(prenom, nom), date_creation, date_modification, fournisseur_actuel_compte_id, fournisseur_actuel:comptes!compteurs_fournisseur_actuel_compte_id_fkey(nom)',
+      'id, site_id, numero_point, libelle, actif, consommation_annuelle_mwh, synchro_eneo, date_derniere_synchro_eneo, proprietaire_id, type_utilisation_compteur_id, responsable_contact_id, contact_conseil_syndical_id, type_energie:types_energies(code), type_utilisation:types_utilisations_compteur(libelle), site:sites(nom), compteurs_electricite(*), compteurs_gaz(*), proprietaire:profils!compteurs_proprietaire_id_fkey(prenom, nom), date_creation, date_modification, fournisseur_actuel_compte_id, fournisseur_actuel:comptes!compteurs_fournisseur_actuel_compte_id_fkey(nom), responsable_contact:contacts!compteurs_responsable_contact_id_fkey(prenom, nom), contact_conseil_syndical:contacts!compteurs_contact_conseil_syndical_id_fkey(prenom, nom)',
     )
 
     const comptesVisibles = await fetchComptesVisibles()
@@ -105,6 +109,10 @@ async function fetchCompteurs(): Promise<Compteur[]> {
         date_modification: c.date_modification,
         fournisseur_actuel_compte_id: c.fournisseur_actuel_compte_id,
         fournisseur_actuel_nom: c.fournisseur_actuel?.nom ?? null,
+        responsable_contact_id: c.responsable_contact_id,
+        responsable_contact_nom: c.responsable_contact ? `${c.responsable_contact.prenom} ${c.responsable_contact.nom}` : null,
+        contact_conseil_syndical_id: c.contact_conseil_syndical_id,
+        contact_conseil_syndical_nom: c.contact_conseil_syndical ? `${c.contact_conseil_syndical.prenom} ${c.contact_conseil_syndical.nom}` : null,
         ...(elec
           ? {
               segment: elec.segment,

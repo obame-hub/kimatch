@@ -599,6 +599,18 @@ export default function CompteurDetail() {
                   {compteur.car_mwh != null && <p><span className="text-navy-400">CAR :</span> {compteur.car_mwh} MWh</p>}
                   {compteur.profil_consommation && <p><span className="text-navy-400">Profil :</span> {compteur.profil_consommation}</p>}
                   {compteur.zone_tarifaire && <p><span className="text-navy-400">Zone tarifaire :</span> {compteur.zone_tarifaire}</p>}
+                  {compteur.responsable_contact_id && (
+                    <p>
+                      <span className="text-navy-400">Responsable :</span>{' '}
+                      <EntityLink to={`/contacts/${compteur.responsable_contact_id}`}>{compteur.responsable_contact_nom}</EntityLink>
+                    </p>
+                  )}
+                  {compteur.contact_conseil_syndical_id && (
+                    <p>
+                      <span className="text-navy-400">Contact conseil syndical :</span>{' '}
+                      <EntityLink to={`/contacts/${compteur.contact_conseil_syndical_id}`}>{compteur.contact_conseil_syndical_nom}</EntityLink>
+                    </p>
+                  )}
                   {compteur.fournisseur_actuel_compte_id && (
                     <p>
                       <span className="text-navy-400">Fournisseur actuel (avant KiWee) :</span>{' '}

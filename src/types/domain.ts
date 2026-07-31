@@ -309,6 +309,12 @@ export interface Compteur {
   /** Fournisseur avant KiWee (PDL.Fournisseur_actuel__c en Salesforce) -- ajoute le 31/07/2026. */
   fournisseur_actuel_compte_id?: string | null
   fournisseur_actuel_nom?: string | null
+  /** Contacts du compteur (PDL.Responsable__c / Contact_conseil_syndical__c en Salesforce) --
+   * colonnes ajoutees le 31/07/2026, jamais affichees dans l'UI avant ce meme jour. */
+  responsable_contact_id?: string | null
+  responsable_contact_nom?: string | null
+  contact_conseil_syndical_id?: string | null
+  contact_conseil_syndical_nom?: string | null
 }
 
 export interface Consommation {
