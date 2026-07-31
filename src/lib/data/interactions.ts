@@ -22,10 +22,16 @@ interface RawInteraction {
   contact: { prenom: string; nom: string } | null
   issue: { libelle: string; couleur: string | null } | null
   proprietaire_id: string | null
+  duree_appel_secondes: number | null
+  appel_manque: boolean | null
+  messagerie_vocale: boolean | null
+  numero_correspondant: string | null
+  decroche_par: string | null
+  enregistrement_url: string | null
 }
 
 const INTERACTIONS_SELECT =
-  'id, date_interaction, sens, objet, resume, resultat, compte_id, site_id, contact_id, type_interaction:types_interactions(libelle), auteur:profils!interactions_auteur_profil_id_fkey(prenom, nom), compte:comptes(nom), site:sites(nom), contact:contacts(prenom, nom), issue:issues_interactions(libelle, couleur), proprietaire_id'
+  'id, date_interaction, sens, objet, resume, resultat, compte_id, site_id, contact_id, type_interaction:types_interactions(libelle), auteur:profils!interactions_auteur_profil_id_fkey(prenom, nom), compte:comptes(nom), site:sites(nom), contact:contacts(prenom, nom), issue:issues_interactions(libelle, couleur), proprietaire_id, duree_appel_secondes, appel_manque, messagerie_vocale, numero_correspondant, decroche_par, enregistrement_url'
 
 async function fetchInteractionsPage(from: number, pageSize: number, attempt = 0): Promise<RawInteraction[]> {
   const { data, error } = await supabase

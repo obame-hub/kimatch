@@ -341,6 +341,13 @@ export interface Interaction {
   issue_libelle?: string
   issue_couleur?: string | null
   proprietaire_id: string | null
+  /** Detail d'appel Aircall (Task Salesforce) -- ajoute le 31/07/2026, jamais repris avant. */
+  duree_appel_secondes?: number | null
+  appel_manque?: boolean | null
+  messagerie_vocale?: boolean | null
+  numero_correspondant?: string | null
+  decroche_par?: string | null
+  enregistrement_url?: string | null
 }
 
 export interface Contrat {

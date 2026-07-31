@@ -112,6 +112,29 @@ export default function InteractionDetail() {
               {interaction.resultat && (
                 <p><span className="text-navy-400">Résultat :</span> {interaction.resultat}</p>
               )}
+              {(interaction.appel_manque || interaction.messagerie_vocale) && (
+                <p>
+                  {interaction.appel_manque && <Badge tone="amber">Appel manqué</Badge>}
+                  {interaction.messagerie_vocale && <Badge tone="amber">Messagerie vocale</Badge>}
+                </p>
+              )}
+              {interaction.duree_appel_secondes != null && (
+                <p><span className="text-navy-400">Durée :</span> {Math.floor(interaction.duree_appel_secondes / 60)} min {interaction.duree_appel_secondes % 60}s</p>
+              )}
+              {interaction.numero_correspondant && (
+                <p><span className="text-navy-400">Numéro :</span> {interaction.numero_correspondant}</p>
+              )}
+              {interaction.decroche_par && (
+                <p><span className="text-navy-400">Décroché par :</span> {interaction.decroche_par}</p>
+              )}
+              {interaction.enregistrement_url && (
+                <p>
+                  <span className="text-navy-400">Enregistrement :</span>{' '}
+                  <a href={interaction.enregistrement_url} target="_blank" rel="noreferrer" className="text-sky-600 underline">
+                    Écouter l'appel
+                  </a>
+                </p>
+              )}
               {interaction.issue_libelle && (
                 <p><span className="text-navy-400">Motif / issue :</span> <Badge tone="amber">{interaction.issue_libelle}</Badge></p>
               )}
