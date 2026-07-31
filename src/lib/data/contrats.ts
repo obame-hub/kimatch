@@ -5,11 +5,12 @@ import { mockContrats } from '@/lib/mockData'
 import type { Contrat } from '@/types/domain'
 import { notifySlack } from '@/lib/data/slackSettings'
 import { buildContratCreatedBlocks } from '@/lib/slackTemplates'
-import { fetchComptesVisibles, fetchSitesVisiblesIds, filterVisibles } from '@/lib/data/visibility'
+import { fetchComptesVisibles, filterVisibles } from '@/lib/data/visibility'
 
 interface RawContrat {
   id: string
-  site_id: string
+  compte_id: string | null
+  site_id: string | null
   fournisseur_compte_id: string | null
   reference_fournisseur: string | null
   date_debut: string | null
@@ -35,6 +36,7 @@ interface RawContrat {
   statut: { code: string } | null
   contact_signataire: { prenom: string; nom: string } | null
   proprietaire: { prenom: string; nom: string } | null
+  compte: { nom: string } | null
   date_creation: string
   date_modification: string
 }
@@ -46,7 +48,7 @@ async function fetchContrats(): Promise<Contrat[]> {
       supabase
         .from('contrats')
         .select(
-          'id, site_id, fournisseur_compte_id, reference_fournisseur, date_debut, date_fin, preavis_resiliation_jours, proprietaire_id, docusign_envelope_id, date_envoi_signature, date_signature, statut_signature, contact_signataire_id, prix_molecule_eur_mwh, type_prix, clause_tacite_reconduction, clause_renegociation_anticipee, clause_engagement_consommation, clause_energie_verte, clause_indexation_prix, clause_penalites_resiliation, site:sites(nom), fournisseur:comptes(nom), type_energie:types_energies(code), statut:statuts_contrats(code), contact_signataire:contacts(prenom, nom), proprietaire:profils!contrats_proprietaire_id_fkey(prenom, nom), date_creation, date_modification',
+          'id, compte_id, site_id, fournisseur_compte_id, reference_fournisseur, date_debut, date_fin, preavis_resiliation_jours, proprietaire_id, docusign_envelope_id, date_envoi_signature, date_signature, statut_signature, contact_signataire_id, prix_molecule_eur_mwh, type_prix, clause_tacite_reconduction, clause_renegociation_anticipee, clause_engagement_consommation, clause_energie_verte, clause_indexation_prix, clause_penalites_resiliation, site:sites(nom), fournisseur:comptes!contrats_fournisseur_compte_id_fkey(nom), compte:comptes!contrats_compte_id_fkey(nom), type_energie:types_energies(code), statut:statuts_contrats(code), contact_signataire:contacts(prenom, nom), proprietaire:profils!contrats_proprietaire_id_fkey(prenom, nom), date_creation, date_modification',
         )
         .order('date_debut', { ascending: false }),
       supabase.from('contrats_compteurs').select('id, contrat_id, compteur:compteurs(id, numero_point, libelle)'),
@@ -61,11 +63,14 @@ async function fetchContrats(): Promise<Contrat[]> {
       compteursParContrat.set(cc.contrat_id, list)
     }
 
+    // Le compte est la source de verite (decision Michel/William 31/07/2026), plus site_id --
+    // filtrage de visibilite fait directement sur compte_id, independant des compteurs/sites.
     const comptesVisibles = await fetchComptesVisibles()
-    const sitesVisibles = await fetchSitesVisiblesIds(comptesVisibles)
 
-    return filterVisibles(((contratsRes.data ?? []) as unknown as RawContrat[]), sitesVisibles, (c) => c.site_id).map((c) => ({
+    return filterVisibles(((contratsRes.data ?? []) as unknown as RawContrat[]), comptesVisibles, (c) => c.compte_id).map((c) => ({
       id: c.id,
+      compte_id: c.compte_id,
+      compte_nom: c.compte?.nom ?? '',
       site_id: c.site_id,
       site_nom: c.site?.nom ?? '',
       fournisseur_compte_id: c.fournisseur_compte_id,
@@ -107,6 +112,8 @@ export function useContrats() {
 }
 
 interface CreateContratInput {
+  /** Optionnel : si absent, derive automatiquement du compte du site (compat ecrans existants). */
+  compte_id?: string
   site_id: string
   site_nom: string
   fournisseur_compte_id: string | null
@@ -136,8 +143,14 @@ export function useCreateContrat() {
   return useMutation({
     mutationFn: async (input: CreateContratInput): Promise<CreateContratResult> => {
       let persisted = false
+      let compteId = input.compte_id ?? null
+      if (!compteId && !isDemoMode()) {
+        const { data: siteRow } = await supabase.from('sites').select('compte_id').eq('id', input.site_id).single()
+        compteId = (siteRow as { compte_id: string } | null)?.compte_id ?? null
+      }
       let contrat: Contrat = {
         id: `local-${Date.now()}`,
+        compte_id: compteId,
         site_id: input.site_id,
         site_nom: input.site_nom,
         fournisseur_compte_id: input.fournisseur_compte_id,
@@ -162,6 +175,7 @@ export function useCreateContrat() {
         const { data, error } = await supabase
           .from('contrats')
           .insert({
+            compte_id: compteId,
             site_id: input.site_id,
             fournisseur_compte_id: input.fournisseur_compte_id,
             reference_fournisseur: input.reference_fournisseur,

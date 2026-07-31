@@ -64,7 +64,7 @@ export default function ContactDetail() {
   const siteIdsDuContact = useMemo(() => new Set((contact?.sites ?? []).map((s) => s.id)), [contact])
   const tachesDuContact = useMemo(() => (actions ?? []).filter((a) => a.contact_id === id), [actions, id])
   const interactionsDuContact = useMemo(() => (interactions ?? []).filter((i) => i.contact_id === id), [interactions, id])
-  const contratsDuContact = useMemo(() => (contrats ?? []).filter((ct) => siteIdsDuContact.has(ct.site_id)), [contrats, siteIdsDuContact])
+  const contratsDuContact = useMemo(() => (contrats ?? []).filter((ct) => siteIdsDuContact.has(ct.site_id ?? '')), [contrats, siteIdsDuContact])
   const mandatsSignataire = useMemo(() => (mandats ?? []).filter((m) => m.contact_signataire_id === id), [mandats, id])
   const mandatsDuCompte = useMemo(
     () => (mandats ?? []).filter((m) => m.compte_id === contact?.compte_id && m.contact_signataire_id !== id),

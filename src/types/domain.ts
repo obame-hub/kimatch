@@ -343,7 +343,12 @@ export interface Interaction {
 
 export interface Contrat {
   id: string
-  site_id: string
+  /** Lien direct et independant vers le compte (decision Michel/William 31/07/2026) --
+   * source de verite de "a quel compte appartient ce contrat", pas site_id. */
+  compte_id: string | null
+  compte_nom?: string
+  /** Deductible via les compteurs, garde pour affichage/compat -- plus la source de verite. */
+  site_id: string | null
   site_nom: string
   fournisseur_compte_id: string | null
   fournisseur_nom: string

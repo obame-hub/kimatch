@@ -136,7 +136,9 @@ export default function CompteDetail() {
   const contactsDuCompte = useMemo(() => contacts?.filter((c) => c.compte_id === id) ?? [], [contacts, id])
   const signauxDuCompte = useMemo(() => signaux?.filter((s) => siteIdsDuCompte.has(s.site_id)) ?? [], [signaux, siteIdsDuCompte])
   const compteursDuCompte = useMemo(() => compteurs?.filter((c) => siteIdsDuCompte.has(c.site_id)) ?? [], [compteurs, siteIdsDuCompte])
-  const contratsDuCompte = useMemo(() => contrats?.filter((c) => siteIdsDuCompte.has(c.site_id)) ?? [], [contrats, siteIdsDuCompte])
+  // Le contrat est lie directement au compte (decision Michel/William 31/07/2026), plus via site_id --
+  // reste visible meme si ses compteurs ont change de cabinet entre-temps.
+  const contratsDuCompte = useMemo(() => contrats?.filter((c) => c.compte_id === id) ?? [], [contrats, id])
   const recommandationsDuCompte = useMemo(() => recommandations?.filter((r) => r.compte_id === id) ?? [], [recommandations, id])
   const mandatsDuCompte = useMemo(() => mandats?.filter((m) => m.compte_id === id) ?? [], [mandats, id])
   const interactionsDuCompte = useMemo(
@@ -994,7 +996,7 @@ function ContratsTabContent({
   const prochaine = echeances.slice().sort((a, b) => new Date(a.date_fin!).getTime() - new Date(b.date_fin!).getTime())[0]
 
   const sitesAvecReco = new Set(recommandations.flatMap((r) => r.sites?.map((s) => s.id) ?? []))
-  const sansReco = actifs.filter((c) => !sitesAvecReco.has(c.site_id))
+  const sansReco = actifs.filter((c) => !sitesAvecReco.has(c.site_id ?? ''))
 
   const [filtre, setFiltre] = useState<'all' | 'actifs' | 'echeances' | 'sans_reco'>('all')
   const filtres: Record<typeof filtre, Contrat[]> = { all: contrats, actifs, echeances, sans_reco: sansReco }
@@ -1037,6 +1039,7 @@ function ContratsTabContent({
       <GroupedBySite
         sites={sites}
         itemsBySiteId={(siteId) => contratsAffiches.filter((ct) => ct.site_id === siteId)}
+        orphanItems={contratsAffiches.filter((ct) => !ct.site_id || !sites.some((s) => s.id === ct.site_id))}
         renderItem={(ct: Contrat) => {
           const Icon = ct.type_energie === 'gaz' ? Flame : Zap
           const lc = LIFECYCLE_STYLE[contratLifecycle(ct.statut)]
@@ -1073,16 +1076,21 @@ function GroupedBySite<T>({
   itemsBySiteId,
   renderItem,
   emptyLabel,
+  orphanItems,
 }: {
   sites: Site[]
   itemsBySiteId: (siteId: string) => T[]
   renderItem: (item: T) => React.ReactNode
   emptyLabel: string
+  /** Elements sans site rattachable (ex. contrat dont les compteurs ont change de cabinet) --
+   * doivent quand meme s'afficher, pas disparaitre silencieusement (voir bug Rivet-Lenoble). */
+  orphanItems?: T[]
 }) {
   const navigate = useNavigate()
   const groups = sites.map((s) => ({ site: s, items: itemsBySiteId(s.id) })).filter((g) => g.items.length > 0)
+  const orphans = orphanItems ?? []
 
-  if (groups.length === 0) return <p className="text-sm text-navy-400">{emptyLabel}</p>
+  if (groups.length === 0 && orphans.length === 0) return <p className="text-sm text-navy-400">{emptyLabel}</p>
 
   return (
     <div className="flex flex-col gap-3.5">
@@ -1101,6 +1109,18 @@ function GroupedBySite<T>({
           <div className="divide-y divide-navy-50">{items.map((item) => renderItem(item))}</div>
         </div>
       ))}
+      {orphans.length > 0 && (
+        <div className="overflow-hidden rounded-xl border border-dashed border-navy-200 bg-white">
+          <div className="flex items-center gap-2.5 border-b border-navy-50 bg-navy-50/60 px-4 py-2.5">
+            <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-navy-100 text-navy-500">
+              <MapPin className="h-3.5 w-3.5" />
+            </span>
+            <p className="min-w-0 flex-1 truncate text-[13px] font-bold text-navy-800">Sans site rattaché (historique)</p>
+            <span className="text-[10.5px] text-navy-400">{orphans.length} élément{orphans.length > 1 ? 's' : ''}</span>
+          </div>
+          <div className="divide-y divide-navy-50">{orphans.map((item) => renderItem(item))}</div>
+        </div>
+      )}
     </div>
   )
 }
