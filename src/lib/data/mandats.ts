@@ -4,6 +4,7 @@ import { isDemoMode } from '@/lib/demoMode'
 import { mockMandats } from '@/lib/mockData'
 import type { Mandat } from '@/types/domain'
 import { fetchComptesVisibles, filterVisibles } from '@/lib/data/visibility'
+import { fetchAllRows } from '@/lib/data/paginatedFetch'
 
 interface RawMandat {
   id: string
@@ -26,20 +27,18 @@ interface RawMandat {
 async function fetchMandats(): Promise<Mandat[]> {
   if (isDemoMode()) return mockMandats
   try {
-    const [mandatsRes, compteursRes, courtiersRes] = await Promise.all([
-      supabase
-        .from('mandats')
-        .select(
-          'id, compte_id, date_signature, date_envoi, date_debut_validite, date_fin_validite, contact_signataire_id, docusign_envelope_id, proprietaire_id, compte:comptes(nom), statut:statuts_mandats(code), contact_signataire:contacts(prenom, nom), proprietaire:profils!mandats_proprietaire_id_fkey(prenom, nom), date_creation, date_modification',
-        ),
-      supabase.from('mandats_compteurs').select('mandat_id, compteur:compteurs(id, site_id)'),
-      supabase.from('mandats_courtiers').select('mandat_id, type_courtier:types_courtiers_mandat(code)'),
+    const [mandats, compteursRows, courtiersRows] = await Promise.all([
+      fetchAllRows<RawMandat>(
+        'mandats',
+        'id, compte_id, date_signature, date_envoi, date_debut_validite, date_fin_validite, contact_signataire_id, docusign_envelope_id, proprietaire_id, compte:comptes(nom), statut:statuts_mandats(code), contact_signataire:contacts(prenom, nom), proprietaire:profils!mandats_proprietaire_id_fkey(prenom, nom), date_creation, date_modification',
+      ),
+      fetchAllRows<{ mandat_id: string; compteur: { id: string; site_id: string } | null }>('mandats_compteurs', 'mandat_id, compteur:compteurs(id, site_id)'),
+      fetchAllRows<{ mandat_id: string; type_courtier: { code: string } | null }>('mandats_courtiers', 'mandat_id, type_courtier:types_courtiers_mandat(code)'),
     ])
-    if (mandatsRes.error) throw mandatsRes.error
 
     const compteurIdsParMandat = new Map<string, string[]>()
     const siteIdsParMandat = new Map<string, string[]>()
-    for (const mc of (compteursRes.data ?? []) as unknown as { mandat_id: string; compteur: { id: string; site_id: string } | null }[]) {
+    for (const mc of compteursRows) {
       if (!mc.compteur) continue
       const compteurList = compteurIdsParMandat.get(mc.mandat_id) ?? []
       compteurList.push(mc.compteur.id)
@@ -51,7 +50,7 @@ async function fetchMandats(): Promise<Mandat[]> {
     }
 
     const courtierCodesParMandat = new Map<string, string[]>()
-    for (const mc of (courtiersRes.data ?? []) as unknown as { mandat_id: string; type_courtier: { code: string } | null }[]) {
+    for (const mc of courtiersRows) {
       if (!mc.type_courtier) continue
       const list = courtierCodesParMandat.get(mc.mandat_id) ?? []
       list.push(mc.type_courtier.code)
@@ -60,7 +59,7 @@ async function fetchMandats(): Promise<Mandat[]> {
 
     const comptesVisibles = await fetchComptesVisibles()
 
-    return filterVisibles(((mandatsRes.data ?? []) as unknown as RawMandat[]), comptesVisibles, (m) => m.compte_id).map((m) => ({
+    return filterVisibles(mandats, comptesVisibles, (m) => m.compte_id).map((m) => ({
       id: m.id,
       compte_id: m.compte_id,
       compte_nom: m.compte?.nom ?? '',

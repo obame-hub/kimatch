@@ -4,6 +4,7 @@ import { isDemoMode } from '@/lib/demoMode'
 import { mockSignaux } from '@/lib/mockData'
 import type { Signal } from '@/types/domain'
 import { fetchComptesVisibles, fetchSitesVisiblesIds, filterVisibles } from '@/lib/data/visibility'
+import { fetchAllRows } from '@/lib/data/paginatedFetch'
 
 interface RawSignal {
   id: string
@@ -23,18 +24,16 @@ async function fetchSignaux(): Promise<Signal[]> {
   if (isDemoMode()) return mockSignaux
 
   try {
-    const { data, error } = await supabase
-      .from('signaux')
-      .select(
-        'id, site_id, contrat_id, gravite, date_creation, commentaire, proprietaire_id, type_signal:types_signaux(libelle, poids_defaut), statut:statuts_signaux(code), site:sites(nom), responsable:profils!signaux_responsable_profil_id_fkey(prenom, nom)',
-      )
-      .order('date_creation', { ascending: false })
-    if (error) throw error
+    const data = await fetchAllRows<RawSignal>(
+      'signaux',
+      'id, site_id, contrat_id, gravite, date_creation, commentaire, proprietaire_id, type_signal:types_signaux(libelle, poids_defaut), statut:statuts_signaux(code), site:sites(nom), responsable:profils!signaux_responsable_profil_id_fkey(prenom, nom)',
+      (q) => q.order('date_creation', { ascending: false }),
+    )
 
     const comptesVisibles = await fetchComptesVisibles()
     const sitesVisibles = await fetchSitesVisiblesIds(comptesVisibles)
 
-    return filterVisibles(((data ?? []) as unknown as RawSignal[]), sitesVisibles, (s) => s.site_id).map((s) => ({
+    return filterVisibles(data, sitesVisibles, (s) => s.site_id).map((s) => ({
       id: s.id,
       site_id: s.site_id,
       site_nom: s.site?.nom ?? '',

@@ -4,6 +4,7 @@ import { isDemoMode } from '@/lib/demoMode'
 import { mockSites } from '@/lib/mockData'
 import type { Site } from '@/types/domain'
 import { fetchComptesVisibles, filterVisibles } from '@/lib/data/visibility'
+import { fetchAllRows } from '@/lib/data/paginatedFetch'
 
 interface RawSite {
   id: string
@@ -34,33 +35,35 @@ async function fetchSites(): Promise<Site[]> {
   if (isDemoMode()) return mockSites
 
   try {
-    const [sitesRes, compteursRes, signauxRes] = await Promise.all([
-      supabase
-        .from('sites')
-        .select('id, compte_id, nom, adresse, ville, code_postal, actif, compte:comptes(nom), type_site:types_sites(libelle)')
-        .order('nom'),
-      supabase.from('compteurs').select('site_id'),
-      supabase.from('signaux').select('site_id, statut:statuts_signaux(est_cloture)'),
+    const [sites, compteursRows, signauxRows] = await Promise.all([
+      fetchAllRows<RawSite>(
+        'sites',
+        'id, compte_id, nom, adresse, ville, code_postal, actif, compte:comptes(nom), type_site:types_sites(libelle)',
+        (q) => q.order('nom'),
+      ),
+      fetchAllRows<{ site_id: string }>('compteurs', 'site_id'),
+      fetchAllRows<{ site_id: string; statut: { est_cloture: boolean } | null }>('signaux', 'site_id, statut:statuts_signaux(est_cloture)'),
     ])
-
-    if (sitesRes.error) throw sitesRes.error
 
     // Colonnes ajoutées ultérieurement (tâche #55) — sélectionnées à part : si elles n'existent
     // pas encore en base, on retombe sur null pour elles sans perdre les vraies données du site.
     const extraParSite = new Map<string, RawSiteExtra>()
-    const extraRes = await supabase.from('sites').select('id, latitude, longitude, annee_construction, surface_m2, date_derniere_ag, proprietaire_id, proprietaire:profils!sites_proprietaire_id_fkey(prenom, nom), date_creation, date_modification')
-    if (!extraRes.error) {
-      for (const e of (extraRes.data ?? []) as unknown as RawSiteExtra[]) {
-        extraParSite.set(e.id, e)
-      }
+    try {
+      const extraRows = await fetchAllRows<RawSiteExtra>(
+        'sites',
+        'id, latitude, longitude, annee_construction, surface_m2, date_derniere_ag, proprietaire_id, proprietaire:profils!sites_proprietaire_id_fkey(prenom, nom), date_creation, date_modification',
+      )
+      for (const e of extraRows) extraParSite.set(e.id, e)
+    } catch {
+      // colonnes pas encore presentes -- on garde extraParSite vide, comme avant.
     }
 
     const compteursParSite = new Map<string, number>()
-    for (const c of compteursRes.data ?? []) {
+    for (const c of compteursRows) {
       compteursParSite.set(c.site_id, (compteursParSite.get(c.site_id) ?? 0) + 1)
     }
     const signauxOuvertsParSite = new Map<string, number>()
-    for (const s of (signauxRes.data ?? []) as unknown as { site_id: string; statut: { est_cloture: boolean } | null }[]) {
+    for (const s of signauxRows) {
       if (!s.statut?.est_cloture) {
         signauxOuvertsParSite.set(s.site_id, (signauxOuvertsParSite.get(s.site_id) ?? 0) + 1)
       }
@@ -68,7 +71,7 @@ async function fetchSites(): Promise<Site[]> {
 
     const comptesVisibles = await fetchComptesVisibles()
 
-    return filterVisibles(((sitesRes.data ?? []) as unknown as RawSite[]), comptesVisibles, (s) => s.compte_id).map((s) => {
+    return filterVisibles(sites, comptesVisibles, (s) => s.compte_id).map((s) => {
       const extra = extraParSite.get(s.id)
       return {
         id: s.id,

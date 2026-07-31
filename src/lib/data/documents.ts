@@ -3,6 +3,7 @@ import { supabase } from '@/lib/supabase'
 import { isDemoMode } from '@/lib/demoMode'
 import { mockDocuments } from '@/lib/mockData'
 import type { DocumentItem } from '@/types/domain'
+import { fetchAllRows } from '@/lib/data/paginatedFetch'
 
 interface RawDocument {
   id: string
@@ -32,13 +33,13 @@ const ENTITE_LABELS: Record<string, string> = {
 async function fetchDocuments(): Promise<DocumentItem[]> {
   if (isDemoMode()) return mockDocuments
   try {
-    const { data, error } = await supabase
-      .from('documents')
-      .select('id, nom, nom_fichier, url, entite_type, entite_id, date_creation, proprietaire_id, type_document:types_documents(libelle), auteur:profils!documents_auteur_profil_id_fkey(prenom, nom)')
-      .order('date_creation', { ascending: false })
-    if (error) throw error
+    const data = await fetchAllRows<RawDocument>(
+      'documents',
+      'id, nom, nom_fichier, url, entite_type, entite_id, date_creation, proprietaire_id, type_document:types_documents(libelle), auteur:profils!documents_auteur_profil_id_fkey(prenom, nom)',
+      (q) => q.order('date_creation', { ascending: false }),
+    )
 
-    return ((data ?? []) as unknown as RawDocument[]).map((d) => ({
+    return data.map((d) => ({
       id: d.id,
       nom: d.nom,
       nom_fichier: d.nom_fichier,

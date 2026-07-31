@@ -12,6 +12,7 @@ import type {
   SuiviConsultationFournisseur,
 } from '@/types/domain'
 import { fetchComptesVisibles, filterVisibles } from '@/lib/data/visibility'
+import { fetchAllRows } from '@/lib/data/paginatedFetch'
 
 interface RawRecommandation {
   id: string
@@ -111,59 +112,51 @@ async function fetchRecommandations(): Promise<Recommandation[]> {
   if (isDemoMode()) return mockRecommandations
 
   try {
-    const [
-      recosRes,
-      sitesRes,
-      versionsRes,
-      versionsCompteursRes,
-      optimisationsRes,
-      offresRes,
-      offresCompteursRes,
-      fournisseursConsultesRes,
-      suivisConsultationRes,
-    ] = await Promise.all([
-      supabase
-        .from('recommandations')
-        .select(
+    interface RawRecoSite {
+      recommandation_id: string
+      site: { id: string; nom: string } | null
+    }
+
+    const [recos, sitesRows, versionsRows, versionsCompteursRows, optimisationsRows, offresRows, offresCompteursRows, fournisseursConsultesRows, suivisConsultationRows] =
+      await Promise.all([
+        fetchAllRows<RawRecommandation>(
+          'recommandations',
           'id, nom, description, priorite, commentaire_interne, date_ouverture, proprietaire_id, contact_signataire_id, etape:etapes_recommandation(code), origine:types_origines(libelle), responsable:profils!recommandations_responsable_profil_id_fkey(prenom, nom), compte:comptes(id, nom)',
-        )
-        .order('date_ouverture', { ascending: false }),
-      supabase.from('recommandations_sites').select('recommandation_id, site:sites(id, nom)'),
-      supabase
-        .from('versions_recommandation')
-        .select(
+          (q) => q.order('date_ouverture', { ascending: false }),
+        ),
+        fetchAllRows<RawRecoSite>('recommandations_sites', 'recommandation_id, site:sites(id, nom)'),
+        fetchAllRows<RawVersion>(
+          'versions_recommandation',
           'id, recommandation_id, nom, resume, contexte_et_hypotheses, gain_estime_annuel, economie_estimee_pourcentage, niveau_confiance, version_actuelle, est_figee, date_publication, date_presentation_client, date_decision_client, date_creation, statut:statuts_versions_recommandation(code), motif:motifs_versions_recommandation(libelle)',
-        )
-        .order('date_creation'),
-      supabase.from('versions_recommandation_compteurs').select('id, version_recommandation_id, compteur_id, compteur:compteurs(numero_point, libelle)'),
-      supabase
-        .from('optimisations')
-        .select(
+          (q) => q.order('date_creation'),
+        ),
+        fetchAllRows<{ id: string; version_recommandation_id: string; compteur_id: string; compteur: { numero_point: string; libelle: string | null } | null }>(
+          'versions_recommandation_compteurs',
+          'id, version_recommandation_id, compteur_id, compteur:compteurs(numero_point, libelle)',
+        ),
+        fetchAllRows<RawOptimisation>(
+          'optimisations',
           'id, version_recommandation_id, nom, description, resultat_attendu, gain_estime_annuel, cout_estime, roi_mois, priorite, est_retenue, type_optimisation:types_optimisations(code, libelle)',
-        )
-        .order('ordre'),
-      supabase
-        .from('offres_fournisseurs')
-        .select(
+          (q) => q.order('ordre'),
+        ),
+        fetchAllRows<RawOffreFournisseur>(
+          'offres_fournisseurs',
           'id, optimisation_id, reference_offre, nom, description, statut, montant_annuel_ht, montant_total_ht, economie_annuelle_estimee, economie_pourcentage, duree_mois, est_offre_recommandee, compte_fournisseur:comptes_fournisseurs(compte:comptes(nom))',
         ),
-      supabase
-        .from('offres_fournisseurs_compteurs')
-        .select(
+        fetchAllRows<RawOffreFournisseurCompteur>(
+          'offres_fournisseurs_compteurs',
           'id, offre_fournisseur_id, version_recommandation_compteur_id, consommation_annuelle_reference_mwh, cout_fourniture_annuel_ht, cout_acheminement_annuel_ht, cout_taxes_annuel, cout_total_annuel_estime_ht, economie_annuelle_estimee, economie_pourcentage',
         ),
-      supabase
-        .from('optimisations_fournisseurs')
-        .select('id, optimisation_id, fournisseur_compte_id, date_creation, fournisseur:comptes(nom)'),
-      supabase
-        .from('suivis_consultations_fournisseurs')
-        .select(
+        fetchAllRows<RawFournisseurConsulte>(
+          'optimisations_fournisseurs',
+          'id, optimisation_id, fournisseur_compte_id, date_creation, fournisseur:comptes(nom)',
+        ),
+        fetchAllRows<RawSuiviConsultation>(
+          'suivis_consultations_fournisseurs',
           'id, optimisation_fournisseur_id, date_evenement, commentaire, statut:statuts_consultations_fournisseurs(libelle), auteur:profils(prenom, nom)',
-        )
-        .order('date_evenement'),
-    ])
-
-    if (recosRes.error) throw recosRes.error
+          (q) => q.order('date_evenement'),
+        ),
+      ])
 
     interface RawVersionCompteur {
       id: string
@@ -174,7 +167,7 @@ async function fetchRecommandations(): Promise<Recommandation[]> {
 
     const compteurIdsParVersion = new Map<string, string[]>()
     const versionCompteurById = new Map<string, { compteurId: string; label: string }>()
-    for (const vc of (versionsCompteursRes.data ?? []) as unknown as RawVersionCompteur[]) {
+    for (const vc of versionsCompteursRows as unknown as RawVersionCompteur[]) {
       const list = compteurIdsParVersion.get(vc.version_recommandation_id) ?? []
       list.push(vc.compteur_id)
       compteurIdsParVersion.set(vc.version_recommandation_id, list)
@@ -182,7 +175,7 @@ async function fetchRecommandations(): Promise<Recommandation[]> {
     }
 
     const detailsParOffre = new Map<string, OffreFournisseurCompteurType[]>()
-    for (const dc of (offresCompteursRes.data ?? []) as unknown as RawOffreFournisseurCompteur[]) {
+    for (const dc of offresCompteursRows) {
       const vc = versionCompteurById.get(dc.version_recommandation_compteur_id)
       const list = detailsParOffre.get(dc.offre_fournisseur_id) ?? []
       list.push({
@@ -201,7 +194,7 @@ async function fetchRecommandations(): Promise<Recommandation[]> {
     }
 
     const historiqueParFournisseur = new Map<string, SuiviConsultationFournisseur[]>()
-    for (const s of (suivisConsultationRes.data ?? []) as unknown as RawSuiviConsultation[]) {
+    for (const s of suivisConsultationRows) {
       const list = historiqueParFournisseur.get(s.optimisation_fournisseur_id) ?? []
       list.push({
         id: s.id,
@@ -214,7 +207,7 @@ async function fetchRecommandations(): Promise<Recommandation[]> {
     }
 
     const fournisseursConsultesParOptimisation = new Map<string, FournisseurConsulte[]>()
-    for (const f of (fournisseursConsultesRes.data ?? []) as unknown as RawFournisseurConsulte[]) {
+    for (const f of fournisseursConsultesRows) {
       const historique = historiqueParFournisseur.get(f.id) ?? []
       const list = fournisseursConsultesParOptimisation.get(f.optimisation_id) ?? []
       list.push({
@@ -229,7 +222,7 @@ async function fetchRecommandations(): Promise<Recommandation[]> {
     }
 
     const offresParOptimisation = new Map<string, OffreFournisseur[]>()
-    for (const o of (offresRes.data ?? []) as unknown as RawOffreFournisseur[]) {
+    for (const o of offresRows) {
       const list = offresParOptimisation.get(o.optimisation_id) ?? []
       list.push({
         id: o.id,
@@ -250,7 +243,7 @@ async function fetchRecommandations(): Promise<Recommandation[]> {
     }
 
     const optimisationsParVersion = new Map<string, Optimisation[]>()
-    for (const opt of (optimisationsRes.data ?? []) as unknown as RawOptimisation[]) {
+    for (const opt of optimisationsRows) {
       const list = optimisationsParVersion.get(opt.version_recommandation_id) ?? []
       list.push({
         id: opt.id,
@@ -271,7 +264,7 @@ async function fetchRecommandations(): Promise<Recommandation[]> {
     }
 
     const sitesParReco = new Map<string, { id: string; nom: string }[]>()
-    for (const rs of (sitesRes.data ?? []) as unknown as { recommandation_id: string; site: { id: string; nom: string } | null }[]) {
+    for (const rs of sitesRows) {
       if (!rs.site) continue
       const list = sitesParReco.get(rs.recommandation_id) ?? []
       list.push(rs.site)
@@ -279,7 +272,7 @@ async function fetchRecommandations(): Promise<Recommandation[]> {
     }
 
     const versionsParReco = new Map<string, VersionRecommandation[]>()
-    for (const v of (versionsRes.data ?? []) as unknown as RawVersion[]) {
+    for (const v of versionsRows) {
       const list = versionsParReco.get(v.recommandation_id) ?? []
       list.push({
         id: v.id,
@@ -305,7 +298,7 @@ async function fetchRecommandations(): Promise<Recommandation[]> {
 
     const comptesVisibles = await fetchComptesVisibles()
 
-    return filterVisibles(((recosRes.data ?? []) as unknown as RawRecommandation[]), comptesVisibles, (r) => r.compte?.id).map((r) => ({
+    return filterVisibles(recos, comptesVisibles, (r) => r.compte?.id).map((r) => ({
       id: r.id,
       titre: r.nom,
       compte_id: r.compte?.id ?? '',

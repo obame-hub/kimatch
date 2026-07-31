@@ -4,6 +4,7 @@ import { isDemoMode } from '@/lib/demoMode'
 import { mockCompteurs } from '@/lib/mockData'
 import type { Compteur } from '@/types/domain'
 import { fetchComptesVisibles, fetchSitesVisiblesIds, filterVisibles } from '@/lib/data/visibility'
+import { fetchAllRows } from '@/lib/data/paginatedFetch'
 
 interface RawCompteurElec {
   segment: string | null
@@ -72,17 +73,15 @@ function classeMap(elec: RawCompteurElec, prefix: 'conso' | 'puissance', suffix:
 async function fetchCompteurs(): Promise<Compteur[]> {
   if (isDemoMode()) return mockCompteurs
   try {
-    const { data, error } = await supabase
-      .from('compteurs')
-      .select(
-        'id, site_id, numero_point, libelle, actif, consommation_annuelle_mwh, synchro_eneo, date_derniere_synchro_eneo, proprietaire_id, type_utilisation_compteur_id, type_energie:types_energies(code), type_utilisation:types_utilisations_compteur(libelle), site:sites(nom), compteurs_electricite(*), compteurs_gaz(*), proprietaire:profils!compteurs_proprietaire_id_fkey(prenom, nom), date_creation, date_modification',
-      )
-    if (error) throw error
+    const data = await fetchAllRows<RawCompteur>(
+      'compteurs',
+      'id, site_id, numero_point, libelle, actif, consommation_annuelle_mwh, synchro_eneo, date_derniere_synchro_eneo, proprietaire_id, type_utilisation_compteur_id, type_energie:types_energies(code), type_utilisation:types_utilisations_compteur(libelle), site:sites(nom), compteurs_electricite(*), compteurs_gaz(*), proprietaire:profils!compteurs_proprietaire_id_fkey(prenom, nom), date_creation, date_modification',
+    )
 
     const comptesVisibles = await fetchComptesVisibles()
     const sitesVisibles = await fetchSitesVisiblesIds(comptesVisibles)
 
-    return filterVisibles(((data ?? []) as unknown as RawCompteur[]), sitesVisibles, (c) => c.site_id).map((c) => {
+    return filterVisibles(data, sitesVisibles, (c) => c.site_id).map((c) => {
       const elec = first(c.compteurs_electricite)
       const gaz = first(c.compteurs_gaz)
       return {

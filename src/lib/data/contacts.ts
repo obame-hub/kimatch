@@ -4,6 +4,7 @@ import { isDemoMode } from '@/lib/demoMode'
 import { mockContacts } from '@/lib/mockData'
 import type { Contact } from '@/types/domain'
 import { fetchComptesVisibles, filterVisibles } from '@/lib/data/visibility'
+import { fetchAllRows } from '@/lib/data/paginatedFetch'
 
 interface RawContact {
   id: string
@@ -36,19 +37,17 @@ interface RawContactSite {
 async function fetchContacts(): Promise<Contact[]> {
   if (isDemoMode()) return mockContacts
   try {
-    const [contactsRes, sitesRes] = await Promise.all([
-      supabase
-        .from('contacts')
-        .select(
-          'id, compte_id, civilite, prenom, nom, fonction, telephone, email, contact_principal, actif, compte:comptes(nom), proprietaire_id, linkedin_url, disponibilites, type_canal_communication_id, canal_communication:types_canaux_communication(libelle), proprietaire:profils!contacts_proprietaire_id_fkey(prenom, nom), date_creation, date_modification',
-        )
-        .order('nom'),
-      supabase.from('contacts_sites').select('contact_id, fonction_sur_site, site:sites(id, nom)'),
+    const [contacts, contactsSites] = await Promise.all([
+      fetchAllRows<RawContact>(
+        'contacts',
+        'id, compte_id, civilite, prenom, nom, fonction, telephone, email, contact_principal, actif, compte:comptes(nom), proprietaire_id, linkedin_url, disponibilites, type_canal_communication_id, canal_communication:types_canaux_communication(libelle), proprietaire:profils!contacts_proprietaire_id_fkey(prenom, nom), date_creation, date_modification',
+        (q) => q.order('nom'),
+      ),
+      fetchAllRows<RawContactSite>('contacts_sites', 'contact_id, fonction_sur_site, site:sites(id, nom)'),
     ])
-    if (contactsRes.error) throw contactsRes.error
 
     const sitesParContact = new Map<string, { id: string; nom: string; fonction_sur_site: string | null }[]>()
-    for (const cs of (sitesRes.data ?? []) as unknown as RawContactSite[]) {
+    for (const cs of contactsSites) {
       if (!cs.site) continue
       const list = sitesParContact.get(cs.contact_id) ?? []
       list.push({ id: cs.site.id, nom: cs.site.nom, fonction_sur_site: cs.fonction_sur_site })
@@ -57,7 +56,7 @@ async function fetchContacts(): Promise<Contact[]> {
 
     const comptesVisibles = await fetchComptesVisibles()
 
-    return filterVisibles(((contactsRes.data ?? []) as unknown as RawContact[]), comptesVisibles, (c) => c.compte_id).map((c) => ({
+    return filterVisibles(contacts, comptesVisibles, (c) => c.compte_id).map((c) => ({
       id: c.id,
       compte_id: c.compte_id,
       compte_nom: c.compte?.nom ?? '',

@@ -4,6 +4,7 @@ import { isDemoMode } from '@/lib/demoMode'
 import { mockActions } from '@/lib/mockData'
 import type { ActionItem } from '@/types/domain'
 import { fetchComptesVisibles, fetchSitesVisiblesIds } from '@/lib/data/visibility'
+import { fetchAllRows } from '@/lib/data/paginatedFetch'
 
 interface RawAction {
   id: string
@@ -29,24 +30,20 @@ interface RawAction {
 async function fetchActions(): Promise<ActionItem[]> {
   if (isDemoMode()) return mockActions
   try {
-    const { data, error } = await supabase
-      .from('actions')
-      .select(
-        'id, titre, site_id, contact_id, recommandation_id, date_creation, date_prevue, date_realisation, priorite, commentaire, proprietaire_id, responsable_profil_id, type_action:types_actions(libelle), statut:statuts_actions(code), responsable:profils!actions_responsable_profil_id_fkey(prenom, nom), site:sites(nom), contact:contacts(prenom, nom), recommandation:recommandations(nom)',
-      )
-      .order('date_prevue')
-    if (error) throw error
+    const data = await fetchAllRows<RawAction>(
+      'actions',
+      'id, titre, site_id, contact_id, recommandation_id, date_creation, date_prevue, date_realisation, priorite, commentaire, proprietaire_id, responsable_profil_id, type_action:types_actions(libelle), statut:statuts_actions(code), responsable:profils!actions_responsable_profil_id_fkey(prenom, nom), site:sites(nom), contact:contacts(prenom, nom), recommandation:recommandations(nom)',
+      (q) => q.order('date_prevue'),
+    )
 
     const comptesVisibles = await fetchComptesVisibles()
     const sitesVisibles = await fetchSitesVisiblesIds(comptesVisibles)
 
     // Une tâche sans site_id (ex. liée seulement à un contact, ou purement personnelle)
     // reste visible — on ne restreint que celles clairement rattachées à un site hors périmètre.
-    const visibles = sitesVisibles === null
-      ? (data ?? [])
-      : ((data ?? []) as unknown as RawAction[]).filter((a) => a.site_id == null || sitesVisibles.includes(a.site_id))
+    const visibles = sitesVisibles === null ? data : data.filter((a) => a.site_id == null || sitesVisibles.includes(a.site_id))
 
-    return (visibles as unknown as RawAction[]).map((a) => ({
+    return visibles.map((a) => ({
       id: a.id,
       titre: a.titre,
       type_action: a.type_action?.libelle ?? a.titre,

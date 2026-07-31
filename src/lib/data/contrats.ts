@@ -6,6 +6,7 @@ import type { Contrat } from '@/types/domain'
 import { notifySlack } from '@/lib/data/slackSettings'
 import { buildContratCreatedBlocks } from '@/lib/slackTemplates'
 import { fetchComptesVisibles, filterVisibles } from '@/lib/data/visibility'
+import { fetchAllRows } from '@/lib/data/paginatedFetch'
 
 interface RawContrat {
   id: string
@@ -44,19 +45,20 @@ interface RawContrat {
 async function fetchContrats(): Promise<Contrat[]> {
   if (isDemoMode()) return mockContrats
   try {
-    const [contratsRes, compteursRes] = await Promise.all([
-      supabase
-        .from('contrats')
-        .select(
-          'id, compte_id, site_id, fournisseur_compte_id, reference_fournisseur, date_debut, date_fin, preavis_resiliation_jours, proprietaire_id, docusign_envelope_id, date_envoi_signature, date_signature, statut_signature, contact_signataire_id, prix_molecule_eur_mwh, type_prix, clause_tacite_reconduction, clause_renegociation_anticipee, clause_engagement_consommation, clause_energie_verte, clause_indexation_prix, clause_penalites_resiliation, site:sites(nom), fournisseur:comptes!contrats_fournisseur_compte_id_fkey(nom), compte:comptes!contrats_compte_id_fkey(nom), type_energie:types_energies(code), statut:statuts_contrats(code), contact_signataire:contacts(prenom, nom), proprietaire:profils!contrats_proprietaire_id_fkey(prenom, nom), date_creation, date_modification',
-        )
-        .order('date_debut', { ascending: false }),
-      supabase.from('contrats_compteurs').select('id, contrat_id, compteur:compteurs(id, numero_point, libelle)'),
+    const [contrats, compteursRows] = await Promise.all([
+      fetchAllRows<RawContrat>(
+        'contrats',
+        'id, compte_id, site_id, fournisseur_compte_id, reference_fournisseur, date_debut, date_fin, preavis_resiliation_jours, proprietaire_id, docusign_envelope_id, date_envoi_signature, date_signature, statut_signature, contact_signataire_id, prix_molecule_eur_mwh, type_prix, clause_tacite_reconduction, clause_renegociation_anticipee, clause_engagement_consommation, clause_energie_verte, clause_indexation_prix, clause_penalites_resiliation, site:sites(nom), fournisseur:comptes!contrats_fournisseur_compte_id_fkey(nom), compte:comptes!contrats_compte_id_fkey(nom), type_energie:types_energies(code), statut:statuts_contrats(code), contact_signataire:contacts(prenom, nom), proprietaire:profils!contrats_proprietaire_id_fkey(prenom, nom), date_creation, date_modification',
+        (q) => q.order('date_debut', { ascending: false }),
+      ),
+      fetchAllRows<{ id: string; contrat_id: string; compteur: { id: string; numero_point: string; libelle: string | null } | null }>(
+        'contrats_compteurs',
+        'id, contrat_id, compteur:compteurs(id, numero_point, libelle)',
+      ),
     ])
-    if (contratsRes.error) throw contratsRes.error
 
     const compteursParContrat = new Map<string, { id: string; contrat_compteur_id: string | null; numero_pdl: string; utilisation: string }[]>()
-    for (const cc of (compteursRes.data ?? []) as unknown as { id: string; contrat_id: string; compteur: { id: string; numero_point: string; libelle: string | null } | null }[]) {
+    for (const cc of compteursRows) {
       if (!cc.compteur) continue
       const list = compteursParContrat.get(cc.contrat_id) ?? []
       list.push({ id: cc.compteur.id, contrat_compteur_id: cc.id, numero_pdl: cc.compteur.numero_point, utilisation: cc.compteur.libelle ?? '' })
@@ -67,7 +69,7 @@ async function fetchContrats(): Promise<Contrat[]> {
     // filtrage de visibilite fait directement sur compte_id, independant des compteurs/sites.
     const comptesVisibles = await fetchComptesVisibles()
 
-    return filterVisibles(((contratsRes.data ?? []) as unknown as RawContrat[]), comptesVisibles, (c) => c.compte_id).map((c) => ({
+    return filterVisibles(contrats, comptesVisibles, (c) => c.compte_id).map((c) => ({
       id: c.id,
       compte_id: c.compte_id,
       compte_nom: c.compte?.nom ?? '',
