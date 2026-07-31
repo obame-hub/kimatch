@@ -23,6 +23,10 @@ interface RawRecommandation {
   date_ouverture: string
   proprietaire_id: string | null
   contact_signataire_id: string | null
+  marge_brute: number | null
+  marge_nette: number | null
+  marge_nette_coeff: number | null
+  marge_apporteur: number | null
   etape: { code: string } | null
   origine: { libelle: string } | null
   responsable: { prenom: string; nom: string } | null
@@ -46,6 +50,8 @@ interface RawVersion {
   date_creation: string
   statut: { code: string } | null
   motif: { libelle: string } | null
+  contact_id: string | null
+  contact: { prenom: string; nom: string } | null
 }
 
 interface RawOptimisation {
@@ -121,13 +127,13 @@ async function fetchRecommandations(): Promise<Recommandation[]> {
       await Promise.all([
         fetchAllRows<RawRecommandation>(
           'recommandations',
-          'id, nom, description, priorite, commentaire_interne, date_ouverture, proprietaire_id, contact_signataire_id, etape:etapes_recommandation(code), origine:types_origines(libelle), responsable:profils!recommandations_responsable_profil_id_fkey(prenom, nom), compte:comptes(id, nom)',
+          'id, nom, description, priorite, commentaire_interne, date_ouverture, proprietaire_id, contact_signataire_id, marge_brute, marge_nette, marge_nette_coeff, marge_apporteur, etape:etapes_recommandation(code), origine:types_origines(libelle), responsable:profils!recommandations_responsable_profil_id_fkey(prenom, nom), compte:comptes(id, nom)',
           (q) => q.order('date_ouverture', { ascending: false }),
         ),
         fetchAllRows<RawRecoSite>('recommandations_sites', 'recommandation_id, site:sites(id, nom)'),
         fetchAllRows<RawVersion>(
           'versions_recommandation',
-          'id, recommandation_id, nom, resume, contexte_et_hypotheses, gain_estime_annuel, economie_estimee_pourcentage, niveau_confiance, version_actuelle, est_figee, date_publication, date_presentation_client, date_decision_client, date_creation, statut:statuts_versions_recommandation(code), motif:motifs_versions_recommandation(libelle)',
+          'id, recommandation_id, nom, resume, contexte_et_hypotheses, gain_estime_annuel, economie_estimee_pourcentage, niveau_confiance, version_actuelle, est_figee, date_publication, date_presentation_client, date_decision_client, date_creation, statut:statuts_versions_recommandation(code), motif:motifs_versions_recommandation(libelle), contact_id, contact:contacts(prenom, nom)',
           (q) => q.order('date_creation'),
         ),
         fetchAllRows<{ id: string; version_recommandation_id: string; compteur_id: string; compteur: { numero_point: string; libelle: string | null } | null }>(
@@ -292,6 +298,8 @@ async function fetchRecommandations(): Promise<Recommandation[]> {
         date_decision_client: v.date_decision_client,
         compteur_ids: compteurIdsParVersion.get(v.id) ?? [],
         optimisations: optimisationsParVersion.get(v.id) ?? [],
+        contact_id: v.contact_id,
+        contact_nom: v.contact ? `${v.contact.prenom} ${v.contact.nom}` : null,
       })
       versionsParReco.set(v.recommandation_id, list)
     }
@@ -314,6 +322,10 @@ async function fetchRecommandations(): Promise<Recommandation[]> {
       versions: versionsParReco.get(r.id) ?? [],
       proprietaire_id: r.proprietaire_id,
       contact_signataire_id: r.contact_signataire_id,
+      marge_brute: r.marge_brute,
+      marge_nette: r.marge_nette,
+      marge_nette_coeff: r.marge_nette_coeff,
+      marge_apporteur: r.marge_apporteur,
     }))
   } catch (error) {
     console.error('fetchRecommandations', error)

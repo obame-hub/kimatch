@@ -31,11 +31,13 @@ interface RawContrat {
   clause_energie_verte: boolean | null
   clause_indexation_prix: boolean | null
   clause_penalites_resiliation: boolean | null
+  interlocuteur_pricing_contact_id: string | null
   site: { nom: string } | null
   fournisseur: { nom: string } | null
   type_energie: { code: string } | null
   statut: { code: string } | null
   contact_signataire: { prenom: string; nom: string } | null
+  interlocuteur_pricing: { prenom: string; nom: string } | null
   proprietaire: { prenom: string; nom: string } | null
   compte: { nom: string } | null
   date_creation: string
@@ -48,7 +50,7 @@ async function fetchContrats(): Promise<Contrat[]> {
     const [contrats, compteursRows] = await Promise.all([
       fetchAllRows<RawContrat>(
         'contrats',
-        'id, compte_id, site_id, fournisseur_compte_id, reference_fournisseur, date_debut, date_fin, preavis_resiliation_jours, proprietaire_id, docusign_envelope_id, date_envoi_signature, date_signature, statut_signature, contact_signataire_id, prix_molecule_eur_mwh, type_prix, clause_tacite_reconduction, clause_renegociation_anticipee, clause_engagement_consommation, clause_energie_verte, clause_indexation_prix, clause_penalites_resiliation, site:sites(nom), fournisseur:comptes!contrats_fournisseur_compte_id_fkey(nom), compte:comptes!contrats_compte_id_fkey(nom), type_energie:types_energies(code), statut:statuts_contrats(code), contact_signataire:contacts(prenom, nom), proprietaire:profils!contrats_proprietaire_id_fkey(prenom, nom), date_creation, date_modification',
+        'id, compte_id, site_id, fournisseur_compte_id, reference_fournisseur, date_debut, date_fin, preavis_resiliation_jours, proprietaire_id, docusign_envelope_id, date_envoi_signature, date_signature, statut_signature, contact_signataire_id, prix_molecule_eur_mwh, type_prix, clause_tacite_reconduction, clause_renegociation_anticipee, clause_engagement_consommation, clause_energie_verte, clause_indexation_prix, clause_penalites_resiliation, interlocuteur_pricing_contact_id, site:sites(nom), fournisseur:comptes!contrats_fournisseur_compte_id_fkey(nom), compte:comptes!contrats_compte_id_fkey(nom), type_energie:types_energies(code), statut:statuts_contrats(code), contact_signataire:contacts!contrats_contact_signataire_id_fkey(prenom, nom), interlocuteur_pricing:contacts!contrats_interlocuteur_pricing_contact_id_fkey(prenom, nom), proprietaire:profils!contrats_proprietaire_id_fkey(prenom, nom), date_creation, date_modification',
         (q) => q.order('date_debut', { ascending: false }),
       ),
       fetchAllRows<{ id: string; contrat_id: string; compteur: { id: string; numero_point: string; libelle: string | null } | null }>(
@@ -88,6 +90,8 @@ async function fetchContrats(): Promise<Contrat[]> {
       proprietaire_nom: c.proprietaire ? `${c.proprietaire.prenom} ${c.proprietaire.nom}` : null,
       contact_signataire_id: c.contact_signataire_id,
       contact_signataire_nom: c.contact_signataire ? `${c.contact_signataire.prenom} ${c.contact_signataire.nom}` : undefined,
+      interlocuteur_pricing_contact_id: c.interlocuteur_pricing_contact_id,
+      interlocuteur_pricing_nom: c.interlocuteur_pricing ? `${c.interlocuteur_pricing.prenom} ${c.interlocuteur_pricing.nom}` : null,
       docusign_envelope_id: c.docusign_envelope_id,
       date_creation: c.date_creation,
       date_modification: c.date_modification,

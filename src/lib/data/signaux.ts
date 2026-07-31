@@ -18,6 +18,8 @@ interface RawSignal {
   statut: { code: string } | null
   site: { nom: string } | null
   responsable: { prenom: string; nom: string } | null
+  recommandation_id: string | null
+  recommandation: { nom: string } | null
 }
 
 async function fetchSignaux(): Promise<Signal[]> {
@@ -26,7 +28,7 @@ async function fetchSignaux(): Promise<Signal[]> {
   try {
     const data = await fetchAllRows<RawSignal>(
       'signaux',
-      'id, site_id, contrat_id, gravite, date_creation, commentaire, proprietaire_id, type_signal:types_signaux(libelle, poids_defaut), statut:statuts_signaux(code), site:sites(nom), responsable:profils!signaux_responsable_profil_id_fkey(prenom, nom)',
+      'id, site_id, contrat_id, gravite, date_creation, commentaire, proprietaire_id, type_signal:types_signaux(libelle, poids_defaut), statut:statuts_signaux(code), site:sites(nom), responsable:profils!signaux_responsable_profil_id_fkey(prenom, nom), recommandation_id, recommandation:recommandations(nom)',
       (q) => q.order('date_creation', { ascending: false }),
     )
 
@@ -45,6 +47,8 @@ async function fetchSignaux(): Promise<Signal[]> {
       date_creation: s.date_creation,
       description: s.commentaire ?? '',
       proprietaire_id: s.proprietaire_id ?? null,
+      recommandation_id: s.recommandation_id,
+      recommandation_nom: s.recommandation?.nom ?? null,
     }))
   } catch (error) {
     console.error('fetchSignaux', error)

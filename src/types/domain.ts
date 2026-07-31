@@ -37,6 +37,9 @@ export interface Signal {
   date_creation: string
   description: string
   proprietaire_id: string | null
+  /** Recommandation liee (Case.Opportunity__c en Salesforce) -- ajoute le 31/07/2026. */
+  recommandation_id?: string | null
+  recommandation_nom?: string | null
 }
 
 export interface VersionRecommandation {
@@ -57,6 +60,9 @@ export interface VersionRecommandation {
   date_decision_client: string | null
   compteur_ids: string[]
   optimisations: Optimisation[]
+  /** Contact de la cotation (Cotation__c.Contact__c en Salesforce) -- ajoute le 31/07/2026. */
+  contact_id?: string | null
+  contact_nom?: string | null
 }
 
 export interface OffreFournisseurCompteur {
@@ -138,6 +144,12 @@ export interface Recommandation {
   proprietaire_id: string | null
   /** Contact signataire (Opportunity.Contact__c en Salesforce) -- ajoute le 31/07/2026. */
   contact_signataire_id?: string | null
+  /** Marges (Opportunity.Amount / Montant_commission_nette_kiwee__c / Montant_commission_interne__c /
+   * R_mun_ration_ap__c en Salesforce) -- ajoute le 31/07/2026. */
+  marge_brute?: number | null
+  marge_nette?: number | null
+  marge_nette_coeff?: number | null
+  marge_apporteur?: number | null
 }
 
 export interface ActionItem {
@@ -294,6 +306,9 @@ export interface Compteur {
   proprietaire_nom?: string | null
   date_creation?: string
   date_modification?: string
+  /** Fournisseur avant KiWee (PDL.Fournisseur_actuel__c en Salesforce) -- ajoute le 31/07/2026. */
+  fournisseur_actuel_compte_id?: string | null
+  fournisseur_actuel_nom?: string | null
 }
 
 export interface Consommation {
@@ -395,6 +410,9 @@ export interface Contrat {
   clause_energie_verte?: boolean | null
   clause_indexation_prix?: boolean | null
   clause_penalites_resiliation?: boolean | null
+  /** Interlocuteur pricing (Contract.Interlocuteur_pricing__c en Salesforce) -- ajoute le 31/07/2026. */
+  interlocuteur_pricing_contact_id?: string | null
+  interlocuteur_pricing_nom?: string | null
 }
 
 export interface TarifContratCompteur {

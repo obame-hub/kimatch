@@ -294,6 +294,15 @@ export default function RecommandationDetail() {
                   <p><span className="text-navy-400">Priorité :</span> {PRIORITE_LABEL[reco.priorite] ?? reco.priorite}</p>
                   <p><span className="text-navy-400">Conseiller :</span> {reco.conseiller}</p>
                   <p><span className="text-navy-400">Créée le :</span> {new Date(reco.date_creation).toLocaleDateString('fr-FR')}</p>
+                  {(reco.marge_brute != null || reco.marge_nette != null || reco.marge_nette_coeff != null || reco.marge_apporteur != null) && (
+                    <div className="space-y-1 rounded-lg bg-navy-50 p-2.5">
+                      <p className="text-[11px] font-semibold uppercase tracking-wide text-navy-400">Marges</p>
+                      {reco.marge_brute != null && <p><span className="text-navy-400">Marge brute :</span> {reco.marge_brute.toLocaleString('fr-FR')} €</p>}
+                      {reco.marge_nette != null && <p><span className="text-navy-400">Marge nette :</span> {reco.marge_nette.toLocaleString('fr-FR')} €</p>}
+                      {reco.marge_nette_coeff != null && <p><span className="text-navy-400">Marge nette avec coeff :</span> {reco.marge_nette_coeff.toLocaleString('fr-FR')} €</p>}
+                      {reco.marge_apporteur != null && <p><span className="text-navy-400">Marge apporteur d'affaires :</span> {reco.marge_apporteur.toLocaleString('fr-FR')} €</p>}
+                    </div>
+                  )}
                   {reco.description && <p className="text-navy-600">{reco.description}</p>}
                   {reco.commentaire_interne && (
                     <p className="rounded-lg bg-amber-50 p-2 text-xs text-amber-800">Note interne : {reco.commentaire_interne}</p>

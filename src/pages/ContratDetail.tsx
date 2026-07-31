@@ -528,6 +528,12 @@ export default function ContratDetail() {
                     <p className="text-xs font-semibold text-navy-800">{contrat.contact_signataire_nom}</p>
                   </div>
                 )}
+                {contrat.interlocuteur_pricing_nom && (
+                  <div>
+                    <p className="mb-0.5 text-[10px] uppercase tracking-wide text-navy-400">Interlocuteur pricing</p>
+                    <p className="text-xs font-semibold text-navy-800">{contrat.interlocuteur_pricing_nom}</p>
+                  </div>
+                )}
                 {contrat.date_signature && (
                   <div>
                     <p className="mb-0.5 text-[10px] uppercase tracking-wide text-navy-400">Date de signature</p>

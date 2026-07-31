@@ -76,6 +76,12 @@ export default function SignalDetail() {
             </CardHeader>
             <CardContent className="px-0 space-y-3 text-sm">
               <p><span className="text-navy-400">Site :</span> <EntityLink to={`/sites/${signal.site_id}`}>{signal.site_nom}</EntityLink></p>
+              {signal.recommandation_id && (
+                <p>
+                  <span className="text-navy-400">Recommandation liée :</span>{' '}
+                  <EntityLink to={`/recommandations/${signal.recommandation_id}`}>{signal.recommandation_nom}</EntityLink>
+                </p>
+              )}
               {signal.conseiller && <p><span className="text-navy-400">Responsable :</span> {signal.conseiller}</p>}
               <p><span className="text-navy-400">Créé le :</span> {new Date(signal.date_creation).toLocaleDateString('fr-FR')}</p>
               <p><span className="text-navy-400">Gravité :</span> {signal.gravite != null ? `${signal.gravite}/100` : 'Non qualifiée'}</p>

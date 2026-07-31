@@ -7,6 +7,7 @@ import { Badge } from '@/components/ui/badge'
 import { Dialog } from '@/components/ui/dialog'
 import { FormField, Input, Select } from '@/components/ui/form'
 import { HistoriqueDiscret } from '@/components/ui/historique-discret'
+import { EntityLink } from '@/components/ui/entity-link'
 import { useCompteurs, useUpdateCompteur, useDeleteCompteur, useSyncCompteurElec, useSyncCompteurGaz } from '@/lib/data/compteurs'
 import { useEnedisFetch } from '@/lib/data/enedis'
 import { useGrdFetch } from '@/lib/data/grd'
@@ -598,6 +599,12 @@ export default function CompteurDetail() {
                   {compteur.car_mwh != null && <p><span className="text-navy-400">CAR :</span> {compteur.car_mwh} MWh</p>}
                   {compteur.profil_consommation && <p><span className="text-navy-400">Profil :</span> {compteur.profil_consommation}</p>}
                   {compteur.zone_tarifaire && <p><span className="text-navy-400">Zone tarifaire :</span> {compteur.zone_tarifaire}</p>}
+                  {compteur.fournisseur_actuel_compte_id && (
+                    <p>
+                      <span className="text-navy-400">Fournisseur actuel (avant KiWee) :</span>{' '}
+                      <EntityLink to={`/comptes/${compteur.fournisseur_actuel_compte_id}`}>{compteur.fournisseur_actuel_nom}</EntityLink>
+                    </p>
+                  )}
                   <div className="flex flex-wrap items-center justify-between gap-2 text-navy-400">
                     <p>
                       {compteur.synchro_eneo

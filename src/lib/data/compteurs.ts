@@ -54,6 +54,8 @@ interface RawCompteur {
   proprietaire: { prenom: string; nom: string } | null
   date_creation: string
   date_modification: string
+  fournisseur_actuel_compte_id: string | null
+  fournisseur_actuel: { nom: string } | null
 }
 
 const first = <T>(v: T | T[] | null): T | null => (Array.isArray(v) ? v[0] ?? null : v)
@@ -75,7 +77,7 @@ async function fetchCompteurs(): Promise<Compteur[]> {
   try {
     const data = await fetchAllRows<RawCompteur>(
       'compteurs',
-      'id, site_id, numero_point, libelle, actif, consommation_annuelle_mwh, synchro_eneo, date_derniere_synchro_eneo, proprietaire_id, type_utilisation_compteur_id, type_energie:types_energies(code), type_utilisation:types_utilisations_compteur(libelle), site:sites(nom), compteurs_electricite(*), compteurs_gaz(*), proprietaire:profils!compteurs_proprietaire_id_fkey(prenom, nom), date_creation, date_modification',
+      'id, site_id, numero_point, libelle, actif, consommation_annuelle_mwh, synchro_eneo, date_derniere_synchro_eneo, proprietaire_id, type_utilisation_compteur_id, type_energie:types_energies(code), type_utilisation:types_utilisations_compteur(libelle), site:sites(nom), compteurs_electricite(*), compteurs_gaz(*), proprietaire:profils!compteurs_proprietaire_id_fkey(prenom, nom), date_creation, date_modification, fournisseur_actuel_compte_id, fournisseur_actuel:comptes!compteurs_fournisseur_actuel_compte_id_fkey(nom)',
     )
 
     const comptesVisibles = await fetchComptesVisibles()
@@ -101,6 +103,8 @@ async function fetchCompteurs(): Promise<Compteur[]> {
         proprietaire_nom: c.proprietaire ? `${c.proprietaire.prenom} ${c.proprietaire.nom}` : null,
         date_creation: c.date_creation,
         date_modification: c.date_modification,
+        fournisseur_actuel_compte_id: c.fournisseur_actuel_compte_id,
+        fournisseur_actuel_nom: c.fournisseur_actuel?.nom ?? null,
         ...(elec
           ? {
               segment: elec.segment,
