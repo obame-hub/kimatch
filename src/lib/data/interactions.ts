@@ -15,11 +15,15 @@ interface RawInteraction {
   compte_id: string | null
   site_id: string | null
   contact_id: string | null
+  recommandation_id: string | null
+  signal_id: string | null
   type_interaction: { libelle: string } | null
   auteur: { prenom: string; nom: string } | null
   compte: { nom: string } | null
   site: { nom: string } | null
   contact: { prenom: string; nom: string } | null
+  recommandation: { nom: string } | null
+  signal: { type_signal: { libelle: string } | null } | null
   issue: { libelle: string; couleur: string | null } | null
   proprietaire_id: string | null
   duree_appel_secondes: number | null
@@ -31,7 +35,7 @@ interface RawInteraction {
 }
 
 const INTERACTIONS_SELECT =
-  'id, date_interaction, sens, objet, resume, resultat, compte_id, site_id, contact_id, type_interaction:types_interactions(libelle), auteur:profils!interactions_auteur_profil_id_fkey(prenom, nom), compte:comptes(nom), site:sites(nom), contact:contacts(prenom, nom), issue:issues_interactions(libelle, couleur), proprietaire_id, duree_appel_secondes, appel_manque, messagerie_vocale, numero_correspondant, decroche_par, enregistrement_url'
+  'id, date_interaction, sens, objet, resume, resultat, compte_id, site_id, contact_id, recommandation_id, signal_id, type_interaction:types_interactions(libelle), auteur:profils!interactions_auteur_profil_id_fkey(prenom, nom), compte:comptes(nom), site:sites(nom), contact:contacts(prenom, nom), recommandation:recommandations(nom), signal:signaux(type_signal:types_signaux(libelle)), issue:issues_interactions(libelle, couleur), proprietaire_id, duree_appel_secondes, appel_manque, messagerie_vocale, numero_correspondant, decroche_par, enregistrement_url'
 
 async function fetchInteractionsPage(from: number, pageSize: number, attempt = 0): Promise<RawInteraction[]> {
   const { data, error } = await supabase
@@ -122,6 +126,10 @@ function mapRawInteraction(i: RawInteraction): Interaction {
     issue_libelle: i.issue?.libelle,
     issue_couleur: i.issue?.couleur,
     proprietaire_id: i.proprietaire_id,
+    recommandation_id: i.recommandation_id,
+    recommandation_nom: i.recommandation?.nom ?? null,
+    signal_id: i.signal_id,
+    signal_nom: i.signal?.type_signal?.libelle ?? null,
     duree_appel_secondes: i.duree_appel_secondes,
     appel_manque: i.appel_manque,
     messagerie_vocale: i.messagerie_vocale,

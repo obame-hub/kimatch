@@ -341,6 +341,13 @@ export interface Interaction {
   issue_libelle?: string
   issue_couleur?: string | null
   proprietaire_id: string | null
+  /** Entite "Related To" de Salesforce (WhatId) -- recommandation ou signal lie a l'interaction,
+   * ajoute le 31/07/2026 pour reproduire le fil d'activite Salesforce (auteur + contact + related
+   * to, tous cliquables) que les commerciaux connaissent. */
+  recommandation_id?: string | null
+  recommandation_nom?: string | null
+  signal_id?: string | null
+  signal_nom?: string | null
   /** Detail d'appel Aircall (Task Salesforce) -- ajoute le 31/07/2026, jamais repris avant. */
   duree_appel_secondes?: number | null
   appel_manque?: boolean | null

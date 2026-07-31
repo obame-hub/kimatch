@@ -6,7 +6,7 @@ import { PageHeader } from '@/components/ui/page-header'
 import { Card } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
-import { EntityLink } from '@/components/ui/entity-link'
+import { InteractionSentence } from '@/lib/interactionSentence'
 import { Dialog } from '@/components/ui/dialog'
 import { FormField, Input, Select, Textarea } from '@/components/ui/form'
 import { useInteractions, useCreateInteraction } from '@/lib/data/interactions'
@@ -212,20 +212,7 @@ export default function Interactions() {
                 <div>
                   <p className="text-sm font-medium text-navy-800">{i.objet || i.type_interaction}</p>
                   <p className="text-xs text-navy-500">
-                    {i.compte_id ? <EntityLink to={`/comptes/${i.compte_id}`}>{i.compte_nom}</EntityLink> : i.compte_nom}
-                    {i.site_id && (
-                      <>
-                        {' · '}
-                        <EntityLink to={`/sites/${i.site_id}`}>{i.site_nom}</EntityLink>
-                      </>
-                    )}
-                    {i.contact_id && (
-                      <>
-                        {' · '}
-                        <EntityLink to={`/contacts/${i.contact_id}`}>{i.contact_nom}</EntityLink>
-                      </>
-                    )}
-                    {' · '}{i.auteur}
+                    <InteractionSentence interaction={i} />
                   </p>
                 </div>
               </div>

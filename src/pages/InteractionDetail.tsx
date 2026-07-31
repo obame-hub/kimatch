@@ -12,6 +12,7 @@ import { HistoriqueDiscret } from '@/components/ui/historique-discret'
 import { useInteractions, useUpdateInteraction, useDeleteInteraction } from '@/lib/data/interactions'
 import { useCanManage, useIsAdmin, useProfilsAdmin } from '@/lib/data/roles'
 import { useGoBack } from '@/lib/useGoBack'
+import { InteractionSentence } from '@/lib/interactionSentence'
 import type { Interaction } from '@/types/domain'
 
 const SENS_OPTIONS = [
@@ -77,6 +78,9 @@ export default function InteractionDetail() {
               </div>
             </CardHeader>
             <CardContent className="px-0 space-y-3 text-sm">
+              <p className="rounded-lg bg-navy-50 p-2.5 text-navy-700">
+                <InteractionSentence interaction={interaction} />
+              </p>
               <p>
                 <span className="text-navy-400">Compte :</span>{' '}
                 {interaction.compte_id ? (
@@ -101,6 +105,12 @@ export default function InteractionDetail() {
                   ) : (
                     interaction.contact_nom
                   )}
+                </p>
+              )}
+              {interaction.recommandation_id && (
+                <p>
+                  <span className="text-navy-400">Recommandation :</span>{' '}
+                  <EntityLink to={`/recommandations/${interaction.recommandation_id}`}>{interaction.recommandation_nom}</EntityLink>
                 </p>
               )}
               {interaction.sens && (

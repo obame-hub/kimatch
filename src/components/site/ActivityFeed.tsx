@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { useMemo, useState, type ReactNode } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { Phone, Mail, Users, Radio, CheckSquare, FileText, Send } from 'lucide-react'
 import { Textarea } from '@/components/ui/form'
@@ -7,6 +7,7 @@ import { ActivityCard, type ActivityStyleKey } from '@/components/ui/activity-ca
 import { useCreateInteraction } from '@/lib/data/interactions'
 import { useReferenceTable } from '@/lib/data/referenceTables'
 import { FALLBACK_TYPES_INTERACTIONS } from '@/lib/referenceFallbacks'
+import { InteractionSentence, classifyInteraction } from '@/lib/interactionSentence'
 import { cn } from '@/lib/utils'
 import type { Signal, Interaction, ActionItem, DocumentItem } from '@/types/domain'
 
@@ -15,11 +16,12 @@ interface ActivityItem {
   date: string
   kind: 'signal' | 'interaction' | 'action' | 'document'
   title: string
-  subtitle: string
+  subtitle: ReactNode
   to?: string
   href?: string
   siteNom?: string
   contactNom?: string
+  interaction?: Interaction
 }
 
 function fromSignaux(signaux: Signal[]): ActivityItem[] {
@@ -40,10 +42,13 @@ function fromInteractions(interactions: Interaction[]): ActivityItem[] {
     date: i.date_interaction,
     kind: 'interaction',
     title: i.objet || i.type_interaction,
-    subtitle: [i.auteur, i.resume].filter(Boolean).join(' — '),
+    // Reproduit le fil d'activite Salesforce : "{auteur} a une prochaine tache avec {contact}
+    // sur {related}", chaque entite cliquable -- demande explicite du 31/07/2026.
+    subtitle: <InteractionSentence interaction={i} />,
     to: `/interactions/${i.id}`,
     siteNom: i.site_nom || undefined,
     contactNom: i.contact_nom || undefined,
+    interaction: i,
   }))
 }
 
@@ -78,27 +83,23 @@ const KIND_ICON: Record<ActivityItem['kind'], typeof Phone> = {
   document: FileText,
 }
 
-// Les titres des taches/appels importes de Salesforce sont en anglais ("Outbound answered
-// call...", "Missed Call from...", "Voicemail from...") -- ne detecter que le mot francais
-// "appel" les faisait tous retomber sur l'icone email. Meme souci pour les reunions/Events
-// (titres sans accent, "REUNION - ...", "Visio ...").
-function interactionStyleKey(titre: string): 'appel' | 'note' | 'email' {
-  const t = titre.toLowerCase()
-  if (t.includes('note')) return 'note'
-  if (t.includes('appel') || t.includes('call') || t.includes('voicemail')) return 'appel'
-  return 'email'
-}
-
+// classifyInteraction() regarde le type ET l'objet (les titres importes de Salesforce sont
+// parfois en anglais/sans accent, ex. "Missed Call from...", "REUNION - ...") -- plus fiable
+// que l'ancienne heuristique basee sur le seul titre.
 function styleKeyFor(item: ActivityItem): ActivityStyleKey {
-  if (item.kind === 'interaction') return interactionStyleKey(item.title)
+  if (item.kind === 'interaction') {
+    if (!item.interaction) return 'email'
+    const cat = classifyInteraction(item.interaction)
+    return cat === 'appel' || cat === 'note' ? cat : 'email'
+  }
   if (item.kind === 'action') return 'action'
   return item.kind
 }
 
-function interactionIcon(titre: string) {
-  const t = titre.toLowerCase()
-  if (t.includes('appel') || t.includes('call') || t.includes('voicemail')) return Phone
-  if (t.includes('réunion') || t.includes('reunion') || t.includes('visio') || t.includes('visite')) return Users
+function interactionIcon(interaction: Interaction) {
+  const cat = classifyInteraction(interaction)
+  if (cat === 'appel') return Phone
+  if (cat === 'reunion' || cat === 'visite') return Users
   return Mail
 }
 
@@ -265,7 +266,7 @@ export function ActivityFeed({
             <ActivityCard
               key={row.item.id}
               styleKey={styleKeyFor(row.item)}
-              icon={row.item.kind === 'interaction' ? interactionIcon(row.item.title) : KIND_ICON[row.item.kind]}
+              icon={row.item.kind === 'interaction' && row.item.interaction ? interactionIcon(row.item.interaction) : KIND_ICON[row.item.kind]}
               title={row.item.title}
               subtitle={row.item.subtitle}
               trailing={new Date(row.item.date).toLocaleDateString('fr-FR')}
