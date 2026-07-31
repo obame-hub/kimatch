@@ -13,7 +13,7 @@ import { useState } from 'react'
 import type { TypeCompte } from '@/types/domain'
 
 const typeMeta: Record<TypeCompte, { label: string; tone: 'kiwi' | 'blue' | 'amber' | 'neutral' }> = {
-  client: { label: 'Client', tone: 'kiwi' },
+  client: { label: 'Consommateur', tone: 'kiwi' },
   fournisseur: { label: 'Fournisseur', tone: 'blue' },
   partenaire: { label: 'Partenaire', tone: 'amber' },
   kiwee: { label: 'KiWee', tone: 'neutral' },

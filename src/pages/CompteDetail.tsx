@@ -70,7 +70,7 @@ import { SitesMap, type SitesMapItem } from '@/components/site/SitesMap'
 import { computeSiteHealth } from '@/lib/siteHealth'
 
 const typeMeta: Record<TypeCompte, { label: string; tone: 'kiwi' | 'blue' | 'amber' | 'neutral' }> = {
-  client: { label: 'Client', tone: 'kiwi' },
+  client: { label: 'Consommateur', tone: 'kiwi' },
   fournisseur: { label: 'Fournisseur', tone: 'blue' },
   partenaire: { label: 'Partenaire', tone: 'amber' },
   kiwee: { label: 'KiWee', tone: 'neutral' },
@@ -845,7 +845,7 @@ function IdentiteCard({ compte, onToast }: { compte: Compte; onToast: (msg: stri
         <span className="text-kw-xs text-kw-ghost">cliquer une valeur pour modifier · ⧉ pour copier</span>
       </div>
       <div className="grid grid-cols-2 gap-4">
-        <InlineField variant="select" label="Type de compte" value={compte.type_compte} options={[{ value: 'client', label: 'Client' }, { value: 'fournisseur', label: 'Fournisseur' }, { value: 'partenaire', label: 'Partenaire' }, { value: 'kiwee', label: 'KiWee' }]} onCommit={(v) => commit({ type_compte: v as TypeCompte })} onSaved={() => onToast('✓ enregistré')} />
+        <InlineField variant="select" label="Type de compte" value={compte.type_compte} options={[{ value: 'client', label: 'Consommateur' }, { value: 'fournisseur', label: 'Fournisseur' }, { value: 'partenaire', label: 'Partenaire' }, { value: 'kiwee', label: 'KiWee' }]} onCommit={(v) => commit({ type_compte: v as TypeCompte })} onSaved={() => onToast('✓ enregistré')} />
         <InlineField variant="text" label="Typologie" value={compte.segment || ''} emptyLabel="ajouter" onCommit={(v) => commit({ segment: v })} onSaved={() => onToast('✓ enregistré')} />
         <div>
           <div className="mb-0.5 text-kw-xs font-semibold uppercase tracking-wide text-kw-faint">Statut</div>
