@@ -28,7 +28,7 @@ import { useSignaux } from '@/lib/data/signaux'
 import { useCompteurs, useCreateCompteur } from '@/lib/data/compteurs'
 import { useRecommandations } from '@/lib/data/recommandations'
 import { useContrats } from '@/lib/data/contrats'
-import { useInteractions } from '@/lib/data/interactions'
+import { useInteractionsForSite } from '@/lib/data/interactions'
 import { useContacts } from '@/lib/data/contacts'
 import { useMandats } from '@/lib/data/mandats'
 import { useActions, useCreateAction } from '@/lib/data/actions'
@@ -59,7 +59,6 @@ export default function SiteDetail() {
   const { data: compteurs } = useCompteurs()
   const { data: recommandations } = useRecommandations()
   const { data: contrats } = useContrats()
-  const { data: interactions } = useInteractions()
   const { data: contacts } = useContacts()
   const { data: mandats } = useMandats()
   const { data: actions } = useActions()
@@ -104,7 +103,8 @@ export default function SiteDetail() {
   const compteursDuSite = useMemo(() => compteurs?.filter((c) => c.site_id === id) ?? [], [compteurs, id])
   const recommandationsDuSite = useMemo(() => recommandations?.filter((r) => r.sites.some((s) => s.id === id)) ?? [], [recommandations, id])
   const contratsDuSite = useMemo(() => contrats?.filter((c) => c.site_id === id) ?? [], [contrats, id])
-  const interactionsDuSite = useMemo(() => interactions?.filter((i) => i.site_id === id) ?? [], [interactions, id])
+  // Fiche site : on ne charge que les interactions de ce site (pas la table entiere).
+  const { data: interactionsDuSite = [] } = useInteractionsForSite(id)
   const contactsDuSite = useMemo(() => contacts?.filter((c) => c.sites.some((s) => s.id === id)) ?? [], [contacts, id])
   const actionsDuSite = useMemo(() => actions?.filter((a) => a.site_id === id) ?? [], [actions, id])
   const documentsDuSite = useMemo(() => documents?.filter((d) => d.entite_type === 'site' && d.entite_id === id) ?? [], [documents, id])

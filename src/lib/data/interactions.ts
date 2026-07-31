@@ -163,6 +163,41 @@ export function useInteractionsForCompte(compteId: string | undefined, siteIds: 
   })
 }
 
+async function fetchInteractionsByColumn(column: 'contact_id' | 'site_id', value: string): Promise<Interaction[]> {
+  if (isDemoMode()) {
+    return mockInteractions.filter((i) => (column === 'contact_id' ? i.contact_id === value : i.site_id === value))
+  }
+  const { data, error } = await supabase
+    .from('interactions')
+    .select(INTERACTIONS_SELECT)
+    .eq(column, value)
+    .order('date_interaction', { ascending: false })
+    .limit(2000)
+  if (error) {
+    console.error('fetchInteractionsByColumn', column, error)
+    return []
+  }
+  return ((data ?? []) as unknown as RawInteraction[]).map(mapRawInteraction)
+}
+
+// Fiche Contact/Site : meme logique que useInteractionsForCompte -- ne charger que le perimetre
+// concerne plutot que la table entiere.
+export function useInteractionsForContact(contactId: string | undefined) {
+  return useQuery({
+    queryKey: ['interactions', 'contact', contactId],
+    queryFn: () => fetchInteractionsByColumn('contact_id', contactId as string),
+    enabled: !!contactId,
+  })
+}
+
+export function useInteractionsForSite(siteId: string | undefined) {
+  return useQuery({
+    queryKey: ['interactions', 'site', siteId],
+    queryFn: () => fetchInteractionsByColumn('site_id', siteId as string),
+    enabled: !!siteId,
+  })
+}
+
 export function useInteractions() {
   return useQuery({ queryKey: ['interactions'], queryFn: fetchInteractions })
 }

@@ -13,7 +13,7 @@ import { ActivityFeed } from '@/components/site/ActivityFeed'
 import { useContacts, useUpdateContact, useDeleteContact } from '@/lib/data/contacts'
 import { useComptes } from '@/lib/data/comptes'
 import { useActions } from '@/lib/data/actions'
-import { useInteractions } from '@/lib/data/interactions'
+import { useInteractionsForContact } from '@/lib/data/interactions'
 import { useContrats } from '@/lib/data/contrats'
 import { useMandats } from '@/lib/data/mandats'
 import { useRecommandations } from '@/lib/data/recommandations'
@@ -40,7 +40,6 @@ export default function ContactDetail() {
   const { data: contacts } = useContacts()
   const { data: comptes } = useComptes()
   const { data: actions } = useActions()
-  const { data: interactions } = useInteractions()
   const { data: contrats } = useContrats()
   const { data: mandats } = useMandats()
   const { data: recommandations } = useRecommandations()
@@ -63,7 +62,8 @@ export default function ContactDetail() {
 
   const siteIdsDuContact = useMemo(() => new Set((contact?.sites ?? []).map((s) => s.id)), [contact])
   const tachesDuContact = useMemo(() => (actions ?? []).filter((a) => a.contact_id === id), [actions, id])
-  const interactionsDuContact = useMemo(() => (interactions ?? []).filter((i) => i.contact_id === id), [interactions, id])
+  // Fiche contact : on ne charge que les interactions de ce contact (pas la table entiere).
+  const { data: interactionsDuContact = [] } = useInteractionsForContact(id)
   // Signataire = source de verite (releve QA William sur Kelly Patchez, 31/07/2026) --
   // avant, on affichait tous les contrats des sites rattaches, pas ceux vraiment signes par ce contact.
   const contratsSignataire = useMemo(() => (contrats ?? []).filter((ct) => ct.contact_signataire_id === id), [contrats, id])
