@@ -78,10 +78,14 @@ const KIND_ICON: Record<ActivityItem['kind'], typeof Phone> = {
   document: FileText,
 }
 
+// Les titres des taches/appels importes de Salesforce sont en anglais ("Outbound answered
+// call...", "Missed Call from...", "Voicemail from...") -- ne detecter que le mot francais
+// "appel" les faisait tous retomber sur l'icone email. Meme souci pour les reunions/Events
+// (titres sans accent, "REUNION - ...", "Visio ...").
 function interactionStyleKey(titre: string): 'appel' | 'note' | 'email' {
   const t = titre.toLowerCase()
   if (t.includes('note')) return 'note'
-  if (t.includes('appel')) return 'appel'
+  if (t.includes('appel') || t.includes('call') || t.includes('voicemail')) return 'appel'
   return 'email'
 }
 
@@ -93,8 +97,8 @@ function styleKeyFor(item: ActivityItem): ActivityStyleKey {
 
 function interactionIcon(titre: string) {
   const t = titre.toLowerCase()
-  if (t.includes('appel')) return Phone
-  if (t.includes('réunion') || t.includes('visite')) return Users
+  if (t.includes('appel') || t.includes('call') || t.includes('voicemail')) return Phone
+  if (t.includes('réunion') || t.includes('reunion') || t.includes('visio') || t.includes('visite')) return Users
   return Mail
 }
 
