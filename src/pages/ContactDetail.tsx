@@ -64,14 +64,26 @@ export default function ContactDetail() {
   const siteIdsDuContact = useMemo(() => new Set((contact?.sites ?? []).map((s) => s.id)), [contact])
   const tachesDuContact = useMemo(() => (actions ?? []).filter((a) => a.contact_id === id), [actions, id])
   const interactionsDuContact = useMemo(() => (interactions ?? []).filter((i) => i.contact_id === id), [interactions, id])
-  const contratsDuContact = useMemo(() => (contrats ?? []).filter((ct) => siteIdsDuContact.has(ct.site_id ?? '')), [contrats, siteIdsDuContact])
+  // Signataire = source de verite (releve QA William sur Kelly Patchez, 31/07/2026) --
+  // avant, on affichait tous les contrats des sites rattaches, pas ceux vraiment signes par ce contact.
+  const contratsSignataire = useMemo(() => (contrats ?? []).filter((ct) => ct.contact_signataire_id === id), [contrats, id])
+  const contratsDuSite = useMemo(
+    () => (contrats ?? []).filter((ct) => siteIdsDuContact.has(ct.site_id ?? '') && ct.contact_signataire_id !== id),
+    [contrats, siteIdsDuContact, id],
+  )
+  const contratsDuContact = useMemo(() => [...contratsSignataire, ...contratsDuSite], [contratsSignataire, contratsDuSite])
   const mandatsSignataire = useMemo(() => (mandats ?? []).filter((m) => m.contact_signataire_id === id), [mandats, id])
   const mandatsDuCompte = useMemo(
     () => (mandats ?? []).filter((m) => m.compte_id === contact?.compte_id && m.contact_signataire_id !== id),
     [mandats, contact?.compte_id, id],
   )
-  const recommandationsDuCompte = useMemo(() => (recommandations ?? []).filter((r) => r.compte_id === contact?.compte_id), [recommandations, contact?.compte_id])
-  const estSignataire = mandatsSignataire.length > 0
+  const recommandationsSignataire = useMemo(() => (recommandations ?? []).filter((r) => r.contact_signataire_id === id), [recommandations, id])
+  const recommandationsAutresDuCompte = useMemo(
+    () => (recommandations ?? []).filter((r) => r.compte_id === contact?.compte_id && r.contact_signataire_id !== id),
+    [recommandations, contact?.compte_id, id],
+  )
+  const recommandationsDuCompte = useMemo(() => [...recommandationsSignataire, ...recommandationsAutresDuCompte], [recommandationsSignataire, recommandationsAutresDuCompte])
+  const estSignataire = mandatsSignataire.length > 0 || contratsSignataire.length > 0 || recommandationsSignataire.length > 0
 
   async function handleDelete() {
     if (!contact) return
@@ -270,7 +282,7 @@ export default function ContactDetail() {
 
           {tab === 'contrats' && (
             <div className="flex flex-col gap-2.5">
-              {contratsDuContact.length === 0 && <p className="text-sm text-navy-400">Aucun contrat sur les sites rattachés à ce contact.</p>}
+              {contratsDuContact.length === 0 && <p className="text-sm text-navy-400">Aucun contrat signé par ce contact ou sur ses sites rattachés.</p>}
               {contratsDuContact.map((ct) => (
                 <div
                   key={ct.id}

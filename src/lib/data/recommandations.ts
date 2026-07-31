@@ -21,6 +21,7 @@ interface RawRecommandation {
   commentaire_interne: string | null
   date_ouverture: string
   proprietaire_id: string | null
+  contact_signataire_id: string | null
   etape: { code: string } | null
   origine: { libelle: string } | null
   responsable: { prenom: string; nom: string } | null
@@ -124,7 +125,7 @@ async function fetchRecommandations(): Promise<Recommandation[]> {
       supabase
         .from('recommandations')
         .select(
-          'id, nom, description, priorite, commentaire_interne, date_ouverture, proprietaire_id, etape:etapes_recommandation(code), origine:types_origines(libelle), responsable:profils!recommandations_responsable_profil_id_fkey(prenom, nom), compte:comptes(id, nom)',
+          'id, nom, description, priorite, commentaire_interne, date_ouverture, proprietaire_id, contact_signataire_id, etape:etapes_recommandation(code), origine:types_origines(libelle), responsable:profils!recommandations_responsable_profil_id_fkey(prenom, nom), compte:comptes(id, nom)',
         )
         .order('date_ouverture', { ascending: false }),
       supabase.from('recommandations_sites').select('recommandation_id, site:sites(id, nom)'),
@@ -319,6 +320,7 @@ async function fetchRecommandations(): Promise<Recommandation[]> {
       date_creation: r.date_ouverture,
       versions: versionsParReco.get(r.id) ?? [],
       proprietaire_id: r.proprietaire_id,
+      contact_signataire_id: r.contact_signataire_id,
     }))
   } catch (error) {
     console.error('fetchRecommandations', error)

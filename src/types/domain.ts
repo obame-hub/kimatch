@@ -136,6 +136,8 @@ export interface Recommandation {
   date_creation: string
   versions: VersionRecommandation[]
   proprietaire_id: string | null
+  /** Contact signataire (Opportunity.Contact__c en Salesforce) -- ajoute le 31/07/2026. */
+  contact_signataire_id?: string | null
 }
 
 export interface ActionItem {
