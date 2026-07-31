@@ -363,6 +363,11 @@ export default function RecommandationDetail() {
                             <span className="font-medium text-kiwi-700">Gain estimé : {version.gains_estimes.toLocaleString('fr-FR')} €</span>
                           )}
                         </div>
+                        {version.contact_id && (
+                          <div className="mt-1 text-xs text-navy-400">
+                            Contact de la cotation : <EntityLink to={`/contacts/${version.contact_id}`}>{version.contact_nom}</EntityLink>
+                          </div>
+                        )}
 
                         {version.optimisations.length > 0 && (
                           <div className="mt-3 space-y-2 border-t border-navy-100 pt-3">
