@@ -44,7 +44,7 @@ import { useSignaux } from '@/lib/data/signaux'
 import { useCompteurs, useCreateCompteur } from '@/lib/data/compteurs'
 import { useRecommandations } from '@/lib/data/recommandations'
 import { useContrats } from '@/lib/data/contrats'
-import { useInteractions } from '@/lib/data/interactions'
+import { useInteractionsForCompte } from '@/lib/data/interactions'
 import { useMandats } from '@/lib/data/mandats'
 import { useActions } from '@/lib/data/actions'
 import { useDocuments, useCreateDocument } from '@/lib/data/documents'
@@ -94,7 +94,6 @@ export default function CompteDetail() {
   const { data: compteurs } = useCompteurs()
   const { data: recommandations } = useRecommandations()
   const { data: contrats } = useContrats()
-  const { data: interactions } = useInteractions()
   const { data: mandats } = useMandats()
   const { data: actions } = useActions()
   const { data: documents } = useDocuments()
@@ -133,6 +132,10 @@ export default function CompteDetail() {
 
   const sitesDuCompte = useMemo(() => sites?.filter((s) => s.compte_id === id) ?? [], [sites, id])
   const siteIdsDuCompte = useMemo(() => new Set(sitesDuCompte.map((s) => s.id)), [sitesDuCompte])
+  const siteIdsArray = useMemo(() => [...siteIdsDuCompte], [siteIdsDuCompte])
+  // Fiche compte : on ne charge que les interactions de ce perimetre (pas la table entiere,
+  // qui met plusieurs minutes a charger une fois tous les comptes Salesforce importes).
+  const { data: interactionsDuCompte = [] } = useInteractionsForCompte(id, siteIdsArray)
   const contactsDuCompte = useMemo(() => contacts?.filter((c) => c.compte_id === id) ?? [], [contacts, id])
   const signauxDuCompte = useMemo(() => signaux?.filter((s) => siteIdsDuCompte.has(s.site_id)) ?? [], [signaux, siteIdsDuCompte])
   const compteursDuCompte = useMemo(() => compteurs?.filter((c) => siteIdsDuCompte.has(c.site_id)) ?? [], [compteurs, siteIdsDuCompte])
@@ -141,10 +144,6 @@ export default function CompteDetail() {
   const contratsDuCompte = useMemo(() => contrats?.filter((c) => c.compte_id === id) ?? [], [contrats, id])
   const recommandationsDuCompte = useMemo(() => recommandations?.filter((r) => r.compte_id === id) ?? [], [recommandations, id])
   const mandatsDuCompte = useMemo(() => mandats?.filter((m) => m.compte_id === id) ?? [], [mandats, id])
-  const interactionsDuCompte = useMemo(
-    () => interactions?.filter((i) => i.compte_id === id || siteIdsDuCompte.has(i.site_id ?? '')) ?? [],
-    [interactions, id, siteIdsDuCompte],
-  )
   const actionsDuCompte = useMemo(() => actions?.filter((a) => siteIdsDuCompte.has(a.site_id ?? '')) ?? [], [actions, siteIdsDuCompte])
   const documentsDuCompte = useMemo(() => documents?.filter((d) => d.entite_type === 'compte' && d.entite_id === id) ?? [], [documents, id])
   const categoriesFichiers = useMemo(() => [...new Set(documentsDuCompte.map((d) => d.type_document).filter(Boolean))], [documentsDuCompte])

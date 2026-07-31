@@ -96,29 +96,71 @@ async function fetchInteractions(): Promise<Interaction[]> {
             (i.site_id != null && (sitesVisibles ?? []).includes(i.site_id)),
         )
 
-    return (visibles as unknown as RawInteraction[]).map((i) => ({
-      id: i.id,
-      type_interaction: i.type_interaction?.libelle ?? '',
-      date_interaction: i.date_interaction,
-      sens: i.sens,
-      objet: i.objet,
-      resume: i.resume,
-      resultat: i.resultat,
-      auteur: i.auteur ? `${i.auteur.prenom} ${i.auteur.nom}` : '',
-      compte_id: i.compte_id,
-      compte_nom: i.compte?.nom ?? '',
-      site_id: i.site_id,
-      site_nom: i.site?.nom ?? '',
-      contact_id: i.contact_id,
-      contact_nom: i.contact ? `${i.contact.prenom} ${i.contact.nom}` : '',
-      issue_libelle: i.issue?.libelle,
-      issue_couleur: i.issue?.couleur,
-      proprietaire_id: i.proprietaire_id,
-    }))
+    return (visibles as unknown as RawInteraction[]).map(mapRawInteraction)
   } catch (error) {
     console.error('fetchInteractions', error)
     return []
   }
+}
+
+function mapRawInteraction(i: RawInteraction): Interaction {
+  return {
+    id: i.id,
+    type_interaction: i.type_interaction?.libelle ?? '',
+    date_interaction: i.date_interaction,
+    sens: i.sens,
+    objet: i.objet,
+    resume: i.resume,
+    resultat: i.resultat,
+    auteur: i.auteur ? `${i.auteur.prenom} ${i.auteur.nom}` : '',
+    compte_id: i.compte_id,
+    compte_nom: i.compte?.nom ?? '',
+    site_id: i.site_id,
+    site_nom: i.site?.nom ?? '',
+    contact_id: i.contact_id,
+    contact_nom: i.contact ? `${i.contact.prenom} ${i.contact.nom}` : '',
+    issue_libelle: i.issue?.libelle,
+    issue_couleur: i.issue?.couleur,
+    proprietaire_id: i.proprietaire_id,
+    duree_appel_secondes: i.duree_appel_secondes,
+    appel_manque: i.appel_manque,
+    messagerie_vocale: i.messagerie_vocale,
+    numero_correspondant: i.numero_correspondant,
+    decroche_par: i.decroche_par,
+    enregistrement_url: i.enregistrement_url,
+  }
+}
+
+// Fiche Compte/Contact/Site : charger UNIQUEMENT les interactions du perimetre concerne plutot
+// que la table entiere (des dizaines de milliers de lignes une fois tous les comptes Salesforce
+// importes) -- le fetch complet mettait plus de 5 minutes a charger une seule fiche compte.
+async function fetchInteractionsByCompte(compteId: string, siteIds: string[]): Promise<Interaction[]> {
+  if (isDemoMode()) {
+    return mockInteractions.filter((i) => i.compte_id === compteId || (i.site_id != null && siteIds.includes(i.site_id)))
+  }
+  const orParts = [`compte_id.eq.${compteId}`]
+  if (siteIds.length > 0) orParts.push(`site_id.in.(${siteIds.join(',')})`)
+
+  const { data, error } = await supabase
+    .from('interactions')
+    .select(INTERACTIONS_SELECT)
+    .or(orParts.join(','))
+    .order('date_interaction', { ascending: false })
+    .limit(2000)
+  if (error) {
+    console.error('fetchInteractionsByCompte', error)
+    return []
+  }
+  return ((data ?? []) as unknown as RawInteraction[]).map(mapRawInteraction)
+}
+
+export function useInteractionsForCompte(compteId: string | undefined, siteIds: string[]) {
+  const sortedSiteIds = [...siteIds].sort()
+  return useQuery({
+    queryKey: ['interactions', 'compte', compteId, sortedSiteIds],
+    queryFn: () => fetchInteractionsByCompte(compteId as string, sortedSiteIds),
+    enabled: !!compteId,
+  })
 }
 
 export function useInteractions() {
