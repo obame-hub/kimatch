@@ -57,7 +57,8 @@ function SandboxCard() {
       setFeedback(
         result.ok
           ? `Sandbox rafraîchie : ${result.tablesOk} tables, ${result.totalRows.toLocaleString('fr-FR')} lignes.`
-          : `Terminé avec ${result.tablesFailed.length} erreur(s) : ${result.tablesFailed.map((t) => t.table).join(', ')}.`,
+          : `Terminé avec ${result.tablesFailed.length} erreur(s) :\n` +
+              result.tablesFailed.map((t) => `• ${t.table} : ${t.error}`).join('\n'),
       )
     } catch (err) {
       setFeedback(err instanceof Error ? err.message : 'Erreur inconnue')
@@ -88,7 +89,7 @@ function SandboxCard() {
               </div>
             </div>
           )}
-          {feedback && <p className="mt-1 text-xs text-amber-900">{feedback}</p>}
+          {feedback && <p className="mt-1 whitespace-pre-line text-xs text-amber-900">{feedback}</p>}
         </div>
         <div className="flex items-center gap-2">
           <Button type="button" variant="outline" disabled={refresh.isPending} onClick={handleRefresh}>
