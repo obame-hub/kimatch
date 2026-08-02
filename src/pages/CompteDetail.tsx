@@ -472,6 +472,8 @@ export default function CompteDetail() {
                 mandats={mandatsDuCompte}
                 compteurs={compteursDuCompte}
               />
+
+              <RelationTimeline compte={compte} mandats={mandatsDuCompte} recommandations={recommandationsDuCompte} signaux={signauxDuCompte} />
             </div>
           )}
 
@@ -784,6 +786,90 @@ function CompteSitesMap({
         </span>
         <div className="flex-1" />
         <span className="text-kw-xs text-kw-faint">clic sur un pin → fiche Site</span>
+      </div>
+    </div>
+  )
+}
+
+type RelationEventKind = 'mandat' | 'gagne' | 'perdu' | 'litige' | 'a_venir'
+
+interface RelationEvent {
+  id: string
+  date: string
+  label: string
+  kind: RelationEventKind
+}
+
+const RELATION_EVENT_STYLE: Record<RelationEventKind, { badge: string; text: string }> = {
+  mandat: { badge: 'Mandat', text: 'bg-kw-amber-light text-kw-amber-dark' },
+  gagne: { badge: 'Gagné', text: 'bg-kw-green-light text-kw-green' },
+  perdu: { badge: 'Perdu', text: 'bg-kw-muted text-kw-label' },
+  litige: { badge: 'Litige', text: 'bg-kw-red-light text-kw-red' },
+  a_venir: { badge: 'À venir', text: 'bg-kw-amber-light text-kw-amber-dark' },
+}
+
+// Frise "Historique de la relation" -- présente dans la référence design (William) mais absente
+// jusqu'ici. Dérivée des données déjà chargées (mandats, recommandations, signaux) : première
+// passe raisonnable, PAS validée avec William/Michel sur le choix exact des jalons ni leurs
+// libellés (voir tâche de suivi) -- à corriger si le classement Gagné/Perdu/Litige ne correspond
+// pas à la réalité métier.
+function buildRelationEvents(compte: Compte, mandats: Mandat[], recommandations: Recommandation[], signaux: Signal[]): RelationEvent[] {
+  const events: RelationEvent[] = []
+
+  if (compte.date_creation) {
+    events.push({ id: `debut-${compte.id}`, date: compte.date_creation, label: 'Début de la relation', kind: 'mandat' })
+  }
+
+  for (const m of mandats) {
+    if (m.date_signature) {
+      events.push({ id: `mandat-${m.id}`, date: m.date_signature, label: `Signature du mandat · ${m.nb_sites_couverts} site${m.nb_sites_couverts > 1 ? 's' : ''}`, kind: 'mandat' })
+    } else if (m.statut === 'ENVOYE' || m.statut === 'EN_SIGNATURE') {
+      events.push({ id: `mandat-avenir-${m.id}`, date: m.date_envoi ?? m.date_creation ?? new Date().toISOString(), label: `Mandat en attente de signature · ${m.nb_sites_couverts} site${m.nb_sites_couverts > 1 ? 's' : ''}`, kind: 'a_venir' })
+    }
+  }
+
+  for (const r of recommandations) {
+    const derniere = r.versions[r.versions.length - 1]
+    if (r.etape === 'ACCEPTEE') {
+      const date = derniere?.date_decision_client ?? derniere?.date_creation ?? r.date_creation
+      const gain = derniere?.gains_estimes ? ` · ${derniere.gains_estimes.toLocaleString('fr-FR')} €/an` : ''
+      events.push({ id: `reco-gagne-${r.id}`, date, label: `${r.titre}${gain}`, kind: 'gagne' })
+    } else if (r.etape === 'REFUSEE') {
+      const date = derniere?.date_decision_client ?? derniere?.date_creation ?? r.date_creation
+      events.push({ id: `reco-perdu-${r.id}`, date, label: r.titre, kind: 'perdu' })
+    }
+  }
+
+  for (const s of signaux) {
+    if (/litige/i.test(s.type_signal) || /litige/i.test(s.description)) {
+      events.push({ id: `signal-${s.id}`, date: s.date_creation, label: s.description || s.type_signal, kind: 'litige' })
+    }
+  }
+
+  return events.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
+}
+
+function RelationTimeline({ compte, mandats, recommandations, signaux }: { compte: Compte; mandats: Mandat[]; recommandations: Recommandation[]; signaux: Signal[] }) {
+  const events = useMemo(() => buildRelationEvents(compte, mandats, recommandations, signaux), [compte, mandats, recommandations, signaux])
+
+  if (events.length === 0) return null
+
+  return (
+    <div className="rounded-xl border border-navy-100 bg-kw-surface p-4">
+      <div className="mb-3 flex items-center gap-1.5">
+        <span className="text-kw-xs font-bold uppercase tracking-wide text-kw-faint">Historique de la relation</span>
+        <span className="text-kw-xs text-kw-ghost">· tous sites confondus</span>
+      </div>
+      <div className="flex flex-col divide-y divide-kw-border-subtle">
+        {events.map((e) => (
+          <div key={e.id} className="flex items-center gap-3 py-2 first:pt-0 last:pb-0">
+            <span className="w-20 shrink-0 font-mono text-kw-sm text-kw-meta">{new Date(e.date).toLocaleDateString('fr-FR')}</span>
+            <p className="min-w-0 flex-1 truncate text-kw-lg text-kw-body">{e.label}</p>
+            <span className={cn('shrink-0 rounded px-1.5 py-0.5 text-kw-xs font-bold uppercase', RELATION_EVENT_STYLE[e.kind].text)}>
+              {RELATION_EVENT_STYLE[e.kind].badge}
+            </span>
+          </div>
+        ))}
       </div>
     </div>
   )
