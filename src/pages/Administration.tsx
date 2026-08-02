@@ -74,6 +74,20 @@ function SandboxCard() {
               ? `Dernière actualisation : ${new Date(lastRefresh.date).toLocaleString('fr-FR')} par ${lastRefresh.parNom}${lastRefresh.succes ? '' : ' (avec erreurs)'}`
               : 'Jamais actualisée pour le moment.'}
           </p>
+          {refresh.isPending && refresh.progress && (
+            <div className="mt-2 w-64">
+              <div className="mb-0.5 flex justify-between text-[10px] text-amber-800">
+                <span className="truncate">{refresh.progress.table}</span>
+                <span>{refresh.progress.done}/{refresh.progress.total}</span>
+              </div>
+              <div className="h-1.5 w-full overflow-hidden rounded-full bg-amber-200">
+                <div
+                  className="h-full rounded-full bg-amber-600 transition-all"
+                  style={{ width: `${Math.round((refresh.progress.done / refresh.progress.total) * 100)}%` }}
+                />
+              </div>
+            </div>
+          )}
           {feedback && <p className="mt-1 text-xs text-amber-900">{feedback}</p>}
         </div>
         <div className="flex items-center gap-2">

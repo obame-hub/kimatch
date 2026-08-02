@@ -5,6 +5,12 @@ import { createClient, type SupabaseClient } from '@supabase/supabase-js'
 // PROD (comme la page "Sandbox" de Salesforce, geree depuis l'org de production), pas depuis la
 // sandbox elle-meme. Toujours a sens unique : lit CETTE base (prod, via ses propres identifiants
 // deja configures), ecrit UNIQUEMENT sur SANDBOX_SUPABASE_URL (jamais l'inverse).
+//
+// La purge de chaque table passe par la fonction SQL admin_truncate_table (voir
+// lot10/add_admin_truncate_function.sql) plutot qu'un DELETE via PostgREST : certaines tables
+// (jonctions, extensions 1-1 comme comptes_clients/compteurs_electricite) n'ont pas de colonne
+// "id" simple, donc un DELETE filtre sur "id" echoue -- TRUNCATE marche quelle que soit la
+// structure et gere l'ordre parents/enfants automatiquement via CASCADE.
 
 const EXCLUDED_TABLES = new Set(['profils_gmail_tokens', 'parametres_slack'])
 
@@ -51,8 +57,8 @@ async function refreshTable(source: SupabaseClient, target: SupabaseClient, tabl
   if (readError) return { table, rows: 0, error: 'lecture: ' + readError.message }
   if (!data) return { table, rows: 0 }
 
-  const { error: deleteError } = await target.from(table).delete().not('id', 'is', null)
-  if (deleteError) return { table, rows: 0, error: 'purge sandbox: ' + deleteError.message }
+  const { error: truncError } = await target.rpc('admin_truncate_table', { table_name: table })
+  if (truncError) return { table, rows: 0, error: 'purge sandbox: ' + truncError.message }
   if (data.length === 0) return { table, rows: 0 }
 
   const BATCH = 500
@@ -63,6 +69,8 @@ async function refreshTable(source: SupabaseClient, target: SupabaseClient, tabl
   return { table, rows: data.length }
 }
 
+// Reponse en NDJSON (une ligne JSON par evenement) pour que le front puisse afficher une
+// progression en direct (table X/Y) plutot qu'une simple attente aveugle.
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   if (req.method !== 'POST') {
     res.status(405).json({ error: 'Méthode non autorisée' })
@@ -111,14 +119,23 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
   const sandbox = createClient(sandboxUrl, sandboxServiceRoleKey)
 
+  res.writeHead(200, { 'Content-Type': 'application/x-ndjson; charset=utf-8', 'Cache-Control': 'no-cache' })
+
   const results: TableResult[] = []
   let remaining = [...TABLES_IN_ORDER]
+  const total = remaining.length
+  let done = 0
   for (let pass = 1; pass <= 3 && remaining.length > 0; pass++) {
     const stillFailing: string[] = []
     for (const table of remaining) {
       const result = await refreshTable(own, sandbox, table)
-      if (result.error && pass < 3) stillFailing.push(table)
-      else results.push(result)
+      if (result.error && pass < 3) {
+        stillFailing.push(table)
+      } else {
+        results.push(result)
+        done++
+        res.write(JSON.stringify({ type: 'progress', table, done, total, rows: result.rows, error: result.error }) + '\n')
+      }
     }
     remaining = stillFailing
   }
@@ -134,10 +151,14 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     modifie_par_id: userData.user.id,
   })
 
-  res.status(200).json({
-    ok: failed.length === 0,
-    tablesOk: results.length - failed.length,
-    tablesFailed: failed,
-    totalRows: results.reduce((sum, r) => sum + r.rows, 0),
-  })
+  res.write(
+    JSON.stringify({
+      type: 'done',
+      ok: failed.length === 0,
+      tablesOk: results.length - failed.length,
+      tablesFailed: failed,
+      totalRows: results.reduce((sum, r) => sum + r.rows, 0),
+    }) + '\n',
+  )
+  res.end()
 }
