@@ -19,6 +19,7 @@ import { useAuth } from '@/lib/auth'
 import { navItems } from '@/lib/navItems'
 import { cn } from '@/lib/utils'
 import kiweeLogo from '@/assets/kiwee-logo.png'
+import { useMarketTicker } from '@/lib/data/marche'
 import { useComptes } from '@/lib/data/comptes'
 import { useSites } from '@/lib/data/sites'
 import { useContacts } from '@/lib/data/contacts'
@@ -58,6 +59,33 @@ const KIND_TINT: Record<SearchKind, string> = {
   document: 'text-navy-500',
   tache: 'text-amber-600',
   interaction: 'text-sky-500',
+}
+
+// Bandeau PEG (gaz) / BASE (élec), visible en permanence dans le header (demande design William) --
+// vert quand le prix baisse, rouge quand il monte (point de vue conseil énergie : une baisse est
+// une bonne nouvelle pour le client, pas un signal "négatif" comme en finance classique).
+function MarketTicker() {
+  const data = useMarketTicker()
+
+  function line(label: string, value: { price: number; changePct: number } | undefined) {
+    const down = (value?.changePct ?? 0) < 0
+    return (
+      <span>
+        {label} Cal27{' '}
+        <b className={cn('font-bold', !value ? 'text-kw-ghost' : down ? 'text-kw-green' : 'text-kw-red')}>
+          {value ? `${value.price.toLocaleString('fr-FR')} ${down ? '▾' : '▴'}${Math.abs(value.changePct).toLocaleString('fr-FR')}%` : '—'}
+        </b>
+      </span>
+    )
+  }
+
+  return (
+    <div className="hidden shrink-0 items-center gap-3 rounded-[7px] border border-kw-border bg-kw-bg px-3 py-[5px] font-mono text-kw-base text-kw-meta lg:flex">
+      {line('PEG', data?.peg)}
+      <span className="text-[#d5d4cf]">│</span>
+      {line('BASE', data?.base)}
+    </div>
+  )
 }
 
 export function Topbar({ title, crumb }: { title: string; crumb?: string }) {
@@ -202,6 +230,8 @@ export function Topbar({ title, crumb }: { title: string; crumb?: string }) {
           </div>
         )}
       </div>
+
+      <MarketTicker />
 
       <div className="flex-1" />
 

@@ -104,15 +104,24 @@ function interactionIcon(interaction: Interaction) {
 }
 
 // Regroupe par date relative comme chez William : Demain / Aujourd'hui / Hier, puis dates absolues.
-function relativeGroupLabel(dateStr: string): string {
+function relativeGroupLabel(dateStr: string): { label: string; diffDays: number } {
   const d = new Date(dateStr)
   const startOfDay = (dt: Date) => new Date(dt.getFullYear(), dt.getMonth(), dt.getDate()).getTime()
   const diffDays = Math.round((startOfDay(d) - startOfDay(new Date())) / 86400000)
-  if (diffDays === 0) return "Aujourd'hui"
-  if (diffDays === 1) return 'Demain'
-  if (diffDays === -1) return 'Hier'
-  if (diffDays > 1 && diffDays <= 6) return d.toLocaleDateString('fr-FR', { weekday: 'long' })
-  return d.toLocaleDateString('fr-FR')
+  if (diffDays === 0) return { label: "Aujourd'hui", diffDays }
+  if (diffDays === 1) return { label: 'Demain', diffDays }
+  if (diffDays === -1) return { label: 'Hier', diffDays }
+  if (diffDays > 1 && diffDays <= 6) return { label: d.toLocaleDateString('fr-FR', { weekday: 'long' }), diffDays }
+  return { label: d.toLocaleDateString('fr-FR'), diffDays }
+}
+
+// Pastille pleine par séparateur de date (mesuré pixel pour pixel dans la référence William :
+// #0d7a5f aujourd'hui, #b57a24 à venir, #16181d passé) -- remplace l'ancien "text-[10px]
+// text-navy-400" explicitement signalé trop discret dans le prompt de handoff.
+function groupBadgeClass(diffDays: number): string {
+  if (diffDays === 0) return 'bg-kw-green'
+  if (diffDays > 0) return 'bg-kw-amber'
+  return 'bg-kw-ink'
 }
 
 export function ActivityFeed({
@@ -170,12 +179,12 @@ export function ActivityFeed({
     : items
 
   // Insère un en-tête à chaque changement de libellé de date relative (les items sont déjà triés du plus récent au plus ancien).
-  const rows: Array<{ type: 'header'; label: string } | { type: 'item'; item: ActivityItem }> = []
+  const rows: Array<{ type: 'header'; label: string; diffDays: number } | { type: 'item'; item: ActivityItem }> = []
   let lastLabel: string | null = null
   for (const item of filteredItems) {
-    const label = relativeGroupLabel(item.date)
+    const { label, diffDays } = relativeGroupLabel(item.date)
     if (label !== lastLabel) {
-      rows.push({ type: 'header', label })
+      rows.push({ type: 'header', label, diffDays })
       lastLabel = label
     }
     rows.push({ type: 'item', item })
@@ -259,7 +268,9 @@ export function ActivityFeed({
         {rows.map((row, idx) =>
           row.type === 'header' ? (
             <div key={`h-${idx}`} className="flex items-center gap-2 pt-2 first:pt-0">
-              <span className="text-[10px] font-bold uppercase tracking-wide text-navy-400">{row.label}</span>
+              <span className={cn('rounded-xl px-2.5 py-[3px] text-[10px] font-extrabold uppercase tracking-[0.6px] text-white', groupBadgeClass(row.diffDays))}>
+                {row.label}
+              </span>
               <div className="h-px flex-1 bg-navy-100" />
             </div>
           ) : (

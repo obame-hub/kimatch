@@ -8,8 +8,10 @@ const badgeVariants = cva('inline-flex items-center rounded-full px-2.5 py-0.5 t
       neutral: 'bg-navy-100 text-navy-700',
       kiwi: 'bg-kiwi-100 text-kiwi-800',
       amber: 'bg-amber-100 text-amber-800',
-      red: 'bg-red-100 text-red-700',
-      blue: 'bg-blue-100 text-blue-700',
+      // Couleurs de marque (charte iconographique du handoff design) au lieu des teintes Tailwind
+      // par défaut -- signaux = rouge #c2452d, comptes = bleu #3b5f8a.
+      red: 'bg-kw-red-light text-kw-red',
+      blue: 'bg-kw-blue-light text-kw-blue',
     },
   },
   defaultVariants: {

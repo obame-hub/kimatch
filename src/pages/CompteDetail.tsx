@@ -46,7 +46,7 @@ import { useRecommandations } from '@/lib/data/recommandations'
 import { useContrats } from '@/lib/data/contrats'
 import { useInteractionsForCompte } from '@/lib/data/interactions'
 import { useMandats } from '@/lib/data/mandats'
-import { useActions } from '@/lib/data/actions'
+import { useActions, useCreateAction } from '@/lib/data/actions'
 import { useDocuments, useCreateDocument } from '@/lib/data/documents'
 import { useHistorique } from '@/lib/data/historique'
 import { useEllisphereScore } from '@/lib/data/ellisphere'
@@ -76,6 +76,18 @@ const typeMeta: Record<TypeCompte, { label: string; tone: 'kiwi' | 'blue' | 'amb
   kiwee: { label: 'KiWee', tone: 'neutral' },
 }
 
+// Distinction graphique franche entre Client / Fournisseur / Partenaire / KiWee (demande design
+// William) : une couleur de dalle + un badge à pastille dédiés par type, au lieu d'un badge bleu
+// unique pour tous les types. Valeurs "client" mesurées pixel pour pixel dans la référence ;
+// fournisseur/partenaire/kiwee dérivées du même jeu de tokens faute d'exemple de référence pour
+// ces types (à valider visuellement).
+const TYPE_BADGE_STYLE: Record<TypeCompte, { bg: string; border: string; text: string; dot: string; gradientFrom: string; gradientTo: string }> = {
+  client: { bg: 'bg-kw-green-light', border: 'border-kw-green-border', text: 'text-kw-green', dot: 'bg-kw-green', gradientFrom: 'from-kw-green', gradientTo: 'to-[#199b78]' },
+  fournisseur: { bg: 'bg-kw-blue-light', border: 'border-sky-200', text: 'text-kw-blue', dot: 'bg-kw-blue', gradientFrom: 'from-kw-blue', gradientTo: 'to-[#4f78ab]' },
+  partenaire: { bg: 'bg-kw-amber-light', border: 'border-kw-amber-border', text: 'text-kw-amber-dark', dot: 'bg-kw-amber', gradientFrom: 'from-kw-amber', gradientTo: 'to-[#d1a355]' },
+  kiwee: { bg: 'bg-kw-muted', border: 'border-kw-border-strong', text: 'text-kw-label', dot: 'bg-kw-ghost', gradientFrom: 'from-[#5c5f66]', gradientTo: 'to-[#3c3c42]' },
+}
+
 type TabKey = 'synthese' | 'contrats' | 'compteurs' | 'recommandations' | 'signaux' | 'mandats' | 'fichiers' | 'historique' | 'activite'
 
 function copyToClipboard(text: string, onDone: (msg: string) => void) {
@@ -101,6 +113,7 @@ export default function CompteDetail() {
   const updateScore = useUpdateCompteScore()
   const deleteCompte = useDeleteCompte()
   const updateCompte = useUpdateCompte()
+  const createRelance = useCreateAction()
   const goBack = useGoBack('/comptes')
 
   const { data: statutsContratsRef } = useReferenceTable('statuts_contrats')
@@ -163,6 +176,29 @@ export default function CompteDetail() {
     navigate('/comptes')
   }
 
+  // Bouton "Relance" du header (design William) : crée une tâche de relance à échéance du jour.
+  // La table actions n'a pas de compte_id (seulement site_id/contact_id) -- on la rattache donc
+  // au premier site du compte, comme le reste de l'onglet Activité qui agrège déjà par site.
+  async function handleRelance() {
+    const site = sitesDuCompte[0]
+    if (!site || !compte) return
+    await createRelance.mutateAsync({
+      titre: `Relance — ${compte.nom}`,
+      type_action_id: null,
+      type_action_libelle: 'Relance',
+      site_id: site.id,
+      site_nom: site.nom,
+      contact_id: contactPrincipal?.id ?? null,
+      contact_nom: contactPrincipal ? `${contactPrincipal.prenom} ${contactPrincipal.nom}` : '',
+      priorite: 1,
+      echeance: new Date().toISOString(),
+      commentaire: null,
+      statut_id: null,
+    })
+    showToast('✓ Relance créée pour aujourd\'hui')
+    setTab('activite')
+  }
+
   const TABS: { key: TabKey; label: string; labelMobile?: string; badge?: string; mobileOnly?: boolean }[] = [
     { key: 'synthese', label: 'Compte' },
     { key: 'contrats', label: 'Contrats', badge: contratsDuCompte.length ? String(contratsDuCompte.length) : undefined },
@@ -182,10 +218,11 @@ export default function CompteDetail() {
       const map: Record<string, TabKey> = { '1': 'synthese', '2': 'contrats', '3': 'compteurs', '4': 'recommandations', '5': 'signaux', '6': 'mandats', '7': 'fichiers', '8': 'historique' }
       if (map[e.key]) setTab(map[e.key])
       if (e.key === 'n' || e.key === 'N') setTab('activite')
+      if (e.key === 'r' || e.key === 'R') handleRelance()
     }
     window.addEventListener('keydown', onKeyDown)
     return () => window.removeEventListener('keydown', onKeyDown)
-  }, [compte?.id])
+  }, [compte?.id, sitesDuCompte, contactPrincipal])
 
   if (!comptes) {
     return (
@@ -220,7 +257,7 @@ export default function CompteDetail() {
         <Button variant="ghost" size="icon" onClick={goBack} title="Retour aux comptes" className="mt-1">
           <ArrowLeft className="h-4 w-4" />
         </Button>
-        <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-kw-xl bg-gradient-to-br from-kw-blue to-[#4f78ab] text-white">
+        <span className={cn('flex h-10 w-10 shrink-0 items-center justify-center rounded-kw-xl bg-gradient-to-br text-white', TYPE_BADGE_STYLE[compte.type_compte].gradientFrom, TYPE_BADGE_STYLE[compte.type_compte].gradientTo)}>
           <Building2 className="h-[18px] w-[18px]" />
         </span>
         <div className="flex min-w-0 flex-1 flex-col gap-1.5">
@@ -237,12 +274,13 @@ export default function CompteDetail() {
             ) : (
               <span className="text-[20px] font-bold tracking-tight text-kw-ink">{compte.nom}</span>
             )}
-            <span className="rounded-kw-xs bg-kw-blue-light px-2 py-0.5 text-kw-xs font-semibold text-kw-blue">
+            {compte.segment && (
+              <span className="rounded-[12px] bg-kw-blue-light px-2.5 py-[3px] text-kw-xs font-semibold text-kw-blue">{compte.segment}</span>
+            )}
+            <span className={cn('inline-flex items-center gap-1.5 rounded-[12px] border px-2.5 py-[3px] text-kw-xs font-bold uppercase tracking-wide', TYPE_BADGE_STYLE[compte.type_compte].bg, TYPE_BADGE_STYLE[compte.type_compte].border, TYPE_BADGE_STYLE[compte.type_compte].text)}>
+              <span className={cn('h-[7px] w-[7px] rounded-full', TYPE_BADGE_STYLE[compte.type_compte].dot)} />
               {typeMeta[compte.type_compte].label}
             </span>
-            {compte.segment && (
-              <span className="rounded-kw-xs bg-kw-muted px-2 py-0.5 text-kw-xs font-semibold text-kw-label">{compte.segment}</span>
-            )}
             <span className="text-kw-lg text-kw-meta"><b className="text-kw-ink">{sitesDuCompte.length}</b> site{sitesDuCompte.length > 1 ? 's' : ''} géré{sitesDuCompte.length > 1 ? 's' : ''}</span>
           </div>
         </div>
@@ -261,6 +299,15 @@ export default function CompteDetail() {
             className="flex items-center gap-1.5 rounded-kw-md border border-kw-border-strong bg-kw-surface px-3 py-2 text-kw-md font-semibold text-kw-ink transition-colors hover:bg-kw-bg"
           >
             Note <span className="font-mono text-kw-tiny text-kw-ghost">N</span>
+          </button>
+          <button
+            type="button"
+            disabled={!sitesDuCompte[0] || createRelance.isPending}
+            onClick={() => handleRelance()}
+            title={!sitesDuCompte[0] ? 'Aucun site rattaché à ce compte' : undefined}
+            className="flex items-center gap-1.5 rounded-kw-md border border-kw-border-strong bg-kw-surface px-3 py-2 text-kw-md font-semibold text-kw-ink transition-colors hover:bg-kw-bg disabled:opacity-40"
+          >
+            Relance <span className="font-mono text-kw-tiny text-kw-ghost">R</span>
           </button>
           <button
             type="button"
@@ -450,7 +497,7 @@ export default function CompteDetail() {
                     onClick={() => navigate(`/compteurs/${c.id}`)}
                     className="flex cursor-pointer items-center gap-3 px-3.5 py-2.5 hover:bg-navy-50/60"
                   >
-                    <span className={cn('flex h-8 w-8 shrink-0 items-center justify-center rounded-lg', c.type_energie === 'gaz' ? 'bg-amber-100 text-amber-600' : 'bg-sky-100 text-sky-500')}>
+                    <span className={cn('flex h-8 w-8 shrink-0 items-center justify-center rounded-lg', c.type_energie === 'gaz' ? 'bg-kw-gas-light text-kw-gas' : 'bg-kw-gold-light text-kw-gold')}>
                       <Icon className="h-3.5 w-3.5" />
                     </span>
                     <div className="min-w-0 flex-1">
@@ -477,7 +524,7 @@ export default function CompteDetail() {
                     className="cursor-pointer rounded-xl border border-navy-100 bg-white p-3.5 hover:bg-navy-50/60"
                   >
                     <div className="flex items-center gap-2">
-                      <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-amber-100 text-amber-600">
+                      <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-kw-amber-light text-kw-amber">
                         <Sparkle className="h-3.5 w-3.5" />
                       </span>
                       <p className="flex-1 truncate text-sm font-bold text-navy-800">{r.titre}</p>
@@ -505,7 +552,7 @@ export default function CompteDetail() {
                 signauxDuCompte.map((s) => (
                   <div key={s.id} className="rounded-xl border border-navy-100 bg-white p-3.5">
                     <div className="flex items-start gap-3">
-                      <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-red-100 text-red-600">
+                      <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-kw-red-light text-kw-red">
                         <Radio className="h-3.5 w-3.5" />
                       </span>
                       <div className="min-w-0 flex-1">
