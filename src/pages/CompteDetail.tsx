@@ -7,8 +7,6 @@ import {
   Plus,
   Building2,
   Users,
-  Zap,
-  Flame,
   Gauge,
   Loader2,
   Pencil,
@@ -19,6 +17,7 @@ import {
   Radio,
   UploadCloud,
   MapPin,
+  Search,
 } from 'lucide-react'
 import { Topbar } from '@/components/layout/Topbar'
 import { Button } from '@/components/ui/button'
@@ -52,7 +51,6 @@ import { useHistorique } from '@/lib/data/historique'
 import { useEllisphereScore } from '@/lib/data/ellisphere'
 import { useReferenceTable } from '@/lib/data/referenceTables'
 import {
-  FALLBACK_STATUTS_CONTRATS,
   FALLBACK_STATUTS_MANDATS,
   STATUT_MANDAT_TONE,
   FALLBACK_STATUTS_VERSIONS,
@@ -77,15 +75,16 @@ const typeMeta: Record<TypeCompte, { label: string; tone: 'kiwi' | 'blue' | 'amb
 }
 
 // Distinction graphique franche entre Client / Fournisseur / Partenaire / KiWee (demande design
-// William) : une couleur de dalle + un badge à pastille dédiés par type, au lieu d'un badge bleu
-// unique pour tous les types. Valeurs "client" mesurées pixel pour pixel dans la référence ;
-// fournisseur/partenaire/kiwee dérivées du même jeu de tokens faute d'exemple de référence pour
-// ces types (à valider visuellement).
-const TYPE_BADGE_STYLE: Record<TypeCompte, { bg: string; border: string; text: string; dot: string; gradientFrom: string; gradientTo: string }> = {
-  client: { bg: 'bg-kw-green-light', border: 'border-kw-green-border', text: 'text-kw-green', dot: 'bg-kw-green', gradientFrom: 'from-kw-green', gradientTo: 'to-[#199b78]' },
-  fournisseur: { bg: 'bg-kw-blue-light', border: 'border-sky-200', text: 'text-kw-blue', dot: 'bg-kw-blue', gradientFrom: 'from-kw-blue', gradientTo: 'to-[#4f78ab]' },
-  partenaire: { bg: 'bg-kw-amber-light', border: 'border-kw-amber-border', text: 'text-kw-amber-dark', dot: 'bg-kw-amber', gradientFrom: 'from-kw-amber', gradientTo: 'to-[#d1a355]' },
-  kiwee: { bg: 'bg-kw-muted', border: 'border-kw-border-strong', text: 'text-kw-label', dot: 'bg-kw-ghost', gradientFrom: 'from-[#5c5f66]', gradientTo: 'to-[#3c3c42]' },
+// William) : un badge à pastille dédié par type, au lieu d'un badge bleu unique pour tous les
+// types. Valeurs "client" mesurées pixel pour pixel dans la référence ; fournisseur/partenaire/
+// kiwee dérivées du même jeu de tokens faute d'exemple de référence pour ces types (à valider
+// visuellement). L'icône "compte" (dalle bleue Building2) ne varie pas : c'est la couleur de
+// l'objet, pas du sous-type, cf. charte iconographique du handoff.
+const TYPE_BADGE_STYLE: Record<TypeCompte, { bg: string; border: string; text: string; dot: string }> = {
+  client: { bg: 'bg-kw-green-light', border: 'border-kw-green-border', text: 'text-kw-green', dot: 'bg-kw-green' },
+  fournisseur: { bg: 'bg-kw-blue-light', border: 'border-sky-200', text: 'text-kw-blue', dot: 'bg-kw-blue' },
+  partenaire: { bg: 'bg-kw-amber-light', border: 'border-kw-amber-border', text: 'text-kw-amber-dark', dot: 'bg-kw-amber' },
+  kiwee: { bg: 'bg-kw-muted', border: 'border-kw-border-strong', text: 'text-kw-label', dot: 'bg-kw-ghost' },
 }
 
 type TabKey = 'synthese' | 'contrats' | 'compteurs' | 'recommandations' | 'signaux' | 'mandats' | 'fichiers' | 'historique' | 'activite'
@@ -116,8 +115,6 @@ export default function CompteDetail() {
   const createRelance = useCreateAction()
   const goBack = useGoBack('/comptes')
 
-  const { data: statutsContratsRef } = useReferenceTable('statuts_contrats')
-  const statutsContrats = statutsContratsRef && statutsContratsRef.length > 0 ? statutsContratsRef : FALLBACK_STATUTS_CONTRATS
   const { data: statutsMandatsRef } = useReferenceTable('statuts_mandats')
   const statutsMandats = statutsMandatsRef && statutsMandatsRef.length > 0 ? statutsMandatsRef : FALLBACK_STATUTS_MANDATS
   const { data: statutsVersionsRef } = useReferenceTable('statuts_versions_recommandation')
@@ -257,7 +254,10 @@ export default function CompteDetail() {
         <Button variant="ghost" size="icon" onClick={goBack} title="Retour aux comptes" className="mt-1">
           <ArrowLeft className="h-4 w-4" />
         </Button>
-        <span className={cn('flex h-10 w-10 shrink-0 items-center justify-center rounded-kw-xl bg-gradient-to-br text-white', TYPE_BADGE_STYLE[compte.type_compte].gradientFrom, TYPE_BADGE_STYLE[compte.type_compte].gradientTo)}>
+        {/* Icône = objet "compte" au sens de la charte iconographique (bleu #3b5f8a, Building2,
+            identique partout dans le CRM) -- ne varie PAS avec le sous-type Client/Fournisseur/
+            Partenaire, c'est le badge à pastille juste à côté qui porte cette distinction. */}
+        <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-kw-xl bg-gradient-to-br from-kw-blue to-[#4f78ab] text-white">
           <Building2 className="h-[18px] w-[18px]" />
         </span>
         <div className="flex min-w-0 flex-1 flex-col gap-1.5">
@@ -346,15 +346,15 @@ export default function CompteDetail() {
               type="button"
               onClick={() => setTab(t.key)}
               className={cn(
-                'inline-flex shrink-0 items-center gap-1.5 whitespace-nowrap border-b-2 px-3 py-2.5 text-kw-md font-medium transition-colors',
+                'inline-flex shrink-0 items-center gap-1.5 whitespace-nowrap border-b-2 px-[13px] py-[9px] text-kw-xl transition-colors',
                 t.mobileOnly && 'lg:hidden',
-                isActive ? 'border-kw-ink font-semibold text-kw-ink' : 'border-transparent text-kw-meta hover:text-kw-ink',
+                isActive ? 'border-kw-ink font-semibold text-kw-ink' : 'border-transparent font-normal text-kw-meta hover:text-kw-ink',
               )}
             >
               <span className="lg:hidden">{t.labelMobile ?? t.label}</span>
               <span className="hidden lg:inline">{t.label}</span>
               {t.badge && (
-                <span className={cn('rounded px-1.5 py-0.5 text-kw-tiny font-bold', isActive ? 'bg-kw-muted text-kw-label' : 'bg-kw-muted text-kw-meta')}>
+                <span className="rounded-kw-sm bg-kw-muted px-[5px] py-px text-[9.5px] font-bold text-kw-label">
                   {t.badge}
                 </span>
               )}
@@ -480,58 +480,33 @@ export default function CompteDetail() {
               sites={sitesDuCompte}
               contrats={contratsDuCompte}
               recommandations={recommandationsDuCompte}
-              statutsContrats={statutsContrats}
-              onNavigate={(id) => navigate(`/contrats/${id}`)}
             />
           )}
 
           {tab === 'compteurs' && (
-            <GroupedBySite
-              sites={sitesDuCompte}
-              itemsBySiteId={(siteId) => compteursDuCompte.filter((c) => c.site_id === siteId)}
-              renderItem={(c: (typeof compteursDuCompte)[number]) => {
-                const Icon = c.type_energie === 'gaz' ? Flame : Zap
-                return (
-                  <div
-                    key={c.id}
-                    onClick={() => navigate(`/compteurs/${c.id}`)}
-                    className="flex cursor-pointer items-center gap-3 px-3.5 py-2.5 hover:bg-navy-50/60"
-                  >
-                    <span className={cn('flex h-8 w-8 shrink-0 items-center justify-center rounded-lg', c.type_energie === 'gaz' ? 'bg-kw-gas-light text-kw-gas' : 'bg-kw-gold-light text-kw-gold')}>
-                      <Icon className="h-3.5 w-3.5" />
-                    </span>
-                    <div className="min-w-0 flex-1">
-                      <p className="truncate text-sm font-semibold text-navy-800">{c.utilisation || c.numero_pdl}</p>
-                      <p className="truncate font-mono text-[10px] text-navy-400">{c.numero_pdl}</p>
-                    </div>
-                    <Badge tone={c.statut === 'actif' ? 'kiwi' : 'neutral'}>{c.statut}</Badge>
-                  </div>
-                )
-              }}
-              emptyLabel="Aucun compteur pour ce compte."
-            />
+            <CompteursTabContent sites={sitesDuCompte} compteurs={compteursDuCompte} />
           )}
 
           {tab === 'recommandations' && (
             <div className="flex flex-col gap-2.5">
-              {recommandationsDuCompte.length === 0 && <p className="text-sm text-navy-400">Aucune recommandation pour ce compte.</p>}
+              {recommandationsDuCompte.length === 0 && <p className="text-kw-lg text-kw-faint">Aucune recommandation pour ce compte.</p>}
               {recommandationsDuCompte.map((r) => {
                 const derniereVersion = r.versions[r.versions.length - 1]
                 return (
                   <div
                     key={r.id}
                     onClick={() => navigate(`/recommandations/${r.id}`)}
-                    className="cursor-pointer rounded-xl border border-navy-100 bg-white p-3.5 hover:bg-navy-50/60"
+                    className="cursor-pointer rounded-xl border border-kw-border bg-kw-surface p-3.5 hover:bg-kw-muted"
                   >
                     <div className="flex items-center gap-2">
                       <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-kw-amber-light text-kw-amber">
                         <Sparkle className="h-3.5 w-3.5" />
                       </span>
-                      <p className="flex-1 truncate text-sm font-bold text-navy-800">{r.titre}</p>
+                      <p className="flex-1 truncate text-kw-h4 font-bold text-kw-ink">{r.titre}</p>
                       <Badge tone={ETAPE_TONE[r.etape] ?? 'amber'}>{etapes.find((e) => e.code === r.etape)?.libelle ?? r.etape}</Badge>
                     </div>
                     {derniereVersion && (
-                      <p className="ml-9 mt-1.5 text-[11px] text-navy-400">
+                      <p className="ml-9 mt-1.5 text-kw-sm text-kw-meta">
                         {derniereVersion.nom || 'Version'} · {statutsVersions.find((s) => s.code === derniereVersion.statut)?.libelle ?? derniereVersion.statut}
                         {derniereVersion.gains_estimes ? ` · gain estimé ${derniereVersion.gains_estimes.toLocaleString('fr-FR')} €/an` : ''}
                       </p>
@@ -545,23 +520,23 @@ export default function CompteDetail() {
           {tab === 'signaux' && (
             <div className="flex flex-col gap-2.5">
               {signauxDuCompte.length === 0 ? (
-                <div className="rounded-xl border border-dashed border-kiwi-100 bg-white p-6 text-center text-sm font-semibold text-kiwi-600">
+                <div className="rounded-xl border border-dashed border-kw-green-border bg-kw-surface p-6 text-center text-kw-lg font-semibold text-kw-green">
                   ✓ Aucun signal ouvert — compte sous contrôle
                 </div>
               ) : (
                 signauxDuCompte.map((s) => (
-                  <div key={s.id} className="rounded-xl border border-navy-100 bg-white p-3.5">
+                  <div key={s.id} className="rounded-xl border border-kw-border bg-kw-surface p-3.5">
                     <div className="flex items-start gap-3">
                       <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-kw-red-light text-kw-red">
                         <Radio className="h-3.5 w-3.5" />
                       </span>
                       <div className="min-w-0 flex-1">
-                        <p className="text-sm font-bold text-navy-800">{s.type_signal}</p>
-                        <p className="mt-0.5 text-xs text-navy-500">{s.description}</p>
-                        <span className="mt-1 inline-block text-[10.5px]"><EntityLink to={`/sites/${s.site_id}`}>{s.site_nom}</EntityLink></span>
+                        <p className="text-kw-h4 font-bold text-kw-ink">{s.type_signal}</p>
+                        <p className="mt-0.5 text-kw-lg text-kw-meta">{s.description}</p>
+                        <span className="mt-1 inline-block text-kw-sm"><EntityLink to={`/sites/${s.site_id}`}>{s.site_nom}</EntityLink></span>
                       </div>
                     </div>
-                    <div className="mt-2.5 flex gap-2 border-t border-navy-50 pt-2.5">
+                    <div className="mt-2.5 flex gap-2 border-t border-kw-border-subtle pt-2.5">
                       <Button variant="ghost" size="sm" className="ml-auto" onClick={() => navigate('/signaux')}>
                         Voir dans Signaux
                       </Button>
@@ -575,8 +550,8 @@ export default function CompteDetail() {
           {tab === 'mandats' && (
             <div className="flex flex-col gap-2.5">
               {mandatsDuCompte.length === 0 ? (
-                <div className="rounded-xl border border-dashed border-amber-200 bg-amber-50/60 p-4">
-                  <p className="text-sm font-bold text-amber-700">Aucun mandat pour ce compte</p>
+                <div className="rounded-xl border border-dashed border-kw-amber-border bg-kw-amber-light p-4">
+                  <p className="text-kw-lg font-bold text-kw-amber-dark">Aucun mandat pour ce compte</p>
                   <Button size="sm" className="mt-2.5" onClick={() => navigate('/mandats')}>
                     <Plus className="h-3.5 w-3.5" />
                     Préparer un mandat
@@ -587,14 +562,14 @@ export default function CompteDetail() {
                   <div
                     key={m.id}
                     onClick={() => navigate(`/mandats/${m.id}`)}
-                    className="flex cursor-pointer items-center gap-3 rounded-xl border border-navy-100 bg-white p-3.5 hover:bg-navy-50/60"
+                    className="flex cursor-pointer items-center gap-3 rounded-xl border border-kw-border bg-kw-surface p-3.5 hover:bg-kw-muted"
                   >
-                    <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-[10px] bg-amber-100 text-amber-600">
+                    <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-kw-lg bg-kw-amber-light text-kw-amber-dark">
                       <FileCheck2 className="h-4 w-4" />
                     </span>
                     <div className="min-w-0 flex-1">
-                      <p className="truncate text-sm font-bold text-navy-800">{m.nb_sites_couverts} site{m.nb_sites_couverts > 1 ? 's' : ''} couvert{m.nb_sites_couverts > 1 ? 's' : ''}</p>
-                      <p className="truncate text-[10.5px] text-navy-400">{m.contact_signataire_nom ?? 'Signataire non renseigné'}</p>
+                      <p className="truncate text-kw-h4 font-bold text-kw-ink">{m.nb_sites_couverts} site{m.nb_sites_couverts > 1 ? 's' : ''} couvert{m.nb_sites_couverts > 1 ? 's' : ''}</p>
+                      <p className="truncate text-kw-sm text-kw-meta">{m.contact_signataire_nom ?? 'Signataire non renseigné'}</p>
                     </div>
                     <Badge tone={STATUT_MANDAT_TONE[m.statut] ?? 'neutral'}>{statutsMandats.find((s) => s.code === m.statut)?.libelle ?? m.statut}</Badge>
                   </div>
@@ -609,7 +584,7 @@ export default function CompteDetail() {
                 <button
                   type="button"
                   onClick={() => setFicCategorie(null)}
-                  className={cn('rounded-full px-2.5 py-1 text-[11px] font-semibold', ficCategorie === null ? 'bg-ink-800 text-white' : 'bg-navy-100 text-navy-600 hover:bg-navy-200')}
+                  className={cn('rounded-full px-2.5 py-1 text-kw-base font-semibold', ficCategorie === null ? 'bg-kw-ink text-white' : 'bg-kw-muted text-kw-label hover:bg-kw-border')}
                 >
                   Tous
                 </button>
@@ -618,7 +593,7 @@ export default function CompteDetail() {
                     key={cat}
                     type="button"
                     onClick={() => setFicCategorie(cat)}
-                    className={cn('rounded-full px-2.5 py-1 text-[11px] font-semibold', ficCategorie === cat ? 'bg-ink-800 text-white' : 'bg-navy-100 text-navy-600 hover:bg-navy-200')}
+                    className={cn('rounded-full px-2.5 py-1 text-kw-base font-semibold', ficCategorie === cat ? 'bg-kw-ink text-white' : 'bg-kw-muted text-kw-label hover:bg-kw-border')}
                   >
                     {cat}
                   </button>
@@ -632,28 +607,28 @@ export default function CompteDetail() {
               <button
                 type="button"
                 onClick={() => setAddFichierOpen(true)}
-                className="flex flex-col items-center gap-1.5 rounded-xl border-2 border-dashed border-navy-200 bg-white py-6 text-navy-400 hover:border-kiwi-300 hover:text-kiwi-600"
+                className="flex flex-col items-center gap-1.5 rounded-xl border-2 border-dashed border-kw-border-strong bg-kw-surface py-6 text-kw-faint hover:border-kw-green-border hover:text-kw-green"
               >
                 <UploadCloud className="h-[18px] w-[18px]" />
-                <span className="text-xs font-bold text-navy-700">Glissez-déposez vos fichiers ici</span>
-                <span className="text-[10.5px]">PDF, images, emails — catégorisés ensuite en un clic</span>
+                <span className="text-kw-lg font-bold text-kw-body">Glissez-déposez vos fichiers ici</span>
+                <span className="text-kw-sm">PDF, images, emails — catégorisés ensuite en un clic</span>
               </button>
               {documentsFiltresParCategorie.length === 0 ? (
-                <p className="text-sm text-navy-400">{ficCategorie ? 'Aucun fichier dans cette catégorie.' : 'Aucun fichier pour ce compte.'}</p>
+                <p className="text-kw-lg text-kw-faint">{ficCategorie ? 'Aucun fichier dans cette catégorie.' : 'Aucun fichier pour ce compte.'}</p>
               ) : (
-                <div className="overflow-hidden rounded-xl border border-navy-100 bg-white">
+                <div className="overflow-hidden rounded-xl border border-kw-border bg-kw-surface">
                   {documentsFiltresParCategorie.map((d) => (
                     <div
                       key={d.id}
                       onClick={() => navigate(`/documents/${d.id}`)}
-                      className="flex cursor-pointer items-center gap-3 border-b border-navy-50 px-4 py-3 last:border-b-0 hover:bg-navy-50/60"
+                      className="flex cursor-pointer items-center gap-3 border-b border-kw-border-subtle px-4 py-3 last:border-b-0 hover:bg-kw-muted"
                     >
-                      <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-navy-100 text-navy-500">
+                      <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-kw-muted text-kw-label">
                         <FileText className="h-4 w-4" />
                       </span>
                       <div className="min-w-0 flex-1">
-                        <p className="truncate text-sm font-bold text-navy-800">{d.nom}</p>
-                        <p className="truncate text-[10.5px] text-navy-400">{d.auteur} · {new Date(d.date_creation).toLocaleDateString('fr-FR')}</p>
+                        <p className="truncate text-kw-h4 font-bold text-kw-ink">{d.nom}</p>
+                        <p className="truncate text-kw-sm text-kw-faint">{d.auteur} · {new Date(d.date_creation).toLocaleDateString('fr-FR')}</p>
                       </div>
                       <Badge tone="neutral">{d.type_document}</Badge>
                     </div>
@@ -665,24 +640,24 @@ export default function CompteDetail() {
 
           {tab === 'historique' && (
             <div className="flex flex-col gap-2.5">
-              <p className="text-[11px] text-navy-400">{historique?.length ?? 0} changement{(historique?.length ?? 0) > 1 ? 's' : ''} tracé{(historique?.length ?? 0) > 1 ? 's' : ''} · tous horodatés</p>
-              <div className="overflow-hidden rounded-xl border border-navy-100 bg-white">
+              <p className="text-kw-base text-kw-faint">{historique?.length ?? 0} changement{(historique?.length ?? 0) > 1 ? 's' : ''} tracé{(historique?.length ?? 0) > 1 ? 's' : ''} · tous horodatés</p>
+              <div className="overflow-hidden rounded-xl border border-kw-border bg-kw-surface">
                 {!historique || historique.length === 0 ? (
-                  <p className="p-4 text-sm text-navy-400">Aucune modification enregistrée.</p>
+                  <p className="p-4 text-kw-lg text-kw-faint">Aucune modification enregistrée.</p>
                 ) : (
                   historique.map((h) => (
-                    <div key={h.id} className="grid grid-cols-[110px_1fr] gap-3 border-b border-navy-50 px-4 py-3 last:border-b-0 sm:grid-cols-[110px_140px_140px_1fr]">
-                      <span className="font-mono text-[10.5px] text-navy-500">{new Date(h.date_modification).toLocaleString('fr-FR')}</span>
-                      <span className="hidden text-[11.5px] font-semibold text-navy-700 sm:block">{h.modifie_par_nom ?? 'Quelqu\'un'}</span>
-                      <span className="hidden text-[11.5px] font-medium text-navy-600 sm:block">{h.champ}</span>
-                      <span className="flex flex-wrap items-center gap-2 text-[11.5px]">
+                    <div key={h.id} className="grid grid-cols-[110px_1fr] gap-3 border-b border-kw-border-subtle px-4 py-3 last:border-b-0 sm:grid-cols-[110px_140px_140px_1fr]">
+                      <span className="font-mono text-kw-sm text-kw-meta">{new Date(h.date_modification).toLocaleString('fr-FR')}</span>
+                      <span className="hidden text-kw-md font-semibold text-kw-body sm:block">{h.modifie_par_nom ?? 'Quelqu\'un'}</span>
+                      <span className="hidden text-kw-md font-medium text-kw-label sm:block">{h.champ}</span>
+                      <span className="flex flex-wrap items-center gap-2 text-kw-md">
                         {h.ancienne_valeur && (
                           <>
-                            <span className="text-navy-400 line-through">{h.ancienne_valeur}</span>
-                            <span className="text-navy-300">→</span>
+                            <span className="text-kw-faint line-through">{h.ancienne_valeur}</span>
+                            <span className="text-kw-ghost">→</span>
                           </>
                         )}
-                        <span className="font-semibold text-kiwi-600">{h.nouvelle_valeur ?? '—'}</span>
+                        <span className="font-semibold text-kw-green">{h.nouvelle_valeur ?? '—'}</span>
                       </span>
                     </div>
                   ))
@@ -1013,22 +988,14 @@ function contratLifecycle(statut: string): 'actif' | 'a_venir' | 'expire' | 'aut
   return 'autre'
 }
 
-const LIFECYCLE_STYLE: Record<string, { dot: string; label: string; badge: string }> = {
-  actif: { dot: 'bg-kw-green', label: 'Actif', badge: 'bg-kw-green-light text-kw-green' },
-  a_venir: { dot: 'bg-kw-amber', label: 'À venir', badge: 'bg-kw-amber-border text-kw-amber-dark' },
-  expire: { dot: 'bg-kw-faint', label: 'Expiré', badge: 'bg-kw-muted text-kw-label' },
-  autre: { dot: 'bg-kw-faint', label: 'Autre', badge: 'bg-kw-muted text-kw-label' },
-}
-
 function ContratsTabContent({
-  sites, contrats, recommandations, statutsContrats, onNavigate,
+  sites, contrats, recommandations,
 }: {
   sites: Site[]
   contrats: Contrat[]
   recommandations: Recommandation[]
-  statutsContrats: { code: string; libelle: string }[]
-  onNavigate: (id: string) => void
 }) {
+  const [recherche, setRecherche] = useState('')
   const total = contrats.length
   const nbCompteurs = new Set(contrats.flatMap((c) => c.compteurs.map((cp) => cp.id))).size
   const nbSites = new Set(contrats.map((c) => c.site_id)).size
@@ -1046,9 +1013,16 @@ function ContratsTabContent({
 
   const [filtre, setFiltre] = useState<'all' | 'actifs' | 'echeances' | 'sans_reco'>('all')
   const filtres: Record<typeof filtre, Contrat[]> = { all: contrats, actifs, echeances, sans_reco: sansReco }
-  const contratsAffiches = filtres[filtre]
+  const contratsFiltres = filtres[filtre]
+  const q = recherche.trim().toLowerCase()
+  const contratsAffiches = q
+    ? contratsFiltres.filter((ct) => {
+        const site = sites.find((s) => s.id === ct.site_id)
+        return (ct.fournisseur_nom ?? '').toLowerCase().includes(q) || (site?.nom ?? '').toLowerCase().includes(q)
+      })
+    : contratsFiltres
 
-  if (total === 0) return <p className="text-sm text-kw-faint">Aucun contrat pour ce compte.</p>
+  if (total === 0) return <p className="text-kw-lg text-kw-faint">Aucun contrat pour ce compte.</p>
 
   return (
     <div className="flex flex-col gap-3">
@@ -1082,34 +1056,21 @@ function ContratsTabContent({
         </div>
       )}
 
+      <SiteSearchBox
+        value={recherche}
+        onChange={setRecherche}
+        placeholder="Rechercher un site, un fournisseur…"
+        total={contratsAffiches.length}
+        unit="contrat"
+      />
+
       <GroupedBySite
         sites={sites}
         itemsBySiteId={(siteId) => contratsAffiches.filter((ct) => ct.site_id === siteId)}
         orphanItems={contratsAffiches.filter((ct) => !ct.site_id || !sites.some((s) => s.id === ct.site_id))}
-        renderItem={(ct: Contrat) => {
-          const Icon = ct.type_energie === 'gaz' ? Flame : Zap
-          const lc = LIFECYCLE_STYLE[contratLifecycle(ct.statut)]
-          return (
-            <div
-              key={ct.id}
-              onClick={() => onNavigate(ct.id)}
-              className="flex cursor-pointer items-center gap-3 px-3.5 py-2.5 hover:bg-kw-muted"
-            >
-              <span className={cn('flex h-8 w-8 shrink-0 items-center justify-center rounded-kw-lg', ct.type_energie === 'gaz' ? 'bg-kw-gas-light text-kw-gas' : 'bg-kw-gold-light text-kw-gold')}>
-                <Icon className="h-3.5 w-3.5" />
-              </span>
-              <div className="min-w-0 flex-1">
-                <p className="truncate text-kw-h4 font-semibold text-kw-ink">{ct.fournisseur_nom || 'Fournisseur non renseigné'}</p>
-                {ct.date_fin && <p className="text-kw-sm text-kw-meta">Fin {new Date(ct.date_fin).toLocaleDateString('fr-FR')}</p>}
-              </div>
-              <span className="flex items-center gap-1.5">
-                <span className={cn('h-1.5 w-1.5 rounded-full', lc.dot)} />
-                <span className={cn('rounded px-1.5 py-0.5 text-kw-xs font-semibold', lc.badge)}>
-                  {lc.label !== 'Autre' ? lc.label : (statutsContrats.find((s) => s.code === ct.statut)?.libelle ?? ct.statut)}
-                </span>
-              </span>
-            </div>
-          )
+        renderSummary={(items) => {
+          const nbCompteursSite = new Set(items.flatMap((ct) => ct.compteurs.map((cp) => cp.id))).size
+          return `${nbCompteursSite} compteur${nbCompteursSite > 1 ? 's' : ''} · ${items.length} contrat${items.length > 1 ? 's' : ''}`
         }}
         emptyLabel="Aucun contrat pour ce filtre."
       />
@@ -1117,16 +1078,73 @@ function ContratsTabContent({
   )
 }
 
+function CompteursTabContent({ sites, compteurs }: { sites: Site[]; compteurs: Compteur[] }) {
+  const [recherche, setRecherche] = useState('')
+  const q = recherche.trim().toLowerCase()
+  const compteursAffiches = q
+    ? compteurs.filter((c) => {
+        const site = sites.find((s) => s.id === c.site_id)
+        return (c.numero_pdl ?? '').toLowerCase().includes(q) || (c.utilisation ?? '').toLowerCase().includes(q) || (site?.nom ?? '').toLowerCase().includes(q)
+      })
+    : compteurs
+
+  if (compteurs.length === 0) return <p className="text-kw-lg text-kw-faint">Aucun compteur pour ce compte.</p>
+
+  return (
+    <div className="flex flex-col gap-3">
+      <SiteSearchBox
+        value={recherche}
+        onChange={setRecherche}
+        placeholder="Rechercher un site, un numéro de PDL/PCE…"
+        total={compteursAffiches.length}
+        unit="compteur"
+      />
+      <GroupedBySite
+        sites={sites}
+        itemsBySiteId={(siteId) => compteursAffiches.filter((c) => c.site_id === siteId)}
+        orphanItems={compteursAffiches.filter((c) => !sites.some((s) => s.id === c.site_id))}
+        renderSummary={(items) => {
+          const elec = items.filter((c) => c.type_energie !== 'gaz').length
+          const gaz = items.filter((c) => c.type_energie === 'gaz').length
+          const parts = [elec > 0 && `${elec} élec.`, gaz > 0 && `${gaz} gaz`].filter(Boolean)
+          return parts.join(' · ')
+        }}
+        emptyLabel="Aucun compteur pour ce filtre."
+      />
+    </div>
+  )
+}
+
+// Barre de recherche générique réutilisée par les onglets Contrats/Compteurs (retour William :
+// « faut que tu mettes une recherche »). Filtre côté appelant, cette fonction ne fait que l'UI.
+function SiteSearchBox({ value, onChange, placeholder, total, unit }: { value: string; onChange: (v: string) => void; placeholder: string; total: number; unit: string }) {
+  return (
+    <div className="flex items-center gap-2 rounded-kw-md border border-kw-border-strong bg-kw-surface px-3 py-2">
+      <Search className="h-3.5 w-3.5 shrink-0 text-kw-ghost" />
+      <input
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        placeholder={placeholder}
+        className="min-w-0 flex-1 bg-transparent text-kw-md text-kw-ink outline-none placeholder:text-kw-faint"
+      />
+      <span className="shrink-0 text-kw-sm text-kw-meta">{total} {unit}{total > 1 ? 's' : ''}</span>
+    </div>
+  )
+}
+
+// Un site = une ligne résumé (nom, statut, compte en gris), jamais les compteurs/contrats
+// listés en dessous -- retour William du 02/08 : « affiche la liste des sites, pas les
+// compteurs en dessous ». Le détail se consulte en cliquant, sur la fiche Site elle-même.
 function GroupedBySite<T>({
   sites,
   itemsBySiteId,
-  renderItem,
+  renderSummary,
   emptyLabel,
   orphanItems,
 }: {
   sites: Site[]
   itemsBySiteId: (siteId: string) => T[]
-  renderItem: (item: T) => React.ReactNode
+  renderSummary: (items: T[]) => React.ReactNode
   emptyLabel: string
   /** Elements sans site rattachable (ex. contrat dont les compteurs ont change de cabinet) --
    * doivent quand meme s'afficher, pas disparaitre silencieusement (voir bug Rivet-Lenoble). */
@@ -1136,35 +1154,34 @@ function GroupedBySite<T>({
   const groups = sites.map((s) => ({ site: s, items: itemsBySiteId(s.id) })).filter((g) => g.items.length > 0)
   const orphans = orphanItems ?? []
 
-  if (groups.length === 0 && orphans.length === 0) return <p className="text-sm text-navy-400">{emptyLabel}</p>
+  if (groups.length === 0 && orphans.length === 0) return <p className="text-kw-lg text-kw-faint">{emptyLabel}</p>
 
   return (
-    <div className="flex flex-col gap-3.5">
+    <div className="overflow-hidden rounded-xl border border-navy-100 bg-white">
       {groups.map(({ site, items }) => (
-        <div key={site.id} className="overflow-hidden rounded-xl border border-navy-100 bg-white">
-          <div
-            onClick={() => navigate(`/sites/${site.id}`)}
-            className="flex cursor-pointer items-center gap-2.5 border-b border-navy-50 bg-navy-50/60 px-4 py-2.5 hover:bg-navy-50"
-          >
-            <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-kiwi-100 text-kiwi-600">
-              <MapPin className="h-3.5 w-3.5" />
-            </span>
-            <p className="min-w-0 flex-1 truncate text-[13px] font-bold text-navy-800">{site.nom}</p>
-            <span className="text-[10.5px] text-navy-400">{items.length} élément{items.length > 1 ? 's' : ''}</span>
-          </div>
-          <div className="divide-y divide-navy-50">{items.map((item) => renderItem(item))}</div>
+        <div
+          key={site.id}
+          onClick={() => navigate(`/sites/${site.id}`)}
+          className="flex cursor-pointer items-center gap-2.5 border-b border-navy-50 px-4 py-3 last:border-b-0 hover:bg-navy-50/60"
+        >
+          <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-kiwi-100 text-kiwi-600">
+            <MapPin className="h-3.5 w-3.5" />
+          </span>
+          <p className="min-w-0 flex-1 truncate text-kw-h4 font-bold text-kw-ink">{site.nom}</p>
+          <span className={cn('rounded-kw-sm px-1.5 py-0.5 text-kw-xs font-bold uppercase', site.statut === 'actif' ? 'bg-kw-green-light text-kw-green' : 'bg-kw-muted text-kw-label')}>
+            {site.statut === 'actif' ? 'Client' : 'Prospect'}
+          </span>
+          <span className="shrink-0 text-kw-sm text-kw-meta">{renderSummary(items)}</span>
+          <span className="text-kw-ghost">›</span>
         </div>
       ))}
       {orphans.length > 0 && (
-        <div className="overflow-hidden rounded-xl border border-dashed border-navy-200 bg-white">
-          <div className="flex items-center gap-2.5 border-b border-navy-50 bg-navy-50/60 px-4 py-2.5">
-            <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-navy-100 text-navy-500">
-              <MapPin className="h-3.5 w-3.5" />
-            </span>
-            <p className="min-w-0 flex-1 truncate text-[13px] font-bold text-navy-800">Sans site rattaché (historique)</p>
-            <span className="text-[10.5px] text-navy-400">{orphans.length} élément{orphans.length > 1 ? 's' : ''}</span>
-          </div>
-          <div className="divide-y divide-navy-50">{orphans.map((item) => renderItem(item))}</div>
+        <div className="flex items-center gap-2.5 border-t border-dashed border-navy-200 bg-navy-50/60 px-4 py-3">
+          <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-navy-100 text-navy-500">
+            <MapPin className="h-3.5 w-3.5" />
+          </span>
+          <p className="min-w-0 flex-1 truncate text-kw-h4 font-bold text-kw-ink">Sans site rattaché (historique)</p>
+          <span className="shrink-0 text-kw-sm text-kw-meta">{renderSummary(orphans)}</span>
         </div>
       )}
     </div>
