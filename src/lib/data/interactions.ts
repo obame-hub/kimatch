@@ -1,7 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { supabase } from '@/lib/supabase'
-import { isDemoMode } from '@/lib/demoMode'
-import { mockInteractions } from '@/lib/mockData'
 import type { Interaction } from '@/types/domain'
 import { fetchComptesVisibles, fetchSitesVisiblesIds } from '@/lib/data/visibility'
 
@@ -85,7 +83,6 @@ async function fetchAllInteractionsPages(): Promise<RawInteraction[]> {
 }
 
 async function fetchInteractions(): Promise<Interaction[]> {
-  if (isDemoMode()) return mockInteractions
   try {
     const data = await fetchAllInteractionsPages()
 
@@ -143,9 +140,6 @@ function mapRawInteraction(i: RawInteraction): Interaction {
 // que la table entiere (des dizaines de milliers de lignes une fois tous les comptes Salesforce
 // importes) -- le fetch complet mettait plus de 5 minutes a charger une seule fiche compte.
 async function fetchInteractionsByCompte(compteId: string, siteIds: string[]): Promise<Interaction[]> {
-  if (isDemoMode()) {
-    return mockInteractions.filter((i) => i.compte_id === compteId || (i.site_id != null && siteIds.includes(i.site_id)))
-  }
   const orParts = [`compte_id.eq.${compteId}`]
   if (siteIds.length > 0) orParts.push(`site_id.in.(${siteIds.join(',')})`)
 
@@ -172,9 +166,6 @@ export function useInteractionsForCompte(compteId: string | undefined, siteIds: 
 }
 
 async function fetchInteractionsByColumn(column: 'contact_id' | 'site_id', value: string): Promise<Interaction[]> {
-  if (isDemoMode()) {
-    return mockInteractions.filter((i) => (column === 'contact_id' ? i.contact_id === value : i.site_id === value))
-  }
   const { data, error } = await supabase
     .from('interactions')
     .select(INTERACTIONS_SELECT)
@@ -258,27 +249,25 @@ export function useCreateInteraction() {
         proprietaire_id: null,
       }
 
-      if (!isDemoMode()) {
-        const { data, error } = await supabase
-          .from('interactions')
-          .insert({
-            date_interaction: input.date_interaction,
-            sens: input.sens,
-            objet: input.objet,
-            resume: input.resume,
-            resultat: input.resultat,
-            compte_id: input.compte_id,
-            site_id: input.site_id,
-            contact_id: input.contact_id,
-            ...(input.type_interaction_id ? { type_interaction_id: input.type_interaction_id } : {}),
-            ...(input.issue_interaction_id ? { issue_interaction_id: input.issue_interaction_id } : {}),
-          })
-          .select('id')
-          .single()
-        if (!error && data) {
-          interaction = { ...interaction, id: (data as { id: string }).id }
-          persisted = true
-        }
+      const { data, error } = await supabase
+        .from('interactions')
+        .insert({
+          date_interaction: input.date_interaction,
+          sens: input.sens,
+          objet: input.objet,
+          resume: input.resume,
+          resultat: input.resultat,
+          compte_id: input.compte_id,
+          site_id: input.site_id,
+          contact_id: input.contact_id,
+          ...(input.type_interaction_id ? { type_interaction_id: input.type_interaction_id } : {}),
+          ...(input.issue_interaction_id ? { issue_interaction_id: input.issue_interaction_id } : {}),
+        })
+        .select('id')
+        .single()
+      if (!error && data) {
+        interaction = { ...interaction, id: (data as { id: string }).id }
+        persisted = true
       }
 
       queryClient.setQueryData<Interaction[]>(['interactions'], (old) => (old ? [interaction, ...old] : [interaction]))

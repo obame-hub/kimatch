@@ -1,7 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { supabase } from '@/lib/supabase'
-import { isDemoMode } from '@/lib/demoMode'
-import { mockRecommandations } from '@/lib/mockData'
 import type {
   Recommandation,
   VersionRecommandation,
@@ -116,7 +114,6 @@ interface RawOffreFournisseurCompteur {
 }
 
 async function fetchRecommandations(): Promise<Recommandation[]> {
-  if (isDemoMode()) return mockRecommandations
 
   try {
     interface RawRecoSite {
@@ -384,33 +381,31 @@ export function useCreateRecommandation() {
         proprietaire_id: null,
       }
 
-      if (!isDemoMode()) {
-        const { data, error } = await supabase
-          .from('recommandations')
-          .insert({
-            nom: input.titre,
-            compte_id: input.compte_id,
-            description: input.description,
-            priorite: input.priorite,
-            commentaire_interne: input.commentaire_interne,
-            date_ouverture: now,
-            ...(input.etape_id ? { etape_id: input.etape_id } : {}),
-            ...(input.origine_id ? { origine_id: input.origine_id } : {}),
-          })
-          .select('id')
-          .single()
-        if (!error && data) {
-          const recoId = (data as { id: string }).id
-          recommandation = { ...recommandation, id: recoId }
-          persisted = true
+      const { data, error } = await supabase
+        .from('recommandations')
+        .insert({
+          nom: input.titre,
+          compte_id: input.compte_id,
+          description: input.description,
+          priorite: input.priorite,
+          commentaire_interne: input.commentaire_interne,
+          date_ouverture: now,
+          ...(input.etape_id ? { etape_id: input.etape_id } : {}),
+          ...(input.origine_id ? { origine_id: input.origine_id } : {}),
+        })
+        .select('id')
+        .single()
+      if (!error && data) {
+        const recoId = (data as { id: string }).id
+        recommandation = { ...recommandation, id: recoId }
+        persisted = true
+        await supabase
+          .from('recommandations_mandats')
+          .insert({ recommandation_id: recoId, mandat_id: input.mandat_id, principal: true })
+        if (input.sites.length > 0) {
           await supabase
-            .from('recommandations_mandats')
-            .insert({ recommandation_id: recoId, mandat_id: input.mandat_id, principal: true })
-          if (input.sites.length > 0) {
-            await supabase
-              .from('recommandations_sites')
-              .insert(input.sites.map((s) => ({ recommandation_id: recoId, site_id: s.id })))
-          }
+            .from('recommandations_sites')
+            .insert(input.sites.map((s) => ({ recommandation_id: recoId, site_id: s.id })))
         }
       }
 
@@ -451,47 +446,17 @@ export function useUpdateRecommandation() {
   })
 }
 
-function patchOptimisation(
-  queryClient: ReturnType<typeof useQueryClient>,
-  optimisationId: string,
-  patch: (optimisation: Optimisation) => Optimisation,
-) {
-  queryClient.setQueryData<Recommandation[]>(['recommandations'], (old) =>
-    (old ?? []).map((r) => ({
-      ...r,
-      versions: r.versions.map((v) => ({
-        ...v,
-        optimisations: v.optimisations.map((o) => (o.id === optimisationId ? patch(o) : o)),
-      })),
-    })),
-  )
-}
-
 export function useAjouterFournisseurConsulte() {
   const queryClient = useQueryClient()
   return useMutation({
     mutationFn: async (input: { optimisationId: string; fournisseurCompteId: string; fournisseurNom: string }) => {
-      if (isDemoMode()) {
-        const fc: FournisseurConsulte = {
-          id: `local-${Date.now()}`,
-          fournisseur_compte_id: input.fournisseurCompteId,
-          fournisseur_nom: input.fournisseurNom,
-          date_creation: new Date().toISOString(),
-          statut_actuel: null,
-          historique: [],
-        }
-        patchOptimisation(queryClient, input.optimisationId, (o) => ({ ...o, fournisseurs_consultes: [...o.fournisseurs_consultes, fc] }))
-        return
-      }
       const { error } = await supabase.from('optimisations_fournisseurs').insert({
         optimisation_id: input.optimisationId,
         fournisseur_compte_id: input.fournisseurCompteId,
       })
       if (error) throw new Error(error.message)
     },
-    onSuccess: () => {
-      if (!isDemoMode()) queryClient.invalidateQueries({ queryKey: ['recommandations'] })
-    },
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['recommandations'] }),
   })
 }
 
@@ -505,24 +470,6 @@ export function useAjouterSuiviConsultation() {
       statutLibelle: string
       commentaire: string | null
     }) => {
-      if (isDemoMode()) {
-        const suivi: SuiviConsultationFournisseur = {
-          id: `local-${Date.now()}`,
-          statut: input.statutLibelle,
-          date_evenement: new Date().toISOString(),
-          commentaire: input.commentaire,
-          auteur_nom: null,
-        }
-        patchOptimisation(queryClient, input.optimisationId, (o) => ({
-          ...o,
-          fournisseurs_consultes: o.fournisseurs_consultes.map((fc) =>
-            fc.id === input.optimisationFournisseurId
-              ? { ...fc, statut_actuel: suivi.statut, historique: [...fc.historique, suivi] }
-              : fc,
-          ),
-        }))
-        return
-      }
       const { error } = await supabase.from('suivis_consultations_fournisseurs').insert({
         optimisation_fournisseur_id: input.optimisationFournisseurId,
         statut_id: input.statutId,
@@ -530,9 +477,7 @@ export function useAjouterSuiviConsultation() {
       })
       if (error) throw new Error(error.message)
     },
-    onSuccess: () => {
-      if (!isDemoMode()) queryClient.invalidateQueries({ queryKey: ['recommandations'] })
-    },
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['recommandations'] }),
   })
 }
 

@@ -1,7 +1,7 @@
 import type { ReferenceRow } from '@/lib/data/referenceTables'
 
-// Utilisées uniquement en mode démo (Supabase non configuré) — reflètent les vraies
-// valeurs des tables de référence pour que la démo et le réel se ressemblent.
+// Filet de sécurité si la table de référence en base répond vide (erreur transitoire, etc.) --
+// reflètent les vraies valeurs pour que l'app reste utilisable le temps que ça se rétablisse.
 
 export const FALLBACK_STATUTS_SIGNAUX: ReferenceRow[] = [
   { id: '1', code: 'NOUVEAU', libelle: 'Nouveau', ordre: 10, couleur: '#64748B', icone: null },

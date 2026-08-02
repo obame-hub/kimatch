@@ -1,7 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { supabase } from '@/lib/supabase'
-import { isDemoMode } from '@/lib/demoMode'
-import { mockActions } from '@/lib/mockData'
 import type { ActionItem } from '@/types/domain'
 import { fetchComptesVisibles, fetchSitesVisiblesIds } from '@/lib/data/visibility'
 import { fetchAllRows } from '@/lib/data/paginatedFetch'
@@ -28,7 +26,6 @@ interface RawAction {
 }
 
 async function fetchActions(): Promise<ActionItem[]> {
-  if (isDemoMode()) return mockActions
   try {
     const data = await fetchAllRows<RawAction>(
       'actions',
@@ -119,25 +116,23 @@ export function useCreateAction() {
         proprietaire_id: null,
       }
 
-      if (!isDemoMode()) {
-        const { data, error } = await supabase
-          .from('actions')
-          .insert({
-            titre: input.titre,
-            site_id: input.site_id,
-            contact_id: input.contact_id,
-            priorite: input.priorite,
-            date_prevue: input.echeance,
-            commentaire: input.commentaire,
-            ...(input.type_action_id ? { type_action_id: input.type_action_id } : {}),
-            ...(input.statut_id ? { statut_id: input.statut_id } : {}),
-          })
-          .select('id')
-          .single()
-        if (!error && data) {
-          action = { ...action, id: (data as { id: string }).id }
-          persisted = true
-        }
+      const { data, error } = await supabase
+        .from('actions')
+        .insert({
+          titre: input.titre,
+          site_id: input.site_id,
+          contact_id: input.contact_id,
+          priorite: input.priorite,
+          date_prevue: input.echeance,
+          commentaire: input.commentaire,
+          ...(input.type_action_id ? { type_action_id: input.type_action_id } : {}),
+          ...(input.statut_id ? { statut_id: input.statut_id } : {}),
+        })
+        .select('id')
+        .single()
+      if (!error && data) {
+        action = { ...action, id: (data as { id: string }).id }
+        persisted = true
       }
 
       queryClient.setQueryData<ActionItem[]>(['actions'], (old) => (old ? [action, ...old] : [action]))
@@ -198,11 +193,8 @@ export function useCompleteAction() {
   return useMutation({
     mutationFn: async (actionId: string): Promise<CompleteActionResult> => {
       const now = new Date().toISOString()
-      let persisted = false
-      if (!isDemoMode()) {
-        const { error } = await supabase.from('actions').update({ date_realisation: now }).eq('id', actionId)
-        persisted = !error
-      }
+      const { error } = await supabase.from('actions').update({ date_realisation: now }).eq('id', actionId)
+      const persisted = !error
       queryClient.setQueryData<ActionItem[]>(['actions'], (old) =>
         old?.map((a) => (a.id === actionId ? { ...a, statut: 'TERMINEE', date_realisation: now } : a)),
       )

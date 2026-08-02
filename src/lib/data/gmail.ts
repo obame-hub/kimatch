@@ -25,7 +25,7 @@ export function useGmailConnection() {
 export async function connectGmail(): Promise<void> {
   const { data } = await supabase.auth.getSession()
   const token = data.session?.access_token
-  if (!token) throw new Error('Non authentifié (mode démo) — connecte-toi à un vrai compte pour lier Gmail.')
+  if (!token) throw new Error('Non authentifié — connecte-toi pour lier Gmail.')
 
   const res = await fetch('/api/gmail/connect', {
     headers: { Authorization: `Bearer ${token}` },
@@ -57,7 +57,7 @@ interface SendEmailInput {
 export async function sendEmail(input: SendEmailInput): Promise<void> {
   const { data } = await supabase.auth.getSession()
   const token = data.session?.access_token
-  if (!token) throw new Error('Non authentifié (mode démo) — connecte-toi à un vrai compte pour envoyer un email.')
+  if (!token) throw new Error('Non authentifié — connecte-toi pour envoyer un email.')
 
   const res = await fetch('/api/gmail/send', {
     method: 'POST',

@@ -1,7 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { supabase } from '@/lib/supabase'
-import { isDemoMode } from '@/lib/demoMode'
-import { mockDocuments } from '@/lib/mockData'
 import type { DocumentItem } from '@/types/domain'
 import { fetchAllRows } from '@/lib/data/paginatedFetch'
 
@@ -31,7 +29,6 @@ const ENTITE_LABELS: Record<string, string> = {
 }
 
 async function fetchDocuments(): Promise<DocumentItem[]> {
-  if (isDemoMode()) return mockDocuments
   try {
     const data = await fetchAllRows<RawDocument>(
       'documents',
@@ -104,24 +101,22 @@ export function useCreateDocument() {
         proprietaire_id: null,
       }
 
-      if (!isDemoMode()) {
-        const { data, error } = await supabase
-          .from('documents')
-          .insert({
-            nom: input.nom,
-            nom_fichier: nomFichier,
-            url: input.url,
-            entite_type: input.entite_type,
-            entite_id: input.entite_id,
-            date_creation: now,
-            ...(input.type_document_id ? { type_document_id: input.type_document_id } : {}),
-          })
-          .select('id')
-          .single()
-        if (!error && data) {
-          document = { ...document, id: (data as { id: string }).id }
-          persisted = true
-        }
+      const { data, error } = await supabase
+        .from('documents')
+        .insert({
+          nom: input.nom,
+          nom_fichier: nomFichier,
+          url: input.url,
+          entite_type: input.entite_type,
+          entite_id: input.entite_id,
+          date_creation: now,
+          ...(input.type_document_id ? { type_document_id: input.type_document_id } : {}),
+        })
+        .select('id')
+        .single()
+      if (!error && data) {
+        document = { ...document, id: (data as { id: string }).id }
+        persisted = true
       }
 
       queryClient.setQueryData<DocumentItem[]>(['documents'], (old) => (old ? [document, ...old] : [document]))

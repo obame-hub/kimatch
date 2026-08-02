@@ -1,7 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { supabase } from '@/lib/supabase'
-import { isDemoMode } from '@/lib/demoMode'
-import { mockSignaux } from '@/lib/mockData'
 import type { Signal } from '@/types/domain'
 import { fetchComptesVisibles, fetchSitesVisiblesIds, filterVisibles } from '@/lib/data/visibility'
 import { fetchAllRows } from '@/lib/data/paginatedFetch'
@@ -23,7 +21,6 @@ interface RawSignal {
 }
 
 async function fetchSignaux(): Promise<Signal[]> {
-  if (isDemoMode()) return mockSignaux
 
   try {
     const data = await fetchAllRows<RawSignal>(
@@ -95,21 +92,19 @@ export function useCreateSignal() {
         proprietaire_id: null,
       }
 
-      if (!isDemoMode()) {
-        const { data, error } = await supabase
-          .from('signaux')
-          .insert({
-            site_id: input.site_id,
-            commentaire: input.description,
-            ...(input.type_signal_id ? { type_signal_id: input.type_signal_id } : {}),
-            ...(input.statut_id ? { statut_id: input.statut_id } : {}),
-          })
-          .select('id')
-          .single()
-        if (!error && data) {
-          signal = { ...signal, id: (data as { id: string }).id }
-          persisted = true
-        }
+      const { data, error } = await supabase
+        .from('signaux')
+        .insert({
+          site_id: input.site_id,
+          commentaire: input.description,
+          ...(input.type_signal_id ? { type_signal_id: input.type_signal_id } : {}),
+          ...(input.statut_id ? { statut_id: input.statut_id } : {}),
+        })
+        .select('id')
+        .single()
+      if (!error && data) {
+        signal = { ...signal, id: (data as { id: string }).id }
+        persisted = true
       }
 
       queryClient.setQueryData<Signal[]>(['signaux'], (old) => (old ? [signal, ...old] : [signal]))

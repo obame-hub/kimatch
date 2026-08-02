@@ -1,6 +1,5 @@
 import { useQuery } from '@tanstack/react-query'
 import { supabase } from '@/lib/supabase'
-import { isDemoMode } from '@/lib/demoMode'
 
 export interface HistoriqueEntry {
   id: string
@@ -23,7 +22,7 @@ interface RawHistorique {
 const CHAMPS_IGNORES = new Set(['date_modification', 'modifie_par_id', 'cree_par_id'])
 
 async function fetchHistorique(tableNom: string, ligneId: string): Promise<HistoriqueEntry[]> {
-  if (isDemoMode() || !ligneId) return []
+  if (!ligneId) return []
   const { data, error } = await supabase
     .from('historique_modifications')
     .select('id, champ, ancienne_valeur, nouvelle_valeur, date_modification, modifie_par:profils(prenom, nom)')

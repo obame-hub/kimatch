@@ -1,6 +1,5 @@
 import { useQuery } from '@tanstack/react-query'
 import { supabase } from '@/lib/supabase'
-import { isDemoMode } from '@/lib/demoMode'
 
 export interface ReferenceRow {
   id: string
@@ -18,7 +17,6 @@ export interface ReferenceRow {
 // listes déroulantes correspondantes et peut faire échouer une création qui dépend
 // d'un id NOT NULL résolu depuis cette liste (ex. comptes.type_compte_id).
 async function fetchReferenceTable(table: string): Promise<ReferenceRow[]> {
-  if (isDemoMode()) return []
   try {
     const { data, error } = await supabase.from(table).select('*').order('ordre')
     if (error || !data) throw error ?? new Error('empty')

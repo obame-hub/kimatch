@@ -1,7 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { supabase } from '@/lib/supabase'
-import { isDemoMode } from '@/lib/demoMode'
-import { mockCompteurs } from '@/lib/mockData'
 import type { Compteur } from '@/types/domain'
 import { fetchComptesVisibles, fetchSitesVisiblesIds, filterVisibles } from '@/lib/data/visibility'
 import { fetchAllRows } from '@/lib/data/paginatedFetch'
@@ -77,7 +75,6 @@ function classeMap(elec: RawCompteurElec, prefix: 'conso' | 'puissance', suffix:
 }
 
 async function fetchCompteurs(): Promise<Compteur[]> {
-  if (isDemoMode()) return mockCompteurs
   try {
     const data = await fetchAllRows<RawCompteur>(
       'compteurs',
@@ -210,47 +207,45 @@ export function useCreateCompteur() {
         ...(input.grdGaz ? { car_mwh: input.grdGaz.car_mwh, profil_consommation: input.grdGaz.profil_consommation, tarif_distribution: input.grdGaz.tarif_distribution, zone_tarifaire: input.grdGaz.zone_tarifaire } : {}),
       }
 
-      if (!isDemoMode()) {
-        const { data, error } = await supabase
-          .from('compteurs')
-          .insert({
-            site_id: input.site_id,
-            numero_point: input.numero_pdl,
-            libelle: input.utilisation,
-            actif: true,
-            consommation_annuelle_mwh: input.consommation_annuelle_mwh ?? null,
-            synchro_eneo: synchro,
-            date_derniere_synchro_eneo: now,
-            type_utilisation_compteur_id: input.type_utilisation_compteur_id ?? null,
-            ...(input.type_energie_id ? { type_energie_id: input.type_energie_id } : {}),
+      const { data, error } = await supabase
+        .from('compteurs')
+        .insert({
+          site_id: input.site_id,
+          numero_point: input.numero_pdl,
+          libelle: input.utilisation,
+          actif: true,
+          consommation_annuelle_mwh: input.consommation_annuelle_mwh ?? null,
+          synchro_eneo: synchro,
+          date_derniere_synchro_eneo: now,
+          type_utilisation_compteur_id: input.type_utilisation_compteur_id ?? null,
+          ...(input.type_energie_id ? { type_energie_id: input.type_energie_id } : {}),
+        })
+        .select('id')
+        .single()
+
+      if (!error && data) {
+        const compteurId = (data as { id: string }).id
+        compteur = { ...compteur, id: compteurId }
+        persisted = true
+
+        if (input.grdElec) {
+          await supabase.from('compteurs_electricite').insert({
+            compteur_id: compteurId,
+            segment: input.grdElec.segment ?? null,
+            tension: input.grdElec.tension ?? null,
+            tarif_distribution: input.grdElec.tarif_distribution ?? null,
+            ...classeInsertRow('conso', 'mwh', input.grdElec.consoParClasseMwh),
+            ...classeInsertRow('puissance', 'kva', input.grdElec.puissanceParClasseKva),
           })
-          .select('id')
-          .single()
-
-        if (!error && data) {
-          const compteurId = (data as { id: string }).id
-          compteur = { ...compteur, id: compteurId }
-          persisted = true
-
-          if (input.grdElec) {
-            await supabase.from('compteurs_electricite').insert({
-              compteur_id: compteurId,
-              segment: input.grdElec.segment ?? null,
-              tension: input.grdElec.tension ?? null,
-              tarif_distribution: input.grdElec.tarif_distribution ?? null,
-              ...classeInsertRow('conso', 'mwh', input.grdElec.consoParClasseMwh),
-              ...classeInsertRow('puissance', 'kva', input.grdElec.puissanceParClasseKva),
-            })
-          }
-          if (input.grdGaz) {
-            await supabase.from('compteurs_gaz').insert({
-              compteur_id: compteurId,
-              car_mwh: input.grdGaz.car_mwh ?? null,
-              profil_consommation: input.grdGaz.profil_consommation ?? null,
-              tarif_distribution: input.grdGaz.tarif_distribution ?? null,
-              zone_tarifaire: input.grdGaz.zone_tarifaire ?? null,
-            })
-          }
+        }
+        if (input.grdGaz) {
+          await supabase.from('compteurs_gaz').insert({
+            compteur_id: compteurId,
+            car_mwh: input.grdGaz.car_mwh ?? null,
+            profil_consommation: input.grdGaz.profil_consommation ?? null,
+            tarif_distribution: input.grdGaz.tarif_distribution ?? null,
+            zone_tarifaire: input.grdGaz.zone_tarifaire ?? null,
+          })
         }
       }
 

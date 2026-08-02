@@ -1,6 +1,5 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { supabase } from '@/lib/supabase'
-import { isDemoMode } from '@/lib/demoMode'
 
 export interface RoleAcces {
   id: string
@@ -39,7 +38,6 @@ export interface ProfilAdmin {
 }
 
 async function fetchRolesAcces(): Promise<RoleAcces[]> {
-  if (isDemoMode()) return []
   const { data, error } = await supabase
     .from('roles_acces')
     .select('id, code, libelle, description, niveau_hierarchique, actif')
@@ -52,7 +50,6 @@ export function useRolesAcces() {
 }
 
 async function fetchPostes(): Promise<Poste[]> {
-  if (isDemoMode()) return []
   const { data, error } = await supabase
     .from('postes')
     .select('id, code, libelle, description, niveau_hierarchique, actif')
@@ -81,7 +78,6 @@ export function useCreatePoste() {
 }
 
 async function fetchPermissions(): Promise<PermissionRow[]> {
-  if (isDemoMode()) return []
   const { data, error } = await supabase
     .from('permissions')
     .select('id, code, libelle, module, action')
@@ -111,7 +107,6 @@ interface RawProfilPoste {
 }
 
 async function fetchProfilsAdmin(): Promise<ProfilAdmin[]> {
-  if (isDemoMode()) return []
   const [profilsRes, rolesRes, postesRes] = await Promise.all([
     supabase.from('profils').select('id, prenom, nom, email, actif').order('nom'),
     supabase.from('profils_roles_acces').select('profil_id, role_acces:roles_acces(id, code, libelle)'),
@@ -163,7 +158,6 @@ export function useAssignPoste() {
 }
 
 async function fetchPostePermissionsMatrix(): Promise<Set<string>> {
-  if (isDemoMode()) return new Set()
   const { data, error } = await supabase.from('postes_permissions').select('poste_id, permission_id')
   if (error || !data) return new Set()
   return new Set((data as { poste_id: string; permission_id: string }[]).map((r) => `${r.poste_id}:${r.permission_id}`))
@@ -193,7 +187,6 @@ export function useTogglePostePermission() {
 }
 
 async function fetchRolePermissionsMatrix(): Promise<Set<string>> {
-  if (isDemoMode()) return new Set()
   const { data, error } = await supabase.from('roles_acces_permissions').select('role_acces_id, permission_id')
   if (error || !data) return new Set()
   return new Set((data as { role_acces_id: string; permission_id: string }[]).map((r) => `${r.role_acces_id}:${r.permission_id}`))
@@ -230,7 +223,6 @@ export interface CurrentAccess {
 
 export async function fetchCurrentAccess(): Promise<CurrentAccess> {
   const empty: CurrentAccess = { roleCode: null, roleLibelle: null, permissions: new Set() }
-  if (isDemoMode()) return empty
   const { data: userData } = await supabase.auth.getUser()
   if (!userData.user) return empty
 
@@ -272,7 +264,6 @@ export interface MonProfil {
 }
 
 async function fetchMonProfil(): Promise<MonProfil | null> {
-  if (isDemoMode()) return null
   const { data: userData } = await supabase.auth.getUser()
   if (!userData.user) return null
   const { data, error } = await supabase
@@ -334,7 +325,6 @@ export interface ProfilAutorise {
 }
 
 async function fetchProfilsAutorises(): Promise<ProfilAutorise[]> {
-  if (isDemoMode()) return []
   const { data, error } = await supabase
     .from('profils_autorises')
     .select('id, email, prenom, nom, date_creation, poste_id, role_acces_id')

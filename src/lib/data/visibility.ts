@@ -1,5 +1,4 @@
 import { supabase } from '@/lib/supabase'
-import { isDemoMode } from '@/lib/demoMode'
 import { fetchCurrentAccess } from '@/lib/data/roles'
 
 // Périmètre de visibilité par compte (profils_comptes), voulu par Michel : un admin
@@ -7,8 +6,6 @@ import { fetchCurrentAccess } from '@/lib/data/roles'
 // sont explicitement assignés. `null` = aucune restriction (voit tout) ; sinon la liste
 // des compte_id autorisés (peut être vide = ne voit aucun compte).
 export async function fetchComptesVisibles(): Promise<string[] | null> {
-  if (isDemoMode()) return null
-
   const { data: userData } = await supabase.auth.getUser()
   if (!userData.user) return []
 

@@ -1,11 +1,8 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { supabase } from '@/lib/supabase'
-import { isDemoMode } from '@/lib/demoMode'
-import { mockConsommations } from '@/lib/mockData'
 import type { Consommation } from '@/types/domain'
 
 async function fetchConsommations(): Promise<Consommation[]> {
-  if (isDemoMode()) return mockConsommations
   try {
     const { data, error } = await supabase
       .from('consommations')
@@ -48,12 +45,10 @@ export function useCreateConsommation() {
       let persisted = false
       let consommation: Consommation = { id: `local-${Date.now()}`, ...input }
 
-      if (!isDemoMode()) {
-        const { data, error } = await supabase.from('consommations').insert(input).select('id').single()
-        if (!error && data) {
-          consommation = { ...consommation, id: (data as { id: string }).id }
-          persisted = true
-        }
+      const { data, error } = await supabase.from('consommations').insert(input).select('id').single()
+      if (!error && data) {
+        consommation = { ...consommation, id: (data as { id: string }).id }
+        persisted = true
       }
 
       queryClient.setQueryData<Consommation[]>(['consommations'], (old) => (old ? [consommation, ...old] : [consommation]))

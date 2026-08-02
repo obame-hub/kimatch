@@ -1,7 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { supabase } from '@/lib/supabase'
-import { isDemoMode } from '@/lib/demoMode'
-import { mockContacts } from '@/lib/mockData'
 import type { Contact } from '@/types/domain'
 import { fetchComptesVisibles, filterVisibles } from '@/lib/data/visibility'
 import { fetchAllRows } from '@/lib/data/paginatedFetch'
@@ -35,7 +33,6 @@ interface RawContactSite {
 }
 
 async function fetchContacts(): Promise<Contact[]> {
-  if (isDemoMode()) return mockContacts
   try {
     const [contacts, contactsSites] = await Promise.all([
       fetchAllRows<RawContact>(
@@ -133,30 +130,28 @@ export function useCreateContact() {
         canal_communication: null,
       }
 
-      if (!isDemoMode()) {
-        const { data, error } = await supabase
-          .from('contacts')
-          .insert({
-            compte_id: input.compte_id,
-            civilite: input.civilite,
-            prenom: input.prenom,
-            nom: input.nom,
-            fonction: input.fonction,
-            telephone: input.telephone,
-            email: input.email,
-            contact_principal: input.contact_principal,
-          })
-          .select('id')
-          .single()
-        if (!error && data) {
-          const contactId = (data as { id: string }).id
-          contact = { ...contact, id: contactId }
-          persisted = true
-          if (input.site_ids.length > 0) {
-            await supabase
-              .from('contacts_sites')
-              .insert(input.site_ids.map((site_id) => ({ contact_id: contactId, site_id })))
-          }
+      const { data, error } = await supabase
+        .from('contacts')
+        .insert({
+          compte_id: input.compte_id,
+          civilite: input.civilite,
+          prenom: input.prenom,
+          nom: input.nom,
+          fonction: input.fonction,
+          telephone: input.telephone,
+          email: input.email,
+          contact_principal: input.contact_principal,
+        })
+        .select('id')
+        .single()
+      if (!error && data) {
+        const contactId = (data as { id: string }).id
+        contact = { ...contact, id: contactId }
+        persisted = true
+        if (input.site_ids.length > 0) {
+          await supabase
+            .from('contacts_sites')
+            .insert(input.site_ids.map((site_id) => ({ contact_id: contactId, site_id })))
         }
       }
 

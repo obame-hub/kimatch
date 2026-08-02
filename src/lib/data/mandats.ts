@@ -1,7 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { supabase } from '@/lib/supabase'
-import { isDemoMode } from '@/lib/demoMode'
-import { mockMandats } from '@/lib/mockData'
 import type { Mandat } from '@/types/domain'
 import { fetchComptesVisibles, filterVisibles } from '@/lib/data/visibility'
 import { fetchAllRows } from '@/lib/data/paginatedFetch'
@@ -25,7 +23,6 @@ interface RawMandat {
 }
 
 async function fetchMandats(): Promise<Mandat[]> {
-  if (isDemoMode()) return mockMandats
   try {
     const [mandats, compteursRows, courtiersRows] = await Promise.all([
       fetchAllRows<RawMandat>(
@@ -132,30 +129,28 @@ export function useCreateMandat() {
         courtier_codes: input.courtier_codes,
       }
 
-      if (!isDemoMode()) {
-        const { data, error } = await supabase
-          .from('mandats')
-          .insert({
-            compte_id: input.compte_id,
-            date_signature: input.date_signature,
-            ...(input.contact_signataire_id ? { contact_signataire_id: input.contact_signataire_id } : {}),
-          })
-          .select('id')
-          .single()
-        if (!error && data) {
-          const mandatId = (data as { id: string }).id
-          mandat = { ...mandat, id: mandatId }
-          persisted = true
-          if (input.compteur_ids.length > 0) {
-            await supabase
-              .from('mandats_compteurs')
-              .insert(input.compteur_ids.map((compteur_id) => ({ mandat_id: mandatId, compteur_id })))
-          }
-          if (input.courtier_type_ids.length > 0) {
-            await supabase
-              .from('mandats_courtiers')
-              .insert(input.courtier_type_ids.map((type_courtier_id) => ({ mandat_id: mandatId, type_courtier_id })))
-          }
+      const { data, error } = await supabase
+        .from('mandats')
+        .insert({
+          compte_id: input.compte_id,
+          date_signature: input.date_signature,
+          ...(input.contact_signataire_id ? { contact_signataire_id: input.contact_signataire_id } : {}),
+        })
+        .select('id')
+        .single()
+      if (!error && data) {
+        const mandatId = (data as { id: string }).id
+        mandat = { ...mandat, id: mandatId }
+        persisted = true
+        if (input.compteur_ids.length > 0) {
+          await supabase
+            .from('mandats_compteurs')
+            .insert(input.compteur_ids.map((compteur_id) => ({ mandat_id: mandatId, compteur_id })))
+        }
+        if (input.courtier_type_ids.length > 0) {
+          await supabase
+            .from('mandats_courtiers')
+            .insert(input.courtier_type_ids.map((type_courtier_id) => ({ mandat_id: mandatId, type_courtier_id })))
         }
       }
 
@@ -174,14 +169,11 @@ export function useMarkMandatEnvoye() {
 
   return useMutation({
     mutationFn: async ({ mandatId, envelopeId, statutId }: { mandatId: string; envelopeId: string; statutId: string | null }): Promise<MarkMandatEnvoyeResult> => {
-      let persisted = false
-      if (!isDemoMode()) {
-        const { error } = await supabase
-          .from('mandats')
-          .update({ docusign_envelope_id: envelopeId, ...(statutId ? { statut_id: statutId } : {}) })
-          .eq('id', mandatId)
-        persisted = !error
-      }
+      const { error } = await supabase
+        .from('mandats')
+        .update({ docusign_envelope_id: envelopeId, ...(statutId ? { statut_id: statutId } : {}) })
+        .eq('id', mandatId)
+      const persisted = !error
       queryClient.setQueryData<Mandat[]>(['mandats'], (old) =>
         old?.map((m) => (m.id === mandatId ? { ...m, docusign_envelope_id: envelopeId, statut: 'ENVOYE' } : m)),
       )

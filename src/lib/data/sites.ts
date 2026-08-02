@@ -1,7 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { supabase } from '@/lib/supabase'
-import { isDemoMode } from '@/lib/demoMode'
-import { mockSites } from '@/lib/mockData'
 import type { Site } from '@/types/domain'
 import { fetchComptesVisibles, filterVisibles } from '@/lib/data/visibility'
 import { fetchAllRows } from '@/lib/data/paginatedFetch'
@@ -32,7 +30,6 @@ interface RawSiteExtra {
 }
 
 async function fetchSites(): Promise<Site[]> {
-  if (isDemoMode()) return mockSites
 
   try {
     const [sites, compteursRows, signauxRows] = await Promise.all([
@@ -147,23 +144,21 @@ export function useCreateSite() {
         statut: 'actif',
       }
 
-      if (!isDemoMode()) {
-        const { data, error } = await supabase
-          .from('sites')
-          .insert({
-            nom: input.nom,
-            compte_id: input.compte_id,
-            ville: input.ville,
-            code_postal: input.code_postal,
-            actif: true,
-            ...(input.type_site_id ? { type_site_id: input.type_site_id } : {}),
-          })
-          .select('id')
-          .single()
-        if (!error && data) {
-          site = { ...site, id: (data as { id: string }).id }
-          persisted = true
-        }
+      const { data, error } = await supabase
+        .from('sites')
+        .insert({
+          nom: input.nom,
+          compte_id: input.compte_id,
+          ville: input.ville,
+          code_postal: input.code_postal,
+          actif: true,
+          ...(input.type_site_id ? { type_site_id: input.type_site_id } : {}),
+        })
+        .select('id')
+        .single()
+      if (!error && data) {
+        site = { ...site, id: (data as { id: string }).id }
+        persisted = true
       }
 
       queryClient.setQueryData<Site[]>(['sites'], (old) => (old ? [...old, site] : [site]))

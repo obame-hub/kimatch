@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
-import { User, ShieldCheck, Mail, CheckCircle2, Camera } from 'lucide-react'
+import { ShieldCheck, Mail, CheckCircle2, Camera } from 'lucide-react'
 import { Topbar } from '@/components/layout/Topbar'
 import { PageHeader } from '@/components/ui/page-header'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
@@ -76,7 +76,7 @@ function GmailCard() {
 }
 
 export default function MonProfil() {
-  const { session, demoMode } = useAuth()
+  const { session } = useAuth()
   const { data: profil, isLoading } = useMonProfil()
   const { data: access } = useCurrentAccess()
   const uploadPhoto = useUploadMaPhoto()
@@ -119,26 +119,19 @@ export default function MonProfil() {
                   {initiales}
                 </div>
               )}
-              {!demoMode && (
-                <button
-                  type="button"
-                  onClick={() => fileInputRef.current?.click()}
-                  disabled={uploadPhoto.isPending}
-                  title="Changer la photo"
-                  className="absolute -bottom-1 -right-1 flex h-6 w-6 items-center justify-center rounded-full border-2 border-white bg-ink-800 text-white hover:bg-ink-700"
-                >
-                  <Camera className="h-3 w-3" />
-                </button>
-              )}
+              <button
+                type="button"
+                onClick={() => fileInputRef.current?.click()}
+                disabled={uploadPhoto.isPending}
+                title="Changer la photo"
+                className="absolute -bottom-1 -right-1 flex h-6 w-6 items-center justify-center rounded-full border-2 border-white bg-ink-800 text-white hover:bg-ink-700"
+              >
+                <Camera className="h-3 w-3" />
+              </button>
               <input ref={fileInputRef} type="file" accept="image/*" className="hidden" onChange={handlePhotoChange} />
             </div>
             <div className="min-w-0">
-              {demoMode ? (
-                <>
-                  <p className="font-display text-lg font-semibold text-navy-900">Mode démonstration</p>
-                  <p className="text-sm text-navy-500">Aucun compte réel connecté.</p>
-                </>
-              ) : isLoading ? (
+              {isLoading ? (
                 <p className="text-sm text-navy-400">Chargement…</p>
               ) : (
                 <>
@@ -151,32 +144,21 @@ export default function MonProfil() {
           </CardContent>
         </Card>
 
-        {!demoMode && (
-          <Card className="max-w-2xl">
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <ShieldCheck className="h-5 w-5 text-kiwi-600" />
-                Rôle d'accès
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <p className="text-sm text-navy-700">
-                {access?.roleLibelle ?? 'Aucun rôle attribué — contactez un administrateur.'}
-              </p>
-            </CardContent>
-          </Card>
-        )}
+        <Card className="max-w-2xl">
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <ShieldCheck className="h-5 w-5 text-kiwi-600" />
+              Rôle d'accès
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <p className="text-sm text-navy-700">
+              {access?.roleLibelle ?? 'Aucun rôle attribué — contactez un administrateur.'}
+            </p>
+          </CardContent>
+        </Card>
 
-        {!demoMode && <GmailCard />}
-
-        {demoMode && (
-          <Card className="max-w-2xl">
-            <CardContent className="flex items-center gap-3 p-5 text-sm text-navy-500">
-              <User className="h-5 w-5 shrink-0 text-navy-400" />
-              Connectez-vous avec un vrai compte pour gérer votre profil, votre rôle et votre connexion Gmail.
-            </CardContent>
-          </Card>
-        )}
+        <GmailCard />
       </div>
     </div>
   )

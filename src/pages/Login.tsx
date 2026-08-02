@@ -1,12 +1,10 @@
 import { useState } from 'react'
-import { useNavigate } from 'react-router-dom'
 import { Button } from '@/components/ui/button'
 import { useAuth } from '@/lib/auth'
 import kiweePicto from '@/assets/kiwee-picto.png'
 
 export default function Login() {
-  const { signInWithMagicLink, enterDemoMode } = useAuth()
-  const navigate = useNavigate()
+  const { signInWithMagicLink } = useAuth()
   const [email, setEmail] = useState('')
   const [error, setError] = useState<string | null>(null)
   const [submitting, setSubmitting] = useState(false)
@@ -23,11 +21,6 @@ export default function Login() {
       return
     }
     setSent(true)
-  }
-
-  function handleDemoEntry() {
-    enterDemoMode()
-    navigate('/')
   }
 
   return (
@@ -64,19 +57,6 @@ export default function Login() {
               </Button>
             </>
           )}
-
-          <div className="my-4 flex items-center gap-3">
-            <div className="h-px flex-1 bg-ink-800" />
-            <span className="text-[11px] uppercase tracking-wide text-navy-500">ou</span>
-            <div className="h-px flex-1 bg-ink-800" />
-          </div>
-
-          <Button type="button" variant="subtle" className="w-full bg-ink-800 text-navy-100 hover:bg-ink-700" onClick={handleDemoEntry}>
-            Continuer en mode démo
-          </Button>
-          <p className="mt-3 text-center text-[11px] text-kiwi-300/80">
-            Aucun compte requis — explore l'app avec des données d'exemple.
-          </p>
         </form>
       </div>
     </div>

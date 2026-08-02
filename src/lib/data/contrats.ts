@@ -1,7 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { supabase } from '@/lib/supabase'
-import { isDemoMode } from '@/lib/demoMode'
-import { mockContrats } from '@/lib/mockData'
 import type { Contrat } from '@/types/domain'
 import { notifySlack } from '@/lib/data/slackSettings'
 import { buildContratCreatedBlocks } from '@/lib/slackTemplates'
@@ -45,7 +43,6 @@ interface RawContrat {
 }
 
 async function fetchContrats(): Promise<Contrat[]> {
-  if (isDemoMode()) return mockContrats
   try {
     const [contrats, compteursRows] = await Promise.all([
       fetchAllRows<RawContrat>(
@@ -150,7 +147,7 @@ export function useCreateContrat() {
     mutationFn: async (input: CreateContratInput): Promise<CreateContratResult> => {
       let persisted = false
       let compteId = input.compte_id ?? null
-      if (!compteId && !isDemoMode()) {
+      if (!compteId) {
         const { data: siteRow } = await supabase.from('sites').select('compte_id').eq('id', input.site_id).single()
         compteId = (siteRow as { compte_id: string } | null)?.compte_id ?? null
       }
@@ -177,31 +174,29 @@ export function useCreateContrat() {
         statut_signature: null,
       }
 
-      if (!isDemoMode()) {
-        const { data, error } = await supabase
-          .from('contrats')
-          .insert({
-            compte_id: compteId,
-            site_id: input.site_id,
-            fournisseur_compte_id: input.fournisseur_compte_id,
-            reference_fournisseur: input.reference_fournisseur,
-            date_debut: input.date_debut,
-            date_fin: input.date_fin,
-            ...(input.type_energie_id ? { type_energie_id: input.type_energie_id } : {}),
-            ...(input.statut_id ? { statut_id: input.statut_id } : {}),
-            ...(input.contact_signataire_id ? { contact_signataire_id: input.contact_signataire_id } : {}),
-          })
-          .select('id')
-          .single()
-        if (!error && data) {
-          const contratId = (data as { id: string }).id
-          contrat = { ...contrat, id: contratId }
-          persisted = true
-          if (input.compteur_ids.length > 0) {
-            await supabase
-              .from('contrats_compteurs')
-              .insert(input.compteur_ids.map((compteur_id) => ({ contrat_id: contratId, compteur_id })))
-          }
+      const { data, error } = await supabase
+        .from('contrats')
+        .insert({
+          compte_id: compteId,
+          site_id: input.site_id,
+          fournisseur_compte_id: input.fournisseur_compte_id,
+          reference_fournisseur: input.reference_fournisseur,
+          date_debut: input.date_debut,
+          date_fin: input.date_fin,
+          ...(input.type_energie_id ? { type_energie_id: input.type_energie_id } : {}),
+          ...(input.statut_id ? { statut_id: input.statut_id } : {}),
+          ...(input.contact_signataire_id ? { contact_signataire_id: input.contact_signataire_id } : {}),
+        })
+        .select('id')
+        .single()
+      if (!error && data) {
+        const contratId = (data as { id: string }).id
+        contrat = { ...contrat, id: contratId }
+        persisted = true
+        if (input.compteur_ids.length > 0) {
+          await supabase
+            .from('contrats_compteurs')
+            .insert(input.compteur_ids.map((compteur_id) => ({ contrat_id: contratId, compteur_id })))
         }
       }
 

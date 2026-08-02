@@ -18,7 +18,7 @@ interface SendMandatResult {
 export async function sendMandatForSignature(input: SendMandatInput): Promise<SendMandatResult> {
   const { data } = await supabase.auth.getSession()
   const token = data.session?.access_token
-  if (!token) throw new Error('Non authentifié (mode démo) — la connexion à un vrai compte est requise pour envoyer un mandat.')
+  if (!token) throw new Error('Non authentifié — connecte-toi pour envoyer un mandat.')
 
   const res = await fetch('/api/docusign/send', {
     method: 'POST',

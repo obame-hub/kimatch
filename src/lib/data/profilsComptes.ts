@@ -1,6 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { supabase } from '@/lib/supabase'
-import { isDemoMode } from '@/lib/demoMode'
 
 export interface TypeRole {
   id: string
@@ -10,7 +9,6 @@ export interface TypeRole {
 }
 
 async function fetchTypesRoles(): Promise<TypeRole[]> {
-  if (isDemoMode()) return []
   const { data, error } = await supabase.from('types_roles').select('id, code, libelle, description').order('code')
   if (error || !data) return []
   return data as unknown as TypeRole[]
@@ -43,7 +41,6 @@ interface RawProfilCompte {
 }
 
 async function fetchProfilsComptes(): Promise<ProfilCompte[]> {
-  if (isDemoMode()) return []
   const { data, error } = await supabase
     .from('profils_comptes')
     .select('id, profil_id, compte_id, type_role_id, actif, profil:profils(prenom, nom), compte:comptes(nom), type_role:types_roles(libelle)')

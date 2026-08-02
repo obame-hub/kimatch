@@ -52,7 +52,7 @@ function CreateDemandeDialog({ open, onClose }: { open: boolean; onClose: () => 
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
-    const auteurNom = monProfil ? `${monProfil.prenom} ${monProfil.nom}`.trim() : 'Mode démonstration'
+    const auteurNom = monProfil ? `${monProfil.prenom} ${monProfil.nom}`.trim() : 'Inconnu'
 
     await createDemande.mutateAsync({
       type,

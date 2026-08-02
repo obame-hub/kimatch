@@ -1,6 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { supabase } from '@/lib/supabase'
-import { isDemoMode } from '@/lib/demoMode'
 
 export type TypeDemandeSupport = 'bug' | 'evolution'
 export type StatutDemandeSupport = 'NOUVELLE' | 'EN_COURS' | 'RESOLUE' | 'REJETEE'
@@ -17,7 +16,6 @@ export interface DemandeSupport {
 }
 
 async function fetchDemandesSupport(): Promise<DemandeSupport[]> {
-  if (isDemoMode()) return []
   const { data, error } = await supabase
     .from('demandes_support')
     .select('id, type, titre, description, statut, auteur_id, auteur_nom, date_creation')
@@ -57,22 +55,20 @@ export function useCreateDemandeSupport() {
         date_creation: new Date().toISOString(),
       }
 
-      if (!isDemoMode()) {
-        const { data, error } = await supabase
-          .from('demandes_support')
-          .insert({
-            type: demande.type,
-            titre: demande.titre,
-            description: demande.description,
-            auteur_id: demande.auteur_id,
-            auteur_nom: demande.auteur_nom,
-          })
-          .select('id, date_creation')
-          .single()
-        if (!error && data) {
-          demande.id = (data as { id: string }).id
-          demande.date_creation = (data as { date_creation: string }).date_creation
-        }
+      const { data, error } = await supabase
+        .from('demandes_support')
+        .insert({
+          type: demande.type,
+          titre: demande.titre,
+          description: demande.description,
+          auteur_id: demande.auteur_id,
+          auteur_nom: demande.auteur_nom,
+        })
+        .select('id, date_creation')
+        .single()
+      if (!error && data) {
+        demande.id = (data as { id: string }).id
+        demande.date_creation = (data as { date_creation: string }).date_creation
       }
 
       queryClient.setQueryData<DemandeSupport[]>(['demandes-support'], (old) => (old ? [demande, ...old] : [demande]))

@@ -61,7 +61,7 @@ const KIND_TINT: Record<SearchKind, string> = {
 }
 
 export function Topbar({ title, crumb }: { title: string; crumb?: string }) {
-  const { signOut, demoMode } = useAuth()
+  const { signOut } = useAuth()
   const navigate = useNavigate()
   const [query, setQuery] = useState('')
   const [focused, setFocused] = useState(false)
@@ -206,11 +206,6 @@ export function Topbar({ title, crumb }: { title: string; crumb?: string }) {
       <div className="flex-1" />
 
       <div className="flex shrink-0 items-center gap-2">
-        {demoMode && (
-          <span className="hidden rounded-full border border-amber-200 bg-amber-50 px-2.5 py-1 text-[10.5px] font-semibold text-amber-600 sm:inline-block">
-            Mode démo
-          </span>
-        )}
         <button
           type="button"
           onClick={() => void signOut()}

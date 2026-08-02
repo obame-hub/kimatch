@@ -1,7 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { supabase } from '@/lib/supabase'
-import { isDemoMode } from '@/lib/demoMode'
-import { mockComptes } from '@/lib/mockData'
 import type { Compte, TypeCompte } from '@/types/domain'
 import type { EllisphereCompany, EllisphereScore } from '@/lib/data/ellisphere'
 import { notifySlack } from '@/lib/data/slackSettings'
@@ -49,7 +47,6 @@ interface RawCompte extends Compte {
 const first = <T>(v: T | T[] | null): T | null => (Array.isArray(v) ? v[0] ?? null : v)
 
 async function fetchComptes(): Promise<Compte[]> {
-  if (isDemoMode()) return mockComptes
   try {
     const data = await fetchAllRows<RawCompte>(
       'comptes',
@@ -137,21 +134,18 @@ export function useUpdateCompteScore() {
         ?.find((c) => c.id === compteId)
       const changed = previous?.score_ellipro !== score.score
 
-      let persisted = false
-      if (!isDemoMode()) {
-        const { error } = await supabase
-          .from('comptes')
-          .update({
-            score_ellipro: score.score,
-            score_ellipro_scale: score.scale,
-            score_ellipro_maj: new Date().toISOString(),
-          })
-          .eq('id', compteId)
-        persisted = !error
-      }
+      const { error } = await supabase
+        .from('comptes')
+        .update({
+          score_ellipro: score.score,
+          score_ellipro_scale: score.scale,
+          score_ellipro_maj: new Date().toISOString(),
+        })
+        .eq('id', compteId)
+      const persisted = !error
 
-      // On met à jour le cache local dans tous les cas (mode démo, ou si l'écriture
-      // Supabase a échoué faute de colonnes existantes côté vraie base).
+      // On met a jour le cache local meme si l'ecriture Supabase a echoue faute de colonnes
+      // existantes cote vraie base.
       queryClient.setQueryData<Compte[]>(['comptes'], (old) =>
         old?.map((c) =>
           c.id === compteId
@@ -201,26 +195,24 @@ export function useCreateCompteFromEllisphere() {
       let persisted = false
       let compte: Compte = { id: `local-${Date.now()}`, proprietaire_id: null, ...base }
 
-      if (!isDemoMode()) {
-        const { data, error } = await supabase
-          .from('comptes')
-          .insert({
-            nom,
-            segment: base.segment,
-            ville: base.ville,
-            siret: company.siret,
-            siren: company.siren,
-            type_compte: typeCompte,
-            ...(typeCompteId ? { type_compte_id: typeCompteId } : {}),
-          })
-          .select()
-          .single()
-        if (!error && data) {
-          // On fusionne par-dessus la forme locale plutôt que de faire confiance à 100%
-          // à la forme réelle retournée (colonnes réelles pas toutes confirmées).
-          compte = { ...compte, ...(data as Partial<Compte>), id: (data as { id: string }).id }
-          persisted = true
-        }
+      const { data, error } = await supabase
+        .from('comptes')
+        .insert({
+          nom,
+          segment: base.segment,
+          ville: base.ville,
+          siret: company.siret,
+          siren: company.siren,
+          type_compte: typeCompte,
+          ...(typeCompteId ? { type_compte_id: typeCompteId } : {}),
+        })
+        .select()
+        .single()
+      if (!error && data) {
+        // On fusionne par-dessus la forme locale plutot que de faire confiance a 100%
+        // a la forme reelle retournee (colonnes reelles pas toutes confirmees).
+        compte = { ...compte, ...(data as Partial<Compte>), id: (data as { id: string }).id }
+        persisted = true
       }
 
       queryClient.setQueryData<Compte[]>(['comptes'], (old) => (old ? [...old, compte] : [compte]))
@@ -265,21 +257,18 @@ export function useUpdateCompteClient() {
   const queryClient = useQueryClient()
   return useMutation({
     mutationFn: async (input: UpdateCompteClientInput): Promise<UpdateResult> => {
-      let persisted = false
-      if (!isDemoMode()) {
-        const [{ error: clientError }, { error: compteError }] = await Promise.all([
-          supabase.from('comptes_clients').upsert({
-            compte_id: input.compteId,
-            segment_compte_id: input.segment_compte_id,
-            conseiller_referent_id: input.conseiller_referent_id,
-            origine_acquisition: input.origine_acquisition,
-            mandat_cadre_actif: input.mandat_cadre_actif,
-            note_interne: input.note_interne,
-          }),
-          supabase.from('comptes').update({ apporteur_partenaire_id: input.apporteur_partenaire_id }).eq('id', input.compteId),
-        ])
-        persisted = !clientError && !compteError
-      }
+      const [{ error: clientError }, { error: compteError }] = await Promise.all([
+        supabase.from('comptes_clients').upsert({
+          compte_id: input.compteId,
+          segment_compte_id: input.segment_compte_id,
+          conseiller_referent_id: input.conseiller_referent_id,
+          origine_acquisition: input.origine_acquisition,
+          mandat_cadre_actif: input.mandat_cadre_actif,
+          note_interne: input.note_interne,
+        }),
+        supabase.from('comptes').update({ apporteur_partenaire_id: input.apporteur_partenaire_id }).eq('id', input.compteId),
+      ])
+      const persisted = !clientError && !compteError
       applyLocalUpdate(queryClient, input.compteId, input)
       return { persisted }
     },
@@ -302,22 +291,19 @@ export function useUpdateCompteFournisseur() {
   const queryClient = useQueryClient()
   return useMutation({
     mutationFn: async (input: UpdateCompteFournisseurInput): Promise<UpdateResult> => {
-      let persisted = false
-      if (!isDemoMode()) {
-        const [{ error: fournisseurError }, { error: compteError }] = await Promise.all([
-          supabase.from('comptes_fournisseurs').upsert({
-            compte_id: input.compteId,
-            fournit_electricite: input.fournit_electricite,
-            fournit_gaz: input.fournit_gaz,
-            contact_commercial_id: input.contact_commercial_id,
-            statut_partenariat: input.statut_partenariat,
-            conditions_commerciales: input.conditions_commerciales,
-            commentaire: input.commentaire_partenariat,
-          }),
-          supabase.from('comptes').update({ limite_ellipro: input.limite_ellipro }).eq('id', input.compteId),
-        ])
-        persisted = !fournisseurError && !compteError
-      }
+      const [{ error: fournisseurError }, { error: compteError }] = await Promise.all([
+        supabase.from('comptes_fournisseurs').upsert({
+          compte_id: input.compteId,
+          fournit_electricite: input.fournit_electricite,
+          fournit_gaz: input.fournit_gaz,
+          contact_commercial_id: input.contact_commercial_id,
+          statut_partenariat: input.statut_partenariat,
+          conditions_commerciales: input.conditions_commerciales,
+          commentaire: input.commentaire_partenariat,
+        }),
+        supabase.from('comptes').update({ limite_ellipro: input.limite_ellipro }).eq('id', input.compteId),
+      ])
+      const persisted = !fournisseurError && !compteError
       applyLocalUpdate(queryClient, input.compteId, input)
       return { persisted }
     },
@@ -339,19 +325,16 @@ export function useUpdateComptePartenaire() {
   const queryClient = useQueryClient()
   return useMutation({
     mutationFn: async (input: UpdateComptePartenaireInput): Promise<UpdateResult> => {
-      let persisted = false
-      if (!isDemoMode()) {
-        const { error } = await supabase.from('comptes_partenaires').upsert({
-          compte_id: input.compteId,
-          type_partenariat: input.type_partenariat,
-          modele_remuneration: input.modele_remuneration,
-          contact_referent_id: input.contact_referent_id,
-          statut_partenariat: input.statut_partenariat,
-          date_debut_partenariat: input.date_debut_partenariat,
-          commentaire: input.commentaire_partenariat,
-        })
-        persisted = !error
-      }
+      const { error } = await supabase.from('comptes_partenaires').upsert({
+        compte_id: input.compteId,
+        type_partenariat: input.type_partenariat,
+        modele_remuneration: input.modele_remuneration,
+        contact_referent_id: input.contact_referent_id,
+        statut_partenariat: input.statut_partenariat,
+        date_debut_partenariat: input.date_debut_partenariat,
+        commentaire: input.commentaire_partenariat,
+      })
+      const persisted = !error
       applyLocalUpdate(queryClient, input.compteId, input)
       return { persisted }
     },

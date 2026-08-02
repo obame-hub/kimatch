@@ -7,10 +7,10 @@ import App from './App.tsx'
 import { AuthProvider } from '@/lib/auth'
 import { ThemeProvider } from '@/lib/theme'
 
-// staleTime élevé + pas de refetch au focus : en mode démo (ou tant que les policies RLS
-// ne sont pas posées côté Supabase), un fetch réel ne renvoie jamais les créations locales
-// optimistes — un refetch-on-mount par défaut les efface silencieusement à chaque navigation.
-// Les mutations patchent déjà le cache elles-mêmes (setQueryData), donc pas besoin de refetch agressif.
+// staleTime élevé + pas de refetch au focus : si une insertion échoue côté Supabase (colonne
+// manquante, policy RLS trop stricte), un refetch-on-mount par défaut effacerait silencieusement
+// la création locale optimiste à chaque navigation. Les mutations patchent déjà le cache
+// elles-mêmes (setQueryData), donc pas besoin de refetch agressif.
 const queryClient = new QueryClient({
   defaultOptions: {
     queries: {
