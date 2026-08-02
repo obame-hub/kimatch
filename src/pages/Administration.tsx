@@ -36,15 +36,19 @@ import {
   useRemoveProfilCompte,
 } from '@/lib/data/profilsComptes'
 import { useRefreshSandbox } from '@/lib/data/sandboxRefresh'
-import { RefreshCw } from 'lucide-react'
+import { RefreshCw, ExternalLink } from 'lucide-react'
+import { useSandboxLastRefresh } from '@/lib/data/sandboxRefresh'
 
 type Tab = 'utilisateurs' | 'permissions' | 'acces' | 'assignations'
 
-// Visible uniquement sur le deploiement sandbox (VITE_ENV_LABEL=sandbox) -- jamais sur la prod,
-// la route serveur elle-meme refuse aussi de tourner si ce n'est pas le cas (double garde-fou).
-function SandboxRefreshCard() {
+// Gere depuis l'admin de la PROD (comme la page "Sandbox" d'un org Salesforce) : infos + bouton
+// d'actualisation qui recopie les dernieres donnees de prod dans la sandbox. Clonage/suppression
+// pas encore geres (pas demandes pour l'instant).
+function SandboxCard() {
   const refresh = useRefreshSandbox()
+  const { data: lastRefresh } = useSandboxLastRefresh()
   const [feedback, setFeedback] = useState<string | null>(null)
+  const sandboxUrl = import.meta.env.VITE_SANDBOX_URL as string | undefined
 
   async function handleRefresh() {
     setFeedback(null)
@@ -65,13 +69,27 @@ function SandboxRefreshCard() {
       <CardContent className="flex flex-wrap items-center justify-between gap-3 p-4">
         <div>
           <p className="text-sm font-semibold text-amber-900">🧪 Sandbox</p>
-          <p className="text-xs text-amber-800">Récupère les dernières données de production dans cette base de test.</p>
+          <p className="text-xs text-amber-800">
+            {lastRefresh
+              ? `Dernière actualisation : ${new Date(lastRefresh.date).toLocaleString('fr-FR')} par ${lastRefresh.parNom}${lastRefresh.succes ? '' : ' (avec erreurs)'}`
+              : 'Jamais actualisée pour le moment.'}
+          </p>
           {feedback && <p className="mt-1 text-xs text-amber-900">{feedback}</p>}
         </div>
-        <Button type="button" variant="outline" disabled={refresh.isPending} onClick={handleRefresh}>
-          <RefreshCw className={cn('h-3.5 w-3.5', refresh.isPending && 'animate-spin')} />
-          {refresh.isPending ? 'Rafraîchissement…' : 'Rafraîchir depuis la prod'}
-        </Button>
+        <div className="flex items-center gap-2">
+          <Button type="button" variant="outline" disabled={refresh.isPending} onClick={handleRefresh}>
+            <RefreshCw className={cn('h-3.5 w-3.5', refresh.isPending && 'animate-spin')} />
+            {refresh.isPending ? 'Actualisation…' : 'Actualiser'}
+          </Button>
+          {sandboxUrl && (
+            <a href={sandboxUrl} target="_blank" rel="noreferrer">
+              <Button type="button" variant="outline">
+                <ExternalLink className="h-3.5 w-3.5" />
+                Se connecter
+              </Button>
+            </a>
+          )}
+        </div>
       </CardContent>
     </Card>
   )
@@ -516,7 +534,7 @@ export default function Administration() {
       <div className="p-4 sm:p-6">
         <PageHeader title="Administration" description="Gestion des utilisateurs, rôles et permissions de KiWee OS." />
 
-        {import.meta.env.VITE_ENV_LABEL === 'sandbox' && <SandboxRefreshCard />}
+        {import.meta.env.VITE_ENV_LABEL !== 'sandbox' && <SandboxCard />}
 
         <div className="mb-4 flex gap-2">
           <button

@@ -1,18 +1,13 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node'
 import { createClient, type SupabaseClient } from '@supabase/supabase-js'
 
-// Rafraichit la base sandbox avec les dernieres donnees de prod (comme un "Refresh" de sandbox
-// Salesforce) -- toujours a sens unique : lit la prod, ecrit UNIQUEMENT sur la base sandbox
-// (celle du deploiement sur lequel cette fonction tourne). Jamais l'inverse, jamais la meme
-// fonction deployee sur la prod (PROD_SUPABASE_* ne doit exister que sur le projet Vercel sandbox).
+// Rafraichit la sandbox avec les dernieres donnees de prod -- declenche depuis l'admin de la
+// PROD (comme la page "Sandbox" de Salesforce, geree depuis l'org de production), pas depuis la
+// sandbox elle-meme. Toujours a sens unique : lit CETTE base (prod, via ses propres identifiants
+// deja configures), ecrit UNIQUEMENT sur SANDBOX_SUPABASE_URL (jamais l'inverse).
 
-// Tables volontairement exclues : donnees personnelles/secretes qui ne doivent jamais transiter
-// vers un environnement de test.
 const EXCLUDED_TABLES = new Set(['profils_gmail_tokens', 'parametres_slack'])
 
-// Ordre de dependances "raisonnable" (parents avant enfants) -- les eventuelles erreurs de FK
-// sont de toute facon retentees sur plusieurs passages, donc l'ordre exact n'a pas besoin d'etre
-// parfait.
 const TABLES_IN_ORDER = [
   'types_comptes', 'types_energies', 'types_utilisations_compteur', 'types_courtiers_mandat',
   'types_interactions', 'types_signaux', 'types_documents', 'types_sites', 'types_origines',
@@ -28,7 +23,6 @@ const TABLES_IN_ORDER = [
   'domaines_expertise', 'expertises', 'composants_expertise', 'regles_expertise', 'moteurs_calcul',
   'algorithmes_parametres', 'parametres_algorithmes', 'coefficients_turpe', 'composantes_tarifaires',
   'formules_tarifaires_turpe', 'postes_tarifaires', 'versions_turpe',
-  // Vraies donnees (comptes, sites, etc.)
   'comptes', 'comptes_clients', 'comptes_fournisseurs', 'comptes_partenaires',
   'contacts', 'sites', 'contacts_sites',
   'compteurs', 'compteurs_electricite', 'compteurs_gaz', 'consommations',
@@ -52,20 +46,18 @@ interface TableResult {
   error?: string
 }
 
-async function refreshTable(prod: SupabaseClient, sandbox: SupabaseClient, table: string): Promise<TableResult> {
-  const { data, error: readError } = await prod.from(table).select('*')
-  if (readError) return { table, rows: 0, error: 'lecture prod: ' + readError.message }
+async function refreshTable(source: SupabaseClient, target: SupabaseClient, table: string): Promise<TableResult> {
+  const { data, error: readError } = await source.from(table).select('*')
+  if (readError) return { table, rows: 0, error: 'lecture: ' + readError.message }
   if (!data) return { table, rows: 0 }
 
-  const { error: deleteError } = await sandbox.from(table).delete().not('id', 'is', null)
+  const { error: deleteError } = await target.from(table).delete().not('id', 'is', null)
   if (deleteError) return { table, rows: 0, error: 'purge sandbox: ' + deleteError.message }
-
   if (data.length === 0) return { table, rows: 0 }
 
   const BATCH = 500
   for (let i = 0; i < data.length; i += BATCH) {
-    const batch = data.slice(i, i + BATCH)
-    const { error: insertError } = await sandbox.from(table).insert(batch)
+    const { error: insertError } = await target.from(table).insert(data.slice(i, i + BATCH))
     if (insertError) return { table, rows: i, error: 'ecriture sandbox: ' + insertError.message }
   }
   return { table, rows: data.length }
@@ -83,35 +75,30 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     return
   }
 
-  const sandboxUrl = process.env.VITE_SUPABASE_URL
-  const sandboxAnonKey = process.env.VITE_SUPABASE_ANON_KEY
-  const sandboxServiceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY
-  const prodUrl = process.env.PROD_SUPABASE_URL
-  const prodServiceRoleKey = process.env.PROD_SUPABASE_SERVICE_ROLE_KEY
-  if (!sandboxUrl || !sandboxAnonKey || !sandboxServiceRoleKey || !prodUrl || !prodServiceRoleKey) {
-    res.status(500).json({ error: 'Configuration serveur incomplète (variables sandbox/prod manquantes)' })
+  const ownUrl = process.env.VITE_SUPABASE_URL
+  const ownAnonKey = process.env.VITE_SUPABASE_ANON_KEY
+  const ownServiceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY
+  const sandboxUrl = process.env.SANDBOX_SUPABASE_URL
+  const sandboxServiceRoleKey = process.env.SANDBOX_SUPABASE_SERVICE_ROLE_KEY
+  if (!ownUrl || !ownAnonKey || !ownServiceRoleKey || !sandboxUrl || !sandboxServiceRoleKey) {
+    res.status(500).json({ error: 'Configuration serveur incomplète (variables sandbox manquantes)' })
+    return
+  }
+  if (sandboxUrl === ownUrl) {
+    res.status(500).json({ error: 'SANDBOX_SUPABASE_URL pointe vers la même base que la prod — annulé par sécurité' })
     return
   }
 
-  // Garde-fou : cette route ne doit exister que sur le deploiement sandbox. Si jamais elle
-  // tournait sur la prod par erreur (mauvais VITE_ENV_LABEL), on refuse tout.
-  if (process.env.VITE_ENV_LABEL !== 'sandbox') {
-    res.status(403).json({ error: "Cette route n'est active que sur le déploiement sandbox" })
-    return
-  }
-
-  const sandboxAuthed = createClient(sandboxUrl, sandboxAnonKey, {
-    global: { headers: { Authorization: authHeader } },
-  })
-  const { data: userData, error: userError } = await sandboxAuthed.auth.getUser()
+  const ownAuthed = createClient(ownUrl, ownAnonKey, { global: { headers: { Authorization: authHeader } } })
+  const { data: userData, error: userError } = await ownAuthed.auth.getUser()
   if (userError || !userData.user) {
     res.status(401).json({ error: 'Session invalide' })
     return
   }
 
-  const sandbox = createClient(sandboxUrl, sandboxServiceRoleKey)
+  const own = createClient(ownUrl, ownServiceRoleKey)
 
-  const { data: callerRoleRow } = await sandbox
+  const { data: callerRoleRow } = await own
     .from('profils_roles_acces')
     .select('role_acces:roles_acces(code)')
     .eq('profil_id', userData.user.id)
@@ -122,24 +109,31 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     return
   }
 
-  const prod = createClient(prodUrl, prodServiceRoleKey)
+  const sandbox = createClient(sandboxUrl, sandboxServiceRoleKey)
 
   const results: TableResult[] = []
   let remaining = [...TABLES_IN_ORDER]
   for (let pass = 1; pass <= 3 && remaining.length > 0; pass++) {
     const stillFailing: string[] = []
     for (const table of remaining) {
-      const result = await refreshTable(prod, sandbox, table)
-      if (result.error && pass < 3) {
-        stillFailing.push(table)
-      } else {
-        results.push(result)
-      }
+      const result = await refreshTable(own, sandbox, table)
+      if (result.error && pass < 3) stillFailing.push(table)
+      else results.push(result)
     }
     remaining = stillFailing
   }
 
   const failed = results.filter((r) => r.error)
+
+  await own.from('historique_modifications').insert({
+    table_nom: 'sandbox',
+    ligne_id: userData.user.id,
+    champ: 'refresh',
+    ancienne_valeur: null,
+    nouvelle_valeur: failed.length === 0 ? 'Sandbox rafraîchie avec succès' : `Rafraîchie avec ${failed.length} erreur(s)`,
+    modifie_par_id: userData.user.id,
+  })
+
   res.status(200).json({
     ok: failed.length === 0,
     tablesOk: results.length - failed.length,
