@@ -1,5 +1,6 @@
 import { Routes, Route } from 'react-router-dom'
 import { AppLayout } from '@/components/layout/AppLayout'
+import { SandboxBanner } from '@/components/layout/SandboxBanner'
 import { ProtectedRoute } from '@/components/ProtectedRoute'
 import Login from '@/pages/Login'
 import Dashboard from '@/pages/Dashboard'
@@ -32,8 +33,10 @@ import Support from '@/pages/Support'
 
 function App() {
   return (
-    <Routes>
-      <Route path="/login" element={<Login />} />
+    <>
+      <SandboxBanner />
+      <Routes>
+        <Route path="/login" element={<Login />} />
 
       <Route element={<ProtectedRoute />}>
         <Route element={<AppLayout />}>
@@ -66,7 +69,8 @@ function App() {
           <Route path="/support" element={<Support />} />
         </Route>
       </Route>
-    </Routes>
+      </Routes>
+    </>
   )
 }
 

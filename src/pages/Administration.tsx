@@ -35,8 +35,47 @@ import {
   useAssignProfilCompte,
   useRemoveProfilCompte,
 } from '@/lib/data/profilsComptes'
+import { useRefreshSandbox } from '@/lib/data/sandboxRefresh'
+import { RefreshCw } from 'lucide-react'
 
 type Tab = 'utilisateurs' | 'permissions' | 'acces' | 'assignations'
+
+// Visible uniquement sur le deploiement sandbox (VITE_ENV_LABEL=sandbox) -- jamais sur la prod,
+// la route serveur elle-meme refuse aussi de tourner si ce n'est pas le cas (double garde-fou).
+function SandboxRefreshCard() {
+  const refresh = useRefreshSandbox()
+  const [feedback, setFeedback] = useState<string | null>(null)
+
+  async function handleRefresh() {
+    setFeedback(null)
+    try {
+      const result = await refresh.mutateAsync()
+      setFeedback(
+        result.ok
+          ? `Sandbox rafraîchie : ${result.tablesOk} tables, ${result.totalRows.toLocaleString('fr-FR')} lignes.`
+          : `Terminé avec ${result.tablesFailed.length} erreur(s) : ${result.tablesFailed.map((t) => t.table).join(', ')}.`,
+      )
+    } catch (err) {
+      setFeedback(err instanceof Error ? err.message : 'Erreur inconnue')
+    }
+  }
+
+  return (
+    <Card className="mb-4 border-amber-200 bg-amber-50">
+      <CardContent className="flex flex-wrap items-center justify-between gap-3 p-4">
+        <div>
+          <p className="text-sm font-semibold text-amber-900">🧪 Sandbox</p>
+          <p className="text-xs text-amber-800">Récupère les dernières données de production dans cette base de test.</p>
+          {feedback && <p className="mt-1 text-xs text-amber-900">{feedback}</p>}
+        </div>
+        <Button type="button" variant="outline" disabled={refresh.isPending} onClick={handleRefresh}>
+          <RefreshCw className={cn('h-3.5 w-3.5', refresh.isPending && 'animate-spin')} />
+          {refresh.isPending ? 'Rafraîchissement…' : 'Rafraîchir depuis la prod'}
+        </Button>
+      </CardContent>
+    </Card>
+  )
+}
 
 function UtilisateursTab() {
   const { session } = useAuth()
@@ -476,6 +515,8 @@ export default function Administration() {
       <Topbar title="Administration" />
       <div className="p-4 sm:p-6">
         <PageHeader title="Administration" description="Gestion des utilisateurs, rôles et permissions de KiWee OS." />
+
+        {import.meta.env.VITE_ENV_LABEL === 'sandbox' && <SandboxRefreshCard />}
 
         <div className="mb-4 flex gap-2">
           <button
