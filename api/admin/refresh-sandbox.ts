@@ -52,14 +52,23 @@ interface TableResult {
   error?: string
 }
 
-async function refreshTable(source: SupabaseClient, target: SupabaseClient, table: string): Promise<TableResult> {
+// Phase 1 : vide TOUTES les tables avant de rien reinserer. TRUNCATE ... CASCADE sur une table
+// vide aussi tout ce qui la reference ailleurs dans le schema (ex. truncate "profils" vide en
+// cascade "recommandations", "interactions", etc. qui ont un profil comme proprietaire/auteur) --
+// si la purge et le remplissage etaient entrelaces table par table, un truncate tardif pouvait
+// effacer des donnees deja correctement reinserees plus tot. En vidant tout d'abord, ce risque
+// disparait completement.
+async function truncateTable(target: SupabaseClient, table: string): Promise<{ table: string; error?: string }> {
+  const { error } = await target.rpc('admin_truncate_table', { table_name: table })
+  return error ? { table, error: 'purge sandbox: ' + error.message } : { table }
+}
+
+// Phase 2 : remplit chaque table depuis la prod, dans l'ordre (avec plusieurs passages pour les
+// FK qui dependent d'une table plus bas dans la liste).
+async function insertTable(source: SupabaseClient, target: SupabaseClient, table: string): Promise<TableResult> {
   const { data, error: readError } = await source.from(table).select('*')
   if (readError) return { table, rows: 0, error: 'lecture: ' + readError.message }
-  if (!data) return { table, rows: 0 }
-
-  const { error: truncError } = await target.rpc('admin_truncate_table', { table_name: table })
-  if (truncError) return { table, rows: 0, error: 'purge sandbox: ' + truncError.message }
-  if (data.length === 0) return { table, rows: 0 }
+  if (!data || data.length === 0) return { table, rows: 0 }
 
   const BATCH = 500
   for (let i = 0; i < data.length; i += BATCH) {
@@ -121,26 +130,38 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
   res.writeHead(200, { 'Content-Type': 'application/x-ndjson; charset=utf-8', 'Cache-Control': 'no-cache' })
 
+  // Phase 1 : tout vider d'abord (l'ordre n'a pas d'importance, CASCADE s'en charge).
+  const totalSteps = TABLES_IN_ORDER.length * 2
+  let done = 0
+  const truncateErrors: string[] = []
+  for (const table of TABLES_IN_ORDER) {
+    const result = await truncateTable(sandbox, table)
+    if (result.error) truncateErrors.push(`${table} (${result.error})`)
+    done++
+    res.write(JSON.stringify({ type: 'progress', table: `Purge : ${table}`, done, total: totalSteps }) + '\n')
+  }
+
+  // Phase 2 : tout remplir, avec plusieurs passages pour les FK qui dependent d'une table listee
+  // plus bas (aucun nouveau truncate ici, donc plus aucun risque d'effacer une donnee deja bonne).
   const results: TableResult[] = []
   let remaining = [...TABLES_IN_ORDER]
-  const total = remaining.length
-  let done = 0
   for (let pass = 1; pass <= 3 && remaining.length > 0; pass++) {
     const stillFailing: string[] = []
     for (const table of remaining) {
-      const result = await refreshTable(own, sandbox, table)
+      const result = await insertTable(own, sandbox, table)
       if (result.error && pass < 3) {
         stillFailing.push(table)
       } else {
         results.push(result)
         done++
-        res.write(JSON.stringify({ type: 'progress', table, done, total, rows: result.rows, error: result.error }) + '\n')
+        res.write(JSON.stringify({ type: 'progress', table, done, total: totalSteps, rows: result.rows, error: result.error }) + '\n')
       }
     }
     remaining = stillFailing
   }
 
   const failed = results.filter((r) => r.error)
+  for (const table of truncateErrors) failed.push({ table, rows: 0, error: 'purge' })
 
   await own.from('historique_modifications').insert({
     table_nom: 'sandbox',
