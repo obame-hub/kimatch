@@ -851,6 +851,9 @@ function buildRelationEvents(compte: Compte, mandats: Mandat[], recommandations:
 
 function RelationTimeline({ compte, mandats, recommandations, signaux }: { compte: Compte; mandats: Mandat[]; recommandations: Recommandation[]; signaux: Signal[] }) {
   const events = useMemo(() => buildRelationEvents(compte, mandats, recommandations, signaux), [compte, mandats, recommandations, signaux])
+  const [expanded, setExpanded] = useState(false)
+  const CAP = 8
+  const visibles = expanded ? events : events.slice(0, CAP)
 
   if (events.length === 0) return null
 
@@ -861,7 +864,7 @@ function RelationTimeline({ compte, mandats, recommandations, signaux }: { compt
         <span className="text-kw-xs text-kw-ghost">· tous sites confondus</span>
       </div>
       <div className="flex flex-col divide-y divide-kw-border-subtle">
-        {events.map((e) => (
+        {visibles.map((e) => (
           <div key={e.id} className="flex items-center gap-3 py-2 first:pt-0 last:pb-0">
             <span className="w-20 shrink-0 font-mono text-kw-sm text-kw-meta">{new Date(e.date).toLocaleDateString('fr-FR')}</span>
             <p className="min-w-0 flex-1 truncate text-kw-lg text-kw-body">{e.label}</p>
@@ -871,6 +874,11 @@ function RelationTimeline({ compte, mandats, recommandations, signaux }: { compt
           </div>
         ))}
       </div>
+      {events.length > CAP && (
+        <button type="button" onClick={() => setExpanded((v) => !v)} className="mt-2.5 text-kw-sm font-semibold text-kw-blue hover:underline">
+          {expanded ? '← Réduire' : `Voir les ${events.length} événements →`}
+        </button>
+      )}
     </div>
   )
 }
