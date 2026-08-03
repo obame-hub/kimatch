@@ -78,6 +78,49 @@ async function insertTable(source: SupabaseClient, target: SupabaseClient, table
   return { table, rows: data.length }
 }
 
+// Phase 3 : reconcilie les vrais utilisateurs de la sandbox. Se connecter a la sandbox cree un
+// utilisateur Auth avec un id DIFFERENT de celui du meme email cote prod (deux projets Supabase
+// Auth distincts) -- le "profils" copie a la phase 2 reste donc rattache a l'ancien id prod, et
+// la personne se retrouve sans aucun role ("aucun role attribue"), sans compte visible
+// (fetchComptesVisibles filtre par profil_id) et sans acces admin. On redonne SUPER_ADMIN a
+// quiconque a deja un compte Auth sur la sandbox : ce n'est qu'un environnement de test, la
+// seule vraie barriere d'acces est le lien magique reçu par email (profils_autorises).
+async function reconcileSandboxUsers(sandbox: SupabaseClient): Promise<{ count: number; error?: string }> {
+  const { data: role, error: roleError } = await sandbox.from('roles_acces').select('id').eq('code', 'SUPER_ADMIN').maybeSingle()
+  if (roleError) return { count: 0, error: roleError.message }
+  if (!role) return { count: 0, error: 'rôle SUPER_ADMIN introuvable dans la sandbox' }
+
+  const { data: usersData, error: listError } = await sandbox.auth.admin.listUsers({ perPage: 200 })
+  if (listError) return { count: 0, error: listError.message }
+
+  let count = 0
+  for (const user of usersData.users) {
+    if (!user.email) continue
+    const meta = user.user_metadata as Record<string, string> | undefined
+    const { data: existingProfil } = await sandbox.from('profils').select('id').eq('id', user.id).maybeSingle()
+    if (!existingProfil) {
+      await sandbox.from('profils').insert({
+        id: user.id,
+        email: user.email,
+        prenom: meta?.prenom ?? user.email.split('@')[0],
+        nom: meta?.nom ?? '',
+        actif: true,
+      })
+    }
+    const { data: existingRole } = await sandbox
+      .from('profils_roles_acces')
+      .select('profil_id')
+      .eq('profil_id', user.id)
+      .eq('role_acces_id', role.id)
+      .maybeSingle()
+    if (!existingRole) {
+      await sandbox.from('profils_roles_acces').insert({ profil_id: user.id, role_acces_id: role.id })
+    }
+    count++
+  }
+  return { count }
+}
+
 // Reponse en NDJSON (une ligne JSON par evenement) pour que le front puisse afficher une
 // progression en direct (table X/Y) plutot qu'une simple attente aveugle.
 export default async function handler(req: VercelRequest, res: VercelResponse) {
@@ -162,6 +205,11 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
   const failed = results.filter((r) => r.error)
   for (const table of truncateErrors) failed.push({ table, rows: 0, error: 'purge' })
+
+  // Phase 3 : ne s'exécute que si les données de base (rôles) ont bien été copiées.
+  const reconcile = await reconcileSandboxUsers(sandbox)
+  res.write(JSON.stringify({ type: 'progress', table: 'Réconciliation des accès sandbox', done: totalSteps, total: totalSteps, rows: reconcile.count, error: reconcile.error }) + '\n')
+  if (reconcile.error) failed.push({ table: 'réconciliation des accès', rows: 0, error: reconcile.error })
 
   await own.from('historique_modifications').insert({
     table_nom: 'sandbox',
