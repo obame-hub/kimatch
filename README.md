@@ -81,7 +81,43 @@ Base Postgres gérée par Michel Obame — plus de 100 tables. Grandes familles 
 
 ⚠️ Le schéma change souvent sans préavis (Michel travaille dessus en parallèle). **Avant de faire confiance à une requête existante après une pause, vérifier que les colonnes utilisées existent toujours** (`select column_name from information_schema.columns where table_name = '...'` dans le SQL Editor Supabase) — un renommage silencieux fait retomber l'app sur les données de démo sans erreur visible.
 
-**Toute modification de schéma (nouvelle table, colonne, policy RLS) se rédige en SQL clair et se fait valider/appliquer par Naoëlle ou Michel — jamais exécutée à l'aveugle.**
+**Toute modification de schéma (nouvelle table, colonne, policy RLS) se rédige en SQL clair et se fait valider/appliquer par Naoëlle ou Michel — jamais exécutée à l'aveugle.** Voir section 6bis pour la procédure exacte (sandbox → prod).
+
+## 6bis. Faire évoluer le schéma : sandbox → prod (migrations)
+
+Deux projets Supabase distincts existent :
+
+| Environnement | Ref projet | Usage |
+|---|---|---|
+| **Sandbox** (`kimatch-staging`) | `uxutkjjcyhtosyecsjdy` | Tester tout changement avant la prod |
+| **Production** (`kiwee-mvp`) | `llktvzbbfadmnhfjatrh` | La vraie donnée, ne jamais tester dessus en premier |
+
+Depuis le 03/08/2026, tout changement de schéma passe par le **CLI Supabase et des fichiers de migration versionnés** (`supabase/migrations/`) — l'équivalent des *Change Sets* Salesforce (outbound/inbound). But : ne plus jamais exécuter du SQL à la main sans trace, et avoir un historique relisible de ce qui a été poussé en prod et quand.
+
+**Pourquoi pas un bouton "pousser en prod" directement dans l'app Kimatch ?** Parce que ça obligerait à exposer une clé avec les pleins pouvoirs d'écriture (`service_role`) depuis une application web — un bug ou un clic malheureux pourrait alors écrire n'importe quoi en prod, sans étape de relecture ni historique. Le CLI, lancé depuis un poste de dev, évite ce risque.
+
+### Procédure
+
+1. **Se placer dans le dossier du projet** (le CLI a besoin du dossier `supabase/` — ne fonctionne pas depuis un autre dossier comme `sf_import`) :
+   ```bash
+   cd C:\Users\nghou\kiwee-os
+   ```
+
+2. **Écrire le changement** dans un nouveau fichier SQL sous `supabase/migrations/` (nom horodaté, ex. `20260810120000_ajoute_colonne_x.sql`) — Claude s'en charge habituellement.
+
+3. **Tester sur la sandbox d'abord** :
+   ```bash
+   npx supabase db push --db-url "postgresql://postgres.uxutkjjcyhtosyecsjdy:<mot-de-passe-sandbox>@aws-0-eu-west-1.pooler.supabase.com:5432/postgres"
+   ```
+   Vérifier dans l'app (ou en base) que tout fonctionne comme prévu.
+
+4. **Une fois validé, pousser le même fichier sur la prod** :
+   ```bash
+   npx supabase db push --db-url "postgresql://postgres.llktvzbbfadmnhfjatrh:<mot-de-passe-prod>@aws-0-eu-west-1.pooler.supabase.com:5432/postgres"
+   ```
+   Le CLI demande confirmation avant d'appliquer — bien relire la liste des fichiers proposés avant de valider.
+
+**Limite connue** : la comparaison *automatique* sandbox vs prod (`supabase db diff`, pour générer un fichier de migration à partir d'un changement déjà fait à la main dans le Dashboard) nécessite Docker Desktop, non installé au 03/08/2026 — à installer si ce besoin se présente. En attendant, les migrations s'écrivent à la main (largement suffisant pour l'usage actuel).
 
 ## 7. Conventions de code
 
