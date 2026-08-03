@@ -100,7 +100,7 @@ function TextInlineField({ value, onCommit, label, emptyLabel = 'ajouter', onSav
           type="button"
           disabled={disabled}
           onClick={start}
-          className={cn('truncate rounded-kw-sm px-1.5 py-0.5 text-left text-kw-lg text-kw-ink transition-colors hover:bg-kw-muted', mono && 'font-mono')}
+          className={cn('block w-full truncate rounded-kw-sm px-1.5 py-0.5 text-left text-kw-lg text-kw-ink transition-colors hover:bg-kw-muted', mono && 'font-mono')}
         >
           {displayValue}
         </button>
@@ -167,7 +167,7 @@ function SelectInlineField({ value, options, onCommit, label, emptyLabel = 'choi
           {options.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
         </select>
       ) : currentLabel ? (
-        <button type="button" disabled={disabled} onClick={start} className="truncate rounded-kw-sm px-1.5 py-0.5 text-left text-kw-lg text-kw-ink transition-colors hover:bg-kw-muted">
+        <button type="button" disabled={disabled} onClick={start} className="block w-full truncate rounded-kw-sm px-1.5 py-0.5 text-left text-kw-lg text-kw-ink transition-colors hover:bg-kw-muted">
           {currentLabel}
         </button>
       ) : (
