@@ -154,6 +154,13 @@ export interface Recommandation {
   marge_nette?: number | null
   marge_nette_coeff?: number | null
   marge_apporteur?: number | null
+  /** Champs ajoutés le 04/08/2026 pour le flot Opportunité calqué sur Tools. */
+  type_energie?: 'electricite' | 'gaz' | null
+  date_cloture?: string | null
+  /** Renouvellement | Captation -- dérivé automatiquement du mix client/prospect des PDL, jamais
+   * choisi manuellement (voir recommandations.ts). */
+  type_opportunite?: string | null
+  compteur_ids?: string[]
 }
 
 export interface ActionItem {
