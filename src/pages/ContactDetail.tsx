@@ -20,6 +20,8 @@ import { useRecommandations } from '@/lib/data/recommandations'
 import { useCanManage, useIsAdmin, useProfilsAdmin } from '@/lib/data/roles'
 import { useGoBack } from '@/lib/useGoBack'
 import { useReferenceTable } from '@/lib/data/referenceTables'
+import { formatPhoneFR } from '@/lib/textFormat'
+import { contactRoleOptions } from '@/lib/contactRoles'
 import {
   STATUT_MANDAT_TONE,
   FALLBACK_STATUTS_MANDATS,
@@ -242,7 +244,9 @@ export default function ContactDetail() {
               <div className="rounded-xl border border-navy-100 bg-white p-4">
                 <p className="mb-2.5 text-[10px] font-bold uppercase tracking-wide text-navy-400">Coordonnées</p>
                 <div className="space-y-2 text-sm">
+                  {contact.role && <p><span className="text-navy-400">Rôle :</span> <Badge tone={contact.role === 'Décisionnaire' ? 'kiwi' : 'neutral'}>{contact.role}</Badge></p>}
                   <p><span className="text-navy-400">Téléphone :</span> {contact.telephone ? <PhoneLink value={contact.telephone} /> : '—'}</p>
+                  <p><span className="text-navy-400">Mobile :</span> {contact.telephone_mobile ? <PhoneLink value={contact.telephone_mobile} /> : '—'}</p>
                   <p><span className="text-navy-400">Email :</span> {contact.email ? <EmailLink value={contact.email} /> : '—'}</p>
                   {contact.linkedin_url && (
                     <p><span className="text-navy-400">LinkedIn :</span> <a href={contact.linkedin_url} target="_blank" rel="noreferrer" className="text-sky-600 hover:underline">{contact.linkedin_url}</a></p>
@@ -370,7 +374,7 @@ export default function ContactDetail() {
         </div>
       </div>
 
-      <EditContactDialog open={editOpen} onClose={() => setEditOpen(false)} contact={contact} />
+      <EditContactDialog open={editOpen} onClose={() => setEditOpen(false)} contact={contact} compteSegment={compte?.segment ?? null} />
 
       <Dialog
         open={confirmDelete}
@@ -389,7 +393,7 @@ export default function ContactDetail() {
   )
 }
 
-function EditContactDialog({ open, onClose, contact }: { open: boolean; onClose: () => void; contact: Contact }) {
+function EditContactDialog({ open, onClose, contact, compteSegment }: { open: boolean; onClose: () => void; contact: Contact; compteSegment: string | null }) {
   const updateContact = useUpdateContact()
   const isAdmin = useIsAdmin()
   const { data: profilsAdmin } = useProfilsAdmin()
@@ -399,8 +403,10 @@ function EditContactDialog({ open, onClose, contact }: { open: boolean; onClose:
   const [nom, setNom] = useState(contact.nom)
   const [fonction, setFonction] = useState(contact.fonction ?? '')
   const [telephone, setTelephone] = useState(contact.telephone ?? '')
+  const [telephoneMobile, setTelephoneMobile] = useState(contact.telephone_mobile ?? '')
   const [email, setEmail] = useState(contact.email ?? '')
-  const [contactPrincipal, setContactPrincipal] = useState(contact.contact_principal)
+  const [role, setRole] = useState(contact.role ?? '')
+  const roleOptions = contactRoleOptions(compteSegment)
   const [actif, setActif] = useState(contact.actif)
   const [proprietaireId, setProprietaireId] = useState(contact.proprietaire_id ?? '')
   const [linkedinUrl, setLinkedinUrl] = useState(contact.linkedin_url ?? '')
@@ -416,8 +422,9 @@ function EditContactDialog({ open, onClose, contact }: { open: boolean; onClose:
     setNom(contact.nom)
     setFonction(contact.fonction ?? '')
     setTelephone(contact.telephone ?? '')
+    setTelephoneMobile(contact.telephone_mobile ?? '')
     setEmail(contact.email ?? '')
-    setContactPrincipal(contact.contact_principal)
+    setRole(contact.role ?? '')
     setActif(contact.actif)
     setProprietaireId(contact.proprietaire_id ?? '')
     setLinkedinUrl(contact.linkedin_url ?? '')
@@ -436,8 +443,10 @@ function EditContactDialog({ open, onClose, contact }: { open: boolean; onClose:
         nom,
         fonction: fonction || null,
         telephone: telephone || null,
+        telephone_mobile: telephoneMobile || null,
         email: email || null,
-        contact_principal: contactPrincipal,
+        role: role || null,
+        contact_principal: role === 'Décisionnaire',
         actif,
         proprietaire_id: proprietaireId || null,
         linkedin_url: linkedinUrl || null,
@@ -470,14 +479,23 @@ function EditContactDialog({ open, onClose, contact }: { open: boolean; onClose:
         <FormField label="Fonction">
           <Input value={fonction} onChange={(e) => setFonction(e.target.value)} placeholder="Ex. Directeur technique" />
         </FormField>
+        <FormField label="Rôle">
+          <Select value={role} onChange={(e) => setRole(e.target.value)}>
+            <option value="">—</option>
+            {roleOptions.map((r) => <option key={r} value={r}>{r}</option>)}
+          </Select>
+        </FormField>
         <div className="grid grid-cols-2 gap-3">
-          <FormField label="Téléphone">
-            <Input value={telephone} onChange={(e) => setTelephone(e.target.value)} />
+          <FormField label="Téléphone fixe">
+            <Input value={telephone} onChange={(e) => setTelephone(e.target.value)} onBlur={(e) => setTelephone(e.target.value ? formatPhoneFR(e.target.value) : '')} />
           </FormField>
-          <FormField label="Email">
-            <Input type="email" value={email} onChange={(e) => setEmail(e.target.value)} />
+          <FormField label="Mobile">
+            <Input value={telephoneMobile} onChange={(e) => setTelephoneMobile(e.target.value)} onBlur={(e) => setTelephoneMobile(e.target.value ? formatPhoneFR(e.target.value) : '')} />
           </FormField>
         </div>
+        <FormField label="Email">
+          <Input type="email" value={email} onChange={(e) => setEmail(e.target.value)} />
+        </FormField>
         <div className="grid grid-cols-2 gap-3">
           <FormField label="LinkedIn">
             <Input value={linkedinUrl} onChange={(e) => setLinkedinUrl(e.target.value)} placeholder="https://linkedin.com/in/…" />
@@ -492,10 +510,6 @@ function EditContactDialog({ open, onClose, contact }: { open: boolean; onClose:
         <FormField label="Disponibilités">
           <Textarea rows={2} value={disponibilites} onChange={(e) => setDisponibilites(e.target.value)} placeholder="Ex. Disponible en matinée, à privilégier le mardi/jeudi…" />
         </FormField>
-        <label className="flex items-center gap-2 text-sm text-navy-700">
-          <input type="checkbox" checked={contactPrincipal} onChange={(e) => setContactPrincipal(e.target.checked)} />
-          Contact principal du compte
-        </label>
         <label className="flex items-center gap-2 text-sm text-navy-700">
           <input type="checkbox" checked={actif} onChange={(e) => setActif(e.target.checked)} />
           Actif

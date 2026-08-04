@@ -263,6 +263,22 @@ export interface UpdateCompteurInput {
   type_utilisation_compteur_id?: string | null
 }
 
+/** Rattachement PDL depuis la création d'un contact (si rôle Décisionnaire/Conseil syndical) --
+ * écrit sur `compteurs.responsable_contact_id` ou `contact_conseil_syndical_id` selon le rôle,
+ * les deux colonnes existant déjà et gardées distinctes (voir PDL.Responsable__c /
+ * Contact_conseil_syndical__c côté Tools). */
+export function useAssignCompteurContact() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: async ({ compteurIds, contactId, field }: { compteurIds: string[]; contactId: string; field: 'responsable_contact_id' | 'contact_conseil_syndical_id' }) => {
+      if (compteurIds.length === 0) return
+      const { error } = await supabase.from('compteurs').update({ [field]: contactId }).in('id', compteurIds)
+      if (error) throw new Error(error.message)
+    },
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['compteurs'] }),
+  })
+}
+
 export function useUpdateCompteur() {
   const queryClient = useQueryClient()
   return useMutation({

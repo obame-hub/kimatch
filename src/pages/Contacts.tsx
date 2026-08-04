@@ -1,6 +1,6 @@
-import { useState } from 'react'
+import { useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { Plus, User, Star } from 'lucide-react'
+import { Plus, User, Star, AlertTriangle, CheckCircle2 } from 'lucide-react'
 import { Topbar } from '@/components/layout/Topbar'
 import { PageHeader } from '@/components/ui/page-header'
 import { Card } from '@/components/ui/card'
@@ -10,42 +10,83 @@ import { EntityLink } from '@/components/ui/entity-link'
 import { PhoneLink, EmailLink } from '@/components/ui/contact-link'
 import { Dialog } from '@/components/ui/dialog'
 import { FormField, Input, Select } from '@/components/ui/form'
-import { useContacts, useCreateContact } from '@/lib/data/contacts'
+import { useContacts, useCreateContact, findContactDuplicates, type ContactDuplicate } from '@/lib/data/contacts'
 import { useComptes } from '@/lib/data/comptes'
 import { useSites } from '@/lib/data/sites'
+import { useCompteurs, useAssignCompteurContact } from '@/lib/data/compteurs'
 import { ListToolbar } from '@/components/ui/list-toolbar'
 import { useListControls } from '@/lib/useListControls'
+import { toUpperFR, toTitleCaseFR, formatPhoneFR, isValidPhoneFR, isValidEmail } from '@/lib/textFormat'
+import { contactRoleOptions } from '@/lib/contactRoles'
+import type { Contact } from '@/types/domain'
 
 const CIVILITE_OPTIONS = ['M.', 'Mme', 'Autre']
+const DUPLICATE_FIELD_LABEL: Record<ContactDuplicate['fields'][number], string> = {
+  email: 'même email',
+  phone: 'même téléphone',
+  fullName: 'même nom complet',
+}
 
 function CreateContactDialog({ open, onClose }: { open: boolean; onClose: () => void }) {
   const { data: comptes } = useComptes()
   const { data: sites } = useSites()
+  const { data: allContacts } = useContacts()
+  const { data: compteurs } = useCompteurs()
   const createContact = useCreateContact()
+  const assignCompteurContact = useAssignCompteurContact()
 
+  const [step, setStep] = useState<'form' | 'pdl'>('form')
+  const [createdContact, setCreatedContact] = useState<Contact | null>(null)
   const [compteId, setCompteId] = useState('')
   const [civilite, setCivilite] = useState('')
   const [prenom, setPrenom] = useState('')
   const [nom, setNom] = useState('')
   const [fonction, setFonction] = useState('')
   const [telephone, setTelephone] = useState('')
+  const [telephoneMobile, setTelephoneMobile] = useState('')
   const [email, setEmail] = useState('')
-  const [contactPrincipal, setContactPrincipal] = useState(false)
+  const [role, setRole] = useState('')
   const [siteIds, setSiteIds] = useState<string[]>([])
+  const [compteurIds, setCompteurIds] = useState<string[]>([])
   const [feedback, setFeedback] = useState<string | null>(null)
 
+  const compte = comptes?.find((c) => c.id === compteId) ?? null
+  const roleOptions = contactRoleOptions(compte?.segment)
   const sitesDuCompte = sites?.filter((s) => s.compte_id === compteId) ?? []
+  const compteurIdsDuCompte = new Set((sites ?? []).filter((s) => s.compte_id === compteId).map((s) => s.id))
+  const compteursDuCompte = (compteurs ?? []).filter((c) => compteurIdsDuCompte.has(c.site_id))
+
+  const duplicates = useMemo(() => {
+    const hasSignal = (prenom.trim().length >= 2 && nom.trim().length >= 2) || email || telephone || telephoneMobile
+    if (!allContacts || !hasSignal) return []
+    return findContactDuplicates(allContacts, {
+      prenom,
+      nom,
+      email: email || null,
+      telephone: telephone ? formatPhoneFR(telephone) : null,
+      telephoneMobile: telephoneMobile ? formatPhoneFR(telephoneMobile) : null,
+    })
+  }, [allContacts, prenom, nom, email, telephone, telephoneMobile])
+
+  const emailError = email && !isValidEmail(email) ? "Format d'email invalide." : null
+  const telError = telephone && !isValidPhoneFR(formatPhoneFR(telephone)) ? 'Numéro de téléphone invalide.' : null
+  const mobError = telephoneMobile && !isValidPhoneFR(formatPhoneFR(telephoneMobile)) ? 'Numéro de mobile invalide.' : null
+  const canSubmit = !!compteId && prenom.trim().length > 0 && nom.trim().length > 0 && !!role && !emailError && !telError && !mobError
 
   function reset() {
+    setStep('form')
+    setCreatedContact(null)
     setCompteId('')
     setCivilite('')
     setPrenom('')
     setNom('')
     setFonction('')
     setTelephone('')
+    setTelephoneMobile('')
     setEmail('')
-    setContactPrincipal(false)
+    setRole('')
     setSiteIds([])
+    setCompteurIds([])
     setFeedback(null)
   }
 
@@ -53,92 +94,159 @@ function CreateContactDialog({ open, onClose }: { open: boolean; onClose: () => 
     setSiteIds((prev) => (prev.includes(id) ? prev.filter((s) => s !== id) : [...prev, id]))
   }
 
+  function toggleCompteur(id: string) {
+    setCompteurIds((prev) => (prev.includes(id) ? prev.filter((s) => s !== id) : [...prev, id]))
+  }
+
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
-    const compte = comptes?.find((c) => c.id === compteId)
-    if (!compte) return
+    if (!compte || !canSubmit) return
     const sitesChoisis = sitesDuCompte.filter((s) => siteIds.includes(s.id)).map((s) => ({ id: s.id, nom: s.nom }))
 
     const result = await createContact.mutateAsync({
       compte_id: compte.id,
       compte_nom: compte.nom,
       civilite: civilite || null,
-      prenom,
-      nom,
+      prenom: toTitleCaseFR(prenom),
+      nom: toUpperFR(nom),
       fonction: fonction || null,
       telephone: telephone || null,
+      telephone_mobile: telephoneMobile || null,
       email: email || null,
-      contact_principal: contactPrincipal,
+      role,
       site_ids: siteIds,
       sites: sitesChoisis.map((s) => ({ ...s, fonction_sur_site: null })),
     })
     setFeedback(result.persisted ? 'Contact créé.' : 'Contact ajouté localement (non synchronisé avec Supabase).')
-    setTimeout(() => {
-      reset()
-      onClose()
-    }, 700)
+    setCreatedContact(result.contact)
+
+    // Comme dans Tools : si le contact est Décisionnaire (ou Conseil syndical), on propose de le
+    // rattacher à un ou plusieurs PDL existants du compte avant de fermer.
+    if (result.persisted && (role === 'Décisionnaire' || role === 'Conseil syndical') && compteursDuCompte.length > 0) {
+      setStep('pdl')
+    } else {
+      setTimeout(() => { reset(); onClose() }, 700)
+    }
   }
 
+  async function handleFinishPdl() {
+    if (createdContact && compteurIds.length > 0) {
+      await assignCompteurContact.mutateAsync({
+        compteurIds,
+        contactId: createdContact.id,
+        field: role === 'Conseil syndical' ? 'contact_conseil_syndical_id' : 'responsable_contact_id',
+      })
+    }
+    reset()
+    onClose()
+  }
+
+  const dialogTitle = step === 'form' ? 'Nouveau contact' : 'Rattacher à un PDL'
+  const dialogDesc = step === 'form' ? 'Ajouter une personne à un compte.' : `${createdContact?.prenom} ${createdContact?.nom} est ${role.toLowerCase()} — le rattacher à un ou plusieurs PDL existants ?`
+
   return (
-    <Dialog open={open} onClose={() => { reset(); onClose() }} title="Nouveau contact" description="Ajouter une personne à un compte.">
-      <form onSubmit={handleSubmit} className="max-h-[75vh] space-y-3 overflow-y-auto pr-1">
-        <FormField label="Compte">
-          <Select value={compteId} onChange={(e) => { setCompteId(e.target.value); setSiteIds([]) }} required>
-            <option value="">Sélectionner un compte…</option>
-            {comptes?.map((c) => <option key={c.id} value={c.id}>{c.nom}</option>)}
-          </Select>
-        </FormField>
-        <div className="grid grid-cols-3 gap-3">
-          <FormField label="Civilité">
-            <Select value={civilite} onChange={(e) => setCivilite(e.target.value)}>
-              <option value="">—</option>
-              {CIVILITE_OPTIONS.map((c) => <option key={c} value={c}>{c}</option>)}
+    <Dialog open={open} onClose={() => { reset(); onClose() }} title={dialogTitle} description={dialogDesc}>
+      {step === 'form' && (
+        <form onSubmit={handleSubmit} className="max-h-[75vh] space-y-3 overflow-y-auto pr-1">
+          <FormField label="Compte">
+            <Select value={compteId} onChange={(e) => { setCompteId(e.target.value); setSiteIds([]); setRole('') }} required>
+              <option value="">Sélectionner un compte…</option>
+              {comptes?.map((c) => <option key={c.id} value={c.id}>{c.nom}</option>)}
             </Select>
           </FormField>
-          <FormField label="Prénom">
-            <Input value={prenom} onChange={(e) => setPrenom(e.target.value)} required />
+          <div className="grid grid-cols-3 gap-3">
+            <FormField label="Civilité">
+              <Select value={civilite} onChange={(e) => setCivilite(e.target.value)}>
+                <option value="">—</option>
+                {CIVILITE_OPTIONS.map((c) => <option key={c} value={c}>{c}</option>)}
+              </Select>
+            </FormField>
+            <FormField label="Prénom">
+              <Input value={prenom} onChange={(e) => setPrenom(e.target.value)} onBlur={(e) => setPrenom(toTitleCaseFR(e.target.value))} required />
+            </FormField>
+            <FormField label="Nom">
+              <Input value={nom} onChange={(e) => setNom(toUpperFR(e.target.value))} required />
+            </FormField>
+          </div>
+          <FormField label="Rôle">
+            <Select value={role} onChange={(e) => setRole(e.target.value)} required disabled={!compteId}>
+              <option value="">Sélectionner…</option>
+              {roleOptions.map((r) => <option key={r} value={r}>{r}</option>)}
+            </Select>
           </FormField>
-          <FormField label="Nom">
-            <Input value={nom} onChange={(e) => setNom(e.target.value)} required />
+          <FormField label="Fonction">
+            <Input value={fonction} onChange={(e) => setFonction(e.target.value)} placeholder="Ex. Directeur technique" />
           </FormField>
-        </div>
-        <FormField label="Fonction">
-          <Input value={fonction} onChange={(e) => setFonction(e.target.value)} placeholder="Ex. Directeur technique" />
-        </FormField>
-        <div className="grid grid-cols-2 gap-3">
-          <FormField label="Téléphone">
-            <Input value={telephone} onChange={(e) => setTelephone(e.target.value)} />
-          </FormField>
+          <div className="grid grid-cols-2 gap-3">
+            <FormField label="Téléphone fixe">
+              <Input value={telephone} onChange={(e) => setTelephone(e.target.value)} onBlur={(e) => setTelephone(e.target.value ? formatPhoneFR(e.target.value) : '')} />
+              {telError && <p className="mt-1 text-xs text-red-600">{telError}</p>}
+            </FormField>
+            <FormField label="Mobile">
+              <Input value={telephoneMobile} onChange={(e) => setTelephoneMobile(e.target.value)} onBlur={(e) => setTelephoneMobile(e.target.value ? formatPhoneFR(e.target.value) : '')} />
+              {mobError && <p className="mt-1 text-xs text-red-600">{mobError}</p>}
+            </FormField>
+          </div>
           <FormField label="Email">
             <Input type="email" value={email} onChange={(e) => setEmail(e.target.value)} />
+            {emailError && <p className="mt-1 text-xs text-red-600">{emailError}</p>}
           </FormField>
-        </div>
-        <label className="flex items-center gap-2 text-sm text-navy-700">
-          <input type="checkbox" checked={contactPrincipal} onChange={(e) => setContactPrincipal(e.target.checked)} />
-          Contact principal du compte
-        </label>
-        {compteId && (
-          <FormField label="Rattaché aux sites (optionnel)">
-            {sitesDuCompte.length === 0 ? (
-              <p className="text-xs text-navy-400">Ce compte n'a aucun site.</p>
-            ) : (
-              <div className="max-h-32 space-y-1 overflow-y-auto rounded-lg border border-navy-200 p-2">
-                {sitesDuCompte.map((s) => (
-                  <label key={s.id} className="flex items-center gap-2 text-sm text-navy-700">
-                    <input type="checkbox" checked={siteIds.includes(s.id)} onChange={() => toggleSite(s.id)} />
-                    {s.nom}
-                  </label>
+
+          {duplicates.length > 0 && (
+            <div className="rounded-lg border border-amber-200 bg-amber-50 p-3 text-xs text-amber-800">
+              <p className="mb-1.5 flex items-center gap-1.5 font-medium"><AlertTriangle className="h-3.5 w-3.5" /> Doublon(s) potentiel(s) détecté(s)</p>
+              <ul className="space-y-1">
+                {duplicates.slice(0, 5).map((d) => (
+                  <li key={d.contact.id}>
+                    {d.contact.prenom} {d.contact.nom} ({d.contact.compte_nom}) — {d.fields.map((f) => DUPLICATE_FIELD_LABEL[f]).join(', ')}
+                  </li>
                 ))}
-              </div>
-            )}
-          </FormField>
-        )}
-        {feedback && <p className="text-xs text-navy-500">{feedback}</p>}
-        <div className="flex justify-end gap-2 pt-2">
-          <Button type="button" variant="ghost" onClick={() => { reset(); onClose() }}>Annuler</Button>
-          <Button type="submit" disabled={createContact.isPending}>Créer le contact</Button>
+              </ul>
+            </div>
+          )}
+
+          {compteId && (
+            <FormField label="Rattaché aux sites (optionnel)">
+              {sitesDuCompte.length === 0 ? (
+                <p className="text-xs text-navy-400">Ce compte n'a aucun site.</p>
+              ) : (
+                <div className="max-h-32 space-y-1 overflow-y-auto rounded-lg border border-navy-200 p-2">
+                  {sitesDuCompte.map((s) => (
+                    <label key={s.id} className="flex items-center gap-2 text-sm text-navy-700">
+                      <input type="checkbox" checked={siteIds.includes(s.id)} onChange={() => toggleSite(s.id)} />
+                      {s.nom}
+                    </label>
+                  ))}
+                </div>
+              )}
+            </FormField>
+          )}
+          {feedback && <p className="text-xs text-navy-500">{feedback}</p>}
+          <div className="flex justify-end gap-2 pt-2">
+            <Button type="button" variant="ghost" onClick={() => { reset(); onClose() }}>Annuler</Button>
+            <Button type="submit" disabled={createContact.isPending || !canSubmit}>Créer le contact</Button>
+          </div>
+        </form>
+      )}
+
+      {step === 'pdl' && (
+        <div className="space-y-3">
+          <div className="max-h-64 space-y-1 overflow-y-auto rounded-lg border border-navy-200 p-2">
+            {compteursDuCompte.map((c) => (
+              <label key={c.id} className="flex items-center gap-2 text-sm text-navy-700">
+                <input type="checkbox" checked={compteurIds.includes(c.id)} onChange={() => toggleCompteur(c.id)} />
+                {c.numero_pdl} — {c.site_nom}
+              </label>
+            ))}
+          </div>
+          <div className="flex justify-end gap-2 pt-2">
+            <Button type="button" variant="ghost" onClick={() => { reset(); onClose() }}>Passer</Button>
+            <Button type="button" onClick={handleFinishPdl} disabled={assignCompteurContact.isPending}>
+              <CheckCircle2 className="h-4 w-4" /> Terminer
+            </Button>
+          </div>
         </div>
-      </form>
+      )}
     </Dialog>
   )
 }
@@ -204,10 +312,12 @@ export default function Contacts() {
                 </div>
                 {c.contact_principal && <Star className="h-4 w-4 shrink-0 text-amber-500" />}
               </div>
+              {c.role && <Badge tone={c.role === 'Décisionnaire' ? 'kiwi' : 'neutral'} className="mt-2">{c.role}</Badge>}
               <div className="mt-4 space-y-1 text-xs text-navy-500">
                 <p><EntityLink to={`/comptes/${c.compte_id}`}>{c.compte_nom}</EntityLink></p>
                 {c.email && <p><EmailLink value={c.email} /></p>}
                 {c.telephone && <p><PhoneLink value={c.telephone} /></p>}
+                {c.telephone_mobile && <p><PhoneLink value={c.telephone_mobile} /></p>}
               </div>
               {c.sites.length > 0 && (
                 <div className="mt-3 flex flex-wrap gap-1.5">

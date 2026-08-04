@@ -209,7 +209,10 @@ export interface Contact {
   nom: string
   fonction: string | null
   telephone: string | null
+  telephone_mobile: string | null
   email: string | null
+  /** Décisionnaire | Administratif | Conseil syndical (syndics uniquement) — voir contactRoles.ts. */
+  role: string | null
   contact_principal: boolean
   actif: boolean
   sites: { id: string; nom: string; fonction_sur_site: string | null }[]

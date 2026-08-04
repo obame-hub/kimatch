@@ -26,3 +26,15 @@ export function isValidPhoneFR(value: string): boolean {
 export function isValidEmail(value: string): boolean {
   return /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(value)
 }
+
+/** Title-case sur blur pour les prénoms (gère les composés "jean-pierre" -> "Jean-Pierre"),
+ * même règle que Tools. */
+export function toTitleCaseFR(value: string | null | undefined): string {
+  if (!value) return ''
+  return value
+    .trim()
+    .toLocaleLowerCase('fr-FR')
+    .split(/(\s|-)/)
+    .map((part) => (part === ' ' || part === '-' ? part : part.charAt(0).toLocaleUpperCase('fr-FR') + part.slice(1)))
+    .join('')
+}
