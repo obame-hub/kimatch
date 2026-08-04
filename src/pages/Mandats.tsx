@@ -31,6 +31,7 @@ function CreateMandatDialog({ open, onClose }: { open: boolean; onClose: () => v
 
   const [compteId, setCompteId] = useState('')
   const [dateSignature, setDateSignature] = useState('')
+  const [dureeMois, setDureeMois] = useState(36)
   const [compteurIds, setCompteurIds] = useState<string[]>([])
   const [contactSignataireId, setContactSignataireId] = useState('')
   const [courtierCodes, setCourtierCodes] = useState<string[]>(['KIWI', 'ENERGIX'])
@@ -43,6 +44,7 @@ function CreateMandatDialog({ open, onClose }: { open: boolean; onClose: () => v
   function reset() {
     setCompteId('')
     setDateSignature('')
+    setDureeMois(36)
     setCompteurIds([])
     setContactSignataireId('')
     setCourtierCodes(['KIWI', 'ENERGIX'])
@@ -53,7 +55,10 @@ function CreateMandatDialog({ open, onClose }: { open: boolean; onClose: () => v
     setCompteurIds((prev) => (prev.includes(id) ? prev.filter((c) => c !== id) : [...prev, id]))
   }
 
+  // "Mandat Kiwi" est toujours inclus, impossible de l'omettre -- même règle que Tools (codé en
+  // dur à true côté PDF Kiwi). Seul Energix est un vrai choix.
   function toggleCourtier(code: string) {
+    if (code === 'KIWI') return
     setCourtierCodes((prev) => (prev.includes(code) ? prev.filter((c) => c !== code) : [...prev, code]))
   }
 
@@ -75,6 +80,7 @@ function CreateMandatDialog({ open, onClose }: { open: boolean; onClose: () => v
       compteur_ids: compteurIds,
       compteurs: compteursChoisis,
       date_signature: dateSignature || null,
+      duree_mois: dureeMois,
       contact_signataire_id: contactSignataireId || null,
       contact_signataire_nom: contactSignataire ? `${contactSignataire.prenom} ${contactSignataire.nom}` : undefined,
       courtier_codes: courtierCodes,
@@ -97,15 +103,22 @@ function CreateMandatDialog({ open, onClose }: { open: boolean; onClose: () => v
             {comptes?.map((c) => <option key={c.id} value={c.id}>{c.nom}</option>)}
           </Select>
         </FormField>
-        <FormField label="Date de signature">
-          <Input type="date" value={dateSignature} onChange={(e) => setDateSignature(e.target.value)} />
-        </FormField>
+        <div className="grid grid-cols-2 gap-3">
+          <FormField label="Date de signature">
+            <Input type="date" value={dateSignature} onChange={(e) => setDateSignature(e.target.value)} />
+          </FormField>
+          <FormField label="Durée">
+            <Select value={dureeMois} onChange={(e) => setDureeMois(Number(e.target.value))}>
+              {[12, 24, 36, 48].map((d) => <option key={d} value={d}>{d} mois</option>)}
+            </Select>
+          </FormField>
+        </div>
         <FormField label="Courtiers couverts">
           <div className="flex gap-4">
             {courtiers.map((c) => (
-              <label key={c.id} className="flex items-center gap-2 text-sm text-navy-700">
-                <input type="checkbox" checked={courtierCodes.includes(c.code)} onChange={() => toggleCourtier(c.code)} />
-                {c.libelle}
+              <label key={c.id} className={`flex items-center gap-2 text-sm ${c.code === 'KIWI' ? 'text-navy-400' : 'text-navy-700'}`}>
+                <input type="checkbox" checked={courtierCodes.includes(c.code)} disabled={c.code === 'KIWI'} onChange={() => toggleCourtier(c.code)} />
+                {c.libelle}{c.code === 'KIWI' && ' (toujours inclus)'}
               </label>
             ))}
           </div>

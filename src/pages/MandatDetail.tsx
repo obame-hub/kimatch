@@ -21,7 +21,8 @@ import { FALLBACK_STATUTS_MANDATS, STATUT_MANDAT_TONE, FALLBACK_TYPES_DOCUMENTS 
 import { sendMandatForSignature } from '@/lib/data/docusign'
 import { useGoBack } from '@/lib/useGoBack'
 import { cn } from '@/lib/utils'
-import type { Mandat, DocumentItem, Contact } from '@/types/domain'
+import type { Mandat, Contact, Compte, Compteur } from '@/types/domain'
+import { generateMandatKiweePdf, generateMandatEnergixPdf } from '@/lib/mandatPdf'
 
 type TabKey = 'mandat' | 'perimetre' | 'fichiers'
 
@@ -33,39 +34,53 @@ function EnvoyerSignatureDialog({
   open,
   onClose,
   mandat,
-  documents,
+  compte,
+  compteurs,
   contact,
 }: {
   open: boolean
   onClose: () => void
   mandat: Mandat
-  documents: DocumentItem[]
+  compte: Compte | undefined
+  compteurs: Compteur[]
   contact: Contact | undefined
 }) {
-  const [documentId, setDocumentId] = useState('')
   const [sending, setSending] = useState(false)
   const [feedback, setFeedback] = useState<string | null>(null)
-  const { data: statutsRef } = useReferenceTable('statuts_mandats')
-  const statuts = statutsRef && statutsRef.length > 0 ? statutsRef : FALLBACK_STATUTS_MANDATS
   const markEnvoye = useMarkMandatEnvoye()
 
+  const dureeMois = mandat.duree_mois ?? 36
+  const inclutEnergix = mandat.courtier_codes.includes('ENERGIX')
+
   async function envoyer() {
-    const doc = documents.find((d) => d.id === documentId)
-    if (!doc || !contact?.email) return
+    if (!compte || !contact?.email) return
     setSending(true)
     setFeedback(null)
     try {
+      const kiwee = await generateMandatKiweePdf({ compte, contact, compteurs, dureeMois })
+      const documents = [kiwee]
+      if (inclutEnergix) {
+        const energix = await generateMandatEnergixPdf({ compte, contact, compteurs, dureeMois })
+        documents.push(energix)
+      }
+
       const result = await sendMandatForSignature({
         mandatId: mandat.id,
-        documentUrl: doc.url,
-        documentName: doc.nom_fichier,
+        documents,
         signerEmail: contact.email,
         signerName: `${contact.prenom} ${contact.nom}`,
         emailSubject: `KiWee Énergie — Mandat à signer (${mandat.compte_nom})`,
+        draft: true,
+        returnUrl: `${window.location.origin}/mandats/${mandat.id}`,
       })
-      const statutEnvoye = statuts.find((s) => s.code === 'ENVOYE')
-      await markEnvoye.mutateAsync({ mandatId: mandat.id, envelopeId: result.envelopeId, statutId: statutEnvoye?.id ?? null })
-      setFeedback('Enveloppe envoyée pour signature.')
+      // Statut inchangé ici : c'est le webhook DocuSign qui fera passer le mandat à ENVOYE une
+      // fois qu'un humain aura réellement cliqué "Envoyer" dans l'éditeur DocuSign (mode brouillon).
+      await markEnvoye.mutateAsync({ mandatId: mandat.id, envelopeId: result.envelopeId, statutId: null })
+      if (result.senderViewUrl) {
+        window.location.href = result.senderViewUrl
+        return
+      }
+      setFeedback('Enveloppe créée en brouillon.')
       setTimeout(onClose, 1200)
     } catch (e) {
       setFeedback(e instanceof Error ? e.message : 'Erreur inconnue')
@@ -75,29 +90,23 @@ function EnvoyerSignatureDialog({
   }
 
   return (
-    <Dialog open={open} onClose={onClose} title="Envoyer pour signature" description="Envoie le document choisi via DocuSign au contact signataire du mandat.">
+    <Dialog open={open} onClose={onClose} title="Envoyer pour signature" description="Génère le(s) PDF de mandat et ouvre l'éditeur DocuSign pour vérification et envoi.">
       <div className="space-y-3">
         {!contact?.email && (
           <p className="text-xs text-red-600">Le contact signataire de ce mandat n'a pas d'adresse email renseignée.</p>
         )}
-        {documents.length === 0 ? (
-          <p className="text-sm text-navy-400">Aucun document lié à ce mandat — ajoutez-en un depuis l'onglet Fichiers.</p>
-        ) : (
-          <FormField label="Document à envoyer">
-            <Select value={documentId} onChange={(e) => setDocumentId(e.target.value)}>
-              <option value="">Sélectionner…</option>
-              {documents.map((d) => <option key={d.id} value={d.id}>{d.nom}</option>)}
-            </Select>
-          </FormField>
-        )}
         {contact?.email && (
           <p className="text-xs text-navy-500">Signataire : {contact.prenom} {contact.nom} (<EmailLink value={contact.email!} />)</p>
         )}
+        <p className="text-xs text-navy-500">
+          Document{inclutEnergix ? 's' : ''} généré{inclutEnergix ? 's' : ''} : Mandat KiWee ({dureeMois} mois){inclutEnergix && ', Autorisation Energix'}.
+        </p>
+        <p className="text-[10.5px] text-navy-400">Tu seras redirigé·e vers DocuSign pour vérifier puis cliquer "Envoyer" toi-même — rien ne part automatiquement.</p>
         {feedback && <p className="text-xs text-navy-600">{feedback}</p>}
         <div className="flex justify-end gap-2 pt-2">
           <Button type="button" variant="ghost" onClick={onClose}>Annuler</Button>
-          <Button type="button" onClick={envoyer} disabled={sending || !documentId || !contact?.email}>
-            {sending ? 'Envoi…' : 'Envoyer'}
+          <Button type="button" onClick={envoyer} disabled={sending || !contact?.email || !compte}>
+            {sending ? 'Génération…' : 'Générer et vérifier'}
           </Button>
         </div>
       </div>
@@ -530,7 +539,8 @@ export default function MandatDetail() {
         open={showEnvoyer}
         onClose={() => setShowEnvoyer(false)}
         mandat={mandat}
-        documents={documentsDuMandat}
+        compte={compte}
+        compteurs={compteursDuMandat}
         contact={contactSignataire}
       />
       <EditMandatDialog open={editOpen} onClose={() => setEditOpen(false)} mandat={mandat} onSaved={() => {}} />

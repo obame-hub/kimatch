@@ -2,17 +2,19 @@ import { supabase } from '@/lib/supabase'
 
 interface SendMandatInput {
   mandatId: string
-  documentUrl: string
-  documentName: string
+  documents: { pdfBase64: string; fileName: string }[]
   signerEmail: string
   signerName: string
   emailSubject?: string
   emailMessage?: string
+  draft?: boolean
+  returnUrl?: string
 }
 
 interface SendMandatResult {
   envelopeId: string
   status: string
+  senderViewUrl?: string
 }
 
 export async function sendMandatForSignature(input: SendMandatInput): Promise<SendMandatResult> {

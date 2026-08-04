@@ -21,6 +21,7 @@ interface RawMandat {
   proprietaire: { prenom: string; nom: string } | null
   date_creation: string
   date_modification: string
+  duree_mois?: number | null
 }
 
 async function fetchMandats(): Promise<Mandat[]> {
@@ -28,7 +29,10 @@ async function fetchMandats(): Promise<Mandat[]> {
     const [mandats, compteursRows, courtiersRows] = await Promise.all([
       fetchAllRows<RawMandat>(
         'mandats',
-        'id, id_salesforce, compte_id, date_signature, date_envoi, date_debut_validite, date_fin_validite, contact_signataire_id, docusign_envelope_id, proprietaire_id, compte:comptes(nom), statut:statuts_mandats(code), contact_signataire:contacts(prenom, nom), proprietaire:profils!mandats_proprietaire_id_fkey(prenom, nom), date_creation, date_modification',
+        // `*` plutôt qu'une liste de colonnes fixe : `duree_mois` vient d'être ajoutée par
+        // migration et peut ne pas encore exister en prod au moment du déploiement -- un select
+        // nommé sur une colonne absente ferait échouer la requête (400) pour TOUS les mandats.
+        '*, compte:comptes(nom), statut:statuts_mandats(code), contact_signataire:contacts(prenom, nom), proprietaire:profils!mandats_proprietaire_id_fkey(prenom, nom)',
       ),
       fetchAllRows<{ mandat_id: string; compteur: { id: string; site_id: string } | null }>('mandats_compteurs', 'mandat_id, compteur:compteurs(id, site_id)'),
       fetchAllRows<{ mandat_id: string; type_courtier: { code: string } | null }>('mandats_courtiers', 'mandat_id, type_courtier:types_courtiers_mandat(code)'),
@@ -76,6 +80,7 @@ async function fetchMandats(): Promise<Mandat[]> {
       proprietaire_id: m.proprietaire_id,
       proprietaire_nom: m.proprietaire ? `${m.proprietaire.prenom} ${m.proprietaire.nom}` : null,
       courtier_codes: courtierCodesParMandat.get(m.id) ?? [],
+      duree_mois: m.duree_mois ?? null,
       date_creation: m.date_creation,
       date_modification: m.date_modification,
     }))
@@ -95,10 +100,17 @@ interface CreateMandatInput {
   compteur_ids: string[]
   compteurs: { id: string; site_id: string }[]
   date_signature: string | null
+  duree_mois: number
   contact_signataire_id: string | null
   contact_signataire_nom?: string
   courtier_codes: string[]
   courtier_type_ids: string[]
+}
+
+function addMonthsISO(dateISO: string, months: number): string {
+  const d = new Date(dateISO)
+  d.setMonth(d.getMonth() + months)
+  return d.toISOString().slice(0, 10)
 }
 
 interface CreateMandatResult {
@@ -113,6 +125,8 @@ export function useCreateMandat() {
     mutationFn: async (input: CreateMandatInput): Promise<CreateMandatResult> => {
       let persisted = false
       const siteIds = [...new Set(input.compteurs.map((c) => c.site_id))]
+      const dateDebut = input.date_signature ?? new Date().toISOString().slice(0, 10)
+      const dateFin = addMonthsISO(dateDebut, input.duree_mois)
       let mandat: Mandat = {
         id: `local-${Date.now()}`,
         id_salesforce: null,
@@ -121,8 +135,8 @@ export function useCreateMandat() {
         statut: 'A_PREPARER',
         date_signature: input.date_signature,
         date_envoi: null,
-        date_debut_validite: input.date_signature,
-        date_fin_validite: null,
+        date_debut_validite: dateDebut,
+        date_fin_validite: dateFin,
         nb_sites_couverts: siteIds.length,
         site_ids: siteIds,
         compteur_ids: input.compteur_ids,
@@ -130,6 +144,7 @@ export function useCreateMandat() {
         contact_signataire_nom: input.contact_signataire_nom,
         proprietaire_id: null,
         courtier_codes: input.courtier_codes,
+        duree_mois: input.duree_mois,
       }
 
       const { data, error } = await supabase
@@ -137,6 +152,9 @@ export function useCreateMandat() {
         .insert({
           compte_id: input.compte_id,
           date_signature: input.date_signature,
+          date_debut_validite: dateDebut,
+          date_fin_validite: dateFin,
+          duree_mois: input.duree_mois,
           ...(input.contact_signataire_id ? { contact_signataire_id: input.contact_signataire_id } : {}),
         })
         .select('id')
@@ -178,7 +196,7 @@ export function useMarkMandatEnvoye() {
         .eq('id', mandatId)
       const persisted = !error
       queryClient.setQueryData<Mandat[]>(['mandats'], (old) =>
-        old?.map((m) => (m.id === mandatId ? { ...m, docusign_envelope_id: envelopeId, statut: 'ENVOYE' } : m)),
+        old?.map((m) => (m.id === mandatId ? { ...m, docusign_envelope_id: envelopeId, ...(statutId ? { statut: 'ENVOYE' } : {}) } : m)),
       )
       return { persisted }
     },

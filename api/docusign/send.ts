@@ -3,12 +3,16 @@ import { getDocusignContext, sendEnvelope } from './_client.js'
 
 interface SendBody {
   mandatId?: string
+  documents?: { pdfBase64: string; fileName: string }[]
+  /** Repli rétro-compatible : URL d'un document déjà attaché (ancien flux manuel). */
   documentUrl?: string
   documentName?: string
   signerEmail?: string
   signerName?: string
   emailSubject?: string
   emailMessage?: string
+  draft?: boolean
+  returnUrl?: string
 }
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
@@ -24,33 +28,39 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   }
 
   const body = req.body as SendBody
-  if (!body?.mandatId || !body.documentUrl || !body.signerEmail || !body.signerName) {
-    res.status(400).json({ error: 'mandatId, documentUrl, signerEmail et signerName sont requis' })
+  if (!body?.mandatId || !body.signerEmail || !body.signerName || (!body.documents?.length && !body.documentUrl)) {
+    res.status(400).json({ error: 'mandatId, signerEmail, signerName et au moins un document sont requis' })
     return
   }
 
   try {
-    const pdfRes = await fetch(body.documentUrl)
-    if (!pdfRes.ok) {
-      res.status(400).json({ error: `Impossible de récupérer le document (${pdfRes.status})` })
-      return
+    let documents: { pdfBase64: string; fileName: string }[]
+    if (body.documents?.length) {
+      documents = body.documents
+    } else {
+      const pdfRes = await fetch(body.documentUrl!)
+      if (!pdfRes.ok) {
+        res.status(400).json({ error: `Impossible de récupérer le document (${pdfRes.status})` })
+        return
+      }
+      const pdfBuffer = Buffer.from(await pdfRes.arrayBuffer())
+      if (!pdfBuffer.length) {
+        res.status(400).json({ error: 'Document vide' })
+        return
+      }
+      documents = [{ pdfBase64: pdfBuffer.toString('base64'), fileName: body.documentName ?? 'Mandat.pdf' }]
     }
-    const pdfBuffer = Buffer.from(await pdfRes.arrayBuffer())
-    if (!pdfBuffer.length) {
-      res.status(400).json({ error: 'Document vide' })
-      return
-    }
-    const pdfBase64 = pdfBuffer.toString('base64')
 
     const ctx = await getDocusignContext()
     const result = await sendEnvelope(ctx, {
-      pdfBase64,
-      fileName: body.documentName ?? 'Mandat.pdf',
+      documents,
       signerEmail: body.signerEmail,
       signerName: body.signerName,
       emailSubject: body.emailSubject ?? 'KiWee Énergie — Mandat à signer',
       emailMessage: body.emailMessage,
       customFields: [{ name: 'mandat_id', value: body.mandatId }],
+      draft: body.draft,
+      returnUrl: body.returnUrl,
     })
 
     res.status(200).json(result)

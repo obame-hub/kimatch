@@ -77,27 +77,37 @@ export async function getDocusignContext(): Promise<DocusignContext> {
   return { accessToken, accountId: account.account_id, baseUri: account.base_uri }
 }
 
-export interface SendEnvelopeInput {
+export interface SendEnvelopeDocument {
   pdfBase64: string
   fileName: string
+}
+
+export interface SendEnvelopeInput {
+  documents: SendEnvelopeDocument[]
   signerEmail: string
   signerName: string
   emailSubject: string
   emailMessage?: string
   customFields?: { name: string; value: string }[]
+  /** Si vrai, l'enveloppe est créée en BROUILLON ("created") -- un humain doit ensuite l'envoyer
+   * depuis l'éditeur DocuSign (Sender View), jamais un envoi 100% automatique. Même comportement
+   * que Tools, sur demande explicite (04/08/2026) -- avant ça Kimatch envoyait direct ("sent"). */
+  draft?: boolean
+  returnUrl?: string
 }
 
 export interface SendEnvelopeResult {
   envelopeId: string
   status: string
+  senderViewUrl?: string
 }
 
 export async function sendEnvelope(ctx: DocusignContext, input: SendEnvelopeInput): Promise<SendEnvelopeResult> {
   const envelope = {
     emailSubject: input.emailSubject,
     emailBlurb: input.emailMessage ?? '',
-    status: 'sent',
-    documents: [{ documentBase64: input.pdfBase64, name: input.fileName, fileExtension: 'pdf', documentId: '1' }],
+    status: input.draft ? 'created' : 'sent',
+    documents: input.documents.map((d, i) => ({ documentBase64: d.pdfBase64, name: d.fileName, fileExtension: 'pdf', documentId: String(i + 1) })),
     customFields: input.customFields?.length
       ? { textCustomFields: input.customFields.map((cf) => ({ name: cf.name, value: cf.value, required: 'false', show: 'false' })) }
       : undefined,
@@ -109,9 +119,13 @@ export async function sendEnvelope(ctx: DocusignContext, input: SendEnvelopeInpu
           recipientId: '1',
           routingOrder: '1',
           localePolicy: { languageCode: 'fr', cultureName: 'fr-FR' },
+          // Ancres à motif rare (convention DocuSign classique, reprise de Tools) plutôt que des
+          // mots ordinaires ("Signature", "Date") : le texte légal du mandat contient lui-même
+          // ces mots en prose ("date de signature", etc.), ce qui créerait de faux tabs partout
+          // si on ancrait sur les mots eux-mêmes.
           tabs: {
-            signHereTabs: [{ anchorString: 'Signature', anchorUnits: 'pixels', anchorXOffset: '20', anchorYOffset: '-10' }],
-            dateSignedTabs: [{ anchorString: 'Date', anchorUnits: 'pixels', anchorXOffset: '40', anchorYOffset: '-10', font: 'Arial', fontSize: 'Size8' }],
+            signHereTabs: [{ anchorString: '\\s1\\', anchorUnits: 'pixels', anchorXOffset: '0', anchorYOffset: '-8' }],
+            dateSignedTabs: [{ anchorString: '\\d1\\', anchorUnits: 'pixels', anchorXOffset: '0', anchorYOffset: '-8', font: 'Arial', fontSize: 'Size8' }],
           },
         },
       ],
@@ -127,5 +141,17 @@ export async function sendEnvelope(ctx: DocusignContext, input: SendEnvelopeInpu
   if (!res.ok || !data.envelopeId) {
     throw new Error(`DocuSign envelope creation failed: ${data.errorCode ?? res.status} — ${data.message ?? ''}`)
   }
-  return { envelopeId: data.envelopeId, status: data.status ?? 'sent' }
+
+  let senderViewUrl: string | undefined
+  if (input.draft) {
+    const viewRes = await fetch(`${ctx.baseUri}/restapi/v2.1/accounts/${ctx.accountId}/envelopes/${data.envelopeId}/views/sender`, {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${ctx.accessToken}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ returnUrl: input.returnUrl ?? 'https://kimatch.fr' }),
+    })
+    const viewData = (await viewRes.json()) as { url?: string; message?: string }
+    if (viewRes.ok && viewData.url) senderViewUrl = viewData.url
+  }
+
+  return { envelopeId: data.envelopeId, status: data.status ?? (input.draft ? 'created' : 'sent'), senderViewUrl }
 }

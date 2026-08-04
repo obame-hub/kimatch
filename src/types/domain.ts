@@ -196,6 +196,9 @@ export interface Mandat {
   proprietaire_id: string | null
   proprietaire_nom?: string | null
   courtier_codes: string[]
+  /** Durée du mandat en mois (12/24/36/48, défaut 36) -- colonne ajoutée le 04/08/2026 pour le
+   * flot Mandat calqué sur Tools. */
+  duree_mois?: number | null
   date_creation?: string
   date_modification?: string
 }
