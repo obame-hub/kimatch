@@ -2,6 +2,7 @@ import type { VercelRequest, VercelResponse } from '@vercel/node'
 import { createHmac, timingSafeEqual } from 'crypto'
 import { createClient, type SupabaseClient } from '@supabase/supabase-js'
 import { runGrdSyncForMandat } from './_grdSync.js'
+import { sendMandatSignedEmail } from './_gmailNotify.js'
 import { postMessage, joinChannel } from '../slack/_client.js'
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -76,21 +77,30 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       .from('mandats')
       .update({ ...(statutRow ? { statut_id: statutRow.id } : {}) })
       .eq('docusign_envelope_id', envelopeId)
-      .select('id, compte_id, compte:comptes(nom)')
+      .select('id, compte_id, proprietaire_id, compte:comptes(nom), proprietaire:profils!mandats_proprietaire_id_fkey(email, prenom, nom)')
 
     if (error) {
       res.status(502).json({ error: error.message })
       return
     }
 
-    const raw = mandats?.[0] as { id: string; compte_id: string; compte: { nom: string } | { nom: string }[] | null } | undefined
+    type Raw = {
+      id: string
+      compte_id: string
+      proprietaire_id: string | null
+      compte: { nom: string } | { nom: string }[] | null
+      proprietaire: { email: string; prenom: string; nom: string } | { email: string; prenom: string; nom: string }[] | null
+    }
+    const raw = mandats?.[0] as Raw | undefined
     const compteNom = raw ? (Array.isArray(raw.compte) ? raw.compte[0]?.nom : raw.compte?.nom) ?? '(compte inconnu)' : ''
+    const proprietaire = raw ? (Array.isArray(raw.proprietaire) ? raw.proprietaire[0] : raw.proprietaire) ?? null : null
     if (statutCode === 'SIGNE' && raw) {
-      // Best-effort : la synchro GRD + la notification ne doivent jamais faire échouer l'accusé
-      // de réception du webhook envoyé à DocuSign (sinon DocuSign réessaiera indéfiniment).
+      // Best-effort : la synchro GRD + les notifications ne doivent jamais faire échouer
+      // l'accusé de réception du webhook envoyé à DocuSign (sinon DocuSign réessaiera indéfiniment).
       try {
         const summary = await runGrdSyncForMandat(admin, raw.id)
         await notifyMandatSigne(admin, raw.id, compteNom, summary)
+        await emailProprietaire(admin, raw.id, compteNom, proprietaire, summary)
       } catch (syncErr) {
         console.error('[docusign-webhook] synchro GRD post-signature échouée', syncErr)
       }
@@ -124,4 +134,43 @@ async function notifyMandatSigne(
     if (join.ok) result = await postMessage(cfg.channel_id, text, blocks)
   }
   if (!result.ok) console.error('[docusign-webhook] notification Slack mandat échouée', result.error)
+}
+
+async function alertGmailDeconnecte(admin: Admin, error: string) {
+  const { data: cfg } = await admin.from('parametres_slack').select('channel_id, enabled').eq('module', 'mandat').maybeSingle()
+  if (!cfg || !cfg.enabled || !cfg.channel_id) return
+  await postMessage(cfg.channel_id, `🔴 Email de récapitulatif mandat non envoyé — ${error}`)
+}
+
+async function emailProprietaire(
+  admin: Admin,
+  mandatId: string,
+  compteNom: string,
+  proprietaire: { email: string; prenom: string; nom: string } | null,
+  summary: { succes: string[]; echecs: { pdl: string; error: string }[] },
+) {
+  if (!proprietaire?.email) return
+
+  const mandatUrl = `https://kimatch.fr/mandats/${mandatId}`
+  const lignes = [
+    `Bonjour ${proprietaire.prenom},`,
+    '',
+    `Le mandat pour ${compteNom} vient d'être signé.`,
+    '',
+    summary.succes.length ? `PDL synchronisés (Enedis/GRDF) : ${summary.succes.join(', ')}` : 'Aucun PDL synchronisé.',
+  ]
+  if (summary.echecs.length) {
+    lignes.push('', `Échecs de synchro : ${summary.echecs.map((e) => `${e.pdl} (${e.error})`).join(', ')}`)
+  }
+  lignes.push('', `Voir le mandat : ${mandatUrl}`)
+
+  const result = await sendMandatSignedEmail(admin, {
+    to: proprietaire.email,
+    subject: `KiWee Énergie — Mandat signé (${compteNom})`,
+    text: lignes.join('\n'),
+  })
+  if (!result.ok) {
+    console.error('[docusign-webhook] email récapitulatif mandat échoué', result.error)
+    if (result.senderMissing) await alertGmailDeconnecte(admin, result.error)
+  }
 }
