@@ -1,7 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { supabase } from '@/lib/supabase'
 
-export type SlackModule = 'compte' | 'contrat'
+export type SlackModule = 'compte' | 'contrat' | 'mandat'
 
 export interface SlackSetting {
   module: SlackModule

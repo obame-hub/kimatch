@@ -91,6 +91,43 @@ export function buildContratCreatedBlocks(d: ContratCreatedSlackData) {
   return { text, blocks }
 }
 
+export interface MandatSignedSlackData {
+  compteName: string
+  mandatUrl?: string | null
+  succes: string[]
+  echecs: { pdl: string; error: string }[]
+}
+
+export function buildMandatSignedBlocks(d: MandatSignedSlackData) {
+  const text = `✅ Mandat signé — ${d.compteName} — synchro GRD lancée automatiquement`
+  const lines: string[] = [`• *Compte :* ${link(d.compteName, d.mandatUrl)}`]
+  if (d.succes.length) lines.push(`• *Synchronisés :* ${d.succes.join(', ')}`)
+  if (d.echecs.length) lines.push(`• *Échecs :* ${d.echecs.map((e) => `${e.pdl} (${e.error})`).join(', ')}`)
+
+  const blocks: unknown[] = [
+    { type: 'context', elements: [{ type: 'mrkdwn', text: SEPARATOR_BAR }] },
+    { type: 'section', text: { type: 'mrkdwn', text: `*Mandat signé — ${d.compteName}*` } },
+    { type: 'section', text: { type: 'mrkdwn', text: lines.join('\n') } },
+  ]
+  if (d.mandatUrl) {
+    blocks.push({
+      type: 'actions',
+      elements: [{ type: 'button', text: { type: 'plain_text', text: 'Ouvrir le mandat', emoji: true }, url: d.mandatUrl, style: 'primary' }],
+    })
+  }
+  blocks.push({ type: 'context', elements: [{ type: 'mrkdwn', text: SEPARATOR_BAR }] })
+  return { text, blocks }
+}
+
+export function sampleMandatSignedData(): MandatSignedSlackData {
+  return {
+    compteName: 'Résidence Les Mimosas',
+    mandatUrl: 'https://kimatch.fr/mandats/demo',
+    succes: ['30001245678901', '30001245678902'],
+    echecs: [],
+  }
+}
+
 export function sampleContratCreatedData(): ContratCreatedSlackData {
   return {
     siteName: 'Résidence Les Tilleuls',

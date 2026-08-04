@@ -68,11 +68,14 @@ import {
   sampleAccountCreatedData,
   buildContratCreatedBlocks,
   sampleContratCreatedData,
+  buildMandatSignedBlocks,
+  sampleMandatSignedData,
 } from '@/lib/slackTemplates'
 
 const MODULE_LABELS: Record<SlackModule, string> = {
   compte: 'Nouveaux comptes',
   contrat: 'Nouveaux contrats',
+  mandat: 'Mandats signés (+ synchro GRD auto)',
 }
 
 function Toggle({ checked, onChange }: { checked: boolean; onChange: (v: boolean) => void }) {
@@ -105,7 +108,9 @@ function SlackModuleCard({ module }: { module: SlackModule }) {
     const tpl =
       module === 'compte'
         ? buildAccountCreatedBlocks(sampleAccountCreatedData())
-        : buildContratCreatedBlocks(sampleContratCreatedData())
+        : module === 'contrat'
+          ? buildContratCreatedBlocks(sampleContratCreatedData())
+          : buildMandatSignedBlocks(sampleMandatSignedData())
     const result = await sendTestSlackMessage(module, `:test_tube: [TEST] ${tpl.text}`, tpl.blocks)
     if (result.ok) {
       setFeedback(result.skipped ? 'Module désactivé ou pas de canal.' : 'Message envoyé sur Slack ✓')
@@ -184,6 +189,7 @@ export default function Parametres() {
             </div>
             <SlackModuleCard module="compte" />
             <SlackModuleCard module="contrat" />
+            <SlackModuleCard module="mandat" />
           </CardContent>
         </Card>
       </div>
