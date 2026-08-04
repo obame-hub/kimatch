@@ -323,6 +323,9 @@ export interface Compteur {
   responsable_contact_nom?: string | null
   contact_conseil_syndical_id?: string | null
   contact_conseil_syndical_nom?: string | null
+  /** Échéance du contrat fournisseur actuel sur ce PDL (optionnelle) -- colonne ajoutée le
+   * 04/08/2026 pour le flot PDL calqué sur Tools. */
+  date_echeance?: string | null
 }
 
 export interface Consommation {

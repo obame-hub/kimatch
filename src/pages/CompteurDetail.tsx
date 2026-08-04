@@ -617,6 +617,9 @@ export default function CompteurDetail() {
                       <EntityLink to={`/comptes/${compteur.fournisseur_actuel_compte_id}`}>{compteur.fournisseur_actuel_nom}</EntityLink>
                     </p>
                   )}
+                  {compteur.date_echeance && (
+                    <p><span className="text-navy-400">Échéance :</span> {new Date(compteur.date_echeance).toLocaleDateString('fr-FR')}</p>
+                  )}
                   <div className="flex flex-wrap items-center justify-between gap-2 text-navy-400">
                     <p>
                       {compteur.synchro_eneo

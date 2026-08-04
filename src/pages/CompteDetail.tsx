@@ -27,6 +27,8 @@ import { Dialog } from '@/components/ui/dialog'
 import { FormField, Input, Select, Textarea } from '@/components/ui/form'
 import { HistoriqueDiscret } from '@/components/ui/historique-discret'
 import { InlineField } from '@/components/ui/inline-field'
+import { AddressAutocomplete } from '@/components/ui/address-autocomplete'
+import { PdlDraftRows, emptyPdlDraft, type PdlDraft } from '@/components/compteur/PdlDraftRows'
 import {
   useComptes,
   useUpdateCompteScore,
@@ -1452,95 +1454,140 @@ function AddCompteurAutoSiteDialog({
 }) {
   const { data: energiesRef } = useReferenceTable('types_energies')
   const energies = energiesRef && energiesRef.length > 0 ? energiesRef : FALLBACK_TYPES_ENERGIES
+  const { data: utilisationsRef } = useReferenceTable('types_utilisations_compteur')
+  const { data: comptes } = useComptes()
+  const { data: contacts } = useContacts()
+  const { data: compteurs } = useCompteurs()
   const createSite = useCreateSite()
   const createCompteur = useCreateCompteur()
 
-  const [step, setStep] = useState<'form' | 'ambigu'>('form')
-  const [numeroPdl, setNumeroPdl] = useState('')
-  const [utilisation, setUtilisation] = useState('')
-  const [typeEnergieId, setTypeEnergieId] = useState('')
+  const [step, setStep] = useState<'adresse' | 'ambigu' | 'pdl'>('adresse')
   const [libelleSite, setLibelleSite] = useState('')
+  const [adresse, setAdresse] = useState('')
   const [ville, setVille] = useState('')
   const [codePostal, setCodePostal] = useState('')
   const [candidats, setCandidats] = useState<Site[]>([])
   const [choixSiteId, setChoixSiteId] = useState<string>('')
+  const [siteResolu, setSiteResolu] = useState<{ id: string; nom: string } | null>(null)
+  const [siteMessage, setSiteMessage] = useState('')
+  const [drafts, setDrafts] = useState<PdlDraft[]>([emptyPdlDraft()])
   const [submitting, setSubmitting] = useState(false)
 
+  const fournisseurs = (comptes ?? []).filter((c) => c.type_compte === 'fournisseur')
+  const contactsDuCompte = (contacts ?? []).filter((c) => c.compte_id === compte.id)
+
   function reset() {
-    setStep('form')
-    setNumeroPdl('')
-    setUtilisation('')
-    setTypeEnergieId('')
+    setStep('adresse')
     setLibelleSite('')
+    setAdresse('')
     setVille('')
     setCodePostal('')
     setCandidats([])
     setChoixSiteId('')
+    setSiteResolu(null)
+    setSiteMessage('')
+    setDrafts([emptyPdlDraft()])
     setSubmitting(false)
   }
 
-  const energieChoisie = energies.find((e) => e.id === typeEnergieId)
-  const typeEnergie = (energieChoisie?.code?.toLowerCase() === 'gaz' ? 'gaz' : 'electricite') as 'electricite' | 'gaz'
-
-  async function creerCompteurSurSite(site: { id: string; nom: string }, messageSite: string) {
-    await createCompteur.mutateAsync({
-      site_id: site.id,
-      site_nom: site.nom,
-      type_energie_id: typeEnergieId || null,
-      type_energie: typeEnergie,
-      numero_pdl: numeroPdl,
-      utilisation,
-    })
-    onSaved(messageSite)
-    reset()
-    onClose()
+  function patchDraft(key: string, patch: Partial<PdlDraft>) {
+    setDrafts((prev) => prev.map((d) => (d.key === key ? { ...d, ...patch } : d)))
   }
 
-  async function handleSubmit(e: React.FormEvent) {
+  async function resoudreEtCreerSite(): Promise<{ id: string; nom: string }> {
+    const nomNouveauSite = libelleSite.trim() || ville.trim() || 'Nouveau site'
+    const result = await createSite.mutateAsync({
+      nom: nomNouveauSite,
+      compte_id: compte.id,
+      compte_nom: compte.nom,
+      type_site_id: null,
+      type_site_libelle: '',
+      adresse,
+      ville,
+      code_postal: codePostal,
+    })
+    return result.site
+  }
+
+  async function handleSubmitAdresse(e: React.FormEvent) {
     e.preventDefault()
     const match = matchSitesPourCompteur(sites, compte.id, ville, codePostal)
     if (match.kind === 'auto') {
-      setSubmitting(true)
-      await creerCompteurSurSite(match.site, `✓ Compteur rattaché automatiquement au site « ${match.site.nom} »`)
+      setSiteResolu(match.site)
+      setSiteMessage(`✓ Compteur(s) rattaché(s) automatiquement au site « ${match.site.nom} »`)
+      setStep('pdl')
     } else if (match.kind === 'ambiguous') {
       setCandidats(match.candidates)
       setChoixSiteId(match.candidates[0]?.id ?? '')
       setStep('ambigu')
     } else {
       setSubmitting(true)
-      const nomNouveauSite = libelleSite.trim() || ville.trim() || 'Nouveau site'
-      const result = await createSite.mutateAsync({
-        nom: nomNouveauSite,
-        compte_id: compte.id,
-        compte_nom: compte.nom,
-        type_site_id: null,
-        type_site_libelle: '',
-        ville,
-        code_postal: codePostal,
-      })
-      await creerCompteurSurSite(result.site, `✓ Nouveau site « ${nomNouveauSite} » créé automatiquement`)
+      const site = await resoudreEtCreerSite()
+      setSubmitting(false)
+      setSiteResolu(site)
+      setSiteMessage(`✓ Nouveau site « ${site.nom} » créé automatiquement`)
+      setStep('pdl')
     }
   }
 
   async function handleConfirmAmbigu() {
-    setSubmitting(true)
     if (choixSiteId === '__nouveau__') {
-      const nomNouveauSite = libelleSite.trim() || ville.trim() || 'Nouveau site'
-      const result = await createSite.mutateAsync({
-        nom: nomNouveauSite,
-        compte_id: compte.id,
-        compte_nom: compte.nom,
-        type_site_id: null,
-        type_site_libelle: '',
-        ville,
-        code_postal: codePostal,
-      })
-      await creerCompteurSurSite(result.site, `✓ Nouveau site « ${nomNouveauSite} » créé automatiquement`)
+      setSubmitting(true)
+      const site = await resoudreEtCreerSite()
+      setSubmitting(false)
+      setSiteResolu(site)
+      setSiteMessage(`✓ Nouveau site « ${site.nom} » créé automatiquement`)
+      setStep('pdl')
     } else {
       const site = candidats.find((s) => s.id === choixSiteId)
       if (!site) return
-      await creerCompteurSurSite(site, `✓ Compteur rattaché au site « ${site.nom} »`)
+      setSiteResolu(site)
+      setSiteMessage(`✓ Compteur(s) rattaché(s) au site « ${site.nom} »`)
+      setStep('pdl')
     }
+  }
+
+  async function handleSubmitPdl(e: React.FormEvent) {
+    e.preventDefault()
+    if (!siteResolu) return
+    setSubmitting(true)
+    let created = 0
+    for (const d of drafts) {
+      if (d.status === 'saved') continue
+      const energieChoisie = energies.find((en) => en.id === d.typeEnergieId)
+      const typeEnergie = (energieChoisie?.code?.toLowerCase() === 'gaz' ? 'gaz' : 'electricite') as 'electricite' | 'gaz'
+      const fournisseur = fournisseurs.find((f) => f.id === d.fournisseurActuelId)
+      const responsable = contactsDuCompte.find((c) => c.id === d.responsableContactId)
+      patchDraft(d.key, { status: 'saving' })
+      try {
+        await createCompteur.mutateAsync({
+          site_id: siteResolu.id,
+          site_nom: siteResolu.nom,
+          type_energie_id: d.typeEnergieId || null,
+          type_energie: typeEnergie,
+          numero_pdl: d.numeroPdl,
+          utilisation: d.utilisation,
+          type_utilisation_compteur_id: d.typeUtilisationId || null,
+          date_echeance: d.dateEcheance || null,
+          fournisseur_actuel_compte_id: d.fournisseurActuelId || null,
+          fournisseur_actuel_nom: fournisseur?.nom ?? null,
+          responsable_contact_id: d.responsableContactId || null,
+          responsable_contact_nom: responsable ? `${responsable.prenom} ${responsable.nom}` : null,
+        })
+        patchDraft(d.key, { status: 'saved' })
+        created += 1
+      } catch (err) {
+        patchDraft(d.key, { status: 'error', errorMessage: err instanceof Error ? err.message : 'Erreur inconnue' })
+      }
+    }
+    setSubmitting(false)
+    if (created > 0) onSaved(`${siteMessage}${created > 1 ? ` (${created} PDL)` : ''}`)
+    setDrafts((prev) => {
+      if (prev.every((d) => d.status === 'saved')) {
+        setTimeout(() => { reset(); onClose() }, 600)
+      }
+      return prev
+    })
   }
 
   return (
@@ -1548,28 +1595,26 @@ function AddCompteurAutoSiteDialog({
       open={open}
       onClose={() => { reset(); onClose() }}
       title="Nouveau compteur"
+      className="max-w-xl"
       description={
-        step === 'form'
+        step === 'adresse'
           ? "Kimatch retrouve ou crée automatiquement le site correspondant à partir de l'adresse."
-          : 'Plusieurs sites existants pourraient correspondre — confirme le bon rattachement.'
+          : step === 'ambigu'
+            ? 'Plusieurs sites existants pourraient correspondre — confirme le bon rattachement.'
+            : `Site : ${siteResolu?.nom}`
       }
     >
-      {step === 'form' && (
-        <form onSubmit={handleSubmit} className="space-y-3">
-          <FormField label="Type d'énergie">
-            <Select value={typeEnergieId} onChange={(e) => setTypeEnergieId(e.target.value)} required>
-              <option value="">Sélectionner…</option>
-              {energies.map((en) => <option key={en.id} value={en.id}>{en.libelle}</option>)}
-            </Select>
-          </FormField>
-          <FormField label={typeEnergie === 'electricite' ? 'Numéro de PDL' : 'Numéro de PCE'}>
-            <Input value={numeroPdl} onChange={(e) => setNumeroPdl(e.target.value)} required placeholder="Ex. 30001234567890" />
-          </FormField>
-          <FormField label="Utilisation">
-            <Input value={utilisation} onChange={(e) => setUtilisation(e.target.value)} placeholder="Ex. Parties communes, Chaufferie…" />
-          </FormField>
+      {step === 'adresse' && (
+        <form onSubmit={handleSubmitAdresse} className="space-y-3">
           <FormField label="Libellé du site (si connu)">
             <Input value={libelleSite} onChange={(e) => setLibelleSite(e.target.value)} placeholder="Ex. Résidence Les Tilleuls" />
+          </FormField>
+          <FormField label="Adresse">
+            <AddressAutocomplete
+              value={adresse}
+              onChange={setAdresse}
+              onSelect={(a) => { setAdresse(a.rue ?? a.label); if (a.codePostal) setCodePostal(a.codePostal); if (a.ville) setVille(a.ville) }}
+            />
           </FormField>
           <div className="grid grid-cols-2 gap-3">
             <FormField label="Ville">
@@ -1602,10 +1647,32 @@ function AddCompteurAutoSiteDialog({
             </label>
           </div>
           <div className="flex justify-end gap-2 pt-2">
-            <Button type="button" variant="ghost" onClick={() => setStep('form')}>Retour</Button>
+            <Button type="button" variant="ghost" onClick={() => setStep('adresse')}>Retour</Button>
             <Button type="button" disabled={submitting || !choixSiteId} onClick={handleConfirmAmbigu}>Confirmer</Button>
           </div>
         </div>
+      )}
+
+      {step === 'pdl' && (
+        <form onSubmit={handleSubmitPdl} className="max-h-[70vh] space-y-4 overflow-y-auto pr-1">
+          <PdlDraftRows
+            drafts={drafts}
+            onChange={patchDraft}
+            onRemove={(key) => setDrafts((prev) => prev.filter((d) => d.key !== key))}
+            onAdd={() => setDrafts((prev) => [...prev, emptyPdlDraft()])}
+            energies={energies}
+            utilisationsRef={utilisationsRef}
+            fournisseurs={fournisseurs}
+            contacts={contactsDuCompte}
+            existingCompteurs={compteurs ?? []}
+          />
+          <div className="flex justify-end gap-2 border-t border-navy-100 pt-3">
+            <Button type="button" variant="ghost" onClick={() => { reset(); onClose() }}>Fermer</Button>
+            <Button type="submit" disabled={submitting || drafts.every((d) => d.status === 'saved')}>
+              {drafts.length > 1 ? `Créer les ${drafts.length} PDL` : 'Créer le PDL'}
+            </Button>
+          </div>
+        </form>
       )}
     </Dialog>
   )

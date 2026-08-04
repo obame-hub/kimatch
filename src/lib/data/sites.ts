@@ -3,6 +3,7 @@ import { supabase } from '@/lib/supabase'
 import type { Site } from '@/types/domain'
 import { fetchComptesVisibles, filterVisibles } from '@/lib/data/visibility'
 import { fetchAllRows } from '@/lib/data/paginatedFetch'
+import { toUpperFR } from '@/lib/textFormat'
 
 interface RawSite {
   id: string
@@ -109,6 +110,7 @@ interface CreateSiteInput {
   compte_nom: string
   type_site_id: string | null
   type_site_libelle: string
+  adresse?: string
   ville: string
   code_postal: string
 }
@@ -130,7 +132,7 @@ export function useCreateSite() {
         compte_id: input.compte_id,
         compte_nom: input.compte_nom,
         type_site: input.type_site_libelle,
-        adresse: '',
+        adresse: toUpperFR(input.adresse),
         ville: input.ville,
         code_postal: input.code_postal,
         latitude: null,
@@ -149,6 +151,7 @@ export function useCreateSite() {
         .insert({
           nom: input.nom,
           compte_id: input.compte_id,
+          adresse: toUpperFR(input.adresse) || null,
           ville: input.ville,
           code_postal: input.code_postal,
           actif: true,
@@ -170,6 +173,7 @@ export function useCreateSite() {
 export interface UpdateSiteInput {
   id: string
   nom: string
+  adresse: string
   ville: string
   code_postal: string
   type_site_id: string | null
@@ -189,6 +193,7 @@ export function useUpdateSite() {
         .from('sites')
         .update({
           nom: input.nom,
+          adresse: toUpperFR(input.adresse) || null,
           ville: input.ville,
           code_postal: input.code_postal,
           annee_construction: input.annee_construction,

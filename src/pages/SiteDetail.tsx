@@ -9,6 +9,8 @@ import { PhoneLink, EmailLink } from '@/components/ui/contact-link'
 import { Dialog } from '@/components/ui/dialog'
 import { FormField, Input, Select } from '@/components/ui/form'
 import { HistoriqueDiscret } from '@/components/ui/historique-discret'
+import { AddressAutocomplete } from '@/components/ui/address-autocomplete'
+import { PdlDraftRows, emptyPdlDraft, type PdlDraft } from '@/components/compteur/PdlDraftRows'
 import { useSites, useUpdateSite, useDeleteSite } from '@/lib/data/sites'
 import { useReferenceTable } from '@/lib/data/referenceTables'
 import {
@@ -715,7 +717,8 @@ export default function SiteDetail() {
         onClose={() => setAddCompteurOpen(false)}
         siteId={site.id}
         siteNom={site.nom}
-        onSaved={() => showToast('✓ Compteur ajouté')}
+        compteId={site.compte_id}
+        onSaved={(message) => showToast(message)}
       />
 
       <Dialog
@@ -743,6 +746,7 @@ function EditSiteDialog({ open, onClose, site, onSaved }: { open: boolean; onClo
   const { data: profilsAdmin } = useProfilsAdmin()
 
   const [nom, setNom] = useState(site.nom)
+  const [adresse, setAdresse] = useState(site.adresse)
   const [ville, setVille] = useState(site.ville)
   const [codePostal, setCodePostal] = useState(site.code_postal)
   const [typeSiteId, setTypeSiteId] = useState('')
@@ -757,6 +761,7 @@ function EditSiteDialog({ open, onClose, site, onSaved }: { open: boolean; onClo
   useEffect(() => {
     if (!open) return
     setNom(site.nom)
+    setAdresse(site.adresse)
     setVille(site.ville)
     setCodePostal(site.code_postal)
     setTypeSiteId('')
@@ -775,6 +780,7 @@ function EditSiteDialog({ open, onClose, site, onSaved }: { open: boolean; onClo
       await updateSite.mutateAsync({
         id: site.id,
         nom,
+        adresse,
         ville,
         code_postal: codePostal,
         type_site_id: typeSiteId || null,
@@ -803,6 +809,13 @@ function EditSiteDialog({ open, onClose, site, onSaved }: { open: boolean; onClo
             <option value="">{site.type_site || 'Sélectionner un type…'}</option>
             {types.map((t) => <option key={t.id} value={t.id}>{t.libelle}</option>)}
           </Select>
+        </FormField>
+        <FormField label="Adresse">
+          <AddressAutocomplete
+            value={adresse}
+            onChange={setAdresse}
+            onSelect={(a) => { setAdresse(a.rue ?? a.label); if (a.codePostal) setCodePostal(a.codePostal); if (a.ville) setVille(a.ville) }}
+          />
         </FormField>
         <div className="grid grid-cols-2 gap-3">
           <FormField label="Ville">
@@ -917,85 +930,100 @@ function AddCompteurDialog({
   onClose,
   siteId,
   siteNom,
+  compteId,
   onSaved,
 }: {
   open: boolean
   onClose: () => void
   siteId: string
   siteNom: string
-  onSaved: () => void
+  compteId: string
+  onSaved: (message: string) => void
 }) {
   const { data: energiesRef } = useReferenceTable('types_energies')
   const energies = energiesRef && energiesRef.length > 0 ? energiesRef : FALLBACK_TYPES_ENERGIES
   const { data: utilisationsRef } = useReferenceTable('types_utilisations_compteur')
+  const { data: comptes } = useComptes()
+  const { data: contacts } = useContacts()
+  const { data: compteurs } = useCompteurs()
   const createCompteur = useCreateCompteur()
 
-  const [numeroPdl, setNumeroPdl] = useState('')
-  const [utilisation, setUtilisation] = useState('')
-  const [typeEnergieId, setTypeEnergieId] = useState('')
-  const [typeUtilisationId, setTypeUtilisationId] = useState('')
-  const [feedback, setFeedback] = useState<string | null>(null)
+  const [drafts, setDrafts] = useState<PdlDraft[]>([emptyPdlDraft()])
+  const [submitting, setSubmitting] = useState(false)
+
+  const fournisseurs = (comptes ?? []).filter((c) => c.type_compte === 'fournisseur')
+  const contactsDuCompte = (contacts ?? []).filter((c) => c.compte_id === compteId)
 
   function reset() {
-    setNumeroPdl('')
-    setUtilisation('')
-    setTypeEnergieId('')
-    setTypeUtilisationId('')
-    setFeedback(null)
+    setDrafts([emptyPdlDraft()])
+    setSubmitting(false)
   }
 
-  const energieChoisie = energies.find((e) => e.id === typeEnergieId)
-  const estElectricite = (energieChoisie?.code ?? '').toLowerCase() === 'electricite'
+  function patchDraft(key: string, patch: Partial<PdlDraft>) {
+    setDrafts((prev) => prev.map((d) => (d.key === key ? { ...d, ...patch } : d)))
+  }
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
-    const typeEnergie = (energieChoisie?.code?.toLowerCase() === 'gaz' ? 'gaz' : 'electricite') as 'electricite' | 'gaz'
-    const result = await createCompteur.mutateAsync({
-      site_id: siteId,
-      site_nom: siteNom,
-      type_energie_id: typeEnergieId || null,
-      type_energie: typeEnergie,
-      numero_pdl: numeroPdl,
-      utilisation,
-      type_utilisation_compteur_id: typeUtilisationId || null,
-    })
-    onSaved()
-    if (!result.persisted) {
-      setFeedback('Ajouté localement (non synchronisé avec Supabase).')
-      setTimeout(() => { reset(); onClose() }, 700)
-    } else {
-      reset()
-      onClose()
+    setSubmitting(true)
+    let created = 0
+    for (const d of drafts) {
+      if (d.status === 'saved') continue
+      const energieChoisie = energies.find((en) => en.id === d.typeEnergieId)
+      const typeEnergie = (energieChoisie?.code?.toLowerCase() === 'gaz' ? 'gaz' : 'electricite') as 'electricite' | 'gaz'
+      const fournisseur = fournisseurs.find((f) => f.id === d.fournisseurActuelId)
+      const responsable = contactsDuCompte.find((c) => c.id === d.responsableContactId)
+      patchDraft(d.key, { status: 'saving' })
+      try {
+        await createCompteur.mutateAsync({
+          site_id: siteId,
+          site_nom: siteNom,
+          type_energie_id: d.typeEnergieId || null,
+          type_energie: typeEnergie,
+          numero_pdl: d.numeroPdl,
+          utilisation: d.utilisation,
+          type_utilisation_compteur_id: d.typeUtilisationId || null,
+          date_echeance: d.dateEcheance || null,
+          fournisseur_actuel_compte_id: d.fournisseurActuelId || null,
+          fournisseur_actuel_nom: fournisseur?.nom ?? null,
+          responsable_contact_id: d.responsableContactId || null,
+          responsable_contact_nom: responsable ? `${responsable.prenom} ${responsable.nom}` : null,
+        })
+        patchDraft(d.key, { status: 'saved' })
+        created += 1
+      } catch (err) {
+        patchDraft(d.key, { status: 'error', errorMessage: err instanceof Error ? err.message : 'Erreur inconnue' })
+      }
     }
+    setSubmitting(false)
+    if (created > 0) onSaved(created > 1 ? `✓ ${created} compteurs ajoutés` : '✓ Compteur ajouté')
+    setDrafts((prev) => {
+      if (prev.every((d) => d.status === 'saved')) {
+        setTimeout(() => { reset(); onClose() }, 600)
+      }
+      return prev
+    })
   }
 
   return (
-    <Dialog open={open} onClose={() => { reset(); onClose() }} title="Ajouter un compteur" description="Rattacher un nouveau point de livraison à ce site.">
-      <form onSubmit={handleSubmit} className="space-y-3">
-        <FormField label="Type d'énergie">
-          <Select value={typeEnergieId} onChange={(e) => { setTypeEnergieId(e.target.value); setTypeUtilisationId('') }} required>
-            <option value="">Sélectionner…</option>
-            {energies.map((en) => <option key={en.id} value={en.id}>{en.libelle}</option>)}
-          </Select>
-        </FormField>
-        <FormField label={estElectricite ? 'Numéro de PDL' : 'Numéro de PCE'}>
-          <Input value={numeroPdl} onChange={(e) => setNumeroPdl(e.target.value)} required placeholder="Ex. 30001234567890" />
-        </FormField>
-        <FormField label="Utilisation">
-          <Input value={utilisation} onChange={(e) => setUtilisation(e.target.value)} placeholder="Ex. Parties communes, Chaufferie…" />
-        </FormField>
-        {estElectricite && utilisationsRef && utilisationsRef.length > 0 && (
-          <FormField label="Type d'utilisation (CU/MU/LU)">
-            <Select value={typeUtilisationId} onChange={(e) => setTypeUtilisationId(e.target.value)}>
-              <option value="">Non renseigné</option>
-              {utilisationsRef.map((u) => <option key={u.id} value={u.id}>{u.libelle}</option>)}
-            </Select>
-          </FormField>
-        )}
-        {feedback && <p className="text-xs text-navy-500">{feedback}</p>}
-        <div className="flex justify-end gap-2 pt-2">
-          <Button type="button" variant="ghost" onClick={() => { reset(); onClose() }}>Annuler</Button>
-          <Button type="submit" disabled={createCompteur.isPending}>Ajouter</Button>
+    <Dialog open={open} onClose={() => { reset(); onClose() }} title="Ajouter un ou plusieurs compteurs" description="Rattacher un ou plusieurs points de livraison à ce site." className="max-w-xl">
+      <form onSubmit={handleSubmit} className="max-h-[70vh] space-y-4 overflow-y-auto pr-1">
+        <PdlDraftRows
+          drafts={drafts}
+          onChange={patchDraft}
+          onRemove={(key) => setDrafts((prev) => prev.filter((d) => d.key !== key))}
+          onAdd={() => setDrafts((prev) => [...prev, emptyPdlDraft()])}
+          energies={energies}
+          utilisationsRef={utilisationsRef}
+          fournisseurs={fournisseurs}
+          contacts={contactsDuCompte}
+          existingCompteurs={compteurs ?? []}
+        />
+        <div className="flex justify-end gap-2 border-t border-navy-100 pt-3">
+          <Button type="button" variant="ghost" onClick={() => { reset(); onClose() }}>Fermer</Button>
+          <Button type="submit" disabled={submitting || drafts.every((d) => d.status === 'saved')}>
+            {drafts.length > 1 ? `Créer les ${drafts.length} PDL` : 'Créer le PDL'}
+          </Button>
         </div>
       </form>
     </Dialog>

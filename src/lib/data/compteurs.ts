@@ -58,6 +58,7 @@ interface RawCompteur {
   date_modification: string
   fournisseur_actuel_compte_id: string | null
   fournisseur_actuel: { nom: string } | null
+  date_echeance?: string | null
 }
 
 const first = <T>(v: T | T[] | null): T | null => (Array.isArray(v) ? v[0] ?? null : v)
@@ -78,7 +79,10 @@ async function fetchCompteurs(): Promise<Compteur[]> {
   try {
     const data = await fetchAllRows<RawCompteur>(
       'compteurs',
-      'id, site_id, numero_point, libelle, actif, consommation_annuelle_mwh, synchro_eneo, date_derniere_synchro_eneo, proprietaire_id, type_utilisation_compteur_id, responsable_contact_id, contact_conseil_syndical_id, type_energie:types_energies(code), type_utilisation:types_utilisations_compteur(libelle), site:sites(nom), compteurs_electricite(*), compteurs_gaz(*), proprietaire:profils!compteurs_proprietaire_id_fkey(prenom, nom), date_creation, date_modification, fournisseur_actuel_compte_id, fournisseur_actuel:comptes!compteurs_fournisseur_actuel_compte_id_fkey(nom), responsable_contact:contacts!compteurs_responsable_contact_id_fkey(prenom, nom), contact_conseil_syndical:contacts!compteurs_contact_conseil_syndical_id_fkey(prenom, nom)',
+      // `*` plutôt qu'une liste de colonnes fixe : `date_echeance` vient d'être ajoutée par
+      // migration et peut ne pas encore exister en prod au moment du déploiement -- un select
+      // nommé sur une colonne absente ferait échouer la requête (400) pour TOUS les compteurs.
+      '*, type_energie:types_energies(code), type_utilisation:types_utilisations_compteur(libelle), site:sites(nom), compteurs_electricite(*), compteurs_gaz(*), proprietaire:profils!compteurs_proprietaire_id_fkey(prenom, nom), fournisseur_actuel:comptes!compteurs_fournisseur_actuel_compte_id_fkey(nom), responsable_contact:contacts!compteurs_responsable_contact_id_fkey(prenom, nom), contact_conseil_syndical:contacts!compteurs_contact_conseil_syndical_id_fkey(prenom, nom)',
     )
 
     const comptesVisibles = await fetchComptesVisibles()
@@ -110,6 +114,7 @@ async function fetchCompteurs(): Promise<Compteur[]> {
         responsable_contact_nom: c.responsable_contact ? `${c.responsable_contact.prenom} ${c.responsable_contact.nom}` : null,
         contact_conseil_syndical_id: c.contact_conseil_syndical_id,
         contact_conseil_syndical_nom: c.contact_conseil_syndical ? `${c.contact_conseil_syndical.prenom} ${c.contact_conseil_syndical.nom}` : null,
+        date_echeance: c.date_echeance ?? null,
         ...(elec
           ? {
               segment: elec.segment,
@@ -163,9 +168,27 @@ interface CreateCompteurInput {
   utilisation: string
   type_utilisation_compteur_id?: string | null
   consommation_annuelle_mwh?: number | null
+  date_echeance?: string | null
+  fournisseur_actuel_compte_id?: string | null
+  fournisseur_actuel_nom?: string | null
+  responsable_contact_id?: string | null
+  responsable_contact_nom?: string | null
   grdElec?: GrdElecData
   grdGaz?: GrdGazData
 }
+
+/** Dédoublonnage par égalité EXACTE du numéro de PDL (pas de normalisation) -- même règle que
+ * Tools. Simple alerte non bloquante, jamais un blocage dur. */
+export function findCompteurByNumero(compteurs: Compteur[], numeroPdl: string): Compteur | null {
+  const n = numeroPdl.trim()
+  if (!n) return null
+  return compteurs.find((c) => c.numero_pdl === n) ?? null
+}
+
+/** Format PDL (14 chiffres, PRM électricité) ou PCE gaz (`GI` + 6 chiffres) -- même regex que
+ * Tools, mais toujours en alerte visible, jamais en blocage (contrairement au chemin extraction
+ * IA de Tools qui bloque dur sur ce même motif). */
+export const PDL_FORMAT_RE = /^(\d{14}|GI\d{6})$/
 
 interface CreateCompteurResult {
   compteur: Compteur
@@ -203,6 +226,11 @@ export function useCreateCompteur() {
         synchro_eneo: synchro,
         date_derniere_synchro_eneo: now,
         proprietaire_id: null,
+        date_echeance: input.date_echeance ?? null,
+        fournisseur_actuel_compte_id: input.fournisseur_actuel_compte_id ?? null,
+        fournisseur_actuel_nom: input.fournisseur_actuel_nom ?? null,
+        responsable_contact_id: input.responsable_contact_id ?? null,
+        responsable_contact_nom: input.responsable_contact_nom ?? null,
         ...(input.grdElec ? { segment: input.grdElec.segment, tension: input.grdElec.tension, tarif_distribution: input.grdElec.tarif_distribution, consoParClasseMwh: input.grdElec.consoParClasseMwh, puissanceParClasseKva: input.grdElec.puissanceParClasseKva } : {}),
         ...(input.grdGaz ? { car_mwh: input.grdGaz.car_mwh, profil_consommation: input.grdGaz.profil_consommation, tarif_distribution: input.grdGaz.tarif_distribution, zone_tarifaire: input.grdGaz.zone_tarifaire } : {}),
       }
@@ -218,6 +246,9 @@ export function useCreateCompteur() {
           synchro_eneo: synchro,
           date_derniere_synchro_eneo: now,
           type_utilisation_compteur_id: input.type_utilisation_compteur_id ?? null,
+          date_echeance: input.date_echeance ?? null,
+          fournisseur_actuel_compte_id: input.fournisseur_actuel_compte_id ?? null,
+          responsable_contact_id: input.responsable_contact_id ?? null,
           ...(input.type_energie_id ? { type_energie_id: input.type_energie_id } : {}),
         })
         .select('id')
