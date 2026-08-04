@@ -99,9 +99,9 @@ export function buildSearchIndex(data: SearchDatasets): SearchEntry[] {
       kind: 'mandat',
       id: m.id,
       label: `Mandat ${m.compte_nom}`,
-      sublabel: m.contact_signataire_nom || m.statut,
+      sublabel: m.id_salesforce || m.contact_signataire_nom || m.statut,
       to: `/mandats/${m.id}`,
-      fields: [m.compte_nom, m.contact_signataire_nom ?? ''],
+      fields: [m.compte_nom, m.contact_signataire_nom ?? '', m.id_salesforce ?? ''],
     })
   }
   for (const r of data.recommandations ?? []) {
@@ -119,9 +119,9 @@ export function buildSearchIndex(data: SearchDatasets): SearchEntry[] {
       kind: 'contrat',
       id: c.id,
       label: c.fournisseur_nom,
-      sublabel: c.site_nom,
+      sublabel: c.id_salesforce ? `${c.id_salesforce} · ${c.site_nom}` : c.site_nom,
       to: `/contrats/${c.id}`,
-      fields: [c.fournisseur_nom, c.site_nom, c.reference_fournisseur ?? ''],
+      fields: [c.fournisseur_nom, c.site_nom, c.reference_fournisseur ?? '', c.id_salesforce ?? ''],
     })
   }
   for (const d of data.documents ?? []) {
