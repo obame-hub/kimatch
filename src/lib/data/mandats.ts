@@ -6,6 +6,7 @@ import { fetchAllRows } from '@/lib/data/paginatedFetch'
 
 interface RawMandat {
   id: string
+  id_salesforce: string | null
   compte_id: string
   date_signature: string | null
   date_envoi: string | null
@@ -27,7 +28,7 @@ async function fetchMandats(): Promise<Mandat[]> {
     const [mandats, compteursRows, courtiersRows] = await Promise.all([
       fetchAllRows<RawMandat>(
         'mandats',
-        'id, compte_id, date_signature, date_envoi, date_debut_validite, date_fin_validite, contact_signataire_id, docusign_envelope_id, proprietaire_id, compte:comptes(nom), statut:statuts_mandats(code), contact_signataire:contacts(prenom, nom), proprietaire:profils!mandats_proprietaire_id_fkey(prenom, nom), date_creation, date_modification',
+        'id, id_salesforce, compte_id, date_signature, date_envoi, date_debut_validite, date_fin_validite, contact_signataire_id, docusign_envelope_id, proprietaire_id, compte:comptes(nom), statut:statuts_mandats(code), contact_signataire:contacts(prenom, nom), proprietaire:profils!mandats_proprietaire_id_fkey(prenom, nom), date_creation, date_modification',
       ),
       fetchAllRows<{ mandat_id: string; compteur: { id: string; site_id: string } | null }>('mandats_compteurs', 'mandat_id, compteur:compteurs(id, site_id)'),
       fetchAllRows<{ mandat_id: string; type_courtier: { code: string } | null }>('mandats_courtiers', 'mandat_id, type_courtier:types_courtiers_mandat(code)'),
@@ -58,6 +59,7 @@ async function fetchMandats(): Promise<Mandat[]> {
 
     return filterVisibles(mandats, comptesVisibles, (m) => m.compte_id).map((m) => ({
       id: m.id,
+      id_salesforce: m.id_salesforce,
       compte_id: m.compte_id,
       compte_nom: m.compte?.nom ?? '',
       statut: m.statut?.code ?? '',
@@ -113,6 +115,7 @@ export function useCreateMandat() {
       const siteIds = [...new Set(input.compteurs.map((c) => c.site_id))]
       let mandat: Mandat = {
         id: `local-${Date.now()}`,
+        id_salesforce: null,
         compte_id: input.compte_id,
         compte_nom: input.compte_nom,
         statut: 'A_PREPARER',

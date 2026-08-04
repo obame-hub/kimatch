@@ -8,6 +8,7 @@ import { fetchAllRows } from '@/lib/data/paginatedFetch'
 
 interface RawContrat {
   id: string
+  id_salesforce: string | null
   compte_id: string | null
   site_id: string | null
   fournisseur_compte_id: string | null
@@ -47,7 +48,7 @@ async function fetchContrats(): Promise<Contrat[]> {
     const [contrats, compteursRows] = await Promise.all([
       fetchAllRows<RawContrat>(
         'contrats',
-        'id, compte_id, site_id, fournisseur_compte_id, reference_fournisseur, date_debut, date_fin, preavis_resiliation_jours, proprietaire_id, docusign_envelope_id, date_envoi_signature, date_signature, statut_signature, contact_signataire_id, prix_molecule_eur_mwh, type_prix, clause_tacite_reconduction, clause_renegociation_anticipee, clause_engagement_consommation, clause_energie_verte, clause_indexation_prix, clause_penalites_resiliation, interlocuteur_pricing_contact_id, site:sites(nom), fournisseur:comptes!contrats_fournisseur_compte_id_fkey(nom), compte:comptes!contrats_compte_id_fkey(nom), type_energie:types_energies(code), statut:statuts_contrats(code), contact_signataire:contacts!contrats_contact_signataire_id_fkey(prenom, nom), interlocuteur_pricing:contacts!contrats_interlocuteur_pricing_contact_id_fkey(prenom, nom), proprietaire:profils!contrats_proprietaire_id_fkey(prenom, nom), date_creation, date_modification',
+        'id, id_salesforce, compte_id, site_id, fournisseur_compte_id, reference_fournisseur, date_debut, date_fin, preavis_resiliation_jours, proprietaire_id, docusign_envelope_id, date_envoi_signature, date_signature, statut_signature, contact_signataire_id, prix_molecule_eur_mwh, type_prix, clause_tacite_reconduction, clause_renegociation_anticipee, clause_engagement_consommation, clause_energie_verte, clause_indexation_prix, clause_penalites_resiliation, interlocuteur_pricing_contact_id, site:sites(nom), fournisseur:comptes!contrats_fournisseur_compte_id_fkey(nom), compte:comptes!contrats_compte_id_fkey(nom), type_energie:types_energies(code), statut:statuts_contrats(code), contact_signataire:contacts!contrats_contact_signataire_id_fkey(prenom, nom), interlocuteur_pricing:contacts!contrats_interlocuteur_pricing_contact_id_fkey(prenom, nom), proprietaire:profils!contrats_proprietaire_id_fkey(prenom, nom), date_creation, date_modification',
         (q) => q.order('date_debut', { ascending: false }),
       ),
       fetchAllRows<{ id: string; contrat_id: string; compteur: { id: string; numero_point: string; libelle: string | null } | null }>(
@@ -70,6 +71,7 @@ async function fetchContrats(): Promise<Contrat[]> {
 
     return filterVisibles(contrats, comptesVisibles, (c) => c.compte_id).map((c) => ({
       id: c.id,
+      id_salesforce: c.id_salesforce,
       compte_id: c.compte_id,
       compte_nom: c.compte?.nom ?? '',
       site_id: c.site_id,
@@ -153,6 +155,7 @@ export function useCreateContrat() {
       }
       let contrat: Contrat = {
         id: `local-${Date.now()}`,
+        id_salesforce: null,
         compte_id: compteId,
         site_id: input.site_id,
         site_nom: input.site_nom,

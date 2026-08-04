@@ -166,7 +166,7 @@ export default function Mandats() {
   const mandatsFiltresParStatut = statutFilter ? mandats?.filter((m) => m.statut === statutFilter) : mandats
 
   const { query, setQuery, sortKey, setSortKey, items: filteredMandats } = useListControls(mandatsFiltresParStatut, {
-    searchFields: (m) => [m.compte_nom],
+    searchFields: (m) => [m.compte_nom, m.id_salesforce],
     sorters: {
       compte_nom: (a, b) => a.compte_nom.localeCompare(b.compte_nom),
       date_signature: (a, b) => (a.date_signature ?? '').localeCompare(b.date_signature ?? ''),
@@ -220,9 +220,12 @@ export default function Mandats() {
                     <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-amber-100 text-amber-600">
                       <FileCheck2 className="h-4 w-4" />
                     </span>
-                    <p className="font-display font-medium text-navy-800">
-                      <EntityLink to={`/comptes/${m.compte_id}`}>{m.compte_nom}</EntityLink>
-                    </p>
+                    <div>
+                      {m.id_salesforce && <p className="font-mono text-[11px] text-navy-400">{m.id_salesforce}</p>}
+                      <p className="font-display font-medium text-navy-800">
+                        <EntityLink to={`/comptes/${m.compte_id}`}>{m.compte_nom}</EntityLink>
+                      </p>
+                    </div>
                   </div>
                   <Badge tone={STATUT_MANDAT_TONE[m.statut] ?? 'neutral'}>{label}</Badge>
                 </div>

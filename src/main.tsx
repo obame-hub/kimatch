@@ -34,6 +34,12 @@ createRoot(document.getElementById('root')!).render(
   </StrictMode>,
 )
 
+// Titre d'onglet distinct sur la sandbox (meme VITE_ENV_LABEL que SandboxBanner) -- pour ne pas
+// confondre les deux quand prod et sandbox sont ouvertes en meme temps dans le navigateur.
+if (import.meta.env.VITE_ENV_LABEL === 'sandbox') {
+  document.title = 'Sandbox Kimatch'
+}
+
 // Uniquement en production : en dev, un service worker interfère avec le hot-reload de Vite.
 if (import.meta.env.PROD && 'serviceWorker' in navigator) {
   window.addEventListener('load', () => {

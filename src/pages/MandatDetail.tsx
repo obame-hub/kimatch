@@ -25,6 +25,10 @@ import type { Mandat, DocumentItem, Contact } from '@/types/domain'
 
 type TabKey = 'mandat' | 'perimetre' | 'fichiers'
 
+// Le code de reference reste 'KIWI' en base (cle utilisee par tout le pipeline d'import), seul
+// le libelle affiche change -- renommer le code casserait les jointures existantes pour rien.
+const COURTIER_LABEL: Record<string, string> = { KIWI: 'KIWEE', ENERGIX: 'Energix' }
+
 function EnvoyerSignatureDialog({
   open,
   onClose,
@@ -310,6 +314,7 @@ export default function MandatDetail() {
           <p className="truncate text-[10.5px] text-navy-400">
             {mandat.date_creation && <>Créé le {new Date(mandat.date_creation).toLocaleDateString('fr-FR')} · </>}
             Propriétaire : {mandat.proprietaire_nom || 'Aucun'}
+            {mandat.id_salesforce && <> · <span className="font-mono">{mandat.id_salesforce}</span> (temporaire, pour contrôle)</>}
           </p>
         </div>
         <div className="flex gap-1.5">
@@ -427,7 +432,7 @@ export default function MandatDetail() {
                 </div>
                 <div>
                   <p className="mb-0.5 text-[10px] uppercase tracking-wide text-navy-400">Courtiers couverts</p>
-                  <p className="text-xs font-semibold text-navy-800">{mandat.courtier_codes.length > 0 ? mandat.courtier_codes.join(', ') : '—'}</p>
+                  <p className="text-xs font-semibold text-navy-800">{mandat.courtier_codes.length > 0 ? mandat.courtier_codes.map((code) => COURTIER_LABEL[code] ?? code).join(', ') : '—'}</p>
                 </div>
                 {mandat.docusign_envelope_id && (
                   <div className="sm:col-span-2">

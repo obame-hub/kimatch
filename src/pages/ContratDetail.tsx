@@ -404,6 +404,7 @@ export default function ContratDetail() {
           <p className="truncate text-[10.5px] text-navy-400">
             {contrat.date_creation && <>Créé le {new Date(contrat.date_creation).toLocaleDateString('fr-FR')} · </>}
             Propriétaire : {contrat.proprietaire_nom || 'Aucun'}
+            {contrat.id_salesforce && <> · <span className="font-mono">{contrat.id_salesforce}</span> (temporaire, pour contrôle)</>}
           </p>
         </div>
         {canManage && (

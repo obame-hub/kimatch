@@ -179,6 +179,7 @@ export interface ActionItem {
 
 export interface Mandat {
   id: string
+  id_salesforce: string | null
   compte_id: string
   compte_nom: string
   statut: string
@@ -384,6 +385,7 @@ export interface Interaction {
 
 export interface Contrat {
   id: string
+  id_salesforce: string | null
   /** Lien direct et independant vers le compte (decision Michel/William 31/07/2026) --
    * source de verite de "a quel compte appartient ce contrat", pas site_id. */
   compte_id: string | null

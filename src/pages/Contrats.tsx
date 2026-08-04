@@ -194,7 +194,7 @@ export default function Contrats() {
   const contratsFiltresParStatut = statutFilter ? contrats?.filter((c) => c.statut === statutFilter) : contrats
 
   const { query, setQuery, sortKey, setSortKey, items: filteredContrats } = useListControls(contratsFiltresParStatut, {
-    searchFields: (c) => [c.fournisseur_nom, c.site_nom, c.reference_fournisseur],
+    searchFields: (c) => [c.fournisseur_nom, c.site_nom, c.reference_fournisseur, c.id_salesforce],
     sorters: {
       site_nom: (a, b) => a.site_nom.localeCompare(b.site_nom),
       fournisseur_nom: (a, b) => a.fournisseur_nom.localeCompare(b.fournisseur_nom),
@@ -246,7 +246,10 @@ export default function Contrats() {
                     <span className={cn('flex h-8 w-8 items-center justify-center rounded-lg', c.type_energie === 'gaz' ? 'bg-amber-100 text-amber-600' : 'bg-sky-100 text-sky-500')}>
                       <Icon className="h-4 w-4" />
                     </span>
-                    <p className="font-display font-medium text-navy-800">{c.fournisseur_nom}</p>
+                    <div>
+                      {c.id_salesforce && <p className="font-mono text-[11px] text-navy-400">{c.id_salesforce}</p>}
+                      <p className="font-display font-medium text-navy-800">{c.fournisseur_nom}</p>
+                    </div>
                   </div>
                   <Badge tone={STATUT_CONTRAT_TONE[c.statut] ?? 'neutral'}>{label}</Badge>
                 </div>
