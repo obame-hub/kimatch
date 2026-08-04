@@ -1,5 +1,5 @@
-import { useMemo, useState } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useEffect, useMemo, useState } from 'react'
+import { useNavigate, useSearchParams } from 'react-router-dom'
 import { Plus, User, Star, AlertTriangle, CheckCircle2 } from 'lucide-react'
 import { Topbar } from '@/components/layout/Topbar'
 import { PageHeader } from '@/components/ui/page-header'
@@ -27,7 +27,7 @@ const DUPLICATE_FIELD_LABEL: Record<ContactDuplicate['fields'][number], string> 
   fullName: 'même nom complet',
 }
 
-function CreateContactDialog({ open, onClose }: { open: boolean; onClose: () => void }) {
+function CreateContactDialog({ open, onClose, initialCompteId }: { open: boolean; onClose: () => void; initialCompteId?: string }) {
   const { data: comptes } = useComptes()
   const { data: sites } = useSites()
   const { data: allContacts } = useContacts()
@@ -37,7 +37,12 @@ function CreateContactDialog({ open, onClose }: { open: boolean; onClose: () => 
 
   const [step, setStep] = useState<'form' | 'pdl'>('form')
   const [createdContact, setCreatedContact] = useState<Contact | null>(null)
-  const [compteId, setCompteId] = useState('')
+  const [compteId, setCompteId] = useState(initialCompteId ?? '')
+
+  useEffect(() => {
+    if (open && initialCompteId) setCompteId(initialCompteId)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open, initialCompteId])
   const [civilite, setCivilite] = useState('')
   const [prenom, setPrenom] = useState('')
   const [nom, setNom] = useState('')
@@ -254,7 +259,17 @@ function CreateContactDialog({ open, onClose }: { open: boolean; onClose: () => 
 export default function Contacts() {
   const { data: contacts, isLoading } = useContacts()
   const navigate = useNavigate()
-  const [showCreate, setShowCreate] = useState(false)
+  const [searchParams, setSearchParams] = useSearchParams()
+  const compteFromUrl = searchParams.get('compte')
+  const [showCreate, setShowCreate] = useState(!!compteFromUrl)
+
+  useEffect(() => {
+    if (compteFromUrl) {
+      setShowCreate(true)
+      setSearchParams((prev) => { prev.delete('compte'); return prev }, { replace: true })
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
 
   const { query, setQuery, sortKey, setSortKey, items: filteredContacts } = useListControls(contacts, {
     searchFields: (c) => [c.prenom, c.nom, c.fonction, c.compte_nom, c.email, c.telephone],
@@ -328,7 +343,7 @@ export default function Contacts() {
           ))}
         </div>
       </div>
-      <CreateContactDialog open={showCreate} onClose={() => setShowCreate(false)} />
+      <CreateContactDialog open={showCreate} onClose={() => setShowCreate(false)} initialCompteId={compteFromUrl ?? undefined} />
     </div>
   )
 }

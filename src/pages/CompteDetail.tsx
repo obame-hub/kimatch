@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
-import { useParams, useNavigate } from 'react-router-dom'
+import { useParams, useNavigate, useSearchParams } from 'react-router-dom'
 import {
   ArrowLeft,
   Phone,
@@ -100,6 +100,7 @@ function copyToClipboard(text: string, onDone: (msg: string) => void) {
 export default function CompteDetail() {
   const { id } = useParams()
   const navigate = useNavigate()
+  const [searchParams, setSearchParams] = useSearchParams()
   const { data: comptes } = useComptes()
   const { data: sites } = useSites()
   const { data: contacts } = useContacts()
@@ -132,6 +133,16 @@ export default function CompteDetail() {
   const [addFichierOpen, setAddFichierOpen] = useState(false)
   const [ficCategorie, setFicCategorie] = useState<string | null>(null)
   const [addCompteurOpen, setAddCompteurOpen] = useState(false)
+
+  // Ouvre automatiquement "Nouveau compteur" quand on arrive depuis l'étape "que faire
+  // maintenant ?" du wizard de création de compte (CompteCreate.tsx).
+  useEffect(() => {
+    if (searchParams.get('action') === 'ajouter-compteur') {
+      setAddCompteurOpen(true)
+      setSearchParams((prev) => { prev.delete('action'); return prev }, { replace: true })
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
 
   function showToast(msg: string) {
     setToast(msg)

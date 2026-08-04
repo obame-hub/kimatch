@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { Building, Users, Briefcase, Handshake, Scale, Zap, Search, Loader2, ArrowRight, ArrowLeft, PencilLine, Award, MapPin, CheckCircle2 } from 'lucide-react'
+import { Building, Users, Briefcase, Handshake, Scale, Zap, Search, Loader2, ArrowRight, ArrowLeft, PencilLine, Award, MapPin, CheckCircle2, UserPlus, Radio } from 'lucide-react'
 import { Topbar } from '@/components/layout/Topbar'
 import { Card } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
@@ -52,6 +52,7 @@ export default function CompteCreate() {
   const [companyPick, setCompanyPick] = useState<CompanyResult | null>(null)
   const [siretError, setSiretError] = useState<string | null>(null)
   const [checkingSiret, setCheckingSiret] = useState(false)
+  const [createdCompte, setCreatedCompte] = useState<{ id: string; nom: string } | null>(null)
 
   const progress = (step / STEPS.length) * 100
   const canNext = step === 1 ? !!segment : step === 2 ? !!(rnicPick || companyPick) : false
@@ -79,7 +80,7 @@ export default function CompteCreate() {
           codePostal: rnicPick.codePostal,
           ville: rnicPick.ville,
         })
-        navigate(`/comptes/${result.compte.id}`)
+        setCreatedCompte({ id: result.compte.id, nom: result.compte.nom })
       } else if (companyPick) {
         const result = await createCompte.mutateAsync({
           segment,
@@ -96,7 +97,7 @@ export default function CompteCreate() {
           scoreEllipro: score.data?.score ?? null,
           scoreElliproScale: score.data?.scale ?? null,
         })
-        navigate(`/comptes/${result.compte.id}`)
+        setCreatedCompte({ id: result.compte.id, nom: result.compte.nom })
       }
     } catch (e) {
       setSiretError(e instanceof Error ? e.message : 'Erreur lors de la création.')
@@ -114,6 +115,17 @@ export default function CompteCreate() {
       if (existing) setSiretError(`Un compte avec le SIRET ${c.siret} existe déjà : « ${existing.nom} ».`)
     }
     if (c.siren) score.mutate(c.siren)
+  }
+
+  if (createdCompte) {
+    return (
+      <div>
+        <Topbar crumb="Comptes" title="Nouveau compte" />
+        <div className="mx-auto max-w-3xl p-4 sm:p-8">
+          <NextStepScreen compte={createdCompte} navigate={navigate} />
+        </div>
+      </div>
+    )
   }
 
   return (
@@ -368,14 +380,37 @@ function CompanySearchStep({
   if (picked) {
     return (
       <Card className="p-5">
-        <div className="flex items-start justify-between gap-3">
-          <div>
-            <Badge tone="kiwi" className="mb-2"><CheckCircle2 className="h-3 w-3" /> Société sélectionnée</Badge>
-            <p className="font-display text-lg font-bold text-navy-800">{toUpperFR(picked.raisonSociale || picked.nomComplet)}</p>
-            {picked.siret && <p className="font-mono text-xs text-navy-400">SIRET {picked.siret}</p>}
-            {(picked.street || picked.city) && <p className="mt-1 text-sm text-navy-500">{toUpperFR(picked.street ?? '')} · {picked.postalCode} {toUpperFR(picked.city ?? '')}</p>}
-          </div>
+        <div className="mb-4 flex items-start justify-between gap-3">
+          <Badge tone="kiwi"><CheckCircle2 className="h-3 w-3" /> Société sélectionnée</Badge>
           <Button variant="ghost" size="sm" onClick={onClear}>Changer</Button>
+        </div>
+        <p className="font-display text-lg font-bold text-navy-800">{toUpperFR(picked.raisonSociale || picked.nomComplet)}</p>
+        <div className="mt-4 grid grid-cols-1 gap-4 sm:grid-cols-2">
+          <div>
+            <p className="mb-1.5 text-[10px] font-semibold uppercase tracking-wide text-navy-400">Identité légale</p>
+            <div className="space-y-0.5 text-sm text-navy-700">
+              <p><span className="text-navy-400">SIREN :</span> {picked.siren}</p>
+              {picked.siret && <p><span className="text-navy-400">SIRET :</span> {picked.siret}</p>}
+              {picked.etatAdministratif && <p><span className="text-navy-400">Statut :</span> <span className={picked.etatAdministratif === 'Actif' ? 'font-medium text-kiwi-700' : 'text-navy-600'}>{picked.etatAdministratif}</span></p>}
+              {picked.formeJuridique && <p><span className="text-navy-400">Forme juridique :</span> {picked.formeJuridique}</p>}
+            </div>
+          </div>
+          <div>
+            <p className="mb-1.5 text-[10px] font-semibold uppercase tracking-wide text-navy-400">Adresse du siège</p>
+            <p className="text-sm text-navy-700">{(picked.street || picked.city) ? <>{toUpperFR(picked.street ?? '')}<br />{picked.postalCode} {toUpperFR(picked.city ?? '')}</> : '—'}</p>
+          </div>
+          <div>
+            <p className="mb-1.5 text-[10px] font-semibold uppercase tracking-wide text-navy-400">Activité</p>
+            <div className="space-y-0.5 text-sm text-navy-700">
+              {picked.codeApe && <p><span className="text-navy-400">Code APE/NAF :</span> {picked.codeApe}</p>}
+              {picked.libelleApe && <p>{picked.libelleApe}</p>}
+              {!picked.codeApe && !picked.libelleApe && <p className="text-navy-400">—</p>}
+            </div>
+          </div>
+          <div>
+            <p className="mb-1.5 text-[10px] font-semibold uppercase tracking-wide text-navy-400">Dirigeant</p>
+            <p className="text-sm text-navy-700">{picked.dirigeant || '—'}</p>
+          </div>
         </div>
         {checkingSiret && <p className="mt-3 flex items-center gap-2 text-xs text-navy-400"><Loader2 className="h-3 w-3 animate-spin" /> Vérification du SIRET…</p>}
         {siretError && <p className="mt-3 rounded-lg bg-red-50 px-3 py-2 text-xs text-red-700">{siretError}</p>}
@@ -578,6 +613,61 @@ function ConfirmStep({
       <Button size="default" className="w-full" onClick={onCreate} disabled={submitting}>
         {submitting ? <><Loader2 className="h-4 w-4 animate-spin" /> Création en cours…</> : <>Créer ce compte <ArrowRight className="h-4 w-4" /></>}
       </Button>
+    </div>
+  )
+}
+
+// ──────────────── Étape 4 : que faire maintenant ────────────────
+
+function NextStepScreen({ compte, navigate }: { compte: { id: string; nom: string }; navigate: ReturnType<typeof useNavigate> }) {
+  return (
+    <div>
+      <div className="mb-6 flex items-center gap-3 rounded-xl border border-kiwi-200 bg-kiwi-50 p-4">
+        <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-kiwi-600 text-white">
+          <CheckCircle2 className="h-5 w-5" />
+        </span>
+        <div>
+          <p className="font-display font-semibold text-navy-900">Compte créé avec succès</p>
+          <p className="text-sm text-navy-600">{compte.nom}</p>
+        </div>
+      </div>
+
+      <p className="mb-3 text-xs font-semibold uppercase tracking-wide text-navy-400">Que souhaites-tu faire maintenant ?</p>
+      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+        <button
+          type="button"
+          onClick={() => navigate(`/contacts?compte=${compte.id}`)}
+          className="flex items-start gap-3 rounded-xl border border-navy-100 bg-white p-4 text-left transition-all hover:-translate-y-0.5 hover:border-kiwi-300 hover:shadow-md"
+        >
+          <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-violet-50 text-violet-600">
+            <UserPlus className="h-5 w-5" />
+          </span>
+          <span>
+            <span className="block font-medium text-navy-800">Ajouter un contact</span>
+            <span className="block text-xs text-navy-500">Décisionnaire, gestionnaire…</span>
+          </span>
+        </button>
+        <button
+          type="button"
+          onClick={() => navigate(`/comptes/${compte.id}?action=ajouter-compteur`)}
+          className="flex items-start gap-3 rounded-xl border border-navy-100 bg-white p-4 text-left transition-all hover:-translate-y-0.5 hover:border-kiwi-300 hover:shadow-md"
+        >
+          <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-amber-50 text-amber-600">
+            <Radio className="h-5 w-5" />
+          </span>
+          <span>
+            <span className="block font-medium text-navy-800">Ajouter un point de livraison</span>
+            <span className="block text-xs text-navy-500">Extraction de facture, manuel…</span>
+          </span>
+        </button>
+      </div>
+
+      <div className="mt-6 flex justify-between border-t border-navy-100 pt-6">
+        <Button variant="ghost" onClick={() => navigate('/comptes')}>Terminer la session</Button>
+        <Button variant="outline" onClick={() => navigate(`/comptes/${compte.id}`)}>
+          Voir la fiche compte <ArrowRight className="h-4 w-4" />
+        </Button>
+      </div>
     </div>
   )
 }
