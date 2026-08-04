@@ -1,14 +1,15 @@
 import { useNavigate } from 'react-router-dom'
+import { Plus } from 'lucide-react'
 import { Topbar } from '@/components/layout/Topbar'
 import { PageHeader } from '@/components/ui/page-header'
 import { Card } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
+import { Button } from '@/components/ui/button'
 import { Select } from '@/components/ui/form'
 import { ListToolbar } from '@/components/ui/list-toolbar'
 import { SortableTh } from '@/components/ui/sortable-th'
 import { useListControls } from '@/lib/useListControls'
 import { useComptes } from '@/lib/data/comptes'
-import { EllisphereSearch } from '@/components/ellisphere/EllisphereSearch'
 import { useState } from 'react'
 import type { TypeCompte } from '@/types/domain'
 
@@ -44,9 +45,12 @@ export default function Comptes() {
         <PageHeader
           title="Comptes"
           description="Le compte représente la relation (client, fournisseur, partenaire) — la valeur se crée sur les sites qui lui sont rattachés."
+          actions={(
+            <Button onClick={() => navigate('/comptes/nouveau')}>
+              <Plus className="h-4 w-4" /> Nouveau compte
+            </Button>
+          )}
         />
-
-        <EllisphereSearch />
 
         <ListToolbar query={query} onQueryChange={setQuery} placeholder="Rechercher un compte, une ville…" count={filteredComptes?.length}>
           <Select value={typeFilter} onChange={(e) => setTypeFilter(e.target.value)} className="w-auto">
@@ -78,7 +82,7 @@ export default function Comptes() {
                 <tr>
                   <td colSpan={5} className="px-5 py-10 text-center text-sm text-navy-400">
                     {comptes?.length === 0
-                      ? "Aucun compte pour l'instant — cherche une entreprise ci-dessus (SIREN/SIRET) pour en créer un via Ellisphere, ou attends l'import des données réelles."
+                      ? "Aucun compte pour l'instant — clique sur « Nouveau compte » pour en créer un."
                       : 'Aucun compte ne correspond à la recherche.'}
                   </td>
                 </tr>

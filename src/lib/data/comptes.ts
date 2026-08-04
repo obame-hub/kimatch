@@ -1,11 +1,12 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { supabase } from '@/lib/supabase'
 import type { Compte, TypeCompte } from '@/types/domain'
-import type { EllisphereCompany, EllisphereScore } from '@/lib/data/ellisphere'
+import type { EllisphereScore } from '@/lib/data/ellisphere'
 import { notifySlack } from '@/lib/data/slackSettings'
 import { buildAccountCreatedBlocks } from '@/lib/slackTemplates'
 import { fetchComptesVisibles, filterVisibles } from '@/lib/data/visibility'
 import { fetchAllRows } from '@/lib/data/paginatedFetch'
+import { toUpperFR } from '@/lib/textFormat'
 
 interface RawCompteClient {
   segment_compte_id: string | null
@@ -159,10 +160,22 @@ export function useUpdateCompteScore() {
   })
 }
 
-interface CreateCompteInput {
-  company: EllisphereCompany
+export interface CreateCompteInput {
+  /** Libelle exact du sous-type choisi a l'etape 1 (ex. "Syndic professionnel", "Entreprise"...),
+   * stocke tel quel dans `segment` -- meme convention que la migration Salesforce (transform.js). */
+  segment: string
   typeCompte: TypeCompte
   typeCompteId: string | null
+  nom: string
+  rue?: string | null
+  codePostal?: string | null
+  ville?: string | null
+  siret?: string | null
+  siren?: string | null
+  codeNaf?: string | null
+  libelleApe?: string | null
+  scoreEllipro?: string | null
+  scoreElliproScale?: string | null
 }
 
 interface CreateCompteResult {
@@ -170,47 +183,76 @@ interface CreateCompteResult {
   persisted: boolean
 }
 
-export function useCreateCompteFromEllisphere() {
+/** Verifie qu'aucun compte n'existe deja avec ce SIRET -- blocage dur (pas juste une alerte),
+ * meme regle que Tools : un SIRET identifie une entite legale unique. */
+export async function findCompteBySiret(siret: string): Promise<{ id: string; nom: string } | null> {
+  const cleaned = siret.replace(/\D/g, '')
+  if (!cleaned) return null
+  const { data } = await supabase.from('comptes').select('id, nom').eq('siret', cleaned).maybeSingle()
+  return (data as { id: string; nom: string } | null) ?? null
+}
+
+export function useCreateCompte() {
   const queryClient = useQueryClient()
 
   return useMutation({
-    mutationFn: async ({ company, typeCompte, typeCompteId }: CreateCompteInput): Promise<CreateCompteResult> => {
-      const nom = company.raisonSociale ?? company.nomCommercial ?? 'Entreprise sans nom'
-      const base = {
+    mutationFn: async (input: CreateCompteInput): Promise<CreateCompteResult> => {
+      const nom = toUpperFR(input.nom) || 'Compte sans nom'
+
+      // SIREN obligatoire sauf pour les residences (Syndic non professionnel) -- pas de SIREN
+      // possible pour ce type, meme regle que Tools.
+      if (input.segment !== 'Syndic non professionnel' && !(input.siren && input.siren.trim().length >= 9)) {
+        throw new Error('Le SIREN est obligatoire pour ce type de compte.')
+      }
+
+      // Blocage dur sur SIRET deja existant (verifie a nouveau juste avant l'ecriture, au cas ou
+      // un autre creerait le meme compte entre la verification a l'ecran et le clic sur "Creer").
+      if (input.siret) {
+        const existing = await findCompteBySiret(input.siret)
+        if (existing) {
+          throw new Error(`Un compte avec le SIRET ${input.siret} existe déjà : « ${existing.nom} ». Création bloquée pour éviter un doublon.`)
+        }
+      }
+
+      const insertPayload: Record<string, unknown> = {
         nom,
-        type_compte: typeCompte,
-        segment: company.libelleAPE ?? '',
-        nb_sites: 0,
-        ville: company.ville ?? '',
-        siren: company.siren,
-        siret: null,
-        telephone: null,
-        email: null,
-        site_web: null,
-        score_ellipro: null,
-        score_ellipro_scale: null,
-        score_ellipro_maj: null,
+        type_compte: input.typeCompte,
+        segment: input.segment,
+        ville: toUpperFR(input.ville) || '',
+        rue: input.rue ? toUpperFR(input.rue) : null,
+        code_postal: input.codePostal ?? null,
+        siret: input.siret ?? null,
+        siren: input.siren ?? null,
+        code_naf: input.codeNaf ?? null,
+        libelle_ape: input.libelleApe ?? null,
+        score_ellipro: input.scoreEllipro ?? null,
+        score_ellipro_scale: input.scoreElliproScale ?? null,
+        score_ellipro_maj: input.scoreEllipro ? new Date().toISOString() : null,
+        ...(input.typeCompteId ? { type_compte_id: input.typeCompteId } : {}),
       }
 
       let persisted = false
-      let compte: Compte = { id: `local-${Date.now()}`, proprietaire_id: null, ...base }
+      let compte: Compte = {
+        id: `local-${Date.now()}`,
+        proprietaire_id: null,
+        nom,
+        type_compte: input.typeCompte,
+        segment: input.segment,
+        nb_sites: 0,
+        ville: insertPayload.ville as string,
+        siren: input.siren ?? null,
+        siret: input.siret ?? null,
+        telephone: null,
+        email: null,
+        site_web: null,
+        score_ellipro: input.scoreEllipro ?? null,
+        score_ellipro_scale: input.scoreElliproScale ?? null,
+        score_ellipro_maj: insertPayload.score_ellipro_maj as string | null,
+      }
 
-      const { data, error } = await supabase
-        .from('comptes')
-        .insert({
-          nom,
-          segment: base.segment,
-          ville: base.ville,
-          siret: company.siret,
-          siren: company.siren,
-          type_compte: typeCompte,
-          ...(typeCompteId ? { type_compte_id: typeCompteId } : {}),
-        })
-        .select()
-        .single()
-      if (!error && data) {
-        // On fusionne par-dessus la forme locale plutot que de faire confiance a 100%
-        // a la forme reelle retournee (colonnes reelles pas toutes confirmees).
+      const { data, error } = await supabase.from('comptes').insert(insertPayload).select().single()
+      if (error) throw new Error(error.message)
+      if (data) {
         compte = { ...compte, ...(data as Partial<Compte>), id: (data as { id: string }).id }
         persisted = true
       }
@@ -221,7 +263,7 @@ export function useCreateCompteFromEllisphere() {
       const tpl = buildAccountCreatedBlocks({
         accountName: compte.nom,
         accountUrl: `${window.location.origin}/comptes/${compte.id}`,
-        accountType: TYPE_LABELS[typeCompte],
+        accountType: TYPE_LABELS[input.typeCompte],
         siren: compte.siren,
         ville: compte.ville,
         segment: compte.segment,

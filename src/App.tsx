@@ -11,6 +11,7 @@ import SignalDetail from '@/pages/SignalDetail'
 import Recommandations from '@/pages/Recommandations'
 import RecommandationDetail from '@/pages/RecommandationDetail'
 import Comptes from '@/pages/Comptes'
+import CompteCreate from '@/pages/CompteCreate'
 import CompteDetail from '@/pages/CompteDetail'
 import CompteurDetail from '@/pages/CompteurDetail'
 import Mandats from '@/pages/Mandats'
@@ -48,6 +49,7 @@ function App() {
           <Route path="/recommandations" element={<Recommandations />} />
           <Route path="/recommandations/:id" element={<RecommandationDetail />} />
           <Route path="/comptes" element={<Comptes />} />
+          <Route path="/comptes/nouveau" element={<CompteCreate />} />
           <Route path="/comptes/:id" element={<CompteDetail />} />
           <Route path="/compteurs/:id" element={<CompteurDetail />} />
           <Route path="/mandats" element={<Mandats />} />
