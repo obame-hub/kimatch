@@ -29,18 +29,11 @@ import { useCanManage, useIsAdmin, useProfilsAdmin } from '@/lib/data/roles'
 import { sendEmail } from '@/lib/data/gmail'
 import { FALLBACK_ETAPES_RECOMMANDATION, FALLBACK_STATUTS_VERSIONS, STATUT_VERSION_TONE } from '@/lib/referenceFallbacks'
 import { useGoBack } from '@/lib/useGoBack'
+import { ZONE_LABEL, zoneDuFournisseur } from '@/lib/fournisseurZones'
 import type { Recommandation, VersionRecommandation, Optimisation, FournisseurConsulte } from '@/types/domain'
 const MISE_EN_CONCURRENCE = 'MISE_EN_CONCURRENCE'
 
 const DUREES_PRESETS = [12, 24, 36, 48, 60]
-const ZONE_LABEL: Record<string, string> = { kiwee: 'KiWee (partenariat direct)', obd: 'OBD (intermédiaire)', energix: 'Energix (intermédiaire)' }
-
-function zoneDuFournisseur(intermediary: string | null | undefined, partnership: string | null | undefined): string {
-  if ((intermediary ?? '').toLowerCase() === 'obd') return 'obd'
-  if ((intermediary ?? '').toLowerCase() === 'energix') return 'energix'
-  if ((partnership ?? '').toLowerCase() === 'kiwee') return 'kiwee'
-  return 'autre'
-}
 
 function CotationWizard({ open, onClose, reco }: { open: boolean; onClose: () => void; reco: Recommandation }) {
   const { data: comptes } = useComptes()

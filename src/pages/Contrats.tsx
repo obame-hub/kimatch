@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { FileSignature, Zap, Flame, Plus } from 'lucide-react'
 import { Topbar } from '@/components/layout/Topbar'
@@ -16,10 +16,20 @@ import { useCompteurs } from '@/lib/data/compteurs'
 import { useContacts } from '@/lib/data/contacts'
 import { useReferenceTable } from '@/lib/data/referenceTables'
 import { FALLBACK_STATUTS_CONTRATS, STATUT_CONTRAT_TONE, FALLBACK_TYPES_ENERGIES } from '@/lib/referenceFallbacks'
+import { ZONE_LABEL, zoneDuFournisseur } from '@/lib/fournisseurZones'
 import { ListToolbar } from '@/components/ui/list-toolbar'
 import { useListControls } from '@/lib/useListControls'
 import { ExtractDocumentButton } from '@/components/ui/document-extraction'
 import { cn } from '@/lib/utils'
+
+const CLAUSES: { key: 'clause_tacite_reconduction' | 'clause_renegociation_anticipee' | 'clause_engagement_consommation' | 'clause_energie_verte' | 'clause_indexation_prix' | 'clause_penalites_resiliation'; label: string }[] = [
+  { key: 'clause_tacite_reconduction', label: 'Tacite reconduction' },
+  { key: 'clause_renegociation_anticipee', label: 'Renégociation anticipée' },
+  { key: 'clause_engagement_consommation', label: "Engagement de consommation" },
+  { key: 'clause_energie_verte', label: 'Énergie verte' },
+  { key: 'clause_indexation_prix', label: 'Indexation du prix' },
+  { key: 'clause_penalites_resiliation', label: 'Pénalités de résiliation' },
+]
 
 function CreateContratDialog({ open, onClose }: { open: boolean; onClose: () => void }) {
   const { data: sites } = useSites()
@@ -40,12 +50,47 @@ function CreateContratDialog({ open, onClose }: { open: boolean; onClose: () => 
   const [dateFin, setDateFin] = useState('')
   const [compteurIds, setCompteurIds] = useState<string[]>([])
   const [contactSignataireId, setContactSignataireId] = useState('')
+  const [typePrix, setTypePrix] = useState('')
+  const [strategieTarifaire, setStrategieTarifaire] = useState<'marge_fixe' | 'prix_cible'>('marge_fixe')
+  const [prixMolecule, setPrixMolecule] = useState('')
+  const [clauses, setClauses] = useState<Record<string, boolean>>({})
   const [feedback, setFeedback] = useState<string | null>(null)
 
   const fournisseurs = comptes?.filter((c) => c.type_compte === 'fournisseur') ?? []
   const compteursDuSite = compteurs?.filter((c) => c.site_id === siteId) ?? []
   const compteDuSite = sites?.find((s) => s.id === siteId)?.compte_id
   const contactsDuSite = contacts?.filter((c) => c.compte_id === compteDuSite) ?? []
+  const energieChoisie = energies.find((e) => e.id === typeEnergieId)
+  const estGaz = (energieChoisie?.code ?? '').toLowerCase() === 'gaz'
+  // Électricité : "Marché" est la seule option (pas un vrai choix) -- Gaz : Fixe/Indexé, un vrai
+  // choix -- même règle que Tools.
+  const optionsTypePrix = estGaz ? ['Fixe', 'Indexé'] : ['Marché']
+
+  const fournisseursParZone = new Map<string, typeof fournisseurs>()
+  for (const f of fournisseurs) {
+    const zone = zoneDuFournisseur(f.intermediary, f.partnership)
+    fournisseursParZone.set(zone, [...(fournisseursParZone.get(zone) ?? []), f])
+  }
+
+  // Stratégie tarifaire "Prix cible" seulement disponible si le type de prix est "Fixe" --
+  // repli silencieux vers "Marge fixe" sinon (même règle que Tools).
+  useEffect(() => {
+    if (typePrix !== 'Fixe' && strategieTarifaire === 'prix_cible') setStrategieTarifaire('marge_fixe')
+  }, [typePrix, strategieTarifaire])
+
+  // Date de début préremplie uniquement si un seul compteur est sélectionné (échéance + 1 jour)
+  // -- les sélections multi-PDL n'ont aucun préremplissage, saisie 100% manuelle (même règle que
+  // Tools).
+  useEffect(() => {
+    if (compteurIds.length !== 1) return
+    const c = compteursDuSite.find((cc) => cc.id === compteurIds[0])
+    if (c?.date_echeance && !dateDebut) {
+      const d = new Date(c.date_echeance)
+      d.setDate(d.getDate() + 1)
+      setDateDebut(d.toISOString().slice(0, 10))
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [compteurIds])
 
   function reset() {
     setSiteId('')
@@ -56,6 +101,10 @@ function CreateContratDialog({ open, onClose }: { open: boolean; onClose: () => 
     setDateFin('')
     setCompteurIds([])
     setContactSignataireId('')
+    setTypePrix('')
+    setStrategieTarifaire('marge_fixe')
+    setPrixMolecule('')
+    setClauses({})
     setFeedback(null)
   }
 
@@ -108,6 +157,10 @@ function CreateContratDialog({ open, onClose }: { open: boolean; onClose: () => 
       compteurs: compteursChoisis,
       contact_signataire_id: contactSignataireId || null,
       contact_signataire_nom: contactSignataire ? `${contactSignataire.prenom} ${contactSignataire.nom}` : undefined,
+      type_prix: typePrix || null,
+      strategie_tarifaire: strategieTarifaire,
+      prix_molecule_eur_mwh: prixMolecule ? Number(prixMolecule) : null,
+      clauses,
     })
     setFeedback(result.persisted ? 'Contrat créé.' : 'Contrat ajouté localement (non synchronisé avec Supabase).')
     setTimeout(() => {
@@ -129,14 +182,41 @@ function CreateContratDialog({ open, onClose }: { open: boolean; onClose: () => 
         <FormField label="Fournisseur">
           <Select value={fournisseurId} onChange={(e) => setFournisseurId(e.target.value)}>
             <option value="">Sélectionner…</option>
-            {fournisseurs.map((f) => <option key={f.id} value={f.id}>{f.nom}</option>)}
+            {['kiwee', 'obd', 'energix', 'autre'].map((zone) => {
+              const list = fournisseursParZone.get(zone) ?? []
+              if (list.length === 0) return null
+              return (
+                <optgroup key={zone} label={ZONE_LABEL[zone]}>
+                  {list.map((f) => <option key={f.id} value={f.id}>{f.nom}</option>)}
+                </optgroup>
+              )
+            })}
           </Select>
         </FormField>
         <FormField label="Énergie">
-          <Select value={typeEnergieId} onChange={(e) => setTypeEnergieId(e.target.value)} required>
+          <Select value={typeEnergieId} onChange={(e) => { setTypeEnergieId(e.target.value); setTypePrix('') }} required>
             <option value="">Sélectionner…</option>
             {energies.map((en) => <option key={en.id} value={en.id}>{en.libelle}</option>)}
           </Select>
+        </FormField>
+        {typeEnergieId && (
+          <div className="grid grid-cols-2 gap-3">
+            <FormField label="Type de prix">
+              <Select value={typePrix} onChange={(e) => setTypePrix(e.target.value)} required>
+                <option value="">Sélectionner…</option>
+                {optionsTypePrix.map((o) => <option key={o} value={o}>{o}</option>)}
+              </Select>
+            </FormField>
+            <FormField label="Stratégie tarifaire">
+              <Select value={strategieTarifaire} onChange={(e) => setStrategieTarifaire(e.target.value as 'marge_fixe' | 'prix_cible')} disabled={typePrix !== 'Fixe'}>
+                <option value="marge_fixe">Marge fixe</option>
+                <option value="prix_cible" disabled={typePrix !== 'Fixe'}>Prix cible</option>
+              </Select>
+            </FormField>
+          </div>
+        )}
+        <FormField label="Prix de la molécule (€/MWh, optionnel)">
+          <Input type="number" step="0.01" value={prixMolecule} onChange={(e) => setPrixMolecule(e.target.value)} />
         </FormField>
         <FormField label="Référence fournisseur">
           <Input value={referenceFournisseur} onChange={(e) => setReferenceFournisseur(e.target.value)} />
@@ -173,8 +253,18 @@ function CreateContratDialog({ open, onClose }: { open: boolean; onClose: () => 
             )}
           </FormField>
         )}
+        <FormField label="Clauses">
+          <div className="grid grid-cols-2 gap-1.5">
+            {CLAUSES.map((c) => (
+              <label key={c.key} className="flex items-center gap-2 text-sm text-navy-700">
+                <input type="checkbox" checked={!!clauses[c.key]} onChange={(e) => setClauses((prev) => ({ ...prev, [c.key]: e.target.checked }))} />
+                {c.label}
+              </label>
+            ))}
+          </div>
+        </FormField>
         {feedback && <p className="text-xs text-navy-500">{feedback}</p>}
-        <div className="flex justify-end gap-2 pt-2">
+        <div className="flex justify-end gap-2 border-t border-navy-100 pt-3">
           <Button type="button" variant="ghost" onClick={() => { reset(); onClose() }}>Annuler</Button>
           <Button type="submit" disabled={createContrat.isPending}>Créer le contrat</Button>
         </div>

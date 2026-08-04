@@ -31,6 +31,7 @@ interface RawContrat {
   clause_indexation_prix: boolean | null
   clause_penalites_resiliation: boolean | null
   interlocuteur_pricing_contact_id: string | null
+  strategie_tarifaire?: string | null
   site: { nom: string } | null
   fournisseur: { nom: string } | null
   type_energie: { code: string } | null
@@ -48,7 +49,9 @@ async function fetchContrats(): Promise<Contrat[]> {
     const [contrats, compteursRows] = await Promise.all([
       fetchAllRows<RawContrat>(
         'contrats',
-        'id, id_salesforce, compte_id, site_id, fournisseur_compte_id, reference_fournisseur, date_debut, date_fin, preavis_resiliation_jours, proprietaire_id, docusign_envelope_id, date_envoi_signature, date_signature, statut_signature, contact_signataire_id, prix_molecule_eur_mwh, type_prix, clause_tacite_reconduction, clause_renegociation_anticipee, clause_engagement_consommation, clause_energie_verte, clause_indexation_prix, clause_penalites_resiliation, interlocuteur_pricing_contact_id, site:sites(nom), fournisseur:comptes!contrats_fournisseur_compte_id_fkey(nom), compte:comptes!contrats_compte_id_fkey(nom), type_energie:types_energies(code), statut:statuts_contrats(code), contact_signataire:contacts!contrats_contact_signataire_id_fkey(prenom, nom), interlocuteur_pricing:contacts!contrats_interlocuteur_pricing_contact_id_fkey(prenom, nom), proprietaire:profils!contrats_proprietaire_id_fkey(prenom, nom), date_creation, date_modification',
+        // `*` plutôt qu'une liste de colonnes fixe : `strategie_tarifaire` vient d'être ajoutée
+        // par migration et peut ne pas encore exister en prod au moment du déploiement.
+        '*, site:sites(nom), fournisseur:comptes!contrats_fournisseur_compte_id_fkey(nom), compte:comptes!contrats_compte_id_fkey(nom), type_energie:types_energies(code), statut:statuts_contrats(code), contact_signataire:contacts!contrats_contact_signataire_id_fkey(prenom, nom), interlocuteur_pricing:contacts!contrats_interlocuteur_pricing_contact_id_fkey(prenom, nom), proprietaire:profils!contrats_proprietaire_id_fkey(prenom, nom)',
         (q) => q.order('date_debut', { ascending: false }),
       ),
       fetchAllRows<{ id: string; contrat_id: string; compteur: { id: string; numero_point: string; libelle: string | null } | null }>(
@@ -99,6 +102,7 @@ async function fetchContrats(): Promise<Contrat[]> {
       statut_signature: c.statut_signature,
       prix_molecule_eur_mwh: c.prix_molecule_eur_mwh,
       type_prix: c.type_prix,
+      strategie_tarifaire: c.strategie_tarifaire ?? null,
       clause_tacite_reconduction: c.clause_tacite_reconduction,
       clause_renegociation_anticipee: c.clause_renegociation_anticipee,
       clause_engagement_consommation: c.clause_engagement_consommation,
@@ -133,6 +137,10 @@ interface CreateContratInput {
   compteurs: { id: string; numero_pdl: string; utilisation: string }[]
   contact_signataire_id: string | null
   contact_signataire_nom?: string
+  type_prix?: string | null
+  strategie_tarifaire?: string
+  prix_molecule_eur_mwh?: number | null
+  clauses?: Record<string, boolean>
 }
 
 type CreateContratLocalCompteur = { id: string; contrat_compteur_id: string | null; numero_pdl: string; utilisation: string }
@@ -175,6 +183,9 @@ export function useCreateContrat() {
         date_envoi_signature: null,
         date_signature: null,
         statut_signature: null,
+        type_prix: input.type_prix ?? null,
+        prix_molecule_eur_mwh: input.prix_molecule_eur_mwh ?? null,
+        ...(input.clauses ?? {}),
       }
 
       const { data, error } = await supabase
@@ -186,6 +197,10 @@ export function useCreateContrat() {
           reference_fournisseur: input.reference_fournisseur,
           date_debut: input.date_debut,
           date_fin: input.date_fin,
+          type_prix: input.type_prix ?? null,
+          strategie_tarifaire: input.strategie_tarifaire ?? 'marge_fixe',
+          prix_molecule_eur_mwh: input.prix_molecule_eur_mwh ?? null,
+          ...(input.clauses ?? {}),
           ...(input.type_energie_id ? { type_energie_id: input.type_energie_id } : {}),
           ...(input.statut_id ? { statut_id: input.statut_id } : {}),
           ...(input.contact_signataire_id ? { contact_signataire_id: input.contact_signataire_id } : {}),

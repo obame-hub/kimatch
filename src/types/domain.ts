@@ -451,6 +451,8 @@ export interface Contrat {
   // le 30/07/2026, toutes nullable en attendant d'etre renseignees contrat par contrat.
   prix_molecule_eur_mwh?: number | null
   type_prix?: string | null
+  /** marge_fixe (défaut) | prix_cible -- ajouté le 04/08/2026 pour le flot Contrat. */
+  strategie_tarifaire?: string | null
   clause_tacite_reconduction?: boolean | null
   clause_renegociation_anticipee?: boolean | null
   clause_engagement_consommation?: boolean | null

@@ -561,6 +561,12 @@ export default function ContratDetail() {
                     <p className="font-mono text-xs font-semibold text-navy-800">{contrat.prix_molecule_eur_mwh.toLocaleString('fr-FR')} €/MWh</p>
                   </div>
                 )}
+                {contrat.strategie_tarifaire && (
+                  <div>
+                    <p className="mb-0.5 text-[10px] uppercase tracking-wide text-navy-400">Stratégie tarifaire</p>
+                    <p className="text-xs text-navy-700">{contrat.strategie_tarifaire === 'prix_cible' ? 'Prix cible' : 'Marge fixe'}</p>
+                  </div>
+                )}
               </div>
               <HistoriqueDiscret tableNom="contrats" ligneId={contrat.id} />
               </div>
