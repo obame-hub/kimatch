@@ -122,7 +122,7 @@ interface CreateContactResult {
  * croisés dans les deux champs, OU prénom+nom exact -- même règle que Tools. */
 export interface ContactDuplicate {
   contact: Contact
-  fields: ('email' | 'phone' | 'fullName')[]
+  fields: ('email' | 'phone' | 'mobile' | 'fullName')[]
 }
 
 export function findContactDuplicates(
@@ -130,7 +130,8 @@ export function findContactDuplicates(
   input: { prenom: string; nom: string; email: string | null; telephone: string | null; telephoneMobile: string | null },
 ): ContactDuplicate[] {
   const emailNorm = input.email?.trim().toLowerCase() || null
-  const numeros = [input.telephone, input.telephoneMobile].filter((n): n is string => !!n && n.length > 0)
+  const telNorm = input.telephone?.trim() || null
+  const mobNorm = input.telephoneMobile?.trim() || null
   const prenomNorm = input.prenom.trim().toLowerCase()
   const nomNorm = input.nom.trim().toLowerCase()
 
@@ -138,7 +139,10 @@ export function findContactDuplicates(
   for (const c of contacts) {
     const fields: ContactDuplicate['fields'] = []
     if (emailNorm && c.email && c.email.trim().toLowerCase() === emailNorm) fields.push('email')
-    if (numeros.length > 0 && [c.telephone, c.telephone_mobile].some((n) => n && numeros.includes(n))) fields.push('phone')
+    // Croisé sur les deux colonnes du contact existant, comme Tools : un fixe saisi ici peut
+    // matcher le mobile déjà enregistré (et inversement).
+    if (telNorm && [c.telephone, c.telephone_mobile].some((n) => n && n === telNorm)) fields.push('phone')
+    if (mobNorm && [c.telephone, c.telephone_mobile].some((n) => n && n === mobNorm)) fields.push('mobile')
     if (prenomNorm && nomNorm && c.prenom.trim().toLowerCase() === prenomNorm && c.nom.trim().toLowerCase() === nomNorm) fields.push('fullName')
     if (fields.length > 0) results.push({ contact: c, fields })
   }

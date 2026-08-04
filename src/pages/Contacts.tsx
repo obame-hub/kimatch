@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
-import { Plus, User, Star, AlertTriangle, CheckCircle2 } from 'lucide-react'
+import { Plus, User, Star, AlertTriangle, CheckCircle2, UserCircle2, UserRound, Crown, ClipboardList, Users, ExternalLink, Check } from 'lucide-react'
 import { Topbar } from '@/components/layout/Topbar'
 import { PageHeader } from '@/components/ui/page-header'
 import { Card } from '@/components/ui/card'
@@ -20,14 +20,21 @@ import { toUpperFR, toTitleCaseFR, formatPhoneFR, isValidPhoneFR, isValidEmail }
 import { contactRoleOptions } from '@/lib/contactRoles'
 import type { Contact } from '@/types/domain'
 
-const CIVILITE_OPTIONS = ['M.', 'Mme', 'Autre']
 const DUPLICATE_FIELD_LABEL: Record<ContactDuplicate['fields'][number], string> = {
-  email: 'même email',
-  phone: 'même téléphone',
-  fullName: 'même nom complet',
+  email: 'Email',
+  phone: 'Tél fixe',
+  mobile: 'Mobile',
+  fullName: 'Prénom + Nom',
+}
+
+const ROLE_META: Record<string, { icon: typeof Crown; desc: string; active: string }> = {
+  Décisionnaire: { icon: Crown, desc: 'Signe et valide les contrats', active: 'border-amber-400/60 bg-amber-50 text-amber-700' },
+  Administratif: { icon: ClipboardList, desc: 'Gère les démarches et documents', active: 'border-sky-400/60 bg-sky-50 text-sky-700' },
+  'Conseil syndical': { icon: Users, desc: 'Représente les copropriétaires', active: 'border-violet-400/60 bg-violet-50 text-violet-700' },
 }
 
 function CreateContactDialog({ open, onClose, initialCompteId }: { open: boolean; onClose: () => void; initialCompteId?: string }) {
+  const navigate = useNavigate()
   const { data: comptes } = useComptes()
   const { data: sites } = useSites()
   const { data: allContacts } = useContacts()
@@ -35,7 +42,7 @@ function CreateContactDialog({ open, onClose, initialCompteId }: { open: boolean
   const createContact = useCreateContact()
   const assignCompteurContact = useAssignCompteurContact()
 
-  const [step, setStep] = useState<'form' | 'pdl'>('form')
+  const [step, setStep] = useState<'form' | 'pdl' | 'final'>('form')
   const [createdContact, setCreatedContact] = useState<Contact | null>(null)
   const [compteId, setCompteId] = useState(initialCompteId ?? '')
 
@@ -43,13 +50,14 @@ function CreateContactDialog({ open, onClose, initialCompteId }: { open: boolean
     if (open && initialCompteId) setCompteId(initialCompteId)
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open, initialCompteId])
-  const [civilite, setCivilite] = useState('')
+  const [civilite, setCivilite] = useState('M.')
   const [prenom, setPrenom] = useState('')
   const [nom, setNom] = useState('')
   const [fonction, setFonction] = useState('')
   const [telephone, setTelephone] = useState('')
   const [telephoneMobile, setTelephoneMobile] = useState('')
   const [email, setEmail] = useState('')
+  const [emailTouched, setEmailTouched] = useState(false)
   const [role, setRole] = useState('')
   const [siteIds, setSiteIds] = useState<string[]>([])
   const [compteurIds, setCompteurIds] = useState<string[]>([])
@@ -62,7 +70,14 @@ function CreateContactDialog({ open, onClose, initialCompteId }: { open: boolean
   const compteursDuCompte = (compteurs ?? []).filter((c) => compteurIdsDuCompte.has(c.site_id))
 
   const duplicates = useMemo(() => {
-    const hasSignal = (prenom.trim().length >= 2 && nom.trim().length >= 2) || email || telephone || telephoneMobile
+    // Comme dans Tools : ne cherche des doublons que si au moins un signal fiable existe (email
+    // valide, téléphone valide, ou prénom+nom renseignés) -- évite de flasher le bandeau sur une
+    // saisie encore incomplète.
+    const hasSignal =
+      (prenom.trim().length >= 2 && nom.trim().length >= 2) ||
+      (!!email && isValidEmail(email)) ||
+      (!!telephone && isValidPhoneFR(formatPhoneFR(telephone))) ||
+      (!!telephoneMobile && isValidPhoneFR(formatPhoneFR(telephoneMobile)))
     if (!allContacts || !hasSignal) return []
     return findContactDuplicates(allContacts, {
       prenom,
@@ -72,23 +87,30 @@ function CreateContactDialog({ open, onClose, initialCompteId }: { open: boolean
       telephoneMobile: telephoneMobile ? formatPhoneFR(telephoneMobile) : null,
     })
   }, [allContacts, prenom, nom, email, telephone, telephoneMobile])
+  const matchedFields = useMemo(() => new Set(duplicates.flatMap((d) => d.fields)), [duplicates])
 
-  const emailError = email && !isValidEmail(email) ? "Format d'email invalide." : null
-  const telError = telephone && !isValidPhoneFR(formatPhoneFR(telephone)) ? 'Numéro de téléphone invalide.' : null
-  const mobError = telephoneMobile && !isValidPhoneFR(formatPhoneFR(telephoneMobile)) ? 'Numéro de mobile invalide.' : null
-  const canSubmit = !!compteId && prenom.trim().length > 0 && nom.trim().length > 0 && !!role && !emailError && !telError && !mobError
+  // Email : pas d'erreur avant le premier blur (comme Tools), puis live ensuite.
+  const emailInvalid = emailTouched && !!email && !isValidEmail(email)
+  const emailError = emailInvalid ? "Format d'email invalide" : null
+  // Téléphone : erreur live dès la saisie tant que le blur n'a pas normalisé la valeur en +33...
+  // (valide sur la valeur BRUTE, pas sur une version pré-formatée -- sinon l'erreur ne s'affiche
+  // jamais pendant la frappe).
+  const telError = telephone && !isValidPhoneFR(telephone) ? 'Format invalide (attendu : +33…)' : null
+  const mobError = telephoneMobile && !isValidPhoneFR(telephoneMobile) ? 'Format invalide (attendu : +33…)' : null
+  const canSubmit = !!compteId && nom.trim().length > 0 && !!role && !emailError && !telError && !mobError
 
   function reset() {
     setStep('form')
     setCreatedContact(null)
     setCompteId('')
-    setCivilite('')
+    // Civilité n'est volontairement pas réinitialisée (comme Tools : le dernier choix persiste).
     setPrenom('')
     setNom('')
     setFonction('')
     setTelephone('')
     setTelephoneMobile('')
     setEmail('')
+    setEmailTouched(false)
     setRole('')
     setSiteIds([])
     setCompteurIds([])
@@ -126,11 +148,12 @@ function CreateContactDialog({ open, onClose, initialCompteId }: { open: boolean
     setCreatedContact(result.contact)
 
     // Comme dans Tools : si le contact est Décisionnaire (ou Conseil syndical), on propose de le
-    // rattacher à un ou plusieurs PDL existants du compte avant de fermer.
+    // rattacher à un ou plusieurs PDL existants du compte avant l'écran final -- sinon on passe
+    // directement à l'écran final "Que veux-tu faire ensuite ?".
     if (result.persisted && (role === 'Décisionnaire' || role === 'Conseil syndical') && compteursDuCompte.length > 0) {
       setStep('pdl')
     } else {
-      setTimeout(() => { reset(); onClose() }, 700)
+      setStep('final')
     }
   }
 
@@ -142,12 +165,24 @@ function CreateContactDialog({ open, onClose, initialCompteId }: { open: boolean
         field: role === 'Conseil syndical' ? 'contact_conseil_syndical_id' : 'responsable_contact_id',
       })
     }
-    reset()
-    onClose()
+    setStep('final')
   }
 
-  const dialogTitle = step === 'form' ? 'Nouveau contact' : 'Rattacher à un PDL'
-  const dialogDesc = step === 'form' ? 'Ajouter une personne à un compte.' : `${createdContact?.prenom} ${createdContact?.nom} est ${role.toLowerCase()} — le rattacher à un ou plusieurs PDL existants ?`
+  // Comme dans Tools : après création, on revient sur un formulaire vierge prêt pour une nouvelle
+  // saisie plutôt que de fermer le dialogue -- "Créer un autre contact" garde le contexte compte.
+  function handleCreateAnother() {
+    const keepCompteId = compteId
+    reset()
+    setCompteId(keepCompteId)
+  }
+
+  const dialogTitle = step === 'form' ? 'Nouveau contact' : step === 'pdl' ? 'Rattacher à un PDL' : 'Contact créé avec succès'
+  const dialogDesc =
+    step === 'form'
+      ? 'Ajouter une personne à un compte.'
+      : step === 'pdl'
+        ? `${createdContact?.prenom} ${createdContact?.nom} est ${role.toLowerCase()} — le rattacher à un ou plusieurs PDL existants ?`
+        : 'Que veux-tu faire ensuite ?'
 
   return (
     <Dialog open={open} onClose={() => { reset(); onClose() }} title={dialogTitle} description={dialogDesc}>
@@ -159,51 +194,111 @@ function CreateContactDialog({ open, onClose, initialCompteId }: { open: boolean
               {comptes?.map((c) => <option key={c.id} value={c.id}>{c.nom}</option>)}
             </Select>
           </FormField>
-          <div className="grid grid-cols-3 gap-3">
-            <FormField label="Civilité">
-              <Select value={civilite} onChange={(e) => setCivilite(e.target.value)}>
-                <option value="">—</option>
-                {CIVILITE_OPTIONS.map((c) => <option key={c} value={c}>{c}</option>)}
-              </Select>
-            </FormField>
+          <FormField label="Civilité">
+            <div className="flex gap-2">
+              {(['M.', 'Mme'] as const).map((c) => {
+                const Icon = c === 'M.' ? UserCircle2 : UserRound
+                return (
+                  <button
+                    key={c}
+                    type="button"
+                    onClick={() => setCivilite(c)}
+                    className={`flex items-center gap-1.5 rounded-lg border px-3 py-1.5 text-sm transition-colors ${
+                      civilite === c ? 'border-navy-400/60 bg-navy-50 text-navy-700' : 'border-navy-200 text-navy-500 hover:bg-navy-50'
+                    }`}
+                  >
+                    <Icon className="h-4 w-4" /> {c}
+                  </button>
+                )
+              })}
+            </div>
+          </FormField>
+          <div className="grid grid-cols-2 gap-3">
             <FormField label="Prénom">
-              <Input value={prenom} onChange={(e) => setPrenom(e.target.value)} onBlur={(e) => setPrenom(toTitleCaseFR(e.target.value))} required />
+              <Input
+                value={prenom}
+                onChange={(e) => setPrenom(e.target.value)}
+                onBlur={(e) => setPrenom(toTitleCaseFR(e.target.value))}
+                className={matchedFields.has('fullName') ? 'ring-1 ring-amber-400' : undefined}
+              />
             </FormField>
             <FormField label="Nom">
-              <Input value={nom} onChange={(e) => setNom(toUpperFR(e.target.value))} required />
+              <Input
+                value={nom}
+                onChange={(e) => setNom(toUpperFR(e.target.value))}
+                required
+                className={matchedFields.has('fullName') ? 'ring-1 ring-amber-400' : undefined}
+              />
             </FormField>
           </div>
           <FormField label="Rôle">
-            <Select value={role} onChange={(e) => setRole(e.target.value)} required disabled={!compteId}>
-              <option value="">Sélectionner…</option>
-              {roleOptions.map((r) => <option key={r} value={r}>{r}</option>)}
-            </Select>
+            <div className="grid grid-cols-3 gap-2">
+              {roleOptions.map((r) => {
+                const meta = ROLE_META[r]
+                const Icon = meta?.icon ?? User
+                const active = role === r
+                return (
+                  <button
+                    key={r}
+                    type="button"
+                    disabled={!compteId}
+                    onClick={() => setRole(r)}
+                    className={`flex flex-col items-start gap-1 rounded-lg border p-2.5 text-left text-xs transition-colors disabled:cursor-not-allowed disabled:opacity-50 ${
+                      active ? meta?.active ?? 'border-navy-400/60 bg-navy-50 text-navy-700' : 'border-navy-200 text-navy-500 hover:bg-navy-50'
+                    }`}
+                  >
+                    <Icon className="h-4 w-4" />
+                    <span className="font-medium">{r}</span>
+                    {meta?.desc && <span className="text-[11px] opacity-80">{meta.desc}</span>}
+                  </button>
+                )
+              })}
+            </div>
           </FormField>
           <FormField label="Fonction">
             <Input value={fonction} onChange={(e) => setFonction(e.target.value)} placeholder="Ex. Directeur technique" />
           </FormField>
           <div className="grid grid-cols-2 gap-3">
             <FormField label="Téléphone fixe">
-              <Input value={telephone} onChange={(e) => setTelephone(e.target.value)} onBlur={(e) => setTelephone(e.target.value ? formatPhoneFR(e.target.value) : '')} />
+              <Input
+                value={telephone}
+                onChange={(e) => setTelephone(e.target.value)}
+                onBlur={(e) => setTelephone(e.target.value ? formatPhoneFR(e.target.value) : '')}
+                className={matchedFields.has('phone') ? 'ring-1 ring-amber-400' : undefined}
+              />
               {telError && <p className="mt-1 text-xs text-red-600">{telError}</p>}
             </FormField>
             <FormField label="Mobile">
-              <Input value={telephoneMobile} onChange={(e) => setTelephoneMobile(e.target.value)} onBlur={(e) => setTelephoneMobile(e.target.value ? formatPhoneFR(e.target.value) : '')} />
+              <Input
+                value={telephoneMobile}
+                onChange={(e) => setTelephoneMobile(e.target.value)}
+                onBlur={(e) => setTelephoneMobile(e.target.value ? formatPhoneFR(e.target.value) : '')}
+                className={matchedFields.has('mobile') ? 'ring-1 ring-amber-400' : undefined}
+              />
               {mobError && <p className="mt-1 text-xs text-red-600">{mobError}</p>}
             </FormField>
           </div>
           <FormField label="Email">
-            <Input type="email" value={email} onChange={(e) => setEmail(e.target.value)} />
+            <Input
+              type="email"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              onBlur={() => setEmailTouched(true)}
+              className={matchedFields.has('email') ? 'ring-1 ring-amber-400' : undefined}
+            />
             {emailError && <p className="mt-1 text-xs text-red-600">{emailError}</p>}
           </FormField>
 
           {duplicates.length > 0 && (
             <div className="rounded-lg border border-amber-200 bg-amber-50 p-3 text-xs text-amber-800">
-              <p className="mb-1.5 flex items-center gap-1.5 font-medium"><AlertTriangle className="h-3.5 w-3.5" /> Doublon(s) potentiel(s) détecté(s)</p>
+              <p className="mb-1.5 flex items-center gap-1.5 font-medium">
+                <AlertTriangle className="h-3.5 w-3.5" />
+                {duplicates.length === 1 ? 'Un contact similaire existe déjà' : `${duplicates.length} contacts similaires existent déjà`}
+              </p>
               <ul className="space-y-1">
                 {duplicates.slice(0, 5).map((d) => (
                   <li key={d.contact.id}>
-                    {d.contact.prenom} {d.contact.nom} ({d.contact.compte_nom}) — {d.fields.map((f) => DUPLICATE_FIELD_LABEL[f]).join(', ')}
+                    {d.contact.prenom} {d.contact.nom} ({d.contact.compte_nom}) — même {d.fields.map((f) => DUPLICATE_FIELD_LABEL[f]).join(' + ')}
                   </li>
                 ))}
               </ul>
@@ -250,6 +345,29 @@ function CreateContactDialog({ open, onClose, initialCompteId }: { open: boolean
               <CheckCircle2 className="h-4 w-4" /> Terminer
             </Button>
           </div>
+        </div>
+      )}
+
+      {step === 'final' && createdContact && (
+        <div className="space-y-4">
+          <div className="flex items-start gap-3 rounded-lg border border-kiwi-200 bg-kiwi-50 p-3 text-sm text-kiwi-800">
+            <Check className="mt-0.5 h-4 w-4 shrink-0" />
+            <p>
+              <span className="font-medium">{createdContact.civilite ? `${createdContact.civilite} ` : ''}{createdContact.prenom} {createdContact.nom}</span> a bien été
+              ajouté{createdContact.civilite === 'Mme' ? 'e' : ''} à {compte?.nom}.
+            </p>
+          </div>
+          <div className="grid grid-cols-2 gap-2">
+            <Button type="button" variant="ghost" onClick={handleCreateAnother}>
+              <Plus className="h-4 w-4" /> Créer un autre contact
+            </Button>
+            <Button type="button" variant="ghost" onClick={() => { reset(); onClose() }}>
+              Terminer la session
+            </Button>
+          </div>
+          <Button type="button" className="w-full" onClick={() => { const id = createdContact.id; reset(); onClose(); navigate(`/contacts/${id}`) }}>
+            <ExternalLink className="h-4 w-4" /> Voir la fiche contact
+          </Button>
         </div>
       )}
     </Dialog>
