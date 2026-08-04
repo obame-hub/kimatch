@@ -476,6 +476,103 @@ export function useCreateRecommandation() {
   })
 }
 
+export interface CreateVersionInput {
+  recommandation_id: string
+  compteur_ids: string[]
+  motif_id: string | null
+  statut_brouillon_id: string | null
+  type_optimisation_mise_en_concurrence_id: string | null
+  fournisseur_ids: string[]
+  resume: string
+  contexte_et_hypotheses: string | null
+  /** Étape "EN_ANALYSE" -- ne fait passer l'opportunité que si c'est sa toute première cotation
+   * (Tools : "le statut de l'opportunité ne passe à Instruction qu'à la première cotation,
+   * jamais lors d'une actualisation"). */
+  etape_en_analyse_id: string | null
+}
+
+/** Crée une nouvelle version (cotation) sur une recommandation. Si des versions précédentes non
+ * terminales existent, elles basculent à REMPLACEE (Tools : "actualisation = relancer le même
+ * wizard, toutes les AUTRES cotations basculent automatiquement à Abandonnée"). */
+export function useCreateVersion() {
+  const queryClient = useQueryClient()
+
+  return useMutation({
+    mutationFn: async (input: CreateVersionInput) => {
+      const { data: statutRemplacee } = await supabase.from('statuts_versions_recommandation').select('id').eq('code', 'REMPLACEE').maybeSingle()
+      const { data: versionsExistantes } = await supabase
+        .from('versions_recommandation')
+        .select('id, version_actuelle, statut:statuts_versions_recommandation(code)')
+        .eq('recommandation_id', input.recommandation_id)
+
+      const estActualisation = (versionsExistantes ?? []).length > 0
+      const aTraiter = (versionsExistantes ?? []).filter((v) => {
+        const code = (v.statut as { code: string } | { code: string }[] | null)
+        const c = Array.isArray(code) ? code[0]?.code : code?.code
+        return v.version_actuelle && c !== 'ACCEPTEE' && c !== 'REFUSEE'
+      })
+      if (aTraiter.length > 0 && statutRemplacee) {
+        await supabase
+          .from('versions_recommandation')
+          .update({ version_actuelle: false, ...(statutRemplacee ? { statut_id: statutRemplacee.id } : {}) })
+          .in('id', aTraiter.map((v) => v.id))
+      }
+
+      const { data: version, error } = await supabase
+        .from('versions_recommandation')
+        .insert({
+          recommandation_id: input.recommandation_id,
+          resume: input.resume,
+          contexte_et_hypotheses: input.contexte_et_hypotheses,
+          version_actuelle: true,
+          est_figee: false,
+          date_creation: new Date().toISOString(),
+          ...(input.motif_id ? { motif_id: input.motif_id } : {}),
+          ...(input.statut_brouillon_id ? { statut_id: input.statut_brouillon_id } : {}),
+        })
+        .select('id')
+        .single()
+      if (error) throw new Error(error.message)
+      const versionId = (version as { id: string }).id
+
+      if (input.compteur_ids.length > 0) {
+        await supabase
+          .from('versions_recommandation_compteurs')
+          .insert(input.compteur_ids.map((compteur_id) => ({ version_recommandation_id: versionId, compteur_id })))
+      }
+
+      let optimisationId: string | null = null
+      if (input.fournisseur_ids.length > 0) {
+        const { data: optimisation } = await supabase
+          .from('optimisations')
+          .insert({
+            version_recommandation_id: versionId,
+            nom: 'Mise en concurrence',
+            priorite: 1,
+            est_retenue: false,
+            ...(input.type_optimisation_mise_en_concurrence_id ? { type_optimisation_id: input.type_optimisation_mise_en_concurrence_id } : {}),
+          })
+          .select('id')
+          .single()
+        optimisationId = (optimisation as { id: string } | null)?.id ?? null
+        if (optimisationId) {
+          await supabase
+            .from('optimisations_fournisseurs')
+            .insert(input.fournisseur_ids.map((fournisseur_compte_id) => ({ optimisation_id: optimisationId, fournisseur_compte_id })))
+        }
+      }
+
+      // L'étape de l'opportunité ne passe à "En analyse" qu'à la toute première cotation.
+      if (!estActualisation && input.etape_en_analyse_id) {
+        await supabase.from('recommandations').update({ etape_id: input.etape_en_analyse_id }).eq('id', input.recommandation_id)
+      }
+
+      queryClient.invalidateQueries({ queryKey: ['recommandations'] })
+      return { versionId }
+    },
+  })
+}
+
 export interface UpdateRecommandationInput {
   id: string
   titre: string

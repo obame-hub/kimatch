@@ -268,6 +268,25 @@ export interface Compte {
   contact_commercial_id?: string | null
   contact_commercial_nom?: string | null
   limite_ellipro?: number | null
+  /** Critères d'éligibilité fournisseur (Tools: table `suppliers`) -- ajoutés le 04/08/2026 pour
+   * le moteur d'éligibilité du flot Cotation. */
+  partnership?: string | null
+  intermediary?: string | null
+  targets?: string[]
+  energy_types?: string[]
+  segments?: string[]
+  tariffs?: string[]
+  profiles?: string[]
+  min_consumption?: number | null
+  max_consumption?: number | null
+  min_ellipro_score?: number | null
+  max_ddf?: string | null
+  max_dff?: string | null
+  response_delay_days?: number | null
+  update_delay_days?: number | null
+  notice_days?: number | null
+  partner_category?: string | null
+  fournisseur_actif?: boolean
   // comptes_partenaires (type_compte === 'partenaire')
   type_partenariat?: string | null
   modele_remuneration?: string | null

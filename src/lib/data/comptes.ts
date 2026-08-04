@@ -26,6 +26,23 @@ interface RawCompteFournisseur {
   conditions_commerciales: string | null
   commentaire: string | null
   contact_commercial: { prenom: string; nom: string } | null
+  partnership?: string | null
+  intermediary?: string | null
+  targets?: string[] | null
+  energy_types?: string[] | null
+  segments?: string[] | null
+  tariffs?: string[] | null
+  profiles?: string[] | null
+  min_consumption?: number | null
+  max_consumption?: number | null
+  min_ellipro_score?: number | null
+  max_ddf?: string | null
+  max_dff?: string | null
+  response_delay_days?: number | null
+  update_delay_days?: number | null
+  notice_days?: number | null
+  partner_category?: string | null
+  is_active?: boolean
 }
 
 interface RawComptePartenaire {
@@ -53,7 +70,7 @@ async function fetchComptes(): Promise<Compte[]> {
       'comptes',
       `*,
         comptes_clients(segment_compte_id, conseiller_referent_id, origine_acquisition, mandat_cadre_actif, note_interne, segment_compte:segments_comptes(libelle), conseiller_referent:profils(prenom, nom)),
-        comptes_fournisseurs(fournit_electricite, fournit_gaz, contact_commercial_id, statut_partenariat, conditions_commerciales, commentaire, contact_commercial:contacts(prenom, nom)),
+        comptes_fournisseurs(*, contact_commercial:contacts(prenom, nom)),
         comptes_partenaires(type_partenariat, modele_remuneration, contact_referent_id, statut_partenariat, date_debut_partenariat, commentaire, contact_referent:contacts(prenom, nom)),
         proprietaire:profils!comptes_proprietaire_id_fkey(prenom, nom)`,
       (q) => q.order('nom'),
@@ -90,6 +107,23 @@ async function fetchComptes(): Promise<Compte[]> {
               statut_partenariat: fournisseur.statut_partenariat,
               conditions_commerciales: fournisseur.conditions_commerciales,
               commentaire_partenariat: fournisseur.commentaire,
+              partnership: fournisseur.partnership ?? null,
+              intermediary: fournisseur.intermediary ?? null,
+              targets: fournisseur.targets ?? [],
+              energy_types: fournisseur.energy_types ?? [],
+              segments: fournisseur.segments ?? [],
+              tariffs: fournisseur.tariffs ?? [],
+              profiles: fournisseur.profiles ?? [],
+              min_consumption: fournisseur.min_consumption ?? null,
+              max_consumption: fournisseur.max_consumption ?? null,
+              min_ellipro_score: fournisseur.min_ellipro_score ?? null,
+              max_ddf: fournisseur.max_ddf ?? null,
+              max_dff: fournisseur.max_dff ?? null,
+              response_delay_days: fournisseur.response_delay_days ?? null,
+              update_delay_days: fournisseur.update_delay_days ?? null,
+              notice_days: fournisseur.notice_days ?? null,
+              partner_category: fournisseur.partner_category ?? null,
+              fournisseur_actif: fournisseur.is_active ?? true,
             }
           : {}),
         ...(partenaire

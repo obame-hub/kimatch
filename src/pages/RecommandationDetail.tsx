@@ -1,6 +1,6 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
-import { ArrowLeft, Mail, Lock, Pencil, Trash2, Sparkle } from 'lucide-react'
+import { ArrowLeft, Mail, Lock, Pencil, Trash2, Sparkle, RefreshCw, AlertTriangle, CheckCircle2 } from 'lucide-react'
 import { Topbar } from '@/components/layout/Topbar'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
@@ -16,16 +16,204 @@ import {
   useDeleteRecommandation,
   useAjouterFournisseurConsulte,
   useAjouterSuiviConsultation,
+  useCreateVersion,
 } from '@/lib/data/recommandations'
 import { useReferenceTable } from '@/lib/data/referenceTables'
 import { useContacts } from '@/lib/data/contacts'
 import { useComptes } from '@/lib/data/comptes'
+import { useCompteurs } from '@/lib/data/compteurs'
+import { useEligibilityRules } from '@/lib/data/eligibilityRules'
+import { useMappingRules } from '@/lib/data/mappingRules'
+import { checkEligibility, type EligibilityResult } from '@/lib/eligibility'
 import { useCanManage, useIsAdmin, useProfilsAdmin } from '@/lib/data/roles'
 import { sendEmail } from '@/lib/data/gmail'
 import { FALLBACK_ETAPES_RECOMMANDATION, FALLBACK_STATUTS_VERSIONS, STATUT_VERSION_TONE } from '@/lib/referenceFallbacks'
 import { useGoBack } from '@/lib/useGoBack'
 import type { Recommandation, VersionRecommandation, Optimisation, FournisseurConsulte } from '@/types/domain'
 const MISE_EN_CONCURRENCE = 'MISE_EN_CONCURRENCE'
+
+const DUREES_PRESETS = [12, 24, 36, 48, 60]
+const ZONE_LABEL: Record<string, string> = { kiwee: 'KiWee (partenariat direct)', obd: 'OBD (intermédiaire)', energix: 'Energix (intermédiaire)' }
+
+function zoneDuFournisseur(intermediary: string | null | undefined, partnership: string | null | undefined): string {
+  if ((intermediary ?? '').toLowerCase() === 'obd') return 'obd'
+  if ((intermediary ?? '').toLowerCase() === 'energix') return 'energix'
+  if ((partnership ?? '').toLowerCase() === 'kiwee') return 'kiwee'
+  return 'autre'
+}
+
+function CotationWizard({ open, onClose, reco }: { open: boolean; onClose: () => void; reco: Recommandation }) {
+  const { data: comptes } = useComptes()
+  const { data: compteurs } = useCompteurs()
+  const { data: eligibilityRules } = useEligibilityRules()
+  const { data: mappingRules } = useMappingRules()
+  const { data: motifsRef } = useReferenceTable('motifs_versions_recommandation')
+  const { data: statutsVersionsRef } = useReferenceTable('statuts_versions_recommandation')
+  const { data: typesOptimisationsRef } = useReferenceTable('types_optimisations')
+  const { data: etapesRef } = useReferenceTable('etapes_recommandation')
+  const createVersion = useCreateVersion()
+
+  const estActualisation = reco.versions.length > 0
+  const [durees, setDurees] = useState<number[]>([36])
+  const [typesPrix, setTypesPrix] = useState<string[]>(['Fixe'])
+  const [dateSouhaitee, setDateSouhaitee] = useState('')
+  const [fournisseurIds, setFournisseurIds] = useState<string[]>([])
+  const [feedback, setFeedback] = useState<string | null>(null)
+
+  const compte = comptes?.find((c) => c.id === reco.compte_id)
+  const compteursDeLaReco = (compteurs ?? []).filter((c) => (reco.compteur_ids ?? []).includes(c.id))
+
+  function toggleDuree(d: number) {
+    setDurees((prev) => (prev.includes(d) ? prev.filter((x) => x !== d) : prev.length < 3 ? [...prev, d] : prev))
+  }
+  function toggleTypePrix(t: string) {
+    setTypesPrix((prev) => (prev.includes(t) ? prev.filter((x) => x !== t) : [...prev, t]))
+  }
+  function toggleFournisseur(id: string) {
+    setFournisseurIds((prev) => (prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]))
+  }
+
+  const resultats: EligibilityResult[] = useMemo(() => {
+    if (!compte) return []
+    const fournisseurs = (comptes ?? []).filter((c) => c.type_compte === 'fournisseur' && c.fournisseur_actif !== false)
+    return fournisseurs.map((f) =>
+      checkEligibility(
+        f,
+        compte,
+        compteursDeLaReco,
+        { durations: durees, desiredDate: dateSouhaitee ? new Date(dateSouhaitee) : undefined, requestType: estActualisation ? 'actualisation' : 'premiere_demande' },
+        eligibilityRules ?? [],
+        mappingRules ?? [],
+      ),
+    )
+  }, [compte, comptes, compteursDeLaReco, durees, dateSouhaitee, estActualisation, eligibilityRules, mappingRules])
+
+  const parZone = useMemo(() => {
+    const map = new Map<string, EligibilityResult[]>()
+    for (const r of resultats) {
+      const zone = zoneDuFournisseur(r.fournisseur.intermediary, r.fournisseur.partnership)
+      const list = map.get(zone) ?? []
+      list.push(r)
+      map.set(zone, list)
+    }
+    return map
+  }, [resultats])
+
+  // Auto-éviction silencieuse : si un fournisseur choisi devient inéligible (changement de
+  // durée/date), on le retire automatiquement de la sélection -- même comportement que Tools.
+  useEffect(() => {
+    setFournisseurIds((prev) => prev.filter((id) => resultats.find((r) => r.fournisseur.id === id)?.eligible))
+  }, [resultats])
+
+  function reset() {
+    setDurees([36])
+    setTypesPrix(['Fixe'])
+    setDateSouhaitee('')
+    setFournisseurIds([])
+    setFeedback(null)
+  }
+
+  async function handleValider() {
+    const motif = (motifsRef ?? []).find((m) => /actualis/i.test(m.code)) ?? (motifsRef ?? [])[0]
+    const statutBrouillon = (statutsVersionsRef ?? []).find((s) => s.code === 'BROUILLON')
+    const typeOptim = (typesOptimisationsRef ?? []).find((t) => t.code === MISE_EN_CONCURRENCE)
+    const etapeEnAnalyse = (etapesRef ?? []).find((e) => e.code === 'EN_ANALYSE')
+
+    await createVersion.mutateAsync({
+      recommandation_id: reco.id,
+      compteur_ids: reco.compteur_ids ?? [],
+      motif_id: motif?.id ?? null,
+      statut_brouillon_id: statutBrouillon?.id ?? null,
+      type_optimisation_mise_en_concurrence_id: typeOptim?.id ?? null,
+      fournisseur_ids: fournisseurIds,
+      resume: `Durée${durees.length > 1 ? 's' : ''} ${durees.join('/')} mois — ${typesPrix.join(', ')} — ${fournisseurIds.length} fournisseur${fournisseurIds.length > 1 ? 's' : ''} consulté${fournisseurIds.length > 1 ? 's' : ''}`,
+      contexte_et_hypotheses: dateSouhaitee ? `Date souhaitée : ${new Date(dateSouhaitee).toLocaleDateString('fr-FR')}` : null,
+      etape_en_analyse_id: etapeEnAnalyse?.id ?? null,
+    })
+    setFeedback('Cotation créée.')
+    setTimeout(() => { reset(); onClose() }, 700)
+  }
+
+  return (
+    <Dialog
+      open={open}
+      onClose={() => { reset(); onClose() }}
+      title={estActualisation ? 'Actualiser la cotation' : 'Nouvelle cotation'}
+      description="Sélectionne les durées, la date souhaitée puis les fournisseurs à consulter — l'éligibilité est vérifiée automatiquement par PDL."
+      className="max-w-2xl"
+    >
+      <div className="max-h-[75vh] space-y-4 overflow-y-auto pr-1">
+        <FormField label="Durées (jusqu'à 3)">
+          <div className="flex flex-wrap gap-2">
+            {DUREES_PRESETS.map((d) => (
+              <button
+                key={d}
+                type="button"
+                onClick={() => toggleDuree(d)}
+                className={`rounded-full border px-3 py-1 text-sm transition-colors ${durees.includes(d) ? 'border-kiwi-500 bg-kiwi-50 text-kiwi-700' : 'border-navy-200 text-navy-600 hover:bg-navy-50'}`}
+              >
+                {d} mois
+              </button>
+            ))}
+          </div>
+        </FormField>
+        <FormField label="Type de prix">
+          <div className="flex gap-4">
+            {['Fixe', 'Indexé'].map((t) => (
+              <label key={t} className="flex items-center gap-2 text-sm text-navy-700">
+                <input type="checkbox" checked={typesPrix.includes(t)} onChange={() => toggleTypePrix(t)} /> {t}
+              </label>
+            ))}
+          </div>
+        </FormField>
+        <FormField label="Date souhaitée">
+          <Input type="date" value={dateSouhaitee} onChange={(e) => setDateSouhaitee(e.target.value)} />
+        </FormField>
+
+        <div>
+          <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-navy-400">Fournisseurs à consulter</p>
+          <div className="space-y-3">
+            {['kiwee', 'obd', 'energix', 'autre'].map((zone) => {
+              const list = parZone.get(zone) ?? []
+              if (list.length === 0) return null
+              return (
+                <div key={zone}>
+                  <p className="mb-1 text-[11px] font-semibold text-navy-500">{ZONE_LABEL[zone] ?? 'Autre'}</p>
+                  <div className="space-y-1 rounded-lg border border-navy-200 p-2">
+                    {list.map((r) => (
+                      <label key={r.fournisseur.id} className={`flex items-start gap-2 rounded-md p-1.5 text-sm ${r.eligible ? 'text-navy-700 hover:bg-navy-50' : 'text-navy-300'}`}>
+                        <input type="checkbox" disabled={!r.eligible} checked={fournisseurIds.includes(r.fournisseur.id)} onChange={() => toggleFournisseur(r.fournisseur.id)} className="mt-0.5" />
+                        <span className="flex-1">
+                          {r.fournisseur.nom}
+                          {r.eligible ? (
+                            <CheckCircle2 className="ml-1.5 inline h-3 w-3 text-kiwi-600" />
+                          ) : (
+                            <span className="ml-1.5 inline-flex items-center gap-1 text-[11px] text-amber-600" title={r.reasons.join(' · ')}>
+                              <AlertTriangle className="h-3 w-3" /> {r.reasons[0]}
+                            </span>
+                          )}
+                        </span>
+                      </label>
+                    ))}
+                  </div>
+                </div>
+              )
+            })}
+            {resultats.length === 0 && <p className="text-xs text-navy-400">Aucun fournisseur actif configuré.</p>}
+          </div>
+        </div>
+
+        {feedback && <p className="text-xs text-navy-500">{feedback}</p>}
+        <div className="flex justify-end gap-2 border-t border-navy-100 pt-3">
+          <Button type="button" variant="ghost" onClick={() => { reset(); onClose() }}>Annuler</Button>
+          <Button type="button" onClick={handleValider} disabled={createVersion.isPending || durees.length === 0 || fournisseurIds.length === 0}>
+            {estActualisation ? 'Actualiser' : 'Créer la cotation'}
+          </Button>
+        </div>
+      </div>
+    </Dialog>
+  )
+}
 
 const PRIORITE_LABEL: Record<number, string> = { 1: 'Haute', 2: 'Normale', 3: 'Basse' }
 
@@ -222,6 +410,7 @@ export default function RecommandationDetail() {
   const [editOpen, setEditOpen] = useState(false)
   const [confirmDelete, setConfirmDelete] = useState(false)
   const [ajouterFournisseurFor, setAjouterFournisseurFor] = useState<Optimisation | null>(null)
+  const [showCotationWizard, setShowCotationWizard] = useState(false)
   const [suiviFor, setSuiviFor] = useState<{ optimisationId: string; fc: FournisseurConsulte } | null>(null)
   const etapes = etapesRef && etapesRef.length > 0 ? etapesRef : FALLBACK_ETAPES_RECOMMANDATION
   const statutsVersions = statutsVersionsRef && statutsVersionsRef.length > 0 ? statutsVersionsRef : FALLBACK_STATUTS_VERSIONS
@@ -325,6 +514,12 @@ export default function RecommandationDetail() {
               <Card className="lg:col-span-2">
                 <CardHeader>
                   <CardTitle>Historique des versions</CardTitle>
+                  {canManage && (
+                    <Button size="sm" onClick={() => setShowCotationWizard(true)}>
+                      <RefreshCw className="h-3.5 w-3.5" />
+                      {reco.versions.length > 0 ? 'Actualiser' : 'Nouvelle cotation'}
+                    </Button>
+                  )}
                 </CardHeader>
                 <CardContent className="space-y-3">
                   {reco.versions.length === 0 && (
@@ -516,6 +711,9 @@ export default function RecommandationDetail() {
       )}
       {reco && (
         <EditRecommandationDialog open={editOpen} onClose={() => setEditOpen(false)} reco={reco} onSaved={() => {}} />
+      )}
+      {reco && (
+        <CotationWizard open={showCotationWizard} onClose={() => setShowCotationWizard(false)} reco={reco} />
       )}
       <AjouterFournisseurConsulteDialog
         open={!!ajouterFournisseurFor}
