@@ -12,6 +12,18 @@ function nextDraftKey() {
   return `draft-${draftKeySeq}`
 }
 
+const SEGMENTS_ELEC = ['C1', 'C2', 'C3', 'C4', 'C5']
+const TENSIONS_ELEC = ['BT', 'HTA']
+const TARIFS_GAZ = ['T1', 'T2', 'T3', 'T4']
+const PROFILS_GAZ = ['P011', 'P012', 'P013', 'P014', 'P015', 'P016', 'P017', 'P018', 'P019']
+const CLASSES_PUISSANCE_ELEC: { key: string; label: string }[] = [
+  { key: 'pointe', label: 'PS POINTE (kVA)' },
+  { key: 'hph', label: 'PS HPH (kVA)' },
+  { key: 'hch', label: 'PS HCH (kVA)' },
+  { key: 'hpe', label: 'PS HPE (kVA)' },
+  { key: 'hce', label: 'PS HCE (kVA)' },
+]
+
 export interface PdlDraft {
   key: string
   typeEnergieId: string
@@ -21,6 +33,16 @@ export interface PdlDraft {
   dateEcheance: string
   fournisseurActuelId: string
   responsableContactId: string
+  // Caractéristiques techniques -- saisissables manuellement dès la création, comme dans Tools
+  // (manuelle ou extraction facture), en repli de la synchro GRD réelle qui n'a lieu qu'une fois
+  // le mandat actif. Toutes optionnelles ici (Kimatch ne bloque jamais dur sur ces champs,
+  // contrairement à Tools qui les rend obligatoires).
+  segment: string
+  tension: string
+  puissanceParClasseKva: Record<string, string>
+  tarifDistribution: string
+  profilConsommation: string
+  carMwh: string
   status: 'draft' | 'saving' | 'saved' | 'error'
   errorMessage: string | null
 }
@@ -35,8 +57,41 @@ export function emptyPdlDraft(): PdlDraft {
     dateEcheance: '',
     fournisseurActuelId: '',
     responsableContactId: '',
+    segment: '',
+    tension: '',
+    puissanceParClasseKva: {},
+    tarifDistribution: '',
+    profilConsommation: '',
+    carMwh: '',
     status: 'draft',
     errorMessage: null,
+  }
+}
+
+/** Construit les objets `grdElec`/`grdGaz` attendus par `useCreateCompteur` à partir des
+ * caractéristiques techniques saisies manuellement dans le brouillon (segment/tension/puissances
+ * pour l'élec, tarif/profil/CAR pour le gaz) -- même conduit que la synchro GRD réelle, mais
+ * alimenté à la main tant que le mandat n'est pas encore actif. */
+export function buildDraftCharacteristics(d: PdlDraft, estElectricite: boolean) {
+  if (estElectricite) {
+    const hasSegment = !!d.segment
+    const hasTension = !!d.tension
+    const puissances = Object.fromEntries(
+      Object.entries(d.puissanceParClasseKva).filter(([, v]) => v.trim() !== '').map(([k, v]) => [k, Number(v)]),
+    )
+    if (!hasSegment && !hasTension && Object.keys(puissances).length === 0) return {}
+    return { grdElec: { segment: d.segment || null, tension: d.tension || null, puissanceParClasseKva: puissances } }
+  }
+  const hasTarif = !!d.tarifDistribution
+  const hasProfil = !!d.profilConsommation
+  const hasCar = d.carMwh.trim() !== ''
+  if (!hasTarif && !hasProfil && !hasCar) return {}
+  return {
+    grdGaz: {
+      tarif_distribution: d.tarifDistribution || null,
+      profil_consommation: d.profilConsommation || null,
+      car_mwh: hasCar ? Number(d.carMwh) : null,
+    },
   }
 }
 
@@ -109,6 +164,74 @@ export function PdlDraftRows({
                     {utilisationsRef.map((u) => <option key={u.id} value={u.id}>{u.libelle}</option>)}
                   </Select>
                 </FormField>
+              )}
+              {d.typeEnergieId && (
+                <div className="rounded-lg border border-navy-100 bg-navy-50/60 p-3">
+                  <p className="mb-2 text-[10px] font-semibold uppercase tracking-wide text-navy-400">
+                    {estElectricite ? 'Caractéristiques techniques' : 'Caractéristiques & consommation'}
+                  </p>
+                  {estElectricite ? (
+                    <div className="space-y-3">
+                      <div className="grid grid-cols-2 gap-3">
+                        <FormField label="Segment">
+                          <Select value={d.segment} onChange={(e) => onChange(d.key, { segment: e.target.value })}>
+                            <option value="">Non renseigné</option>
+                            {SEGMENTS_ELEC.map((s) => <option key={s} value={s}>{s}</option>)}
+                          </Select>
+                        </FormField>
+                        <FormField label="Tension">
+                          <Select value={d.tension} onChange={(e) => onChange(d.key, { tension: e.target.value })}>
+                            <option value="">Non renseigné</option>
+                            {TENSIONS_ELEC.map((t) => <option key={t} value={t}>{t}</option>)}
+                          </Select>
+                        </FormField>
+                      </div>
+                      {d.segment === 'C5' ? (
+                        <FormField label="PS Unique (kW)">
+                          <Input
+                            type="number"
+                            step="0.1"
+                            value={d.puissanceParClasseKva.base ?? ''}
+                            onChange={(e) => onChange(d.key, { puissanceParClasseKva: { ...d.puissanceParClasseKva, base: e.target.value } })}
+                          />
+                        </FormField>
+                      ) : (
+                        <div className="grid grid-cols-3 gap-3">
+                          {CLASSES_PUISSANCE_ELEC.map((c) => (
+                            <FormField key={c.key} label={c.label}>
+                              <Input
+                                type="number"
+                                step="0.1"
+                                value={d.puissanceParClasseKva[c.key] ?? ''}
+                                onChange={(e) => onChange(d.key, { puissanceParClasseKva: { ...d.puissanceParClasseKva, [c.key]: e.target.value } })}
+                              />
+                            </FormField>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  ) : (
+                    <div className="space-y-3">
+                      <div className="grid grid-cols-2 gap-3">
+                        <FormField label="Tarif d'acheminement">
+                          <Select value={d.tarifDistribution} onChange={(e) => onChange(d.key, { tarifDistribution: e.target.value })}>
+                            <option value="">Non renseigné</option>
+                            {TARIFS_GAZ.map((t) => <option key={t} value={t}>{t}</option>)}
+                          </Select>
+                        </FormField>
+                        <FormField label="Profil de consommation">
+                          <Select value={d.profilConsommation} onChange={(e) => onChange(d.key, { profilConsommation: e.target.value })}>
+                            <option value="">Non renseigné</option>
+                            {PROFILS_GAZ.map((p) => <option key={p} value={p}>{p}</option>)}
+                          </Select>
+                        </FormField>
+                      </div>
+                      <FormField label="CAR (MWh)">
+                        <Input type="number" step="0.1" value={d.carMwh} onChange={(e) => onChange(d.key, { carMwh: e.target.value })} />
+                      </FormField>
+                    </div>
+                  )}
+                </div>
               )}
               <div className="grid grid-cols-2 gap-3">
                 <FormField label="Fournisseur actuel">

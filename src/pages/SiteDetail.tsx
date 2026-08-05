@@ -10,7 +10,7 @@ import { Dialog } from '@/components/ui/dialog'
 import { FormField, Input, Select } from '@/components/ui/form'
 import { HistoriqueDiscret } from '@/components/ui/historique-discret'
 import { AddressAutocomplete } from '@/components/ui/address-autocomplete'
-import { PdlDraftRows, emptyPdlDraft, type PdlDraft } from '@/components/compteur/PdlDraftRows'
+import { PdlDraftRows, emptyPdlDraft, buildDraftCharacteristics, type PdlDraft } from '@/components/compteur/PdlDraftRows'
 import { MandatChainPrompt, type ChainedCompteur } from '@/components/compteur/MandatChainPrompt'
 import { useSites, useUpdateSite, useDeleteSite } from '@/lib/data/sites'
 import { useReferenceTable } from '@/lib/data/referenceTables'
@@ -992,6 +992,7 @@ function AddCompteurDialog({
           fournisseur_actuel_nom: fournisseur?.nom ?? null,
           responsable_contact_id: d.responsableContactId || null,
           responsable_contact_nom: responsable ? `${responsable.prenom} ${responsable.nom}` : null,
+          ...buildDraftCharacteristics(d, typeEnergie === 'electricite'),
         })
         patchDraft(d.key, { status: 'saved' })
         created += 1

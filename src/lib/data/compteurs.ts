@@ -175,6 +175,10 @@ interface CreateCompteurInput {
   responsable_contact_nom?: string | null
   grdElec?: GrdElecData
   grdGaz?: GrdGazData
+  /** true uniquement pour une vraie synchro Enedis/GRDF automatisée -- toujours absent/false pour
+   * des caractéristiques techniques saisies à la main (via PdlDraftRows), qui empruntent le même
+   * conduit grdElec/grdGaz sans pour autant constituer une synchro réelle. */
+  synchroReelle?: boolean
 }
 
 /** Dédoublonnage par égalité EXACTE du numéro de PDL (pas de normalisation) -- même règle que
@@ -209,7 +213,7 @@ export function useCreateCompteur() {
 
   return useMutation({
     mutationFn: async (input: CreateCompteurInput): Promise<CreateCompteurResult> => {
-      const synchro = !!(input.grdElec || input.grdGaz)
+      const synchro = input.synchroReelle === true
       const now = synchro ? new Date().toISOString() : null
       let persisted = false
       let compteur: Compteur = {

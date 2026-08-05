@@ -28,7 +28,7 @@ import { FormField, Input, Select, Textarea } from '@/components/ui/form'
 import { HistoriqueDiscret } from '@/components/ui/historique-discret'
 import { InlineField } from '@/components/ui/inline-field'
 import { AddressAutocomplete } from '@/components/ui/address-autocomplete'
-import { PdlDraftRows, emptyPdlDraft, type PdlDraft } from '@/components/compteur/PdlDraftRows'
+import { PdlDraftRows, emptyPdlDraft, buildDraftCharacteristics, type PdlDraft } from '@/components/compteur/PdlDraftRows'
 import { MandatChainPrompt, type ChainedCompteur } from '@/components/compteur/MandatChainPrompt'
 import {
   useComptes,
@@ -1588,6 +1588,7 @@ function AddCompteurAutoSiteDialog({
           fournisseur_actuel_nom: fournisseur?.nom ?? null,
           responsable_contact_id: d.responsableContactId || null,
           responsable_contact_nom: responsable ? `${responsable.prenom} ${responsable.nom}` : null,
+          ...buildDraftCharacteristics(d, typeEnergie === 'electricite'),
         })
         patchDraft(d.key, { status: 'saved' })
         created += 1
