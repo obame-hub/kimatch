@@ -16,7 +16,7 @@ import { useCompteurs } from '@/lib/data/compteurs'
 import { useContacts } from '@/lib/data/contacts'
 import { useReferenceTable } from '@/lib/data/referenceTables'
 import { FALLBACK_STATUTS_CONTRATS, STATUT_CONTRAT_TONE, FALLBACK_TYPES_ENERGIES } from '@/lib/referenceFallbacks'
-import { ZONE_LABEL, zoneDuFournisseur } from '@/lib/fournisseurZones'
+import { ZONE_ORDER_CONTRAT, ZONE_LABEL_CONTRAT, zoneDuFournisseur } from '@/lib/fournisseurZones'
 import { ListToolbar } from '@/components/ui/list-toolbar'
 import { useListControls } from '@/lib/useListControls'
 import { ExtractDocumentButton } from '@/components/ui/document-extraction'
@@ -182,11 +182,11 @@ function CreateContratDialog({ open, onClose }: { open: boolean; onClose: () => 
         <FormField label="Fournisseur">
           <Select value={fournisseurId} onChange={(e) => setFournisseurId(e.target.value)}>
             <option value="">Sélectionner…</option>
-            {['kiwee', 'obd', 'energix', 'autre'].map((zone) => {
+            {[...ZONE_ORDER_CONTRAT, 'autre'].map((zone) => {
               const list = fournisseursParZone.get(zone) ?? []
               if (list.length === 0) return null
               return (
-                <optgroup key={zone} label={ZONE_LABEL[zone]}>
+                <optgroup key={zone} label={ZONE_LABEL_CONTRAT[zone]}>
                   {list.map((f) => <option key={f.id} value={f.id}>{f.nom}</option>)}
                 </optgroup>
               )

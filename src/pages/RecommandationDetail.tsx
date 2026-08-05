@@ -29,7 +29,8 @@ import { useCanManage, useIsAdmin, useProfilsAdmin } from '@/lib/data/roles'
 import { sendEmail } from '@/lib/data/gmail'
 import { FALLBACK_ETAPES_RECOMMANDATION, FALLBACK_STATUTS_VERSIONS, STATUT_VERSION_TONE } from '@/lib/referenceFallbacks'
 import { useGoBack } from '@/lib/useGoBack'
-import { ZONE_LABEL, zoneDuFournisseur } from '@/lib/fournisseurZones'
+import { ZONE_ORDER_COTATION, ZONE_LABEL_COTATION, zoneDuFournisseur } from '@/lib/fournisseurZones'
+import { computeEstimatedCommission } from '@/lib/commission'
 import type { Recommandation, VersionRecommandation, Optimisation, FournisseurConsulte } from '@/types/domain'
 const MISE_EN_CONCURRENCE = 'MISE_EN_CONCURRENCE'
 
@@ -52,6 +53,12 @@ function CotationWizard({ open, onClose, reco }: { open: boolean; onClose: () =>
   const [dateSouhaitee, setDateSouhaitee] = useState('')
   const [fournisseurIds, setFournisseurIds] = useState<string[]>([])
   const [feedback, setFeedback] = useState<string | null>(null)
+  const [toast, setToast] = useState<string | null>(null)
+
+  function showToast(msg: string) {
+    setToast(msg)
+    setTimeout(() => setToast(null), 2200)
+  }
 
   const compte = comptes?.find((c) => c.id === reco.compte_id)
   const compteursDeLaReco = (compteurs ?? []).filter((c) => (reco.compteur_ids ?? []).includes(c.id))
@@ -81,6 +88,8 @@ function CotationWizard({ open, onClose, reco }: { open: boolean; onClose: () =>
     )
   }, [compte, comptes, compteursDeLaReco, durees, dateSouhaitee, estActualisation, eligibilityRules, mappingRules])
 
+  const commissionEstimee = useMemo(() => computeEstimatedCommission(compteursDeLaReco, durees), [compteursDeLaReco, durees])
+
   const parZone = useMemo(() => {
     const map = new Map<string, EligibilityResult[]>()
     for (const r of resultats) {
@@ -92,10 +101,19 @@ function CotationWizard({ open, onClose, reco }: { open: boolean; onClose: () =>
     return map
   }, [resultats])
 
-  // Auto-éviction silencieuse : si un fournisseur choisi devient inéligible (changement de
-  // durée/date), on le retire automatiquement de la sélection -- même comportement que Tools.
+  // Auto-éviction : si un fournisseur choisi devient inéligible (changement de durée/date), on le
+  // retire automatiquement de la sélection avec un toast d'avertissement -- même comportement et
+  // même message que StepSuppliers.tsx dans Tools.
   useEffect(() => {
-    setFournisseurIds((prev) => prev.filter((id) => resultats.find((r) => r.fournisseur.id === id)?.eligible))
+    setFournisseurIds((prev) => {
+      const kept = prev.filter((id) => resultats.find((r) => r.fournisseur.id === id)?.eligible)
+      const removedCount = prev.length - kept.length
+      if (removedCount > 0) {
+        showToast(`${removedCount} fournisseur${removedCount > 1 ? 's' : ''} retiré${removedCount > 1 ? 's' : ''} de la sélection (devenu${removedCount > 1 ? 's' : ''} inéligible${removedCount > 1 ? 's' : ''})`)
+      }
+      return kept
+    })
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [resultats])
 
   function reset() {
@@ -119,7 +137,7 @@ function CotationWizard({ open, onClose, reco }: { open: boolean; onClose: () =>
       statut_brouillon_id: statutBrouillon?.id ?? null,
       type_optimisation_mise_en_concurrence_id: typeOptim?.id ?? null,
       fournisseur_ids: fournisseurIds,
-      resume: `Durée${durees.length > 1 ? 's' : ''} ${durees.join('/')} mois — ${typesPrix.join(', ')} — ${fournisseurIds.length} fournisseur${fournisseurIds.length > 1 ? 's' : ''} consulté${fournisseurIds.length > 1 ? 's' : ''}`,
+      resume: `Durée${durees.length > 1 ? 's' : ''} ${durees.join('/')} mois — ${typesPrix.join(', ')} — ${fournisseurIds.length} fournisseur${fournisseurIds.length > 1 ? 's' : ''} consulté${fournisseurIds.length > 1 ? 's' : ''} — commission estimée ${Math.round(commissionEstimee).toLocaleString('fr-FR')} €`,
       contexte_et_hypotheses: dateSouhaitee ? `Date souhaitée : ${new Date(dateSouhaitee).toLocaleDateString('fr-FR')}` : null,
       etape_en_analyse_id: etapeEnAnalyse?.id ?? null,
     })
@@ -150,6 +168,10 @@ function CotationWizard({ open, onClose, reco }: { open: boolean; onClose: () =>
             ))}
           </div>
         </FormField>
+        <p className="rounded-lg border border-navy-100 bg-navy-50 px-3 py-2 text-xs text-navy-500">
+          Commission estimée : <span className="font-medium text-navy-700">{commissionEstimee.toLocaleString('fr-FR', { maximumFractionDigits: 0 })} €</span>
+          <span className="text-navy-400"> (C5 : forfait 140 €/PDL · autres : conso/12 × durée max × 3)</span>
+        </p>
         <FormField label="Type de prix">
           <div className="flex gap-4">
             {['Fixe', 'Indexé'].map((t) => (
@@ -166,12 +188,12 @@ function CotationWizard({ open, onClose, reco }: { open: boolean; onClose: () =>
         <div>
           <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-navy-400">Fournisseurs à consulter</p>
           <div className="space-y-3">
-            {['kiwee', 'obd', 'energix', 'autre'].map((zone) => {
+            {[...ZONE_ORDER_COTATION, 'autre'].map((zone) => {
               const list = parZone.get(zone) ?? []
               if (list.length === 0) return null
               return (
                 <div key={zone}>
-                  <p className="mb-1 text-[11px] font-semibold text-navy-500">{ZONE_LABEL[zone] ?? 'Autre'}</p>
+                  <p className="mb-1 text-[11px] font-semibold text-navy-500">{ZONE_LABEL_COTATION[zone] ?? 'Autre'}</p>
                   <div className="space-y-1 rounded-lg border border-navy-200 p-2">
                     {list.map((r) => (
                       <label key={r.fournisseur.id} className={`flex items-start gap-2 rounded-md p-1.5 text-sm ${r.eligible ? 'text-navy-700 hover:bg-navy-50' : 'text-navy-300'}`}>
@@ -204,6 +226,11 @@ function CotationWizard({ open, onClose, reco }: { open: boolean; onClose: () =>
           </Button>
         </div>
       </div>
+      {toast && (
+        <div className="fixed bottom-6 left-1/2 z-50 -translate-x-1/2 whitespace-nowrap rounded-lg bg-ink-800 px-4 py-2.5 text-xs font-semibold text-white shadow-lg">
+          {toast}
+        </div>
+      )}
     </Dialog>
   )
 }
