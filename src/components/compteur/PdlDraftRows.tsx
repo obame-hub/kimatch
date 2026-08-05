@@ -291,23 +291,26 @@ export function PdlDraftRows({
                   <Input type="date" value={d.dateEcheance} onChange={(e) => onChange(d.key, { dateEcheance: e.target.value })} />
                 </FormField>
               </div>
-              <FormField label="Responsable" required>
-                <ContactPicker
-                  value={d.responsableContactId}
-                  onChange={(contactId) => onChange(d.key, { responsableContactId: contactId })}
-                  contactsDuCompte={contacts}
-                  allContacts={allContacts}
-                  compteId={compteId}
-                  compteNom={compteNom}
-                  segment={compteSegment}
-                  invalid={manquants.has('responsableContactId')}
-                  disabled={locked}
-                />
-              </FormField>
-              <p className="text-[11px] text-navy-400">
-                Contacts liés au compte. Si le bon contact n'apparaît pas, cherche dans tous les contacts du CRM via
-                l'onglet « Autre contact ». Le responsable signera le mandat — sans lui, impossible de l'envoyer en signature.
-              </p>
+              <div className={manquants.has('responsableContactId') ? 'rounded-lg ring-2 ring-amber-400' : undefined}>
+                <FormField label="Responsable" required>
+                  <ContactPicker
+                    value={d.responsableContactId}
+                    onChange={(contactId) => onChange(d.key, { responsableContactId: contactId })}
+                    accountContacts={contacts}
+                    allContacts={allContacts}
+                    accountId={compteId}
+                    accountNom={compteNom}
+                    segment={compteSegment}
+                  />
+                </FormField>
+              </div>
+              {manquants.has('responsableContactId') ? (
+                <p className="text-[11px] text-amber-700">La sélection d'un responsable est obligatoire.</p>
+              ) : (
+                <p className="text-[11px] text-navy-400">
+                  Contacts liés au compte. Si le bon contact n'apparaît pas, cherchez dans tous les contacts du CRM.
+                </p>
+              )}
             </fieldset>
             {d.errorMessage && <p className="mt-2 text-xs text-red-600">{d.errorMessage}</p>}
           </div>

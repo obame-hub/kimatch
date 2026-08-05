@@ -1,112 +1,72 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
-import { ChevronDown, Search, UserPlus, X } from 'lucide-react'
+import { Check, ChevronDown, Plus, Search, User, UserPlus, X } from 'lucide-react'
+import { Badge } from '@/components/ui/badge'
+import { Button } from '@/components/ui/button'
 import { Sheet } from '@/components/ui/sheet'
 import { ContactForm } from '@/components/contact/ContactForm'
 import { cn } from '@/lib/utils'
 import type { Contact } from '@/types/domain'
 
-function initiales(c: Contact): string {
-  const i = `${(c.prenom ?? '').charAt(0)}${(c.nom ?? '').charAt(0)}`.trim().toUpperCase()
-  return i || '?'
+function initials(prenom: string, nom: string): string {
+  return `${(prenom || '?')[0]}${(nom || '?')[0]}`.toUpperCase()
 }
 
-function correspond(c: Contact, q: string): boolean {
-  if (!q) return true
-  const hay = `${c.prenom} ${c.nom} ${c.email ?? ''} ${c.compte_nom ?? ''} ${c.fonction ?? ''}`.toLowerCase()
-  return q
-    .toLowerCase()
-    .split(/\s+/)
-    .filter(Boolean)
-    .every((mot) => hay.includes(mot))
+function joinNameParts(...parts: (string | null | undefined)[]): string {
+  return parts.filter(Boolean).join(' ')
 }
 
-function Avatar({ contact, className }: { contact: Contact; className?: string }) {
-  return (
-    <span
-      className={cn(
-        'flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-navy-100 text-[10px] font-semibold text-navy-600',
-        className,
-      )}
-    >
-      {initiales(contact)}
-    </span>
-  )
-}
-
-function Ligne({ contact, actif, onClick, montrerCompte }: { contact: Contact; actif: boolean; onClick: () => void; montrerCompte?: boolean }) {
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      className={cn(
-        'flex w-full items-center gap-2 rounded-lg px-2 py-1.5 text-left transition-colors',
-        actif ? 'bg-kiwi-50' : 'hover:bg-navy-50',
-      )}
-    >
-      <Avatar contact={contact} />
-      <span className="min-w-0 flex-1">
-        <span className="block truncate text-sm text-navy-800">{contact.prenom} {contact.nom}</span>
-        <span className="block truncate text-[11px] text-navy-400">
-          {contact.email || 'Pas d’email'}
-          {montrerCompte && contact.compte_nom ? ` · ${contact.compte_nom}` : ''}
-        </span>
-      </span>
-    </button>
-  )
-}
-
-/** Sélecteur de contact à deux onglets -- réplique le ContactPicker de Tools (champ « Responsable »
- * du PDL, contact décisionnaire de l'opportunité) :
- *  - onglet « Contacts du compte (N) » : les contacts rattachés au compte courant
- *  - onglet « Autre contact » : recherche sur tout le CRM, pour les cas où le bon interlocuteur est
- *    rattaché ailleurs (cabinet de syndic gérant plusieurs entités, par exemple)
- *  - pied de liste « + Créer un nouveau contact » : création en ligne, sans quitter le formulaire
- *  - une fois choisi : avatar + nom, email en dessous, lien « retirer » à droite
+/** Sélecteur de contact à deux onglets -- transposition du `ContactPicker` de Tools
+ * (`src/components/pdl/ContactPicker.tsx`) : même déclencheur combobox, mêmes onglets
+ * « Contacts du compte (N) » / « Autre contact », mêmes textes vides, même pied
+ * « Créer un nouveau contact », et la ligne « ✉ email · ☎ téléphone … × retirer » SOUS le champ.
  *
- * Le panneau de création est monté via un portail sur `document.body` : ce composant vit souvent
- * à l'intérieur d'un `<form>` (brouillon de PDL) et le formulaire de contact en contient un autre —
- * imbriquer deux `<form>` dans le DOM n'est pas valide. */
+ * Une seule adaptation technique : le panneau de création est monté via un portail sur
+ * `document.body`. Ce composant vit à l'intérieur d'un `<form>` (brouillon de PDL) et le
+ * formulaire de contact en contient un autre — imbriquer deux `<form>` dans le DOM n'est pas
+ * valide. Tools n'a pas le problème : son dialogue passe déjà par un portail Radix. */
 export function ContactPicker({
   value,
   onChange,
-  contactsDuCompte,
+  accountContacts,
   allContacts,
-  compteId,
-  compteNom,
+  loading,
+  accountId,
+  accountNom,
   segment,
-  invalid,
-  disabled,
-  placeholder = 'Sélectionner un contact…',
+  /** Aucun compte rattaché : seule la recherche globale est proposée (comme `noAccount` de Tools). */
+  noAccount,
 }: {
   value: string
   onChange: (contactId: string, contact: Contact | null) => void
-  contactsDuCompte: Contact[]
-  /** Tous les contacts du CRM, pour l'onglet « Autre contact ». */
+  accountContacts: Contact[]
+  /** Tous les contacts du CRM -- alimente l'onglet « Autre contact ». */
   allContacts: Contact[]
-  compteId: string
-  compteNom: string
+  loading?: boolean
+  accountId?: string | null
+  accountNom?: string
   segment?: string | null
-  /** Surlignage ambre quand le champ est requis et encore vide (même affordance que Tools). */
-  invalid?: boolean
-  disabled?: boolean
-  placeholder?: string
+  noAccount?: boolean
 }) {
   const [open, setOpen] = useState(false)
-  const [onglet, setOnglet] = useState<'compte' | 'autre'>('compte')
-  const [filtre, setFiltre] = useState('')
-  const [creationOuverte, setCreationOuverte] = useState(false)
+  const [createOpen, setCreateOpen] = useState(false)
+  const [tab, setTab] = useState<'linked' | 'global'>(noAccount ? 'global' : 'linked')
+  const [linkedSearch, setLinkedSearch] = useState('')
+  const [globalSearch, setGlobalSearch] = useState('')
   // Filet : un contact tout juste créé peut ne pas encore être revenu dans les listes du parent.
   const [dernierChoisi, setDernierChoisi] = useState<Contact | null>(null)
   const conteneurRef = useRef<HTMLDivElement>(null)
 
-  const selection = useMemo(
+  const canCreate = !!accountId && !noAccount
+
+  const selected = useMemo(
     () =>
+      accountContacts.find((c) => c.id === value) ??
       allContacts.find((c) => c.id === value) ??
-      contactsDuCompte.find((c) => c.id === value) ??
       (dernierChoisi?.id === value ? dernierChoisi : null),
-    [allContacts, contactsDuCompte, value, dernierChoisi],
+    [accountContacts, allContacts, value, dernierChoisi],
   )
+  const isExternal = !!selected && !accountContacts.some((c) => c.id === selected.id)
 
   useEffect(() => {
     if (!open) return
@@ -117,156 +77,214 @@ export function ContactPicker({
     return () => document.removeEventListener('mousedown', onDocClick)
   }, [open])
 
-  const listeCompte = useMemo(() => contactsDuCompte.filter((c) => correspond(c, filtre)), [contactsDuCompte, filtre])
-  const idsDuCompte = useMemo(() => new Set(contactsDuCompte.map((c) => c.id)), [contactsDuCompte])
-  const listeAutres = useMemo(() => {
-    if (filtre.trim().length < 2) return []
-    return allContacts.filter((c) => !idsDuCompte.has(c.id) && correspond(c, filtre)).slice(0, 50)
-  }, [allContacts, idsDuCompte, filtre])
+  const filteredLinked = useMemo(() => {
+    if (!linkedSearch.trim()) return accountContacts
+    const q = linkedSearch.toLowerCase()
+    return accountContacts.filter((c) =>
+      joinNameParts(c.prenom, c.nom, c.fonction, c.email).toLowerCase().includes(q),
+    )
+  }, [accountContacts, linkedSearch])
 
-  function choisir(c: Contact) {
+  const idsDuCompte = useMemo(() => new Set(accountContacts.map((c) => c.id)), [accountContacts])
+  const globalResults = useMemo(() => {
+    const q = globalSearch.trim().toLowerCase()
+    if (q.length < 2) return []
+    return allContacts
+      .filter((c) => noAccount || !idsDuCompte.has(c.id))
+      .filter((c) => joinNameParts(c.prenom, c.nom, c.fonction, c.email, c.compte_nom).toLowerCase().includes(q))
+      .slice(0, 50)
+  }, [allContacts, idsDuCompte, globalSearch, noAccount])
+
+  function select(c: Contact) {
     setDernierChoisi(c)
     onChange(c.id, c)
     setOpen(false)
-    setFiltre('')
+    setLinkedSearch('')
+    setGlobalSearch('')
   }
 
-  function ouvrir(onglet_: 'compte' | 'autre' = 'compte') {
-    if (disabled) return
-    setOnglet(onglet_)
-    setOpen((v) => !v)
+  // Fonction de rendu (et non sous-composant) : un composant redéfini à chaque rendu remonterait
+  // toute la liste, ce qui ferait perdre le focus du champ de filtre.
+  function ligne(contact: Contact, montrerCompte?: boolean) {
+    const estSelectionne = value === contact.id
+    return (
+      <button
+        key={contact.id}
+        type="button"
+        onClick={() => select(contact)}
+        className={cn(
+          'flex w-full items-center gap-2.5 rounded-md p-2 text-left transition-colors',
+          estSelectionne ? 'bg-kiwi-50 ring-1 ring-kiwi-200' : 'hover:bg-navy-50',
+        )}
+      >
+        <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-navy-100 text-[10px] font-bold text-navy-500">
+          {initials(contact.prenom, contact.nom)}
+        </span>
+        <span className="min-w-0 flex-1">
+          <span className="flex items-center gap-1.5">
+            <span className="truncate text-xs font-medium text-navy-800">{joinNameParts(contact.prenom, contact.nom)}</span>
+            {montrerCompte && contact.compte_nom && (
+              <Badge tone="neutral" className="shrink-0 px-1 py-0 text-[9px] font-normal">{contact.compte_nom}</Badge>
+            )}
+          </span>
+          <span className="flex items-center gap-1.5 text-[10px] text-navy-400">
+            {contact.fonction && <span className="truncate">{contact.fonction}</span>}
+            {contact.fonction && contact.email && <span>·</span>}
+            {contact.email && <span className="truncate">{contact.email}</span>}
+          </span>
+        </span>
+        {estSelectionne && <Check className="h-3.5 w-3.5 shrink-0 text-kiwi-600" />}
+      </button>
+    )
   }
 
   return (
-    <div ref={conteneurRef} className="relative">
-      {selection ? (
-        <div
-          className={cn(
-            'flex items-center gap-2 rounded-lg border bg-white px-3 py-1.5',
-            invalid ? 'border-amber-500 bg-amber-50/40' : 'border-navy-200',
-          )}
-        >
-          <Avatar contact={selection} />
-          <button
-            type="button"
-            disabled={disabled}
-            onClick={() => ouvrir('compte')}
-            className="min-w-0 flex-1 text-left disabled:cursor-not-allowed"
-          >
-            <span className="block truncate text-sm text-navy-800">{selection.prenom} {selection.nom}</span>
-            <span className="block truncate text-[11px] text-navy-400">{selection.email || 'Pas d’email'}</span>
-          </button>
-          {!disabled && (
-            <button
-              type="button"
-              onClick={() => { onChange('', null); setOpen(false) }}
-              className="inline-flex shrink-0 items-center gap-1 rounded-md px-1.5 py-1 text-[11px] text-navy-400 transition-colors hover:bg-navy-50 hover:text-red-600"
-            >
-              <X className="h-3 w-3" /> retirer
-            </button>
-          )}
-        </div>
-      ) : (
-        <button
-          type="button"
-          disabled={disabled}
-          onClick={() => ouvrir('compte')}
-          className={cn(
-            'flex h-9 w-full items-center justify-between rounded-lg border bg-white px-3 text-sm transition-colors disabled:cursor-not-allowed disabled:opacity-60',
-            invalid ? 'border-amber-500 bg-amber-50/40 text-navy-600' : 'border-navy-200 text-navy-400 hover:border-kiwi-300',
-          )}
-        >
-          {placeholder}
-          <ChevronDown className="h-4 w-4 shrink-0 text-navy-400" />
-        </button>
-      )}
+    <div ref={conteneurRef} className="relative space-y-1.5">
+      <button
+        type="button"
+        onClick={() => setOpen((v) => !v)}
+        className={cn(
+          'flex h-auto min-h-9 w-full items-center justify-between rounded-lg border border-navy-200 bg-white px-3 py-2 text-sm font-normal transition-colors hover:bg-navy-50',
+          !selected && 'text-navy-400',
+        )}
+      >
+        {selected ? (
+          <span className="flex min-w-0 items-center gap-2">
+            <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-kiwi-600 text-[10px] font-bold text-white">
+              {initials(selected.prenom, selected.nom)}
+            </span>
+            <span className="truncate text-sm text-navy-800">{selected.prenom} {selected.nom}</span>
+            {isExternal && <Badge tone="neutral" className="shrink-0 px-1.5 py-0 text-[9px]">Externe</Badge>}
+          </span>
+        ) : (
+          <span className="flex items-center gap-2 text-sm">
+            <User className="h-4 w-4" />
+            Sélectionner un responsable…
+          </span>
+        )}
+        <ChevronDown className="ml-2 h-4 w-4 shrink-0 text-navy-400" />
+      </button>
 
       {open && (
-        <div className="absolute left-0 right-0 top-full z-40 mt-1 rounded-xl border border-navy-200 bg-white p-2 shadow-xl">
-          <div className="mb-2 flex gap-1 rounded-lg bg-navy-50 p-0.5">
-            {([
-              ['compte', `Contacts du compte (${contactsDuCompte.length})`],
-              ['autre', 'Autre contact'],
-            ] as const).map(([code, libelle]) => (
+        <div className="absolute left-0 right-0 top-[calc(100%+0.25rem)] z-40 rounded-xl border border-navy-200 bg-white shadow-xl">
+          {!noAccount && (
+            <div className="flex border-b border-navy-100">
               <button
-                key={code}
                 type="button"
-                onClick={() => setOnglet(code)}
+                onClick={() => setTab('linked')}
                 className={cn(
-                  'flex-1 rounded-md px-2 py-1 text-[11px] font-medium transition-colors',
-                  onglet === code ? 'bg-white text-navy-800 shadow-sm' : 'text-navy-500 hover:text-navy-700',
+                  'flex-1 py-2.5 text-xs font-medium transition-colors',
+                  tab === 'linked' ? 'border-b-2 border-kiwi-600 text-navy-800' : 'text-navy-400 hover:text-navy-700',
                 )}
               >
-                {libelle}
+                Contacts du compte
+                <span className="ml-1 text-[10px] opacity-70">({accountContacts.length})</span>
               </button>
-            ))}
+              <button
+                type="button"
+                onClick={() => setTab('global')}
+                className={cn(
+                  'flex-1 py-2.5 text-xs font-medium transition-colors',
+                  tab === 'global' ? 'border-b-2 border-kiwi-600 text-navy-800' : 'text-navy-400 hover:text-navy-700',
+                )}
+              >
+                <UserPlus className="mr-1 inline h-3 w-3" />
+                Autre contact
+              </button>
+            </div>
+          )}
+
+          <div className="p-2">
+            <div className="relative">
+              <Search className="pointer-events-none absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-navy-400" />
+              <input
+                autoFocus
+                placeholder={tab === 'linked' ? 'Filtrer les contacts liés…' : 'Rechercher dans tous les contacts…'}
+                value={tab === 'linked' ? linkedSearch : globalSearch}
+                onChange={(e) => (tab === 'linked' ? setLinkedSearch(e.target.value) : setGlobalSearch(e.target.value))}
+                onKeyDown={(e) => { if (e.key === 'Enter') e.preventDefault() }}
+                className="h-8 w-full rounded-lg border border-navy-200 pl-8 pr-2 text-xs text-navy-800 placeholder:text-navy-400 focus:border-kiwi-500 focus:outline-none focus:ring-1 focus:ring-kiwi-500"
+              />
+            </div>
           </div>
 
-          <div className="relative mb-2">
-            <Search className="pointer-events-none absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-navy-400" />
-            <input
-              autoFocus
-              value={filtre}
-              onChange={(e) => setFiltre(e.target.value)}
-              onKeyDown={(e) => { if (e.key === 'Enter') e.preventDefault() }}
-              placeholder={onglet === 'compte' ? 'Filtrer les contacts liés…' : 'Rechercher dans tout le CRM…'}
-              className="h-8 w-full rounded-lg border border-navy-200 pl-8 pr-2 text-sm text-navy-800 placeholder:text-navy-400 focus:border-kiwi-500 focus:outline-none focus:ring-1 focus:ring-kiwi-500"
-            />
-          </div>
-
-          <div className="max-h-52 space-y-0.5 overflow-y-auto">
-            {onglet === 'compte' ? (
-              listeCompte.length > 0 ? (
-                listeCompte.map((c) => <Ligne key={c.id} contact={c} actif={c.id === value} onClick={() => choisir(c)} />)
-              ) : (
-                <p className="px-2 py-3 text-center text-[11px] text-navy-400">
-                  {contactsDuCompte.length === 0
-                    ? 'Aucun contact rattaché à ce compte.'
-                    : 'Aucun contact ne correspond au filtre.'}
+          <div className="max-h-[280px] space-y-1 overflow-y-auto px-2 pb-2">
+            {tab === 'linked' ? (
+              loading ? (
+                <p className="py-6 text-center text-xs text-navy-400">Chargement…</p>
+              ) : filteredLinked.length === 0 ? (
+                <p className="py-6 text-center text-xs text-navy-400">
+                  {accountContacts.length === 0 ? 'Aucun contact lié à ce compte' : 'Aucun résultat'}
                 </p>
+              ) : (
+                filteredLinked.map((c) => ligne(c))
               )
-            ) : filtre.trim().length < 2 ? (
-              <p className="px-2 py-3 text-center text-[11px] text-navy-400">Tape au moins 2 caractères pour chercher dans tout le CRM.</p>
-            ) : listeAutres.length > 0 ? (
-              listeAutres.map((c) => <Ligne key={c.id} contact={c} actif={c.id === value} onClick={() => choisir(c)} montrerCompte />)
+            ) : globalSearch.trim().length < 2 ? (
+              <p className="py-6 text-center text-xs text-navy-400">Saisissez au moins 2 caractères</p>
+            ) : globalResults.length === 0 ? (
+              <p className="py-6 text-center text-xs text-navy-400">Aucun contact trouvé</p>
             ) : (
-              <p className="px-2 py-3 text-center text-[11px] text-navy-400">Aucun contact trouvé dans le reste du CRM.</p>
+              globalResults.map((c) => ligne(c, true))
             )}
           </div>
 
+          {canCreate && (
+            <div className="border-t border-navy-100 p-2">
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                className="h-8 w-full justify-start gap-2 text-xs"
+                onClick={() => { setOpen(false); setCreateOpen(true) }}
+              >
+                <Plus className="h-3.5 w-3.5" />
+                Créer un nouveau contact
+              </Button>
+            </div>
+          )}
+        </div>
+      )}
+
+      {selected && (
+        <div className="flex items-center gap-2 px-1 text-[11px] text-navy-400">
+          {selected.email && <span className="truncate">✉ {selected.email}</span>}
+          {selected.email && (selected.telephone || selected.telephone_mobile) && <span>·</span>}
+          {(selected.telephone || selected.telephone_mobile) && <span>☎ {selected.telephone ?? selected.telephone_mobile}</span>}
           <button
             type="button"
-            onClick={() => { setOpen(false); setCreationOuverte(true) }}
-            className="mt-1 flex w-full items-center gap-1.5 border-t border-navy-100 px-2 pt-2 text-[11px] font-medium text-kiwi-700 hover:underline"
+            onClick={() => { setDernierChoisi(null); onChange('', null) }}
+            className="ml-auto inline-flex items-center gap-0.5 transition-colors hover:text-red-600"
+            aria-label="Retirer le contact"
           >
-            <UserPlus className="h-3.5 w-3.5" /> Créer un nouveau contact
+            <X className="h-3 w-3" /> retirer
           </button>
         </div>
       )}
 
-      {createPortal(
-        <Sheet
-          open={creationOuverte}
-          onClose={() => setCreationOuverte(false)}
-          title="Ajouter un contact"
-          description={`Rattaché à ${compteNom}`}
-        >
-          {creationOuverte && (
-            <ContactForm
-              compteId={compteId}
-              compteNom={compteNom}
-              segment={segment}
-              onCancel={() => setCreationOuverte(false)}
-              onCreated={(contact) => {
-                setCreationOuverte(false)
-                setDernierChoisi(contact)
-                onChange(contact.id, contact)
-              }}
-            />
-          )}
-        </Sheet>,
-        document.body,
-      )}
+      {canCreate &&
+        createPortal(
+          <Sheet
+            open={createOpen}
+            onClose={() => setCreateOpen(false)}
+            title="Ajouter un contact"
+            description={accountNom ? `Rattaché à ${accountNom}` : undefined}
+          >
+            {createOpen && (
+              <ContactForm
+                compteId={accountId as string}
+                compteNom={accountNom ?? ''}
+                segment={segment}
+                onCancel={() => setCreateOpen(false)}
+                onCreated={(contact) => {
+                  setCreateOpen(false)
+                  setDernierChoisi(contact)
+                  onChange(contact.id, contact)
+                }}
+              />
+            )}
+          </Sheet>,
+          document.body,
+        )}
     </div>
   )
 }

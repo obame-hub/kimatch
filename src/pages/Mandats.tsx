@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
-import { Plus, FileCheck2, Eye, AlertTriangle } from 'lucide-react'
+import { Plus, FileCheck2, Eye } from 'lucide-react'
 import { Topbar } from '@/components/layout/Topbar'
 import { PageHeader } from '@/components/ui/page-header'
 import { Card } from '@/components/ui/card'
@@ -10,7 +10,7 @@ import { EntityLink } from '@/components/ui/entity-link'
 import { Dialog } from '@/components/ui/dialog'
 import { FormField, Input, Select } from '@/components/ui/form'
 import { useMandats, useCreateMandat } from '@/lib/data/mandats'
-import { useDocusignStatus } from '@/lib/data/docusign'
+import { WizardConnectionGate } from '@/components/ui/connection-gate'
 import { useComptes } from '@/lib/data/comptes'
 import { useSites } from '@/lib/data/sites'
 import { useCompteurs } from '@/lib/data/compteurs'
@@ -42,7 +42,6 @@ export function CreateMandatDialog({
   const { data: courtiersRef } = useReferenceTable('types_courtiers_mandat')
   const courtiers = courtiersRef && courtiersRef.length > 0 ? courtiersRef : FALLBACK_TYPES_COURTIERS_MANDAT
   const createMandat = useCreateMandat()
-  const docusignStatus = useDocusignStatus()
 
   const [compteId, setCompteId] = useState(initialCompteId ?? '')
   const [dateSignature, setDateSignature] = useState('')
@@ -126,19 +125,11 @@ export function CreateMandatDialog({
 
   return (
     <Dialog open={open} onClose={() => { reset(); onClose() }} title="Nouveau mandat" description="Le mandat autorise KiWee à intervenir sur un périmètre de sites d'un compte.">
+      {/* Garde-fou de connexion, même emplacement et mêmes outils que dans Tools (MandatPage :
+          required={["salesforce","docusign"]}) : on ne fait pas remplir tout le formulaire pour
+          échouer à l'envoi en signature. */}
+      <WizardConnectionGate required={['crm', 'docusign']} feature="création de mandat">
       <form onSubmit={handleSubmit} className="space-y-3">
-        {/* Prévient AVANT de faire remplir tout le formulaire quand la signature électronique
-            n'est pas configurée -- même intention que l'écran « Connexion requise » de Tools
-            (ici c'est une config serveur JWT, pas une connexion par utilisateur). */}
-        {docusignStatus.data && !docusignStatus.data.configured && (
-          <div className="flex items-start gap-2 rounded-lg border border-amber-200 bg-amber-50 p-3 text-xs text-amber-800">
-            <AlertTriangle className="mt-0.5 h-3.5 w-3.5 shrink-0" />
-            <span>
-              <span className="font-medium">Signature électronique non configurée.</span> Le mandat sera créé et les
-              PDF générés, mais l'envoi en signature échouera. Fais configurer DocuSign côté serveur avant d'envoyer.
-            </span>
-          </div>
-        )}
         <ExtractDocumentButton onExtracted={handleExtracted} />
         <FormField label="Compte">
           <Select value={compteId} onChange={(e) => { setCompteId(e.target.value); setCompteurIds([]) }} required>
@@ -223,6 +214,7 @@ export function CreateMandatDialog({
           <Button type="submit" disabled={createMandat.isPending}>Créer le mandat</Button>
         </div>
       </form>
+      </WizardConnectionGate>
     </Dialog>
   )
 }

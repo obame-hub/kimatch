@@ -26,8 +26,8 @@ import { useEligibilityRules } from '@/lib/data/eligibilityRules'
 import { useMappingRules } from '@/lib/data/mappingRules'
 import { checkEligibility, type EligibilityResult } from '@/lib/eligibility'
 import { useCanManage, useIsAdmin, useProfilsAdmin } from '@/lib/data/roles'
-import { sendEmail, useGmailConnection, connectGmail } from '@/lib/data/gmail'
-import { ConnectionGate } from '@/components/ui/connection-gate'
+import { sendEmail } from '@/lib/data/gmail'
+import { WizardConnectionGate } from '@/components/ui/connection-gate'
 import { FALLBACK_ETAPES_RECOMMANDATION, FALLBACK_STATUTS_VERSIONS, STATUT_VERSION_TONE } from '@/lib/referenceFallbacks'
 import { useGoBack } from '@/lib/useGoBack'
 import { ZONE_ORDER_COTATION, ZONE_LABEL_COTATION, zoneDuFournisseur } from '@/lib/fournisseurZones'
@@ -47,7 +47,6 @@ function CotationWizard({ open, onClose, reco }: { open: boolean; onClose: () =>
   const { data: typesOptimisationsRef } = useReferenceTable('types_optimisations')
   const { data: etapesRef } = useReferenceTable('etapes_recommandation')
   const createVersion = useCreateVersion()
-  const gmail = useGmailConnection()
 
   const estActualisation = reco.versions.length > 0
   const [durees, setDurees] = useState<number[]>([36])
@@ -69,20 +68,16 @@ function CotationWizard({ open, onClose, reco }: { open: boolean; onClose: () =>
   function toggleDuree(d: number) {
     setDurees((prev) => (prev.includes(d) ? prev.filter((x) => x !== d) : prev.length < 3 ? [...prev, d] : prev))
   }
-  // Durée hors préréglages : Tools propose 12/24/36/48/60 + une saisie libre « Autre » avec un
-  // bouton « + », pour les durées négociées au cas par cas (18 mois, 30 mois…).
-  const dureesHorsPresets = durees.filter((d) => !DUREES_PRESETS.includes(d)).sort((a, b) => a - b)
-  const dureeLibreNum = Number(dureeLibre)
-  const dureeLibreValide =
-    dureeLibre.trim() !== '' &&
-    Number.isInteger(dureeLibreNum) &&
-    dureeLibreNum >= 1 &&
-    dureeLibreNum <= 120 &&
-    !durees.includes(dureeLibreNum) &&
-    durees.length < 3
+  // Saisie libre « Autre » + bouton « + » -- mêmes règles que `addCustomDuration` de Tools
+  // (StepCharacteristics) : entier 1-60, refusé si déjà présent ou si les 3 durées sont prises,
+  // saisie filtrée aux chiffres, validation à la touche Entrée.
+  const durreesTriees = [...durees].sort((a, b) => a - b)
+  const canAddMore = durees.length < 3
   function ajouterDureeLibre() {
-    if (!dureeLibreValide) return
-    setDurees((prev) => [...prev, dureeLibreNum])
+    const num = parseInt(dureeLibre, 10)
+    if (!num || num < 1 || num > 60) return
+    if (durees.includes(num) || durees.length >= 3) return
+    setDurees((prev) => [...prev, num].sort((a, b) => a - b))
     setDureeLibre('')
   }
   function toggleTypePrix(t: string) {
@@ -174,68 +169,78 @@ function CotationWizard({ open, onClose, reco }: { open: boolean; onClose: () =>
       className="max-w-2xl"
     >
       <div className="max-h-[75vh] space-y-4 overflow-y-auto pr-1">
-      {/* Garde-fou de connexion avant cotation -- Tools exige Gmail à cet endroit (les demandes de
-          cotation partent depuis l'adresse du commercial, pas d'une boîte partagée). Dans Kimatch
-          l'envoi est une action séparée sur la version, donc la création reste possible sans : la
-          sortie « Créer la cotation sans email » est explicite plutôt qu'implicite. */}
-      <ConnectionGate
-        action="une demande de cotation"
-        connexions={[
-          {
-            nom: 'Gmail',
-            raison: 'Nécessaire pour envoyer les notifications de cotation depuis votre adresse.',
-            connecte: !!gmail.data,
-            chargement: gmail.isLoading,
-            onConnect: () => { connectGmail().catch(() => {}) },
-            connectLabel: 'Connecter Gmail',
-          },
-        ]}
-        autoriserSkip
-        skipLabel="Créer la cotation sans email"
-      >
-        <FormField label="Durées (jusqu'à 3)">
+      {/* Garde-fou de connexion, même emplacement et mêmes outils que dans Tools (CotationPage :
+          required={["salesforce","gmail"]}) -- les demandes de cotation partent depuis l'adresse
+          Gmail du commercial. */}
+      <WizardConnectionGate required={['crm', 'gmail']} feature="création de cotation">
+        <div>
+          <p className="mb-2 text-sm text-navy-500">
+            Durée(s) souhaitée(s) <span className="text-xs">({durees.length}/3)</span>
+          </p>
           <div className="flex flex-wrap items-center gap-2">
-            {DUREES_PRESETS.map((d) => (
-              <button
-                key={d}
-                type="button"
-                onClick={() => toggleDuree(d)}
-                className={`rounded-full border px-3 py-1 text-sm transition-colors ${durees.includes(d) ? 'border-kiwi-500 bg-kiwi-50 text-kiwi-700' : 'border-navy-200 text-navy-600 hover:bg-navy-50'}`}
-              >
-                {d} mois
-              </button>
-            ))}
-            {dureesHorsPresets.map((d) => (
-              <button
-                key={d}
-                type="button"
-                onClick={() => toggleDuree(d)}
-                title="Retirer cette durée"
-                className="inline-flex items-center gap-1 rounded-full border border-kiwi-500 bg-kiwi-50 px-3 py-1 text-sm text-kiwi-700"
-              >
-                {d} mois <X className="h-3 w-3" />
-              </button>
-            ))}
-            <span className="inline-flex items-center gap-1">
-              <Input
+            {DUREES_PRESETS.map((d) => {
+              const isSelected = durees.includes(d)
+              const isDisabled = !isSelected && !canAddMore
+              return (
+                <button
+                  key={d}
+                  type="button"
+                  onClick={() => toggleDuree(d)}
+                  disabled={isDisabled}
+                  className={`inline-flex select-none items-center justify-center gap-1.5 rounded-lg px-4 py-2 text-sm font-medium transition-all ${
+                    isSelected
+                      ? 'bg-kiwi-600 text-white shadow-sm hover:bg-kiwi-700'
+                      : isDisabled
+                        ? 'cursor-not-allowed bg-navy-50 text-navy-300'
+                        : 'bg-navy-100 text-navy-600 hover:bg-navy-200 hover:text-navy-800'
+                  }`}
+                >
+                  {d} mois
+                </button>
+              )
+            })}
+            {/* Saisie libre */}
+            <div className="flex items-center gap-1.5">
+              <input
                 type="number"
                 min={1}
-                max={120}
-                value={dureeLibre}
-                onChange={(e) => setDureeLibre(e.target.value)}
-                onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); ajouterDureeLibre() } }}
+                max={60}
+                step={1}
                 placeholder="Autre"
-                className="h-8 w-20 rounded-full text-center text-sm"
+                value={dureeLibre}
+                onChange={(e) => setDureeLibre(e.target.value.replace(/\D/g, ''))}
+                onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); ajouterDureeLibre() } }}
+                disabled={!canAddMore}
+                className="w-20 rounded-lg border border-navy-200 bg-white px-3 py-2 text-sm text-navy-800 placeholder:text-navy-400 focus:outline-none focus:ring-2 focus:ring-kiwi-500/20 disabled:cursor-not-allowed disabled:opacity-40 [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
               />
-              <Button type="button" variant="outline" size="sm" onClick={ajouterDureeLibre} disabled={!dureeLibreValide} className="h-8 w-8 rounded-full p-0">
+              <button
+                type="button"
+                onClick={ajouterDureeLibre}
+                disabled={!canAddMore || !dureeLibre}
+                className="rounded-lg bg-kiwi-50 px-3 py-2 text-sm font-medium text-kiwi-700 transition-colors hover:bg-kiwi-100 disabled:cursor-not-allowed disabled:opacity-40"
+              >
                 +
-              </Button>
-            </span>
+              </button>
+            </div>
           </div>
-          {durees.length >= 3 && (
-            <p className="mt-1 text-[11px] text-navy-400">Maximum atteint — retire une durée pour en ajouter une autre.</p>
+          {/* Récapitulatif des durées choisies, retirables au clic (Tools les affiche avec la DFF
+              calculée ; Kimatch n'a pas d'échéance par PDL à ce niveau, la durée seule suffit). */}
+          {durees.length > 0 && (
+            <div className="mt-3 flex flex-wrap gap-2 border-t border-navy-100 pt-2">
+              {durreesTriees.map((d) => (
+                <button
+                  key={d}
+                  type="button"
+                  onClick={() => toggleDuree(d)}
+                  className="group inline-flex cursor-pointer items-center gap-2 rounded-lg bg-navy-50 px-3 py-2 text-sm transition-colors hover:bg-red-50"
+                >
+                  <span className="font-medium text-navy-800">{d} mois</span>
+                  <X className="ml-1 h-3 w-3 text-navy-400 group-hover:text-red-600" />
+                </button>
+              ))}
+            </div>
           )}
-        </FormField>
+        </div>
         <p className="rounded-lg border border-navy-100 bg-navy-50 px-3 py-2 text-xs text-navy-500">
           Commission estimée : <span className="font-medium text-navy-700">{commissionEstimee.toLocaleString('fr-FR', { maximumFractionDigits: 0 })} €</span>
           <span className="text-navy-400"> (C5 : forfait 140 €/PDL · autres : conso/12 × durée max × 3)</span>
@@ -315,7 +320,7 @@ function CotationWizard({ open, onClose, reco }: { open: boolean; onClose: () =>
             {estActualisation ? 'Actualiser' : 'Créer la cotation'}
           </Button>
         </div>
-      </ConnectionGate>
+      </WizardConnectionGate>
       </div>
       {toast && (
         <div className="fixed bottom-6 left-1/2 z-50 -translate-x-1/2 whitespace-nowrap rounded-lg bg-ink-800 px-4 py-2.5 text-xs font-semibold text-white shadow-lg">
