@@ -16,6 +16,30 @@ export interface CompanyResult {
   postalCode: string | null
   formeJuridique: string | null
   dateCreation: string | null
+  /** PME/ETI/GE/GEI -- champ `categorie_entreprise` de l'API. */
+  categorieEntreprise: string | null
+  /** Code tranche INSEE (ex. "21"), à traduire via TRANCHE_EFFECTIF_LABEL pour l'affichage. */
+  trancheEffectifSalarie: string | null
+}
+
+/** Libellés des codes "tranche_effectif_salarie" de l'INSEE (nomenclature officielle). */
+export const TRANCHE_EFFECTIF_LABEL: Record<string, string> = {
+  NN: 'Non renseigné',
+  '00': '0 salarié',
+  '01': '1 à 2 salariés',
+  '02': '3 à 5 salariés',
+  '03': '6 à 9 salariés',
+  '11': '10 à 19 salariés',
+  '12': '20 à 49 salariés',
+  '21': '50 à 99 salariés',
+  '22': '100 à 199 salariés',
+  '31': '200 à 249 salariés',
+  '32': '250 à 499 salariés',
+  '41': '500 à 999 salariés',
+  '42': '1 000 à 1 999 salariés',
+  '51': '2 000 à 4 999 salariés',
+  '52': '5 000 à 9 999 salariés',
+  '53': '10 000 salariés et plus',
 }
 
 interface RechRaw {
@@ -39,6 +63,8 @@ interface RechRaw {
   siege?: Record<string, unknown>
   activite_principale?: string
   libelle_activite_principale?: string
+  categorie_entreprise?: string | null
+  tranche_effectif_salarie?: string | null
 }
 
 export async function searchCompanies(query: string, signal?: AbortSignal): Promise<CompanyResult[]> {
@@ -73,6 +99,8 @@ export async function searchCompanies(query: string, signal?: AbortSignal): Prom
       postalCode: (etab.code_postal as string) ?? null,
       formeJuridique: r.nature_juridique ?? null,
       dateCreation: r.date_creation ?? null,
+      categorieEntreprise: r.categorie_entreprise ?? null,
+      trancheEffectifSalarie: r.tranche_effectif_salarie ?? null,
     } satisfies CompanyResult
   })
 }

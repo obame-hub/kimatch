@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { Building, Users, Briefcase, Handshake, Scale, Zap, Search, Loader2, ArrowRight, ArrowLeft, PencilLine, Award, MapPin, CheckCircle2, UserPlus, Radio } from 'lucide-react'
+import { Building, Users, Briefcase, Handshake, Scale, Zap, Search, Loader2, ArrowRight, ArrowLeft, PencilLine, Award, MapPin, CheckCircle2, UserPlus } from 'lucide-react'
 import { Topbar } from '@/components/layout/Topbar'
 import { Card } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
@@ -8,7 +8,7 @@ import { Badge } from '@/components/ui/badge'
 import { Input, Label } from '@/components/ui/form'
 import { toUpperFR } from '@/lib/textFormat'
 import { searchRnic, type RnicResult } from '@/lib/rnic'
-import { searchCompanies, type CompanyResult } from '@/lib/companyDirectory'
+import { searchCompanies, TRANCHE_EFFECTIF_LABEL, type CompanyResult } from '@/lib/companyDirectory'
 import { useEllisphereScore } from '@/lib/data/ellisphere'
 import { useCreateCompte, findCompteBySiret } from '@/lib/data/comptes'
 import { useReferenceTable } from '@/lib/data/referenceTables'
@@ -52,7 +52,27 @@ export default function CompteCreate() {
   const [companyPick, setCompanyPick] = useState<CompanyResult | null>(null)
   const [siretError, setSiretError] = useState<string | null>(null)
   const [checkingSiret, setCheckingSiret] = useState(false)
-  const [createdCompte, setCreatedCompte] = useState<{ id: string; nom: string } | null>(null)
+  // Persisté en sessionStorage pour survivre à un retour navigateur depuis les sous-flots
+  // Contact/PDL déclenchés par cet écran -- même mécanisme que "accountWizard:lastCreated" dans
+  // Tools.
+  const [createdCompte, setCreatedCompte] = useState<{ id: string; nom: string } | null>(() => {
+    try {
+      const raw = sessionStorage.getItem('accountWizard:lastCreated')
+      return raw ? (JSON.parse(raw) as { id: string; nom: string }) : null
+    } catch {
+      return null
+    }
+  })
+
+  function persistCreatedCompte(compte: { id: string; nom: string } | null) {
+    setCreatedCompte(compte)
+    try {
+      if (compte) sessionStorage.setItem('accountWizard:lastCreated', JSON.stringify(compte))
+      else sessionStorage.removeItem('accountWizard:lastCreated')
+    } catch {
+      // sessionStorage indisponible (navigation privée stricte, etc.) -- l'état reste en mémoire.
+    }
+  }
 
   const progress = (step / STEPS.length) * 100
   const canNext = step === 1 ? !!segment : step === 2 ? !!(rnicPick || companyPick) : false
@@ -80,7 +100,7 @@ export default function CompteCreate() {
           codePostal: rnicPick.codePostal,
           ville: rnicPick.ville,
         })
-        setCreatedCompte({ id: result.compte.id, nom: result.compte.nom })
+        persistCreatedCompte({ id: result.compte.id, nom: result.compte.nom })
       } else if (companyPick) {
         const result = await createCompte.mutateAsync({
           segment,
@@ -97,7 +117,7 @@ export default function CompteCreate() {
           scoreEllipro: score.data?.score ?? null,
           scoreElliproScale: score.data?.scale ?? null,
         })
-        setCreatedCompte({ id: result.compte.id, nom: result.compte.nom })
+        persistCreatedCompte({ id: result.compte.id, nom: result.compte.nom })
       }
     } catch (e) {
       setSiretError(e instanceof Error ? e.message : 'Erreur lors de la création.')
@@ -122,7 +142,7 @@ export default function CompteCreate() {
       <div>
         <Topbar crumb="Comptes" title="Nouveau compte" />
         <div className="mx-auto max-w-3xl p-4 sm:p-8">
-          <NextStepScreen compte={createdCompte} navigate={navigate} />
+          <NextStepScreen compte={createdCompte} navigate={navigate} onFinish={() => persistCreatedCompte(null)} />
         </div>
       </div>
     )
@@ -393,6 +413,7 @@ function CompanySearchStep({
               {picked.siret && <p><span className="text-navy-400">SIRET :</span> {picked.siret}</p>}
               {picked.etatAdministratif && <p><span className="text-navy-400">Statut :</span> <span className={picked.etatAdministratif === 'Actif' ? 'font-medium text-kiwi-700' : 'text-navy-600'}>{picked.etatAdministratif}</span></p>}
               {picked.formeJuridique && <p><span className="text-navy-400">Forme juridique :</span> {picked.formeJuridique}</p>}
+              {picked.dateCreation && <p><span className="text-navy-400">Créée le :</span> {new Date(picked.dateCreation).toLocaleDateString('fr-FR')}</p>}
             </div>
           </div>
           <div>
@@ -410,6 +431,14 @@ function CompanySearchStep({
           <div>
             <p className="mb-1.5 text-[10px] font-semibold uppercase tracking-wide text-navy-400">Dirigeant</p>
             <p className="text-sm text-navy-700">{picked.dirigeant || '—'}</p>
+          </div>
+          <div>
+            <p className="mb-1.5 text-[10px] font-semibold uppercase tracking-wide text-navy-400">Direction &amp; taille</p>
+            <div className="space-y-0.5 text-sm text-navy-700">
+              {picked.categorieEntreprise && <p><span className="text-navy-400">Catégorie :</span> {picked.categorieEntreprise}</p>}
+              {picked.trancheEffectifSalarie && <p><span className="text-navy-400">Effectif :</span> {TRANCHE_EFFECTIF_LABEL[picked.trancheEffectifSalarie] ?? picked.trancheEffectifSalarie}</p>}
+              {!picked.categorieEntreprise && !picked.trancheEffectifSalarie && <p className="text-navy-400">—</p>}
+            </div>
           </div>
         </div>
         {checkingSiret && <p className="mt-3 flex items-center gap-2 text-xs text-navy-400"><Loader2 className="h-3 w-3 animate-spin" /> Vérification du SIRET…</p>}
@@ -532,6 +561,7 @@ function CompanyManualForm({ onCancel, onSubmit }: { onCancel: () => void; onSub
             siren: sirenComputed, siret: siret.trim() || null, nomComplet: nom.trim(), raisonSociale: nom.trim(), dirigeant: null,
             codeApe: codeApe.trim() || null, libelleApe: libelleApe.trim() || null, etatAdministratif: 'Actif',
             street: street.trim() || null, city: city.trim() || null, postalCode: postalCode.trim() || null, formeJuridique: null, dateCreation: null,
+            categorieEntreprise: null, trancheEffectifSalarie: null,
           })}
         >
           Utiliser ces informations <ArrowRight className="h-4 w-4" />
@@ -619,7 +649,7 @@ function ConfirmStep({
 
 // ──────────────── Étape 4 : que faire maintenant ────────────────
 
-function NextStepScreen({ compte, navigate }: { compte: { id: string; nom: string }; navigate: ReturnType<typeof useNavigate> }) {
+function NextStepScreen({ compte, navigate, onFinish }: { compte: { id: string; nom: string }; navigate: ReturnType<typeof useNavigate>; onFinish: () => void }) {
   return (
     <div>
       <div className="mb-6 flex items-center gap-3 rounded-xl border border-kiwi-200 bg-kiwi-50 p-4">
@@ -653,7 +683,7 @@ function NextStepScreen({ compte, navigate }: { compte: { id: string; nom: strin
           className="flex items-start gap-3 rounded-xl border border-navy-100 bg-white p-4 text-left transition-all hover:-translate-y-0.5 hover:border-kiwi-300 hover:shadow-md"
         >
           <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-amber-50 text-amber-600">
-            <Radio className="h-5 w-5" />
+            <Zap className="h-5 w-5" />
           </span>
           <span>
             <span className="block font-medium text-navy-800">Ajouter un point de livraison</span>
@@ -663,8 +693,8 @@ function NextStepScreen({ compte, navigate }: { compte: { id: string; nom: strin
       </div>
 
       <div className="mt-6 flex justify-between border-t border-navy-100 pt-6">
-        <Button variant="ghost" onClick={() => navigate('/comptes')}>Terminer la session</Button>
-        <Button variant="outline" onClick={() => navigate(`/comptes/${compte.id}`)}>
+        <Button variant="ghost" onClick={() => { onFinish(); navigate('/comptes') }}>Terminer la session</Button>
+        <Button variant="outline" onClick={() => { onFinish(); navigate(`/comptes/${compte.id}`) }}>
           Voir la fiche compte <ArrowRight className="h-4 w-4" />
         </Button>
       </div>
