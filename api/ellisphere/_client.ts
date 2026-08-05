@@ -25,9 +25,13 @@ function credentials() {
 function adminBlock(appId: 'WSOM' | 'WSRISK') {
   const { contractId, userId, password } = credentials()
   const date = new Date().toISOString().replace(/\.\d+Z$/, '.000Z')
+  // Tools envoie en plus un <userPrefix> sur svcOnlineOrder. Les appels actuels de Kimatch
+  // fonctionnent sans, donc il reste OPTIONNEL : envoyé seulement si la variable existe.
+  const userPrefix = process.env.ELLISPHERE_USER_PREFIX
   return `<admin>
     <client>
       <contractId>${contractId}</contractId>
+      ${userPrefix ? `<userPrefix>${escapeXml(userPrefix)}</userPrefix>` : ''}
       <userId>${userId}</userId>
       <password>${password}</password>
     </client>
@@ -38,15 +42,38 @@ function adminBlock(appId: 'WSOM' | 'WSRISK') {
   </admin>`
 }
 
-async function callEllisphere(endpoint: string, body: string, { tolerant = false } = {}): Promise<Record<string, unknown>> {
+function escapeXml(s: string): string {
+  return s
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&apos;')
+}
+
+function decodeXml(s: string): string {
+  return s
+    .replace(/&lt;/g, '<')
+    .replace(/&gt;/g, '>')
+    .replace(/&quot;/g, '"')
+    .replace(/&apos;/g, "'")
+    .replace(/&#xA0;|&#160;/g, ' ')
+    .replace(/&amp;/g, '&')
+}
+
+async function callEllisphereRaw(endpoint: string, body: string): Promise<{ ok: boolean; status: number; text: string }> {
   const res = await fetch(`${BASE_URL}/${endpoint}`, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/xml' },
+    headers: { 'Content-Type': 'application/xml; charset=UTF-8' },
     body,
   })
-  const text = await res.text()
-  if (!res.ok && !tolerant) {
-    throw new Error(`Ellisphere ${endpoint} a répondu ${res.status}: ${text.slice(0, 300)}`)
+  return { ok: res.ok, status: res.status, text: await res.text() }
+}
+
+async function callEllisphere(endpoint: string, body: string, { tolerant = false } = {}): Promise<Record<string, unknown>> {
+  const { ok, status, text } = await callEllisphereRaw(endpoint, body)
+  if (!ok && !tolerant) {
+    throw new Error(`Ellisphere ${endpoint} a répondu ${status}: ${text.slice(0, 300)}`)
   }
   return parser.parse(text)
 }
@@ -60,6 +87,9 @@ export interface EllisphereCompany {
   ville: string | null
   codeNAF: string | null
   libelleAPE: string | null
+  /** Identifiant interne Ellisphere de l'établissement -- seul moyen de commander le rapport de
+   * risque complet (`svcOnlineOrder`), qui porte l'avis crédit et les points faibles. */
+  srcId: string | null
 }
 
 function extractCompany(node: Record<string, unknown>): EllisphereCompany {
@@ -70,6 +100,7 @@ function extractCompany(node: Record<string, unknown>): EllisphereCompany {
   const ids = asArray(node?.id)
   const siren = pickIdByAttr(ids, 'register')
   const siret = pickIdByAttr(ids, 'register-estb')
+  const srcId = pickIdByAttr(ids, 'src')
 
   const address = node?.address as Record<string, unknown> | undefined
   const ville = address ? asText(address.cityName) : null
@@ -81,7 +112,7 @@ function extractCompany(node: Record<string, unknown>): EllisphereCompany {
   const codeNAF = (activity?.['@_code'] as string) ?? null
   const libelleAPE = activity ? asText(activity['#text'] ?? activity) : null
 
-  return { raisonSociale, nomCommercial, siren, siret, adresse, ville, codeNAF, libelleAPE }
+  return { raisonSociale, nomCommercial, siren, siret, adresse, ville, codeNAF, libelleAPE, srcId }
 }
 
 function asArray(value: unknown): Record<string, unknown>[] {
@@ -167,9 +198,83 @@ export interface EllisphereScore {
   siren: string
   score: string | null
   scale: string | null
+  /** Libellé de la classe de risque, ex. « Risque moyen à élevé (classe C) ». */
+  creditOpinion: string | null
+  /** Commentaire détaillé du score = les « points faibles » affichés par Tools. */
+  paymentIncidents: string | null
+}
+
+/** Commande le rapport de risque complet d'un établissement (produit 50001) et en extrait la
+ * note, la classe de risque et son commentaire -- même appel et même parsing que la fonction
+ * `ellisphere-score` de Tools. `svcConsultList` (liste de surveillance) ne renvoie QUE la note
+ * brute : c'est pour ça qu'un second appel est nécessaire.
+ *
+ * Renvoie `null` si l'appel échoue, pour que l'appelant puisse retomber sur la note seule plutôt
+ * que de perdre l'information complètement. */
+async function getRiskReport(srcId: string): Promise<{ score: string | null; scale: string | null; creditOpinion: string | null; paymentIncidents: string | null } | null> {
+  const body = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<svcOnlineOrderRequest lang="FR" version="2.2">
+  ${adminBlock('WSRISK')}
+  <request>
+    <id type="src">${escapeXml(srcId)}</id>
+    <product range="50001" version="1" />
+    <deliveryOptions>
+      <outputMethod>raw</outputMethod>
+    </deliveryOptions>
+  </request>
+</svcOnlineOrderRequest>`
+
+  const { ok, status, text } = await callEllisphereRaw('svcOnlineOrder', body)
+  const erreur = /<result[^>]*code="ERR"[^>]*>/.test(text)
+  if (!ok || erreur) {
+    const major = text.match(/<majorMessage>([^<]+)<\/majorMessage>/)?.[1] ?? `HTTP ${status}`
+    const minor = text.match(/<minorMessage>([^<]+)<\/minorMessage>/)?.[1] ?? ''
+    console.warn('[ellisphere] rapport de risque indisponible :', [major, minor].filter(Boolean).join(' — '))
+    return null
+  }
+
+  // Le score courant est dans le PREMIER bloc <score> de <assessmentData> ; les suivants sont
+  // l'historique. On isole donc ce bloc avant d'y chercher les valeurs.
+  const bloc = text.match(/<score\b[\s\S]*?<\/score>/)?.[0] ?? text
+
+  const scoreMatch =
+    bloc.match(/<value\b[^>]*\btype="score"[^>]*>\s*(\d+(?:[.,]\d+)?)\s*<\/value>/i) ??
+    bloc.match(/<value\b[^>]*scale="0\s*-\s*10"[^>]*>\s*(\d+(?:[.,]\d+)?)\s*<\/value>/i)
+  const score = scoreMatch ? scoreMatch[1].replace(',', '.') : null
+  const scale = bloc.match(/<value\b[^>]*\btype="score"[^>]*\bscale="([^"]+)"/i)?.[1] ?? null
+
+  const riskClass = bloc.match(/<value\b[^>]*\btype="riskclass"[^>]*>\s*([^<]+?)\s*<\/value>/i)?.[1]?.trim() ?? null
+  const riskComment = bloc.match(/<comment\b[^>]*\btype="riskclass"[^>]*>\s*([^<]+?)\s*<\/comment>/i)?.[1]?.trim() ?? null
+  const creditOpinion = riskComment
+    ? decodeXml(riskClass ? `${riskComment} (classe ${riskClass})` : riskComment)
+    : riskClass
+      ? `Classe ${riskClass}`
+      : null
+
+  const scoreComment = bloc.match(/<comment\b[^>]*\btype="score"[^>]*>\s*([^<]+?)\s*<\/comment>/i)?.[1]?.trim() ?? null
+  const paymentIncidents = scoreComment ? decodeXml(scoreComment) : null
+
+  return { score, scale, creditOpinion, paymentIncidents }
 }
 
 export async function getScoreBySiren(siren: string): Promise<EllisphereScore> {
+  // Chemin privilégié : rapport de risque complet, qui porte l'avis crédit et les points faibles.
+  try {
+    const etablissement = await searchByIdentifier(siren)
+    if (etablissement?.srcId) {
+      const rapport = await getRiskReport(etablissement.srcId)
+      if (rapport && rapport.score !== null) return { siren, ...rapport }
+    }
+  } catch (err) {
+    console.warn('[ellisphere] chemin rapport de risque indisponible, repli sur la liste de surveillance :', err)
+  }
+
+  // Repli : liste de surveillance. Ne donne que la note brute, mais c'est le chemin qui
+  // fonctionnait jusqu'ici — on ne veut pas perdre la note si le rapport complet échoue.
+  return getScoreFromMonitoring(siren)
+}
+
+async function getScoreFromMonitoring(siren: string): Promise<EllisphereScore> {
   await activateMonitoring(siren)
 
   // Filtre côté serveur sur ce SIREN précis — le <id> doit être imbriqué DANS <listCriteria>
@@ -192,10 +297,18 @@ export async function getScoreBySiren(siren: string): Promise<EllisphereScore> {
   const match = companies.find((c) => asText(c.id) === siren) ?? companies[0]
   const scoreNode = match?.score as Record<string, unknown> | string | undefined
 
-  if (!scoreNode) return { siren, score: null, scale: null }
+  // La liste de surveillance ne porte ni avis crédit ni points faibles : ces deux champs
+  // n'existent que dans le rapport de risque (voir getRiskReport).
+  if (!scoreNode) return { siren, score: null, scale: null, creditOpinion: null, paymentIncidents: null }
 
   if (typeof scoreNode === 'object') {
-    return { siren, score: asText(scoreNode['#text'] ?? scoreNode), scale: (scoreNode['@_scale'] as string) ?? null }
+    return {
+      siren,
+      score: asText(scoreNode['#text'] ?? scoreNode),
+      scale: (scoreNode['@_scale'] as string) ?? null,
+      creditOpinion: null,
+      paymentIncidents: null,
+    }
   }
-  return { siren, score: String(scoreNode), scale: null }
+  return { siren, score: String(scoreNode), scale: null, creditOpinion: null, paymentIncidents: null }
 }

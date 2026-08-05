@@ -11,7 +11,7 @@ type Etat =
   | { phase: 'idle' }
   | { phase: 'loading' }
   | { phase: 'error'; message: string }
-  | { phase: 'done'; score: number | null; scale: string | null; synced: boolean }
+  | { phase: 'done'; score: number | null; creditOpinion: string | null; paymentIncidents: string | null; synced: boolean }
 
 /** Paliers repris tels quels de Tools (`OpportuniteEllisphereScore.scoreTier`). */
 function palier(score: number) {
@@ -27,9 +27,9 @@ function palier(score: number) {
  * (chargement / erreur + « Réessayer » / pas de note + « Rafraîchir » / carte de score), mêmes
  * textes, mêmes paliers, récupération automatique au montage.
  *
- * Deux lignes de Tools ne peuvent pas être rendues ici : « avis crédit » et « incidents de
- * paiement » ne sont pas remontés par `api/ellisphere/score` (qui ne renvoie que score + échelle).
- * Comme dans Tools elles sont conditionnelles — elles restent simplement absentes.
+ * Avis crédit et points faibles ne sont présents que si le rapport de risque Ellisphere a répondu
+ * (`svcOnlineOrder`) ; sur le chemin de repli « liste de surveillance » on n'a que la note. Comme
+ * dans Tools, ces deux lignes sont conditionnelles.
  */
 export function EllisphereScoreCard({ compteId, siren }: { compteId: string; siren: string | null | undefined }) {
   const { mutateAsync: fetchScore } = useEllisphereScore()
@@ -55,7 +55,13 @@ export function EllisphereScoreCard({ compteId, siren }: { compteId: string; sir
           /* la note reste affichée, seule la synchro a échoué */
         }
       }
-      setEtat({ phase: 'done', score: valeur !== null && Number.isFinite(valeur) ? valeur : null, scale: s.scale, synced })
+      setEtat({
+        phase: 'done',
+        score: valeur !== null && Number.isFinite(valeur) ? valeur : null,
+        creditOpinion: s.creditOpinion,
+        paymentIncidents: s.paymentIncidents,
+        synced,
+      })
     } catch (e) {
       setEtat({ phase: 'error', message: e instanceof Error ? e.message : 'Erreur Ellisphere' })
     }
@@ -128,7 +134,7 @@ export function EllisphereScoreCard({ compteId, siren }: { compteId: string; sir
                 {tier.label}
               </Badge>
             </div>
-            {etat.scale && <p className="mt-0.5 truncate text-xs font-medium text-navy-600">Échelle {etat.scale}</p>}
+            {etat.creditOpinion && <p className="mt-0.5 truncate text-xs font-medium text-navy-700">{etat.creditOpinion}</p>}
             <div className="mt-1.5 h-1.5 overflow-hidden rounded-full bg-navy-100">
               <div className={cn('h-full rounded-full bg-gradient-to-r transition-all duration-700', tier.from, tier.to)} style={{ width: `${pct}%` }} />
             </div>
@@ -138,6 +144,13 @@ export function EllisphereScoreCard({ compteId, siren }: { compteId: string; sir
             <RefreshCw className="h-3.5 w-3.5" />
           </Button>
         </div>
+
+        {etat.paymentIncidents && (
+          <div className="mt-2 flex items-start gap-1.5 rounded-md border border-amber-500/20 bg-amber-500/10 px-2 py-1">
+            <AlertTriangle className="mt-0.5 h-3 w-3 shrink-0 text-amber-600" />
+            <p className="text-[11px] text-amber-800">{etat.paymentIncidents}</p>
+          </div>
+        )}
 
         <div className="mt-2">
           {etat.synced ? (

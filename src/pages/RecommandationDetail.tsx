@@ -49,8 +49,11 @@ function CotationWizard({ open, onClose, reco }: { open: boolean; onClose: () =>
   const createVersion = useCreateVersion()
 
   const estActualisation = reco.versions.length > 0
-  const [durees, setDurees] = useState<number[]>([36])
-  const [dureeLibre, setDureeLibre] = useState('')
+  // Durées PAR PDL, comme Tools (StepCharacteristics.pdlDurations) : chaque compteur a sa propre
+  // sélection de 1 à 3 durées, et `durees` en est l'union aplatie -- c'est elle que consomment le
+  // moteur d'éligibilité et le calcul de commission.
+  const [dureesParCompteur, setDureesParCompteur] = useState<Record<string, number[]>>({})
+  const [dureeLibre, setDureeLibre] = useState<Record<string, string>>({})
   const [typesPrix, setTypesPrix] = useState<string[]>(['Fixe'])
   const [dateSouhaitee, setDateSouhaitee] = useState('')
   const [fournisseurIds, setFournisseurIds] = useState<string[]>([])
@@ -65,21 +68,48 @@ function CotationWizard({ open, onClose, reco }: { open: boolean; onClose: () =>
   const compte = comptes?.find((c) => c.id === reco.compte_id)
   const compteursDeLaReco = (compteurs ?? []).filter((c) => (reco.compteur_ids ?? []).includes(c.id))
 
-  function toggleDuree(d: number) {
-    setDurees((prev) => (prev.includes(d) ? prev.filter((x) => x !== d) : prev.length < 3 ? [...prev, d] : prev))
+  // Par défaut chaque PDL démarre à 36 mois (défaut historique de Kimatch, aligné sur le mandat).
+  useEffect(() => {
+    if (!open) return
+    setDureesParCompteur((prev) => {
+      const next = { ...prev }
+      let change = false
+      for (const c of compteursDeLaReco) {
+        if (!next[c.id]) { next[c.id] = [36]; change = true }
+      }
+      return change ? next : prev
+    })
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open, compteursDeLaReco.map((c) => c.id).join(',')])
+
+  const durees = useMemo(
+    () => [...new Set(Object.values(dureesParCompteur).flat())].sort((a, b) => a - b),
+    [dureesParCompteur],
+  )
+
+  function toggleDuree(compteurId: string, d: number) {
+    setDureesParCompteur((prev) => {
+      const courant = prev[compteurId] ?? []
+      if (courant.includes(d)) return { ...prev, [compteurId]: courant.filter((x) => x !== d) }
+      if (courant.length >= 3) return prev
+      return { ...prev, [compteurId]: [...courant, d].sort((a, b) => a - b) }
+    })
   }
+
   // Saisie libre « Autre » + bouton « + » -- mêmes règles que `addCustomDuration` de Tools
   // (StepCharacteristics) : entier 1-60, refusé si déjà présent ou si les 3 durées sont prises,
   // saisie filtrée aux chiffres, validation à la touche Entrée.
-  const durreesTriees = [...durees].sort((a, b) => a - b)
-  const canAddMore = durees.length < 3
-  function ajouterDureeLibre() {
-    const num = parseInt(dureeLibre, 10)
+  function ajouterDureeLibre(compteurId: string) {
+    const num = parseInt(dureeLibre[compteurId] ?? '', 10)
     if (!num || num < 1 || num > 60) return
-    if (durees.includes(num) || durees.length >= 3) return
-    setDurees((prev) => [...prev, num].sort((a, b) => a - b))
-    setDureeLibre('')
+    const courant = dureesParCompteur[compteurId] ?? []
+    if (courant.includes(num) || courant.length >= 3) return
+    setDureesParCompteur((prev) => ({ ...prev, [compteurId]: [...courant, num].sort((a, b) => a - b) }))
+    setDureeLibre((prev) => ({ ...prev, [compteurId]: '' }))
   }
+
+  // Comme Tools : on ne peut pas continuer tant qu'un PDL n'a aucune durée.
+  const toutesDureesRenseignees = compteursDeLaReco.every((c) => (dureesParCompteur[c.id] ?? []).length > 0)
   function toggleTypePrix(t: string) {
     setTypesPrix((prev) => (prev.includes(t) ? prev.filter((x) => x !== t) : [...prev, t]))
   }
@@ -131,8 +161,8 @@ function CotationWizard({ open, onClose, reco }: { open: boolean; onClose: () =>
   }, [resultats])
 
   function reset() {
-    setDurees([36])
-    setDureeLibre('')
+    setDureesParCompteur({})
+    setDureeLibre({})
     setTypesPrix(['Fixe'])
     setDateSouhaitee('')
     setFournisseurIds([])
@@ -152,6 +182,13 @@ function CotationWizard({ open, onClose, reco }: { open: boolean; onClose: () =>
       statut_brouillon_id: statutBrouillon?.id ?? null,
       type_optimisation_mise_en_concurrence_id: typeOptim?.id ?? null,
       fournisseur_ids: fournisseurIds,
+      // Ces trois-là sont désormais VRAIMENT enregistrés (migration du 06/08/2026) et plus
+      // seulement résumés en texte libre.
+      durees_par_compteur: Object.fromEntries(
+        Object.entries(dureesParCompteur).filter(([, d]) => d.length > 0),
+      ),
+      types_prix: typesPrix,
+      date_souhaitee: dateSouhaitee || null,
       resume: `Durée${durees.length > 1 ? 's' : ''} ${durees.join('/')} mois — ${typesPrix.join(', ')} — ${fournisseurIds.length} fournisseur${fournisseurIds.length > 1 ? 's' : ''} consulté${fournisseurIds.length > 1 ? 's' : ''} — commission estimée ${Math.round(commissionEstimee).toLocaleString('fr-FR')} €`,
       contexte_et_hypotheses: dateSouhaitee ? `Date souhaitée : ${new Date(dateSouhaitee).toLocaleDateString('fr-FR')}` : null,
       etape_en_analyse_id: etapeEnAnalyse?.id ?? null,
@@ -173,72 +210,101 @@ function CotationWizard({ open, onClose, reco }: { open: boolean; onClose: () =>
           required={["salesforce","gmail"]}) -- les demandes de cotation partent depuis l'adresse
           Gmail du commercial. */}
       <WizardConnectionGate required={['crm', 'gmail']} feature="création de cotation">
-        <div>
-          <p className="mb-2 text-sm text-navy-500">
-            Durée(s) souhaitée(s) <span className="text-xs">({durees.length}/3)</span>
+        {/* Une carte par PDL, chacune avec ses propres durées -- structure de Tools
+            (StepCharacteristics) : « Choisis les durées de contrat » puis une carte par compteur. */}
+        <div className="space-y-1">
+          <p className="text-sm font-medium text-navy-800">Choisis les durées de contrat</p>
+          <p className="text-xs text-navy-500">
+            Pour chaque compteur, sélectionne une ou plusieurs durées.
           </p>
-          <div className="flex flex-wrap items-center gap-2">
-            {DUREES_PRESETS.map((d) => {
-              const isSelected = durees.includes(d)
-              const isDisabled = !isSelected && !canAddMore
-              return (
-                <button
-                  key={d}
-                  type="button"
-                  onClick={() => toggleDuree(d)}
-                  disabled={isDisabled}
-                  className={`inline-flex select-none items-center justify-center gap-1.5 rounded-lg px-4 py-2 text-sm font-medium transition-all ${
-                    isSelected
-                      ? 'bg-kiwi-600 text-white shadow-sm hover:bg-kiwi-700'
-                      : isDisabled
-                        ? 'cursor-not-allowed bg-navy-50 text-navy-300'
-                        : 'bg-navy-100 text-navy-600 hover:bg-navy-200 hover:text-navy-800'
-                  }`}
-                >
-                  {d} mois
-                </button>
-              )
-            })}
-            {/* Saisie libre */}
-            <div className="flex items-center gap-1.5">
-              <input
-                type="number"
-                min={1}
-                max={60}
-                step={1}
-                placeholder="Autre"
-                value={dureeLibre}
-                onChange={(e) => setDureeLibre(e.target.value.replace(/\D/g, ''))}
-                onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); ajouterDureeLibre() } }}
-                disabled={!canAddMore}
-                className="w-20 rounded-lg border border-navy-200 bg-white px-3 py-2 text-sm text-navy-800 placeholder:text-navy-400 focus:outline-none focus:ring-2 focus:ring-kiwi-500/20 disabled:cursor-not-allowed disabled:opacity-40 [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
-              />
-              <button
-                type="button"
-                onClick={ajouterDureeLibre}
-                disabled={!canAddMore || !dureeLibre}
-                className="rounded-lg bg-kiwi-50 px-3 py-2 text-sm font-medium text-kiwi-700 transition-colors hover:bg-kiwi-100 disabled:cursor-not-allowed disabled:opacity-40"
-              >
-                +
-              </button>
-            </div>
-          </div>
-          {/* Récapitulatif des durées choisies, retirables au clic (Tools les affiche avec la DFF
-              calculée ; Kimatch n'a pas d'échéance par PDL à ce niveau, la durée seule suffit). */}
-          {durees.length > 0 && (
-            <div className="mt-3 flex flex-wrap gap-2 border-t border-navy-100 pt-2">
-              {durreesTriees.map((d) => (
-                <button
-                  key={d}
-                  type="button"
-                  onClick={() => toggleDuree(d)}
-                  className="group inline-flex cursor-pointer items-center gap-2 rounded-lg bg-navy-50 px-3 py-2 text-sm transition-colors hover:bg-red-50"
-                >
-                  <span className="font-medium text-navy-800">{d} mois</span>
-                  <X className="ml-1 h-3 w-3 text-navy-400 group-hover:text-red-600" />
-                </button>
-              ))}
-            </div>
+        </div>
+        <div className="space-y-3">
+          {compteursDeLaReco.map((c) => {
+            const selection = dureesParCompteur[c.id] ?? []
+            const peutAjouter = selection.length < 3
+            const saisie = dureeLibre[c.id] ?? ''
+            return (
+              <div key={c.id} className={`rounded-xl border p-4 ${selection.length === 0 ? 'border-amber-300 bg-amber-50/40' : 'border-navy-100'}`}>
+                <div className="mb-3 flex items-start gap-3">
+                  <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-navy-50 text-base">
+                    {c.type_energie === 'gaz' ? '🔥' : '⚡'}
+                  </span>
+                  <div className="min-w-0">
+                    <p className="truncate text-sm font-semibold text-navy-800">{c.site_nom || 'Sans libellé'}</p>
+                    <p className="truncate font-mono text-[11px] text-navy-400">{c.numero_pdl}</p>
+                  </div>
+                  <span className="ml-auto shrink-0 text-xs text-navy-400">{selection.length}/3</span>
+                </div>
+
+                <div className="flex flex-wrap items-center gap-2">
+                  {DUREES_PRESETS.map((d) => {
+                    const isSelected = selection.includes(d)
+                    const isDisabled = !isSelected && !peutAjouter
+                    return (
+                      <button
+                        key={d}
+                        type="button"
+                        onClick={() => toggleDuree(c.id, d)}
+                        disabled={isDisabled}
+                        className={`inline-flex select-none items-center justify-center rounded-lg px-4 py-2 text-sm font-medium transition-all ${
+                          isSelected
+                            ? 'bg-kiwi-600 text-white shadow-sm hover:bg-kiwi-700'
+                            : isDisabled
+                              ? 'cursor-not-allowed bg-navy-50 text-navy-300'
+                              : 'bg-navy-100 text-navy-600 hover:bg-navy-200 hover:text-navy-800'
+                        }`}
+                      >
+                        {d} mois
+                      </button>
+                    )
+                  })}
+                  {/* Saisie libre « Autre » */}
+                  <div className="flex items-center gap-1.5">
+                    <input
+                      type="number"
+                      min={1}
+                      max={60}
+                      step={1}
+                      placeholder="Autre"
+                      value={saisie}
+                      onChange={(e) => setDureeLibre((prev) => ({ ...prev, [c.id]: e.target.value.replace(/\D/g, '') }))}
+                      onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); ajouterDureeLibre(c.id) } }}
+                      disabled={!peutAjouter}
+                      className="w-20 rounded-lg border border-navy-200 bg-white px-3 py-2 text-sm text-navy-800 placeholder:text-navy-400 focus:outline-none focus:ring-2 focus:ring-kiwi-500/20 disabled:cursor-not-allowed disabled:opacity-40 [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => ajouterDureeLibre(c.id)}
+                      disabled={!peutAjouter || !saisie}
+                      className="rounded-lg bg-kiwi-50 px-3 py-2 text-sm font-medium text-kiwi-700 transition-colors hover:bg-kiwi-100 disabled:cursor-not-allowed disabled:opacity-40"
+                    >
+                      +
+                    </button>
+                  </div>
+                </div>
+
+                {selection.length > 0 ? (
+                  <div className="mt-3 flex flex-wrap gap-2 border-t border-navy-100 pt-2">
+                    {selection.map((d) => (
+                      <button
+                        key={d}
+                        type="button"
+                        onClick={() => toggleDuree(c.id, d)}
+                        className="group inline-flex cursor-pointer items-center gap-2 rounded-lg bg-navy-50 px-3 py-1.5 text-sm transition-colors hover:bg-red-50"
+                      >
+                        <span className="font-medium text-navy-800">{d} mois</span>
+                        <X className="h-3 w-3 text-navy-400 group-hover:text-red-600" />
+                      </button>
+                    ))}
+                  </div>
+                ) : (
+                  <p className="mt-2 text-[11px] text-amber-700">Sélectionne au moins une durée pour ce PDL.</p>
+                )}
+              </div>
+            )
+          })}
+          {compteursDeLaReco.length === 0 && (
+            <p className="text-xs text-navy-400">Aucun PDL rattaché à cette recommandation.</p>
           )}
         </div>
         <p className="rounded-lg border border-navy-100 bg-navy-50 px-3 py-2 text-xs text-navy-500">
@@ -316,7 +382,7 @@ function CotationWizard({ open, onClose, reco }: { open: boolean; onClose: () =>
         {feedback && <p className="text-xs text-navy-500">{feedback}</p>}
         <div className="flex justify-end gap-2 border-t border-navy-100 pt-3">
           <Button type="button" variant="ghost" onClick={() => { reset(); onClose() }}>Annuler</Button>
-          <Button type="button" onClick={handleValider} disabled={createVersion.isPending || durees.length === 0 || fournisseurIds.length === 0}>
+          <Button type="button" onClick={handleValider} disabled={createVersion.isPending || !toutesDureesRenseignees || durees.length === 0 || fournisseurIds.length === 0}>
             {estActualisation ? 'Actualiser' : 'Créer la cotation'}
           </Button>
         </div>

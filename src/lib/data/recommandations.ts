@@ -129,7 +129,7 @@ async function fetchRecommandations(): Promise<Recommandation[]> {
       compteur_id: string
     }
 
-    const [recos, sitesRows, compteursRows, versionsRows, versionsCompteursRows, optimisationsRows, offresRows, offresCompteursRows, fournisseursConsultesRows, suivisConsultationRows] =
+    const [recos, sitesRows, compteursRows, versionsRows, versionsCompteursRows, dureesRows, versionsExtraRows, optimisationsRows, offresRows, offresCompteursRows, fournisseursConsultesRows, suivisConsultationRows] =
       await Promise.all([
         fetchAllRows<RawRecommandation>(
           'recommandations',
@@ -151,6 +151,18 @@ async function fetchRecommandations(): Promise<Recommandation[]> {
           'versions_recommandation_compteurs',
           'id, version_recommandation_id, compteur_id, compteur:compteurs(numero_point, libelle)',
         ),
+        // Durées par PDL + type de prix + date souhaitée : requêtes SÉPARÉES et tolérantes, comme
+        // recommandations_compteurs plus haut. La table et les colonnes datent du 06/08/2026 et
+        // peuvent manquer sur un environnement pas encore migré -- un select nommé les incluant
+        // ferait échouer le chargement de TOUTES les versions (400).
+        fetchAllRows<{ version_recommandation_id: string; compteur_id: string; duree_mois: number }>(
+          'versions_recommandation_durees',
+          'version_recommandation_id, compteur_id, duree_mois',
+        ).catch(() => [] as { version_recommandation_id: string; compteur_id: string; duree_mois: number }[]),
+        fetchAllRows<{ id: string; types_prix: string[] | null; date_souhaitee: string | null }>(
+          'versions_recommandation',
+          'id, types_prix, date_souhaitee',
+        ).catch(() => [] as { id: string; types_prix: string[] | null; date_souhaitee: string | null }[]),
         fetchAllRows<RawOptimisation>(
           'optimisations',
           'id, version_recommandation_id, nom, description, resultat_attendu, gain_estime_annuel, cout_estime, roi_mois, priorite, est_retenue, type_optimisation:types_optimisations(code, libelle)',
@@ -295,6 +307,16 @@ async function fetchRecommandations(): Promise<Recommandation[]> {
       compteurIdsParReco.set(rc.recommandation_id, list)
     }
 
+    // Durées par version puis par compteur, + union aplatie triée (ce que consomme le fan-out
+    // fournisseur, comme `allDurations` dans Tools).
+    const dureesParVersion = new Map<string, Record<string, number[]>>()
+    for (const d of dureesRows) {
+      const parCompteur = dureesParVersion.get(d.version_recommandation_id) ?? {}
+      parCompteur[d.compteur_id] = [...(parCompteur[d.compteur_id] ?? []), d.duree_mois].sort((a, b) => a - b)
+      dureesParVersion.set(d.version_recommandation_id, parCompteur)
+    }
+    const extraParVersion = new Map(versionsExtraRows.map((v) => [v.id, v]))
+
     const versionsParReco = new Map<string, VersionRecommandation[]>()
     for (const v of versionsRows) {
       const list = versionsParReco.get(v.recommandation_id) ?? []
@@ -318,6 +340,10 @@ async function fetchRecommandations(): Promise<Recommandation[]> {
         optimisations: optimisationsParVersion.get(v.id) ?? [],
         contact_id: v.contact_id,
         contact_nom: v.contact ? `${v.contact.prenom} ${v.contact.nom}` : null,
+        durees_par_compteur: dureesParVersion.get(v.id) ?? {},
+        durees: [...new Set(Object.values(dureesParVersion.get(v.id) ?? {}).flat())].sort((a, b) => a - b),
+        types_prix: extraParVersion.get(v.id)?.types_prix ?? [],
+        date_souhaitee: extraParVersion.get(v.id)?.date_souhaitee ?? null,
       })
       versionsParReco.set(v.recommandation_id, list)
     }
@@ -483,6 +509,11 @@ export interface CreateVersionInput {
   statut_brouillon_id: string | null
   type_optimisation_mise_en_concurrence_id: string | null
   fournisseur_ids: string[]
+  /** Durées demandées PAR PDL, clé = compteur_id, 3 max par compteur (Tools: pdlDurations). */
+  durees_par_compteur: Record<string, number[]>
+  /** « Fixe » et/ou « Indexé » -- sélection multiple, pas exclusive. */
+  types_prix: string[]
+  date_souhaitee: string | null
   resume: string
   contexte_et_hypotheses: string | null
   /** Étape "EN_ANALYSE" -- ne fait passer l'opportunité que si c'est sa toute première cotation
@@ -527,6 +558,8 @@ export function useCreateVersion() {
           version_actuelle: true,
           est_figee: false,
           date_creation: new Date().toISOString(),
+          types_prix: input.types_prix,
+          date_souhaitee: input.date_souhaitee,
           ...(input.motif_id ? { motif_id: input.motif_id } : {}),
           ...(input.statut_brouillon_id ? { statut_id: input.statut_brouillon_id } : {}),
         })
@@ -539,6 +572,15 @@ export function useCreateVersion() {
         await supabase
           .from('versions_recommandation_compteurs')
           .insert(input.compteur_ids.map((compteur_id) => ({ version_recommandation_id: versionId, compteur_id })))
+      }
+
+      // Durées par PDL. Une ligne par (version, compteur, durée) -- la clé primaire dédoublonne,
+      // les bornes 1-60 sont vérifiées côté base.
+      const lignesDurees = Object.entries(input.durees_par_compteur).flatMap(([compteur_id, durees]) =>
+        durees.map((duree_mois) => ({ version_recommandation_id: versionId, compteur_id, duree_mois })),
+      )
+      if (lignesDurees.length > 0) {
+        await supabase.from('versions_recommandation_durees').insert(lignesDurees)
       }
 
       let optimisationId: string | null = null

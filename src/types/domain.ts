@@ -67,6 +67,14 @@ export interface VersionRecommandation {
   /** Contact de la cotation (Cotation__c.Contact__c en Salesforce) -- ajoute le 31/07/2026. */
   contact_id?: string | null
   contact_nom?: string | null
+  /** Durées demandées PAR PDL (Tools: StepCharacteristics.pdlDurations), 3 max par compteur.
+   * Clé = compteur_id. Vide tant que la version date d'avant la migration du 06/08/2026. */
+  durees_par_compteur: Record<string, number[]>
+  /** Union aplatie des durées de tous les PDL, triée -- ce que voit le fan-out fournisseur. */
+  durees: number[]
+  /** Types de prix demandés : « Fixe » et/ou « Indexé » (cumulables). */
+  types_prix: string[]
+  date_souhaitee: string | null
 }
 
 export interface OffreFournisseurCompteur {
