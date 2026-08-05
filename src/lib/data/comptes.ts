@@ -7,6 +7,7 @@ import { buildAccountCreatedBlocks } from '@/lib/slackTemplates'
 import { fetchComptesVisibles, filterVisibles } from '@/lib/data/visibility'
 import { fetchAllRows } from '@/lib/data/paginatedFetch'
 import { toUpperFR } from '@/lib/textFormat'
+import { departementFromCodePostal } from '@/lib/departements'
 
 interface RawCompteClient {
   segment_compte_id: string | null
@@ -248,6 +249,8 @@ export function useCreateCompte() {
         }
       }
 
+      const departement = departementFromCodePostal(input.codePostal)
+
       const insertPayload: Record<string, unknown> = {
         nom,
         type_compte: input.typeCompte,
@@ -259,6 +262,8 @@ export function useCreateCompte() {
         siren: input.siren ?? null,
         code_naf: input.codeNaf ?? null,
         libelle_ape: input.libelleApe ?? null,
+        departement_code: departement?.code ?? null,
+        departement_nom: departement?.nom ?? null,
         score_ellipro: input.scoreEllipro ?? null,
         score_ellipro_scale: input.scoreElliproScale ?? null,
         score_ellipro_maj: input.scoreEllipro ? new Date().toISOString() : null,

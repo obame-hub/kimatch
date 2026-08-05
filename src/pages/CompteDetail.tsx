@@ -1007,9 +1007,16 @@ function IdentiteCard({ compte, onToast }: { compte: Compte; onToast: (msg: stri
               <button type="button" onClick={saveAddress} className="flex h-6 w-6 shrink-0 items-center justify-center rounded-kw-sm bg-kw-green text-white">✓</button>
             </div>
           ) : (
-            <div className="flex items-center gap-1.5">
-              <button type="button" onClick={() => { setAddrDraft({ rue: compte.rue ?? '', code_postal: compte.code_postal ?? '', ville: compte.ville ?? '' }); setEditingAddress(true) }} className="truncate rounded-kw-sm px-1.5 py-0.5 text-left text-kw-lg text-kw-ink hover:bg-kw-muted">
-                {compte.rue || compte.code_postal || compte.ville ? `${compte.rue ? compte.rue + ', ' : ''}${compte.code_postal ?? ''} ${compte.ville ?? ''}`.trim() : <span className="text-kw-faint">＋ ajouter</span>}
+            <div className="flex items-start gap-1.5">
+              <button type="button" onClick={() => { setAddrDraft({ rue: compte.rue ?? '', code_postal: compte.code_postal ?? '', ville: compte.ville ?? '' }); setEditingAddress(true) }} className="rounded-kw-sm px-1.5 py-0.5 text-left text-kw-lg text-kw-ink hover:bg-kw-muted">
+                {compte.rue || compte.code_postal || compte.ville ? (
+                  <>
+                    {compte.rue && <span className="block truncate">{compte.rue}</span>}
+                    <span className="block truncate">{`${compte.code_postal ?? ''} ${compte.ville ?? ''}`.trim()}</span>
+                  </>
+                ) : (
+                  <span className="text-kw-faint">＋ ajouter</span>
+                )}
               </button>
             </div>
           )}
