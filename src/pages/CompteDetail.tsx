@@ -392,7 +392,7 @@ export default function CompteDetail() {
           {tab === 'synthese' && (
             <div className="flex flex-col gap-3.5">
               <div className="grid grid-cols-1 gap-3.5 lg:grid-cols-[1fr_1.25fr]">
-                <ValeurCompteCard compte={compte} sitesDuCompte={sitesDuCompte} />
+                <ValeurCompteCard compte={compte} sitesDuCompte={sitesDuCompte} contratsDuCompte={contratsDuCompte} />
                 <IdentiteCard compte={compte} onToast={showToast} />
               </div>
 
@@ -897,12 +897,15 @@ function RelationTimeline({ compte, mandats, recommandations, signaux }: { compt
   )
 }
 
-function ValeurCompteCard({ compte, sitesDuCompte }: { compte: Compte; sitesDuCompte: Site[] }) {
+function ValeurCompteCard({ compte, sitesDuCompte, contratsDuCompte }: { compte: Compte; sitesDuCompte: Site[]; contratsDuCompte: Contrat[] }) {
   const anneeCreation = compte.date_creation ? new Date(compte.date_creation) : null
   const anciennete = anneeCreation ? Math.max(0, new Date().getFullYear() - anneeCreation.getFullYear()) : 0
-  const sitesActifs = sitesDuCompte.filter((s) => s.statut === 'actif').length
-  const ratioClient = sitesDuCompte.length > 0 ? sitesActifs / sitesDuCompte.length : 0
-  const prospects = sitesDuCompte.length - sitesActifs
+  // "Site client" = a un contrat ACTIF (peu importe si le site lui-même est actif/inactif --
+  // ce sont deux notions différentes : un site peut être en activité sans jamais avoir eu de
+  // contrat signé, et inversement). Décision Naoëlle/William du 05/08/2026.
+  const sitesClients = sitesDuCompte.filter((s) => contratsDuCompte.some((c) => c.site_id === s.id && c.statut === 'ACTIF')).length
+  const ratioClient = sitesDuCompte.length > 0 ? sitesClients / sitesDuCompte.length : 0
+  const prospects = sitesDuCompte.length - sitesClients
 
   const ancienneteScore = Math.min(30, anciennete * 5)
   const ratioScore = Math.round(ratioClient * 40)
@@ -911,7 +914,7 @@ function ValeurCompteCard({ compte, sitesDuCompte }: { compte: Compte; sitesDuCo
 
   const drivers = [
     { label: `Ancienneté relation · ${anciennete} an${anciennete > 1 ? 's' : ''}`, value: ancienneteScore, tone: 'green' as const },
-    { label: `${sitesActifs}/${sitesDuCompte.length || 0} sites client (${Math.round(ratioClient * 100)} %)`, value: ratioScore, tone: 'green' as const },
+    { label: `${sitesClients}/${sitesDuCompte.length || 0} sites client (${Math.round(ratioClient * 100)} %)`, value: ratioScore, tone: 'green' as const },
     ...(prospects > 0 ? [{ label: `${prospects} prospect${prospects > 1 ? 's' : ''} convertible${prospects > 1 ? 's' : ''}`, value: prospectsScore, tone: 'amber' as const }] : []),
   ]
 

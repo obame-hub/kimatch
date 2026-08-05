@@ -62,12 +62,14 @@ export function CoverageMatrix({
               r.versions.some((v) => !VERSIONS_INACTIVES.has(v.statut) && v.compteur_ids.includes(compteur.id)),
             )
 
+            // Le statut du contrat (échéance, couverture) et l'absence de mandat sont deux
+            // informations distinctes -- l'une ne doit jamais masquer l'autre (avant ce correctif,
+            // l'absence de mandat écrasait un contrat échu/urgent avec un simple badge neutre).
+            // Le badge "Mandat du site" en en-tête du tableau reste le seul endroit où l'état du
+            // mandat est affiché ; cette colonne ne montre que l'état réel du contrat.
             let statutLabel = 'OK'
             let statutTone: 'kiwi' | 'amber' | 'red' | 'neutral' = 'neutral'
-            if (!mandatActif) {
-              statutLabel = 'Mandat requis'
-              statutTone = 'neutral'
-            } else if (echeanceProche && !recoCouvrante) {
+            if (echeanceProche && !recoCouvrante) {
               statutLabel = jours !== null && jours < 0 ? 'Échu — à traiter' : 'À traiter'
               statutTone = 'red'
             } else if (recoCouvrante) {
@@ -76,6 +78,9 @@ export function CoverageMatrix({
             } else if (echeanceProche) {
               statutLabel = 'À surveiller'
               statutTone = 'amber'
+            } else if (!contratActif) {
+              statutLabel = 'Aucun contrat'
+              statutTone = 'neutral'
             }
 
             return (
