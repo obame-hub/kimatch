@@ -434,6 +434,12 @@ export interface Contrat {
   reference_fournisseur: string | null
   date_debut: string | null
   date_fin: string | null
+  /** Durée en mois, saisie libre -- date_fin est calculée à partir de date_debut + duree_mois,
+   * jamais saisie directement (Tools: ContratWizard étape "Durée"). Ajouté le 05/08/2026. */
+  duree_mois?: number | null
+  /** Date de réception souhaitée du contrat signé, jour ouvré uniquement (Tools: ContratWizard
+   * étape "Durée"). Ajoutée le 05/08/2026. */
+  date_reception_souhaitee?: string | null
   preavis_resiliation_jours: number | null
   statut: string
   compteurs: { id: string; contrat_compteur_id: string | null; numero_pdl: string; utilisation: string }[]

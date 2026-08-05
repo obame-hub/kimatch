@@ -15,6 +15,8 @@ interface RawContrat {
   reference_fournisseur: string | null
   date_debut: string | null
   date_fin: string | null
+  duree_mois?: number | null
+  date_reception_souhaitee?: string | null
   preavis_resiliation_jours: number | null
   proprietaire_id: string | null
   docusign_envelope_id: string | null
@@ -85,6 +87,8 @@ async function fetchContrats(): Promise<Contrat[]> {
       reference_fournisseur: c.reference_fournisseur,
       date_debut: c.date_debut,
       date_fin: c.date_fin,
+      duree_mois: c.duree_mois ?? null,
+      date_reception_souhaitee: c.date_reception_souhaitee ?? null,
       preavis_resiliation_jours: c.preavis_resiliation_jours,
       statut: c.statut?.code ?? '',
       compteurs: compteursParContrat.get(c.id) ?? [],
@@ -133,6 +137,8 @@ interface CreateContratInput {
   reference_fournisseur: string | null
   date_debut: string | null
   date_fin: string | null
+  duree_mois?: number | null
+  date_reception_souhaitee?: string | null
   compteur_ids: string[]
   compteurs: { id: string; numero_pdl: string; utilisation: string }[]
   contact_signataire_id: string | null
@@ -173,6 +179,8 @@ export function useCreateContrat() {
         reference_fournisseur: input.reference_fournisseur,
         date_debut: input.date_debut,
         date_fin: input.date_fin,
+        duree_mois: input.duree_mois ?? null,
+        date_reception_souhaitee: input.date_reception_souhaitee ?? null,
         preavis_resiliation_jours: null,
         statut: 'ACTIF',
         compteurs: input.compteurs.map((c): CreateContratLocalCompteur => ({ ...c, contrat_compteur_id: null })),
@@ -197,6 +205,8 @@ export function useCreateContrat() {
           reference_fournisseur: input.reference_fournisseur,
           date_debut: input.date_debut,
           date_fin: input.date_fin,
+          duree_mois: input.duree_mois ?? null,
+          date_reception_souhaitee: input.date_reception_souhaitee ?? null,
           type_prix: input.type_prix ?? null,
           strategie_tarifaire: input.strategie_tarifaire ?? 'marge_fixe',
           prix_molecule_eur_mwh: input.prix_molecule_eur_mwh ?? null,

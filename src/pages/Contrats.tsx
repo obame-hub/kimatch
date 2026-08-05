@@ -1,4 +1,5 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
+import { addMonths, format, isValid } from 'date-fns'
 import { useNavigate } from 'react-router-dom'
 import { FileSignature, Zap, Flame, Plus } from 'lucide-react'
 import { Topbar } from '@/components/layout/Topbar'
@@ -46,8 +47,12 @@ function CreateContratDialog({ open, onClose }: { open: boolean; onClose: () => 
   const [fournisseurId, setFournisseurId] = useState('')
   const [typeEnergieId, setTypeEnergieId] = useState('')
   const [referenceFournisseur, setReferenceFournisseur] = useState('')
+  const [dateReceptionSouhaitee, setDateReceptionSouhaitee] = useState('')
   const [dateDebut, setDateDebut] = useState('')
-  const [dateFin, setDateFin] = useState('')
+  // Durée en mois, saisie libre (pas de préréglages) -- la date de fin n'est jamais saisie à la
+  // main, elle est calculée automatiquement à partir de la date de début + cette durée, même
+  // règle que ContratWizard.tsx dans Tools.
+  const [dureeMois, setDureeMois] = useState('')
   const [compteurIds, setCompteurIds] = useState<string[]>([])
   const [contactSignataireId, setContactSignataireId] = useState('')
   const [typePrix, setTypePrix] = useState('')
@@ -71,6 +76,29 @@ function CreateContratDialog({ open, onClose }: { open: boolean; onClose: () => 
     const zone = zoneDuFournisseur(f.intermediary, f.partnership)
     fournisseursParZone.set(zone, [...(fournisseursParZone.get(zone) ?? []), f])
   }
+
+  // Date de fin calculée, jamais saisie à la main -- même règle que Tools.
+  const dateFin = useMemo(() => {
+    const debut = new Date(dateDebut)
+    const mois = Number(dureeMois)
+    if (!dateDebut || !isValid(debut) || !dureeMois || !Number.isFinite(mois) || mois < 1) return ''
+    return format(addMonths(debut, mois), 'yyyy-MM-dd')
+  }, [dateDebut, dureeMois])
+
+  // Date de réception souhaitée : jour ouvré uniquement (lundi-vendredi), à partir d'aujourd'hui
+  // -- même règle que Tools, en alerte non bloquante plutôt qu'en désactivant des jours dans un
+  // calendrier custom (Kimatch utilise l'input date natif du navigateur).
+  const receptionInvalide = useMemo(() => {
+    if (!dateReceptionSouhaitee) return null
+    const d = new Date(dateReceptionSouhaitee)
+    if (!isValid(d)) return null
+    const aujourdhui = new Date()
+    aujourdhui.setHours(0, 0, 0, 0)
+    if (d < aujourdhui) return 'Cette date est déjà passée.'
+    const jour = d.getDay()
+    if (jour === 0 || jour === 6) return 'Choisis un jour ouvré (lundi-vendredi).'
+    return null
+  }, [dateReceptionSouhaitee])
 
   // Stratégie tarifaire "Prix cible" seulement disponible si le type de prix est "Fixe" --
   // repli silencieux vers "Marge fixe" sinon (même règle que Tools).
@@ -97,8 +125,9 @@ function CreateContratDialog({ open, onClose }: { open: boolean; onClose: () => 
     setFournisseurId('')
     setTypeEnergieId('')
     setReferenceFournisseur('')
+    setDateReceptionSouhaitee('')
     setDateDebut('')
-    setDateFin('')
+    setDureeMois('')
     setCompteurIds([])
     setContactSignataireId('')
     setTypePrix('')
@@ -118,7 +147,15 @@ function CreateContratDialog({ open, onClose }: { open: boolean; onClose: () => 
     const debut = fields.date_debut?.value
     if (typeof debut === 'string' && debut) setDateDebut(debut)
     const fin = fields.date_fin?.value
-    if (typeof fin === 'string' && fin) setDateFin(fin)
+    if (typeof fin === 'string' && fin) {
+      const debutStr = typeof debut === 'string' && debut ? debut : dateDebut
+      const d1 = new Date(debutStr)
+      const d2 = new Date(fin)
+      if (debutStr && isValid(d1) && isValid(d2)) {
+        const mois = Math.max(1, Math.round((d2.getFullYear() - d1.getFullYear()) * 12 + (d2.getMonth() - d1.getMonth())))
+        setDureeMois(String(mois))
+      }
+    }
     const fournNom = (fields.fournisseur_nom?.value ?? '').toString().toLowerCase()
     if (fournNom) {
       const match = fournisseurs.find((f) => f.nom.toLowerCase().includes(fournNom) || fournNom.includes(f.nom.toLowerCase()))
@@ -153,6 +190,8 @@ function CreateContratDialog({ open, onClose }: { open: boolean; onClose: () => 
       reference_fournisseur: referenceFournisseur || null,
       date_debut: dateDebut || null,
       date_fin: dateFin || null,
+      duree_mois: dureeMois ? Number(dureeMois) : null,
+      date_reception_souhaitee: dateReceptionSouhaitee || null,
       compteur_ids: compteurIds,
       compteurs: compteursChoisis,
       contact_signataire_id: contactSignataireId || null,
@@ -221,13 +260,25 @@ function CreateContratDialog({ open, onClose }: { open: boolean; onClose: () => 
         <FormField label="Référence fournisseur">
           <Input value={referenceFournisseur} onChange={(e) => setReferenceFournisseur(e.target.value)} />
         </FormField>
+        <FormField label="Date de réception souhaitée">
+          <Input type="date" value={dateReceptionSouhaitee} onChange={(e) => setDateReceptionSouhaitee(e.target.value)} />
+          {receptionInvalide ? (
+            <p className="mt-1 text-xs text-amber-700">{receptionInvalide}</p>
+          ) : (
+            <p className="mt-1 text-xs text-navy-400">Jour ouvré (lundi-vendredi), à partir d'aujourd'hui.</p>
+          )}
+        </FormField>
         <div className="grid grid-cols-2 gap-3">
           <FormField label="Date de début">
             <Input type="date" value={dateDebut} onChange={(e) => setDateDebut(e.target.value)} />
+            {compteurIds.length === 1 && <p className="mt-1 text-xs text-navy-400">Préremplie à l'échéance du PDL + 1 jour.</p>}
           </FormField>
-          <FormField label="Date de fin">
-            <Input type="date" value={dateFin} onChange={(e) => setDateFin(e.target.value)} />
+          <FormField label="Durée (mois)">
+            <Input type="number" min={1} value={dureeMois} onChange={(e) => setDureeMois(e.target.value)} />
           </FormField>
+        </div>
+        <div className="rounded-lg border border-navy-100 bg-navy-50 px-3 py-2 text-xs text-navy-500">
+          Date de fin (calculée) : <span className="font-medium text-navy-700">{dateFin ? new Date(dateFin).toLocaleDateString('fr-FR') : '—'}</span>
         </div>
         {siteId && contactsDuSite.length > 0 && (
           <FormField label="Contact signataire (optionnel)">
