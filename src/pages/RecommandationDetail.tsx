@@ -186,7 +186,29 @@ function CotationWizard({ open, onClose, reco }: { open: boolean; onClose: () =>
         </FormField>
 
         <div>
-          <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-navy-400">Fournisseurs à consulter</p>
+          <div className="mb-2 flex items-center justify-between">
+            <p className="text-xs font-semibold uppercase tracking-wide text-navy-400">
+              Fournisseurs à consulter
+              {resultats.length > 0 && (
+                <span className="ml-1.5 normal-case text-navy-400">
+                  ({resultats.filter((r) => r.eligible).length} éligible{resultats.filter((r) => r.eligible).length > 1 ? 's' : ''} · {fournisseurIds.length} sélectionné{fournisseurIds.length > 1 ? 's' : ''})
+                </span>
+              )}
+            </p>
+            {resultats.some((r) => r.eligible) && (
+              <button
+                type="button"
+                className="text-xs font-medium text-kiwi-700 hover:underline"
+                onClick={() => {
+                  const eligibleIds = resultats.filter((r) => r.eligible).map((r) => r.fournisseur.id)
+                  const toutSelectionne = eligibleIds.length > 0 && eligibleIds.every((id) => fournisseurIds.includes(id))
+                  setFournisseurIds(toutSelectionne ? [] : eligibleIds)
+                }}
+              >
+                {resultats.filter((r) => r.eligible).every((r) => fournisseurIds.includes(r.fournisseur.id)) ? 'Tout désélectionner' : 'Tout sélectionner'}
+              </button>
+            )}
+          </div>
           <div className="space-y-3">
             {[...ZONE_ORDER_COTATION, 'autre'].map((zone) => {
               const list = parZone.get(zone) ?? []

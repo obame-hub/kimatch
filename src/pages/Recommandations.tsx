@@ -263,6 +263,16 @@ function CreateRecommandationDialog({ open, onClose, onCreated }: { open: boolea
         )}
         <FormField label="Date de clôture visée">
           <Input type="date" value={dateCloture} onChange={(e) => setDateClotureManuelle(e.target.value)} />
+          {dateClotureSuggeree && (
+            <p className="mt-1 text-xs text-navy-400">
+              Passé le {new Date(dateClotureSuggeree).toLocaleDateString('fr-FR')}, le préavis de résiliation risque d'être dépassé et la signature compromise.
+            </p>
+          )}
+          {dateClotureSuggeree && dateCloture > dateClotureSuggeree && (
+            <p className="mt-1 flex items-center gap-1.5 text-xs text-amber-700">
+              <AlertTriangle className="h-3.5 w-3.5 shrink-0" /> Préavis peut-être dépassé — confirme avec le client.
+            </p>
+          )}
         </FormField>
         <div className="grid grid-cols-2 gap-3">
           <FormField label="Origine">
