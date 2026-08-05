@@ -26,6 +26,7 @@ import { EntityLink } from '@/components/ui/entity-link'
 import { Dialog } from '@/components/ui/dialog'
 import { Sheet } from '@/components/ui/sheet'
 import { ContactForm } from '@/components/contact/ContactForm'
+import { PdlMethodSheet } from '@/components/compteur/PdlMethodSheet'
 import { CreateMandatDialog } from '@/pages/Mandats'
 import { CreateRecommandationDialog } from '@/pages/Recommandations'
 import { FormField, Input, Select, Textarea } from '@/components/ui/form'
@@ -138,6 +139,7 @@ export default function CompteDetail() {
   const [addFichierOpen, setAddFichierOpen] = useState(false)
   const [ficCategorie, setFicCategorie] = useState<string | null>(null)
   const [addCompteurOpen, setAddCompteurOpen] = useState(false)
+  const [pdlMethodOpen, setPdlMethodOpen] = useState(false)
   const [addContactOpen, setAddContactOpen] = useState(false)
   const [addMandatOpen, setAddMandatOpen] = useState(false)
   const [addRecoOpen, setAddRecoOpen] = useState(false)
@@ -339,7 +341,7 @@ export default function CompteDetail() {
           </button>
           <button
             type="button"
-            onClick={() => setAddCompteurOpen(true)}
+            onClick={() => setPdlMethodOpen(true)}
             className="flex items-center gap-1.5 rounded-kw-md border border-kw-border-strong bg-kw-surface px-3 py-2 text-kw-md font-semibold text-kw-ink transition-colors hover:bg-kw-bg"
           >
             <Gauge className="h-3 w-3" /> Compteur
@@ -777,6 +779,14 @@ export default function CompteDetail() {
         compte={compte}
         sites={sites ?? []}
         onSaved={(message) => showToast(message)}
+      />
+
+      {/* Choix de la méthode avant le formulaire PDL, comme Tools. */}
+      <PdlMethodSheet
+        open={pdlMethodOpen}
+        onClose={() => setPdlMethodOpen(false)}
+        compteNom={compte.nom}
+        onChoose={() => { setPdlMethodOpen(false); setAddCompteurOpen(true) }}
       />
 
       {/* Contact : panneau latéral (reste sur la fiche compte, comme l'écran de session

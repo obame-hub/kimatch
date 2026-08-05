@@ -8,6 +8,7 @@ import { Badge } from '@/components/ui/badge'
 import { Input, Label } from '@/components/ui/form'
 import { Sheet } from '@/components/ui/sheet'
 import { ContactForm } from '@/components/contact/ContactForm'
+import { PdlMethodSheet } from '@/components/compteur/PdlMethodSheet'
 import { toUpperFR } from '@/lib/textFormat'
 import { searchRnic, type RnicResult } from '@/lib/rnic'
 import { searchCompanies, type CompanyResult } from '@/lib/companyDirectory'
@@ -698,6 +699,7 @@ function NextStepScreen({
   onFinish: () => void
 }) {
   const [contactSheetOpen, setContactSheetOpen] = useState(false)
+  const [pdlMethodOpen, setPdlMethodOpen] = useState(false)
   const [contactsAjoutes, setContactsAjoutes] = useState<Contact[]>([])
 
   return (
@@ -729,7 +731,7 @@ function NextStepScreen({
         </button>
         <button
           type="button"
-          onClick={() => navigate(`/comptes/${compte.id}?action=ajouter-compteur`)}
+          onClick={() => setPdlMethodOpen(true)}
           className="flex items-start gap-3 rounded-xl border border-navy-100 bg-white p-4 text-left transition-all hover:-translate-y-0.5 hover:border-kiwi-300 hover:shadow-md"
         >
           <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-amber-50 text-amber-600">
@@ -770,6 +772,15 @@ function NextStepScreen({
           Voir la fiche compte <ArrowRight className="h-4 w-4" />
         </Button>
       </div>
+
+      {/* Choix de la méthode PDL, comme Tools -- puis on rejoint la fiche compte qui ouvre le
+          formulaire (la saisie du PDL elle-même n'est jamais inline, même dans Tools). */}
+      <PdlMethodSheet
+        open={pdlMethodOpen}
+        onClose={() => setPdlMethodOpen(false)}
+        compteNom={compte.nom}
+        onChoose={() => navigate(`/comptes/${compte.id}?action=ajouter-compteur`)}
+      />
 
       <Sheet
         open={contactSheetOpen}
