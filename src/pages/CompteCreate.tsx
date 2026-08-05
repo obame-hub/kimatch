@@ -164,6 +164,13 @@ export default function CompteCreate() {
           <div className="h-1.5 overflow-hidden rounded-full bg-navy-100">
             <div className="h-full bg-kiwi-600 transition-all duration-500" style={{ width: `${progress}%` }} />
           </div>
+          {/* Libellés d'étape sous la barre, comme Tools (TYPE / RECHERCHE / CONFIRMATION) --
+              l'étape courante est mise en avant. */}
+          <div className="mt-2 flex justify-between text-[10px] font-semibold uppercase tracking-wide">
+            {STEPS.map((label, i) => (
+              <span key={label} className={i + 1 === step ? 'text-kiwi-700' : 'text-navy-300'}>{label}</span>
+            ))}
+          </div>
         </div>
 
         {step === 1 && (
@@ -196,7 +203,7 @@ export default function CompteCreate() {
         )}
 
         {step === 2 && segment !== 'Syndic non professionnel' && segment !== '' && (
-          <CompanySearchStep picked={companyPick} checkingSiret={checkingSiret} siretError={siretError} onPick={handlePickCompany} onClear={() => { setCompanyPick(null); setSiretError(null) }} score={score.data ?? null} />
+          <CompanySearchStep picked={companyPick} checkingSiret={checkingSiret} siretError={siretError} onPick={handlePickCompany} onClear={() => { setCompanyPick(null); setSiretError(null) }} score={score.data ?? null} segment={segment} />
         )}
 
         {step === 3 && segment && (
@@ -364,8 +371,18 @@ function RnicManualForm({ onCancel, onSubmit }: { onCancel: () => void; onSubmit
 
 // ──────────────── Étape 2 : recherche entreprise ────────────────
 
+/** Titre de l'étape 2 selon le sous-type choisi -- Tools adapte le libellé (« Recherche du
+ * cabinet de syndic », etc.) au lieu d'un titre générique. */
+const TITRE_RECHERCHE: Record<string, string> = {
+  'Syndic professionnel': 'Recherche du cabinet de syndic',
+  Entreprise: "Recherche de l'entreprise",
+  Partenaire: 'Recherche du partenaire',
+  Courtier: 'Recherche du courtier',
+  Fournisseur: 'Recherche du fournisseur',
+}
+
 function CompanySearchStep({
-  picked, checkingSiret, siretError, onPick, onClear, score,
+  picked, checkingSiret, siretError, onPick, onClear, score, segment,
 }: {
   picked: CompanyResult | null
   checkingSiret: boolean
@@ -373,7 +390,9 @@ function CompanySearchStep({
   onPick: (c: CompanyResult) => void
   onClear: () => void
   score: EllisphereScore | null
+  segment: string
 }) {
+  const titreRecherche = TITRE_RECHERCHE[segment] ?? "Recherche de l'entreprise"
   const [q, setQ] = useState('')
   const [results, setResults] = useState<CompanyResult[]>([])
   const [loading, setLoading] = useState(false)
@@ -465,11 +484,13 @@ function CompanySearchStep({
 
   return (
     <div>
-      <h2 className="mb-1 font-display text-xl font-bold text-navy-800">Recherche de l'entreprise</h2>
-      <p className="mb-4 text-sm text-navy-500">Tape un nom, un SIREN ou un SIRET.</p>
+      {/* Titre dynamique selon le type choisi, comme Tools (« Recherche du cabinet de syndic »
+          pour un syndic pro, « Recherche du fournisseur » pour un fournisseur, etc.). */}
+      <h2 className="mb-1 font-display text-xl font-bold text-navy-800">{titreRecherche}</h2>
+      <p className="mb-4 text-sm text-navy-500">Tape un nom, un SIREN ou un SIRET — les résultats Ellisphere s'affichent automatiquement.</p>
       <div className="relative">
         <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-navy-400" />
-        <Input autoFocus value={q} onChange={(e) => setQ(e.target.value)} placeholder="ex : Dupont Immobilier, 552081317…" className="h-12 pl-10" />
+        <Input autoFocus value={q} onChange={(e) => setQ(e.target.value)} placeholder="ex : Dupont Immobilier, 552081317, 75001…" className="h-12 pl-10" />
         {loading && <Loader2 className="absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 animate-spin text-navy-400" />}
       </div>
 
@@ -479,6 +500,7 @@ function CompanySearchStep({
 
       {results.length > 0 && (
         <div className="mt-4 space-y-2">
+          <p className="text-xs text-navy-400">{results.length} société{results.length > 1 ? 's' : ''} trouvée{results.length > 1 ? 's' : ''}</p>
           {results.map((c) => (
             <button
               key={c.siret ?? c.siren}
@@ -493,9 +515,12 @@ function CompanySearchStep({
                 </div>
                 {c.siret && <p className="mt-0.5 font-mono text-[11px] text-navy-400">SIRET {c.siret}</p>}
                 {(c.street || c.city) && <p className="mt-1 flex items-center gap-1 text-xs text-navy-500"><MapPin className="h-3 w-3" /> {c.street}, {c.postalCode} {c.city}</p>}
+                {/* Badges comme Tools : dirigeant, puis code APE + libellé GROUPÉS, puis
+                    « Siège social » quand l'établissement retenu est le siège. */}
                 <div className="mt-2 flex flex-wrap gap-1.5 text-[11px] text-navy-500">
-                  {c.dirigeant && <Badge tone="neutral">{c.dirigeant}</Badge>}
-                  {c.libelleApe && <Badge tone="neutral">{c.libelleApe}</Badge>}
+                  {c.dirigeant && <Badge tone="neutral"><Users className="h-3 w-3" /> {c.dirigeant}</Badge>}
+                  {(c.codeApe || c.libelleApe) && <Badge tone="neutral">{[c.codeApe, c.libelleApe].filter(Boolean).join(' ')}</Badge>}
+                  {c.estSiege && <Badge tone="amber">Siège social</Badge>}
                 </div>
               </div>
               <ArrowRight className="h-4 w-4 shrink-0 text-navy-300" />
