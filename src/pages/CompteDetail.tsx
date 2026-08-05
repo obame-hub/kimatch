@@ -24,6 +24,10 @@ import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { EntityLink } from '@/components/ui/entity-link'
 import { Dialog } from '@/components/ui/dialog'
+import { Sheet } from '@/components/ui/sheet'
+import { ContactForm } from '@/components/contact/ContactForm'
+import { CreateMandatDialog } from '@/pages/Mandats'
+import { CreateRecommandationDialog } from '@/pages/Recommandations'
 import { FormField, Input, Select, Textarea } from '@/components/ui/form'
 import { HistoriqueDiscret } from '@/components/ui/historique-discret'
 import { InlineField } from '@/components/ui/inline-field'
@@ -134,6 +138,9 @@ export default function CompteDetail() {
   const [addFichierOpen, setAddFichierOpen] = useState(false)
   const [ficCategorie, setFicCategorie] = useState<string | null>(null)
   const [addCompteurOpen, setAddCompteurOpen] = useState(false)
+  const [addContactOpen, setAddContactOpen] = useState(false)
+  const [addMandatOpen, setAddMandatOpen] = useState(false)
+  const [addRecoOpen, setAddRecoOpen] = useState(false)
 
   // Ouvre automatiquement "Nouveau compteur" quand on arrive depuis l'étape "que faire
   // maintenant ?" du wizard de création de compte (CompteCreate.tsx).
@@ -336,6 +343,31 @@ export default function CompteDetail() {
             className="flex items-center gap-1.5 rounded-kw-md border border-kw-border-strong bg-kw-surface px-3 py-2 text-kw-md font-semibold text-kw-ink transition-colors hover:bg-kw-bg"
           >
             <Gauge className="h-3 w-3" /> Compteur
+          </button>
+          <button
+            type="button"
+            onClick={() => setAddContactOpen(true)}
+            className="flex items-center gap-1.5 rounded-kw-md border border-kw-border-strong bg-kw-surface px-3 py-2 text-kw-md font-semibold text-kw-ink transition-colors hover:bg-kw-bg"
+          >
+            <Users className="h-3 w-3" /> Contact
+          </button>
+          <button
+            type="button"
+            disabled={compteursDuCompte.length === 0}
+            onClick={() => setAddMandatOpen(true)}
+            title={compteursDuCompte.length === 0 ? 'Aucun compteur sur ce compte — un mandat couvre des PDL' : undefined}
+            className="flex items-center gap-1.5 rounded-kw-md border border-kw-border-strong bg-kw-surface px-3 py-2 text-kw-md font-semibold text-kw-ink transition-colors hover:bg-kw-bg disabled:opacity-40"
+          >
+            <FileCheck2 className="h-3 w-3" /> Mandat
+          </button>
+          <button
+            type="button"
+            disabled={!mandatsDuCompte.some((m) => m.statut === 'ACTIF')}
+            onClick={() => setAddRecoOpen(true)}
+            title={!mandatsDuCompte.some((m) => m.statut === 'ACTIF') ? 'Aucun mandat actif — requis pour lancer une recommandation' : undefined}
+            className="flex items-center gap-1.5 rounded-kw-md border border-kw-border-strong bg-kw-surface px-3 py-2 text-kw-md font-semibold text-kw-ink transition-colors hover:bg-kw-bg disabled:opacity-40"
+          >
+            <Sparkle className="h-3 w-3" /> Recommandation
           </button>
           {canManage && (
             <button
@@ -745,6 +777,39 @@ export default function CompteDetail() {
         compte={compte}
         sites={sites ?? []}
         onSaved={(message) => showToast(message)}
+      />
+
+      {/* Contact : panneau latéral (reste sur la fiche compte, comme l'écran de session
+          post-création dans Tools) -- on ne quitte jamais la page. */}
+      <Sheet
+        open={addContactOpen}
+        onClose={() => setAddContactOpen(false)}
+        title="Ajouter un contact"
+        description={`Rattaché à ${compte.nom}`}
+      >
+        <ContactForm
+          compteId={compte.id}
+          compteNom={compte.nom}
+          segment={compte.segment}
+          onCancel={() => setAddContactOpen(false)}
+          onCreated={(contact) => {
+            setAddContactOpen(false)
+            showToast(`✓ ${contact.prenom} ${contact.nom} ajouté`)
+          }}
+        />
+      </Sheet>
+
+      <CreateMandatDialog
+        open={addMandatOpen}
+        onClose={() => setAddMandatOpen(false)}
+        initialCompteId={compte.id}
+      />
+
+      <CreateRecommandationDialog
+        open={addRecoOpen}
+        onClose={() => setAddRecoOpen(false)}
+        initialCompteId={compte.id}
+        onCreated={(recoId) => navigate(`/recommandations/${recoId}`)}
       />
 
       <Dialog

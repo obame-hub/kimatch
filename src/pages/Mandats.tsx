@@ -20,7 +20,7 @@ import { ListToolbar } from '@/components/ui/list-toolbar'
 import { useListControls } from '@/lib/useListControls'
 import { ExtractDocumentButton } from '@/components/ui/document-extraction'
 
-function CreateMandatDialog({
+export function CreateMandatDialog({
   open,
   onClose,
   initialCompteId,

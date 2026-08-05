@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { Plus, Sparkle, AlertTriangle, Info } from 'lucide-react'
 import { Topbar } from '@/components/layout/Topbar'
@@ -47,7 +47,17 @@ function buildTitre(typeEnergie: 'electricite' | 'gaz', compteNom: string, siteN
   return `${icon} MULTISITE - ${dateCloture} - ${acc}`
 }
 
-function CreateRecommandationDialog({ open, onClose, onCreated }: { open: boolean; onClose: () => void; onCreated: (recoId: string) => void }) {
+export function CreateRecommandationDialog({
+  open,
+  onClose,
+  onCreated,
+  initialCompteId,
+}: {
+  open: boolean
+  onClose: () => void
+  onCreated: (recoId: string) => void
+  initialCompteId?: string
+}) {
   const { data: mandats } = useMandats()
   const { data: compteurs } = useCompteurs()
   const { data: contacts } = useContacts()
@@ -65,6 +75,14 @@ function CreateRecommandationDialog({ open, onClose, onCreated }: { open: boolea
   const createRecommandation = useCreateRecommandation()
 
   const [mandatId, setMandatId] = useState('')
+  const mandatsDisponibles = useMemo(
+    () => (initialCompteId ? (mandats ?? []).filter((m) => m.compte_id === initialCompteId) : mandats ?? []),
+    [mandats, initialCompteId],
+  )
+  useEffect(() => {
+    if (open && initialCompteId && mandatsDisponibles.length === 1) setMandatId(mandatsDisponibles[0].id)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open, initialCompteId, mandatsDisponibles.length])
   const [typeEnergieId, setTypeEnergieId] = useState('')
   const [compteurIds, setCompteurIds] = useState<string[]>([])
   const [contactId, setContactId] = useState('')
@@ -207,7 +225,7 @@ function CreateRecommandationDialog({ open, onClose, onCreated }: { open: boolea
           <FormField label="Mandat">
             <Select value={mandatId} onChange={(e) => { setMandatId(e.target.value); setCompteurIds([]); setContactId('') }} required>
               <option value="">Sélectionner un mandat…</option>
-              {mandats?.map((m) => <option key={m.id} value={m.id}>{m.compte_nom}{m.statut !== 'ACTIF' ? ` (${m.statut.toLowerCase()})` : ''}</option>)}
+              {mandatsDisponibles.map((m) => <option key={m.id} value={m.id}>{m.compte_nom}{m.statut !== 'ACTIF' ? ` (${m.statut.toLowerCase()})` : ''}</option>)}
             </Select>
           </FormField>
           <FormField label="Énergie">
