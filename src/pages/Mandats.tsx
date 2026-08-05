@@ -1,5 +1,5 @@
-import { useState } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useEffect, useState } from 'react'
+import { useNavigate, useSearchParams } from 'react-router-dom'
 import { Plus, FileCheck2 } from 'lucide-react'
 import { Topbar } from '@/components/layout/Topbar'
 import { PageHeader } from '@/components/ui/page-header'
@@ -20,7 +20,19 @@ import { ListToolbar } from '@/components/ui/list-toolbar'
 import { useListControls } from '@/lib/useListControls'
 import { ExtractDocumentButton } from '@/components/ui/document-extraction'
 
-function CreateMandatDialog({ open, onClose }: { open: boolean; onClose: () => void }) {
+function CreateMandatDialog({
+  open,
+  onClose,
+  initialCompteId,
+  initialCompteurIds,
+  initialContactId,
+}: {
+  open: boolean
+  onClose: () => void
+  initialCompteId?: string
+  initialCompteurIds?: string[]
+  initialContactId?: string
+}) {
   const { data: comptes } = useComptes()
   const { data: sites } = useSites()
   const { data: compteurs } = useCompteurs()
@@ -29,13 +41,21 @@ function CreateMandatDialog({ open, onClose }: { open: boolean; onClose: () => v
   const courtiers = courtiersRef && courtiersRef.length > 0 ? courtiersRef : FALLBACK_TYPES_COURTIERS_MANDAT
   const createMandat = useCreateMandat()
 
-  const [compteId, setCompteId] = useState('')
+  const [compteId, setCompteId] = useState(initialCompteId ?? '')
   const [dateSignature, setDateSignature] = useState('')
   const [dureeMois, setDureeMois] = useState(36)
-  const [compteurIds, setCompteurIds] = useState<string[]>([])
-  const [contactSignataireId, setContactSignataireId] = useState('')
+  const [compteurIds, setCompteurIds] = useState<string[]>(initialCompteurIds ?? [])
+  const [contactSignataireId, setContactSignataireId] = useState(initialContactId ?? '')
   const [courtierCodes, setCourtierCodes] = useState<string[]>(['KIWI', 'ENERGIX'])
   const [feedback, setFeedback] = useState<string | null>(null)
+
+  useEffect(() => {
+    if (!open) return
+    if (initialCompteId) setCompteId(initialCompteId)
+    if (initialCompteurIds) setCompteurIds(initialCompteurIds)
+    if (initialContactId) setContactSignataireId(initialContactId)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open, initialCompteId, initialCompteurIds?.join(','), initialContactId])
 
   const sitesDuCompte = sites?.filter((s) => s.compte_id === compteId) ?? []
   const compteursDuCompte = compteurs?.filter((c) => sitesDuCompte.some((s) => s.id === c.site_id)) ?? []
@@ -173,8 +193,20 @@ export default function Mandats() {
   const { data: statutsRef } = useReferenceTable('statuts_mandats')
   const statuts = statutsRef && statutsRef.length > 0 ? statutsRef : FALLBACK_STATUTS_MANDATS
   const navigate = useNavigate()
-  const [showCreate, setShowCreate] = useState(false)
+  const [searchParams, setSearchParams] = useSearchParams()
+  const compteFromUrl = searchParams.get('compte')
+  const pdlsFromUrl = searchParams.get('pdls')
+  const contactFromUrl = searchParams.get('contact')
+  const [showCreate, setShowCreate] = useState(!!compteFromUrl)
   const [statutFilter, setStatutFilter] = useState('')
+
+  useEffect(() => {
+    if (compteFromUrl) {
+      setShowCreate(true)
+      setSearchParams((prev) => { prev.delete('compte'); prev.delete('pdls'); prev.delete('contact'); return prev }, { replace: true })
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
 
   const mandatsFiltresParStatut = statutFilter ? mandats?.filter((m) => m.statut === statutFilter) : mandats
 
@@ -251,7 +283,13 @@ export default function Mandats() {
           })}
         </div>
       </div>
-      <CreateMandatDialog open={showCreate} onClose={() => setShowCreate(false)} />
+      <CreateMandatDialog
+        open={showCreate}
+        onClose={() => setShowCreate(false)}
+        initialCompteId={compteFromUrl ?? undefined}
+        initialCompteurIds={pdlsFromUrl ? pdlsFromUrl.split(',').filter(Boolean) : undefined}
+        initialContactId={contactFromUrl ?? undefined}
+      />
     </div>
   )
 }

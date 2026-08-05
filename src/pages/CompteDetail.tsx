@@ -29,6 +29,7 @@ import { HistoriqueDiscret } from '@/components/ui/historique-discret'
 import { InlineField } from '@/components/ui/inline-field'
 import { AddressAutocomplete } from '@/components/ui/address-autocomplete'
 import { PdlDraftRows, emptyPdlDraft, type PdlDraft } from '@/components/compteur/PdlDraftRows'
+import { MandatChainPrompt, type ChainedCompteur } from '@/components/compteur/MandatChainPrompt'
 import {
   useComptes,
   useUpdateCompteScore,
@@ -1483,6 +1484,7 @@ function AddCompteurAutoSiteDialog({
   const [siteMessage, setSiteMessage] = useState('')
   const [drafts, setDrafts] = useState<PdlDraft[]>([emptyPdlDraft()])
   const [submitting, setSubmitting] = useState(false)
+  const [createdCompteurs, setCreatedCompteurs] = useState<ChainedCompteur[] | null>(null)
 
   const fournisseurs = (comptes ?? []).filter((c) => c.type_compte === 'fournisseur')
   const contactsDuCompte = (contacts ?? []).filter((c) => c.compte_id === compte.id)
@@ -1499,6 +1501,7 @@ function AddCompteurAutoSiteDialog({
     setSiteMessage('')
     setDrafts([emptyPdlDraft()])
     setSubmitting(false)
+    setCreatedCompteurs(null)
   }
 
   function patchDraft(key: string, patch: Partial<PdlDraft>) {
@@ -1563,6 +1566,7 @@ function AddCompteurAutoSiteDialog({
     if (!siteResolu) return
     setSubmitting(true)
     let created = 0
+    const nouveaux: ChainedCompteur[] = []
     for (const d of drafts) {
       if (d.status === 'saved') continue
       const energieChoisie = energies.find((en) => en.id === d.typeEnergieId)
@@ -1571,7 +1575,7 @@ function AddCompteurAutoSiteDialog({
       const responsable = contactsDuCompte.find((c) => c.id === d.responsableContactId)
       patchDraft(d.key, { status: 'saving' })
       try {
-        await createCompteur.mutateAsync({
+        const result = await createCompteur.mutateAsync({
           site_id: siteResolu.id,
           site_nom: siteResolu.nom,
           type_energie_id: d.typeEnergieId || null,
@@ -1587,6 +1591,7 @@ function AddCompteurAutoSiteDialog({
         })
         patchDraft(d.key, { status: 'saved' })
         created += 1
+        nouveaux.push({ id: result.compteur.id, numero_pdl: result.compteur.numero_pdl, responsable_contact_id: result.compteur.responsable_contact_id ?? null })
       } catch (err) {
         patchDraft(d.key, { status: 'error', errorMessage: err instanceof Error ? err.message : 'Erreur inconnue' })
       }
@@ -1594,11 +1599,25 @@ function AddCompteurAutoSiteDialog({
     setSubmitting(false)
     if (created > 0) onSaved(`${siteMessage}${created > 1 ? ` (${created} PDL)` : ''}`)
     setDrafts((prev) => {
-      if (prev.every((d) => d.status === 'saved')) {
-        setTimeout(() => { reset(); onClose() }, 600)
+      if (prev.every((d) => d.status === 'saved') && nouveaux.length > 0) {
+        setCreatedCompteurs(nouveaux)
       }
       return prev
     })
+  }
+
+  if (createdCompteurs) {
+    return (
+      <Dialog open={open} onClose={() => { reset(); onClose() }} title="PDL créé(s) avec succès" description="Que veux-tu faire ensuite ?" className="max-w-xl">
+        <MandatChainPrompt
+          compteId={compte.id}
+          compteNom={compte.nom}
+          compteurs={createdCompteurs}
+          contacts={contactsDuCompte}
+          onDone={() => { reset(); onClose() }}
+        />
+      </Dialog>
+    )
   }
 
   return (
