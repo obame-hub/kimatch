@@ -1,11 +1,13 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { Building, Users, Briefcase, Handshake, Scale, Zap, Search, Loader2, ArrowRight, ArrowLeft, PencilLine, Award, MapPin, CheckCircle2, UserPlus } from 'lucide-react'
+import { Building, Users, Briefcase, Handshake, Scale, Zap, Search, Loader2, ArrowRight, ArrowLeft, PencilLine, Award, MapPin, CheckCircle2, UserPlus, ExternalLink } from 'lucide-react'
 import { Topbar } from '@/components/layout/Topbar'
 import { Card } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Input, Label } from '@/components/ui/form'
+import { Sheet } from '@/components/ui/sheet'
+import { ContactForm } from '@/components/contact/ContactForm'
 import { toUpperFR } from '@/lib/textFormat'
 import { searchRnic, type RnicResult } from '@/lib/rnic'
 import { searchCompanies, TRANCHE_EFFECTIF_LABEL, type CompanyResult } from '@/lib/companyDirectory'
@@ -13,7 +15,7 @@ import { useEllisphereScore } from '@/lib/data/ellisphere'
 import { useCreateCompte, findCompteBySiret } from '@/lib/data/comptes'
 import { useReferenceTable } from '@/lib/data/referenceTables'
 import { FALLBACK_TYPES_COMPTES } from '@/lib/referenceFallbacks'
-import type { TypeCompte } from '@/types/domain'
+import type { TypeCompte, Contact } from '@/types/domain'
 
 // Sous-type choisi a l'etape 1 -- correspond a `comptes.segment` (meme convention que la
 // migration Salesforce, voir transform.js : segment = Account.Type tel quel).
@@ -55,16 +57,16 @@ export default function CompteCreate() {
   // Persisté en sessionStorage pour survivre à un retour navigateur depuis les sous-flots
   // Contact/PDL déclenchés par cet écran -- même mécanisme que "accountWizard:lastCreated" dans
   // Tools.
-  const [createdCompte, setCreatedCompte] = useState<{ id: string; nom: string } | null>(() => {
+  const [createdCompte, setCreatedCompte] = useState<{ id: string; nom: string; segment: string } | null>(() => {
     try {
       const raw = sessionStorage.getItem('accountWizard:lastCreated')
-      return raw ? (JSON.parse(raw) as { id: string; nom: string }) : null
+      return raw ? (JSON.parse(raw) as { id: string; nom: string; segment: string }) : null
     } catch {
       return null
     }
   })
 
-  function persistCreatedCompte(compte: { id: string; nom: string } | null) {
+  function persistCreatedCompte(compte: { id: string; nom: string; segment: string } | null) {
     setCreatedCompte(compte)
     try {
       if (compte) sessionStorage.setItem('accountWizard:lastCreated', JSON.stringify(compte))
@@ -100,7 +102,7 @@ export default function CompteCreate() {
           codePostal: rnicPick.codePostal,
           ville: rnicPick.ville,
         })
-        persistCreatedCompte({ id: result.compte.id, nom: result.compte.nom })
+        persistCreatedCompte({ id: result.compte.id, nom: result.compte.nom, segment })
       } else if (companyPick) {
         const result = await createCompte.mutateAsync({
           segment,
@@ -117,7 +119,7 @@ export default function CompteCreate() {
           scoreEllipro: score.data?.score ?? null,
           scoreElliproScale: score.data?.scale ?? null,
         })
-        persistCreatedCompte({ id: result.compte.id, nom: result.compte.nom })
+        persistCreatedCompte({ id: result.compte.id, nom: result.compte.nom, segment })
       }
     } catch (e) {
       setSiretError(e instanceof Error ? e.message : 'Erreur lors de la création.')
@@ -649,7 +651,18 @@ function ConfirmStep({
 
 // ──────────────── Étape 4 : que faire maintenant ────────────────
 
-function NextStepScreen({ compte, navigate, onFinish }: { compte: { id: string; nom: string }; navigate: ReturnType<typeof useNavigate>; onFinish: () => void }) {
+function NextStepScreen({
+  compte,
+  navigate,
+  onFinish,
+}: {
+  compte: { id: string; nom: string; segment: string }
+  navigate: ReturnType<typeof useNavigate>
+  onFinish: () => void
+}) {
+  const [contactSheetOpen, setContactSheetOpen] = useState(false)
+  const [contactsAjoutes, setContactsAjoutes] = useState<Contact[]>([])
+
   return (
     <div>
       <div className="mb-6 flex items-center gap-3 rounded-xl border border-kiwi-200 bg-kiwi-50 p-4">
@@ -666,7 +679,7 @@ function NextStepScreen({ compte, navigate, onFinish }: { compte: { id: string; 
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
         <button
           type="button"
-          onClick={() => navigate(`/contacts?compte=${compte.id}`)}
+          onClick={() => setContactSheetOpen(true)}
           className="flex items-start gap-3 rounded-xl border border-navy-100 bg-white p-4 text-left transition-all hover:-translate-y-0.5 hover:border-kiwi-300 hover:shadow-md"
         >
           <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-violet-50 text-violet-600">
@@ -692,12 +705,52 @@ function NextStepScreen({ compte, navigate, onFinish }: { compte: { id: string; 
         </button>
       </div>
 
+      {contactsAjoutes.length > 0 && (
+        <div className="mt-6">
+          <p className="mb-3 text-xs font-semibold uppercase tracking-wide text-navy-400">Ajoutés au dossier ({contactsAjoutes.length})</p>
+          <div className="divide-y divide-navy-100 rounded-xl border border-navy-100 bg-white">
+            {contactsAjoutes.map((c) => (
+              <div key={c.id} className="flex items-center gap-3 px-4 py-3">
+                <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-violet-100 text-[11px] font-semibold text-violet-600">
+                  {`${c.prenom[0] ?? ''}${c.nom[0] ?? ''}`.toUpperCase()}
+                </span>
+                <div className="min-w-0 flex-1">
+                  <p className="truncate text-sm font-medium text-navy-800">{c.prenom} {c.nom}</p>
+                  {c.fonction && <p className="truncate text-xs text-navy-500">{c.fonction}</p>}
+                </div>
+                <a href={`/contacts/${c.id}`} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 text-xs text-kiwi-700 hover:underline">
+                  Voir la fiche <ExternalLink className="h-3 w-3" />
+                </a>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
       <div className="mt-6 flex justify-between border-t border-navy-100 pt-6">
         <Button variant="ghost" onClick={() => { onFinish(); navigate('/comptes') }}>Terminer la session</Button>
         <Button variant="outline" onClick={() => { onFinish(); navigate(`/comptes/${compte.id}`) }}>
           Voir la fiche compte <ArrowRight className="h-4 w-4" />
         </Button>
       </div>
+
+      <Sheet
+        open={contactSheetOpen}
+        onClose={() => setContactSheetOpen(false)}
+        title="Ajouter un contact"
+        description={`Rattaché à ${compte.nom}`}
+      >
+        <ContactForm
+          compteId={compte.id}
+          compteNom={compte.nom}
+          segment={compte.segment}
+          onCancel={() => setContactSheetOpen(false)}
+          onCreated={(contact) => {
+            setContactsAjoutes((prev) => [...prev, contact])
+            setContactSheetOpen(false)
+          }}
+        />
+      </Sheet>
     </div>
   )
 }
