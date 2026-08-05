@@ -23,6 +23,11 @@ import { useListControls } from '@/lib/useListControls'
 import { ExtractDocumentButton } from '@/components/ui/document-extraction'
 import { cn } from '@/lib/utils'
 
+// Fournisseurs pour lesquels Tools recommande la renégociation anticipée (ContratWizard.tsx,
+// SPECIAL_SUPPLIERS) -- juste un indice visuel ici, la case reste éditable pour tous (contrairement
+// à Tools qui la masque entièrement pour les autres fournisseurs).
+const FOURNISSEURS_RENEGOCIATION_RECOMMANDEE = ['GAZ EUROPEEN', 'SEFE']
+
 const CLAUSES: { key: 'clause_tacite_reconduction' | 'clause_renegociation_anticipee' | 'clause_engagement_consommation' | 'clause_energie_verte' | 'clause_indexation_prix' | 'clause_penalites_resiliation'; label: string }[] = [
   { key: 'clause_tacite_reconduction', label: 'Tacite reconduction' },
   { key: 'clause_renegociation_anticipee', label: 'Renégociation anticipée' },
@@ -105,6 +110,14 @@ function CreateContratDialog({ open, onClose }: { open: boolean; onClose: () => 
   useEffect(() => {
     if (typePrix !== 'Fixe' && strategieTarifaire === 'prix_cible') setStrategieTarifaire('marge_fixe')
   }, [typePrix, strategieTarifaire])
+
+  // Type de prix prérempli automatiquement sur la première option disponible dès que l'énergie
+  // est choisie -- même règle que Tools (pour l'Électricité, "Marché" est la seule option, donc
+  // ceci l'auto-sélectionne sans clic).
+  useEffect(() => {
+    if (typeEnergieId && !typePrix && optionsTypePrix.length > 0) setTypePrix(optionsTypePrix[0])
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [typeEnergieId, estGaz])
 
   // Date de début préremplie uniquement si un seul compteur est sélectionné (échéance + 1 jour)
   // -- les sélections multi-PDL n'ont aucun préremplissage, saisie 100% manuelle (même règle que
@@ -254,8 +267,8 @@ function CreateContratDialog({ open, onClose }: { open: boolean; onClose: () => 
             </FormField>
           </div>
         )}
-        <FormField label="Prix de la molécule (€/MWh, optionnel)">
-          <Input type="number" step="0.01" value={prixMolecule} onChange={(e) => setPrixMolecule(e.target.value)} />
+        <FormField label={strategieTarifaire === 'prix_cible' ? 'Prix cible (€/MWh)' : 'Marge (€/MWh)'}>
+          <Input type="number" step="0.01" value={prixMolecule} onChange={(e) => setPrixMolecule(e.target.value)} required />
         </FormField>
         <FormField label="Référence fournisseur">
           <Input value={referenceFournisseur} onChange={(e) => setReferenceFournisseur(e.target.value)} />
@@ -306,12 +319,18 @@ function CreateContratDialog({ open, onClose }: { open: boolean; onClose: () => 
         )}
         <FormField label="Clauses">
           <div className="grid grid-cols-2 gap-1.5">
-            {CLAUSES.map((c) => (
-              <label key={c.key} className="flex items-center gap-2 text-sm text-navy-700">
-                <input type="checkbox" checked={!!clauses[c.key]} onChange={(e) => setClauses((prev) => ({ ...prev, [c.key]: e.target.checked }))} />
-                {c.label}
-              </label>
-            ))}
+            {CLAUSES.map((c) => {
+              const fournisseurActuel = fournisseurs.find((f) => f.id === fournisseurId)
+              const recommandee = c.key === 'clause_renegociation_anticipee' && fournisseurActuel
+                && FOURNISSEURS_RENEGOCIATION_RECOMMANDEE.some((n) => fournisseurActuel.nom.toUpperCase().includes(n))
+              return (
+                <label key={c.key} className="flex items-center gap-2 text-sm text-navy-700">
+                  <input type="checkbox" checked={!!clauses[c.key]} onChange={(e) => setClauses((prev) => ({ ...prev, [c.key]: e.target.checked }))} />
+                  {c.label}
+                  {recommandee && <span className="text-[10px] text-kiwi-700">— recommandée pour {fournisseurActuel!.nom}</span>}
+                </label>
+              )
+            })}
           </div>
         </FormField>
         {feedback && <p className="text-xs text-navy-500">{feedback}</p>}
