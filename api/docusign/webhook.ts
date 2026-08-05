@@ -20,7 +20,7 @@ interface ConnectPayload {
   event?: string
   data?: {
     envelopeId?: string
-    envelopeSummary?: { status?: string }
+    envelopeSummary?: { status?: string; completedDateTime?: string }
   }
 }
 
@@ -73,9 +73,14 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   try {
     const admin = createClient(supabaseUrl, serviceRoleKey)
     const { data: statutRow } = await admin.from('statuts_mandats').select('id').eq('code', statutCode).maybeSingle()
+    // Date de signature : jamais enregistrée avant ce correctif -- prend l'horodatage de complétion
+    // fourni par DocuSign (le plus fiable), sinon l'heure de réception du webhook en repli.
+    const dateSignature = statutCode === 'SIGNE'
+      ? (payload.data?.envelopeSummary?.completedDateTime ?? new Date().toISOString())
+      : undefined
     const { data: mandats, error } = await admin
       .from('mandats')
-      .update({ ...(statutRow ? { statut_id: statutRow.id } : {}) })
+      .update({ ...(statutRow ? { statut_id: statutRow.id } : {}), ...(dateSignature ? { date_signature: dateSignature } : {}) })
       .eq('docusign_envelope_id', envelopeId)
       .select('id, compte_id, proprietaire_id, compte:comptes(nom), proprietaire:profils!mandats_proprietaire_id_fkey(email, prenom, nom)')
 
