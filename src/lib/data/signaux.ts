@@ -25,7 +25,10 @@ async function fetchSignaux(): Promise<Signal[]> {
   try {
     const data = await fetchAllRows<RawSignal>(
       'signaux',
-      'id, site_id, contrat_id, gravite, date_creation, commentaire, proprietaire_id, type_signal:types_signaux(libelle, poids_defaut), statut:statuts_signaux(code), site:sites(nom), responsable:profils!signaux_responsable_profil_id_fkey(prenom, nom), recommandation_id, recommandation:recommandations(nom)',
+      // `recommandations!recommandation_id` : hint de FK explicite -- la table recommandations a
+      // plus d'une relation possible avec signaux, un embed non qualifié renvoie une erreur
+      // PostgREST PGRST201 (relation ambiguë) qui faisait échouer tout le chargement des signaux.
+      'id, site_id, contrat_id, gravite, date_creation, commentaire, proprietaire_id, type_signal:types_signaux(libelle, poids_defaut), statut:statuts_signaux(code), site:sites(nom), responsable:profils!signaux_responsable_profil_id_fkey(prenom, nom), recommandation_id, recommandation:recommandations!recommandation_id(nom)',
       (q) => q.order('date_creation', { ascending: false }),
     )
 

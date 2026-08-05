@@ -32,8 +32,11 @@ interface RawInteraction {
   enregistrement_url: string | null
 }
 
+// `!recommandation_id`/`!signal_id` : hints de FK explicites -- recommandations et signaux ont
+// plus d'une relation possible entre elles, un embed non qualifié renvoie une erreur PostgREST
+// PGRST201 (relation ambiguë) qui faisait échouer tout le chargement des interactions.
 const INTERACTIONS_SELECT =
-  'id, date_interaction, sens, objet, resume, resultat, compte_id, site_id, contact_id, recommandation_id, signal_id, type_interaction:types_interactions(libelle), auteur:profils!interactions_auteur_profil_id_fkey(prenom, nom), compte:comptes(nom), site:sites(nom), contact:contacts(prenom, nom), recommandation:recommandations(nom), signal:signaux(type_signal:types_signaux(libelle)), issue:issues_interactions(libelle, couleur), proprietaire_id, duree_appel_secondes, appel_manque, messagerie_vocale, numero_correspondant, decroche_par, enregistrement_url'
+  'id, date_interaction, sens, objet, resume, resultat, compte_id, site_id, contact_id, recommandation_id, signal_id, type_interaction:types_interactions(libelle), auteur:profils!interactions_auteur_profil_id_fkey(prenom, nom), compte:comptes(nom), site:sites(nom), contact:contacts(prenom, nom), recommandation:recommandations!recommandation_id(nom), signal:signaux!signal_id(type_signal:types_signaux(libelle)), issue:issues_interactions(libelle, couleur), proprietaire_id, duree_appel_secondes, appel_manque, messagerie_vocale, numero_correspondant, decroche_par, enregistrement_url'
 
 async function fetchInteractionsPage(from: number, pageSize: number, attempt = 0): Promise<RawInteraction[]> {
   const { data, error } = await supabase
