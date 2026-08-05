@@ -1665,7 +1665,9 @@ function AddCompteurAutoSiteDialog({
       const energieChoisie = energies.find((en) => en.id === d.typeEnergieId)
       const typeEnergie = (energieChoisie?.code?.toLowerCase() === 'gaz' ? 'gaz' : 'electricite') as 'electricite' | 'gaz'
       const fournisseur = fournisseurs.find((f) => f.id === d.fournisseurActuelId)
-      const responsable = contactsDuCompte.find((c) => c.id === d.responsableContactId)
+      // Cherché dans TOUS les contacts : le sélecteur permet de désigner un responsable rattaché
+      // à un autre compte (onglet « Autre contact »).
+      const responsable = (contacts ?? []).find((c) => c.id === d.responsableContactId)
       patchDraft(d.key, { status: 'saving' })
       try {
         const result = await createCompteur.mutateAsync({
@@ -1788,6 +1790,10 @@ function AddCompteurAutoSiteDialog({
             utilisationsRef={utilisationsRef}
             fournisseurs={fournisseurs}
             contacts={contactsDuCompte}
+            allContacts={contacts ?? []}
+            compteId={compte.id}
+            compteNom={compte.nom}
+            compteSegment={compte.segment}
             existingCompteurs={compteurs ?? []}
           />
           {draftsIncomplets && (

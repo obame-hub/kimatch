@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { Plus, Sparkle, AlertTriangle, Info } from 'lucide-react'
+import { Plus, Sparkle, AlertTriangle, Info, Loader2, RefreshCw } from 'lucide-react'
 import { Topbar } from '@/components/layout/Topbar'
 import { PageHeader } from '@/components/ui/page-header'
 import { Card } from '@/components/ui/card'
@@ -21,6 +21,8 @@ import { useReferenceTable } from '@/lib/data/referenceTables'
 import { FALLBACK_ETAPES_RECOMMANDATION, ETAPE_TONE, FALLBACK_TYPES_ORIGINES, FALLBACK_TYPES_ENERGIES } from '@/lib/referenceFallbacks'
 import { ListToolbar } from '@/components/ui/list-toolbar'
 import { useListControls } from '@/lib/useListControls'
+import { ConnectionGate } from '@/components/ui/connection-gate'
+import { isSupabaseConfigured } from '@/lib/supabase'
 
 const PRIORITE_OPTIONS = [
   { value: 1, label: 'Haute' },
@@ -108,6 +110,33 @@ export function CreateRecommandationDialog({
 
   const contactsDuCompte = contacts?.filter((c) => c.compte_id === mandat?.compte_id) ?? []
   const compteursChoisis = compteursEligibles.filter((c) => compteurIds.includes(c.id))
+
+  // --- Note Ellipro -------------------------------------------------------------------------
+  // Tools rafraîchit le score Ellisphere au moment de créer l'opportunité et affiche un bandeau
+  // « Note Ellipro indisponible » + « Réessayer » quand l'appel échoue (établissement introuvable,
+  // service momentanément HS…). On le fait dès que le compte est connu, pour que l'utilisateur
+  // voie l'échec AVANT de valider plutôt qu'après coup, et qu'il puisse relancer lui-même.
+  const compteCible = comptes?.find((c) => c.id === mandat?.compte_id)
+  const scoreRecent = !!compteCible?.score_ellipro_maj
+    && Date.now() - new Date(compteCible.score_ellipro_maj).getTime() < 24 * 3600 * 1000
+  const [sirenTente, setSirenTente] = useState<string | null>(null)
+
+  const { mutateAsync: fetchScore, reset: resetScore } = ellisphereScore
+  function rafraichirScore(siren: string, compteId: string) {
+    fetchScore(siren)
+      .then((score) => updateCompteScore.mutate({ compteId, score }))
+      .catch(() => {
+        /* l'erreur est portée par ellisphereScore.isError -- bandeau + bouton « Réessayer » */
+      })
+  }
+
+  useEffect(() => {
+    if (!open || !compteCible?.siren || scoreRecent) return
+    if (sirenTente === compteCible.siren) return
+    setSirenTente(compteCible.siren)
+    rafraichirScore(compteCible.siren, compteCible.id)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open, compteCible?.siren, compteCible?.id, scoreRecent, sirenTente])
 
   // Mix client/prospect : "client" = un contrat ACTIF/A_RENOUVELER couvre déjà ce PDL pour cette
   // énergie, "prospect" sinon -- blocage dur si le mix est mélangé (garde-fou Tools), type
@@ -198,17 +227,8 @@ export function CreateRecommandationDialog({
     })
     setFeedback(result.persisted ? 'Recommandation créée.' : 'Recommandation ajoutée localement (non synchronisée avec Supabase).')
 
-    // Rafraîchissement du score Ellisphere à la création d'opportunité -- mécanisme séparé de
-    // celui du compte, best-effort, ne bloque jamais la création (même esprit que Tools, sans
-    // le limiteur de débit dédié faute de volume qui le justifie ici).
-    const compte = comptes?.find((c) => c.id === mandat.compte_id)
-    const scoreRecent = compte?.score_ellipro_maj && Date.now() - new Date(compte.score_ellipro_maj).getTime() < 24 * 3600 * 1000
-    if (compte?.siren && !scoreRecent) {
-      ellisphereScore.mutateAsync(compte.siren).then((score) => {
-        updateCompteScore.mutate({ compteId: compte.id, score })
-      }).catch(() => {})
-    }
-
+    // Le score Ellisphere est rafraîchi dès l'ouverture du wizard (voir plus haut), pas ici :
+    // l'échec est ainsi visible et rejouable avant la validation, comme dans Tools.
     if (result.persisted) onCreated(result.recommandation.id)
     setTimeout(() => {
       reset()
@@ -220,6 +240,23 @@ export function CreateRecommandationDialog({
 
   return (
     <Dialog open={open} onClose={() => { reset(); onClose() }} title="Nouvelle recommandation" description="Créer une opportunité sur un ou plusieurs points de livraison d'un compte." className="max-w-xl">
+      {/* Garde-fou de connexion, équivalent Kimatch du WizardConnectionGate de Tools placé avant
+          l'opportunité : là-bas c'était Salesforce, ici c'est la base Kimatch elle-même — sans
+          identifiants Supabase l'app tourne sur les données de démonstration et rien n'est
+          enregistré. On laisse une sortie explicite pour continuer en démo. */}
+      <ConnectionGate
+        action="la création d'une opportunité"
+        connexions={[
+          {
+            nom: 'Base Kimatch (Supabase)',
+            raison: 'Nécessaire pour lire et écrire les données du CRM.',
+            connecte: isSupabaseConfigured,
+            indice: "Identifiants VITE_SUPABASE_URL / VITE_SUPABASE_ANON_KEY absents : l'application tourne sur des données de démonstration.",
+          },
+        ]}
+        autoriserSkip
+        skipLabel="Continuer en mode démonstration"
+      >
       <form onSubmit={handleSubmit} className="max-h-[75vh] space-y-3 overflow-y-auto pr-1">
         <div className="grid grid-cols-2 gap-3">
           <FormField label="Mandat">
@@ -237,6 +274,35 @@ export function CreateRecommandationDialog({
         </div>
         {mandat && mandat.statut !== 'ACTIF' && (
           <p className="flex items-center gap-1.5 text-xs text-amber-700"><AlertTriangle className="h-3.5 w-3.5 shrink-0" /> Ce mandat n'est pas actif — aucun PDL éligible tant qu'il n'est pas signé.</p>
+        )}
+
+        {/* Note Ellipro : bandeau d'échec + « Réessayer », repris de l'écran Opportunité de Tools.
+            Le score alimente le critère « score minimum » du moteur d'éligibilité fournisseur en
+            cotation — s'il manque, l'aval tourne à vide sans que rien ne le signale. */}
+        {compteCible?.siren && ellisphereScore.isPending && (
+          <p className="flex items-center gap-1.5 text-xs text-navy-400">
+            <Loader2 className="h-3.5 w-3.5 shrink-0 animate-spin" /> Récupération de la note Ellipro…
+          </p>
+        )}
+        {compteCible?.siren && ellisphereScore.isError && (
+          <div className="flex items-start gap-2 rounded-lg border border-amber-200 bg-amber-50 p-3 text-xs text-amber-900">
+            <AlertTriangle className="mt-0.5 h-3.5 w-3.5 shrink-0" />
+            <span className="flex-1">
+              <span className="font-medium">Note Ellipro indisponible</span>
+              {' : '}
+              {ellisphereScore.error instanceof Error ? ellisphereScore.error.message : 'service injoignable'}
+              <span className="mt-0.5 block text-amber-700">
+                La création reste possible — le score restera vide et le critère « score minimum » ne pourra pas être évalué en cotation.
+              </span>
+            </span>
+            <button
+              type="button"
+              onClick={() => { resetScore(); rafraichirScore(compteCible.siren as string, compteCible.id) }}
+              className="inline-flex shrink-0 items-center gap-1 rounded-md border border-amber-300 bg-white px-2 py-1 font-medium text-amber-800 hover:bg-amber-100"
+            >
+              <RefreshCw className="h-3 w-3" /> Réessayer
+            </button>
+          </div>
         )}
         {mandat && typeEnergieId && (
           <FormField label="Points de livraison couverts">
@@ -317,6 +383,7 @@ export function CreateRecommandationDialog({
           <Button type="submit" disabled={createRecommandation.isPending || !canSubmit}>Créer la recommandation</Button>
         </div>
       </form>
+      </ConnectionGate>
     </Dialog>
   )
 }

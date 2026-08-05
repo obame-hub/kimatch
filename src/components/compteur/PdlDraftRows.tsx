@@ -1,6 +1,7 @@
 import { AlertTriangle, Trash2, Plus } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { FormField, Input, Select } from '@/components/ui/form'
+import { ContactPicker } from '@/components/contact/ContactPicker'
 import type { Compte, Contact } from '@/types/domain'
 import type { ReferenceRow } from '@/lib/data/referenceTables'
 import { PDL_FORMAT_RE, findCompteurByNumero } from '@/lib/data/compteurs'
@@ -135,6 +136,10 @@ export function PdlDraftRows({
   utilisationsRef,
   fournisseurs,
   contacts,
+  allContacts,
+  compteId,
+  compteNom,
+  compteSegment,
   existingCompteurs,
 }: {
   drafts: PdlDraft[]
@@ -144,7 +149,13 @@ export function PdlDraftRows({
   energies: ReferenceRow[]
   utilisationsRef?: ReferenceRow[]
   fournisseurs: Compte[]
+  /** Contacts rattachés au compte -- premier onglet du sélecteur de responsable. */
   contacts: Contact[]
+  /** Tous les contacts du CRM -- second onglet (« Autre contact ») du sélecteur. */
+  allContacts: Contact[]
+  compteId: string
+  compteNom: string
+  compteSegment?: string | null
   existingCompteurs: Compteur[]
 }) {
   return (
@@ -281,13 +292,21 @@ export function PdlDraftRows({
                 </FormField>
               </div>
               <FormField label="Responsable" required>
-                <Select value={d.responsableContactId} onChange={(e) => onChange(d.key, { responsableContactId: e.target.value })} className={kManque('responsableContactId')}>
-                  <option value="">Non renseigné</option>
-                  {contacts.map((c) => <option key={c.id} value={c.id}>{c.prenom} {c.nom}</option>)}
-                </Select>
+                <ContactPicker
+                  value={d.responsableContactId}
+                  onChange={(contactId) => onChange(d.key, { responsableContactId: contactId })}
+                  contactsDuCompte={contacts}
+                  allContacts={allContacts}
+                  compteId={compteId}
+                  compteNom={compteNom}
+                  segment={compteSegment}
+                  invalid={manquants.has('responsableContactId')}
+                  disabled={locked}
+                />
               </FormField>
               <p className="text-[11px] text-navy-400">
-                Contacts liés au compte. Le responsable signera le mandat — sans lui, impossible de l'envoyer en signature.
+                Contacts liés au compte. Si le bon contact n'apparaît pas, cherche dans tous les contacts du CRM via
+                l'onglet « Autre contact ». Le responsable signera le mandat — sans lui, impossible de l'envoyer en signature.
               </p>
             </fieldset>
             {d.errorMessage && <p className="mt-2 text-xs text-red-600">{d.errorMessage}</p>}

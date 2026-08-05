@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
-import { ArrowLeft, Mail, Lock, Pencil, Trash2, Sparkle, RefreshCw, AlertTriangle, CheckCircle2 } from 'lucide-react'
+import { ArrowLeft, Mail, Lock, Pencil, Trash2, Sparkle, RefreshCw, AlertTriangle, CheckCircle2, X } from 'lucide-react'
 import { Topbar } from '@/components/layout/Topbar'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
@@ -26,7 +26,8 @@ import { useEligibilityRules } from '@/lib/data/eligibilityRules'
 import { useMappingRules } from '@/lib/data/mappingRules'
 import { checkEligibility, type EligibilityResult } from '@/lib/eligibility'
 import { useCanManage, useIsAdmin, useProfilsAdmin } from '@/lib/data/roles'
-import { sendEmail } from '@/lib/data/gmail'
+import { sendEmail, useGmailConnection, connectGmail } from '@/lib/data/gmail'
+import { ConnectionGate } from '@/components/ui/connection-gate'
 import { FALLBACK_ETAPES_RECOMMANDATION, FALLBACK_STATUTS_VERSIONS, STATUT_VERSION_TONE } from '@/lib/referenceFallbacks'
 import { useGoBack } from '@/lib/useGoBack'
 import { ZONE_ORDER_COTATION, ZONE_LABEL_COTATION, zoneDuFournisseur } from '@/lib/fournisseurZones'
@@ -46,9 +47,11 @@ function CotationWizard({ open, onClose, reco }: { open: boolean; onClose: () =>
   const { data: typesOptimisationsRef } = useReferenceTable('types_optimisations')
   const { data: etapesRef } = useReferenceTable('etapes_recommandation')
   const createVersion = useCreateVersion()
+  const gmail = useGmailConnection()
 
   const estActualisation = reco.versions.length > 0
   const [durees, setDurees] = useState<number[]>([36])
+  const [dureeLibre, setDureeLibre] = useState('')
   const [typesPrix, setTypesPrix] = useState<string[]>(['Fixe'])
   const [dateSouhaitee, setDateSouhaitee] = useState('')
   const [fournisseurIds, setFournisseurIds] = useState<string[]>([])
@@ -65,6 +68,22 @@ function CotationWizard({ open, onClose, reco }: { open: boolean; onClose: () =>
 
   function toggleDuree(d: number) {
     setDurees((prev) => (prev.includes(d) ? prev.filter((x) => x !== d) : prev.length < 3 ? [...prev, d] : prev))
+  }
+  // Durée hors préréglages : Tools propose 12/24/36/48/60 + une saisie libre « Autre » avec un
+  // bouton « + », pour les durées négociées au cas par cas (18 mois, 30 mois…).
+  const dureesHorsPresets = durees.filter((d) => !DUREES_PRESETS.includes(d)).sort((a, b) => a - b)
+  const dureeLibreNum = Number(dureeLibre)
+  const dureeLibreValide =
+    dureeLibre.trim() !== '' &&
+    Number.isInteger(dureeLibreNum) &&
+    dureeLibreNum >= 1 &&
+    dureeLibreNum <= 120 &&
+    !durees.includes(dureeLibreNum) &&
+    durees.length < 3
+  function ajouterDureeLibre() {
+    if (!dureeLibreValide) return
+    setDurees((prev) => [...prev, dureeLibreNum])
+    setDureeLibre('')
   }
   function toggleTypePrix(t: string) {
     setTypesPrix((prev) => (prev.includes(t) ? prev.filter((x) => x !== t) : [...prev, t]))
@@ -118,6 +137,7 @@ function CotationWizard({ open, onClose, reco }: { open: boolean; onClose: () =>
 
   function reset() {
     setDurees([36])
+    setDureeLibre('')
     setTypesPrix(['Fixe'])
     setDateSouhaitee('')
     setFournisseurIds([])
@@ -154,8 +174,27 @@ function CotationWizard({ open, onClose, reco }: { open: boolean; onClose: () =>
       className="max-w-2xl"
     >
       <div className="max-h-[75vh] space-y-4 overflow-y-auto pr-1">
+      {/* Garde-fou de connexion avant cotation -- Tools exige Gmail à cet endroit (les demandes de
+          cotation partent depuis l'adresse du commercial, pas d'une boîte partagée). Dans Kimatch
+          l'envoi est une action séparée sur la version, donc la création reste possible sans : la
+          sortie « Créer la cotation sans email » est explicite plutôt qu'implicite. */}
+      <ConnectionGate
+        action="une demande de cotation"
+        connexions={[
+          {
+            nom: 'Gmail',
+            raison: 'Nécessaire pour envoyer les notifications de cotation depuis votre adresse.',
+            connecte: !!gmail.data,
+            chargement: gmail.isLoading,
+            onConnect: () => { connectGmail().catch(() => {}) },
+            connectLabel: 'Connecter Gmail',
+          },
+        ]}
+        autoriserSkip
+        skipLabel="Créer la cotation sans email"
+      >
         <FormField label="Durées (jusqu'à 3)">
-          <div className="flex flex-wrap gap-2">
+          <div className="flex flex-wrap items-center gap-2">
             {DUREES_PRESETS.map((d) => (
               <button
                 key={d}
@@ -166,7 +205,36 @@ function CotationWizard({ open, onClose, reco }: { open: boolean; onClose: () =>
                 {d} mois
               </button>
             ))}
+            {dureesHorsPresets.map((d) => (
+              <button
+                key={d}
+                type="button"
+                onClick={() => toggleDuree(d)}
+                title="Retirer cette durée"
+                className="inline-flex items-center gap-1 rounded-full border border-kiwi-500 bg-kiwi-50 px-3 py-1 text-sm text-kiwi-700"
+              >
+                {d} mois <X className="h-3 w-3" />
+              </button>
+            ))}
+            <span className="inline-flex items-center gap-1">
+              <Input
+                type="number"
+                min={1}
+                max={120}
+                value={dureeLibre}
+                onChange={(e) => setDureeLibre(e.target.value)}
+                onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); ajouterDureeLibre() } }}
+                placeholder="Autre"
+                className="h-8 w-20 rounded-full text-center text-sm"
+              />
+              <Button type="button" variant="outline" size="sm" onClick={ajouterDureeLibre} disabled={!dureeLibreValide} className="h-8 w-8 rounded-full p-0">
+                +
+              </Button>
+            </span>
           </div>
+          {durees.length >= 3 && (
+            <p className="mt-1 text-[11px] text-navy-400">Maximum atteint — retire une durée pour en ajouter une autre.</p>
+          )}
         </FormField>
         <p className="rounded-lg border border-navy-100 bg-navy-50 px-3 py-2 text-xs text-navy-500">
           Commission estimée : <span className="font-medium text-navy-700">{commissionEstimee.toLocaleString('fr-FR', { maximumFractionDigits: 0 })} €</span>
@@ -247,6 +315,7 @@ function CotationWizard({ open, onClose, reco }: { open: boolean; onClose: () =>
             {estActualisation ? 'Actualiser' : 'Créer la cotation'}
           </Button>
         </div>
+      </ConnectionGate>
       </div>
       {toast && (
         <div className="fixed bottom-6 left-1/2 z-50 -translate-x-1/2 whitespace-nowrap rounded-lg bg-ink-800 px-4 py-2.5 text-xs font-semibold text-white shadow-lg">

@@ -955,6 +955,7 @@ function AddCompteurDialog({
 
   const fournisseurs = (comptes ?? []).filter((c) => c.type_compte === 'fournisseur')
   const contactsDuCompte = (contacts ?? []).filter((c) => c.compte_id === compteId)
+  const compteDuSite = comptes?.find((c) => c.id === compteId)
 
   // Un brouillon non encore créé auquel il manque un champ requis bloque l'enregistrement (Tools).
   const draftsIncomplets = drafts.some((d) => {
@@ -983,7 +984,9 @@ function AddCompteurDialog({
       const energieChoisie = energies.find((en) => en.id === d.typeEnergieId)
       const typeEnergie = (energieChoisie?.code?.toLowerCase() === 'gaz' ? 'gaz' : 'electricite') as 'electricite' | 'gaz'
       const fournisseur = fournisseurs.find((f) => f.id === d.fournisseurActuelId)
-      const responsable = contactsDuCompte.find((c) => c.id === d.responsableContactId)
+      // Cherché dans TOUS les contacts : le sélecteur permet de désigner un responsable rattaché
+      // à un autre compte (onglet « Autre contact »).
+      const responsable = (contacts ?? []).find((c) => c.id === d.responsableContactId)
       patchDraft(d.key, { status: 'saving' })
       try {
         const result = await createCompteur.mutateAsync({
@@ -1044,6 +1047,10 @@ function AddCompteurDialog({
           utilisationsRef={utilisationsRef}
           fournisseurs={fournisseurs}
           contacts={contactsDuCompte}
+          allContacts={contacts ?? []}
+          compteId={compteId}
+          compteNom={compteDuSite?.nom ?? siteNom}
+          compteSegment={compteDuSite?.segment}
           existingCompteurs={compteurs ?? []}
         />
         {draftsIncomplets && (
