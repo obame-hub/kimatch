@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
-import { Plus, FileCheck2 } from 'lucide-react'
+import { Plus, FileCheck2, Eye } from 'lucide-react'
 import { Topbar } from '@/components/layout/Topbar'
 import { PageHeader } from '@/components/ui/page-header'
 import { Card } from '@/components/ui/card'
@@ -37,6 +37,7 @@ function CreateMandatDialog({
   const { data: sites } = useSites()
   const { data: compteurs } = useCompteurs()
   const { data: contacts } = useContacts()
+  const { data: mandatsExistants } = useMandats()
   const { data: courtiersRef } = useReferenceTable('types_courtiers_mandat')
   const courtiers = courtiersRef && courtiersRef.length > 0 ? courtiersRef : FALLBACK_TYPES_COURTIERS_MANDAT
   const createMandat = useCreateMandat()
@@ -48,6 +49,9 @@ function CreateMandatDialog({
   const [contactSignataireId, setContactSignataireId] = useState(initialContactId ?? '')
   const [courtierCodes, setCourtierCodes] = useState<string[]>(['KIWI', 'ENERGIX'])
   const [feedback, setFeedback] = useState<string | null>(null)
+  // Comme Tools ("Me montrer les points de livraison disposant d'un ACD actif") : par défaut on
+  // masque les PDL déjà couverts par un mandat au statut ACTIF, pour éviter le doublon de mandat.
+  const [showActifs, setShowActifs] = useState(false)
 
   useEffect(() => {
     if (!open) return
@@ -58,7 +62,11 @@ function CreateMandatDialog({
   }, [open, initialCompteId, initialCompteurIds?.join(','), initialContactId])
 
   const sitesDuCompte = sites?.filter((s) => s.compte_id === compteId) ?? []
-  const compteursDuCompte = compteurs?.filter((c) => sitesDuCompte.some((s) => s.id === c.site_id)) ?? []
+  const compteursDuCompteBrut = compteurs?.filter((c) => sitesDuCompte.some((s) => s.id === c.site_id)) ?? []
+  const compteursSousMandatActifIds = new Set(
+    (mandatsExistants ?? []).filter((m) => m.statut === 'ACTIF').flatMap((m) => m.compteur_ids),
+  )
+  const compteursDuCompte = compteursDuCompteBrut.filter((c) => showActifs || !compteursSousMandatActifIds.has(c.id))
   const contactsDuCompte = contacts?.filter((c) => c.compte_id === compteId) ?? []
 
   function reset() {
@@ -69,6 +77,7 @@ function CreateMandatDialog({
     setContactSignataireId('')
     setCourtierCodes(['KIWI', 'ENERGIX'])
     setFeedback(null)
+    setShowActifs(false)
   }
 
   function toggleCompteur(id: string) {
@@ -134,11 +143,16 @@ function CreateMandatDialog({
           </FormField>
         </div>
         <FormField label="Courtiers couverts">
-          <div className="flex gap-4">
+          <div className="flex flex-wrap gap-4">
             {courtiers.map((c) => (
-              <label key={c.id} className={`flex items-center gap-2 text-sm ${c.code === 'KIWI' ? 'text-navy-400' : 'text-navy-700'}`}>
+              <label key={c.id} className={`flex items-center gap-2 text-sm ${c.code === 'KIWI' ? 'text-navy-700' : 'text-navy-700'}`}>
                 <input type="checkbox" checked={courtierCodes.includes(c.code)} disabled={c.code === 'KIWI'} onChange={() => toggleCourtier(c.code)} />
-                {c.libelle}{c.code === 'KIWI' && ' (toujours inclus)'}
+                {c.libelle}
+                {c.code === 'KIWI' && (
+                  <span className="rounded-full border border-kiwi-400/50 px-1.5 py-0.5 text-[10px] font-medium uppercase tracking-wide text-kiwi-700">
+                    Obligatoire
+                  </span>
+                )}
               </label>
             ))}
           </div>
@@ -153,10 +167,21 @@ function CreateMandatDialog({
         )}
         {compteId && (
           <FormField label="Compteurs couverts">
+            {compteursSousMandatActifIds.size > 0 && (
+              <label
+                className="mb-2 flex cursor-pointer items-center gap-2 rounded-md border border-dashed border-navy-200 p-2 text-xs text-navy-500 hover:bg-navy-50"
+              >
+                <input type="checkbox" checked={showActifs} onChange={(e) => setShowActifs(e.target.checked)} />
+                <Eye className="h-3.5 w-3.5" />
+                Me montrer les points de livraison disposant d'un ACD actif
+              </label>
+            )}
             {sitesDuCompte.length === 0 ? (
               <p className="text-xs text-navy-400">Ce compte n'a aucun site.</p>
-            ) : compteursDuCompte.length === 0 ? (
+            ) : compteursDuCompteBrut.length === 0 ? (
               <p className="text-xs text-navy-400">Aucun compteur pour ce compte.</p>
+            ) : compteursDuCompte.length === 0 ? (
+              <p className="text-xs text-navy-400">Aucun point de livraison ne correspond à vos critères.</p>
             ) : (
               <div className="max-h-48 space-y-2 overflow-y-auto rounded-lg border border-navy-200 p-2">
                 {sitesDuCompte.map((s) => {
