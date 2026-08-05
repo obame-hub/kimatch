@@ -35,8 +35,8 @@ export interface PdlDraft {
   responsableContactId: string
   // Caractéristiques techniques -- saisissables manuellement dès la création, comme dans Tools
   // (manuelle ou extraction facture), en repli de la synchro GRD réelle qui n'a lieu qu'une fois
-  // le mandat actif. Toutes optionnelles ici (Kimatch ne bloque jamais dur sur ces champs,
-  // contrairement à Tools qui les rend obligatoires).
+  // le mandat actif. Requises (voir champsPdlManquants) : sans elles le moteur d'éligibilité
+  // fournisseur de la cotation n'a rien à exploiter.
   segment: string
   tension: string
   puissanceParClasseKva: Record<string, string>
@@ -67,6 +67,37 @@ export function emptyPdlDraft(): PdlDraft {
     errorMessage: null,
   }
 }
+
+/** Champs requis encore vides sur un brouillon de PDL -- même règle que Tools
+ * (computeRequiredFields) : numéro + responsable toujours, puis segment/tension/utilisation +
+ * puissances pour l'élec (PS Unique si C5, sinon les 5 classes), tarif/profil/CAR pour le gaz.
+ * Sert à la fois au surlignage des champs et au blocage de l'enregistrement. */
+export function champsPdlManquants(d: PdlDraft, estElectricite: boolean): Set<string> {
+  const manquants = new Set<string>()
+  if (!d.numeroPdl.trim()) manquants.add('numeroPdl')
+  if (!d.responsableContactId) manquants.add('responsableContactId')
+  if (!d.typeEnergieId) {
+    manquants.add('typeEnergieId')
+    return manquants
+  }
+  if (estElectricite) {
+    if (!d.segment) manquants.add('segment')
+    if (!d.tension) manquants.add('tension')
+    if (!d.typeUtilisationId) manquants.add('typeUtilisationId')
+    const classes = d.segment === 'C5' ? ['base'] : CLASSES_PUISSANCE_ELEC.map((c) => c.key)
+    for (const k of classes) {
+      if (!(d.puissanceParClasseKva[k] ?? '').trim()) manquants.add(`ps:${k}`)
+    }
+  } else {
+    if (!d.tarifDistribution) manquants.add('tarifDistribution')
+    if (!d.profilConsommation) manquants.add('profilConsommation')
+    if (!d.carMwh.trim()) manquants.add('carMwh')
+  }
+  return manquants
+}
+
+/** Bordure ambre vive sur un champ requis encore vide -- Tools surligne ces champs en orange. */
+const CLASSE_MANQUANT = 'border-amber-500 bg-amber-50/40'
 
 /** Construit les objets `grdElec`/`grdGaz` attendus par `useCreateCompteur` à partir des
  * caractéristiques techniques saisies manuellement dans le brouillon (segment/tension/puissances
@@ -125,6 +156,9 @@ export function PdlDraftRows({
         const doublon = numero ? findCompteurByNumero(existingCompteurs, numero) : null
         const formatSuspect = numero.length > 0 && !PDL_FORMAT_RE.test(numero.toUpperCase())
         const locked = d.status === 'saved' || d.status === 'saving'
+        // Champs requis encore vides -- surlignés en ambre tant qu'ils ne sont pas remplis (Tools).
+        const manquants = locked ? new Set<string>() : champsPdlManquants(d, estElectricite)
+        const kManque = (f: string) => (manquants.has(f) ? CLASSE_MANQUANT : undefined)
 
         return (
           <div key={d.key} className={`rounded-xl border p-4 ${d.status === 'saved' ? 'border-kiwi-200 bg-kiwi-50/40' : 'border-navy-100'}`}>
@@ -138,14 +172,14 @@ export function PdlDraftRows({
             </div>
             <fieldset disabled={locked} className="space-y-3 disabled:opacity-60">
               <div className="grid grid-cols-2 gap-3">
-                <FormField label="Type d'énergie">
-                  <Select value={d.typeEnergieId} onChange={(e) => onChange(d.key, { typeEnergieId: e.target.value, typeUtilisationId: '' })} required>
+                <FormField label="Type d'énergie" required>
+                  <Select value={d.typeEnergieId} onChange={(e) => onChange(d.key, { typeEnergieId: e.target.value, typeUtilisationId: '' })} required className={kManque('typeEnergieId')}>
                     <option value="">Sélectionner…</option>
                     {energies.map((en) => <option key={en.id} value={en.id}>{en.libelle}</option>)}
                   </Select>
                 </FormField>
-                <FormField label={estElectricite ? 'Numéro de PDL' : 'Numéro de PCE'}>
-                  <Input value={d.numeroPdl} onChange={(e) => onChange(d.key, { numeroPdl: e.target.value })} required placeholder="Ex. 30001234567890" />
+                <FormField label={estElectricite ? 'Numéro de PDL' : 'Numéro de PCE'} required>
+                  <Input value={d.numeroPdl} onChange={(e) => onChange(d.key, { numeroPdl: e.target.value })} required placeholder="Ex. 30001234567890" className={kManque('numeroPdl')} />
                 </FormField>
               </div>
               {(doublon || formatSuspect) && (
@@ -158,8 +192,8 @@ export function PdlDraftRows({
                 <Input value={d.utilisation} onChange={(e) => onChange(d.key, { utilisation: e.target.value })} placeholder="Ex. Parties communes, Chaufferie…" />
               </FormField>
               {estElectricite && utilisationsRef && utilisationsRef.length > 0 && (
-                <FormField label="Type d'utilisation (CU/MU/LU)">
-                  <Select value={d.typeUtilisationId} onChange={(e) => onChange(d.key, { typeUtilisationId: e.target.value })}>
+                <FormField label="Type d'utilisation (CU/MU/LU)" required>
+                  <Select value={d.typeUtilisationId} onChange={(e) => onChange(d.key, { typeUtilisationId: e.target.value })} className={kManque('typeUtilisationId')}>
                     <option value="">Non renseigné</option>
                     {utilisationsRef.map((u) => <option key={u.id} value={u.id}>{u.libelle}</option>)}
                   </Select>
@@ -173,37 +207,39 @@ export function PdlDraftRows({
                   {estElectricite ? (
                     <div className="space-y-3">
                       <div className="grid grid-cols-2 gap-3">
-                        <FormField label="Segment">
-                          <Select value={d.segment} onChange={(e) => onChange(d.key, { segment: e.target.value })}>
+                        <FormField label="Segment" required>
+                          <Select value={d.segment} onChange={(e) => onChange(d.key, { segment: e.target.value })} className={kManque('segment')}>
                             <option value="">Non renseigné</option>
                             {SEGMENTS_ELEC.map((s) => <option key={s} value={s}>{s}</option>)}
                           </Select>
                         </FormField>
-                        <FormField label="Tension">
-                          <Select value={d.tension} onChange={(e) => onChange(d.key, { tension: e.target.value })}>
+                        <FormField label="Tension" required>
+                          <Select value={d.tension} onChange={(e) => onChange(d.key, { tension: e.target.value })} className={kManque('tension')}>
                             <option value="">Non renseigné</option>
                             {TENSIONS_ELEC.map((t) => <option key={t} value={t}>{t}</option>)}
                           </Select>
                         </FormField>
                       </div>
                       {d.segment === 'C5' ? (
-                        <FormField label="PS Unique (kW)">
+                        <FormField label="PS Unique (kW)" required>
                           <Input
                             type="number"
                             step="0.1"
                             value={d.puissanceParClasseKva.base ?? ''}
                             onChange={(e) => onChange(d.key, { puissanceParClasseKva: { ...d.puissanceParClasseKva, base: e.target.value } })}
+                            className={kManque('ps:base')}
                           />
                         </FormField>
                       ) : (
                         <div className="grid grid-cols-3 gap-3">
                           {CLASSES_PUISSANCE_ELEC.map((c) => (
-                            <FormField key={c.key} label={c.label}>
+                            <FormField key={c.key} label={c.label} required>
                               <Input
                                 type="number"
                                 step="0.1"
                                 value={d.puissanceParClasseKva[c.key] ?? ''}
                                 onChange={(e) => onChange(d.key, { puissanceParClasseKva: { ...d.puissanceParClasseKva, [c.key]: e.target.value } })}
+                                className={kManque(`ps:${c.key}`)}
                               />
                             </FormField>
                           ))}
@@ -213,21 +249,21 @@ export function PdlDraftRows({
                   ) : (
                     <div className="space-y-3">
                       <div className="grid grid-cols-2 gap-3">
-                        <FormField label="Tarif d'acheminement">
-                          <Select value={d.tarifDistribution} onChange={(e) => onChange(d.key, { tarifDistribution: e.target.value })}>
+                        <FormField label="Tarif d'acheminement" required>
+                          <Select value={d.tarifDistribution} onChange={(e) => onChange(d.key, { tarifDistribution: e.target.value })} className={kManque('tarifDistribution')}>
                             <option value="">Non renseigné</option>
                             {TARIFS_GAZ.map((t) => <option key={t} value={t}>{t}</option>)}
                           </Select>
                         </FormField>
-                        <FormField label="Profil de consommation">
-                          <Select value={d.profilConsommation} onChange={(e) => onChange(d.key, { profilConsommation: e.target.value })}>
+                        <FormField label="Profil de consommation" required>
+                          <Select value={d.profilConsommation} onChange={(e) => onChange(d.key, { profilConsommation: e.target.value })} className={kManque('profilConsommation')}>
                             <option value="">Non renseigné</option>
                             {PROFILS_GAZ.map((p) => <option key={p} value={p}>{p}</option>)}
                           </Select>
                         </FormField>
                       </div>
-                      <FormField label="CAR (MWh)">
-                        <Input type="number" step="0.1" value={d.carMwh} onChange={(e) => onChange(d.key, { carMwh: e.target.value })} />
+                      <FormField label="CAR (MWh)" required>
+                        <Input type="number" step="0.1" value={d.carMwh} onChange={(e) => onChange(d.key, { carMwh: e.target.value })} className={kManque('carMwh')} />
                       </FormField>
                     </div>
                   )}
@@ -244,12 +280,15 @@ export function PdlDraftRows({
                   <Input type="date" value={d.dateEcheance} onChange={(e) => onChange(d.key, { dateEcheance: e.target.value })} />
                 </FormField>
               </div>
-              <FormField label="Responsable">
-                <Select value={d.responsableContactId} onChange={(e) => onChange(d.key, { responsableContactId: e.target.value })}>
+              <FormField label="Responsable" required>
+                <Select value={d.responsableContactId} onChange={(e) => onChange(d.key, { responsableContactId: e.target.value })} className={kManque('responsableContactId')}>
                   <option value="">Non renseigné</option>
                   {contacts.map((c) => <option key={c.id} value={c.id}>{c.prenom} {c.nom}</option>)}
                 </Select>
               </FormField>
+              <p className="text-[11px] text-navy-400">
+                Contacts liés au compte. Le responsable signera le mandat — sans lui, impossible de l'envoyer en signature.
+              </p>
             </fieldset>
             {d.errorMessage && <p className="mt-2 text-xs text-red-600">{d.errorMessage}</p>}
           </div>

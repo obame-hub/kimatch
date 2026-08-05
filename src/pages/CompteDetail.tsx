@@ -18,6 +18,7 @@ import {
   UploadCloud,
   MapPin,
   Search,
+  AlertTriangle,
 } from 'lucide-react'
 import { Topbar } from '@/components/layout/Topbar'
 import { Button } from '@/components/ui/button'
@@ -33,7 +34,7 @@ import { FormField, Input, Select, Textarea } from '@/components/ui/form'
 import { HistoriqueDiscret } from '@/components/ui/historique-discret'
 import { InlineField } from '@/components/ui/inline-field'
 import { AddressAutocomplete } from '@/components/ui/address-autocomplete'
-import { PdlDraftRows, emptyPdlDraft, buildDraftCharacteristics, type PdlDraft } from '@/components/compteur/PdlDraftRows'
+import { PdlDraftRows, emptyPdlDraft, buildDraftCharacteristics, champsPdlManquants, type PdlDraft } from '@/components/compteur/PdlDraftRows'
 import { MandatChainPrompt, type ChainedCompteur } from '@/components/compteur/MandatChainPrompt'
 import {
   useComptes,
@@ -1574,6 +1575,13 @@ function AddCompteurAutoSiteDialog({
   const fournisseurs = (comptes ?? []).filter((c) => c.type_compte === 'fournisseur')
   const contactsDuCompte = (contacts ?? []).filter((c) => c.compte_id === compte.id)
 
+  // Un brouillon non encore créé auquel il manque un champ requis bloque l'enregistrement (Tools).
+  const draftsIncomplets = drafts.some((d) => {
+    if (d.status === 'saved' || d.status === 'saving') return false
+    const code = energies.find((e) => e.id === d.typeEnergieId)?.code?.toLowerCase()
+    return champsPdlManquants(d, code !== 'gaz').size > 0
+  })
+
   function reset() {
     setStep('adresse')
     setLibelleSite('')
@@ -1782,9 +1790,15 @@ function AddCompteurAutoSiteDialog({
             contacts={contactsDuCompte}
             existingCompteurs={compteurs ?? []}
           />
+          {draftsIncomplets && (
+            <p className="flex items-center gap-1.5 text-xs text-amber-700">
+              <AlertTriangle className="h-3.5 w-3.5 shrink-0" />
+              Complète les champs marqués d'une astérisque : ils alimentent l'éligibilité fournisseur lors de la cotation.
+            </p>
+          )}
           <div className="flex justify-end gap-2 border-t border-navy-100 pt-3">
             <Button type="button" variant="ghost" onClick={() => { reset(); onClose() }}>Fermer</Button>
-            <Button type="submit" disabled={submitting || drafts.every((d) => d.status === 'saved')}>
+            <Button type="submit" disabled={submitting || draftsIncomplets || drafts.every((d) => d.status === 'saved')}>
               {drafts.length > 1 ? `Créer les ${drafts.length} PDL` : 'Créer le PDL'}
             </Button>
           </div>

@@ -49,10 +49,10 @@ export const Select = React.forwardRef<HTMLSelectElement, React.SelectHTMLAttrib
 )
 Select.displayName = 'Select'
 
-export function FormField({ label, children }: { label: string; children: React.ReactNode }) {
+export function FormField({ label, required, children }: { label: string; required?: boolean; children: React.ReactNode }) {
   return (
     <div>
-      <Label>{label}</Label>
+      <Label>{label}{required && <span className="ml-0.5 text-red-500">*</span>}</Label>
       {children}
     </div>
   )
