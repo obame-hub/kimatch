@@ -526,7 +526,11 @@ export default function ContratDetail() {
                 {contrat.contact_signataire_nom && (
                   <div>
                     <p className="mb-0.5 text-[10px] uppercase tracking-wide text-navy-400">Signataire</p>
-                    <p className="text-xs font-semibold text-navy-800">{contrat.contact_signataire_nom}</p>
+                    {contrat.contact_signataire_id ? (
+                      <EntityLink to={`/contacts/${contrat.contact_signataire_id}`} className="text-xs font-semibold">{contrat.contact_signataire_nom}</EntityLink>
+                    ) : (
+                      <p className="text-xs font-semibold text-navy-800">{contrat.contact_signataire_nom}</p>
+                    )}
                   </div>
                 )}
                 {contrat.interlocuteur_pricing_nom && (
