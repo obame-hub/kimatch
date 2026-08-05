@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { Plus, Sparkle, AlertTriangle } from 'lucide-react'
+import { Plus, Sparkle, AlertTriangle, Info } from 'lucide-react'
 import { Topbar } from '@/components/layout/Topbar'
 import { PageHeader } from '@/components/ui/page-header'
 import { Card } from '@/components/ui/card'
@@ -30,6 +30,23 @@ const PRIORITE_OPTIONS = [
 
 const STATUTS_CONTRAT_CLIENT = new Set(['ACTIF', 'A_RENOUVELER'])
 
+function normalizeAccents(s: string): string {
+  return s.normalize('NFD').replace(/[̀-ͯ]/g, '').trim()
+}
+
+/** Titre auto-généré, jamais saisi à la main -- même règle que buildOpportunityName() dans Tools :
+ * "{icône énergie} {COMPTE}[ - SITE]" pour 1 seul PDL, "{icône} MULTISITE - {date} - {COMPTE}"
+ * au-delà. */
+function buildTitre(typeEnergie: 'electricite' | 'gaz', compteNom: string, siteNom: string | null | undefined, pdlCount: number, dateCloture: string): string {
+  const icon = typeEnergie === 'gaz' ? '🔥' : '⚡'
+  const acc = normalizeAccents(compteNom).toUpperCase()
+  if (pdlCount === 1) {
+    const site = siteNom ? ` - ${normalizeAccents(siteNom)}` : ''
+    return `${icon} ${acc}${site}`
+  }
+  return `${icon} MULTISITE - ${dateCloture} - ${acc}`
+}
+
 function CreateRecommandationDialog({ open, onClose, onCreated }: { open: boolean; onClose: () => void; onCreated: (recoId: string) => void }) {
   const { data: mandats } = useMandats()
   const { data: compteurs } = useCompteurs()
@@ -47,7 +64,6 @@ function CreateRecommandationDialog({ open, onClose, onCreated }: { open: boolea
   const energies = energiesRef && energiesRef.length > 0 ? energiesRef : FALLBACK_TYPES_ENERGIES
   const createRecommandation = useCreateRecommandation()
 
-  const [titre, setTitre] = useState('')
   const [mandatId, setMandatId] = useState('')
   const [typeEnergieId, setTypeEnergieId] = useState('')
   const [compteurIds, setCompteurIds] = useState<string[]>([])
@@ -117,9 +133,11 @@ function CreateRecommandationDialog({ open, onClose, onCreated }: { open: boolea
     return plusProche.toISOString().slice(0, 10)
   }, [compteursChoisis, contrats])
   const dateCloture = dateClotureManuelle || dateClotureSuggeree
+  const titre = mandat && compteursChoisis.length > 0
+    ? buildTitre(typeEnergie, mandat.compte_nom, compteursChoisis[0].site_nom, compteursChoisis.length, dateCloture)
+    : ''
 
   function reset() {
-    setTitre('')
     setMandatId('')
     setTypeEnergieId('')
     setCompteurIds([])
@@ -185,9 +203,6 @@ function CreateRecommandationDialog({ open, onClose, onCreated }: { open: boolea
   return (
     <Dialog open={open} onClose={() => { reset(); onClose() }} title="Nouvelle recommandation" description="Créer une opportunité sur un ou plusieurs points de livraison d'un compte." className="max-w-xl">
       <form onSubmit={handleSubmit} className="max-h-[75vh] space-y-3 overflow-y-auto pr-1">
-        <FormField label="Titre">
-          <Input value={titre} onChange={(e) => setTitre(e.target.value)} required placeholder="Ex. Renouvellement contrat — Résidence Les Tilleuls" />
-        </FormField>
         <div className="grid grid-cols-2 gap-3">
           <FormField label="Mandat">
             <Select value={mandatId} onChange={(e) => { setMandatId(e.target.value); setCompteurIds([]); setContactId('') }} required>
@@ -224,11 +239,14 @@ function CreateRecommandationDialog({ open, onClose, onCreated }: { open: boolea
         )}
         {mixInvalide && (
           <p className="flex items-center gap-1.5 rounded-lg bg-red-50 px-3 py-2 text-xs text-red-700">
-            <AlertTriangle className="h-3.5 w-3.5 shrink-0" /> Impossible de mélanger des PDL clients et prospects dans la même opportunité — choisis l'un ou l'autre.
+            <AlertTriangle className="h-3.5 w-3.5 shrink-0" /> Impossible de mélanger clients et prospects
           </p>
         )}
         {compteursChoisis.length > 0 && !mixInvalide && (
-          <p className="text-xs text-navy-500">Type d'opportunité (dérivé automatiquement) : <span className="font-medium text-navy-700">{typeOpportunite}</span></p>
+          <div className="rounded-lg border border-navy-100 bg-navy-50 p-2.5 text-xs text-navy-500">
+            <p>Type d'opportunité (dérivé automatiquement) : <span className="font-medium text-navy-700">{typeOpportunite}</span></p>
+            <p className="mt-1">Nom (généré automatiquement) : <span className="font-medium text-navy-700">{titre || '—'}</span></p>
+          </div>
         )}
         {contactsDuCompte.length > 0 && (
           <FormField label="Contact décisionnaire">
@@ -237,7 +255,9 @@ function CreateRecommandationDialog({ open, onClose, onCreated }: { open: boolea
               {contactsDuCompte.map((c) => <option key={c.id} value={c.id}>{c.prenom} {c.nom}</option>)}
             </Select>
             {contactHorsResponsables && (
-              <p className="mt-1 flex items-center gap-1.5 text-xs text-amber-700"><AlertTriangle className="h-3.5 w-3.5 shrink-0" /> Ce contact n'est responsable d'aucun des PDL sélectionnés.</p>
+              <p className="mt-1 flex items-start gap-1.5 rounded-md border border-amber-200 bg-amber-50 p-2 text-xs text-amber-900">
+                <Info className="mt-0.5 h-3.5 w-3.5 shrink-0" /> Ton contact n'est pas renseigné comme étant le responsable du PDL en question, si tu veux continuer, penses à modifier le responsable du PDL 😊
+              </p>
             )}
           </FormField>
         )}
