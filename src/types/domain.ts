@@ -11,6 +11,10 @@ export interface Site {
   adresse: string
   ville: string
   code_postal: string
+  /** Rue (numéro + voie), distincte de `adresse` -- colonne ajoutée le 05/08/2026. */
+  rue?: string | null
+  departement_code?: string | null
+  departement_nom?: string | null
   latitude: number | null
   longitude: number | null
   annee_construction: number | null

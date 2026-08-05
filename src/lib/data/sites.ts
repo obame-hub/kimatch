@@ -28,6 +28,9 @@ interface RawSiteExtra {
   proprietaire: { prenom: string; nom: string } | null
   date_creation: string | null
   date_modification: string | null
+  rue: string | null
+  departement_code: string | null
+  departement_nom: string | null
 }
 
 async function fetchSites(): Promise<Site[]> {
@@ -49,7 +52,7 @@ async function fetchSites(): Promise<Site[]> {
     try {
       const extraRows = await fetchAllRows<RawSiteExtra>(
         'sites',
-        'id, latitude, longitude, annee_construction, surface_m2, date_derniere_ag, proprietaire_id, proprietaire:profils!sites_proprietaire_id_fkey(prenom, nom), date_creation, date_modification',
+        'id, latitude, longitude, annee_construction, surface_m2, date_derniere_ag, proprietaire_id, proprietaire:profils!sites_proprietaire_id_fkey(prenom, nom), date_creation, date_modification, rue, departement_code, departement_nom',
       )
       for (const e of extraRows) extraParSite.set(e.id, e)
     } catch {
@@ -87,6 +90,9 @@ async function fetchSites(): Promise<Site[]> {
         date_derniere_ag: extra?.date_derniere_ag ?? null,
         proprietaire_id: extra?.proprietaire_id ?? null,
         proprietaire_nom: extra?.proprietaire ? `${extra.proprietaire.prenom} ${extra.proprietaire.nom}` : null,
+        rue: extra?.rue ?? null,
+        departement_code: extra?.departement_code ?? null,
+        departement_nom: extra?.departement_nom ?? null,
         nb_compteurs: compteursParSite.get(s.id) ?? 0,
         nb_signaux_ouverts: signauxOuvertsParSite.get(s.id) ?? 0,
         statut: s.actif ? 'actif' : 'inactif',
@@ -205,6 +211,19 @@ export function useUpdateSite() {
           ...(input.type_site_id ? { type_site_id: input.type_site_id } : {}),
         })
         .eq('id', input.id)
+      if (error) throw new Error(error.message)
+    },
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['sites'] }),
+  })
+}
+
+/** Mise à jour partielle -- contrairement à useUpdateSite (qui réécrit toutes les colonnes),
+ * ne touche que les champs fournis. À utiliser pour l'édition inline (un champ à la fois). */
+export function useUpdateSitePartiel() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: async ({ id, patch }: { id: string; patch: Partial<Site> }) => {
+      const { error } = await supabase.from('sites').update(patch).eq('id', id)
       if (error) throw new Error(error.message)
     },
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ['sites'] }),
