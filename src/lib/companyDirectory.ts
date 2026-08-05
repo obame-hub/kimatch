@@ -16,10 +16,14 @@ export interface CompanyResult {
   postalCode: string | null
   formeJuridique: string | null
   dateCreation: string | null
-  /** PME/ETI/GE/GEI -- champ `categorie_entreprise` de l'API. */
+  /** PME/ETI/GE/GEI -- champ `categorie_entreprise` de l'API. Non affiché (Tools ne le montre pas). */
   categorieEntreprise: string | null
   /** Code tranche INSEE (ex. "21"), à traduire via TRANCHE_EFFECTIF_LABEL pour l'affichage. */
   trancheEffectifSalarie: string | null
+  /** L'établissement retenu est-il le siège social ? Tools affiche « Catégorie : Siège social »
+   * dans le bloc « Direction & taille » -- vérifié en direct le 05/08/2026 (ce n'est PAS la
+   * catégorie d'entreprise PME/ETI/GE, contrairement à ce qu'on avait supposé). */
+  estSiege: boolean
 }
 
 /** Libellés des codes "tranche_effectif_salarie" de l'INSEE (nomenclature officielle). */
@@ -59,6 +63,7 @@ interface RechRaw {
     numero_voie?: string
     type_voie?: string
     libelle_voie?: string
+    etablissement_siege?: boolean
   }>
   siege?: Record<string, unknown>
   activite_principale?: string
@@ -101,6 +106,7 @@ export async function searchCompanies(query: string, signal?: AbortSignal): Prom
       dateCreation: r.date_creation ?? null,
       categorieEntreprise: r.categorie_entreprise ?? null,
       trancheEffectifSalarie: r.tranche_effectif_salarie ?? null,
+      estSiege: etab.etablissement_siege === true,
     } satisfies CompanyResult
   })
 }

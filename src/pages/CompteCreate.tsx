@@ -10,8 +10,8 @@ import { Sheet } from '@/components/ui/sheet'
 import { ContactForm } from '@/components/contact/ContactForm'
 import { toUpperFR } from '@/lib/textFormat'
 import { searchRnic, type RnicResult } from '@/lib/rnic'
-import { searchCompanies, TRANCHE_EFFECTIF_LABEL, type CompanyResult } from '@/lib/companyDirectory'
-import { useEllisphereScore } from '@/lib/data/ellisphere'
+import { searchCompanies, type CompanyResult } from '@/lib/companyDirectory'
+import { useEllisphereScore, type EllisphereScore } from '@/lib/data/ellisphere'
 import { useCreateCompte, findCompteBySiret } from '@/lib/data/comptes'
 import { useReferenceTable } from '@/lib/data/referenceTables'
 import { FALLBACK_TYPES_COMPTES } from '@/lib/referenceFallbacks'
@@ -196,7 +196,7 @@ export default function CompteCreate() {
         )}
 
         {step === 2 && segment !== 'Syndic non professionnel' && segment !== '' && (
-          <CompanySearchStep picked={companyPick} checkingSiret={checkingSiret} siretError={siretError} onPick={handlePickCompany} onClear={() => { setCompanyPick(null); setSiretError(null) }} />
+          <CompanySearchStep picked={companyPick} checkingSiret={checkingSiret} siretError={siretError} onPick={handlePickCompany} onClear={() => { setCompanyPick(null); setSiretError(null) }} score={score.data ?? null} />
         )}
 
         {step === 3 && segment && (
@@ -365,13 +365,14 @@ function RnicManualForm({ onCancel, onSubmit }: { onCancel: () => void; onSubmit
 // ──────────────── Étape 2 : recherche entreprise ────────────────
 
 function CompanySearchStep({
-  picked, checkingSiret, siretError, onPick, onClear,
+  picked, checkingSiret, siretError, onPick, onClear, score,
 }: {
   picked: CompanyResult | null
   checkingSiret: boolean
   siretError: string | null
   onPick: (c: CompanyResult) => void
   onClear: () => void
+  score: EllisphereScore | null
 }) {
   const [q, setQ] = useState('')
   const [results, setResults] = useState<CompanyResult[]>([])
@@ -408,40 +409,51 @@ function CompanySearchStep({
         </div>
         <p className="font-display text-lg font-bold text-navy-800">{toUpperFR(picked.raisonSociale || picked.nomComplet)}</p>
         <div className="mt-4 grid grid-cols-1 gap-4 sm:grid-cols-2">
+          {/* Blocs calqués sur Tools, vérifiés en direct le 05/08/2026 : tous conditionnels
+              (n'apparaissent que si la donnée existe), et « Catégorie » = « Siège social »
+              (type d'établissement), PAS la catégorie d'entreprise PME/ETI/GE. */}
           <div>
             <p className="mb-1.5 text-[10px] font-semibold uppercase tracking-wide text-navy-400">Identité légale</p>
             <div className="space-y-0.5 text-sm text-navy-700">
-              <p><span className="text-navy-400">SIREN :</span> {picked.siren}</p>
+              <p><span className="text-navy-400">Raison sociale :</span> <span className="font-medium">{toUpperFR(picked.raisonSociale || picked.nomComplet)}</span></p>
               {picked.siret && <p><span className="text-navy-400">SIRET :</span> {picked.siret}</p>}
+              <p><span className="text-navy-400">SIREN :</span> {picked.siren}</p>
               {picked.etatAdministratif && <p><span className="text-navy-400">Statut :</span> <span className={picked.etatAdministratif === 'Actif' ? 'font-medium text-kiwi-700' : 'text-navy-600'}>{picked.etatAdministratif}</span></p>}
-              {picked.formeJuridique && <p><span className="text-navy-400">Forme juridique :</span> {picked.formeJuridique}</p>}
-              {picked.dateCreation && <p><span className="text-navy-400">Créée le :</span> {new Date(picked.dateCreation).toLocaleDateString('fr-FR')}</p>}
             </div>
           </div>
           <div>
             <p className="mb-1.5 text-[10px] font-semibold uppercase tracking-wide text-navy-400">Adresse du siège</p>
             <p className="text-sm text-navy-700">{(picked.street || picked.city) ? <>{toUpperFR(picked.street ?? '')}<br />{picked.postalCode} {toUpperFR(picked.city ?? '')}</> : '—'}</p>
           </div>
-          <div>
-            <p className="mb-1.5 text-[10px] font-semibold uppercase tracking-wide text-navy-400">Activité</p>
-            <div className="space-y-0.5 text-sm text-navy-700">
-              {picked.codeApe && <p><span className="text-navy-400">Code APE/NAF :</span> {picked.codeApe}</p>}
-              {picked.libelleApe && <p>{picked.libelleApe}</p>}
-              {!picked.codeApe && !picked.libelleApe && <p className="text-navy-400">—</p>}
+          {(picked.codeApe || picked.libelleApe) && (
+            <div>
+              <p className="mb-1.5 text-[10px] font-semibold uppercase tracking-wide text-navy-400">Activité</p>
+              <div className="space-y-0.5 text-sm text-navy-700">
+                {picked.codeApe && <p><span className="text-navy-400">Code APE / NAF :</span> {picked.codeApe}</p>}
+                {picked.libelleApe && <p>{picked.libelleApe}</p>}
+              </div>
             </div>
-          </div>
-          <div>
-            <p className="mb-1.5 text-[10px] font-semibold uppercase tracking-wide text-navy-400">Dirigeant</p>
-            <p className="text-sm text-navy-700">{picked.dirigeant || '—'}</p>
-          </div>
-          <div>
-            <p className="mb-1.5 text-[10px] font-semibold uppercase tracking-wide text-navy-400">Direction &amp; taille</p>
-            <div className="space-y-0.5 text-sm text-navy-700">
-              {picked.categorieEntreprise && <p><span className="text-navy-400">Catégorie :</span> {picked.categorieEntreprise}</p>}
-              {picked.trancheEffectifSalarie && <p><span className="text-navy-400">Effectif :</span> {TRANCHE_EFFECTIF_LABEL[picked.trancheEffectifSalarie] ?? picked.trancheEffectifSalarie}</p>}
-              {!picked.categorieEntreprise && !picked.trancheEffectifSalarie && <p className="text-navy-400">—</p>}
+          )}
+          {(picked.dirigeant || picked.estSiege) && (
+            <div>
+              <p className="mb-1.5 text-[10px] font-semibold uppercase tracking-wide text-navy-400">Direction &amp; taille</p>
+              <div className="space-y-0.5 text-sm text-navy-700">
+                {picked.dirigeant && <p><span className="text-navy-400">Dirigeant :</span> <span className="font-medium">{picked.dirigeant}</span></p>}
+                {picked.estSiege && <p><span className="text-navy-400">Catégorie :</span> Siège social</p>}
+              </div>
             </div>
-          </div>
+          )}
+          {/* Tools affiche aussi « Avis crédit » et une ligne d'alerte « Points faibles : ... » ici,
+              mais notre client Ellisphere (api/ellisphere/_client.ts) n'extrait que score + scale
+              de la réponse XML -- à enrichir côté API pour aller plus loin. */}
+          {score?.score && (
+            <div className="sm:col-span-2">
+              <p className="mb-1.5 text-[10px] font-semibold uppercase tracking-wide text-navy-400">Score Ellisphere</p>
+              <p className="text-sm text-navy-700">
+                <span className="text-navy-400">Score :</span> <span className="font-medium">{score.score}{score.scale ? ` / ${score.scale}` : ''}</span>
+              </p>
+            </div>
+          )}
         </div>
         {checkingSiret && <p className="mt-3 flex items-center gap-2 text-xs text-navy-400"><Loader2 className="h-3 w-3 animate-spin" /> Vérification du SIRET…</p>}
         {siretError && <p className="mt-3 rounded-lg bg-red-50 px-3 py-2 text-xs text-red-700">{siretError}</p>}
@@ -563,7 +575,7 @@ function CompanyManualForm({ onCancel, onSubmit }: { onCancel: () => void; onSub
             siren: sirenComputed, siret: siret.trim() || null, nomComplet: nom.trim(), raisonSociale: nom.trim(), dirigeant: null,
             codeApe: codeApe.trim() || null, libelleApe: libelleApe.trim() || null, etatAdministratif: 'Actif',
             street: street.trim() || null, city: city.trim() || null, postalCode: postalCode.trim() || null, formeJuridique: null, dateCreation: null,
-            categorieEntreprise: null, trancheEffectifSalarie: null,
+            categorieEntreprise: null, trancheEffectifSalarie: null, estSiege: false,
           })}
         >
           Utiliser ces informations <ArrowRight className="h-4 w-4" />
