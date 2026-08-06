@@ -133,14 +133,24 @@ for r in sup:
     nom_tools = r['name'].strip()
     nom_kimatch = ALIAS.get(nom_tools.upper(), nom_tools)
     energies = r['energy_types'] or ''
+    aucune = not energies.strip() or energies.strip() == '{}'
+    # comptes_fournisseurs a une contrainte CHECK exigeant au moins une energie a true. Tools
+    # autorise un energy_types vide (cas d'ALTERNA ENERGIE) : on met alors les deux a true pour
+    # satisfaire la contrainte. C'est neutre pour l'eligibilite -- le moteur (eligibility.ts) ne
+    # lit QUE energy_types, jamais fournit_electricite/fournit_gaz. Consequence a connaitre :
+    # avec un energy_types vide, le fournisseur reste ineligible partout, comme dans Tools.
+    elec = 'true' if (aucune or 'lectricit' in energies) else 'false'
+    gaz = 'true' if (aucune or 'Gaz' in energies) else 'false'
     note = f"  (nomme « {nom_kimatch} » dans Kimatch)" if nom_kimatch != nom_tools else ""
+    if aucune:
+        note += "  -- aucune energie declaree dans Tools : restera inelig. partout (energy_types vide)"
     out.append(f"""-- {nom_tools}{note}
 insert into public.comptes_fournisseurs (
   compte_id, fournit_electricite, fournit_gaz, statut_partenariat,
   partnership, intermediary, targets, energy_types, segments, tariffs, profiles,
   min_consumption, max_consumption, min_ellipro_score, max_ddf, max_dff,
   response_delay_days, update_delay_days, notice_days, partner_category, is_active)
-select id, {'true' if 'lectricit' in energies else 'false'}, {'true' if 'Gaz' in energies else 'false'}, 'ACTIF',
+select id, {elec}, {gaz}, 'ACTIF',
   {txt(r['partnership'])}, {txt(r['intermediary'])}, {arr(r['targets'])}, {arr(r['energy_types'])},
   {arr(r['segments'])}, {arr(r['tariffs'])}, {arr(r['profiles'])},
   {num(r['min_consumption'])}, {num(r['max_consumption'])}, {num(r['min_ellipro_score'])},

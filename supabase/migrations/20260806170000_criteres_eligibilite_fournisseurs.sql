@@ -492,13 +492,13 @@ on conflict (compte_id) do update set
   response_delay_days = excluded.response_delay_days, update_delay_days = excluded.update_delay_days,
   notice_days = excluded.notice_days, partner_category = excluded.partner_category,
   is_active = excluded.is_active;
--- ALTERNA ENERGIE  (nomme « ALTERNA » dans Kimatch)
+-- ALTERNA ENERGIE  (nomme « ALTERNA » dans Kimatch)  -- aucune energie declaree dans Tools : restera inelig. partout (energy_types vide)
 insert into public.comptes_fournisseurs (
   compte_id, fournit_electricite, fournit_gaz, statut_partenariat,
   partnership, intermediary, targets, energy_types, segments, tariffs, profiles,
   min_consumption, max_consumption, min_ellipro_score, max_ddf, max_dff,
   response_delay_days, update_delay_days, notice_days, partner_category, is_active)
-select id, false, false, 'ACTIF',
+select id, true, true, 'ACTIF',
   'intermediaire', 'OBD', '{}', '{}',
   '{}', '{}', '{}',
   null, null, null,
