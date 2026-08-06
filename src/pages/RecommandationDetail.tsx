@@ -67,7 +67,12 @@ function CotationWizard({ open, onClose, reco }: { open: boolean; onClose: () =>
   }
 
   const compte = comptes?.find((c) => c.id === reco.compte_id)
-  const compteursDeLaReco = (compteurs ?? []).filter((c) => (reco.compteur_ids ?? []).includes(c.id))
+  // Mémoïsé : sans cela le tableau change d'identité à chaque rendu, ce qui invalide le `useMemo`
+  // de `resultats` en cascade et relance l'effet d'auto-éviction sans fin.
+  const compteursDeLaReco = useMemo(
+    () => (compteurs ?? []).filter((c) => (reco.compteur_ids ?? []).includes(c.id)),
+    [compteurs, reco.compteur_ids],
+  )
 
   // Par défaut chaque PDL démarre à 36 mois (défaut historique de Kimatch, aligné sur le mandat).
   useEffect(() => {
@@ -153,9 +158,13 @@ function CotationWizard({ open, onClose, reco }: { open: boolean; onClose: () =>
     setFournisseurIds((prev) => {
       const kept = prev.filter((id) => resultats.find((r) => r.fournisseur.id === id)?.eligible)
       const removedCount = prev.length - kept.length
-      if (removedCount > 0) {
-        showToast(`${removedCount} fournisseur${removedCount > 1 ? 's' : ''} retiré${removedCount > 1 ? 's' : ''} de la sélection (devenu${removedCount > 1 ? 's' : ''} inéligible${removedCount > 1 ? 's' : ''})`)
-      }
+      // Renvoyer `prev` tel quel quand rien n'est retiré est INDISPENSABLE : `filter` produit
+      // toujours un nouveau tableau, donc une nouvelle référence d'état, donc un rendu de plus
+      // qui recalcule `resultats`, qui redéclenche cet effet — boucle infinie. Elle tournait en
+      // permanence (ce composant reste monté même dialogue fermé) et affamait React au point
+      // qu'aucun changement de route n'était jamais validé : l'URL changeait, la page non.
+      if (removedCount === 0) return prev
+      showToast(`${removedCount} fournisseur${removedCount > 1 ? 's' : ''} retiré${removedCount > 1 ? 's' : ''} de la sélection (devenu${removedCount > 1 ? 's' : ''} inéligible${removedCount > 1 ? 's' : ''})`)
       return kept
     })
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -906,16 +915,19 @@ export default function RecommandationDetail() {
       {reco && (
         <EditRecommandationDialog open={editOpen} onClose={() => setEditOpen(false)} reco={reco} onSaved={() => {}} />
       )}
-      {reco && (
-        <>
-          <CotationWizard open={showCotationWizard} onClose={() => setShowCotationWizard(false)} reco={reco} />
-          <ContratWizard
-            open={showContratWizard}
-            onClose={() => setShowContratWizard(false)}
-            reco={reco}
-            onCreated={() => setShowContratWizard(false)}
-          />
-        </>
+      {/* Montés seulement à l'ouverture : le `Dialog` masque son contenu mais ne démonte pas le
+          composant qui l'entoure, dont tous les hooks (calcul d'éligibilité sur l'ensemble des
+          fournisseurs, effets) tourneraient en permanence sur la fiche. */}
+      {reco && showCotationWizard && (
+        <CotationWizard open onClose={() => setShowCotationWizard(false)} reco={reco} />
+      )}
+      {reco && showContratWizard && (
+        <ContratWizard
+          open
+          onClose={() => setShowContratWizard(false)}
+          reco={reco}
+          onCreated={() => setShowContratWizard(false)}
+        />
       )}
       <AjouterFournisseurConsulteDialog
         open={!!ajouterFournisseurFor}
