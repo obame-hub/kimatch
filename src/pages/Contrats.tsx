@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { addMonths, format, isValid } from 'date-fns'
 import { useNavigate } from 'react-router-dom'
-import { FileSignature, Zap, Flame, Plus } from 'lucide-react'
+import { FileSignature, Zap, Flame, Plus, FileText } from 'lucide-react'
 import { Topbar } from '@/components/layout/Topbar'
 import { PageHeader } from '@/components/ui/page-header'
 import { Card } from '@/components/ui/card'
@@ -384,8 +384,19 @@ export default function Contrats() {
         <PageHeader
           title="Contrats"
           description="Contrats de fourniture d'énergie liés à chaque site — électricité et gaz."
-          actions={<Button onClick={() => setShowCreate(true)}><Plus className="h-4 w-4" />Nouveau contrat</Button>}
+          actions={
+            // Point d'entrée unique, comme Tools : une demande de contrat naît d'une opportunité,
+            // jamais d'un site isolé. Ce bouton reste pour saisir un contrat déjà signé hors
+            // circuit (reprise, contrat direct fournisseur), qui n'existe pas dans Tools.
+            <Button variant="outline" onClick={() => setShowCreate(true)}>
+              <Plus className="h-4 w-4" />Saisir un contrat existant
+            </Button>
+          }
         />
+        <p className="mb-4 flex items-start gap-1.5 text-xs text-navy-400">
+          <FileText className="mt-0.5 h-3.5 w-3.5 shrink-0" />
+          Une <span className="font-medium text-navy-600">demande</span> de contrat se crée depuis la recommandation, une fois la cotation faite — elle embarque alors tous ses points de livraison.
+        </p>
 
         <ListToolbar query={query} onQueryChange={setQuery} placeholder="Rechercher un fournisseur, un site…" count={filteredContrats?.length}>
           <Select value={statutFilter} onChange={(e) => setStatutFilter(e.target.value)} className="w-auto">

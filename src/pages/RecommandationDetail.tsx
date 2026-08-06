@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
-import { ArrowLeft, Mail, Lock, Pencil, Trash2, Sparkle, RefreshCw, AlertTriangle, CheckCircle2, X } from 'lucide-react'
+import { ArrowLeft, Mail, Lock, Pencil, Trash2, Sparkle, RefreshCw, AlertTriangle, CheckCircle2, X, FileText } from 'lucide-react'
 import { Topbar } from '@/components/layout/Topbar'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
@@ -28,6 +28,7 @@ import { checkEligibility, type EligibilityResult } from '@/lib/eligibility'
 import { useCanManage, useIsAdmin, useProfilsAdmin } from '@/lib/data/roles'
 import { sendEmail } from '@/lib/data/gmail'
 import { WizardConnectionGate } from '@/components/ui/connection-gate'
+import { ContratWizard } from '@/components/contrat/ContratWizard'
 import { FALLBACK_ETAPES_RECOMMANDATION, FALLBACK_STATUTS_VERSIONS, STATUT_VERSION_TONE } from '@/lib/referenceFallbacks'
 import { useGoBack } from '@/lib/useGoBack'
 import { ZONE_ORDER_COTATION, ZONE_LABEL_COTATION, zoneDuFournisseur } from '@/lib/fournisseurZones'
@@ -593,6 +594,7 @@ export default function RecommandationDetail() {
   const [confirmDelete, setConfirmDelete] = useState(false)
   const [ajouterFournisseurFor, setAjouterFournisseurFor] = useState<Optimisation | null>(null)
   const [showCotationWizard, setShowCotationWizard] = useState(false)
+  const [showContratWizard, setShowContratWizard] = useState(false)
   const [suiviFor, setSuiviFor] = useState<{ optimisationId: string; fc: FournisseurConsulte } | null>(null)
   const etapes = etapesRef && etapesRef.length > 0 ? etapesRef : FALLBACK_ETAPES_RECOMMANDATION
   const statutsVersions = statutsVersionsRef && statutsVersionsRef.length > 0 ? statutsVersionsRef : FALLBACK_STATUTS_VERSIONS
@@ -697,10 +699,20 @@ export default function RecommandationDetail() {
                 <CardHeader>
                   <CardTitle>Historique des versions</CardTitle>
                   {canManage && (
-                    <Button size="sm" onClick={() => setShowCotationWizard(true)}>
-                      <RefreshCw className="h-3.5 w-3.5" />
-                      {reco.versions.length > 0 ? 'Actualiser' : 'Nouvelle cotation'}
-                    </Button>
+                    <div className="flex gap-2">
+                      <Button size="sm" variant="outline" onClick={() => setShowCotationWizard(true)}>
+                        <RefreshCw className="h-3.5 w-3.5" />
+                        {reco.versions.length > 0 ? 'Actualiser' : 'Nouvelle cotation'}
+                      </Button>
+                      {/* Fin du circuit : la demande de contrat part de l'opportunité, comme Tools.
+                          Elle n'a de sens qu'une fois une cotation produite. */}
+                      {reco.versions.length > 0 && (
+                        <Button size="sm" onClick={() => setShowContratWizard(true)}>
+                          <FileText className="h-3.5 w-3.5" />
+                          Demande de contrat
+                        </Button>
+                      )}
+                    </div>
                   )}
                 </CardHeader>
                 <CardContent className="space-y-3">
@@ -895,7 +907,15 @@ export default function RecommandationDetail() {
         <EditRecommandationDialog open={editOpen} onClose={() => setEditOpen(false)} reco={reco} onSaved={() => {}} />
       )}
       {reco && (
-        <CotationWizard open={showCotationWizard} onClose={() => setShowCotationWizard(false)} reco={reco} />
+        <>
+          <CotationWizard open={showCotationWizard} onClose={() => setShowCotationWizard(false)} reco={reco} />
+          <ContratWizard
+            open={showContratWizard}
+            onClose={() => setShowContratWizard(false)}
+            reco={reco}
+            onCreated={() => setShowContratWizard(false)}
+          />
+        </>
       )}
       <AjouterFournisseurConsulteDialog
         open={!!ajouterFournisseurFor}
