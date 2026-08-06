@@ -131,6 +131,14 @@ export function ContratWizard({
     if (!typePrix && optionsTypePrix.length > 0) setTypePrix(optionsTypePrix[0])
   }, [optionsTypePrix, typePrix])
 
+  // Signataire prérempli avec le contact décisionnaire de l'opportunité, comme Tools. L'étape 4
+  // l'annonçait déjà sans le faire : sans opportunité portant un décisionnaire, le champ restait
+  // vide. Reste modifiable, y compris vers un contact d'un autre compte.
+  useEffect(() => {
+    if (!open || contactId || !reco.contact_signataire_id) return
+    setContactId(reco.contact_signataire_id)
+  }, [open, contactId, reco.contact_signataire_id])
+
   // « Prix cible » réservé au prix Fixe : repli silencieux sinon, comme Tools.
   useEffect(() => {
     if (typePrix !== 'Fixe' && strategie === 'prix_cible') setStrategie('marge_fixe')
