@@ -1,12 +1,12 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node'
 import { createClient } from '@supabase/supabase-js'
-import { exchangeCodeForTokens, getGoogleUserEmail } from './_client.js'
-
-const APP_URL = 'https://kiwee-os.vercel.app'
+import { exchangeCodeForTokens, getGoogleUserEmail, decodeState } from './_client.js'
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   const code = typeof req.query.code === 'string' ? req.query.code : undefined
-  const profilId = typeof req.query.state === 'string' ? req.query.state : undefined
+  // L'origine de départ voyage dans le `state` : on ramène l'utilisateur sur le domaine qu'il
+  // utilisait (kimatch.fr), pas sur une URL codée en dur.
+  const { profilId, appUrl: APP_URL } = decodeState(typeof req.query.state === 'string' ? req.query.state : undefined)
   const errorParam = typeof req.query.error === 'string' ? req.query.error : undefined
 
   if (errorParam) {

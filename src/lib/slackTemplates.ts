@@ -40,7 +40,7 @@ export function buildAccountCreatedBlocks(d: AccountCreatedSlackData) {
 export function sampleAccountCreatedData(): AccountCreatedSlackData {
   return {
     accountName: 'Résidence Les Mimosas',
-    accountUrl: 'https://kiwee-os.vercel.app/comptes/demo',
+    accountUrl: 'https://kimatch.fr/comptes/demo',
     accountType: 'Syndic non professionnel',
     siren: '123456789',
     ville: 'Paris',
@@ -131,7 +131,7 @@ export function sampleMandatSignedData(): MandatSignedSlackData {
 export function sampleContratCreatedData(): ContratCreatedSlackData {
   return {
     siteName: 'Résidence Les Tilleuls',
-    siteUrl: 'https://kiwee-os.vercel.app/sites/demo',
+    siteUrl: 'https://kimatch.fr/sites/demo',
     fournisseurName: 'EDF',
     energyType: 'electricite',
     dateDebut: '01/06/2026',

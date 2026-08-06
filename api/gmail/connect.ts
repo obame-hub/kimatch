@@ -1,6 +1,6 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node'
 import { createClient } from '@supabase/supabase-js'
-import { buildGoogleAuthUrl } from './_client.js'
+import { buildGoogleAuthUrl, encodeState } from './_client.js'
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   if (req.method !== 'GET') {
@@ -30,6 +30,14 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     return
   }
 
-  const url = buildGoogleAuthUrl(userData.user.id)
+  // Origine réelle de l'appel (kimatch.fr, www.kimatch.fr…) : le callback y renverra l'utilisateur
+  // au lieu de le déposer systématiquement sur le domaine Vercel par défaut.
+  const origine = typeof req.headers.origin === 'string'
+    ? req.headers.origin
+    : typeof req.headers.referer === 'string'
+      ? new URL(req.headers.referer).origin
+      : undefined
+
+  const url = buildGoogleAuthUrl(encodeState(userData.user.id, origine))
   res.status(200).json({ url })
 }

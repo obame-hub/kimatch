@@ -11,6 +11,30 @@ const REDIRECT_URI = 'https://kiwee-os.vercel.app/api/gmail/callback'
 // fonction gmail-auth de Tools.
 const SCOPE = 'https://www.googleapis.com/auth/gmail.send https://www.googleapis.com/auth/userinfo.email'
 
+/** Origines autorisées à recevoir la redirection finale du flot OAuth. Allowlist volontaire : le
+ * `state` transite par Google et revient côté client, on ne redirige donc jamais vers une origine
+ * arbitraire (open redirect). */
+const ORIGINES_AUTORISEES = [
+  'https://kimatch.fr',
+  'https://www.kimatch.fr',
+  'https://kiwee-os.vercel.app',
+]
+const ORIGINE_PAR_DEFAUT = 'https://kimatch.fr'
+
+/** `state` = identifiant du profil + origine de départ, pour revenir sur le domaine d'où
+ * l'utilisateur a lancé la connexion. Sans ça le callback renvoyait tout le monde sur
+ * kiwee-os.vercel.app, même en partant de kimatch.fr. */
+export function encodeState(profilId: string, origine: string | undefined): string {
+  const sure = origine && ORIGINES_AUTORISEES.includes(origine) ? origine : ORIGINE_PAR_DEFAUT
+  return `${profilId}|${sure}`
+}
+
+export function decodeState(state: string | undefined): { profilId?: string; appUrl: string } {
+  const [profilId, origine] = (state ?? '').split('|')
+  const appUrl = origine && ORIGINES_AUTORISEES.includes(origine) ? origine : ORIGINE_PAR_DEFAUT
+  return { profilId: profilId || undefined, appUrl }
+}
+
 export function buildGoogleAuthUrl(state: string): string {
   const clientId = requireEnv('GMAIL_CLIENT_ID')
   const params = new URLSearchParams({
