@@ -18,6 +18,7 @@ import { useContacts } from '@/lib/data/contacts'
 import { useReferenceTable } from '@/lib/data/referenceTables'
 import { FALLBACK_STATUTS_CONTRATS, STATUT_CONTRAT_TONE, FALLBACK_TYPES_ENERGIES } from '@/lib/referenceFallbacks'
 import { ZONE_ORDER_CONTRAT, ZONE_LABEL_CONTRAT, zoneDuFournisseur } from '@/lib/fournisseurZones'
+import { nomJourFerieFR } from '@/lib/joursFeries'
 import { ListToolbar } from '@/components/ui/list-toolbar'
 import { useListControls } from '@/lib/useListControls'
 import { ExtractDocumentButton } from '@/components/ui/document-extraction'
@@ -102,6 +103,10 @@ function CreateContratDialog({ open, onClose }: { open: boolean; onClose: () => 
     if (d < aujourdhui) return 'Cette date est déjà passée.'
     const jour = d.getDay()
     if (jour === 0 || jour === 6) return 'Choisis un jour ouvré (lundi-vendredi).'
+    // Les fériés comptent autant que les week-ends : aucun fournisseur ne traite une demande le
+    // 15 août (remarque de William en réunion, jugée « loin d'être optionnelle »).
+    const ferie = nomJourFerieFR(d)
+    if (ferie) return `${ferie} : aucun fournisseur ne traitera la demande ce jour-là.`
     return null
   }, [dateReceptionSouhaitee])
 

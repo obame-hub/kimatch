@@ -119,7 +119,10 @@ export function EllisphereScoreCard({ compteId, siren }: { compteId: string; sir
         <div className="flex items-center gap-3">
           <div className="flex shrink-0 items-baseline gap-0.5">
             <span className={cn('bg-gradient-to-br bg-clip-text text-3xl font-black leading-none tabular-nums text-transparent', tier.from, tier.to)}>
-              {etat.score.toFixed(1)}
+              {/* Entier, jamais de décimale : « Tu enlèves la décimale. Ça ne sert à rien. Tu ne
+                  peux pas avoir de 8.5 » (William, réunion du 04/08). Ellisphere note sur une
+                  échelle entière de 0 à 10. */}
+              {Math.round(etat.score)}
             </span>
             <span className="text-sm font-semibold text-navy-400">/10</span>
           </div>
