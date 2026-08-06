@@ -1,4 +1,12 @@
 {
+  "redirects": [
+    {
+      "source": "/((?!api/).*)",
+      "has": [{ "type": "host", "value": "kiwee-os.vercel.app" }],
+      "destination": "https://kimatch.fr/$1",
+      "permanent": false
+    }
+  ],
   "rewrites": [
     { "source": "/((?!api/).*)", "destination": "/index.html" }
   ]
