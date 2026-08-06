@@ -143,20 +143,39 @@ function mapRawInteraction(i: RawInteraction): Interaction {
 // que la table entiere (des dizaines de milliers de lignes une fois tous les comptes Salesforce
 // importes) -- le fetch complet mettait plus de 5 minutes a charger une seule fiche compte.
 async function fetchInteractionsByCompte(compteId: string, siteIds: string[]): Promise<Interaction[]> {
-  const orParts = [`compte_id.eq.${compteId}`]
-  if (siteIds.length > 0) orParts.push(`site_id.in.(${siteIds.join(',')})`)
-
-  const { data, error } = await supabase
-    .from('interactions')
-    .select(INTERACTIONS_SELECT)
-    .or(orParts.join(','))
-    .order('date_interaction', { ascending: false })
-    .limit(2000)
-  if (error) {
-    console.error('fetchInteractionsByCompte', error)
-    return []
+  // Deux requêtes plutôt qu'un `.or()` unique : PostgREST passe le filtre dans l'URL, et un compte
+  // à plusieurs dizaines de sites produisait un `site_id.in.(...)` assez long pour faire répondre
+  // le serveur en 500 (vu en production le 06/08/2026 sur la fiche compte). Chaque requête reste
+  // courte, et on fusionne côté client.
+  const requetes = [
+    supabase.from('interactions').select(INTERACTIONS_SELECT)
+      .eq('compte_id', compteId).order('date_interaction', { ascending: false }).limit(2000),
+  ]
+  if (siteIds.length > 0) {
+    // Les sites sont eux-mêmes découpés : au-delà de ~150 identifiants, l'URL redevient trop longue.
+    const LOT = 150
+    for (let i = 0; i < siteIds.length; i += LOT) {
+      requetes.push(
+        supabase.from('interactions').select(INTERACTIONS_SELECT)
+          .in('site_id', siteIds.slice(i, i + LOT))
+          .order('date_interaction', { ascending: false }).limit(2000),
+      )
+    }
   }
-  return ((data ?? []) as unknown as RawInteraction[]).map(mapRawInteraction)
+
+  const resultats = await Promise.all(requetes)
+  const parId = new Map<string, RawInteraction>()
+  for (const { data, error } of resultats) {
+    if (error) {
+      console.error('fetchInteractionsByCompte', error)
+      continue // une requête en échec ne doit pas vider tout le fil d'activité
+    }
+    for (const row of (data ?? []) as unknown as RawInteraction[]) parId.set(row.id, row)
+  }
+
+  return [...parId.values()]
+    .map(mapRawInteraction)
+    .sort((a, b) => (b.date_interaction ?? '').localeCompare(a.date_interaction ?? ''))
 }
 
 export function useInteractionsForCompte(compteId: string | undefined, siteIds: string[]) {
