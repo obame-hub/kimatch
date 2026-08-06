@@ -143,10 +143,12 @@ function mapRawInteraction(i: RawInteraction): Interaction {
 // que la table entiere (des dizaines de milliers de lignes une fois tous les comptes Salesforce
 // importes) -- le fetch complet mettait plus de 5 minutes a charger une seule fiche compte.
 async function fetchInteractionsByCompte(compteId: string, siteIds: string[]): Promise<Interaction[]> {
-  // Deux requêtes plutôt qu'un `.or()` unique : PostgREST passe le filtre dans l'URL, et un compte
-  // à plusieurs dizaines de sites produisait un `site_id.in.(...)` assez long pour faire répondre
-  // le serveur en 500 (vu en production le 06/08/2026 sur la fiche compte). Chaque requête reste
-  // courte, et on fusionne côté client.
+  // Requêtes séparées plutôt qu'un `.or()` unique. L'ancienne version combinait `compte_id.eq.…`
+  // et `site_id.in.(…)` dans un même `.or()`, ce que PostgREST refusait en 500 (vu en production
+  // le 06/08/2026 sur KIWEE ENERGIE FRANCE, qui n'a pourtant que 7 sites — ce n'est donc pas une
+  // question de volume, mais bien la syntaxe `in.()` imbriquée dans un `or`). Un `.in()` seul est
+  // correctement sérialisé, et le découpage par lots protège au passage les gros comptes d'une
+  // URL trop longue.
   const requetes = [
     supabase.from('interactions').select(INTERACTIONS_SELECT)
       .eq('compte_id', compteId).order('date_interaction', { ascending: false }).limit(2000),
