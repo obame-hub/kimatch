@@ -5,7 +5,11 @@ function requireEnv(name: string): string {
 }
 
 const REDIRECT_URI = 'https://kiwee-os.vercel.app/api/gmail/callback'
-const SCOPE = 'https://www.googleapis.com/auth/gmail.send'
+// `userinfo.email` est INDISPENSABLE en plus de `gmail.send` : le callback lit l'adresse du compte
+// connecté via /oauth2/v2/userinfo, qui refuse l'appel sans ce scope. Sans lui la connexion échoue
+// systématiquement sur « Impossible de récupérer l'adresse Gmail connectée ». Mêmes scopes que la
+// fonction gmail-auth de Tools.
+const SCOPE = 'https://www.googleapis.com/auth/gmail.send https://www.googleapis.com/auth/userinfo.email'
 
 export function buildGoogleAuthUrl(state: string): string {
   const clientId = requireEnv('GMAIL_CLIENT_ID')
@@ -16,6 +20,7 @@ export function buildGoogleAuthUrl(state: string): string {
     scope: SCOPE,
     access_type: 'offline',
     prompt: 'consent',
+    include_granted_scopes: 'true',
     state,
   })
   return `https://accounts.google.com/o/oauth2/v2/auth?${params.toString()}`
