@@ -100,6 +100,74 @@ export function champsPdlManquants(d: PdlDraft, estElectricite: boolean): Set<st
 /** Bordure ambre vive sur un champ requis encore vide -- Tools surligne ces champs en orange. */
 const CLASSE_MANQUANT = 'border-amber-500 bg-amber-50/40'
 
+export interface ExtractedField { value: string | number | null; confidence: number }
+
+function texte(f: ExtractedField | undefined): string {
+  return f?.value === null || f?.value === undefined ? '' : String(f.value).trim()
+}
+
+/** Traduit les champs extraits d'une facture (api/ocr/extract-document) en modifications de
+ * brouillon PDL. Les champs absents de la facture ne sont jamais écrasés : on ne remplit que ce
+ * qui est vide, l'utilisateur reste maître de ce qu'il a déjà saisi.
+ *
+ * C'est le chaînon qui manquait : l'écran « Extraction automatique » existait mais n'était relié
+ * à rien, il ouvrait le même formulaire vide que la saisie manuelle. */
+export function applyExtractionToDraft(
+  draft: PdlDraft,
+  fields: Record<string, ExtractedField>,
+  energies: ReferenceRow[],
+  fournisseurs: Compte[],
+): Partial<PdlDraft> {
+  const patch: Partial<PdlDraft> = {}
+
+  const energieCode = texte(fields.type_energie).toLowerCase()
+  if (!draft.typeEnergieId && energieCode) {
+    const cible = energies.find((e) => (e.code ?? '').toLowerCase() === (energieCode === 'gaz' ? 'gaz' : 'electricite'))
+    if (cible) patch.typeEnergieId = cible.id
+  }
+  const estGaz = energieCode === 'gaz'
+
+  if (!draft.numeroPdl && texte(fields.numero_pdl)) patch.numeroPdl = texte(fields.numero_pdl).replace(/\s/g, '')
+  if (!draft.dateEcheance && texte(fields.date_fin)) patch.dateEcheance = texte(fields.date_fin)
+
+  if (!draft.fournisseurActuelId && texte(fields.fournisseur_nom)) {
+    const cherche = texte(fields.fournisseur_nom).toLowerCase()
+    const match = fournisseurs.find((f) => {
+      const nom = f.nom.toLowerCase()
+      return nom === cherche || nom.includes(cherche) || cherche.includes(nom)
+    })
+    if (match) patch.fournisseurActuelId = match.id
+  }
+
+  if (estGaz) {
+    if (!draft.tarifDistribution && TARIFS_GAZ.includes(texte(fields.tarif_distribution).toUpperCase())) {
+      patch.tarifDistribution = texte(fields.tarif_distribution).toUpperCase()
+    }
+    if (!draft.profilConsommation && PROFILS_GAZ.includes(texte(fields.profil_consommation).toUpperCase())) {
+      patch.profilConsommation = texte(fields.profil_consommation).toUpperCase()
+    }
+    if (!draft.carMwh && texte(fields.consommation_annuelle_mwh)) patch.carMwh = texte(fields.consommation_annuelle_mwh)
+    return patch
+  }
+
+  const segment = texte(fields.segment).toUpperCase()
+  if (!draft.segment && SEGMENTS_ELEC.includes(segment)) patch.segment = segment
+  const tension = texte(fields.tension).toUpperCase()
+  if (!draft.tension && TENSIONS_ELEC.includes(tension)) patch.tension = tension
+
+  // La facture ne donne qu'une puissance souscrite : en C5 elle alimente la puissance unique,
+  // au-delà elle ne renseigne que la pointe — les autres postes horaires restent à saisir.
+  const puissance = texte(fields.puissance_souscrite_kva)
+  const segmentEffectif = patch.segment ?? draft.segment
+  if (puissance) {
+    const classe = segmentEffectif === 'C5' ? 'base' : 'pointe'
+    if (!(draft.puissanceParClasseKva[classe] ?? '').trim()) {
+      patch.puissanceParClasseKva = { ...draft.puissanceParClasseKva, [classe]: puissance }
+    }
+  }
+  return patch
+}
+
 /** Construit les objets `grdElec`/`grdGaz` attendus par `useCreateCompteur` à partir des
  * caractéristiques techniques saisies manuellement dans le brouillon (segment/tension/puissances
  * pour l'élec, tarif/profil/CAR pour le gaz) -- même conduit que la synchro GRD réelle, mais

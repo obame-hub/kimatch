@@ -10,7 +10,8 @@ import { Dialog } from '@/components/ui/dialog'
 import { FormField, Input, Select } from '@/components/ui/form'
 import { HistoriqueDiscret } from '@/components/ui/historique-discret'
 import { AddressAutocomplete } from '@/components/ui/address-autocomplete'
-import { PdlDraftRows, emptyPdlDraft, buildDraftCharacteristics, champsPdlManquants, type PdlDraft } from '@/components/compteur/PdlDraftRows'
+import { PdlDraftRows, emptyPdlDraft, buildDraftCharacteristics, champsPdlManquants, applyExtractionToDraft, type PdlDraft, type ExtractedField } from '@/components/compteur/PdlDraftRows'
+import { ExtractDocumentButton } from '@/components/ui/document-extraction'
 import { MandatChainPrompt, type ChainedCompteur } from '@/components/compteur/MandatChainPrompt'
 import { useSites, useUpdateSite, useDeleteSite } from '@/lib/data/sites'
 import { useReferenceTable } from '@/lib/data/referenceTables'
@@ -1038,6 +1039,12 @@ function AddCompteurDialog({
   return (
     <Dialog open={open} onClose={() => { reset(); onClose() }} title="Ajouter un ou plusieurs compteurs" description="Rattacher un ou plusieurs points de livraison à ce site." className="max-w-xl">
       <form onSubmit={handleSubmit} className="max-h-[70vh] space-y-4 overflow-y-auto pr-1">
+        {/* Le site est déjà connu ici : la facture ne sert qu'à pré-remplir le point de livraison. */}
+        <ExtractDocumentButton
+          onExtracted={(fields: Record<string, ExtractedField>) =>
+            setDrafts((prev) => prev.map((d, i) => (i === 0 ? { ...d, ...applyExtractionToDraft(d, fields, energies, fournisseurs) } : d)))
+          }
+        />
         <PdlDraftRows
           drafts={drafts}
           onChange={patchDraft}

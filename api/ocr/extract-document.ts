@@ -4,23 +4,37 @@ import type { VercelRequest, VercelResponse } from '@vercel/node'
 // Anthropic (Claude, vision native PDF/image). Ne jamais importer ce fichier
 // depuis le code front — la clé API ne doit exister que côté serveur.
 
-const EXTRACTION_PROMPT = `Tu es un expert en extraction de données de documents contractuels français dans le secteur de l'énergie (contrats de fourniture d'électricité/gaz, mandats de représentation signés par un client pour le compte d'un courtier/syndic).
+const EXTRACTION_PROMPT = `Tu es un expert en extraction de données de documents français du secteur de l'énergie : factures de fourniture d'électricité/gaz, contrats de fourniture, et mandats de représentation signés par un client pour le compte d'un courtier/syndic.
 
 Analyse le document fourni et retourne UNIQUEMENT un objet JSON avec les champs suivants. Pour chaque champ, retourne { "value": ..., "confidence": <0-1> } — ou { "value": null, "confidence": 0 } si tu ne trouves pas l'information ou si tu n'es pas sûr. N'invente JAMAIS une valeur.
 
-- type_document: "contrat" (contrat de fourniture d'énergie) ou "mandat" (mandat de représentation/gestion signé par un client), selon la nature du document
-- reference_fournisseur: numéro de contrat, de référence ou d'offre mentionné sur le document (texte)
-- fournisseur_nom: nom du fournisseur d'énergie (contrat) ou du prestataire/cabinet mandataire (mandat)
+Champs communs :
+- type_document: "facture" (facture d'énergie), "contrat" (contrat de fourniture) ou "mandat" (mandat de représentation/gestion), selon la nature du document
+- reference_fournisseur: numéro de contrat, de référence, de facture ou d'offre mentionné sur le document (texte)
+- fournisseur_nom: nom du fournisseur d'énergie (facture/contrat) ou du prestataire/cabinet mandataire (mandat)
 - type_energie: STRICTEMENT "electricite" ou "gaz" si identifiable, sinon null
-- numero_pdl: numéro de PDL (électricité, 14 chiffres) ou PCE (gaz, "GI" + 6 chiffres) si mentionné sur le document
+- numero_pdl: numéro de PDL/PRM (électricité, 14 chiffres) ou PCE (gaz, "GI" + 6 chiffres). Sur une facture c'est souvent libellé "Point de livraison", "PRM", "PDL", "Point de comptage et d'estimation" ou "PCE".
 - date_signature: date de signature du document (format YYYY-MM-DD)
 - date_debut: date de début d'effet / de validité du contrat ou du mandat (format YYYY-MM-DD)
-- date_fin: date de fin / d'échéance (format YYYY-MM-DD)
+- date_fin: date de fin / d'échéance / de fin de contrat (format YYYY-MM-DD)
 - preavis_resiliation_jours: préavis de résiliation exprimé en nombre de jours (entier). Si exprimé en mois, convertis (1 mois = 30 jours).
 - signataire_nom: nom complet de la personne signataire côté client
 
+Champs propres au point de livraison (surtout présents sur les factures) :
+- site_nom: libellé ou nom du site desservi, s'il est distinct de la raison sociale du client
+- adresse: numéro et voie de l'adresse DU POINT DE LIVRAISON / lieu de consommation. Attention : ce n'est PAS l'adresse de facturation quand les deux diffèrent.
+- code_postal: code postal du point de livraison (5 chiffres)
+- ville: commune du point de livraison
+- segment: STRICTEMENT "C1", "C2", "C3", "C4" ou "C5" si mentionné ou déductible de la puissance souscrite en électricité (C5 = ≤ 36 kVA, C4 = 36-250 kVA, C3 = 250 kVA-1 MW environ). Ne devine pas si la puissance est absente.
+- tension: STRICTEMENT "BT" (basse tension) ou "HTA" (haute tension A) si identifiable
+- puissance_souscrite_kva: puissance souscrite en kVA (nombre). S'il y a plusieurs postes horaires, retourne la puissance de pointe.
+- consommation_annuelle_mwh: consommation annuelle en MWh (nombre). Si la facture donne des kWh, convertis en MWh (divise par 1000).
+- tarif_distribution: tarif d'acheminement gaz ("T1", "T2", "T3", "T4") si mentionné
+- profil_consommation: profil de consommation gaz ("P011" à "P019") si mentionné
+
 Règles impératives :
 - Toutes les dates doivent être normalisées au format YYYY-MM-DD (convertis depuis JJ/MM/AAAA si nécessaire).
+- Les valeurs numériques doivent être des nombres, sans unité ni séparateur de milliers.
 - Si un champ est absent ou ambigu, retourne { "value": null, "confidence": 0 }.
 - Retourne UNIQUEMENT le JSON, sans texte autour, sans balises markdown.`
 

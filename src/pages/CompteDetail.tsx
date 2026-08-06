@@ -19,6 +19,7 @@ import {
   MapPin,
   Search,
   AlertTriangle,
+  CheckCircle2,
 } from 'lucide-react'
 import { Topbar } from '@/components/layout/Topbar'
 import { Button } from '@/components/ui/button'
@@ -27,14 +28,15 @@ import { EntityLink } from '@/components/ui/entity-link'
 import { Dialog } from '@/components/ui/dialog'
 import { Sheet } from '@/components/ui/sheet'
 import { ContactForm } from '@/components/contact/ContactForm'
-import { PdlMethodSheet } from '@/components/compteur/PdlMethodSheet'
+import { PdlMethodSheet, type PdlMethode } from '@/components/compteur/PdlMethodSheet'
+import { ExtractDocumentButton } from '@/components/ui/document-extraction'
 import { CreateMandatDialog } from '@/pages/Mandats'
 import { CreateRecommandationDialog } from '@/pages/Recommandations'
 import { FormField, Input, Select, Textarea } from '@/components/ui/form'
 import { HistoriqueDiscret } from '@/components/ui/historique-discret'
 import { InlineField } from '@/components/ui/inline-field'
 import { AddressAutocomplete } from '@/components/ui/address-autocomplete'
-import { PdlDraftRows, emptyPdlDraft, buildDraftCharacteristics, champsPdlManquants, type PdlDraft } from '@/components/compteur/PdlDraftRows'
+import { PdlDraftRows, emptyPdlDraft, buildDraftCharacteristics, champsPdlManquants, applyExtractionToDraft, type PdlDraft, type ExtractedField } from '@/components/compteur/PdlDraftRows'
 import { MandatChainPrompt, type ChainedCompteur } from '@/components/compteur/MandatChainPrompt'
 import {
   useComptes,
@@ -141,6 +143,7 @@ export default function CompteDetail() {
   const [ficCategorie, setFicCategorie] = useState<string | null>(null)
   const [addCompteurOpen, setAddCompteurOpen] = useState(false)
   const [pdlMethodOpen, setPdlMethodOpen] = useState(false)
+  const [pdlMethode, setPdlMethode] = useState<PdlMethode>('manuel')
   const [addContactOpen, setAddContactOpen] = useState(false)
   const [addMandatOpen, setAddMandatOpen] = useState(false)
   const [addRecoOpen, setAddRecoOpen] = useState(false)
@@ -779,15 +782,17 @@ export default function CompteDetail() {
         onClose={() => setAddCompteurOpen(false)}
         compte={compte}
         sites={sites ?? []}
+        methode={pdlMethode}
         onSaved={(message) => showToast(message)}
       />
 
-      {/* Choix de la méthode avant le formulaire PDL, comme Tools. */}
+      {/* Choix de la méthode avant le formulaire PDL, comme Tools. La méthode choisie est
+          transmise au dialogue : en « extraction », le dépôt de facture s'ouvre d'emblée. */}
       <PdlMethodSheet
         open={pdlMethodOpen}
         onClose={() => setPdlMethodOpen(false)}
         compteNom={compte.nom}
-        onChoose={() => { setPdlMethodOpen(false); setAddCompteurOpen(true) }}
+        onChoose={(methode) => { setPdlMethode(methode); setPdlMethodOpen(false); setAddCompteurOpen(true) }}
       />
 
       {/* Contact : panneau latéral (reste sur la fiche compte, comme l'écran de session
@@ -1542,12 +1547,15 @@ function AddCompteurAutoSiteDialog({
   onClose,
   compte,
   sites,
+  methode = 'manuel',
   onSaved,
 }: {
   open: boolean
   onClose: () => void
   compte: Compte
   sites: Site[]
+  /** « extraction » affiche le dépôt de facture, qui pré-remplit l'adresse puis le brouillon PDL. */
+  methode?: PdlMethode
   onSaved: (message: string) => void
 }) {
   const { data: energiesRef } = useReferenceTable('types_energies')
@@ -1571,9 +1579,24 @@ function AddCompteurAutoSiteDialog({
   const [drafts, setDrafts] = useState<PdlDraft[]>([emptyPdlDraft()])
   const [submitting, setSubmitting] = useState(false)
   const [createdCompteurs, setCreatedCompteurs] = useState<ChainedCompteur[] | null>(null)
+  // Champs de la facture extraits à l'étape adresse : ils servent l'adresse tout de suite, puis
+  // le brouillon PDL une fois le site résolu.
+  const [champsFacture, setChampsFacture] = useState<Record<string, ExtractedField> | null>(null)
 
   const fournisseurs = (comptes ?? []).filter((c) => c.type_compte === 'fournisseur')
   const contactsDuCompte = (contacts ?? []).filter((c) => c.compte_id === compte.id)
+
+  /** Extraction depuis une facture : remplit l'adresse (étape en cours) et mémorise le reste pour
+   * pré-remplir le brouillon PDL. On ne remplace jamais ce que l'utilisateur a déjà saisi. */
+  function handleFactureExtraite(fields: Record<string, ExtractedField>) {
+    setChampsFacture(fields)
+    const val = (k: string) => (fields[k]?.value == null ? '' : String(fields[k].value).trim())
+    if (!libelleSite && val('site_nom')) setLibelleSite(val('site_nom'))
+    if (!adresse && val('adresse')) setAdresse(val('adresse'))
+    if (!ville && val('ville')) setVille(val('ville'))
+    if (!codePostal && val('code_postal')) setCodePostal(val('code_postal'))
+    setDrafts((prev) => prev.map((d, i) => (i === 0 ? { ...d, ...applyExtractionToDraft(d, fields, energies, fournisseurs) } : d)))
+  }
 
   // Un brouillon non encore créé auquel il manque un champ requis bloque l'enregistrement (Tools).
   const draftsIncomplets = drafts.some((d) => {
@@ -1595,6 +1618,7 @@ function AddCompteurAutoSiteDialog({
     setDrafts([emptyPdlDraft()])
     setSubmitting(false)
     setCreatedCompteurs(null)
+    setChampsFacture(null)
   }
 
   function patchDraft(key: string, patch: Partial<PdlDraft>) {
@@ -1732,6 +1756,19 @@ function AddCompteurAutoSiteDialog({
     >
       {step === 'adresse' && (
         <form onSubmit={handleSubmitAdresse} className="space-y-3">
+          {/* Dépôt de facture : c'est ce que promettait « Extraction automatique » sans jamais
+              l'ouvrir. Disponible aussi en saisie manuelle, ça ne coûte rien de le proposer. */}
+          <ExtractDocumentButton
+            onExtracted={handleFactureExtraite}
+            label="Déposer une facture PDF ou un scan"
+            autoOpen={methode === 'extraction'}
+          />
+          {champsFacture && (
+            <p className="flex items-start gap-1.5 text-[11px] text-kiwi-700">
+              <CheckCircle2 className="mt-0.5 h-3 w-3 shrink-0" />
+              Facture analysée — les champs reconnus sont pré-remplis ici et sur le point de livraison. Vérifie-les.
+            </p>
+          )}
           <FormField label="Libellé du site (si connu)">
             <Input value={libelleSite} onChange={(e) => setLibelleSite(e.target.value)} placeholder="Ex. Résidence Les Tilleuls" />
           </FormField>

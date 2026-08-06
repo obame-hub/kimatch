@@ -1,4 +1,4 @@
-import { useRef, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { FileScan, Loader2 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { useExtractDocument } from '@/lib/data/ocr'
@@ -8,10 +8,24 @@ interface ExtractedField {
   confidence: number
 }
 
-export function ExtractDocumentButton({ onExtracted }: { onExtracted: (fields: Record<string, ExtractedField>) => void }) {
+export function ExtractDocumentButton({
+  onExtracted,
+  label = 'Pré-remplir depuis un PDF/scan',
+  /** Ouvre le sélecteur de fichier dès l'affichage — utilisé quand l'utilisateur vient de choisir
+   * explicitement « Extraction automatique » : lui refaire cliquer serait une étape de trop. */
+  autoOpen,
+}: {
+  onExtracted: (fields: Record<string, ExtractedField>) => void
+  label?: string
+  autoOpen?: boolean
+}) {
   const inputRef = useRef<HTMLInputElement>(null)
   const extractDocument = useExtractDocument()
   const [feedback, setFeedback] = useState<string | null>(null)
+
+  useEffect(() => {
+    if (autoOpen) inputRef.current?.click()
+  }, [autoOpen])
 
   async function handleChange(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0]
@@ -36,7 +50,7 @@ export function ExtractDocumentButton({ onExtracted }: { onExtracted: (fields: R
       <input ref={inputRef} type="file" accept="application/pdf,image/*" className="hidden" onChange={handleChange} />
       <Button type="button" variant="outline" size="sm" disabled={extractDocument.isPending} onClick={() => inputRef.current?.click()}>
         {extractDocument.isPending ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <FileScan className="h-3.5 w-3.5" />}
-        Pré-remplir depuis un PDF/scan
+        {label}
       </Button>
       {feedback && <p className="mt-1.5 text-[11px] text-navy-500">{feedback}</p>}
     </div>
