@@ -3,6 +3,7 @@ import { supabase } from '@/lib/supabase'
 import type { Contrat } from '@/types/domain'
 import { notifySlack } from '@/lib/data/slackSettings'
 import { buildContratCreatedBlocks } from '@/lib/slackTemplates'
+import { notifyEmail } from '@/lib/data/emailSettings'
 import { fetchComptesVisibles, filterVisibles } from '@/lib/data/visibility'
 import { fetchAllRows } from '@/lib/data/paginatedFetch'
 
@@ -249,6 +250,31 @@ export function useCreateContrat() {
         contratUrl: `${window.location.origin}/contrats/${contrat.id}`,
       })
       void notifySlack({ module: 'contrat', text: tpl.text, blocks: tpl.blocks })
+
+      // Email de demande de contrat -- Tools en envoie un à chaque demande, Kimatch n'avait que
+      // Slack. Destinataires configurables dans Paramètres (repris de l'export Tools : Erwan en
+      // destinataire, William en copie).
+      const periode = [contrat.date_debut, contrat.date_fin]
+        .map((d) => (d ? new Date(d).toLocaleDateString('fr-FR') : '—'))
+        .join(' → ')
+      void notifyEmail(
+        'contrat',
+        { contractName: contrat.compte_nom || contrat.site_nom, supplierName: contrat.fournisseur_nom },
+        [
+          `Une demande de contrat vient d'être créée.`,
+          ``,
+          `Compte       : ${contrat.compte_nom || '—'}`,
+          `Site         : ${contrat.site_nom || '—'}`,
+          `Fournisseur  : ${contrat.fournisseur_nom || '—'}`,
+          `Énergie      : ${contrat.type_energie === 'gaz' ? 'Gaz' : 'Électricité'}`,
+          `Période      : ${periode}${contrat.duree_mois ? ` (${contrat.duree_mois} mois)` : ''}`,
+          `Réception    : ${contrat.date_reception_souhaitee ? new Date(contrat.date_reception_souhaitee).toLocaleDateString('fr-FR') : '—'}`,
+          `Signataire   : ${contrat.contact_signataire_nom ?? '—'}`,
+          `Points de livraison : ${contrat.compteurs.length}`,
+          ``,
+          `${window.location.origin}/contrats/${contrat.id}`,
+        ].join('\n'),
+      )
 
       return { contrat, persisted }
     },

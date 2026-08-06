@@ -1,10 +1,10 @@
-import { useState } from 'react'
-import { RefreshCw, Hash, MessageSquare, Sun, Moon, Monitor } from 'lucide-react'
+import { useEffect, useState } from 'react'
+import { RefreshCw, Hash, MessageSquare, Mail, Sun, Moon, Monitor } from 'lucide-react'
 import { Topbar } from '@/components/layout/Topbar'
 import { PageHeader } from '@/components/ui/page-header'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
-import { Select } from '@/components/ui/form'
+import { FormField, Input, Select } from '@/components/ui/form'
 import { useTheme, type Theme } from '@/lib/theme'
 import { cn } from '@/lib/utils'
 
@@ -64,6 +64,11 @@ import {
   type SlackModule,
 } from '@/lib/data/slackSettings'
 import {
+  useEmailSettings,
+  useUpdateEmailSetting,
+  type EmailModule,
+} from '@/lib/data/emailSettings'
+import {
   buildAccountCreatedBlocks,
   sampleAccountCreatedData,
   buildContratCreatedBlocks,
@@ -89,6 +94,72 @@ function Toggle({ checked, onChange }: { checked: boolean; onChange: (v: boolean
     >
       <span className={cn('absolute top-0.5 h-5 w-5 rounded-full bg-white shadow transition-transform', checked ? 'translate-x-5' : 'translate-x-0.5')} />
     </button>
+  )
+}
+
+/** Destinataires email d'un module. Les adresses viennent de la base (reprises de Tools), jamais
+ * du code : l'équipe peut les changer sans redéploiement. */
+function EmailModuleCard({ module, libelle }: { module: EmailModule; libelle: string }) {
+  const { data: settings } = useEmailSettings()
+  const updateSetting = useUpdateEmailSetting()
+  const [feedback, setFeedback] = useState<string | null>(null)
+
+  const row = settings?.find((s) => s.module === module)
+  const [destinataires, setDestinataires] = useState('')
+  const [copies, setCopies] = useState('')
+  const [initialise, setInitialise] = useState(false)
+
+  useEffect(() => {
+    if (initialise || !row) return
+    setDestinataires((row.destinataires ?? []).join(', '))
+    setCopies((row.copies ?? []).join(', '))
+    setInitialise(true)
+  }, [row, initialise])
+
+  function enListe(v: string) {
+    return v.split(',').map((x) => x.trim()).filter(Boolean)
+  }
+
+  async function enregistrer() {
+    const res = await updateSetting.mutateAsync({
+      module,
+      patch: { destinataires: enListe(destinataires), copies: enListe(copies) },
+    })
+    setFeedback(res.persisted ? 'Enregistré ✓' : 'Non synchronisé avec la base')
+    setTimeout(() => setFeedback(null), 2500)
+  }
+
+  return (
+    <div className="rounded-xl border border-navy-100 p-3">
+      <div className="mb-2 flex items-center justify-between gap-3">
+        <div>
+          <p className="text-sm font-medium text-navy-800">{libelle}</p>
+          <p className="text-xs text-navy-400">{row?.actif ? 'Notifications activées' : 'Notifications désactivées'}</p>
+        </div>
+        <label className="flex items-center gap-2 text-xs text-navy-600">
+          <input
+            type="checkbox"
+            checked={!!row?.actif}
+            onChange={(e) => updateSetting.mutate({ module, patch: { actif: e.target.checked } })}
+          />
+          Actif
+        </label>
+      </div>
+      <div className="grid gap-2 sm:grid-cols-2">
+        <FormField label="Destinataires">
+          <Input value={destinataires} onChange={(e) => setDestinataires(e.target.value)} placeholder="prenom@kiwee-energie.fr" />
+        </FormField>
+        <FormField label="En copie">
+          <Input value={copies} onChange={(e) => setCopies(e.target.value)} placeholder="Séparer par des virgules" />
+        </FormField>
+      </div>
+      <div className="mt-2 flex items-center gap-3">
+        <Button type="button" size="sm" variant="outline" onClick={enregistrer} disabled={updateSetting.isPending}>
+          Enregistrer
+        </Button>
+        {feedback && <span className="text-xs text-navy-500">{feedback}</span>}
+      </div>
+    </div>
   )
 }
 
@@ -190,6 +261,23 @@ export default function Parametres() {
             <SlackModuleCard module="compte" />
             <SlackModuleCard module="contrat" />
             <SlackModuleCard module="mandat" />
+          </CardContent>
+        </Card>
+
+        <Card className="max-w-2xl">
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <Mail className="h-5 w-5 text-kiwi-600" />
+              Notifications par email
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-3">
+            <p className="text-sm text-navy-500">
+              Qui reçoit un email à chaque nouvelle demande de contrat ou cotation. Les messages partent de votre
+              propre compte Gmail — les réponses vous reviennent donc directement.
+            </p>
+            <EmailModuleCard module="contrat" libelle="Demandes de contrat" />
+            <EmailModuleCard module="cotation" libelle="Cotations" />
           </CardContent>
         </Card>
       </div>
