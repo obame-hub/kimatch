@@ -131,11 +131,15 @@ Depuis le 03/08/2026, tout changement de schéma passe par le **CLI Supabase et 
 
 Point important avant l'arrêt définitif de Salesforce :
 
-- **Code** : dépôt GitHub privé, poussé à chaque commit → récupérable n'importe où par `git clone`, même si le dossier local est supprimé.
+- **Code** : dépôt GitHub, poussé à chaque commit → récupérable n'importe où par `git clone`, même si le dossier local est supprimé.
+
+> **Dépôt officiel depuis le 06/08/2026 : [`obame-hub/kimatch`](https://github.com/obame-hub/kimatch)**, sur le hub d'entreprise. C'est **lui seul qui déclenche le déploiement Vercel** — pousser ailleurs ne met rien en ligne.
+> `naoelleghouma/kiwee-os` reste comme miroir historique (remote `perso` en local) mais n'est plus la référence.
+> ⚠️ Ce dépôt est **public** : ne jamais y commiter de secret, de donnée client ni d'export de base. `.env*` est ignoré, à garder ainsi.
 - **Secrets** (clés API, tokens) : stockés uniquement dans les variables d'environnement Vercel (chiffrées), jamais dans le code ni en local → pas perdus si le PC est supprimé.
 - **Données** : hébergées dans Supabase (AWS eu-west-1), indépendantes de tout poste local.
 - **Sauvegardes automatiques Supabase : actives.** L'organisation Supabase (`obame@kiwee-energie.fr`) est en plan Pro, et le projet `kiwee-mvp` a bien des sauvegardes quotidiennes planifiées (confirmé le 20/07/2026 sur Database → Backups), restaurables à tout moment.
-- **⚠️ Comptes personnels vs comptes KiWee.** Le dépôt GitHub (`naoelleghouma/kiwee-os`) et le projet Vercel (`naoelle-s-projects`) sont sur les comptes **personnels** de Naoëlle, pas sur une organisation KiWee. Risque de continuité business : si l'accès à ces comptes personnels est perdu (départ, oubli, etc.), KiWee peut perdre l'accès au code/déploiement. **Recommandé : transférer le repo GitHub et le projet Vercel vers une organisation KiWee dès que possible.**
+- **✅ Dépôt GitHub transféré sur le hub d'entreprise** (`obame-hub/kimatch`, 06/08/2026) — le risque de continuité côté code est levé. **Reste à faire : le projet Vercel est encore sur le compte personnel `naoelle-s-projects`.** Si l'accès à ce compte est perdu, KiWee garde le code mais perd le déploiement, le domaine et surtout **toutes les variables d'environnement** (clé RSA DocuSign, clés Ellisphere, secrets Gmail/Slack) qui n'existent nulle part ailleurs. À transférer vers une organisation Vercel KiWee.
 - **Recommandé également** : conserver une copie des secrets critiques (clé RSA DocuSign, clés Ellisphere, etc.) dans un coffre-fort partagé de l'équipe (password manager professionnel), pas uniquement dans Vercel — pour ne pas dépendre d'un seul accès en cas de perte.
 
 ### Nom de domaine
