@@ -224,7 +224,10 @@ export function ContratWizard({
       prix_molecule_eur_mwh: Number(montant),
       recommandation_id: reco.id,
       version_recommandation_id: reco.versions.find((v) => v.version_actuelle)?.id ?? null,
-      renegociation_anticipee: renegociation,
+      // UN SEUL champ pour la renégociation. J'avais écrit les deux (`renegociation_anticipee` ET
+      // la clause), reproduisant exactement la confusion de Tools que la doc du projet dit de ne
+      // pas reproduire. On garde `clause_renegociation_anticipee`, qui préexistait et fait partie
+      // de la famille des 6 clauses affichées ensemble sur la fiche contrat.
       clauses: renegociationProposee ? { clause_renegociation_anticipee: renegociation } : undefined,
     })
 

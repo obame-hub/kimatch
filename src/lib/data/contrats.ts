@@ -151,8 +151,6 @@ interface CreateContratInput {
   recommandation_id?: string | null
   /** Version (cotation) retenue qui a abouti à cette demande. */
   version_recommandation_id?: string | null
-  /** Demande marquée « Renégociation anticipée » -- toggle de l'étape Préférences. */
-  renegociation_anticipee?: boolean
   /** Statut affiché côté cache local, le temps que la liste se rafraîchisse. */
   statut_code?: string
 }
@@ -219,7 +217,6 @@ export function useCreateContrat() {
           strategie_tarifaire: input.strategie_tarifaire ?? 'marge_fixe',
           prix_molecule_eur_mwh: input.prix_molecule_eur_mwh ?? null,
           ...(input.clauses ?? {}),
-          renegociation_anticipee: input.renegociation_anticipee ?? false,
           ...(input.recommandation_id ? { recommandation_id: input.recommandation_id } : {}),
           ...(input.version_recommandation_id ? { version_recommandation_id: input.version_recommandation_id } : {}),
           ...(input.type_energie_id ? { type_energie_id: input.type_energie_id } : {}),
