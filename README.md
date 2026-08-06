@@ -139,7 +139,7 @@ Point important avant l'arrêt définitif de Salesforce :
 - **Secrets** (clés API, tokens) : stockés uniquement dans les variables d'environnement Vercel (chiffrées), jamais dans le code ni en local → pas perdus si le PC est supprimé.
 - **Données** : hébergées dans Supabase (AWS eu-west-1), indépendantes de tout poste local.
 - **Sauvegardes automatiques Supabase : actives.** L'organisation Supabase (`obame@kiwee-energie.fr`) est en plan Pro, et le projet `kiwee-mvp` a bien des sauvegardes quotidiennes planifiées (confirmé le 20/07/2026 sur Database → Backups), restaurables à tout moment.
-- **✅ Dépôt GitHub transféré sur le hub d'entreprise** (`obame-hub/kimatch`, 06/08/2026) — le risque de continuité côté code est levé. **Reste à faire : le projet Vercel est encore sur le compte personnel `naoelle-s-projects`.** Si l'accès à ce compte est perdu, KiWee garde le code mais perd le déploiement, le domaine et surtout **toutes les variables d'environnement** (clé RSA DocuSign, clés Ellisphere, secrets Gmail/Slack) qui n'existent nulle part ailleurs. À transférer vers une organisation Vercel KiWee.
+- **✅ Continuité assurée côté code ET déploiement** (06/08/2026) : le dépôt GitHub est sur le hub d'entreprise (`obame-hub/kimatch`) et le projet Vercel est lui aussi sur le compte de l'entreprise, plus sur un compte personnel. Le risque de perte d'accès évoqué dans les versions précédentes de ce README est levé.
 - **Recommandé également** : conserver une copie des secrets critiques (clé RSA DocuSign, clés Ellisphere, etc.) dans un coffre-fort partagé de l'équipe (password manager professionnel), pas uniquement dans Vercel — pour ne pas dépendre d'un seul accès en cas de perte.
 
 ### Nom de domaine
