@@ -14,7 +14,10 @@ const CONCURRENCY = 4
 export async function fetchAllRows<T>(table: string, selectString: string, configure?: (query: any) => any): Promise<T[]> {
   const apply = configure ?? ((q: any) => q) // eslint-disable-line @typescript-eslint/no-explicit-any
 
-  const { count, error: countError } = await apply(supabase.from(table).select('id', { count: 'exact', head: true }))
+  // `*` et non `id` : les tables de liaison à clé primaire composite (recommandations_compteurs,
+  // versions_recommandation_durees…) n'ont pas de colonne `id` et PostgREST répondait 400, ce qui
+  // faisait échouer toute leur lecture. `head: true` ne renvoie aucune ligne, `*` ne coûte donc rien.
+  const { count, error: countError } = await apply(supabase.from(table).select('*', { count: 'exact', head: true }))
   if (countError) throw countError
 
   const total = count ?? 0
