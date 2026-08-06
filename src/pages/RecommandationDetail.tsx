@@ -180,7 +180,10 @@ function CotationWizard({ open, onClose, reco }: { open: boolean; onClose: () =>
   }
 
   async function handleValider() {
-    const motif = (motifsRef ?? []).find((m) => /actualis/i.test(m.code)) ?? (motifsRef ?? [])[0]
+    // La toute première cotation est une « Création initiale », pas une actualisation -- c'est
+    // d'ailleurs ce que porte tout l'historique repris de Salesforce.
+    const codeMotif = estActualisation ? 'ACTUALISATION_MARCHE' : 'CREATION_INITIALE'
+    const motif = (motifsRef ?? []).find((m) => m.code === codeMotif) ?? (motifsRef ?? [])[0]
     const statutBrouillon = (statutsVersionsRef ?? []).find((s) => s.code === 'BROUILLON')
     const typeOptim = (typesOptimisationsRef ?? []).find((t) => t.code === MISE_EN_CONCURRENCE)
     const etapeEnAnalyse = (etapesRef ?? []).find((e) => e.code === 'EN_ANALYSE')

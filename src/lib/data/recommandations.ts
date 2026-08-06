@@ -533,10 +533,17 @@ export function useCreateVersion() {
       const { data: statutRemplacee } = await supabase.from('statuts_versions_recommandation').select('id').eq('code', 'REMPLACEE').maybeSingle()
       const { data: versionsExistantes } = await supabase
         .from('versions_recommandation')
-        .select('id, version_actuelle, statut:statuts_versions_recommandation(code)')
+        .select('id, numero_version, version_actuelle, statut:statuts_versions_recommandation(code)')
         .eq('recommandation_id', input.recommandation_id)
 
       const estActualisation = (versionsExistantes ?? []).length > 0
+      // Numérotation continue par recommandation : on repart du plus grand numéro existant plutôt
+      // que du nombre de versions, pour ne pas réattribuer un numéro déjà utilisé si l'une a été
+      // supprimée.
+      const numeroVersion = Math.max(
+        0,
+        ...(versionsExistantes ?? []).map((v) => (v as { numero_version?: number }).numero_version ?? 0),
+      ) + 1
       const aTraiter = (versionsExistantes ?? []).filter((v) => {
         const code = (v.statut as { code: string } | { code: string }[] | null)
         const c = Array.isArray(code) ? code[0]?.code : code?.code
@@ -545,7 +552,7 @@ export function useCreateVersion() {
       if (aTraiter.length > 0 && statutRemplacee) {
         await supabase
           .from('versions_recommandation')
-          .update({ version_actuelle: false, ...(statutRemplacee ? { statut_id: statutRemplacee.id } : {}) })
+          .update({ version_actuelle: false, ...(statutRemplacee ? { statut_version_id: statutRemplacee.id } : {}) })
           .in('id', aTraiter.map((v) => v.id))
       }
 
@@ -560,8 +567,15 @@ export function useCreateVersion() {
           date_creation: new Date().toISOString(),
           types_prix: input.types_prix,
           date_souhaitee: input.date_souhaitee,
-          ...(input.motif_id ? { motif_id: input.motif_id } : {}),
-          ...(input.statut_brouillon_id ? { statut_id: input.statut_brouillon_id } : {}),
+          // Colonnes NOT NULL sans valeur par défaut : la version n'a jamais pu être créée sans
+          // elles. `numero_version` et `nom` n'étaient pas fournis du tout, et les deux clés
+          // étrangères portaient de mauvais noms (`motif_id`/`statut_id` au lieu de
+          // `motif_version_id`/`statut_version_id`) — d'où l'erreur PostgREST « Could not find the
+          // 'motif_id' column ... in the schema cache », vue en production le 06/08/2026.
+          numero_version: numeroVersion,
+          nom: `Version ${numeroVersion}`,
+          ...(input.motif_id ? { motif_version_id: input.motif_id } : {}),
+          ...(input.statut_brouillon_id ? { statut_version_id: input.statut_brouillon_id } : {}),
         })
         .select('id')
         .single()
