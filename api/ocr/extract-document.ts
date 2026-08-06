@@ -13,7 +13,7 @@ Champs communs :
 - reference_fournisseur: numéro de contrat, de référence, de facture ou d'offre mentionné sur le document (texte)
 - fournisseur_nom: nom du fournisseur d'énergie (facture/contrat) ou du prestataire/cabinet mandataire (mandat)
 - type_energie: STRICTEMENT "electricite" ou "gaz" si identifiable, sinon null
-- numero_pdl: numéro de PDL/PRM (électricité, 14 chiffres) ou PCE (gaz, "GI" + 6 chiffres). Sur une facture c'est souvent libellé "Point de livraison", "PRM", "PDL", "Point de comptage et d'estimation" ou "PCE".
+- numero_pdl: identifiant du point de comptage. En électricité, PDL/PRM à 14 chiffres. En gaz, PCE — le plus souvent 14 chiffres lui aussi, parfois "GI" suivi de 6 chiffres. Sur les documents c'est libellé "Point de livraison", "PRM", "PDL", "Point de Comptage et d'Estimation" ou "PCE". Retourne le numéro tel quel, sans espaces, sans jamais le tronquer ni le reformater.
 - date_signature: date de signature du document (format YYYY-MM-DD)
 - date_debut: date de début d'effet / de validité du contrat ou du mandat (format YYYY-MM-DD)
 - date_fin: date de fin / d'échéance / de fin de contrat (format YYYY-MM-DD)

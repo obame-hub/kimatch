@@ -133,6 +133,11 @@ function CreateContratDialog({ open, onClose }: { open: boolean; onClose: () => 
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [compteurIds])
 
+  // Un contrat sans compteur n'a aucun périmètre : Tools refuse carrément d'ouvrir le wizard
+  // (« Aucun point de livraison … Impossible de créer une demande de contrat »). Kimatch laissait
+  // créer un contrat vide, invisible ensuite dans la couverture des sites.
+  const canSubmit = !!siteId && compteurIds.length > 0 && !receptionInvalide
+
   function reset() {
     setSiteId('')
     setFournisseurId('')
@@ -306,7 +311,7 @@ function CreateContratDialog({ open, onClose }: { open: boolean; onClose: () => 
             {compteursDuSite.length === 0 ? (
               <p className="text-xs text-navy-400">Ce site n'a aucun compteur.</p>
             ) : (
-              <div className="max-h-32 space-y-1 overflow-y-auto rounded-lg border border-navy-200 p-2">
+              <div className={`max-h-32 space-y-1 overflow-y-auto rounded-lg border p-2 ${compteurIds.length === 0 ? 'border-amber-500 bg-amber-50/40' : 'border-navy-200'}`}>
                 {compteursDuSite.map((c) => (
                   <label key={c.id} className="flex items-center gap-2 text-sm text-navy-700">
                     <input type="checkbox" checked={compteurIds.includes(c.id)} onChange={() => toggleCompteur(c.id)} />
@@ -314,6 +319,9 @@ function CreateContratDialog({ open, onClose }: { open: boolean; onClose: () => 
                   </label>
                 ))}
               </div>
+            )}
+            {compteurIds.length === 0 && compteursDuSite.length > 0 && (
+              <p className="mt-1 text-xs text-amber-700">Sélectionne au moins un compteur : un contrat sans périmètre ne couvre rien.</p>
             )}
           </FormField>
         )}
@@ -336,7 +344,7 @@ function CreateContratDialog({ open, onClose }: { open: boolean; onClose: () => 
         {feedback && <p className="text-xs text-navy-500">{feedback}</p>}
         <div className="flex justify-end gap-2 border-t border-navy-100 pt-3">
           <Button type="button" variant="ghost" onClick={() => { reset(); onClose() }}>Annuler</Button>
-          <Button type="submit" disabled={createContrat.isPending}>Créer le contrat</Button>
+          <Button type="submit" disabled={createContrat.isPending || !canSubmit}>Créer le contrat</Button>
         </div>
       </form>
     </Dialog>

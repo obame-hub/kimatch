@@ -189,9 +189,12 @@ export function findCompteurByNumero(compteurs: Compteur[], numeroPdl: string): 
   return compteurs.find((c) => c.numero_pdl === n) ?? null
 }
 
-/** Format PDL (14 chiffres, PRM électricité) ou PCE gaz (`GI` + 6 chiffres) -- même regex que
- * Tools, mais toujours en alerte visible, jamais en blocage (contrairement au chemin extraction
- * IA de Tools qui bloque dur sur ce même motif). */
+/** Format PDL (14 chiffres, PRM électricité) ou PCE gaz -- même regex que Tools, mais toujours en
+ * alerte visible, jamais en blocage (contrairement au chemin extraction IA de Tools qui bloque dur
+ * sur ce même motif).
+ * ⚠️ Un PCE gaz fait le plus souvent 14 chiffres lui aussi (vu en réel : PCE 19145151868513), et
+ * non « GI + 6 chiffres » comme le laissait entendre l'ancien commentaire — les deux formes sont
+ * couvertes par la regex, mais ne pas se fier au préfixe GI pour distinguer gaz et électricité. */
 export const PDL_FORMAT_RE = /^(\d{14}|GI\d{6})$/
 
 interface CreateCompteurResult {
