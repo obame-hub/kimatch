@@ -1,4 +1,5 @@
 import { createContext, useContext, useEffect, useState, type ReactNode } from 'react'
+import { viderCacheAcces } from '@/lib/data/roles'
 import type { Session } from '@supabase/supabase-js'
 import { supabase } from '@/lib/supabase'
 
@@ -21,6 +22,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setLoading(false)
     })
     const { data: listener } = supabase.auth.onAuthStateChange((_event, newSession) => {
+      // Le rôle, les permissions et le périmètre de comptes visibles sont mis en cache pour la
+      // session (voir `fetchCurrentAccess`). Les vider à CHAQUE bascule est indispensable :
+      // sans cela, l'utilisateur suivant hériterait des droits du précédent.
+      viderCacheAcces()
       setSession(newSession)
     })
     return () => listener.subscription.unsubscribe()

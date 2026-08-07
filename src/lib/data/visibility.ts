@@ -5,7 +5,26 @@ import { fetchCurrentAccess } from '@/lib/data/roles'
 // (SUPER_ADMIN/ADMIN) voit tout, tout le monde d'autre ne voit que les comptes qui lui
 // sont explicitement assignés. `null` = aucune restriction (voit tout) ; sinon la liste
 // des compte_id autorisés (peut être vide = ne voit aucun compte).
-export async function fetchComptesVisibles(): Promise<string[] | null> {
+// Même raison et mêmes précautions que `fetchCurrentAccess` : onze modules appellent cette
+// fonction au montage d'un écran, pour un résultat identique. Vidé par `viderCacheAcces`.
+let cacheComptesVisibles: Promise<string[] | null> | null = null
+
+/** Vide le cache du périmètre de visibilité. Appelé par `viderCacheAcces`. */
+export function viderCacheVisibilite() {
+  cacheComptesVisibles = null
+}
+
+export function fetchComptesVisibles(): Promise<string[] | null> {
+  if (!cacheComptesVisibles) {
+    cacheComptesVisibles = calculerComptesVisibles().catch((err) => {
+      cacheComptesVisibles = null
+      throw err
+    })
+  }
+  return cacheComptesVisibles
+}
+
+async function calculerComptesVisibles(): Promise<string[] | null> {
   const { data: userData } = await supabase.auth.getUser()
   if (!userData.user) return []
 

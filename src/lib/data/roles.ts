@@ -1,4 +1,5 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
+import { viderCacheVisibilite } from '@/lib/data/visibility'
 import { supabase } from '@/lib/supabase'
 
 export interface RoleAcces {
@@ -221,7 +222,40 @@ export interface CurrentAccess {
   permissions: Set<string>
 }
 
-export async function fetchCurrentAccess(): Promise<CurrentAccess> {
+// Cache de session pour le rôle et les permissions de l'utilisateur connecté.
+//
+// `fetchComptesVisibles` appelle cette fonction, et ONZE modules de données appellent
+// `fetchComptesVisibles` (comptes, sites, contacts, compteurs, contrats, mandats, documents,
+// interactions, signaux, actions, recommandations). Sans cache, afficher une fiche compte
+// déclenchait 21 requêtes de permissions pour un résultat identique à chaque fois
+// (mesuré en production le 06/08/2026).
+//
+// On mémorise la PROMESSE, pas seulement le résultat : les onze appels partent en parallèle au
+// montage, et sans cela ils se lanceraient tous avant que le premier n'ait répondu.
+//
+// SÉCURITÉ : ce cache porte des droits d'accès. Il DOIT être vidé à toute bascule de session,
+// sinon l'utilisateur suivant hériterait des permissions du précédent. Voir `viderCacheAcces`,
+// appelé depuis le listener `onAuthStateChange` de `lib/auth`.
+let cacheAcces: Promise<CurrentAccess> | null = null
+
+/** Vide le cache des droits ET du périmètre de visibilité, qui en dépend.
+ * À appeler à chaque changement d'utilisateur ou de session. */
+export function viderCacheAcces() {
+  cacheAcces = null
+  viderCacheVisibilite()
+}
+
+export function fetchCurrentAccess(): Promise<CurrentAccess> {
+  if (!cacheAcces) {
+    cacheAcces = calculerCurrentAccess().catch((err) => {
+      cacheAcces = null // un échec ne doit pas être mémorisé
+      throw err
+    })
+  }
+  return cacheAcces
+}
+
+async function calculerCurrentAccess(): Promise<CurrentAccess> {
   const empty: CurrentAccess = { roleCode: null, roleLibelle: null, permissions: new Set() }
   const { data: userData } = await supabase.auth.getUser()
   if (!userData.user) return empty
