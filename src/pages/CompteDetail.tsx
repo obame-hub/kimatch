@@ -779,14 +779,20 @@ export default function CompteDetail() {
         onSaved={() => showToast('✓ Fichier ajouté')}
       />
 
+      {/* Monté seulement à l'ouverture : ce dialogue charge TOUS les contacts et TOUS les
+          compteurs (il doit détecter un PDL déjà existant ailleurs dans le CRM). Monté en
+          permanence, il faisait payer ces deux tables à chaque affichage d'une fiche compte —
+          même piège que le wizard de cotation. */}
+      {addCompteurOpen && (
       <AddCompteurAutoSiteDialog
-        open={addCompteurOpen}
+        open
         onClose={() => setAddCompteurOpen(false)}
         compte={compte}
         sites={sites ?? []}
         methode={pdlMethode}
         onSaved={(message) => showToast(message)}
       />
+      )}
 
       {/* Choix de la méthode avant le formulaire PDL, comme Tools. La méthode choisie est
           transmise au dialogue : en « extraction », le dépôt de facture s'ouvre d'emblée. */}
