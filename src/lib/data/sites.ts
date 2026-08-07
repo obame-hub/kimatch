@@ -42,15 +42,24 @@ async function fetchSites(compteId?: string): Promise<Site[]> {
   const restreindre = (q: any) => (compteId ? q.eq('compte_id', compteId) : q)
 
   try {
-    const [sites, compteursRows, signauxRows] = await Promise.all([
-      fetchAllRows<RawSite>(
-        'sites',
-        'id, compte_id, nom, adresse, ville, code_postal, actif, compte:comptes(nom), type_site:types_sites(libelle)',
-        (q) => restreindre(q).order('nom'),
-      ),
-      fetchAllRows<{ site_id: string }>('compteurs', 'site_id'),
-      fetchAllRows<{ site_id: string; statut: { est_cloture: boolean } | null }>('signaux', 'site_id, statut:statuts_signaux(est_cloture)'),
-    ])
+    // Les sites d'abord : quand on filtre par compte, leurs identifiants servent à restreindre
+    // aussi les agrégats. Sans cela, afficher les 7 sites d'un compte chargeait quand même les
+    // 7884 compteurs et tous les signaux du CRM juste pour en compter quelques-uns par site.
+    const sites = await fetchAllRows<RawSite>(
+      'sites',
+      'id, compte_id, nom, adresse, ville, code_postal, actif, compte:comptes(nom), type_site:types_sites(libelle)',
+      (q) => restreindre(q).order('nom'),
+    )
+    const idsSites = sites.map((s) => s.id)
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const surCesSites = (q: any) => (compteId ? q.in('site_id', idsSites) : q)
+
+    const [compteursRows, signauxRows] = compteId && idsSites.length === 0
+      ? [[], []]
+      : await Promise.all([
+          fetchAllRows<{ site_id: string }>('compteurs', 'site_id', surCesSites),
+          fetchAllRows<{ site_id: string; statut: { est_cloture: boolean } | null }>('signaux', 'site_id, statut:statuts_signaux(est_cloture)', surCesSites),
+        ])
 
     // Colonnes ajoutées ultérieurement (tâche #55) — sélectionnées à part : si elles n'existent
     // pas encore en base, on retombe sur null pour elles sans perdre les vraies données du site.
@@ -59,6 +68,7 @@ async function fetchSites(compteId?: string): Promise<Site[]> {
       const extraRows = await fetchAllRows<RawSiteExtra>(
         'sites',
         'id, latitude, longitude, annee_construction, surface_m2, date_derniere_ag, proprietaire_id, proprietaire:profils!sites_proprietaire_id_fkey(prenom, nom), date_creation, date_modification, rue, departement_code, departement_nom',
+        restreindre,
       )
       for (const e of extraRows) extraParSite.set(e.id, e)
     } catch {

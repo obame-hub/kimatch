@@ -14,17 +14,11 @@ const CONCURRENCY = 4
 export async function fetchAllRows<T>(table: string, selectString: string, configure?: (query: any) => any): Promise<T[]> {
   const apply = configure ?? ((q: any) => q) // eslint-disable-line @typescript-eslint/no-explicit-any
 
-  // `*` et non `id` : les tables de liaison à clé primaire composite (recommandations_compteurs,
-  // versions_recommandation_durees…) n'ont pas de colonne `id` et PostgREST répondait 400, ce qui
-  // faisait échouer toute leur lecture. `head: true` ne renvoie aucune ligne, `*` ne coûte donc rien.
-  const { count, error: countError } = await apply(supabase.from(table).select('*', { count: 'exact', head: true }))
-  if (countError) throw countError
-
-  const total = count ?? 0
-  const pageStarts: number[] = []
-  for (let from = 0; from < total; from += PAGE_SIZE) pageStarts.push(from)
-  if (pageStarts.length === 0) return []
-
+  // Plus de comptage préalable. Le `HEAD ... count=exact` que faisait cette fonction renvoyait
+  // des 503 sur les grosses tables (mesuré en production le 06/08/2026 sur `compteurs` : chaque
+  // comptage échouait puis était retenté, d'où 29 requêtes pour charger une table de 8 pages).
+  // On avance par vagues et on s'arrête dès qu'une vague revient incomplète : une requête de
+  // moins par table, et plus de comptage à faire échouer.
   async function fetchPage(from: number, attempt = 0): Promise<T[]> {
     const { data, error } = await apply(supabase.from(table).select(selectString)).range(from, from + PAGE_SIZE - 1)
     if (error) {
@@ -35,14 +29,14 @@ export async function fetchAllRows<T>(table: string, selectString: string, confi
     return (data ?? []) as T[]
   }
 
-  const results: T[][] = new Array(pageStarts.length)
-  let nextIndex = 0
-  async function worker() {
-    while (nextIndex < pageStarts.length) {
-      const idx = nextIndex++
-      results[idx] = await fetchPage(pageStarts[idx])
-    }
+  const tout: T[] = []
+  for (let vague = 0; ; vague += 1) {
+    const departs = Array.from({ length: CONCURRENCY }, (_, i) => (vague * CONCURRENCY + i) * PAGE_SIZE)
+    const pages = await Promise.all(departs.map((from) => fetchPage(from)))
+    for (const page of pages) tout.push(...page)
+    // Une page plus courte que PAGE_SIZE signifie qu'on a atteint la fin de la table.
+    if (pages.some((page) => page.length < PAGE_SIZE)) return tout
+    // Garde-fou : 200 pages = 200 000 lignes, très au-delà de nos plus grosses tables.
+    if (vague > 50) return tout
   }
-  await Promise.all(Array.from({ length: Math.min(CONCURRENCY, pageStarts.length) }, worker))
-  return results.flat()
 }
