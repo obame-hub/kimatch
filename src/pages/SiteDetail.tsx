@@ -962,7 +962,7 @@ function AddCompteurDialog({
   const draftsIncomplets = drafts.some((d) => {
     if (d.status === 'saved' || d.status === 'saving') return false
     const code = energies.find((e) => e.id === d.typeEnergieId)?.code?.toLowerCase()
-    return champsPdlManquants(d, code !== 'gaz').size > 0
+    return champsPdlManquants(d, code !== 'gaz', true).size > 0
   })
 
   function reset() {
@@ -1046,6 +1046,7 @@ function AddCompteurDialog({
           }
         />
         <PdlDraftRows
+          siteImpose
           drafts={drafts}
           onChange={patchDraft}
           onRemove={(key) => setDrafts((prev) => prev.filter((d) => d.key !== key))}

@@ -1,10 +1,13 @@
-import { AlertTriangle, Trash2, Plus } from 'lucide-react'
+import { AlertTriangle, Trash2, Plus, CheckCircle2 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { FormField, Input, Select } from '@/components/ui/form'
 import { ContactPicker } from '@/components/contact/ContactPicker'
+import { AddressAutocomplete } from '@/components/ui/address-autocomplete'
+import type { Site } from '@/types/domain'
 import type { Compte, Contact } from '@/types/domain'
 import type { ReferenceRow } from '@/lib/data/referenceTables'
 import { PDL_FORMAT_RE, findCompteurByNumero } from '@/lib/data/compteurs'
+import { normalizeTexte } from '@/lib/data/sites'
 import type { Compteur } from '@/types/domain'
 
 let draftKeySeq = 0
@@ -28,6 +31,15 @@ const CLASSES_PUISSANCE_ELEC: { key: string; label: string }[] = [
 export interface PdlDraft {
   key: string
   typeEnergieId: string
+  // Site : un simple libellé + son adresse, saisis DANS le formulaire du PDL. Décision de William
+  // (réunion du 06/08/2026) : « à la création du compteur ça devrait créer le compteur direct et
+  // pas le site — le site c'est juste un libellé ». L'objet Site existe toujours et sera créé (ou
+  // retrouvé) automatiquement à l'enregistrement, mais il ne fait plus l'objet d'une étape à part.
+  // Même disposition que Tools, où « Libellé du site » et l'adresse sont des champs du PDL.
+  libelleSite: string
+  adresse: string
+  ville: string
+  codePostal: string
   numeroPdl: string
   utilisation: string
   typeUtilisationId: string
@@ -52,6 +64,10 @@ export function emptyPdlDraft(): PdlDraft {
   return {
     key: nextDraftKey(),
     typeEnergieId: '',
+    libelleSite: '',
+    adresse: '',
+    ville: '',
+    codePostal: '',
     numeroPdl: '',
     utilisation: '',
     typeUtilisationId: '',
@@ -73,8 +89,15 @@ export function emptyPdlDraft(): PdlDraft {
  * (computeRequiredFields) : numéro + responsable toujours, puis segment/tension/utilisation +
  * puissances pour l'élec (PS Unique si C5, sinon les 5 classes), tarif/profil/CAR pour le gaz.
  * Sert à la fois au surlignage des champs et au blocage de l'enregistrement. */
-export function champsPdlManquants(d: PdlDraft, estElectricite: boolean): Set<string> {
+export function champsPdlManquants(d: PdlDraft, estElectricite: boolean, siteImpose = false): Set<string> {
   const manquants = new Set<string>()
+  // Le site est saisi dans le formulaire du PDL (décision William 06/08/2026), sauf quand on part
+  // déjà d'une fiche site -- dans ce cas il est connu et les champs ne sont même pas affichés.
+  if (!siteImpose) {
+    if (!d.libelleSite.trim()) manquants.add('libelleSite')
+    if (!d.ville.trim()) manquants.add('ville')
+    if (!d.codePostal.trim()) manquants.add('codePostal')
+  }
   if (!d.numeroPdl.trim()) manquants.add('numeroPdl')
   if (!d.responsableContactId) manquants.add('responsableContactId')
   if (!d.typeEnergieId) {
@@ -195,6 +218,34 @@ export function buildDraftCharacteristics(d: PdlDraft, estElectricite: boolean) 
   }
 }
 
+/**
+ * Retrouve le site du compte qui correspond à la saisie, pour éviter d'en créer un doublon.
+ *
+ * Remplace l'ancien écran de désambiguïsation : Kimatch ne demande plus à l'utilisateur de choisir
+ * entre plusieurs sites candidats. Le rapprochement est volontairement STRICT (même libellé, ou
+ * même adresse exacte) : en cas de doute on crée un nouveau site plutôt que de rattacher un
+ * compteur au mauvais endroit -- une erreur bien plus coûteuse qu'un site en double.
+ */
+export function trouverSiteExistant(sites: Site[], compteId: string, d: PdlDraft): Site | null {
+  const duCompte = sites.filter((s) => s.compte_id === compteId)
+  const libelle = normalizeTexte(d.libelleSite)
+  const ville = normalizeTexte(d.ville)
+  const cp = d.codePostal.trim()
+  const rue = normalizeTexte(d.adresse)
+
+  if (libelle) {
+    const parNom = duCompte.find((s) => normalizeTexte(s.nom) === libelle)
+    if (parNom) return parNom
+  }
+  if (rue && ville && cp) {
+    const parAdresse = duCompte.find(
+      (s) => normalizeTexte(s.rue ?? '') === rue && normalizeTexte(s.ville) === ville && s.code_postal.trim() === cp,
+    )
+    if (parAdresse) return parAdresse
+  }
+  return null
+}
+
 export function PdlDraftRows({
   drafts,
   onChange,
@@ -209,6 +260,8 @@ export function PdlDraftRows({
   compteNom,
   compteSegment,
   existingCompteurs,
+  sites = [],
+  siteImpose = false,
 }: {
   drafts: PdlDraft[]
   onChange: (key: string, patch: Partial<PdlDraft>) => void
@@ -225,6 +278,10 @@ export function PdlDraftRows({
   compteNom: string
   compteSegment?: string | null
   existingCompteurs: Compteur[]
+  /** Sites du compte -- sert à retrouver un site existant au lieu d'en créer un doublon. */
+  sites?: Site[]
+  /** Vrai quand on part déjà d'une fiche site : le site est connu, on masque ses champs. */
+  siteImpose?: boolean
 }) {
   return (
     <div className="space-y-4">
@@ -236,7 +293,9 @@ export function PdlDraftRows({
         const formatSuspect = numero.length > 0 && !PDL_FORMAT_RE.test(numero.toUpperCase())
         const locked = d.status === 'saved' || d.status === 'saving'
         // Champs requis encore vides -- surlignés en ambre tant qu'ils ne sont pas remplis (Tools).
-        const manquants = locked ? new Set<string>() : champsPdlManquants(d, estElectricite)
+        const manquants = locked ? new Set<string>() : champsPdlManquants(d, estElectricite, siteImpose)
+        // Site existant correspondant à la saisie -- on le signale plutôt que de créer un doublon.
+        const siteExistant = siteImpose ? null : trouverSiteExistant(sites, compteId, d)
         const kManque = (f: string) => (manquants.has(f) ? CLASSE_MANQUANT : undefined)
 
         return (
@@ -250,6 +309,45 @@ export function PdlDraftRows({
               )}
             </div>
             <fieldset disabled={locked} className="space-y-3 disabled:opacity-60">
+              {/* Site : un libellé et une adresse, sans étape dédiée. Le site est retrouvé ou créé
+                  automatiquement à l'enregistrement. Masqué quand on part déjà d'une fiche site. */}
+              {!siteImpose && (
+                <div className="space-y-3 rounded-lg border border-navy-100 bg-navy-50/40 p-3">
+                  <FormField label="Libellé du site" required>
+                    <Input
+                      value={d.libelleSite}
+                      onChange={(e) => onChange(d.key, { libelleSite: e.target.value })}
+                      placeholder="Ex. Résidence Les Tilleuls"
+                      className={kManque('libelleSite')}
+                    />
+                  </FormField>
+                  <FormField label="Adresse">
+                    <AddressAutocomplete
+                      value={d.adresse}
+                      onChange={(v) => onChange(d.key, { adresse: v })}
+                      onSelect={(a) => onChange(d.key, {
+                        adresse: a.rue ?? a.label,
+                        ...(a.codePostal ? { codePostal: a.codePostal } : {}),
+                        ...(a.ville ? { ville: a.ville } : {}),
+                      })}
+                    />
+                  </FormField>
+                  <div className="grid grid-cols-2 gap-3">
+                    <FormField label="Ville" required>
+                      <Input value={d.ville} onChange={(e) => onChange(d.key, { ville: e.target.value })} className={kManque('ville')} />
+                    </FormField>
+                    <FormField label="Code postal" required>
+                      <Input value={d.codePostal} onChange={(e) => onChange(d.key, { codePostal: e.target.value })} className={kManque('codePostal')} />
+                    </FormField>
+                  </div>
+                  {siteExistant && (
+                    <p className="flex items-start gap-1.5 text-[11px] text-kiwi-700">
+                      <CheckCircle2 className="mt-0.5 h-3 w-3 shrink-0" />
+                      Sera rattaché au site existant « {siteExistant.nom} ».
+                    </p>
+                  )}
+                </div>
+              )}
               <div className="grid grid-cols-2 gap-3">
                 <FormField label="Type d'énergie" required>
                   <Select value={d.typeEnergieId} onChange={(e) => onChange(d.key, { typeEnergieId: e.target.value, typeUtilisationId: '' })} required className={kManque('typeEnergieId')}>

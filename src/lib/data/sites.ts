@@ -230,7 +230,7 @@ export function useUpdateSitePartiel() {
   })
 }
 
-function normalizeTexte(s: string): string {
+export function normalizeTexte(s: string): string {
   return s
     .normalize('NFD')
     .replace(/[\u0300-\u036f]/g, '')

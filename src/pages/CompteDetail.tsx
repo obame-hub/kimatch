@@ -35,8 +35,7 @@ import { CreateRecommandationDialog } from '@/pages/Recommandations'
 import { FormField, Input, Select, Textarea } from '@/components/ui/form'
 import { HistoriqueDiscret } from '@/components/ui/historique-discret'
 import { InlineField } from '@/components/ui/inline-field'
-import { AddressAutocomplete } from '@/components/ui/address-autocomplete'
-import { PdlDraftRows, emptyPdlDraft, buildDraftCharacteristics, champsPdlManquants, applyExtractionToDraft, type PdlDraft, type ExtractedField } from '@/components/compteur/PdlDraftRows'
+import { PdlDraftRows, emptyPdlDraft, buildDraftCharacteristics, champsPdlManquants, applyExtractionToDraft, trouverSiteExistant, type PdlDraft, type ExtractedField } from '@/components/compteur/PdlDraftRows'
 import { MandatChainPrompt, type ChainedCompteur } from '@/components/compteur/MandatChainPrompt'
 import {
   useComptes,
@@ -48,7 +47,7 @@ import {
   useUpdateCompteField,
   useDeleteCompte,
 } from '@/lib/data/comptes'
-import { useSites, useCreateSite, matchSitesPourCompteur } from '@/lib/data/sites'
+import { useSites, useCreateSite, normalizeTexte } from '@/lib/data/sites'
 import { useContacts } from '@/lib/data/contacts'
 import { useSignaux } from '@/lib/data/signaux'
 import { useCompteurs, useCreateCompteur } from '@/lib/data/compteurs'
@@ -1567,15 +1566,8 @@ function AddCompteurAutoSiteDialog({
   const createSite = useCreateSite()
   const createCompteur = useCreateCompteur()
 
-  const [step, setStep] = useState<'adresse' | 'ambigu' | 'pdl'>('adresse')
-  const [libelleSite, setLibelleSite] = useState('')
-  const [adresse, setAdresse] = useState('')
-  const [ville, setVille] = useState('')
-  const [codePostal, setCodePostal] = useState('')
-  const [candidats, setCandidats] = useState<Site[]>([])
-  const [choixSiteId, setChoixSiteId] = useState<string>('')
-  const [siteResolu, setSiteResolu] = useState<{ id: string; nom: string } | null>(null)
-  const [siteMessage, setSiteMessage] = useState('')
+  // Plus d'etape « adresse » ni d'ecran de desambiguisation : le site est un simple libelle saisi
+  // dans le formulaire du PDL, resolu ou cree a l'enregistrement (decision William 06/08/2026).
   const [drafts, setDrafts] = useState<PdlDraft[]>([emptyPdlDraft()])
   const [submitting, setSubmitting] = useState(false)
   const [createdCompteurs, setCreatedCompteurs] = useState<ChainedCompteur[] | null>(null)
@@ -1591,11 +1583,20 @@ function AddCompteurAutoSiteDialog({
   function handleFactureExtraite(fields: Record<string, ExtractedField>) {
     setChampsFacture(fields)
     const val = (k: string) => (fields[k]?.value == null ? '' : String(fields[k].value).trim())
-    if (!libelleSite && val('site_nom')) setLibelleSite(val('site_nom'))
-    if (!adresse && val('adresse')) setAdresse(val('adresse'))
-    if (!ville && val('ville')) setVille(val('ville'))
-    if (!codePostal && val('code_postal')) setCodePostal(val('code_postal'))
-    setDrafts((prev) => prev.map((d, i) => (i === 0 ? { ...d, ...applyExtractionToDraft(d, fields, energies, fournisseurs) } : d)))
+    setDrafts((prev) =>
+      prev.map((d, i) => {
+        if (i !== 0) return d
+        return {
+          ...d,
+          ...applyExtractionToDraft(d, fields, energies, fournisseurs),
+          // Site : on ne remplace jamais une saisie deja faite par l'utilisateur.
+          libelleSite: d.libelleSite || val('site_nom'),
+          adresse: d.adresse || val('adresse'),
+          ville: d.ville || val('ville'),
+          codePostal: d.codePostal || val('code_postal'),
+        }
+      }),
+    )
   }
 
   // Un brouillon non encore créé auquel il manque un champ requis bloque l'enregistrement (Tools).
@@ -1606,15 +1607,6 @@ function AddCompteurAutoSiteDialog({
   })
 
   function reset() {
-    setStep('adresse')
-    setLibelleSite('')
-    setAdresse('')
-    setVille('')
-    setCodePostal('')
-    setCandidats([])
-    setChoixSiteId('')
-    setSiteResolu(null)
-    setSiteMessage('')
     setDrafts([emptyPdlDraft()])
     setSubmitting(false)
     setCreatedCompteurs(null)
@@ -1625,65 +1617,45 @@ function AddCompteurAutoSiteDialog({
     setDrafts((prev) => prev.map((d) => (d.key === key ? { ...d, ...patch } : d)))
   }
 
-  async function resoudreEtCreerSite(): Promise<{ id: string; nom: string }> {
-    const nomNouveauSite = libelleSite.trim() || ville.trim() || 'Nouveau site'
+  /** Retrouve le site correspondant au brouillon, ou le cree. Le cache evite de creer plusieurs
+   * fois le meme site quand plusieurs PDL du lot partagent le meme libelle. */
+  async function resoudreSitePourDraft(
+    d: PdlDraft,
+    cache: Map<string, { id: string; nom: string }>,
+  ): Promise<{ id: string; nom: string }> {
+    const cle = `${normalizeTexte(d.libelleSite)}|${normalizeTexte(d.ville)}|${d.codePostal.trim()}`
+    const dejaCree = cache.get(cle)
+    if (dejaCree) return dejaCree
+
+    const existant = trouverSiteExistant(sites, compte.id, d)
+    if (existant) {
+      const site = { id: existant.id, nom: existant.nom }
+      cache.set(cle, site)
+      return site
+    }
+
     const result = await createSite.mutateAsync({
-      nom: nomNouveauSite,
+      nom: d.libelleSite.trim() || d.ville.trim() || 'Nouveau site',
       compte_id: compte.id,
       compte_nom: compte.nom,
       type_site_id: null,
       type_site_libelle: '',
-      adresse,
-      ville,
-      code_postal: codePostal,
+      adresse: d.adresse,
+      ville: d.ville,
+      code_postal: d.codePostal,
     })
+    cache.set(cle, result.site)
     return result.site
-  }
-
-  async function handleSubmitAdresse(e: React.FormEvent) {
-    e.preventDefault()
-    const match = matchSitesPourCompteur(sites, compte.id, ville, codePostal)
-    if (match.kind === 'auto') {
-      setSiteResolu(match.site)
-      setSiteMessage(`✓ Compteur(s) rattaché(s) automatiquement au site « ${match.site.nom} »`)
-      setStep('pdl')
-    } else if (match.kind === 'ambiguous') {
-      setCandidats(match.candidates)
-      setChoixSiteId(match.candidates[0]?.id ?? '')
-      setStep('ambigu')
-    } else {
-      setSubmitting(true)
-      const site = await resoudreEtCreerSite()
-      setSubmitting(false)
-      setSiteResolu(site)
-      setSiteMessage(`✓ Nouveau site « ${site.nom} » créé automatiquement`)
-      setStep('pdl')
-    }
-  }
-
-  async function handleConfirmAmbigu() {
-    if (choixSiteId === '__nouveau__') {
-      setSubmitting(true)
-      const site = await resoudreEtCreerSite()
-      setSubmitting(false)
-      setSiteResolu(site)
-      setSiteMessage(`✓ Nouveau site « ${site.nom} » créé automatiquement`)
-      setStep('pdl')
-    } else {
-      const site = candidats.find((s) => s.id === choixSiteId)
-      if (!site) return
-      setSiteResolu(site)
-      setSiteMessage(`✓ Compteur(s) rattaché(s) au site « ${site.nom} »`)
-      setStep('pdl')
-    }
   }
 
   async function handleSubmitPdl(e: React.FormEvent) {
     e.preventDefault()
-    if (!siteResolu) return
     setSubmitting(true)
     let created = 0
+    let sitesCrees = 0
     const nouveaux: ChainedCompteur[] = []
+    const cacheSites = new Map<string, { id: string; nom: string }>()
+    let dernierSiteNom = ''
     for (const d of drafts) {
       if (d.status === 'saved') continue
       const energieChoisie = energies.find((en) => en.id === d.typeEnergieId)
@@ -1694,9 +1666,15 @@ function AddCompteurAutoSiteDialog({
       const responsable = (contacts ?? []).find((c) => c.id === d.responsableContactId)
       patchDraft(d.key, { status: 'saving' })
       try {
+        // Le site est resolu ici, pas dans une etape prealable : l'utilisateur a saisi un libelle
+        // et une adresse, Kimatch retrouve le site correspondant ou le cree en arriere-plan.
+        const avant = cacheSites.size
+        const site = await resoudreSitePourDraft(d, cacheSites)
+        if (cacheSites.size > avant && !trouverSiteExistant(sites, compte.id, d)) sitesCrees += 1
+        dernierSiteNom = site.nom
         const result = await createCompteur.mutateAsync({
-          site_id: siteResolu.id,
-          site_nom: siteResolu.nom,
+          site_id: site.id,
+          site_nom: site.nom,
           type_energie_id: d.typeEnergieId || null,
           type_energie: typeEnergie,
           numero_pdl: d.numeroPdl,
@@ -1717,7 +1695,11 @@ function AddCompteurAutoSiteDialog({
       }
     }
     setSubmitting(false)
-    if (created > 0) onSaved(`${siteMessage}${created > 1 ? ` (${created} PDL)` : ''}`)
+    if (created > 0) {
+      const quoi = created > 1 ? `${created} PDL créés` : 'PDL créé'
+      const ou = sitesCrees > 0 ? `nouveau site « ${dernierSiteNom} »` : `site « ${dernierSiteNom} »`
+      onSaved(`✓ ${quoi} sur le ${ou}`)
+    }
     setDrafts((prev) => {
       if (prev.every((d) => d.status === 'saved') && nouveaux.length > 0) {
         setCreatedCompteurs(nouveaux)
@@ -1746,77 +1728,25 @@ function AddCompteurAutoSiteDialog({
       onClose={() => { reset(); onClose() }}
       title="Nouveau compteur"
       className="max-w-xl"
-      description={
-        step === 'adresse'
-          ? "Kimatch retrouve ou crée automatiquement le site correspondant à partir de l'adresse."
-          : step === 'ambigu'
-            ? 'Plusieurs sites existants pourraient correspondre — confirme le bon rattachement.'
-            : `Site : ${siteResolu?.nom}`
-      }
+      description="Le site est retrouvé ou créé automatiquement à partir du libellé et de l'adresse."
     >
-      {step === 'adresse' && (
-        <form onSubmit={handleSubmitAdresse} className="space-y-3">
-          {/* Dépôt de facture : c'est ce que promettait « Extraction automatique » sans jamais
-              l'ouvrir. Disponible aussi en saisie manuelle, ça ne coûte rien de le proposer. */}
-          <ExtractDocumentButton
-            onExtracted={handleFactureExtraite}
-            label="Déposer une facture PDF ou un scan"
-            autoOpen={methode === 'extraction'}
-          />
-          {champsFacture && (
-            <p className="flex items-start gap-1.5 text-[11px] text-kiwi-700">
-              <CheckCircle2 className="mt-0.5 h-3 w-3 shrink-0" />
-              Facture analysée — les champs reconnus sont pré-remplis ici et sur le point de livraison. Vérifie-les.
-            </p>
-          )}
-          <FormField label="Libellé du site (si connu)">
-            <Input value={libelleSite} onChange={(e) => setLibelleSite(e.target.value)} placeholder="Ex. Résidence Les Tilleuls" />
-          </FormField>
-          <FormField label="Adresse">
-            <AddressAutocomplete
-              value={adresse}
-              onChange={setAdresse}
-              onSelect={(a) => { setAdresse(a.rue ?? a.label); if (a.codePostal) setCodePostal(a.codePostal); if (a.ville) setVille(a.ville) }}
-            />
-          </FormField>
-          <div className="grid grid-cols-2 gap-3">
-            <FormField label="Ville">
-              <Input value={ville} onChange={(e) => setVille(e.target.value)} required />
-            </FormField>
-            <FormField label="Code postal">
-              <Input value={codePostal} onChange={(e) => setCodePostal(e.target.value)} required />
-            </FormField>
-          </div>
-          <p className="text-[10.5px] text-navy-400">Vérifie que l'adresse correspond bien au site existant avant de valider.</p>
-          <div className="flex justify-end gap-2 pt-2">
-            <Button type="button" variant="ghost" onClick={() => { reset(); onClose() }}>Annuler</Button>
-            <Button type="submit" disabled={submitting}>Continuer</Button>
-          </div>
-        </form>
-      )}
+      <div className="mb-3 space-y-2">
+        {/* Dépôt de facture : ce que promettait « Extraction automatique » sans jamais l'ouvrir.
+            Proposé aussi en saisie manuelle -- ça ne coûte rien. */}
+        <ExtractDocumentButton
+          onExtracted={handleFactureExtraite}
+          label="Déposer une facture PDF ou un scan"
+          autoOpen={methode === 'extraction'}
+        />
+        {champsFacture && (
+          <p className="flex items-start gap-1.5 text-[11px] text-kiwi-700">
+            <CheckCircle2 className="mt-0.5 h-3 w-3 shrink-0" />
+            Facture analysée — les champs reconnus sont pré-remplis ci-dessous. Vérifie-les.
+          </p>
+        )}
+      </div>
 
-      {step === 'ambigu' && (
-        <div className="space-y-3">
-          <div className="max-h-56 space-y-2 overflow-y-auto rounded-lg border border-navy-200 p-2">
-            {candidats.map((s) => (
-              <label key={s.id} className="flex items-center gap-2 rounded-md p-1.5 text-sm text-navy-700 hover:bg-navy-50">
-                <input type="radio" name="site-ambigu" checked={choixSiteId === s.id} onChange={() => setChoixSiteId(s.id)} />
-                <span>{s.nom} <span className="text-navy-400">— {s.ville} ({s.code_postal})</span></span>
-              </label>
-            ))}
-            <label className="flex items-center gap-2 rounded-md border-t border-navy-100 p-1.5 pt-2.5 text-sm text-navy-700 hover:bg-navy-50">
-              <input type="radio" name="site-ambigu" checked={choixSiteId === '__nouveau__'} onChange={() => setChoixSiteId('__nouveau__')} />
-              <span>Créer un nouveau site « {libelleSite.trim() || ville.trim() || 'Nouveau site'} »</span>
-            </label>
-          </div>
-          <div className="flex justify-end gap-2 pt-2">
-            <Button type="button" variant="ghost" onClick={() => setStep('adresse')}>Retour</Button>
-            <Button type="button" disabled={submitting || !choixSiteId} onClick={handleConfirmAmbigu}>Confirmer</Button>
-          </div>
-        </div>
-      )}
-
-      {step === 'pdl' && (
+      {(
         <form onSubmit={handleSubmitPdl} className="max-h-[70vh] space-y-4 overflow-y-auto pr-1">
           <PdlDraftRows
             drafts={drafts}
@@ -1832,6 +1762,7 @@ function AddCompteurAutoSiteDialog({
             compteNom={compte.nom}
             compteSegment={compte.segment}
             existingCompteurs={compteurs ?? []}
+            sites={sites}
           />
           {draftsIncomplets && (
             <p className="flex items-center gap-1.5 text-xs text-amber-700">
