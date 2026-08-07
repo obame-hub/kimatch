@@ -408,18 +408,39 @@ export function PdlDraftRows({
                           />
                         </FormField>
                       ) : (
-                        <div className="grid grid-cols-3 gap-3">
-                          {CLASSES_PUISSANCE_ELEC.map((c) => (
-                            <FormField key={c.key} label={c.label} required>
-                              <Input
-                                type="number"
-                                step="0.1"
-                                value={d.puissanceParClasseKva[c.key] ?? ''}
-                                onChange={(e) => onChange(d.key, { puissanceParClasseKva: { ...d.puissanceParClasseKva, [c.key]: e.target.value } })}
-                                className={kManque(`ps:${c.key}`)}
-                              />
-                            </FormField>
-                          ))}
+                        <div className="space-y-2">
+                          <div className="grid grid-cols-3 gap-3">
+                            {CLASSES_PUISSANCE_ELEC.map((c) => (
+                              <FormField key={c.key} label={c.label} required>
+                                <Input
+                                  type="number"
+                                  step="0.1"
+                                  value={d.puissanceParClasseKva[c.key] ?? ''}
+                                  onChange={(e) => onChange(d.key, { puissanceParClasseKva: { ...d.puissanceParClasseKva, [c.key]: e.target.value } })}
+                                  className={kManque(`ps:${c.key}`)}
+                                />
+                              </FormField>
+                            ))}
+                          </div>
+                          {/* Réclamé par William : la plupart des PDL ont la même puissance sur les
+                              cinq classes, et les ressaisir une par une est fastidieux. On copie
+                              depuis POINTE, la première renseignée dans la pratique. */}
+                          <button
+                            type="button"
+                            onClick={() => {
+                              const source = d.puissanceParClasseKva[CLASSES_PUISSANCE_ELEC[0].key] ?? ''
+                              if (!source.trim()) return
+                              onChange(d.key, {
+                                puissanceParClasseKva: Object.fromEntries(
+                                  CLASSES_PUISSANCE_ELEC.map((c) => [c.key, source]),
+                                ),
+                              })
+                            }}
+                            disabled={!(d.puissanceParClasseKva[CLASSES_PUISSANCE_ELEC[0].key] ?? '').trim()}
+                            className="text-[11px] font-medium text-kiwi-700 hover:underline disabled:cursor-not-allowed disabled:text-navy-300 disabled:no-underline"
+                          >
+                            ⇊ Appliquer la valeur de {CLASSES_PUISSANCE_ELEC[0].label} à toutes les classes
+                          </button>
                         </div>
                       )}
                     </div>

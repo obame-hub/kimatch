@@ -27,6 +27,7 @@ import { useMappingRules } from '@/lib/data/mappingRules'
 import { checkEligibility, type EligibilityResult } from '@/lib/eligibility'
 import { useCanManage, useIsAdmin, useProfilsAdmin } from '@/lib/data/roles'
 import { sendEmail } from '@/lib/data/gmail'
+import { notifyEmail } from '@/lib/data/emailSettings'
 import { WizardConnectionGate } from '@/components/ui/connection-gate'
 import { ContratWizard } from '@/components/contrat/ContratWizard'
 import { FALLBACK_ETAPES_RECOMMANDATION, FALLBACK_STATUTS_VERSIONS, STATUT_VERSION_TONE } from '@/lib/referenceFallbacks'
@@ -60,6 +61,9 @@ function CotationWizard({ open, onClose, reco }: { open: boolean; onClose: () =>
   const [fournisseurIds, setFournisseurIds] = useState<string[]>([])
   const [feedback, setFeedback] = useState<string | null>(null)
   const [toast, setToast] = useState<string | null>(null)
+  // Recherche dans la liste des fournisseurs -- réclamée par William : 52 fournisseurs répartis en
+  // zones, retrouver le bon à l'œil est pénible.
+  const [rechercheFournisseur, setRechercheFournisseur] = useState('')
 
   function showToast(msg: string) {
     setToast(msg)
@@ -141,15 +145,17 @@ function CotationWizard({ open, onClose, reco }: { open: boolean; onClose: () =>
   const commissionEstimee = useMemo(() => computeEstimatedCommission(compteursDeLaReco, durees), [compteursDeLaReco, durees])
 
   const parZone = useMemo(() => {
+    const q = rechercheFournisseur.trim().toLowerCase()
     const map = new Map<string, EligibilityResult[]>()
     for (const r of resultats) {
+      if (q && !r.fournisseur.nom.toLowerCase().includes(q)) continue
       const zone = zoneDuFournisseur(r.fournisseur.intermediary, r.fournisseur.partnership)
       const list = map.get(zone) ?? []
       list.push(r)
       map.set(zone, list)
     }
     return map
-  }, [resultats])
+  }, [resultats, rechercheFournisseur])
 
   // Auto-éviction : si un fournisseur choisi devient inéligible (changement de durée/date), on le
   // retire automatiquement de la sélection avec un toast d'avertissement -- même comportement et
@@ -206,6 +212,30 @@ function CotationWizard({ open, onClose, reco }: { open: boolean; onClose: () =>
       contexte_et_hypotheses: dateSouhaitee ? `Date souhaitée : ${new Date(dateSouhaitee).toLocaleDateString('fr-FR')}` : null,
       etape_en_analyse_id: etapeEnAnalyse?.id ?? null,
     })
+    // Email de cotation -- Tools en envoie un à chaque cotation. Destinataires configurables dans
+    // Paramètres, comme pour la demande de contrat.
+    const nomsFournisseurs = fournisseurIds
+      .map((id) => resultats.find((r) => r.fournisseur.id === id)?.fournisseur.nom)
+      .filter(Boolean)
+      .join(', ')
+    void notifyEmail(
+      'cotation',
+      { cotationName: reco.titre, accountName: reco.compte_nom ?? '' },
+      [
+        `Une cotation vient d'être créée.`,
+        ``,
+        `Compte        : ${reco.compte_nom || '—'}`,
+        `Opportunité   : ${reco.titre}`,
+        `Durées        : ${durees.join(' / ')} mois`,
+        `Type de prix  : ${typesPrix.join(', ') || '—'}`,
+        `Date souhaitée : ${dateSouhaitee ? new Date(dateSouhaitee).toLocaleDateString('fr-FR') : '—'}`,
+        `Fournisseurs consultés (${fournisseurIds.length}) : ${nomsFournisseurs || '—'}`,
+        `Points de livraison : ${(reco.compteur_ids ?? []).length}`,
+        ``,
+        `${window.location.origin}/recommandations/${reco.id}`,
+      ].join('\n'),
+    )
+
     setFeedback('Cotation créée.')
     setTimeout(() => { reset(); onClose() }, 700)
   }
@@ -361,7 +391,18 @@ function CotationWizard({ open, onClose, reco }: { open: boolean; onClose: () =>
               </button>
             )}
           </div>
+          <Input
+            value={rechercheFournisseur}
+            onChange={(e) => setRechercheFournisseur(e.target.value)}
+            placeholder="Rechercher un fournisseur…"
+            className="mb-2"
+          />
           <div className="space-y-3">
+            {[...ZONE_ORDER_COTATION, 'autre'].every((z) => (parZone.get(z) ?? []).length === 0) && (
+              <p className="rounded-lg border border-dashed border-navy-200 p-3 text-center text-xs text-navy-400">
+                Aucun fournisseur ne correspond à « {rechercheFournisseur} ».
+              </p>
+            )}
             {[...ZONE_ORDER_COTATION, 'autre'].map((zone) => {
               const list = parZone.get(zone) ?? []
               if (list.length === 0) return null
