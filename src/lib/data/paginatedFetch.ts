@@ -29,14 +29,20 @@ export async function fetchAllRows<T>(table: string, selectString: string, confi
     return (data ?? []) as T[]
   }
 
-  const tout: T[] = []
-  for (let vague = 0; ; vague += 1) {
-    const departs = Array.from({ length: CONCURRENCY }, (_, i) => (vague * CONCURRENCY + i) * PAGE_SIZE)
+  // Une seule page d'abord. La grande majorité des appels sont filtrés (les sites d'un compte,
+  // les compteurs de ces sites…) et tiennent largement dedans : lancer d'emblée une vague de
+  // requêtes parallèles en gaspillerait trois sur quatre.
+  const premiere = await fetchPage(0)
+  if (premiere.length < PAGE_SIZE) return premiere
+
+  // Table volumineuse : on continue par vagues parallèles jusqu'à en voir le bout.
+  const tout: T[] = [...premiere]
+  for (let vague = 0; vague <= 50; vague += 1) {
+    const departs = Array.from({ length: CONCURRENCY }, (_, i) => (1 + vague * CONCURRENCY + i) * PAGE_SIZE)
     const pages = await Promise.all(departs.map((from) => fetchPage(from)))
     for (const page of pages) tout.push(...page)
     // Une page plus courte que PAGE_SIZE signifie qu'on a atteint la fin de la table.
     if (pages.some((page) => page.length < PAGE_SIZE)) return tout
-    // Garde-fou : 200 pages = 200 000 lignes, très au-delà de nos plus grosses tables.
-    if (vague > 50) return tout
   }
+  return tout
 }
