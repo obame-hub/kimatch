@@ -60,7 +60,14 @@ async function fetchInteractionsPage(from: number, pageSize: number, attempt = 0
 // Les pages sont recuperees en parallele avec une limite de concurrence : tout envoyer d'un coup
 // (17 pages avec ces jointures) sature Supabase (500/503 observes), alors qu'une boucle
 // strictement sequentielle prend plus d'une minute -- un compromis a CONCURRENCY pages a la fois.
-async function fetchAllInteractionsPages(): Promise<RawInteraction[]> {
+/**
+ * @param limite Nombre maximum d'interactions à charger, les plus récentes d'abord. `null` charge
+ *   tout — réservé à l'index de recherche globale, qui doit pouvoir tout retrouver.
+ *
+ * La table compte 66 643 lignes (06/08/2026), soit 67 pages de 1000 : la charger entièrement pour
+ * afficher un écran qui n'en montre que quelques dizaines coûtait 30 secondes.
+ */
+async function fetchAllInteractionsPages(limite: number | null = null): Promise<RawInteraction[]> {
   const PAGE_SIZE = 1000
   const CONCURRENCY = 4
   const { count, error: countError } = await supabase
@@ -68,7 +75,7 @@ async function fetchAllInteractionsPages(): Promise<RawInteraction[]> {
     .select('id', { count: 'exact', head: true })
   if (countError) throw countError
 
-  const total = count ?? 0
+  const total = limite === null ? (count ?? 0) : Math.min(count ?? 0, limite)
   const pageStarts: number[] = []
   for (let from = 0; from < total; from += PAGE_SIZE) pageStarts.push(from)
   if (pageStarts.length === 0) return []
@@ -85,9 +92,9 @@ async function fetchAllInteractionsPages(): Promise<RawInteraction[]> {
   return results.flat()
 }
 
-async function fetchInteractions(): Promise<Interaction[]> {
+async function fetchInteractions(limite: number | null = null): Promise<Interaction[]> {
   try {
-    const data = await fetchAllInteractionsPages()
+    const data = await fetchAllInteractionsPages(limite)
 
     const comptesVisibles = await fetchComptesVisibles()
     const sitesVisibles = await fetchSitesVisiblesIds(comptesVisibles)
@@ -221,8 +228,16 @@ export function useInteractionsForSite(siteId: string | undefined) {
   })
 }
 
+/** Index de recherche globale : charge TOUT, donc lent — n'appeler qu'à l'ouverture de la
+ * recherche, jamais au montage d'un écran. */
 export function useInteractions() {
-  return useQuery({ queryKey: ['interactions'], queryFn: fetchInteractions })
+  return useQuery({ queryKey: ['interactions'], queryFn: () => fetchInteractions(null) })
+}
+
+/** Liste des interactions : les N plus récentes suffisent à l'écran, et la recherche de la page
+ * porte de toute façon sur ce qui est chargé. Évite de tirer les 66 643 lignes de la table. */
+export function useInteractionsRecentes(limite = 2000) {
+  return useQuery({ queryKey: ['interactions', 'recentes', limite], queryFn: () => fetchInteractions(limite) })
 }
 
 interface CreateInteractionInput {

@@ -11,7 +11,7 @@ import { Button } from '@/components/ui/button'
 import { InteractionSentence } from '@/lib/interactionSentence'
 import { Dialog } from '@/components/ui/dialog'
 import { FormField, Input, Select, Textarea } from '@/components/ui/form'
-import { useInteractions, useCreateInteraction } from '@/lib/data/interactions'
+import { useInteractionsRecentes, useCreateInteraction } from '@/lib/data/interactions'
 import { useComptes } from '@/lib/data/comptes'
 import { useSites } from '@/lib/data/sites'
 import { useContacts } from '@/lib/data/contacts'
@@ -159,7 +159,7 @@ function CreateInteractionDialog({ open, onClose }: { open: boolean; onClose: ()
 }
 
 export default function Interactions() {
-  const { data: interactions, isLoading } = useInteractions()
+  const { data: interactions, isLoading } = useInteractionsRecentes()
   const navigate = useNavigate()
   const [showCreate, setShowCreate] = useState(false)
 
@@ -192,6 +192,16 @@ export default function Interactions() {
             <option value="type_interaction">Trier par type</option>
           </Select>
         </ListToolbar>
+
+        {/* La table compte plus de 66 000 interactions : les charger toutes prenait 30 secondes.
+            On s'arrête aux 2000 plus récentes, et on le dit plutôt que de laisser croire que la
+            recherche porte sur tout l'historique. */}
+        {!isLoading && interactions && interactions.length >= 2000 && (
+          <p className="mb-2.5 text-[11px] text-navy-400">
+            Les 2000 interactions les plus récentes sont chargées — la recherche ci-dessus porte sur celles-ci.
+            Pour l'historique complet d'un compte, ouvre sa fiche.
+          </p>
+        )}
 
         <div className="space-y-2.5">
           {isLoading && <p className="text-sm text-navy-400">Chargement…</p>}
