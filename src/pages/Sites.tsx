@@ -136,6 +136,10 @@ export default function Sites() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
+  // Affichage par tranches : 6346 sites rendus d'un coup, c'est plusieurs secondes de travail
+  // pour le navigateur alors que l'écran n'en montre qu'une vingtaine. On garde le filtrage et le
+  // tri sur la liste complète — seul l'affichage est borné.
+  const [nbAffiches, setNbAffiches] = useState(100)
   const { query, setQuery, sortKey, sortDir, toggleSort, items: filteredSites } = useListControls(sites, {
     searchFields: (s) => [s.nom, s.compte_nom, s.type_site, s.ville],
     sorters: {
@@ -148,6 +152,11 @@ export default function Sites() {
     },
     defaultSort: 'nom',
   })
+
+  useEffect(() => { setNbAffiches(100) }, [query, sortKey, sortDir])
+
+  const sitesVisibles = (filteredSites ?? []).slice(0, nbAffiches)
+  const resteAAfficher = (filteredSites?.length ?? 0) - sitesVisibles.length
 
   return (
     <div>
@@ -228,7 +237,7 @@ export default function Sites() {
                   </td>
                 </tr>
               )}
-              {filteredSites?.map((site) => {
+              {sitesVisibles.map((site) => {
                 const health = computeSiteHealth({
                   signaux: signaux?.filter((s) => s.site_id === site.id) ?? [],
                   contrats: contrats?.filter((c) => c.site_id === site.id) ?? [],
@@ -264,6 +273,16 @@ export default function Sites() {
               })}
             </tbody>
           </table>
+          {resteAAfficher > 0 && (
+            <div className="flex items-center justify-center gap-3 border-t border-navy-100 py-3">
+              <span className="text-xs text-navy-400">
+                {sitesVisibles.length} sur {filteredSites?.length} sites
+              </span>
+              <Button type="button" size="sm" variant="outline" onClick={() => setNbAffiches((n) => n + 200)}>
+                Afficher 200 de plus
+              </Button>
+            </div>
+          )}
         </Card>
         )}
       </div>
