@@ -1,4 +1,4 @@
-import { useEffect } from 'react'
+import { useEffect, useState } from 'react'
 import { X } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
@@ -16,6 +16,24 @@ interface SheetProps {
  * Utilisé pour les actions "rapides" qu'on veut enchaîner sans perdre le contexte (ex. ajouter un
  * contact depuis l'écran "que faire ensuite" post-création de compte, comme dans Tools). */
 export function Sheet({ open, onClose, title, description, children, className }: SheetProps) {
+  // Le panneau reste dans le DOM même fermé, pour animer son glissement de sortie. Sans
+  // précaution, ses enfants restent donc MONTÉS en permanence et exécutent leurs hooks : le
+  // formulaire de contact chargeait ainsi les 3380 contacts du CRM sur chaque fiche compte, sans
+  // que personne n'ouvre le panneau (mesuré le 06/08/2026).
+  //
+  // On ne monte les enfants qu'à l'ouverture, et on les garde le temps de l'animation de sortie
+  // (300 ms, la durée des transitions ci-dessous) pour ne pas voir le panneau se vider en
+  // glissant.
+  const [monte, setMonte] = useState(open)
+  useEffect(() => {
+    if (open) {
+      setMonte(true)
+      return
+    }
+    const t = setTimeout(() => setMonte(false), 300)
+    return () => clearTimeout(t)
+  }, [open])
+
   useEffect(() => {
     if (!open) return
     const onKeyDown = (e: KeyboardEvent) => e.key === 'Escape' && onClose()
@@ -52,7 +70,7 @@ export function Sheet({ open, onClose, title, description, children, className }
             <X className="h-4 w-4" />
           </button>
         </div>
-        {children}
+        {monte && children}
       </div>
     </div>
   )
