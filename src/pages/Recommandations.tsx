@@ -1,4 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
+import { useTranchesAffichage } from '@/lib/useTranchesAffichage'
+import { PiedDeListe } from '@/components/ui/pied-de-liste'
 import { useNavigate } from 'react-router-dom'
 import { Plus, Sparkle, AlertTriangle, Info } from 'lucide-react'
 import { Topbar } from '@/components/layout/Topbar'
@@ -350,6 +352,8 @@ export default function Recommandations() {
     defaultSort: 'titre',
   })
 
+  const tranche = useTranchesAffichage(filteredRecommandations, `${query}|${sortKey}`)
+
   return (
     <div>
       <Topbar title="Recommandations" />
@@ -382,7 +386,7 @@ export default function Recommandations() {
         )}
         <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
           {isLoading && <p className="text-sm text-navy-400">Chargement…</p>}
-          {filteredRecommandations?.map((reco) => {
+          {tranche.visibles.map((reco) => {
             const etapeLabel = etapes.find((e) => e.code === reco.etape)?.libelle ?? reco.etape
             return (
               <Card
@@ -421,6 +425,14 @@ export default function Recommandations() {
               </Card>
             )
           })}
+          <PiedDeListe
+            affiches={tranche.visibles.length}
+            total={tranche.total}
+            reste={tranche.reste}
+            onAfficherPlus={tranche.afficherPlus}
+            tailleTrancheSuivante={tranche.tailleTrancheSuivante}
+            libelle="opportunités"
+          />
         </div>
       </div>
       <CreateRecommandationDialog

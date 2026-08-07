@@ -1,4 +1,6 @@
 import { useEffect, useState } from 'react'
+import { useTranchesAffichage } from '@/lib/useTranchesAffichage'
+import { PiedDeListe } from '@/components/ui/pied-de-liste'
 import { useNavigate, useSearchParams } from 'react-router-dom'
 import { Plus, FileCheck2, Eye } from 'lucide-react'
 import { Topbar } from '@/components/layout/Topbar'
@@ -251,6 +253,8 @@ export default function Mandats() {
     defaultSort: 'compte_nom',
   })
 
+  const tranche = useTranchesAffichage(filteredMandats, `${query}|${sortKey}`)
+
   return (
     <div>
       <Topbar title="Mandats" />
@@ -283,7 +287,7 @@ export default function Mandats() {
         )}
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3">
           {isLoading && <p className="text-sm text-navy-400">Chargement…</p>}
-          {filteredMandats?.map((m) => {
+          {tranche.visibles.map((m) => {
             const label = statuts.find((s) => s.code === m.statut)?.libelle ?? m.statut
             return (
               <Card
@@ -312,6 +316,14 @@ export default function Mandats() {
               </Card>
             )
           })}
+          <PiedDeListe
+            affiches={tranche.visibles.length}
+            total={tranche.total}
+            reste={tranche.reste}
+            onAfficherPlus={tranche.afficherPlus}
+            tailleTrancheSuivante={tranche.tailleTrancheSuivante}
+            libelle="mandats"
+          />
         </div>
       </div>
       <CreateMandatDialog

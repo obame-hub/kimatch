@@ -35,8 +35,14 @@ interface RawContactSite {
   site: { id: string; nom: string } | null
 }
 
-async function fetchContacts(): Promise<Contact[]> {
+/**
+ * @param compteId Ne charger que les contacts de ce compte. Les fiches de détail n'ont besoin que
+ *   de ceux-là ; tirer les 3380 contacts pour en afficher deux coûtait plusieurs secondes.
+ */
+async function fetchContacts(compteId?: string): Promise<Contact[]> {
   try {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const restreindre = (q: any) => (compteId ? q.eq('compte_id', compteId) : q)
     const [contacts, contactsSites] = await Promise.all([
       fetchAllRows<RawContact>(
         'contacts',
@@ -45,7 +51,7 @@ async function fetchContacts(): Promise<Contact[]> {
         // -- un select nommé sur une colonne absente ferait échouer la requête (400) pour TOUS les
         // contacts (voir le même choix dans referenceTables.ts).
         '*, compte:comptes(nom), canal_communication:types_canaux_communication(libelle), proprietaire:profils!contacts_proprietaire_id_fkey(prenom, nom)',
-        (q) => q.order('nom'),
+        (q) => restreindre(q).order('nom'),
       ),
       fetchAllRows<RawContactSite>('contacts_sites', 'contact_id, fonction_sur_site, site:sites(id, nom)'),
     ])
@@ -91,7 +97,16 @@ async function fetchContacts(): Promise<Contact[]> {
 }
 
 export function useContacts() {
-  return useQuery({ queryKey: ['contacts'], queryFn: fetchContacts })
+  return useQuery({ queryKey: ['contacts'], queryFn: () => fetchContacts() })
+}
+
+/** Contacts d'un seul compte -- pour les fiches de détail, qui n'ont pas besoin des 3380 autres. */
+export function useContactsParCompte(compteId: string | undefined) {
+  return useQuery({
+    queryKey: ['contacts', 'compte', compteId],
+    queryFn: () => fetchContacts(compteId as string),
+    enabled: !!compteId,
+  })
 }
 
 interface CreateContactInput {

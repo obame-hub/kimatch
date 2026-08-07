@@ -1,4 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
+import { useTranchesAffichage } from '@/lib/useTranchesAffichage'
+import { PiedDeListe } from '@/components/ui/pied-de-liste'
 import { addMonths, format, isValid } from 'date-fns'
 import { useNavigate } from 'react-router-dom'
 import { FileSignature, Zap, Flame, Plus, FileText } from 'lucide-react'
@@ -377,6 +379,8 @@ export default function Contrats() {
     defaultSort: 'site_nom',
   })
 
+  const tranche = useTranchesAffichage(filteredContrats, `${query}|${sortKey}`)
+
   return (
     <div>
       <Topbar title="Contrats" />
@@ -416,7 +420,7 @@ export default function Contrats() {
         )}
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3">
           {isLoading && <p className="text-sm text-navy-400">Chargement…</p>}
-          {filteredContrats?.map((c) => {
+          {tranche.visibles.map((c) => {
             const label = statuts.find((s) => s.code === c.statut)?.libelle ?? c.statut
             const Icon = c.type_energie === 'gaz' ? Flame : Zap
             return (
@@ -450,6 +454,14 @@ export default function Contrats() {
               </Card>
             )
           })}
+          <PiedDeListe
+            affiches={tranche.visibles.length}
+            total={tranche.total}
+            reste={tranche.reste}
+            onAfficherPlus={tranche.afficherPlus}
+            tailleTrancheSuivante={tranche.tailleTrancheSuivante}
+            libelle="contrats"
+          />
         </div>
         {!isLoading && contrats?.length === 0 && (
           <div className="flex flex-col items-center gap-2 py-16 text-navy-400">

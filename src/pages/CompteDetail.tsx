@@ -47,10 +47,10 @@ import {
   useUpdateCompteField,
   useDeleteCompte,
 } from '@/lib/data/comptes'
-import { useSites, useCreateSite, normalizeTexte } from '@/lib/data/sites'
-import { useContacts } from '@/lib/data/contacts'
+import { useSitesParCompte, useCreateSite, normalizeTexte } from '@/lib/data/sites'
+import { useContacts, useContactsParCompte } from '@/lib/data/contacts'
 import { useSignaux } from '@/lib/data/signaux'
-import { useCompteurs, useCreateCompteur } from '@/lib/data/compteurs'
+import { useCompteursParSites, useCompteurs, useCreateCompteur } from '@/lib/data/compteurs'
 import { useRecommandations } from '@/lib/data/recommandations'
 import { useContrats } from '@/lib/data/contrats'
 import { useInteractionsForCompte } from '@/lib/data/interactions'
@@ -110,10 +110,13 @@ export default function CompteDetail() {
   const navigate = useNavigate()
   const [searchParams, setSearchParams] = useSearchParams()
   const { data: comptes } = useComptes()
-  const { data: sites } = useSites()
-  const { data: contacts } = useContacts()
+  // Sites, contacts et compteurs sont chargés POUR CE COMPTE seulement : la fiche n'a pas besoin
+  // des 6346 sites, 3380 contacts et 7884 compteurs du CRM pour en afficher une poignée. Les
+  // compteurs n'ayant pas de compte_id, ils passent par les sites du compte.
+  const { data: sites } = useSitesParCompte(id)
+  const { data: contacts } = useContactsParCompte(id)
   const { data: signaux } = useSignaux()
-  const { data: compteurs } = useCompteurs()
+  const { data: compteurs } = useCompteursParSites(sites?.map((s) => s.id))
   const { data: recommandations } = useRecommandations()
   const { data: contrats } = useContrats()
   const { data: mandats } = useMandats()

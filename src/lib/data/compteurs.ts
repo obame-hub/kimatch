@@ -75,14 +75,23 @@ function classeMap(elec: RawCompteurElec, prefix: 'conso' | 'puissance', suffix:
   return out
 }
 
-async function fetchCompteurs(): Promise<Compteur[]> {
+/**
+ * @param siteIds Ne charger que les compteurs de ces sites. Les compteurs n'ont pas de `compte_id`
+ *   direct — on passe par les sites du compte. Évite de tirer les 7884 compteurs pour en afficher
+ *   quelques-uns sur une fiche.
+ */
+async function fetchCompteurs(siteIds?: string[]): Promise<Compteur[]> {
   try {
+    if (siteIds && siteIds.length === 0) return []
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const restreindre = (q: any) => (siteIds ? q.in('site_id', siteIds) : q)
     const data = await fetchAllRows<RawCompteur>(
       'compteurs',
       // `*` plutôt qu'une liste de colonnes fixe : `date_echeance` vient d'être ajoutée par
       // migration et peut ne pas encore exister en prod au moment du déploiement -- un select
       // nommé sur une colonne absente ferait échouer la requête (400) pour TOUS les compteurs.
       '*, type_energie:types_energies(code), type_utilisation:types_utilisations_compteur(libelle), site:sites(nom), compteurs_electricite(*), compteurs_gaz(*), proprietaire:profils!compteurs_proprietaire_id_fkey(prenom, nom), fournisseur_actuel:comptes!compteurs_fournisseur_actuel_compte_id_fkey(nom), responsable_contact:contacts!compteurs_responsable_contact_id_fkey(prenom, nom), contact_conseil_syndical:contacts!compteurs_contact_conseil_syndical_id_fkey(prenom, nom)',
+      restreindre,
     )
 
     const comptesVisibles = await fetchComptesVisibles()
@@ -141,7 +150,17 @@ async function fetchCompteurs(): Promise<Compteur[]> {
 }
 
 export function useCompteurs() {
-  return useQuery({ queryKey: ['compteurs'], queryFn: fetchCompteurs })
+  return useQuery({ queryKey: ['compteurs'], queryFn: () => fetchCompteurs() })
+}
+
+/** Compteurs des sites donnés -- pour les fiches de détail. */
+export function useCompteursParSites(siteIds: string[] | undefined) {
+  const cle = [...(siteIds ?? [])].sort()
+  return useQuery({
+    queryKey: ['compteurs', 'sites', cle],
+    queryFn: () => fetchCompteurs(cle),
+    enabled: !!siteIds,
+  })
 }
 
 interface GrdElecData {

@@ -33,14 +33,20 @@ interface RawSiteExtra {
   departement_nom: string | null
 }
 
-async function fetchSites(): Promise<Site[]> {
+/**
+ * @param compteId Ne charger que les sites de ce compte. Une fiche compte n'a besoin que des
+ *   siens ; tirer les 6346 sites pour en afficher sept coûtait plusieurs secondes.
+ */
+async function fetchSites(compteId?: string): Promise<Site[]> {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const restreindre = (q: any) => (compteId ? q.eq('compte_id', compteId) : q)
 
   try {
     const [sites, compteursRows, signauxRows] = await Promise.all([
       fetchAllRows<RawSite>(
         'sites',
         'id, compte_id, nom, adresse, ville, code_postal, actif, compte:comptes(nom), type_site:types_sites(libelle)',
-        (q) => q.order('nom'),
+        (q) => restreindre(q).order('nom'),
       ),
       fetchAllRows<{ site_id: string }>('compteurs', 'site_id'),
       fetchAllRows<{ site_id: string; statut: { est_cloture: boolean } | null }>('signaux', 'site_id, statut:statuts_signaux(est_cloture)'),
@@ -107,7 +113,16 @@ async function fetchSites(): Promise<Site[]> {
 }
 
 export function useSites() {
-  return useQuery({ queryKey: ['sites'], queryFn: fetchSites })
+  return useQuery({ queryKey: ['sites'], queryFn: () => fetchSites() })
+}
+
+/** Sites d'un seul compte -- pour les fiches de détail. */
+export function useSitesParCompte(compteId: string | undefined) {
+  return useQuery({
+    queryKey: ['sites', 'compte', compteId],
+    queryFn: () => fetchSites(compteId as string),
+    enabled: !!compteId,
+  })
 }
 
 interface CreateSiteInput {
