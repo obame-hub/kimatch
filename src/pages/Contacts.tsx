@@ -1,4 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
+import { useTranchesAffichage } from '@/lib/useTranchesAffichage'
+import { PiedDeListe } from '@/components/ui/pied-de-liste'
 import { useNavigate, useSearchParams } from 'react-router-dom'
 import { Plus, User, Star, AlertTriangle, CheckCircle2, UserCircle2, UserRound, Crown, ClipboardList, Users, ExternalLink, Check } from 'lucide-react'
 import { Topbar } from '@/components/layout/Topbar'
@@ -399,6 +401,8 @@ export default function Contacts() {
     defaultSort: 'nom',
   })
 
+  const tranche = useTranchesAffichage(filteredContacts, `${query}|${sortKey}`)
+
   return (
     <div>
       <Topbar title="Contacts" />
@@ -427,7 +431,7 @@ export default function Contacts() {
         )}
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3">
           {isLoading && <p className="text-sm text-navy-400">Chargement…</p>}
-          {filteredContacts?.map((c) => (
+          {tranche.visibles.map((c) => (
             <Card
               key={c.id}
               onClick={() => navigate(`/contacts/${c.id}`)}
@@ -459,6 +463,14 @@ export default function Contacts() {
               )}
             </Card>
           ))}
+          <PiedDeListe
+            affiches={tranche.visibles.length}
+            total={tranche.total}
+            reste={tranche.reste}
+            onAfficherPlus={tranche.afficherPlus}
+            tailleTrancheSuivante={tranche.tailleTrancheSuivante}
+            libelle="contacts"
+          />
         </div>
       </div>
       <CreateContactDialog open={showCreate} onClose={() => setShowCreate(false)} initialCompteId={compteFromUrl ?? undefined} />

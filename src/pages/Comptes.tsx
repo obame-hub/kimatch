@@ -1,4 +1,6 @@
 import { useNavigate } from 'react-router-dom'
+import { useTranchesAffichage } from '@/lib/useTranchesAffichage'
+import { PiedDeListe } from '@/components/ui/pied-de-liste'
 import { Plus } from 'lucide-react'
 import { Topbar } from '@/components/layout/Topbar'
 import { PageHeader } from '@/components/ui/page-header'
@@ -37,6 +39,8 @@ export default function Comptes() {
     },
     defaultSort: 'nom',
   })
+
+  const tranche = useTranchesAffichage(filteredComptes, `${query}|${sortKey}|${sortDir}`)
 
   return (
     <div>
@@ -87,7 +91,7 @@ export default function Comptes() {
                   </td>
                 </tr>
               )}
-              {filteredComptes?.map((compte) => (
+              {tranche.visibles.map((compte) => (
                 <tr
                   key={compte.id}
                   onClick={() => navigate(`/comptes/${compte.id}`)}
@@ -104,6 +108,14 @@ export default function Comptes() {
               ))}
             </tbody>
           </table>
+          <PiedDeListe
+            affiches={tranche.visibles.length}
+            total={tranche.total}
+            reste={tranche.reste}
+            onAfficherPlus={tranche.afficherPlus}
+            tailleTrancheSuivante={tranche.tailleTrancheSuivante}
+            libelle="comptes"
+          />
         </Card>
       </div>
     </div>

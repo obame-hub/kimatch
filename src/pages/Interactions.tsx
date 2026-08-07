@@ -1,4 +1,6 @@
 import { useState } from 'react'
+import { useTranchesAffichage } from '@/lib/useTranchesAffichage'
+import { PiedDeListe } from '@/components/ui/pied-de-liste'
 import { useNavigate } from 'react-router-dom'
 import { MessageSquare, Plus } from 'lucide-react'
 import { Topbar } from '@/components/layout/Topbar'
@@ -171,6 +173,8 @@ export default function Interactions() {
     defaultSort: 'date_interaction',
   })
 
+  const tranche = useTranchesAffichage(filteredInteractions, `${query}|${sortKey}`)
+
   return (
     <div>
       <Topbar title="Interactions" />
@@ -199,7 +203,7 @@ export default function Interactions() {
           {!isLoading && interactions && interactions.length > 0 && filteredInteractions?.length === 0 && (
             <p className="py-8 text-center text-sm text-navy-400">Aucune interaction ne correspond à la recherche.</p>
           )}
-          {filteredInteractions?.map((i) => (
+          {tranche.visibles.map((i) => (
             <Card
               key={i.id}
               onClick={() => navigate(`/interactions/${i.id}`)}
@@ -223,6 +227,14 @@ export default function Interactions() {
               </div>
             </Card>
           ))}
+          <PiedDeListe
+            affiches={tranche.visibles.length}
+            total={tranche.total}
+            reste={tranche.reste}
+            onAfficherPlus={tranche.afficherPlus}
+            tailleTrancheSuivante={tranche.tailleTrancheSuivante}
+            libelle="interactions"
+          />
         </div>
       </div>
       <CreateInteractionDialog open={showCreate} onClose={() => setShowCreate(false)} />

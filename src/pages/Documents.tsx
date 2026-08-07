@@ -1,4 +1,6 @@
 import { useState } from 'react'
+import { useTranchesAffichage } from '@/lib/useTranchesAffichage'
+import { PiedDeListe } from '@/components/ui/pied-de-liste'
 import { useNavigate } from 'react-router-dom'
 import { FileText, Plus } from 'lucide-react'
 import { Topbar } from '@/components/layout/Topbar'
@@ -147,6 +149,8 @@ export default function Documents() {
     defaultSort: 'date_creation',
   })
 
+  const tranche = useTranchesAffichage(filteredDocuments, `${query}|${sortKey}`)
+
   return (
     <div>
       <Topbar title="Documents" />
@@ -175,7 +179,7 @@ export default function Documents() {
           {!isLoading && documents && documents.length > 0 && filteredDocuments?.length === 0 && (
             <p className="py-8 text-center text-sm text-navy-400">Aucun document ne correspond à la recherche.</p>
           )}
-          {filteredDocuments?.map((doc) => (
+          {tranche.visibles.map((doc) => (
             <Card
               key={doc.id}
               onClick={() => navigate(`/documents/${doc.id}`)}
@@ -203,6 +207,14 @@ export default function Documents() {
               </div>
             </Card>
           ))}
+          <PiedDeListe
+            affiches={tranche.visibles.length}
+            total={tranche.total}
+            reste={tranche.reste}
+            onAfficherPlus={tranche.afficherPlus}
+            tailleTrancheSuivante={tranche.tailleTrancheSuivante}
+            libelle="documents"
+          />
         </div>
       </div>
       <CreateDocumentDialog open={showCreate} onClose={() => setShowCreate(false)} />
