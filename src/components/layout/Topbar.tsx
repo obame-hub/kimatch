@@ -88,17 +88,31 @@ function MarketTicker() {
   )
 }
 
-export function Topbar({ title, crumb }: { title: string; crumb?: string }) {
-  const { signOut } = useAuth()
-  const navigate = useNavigate()
-  const [query, setQuery] = useState('')
-  const [focused, setFocused] = useState(false)
-  const inputRef = useRef<HTMLInputElement>(null)
-
-  const { data: comptes } = useComptes()
-  const { data: sites } = useSites()
-  const { data: contacts } = useContacts()
-  const { data: compteurs } = useCompteurs()
+/**
+ * Resultats de la recherche globale.
+ *
+ * Composant separe et monte UNIQUEMENT quand l'utilisateur se sert de la barre de recherche.
+ * C'est volontaire : l'index a besoin de onze tables entieres (~100 000 lignes, dont 66 000
+ * interactions). Quand ces hooks vivaient directement dans Topbar -- presente sur toutes les
+ * pages -- chaque ecran de l'application les chargeait, meme sans jamais ouvrir la recherche :
+ * 112 requetes et 25 secondes pour afficher la liste des sites (mesure du 06/08/2026). En
+ * differant le montage, une page ne paie plus que ses propres donnees.
+ */
+function ResultatsRecherche({
+  query,
+  pageMatches,
+  onGoTo,
+  onPremierResultat,
+}: {
+  query: string
+  pageMatches: typeof navItems
+  onGoTo: (to: string) => void
+  onPremierResultat: (to: string | null) => void
+}) {
+  const { data: comptes, isLoading: l1 } = useComptes()
+  const { data: sites, isLoading: l2 } = useSites()
+  const { data: contacts, isLoading: l3 } = useContacts()
+  const { data: compteurs, isLoading: l4 } = useCompteurs()
   const { data: signaux } = useSignaux()
   const { data: mandats } = useMandats()
   const { data: recommandations } = useRecommandations()
@@ -111,6 +125,84 @@ export function Topbar({ title, crumb }: { title: string; crumb?: string }) {
     () => buildSearchIndex({ comptes, sites, contacts, compteurs, signaux, mandats, recommandations, contrats, documents, actions, interactions }),
     [comptes, sites, contacts, compteurs, signaux, mandats, recommandations, contrats, documents, actions, interactions],
   )
+
+  const dataMatches = useMemo(() => searchIndex(index, query, 5), [index, query])
+
+  const groupedData = useMemo(() => {
+    const groups = new Map<SearchKind, typeof dataMatches>()
+    for (const m of dataMatches) {
+      const list = groups.get(m.entry.kind) ?? []
+      list.push(m)
+      groups.set(m.entry.kind, list)
+    }
+    return groups
+  }, [dataMatches])
+
+  // Remonte le premier resultat pour que la touche Entree fonctionne depuis l'input.
+  useEffect(() => {
+    onPremierResultat(dataMatches[0]?.entry.to ?? null)
+  }, [dataMatches, onPremierResultat])
+
+  const indexation = l1 || l2 || l3 || l4
+  const hasResults = pageMatches.length > 0 || dataMatches.length > 0
+
+  return (
+    <div className="absolute left-0 top-full z-20 mt-1.5 max-h-[420px] w-[380px] overflow-y-auto rounded-lg border border-navy-100 bg-white py-1.5 shadow-lg">
+      {indexation && <p className="px-3 py-2 text-[12px] text-navy-400">Indexation en cours…</p>}
+      {!indexation && !hasResults && <p className="px-3 py-2 text-[12px] text-navy-400">Aucun résultat pour « {query} ».</p>}
+
+      {pageMatches.length > 0 && (
+        <div className="mb-1 border-b border-navy-50 pb-1">
+          <p className="px-3 pb-1 text-[9.5px] font-bold uppercase tracking-wide text-navy-300">Pages</p>
+          {pageMatches.map((m) => (
+            <button
+              key={m.to}
+              type="button"
+              onMouseDown={(e) => e.preventDefault()}
+              onClick={() => onGoTo(m.to)}
+              className="flex w-full items-center gap-2 px-3 py-1.5 text-left text-[12px] text-navy-700 hover:bg-navy-50"
+            >
+              <m.icon className="h-3.5 w-3.5 text-navy-400" />
+              {m.label}
+            </button>
+          ))}
+        </div>
+      )}
+
+      {[...groupedData.entries()].map(([kind, matches]) => {
+        const Icon = KIND_ICON[kind]
+        return (
+          <div key={kind} className="mb-1 last:mb-0">
+            <p className="px-3 pb-1 text-[9.5px] font-bold uppercase tracking-wide text-navy-300">{SEARCH_KIND_LABEL[kind]}</p>
+            {matches.map(({ entry }) => (
+              <button
+                key={`${entry.kind}-${entry.id}`}
+                type="button"
+                onMouseDown={(e) => e.preventDefault()}
+                onClick={() => onGoTo(entry.to)}
+                className="flex w-full items-center gap-2.5 px-3 py-1.5 text-left hover:bg-navy-50"
+              >
+                <Icon className={cn('h-3.5 w-3.5 shrink-0', KIND_TINT[kind])} />
+                <span className="min-w-0 flex-1">
+                  <span className="block truncate text-[12px] font-medium text-navy-800">{entry.label}</span>
+                  {entry.sublabel && <span className="block truncate text-[10.5px] text-navy-400">{entry.sublabel}</span>}
+                </span>
+              </button>
+            ))}
+          </div>
+        )
+      })}
+    </div>
+  )
+}
+
+export function Topbar({ title, crumb }: { title: string; crumb?: string }) {
+  const { signOut } = useAuth()
+  const navigate = useNavigate()
+  const [query, setQuery] = useState('')
+  const [focused, setFocused] = useState(false)
+  const [premierResultat, setPremierResultat] = useState<string | null>(null)
+  const inputRef = useRef<HTMLInputElement>(null)
 
   useEffect(() => {
     function onKeyDown(e: KeyboardEvent) {
@@ -125,19 +217,6 @@ export function Topbar({ title, crumb }: { title: string; crumb?: string }) {
 
   const trimmed = query.trim()
   const pageMatches = trimmed ? navItems.filter((n) => n.label.toLowerCase().includes(trimmed.toLowerCase())).slice(0, 5) : []
-  const dataMatches = useMemo(() => searchIndex(index, trimmed, 5), [index, trimmed])
-
-  const groupedData = useMemo(() => {
-    const groups = new Map<SearchKind, typeof dataMatches>()
-    for (const m of dataMatches) {
-      const list = groups.get(m.entry.kind) ?? []
-      list.push(m)
-      groups.set(m.entry.kind, list)
-    }
-    return groups
-  }, [dataMatches])
-
-  const hasResults = pageMatches.length > 0 || dataMatches.length > 0
 
   function goTo(to: string) {
     navigate(to)
@@ -174,7 +253,10 @@ export function Topbar({ title, crumb }: { title: string; crumb?: string }) {
             onFocus={() => setFocused(true)}
             onBlur={() => setTimeout(() => setFocused(false), 150)}
             onKeyDown={(e) => {
-              if (e.key === 'Enter' && (pageMatches[0] || dataMatches[0])) goTo(pageMatches[0]?.to ?? dataMatches[0].entry.to)
+              if (e.key === 'Enter') {
+                const cible = pageMatches[0]?.to ?? premierResultat
+                if (cible) goTo(cible)
+              }
               if (e.key === 'Escape') inputRef.current?.blur()
             }}
             placeholder="Rechercher un compte, site, compteur…"
@@ -183,51 +265,12 @@ export function Topbar({ title, crumb }: { title: string; crumb?: string }) {
           <span className="shrink-0 rounded border border-navy-200 bg-white px-1 font-mono text-[9px] text-navy-400">⌘K</span>
         </div>
         {focused && trimmed && (
-          <div className="absolute left-0 top-full z-20 mt-1.5 max-h-[420px] w-[380px] overflow-y-auto rounded-lg border border-navy-100 bg-white py-1.5 shadow-lg">
-            {!hasResults && <p className="px-3 py-2 text-[12px] text-navy-400">Aucun résultat pour « {trimmed} ».</p>}
-
-            {pageMatches.length > 0 && (
-              <div className="mb-1 border-b border-navy-50 pb-1">
-                <p className="px-3 pb-1 text-[9.5px] font-bold uppercase tracking-wide text-navy-300">Pages</p>
-                {pageMatches.map((m) => (
-                  <button
-                    key={m.to}
-                    type="button"
-                    onMouseDown={(e) => e.preventDefault()}
-                    onClick={() => goTo(m.to)}
-                    className="flex w-full items-center gap-2 px-3 py-1.5 text-left text-[12px] text-navy-700 hover:bg-navy-50"
-                  >
-                    <m.icon className="h-3.5 w-3.5 text-navy-400" />
-                    {m.label}
-                  </button>
-                ))}
-              </div>
-            )}
-
-            {[...groupedData.entries()].map(([kind, matches]) => {
-              const Icon = KIND_ICON[kind]
-              return (
-                <div key={kind} className="mb-1 last:mb-0">
-                  <p className="px-3 pb-1 text-[9.5px] font-bold uppercase tracking-wide text-navy-300">{SEARCH_KIND_LABEL[kind]}</p>
-                  {matches.map(({ entry }) => (
-                    <button
-                      key={`${entry.kind}-${entry.id}`}
-                      type="button"
-                      onMouseDown={(e) => e.preventDefault()}
-                      onClick={() => goTo(entry.to)}
-                      className="flex w-full items-center gap-2.5 px-3 py-1.5 text-left hover:bg-navy-50"
-                    >
-                      <Icon className={cn('h-3.5 w-3.5 shrink-0', KIND_TINT[kind])} />
-                      <span className="min-w-0 flex-1">
-                        <span className="block truncate text-[12px] font-medium text-navy-800">{entry.label}</span>
-                        {entry.sublabel && <span className="block truncate text-[10.5px] text-navy-400">{entry.sublabel}</span>}
-                      </span>
-                    </button>
-                  ))}
-                </div>
-              )
-            })}
-          </div>
+          <ResultatsRecherche
+            query={trimmed}
+            pageMatches={pageMatches}
+            onGoTo={goTo}
+            onPremierResultat={setPremierResultat}
+          />
         )}
       </div>
 
