@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
+import { ApercuDocument } from '@/components/document/ApercuDocument'
 import { useParams, useNavigate } from 'react-router-dom'
-import { ArrowLeft, Zap, Flame, Pencil, Trash2, Building2, MapPin, Gauge, FileText, Plus, Euro, X } from 'lucide-react'
+import { ArrowLeft, Zap, Flame, Pencil, Trash2, Building2, MapPin, Gauge, FileText, Plus, Euro, X, Eye } from 'lucide-react'
 import { Topbar } from '@/components/layout/Topbar'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
@@ -326,6 +327,8 @@ export default function ContratDetail() {
   const site = sites?.find((s) => s.id === contrat?.site_id)
   const compte = comptes?.find((c) => c.id === site?.compte_id)
   const fournisseur = comptes?.find((c) => c.id === contrat?.fournisseur_compte_id)
+  // Aperçu d'un fichier sans quitter la fiche contrat (demande d'Agathe, 07/08/2026).
+  const [apercu, setApercu] = useState<{ url: string; nom: string; nomFichier: string } | null>(null)
   const documentsDuContrat = useMemo(() => documents?.filter((d) => d.entite_type === 'contrat' && d.entite_id === id) ?? [], [documents, id])
   const canManage = useCanManage(contrat?.proprietaire_id)
   const deleteContrat = useDeleteContrat()
@@ -707,6 +710,17 @@ export default function ContratDetail() {
                         <p className="truncate text-[10.5px] text-navy-400">{d.auteur} · {new Date(d.date_creation).toLocaleDateString('fr-FR')}</p>
                       </div>
                       <Badge tone="neutral">{d.type_document}</Badge>
+                      {d.url && (
+                        <Button
+                          type="button"
+                          size="sm"
+                          variant="ghost"
+                          onClick={(e) => { e.stopPropagation(); setApercu({ url: d.url, nom: d.nom, nomFichier: d.nom_fichier || d.nom }) }}
+                        >
+                          <Eye className="h-3.5 w-3.5" />
+                          Aperçu
+                        </Button>
+                      )}
                     </div>
                   ))}
                 </div>
@@ -740,6 +754,20 @@ export default function ContratDetail() {
           </Button>
         </div>
       </Dialog>
+
+      {/* Aperçu du fichier sans quitter la fiche : monté seulement à l'ouverture, sinon il
+          téléchargerait le document à chaque affichage de la page. */}
+      {apercu && (
+        <Dialog
+          open
+          onClose={() => setApercu(null)}
+          title={apercu.nom}
+          description={apercu.nomFichier}
+          className="max-w-4xl"
+        >
+          <ApercuDocument url={apercu.url} nomFichier={apercu.nomFichier} />
+        </Dialog>
+      )}
     </div>
   )
 }
