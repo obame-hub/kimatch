@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { CreationCompteurDialog } from '@/components/compteur/CreationCompteurDialog'
 import { useTranchesAffichage } from '@/lib/useTranchesAffichage'
 import { PiedDeListe } from '@/components/ui/pied-de-liste'
 import { useLocation, useNavigate } from 'react-router-dom'
@@ -9,116 +10,19 @@ import { Card } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { EntityLink } from '@/components/ui/entity-link'
-import { Dialog } from '@/components/ui/dialog'
-import { FormField, Input, Select } from '@/components/ui/form'
 import { ListToolbar } from '@/components/ui/list-toolbar'
 import { SortableTh } from '@/components/ui/sortable-th'
 import { useListControls } from '@/lib/useListControls'
-import { useSites, useCreateSite } from '@/lib/data/sites'
-import { useComptes } from '@/lib/data/comptes'
+import { useSites } from '@/lib/data/sites'
 import { useSignaux } from '@/lib/data/signaux'
 import { useContrats } from '@/lib/data/contrats'
 import { useRecommandations } from '@/lib/data/recommandations'
 import { useMandats } from '@/lib/data/mandats'
 import { useCompteurs } from '@/lib/data/compteurs'
-import { useReferenceTable } from '@/lib/data/referenceTables'
-import { FALLBACK_TYPES_SITES } from '@/lib/referenceFallbacks'
 import { computeSiteHealth } from '@/lib/siteHealth'
 import { SiteHealthBadge } from '@/components/site/SiteHealthBadge'
 import { SitesMap } from '@/components/site/SitesMap'
 import { cn } from '@/lib/utils'
-
-function CreateSiteDialog({
-  open,
-  onClose,
-  defaultCompteId,
-}: {
-  open: boolean
-  onClose: () => void
-  defaultCompteId?: string
-}) {
-  const { data: comptes } = useComptes()
-  const { data: typesRef } = useReferenceTable('types_sites')
-  const types = typesRef && typesRef.length > 0 ? typesRef : FALLBACK_TYPES_SITES
-  const createSite = useCreateSite()
-
-  const [nom, setNom] = useState('')
-  const [compteId, setCompteId] = useState('')
-  const [typeSiteId, setTypeSiteId] = useState('')
-  const [ville, setVille] = useState('')
-  const [codePostal, setCodePostal] = useState('')
-  const [feedback, setFeedback] = useState<string | null>(null)
-
-  useEffect(() => {
-    if (open && defaultCompteId) setCompteId(defaultCompteId)
-  }, [open, defaultCompteId])
-
-  function reset() {
-    setNom('')
-    setCompteId('')
-    setTypeSiteId('')
-    setVille('')
-    setCodePostal('')
-    setFeedback(null)
-  }
-
-  async function handleSubmit(e: React.FormEvent) {
-    e.preventDefault()
-    const compte = comptes?.find((c) => c.id === compteId)
-    const type = types.find((t) => t.id === typeSiteId)
-    if (!nom || !compte) return
-
-    const result = await createSite.mutateAsync({
-      nom,
-      compte_id: compte.id,
-      compte_nom: compte.nom,
-      type_site_id: typeSiteId || null,
-      type_site_libelle: type?.libelle ?? '',
-      ville,
-      code_postal: codePostal,
-    })
-    setFeedback(result.persisted ? 'Site créé.' : 'Site ajouté localement (non synchronisé avec Supabase).')
-    setTimeout(() => {
-      reset()
-      onClose()
-    }, 700)
-  }
-
-  return (
-    <Dialog open={open} onClose={() => { reset(); onClose() }} title="Nouveau site" description="Ajouter un site au patrimoine d'un compte existant.">
-      <form onSubmit={handleSubmit} className="space-y-3">
-        <FormField label="Nom du site">
-          <Input value={nom} onChange={(e) => setNom(e.target.value)} required placeholder="Ex. Résidence Les Tilleuls" />
-        </FormField>
-        <FormField label="Compte">
-          <Select value={compteId} onChange={(e) => setCompteId(e.target.value)} required>
-            <option value="">Sélectionner un compte…</option>
-            {comptes?.map((c) => <option key={c.id} value={c.id}>{c.nom}</option>)}
-          </Select>
-        </FormField>
-        <FormField label="Type de site">
-          <Select value={typeSiteId} onChange={(e) => setTypeSiteId(e.target.value)}>
-            <option value="">Sélectionner un type…</option>
-            {types.map((t) => <option key={t.id} value={t.id}>{t.libelle}</option>)}
-          </Select>
-        </FormField>
-        <div className="grid grid-cols-2 gap-3">
-          <FormField label="Ville">
-            <Input value={ville} onChange={(e) => setVille(e.target.value)} />
-          </FormField>
-          <FormField label="Code postal">
-            <Input value={codePostal} onChange={(e) => setCodePostal(e.target.value)} />
-          </FormField>
-        </div>
-        {feedback && <p className="text-xs text-navy-500">{feedback}</p>}
-        <div className="flex justify-end gap-2 pt-2">
-          <Button type="button" variant="ghost" onClick={() => { reset(); onClose() }}>Annuler</Button>
-          <Button type="submit" disabled={createSite.isPending}>Créer le site</Button>
-        </div>
-      </form>
-    </Dialog>
-  )
-}
 
 export default function Sites() {
   const { data: sites, isLoading } = useSites()
@@ -132,6 +36,7 @@ export default function Sites() {
   const openCreateForCompteId = (location.state as { openCreateForCompteId?: string } | null)?.openCreateForCompteId
   const [showCreate, setShowCreate] = useState(!!openCreateForCompteId)
   const [view, setView] = useState<'liste' | 'carte'>('liste')
+  const [toast, setToast] = useState<string | null>(null)
 
   useEffect(() => {
     if (openCreateForCompteId) navigate(location.pathname, { replace: true, state: null })
@@ -279,7 +184,25 @@ export default function Sites() {
         </Card>
         )}
       </div>
-      <CreateSiteDialog open={showCreate} onClose={() => setShowCreate(false)} defaultCompteId={openCreateForCompteId} />
+      {/* Exactement le parcours « Nouveau compteur » de la fiche compte, sous un autre nom :
+          depuis la décision de William, un site n'est qu'un libellé porté par son point de
+          livraison — le créer seul n'aurait aucun contenu. Le compte se choisit dans le dialogue,
+          puisqu'on n'arrive pas d'une fiche compte. */}
+      {showCreate && (
+        <CreationCompteurDialog
+          open
+          onClose={() => setShowCreate(false)}
+          sites={sites ?? []}
+          titre="Nouveau site"
+          compteIdParDefaut={openCreateForCompteId}
+          onSaved={(message) => setToast(message)}
+        />
+      )}
+      {toast && (
+        <div className="fixed bottom-5 left-1/2 z-50 -translate-x-1/2 rounded-lg bg-ink-800 px-4 py-2 text-sm text-white shadow-lg">
+          {toast}
+        </div>
+      )}
     </div>
   )
 }
