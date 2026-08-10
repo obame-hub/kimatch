@@ -79,17 +79,20 @@ export default function DocumentDetail() {
               </p>
               <p><span className="text-navy-400">Auteur :</span> {doc.auteur}</p>
               <p><span className="text-navy-400">Date :</span> {new Date(doc.date_creation).toLocaleDateString('fr-FR')}</p>
-              {doc.url && (
-                <div className="pt-1">
-                  {/* Aperçu dans la page plutôt qu'un simple lien : demande d'Agathe (07/08/2026),
-                      basculer d'onglet pour chaque pièce fait perdre le fil. L'ouverture en onglet
-                      reste proposée sous l'aperçu, plus confortable pour un contrat long. */}
-                  <ApercuDocument url={doc.url} nomFichier={doc.nom_fichier || doc.nom} />
-                </div>
-              )}
+
               <HistoriqueDiscret tableNom="documents" ligneId={doc.id} />
             </CardContent>
           </Card>
+        )}
+
+        {/* Aperçu en pleine largeur, sous les informations : demande d'Agathe (07/08/2026),
+            basculer d'onglet pour chaque pièce fait perdre le fil. Un contrat fait souvent une
+            trentaine de pages — le confiner dans la colonne des informations le rendrait
+            illisible. L'ouverture en onglet reste proposée sous l'aperçu. */}
+        {doc?.url && (
+          <div className="mt-4">
+            <ApercuDocument url={doc.url} nomFichier={doc.nom_fichier || doc.nom} />
+          </div>
         )}
       </div>
 
