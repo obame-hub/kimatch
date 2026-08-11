@@ -143,6 +143,11 @@ export default {
         'kw-v-grow': { from: { transform: 'scaleY(0)' }, to: { transform: 'scaleY(1)' } },
         'kw-toast-in': { from: { opacity: '0', transform: 'translate(-50%, 8px)' }, to: { opacity: '1', transform: 'translate(-50%, 0)' } },
         'kw-soft-pulse': { '0%, 100%': { boxShadow: '0 0 0 0 rgba(13,122,95,.25)' }, '50%': { boxShadow: '0 0 0 9px rgba(13,122,95,0)' } },
+        // Tableau de bord (maquette William, 11/08/2026) : montee des cartes, reflet qui balaie
+        // les tuiles d'indicateurs, et pastille « en direct » du fil du portefeuille.
+        'kw-card-rise': { from: { opacity: '0', transform: 'translateY(9px)' }, to: { opacity: '1', transform: 'none' } },
+        'kw-sheen': { '0%': { transform: 'translateX(-130%) skewX(-18deg)' }, '60%, 100%': { transform: 'translateX(340%) skewX(-18deg)' } },
+        'kw-live-pulse': { '0%, 100%': { boxShadow: '0 0 0 3px rgba(13,122,95,.14)' }, '50%': { boxShadow: '0 0 0 5px rgba(13,122,95,.05)' } },
       },
       animation: {
         'fade-up': 'fade-up 0.35s ease-out both',
@@ -154,6 +159,9 @@ export default {
         'kw-v-grow': 'kw-v-grow .45s cubic-bezier(.3,1.2,.4,1) both',
         'kw-toast-in': 'kw-toast-in .2s ease both',
         'kw-soft-pulse': 'kw-soft-pulse 1.6s ease infinite',
+        'kw-card-rise': 'kw-card-rise .4s ease-out both',
+        'kw-sheen': 'kw-sheen 5.5s ease-in-out infinite',
+        'kw-live-pulse': 'kw-live-pulse 2.2s ease-in-out infinite',
       },
       boxShadow: {
         card: '0 1px 2px 0 rgb(15 23 42 / 0.04), 0 1px 3px 0 rgb(15 23 42 / 0.06)',

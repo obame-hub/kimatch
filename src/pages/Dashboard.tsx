@@ -1,158 +1,335 @@
 import { useNavigate } from 'react-router-dom'
-import { Radio, MapPin, Check, CheckSquare, Sparkle } from 'lucide-react'
+import { Check, FileText, Sparkle, ShieldCheck, Zap, ChevronRight } from 'lucide-react'
 import { Topbar } from '@/components/layout/Topbar'
-import { StatCard } from '@/components/ui/stat-card'
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
-import { Badge } from '@/components/ui/badge'
+import { TuileIndicateur } from '@/components/dashboard/TuileIndicateur'
 import { EntityLink } from '@/components/ui/entity-link'
-import { ActivityCard } from '@/components/ui/activity-card'
-import { useDashboardStats } from '@/lib/data/dashboard'
+import { useDashboardStats, type SectionAction } from '@/lib/data/dashboard'
 import { useActions, useCompleteAction } from '@/lib/data/actions'
 import { useMonProfil } from '@/lib/data/roles'
-import { useReferenceTable } from '@/lib/data/referenceTables'
-import { FALLBACK_STATUTS_SIGNAUX, FALLBACK_STATUTS_ACTIONS, STATUT_ACTION_TONE } from '@/lib/referenceFallbacks'
-import { SignalTypeChart } from '@/components/charts/SignalTypeChart'
 
 function todayIso() {
   return new Date().toISOString().slice(0, 10)
 }
 
-const SIGNAL_TONE: Record<string, 'neutral' | 'amber' | 'kiwi' | 'blue'> = {
-  NOUVEAU: 'neutral',
-  A_CONTACTER: 'amber',
-  CONTACTE: 'blue',
-  REPORTE: 'neutral',
-  INTERET_CONFIRME: 'kiwi',
-  REFUSE: 'neutral',
-  TRANSFORME: 'kiwi',
-  CLOTURE: 'neutral',
+/** Dégradés des quatre tuiles de tête, repris de la maquette de William au pixel. Ils sont propres
+ * au tableau de bord et n'ont pas d'équivalent dans la palette Tailwind. */
+const TUILES = {
+  signal: { haut: '#cf5238', bas: '#9e3722' },
+  reco: { haut: '#9d5b30', bas: '#6f3a1e' },
+  mandat: { haut: '#b08f14', bas: '#8a6d08' },
+  contrat: { haut: '#3d95a5', bas: '#256571' },
+} as const
+
+/** Couleur d'accent de chaque section, cohérente avec sa tuile. */
+const ACCENTS: Record<SectionAction['cle'], { haut: string; bas: string }> = {
+  signal: TUILES.signal,
+  reco: TUILES.reco,
+  mandat: TUILES.mandat,
+  contrat: TUILES.contrat,
+}
+
+const ICONES: Record<SectionAction['cle'], typeof Zap> = {
+  signal: Zap,
+  reco: Sparkle,
+  mandat: ShieldCheck,
+  contrat: FileText,
+}
+
+/** Liste complète correspondant à une section, pour le lien « tout voir ». */
+const LISTES: Record<SectionAction['cle'], string> = {
+  signal: '/signaux',
+  reco: '/recommandations',
+  mandat: '/mandats',
+  contrat: '/contrats',
+}
+
+function Section({ section }: { section: SectionAction }) {
+  const navigate = useNavigate()
+  const accent = ACCENTS[section.cle]
+  const Icone = ICONES[section.cle]
+
+  // Tout est traité : on le dit en une ligne verte plutôt que d'afficher un cadre vide.
+  if (section.total === 0) {
+    return (
+      <div className="flex items-center gap-3 rounded-[15px] border border-kiwi-200 bg-kiwi-50 px-[17px] py-3.5">
+        <span className="flex h-[26px] w-[26px] shrink-0 items-center justify-center rounded-lg bg-kiwi-600 text-white">
+          <Check className="h-3.5 w-3.5" />
+        </span>
+        <span className="text-[13.5px] font-semibold tracking-[-.01em] text-kiwi-800">
+          {section.titre} — tout est à jour
+        </span>
+      </div>
+    )
+  }
+
+  return (
+    <div className="overflow-hidden rounded-[15px] border border-navy-100 bg-white">
+      <div
+        className="flex items-center gap-[11px] px-[18px] py-[13px]"
+        style={{ background: `linear-gradient(100deg,${accent.haut} 0%,${accent.bas} 100%)` }}
+      >
+        <span className="flex h-[30px] w-[30px] shrink-0 items-center justify-center rounded-[9px] bg-white/20 text-white">
+          <Icone className="h-4 w-4" />
+        </span>
+        <span className="text-[14.5px] font-bold tracking-[-.01em] text-white">{section.titre}</span>
+        <span className="inline-flex items-center rounded-[20px] bg-white/[.22] px-2.5 py-0.5 font-mono text-[11.5px] font-extrabold text-white">
+          {section.total}
+        </span>
+        <div className="flex-1" />
+        <span className="hidden text-[11px] text-white/[.72] sm:inline">{section.precision}</span>
+      </div>
+
+      {section.groupes.map((groupe) => (
+        <div key={groupe.libelle}>
+          <div className="flex items-center gap-2.5 border-t border-navy-100 bg-navy-50/60 px-[18px] pb-[9px] pt-2.5">
+            <span
+              className="h-[7px] w-[7px] shrink-0 rounded-full"
+              style={{ background: groupe.lignes.length ? accent.bas : undefined }}
+              data-vide={groupe.lignes.length === 0 || undefined}
+            />
+            <span
+              className="text-[11px] font-extrabold uppercase tracking-[.06em]"
+              style={{ color: groupe.lignes.length ? accent.bas : undefined }}
+            >
+              {groupe.libelle}
+            </span>
+            <span
+              className="inline-flex items-center rounded-[20px] px-2 py-px font-mono text-[10.5px] font-bold"
+              style={
+                groupe.lignes.length
+                  ? { color: accent.bas, background: `${accent.bas}18` }
+                  : undefined
+              }
+            >
+              {groupe.lignes.length}
+            </span>
+          </div>
+
+          {groupe.lignes.length === 0 ? (
+            <div className="flex items-center gap-2.5 border-t border-navy-50 px-[18px] py-3.5">
+              <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-md bg-kiwi-50 text-kiwi-600">
+                <Check className="h-3 w-3" />
+              </span>
+              <span className="text-xs text-navy-500">{groupe.siVide}</span>
+            </div>
+          ) : (
+            groupe.lignes.map((ligne) => (
+              <div
+                key={ligne.id}
+                onClick={() => navigate(ligne.to)}
+                className="flex cursor-pointer items-center gap-3 border-t border-navy-50 px-[18px] py-3 transition-colors hover:bg-navy-50/60"
+              >
+                <div className="min-w-0 flex-1">
+                  <p className="truncate text-[13px] font-semibold tracking-[-.01em] text-navy-800">{ligne.titre}</p>
+                  <p className="truncate text-[11.5px] text-navy-500">{ligne.sousTitre}</p>
+                </div>
+                <span
+                  className="shrink-0 font-mono text-[11px] font-bold"
+                  style={{ color: ligne.urgent ? accent.bas : undefined }}
+                >
+                  {ligne.echeance}
+                </span>
+                <ChevronRight className="h-3.5 w-3.5 shrink-0 text-navy-300" />
+              </div>
+            ))
+          )}
+        </div>
+      ))}
+
+      <button
+        type="button"
+        onClick={() => navigate(LISTES[section.cle])}
+        className="w-full border-t border-navy-50 px-[18px] py-2.5 text-left text-[11px] font-semibold text-kiwi-700 transition-colors hover:bg-navy-50/60"
+      >
+        Voir les {section.total} — liste complète
+      </button>
+    </div>
+  )
 }
 
 export default function Dashboard() {
   const navigate = useNavigate()
-  const { data } = useDashboardStats()
-  const { data: statutsSignauxRef } = useReferenceTable('statuts_signaux')
-  const { data: statutsActionsRef } = useReferenceTable('statuts_actions')
-  const statutsSignaux = statutsSignauxRef && statutsSignauxRef.length > 0 ? statutsSignauxRef : FALLBACK_STATUTS_SIGNAUX
-  const statutsActions = statutsActionsRef && statutsActionsRef.length > 0 ? statutsActionsRef : FALLBACK_STATUTS_ACTIONS
+  const { data, isLoading } = useDashboardStats()
   const { data: monProfil } = useMonProfil()
   const { data: actions } = useActions()
   const completeAction = useCompleteAction()
   const today = todayIso()
+
   const mesTachesDuJour = (actions ?? [])
-    .filter((a) => a.responsable_id === monProfil?.id && a.statut !== 'TERMINEE' && a.statut !== 'ANNULEE' && a.echeance && a.echeance.slice(0, 10) <= today)
+    .filter(
+      (a) =>
+        a.responsable_id === monProfil?.id &&
+        a.statut !== 'TERMINEE' &&
+        a.statut !== 'ANNULEE' &&
+        a.echeance &&
+        a.echeance.slice(0, 10) <= today,
+    )
     .sort((a, b) => a.echeance.localeCompare(b.echeance))
+
+  const dateDuJour = new Date().toLocaleDateString('fr-FR', {
+    weekday: 'long',
+    day: 'numeric',
+    month: 'long',
+  })
+
+  // Une phrase qui résume la journée, plutôt qu'un texte d'accueil figé.
+  const aTraiter =
+    (data?.signauxNouveaux ?? 0) + (data?.recosPretes ?? 0) + (data?.mandatsTresEnRetard ?? 0) + (data?.contratsASigner ?? 0)
+  const resume = isLoading
+    ? 'Chargement de votre journée…'
+    : aTraiter === 0
+      ? 'Rien d’urgent aujourd’hui — tout est à jour.'
+      : `${aTraiter} élément${aTraiter > 1 ? 's' : ''} à traiter en priorité${mesTachesDuJour.length ? ` · ${mesTachesDuJour.length} tâche${mesTachesDuJour.length > 1 ? 's' : ''} du jour` : ''}.`
 
   return (
     <div>
       <Topbar title="Tableau de bord" />
-      <div className="p-4 sm:p-6">
-        <div className="mb-6 animate-fade-up overflow-hidden rounded-xl bg-ink-950 px-6 py-7 text-white shadow-card">
-          <div className="relative">
-            <div className="pointer-events-none absolute -right-10 -top-16 h-56 w-56 rounded-full bg-kiwi-500/25 blur-3xl" />
-            <p className="font-display text-2xl font-semibold">Bonjour 👋</p>
-            <p className="mt-1 max-w-lg text-sm text-ink-300">
-              Voici les signaux, actions et recommandations qui méritent votre attention aujourd'hui — du patrimoine énergétique à la recommandation.
-            </p>
-          </div>
+
+      <div className="border-b border-navy-100 bg-white px-6 pb-[15px] pt-[18px]">
+        <div className="flex items-baseline gap-3">
+          <span className="text-[23px] font-bold tracking-[-.02em] text-navy-900">
+            Bonjour{monProfil?.prenom ? ` ${monProfil.prenom}` : ''}
+          </span>
+          <span className="text-xs capitalize text-navy-400">{dateDuJour}</span>
+        </div>
+        <div className="mt-1 text-[13px] text-navy-600">{resume}</div>
+      </div>
+
+      <div className="px-6 pb-9 pt-[18px]">
+        <div className="mb-5 grid grid-cols-1 gap-[13px] sm:grid-cols-2 xl:grid-cols-4">
+          <TuileIndicateur
+            libelle="Signaux à traiter"
+            valeur={data?.signauxOuverts ?? 0}
+            unite="ouverts"
+            detail={`${data?.signauxNouveaux ?? 0} nouveaux à qualifier`}
+            icone={Zap}
+            couleurHaut={TUILES.signal.haut}
+            couleurBas={TUILES.signal.bas}
+            remplissage={Math.min(1, (data?.signauxOuverts ?? 0) / 250)}
+            index={0}
+            onClick={() => navigate('/signaux')}
+          />
+          <TuileIndicateur
+            libelle="Opportunités à traiter"
+            valeur={data?.recommandationsEnCours ?? 0}
+            unite="en cours"
+            detail={`${data?.recosPretes ?? 0} prêtes à présenter`}
+            icone={Sparkle}
+            couleurHaut={TUILES.reco.haut}
+            couleurBas={TUILES.reco.bas}
+            remplissage={Math.min(1, (data?.recommandationsEnCours ?? 0) / 150)}
+            index={1}
+            onClick={() => navigate('/recommandations')}
+          />
+          <TuileIndicateur
+            libelle="Mandats à relancer"
+            valeur={data?.mandatsARelancer ?? 0}
+            unite="en attente"
+            detail={`${data?.mandatsTresEnRetard ?? 0} sans réponse depuis plus de 14 j`}
+            icone={ShieldCheck}
+            couleurHaut={TUILES.mandat.haut}
+            couleurBas={TUILES.mandat.bas}
+            remplissage={Math.min(1, (data?.mandatsARelancer ?? 0) / 50)}
+            index={2}
+            onClick={() => navigate('/mandats')}
+          />
+          <TuileIndicateur
+            libelle="Contrats à suivre"
+            valeur={data?.contratsASuivre ?? 0}
+            unite="en cours"
+            detail={`${data?.contratsASigner ?? 0} à signer`}
+            icone={FileText}
+            couleurHaut={TUILES.contrat.haut}
+            couleurBas={TUILES.contrat.bas}
+            remplissage={Math.min(1, (data?.contratsASuivre ?? 0) / 40)}
+            index={3}
+            onClick={() => navigate('/contrats')}
+          />
         </div>
 
-        {mesTachesDuJour.length > 0 && (
-          <Card className="mb-6 animate-fade-up">
-            <CardHeader>
-              <CardTitle className="font-display text-base">Mes tâches du jour</CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-2">
-              {mesTachesDuJour.map((tache) => (
-                <ActivityCard
-                  key={tache.id}
-                  styleKey="action"
-                  leading={
+        <div className="grid grid-cols-1 items-start gap-4 xl:grid-cols-[minmax(0,1fr)_336px]">
+          <div className="flex min-w-0 flex-col gap-4">
+            {(data?.sections ?? []).map((section) => (
+              <Section key={section.cle} section={section} />
+            ))}
+          </div>
+
+          {/* Colonne de droite : les tâches du jour. La maquette prévoyait ici un « fil du
+              portefeuille » (les évolutions récentes de chaque compte) — cette source de données
+              n'existe pas encore dans Kimatch, la table historique_modifications n'étant pas
+              exploitée. Les tâches du jour occupent la place avec une donnée réelle et utile. */}
+          <div className="overflow-hidden rounded-[15px] border border-navy-100 bg-white xl:sticky xl:top-4">
+            <div className="border-b border-navy-50 px-4 pb-3 pt-3.5">
+              <div className="flex items-center gap-2">
+                <span className="animate-kw-live-pulse h-1.5 w-1.5 shrink-0 rounded-full bg-kiwi-600" />
+                <span className="text-[10px] font-extrabold uppercase tracking-[.09em] text-navy-600">
+                  Mes tâches du jour
+                </span>
+                <div className="flex-1" />
+                <span className="text-[10px] text-navy-300">{mesTachesDuJour.length}</span>
+              </div>
+              <div className="mt-1.5 text-[11px] leading-[1.45] text-navy-400">
+                Ce qui vous est assigné et arrive à échéance.
+              </div>
+            </div>
+
+            {mesTachesDuJour.length === 0 ? (
+              <div className="flex flex-col items-center gap-2 px-5 py-9 text-center">
+                <span className="flex h-8 w-8 items-center justify-center rounded-[10px] bg-navy-50 text-navy-300">
+                  <Check className="h-4 w-4" />
+                </span>
+                <span className="text-xs leading-[1.5] text-navy-400">
+                  Aucune tâche à échéance
+                  <br />
+                  aujourd’hui.
+                </span>
+              </div>
+            ) : (
+              <div className="max-h-[60vh] overflow-y-auto">
+                {mesTachesDuJour.map((tache) => (
+                  <div
+                    key={tache.id}
+                    onClick={() => navigate(`/taches/${tache.id}`)}
+                    className="flex cursor-pointer items-start gap-2.5 border-t border-navy-50 px-4 py-3 transition-colors hover:bg-navy-50/60"
+                  >
                     <button
                       type="button"
-                      onClick={(e) => { e.stopPropagation(); completeAction.mutate(tache.id) }}
-                      className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full border border-navy-300 text-navy-400 transition-colors hover:border-kiwi-500 hover:text-kiwi-600"
+                      onClick={(e) => {
+                        e.stopPropagation()
+                        completeAction.mutate(tache.id)
+                      }}
+                      className="mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full border border-navy-300 text-navy-400 transition-colors hover:border-kiwi-500 hover:text-kiwi-600"
                       title="Marquer terminée"
                     >
-                      <Check className="h-3.5 w-3.5" />
+                      <Check className="h-3 w-3" />
                     </button>
-                  }
-                  title={tache.titre}
-                  subtitle={
-                    <>
-                      {tache.type_action}
-                      {tache.site_id && <> · <EntityLink to={`/sites/${tache.site_id}`}>{tache.cible_label}</EntityLink></>}
-                    </>
-                  }
-                  trailing={tache.echeance.slice(0, 10) < today ? 'En retard' : "Aujourd'hui"}
-                  onClick={() => navigate(`/taches/${tache.id}`)}
-                />
-              ))}
-            </CardContent>
-          </Card>
-        )}
-
-        <div className="mb-6 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
-          <StatCard label="Signaux ouverts" value={data?.signauxOuverts ?? 0} icon={Radio} tone="red" />
-          <StatCard label="Actions en attente" value={data?.actionsEnAttente ?? 0} icon={CheckSquare} tone="amber" />
-          <StatCard label="Recommandations en cours" value={data?.recommandationsEnCours ?? 0} icon={Sparkle} tone="amber" />
-          <StatCard label="Sites actifs" value={data?.sitesActifs ?? 0} icon={MapPin} tone="kiwi" />
+                    <div className="min-w-0 flex-1">
+                      <p className="truncate text-[12.5px] font-semibold tracking-[-.01em] text-navy-800">
+                        {tache.titre}
+                      </p>
+                      <p className="truncate text-[11px] text-navy-500">
+                        {tache.type_action}
+                        {tache.site_id && (
+                          <>
+                            {' · '}
+                            <EntityLink to={`/sites/${tache.site_id}`}>{tache.cible_label}</EntityLink>
+                          </>
+                        )}
+                      </p>
+                    </div>
+                    <span
+                      className={`shrink-0 font-mono text-[10px] font-bold ${
+                        tache.echeance.slice(0, 10) < today ? 'text-red-600' : 'text-navy-400'
+                      }`}
+                    >
+                      {tache.echeance.slice(0, 10) < today ? 'En retard' : 'Aujourd’hui'}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
         </div>
-
-        <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
-          <Card className="animate-fade-up lg:col-span-2">
-            <CardHeader>
-              <CardTitle className="font-display text-base">Signaux récents</CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-2">
-              {data?.signauxRecents.map((signal) => {
-                const label = statutsSignaux.find((s) => s.code === signal.statut)?.libelle ?? signal.statut
-                return (
-                  <ActivityCard
-                    key={signal.id}
-                    styleKey="signal"
-                    icon={Radio}
-                    title={signal.site_nom}
-                    subtitle={signal.type_signal}
-                    trailing={<Badge tone={SIGNAL_TONE[signal.statut] ?? 'neutral'}>{label}</Badge>}
-                    onClick={() => navigate(`/sites/${signal.site_id}`)}
-                  />
-                )
-              })}
-            </CardContent>
-          </Card>
-
-          <Card className="animate-fade-up">
-            <CardHeader>
-              <CardTitle className="font-display text-base">Répartition des signaux</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <SignalTypeChart signaux={data?.signauxRecents ?? []} />
-            </CardContent>
-          </Card>
-        </div>
-
-        <Card className="mt-4 animate-fade-up">
-          <CardHeader>
-            <CardTitle className="font-display text-base">Dossiers prioritaires</CardTitle>
-          </CardHeader>
-          <CardContent className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-            {data?.actionsPrioritaires.map((action) => {
-              const label = statutsActions.find((s) => s.code === action.statut)?.libelle ?? action.statut
-              return (
-                <ActivityCard
-                  key={action.id}
-                  styleKey="action"
-                  icon={CheckSquare}
-                  title={action.type_action}
-                  subtitle={`${action.cible_label} · ${action.responsable}`}
-                  trailing={<Badge tone={STATUT_ACTION_TONE[action.statut] ?? 'neutral'}>{label}</Badge>}
-                  onClick={action.site_id ? () => navigate(`/sites/${action.site_id}`) : undefined}
-                />
-              )
-            })}
-          </CardContent>
-        </Card>
       </div>
     </div>
   )
