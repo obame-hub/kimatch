@@ -2,9 +2,9 @@ import { useNavigate } from 'react-router-dom'
 import { Check, FileText, Sparkle, ShieldCheck, Zap, ChevronRight } from 'lucide-react'
 import { Topbar } from '@/components/layout/Topbar'
 import { TuileIndicateur } from '@/components/dashboard/TuileIndicateur'
-import { EntityLink } from '@/components/ui/entity-link'
+import { FilPortefeuille } from '@/components/dashboard/FilPortefeuille'
 import { useDashboardStats, type SectionAction } from '@/lib/data/dashboard'
-import { useActions, useCompleteAction } from '@/lib/data/actions'
+import { useActions } from '@/lib/data/actions'
 import { useMonProfil } from '@/lib/data/roles'
 
 function todayIso() {
@@ -152,7 +152,6 @@ export default function Dashboard() {
   const { data, isLoading } = useDashboardStats()
   const { data: monProfil } = useMonProfil()
   const { data: actions } = useActions()
-  const completeAction = useCompleteAction()
   const today = todayIso()
 
   const mesTachesDuJour = (actions ?? [])
@@ -254,81 +253,7 @@ export default function Dashboard() {
             ))}
           </div>
 
-          {/* Colonne de droite : les tâches du jour. La maquette prévoyait ici un « fil du
-              portefeuille » (les évolutions récentes de chaque compte) — cette source de données
-              n'existe pas encore dans Kimatch, la table historique_modifications n'étant pas
-              exploitée. Les tâches du jour occupent la place avec une donnée réelle et utile. */}
-          <div className="overflow-hidden rounded-[15px] border border-navy-100 bg-white xl:sticky xl:top-4">
-            <div className="border-b border-navy-50 px-4 pb-3 pt-3.5">
-              <div className="flex items-center gap-2">
-                <span className="animate-kw-live-pulse h-1.5 w-1.5 shrink-0 rounded-full bg-kiwi-600" />
-                <span className="text-[10px] font-extrabold uppercase tracking-[.09em] text-navy-600">
-                  Mes tâches du jour
-                </span>
-                <div className="flex-1" />
-                <span className="text-[10px] text-navy-300">{mesTachesDuJour.length}</span>
-              </div>
-              <div className="mt-1.5 text-[11px] leading-[1.45] text-navy-400">
-                Ce qui vous est assigné et arrive à échéance.
-              </div>
-            </div>
-
-            {mesTachesDuJour.length === 0 ? (
-              <div className="flex flex-col items-center gap-2 px-5 py-9 text-center">
-                <span className="flex h-8 w-8 items-center justify-center rounded-[10px] bg-navy-50 text-navy-300">
-                  <Check className="h-4 w-4" />
-                </span>
-                <span className="text-xs leading-[1.5] text-navy-400">
-                  Aucune tâche à échéance
-                  <br />
-                  aujourd’hui.
-                </span>
-              </div>
-            ) : (
-              <div className="max-h-[60vh] overflow-y-auto">
-                {mesTachesDuJour.map((tache) => (
-                  <div
-                    key={tache.id}
-                    onClick={() => navigate(`/taches/${tache.id}`)}
-                    className="flex cursor-pointer items-start gap-2.5 border-t border-navy-50 px-4 py-3 transition-colors hover:bg-navy-50/60"
-                  >
-                    <button
-                      type="button"
-                      onClick={(e) => {
-                        e.stopPropagation()
-                        completeAction.mutate(tache.id)
-                      }}
-                      className="mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full border border-navy-300 text-navy-400 transition-colors hover:border-kiwi-500 hover:text-kiwi-600"
-                      title="Marquer terminée"
-                    >
-                      <Check className="h-3 w-3" />
-                    </button>
-                    <div className="min-w-0 flex-1">
-                      <p className="truncate text-[12.5px] font-semibold tracking-[-.01em] text-navy-800">
-                        {tache.titre}
-                      </p>
-                      <p className="truncate text-[11px] text-navy-500">
-                        {tache.type_action}
-                        {tache.site_id && (
-                          <>
-                            {' · '}
-                            <EntityLink to={`/sites/${tache.site_id}`}>{tache.cible_label}</EntityLink>
-                          </>
-                        )}
-                      </p>
-                    </div>
-                    <span
-                      className={`shrink-0 font-mono text-[10px] font-bold ${
-                        tache.echeance.slice(0, 10) < today ? 'text-red-600' : 'text-navy-400'
-                      }`}
-                    >
-                      {tache.echeance.slice(0, 10) < today ? 'En retard' : 'Aujourd’hui'}
-                    </span>
-                  </div>
-                ))}
-              </div>
-            )}
-          </div>
+          <FilPortefeuille />
         </div>
       </div>
     </div>

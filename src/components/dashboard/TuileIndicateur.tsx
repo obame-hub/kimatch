@@ -35,9 +35,12 @@ export function TuileIndicateur({
     <button
       type="button"
       onClick={onClick}
-      className="animate-kw-card-rise group relative overflow-hidden rounded-2xl px-[17px] pb-4 pt-[15px] text-left transition-[transform,box-shadow] duration-200 hover:-translate-y-[3px]"
+      className="animate-kw-card-rise tuile-indicateur relative overflow-hidden rounded-2xl px-[17px] pb-4 pt-[15px] text-left"
       style={{
         background: `linear-gradient(145deg,${couleurHaut} 0%,${couleurBas} 100%)`,
+        // Ombre au repos teintée de la couleur basse de la tuile, comme la maquette. La transition
+        // et l'ombre de survol sont dans index.css (.tuile-indicateur) : Tailwind ne permet pas
+        // d'exprimer la courbe cubic-bezier de William ni deux durées distinctes en classes.
         boxShadow: `0 8px 22px -12px ${couleurBas}aa`,
         animationDelay: `${index * 0.05}s`,
       }}
