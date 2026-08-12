@@ -26,6 +26,7 @@ interface RawRecommandation {
   marge_nette_coeff: number | null
   marge_apporteur: number | null
   date_cloture?: string | null
+  finalite_cloture?: 'ACCEPTEE' | 'REFUSEE' | 'EXPIREE' | null
   type_opportunite?: string | null
   etape: { code: string } | null
   origine: { libelle: string } | null
@@ -375,6 +376,7 @@ async function fetchRecommandations(): Promise<Recommandation[]> {
       marge_apporteur: r.marge_apporteur,
       type_energie: (r.type_energie?.code?.toLowerCase() as 'electricite' | 'gaz' | undefined) ?? null,
       date_cloture: r.date_cloture ?? null,
+      finalite_cloture: r.finalite_cloture ?? null,
       type_opportunite: r.type_opportunite ?? null,
       compteur_ids: compteurIdsParReco.get(r.id) ?? [],
     }))

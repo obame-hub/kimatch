@@ -10,19 +10,17 @@ import {
   Pencil,
   Trash2,
   FileCheck2,
-  FileText,
-  Sparkle,
-  Radio,
-  UploadCloud,
   MapPin,
   Search,
 } from 'lucide-react'
 import { Topbar } from '@/components/layout/Topbar'
 import { HubCreation } from '@/components/compte/HubCreation'
 import { HeroValeurCompte, HeroScoreEllipro, type FacteurValeur, type FaitEllipro } from '@/components/compte/HerosCompte'
+import { OngletRecommandations, OngletSignaux } from '@/components/compte/OngletsCompte'
+import { OngletHistorique } from '@/components/compte/OngletHistorique'
+import { OngletFichiers } from '@/components/compte/OngletFichiers'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
-import { EntityLink } from '@/components/ui/entity-link'
 import { Dialog } from '@/components/ui/dialog'
 import { Sheet } from '@/components/ui/sheet'
 import { ContactForm } from '@/components/contact/ContactForm'
@@ -59,9 +57,6 @@ import { useReferenceTable } from '@/lib/data/referenceTables'
 import {
   FALLBACK_STATUTS_MANDATS,
   STATUT_MANDAT_TONE,
-  FALLBACK_STATUTS_VERSIONS,
-  FALLBACK_ETAPES_RECOMMANDATION,
-  ETAPE_TONE,
   FALLBACK_TYPES_DOCUMENTS,
 } from '@/lib/referenceFallbacks'
 import { useCanManage, useIsAdmin, useProfilsAdmin } from '@/lib/data/roles'
@@ -126,10 +121,6 @@ export default function CompteDetail() {
 
   const { data: statutsMandatsRef } = useReferenceTable('statuts_mandats')
   const statutsMandats = statutsMandatsRef && statutsMandatsRef.length > 0 ? statutsMandatsRef : FALLBACK_STATUTS_MANDATS
-  const { data: statutsVersionsRef } = useReferenceTable('statuts_versions_recommandation')
-  const statutsVersions = statutsVersionsRef && statutsVersionsRef.length > 0 ? statutsVersionsRef : FALLBACK_STATUTS_VERSIONS
-  const { data: etapesRef } = useReferenceTable('etapes_recommandation')
-  const etapes = etapesRef && etapesRef.length > 0 ? etapesRef : FALLBACK_ETAPES_RECOMMANDATION
 
   const [tab, setTab] = useState<TabKey>('synthese')
   const [toast, setToast] = useState<string | null>(null)
@@ -139,7 +130,6 @@ export default function CompteDetail() {
   // Voir HubCreation : le hub s'approprie le clavier quand il est ouvert, « R » notamment.
   const [hubOuvert, setHubOuvert] = useState(false)
   const [addFichierOpen, setAddFichierOpen] = useState(false)
-  const [ficCategorie, setFicCategorie] = useState<string | null>(null)
   const [addCompteurOpen, setAddCompteurOpen] = useState(false)
   const [pdlMethodOpen, setPdlMethodOpen] = useState(false)
   const [pdlMethode, setPdlMethode] = useState<PdlMethode>('manuel')
@@ -213,8 +203,6 @@ export default function CompteDetail() {
   const mandatsDuCompte = useMemo(() => mandats?.filter((m) => m.compte_id === id) ?? [], [mandats, id])
   const actionsDuCompte = useMemo(() => actions?.filter((a) => siteIdsDuCompte.has(a.site_id ?? '')) ?? [], [actions, siteIdsDuCompte])
   const documentsDuCompte = useMemo(() => documents?.filter((d) => d.entite_type === 'compte' && d.entite_id === id) ?? [], [documents, id])
-  const categoriesFichiers = useMemo(() => [...new Set(documentsDuCompte.map((d) => d.type_document).filter(Boolean))], [documentsDuCompte])
-  const documentsFiltresParCategorie = ficCategorie ? documentsDuCompte.filter((d) => d.type_document === ficCategorie) : documentsDuCompte
 
   const contactPrincipal = contactsDuCompte.find((c) => c.contact_principal) ?? contactsDuCompte[0]
 
@@ -545,65 +533,9 @@ export default function CompteDetail() {
             <CompteursTabContent sites={sitesDuCompte} compteurs={compteursDuCompte} />
           )}
 
-          {tab === 'recommandations' && (
-            <div className="flex flex-col gap-2.5">
-              {recommandationsDuCompte.length === 0 && <p className="text-kw-lg text-kw-faint">Aucune recommandation pour ce compte.</p>}
-              {recommandationsDuCompte.map((r) => {
-                const derniereVersion = r.versions[r.versions.length - 1]
-                return (
-                  <div
-                    key={r.id}
-                    onClick={() => navigate(`/recommandations/${r.id}`)}
-                    className="cursor-pointer rounded-xl border border-kw-border bg-kw-surface p-3.5 hover:bg-kw-muted"
-                  >
-                    <div className="flex items-center gap-2">
-                      <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-kw-amber-light text-kw-amber">
-                        <Sparkle className="h-3.5 w-3.5" />
-                      </span>
-                      <p className="flex-1 truncate text-kw-h4 font-bold text-kw-ink">{r.titre}</p>
-                      <Badge tone={ETAPE_TONE[r.etape] ?? 'amber'}>{etapes.find((e) => e.code === r.etape)?.libelle ?? r.etape}</Badge>
-                    </div>
-                    {derniereVersion && (
-                      <p className="ml-9 mt-1.5 text-kw-sm text-kw-meta">
-                        {derniereVersion.nom || 'Version'} · {statutsVersions.find((s) => s.code === derniereVersion.statut)?.libelle ?? derniereVersion.statut}
-                        {derniereVersion.gains_estimes ? ` · gain estimé ${derniereVersion.gains_estimes.toLocaleString('fr-FR')} €/an` : ''}
-                      </p>
-                    )}
-                  </div>
-                )
-              })}
-            </div>
-          )}
+          {tab === 'recommandations' && <OngletRecommandations recommandations={recommandationsDuCompte} />}
 
-          {tab === 'signaux' && (
-            <div className="flex flex-col gap-2.5">
-              {signauxDuCompte.length === 0 ? (
-                <div className="rounded-xl border border-dashed border-kw-green-border bg-kw-surface p-6 text-center text-kw-lg font-semibold text-kw-green">
-                  ✓ Aucun signal ouvert — compte sous contrôle
-                </div>
-              ) : (
-                signauxDuCompte.map((s) => (
-                  <div key={s.id} className="rounded-xl border border-kw-border bg-kw-surface p-3.5">
-                    <div className="flex items-start gap-3">
-                      <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-kw-red-light text-kw-red">
-                        <Radio className="h-3.5 w-3.5" />
-                      </span>
-                      <div className="min-w-0 flex-1">
-                        <p className="text-kw-h4 font-bold text-kw-ink">{s.type_signal}</p>
-                        <p className="mt-0.5 text-kw-lg text-kw-meta">{s.description}</p>
-                        <span className="mt-1 inline-block text-kw-sm"><EntityLink to={`/sites/${s.site_id}`}>{s.site_nom}</EntityLink></span>
-                      </div>
-                    </div>
-                    <div className="mt-2.5 flex gap-2 border-t border-kw-border-subtle pt-2.5">
-                      <Button variant="ghost" size="sm" className="ml-auto" onClick={() => navigate('/signaux')}>
-                        Voir dans Signaux
-                      </Button>
-                    </div>
-                  </div>
-                ))
-              )}
-            </div>
-          )}
+          {tab === 'signaux' && <OngletSignaux signaux={signauxDuCompte} onVoirTout={() => navigate('/signaux')} />}
 
           {tab === 'mandats' && (
             <div className="flex flex-col gap-2.5">
@@ -637,92 +569,14 @@ export default function CompteDetail() {
           )}
 
           {tab === 'fichiers' && (
-            <div className="flex flex-col gap-3.5">
-              <div className="flex flex-wrap items-center gap-1.5">
-                <button
-                  type="button"
-                  onClick={() => setFicCategorie(null)}
-                  className={cn('rounded-full px-2.5 py-1 text-kw-base font-semibold', ficCategorie === null ? 'bg-kw-ink text-white' : 'bg-kw-muted text-kw-label hover:bg-kw-border')}
-                >
-                  Tous
-                </button>
-                {categoriesFichiers.map((cat) => (
-                  <button
-                    key={cat}
-                    type="button"
-                    onClick={() => setFicCategorie(cat)}
-                    className={cn('rounded-full px-2.5 py-1 text-kw-base font-semibold', ficCategorie === cat ? 'bg-kw-ink text-white' : 'bg-kw-muted text-kw-label hover:bg-kw-border')}
-                  >
-                    {cat}
-                  </button>
-                ))}
-                <div className="flex-1" />
-                <Button size="sm" onClick={() => setAddFichierOpen(true)}>
-                  <Plus className="h-3.5 w-3.5" />
-                  Ajouter un fichier
-                </Button>
-              </div>
-              <button
-                type="button"
-                onClick={() => setAddFichierOpen(true)}
-                className="flex flex-col items-center gap-1.5 rounded-xl border-2 border-dashed border-kw-border-strong bg-kw-surface py-6 text-kw-faint hover:border-kw-green-border hover:text-kw-green"
-              >
-                <UploadCloud className="h-[18px] w-[18px]" />
-                <span className="text-kw-lg font-bold text-kw-body">Glissez-déposez vos fichiers ici</span>
-                <span className="text-kw-sm">PDF, images, emails — catégorisés ensuite en un clic</span>
-              </button>
-              {documentsFiltresParCategorie.length === 0 ? (
-                <p className="text-kw-lg text-kw-faint">{ficCategorie ? 'Aucun fichier dans cette catégorie.' : 'Aucun fichier pour ce compte.'}</p>
-              ) : (
-                <div className="overflow-hidden rounded-xl border border-kw-border bg-kw-surface">
-                  {documentsFiltresParCategorie.map((d) => (
-                    <div
-                      key={d.id}
-                      onClick={() => navigate(`/documents/${d.id}`)}
-                      className="flex cursor-pointer items-center gap-3 border-b border-kw-border-subtle px-4 py-3 last:border-b-0 hover:bg-kw-muted"
-                    >
-                      <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-kw-muted text-kw-label">
-                        <FileText className="h-4 w-4" />
-                      </span>
-                      <div className="min-w-0 flex-1">
-                        <p className="truncate text-kw-h4 font-bold text-kw-ink">{d.nom}</p>
-                        <p className="truncate text-kw-sm text-kw-faint">{d.auteur} · {new Date(d.date_creation).toLocaleDateString('fr-FR')}</p>
-                      </div>
-                      <Badge tone="neutral">{d.type_document}</Badge>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </div>
+            <OngletFichiers
+              documents={documentsDuCompte}
+              onAjouter={() => setAddFichierOpen(true)}
+              onOuvrir={(d) => navigate(`/documents/${d.id}`)}
+            />
           )}
 
-          {tab === 'historique' && (
-            <div className="flex flex-col gap-2.5">
-              <p className="text-kw-base text-kw-faint">{historique?.length ?? 0} changement{(historique?.length ?? 0) > 1 ? 's' : ''} tracé{(historique?.length ?? 0) > 1 ? 's' : ''} · tous horodatés</p>
-              <div className="overflow-hidden rounded-xl border border-kw-border bg-kw-surface">
-                {!historique || historique.length === 0 ? (
-                  <p className="p-4 text-kw-lg text-kw-faint">Aucune modification enregistrée.</p>
-                ) : (
-                  historique.map((h) => (
-                    <div key={h.id} className="grid grid-cols-[110px_1fr] gap-3 border-b border-kw-border-subtle px-4 py-3 last:border-b-0 sm:grid-cols-[110px_140px_140px_1fr]">
-                      <span className="font-mono text-kw-sm text-kw-meta">{new Date(h.date_modification).toLocaleString('fr-FR')}</span>
-                      <span className="hidden text-kw-md font-semibold text-kw-body sm:block">{h.modifie_par_nom ?? 'Quelqu\'un'}</span>
-                      <span className="hidden text-kw-md font-medium text-kw-label sm:block">{h.champ}</span>
-                      <span className="flex flex-wrap items-center gap-2 text-kw-md">
-                        {h.ancienne_valeur && (
-                          <>
-                            <span className="text-kw-faint line-through">{h.ancienne_valeur}</span>
-                            <span className="text-kw-ghost">→</span>
-                          </>
-                        )}
-                        <span className="font-semibold text-kw-green">{h.nouvelle_valeur ?? '—'}</span>
-                      </span>
-                    </div>
-                  ))
-                )}
-              </div>
-            </div>
-          )}
+          {tab === 'historique' && <OngletHistorique entrees={historique} />}
 
           {tab === 'activite' && (
             <ActivityFeed

@@ -169,6 +169,9 @@ export interface Recommandation {
   /** Champs ajoutés le 04/08/2026 pour le flot Opportunité calqué sur Tools. */
   type_energie?: 'electricite' | 'gaz' | null
   date_cloture?: string | null
+  /** Sous-statut de l'étape Clôture : ACCEPTEE, REFUSEE ou EXPIREE. Colonne ajoutée par la
+   *  migration des cycles de vie du 12/08/2026 ; nulle tant que la reco n'est pas clôturée. */
+  finalite_cloture?: 'ACCEPTEE' | 'REFUSEE' | 'EXPIREE' | null
   /** Renouvellement | Captation -- dérivé automatiquement du mix client/prospect des PDL, jamais
    * choisi manuellement (voir recommandations.ts). */
   type_opportunite?: string | null
