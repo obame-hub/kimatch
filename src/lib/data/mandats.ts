@@ -15,10 +15,12 @@ interface RawMandat {
   contact_signataire_id: string | null
   docusign_envelope_id: string | null
   proprietaire_id: string | null
+  cree_par_id: string | null
   compte: { nom: string } | null
   statut: { code: string } | null
   contact_signataire: { prenom: string; nom: string } | null
   proprietaire: { prenom: string; nom: string } | null
+  createur: { prenom: string; nom: string } | null
   date_creation: string
   date_modification: string
   duree_mois?: number | null
@@ -32,7 +34,7 @@ async function fetchMandats(): Promise<Mandat[]> {
         // `*` plutôt qu'une liste de colonnes fixe : `duree_mois` vient d'être ajoutée par
         // migration et peut ne pas encore exister en prod au moment du déploiement -- un select
         // nommé sur une colonne absente ferait échouer la requête (400) pour TOUS les mandats.
-        '*, compte:comptes(nom), statut:statuts_mandats(code), contact_signataire:contacts(prenom, nom), proprietaire:profils!mandats_proprietaire_id_fkey(prenom, nom)',
+        '*, compte:comptes(nom), statut:statuts_mandats(code), contact_signataire:contacts(prenom, nom), proprietaire:profils!mandats_proprietaire_id_fkey(prenom, nom), createur:profils!mandats_cree_par_id_fkey(prenom, nom)',
       ),
       fetchAllRows<{ mandat_id: string; compteur: { id: string; site_id: string } | null }>('mandats_compteurs', 'mandat_id, compteur:compteurs(id, site_id)'),
       fetchAllRows<{ mandat_id: string; type_courtier: { code: string } | null }>('mandats_courtiers', 'mandat_id, type_courtier:types_courtiers_mandat(code)'),
@@ -79,6 +81,11 @@ async function fetchMandats(): Promise<Mandat[]> {
       docusign_envelope_id: m.docusign_envelope_id,
       proprietaire_id: m.proprietaire_id,
       proprietaire_nom: m.proprietaire ? `${m.proprietaire.prenom} ${m.proprietaire.nom}` : null,
+      // « Connaître qui a créé et envoyé le mandat est plus important que le propriétaire »
+      // (William, 12/08/2026). Mandat__c n'a même pas d'OwnerId côté Salesforce : le créateur est
+      // la seule information de responsabilité qui existe sur cet objet.
+      cree_par_id: m.cree_par_id,
+      createur_nom: m.createur ? `${m.createur.prenom} ${m.createur.nom}` : null,
       courtier_codes: courtierCodesParMandat.get(m.id) ?? [],
       duree_mois: m.duree_mois ?? null,
       date_creation: m.date_creation,
@@ -143,9 +150,21 @@ export function useCreateMandat() {
         contact_signataire_id: input.contact_signataire_id,
         contact_signataire_nom: input.contact_signataire_nom,
         proprietaire_id: null,
+        cree_par_id: null,
         courtier_codes: input.courtier_codes,
         duree_mois: input.duree_mois,
       }
+
+      // Le créateur et le statut initial n'étaient pas écrits : chaque mandat créé dans Kimatch
+      // reproduisait donc le trou qu'on vient de combler côté Salesforce (1429 cree_par_id vides),
+      // et repartait sans statut — donc invisible dans tous les filtres qui s'appuient dessus.
+      const [{ data: utilisateur }, { data: statutInitial }] = await Promise.all([
+        supabase.auth.getUser(),
+        supabase.from('statuts_mandats').select('id').eq('code', 'A_PREPARER').maybeSingle(),
+      ])
+      const creePar = utilisateur.user?.id ?? null
+      const statutId = (statutInitial as { id: string } | null)?.id ?? null
+      mandat = { ...mandat, cree_par_id: creePar }
 
       const { data, error } = await supabase
         .from('mandats')
@@ -155,6 +174,8 @@ export function useCreateMandat() {
           date_debut_validite: dateDebut,
           date_fin_validite: dateFin,
           duree_mois: input.duree_mois,
+          ...(creePar ? { cree_par_id: creePar } : {}),
+          ...(statutId ? { statut_id: statutId } : {}),
           ...(input.contact_signataire_id ? { contact_signataire_id: input.contact_signataire_id } : {}),
         })
         .select('id')

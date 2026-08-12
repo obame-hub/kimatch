@@ -104,8 +104,10 @@ export function useDashboardStats() {
       compteId: (c) => c.compte_id,
       siteId: (c) => c.site_id,
     })
+    // Pour le mandat, la responsabilité est portée par le créateur, pas par un propriétaire :
+    // « connaître qui a créé et envoyé le mandat est plus important » (William, 12/08/2026).
     const mesMandats = filtrerMesElements(mandats.data ?? [], portefeuille, monProfil?.id, {
-      proprietaireId: (m) => m.proprietaire_id,
+      proprietaireId: (m) => m.proprietaire_id ?? m.cree_par_id,
       compteId: (m) => m.compte_id,
     })
 

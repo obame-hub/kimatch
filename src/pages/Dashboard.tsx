@@ -197,7 +197,7 @@ export default function Dashboard() {
       <div className="px-6 pb-9 pt-[18px]">
         <div className="mb-5 grid grid-cols-1 gap-[13px] sm:grid-cols-2 xl:grid-cols-4">
           <TuileIndicateur
-            libelle="Contrats à suivre"
+            libelle="Suivi des contrats"
             valeur={data?.contratsASuivre ?? 0}
             unite="en cours"
             detail={`${data?.contratsASigner ?? 0} à signer`}
@@ -209,7 +209,7 @@ export default function Dashboard() {
             onClick={() => navigate('/contrats')}
           />
           <TuileIndicateur
-            libelle="Recos à traiter"
+            libelle="Suivi des recommandations"
             valeur={data?.recommandationsEnCours ?? 0}
             unite="aujourd’hui"
             detail={`${data?.recosPretes ?? 0} prêtes à présenter`}
@@ -221,7 +221,7 @@ export default function Dashboard() {
             onClick={() => navigate('/recommandations')}
           />
           <TuileIndicateur
-            libelle="Mandats à relancer"
+            libelle="Suivi des mandats"
             valeur={data?.mandatsARelancer ?? 0}
             unite="en attente"
             detail={`${data?.mandatsTresEnRetard ?? 0} sans réponse depuis plus de 14 j`}
@@ -233,7 +233,7 @@ export default function Dashboard() {
             onClick={() => navigate('/mandats')}
           />
           <TuileIndicateur
-            libelle="Signaux à traiter"
+            libelle="Suivi des signaux"
             valeur={data?.signauxOuverts ?? 0}
             unite="ouverts"
             detail={`${data?.signauxNouveaux ?? 0} nouveaux à qualifier`}

@@ -214,6 +214,10 @@ export interface Mandat {
   docusign_envelope_id?: string | null
   proprietaire_id: string | null
   proprietaire_nom?: string | null
+  /** Auteur du mandat. C'est lui qu'on affiche et sur qui porte le filtre du tableau de bord :
+   * Mandat__c n'a pas d'OwnerId côté Salesforce, le créateur est la seule responsabilité tracée. */
+  cree_par_id: string | null
+  createur_nom?: string | null
   courtier_codes: string[]
   /** Durée du mandat en mois (12/24/36/48, défaut 36) -- colonne ajoutée le 04/08/2026 pour le
    * flot Mandat calqué sur Tools. */

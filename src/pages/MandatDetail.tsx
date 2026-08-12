@@ -321,8 +321,10 @@ export default function MandatDetail() {
           </div>
           <p className="truncate text-xs text-navy-500">{mandat.nb_sites_couverts} site{mandat.nb_sites_couverts > 1 ? 's' : ''} couvert{mandat.nb_sites_couverts > 1 ? 's' : ''}</p>
           <p className="truncate text-[10.5px] text-navy-400">
-            {mandat.date_creation && <>Créé le {new Date(mandat.date_creation).toLocaleDateString('fr-FR')} · </>}
-            Propriétaire : {mandat.proprietaire_nom || 'Aucun'}
+            {/* C'est le créateur qu'on affiche, pas un propriétaire : Mandat__c n'a pas d'OwnerId
+                côté Salesforce, donc le mandat n'a jamais eu de propriétaire à reprendre. */}
+            {mandat.date_creation && <>Créé le {new Date(mandat.date_creation).toLocaleDateString('fr-FR')} </>}
+            par {mandat.createur_nom || mandat.proprietaire_nom || 'un auteur inconnu'}
             {mandat.id_salesforce && <> · <span className="font-mono">{mandat.id_salesforce}</span> (temporaire, pour contrôle)</>}
           </p>
         </div>
