@@ -93,3 +93,67 @@
   transform: translateY(-3px);
   box-shadow: 0 16px 34px -14px rgba(22, 24, 29, 0.34);
 }
+
+/* Infobulle au survol, reprise de la maquette de William (.ib / .ibp). Le panneau reste dans le
+   flux avec visibility plutôt qu'un démontage : la transition d'opacité ne peut pas s'appliquer à
+   un élément qui apparaît d'un coup, et un survol qui clignote est pire que pas d'infobulle. */
+.kw-ib {
+  position: relative;
+  cursor: help;
+}
+.kw-ibp {
+  position: absolute;
+  right: 0;
+  top: calc(100% + 8px);
+  width: 230px;
+  padding: 11px 13px;
+  border-radius: 11px;
+  background: #16181d;
+  color: #fff;
+  box-shadow: 0 14px 34px rgba(0, 0, 0, 0.34);
+  opacity: 0;
+  visibility: hidden;
+  transform: translateY(-4px);
+  transition:
+    opacity 0.15s ease,
+    transform 0.15s ease;
+  z-index: 60;
+  text-align: left;
+  pointer-events: none;
+}
+.kw-ib:hover .kw-ibp {
+  opacity: 1;
+  visibility: visible;
+  transform: none;
+}
+
+/* Ces animations sont déclenchées depuis un `style` inline (délai calculé par index) et non par une
+   classe `animate-*`. Tailwind n'émet les @keyframes d'un thème que lorsqu'il voit la classe
+   correspondante dans les sources : déclarées uniquement dans tailwind.config.js, elles étaient
+   purgées du bundle et le halo ne pulsait pas. Les garder ici les rend indépendantes du scan. */
+@keyframes kw-ring-in {
+  from {
+    stroke-dashoffset: var(--l);
+  }
+  to {
+    stroke-dashoffset: var(--o);
+  }
+}
+@keyframes kw-glow-pulse {
+  0%,
+  100% {
+    opacity: 0.42;
+  }
+  50% {
+    opacity: 0.72;
+  }
+}
+@keyframes kw-sheen {
+  0% {
+    transform: translateX(-120%) skewX(-18deg);
+  }
+  55%,
+  100% {
+    transform: translateX(320%) skewX(-18deg);
+  }
+}

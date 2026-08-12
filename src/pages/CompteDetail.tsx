@@ -7,8 +7,6 @@ import {
   Plus,
   Building2,
   Users,
-  Gauge,
-  Loader2,
   Pencil,
   Trash2,
   FileCheck2,
@@ -21,6 +19,7 @@ import {
 } from 'lucide-react'
 import { Topbar } from '@/components/layout/Topbar'
 import { HubCreation } from '@/components/compte/HubCreation'
+import { HeroValeurCompte, HeroScoreEllipro, type FacteurValeur, type FaitEllipro } from '@/components/compte/HerosCompte'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { EntityLink } from '@/components/ui/entity-link'
@@ -164,6 +163,37 @@ export default function CompteDetail() {
   }
 
   const compte = comptes?.find((c) => c.id === id)
+
+  // ── Héro Ellipro ────────────────────────────────────────────────────────────────────────────
+  // Le score Ellisphere est stocké en texte mais vaut bien 0 à 10 en base (vérifié sur les 2008
+  // comptes notés), donc directement exploitable comme note sur 10 par la maquette.
+  const noteEllipro = compte?.score_ellipro != null && compte.score_ellipro !== '' ? Number(compte.score_ellipro) : null
+  const libelleEllipro =
+    noteEllipro === null
+      ? 'Jamais interrogé'
+      : noteEllipro >= 8
+        ? 'Solidité confirmée'
+        : noteEllipro >= 6
+          ? 'Situation saine'
+          : noteEllipro >= 4
+            ? 'À surveiller'
+            : 'Risque élevé'
+
+  // La maquette montre trois faits : encours conseillé, incidents sur 24 mois, risque de
+  // défaillance. Seul le dernier est dérivable de ce que Kimatch possède. `limite_ellipro` porte
+  // un nom d'encours mais ne va que de 0 à 7 sur 26 comptes : ce n'est pas un montant, l'afficher
+  // en euros serait faux. Les incidents de paiement ne sont pas repris du tout.
+  const faitsEllipro: FaitEllipro[] = useMemo(() => {
+    if (noteEllipro === null) return []
+    return [
+      {
+        libelle: 'Risque de défaillance',
+        aide: 'Déduit de la note Ellisphere à 12 mois',
+        valeur: noteEllipro >= 7 ? 'Faible' : noteEllipro >= 4 ? 'Modéré' : 'Élevé',
+      },
+      { libelle: 'Note', aide: 'Note Ellisphere sur 10', valeur: `${noteEllipro} / 10` },
+    ]
+  }, [noteEllipro])
   const canManage = useCanManage(compte?.proprietaire_id)
   const { data: historique } = useHistorique('comptes', compte?.id)
 
@@ -412,44 +442,35 @@ export default function CompteDetail() {
         <div className="min-h-0 overflow-y-auto bg-navy-50 p-4 sm:p-5">
           {tab === 'synthese' && (
             <div className="flex flex-col gap-3.5">
-              <div className="grid grid-cols-1 gap-3.5 lg:grid-cols-[1fr_1.25fr]">
+              {/* Les deux héros, dans la grille de la maquette : ils se répartissent la largeur et
+                  passent l'un sous l'autre en dessous de 240px chacun. */}
+              <div className="grid gap-3" style={{ gridTemplateColumns: 'repeat(auto-fit,minmax(min(240px,100%),1fr))' }}>
                 <ValeurCompteCard compte={compte} sitesDuCompte={sitesDuCompte} contratsDuCompte={contratsDuCompte} />
-                <IdentiteCard compte={compte} onToast={showToast} />
+                <HeroScoreEllipro
+                  note={noteEllipro}
+                  libelle={libelleEllipro}
+                  faits={faitsEllipro}
+                  onActualiser={compte.siren && !ellisphereScore.isPending ? handleScoreClick : undefined}
+                />
               </div>
 
+              <IdentiteCard compte={compte} onToast={showToast} />
+
+              {/* Ce qui n'a pas sa place dans le héro : l'absence de SIREN qui empêche toute
+                  interrogation, les erreurs, et la date de dernière interrogation. */}
               <div className="rounded-xl border border-navy-100 bg-kw-surface p-4">
-                <div className="mb-3 flex items-center">
-                  <span className="text-[10px] font-bold uppercase tracking-wide text-navy-400">Score Ellisphere</span>
-                </div>
-                {!compte.siren ? (
+                {!compte.siren && (
                   <p className="text-xs text-navy-400">Aucun SIREN renseigné — impossible d'interroger Ellisphere.</p>
-                ) : (
-                  <div className="flex flex-col gap-2.5">
-                    {compte.score_ellipro ? (
-                      <div className="flex items-center gap-2 rounded-lg bg-kiwi-50 px-3 py-2">
-                        <Gauge className="h-4 w-4 text-kiwi-700" />
-                        <p className="text-xs text-kiwi-800">
-                          Score actuel : <span className="font-semibold">{compte.score_ellipro}</span>
-                          {compte.score_ellipro_scale && ` / ${compte.score_ellipro_scale}`}
-                        </p>
-                      </div>
-                    ) : (
-                      <p className="text-xs text-navy-400">Aucun score interrogé pour le moment.</p>
-                    )}
-                    {compte.score_ellipro_maj && (
-                      <p className="text-[10.5px] text-navy-400">Dernière interrogation : {new Date(compte.score_ellipro_maj).toLocaleString('fr-FR')}</p>
-                    )}
-                    <Button type="button" variant="outline" size="sm" onClick={handleScoreClick} disabled={ellisphereScore.isPending} className="self-start">
-                      {ellisphereScore.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Gauge className="h-4 w-4" />}
-                      {ellisphereScore.isPending ? 'Interrogation…' : 'Interroger Ellisphere'}
-                    </Button>
-                    {ellisphereScore.isError && <p className="text-xs text-red-600">{(ellisphereScore.error as Error).message}</p>}
-                    {updateScore.isSuccess && (
-                      <p className="text-[10.5px] text-navy-400">
-                        {updateScore.data.changed ? 'Score mis à jour.' : 'Score inchangé depuis la dernière interrogation.'}
-                      </p>
-                    )}
-                  </div>
+                )}
+                {compte.score_ellipro_maj && (
+                  <p className="text-[10.5px] text-navy-400">Dernière interrogation : {new Date(compte.score_ellipro_maj).toLocaleString('fr-FR')}</p>
+                )}
+                {ellisphereScore.isPending && <p className="text-xs text-navy-400">Interrogation d'Ellisphere…</p>}
+                {ellisphereScore.isError && <p className="text-xs text-red-600">{(ellisphereScore.error as Error).message}</p>}
+                {updateScore.isSuccess && (
+                  <p className="text-[10.5px] text-navy-400">
+                    {updateScore.data.changed ? 'Score mis à jour.' : 'Score inchangé depuis la dernière interrogation.'}
+                  </p>
                 )}
                 <HistoriqueDiscret tableNom="comptes" ligneId={compte.id} />
               </div>
@@ -982,43 +1003,43 @@ function ValeurCompteCard({ compte, sitesDuCompte, contratsDuCompte }: { compte:
   const prospectsScore = Math.min(20, prospects * 8)
   const score = Math.min(100, ancienneteScore + ratioScore + prospectsScore)
 
-  const drivers = [
-    { label: `Ancienneté relation · ${anciennete} an${anciennete > 1 ? 's' : ''}`, value: ancienneteScore, tone: 'green' as const },
-    { label: `${sitesClients}/${sitesDuCompte.length || 0} sites client (${Math.round(ratioClient * 100)} %)`, value: ratioScore, tone: 'green' as const },
-    ...(prospects > 0 ? [{ label: `${prospects} prospect${prospects > 1 ? 's' : ''} convertible${prospects > 1 ? 's' : ''}`, value: prospectsScore, tone: 'amber' as const }] : []),
+  // Libellé qualitatif du score, aux paliers de la maquette (« Fort potentiel » à 81).
+  const libelle = score >= 75 ? 'Fort potentiel' : score >= 50 ? 'Potentiel confirmé' : score >= 25 ? 'À développer' : 'Peu engagé'
+
+  const facteurs: FacteurValeur[] = [
+    {
+      libelle: `Ancienneté relation · ${anciennete} an${anciennete > 1 ? 's' : ''}`,
+      points: ancienneteScore,
+      maximum: 30,
+      teinte: 'acquis',
+    },
+    {
+      libelle: `${sitesClients}/${sitesDuCompte.length || 0} sites client (${Math.round(ratioClient * 100)} %)`,
+      points: ratioScore,
+      maximum: 40,
+      teinte: 'acquis',
+    },
+    ...(prospects > 0
+      ? [
+          {
+            libelle: `${prospects} prospect${prospects > 1 ? 's' : ''} convertible${prospects > 1 ? 's' : ''}`,
+            points: prospectsScore,
+            maximum: 20,
+            teinte: 'potentiel' as const,
+          },
+        ]
+      : []),
   ]
 
-  const dotColor = { green: 'bg-kw-green', amber: 'bg-kw-amber' }
-  const chipStyle = { green: 'bg-kw-blue-light text-kw-blue', amber: 'bg-kw-amber-border text-kw-amber-dark' }
-
   return (
-    <div className="rounded-xl border border-kw-blue/20 bg-kw-surface p-4 shadow-sm">
-      <div className="flex items-center gap-3">
-        <div
-          className="relative flex h-[58px] w-[58px] shrink-0 items-center justify-center rounded-full"
-          style={{ background: `conic-gradient(#3b5f8a 0 ${score}%, #e8ecf1 ${score}% 100%)` }}
-        >
-          <div className="flex h-11 w-11 flex-col items-center justify-center rounded-full bg-kw-surface">
-            <span className="text-[16px] font-bold leading-none text-kw-blue">{score}</span>
-            <span className="text-[7.5px] font-bold text-kw-faint">/ 100</span>
-          </div>
-        </div>
-        <div>
-          <div className="text-kw-xl font-bold text-kw-ink">Valeur du compte</div>
-          <div className="text-kw-lg font-semibold text-kw-blue">Scoring commercial</div>
-        </div>
-      </div>
-      <div className="mt-3 flex flex-col gap-1.5">
-        {drivers.map((d, i) => (
-          <div key={i} className="flex items-center gap-2 text-kw-lg">
-            <span className={cn('h-1.5 w-1.5 shrink-0 rounded-full', dotColor[d.tone])} />
-            <span className="flex-1 text-kw-body">{d.label}</span>
-            <span className={cn('rounded px-1.5 py-0.5 font-mono text-kw-xs font-extrabold', chipStyle[d.tone])}>+{d.value}</span>
-          </div>
-        ))}
-        {drivers.length === 0 && <p className="text-kw-lg text-kw-faint">Pas assez de données pour établir un score.</p>}
-      </div>
-    </div>
+    <HeroValeurCompte
+      score={score}
+      libelle={libelle}
+      facteurs={facteurs}
+      // L'évolution sur 12 mois demanderait un historique du score, que rien n'enregistre
+      // aujourd'hui. Afficher un « ▲ +6 » inventé serait pire que ne rien afficher.
+      evolution={null}
+    />
   )
 }
 
