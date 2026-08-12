@@ -1089,22 +1089,45 @@ function ContratsTabContent({
 
   return (
     <div className="flex flex-col gap-3">
-      <div className="grid grid-cols-2 gap-px overflow-hidden rounded-kw-3xl border border-kw-border bg-kw-border md:grid-cols-4">
+      {/* Bandeau de la maquette : première colonne large à 230px, les trois autres à parts égales.
+          Le total est en chiffres proportionnels et plus gros (30px) ; les trois compteurs filtrants
+          sont en chasse fixe à 22px, pour qu'on les compare d'un coup d'œil. */}
+      <div
+        className="grid grid-cols-2 gap-px overflow-hidden rounded-[14px] border border-[#e7e6e2] bg-[#e7e6e2] md:grid-cols-[230px_1fr_1fr_1fr]"
+      >
         {[
-          { key: 'all' as const, label: 'Contrats', value: total, sub: `${nbCompteurs} compteurs · ${nbSites} sites`, color: 'text-kw-ink' },
-          { key: 'actifs' as const, label: 'Actifs', value: actifs.length, sub: `+ ${aVenir.length} à venir · ${expires.length} expirés`, color: 'text-kw-green' },
-          { key: 'echeances' as const, label: 'Échéances < 12 mois', value: echeances.length, sub: prochaine ? `prochaine : ${new Date(prochaine.date_fin!).toLocaleDateString('fr-FR')}` : '—', color: 'text-kw-red' },
-          { key: 'sans_reco' as const, label: 'Sans reco lancée', value: sansReco.length, sub: 'à couvrir avant l\'hiver', color: 'text-kw-amber' },
+          { key: 'all' as const, label: 'Contrats', value: total, sub: `${nbCompteurs} compteurs · ${nbSites} sites`, color: '#16181d', principal: true },
+          { key: 'actifs' as const, label: 'Actifs', value: actifs.length, sub: `+ ${aVenir.length} à venir · ${expires.length} expiré${expires.length > 1 ? 's' : ''}`, color: '#0d7a5f', principal: false },
+          { key: 'echeances' as const, label: 'Échéances < 12 mois', value: echeances.length, sub: prochaine?.date_fin ? `prochaine : ${new Date(prochaine.date_fin).toLocaleDateString('fr-FR')}` : 'aucune dans l’année', color: '#c2452d', principal: false },
+          { key: 'sans_reco' as const, label: 'Sans reco lancée', value: sansReco.length, sub: sansReco.length ? 'à couvrir' : 'tout est couvert', color: '#b57a24', principal: false },
         ].map((hub) => (
           <button
             key={hub.key}
             type="button"
+            title={hub.key === 'all' ? 'Afficher tous les contrats' : `Filtrer : ${hub.label.toLowerCase()}`}
             onClick={() => setFiltre(hub.key)}
-            className={cn('flex flex-col gap-1 bg-kw-surface px-4 py-3 text-left transition-colors hover:bg-kw-subtle', filtre === hub.key && 'bg-kw-subtle ring-1 ring-inset ring-kw-green/30')}
+            className={cn(
+              'flex flex-col gap-1 px-[15px] py-[13px] text-left transition-colors',
+              filtre === hub.key ? 'bg-[#f6f6f4]' : 'bg-white hover:bg-[#fbfbfa]',
+            )}
           >
-            <span className="text-kw-xs font-bold uppercase tracking-wide text-kw-faint">{hub.label}</span>
-            <span className={cn('font-mono text-[22px] font-bold', hub.color)}>{hub.value}</span>
-            <span className="text-kw-sm text-kw-meta">{hub.sub}</span>
+            {hub.principal ? (
+              <span className="flex items-center gap-[7px]">
+                <span className="inline-flex h-[22px] w-[22px] items-center justify-center rounded-md bg-[#eaf4f0] text-[#0d7a5f]">
+                  <FileCheck2 className="h-3 w-3" />
+                </span>
+                <span className="text-[10px] font-bold uppercase tracking-[.08em] text-[#a3a5a0]">{hub.label}</span>
+              </span>
+            ) : (
+              <span className="text-[10px] font-bold uppercase tracking-[.08em] text-[#a3a5a0]">{hub.label}</span>
+            )}
+            <span
+              className={cn('font-bold leading-[1.15]', hub.principal ? 'text-[30px] tracking-[-.02em]' : 'font-mono text-[22px]')}
+              style={{ color: hub.color }}
+            >
+              {hub.value}
+            </span>
+            <span className="text-[10.5px] text-[#83868f]">{hub.sub}</span>
           </button>
         ))}
       </div>
