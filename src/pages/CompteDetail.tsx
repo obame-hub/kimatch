@@ -20,6 +20,7 @@ import {
   Search,
 } from 'lucide-react'
 import { Topbar } from '@/components/layout/Topbar'
+import { HubCreation } from '@/components/compte/HubCreation'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { EntityLink } from '@/components/ui/entity-link'
@@ -136,6 +137,8 @@ export default function CompteDetail() {
   const [showEditSubtype, setShowEditSubtype] = useState(false)
   const [editOpen, setEditOpen] = useState(false)
   const [confirmDelete, setConfirmDelete] = useState(false)
+  // Voir HubCreation : le hub s'approprie le clavier quand il est ouvert, « R » notamment.
+  const [hubOuvert, setHubOuvert] = useState(false)
   const [addFichierOpen, setAddFichierOpen] = useState(false)
   const [ficCategorie, setFicCategorie] = useState<string | null>(null)
   const [addCompteurOpen, setAddCompteurOpen] = useState(false)
@@ -236,6 +239,9 @@ export default function CompteDetail() {
     function onKeyDown(e: KeyboardEvent) {
       const target = e.target as HTMLElement
       if (target && (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA')) return
+      // Le hub s'approprie le clavier quand il est ouvert : ses touches (A/S/T/M/R/D) recouvrent
+      // celles de la fiche, « R » en particulier.
+      if (hubOuvert) return
       const map: Record<string, TabKey> = { '1': 'synthese', '2': 'contrats', '3': 'compteurs', '4': 'recommandations', '5': 'signaux', '6': 'mandats', '7': 'fichiers', '8': 'historique' }
       if (map[e.key]) setTab(map[e.key])
       if (e.key === 'n' || e.key === 'N') setTab('activite')
@@ -243,7 +249,8 @@ export default function CompteDetail() {
     }
     window.addEventListener('keydown', onKeyDown)
     return () => window.removeEventListener('keydown', onKeyDown)
-  }, [compte?.id, sitesDuCompte, contactPrincipal])
+    // hubOuvert en dépendance : hub ouvert, « R » appartient à la recommandation, pas à la relance.
+  }, [compte?.id, sitesDuCompte, contactPrincipal, hubOuvert])
 
   if (!comptes) {
     return (
@@ -308,15 +315,10 @@ export default function CompteDetail() {
             <span className="text-kw-lg text-kw-meta"><b className="text-kw-ink">{sitesDuCompte.length}</b> site{sitesDuCompte.length > 1 ? 's' : ''} géré{sitesDuCompte.length > 1 ? 's' : ''}</span>
           </div>
         </div>
-        <div className="flex flex-wrap gap-1.5">
-          <button
-            type="button"
-            disabled={!contactPrincipal?.telephone}
-            onClick={() => contactPrincipal?.telephone && (window.location.href = `tel:${contactPrincipal.telephone}`)}
-            className="flex items-center gap-1.5 rounded-kw-md border border-kw-border-strong bg-kw-surface px-3 py-2 text-kw-md font-semibold text-kw-ink transition-colors hover:bg-kw-bg disabled:opacity-40"
-          >
-            <Phone className="h-3 w-3" /> Appeler
-          </button>
+        <div className="flex flex-wrap items-center gap-1.5">
+          {/* « Note » et « Relance » restent ici : la maquette de William déplace Appeler sur chaque
+              contact — c'est déjà le cas dans Kimatch — mais ne prévoit pas d'autre point d'accès
+              pour ces deux-là. Les retirer du bandeau les rendrait injoignables sur desktop. */}
           <button
             type="button"
             onClick={() => setTab('activite')}
@@ -333,50 +335,34 @@ export default function CompteDetail() {
           >
             Relance <span className="font-mono text-kw-tiny text-kw-ghost">R</span>
           </button>
-          <button
-            type="button"
-            onClick={() => navigate('/sites', { state: { openCreateForCompteId: compte.id } })}
-            className="flex items-center gap-1.5 rounded-kw-md bg-kw-ink px-3.5 py-2 text-kw-md font-semibold text-white transition-colors hover:bg-[#2c2f36]"
-          >
-            ＋ Site
-          </button>
-          <button
-            type="button"
-            onClick={() => setPdlMethodOpen(true)}
-            className="flex items-center gap-1.5 rounded-kw-md border border-kw-border-strong bg-kw-surface px-3 py-2 text-kw-md font-semibold text-kw-ink transition-colors hover:bg-kw-bg"
-          >
-            <Gauge className="h-3 w-3" /> Compteur
-          </button>
-          <button
-            type="button"
-            onClick={() => setAddContactOpen(true)}
-            className="flex items-center gap-1.5 rounded-kw-md border border-kw-border-strong bg-kw-surface px-3 py-2 text-kw-md font-semibold text-kw-ink transition-colors hover:bg-kw-bg"
-          >
-            <Users className="h-3 w-3" /> Contact
-          </button>
-          <button
-            type="button"
-            disabled={compteursDuCompte.length === 0}
-            onClick={() => setAddMandatOpen(true)}
-            title={compteursDuCompte.length === 0 ? 'Aucun compteur sur ce compte — un mandat couvre des PDL' : undefined}
-            className="flex items-center gap-1.5 rounded-kw-md border border-kw-border-strong bg-kw-surface px-3 py-2 text-kw-md font-semibold text-kw-ink transition-colors hover:bg-kw-bg disabled:opacity-40"
-          >
-            <FileCheck2 className="h-3 w-3" /> Mandat
-          </button>
-          <button
-            type="button"
-            disabled={!mandatsDuCompte.some((m) => m.statut === 'ACTIF')}
-            onClick={() => setAddRecoOpen(true)}
-            title={!mandatsDuCompte.some((m) => m.statut === 'ACTIF') ? 'Aucun mandat actif — requis pour lancer une recommandation' : undefined}
-            className="flex items-center gap-1.5 rounded-kw-md border border-kw-border-strong bg-kw-surface px-3 py-2 text-kw-md font-semibold text-kw-ink transition-colors hover:bg-kw-bg disabled:opacity-40"
-          >
-            <Sparkle className="h-3 w-3" /> Recommandation
-          </button>
+
+          {/* Les six créations passent dans le hub, comme dans la maquette. Les conditions d'accès
+              sont conservées et deviennent des infobulles sur la ligne concernée, plutôt que des
+              boutons grisés dont on ne devinait pas la raison. */}
+          <HubCreation
+            onOuvertChange={setHubOuvert}
+            indisponibles={{
+              mandat: compteursDuCompte.length === 0 ? 'Aucun compteur sur ce compte — un mandat couvre des PDL' : undefined,
+              recommandation: !mandatsDuCompte.some((m) => m.statut === 'ACTIF')
+                ? 'Aucun mandat actif — requis pour lancer une recommandation'
+                : undefined,
+            }}
+            onAction={(cle) => {
+              if (cle === 'compte') navigate('/comptes', { state: { openCreate: true } })
+              if (cle === 'site') navigate('/sites', { state: { openCreateForCompteId: compte.id } })
+              if (cle === 'contact') setAddContactOpen(true)
+              if (cle === 'compteur') setPdlMethodOpen(true)
+              if (cle === 'mandat') setAddMandatOpen(true)
+              if (cle === 'recommandation') setAddRecoOpen(true)
+            }}
+          />
+
           {canManage && (
             <button
               type="button"
               onClick={() => setConfirmDelete(true)}
-              className="flex items-center gap-1.5 rounded-kw-md border border-kw-border-strong bg-kw-surface px-3 py-2 text-kw-md font-semibold text-kw-red transition-colors hover:bg-kw-red-light"
+              title="Supprimer ce compte"
+              className="inline-flex cursor-pointer items-center gap-1.5 rounded-[9px] border border-[#e0dfdb] bg-white px-3 py-2 text-[11.5px] font-semibold text-[#5c5f66] transition-all duration-[140ms] hover:border-[#f0c8bd] hover:bg-[#fbeae5] hover:text-[#c2452d]"
             >
               <Trash2 className="h-3 w-3" /> Supprimer
             </button>
