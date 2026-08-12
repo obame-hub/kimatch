@@ -1,6 +1,6 @@
 import { useQuery } from '@tanstack/react-query'
 import { supabase } from '@/lib/supabase'
-import { fetchComptesVisibles } from '@/lib/data/visibility'
+import { fetchMonPortefeuille } from '@/lib/data/visibility'
 
 /**
  * Fil d'actualité du portefeuille — cahier des charges de William (11/08/2026) : « un fil de ce
@@ -188,14 +188,18 @@ async function fetchFilPortefeuille(): Promise<EvenementFil[]> {
     )
 
     // Périmètre du conseiller : le fil ne montre que son portefeuille (décision Michel).
-    const comptesVisibles = await fetchComptesVisibles()
+    // « un fil de ce qui se passe d'intéressant sur le portefeuille DU COMMERCIAL » : on filtre
+    // sur les comptes qui m'appartiennent, pas sur ceux que j'ai le droit de consulter — sinon un
+    // administrateur verrait défiler l'activité de toute la société.
+    const { comptes: mesComptes } = await fetchMonPortefeuille()
+    const perimetre = new Set(mesComptes)
 
     const evenements: EvenementFil[] = []
     for (const l of lignes) {
       const regle = REGLES[`${l.table_nom}.${l.champ}`]
       const resolu = noms.get(l.table_nom)?.get(l.ligne_id)
       if (!resolu) continue
-      if (comptesVisibles !== null && (!resolu.compteId || !comptesVisibles.includes(resolu.compteId))) continue
+      if (!resolu.compteId || !perimetre.has(resolu.compteId)) continue
 
       const favorable = regle.favorable?.(l.ancienne_valeur, l.nouvelle_valeur)
       evenements.push({

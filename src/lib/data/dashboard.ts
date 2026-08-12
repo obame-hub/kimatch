@@ -4,6 +4,9 @@ import { useRecommandations } from '@/lib/data/recommandations'
 import { useActions } from '@/lib/data/actions'
 import { useContrats } from '@/lib/data/contrats'
 import { useMandats } from '@/lib/data/mandats'
+import { useQuery } from '@tanstack/react-query'
+import { fetchMonPortefeuille, filtrerMesElements } from '@/lib/data/visibility'
+import { useMonProfil } from '@/lib/data/roles'
 
 const SIGNAUX_FERMES = ['CLOTURE', 'REFUSE', 'TRANSFORME']
 const ACTIONS_FERMEES = ['TERMINEE', 'ANNULEE']
@@ -73,13 +76,41 @@ export function useDashboardStats() {
   const actions = useActions()
   const contrats = useContrats()
   const mandats = useMandats()
+  const { data: monProfil } = useMonProfil()
+  // « t'es censé voir uniquement les contrats qui sont à toi » (William, 12/08/2026). Le tableau de
+  // bord répond à « qu'ai-je à traiter ? », pas à « qu'ai-je le droit de voir ? » : la règle vaut
+  // pour tout le monde, administrateurs compris.
+  const { data: portefeuille } = useQuery({ queryKey: ['mon-portefeuille'], queryFn: fetchMonPortefeuille })
 
   const isLoading =
-    signaux.isLoading || recommandations.isLoading || actions.isLoading || contrats.isLoading || mandats.isLoading
+    signaux.isLoading ||
+    recommandations.isLoading ||
+    actions.isLoading ||
+    contrats.isLoading ||
+    mandats.isLoading ||
+    portefeuille === undefined
 
   const data = useMemo(() => {
+    const mesSignaux = filtrerMesElements(signaux.data ?? [], portefeuille, monProfil?.id, {
+      proprietaireId: (s) => s.proprietaire_id,
+      siteId: (s) => s.site_id,
+    })
+    const mesRecos = filtrerMesElements(recommandations.data ?? [], portefeuille, monProfil?.id, {
+      proprietaireId: (r) => r.proprietaire_id,
+      compteId: (r) => r.compte_id,
+    })
+    const mesContrats = filtrerMesElements(contrats.data ?? [], portefeuille, monProfil?.id, {
+      proprietaireId: (c) => c.proprietaire_id,
+      compteId: (c) => c.compte_id,
+      siteId: (c) => c.site_id,
+    })
+    const mesMandats = filtrerMesElements(mandats.data ?? [], portefeuille, monProfil?.id, {
+      proprietaireId: (m) => m.proprietaire_id,
+      compteId: (m) => m.compte_id,
+    })
+
     // ── Mandats à relancer : envoyés, jamais signés, et ça traîne ──────────────────────────
-    const mandatsEnAttente = (mandats.data ?? [])
+    const mandatsEnAttente = mesMandats
       .filter((m) => !m.date_signature && m.statut !== 'EXPIRE')
       .map((m) => ({ ...m, age: joursDepuis(m.date_envoi) }))
       .filter((m) => m.age !== null && m.age >= 7)
@@ -95,7 +126,7 @@ export function useDashboardStats() {
     })
 
     // ── Recommandations à traiter ──────────────────────────────────────────────────────────
-    const recosOuvertes = (recommandations.data ?? []).filter((r) => !RECOS_FERMEES.includes(r.etape))
+    const recosOuvertes = mesRecos.filter((r) => !RECOS_FERMEES.includes(r.etape))
     // Une recommandation est prête à présenter dès qu'une de ses versions est disponible. Le repli
     // sur l'étape « Prête » ne sert que le temps que la migration des référentiels soit appliquée.
     const estPrete = (r: (typeof recosOuvertes)[number]) =>
@@ -113,7 +144,7 @@ export function useDashboardStats() {
     })
 
     // ── Contrats à suivre ─────────────────────────────────────────────────────────────────
-    const contratsASuivre = (contrats.data ?? []).filter((c) => CONTRATS_A_SUIVRE.includes(c.statut))
+    const contratsASuivre = mesContrats.filter((c) => CONTRATS_A_SUIVRE.includes(c.statut))
     const contratsASigner = contratsASuivre.filter((c) => c.statut === 'A_SIGNER')
     const contratsAPreparer = contratsASuivre.filter((c) => c.statut !== 'A_SIGNER')
 
@@ -127,7 +158,7 @@ export function useDashboardStats() {
     })
 
     // ── Signaux à traiter ─────────────────────────────────────────────────────────────────
-    const signauxOuvertsList = (signaux.data ?? []).filter((s) => !SIGNAUX_FERMES.includes(s.statut))
+    const signauxOuvertsList = mesSignaux.filter((s) => !SIGNAUX_FERMES.includes(s.statut))
     const signauxNouveaux = signauxOuvertsList.filter((s) => s.statut === 'NOUVEAU')
     const signauxEnCours = signauxOuvertsList.filter((s) => s.statut !== 'NOUVEAU')
 
@@ -212,7 +243,9 @@ export function useDashboardStats() {
       actionsPrioritaires: (actions.data ?? []).slice(0, 4),
       signauxRecents: signauxOuvertsList.slice(0, 5),
     }
-  }, [signaux.data, recommandations.data, actions.data, contrats.data, mandats.data])
+    // `portefeuille` arrive en asynchrone : sans lui en dépendance, le filtre resterait figé sur
+    // son état initial (vide) et le tableau de bord n'afficherait jamais rien.
+  }, [signaux.data, recommandations.data, actions.data, contrats.data, mandats.data, portefeuille, monProfil?.id])
 
   return { data, isLoading }
 }

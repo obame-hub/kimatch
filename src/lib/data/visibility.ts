@@ -65,3 +65,82 @@ export function filterVisibles<T>(
     return id != null && set.has(id)
   })
 }
+
+// ── Mon portefeuille : ce que J'AI À TRAITER, distinct de ce que j'ai le DROIT DE VOIR ──────────
+//
+// Deux notions à ne pas confondre. `fetchComptesVisibles` répond à « qu'ai-je le droit de
+// consulter ? » et laisse tout passer aux administrateurs. Le tableau de bord et le fil
+// d'actualité posent une autre question : « qu'ai-je à traiter aujourd'hui ? » — et là, le rôle
+// ne change rien. William, le 12/08/2026 : « t'es censé voir uniquement les contrats qui sont à
+// toi, qui t'appartiennent. Ce qui fait que moi, normalement, à aucun moment je suis censé
+// [voir 120 recommandations] ». Décision de Naoëlle : la règle vaut pour tout le monde, y compris
+// les administrateurs.
+//
+// Aucun cache ici : la liste est courte, la requête est indexée, et un cache de plus serait un
+// cache de plus à invalider au changement de session.
+let cacheMonPortefeuille: Promise<{ comptes: string[]; sites: string[] }> | null = null
+
+/** Vide le cache du portefeuille personnel. Appelé par `viderCacheAcces`. */
+export function viderCacheMonPortefeuille() {
+  cacheMonPortefeuille = null
+}
+
+/** Les comptes dont je suis propriétaire, et leurs sites. */
+export function fetchMonPortefeuille(): Promise<{ comptes: string[]; sites: string[] }> {
+  if (!cacheMonPortefeuille) {
+    cacheMonPortefeuille = calculerMonPortefeuille().catch((err) => {
+      cacheMonPortefeuille = null
+      throw err
+    })
+  }
+  return cacheMonPortefeuille
+}
+
+async function calculerMonPortefeuille(): Promise<{ comptes: string[]; sites: string[] }> {
+  const { data: userData } = await supabase.auth.getUser()
+  if (!userData.user) return { comptes: [], sites: [] }
+
+  const { data, error } = await supabase.from('comptes').select('id').eq('proprietaire_id', userData.user.id)
+  if (error || !data) return { comptes: [], sites: [] }
+  const comptes = (data as { id: string }[]).map((r) => r.id)
+  if (comptes.length === 0) return { comptes: [], sites: [] }
+
+  const { data: sitesRows } = await supabase.from('sites').select('id').in('compte_id', comptes)
+  return { comptes, sites: (sitesRows as { id: string }[] | null)?.map((r) => r.id) ?? [] }
+}
+
+/**
+ * Un objet est « à moi » si son propriétaire est moi ; à défaut de propriétaire renseigné, si le
+ * compte auquel il est rattaché est à moi.
+ *
+ * Ce double critère n'est pas une précaution de style : `proprietaire_id` est vide sur la
+ * totalité des mandats (1429/1429), des contrats (1597/1598) et des recommandations (1692/1693),
+ * la migration Salesforce ne l'ayant jamais rempli. S'en tenir au propriétaire viderait le
+ * tableau de bord de tout le monde ; s'en tenir au compte ignorerait les objets réassignés à la
+ * main. La règle couvre l'état actuel de la base comme celui d'après un futur backfill.
+ */
+export function filtrerMesElements<T>(
+  items: T[],
+  portefeuille: { comptes: string[]; sites: string[] } | undefined,
+  monProfilId: string | null | undefined,
+  scope: { proprietaireId?: (item: T) => string | null | undefined; compteId?: (item: T) => string | null | undefined; siteId?: (item: T) => string | null | undefined },
+): T[] {
+  if (!portefeuille) return []
+  const comptes = new Set(portefeuille.comptes)
+  const sites = new Set(portefeuille.sites)
+
+  return items.filter((item) => {
+    const proprio = scope.proprietaireId?.(item)
+    if (proprio) return proprio === monProfilId
+
+    const compte = scope.compteId?.(item)
+    if (compte) return comptes.has(compte)
+
+    const site = scope.siteId?.(item)
+    if (site) return sites.has(site)
+
+    // Ni propriétaire, ni compte, ni site : impossible de dire à qui c'est. On ne l'affiche pas,
+    // plutôt que de le faire apparaître dans le tableau de bord de tout le monde.
+    return false
+  })
+}

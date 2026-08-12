@@ -1,5 +1,5 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { viderCacheVisibilite } from '@/lib/data/visibility'
+import { viderCacheVisibilite, viderCacheMonPortefeuille } from '@/lib/data/visibility'
 import { supabase } from '@/lib/supabase'
 
 export interface RoleAcces {
@@ -243,6 +243,9 @@ let cacheAcces: Promise<CurrentAccess> | null = null
 export function viderCacheAcces() {
   cacheAcces = null
   viderCacheVisibilite()
+  // Le portefeuille personnel est propre à l'utilisateur connecté : le laisser en place ferait
+  // apparaître les comptes du précédent dans le tableau de bord du suivant.
+  viderCacheMonPortefeuille()
 }
 
 export function fetchCurrentAccess(): Promise<CurrentAccess> {
