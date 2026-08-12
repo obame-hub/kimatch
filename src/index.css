@@ -78,7 +78,13 @@
    (11/08/2026). En CSS plutôt qu'en classes Tailwind : la courbe cubic-bezier et les deux durées
    distinctes (transform et box-shadow) ne s'expriment pas en utilitaires. Le décalage au survol
    ne va JAMAIS sans l'ombre élargie — l'un sans l'autre donne un mouvement qui paraît gratuit. */
+/* Survol des tuiles du tableau de bord, aux valeurs exactes de la maquette de William :
+   style-hover="transform:translateY(-3px);box-shadow:0 16px 34px -14px rgba(22,24,29,.34)"
+   avec transition "transform .18s cubic-bezier(.2,.9,.3,1.1),box-shadow .18s".
+   L'ombre de repos vient de --ombre-repos, posée par le composant : la passer en `boxShadow`
+   inline la rendrait prioritaire sur la règle :hover ci-dessous, qui ne s'appliquerait jamais. */
 .tuile-indicateur {
+  box-shadow: var(--ombre-repos);
   transition:
     transform 0.18s cubic-bezier(0.2, 0.9, 0.3, 1.1),
     box-shadow 0.18s;
