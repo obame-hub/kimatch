@@ -25,6 +25,7 @@ import { useListControls } from '@/lib/useListControls'
 import { WizardConnectionGate } from '@/components/ui/connection-gate'
 import { ContactPicker } from '@/components/contact/ContactPicker'
 import { EllisphereScoreCard } from '@/components/opportunite/EllisphereScoreCard'
+import { trouverParCode } from '@/lib/codeReferentiel'
 
 const PRIORITE_OPTIONS = [
   { value: 1, label: 'Haute' },
@@ -183,7 +184,7 @@ export function CreateRecommandationDialog({
     e.preventDefault()
     if (!mandat || mixInvalide || compteursChoisis.length === 0) return
     const origine = origines.find((o) => o.id === origineId)
-    const etapeAPreparer = etapes.find((e) => e.code === 'A_PREPARER')
+    const etapeAPreparer = trouverParCode(etapes, 'DIAGNOSTIC', 'A_PREPARER')
 
     const result = await createRecommandation.mutateAsync({
       titre,

@@ -390,7 +390,7 @@ export function useRecommandations() {
 
 /** Codes d'étape considérés "clos" -- un PDL rattaché uniquement à des recommandations dans ces
  * étapes est de nouveau éligible à une nouvelle opportunité (même règle que Tools). */
-const ETAPES_CLOSES = new Set(['REFUSEE', 'CLOTUREE'])
+const ETAPES_CLOSES = new Set(['REFUSEE', 'CLOTUREE', 'CLOTURE'])
 
 /** Compteurs déjà engagés dans une recommandation non close -- à exclure de la sélection PDL
  * d'une nouvelle opportunité (Tools : "pas déjà rattaché à une opportunité non close"). */
@@ -441,7 +441,7 @@ export function useCreateRecommandation() {
         compte_id: input.compte_id,
         compte_nom: input.compte_nom,
         sites,
-        etape: 'A_PREPARER',
+        etape: 'DIAGNOSTIC',
         conseiller: '',
         origine: input.origine_libelle,
         description: input.description,

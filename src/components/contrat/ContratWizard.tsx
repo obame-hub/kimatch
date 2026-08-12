@@ -15,6 +15,7 @@ import { ZONE_ORDER_CONTRAT, ZONE_LABEL_CONTRAT, zoneDuFournisseur } from '@/lib
 import { nomJourFerieFR } from '@/lib/joursFeries'
 import { cn } from '@/lib/utils'
 import type { Recommandation } from '@/types/domain'
+import { trouverParCode } from '@/lib/codeReferentiel'
 
 const ETAPES = ['Fournisseur', 'Durée', 'Préférences', 'Signataire']
 
@@ -195,7 +196,7 @@ export function ContratWizard({
 
   async function handleSubmit() {
     if (!peutContinuer || pdls.length === 0) return
-    const statutNouveau = statuts.find((s) => s.code === 'NOUVEAU') ?? statuts.find((s) => s.code === 'ACTIF')
+    const statutNouveau = trouverParCode(statuts, 'BROUILLON', 'NOUVEAU', 'ACTIF')
     const energie = energies.find((e) => (e.code ?? '').toLowerCase() === typeEnergie)
     const contact = (contacts ?? []).find((c) => c.id === contactId)
     const siteId = pdls[0].site_id

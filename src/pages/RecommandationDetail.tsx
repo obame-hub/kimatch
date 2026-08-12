@@ -35,6 +35,7 @@ import { useGoBack } from '@/lib/useGoBack'
 import { ZONE_ORDER_COTATION, ZONE_LABEL_COTATION, zoneDuFournisseur } from '@/lib/fournisseurZones'
 import { computeEstimatedCommission } from '@/lib/commission'
 import type { Recommandation, VersionRecommandation, Optimisation, FournisseurConsulte } from '@/types/domain'
+import { trouverParCode } from '@/lib/codeReferentiel'
 const MISE_EN_CONCURRENCE = 'MISE_EN_CONCURRENCE'
 
 const DUREES_PRESETS = [12, 24, 36, 48, 60]
@@ -190,9 +191,9 @@ function CotationWizard({ open, onClose, reco }: { open: boolean; onClose: () =>
     // d'ailleurs ce que porte tout l'historique repris de Salesforce.
     const codeMotif = estActualisation ? 'ACTUALISATION_MARCHE' : 'CREATION_INITIALE'
     const motif = (motifsRef ?? []).find((m) => m.code === codeMotif) ?? (motifsRef ?? [])[0]
-    const statutBrouillon = (statutsVersionsRef ?? []).find((s) => s.code === 'BROUILLON')
+    const statutBrouillon = trouverParCode(statutsVersionsRef, 'EN_CONSTRUCTION', 'BROUILLON')
     const typeOptim = (typesOptimisationsRef ?? []).find((t) => t.code === MISE_EN_CONCURRENCE)
-    const etapeEnAnalyse = (etapesRef ?? []).find((e) => e.code === 'EN_ANALYSE')
+    const etapeEnAnalyse = trouverParCode(etapesRef, 'CONSULTATION', 'EN_ANALYSE')
 
     await createVersion.mutateAsync({
       recommandation_id: reco.id,

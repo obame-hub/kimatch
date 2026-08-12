@@ -6,10 +6,25 @@ import { useContrats } from '@/lib/data/contrats'
 import { useMandats } from '@/lib/data/mandats'
 
 const SIGNAUX_FERMES = ['CLOTURE', 'REFUSE', 'TRANSFORME']
-const RECOS_FERMEES = ['CLOTUREE', 'REFUSEE', 'ACCEPTEE']
 const ACTIONS_FERMEES = ['TERMINEE', 'ANNULEE']
+
+/**
+ * Les listes ci-dessous couvrent DEUX modèles de statuts à la fois : celui d'avant la refonte du
+ * 12/08/2026 et celui d'après (migration 20260812090000_statuts_cycles_de_vie.sql). Le tableau de
+ * bord est la page d'arrivée de tout le monde ; il ne doit pas se vider entre le déploiement du
+ * code et l'application de la migration. Les anciens codes seront retirés une fois la migration
+ * passée en production et vérifiée.
+ */
+const RECOS_FERMEES = ['CLOTUREE', 'REFUSEE', 'ACCEPTEE', 'CLOTURE']
 /** Un contrat « à suivre » n'est ni actif, ni terminé : il reste quelque chose à faire dessus. */
-const CONTRATS_A_SUIVRE = ['NOUVEAU', 'EN_PREPARATION', 'A_SIGNER', 'SIGNE']
+const CONTRATS_A_SUIVRE = ['NOUVEAU', 'EN_PREPARATION', 'A_SIGNER', 'SIGNE', 'BROUILLON', 'DEMANDE', 'RECEPTIONNE', 'ENVOYE']
+/**
+ * « les prêtes à présenter, ça veut dire des recommandations avec une version disponible »
+ * (William, 12/08/2026). Le critère porte donc sur la VERSION, pas sur l'étape de la
+ * recommandation : « Disponible, ça veut dire prête à être envoyée ». VALIDEE est son équivalent
+ * dans l'ancien référentiel.
+ */
+const VERSIONS_PRETES = ['DISPONIBLE', 'VALIDEE']
 
 /** Nombre de jours écoulés depuis une date ISO. */
 function joursDepuis(iso: string | null | undefined): number | null {
@@ -81,8 +96,12 @@ export function useDashboardStats() {
 
     // ── Recommandations à traiter ──────────────────────────────────────────────────────────
     const recosOuvertes = (recommandations.data ?? []).filter((r) => !RECOS_FERMEES.includes(r.etape))
-    const recosPretes = recosOuvertes.filter((r) => r.etape === 'PRETE')
-    const recosEnCours = recosOuvertes.filter((r) => r.etape !== 'PRETE')
+    // Une recommandation est prête à présenter dès qu'une de ses versions est disponible. Le repli
+    // sur l'étape « Prête » ne sert que le temps que la migration des référentiels soit appliquée.
+    const estPrete = (r: (typeof recosOuvertes)[number]) =>
+      r.versions.some((v) => VERSIONS_PRETES.includes(v.statut)) || r.etape === 'PRETE'
+    const recosPretes = recosOuvertes.filter(estPrete)
+    const recosEnCours = recosOuvertes.filter((r) => !estPrete(r))
 
     const ligneReco = (r: (typeof recosOuvertes)[number], prete: boolean): LigneAction => ({
       id: r.id,
@@ -127,28 +146,28 @@ export function useDashboardStats() {
 
     const sections: SectionAction[] = [
       {
-        cle: 'signal',
-        titre: 'Signaux à traiter',
-        precision: 'opportunités détectées, non encore qualifiées',
-        total: signauxOuvertsList.length,
+        cle: 'contrat',
+        titre: 'Suivi des contrats',
+        precision: 'ni actifs ni terminés — il reste une étape',
+        total: contratsASuivre.length,
         groupes: [
-          { libelle: 'Nouveaux', lignes: signauxNouveaux.slice(0, LIMITE).map((s) => ligneSignal(s, true)), siVide: 'Aucun signal nouveau.' },
-          { libelle: 'En cours de qualification', lignes: signauxEnCours.slice(0, LIMITE).map((s) => ligneSignal(s, false)), siVide: 'Aucun signal en cours.' },
+          { libelle: 'À signer', lignes: contratsASigner.slice(0, LIMITE).map((c) => ligneContrat(c, true)), siVide: 'Aucun contrat à signer.' },
+          { libelle: 'En préparation', lignes: contratsAPreparer.slice(0, LIMITE).map((c) => ligneContrat(c, false)), siVide: 'Aucun contrat en préparation.' },
         ],
       },
       {
         cle: 'reco',
-        titre: 'Opportunités à traiter',
+        titre: 'Suivi des recommandations',
         precision: 'en attente d’une action de votre part',
         total: recosOuvertes.length,
         groupes: [
-          { libelle: 'Prêtes à présenter', lignes: recosPretes.slice(0, LIMITE).map((r) => ligneReco(r, true)), siVide: 'Aucune opportunité prête.' },
-          { libelle: 'En préparation', lignes: recosEnCours.slice(0, LIMITE).map((r) => ligneReco(r, false)), siVide: 'Aucune opportunité en préparation.' },
+          { libelle: 'Prêtes à présenter', lignes: recosPretes.slice(0, LIMITE).map((r) => ligneReco(r, true)), siVide: 'Aucune recommandation prête.' },
+          { libelle: 'En préparation', lignes: recosEnCours.slice(0, LIMITE).map((r) => ligneReco(r, false)), siVide: 'Aucune recommandation en préparation.' },
         ],
       },
       {
         cle: 'mandat',
-        titre: 'Mandats à relancer',
+        titre: 'Suivi des mandats',
         precision: 'sans signature depuis 7 jours ou plus',
         total: mandatsEnAttente.length,
         groupes: [
@@ -165,13 +184,13 @@ export function useDashboardStats() {
         ],
       },
       {
-        cle: 'contrat',
-        titre: 'Contrats à suivre',
-        precision: 'ni actifs ni terminés — il reste une étape',
-        total: contratsASuivre.length,
+        cle: 'signal',
+        titre: 'Suivi des signaux',
+        precision: 'opportunités détectées, non encore qualifiées',
+        total: signauxOuvertsList.length,
         groupes: [
-          { libelle: 'À signer', lignes: contratsASigner.slice(0, LIMITE).map((c) => ligneContrat(c, true)), siVide: 'Aucun contrat à signer.' },
-          { libelle: 'En préparation', lignes: contratsAPreparer.slice(0, LIMITE).map((c) => ligneContrat(c, false)), siVide: 'Aucun contrat en préparation.' },
+          { libelle: 'Nouveaux', lignes: signauxNouveaux.slice(0, LIMITE).map((s) => ligneSignal(s, true)), siVide: 'Aucun signal nouveau.' },
+          { libelle: 'En cours de qualification', lignes: signauxEnCours.slice(0, LIMITE).map((s) => ligneSignal(s, false)), siVide: 'Aucun signal en cours.' },
         ],
       },
     ]

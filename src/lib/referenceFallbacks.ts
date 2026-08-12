@@ -14,8 +14,15 @@ export const FALLBACK_STATUTS_SIGNAUX: ReferenceRow[] = [
   { id: '8', code: 'CLOTURE', libelle: 'Clôturé', ordre: 80, couleur: '#475569', icone: null },
 ]
 
+// Modèle cible du 12/08/2026 : Diagnostic → Consultation → Décision → Clôture, la clôture prenant
+// le libellé de sa finalité (Acceptée, Refusée, Expirée). Les 9 anciennes étapes restent listées
+// derrière, car ce filet sert aussi tant que la migration des référentiels n'est pas appliquée.
 export const FALLBACK_ETAPES_RECOMMANDATION: ReferenceRow[] = [
-  { id: '1', code: 'A_PREPARER', libelle: 'À préparer', ordre: 10, couleur: null, icone: null },
+  { id: 'd1', code: 'DIAGNOSTIC', libelle: 'Diagnostic', ordre: 10, couleur: null, icone: null },
+  { id: 'd2', code: 'CONSULTATION', libelle: 'Consultation', ordre: 20, couleur: null, icone: null },
+  { id: 'd3', code: 'DECISION', libelle: 'Décision', ordre: 30, couleur: null, icone: null },
+  { id: 'd4', code: 'CLOTURE', libelle: 'Clôture', ordre: 40, couleur: null, icone: null },
+  { id: '1', code: 'A_PREPARER', libelle: 'À préparer', ordre: 110, couleur: null, icone: null },
   { id: '2', code: 'EN_ANALYSE', libelle: 'En analyse', ordre: 20, couleur: null, icone: null },
   { id: '3', code: 'EN_PREPARATION', libelle: 'En préparation', ordre: 30, couleur: null, icone: null },
   { id: '4', code: 'PRETE', libelle: 'Prête', ordre: 40, couleur: null, icone: null },
@@ -26,8 +33,13 @@ export const FALLBACK_ETAPES_RECOMMANDATION: ReferenceRow[] = [
   { id: '9', code: 'CLOTUREE', libelle: 'Clôturée', ordre: 90, couleur: null, icone: null },
 ]
 
+// « En construction, c'est quand quelqu'un bosse dessus. Disponible, ça veut dire prête à être
+// envoyée. En décision, ça veut dire qu'on l'a envoyée, qu'elle est présentée au client. »
 export const FALLBACK_STATUTS_VERSIONS: ReferenceRow[] = [
-  { id: '1', code: 'BROUILLON', libelle: 'Brouillon', ordre: 10, couleur: null, icone: null },
+  { id: 'v1', code: 'EN_CONSTRUCTION', libelle: 'En construction', ordre: 10, couleur: null, icone: null },
+  { id: 'v2', code: 'DISPONIBLE', libelle: 'Disponible', ordre: 20, couleur: null, icone: null },
+  { id: 'v3', code: 'EN_DECISION', libelle: 'En décision', ordre: 30, couleur: null, icone: null },
+  { id: '1', code: 'BROUILLON', libelle: 'Brouillon', ordre: 110, couleur: null, icone: null },
   { id: '2', code: 'A_VALIDER', libelle: 'À valider', ordre: 20, couleur: null, icone: null },
   { id: '3', code: 'VALIDEE', libelle: 'Validée en interne', ordre: 30, couleur: null, icone: null },
   { id: '4', code: 'PRESENTEE', libelle: 'Présentée au client', ordre: 40, couleur: null, icone: null },
@@ -39,6 +51,13 @@ export const FALLBACK_STATUTS_VERSIONS: ReferenceRow[] = [
 ]
 
 export const ETAPE_TONE: Record<string, 'neutral' | 'amber' | 'kiwi' | 'blue'> = {
+  DIAGNOSTIC: 'neutral',
+  CONSULTATION: 'blue',
+  DECISION: 'amber',
+  CLOTURE: 'neutral',
+  EN_CONSTRUCTION: 'neutral',
+  DISPONIBLE: 'kiwi',
+  EN_DECISION: 'amber',
   A_PREPARER: 'neutral',
   EN_ANALYSE: 'blue',
   EN_PREPARATION: 'blue',
@@ -69,7 +88,8 @@ export const FALLBACK_STATUTS_MANDATS: ReferenceRow[] = [
   { id: '4', code: 'SIGNE', libelle: 'Signé', ordre: 40, couleur: null, icone: null },
   { id: '5', code: 'ACTIF', libelle: 'Actif', ordre: 50, couleur: null, icone: null },
   { id: '6', code: 'EXPIRE', libelle: 'Expiré', ordre: 60, couleur: null, icone: null },
-  { id: '7', code: 'REVOQUE', libelle: 'Révoqué', ordre: 70, couleur: null, icone: null },
+  { id: '7', code: 'ANNULE', libelle: 'Annulé', ordre: 70, couleur: null, icone: null },
+  { id: '8', code: 'REFUSE', libelle: 'Refusé', ordre: 65, couleur: null, icone: null },
 ]
 
 export const FALLBACK_TYPES_COURTIERS_MANDAT: ReferenceRow[] = [

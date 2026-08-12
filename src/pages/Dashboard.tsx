@@ -197,21 +197,21 @@ export default function Dashboard() {
       <div className="px-6 pb-9 pt-[18px]">
         <div className="mb-5 grid grid-cols-1 gap-[13px] sm:grid-cols-2 xl:grid-cols-4">
           <TuileIndicateur
-            libelle="Signaux à traiter"
-            valeur={data?.signauxOuverts ?? 0}
-            unite="ouverts"
-            detail={`${data?.signauxNouveaux ?? 0} nouveaux à qualifier`}
-            icone={Zap}
-            couleurHaut={TUILES.signal.haut}
-            couleurBas={TUILES.signal.bas}
-            remplissage={Math.min(1, (data?.signauxOuverts ?? 0) / 250)}
+            libelle="Contrats à suivre"
+            valeur={data?.contratsASuivre ?? 0}
+            unite="en cours"
+            detail={`${data?.contratsASigner ?? 0} à signer`}
+            icone={FileText}
+            couleurHaut={TUILES.contrat.haut}
+            couleurBas={TUILES.contrat.bas}
+            remplissage={Math.min(1, (data?.contratsASuivre ?? 0) / 40)}
             index={0}
-            onClick={() => navigate('/signaux')}
+            onClick={() => navigate('/contrats')}
           />
           <TuileIndicateur
-            libelle="Opportunités à traiter"
+            libelle="Recos à traiter"
             valeur={data?.recommandationsEnCours ?? 0}
-            unite="en cours"
+            unite="aujourd’hui"
             detail={`${data?.recosPretes ?? 0} prêtes à présenter`}
             icone={Sparkle}
             couleurHaut={TUILES.reco.haut}
@@ -233,16 +233,16 @@ export default function Dashboard() {
             onClick={() => navigate('/mandats')}
           />
           <TuileIndicateur
-            libelle="Contrats à suivre"
-            valeur={data?.contratsASuivre ?? 0}
-            unite="en cours"
-            detail={`${data?.contratsASigner ?? 0} à signer`}
-            icone={FileText}
-            couleurHaut={TUILES.contrat.haut}
-            couleurBas={TUILES.contrat.bas}
-            remplissage={Math.min(1, (data?.contratsASuivre ?? 0) / 40)}
+            libelle="Signaux à traiter"
+            valeur={data?.signauxOuverts ?? 0}
+            unite="ouverts"
+            detail={`${data?.signauxNouveaux ?? 0} nouveaux à qualifier`}
+            icone={Zap}
+            couleurHaut={TUILES.signal.haut}
+            couleurBas={TUILES.signal.bas}
+            remplissage={Math.min(1, (data?.signauxOuverts ?? 0) / 250)}
             index={3}
-            onClick={() => navigate('/contrats')}
+            onClick={() => navigate('/signaux')}
           />
         </div>
 
