@@ -147,6 +147,15 @@ export async function lireIdentite(accessToken: string): Promise<IdentiteDocusig
     email?: string
     accounts?: { account_id: string; account_name?: string; base_uri: string; is_default: boolean }[]
   }
+  // Aucun compte rattaché : la personne a bien un identifiant DocuSign, mais elle n'est membre
+  // d'aucun compte de l'organisation — donc aucune licence. Le dire ici évite d'enregistrer une
+  // session qui échouerait au premier envoi, avec un message bien plus obscur.
+  if (res.ok && data.accounts && data.accounts.length === 0) {
+    throw new Error(
+      'Ce compte DocuSign n’est rattaché à aucun compte KiWee : il lui manque une licence. Demandez à ' +
+        'l’administrateur DocuSign de vous ajouter, puis recommencez la connexion.',
+    )
+  }
   if (!res.ok || !data.accounts?.length) throw new Error('Lecture du compte DocuSign impossible (userinfo)')
   const souhaite = process.env.DOCUSIGN_ACCOUNT_ID?.trim() || null
   const compte =
