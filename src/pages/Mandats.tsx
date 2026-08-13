@@ -66,6 +66,7 @@ export function CreateMandatDialog({
       onClose={() => { setCompteId(''); onClose() }}
       title="Nouveau mandat"
       description={compteId ? undefined : 'Sur quel compte porte ce mandat ?'}
+      className="max-w-2xl"
     >
       {open && !compteId && (
         <div className="flex flex-col gap-3">

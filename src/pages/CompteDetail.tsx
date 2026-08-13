@@ -694,6 +694,7 @@ export default function CompteDetail() {
         onClose={() => setAddMandatOpen(false)}
         title="Nouveau mandat"
         description="Le mandat autorise KiWee à intervenir sur un périmètre de points de livraison de ce compte."
+        className="max-w-2xl"
       >
         {addMandatOpen && (
           <WizardConnectionGate required={['crm', 'docusign']} feature="création de mandat">

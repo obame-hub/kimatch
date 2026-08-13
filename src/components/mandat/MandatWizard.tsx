@@ -249,8 +249,15 @@ export function MandatWizard({
 
   return (
     <div className="flex flex-col gap-5">
-      {/* Rail des étapes, comme Tools : numéro, libellé, et un trait qui les relie. */}
-      <div className="flex items-center justify-center gap-1 overflow-x-auto pb-1">
+      {/*
+        Rail des étapes, comme Tools : numéro, libellé, et un trait qui les relie.
+
+        Les libellés des étapes NON courantes disparaissent en dessous de 640px. Les quatre au
+        complet demandent environ 520px, ce qui débordait du dialogue et sortait la première étape
+        de l'écran derrière une barre de défilement — l'utilisateur ne voyait plus où il en était.
+        Le numéro suffit à se repérer, et le libellé de l'étape en cours reste toujours affiché.
+      */}
+      <div className="flex flex-wrap items-center justify-center gap-y-2">
         {ETAPES.map((e, i) => {
           const numero = i + 1
           const faite = numero < etape
@@ -277,13 +284,13 @@ export function MandatWizard({
                 <span
                   className={cn(
                     'whitespace-nowrap text-xs font-semibold',
-                    courante ? 'text-navy-800' : 'text-navy-400',
+                    courante ? 'text-navy-800' : 'hidden text-navy-400 sm:inline',
                   )}
                 >
                   {e.libelle}
                 </span>
               </button>
-              {numero < ETAPES.length && <span className="mx-1.5 h-px w-6 bg-navy-100 sm:w-10" />}
+              {numero < ETAPES.length && <span className="mx-1.5 h-px w-4 bg-navy-100 sm:w-8" />}
             </div>
           )
         })}
