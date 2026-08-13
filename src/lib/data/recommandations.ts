@@ -39,6 +39,7 @@ interface RawRecommandation {
 interface RawVersion {
   id: string
   recommandation_id: string
+  numero_version: number | null
   nom: string | null
   resume: string | null
   contexte_et_hypotheses: string | null
@@ -145,8 +146,13 @@ async function fetchRecommandations(): Promise<Recommandation[]> {
         fetchAllRows<RawRecoCompteur>('recommandations_compteurs', 'recommandation_id, compteur_id').catch(() => [] as RawRecoCompteur[]),
         fetchAllRows<RawVersion>(
           'versions_recommandation',
-          'id, recommandation_id, nom, resume, contexte_et_hypotheses, gain_estime_annuel, economie_estimee_pourcentage, niveau_confiance, version_actuelle, est_figee, date_publication, date_presentation_client, date_decision_client, date_creation, statut:statuts_versions_recommandation(code), motif:motifs_versions_recommandation(libelle), contact_id, contact:contacts(prenom, nom)',
-          (q) => q.order('date_creation'),
+          'id, recommandation_id, numero_version, nom, resume, contexte_et_hypotheses, gain_estime_annuel, economie_estimee_pourcentage, niveau_confiance, version_actuelle, est_figee, date_publication, date_presentation_client, date_decision_client, date_creation, statut:statuts_versions_recommandation(code), motif:motifs_versions_recommandation(libelle), contact_id, contact:contacts(prenom, nom)',
+          // « Les versions doivent s'afficher du plus récent au plus ancien » (réunion du
+          // 12/08/2026). Le tri porte sur numero_version, qui EST le rang métier de la version,
+          // plutôt que sur la date qui n'en est qu'un indice : rien n'interdit de reprendre une
+          // version antérieure ni d'en créer deux le même jour. 318 recommandations ont plusieurs
+          // versions, l'ordre s'y voit donc vraiment. date_creation ne sert qu'à départager.
+          (q) => q.order('numero_version', { ascending: false, nullsFirst: false }).order('date_creation', { ascending: false }),
         ),
         fetchAllRows<{ id: string; version_recommandation_id: string; compteur_id: string; compteur: { numero_point: string; libelle: string | null } | null }>(
           'versions_recommandation_compteurs',
@@ -318,11 +324,18 @@ async function fetchRecommandations(): Promise<Recommandation[]> {
     }
     const extraParVersion = new Map(versionsExtraRows.map((v) => [v.id, v]))
 
+    // fetchAllRows pagine : l'ordre est garanti page par page, pas entre les pages. On retrie donc
+    // côté client, ce qui coûte peu et rend l'ordre indépendant de la façon dont les pages tombent.
+    const versionsTriees = [...versionsRows].sort(
+      (a, b) => (b.numero_version ?? 0) - (a.numero_version ?? 0) || b.date_creation.localeCompare(a.date_creation),
+    )
+
     const versionsParReco = new Map<string, VersionRecommandation[]>()
-    for (const v of versionsRows) {
+    for (const v of versionsTriees) {
       const list = versionsParReco.get(v.recommandation_id) ?? []
       list.push({
         id: v.id,
+        numero_version: v.numero_version,
         nom: v.nom,
         statut: v.statut?.code ?? '',
         motif_creation: v.motif?.libelle ?? '',

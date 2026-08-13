@@ -330,7 +330,8 @@ export default function ContactDetail() {
             <div className="flex flex-col gap-2.5">
               {recommandationsDuCompte.length === 0 && <p className="text-sm text-navy-400">Aucune recommandation pour ce compte.</p>}
               {recommandationsDuCompte.map((r) => {
-                const derniereVersion = r.versions[r.versions.length - 1]
+                // versions[0] est la plus récente : la liste est triée décroissant depuis le 12/08/2026.
+                const derniereVersion = r.versions[0]
                 return (
                   <div
                     key={r.id}

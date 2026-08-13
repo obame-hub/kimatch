@@ -447,7 +447,8 @@ export default function SiteDetail() {
             <div className="flex flex-col gap-2.5">
               {recommandationsDuSite.length === 0 && <p className="text-sm text-navy-400">Aucune recommandation pour ce site.</p>}
               {recommandationsDuSite.map((r) => {
-                const derniereVersion = r.versions[r.versions.length - 1]
+                // versions[0] est la plus récente : la liste est triée décroissant depuis le 12/08/2026.
+                const derniereVersion = r.versions[0]
                 return (
                   <div
                     key={r.id}

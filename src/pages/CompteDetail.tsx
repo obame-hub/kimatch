@@ -788,7 +788,8 @@ function buildRelationEvents(compte: Compte, mandats: Mandat[], recommandations:
   }
 
   for (const r of recommandations) {
-    const derniere = r.versions[r.versions.length - 1]
+    // versions[0] est la plus récente : la liste est triée décroissant depuis le 12/08/2026.
+    const derniere = r.versions[0]
     if (r.etape === 'ACCEPTEE') {
       const date = derniere?.date_decision_client ?? derniere?.date_creation ?? r.date_creation
       const gain = derniere?.gains_estimes ? ` · ${derniere.gains_estimes.toLocaleString('fr-FR')} €/an` : ''

@@ -163,7 +163,8 @@ export function OngletRecommandations({ recommandations }: { recommandations: Re
 
       {affichees.map((r) => {
         const finalite = r.finalite_cloture ? FINALITES[r.finalite_cloture] : FINALITES.EXPIREE
-        const derniere = r.versions[r.versions.length - 1]
+        // versions[0] est la plus récente : la liste est triée décroissant depuis le 12/08/2026.
+        const derniere = r.versions[0]
         return (
           <div
             key={r.id}

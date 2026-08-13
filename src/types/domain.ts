@@ -48,6 +48,9 @@ export interface Signal {
 
 export interface VersionRecommandation {
   id: string
+  /** Rang de la version. Les versions d'une recommandation sont toujours triées du plus grand au
+   *  plus petit : `versions[0]` est la plus récente (réunion du 12/08/2026). */
+  numero_version: number | null
   nom: string | null
   statut: string
   motif_creation: string
