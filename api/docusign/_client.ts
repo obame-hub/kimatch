@@ -167,9 +167,14 @@ async function getJwtAccessToken(): Promise<string> {
     if (data.error === 'consent_required') {
       // Le redirect_uri doit correspondre EXACTEMENT à l'un de ceux enregistrés dans DocuSign
       // (Apps and Keys > l'application > Redirect URIs), sinon le consentement est refusé avant
-      // même d'être demandé. Il était codé en dur sur l'ancienne URL Vercel alors que le domaine
-      // de production est kimatch.fr : le lien affiché ne pouvait pas aboutir.
-      const redirect = process.env.DOCUSIGN_REDIRECT_URI ?? 'https://kimatch.fr'
+      // même d'être demandé. Il était codé en dur sur l'ancienne URL Vercel, puis sur kimatch.fr —
+      // qui n'est pas enregistrée : les URIs de l'application sont toutes en localhost.
+      //
+      // Le défaut est donc l'URL de consentement de DocuSign, présente d'office dans la liste de
+      // toute application créée sur le portail développeur (vérifié le 13/08/2026 sur l'app
+      // f650fd5b). Elle ne sert qu'à recevoir la redirection après le clic « Allow Access » : le
+      // flux JWT n'utilise aucun code d'autorisation, donc aucun callback à implémenter chez nous.
+      const redirect = process.env.DOCUSIGN_REDIRECT_URI ?? 'https://developers.docusign.com/platform/auth/consent'
       const url =
         `https://${aud}/oauth/auth?response_type=code&scope=signature%20impersonation` +
         `&client_id=${integrationKey}&redirect_uri=${encodeURIComponent(redirect)}`
