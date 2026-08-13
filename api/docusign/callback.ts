@@ -3,18 +3,20 @@ import { clientService, decodeState, echangerCode, enregistrerSession, lireIdent
 
 /**
  * Retour de l'écran d'autorisation DocuSign : échange le code contre les jetons, lit le compte de
- * la personne, enregistre la session, et la ramène sur « Mon profil ».
+ * la personne, enregistre la session, et la ramène sur la page d'où elle est partie.
  *
  * L'URL de cet endpoint doit figurer à l'identique dans les Redirect URIs de l'application DocuSign
  * (Settings > Apps and Keys) — sinon DocuSign refuse avant même d'afficher l'écran.
  */
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   const code = typeof req.query.code === 'string' ? req.query.code : undefined
-  const { profilId, appUrl } = decodeState(typeof req.query.state === 'string' ? req.query.state : undefined)
+  const { profilId, appUrl, retour } = decodeState(typeof req.query.state === 'string' ? req.query.state : undefined)
   const erreur = typeof req.query.error === 'string' ? req.query.error : undefined
 
+  // Les deux redirections repassent par la page de départ, avec le résultat en paramètre : c'est
+  // elle qui affiche « Compte DocuSign connecté » ou la raison de l'échec.
   const echec = (raison: string) =>
-    res.redirect(302, `${appUrl}/mon-profil?docusign=error&reason=${encodeURIComponent(raison)}`)
+    res.redirect(302, `${appUrl}${retour}?docusign=error&reason=${encodeURIComponent(raison)}`)
 
   if (erreur) return echec(erreur)
   // Pas de profil = `state` absent, mal signé, ou vieux de plus de quinze minutes. On n'écrit
@@ -25,7 +27,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     const jetons = await echangerCode(code)
     const identite = await lireIdentite(jetons.access_token)
     await enregistrerSession(clientService(), profilId, identite, jetons)
-    res.redirect(302, `${appUrl}/mon-profil?docusign=connected`)
+    res.redirect(302, `${appUrl}${retour}?docusign=connected`)
   } catch (err) {
     echec(err instanceof Error ? err.message : 'inconnue')
   }

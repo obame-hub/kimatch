@@ -51,13 +51,18 @@ export function useDocusignConnexion() {
 }
 
 /** Envoie le navigateur sur l'écran d'autorisation DocuSign. Le jeton Supabase part dans l'en-tête
- *  et non dans l'URL : c'est l'endpoint qui scelle l'identifiant du profil dans le `state`. */
+ *  et non dans l'URL : c'est l'endpoint qui scelle l'identifiant du profil dans le `state`.
+ *
+ *  La page courante voyage aussi dans le `state` : après l'autorisation, DocuSign renvoie la
+ *  personne exactement là où elle était — sur la fiche du mandat qu'elle voulait envoyer, pas sur
+ *  « Mon profil » avec tout à refaire. */
 export async function connectDocusign(): Promise<void> {
   const { data } = await supabase.auth.getSession()
   const token = data.session?.access_token
   if (!token) throw new Error('Non authentifié — connecte-toi pour lier DocuSign.')
 
-  const res = await fetch('/api/docusign/connect', { headers: { Authorization: `Bearer ${token}` } })
+  const retour = encodeURIComponent(window.location.pathname)
+  const res = await fetch(`/api/docusign/connect?retour=${retour}`, { headers: { Authorization: `Bearer ${token}` } })
   const result = (await res.json()) as { url?: string; error?: string }
   if (!res.ok || !result.url) throw new Error(result.error ?? 'Impossible de démarrer la connexion DocuSign')
   window.location.href = result.url

@@ -33,8 +33,13 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         ? new URL(req.headers.referer).origin
         : undefined
 
+  // Page d'où part la connexion : on y ramène la personne après l'autorisation. Sans ça, quelqu'un
+  // qui se connecte depuis un wizard de mandat atterrirait sur « Mon profil » et devrait tout
+  // recommencer. Tools garde la même information dans sa table docusign_oauth_states.
+  const retour = typeof req.query.retour === 'string' ? req.query.retour : undefined
+
   try {
-    res.status(200).json({ url: buildAuthUrl(encodeState(profilId, origine)) })
+    res.status(200).json({ url: buildAuthUrl(encodeState(profilId, origine, retour)) })
   } catch (err) {
     res.status(500).json({ error: err instanceof Error ? err.message : 'Configuration DocuSign incomplète' })
   }

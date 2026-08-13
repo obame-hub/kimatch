@@ -50,17 +50,24 @@ function secretHmac(): string {
  * comme expéditeur pour ce collègue. C'est le défaut du `state` en clair du flot Gmail
  * (api/gmail/_client.ts), non corrigé là-bas.
  */
-export function encodeState(profilId: string, origine: string | undefined): string {
+/** Chemin de retour : uniquement un chemin relatif de cette application. Une URL absolue serait un
+ *  open redirect — on ne renvoie jamais l'utilisateur ailleurs que chez nous. */
+function cheminSur(retour: string | undefined): string {
+  if (!retour || !retour.startsWith('/') || retour.startsWith('//')) return '/mon-profil'
+  return retour
+}
+
+export function encodeState(profilId: string, origine: string | undefined, retour?: string): string {
   const sure = origine && ORIGINES_AUTORISEES.includes(origine) ? origine : ORIGINE_PAR_DEFAUT
-  const charge = `${profilId}|${sure}|${Date.now()}`
+  const charge = `${profilId}|${sure}|${Date.now()}|${cheminSur(retour)}`
   const signature = createHmac('sha256', secretHmac()).update(charge).digest('base64url')
   return `${Buffer.from(charge).toString('base64url')}.${signature}`
 }
 
 /** Un `state` non signé, mal signé ou vieux de plus de quinze minutes ne donne aucun profil : le
  *  callback redirige alors vers une erreur au lieu d'écrire une session. */
-export function decodeState(state: string | undefined): { profilId?: string; appUrl: string } {
-  const appUrlParDefaut = { appUrl: ORIGINE_PAR_DEFAUT }
+export function decodeState(state: string | undefined): { profilId?: string; appUrl: string; retour: string } {
+  const appUrlParDefaut = { appUrl: ORIGINE_PAR_DEFAUT, retour: '/mon-profil' }
   if (!state || !state.includes('.')) return appUrlParDefaut
   const [chargeB64, signature] = state.split('.')
   let charge: string
@@ -74,12 +81,12 @@ export function decodeState(state: string | undefined): { profilId?: string; app
   const b = Buffer.from(attendue)
   if (a.length !== b.length || !timingSafeEqual(a, b)) return appUrlParDefaut
 
-  const [profilId, origine, horodatage] = charge.split('|')
+  const [profilId, origine, horodatage, retour] = charge.split('|')
   const age = Date.now() - Number(horodatage ?? 0)
   if (!Number.isFinite(age) || age < 0 || age > 15 * 60 * 1000) return appUrlParDefaut
 
   const appUrl = origine && ORIGINES_AUTORISEES.includes(origine) ? origine : ORIGINE_PAR_DEFAUT
-  return { profilId: profilId || undefined, appUrl }
+  return { profilId: profilId || undefined, appUrl, retour: cheminSur(retour) }
 }
 
 export function buildAuthUrl(state: string): string {
