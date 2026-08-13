@@ -4,7 +4,7 @@ import { Building2, MapPin, Plus, Unlink } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Dialog } from '@/components/ui/dialog'
 import { FormField, Input, Select } from '@/components/ui/form'
-import type { Compte, Contact, Site } from '@/types/domain'
+import type { Compte, Compteur, Contact, Site } from '@/types/domain'
 import { useLierContactCompte, useDelierContactCompte } from '@/lib/data/contacts'
 
 /**
@@ -19,6 +19,7 @@ export function RattachementsContact({
   contact,
   comptes,
   sites,
+  compteurs,
   peutModifier,
   onToast,
 }: {
@@ -26,6 +27,8 @@ export function RattachementsContact({
   comptes: Compte[]
   /** Tous les sites : on en déduit ceux des comptes rattachés au contact. */
   sites: Site[]
+  /** Tous les compteurs : servent à distinguer les sites où le contact est réellement responsable. */
+  compteurs: Compteur[]
   peutModifier: boolean
   onToast: (message: string) => void
 }) {
@@ -58,7 +61,20 @@ export function RattachementsContact({
     const fonctionParSite = new Map(contact.sites.map((s) => [s.id, s.fonction_sur_site]))
     const idsComptes = new Set(contact.comptes.map((c) => c.id))
 
-    const groupes = new Map<string, { compte: string; sites: { id: string; nom: string; fonction: string | null; explicite: boolean }[] }>()
+    // Sites où le contact est responsable d'au moins un compteur. C'est l'information la plus
+    // précise dont on dispose sur son intervention réelle : elle vient du compteur, seul endroit
+    // où Salesforce porte ce lien. Comptée ici et non stockée — dupliquer dans contacts_sites
+    // créerait une seconde source qui se désynchroniserait au premier changement de responsable.
+    const compteursParSite = new Map<string, number>()
+    for (const cp of compteurs) {
+      if (cp.responsable_contact_id !== contact.id && cp.contact_conseil_syndical_id !== contact.id) continue
+      compteursParSite.set(cp.site_id, (compteursParSite.get(cp.site_id) ?? 0) + 1)
+    }
+
+    const groupes = new Map<
+      string,
+      { compte: string; sites: { id: string; nom: string; fonction: string | null; explicite: boolean; nbCompteurs: number }[] }
+    >()
     for (const site of sites) {
       if (!site.compte_id || !idsComptes.has(site.compte_id)) continue
       const nom = comptes.find((c) => c.id === site.compte_id)?.nom ?? ''
@@ -68,17 +84,26 @@ export function RattachementsContact({
         nom: site.nom,
         fonction: fonctionParSite.get(site.id) ?? null,
         explicite: fonctionParSite.has(site.id),
+        nbCompteurs: compteursParSite.get(site.id) ?? 0,
       })
       groupes.set(site.compte_id, groupe)
+    }
+    // Les sites où il intervient d'abord : c'est ce qu'on cherche en ouvrant cet onglet.
+    for (const groupe of groupes.values()) {
+      groupe.sites.sort((a, b) => b.nbCompteurs - a.nbCompteurs || a.nom.localeCompare(b.nom))
     }
     // Le compte principal en tête, comme pour la liste des comptes.
     const principal = contact.comptes.find((c) => c.relation_directe)?.id
     return [...groupes.entries()].sort(
       ([a], [b]) => Number(b === principal) - Number(a === principal) || (groupes.get(a)!.compte).localeCompare(groupes.get(b)!.compte),
     )
-  }, [contact, comptes, sites])
+  }, [contact, comptes, sites, compteurs])
 
   const nbSites = sitesParCompte.reduce((n, [, g]) => n + g.sites.length, 0)
+  const nbSitesResponsable = sitesParCompte.reduce(
+    (n, [, g]) => n + g.sites.filter((s) => s.nbCompteurs > 0).length,
+    0,
+  )
 
   const dejaLies = new Set(contact.comptes.map((c) => c.id))
   const candidats = comptes.filter((c) => !dejaLies.has(c.id)).sort((a, b) => a.nom.localeCompare(b.nom))
@@ -148,6 +173,7 @@ export function RattachementsContact({
           <span className="text-[10px] font-bold uppercase tracking-[.08em] text-[#a3a5a0]">Sites rattachés</span>
           <span className="text-[10.5px] text-[#a3a5a0]">
             · {nbSites} site{nbSites > 1 ? 's' : ''} sur {sitesParCompte.length} compte{sitesParCompte.length > 1 ? 's' : ''}
+            {nbSitesResponsable > 0 && ` · responsable sur ${nbSitesResponsable}`}
           </span>
         </div>
 
@@ -172,6 +198,14 @@ export function RattachementsContact({
                         <p className="truncate text-sm font-bold text-navy-800">{s.nom}</p>
                         {s.fonction && <p className="truncate text-[10.5px] text-navy-400">{s.fonction}</p>}
                       </div>
+                      {s.nbCompteurs > 0 && (
+                        <span
+                          title={`Responsable de ${s.nbCompteurs} compteur${s.nbCompteurs > 1 ? 's' : ''} sur ce site`}
+                          className="shrink-0 rounded bg-[#eef0fa] px-1.5 py-px font-mono text-[9.5px] font-bold text-[#4f5aa8]"
+                        >
+                          {s.nbCompteurs} compteur{s.nbCompteurs > 1 ? 's' : ''}
+                        </span>
+                      )}
                       {s.explicite && (
                         <span
                           title="Contact explicitement rattaché à ce site"

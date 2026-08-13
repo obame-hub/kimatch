@@ -16,12 +16,13 @@ import { ActivityFeed } from '@/components/site/ActivityFeed'
 import { useContacts, useUpdateContact, useDeleteContact, useUpdateContactField } from '@/lib/data/contacts'
 import { useComptes } from '@/lib/data/comptes'
 import { useSites } from '@/lib/data/sites'
+import { useCompteurs } from '@/lib/data/compteurs'
 import { useActions } from '@/lib/data/actions'
 import { useInteractionsForContact } from '@/lib/data/interactions'
 import { useContrats } from '@/lib/data/contrats'
 import { useMandats } from '@/lib/data/mandats'
 import { useRecommandations } from '@/lib/data/recommandations'
-import { useCanManageContact, useIsAdmin, useProfilsAdmin } from '@/lib/data/roles'
+import { useCanManageEnregistrement, useIsAdmin, useProfilsAdmin } from '@/lib/data/roles'
 import { useGoBack } from '@/lib/useGoBack'
 import { useReferenceTable } from '@/lib/data/referenceTables'
 import { formatPhoneFR } from '@/lib/textFormat'
@@ -46,6 +47,7 @@ export default function ContactDetail() {
   const { data: contacts } = useContacts()
   const { data: comptes } = useComptes()
   const { data: sites } = useSites()
+  const { data: compteurs } = useCompteurs()
   const { data: actions } = useActions()
   const { data: contrats } = useContrats()
   const { data: mandats } = useMandats()
@@ -62,9 +64,9 @@ export default function ContactDetail() {
   const deleteContact = useDeleteContact()
   const goBack = useGoBack('/contacts')
 
-  // Voir useCanManageContact : les contacts sans propriétaire — 3378 sur 3380 — étaient
+  // Voir useCanManageEnregistrement : les contacts sans propriétaire — 3378 sur 3380 — étaient
   // réservés aux administrateurs, ce que William a demandé d'ouvrir le 13/08/2026.
-  const canManage = useCanManageContact(contact)
+  const canManage = useCanManageEnregistrement(contact?.proprietaire_id)
   const [tab, setTab] = useState<TabKey>('contact')
   const [editOpen, setEditOpen] = useState(false)
   const [confirmDelete, setConfirmDelete] = useState(false)
@@ -374,6 +376,7 @@ export default function ContactDetail() {
               contact={contact}
               comptes={comptes ?? []}
               sites={sites ?? []}
+              compteurs={compteurs ?? []}
               peutModifier={canManage}
               onToast={showToast}
             />

@@ -472,3 +472,21 @@ export function useDeleteCompteur() {
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ['compteurs'] }),
   })
 }
+
+/**
+ * Mise à jour d'un champ isolé du compteur, pour l'édition au clic.
+ *
+ * Sert notamment au contact responsable et au contact du conseil syndical : ils étaient repris de
+ * Salesforce (6710 et 435 compteurs) et affichés, mais rien ne permettait de les changer. Un
+ * responsable qui quitte son poste restait donc inscrit indéfiniment.
+ */
+export function useUpdateCompteurField() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: async ({ id, patch }: { id: string; patch: Record<string, unknown> }) => {
+      const { error } = await supabase.from('compteurs').update(patch).eq('id', id)
+      if (error) throw new Error(error.message)
+    },
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['compteurs'] }),
+  })
+}

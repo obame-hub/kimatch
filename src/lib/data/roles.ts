@@ -352,26 +352,30 @@ export function useCanManage(proprietaireId: string | null | undefined) {
 }
 
 /**
- * Droit de modifier ou supprimer un contact.
+ * Droit de modifier ou supprimer un enregistrement dont le propriétaire peut être absent.
  *
- * `useCanManage` exige d'être administrateur ou propriétaire de l'enregistrement. Or 3378 contacts
- * sur 3380 n'ont aucun propriétaire — la migration Salesforce ne l'a jamais rempli — donc en
- * pratique seuls les administrateurs pouvaient agir. C'est ce que William a constaté le 13/08/2026 :
- * « moi j'ai le bouton modifier, supprimer, mais j'ai pas l'impression qu'un utilisateur comme
- * Guillaume l'a », et sa réponse : « que les utilisateurs puissent supprimer des enregistrements,
- * c'est pas un problème, c'est pas forcément relié à l'admin ».
+ * `useCanManage` exige d'être administrateur ou propriétaire. Or la migration Salesforce n'a rempli
+ * `proprietaire_id` sur AUCUN objet : 3378 contacts sur 3380, 7883 compteurs sur 7884, 1429 mandats
+ * sur 1429, 1597 contrats sur 1598. En pratique, seuls les administrateurs pouvaient donc agir.
  *
- * La troisième branche est celle qui débloque : un contact sans propriétaire appartient de fait à
- * l'équipe, et quiconque a le compte dans son périmètre peut le gérer. Un contact qui a un
- * propriétaire garde sa protection.
+ * C'est ce que William a constaté le 13/08/2026 : « moi j'ai le bouton modifier, supprimer, mais
+ * j'ai pas l'impression qu'un utilisateur comme Guillaume l'a », et sa réponse : « que les
+ * utilisateurs puissent supprimer des enregistrements, c'est pas un problème, c'est pas forcément
+ * relié à l'admin ».
+ *
+ * La troisième branche est celle qui débloque : sans propriétaire, l'enregistrement appartient de
+ * fait à l'équipe. Celui qui en a un garde sa protection — la règle ne retire aucun verrou existant,
+ * elle cesse d'en inventer un là où il n'y en a pas.
+ *
+ * L'accès à l'enregistrement reste par ailleurs filtré par le périmètre de visibilité, qui décide
+ * de ce que l'utilisateur peut atteindre ; cette fonction ne décide que de ce qu'il peut y faire.
  */
-export function useCanManageContact(contact: { proprietaire_id: string | null } | null | undefined) {
+export function useCanManageEnregistrement(proprietaireId: string | null | undefined) {
   const isAdmin = useIsAdmin()
   const { data: monProfil } = useMonProfil()
   if (isAdmin) return true
-  if (!contact) return false
-  if (!contact.proprietaire_id) return true
-  return !!monProfil && monProfil.id === contact.proprietaire_id
+  if (!proprietaireId) return true
+  return !!monProfil && monProfil.id === proprietaireId
 }
 
 export interface ProfilAutorise {

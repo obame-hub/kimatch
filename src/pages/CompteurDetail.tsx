@@ -8,12 +8,14 @@ import { Dialog } from '@/components/ui/dialog'
 import { FormField, Input, Select } from '@/components/ui/form'
 import { HistoriqueDiscret } from '@/components/ui/historique-discret'
 import { EntityLink } from '@/components/ui/entity-link'
-import { useCompteurs, useUpdateCompteur, useDeleteCompteur, useSyncCompteurElec, useSyncCompteurGaz } from '@/lib/data/compteurs'
+import { useCompteurs, useUpdateCompteur, useDeleteCompteur, useSyncCompteurElec, useSyncCompteurGaz, useUpdateCompteurField } from '@/lib/data/compteurs'
 import { useEnedisFetch } from '@/lib/data/enedis'
 import { useGrdFetch } from '@/lib/data/grd'
 import { useConsommations, useCreateConsommation } from '@/lib/data/consommations'
 import { useSites } from '@/lib/data/sites'
 import { useComptes } from '@/lib/data/comptes'
+import { InlineField } from '@/components/ui/inline-field'
+import { useContacts } from '@/lib/data/contacts'
 import { useContrats } from '@/lib/data/contrats'
 import { useMandats } from '@/lib/data/mandats'
 import { useSignaux } from '@/lib/data/signaux'
@@ -21,7 +23,7 @@ import { useRecommandations } from '@/lib/data/recommandations'
 import { useDocuments, useCreateDocument } from '@/lib/data/documents'
 import { useReferenceTable } from '@/lib/data/referenceTables'
 import { FALLBACK_STATUTS_CONTRATS, STATUT_CONTRAT_TONE, FALLBACK_STATUTS_MANDATS, STATUT_MANDAT_TONE, FALLBACK_TYPES_DOCUMENTS } from '@/lib/referenceFallbacks'
-import { useCanManage, useIsAdmin, useProfilsAdmin } from '@/lib/data/roles'
+import { useCanManageEnregistrement, useIsAdmin, useProfilsAdmin } from '@/lib/data/roles'
 import { cn } from '@/lib/utils'
 import { useGoBack } from '@/lib/useGoBack'
 import type { Compteur, Consommation } from '@/types/domain'
@@ -389,7 +391,31 @@ export default function CompteurDetail() {
   const [editOpen, setEditOpen] = useState(false)
   const [confirmDelete, setConfirmDelete] = useState(false)
   const [addFichierOpen, setAddFichierOpen] = useState(false)
-  const canManage = useCanManage(compteur?.proprietaire_id)
+  // 7883 compteurs sur 7884 n'ont pas de propriétaire : useCanManage aurait réservé toute
+  // modification aux administrateurs. Même motif que sur les contacts.
+  const canManage = useCanManageEnregistrement(compteur?.proprietaire_id)
+
+  // Les contacts proposés sont ceux du compte auquel appartient le site du compteur : proposer les
+  // 3380 contacts de la base rendrait le choix inutilisable, et rattacher un compteur à un contact
+  // d'un autre client n'a pas de sens.
+  const { data: tousContacts } = useContacts()
+  const contactsDuCompte = useMemo(
+    () => (compte ? (tousContacts ?? []).filter((c) => c.comptes.some((l) => l.id === compte.id)) : []),
+    [tousContacts, compte],
+  )
+
+  const majChampCompteur = useUpdateCompteurField()
+  const [toast, setToast] = useState<string | null>(null)
+
+  function showToast(message: string) {
+    setToast(message)
+    window.setTimeout(() => setToast(null), 2600)
+  }
+
+  async function majCompteur(patch: Record<string, unknown>) {
+    if (!compteur) return
+    await majChampCompteur.mutateAsync({ id: compteur.id, patch })
+  }
   const deleteCompteur = useDeleteCompteur()
   const goBack = useGoBack(compteur ? `/sites/${compteur.site_id}` : '/sites')
   const enedisFetch = useEnedisFetch()
@@ -599,18 +625,32 @@ export default function CompteurDetail() {
                   {compteur.car_mwh != null && <p><span className="text-navy-400">CAR :</span> {compteur.car_mwh} MWh</p>}
                   {compteur.profil_consommation && <p><span className="text-navy-400">Profil :</span> {compteur.profil_consommation}</p>}
                   {compteur.zone_tarifaire && <p><span className="text-navy-400">Zone tarifaire :</span> {compteur.zone_tarifaire}</p>}
-                  {compteur.responsable_contact_id && (
-                    <p>
-                      <span className="text-navy-400">Responsable :</span>{' '}
-                      <EntityLink to={`/contacts/${compteur.responsable_contact_id}`}>{compteur.responsable_contact_nom}</EntityLink>
-                    </p>
-                  )}
-                  {compteur.contact_conseil_syndical_id && (
-                    <p>
-                      <span className="text-navy-400">Contact conseil syndical :</span>{' '}
-                      <EntityLink to={`/contacts/${compteur.contact_conseil_syndical_id}`}>{compteur.contact_conseil_syndical_nom}</EntityLink>
-                    </p>
-                  )}
+                  {/* Responsable et conseil syndical : repris de Salesforce (6710 et 435
+                      compteurs) mais jusque-là figés. Modifiables au clic, avec les contacts du
+                      compte pour choix — un responsable qui change de poste restait sinon inscrit
+                      indéfiniment. Le lien vers la fiche est conservé à côté du champ. */}
+                  <div className="flex flex-wrap items-baseline gap-x-2 gap-y-1">
+                    <ChampContactCompteur
+                      libelle="Responsable"
+                      contactId={compteur.responsable_contact_id ?? null}
+                      contactNom={compteur.responsable_contact_nom ?? null}
+                      contactsDuCompte={contactsDuCompte}
+                      modifiable={canManage}
+                      onCommit={(v) => majCompteur({ responsable_contact_id: v })}
+                      onToast={showToast}
+                    />
+                  </div>
+                  <div className="flex flex-wrap items-baseline gap-x-2 gap-y-1">
+                    <ChampContactCompteur
+                      libelle="Contact conseil syndical"
+                      contactId={compteur.contact_conseil_syndical_id ?? null}
+                      contactNom={compteur.contact_conseil_syndical_nom ?? null}
+                      contactsDuCompte={contactsDuCompte}
+                      modifiable={canManage}
+                      onCommit={(v) => majCompteur({ contact_conseil_syndical_id: v })}
+                      onToast={showToast}
+                    />
+                  </div>
                   {compteur.fournisseur_actuel_compte_id && (
                     <p>
                       <span className="text-navy-400">Fournisseur actuel (avant KiWee) :</span>{' '}
@@ -793,6 +833,66 @@ export default function CompteurDetail() {
           </Button>
         </div>
       </Dialog>
+      {toast && (
+        <div className="fixed bottom-6 left-1/2 z-50 -translate-x-1/2 whitespace-nowrap rounded-lg bg-ink-800 px-4 py-2.5 text-xs font-semibold text-white shadow-lg">
+          {toast}
+        </div>
+      )}
     </div>
+  )
+}
+
+/**
+ * Un champ « contact » du compteur : lecture cliquable vers la fiche, et modification au clic quand
+ * l'utilisateur en a le droit. Le lien vers la fiche est conservé à côté du sélecteur — le rendre
+ * éditable sans cela ferait perdre l'accès au contact en un clic.
+ */
+function ChampContactCompteur({
+  libelle,
+  contactId,
+  contactNom,
+  contactsDuCompte,
+  modifiable,
+  onCommit,
+  onToast,
+}: {
+  libelle: string
+  contactId: string | null
+  contactNom: string | null
+  contactsDuCompte: { id: string; prenom: string; nom: string }[]
+  modifiable: boolean
+  onCommit: (valeur: string | null) => Promise<void>
+  onToast: (message: string) => void
+}) {
+  if (!modifiable) {
+    if (!contactId) return null
+    return (
+      <p>
+        <span className="text-navy-400">{libelle} :</span>{' '}
+        <EntityLink to={`/contacts/${contactId}`}>{contactNom}</EntityLink>
+      </p>
+    )
+  }
+
+  return (
+    <>
+      <InlineField
+        variant="select"
+        label={libelle}
+        value={contactId ?? ''}
+        options={[
+          { value: '', label: 'Aucun' },
+          ...contactsDuCompte.map((c) => ({ value: c.id, label: `${c.prenom} ${c.nom}` })),
+        ]}
+        onCommit={(v) => onCommit(v || null)}
+        onSaved={() => onToast('✓ enregistré')}
+        onError={(err) => onToast(`Erreur : ${err.message}`)}
+      />
+      {contactId && (
+        <EntityLink to={`/contacts/${contactId}`}>
+          <span className="text-[11px]">ouvrir la fiche →</span>
+        </EntityLink>
+      )}
+    </>
   )
 }
