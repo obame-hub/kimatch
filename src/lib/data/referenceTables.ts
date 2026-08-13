@@ -20,14 +20,22 @@ async function fetchReferenceTable(table: string): Promise<ReferenceRow[]> {
   try {
     const { data, error } = await supabase.from(table).select('*').order('ordre')
     if (error || !data) throw error ?? new Error('empty')
-    return (data as Record<string, unknown>[]).map((r) => ({
-      id: r.id as string,
-      code: r.code as string,
-      libelle: r.libelle as string,
-      ordre: (r.ordre as number) ?? 0,
-      couleur: (r.couleur as string | null) ?? null,
-      icone: (r.icone as string | null) ?? null,
-    }))
+    // Les lignes desactivees sont ecartees ICI et non par un .eq('actif', true) : toutes les tables
+    // de reference n'ont pas cette colonne, et un filtre sur une colonne absente fait echouer la
+    // requete en 400 — exactement le piege decrit ci-dessus pour couleur/icone. Un `actif` absent
+    // vaut donc actif.
+    // Sert depuis le 13/08/2026 a masquer les statuts remplaces par les cycles de vie du 12/08,
+    // qui faisaient afficher treize etapes de recommandation au lieu des quatre de la maquette.
+    return (data as Record<string, unknown>[])
+      .filter((r) => r.actif !== false)
+      .map((r) => ({
+        id: r.id as string,
+        code: r.code as string,
+        libelle: r.libelle as string,
+        ordre: (r.ordre as number) ?? 0,
+        couleur: (r.couleur as string | null) ?? null,
+        icone: (r.icone as string | null) ?? null,
+      }))
   } catch {
     return []
   }
