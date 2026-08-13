@@ -134,14 +134,19 @@ async function nommer(table: string, ids: string[]): Promise<Map<string, { nom: 
   const conf = requetes[table]
   if (!conf) return carte
 
-  const { data, error } = await supabase.from(table).select(conf.select).in('id', ids)
-  if (error || !data) return carte
-
-  for (const ligne of data as unknown as Record<string, unknown>[]) {
-    carte.set(String(ligne.id), {
-      nom: conf.nom(ligne),
-      compteId: table === 'comptes' ? String(ligne.id) : (ligne.compte_id ? String(ligne.compte_id) : null),
-    })
+  // Par lots de 150 : le fil retient jusqu'à 400 évolutions, et passer 400 identifiants dans un
+  // `in()` fait une URL de 15 ko — au-delà de ce que PostgREST accepte. La requête échouerait
+  // entièrement et le fil s'afficherait vide, sans erreur visible.
+  const LOT = 150
+  for (let i = 0; i < ids.length; i += LOT) {
+    const { data, error } = await supabase.from(table).select(conf.select).in('id', ids.slice(i, i + LOT))
+    if (error || !data) continue
+    for (const ligne of data as unknown as Record<string, unknown>[]) {
+      carte.set(String(ligne.id), {
+        nom: conf.nom(ligne),
+        compteId: table === 'comptes' ? String(ligne.id) : (ligne.compte_id ? String(ligne.compte_id) : null),
+      })
+    }
   }
   return carte
 }

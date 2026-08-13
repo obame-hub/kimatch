@@ -15,6 +15,33 @@ export function viderCacheVisibilite() {
   cacheComptesVisibles = null
 }
 
+/**
+ * Charge des identifiants filtrés par un `in()`, en franchissant les deux plafonds de PostgREST.
+ *
+ * 1. Une réponse est tronquée à 1000 lignes, sans erreur — d'où fetchAllRows, qui pagine.
+ * 2. Un `in()` porte chaque valeur dans l'URL ; au-delà d'environ 150 identifiants elle devient
+ *    trop longue et la requête échoue entièrement — d'où le découpage par lots.
+ *
+ * Ces deux pièges ont fait disparaître 677 sites du périmètre de Marie Thonnard le 13/08/2026, et
+ * le motif s'était déjà répété à trois endroits. Passer par cette fonction évite de le réécrire —
+ * et de le réoublier.
+ */
+async function idsParLots(
+  table: string,
+  colonneLue: string,
+  colonneFiltre: string,
+  valeurs: string[],
+): Promise<string[]> {
+  const LOT = 150
+  const ids: string[] = []
+  for (let i = 0; i < valeurs.length; i += LOT) {
+    const lot = valeurs.slice(i, i + LOT)
+    const lignes = await fetchAllRows<Record<string, string>>(table, colonneLue, (q) => q.in(colonneFiltre, lot))
+    for (const ligne of lignes) ids.push(ligne[colonneLue])
+  }
+  return ids
+}
+
 export function fetchComptesVisibles(): Promise<string[] | null> {
   if (!cacheComptesVisibles) {
     cacheComptesVisibles = calculerComptesVisibles().catch((err) => {
@@ -32,10 +59,9 @@ async function calculerComptesVisibles(): Promise<string[] | null> {
   const access = await fetchCurrentAccess()
   if (access.roleCode === 'SUPER_ADMIN' || access.roleCode === 'ADMIN') return null
 
-  // Paginé pour la même raison que fetchSitesVisiblesIds : la réponse est plafonnée à 1000 lignes.
-  // Guillaume Gilles en a 935 — il passe, mais à 65 comptes du seuil au-delà duquel il perdrait
-  // silencieusement une partie de son portefeuille. Ce n'est pas une limite théorique : c'est la
-  // même mécanique qui a fait disparaître les compteurs de Marie Thonnard.
+  // Paginé pour la même raison : la réponse est plafonnée à 1000 lignes. Guillaume Gilles en a
+  // 935 — il passe, mais à 65 comptes du seuil au-delà duquel il perdrait silencieusement une
+  // partie de son portefeuille.
   try {
     const lignes = await fetchAllRows<{ compte_id: string }>('profils_comptes', 'compte_id', (q) =>
       q.eq('profil_id', userData.user.id).eq('actif', true),
@@ -53,29 +79,11 @@ export async function fetchSitesVisiblesIds(comptesVisibles: string[] | null): P
   if (comptesVisibles === null) return null
   if (comptesVisibles.length === 0) return []
 
-  // DEUX PLAFONDS À FRANCHIR, ET AUCUN DES DEUX NE LÈVE D'ERREUR.
-  //
-  // 1. PostgREST tronque toute réponse à 1000 lignes. Marie Thonnard a 1677 sites dans son
-  //    périmètre : elle en perdait 677, avec tous leurs compteurs, contrats et signaux. Les sites
-  //    tombés dépendaient de l'ordre renvoyé par la base, donc variaient d'un chargement à l'autre
-  //    — d'où le symptôme « je ne vois aucun compteur de CE compte », les 19 sites de CABINET
-  //    ROUMILHAC JOURDAN étant hors des 1000 premiers. D'où fetchAllRows, qui pagine.
-  //
-  // 2. La longueur de l'URL. Un `in()` porte chaque identifiant dans la requête : 935 comptes pour
-  //    Guillaume Gilles font une URL de 34 ko, très au-delà de ce qu'acceptent PostgREST et le
-  //    proxy. La requête échouerait entièrement — pas de troncature, rien du tout. D'où le
-  //    découpage par lots de 150, le même seuil que dans interactions.ts.
-  //
-  // Les administrateurs ne voyaient rien de tout cela : ils reçoivent `null` et sortent plus haut.
-  const LOT = 150
+  // Marie Thonnard a 1677 sites dans son périmètre : un select direct en perdait 677, avec tous
+  // leurs compteurs, contrats et signaux, et les sites tombés changeaient à chaque chargement. Les
+  // administrateurs n'en voyaient rien : ils reçoivent `null` et sortent plus haut.
   try {
-    const ids: string[] = []
-    for (let i = 0; i < comptesVisibles.length; i += LOT) {
-      const lot = comptesVisibles.slice(i, i + LOT)
-      const lignes = await fetchAllRows<{ id: string }>('sites', 'id', (q) => q.in('compte_id', lot))
-      for (const ligne of lignes) ids.push(ligne.id)
-    }
-    return ids
+    return await idsParLots('sites', 'id', 'compte_id', comptesVisibles)
   } catch (error) {
     console.error('fetchSitesVisiblesIds', error)
     // Liste vide plutôt que sous-ensemble : un périmètre partiel se lit comme une absence de
@@ -133,13 +141,19 @@ async function calculerMonPortefeuille(): Promise<{ comptes: string[]; sites: st
   const { data: userData } = await supabase.auth.getUser()
   if (!userData.user) return { comptes: [], sites: [] }
 
-  const { data, error } = await supabase.from('comptes').select('id').eq('proprietaire_id', userData.user.id)
-  if (error || !data) return { comptes: [], sites: [] }
-  const comptes = (data as { id: string }[]).map((r) => r.id)
-  if (comptes.length === 0) return { comptes: [], sites: [] }
-
-  const { data: sitesRows } = await supabase.from('sites').select('id').in('compte_id', comptes)
-  return { comptes, sites: (sitesRows as { id: string }[] | null)?.map((r) => r.id) ?? [] }
+  // Mêmes deux plafonds que fetchSitesVisiblesIds, et le même effet : cette fonction alimente le
+  // tableau de bord et le fil du portefeuille. Non paginée, elle rendait leur contenu incomplet pour
+  // Guillaume Gilles (935 comptes, à 65 lignes du seuil) et faux pour Marie Thonnard (1677 sites,
+  // donc 677 perdus).
+  try {
+    const comptes = await idsParLots('comptes', 'id', 'proprietaire_id', [userData.user.id])
+    if (comptes.length === 0) return { comptes: [], sites: [] }
+    const sites = await idsParLots('sites', 'id', 'compte_id', comptes)
+    return { comptes, sites }
+  } catch (error) {
+    console.error('calculerMonPortefeuille', error)
+    return { comptes: [], sites: [] }
+  }
 }
 
 /**
