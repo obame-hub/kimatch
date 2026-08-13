@@ -1,218 +1,41 @@
-import { createSign } from 'crypto'
+import { clientService, sessionUtilisable } from './_oauth.js'
 
-function base64url(input: Buffer | string): string {
-  return (Buffer.isBuffer(input) ? input : Buffer.from(input))
-    .toString('base64')
-    .replace(/\+/g, '-')
-    .replace(/\//g, '_')
-    .replace(/=+$/, '')
-}
-
-function requireEnv(name: string): string {
-  const v = process.env[name]
-  if (!v) throw new Error(`${name} non configurée`)
-  return v
-}
-
-/**
- * Remet la cle privee RSA dans un PEM que OpenSSL accepte.
- *
- * Une variable d'environnement ne porte qu'une chaine sur une seule ligne. Coller une cle PEM
- * dans une interface comme Vercel produit selon les cas des \n LITTERAUX (les deux
- * caracteres barre oblique inverse et n), des guillemets autour de la valeur, ou du base64.
- * OpenSSL refuse alors de decoder et renvoie « error:1E08010C:DECODER routines::unsupported »,
- * un message qui ne dit rien du vrai probleme. C'est l'erreur rencontree le 13/08/2026 en
- * testant la creation de mandat sur le compte KIWEE ENERGIE FRANCE.
- *
- * Aucune de ces formes n\'est fautive : elles dependent de la facon dont la valeur a ete saisie.
- * On les ramene toutes au meme PEM, plutot que d\'exiger une saisie parfaite.
- */
-function normaliserClePem(brut: string): string {
-  let pem = brut.trim()
-
-  // Guillemets ajoutes par certaines interfaces autour d'une valeur multi-lignes.
-  if ((pem.startsWith('"') && pem.endsWith('"')) || (pem.startsWith("'") && pem.endsWith("'"))) {
-    pem = pem.slice(1, -1).trim()
-  }
-
-  // Cle stockee en base64 du PEM entier : elle ne contient alors aucun en-tete lisible.
-  if (!pem.includes('BEGIN') && /^[A-Za-z0-9+/=\s]+$/.test(pem)) {
-    try {
-      const decode = Buffer.from(pem, 'base64').toString('utf8')
-      if (decode.includes('BEGIN')) pem = decode.trim()
-    } catch {
-      // On garde la valeur brute : le controle de format ci-dessous produira un message clair.
-    }
-  }
-
-  // Le cas le plus frequent : les retours a la ligne sont des \n litteraux.
-  if (pem.includes('\\n')) pem = pem.replace(/\\n/g, '\n')
-  // Valeur passee depuis Windows : les retours chariot feraient echouer le decodage.
-  pem = pem.replace(/\r\n/g, '\n').replace(/\r/g, '\n')
-  // Copier-coller passe par Word ou un navigateur : marque d'ordre des octets en tete, et espaces
-  // insecables a la place des espaces. Invisibles a l'oeil, fatals au decodage. (Signale par
-  // William, 13/08/2026.)
-  pem = pem.replace(/^﻿/, '').replace(/ /g, ' ')
-
-  // PEM entier sur UNE SEULE LIGNE, en-tetes compris : « -----BEGIN RSA PRIVATE KEY-----MIIEow...
-  // -----END RSA PRIVATE KEY----- ». C'est ce que produit une interface qui supprime les retours a
-  // la ligne au lieu de les echapper. Le bloc est present, donc les controles cherchant « BEGIN »
-  // le laissent passer — et OpenSSL echoue quand meme, faute de decoupage en lignes de 64.
-  if (!pem.includes('\n')) {
-    const bloc = pem.match(/-----BEGIN ([A-Z0-9 ]+)-----([\s\S]*?)-----END \1-----/)
-    if (bloc) {
-      const lignes = bloc[2].replace(/[^A-Za-z0-9+/=]/g, '').match(/.{1,64}/g) ?? []
-      pem = [`-----BEGIN ${bloc[1]}-----`, ...lignes, `-----END ${bloc[1]}-----`, ''].join('\n')
-    }
-  }
-
-  // Corps de cle colle SANS ses en-tetes : c'est du base64 seul, sans « BEGIN ». On reconstruit
-  // le PEM plutot que de refuser une cle qui est peut-etre la bonne. Le type est inconnu a ce
-  // stade, donc on tente PKCS#8 puis PKCS#1 — l'appelant validera en signant.
-  if (!pem.includes('BEGIN')) {
-    const corps = pem.replace(/[^A-Za-z0-9+/=]/g, '')
-    // Une cle RSA 2048 fait environ 1600 caracteres en base64 ; en dessous de 600 ce n'est pas
-    // une cle mais probablement un identifiant colle par erreur.
-    if (corps.length > 600) {
-      const lignes = corps.match(/.{1,64}/g) ?? []
-      for (const type of ['PRIVATE KEY', 'RSA PRIVATE KEY']) {
-        // Les retours à la ligne sont écrits directement : passer par un marqueur textuel serait
-        // dangereux ici, ses lettres pouvant apparaître dans le base64 de la clé et le corrompre.
-        const candidat = ['-----BEGIN ' + type + '-----', ...lignes, '-----END ' + type + '-----', ''].join('\n')
-        try {
-          const essai = createSign('RSA-SHA256')
-          essai.update('verification')
-          essai.end()
-          essai.sign(candidat)
-          return candidat
-        } catch {
-          // Mauvais type d'encapsulation : on tente le suivant.
-        }
-      }
-    }
-  }
-
-  if (!pem.includes('BEGIN') || !pem.includes('PRIVATE KEY')) {
-    // Diagnostic sans rien divulguer : la longueur et l'absence de marqueur ne revelent pas la
-    // cle, mais disent immediatement si la variable est vide, tronquee, ou d'une autre nature.
-    const indice = brut.trim().length === 0 ? 'elle est vide' : `elle fait ${brut.trim().length} caracteres et ne contient pas « BEGIN »`
-    throw new Error(
-      `DOCUSIGN_RSA_PRIVATE_KEY ne contient pas une cle privee PEM lisible : ${indice}. ` +
-        'Attendu : le bloc complet -----BEGIN RSA PRIVATE KEY----- ... -----END RSA PRIVATE KEY-----, ' +
-        'tel que DocuSign le donne au moment de generer la cle RSA de l application ' +
-        '(Settings > Apps and Keys > votre application > Generate RSA). ' +
-        'La cle privee n est affichee qu une seule fois : si elle a ete perdue, il faut en generer une nouvelle.',
-    )
-  }
-
-  // Un PEM doit se terminer par un retour a la ligne, sinon certaines versions d\'OpenSSL
-  // tronquent la derniere ligne de base64.
-  return pem.endsWith('\n') ? pem : pem + '\n'
-}
-
-async function getJwtAccessToken(): Promise<string> {
-  const integrationKey = requireEnv('DOCUSIGN_INTEGRATION_KEY')
-  const userId = requireEnv('DOCUSIGN_USER_ID')
-  // DOCUSIGN_RSA_PRIVATE_KEY_B64 est prioritaire quand elle existe : la clé y tient sur une seule
-  // ligne, donc aucune interface ne peut abîmer ses retours à la ligne. C'est la voie recommandée
-  // par William (13/08/2026), à alimenter avec `base64 -w0 private.key`. La variable en clair reste
-  // acceptée, et normaliserClePem rattrape les formes que les interfaces produisent.
-  const rsaPem = normaliserClePem(
-    process.env.DOCUSIGN_RSA_PRIVATE_KEY_B64
-      ? Buffer.from(process.env.DOCUSIGN_RSA_PRIVATE_KEY_B64.trim(), 'base64').toString('utf8')
-      : requireEnv('DOCUSIGN_RSA_PRIVATE_KEY'),
-  )
-  const baseUrl = process.env.DOCUSIGN_BASE_URL ?? 'https://account-d.docusign.com'
-  const aud = baseUrl.replace(/^https?:\/\//, '').replace(/\/$/, '')
-
-  const now = Math.floor(Date.now() / 1000)
-  const header = { alg: 'RS256', typ: 'JWT' }
-  const payload = {
-    iss: integrationKey,
-    sub: userId,
-    aud,
-    iat: now,
-    exp: now + 3600,
-    scope: 'signature impersonation',
-  }
-  const signingInput = `${base64url(JSON.stringify(header))}.${base64url(JSON.stringify(payload))}`
-  const signer = createSign('RSA-SHA256')
-  signer.update(signingInput)
-  signer.end()
-  let signature: string
-  try {
-    signature = base64url(signer.sign(rsaPem))
-  } catch (err) {
-    // L'erreur brute d'OpenSSL ne dit pas ce qui manque. On la traduit, sans jamais faire
-    // apparaître la clé elle-même dans un message ou un journal.
-    const brut = err instanceof Error ? err.message : String(err)
-    throw new Error(
-      `Signature du jeton DocuSign impossible : la clé privée n'est pas exploitable (${brut}). ` +
-        'Vérifiez DOCUSIGN_RSA_PRIVATE_KEY — la clé doit être celle générée dans DocuSign pour ' +
-        'cette application, au format PEM, en-têtes compris.',
-    )
-  }
-  const assertion = `${signingInput}.${signature}`
-
-  const res = await fetch(`${baseUrl}/oauth/token`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-    body: new URLSearchParams({
-      grant_type: 'urn:ietf:params:oauth:grant-type:jwt-bearer',
-      assertion,
-    }),
-  })
-  const data = (await res.json()) as { access_token?: string; error?: string; error_description?: string }
-  if (!res.ok || !data.access_token) {
-    if (data.error === 'consent_required') {
-      // Le redirect_uri doit correspondre EXACTEMENT à l'un de ceux enregistrés dans DocuSign
-      // (Apps and Keys > l'application > Redirect URIs), sinon le consentement est refusé avant
-      // même d'être demandé. Il était codé en dur sur l'ancienne URL Vercel, puis sur kimatch.fr —
-      // qui n'est pas enregistrée : les URIs de l'application sont toutes en localhost.
-      //
-      // Le défaut est donc l'URL de consentement de DocuSign, présente d'office dans la liste de
-      // toute application créée sur le portail développeur (vérifié le 13/08/2026 sur l'app
-      // f650fd5b). Elle ne sert qu'à recevoir la redirection après le clic « Allow Access » : le
-      // flux JWT n'utilise aucun code d'autorisation, donc aucun callback à implémenter chez nous.
-      const redirect = process.env.DOCUSIGN_REDIRECT_URI ?? 'https://developers.docusign.com/platform/auth/consent'
-      const url =
-        `https://${aud}/oauth/auth?response_type=code&scope=signature%20impersonation` +
-        `&client_id=${integrationKey}&redirect_uri=${encodeURIComponent(redirect)}`
-      throw new Error(
-        'Consentement DocuSign requis : l’utilisateur au nom duquel Kimatch envoie les enveloppes ' +
-          'doit autoriser l’application, une fois pour toutes. Ouvrez ce lien en étant connecté à ' +
-          `DocuSign avec CE compte, puis cliquez « Accept » : ${url} — si DocuSign répond que ` +
-          `l’URL de redirection est invalide, ajoutez « ${redirect} » dans les Redirect URIs de ` +
-          'l’application (Settings > Apps and Keys), ou renseignez DOCUSIGN_REDIRECT_URI avec une ' +
-          'valeur déjà enregistrée.',
-      )
-    }
-    throw new Error(`DocuSign token error: ${data.error ?? res.status} — ${data.error_description ?? ''}`)
-  }
-  return data.access_token
-}
+// Appel de l API DocuSign une fois la session de l utilisateur obtenue. Tout ce qui concerne
+// l autorisation (flot OAuth, jetons, rafraichissement) est dans _oauth.ts.
+//
+// Ce fichier portait jusqu au 13/08/2026 la signature d un JWT RSA au nom d un compte central,
+// avec pres de cent lignes de normalisation de cle PEM. Le passage a une session par utilisateur
+// rend tout cela sans objet : le flot Authorization Code Grant n utilise aucune cle privee. Voir
+// le commit correspondant si ce code doit reservir un jour (envois automatiques sans utilisateur
+// derriere, par exemple).
 
 interface DocusignContext {
   accessToken: string
   accountId: string
   baseUri: string
+  /** Adresse du compte DocuSign qui émet — celle du conseiller, pas un compte central. */
+  emetteur: string | null
 }
 
-export async function getDocusignContext(): Promise<DocusignContext> {
-  const baseUrl = process.env.DOCUSIGN_BASE_URL ?? 'https://account-d.docusign.com'
-  // Optionnel : DocuSign renvoie déjà les comptes de l'utilisateur, dont son compte par défaut. La
-  // variable ne sert qu'à en désigner un autre quand l'utilisateur en a plusieurs. L'exiger en
-  // faisait un piège de plus — celle de production contenait le GUID d'un compte étranger, sans
-  // conséquence puisque le repli ci-dessous prenait le compte par défaut, mais rien ne le disait.
-  const accountIdEnv = process.env.DOCUSIGN_ACCOUNT_ID?.trim() || null
-  const accessToken = await getJwtAccessToken()
-
-  const res = await fetch(`${baseUrl}/oauth/userinfo`, { headers: { Authorization: `Bearer ${accessToken}` } })
-  const data = (await res.json()) as { accounts?: { account_id: string; base_uri: string; is_default: boolean }[] }
-  if (!res.ok || !data.accounts) throw new Error('DocuSign userinfo failed')
-  const account = data.accounts.find((a) => a.account_id === accountIdEnv) ?? data.accounts.find((a) => a.is_default) ?? data.accounts[0]
-  if (!account) throw new Error('Aucun compte DocuSign associé à cet utilisateur')
-  return { accessToken, accountId: account.account_id, baseUri: account.base_uri }
+/**
+ * Contexte DocuSign de L'UTILISATEUR qui déclenche l'envoi.
+ *
+ * Depuis le 13/08/2026, sur demande de William, chaque conseiller autorise DocuSign avec son propre
+ * compte (voir _oauth.ts et la migration docusign_par_utilisateur) : l'enveloppe part de son
+ * compte, le client reçoit un e-mail de sa part, et la piste d'audit porte son nom.
+ *
+ * Il n'y a volontairement AUCUN repli vers le compte central : un repli silencieux ferait croire à
+ * un envoi personnel là où l'enveloppe serait partie sous une autre identité. Sans session, l'appel
+ * échoue avec NON_CONNECTE et le front propose la connexion.
+ */
+export async function getDocusignContext(profilId: string): Promise<DocusignContext> {
+  const session = await sessionUtilisable(clientService(), profilId)
+  return {
+    accessToken: session.access_token,
+    accountId: session.account_id,
+    baseUri: session.base_uri,
+    emetteur: session.docusign_email,
+  }
 }
 
 export interface SendEnvelopeDocument {

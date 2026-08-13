@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
-import { ShieldCheck, Mail, CheckCircle2, Camera } from 'lucide-react'
+import { ShieldCheck, Mail, CheckCircle2, Camera, FileSignature } from 'lucide-react'
 import { Topbar } from '@/components/layout/Topbar'
 import { PageHeader } from '@/components/ui/page-header'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
@@ -8,6 +8,7 @@ import { EmailLink } from '@/components/ui/contact-link'
 import { useAuth } from '@/lib/auth'
 import { useMonProfil, useCurrentAccess, useUploadMaPhoto } from '@/lib/data/roles'
 import { useGmailConnection, useDisconnectGmail, connectGmail } from '@/lib/data/gmail'
+import { useDocusignConnexion, useDocusignStatus, useDisconnectDocusign, connectDocusign } from '@/lib/data/docusign'
 
 function GmailCard() {
   const { data: connection, isLoading } = useGmailConnection()
@@ -66,6 +67,92 @@ function GmailCard() {
           <div className="rounded-lg border border-navy-100 p-4">
             <Button size="sm" onClick={handleConnect} disabled={connecting}>
               Connecter mon compte Gmail
+            </Button>
+          </div>
+        )}
+        {feedback && <p className="text-xs text-navy-500">{feedback}</p>}
+      </CardContent>
+    </Card>
+  )
+}
+
+/** Connexion DocuSign personnelle. Même forme que la carte Gmail, pour la même raison : depuis le
+ *  13/08/2026 (demande de William) le mandat part du compte DocuSign du conseiller, il faut donc
+ *  qu'il l'autorise lui-même — une seule fois. */
+function DocusignCard() {
+  const { data: connexion, isLoading } = useDocusignConnexion()
+  const { data: statut } = useDocusignStatus()
+  const disconnect = useDisconnectDocusign()
+  const [feedback, setFeedback] = useState<string | null>(null)
+  const [connecting, setConnecting] = useState(false)
+
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search)
+    const etat = params.get('docusign')
+    if (etat === 'connected') {
+      setFeedback('Compte DocuSign connecté ✓')
+      window.history.replaceState({}, '', window.location.pathname)
+    } else if (etat === 'error') {
+      setFeedback(`Échec de la connexion DocuSign (${params.get('reason') ?? 'inconnu'})`)
+      window.history.replaceState({}, '', window.location.pathname)
+    }
+  }, [])
+
+  async function handleConnect() {
+    setConnecting(true)
+    setFeedback(null)
+    try {
+      await connectDocusign()
+    } catch (err) {
+      setFeedback(err instanceof Error ? err.message : 'Erreur inconnue')
+      setConnecting(false)
+    }
+  }
+
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle className="flex items-center gap-2">
+          <FileSignature className="h-5 w-5 text-kiwi-600" />
+          Signature électronique (DocuSign)
+        </CardTitle>
+      </CardHeader>
+      <CardContent className="space-y-3">
+        <p className="text-sm text-navy-500">
+          Connectez votre propre compte DocuSign — les mandats envoyés depuis Kimatch partiront de votre compte,
+          apparaîtront dans votre espace DocuSign, et la piste d'audit portera votre nom. À autoriser une seule fois.
+        </p>
+        {/* Une signature émise depuis l'environnement de démonstration n'a aucune valeur juridique et
+            le client reçoit un e-mail marqué DEMO : mieux vaut le voir ici qu'après l'envoi. */}
+        {statut?.environnement === 'demonstration' && (
+          <p className="rounded-lg border border-amber-200 bg-amber-50 p-3 text-xs text-amber-800">
+            Environnement de démonstration : les signatures n'ont pas de valeur juridique et les e-mails portent la
+            mention DEMO. À basculer en production avant tout envoi client.
+          </p>
+        )}
+        {statut && !statut.configured ? (
+          <p className="rounded-lg border border-amber-200 bg-amber-50 p-3 text-xs text-amber-800">
+            L'application DocuSign n'est pas encore configurée côté serveur
+            {statut.manquants?.length ? ` (${statut.manquants.join(', ')})` : ''} : la connexion personnelle sera
+            possible dès que ce sera fait.
+          </p>
+        ) : isLoading ? (
+          <p className="text-sm text-navy-400">Chargement…</p>
+        ) : connexion ? (
+          <div className="flex items-center justify-between rounded-lg border border-navy-100 p-4">
+            <div className="flex items-center gap-2 text-sm text-navy-700">
+              <CheckCircle2 className="h-4 w-4 text-kiwi-600" />
+              Connecté en tant que <span className="font-medium">{connexion.docusign_email ?? connexion.docusign_nom}</span>
+              {connexion.account_nom && <span className="text-navy-400">· {connexion.account_nom}</span>}
+            </div>
+            <Button size="sm" variant="ghost" onClick={() => disconnect.mutate()} disabled={disconnect.isPending}>
+              Déconnecter
+            </Button>
+          </div>
+        ) : (
+          <div className="rounded-lg border border-navy-100 p-4">
+            <Button size="sm" onClick={handleConnect} disabled={connecting}>
+              Connecter mon compte DocuSign
             </Button>
           </div>
         )}
@@ -159,6 +246,7 @@ export default function MonProfil() {
         </Card>
 
         <GmailCard />
+        <DocusignCard />
       </div>
     </div>
   )

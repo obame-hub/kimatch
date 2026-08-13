@@ -18,7 +18,7 @@ import { useDocuments, useCreateDocument } from '@/lib/data/documents'
 import { useReferenceTable } from '@/lib/data/referenceTables'
 import { useCanManage, useIsAdmin, useProfilsAdmin } from '@/lib/data/roles'
 import { FALLBACK_STATUTS_MANDATS, STATUT_MANDAT_TONE, FALLBACK_TYPES_DOCUMENTS } from '@/lib/referenceFallbacks'
-import { sendMandatForSignature } from '@/lib/data/docusign'
+import { sendMandatForSignature, connectDocusign, DocusignNonConnecte } from '@/lib/data/docusign'
 import { useGoBack } from '@/lib/useGoBack'
 import { cn } from '@/lib/utils'
 import type { Mandat, Contact, Compte, Compteur } from '@/types/domain'
@@ -47,6 +47,7 @@ function EnvoyerSignatureDialog({
 }) {
   const [sending, setSending] = useState(false)
   const [feedback, setFeedback] = useState<string | null>(null)
+  const [besoinConnexionDocusign, setBesoinConnexionDocusign] = useState(false)
   const markEnvoye = useMarkMandatEnvoye()
 
   const dureeMois = mandat.duree_mois ?? 36
@@ -83,6 +84,9 @@ function EnvoyerSignatureDialog({
       setFeedback('Enveloppe créée en brouillon.')
       setTimeout(onClose, 1200)
     } catch (e) {
+      // Autorisation DocuSign manquante : geste a faire une fois, pas une panne. On propose la
+      // connexion sur place plutot qu'un message que l'utilisateur ne peut pas exploiter.
+      if (e instanceof DocusignNonConnecte) setBesoinConnexionDocusign(true)
       setFeedback(e instanceof Error ? e.message : 'Erreur inconnue')
     } finally {
       setSending(false)
@@ -103,6 +107,11 @@ function EnvoyerSignatureDialog({
         </p>
         <p className="text-[10.5px] text-navy-400">Tu seras redirigé·e vers DocuSign pour vérifier puis cliquer "Envoyer" toi-même — rien ne part automatiquement.</p>
         {feedback && <p className="text-xs text-navy-600">{feedback}</p>}
+        {besoinConnexionDocusign && (
+          <Button type="button" size="sm" onClick={() => { connectDocusign().catch(() => {}) }}>
+            Connecter mon compte DocuSign
+          </Button>
+        )}
         <div className="flex justify-end gap-2 pt-2">
           <Button type="button" variant="ghost" onClick={onClose}>Annuler</Button>
           <Button type="button" onClick={envoyer} disabled={sending || !contact?.email || !compte}>

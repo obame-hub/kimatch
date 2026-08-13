@@ -1,5 +1,6 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node'
 import { getDocusignContext, sendEnvelope } from './_client.js'
+import { NON_CONNECTE, profilAppelant } from './_oauth.js'
 
 interface SendBody {
   mandatId?: string
@@ -27,6 +28,14 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     return
   }
 
+  // L'enveloppe part du compte DocuSign de CETTE personne : il faut donc savoir qui appelle avant
+  // toute chose (voir getDocusignContext).
+  const profilId = await profilAppelant(authHeader)
+  if (!profilId) {
+    res.status(401).json({ error: 'Session invalide' })
+    return
+  }
+
   const body = req.body as SendBody
   if (!body?.mandatId || !body.signerEmail || !body.signerName || (!body.documents?.length && !body.documentUrl)) {
     res.status(400).json({ error: 'mandatId, signerEmail, signerName et au moins un document sont requis' })
@@ -51,7 +60,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       documents = [{ pdfBase64: pdfBuffer.toString('base64'), fileName: body.documentName ?? 'Mandat.pdf' }]
     }
 
-    const ctx = await getDocusignContext()
+    const ctx = await getDocusignContext(profilId)
     const result = await sendEnvelope(ctx, {
       documents,
       signerEmail: body.signerEmail,
@@ -63,8 +72,19 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       returnUrl: body.returnUrl,
     })
 
-    res.status(200).json(result)
+    res.status(200).json({ ...result, emetteur: ctx.emetteur })
   } catch (err) {
-    res.status(502).json({ error: err instanceof Error ? err.message : 'Erreur DocuSign inconnue' })
+    const message = err instanceof Error ? err.message : 'Erreur DocuSign inconnue'
+    // 409 et code dédié plutôt qu'un 502 générique : ce n'est pas une panne, c'est une autorisation
+    // qui manque. Le front distingue les deux pour proposer « Connecter mon compte DocuSign » au
+    // lieu d'afficher un message d'erreur technique.
+    if (message === NON_CONNECTE) {
+      res.status(409).json({
+        error: 'Votre compte DocuSign n’est pas connecté. Ouvrez « Mon profil » et autorisez DocuSign : c’est à faire une seule fois, et le mandat partira ensuite de votre compte.',
+        code: NON_CONNECTE,
+      })
+      return
+    }
+    res.status(502).json({ error: message })
   }
 }

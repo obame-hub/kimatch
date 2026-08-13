@@ -4,7 +4,7 @@ import { Badge } from '@/components/ui/badge'
 import { Card } from '@/components/ui/card'
 import { isSupabaseConfigured } from '@/lib/supabase'
 import { useGmailConnection, connectGmail } from '@/lib/data/gmail'
-import { useDocusignStatus } from '@/lib/data/docusign'
+import { useDocusignStatus, useDocusignConnexion, connectDocusign } from '@/lib/data/docusign'
 
 export type RequiredConnection = 'crm' | 'gmail' | 'docusign'
 
@@ -31,7 +31,10 @@ const META: Record<RequiredConnection, { label: string; icon: typeof Cloud; desc
   docusign: {
     label: 'DocuSign',
     icon: FileSignature,
-    description: 'Nécessaire pour envoyer le mandat à la signature électronique.',
+    // Depuis le 13/08/2026 la connexion est personnelle : le mandat part du compte du conseiller,
+    // pas d'un compte central. La description le dit, sinon on ne comprend pas pourquoi il faut
+    // autoriser quelque chose qui « marchait » pour quelqu'un d'autre.
+    description: 'Nécessaire pour envoyer le mandat à la signature depuis votre compte DocuSign.',
   },
 }
 
@@ -47,13 +50,20 @@ export function WizardConnectionGate({
 }) {
   const gmail = useGmailConnection()
   const docusign = useDocusignStatus()
+  const docusignConnexion = useDocusignConnexion()
+
+  // DocuSign demande DEUX choses : l'application configurée côté serveur, et l'autorisation
+  // personnelle de l'utilisateur. Les deux manquent pour des raisons différentes et ne se règlent
+  // pas de la même façon — d'où le message distinct plus bas.
+  const docusignPret = !!docusign.data?.configured && !!docusignConnexion.data
+  const docusignEnCours = docusign.isLoading || docusignConnexion.isLoading
 
   // `null` = pas encore vérifié (react-query refait la vérification au focus de la fenêtre, ce qui
   // remplace le `window.addEventListener("focus")` de Tools).
   const statut: Record<RequiredConnection, boolean | null> = {
     crm: required.includes('crm') ? isSupabaseConfigured : null,
     gmail: required.includes('gmail') ? (gmail.isLoading ? null : !!gmail.data) : null,
-    docusign: required.includes('docusign') ? (docusign.isLoading ? null : !!docusign.data?.configured) : null,
+    docusign: required.includes('docusign') ? (docusignEnCours ? null : docusignPret) : null,
   }
 
   const manquantes = required.filter((k) => statut[k] === false)
@@ -66,6 +76,9 @@ export function WizardConnectionGate({
   // Une connexion que l'utilisateur peut établir lui-même ; les autres se règlent côté serveur.
   const actions: Partial<Record<RequiredConnection, () => void>> = {
     gmail: () => { connectGmail().catch(() => {}) },
+    // Le bouton n'a de sens que si l'application est configurée : sinon l'écran d'autorisation
+    // DocuSign refuserait le client_id, et l'utilisateur ne pourrait rien y faire.
+    ...(docusign.data?.configured ? { docusign: () => { connectDocusign().catch(() => {}) } } : {}),
   }
   const indices: Partial<Record<RequiredConnection, string>> = {
     crm: "Identifiants VITE_SUPABASE_URL / VITE_SUPABASE_ANON_KEY absents : l'application tourne sur des données de démonstration.",

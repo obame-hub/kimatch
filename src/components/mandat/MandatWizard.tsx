@@ -9,7 +9,7 @@ import { useMandats, useCreateMandat, useMarkMandatEnvoye } from '@/lib/data/man
 import { useReferenceTable } from '@/lib/data/referenceTables'
 import { FALLBACK_TYPES_COURTIERS_MANDAT } from '@/lib/referenceFallbacks'
 import { generateMandatKiweePdf, generateMandatEnergixPdf } from '@/lib/mandatPdf'
-import { sendMandatForSignature } from '@/lib/data/docusign'
+import { sendMandatForSignature, connectDocusign, DocusignNonConnecte } from '@/lib/data/docusign'
 import { cn } from '@/lib/utils'
 import type { Compteur } from '@/types/domain'
 
@@ -88,6 +88,9 @@ export function MandatWizard({
   const [enCours, setEnCours] = useState(false)
   const [etat, setEtat] = useState<string | null>(null)
   const [erreur, setErreur] = useState<string | null>(null)
+  // Autorisation DocuSign manquante : ce n'est pas un echec, c'est un geste a faire une fois. Le
+  // mandat est deja enregistre, on propose donc la connexion sur place au lieu d'un message mort.
+  const [besoinConnexionDocusign, setBesoinConnexionDocusign] = useState(false)
 
   const compte = comptes?.find((c) => c.id === compteId)
   const sitesDuCompte = useMemo(() => sites?.filter((s) => s.compte_id === compteId) ?? [], [sites, compteId])
@@ -236,6 +239,11 @@ export function MandatWizard({
       }
       setErreur('Enveloppe créée, mais DocuSign n’a pas renvoyé d’URL d’éditeur. Relancez depuis la fiche du mandat.')
     } catch (e) {
+      if (e instanceof DocusignNonConnecte) {
+        setBesoinConnexionDocusign(true)
+        setErreur(e.message)
+        return
+      }
       // Le mandat peut exister malgré l'échec : on le dit, plutôt que de laisser croire à une
       // création manquée qui pousserait à recommencer et à créer un doublon.
       setErreur(
@@ -592,7 +600,16 @@ export function MandatWizard({
           <Loader2 className="h-3.5 w-3.5 animate-spin" /> {etat}
         </p>
       )}
-      {erreur && <p className="rounded-lg bg-red-50 px-3 py-2 text-xs text-red-700">{erreur}</p>}
+      {erreur && (
+        <div className="space-y-2 rounded-lg bg-red-50 px-3 py-2">
+          <p className="text-xs text-red-700">{erreur}</p>
+          {besoinConnexionDocusign && (
+            <Button type="button" size="sm" onClick={() => { connectDocusign().catch(() => {}) }}>
+              Connecter mon compte DocuSign
+            </Button>
+          )}
+        </div>
+      )}
 
       <div className="flex items-center justify-between gap-2 border-t border-navy-100 pt-3">
         <Button
