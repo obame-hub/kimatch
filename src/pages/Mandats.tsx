@@ -1,8 +1,9 @@
 import { useEffect, useState } from 'react'
 import { useTranchesAffichage } from '@/lib/useTranchesAffichage'
 import { PiedDeListe } from '@/components/ui/pied-de-liste'
+import { MandatWizard } from '@/components/mandat/MandatWizard'
 import { useNavigate, useSearchParams } from 'react-router-dom'
-import { Plus, FileCheck2, Eye } from 'lucide-react'
+import { Plus, FileCheck2 } from 'lucide-react'
 import { Topbar } from '@/components/layout/Topbar'
 import { PageHeader } from '@/components/ui/page-header'
 import { Card } from '@/components/ui/card'
@@ -11,215 +12,97 @@ import { Button } from '@/components/ui/button'
 import { EntityLink } from '@/components/ui/entity-link'
 import { Dialog } from '@/components/ui/dialog'
 import { FormField, Input, Select } from '@/components/ui/form'
-import { useMandats, useCreateMandat } from '@/lib/data/mandats'
+import { useMandats } from '@/lib/data/mandats'
 import { WizardConnectionGate } from '@/components/ui/connection-gate'
 import { useComptes } from '@/lib/data/comptes'
-import { useSites } from '@/lib/data/sites'
-import { useCompteurs } from '@/lib/data/compteurs'
-import { useContacts } from '@/lib/data/contacts'
 import { useReferenceTable } from '@/lib/data/referenceTables'
-import { FALLBACK_STATUTS_MANDATS, STATUT_MANDAT_TONE, FALLBACK_TYPES_COURTIERS_MANDAT } from '@/lib/referenceFallbacks'
+import { FALLBACK_STATUTS_MANDATS, STATUT_MANDAT_TONE } from '@/lib/referenceFallbacks'
 import { ListToolbar } from '@/components/ui/list-toolbar'
 import { useListControls } from '@/lib/useListControls'
-import { ExtractDocumentButton } from '@/components/ui/document-extraction'
 
+/**
+ * Création d'un mandat depuis la liste : le compte n'est pas connu, on le demande, puis on passe la
+ * main au wizard en quatre étapes.
+ *
+ * Le formulaire d'origine — un seul écran avec tous les champs — a été retiré. Garder deux chemins
+ * de création aurait produit deux comportements : celui de la fiche compte enchaînant sur DocuSign,
+ * celui-ci s'arrêtant au mandat. C'est exactement ainsi qu'un double champ de renégociation est
+ * apparu début août.
+ */
 export function CreateMandatDialog({
   open,
   onClose,
   initialCompteId,
-  initialCompteurIds,
-  initialContactId,
 }: {
   open: boolean
   onClose: () => void
   initialCompteId?: string
+  /** Conservés pour les appelants existants ; le wizard fait sa propre sélection de PDL. */
   initialCompteurIds?: string[]
   initialContactId?: string
 }) {
   const { data: comptes } = useComptes()
-  const { data: sites } = useSites()
-  const { data: compteurs } = useCompteurs()
-  const { data: contacts } = useContacts()
-  const { data: mandatsExistants } = useMandats()
-  const { data: courtiersRef } = useReferenceTable('types_courtiers_mandat')
-  const courtiers = courtiersRef && courtiersRef.length > 0 ? courtiersRef : FALLBACK_TYPES_COURTIERS_MANDAT
-  const createMandat = useCreateMandat()
-
   const [compteId, setCompteId] = useState(initialCompteId ?? '')
-  const [dateSignature, setDateSignature] = useState('')
-  const [dureeMois, setDureeMois] = useState(36)
-  const [compteurIds, setCompteurIds] = useState<string[]>(initialCompteurIds ?? [])
-  const [contactSignataireId, setContactSignataireId] = useState(initialContactId ?? '')
-  const [courtierCodes, setCourtierCodes] = useState<string[]>(['KIWI', 'ENERGIX'])
-  const [feedback, setFeedback] = useState<string | null>(null)
-  // Comme Tools ("Me montrer les points de livraison disposant d'un ACD actif") : par défaut on
-  // masque les PDL déjà couverts par un mandat au statut ACTIF, pour éviter le doublon de mandat.
-  const [showActifs, setShowActifs] = useState(false)
+  const [recherche, setRecherche] = useState('')
 
   useEffect(() => {
-    if (!open) return
-    if (initialCompteId) setCompteId(initialCompteId)
-    if (initialCompteurIds) setCompteurIds(initialCompteurIds)
-    if (initialContactId) setContactSignataireId(initialContactId)
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [open, initialCompteId, initialCompteurIds?.join(','), initialContactId])
+    if (open && initialCompteId) setCompteId(initialCompteId)
+    if (!open) {
+      setCompteId('')
+      setRecherche('')
+    }
+  }, [open, initialCompteId])
 
-  const sitesDuCompte = sites?.filter((s) => s.compte_id === compteId) ?? []
-  const compteursDuCompteBrut = compteurs?.filter((c) => sitesDuCompte.some((s) => s.id === c.site_id)) ?? []
-  const compteursSousMandatActifIds = new Set(
-    (mandatsExistants ?? []).filter((m) => m.statut === 'ACTIF').flatMap((m) => m.compteur_ids),
-  )
-  const compteursDuCompte = compteursDuCompteBrut.filter((c) => showActifs || !compteursSousMandatActifIds.has(c.id))
-  const contactsDuCompte = contacts?.filter((c) => c.compte_id === compteId) ?? []
-
-  function reset() {
-    setCompteId('')
-    setDateSignature('')
-    setDureeMois(36)
-    setCompteurIds([])
-    setContactSignataireId('')
-    setCourtierCodes(['KIWI', 'ENERGIX'])
-    setFeedback(null)
-    setShowActifs(false)
-  }
-
-  function toggleCompteur(id: string) {
-    setCompteurIds((prev) => (prev.includes(id) ? prev.filter((c) => c !== id) : [...prev, id]))
-  }
-
-  // "Mandat Kiwi" est toujours inclus, impossible de l'omettre -- même règle que Tools (codé en
-  // dur à true côté PDF Kiwi). Seul Energix est un vrai choix.
-  function toggleCourtier(code: string) {
-    if (code === 'KIWI') return
-    setCourtierCodes((prev) => (prev.includes(code) ? prev.filter((c) => c !== code) : [...prev, code]))
-  }
-
-  function handleExtracted(fields: Record<string, { value: string | number | null; confidence: number }>) {
-    const signature = fields.date_signature?.value
-    if (typeof signature === 'string' && signature) setDateSignature(signature)
-  }
-
-  async function handleSubmit(e: React.FormEvent) {
-    e.preventDefault()
-    const compte = comptes?.find((c) => c.id === compteId)
-    if (!compte) return
-    const contactSignataire = contactsDuCompte.find((c) => c.id === contactSignataireId)
-    const compteursChoisis = compteursDuCompte.filter((c) => compteurIds.includes(c.id)).map((c) => ({ id: c.id, site_id: c.site_id }))
-
-    const result = await createMandat.mutateAsync({
-      compte_id: compte.id,
-      compte_nom: compte.nom,
-      compteur_ids: compteurIds,
-      compteurs: compteursChoisis,
-      date_signature: dateSignature || null,
-      duree_mois: dureeMois,
-      contact_signataire_id: contactSignataireId || null,
-      contact_signataire_nom: contactSignataire ? `${contactSignataire.prenom} ${contactSignataire.nom}` : undefined,
-      courtier_codes: courtierCodes,
-      courtier_type_ids: courtiers.filter((c) => courtierCodes.includes(c.code)).map((c) => c.id),
-    })
-    setFeedback(result.persisted ? 'Mandat créé.' : 'Mandat ajouté localement (non synchronisé avec Supabase).')
-    setTimeout(() => {
-      reset()
-      onClose()
-    }, 700)
-  }
+  // Le parc dépasse 2700 comptes : on filtre avant d'afficher, une liste déroulante brute serait
+  // inutilisable.
+  const q = recherche.trim().toLowerCase()
+  const filtres = (comptes ?? [])
+    .filter((c) => !q || c.nom.toLowerCase().includes(q))
+    .slice(0, 50)
 
   return (
-    <Dialog open={open} onClose={() => { reset(); onClose() }} title="Nouveau mandat" description="Le mandat autorise KiWee à intervenir sur un périmètre de sites d'un compte.">
-      {/* Garde-fou de connexion, même emplacement et mêmes outils que dans Tools (MandatPage :
-          required={["salesforce","docusign"]}) : on ne fait pas remplir tout le formulaire pour
-          échouer à l'envoi en signature. */}
-      <WizardConnectionGate required={['crm', 'docusign']} feature="création de mandat">
-      <form onSubmit={handleSubmit} className="space-y-3">
-        <ExtractDocumentButton onExtracted={handleExtracted} />
-        <FormField label="Compte">
-          <Select value={compteId} onChange={(e) => { setCompteId(e.target.value); setCompteurIds([]) }} required>
-            <option value="">Sélectionner un compte…</option>
-            {comptes?.map((c) => <option key={c.id} value={c.id}>{c.nom}</option>)}
-          </Select>
-        </FormField>
-        <div className="grid grid-cols-2 gap-3">
-          <FormField label="Date de signature">
-            <Input type="date" value={dateSignature} onChange={(e) => setDateSignature(e.target.value)} />
+    <Dialog
+      open={open}
+      onClose={() => { setCompteId(''); onClose() }}
+      title="Nouveau mandat"
+      description={compteId ? undefined : 'Sur quel compte porte ce mandat ?'}
+    >
+      {open && !compteId && (
+        <div className="flex flex-col gap-3">
+          <FormField label="Rechercher un compte">
+            <Input value={recherche} onChange={(e) => setRecherche(e.target.value)} placeholder="Nom du compte…" autoFocus />
           </FormField>
-          <FormField label="Durée">
-            <Select value={dureeMois} onChange={(e) => setDureeMois(Number(e.target.value))}>
-              {[12, 24, 36, 48].map((d) => <option key={d} value={d}>{d} mois</option>)}
-            </Select>
-          </FormField>
-        </div>
-        <FormField label="Courtiers couverts">
-          <div className="flex flex-wrap gap-4">
-            {courtiers.map((c) => (
-              <label key={c.id} className={`flex items-center gap-2 text-sm ${c.code === 'KIWI' ? 'text-navy-700' : 'text-navy-700'}`}>
-                <input type="checkbox" checked={courtierCodes.includes(c.code)} disabled={c.code === 'KIWI'} onChange={() => toggleCourtier(c.code)} />
-                {c.libelle}
-                {c.code === 'KIWI' && (
-                  <span className="rounded-full border border-kiwi-400/50 px-1.5 py-0.5 text-[10px] font-medium uppercase tracking-wide text-kiwi-700">
-                    Obligatoire
-                  </span>
-                )}
-              </label>
-            ))}
-          </div>
-        </FormField>
-        {compteId && contactsDuCompte.length > 0 && (
-          <FormField label="Contact signataire (optionnel)">
-            <Select value={contactSignataireId} onChange={(e) => setContactSignataireId(e.target.value)}>
-              <option value="">Sélectionner…</option>
-              {contactsDuCompte.map((c) => <option key={c.id} value={c.id}>{c.prenom} {c.nom}</option>)}
-            </Select>
-          </FormField>
-        )}
-        {compteId && (
-          <FormField label="Compteurs couverts">
-            {compteursSousMandatActifIds.size > 0 && (
-              <label
-                className="mb-2 flex cursor-pointer items-center gap-2 rounded-md border border-dashed border-navy-200 p-2 text-xs text-navy-500 hover:bg-navy-50"
+          <div className="max-h-[320px] overflow-y-auto rounded-xl border border-navy-100">
+            {filtres.map((c) => (
+              <button
+                key={c.id}
+                type="button"
+                onClick={() => setCompteId(c.id)}
+                className="flex w-full items-center gap-2 border-b border-navy-50 px-3 py-2.5 text-left last:border-b-0 hover:bg-navy-50/60"
               >
-                <input type="checkbox" checked={showActifs} onChange={(e) => setShowActifs(e.target.checked)} />
-                <Eye className="h-3.5 w-3.5" />
-                Me montrer les points de livraison disposant d'un ACD actif
-              </label>
-            )}
-            {sitesDuCompte.length === 0 ? (
-              <p className="text-xs text-navy-400">Ce compte n'a aucun site.</p>
-            ) : compteursDuCompteBrut.length === 0 ? (
-              <p className="text-xs text-navy-400">Aucun compteur pour ce compte.</p>
-            ) : compteursDuCompte.length === 0 ? (
-              <p className="text-xs text-navy-400">Aucun point de livraison ne correspond à vos critères.</p>
-            ) : (
-              <div className="max-h-48 space-y-2 overflow-y-auto rounded-lg border border-navy-200 p-2">
-                {sitesDuCompte.map((s) => {
-                  const compteursDuSite = compteursDuCompte.filter((c) => c.site_id === s.id)
-                  if (compteursDuSite.length === 0) return null
-                  return (
-                    <div key={s.id}>
-                      <p className="mb-1 text-[10px] font-bold uppercase tracking-wide text-navy-400">{s.nom}</p>
-                      {compteursDuSite.map((c) => (
-                        <label key={c.id} className="flex items-center gap-2 pl-1 text-sm text-navy-700">
-                          <input type="checkbox" checked={compteurIds.includes(c.id)} onChange={() => toggleCompteur(c.id)} />
-                          {c.utilisation || c.numero_pdl}
-                        </label>
-                      ))}
-                    </div>
-                  )
-                })}
-              </div>
-            )}
-          </FormField>
-        )}
-        {feedback && <p className="text-xs text-navy-500">{feedback}</p>}
-        <div className="flex justify-end gap-2 pt-2">
-          <Button type="button" variant="ghost" onClick={() => { reset(); onClose() }}>Annuler</Button>
-          <Button type="submit" disabled={createMandat.isPending}>Créer le mandat</Button>
+                <span className="min-w-0 flex-1 truncate text-xs font-semibold text-navy-800">{c.nom}</span>
+                {c.ville && <span className="shrink-0 text-[10.5px] text-navy-400">{c.ville}</span>}
+              </button>
+            ))}
+            {filtres.length === 0 && <p className="p-4 text-center text-xs text-navy-400">Aucun compte trouvé.</p>}
+          </div>
+          {!q && (comptes?.length ?? 0) > 50 && (
+            <p className="text-[10.5px] text-navy-400">
+              50 comptes sur {comptes?.length} affichés — précisez la recherche.
+            </p>
+          )}
         </div>
-      </form>
-      </WizardConnectionGate>
+      )}
+
+      {open && compteId && (
+        <WizardConnectionGate required={['crm', 'docusign']} feature="création de mandat">
+          <MandatWizard compteId={compteId} onClose={() => { setCompteId(''); onClose() }} />
+        </WizardConnectionGate>
+      )}
     </Dialog>
   )
 }
+
 
 export default function Mandats() {
   const { data: mandats, isLoading } = useMandats()

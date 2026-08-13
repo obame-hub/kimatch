@@ -15,6 +15,8 @@ import {
 } from 'lucide-react'
 import { Topbar } from '@/components/layout/Topbar'
 import { HubCreation } from '@/components/compte/HubCreation'
+import { MandatWizard } from '@/components/mandat/MandatWizard'
+import { WizardConnectionGate } from '@/components/ui/connection-gate'
 import { HeroValeurCompte, HeroScoreEllipro, type FacteurValeur, type FaitEllipro } from '@/components/compte/HerosCompte'
 import { OngletRecommandations, OngletSignaux } from '@/components/compte/OngletsCompte'
 import { OngletHistorique } from '@/components/compte/OngletHistorique'
@@ -25,7 +27,6 @@ import { Dialog } from '@/components/ui/dialog'
 import { Sheet } from '@/components/ui/sheet'
 import { ContactForm } from '@/components/contact/ContactForm'
 import { PdlMethodSheet, type PdlMethode } from '@/components/compteur/PdlMethodSheet'
-import { CreateMandatDialog } from '@/pages/Mandats'
 import { CreateRecommandationDialog } from '@/pages/Recommandations'
 import { FormField, Input, Select, Textarea } from '@/components/ui/form'
 import { HistoriqueDiscret } from '@/components/ui/historique-discret'
@@ -685,11 +686,21 @@ export default function CompteDetail() {
         />
       </Sheet>
 
-      <CreateMandatDialog
+      {/* Wizard en quatre étapes, comme Tools. Monté conditionnellement et non caché par le
+          Dialog : un Sheet/Dialog masque son contenu sans démonter le composant, dont les hooks
+          continueraient de tourner — le piège qui a gelé la navigation le 05/08/2026. */}
+      <Dialog
         open={addMandatOpen}
         onClose={() => setAddMandatOpen(false)}
-        initialCompteId={compte.id}
-      />
+        title="Nouveau mandat"
+        description="Le mandat autorise KiWee à intervenir sur un périmètre de points de livraison de ce compte."
+      >
+        {addMandatOpen && (
+          <WizardConnectionGate required={['crm', 'docusign']} feature="création de mandat">
+            <MandatWizard compteId={compte.id} onClose={() => setAddMandatOpen(false)} />
+          </WizardConnectionGate>
+        )}
+      </Dialog>
 
       <CreateRecommandationDialog
         open={addRecoOpen}
