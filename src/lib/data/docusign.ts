@@ -6,7 +6,12 @@ import { supabase } from '@/lib/supabase'
 export function useDocusignStatus() {
   return useQuery({
     queryKey: ['docusign-status'],
-    queryFn: async (): Promise<{ configured: boolean; manquants: string[] }> => {
+    queryFn: async (): Promise<{
+      configured: boolean
+      manquants: string[]
+      /** Variables présentes mais inexploitables — une clé trop courte, par exemple. */
+      invalides?: { variable: string; raison: string }[]
+    }> => {
       const res = await fetch('/api/docusign/status')
       if (!res.ok) return { configured: false, manquants: [] }
       return res.json()

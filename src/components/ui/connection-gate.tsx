@@ -69,9 +69,13 @@ export function WizardConnectionGate({
   }
   const indices: Partial<Record<RequiredConnection, string>> = {
     crm: "Identifiants VITE_SUPABASE_URL / VITE_SUPABASE_ANON_KEY absents : l'application tourne sur des données de démonstration.",
-    docusign: docusign.data?.manquants?.length
-      ? `Variables serveur manquantes : ${docusign.data.manquants.join(', ')}.`
-      : 'À configurer côté serveur.',
+    // Une variable presente mais invalide est plus trompeuse qu'une variable absente : elle fait
+    // croire que tout est en place. On dit donc laquelle, et pourquoi elle ne convient pas.
+    docusign: docusign.data?.invalides?.length
+      ? docusign.data.invalides.map((i) => `${i.variable} — ${i.raison}`).join(' ')
+      : docusign.data?.manquants?.length
+        ? `Variables serveur manquantes : ${docusign.data.manquants.join(', ')}.`
+        : 'À configurer côté serveur.',
   }
 
   return (
