@@ -45,9 +45,38 @@ export default function handler(_req: VercelRequest, res: VercelResponse) {
     }
   }
 
+  /**
+   * Empreinte de configuration, pour diagnostiquer « invalid_grant : no_valid_keys_or_signatures ».
+   *
+   * Cette erreur signifie que DocuSign a bien reçu un JWT signé mais qu'aucune clé publique
+   * enregistrée ne valide la signature. Deux causes possibles, indiscernables depuis l'application :
+   * la clé privée n'appartient pas à cette application, ou l'Integration Key désigne une autre
+   * application que celle où la clé a été générée.
+   *
+   * Ce qui est renvoyé ici n'est pas secret : l'Integration Key est un identifiant public — c'est
+   * l'équivalent d'un client_id, et DocuSign l'affiche en clair dans son interface. La clé privée,
+   * elle, n'est décrite que par sa longueur et la présence de ses en-têtes.
+   */
+  const empreinte = {
+    integrationKey: process.env.DOCUSIGN_INTEGRATION_KEY ?? null,
+    // L'User ID n'est pas secret non plus, mais on n'en montre que le début : il suffit à vérifier
+    // la concordance avec l'API Username affiché dans DocuSign.
+    userIdDebut: (process.env.DOCUSIGN_USER_ID ?? '').slice(0, 8) || null,
+    accountId: process.env.DOCUSIGN_ACCOUNT_ID ?? null,
+    baseUrl: process.env.DOCUSIGN_BASE_URL ?? 'https://account-d.docusign.com (défaut)',
+    cle: nomCle
+      ? {
+          variable: nomCle,
+          longueur: (process.env[nomCle] ?? '').trim().length,
+          aLesEnTetes: (process.env[nomCle] ?? '').includes('PRIVATE KEY'),
+        }
+      : null,
+  }
+
   res.status(200).json({
     configured: manquants.length === 0 && invalides.length === 0,
     manquants,
     invalides,
+    empreinte,
   })
 }
