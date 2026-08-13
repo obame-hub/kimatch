@@ -50,11 +50,42 @@ function normaliserClePem(brut: string): string {
   // Valeur passee depuis Windows : les retours chariot feraient echouer le decodage.
   pem = pem.replace(/\r\n/g, '\n').replace(/\r/g, '\n')
 
+  // Corps de cle colle SANS ses en-tetes : c'est du base64 seul, sans « BEGIN ». On reconstruit
+  // le PEM plutot que de refuser une cle qui est peut-etre la bonne. Le type est inconnu a ce
+  // stade, donc on tente PKCS#8 puis PKCS#1 — l'appelant validera en signant.
+  if (!pem.includes('BEGIN')) {
+    const corps = pem.replace(/[^A-Za-z0-9+/=]/g, '')
+    // Une cle RSA 2048 fait environ 1600 caracteres en base64 ; en dessous de 600 ce n'est pas
+    // une cle mais probablement un identifiant colle par erreur.
+    if (corps.length > 600) {
+      const lignes = corps.match(/.{1,64}/g) ?? []
+      for (const type of ['PRIVATE KEY', 'RSA PRIVATE KEY']) {
+        // Les retours à la ligne sont écrits directement : passer par un marqueur textuel serait
+        // dangereux ici, ses lettres pouvant apparaître dans le base64 de la clé et le corrompre.
+        const candidat = ['-----BEGIN ' + type + '-----', ...lignes, '-----END ' + type + '-----', ''].join('\n')
+        try {
+          const essai = createSign('RSA-SHA256')
+          essai.update('verification')
+          essai.end()
+          essai.sign(candidat)
+          return candidat
+        } catch {
+          // Mauvais type d'encapsulation : on tente le suivant.
+        }
+      }
+    }
+  }
+
   if (!pem.includes('BEGIN') || !pem.includes('PRIVATE KEY')) {
+    // Diagnostic sans rien divulguer : la longueur et l'absence de marqueur ne revelent pas la
+    // cle, mais disent immediatement si la variable est vide, tronquee, ou d'une autre nature.
+    const indice = brut.trim().length === 0 ? 'elle est vide' : `elle fait ${brut.trim().length} caracteres et ne contient pas « BEGIN »`
     throw new Error(
-      'DOCUSIGN_RSA_PRIVATE_KEY ne contient pas une cle privee PEM lisible. Attendu : un bloc ' +
-        '-----BEGIN RSA PRIVATE KEY----- (ou BEGIN PRIVATE KEY) avec ses retours a la ligne. ' +
-        'Recollez la cle complete depuis DocuSign, en-tetes inclus.',
+      `DOCUSIGN_RSA_PRIVATE_KEY ne contient pas une cle privee PEM lisible : ${indice}. ` +
+        'Attendu : le bloc complet -----BEGIN RSA PRIVATE KEY----- ... -----END RSA PRIVATE KEY-----, ' +
+        'tel que DocuSign le donne au moment de generer la cle RSA de l application ' +
+        '(Settings > Apps and Keys > votre application > Generate RSA). ' +
+        'La cle privee n est affichee qu une seule fois : si elle a ete perdue, il faut en generer une nouvelle.',
     )
   }
 
