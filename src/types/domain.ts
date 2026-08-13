@@ -260,7 +260,9 @@ export interface Contact {
   role: string | null
   contact_principal: boolean
   actif: boolean
-  sites: { id: string; nom: string; fonction_sur_site: string | null }[]
+  /** `compte_id` sert à regrouper les sites par compte dans l'onglet Rattachements : un
+   *  contact intervenant sur plusieurs comptes a des sites appartenant à des comptes différents. */
+  sites: { id: string; nom: string; compte_id: string | null; fonction_sur_site: string | null }[]
   proprietaire_id: string | null
   proprietaire_nom?: string | null
   linkedin_url: string | null

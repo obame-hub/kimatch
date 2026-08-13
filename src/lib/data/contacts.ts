@@ -32,7 +32,7 @@ interface RawContact {
 interface RawContactSite {
   contact_id: string
   fonction_sur_site: string | null
-  site: { id: string; nom: string } | null
+  site: { id: string; nom: string; compte_id: string | null } | null
 }
 
 interface RawContactCompte {
@@ -47,11 +47,6 @@ interface RawContactCompte {
  */
 async function fetchContacts(compteId?: string): Promise<Contact[]> {
   try {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    // Volontairement sans filtre serveur sur compte_id : un contact rattaché au compte demandé par
-    // une relation indirecte a un compte_id différent, le filtrer ici le ferait disparaître. Le tri
-    // se fait plus bas, sur l'ensemble des rattachements.
-    const restreindre = (q: any) => q
     const [contacts, contactsSites, contactsComptes] = await Promise.all([
       fetchAllRows<RawContact>(
         'contacts',
@@ -60,20 +55,23 @@ async function fetchContacts(compteId?: string): Promise<Contact[]> {
         // -- un select nommé sur une colonne absente ferait échouer la requête (400) pour TOUS les
         // contacts (voir le même choix dans referenceTables.ts).
         '*, compte:comptes(nom), canal_communication:types_canaux_communication(libelle), proprietaire:profils!contacts_proprietaire_id_fkey(prenom, nom)',
-        (q) => restreindre(q).order('nom'),
+        // Aucun filtre serveur sur compte_id, même quand `compteId` est fourni : un contact
+        // rattaché au compte demandé par une relation indirecte a un compte_id différent, le
+        // filtrer ici le ferait disparaître. Le tri se fait plus bas, sur tous les rattachements.
+        (q) => q.order('nom'),
       ),
-      fetchAllRows<RawContactSite>('contacts_sites', 'contact_id, fonction_sur_site, site:sites(id, nom)'),
+      fetchAllRows<RawContactSite>('contacts_sites', 'contact_id, fonction_sur_site, site:sites(id, nom, compte_id)'),
       // Rattachements aux comptes. Chargés sans restriction même quand `compteId` est fourni : il
       // faut connaître TOUS les comptes d'un contact pour savoir s'il concerne celui demandé, y
       // compris par une relation indirecte que contacts.compte_id ne porte pas.
       fetchAllRows<RawContactCompte>('contacts_comptes', 'contact_id, relation_directe, compte:comptes(id, nom)'),
     ])
 
-    const sitesParContact = new Map<string, { id: string; nom: string; fonction_sur_site: string | null }[]>()
+    const sitesParContact = new Map<string, { id: string; nom: string; compte_id: string | null; fonction_sur_site: string | null }[]>()
     for (const cs of contactsSites) {
       if (!cs.site) continue
       const list = sitesParContact.get(cs.contact_id) ?? []
-      list.push({ id: cs.site.id, nom: cs.site.nom, fonction_sur_site: cs.fonction_sur_site })
+      list.push({ id: cs.site.id, nom: cs.site.nom, compte_id: cs.site.compte_id, fonction_sur_site: cs.fonction_sur_site })
       sitesParContact.set(cs.contact_id, list)
     }
 
@@ -225,7 +223,9 @@ export function useCreateContact() {
         role: input.role,
         contact_principal: contactPrincipal,
         actif: true,
-        sites: input.sites,
+        // Les sites choisis à la création appartiennent au compte du contact : on le renseigne
+        // ici plutôt que de l'exiger de l'appelant, qui ne l'a pas sous la main.
+        sites: input.sites.map((st) => ({ ...st, compte_id: input.compte_id })),
         proprietaire_id: null,
         linkedin_url: null,
         disponibilites: null,
@@ -327,6 +327,99 @@ export function useDeleteContact() {
   return useMutation({
     mutationFn: async (id: string) => {
       const { error } = await supabase.from('contacts').delete().eq('id', id)
+      if (error) throw new Error(error.message)
+    },
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['contacts'] }),
+  })
+}
+
+// ── Rattachement d'un contact à plusieurs comptes ───────────────────────────────────────────────
+// Reprise de AccountContactRelation (13/08/2026) : jusque-là un contact n'appartenait qu'à un seul
+// compte. Ces deux mutations sont ce qui permet de créer et défaire ces liens depuis l'interface —
+// sans elles, seuls les 146 liens repris de Salesforce existeraient, sans moyen d'en ajouter.
+
+export function useLierContactCompte() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: async ({
+      contactId,
+      compteId,
+      fonction,
+    }: {
+      contactId: string
+      compteId: string
+      fonction: string | null
+    }) => {
+      const { error } = await supabase.from('contacts_comptes').insert({
+        contact_id: contactId,
+        compte_id: compteId,
+        relation_directe: false,
+        ...(fonction ? { fonction_sur_compte: fonction } : {}),
+      })
+      // La contrainte d'unicité (contact_id, compte_id) empêche le doublon. On traduit le code
+      // Postgres plutôt que de laisser remonter « duplicate key value violates unique constraint ».
+      if (error) {
+        throw new Error(error.code === '23505' ? 'Ce contact est déjà rattaché à ce compte.' : error.message)
+      }
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['contacts'] })
+    },
+  })
+}
+
+export function useDelierContactCompte() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: async ({ contactId, compteId }: { contactId: string; compteId: string }) => {
+      // `relation_directe` est exclu du delete : le compte principal vit dans contacts.compte_id,
+      // le retirer d'ici laisserait les deux sources en désaccord. L'interface ne propose déjà pas
+      // le bouton sur le principal, cette garde couvre le cas d'un appel direct.
+      const { error } = await supabase
+        .from('contacts_comptes')
+        .delete()
+        .eq('contact_id', contactId)
+        .eq('compte_id', compteId)
+        .eq('relation_directe', false)
+      if (error) throw new Error(error.message)
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['contacts'] })
+    },
+  })
+}
+
+/**
+ * Mise à jour d'un seul champ, pour l'édition au clic.
+ *
+ * `useUpdateContact` exige l'objet complet : il convient à un formulaire, pas à un champ qu'on
+ * modifie seul. William, le 13/08/2026 : « la logique qu'on avait mise pour modifier les champs,
+ * c'était pas d'appuyer sur le bouton, c'était d'appuyer sur le champ ».
+ *
+ * Le formatage du téléphone et la casse du nom sont appliqués ici aussi : les passer seulement
+ * dans la version complète ferait qu'un numéro saisi au clic resterait non formaté, et deux
+ * chemins d'écriture produiraient deux résultats différents pour la même saisie.
+ */
+export function useUpdateContactField() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: async ({ id, patch }: { id: string; patch: Partial<Contact> }) => {
+      const normalise: Record<string, unknown> = { ...patch }
+      if (typeof patch.telephone === 'string') normalise.telephone = patch.telephone ? formatPhoneFR(patch.telephone) : null
+      if (typeof patch.telephone_mobile === 'string')
+        normalise.telephone_mobile = patch.telephone_mobile ? formatPhoneFR(patch.telephone_mobile) : null
+      if (typeof patch.nom === 'string') normalise.nom = toUpperFR(patch.nom) || patch.nom
+      if (typeof patch.prenom === 'string') normalise.prenom = toTitleCaseFR(patch.prenom) || patch.prenom
+      // `contact_principal` est dérivé du rôle et jamais saisi seul, même règle que dans Tools.
+      if (typeof patch.role === 'string') normalise.contact_principal = patch.role === 'Décisionnaire'
+      // Champs calculés à la lecture : les envoyer ferait échouer la requête sur une colonne absente.
+      delete normalise.comptes
+      delete normalise.sites
+      delete normalise.compte_nom
+      delete normalise.proprietaire_nom
+      delete normalise.canal_communication
+
+      const { error } = await supabase.from('contacts').update(normalise).eq('id', id)
       if (error) throw new Error(error.message)
     },
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ['contacts'] }),

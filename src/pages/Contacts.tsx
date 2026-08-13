@@ -5,6 +5,7 @@ import { useNavigate, useSearchParams } from 'react-router-dom'
 import { Plus, User, Star, AlertTriangle, CheckCircle2, UserCircle2, UserRound, Crown, ClipboardList, Users, ExternalLink, Check } from 'lucide-react'
 import { Topbar } from '@/components/layout/Topbar'
 import { PageHeader } from '@/components/ui/page-header'
+import { HubCreation } from '@/components/compte/HubCreation'
 import { Card } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
@@ -410,7 +411,28 @@ export default function Contacts() {
         <PageHeader
           title="Contacts"
           description="Les personnes chez vos comptes — signataires, interlocuteurs commerciaux ou techniques."
-          actions={<Button onClick={() => setShowCreate(true)}><Plus className="h-4 w-4" />Nouveau contact</Button>}
+          actions={
+            /* Le hub de création plutôt que le seul bouton « Nouveau contact » : « il faut également
+               le mettre sur les autres objets, parce que c'est un bouton que de n'importe où je peux
+               venir faire quelque chose » (William, 13/08/2026). Le contact reste l'action évidente
+               ici, d'où le bouton direct conservé à côté. */
+            <div className="flex items-center gap-1.5">
+              <Button onClick={() => setShowCreate(true)}>
+                <Plus className="h-4 w-4" />
+                Nouveau contact
+              </Button>
+              <HubCreation
+                onAction={(cle) => {
+                  if (cle === 'contact') setShowCreate(true)
+                  if (cle === 'compte') navigate('/comptes', { state: { openCreate: true } })
+                  if (cle === 'site') navigate('/sites', { state: { openCreate: true } })
+                  if (cle === 'compteur') navigate('/compteurs')
+                  if (cle === 'mandat') navigate('/mandats')
+                  if (cle === 'recommandation') navigate('/recommandations')
+                }}
+              />
+            </div>
+          }
         />
 
         <ListToolbar query={query} onQueryChange={setQuery} placeholder="Rechercher un contact, un compte…" count={filteredContacts?.length}>

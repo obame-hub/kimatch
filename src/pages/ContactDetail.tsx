@@ -1,23 +1,26 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
-import { ArrowLeft, Star, Pencil, Trash2, Building2, FileCheck2, Sparkle, MapPin } from 'lucide-react'
+import { ArrowLeft, Star, Trash2, Building2, FileCheck2, Sparkle } from 'lucide-react'
 import { Topbar } from '@/components/layout/Topbar'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { EntityLink } from '@/components/ui/entity-link'
+import { HubCreation } from '@/components/compte/HubCreation'
+import { InlineField } from '@/components/ui/inline-field'
+import { RattachementsContact } from '@/components/contact/RattachementsContact'
 import { PhoneLink, EmailLink } from '@/components/ui/contact-link'
 import { Dialog } from '@/components/ui/dialog'
 import { FormField, Input, Select, Textarea } from '@/components/ui/form'
 import { HistoriqueDiscret } from '@/components/ui/historique-discret'
 import { ActivityFeed } from '@/components/site/ActivityFeed'
-import { useContacts, useUpdateContact, useDeleteContact } from '@/lib/data/contacts'
+import { useContacts, useUpdateContact, useDeleteContact, useUpdateContactField } from '@/lib/data/contacts'
 import { useComptes } from '@/lib/data/comptes'
 import { useActions } from '@/lib/data/actions'
 import { useInteractionsForContact } from '@/lib/data/interactions'
 import { useContrats } from '@/lib/data/contrats'
 import { useMandats } from '@/lib/data/mandats'
 import { useRecommandations } from '@/lib/data/recommandations'
-import { useCanManage, useIsAdmin, useProfilsAdmin } from '@/lib/data/roles'
+import { useCanManageContact, useIsAdmin, useProfilsAdmin } from '@/lib/data/roles'
 import { useGoBack } from '@/lib/useGoBack'
 import { useReferenceTable } from '@/lib/data/referenceTables'
 import { formatPhoneFR } from '@/lib/textFormat'
@@ -57,10 +60,25 @@ export default function ContactDetail() {
   const deleteContact = useDeleteContact()
   const goBack = useGoBack('/contacts')
 
-  const canManage = useCanManage(contact?.proprietaire_id)
+  // Voir useCanManageContact : les contacts sans propriétaire — 3378 sur 3380 — étaient
+  // réservés aux administrateurs, ce que William a demandé d'ouvrir le 13/08/2026.
+  const canManage = useCanManageContact(contact)
   const [tab, setTab] = useState<TabKey>('contact')
   const [editOpen, setEditOpen] = useState(false)
   const [confirmDelete, setConfirmDelete] = useState(false)
+  const [toast, setToast] = useState<string | null>(null)
+
+  const majContact = useUpdateContactField()
+
+  function majChamp(patch: Parameters<typeof majContact.mutateAsync>[0]['patch']) {
+    if (!contact) return Promise.resolve()
+    return majContact.mutateAsync({ id: contact.id, patch })
+  }
+
+  function showToast(message: string) {
+    setToast(message)
+    window.setTimeout(() => setToast(null), 2600)
+  }
 
   const siteIdsDuContact = useMemo(() => new Set((contact?.sites ?? []).map((s) => s.id)), [contact])
   const tachesDuContact = useMemo(() => (actions ?? []).filter((a) => a.contact_id === id), [actions, id])
@@ -160,18 +178,31 @@ export default function ContactDetail() {
             Propriétaire : {contact.proprietaire_nom || 'Aucun'}
           </p>
         </div>
-        {canManage && (
-          <div className="flex gap-1.5">
-            <Button variant="outline" size="sm" onClick={() => setEditOpen(true)}>
-              <Pencil className="h-3.5 w-3.5" />
-              Modifier
-            </Button>
-            <Button variant="outline" size="sm" onClick={() => setConfirmDelete(true)}>
-              <Trash2 className="h-3.5 w-3.5" />
-              Supprimer
-            </Button>
-          </div>
-        )}
+        <div className="flex items-center gap-1.5">
+          {/* Le hub de création, comme sur la fiche compte : « il faut également le mettre sur les
+              autres objets, parce que c'est un bouton que de n'importe où je peux venir faire
+              quelque chose » (William, 13/08/2026). */}
+          <HubCreation
+            onAction={(cle) => {
+              if (cle === 'compte') navigate('/comptes', { state: { openCreate: true } })
+              if (cle === 'site') navigate('/sites', { state: { openCreateForCompteId: contact.compte_id } })
+              if (cle === 'contact') navigate('/contacts', { state: { openCreateForCompteId: contact.compte_id } })
+              if (cle === 'compteur') navigate(`/comptes/${contact.compte_id}`)
+              if (cle === 'mandat') navigate(`/comptes/${contact.compte_id}`)
+              if (cle === 'recommandation') navigate(`/comptes/${contact.compte_id}`)
+            }}
+          />
+          {canManage && (
+            <button
+              type="button"
+              onClick={() => setConfirmDelete(true)}
+              title="Supprimer ce contact"
+              className="inline-flex cursor-pointer items-center gap-1.5 rounded-[9px] border border-[#e0dfdb] bg-white px-3 py-2 text-[11.5px] font-semibold text-[#5c5f66] transition-all duration-[140ms] hover:border-[#f0c8bd] hover:bg-[#fbeae5] hover:text-[#c2452d]"
+            >
+              <Trash2 className="h-3 w-3" /> Supprimer
+            </button>
+          )}
+        </div>
       </div>
 
       {/* Onglets */}
@@ -243,17 +274,93 @@ export default function ContactDetail() {
             <div className="flex flex-col gap-3.5">
               <div className="rounded-xl border border-navy-100 bg-white p-4">
                 <p className="mb-2.5 text-[10px] font-bold uppercase tracking-wide text-navy-400">Coordonnées</p>
+                {/* Édition au clic sur la valeur, et non par un bouton « Modifier » : « c'était pas
+                    d'appuyer sur le bouton, c'était d'appuyer sur le champ » (William, 13/08/2026).
+                    Les liens tel: et mailto: restent affichés à côté, sinon on perdrait l'appel en
+                    un clic en rendant le champ éditable. */}
+                {canManage ? (
+                  <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                    <InlineField
+                      variant="select"
+                      label="Rôle"
+                      value={contact.role ?? ''}
+                      options={[
+                        { value: '', label: '—' },
+                        { value: 'Décisionnaire', label: 'Décisionnaire' },
+                        { value: 'Administratif', label: 'Administratif' },
+                        { value: 'Conseil syndical', label: 'Conseil syndical' },
+                      ]}
+                      onCommit={(v) => majChamp({ role: v || null })}
+                      onSaved={() => showToast('✓ enregistré')}
+                      onError={(err) => showToast(`Erreur : ${err.message}`)}
+                    />
+                    <InlineField
+                      variant="text"
+                      label="Fonction"
+                      value={contact.fonction ?? ''}
+                      emptyLabel="ajouter"
+                      onCommit={(v) => majChamp({ fonction: v || null })}
+                      onSaved={() => showToast('✓ enregistré')}
+                      onError={(err) => showToast(`Erreur : ${err.message}`)}
+                    />
+                    <div>
+                      <InlineField
+                        variant="text"
+                        label="Téléphone"
+                        value={contact.telephone ?? ''}
+                        emptyLabel="ajouter"
+                        mono
+                        onCommit={(v) => majChamp({ telephone: v || null })}
+                        onSaved={() => showToast('✓ enregistré')}
+                        onError={(err) => showToast(`Erreur : ${err.message}`)}
+                      />
+                      {contact.telephone && <PhoneLink value={contact.telephone} />}
+                    </div>
+                    <div>
+                      <InlineField
+                        variant="text"
+                        label="Mobile"
+                        value={contact.telephone_mobile ?? ''}
+                        emptyLabel="ajouter"
+                        mono
+                        onCommit={(v) => majChamp({ telephone_mobile: v || null })}
+                        onSaved={() => showToast('✓ enregistré')}
+                        onError={(err) => showToast(`Erreur : ${err.message}`)}
+                      />
+                      {contact.telephone_mobile && <PhoneLink value={contact.telephone_mobile} />}
+                    </div>
+                    <div>
+                      <InlineField
+                        variant="text"
+                        label="Email"
+                        value={contact.email ?? ''}
+                        emptyLabel="ajouter"
+                        onCommit={(v) => majChamp({ email: v || null })}
+                        onSaved={() => showToast('✓ enregistré')}
+                        onError={(err) => showToast(`Erreur : ${err.message}`)}
+                      />
+                      {contact.email && <EmailLink value={contact.email} />}
+                    </div>
+                  </div>
+                ) : (
                 <div className="space-y-2 text-sm">
                   {contact.role && <p><span className="text-navy-400">Rôle :</span> <Badge tone={contact.role === 'Décisionnaire' ? 'kiwi' : 'neutral'}>{contact.role}</Badge></p>}
                   <p><span className="text-navy-400">Téléphone :</span> {contact.telephone ? <PhoneLink value={contact.telephone} /> : '—'}</p>
                   <p><span className="text-navy-400">Mobile :</span> {contact.telephone_mobile ? <PhoneLink value={contact.telephone_mobile} /> : '—'}</p>
                   <p><span className="text-navy-400">Email :</span> {contact.email ? <EmailLink value={contact.email} /> : '—'}</p>
+                  <p><span className="text-navy-400">Statut :</span> <Badge tone={contact.actif ? 'kiwi' : 'neutral'}>{contact.actif ? 'actif' : 'inactif'}</Badge></p>
+                </div>
+                )}
+
+                {/* Champs annexes, en lecture dans les deux cas : ils sortent du formulaire de
+                    création et se modifient rarement. */}
+                <div className="mt-3 space-y-2 text-sm">
                   {contact.linkedin_url && (
                     <p><span className="text-navy-400">LinkedIn :</span> <a href={contact.linkedin_url} target="_blank" rel="noreferrer" className="text-sky-600 hover:underline">{contact.linkedin_url}</a></p>
                   )}
                   {contact.canal_communication && <p><span className="text-navy-400">Canal préféré :</span> {contact.canal_communication}</p>}
                   {contact.disponibilites && <p><span className="text-navy-400">Disponibilités :</span> {contact.disponibilites}</p>}
-                  <p><span className="text-navy-400">Statut :</span> <Badge tone={contact.actif ? 'kiwi' : 'neutral'}>{contact.actif ? 'actif' : 'inactif'}</Badge></p>
+                  {canManage && <p><span className="text-navy-400">Statut :</span> <Badge tone={contact.actif ? 'kiwi' : 'neutral'}>{contact.actif ? 'actif' : 'inactif'}</Badge></p>}
                 </div>
                 <HistoriqueDiscret tableNom="contacts" ligneId={contact.id} />
               </div>
@@ -261,27 +368,12 @@ export default function ContactDetail() {
           )}
 
           {tab === 'rattachements' && (
-            <div className="flex flex-col gap-2.5">
-              {contact.sites.length === 0 ? (
-                <p className="text-sm text-navy-400">Aucun site rattaché à ce contact.</p>
-              ) : (
-                contact.sites.map((s) => (
-                  <div
-                    key={s.id}
-                    onClick={() => navigate(`/sites/${s.id}`)}
-                    className="flex cursor-pointer items-center gap-3 rounded-xl border border-navy-100 bg-white p-3.5 hover:bg-navy-50/60"
-                  >
-                    <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-[10px] bg-kiwi-100 text-kiwi-600">
-                      <MapPin className="h-4 w-4" />
-                    </span>
-                    <div className="min-w-0 flex-1">
-                      <p className="truncate text-sm font-bold text-navy-800">{s.nom}</p>
-                      {s.fonction_sur_site && <p className="truncate text-[10.5px] text-navy-400">{s.fonction_sur_site}</p>}
-                    </div>
-                  </div>
-                ))
-              )}
-            </div>
+            <RattachementsContact
+              contact={contact}
+              comptes={comptes ?? []}
+              peutModifier={canManage}
+              onToast={showToast}
+            />
           )}
 
           {tab === 'contrats' && (
@@ -390,6 +482,11 @@ export default function ContactDetail() {
           </Button>
         </div>
       </Dialog>
+      {toast && (
+        <div className="fixed bottom-6 left-1/2 z-50 -translate-x-1/2 whitespace-nowrap rounded-lg bg-ink-800 px-4 py-2.5 text-xs font-semibold text-white shadow-lg">
+          {toast}
+        </div>
+      )}
     </div>
   )
 }
