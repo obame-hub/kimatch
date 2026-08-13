@@ -15,6 +15,7 @@ import { HistoriqueDiscret } from '@/components/ui/historique-discret'
 import { ActivityFeed } from '@/components/site/ActivityFeed'
 import { useContacts, useUpdateContact, useDeleteContact, useUpdateContactField } from '@/lib/data/contacts'
 import { useComptes } from '@/lib/data/comptes'
+import { useSites } from '@/lib/data/sites'
 import { useActions } from '@/lib/data/actions'
 import { useInteractionsForContact } from '@/lib/data/interactions'
 import { useContrats } from '@/lib/data/contrats'
@@ -44,6 +45,7 @@ export default function ContactDetail() {
   const navigate = useNavigate()
   const { data: contacts } = useContacts()
   const { data: comptes } = useComptes()
+  const { data: sites } = useSites()
   const { data: actions } = useActions()
   const { data: contrats } = useContrats()
   const { data: mandats } = useMandats()
@@ -371,6 +373,7 @@ export default function ContactDetail() {
             <RattachementsContact
               contact={contact}
               comptes={comptes ?? []}
+              sites={sites ?? []}
               peutModifier={canManage}
               onToast={showToast}
             />

@@ -4,7 +4,7 @@ import { Building2, MapPin, Plus, Unlink } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Dialog } from '@/components/ui/dialog'
 import { FormField, Input, Select } from '@/components/ui/form'
-import type { Compte, Contact } from '@/types/domain'
+import type { Compte, Contact, Site } from '@/types/domain'
 import { useLierContactCompte, useDelierContactCompte } from '@/lib/data/contacts'
 
 /**
@@ -18,11 +18,14 @@ import { useLierContactCompte, useDelierContactCompte } from '@/lib/data/contact
 export function RattachementsContact({
   contact,
   comptes,
+  sites,
   peutModifier,
   onToast,
 }: {
   contact: Contact
   comptes: Compte[]
+  /** Tous les sites : on en déduit ceux des comptes rattachés au contact. */
+  sites: Site[]
   peutModifier: boolean
   onToast: (message: string) => void
 }) {
@@ -42,19 +45,40 @@ export function RattachementsContact({
     [contact.comptes],
   )
 
-  /** Les sites, regroupés par compte : « la liste des sites avec compte » demandée en réunion. */
+  /**
+   * « La liste de comptes et la liste de sites avec compte » (William, 13/08/2026) : les sites
+   * affichés sont ceux des comptes auxquels le contact est rattaché, et non les seuls sites que
+   * `contacts_sites` lui associe explicitement. La distinction est décisive : Romain HEBRARD n'a
+   * aucune ligne dans contacts_sites, alors qu'il intervient sur les sites de ses 10 comptes.
+   *
+   * Les sites explicitement rattachés sont signalés, car ils portent une information de plus —
+   * la fonction du contact sur ce site.
+   */
   const sitesParCompte = useMemo(() => {
-    const groupes = new Map<string, { compte: string; sites: typeof contact.sites }>()
-    for (const site of contact.sites) {
-      // Le site connaît son compte ; à défaut on le range sous le compte principal du contact.
-      const cle = site.compte_id ?? contact.compte_id
-      const nom = comptes.find((c) => c.id === cle)?.nom ?? contact.compte_nom
-      const groupe = groupes.get(cle) ?? { compte: nom, sites: [] }
-      groupe.sites.push(site)
-      groupes.set(cle, groupe)
+    const fonctionParSite = new Map(contact.sites.map((s) => [s.id, s.fonction_sur_site]))
+    const idsComptes = new Set(contact.comptes.map((c) => c.id))
+
+    const groupes = new Map<string, { compte: string; sites: { id: string; nom: string; fonction: string | null; explicite: boolean }[] }>()
+    for (const site of sites) {
+      if (!site.compte_id || !idsComptes.has(site.compte_id)) continue
+      const nom = comptes.find((c) => c.id === site.compte_id)?.nom ?? ''
+      const groupe = groupes.get(site.compte_id) ?? { compte: nom, sites: [] }
+      groupe.sites.push({
+        id: site.id,
+        nom: site.nom,
+        fonction: fonctionParSite.get(site.id) ?? null,
+        explicite: fonctionParSite.has(site.id),
+      })
+      groupes.set(site.compte_id, groupe)
     }
-    return [...groupes.entries()]
-  }, [contact, comptes])
+    // Le compte principal en tête, comme pour la liste des comptes.
+    const principal = contact.comptes.find((c) => c.relation_directe)?.id
+    return [...groupes.entries()].sort(
+      ([a], [b]) => Number(b === principal) - Number(a === principal) || (groupes.get(a)!.compte).localeCompare(groupes.get(b)!.compte),
+    )
+  }, [contact, comptes, sites])
+
+  const nbSites = sitesParCompte.reduce((n, [, g]) => n + g.sites.length, 0)
 
   const dejaLies = new Set(contact.comptes.map((c) => c.id))
   const candidats = comptes.filter((c) => !dejaLies.has(c.id)).sort((a, b) => a.nom.localeCompare(b.nom))
@@ -123,12 +147,12 @@ export function RattachementsContact({
         <div className="mb-2 flex items-center gap-2">
           <span className="text-[10px] font-bold uppercase tracking-[.08em] text-[#a3a5a0]">Sites rattachés</span>
           <span className="text-[10.5px] text-[#a3a5a0]">
-            · {contact.sites.length} site{contact.sites.length > 1 ? 's' : ''}
+            · {nbSites} site{nbSites > 1 ? 's' : ''} sur {sitesParCompte.length} compte{sitesParCompte.length > 1 ? 's' : ''}
           </span>
         </div>
 
-        {contact.sites.length === 0 ? (
-          <p className="text-sm text-navy-400">Aucun site rattaché à ce contact.</p>
+        {nbSites === 0 ? (
+          <p className="text-sm text-navy-400">Aucun site sur les comptes de ce contact.</p>
         ) : (
           <div className="flex flex-col gap-3">
             {sitesParCompte.map(([cle, groupe]) => (
@@ -146,10 +170,16 @@ export function RattachementsContact({
                       </span>
                       <div className="min-w-0 flex-1">
                         <p className="truncate text-sm font-bold text-navy-800">{s.nom}</p>
-                        {s.fonction_sur_site && (
-                          <p className="truncate text-[10.5px] text-navy-400">{s.fonction_sur_site}</p>
-                        )}
+                        {s.fonction && <p className="truncate text-[10.5px] text-navy-400">{s.fonction}</p>}
                       </div>
+                      {s.explicite && (
+                        <span
+                          title="Contact explicitement rattaché à ce site"
+                          className="shrink-0 rounded bg-[#f1ecf8] px-1.5 py-px text-[9.5px] font-bold uppercase tracking-wide text-[#7c5bb0]"
+                        >
+                          Rattaché
+                        </span>
+                      )}
                     </div>
                   ))}
                 </div>
