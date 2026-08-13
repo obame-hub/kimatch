@@ -14,10 +14,59 @@ function requireEnv(name: string): string {
   return v
 }
 
+/**
+ * Remet la cle privee RSA dans un PEM que OpenSSL accepte.
+ *
+ * Une variable d'environnement ne porte qu'une chaine sur une seule ligne. Coller une cle PEM
+ * dans une interface comme Vercel produit selon les cas des \n LITTERAUX (les deux
+ * caracteres barre oblique inverse et n), des guillemets autour de la valeur, ou du base64.
+ * OpenSSL refuse alors de decoder et renvoie « error:1E08010C:DECODER routines::unsupported »,
+ * un message qui ne dit rien du vrai probleme. C'est l'erreur rencontree le 13/08/2026 en
+ * testant la creation de mandat sur le compte KIWEE ENERGIE FRANCE.
+ *
+ * Aucune de ces formes n\'est fautive : elles dependent de la facon dont la valeur a ete saisie.
+ * On les ramene toutes au meme PEM, plutot que d\'exiger une saisie parfaite.
+ */
+function normaliserClePem(brut: string): string {
+  let pem = brut.trim()
+
+  // Guillemets ajoutes par certaines interfaces autour d'une valeur multi-lignes.
+  if ((pem.startsWith('"') && pem.endsWith('"')) || (pem.startsWith("'") && pem.endsWith("'"))) {
+    pem = pem.slice(1, -1).trim()
+  }
+
+  // Cle stockee en base64 du PEM entier : elle ne contient alors aucun en-tete lisible.
+  if (!pem.includes('BEGIN') && /^[A-Za-z0-9+/=\s]+$/.test(pem)) {
+    try {
+      const decode = Buffer.from(pem, 'base64').toString('utf8')
+      if (decode.includes('BEGIN')) pem = decode.trim()
+    } catch {
+      // On garde la valeur brute : le controle de format ci-dessous produira un message clair.
+    }
+  }
+
+  // Le cas le plus frequent : les retours a la ligne sont des \n litteraux.
+  if (pem.includes('\\n')) pem = pem.replace(/\\n/g, '\n')
+  // Valeur passee depuis Windows : les retours chariot feraient echouer le decodage.
+  pem = pem.replace(/\r\n/g, '\n').replace(/\r/g, '\n')
+
+  if (!pem.includes('BEGIN') || !pem.includes('PRIVATE KEY')) {
+    throw new Error(
+      'DOCUSIGN_RSA_PRIVATE_KEY ne contient pas une cle privee PEM lisible. Attendu : un bloc ' +
+        '-----BEGIN RSA PRIVATE KEY----- (ou BEGIN PRIVATE KEY) avec ses retours a la ligne. ' +
+        'Recollez la cle complete depuis DocuSign, en-tetes inclus.',
+    )
+  }
+
+  // Un PEM doit se terminer par un retour a la ligne, sinon certaines versions d\'OpenSSL
+  // tronquent la derniere ligne de base64.
+  return pem.endsWith('\n') ? pem : pem + '\n'
+}
+
 async function getJwtAccessToken(): Promise<string> {
   const integrationKey = requireEnv('DOCUSIGN_INTEGRATION_KEY')
   const userId = requireEnv('DOCUSIGN_USER_ID')
-  const rsaPem = requireEnv('DOCUSIGN_RSA_PRIVATE_KEY')
+  const rsaPem = normaliserClePem(requireEnv('DOCUSIGN_RSA_PRIVATE_KEY'))
   const baseUrl = process.env.DOCUSIGN_BASE_URL ?? 'https://account-d.docusign.com'
   const aud = baseUrl.replace(/^https?:\/\//, '').replace(/\/$/, '')
 
@@ -35,7 +84,19 @@ async function getJwtAccessToken(): Promise<string> {
   const signer = createSign('RSA-SHA256')
   signer.update(signingInput)
   signer.end()
-  const signature = base64url(signer.sign(rsaPem))
+  let signature: string
+  try {
+    signature = base64url(signer.sign(rsaPem))
+  } catch (err) {
+    // L'erreur brute d'OpenSSL ne dit pas ce qui manque. On la traduit, sans jamais faire
+    // apparaître la clé elle-même dans un message ou un journal.
+    const brut = err instanceof Error ? err.message : String(err)
+    throw new Error(
+      `Signature du jeton DocuSign impossible : la clé privée n'est pas exploitable (${brut}). ` +
+        'Vérifiez DOCUSIGN_RSA_PRIVATE_KEY — la clé doit être celle générée dans DocuSign pour ' +
+        'cette application, au format PEM, en-têtes compris.',
+    )
+  }
   const assertion = `${signingInput}.${signature}`
 
   const res = await fetch(`${baseUrl}/oauth/token`, {
