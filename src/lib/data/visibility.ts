@@ -1,5 +1,6 @@
 import { supabase } from '@/lib/supabase'
 import { fetchCurrentAccess } from '@/lib/data/roles'
+import { fetchAllRows } from '@/lib/data/paginatedFetch'
 
 // Périmètre de visibilité par compte (profils_comptes), voulu par Michel : un admin
 // (SUPER_ADMIN/ADMIN) voit tout, tout le monde d'autre ne voit que les comptes qui lui
@@ -31,13 +32,19 @@ async function calculerComptesVisibles(): Promise<string[] | null> {
   const access = await fetchCurrentAccess()
   if (access.roleCode === 'SUPER_ADMIN' || access.roleCode === 'ADMIN') return null
 
-  const { data, error } = await supabase
-    .from('profils_comptes')
-    .select('compte_id')
-    .eq('profil_id', userData.user.id)
-    .eq('actif', true)
-  if (error || !data) return []
-  return (data as { compte_id: string }[]).map((r) => r.compte_id)
+  // Paginé pour la même raison que fetchSitesVisiblesIds : la réponse est plafonnée à 1000 lignes.
+  // Guillaume Gilles en a 935 — il passe, mais à 65 comptes du seuil au-delà duquel il perdrait
+  // silencieusement une partie de son portefeuille. Ce n'est pas une limite théorique : c'est la
+  // même mécanique qui a fait disparaître les compteurs de Marie Thonnard.
+  try {
+    const lignes = await fetchAllRows<{ compte_id: string }>('profils_comptes', 'compte_id', (q) =>
+      q.eq('profil_id', userData.user.id).eq('actif', true),
+    )
+    return lignes.map((r) => r.compte_id)
+  } catch (error) {
+    console.error('calculerComptesVisibles', error)
+    return []
+  }
 }
 
 // Dérive les sites visibles à partir des comptes visibles — pour les entités qui ne
@@ -46,9 +53,35 @@ export async function fetchSitesVisiblesIds(comptesVisibles: string[] | null): P
   if (comptesVisibles === null) return null
   if (comptesVisibles.length === 0) return []
 
-  const { data, error } = await supabase.from('sites').select('id').in('compte_id', comptesVisibles)
-  if (error || !data) return []
-  return (data as { id: string }[]).map((r) => r.id)
+  // DEUX PLAFONDS À FRANCHIR, ET AUCUN DES DEUX NE LÈVE D'ERREUR.
+  //
+  // 1. PostgREST tronque toute réponse à 1000 lignes. Marie Thonnard a 1677 sites dans son
+  //    périmètre : elle en perdait 677, avec tous leurs compteurs, contrats et signaux. Les sites
+  //    tombés dépendaient de l'ordre renvoyé par la base, donc variaient d'un chargement à l'autre
+  //    — d'où le symptôme « je ne vois aucun compteur de CE compte », les 19 sites de CABINET
+  //    ROUMILHAC JOURDAN étant hors des 1000 premiers. D'où fetchAllRows, qui pagine.
+  //
+  // 2. La longueur de l'URL. Un `in()` porte chaque identifiant dans la requête : 935 comptes pour
+  //    Guillaume Gilles font une URL de 34 ko, très au-delà de ce qu'acceptent PostgREST et le
+  //    proxy. La requête échouerait entièrement — pas de troncature, rien du tout. D'où le
+  //    découpage par lots de 150, le même seuil que dans interactions.ts.
+  //
+  // Les administrateurs ne voyaient rien de tout cela : ils reçoivent `null` et sortent plus haut.
+  const LOT = 150
+  try {
+    const ids: string[] = []
+    for (let i = 0; i < comptesVisibles.length; i += LOT) {
+      const lot = comptesVisibles.slice(i, i + LOT)
+      const lignes = await fetchAllRows<{ id: string }>('sites', 'id', (q) => q.in('compte_id', lot))
+      for (const ligne of lignes) ids.push(ligne.id)
+    }
+    return ids
+  } catch (error) {
+    console.error('fetchSitesVisiblesIds', error)
+    // Liste vide plutôt que sous-ensemble : un périmètre partiel se lit comme une absence de
+    // données, ce qui est plus trompeur qu'un écran vide.
+    return []
+  }
 }
 
 // `null` = pas de restriction. Sinon, ne garde que les éléments dont l'id extrait
