@@ -42,21 +42,25 @@ function secretHmac(): string {
   return requireEnv('DOCUSIGN_SECRET_KEY')
 }
 
+/** Chemin de retour : uniquement un chemin relatif de cette application. Une URL absolue serait un
+ *  open redirect — on ne renvoie jamais l'utilisateur ailleurs que chez nous.
+ *
+ *  Le repli est « /profil » : c'est la route de la page « Mon profil » (voir App.tsx). Elle valait
+ *  « /mon-profil » jusqu'au 13/08/2026, ce qui renvoyait sur une page blanche après l'autorisation
+ *  DocuSign — la route n'existe pas. */
+function cheminSur(retour: string | undefined): string {
+  if (!retour || !retour.startsWith('/') || retour.startsWith('//')) return '/profil'
+  return retour
+}
+
 /**
- * `state` = profil + origine + horodatage, scellé par un HMAC.
+ * `state` = profil + origine + horodatage + page de retour, scellé par un HMAC.
  *
  * La signature n'est pas décorative : sans elle, n'importe qui pourrait forger un `state` portant
  * l'identifiant d'un collègue, autoriser SON propre compte DocuSign et se retrouver enregistré
  * comme expéditeur pour ce collègue. C'est le défaut du `state` en clair du flot Gmail
  * (api/gmail/_client.ts), non corrigé là-bas.
  */
-/** Chemin de retour : uniquement un chemin relatif de cette application. Une URL absolue serait un
- *  open redirect — on ne renvoie jamais l'utilisateur ailleurs que chez nous. */
-function cheminSur(retour: string | undefined): string {
-  if (!retour || !retour.startsWith('/') || retour.startsWith('//')) return '/mon-profil'
-  return retour
-}
-
 export function encodeState(profilId: string, origine: string | undefined, retour?: string): string {
   const sure = origine && ORIGINES_AUTORISEES.includes(origine) ? origine : ORIGINE_PAR_DEFAUT
   const charge = `${profilId}|${sure}|${Date.now()}|${cheminSur(retour)}`
@@ -67,7 +71,7 @@ export function encodeState(profilId: string, origine: string | undefined, retou
 /** Un `state` non signé, mal signé ou vieux de plus de quinze minutes ne donne aucun profil : le
  *  callback redirige alors vers une erreur au lieu d'écrire une session. */
 export function decodeState(state: string | undefined): { profilId?: string; appUrl: string; retour: string } {
-  const appUrlParDefaut = { appUrl: ORIGINE_PAR_DEFAUT, retour: '/mon-profil' }
+  const appUrlParDefaut = { appUrl: ORIGINE_PAR_DEFAUT, retour: '/profil' }
   if (!state || !state.includes('.')) return appUrlParDefaut
   const [chargeB64, signature] = state.split('.')
   let charge: string
