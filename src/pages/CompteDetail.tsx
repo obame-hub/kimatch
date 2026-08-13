@@ -193,7 +193,13 @@ export default function CompteDetail() {
   // Fiche compte : on ne charge que les interactions de ce perimetre (pas la table entiere,
   // qui met plusieurs minutes a charger une fois tous les comptes Salesforce importes).
   const { data: interactionsDuCompte = [] } = useInteractionsForCompte(id, siteIdsArray)
-  const contactsDuCompte = useMemo(() => contacts?.filter((c) => c.compte_id === id) ?? [], [contacts, id])
+  // Le rattachement se lit sur l'ensemble des comptes du contact, pas sur son seul compte
+  // principal : c'est ce qui fait apparaître Romain HEBRARD sur DUHAMEL LOGISTIQUE, où il est
+  // signataire sans y être rattaché à titre principal (demande de William du 13/08/2026).
+  const contactsDuCompte = useMemo(
+    () => contacts?.filter((c) => c.comptes.some((l) => l.id === id)) ?? [],
+    [contacts, id],
+  )
   const signauxDuCompte = useMemo(() => signaux?.filter((s) => siteIdsDuCompte.has(s.site_id)) ?? [], [signaux, siteIdsDuCompte])
   const compteursDuCompte = useMemo(() => compteurs?.filter((c) => siteIdsDuCompte.has(c.site_id)) ?? [], [compteurs, siteIdsDuCompte])
   // Le contrat est lie directement au compte (decision Michel/William 31/07/2026), plus via site_id --
@@ -1309,6 +1315,22 @@ function ContactsPanel({ contacts, compteId }: { contacts: Contact[]; compteId: 
                     )}
                   </div>
                   <p className="truncate text-kw-lg text-kw-meta">{c.fonction || '—'}{c.sites.length > 0 ? ` · ${c.sites.length} site${c.sites.length > 1 ? 's' : ''}` : ''}</p>
+                  {/* Un contact peut être rattaché à plusieurs comptes. Quand celui-ci n'est pas
+                      son compte principal, on le dit : sans cette mention on croirait qu'il
+                      appartient au compte affiché, et on ne saurait pas où le modifier. */}
+                  {c.compte_id !== compteId && (
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation()
+                        navigate(`/comptes/${c.compte_id}`)
+                      }}
+                      title={`Rattaché à ${c.compte_nom} — ouvrir cette fiche`}
+                      className="mt-0.5 inline-flex max-w-full items-center gap-1 rounded bg-kw-blue-light px-1.5 py-px text-[10px] font-semibold text-kw-blue transition-colors hover:bg-kw-blue/20"
+                    >
+                      <span className="truncate">via {c.compte_nom}</span>
+                    </button>
+                  )}
                 </div>
               </div>
               <div className="mt-2 flex gap-1.5">

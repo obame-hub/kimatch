@@ -232,10 +232,23 @@ export interface Mandat {
   date_modification?: string
 }
 
+/** Rattachement d'un contact à un compte. Un contact peut en avoir plusieurs (table
+ *  contacts_comptes, reprise de AccountContactRelation le 13/08/2026). */
+export interface LienCompteContact {
+  id: string
+  nom: string
+  /** Vrai pour le compte de rattachement principal, celui que porte `compte_id`. */
+  relation_directe: boolean
+}
+
 export interface Contact {
   id: string
+  /** Compte de rattachement principal. Ne suffit PAS à savoir où le contact apparaît : voir
+   *  `comptes`, qui porte l'ensemble de ses rattachements. */
   compte_id: string
   compte_nom: string
+  /** Tous les comptes auxquels le contact est rattaché, le principal inclus. */
+  comptes: LienCompteContact[]
   civilite: string | null
   prenom: string
   nom: string
