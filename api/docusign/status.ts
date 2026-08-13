@@ -3,7 +3,9 @@ import type { VercelRequest, VercelResponse } from '@vercel/node'
 // Indique si la signature électronique est utilisable, pour que le wizard Mandat puisse prévenir
 // AVANT de faire remplir 4 étapes (Tools affiche un écran « Connexion requise » avant de démarrer).
 // Ne renvoie jamais la valeur des secrets, seulement leur présence et leur plausibilité.
-const REQUIS = ['DOCUSIGN_INTEGRATION_KEY', 'DOCUSIGN_USER_ID', 'DOCUSIGN_ACCOUNT_ID'] as const
+// DOCUSIGN_ACCOUNT_ID n'y figure plus : le compte par defaut de l'utilisateur suffit, la variable
+// ne sert qu'a en designer un autre (voir getDocusignContext).
+const REQUIS = ['DOCUSIGN_INTEGRATION_KEY', 'DOCUSIGN_USER_ID'] as const
 
 /** La clé accepte deux formes : en clair, ou en base64 sur une ligne (voir _client.ts). L'une ou
  *  l'autre suffit — sans cette souplesse, l'écran annoncerait « non configuré » alors que la

@@ -195,7 +195,11 @@ interface DocusignContext {
 
 export async function getDocusignContext(): Promise<DocusignContext> {
   const baseUrl = process.env.DOCUSIGN_BASE_URL ?? 'https://account-d.docusign.com'
-  const accountIdEnv = requireEnv('DOCUSIGN_ACCOUNT_ID')
+  // Optionnel : DocuSign renvoie déjà les comptes de l'utilisateur, dont son compte par défaut. La
+  // variable ne sert qu'à en désigner un autre quand l'utilisateur en a plusieurs. L'exiger en
+  // faisait un piège de plus — celle de production contenait le GUID d'un compte étranger, sans
+  // conséquence puisque le repli ci-dessous prenait le compte par défaut, mais rien ne le disait.
+  const accountIdEnv = process.env.DOCUSIGN_ACCOUNT_ID?.trim() || null
   const accessToken = await getJwtAccessToken()
 
   const res = await fetch(`${baseUrl}/oauth/userinfo`, { headers: { Authorization: `Bearer ${accessToken}` } })
