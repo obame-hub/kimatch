@@ -141,8 +141,21 @@ async function getJwtAccessToken(): Promise<string> {
   const data = (await res.json()) as { access_token?: string; error?: string; error_description?: string }
   if (!res.ok || !data.access_token) {
     if (data.error === 'consent_required') {
+      // Le redirect_uri doit correspondre EXACTEMENT à l'un de ceux enregistrés dans DocuSign
+      // (Apps and Keys > l'application > Redirect URIs), sinon le consentement est refusé avant
+      // même d'être demandé. Il était codé en dur sur l'ancienne URL Vercel alors que le domaine
+      // de production est kimatch.fr : le lien affiché ne pouvait pas aboutir.
+      const redirect = process.env.DOCUSIGN_REDIRECT_URI ?? 'https://kimatch.fr'
+      const url =
+        `https://${aud}/oauth/auth?response_type=code&scope=signature%20impersonation` +
+        `&client_id=${integrationKey}&redirect_uri=${encodeURIComponent(redirect)}`
       throw new Error(
-        `consent_required — ouvre https://${aud}/oauth/auth?response_type=code&scope=signature%20impersonation&client_id=${integrationKey}&redirect_uri=https://kiwee-os.vercel.app et clique "Accept".`,
+        'Consentement DocuSign requis : l’utilisateur au nom duquel Kimatch envoie les enveloppes ' +
+          'doit autoriser l’application, une fois pour toutes. Ouvrez ce lien en étant connecté à ' +
+          `DocuSign avec CE compte, puis cliquez « Accept » : ${url} — si DocuSign répond que ` +
+          `l’URL de redirection est invalide, ajoutez « ${redirect} » dans les Redirect URIs de ` +
+          'l’application (Settings > Apps and Keys), ou renseignez DOCUSIGN_REDIRECT_URI avec une ' +
+          'valeur déjà enregistrée.',
       )
     }
     throw new Error(`DocuSign token error: ${data.error ?? res.status} — ${data.error_description ?? ''}`)
