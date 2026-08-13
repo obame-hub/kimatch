@@ -49,6 +49,22 @@ function normaliserClePem(brut: string): string {
   if (pem.includes('\\n')) pem = pem.replace(/\\n/g, '\n')
   // Valeur passee depuis Windows : les retours chariot feraient echouer le decodage.
   pem = pem.replace(/\r\n/g, '\n').replace(/\r/g, '\n')
+  // Copier-coller passe par Word ou un navigateur : marque d'ordre des octets en tete, et espaces
+  // insecables a la place des espaces. Invisibles a l'oeil, fatals au decodage. (Signale par
+  // William, 13/08/2026.)
+  pem = pem.replace(/^﻿/, '').replace(/ /g, ' ')
+
+  // PEM entier sur UNE SEULE LIGNE, en-tetes compris : « -----BEGIN RSA PRIVATE KEY-----MIIEow...
+  // -----END RSA PRIVATE KEY----- ». C'est ce que produit une interface qui supprime les retours a
+  // la ligne au lieu de les echapper. Le bloc est present, donc les controles cherchant « BEGIN »
+  // le laissent passer — et OpenSSL echoue quand meme, faute de decoupage en lignes de 64.
+  if (!pem.includes('\n')) {
+    const bloc = pem.match(/-----BEGIN ([A-Z0-9 ]+)-----([\s\S]*?)-----END \1-----/)
+    if (bloc) {
+      const lignes = bloc[2].replace(/[^A-Za-z0-9+/=]/g, '').match(/.{1,64}/g) ?? []
+      pem = [`-----BEGIN ${bloc[1]}-----`, ...lignes, `-----END ${bloc[1]}-----`, ''].join('\n')
+    }
+  }
 
   // Corps de cle colle SANS ses en-tetes : c'est du base64 seul, sans « BEGIN ». On reconstruit
   // le PEM plutot que de refuser une cle qui est peut-etre la bonne. Le type est inconnu a ce
@@ -97,7 +113,15 @@ function normaliserClePem(brut: string): string {
 async function getJwtAccessToken(): Promise<string> {
   const integrationKey = requireEnv('DOCUSIGN_INTEGRATION_KEY')
   const userId = requireEnv('DOCUSIGN_USER_ID')
-  const rsaPem = normaliserClePem(requireEnv('DOCUSIGN_RSA_PRIVATE_KEY'))
+  // DOCUSIGN_RSA_PRIVATE_KEY_B64 est prioritaire quand elle existe : la clé y tient sur une seule
+  // ligne, donc aucune interface ne peut abîmer ses retours à la ligne. C'est la voie recommandée
+  // par William (13/08/2026), à alimenter avec `base64 -w0 private.key`. La variable en clair reste
+  // acceptée, et normaliserClePem rattrape les formes que les interfaces produisent.
+  const rsaPem = normaliserClePem(
+    process.env.DOCUSIGN_RSA_PRIVATE_KEY_B64
+      ? Buffer.from(process.env.DOCUSIGN_RSA_PRIVATE_KEY_B64.trim(), 'base64').toString('utf8')
+      : requireEnv('DOCUSIGN_RSA_PRIVATE_KEY'),
+  )
   const baseUrl = process.env.DOCUSIGN_BASE_URL ?? 'https://account-d.docusign.com'
   const aud = baseUrl.replace(/^https?:\/\//, '').replace(/\/$/, '')
 
