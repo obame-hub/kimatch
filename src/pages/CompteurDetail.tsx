@@ -820,7 +820,7 @@ export default function CompteurDetail() {
 
       <AddConsommationDialog compteurId={compteur.id} open={showAdd} onClose={() => setShowAdd(false)} />
       <EditCompteurDialog compteur={compteur} open={editOpen} onClose={() => setEditOpen(false)} />
-      <AddFichierDialog open={addFichierOpen} onClose={() => setAddFichierOpen(false)} compteurId={compteur.id} onSaved={() => {}} />
+      {addFichierOpen && <AddFichierDialog open={addFichierOpen} onClose={() => setAddFichierOpen(false)} compteurId={compteur.id} onSaved={() => {}} />}
       <Dialog
         open={confirmDelete}
         onClose={() => setConfirmDelete(false)}

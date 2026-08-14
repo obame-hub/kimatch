@@ -217,7 +217,7 @@ export default function Documents() {
           />
         </div>
       </div>
-      <CreateDocumentDialog open={showCreate} onClose={() => setShowCreate(false)} />
+      {showCreate && <CreateDocumentDialog open={showCreate} onClose={() => setShowCreate(false)} />}
     </div>
   )
 }

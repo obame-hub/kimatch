@@ -470,7 +470,7 @@ export default function Contrats() {
           </div>
         )}
       </div>
-      <CreateContratDialog open={showCreate} onClose={() => setShowCreate(false)} />
+      {showCreate && <CreateContratDialog open={showCreate} onClose={() => setShowCreate(false)} />}
     </div>
   )
 }

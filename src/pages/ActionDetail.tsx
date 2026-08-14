@@ -120,7 +120,7 @@ export default function ActionDetail() {
 
       {action && (
         <>
-          <EditActionDialog open={editOpen} onClose={() => setEditOpen(false)} action={action} />
+          {editOpen && <EditActionDialog open={editOpen} onClose={() => setEditOpen(false)} action={action} />}
 
           <Dialog
             open={confirmDelete}

@@ -474,7 +474,7 @@ export default function ContactDetail() {
         </div>
       </div>
 
-      <EditContactDialog open={editOpen} onClose={() => setEditOpen(false)} contact={contact} compteSegment={compte?.segment ?? null} />
+      {editOpen && <EditContactDialog open={editOpen} onClose={() => setEditOpen(false)} contact={contact} compteSegment={compte?.segment ?? null} />}
 
       <Dialog
         open={confirmDelete}

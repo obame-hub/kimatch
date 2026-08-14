@@ -712,7 +712,7 @@ export default function SiteDetail() {
         </div>
       )}
 
-      <EditSiteDialog open={editOpen} onClose={() => setEditOpen(false)} site={site} onSaved={() => showToast('✓ Site mis à jour')} />
+      {editOpen && <EditSiteDialog open={editOpen} onClose={() => setEditOpen(false)} site={site} onSaved={() => showToast('✓ Site mis à jour')} />}
 
       <AddFichierDialog
         open={addFichierOpen}

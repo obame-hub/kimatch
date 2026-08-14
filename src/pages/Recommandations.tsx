@@ -436,11 +436,13 @@ export default function Recommandations() {
           />
         </div>
       </div>
-      <CreateRecommandationDialog
-        open={showCreate}
-        onClose={() => setShowCreate(false)}
-        onCreated={(recoId) => navigate(`/recommandations/${recoId}`)}
-      />
+      {showCreate && (
+        <CreateRecommandationDialog
+          open={showCreate}
+          onClose={() => setShowCreate(false)}
+          onCreated={(recoId) => navigate(`/recommandations/${recoId}`)}
+        />
+      )}
     </div>
   )
 }

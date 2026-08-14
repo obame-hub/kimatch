@@ -247,7 +247,7 @@ export default function Interactions() {
           />
         </div>
       </div>
-      <CreateInteractionDialog open={showCreate} onClose={() => setShowCreate(false)} />
+      {showCreate && <CreateInteractionDialog open={showCreate} onClose={() => setShowCreate(false)} />}
     </div>
   )
 }

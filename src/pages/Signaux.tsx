@@ -201,7 +201,7 @@ export default function Signaux() {
           </div>
         )}
       </div>
-      <CreateSignalDialog open={showCreate} onClose={() => setShowCreate(false)} />
+      {showCreate && <CreateSignalDialog open={showCreate} onClose={() => setShowCreate(false)} />}
     </div>
   )
 }

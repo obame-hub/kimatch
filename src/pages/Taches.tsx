@@ -225,7 +225,7 @@ export default function Taches() {
           </div>
         )}
       </div>
-      <CreateActionDialog open={showCreate} onClose={() => setShowCreate(false)} />
+      {showCreate && <CreateActionDialog open={showCreate} onClose={() => setShowCreate(false)} />}
     </div>
   )
 }

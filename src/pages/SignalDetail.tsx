@@ -95,7 +95,7 @@ export default function SignalDetail() {
 
       {signal && (
         <>
-          <EditSignalDialog open={editOpen} onClose={() => setEditOpen(false)} signal={signal} />
+          {editOpen && <EditSignalDialog open={editOpen} onClose={() => setEditOpen(false)} signal={signal} />}
 
           <Dialog
             open={confirmDelete}

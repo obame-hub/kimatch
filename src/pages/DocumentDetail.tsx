@@ -99,7 +99,7 @@ export default function DocumentDetail() {
 
       {doc && (
         <>
-          <EditDocumentDialog open={editOpen} onClose={() => setEditOpen(false)} doc={doc} />
+          {editOpen && <EditDocumentDialog open={editOpen} onClose={() => setEditOpen(false)} doc={doc} />}
 
           <Dialog
             open={confirmDelete}

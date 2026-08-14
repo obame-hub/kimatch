@@ -495,7 +495,7 @@ export default function Contacts() {
           />
         </div>
       </div>
-      <CreateContactDialog open={showCreate} onClose={() => setShowCreate(false)} initialCompteId={compteFromUrl ?? undefined} />
+      {showCreate && <CreateContactDialog open={showCreate} onClose={() => setShowCreate(false)} initialCompteId={compteFromUrl ?? undefined} />}
     </div>
   )
 }

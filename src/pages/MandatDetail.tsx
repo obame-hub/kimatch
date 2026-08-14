@@ -555,8 +555,8 @@ export default function MandatDetail() {
         compteurs={compteursDuMandat}
         contact={contactSignataire}
       />
-      <EditMandatDialog open={editOpen} onClose={() => setEditOpen(false)} mandat={mandat} onSaved={() => {}} />
-      <AddFichierDialog open={addFichierOpen} onClose={() => setAddFichierOpen(false)} mandatId={mandat.id} onSaved={() => {}} />
+      {editOpen && <EditMandatDialog open={editOpen} onClose={() => setEditOpen(false)} mandat={mandat} onSaved={() => {}} />}
+      {addFichierOpen && <AddFichierDialog open={addFichierOpen} onClose={() => setAddFichierOpen(false)} mandatId={mandat.id} onSaved={() => {}} />}
 
       <Dialog
         open={confirmDelete}

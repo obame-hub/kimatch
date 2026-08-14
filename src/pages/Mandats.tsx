@@ -210,13 +210,15 @@ export default function Mandats() {
           />
         </div>
       </div>
-      <CreateMandatDialog
-        open={showCreate}
-        onClose={() => setShowCreate(false)}
-        initialCompteId={compteFromUrl ?? undefined}
-        initialCompteurIds={pdlsFromUrl ? pdlsFromUrl.split(',').filter(Boolean) : undefined}
-        initialContactId={contactFromUrl ?? undefined}
-      />
+      {showCreate && (
+        <CreateMandatDialog
+          open={showCreate}
+          onClose={() => setShowCreate(false)}
+          initialCompteId={compteFromUrl ?? undefined}
+          initialCompteurIds={pdlsFromUrl ? pdlsFromUrl.split(',').filter(Boolean) : undefined}
+          initialContactId={contactFromUrl ?? undefined}
+        />
+      )}
     </div>
   )
 }

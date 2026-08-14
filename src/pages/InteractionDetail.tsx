@@ -158,7 +158,7 @@ export default function InteractionDetail() {
 
       {interaction && (
         <>
-          <EditInteractionDialog open={editOpen} onClose={() => setEditOpen(false)} interaction={interaction} />
+          {editOpen && <EditInteractionDialog open={editOpen} onClose={() => setEditOpen(false)} interaction={interaction} />}
 
           <Dialog
             open={confirmDelete}

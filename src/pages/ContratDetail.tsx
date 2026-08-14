@@ -731,8 +731,8 @@ export default function ContratDetail() {
         </div>
       </div>
 
-      <EditContratDialog open={editOpen} onClose={() => setEditOpen(false)} contrat={contrat} />
-      <AddFichierDialog open={addFichierOpen} onClose={() => setAddFichierOpen(false)} contratId={contrat.id} onSaved={() => {}} />
+      {editOpen && <EditContratDialog open={editOpen} onClose={() => setEditOpen(false)} contrat={contrat} />}
+      {addFichierOpen && <AddFichierDialog open={addFichierOpen} onClose={() => setAddFichierOpen(false)} contratId={contrat.id} onSaved={() => {}} />}
       {addTarifFor && (
         <AddTarifDialog
           open

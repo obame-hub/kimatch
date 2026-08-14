@@ -193,7 +193,7 @@ export default function Support() {
           })}
         </div>
       </div>
-      <CreateDemandeDialog open={showCreate} onClose={() => setShowCreate(false)} />
+      {showCreate && <CreateDemandeDialog open={showCreate} onClose={() => setShowCreate(false)} />}
     </div>
   )
 }

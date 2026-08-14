@@ -958,7 +958,7 @@ export default function RecommandationDetail() {
           defaultEmail={contactPrincipal?.email ?? ''}
         />
       )}
-      {reco && (
+      {reco && editOpen && (
         <EditRecommandationDialog open={editOpen} onClose={() => setEditOpen(false)} reco={reco} onSaved={() => {}} />
       )}
       {/* Montés seulement à l'ouverture : le `Dialog` masque son contenu mais ne démonte pas le
