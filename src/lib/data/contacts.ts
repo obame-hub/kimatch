@@ -47,24 +47,62 @@ interface RawContactCompte {
  */
 async function fetchContacts(compteId?: string): Promise<Contact[]> {
   try {
+    // Le rattachement d'un contact a un compte est de trois natures : sa colonne compte_id, une
+    // ligne dans contacts_comptes (y compris indirecte), ou un site du compte via contacts_sites.
+    // Un filtre serveur naif sur contacts.compte_id ferait donc disparaitre des contacts
+    // legitimes -- c'est la raison pour laquelle cette fonction lisait tout et triait en memoire.
+    //
+    // On identifie donc d'abord QUI concerne le compte, puis on ne lit que ces contacts. Cinq
+    // requetes legeres remplacent onze lectures de tables entieres (mesure du 14/08/2026 sur
+    // CABINET MOLINIER, dernier gros poste de la fiche apres le passage des autres sources en
+    // filtrage serveur).
+    let idsRetenus: string[] | null = null
+    if (compteId) {
+      const [liensComptes, sitesDuCompte] = await Promise.all([
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        fetchAllRows<{ contact_id: string }>('contacts_comptes', 'contact_id', (q: any) => q.eq('compte_id', compteId)),
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        fetchAllRows<{ id: string }>('sites', 'id', (q: any) => q.eq('compte_id', compteId)),
+      ])
+      const siteIds = sitesDuCompte.map((s) => s.id)
+      const liensSites = siteIds.length
+        ? // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          await fetchAllRows<{ contact_id: string }>('contacts_sites', 'contact_id', (q: any) => q.in('site_id', siteIds))
+        : []
+      idsRetenus = [...new Set([...liensComptes.map((l) => l.contact_id), ...liensSites.map((l) => l.contact_id)])]
+    }
+
     const [contacts, contactsSites, contactsComptes] = await Promise.all([
       fetchAllRows<RawContact>(
         'contacts',
-        // `*` plutôt qu'une liste de colonnes fixe : `role`/`telephone_mobile` viennent d'être
-        // ajoutées par migration et peuvent ne pas encore exister en prod au moment du déploiement
-        // -- un select nommé sur une colonne absente ferait échouer la requête (400) pour TOUS les
-        // contacts (voir le même choix dans referenceTables.ts).
+        // `*` plutot qu'une liste de colonnes fixe : `role`/`telephone_mobile` viennent d'etre
+        // ajoutees par migration et peuvent ne pas encore exister en prod au moment du deploiement
+        // -- un select nomme sur une colonne absente ferait echouer la requete (400) pour TOUS les
+        // contacts (voir le meme choix dans referenceTables.ts).
         '*, compte:comptes(nom), canal_communication:types_canaux_communication(libelle), proprietaire:profils!contacts_proprietaire_id_fkey(prenom, nom)',
-        // Aucun filtre serveur sur compte_id, même quand `compteId` est fourni : un contact
-        // rattaché au compte demandé par une relation indirecte a un compte_id différent, le
-        // filtrer ici le ferait disparaître. Le tri se fait plus bas, sur tous les rattachements.
-        (q) => q.order('nom'),
+        // Le contact dont c'est le compte principal est repris meme s'il n'apparait dans aucune
+        // table de liaison : c'est le cas des contacts crees avant la migration du 13/08.
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        (q: any) => {
+          if (!compteId) return q.order('nom')
+          const parIds = idsRetenus && idsRetenus.length ? `,id.in.(${idsRetenus.join(',')})` : ''
+          return q.or(`compte_id.eq.${compteId}${parIds}`).order('nom')
+        },
       ),
-      fetchAllRows<RawContactSite>('contacts_sites', 'contact_id, fonction_sur_site, site:sites(id, nom, compte_id)'),
-      // Rattachements aux comptes. Chargés sans restriction même quand `compteId` est fourni : il
-      // faut connaître TOUS les comptes d'un contact pour savoir s'il concerne celui demandé, y
-      // compris par une relation indirecte que contacts.compte_id ne porte pas.
-      fetchAllRows<RawContactCompte>('contacts_comptes', 'contact_id, relation_directe, compte:comptes(id, nom)'),
+      // Rattachements d'affichage : il faut TOUS les comptes et sites des contacts retenus -- une
+      // fiche montre « aussi rattache a X ». On les lit pour ces contacts seulement.
+      fetchAllRows<RawContactSite>(
+        'contacts_sites',
+        'contact_id, fonction_sur_site, site:sites(id, nom, compte_id)',
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        compteId && idsRetenus && idsRetenus.length ? (q: any) => q.in('contact_id', idsRetenus as string[]) : undefined,
+      ),
+      fetchAllRows<RawContactCompte>(
+        'contacts_comptes',
+        'contact_id, relation_directe, compte:comptes(id, nom)',
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        compteId && idsRetenus && idsRetenus.length ? (q: any) => q.in('contact_id', idsRetenus as string[]) : undefined,
+      ),
     ])
 
     const sitesParContact = new Map<string, { id: string; nom: string; compte_id: string | null; fonction_sur_site: string | null }[]>()
