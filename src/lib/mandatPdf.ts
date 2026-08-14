@@ -673,12 +673,21 @@ export async function generateMandatEnergixPdf({ compte, contact, compteurs }: M
 
   doc.setFont('helvetica', 'bold')
   doc.setFontSize(10)
-  const faitLabel = 'Fait à : France'
+  // « Fait à : » sans valeur figee. Le document portait « Fait à : France », ce qui n'est pas un
+  // lieu de signature et ne laissait rien a remplir au signataire (signale le 14/08/2026 : le champ
+  // Lieu n'a « pas d'encre »). L'ancre \l2\ y place un champ DocuSign, comme sur le mandat KiWee.
+  const faitLabel = 'Fait à :'
   doc.text(faitLabel, eML, y)
-  const dateLabelX = eML + doc.getTextWidth(faitLabel) + 3
+  const lieuX = eML + doc.getTextWidth(faitLabel) + 2
+  drawAnchor(doc, '\\l2\\', lieuX, y)
+  doc.setFont('helvetica', 'bold')
+  doc.setFontSize(10)
+  const dateLabelX = lieuX + 34
   const dateLabel = ', Date :'
   doc.text(dateLabel, dateLabelX, y)
   drawAnchor(doc, '\\d1\\', dateLabelX + doc.getTextWidth(dateLabel) + 2, y)
+  doc.setFont('helvetica', 'bold')
+  doc.setFontSize(10)
   y += 8
 
   doc.setFont('helvetica', 'bold')

@@ -113,12 +113,28 @@ export async function sendEnvelope(ctx: DocusignContext, input: SendEnvelopeInpu
             // voyait un libelle sans « encre » (signale le 14/08/2026). `required` parce qu'un
             // mandat sans lieu de signature est incomplet au sens de l'article 1367 du code civil.
             textTabs: [
+              // Deux ancres, une par document : \l1\ sur le mandat KiWee, \l2\ sur l'Energix. Un
+              // meme anchorString poserait un champ sur CHAQUE occurrence trouvee dans l'enveloppe,
+              // donc deux champs lies au meme endroit ; deux ancres distinctes donnent un champ par
+              // document, chacun a sa place.
               {
                 anchorString: '\\l1\\',
                 anchorUnits: 'pixels',
                 anchorXOffset: '0',
                 anchorYOffset: '-8',
                 tabLabel: 'lieu_signature',
+                name: 'Lieu',
+                width: 120,
+                required: 'true',
+                font: 'Arial',
+                fontSize: 'Size8',
+              },
+              {
+                anchorString: '\\l2\\',
+                anchorUnits: 'pixels',
+                anchorXOffset: '0',
+                anchorYOffset: '-8',
+                tabLabel: 'lieu_signature_energix',
                 name: 'Lieu',
                 width: 120,
                 required: 'true',

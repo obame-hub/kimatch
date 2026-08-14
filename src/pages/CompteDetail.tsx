@@ -313,7 +313,14 @@ export default function CompteDetail() {
             <ArrowLeft className="h-4 w-4" />
             Retour aux comptes
           </Button>
-          <p className="text-sm text-navy-500">Compte introuvable.</p>
+          {/* « Introuvable » a envoye tout le monde sur une fausse piste pendant deux jours : le
+              compte existait, il etait hors du perimetre de visibilite de Marie, et la fiche
+              restait muette. La restriction est levee depuis, mais le message doit rester explicite
+              sur les deux causes possibles. */}
+          <p className="text-sm text-navy-500">
+            Ce compte n'existe pas, ou vous n'y avez pas accès. Si un collègue vous l'a partagé,
+            demandez à un administrateur de vérifier vos droits.
+          </p>
         </div>
       </div>
     )
