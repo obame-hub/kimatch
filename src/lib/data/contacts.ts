@@ -45,7 +45,7 @@ interface RawContactCompte {
  * @param compteId Ne charger que les contacts de ce compte. Les fiches de détail n'ont besoin que
  *   de ceux-là ; tirer les 3380 contacts pour en afficher deux coûtait plusieurs secondes.
  */
-async function fetchContacts(compteId?: string): Promise<Contact[]> {
+async function fetchContacts(compteId?: string, contactId?: string): Promise<Contact[]> {
   try {
     // Le rattachement d'un contact a un compte est de trois natures : sa colonne compte_id, une
     // ligne dans contacts_comptes (y compris indirecte), ou un site du compte via contacts_sites.
@@ -84,6 +84,7 @@ async function fetchContacts(compteId?: string): Promise<Contact[]> {
         // table de liaison : c'est le cas des contacts crees avant la migration du 13/08.
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         (q: any) => {
+          if (contactId) return q.eq('id', contactId)
           if (!compteId) return q.order('nom')
           const parIds = idsRetenus && idsRetenus.length ? `,id.in.(${idsRetenus.join(',')})` : ''
           return q.or(`compte_id.eq.${compteId}${parIds}`).order('nom')
@@ -95,13 +96,25 @@ async function fetchContacts(compteId?: string): Promise<Contact[]> {
         'contacts_sites',
         'contact_id, fonction_sur_site, site:sites(id, nom, compte_id)',
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        compteId && idsRetenus && idsRetenus.length ? (q: any) => q.in('contact_id', idsRetenus as string[]) : undefined,
+        contactId
+          ? // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            (q: any) => q.eq('contact_id', contactId)
+          : compteId && idsRetenus && idsRetenus.length
+            ? // eslint-disable-next-line @typescript-eslint/no-explicit-any
+              (q: any) => q.in('contact_id', idsRetenus as string[])
+            : undefined,
       ),
       fetchAllRows<RawContactCompte>(
         'contacts_comptes',
         'contact_id, relation_directe, compte:comptes(id, nom)',
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        compteId && idsRetenus && idsRetenus.length ? (q: any) => q.in('contact_id', idsRetenus as string[]) : undefined,
+        contactId
+          ? // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            (q: any) => q.eq('contact_id', contactId)
+          : compteId && idsRetenus && idsRetenus.length
+            ? // eslint-disable-next-line @typescript-eslint/no-explicit-any
+              (q: any) => q.in('contact_id', idsRetenus as string[])
+            : undefined,
       ),
     ])
 
@@ -174,6 +187,20 @@ export function useContacts() {
 }
 
 /** Contacts d'un seul compte -- pour les fiches de détail, qui n'ont pas besoin des 3380 autres. */
+
+/**
+ * Un contact lu par son identifiant.
+ *
+ * Les fiches le cherchaient avec `liste?.find(x => x.id === id)`, ce qui telechargeait la table
+ * entiere pour en garder une ligne. Meme motif que useCompte et useSite.
+ */
+export function useContact(contactId: string | undefined) {
+  return useQuery({
+    queryKey: ['contacts', 'un', contactId],
+    queryFn: async () => (await fetchContacts(undefined, contactId as string))[0] ?? null,
+    enabled: !!contactId,
+  })
+}
 export function useContactsParCompte(compteId: string | undefined) {
   return useQuery({
     queryKey: ['contacts', 'compte', compteId],

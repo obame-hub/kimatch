@@ -9,7 +9,7 @@ import { Dialog } from '@/components/ui/dialog'
 import { EmailLink } from '@/components/ui/contact-link'
 import { FormField, Input, Select } from '@/components/ui/form'
 import { HistoriqueDiscret } from '@/components/ui/historique-discret'
-import { useMandats, useMarkMandatEnvoye, useUpdateMandat, useDeleteMandat } from '@/lib/data/mandats'
+import { useMandat, useMarkMandatEnvoye, useUpdateMandat, useDeleteMandat } from '@/lib/data/mandats'
 import { useContacts } from '@/lib/data/contacts'
 import { useComptes } from '@/lib/data/comptes'
 import { useSites } from '@/lib/data/sites'
@@ -252,7 +252,9 @@ function AddFichierDialog({ open, onClose, mandatId, onSaved }: { open: boolean;
 export default function MandatDetail() {
   const { id } = useParams()
   const navigate = useNavigate()
-  const { data: mandats } = useMandats()
+  // Perimetre de la fiche, lu cote serveur : ces lectures parcouraient le CRM entier pour en
+  // garder une ligne ou quelques-unes (meme correctif que les fiches compte et site).
+  const { data: mandat } = useMandat(id)
   const { data: statutsRef } = useReferenceTable('statuts_mandats')
   const statuts = statutsRef && statutsRef.length > 0 ? statutsRef : FALLBACK_STATUTS_MANDATS
   const { data: contacts } = useContacts()
@@ -265,7 +267,6 @@ export default function MandatDetail() {
   const [confirmDelete, setConfirmDelete] = useState(false)
   const [addFichierOpen, setAddFichierOpen] = useState(false)
   const [tab, setTab] = useState<TabKey>('mandat')
-  const mandat = mandats?.find((m) => m.id === id)
   const canManage = useCanManage(mandat?.proprietaire_id)
   const deleteMandat = useDeleteMandat()
   const goBack = useGoBack('/mandats')
@@ -287,7 +288,7 @@ export default function MandatDetail() {
     { key: 'fichiers', label: 'Fichiers', badge: documentsDuMandat.length ? String(documentsDuMandat.length) : undefined },
   ]
 
-  if (!mandats) {
+  if (!mandat && id) {
     return (
       <div>
         <Topbar crumb="Mandats" title="Mandat" />

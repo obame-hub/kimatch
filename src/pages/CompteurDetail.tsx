@@ -8,7 +8,7 @@ import { Dialog } from '@/components/ui/dialog'
 import { FormField, Input, Select } from '@/components/ui/form'
 import { HistoriqueDiscret } from '@/components/ui/historique-discret'
 import { EntityLink } from '@/components/ui/entity-link'
-import { useCompteurs, useUpdateCompteur, useDeleteCompteur, useSyncCompteurElec, useSyncCompteurGaz, useUpdateCompteurField } from '@/lib/data/compteurs'
+import { useCompteur, useUpdateCompteur, useDeleteCompteur, useSyncCompteurElec, useSyncCompteurGaz, useUpdateCompteurField } from '@/lib/data/compteurs'
 import { useEnedisFetch } from '@/lib/data/enedis'
 import { useGrdFetch } from '@/lib/data/grd'
 import { useConsommations, useCreateConsommation } from '@/lib/data/consommations'
@@ -358,7 +358,9 @@ function AddFichierDialog({ open, onClose, compteurId, onSaved }: { open: boolea
 export default function CompteurDetail() {
   const { id } = useParams()
   const navigate = useNavigate()
-  const { data: compteurs } = useCompteurs()
+  // Perimetre de la fiche, lu cote serveur : ces lectures parcouraient le CRM entier pour en
+  // garder une ligne ou quelques-unes (meme correctif que les fiches compte et site).
+  const { data: compteur } = useCompteur(id)
   const { data: consommations } = useConsommations()
   const { data: sites } = useSites()
   const { data: comptes } = useComptes()
@@ -372,7 +374,6 @@ export default function CompteurDetail() {
   const { data: statutsMandatsRef } = useReferenceTable('statuts_mandats')
   const statutsMandats = statutsMandatsRef && statutsMandatsRef.length > 0 ? statutsMandatsRef : FALLBACK_STATUTS_MANDATS
 
-  const compteur = compteurs?.find((c) => c.id === id)
   const consommationsDuCompteur = useMemo(() => consommations?.filter((c) => c.compteur_id === id) ?? [], [consommations, id])
   const site = sites?.find((s) => s.id === compteur?.site_id)
   const compte = comptes?.find((c) => c.id === site?.compte_id)
@@ -474,7 +475,7 @@ export default function CompteurDetail() {
     { key: 'fichiers', label: 'Fichiers', badge: documentsDuCompteur.length ? String(documentsDuCompteur.length) : undefined },
   ]
 
-  if (!compteurs) {
+  if (!compteur && id) {
     return (
       <div>
         <Topbar crumb="Sites" title="Compteur" />

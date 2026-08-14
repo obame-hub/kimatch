@@ -9,7 +9,7 @@ import { EntityLink } from '@/components/ui/entity-link'
 import { Dialog } from '@/components/ui/dialog'
 import { FormField, Input, Select } from '@/components/ui/form'
 import { HistoriqueDiscret } from '@/components/ui/historique-discret'
-import { useContrats, useUpdateContrat, useDeleteContrat } from '@/lib/data/contrats'
+import { useContrat, useUpdateContrat, useDeleteContrat } from '@/lib/data/contrats'
 import { useSites } from '@/lib/data/sites'
 import { useComptes } from '@/lib/data/comptes'
 import { useContacts } from '@/lib/data/contacts'
@@ -317,13 +317,14 @@ function AddTarifDialog({
 export default function ContratDetail() {
   const { id } = useParams()
   const navigate = useNavigate()
-  const { data: contrats } = useContrats()
+  // Perimetre de la fiche, lu cote serveur : ces lectures parcouraient le CRM entier pour en
+  // garder une ligne ou quelques-unes (meme correctif que les fiches compte et site).
+  const { data: contrat } = useContrat(id)
   const { data: sites } = useSites()
   const { data: comptes } = useComptes()
   const { data: documents } = useDocuments()
   const { data: statutsRef } = useReferenceTable('statuts_contrats')
   const statuts = statutsRef && statutsRef.length > 0 ? statutsRef : FALLBACK_STATUTS_CONTRATS
-  const contrat = contrats?.find((c) => c.id === id)
   const site = sites?.find((s) => s.id === contrat?.site_id)
   const compte = comptes?.find((c) => c.id === site?.compte_id)
   const fournisseur = comptes?.find((c) => c.id === contrat?.fournisseur_compte_id)
@@ -359,7 +360,7 @@ export default function ContratDetail() {
     { key: 'fichiers', label: 'Fichiers', badge: documentsDuContrat.length ? String(documentsDuContrat.length) : undefined },
   ]
 
-  if (!contrats) {
+  if (!contrat && id) {
     return (
       <div>
         <Topbar crumb="Contrats" title="Contrat" />

@@ -37,7 +37,7 @@ interface RawMandat {
  * Les jointures sont filtrées sur les identifiants réellement retenus, et non rechargées en
  * entier : c'est ce qui fait passer le coût de « toute la table » à « ce qui est affiché ».
  */
-async function fetchMandats(compteId?: string): Promise<Mandat[]> {
+async function fetchMandats(compteId?: string, mandatId?: string): Promise<Mandat[]> {
   try {
     const mandats = await fetchAllRows<RawMandat>(
       'mandats',
@@ -46,7 +46,13 @@ async function fetchMandats(compteId?: string): Promise<Mandat[]> {
       // nommé sur une colonne absente ferait échouer la requête (400) pour TOUS les mandats.
       '*, compte:comptes(nom), statut:statuts_mandats(code), contact_signataire:contacts(prenom, nom), proprietaire:profils!mandats_proprietaire_id_fkey(prenom, nom), createur:profils!mandats_cree_par_id_fkey(prenom, nom)',
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      compteId ? (q: any) => q.eq('compte_id', compteId) : undefined,
+      mandatId
+        ? // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          (q: any) => q.eq('id', mandatId)
+        : compteId
+          ? // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            (q: any) => q.eq('compte_id', compteId)
+          : undefined,
     )
     const mandatIds = mandats.map((m) => m.id)
     // Aucun mandat : les deux jointures n'ont plus rien à chercher.
@@ -115,6 +121,20 @@ async function fetchMandats(compteId?: string): Promise<Mandat[]> {
   }
 }
 
+
+/**
+ * Un mandat lu par son identifiant.
+ *
+ * Les fiches le cherchaient avec `liste?.find(x => x.id === id)`, ce qui telechargeait la table
+ * entiere pour en garder une ligne. Meme motif que useCompte et useSite.
+ */
+export function useMandat(mandatId: string | undefined) {
+  return useQuery({
+    queryKey: ['mandats', 'un', mandatId],
+    queryFn: async () => (await fetchMandats(undefined, mandatId as string))[0] ?? null,
+    enabled: !!mandatId,
+  })
+}
 export function useMandats() {
   return useQuery({ queryKey: ['mandats'], queryFn: () => fetchMandats() })
 }

@@ -9,7 +9,7 @@ import { EntityLink } from '@/components/ui/entity-link'
 import { Dialog } from '@/components/ui/dialog'
 import { FormField, Input, Select, Textarea } from '@/components/ui/form'
 import { HistoriqueDiscret } from '@/components/ui/historique-discret'
-import { useActions, useUpdateAction, useDeleteAction, useCompleteAction } from '@/lib/data/actions'
+import { useAction, useUpdateAction, useDeleteAction, useCompleteAction } from '@/lib/data/actions'
 import { useSites } from '@/lib/data/sites'
 import { useContacts } from '@/lib/data/contacts'
 import { useReferenceTable } from '@/lib/data/referenceTables'
@@ -21,10 +21,11 @@ import type { ActionItem } from '@/types/domain'
 export default function ActionDetail() {
   const { id } = useParams()
   const navigate = useNavigate()
-  const { data: actions } = useActions()
+  // Perimetre de la fiche, lu cote serveur : ces lectures parcouraient le CRM entier pour en
+  // garder une ligne ou quelques-unes (meme correctif que les fiches compte et site).
+  const { data: action } = useAction(id)
   const { data: statutsRef } = useReferenceTable('statuts_actions')
   const statuts = statutsRef && statutsRef.length > 0 ? statutsRef : FALLBACK_STATUTS_ACTIONS
-  const action = actions?.find((a) => a.id === id)
   const canManage = useCanManage(action?.proprietaire_id)
   const deleteAction = useDeleteAction()
   const completeAction = useCompleteAction()

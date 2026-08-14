@@ -13,7 +13,7 @@ import { Dialog } from '@/components/ui/dialog'
 import { FormField, Input, Select, Textarea } from '@/components/ui/form'
 import { HistoriqueDiscret } from '@/components/ui/historique-discret'
 import { ActivityFeed } from '@/components/site/ActivityFeed'
-import { useContacts, useUpdateContact, useDeleteContact, useUpdateContactField } from '@/lib/data/contacts'
+import { useContact, useUpdateContact, useDeleteContact, useUpdateContactField } from '@/lib/data/contacts'
 import { useComptes } from '@/lib/data/comptes'
 import { useSites } from '@/lib/data/sites'
 import { useCompteurs } from '@/lib/data/compteurs'
@@ -44,7 +44,9 @@ type TabKey = 'contact' | 'rattachements' | 'contrats' | 'mandats' | 'recommanda
 export default function ContactDetail() {
   const { id } = useParams()
   const navigate = useNavigate()
-  const { data: contacts } = useContacts()
+  // Perimetre de la fiche, lu cote serveur : ces lectures parcouraient le CRM entier pour en
+  // garder une ligne ou quelques-unes (meme correctif que les fiches compte et site).
+  const { data: contact } = useContact(id)
   const { data: comptes } = useComptes()
   const { data: sites } = useSites()
   const { data: compteurs } = useCompteurs()
@@ -59,7 +61,6 @@ export default function ContactDetail() {
   const { data: statutsVersionsRef } = useReferenceTable('statuts_versions_recommandation')
   const statutsVersions = statutsVersionsRef && statutsVersionsRef.length > 0 ? statutsVersionsRef : FALLBACK_STATUTS_VERSIONS
 
-  const contact = contacts?.find((c) => c.id === id)
   const compte = comptes?.find((c) => c.id === contact?.compte_id)
   const deleteContact = useDeleteContact()
   const goBack = useGoBack('/contacts')
@@ -123,7 +124,7 @@ export default function ContactDetail() {
     { key: 'recommandations', label: 'Recommandations', badge: recommandationsDuCompte.length ? String(recommandationsDuCompte.length) : undefined },
   ]
 
-  if (!contacts) {
+  if (!contact && id) {
     return (
       <div>
         <Topbar crumb="Contacts" title="Contact" />

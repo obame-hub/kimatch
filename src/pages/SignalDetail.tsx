@@ -9,7 +9,7 @@ import { EntityLink } from '@/components/ui/entity-link'
 import { Dialog } from '@/components/ui/dialog'
 import { FormField, Input, Textarea } from '@/components/ui/form'
 import { HistoriqueDiscret } from '@/components/ui/historique-discret'
-import { useSignaux, useUpdateSignal, useDeleteSignal } from '@/lib/data/signaux'
+import { useSignal, useUpdateSignal, useDeleteSignal } from '@/lib/data/signaux'
 import { useReferenceTable } from '@/lib/data/referenceTables'
 import { useCanManage } from '@/lib/data/roles'
 import { FALLBACK_STATUTS_SIGNAUX } from '@/lib/referenceFallbacks'
@@ -19,10 +19,11 @@ import type { Signal } from '@/types/domain'
 export default function SignalDetail() {
   const { id } = useParams()
   const navigate = useNavigate()
-  const { data: signaux } = useSignaux()
+  // Perimetre de la fiche, lu cote serveur : ces lectures parcouraient le CRM entier pour en
+  // garder une ligne ou quelques-unes (meme correctif que les fiches compte et site).
+  const { data: signal } = useSignal(id)
   const { data: statutsRef } = useReferenceTable('statuts_signaux')
   const statuts = statutsRef && statutsRef.length > 0 ? statutsRef : FALLBACK_STATUTS_SIGNAUX
-  const signal = signaux?.find((s) => s.id === id)
   const canManage = useCanManage(signal?.proprietaire_id)
   const deleteSignal = useDeleteSignal()
   const goBack = useGoBack('/signaux')

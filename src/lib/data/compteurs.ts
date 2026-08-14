@@ -81,11 +81,11 @@ function classeMap(elec: RawCompteurElec, prefix: 'conso' | 'puissance', suffix:
  *   direct — on passe par les sites du compte. Évite de tirer les 7884 compteurs pour en afficher
  *   quelques-uns sur une fiche.
  */
-async function fetchCompteurs(siteIds?: string[]): Promise<Compteur[]> {
+async function fetchCompteurs(siteIds?: string[], compteurId?: string): Promise<Compteur[]> {
   try {
     if (siteIds && siteIds.length === 0) return []
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const restreindre = (q: any) => (siteIds ? q.in('site_id', siteIds) : q)
+    const restreindre = (q: any) => (compteurId ? q.eq('id', compteurId) : siteIds ? q.in('site_id', siteIds) : q)
     const data = await fetchAllRows<RawCompteur>(
       'compteurs',
       // `*` plutôt qu'une liste de colonnes fixe : `date_echeance` vient d'être ajoutée par
@@ -150,6 +150,20 @@ async function fetchCompteurs(siteIds?: string[]): Promise<Compteur[]> {
   }
 }
 
+
+/**
+ * Un compteur lu par son identifiant.
+ *
+ * Les fiches le cherchaient avec `liste?.find(x => x.id === id)`, ce qui telechargeait la table
+ * entiere pour en garder une ligne. Meme motif que useCompte et useSite.
+ */
+export function useCompteur(compteurId: string | undefined) {
+  return useQuery({
+    queryKey: ['compteurs', 'un', compteurId],
+    queryFn: async () => (await fetchCompteurs(undefined, compteurId as string))[0] ?? null,
+    enabled: !!compteurId,
+  })
+}
 export function useCompteurs() {
   return useQuery({ queryKey: ['compteurs'], queryFn: () => fetchCompteurs() })
 }

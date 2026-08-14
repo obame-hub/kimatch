@@ -32,14 +32,17 @@ const ENTITE_LABELS: Record<string, string> = {
  *  ses compteurs, ses mandats. Le rattachement d'un document est polymorphe (entite_type +
  *  entite_id), donc on filtre sur les identifiants : deux entités de types différents ne partagent
  *  jamais un UUID, il n'y a donc pas de faux positif à craindre. */
-async function fetchDocuments(entiteIds?: string[]): Promise<DocumentItem[]> {
+async function fetchDocuments(entiteIds?: string[], documentId?: string): Promise<DocumentItem[]> {
   try {
     if (entiteIds && entiteIds.length === 0) return []
     const data = await fetchAllRows<RawDocument>(
       'documents',
       'id, nom, nom_fichier, url, entite_type, entite_id, date_creation, proprietaire_id, type_document:types_documents(libelle), auteur:profils!documents_auteur_profil_id_fkey(prenom, nom)',
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      (q: any) => (entiteIds ? q.in('entite_id', entiteIds) : q).order('date_creation', { ascending: false }),
+      (q: any) => {
+        if (documentId) return q.eq('id', documentId)
+        return (entiteIds ? q.in('entite_id', entiteIds) : q).order('date_creation', { ascending: false })
+      },
     )
 
     return data.map((d) => ({
@@ -61,6 +64,20 @@ async function fetchDocuments(entiteIds?: string[]): Promise<DocumentItem[]> {
   }
 }
 
+
+/**
+ * Un document lu par son identifiant.
+ *
+ * Les fiches le cherchaient avec `liste?.find(x => x.id === id)`, ce qui telechargeait la table
+ * entiere pour en garder une ligne. Meme motif que useCompte et useSite.
+ */
+export function useDocument(documentId: string | undefined) {
+  return useQuery({
+    queryKey: ['documents', 'un', documentId],
+    queryFn: async () => (await fetchDocuments(undefined, documentId as string))[0] ?? null,
+    enabled: !!documentId,
+  })
+}
 export function useDocuments() {
   return useQuery({ queryKey: ['documents'], queryFn: () => fetchDocuments() })
 }

@@ -10,7 +10,7 @@ import { EntityLink } from '@/components/ui/entity-link'
 import { Dialog } from '@/components/ui/dialog'
 import { FormField, Input, Select } from '@/components/ui/form'
 import { HistoriqueDiscret } from '@/components/ui/historique-discret'
-import { useDocuments, useUpdateDocument, useDeleteDocument } from '@/lib/data/documents'
+import { useDocument, useUpdateDocument, useDeleteDocument } from '@/lib/data/documents'
 import { useCanManage, useIsAdmin, useProfilsAdmin } from '@/lib/data/roles'
 import { entityRoute } from '@/lib/entityRoute'
 import { useGoBack } from '@/lib/useGoBack'
@@ -19,8 +19,9 @@ import type { DocumentItem } from '@/types/domain'
 export default function DocumentDetail() {
   const { id } = useParams()
   const navigate = useNavigate()
-  const { data: documents } = useDocuments()
-  const doc = documents?.find((d) => d.id === id)
+  // Perimetre de la fiche, lu cote serveur : ces lectures parcouraient le CRM entier pour en
+  // garder une ligne ou quelques-unes (meme correctif que les fiches compte et site).
+  const { data: doc } = useDocument(id)
   const canManage = useCanManage(doc?.proprietaire_id)
   const deleteDocument = useDeleteDocument()
   const goBack = useGoBack('/documents')

@@ -11,7 +11,7 @@ import { Dialog } from '@/components/ui/dialog'
 import { FormField, Input, Select, Textarea } from '@/components/ui/form'
 import { HistoriqueDiscret } from '@/components/ui/historique-discret'
 import {
-  useRecommandations,
+  useRecommandation,
   useUpdateRecommandation,
   useDeleteRecommandation,
   useAjouterFournisseurConsulte,
@@ -19,7 +19,7 @@ import {
   useCreateVersion,
 } from '@/lib/data/recommandations'
 import { useReferenceTable } from '@/lib/data/referenceTables'
-import { useContacts } from '@/lib/data/contacts'
+import { useContactsParCompte } from '@/lib/data/contacts'
 import { useComptes } from '@/lib/data/comptes'
 import { useCompteurs } from '@/lib/data/compteurs'
 import { useEligibilityRules } from '@/lib/data/eligibilityRules'
@@ -639,10 +639,12 @@ function AjouterSuiviDialog({
 export default function RecommandationDetail() {
   const { id } = useParams()
   const navigate = useNavigate()
-  const { data: recommandations } = useRecommandations()
+  // Perimetre de la fiche, lu cote serveur : la recommandation etait cherchee dans les 1694 du
+  // CRM, et ses contacts dans les 3380 (meme correctif que les fiches compte et site).
+  const { data: reco } = useRecommandation(id)
   const { data: etapesRef } = useReferenceTable('etapes_recommandation')
   const { data: statutsVersionsRef } = useReferenceTable('statuts_versions_recommandation')
-  const { data: contacts } = useContacts()
+  const { data: contacts } = useContactsParCompte(reco?.compte_id)
   const [emailDialogVersion, setEmailDialogVersion] = useState<VersionRecommandation | null>(null)
   const [editOpen, setEditOpen] = useState(false)
   const [confirmDelete, setConfirmDelete] = useState(false)
@@ -652,7 +654,6 @@ export default function RecommandationDetail() {
   const [suiviFor, setSuiviFor] = useState<{ optimisationId: string; fc: FournisseurConsulte } | null>(null)
   const etapes = etapesRef && etapesRef.length > 0 ? etapesRef : FALLBACK_ETAPES_RECOMMANDATION
   const statutsVersions = statutsVersionsRef && statutsVersionsRef.length > 0 ? statutsVersionsRef : FALLBACK_STATUTS_VERSIONS
-  const reco = recommandations?.find((r) => r.id === id)
   const canManage = useCanManage(reco?.proprietaire_id)
   const deleteRecommandation = useDeleteRecommandation()
   const goBack = useGoBack('/recommandations')

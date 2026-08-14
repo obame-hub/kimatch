@@ -22,7 +22,7 @@ interface RawSignal {
 
 /** `siteIds` restreint la lecture aux signaux d'un périmètre de sites — celui d'un compte, en
  *  pratique. Les signaux n'ont pas de compte_id : ils se rattachent au site. */
-async function fetchSignaux(siteIds?: string[]): Promise<Signal[]> {
+async function fetchSignaux(siteIds?: string[], signalId?: string): Promise<Signal[]> {
 
   try {
     if (siteIds && siteIds.length === 0) return []
@@ -33,7 +33,10 @@ async function fetchSignaux(siteIds?: string[]): Promise<Signal[]> {
       // PostgREST PGRST201 (relation ambiguë) qui faisait échouer tout le chargement des signaux.
       'id, site_id, contrat_id, gravite, date_creation, commentaire, proprietaire_id, type_signal:types_signaux(libelle, poids_defaut), statut:statuts_signaux(code), site:sites(nom), responsable:profils!signaux_responsable_profil_id_fkey(prenom, nom), recommandation_id, recommandation:recommandations!recommandation_id(nom)',
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      (q: any) => (siteIds ? q.in('site_id', siteIds) : q).order('date_creation', { ascending: false }),
+      (q: any) => {
+        if (signalId) return q.eq('id', signalId)
+        return (siteIds ? q.in('site_id', siteIds) : q).order('date_creation', { ascending: false })
+      },
     )
 
     const comptesVisibles = await fetchComptesVisibles()
@@ -60,6 +63,20 @@ async function fetchSignaux(siteIds?: string[]): Promise<Signal[]> {
   }
 }
 
+
+/**
+ * Un signal lu par son identifiant.
+ *
+ * Les fiches le cherchaient avec `liste?.find(x => x.id === id)`, ce qui telechargeait la table
+ * entiere pour en garder une ligne. Meme motif que useCompte et useSite.
+ */
+export function useSignal(signalId: string | undefined) {
+  return useQuery({
+    queryKey: ['signaux', 'un', signalId],
+    queryFn: async () => (await fetchSignaux(undefined, signalId as string))[0] ?? null,
+    enabled: !!signalId,
+  })
+}
 export function useSignaux() {
   return useQuery({ queryKey: ['signaux'], queryFn: () => fetchSignaux() })
 }

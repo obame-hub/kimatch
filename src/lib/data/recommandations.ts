@@ -120,7 +120,7 @@ interface RawOffreFournisseurCompteur {
 
 /** `compteId` restreint toute la cascade aux recommandations d'un compte. Voir le commentaire au
  *  debut du corps : c'est le poste le plus lourd de l'application. */
-async function fetchRecommandations(compteId?: string): Promise<Recommandation[]> {
+async function fetchRecommandations(compteId?: string, recoId?: string): Promise<Recommandation[]> {
 
   try {
     interface RawRecoSite {
@@ -155,11 +155,15 @@ async function fetchRecommandations(compteId?: string): Promise<Recommandation[]
       // ferait echouer la requete (400) pour TOUTES les recommandations.
       '*, etape:etapes_recommandation(code), origine:types_origines(libelle), type_energie:types_energies(code), responsable:profils!recommandations_responsable_profil_id_fkey(prenom, nom), compte:comptes(id, nom), contact_signataire:contacts!recommandations_contact_signataire_id_fkey(prenom, nom, email, telephone)',
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      (q: any) => (compteId ? q.eq('compte_id', compteId) : q).order('date_ouverture', { ascending: false }),
+      (q: any) => {
+        if (recoId) return q.eq('id', recoId)
+        return (compteId ? q.eq('compte_id', compteId) : q).order('date_ouverture', { ascending: false })
+      },
     )
     const recoIds = recos.map((r) => r.id)
-    if (compteId && recoIds.length === 0) return []
-    const parReco = compteId ? surColonne('recommandation_id', recoIds) : undefined
+    const cible = Boolean(compteId || recoId)
+    if (cible && recoIds.length === 0) return []
+    const parReco = cible ? surColonne('recommandation_id', recoIds) : undefined
 
     const [sitesRows, compteursRows, versionsRows] = await Promise.all([
       fetchAllRows<RawRecoSite>('recommandations_sites', 'recommandation_id, site:sites(id, nom)', parReco),
@@ -173,12 +177,12 @@ async function fetchRecommandations(compteId?: string): Promise<Recommandation[]
         // version anterieure ni d'en creer deux le meme jour. 318 recommandations ont plusieurs
         // versions, l'ordre s'y voit donc vraiment. date_creation ne sert qu'a departager.
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        (q: any) => (compteId ? q.in('recommandation_id', recoIds) : q).order('numero_version', { ascending: false, nullsFirst: false }).order('date_creation', { ascending: false }),
+        (q: any) => (cible ? q.in('recommandation_id', recoIds) : q).order('numero_version', { ascending: false, nullsFirst: false }).order('date_creation', { ascending: false }),
       ),
     ])
 
     const versionIds = versionsRows.map((v) => v.id)
-    const parVersion = compteId ? surColonne('version_recommandation_id', versionIds) : undefined
+    const parVersion = cible ? surColonne('version_recommandation_id', versionIds) : undefined
 
     const [versionsCompteursRows, dureesRows, versionsExtraRows, optimisationsRows] = await Promise.all([
       fetchAllRows<{ id: string; version_recommandation_id: string; compteur_id: string; compteur: { numero_point: string; libelle: string | null } | null }>(
@@ -198,18 +202,18 @@ async function fetchRecommandations(compteId?: string): Promise<Recommandation[]
       fetchAllRows<{ id: string; types_prix: string[] | null; date_souhaitee: string | null }>(
         'versions_recommandation',
         'id, types_prix, date_souhaitee',
-        compteId ? surColonne('id', versionIds) : undefined,
+        cible ? surColonne('id', versionIds) : undefined,
       ).catch(() => [] as { id: string; types_prix: string[] | null; date_souhaitee: string | null }[]),
       fetchAllRows<RawOptimisation>(
         'optimisations',
         'id, version_recommandation_id, nom, description, resultat_attendu, gain_estime_annuel, cout_estime, roi_mois, priorite, est_retenue, type_optimisation:types_optimisations(code, libelle)',
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        (q: any) => (compteId ? q.in('version_recommandation_id', versionIds) : q).order('ordre'),
+        (q: any) => (cible ? q.in('version_recommandation_id', versionIds) : q).order('ordre'),
       ),
     ])
 
     const optimisationIds = optimisationsRows.map((o) => o.id)
-    const parOptimisation = compteId ? surColonne('optimisation_id', optimisationIds) : undefined
+    const parOptimisation = cible ? surColonne('optimisation_id', optimisationIds) : undefined
 
     const [offresRows, fournisseursConsultesRows] = await Promise.all([
       fetchAllRows<RawOffreFournisseur>(
@@ -228,13 +232,13 @@ async function fetchRecommandations(compteId?: string): Promise<Recommandation[]
       fetchAllRows<RawOffreFournisseurCompteur>(
         'offres_fournisseurs_compteurs',
         'id, offre_fournisseur_id, version_recommandation_compteur_id, consommation_annuelle_reference_mwh, cout_fourniture_annuel_ht, cout_acheminement_annuel_ht, cout_taxes_annuel, cout_total_annuel_estime_ht, economie_annuelle_estimee, economie_pourcentage',
-        compteId ? surColonne('offre_fournisseur_id', offresRows.map((o) => o.id)) : undefined,
+        cible ? surColonne('offre_fournisseur_id', offresRows.map((o) => o.id)) : undefined,
       ),
       fetchAllRows<RawSuiviConsultation>(
         'suivis_consultations_fournisseurs',
         'id, optimisation_fournisseur_id, date_evenement, commentaire, statut:statuts_consultations_fournisseurs(libelle), auteur:profils(prenom, nom)',
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        (q: any) => (compteId ? q.in('optimisation_fournisseur_id', fournisseursConsultesRows.map((f) => f.id)) : q).order('date_evenement'),
+        (q: any) => (cible ? q.in('optimisation_fournisseur_id', fournisseursConsultesRows.map((f) => f.id)) : q).order('date_evenement'),
       ),
     ])
 
@@ -443,6 +447,20 @@ async function fetchRecommandations(compteId?: string): Promise<Recommandation[]
   }
 }
 
+
+/**
+ * Une recommandation lu par son identifiant.
+ *
+ * Les fiches le cherchaient avec `liste?.find(x => x.id === id)`, ce qui telechargeait la table
+ * entiere pour en garder une ligne. Meme motif que useCompte et useSite.
+ */
+export function useRecommandation(recoId: string | undefined) {
+  return useQuery({
+    queryKey: ['recommandations', 'un', recoId],
+    queryFn: async () => (await fetchRecommandations(undefined, recoId as string))[0] ?? null,
+    enabled: !!recoId,
+  })
+}
 export function useRecommandations() {
   return useQuery({ queryKey: ['recommandations'], queryFn: () => fetchRecommandations() })
 }
