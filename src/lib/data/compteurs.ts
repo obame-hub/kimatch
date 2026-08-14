@@ -3,6 +3,7 @@ import { supabase } from '@/lib/supabase'
 import type { Compteur } from '@/types/domain'
 import { fetchComptesVisibles, fetchSitesVisiblesIds, filterVisibles } from '@/lib/data/visibility'
 import { fetchAllRows } from '@/lib/data/paginatedFetch'
+import { nettoyerSaisie } from '@/lib/utils'
 
 interface RawCompteurElec {
   segment: string | null
@@ -265,7 +266,9 @@ export function useCreateCompteur() {
         .from('compteurs')
         .insert({
           site_id: input.site_id,
-          numero_point: input.numero_pdl,
+          // Nettoye a l'ecriture : un PDL colle depuis Excel embarque des caracteres invisibles
+          // qui ressortent en tiret et virgule sur le PDF du mandat (voir nettoyerSaisie).
+          numero_point: nettoyerSaisie(input.numero_pdl),
           libelle: input.utilisation,
           actif: true,
           consommation_annuelle_mwh: input.consommation_annuelle_mwh ?? null,

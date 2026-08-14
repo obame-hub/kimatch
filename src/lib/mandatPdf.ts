@@ -142,6 +142,12 @@ function drawAnchor(doc: jsPDF, token: string, x: number, y: number) {
   doc.setFontSize(4)
   doc.setTextColor(235, 235, 235)
   doc.text(token, x, y)
+  // Rendre la couleur d'origine, sinon TOUT le texte trace ensuite reste en gris 235 et devient
+  // illisible. C'est ce qui effacait les mentions legales du mandat Energix, dessinees juste apres
+  // l'ancre de signature (signale le 14/08/2026) : « le texte est en clair et tres tres
+  // important ». Un appelant l'avait rattrape en rappelant setBody derriere, l'autre pas -- la
+  // reparation appartient a drawAnchor, qui est seul responsable de ce reglage temporaire.
+  setBody(doc)
 }
 
 function drawUnderlinedLabel(doc: jsPDF, label: string, x: number, y: number, sz = 8.5) {
@@ -511,6 +517,10 @@ export async function generateMandatKiweePdf({ compte, contact, compteurs, duree
   drawAnchor(doc, '\\d1\\', sigX + 4 + doc.getTextWidth('Date : ') + 2, sigY + 13)
   setBody(doc, 8)
   doc.text('Lieu :', sigX + 4, sigY + 20)
+  // Sans ancre, DocuSign ne pose aucun champ ici : le signataire voyait « Lieu : » sans pouvoir
+  // rien ecrire (signale le 14/08/2026, « le champ Lieu n'a pas d'encre »).
+  drawAnchor(doc, '\\l1\\', sigX + 4 + doc.getTextWidth('Lieu : ') + 2, sigY + 20)
+  setBody(doc, 8)
   doc.text('Signature :', sigX + 4, sigY + 27)
   drawAnchor(doc, '\\s1\\', sigX + 4, sigY + 33)
 

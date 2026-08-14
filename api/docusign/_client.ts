@@ -108,6 +108,24 @@ export async function sendEnvelope(ctx: DocusignContext, input: SendEnvelopeInpu
           tabs: {
             signHereTabs: [{ anchorString: '\\s1\\', anchorUnits: 'pixels', anchorXOffset: '0', anchorYOffset: '-8' }],
             dateSignedTabs: [{ anchorString: '\\d1\\', anchorUnits: 'pixels', anchorXOffset: '0', anchorYOffset: '-8', font: 'Arial', fontSize: 'Size8' }],
+            // Le lieu de signature : un champ libre, obligatoire, ancre sur « Lieu : » du mandat
+            // KiWee. Sans ce tab, DocuSign n'affichait aucune zone de saisie et le signataire
+            // voyait un libelle sans « encre » (signale le 14/08/2026). `required` parce qu'un
+            // mandat sans lieu de signature est incomplet au sens de l'article 1367 du code civil.
+            textTabs: [
+              {
+                anchorString: '\\l1\\',
+                anchorUnits: 'pixels',
+                anchorXOffset: '0',
+                anchorYOffset: '-8',
+                tabLabel: 'lieu_signature',
+                name: 'Lieu',
+                width: 120,
+                required: 'true',
+                font: 'Arial',
+                fontSize: 'Size8',
+              },
+            ],
           },
         },
       ],

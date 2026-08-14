@@ -8,6 +8,23 @@ import { postMessage, joinChannel } from '../slack/_client.js'
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type Admin = SupabaseClient<any, any, any, any, any>
 
+/**
+ * Vercel analyse le corps JSON et remplit `req.body` par defaut. Il faut l'en empecher : la
+ * signature HMAC de DocuSign porte sur les octets EXACTS envoyes, et re-serialiser l'objet
+ * analyse ne les redonne pas (espaces, echappements, ordre). C'est ce que faisait ce fichier :
+ * toute notification etait rejetee en 401, donc aucun mandat ne passait a « Envoye » ni a
+ * « Signe ». Constate le 14/08/2026 sur CABINET MOLINIER -- l'enveloppe etait `completed` chez
+ * DocuSign depuis 12:22 alors que le mandat restait « A preparer ».
+ */
+export const config = { api: { bodyParser: false } }
+
+/** Lit le corps de la requete tel qu'il est arrive, sans transformation. */
+async function lireCorpsBrut(req: VercelRequest): Promise<string> {
+  const morceaux: Buffer[] = []
+  for await (const morceau of req) morceaux.push(typeof morceau === 'string' ? Buffer.from(morceau) : (morceau as Buffer))
+  return Buffer.concat(morceaux).toString('utf8')
+}
+
 const STATUT_CODE_PAR_EVENEMENT: Record<string, string> = {
   sent: 'ENVOYE',
   delivered: 'ENVOYE',
@@ -38,17 +55,31 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     return
   }
 
+  const corpsBrut = await lireCorpsBrut(req)
+
   const secret = process.env.DOCUSIGN_CONNECT_HMAC_SECRET
   if (secret) {
-    const rawBody = typeof req.body === 'string' ? req.body : JSON.stringify(req.body)
     const signature = req.headers['x-docusign-signature-1'] as string | undefined
-    if (!verifySignature(rawBody, signature, secret)) {
+    if (!verifySignature(corpsBrut, signature, secret)) {
+      // On distingue les deux causes dans le journal : une notification non signee (HMAC desactive
+      // dans la configuration Connect) et une signature qui ne correspond pas (mauvaise cle).
+      // Sans cela, les deux se presentent comme un 401 muet et se diagnostiquent a l'aveugle.
+      console.error('[docusign webhook] signature refusee', {
+        enTetePresent: Boolean(req.headers['x-docusign-signature-1']),
+        tailleCorps: corpsBrut.length,
+      })
       res.status(401).json({ error: 'Signature invalide' })
       return
     }
   }
 
-  const payload = req.body as ConnectPayload
+  let payload: ConnectPayload
+  try {
+    payload = JSON.parse(corpsBrut) as ConnectPayload
+  } catch {
+    res.status(400).json({ error: 'Corps JSON illisible' })
+    return
+  }
   const envelopeId = payload?.data?.envelopeId
   const status = payload?.data?.envelopeSummary?.status ?? payload?.event?.replace('envelope-', '')
 
