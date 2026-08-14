@@ -1,6 +1,7 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node'
 import { createHmac, timingSafeEqual } from 'crypto'
 import { createClient, type SupabaseClient } from '@supabase/supabase-js'
+import { sessionQuelconque } from './_oauth.js'
 import { runGrdSyncForMandat } from './_grdSync.js'
 import { sendMandatSignedEmail } from './_gmailNotify.js'
 import { postMessage, joinChannel } from '../slack/_client.js'
@@ -57,21 +58,24 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
   const corpsBrut = await lireCorpsBrut(req)
 
+  // La signature HMAC ne fait plus autorite a elle seule.
+  //
+  // Elle a bloque toutes les notifications pendant des semaines : 25 echecs enregistres cote
+  // DocuSign, tous en 401, dont l'enveloppe signee de CABINET MOLINIER. Deux causes se sont
+  // succedees -- la verification portait sur une re-serialisation du corps au lieu des octets
+  // recus, puis la cle DOCUSIGN_CONNECT_HMAC_SECRET s'est revelee differente de celle configuree
+  // dans Connect. Dans les deux cas le resultat etait le meme : aucun mandat ne passait a « Signe »,
+  // en silence, et personne ne pouvait le deviner depuis l'application.
+  //
+  // On ne fait donc plus confiance au CONTENU de la notification, signee ou non : on en extrait le
+  // seul identifiant d'enveloppe, puis on demande son vrai statut a DocuSign. Une notification
+  // forgee ne peut alors rien affirmer -- au pire elle declenche une resynchronisation d'un mandat
+  // existant avec la verite de DocuSign. Une signature valide reste un bon signe, elle est
+  // journalisee, mais son absence ne fait plus perdre un statut.
   const secret = process.env.DOCUSIGN_CONNECT_HMAC_SECRET
-  if (secret) {
-    const signature = req.headers['x-docusign-signature-1'] as string | undefined
-    if (!verifySignature(corpsBrut, signature, secret)) {
-      // On distingue les deux causes dans le journal : une notification non signee (HMAC desactive
-      // dans la configuration Connect) et une signature qui ne correspond pas (mauvaise cle).
-      // Sans cela, les deux se presentent comme un 401 muet et se diagnostiquent a l'aveugle.
-      console.error('[docusign webhook] signature refusee', {
-        enTetePresent: Boolean(req.headers['x-docusign-signature-1']),
-        tailleCorps: corpsBrut.length,
-      })
-      res.status(401).json({ error: 'Signature invalide' })
-      return
-    }
-  }
+  const signatureValide = secret
+    ? verifySignature(corpsBrut, req.headers['x-docusign-signature-1'] as string | undefined, secret)
+    : null
 
   let payload: ConnectPayload
   try {
@@ -81,16 +85,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     return
   }
   const envelopeId = payload?.data?.envelopeId
-  const status = payload?.data?.envelopeSummary?.status ?? payload?.event?.replace('envelope-', '')
-
-  if (!envelopeId || !status) {
-    res.status(200).json({ ok: true, skipped: true, reason: 'payload incomplet' })
-    return
-  }
-
-  const statutCode = STATUT_CODE_PAR_EVENEMENT[status]
-  if (!statutCode) {
-    res.status(200).json({ ok: true, skipped: true, reason: `statut ${status} ignoré` })
+  if (!envelopeId) {
+    res.status(200).json({ ok: true, skipped: true, reason: 'aucun identifiant d’enveloppe' })
     return
   }
 
@@ -103,15 +99,57 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
   try {
     const admin = createClient(supabaseUrl, serviceRoleKey)
+
+    // L'enveloppe doit correspondre a un mandat connu : c'est la premiere barriere, avant meme
+    // d'appeler DocuSign.
+    const { data: mandatConnu } = await admin
+      .from('mandats')
+      .select('id, cree_par_id, proprietaire_id')
+      .eq('docusign_envelope_id', envelopeId)
+      .maybeSingle()
+    if (!mandatConnu) {
+      res.status(200).json({ ok: true, skipped: true, reason: 'enveloppe inconnue' })
+      return
+    }
+
+    const session = await sessionQuelconque(admin, mandatConnu.proprietaire_id ?? mandatConnu.cree_par_id)
+    if (!session) {
+      // Sans session DocuSign, impossible de verifier quoi que ce soit. On refuse plutot que
+      // d'appliquer un statut non verifie, et on repond 200 pour que DocuSign ne rejoue pas
+      // indefiniment une notification que nous ne saurons pas traiter davantage la prochaine fois.
+      console.error('[docusign webhook] aucune session DocuSign disponible pour verifier', { envelopeId })
+      res.status(200).json({ ok: true, skipped: true, reason: 'aucune session DocuSign pour vérifier' })
+      return
+    }
+
+    // La verite vient de DocuSign, pas du corps de la requete.
+    const envRes = await fetch(`${session.base_uri}/restapi/v2.1/accounts/${session.account_id}/envelopes/${envelopeId}`, {
+      headers: { Authorization: `Bearer ${session.access_token}` },
+    })
+    const env = (await envRes.json()) as { status?: string; completedDateTime?: string; sentDateTime?: string }
+    if (!envRes.ok || !env.status) {
+      res.status(502).json({ error: 'Statut DocuSign illisible' })
+      return
+    }
+    const status = env.status
+    const statutCode = STATUT_CODE_PAR_EVENEMENT[status]
+    console.log('[docusign webhook] enveloppe verifiee', { envelopeId, status, signatureValide })
+    if (!statutCode) {
+      res.status(200).json({ ok: true, skipped: true, reason: `statut ${status} ignoré` })
+      return
+    }
     const { data: statutRow } = await admin.from('statuts_mandats').select('id').eq('code', statutCode).maybeSingle()
-    // Date de signature : jamais enregistrée avant ce correctif -- prend l'horodatage de complétion
-    // fourni par DocuSign (le plus fiable), sinon l'heure de réception du webhook en repli.
-    const dateSignature = statutCode === 'SIGNE'
-      ? (payload.data?.envelopeSummary?.completedDateTime ?? new Date().toISOString())
-      : undefined
+    // Horodatages pris sur l'enveloppe verifiee, pas sur la notification : ce sont les memes que
+    // ceux de la piste d'audit DocuSign.
+    const dateSignature = statutCode === 'SIGNE' ? (env.completedDateTime ?? new Date().toISOString()) : undefined
+    const dateEnvoi = env.sentDateTime ?? undefined
     const { data: mandats, error } = await admin
       .from('mandats')
-      .update({ ...(statutRow ? { statut_id: statutRow.id } : {}), ...(dateSignature ? { date_signature: dateSignature } : {}) })
+      .update({
+        ...(statutRow ? { statut_id: statutRow.id } : {}),
+        ...(dateSignature ? { date_signature: dateSignature } : {}),
+        ...(dateEnvoi ? { date_envoi: dateEnvoi } : {}),
+      })
       .eq('docusign_envelope_id', envelopeId)
       .select('id, compte_id, proprietaire_id, compte:comptes(nom), proprietaire:profils!mandats_proprietaire_id_fkey(email, prenom, nom)')
 
@@ -134,6 +172,11 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       // Best-effort : la synchro GRD + les notifications ne doivent jamais faire échouer
       // l'accusé de réception du webhook envoyé à DocuSign (sinon DocuSign réessaiera indéfiniment).
       try {
+        await archiverDocumentSigne(admin, session, envelopeId, raw.id, compteNom)
+      } catch (docErr) {
+        console.error('[docusign-webhook] archivage du mandat signé échoué', docErr)
+      }
+      try {
         const summary = await runGrdSyncForMandat(admin, raw.id)
         await notifyMandatSigne(admin, raw.id, compteNom, summary)
         await emailProprietaire(admin, raw.id, compteNom, proprietaire, summary)
@@ -146,6 +189,69 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   } catch (err) {
     res.status(500).json({ error: err instanceof Error ? err.message : 'Erreur inconnue' })
   }
+}
+
+/**
+ * Depose le mandat signe dans les fichiers du mandat.
+ *
+ * Sans cela, le document signe n'existe nulle part dans Kimatch : la configuration Connect est en
+ * `includeDocuments: false` (elle transporte les evenements, pas les PDF), et rien n'allait le
+ * chercher. Signale le 14/08/2026 : « le mandat n'est nulle part dans le fichier ».
+ *
+ * On telecharge la version combinee -- tous les documents de l'enveloppe et le certificat de
+ * signature en un seul PDF, c'est exactement ce qu'on veut conserver comme preuve.
+ *
+ * Le depot passe par la cle de service : le bucket « documents » n'accorde aucune ecriture aux
+ * utilisateurs, et il n'a pas a en accorder pour cet usage puisque c'est le serveur qui archive.
+ */
+async function archiverDocumentSigne(
+  admin: Admin,
+  session: { base_uri: string; account_id: string; access_token: string },
+  envelopeId: string,
+  mandatId: string,
+  compteNom: string,
+) {
+  // Deja archive : le webhook peut etre rejoue plusieurs fois pour la meme enveloppe.
+  const { data: existant } = await admin
+    .from('documents')
+    .select('id')
+    .eq('entite_type', 'mandat')
+    .eq('entite_id', mandatId)
+    .eq('nom', 'Mandat signé')
+    .maybeSingle()
+  if (existant) return
+
+  const res = await fetch(
+    `${session.base_uri}/restapi/v2.1/accounts/${session.account_id}/envelopes/${envelopeId}/documents/combined`,
+    { headers: { Authorization: `Bearer ${session.access_token}` } },
+  )
+  if (!res.ok) throw new Error(`téléchargement du document signé refusé (${res.status})`)
+  const pdf = Buffer.from(await res.arrayBuffer())
+  if (!pdf.length) throw new Error('document signé vide')
+
+  const url = process.env.VITE_SUPABASE_URL as string
+  const cle = process.env.SUPABASE_SERVICE_ROLE_KEY as string
+  const nomFichier = `Mandat_signe_${compteNom.replace(/[^A-Za-z0-9]+/g, '_')}.pdf`
+  const chemin = `mandats/${mandatId}/${nomFichier}`
+  const depot = await fetch(`${url}/storage/v1/object/documents/${chemin}`, {
+    method: 'POST',
+    headers: { Authorization: `Bearer ${cle}`, 'Content-Type': 'application/pdf', 'x-upsert': 'true' },
+    body: new Uint8Array(pdf),
+  })
+  if (!depot.ok) throw new Error(`dépôt dans le stockage refusé (${depot.status})`)
+
+  const { data: typeDoc } = await admin.from('types_documents').select('id').eq('code', 'MANDAT').maybeSingle()
+  const { error } = await admin.from('documents').insert({
+    ...(typeDoc ? { type_document_id: typeDoc.id } : {}),
+    nom: 'Mandat signé',
+    nom_fichier: nomFichier,
+    url: `${url}/storage/v1/object/public/documents/${chemin}`,
+    mime_type: 'application/pdf',
+    taille_octets: pdf.length,
+    entite_type: 'mandat',
+    entite_id: mandatId,
+  })
+  if (error) throw new Error(error.message)
 }
 
 async function notifyMandatSigne(

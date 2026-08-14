@@ -286,3 +286,41 @@ export async function profilAppelant(authHeader: string): Promise<string | null>
   if (error || !data.user) return null
   return data.user.id
 }
+
+/**
+ * Une session DocuSign utilisable du compte, quelle qu'elle soit.
+ *
+ * Sert aux traitements qui n'ont pas d'utilisateur derriere eux -- le webhook Connect, notamment,
+ * est appele par DocuSign et doit pouvoir interroger l'API pour verifier ce qu'on lui raconte.
+ * `profilPrefere` permet de viser d'abord la personne concernee (le createur du mandat), ce qui
+ * garde la lecture dans son propre compte quand c'est possible.
+ *
+ * Les enveloppes appartiennent au COMPTE DocuSign, pas a l'utilisateur : n'importe quelle session
+ * du compte peut donc les lire. C'est ce qui permet au webhook de fonctionner meme si la personne
+ * qui a envoye le mandat s'est deconnectee depuis.
+ */
+export async function sessionQuelconque(
+  admin: SupabaseClient,
+  profilPrefere?: string | null,
+): Promise<SessionDocusign | null> {
+  if (profilPrefere) {
+    try {
+      return await sessionUtilisable(admin, profilPrefere)
+    } catch {
+      // Session absente ou refresh refuse : on se rabat sur une autre.
+    }
+  }
+  const { data } = await admin
+    .from('docusign_sessions')
+    .select('profil_id')
+    .order('date_modification', { ascending: false })
+  for (const ligne of (data ?? []) as { profil_id: string }[]) {
+    if (ligne.profil_id === profilPrefere) continue
+    try {
+      return await sessionUtilisable(admin, ligne.profil_id)
+    } catch {
+      // Celle-la non plus : on essaie la suivante.
+    }
+  }
+  return null
+}
