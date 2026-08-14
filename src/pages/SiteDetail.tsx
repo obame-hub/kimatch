@@ -13,7 +13,9 @@ import { AddressAutocomplete } from '@/components/ui/address-autocomplete'
 import { PdlDraftRows, emptyPdlDraft, buildDraftCharacteristics, champsPdlManquants, applyExtractionToDraft, type PdlDraft, type ExtractedField } from '@/components/compteur/PdlDraftRows'
 import { ExtractDocumentButton } from '@/components/ui/document-extraction'
 import { MandatChainPrompt, type ChainedCompteur } from '@/components/compteur/MandatChainPrompt'
-import { useSites, useUpdateSite, useDeleteSite } from '@/lib/data/sites'
+import { useSite, useUpdateSite, useDeleteSite } from '@/lib/data/sites'
+import { useCompteursParSites } from '@/lib/data/compteurs'
+import { useCompte } from '@/lib/data/comptes'
 import { useReferenceTable } from '@/lib/data/referenceTables'
 import {
   FALLBACK_TYPES_SITES,
@@ -28,15 +30,15 @@ import {
   FALLBACK_TYPES_ENERGIES,
 } from '@/lib/referenceFallbacks'
 import { useCanManage, useIsAdmin, useProfilsAdmin } from '@/lib/data/roles'
-import { useSignaux } from '@/lib/data/signaux'
+import { useSignauxParSites } from '@/lib/data/signaux'
 import { useCompteurs, useCreateCompteur } from '@/lib/data/compteurs'
-import { useRecommandations } from '@/lib/data/recommandations'
-import { useContrats } from '@/lib/data/contrats'
+import { useRecommandationsParCompte } from '@/lib/data/recommandations'
+import { useContratsParCompte } from '@/lib/data/contrats'
 import { useInteractionsForSite } from '@/lib/data/interactions'
-import { useContacts } from '@/lib/data/contacts'
-import { useMandats } from '@/lib/data/mandats'
-import { useActions, useCreateAction } from '@/lib/data/actions'
-import { useDocuments, useCreateDocument } from '@/lib/data/documents'
+import { useContactsParCompte, useContacts } from '@/lib/data/contacts'
+import { useMandatsParCompte } from '@/lib/data/mandats'
+import { useActionsParSites, useCreateAction } from '@/lib/data/actions'
+import { useDocumentsParEntites, useCreateDocument } from '@/lib/data/documents'
 import { useHistorique } from '@/lib/data/historique'
 import { useComptes } from '@/lib/data/comptes'
 import { EnergyTimeline } from '@/components/site/EnergyTimeline'
@@ -58,16 +60,22 @@ function copyToClipboard(text: string, onDone: (msg: string) => void) {
 export default function SiteDetail() {
   const { id } = useParams()
   const navigate = useNavigate()
-  const { data: sites } = useSites()
-  const { data: signaux } = useSignaux()
-  const { data: compteurs } = useCompteurs()
-  const { data: recommandations } = useRecommandations()
-  const { data: contrats } = useContrats()
-  const { data: contacts } = useContacts()
-  const { data: mandats } = useMandats()
-  const { data: actions } = useActions()
-  const { data: documents } = useDocuments()
-  const { data: comptes } = useComptes()
+  // Tout est lu au perimetre du site, cote serveur : ces dix lectures chargeaient le CRM entier
+  // pour afficher une fiche (meme motif que la fiche compte, corrige le 14/08/2026).
+  const { data: site } = useSite(id)
+  const { data: compte } = useCompte(site?.compte_id)
+  const siteIdsPourFiltre = useMemo(() => (id ? [id] : undefined), [id])
+  const { data: signaux } = useSignauxParSites(siteIdsPourFiltre)
+  const { data: compteurs } = useCompteursParSites(siteIdsPourFiltre)
+  const { data: actions } = useActionsParSites(siteIdsPourFiltre)
+  const { data: documents } = useDocumentsParEntites(siteIdsPourFiltre)
+  // Recommandations, contrats, mandats et contacts se rattachent au COMPTE : on lit son perimetre,
+  // puis on garde ce qui concerne ce site. Un mandat couvre d'ailleurs plusieurs sites, et la fiche
+  // affiche explicitement « les autres mandats du compte ».
+  const { data: recommandations } = useRecommandationsParCompte(site?.compte_id)
+  const { data: contrats } = useContratsParCompte(site?.compte_id)
+  const { data: mandats } = useMandatsParCompte(site?.compte_id)
+  const { data: contacts } = useContactsParCompte(site?.compte_id)
   const createAction = useCreateAction()
   const deleteSite = useDeleteSite()
   const { data: statutsContratsRef } = useReferenceTable('statuts_contrats')
@@ -92,7 +100,6 @@ export default function SiteDetail() {
     setTimeout(() => setToast(null), 2200)
   }
 
-  const site = sites?.find((s) => s.id === id)
   const canManage = useCanManage(site?.proprietaire_id)
   const goBack = useGoBack('/sites')
 
@@ -102,7 +109,6 @@ export default function SiteDetail() {
     navigate('/sites')
   }
 
-  const compte = comptes?.find((c) => c.id === site?.compte_id)
   const signauxDuSite = useMemo(() => signaux?.filter((s) => s.site_id === id) ?? [], [signaux, id])
   const compteursDuSite = useMemo(() => compteurs?.filter((c) => c.site_id === id) ?? [], [compteurs, id])
   const recommandationsDuSite = useMemo(() => recommandations?.filter((r) => r.sites.some((s) => s.id === id)) ?? [], [recommandations, id])
@@ -180,7 +186,7 @@ export default function SiteDetail() {
     return () => window.removeEventListener('keydown', onKeyDown)
   }, [site?.id])
 
-  if (!sites) {
+  if (!site && !id) {
     return (
       <div>
         <Topbar crumb="Sites" title="Site" />
@@ -715,14 +721,19 @@ export default function SiteDetail() {
         onSaved={() => showToast('✓ Fichier ajouté')}
       />
 
-      <AddCompteurDialog
-        open={addCompteurOpen}
-        onClose={() => setAddCompteurOpen(false)}
-        siteId={site.id}
-        siteNom={site.nom}
-        compteId={site.compte_id}
-        onSaved={(message) => showToast(message)}
-      />
+      {/* Monte seulement a l'ouverture : ce dialogue lit useComptes, useContacts et useCompteurs
+          pour detecter un PDL deja existant ailleurs dans le CRM. Monte en permanence, chaque
+          affichage d'une fiche site payait ces trois tables -- meme piege que sur la fiche compte. */}
+      {addCompteurOpen && (
+        <AddCompteurDialog
+          open
+          onClose={() => setAddCompteurOpen(false)}
+          siteId={site.id}
+          siteNom={site.nom}
+          compteId={site.compte_id}
+          onSaved={(message) => showToast(message)}
+        />
+      )}
 
       <Dialog
         open={confirmDelete}

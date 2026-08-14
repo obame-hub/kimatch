@@ -37,9 +37,19 @@ interface RawSiteExtra {
  * @param compteId Ne charger que les sites de ce compte. Une fiche compte n'a besoin que des
  *   siens ; tirer les 6346 sites pour en afficher sept coûtait plusieurs secondes.
  */
-async function fetchSites(compteId?: string): Promise<Site[]> {
+/** Lecture par identifiants de site, pour les fiches qui n'en affichent qu'un. */
+async function fetchSitesParIds(siteIds: string[]): Promise<Site[]> {
+  return fetchSites(undefined, siteIds)
+}
+
+async function fetchSites(compteId?: string, siteIds?: string[]): Promise<Site[]> {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const restreindre = (q: any) => (compteId ? q.eq('compte_id', compteId) : q)
+  const restreindre = (q: any) => {
+    if (compteId) return q.eq('compte_id', compteId)
+    if (siteIds) return q.in('id', siteIds)
+    return q
+  }
+  const cible = Boolean(compteId || siteIds)
 
   try {
     // Les sites d'abord : quand on filtre par compte, leurs identifiants servent à restreindre
@@ -52,9 +62,9 @@ async function fetchSites(compteId?: string): Promise<Site[]> {
     )
     const idsSites = sites.map((s) => s.id)
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const surCesSites = (q: any) => (compteId ? q.in('site_id', idsSites) : q)
+    const surCesSites = (q: any) => (cible ? q.in('site_id', idsSites) : q)
 
-    const [compteursRows, signauxRows] = compteId && idsSites.length === 0
+    const [compteursRows, signauxRows] = cible && idsSites.length === 0
       ? [[], []]
       : await Promise.all([
           fetchAllRows<{ site_id: string }>('compteurs', 'site_id', surCesSites),
@@ -127,6 +137,20 @@ export function useSites() {
 }
 
 /** Sites d'un seul compte -- pour les fiches de détail. */
+/**
+ * Un seul site, lu par son identifiant.
+ *
+ * La fiche site le cherchait avec `sites?.find(...)`, ce qui telechargeait les 6346 sites du CRM
+ * pour en garder un. Meme motif que useCompte.
+ */
+export function useSite(siteId: string | undefined) {
+  return useQuery({
+    queryKey: ['sites', 'un', siteId],
+    queryFn: async () => (await fetchSitesParIds([siteId as string]))[0] ?? null,
+    enabled: !!siteId,
+  })
+}
+
 export function useSitesParCompte(compteId: string | undefined) {
   return useQuery({
     queryKey: ['sites', 'compte', compteId],
