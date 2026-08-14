@@ -28,12 +28,18 @@ const ENTITE_LABELS: Record<string, string> = {
   contrat: 'Contrat',
 }
 
-async function fetchDocuments(): Promise<DocumentItem[]> {
+/** `entiteIds` restreint la lecture aux documents d'un ensemble d'objets — le compte, ses sites,
+ *  ses compteurs, ses mandats. Le rattachement d'un document est polymorphe (entite_type +
+ *  entite_id), donc on filtre sur les identifiants : deux entités de types différents ne partagent
+ *  jamais un UUID, il n'y a donc pas de faux positif à craindre. */
+async function fetchDocuments(entiteIds?: string[]): Promise<DocumentItem[]> {
   try {
+    if (entiteIds && entiteIds.length === 0) return []
     const data = await fetchAllRows<RawDocument>(
       'documents',
       'id, nom, nom_fichier, url, entite_type, entite_id, date_creation, proprietaire_id, type_document:types_documents(libelle), auteur:profils!documents_auteur_profil_id_fkey(prenom, nom)',
-      (q) => q.order('date_creation', { ascending: false }),
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      (q: any) => (entiteIds ? q.in('entite_id', entiteIds) : q).order('date_creation', { ascending: false }),
     )
 
     return data.map((d) => ({
@@ -56,7 +62,17 @@ async function fetchDocuments(): Promise<DocumentItem[]> {
 }
 
 export function useDocuments() {
-  return useQuery({ queryKey: ['documents'], queryFn: fetchDocuments })
+  return useQuery({ queryKey: ['documents'], queryFn: () => fetchDocuments() })
+}
+
+/** Documents rattachés à un ensemble d'entités, filtrés côté serveur. À préférer sur toute fiche. */
+export function useDocumentsParEntites(entiteIds: string[] | undefined) {
+  const cle = [...(entiteIds ?? [])].sort()
+  return useQuery({
+    queryKey: ['documents', 'entites', cle],
+    queryFn: () => fetchDocuments(cle),
+    enabled: !!entiteIds,
+  })
 }
 
 interface CreateDocumentInput {

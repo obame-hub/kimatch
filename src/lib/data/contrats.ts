@@ -47,21 +47,26 @@ interface RawContrat {
   date_modification: string
 }
 
-async function fetchContrats(): Promise<Contrat[]> {
+/** `compteId` restreint la lecture aux contrats d'un compte, jointure des compteurs comprise.
+ *  Même motif que fetchMandats : une fiche compte ne doit pas payer les 1598 contrats du CRM. */
+async function fetchContrats(compteId?: string): Promise<Contrat[]> {
   try {
-    const [contrats, compteursRows] = await Promise.all([
-      fetchAllRows<RawContrat>(
-        'contrats',
-        // `*` plutôt qu'une liste de colonnes fixe : `strategie_tarifaire` vient d'être ajoutée
-        // par migration et peut ne pas encore exister en prod au moment du déploiement.
-        '*, site:sites(nom), fournisseur:comptes!contrats_fournisseur_compte_id_fkey(nom), compte:comptes!contrats_compte_id_fkey(nom), type_energie:types_energies(code), statut:statuts_contrats(code), contact_signataire:contacts!contrats_contact_signataire_id_fkey(prenom, nom), interlocuteur_pricing:contacts!contrats_interlocuteur_pricing_contact_id_fkey(prenom, nom), proprietaire:profils!contrats_proprietaire_id_fkey(prenom, nom)',
-        (q) => q.order('date_debut', { ascending: false }),
-      ),
-      fetchAllRows<{ id: string; contrat_id: string; compteur: { id: string; numero_point: string; libelle: string | null } | null }>(
-        'contrats_compteurs',
-        'id, contrat_id, compteur:compteurs(id, numero_point, libelle)',
-      ),
-    ])
+    const contrats = await fetchAllRows<RawContrat>(
+      'contrats',
+      // `*` plutôt qu'une liste de colonnes fixe : `strategie_tarifaire` vient d'être ajoutée
+      // par migration et peut ne pas encore exister en prod au moment du déploiement.
+      '*, site:sites(nom), fournisseur:comptes!contrats_fournisseur_compte_id_fkey(nom), compte:comptes!contrats_compte_id_fkey(nom), type_energie:types_energies(code), statut:statuts_contrats(code), contact_signataire:contacts!contrats_contact_signataire_id_fkey(prenom, nom), interlocuteur_pricing:contacts!contrats_interlocuteur_pricing_contact_id_fkey(prenom, nom), proprietaire:profils!contrats_proprietaire_id_fkey(prenom, nom)',
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      (q: any) => (compteId ? q.eq('compte_id', compteId) : q).order('date_debut', { ascending: false }),
+    )
+    const contratIds = contrats.map((c) => c.id)
+    if (compteId && contratIds.length === 0) return []
+    const compteursRows = await fetchAllRows<{ id: string; contrat_id: string; compteur: { id: string; numero_point: string; libelle: string | null } | null }>(
+      'contrats_compteurs',
+      'id, contrat_id, compteur:compteurs(id, numero_point, libelle)',
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      compteId ? (q: any) => q.in('contrat_id', contratIds) : undefined,
+    )
 
     const compteursParContrat = new Map<string, { id: string; contrat_compteur_id: string | null; numero_pdl: string; utilisation: string }[]>()
     for (const cc of compteursRows) {
@@ -122,7 +127,16 @@ async function fetchContrats(): Promise<Contrat[]> {
 }
 
 export function useContrats() {
-  return useQuery({ queryKey: ['contrats'], queryFn: fetchContrats })
+  return useQuery({ queryKey: ['contrats'], queryFn: () => fetchContrats() })
+}
+
+/** Contrats d'un seul compte, filtrés côté serveur. À préférer sur toute fiche. */
+export function useContratsParCompte(compteId: string | undefined) {
+  return useQuery({
+    queryKey: ['contrats', 'compte', compteId],
+    queryFn: () => fetchContrats(compteId as string),
+    enabled: !!compteId,
+  })
 }
 
 interface CreateContratInput {

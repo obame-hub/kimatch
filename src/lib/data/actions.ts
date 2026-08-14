@@ -25,12 +25,17 @@ interface RawAction {
   recommandation: { nom: string } | null
 }
 
-async function fetchActions(): Promise<ActionItem[]> {
+/** `siteIds` restreint la lecture aux tâches d'un périmètre de sites. Les tâches sans site
+ *  (purement personnelles ou liées à un seul contact) ne concernent pas une fiche compte : elles
+ *  sont donc hors périmètre quand le filtre est fourni. */
+async function fetchActions(siteIds?: string[]): Promise<ActionItem[]> {
   try {
+    if (siteIds && siteIds.length === 0) return []
     const data = await fetchAllRows<RawAction>(
       'actions',
       'id, titre, site_id, contact_id, recommandation_id, date_creation, date_prevue, date_realisation, priorite, commentaire, proprietaire_id, responsable_profil_id, type_action:types_actions(libelle), statut:statuts_actions(code), responsable:profils!actions_responsable_profil_id_fkey(prenom, nom), site:sites(nom), contact:contacts(prenom, nom), recommandation:recommandations!recommandation_id(nom)',
-      (q) => q.order('date_prevue'),
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      (q: any) => (siteIds ? q.in('site_id', siteIds) : q).order('date_prevue'),
     )
 
     const comptesVisibles = await fetchComptesVisibles()
@@ -67,7 +72,17 @@ async function fetchActions(): Promise<ActionItem[]> {
 }
 
 export function useActions() {
-  return useQuery({ queryKey: ['actions'], queryFn: fetchActions })
+  return useQuery({ queryKey: ['actions'], queryFn: () => fetchActions() })
+}
+
+/** Tâches d'un périmètre de sites, filtrées côté serveur. À préférer sur toute fiche. */
+export function useActionsParSites(siteIds: string[] | undefined) {
+  const cle = [...(siteIds ?? [])].sort()
+  return useQuery({
+    queryKey: ['actions', 'sites', cle],
+    queryFn: () => fetchActions(cle),
+    enabled: !!siteIds,
+  })
 }
 
 interface CreateActionInput {

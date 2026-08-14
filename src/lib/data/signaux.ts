@@ -20,16 +20,20 @@ interface RawSignal {
   recommandation: { nom: string } | null
 }
 
-async function fetchSignaux(): Promise<Signal[]> {
+/** `siteIds` restreint la lecture aux signaux d'un périmètre de sites — celui d'un compte, en
+ *  pratique. Les signaux n'ont pas de compte_id : ils se rattachent au site. */
+async function fetchSignaux(siteIds?: string[]): Promise<Signal[]> {
 
   try {
+    if (siteIds && siteIds.length === 0) return []
     const data = await fetchAllRows<RawSignal>(
       'signaux',
       // `recommandations!recommandation_id` : hint de FK explicite -- la table recommandations a
       // plus d'une relation possible avec signaux, un embed non qualifié renvoie une erreur
       // PostgREST PGRST201 (relation ambiguë) qui faisait échouer tout le chargement des signaux.
       'id, site_id, contrat_id, gravite, date_creation, commentaire, proprietaire_id, type_signal:types_signaux(libelle, poids_defaut), statut:statuts_signaux(code), site:sites(nom), responsable:profils!signaux_responsable_profil_id_fkey(prenom, nom), recommandation_id, recommandation:recommandations!recommandation_id(nom)',
-      (q) => q.order('date_creation', { ascending: false }),
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      (q: any) => (siteIds ? q.in('site_id', siteIds) : q).order('date_creation', { ascending: false }),
     )
 
     const comptesVisibles = await fetchComptesVisibles()
@@ -57,7 +61,17 @@ async function fetchSignaux(): Promise<Signal[]> {
 }
 
 export function useSignaux() {
-  return useQuery({ queryKey: ['signaux'], queryFn: fetchSignaux })
+  return useQuery({ queryKey: ['signaux'], queryFn: () => fetchSignaux() })
+}
+
+/** Signaux d'un périmètre de sites, filtrés côté serveur. À préférer sur toute fiche. */
+export function useSignauxParSites(siteIds: string[] | undefined) {
+  const cle = [...(siteIds ?? [])].sort()
+  return useQuery({
+    queryKey: ['signaux', 'sites', cle],
+    queryFn: () => fetchSignaux(cle),
+    enabled: !!siteIds,
+  })
 }
 
 interface CreateSignalInput {

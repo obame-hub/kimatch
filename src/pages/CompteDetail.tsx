@@ -44,14 +44,14 @@ import {
 } from '@/lib/data/comptes'
 import { useSitesParCompte } from '@/lib/data/sites'
 import { useContactsParCompte } from '@/lib/data/contacts'
-import { useSignaux } from '@/lib/data/signaux'
+import { useSignauxParSites } from '@/lib/data/signaux'
 import { useCompteursParSites } from '@/lib/data/compteurs'
-import { useRecommandations } from '@/lib/data/recommandations'
-import { useContrats } from '@/lib/data/contrats'
+import { useRecommandationsParCompte } from '@/lib/data/recommandations'
+import { useContratsParCompte } from '@/lib/data/contrats'
 import { useInteractionsForCompte } from '@/lib/data/interactions'
-import { useMandats } from '@/lib/data/mandats'
-import { useActions, useCreateAction } from '@/lib/data/actions'
-import { useDocuments, useCreateDocument } from '@/lib/data/documents'
+import { useMandatsParCompte } from '@/lib/data/mandats'
+import { useActionsParSites, useCreateAction } from '@/lib/data/actions'
+import { useDocumentsParEntites, useCreateDocument } from '@/lib/data/documents'
 import { useHistorique } from '@/lib/data/historique'
 import { useEllisphereScore } from '@/lib/data/ellisphere'
 import { useReferenceTable } from '@/lib/data/referenceTables'
@@ -106,13 +106,28 @@ export default function CompteDetail() {
   // compteurs n'ayant pas de compte_id, ils passent par les sites du compte.
   const { data: sites } = useSitesParCompte(id)
   const { data: contacts } = useContactsParCompte(id)
-  const { data: signaux } = useSignaux()
-  const { data: compteurs } = useCompteursParSites(sites?.map((s) => s.id))
-  const { data: recommandations } = useRecommandations()
-  const { data: contrats } = useContrats()
-  const { data: mandats } = useMandats()
-  const { data: actions } = useActions()
-  const { data: documents } = useDocuments()
+  const siteIdsPourFiltre = useMemo(() => sites?.map((s) => s.id), [sites])
+  const { data: compteurs } = useCompteursParSites(siteIdsPourFiltre)
+  // Toutes ces lectures sont restreintes au perimetre du compte, cote serveur.
+  //
+  // Elles appelaient les hooks globaux (useSignaux, useRecommandations, useContrats, useMandats,
+  // useActions, useDocuments) et filtraient le resultat en memoire, ce qui revenait a telecharger
+  // le CRM entier pour afficher une fiche : 56 requetes mesurees le 14/08/2026 sur CABINET
+  // MOLINIER, dont neuf rien que pour les documents et douze tables pour les recommandations. Les
+  // postes les plus lents n'y arrivaient pas du tout -- fetchAllRows reessaie deux fois puis
+  // abandonne, d'ou une fiche qui restait vide et trois 500 dans la console.
+  const { data: signaux } = useSignauxParSites(siteIdsPourFiltre)
+  const { data: recommandations } = useRecommandationsParCompte(id)
+  const { data: contrats } = useContratsParCompte(id)
+  const { data: mandats } = useMandatsParCompte(id)
+  const { data: actions } = useActionsParSites(siteIdsPourFiltre)
+  // Les documents sont polymorphes : ceux du compte, mais aussi ceux de ses sites, compteurs et
+  // mandats, que l'onglet Fichiers et le fil d'activite affichent.
+  const entitesPourDocuments = useMemo(() => {
+    if (!id || !sites) return undefined
+    return [id, ...sites.map((s) => s.id), ...(compteurs ?? []).map((c) => c.id), ...(mandats ?? []).map((m) => m.id)]
+  }, [id, sites, compteurs, mandats])
+  const { data: documents } = useDocumentsParEntites(entitesPourDocuments)
   const ellisphereScore = useEllisphereScore()
   const updateScore = useUpdateCompteScore()
   const deleteCompte = useDeleteCompte()

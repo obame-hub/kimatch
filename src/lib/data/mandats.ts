@@ -26,18 +26,36 @@ interface RawMandat {
   duree_mois?: number | null
 }
 
-async function fetchMandats(): Promise<Mandat[]> {
+/**
+ * `compteId` restreint la lecture aux mandats d'un compte, jointures comprises.
+ *
+ * Sans lui, afficher les cinq mandats d'une fiche compte téléchargeait les 1440 mandats du CRM,
+ * plus la totalité de mandats_compteurs et mandats_courtiers — mesuré le 14/08/2026 : une fiche
+ * compte déclenchait 56 requêtes, dont dix pour ces seules tables, et les postes les plus lents
+ * n'arrivaient jamais au bout (voir le commentaire d'en-tête de CompteDetail).
+ *
+ * Les jointures sont filtrées sur les identifiants réellement retenus, et non rechargées en
+ * entier : c'est ce qui fait passer le coût de « toute la table » à « ce qui est affiché ».
+ */
+async function fetchMandats(compteId?: string): Promise<Mandat[]> {
   try {
-    const [mandats, compteursRows, courtiersRows] = await Promise.all([
-      fetchAllRows<RawMandat>(
-        'mandats',
-        // `*` plutôt qu'une liste de colonnes fixe : `duree_mois` vient d'être ajoutée par
-        // migration et peut ne pas encore exister en prod au moment du déploiement -- un select
-        // nommé sur une colonne absente ferait échouer la requête (400) pour TOUS les mandats.
-        '*, compte:comptes(nom), statut:statuts_mandats(code), contact_signataire:contacts(prenom, nom), proprietaire:profils!mandats_proprietaire_id_fkey(prenom, nom), createur:profils!mandats_cree_par_id_fkey(prenom, nom)',
-      ),
-      fetchAllRows<{ mandat_id: string; compteur: { id: string; site_id: string } | null }>('mandats_compteurs', 'mandat_id, compteur:compteurs(id, site_id)'),
-      fetchAllRows<{ mandat_id: string; type_courtier: { code: string } | null }>('mandats_courtiers', 'mandat_id, type_courtier:types_courtiers_mandat(code)'),
+    const mandats = await fetchAllRows<RawMandat>(
+      'mandats',
+      // `*` plutôt qu'une liste de colonnes fixe : `duree_mois` vient d'être ajoutée par
+      // migration et peut ne pas encore exister en prod au moment du déploiement -- un select
+      // nommé sur une colonne absente ferait échouer la requête (400) pour TOUS les mandats.
+      '*, compte:comptes(nom), statut:statuts_mandats(code), contact_signataire:contacts(prenom, nom), proprietaire:profils!mandats_proprietaire_id_fkey(prenom, nom), createur:profils!mandats_cree_par_id_fkey(prenom, nom)',
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      compteId ? (q: any) => q.eq('compte_id', compteId) : undefined,
+    )
+    const mandatIds = mandats.map((m) => m.id)
+    // Aucun mandat : les deux jointures n'ont plus rien à chercher.
+    if (compteId && mandatIds.length === 0) return []
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const surCesMandats = compteId ? (q: any) => q.in('mandat_id', mandatIds) : undefined
+    const [compteursRows, courtiersRows] = await Promise.all([
+      fetchAllRows<{ mandat_id: string; compteur: { id: string; site_id: string } | null }>('mandats_compteurs', 'mandat_id, compteur:compteurs(id, site_id)', surCesMandats),
+      fetchAllRows<{ mandat_id: string; type_courtier: { code: string } | null }>('mandats_courtiers', 'mandat_id, type_courtier:types_courtiers_mandat(code)', surCesMandats),
     ])
 
     const compteurIdsParMandat = new Map<string, string[]>()
@@ -98,7 +116,16 @@ async function fetchMandats(): Promise<Mandat[]> {
 }
 
 export function useMandats() {
-  return useQuery({ queryKey: ['mandats'], queryFn: fetchMandats })
+  return useQuery({ queryKey: ['mandats'], queryFn: () => fetchMandats() })
+}
+
+/** Mandats d'un seul compte, filtrés côté serveur. À préférer sur toute fiche. */
+export function useMandatsParCompte(compteId: string | undefined) {
+  return useQuery({
+    queryKey: ['mandats', 'compte', compteId],
+    queryFn: () => fetchMandats(compteId as string),
+    enabled: !!compteId,
+  })
 }
 
 interface CreateMandatInput {

@@ -118,7 +118,9 @@ interface RawOffreFournisseurCompteur {
   economie_pourcentage: number | null
 }
 
-async function fetchRecommandations(): Promise<Recommandation[]> {
+/** `compteId` restreint toute la cascade aux recommandations d'un compte. Voir le commentaire au
+ *  debut du corps : c'est le poste le plus lourd de l'application. */
+async function fetchRecommandations(compteId?: string): Promise<Recommandation[]> {
 
   try {
     interface RawRecoSite {
@@ -131,68 +133,110 @@ async function fetchRecommandations(): Promise<Recommandation[]> {
       compteur_id: string
     }
 
-    const [recos, sitesRows, compteursRows, versionsRows, versionsCompteursRows, dureesRows, versionsExtraRows, optimisationsRows, offresRows, offresCompteursRows, fournisseursConsultesRows, suivisConsultationRows] =
-      await Promise.all([
-        fetchAllRows<RawRecommandation>(
-          'recommandations',
-          // `*` plutôt qu'une liste de colonnes fixe : `date_cloture`/`type_opportunite`/
-          // `type_energie_id` viennent d'être ajoutées par migration et peuvent ne pas encore
-          // exister en prod au moment du déploiement -- un select nommé sur une colonne absente
-          // ferait échouer la requête (400) pour TOUTES les recommandations.
-          '*, etape:etapes_recommandation(code), origine:types_origines(libelle), type_energie:types_energies(code), responsable:profils!recommandations_responsable_profil_id_fkey(prenom, nom), compte:comptes(id, nom), contact_signataire:contacts!recommandations_contact_signataire_id_fkey(prenom, nom, email, telephone)',
-          (q) => q.order('date_ouverture', { ascending: false }),
-        ),
-        fetchAllRows<RawRecoSite>('recommandations_sites', 'recommandation_id, site:sites(id, nom)'),
-        fetchAllRows<RawRecoCompteur>('recommandations_compteurs', 'recommandation_id, compteur_id').catch(() => [] as RawRecoCompteur[]),
-        fetchAllRows<RawVersion>(
-          'versions_recommandation',
-          'id, recommandation_id, numero_version, nom, resume, contexte_et_hypotheses, gain_estime_annuel, economie_estimee_pourcentage, niveau_confiance, version_actuelle, est_figee, date_publication, date_presentation_client, date_decision_client, date_creation, statut:statuts_versions_recommandation(code), motif:motifs_versions_recommandation(libelle), contact_id, contact:contacts(prenom, nom)',
-          // « Les versions doivent s'afficher du plus récent au plus ancien » (réunion du
-          // 12/08/2026). Le tri porte sur numero_version, qui EST le rang métier de la version,
-          // plutôt que sur la date qui n'en est qu'un indice : rien n'interdit de reprendre une
-          // version antérieure ni d'en créer deux le même jour. 318 recommandations ont plusieurs
-          // versions, l'ordre s'y voit donc vraiment. date_creation ne sert qu'à départager.
-          (q) => q.order('numero_version', { ascending: false, nullsFirst: false }).order('date_creation', { ascending: false }),
-        ),
-        fetchAllRows<{ id: string; version_recommandation_id: string; compteur_id: string; compteur: { numero_point: string; libelle: string | null } | null }>(
-          'versions_recommandation_compteurs',
-          'id, version_recommandation_id, compteur_id, compteur:compteurs(numero_point, libelle)',
-        ),
-        // Durées par PDL + type de prix + date souhaitée : requêtes SÉPARÉES et tolérantes, comme
-        // recommandations_compteurs plus haut. La table et les colonnes datent du 06/08/2026 et
-        // peuvent manquer sur un environnement pas encore migré -- un select nommé les incluant
-        // ferait échouer le chargement de TOUTES les versions (400).
-        fetchAllRows<{ version_recommandation_id: string; compteur_id: string; duree_mois: number }>(
-          'versions_recommandation_durees',
-          'version_recommandation_id, compteur_id, duree_mois',
-        ).catch(() => [] as { version_recommandation_id: string; compteur_id: string; duree_mois: number }[]),
-        fetchAllRows<{ id: string; types_prix: string[] | null; date_souhaitee: string | null }>(
-          'versions_recommandation',
-          'id, types_prix, date_souhaitee',
-        ).catch(() => [] as { id: string; types_prix: string[] | null; date_souhaitee: string | null }[]),
-        fetchAllRows<RawOptimisation>(
-          'optimisations',
-          'id, version_recommandation_id, nom, description, resultat_attendu, gain_estime_annuel, cout_estime, roi_mois, priorite, est_retenue, type_optimisation:types_optimisations(code, libelle)',
-          (q) => q.order('ordre'),
-        ),
-        fetchAllRows<RawOffreFournisseur>(
-          'offres_fournisseurs',
-          'id, optimisation_id, reference_offre, nom, description, statut, montant_annuel_ht, montant_total_ht, economie_annuelle_estimee, economie_pourcentage, duree_mois, est_offre_recommandee, compte_fournisseur:comptes_fournisseurs(compte:comptes(nom))',
-        ),
-        fetchAllRows<RawOffreFournisseurCompteur>(
-          'offres_fournisseurs_compteurs',
-          'id, offre_fournisseur_id, version_recommandation_compteur_id, consommation_annuelle_reference_mwh, cout_fourniture_annuel_ht, cout_acheminement_annuel_ht, cout_taxes_annuel, cout_total_annuel_estime_ht, economie_annuelle_estimee, economie_pourcentage',
-        ),
-        fetchAllRows<RawFournisseurConsulte>(
-          'optimisations_fournisseurs',
-          'id, optimisation_id, fournisseur_compte_id, date_creation, fournisseur:comptes(nom)',
-        ),
-        fetchAllRows<RawSuiviConsultation>(
-          'suivis_consultations_fournisseurs',
-          'id, optimisation_fournisseur_id, date_evenement, commentaire, statut:statuts_consultations_fournisseurs(libelle), auteur:profils(prenom, nom)',
-          (q) => q.order('date_evenement'),
-        ),
-      ])
+    // Lecture en quatre vagues plutot qu'un seul Promise.all de douze tables entieres.
+    //
+    // Sans `compteId`, le comportement est inchange : tout est charge (les pages de liste en ont
+    // besoin). Avec, chaque niveau ne lit que ce qui pend au niveau precedent -- les recommandations
+    // du compte, puis leurs versions, puis leurs optimisations, puis les offres et les suivis de
+    // consultation de ces optimisations.
+    //
+    // C'est le poste le plus lourd de l'application : mesure le 14/08/2026, afficher les 38
+    // recommandations d'une fiche compte telechargeait ces douze tables en entier, soit a lui seul
+    // pres de la moitie des 56 requetes de la page. Les vagues coutent trois allers-retours de plus
+    // qu'un Promise.all, sur des volumes sans commune mesure.
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const surColonne = (colonne: string, valeurs: string[]) => (q: any) => q.in(colonne, valeurs)
+
+    const recos = await fetchAllRows<RawRecommandation>(
+      'recommandations',
+      // `*` plutot qu'une liste de colonnes fixe : `date_cloture`/`type_opportunite`/
+      // `type_energie_id` viennent d'etre ajoutees par migration et peuvent ne pas encore
+      // exister en prod au moment du deploiement -- un select nomme sur une colonne absente
+      // ferait echouer la requete (400) pour TOUTES les recommandations.
+      '*, etape:etapes_recommandation(code), origine:types_origines(libelle), type_energie:types_energies(code), responsable:profils!recommandations_responsable_profil_id_fkey(prenom, nom), compte:comptes(id, nom), contact_signataire:contacts!recommandations_contact_signataire_id_fkey(prenom, nom, email, telephone)',
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      (q: any) => (compteId ? q.eq('compte_id', compteId) : q).order('date_ouverture', { ascending: false }),
+    )
+    const recoIds = recos.map((r) => r.id)
+    if (compteId && recoIds.length === 0) return []
+    const parReco = compteId ? surColonne('recommandation_id', recoIds) : undefined
+
+    const [sitesRows, compteursRows, versionsRows] = await Promise.all([
+      fetchAllRows<RawRecoSite>('recommandations_sites', 'recommandation_id, site:sites(id, nom)', parReco),
+      fetchAllRows<RawRecoCompteur>('recommandations_compteurs', 'recommandation_id, compteur_id', parReco).catch(() => [] as RawRecoCompteur[]),
+      fetchAllRows<RawVersion>(
+        'versions_recommandation',
+        'id, recommandation_id, numero_version, nom, resume, contexte_et_hypotheses, gain_estime_annuel, economie_estimee_pourcentage, niveau_confiance, version_actuelle, est_figee, date_publication, date_presentation_client, date_decision_client, date_creation, statut:statuts_versions_recommandation(code), motif:motifs_versions_recommandation(libelle), contact_id, contact:contacts(prenom, nom)',
+        // « Les versions doivent s'afficher du plus recent au plus ancien » (reunion du
+        // 12/08/2026). Le tri porte sur numero_version, qui EST le rang metier de la version,
+        // plutot que sur la date qui n'en est qu'un indice : rien n'interdit de reprendre une
+        // version anterieure ni d'en creer deux le meme jour. 318 recommandations ont plusieurs
+        // versions, l'ordre s'y voit donc vraiment. date_creation ne sert qu'a departager.
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        (q: any) => (compteId ? q.in('recommandation_id', recoIds) : q).order('numero_version', { ascending: false, nullsFirst: false }).order('date_creation', { ascending: false }),
+      ),
+    ])
+
+    const versionIds = versionsRows.map((v) => v.id)
+    const parVersion = compteId ? surColonne('version_recommandation_id', versionIds) : undefined
+
+    const [versionsCompteursRows, dureesRows, versionsExtraRows, optimisationsRows] = await Promise.all([
+      fetchAllRows<{ id: string; version_recommandation_id: string; compteur_id: string; compteur: { numero_point: string; libelle: string | null } | null }>(
+        'versions_recommandation_compteurs',
+        'id, version_recommandation_id, compteur_id, compteur:compteurs(numero_point, libelle)',
+        parVersion,
+      ),
+      // Durees par PDL + type de prix + date souhaitee : requetes SEPAREES et tolerantes, comme
+      // recommandations_compteurs plus haut. La table et les colonnes datent du 06/08/2026 et
+      // peuvent manquer sur un environnement pas encore migre -- un select nomme les incluant
+      // ferait echouer le chargement de TOUTES les versions (400).
+      fetchAllRows<{ version_recommandation_id: string; compteur_id: string; duree_mois: number }>(
+        'versions_recommandation_durees',
+        'version_recommandation_id, compteur_id, duree_mois',
+        parVersion,
+      ).catch(() => [] as { version_recommandation_id: string; compteur_id: string; duree_mois: number }[]),
+      fetchAllRows<{ id: string; types_prix: string[] | null; date_souhaitee: string | null }>(
+        'versions_recommandation',
+        'id, types_prix, date_souhaitee',
+        compteId ? surColonne('id', versionIds) : undefined,
+      ).catch(() => [] as { id: string; types_prix: string[] | null; date_souhaitee: string | null }[]),
+      fetchAllRows<RawOptimisation>(
+        'optimisations',
+        'id, version_recommandation_id, nom, description, resultat_attendu, gain_estime_annuel, cout_estime, roi_mois, priorite, est_retenue, type_optimisation:types_optimisations(code, libelle)',
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        (q: any) => (compteId ? q.in('version_recommandation_id', versionIds) : q).order('ordre'),
+      ),
+    ])
+
+    const optimisationIds = optimisationsRows.map((o) => o.id)
+    const parOptimisation = compteId ? surColonne('optimisation_id', optimisationIds) : undefined
+
+    const [offresRows, fournisseursConsultesRows] = await Promise.all([
+      fetchAllRows<RawOffreFournisseur>(
+        'offres_fournisseurs',
+        'id, optimisation_id, reference_offre, nom, description, statut, montant_annuel_ht, montant_total_ht, economie_annuelle_estimee, economie_pourcentage, duree_mois, est_offre_recommandee, compte_fournisseur:comptes_fournisseurs(compte:comptes(nom))',
+        parOptimisation,
+      ),
+      fetchAllRows<RawFournisseurConsulte>(
+        'optimisations_fournisseurs',
+        'id, optimisation_id, fournisseur_compte_id, date_creation, fournisseur:comptes(nom)',
+        parOptimisation,
+      ),
+    ])
+
+    const [offresCompteursRows, suivisConsultationRows] = await Promise.all([
+      fetchAllRows<RawOffreFournisseurCompteur>(
+        'offres_fournisseurs_compteurs',
+        'id, offre_fournisseur_id, version_recommandation_compteur_id, consommation_annuelle_reference_mwh, cout_fourniture_annuel_ht, cout_acheminement_annuel_ht, cout_taxes_annuel, cout_total_annuel_estime_ht, economie_annuelle_estimee, economie_pourcentage',
+        compteId ? surColonne('offre_fournisseur_id', offresRows.map((o) => o.id)) : undefined,
+      ),
+      fetchAllRows<RawSuiviConsultation>(
+        'suivis_consultations_fournisseurs',
+        'id, optimisation_fournisseur_id, date_evenement, commentaire, statut:statuts_consultations_fournisseurs(libelle), auteur:profils(prenom, nom)',
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        (q: any) => (compteId ? q.in('optimisation_fournisseur_id', fournisseursConsultesRows.map((f) => f.id)) : q).order('date_evenement'),
+      ),
+    ])
 
     interface RawVersionCompteur {
       id: string
@@ -400,7 +444,16 @@ async function fetchRecommandations(): Promise<Recommandation[]> {
 }
 
 export function useRecommandations() {
-  return useQuery({ queryKey: ['recommandations'], queryFn: fetchRecommandations })
+  return useQuery({ queryKey: ['recommandations'], queryFn: () => fetchRecommandations() })
+}
+
+/** Recommandations d'un seul compte, cascade filtree cote serveur. A preferer sur toute fiche. */
+export function useRecommandationsParCompte(compteId: string | undefined) {
+  return useQuery({
+    queryKey: ['recommandations', 'compte', compteId],
+    queryFn: () => fetchRecommandations(compteId as string),
+    enabled: !!compteId,
+  })
 }
 
 /** Codes d'étape considérés "clos" -- un PDL rattaché uniquement à des recommandations dans ces
