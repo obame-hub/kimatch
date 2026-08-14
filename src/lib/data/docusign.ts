@@ -30,6 +30,13 @@ export interface DocusignConnexion {
   account_nom: string | null
   expire_le: string
   date_creation: string
+  date_modification: string
+  /** Fin de validité du refresh token : c'est LUI qui détermine la survie de la session. */
+  refresh_expire_le: string
+  /** La session est morte : il faut réautoriser DocuSign. */
+  expiree: boolean
+  /** Moins de sept jours avant la coupure — on prévient sans attendre la panne. */
+  bientot_expiree: boolean
 }
 
 /** Connexion DocuSign de l'utilisateur courant. Lue dans la vue docusign_connexions, qui n'expose
@@ -40,7 +47,9 @@ async function fetchDocusignConnexion(): Promise<DocusignConnexion | null> {
   if (!userData.user) return null
   const { data, error } = await supabase
     .from('docusign_connexions')
-    .select('docusign_email, docusign_nom, account_nom, expire_le, date_creation')
+    .select(
+      'docusign_email, docusign_nom, account_nom, expire_le, date_creation, date_modification, refresh_expire_le, expiree, bientot_expiree',
+    )
     .maybeSingle()
   if (error) return null
   return data as DocusignConnexion | null
@@ -48,6 +57,31 @@ async function fetchDocusignConnexion(): Promise<DocusignConnexion | null> {
 
 export function useDocusignConnexion() {
   return useQuery({ queryKey: ['docusign-connexion'], queryFn: fetchDocusignConnexion })
+}
+
+export type SanteDocusign = 'chargement' | 'inutile' | 'ok' | 'bientot' | 'absente' | 'expiree'
+
+/**
+ * État de la signature électronique pour la personne connectée, en une seule valeur.
+ *
+ * Sépare volontairement « absente » (jamais autorisée) de « expiree » (autorisation tombée) : le
+ * second cas est celui que William décrit sur Tools, où les commerciaux concluaient que « le process
+ * ne marche pas » alors que l'intégration avait simplement sauté. Les deux méritent un message
+ * différent.
+ *
+ * « inutile » couvre le cas où l'application DocuSign n'est pas configurée côté serveur : rien à
+ * connecter, donc rien à signaler à l'utilisateur.
+ */
+export function useSanteDocusign(): { etat: SanteDocusign; connexion: DocusignConnexion | null } {
+  const statut = useDocusignStatus()
+  const connexion = useDocusignConnexion()
+
+  if (statut.isLoading || connexion.isLoading) return { etat: 'chargement', connexion: null }
+  if (!statut.data?.configured) return { etat: 'inutile', connexion: null }
+  if (!connexion.data) return { etat: 'absente', connexion: null }
+  if (connexion.data.expiree) return { etat: 'expiree', connexion: connexion.data }
+  if (connexion.data.bientot_expiree) return { etat: 'bientot', connexion: connexion.data }
+  return { etat: 'ok', connexion: connexion.data }
 }
 
 /** Envoie le navigateur sur l'écran d'autorisation DocuSign. Le jeton Supabase part dans l'en-tête

@@ -9,5 +9,11 @@
   ],
   "rewrites": [
     { "source": "/((?!api/).*)", "destination": "/index.html" }
+  ],
+  "crons": [
+    {
+      "path": "/api/docusign/refresh-sessions",
+      "schedule": "0 3 * * *"
+    }
   ]
 }

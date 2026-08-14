@@ -156,6 +156,16 @@ function DocusignCard() {
             </Button>
           </div>
         )}
+        {/* La date rassure autant qu'elle prévient : elle montre que la connexion tient dans le
+            temps, au lieu de laisser croire qu'il faudra recommencer demain. Elle est repoussée
+            chaque nuit par la tâche planifiée qui renouvelle les jetons. */}
+        {connexion && !connexion.expiree && (
+          <p className={`text-xs ${connexion.bientot_expiree ? 'font-medium text-amber-700' : 'text-navy-400'}`}>
+            {connexion.bientot_expiree
+              ? `À reconnecter : l'autorisation prend fin le ${new Date(connexion.refresh_expire_le).toLocaleDateString('fr-FR')}.`
+              : `Autorisation renouvelée automatiquement chaque nuit — valable jusqu'au ${new Date(connexion.refresh_expire_le).toLocaleDateString('fr-FR')} sans intervention.`}
+          </p>
+        )}
         {feedback && <p className="text-xs text-navy-500">{feedback}</p>}
       </CardContent>
     </Card>
