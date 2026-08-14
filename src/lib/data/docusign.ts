@@ -102,16 +102,22 @@ export async function connectDocusign(): Promise<void> {
   window.location.href = result.url
 }
 
-/** Supprime la session locale. La politique docusign_sessions_self_delete permet ce geste sans
- *  passer par un endpoint ; l'autorisation reste accordée côté DocuSign, une reconnexion ne
- *  redemandera donc pas l'écran de consentement. */
+/**
+ * Supprime la session locale, via une fonction SECURITY DEFINER.
+ *
+ * Un `delete` direct depuis le client ne fonctionnait pas : PostgreSQL exige une politique SELECT
+ * pour évaluer le WHERE d'un DELETE, et docusign_sessions n'en accorde aucune — la table ne doit
+ * jamais laisser lire un refresh token. Le delete renvoyait donc « succès » sans rien supprimer
+ * (voir la migration 20260814110000).
+ *
+ * L'autorisation reste accordée côté DocuSign : se reconnecter ne redemandera pas l'écran de
+ * consentement.
+ */
 export function useDisconnectDocusign() {
   const queryClient = useQueryClient()
   return useMutation({
     mutationFn: async () => {
-      const { data: userData } = await supabase.auth.getUser()
-      if (!userData.user) throw new Error('Non authentifié')
-      const { error } = await supabase.from('docusign_sessions').delete().eq('profil_id', userData.user.id)
+      const { error } = await supabase.rpc('docusign_deconnecter')
       if (error) throw new Error(error.message)
     },
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ['docusign-connexion'] }),
