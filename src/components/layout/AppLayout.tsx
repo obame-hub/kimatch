@@ -20,7 +20,7 @@ export function AppLayout() {
       {/* La colonne en h-screen englobe le bandeau : sans elle, bandeau + zone applicative en
           h-screen depasseraient la hauteur de la fenetre et feraient apparaitre un second
           ascenseur, celui de la page, en plus de celui du contenu. */}
-      <div className="flex h-screen flex-col">
+      <div className="flex h-screen w-full flex-col">
         <DocusignBanner />
         <div className="flex min-h-0 flex-1 bg-navy-50">
           <Sidebar />
