@@ -689,16 +689,20 @@ export default function CompteDetail() {
         title="Ajouter un contact"
         description={`Rattaché à ${compte.nom}`}
       >
-        <ContactForm
-          compteId={compte.id}
-          compteNom={compte.nom}
-          segment={compte.segment}
-          onCancel={() => setAddContactOpen(false)}
-          onCreated={(contact) => {
-            setAddContactOpen(false)
-            showToast(`✓ ${contact.prenom} ${contact.nom} ajouté`)
-          }}
-        />
+        {/* Un Sheet masque son contenu sans le demonter : sans cette condition, le formulaire
+            chargeait la table contacts entiere a chaque fiche compte. */}
+        {addContactOpen && (
+          <ContactForm
+            compteId={compte.id}
+            compteNom={compte.nom}
+            segment={compte.segment}
+            onCancel={() => setAddContactOpen(false)}
+            onCreated={(contact) => {
+              setAddContactOpen(false)
+              showToast(`✓ ${contact.prenom} ${contact.nom} ajouté`)
+            }}
+          />
+        )}
       </Sheet>
 
       {/* Wizard en quatre étapes, comme Tools. Monté conditionnellement et non caché par le
@@ -718,12 +722,20 @@ export default function CompteDetail() {
         )}
       </Dialog>
 
-      <CreateRecommandationDialog
-        open={addRecoOpen}
-        onClose={() => setAddRecoOpen(false)}
-        initialCompteId={compte.id}
-        onCreated={(recoId) => navigate(`/recommandations/${recoId}`)}
-      />
+      {/* Monte seulement a l'ouverture : ce dialogue appelle useMandats, useCompteurs, useContacts,
+          useContrats, useRecommandations et useComptes, soit six tables entieres. Monte en
+          permanence, chaque affichage d'une fiche compte les payait -- c'est ce qui restait le plus
+          gros poste apres le passage des lectures de la fiche en filtrage serveur (mesure du
+          14/08/2026 : 153 requetes, dont une centaine imputables a ce seul dialogue). Meme piege
+          que le wizard de mandat et le dialogue de creation de PDL juste au-dessus. */}
+      {addRecoOpen && (
+        <CreateRecommandationDialog
+          open
+          onClose={() => setAddRecoOpen(false)}
+          initialCompteId={compte.id}
+          onCreated={(recoId) => navigate(`/recommandations/${recoId}`)}
+        />
+      )}
 
       <Dialog
         open={confirmDelete}
