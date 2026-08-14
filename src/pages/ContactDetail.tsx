@@ -21,7 +21,7 @@ import { useActions } from '@/lib/data/actions'
 import { useInteractionsForContact } from '@/lib/data/interactions'
 import { useContrats } from '@/lib/data/contrats'
 import { useMandats } from '@/lib/data/mandats'
-import { useRecommandations } from '@/lib/data/recommandations'
+import { useRecommandationsListe } from '@/lib/data/recommandations'
 import { useCanManageEnregistrement, useIsAdmin, useProfilsAdmin } from '@/lib/data/roles'
 import { useGoBack } from '@/lib/useGoBack'
 import { useReferenceTable } from '@/lib/data/referenceTables'
@@ -53,7 +53,7 @@ export default function ContactDetail() {
   const { data: actions } = useActions()
   const { data: contrats } = useContrats()
   const { data: mandats } = useMandats()
-  const { data: recommandations } = useRecommandations()
+  const { data: recommandations } = useRecommandationsListe()
   const { data: statutsMandatsRef } = useReferenceTable('statuts_mandats')
   const statutsMandats = statutsMandatsRef && statutsMandatsRef.length > 0 ? statutsMandatsRef : FALLBACK_STATUTS_MANDATS
   const { data: etapesRef } = useReferenceTable('etapes_recommandation')

@@ -120,7 +120,11 @@ interface RawOffreFournisseurCompteur {
 
 /** `compteId` restreint toute la cascade aux recommandations d'un compte. Voir le commentaire au
  *  debut du corps : c'est le poste le plus lourd de l'application. */
-async function fetchRecommandations(compteId?: string, recoId?: string): Promise<Recommandation[]> {
+async function fetchRecommandations(
+  compteId?: string,
+  recoId?: string,
+  listeSeule = false,
+): Promise<Recommandation[]> {
 
   try {
     interface RawRecoSite {
@@ -181,11 +185,16 @@ async function fetchRecommandations(compteId?: string, recoId?: string): Promise
       ),
     ])
 
+    // Les pages de liste n'affichent qu'un en-tete : titre, compte, etape, sites, nombre de
+    // versions. Les trois vagues suivantes -- compteurs et durees par version, optimisations,
+    // offres fournisseurs, suivis de consultation -- ne servent qu'a la fiche detaillee.
+    const aucune = <T,>(): Promise<T[]> => Promise.resolve([])
+
     const versionIds = versionsRows.map((v) => v.id)
     const parVersion = cible ? surColonne('version_recommandation_id', versionIds) : undefined
 
     const [versionsCompteursRows, dureesRows, versionsExtraRows, optimisationsRows] = await Promise.all([
-      fetchAllRows<{ id: string; version_recommandation_id: string; compteur_id: string; compteur: { numero_point: string; libelle: string | null } | null }>(
+      listeSeule ? aucune<{ id: string; version_recommandation_id: string; compteur_id: string; compteur: { numero_point: string; libelle: string | null } | null }>() : fetchAllRows<{ id: string; version_recommandation_id: string; compteur_id: string; compteur: { numero_point: string; libelle: string | null } | null }>(
         'versions_recommandation_compteurs',
         'id, version_recommandation_id, compteur_id, compteur:compteurs(numero_point, libelle)',
         parVersion,
@@ -194,17 +203,17 @@ async function fetchRecommandations(compteId?: string, recoId?: string): Promise
       // recommandations_compteurs plus haut. La table et les colonnes datent du 06/08/2026 et
       // peuvent manquer sur un environnement pas encore migre -- un select nomme les incluant
       // ferait echouer le chargement de TOUTES les versions (400).
-      fetchAllRows<{ version_recommandation_id: string; compteur_id: string; duree_mois: number }>(
+      listeSeule ? aucune<{ version_recommandation_id: string; compteur_id: string; duree_mois: number }>() : fetchAllRows<{ version_recommandation_id: string; compteur_id: string; duree_mois: number }>(
         'versions_recommandation_durees',
         'version_recommandation_id, compteur_id, duree_mois',
         parVersion,
       ).catch(() => [] as { version_recommandation_id: string; compteur_id: string; duree_mois: number }[]),
-      fetchAllRows<{ id: string; types_prix: string[] | null; date_souhaitee: string | null }>(
+      listeSeule ? aucune<{ id: string; types_prix: string[] | null; date_souhaitee: string | null }>() : fetchAllRows<{ id: string; types_prix: string[] | null; date_souhaitee: string | null }>(
         'versions_recommandation',
         'id, types_prix, date_souhaitee',
         cible ? surColonne('id', versionIds) : undefined,
       ).catch(() => [] as { id: string; types_prix: string[] | null; date_souhaitee: string | null }[]),
-      fetchAllRows<RawOptimisation>(
+      listeSeule ? aucune<RawOptimisation>() : fetchAllRows<RawOptimisation>(
         'optimisations',
         'id, version_recommandation_id, nom, description, resultat_attendu, gain_estime_annuel, cout_estime, roi_mois, priorite, est_retenue, type_optimisation:types_optimisations(code, libelle)',
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -216,12 +225,12 @@ async function fetchRecommandations(compteId?: string, recoId?: string): Promise
     const parOptimisation = cible ? surColonne('optimisation_id', optimisationIds) : undefined
 
     const [offresRows, fournisseursConsultesRows] = await Promise.all([
-      fetchAllRows<RawOffreFournisseur>(
+      listeSeule ? aucune<RawOffreFournisseur>() : fetchAllRows<RawOffreFournisseur>(
         'offres_fournisseurs',
         'id, optimisation_id, reference_offre, nom, description, statut, montant_annuel_ht, montant_total_ht, economie_annuelle_estimee, economie_pourcentage, duree_mois, est_offre_recommandee, compte_fournisseur:comptes_fournisseurs(compte:comptes(nom))',
         parOptimisation,
       ),
-      fetchAllRows<RawFournisseurConsulte>(
+      listeSeule ? aucune<RawFournisseurConsulte>() : fetchAllRows<RawFournisseurConsulte>(
         'optimisations_fournisseurs',
         'id, optimisation_id, fournisseur_compte_id, date_creation, fournisseur:comptes(nom)',
         parOptimisation,
@@ -229,12 +238,12 @@ async function fetchRecommandations(compteId?: string, recoId?: string): Promise
     ])
 
     const [offresCompteursRows, suivisConsultationRows] = await Promise.all([
-      fetchAllRows<RawOffreFournisseurCompteur>(
+      listeSeule ? aucune<RawOffreFournisseurCompteur>() : fetchAllRows<RawOffreFournisseurCompteur>(
         'offres_fournisseurs_compteurs',
         'id, offre_fournisseur_id, version_recommandation_compteur_id, consommation_annuelle_reference_mwh, cout_fourniture_annuel_ht, cout_acheminement_annuel_ht, cout_taxes_annuel, cout_total_annuel_estime_ht, economie_annuelle_estimee, economie_pourcentage',
         cible ? surColonne('offre_fournisseur_id', offresRows.map((o) => o.id)) : undefined,
       ),
-      fetchAllRows<RawSuiviConsultation>(
+      listeSeule ? aucune<RawSuiviConsultation>() : fetchAllRows<RawSuiviConsultation>(
         'suivis_consultations_fournisseurs',
         'id, optimisation_fournisseur_id, date_evenement, commentaire, statut:statuts_consultations_fournisseurs(libelle), auteur:profils(prenom, nom)',
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -461,6 +470,20 @@ export function useRecommandation(recoId: string | undefined) {
     enabled: !!recoId,
   })
 }
+/**
+ * Recommandations pour une page de liste : l'en-tete seulement.
+ *
+ * Mesure le 15/08/2026, /recommandations faisait 53 requetes dont 36 pages supplementaires,
+ * en descendant la cascade des douze tables jusqu'aux suivis de consultation fournisseur --
+ * pour afficher des cartes qui montrent un titre, un compte, une etape et un nombre de versions.
+ */
+export function useRecommandationsListe() {
+  return useQuery({
+    queryKey: ['recommandations', 'liste'],
+    queryFn: () => fetchRecommandations(undefined, undefined, true),
+  })
+}
+
 export function useRecommandations() {
   return useQuery({ queryKey: ['recommandations'], queryFn: () => fetchRecommandations() })
 }

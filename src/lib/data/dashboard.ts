@@ -1,6 +1,6 @@
 import { useMemo } from 'react'
 import { useSignaux } from '@/lib/data/signaux'
-import { useRecommandations } from '@/lib/data/recommandations'
+import { useRecommandationsListe } from '@/lib/data/recommandations'
 import { useActions } from '@/lib/data/actions'
 import { useContrats } from '@/lib/data/contrats'
 import { useMandats } from '@/lib/data/mandats'
@@ -72,7 +72,7 @@ export interface SectionAction {
  */
 export function useDashboardStats() {
   const signaux = useSignaux()
-  const recommandations = useRecommandations()
+  const recommandations = useRecommandationsListe()
   const actions = useActions()
   const contrats = useContrats()
   const mandats = useMandats()

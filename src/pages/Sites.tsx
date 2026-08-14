@@ -16,7 +16,7 @@ import { useListControls } from '@/lib/useListControls'
 import { useSites } from '@/lib/data/sites'
 import { useSignaux } from '@/lib/data/signaux'
 import { useContrats } from '@/lib/data/contrats'
-import { useRecommandations } from '@/lib/data/recommandations'
+import { useRecommandationsListe } from '@/lib/data/recommandations'
 import { useMandats } from '@/lib/data/mandats'
 import { useCompteurs } from '@/lib/data/compteurs'
 import { computeSiteHealth } from '@/lib/siteHealth'
@@ -28,7 +28,7 @@ export default function Sites() {
   const { data: sites, isLoading } = useSites()
   const { data: signaux } = useSignaux()
   const { data: contrats } = useContrats()
-  const { data: recommandations } = useRecommandations()
+  const { data: recommandations } = useRecommandationsListe()
   const { data: mandats } = useMandats()
   const { data: compteurs } = useCompteurs()
   const navigate = useNavigate()

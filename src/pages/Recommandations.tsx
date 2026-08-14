@@ -12,7 +12,7 @@ import { EntityLink } from '@/components/ui/entity-link'
 import { EtapeCompact } from '@/components/ui/etape-stepper'
 import { Dialog } from '@/components/ui/dialog'
 import { FormField, Input, Select, Textarea } from '@/components/ui/form'
-import { useRecommandations, useCreateRecommandation, compteursDejaEngages } from '@/lib/data/recommandations'
+import { useRecommandationsListe, useCreateRecommandation, compteursDejaEngages } from '@/lib/data/recommandations'
 import { useMandats } from '@/lib/data/mandats'
 import { useCompteurs } from '@/lib/data/compteurs'
 import { useContacts } from '@/lib/data/contacts'
@@ -67,7 +67,7 @@ export function CreateRecommandationDialog({
   const { data: compteurs } = useCompteurs()
   const { data: contacts } = useContacts()
   const { data: contrats } = useContrats()
-  const { data: recommandations } = useRecommandations()
+  const { data: recommandations } = useRecommandationsListe()
   const { data: comptes } = useComptes()
   const { data: etapesRef } = useReferenceTable('etapes_recommandation')
   const etapes = etapesRef && etapesRef.length > 0 ? etapesRef : FALLBACK_ETAPES_RECOMMANDATION
@@ -334,7 +334,7 @@ export function CreateRecommandationDialog({
 }
 
 export default function Recommandations() {
-  const { data: recommandations, isLoading } = useRecommandations()
+  const { data: recommandations, isLoading } = useRecommandationsListe()
   const { data: etapesRef } = useReferenceTable('etapes_recommandation')
   const etapes = etapesRef && etapesRef.length > 0 ? etapesRef : FALLBACK_ETAPES_RECOMMANDATION
   const navigate = useNavigate()

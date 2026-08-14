@@ -19,7 +19,7 @@ import { useContacts } from '@/lib/data/contacts'
 import { useContrats } from '@/lib/data/contrats'
 import { useMandats } from '@/lib/data/mandats'
 import { useSignaux } from '@/lib/data/signaux'
-import { useRecommandations } from '@/lib/data/recommandations'
+import { useRecommandationsListe } from '@/lib/data/recommandations'
 import { useDocuments, useCreateDocument } from '@/lib/data/documents'
 import { useReferenceTable } from '@/lib/data/referenceTables'
 import { FALLBACK_STATUTS_CONTRATS, STATUT_CONTRAT_TONE, FALLBACK_STATUTS_MANDATS, STATUT_MANDAT_TONE, FALLBACK_TYPES_DOCUMENTS } from '@/lib/referenceFallbacks'
@@ -367,7 +367,7 @@ export default function CompteurDetail() {
   const { data: contrats } = useContrats()
   const { data: mandats } = useMandats()
   const { data: signaux } = useSignaux()
-  const { data: recommandations } = useRecommandations()
+  const { data: recommandations } = useRecommandationsListe()
   const { data: documents } = useDocuments()
   const { data: statutsContratsRef } = useReferenceTable('statuts_contrats')
   const statutsContrats = statutsContratsRef && statutsContratsRef.length > 0 ? statutsContratsRef : FALLBACK_STATUTS_CONTRATS

@@ -3,7 +3,7 @@ import { Topbar } from '@/components/layout/Topbar'
 import { PageHeader } from '@/components/ui/page-header'
 import { Card } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
-import { useRecommandations } from '@/lib/data/recommandations'
+import { useRecommandationsListe } from '@/lib/data/recommandations'
 import { useReferenceTable } from '@/lib/data/referenceTables'
 import { FALLBACK_STATUTS_VERSIONS, STATUT_VERSION_TONE } from '@/lib/referenceFallbacks'
 import { ListToolbar } from '@/components/ui/list-toolbar'
@@ -11,7 +11,7 @@ import { SortableTh } from '@/components/ui/sortable-th'
 import { useListControls } from '@/lib/useListControls'
 
 export default function Versions() {
-  const { data: recommandations, isLoading } = useRecommandations()
+  const { data: recommandations, isLoading } = useRecommandationsListe()
   const { data: statutsRef } = useReferenceTable('statuts_versions_recommandation')
   const statuts = statutsRef && statutsRef.length > 0 ? statutsRef : FALLBACK_STATUTS_VERSIONS
   const navigate = useNavigate()

@@ -15,7 +15,7 @@ import { useDocuments, useCreateDocument } from '@/lib/data/documents'
 import { useSites } from '@/lib/data/sites'
 import { useComptes } from '@/lib/data/comptes'
 import { useMandats } from '@/lib/data/mandats'
-import { useRecommandations } from '@/lib/data/recommandations'
+import { useRecommandationsListe } from '@/lib/data/recommandations'
 import { useContrats } from '@/lib/data/contrats'
 import { useCompteurs } from '@/lib/data/compteurs'
 import { useReferenceTable } from '@/lib/data/referenceTables'
@@ -37,7 +37,7 @@ function CreateDocumentDialog({ open, onClose }: { open: boolean; onClose: () =>
   const { data: sites } = useSites()
   const { data: comptes } = useComptes()
   const { data: mandats } = useMandats()
-  const { data: recommandations } = useRecommandations()
+  const { data: recommandations } = useRecommandationsListe()
   const { data: contrats } = useContrats()
   const { data: compteurs } = useCompteurs()
   const { data: typesRef } = useReferenceTable('types_documents')
