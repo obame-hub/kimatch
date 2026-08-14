@@ -49,7 +49,7 @@ interface RawContrat {
 
 /** `compteId` restreint la lecture aux contrats d'un compte, jointure des compteurs comprise.
  *  Même motif que fetchMandats : une fiche compte ne doit pas payer les 1598 contrats du CRM. */
-async function fetchContrats(compteId?: string, contratId?: string): Promise<Contrat[]> {
+async function fetchContrats(compteId?: string, contratId?: string, listeSeule = false): Promise<Contrat[]> {
   try {
     const contrats = await fetchAllRows<RawContrat>(
       'contrats',
@@ -65,7 +65,8 @@ async function fetchContrats(compteId?: string, contratId?: string): Promise<Con
     const contratIds = contrats.map((c) => c.id)
     const cible = Boolean(compteId || contratId)
     if (cible && contratIds.length === 0) return []
-    const compteursRows = await fetchAllRows<{ id: string; contrat_id: string; compteur: { id: string; numero_point: string; libelle: string | null } | null }>(
+    // Le tableau de bord ne lit que le statut d'un contrat : voir useContratsListe.
+    const compteursRows = listeSeule ? [] : await fetchAllRows<{ id: string; contrat_id: string; compteur: { id: string; numero_point: string; libelle: string | null } | null }>(
       'contrats_compteurs',
       'id, contrat_id, compteur:compteurs(id, numero_point, libelle)',
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -144,6 +145,11 @@ export function useContrat(contratId: string | undefined) {
     enabled: !!contratId,
   })
 }
+/** Contrats sans leurs PDL -- pour qui n'affiche que l'en-tete. */
+export function useContratsListe() {
+  return useQuery({ queryKey: ['contrats', 'liste'], queryFn: () => fetchContrats(undefined, undefined, true) })
+}
+
 export function useContrats() {
   return useQuery({ queryKey: ['contrats'], queryFn: () => fetchContrats() })
 }

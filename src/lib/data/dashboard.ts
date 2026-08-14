@@ -2,8 +2,8 @@ import { useMemo } from 'react'
 import { useSignaux } from '@/lib/data/signaux'
 import { useRecommandationsListe } from '@/lib/data/recommandations'
 import { useActions } from '@/lib/data/actions'
-import { useContrats } from '@/lib/data/contrats'
-import { useMandats } from '@/lib/data/mandats'
+import { useContratsListe } from '@/lib/data/contrats'
+import { useMandatsListe } from '@/lib/data/mandats'
 import { useQuery } from '@tanstack/react-query'
 import { fetchMonPortefeuille, filtrerMesElements } from '@/lib/data/visibility'
 import { useMonProfil } from '@/lib/data/roles'
@@ -66,16 +66,20 @@ export interface SectionAction {
  * Données du tableau de bord, organisées comme la maquette de William (11/08/2026) : quatre
  * indicateurs en tête, puis les listes d'actions à mener, regroupées par urgence.
  *
- * Les hooks utilisés chargent des tables entières. C'est acceptable ici — le tableau de bord est
- * une page d'arrivée, consultée une fois par session, et ces mêmes données sont déjà en cache pour
- * les autres écrans. Ne pas reproduire ce motif sur les fiches de détail.
+ * Les hooks utilisés chargent des tables entières, filtrées ensuite sur « ce qui est à moi ». Le
+ * tableau de bord est une page d'arrivée et ces données servent aussi aux autres écrans : le cache
+ * les y retrouve. Ne pas reproduire ce motif sur les fiches de détail.
+ *
+ * En revanche, les variantes `…Liste` s'arrêtent à l'en-tête. Cette page ne lit d'un contrat que
+ * son statut, et d'un mandat que son compte, ses dates et son statut — jamais leurs PDL ni leurs
+ * courtiers. Les charger coûtait quinze requêtes sur l'écran que tout le monde ouvre en premier.
  */
 export function useDashboardStats() {
   const signaux = useSignaux()
   const recommandations = useRecommandationsListe()
   const actions = useActions()
-  const contrats = useContrats()
-  const mandats = useMandats()
+  const contrats = useContratsListe()
+  const mandats = useMandatsListe()
   const { data: monProfil } = useMonProfil()
   // « t'es censé voir uniquement les contrats qui sont à toi » (William, 12/08/2026). Le tableau de
   // bord répond à « qu'ai-je à traiter ? », pas à « qu'ai-je le droit de voir ? » : la règle vaut

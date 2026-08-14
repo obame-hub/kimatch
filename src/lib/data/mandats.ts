@@ -37,7 +37,7 @@ interface RawMandat {
  * Les jointures sont filtrées sur les identifiants réellement retenus, et non rechargées en
  * entier : c'est ce qui fait passer le coût de « toute la table » à « ce qui est affiché ».
  */
-async function fetchMandats(compteId?: string, mandatId?: string): Promise<Mandat[]> {
+async function fetchMandats(compteId?: string, mandatId?: string, listeSeule = false): Promise<Mandat[]> {
   try {
     const mandats = await fetchAllRows<RawMandat>(
       'mandats',
@@ -60,8 +60,13 @@ async function fetchMandats(compteId?: string, mandatId?: string): Promise<Manda
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const surCesMandats = compteId ? (q: any) => q.in('mandat_id', mandatIds) : undefined
     const [compteursRows, courtiersRows] = await Promise.all([
-      fetchAllRows<{ mandat_id: string; compteur: { id: string; site_id: string } | null }>('mandats_compteurs', 'mandat_id, compteur:compteurs(id, site_id)', surCesMandats),
-      fetchAllRows<{ mandat_id: string; type_courtier: { code: string } | null }>('mandats_courtiers', 'mandat_id, type_courtier:types_courtiers_mandat(code)', surCesMandats),
+      // Le tableau de bord ne lit ni les PDL ni les courtiers d'un mandat : voir useMandatsListe.
+      listeSeule
+        ? Promise.resolve([] as { mandat_id: string; compteur: { id: string; site_id: string } | null }[])
+        : fetchAllRows<{ mandat_id: string; compteur: { id: string; site_id: string } | null }>('mandats_compteurs', 'mandat_id, compteur:compteurs(id, site_id)', surCesMandats),
+      listeSeule
+        ? Promise.resolve([] as { mandat_id: string; type_courtier: { code: string } | null }[])
+        : fetchAllRows<{ mandat_id: string; type_courtier: { code: string } | null }>('mandats_courtiers', 'mandat_id, type_courtier:types_courtiers_mandat(code)', surCesMandats),
     ])
 
     const compteurIdsParMandat = new Map<string, string[]>()
@@ -135,6 +140,11 @@ export function useMandat(mandatId: string | undefined) {
     enabled: !!mandatId,
   })
 }
+/** Mandats sans leurs PDL ni leurs courtiers -- pour qui n'affiche que l'en-tete. */
+export function useMandatsListe() {
+  return useQuery({ queryKey: ['mandats', 'liste'], queryFn: () => fetchMandats(undefined, undefined, true) })
+}
+
 export function useMandats() {
   return useQuery({ queryKey: ['mandats'], queryFn: () => fetchMandats() })
 }
