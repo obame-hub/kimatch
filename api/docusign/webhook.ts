@@ -104,7 +104,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     // d'appeler DocuSign.
     const { data: mandatConnu } = await admin
       .from('mandats')
-      .select('id, cree_par_id, proprietaire_id')
+      .select('id, cree_par_id, proprietaire_id, statut:statuts_mandats(code, ordre)')
       .eq('docusign_envelope_id', envelopeId)
       .maybeSingle()
     if (!mandatConnu) {
@@ -138,7 +138,29 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       res.status(200).json({ ok: true, skipped: true, reason: `statut ${status} ignoré` })
       return
     }
-    const { data: statutRow } = await admin.from('statuts_mandats').select('id').eq('code', statutCode).maybeSingle()
+    const { data: statutRow } = await admin.from('statuts_mandats').select('id, ordre').eq('code', statutCode).maybeSingle()
+
+    // Un statut ne recule jamais. DocuSign ne connait que le sort de l'enveloppe : une fois signee,
+    // elle reste « completed » pour toujours. Le mandat, lui, continue sa vie -- il devient Actif,
+    // puis Expire. Sans cette garde, chaque notification rejouee ramenait un mandat actif a
+    // « Signe » : constate en rattrapant les notifications perdues, ou CABINET ROUMILHAC JOURDAN,
+    // Actif depuis son import, est repasse a Signe.
+    //
+    // Les fins de vie negatives font exception : un refus ou une revocation s'appliquent quel que
+    // soit l'avancement, puisqu'ils annulent ce qui precede.
+    const statutActuel = (Array.isArray(mandatConnu.statut) ? mandatConnu.statut[0] : mandatConnu.statut) as
+      | { code: string; ordre: number }
+      | null
+    const finNegative = statutCode === 'REFUSE' || statutCode === 'REVOQUE' || statutCode === 'ANNULE'
+    const reculerait =
+      !finNegative && statutRow && statutActuel != null && statutActuel.ordre >= (statutRow.ordre ?? 0)
+    if (reculerait) {
+      console.log('[docusign webhook] statut conserve', {
+        envelopeId,
+        actuel: statutActuel?.code,
+        propose: statutCode,
+      })
+    }
     // Horodatages pris sur l'enveloppe verifiee, pas sur la notification : ce sont les memes que
     // ceux de la piste d'audit DocuSign.
     const dateSignature = statutCode === 'SIGNE' ? (env.completedDateTime ?? new Date().toISOString()) : undefined
@@ -146,7 +168,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     const { data: mandats, error } = await admin
       .from('mandats')
       .update({
-        ...(statutRow ? { statut_id: statutRow.id } : {}),
+        ...(statutRow && !reculerait ? { statut_id: statutRow.id } : {}),
         ...(dateSignature ? { date_signature: dateSignature } : {}),
         ...(dateEnvoi ? { date_envoi: dateEnvoi } : {}),
       })
