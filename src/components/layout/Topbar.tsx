@@ -20,18 +20,8 @@ import { navItems } from '@/lib/navItems'
 import { cn } from '@/lib/utils'
 import kiweeLogo from '@/assets/kiwee-logo.png'
 import { useMarketTicker } from '@/lib/data/marche'
-import { useComptes } from '@/lib/data/comptes'
-import { useSites } from '@/lib/data/sites'
-import { useContacts } from '@/lib/data/contacts'
-import { useCompteurs } from '@/lib/data/compteurs'
-import { useSignaux } from '@/lib/data/signaux'
-import { useMandats } from '@/lib/data/mandats'
-import { useRecommandations } from '@/lib/data/recommandations'
-import { useContrats } from '@/lib/data/contrats'
-import { useDocuments } from '@/lib/data/documents'
-import { useActions } from '@/lib/data/actions'
-import { useInteractions } from '@/lib/data/interactions'
-import { buildSearchIndex, searchIndex, SEARCH_KIND_LABEL, type SearchKind } from '@/lib/search'
+import { useRechercheGlobale } from '@/lib/data/rechercheGlobale'
+import { SEARCH_KIND_LABEL, type SearchKind } from '@/lib/search'
 
 const KIND_ICON: Record<SearchKind, typeof Building2> = {
   compte: Building2,
@@ -109,24 +99,16 @@ function ResultatsRecherche({
   onGoTo: (to: string) => void
   onPremierResultat: (to: string | null) => void
 }) {
-  const { data: comptes, isLoading: l1 } = useComptes()
-  const { data: sites, isLoading: l2 } = useSites()
-  const { data: contacts, isLoading: l3 } = useContacts()
-  const { data: compteurs, isLoading: l4 } = useCompteurs()
-  const { data: signaux } = useSignaux()
-  const { data: mandats } = useMandats()
-  const { data: recommandations } = useRecommandations()
-  const { data: contrats } = useContrats()
-  const { data: documents } = useDocuments()
-  const { data: actions } = useActions()
-  const { data: interactions } = useInteractions()
+  // La base cherche, le navigateur affiche. L'index etait construit ici a partir de onze tables
+  // entieres -- environ 100 000 lignes, dont 66 000 interactions et 130 Mo -- des la premiere
+  // lettre tapee. Le montage differe de ce composant evitait de le faire sur chaque page, mais la
+  // premiere frappe payait toujours la note.
+  const { data: resultats, isFetching } = useRechercheGlobale(query)
 
-  const index = useMemo(
-    () => buildSearchIndex({ comptes, sites, contacts, compteurs, signaux, mandats, recommandations, contrats, documents, actions, interactions }),
-    [comptes, sites, contacts, compteurs, signaux, mandats, recommandations, contrats, documents, actions, interactions],
+  const dataMatches = useMemo(
+    () => (resultats ?? []).map((entry) => ({ entry, score: 1 })),
+    [resultats],
   )
-
-  const dataMatches = useMemo(() => searchIndex(index, query, 5), [index, query])
 
   const groupedData = useMemo(() => {
     const groups = new Map<SearchKind, typeof dataMatches>()
@@ -143,7 +125,7 @@ function ResultatsRecherche({
     onPremierResultat(dataMatches[0]?.entry.to ?? null)
   }, [dataMatches, onPremierResultat])
 
-  const indexation = l1 || l2 || l3 || l4
+  const indexation = isFetching
   const hasResults = pageMatches.length > 0 || dataMatches.length > 0
 
   return (
