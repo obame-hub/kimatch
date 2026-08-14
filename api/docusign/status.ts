@@ -14,8 +14,9 @@ const REQUIS = ['DOCUSIGN_INTEGRATION_KEY', 'DOCUSIGN_SECRET_KEY'] as const
 /**
  * Une Integration Key et une clé secrète DocuSign sont des GUID : 36 caractères.
  *
- * Ce contrôle n'est pas théorique. Le 13/08/2026, DOCUSIGN_RSA_PRIVATE_KEY contenait une valeur de
- * 36 caractères — un identifiant collé dans le champ d'une clé privée. Vérifier la seule présence
+ * Ce contrôle n'est pas théorique. Le 13/08/2026, la variable qui portait alors la clé privée RSA
+ * contenait une valeur de 36 caractères — un identifiant collé dans le mauvais champ. (Cette
+ * variable a disparu avec l'abandon du JWT le 15/08/2026.) Vérifier la seule présence
  * d'une variable annonçait « configuré », le wizard laissait remplir ses quatre étapes, créait le
  * mandat, et n'échouait qu'à l'ouverture de DocuSign. Le même piège existe en sens inverse : une
  * clé secrète tronquée par un copier-coller passerait pour présente.
