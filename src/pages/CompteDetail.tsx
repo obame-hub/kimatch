@@ -33,6 +33,7 @@ import { HistoriqueDiscret } from '@/components/ui/historique-discret'
 import { InlineField } from '@/components/ui/inline-field'
 import { CreationCompteurDialog } from '@/components/compteur/CreationCompteurDialog'
 import {
+  useCompte,
   useComptes,
   useUpdateCompteScore,
   useUpdateCompteClient,
@@ -100,7 +101,10 @@ export default function CompteDetail() {
   const { id } = useParams()
   const navigate = useNavigate()
   const [searchParams, setSearchParams] = useSearchParams()
-  const { data: comptes } = useComptes()
+  const { data: compte, isLoading: compteEnCours } = useCompte(id)
+  // L'apporteur est un autre compte : on le lit par son identifiant plutot que de parcourir la
+  // liste entiere pour en afficher le nom.
+  const { data: apporteur } = useCompte(compte?.apporteur_partenaire_id ?? undefined)
   // Sites, contacts et compteurs sont chargés POUR CE COMPTE seulement : la fiche n'a pas besoin
   // des 6346 sites, 3380 contacts et 7884 compteurs du CRM pour en afficher une poignée. Les
   // compteurs n'ayant pas de compte_id, ils passent par les sites du compte.
@@ -168,7 +172,6 @@ export default function CompteDetail() {
     setTimeout(() => setToast(null), 2200)
   }
 
-  const compte = comptes?.find((c) => c.id === id)
 
   // ── Héro Ellipro ────────────────────────────────────────────────────────────────────────────
   // Le score Ellisphere est stocké en texte mais vaut bien 0 à 10 en base (vérifié sur les 2008
@@ -292,7 +295,7 @@ export default function CompteDetail() {
     // hubOuvert en dépendance : hub ouvert, « R » appartient à la recommandation, pas à la relance.
   }, [compte?.id, sitesDuCompte, contactPrincipal, hubOuvert])
 
-  if (!comptes) {
+  if (compteEnCours) {
     return (
       <div>
         <Topbar crumb="Comptes" title="Compte" />
@@ -500,7 +503,7 @@ export default function CompteDetail() {
                         <p><span className="text-navy-400">Conseiller référent :</span> {compte.conseiller_referent_nom || '—'}</p>
                         <p><span className="text-navy-400">Origine d'acquisition :</span> {compte.origine_acquisition || '—'}</p>
                         <p><span className="text-navy-400">Mandat-cadre actif :</span> {compte.mandat_cadre_actif ? 'Oui' : 'Non'}</p>
-                        <p><span className="text-navy-400">Apporteur d'affaires :</span> {comptes?.find((c) => c.id === compte.apporteur_partenaire_id)?.nom || '—'}</p>
+                        <p><span className="text-navy-400">Apporteur d'affaires :</span> {apporteur?.nom || '—'}</p>
                         {compte.note_interne && <p><span className="text-navy-400">Note interne :</span> {compte.note_interne}</p>}
                       </>
                     )}
@@ -638,14 +641,17 @@ export default function CompteDetail() {
         </div>
       )}
 
-      {compte.type_compte === 'client' && (
-        <EditCompteClientDialog compte={compte} comptes={comptes ?? []} open={showEditSubtype} onClose={() => setShowEditSubtype(false)} />
+      {/* `showEditSubtype &&` en plus du type : ces dialogues restaient montes en permanence, et
+          celui des comptes clients faisait lire la liste complete des comptes pour peupler son
+          selecteur d'apporteur. */}
+      {showEditSubtype && compte.type_compte === 'client' && (
+        <EditCompteClientDialog compte={compte} open onClose={() => setShowEditSubtype(false)} />
       )}
-      {compte.type_compte === 'fournisseur' && (
-        <EditCompteFournisseurDialog compte={compte} contacts={contactsDuCompte} open={showEditSubtype} onClose={() => setShowEditSubtype(false)} />
+      {showEditSubtype && compte.type_compte === 'fournisseur' && (
+        <EditCompteFournisseurDialog compte={compte} contacts={contactsDuCompte} open onClose={() => setShowEditSubtype(false)} />
       )}
-      {compte.type_compte === 'partenaire' && (
-        <EditComptePartenaireDialog compte={compte} contacts={contactsDuCompte} open={showEditSubtype} onClose={() => setShowEditSubtype(false)} />
+      {showEditSubtype && compte.type_compte === 'partenaire' && (
+        <EditComptePartenaireDialog compte={compte} contacts={contactsDuCompte} open onClose={() => setShowEditSubtype(false)} />
       )}
 
       <EditCompteDialog compte={compte} open={editOpen} onClose={() => setEditOpen(false)} />
@@ -1555,7 +1561,10 @@ function AddFichierDialog({ open, onClose, compteId, onSaved }: { open: boolean;
   )
 }
 
-function EditCompteClientDialog({ compte, comptes, open, onClose }: { compte: Compte; comptes: Compte[]; open: boolean; onClose: () => void }) {
+function EditCompteClientDialog({ compte, open, onClose }: { compte: Compte; open: boolean; onClose: () => void }) {
+  // Charge ici, et non par la fiche : le selecteur d'apporteur a besoin de tous les partenaires,
+  // mais seulement quand quelqu'un ouvre ce dialogue.
+  const { data: comptes } = useComptes()
   const { data: segmentsRef } = useReferenceTable('segments_comptes')
   const update = useUpdateCompteClient()
   const [segmentId, setSegmentId] = useState(compte.segment_compte_id ?? '')
@@ -1565,7 +1574,7 @@ function EditCompteClientDialog({ compte, comptes, open, onClose }: { compte: Co
   const [apporteurId, setApporteurId] = useState(compte.apporteur_partenaire_id ?? '')
   const [feedback, setFeedback] = useState<string | null>(null)
 
-  const partenaires = comptes.filter((c) => c.type_compte === 'partenaire')
+  const partenaires = (comptes ?? []).filter((c) => c.type_compte === 'partenaire')
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()

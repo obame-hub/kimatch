@@ -65,7 +65,9 @@ interface RawCompte extends Compte {
 
 const first = <T>(v: T | T[] | null): T | null => (Array.isArray(v) ? v[0] ?? null : v)
 
-async function fetchComptes(): Promise<Compte[]> {
+/** `compteId` ne lit qu'un compte. Une fiche n'a aucune raison de parcourir les 2759 comptes du
+ *  CRM pour retrouver le sien : c'est ce que faisait `comptes?.find(...)` dans CompteDetail. */
+async function fetchComptes(compteId?: string): Promise<Compte[]> {
   try {
     const data = await fetchAllRows<RawCompte>(
       'comptes',
@@ -74,7 +76,8 @@ async function fetchComptes(): Promise<Compte[]> {
         comptes_fournisseurs(*, contact_commercial:contacts(prenom, nom)),
         comptes_partenaires(type_partenariat, modele_remuneration, contact_referent_id, statut_partenariat, date_debut_partenariat, commentaire, contact_referent:contacts(prenom, nom)),
         proprietaire:profils!comptes_proprietaire_id_fkey(prenom, nom)`,
-      (q) => q.order('nom'),
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      (q: any) => (compteId ? q.eq('id', compteId) : q).order('nom'),
     )
 
     const comptesVisibles = await fetchComptesVisibles()
@@ -147,7 +150,24 @@ async function fetchComptes(): Promise<Compte[]> {
 }
 
 export function useComptes() {
-  return useQuery({ queryKey: ['comptes'], queryFn: fetchComptes })
+  // `() => fetchComptes()` et non `fetchComptes` : React Query passe son contexte de requete en
+  // premier argument, que le parametre `compteId` capturerait -- la lecture partirait alors avec un
+  // objet en guise d'identifiant et renverrait une liste vide.
+  return useQuery({ queryKey: ['comptes'], queryFn: () => fetchComptes() })
+}
+
+/**
+ * Un seul compte, lu par son identifiant.
+ *
+ * Renvoie `undefined` tant que la lecture court, `null` si le compte n'existe pas ou sort du
+ * perimetre de visibilite -- la fiche distingue ainsi « en cours de chargement » de « introuvable ».
+ */
+export function useCompte(compteId: string | undefined) {
+  return useQuery({
+    queryKey: ['comptes', 'un', compteId],
+    queryFn: async () => (await fetchComptes(compteId as string))[0] ?? null,
+    enabled: !!compteId,
+  })
 }
 
 interface UpdateScoreInput {
