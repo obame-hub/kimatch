@@ -1,13 +1,22 @@
 import { supabase } from '@/lib/supabase'
-import { fetchCurrentAccess } from '@/lib/data/roles'
 import { fetchAllRows } from '@/lib/data/paginatedFetch'
 
-// Périmètre de visibilité par compte (profils_comptes), voulu par Michel : un admin
-// (SUPER_ADMIN/ADMIN) voit tout, tout le monde d'autre ne voit que les comptes qui lui
-// sont explicitement assignés. `null` = aucune restriction (voit tout) ; sinon la liste
-// des compte_id autorisés (peut être vide = ne voit aucun compte).
-// Même raison et mêmes précautions que `fetchCurrentAccess` : onze modules appellent cette
-// fonction au montage d'un écran, pour un résultat identique. Vidé par `viderCacheAcces`.
+// Perimetre de visibilite par compte. `null` = aucune restriction ; sinon la liste des compte_id
+// autorises (peut etre vide = ne voit aucun compte).
+//
+// La restriction par portefeuille est LEVEE depuis le 14/08/2026 : « il faut que tous les
+// commerciaux voient tous les comptes, pour pouvoir les gerer en l'absence d'un collegue »
+// (Naoelle, non negociable). Elle avait ete demandee par Michel a l'origine.
+//
+// Ce qu'elle produisait : Marie Thonnard, conseillere, ne voyait que les 171 comptes dont elle est
+// proprietaire. CABINET MOLINIER appartenant a Matthieu Bruere, il etait absent de sa liste et de
+// sa recherche, et sa fiche restait vide -- pris pour un probleme de chargement pendant deux jours.
+//
+// La mecanique reste en place, cache compris : elle sert de point unique si un perimetre doit
+// revenir un jour, et profils_comptes continue d'alimenter la notion de portefeuille (« mes
+// comptes », tableau de bord), qui est un usage distinct de la visibilite.
+// Meme raison et memes precautions que `fetchCurrentAccess` : onze modules appellent cette
+// fonction au montage d'un ecran, pour un resultat identique. Vide par `viderCacheAcces`.
 let cacheComptesVisibles: Promise<string[] | null> | null = null
 
 /** Vide le cache du périmètre de visibilité. Appelé par `viderCacheAcces`. */
@@ -53,24 +62,11 @@ export function fetchComptesVisibles(): Promise<string[] | null> {
 }
 
 async function calculerComptesVisibles(): Promise<string[] | null> {
+  // Tout le monde voit tous les comptes. On garde le controle d'authentification : une session
+  // absente ne doit pas ouvrir l'acces, elle doit ne rien montrer.
   const { data: userData } = await supabase.auth.getUser()
   if (!userData.user) return []
-
-  const access = await fetchCurrentAccess()
-  if (access.roleCode === 'SUPER_ADMIN' || access.roleCode === 'ADMIN') return null
-
-  // Paginé pour la même raison : la réponse est plafonnée à 1000 lignes. Guillaume Gilles en a
-  // 935 — il passe, mais à 65 comptes du seuil au-delà duquel il perdrait silencieusement une
-  // partie de son portefeuille.
-  try {
-    const lignes = await fetchAllRows<{ compte_id: string }>('profils_comptes', 'compte_id', (q) =>
-      q.eq('profil_id', userData.user.id).eq('actif', true),
-    )
-    return lignes.map((r) => r.compte_id)
-  } catch (error) {
-    console.error('calculerComptesVisibles', error)
-    return []
-  }
+  return null
 }
 
 // Dérive les sites visibles à partir des comptes visibles — pour les entités qui ne
