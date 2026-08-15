@@ -28,6 +28,21 @@ interface RawRecommandation {
   date_cloture?: string | null
   finalite_cloture?: 'ACCEPTEE' | 'REFUSEE' | 'EXPIREE' | null
   type_opportunite?: string | null
+  /** Colonnes ajoutées le 15/08/2026 (migration 20260815150000). Optionnelles : le select est en
+   *  `*`, elles sont donc absentes tant que la migration n'est pas appliquée. */
+  id_salesforce?: string | null
+  montant?: number | null
+  marge_nette_mwh?: number | null
+  duree_mois?: number | null
+  volume_contractuel?: number | null
+  budget_ancienne_offre?: number | null
+  budget_nouvelle_offre?: number | null
+  difference_budgetaire?: number | null
+  difference_budgetaire_pourcentage?: number | null
+  commission_interne?: number | null
+  commission_nette?: number | null
+  remuneration_apporteur?: number | null
+  fournisseur_compte_id?: string | null
   etape: { code: string } | null
   origine: { libelle: string } | null
   type_energie?: { code: string } | null
@@ -421,6 +436,18 @@ async function fetchRecommandations(
 
     const comptesVisibles = await fetchComptesVisibles()
 
+    // Nom du fournisseur retenu. Requete SEPAREE et tolerante, jamais un embed PostgREST :
+    // `fournisseur_compte_id` date du 15/08/2026 et peut manquer sur un environnement pas encore
+    // migre — un embed la citant ferait echouer le chargement de TOUTES les recommandations.
+    // Une quinzaine de fournisseurs seulement, la requete est negligeable.
+    const fournisseursParId = new Map<string, string>()
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const idsFournisseurs = [...new Set(recos.map((r: any) => r.fournisseur_compte_id).filter(Boolean))] as string[]
+    if (idsFournisseurs.length > 0) {
+      const { data: fournisseurs } = await supabase.from('comptes').select('id, nom').in('id', idsFournisseurs)
+      for (const f of fournisseurs ?? []) fournisseursParId.set(f.id, f.nom)
+    }
+
     return filterVisibles(recos, comptesVisibles, (r) => r.compte?.id).map((r) => ({
       id: r.id,
       titre: r.nom,
@@ -449,6 +476,23 @@ async function fetchRecommandations(
       finalite_cloture: r.finalite_cloture ?? null,
       type_opportunite: r.type_opportunite ?? null,
       compteur_ids: compteurIdsParReco.get(r.id) ?? [],
+      // Champs chiffres repris de l'opportunite Salesforce (migration 20260815150000). Le select
+      // etant en `*`, ils arrivent sans avoir a etre nommes ; ils restent nuls tant que la
+      // migration n'est pas appliquee, et sur les 103 recommandations au nom ambigu.
+      montant: r.montant ?? null,
+      marge_nette_mwh: r.marge_nette_mwh ?? null,
+      duree_mois: r.duree_mois ?? null,
+      volume_contractuel: r.volume_contractuel ?? null,
+      budget_ancienne_offre: r.budget_ancienne_offre ?? null,
+      budget_nouvelle_offre: r.budget_nouvelle_offre ?? null,
+      difference_budgetaire: r.difference_budgetaire ?? null,
+      difference_budgetaire_pourcentage: r.difference_budgetaire_pourcentage ?? null,
+      commission_interne: r.commission_interne ?? null,
+      commission_nette: r.commission_nette ?? null,
+      remuneration_apporteur: r.remuneration_apporteur ?? null,
+      fournisseur_compte_id: r.fournisseur_compte_id ?? null,
+      fournisseur_nom: r.fournisseur_compte_id ? (fournisseursParId.get(r.fournisseur_compte_id) ?? null) : null,
+      id_salesforce: r.id_salesforce ?? null,
     }))
   } catch (error) {
     console.error('fetchRecommandations', error)

@@ -179,6 +179,28 @@ export interface Recommandation {
    * choisi manuellement (voir recommandations.ts). */
   type_opportunite?: string | null
   compteur_ids?: string[]
+  /**
+   * Champs chiffrés de l'affaire, repris de l'objet Opportunity de Salesforce le 15/08/2026
+   * (migration 20260815150000). Ils manquaient tous : « le montant n'est pas affiché sur toutes
+   * les recos » venait de là, l'interface l'affichait mais la donnée n'existait pas.
+   * Nuls sur les 103 recommandations dont le nom existe en double des deux côtés, qui n'ont pas
+   * pu être appariées sans risque de les attribuer au mauvais dossier.
+   */
+  montant?: number | null
+  marge_nette_mwh?: number | null
+  duree_mois?: number | null
+  volume_contractuel?: number | null
+  budget_ancienne_offre?: number | null
+  budget_nouvelle_offre?: number | null
+  difference_budgetaire?: number | null
+  difference_budgetaire_pourcentage?: number | null
+  commission_interne?: number | null
+  commission_nette?: number | null
+  remuneration_apporteur?: number | null
+  fournisseur_compte_id?: string | null
+  fournisseur_nom?: string | null
+  /** Identifiant Salesforce de l'opportunité d'origine — évite de rapprocher par le nom. */
+  id_salesforce?: string | null
 }
 
 export interface ActionItem {

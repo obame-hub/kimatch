@@ -10,6 +10,7 @@ import { EtapeStepper } from '@/components/ui/etape-stepper'
 import { Dialog } from '@/components/ui/dialog'
 import { FormField, Input, Select, Textarea } from '@/components/ui/form'
 import { HistoriqueDiscret } from '@/components/ui/historique-discret'
+import { cn } from '@/lib/utils'
 import {
   useRecommandation,
   useUpdateRecommandation,
@@ -743,6 +744,46 @@ export default function RecommandationDetail() {
                       {reco.marge_nette != null && <p><span className="text-navy-400">Marge nette :</span> {reco.marge_nette.toLocaleString('fr-FR')} €</p>}
                       {reco.marge_nette_coeff != null && <p><span className="text-navy-400">Marge nette avec coeff :</span> {reco.marge_nette_coeff.toLocaleString('fr-FR')} €</p>}
                       {reco.marge_apporteur != null && <p><span className="text-navy-400">Marge apporteur d'affaires :</span> {reco.marge_apporteur.toLocaleString('fr-FR')} €</p>}
+                      {reco.marge_nette_mwh != null && <p><span className="text-navy-400">Marge nette par MWh :</span> {reco.marge_nette_mwh.toLocaleString('fr-FR')} €/MWh</p>}
+                    </div>
+                  )}
+
+                  {/* L'affaire elle-meme : montant, fournisseur retenu, duree, et l'ecart avec le
+                      contrat precedent. Champs repris de l'opportunite Salesforce le 15/08/2026 —
+                      « le montant n'est pas affiche sur toutes les recos » venait de leur absence
+                      en base, pas de l'affichage. Ils restent nuls sur les recommandations que le
+                      rapprochement par nom n'a pas pu identifier sans ambiguite. */}
+                  {(reco.montant != null || reco.fournisseur_nom || reco.duree_mois != null
+                    || reco.budget_ancienne_offre != null || reco.difference_budgetaire != null
+                    || reco.commission_nette != null) && (
+                    <div className="space-y-1 rounded-lg bg-kiwi-50 p-2.5">
+                      <p className="text-[11px] font-semibold uppercase tracking-wide text-navy-400">L'affaire</p>
+                      {reco.montant != null && (
+                        <p><span className="text-navy-400">Montant :</span> <span className="font-semibold text-navy-800">{reco.montant.toLocaleString('fr-FR')} €</span></p>
+                      )}
+                      {reco.fournisseur_nom && (
+                        <p><span className="text-navy-400">Fournisseur :</span>{' '}
+                          {reco.fournisseur_compte_id
+                            ? <EntityLink to={`/comptes/${reco.fournisseur_compte_id}`}>{reco.fournisseur_nom}</EntityLink>
+                            : reco.fournisseur_nom}
+                        </p>
+                      )}
+                      {reco.duree_mois != null && <p><span className="text-navy-400">Durée :</span> {reco.duree_mois} mois</p>}
+                      {reco.volume_contractuel != null && <p><span className="text-navy-400">Volume :</span> {reco.volume_contractuel.toLocaleString('fr-FR')} MWh</p>}
+                      {reco.budget_ancienne_offre != null && <p><span className="text-navy-400">Budget ancienne offre :</span> {reco.budget_ancienne_offre.toLocaleString('fr-FR')} €</p>}
+                      {reco.budget_nouvelle_offre != null && <p><span className="text-navy-400">Budget nouvelle offre :</span> {reco.budget_nouvelle_offre.toLocaleString('fr-FR')} €</p>}
+                      {reco.difference_budgetaire != null && (
+                        <p>
+                          <span className="text-navy-400">Différence budgétaire annuelle :</span>{' '}
+                          <span className={cn('font-semibold', reco.difference_budgetaire < 0 ? 'text-kiwi-700' : 'text-navy-800')}>
+                            {reco.difference_budgetaire.toLocaleString('fr-FR')} €
+                            {reco.difference_budgetaire_pourcentage != null && ` (${reco.difference_budgetaire_pourcentage.toLocaleString('fr-FR')} %)`}
+                          </span>
+                        </p>
+                      )}
+                      {reco.commission_nette != null && <p><span className="text-navy-400">Commission nette KiWee :</span> {reco.commission_nette.toLocaleString('fr-FR')} €</p>}
+                      {reco.commission_interne != null && <p><span className="text-navy-400">Commission interne :</span> {reco.commission_interne.toLocaleString('fr-FR')} €</p>}
+                      {reco.remuneration_apporteur != null && <p><span className="text-navy-400">Rémunération apporteur :</span> {reco.remuneration_apporteur.toLocaleString('fr-FR')} €</p>}
                     </div>
                   )}
                   {reco.description && <p className="text-navy-600">{reco.description}</p>}
