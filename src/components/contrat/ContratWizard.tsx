@@ -456,7 +456,7 @@ export function ContratWizard({
           <div className="space-y-4">
             <div>
               <h3 className="font-display text-base font-semibold text-navy-900">Signataire du contrat</h3>
-              <p className="mt-0.5 text-sm text-navy-500">Prérempli avec le contact décisionnaire de l'opportunité.</p>
+              <p className="mt-0.5 text-sm text-navy-500">Prérempli avec le contact décisionnaire de la recommandation.</p>
             </div>
             <ContactPicker
               value={contactId}

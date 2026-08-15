@@ -12,13 +12,12 @@
  * chargé en mémoire, donc ils portent sur TOUS les sites et plus seulement sur ce qui avait été
  * téléchargé. Mesuré sur la production le 15/08/2026 : ~140 ms pour 100 lignes.
  *
- * Le chemin d'avant est conservé sous `replin` : entre le déploiement du code et l'application de
- * la migration par Naoëlle ou Michel, la fonction n'existe pas encore en base et la page doit
- * continuer à s'afficher. Une fois la migration passée, ce chemin ne s'exécute plus jamais.
+ * Le chemin d'avant avait été gardé en repli le temps que la migration soit appliquée ; elle l'a
+ * été le 15/08/2026 (fonctions `liste_sites` et `carte_sites` vérifiées en base, production
+ * mesurée à ~131 ms), il a donc été retiré le jour même.
  */
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useState } from 'react'
 import { CreationCompteurDialog } from '@/components/compteur/CreationCompteurDialog'
-import { useTranchesAffichage } from '@/lib/useTranchesAffichage'
 import { PiedDeListe } from '@/components/ui/pied-de-liste'
 import { useLocation, useNavigate } from 'react-router-dom'
 import { Plus, List, Map as MapIcon } from 'lucide-react'
@@ -30,21 +29,9 @@ import { Button } from '@/components/ui/button'
 import { EntityLink } from '@/components/ui/entity-link'
 import { ListToolbar } from '@/components/ui/list-toolbar'
 import { SortableTh } from '@/components/ui/sortable-th'
-import { useListControls } from '@/lib/useListControls'
 import { useFrappePosee } from '@/lib/useFrappePosee'
-import {
-  useSites,
-  useSitesListe,
-  useSitesCarte,
-  FonctionListeAbsente,
-  type TriSites,
-} from '@/lib/data/sites'
-import { useSignaux } from '@/lib/data/signaux'
-import { useContrats } from '@/lib/data/contrats'
-import { useRecommandationsListe } from '@/lib/data/recommandations'
-import { useMandats } from '@/lib/data/mandats'
-import { useCompteurs } from '@/lib/data/compteurs'
-import { computeSiteHealth, construireSante, tonDuScore, type SiteHealth } from '@/lib/siteHealth'
+import { useSites, useSitesListe, useSitesCarte, type TriSites } from '@/lib/data/sites'
+import { construireSante, tonDuScore, type SiteHealth } from '@/lib/siteHealth'
 import { SiteHealthBadge } from '@/components/site/SiteHealthBadge'
 import { SitesMap, type SitesMapItem } from '@/components/site/SitesMap'
 import { cn } from '@/lib/utils'
@@ -83,10 +70,6 @@ export default function Sites() {
   const listeServeur = useSitesListe({ recherche, tri, sens, limite })
   const carteServeur = useSitesCarte(recherche, view === 'carte')
 
-  // La migration n'est pas encore appliquée : on repasse par l'ancien chargement.
-  const replin =
-    listeServeur.error instanceof FonctionListeAbsente || carteServeur.error instanceof FonctionListeAbsente
-
   function trierPar(cle: string) {
     const k = cle as TriSites
     if (k === tri) setSens((s) => (s === 'asc' ? 'desc' : 'asc'))
@@ -119,7 +102,7 @@ export default function Sites() {
         />
 
         <div className="mb-3.5 flex items-center justify-between gap-3">
-          <ListToolbar query={query} onQueryChange={setQuery} placeholder="Rechercher un site, compte, ville…" count={replin ? undefined : total} />
+          <ListToolbar query={query} onQueryChange={setQuery} placeholder="Rechercher un site, compte, ville…" count={total} />
           <div className="flex shrink-0 gap-1 rounded-lg border border-navy-200 bg-white p-0.5">
             <button
               type="button"
@@ -137,11 +120,7 @@ export default function Sites() {
             </button>
           </div>
         </div>
-
-        {replin ? (
-          <SitesAncienChemin view={view} query={query} />
-        ) : (
-          <>
+        <>
             {view === 'carte' && (
               <SitesMap
                 sites={(carteServeur.data ?? []).map((s): SitesMapItem => ({
@@ -217,8 +196,7 @@ export default function Sites() {
                 />
               </Card>
             )}
-          </>
-        )}
+        </>
       </div>
       {/* Exactement le parcours « Nouveau compteur » de la fiche compte, sous un autre nom :
           depuis la décision de William, un site n'est qu'un libellé porté par son point de
@@ -264,139 +242,5 @@ function CreationCompteurDialogRelais({
       compteIdParDefaut={compteIdParDefaut}
       onSaved={onSaved}
     />
-  )
-}
-
-/**
- * Ancien chargement, conservé le temps que la migration soit appliquée en base.
- *
- * Volontairement isolé dans son propre composant : ses six `use*` ne se déclenchent que s'il est
- * monté, donc le chemin normal ne paie rien pour lui. À supprimer une fois la fonction
- * `liste_sites` présente sur tous les environnements.
- */
-function SitesAncienChemin({ view, query }: { view: 'liste' | 'carte'; query: string }) {
-  const navigate = useNavigate()
-  const { data: sites, isLoading } = useSites()
-  const { data: signaux } = useSignaux()
-  const { data: contrats } = useContrats()
-  const { data: recommandations } = useRecommandationsListe()
-  const { data: mandats } = useMandats()
-  const { data: compteurs } = useCompteurs()
-
-  // La barre de recherche appartient au composant parent : on applique sa saisie ici, avant de
-  // confier le tri à useListControls (dont l'état de recherche interne reste vide).
-  const sitesCherches = useMemo(() => {
-    const q = query.trim().toLowerCase()
-    if (!q) return sites
-    return sites?.filter((s) =>
-      [s.nom, s.compte_nom, s.type_site, s.ville].some((f) => (f ?? '').toLowerCase().includes(q)),
-    )
-  }, [sites, query])
-
-  const { sortKey, sortDir, toggleSort, items: filteredSites } = useListControls(sitesCherches, {
-    searchFields: (s) => [s.nom, s.compte_nom, s.type_site, s.ville],
-    sorters: {
-      nom: (a, b) => a.nom.localeCompare(b.nom),
-      compte_nom: (a, b) => a.compte_nom.localeCompare(b.compte_nom),
-      type_site: (a, b) => (a.type_site ?? '').localeCompare(b.type_site ?? ''),
-      ville: (a, b) => (a.ville ?? '').localeCompare(b.ville ?? ''),
-      nb_compteurs: (a, b) => a.nb_compteurs - b.nb_compteurs,
-      nb_signaux_ouverts: (a, b) => a.nb_signaux_ouverts - b.nb_signaux_ouverts,
-    },
-    defaultSort: 'nom',
-  })
-
-  const tranche = useTranchesAffichage(filteredSites, `${query}|${sortKey}|${sortDir}`)
-
-  const santeDe = (site: NonNullable<typeof sites>[number]) =>
-    computeSiteHealth({
-      signaux: signaux?.filter((s) => s.site_id === site.id) ?? [],
-      contrats: contrats?.filter((c) => c.site_id === site.id) ?? [],
-      recommandations: recommandations?.filter((r) => r.sites.some((rs) => rs.id === site.id)) ?? [],
-      mandat: mandats?.find((m) => m.compte_id === site.compte_id && m.site_ids.includes(site.id)),
-      compteurs: compteurs?.filter((c) => c.site_id === site.id) ?? [],
-    })
-
-  if (view === 'carte') {
-    return (
-      <SitesMap
-        sites={(filteredSites ?? []).map((site): SitesMapItem => ({
-          id: site.id,
-          nom: site.nom,
-          ville: site.ville,
-          compte_nom: site.compte_nom,
-          latitude: site.latitude,
-          longitude: site.longitude,
-          tone: santeDe(site).tone,
-        }))}
-      />
-    )
-  }
-
-  return (
-    <Card className="overflow-x-auto">
-      <table className="w-full min-w-[720px] text-sm">
-        <thead className="border-b border-navy-100 bg-navy-50 text-left text-xs uppercase tracking-wide text-navy-400">
-          <tr>
-            <SortableTh label="Site" sortKey="nom" activeKey={sortKey} dir={sortDir} onSort={toggleSort} />
-            <SortableTh label="Compte" sortKey="compte_nom" activeKey={sortKey} dir={sortDir} onSort={toggleSort} />
-            <SortableTh label="Type" sortKey="type_site" activeKey={sortKey} dir={sortDir} onSort={toggleSort} />
-            <SortableTh label="Ville" sortKey="ville" activeKey={sortKey} dir={sortDir} onSort={toggleSort} />
-            <SortableTh label="Compteurs" sortKey="nb_compteurs" activeKey={sortKey} dir={sortDir} onSort={toggleSort} />
-            <SortableTh label="Signaux ouverts" sortKey="nb_signaux_ouverts" activeKey={sortKey} dir={sortDir} onSort={toggleSort} />
-            <th className="px-5 py-3 font-medium">Santé</th>
-          </tr>
-        </thead>
-        <tbody className="divide-y divide-navy-100">
-          {isLoading && (
-            <tr>
-              <td colSpan={7} className="px-5 py-6 text-center text-navy-400">Chargement…</td>
-            </tr>
-          )}
-          {!isLoading && filteredSites?.length === 0 && (
-            <tr>
-              <td colSpan={7} className="px-5 py-10 text-center text-sm text-navy-400">
-                {sites?.length === 0
-                  ? "Aucun site pour l'instant — un site représente un bâtiment, un immeuble ou un local rattaché à un compte (syndic, entreprise…). Clique sur « Nouveau site » pour en créer un."
-                  : 'Aucun site ne correspond à la recherche.'}
-              </td>
-            </tr>
-          )}
-          {tranche.visibles.map((site) => (
-            <tr
-              key={site.id}
-              onClick={() => navigate(`/sites/${site.id}`)}
-              className="cursor-pointer hover:bg-navy-50"
-            >
-              <td className="px-5 py-3 font-medium text-navy-800">{site.nom}</td>
-              <td className="px-5 py-3 text-navy-600">
-                <EntityLink to={`/comptes/${site.compte_id}`}>{site.compte_nom}</EntityLink>
-              </td>
-              <td className="px-5 py-3 text-navy-600">{site.type_site}</td>
-              <td className="px-5 py-3 text-navy-600">{site.ville} ({site.code_postal})</td>
-              <td className="px-5 py-3 text-navy-600">{site.nb_compteurs}</td>
-              <td className="px-5 py-3">
-                {site.nb_signaux_ouverts > 0 ? (
-                  <Badge tone="amber">{site.nb_signaux_ouverts} ouvert{site.nb_signaux_ouverts > 1 ? 's' : ''}</Badge>
-                ) : (
-                  <Badge tone="neutral">Aucun</Badge>
-                )}
-              </td>
-              <td className="px-5 py-3">
-                <SiteHealthBadge health={santeDe(site)} />
-              </td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
-      <PiedDeListe
-        affiches={tranche.visibles.length}
-        total={tranche.total}
-        reste={tranche.reste}
-        onAfficherPlus={tranche.afficherPlus}
-        tailleTrancheSuivante={tranche.tailleTrancheSuivante}
-        libelle="sites"
-      />
-    </Card>
   )
 }

@@ -723,7 +723,10 @@ export default function RecommandationDetail() {
                   <p><span className="text-navy-400">Conseiller :</span> {reco.conseiller}</p>
                   <p><span className="text-navy-400">Créée le :</span> {new Date(reco.date_creation).toLocaleDateString('fr-FR')}</p>
                   {reco.type_energie && <p><span className="text-navy-400">Énergie :</span> {reco.type_energie === 'gaz' ? 'Gaz' : 'Électricité'}</p>}
-                  {reco.type_opportunite && <p><span className="text-navy-400">Type d'opportunité :</span> {reco.type_opportunite}</p>}
+                  {/* « Opportunité » est le mot de Salesforce et de Tools ; dans Kimatch on dit
+                      « recommandation » partout dans l'interface (demande de William, 15/08/2026).
+                      Le champ garde son nom en base, seul le libellé change. */}
+                  {reco.type_opportunite && <p><span className="text-navy-400">Type de recommandation :</span> {reco.type_opportunite}</p>}
                   {reco.date_cloture && <p><span className="text-navy-400">Clôture visée :</span> {new Date(reco.date_cloture).toLocaleDateString('fr-FR')}</p>}
                   {reco.contact_signataire_id && (
                     <div className="space-y-1 rounded-lg bg-navy-50 p-2.5">

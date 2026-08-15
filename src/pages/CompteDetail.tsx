@@ -342,6 +342,8 @@ export default function CompteDetail() {
           <Building2 className="h-[18px] w-[18px]" />
         </span>
         <div className="flex min-w-0 flex-1 flex-col gap-1.5">
+          {/* Titre en 28px et non plus 20 : « nom du compte trop petit » (William, 15/08/2026).
+              C'est le titre de la fiche, il doit se lire d'un coup d'œil. */}
           <div className="flex flex-wrap items-center gap-3">
             {canManage ? (
               <InlineField
@@ -350,10 +352,10 @@ export default function CompteDetail() {
                 onCommit={(nom) => updateCompte.mutateAsync({ id: compte.id, nom, ville: compte.ville, segment: compte.segment, proprietaire_id: compte.proprietaire_id ?? null })}
                 onSaved={() => showToast('✓ enregistré')}
                 onError={(err) => showToast(`Erreur : ${err.message}`)}
-                className="text-[20px] font-bold tracking-tight text-kw-ink"
+                className="text-[28px] font-bold leading-tight tracking-tight text-kw-ink"
               />
             ) : (
-              <span className="text-[20px] font-bold tracking-tight text-kw-ink">{compte.nom}</span>
+              <span className="text-[28px] font-bold leading-tight tracking-tight text-kw-ink">{compte.nom}</span>
             )}
             {compte.segment && (
               <span className="rounded-[12px] bg-kw-blue-light px-2.5 py-[3px] text-kw-xs font-semibold text-kw-blue">{compte.segment}</span>
