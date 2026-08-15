@@ -21,24 +21,52 @@ import { useFrappePosee } from '@/lib/useFrappePosee'
 
 const PAR_FAMILLE = 5
 
-/** Echappe les caracteres que PostgREST interprete dans un filtre `or(...)`. */
-function motif(query: string): string {
-  return `%${query.replace(/[,()%]/g, ' ').trim()}%`
+/** Quatre mots suffisent a identifier une ligne ; au-dela on empilerait des filtres pour rien. */
+const MOTS_MAX = 4
+
+/** Decoupe la saisie en mots, en otant ce que PostgREST interprete dans un filtre `or(...)`. */
+function mots(query: string): string[] {
+  return query
+    .replace(/[,()%]/g, ' ')
+    .split(/\s+/)
+    .filter((mot) => mot.length > 0)
+    .slice(0, MOTS_MAX)
+}
+
+/**
+ * Applique la recherche a une requete : CHAQUE mot doit se retrouver dans AU MOINS UN des champs.
+ *
+ * Le filtre portait auparavant la saisie entiere sur chaque champ pris isolement. Chercher
+ * « Romain Hebrard » ne rendait donc rien : `prenom` vaut « Romain » et `nom` vaut « HEBRARD »,
+ * aucun des deux ne contient « Romain Hebrard ». Toute recherche « prenom + nom » etait muette,
+ * et le meme travers touchait « SDC 17 » sur un site ou un compte en plusieurs mots.
+ *
+ * Chaque appel a `.or()` ajoute un filtre, et PostgREST combine les filtres successifs par ET :
+ * on obtient bien « (mot1 dans un champ) ET (mot2 dans un champ) ».
+ */
+function appliquer<T>(requete: T, listeMots: string[], champs: string[]): T {
+  let r = requete
+  for (const mot of listeMots) {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    r = (r as any).or(champs.map((c) => `${c}.ilike.%${mot}%`).join(','))
+  }
+  return r
 }
 
 async function chercher(query: string): Promise<SearchEntry[]> {
   const q = query.trim()
   if (q.length < 2) return []
-  const m = motif(q)
+  const listeMots = mots(q)
+  if (listeMots.length === 0) return []
 
   const [comptes, sites, contacts, compteurs, mandats, recommandations, contrats] = await Promise.all([
-    supabase.from('comptes').select('id, nom, ville, siren').or(`nom.ilike.${m},siren.ilike.${m},ville.ilike.${m}`).limit(PAR_FAMILLE),
-    supabase.from('sites').select('id, nom, ville, code_postal, adresse, compte:comptes(nom)').or(`nom.ilike.${m},ville.ilike.${m},code_postal.ilike.${m},adresse.ilike.${m}`).limit(PAR_FAMILLE),
-    supabase.from('contacts').select('id, prenom, nom, email, telephone, compte:comptes(nom)').or(`nom.ilike.${m},prenom.ilike.${m},email.ilike.${m},telephone.ilike.${m}`).limit(PAR_FAMILLE),
-    supabase.from('compteurs').select('id, numero_point, libelle, site:sites(nom)').or(`numero_point.ilike.${m},libelle.ilike.${m}`).limit(PAR_FAMILLE),
-    supabase.from('mandats').select('id, reference, compte:comptes(nom)').or(`reference.ilike.${m}`).limit(PAR_FAMILLE),
-    supabase.from('recommandations').select('id, nom, compte:comptes(nom)').or(`nom.ilike.${m}`).limit(PAR_FAMILLE),
-    supabase.from('contrats').select('id, reference, reference_fournisseur, compte:comptes(nom)').or(`reference.ilike.${m},reference_fournisseur.ilike.${m}`).limit(PAR_FAMILLE),
+    appliquer(supabase.from('comptes').select('id, nom, ville, siren'), listeMots, ['nom', 'siren', 'ville']).limit(PAR_FAMILLE),
+    appliquer(supabase.from('sites').select('id, nom, ville, code_postal, adresse, compte:comptes(nom)'), listeMots, ['nom', 'ville', 'code_postal', 'adresse']).limit(PAR_FAMILLE),
+    appliquer(supabase.from('contacts').select('id, prenom, nom, email, telephone, compte:comptes(nom)'), listeMots, ['nom', 'prenom', 'email', 'telephone']).limit(PAR_FAMILLE),
+    appliquer(supabase.from('compteurs').select('id, numero_point, libelle, site:sites(nom)'), listeMots, ['numero_point', 'libelle']).limit(PAR_FAMILLE),
+    appliquer(supabase.from('mandats').select('id, reference, compte:comptes(nom)'), listeMots, ['reference']).limit(PAR_FAMILLE),
+    appliquer(supabase.from('recommandations').select('id, nom, compte:comptes(nom)'), listeMots, ['nom']).limit(PAR_FAMILLE),
+    appliquer(supabase.from('contrats').select('id, reference, reference_fournisseur, compte:comptes(nom)'), listeMots, ['reference', 'reference_fournisseur']).limit(PAR_FAMILLE),
   ])
 
   const nomDe = (v: unknown): string => {
