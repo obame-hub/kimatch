@@ -4,6 +4,7 @@ import type { Site } from '@/types/domain'
 import { fetchComptesVisibles, filterVisibles } from '@/lib/data/visibility'
 import { fetchAllRows } from '@/lib/data/paginatedFetch'
 import { toUpperFR } from '@/lib/textFormat'
+import type { EcheanceSante } from '@/lib/siteHealth'
 
 interface RawSite {
   id: string
@@ -134,6 +135,108 @@ async function fetchSites(compteId?: string, siteIds?: string[]): Promise<Site[]
 
 export function useSites() {
   return useQuery({ queryKey: ['sites'], queryFn: () => fetchSites() })
+}
+
+// ---------------------------------------------------------------------------
+// Liste des sites servie par la base (migration 20260815120000)
+// ---------------------------------------------------------------------------
+
+/** Une ligne de la liste, telle que la fonction `liste_sites` la renvoie. */
+export interface LigneSiteListe {
+  id: string
+  nom: string
+  compte_id: string
+  compte_nom: string | null
+  type_site: string | null
+  ville: string | null
+  code_postal: string | null
+  latitude: number | null
+  longitude: number | null
+  nb_compteurs: number
+  nb_signaux_ouverts: number
+  score_sante: number
+  malus_signaux: number
+  sous_mandat_actif: boolean
+  echeances: EcheanceSante[] | null
+  total: number
+}
+
+export type TriSites = 'nom' | 'compte_nom' | 'type_site' | 'ville' | 'nb_compteurs' | 'nb_signaux_ouverts'
+
+/**
+ * Vrai tant que la migration n'est pas appliquée en base.
+ *
+ * Le déploiement Vercel part au push, alors que les migrations sont appliquées à la main par
+ * Naoëlle ou Michel : il y a forcément un moment où le code est en ligne et la fonction absente.
+ * Plutôt que de laisser la page vide pendant ce temps, on retombe sur l'ancien chargement.
+ * Une fois la migration passée, ce drapeau ne repasse jamais à vrai (la requête réussit).
+ */
+export class FonctionListeAbsente extends Error {}
+
+function estFonctionAbsente(erreur: { code?: string; message?: string } | null): boolean {
+  if (!erreur) return false
+  // PGRST202 : « Could not find the function public.liste_sites ... in the schema cache »
+  return erreur.code === 'PGRST202' || /liste_sites|carte_sites/.test(erreur.message ?? '')
+}
+
+async function fetchSitesListe(params: {
+  recherche: string
+  tri: TriSites
+  sens: 'asc' | 'desc'
+  limite: number
+}): Promise<LigneSiteListe[]> {
+  const { data, error } = await supabase.rpc('liste_sites', {
+    p_recherche: params.recherche.trim() || null,
+    p_tri: params.tri,
+    p_sens: params.sens,
+    p_limite: params.limite,
+    p_decalage: 0,
+  })
+  if (error) {
+    if (estFonctionAbsente(error)) throw new FonctionListeAbsente(error.message)
+    throw new Error(error.message)
+  }
+  return (data ?? []) as LigneSiteListe[]
+}
+
+/**
+ * Liste des sites, filtrée, triée et paginée PAR LA BASE.
+ *
+ * Remplace le chargement des six tables que la page croisait dans le navigateur (6348 sites,
+ * 7886 compteurs, plus signaux, contrats, mandats et recommandations) : 87 requêtes PostgREST
+ * réduites à une seule. Mesuré le 15/08/2026 sur la base de production : ~140 ms pour 100 lignes,
+ * ~190 ms pour 300, indépendamment de la profondeur dans la liste.
+ *
+ * Le nombre total de sites correspondants voyage dans chaque ligne (colonne `total`) : c'est ce
+ * qui alimente le pied de liste sans requête de comptage supplémentaire.
+ */
+export function useSitesListe(params: { recherche: string; tri: TriSites; sens: 'asc' | 'desc'; limite: number }) {
+  return useQuery({
+    queryKey: ['sites', 'liste', params.recherche.trim(), params.tri, params.sens, params.limite],
+    queryFn: () => fetchSitesListe(params),
+    // Garder l'affichage précédent pendant qu'une nouvelle tranche arrive évite que la table
+    // clignote à chaque frappe ou changement de tri.
+    placeholderData: (precedent) => precedent,
+    // Inutile de réessayer quand la fonction n'existe pas encore : le repli prend la main.
+    retry: (nb, erreur) => !(erreur instanceof FonctionListeAbsente) && nb < 2,
+  })
+}
+
+/** Sites géolocalisés avec leur score de santé, pour la vue carte. */
+export function useSitesCarte(recherche: string, actif: boolean) {
+  return useQuery({
+    queryKey: ['sites', 'carte', recherche.trim()],
+    queryFn: async () => {
+      const { data, error } = await supabase.rpc('carte_sites', { p_recherche: recherche.trim() || null })
+      if (error) {
+        if (estFonctionAbsente(error)) throw new FonctionListeAbsente(error.message)
+        throw new Error(error.message)
+      }
+      return (data ?? []) as Pick<LigneSiteListe, 'id' | 'nom' | 'ville' | 'compte_nom' | 'latitude' | 'longitude' | 'score_sante'>[]
+    },
+    enabled: actif,
+    retry: (nb, erreur) => !(erreur instanceof FonctionListeAbsente) && nb < 2,
+  })
 }
 
 /** Sites d'un seul compte -- pour les fiches de détail. */

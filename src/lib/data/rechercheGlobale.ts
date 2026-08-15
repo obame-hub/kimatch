@@ -1,7 +1,7 @@
-import { useEffect, useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { supabase } from '@/lib/supabase'
 import type { SearchEntry } from '@/lib/search'
+import { useFrappePosee } from '@/lib/useFrappePosee'
 
 /**
  * Recherche globale (⌘K) executee par la base, et non en memoire.
@@ -83,22 +83,6 @@ async function chercher(query: string): Promise<SearchEntry[]> {
     })
   }
   return entrees
-}
-
-/**
- * Attend que la frappe se pose avant d'interroger la base.
- *
- * Sans cela, « duran » lance sept requetes par lettre : vingt-huit en vol, qui se mettent en file
- * et rendent chacune lente -- environ 850 ms mesurees, identiques sur les sept tables, ce qui
- * trahit l'attente et non le cout de la recherche. Seule la derniere sert a quelque chose.
- */
-function useFrappePosee(valeur: string, delai = 250): string {
-  const [posee, setPosee] = useState(valeur)
-  useEffect(() => {
-    const t = setTimeout(() => setPosee(valeur), delai)
-    return () => clearTimeout(t)
-  }, [valeur, delai])
-  return posee
 }
 
 export function useRechercheGlobale(query: string) {

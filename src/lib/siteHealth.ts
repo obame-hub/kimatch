@@ -79,9 +79,61 @@ export function computeSiteHealth({
   }
 
   score = Math.max(0, Math.min(100, score))
-  const label = score >= 80 ? 'Bonne santé' : score >= 50 ? 'Attention' : 'Critique'
-  const tone = score >= 80 ? 'kiwi' : score >= 50 ? 'amber' : 'red'
   if (raisons.length === 0) raisons.push('Rien à signaler')
 
-  return { score, label, tone, raisons }
+  return { ...habiller(score), raisons }
+}
+
+/** Seuils d'affichage, partagés par les deux chemins de calcul. */
+function habiller(score: number): Omit<SiteHealth, 'raisons'> {
+  return { score, label: labelDuScore(score), tone: tonDuScore(score) }
+}
+
+export function labelDuScore(score: number): SiteHealth['label'] {
+  return score >= 80 ? 'Bonne santé' : score >= 50 ? 'Attention' : 'Critique'
+}
+
+/** Couleur seule — ce dont la carte a besoin, sans avoir à reconstruire un détail qu'elle n'affiche pas. */
+export function tonDuScore(score: number): SiteHealth['tone'] {
+  return score >= 80 ? 'kiwi' : score >= 50 ? 'amber' : 'red'
+}
+
+/** Une échéance proche, telle que la fonction `liste_sites` la renvoie. */
+export interface EcheanceSante {
+  libelle: string
+  jours: number
+  malus: number
+  couvert: boolean
+}
+
+/**
+ * Santé d'un site calculée EN BASE (fonction `liste_sites`).
+ *
+ * Le score arrive tout fait ; il ne reste qu'à rédiger l'infobulle qui explique d'où il vient.
+ * Le texte est volontairement écrit ici, mot pour mot comme dans computeSiteHealth ci-dessus :
+ * la base compte, l'interface rédige. Les deux formulations doivent rester identiques, sinon un
+ * même site se décrirait différemment selon qu'on le regarde dans la liste ou sur sa fiche.
+ */
+export function construireSante(ligne: {
+  score_sante: number
+  nb_signaux_ouverts: number
+  malus_signaux: number
+  sous_mandat_actif: boolean
+  echeances: EcheanceSante[] | null
+}): SiteHealth {
+  const raisons: string[] = []
+
+  const n = ligne.nb_signaux_ouverts
+  if (n > 0) raisons.push(`${n} ${n > 1 ? 'signaux' : 'signal'} ouvert${n > 1 ? 's' : ''} (-${ligne.malus_signaux})`)
+
+  if (!ligne.sous_mandat_actif) raisons.push(`Hors périmètre du mandat actif (-${MALUS_PERIMETRE})`)
+
+  for (const e of ligne.echeances ?? []) {
+    raisons.push(`Échéance ${e.libelle} dans ${Math.max(0, e.jours)} j (-${e.malus})`)
+    if (e.couvert) raisons.push(`Recommandation active sur cette échéance (+${BONUS_RECO_ACTIVE})`)
+  }
+
+  if (raisons.length === 0) raisons.push('Rien à signaler')
+
+  return { ...habiller(ligne.score_sante), raisons }
 }
