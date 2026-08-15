@@ -62,10 +62,17 @@ export function useDocusignConnexion() {
 export type SanteDocusign = 'chargement' | 'inutile' | 'ok' | 'bientot' | 'absente' | 'expiree'
 
 /**
- * La personne connectée a-t-elle déjà envoyé un mandat ?
+ * La personne connectée a-t-elle déjà créé un mandat DANS Kimatch ?
  *
  * Sert à ne pas réclamer une connexion DocuSign à qui n'en a pas l'usage. Une seule ligne suffit :
  * `head` + `count` ne rapatrie aucune donnée, juste le total dans l'en-tête.
+ *
+ * Portée réelle, à ne pas surestimer : la migration Salesforce n'a rempli `proprietaire_id` sur
+ * aucun mandat (1429 sur 1429, voir `useCanManageEnregistrement`), et les mandats importés n'ont pas
+ * davantage de créateur. Ce test ne lit donc PAS l'historique Salesforce — il répond « cette
+ * personne a-t-elle déjà lancé un mandat depuis Kimatch ». C'est volontaire : c'est le moment où
+ * quelqu'un devient concerné par la signature électronique, et à partir de là le bandeau s'applique
+ * à lui. Avant, c'est l'écran « Connexion requise » du wizard qui l'arrête, au moment utile.
  */
 export function useEnvoyeurDeMandats() {
   return useQuery({
