@@ -12,6 +12,9 @@ import { useSanteDocusign } from '@/lib/data/docusign'
  * sauté. » Le bandeau existe pour que ce diagnostic saute aux yeux avant qu'on ouvre un wizard,
  * pas après avoir tout ressaisi.
  *
+ * Le bandeau ne s'adresse pas à tout le monde : voir `useSanteDocusign`, qui ne réclame une
+ * connexion qu'à ceux qui envoient effectivement des mandats.
+ *
  * Deux écarts assumés par rapport à sa description :
  *  - il n'y a pas de bouton pour fermer : une intégration cassée n'est pas une notification, elle
  *    empêche d'envoyer un mandat. Le bandeau disparaît quand le problème est réglé, pas avant.

@@ -62,6 +62,29 @@ export function useDocusignConnexion() {
 export type SanteDocusign = 'chargement' | 'inutile' | 'ok' | 'bientot' | 'absente' | 'expiree'
 
 /**
+ * La personne connectée a-t-elle déjà envoyé un mandat ?
+ *
+ * Sert à ne pas réclamer une connexion DocuSign à qui n'en a pas l'usage. Une seule ligne suffit :
+ * `head` + `count` ne rapatrie aucune donnée, juste le total dans l'en-tête.
+ */
+export function useEnvoyeurDeMandats() {
+  return useQuery({
+    queryKey: ['docusign-envoyeur-de-mandats'],
+    queryFn: async (): Promise<boolean> => {
+      const { data: auth } = await supabase.auth.getUser()
+      const profilId = auth.user?.id
+      if (!profilId) return false
+      const { count } = await supabase
+        .from('mandats')
+        .select('id', { count: 'exact', head: true })
+        .or(`cree_par_id.eq.${profilId},proprietaire_id.eq.${profilId}`)
+      return (count ?? 0) > 0
+    },
+    staleTime: 30 * 60 * 1000,
+  })
+}
+
+/**
  * État de la signature électronique pour la personne connectée, en une seule valeur.
  *
  * Sépare volontairement « absente » (jamais autorisée) de « expiree » (autorisation tombée) : le
@@ -75,9 +98,20 @@ export type SanteDocusign = 'chargement' | 'inutile' | 'ok' | 'bientot' | 'absen
 export function useSanteDocusign(): { etat: SanteDocusign; connexion: DocusignConnexion | null } {
   const statut = useDocusignStatus()
   const connexion = useDocusignConnexion()
+  const envoyeur = useEnvoyeurDeMandats()
 
-  if (statut.isLoading || connexion.isLoading) return { etat: 'chargement', connexion: null }
+  if (statut.isLoading || connexion.isLoading || envoyeur.isLoading) return { etat: 'chargement', connexion: null }
   if (!statut.data?.configured) return { etat: 'inutile', connexion: null }
+  // Jamais connecté ET n'a jamais envoyé de mandat : cette personne n'a rien à réparer. Le 15/08/2026
+  // Naoëlle a rappelé qu'Agathe et Erwan restent dans l'équipe mais n'envoient pas de mandats ; sans
+  // ce filtre, ils recevaient un bandeau rouge permanent, sans bouton de fermeture, sur une
+  // intégration qui ne les concerne pas. Un bandeau que la moitié des gens apprend à ignorer ne
+  // remplit plus le rôle que William lui demande.
+  //
+  // Une autorisation TOMBÉE reste signalée à tout le monde : elle prouve un usage passé, et c'est
+  // exactement le cas que William décrit. Et le premier envoi d'une nouvelle recrue reste couvert
+  // par l'écran « Connexion requise » du wizard, au moment où il sert.
+  if (!connexion.data && !envoyeur.data) return { etat: 'inutile', connexion: null }
   if (!connexion.data) return { etat: 'absente', connexion: null }
   if (connexion.data.expiree) return { etat: 'expiree', connexion: connexion.data }
   if (connexion.data.bientot_expiree) return { etat: 'bientot', connexion: connexion.data }
