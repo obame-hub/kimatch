@@ -3,6 +3,7 @@ import { useParams, useNavigate } from 'react-router-dom'
 import { ArrowLeft, Phone, StickyNote, Plus, Building2, Users, Copy, Zap, Flame, Sparkle, Pencil, Trash2, FileCheck2, FileText, AlertTriangle } from 'lucide-react'
 import { Topbar } from '@/components/layout/Topbar'
 import { Button } from '@/components/ui/button'
+import { ZoneDepotFichiers } from '@/components/ui/zone-depot-fichiers'
 import { Badge } from '@/components/ui/badge'
 import { EntityLink } from '@/components/ui/entity-link'
 import { PhoneLink, EmailLink } from '@/components/ui/contact-link'
@@ -38,7 +39,7 @@ import { useInteractionsForSite } from '@/lib/data/interactions'
 import { useContactsParCompte, useContacts } from '@/lib/data/contacts'
 import { useMandatsParCompte } from '@/lib/data/mandats'
 import { useActionsParSites } from '@/lib/data/actions'
-import { useDocumentsParEntites, useCreateDocument } from '@/lib/data/documents'
+import { useDocumentsParEntites, useCreateDocument, useTeleverserDocuments } from '@/lib/data/documents'
 import { useHistorique } from '@/lib/data/historique'
 import { useComptes } from '@/lib/data/comptes'
 import { EnergyTimeline } from '@/components/site/EnergyTimeline'
@@ -92,6 +93,12 @@ export default function SiteDetail() {
   const [editOpen, setEditOpen] = useState(false)
   const [confirmDelete, setConfirmDelete] = useState(false)
   const [addFichierOpen, setAddFichierOpen] = useState(false)
+
+  const televerser = useTeleverserDocuments()
+
+  const { data: typesDocsRef } = useReferenceTable('types_documents')
+
+  const typesDocs = typesDocsRef && typesDocsRef.length > 0 ? typesDocsRef : FALLBACK_TYPES_DOCUMENTS
   const [addCompteurOpen, setAddCompteurOpen] = useState(false)
 
   function showToast(msg: string) {
@@ -540,6 +547,21 @@ export default function SiteDetail() {
                   Ajouter un fichier
                 </Button>
               </div>
+              {/* Depot reel de fichiers — possible depuis que le bucket « documents » a des
+                  politiques d'ecriture (migration 20260816130000). */}
+              <ZoneDepotFichiers
+                types={typesDocs}
+                onDeposer={async (fichiers, typeDocumentId) => {
+                  await televerser.mutateAsync({
+                    fichiers,
+                    entite_type: 'site',
+                    entite_id: site.id,
+                    type_document_id: typeDocumentId,
+                    type_document_libelle: typesDocs.find((x) => x.id === typeDocumentId)?.libelle ?? '',
+                  })
+                showToast(`✓ ${fichiers.length} fichier${fichiers.length > 1 ? 's' : ''} déposé${fichiers.length > 1 ? 's' : ''}`)
+                }}
+              />
               {documentsDuSite.length === 0 ? (
                 <p className="text-sm text-navy-400">Aucun fichier pour ce site.</p>
               ) : (

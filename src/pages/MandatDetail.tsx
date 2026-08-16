@@ -3,6 +3,7 @@ import { useParams, useNavigate } from 'react-router-dom'
 import { ArrowLeft, FileCheck2, FileSignature, Pencil, Trash2, Building2, MapPin, Gauge, FileText, Plus, Phone, Mail } from 'lucide-react'
 import { Topbar } from '@/components/layout/Topbar'
 import { Button } from '@/components/ui/button'
+import { ZoneDepotFichiers } from '@/components/ui/zone-depot-fichiers'
 import { Badge } from '@/components/ui/badge'
 import { EntityLink } from '@/components/ui/entity-link'
 import { Dialog } from '@/components/ui/dialog'
@@ -14,7 +15,7 @@ import { useContacts } from '@/lib/data/contacts'
 import { useComptes } from '@/lib/data/comptes'
 import { useSites } from '@/lib/data/sites'
 import { useCompteurs } from '@/lib/data/compteurs'
-import { useDocuments, useCreateDocument } from '@/lib/data/documents'
+import { useDocuments, useCreateDocument, useTeleverserDocuments } from '@/lib/data/documents'
 import { useReferenceTable } from '@/lib/data/referenceTables'
 import { useCanManage, useIsAdmin, useProfilsAdmin } from '@/lib/data/roles'
 import { useSuppression } from '@/lib/useSuppression'
@@ -267,6 +268,12 @@ export default function MandatDetail() {
   const [editOpen, setEditOpen] = useState(false)
   const [confirmDelete, setConfirmDelete] = useState(false)
   const [addFichierOpen, setAddFichierOpen] = useState(false)
+
+  const televerser = useTeleverserDocuments()
+
+  const { data: typesDocsRef } = useReferenceTable('types_documents')
+
+  const typesDocs = typesDocsRef && typesDocsRef.length > 0 ? typesDocsRef : FALLBACK_TYPES_DOCUMENTS
   const [tab, setTab] = useState<TabKey>('mandat')
   const canManage = useCanManage(mandat?.proprietaire_id)
   const deleteMandat = useDeleteMandat()
@@ -525,6 +532,20 @@ export default function MandatDetail() {
                   Ajouter un fichier
                 </Button>
               </div>
+              {/* Depot reel de fichiers — possible depuis que le bucket « documents » a des
+                  politiques d'ecriture (migration 20260816130000). */}
+              <ZoneDepotFichiers
+                types={typesDocs}
+                onDeposer={async (fichiers, typeDocumentId) => {
+                  await televerser.mutateAsync({
+                    fichiers,
+                    entite_type: 'mandat',
+                    entite_id: mandat.id,
+                    type_document_id: typeDocumentId,
+                    type_document_libelle: typesDocs.find((x) => x.id === typeDocumentId)?.libelle ?? '',
+                  })
+                }}
+              />
               {documentsDuMandat.length === 0 ? (
                 <p className="text-sm text-navy-400">Aucun fichier lié à ce mandat.</p>
               ) : (

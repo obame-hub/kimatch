@@ -3,6 +3,7 @@ import { useParams, useNavigate } from 'react-router-dom'
 import { ArrowLeft, Zap, Flame, Plus, Pencil, Trash2, Building2, MapPin, FileCheck2, FileText, RefreshCw } from 'lucide-react'
 import { Topbar } from '@/components/layout/Topbar'
 import { Button } from '@/components/ui/button'
+import { ZoneDepotFichiers } from '@/components/ui/zone-depot-fichiers'
 import { Badge } from '@/components/ui/badge'
 import { Dialog } from '@/components/ui/dialog'
 import { FormField, Input, Select } from '@/components/ui/form'
@@ -20,7 +21,7 @@ import { useContrats } from '@/lib/data/contrats'
 import { useMandats } from '@/lib/data/mandats'
 import { useSignaux } from '@/lib/data/signaux'
 import { useRecommandationsListe } from '@/lib/data/recommandations'
-import { useDocuments, useCreateDocument } from '@/lib/data/documents'
+import { useDocuments, useCreateDocument, useTeleverserDocuments } from '@/lib/data/documents'
 import { useReferenceTable } from '@/lib/data/referenceTables'
 import { FALLBACK_STATUTS_CONTRATS, STATUT_CONTRAT_TONE, FALLBACK_STATUTS_MANDATS, STATUT_MANDAT_TONE, FALLBACK_TYPES_DOCUMENTS } from '@/lib/referenceFallbacks'
 import { useCanManageEnregistrement, useIsAdmin, useProfilsAdmin } from '@/lib/data/roles'
@@ -393,6 +394,12 @@ export default function CompteurDetail() {
   const [editOpen, setEditOpen] = useState(false)
   const [confirmDelete, setConfirmDelete] = useState(false)
   const [addFichierOpen, setAddFichierOpen] = useState(false)
+
+  const televerser = useTeleverserDocuments()
+
+  const { data: typesDocsRef } = useReferenceTable('types_documents')
+
+  const typesDocs = typesDocsRef && typesDocsRef.length > 0 ? typesDocsRef : FALLBACK_TYPES_DOCUMENTS
   // 7883 compteurs sur 7884 n'ont pas de propriétaire : useCanManage aurait réservé toute
   // modification aux administrateurs. Même motif que sur les contacts.
   const canManage = useCanManageEnregistrement(compteur?.proprietaire_id)
@@ -812,6 +819,20 @@ export default function CompteurDetail() {
                   Ajouter un fichier
                 </Button>
               </div>
+              {/* Depot reel de fichiers — possible depuis que le bucket « documents » a des
+                  politiques d'ecriture (migration 20260816130000). */}
+              <ZoneDepotFichiers
+                types={typesDocs}
+                onDeposer={async (fichiers, typeDocumentId) => {
+                  await televerser.mutateAsync({
+                    fichiers,
+                    entite_type: 'compteur',
+                    entite_id: compteur.id,
+                    type_document_id: typeDocumentId,
+                    type_document_libelle: typesDocs.find((x) => x.id === typeDocumentId)?.libelle ?? '',
+                  })
+                }}
+              />
               {documentsDuCompteur.length === 0 ? (
                 <p className="text-sm text-navy-400">Aucun fichier pour ce compteur.</p>
               ) : (

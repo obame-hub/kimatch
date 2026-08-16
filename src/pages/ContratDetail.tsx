@@ -4,6 +4,7 @@ import { useParams, useNavigate } from 'react-router-dom'
 import { ArrowLeft, Zap, Flame, Pencil, Trash2, Building2, MapPin, Gauge, FileText, Plus, Euro, X, Eye } from 'lucide-react'
 import { Topbar } from '@/components/layout/Topbar'
 import { Button } from '@/components/ui/button'
+import { ZoneDepotFichiers } from '@/components/ui/zone-depot-fichiers'
 import { Badge } from '@/components/ui/badge'
 import { EntityLink } from '@/components/ui/entity-link'
 import { Dialog } from '@/components/ui/dialog'
@@ -13,7 +14,7 @@ import { useContrat, useUpdateContrat, useDeleteContrat } from '@/lib/data/contr
 import { useSites } from '@/lib/data/sites'
 import { useComptes } from '@/lib/data/comptes'
 import { useContacts } from '@/lib/data/contacts'
-import { useDocuments, useCreateDocument } from '@/lib/data/documents'
+import { useDocuments, useCreateDocument, useTeleverserDocuments } from '@/lib/data/documents'
 import { useReferenceTable } from '@/lib/data/referenceTables'
 import { useFormulesTarifaires, useTarifsByContratCompteurs, useCreateTarif, useDeleteTarif } from '@/lib/data/tarifs'
 import { useCanManage, useIsAdmin, useProfilsAdmin } from '@/lib/data/roles'
@@ -347,6 +348,12 @@ export default function ContratDetail() {
   const [editOpen, setEditOpen] = useState(false)
   const [confirmDelete, setConfirmDelete] = useState(false)
   const [addFichierOpen, setAddFichierOpen] = useState(false)
+
+  const televerser = useTeleverserDocuments()
+
+  const { data: typesDocsRef } = useReferenceTable('types_documents')
+
+  const typesDocs = typesDocsRef && typesDocsRef.length > 0 ? typesDocsRef : FALLBACK_TYPES_DOCUMENTS
   const [addTarifFor, setAddTarifFor] = useState<string | null>(null)
 
   const suppression = useSuppression()
@@ -698,6 +705,20 @@ export default function ContratDetail() {
                   Ajouter un fichier
                 </Button>
               </div>
+              {/* Depot reel de fichiers — possible depuis que le bucket « documents » a des
+                  politiques d'ecriture (migration 20260816130000). */}
+              <ZoneDepotFichiers
+                types={typesDocs}
+                onDeposer={async (fichiers, typeDocumentId) => {
+                  await televerser.mutateAsync({
+                    fichiers,
+                    entite_type: 'contrat',
+                    entite_id: contrat.id,
+                    type_document_id: typeDocumentId,
+                    type_document_libelle: typesDocs.find((x) => x.id === typeDocumentId)?.libelle ?? '',
+                  })
+                }}
+              />
               {documentsDuContrat.length === 0 ? (
                 <p className="text-sm text-navy-400">Aucun fichier pour ce contrat.</p>
               ) : (
