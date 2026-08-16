@@ -364,6 +364,28 @@ export function useUpdateInteraction() {
   })
 }
 
+/** Colonnes réellement modifiables de `interactions`, pour l'édition en place. */
+export type PatchInteraction = Partial<{
+  date_interaction: string
+  sens: string | null
+  objet: string | null
+  resume: string | null
+  resultat: string | null
+  proprietaire_id: string | null
+}>
+
+/** Mise à jour d'un seul champ, sans réécrire les six colonnes à chaque fois. */
+export function useUpdateInteractionPartiel() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: async ({ id, patch }: { id: string; patch: PatchInteraction }) => {
+      const { error } = await supabase.from('interactions').update(patch).eq('id', id)
+      if (error) throw new Error(error.message)
+    },
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['interactions'] }),
+  })
+}
+
 export function useDeleteInteraction() {
   const queryClient = useQueryClient()
   return useMutation({

@@ -267,6 +267,26 @@ export function useUpdateDocument() {
   })
 }
 
+/** Colonnes réellement modifiables de `documents`, pour l'édition en place. */
+export type PatchDocument = Partial<{
+  nom: string
+  nom_fichier: string
+  url: string
+  proprietaire_id: string | null
+}>
+
+/** Mise à jour d'un seul champ, sans réécrire les quatre colonnes. */
+export function useUpdateDocumentPartiel() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: async ({ id, patch }: { id: string; patch: PatchDocument }) => {
+      const { error } = await supabase.from('documents').update(patch).eq('id', id)
+      if (error) throw new Error(error.message)
+    },
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['documents'] }),
+  })
+}
+
 export function useDeleteDocument() {
   const queryClient = useQueryClient()
   return useMutation({

@@ -167,6 +167,26 @@ export function useUpdateSignal() {
   })
 }
 
+/** Colonnes réellement modifiables de `signaux`, pour l'édition en place.
+ *  La description s'appelle `commentaire` en base. */
+export type PatchSignal = Partial<{
+  commentaire: string | null
+  gravite: number | null
+}>
+
+/** Mise à jour d'un seul champ. `useUpdateSignal` écrit toujours `commentaire`, même quand on ne
+ *  veut changer que la gravité — il l'effacerait. */
+export function useUpdateSignalPartiel() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: async ({ id, patch }: { id: string; patch: PatchSignal }) => {
+      const { error } = await supabase.from('signaux').update(patch).eq('id', id)
+      if (error) throw new Error(error.message)
+    },
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['signaux'] }),
+  })
+}
+
 export function useDeleteSignal() {
   const queryClient = useQueryClient()
   return useMutation({

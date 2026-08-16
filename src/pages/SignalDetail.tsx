@@ -1,21 +1,20 @@
-import { useEffect, useState } from 'react'
+import { useState } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
-import { ArrowLeft, Radio, Pencil, Trash2 } from 'lucide-react'
+import { ArrowLeft, Radio, Trash2 } from 'lucide-react'
 import { Topbar } from '@/components/layout/Topbar'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { EntityLink } from '@/components/ui/entity-link'
 import { Dialog } from '@/components/ui/dialog'
-import { FormField, Input, Textarea } from '@/components/ui/form'
 import { HistoriqueDiscret } from '@/components/ui/historique-discret'
-import { useSignal, useUpdateSignal, useDeleteSignal } from '@/lib/data/signaux'
+import { InlineField } from '@/components/ui/inline-field'
+import { useSignal, useUpdateSignalPartiel, useDeleteSignal, type PatchSignal } from '@/lib/data/signaux'
 import { useReferenceTable } from '@/lib/data/referenceTables'
 import { useCanManage } from '@/lib/data/roles'
 import { useSuppression } from '@/lib/useSuppression'
 import { FALLBACK_STATUTS_SIGNAUX } from '@/lib/referenceFallbacks'
 import { useGoBack } from '@/lib/useGoBack'
-import type { Signal } from '@/types/domain'
 
 export default function SignalDetail() {
   const { id } = useParams()
@@ -29,8 +28,18 @@ export default function SignalDetail() {
   const deleteSignal = useDeleteSignal()
   const goBack = useGoBack('/signaux')
 
-  const [editOpen, setEditOpen] = useState(false)
   const [confirmDelete, setConfirmDelete] = useState(false)
+
+  // Edition en place : la modale « Modifier » disparait.
+  const updateSignalPartiel = useUpdateSignalPartiel()
+  const majSignal = async (patch: PatchSignal) => {
+    await updateSignalPartiel.mutateAsync({ id: id as string, patch })
+  }
+  const [toast, setToast] = useState<string | null>(null)
+  const retourInline = {
+    onSaved: () => { setToast('✓ enregistré'); setTimeout(() => setToast(null), 2200) },
+    onError: (e: Error) => { setToast(`Erreur : ${e.message}`); setTimeout(() => setToast(null), 2200) },
+  }
 
   const suppression = useSuppression()
 
@@ -67,10 +76,7 @@ export default function SignalDetail() {
                   <Badge tone="amber">{statuts.find((s) => s.code === signal.statut)?.libelle ?? signal.statut}</Badge>
                   {canManage && (
                     <>
-                      <Button variant="outline" size="sm" onClick={() => setEditOpen(true)}>
-                        <Pencil className="h-3.5 w-3.5" />
-                        Modifier
-                      </Button>
+                      {/* Plus de bouton « Modifier » : gravite et description s'editent en place. */}
                       <Button variant="outline" size="sm" onClick={() => setConfirmDelete(true)}>
                         <Trash2 className="h-3.5 w-3.5" />
                         Supprimer
@@ -90,8 +96,36 @@ export default function SignalDetail() {
               )}
               {signal.conseiller && <p><span className="text-navy-400">Responsable :</span> {signal.conseiller}</p>}
               <p><span className="text-navy-400">Créé le :</span> {new Date(signal.date_creation).toLocaleDateString('fr-FR')}</p>
-              <p><span className="text-navy-400">Gravité :</span> {signal.gravite != null ? `${signal.gravite}/100` : 'Non qualifiée'}</p>
-              {signal.description && <p className="text-navy-600">{signal.description}</p>}
+              {/* Edition en place : la gravite d'un signal se requalifie souvent apres coup, et
+                  la description n'apparaissait PAS tant qu'elle etait vide -- rien n'invitait a
+                  la remplir. La gravite est bornee a 0-100 comme dans l'ancienne modale. */}
+              {canManage ? (
+                <>
+                  <InlineField
+                    variant="number"
+                    label="Gravité (0 à 100)"
+                    unit="/100"
+                    emptyLabel="qualifier la gravité"
+                    value={signal.gravite ?? null}
+                    onCommit={(v) => majSignal({ gravite: v == null ? null : Math.max(0, Math.min(100, v)) })}
+                    {...retourInline}
+                  />
+                  <InlineField
+                    variant="longtext"
+                    label="Description"
+                    emptyLabel="ajouter une description"
+                    rows={3}
+                    value={signal.description ?? ''}
+                    onCommit={(v) => majSignal({ commentaire: v.trim() || null })}
+                    {...retourInline}
+                  />
+                </>
+              ) : (
+                <>
+                  <p><span className="text-navy-400">Gravité :</span> {signal.gravite != null ? `${signal.gravite}/100` : 'Non qualifiée'}</p>
+                  {signal.description && <p className="text-navy-600">{signal.description}</p>}
+                </>
+              )}
               <HistoriqueDiscret tableNom="signaux" ligneId={signal.id} />
             </CardContent>
           </Card>
@@ -100,7 +134,6 @@ export default function SignalDetail() {
 
       {signal && (
         <>
-          {editOpen && <EditSignalDialog open={editOpen} onClose={() => setEditOpen(false)} signal={signal} />}
 
           <Dialog
             open={confirmDelete}
@@ -120,52 +153,12 @@ export default function SignalDetail() {
           </Dialog>
         </>
       )}
-    </div>
-  )
-}
 
-function EditSignalDialog({ open, onClose, signal }: { open: boolean; onClose: () => void; signal: Signal }) {
-  const updateSignal = useUpdateSignal()
-  const [description, setDescription] = useState(signal.description ?? '')
-  const [gravite, setGravite] = useState(signal.gravite != null ? String(signal.gravite) : '')
-  const [feedback, setFeedback] = useState<string | null>(null)
-
-  useEffect(() => {
-    if (!open) return
-    setDescription(signal.description ?? '')
-    setGravite(signal.gravite != null ? String(signal.gravite) : '')
-    setFeedback(null)
-  }, [open, signal])
-
-  async function handleSubmit(e: React.FormEvent) {
-    e.preventDefault()
-    try {
-      await updateSignal.mutateAsync({
-        id: signal.id,
-        commentaire: description || null,
-        gravite: gravite === '' ? null : Math.max(0, Math.min(100, Number(gravite))),
-      })
-      onClose()
-    } catch (err) {
-      setFeedback(err instanceof Error ? err.message : 'Erreur inconnue')
-    }
-  }
-
-  return (
-    <Dialog open={open} onClose={onClose} title="Modifier le signal" description="Mettre à jour la description du signal.">
-      <form onSubmit={handleSubmit} className="space-y-3">
-        <FormField label="Description">
-          <Textarea rows={4} value={description} onChange={(e) => setDescription(e.target.value)} />
-        </FormField>
-        <FormField label="Gravité (0 à 100, laisser vide si non qualifiée)">
-          <Input type="number" min={0} max={100} value={gravite} onChange={(e) => setGravite(e.target.value)} placeholder="Ex. 70" />
-        </FormField>
-        {feedback && <p className="text-xs text-red-600">{feedback}</p>}
-        <div className="flex justify-end gap-2 pt-2">
-          <Button type="button" variant="ghost" onClick={onClose}>Annuler</Button>
-          <Button type="submit" disabled={updateSignal.isPending}>Enregistrer</Button>
+      {toast && (
+        <div className="fixed bottom-[70px] left-1/2 z-50 -translate-x-1/2 whitespace-nowrap rounded-lg bg-ink-800 px-4 py-2.5 text-xs font-semibold text-white shadow-lg lg:bottom-6">
+          {toast}
         </div>
-      </form>
-    </Dialog>
+      )}
+    </div>
   )
 }

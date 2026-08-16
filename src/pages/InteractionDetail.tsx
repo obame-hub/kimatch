@@ -1,20 +1,19 @@
-import { useEffect, useState } from 'react'
+import { useState } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
-import { ArrowLeft, MessageSquare, Pencil, Trash2 } from 'lucide-react'
+import { ArrowLeft, MessageSquare, Trash2 } from 'lucide-react'
 import { Topbar } from '@/components/layout/Topbar'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { EntityLink } from '@/components/ui/entity-link'
 import { Dialog } from '@/components/ui/dialog'
-import { FormField, Input, Select, Textarea } from '@/components/ui/form'
 import { HistoriqueDiscret } from '@/components/ui/historique-discret'
-import { useInteractions, useUpdateInteraction, useDeleteInteraction } from '@/lib/data/interactions'
+import { InlineField } from '@/components/ui/inline-field'
+import { useInteractions, useUpdateInteractionPartiel, useDeleteInteraction, type PatchInteraction } from '@/lib/data/interactions'
 import { useCanManage, useIsAdmin, useProfilsAdmin } from '@/lib/data/roles'
 import { useGoBack } from '@/lib/useGoBack'
 import { useSuppression } from '@/lib/useSuppression'
 import { InteractionSentence } from '@/lib/interactionSentence'
-import type { Interaction } from '@/types/domain'
 
 const SENS_OPTIONS = [
   { value: '', label: '—' },
@@ -31,7 +30,19 @@ export default function InteractionDetail() {
   const goBack = useGoBack('/interactions')
 
   const canManage = useCanManage(interaction?.proprietaire_id)
-  const [editOpen, setEditOpen] = useState(false)
+  const isAdmin = useIsAdmin()
+  const { data: profilsAdmin } = useProfilsAdmin()
+
+  // Edition en place : la modale « Modifier » disparait.
+  const updateInteractionPartiel = useUpdateInteractionPartiel()
+  const majInteraction = async (patch: PatchInteraction) => {
+    await updateInteractionPartiel.mutateAsync({ id: id as string, patch })
+  }
+  const [toast, setToast] = useState<string | null>(null)
+  const retourInline = {
+    onSaved: () => { setToast('✓ enregistré'); setTimeout(() => setToast(null), 2200) },
+    onError: (e: Error) => { setToast(`Erreur : ${e.message}`); setTimeout(() => setToast(null), 2200) },
+  }
   const [confirmDelete, setConfirmDelete] = useState(false)
 
   const suppression = useSuppression()
@@ -69,10 +80,7 @@ export default function InteractionDetail() {
                   <Badge tone="neutral">{interaction.type_interaction}</Badge>
                   {canManage && (
                     <>
-                      <Button variant="outline" size="sm" onClick={() => setEditOpen(true)}>
-                        <Pencil className="h-3.5 w-3.5" />
-                        Modifier
-                      </Button>
+                      {/* Plus de bouton « Modifier » : tout s'edite en place ci-dessous. */}
                       <Button variant="outline" size="sm" onClick={() => setConfirmDelete(true)}>
                         <Trash2 className="h-3.5 w-3.5" />
                         Supprimer
@@ -118,14 +126,87 @@ export default function InteractionDetail() {
                   <EntityLink to={`/recommandations/${interaction.recommandation_id}`}>{interaction.recommandation_nom}</EntityLink>
                 </p>
               )}
-              {interaction.sens && (
-                <p><span className="text-navy-400">Sens :</span> {interaction.sens}</p>
-              )}
-              {interaction.resume && (
-                <p><span className="text-navy-400">Résumé :</span> {interaction.resume}</p>
-              )}
-              {interaction.resultat && (
-                <p><span className="text-navy-400">Résultat :</span> {interaction.resultat}</p>
+              {/* Edition en place. Une interaction se complete apres coup -- on note l'objet en
+                  raccrochant, le resume et le resultat viennent apres. Sens, resume et resultat
+                  n'apparaissaient PAS tant qu'ils etaient vides : il fallait ouvrir la modale
+                  pour savoir qu'ils existaient. */}
+              {canManage ? (
+                <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                  <InlineField
+                    variant="date"
+                    label="Date"
+                    value={interaction.date_interaction ? interaction.date_interaction.slice(0, 10) : null}
+                    // La colonne est un horodatage : on renvoie de l'ISO complet, pas la seule
+                    // date, sinon l'heure d'origine saute a minuit UTC.
+                    onCommit={(d) => majInteraction({
+                      date_interaction: d ? new Date(d).toISOString() : interaction.date_interaction,
+                    })}
+                    {...retourInline}
+                  />
+                  <InlineField
+                    variant="select"
+                    label="Sens"
+                    emptyLabel="entrant ou sortant ?"
+                    value={interaction.sens ?? ''}
+                    options={SENS_OPTIONS.filter((s) => s.value !== '')}
+                    onCommit={(v) => majInteraction({ sens: v || null })}
+                    {...retourInline}
+                  />
+                  <div className="sm:col-span-2">
+                    <InlineField
+                      variant="text"
+                      label="Objet"
+                      emptyLabel="ajouter un objet"
+                      value={interaction.objet ?? ''}
+                      onCommit={(v) => majInteraction({ objet: v.trim() || null })}
+                      {...retourInline}
+                    />
+                  </div>
+                  <div className="sm:col-span-2">
+                    <InlineField
+                      variant="longtext"
+                      label="Résumé"
+                      emptyLabel="ajouter un résumé"
+                      rows={3}
+                      value={interaction.resume ?? ''}
+                      onCommit={(v) => majInteraction({ resume: v.trim() || null })}
+                      {...retourInline}
+                    />
+                  </div>
+                  <div className="sm:col-span-2">
+                    <InlineField
+                      variant="text"
+                      label="Résultat"
+                      emptyLabel="ajouter un résultat"
+                      value={interaction.resultat ?? ''}
+                      onCommit={(v) => majInteraction({ resultat: v.trim() || null })}
+                      {...retourInline}
+                    />
+                  </div>
+                  {isAdmin && (
+                    <InlineField
+                      variant="select"
+                      label="Propriétaire"
+                      emptyLabel="aucun"
+                      value={interaction.proprietaire_id ?? ''}
+                      options={(profilsAdmin ?? []).map((p) => ({ value: p.id, label: `${p.prenom} ${p.nom}` }))}
+                      onCommit={(v) => majInteraction({ proprietaire_id: v || null })}
+                      {...retourInline}
+                    />
+                  )}
+                </div>
+              ) : (
+                <>
+                  {interaction.sens && (
+                    <p><span className="text-navy-400">Sens :</span> {interaction.sens}</p>
+                  )}
+                  {interaction.resume && (
+                    <p><span className="text-navy-400">Résumé :</span> {interaction.resume}</p>
+                  )}
+                  {interaction.resultat && (
+                    <p><span className="text-navy-400">Résultat :</span> {interaction.resultat}</p>
+                  )}
+                </>
               )}
               {(interaction.appel_manque || interaction.messagerie_vocale) && (
                 <p>
@@ -163,7 +244,6 @@ export default function InteractionDetail() {
 
       {interaction && (
         <>
-          {editOpen && <EditInteractionDialog open={editOpen} onClose={() => setEditOpen(false)} interaction={interaction} />}
 
           <Dialog
             open={confirmDelete}
@@ -183,88 +263,12 @@ export default function InteractionDetail() {
           </Dialog>
         </>
       )}
+
+      {toast && (
+        <div className="fixed bottom-[70px] left-1/2 z-50 -translate-x-1/2 whitespace-nowrap rounded-lg bg-ink-800 px-4 py-2.5 text-xs font-semibold text-white shadow-lg lg:bottom-6">
+          {toast}
+        </div>
+      )}
     </div>
-  )
-}
-
-function EditInteractionDialog({ open, onClose, interaction }: { open: boolean; onClose: () => void; interaction: Interaction }) {
-  const updateInteraction = useUpdateInteraction()
-  const isAdmin = useIsAdmin()
-  const { data: profilsAdmin } = useProfilsAdmin()
-
-  const [dateInteraction, setDateInteraction] = useState(interaction.date_interaction ? interaction.date_interaction.slice(0, 10) : '')
-  const [sens, setSens] = useState(interaction.sens ?? '')
-  const [objet, setObjet] = useState(interaction.objet ?? '')
-  const [resume, setResume] = useState(interaction.resume ?? '')
-  const [resultat, setResultat] = useState(interaction.resultat ?? '')
-  const [proprietaireId, setProprietaireId] = useState(interaction.proprietaire_id ?? '')
-  const [feedback, setFeedback] = useState<string | null>(null)
-
-  useEffect(() => {
-    if (!open) return
-    setDateInteraction(interaction.date_interaction ? interaction.date_interaction.slice(0, 10) : '')
-    setSens(interaction.sens ?? '')
-    setObjet(interaction.objet ?? '')
-    setResume(interaction.resume ?? '')
-    setResultat(interaction.resultat ?? '')
-    setProprietaireId(interaction.proprietaire_id ?? '')
-    setFeedback(null)
-  }, [open, interaction])
-
-  async function handleSubmit(e: React.FormEvent) {
-    e.preventDefault()
-    try {
-      await updateInteraction.mutateAsync({
-        id: interaction.id,
-        date_interaction: dateInteraction ? new Date(dateInteraction).toISOString() : interaction.date_interaction,
-        sens: sens || null,
-        objet: objet || null,
-        resume: resume || null,
-        resultat: resultat || null,
-        proprietaire_id: proprietaireId || null,
-      })
-      onClose()
-    } catch (err) {
-      setFeedback(err instanceof Error ? err.message : 'Erreur inconnue')
-    }
-  }
-
-  return (
-    <Dialog open={open} onClose={onClose} title="Modifier l'interaction" description="Mettre à jour les informations de l'interaction.">
-      <form onSubmit={handleSubmit} className="space-y-3">
-        <div className="grid grid-cols-2 gap-3">
-          <FormField label="Date">
-            <Input type="date" value={dateInteraction} onChange={(e) => setDateInteraction(e.target.value)} required />
-          </FormField>
-          <FormField label="Sens">
-            <Select value={sens} onChange={(e) => setSens(e.target.value)}>
-              {SENS_OPTIONS.map((s) => <option key={s.value} value={s.value}>{s.label}</option>)}
-            </Select>
-          </FormField>
-        </div>
-        <FormField label="Objet">
-          <Input value={objet} onChange={(e) => setObjet(e.target.value)} placeholder="Ex. Point sur le renouvellement" />
-        </FormField>
-        <FormField label="Résumé">
-          <Textarea rows={2} value={resume} onChange={(e) => setResume(e.target.value)} />
-        </FormField>
-        <FormField label="Résultat">
-          <Input value={resultat} onChange={(e) => setResultat(e.target.value)} />
-        </FormField>
-        {isAdmin && (
-          <FormField label="Propriétaire">
-            <Select value={proprietaireId} onChange={(e) => setProprietaireId(e.target.value)}>
-              <option value="">Aucun</option>
-              {profilsAdmin?.map((p) => <option key={p.id} value={p.id}>{p.prenom} {p.nom}</option>)}
-            </Select>
-          </FormField>
-        )}
-        {feedback && <p className="text-xs text-red-600">{feedback}</p>}
-        <div className="flex justify-end gap-2 pt-2">
-          <Button type="button" variant="ghost" onClick={onClose}>Annuler</Button>
-          <Button type="submit" disabled={updateInteraction.isPending}>Enregistrer</Button>
-        </div>
-      </form>
-    </Dialog>
   )
 }
