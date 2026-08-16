@@ -150,7 +150,11 @@ qui masque les champs hors sujet ? C'est une question de maquette, pas de techni
 
 ---
 
-## 10. Finalités de clôture — cinq dans la maquette, trois en base
+## 10. Finalités de clôture — ~~cinq dans la maquette, trois en base~~ TRANCHÉ
+
+> **Tranché par Naoëlle le 16/08/2026** : on garde les **trois finalités de la base** et on reprend
+> le *geste* du design, pas son vocabulaire. Implémenté et poussé. Reste seulement à appliquer la
+> migration `20260816170000`. Le reste de ce point est conservé pour mémoire.
 
 **Le conflit.** La maquette « Fiche Opportunité » propose cinq qualifications finales :
 **Convertie, Non qualifiée, Perdue, Reportée, Annulée**.
@@ -186,7 +190,12 @@ pour l'existant ?
 
 ---
 
-## 11. « Opportunité » et « Recommandation » : un écran ou deux ?
+## 11. ~~« Opportunité » et « Recommandation » : un écran ou deux ?~~ TRANCHÉ
+
+> **Tranché par Naoëlle le 16/08/2026** : dans Kimatch il n'y a **que la recommandation**, pas
+> d'opportunité distincte. La maquette `Fiche Opportunite` est donc à lire comme une vue de la
+> fiche recommandation, et non comme un second objet métier. Rien à scinder. Le reste de ce point
+> est conservé pour mémoire.
 
 **Le constat.** Les maquettes contiennent **deux fiches distinctes** : `Fiche Opportunite` (onglets
 Opportunité / Fichiers / Historique, périmètre de compteurs, flux de clôture, création de mandat) et
