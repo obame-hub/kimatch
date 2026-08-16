@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
-import { ArrowLeft, Mail, Lock, Pencil, Trash2, Sparkle, RefreshCw, AlertTriangle, CheckCircle2, X, FileText } from 'lucide-react'
+import { ArrowLeft, Mail, Lock, Trash2, Sparkle, RefreshCw, AlertTriangle, CheckCircle2, X, FileText } from 'lucide-react'
 import { Topbar } from '@/components/layout/Topbar'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
@@ -10,10 +10,12 @@ import { EtapeStepper } from '@/components/ui/etape-stepper'
 import { Dialog } from '@/components/ui/dialog'
 import { FormField, Input, Select, Textarea } from '@/components/ui/form'
 import { HistoriqueDiscret } from '@/components/ui/historique-discret'
+import { InlineField } from '@/components/ui/inline-field'
 import { cn } from '@/lib/utils'
 import {
   useRecommandation,
-  useUpdateRecommandation,
+  useUpdateRecommandationPartiel,
+  type PatchRecommandation,
   useDeleteRecommandation,
   useAjouterFournisseurConsulte,
   useAjouterSuiviConsultation,
@@ -648,7 +650,6 @@ export default function RecommandationDetail() {
   const { data: statutsVersionsRef } = useReferenceTable('statuts_versions_recommandation')
   const { data: contacts } = useContactsParCompte(reco?.compte_id)
   const [emailDialogVersion, setEmailDialogVersion] = useState<VersionRecommandation | null>(null)
-  const [editOpen, setEditOpen] = useState(false)
   const [confirmDelete, setConfirmDelete] = useState(false)
   const [ajouterFournisseurFor, setAjouterFournisseurFor] = useState<Optimisation | null>(null)
   const [showCotationWizard, setShowCotationWizard] = useState(false)
@@ -657,8 +658,27 @@ export default function RecommandationDetail() {
   const etapes = etapesRef && etapesRef.length > 0 ? etapesRef : FALLBACK_ETAPES_RECOMMANDATION
   const statutsVersions = statutsVersionsRef && statutsVersionsRef.length > 0 ? statutsVersionsRef : FALLBACK_STATUTS_VERSIONS
   const canManage = useCanManage(reco?.proprietaire_id)
+  const isAdmin = useIsAdmin()
+  const { data: profilsAdmin } = useProfilsAdmin()
   const deleteRecommandation = useDeleteRecommandation()
   const goBack = useGoBack('/recommandations')
+
+  // Edition en place : la modale « Modifier » disparait.
+  const updateRecoPartiel = useUpdateRecommandationPartiel()
+  const majReco = async (patch: PatchRecommandation) => {
+    await updateRecoPartiel.mutateAsync({ id: id as string, patch })
+  }
+  const [toastFiche, setToastFiche] = useState<string | null>(null)
+  const retourInline = {
+    onSaved: () => {
+      setToastFiche('✓ enregistré')
+      setTimeout(() => setToastFiche(null), 2200)
+    },
+    onError: (e: Error) => {
+      setToastFiche(`Erreur : ${e.message}`)
+      setTimeout(() => setToastFiche(null), 2200)
+    },
+  }
   const contactPrincipal = contacts?.find((c) => c.compte_id === reco?.compte_id && c.contact_principal)
 
   const suppression = useSuppression()
@@ -690,14 +710,29 @@ export default function RecommandationDetail() {
                   <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-amber-100 text-amber-600">
                     <Sparkle className="h-5 w-5" />
                   </span>
-                  <p className="font-display text-lg font-semibold text-navy-900">{reco.titre}</p>
+                  {canManage ? (
+                    <div className="min-w-0 flex-1">
+                      <InlineField
+                        variant="text"
+                        value={reco.titre}
+                        className="font-display text-lg font-semibold text-navy-900"
+                        // `nom` est NOT NULL en base -- et c'est la seule colonne affichee dans la
+                        // liste des recommandations : vide, la ligne devient introuvable.
+                        onCommit={async (titre) => {
+                          if (titre.trim() === '') throw new Error('Le titre de la recommandation est obligatoire.')
+                          await majReco({ nom: titre.trim() })
+                        }}
+                        {...retourInline}
+                      />
+                    </div>
+                  ) : (
+                    <p className="font-display text-lg font-semibold text-navy-900">{reco.titre}</p>
+                  )}
                 </div>
                 {canManage && (
                   <div className="flex shrink-0 gap-1.5">
-                    <Button variant="outline" size="sm" onClick={() => setEditOpen(true)}>
-                      <Pencil className="h-3.5 w-3.5" />
-                      Modifier
-                    </Button>
+                    {/* Plus de bouton « Modifier » : titre, priorite, description et note interne
+                        s'editent la ou ils s'affichent. */}
                     <Button variant="outline" size="sm" onClick={() => setConfirmDelete(true)}>
                       <Trash2 className="h-3.5 w-3.5" />
                       Supprimer
@@ -725,8 +760,32 @@ export default function RecommandationDetail() {
                     ))}
                   </p>
                   {reco.origine && <p><span className="text-navy-400">Origine :</span> {reco.origine}</p>}
-                  <p><span className="text-navy-400">Priorité :</span> {PRIORITE_LABEL[reco.priorite] ?? reco.priorite}</p>
+                  {/* Edition en place : la priorite se change ici plutot que dans une modale.
+                      Elle vaut 1, 2 ou 3 en base ; on presente les libelles, pas les chiffres. */}
+                  {canManage ? (
+                    <InlineField
+                      variant="select"
+                      label="Priorité"
+                      value={String(reco.priorite)}
+                      options={Object.entries(PRIORITE_LABEL).map(([value, label]) => ({ value, label }))}
+                      onCommit={(v) => majReco({ priorite: Number(v) })}
+                      {...retourInline}
+                    />
+                  ) : (
+                    <p><span className="text-navy-400">Priorité :</span> {PRIORITE_LABEL[reco.priorite] ?? reco.priorite}</p>
+                  )}
                   <p><span className="text-navy-400">Conseiller :</span> {reco.conseiller}</p>
+                  {isAdmin && (
+                    <InlineField
+                      variant="select"
+                      label="Propriétaire"
+                      emptyLabel="aucun"
+                      value={reco.proprietaire_id ?? ''}
+                      options={(profilsAdmin ?? []).map((p) => ({ value: p.id, label: `${p.prenom} ${p.nom}` }))}
+                      onCommit={(v) => majReco({ proprietaire_id: v || null })}
+                      {...retourInline}
+                    />
+                  )}
                   <p><span className="text-navy-400">Créée le :</span> {new Date(reco.date_creation).toLocaleDateString('fr-FR')}</p>
                   {reco.type_energie && <p><span className="text-navy-400">Énergie :</span> {reco.type_energie === 'gaz' ? 'Gaz' : 'Électricité'}</p>}
                   {/* « Opportunité » est le mot de Salesforce et de Tools ; dans Kimatch on dit
@@ -791,9 +850,40 @@ export default function RecommandationDetail() {
                       {reco.remuneration_apporteur != null && <p><span className="text-navy-400">Rémunération apporteur :</span> {reco.remuneration_apporteur.toLocaleString('fr-FR')} €</p>}
                     </div>
                   )}
-                  {reco.description && <p className="text-navy-600">{reco.description}</p>}
-                  {reco.commentaire_interne && (
-                    <p className="rounded-lg bg-amber-50 p-2 text-xs text-amber-800">Note interne : {reco.commentaire_interne}</p>
+                  {/* Description et note interne : elles n'apparaissaient PAS quand elles etaient
+                      vides, donc rien n'invitait a les remplir et il fallait ouvrir la modale pour
+                      decouvrir qu'elles existaient. Elles s'affichent maintenant en pointille
+                      cliquable. La note interne garde son fond ambre : elle ne sort pas au client. */}
+                  {canManage ? (
+                    <>
+                      <InlineField
+                        variant="longtext"
+                        label="Description"
+                        emptyLabel="ajouter une description"
+                        rows={4}
+                        value={reco.description ?? ''}
+                        onCommit={(v) => majReco({ description: v.trim() || null })}
+                        {...retourInline}
+                      />
+                      <div className="rounded-lg bg-amber-50 p-2">
+                        <InlineField
+                          variant="longtext"
+                          label="Note interne"
+                          emptyLabel="ajouter une note interne"
+                          rows={3}
+                          value={reco.commentaire_interne ?? ''}
+                          onCommit={(v) => majReco({ commentaire_interne: v.trim() || null })}
+                          {...retourInline}
+                        />
+                      </div>
+                    </>
+                  ) : (
+                    <>
+                      {reco.description && <p className="text-navy-600">{reco.description}</p>}
+                      {reco.commentaire_interne && (
+                        <p className="rounded-lg bg-amber-50 p-2 text-xs text-amber-800">Note interne : {reco.commentaire_interne}</p>
+                      )}
+                    </>
                   )}
                   <HistoriqueDiscret tableNom="recommandations" ligneId={reco.id} />
                 </CardContent>
@@ -1007,9 +1097,6 @@ export default function RecommandationDetail() {
           defaultEmail={contactPrincipal?.email ?? ''}
         />
       )}
-      {reco && editOpen && (
-        <EditRecommandationDialog open={editOpen} onClose={() => setEditOpen(false)} reco={reco} onSaved={() => {}} />
-      )}
       {/* Montés seulement à l'ouverture : le `Dialog` masque son contenu mais ne démonte pas le
           composant qui l'entoure, dont tous les hooks (calcul d'éligibilité sur l'ensemble des
           fournisseurs, effets) tourneraient en permanence sur la fiche. */}
@@ -1051,92 +1138,12 @@ export default function RecommandationDetail() {
               </Button>
         </div>
       </Dialog>
-    </div>
-  )
-}
 
-function EditRecommandationDialog({
-  open,
-  onClose,
-  reco,
-  onSaved,
-}: {
-  open: boolean
-  onClose: () => void
-  reco: Recommandation
-  onSaved: () => void
-}) {
-  const updateRecommandation = useUpdateRecommandation()
-  const isAdmin = useIsAdmin()
-  const { data: profilsAdmin } = useProfilsAdmin()
-  const [titre, setTitre] = useState(reco.titre)
-  const [description, setDescription] = useState(reco.description)
-  const [commentaireInterne, setCommentaireInterne] = useState(reco.commentaire_interne)
-  const [priorite, setPriorite] = useState(String(reco.priorite))
-  const [proprietaireId, setProprietaireId] = useState(reco.proprietaire_id ?? '')
-  const [feedback, setFeedback] = useState<string | null>(null)
-
-  useEffect(() => {
-    if (!open) return
-    setTitre(reco.titre)
-    setDescription(reco.description)
-    setCommentaireInterne(reco.commentaire_interne)
-    setPriorite(String(reco.priorite))
-    setProprietaireId(reco.proprietaire_id ?? '')
-    setFeedback(null)
-  }, [open, reco])
-
-  async function handleSubmit(e: React.FormEvent) {
-    e.preventDefault()
-    try {
-      await updateRecommandation.mutateAsync({
-        id: reco.id,
-        titre,
-        description,
-        commentaire_interne: commentaireInterne,
-        priorite: Number(priorite),
-        proprietaire_id: proprietaireId || null,
-      })
-      onSaved()
-      onClose()
-    } catch (err) {
-      setFeedback(err instanceof Error ? err.message : 'Erreur inconnue')
-    }
-  }
-
-  return (
-    <Dialog open={open} onClose={onClose} title="Modifier la recommandation" description="Mettre à jour les informations de la recommandation.">
-      <form onSubmit={handleSubmit} className="space-y-3">
-        <FormField label="Titre">
-          <Input value={titre} onChange={(e) => setTitre(e.target.value)} required />
-        </FormField>
-        <FormField label="Description">
-          <Textarea rows={4} value={description} onChange={(e) => setDescription(e.target.value)} />
-        </FormField>
-        <FormField label="Commentaire interne">
-          <Textarea rows={3} value={commentaireInterne} onChange={(e) => setCommentaireInterne(e.target.value)} />
-        </FormField>
-        <FormField label="Priorité">
-          <Select value={priorite} onChange={(e) => setPriorite(e.target.value)}>
-            <option value="1">{PRIORITE_LABEL[1]}</option>
-            <option value="2">{PRIORITE_LABEL[2]}</option>
-            <option value="3">{PRIORITE_LABEL[3]}</option>
-          </Select>
-        </FormField>
-        {isAdmin && (
-          <FormField label="Propriétaire">
-            <Select value={proprietaireId} onChange={(e) => setProprietaireId(e.target.value)}>
-              <option value="">Aucun</option>
-              {profilsAdmin?.map((p) => <option key={p.id} value={p.id}>{p.prenom} {p.nom}</option>)}
-            </Select>
-          </FormField>
-        )}
-        {feedback && <p className="text-xs text-red-600">{feedback}</p>}
-        <div className="flex justify-end gap-2 pt-2">
-          <Button type="button" variant="ghost" onClick={onClose}>Annuler</Button>
-          <Button type="submit" disabled={updateRecommandation.isPending}>Enregistrer</Button>
+      {toastFiche && (
+        <div className="fixed bottom-[70px] left-1/2 z-50 -translate-x-1/2 whitespace-nowrap rounded-lg bg-ink-800 px-4 py-2.5 text-xs font-semibold text-white shadow-lg lg:bottom-6">
+          {toastFiche}
         </div>
-      </form>
-    </Dialog>
+      )}
+    </div>
   )
 }

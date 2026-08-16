@@ -811,6 +811,32 @@ export function useUpdateRecommandation() {
   })
 }
 
+/**
+ * Colonnes réellement modifiables de `recommandations`, pour l'édition en place.
+ *
+ * Le titre s'appelle `nom` en base et `titre` côté domaine : c'est le nom de la colonne qui
+ * compte ici, et c'est le piège le plus facile de ce fichier.
+ */
+export type PatchRecommandation = Partial<{
+  nom: string
+  description: string | null
+  commentaire_interne: string | null
+  priorite: number
+  proprietaire_id: string | null
+}>
+
+/** Mise à jour d'un seul champ, sans réécrire toute la recommandation. */
+export function useUpdateRecommandationPartiel() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: async ({ id, patch }: { id: string; patch: PatchRecommandation }) => {
+      const { error } = await supabase.from('recommandations').update(patch).eq('id', id)
+      if (error) throw new Error(error.message)
+    },
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['recommandations'] }),
+  })
+}
+
 export function useAjouterFournisseurConsulte() {
   const queryClient = useQueryClient()
   return useMutation({

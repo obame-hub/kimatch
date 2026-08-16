@@ -1,6 +1,6 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useMemo, useState } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
-import { ArrowLeft, FileCheck2, FileSignature, Pencil, Trash2, Building2, MapPin, Gauge, FileText, Plus, Phone, Mail } from 'lucide-react'
+import { ArrowLeft, FileCheck2, FileSignature, Trash2, Building2, MapPin, Gauge, FileText, Plus, Phone, Mail } from 'lucide-react'
 import { Topbar } from '@/components/layout/Topbar'
 import { Button } from '@/components/ui/button'
 import { ZoneDepotFichiers } from '@/components/ui/zone-depot-fichiers'
@@ -10,7 +10,8 @@ import { Dialog } from '@/components/ui/dialog'
 import { EmailLink } from '@/components/ui/contact-link'
 import { FormField, Input, Select } from '@/components/ui/form'
 import { HistoriqueDiscret } from '@/components/ui/historique-discret'
-import { useMandat, useMarkMandatEnvoye, useUpdateMandat, useDeleteMandat } from '@/lib/data/mandats'
+import { InlineField } from '@/components/ui/inline-field'
+import { useMandat, useMarkMandatEnvoye, useUpdateMandatPartiel, useDeleteMandat, type PatchMandat } from '@/lib/data/mandats'
 import { useContacts } from '@/lib/data/contacts'
 import { useComptes } from '@/lib/data/comptes'
 import { useSites } from '@/lib/data/sites'
@@ -265,7 +266,6 @@ export default function MandatDetail() {
   const { data: compteurs } = useCompteurs()
   const { data: documents } = useDocuments()
   const [showEnvoyer, setShowEnvoyer] = useState(false)
-  const [editOpen, setEditOpen] = useState(false)
   const [confirmDelete, setConfirmDelete] = useState(false)
   const [addFichierOpen, setAddFichierOpen] = useState(false)
 
@@ -276,8 +276,25 @@ export default function MandatDetail() {
   const typesDocs = typesDocsRef && typesDocsRef.length > 0 ? typesDocsRef : FALLBACK_TYPES_DOCUMENTS
   const [tab, setTab] = useState<TabKey>('mandat')
   const canManage = useCanManage(mandat?.proprietaire_id)
+  const isAdmin = useIsAdmin()
+  const { data: profilsAdmin } = useProfilsAdmin()
   const deleteMandat = useDeleteMandat()
   const goBack = useGoBack('/mandats')
+
+  // Edition en place : la modale « Modifier » disparait.
+  const updateMandatPartiel = useUpdateMandatPartiel()
+  const majMandat = async (patch: PatchMandat) => {
+    await updateMandatPartiel.mutateAsync({ id: id as string, patch })
+  }
+  const [toast, setToast] = useState<string | null>(null)
+  function showToast(msg: string) {
+    setToast(msg)
+    setTimeout(() => setToast(null), 2200)
+  }
+  const retourInline = {
+    onSaved: () => showToast('✓ enregistré'),
+    onError: (e: Error) => showToast(`Erreur : ${e.message}`),
+  }
   const compte = comptes?.find((c) => c.id === mandat?.compte_id)
   const contactSignataire = contacts?.find((c) => c.id === mandat?.contact_signataire_id)
   const sitesDuMandat = useMemo(() => sites?.filter((s) => mandat?.site_ids.includes(s.id)) ?? [], [sites, mandat])
@@ -357,10 +374,7 @@ export default function MandatDetail() {
           </Button>
           {canManage && (
             <>
-              <Button variant="outline" size="sm" onClick={() => setEditOpen(true)}>
-                <Pencil className="h-3.5 w-3.5" />
-                Modifier
-              </Button>
+              {/* Plus de bouton « Modifier » : la date de signature s'edite dans « Détail du mandat ». */}
               <Button variant="outline" size="sm" onClick={() => setConfirmDelete(true)}>
                 <Trash2 className="h-3.5 w-3.5" />
                 Supprimer
@@ -455,10 +469,35 @@ export default function MandatDetail() {
               <div className="rounded-xl border border-navy-100 bg-white p-4">
               <p className="mb-2.5 text-[10px] font-bold uppercase tracking-wide text-navy-400">Détail du mandat</p>
               <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-                <div>
-                  <p className="mb-0.5 text-[10px] uppercase tracking-wide text-navy-400">Date de signature</p>
-                  <p className="text-xs font-semibold text-navy-800">{mandat.date_signature ? new Date(mandat.date_signature).toLocaleDateString('fr-FR') : '—'}</p>
-                </div>
+                {/* Edition en place : la date de signature se saisit ici, plus dans une modale.
+                    C'est le seul champ que le mandat laisse modifier a la main -- tout le reste
+                    vient de DocuSign ou du perimetre de compteurs. */}
+                {canManage ? (
+                  <InlineField
+                    variant="date"
+                    label="Date de signature"
+                    emptyLabel="ajouter la date de signature"
+                    value={mandat.date_signature ? mandat.date_signature.slice(0, 10) : null}
+                    onCommit={(date_signature) => majMandat({ date_signature })}
+                    {...retourInline}
+                  />
+                ) : (
+                  <div>
+                    <p className="mb-0.5 text-[10px] uppercase tracking-wide text-navy-400">Date de signature</p>
+                    <p className="text-xs font-semibold text-navy-800">{mandat.date_signature ? new Date(mandat.date_signature).toLocaleDateString('fr-FR') : '—'}</p>
+                  </div>
+                )}
+                {isAdmin && (
+                  <InlineField
+                    variant="select"
+                    label="Propriétaire"
+                    emptyLabel="aucun"
+                    value={mandat.proprietaire_id ?? ''}
+                    options={(profilsAdmin ?? []).map((p) => ({ value: p.id, label: `${p.prenom} ${p.nom}` }))}
+                    onCommit={(v) => majMandat({ proprietaire_id: v || null })}
+                    {...retourInline}
+                  />
+                )}
                 <div>
                   <p className="mb-0.5 text-[10px] uppercase tracking-wide text-navy-400">Sites couverts</p>
                   <p className="text-xs font-semibold text-navy-800">{mandat.nb_sites_couverts}</p>
@@ -581,7 +620,6 @@ export default function MandatDetail() {
         compteurs={compteursDuMandat}
         contact={contactSignataire}
       />
-      {editOpen && <EditMandatDialog open={editOpen} onClose={() => setEditOpen(false)} mandat={mandat} onSaved={() => {}} />}
       {addFichierOpen && <AddFichierDialog open={addFichierOpen} onClose={() => setAddFichierOpen(false)} mandatId={mandat.id} onSaved={() => {}} />}
 
       <Dialog
@@ -600,66 +638,12 @@ export default function MandatDetail() {
               </Button>
         </div>
       </Dialog>
-    </div>
-  )
-}
 
-function EditMandatDialog({
-  open,
-  onClose,
-  mandat,
-  onSaved,
-}: {
-  open: boolean
-  onClose: () => void
-  mandat: Mandat
-  onSaved: () => void
-}) {
-  const updateMandat = useUpdateMandat()
-  const isAdmin = useIsAdmin()
-  const { data: profilsAdmin } = useProfilsAdmin()
-  const [dateSignature, setDateSignature] = useState(mandat.date_signature ? mandat.date_signature.slice(0, 10) : '')
-  const [proprietaireId, setProprietaireId] = useState(mandat.proprietaire_id ?? '')
-  const [feedback, setFeedback] = useState<string | null>(null)
-
-  useEffect(() => {
-    if (!open) return
-    setDateSignature(mandat.date_signature ? mandat.date_signature.slice(0, 10) : '')
-    setProprietaireId(mandat.proprietaire_id ?? '')
-    setFeedback(null)
-  }, [open, mandat])
-
-  async function handleSubmit(e: React.FormEvent) {
-    e.preventDefault()
-    try {
-      await updateMandat.mutateAsync({ id: mandat.id, date_signature: dateSignature || null, proprietaire_id: proprietaireId || null })
-      onSaved()
-      onClose()
-    } catch (err) {
-      setFeedback(err instanceof Error ? err.message : 'Erreur inconnue')
-    }
-  }
-
-  return (
-    <Dialog open={open} onClose={onClose} title="Modifier le mandat" description="Mettre à jour la date de signature du mandat.">
-      <form onSubmit={handleSubmit} className="space-y-3">
-        <FormField label="Date de signature">
-          <Input type="date" value={dateSignature} onChange={(e) => setDateSignature(e.target.value)} />
-        </FormField>
-        {isAdmin && (
-          <FormField label="Propriétaire">
-            <Select value={proprietaireId} onChange={(e) => setProprietaireId(e.target.value)}>
-              <option value="">Aucun</option>
-              {profilsAdmin?.map((p) => <option key={p.id} value={p.id}>{p.prenom} {p.nom}</option>)}
-            </Select>
-          </FormField>
-        )}
-        {feedback && <p className="text-xs text-red-600">{feedback}</p>}
-        <div className="flex justify-end gap-2 pt-2">
-          <Button type="button" variant="ghost" onClick={onClose}>Annuler</Button>
-          <Button type="submit" disabled={updateMandat.isPending}>Enregistrer</Button>
+      {toast && (
+        <div className="fixed bottom-[70px] left-1/2 z-50 -translate-x-1/2 whitespace-nowrap rounded-lg bg-ink-800 px-4 py-2.5 text-xs font-semibold text-white shadow-lg lg:bottom-6">
+          {toast}
         </div>
-      </form>
-    </Dialog>
+      )}
+    </div>
   )
 }

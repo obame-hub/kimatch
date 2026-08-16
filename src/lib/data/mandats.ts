@@ -301,6 +301,25 @@ export function useUpdateMandat() {
   })
 }
 
+/** Colonnes réellement modifiables de `mandats`, pour l'édition en place. */
+export type PatchMandat = Partial<{
+  date_signature: string | null
+  proprietaire_id: string | null
+}>
+
+/** Mise à jour d'un seul champ. Ne pas passer par `useUpdateMandat` pour ça : il écrit les deux
+ * colonnes à chaque appel, et modifier la date de signature effacerait le propriétaire. */
+export function useUpdateMandatPartiel() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: async ({ id, patch }: { id: string; patch: PatchMandat }) => {
+      const { error } = await supabase.from('mandats').update(patch).eq('id', id)
+      if (error) throw new Error(error.message)
+    },
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['mandats'] }),
+  })
+}
+
 export function useDeleteMandat() {
   const queryClient = useQueryClient()
   return useMutation({
