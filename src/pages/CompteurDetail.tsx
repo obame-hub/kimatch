@@ -582,10 +582,26 @@ export default function CompteurDetail() {
               )}
               <div className="ml-[22px] h-2 w-0.5 bg-navy-100" />
               {site && (
-                <button type="button" onClick={() => navigate(`/sites/${site.id}`)} className="flex items-center gap-2 rounded-lg px-1.5 py-1.5 text-left hover:bg-navy-50">
-                  <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-md bg-kiwi-100 text-kiwi-600"><MapPin className="h-3 w-3" /></span>
-                  <span className="flex-1 truncate text-xs font-semibold text-navy-800">{site.nom}</span>
-                  <span className="text-navy-300">›</span>
+                <button type="button" onClick={() => navigate(`/sites/${site.id}`)} className="flex items-start gap-2 rounded-lg px-1.5 py-1.5 text-left hover:bg-navy-50">
+                  <span className="mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-md bg-kiwi-100 text-kiwi-600"><MapPin className="h-3 w-3" /></span>
+                  <span className="min-w-0 flex-1">
+                    <span className="block truncate text-xs font-semibold text-navy-800">{site.nom}</span>
+                    {/* L'adresse du point de livraison, demandee le 15/08/2026 : « faire apparaitre
+                        l'adresse sur l'objet compteur ». Elle vit sur le site, le compteur n'en
+                        porte pas — on l'affiche donc ici, sous le site auquel il est rattache.
+                        C'est aussi ce qui permet de voir d'un coup d'oeil qu'un PDL est range sous
+                        le mauvais site, comme l'etait GI155378 avant le 13/08. */}
+                    {[site.adresse, [site.code_postal, site.ville].filter(Boolean).join(' ')]
+                      .filter((p) => p && p.trim())
+                      .join(', ') && (
+                      <span className="block truncate text-[11px] text-navy-400">
+                        {[site.adresse, [site.code_postal, site.ville].filter(Boolean).join(' ')]
+                          .filter((p) => p && p.trim())
+                          .join(', ')}
+                      </span>
+                    )}
+                  </span>
+                  <span className="mt-0.5 text-navy-300">›</span>
                 </button>
               )}
               <div className="ml-[22px] h-2 w-0.5 bg-navy-100" />
