@@ -5,6 +5,7 @@ import { sessionQuelconque } from './_oauth.js'
 import { runGrdSyncForMandat } from './_grdSync.js'
 import { sendMandatSignedEmail } from './_gmailNotify.js'
 import { postMessage, joinChannel } from '../slack/_client.js'
+import { NOM_SIGNE, retirerDocumentsEnvoyes } from './_archivage.js'
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type Admin = SupabaseClient<any, any, any, any, any>
@@ -239,7 +240,7 @@ async function archiverDocumentSigne(
     .select('id')
     .eq('entite_type', 'mandat')
     .eq('entite_id', mandatId)
-    .eq('nom', 'Mandat signé')
+    .eq('nom', NOM_SIGNE)
     .maybeSingle()
   if (existant) return
 
@@ -265,7 +266,7 @@ async function archiverDocumentSigne(
   const { data: typeDoc } = await admin.from('types_documents').select('id').eq('code', 'MANDAT').maybeSingle()
   const { error } = await admin.from('documents').insert({
     ...(typeDoc ? { type_document_id: typeDoc.id } : {}),
-    nom: 'Mandat signé',
+    nom: NOM_SIGNE,
     nom_fichier: nomFichier,
     url: `${url}/storage/v1/object/public/documents/${chemin}`,
     mime_type: 'application/pdf',
@@ -274,6 +275,11 @@ async function archiverDocumentSigne(
     entite_id: mandatId,
   })
   if (error) throw new Error(error.message)
+
+  // La version signee REMPLACE la version envoyee, elle ne s'ajoute pas a cote (regle de William).
+  // On ne retire l'envoyee qu'une fois la signee bien enregistree : si le depot precedent avait
+  // echoue, la fiche garderait au moins ce qui a ete soumis au client.
+  await retirerDocumentsEnvoyes(admin, mandatId)
 }
 
 async function notifyMandatSigne(

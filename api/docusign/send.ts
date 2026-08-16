@@ -1,6 +1,7 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node'
 import { getDocusignContext, sendEnvelope } from './_client.js'
 import { NON_CONNECTE, profilAppelant } from './_oauth.js'
+import { archiverDocumentsEnvoyes, clientAdmin } from './_archivage.js'
 
 interface SendBody {
   mandatId?: string
@@ -71,6 +72,22 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       draft: body.draft,
       returnUrl: body.returnUrl,
     })
+
+    // Archiver ce qui vient de partir a la signature. Best-effort assume : l'enveloppe est deja
+    // chez DocuSign, le mandat suit son cours meme si le depot echoue — on journalise et on rend
+    // la main. Sans cela, un mandat jamais signe ne laissait aucune trace de ce qu'on avait soumis
+    // au client (la version signee etait bien archivee, l'envoyee jamais).
+    try {
+      const admin = clientAdmin()
+      const { data: mandat } = admin
+        ? await admin.from('mandats').select('compte:comptes(nom)').eq('id', body.mandatId).maybeSingle()
+        : { data: null }
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const compteNom = (mandat as any)?.compte?.nom ?? 'mandat'
+      await archiverDocumentsEnvoyes(body.mandatId, compteNom, documents)
+    } catch (archErr) {
+      console.error('[docusign send] archivage de la version envoyée échoué', archErr)
+    }
 
     res.status(200).json({ ...result, emetteur: ctx.emetteur })
   } catch (err) {
