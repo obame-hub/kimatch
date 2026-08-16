@@ -697,6 +697,45 @@ export default function CompteurDetail() {
             </div>
           </div>
 
+          {/* « LOCALISATION DANS LE SITE » et « ADRESSE DU COMPTEUR » de la maquette.
+              Jusqu'ici la fiche ne pouvait afficher que l'adresse du SITE, faute de colonnes :
+              faux dès qu'une copropriété a plusieurs entrées, et c'était le cas de GI155378.
+              L'adresse du compteur reste vide par défaut — vide, celle du site fait foi, et la
+              fiche le dit plutôt que de laisser croire à un oubli. */}
+          <div className="rounded-xl border border-navy-100 bg-white p-3.5">
+            <p className="mb-2 text-[10px] font-bold uppercase tracking-wide text-navy-400">Localisation dans le site</p>
+            <InlineField
+              variant="text"
+              value={compteur.localisation_site ?? ''}
+              emptyLabel="où le trouver sur place"
+              disabled={!canManage}
+              onCommit={(v) => majCompteur({ localisation_site: v.trim() || null })}
+              onSaved={() => showToast('✓ enregistré')}
+              onError={(e) => showToast(`Erreur : ${e.message}`)}
+            />
+
+            <p className="mb-2 mt-3.5 text-[10px] font-bold uppercase tracking-wide text-navy-400">Adresse du compteur</p>
+            <InlineField
+              variant="address"
+              label=""
+              rue={compteur.adresse ?? ''}
+              codePostal={compteur.code_postal ?? ''}
+              ville={compteur.ville ?? ''}
+              emptyLabel="préciser si différente du site"
+              disabled={!canManage}
+              onCommit={({ rue, codePostal, ville }) =>
+                majCompteur({ adresse: rue || null, code_postal: codePostal || null, ville: ville || null })
+              }
+              onSaved={() => showToast('✓ enregistré')}
+              onError={(e) => showToast(`Erreur : ${e.message}`)}
+            />
+            {!compteur.adresse && (
+              <p className="mt-1.5 text-[10.5px] italic text-navy-300">
+                Non renseignée — c'est l'adresse du site qui fait foi.
+              </p>
+            )}
+          </div>
+
           <CouvertureCard
             nbSignaux={signauxDuCompteur.length}
             mandatCouvert={Boolean(mandatDuCompteur)}

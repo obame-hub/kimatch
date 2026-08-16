@@ -60,6 +60,12 @@ interface RawCompteur {
   fournisseur_actuel_compte_id: string | null
   fournisseur_actuel: { nom: string } | null
   date_echeance?: string | null
+  // Colonnes du 16/08/2026 : optionnelles, comme le reste — le select est en `*`, elles sont
+  // simplement absentes tant que la migration n'est pas appliquee.
+  adresse?: string | null
+  code_postal?: string | null
+  ville?: string | null
+  localisation_site?: string | null
 }
 
 const first = <T>(v: T | T[] | null): T | null => (Array.isArray(v) ? v[0] ?? null : v)
@@ -112,6 +118,10 @@ async function fetchCompteurs(siteIds?: string[], compteurId?: string): Promise<
         type_utilisation_compteur: c.type_utilisation?.libelle ?? null,
         statut: c.actif ? 'actif' : 'inactif',
         consommation_annuelle_mwh: c.consommation_annuelle_mwh,
+        adresse: c.adresse ?? null,
+        code_postal: c.code_postal ?? null,
+        ville: c.ville ?? null,
+        localisation_site: c.localisation_site ?? null,
         synchro_eneo: c.synchro_eneo,
         date_derniere_synchro_eneo: c.date_derniere_synchro_eneo,
         proprietaire_id: c.proprietaire_id ?? null,

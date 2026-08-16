@@ -388,6 +388,16 @@ export interface Compteur {
   type_utilisation_compteur: string | null
   statut: 'actif' | 'inactif'
   // Champs portés par la table `compteurs` elle-même.
+  /**
+   * Adresse propre au point de livraison, quand elle diffère de celle du site — le cas dès
+   * qu'une copropriété a plusieurs entrées. Colonnes ajoutées le 16/08/2026 ; vides, c'est
+   * l'adresse du site qui fait foi.
+   */
+  adresse?: string | null
+  code_postal?: string | null
+  ville?: string | null
+  /** Où le trouver sur place : « Local TGBT — Bât. A ». Distinct du commentaire libre. */
+  localisation_site?: string | null
   consommation_annuelle_mwh: number | null
   synchro_eneo: boolean
   date_derniere_synchro_eneo: string | null
