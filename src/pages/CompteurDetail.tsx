@@ -13,8 +13,8 @@ import { useCompteur, useUpdateCompteur, useDeleteCompteur, useSyncCompteurElec,
 import { useEnedisFetch } from '@/lib/data/enedis'
 import { useGrdFetch } from '@/lib/data/grd'
 import { useConsommations, useCreateConsommation } from '@/lib/data/consommations'
-import { useSites } from '@/lib/data/sites'
-import { useComptes } from '@/lib/data/comptes'
+import { useSite } from '@/lib/data/sites'
+import { useCompte } from '@/lib/data/comptes'
 import { InlineField } from '@/components/ui/inline-field'
 import { useContacts } from '@/lib/data/contacts'
 import { useContrats } from '@/lib/data/contrats'
@@ -433,8 +433,12 @@ export default function CompteurDetail() {
   // garder une ligne ou quelques-unes (meme correctif que les fiches compte et site).
   const { data: compteur } = useCompteur(id)
   const { data: consommations } = useConsommations()
-  const { data: sites } = useSites()
-  const { data: comptes } = useComptes()
+  // Le site et le compte sont lus PAR IDENTIFIANT, pas cherches dans la liste complete.
+  // La fiche telechargeait les 6356 sites et les 2762 comptes pour afficher deux lignes de fil
+  // d'Ariane ; sur un poste lent la hierarchie restait vide le temps que tout arrive, et on
+  // voyait un compteur sans compte ni site au-dessus (constate en production le 16/08/2026).
+  const { data: siteDuCompteur } = useSite(compteur?.site_id)
+  const { data: compteDuCompteur } = useCompte(siteDuCompteur?.compte_id)
   const { data: contrats } = useContrats()
   const { data: mandats } = useMandats()
   const { data: signaux } = useSignaux()
@@ -446,8 +450,8 @@ export default function CompteurDetail() {
   const statutsMandats = statutsMandatsRef && statutsMandatsRef.length > 0 ? statutsMandatsRef : FALLBACK_STATUTS_MANDATS
 
   const consommationsDuCompteur = useMemo(() => consommations?.filter((c) => c.compteur_id === id) ?? [], [consommations, id])
-  const site = sites?.find((s) => s.id === compteur?.site_id)
-  const compte = comptes?.find((c) => c.id === site?.compte_id)
+  const site = siteDuCompteur ?? undefined
+  const compte = compteDuCompteur ?? undefined
   const contratsDuCompteur = useMemo(() => contrats?.filter((ct) => ct.compteurs.some((cc) => cc.id === id)) ?? [], [contrats, id])
   const mandatDuCompteur = mandats?.find((m) => compteur && m.site_ids.includes(compteur.site_id))
   const documentsDuCompteur = useMemo(() => documents?.filter((d) => d.entite_type === 'compteur' && d.entite_id === id) ?? [], [documents, id])
