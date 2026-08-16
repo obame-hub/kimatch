@@ -1,5 +1,19 @@
+/**
+ * Liste des comptes — servie par la base depuis le 16/08/2026.
+ *
+ * AVANT. La page chargeait les 2762 comptes pour en afficher vingt, puis filtrait et triait en
+ * mémoire. Même motif que la liste des sites avant le 15/08, à une différence près : ici il n'y a
+ * aucun agrégat métier à calculer, seulement des jointures à aplatir. Une VUE suffit donc, sans
+ * fonction SQL — voir la migration 20260816120000 pour le raisonnement complet.
+ *
+ * APRÈS. `useListeServeur` interroge `v_comptes_liste` : PostgREST pagine, trie et filtre comme
+ * sur une table, et le total remonte par `count: 'exact'` sans requête supplémentaire.
+ *
+ * LA COLONNE « SITES » ÉTAIT FAUSSE. Elle affichait `comptes.nb_sites`, une valeur figée à
+ * l'import : elle ne correspondait plus au nombre réel de sites sur 2642 des 2762 comptes.
+ * La vue la recalcule.
+ */
 import { useNavigate } from 'react-router-dom'
-import { useTranchesAffichage } from '@/lib/useTranchesAffichage'
 import { PiedDeListe } from '@/components/ui/pied-de-liste'
 import { Plus } from 'lucide-react'
 import { Topbar } from '@/components/layout/Topbar'
@@ -10,8 +24,7 @@ import { Button } from '@/components/ui/button'
 import { Select } from '@/components/ui/form'
 import { ListToolbar } from '@/components/ui/list-toolbar'
 import { SortableTh } from '@/components/ui/sortable-th'
-import { useListControls } from '@/lib/useListControls'
-import { useComptes } from '@/lib/data/comptes'
+import { useListeServeur } from '@/lib/useListeServeur'
 import { useState } from 'react'
 import type { TypeCompte } from '@/types/domain'
 
@@ -22,25 +35,27 @@ const typeMeta: Record<TypeCompte, { label: string; tone: 'kiwi' | 'blue' | 'amb
   kiwee: { label: 'KiWee', tone: 'neutral' },
 }
 
+interface LigneCompte {
+  id: string
+  nom: string
+  ville: string | null
+  segment: string | null
+  type_compte: TypeCompte
+  nb_sites: number
+}
+
 export default function Comptes() {
-  const { data: comptes, isLoading } = useComptes()
   const navigate = useNavigate()
   const [typeFilter, setTypeFilter] = useState('')
 
-  const comptesFiltresParType = typeFilter ? comptes?.filter((c) => c.type_compte === typeFilter) : comptes
-
-  const { query, setQuery, sortKey, sortDir, toggleSort, items: filteredComptes } = useListControls(comptesFiltresParType, {
-    searchFields: (c) => [c.nom, c.segment, c.ville],
-    sorters: {
-      nom: (a, b) => a.nom.localeCompare(b.nom),
-      segment: (a, b) => (a.segment ?? '').localeCompare(b.segment ?? ''),
-      ville: (a, b) => (a.ville ?? '').localeCompare(b.ville ?? ''),
-      nb_sites: (a, b) => a.nb_sites - b.nb_sites,
-    },
-    defaultSort: 'nom',
+  const liste = useListeServeur<LigneCompte>({
+    vue: 'v_comptes_liste',
+    colonnesRecherche: ['nom', 'segment', 'ville'],
+    triParDefaut: 'nom',
+    // Le filtre par type descend en base plutôt que de porter sur les lignes déjà chargées :
+    // sans cela, filtrer « Fournisseur » n'aurait montré que ceux présents dans la tranche.
+    filtres: { type_compte: typeFilter || null },
   })
-
-  const tranche = useTranchesAffichage(filteredComptes, `${query}|${sortKey}|${sortDir}`)
 
   return (
     <div>
@@ -56,7 +71,7 @@ export default function Comptes() {
           )}
         />
 
-        <ListToolbar query={query} onQueryChange={setQuery} placeholder="Rechercher un compte, une ville…" count={filteredComptes?.length}>
+        <ListToolbar query={liste.query} onQueryChange={liste.setQuery} placeholder="Rechercher un compte, une ville…" count={liste.total}>
           <Select value={typeFilter} onChange={(e) => setTypeFilter(e.target.value)} className="w-auto">
             <option value="">Tous les types</option>
             {(Object.keys(typeMeta) as TypeCompte[]).map((t) => (
@@ -69,29 +84,34 @@ export default function Comptes() {
           <table className="w-full min-w-[640px] text-sm">
             <thead className="border-b border-navy-100 bg-navy-50 text-left text-xs uppercase tracking-wide text-navy-400">
               <tr>
-                <SortableTh label="Nom" sortKey="nom" activeKey={sortKey} dir={sortDir} onSort={toggleSort} />
+                <SortableTh label="Nom" sortKey="nom" activeKey={liste.tri} dir={liste.sens} onSort={liste.trierPar} />
                 <th className="px-5 py-3 font-medium">Type</th>
-                <SortableTh label="Segment" sortKey="segment" activeKey={sortKey} dir={sortDir} onSort={toggleSort} />
-                <SortableTh label="Ville" sortKey="ville" activeKey={sortKey} dir={sortDir} onSort={toggleSort} />
-                <SortableTh label="Sites" sortKey="nb_sites" activeKey={sortKey} dir={sortDir} onSort={toggleSort} />
+                <SortableTh label="Segment" sortKey="segment" activeKey={liste.tri} dir={liste.sens} onSort={liste.trierPar} />
+                <SortableTh label="Ville" sortKey="ville" activeKey={liste.tri} dir={liste.sens} onSort={liste.trierPar} />
+                <SortableTh label="Sites" sortKey="nb_sites" activeKey={liste.tri} dir={liste.sens} onSort={liste.trierPar} />
               </tr>
             </thead>
             <tbody className="divide-y divide-navy-100">
-              {isLoading && (
+              {liste.isLoading && (
                 <tr>
                   <td colSpan={5} className="px-5 py-6 text-center text-navy-400">Chargement…</td>
                 </tr>
               )}
-              {!isLoading && filteredComptes?.length === 0 && (
+              {liste.erreur && (
+                <tr>
+                  <td colSpan={5} className="px-5 py-6 text-center text-sm text-red-600">{liste.erreur}</td>
+                </tr>
+              )}
+              {!liste.isLoading && !liste.erreur && liste.lignes.length === 0 && (
                 <tr>
                   <td colSpan={5} className="px-5 py-10 text-center text-sm text-navy-400">
-                    {comptes?.length === 0
-                      ? "Aucun compte pour l'instant — clique sur « Nouveau compte » pour en créer un."
-                      : 'Aucun compte ne correspond à la recherche.'}
+                    {liste.query.trim() || typeFilter
+                      ? 'Aucun compte ne correspond à la recherche.'
+                      : "Aucun compte pour l'instant — clique sur « Nouveau compte » pour en créer un."}
                   </td>
                 </tr>
               )}
-              {tranche.visibles.map((compte) => (
+              {liste.lignes.map((compte) => (
                 <tr
                   key={compte.id}
                   onClick={() => navigate(`/comptes/${compte.id}`)}
@@ -99,7 +119,9 @@ export default function Comptes() {
                 >
                   <td className="px-5 py-3 font-medium text-navy-800">{compte.nom}</td>
                   <td className="px-5 py-3">
-                    <Badge tone={typeMeta[compte.type_compte].tone}>{typeMeta[compte.type_compte].label}</Badge>
+                    <Badge tone={typeMeta[compte.type_compte]?.tone ?? 'neutral'}>
+                      {typeMeta[compte.type_compte]?.label ?? compte.type_compte}
+                    </Badge>
                   </td>
                   <td className="px-5 py-3 text-navy-600">{compte.segment}</td>
                   <td className="px-5 py-3 text-navy-600">{compte.ville}</td>
@@ -109,11 +131,11 @@ export default function Comptes() {
             </tbody>
           </table>
           <PiedDeListe
-            affiches={tranche.visibles.length}
-            total={tranche.total}
-            reste={tranche.reste}
-            onAfficherPlus={tranche.afficherPlus}
-            tailleTrancheSuivante={tranche.tailleTrancheSuivante}
+            affiches={liste.lignes.length}
+            total={liste.total}
+            reste={liste.reste}
+            onAfficherPlus={liste.afficherPlus}
+            tailleTrancheSuivante={liste.tailleTrancheSuivante}
             libelle="comptes"
           />
         </Card>
