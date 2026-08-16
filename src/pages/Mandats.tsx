@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { useTranchesAffichage } from '@/lib/useTranchesAffichage'
+import { useListeServeur } from '@/lib/useListeServeur'
 import { PiedDeListe } from '@/components/ui/pied-de-liste'
 import { MandatWizard } from '@/components/mandat/MandatWizard'
 import { useNavigate, useSearchParams } from 'react-router-dom'
@@ -12,13 +12,11 @@ import { Button } from '@/components/ui/button'
 import { EntityLink } from '@/components/ui/entity-link'
 import { Dialog } from '@/components/ui/dialog'
 import { FormField, Input, Select } from '@/components/ui/form'
-import { useMandats } from '@/lib/data/mandats'
 import { WizardConnectionGate } from '@/components/ui/connection-gate'
 import { useComptes } from '@/lib/data/comptes'
 import { useReferenceTable } from '@/lib/data/referenceTables'
 import { FALLBACK_STATUTS_MANDATS, STATUT_MANDAT_TONE } from '@/lib/referenceFallbacks'
 import { ListToolbar } from '@/components/ui/list-toolbar'
-import { useListControls } from '@/lib/useListControls'
 
 /**
  * Création d'un mandat depuis la liste : le compte n'est pas connu, on le demande, puis on passe la
@@ -105,8 +103,18 @@ export function CreateMandatDialog({
 }
 
 
+/** Une carte de la liste, telle que `v_mandats_liste` la renvoie. */
+interface LigneMandat {
+  id: string
+  compte_id: string
+  compte_nom: string | null
+  id_salesforce: string | null
+  statut: string
+  date_signature: string | null
+  nb_sites_couverts: number
+}
+
 export default function Mandats() {
-  const { data: mandats, isLoading } = useMandats()
   const { data: statutsRef } = useReferenceTable('statuts_mandats')
   const statuts = statutsRef && statutsRef.length > 0 ? statutsRef : FALLBACK_STATUTS_MANDATS
   const navigate = useNavigate()
@@ -125,19 +133,12 @@ export default function Mandats() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
-  const mandatsFiltresParStatut = statutFilter ? mandats?.filter((m) => m.statut === statutFilter) : mandats
-
-  const { query, setQuery, sortKey, setSortKey, items: filteredMandats } = useListControls(mandatsFiltresParStatut, {
-    searchFields: (m) => [m.compte_nom, m.id_salesforce],
-    sorters: {
-      compte_nom: (a, b) => a.compte_nom.localeCompare(b.compte_nom),
-      date_signature: (a, b) => (a.date_signature ?? '').localeCompare(b.date_signature ?? ''),
-      nb_sites_couverts: (a, b) => a.nb_sites_couverts - b.nb_sites_couverts,
-    },
-    defaultSort: 'compte_nom',
+  const liste = useListeServeur<LigneMandat>({
+    vue: 'v_mandats_liste',
+    colonnesRecherche: ['compte_nom', 'id_salesforce', 'reference'],
+    triParDefaut: 'compte_nom',
+    filtres: { statut: statutFilter || null },
   })
-
-  const tranche = useTranchesAffichage(filteredMandats, `${query}|${sortKey}`)
 
   return (
     <div>
@@ -149,29 +150,29 @@ export default function Mandats() {
           actions={<Button onClick={() => setShowCreate(true)}><Plus className="h-4 w-4" />Nouveau mandat</Button>}
         />
 
-        <ListToolbar query={query} onQueryChange={setQuery} placeholder="Rechercher un compte…" count={filteredMandats?.length}>
+        <ListToolbar query={liste.query} onQueryChange={liste.setQuery} placeholder="Rechercher un compte…" count={liste.total}>
           <Select value={statutFilter} onChange={(e) => setStatutFilter(e.target.value)} className="w-auto">
             <option value="">Tous les statuts</option>
             {statuts.map((s) => <option key={s.id} value={s.code}>{s.libelle}</option>)}
           </Select>
-          <Select value={sortKey} onChange={(e) => setSortKey(e.target.value)} className="w-auto">
+          <Select value={liste.tri} onChange={(e) => liste.trierPar(e.target.value)} className="w-auto">
             <option value="compte_nom">Trier par compte</option>
             <option value="date_signature">Trier par date de signature</option>
             <option value="nb_sites_couverts">Trier par nb. de sites</option>
           </Select>
         </ListToolbar>
 
-        {!isLoading && mandats?.length === 0 && (
+        {liste.erreur && <p className="mb-4 text-sm text-red-600">{liste.erreur}</p>}
+        {!liste.isLoading && !liste.erreur && liste.lignes.length === 0 && (
           <p className="mb-4 text-sm text-navy-400">
-            Aucun mandat pour l'instant — le mandat signé par le client autorise KiWee à négocier sur un périmètre de sites précis. Utilise « Nouveau mandat » pour en créer un.
+            {liste.query.trim() || statutFilter
+              ? 'Aucun mandat ne correspond à la recherche.'
+              : "Aucun mandat pour l'instant — le mandat signé par le client autorise KiWee à négocier sur un périmètre de sites précis. Utilise « Nouveau mandat » pour en créer un."}
           </p>
         )}
-        {!isLoading && mandats && mandats.length > 0 && filteredMandats?.length === 0 && (
-          <p className="mb-4 text-sm text-navy-400">Aucun mandat ne correspond à la recherche.</p>
-        )}
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3">
-          {isLoading && <p className="text-sm text-navy-400">Chargement…</p>}
-          {tranche.visibles.map((m) => {
+          {liste.isLoading && <p className="text-sm text-navy-400">Chargement…</p>}
+          {liste.lignes.map((m) => {
             const label = statuts.find((s) => s.code === m.statut)?.libelle ?? m.statut
             return (
               <Card
@@ -201,11 +202,11 @@ export default function Mandats() {
             )
           })}
           <PiedDeListe
-            affiches={tranche.visibles.length}
-            total={tranche.total}
-            reste={tranche.reste}
-            onAfficherPlus={tranche.afficherPlus}
-            tailleTrancheSuivante={tranche.tailleTrancheSuivante}
+            affiches={liste.lignes.length}
+            total={liste.total}
+            reste={liste.reste}
+            onAfficherPlus={liste.afficherPlus}
+            tailleTrancheSuivante={liste.tailleTrancheSuivante}
             libelle="mandats"
           />
         </div>

@@ -1,5 +1,4 @@
 import { useState } from 'react'
-import { useTranchesAffichage } from '@/lib/useTranchesAffichage'
 import { PiedDeListe } from '@/components/ui/pied-de-liste'
 import { useNavigate } from 'react-router-dom'
 import { Plus, Sparkle } from 'lucide-react'
@@ -11,11 +10,10 @@ import { Button } from '@/components/ui/button'
 import { EntityLink } from '@/components/ui/entity-link'
 import { EtapeCompact } from '@/components/ui/etape-stepper'
 import { Select } from '@/components/ui/form'
-import { useRecommandationsListe } from '@/lib/data/recommandations'
 import { useReferenceTable } from '@/lib/data/referenceTables'
 import { FALLBACK_ETAPES_RECOMMANDATION, ETAPE_TONE } from '@/lib/referenceFallbacks'
 import { ListToolbar } from '@/components/ui/list-toolbar'
-import { useListControls } from '@/lib/useListControls'
+import { useListeServeur } from '@/lib/useListeServeur'
 import { CreateRecommandationDialog } from '@/components/opportunite/CreationRecommandationWizard'
 
 /** Le formulaire de création vit désormais dans son propre fichier, réécrit le 15/08/2026 en
@@ -23,27 +21,33 @@ import { CreateRecommandationDialog } from '@/components/opportunite/CreationRec
  *  CompteDetail l'importe depuis cette page depuis l'origine. */
 export { CreateRecommandationDialog } from '@/components/opportunite/CreationRecommandationWizard'
 
+/** Une carte de la liste, telle que `v_recommandations_liste` la renvoie. */
+interface LigneReco {
+  id: string
+  nom: string
+  compte_id: string
+  compte_nom: string | null
+  etape: string
+  conseiller: string
+  priorite: number
+  nb_versions: number
+  sites: { id: string; nom: string }[]
+}
+
 export default function Recommandations() {
-  const { data: recommandations, isLoading } = useRecommandationsListe()
   const { data: etapesRef } = useReferenceTable('etapes_recommandation')
   const etapes = etapesRef && etapesRef.length > 0 ? etapesRef : FALLBACK_ETAPES_RECOMMANDATION
   const navigate = useNavigate()
   const [showCreate, setShowCreate] = useState(false)
   const [etapeFilter, setEtapeFilter] = useState('')
 
-  const recommandationsFiltreesParEtape = etapeFilter ? recommandations?.filter((r) => r.etape === etapeFilter) : recommandations
-
-  const { query, setQuery, sortKey, setSortKey, items: filteredRecommandations } = useListControls(recommandationsFiltreesParEtape, {
-    searchFields: (r) => [r.titre, r.compte_nom, r.conseiller],
-    sorters: {
-      titre: (a, b) => a.titre.localeCompare(b.titre),
-      compte_nom: (a, b) => a.compte_nom.localeCompare(b.compte_nom),
-      priorite: (a, b) => a.priorite - b.priorite,
-    },
-    defaultSort: 'titre',
+  const liste = useListeServeur<LigneReco>({
+    vue: 'v_recommandations_liste',
+    colonnesRecherche: ['nom', 'compte_nom', 'conseiller'],
+    triParDefaut: 'nom',
+    // Le filtre par etape descend en base : sinon il ne porterait que sur la tranche chargee.
+    filtres: { etape: etapeFilter || null },
   })
-
-  const tranche = useTranchesAffichage(filteredRecommandations, `${query}|${sortKey}`)
 
   return (
     <div>
@@ -55,29 +59,29 @@ export default function Recommandations() {
           actions={<Button onClick={() => setShowCreate(true)}><Plus className="h-4 w-4" />Nouvelle recommandation</Button>}
         />
 
-        <ListToolbar query={query} onQueryChange={setQuery} placeholder="Rechercher une recommandation, un compte…" count={filteredRecommandations?.length}>
+        <ListToolbar query={liste.query} onQueryChange={liste.setQuery} placeholder="Rechercher une recommandation, un compte…" count={liste.total}>
           <Select value={etapeFilter} onChange={(e) => setEtapeFilter(e.target.value)} className="w-auto">
             <option value="">Toutes les étapes</option>
             {etapes.map((e) => <option key={e.id} value={e.code}>{e.libelle}</option>)}
           </Select>
-          <Select value={sortKey} onChange={(e) => setSortKey(e.target.value)} className="w-auto">
-            <option value="titre">Trier par titre</option>
+          <Select value={liste.tri} onChange={(e) => liste.trierPar(e.target.value)} className="w-auto">
+            <option value="nom">Trier par titre</option>
             <option value="compte_nom">Trier par compte</option>
             <option value="priorite">Trier par priorité</option>
           </Select>
         </ListToolbar>
 
-        {!isLoading && recommandations?.length === 0 && (
+        {liste.erreur && <p className="mb-4 text-sm text-red-600">{liste.erreur}</p>}
+        {!liste.isLoading && !liste.erreur && liste.lignes.length === 0 && (
           <p className="mb-4 text-sm text-navy-400">
-            Aucune recommandation pour l'instant — c'est le cœur du métier KiWee : une proposition chiffrée (optimisations, offres) pour un ou plusieurs sites. Utilise « Nouvelle recommandation » pour en créer une.
+            {liste.query.trim() || etapeFilter
+              ? 'Aucune recommandation ne correspond à la recherche.'
+              : "Aucune recommandation pour l'instant — c'est le cœur du métier KiWee : une proposition chiffrée (optimisations, offres) pour un ou plusieurs sites. Utilise « Nouvelle recommandation » pour en créer une."}
           </p>
         )}
-        {!isLoading && recommandations && recommandations.length > 0 && filteredRecommandations?.length === 0 && (
-          <p className="mb-4 text-sm text-navy-400">Aucune recommandation ne correspond à la recherche.</p>
-        )}
         <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
-          {isLoading && <p className="text-sm text-navy-400">Chargement…</p>}
-          {tranche.visibles.map((reco) => {
+          {liste.isLoading && <p className="text-sm text-navy-400">Chargement…</p>}
+          {liste.lignes.map((reco) => {
             const etapeLabel = etapes.find((e) => e.code === reco.etape)?.libelle ?? reco.etape
             return (
               <Card
@@ -90,14 +94,14 @@ export default function Recommandations() {
                     <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-amber-100 text-amber-600">
                       <Sparkle className="h-4 w-4" />
                     </span>
-                    <p className="font-display font-medium text-navy-800">{reco.titre}</p>
+                    <p className="font-display font-medium text-navy-800">{reco.nom}</p>
                   </div>
                   <Badge tone={ETAPE_TONE[reco.etape] ?? 'neutral'}>{etapeLabel}</Badge>
                 </div>
                 <p className="text-xs text-navy-500">
                   <EntityLink to={`/comptes/${reco.compte_id}`}>{reco.compte_nom}</EntityLink>
                   {' · '}
-                  {reco.sites.map((s, i) => (
+                  {(reco.sites ?? []).map((s, i) => (
                     <span key={s.id}>
                       {i > 0 && ', '}
                       <EntityLink to={`/sites/${s.id}`}>{s.nom}</EntityLink>
@@ -111,18 +115,18 @@ export default function Recommandations() {
 
                 <div className="mt-3 flex items-center justify-between text-xs text-navy-400">
                   <span>{reco.conseiller}</span>
-                  <span>{reco.versions.length} version{reco.versions.length > 1 ? 's' : ''}</span>
+                  <span>{reco.nb_versions} version{reco.nb_versions > 1 ? 's' : ''}</span>
                 </div>
               </Card>
             )
           })}
           <PiedDeListe
-            affiches={tranche.visibles.length}
-            total={tranche.total}
-            reste={tranche.reste}
-            onAfficherPlus={tranche.afficherPlus}
-            tailleTrancheSuivante={tranche.tailleTrancheSuivante}
-            libelle="opportunités"
+            affiches={liste.lignes.length}
+            total={liste.total}
+            reste={liste.reste}
+            onAfficherPlus={liste.afficherPlus}
+            tailleTrancheSuivante={liste.tailleTrancheSuivante}
+            libelle="recommandations"
           />
         </div>
       </div>

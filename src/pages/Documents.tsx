@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { useTranchesAffichage } from '@/lib/useTranchesAffichage'
+import { useListeServeur } from '@/lib/useListeServeur'
 import { PiedDeListe } from '@/components/ui/pied-de-liste'
 import { useNavigate } from 'react-router-dom'
 import { FileText, Plus } from 'lucide-react'
@@ -11,7 +11,7 @@ import { Button } from '@/components/ui/button'
 import { EntityLink } from '@/components/ui/entity-link'
 import { Dialog } from '@/components/ui/dialog'
 import { FormField, Input, Select } from '@/components/ui/form'
-import { useDocuments, useCreateDocument } from '@/lib/data/documents'
+import { useCreateDocument } from '@/lib/data/documents'
 import { useSites } from '@/lib/data/sites'
 import { useComptes } from '@/lib/data/comptes'
 import { useMandats } from '@/lib/data/mandats'
@@ -22,7 +22,6 @@ import { useReferenceTable } from '@/lib/data/referenceTables'
 import { FALLBACK_TYPES_DOCUMENTS } from '@/lib/referenceFallbacks'
 import { entityRoute } from '@/lib/entityRoute'
 import { ListToolbar } from '@/components/ui/list-toolbar'
-import { useListControls } from '@/lib/useListControls'
 
 const ENTITE_TYPE_OPTIONS = [
   { value: 'site', label: 'Site' },
@@ -134,22 +133,28 @@ function CreateDocumentDialog({ open, onClose }: { open: boolean; onClose: () =>
   )
 }
 
+/** Une ligne de la liste, telle que `v_documents_liste` la renvoie. */
+interface LigneDocument {
+  id: string
+  nom: string
+  type_document: string | null
+  auteur: string
+  objet_lie: string | null
+  entite_type: string | null
+  entite_id: string | null
+  date_creation: string
+}
+
 export default function Documents() {
-  const { data: documents, isLoading } = useDocuments()
   const navigate = useNavigate()
   const [showCreate, setShowCreate] = useState(false)
 
-  const { query, setQuery, sortKey, setSortKey, items: filteredDocuments } = useListControls(documents, {
-    searchFields: (d) => [d.nom, d.objet_lie, d.auteur, d.type_document],
-    sorters: {
-      date_creation: (a, b) => b.date_creation.localeCompare(a.date_creation),
-      nom: (a, b) => a.nom.localeCompare(b.nom),
-      type_document: (a, b) => a.type_document.localeCompare(b.type_document),
-    },
-    defaultSort: 'date_creation',
+  const liste = useListeServeur<LigneDocument>({
+    vue: 'v_documents_liste',
+    colonnesRecherche: ['nom', 'objet_lie', 'auteur', 'type_document'],
+    triParDefaut: 'date_creation',
+    sensParDefaut: 'desc',
   })
-
-  const tranche = useTranchesAffichage(filteredDocuments, `${query}|${sortKey}`)
 
   return (
     <div>
@@ -161,8 +166,8 @@ export default function Documents() {
           actions={<Button onClick={() => setShowCreate(true)}><Plus className="h-4 w-4" />Nouveau document</Button>}
         />
 
-        <ListToolbar query={query} onQueryChange={setQuery} placeholder="Rechercher un document, un auteur…" count={filteredDocuments?.length}>
-          <Select value={sortKey} onChange={(e) => setSortKey(e.target.value)} className="w-auto">
+        <ListToolbar query={liste.query} onQueryChange={liste.setQuery} placeholder="Rechercher un document, un auteur…" count={liste.total}>
+          <Select value={liste.tri} onChange={(e) => liste.trierPar(e.target.value)} className="w-auto">
             <option value="date_creation">Trier par date</option>
             <option value="nom">Trier par nom</option>
             <option value="type_document">Trier par type</option>
@@ -170,16 +175,16 @@ export default function Documents() {
         </ListToolbar>
 
         <div className="space-y-2.5">
-          {isLoading && <p className="text-sm text-navy-400">Chargement…</p>}
-          {!isLoading && documents?.length === 0 && (
+          {liste.isLoading && <p className="text-sm text-navy-400">Chargement…</p>}
+          {liste.erreur && <p className="py-8 text-center text-sm text-red-600">{liste.erreur}</p>}
+          {!liste.isLoading && !liste.erreur && liste.lignes.length === 0 && (
             <p className="py-8 text-center text-sm text-navy-400">
-              Aucun document pour l'instant — mandats signés, factures, contrats et pièces jointes de recommandations apparaîtront ici.
+              {liste.query.trim()
+                ? 'Aucun document ne correspond à la recherche.'
+                : "Aucun document pour l'instant — mandats signés, factures, contrats et pièces jointes de recommandations apparaîtront ici."}
             </p>
           )}
-          {!isLoading && documents && documents.length > 0 && filteredDocuments?.length === 0 && (
-            <p className="py-8 text-center text-sm text-navy-400">Aucun document ne correspond à la recherche.</p>
-          )}
-          {tranche.visibles.map((doc) => (
+          {liste.lignes.map((doc) => (
             <Card
               key={doc.id}
               onClick={() => navigate(`/documents/${doc.id}`)}
@@ -192,7 +197,7 @@ export default function Documents() {
                 <div>
                   <p className="text-sm font-medium text-navy-800">{doc.nom}</p>
                   <p className="text-xs text-navy-500">
-                    {entityRoute(doc.entite_type, doc.entite_id) ? (
+                    {doc.entite_type && doc.entite_id && entityRoute(doc.entite_type, doc.entite_id) ? (
                       <EntityLink to={entityRoute(doc.entite_type, doc.entite_id) as string}>{doc.objet_lie}</EntityLink>
                     ) : (
                       doc.objet_lie
@@ -208,11 +213,11 @@ export default function Documents() {
             </Card>
           ))}
           <PiedDeListe
-            affiches={tranche.visibles.length}
-            total={tranche.total}
-            reste={tranche.reste}
-            onAfficherPlus={tranche.afficherPlus}
-            tailleTrancheSuivante={tranche.tailleTrancheSuivante}
+            affiches={liste.lignes.length}
+            total={liste.total}
+            reste={liste.reste}
+            onAfficherPlus={liste.afficherPlus}
+            tailleTrancheSuivante={liste.tailleTrancheSuivante}
             libelle="documents"
           />
         </div>
