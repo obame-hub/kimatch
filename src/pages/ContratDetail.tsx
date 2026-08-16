@@ -22,6 +22,7 @@ import { useCanManage, useIsAdmin, useProfilsAdmin } from '@/lib/data/roles'
 import { useSuppression } from '@/lib/useSuppression'
 import { FALLBACK_STATUTS_CONTRATS, STATUT_CONTRAT_TONE, FALLBACK_TYPES_DOCUMENTS } from '@/lib/referenceFallbacks'
 import { useGoBack } from '@/lib/useGoBack'
+import { useRaccourcisOnglets } from '@/lib/useRaccourcisOnglets'
 import { cn } from '@/lib/utils'
 import type { Contrat, TarifContratCompteur } from '@/types/domain'
 
@@ -389,6 +390,10 @@ export default function ContratDetail() {
     { key: 'perimetre', label: 'Périmètre', badge: contrat?.compteurs.length ? String(contrat.compteurs.length) : undefined },
     { key: 'fichiers', label: 'Fichiers', badge: documentsDuContrat.length ? String(documentsDuContrat.length) : undefined },
   ]
+
+  // « 1–5 pour naviguer » : le raccourci annonce par la maquette dans la barre d'onglets.
+  const clesOnglets = TABS.map((t) => t.key)
+  useRaccourcisOnglets(clesOnglets, setTab)
 
   if (!contrat && id) {
     return (

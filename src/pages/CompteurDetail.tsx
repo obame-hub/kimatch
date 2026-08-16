@@ -28,6 +28,7 @@ import { useCanManageEnregistrement, useIsAdmin, useProfilsAdmin } from '@/lib/d
 import { useSuppression } from '@/lib/useSuppression'
 import { cn } from '@/lib/utils'
 import { useGoBack } from '@/lib/useGoBack'
+import { useRaccourcisOnglets } from '@/lib/useRaccourcisOnglets'
 import type { Compteur, Consommation } from '@/types/domain'
 
 const POSTE_OPTIONS = ['TOTAL', 'HP', 'HC', 'POINTE', 'HPH', 'HCH', 'HPE', 'HCE']
@@ -549,11 +550,15 @@ export default function CompteurDetail() {
   }
 
   const TABS: { key: TabKey; label: string; badge?: string }[] = [
-    { key: 'apercu', label: 'Aperçu' },
+    { key: 'apercu', label: 'Compteur' },
     { key: 'contrats', label: 'Contrats', badge: contratsDuCompteur.length ? String(contratsDuCompteur.length) : undefined },
     { key: 'mandats', label: 'Mandats', badge: mandatDuCompteur ? undefined : '!' },
     { key: 'fichiers', label: 'Fichiers', badge: documentsDuCompteur.length ? String(documentsDuCompteur.length) : undefined },
   ]
+
+  // « 1–5 pour naviguer » : le raccourci annonce par la maquette dans la barre d'onglets.
+  const clesOnglets = TABS.map((t) => t.key)
+  useRaccourcisOnglets(clesOnglets, setTab)
 
   if (!compteur && id) {
     return (

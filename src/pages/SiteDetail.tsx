@@ -47,6 +47,7 @@ import { ActivityFeed } from '@/components/site/ActivityFeed'
 import { computeSiteHealth } from '@/lib/siteHealth'
 import { cn } from '@/lib/utils'
 import { useGoBack } from '@/lib/useGoBack'
+import { useRaccourcisOnglets } from '@/lib/useRaccourcisOnglets'
 import type { Compte, Contact } from '@/types/domain'
 
 type TabKey = 'synthese' | 'contrats' | 'compteurs' | 'recommandations' | 'signaux' | 'mandats' | 'fichiers' | 'historique' | 'activite'
@@ -165,6 +166,10 @@ export default function SiteDetail() {
     { key: 'historique', label: 'Historique' },
     { key: 'activite', label: 'Activité', mobileOnly: true },
   ]
+
+  // « 1–5 pour naviguer » : le raccourci annonce par la maquette dans la barre d'onglets.
+  const clesOnglets = TABS.filter((t) => !t.mobileOnly).map((t) => t.key)
+  useRaccourcisOnglets(clesOnglets, setTab)
 
   /**
    * Raccourcis clavier — 1 à 8 pour changer d'onglet.

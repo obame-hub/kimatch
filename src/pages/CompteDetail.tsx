@@ -70,6 +70,7 @@ import { useSuppression } from '@/lib/useSuppression'
 import { ActivityFeed } from '@/components/site/ActivityFeed'
 import { cn } from '@/lib/utils'
 import { useGoBack } from '@/lib/useGoBack'
+import { useRaccourcisOnglets } from '@/lib/useRaccourcisOnglets'
 import type { Compte, Contact, Site, TypeCompte, Signal, Contrat, Mandat, Compteur, Recommandation } from '@/types/domain'
 import { SitesMap, type SitesMapItem } from '@/components/site/SitesMap'
 import { computeSiteHealth } from '@/lib/siteHealth'
@@ -274,6 +275,10 @@ export default function CompteDetail() {
     { key: 'historique', label: 'Historique' },
     { key: 'activite', label: 'Activité', mobileOnly: true },
   ]
+
+  // « 1–5 pour naviguer » : le raccourci annonce par la maquette dans la barre d'onglets.
+  const clesOnglets = TABS.filter((t) => !t.mobileOnly).map((t) => t.key)
+  useRaccourcisOnglets(clesOnglets, setTab)
 
   useEffect(() => {
     function onKeyDown(e: KeyboardEvent) {

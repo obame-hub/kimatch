@@ -23,6 +23,7 @@ import { useSuppression } from '@/lib/useSuppression'
 import { FALLBACK_STATUTS_MANDATS, STATUT_MANDAT_TONE, FALLBACK_TYPES_DOCUMENTS } from '@/lib/referenceFallbacks'
 import { sendMandatForSignature, connectDocusign, DocusignNonConnecte } from '@/lib/data/docusign'
 import { useGoBack } from '@/lib/useGoBack'
+import { useRaccourcisOnglets } from '@/lib/useRaccourcisOnglets'
 import { cn } from '@/lib/utils'
 import type { Mandat, Contact, Compte, Compteur } from '@/types/domain'
 import { generateMandatKiweePdf, generateMandatEnergixPdf } from '@/lib/mandatPdf'
@@ -316,6 +317,10 @@ export default function MandatDetail() {
     { key: 'perimetre', label: 'Périmètre', badge: compteursDuMandat.length ? String(compteursDuMandat.length) : undefined },
     { key: 'fichiers', label: 'Fichiers', badge: documentsDuMandat.length ? String(documentsDuMandat.length) : undefined },
   ]
+
+  // « 1–5 pour naviguer » : le raccourci annonce par la maquette dans la barre d'onglets.
+  const clesOnglets = TABS.map((t) => t.key)
+  useRaccourcisOnglets(clesOnglets, setTab)
 
   if (!mandat && id) {
     return (

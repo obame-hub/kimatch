@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
-import { ArrowLeft, Star, Trash2, Building2, FileCheck2, Sparkle } from 'lucide-react'
+import { ArrowLeft, Star, Trash2, Building2, FileCheck2, FileText, Sparkle } from 'lucide-react'
 import { Topbar } from '@/components/layout/Topbar'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
@@ -25,6 +25,8 @@ import { useRecommandationsListe } from '@/lib/data/recommandations'
 import { useCanManageEnregistrement, useIsAdmin, useProfilsAdmin } from '@/lib/data/roles'
 import { useSuppression } from '@/lib/useSuppression'
 import { useGoBack } from '@/lib/useGoBack'
+import { useDocumentsParEntites } from '@/lib/data/documents'
+import { useRaccourcisOnglets } from '@/lib/useRaccourcisOnglets'
 import { useReferenceTable } from '@/lib/data/referenceTables'
 import { formatPhoneFR } from '@/lib/textFormat'
 import { contactRoleOptions } from '@/lib/contactRoles'
@@ -40,7 +42,7 @@ import type { Contact } from '@/types/domain'
 
 const CIVILITE_OPTIONS = ['M.', 'Mme', 'Autre']
 
-type TabKey = 'contact' | 'rattachements' | 'contrats' | 'mandats' | 'recommandations'
+type TabKey = 'contact' | 'rattachements' | 'contrats' | 'mandats' | 'recommandations' | 'documents'
 
 export default function ContactDetail() {
   const { id } = useParams()
@@ -48,6 +50,10 @@ export default function ContactDetail() {
   // Perimetre de la fiche, lu cote serveur : ces lectures parcouraient le CRM entier pour en
   // garder une ligne ou quelques-unes (meme correctif que les fiches compte et site).
   const { data: contact } = useContact(id)
+  // Pieces rattachees a CE contact, lues a son perimetre : `useDocumentsParEntites` filtre
+  // cote serveur sur l'identifiant, il ne charge pas la table entiere.
+  const idsPourDocuments = useMemo(() => (id ? [id] : undefined), [id])
+  const { data: documentsDuContact = [] } = useDocumentsParEntites(idsPourDocuments)
   const { data: comptes } = useComptes()
   const { data: sites } = useSites()
   const { data: compteurs } = useCompteurs()
@@ -127,7 +133,14 @@ export default function ContactDetail() {
     { key: 'contrats', label: 'Contrats', badge: contratsDuContact.length ? String(contratsDuContact.length) : undefined },
     { key: 'mandats', label: 'Mandats', badge: (mandatsSignataire.length + mandatsDuCompte.length) ? String(mandatsSignataire.length + mandatsDuCompte.length) : undefined },
     { key: 'recommandations', label: 'Recommandations', badge: recommandationsDuCompte.length ? String(recommandationsDuCompte.length) : undefined },
+    // Sixieme onglet de la maquette. Il manquait : les pieces rattachees a un contact (piece
+    // d'identite du signataire, pouvoir, courrier) n'etaient visibles nulle part depuis sa fiche.
+    { key: 'documents', label: 'Documents', badge: documentsDuContact.length ? String(documentsDuContact.length) : undefined },
   ]
+
+  // « 1–5 pour naviguer » : le raccourci annonce par la maquette dans la barre d'onglets.
+  const clesOnglets = TABS.map((t) => t.key)
+  useRaccourcisOnglets(clesOnglets, setTab)
 
   if (!contact && id) {
     return (
@@ -457,6 +470,33 @@ export default function ContactDetail() {
                   </div>
                 )
               })}
+            </div>
+          )}
+
+          {tab === 'documents' && (
+            <div className="flex flex-col gap-2.5">
+              {documentsDuContact.length === 0 && (
+                <p className="text-sm text-navy-400">Aucun document rattaché à ce contact.</p>
+              )}
+              {documentsDuContact.map((d) => (
+                <div
+                  key={d.id}
+                  onClick={() => navigate(`/documents/${d.id}`)}
+                  className="cursor-pointer rounded-xl border border-navy-100 bg-white p-3.5 hover:bg-navy-50/60"
+                >
+                  <div className="flex items-center gap-2">
+                    <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-navy-100 text-navy-500">
+                      <FileText className="h-3.5 w-3.5" />
+                    </span>
+                    <p className="flex-1 truncate text-sm font-bold text-navy-800">{d.nom}</p>
+                    {d.type_document && <Badge tone="neutral">{d.type_document}</Badge>}
+                  </div>
+                  <p className="ml-9 mt-1.5 text-[11px] text-navy-400">
+                    {d.auteur ? `${d.auteur} · ` : ''}
+                    {new Date(d.date_creation).toLocaleDateString('fr-FR')}
+                  </p>
+                </div>
+              ))}
             </div>
           )}
         </div>
