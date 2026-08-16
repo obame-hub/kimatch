@@ -147,3 +147,56 @@ ont déjà de l'édition en place sur une partie de leurs champs ; leurs modales
 **À décider.** Sur la fiche compte, les quatre variantes (client, fournisseur, partenaire, générique)
 ne montrent pas les mêmes champs. Faut-il quatre blocs d'édition en place distincts, ou un seul bloc
 qui masque les champs hors sujet ? C'est une question de maquette, pas de technique.
+
+---
+
+## 10. Finalités de clôture — cinq dans la maquette, trois en base
+
+**Le conflit.** La maquette « Fiche Opportunité » propose cinq qualifications finales :
+**Convertie, Non qualifiée, Perdue, Reportée, Annulée**.
+
+La base en utilise trois, sur 1573 recommandations closes :
+
+| `finalite_cloture` | lignes |
+|---|---|
+| ACCEPTEE | 867 |
+| EXPIREE | 386 |
+| REFUSEE | 320 |
+| (vide) | 130 |
+
+**Pourquoi je n'ai pas tranché.** Les deux vocabulaires ne se recouvrent pas. « Convertie » n'est
+pas la même chose qu'« ACCEPTEE » — une reco acceptée par le client n'est convertie qu'une fois le
+contrat signé. Et surtout, **ni « Reportée » ni « Annulée » n'ont d'équivalent** : ce sont deux
+états nouveaux. Choisir une correspondance reviendrait à réécrire le sens de 1573 recommandations
+closes sur une hypothèse, exactement le travers qui a produit les 1471 dates de clôture fausses du
+12/08.
+
+**Ce que ça bloque.** La règle « la date de réactivation est obligatoire » ne se déclenche que sur
+la finalité *Reportée*. Tant que cette finalité n'existe pas, la colonne
+`recommandations.date_reactivation` reste sans usage.
+
+**En attendant.** Migration `20260816170000` livrée : elle ajoute `motif_cloture` (le motif
+obligatoire, qu'on ne savait pas stocker — on ferme aujourd'hui une recommandation sans que
+personne ne puisse savoir pourquoi) et `date_reactivation`. Elle **ne touche à aucune des 1573
+lignes** et ne remappe rien.
+
+**La question pour William.** Garde-t-on les trois finalités actuelles en y ajoutant Reportée et
+Annulée ? Ou bascule-t-on sur les cinq de la maquette, avec une table de correspondance explicite
+pour l'existant ?
+
+---
+
+## 11. « Opportunité » et « Recommandation » : un écran ou deux ?
+
+**Le constat.** Les maquettes contiennent **deux fiches distinctes** : `Fiche Opportunite` (onglets
+Opportunité / Fichiers / Historique, périmètre de compteurs, flux de clôture, création de mandat) et
+`Fiche Recommandation` (versions, stratégie, proposition commerciale, lien vers l'étude client).
+
+Kimatch n'a qu'une seule entité, `recommandations`, avec ses `versions_recommandation`.
+
+**La question.** Est-ce que William décrit deux objets métier réellement différents — l'opportunité
+étant l'affaire, la recommandation étant la proposition qu'on lui adresse — ou deux vues du même
+objet ? La réponse change le modèle de données, pas seulement l'écran.
+
+**En attendant.** Rien n'est scindé. C'est le premier point à trancher avant d'aller plus loin dans
+les maquettes Opportunité et Recommandation.
