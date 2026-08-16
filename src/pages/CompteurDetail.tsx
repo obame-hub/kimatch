@@ -1,6 +1,6 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useMemo, useState } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
-import { ArrowLeft, Zap, Flame, Plus, Pencil, Trash2, Building2, MapPin, FileCheck2, FileText, RefreshCw } from 'lucide-react'
+import { ArrowLeft, Zap, Flame, Plus, Trash2, Building2, MapPin, FileCheck2, FileText, RefreshCw } from 'lucide-react'
 import { Topbar } from '@/components/layout/Topbar'
 import { Button } from '@/components/ui/button'
 import { ZoneDepotFichiers } from '@/components/ui/zone-depot-fichiers'
@@ -9,7 +9,7 @@ import { Dialog } from '@/components/ui/dialog'
 import { FormField, Input, Select } from '@/components/ui/form'
 import { HistoriqueDiscret } from '@/components/ui/historique-discret'
 import { EntityLink } from '@/components/ui/entity-link'
-import { useCompteur, useUpdateCompteur, useDeleteCompteur, useSyncCompteurElec, useSyncCompteurGaz, useUpdateCompteurField } from '@/lib/data/compteurs'
+import { useCompteur, useDeleteCompteur, useSyncCompteurElec, useSyncCompteurGaz, useUpdateCompteurField } from '@/lib/data/compteurs'
 import { useEnedisFetch } from '@/lib/data/enedis'
 import { useGrdFetch } from '@/lib/data/grd'
 import { useConsommations, useCreateConsommation } from '@/lib/data/consommations'
@@ -111,79 +111,6 @@ function AddConsommationDialog({ compteurId, open, onClose }: { compteurId: stri
         <div className="flex justify-end gap-2 pt-2">
           <Button type="button" variant="ghost" onClick={() => { reset(); onClose() }}>Annuler</Button>
           <Button type="submit" disabled={createConsommation.isPending}>Ajouter</Button>
-        </div>
-      </form>
-    </Dialog>
-  )
-}
-
-function EditCompteurDialog({ compteur, open, onClose }: { compteur: Compteur; open: boolean; onClose: () => void }) {
-  const updateCompteur = useUpdateCompteur()
-  const isAdmin = useIsAdmin()
-  const { data: profilsAdmin } = useProfilsAdmin()
-  const [utilisation, setUtilisation] = useState(compteur.utilisation)
-  const [consommationAnnuelleMwh, setConsommationAnnuelleMwh] = useState(
-    compteur.consommation_annuelle_mwh != null ? String(compteur.consommation_annuelle_mwh) : '',
-  )
-  const [proprietaireId, setProprietaireId] = useState(compteur.proprietaire_id ?? '')
-  const [typeUtilisationId, setTypeUtilisationId] = useState(compteur.type_utilisation_compteur_id ?? '')
-  const { data: typesUtilisationRef } = useReferenceTable('types_utilisations_compteur')
-  const [feedback, setFeedback] = useState<string | null>(null)
-
-  useEffect(() => {
-    if (!open) return
-    setUtilisation(compteur.utilisation)
-    setConsommationAnnuelleMwh(compteur.consommation_annuelle_mwh != null ? String(compteur.consommation_annuelle_mwh) : '')
-    setProprietaireId(compteur.proprietaire_id ?? '')
-    setTypeUtilisationId(compteur.type_utilisation_compteur_id ?? '')
-    setFeedback(null)
-  }, [open, compteur])
-
-  async function handleSubmit(e: React.FormEvent) {
-    e.preventDefault()
-    try {
-      await updateCompteur.mutateAsync({
-        id: compteur.id,
-        utilisation,
-        consommation_annuelle_mwh: consommationAnnuelleMwh ? Number(consommationAnnuelleMwh) : null,
-        proprietaire_id: proprietaireId || null,
-        type_utilisation_compteur_id: typeUtilisationId || null,
-      })
-      onClose()
-    } catch (err) {
-      setFeedback(err instanceof Error ? err.message : 'Erreur inconnue')
-    }
-  }
-
-  return (
-    <Dialog open={open} onClose={onClose} title="Modifier le compteur" description="Mettre à jour les informations de base du compteur.">
-      <form onSubmit={handleSubmit} className="space-y-3">
-        <FormField label="Utilisation">
-          <Input value={utilisation} onChange={(e) => setUtilisation(e.target.value)} placeholder="Ex. Chaufferie, éclairage…" />
-        </FormField>
-        {compteur.type_energie === 'electricite' && (
-          <FormField label="Type d'utilisation (CU/MU/LU)">
-            <Select value={typeUtilisationId} onChange={(e) => setTypeUtilisationId(e.target.value)}>
-              <option value="">—</option>
-              {typesUtilisationRef?.map((t) => <option key={t.id} value={t.id}>{t.libelle}</option>)}
-            </Select>
-          </FormField>
-        )}
-        <FormField label="Consommation annuelle (MWh)">
-          <Input type="number" step="any" value={consommationAnnuelleMwh} onChange={(e) => setConsommationAnnuelleMwh(e.target.value)} />
-        </FormField>
-        {isAdmin && (
-          <FormField label="Propriétaire">
-            <Select value={proprietaireId} onChange={(e) => setProprietaireId(e.target.value)}>
-              <option value="">Aucun</option>
-              {profilsAdmin?.map((p) => <option key={p.id} value={p.id}>{p.prenom} {p.nom}</option>)}
-            </Select>
-          </FormField>
-        )}
-        {feedback && <p className="text-xs text-red-600">{feedback}</p>}
-        <div className="flex justify-end gap-2 pt-2">
-          <Button type="button" variant="ghost" onClick={onClose}>Annuler</Button>
-          <Button type="submit" disabled={updateCompteur.isPending}>Enregistrer</Button>
         </div>
       </form>
     </Dialog>
@@ -448,6 +375,9 @@ export default function CompteurDetail() {
   const statutsContrats = statutsContratsRef && statutsContratsRef.length > 0 ? statutsContratsRef : FALLBACK_STATUTS_CONTRATS
   const { data: statutsMandatsRef } = useReferenceTable('statuts_mandats')
   const statutsMandats = statutsMandatsRef && statutsMandatsRef.length > 0 ? statutsMandatsRef : FALLBACK_STATUTS_MANDATS
+  const { data: typesUtilisation } = useReferenceTable('types_utilisations_compteur')
+  const isAdmin = useIsAdmin()
+  const { data: profilsAdmin } = useProfilsAdmin()
 
   const consommationsDuCompteur = useMemo(() => consommations?.filter((c) => c.compteur_id === id) ?? [], [consommations, id])
   const site = siteDuCompteur ?? undefined
@@ -464,7 +394,6 @@ export default function CompteurDetail() {
 
   const [tab, setTab] = useState<TabKey>('apercu')
   const [showAdd, setShowAdd] = useState(false)
-  const [editOpen, setEditOpen] = useState(false)
   const [confirmDelete, setConfirmDelete] = useState(false)
   const [addFichierOpen, setAddFichierOpen] = useState(false)
 
@@ -616,10 +545,7 @@ export default function CompteurDetail() {
         </div>
         {canManage && (
           <div className="flex gap-1.5">
-            <Button variant="outline" size="sm" onClick={() => setEditOpen(true)}>
-              <Pencil className="h-3.5 w-3.5" />
-              Modifier
-            </Button>
+            {/* Plus de bouton « Modifier » : les champs s'editent dans « Détail du compteur ». */}
             <Button variant="outline" size="sm" onClick={() => setConfirmDelete(true)}>
               <Trash2 className="h-3.5 w-3.5" />
               Supprimer
@@ -763,8 +689,63 @@ export default function CompteurDetail() {
                 <p className="mb-2.5 text-[10px] font-bold uppercase tracking-wide text-navy-400">Détail du compteur</p>
                 <div className="space-y-1.5 text-xs text-navy-700">
                   <p><span className="text-navy-400">Type d'énergie :</span> {compteur.type_energie === 'electricite' ? 'Électricité' : 'Gaz'}</p>
-                  {compteur.type_utilisation_compteur && <p><span className="text-navy-400">Type d'utilisation :</span> {compteur.type_utilisation_compteur}</p>}
-                  {compteur.consommation_annuelle_mwh != null && <p><span className="text-navy-400">Consommation annuelle :</span> {compteur.consommation_annuelle_mwh} MWh</p>}
+                  {/* Edition en place, comme partout ailleurs depuis le 16/08/2026. Le libelle et
+                      la consommation annuelle etaient les deux seuls champs que la modale
+                      « Modifier » savait changer, et ils ne s'affichaient meme pas quand ils
+                      etaient vides. Segment, tension, tarif et CAR restent en lecture : ils
+                      viennent du gestionnaire de reseau (Enedis / GRDF) et se corrigent par une
+                      synchronisation, pas a la main. */}
+                  {canManage ? (
+                    <>
+                      <InlineField
+                        variant="text"
+                        label="Libellé"
+                        emptyLabel="nommer ce compteur"
+                        value={compteur.utilisation}
+                        onCommit={(v) => majCompteur({ libelle: v.trim() || null })}
+                        onSaved={() => showToast('✓ enregistré')}
+                        onError={(e) => showToast(`Erreur : ${e.message}`)}
+                      />
+                      <InlineField
+                        variant="select"
+                        label="Type d'utilisation"
+                        emptyLabel="choisir"
+                        value={compteur.type_utilisation_compteur_id ?? ''}
+                        options={(typesUtilisation ?? []).map((t) => ({ value: t.id, label: t.libelle }))}
+                        onCommit={(v) => majCompteur({ type_utilisation_compteur_id: v || null })}
+                        onSaved={() => showToast('✓ enregistré')}
+                        onError={(e) => showToast(`Erreur : ${e.message}`)}
+                      />
+                      <InlineField
+                        variant="number"
+                        label="Consommation annuelle"
+                        unit="MWh"
+                        value={compteur.consommation_annuelle_mwh}
+                        onCommit={(v) => majCompteur({ consommation_annuelle_mwh: v })}
+                        onSaved={() => showToast('✓ enregistré')}
+                        onError={(e) => showToast(`Erreur : ${e.message}`)}
+                      />
+                      {/* Le proprietaire commande la visibilite : administrateurs seuls, comme
+                          dans l'ancienne modale. */}
+                      {isAdmin && (
+                        <InlineField
+                          variant="select"
+                          label="Propriétaire"
+                          emptyLabel="aucun"
+                          value={compteur.proprietaire_id ?? ''}
+                          options={(profilsAdmin ?? []).map((p) => ({ value: p.id, label: `${p.prenom} ${p.nom}` }))}
+                          onCommit={(v) => majCompteur({ proprietaire_id: v || null })}
+                          onSaved={() => showToast('✓ enregistré')}
+                          onError={(e) => showToast(`Erreur : ${e.message}`)}
+                        />
+                      )}
+                    </>
+                  ) : (
+                    <>
+                      {compteur.type_utilisation_compteur && <p><span className="text-navy-400">Type d'utilisation :</span> {compteur.type_utilisation_compteur}</p>}
+                      {compteur.consommation_annuelle_mwh != null && <p><span className="text-navy-400">Consommation annuelle :</span> {compteur.consommation_annuelle_mwh} MWh</p>}
+                    </>
+                  )}
                   {compteur.segment && <p><span className="text-navy-400">Segment :</span> {compteur.segment}</p>}
                   {compteur.tension && <p><span className="text-navy-400">Tension :</span> {compteur.tension}</p>}
                   {compteur.tarif_distribution && <p><span className="text-navy-400">Tarif :</span> {compteur.tarif_distribution}</p>}
@@ -978,7 +959,6 @@ export default function CompteurDetail() {
       </div>
 
       <AddConsommationDialog compteurId={compteur.id} open={showAdd} onClose={() => setShowAdd(false)} />
-      <EditCompteurDialog compteur={compteur} open={editOpen} onClose={() => setEditOpen(false)} />
       {addFichierOpen && <AddFichierDialog open={addFichierOpen} onClose={() => setAddFichierOpen(false)} compteurId={compteur.id} onSaved={() => {}} />}
       <Dialog
         open={confirmDelete}
