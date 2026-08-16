@@ -177,6 +177,9 @@ export interface Recommandation {
   /** Sous-statut de l'étape Clôture : ACCEPTEE, REFUSEE ou EXPIREE. Colonne ajoutée par la
    *  migration des cycles de vie du 12/08/2026 ; nulle tant que la reco n'est pas clôturée. */
   finalite_cloture?: 'ACCEPTEE' | 'REFUSEE' | 'EXPIREE' | null
+  /** Pourquoi la reco a été close. Obligatoire à la saisie ; NULL sur les lignes closes avant le 16/08/2026. */
+  motif_cloture?: string | null
+  date_reactivation?: string | null
   /** Renouvellement | Captation -- dérivé automatiquement du mix client/prospect des PDL, jamais
    * choisi manuellement (voir recommandations.ts). */
   type_opportunite?: string | null

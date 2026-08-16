@@ -27,6 +27,8 @@ interface RawRecommandation {
   marge_apporteur: number | null
   date_cloture?: string | null
   finalite_cloture?: 'ACCEPTEE' | 'REFUSEE' | 'EXPIREE' | null
+  motif_cloture?: string | null
+  date_reactivation?: string | null
   type_opportunite?: string | null
   /** Colonnes ajoutées le 15/08/2026 (migration 20260815150000). Optionnelles : le select est en
    *  `*`, elles sont donc absentes tant que la migration n'est pas appliquée. */
@@ -474,6 +476,8 @@ async function fetchRecommandations(
       type_energie: (r.type_energie?.code?.toLowerCase() as 'electricite' | 'gaz' | undefined) ?? null,
       date_cloture: r.date_cloture ?? null,
       finalite_cloture: r.finalite_cloture ?? null,
+      motif_cloture: r.motif_cloture ?? null,
+      date_reactivation: r.date_reactivation ?? null,
       type_opportunite: r.type_opportunite ?? null,
       compteur_ids: compteurIdsParReco.get(r.id) ?? [],
       // Champs chiffres repris de l'opportunite Salesforce (migration 20260815150000). Le select
@@ -824,6 +828,79 @@ export type PatchRecommandation = Partial<{
   priorite: number
   proprietaire_id: string | null
 }>
+
+/**
+ * Clôture d'une recommandation — le geste de la maquette « Fiche Opportunité ».
+ *
+ * Trois écritures d'un coup, et c'est justement pourquoi ça ne passe pas par l'édition en place :
+ * l'étape bascule sur CLOTURE, la finalité est enregistrée, et le motif -- obligatoire -- explique
+ * pourquoi. Jusqu'ici on pouvait clore une recommandation sans que personne ne sache pourquoi.
+ *
+ * `date_cloture` n'est posée que si elle est vide : une recommandation rouverte puis reclôturée ne
+ * doit pas perdre sa date d'origine, et c'est exactement ce genre d'écrasement silencieux qui a
+ * produit les 1471 dates fausses du 12/08.
+ */
+export function useCloturerRecommandation() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: async (input: {
+      id: string
+      finalite: 'ACCEPTEE' | 'REFUSEE' | 'EXPIREE'
+      motif: string
+      dateReactivation?: string | null
+      etapeClotureId: string | null
+    }) => {
+      const motif = input.motif.trim()
+      if (motif === '') throw new Error('Le motif est obligatoire.')
+
+      const { data: existant, error: eLecture } = await supabase
+        .from('recommandations')
+        .select('date_cloture')
+        .eq('id', input.id)
+        .single()
+      if (eLecture) throw new Error(eLecture.message)
+
+      const { error } = await supabase
+        .from('recommandations')
+        .update({
+          finalite_cloture: input.finalite,
+          motif_cloture: motif,
+          date_reactivation: input.dateReactivation || null,
+          date_cloture: existant?.date_cloture ?? new Date().toISOString().slice(0, 10),
+          ...(input.etapeClotureId ? { etape_id: input.etapeClotureId } : {}),
+        })
+        .eq('id', input.id)
+      if (error) throw new Error(error.message)
+    },
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['recommandations'] }),
+  })
+}
+
+/**
+ * Réouverture — « ↻ Recommandation rouverte » dans la maquette.
+ *
+ * La finalité et le motif sont effacés (le dossier repart ouvert) mais `date_cloture` est
+ * conservée : elle dit quand le dossier a été fermé la première fois, et c'est une information
+ * qu'on ne récupère pas si on l'efface.
+ */
+export function useRouvrirRecommandation() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: async (input: { id: string; etapeReouvertureId: string | null }) => {
+      const { error } = await supabase
+        .from('recommandations')
+        .update({
+          finalite_cloture: null,
+          motif_cloture: null,
+          date_reactivation: null,
+          ...(input.etapeReouvertureId ? { etape_id: input.etapeReouvertureId } : {}),
+        })
+        .eq('id', input.id)
+      if (error) throw new Error(error.message)
+    },
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['recommandations'] }),
+  })
+}
 
 /** Mise à jour d'un seul champ, sans réécrire toute la recommandation. */
 export function useUpdateRecommandationPartiel() {

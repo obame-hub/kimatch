@@ -11,10 +11,13 @@ import { Dialog } from '@/components/ui/dialog'
 import { FormField, Input, Select, Textarea } from '@/components/ui/form'
 import { HistoriqueDiscret } from '@/components/ui/historique-discret'
 import { InlineField } from '@/components/ui/inline-field'
+import { FINALITES_RECOMMANDATION, CLES_FINALITES, exigeDateReactivation, type CleFinalite } from '@/lib/finalitesRecommandation'
 import { cn } from '@/lib/utils'
 import {
   useRecommandation,
   useUpdateRecommandationPartiel,
+  useCloturerRecommandation,
+  useRouvrirRecommandation,
   type PatchRecommandation,
   useDeleteRecommandation,
   useAjouterFournisseurConsulte,
@@ -668,6 +671,22 @@ export default function RecommandationDetail() {
   const majReco = async (patch: PatchRecommandation) => {
     await updateRecoPartiel.mutateAsync({ id: id as string, patch })
   }
+  // Clôture — voir le panneau plus bas. `estClose` se lit sur la finalité et non sur l'étape :
+  // une recommandation peut être posée sur l'étape Clôture sans qualification finale (c'est le
+  // cas de 130 lignes en base), et l'inverse n'existe pas.
+  const cloturerReco = useCloturerRecommandation()
+  const rouvrirReco = useRouvrirRecommandation()
+  const [clotureOuverte, setClotureOuverte] = useState(false)
+  const [finaliteChoisie, setFinaliteChoisie] = useState<CleFinalite | null>(null)
+  const [motifBrouillon, setMotifBrouillon] = useState('')
+  const [reactivationBrouillon, setReactivationBrouillon] = useState('')
+  const estClose = Boolean(reco?.finalite_cloture && FINALITES_RECOMMANDATION[reco.finalite_cloture as CleFinalite])
+  const clotureValide = Boolean(
+    finaliteChoisie
+    && motifBrouillon.trim()
+    && (!exigeDateReactivation(finaliteChoisie) || reactivationBrouillon.trim()),
+  )
+
   const [toastFiche, setToastFiche] = useState<string | null>(null)
   const retourInline = {
     onSaved: () => {
@@ -680,6 +699,47 @@ export default function RecommandationDetail() {
     },
   }
   const contactPrincipal = contacts?.find((c) => c.compte_id === reco?.compte_id && c.contact_principal)
+
+  function signaler(message: string) {
+    setToastFiche(message)
+    setTimeout(() => setToastFiche(null), 2200)
+  }
+
+  async function confirmerCloture() {
+    if (!reco || !finaliteChoisie) return signaler('Choisissez une qualification finale')
+    if (!motifBrouillon.trim()) return signaler('Le motif est obligatoire')
+    if (exigeDateReactivation(finaliteChoisie) && !reactivationBrouillon.trim()) {
+      return signaler('La date de réactivation est obligatoire')
+    }
+    try {
+      await cloturerReco.mutateAsync({
+        id: reco.id,
+        finalite: finaliteChoisie,
+        motif: motifBrouillon,
+        dateReactivation: reactivationBrouillon || null,
+        etapeClotureId: etapes.find((e) => e.code === 'CLOTURE')?.id ?? null,
+      })
+      setClotureOuverte(false)
+      signaler(`✓ Clôturée : ${FINALITES_RECOMMANDATION[finaliteChoisie].libelle}`)
+    } catch (e) {
+      signaler(`Erreur : ${e instanceof Error ? e.message : String(e)}`)
+    }
+  }
+
+  async function rouvrir() {
+    if (!reco) return
+    try {
+      // Retour sur la première étape active du cycle, pas sur une étape codée en dur : les
+      // étapes sont pilotées par la table de référence et ont déjà changé une fois (12/08).
+      await rouvrirReco.mutateAsync({
+        id: reco.id,
+        etapeReouvertureId: etapes.find((e) => e.code !== 'CLOTURE')?.id ?? null,
+      })
+      signaler('↻ Recommandation rouverte')
+    } catch (e) {
+      signaler(`Erreur : ${e instanceof Error ? e.message : String(e)}`)
+    }
+  }
 
   const suppression = useSuppression()
 
@@ -730,9 +790,20 @@ export default function RecommandationDetail() {
                   )}
                 </div>
                 {canManage && (
-                  <div className="flex shrink-0 gap-1.5">
+                  <div className="flex shrink-0 items-center gap-1.5">
                     {/* Plus de bouton « Modifier » : titre, priorite, description et note interne
                         s'editent la ou ils s'affichent. */}
+                    {estClose ? (
+                      <Button variant="outline" size="sm" onClick={rouvrir} disabled={rouvrirReco.isPending}>
+                        <RefreshCw className="h-3.5 w-3.5" />
+                        {rouvrirReco.isPending ? 'Réouverture…' : 'Rouvrir'}
+                      </Button>
+                    ) : (
+                      <Button variant="outline" size="sm" onClick={() => { setClotureOuverte(true); setFinaliteChoisie(null); setMotifBrouillon('') }}>
+                        <Lock className="h-3.5 w-3.5" />
+                        Clôturer
+                      </Button>
+                    )}
                     <Button variant="outline" size="sm" onClick={() => setConfirmDelete(true)}>
                       <Trash2 className="h-3.5 w-3.5" />
                       Supprimer
@@ -740,6 +811,114 @@ export default function RecommandationDetail() {
                   </div>
                 )}
               </div>
+
+              {/* Clôture — le geste de la maquette « Fiche Opportunité » : on choisit une
+                  qualification finale, on dit POURQUOI, et le bouton reste inactif tant que les
+                  deux ne sont pas là. Les finalités sont les trois de la base (décision de
+                  Naoëlle le 16/08/2026) et non les cinq du design : remapper aurait réinterprété
+                  1573 recommandations closes. */}
+              {clotureOuverte && !estClose && (
+                <div className="mt-3 rounded-xl border border-amber-200 bg-amber-50/60 p-3.5">
+                  <p className="mb-2 text-[10px] font-bold uppercase tracking-wide text-navy-500">Clôturer la recommandation</p>
+                  <div className="mb-3 flex flex-wrap gap-2">
+                    {CLES_FINALITES.map((cle) => {
+                      const f = FINALITES_RECOMMANDATION[cle]
+                      const actif = finaliteChoisie === cle
+                      return (
+                        <button
+                          key={cle}
+                          type="button"
+                          onClick={() => setFinaliteChoisie(cle)}
+                          className="rounded-lg border px-3.5 py-1.5 text-[11.5px] font-bold transition-colors"
+                          style={{
+                            color: actif ? '#fff' : f.couleur,
+                            background: actif ? f.couleur : f.fond,
+                            borderColor: f.bordure,
+                          }}
+                        >
+                          {f.libelle}
+                        </button>
+                      )
+                    })}
+                  </div>
+                  <label className="mb-1 block text-[10px] font-bold uppercase tracking-wide text-navy-400" htmlFor="motif-cloture">
+                    Motif <span className="text-red-500">*</span>
+                  </label>
+                  <textarea
+                    id="motif-cloture"
+                    rows={2}
+                    value={motifBrouillon}
+                    onChange={(e) => setMotifBrouillon(e.target.value)}
+                    placeholder="Pourquoi cette recommandation est-elle close ?"
+                    className="w-full rounded-lg border border-navy-200 bg-white px-2.5 py-1.5 text-xs text-navy-800 outline-none focus:ring-1 focus:ring-kiwi-500"
+                  />
+                  {/* La date de réactivation n'apparaît que si la finalité l'exige. Aucune des
+                      trois valeurs actuelles ne le fait ; le champ est prêt pour le jour où une
+                      finalité de report sera ajoutée. */}
+                  {finaliteChoisie && exigeDateReactivation(finaliteChoisie) && (
+                    <div className="mt-2">
+                      <label className="mb-1 block text-[10px] font-bold uppercase tracking-wide text-navy-400" htmlFor="date-reactivation">
+                        Date de réactivation <span className="text-red-500">*</span>
+                      </label>
+                      <input
+                        id="date-reactivation"
+                        type="date"
+                        value={reactivationBrouillon}
+                        onChange={(e) => setReactivationBrouillon(e.target.value)}
+                        className="rounded-lg border border-navy-200 bg-white px-2.5 py-1.5 font-mono text-xs text-navy-800 outline-none focus:ring-1 focus:ring-kiwi-500"
+                      />
+                    </div>
+                  )}
+                  <div className="mt-3 flex items-center justify-end gap-2">
+                    <Button type="button" variant="ghost" size="sm" onClick={() => setClotureOuverte(false)}>Annuler</Button>
+                    <Button type="button" size="sm" onClick={confirmerCloture} disabled={!clotureValide || cloturerReco.isPending}>
+                      {cloturerReco.isPending ? 'Clôture…' : 'Confirmer la clôture'}
+                    </Button>
+                  </div>
+                </div>
+              )}
+
+              {/* Une fois close, la fiche dit laquelle et pourquoi -- c'est tout l'objet du motif
+                  obligatoire : le dossier se relit sans avoir à demander à son auteur. */}
+              {estClose && (
+                <div
+                  className="mt-3 rounded-xl border p-3.5"
+                  style={{
+                    background: FINALITES_RECOMMANDATION[reco.finalite_cloture as CleFinalite].fond,
+                    borderColor: FINALITES_RECOMMANDATION[reco.finalite_cloture as CleFinalite].bordure,
+                  }}
+                >
+                  <div className="flex flex-wrap items-center gap-2">
+                    <span
+                      className="rounded-xl px-3 py-1 text-[10px] font-extrabold uppercase tracking-wide"
+                      style={{
+                        color: FINALITES_RECOMMANDATION[reco.finalite_cloture as CleFinalite].couleur,
+                        background: '#fff',
+                      }}
+                    >
+                      {FINALITES_RECOMMANDATION[reco.finalite_cloture as CleFinalite].libelle}
+                    </span>
+                    {reco.date_cloture && (
+                      <span className="font-mono text-[11px] text-navy-500">
+                        close le {new Date(reco.date_cloture).toLocaleDateString('fr-FR')}
+                      </span>
+                    )}
+                    {reco.date_reactivation && (
+                      <span className="font-mono text-[11px] text-navy-500">
+                        · à reprendre le {new Date(reco.date_reactivation).toLocaleDateString('fr-FR')}
+                      </span>
+                    )}
+                  </div>
+                  {reco.motif_cloture ? (
+                    <p className="mt-2 text-xs text-navy-700">{reco.motif_cloture}</p>
+                  ) : (
+                    <p className="mt-2 text-[11px] italic text-navy-400">
+                      Motif non renseigné — cette recommandation a été close avant que le motif ne soit demandé.
+                    </p>
+                  )}
+                </div>
+              )}
+
               <EtapeStepper steps={etapes} currentCode={reco.etape} />
             </Card>
 

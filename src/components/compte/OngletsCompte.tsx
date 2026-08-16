@@ -2,6 +2,7 @@ import { useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { ChevronRight, Sparkle } from 'lucide-react'
 import type { Recommandation, Signal } from '@/types/domain'
+import { FINALITES_RECOMMANDATION, type CleFinalite } from '@/lib/finalitesRecommandation'
 
 /**
  * Onglets de la fiche compte, portés depuis la maquette « Fiche Compte » de William (12/08/2026).
@@ -33,13 +34,6 @@ const TEINTE_ECHEANCE = {
  * Finalités de clôture. La maquette écrit « Perdue », mais le référentiel arrêté le 12/08 dit
  * « Refusée » — c'est lui qui fait foi, la maquette datait d'avant l'harmonisation.
  */
-const FINALITES = {
-  ACCEPTEE: { libelle: 'Acceptée', couleur: '#0d7a5f', fond: '#eaf4f0' },
-  REFUSEE: { libelle: 'Refusée', couleur: '#c2452d', fond: '#fbeae5' },
-  EXPIREE: { libelle: 'Expirée', couleur: '#83868f', fond: '#f0efec' },
-} as const
-
-type CleFinalite = keyof typeof FINALITES
 
 function joursAvant(iso: string | null | undefined): number | null {
   if (!iso) return null
@@ -73,9 +67,9 @@ export function OngletRecommandations({ recommandations }: { recommandations: Re
   const compte = (cle: CleFinalite) => historique.filter((r) => r.finalite_cloture === cle).length
   const filtres: [('tous' | CleFinalite), string, string, number][] = [
     ['tous', 'Toutes', '#5c5f66', historique.length],
-    ['ACCEPTEE', 'Acceptées', FINALITES.ACCEPTEE.couleur, compte('ACCEPTEE')],
-    ['REFUSEE', 'Refusées', FINALITES.REFUSEE.couleur, compte('REFUSEE')],
-    ['EXPIREE', 'Expirées', FINALITES.EXPIREE.couleur, compte('EXPIREE')],
+    ['ACCEPTEE', 'Acceptées', FINALITES_RECOMMANDATION.ACCEPTEE.couleur, compte('ACCEPTEE')],
+    ['REFUSEE', 'Refusées', FINALITES_RECOMMANDATION.REFUSEE.couleur, compte('REFUSEE')],
+    ['EXPIREE', 'Expirées', FINALITES_RECOMMANDATION.EXPIREE.couleur, compte('EXPIREE')],
   ]
   const affichees = historique.filter((r) => filtre === 'tous' || r.finalite_cloture === filtre)
 
@@ -162,7 +156,7 @@ export function OngletRecommandations({ recommandations }: { recommandations: Re
       </div>
 
       {affichees.map((r) => {
-        const finalite = r.finalite_cloture ? FINALITES[r.finalite_cloture] : FINALITES.EXPIREE
+        const finalite = r.finalite_cloture ? FINALITES_RECOMMANDATION[r.finalite_cloture] : FINALITES_RECOMMANDATION.EXPIREE
         // versions[0] est la plus récente : la liste est triée décroissant depuis le 12/08/2026.
         const derniere = r.versions[0]
         return (
@@ -202,7 +196,7 @@ export function OngletRecommandations({ recommandations }: { recommandations: Re
 
       {affichees.length === 0 && (
         <div className="rounded-[11px] border border-dashed border-[#e0dfdb] bg-white p-[22px] text-center text-xs text-[#83868f]">
-          Aucune recommandation {filtre === 'tous' ? '' : `${FINALITES[filtre as CleFinalite].libelle.toLowerCase()} `}sur ce compte
+          Aucune recommandation {filtre === 'tous' ? '' : `${FINALITES_RECOMMANDATION[filtre as CleFinalite].libelle.toLowerCase()} `}sur ce compte
         </div>
       )}
     </div>
