@@ -1,7 +1,7 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useMemo, useState } from 'react'
 import { ApercuDocument } from '@/components/document/ApercuDocument'
 import { useParams, useNavigate } from 'react-router-dom'
-import { ArrowLeft, Zap, Flame, Pencil, Trash2, Building2, MapPin, Gauge, FileText, Plus, Euro, X, Eye } from 'lucide-react'
+import { ArrowLeft, Zap, Flame, Trash2, Building2, MapPin, Gauge, FileText, Plus, Euro, X, Eye } from 'lucide-react'
 import { Topbar } from '@/components/layout/Topbar'
 import { Button } from '@/components/ui/button'
 import { ZoneDepotFichiers } from '@/components/ui/zone-depot-fichiers'
@@ -10,7 +10,8 @@ import { EntityLink } from '@/components/ui/entity-link'
 import { Dialog } from '@/components/ui/dialog'
 import { FormField, Input, Select } from '@/components/ui/form'
 import { HistoriqueDiscret } from '@/components/ui/historique-discret'
-import { useContrat, useUpdateContrat, useDeleteContrat } from '@/lib/data/contrats'
+import { InlineField } from '@/components/ui/inline-field'
+import { useContrat, useUpdateContratPartiel, useDeleteContrat, type PatchContrat } from '@/lib/data/contrats'
 import { useSites } from '@/lib/data/sites'
 import { useComptes } from '@/lib/data/comptes'
 import { useContacts } from '@/lib/data/contacts'
@@ -334,7 +335,25 @@ export default function ContratDetail() {
   const [apercu, setApercu] = useState<{ url: string; nom: string; nomFichier: string } | null>(null)
   const documentsDuContrat = useMemo(() => documents?.filter((d) => d.entite_type === 'contrat' && d.entite_id === id) ?? [], [documents, id])
   const canManage = useCanManage(contrat?.proprietaire_id)
+  const isAdmin = useIsAdmin()
+  const { data: profilsAdmin } = useProfilsAdmin()
+  const { data: tousContacts } = useContacts()
   const deleteContrat = useDeleteContrat()
+
+  // Edition en place : un champ se corrige la ou il se lit, sans modale.
+  const updateContratPartiel = useUpdateContratPartiel()
+  const majContrat = async (patch: PatchContrat) => {
+    await updateContratPartiel.mutateAsync({ id: id as string, patch })
+  }
+  const [toast, setToast] = useState<string | null>(null)
+  function showToast(msg: string) {
+    setToast(msg)
+    setTimeout(() => setToast(null), 2200)
+  }
+  const retourInline = {
+    onSaved: () => showToast('✓ enregistré'),
+    onError: (e: Error) => showToast(`Erreur : ${e.message}`),
+  }
   const deleteTarif = useDeleteTarif()
   const goBack = useGoBack('/contrats')
 
@@ -345,7 +364,6 @@ export default function ContratDetail() {
   const { data: tarifs } = useTarifsByContratCompteurs(contratCompteurIds)
 
   const [tab, setTab] = useState<TabKey>('contrat')
-  const [editOpen, setEditOpen] = useState(false)
   const [confirmDelete, setConfirmDelete] = useState(false)
   const [addFichierOpen, setAddFichierOpen] = useState(false)
 
@@ -425,10 +443,7 @@ export default function ContratDetail() {
         </div>
         {canManage && (
           <div className="flex gap-1.5">
-            <Button variant="outline" size="sm" onClick={() => setEditOpen(true)}>
-              <Pencil className="h-3.5 w-3.5" />
-              Modifier
-            </Button>
+            {/* Plus de bouton « Modifier » : les champs s'editent dans « Détail du contrat ». */}
             <Button variant="outline" size="sm" onClick={() => setConfirmDelete(true)}>
               <Trash2 className="h-3.5 w-3.5" />
               Supprimer
@@ -519,35 +534,104 @@ export default function ContratDetail() {
                   <p className="mb-0.5 text-[10px] uppercase tracking-wide text-navy-400">Énergie</p>
                   <Badge tone="neutral">{contrat.type_energie === 'gaz' ? 'Gaz' : 'Électricité'}</Badge>
                 </div>
-                {contrat.reference_fournisseur && (
-                  <div>
-                    <p className="mb-0.5 text-[10px] uppercase tracking-wide text-navy-400">Référence fournisseur</p>
-                    <p className="font-mono text-xs font-semibold text-navy-800">{contrat.reference_fournisseur}</p>
-                  </div>
-                )}
-                <div>
-                  <p className="mb-0.5 text-[10px] uppercase tracking-wide text-navy-400">Début</p>
-                  <p className="text-xs font-semibold text-navy-800">{contrat.date_debut ? new Date(contrat.date_debut).toLocaleDateString('fr-FR') : '—'}</p>
-                </div>
-                <div>
-                  <p className="mb-0.5 text-[10px] uppercase tracking-wide text-navy-400">Fin</p>
-                  <p className="text-xs font-semibold text-navy-800">{contrat.date_fin ? new Date(contrat.date_fin).toLocaleDateString('fr-FR') : 'sans échéance'}</p>
-                </div>
-                {contrat.preavis_resiliation_jours != null && (
-                  <div>
-                    <p className="mb-0.5 text-[10px] uppercase tracking-wide text-navy-400">Préavis de résiliation</p>
-                    <p className="text-xs font-semibold text-navy-800">{contrat.preavis_resiliation_jours} jours</p>
-                  </div>
-                )}
-                {contrat.contact_signataire_nom && (
-                  <div>
-                    <p className="mb-0.5 text-[10px] uppercase tracking-wide text-navy-400">Signataire</p>
-                    {contrat.contact_signataire_id ? (
-                      <EntityLink to={`/contacts/${contrat.contact_signataire_id}`} className="text-xs font-semibold">{contrat.contact_signataire_nom}</EntityLink>
-                    ) : (
-                      <p className="text-xs font-semibold text-navy-800">{contrat.contact_signataire_nom}</p>
+                {/* Edition en place : ces champs se corrigeaient dans une modale « Modifier »,
+                    alors qu'un contrat se rectifie surtout au fil de l'eau (une date de fin qui
+                    bouge, un preavis qu'on decouvre en lisant le PDF). Les champs vides
+                    s'affichent desormais en pointille cliquable au lieu de disparaitre : la
+                    reference fournisseur et le preavis n'apparaissaient PAS tant qu'ils etaient
+                    vides, donc rien n'invitait a les renseigner. */}
+                {canManage ? (
+                  <>
+                    <InlineField
+                      variant="text" mono
+                      label="Référence fournisseur"
+                      value={contrat.reference_fournisseur ?? ''}
+                      onCommit={(v) => majContrat({ reference_fournisseur: v.trim() || null })}
+                      {...retourInline}
+                    />
+                    <InlineField
+                      variant="date"
+                      label="Début"
+                      value={contrat.date_debut ?? null}
+                      onCommit={(date_debut) => majContrat({ date_debut })}
+                      {...retourInline}
+                    />
+                    <InlineField
+                      variant="date"
+                      label="Fin"
+                      emptyLabel="sans échéance"
+                      value={contrat.date_fin ?? null}
+                      onCommit={(date_fin) => majContrat({ date_fin })}
+                      {...retourInline}
+                    />
+                    <InlineField
+                      variant="number"
+                      label="Préavis de résiliation"
+                      unit="jours"
+                      value={contrat.preavis_resiliation_jours ?? null}
+                      onCommit={(preavis_resiliation_jours) => majContrat({ preavis_resiliation_jours })}
+                      {...retourInline}
+                    />
+                    <InlineField
+                      variant="select"
+                      label="Signataire"
+                      emptyLabel="choisir un signataire"
+                      value={contrat.contact_signataire_id ?? ''}
+                      // Restreint aux contacts du compte du contrat : proposer les 3000 contacts
+                      // du CRM ferait choisir un signataire qui n'a rien a voir avec le client.
+                      options={(tousContacts ?? [])
+                        .filter((c) => c.compte_id === compte?.id)
+                        .map((c) => ({ value: c.id, label: `${c.prenom ?? ''} ${c.nom ?? ''}`.trim() }))}
+                      onCommit={(v) => majContrat({ contact_signataire_id: v || null })}
+                      {...retourInline}
+                    />
+                    {/* Le proprietaire commande la visibilite du contrat : administrateurs seuls,
+                        comme dans l'ancienne modale. */}
+                    {isAdmin && (
+                      <InlineField
+                        variant="select"
+                        label="Propriétaire"
+                        emptyLabel="aucun"
+                        value={contrat.proprietaire_id ?? ''}
+                        options={(profilsAdmin ?? []).map((p) => ({ value: p.id, label: `${p.prenom} ${p.nom}` }))}
+                        onCommit={(v) => majContrat({ proprietaire_id: v || null })}
+                        {...retourInline}
+                      />
                     )}
-                  </div>
+                  </>
+                ) : (
+                  <>
+                    {contrat.reference_fournisseur && (
+                      <div>
+                        <p className="mb-0.5 text-[10px] uppercase tracking-wide text-navy-400">Référence fournisseur</p>
+                        <p className="font-mono text-xs font-semibold text-navy-800">{contrat.reference_fournisseur}</p>
+                      </div>
+                    )}
+                    <div>
+                      <p className="mb-0.5 text-[10px] uppercase tracking-wide text-navy-400">Début</p>
+                      <p className="text-xs font-semibold text-navy-800">{contrat.date_debut ? new Date(contrat.date_debut).toLocaleDateString('fr-FR') : '—'}</p>
+                    </div>
+                    <div>
+                      <p className="mb-0.5 text-[10px] uppercase tracking-wide text-navy-400">Fin</p>
+                      <p className="text-xs font-semibold text-navy-800">{contrat.date_fin ? new Date(contrat.date_fin).toLocaleDateString('fr-FR') : 'sans échéance'}</p>
+                    </div>
+                    {contrat.preavis_resiliation_jours != null && (
+                      <div>
+                        <p className="mb-0.5 text-[10px] uppercase tracking-wide text-navy-400">Préavis de résiliation</p>
+                        <p className="text-xs font-semibold text-navy-800">{contrat.preavis_resiliation_jours} jours</p>
+                      </div>
+                    )}
+                    {contrat.contact_signataire_nom && (
+                      <div>
+                        <p className="mb-0.5 text-[10px] uppercase tracking-wide text-navy-400">Signataire</p>
+                        {contrat.contact_signataire_id ? (
+                          <EntityLink to={`/contacts/${contrat.contact_signataire_id}`} className="text-xs font-semibold">{contrat.contact_signataire_nom}</EntityLink>
+                        ) : (
+                          <p className="text-xs font-semibold text-navy-800">{contrat.contact_signataire_nom}</p>
+                        )}
+                      </div>
+                    )}
+                  </>
                 )}
                 {contrat.interlocuteur_pricing_nom && (
                   <div>
@@ -757,7 +841,6 @@ export default function ContratDetail() {
         </div>
       </div>
 
-      {editOpen && <EditContratDialog open={editOpen} onClose={() => setEditOpen(false)} contrat={contrat} />}
       {addFichierOpen && <AddFichierDialog open={addFichierOpen} onClose={() => setAddFichierOpen(false)} contratId={contrat.id} onSaved={() => {}} />}
       {addTarifFor && (
         <AddTarifDialog
@@ -798,90 +881,12 @@ export default function ContratDetail() {
           <ApercuDocument url={apercu.url} nomFichier={apercu.nomFichier} />
         </Dialog>
       )}
+
+      {toast && (
+        <div className="fixed bottom-[70px] left-1/2 z-50 -translate-x-1/2 whitespace-nowrap rounded-lg bg-ink-800 px-4 py-2.5 text-xs font-semibold text-white shadow-lg lg:bottom-6">
+          {toast}
+        </div>
+      )}
     </div>
-  )
-}
-
-function EditContratDialog({ open, onClose, contrat }: { open: boolean; onClose: () => void; contrat: Contrat }) {
-  const updateContrat = useUpdateContrat()
-  const isAdmin = useIsAdmin()
-  const { data: profilsAdmin } = useProfilsAdmin()
-  const { data: sites } = useSites()
-  const { data: contacts } = useContacts()
-
-  const [referenceFournisseur, setReferenceFournisseur] = useState(contrat.reference_fournisseur ?? '')
-  const [dateDebut, setDateDebut] = useState(contrat.date_debut ? contrat.date_debut.slice(0, 10) : '')
-  const [dateFin, setDateFin] = useState(contrat.date_fin ? contrat.date_fin.slice(0, 10) : '')
-  const [proprietaireId, setProprietaireId] = useState(contrat.proprietaire_id ?? '')
-  const [contactSignataireId, setContactSignataireId] = useState(contrat.contact_signataire_id ?? '')
-  const [feedback, setFeedback] = useState<string | null>(null)
-
-  const compteDuSite = sites?.find((s) => s.id === contrat.site_id)?.compte_id
-  const contactsDuSite = contacts?.filter((c) => c.compte_id === compteDuSite) ?? []
-
-  useEffect(() => {
-    if (!open) return
-    setReferenceFournisseur(contrat.reference_fournisseur ?? '')
-    setDateDebut(contrat.date_debut ? contrat.date_debut.slice(0, 10) : '')
-    setDateFin(contrat.date_fin ? contrat.date_fin.slice(0, 10) : '')
-    setProprietaireId(contrat.proprietaire_id ?? '')
-    setContactSignataireId(contrat.contact_signataire_id ?? '')
-    setFeedback(null)
-  }, [open, contrat])
-
-  async function handleSubmit(e: React.FormEvent) {
-    e.preventDefault()
-    try {
-      await updateContrat.mutateAsync({
-        id: contrat.id,
-        reference_fournisseur: referenceFournisseur || null,
-        date_debut: dateDebut || null,
-        date_fin: dateFin || null,
-        proprietaire_id: proprietaireId || null,
-        contact_signataire_id: contactSignataireId || null,
-      })
-      onClose()
-    } catch (err) {
-      setFeedback(err instanceof Error ? err.message : 'Erreur inconnue')
-    }
-  }
-
-  return (
-    <Dialog open={open} onClose={onClose} title="Modifier le contrat" description="Mettre à jour les informations du contrat.">
-      <form onSubmit={handleSubmit} className="space-y-3">
-        <FormField label="Référence fournisseur">
-          <Input value={referenceFournisseur} onChange={(e) => setReferenceFournisseur(e.target.value)} />
-        </FormField>
-        <div className="grid grid-cols-2 gap-3">
-          <FormField label="Date de début">
-            <Input type="date" value={dateDebut} onChange={(e) => setDateDebut(e.target.value)} />
-          </FormField>
-          <FormField label="Date de fin">
-            <Input type="date" value={dateFin} onChange={(e) => setDateFin(e.target.value)} />
-          </FormField>
-        </div>
-        {contactsDuSite.length > 0 && (
-          <FormField label="Contact signataire (optionnel)">
-            <Select value={contactSignataireId} onChange={(e) => setContactSignataireId(e.target.value)}>
-              <option value="">Aucun</option>
-              {contactsDuSite.map((c) => <option key={c.id} value={c.id}>{c.prenom} {c.nom}</option>)}
-            </Select>
-          </FormField>
-        )}
-        {isAdmin && (
-          <FormField label="Propriétaire">
-            <Select value={proprietaireId} onChange={(e) => setProprietaireId(e.target.value)}>
-              <option value="">Aucun</option>
-              {profilsAdmin?.map((p) => <option key={p.id} value={p.id}>{p.prenom} {p.nom}</option>)}
-            </Select>
-          </FormField>
-        )}
-        {feedback && <p className="text-xs text-red-600">{feedback}</p>}
-        <div className="flex justify-end gap-2 pt-2">
-          <Button type="button" variant="ghost" onClick={onClose}>Annuler</Button>
-          <Button type="submit" disabled={updateContrat.isPending}>Enregistrer</Button>
-        </div>
-      </form>
-    </Dialog>
   )
 }

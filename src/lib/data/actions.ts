@@ -204,6 +204,34 @@ export function useUpdateAction() {
   })
 }
 
+/**
+ * Colonnes réellement modifiables de `actions`, pour l'édition en place.
+ *
+ * Attention au nom : l'échéance s'appelle `date_prevue` en base et `echeance` dans le type de
+ * domaine. C'est la colonne qui compte ici.
+ */
+export type PatchAction = Partial<{
+  titre: string
+  priorite: number
+  date_prevue: string | null
+  commentaire: string | null
+  site_id: string | null
+  contact_id: string | null
+  responsable_profil_id: string | null
+}>
+
+/** Mise à jour d'un seul champ, sans réécrire toute la tâche. */
+export function useUpdateActionPartiel() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: async ({ id, patch }: { id: string; patch: PatchAction }) => {
+      const { error } = await supabase.from('actions').update(patch).eq('id', id)
+      if (error) throw new Error(error.message)
+    },
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['actions'] }),
+  })
+}
+
 export function useDeleteAction() {
   const queryClient = useQueryClient()
   return useMutation({

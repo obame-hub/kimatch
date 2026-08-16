@@ -1,15 +1,15 @@
-import { useEffect, useState } from 'react'
+import { useState } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
-import { ArrowLeft, CheckSquare, Check, Pencil, Trash2 } from 'lucide-react'
+import { ArrowLeft, CheckSquare, Check, Trash2 } from 'lucide-react'
 import { Topbar } from '@/components/layout/Topbar'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { EntityLink } from '@/components/ui/entity-link'
 import { Dialog } from '@/components/ui/dialog'
-import { FormField, Input, Select, Textarea } from '@/components/ui/form'
 import { HistoriqueDiscret } from '@/components/ui/historique-discret'
-import { useAction, useUpdateAction, useDeleteAction, useCompleteAction } from '@/lib/data/actions'
+import { InlineField } from '@/components/ui/inline-field'
+import { useAction, useUpdateActionPartiel, useDeleteAction, useCompleteAction, type PatchAction } from '@/lib/data/actions'
 import { useSites } from '@/lib/data/sites'
 import { useContacts } from '@/lib/data/contacts'
 import { useReferenceTable } from '@/lib/data/referenceTables'
@@ -17,7 +17,6 @@ import { useCanManage } from '@/lib/data/roles'
 import { useSuppression } from '@/lib/useSuppression'
 import { FALLBACK_STATUTS_ACTIONS, STATUT_ACTION_TONE } from '@/lib/referenceFallbacks'
 import { useGoBack } from '@/lib/useGoBack'
-import type { ActionItem } from '@/types/domain'
 
 export default function ActionDetail() {
   const { id } = useParams()
@@ -32,8 +31,25 @@ export default function ActionDetail() {
   const completeAction = useCompleteAction()
   const goBack = useGoBack('/taches')
 
-  const [editOpen, setEditOpen] = useState(false)
   const [confirmDelete, setConfirmDelete] = useState(false)
+
+  const { data: sites } = useSites()
+  const { data: contacts } = useContacts()
+
+  // Edition en place : la modale « Modifier » disparait, on corrige la ou on lit.
+  const updateActionPartiel = useUpdateActionPartiel()
+  const majAction = async (patch: PatchAction) => {
+    await updateActionPartiel.mutateAsync({ id: id as string, patch })
+  }
+  const [toast, setToast] = useState<string | null>(null)
+  function showToast(msg: string) {
+    setToast(msg)
+    setTimeout(() => setToast(null), 2200)
+  }
+  const retourInline = {
+    onSaved: () => showToast('✓ enregistré'),
+    onError: (e: Error) => showToast(`Erreur : ${e.message}`),
+  }
 
   const suppression = useSuppression()
 
@@ -74,10 +90,7 @@ export default function ActionDetail() {
                   </Badge>
                   {canManage && (
                     <>
-                      <Button variant="outline" size="sm" onClick={() => setEditOpen(true)}>
-                        <Pencil className="h-3.5 w-3.5" />
-                        Modifier
-                      </Button>
+                      {/* Plus de bouton « Modifier » : les champs s'editent en place ci-dessous. */}
                       <Button variant="outline" size="sm" onClick={() => setConfirmDelete(true)}>
                         <Trash2 className="h-3.5 w-3.5" />
                         Supprimer
@@ -89,26 +102,96 @@ export default function ActionDetail() {
             </CardHeader>
             <CardContent className="px-0 space-y-3 text-sm">
               <p><span className="text-navy-400">Type :</span> {action.type_action}</p>
-              <p><span className="text-navy-400">Priorité :</span> {action.priorite}</p>
-              {action.responsable && <p><span className="text-navy-400">Responsable :</span> {action.responsable}</p>}
               <p><span className="text-navy-400">Créée le :</span> {new Date(action.date_creation).toLocaleDateString('fr-FR')}</p>
-              <p>
-                <span className="text-navy-400">Échéance :</span>{' '}
-                {action.echeance ? new Date(action.echeance).toLocaleDateString('fr-FR') : '—'}
-              </p>
+              {action.responsable && <p><span className="text-navy-400">Responsable :</span> {action.responsable}</p>}
               {action.date_realisation && (
                 <p><span className="text-navy-400">Terminée le :</span> {new Date(action.date_realisation).toLocaleDateString('fr-FR')}</p>
-              )}
-              {action.site_id && (
-                <p><span className="text-navy-400">Site :</span> <EntityLink to={`/sites/${action.site_id}`}>{action.cible_label}</EntityLink></p>
-              )}
-              {action.contact_id && (
-                <p><span className="text-navy-400">Contact :</span> <EntityLink to={`/contacts/${action.contact_id}`}>{action.contact_nom}</EntityLink></p>
               )}
               {action.recommandation_id && (
                 <p><span className="text-navy-400">Recommandation liée :</span> <EntityLink to={`/recommandations/${action.recommandation_id}`}>{action.recommandation_titre}</EntityLink></p>
               )}
-              {action.commentaire && <p className="text-navy-600">{action.commentaire}</p>}
+
+              {/* Edition en place. Une tache est l'objet qu'on retouche le plus souvent -- une
+                  echeance repoussee, un commentaire complete apres un appel -- et c'etait
+                  justement la seule fiche ou il fallait ouvrir une modale pour le faire.
+                  Le rattachement au site et au contact reste en lecture pour qui ne gere pas la
+                  tache, mais les liens restent cliquables dans les deux cas. */}
+              {canManage ? (
+                <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                  <div className="sm:col-span-2">
+                    <InlineField
+                      variant="text"
+                      label="Titre"
+                      value={action.titre}
+                      // `titre` est NOT NULL en base : une tache sans intitule serait illisible
+                      // dans la liste des taches, ou c'est la seule colonne affichee.
+                      onCommit={async (titre) => {
+                        if (titre.trim() === '') throw new Error("L'intitulé de la tâche est obligatoire.")
+                        await majAction({ titre: titre.trim() })
+                      }}
+                      {...retourInline}
+                    />
+                  </div>
+                  <InlineField
+                    variant="number"
+                    label="Priorité"
+                    unit=""
+                    value={action.priorite}
+                    onCommit={(v) => majAction({ priorite: v ?? action.priorite })}
+                    {...retourInline}
+                  />
+                  <InlineField
+                    variant="date"
+                    label="Échéance"
+                    emptyLabel="ajouter une échéance"
+                    value={action.echeance ? action.echeance.slice(0, 10) : null}
+                    onCommit={(date_prevue) => majAction({ date_prevue })}
+                    {...retourInline}
+                  />
+                  <InlineField
+                    variant="select"
+                    label="Site"
+                    emptyLabel="rattacher un site"
+                    value={action.site_id ?? ''}
+                    options={(sites ?? []).map((s) => ({ value: s.id, label: s.nom }))}
+                    onCommit={(v) => majAction({ site_id: v || null })}
+                    {...retourInline}
+                  />
+                  <InlineField
+                    variant="select"
+                    label="Contact"
+                    emptyLabel="rattacher un contact"
+                    value={action.contact_id ?? ''}
+                    options={(contacts ?? []).map((c) => ({ value: c.id, label: `${c.prenom ?? ''} ${c.nom ?? ''}`.trim() }))}
+                    onCommit={(v) => majAction({ contact_id: v || null })}
+                    {...retourInline}
+                  />
+                  <div className="sm:col-span-2">
+                    <InlineField
+                      variant="longtext"
+                      label="Commentaire"
+                      value={action.commentaire ?? ''}
+                      onCommit={(v) => majAction({ commentaire: v.trim() || null })}
+                      {...retourInline}
+                    />
+                  </div>
+                </div>
+              ) : (
+                <>
+                  <p><span className="text-navy-400">Priorité :</span> {action.priorite}</p>
+                  <p>
+                    <span className="text-navy-400">Échéance :</span>{' '}
+                    {action.echeance ? new Date(action.echeance).toLocaleDateString('fr-FR') : '—'}
+                  </p>
+                  {action.site_id && (
+                    <p><span className="text-navy-400">Site :</span> <EntityLink to={`/sites/${action.site_id}`}>{action.cible_label}</EntityLink></p>
+                  )}
+                  {action.contact_id && (
+                    <p><span className="text-navy-400">Contact :</span> <EntityLink to={`/contacts/${action.contact_id}`}>{action.contact_nom}</EntityLink></p>
+                  )}
+                  {action.commentaire && <p className="text-navy-600">{action.commentaire}</p>}
+                </>
+              )}
 
               {!estTerminee && (
                 <Button size="sm" onClick={() => completeAction.mutate(action.id)}>
@@ -125,7 +208,6 @@ export default function ActionDetail() {
 
       {action && (
         <>
-          {editOpen && <EditActionDialog open={editOpen} onClose={() => setEditOpen(false)} action={action} />}
 
           <Dialog
             open={confirmDelete}
@@ -145,89 +227,12 @@ export default function ActionDetail() {
           </Dialog>
         </>
       )}
+
+      {toast && (
+        <div className="fixed bottom-[70px] left-1/2 z-50 -translate-x-1/2 whitespace-nowrap rounded-lg bg-ink-800 px-4 py-2.5 text-xs font-semibold text-white shadow-lg lg:bottom-6">
+          {toast}
+        </div>
+      )}
     </div>
-  )
-}
-
-function EditActionDialog({ open, onClose, action }: { open: boolean; onClose: () => void; action: ActionItem }) {
-  const { data: sites } = useSites()
-  const { data: contacts } = useContacts()
-  const updateAction = useUpdateAction()
-
-  const [titre, setTitre] = useState(action.titre)
-  const [priorite, setPriorite] = useState(String(action.priorite))
-  const [echeance, setEcheance] = useState(action.echeance ? action.echeance.slice(0, 10) : '')
-  const [commentaire, setCommentaire] = useState(action.commentaire ?? '')
-  const [siteId, setSiteId] = useState(action.site_id ?? '')
-  const [contactId, setContactId] = useState(action.contact_id ?? '')
-  const [feedback, setFeedback] = useState<string | null>(null)
-
-  useEffect(() => {
-    if (!open) return
-    setTitre(action.titre)
-    setPriorite(String(action.priorite))
-    setEcheance(action.echeance ? action.echeance.slice(0, 10) : '')
-    setCommentaire(action.commentaire ?? '')
-    setSiteId(action.site_id ?? '')
-    setContactId(action.contact_id ?? '')
-    setFeedback(null)
-  }, [open, action])
-
-  async function handleSubmit(e: React.FormEvent) {
-    e.preventDefault()
-    try {
-      await updateAction.mutateAsync({
-        id: action.id,
-        titre,
-        priorite: Number(priorite) || action.priorite,
-        echeance: echeance || null,
-        commentaire: commentaire || null,
-        site_id: siteId || null,
-        contact_id: contactId || null,
-      })
-      onClose()
-    } catch (err) {
-      setFeedback(err instanceof Error ? err.message : 'Erreur inconnue')
-    }
-  }
-
-  return (
-    <Dialog open={open} onClose={onClose} title="Modifier la tâche" description="Mettre à jour les informations de la tâche.">
-      <form onSubmit={handleSubmit} className="space-y-3">
-        <FormField label="Titre">
-          <Input value={titre} onChange={(e) => setTitre(e.target.value)} required />
-        </FormField>
-        <div className="grid grid-cols-2 gap-3">
-          <FormField label="Priorité">
-            <Input type="number" value={priorite} onChange={(e) => setPriorite(e.target.value)} />
-          </FormField>
-          <FormField label="Échéance">
-            <Input type="date" value={echeance} onChange={(e) => setEcheance(e.target.value)} />
-          </FormField>
-        </div>
-        <div className="grid grid-cols-2 gap-3">
-          <FormField label="Site">
-            <Select value={siteId} onChange={(e) => setSiteId(e.target.value)}>
-              <option value="">—</option>
-              {sites?.map((s) => <option key={s.id} value={s.id}>{s.nom}</option>)}
-            </Select>
-          </FormField>
-          <FormField label="Contact">
-            <Select value={contactId} onChange={(e) => setContactId(e.target.value)}>
-              <option value="">—</option>
-              {contacts?.map((c) => <option key={c.id} value={c.id}>{c.prenom} {c.nom}</option>)}
-            </Select>
-          </FormField>
-        </div>
-        <FormField label="Commentaire">
-          <Textarea rows={3} value={commentaire} onChange={(e) => setCommentaire(e.target.value)} />
-        </FormField>
-        {feedback && <p className="text-xs text-red-600">{feedback}</p>}
-        <div className="flex justify-end gap-2 pt-2">
-          <Button type="button" variant="ghost" onClick={onClose}>Annuler</Button>
-          <Button type="submit" disabled={updateAction.isPending}>Enregistrer</Button>
-        </div>
-      </form>
-    </Dialog>
   )
 }

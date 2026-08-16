@@ -356,6 +356,35 @@ export function useUpdateContrat() {
   })
 }
 
+/**
+ * Colonnes réellement modifiables de `contrats`, pour l'édition en place.
+ *
+ * Comme pour les sites, volontairement pas un `Partial<Contrat>` : le type de domaine porte des
+ * champs joints (`compte_nom`, `site_nom`, `contact_signataire_nom`, `proprietaire_nom`) qui
+ * n'existent pas comme colonnes et feraient répondre 400 à PostgREST.
+ */
+export type PatchContrat = Partial<{
+  reference_fournisseur: string | null
+  date_debut: string | null
+  date_fin: string | null
+  preavis_resiliation_jours: number | null
+  proprietaire_id: string | null
+  contact_signataire_id: string | null
+}>
+
+/** Mise à jour d'un seul champ, sans réécrire tout le contrat. */
+export function useUpdateContratPartiel() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: async ({ id, patch }: { id: string; patch: PatchContrat }) => {
+      const { error } = await supabase.from('contrats').update(patch).eq('id', id)
+      if (error) throw new Error(error.message)
+    },
+    // Attendue : le champ ne se referme qu'une fois la nouvelle valeur relue.
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['contrats'] }),
+  })
+}
+
 export function useDeleteContrat() {
   const queryClient = useQueryClient()
   return useMutation({
