@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { cn } from '@/lib/utils'
 import { useInlineEdit } from '@/lib/useInlineEdit'
+import { AddressAutocomplete } from '@/components/ui/address-autocomplete'
 
 /**
  * Édition inline générique — cf. handoff-fiche-compte/00-PROMPT-CLAUDE-CODE.md
@@ -47,7 +48,29 @@ interface NumberFieldProps extends InlineFieldCommonProps {
   onCommit: (value: number | null) => Promise<void>
 }
 
-export type InlineFieldProps = TextFieldProps | LongTextFieldProps | SelectFieldProps | NumberFieldProps
+/**
+ * Adresse : concatenee en lecture, eclatee en Rue / Code postal / Ville a l'edition, avec une
+ * recherche qui remplit les trois d'un coup.
+ *
+ * Demande du brief de William (section « Champ Adresse — comportement specifique »). Il parle
+ * d'une recherche Google ; on passe par la Base Adresse Nationale, deja integree au projet
+ * (`AddressAutocomplete`) et deja utilisee par Tools — gratuite, francaise, sans clef ni compte,
+ * et c'est elle qui a servi a geolocaliser les 5432 villes de sites le 15/08/2026.
+ */
+interface AddressFieldProps extends InlineFieldCommonProps {
+  variant: 'address'
+  rue: string
+  codePostal: string
+  ville: string
+  onCommit: (valeur: { rue: string; codePostal: string; ville: string }) => Promise<void>
+}
+
+export type InlineFieldProps =
+  | TextFieldProps
+  | LongTextFieldProps
+  | SelectFieldProps
+  | NumberFieldProps
+  | AddressFieldProps
 
 const inputBase =
   'w-full rounded-kw-sm border border-kw-green bg-kw-surface px-1.5 py-0.5 text-kw-lg text-kw-ink outline-none focus:ring-1 focus:ring-kw-green'
@@ -70,7 +93,120 @@ export function InlineField(props: InlineFieldProps) {
     case 'longtext': return <LongTextInlineField {...props} />
     case 'select': return <SelectInlineField {...props} />
     case 'number': return <NumberInlineField {...props} />
+    case 'address': return <AddressInlineField {...props} />
   }
+}
+
+function AddressInlineField({
+  rue, codePostal, ville, onCommit, label = 'Adresse', emptyLabel = 'ajouter une adresse',
+  onSaved, onError, className, disabled,
+}: AddressFieldProps) {
+  const [editing, setEditing] = useState(false)
+  const [draft, setDraft] = useState({ rue, codePostal, ville })
+  const [recherche, setRecherche] = useState('')
+  const [enCours, setEnCours] = useState(false)
+  const premierRef = useRef<HTMLInputElement>(null)
+
+  // La ligne telle qu'elle se lit : « 6 AVENUE CHARLES, 95870 BEZONS ».
+  const concatenee = [rue, [codePostal, ville].filter(Boolean).join(' ')].filter((p) => p && p.trim()).join(', ')
+
+  function start() {
+    if (disabled) return
+    setDraft({ rue, codePostal, ville })
+    setRecherche('')
+    setEditing(true)
+  }
+
+  useEffect(() => { if (editing) premierRef.current?.focus() }, [editing])
+
+  async function valider() {
+    if (enCours) return
+    setEnCours(true)
+    try {
+      await onCommit({ rue: draft.rue.trim(), codePostal: draft.codePostal.trim(), ville: draft.ville.trim() })
+      setEditing(false)
+      onSaved?.()
+    } catch (e) {
+      onError?.(e instanceof Error ? e : new Error(String(e)))
+    } finally {
+      setEnCours(false)
+    }
+  }
+
+  if (!editing) {
+    return (
+      <div className={cn('min-w-0', className)}>
+        {label && <div className="mb-0.5 text-kw-xs font-semibold uppercase tracking-wide text-kw-faint">{label}</div>}
+        {concatenee ? (
+          <button
+            type="button"
+            disabled={disabled}
+            onClick={start}
+            className="block w-full rounded-kw-sm px-1.5 py-0.5 text-left text-kw-lg text-kw-ink transition-colors hover:bg-kw-muted"
+          >
+            {concatenee}
+          </button>
+        ) : (
+          <EmptyPlaceholder label={emptyLabel} onClick={start} />
+        )}
+      </div>
+    )
+  }
+
+  return (
+    <div className={cn('min-w-0 space-y-1.5', className)}>
+      {label && <div className="text-kw-xs font-semibold uppercase tracking-wide text-kw-faint">{label}</div>}
+
+      {/* La recherche remplit les trois champs d'un coup : c'est elle qui normalise le format,
+          et c'est ce qui evite les « 6 av. Charles » a cote des « 6 AVENUE CHARLES ». */}
+      <AddressAutocomplete
+        value={recherche}
+        onChange={setRecherche}
+        onSelect={(a) => {
+          setDraft({
+            rue: (a.rue ?? '').toUpperCase(),
+            codePostal: a.codePostal ?? '',
+            ville: (a.ville ?? '').toUpperCase(),
+          })
+          setRecherche('')
+        }}
+        placeholder="Rechercher une adresse…"
+      />
+
+      <input
+        ref={premierRef}
+        value={draft.rue}
+        onChange={(e) => setDraft((d) => ({ ...d, rue: e.target.value }))}
+        onKeyDown={(e) => { if (e.key === 'Enter') valider(); if (e.key === 'Escape') setEditing(false) }}
+        placeholder="Rue"
+        className={inputBase}
+      />
+      <div className="flex gap-1.5">
+        <input
+          value={draft.codePostal}
+          onChange={(e) => setDraft((d) => ({ ...d, codePostal: e.target.value }))}
+          onKeyDown={(e) => { if (e.key === 'Enter') valider(); if (e.key === 'Escape') setEditing(false) }}
+          placeholder="Code postal"
+          className={cn(inputBase, 'w-28 font-mono')}
+        />
+        <input
+          value={draft.ville}
+          onChange={(e) => setDraft((d) => ({ ...d, ville: e.target.value }))}
+          onKeyDown={(e) => { if (e.key === 'Enter') valider(); if (e.key === 'Escape') setEditing(false) }}
+          placeholder="Ville"
+          className={inputBase}
+        />
+      </div>
+      <div className="flex justify-end gap-1.5">
+        <button type="button" onClick={() => setEditing(false)} className="rounded-kw-sm px-2 py-0.5 text-kw-sm text-kw-meta hover:bg-kw-muted">
+          Annuler
+        </button>
+        <button type="button" onClick={valider} disabled={enCours} className="rounded-kw-sm bg-kw-green px-2 py-0.5 text-kw-sm font-semibold text-white disabled:opacity-50">
+          {enCours ? 'Enregistrement…' : 'Valider'}
+        </button>
+      </div>
+    </div>
+  )
 }
 
 function TextInlineField({ value, onCommit, label, emptyLabel = 'ajouter', onSaved, onError, className, disabled, mono }: TextFieldProps) {
