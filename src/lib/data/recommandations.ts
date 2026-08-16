@@ -172,7 +172,7 @@ async function fetchRecommandations(
       // `type_energie_id` viennent d'etre ajoutees par migration et peuvent ne pas encore
       // exister en prod au moment du deploiement -- un select nomme sur une colonne absente
       // ferait echouer la requete (400) pour TOUTES les recommandations.
-      '*, etape:etapes_recommandation(code), origine:types_origines(libelle), type_energie:types_energies(code), responsable:profils!recommandations_responsable_profil_id_fkey(prenom, nom), compte:comptes(id, nom), contact_signataire:contacts!recommandations_contact_signataire_id_fkey(prenom, nom, email, telephone)',
+      '*, etape:etapes_recommandation(code), origine:types_origines(libelle), type_energie:types_energies(code), responsable:profils!recommandations_responsable_profil_id_fkey(prenom, nom), compte:comptes!recommandations_compte_id_fkey(id, nom), contact_signataire:contacts!recommandations_contact_signataire_id_fkey(prenom, nom, email, telephone)',
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       (q: any) => {
         if (recoId) return q.eq('id', recoId)

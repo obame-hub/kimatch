@@ -65,8 +65,11 @@ async function chercher(query: string): Promise<SearchEntry[]> {
     appliquer(supabase.from('contacts').select('id, prenom, nom, email, telephone, compte:comptes(nom)'), listeMots, ['nom', 'prenom', 'email', 'telephone']).limit(PAR_FAMILLE),
     appliquer(supabase.from('compteurs').select('id, numero_point, libelle, site:sites(nom)'), listeMots, ['numero_point', 'libelle']).limit(PAR_FAMILLE),
     appliquer(supabase.from('mandats').select('id, reference, compte:comptes(nom)'), listeMots, ['reference']).limit(PAR_FAMILLE),
-    appliquer(supabase.from('recommandations').select('id, nom, compte:comptes(nom)'), listeMots, ['nom']).limit(PAR_FAMILLE),
-    appliquer(supabase.from('contrats').select('id, reference, reference_fournisseur, compte:comptes(nom)'), listeMots, ['reference', 'reference_fournisseur']).limit(PAR_FAMILLE),
+    // `!<contrainte>` obligatoire ici : recommandations et contrats ont CHACUNE deux cles
+    // etrangeres vers comptes (le compte du dossier et le fournisseur). Un embed non qualifie
+    // rend PGRST201 « relation ambigue » et fait echouer toute la famille de resultats.
+    appliquer(supabase.from('recommandations').select('id, nom, compte:comptes!recommandations_compte_id_fkey(nom)'), listeMots, ['nom']).limit(PAR_FAMILLE),
+    appliquer(supabase.from('contrats').select('id, reference, reference_fournisseur, compte:comptes!contrats_compte_id_fkey(nom)'), listeMots, ['reference', 'reference_fournisseur']).limit(PAR_FAMILLE),
   ])
 
   const nomDe = (v: unknown): string => {
