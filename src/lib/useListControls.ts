@@ -1,5 +1,10 @@
 import { useMemo, useState } from 'react'
 
+/** Minuscules et sans accent : « HÉBRARD » et « hebrard » doivent se rencontrer. */
+function normaliser(s: string): string {
+  return s.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase()
+}
+
 export function useListControls<T>(
   items: T[] | undefined,
   options: {
@@ -14,10 +19,27 @@ export function useListControls<T>(
 
   const result = useMemo(() => {
     if (!items) return items
-    const q = query.trim().toLowerCase()
-    const filtered = q
-      ? items.filter((item) => options.searchFields(item).some((f) => (f ?? '').toLowerCase().includes(q)))
+
+    /**
+     * Chaque MOT de la saisie doit se retrouver dans AU MOINS UN des champs.
+     *
+     * La saisie entiere etait auparavant cherchee dans chaque champ pris isolement. Taper
+     * « romain hebrard » dans la liste des contacts ne rendait donc rien : le prenom vaut
+     * « Romain » et le nom « HEBRARD », aucun des deux ne contient la chaine complete. Le meme
+     * travers touchait toutes les listes des lors que les mots vivaient dans des colonnes
+     * differentes — un site et sa ville, un contrat et son fournisseur.
+     *
+     * Chercher mot a mot rend aussi l'ordre indifferent : « hebrard romain » trouve autant que
+     * « romain hebrard ».
+     */
+    const mots = normaliser(query).split(/\s+/).filter((m) => m.length > 0)
+    const filtered = mots.length
+      ? items.filter((item) => {
+          const champs = options.searchFields(item).map((f) => normaliser(f ?? ''))
+          return mots.every((mot) => champs.some((champ) => champ.includes(mot)))
+        })
       : items
+
     const sorter = options.sorters[sortKey]
     if (!sorter) return filtered
     const sorted = [...filtered].sort(sorter)
