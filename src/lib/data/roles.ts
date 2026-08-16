@@ -343,39 +343,42 @@ export function useHasPermission(code: string) {
   return data?.permissions.has(code) ?? false
 }
 
-export function useCanManage(proprietaireId: string | null | undefined) {
-  const isAdmin = useIsAdmin()
+/**
+ * Droit de modifier ou supprimer un enregistrement : accordé à toute personne connectée.
+ *
+ * HISTORIQUE, parce que la règle a bougé deux fois et qu'il ne faut pas la redurcir par réflexe.
+ *
+ * Cette fonction exigeait d'être administrateur ou propriétaire de la ligne. Or la migration
+ * Salesforce n'a rempli `proprietaire_id` sur presque aucun objet — 3378 contacts sur 3380, 7883
+ * compteurs sur 7884, 1429 mandats sur 1429, 1597 contrats sur 1598 — si bien que seuls les
+ * administrateurs pouvaient agir. William l'avait constaté le 13/08/2026 : « moi j'ai le bouton
+ * modifier, supprimer, mais j'ai pas l'impression qu'un utilisateur comme Guillaume l'a », et
+ * tranché : « que les utilisateurs puissent supprimer des enregistrements, c'est pas un problème,
+ * c'est pas forcément relié à l'admin ». Une première correction avait alors débloqué les seules
+ * lignes sans propriétaire.
+ *
+ * Naoëlle est allée au bout le 16/08/2026 : « tout le monde doit avoir la possibilité de
+ * suppression ». Le propriétaire ne protège donc plus rien, et cette fonction renvoie vrai pour
+ * tout utilisateur connecté — dans le même esprit que la visibilité des comptes, ouverte à tous le
+ * 14/08 (voir calculerComptesVisibles).
+ *
+ * NE PAS re-restreindre sans décision explicite d'elle. Le paramètre est conservé pour ne pas
+ * toucher aux dizaines d'appels existants, et parce qu'il redeviendrait utile si la règle changeait.
+ *
+ * L'authentification reste requise : la RLS n'ouvre rien à `anon`. Le périmètre de visibilité
+ * décide de ce que l'utilisateur peut atteindre ; cette fonction, de ce qu'il peut y faire.
+ */
+// Le paramètre n'est plus lu mais reste dans la signature : le retirer obligerait à toucher les
+// dizaines d'appels existants, et il redeviendrait utile si la règle se resserrait un jour.
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
+export function useCanManage(_proprietaireId?: string | null | undefined) {
   const { data: monProfil } = useMonProfil()
-  if (isAdmin) return true
-  if (!proprietaireId || !monProfil) return false
-  return monProfil.id === proprietaireId
+  return !!monProfil
 }
 
-/**
- * Droit de modifier ou supprimer un enregistrement dont le propriétaire peut être absent.
- *
- * `useCanManage` exige d'être administrateur ou propriétaire. Or la migration Salesforce n'a rempli
- * `proprietaire_id` sur AUCUN objet : 3378 contacts sur 3380, 7883 compteurs sur 7884, 1429 mandats
- * sur 1429, 1597 contrats sur 1598. En pratique, seuls les administrateurs pouvaient donc agir.
- *
- * C'est ce que William a constaté le 13/08/2026 : « moi j'ai le bouton modifier, supprimer, mais
- * j'ai pas l'impression qu'un utilisateur comme Guillaume l'a », et sa réponse : « que les
- * utilisateurs puissent supprimer des enregistrements, c'est pas un problème, c'est pas forcément
- * relié à l'admin ».
- *
- * La troisième branche est celle qui débloque : sans propriétaire, l'enregistrement appartient de
- * fait à l'équipe. Celui qui en a un garde sa protection — la règle ne retire aucun verrou existant,
- * elle cesse d'en inventer un là où il n'y en a pas.
- *
- * L'accès à l'enregistrement reste par ailleurs filtré par le périmètre de visibilité, qui décide
- * de ce que l'utilisateur peut atteindre ; cette fonction ne décide que de ce qu'il peut y faire.
- */
-export function useCanManageEnregistrement(proprietaireId: string | null | undefined) {
-  const isAdmin = useIsAdmin()
-  const { data: monProfil } = useMonProfil()
-  if (isAdmin) return true
-  if (!proprietaireId) return true
-  return !!monProfil && monProfil.id === proprietaireId
+/** Même règle — nom conservé pour les appels qui l'utilisaient déjà. */
+export function useCanManageEnregistrement(proprietaireId?: string | null | undefined) {
+  return useCanManage(proprietaireId)
 }
 
 export interface ProfilAutorise {

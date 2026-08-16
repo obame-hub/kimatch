@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
-import { ArrowLeft, Phone, StickyNote, Plus, Building2, Users, Copy, Zap, Flame, CalendarClock, Sparkle, Pencil, Trash2, FileCheck2, FileText, AlertTriangle } from 'lucide-react'
+import { ArrowLeft, Phone, StickyNote, Plus, Building2, Users, Copy, Zap, Flame, Sparkle, Pencil, Trash2, FileCheck2, FileText, AlertTriangle } from 'lucide-react'
 import { Topbar } from '@/components/layout/Topbar'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
@@ -37,7 +37,7 @@ import { useContratsParCompte } from '@/lib/data/contrats'
 import { useInteractionsForSite } from '@/lib/data/interactions'
 import { useContactsParCompte, useContacts } from '@/lib/data/contacts'
 import { useMandatsParCompte } from '@/lib/data/mandats'
-import { useActionsParSites, useCreateAction } from '@/lib/data/actions'
+import { useActionsParSites } from '@/lib/data/actions'
 import { useDocumentsParEntites, useCreateDocument } from '@/lib/data/documents'
 import { useHistorique } from '@/lib/data/historique'
 import { useComptes } from '@/lib/data/comptes'
@@ -76,7 +76,6 @@ export default function SiteDetail() {
   const { data: contrats } = useContratsParCompte(site?.compte_id)
   const { data: mandats } = useMandatsParCompte(site?.compte_id)
   const { data: contacts } = useContactsParCompte(site?.compte_id)
-  const createAction = useCreateAction()
   const deleteSite = useDeleteSite()
   const { data: statutsContratsRef } = useReferenceTable('statuts_contrats')
   const statutsContrats = statutsContratsRef && statutsContratsRef.length > 0 ? statutsContratsRef : FALLBACK_STATUTS_CONTRATS
@@ -151,36 +150,21 @@ export default function SiteDetail() {
     { key: 'activite', label: 'Activité', mobileOnly: true },
   ]
 
-  function planifierRelance() {
-    if (!site) return
-    const echeance = new Date()
-    echeance.setDate(echeance.getDate() + 7)
-    createAction.mutate({
-      titre: `Relance — ${site.nom}`,
-      type_action_id: null,
-      type_action_libelle: 'Relance',
-      site_id: site.id,
-      site_nom: site.nom,
-      contact_id: contactPrincipal?.id ?? null,
-      contact_nom: contactPrincipal ? `${contactPrincipal.prenom} ${contactPrincipal.nom}` : '',
-      priorite: 2,
-      echeance: echeance.toISOString(),
-      commentaire: null,
-      statut_id: null,
-    })
-    setSheetOpen(false)
-    showToast('✓ Relance planifiée dans 7 jours')
-  }
-
-  // Raccourcis clavier — 1-6 pour changer d'onglet, N pour la note, R pour la relance (comme le prototype de William)
+  /**
+   * Raccourcis clavier — 1 à 8 pour changer d'onglet.
+   *
+   * N et R ont ete retires le 16/08/2026 avec les boutons « Note » et « Relance » qu'ils
+   * doublaient (demande de Naoelle : « enlever les boutons Note et Relance partout ou c'est
+   * affiche »). Garder R aurait ete pire que le supprimer : il CREAIT une action de relance en
+   * base, et sans bouton visible pour l'annoncer, une frappe malencontreuse l'aurait declenchee
+   * sans que personne comprenne d'ou venait la tache.
+   */
   useEffect(() => {
     function onKeyDown(e: KeyboardEvent) {
       const target = e.target as HTMLElement
       if (target && (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA')) return
       const map: Record<string, TabKey> = { '1': 'synthese', '2': 'contrats', '3': 'compteurs', '4': 'recommandations', '5': 'signaux', '6': 'mandats', '7': 'fichiers', '8': 'historique' }
       if (map[e.key]) setTab(map[e.key])
-      if (e.key === 'n' || e.key === 'N') setTab('activite')
-      if (e.key === 'r' || e.key === 'R') planifierRelance()
     }
     window.addEventListener('keydown', onKeyDown)
     return () => window.removeEventListener('keydown', onKeyDown)
@@ -242,16 +226,9 @@ export default function SiteDetail() {
             <Phone className="h-3.5 w-3.5" />
             Appeler
           </Button>
-          <Button variant="outline" size="sm" onClick={() => setTab('activite')}>
-            <StickyNote className="h-3.5 w-3.5" />
-            Note
-            <span className="font-mono text-[9px] text-navy-300">N</span>
-          </Button>
-          <Button variant="outline" size="sm" onClick={planifierRelance}>
-            <CalendarClock className="h-3.5 w-3.5" />
-            Relance
-            <span className="font-mono text-[9px] text-navy-300">R</span>
-          </Button>
+          {/* Les boutons « Note » et « Relance » ont ete retires le 16/08/2026 (demande de
+              Naoelle). La note s'ecrit dans l'onglet Activite, ou le champ est deja sous les yeux ;
+              une relance se cree comme n'importe quelle tache. */}
           <Button size="sm" onClick={() => navigate('/recommandations')}>
             <Plus className="h-3.5 w-3.5" />
             Recommandation
@@ -672,10 +649,6 @@ export default function SiteDetail() {
             >
               <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-amber-100 text-amber-700"><StickyNote className="h-3.5 w-3.5" /></span>
               <span className="text-sm font-semibold text-navy-800">Ajouter une note</span>
-            </button>
-            <button type="button" onClick={planifierRelance} className="flex w-full items-center gap-3 rounded-xl px-3.5 py-3 text-left hover:bg-navy-50">
-              <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-amber-100 text-amber-700"><CalendarClock className="h-3.5 w-3.5" /></span>
-              <span className="text-sm font-semibold text-navy-800">Planifier une relance dans 7 jours</span>
             </button>
             <button
               type="button"

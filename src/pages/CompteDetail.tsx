@@ -51,7 +51,7 @@ import { useRecommandationsParCompte } from '@/lib/data/recommandations'
 import { useContratsParCompte } from '@/lib/data/contrats'
 import { useInteractionsForCompte } from '@/lib/data/interactions'
 import { useMandatsParCompte } from '@/lib/data/mandats'
-import { useActionsParSites, useCreateAction } from '@/lib/data/actions'
+import { useActionsParSites } from '@/lib/data/actions'
 import { useDocumentsParEntites, useCreateDocument } from '@/lib/data/documents'
 import { useHistorique } from '@/lib/data/historique'
 import { useEllisphereScore } from '@/lib/data/ellisphere'
@@ -136,7 +136,6 @@ export default function CompteDetail() {
   const updateScore = useUpdateCompteScore()
   const deleteCompte = useDeleteCompte()
   const updateCompte = useUpdateCompte()
-  const createRelance = useCreateAction()
   const goBack = useGoBack('/comptes')
 
   const { data: statutsMandatsRef } = useReferenceTable('statuts_mandats')
@@ -229,7 +228,6 @@ export default function CompteDetail() {
   const actionsDuCompte = useMemo(() => actions?.filter((a) => siteIdsDuCompte.has(a.site_id ?? '')) ?? [], [actions, siteIdsDuCompte])
   const documentsDuCompte = useMemo(() => documents?.filter((d) => d.entite_type === 'compte' && d.entite_id === id) ?? [], [documents, id])
 
-  const contactPrincipal = contactsDuCompte.find((c) => c.contact_principal) ?? contactsDuCompte[0]
 
   async function handleScoreClick() {
     if (!compte?.siren) return
@@ -241,29 +239,6 @@ export default function CompteDetail() {
     if (!compte) return
     await deleteCompte.mutateAsync(compte.id)
     navigate('/comptes')
-  }
-
-  // Bouton "Relance" du header (design William) : crée une tâche de relance à échéance du jour.
-  // La table actions n'a pas de compte_id (seulement site_id/contact_id) -- on la rattache donc
-  // au premier site du compte, comme le reste de l'onglet Activité qui agrège déjà par site.
-  async function handleRelance() {
-    const site = sitesDuCompte[0]
-    if (!site || !compte) return
-    await createRelance.mutateAsync({
-      titre: `Relance — ${compte.nom}`,
-      type_action_id: null,
-      type_action_libelle: 'Relance',
-      site_id: site.id,
-      site_nom: site.nom,
-      contact_id: contactPrincipal?.id ?? null,
-      contact_nom: contactPrincipal ? `${contactPrincipal.prenom} ${contactPrincipal.nom}` : '',
-      priorite: 1,
-      echeance: new Date().toISOString(),
-      commentaire: null,
-      statut_id: null,
-    })
-    showToast('✓ Relance créée pour aujourd\'hui')
-    setTab('activite')
   }
 
   const TABS: { key: TabKey; label: string; labelMobile?: string; badge?: string; mobileOnly?: boolean }[] = [
@@ -287,13 +262,13 @@ export default function CompteDetail() {
       if (hubOuvert) return
       const map: Record<string, TabKey> = { '1': 'synthese', '2': 'contrats', '3': 'compteurs', '4': 'recommandations', '5': 'signaux', '6': 'mandats', '7': 'fichiers', '8': 'historique' }
       if (map[e.key]) setTab(map[e.key])
-      if (e.key === 'n' || e.key === 'N') setTab('activite')
-      if (e.key === 'r' || e.key === 'R') handleRelance()
+      // N et R sont partis avec les boutons « Note » et « Relance » le 16/08/2026. R en
+      // particulier CREAIT une tache de relance en base : sans bouton pour l'annoncer, une frappe
+      // malencontreuse l'aurait declenchee sans que personne comprenne d'ou venait la tache.
     }
     window.addEventListener('keydown', onKeyDown)
     return () => window.removeEventListener('keydown', onKeyDown)
-    // hubOuvert en dépendance : hub ouvert, « R » appartient à la recommandation, pas à la relance.
-  }, [compte?.id, sitesDuCompte, contactPrincipal, hubOuvert])
+  }, [compte?.id, hubOuvert])
 
   if (compteEnCours) {
     return (
@@ -368,25 +343,10 @@ export default function CompteDetail() {
           </div>
         </div>
         <div className="flex flex-wrap items-center gap-1.5">
-          {/* « Note » et « Relance » restent ici : la maquette de William déplace Appeler sur chaque
-              contact — c'est déjà le cas dans Kimatch — mais ne prévoit pas d'autre point d'accès
-              pour ces deux-là. Les retirer du bandeau les rendrait injoignables sur desktop. */}
-          <button
-            type="button"
-            onClick={() => setTab('activite')}
-            className="flex items-center gap-1.5 rounded-kw-md border border-kw-border-strong bg-kw-surface px-3 py-2 text-kw-md font-semibold text-kw-ink transition-colors hover:bg-kw-bg"
-          >
-            Note <span className="font-mono text-kw-tiny text-kw-ghost">N</span>
-          </button>
-          <button
-            type="button"
-            disabled={!sitesDuCompte[0] || createRelance.isPending}
-            onClick={() => handleRelance()}
-            title={!sitesDuCompte[0] ? 'Aucun site rattaché à ce compte' : undefined}
-            className="flex items-center gap-1.5 rounded-kw-md border border-kw-border-strong bg-kw-surface px-3 py-2 text-kw-md font-semibold text-kw-ink transition-colors hover:bg-kw-bg disabled:opacity-40"
-          >
-            Relance <span className="font-mono text-kw-tiny text-kw-ghost">R</span>
-          </button>
+          {/* « Note » et « Relance » ont ete retires du bandeau le 16/08/2026 (demande de Naoelle :
+              « enlever les boutons Note et Relance partout ou c'est affiche »). La note s'ecrit
+              dans l'onglet Activite, ou le champ est deja sous les yeux ; une relance se cree comme
+              n'importe quelle tache. */}
 
           {/* Les six créations passent dans le hub, comme dans la maquette. Les conditions d'accès
               sont conservées et deviennent des infobulles sur la ligne concernée, plutôt que des

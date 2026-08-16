@@ -22,6 +22,7 @@ export function ActivityCard({
   leading,
   title,
   subtitle,
+  body,
   trailing,
   onClick,
   href,
@@ -32,6 +33,10 @@ export function ActivityCard({
   leading?: ReactNode
   title: ReactNode
   subtitle?: ReactNode
+  /** Le texte de l'activité elle-même — le contenu d'une note, par exemple. Le `subtitle` dit qui a
+   *  fait quoi, `body` dit ce qui a été écrit. Ajouté le 16/08/2026 : le fil annonçait « Untel a
+   *  ajouté une note » sans jamais montrer la note. */
+  body?: ReactNode
   trailing?: ReactNode
   onClick?: () => void
   href?: string
@@ -57,6 +62,14 @@ export function ActivityCard({
             même en mode sombre (où text-navy-800/500 basculeraient en clair et deviendraient illisibles). */}
         <p className="truncate text-xs font-medium" style={{ color: '#16181d' }}>{title}</p>
         {subtitle && <p className="line-clamp-2 text-[11px] leading-snug" style={{ color: '#83868f' }}>{subtitle}</p>}
+        {body && (
+          <p
+            className="mt-1 line-clamp-3 whitespace-pre-line rounded-md px-2 py-1 text-[11.5px] leading-snug"
+            style={{ background: style.plate, color: '#16181d' }}
+          >
+            {body}
+          </p>
+        )}
       </div>
       {trailing && <span className="shrink-0 text-[10px] font-medium" style={{ color: style.accent }}>{trailing}</span>}
     </div>

@@ -17,6 +17,9 @@ interface ActivityItem {
   kind: 'signal' | 'interaction' | 'action' | 'document'
   title: string
   subtitle: ReactNode
+  /** Ce qui a été écrit — le corps de la note. Le sous-titre dit qui a fait quoi ; sans ce
+   *  champ, le fil annonçait « Untel a ajouté une note » sans jamais montrer la note. */
+  body?: string
   to?: string
   href?: string
   siteNom?: string
@@ -45,6 +48,9 @@ function fromInteractions(interactions: Interaction[]): ActivityItem[] {
     // Reproduit le fil d'activite Salesforce : "{auteur} a une prochaine tache avec {contact}
     // sur {related}", chaque entite cliquable -- demande explicite du 31/07/2026.
     subtitle: <InteractionSentence interaction={i} />,
+    // Le compte rendu de l'échange, ou le texte de la note. `resultat` complète le `resume` sur
+    // les interactions importées de Salesforce, qui remplissaient parfois l'un ou l'autre.
+    body: i.resume?.trim() || i.resultat?.trim() || undefined,
     to: `/interactions/${i.id}`,
     siteNom: i.site_nom || undefined,
     contactNom: i.contact_nom || undefined,
@@ -280,6 +286,7 @@ export function ActivityFeed({
               icon={row.item.kind === 'interaction' && row.item.interaction ? interactionIcon(row.item.interaction) : KIND_ICON[row.item.kind]}
               title={row.item.title}
               subtitle={row.item.subtitle}
+              body={row.item.body}
               trailing={new Date(row.item.date).toLocaleDateString('fr-FR')}
               onClick={row.item.to ? () => navigate(row.item.to!) : undefined}
               href={row.item.href}

@@ -412,26 +412,21 @@ export default function Contacts() {
           title="Contacts"
           description="Les personnes chez vos comptes — signataires, interlocuteurs commerciaux ou techniques."
           actions={
-            /* Le hub de création plutôt que le seul bouton « Nouveau contact » : « il faut également
-               le mettre sur les autres objets, parce que c'est un bouton que de n'importe où je peux
-               venir faire quelque chose » (William, 13/08/2026). Le contact reste l'action évidente
-               ici, d'où le bouton direct conservé à côté. */
-            <div className="flex items-center gap-1.5">
-              <Button onClick={() => setShowCreate(true)}>
-                <Plus className="h-4 w-4" />
-                Nouveau contact
-              </Button>
-              <HubCreation
-                onAction={(cle) => {
-                  if (cle === 'contact') setShowCreate(true)
-                  if (cle === 'compte') navigate('/comptes', { state: { openCreate: true } })
-                  if (cle === 'site') navigate('/sites', { state: { openCreate: true } })
-                  if (cle === 'compteur') navigate('/compteurs')
-                  if (cle === 'mandat') navigate('/mandats')
-                  if (cle === 'recommandation') navigate('/recommandations')
-                }}
-              />
-            </div>
+            /* Le hub de création SEUL : « il faut également le mettre sur les autres objets, parce
+               que c'est un bouton que de n'importe où je peux venir faire quelque chose »
+               (William, 13/08/2026). Le bouton « Nouveau contact » qui doublonnait à côté a été
+               retiré le 16/08/2026 — le hub propose déjà la création de contact, et deux boutons
+               pour la même action encombraient l'en-tête. */
+            <HubCreation
+              onAction={(cle) => {
+                if (cle === 'contact') setShowCreate(true)
+                if (cle === 'compte') navigate('/comptes', { state: { openCreate: true } })
+                if (cle === 'site') navigate('/sites', { state: { openCreate: true } })
+                if (cle === 'compteur') navigate('/compteurs')
+                if (cle === 'mandat') navigate('/mandats')
+                if (cle === 'recommandation') navigate('/recommandations')
+              }}
+            />
           }
         />
 
@@ -445,7 +440,7 @@ export default function Contacts() {
 
         {!isLoading && contacts?.length === 0 && (
           <p className="mb-4 text-sm text-navy-400">
-            Aucun contact pour l'instant — un contact est une personne chez un compte (signataire, gestionnaire, interlocuteur technique…). Utilise « Nouveau contact » pour en créer un.
+            Aucun contact pour l'instant — un contact est une personne chez un compte (signataire, gestionnaire, interlocuteur technique…). Utilise « Créer » pour en ajouter un.
           </p>
         )}
         {!isLoading && contacts && contacts.length > 0 && filteredContacts?.length === 0 && (

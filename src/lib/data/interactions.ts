@@ -288,6 +288,12 @@ export function useCreateInteraction() {
         proprietaire_id: null,
       }
 
+      // L'auteur n'était pas renseigné : toute note ajoutée depuis Kimatch arrivait anonyme, et le
+      // fil d'activité affichait une phrase sans personne devant. profils.id EST l'identifiant du
+      // compte d'authentification, on peut donc l'écrire directement.
+      const { data: utilisateur } = await supabase.auth.getUser()
+      const auteurId = utilisateur?.user?.id ?? null
+
       const { data, error } = await supabase
         .from('interactions')
         .insert({
@@ -299,6 +305,7 @@ export function useCreateInteraction() {
           compte_id: input.compte_id,
           site_id: input.site_id,
           contact_id: input.contact_id,
+          ...(auteurId ? { auteur_profil_id: auteurId, proprietaire_id: auteurId } : {}),
           ...(input.type_interaction_id ? { type_interaction_id: input.type_interaction_id } : {}),
           ...(input.issue_interaction_id ? { issue_interaction_id: input.issue_interaction_id } : {}),
         })
@@ -312,6 +319,17 @@ export function useCreateInteraction() {
       queryClient.setQueryData<Interaction[]>(['interactions'], (old) => (old ? [interaction, ...old] : [interaction]))
       return { interaction, persisted }
     },
+    /**
+     * Sans cette invalidation, une note ajoutée depuis une fiche n'apparaissait qu'après avoir
+     * rafraîchi la page.
+     *
+     * Le `setQueryData` ci-dessus n'écrit que dans la clé `['interactions']` EXACTE, celle de la
+     * liste globale. Les fiches, elles, lisent des clés dérivées — `['interactions', 'compte', …]`,
+     * `['interactions', 'site', …]`, `['interactions', 'contact', …]` — que cette écriture ne
+     * touche pas. Invalider le préfixe les couvre toutes, et c'est déjà ce que font la
+     * modification et la suppression : seule la création avait été oubliée.
+     */
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['interactions'] }),
   })
 }
 
