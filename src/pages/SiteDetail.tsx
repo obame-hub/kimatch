@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
-import { ArrowLeft, Phone, StickyNote, Plus, Building2, Users, Copy, Zap, Flame, Sparkle, Pencil, Trash2, FileCheck2, FileText, AlertTriangle } from 'lucide-react'
+import { ArrowLeft, Phone, StickyNote, Plus, Building2, Users, Zap, Flame, Sparkle, Trash2, FileCheck2, FileText, AlertTriangle } from 'lucide-react'
 import { Topbar } from '@/components/layout/Topbar'
 import { Button } from '@/components/ui/button'
 import { ZoneDepotFichiers } from '@/components/ui/zone-depot-fichiers'
@@ -10,16 +10,15 @@ import { PhoneLink, EmailLink } from '@/components/ui/contact-link'
 import { Dialog } from '@/components/ui/dialog'
 import { FormField, Input, Select } from '@/components/ui/form'
 import { HistoriqueDiscret } from '@/components/ui/historique-discret'
-import { AddressAutocomplete } from '@/components/ui/address-autocomplete'
+import { InlineField } from '@/components/ui/inline-field'
 import { PdlDraftRows, emptyPdlDraft, buildDraftCharacteristics, champsPdlManquants, applyExtractionToDraft, type PdlDraft, type ExtractedField } from '@/components/compteur/PdlDraftRows'
 import { ExtractDocumentButton } from '@/components/ui/document-extraction'
 import { MandatChainPrompt, type ChainedCompteur } from '@/components/compteur/MandatChainPrompt'
-import { useSite, useUpdateSite, useDeleteSite } from '@/lib/data/sites'
+import { useSite, useUpdateSitePartiel, useDeleteSite, type PatchSite } from '@/lib/data/sites'
 import { useCompteursParSites } from '@/lib/data/compteurs'
 import { useCompte } from '@/lib/data/comptes'
 import { useReferenceTable } from '@/lib/data/referenceTables'
 import {
-  FALLBACK_TYPES_SITES,
   FALLBACK_STATUTS_CONTRATS,
   STATUT_CONTRAT_TONE,
   FALLBACK_STATUTS_MANDATS,
@@ -48,7 +47,7 @@ import { ActivityFeed } from '@/components/site/ActivityFeed'
 import { computeSiteHealth } from '@/lib/siteHealth'
 import { cn } from '@/lib/utils'
 import { useGoBack } from '@/lib/useGoBack'
-import type { Compte, Contact, Site } from '@/types/domain'
+import type { Compte, Contact } from '@/types/domain'
 
 type TabKey = 'synthese' | 'contrats' | 'compteurs' | 'recommandations' | 'signaux' | 'mandats' | 'fichiers' | 'historique' | 'activite'
 
@@ -90,13 +89,21 @@ export default function SiteDetail() {
   const [tab, setTab] = useState<TabKey>('synthese')
   const [toast, setToast] = useState<string | null>(null)
   const [sheetOpen, setSheetOpen] = useState(false)
-  const [editOpen, setEditOpen] = useState(false)
   const [confirmDelete, setConfirmDelete] = useState(false)
   const [addFichierOpen, setAddFichierOpen] = useState(false)
 
   const televerser = useTeleverserDocuments()
 
   const { data: typesDocsRef } = useReferenceTable('types_documents')
+  const { data: typesSites } = useReferenceTable('types_sites')
+
+  // Mise a jour partielle : un champ modifie n'en reecrit pas douze. L'ancienne modale renvoyait
+  // TOUTES les colonnes a chaque validation, ce qui ecrasait au passage ce qu'un collegue venait
+  // de changer sur un autre champ depuis un autre poste.
+  const updateSitePartiel = useUpdateSitePartiel()
+  const majSite = async (patch: PatchSite) => {
+    await updateSitePartiel.mutateAsync({ id: id as string, patch })
+  }
 
   const typesDocs = typesDocsRef && typesDocsRef.length > 0 ? typesDocsRef : FALLBACK_TYPES_DOCUMENTS
   const [addCompteurOpen, setAddCompteurOpen] = useState(false)
@@ -107,6 +114,8 @@ export default function SiteDetail() {
   }
 
   const canManage = useCanManage(site?.proprietaire_id)
+  const isAdmin = useIsAdmin()
+  const { data: profilsAdmin } = useProfilsAdmin()
   const goBack = useGoBack('/sites')
 
   async function handleDelete() {
@@ -242,10 +251,9 @@ export default function SiteDetail() {
           </Button>
           {canManage && (
             <>
-              <Button variant="outline" size="sm" onClick={() => setEditOpen(true)}>
-                <Pencil className="h-3.5 w-3.5" />
-                Modifier
-              </Button>
+              {/* Plus de bouton « Modifier » : les champs s'editent la ou ils s'affichent, dans le
+                  panneau Informations. Un bouton qui ouvre une modale pour retrouver les memes
+                  champs deux clics plus loin n'apportait rien. */}
               <Button variant="outline" size="sm" onClick={() => setConfirmDelete(true)}>
                 <Trash2 className="h-3.5 w-3.5" />
                 Supprimer
@@ -286,7 +294,7 @@ export default function SiteDetail() {
       </div>
 
       {/* 3 zones */}
-      <div className="grid flex-1 grid-cols-1 overflow-hidden lg:grid-cols-[280px_1fr_304px]">
+      <div className="grid flex-1 grid-cols-1 overflow-hidden lg:grid-cols-[300px_minmax(0,1fr)_340px]">
         {/* Colonne gauche — Compte + Contacts (desktop uniquement) */}
         <div className="hidden flex-col gap-3.5 overflow-y-auto border-r border-navy-100 bg-navy-50/60 p-3.5 lg:flex">
           <ComptePanel compte={compte} compteNom={site.compte_nom} compteId={site.compte_id} onCopy={showToast} />
@@ -321,22 +329,119 @@ export default function SiteDetail() {
                     <div className="flex-1" />
                     <span className="text-[10px] text-navy-300">cliquer ⧉ pour copier</span>
                   </div>
+                  {/* Edition en place, plus aucune modale : « le commercial passe ses journees dans
+                      l'outil, chaque modale est un clic et une rupture d'attention de trop »
+                      (brief). Un clic ouvre le champ, Entree valide, Echap annule.
+                      Un champ vide affiche un placeholder pointille cliquable au lieu d'un blanc
+                      muet : rien n'indiquait auparavant qu'il etait modifiable.
+                      L'adresse se lit concatenee et s'eclate au clic en rue / code postal / ville,
+                      avec la recherche BAN qui remplit les trois d'un coup. */}
                   <div className="grid grid-cols-2 gap-3.5">
-                    <InfoField label="Libellé du site" value={site.nom} onCopy={showToast} />
-                    <InfoField label="Type" value={site.type_site || '—'} onCopy={showToast} />
+                    <InlineField
+                      variant="text"
+                      label="Libellé du site"
+                      value={site.nom}
+                      // `nom` est NOT NULL en base, mais une chaine vide y passerait : on aurait
+                      // un site sans libelle, introuvable dans les listes et la recherche.
+                      onCommit={async (nom) => {
+                        if (nom.trim() === '') throw new Error('Le libellé du site est obligatoire.')
+                        await majSite({ nom: nom.trim() })
+                      }}
+                      onSaved={() => showToast('✓ enregistré')}
+                      onError={(e) => showToast(`Erreur : ${e.message}`)}
+                    />
+                    <InlineField
+                      variant="select"
+                      label="Type"
+                      value={site.type_site_id ?? ''}
+                      options={(typesSites ?? []).map((t) => ({ value: t.id, label: t.libelle }))}
+                      // `|| null` : la colonne est un uuid, une chaine vide y ferait un 22P02.
+                      onCommit={(type_site_id) => majSite({ type_site_id: type_site_id || null })}
+                      onSaved={() => showToast('✓ enregistré')}
+                      onError={(e) => showToast(`Erreur : ${e.message}`)}
+                    />
                     <div className="col-span-2">
-                      <InfoField label="Adresse" value={site.adresse || '—'} onCopy={showToast} />
+                      <InlineField
+                        variant="address"
+                        label="Adresse"
+                        rue={site.adresse ?? ''}
+                        codePostal={site.code_postal ?? ''}
+                        ville={site.ville ?? ''}
+                        onCommit={({ rue, codePostal, ville }) =>
+                          majSite({ adresse: rue, code_postal: codePostal, ville })
+                        }
+                        onSaved={() => showToast('✓ enregistré')}
+                        onError={(e) => showToast(`Erreur : ${e.message}`)}
+                      />
                     </div>
-                    <InfoField label="Ville" value={site.ville || '—'} onCopy={showToast} />
-                    <InfoField label="Code postal" value={site.code_postal || '—'} onCopy={showToast} />
-                    {site.annee_construction && <InfoField label="Année de construction" value={String(site.annee_construction)} onCopy={showToast} />}
-                    {site.surface_m2 && <InfoField label="Surface" value={`${site.surface_m2.toLocaleString('fr-FR')} m²`} onCopy={showToast} />}
-                    {site.date_derniere_ag && (
-                      <InfoField label="Dernière AG" value={new Date(site.date_derniere_ag).toLocaleDateString('fr-FR')} onCopy={showToast} />
+                    <InlineField
+                      variant="number"
+                      label="Année de construction"
+                      value={site.annee_construction ?? null}
+                      unit=""
+                      onCommit={(annee_construction) => majSite({ annee_construction })}
+                      onSaved={() => showToast('✓ enregistré')}
+                      onError={(e) => showToast(`Erreur : ${e.message}`)}
+                    />
+                    <InlineField
+                      variant="number"
+                      label="Surface"
+                      value={site.surface_m2 ?? null}
+                      unit="m²"
+                      onCommit={(surface_m2) => majSite({ surface_m2 })}
+                      onSaved={() => showToast('✓ enregistré')}
+                      onError={(e) => showToast(`Erreur : ${e.message}`)}
+                    />
+                    <InlineField
+                      variant="date"
+                      label="Dernière AG"
+                      value={site.date_derniere_ag ?? null}
+                      onCommit={(date_derniere_ag) => majSite({ date_derniere_ag })}
+                      onSaved={() => showToast('✓ enregistré')}
+                      onError={(e) => showToast(`Erreur : ${e.message}`)}
+                    />
+                    {/* Le proprietaire commande la visibilite du site (useCanManage) : il reste
+                        reserve aux administrateurs, comme dans l'ancienne modale. */}
+                    {isAdmin && (
+                      <InlineField
+                        variant="select"
+                        label="Propriétaire"
+                        value={site.proprietaire_id ?? ''}
+                        options={(profilsAdmin ?? []).map((p) => ({ value: p.id, label: `${p.prenom} ${p.nom}` }))}
+                        emptyLabel="aucun"
+                        onCommit={(proprietaire_id) => majSite({ proprietaire_id: proprietaire_id || null })}
+                        onSaved={() => showToast('✓ enregistré')}
+                        onError={(e) => showToast(`Erreur : ${e.message}`)}
+                      />
                     )}
                   </div>
-                  {site.latitude == null && (
+                  {site.latitude == null ? (
                     <p className="mt-3 text-[10.5px] italic text-navy-300">Coordonnées précises non renseignées — la carte se positionne sur l'adresse/ville.</p>
+                  ) : null}
+                  {/* Coordonnees editables : la geolocalisation par l'adresse suffit dans la
+                      quasi-totalite des cas, mais certains sites (parkings, ZAC, batiments en
+                      fond de cour) tombent a cote et il faut pouvoir corriger a la main. */}
+                  {canManage && (
+                    <div className="mt-3 grid grid-cols-2 gap-3.5 border-t border-navy-100 pt-3">
+                      <InlineField
+                        variant="number"
+                        label="Latitude"
+                        value={site.latitude}
+                        unit=""
+                        onCommit={(latitude) => majSite({ latitude })}
+                        onSaved={() => showToast('✓ enregistré')}
+                        onError={(e) => showToast(`Erreur : ${e.message}`)}
+                      />
+                      <InlineField
+                        variant="number"
+                        label="Longitude"
+                        value={site.longitude}
+                        unit=""
+                        onCommit={(longitude) => majSite({ longitude })}
+                        onSaved={() => showToast('✓ enregistré')}
+                        onError={(e) => showToast(`Erreur : ${e.message}`)}
+                      />
+                    </div>
                   )}
                   <HistoriqueDiscret tableNom="sites" ligneId={site.id} />
                 </div>
@@ -707,7 +812,6 @@ export default function SiteDetail() {
         </div>
       )}
 
-      {editOpen && <EditSiteDialog open={editOpen} onClose={() => setEditOpen(false)} site={site} onSaved={() => showToast('✓ Site mis à jour')} />}
 
       <AddFichierDialog
         open={addFichierOpen}
@@ -744,130 +848,6 @@ export default function SiteDetail() {
         </div>
       </Dialog>
     </div>
-  )
-}
-
-function EditSiteDialog({ open, onClose, site, onSaved }: { open: boolean; onClose: () => void; site: Site; onSaved: () => void }) {
-  const { data: typesRef } = useReferenceTable('types_sites')
-  const types = typesRef && typesRef.length > 0 ? typesRef : FALLBACK_TYPES_SITES
-  const updateSite = useUpdateSite()
-  const isAdmin = useIsAdmin()
-  const { data: profilsAdmin } = useProfilsAdmin()
-
-  const [nom, setNom] = useState(site.nom)
-  const [adresse, setAdresse] = useState(site.adresse)
-  const [ville, setVille] = useState(site.ville)
-  const [codePostal, setCodePostal] = useState(site.code_postal)
-  const [typeSiteId, setTypeSiteId] = useState('')
-  const [anneeConstruction, setAnneeConstruction] = useState(site.annee_construction ? String(site.annee_construction) : '')
-  const [surfaceM2, setSurfaceM2] = useState(site.surface_m2 ? String(site.surface_m2) : '')
-  const [dateDerniereAg, setDateDerniereAg] = useState(site.date_derniere_ag ? site.date_derniere_ag.slice(0, 10) : '')
-  const [latitude, setLatitude] = useState(site.latitude != null ? String(site.latitude) : '')
-  const [longitude, setLongitude] = useState(site.longitude != null ? String(site.longitude) : '')
-  const [proprietaireId, setProprietaireId] = useState(site.proprietaire_id ?? '')
-  const [feedback, setFeedback] = useState<string | null>(null)
-
-  useEffect(() => {
-    if (!open) return
-    setNom(site.nom)
-    setAdresse(site.adresse)
-    setVille(site.ville)
-    setCodePostal(site.code_postal)
-    setTypeSiteId('')
-    setAnneeConstruction(site.annee_construction ? String(site.annee_construction) : '')
-    setSurfaceM2(site.surface_m2 ? String(site.surface_m2) : '')
-    setDateDerniereAg(site.date_derniere_ag ? site.date_derniere_ag.slice(0, 10) : '')
-    setLatitude(site.latitude != null ? String(site.latitude) : '')
-    setLongitude(site.longitude != null ? String(site.longitude) : '')
-    setProprietaireId(site.proprietaire_id ?? '')
-    setFeedback(null)
-  }, [open, site])
-
-  async function handleSubmit(e: React.FormEvent) {
-    e.preventDefault()
-    try {
-      await updateSite.mutateAsync({
-        id: site.id,
-        nom,
-        adresse,
-        ville,
-        code_postal: codePostal,
-        type_site_id: typeSiteId || null,
-        annee_construction: anneeConstruction ? Number(anneeConstruction) : null,
-        surface_m2: surfaceM2 ? Number(surfaceM2) : null,
-        date_derniere_ag: dateDerniereAg || null,
-        latitude: latitude ? Number(latitude) : null,
-        longitude: longitude ? Number(longitude) : null,
-        proprietaire_id: proprietaireId || null,
-      })
-      onSaved()
-      onClose()
-    } catch (err) {
-      setFeedback(err instanceof Error ? err.message : 'Erreur inconnue')
-    }
-  }
-
-  return (
-    <Dialog open={open} onClose={onClose} title="Modifier le site" description="Mettre à jour les informations du site.">
-      <form onSubmit={handleSubmit} className="space-y-3">
-        <FormField label="Nom du site">
-          <Input value={nom} onChange={(e) => setNom(e.target.value)} required />
-        </FormField>
-        <FormField label="Type de site">
-          <Select value={typeSiteId} onChange={(e) => setTypeSiteId(e.target.value)}>
-            <option value="">{site.type_site || 'Sélectionner un type…'}</option>
-            {types.map((t) => <option key={t.id} value={t.id}>{t.libelle}</option>)}
-          </Select>
-        </FormField>
-        <FormField label="Adresse">
-          <AddressAutocomplete
-            value={adresse}
-            onChange={setAdresse}
-            onSelect={(a) => { setAdresse(a.rue ?? a.label); if (a.codePostal) setCodePostal(a.codePostal); if (a.ville) setVille(a.ville) }}
-          />
-        </FormField>
-        <div className="grid grid-cols-2 gap-3">
-          <FormField label="Ville">
-            <Input value={ville} onChange={(e) => setVille(e.target.value)} />
-          </FormField>
-          <FormField label="Code postal">
-            <Input value={codePostal} onChange={(e) => setCodePostal(e.target.value)} />
-          </FormField>
-        </div>
-        <div className="grid grid-cols-2 gap-3">
-          <FormField label="Année de construction">
-            <Input type="number" value={anneeConstruction} onChange={(e) => setAnneeConstruction(e.target.value)} placeholder="Ex. 1998" />
-          </FormField>
-          <FormField label="Surface (m²)">
-            <Input type="number" value={surfaceM2} onChange={(e) => setSurfaceM2(e.target.value)} placeholder="Ex. 1200" />
-          </FormField>
-        </div>
-        <FormField label="Date de la dernière AG">
-          <Input type="date" value={dateDerniereAg} onChange={(e) => setDateDerniereAg(e.target.value)} />
-        </FormField>
-        <div className="grid grid-cols-2 gap-3">
-          <FormField label="Latitude">
-            <Input type="number" step="any" value={latitude} onChange={(e) => setLatitude(e.target.value)} placeholder="Ex. 48.8566" />
-          </FormField>
-          <FormField label="Longitude">
-            <Input type="number" step="any" value={longitude} onChange={(e) => setLongitude(e.target.value)} placeholder="Ex. 2.3522" />
-          </FormField>
-        </div>
-        {isAdmin && (
-          <FormField label="Propriétaire">
-            <Select value={proprietaireId} onChange={(e) => setProprietaireId(e.target.value)}>
-              <option value="">Aucun</option>
-              {profilsAdmin?.map((p) => <option key={p.id} value={p.id}>{p.prenom} {p.nom}</option>)}
-            </Select>
-          </FormField>
-        )}
-        {feedback && <p className="text-xs text-red-600">{feedback}</p>}
-        <div className="flex justify-end gap-2 pt-2">
-          <Button type="button" variant="ghost" onClick={onClose}>Annuler</Button>
-          <Button type="submit" disabled={updateSite.isPending}>Enregistrer</Button>
-        </div>
-      </form>
-    </Dialog>
   )
 }
 
@@ -1091,20 +1071,6 @@ function MapPinIcon() {
       <path d="M12 21s-7-4.8-7-10.7a7 7 0 0 1 14 0C19 16.2 12 21 12 21z" />
       <circle cx="12" cy="10" r="2.5" />
     </svg>
-  )
-}
-
-function InfoField({ label, value, onCopy }: { label: string; value: string; onCopy: (msg: string) => void }) {
-  return (
-    <div>
-      <div className="mb-0.5 text-[10px] uppercase tracking-wide text-navy-400">{label}</div>
-      <div className="flex items-center gap-1.5">
-        <span className="truncate text-xs font-semibold text-navy-800">{value}</span>
-        <button type="button" onClick={() => copyToClipboard(value, onCopy)} title="Copier" className="shrink-0 rounded p-0.5 text-navy-300 hover:bg-navy-100 hover:text-navy-700">
-          <Copy className="h-3 w-3" />
-        </button>
-      </div>
-    </div>
   )
 }
 

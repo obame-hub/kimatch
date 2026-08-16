@@ -396,7 +396,11 @@ function NumberInlineField({ value, unit, onCommit, label, emptyLabel = 'ajouter
   useEffect(() => { if (editing && inputRef.current) { inputRef.current.focus(); inputRef.current.select() } }, [editing])
 
   async function commit() {
-    const n = text.trim() === '' ? null : Number(text)
+    // Saisie a la francaise : « 1 200,5 » doit valoir 1200.5. Sans cette normalisation, Number()
+    // rend NaN et le champ se refermait sur l'ancienne valeur sans un mot -- l'utilisateur croyait
+    // avoir enregistre. La classe s couvre aussi les espaces insecables des copier-coller.
+    const brut = text.replace(/\s/g, '').replace(',', '.')
+    const n = brut === '' ? null : Number(brut)
     if (n !== null && Number.isNaN(n)) return cancel()
     await onCommit(n)
     commitBase()
@@ -409,7 +413,12 @@ function NumberInlineField({ value, unit, onCommit, label, emptyLabel = 'ajouter
         <div className="flex items-center gap-1">
           <input
             ref={inputRef}
-            type="number"
+            // Volontairement `text` et non `number` : un <input type="number"> sans `step`
+            // considere « 48.8566 » comme invalide et rend une chaine VIDE a la lecture, ce qui
+            // aurait efface la latitude au lieu de l'enregistrer. Meme piege avec la virgule
+            // decimale. `inputMode` garde le pave numerique sur mobile.
+            type="text"
+            inputMode="decimal"
             value={text}
             onChange={(e) => setText(e.target.value)}
             onBlur={commit}

@@ -15,6 +15,7 @@ interface RawSite {
   code_postal: string | null
   actif: boolean
   compte: { nom: string } | null
+  type_site_id: string | null
   type_site: { libelle: string } | null
 }
 
@@ -58,7 +59,7 @@ async function fetchSites(compteId?: string, siteIds?: string[]): Promise<Site[]
     // 7884 compteurs et tous les signaux du CRM juste pour en compter quelques-uns par site.
     const sites = await fetchAllRows<RawSite>(
       'sites',
-      'id, compte_id, nom, adresse, ville, code_postal, actif, compte:comptes(nom), type_site:types_sites(libelle)',
+      'id, compte_id, nom, adresse, ville, code_postal, actif, type_site_id, compte:comptes(nom), type_site:types_sites(libelle)',
       (q) => restreindre(q).order('nom'),
     )
     const idsSites = sites.map((s) => s.id)
@@ -107,6 +108,7 @@ async function fetchSites(compteId?: string, siteIds?: string[]): Promise<Site[]
         compte_id: s.compte_id,
         compte_nom: s.compte?.nom ?? '',
         type_site: s.type_site?.libelle ?? '',
+        type_site_id: s.type_site_id ?? null,
         adresse: s.adresse ?? '',
         ville: s.ville ?? '',
         code_postal: s.code_postal ?? '',
@@ -290,6 +292,7 @@ export function useCreateSite() {
         compte_id: input.compte_id,
         compte_nom: input.compte_nom,
         type_site: input.type_site_libelle,
+        type_site_id: input.type_site_id,
         adresse: toUpperFR(input.adresse),
         ville: input.ville,
         code_postal: input.code_postal,
@@ -369,16 +372,41 @@ export function useUpdateSite() {
   })
 }
 
+/**
+ * Colonnes réellement modifiables de `sites`.
+ *
+ * Volontairement PAS `Partial<Site>` : `Site` mélange des colonnes et des champs calculés
+ * (`compte_nom`, `nb_compteurs`, `type_site` qui est le libellé du type et non sa clé). Les
+ * envoyer dans un UPDATE fait répondre 400 à PostgREST — une erreur que le typage doit
+ * attraper à la compilation plutôt qu'un utilisateur en production.
+ */
+export type PatchSite = Partial<{
+  nom: string
+  adresse: string | null
+  ville: string | null
+  code_postal: string | null
+  type_site_id: string | null
+  annee_construction: number | null
+  surface_m2: number | null
+  date_derniere_ag: string | null
+  latitude: number | null
+  longitude: number | null
+  proprietaire_id: string | null
+  actif: boolean
+}>
+
 /** Mise à jour partielle -- contrairement à useUpdateSite (qui réécrit toutes les colonnes),
  * ne touche que les champs fournis. À utiliser pour l'édition inline (un champ à la fois). */
 export function useUpdateSitePartiel() {
   const queryClient = useQueryClient()
   return useMutation({
-    mutationFn: async ({ id, patch }: { id: string; patch: Partial<Site> }) => {
+    mutationFn: async ({ id, patch }: { id: string; patch: PatchSite }) => {
       const { error } = await supabase.from('sites').update(patch).eq('id', id)
       if (error) throw new Error(error.message)
     },
-    onSuccess: () => { void queryClient.invalidateQueries({ queryKey: ['sites'] }) },
+    // Attendre l'invalidation : le champ ne se referme qu'une fois la valeur relue, sinon il
+    // repasse une fraction de seconde par l'ancienne valeur et donne l'impression d'un echec.
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['sites'] }),
   })
 }
 

@@ -8,6 +8,8 @@ export interface Site {
   compte_id: string
   compte_nom: string
   type_site: string
+  /** Identifiant du type, en plus de son libellé : l'édition en place écrit la clé étrangère. */
+  type_site_id: string | null
   adresse: string
   ville: string
   code_postal: string
