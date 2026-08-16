@@ -251,6 +251,74 @@ function CouvertureCard({
   )
 }
 
+/**
+ * « POSTES HORAIRES — CONSO & PUISSANCE » de la maquette de William.
+ *
+ * Les données existaient déjà en base (`compteurs_electricite.conso_*_mwh` et `puissance_*_kva`,
+ * remontées par le hook dans `consoParClasseMwh` / `puissanceParClasseKva`) mais n'étaient
+ * affichées nulle part : le conseiller voyait la consommation totale sans savoir comment elle se
+ * répartissait, alors que c'est précisément là que se joue l'optimisation.
+ *
+ * Le design annonce « optimisation ≈ 640 €/an » sous le dépassement de puissance. Ce chiffre
+ * suppose les coefficients TURPE, qui ne sont pas encore branchés (tâche « étude TURPE
+ * automatique »). On affiche donc l'écart réel en kVA — un fait — sans inventer l'euro, comme
+ * pour la frise PEG/BASE.
+ */
+const ORDRE_POSTES = ['POINTE', 'HPH', 'HCH', 'HPE', 'HCE', 'HP', 'HC', 'BASE'] as const
+
+function PostesHorairesCard({ compteur }: { compteur: Compteur }) {
+  const conso = compteur.consoParClasseMwh ?? {}
+  const puissances = compteur.puissanceParClasseKva ?? {}
+
+  // Un poste est affiché s'il porte une conso OU une puissance : sur un C5 en Base, sept des huit
+  // classes sont vides et les afficher ne dirait rien.
+  const postes = ORDRE_POSTES.filter((p) => conso[p] != null || puissances[p] != null)
+  if (postes.length === 0) return null
+
+  const consoMax = Math.max(...postes.map((p) => conso[p] ?? 0), 0)
+  const valeursPuissance = postes.map((p) => puissances[p]).filter((v): v is number => v != null)
+  const puissanceMaxAtteinte = valeursPuissance.length > 0 ? Math.max(...valeursPuissance) : null
+
+  return (
+    <div className="rounded-xl border border-navy-100 bg-white p-4">
+      <div className="mb-3 flex flex-wrap items-baseline gap-2">
+        <span className="text-[10px] font-bold uppercase tracking-wide text-navy-400">Postes horaires — conso &amp; puissance</span>
+        {puissanceMaxAtteinte != null && (
+          <span className="ml-auto font-mono text-[10px] text-navy-400">
+            Max atteint : {puissanceMaxAtteinte.toLocaleString('fr-FR')} kVA
+          </span>
+        )}
+      </div>
+
+      <div className="space-y-2">
+        {postes.map((poste) => {
+          const mwh = conso[poste]
+          const kva = puissances[poste]
+          return (
+            <div key={poste} className="flex items-center gap-3">
+              <span className="w-14 shrink-0 font-mono text-[10.5px] font-bold text-navy-600">{poste}</span>
+              <div className="h-2.5 flex-1 rounded-full bg-navy-100">
+                {mwh != null && consoMax > 0 && (
+                  <div
+                    className="h-full rounded-full bg-gradient-to-r from-kiwi-500 to-kiwi-400"
+                    style={{ width: `${Math.max(2, (mwh / consoMax) * 100)}%` }}
+                  />
+                )}
+              </div>
+              <span className="w-20 shrink-0 text-right font-mono text-[11px] font-semibold text-navy-800">
+                {mwh != null ? `${mwh.toLocaleString('fr-FR')} MWh` : '—'}
+              </span>
+              <span className="w-16 shrink-0 text-right font-mono text-[11px] text-navy-500">
+                {kva != null ? `${kva.toLocaleString('fr-FR')} kVA` : '—'}
+              </span>
+            </div>
+          )
+        })}
+      </div>
+    </div>
+  )
+}
+
 function ConsommationChart({ consommations }: { consommations: Consommation[] }) {
   const sorted = useMemo(
     () => [...consommations].sort((a, b) => new Date(a.date_debut_periode).getTime() - new Date(b.date_debut_periode).getTime()),
@@ -641,6 +709,7 @@ export default function CompteurDetail() {
           {tab === 'apercu' && (
             <div className="flex flex-col gap-3.5">
               {consommationsDuCompteur.length > 0 && <ConsommationChart consommations={consommationsDuCompteur} />}
+              <PostesHorairesCard compteur={compteur} />
               <div className="grid grid-cols-1 gap-3.5 lg:grid-cols-2">
               <div className="rounded-xl border border-navy-100 bg-white p-4">
                 <p className="mb-2.5 text-[10px] font-bold uppercase tracking-wide text-navy-400">Détail du compteur</p>
