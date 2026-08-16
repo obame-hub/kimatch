@@ -214,12 +214,6 @@ export function Topbar({ title, crumb }: { title: string; crumb?: string }) {
         <span className="font-semibold text-navy-800">{title}</span>
       </div>
 
-      <img
-        src={kiweeLogo}
-        alt="KiWee"
-        className="pointer-events-none absolute left-1/2 top-1/2 hidden h-9 w-auto -translate-x-1/2 -translate-y-1/2 object-contain md:block"
-      />
-
       <div className="relative hidden sm:block">
         <div
           className={cn(
@@ -257,6 +251,20 @@ export function Topbar({ title, crumb }: { title: string; crumb?: string }) {
       </div>
 
       <MarketTicker />
+
+      {/* Le logo etait centre en absolu (`left-1/2 -translate-x-1/2`) par-dessus une barre dont
+          le contenu coule normalement. Des que le fil d'Ariane et le ticker depassaient le milieu
+          de l'ecran -- ce qui arrivait des 1568 px, constate en production le 16/08/2026 -- il
+          venait se poser SUR le ticker et masquait « BASE Cal27 », qui se lisait « ...27 ».
+          Remis dans le flux entre deux ressorts : il reste au milieu de l'espace disponible et ne
+          peut plus recouvrir quoi que ce soit, quelle que soit la largeur. */}
+      <div className="flex-1" />
+
+      <img
+        src={kiweeLogo}
+        alt="KiWee"
+        className="pointer-events-none hidden h-9 w-auto shrink-0 object-contain md:block"
+      />
 
       <div className="flex-1" />
 
