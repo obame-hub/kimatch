@@ -155,6 +155,88 @@ export function useCreateDocument() {
       queryClient.setQueryData<DocumentItem[]>(['documents'], (old) => (old ? [document, ...old] : [document]))
       return { document, persisted }
     },
+    // Même oubli que sur les interactions : `setQueryData` n'écrit que dans la clé ['documents']
+    // exacte, alors que les fiches lisent des clés dérivées. Sans invalidation, un document ajouté
+    // n'apparaissait qu'après rechargement de la page.
+    onSuccess: () => { void queryClient.invalidateQueries({ queryKey: ['documents'] }) },
+  })
+}
+
+/**
+ * Téléverse un ou plusieurs fichiers dans le bucket « documents », puis crée leur ligne.
+ *
+ * C'est ce qui manquait au glisser-déposer : `useCreateDocument` attend une URL, il fallait donc
+ * héberger le fichier ailleurs et coller son lien. Le dépôt direct est possible depuis le
+ * 16/08/2026, quand le bucket a enfin reçu des politiques d'écriture (migration 20260816130000) —
+ * il n'en avait aucune, et c'est pour cela que le formulaire réclamait une URL.
+ *
+ * Le chemin porte l'entité et l'horodatage : deux fichiers du même nom déposés sur deux fiches ne
+ * se marchent pas dessus, et redéposer le même nom sur la même fiche ne masque pas l'ancien.
+ */
+export function useTeleverserDocuments() {
+  const queryClient = useQueryClient()
+
+  return useMutation({
+    mutationFn: async (input: {
+      fichiers: File[]
+      entite_type: string
+      entite_id: string
+      type_document_id: string | null
+      type_document_libelle: string
+    }) => {
+      const url = import.meta.env.VITE_SUPABASE_URL as string
+      const deposes: DocumentItem[] = []
+
+      for (const fichier of input.fichiers) {
+        // Nom de fichier sûr : ni accent, ni espace, ni slash — le chemin de stockage les supporte
+        // mal et l'URL publique deviendrait illisible.
+        const nomSur = fichier.name
+          .normalize('NFD')
+          .replace(/[̀-ͯ]/g, '')
+          .replace(/[^A-Za-z0-9._-]+/g, '_')
+        const chemin = `${input.entite_type}/${input.entite_id}/${Date.now()}_${nomSur}`
+
+        const { error: erreurDepot } = await supabase.storage
+          .from('documents')
+          .upload(chemin, fichier, { contentType: fichier.type || undefined, upsert: false })
+        if (erreurDepot) throw new Error(`« ${fichier.name} » : ${erreurDepot.message}`)
+
+        const publique = `${url}/storage/v1/object/public/documents/${chemin}`
+        const { data, error } = await supabase
+          .from('documents')
+          .insert({
+            nom: fichier.name,
+            nom_fichier: nomSur,
+            url: publique,
+            mime_type: fichier.type || null,
+            taille_octets: fichier.size,
+            entite_type: input.entite_type,
+            entite_id: input.entite_id,
+            date_creation: new Date().toISOString(),
+            ...(input.type_document_id ? { type_document_id: input.type_document_id } : {}),
+          })
+          .select('id')
+          .single()
+        if (error) throw new Error(error.message)
+
+        deposes.push({
+          id: (data as { id: string }).id,
+          nom: fichier.name,
+          nom_fichier: nomSur,
+          url: publique,
+          type_document: input.type_document_libelle,
+          entite_type: input.entite_type,
+          entite_id: input.entite_id,
+          objet_lie: ENTITE_LABELS[input.entite_type] ?? input.entite_type,
+          auteur: '',
+          date_creation: new Date().toISOString(),
+          proprietaire_id: null,
+        })
+      }
+
+      return deposes
+    },
+    onSuccess: () => { void queryClient.invalidateQueries({ queryKey: ['documents'] }) },
   })
 }
 

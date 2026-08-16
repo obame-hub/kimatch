@@ -1,5 +1,6 @@
 import { useMemo, useState } from 'react'
 import type { DocumentItem } from '@/types/domain'
+import { ZoneDepotFichiers } from '@/components/ui/zone-depot-fichiers'
 
 /**
  * Onglet « Fichiers » — maquette « Fiche Compte » de William (12/08/2026).
@@ -30,10 +31,15 @@ export function OngletFichiers({
   documents,
   onAjouter,
   onOuvrir,
+  onDeposer,
+  typesDocuments,
 }: {
   documents: DocumentItem[]
   onAjouter: () => void
   onOuvrir: (doc: DocumentItem) => void
+  /** Dépôt réel de fichiers. Absent, on retombe sur l'ancien formulaire par URL. */
+  onDeposer?: (fichiers: File[], typeDocumentId: string | null) => Promise<void>
+  typesDocuments?: { id: string; libelle: string }[]
 }) {
   const [categorie, setCategorie] = useState<string>('tous')
   const [survol, setSurvol] = useState(false)
@@ -81,33 +87,31 @@ export function OngletFichiers({
       </div>
 
       {/*
-        Zone de dépôt. Le `preventDefault` sur dragOver n'est pas décoratif : sans lui le navigateur
-        refuse le dépôt et ouvre le fichier dans un onglet à la place, ce qui fait quitter la fiche.
-        Le dépôt ouvre le formulaire d'ajout au lieu d'envoyer directement : le document a besoin
-        d'une catégorie et d'un objet lié, que seul l'utilisateur peut donner.
+        Zone de dépôt — un VRAI dépôt depuis le 16/08/2026.
+        Jusque-là, glisser un fichier ne faisait qu'ouvrir un formulaire réclamant une URL : le
+        fichier était perdu. Ce n'était pas un choix d'interface mais une contrainte de la base —
+        le bucket « documents » ne portait aucune politique d'écriture, il n'y avait donc aucun
+        moyen d'y déposer quoi que ce soit depuis le navigateur (migration 20260816130000).
       */}
-      <div
-        onDragOver={(e) => {
-          e.preventDefault()
-          setSurvol(true)
-        }}
-        onDragLeave={() => setSurvol(false)}
-        onDrop={(e) => {
-          e.preventDefault()
-          setSurvol(false)
-          onAjouter()
-        }}
-        onClick={onAjouter}
-        className="flex cursor-pointer flex-col items-center gap-1.5 rounded-xl border-2 border-dashed px-4 py-6 text-center transition-all duration-[150ms]"
-        style={{
-          borderColor: survol ? '#0d7a5f' : '#dcdad5',
-          background: survol ? '#eaf4f0' : '#fbfbfa',
-          color: survol ? '#0d7a5f' : '#83868f',
-        }}
-      >
-        <span className="text-xs font-bold">Glissez-déposez vos fichiers ici</span>
-        <span className="text-[10.5px] opacity-75">PDF, images, emails — catégorisés ensuite en un clic</span>
-      </div>
+      {onDeposer ? (
+        <ZoneDepotFichiers types={typesDocuments ?? []} onDeposer={onDeposer} />
+      ) : (
+        <div
+          onDragOver={(e) => { e.preventDefault(); setSurvol(true) }}
+          onDragLeave={() => setSurvol(false)}
+          onDrop={(e) => { e.preventDefault(); setSurvol(false); onAjouter() }}
+          onClick={onAjouter}
+          className="flex cursor-pointer flex-col items-center gap-1.5 rounded-xl border-2 border-dashed px-4 py-6 text-center transition-all duration-[150ms]"
+          style={{
+            borderColor: survol ? '#0d7a5f' : '#dcdad5',
+            background: survol ? '#eaf4f0' : '#fbfbfa',
+            color: survol ? '#0d7a5f' : '#83868f',
+          }}
+        >
+          <span className="text-xs font-bold">Glissez-déposez vos fichiers ici</span>
+          <span className="text-[10.5px] opacity-75">PDF, images, emails — catégorisés ensuite en un clic</span>
+        </div>
+      )}
 
       <div className="overflow-hidden rounded-xl border border-[#e7e6e2] bg-white">
         {affiches.map((d) => {

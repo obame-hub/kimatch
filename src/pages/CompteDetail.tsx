@@ -56,7 +56,7 @@ import { useContratsParCompte } from '@/lib/data/contrats'
 import { useInteractionsForCompte } from '@/lib/data/interactions'
 import { useMandatsParCompte } from '@/lib/data/mandats'
 import { useActionsParSites } from '@/lib/data/actions'
-import { useDocumentsParEntites, useCreateDocument } from '@/lib/data/documents'
+import { useDocumentsParEntites, useCreateDocument, useTeleverserDocuments } from '@/lib/data/documents'
 import { useHistorique } from '@/lib/data/historique'
 import { useEllisphereScore } from '@/lib/data/ellisphere'
 import { useReferenceTable } from '@/lib/data/referenceTables'
@@ -164,6 +164,9 @@ export default function CompteDetail() {
   // Voir HubCreation : le hub s'approprie le clavier quand il est ouvert, « R » notamment.
   const [hubOuvert, setHubOuvert] = useState(false)
   const [addFichierOpen, setAddFichierOpen] = useState(false)
+  const televerser = useTeleverserDocuments()
+  const { data: typesDocumentsRef } = useReferenceTable('types_documents')
+  const typesDocuments = typesDocumentsRef && typesDocumentsRef.length > 0 ? typesDocumentsRef : FALLBACK_TYPES_DOCUMENTS
   const [addCompteurOpen, setAddCompteurOpen] = useState(false)
   const [pdlMethodOpen, setPdlMethodOpen] = useState(false)
   const [pdlMethode, setPdlMethode] = useState<PdlMethode>('manuel')
@@ -592,6 +595,17 @@ export default function CompteDetail() {
               documents={documentsDuCompte}
               onAjouter={() => setAddFichierOpen(true)}
               onOuvrir={(d) => navigate(`/documents/${d.id}`)}
+              typesDocuments={typesDocuments}
+              onDeposer={async (fichiers, typeDocumentId) => {
+                await televerser.mutateAsync({
+                  fichiers,
+                  entite_type: 'compte',
+                  entite_id: compte.id,
+                  type_document_id: typeDocumentId,
+                  type_document_libelle: typesDocuments.find((t) => t.id === typeDocumentId)?.libelle ?? '',
+                })
+                showToast(`✓ ${fichiers.length} fichier${fichiers.length > 1 ? 's' : ''} déposé${fichiers.length > 1 ? 's' : ''}`)
+              }}
             />
           )}
 
