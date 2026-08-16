@@ -129,3 +129,21 @@ flux de cotation n'est branché. Le bandeau affiche des tirets. Le brief de Will
 faut-il conserver un historique pour tracer la frise ?
 
 **En attendant.** Le bandeau reste en tirets. Rien n'est simulé.
+
+---
+
+## 9. Édition en place — les trois fiches non converties
+
+**Ce que j'ai fait le 16/08/2026.** Huit fiches sur onze n'ont plus aucune modale « Modifier » :
+site, contrat, tâche, mandat, recommandation, signal, interaction, document. Les champs s'éditent
+là où ils s'affichent, et les champs vides apparaissent en pointillé cliquable au lieu de
+disparaître — c'était le vrai problème : sur la recommandation, le contrat, l'interaction et le
+signal, plusieurs champs n'étaient **pas affichés tant qu'ils étaient vides**, donc rien n'invitait
+à les remplir et il fallait ouvrir la modale pour découvrir qu'ils existaient.
+
+**Ce qui reste.** Compte (4 modales, une par type de compte), Compteur et Contact. Ces trois fiches
+ont déjà de l'édition en place sur une partie de leurs champs ; leurs modales couvrent le reste.
+
+**À décider.** Sur la fiche compte, les quatre variantes (client, fournisseur, partenaire, générique)
+ne montrent pas les mêmes champs. Faut-il quatre blocs d'édition en place distincts, ou un seul bloc
+qui masque les champs hors sujet ? C'est une question de maquette, pas de technique.
