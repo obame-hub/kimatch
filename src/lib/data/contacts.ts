@@ -383,7 +383,7 @@ export function useUpdateContact() {
         .eq('id', input.id)
       if (error) throw new Error(error.message)
     },
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['contacts'] }),
+    onSuccess: () => { void queryClient.invalidateQueries({ queryKey: ['contacts'] }) },
   })
 }
 
@@ -394,7 +394,7 @@ export function useDeleteContact() {
       const { error } = await supabase.from('contacts').delete().eq('id', id)
       if (error) throw new Error(error.message)
     },
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['contacts'] }),
+    onSuccess: () => { void queryClient.invalidateQueries({ queryKey: ['contacts'] }) },
   })
 }
 
@@ -487,6 +487,6 @@ export function useUpdateContactField() {
       const { error } = await supabase.from('contacts').update(normalise).eq('id', id)
       if (error) throw new Error(error.message)
     },
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['contacts'] }),
+    onSuccess: () => { void queryClient.invalidateQueries({ queryKey: ['contacts'] }) },
   })
 }

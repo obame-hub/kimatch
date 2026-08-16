@@ -12,6 +12,7 @@ import { HistoriqueDiscret } from '@/components/ui/historique-discret'
 import { useSignal, useUpdateSignal, useDeleteSignal } from '@/lib/data/signaux'
 import { useReferenceTable } from '@/lib/data/referenceTables'
 import { useCanManage } from '@/lib/data/roles'
+import { useSuppression } from '@/lib/useSuppression'
 import { FALLBACK_STATUTS_SIGNAUX } from '@/lib/referenceFallbacks'
 import { useGoBack } from '@/lib/useGoBack'
 import type { Signal } from '@/types/domain'
@@ -31,10 +32,14 @@ export default function SignalDetail() {
   const [editOpen, setEditOpen] = useState(false)
   const [confirmDelete, setConfirmDelete] = useState(false)
 
-  async function handleDelete() {
+  const suppression = useSuppression()
+
+  function handleDelete() {
     if (!signal) return
-    await deleteSignal.mutateAsync(signal.id)
-    navigate('/signaux')
+    suppression.supprimer(
+      () => deleteSignal.mutateAsync(signal.id),
+      () => navigate('/signaux'),
+    )
   }
 
   return (
@@ -103,10 +108,13 @@ export default function SignalDetail() {
             title="Supprimer ce signal ?"
             description="Cette action est irréversible."
           >
+            {suppression.erreur && (
+              <p className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-xs text-red-700">{suppression.erreur}</p>
+            )}
             <div className="flex justify-end gap-2 pt-2">
-              <Button type="button" variant="ghost" onClick={() => setConfirmDelete(false)}>Annuler</Button>
-              <Button type="button" variant="outline" className="border-red-200 text-red-600 hover:bg-red-50" disabled={deleteSignal.isPending} onClick={handleDelete}>
-                Supprimer définitivement
+              <Button type="button" variant="ghost" onClick={() => { suppression.reinitialiser(); setConfirmDelete(false) }}>Annuler</Button>
+              <Button type="button" variant="outline" className="border-red-200 text-red-600 hover:bg-red-50" disabled={suppression.enCours} onClick={handleDelete}>
+                {suppression.enCours ? 'Suppression…' : 'Supprimer définitivement'}
               </Button>
             </div>
           </Dialog>

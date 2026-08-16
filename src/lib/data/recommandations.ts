@@ -807,7 +807,7 @@ export function useUpdateRecommandation() {
         .eq('id', input.id)
       if (error) throw new Error(error.message)
     },
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['recommandations'] }),
+    onSuccess: () => { void queryClient.invalidateQueries({ queryKey: ['recommandations'] }) },
   })
 }
 
@@ -821,7 +821,7 @@ export function useAjouterFournisseurConsulte() {
       })
       if (error) throw new Error(error.message)
     },
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['recommandations'] }),
+    onSuccess: () => { void queryClient.invalidateQueries({ queryKey: ['recommandations'] }) },
   })
 }
 
@@ -842,7 +842,7 @@ export function useAjouterSuiviConsultation() {
       })
       if (error) throw new Error(error.message)
     },
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['recommandations'] }),
+    onSuccess: () => { void queryClient.invalidateQueries({ queryKey: ['recommandations'] }) },
   })
 }
 
@@ -853,6 +853,6 @@ export function useDeleteRecommandation() {
       const { error } = await supabase.from('recommandations').delete().eq('id', id)
       if (error) throw new Error(error.message)
     },
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['recommandations'] }),
+    onSuccess: () => { void queryClient.invalidateQueries({ queryKey: ['recommandations'] }) },
   })
 }

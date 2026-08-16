@@ -74,7 +74,7 @@ export function useCreatePoste() {
       })
       if (error) throw new Error(error.message)
     },
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['postes'] }),
+    onSuccess: () => { void queryClient.invalidateQueries({ queryKey: ['postes'] }) },
   })
 }
 
@@ -141,7 +141,7 @@ export function useAssignRoleAcces() {
       const { error } = await supabase.from('profils_roles_acces').insert({ profil_id: profilId, role_acces_id: roleAccesId })
       if (error) throw new Error(error.message)
     },
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['profils-admin'] }),
+    onSuccess: () => { void queryClient.invalidateQueries({ queryKey: ['profils-admin'] }) },
   })
 }
 
@@ -154,7 +154,7 @@ export function useAssignPoste() {
       const { error } = await supabase.from('profils_postes').insert({ profil_id: profilId, poste_id: posteId })
       if (error) throw new Error(error.message)
     },
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['profils-admin'] }),
+    onSuccess: () => { void queryClient.invalidateQueries({ queryKey: ['profils-admin'] }) },
   })
 }
 
@@ -183,7 +183,7 @@ export function useTogglePostePermission() {
         if (error) throw new Error(error.message)
       }
     },
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['poste-permissions-matrix'] }),
+    onSuccess: () => { void queryClient.invalidateQueries({ queryKey: ['poste-permissions-matrix'] }) },
   })
 }
 
@@ -212,7 +212,7 @@ export function useToggleRolePermission() {
         if (error) throw new Error(error.message)
       }
     },
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['role-permissions-matrix'] }),
+    onSuccess: () => { void queryClient.invalidateQueries({ queryKey: ['role-permissions-matrix'] }) },
   })
 }
 
@@ -428,7 +428,7 @@ export function useAddProfilAutorise() {
       })
       if (error) throw new Error(error.message)
     },
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['profils-autorises'] }),
+    onSuccess: () => { void queryClient.invalidateQueries({ queryKey: ['profils-autorises'] }) },
   })
 }
 
@@ -447,7 +447,7 @@ export function useUpdateProfilAutorisePosteRole() {
       const { error } = await supabase.from('profils_autorises').update({ poste_id: posteId, role_acces_id: roleAccesId }).eq('id', id)
       if (error) throw new Error(error.message)
     },
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['profils-autorises'] }),
+    onSuccess: () => { void queryClient.invalidateQueries({ queryKey: ['profils-autorises'] }) },
   })
 }
 
@@ -458,6 +458,6 @@ export function useRemoveProfilAutorise() {
       const { error } = await supabase.from('profils_autorises').delete().eq('id', id)
       if (error) throw new Error(error.message)
     },
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['profils-autorises'] }),
+    onSuccess: () => { void queryClient.invalidateQueries({ queryKey: ['profils-autorises'] }) },
   })
 }

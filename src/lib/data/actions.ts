@@ -200,7 +200,7 @@ export function useUpdateAction() {
         .eq('id', input.id)
       if (error) throw new Error(error.message)
     },
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['actions'] }),
+    onSuccess: () => { void queryClient.invalidateQueries({ queryKey: ['actions'] }) },
   })
 }
 
@@ -211,7 +211,7 @@ export function useDeleteAction() {
       const { error } = await supabase.from('actions').delete().eq('id', id)
       if (error) throw new Error(error.message)
     },
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['actions'] }),
+    onSuccess: () => { void queryClient.invalidateQueries({ queryKey: ['actions'] }) },
   })
 }
 

@@ -12,6 +12,7 @@ import { FormField, Input, Select } from '@/components/ui/form'
 import { HistoriqueDiscret } from '@/components/ui/historique-discret'
 import { useDocument, useUpdateDocument, useDeleteDocument } from '@/lib/data/documents'
 import { useCanManage, useIsAdmin, useProfilsAdmin } from '@/lib/data/roles'
+import { useSuppression } from '@/lib/useSuppression'
 import { entityRoute } from '@/lib/entityRoute'
 import { useGoBack } from '@/lib/useGoBack'
 import type { DocumentItem } from '@/types/domain'
@@ -29,10 +30,14 @@ export default function DocumentDetail() {
   const [editOpen, setEditOpen] = useState(false)
   const [confirmDelete, setConfirmDelete] = useState(false)
 
-  async function handleDelete() {
+  const suppression = useSuppression()
+
+  function handleDelete() {
     if (!doc) return
-    await deleteDocument.mutateAsync(doc.id)
-    navigate('/documents')
+    suppression.supprimer(
+      () => deleteDocument.mutateAsync(doc.id),
+      () => navigate('/documents'),
+    )
   }
 
   return (
@@ -107,10 +112,13 @@ export default function DocumentDetail() {
             title="Supprimer ce document ?"
             description="Cette action est irréversible."
           >
+            {suppression.erreur && (
+              <p className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-xs text-red-700">{suppression.erreur}</p>
+            )}
             <div className="flex justify-end gap-2 pt-2">
-              <Button type="button" variant="ghost" onClick={() => setConfirmDelete(false)}>Annuler</Button>
-              <Button type="button" variant="outline" className="border-red-200 text-red-600 hover:bg-red-50" disabled={deleteDocument.isPending} onClick={handleDelete}>
-                Supprimer définitivement
+              <Button type="button" variant="ghost" onClick={() => { suppression.reinitialiser(); setConfirmDelete(false) }}>Annuler</Button>
+              <Button type="button" variant="outline" className="border-red-200 text-red-600 hover:bg-red-50" disabled={suppression.enCours} onClick={handleDelete}>
+                {suppression.enCours ? 'Suppression…' : 'Supprimer définitivement'}
               </Button>
             </div>
           </Dialog>

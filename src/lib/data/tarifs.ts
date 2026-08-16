@@ -129,7 +129,7 @@ export function useCreateTarif() {
       const { error } = await supabase.from('contrats_compteurs_tarifs').insert(input)
       if (error) throw new Error(error.message)
     },
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['tarifs'] }),
+    onSuccess: () => { void queryClient.invalidateQueries({ queryKey: ['tarifs'] }) },
   })
 }
 
@@ -140,6 +140,6 @@ export function useDeleteTarif() {
       const { error } = await supabase.from('contrats_compteurs_tarifs').delete().eq('id', id)
       if (error) throw new Error(error.message)
     },
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['tarifs'] }),
+    onSuccess: () => { void queryClient.invalidateQueries({ queryKey: ['tarifs'] }) },
   })
 }

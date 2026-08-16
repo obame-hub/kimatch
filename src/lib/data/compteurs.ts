@@ -349,7 +349,7 @@ export function useAssignCompteurContact() {
       const { error } = await supabase.from('compteurs').update({ [field]: contactId }).in('id', compteurIds)
       if (error) throw new Error(error.message)
     },
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['compteurs'] }),
+    onSuccess: () => { void queryClient.invalidateQueries({ queryKey: ['compteurs'] }) },
   })
 }
 
@@ -368,7 +368,7 @@ export function useUpdateCompteur() {
         .eq('id', input.id)
       if (error) throw new Error(error.message)
     },
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['compteurs'] }),
+    onSuccess: () => { void queryClient.invalidateQueries({ queryKey: ['compteurs'] }) },
   })
 }
 
@@ -486,7 +486,7 @@ export function useDeleteCompteur() {
       const { error } = await supabase.from('compteurs').delete().eq('id', id)
       if (error) throw new Error(error.message)
     },
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['compteurs'] }),
+    onSuccess: () => { void queryClient.invalidateQueries({ queryKey: ['compteurs'] }) },
   })
 }
 
@@ -504,6 +504,6 @@ export function useUpdateCompteurField() {
       const { error } = await supabase.from('compteurs').update(patch).eq('id', id)
       if (error) throw new Error(error.message)
     },
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['compteurs'] }),
+    onSuccess: () => { void queryClient.invalidateQueries({ queryKey: ['compteurs'] }) },
   })
 }

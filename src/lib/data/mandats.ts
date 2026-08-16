@@ -297,7 +297,7 @@ export function useUpdateMandat() {
         .eq('id', input.id)
       if (error) throw new Error(error.message)
     },
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['mandats'] }),
+    onSuccess: () => { void queryClient.invalidateQueries({ queryKey: ['mandats'] }) },
   })
 }
 
@@ -308,6 +308,6 @@ export function useDeleteMandat() {
       const { error } = await supabase.from('mandats').delete().eq('id', id)
       if (error) throw new Error(error.message)
     },
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['mandats'] }),
+    onSuccess: () => { void queryClient.invalidateQueries({ queryKey: ['mandats'] }) },
   })
 }

@@ -161,7 +161,7 @@ export function useDisconnectDocusign() {
       const { error } = await supabase.rpc('docusign_deconnecter')
       if (error) throw new Error(error.message)
     },
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['docusign-connexion'] }),
+    onSuccess: () => { void queryClient.invalidateQueries({ queryKey: ['docusign-connexion'] }) },
   })
 }
 

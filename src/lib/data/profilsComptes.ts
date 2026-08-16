@@ -74,7 +74,7 @@ export function useAssignProfilCompte() {
       })
       if (error) throw new Error(error.message)
     },
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['profils-comptes'] }),
+    onSuccess: () => { void queryClient.invalidateQueries({ queryKey: ['profils-comptes'] }) },
   })
 }
 
@@ -85,6 +85,6 @@ export function useRemoveProfilCompte() {
       const { error } = await supabase.from('profils_comptes').delete().eq('id', id)
       if (error) throw new Error(error.message)
     },
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['profils-comptes'] }),
+    onSuccess: () => { void queryClient.invalidateQueries({ queryKey: ['profils-comptes'] }) },
   })
 }

@@ -84,6 +84,6 @@ export function useUpdateStatutDemandeSupport() {
       const { error } = await supabase.from('demandes_support').update({ statut }).eq('id', id)
       if (error) throw new Error(error.message)
     },
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['demandes-support'] }),
+    onSuccess: () => { void queryClient.invalidateQueries({ queryKey: ['demandes-support'] }) },
   })
 }

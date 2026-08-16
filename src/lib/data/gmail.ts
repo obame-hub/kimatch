@@ -44,7 +44,7 @@ export function useDisconnectGmail() {
       const { error } = await supabase.from('profils_gmail_tokens').delete().eq('profil_id', userData.user.id)
       if (error) throw new Error(error.message)
     },
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['gmail-connection'] }),
+    onSuccess: () => { void queryClient.invalidateQueries({ queryKey: ['gmail-connection'] }) },
   })
 }
 

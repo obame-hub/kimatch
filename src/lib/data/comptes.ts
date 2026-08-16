@@ -465,7 +465,7 @@ export function useUpdateCompte() {
         .eq('id', input.id)
       if (error) throw new Error(error.message)
     },
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['comptes'] }),
+    onSuccess: () => { void queryClient.invalidateQueries({ queryKey: ['comptes'] }) },
   })
 }
 
@@ -477,7 +477,7 @@ export function useUpdateCompteField() {
       const { error } = await supabase.from('comptes').update(patch).eq('id', id)
       if (error) throw new Error(error.message)
     },
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['comptes'] }),
+    onSuccess: () => { void queryClient.invalidateQueries({ queryKey: ['comptes'] }) },
   })
 }
 
@@ -488,6 +488,6 @@ export function useDeleteCompte() {
       const { error } = await supabase.from('comptes').delete().eq('id', id)
       if (error) throw new Error(error.message)
     },
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['comptes'] }),
+    onSuccess: () => { void queryClient.invalidateQueries({ queryKey: ['comptes'] }) },
   })
 }

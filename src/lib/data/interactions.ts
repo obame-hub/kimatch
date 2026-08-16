@@ -329,7 +329,7 @@ export function useCreateInteraction() {
      * touche pas. Invalider le préfixe les couvre toutes, et c'est déjà ce que font la
      * modification et la suppression : seule la création avait été oubliée.
      */
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['interactions'] }),
+    onSuccess: () => { void queryClient.invalidateQueries({ queryKey: ['interactions'] }) },
   })
 }
 
@@ -360,7 +360,7 @@ export function useUpdateInteraction() {
         .eq('id', input.id)
       if (error) throw new Error(error.message)
     },
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['interactions'] }),
+    onSuccess: () => { void queryClient.invalidateQueries({ queryKey: ['interactions'] }) },
   })
 }
 
@@ -371,6 +371,6 @@ export function useDeleteInteraction() {
       const { error } = await supabase.from('interactions').delete().eq('id', id)
       if (error) throw new Error(error.message)
     },
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['interactions'] }),
+    onSuccess: () => { void queryClient.invalidateQueries({ queryKey: ['interactions'] }) },
   })
 }

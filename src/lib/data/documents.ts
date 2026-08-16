@@ -181,7 +181,7 @@ export function useUpdateDocument() {
         .eq('id', input.id)
       if (error) throw new Error(error.message)
     },
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['documents'] }),
+    onSuccess: () => { void queryClient.invalidateQueries({ queryKey: ['documents'] }) },
   })
 }
 
@@ -192,6 +192,6 @@ export function useDeleteDocument() {
       const { error } = await supabase.from('documents').delete().eq('id', id)
       if (error) throw new Error(error.message)
     },
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['documents'] }),
+    onSuccess: () => { void queryClient.invalidateQueries({ queryKey: ['documents'] }) },
   })
 }

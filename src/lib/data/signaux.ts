@@ -163,7 +163,7 @@ export function useUpdateSignal() {
         .eq('id', input.id)
       if (error) throw new Error(error.message)
     },
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['signaux'] }),
+    onSuccess: () => { void queryClient.invalidateQueries({ queryKey: ['signaux'] }) },
   })
 }
 
@@ -174,6 +174,6 @@ export function useDeleteSignal() {
       const { error } = await supabase.from('signaux').delete().eq('id', id)
       if (error) throw new Error(error.message)
     },
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['signaux'] }),
+    onSuccess: () => { void queryClient.invalidateQueries({ queryKey: ['signaux'] }) },
   })
 }

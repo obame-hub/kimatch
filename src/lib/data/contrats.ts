@@ -352,7 +352,7 @@ export function useUpdateContrat() {
         .eq('id', input.id)
       if (error) throw new Error(error.message)
     },
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['contrats'] }),
+    onSuccess: () => { void queryClient.invalidateQueries({ queryKey: ['contrats'] }) },
   })
 }
 
@@ -363,6 +363,6 @@ export function useDeleteContrat() {
       const { error } = await supabase.from('contrats').delete().eq('id', id)
       if (error) throw new Error(error.message)
     },
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['contrats'] }),
+    onSuccess: () => { void queryClient.invalidateQueries({ queryKey: ['contrats'] }) },
   })
 }

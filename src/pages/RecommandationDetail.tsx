@@ -27,6 +27,7 @@ import { useEligibilityRules } from '@/lib/data/eligibilityRules'
 import { useMappingRules } from '@/lib/data/mappingRules'
 import { checkEligibility, type EligibilityResult } from '@/lib/eligibility'
 import { useCanManage, useIsAdmin, useProfilsAdmin } from '@/lib/data/roles'
+import { useSuppression } from '@/lib/useSuppression'
 import { sendEmail } from '@/lib/data/gmail'
 import { notifyEmail } from '@/lib/data/emailSettings'
 import { WizardConnectionGate } from '@/components/ui/connection-gate'
@@ -660,10 +661,14 @@ export default function RecommandationDetail() {
   const goBack = useGoBack('/recommandations')
   const contactPrincipal = contacts?.find((c) => c.compte_id === reco?.compte_id && c.contact_principal)
 
-  async function handleDelete() {
+  const suppression = useSuppression()
+
+  function handleDelete() {
     if (!reco) return
-    await deleteRecommandation.mutateAsync(reco.id)
-    navigate('/recommandations')
+    suppression.supprimer(
+      () => deleteRecommandation.mutateAsync(reco.id),
+      () => navigate('/recommandations'),
+    )
   }
 
   return (
@@ -1036,11 +1041,14 @@ export default function RecommandationDetail() {
         title="Supprimer cette recommandation ?"
         description="Cette action est irréversible. Les versions, optimisations et offres liées à cette recommandation seront également perdues."
       >
+        {suppression.erreur && (
+          <p className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-xs text-red-700">{suppression.erreur}</p>
+        )}
         <div className="flex justify-end gap-2 pt-2">
-          <Button type="button" variant="ghost" onClick={() => setConfirmDelete(false)}>Annuler</Button>
-          <Button type="button" variant="outline" className="border-red-200 text-red-600 hover:bg-red-50" disabled={deleteRecommandation.isPending} onClick={handleDelete}>
-            Supprimer définitivement
-          </Button>
+          <Button type="button" variant="ghost" onClick={() => { suppression.reinitialiser(); setConfirmDelete(false) }}>Annuler</Button>
+          <Button type="button" variant="outline" className="border-red-200 text-red-600 hover:bg-red-50" disabled={suppression.enCours} onClick={handleDelete}>
+                {suppression.enCours ? 'Suppression…' : 'Supprimer définitivement'}
+              </Button>
         </div>
       </Dialog>
     </div>

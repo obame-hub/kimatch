@@ -17,6 +17,7 @@ import { useDocuments, useCreateDocument } from '@/lib/data/documents'
 import { useReferenceTable } from '@/lib/data/referenceTables'
 import { useFormulesTarifaires, useTarifsByContratCompteurs, useCreateTarif, useDeleteTarif } from '@/lib/data/tarifs'
 import { useCanManage, useIsAdmin, useProfilsAdmin } from '@/lib/data/roles'
+import { useSuppression } from '@/lib/useSuppression'
 import { FALLBACK_STATUTS_CONTRATS, STATUT_CONTRAT_TONE, FALLBACK_TYPES_DOCUMENTS } from '@/lib/referenceFallbacks'
 import { useGoBack } from '@/lib/useGoBack'
 import { cn } from '@/lib/utils'
@@ -348,10 +349,14 @@ export default function ContratDetail() {
   const [addFichierOpen, setAddFichierOpen] = useState(false)
   const [addTarifFor, setAddTarifFor] = useState<string | null>(null)
 
-  async function handleDelete() {
+  const suppression = useSuppression()
+
+  function handleDelete() {
     if (!contrat) return
-    await deleteContrat.mutateAsync(contrat.id)
-    navigate('/contrats')
+    suppression.supprimer(
+      () => deleteContrat.mutateAsync(contrat.id),
+      () => navigate('/contrats'),
+    )
   }
 
   const TABS: { key: TabKey; label: string; badge?: string }[] = [
@@ -748,11 +753,14 @@ export default function ContratDetail() {
         title="Supprimer ce contrat ?"
         description="Cette action est irréversible. Les compteurs rattachés ne seront pas supprimés mais perdront leur lien à ce contrat."
       >
+        {suppression.erreur && (
+          <p className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-xs text-red-700">{suppression.erreur}</p>
+        )}
         <div className="flex justify-end gap-2 pt-2">
-          <Button type="button" variant="ghost" onClick={() => setConfirmDelete(false)}>Annuler</Button>
-          <Button type="button" variant="outline" className="border-red-200 text-red-600 hover:bg-red-50" disabled={deleteContrat.isPending} onClick={handleDelete}>
-            Supprimer définitivement
-          </Button>
+          <Button type="button" variant="ghost" onClick={() => { suppression.reinitialiser(); setConfirmDelete(false) }}>Annuler</Button>
+          <Button type="button" variant="outline" className="border-red-200 text-red-600 hover:bg-red-50" disabled={suppression.enCours} onClick={handleDelete}>
+                {suppression.enCours ? 'Suppression…' : 'Supprimer définitivement'}
+              </Button>
         </div>
       </Dialog>
 

@@ -365,7 +365,7 @@ export function useUpdateSite() {
         .eq('id', input.id)
       if (error) throw new Error(error.message)
     },
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['sites'] }),
+    onSuccess: () => { void queryClient.invalidateQueries({ queryKey: ['sites'] }) },
   })
 }
 
@@ -378,7 +378,7 @@ export function useUpdateSitePartiel() {
       const { error } = await supabase.from('sites').update(patch).eq('id', id)
       if (error) throw new Error(error.message)
     },
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['sites'] }),
+    onSuccess: () => { void queryClient.invalidateQueries({ queryKey: ['sites'] }) },
   })
 }
 
@@ -423,6 +423,6 @@ export function useDeleteSite() {
       const { error } = await supabase.from('sites').delete().eq('id', id)
       if (error) throw new Error(error.message)
     },
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['sites'] }),
+    onSuccess: () => { void queryClient.invalidateQueries({ queryKey: ['sites'] }) },
   })
 }
