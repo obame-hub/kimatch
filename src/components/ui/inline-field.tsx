@@ -65,12 +65,27 @@ interface AddressFieldProps extends InlineFieldCommonProps {
   onCommit: (valeur: { rue: string; codePostal: string; ville: string }) => Promise<void>
 }
 
+/**
+ * Date — demandee par le brief Fiche Site pour la date de derniere AG.
+ *
+ * Lue au format francais (JJ/MM/AAAA, la convention de toutes les fiches), editee dans un champ
+ * `date` natif qui attend et rend de l'ISO. La conversion se fait ici, une bonne fois, plutot que
+ * dans chaque page qui utiliserait le champ.
+ */
+interface DateFieldProps extends InlineFieldCommonProps {
+  variant: 'date'
+  /** Date ISO (AAAA-MM-JJ) ou null. */
+  value: string | null
+  onCommit: (value: string | null) => Promise<void>
+}
+
 export type InlineFieldProps =
   | TextFieldProps
   | LongTextFieldProps
   | SelectFieldProps
   | NumberFieldProps
   | AddressFieldProps
+  | DateFieldProps
 
 const inputBase =
   'w-full rounded-kw-sm border border-kw-green bg-kw-surface px-1.5 py-0.5 text-kw-lg text-kw-ink outline-none focus:ring-1 focus:ring-kw-green'
@@ -94,7 +109,64 @@ export function InlineField(props: InlineFieldProps) {
     case 'select': return <SelectInlineField {...props} />
     case 'number': return <NumberInlineField {...props} />
     case 'address': return <AddressInlineField {...props} />
+    case 'date': return <DateInlineField {...props} />
   }
+}
+
+function DateInlineField({ value, onCommit, label, emptyLabel = 'ajouter une date', onSaved, onError, className, disabled }: DateFieldProps) {
+  const inputRef = useRef<HTMLInputElement>(null)
+  const [texte, setTexte] = useState(value ?? '')
+  const [editing, setEditing] = useState(false)
+  const [enCours, setEnCours] = useState(false)
+
+  function start() {
+    if (disabled) return
+    setTexte(value ?? '')
+    setEditing(true)
+  }
+  useEffect(() => { if (editing) { inputRef.current?.focus(); inputRef.current?.showPicker?.() } }, [editing])
+
+  async function valider() {
+    if (enCours) return
+    setEnCours(true)
+    try {
+      await onCommit(texte.trim() === '' ? null : texte)
+      setEditing(false)
+      onSaved?.()
+    } catch (e) {
+      onError?.(e instanceof Error ? e : new Error(String(e)))
+    } finally {
+      setEnCours(false)
+    }
+  }
+
+  return (
+    <div className={cn('min-w-0', className)}>
+      {label && <div className="mb-0.5 text-kw-xs font-semibold uppercase tracking-wide text-kw-faint">{label}</div>}
+      {editing ? (
+        <input
+          ref={inputRef}
+          type="date"
+          value={texte}
+          onChange={(e) => setTexte(e.target.value)}
+          onBlur={valider}
+          onKeyDown={(e) => { if (e.key === 'Enter') valider(); if (e.key === 'Escape') setEditing(false) }}
+          className={cn(inputBase, 'font-mono')}
+        />
+      ) : value ? (
+        <button
+          type="button"
+          disabled={disabled}
+          onClick={start}
+          className="rounded-kw-sm px-1.5 py-0.5 text-left font-mono text-kw-lg text-kw-ink transition-colors hover:bg-kw-muted"
+        >
+          {new Date(value).toLocaleDateString('fr-FR')}
+        </button>
+      ) : (
+        <EmptyPlaceholder label={emptyLabel} onClick={start} />
+      )}
+    </div>
+  )
 }
 
 function AddressInlineField({

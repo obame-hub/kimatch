@@ -62,10 +62,18 @@ export function EnergyTimeline({ compteurs, contrats }: { compteurs: Compteur[];
             return (
               <div key={compteur.id} className="grid grid-cols-[130px_1fr] items-center gap-3">
                 <div className="flex items-center gap-2 overflow-hidden">
+                  {/* Les deux couleurs etaient INVERSEES : l'electricite en bleu et le gaz en
+                      ambre, alors que la charte des maquettes dit l'inverse — electricite dorée
+                      (kw-gold #c8940a), gaz bleuté (kw-gas #4a7fa5). Le rouge et l'orange sont
+                      proscrits pour le gaz, leur connotation d'alerte est trompeuse sur une frise
+                      qui ne signale rien d'anormal. Les jetons existaient deja dans
+                      tailwind.config.js, ils n'etaient simplement pas employes ici. */}
                   <span
                     className={
                       'flex h-5 w-5 shrink-0 items-center justify-center rounded ' +
-                      (compteur.type_energie === 'electricite' ? 'bg-blue-50 text-blue-700' : 'bg-amber-50 text-amber-700')
+                      (compteur.type_energie === 'electricite'
+                        ? 'bg-kw-gold-light text-kw-gold'
+                        : 'bg-kw-gas-light text-kw-gas')
                     }
                   >
                     <Icon className="h-3 w-3" />
