@@ -12,6 +12,10 @@ import {
   FileCheck2,
   MapPin,
   Search,
+  Factory,
+  Handshake,
+  Leaf,
+  type LucideIcon,
 } from 'lucide-react'
 import { Topbar } from '@/components/layout/Topbar'
 import { HubCreation } from '@/components/compte/HubCreation'
@@ -83,11 +87,21 @@ const typeMeta: Record<TypeCompte, { label: string; tone: 'kiwi' | 'blue' | 'amb
 // kiwee dérivées du même jeu de tokens faute d'exemple de référence pour ces types (à valider
 // visuellement). L'icône "compte" (dalle bleue Building2) ne varie pas : c'est la couleur de
 // l'objet, pas du sous-type, cf. charte iconographique du handoff.
-const TYPE_BADGE_STYLE: Record<TypeCompte, { bg: string; border: string; text: string; dot: string }> = {
-  client: { bg: 'bg-kw-green-light', border: 'border-kw-green-border', text: 'text-kw-green', dot: 'bg-kw-green' },
-  fournisseur: { bg: 'bg-kw-blue-light', border: 'border-sky-200', text: 'text-kw-blue', dot: 'bg-kw-blue' },
-  partenaire: { bg: 'bg-kw-amber-light', border: 'border-kw-amber-border', text: 'text-kw-amber-dark', dot: 'bg-kw-amber' },
-  kiwee: { bg: 'bg-kw-muted', border: 'border-kw-border-strong', text: 'text-kw-label', dot: 'bg-kw-ghost' },
+/**
+ * Distinction graphique des types de compte.
+ *
+ * Le brief de William demande « une distinction franche entre Client / Partenaire / Fournisseur,
+ * reconnaissable au premier coup d'œil ». Les couleurs étaient là ; l'icône manquait, or c'est
+ * elle qui se lit sans lire — une pastille de couleur seule oblige à se souvenir du code.
+ *
+ * Rappel métier porté par le brief : « compte client » est une TYPOLOGIE. Cela ne veut pas dire
+ * que le compte est prospect — un compte client détient au moins un compteur client.
+ */
+const TYPE_BADGE_STYLE: Record<TypeCompte, { bg: string; border: string; text: string; dot: string; icone: LucideIcon }> = {
+  client: { bg: 'bg-kw-green-light', border: 'border-kw-green-border', text: 'text-kw-green', dot: 'bg-kw-green', icone: Building2 },
+  fournisseur: { bg: 'bg-kw-blue-light', border: 'border-sky-200', text: 'text-kw-blue', dot: 'bg-kw-blue', icone: Factory },
+  partenaire: { bg: 'bg-kw-amber-light', border: 'border-kw-amber-border', text: 'text-kw-amber-dark', dot: 'bg-kw-amber', icone: Handshake },
+  kiwee: { bg: 'bg-kw-muted', border: 'border-kw-border-strong', text: 'text-kw-label', dot: 'bg-kw-ghost', icone: Leaf },
 }
 
 type TabKey = 'synthese' | 'contrats' | 'compteurs' | 'recommandations' | 'signaux' | 'mandats' | 'fichiers' | 'historique' | 'activite'
@@ -340,10 +354,16 @@ export default function CompteDetail() {
             {compte.segment && (
               <span className="rounded-[12px] bg-kw-blue-light px-2.5 py-[3px] text-kw-xs font-semibold text-kw-blue">{compte.segment}</span>
             )}
-            <span className={cn('inline-flex items-center gap-1.5 rounded-[12px] border px-2.5 py-[3px] text-kw-xs font-bold uppercase tracking-wide', TYPE_BADGE_STYLE[compte.type_compte].bg, TYPE_BADGE_STYLE[compte.type_compte].border, TYPE_BADGE_STYLE[compte.type_compte].text)}>
-              <span className={cn('h-[7px] w-[7px] rounded-full', TYPE_BADGE_STYLE[compte.type_compte].dot)} />
-              {typeMeta[compte.type_compte].label}
-            </span>
+            {(() => {
+              const style = TYPE_BADGE_STYLE[compte.type_compte]
+              const IconeType = style.icone
+              return (
+                <span className={cn('inline-flex items-center gap-1.5 rounded-[12px] border px-2.5 py-[3px] text-kw-xs font-bold uppercase tracking-wide', style.bg, style.border, style.text)}>
+                  <IconeType className="h-3.5 w-3.5" strokeWidth={2.2} />
+                  {typeMeta[compte.type_compte].label}
+                </span>
+              )
+            })()}
             <span className="text-kw-lg text-kw-meta"><b className="text-kw-ink">{sitesDuCompte.length}</b> site{sitesDuCompte.length > 1 ? 's' : ''} géré{sitesDuCompte.length > 1 ? 's' : ''}</span>
           </div>
         </div>

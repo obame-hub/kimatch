@@ -1,4 +1,4 @@
-import type { ReactNode } from 'react'
+import { useState, type ReactNode } from 'react'
 import type { LucideIcon } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
@@ -43,6 +43,14 @@ export function ActivityCard({
   className?: string
 }) {
   const style = ACTIVITY_STYLE[styleKey]
+  /**
+   * Depliage du corps de l'activite — « chaque activite est cliquable et dépliable : résumé IA
+   * d'appel, corps du mail, commentaires de tâche » (brief de William).
+   *
+   * Le clic sur « Voir tout le message » arrete la propagation : sans cela il declencherait aussi
+   * la navigation vers la fiche de l'interaction, et l'on n'aurait jamais le temps de lire.
+   */
+  const [deplie, setDeplie] = useState(false)
   const content = (
     <div
       className={cn('flex items-start gap-2.5 rounded-lg p-2.5 transition-colors', (onClick || href) && 'cursor-pointer', className)}
@@ -64,11 +72,27 @@ export function ActivityCard({
         {subtitle && <p className="line-clamp-2 text-[11px] leading-snug" style={{ color: '#83868f' }}>{subtitle}</p>}
         {body && (
           <p
-            className="mt-1 line-clamp-3 whitespace-pre-line rounded-md px-2 py-1 text-[11.5px] leading-snug"
+            className={cn(
+              'mt-1 whitespace-pre-line rounded-md px-2 py-1 text-[11.5px] leading-snug',
+              // Deplie : tout le texte. Replie : trois lignes, et on n'annonce « voir plus » que
+              // s'il y a vraiment quelque chose de cache — un compte rendu de deux lignes ne doit
+              // pas proposer un depliage qui ne montrerait rien.
+              !deplie && 'line-clamp-3',
+            )}
             style={{ background: style.plate, color: '#16181d' }}
           >
             {body}
           </p>
+        )}
+        {body && typeof body === 'string' && body.length > 180 && (
+          <button
+            type="button"
+            onClick={(e) => { e.stopPropagation(); setDeplie((v) => !v) }}
+            className="mt-0.5 text-[10.5px] font-semibold underline-offset-2 hover:underline"
+            style={{ color: style.fg }}
+          >
+            {deplie ? 'Réduire' : 'Voir tout le message'}
+          </button>
         )}
       </div>
       {trailing && <span className="shrink-0 text-[10px] font-medium" style={{ color: style.accent }}>{trailing}</span>}

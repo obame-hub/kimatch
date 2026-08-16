@@ -1,6 +1,6 @@
-import { useMemo } from 'react'
+import { useEffect, useMemo } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { MapContainer, TileLayer, Marker, Popup } from 'react-leaflet'
+import { MapContainer, TileLayer, Marker, Popup, useMap } from 'react-leaflet'
 import L from 'leaflet'
 import 'leaflet/dist/leaflet.css'
 import type { SiteHealth } from '@/lib/siteHealth'
@@ -31,6 +31,34 @@ export interface SitesMapItem {
   tone: SiteHealth['tone']
 }
 
+/**
+ * Cadre la carte sur l'ensemble des sites, plutot que de centrer sur leur barycentre a un zoom
+ * fixe. Demande du brief de William : « cadrage automatique sur l'ensemble de la zone couverte ».
+ *
+ * Le barycentre seul tombait au milieu de nulle part des qu'un compte avait des sites eloignes —
+ * un syndic parisien avec un site a Vichy affichait une vue centree sur la Bourgogne, aucun des
+ * deux visible. `fitBounds` montre les deux.
+ *
+ * Un seul site : on ne peut pas cadrer sur un point, on se centre dessus a un zoom de rue.
+ */
+function CadrerSurLesSites({ points }: { points: [number, number][] }) {
+  const carte = useMap()
+  // La signature evite de recadrer a chaque rendu : seul un vrai changement de points compte.
+  const signature = points.map((p) => p.join(',')).join('|')
+
+  useEffect(() => {
+    if (points.length === 0) return
+    if (points.length === 1) {
+      carte.setView(points[0], 14)
+      return
+    }
+    carte.fitBounds(L.latLngBounds(points), { padding: [32, 32], maxZoom: 15 })
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [signature, carte])
+
+  return null
+}
+
 export function SitesMap({ sites }: { sites: SitesMapItem[] }) {
   const navigate = useNavigate()
   const positioned = useMemo(
@@ -55,6 +83,7 @@ export function SitesMap({ sites }: { sites: SitesMapItem[] }) {
   return (
     <div className="h-[420px] overflow-hidden rounded-xl border border-navy-100">
       <MapContainer center={center} zoom={positioned.length > 1 ? 6 : 12} scrollWheelZoom style={{ height: '100%', width: '100%' }}>
+        <CadrerSurLesSites points={positioned.map((s) => [s.latitude, s.longitude] as [number, number])} />
         <TileLayer attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>' url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" />
         {positioned.map((s) => (
           <Marker key={s.id} position={[s.latitude, s.longitude]} icon={pinIcon(TONE_COLOR[s.tone])} eventHandlers={{ click: () => navigate(`/sites/${s.id}`) }}>

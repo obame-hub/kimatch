@@ -274,10 +274,14 @@ export function ActivityFeed({
         {rows.map((row, idx) =>
           row.type === 'header' ? (
             <div key={`h-${idx}`} className="flex items-center gap-2 pt-2 first:pt-0">
-              <span className={cn('rounded-xl px-2.5 py-[3px] text-[10px] font-extrabold uppercase tracking-[0.6px] text-white', groupBadgeClass(row.diffDays))}>
+              {/* 12px et non plus 10 : « les separateurs de date sont trop discrets, "A venir" /
+                  "Aujourd'hui" / "Hier" doivent se lire au premier coup d'oeil » (brief de
+                  William). Le trait qui suit passe en teinte de la pastille plutot qu'en gris
+                  neutre, pour que l'oeil suive la ligne. */}
+              <span className={cn('rounded-xl px-3 py-1 text-[12px] font-extrabold uppercase tracking-[0.6px] text-white shadow-sm', groupBadgeClass(row.diffDays))}>
                 {row.label}
               </span>
-              <div className="h-px flex-1 bg-navy-100" />
+              <div className={cn('h-0.5 flex-1 rounded-full opacity-25', groupBadgeClass(row.diffDays))} />
             </div>
           ) : (
             <ActivityCard
