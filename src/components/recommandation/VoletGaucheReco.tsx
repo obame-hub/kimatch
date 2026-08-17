@@ -1,5 +1,5 @@
 import { useState, type ReactNode } from 'react'
-import { Building2, User, History, Coins, Send, Phone, Mail, RotateCcw, Search, Check } from 'lucide-react'
+import { Building2, User, History, Coins, Send, Phone, Mail, RotateCcw, Search, Check, ExternalLink, Copy } from 'lucide-react'
 import { EntityLink } from '@/components/ui/entity-link'
 import { cn } from '@/lib/utils'
 import {
@@ -172,6 +172,10 @@ export function VoletGaucheReco({
   const { data: partage } = usePartageEtudeClient(reco.id)
   const envoyerEtude = useEnvoyerEtudeClient()
   const definirExpiration = useDefinirExpirationEtude()
+
+  // Le lien Eneo est porté par la VERSION : chaque cotation a la sienne, et changer de version dans
+  // la frise doit changer l'étude proposée.
+  const lienEneo = versionAffichee?.lien_eneo ?? null
 
   const estime = reco.cout_prestation_estime
   const reel = reco.cout_prestation_reel
@@ -452,16 +456,53 @@ export function VoletGaucheReco({
           <span
             className={cn(
               'rounded-kw-lg border px-2 py-0.5 text-kw-micro font-extrabold tracking-[0.05em]',
-              partage?.date_envoi
+              lienEneo || partage?.date_envoi
                 ? 'border-kw-green-border bg-kw-green-light text-kw-green'
                 : 'border-kw-border-strong bg-white text-kw-faint',
             )}
           >
-            {partage?.date_envoi ? 'ENVOYÉE' : 'NON ENVOYÉE'}
+            {lienEneo ? 'ENEO' : partage?.date_envoi ? 'ENVOYÉE' : 'NON ENVOYÉE'}
           </span>
         </div>
 
-        {partage?.date_envoi ? (
+        {/*
+          L'étude client existe déjà : c'est Eneo. Quand la version affichée porte son lien, il fait
+          foi et le partage maison n'est pas proposé — deux liens concurrents vers la même étude est
+          la meilleure façon d'envoyer le mauvais au client. Le partage maison reste branché pour
+          l'étude interne prévue plus tard (décision de Naoëlle, 17/08/2026).
+        */}
+        {lienEneo ? (
+          <>
+            <div className="text-kw-sm leading-[1.55] text-kw-label">
+              Étude <b>Eneo</b> rattachée à {versionAffichee?.nom || 'cette version'}.
+            </div>
+            <div className="mt-2.5 flex gap-1.5">
+              <a
+                href={lienEneo}
+                target="_blank"
+                rel="noreferrer"
+                className="inline-flex flex-1 items-center justify-center gap-1.5 rounded-kw-md bg-gradient-to-br from-kw-green to-[#199b78] px-1 py-2 text-kw-sm font-bold text-white shadow-kw-green hover:brightness-105"
+              >
+                <ExternalLink className="h-3 w-3" /> Ouvrir l'étude Eneo
+              </a>
+              <button
+                type="button"
+                title="Copier le lien pour l'envoyer au client"
+                onClick={async () => {
+                  try {
+                    await navigator.clipboard.writeText(lienEneo)
+                    signaler('✓ Lien de l’étude copié')
+                  } catch {
+                    signaler('Copie refusée par le navigateur')
+                  }
+                }}
+                className="inline-flex items-center justify-center rounded-kw-md border border-kw-border-strong bg-white px-2.5 py-2 text-kw-sm font-bold text-kw-label hover:bg-kw-bg"
+              >
+                <Copy className="h-3 w-3" />
+              </button>
+            </div>
+          </>
+        ) : partage?.date_envoi ? (
           <div className="text-kw-sm leading-[1.55] text-kw-label">
             Envoyée le <b className="font-mono">{new Date(partage.date_envoi).toLocaleDateString('fr-FR')}</b>
             {partage.contact_nom ? <> à {partage.contact_nom}</> : null}
@@ -482,7 +523,7 @@ export function VoletGaucheReco({
           </p>
         )}
 
-        {peutModifier && (
+        {peutModifier && !lienEneo && (
           <div className="mt-[9px] flex items-center gap-1.5">
             <span className="text-kw-tiny font-extrabold uppercase tracking-[0.06em] text-kw-faint">Expiration</span>
             {[7, 14, 30].map((j) => {
@@ -517,7 +558,7 @@ export function VoletGaucheReco({
           </div>
         )}
 
-        {peutModifier && (
+        {peutModifier && !lienEneo && (
           <div className="mt-2.5 flex gap-1.5">
             <button
               type="button"
@@ -529,12 +570,14 @@ export function VoletGaucheReco({
             </button>
           </div>
         )}
-        {/* Dit franchement pourquoi le lien ne part pas encore au client, au lieu de laisser croire
-            à un envoi. L'écran public « Étude client » est une maquette à part, non portée. */}
-        <p className="mt-1.5 text-kw-tiny leading-snug text-kw-faint">
-          Le lien est enregistré et copié, pas encore envoyé au client : l'écran « Étude client »
-          reste à porter.
-        </p>
+        {/* Sans lien Eneo, on dit franchement que le partage maison n'aboutit pas encore, au lieu de
+            laisser croire à un envoi : l'étude interne reste à construire. */}
+        {!lienEneo && (
+          <p className="mt-1.5 text-kw-tiny leading-snug text-kw-faint">
+            Aucune étude Eneo sur cette version. Le lien maison est enregistré et copié, pas envoyé
+            au client : l'étude interne reste à construire.
+          </p>
+        )}
       </div>
     </div>
   )

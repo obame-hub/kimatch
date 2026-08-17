@@ -83,6 +83,16 @@ interface RawVersion {
   contact: { prenom: string; nom: string } | null
 }
 
+/** Colonnes de version arrivées par migrations successives, lues à part et sans faire échouer le
+ *  chargement si l'une manque encore. */
+interface VersionExtra {
+  id: string
+  types_prix: string[] | null
+  date_souhaitee: string | null
+  lien_eneo?: string | null
+  id_salesforce?: string | null
+}
+
 interface RawOptimisation {
   id: string
   version_recommandation_id: string
@@ -243,11 +253,14 @@ async function fetchRecommandations(
         'version_recommandation_id, compteur_id, duree_mois',
         parVersion,
       ).catch(() => [] as { version_recommandation_id: string; compteur_id: string; duree_mois: number }[]),
-      listeSeule ? aucune<{ id: string; types_prix: string[] | null; date_souhaitee: string | null }>() : fetchAllRows<{ id: string; types_prix: string[] | null; date_souhaitee: string | null }>(
+      // `lien_eneo` et `id_salesforce` rejoignent cette requête tolérante (migration 20260817170000)
+      // pour la même raison : tant qu'elle n'est pas appliquée, le `.catch` renvoie une liste vide et
+      // la fiche s'affiche sans le lien, au lieu de perdre toutes les versions.
+      listeSeule ? aucune<VersionExtra>() : fetchAllRows<VersionExtra>(
         'versions_recommandation',
-        'id, types_prix, date_souhaitee',
+        'id, types_prix, date_souhaitee, lien_eneo, id_salesforce',
         cible ? surColonne('id', versionIds) : undefined,
-      ).catch(() => [] as { id: string; types_prix: string[] | null; date_souhaitee: string | null }[]),
+      ).catch(() => [] as VersionExtra[]),
       listeSeule ? aucune<RawOptimisation>() : fetchAllRows<RawOptimisation>(
         'optimisations',
         'id, version_recommandation_id, nom, description, resultat_attendu, gain_estime_annuel, cout_estime, roi_mois, priorite, est_retenue, type_optimisation:types_optimisations(code, libelle)',
@@ -480,6 +493,8 @@ async function fetchRecommandations(
         durees: [...new Set(Object.values(dureesParVersion.get(v.id) ?? {}).flat())].sort((a, b) => a - b),
         types_prix: extraParVersion.get(v.id)?.types_prix ?? [],
         date_souhaitee: extraParVersion.get(v.id)?.date_souhaitee ?? null,
+        lien_eneo: extraParVersion.get(v.id)?.lien_eneo ?? null,
+        id_salesforce: extraParVersion.get(v.id)?.id_salesforce ?? null,
       })
       versionsParReco.set(v.recommandation_id, list)
     }

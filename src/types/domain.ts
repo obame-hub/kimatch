@@ -77,8 +77,22 @@ export interface VersionRecommandation {
   durees_par_compteur: Record<string, number[]>
   /** Union aplatie des durées de tous les PDL, triée -- ce que voit le fan-out fournisseur. */
   durees: number[]
-  /** Types de prix demandés : « Fixe » et/ou « Indexé » (cumulables). */
+  /**
+   * Types de prix demandés. « Fixe » et/ou « Indexé » à la saisie, mais l'import Salesforce du
+   * 17/08/2026 amène aussi « Marché » (354 cotations) et « ARENH » (4) : le mot de Salesforce est
+   * conservé tel quel plutôt que rabattu sur Indexé, ce qui aurait réinterprété ces cotations.
+   */
   types_prix: string[]
+  /**
+   * Lien Eneo de la cotation — l'étude client, dans l'outil externe.
+   *
+   * L'« étude client » de la maquette existe déjà : c'est Eneo, un lien par cotation. Importé de
+   * `Cotation__c.Lien_Eneo__c` (1018 versions appariées). Le partage maison
+   * (`partages_etude_client`) reste en réserve pour l'étude interne, prévue plus tard.
+   */
+  lien_eneo?: string | null
+  /** Id de la `Cotation__c` d'origine. L'Id, jamais le nom — la reprise des mandats a payé pour l'apprendre. */
+  id_salesforce?: string | null
   date_souhaitee: string | null
 }
 
