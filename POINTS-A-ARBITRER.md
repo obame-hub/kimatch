@@ -209,3 +209,23 @@ objet ? La réponse change le modèle de données, pas seulement l'écran.
 
 **En attendant.** Rien n'est scindé. C'est le premier point à trancher avant d'aller plus loin dans
 les maquettes Opportunité et Recommandation.
+
+---
+
+## 12. ENEDIS est classé « fournisseur »
+
+**Le constat.** `ENEDIS` figure parmi les 52 comptes de type fournisseur. Or c'est le
+**gestionnaire du réseau de distribution** : il n'a jamais vendu d'électricité et ne peut pas être
+consulté sur une offre.
+
+**Pourquoi ça compte.** L'assistant de cotation propose les comptes de type fournisseur : Enedis
+apparaît donc dans la liste des fournisseurs consultables. Un conseiller peut le cocher sans y
+penser, et la consultation partirait vers un acteur qui ne répondra jamais.
+
+**Ce que j'ai fait.** La migration `20260816190000` crée les fiches fournisseurs manquantes (32 sur
+33) mais **exclut Enedis explicitement** : lui en créer une ancrerait l'erreur au lieu de la
+signaler.
+
+**À décider.** Reclasser Enedis en distributeur / gestionnaire de réseau ? Il faudrait vérifier
+s'il existe un type de compte adapté, et si d'autres gestionnaires (GRDF, régies de distribution)
+sont dans le même cas.
