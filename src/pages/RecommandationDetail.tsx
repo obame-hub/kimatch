@@ -1,709 +1,230 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
-import { ArrowLeft, Mail, Lock, Trash2, Sparkle, RefreshCw, AlertTriangle, CheckCircle2, X, FileText } from 'lucide-react'
+import {
+  ArrowLeft,
+  Trash2,
+  Sparkle,
+  Plus,
+  FileText,
+  Zap,
+  Flame,
+  Copy,
+  FilePlus2,
+  Clock,
+  Phone,
+  ArrowLeftRight,
+} from 'lucide-react'
 import { Topbar } from '@/components/layout/Topbar'
 import { Button } from '@/components/ui/button'
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
-import { Badge } from '@/components/ui/badge'
-import { EntityLink } from '@/components/ui/entity-link'
-import { EtapeStepper } from '@/components/ui/etape-stepper'
 import { Dialog } from '@/components/ui/dialog'
-import { FormField, Input, Select, Textarea } from '@/components/ui/form'
 import { HistoriqueDiscret } from '@/components/ui/historique-discret'
 import { InlineField } from '@/components/ui/inline-field'
+import { ActivityFeed } from '@/components/site/ActivityFeed'
+import { RailCycleVie, etapeSuivanteDuRail } from '@/components/recommandation/RailCycleVie'
+import { ComparatifVersions, coutPrestationEstime } from '@/components/recommandation/ComparatifVersions'
+import { VoletGaucheReco } from '@/components/recommandation/VoletGaucheReco'
+import { OngletCommandeClient } from '@/components/recommandation/OngletCommandeClient'
+import { OngletPerimetre } from '@/components/recommandation/OngletPerimetre'
+import { OngletDocuments } from '@/components/recommandation/OngletDocuments'
+import { DetailVersion } from '@/components/recommandation/DetailVersion'
+import {
+  CotationWizard,
+  EnvoyerEmailDialog,
+  AjouterFournisseurConsulteDialog,
+  AjouterSuiviDialog,
+  type PrefillCotation,
+} from '@/components/recommandation/DialoguesReco'
+import { ContratWizard } from '@/components/contrat/ContratWizard'
 import { FINALITES_RECOMMANDATION, CLES_FINALITES, exigeDateReactivation, type CleFinalite } from '@/lib/finalitesRecommandation'
 import { cn } from '@/lib/utils'
 import {
   useRecommandation,
   useUpdateRecommandationPartiel,
+  useUpdateVersionPartiel,
   useCloturerRecommandation,
   useRouvrirRecommandation,
-  type PatchRecommandation,
+  useAvancerEtapeRecommandation,
   useDeleteRecommandation,
-  useAjouterFournisseurConsulte,
-  useAjouterSuiviConsultation,
-  useCreateVersion,
+  type PatchRecommandation,
 } from '@/lib/data/recommandations'
+import { useObjectifsRecommandation } from '@/lib/data/objectifsClient'
 import { useReferenceTable } from '@/lib/data/referenceTables'
 import { useContactsParCompte } from '@/lib/data/contacts'
-import { useComptes } from '@/lib/data/comptes'
+import { useCompte } from '@/lib/data/comptes'
 import { useCompteurs } from '@/lib/data/compteurs'
-import { useEligibilityRules } from '@/lib/data/eligibilityRules'
-import { useMappingRules } from '@/lib/data/mappingRules'
-import { checkEligibility, type EligibilityResult } from '@/lib/eligibility'
+import { useInteractionsParRecommandation } from '@/lib/data/interactions'
+import { useActionsParRecommandation, useCreateAction } from '@/lib/data/actions'
+import { useSignauxParRecommandation } from '@/lib/data/signaux'
+import { useDocumentsParEntites, useTeleverserDocuments } from '@/lib/data/documents'
+import { useCreateInteraction } from '@/lib/data/interactions'
 import { useCanManage, useIsAdmin, useProfilsAdmin } from '@/lib/data/roles'
 import { useSuppression } from '@/lib/useSuppression'
-import { sendEmail } from '@/lib/data/gmail'
-import { notifyEmail } from '@/lib/data/emailSettings'
-import { WizardConnectionGate } from '@/components/ui/connection-gate'
-import { ContratWizard } from '@/components/contrat/ContratWizard'
-import { FALLBACK_ETAPES_RECOMMANDATION, FALLBACK_STATUTS_VERSIONS, STATUT_VERSION_TONE } from '@/lib/referenceFallbacks'
 import { useGoBack } from '@/lib/useGoBack'
-import { ZONE_ORDER_COTATION, ZONE_LABEL_COTATION, zoneDuFournisseur } from '@/lib/fournisseurZones'
-import { computeEstimatedCommission } from '@/lib/commission'
-import type { Recommandation, VersionRecommandation, Optimisation, FournisseurConsulte } from '@/types/domain'
-import { trouverParCode } from '@/lib/codeReferentiel'
-const MISE_EN_CONCURRENCE = 'MISE_EN_CONCURRENCE'
+import { useRaccourcisOnglets } from '@/lib/useRaccourcisOnglets'
+import {
+  FALLBACK_ETAPES_RECOMMANDATION,
+  FALLBACK_STATUTS_VERSIONS,
+  FALLBACK_TYPES_DOCUMENTS,
+  FALLBACK_TYPES_ACTIONS,
+  FALLBACK_TYPES_INTERACTIONS,
+} from '@/lib/referenceFallbacks'
+import type { VersionRecommandation, Optimisation, FournisseurConsulte } from '@/types/domain'
 
-const DUREES_PRESETS = [12, 24, 36, 48, 60]
-
-function CotationWizard({ open, onClose, reco }: { open: boolean; onClose: () => void; reco: Recommandation }) {
-  const { data: comptes } = useComptes()
-  const { data: compteurs } = useCompteurs()
-  const { data: eligibilityRules } = useEligibilityRules()
-  const { data: mappingRules } = useMappingRules()
-  const { data: motifsRef } = useReferenceTable('motifs_versions_recommandation')
-  const { data: statutsVersionsRef } = useReferenceTable('statuts_versions_recommandation')
-  const { data: typesOptimisationsRef } = useReferenceTable('types_optimisations')
-  const { data: etapesRef } = useReferenceTable('etapes_recommandation')
-  const createVersion = useCreateVersion()
-
-  const estActualisation = reco.versions.length > 0
-  // Durées PAR PDL, comme Tools (StepCharacteristics.pdlDurations) : chaque compteur a sa propre
-  // sélection de 1 à 3 durées, et `durees` en est l'union aplatie -- c'est elle que consomment le
-  // moteur d'éligibilité et le calcul de commission.
-  const [dureesParCompteur, setDureesParCompteur] = useState<Record<string, number[]>>({})
-  const [dureeLibre, setDureeLibre] = useState<Record<string, string>>({})
-  const [typesPrix, setTypesPrix] = useState<string[]>(['Fixe'])
-  const [dateSouhaitee, setDateSouhaitee] = useState('')
-  const [fournisseurIds, setFournisseurIds] = useState<string[]>([])
-  const [feedback, setFeedback] = useState<string | null>(null)
-  const [toast, setToast] = useState<string | null>(null)
-  // Recherche dans la liste des fournisseurs -- réclamée par William : 52 fournisseurs répartis en
-  // zones, retrouver le bon à l'œil est pénible.
-  const [rechercheFournisseur, setRechercheFournisseur] = useState('')
-
-  function showToast(msg: string) {
-    setToast(msg)
-    setTimeout(() => setToast(null), 2200)
-  }
-
-  const compte = comptes?.find((c) => c.id === reco.compte_id)
-  // Mémoïsé : sans cela le tableau change d'identité à chaque rendu, ce qui invalide le `useMemo`
-  // de `resultats` en cascade et relance l'effet d'auto-éviction sans fin.
-  const compteursDeLaReco = useMemo(
-    () => (compteurs ?? []).filter((c) => (reco.compteur_ids ?? []).includes(c.id)),
-    [compteurs, reco.compteur_ids],
-  )
-
-  // Par défaut chaque PDL démarre à 36 mois (défaut historique de Kimatch, aligné sur le mandat).
-  useEffect(() => {
-    if (!open) return
-    setDureesParCompteur((prev) => {
-      const next = { ...prev }
-      let change = false
-      for (const c of compteursDeLaReco) {
-        if (!next[c.id]) { next[c.id] = [36]; change = true }
-      }
-      return change ? next : prev
-    })
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [open, compteursDeLaReco.map((c) => c.id).join(',')])
-
-  const durees = useMemo(
-    () => [...new Set(Object.values(dureesParCompteur).flat())].sort((a, b) => a - b),
-    [dureesParCompteur],
-  )
-
-  function toggleDuree(compteurId: string, d: number) {
-    setDureesParCompteur((prev) => {
-      const courant = prev[compteurId] ?? []
-      if (courant.includes(d)) return { ...prev, [compteurId]: courant.filter((x) => x !== d) }
-      if (courant.length >= 3) return prev
-      return { ...prev, [compteurId]: [...courant, d].sort((a, b) => a - b) }
-    })
-  }
-
-  // Saisie libre « Autre » + bouton « + » -- mêmes règles que `addCustomDuration` de Tools
-  // (StepCharacteristics) : entier 1-60, refusé si déjà présent ou si les 3 durées sont prises,
-  // saisie filtrée aux chiffres, validation à la touche Entrée.
-  function ajouterDureeLibre(compteurId: string) {
-    const num = parseInt(dureeLibre[compteurId] ?? '', 10)
-    if (!num || num < 1 || num > 60) return
-    const courant = dureesParCompteur[compteurId] ?? []
-    if (courant.includes(num) || courant.length >= 3) return
-    setDureesParCompteur((prev) => ({ ...prev, [compteurId]: [...courant, num].sort((a, b) => a - b) }))
-    setDureeLibre((prev) => ({ ...prev, [compteurId]: '' }))
-  }
-
-  // Comme Tools : on ne peut pas continuer tant qu'un PDL n'a aucune durée.
-  const toutesDureesRenseignees = compteursDeLaReco.every((c) => (dureesParCompteur[c.id] ?? []).length > 0)
-  function toggleTypePrix(t: string) {
-    setTypesPrix((prev) => (prev.includes(t) ? prev.filter((x) => x !== t) : [...prev, t]))
-  }
-  function toggleFournisseur(id: string) {
-    setFournisseurIds((prev) => (prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]))
-  }
-
-  const resultats: EligibilityResult[] = useMemo(() => {
-    if (!compte) return []
-    const fournisseurs = (comptes ?? []).filter((c) => c.type_compte === 'fournisseur' && c.fournisseur_actif !== false)
-    return fournisseurs.map((f) =>
-      checkEligibility(
-        f,
-        compte,
-        compteursDeLaReco,
-        { durations: durees, desiredDate: dateSouhaitee ? new Date(dateSouhaitee) : undefined, requestType: estActualisation ? 'actualisation' : 'premiere_demande' },
-        eligibilityRules ?? [],
-        mappingRules ?? [],
-      ),
-    )
-  }, [compte, comptes, compteursDeLaReco, durees, dateSouhaitee, estActualisation, eligibilityRules, mappingRules])
-
-  const commissionEstimee = useMemo(() => computeEstimatedCommission(compteursDeLaReco, durees), [compteursDeLaReco, durees])
-
-  const parZone = useMemo(() => {
-    const q = rechercheFournisseur.trim().toLowerCase()
-    const map = new Map<string, EligibilityResult[]>()
-    for (const r of resultats) {
-      if (q && !r.fournisseur.nom.toLowerCase().includes(q)) continue
-      const zone = zoneDuFournisseur(r.fournisseur.intermediary, r.fournisseur.partnership)
-      const list = map.get(zone) ?? []
-      list.push(r)
-      map.set(zone, list)
-    }
-    return map
-  }, [resultats, rechercheFournisseur])
-
-  // Auto-éviction : si un fournisseur choisi devient inéligible (changement de durée/date), on le
-  // retire automatiquement de la sélection avec un toast d'avertissement -- même comportement et
-  // même message que StepSuppliers.tsx dans Tools.
-  useEffect(() => {
-    setFournisseurIds((prev) => {
-      const kept = prev.filter((id) => resultats.find((r) => r.fournisseur.id === id)?.eligible)
-      const removedCount = prev.length - kept.length
-      // Renvoyer `prev` tel quel quand rien n'est retiré est INDISPENSABLE : `filter` produit
-      // toujours un nouveau tableau, donc une nouvelle référence d'état, donc un rendu de plus
-      // qui recalcule `resultats`, qui redéclenche cet effet — boucle infinie. Elle tournait en
-      // permanence (ce composant reste monté même dialogue fermé) et affamait React au point
-      // qu'aucun changement de route n'était jamais validé : l'URL changeait, la page non.
-      if (removedCount === 0) return prev
-      showToast(`${removedCount} fournisseur${removedCount > 1 ? 's' : ''} retiré${removedCount > 1 ? 's' : ''} de la sélection (devenu${removedCount > 1 ? 's' : ''} inéligible${removedCount > 1 ? 's' : ''})`)
-      return kept
-    })
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [resultats])
-
-  function reset() {
-    setDureesParCompteur({})
-    setDureeLibre({})
-    setTypesPrix(['Fixe'])
-    setDateSouhaitee('')
-    setFournisseurIds([])
-    setFeedback(null)
-  }
-
-  async function handleValider() {
-    // La toute première cotation est une « Création initiale », pas une actualisation -- c'est
-    // d'ailleurs ce que porte tout l'historique repris de Salesforce.
-    const codeMotif = estActualisation ? 'ACTUALISATION_MARCHE' : 'CREATION_INITIALE'
-    const motif = (motifsRef ?? []).find((m) => m.code === codeMotif) ?? (motifsRef ?? [])[0]
-    const statutBrouillon = trouverParCode(statutsVersionsRef, 'EN_CONSTRUCTION', 'BROUILLON')
-    const typeOptim = (typesOptimisationsRef ?? []).find((t) => t.code === MISE_EN_CONCURRENCE)
-    const etapeEnAnalyse = trouverParCode(etapesRef, 'CONSULTATION', 'EN_ANALYSE')
-
-    await createVersion.mutateAsync({
-      recommandation_id: reco.id,
-      compteur_ids: reco.compteur_ids ?? [],
-      motif_id: motif?.id ?? null,
-      statut_brouillon_id: statutBrouillon?.id ?? null,
-      type_optimisation_mise_en_concurrence_id: typeOptim?.id ?? null,
-      fournisseur_ids: fournisseurIds,
-      // Ces trois-là sont désormais VRAIMENT enregistrés (migration du 06/08/2026) et plus
-      // seulement résumés en texte libre.
-      durees_par_compteur: Object.fromEntries(
-        Object.entries(dureesParCompteur).filter(([, d]) => d.length > 0),
-      ),
-      types_prix: typesPrix,
-      date_souhaitee: dateSouhaitee || null,
-      resume: `Durée${durees.length > 1 ? 's' : ''} ${durees.join('/')} mois — ${typesPrix.join(', ')} — ${fournisseurIds.length} fournisseur${fournisseurIds.length > 1 ? 's' : ''} consulté${fournisseurIds.length > 1 ? 's' : ''} — commission estimée ${Math.round(commissionEstimee).toLocaleString('fr-FR')} €`,
-      contexte_et_hypotheses: dateSouhaitee ? `Date souhaitée : ${new Date(dateSouhaitee).toLocaleDateString('fr-FR')}` : null,
-      etape_en_analyse_id: etapeEnAnalyse?.id ?? null,
-    })
-    // Email de cotation -- Tools en envoie un à chaque cotation. Destinataires configurables dans
-    // Paramètres, comme pour la demande de contrat.
-    const nomsFournisseurs = fournisseurIds
-      .map((id) => resultats.find((r) => r.fournisseur.id === id)?.fournisseur.nom)
-      .filter(Boolean)
-      .join(', ')
-    void notifyEmail(
-      'cotation',
-      { cotationName: reco.titre, accountName: reco.compte_nom ?? '' },
-      [
-        `Une cotation vient d'être créée.`,
-        ``,
-        `Compte        : ${reco.compte_nom || '—'}`,
-        `Opportunité   : ${reco.titre}`,
-        `Durées        : ${durees.join(' / ')} mois`,
-        `Type de prix  : ${typesPrix.join(', ') || '—'}`,
-        `Date souhaitée : ${dateSouhaitee ? new Date(dateSouhaitee).toLocaleDateString('fr-FR') : '—'}`,
-        `Fournisseurs consultés (${fournisseurIds.length}) : ${nomsFournisseurs || '—'}`,
-        `Points de livraison : ${(reco.compteur_ids ?? []).length}`,
-        ``,
-        `${window.location.origin}/recommandations/${reco.id}`,
-      ].join('\n'),
-    )
-
-    setFeedback('Cotation créée.')
-    setTimeout(() => { reset(); onClose() }, 700)
-  }
-
-  return (
-    <Dialog
-      open={open}
-      onClose={() => { reset(); onClose() }}
-      title={estActualisation ? 'Actualiser la cotation' : 'Nouvelle cotation'}
-      description="Sélectionne les durées, la date souhaitée puis les fournisseurs à consulter — l'éligibilité est vérifiée automatiquement par PDL."
-      className="max-w-2xl"
-    >
-      <div className="max-h-[75vh] space-y-4 overflow-y-auto pr-1">
-      {/* Garde-fou de connexion, même emplacement et mêmes outils que dans Tools (CotationPage :
-          required={["salesforce","gmail"]}) -- les demandes de cotation partent depuis l'adresse
-          Gmail du commercial. */}
-      <WizardConnectionGate required={['crm', 'gmail']} feature="création de cotation">
-        {/* Une carte par PDL, chacune avec ses propres durées -- structure de Tools
-            (StepCharacteristics) : « Choisis les durées de contrat » puis une carte par compteur. */}
-        <div className="space-y-1">
-          <p className="text-sm font-medium text-navy-800">Choisis les durées de contrat</p>
-          <p className="text-xs text-navy-500">
-            Pour chaque compteur, sélectionne une ou plusieurs durées.
-          </p>
-        </div>
-        <div className="space-y-3">
-          {compteursDeLaReco.map((c) => {
-            const selection = dureesParCompteur[c.id] ?? []
-            const peutAjouter = selection.length < 3
-            const saisie = dureeLibre[c.id] ?? ''
-            return (
-              <div key={c.id} className={`rounded-xl border p-4 ${selection.length === 0 ? 'border-amber-300 bg-amber-50/40' : 'border-navy-100'}`}>
-                <div className="mb-3 flex items-start gap-3">
-                  <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-navy-50 text-base">
-                    {c.type_energie === 'gaz' ? '🔥' : '⚡'}
-                  </span>
-                  <div className="min-w-0">
-                    <p className="truncate text-sm font-semibold text-navy-800">{c.site_nom || 'Sans libellé'}</p>
-                    <p className="truncate font-mono text-[11px] text-navy-400">{c.numero_pdl}</p>
-                  </div>
-                  <span className="ml-auto shrink-0 text-xs text-navy-400">{selection.length}/3</span>
-                </div>
-
-                <div className="flex flex-wrap items-center gap-2">
-                  {DUREES_PRESETS.map((d) => {
-                    const isSelected = selection.includes(d)
-                    const isDisabled = !isSelected && !peutAjouter
-                    return (
-                      <button
-                        key={d}
-                        type="button"
-                        onClick={() => toggleDuree(c.id, d)}
-                        disabled={isDisabled}
-                        className={`inline-flex select-none items-center justify-center rounded-lg px-4 py-2 text-sm font-medium transition-all ${
-                          isSelected
-                            ? 'bg-kiwi-600 text-white shadow-sm hover:bg-kiwi-700'
-                            : isDisabled
-                              ? 'cursor-not-allowed bg-navy-50 text-navy-300'
-                              : 'bg-navy-100 text-navy-600 hover:bg-navy-200 hover:text-navy-800'
-                        }`}
-                      >
-                        {d} mois
-                      </button>
-                    )
-                  })}
-                  {/* Saisie libre « Autre » */}
-                  <div className="flex items-center gap-1.5">
-                    <input
-                      type="number"
-                      min={1}
-                      max={60}
-                      step={1}
-                      placeholder="Autre"
-                      value={saisie}
-                      onChange={(e) => setDureeLibre((prev) => ({ ...prev, [c.id]: e.target.value.replace(/\D/g, '') }))}
-                      onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); ajouterDureeLibre(c.id) } }}
-                      disabled={!peutAjouter}
-                      className="w-20 rounded-lg border border-navy-200 bg-white px-3 py-2 text-sm text-navy-800 placeholder:text-navy-400 focus:outline-none focus:ring-2 focus:ring-kiwi-500/20 disabled:cursor-not-allowed disabled:opacity-40 [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
-                    />
-                    <button
-                      type="button"
-                      onClick={() => ajouterDureeLibre(c.id)}
-                      disabled={!peutAjouter || !saisie}
-                      className="rounded-lg bg-kiwi-50 px-3 py-2 text-sm font-medium text-kiwi-700 transition-colors hover:bg-kiwi-100 disabled:cursor-not-allowed disabled:opacity-40"
-                    >
-                      +
-                    </button>
-                  </div>
-                </div>
-
-                {selection.length > 0 ? (
-                  <div className="mt-3 flex flex-wrap gap-2 border-t border-navy-100 pt-2">
-                    {selection.map((d) => (
-                      <button
-                        key={d}
-                        type="button"
-                        onClick={() => toggleDuree(c.id, d)}
-                        className="group inline-flex cursor-pointer items-center gap-2 rounded-lg bg-navy-50 px-3 py-1.5 text-sm transition-colors hover:bg-red-50"
-                      >
-                        <span className="font-medium text-navy-800">{d} mois</span>
-                        <X className="h-3 w-3 text-navy-400 group-hover:text-red-600" />
-                      </button>
-                    ))}
-                  </div>
-                ) : (
-                  <p className="mt-2 text-[11px] text-amber-700">Sélectionne au moins une durée pour ce PDL.</p>
-                )}
-              </div>
-            )
-          })}
-          {compteursDeLaReco.length === 0 && (
-            <p className="text-xs text-navy-400">Aucun PDL rattaché à cette recommandation.</p>
-          )}
-        </div>
-        <p className="rounded-lg border border-navy-100 bg-navy-50 px-3 py-2 text-xs text-navy-500">
-          Commission estimée : <span className="font-medium text-navy-700">{commissionEstimee.toLocaleString('fr-FR', { maximumFractionDigits: 0 })} €</span>
-          <span className="text-navy-400"> (C5 : forfait 140 €/PDL · autres : conso/12 × durée max × 3)</span>
-        </p>
-        <FormField label="Type de prix">
-          <div className="flex gap-4">
-            {['Fixe', 'Indexé'].map((t) => (
-              <label key={t} className="flex items-center gap-2 text-sm text-navy-700">
-                <input type="checkbox" checked={typesPrix.includes(t)} onChange={() => toggleTypePrix(t)} /> {t}
-              </label>
-            ))}
-          </div>
-        </FormField>
-        <FormField label="Date souhaitée">
-          <Input type="date" value={dateSouhaitee} onChange={(e) => setDateSouhaitee(e.target.value)} />
-        </FormField>
-
-        <div>
-          <div className="mb-2 flex items-center justify-between">
-            <p className="text-xs font-semibold uppercase tracking-wide text-navy-400">
-              Fournisseurs à consulter
-              {resultats.length > 0 && (
-                <span className="ml-1.5 normal-case text-navy-400">
-                  ({resultats.filter((r) => r.eligible).length} éligible{resultats.filter((r) => r.eligible).length > 1 ? 's' : ''} · {fournisseurIds.length} sélectionné{fournisseurIds.length > 1 ? 's' : ''})
-                </span>
-              )}
-            </p>
-            {resultats.some((r) => r.eligible) && (
-              <button
-                type="button"
-                className="text-xs font-medium text-kiwi-700 hover:underline"
-                onClick={() => {
-                  const eligibleIds = resultats.filter((r) => r.eligible).map((r) => r.fournisseur.id)
-                  const toutSelectionne = eligibleIds.length > 0 && eligibleIds.every((id) => fournisseurIds.includes(id))
-                  setFournisseurIds(toutSelectionne ? [] : eligibleIds)
-                }}
-              >
-                {resultats.filter((r) => r.eligible).every((r) => fournisseurIds.includes(r.fournisseur.id)) ? 'Tout désélectionner' : 'Tout sélectionner'}
-              </button>
-            )}
-          </div>
-          <Input
-            value={rechercheFournisseur}
-            onChange={(e) => setRechercheFournisseur(e.target.value)}
-            placeholder="Rechercher un fournisseur…"
-            className="mb-2"
-          />
-          <div className="space-y-3">
-            {[...ZONE_ORDER_COTATION, 'autre'].every((z) => (parZone.get(z) ?? []).length === 0) && (
-              <p className="rounded-lg border border-dashed border-navy-200 p-3 text-center text-xs text-navy-400">
-                Aucun fournisseur ne correspond à « {rechercheFournisseur} ».
-              </p>
-            )}
-            {[...ZONE_ORDER_COTATION, 'autre'].map((zone) => {
-              const list = parZone.get(zone) ?? []
-              if (list.length === 0) return null
-              return (
-                <div key={zone}>
-                  <p className="mb-1 text-[11px] font-semibold text-navy-500">{ZONE_LABEL_COTATION[zone] ?? 'Autre'}</p>
-                  <div className="space-y-1 rounded-lg border border-navy-200 p-2">
-                    {list.map((r) => (
-                      <label key={r.fournisseur.id} className={`flex items-start gap-2 rounded-md p-1.5 text-sm ${r.eligible ? 'text-navy-700 hover:bg-navy-50' : 'text-navy-300'}`}>
-                        <input type="checkbox" disabled={!r.eligible} checked={fournisseurIds.includes(r.fournisseur.id)} onChange={() => toggleFournisseur(r.fournisseur.id)} className="mt-0.5" />
-                        <span className="flex-1">
-                          {r.fournisseur.nom}
-                          {r.eligible ? (
-                            <CheckCircle2 className="ml-1.5 inline h-3 w-3 text-kiwi-600" />
-                          ) : (
-                            <span className="ml-1.5 inline-flex items-center gap-1 text-[11px] text-amber-600" title={r.reasons.join(' · ')}>
-                              <AlertTriangle className="h-3 w-3" /> {r.reasons[0]}
-                            </span>
-                          )}
-                        </span>
-                      </label>
-                    ))}
-                  </div>
-                </div>
-              )
-            })}
-            {resultats.length === 0 && <p className="text-xs text-navy-400">Aucun fournisseur actif configuré.</p>}
-          </div>
-        </div>
-
-        {feedback && <p className="text-xs text-navy-500">{feedback}</p>}
-        <div className="flex justify-end gap-2 border-t border-navy-100 pt-3">
-          <Button type="button" variant="ghost" onClick={() => { reset(); onClose() }}>Annuler</Button>
-          <Button type="button" onClick={handleValider} disabled={createVersion.isPending || !toutesDureesRenseignees || durees.length === 0 || fournisseurIds.length === 0}>
-            {estActualisation ? 'Actualiser' : 'Créer la cotation'}
-          </Button>
-        </div>
-      </WizardConnectionGate>
-      </div>
-      {toast && (
-        <div className="fixed bottom-6 left-1/2 z-50 -translate-x-1/2 whitespace-nowrap rounded-lg bg-ink-800 px-4 py-2.5 text-xs font-semibold text-white shadow-lg">
-          {toast}
-        </div>
-      )}
-    </Dialog>
-  )
-}
+/**
+ * Fiche Recommandation — portage de la maquette « Fiche Recommandation.dc.html » de William.
+ *
+ * Trois colonnes (volet gauche · onglets · fil d'activité) et quatre onglets : Recommandation,
+ * Commande du client, Périmètre, Documents. La page tenait auparavant en deux cartes empilées
+ * (« Dossier » et « Historique des versions »), ce qui déroulait toutes les versions les unes sous
+ * les autres sans jamais permettre de les comparer.
+ *
+ * ÉCARTS ASSUMÉS PAR RAPPORT AU DESSIN, tous pour la même raison — ne rien afficher qui n'existe
+ * pas en base :
+ *
+ *  · La référence « RC-2026-027 » : la colonne `reference` existe mais est vide sur les 1703
+ *    recommandations. La fiche affiche le nom du dossier, et la référence dès qu'il y en aura une.
+ *  · Le comparatif ne rend modifiables que les économies estimées ; le reste appartient à l'offre
+ *    retenue (voir l'en-tête de ComparatifVersions.tsx).
+ *  · La visionneuse PDF maison est remplacée par un vrai aperçu du vrai fichier.
+ *  · L'ordre des onglets suit le design : « Commande du client » passe en premier tant que le
+ *    dossier est au Diagnostic — à ce stade, ce qu'a demandé le client est ce qu'on vient lire.
+ */
 
 const PRIORITE_LABEL: Record<number, string> = { 1: 'Haute', 2: 'Normale', 3: 'Basse' }
 
-function EnvoyerEmailDialog({
-  open,
-  onClose,
-  reco,
-  version,
-  defaultEmail,
-}: {
-  open: boolean
-  onClose: () => void
-  reco: Recommandation
-  version: VersionRecommandation
-  defaultEmail: string
-}) {
-  const [to, setTo] = useState(defaultEmail)
-  const [subject, setSubject] = useState(`KiWee Énergie — ${reco.titre}${version.nom ? ` (${version.nom})` : ''}`)
-  const [text, setText] = useState(
-    `Bonjour,\n\nVoici notre recommandation "${reco.titre}"${version.nom ? ` (${version.nom})` : ''} :\n${version.resume}\n\nCordialement,`,
-  )
-  const [sending, setSending] = useState(false)
-  const [feedback, setFeedback] = useState<string | null>(null)
-
-  async function envoyer() {
-    setSending(true)
-    setFeedback(null)
-    try {
-      await sendEmail({ to, subject, text })
-      setFeedback('Email envoyé ✓')
-      setTimeout(onClose, 1200)
-    } catch (e) {
-      setFeedback(e instanceof Error ? e.message : 'Erreur inconnue')
-    } finally {
-      setSending(false)
-    }
-  }
-
-  return (
-    <Dialog open={open} onClose={onClose} title="Envoyer par email" description="Envoie cette version au destinataire choisi depuis votre propre compte Gmail.">
-      <div className="space-y-3">
-        <FormField label="Destinataire">
-          <Input type="email" value={to} onChange={(e) => setTo(e.target.value)} placeholder="email@exemple.fr" />
-        </FormField>
-        <FormField label="Objet">
-          <Input value={subject} onChange={(e) => setSubject(e.target.value)} />
-        </FormField>
-        <FormField label="Message">
-          <Textarea rows={6} value={text} onChange={(e) => setText(e.target.value)} />
-        </FormField>
-        {feedback && <p className="text-xs text-navy-600">{feedback}</p>}
-        <div className="flex justify-end gap-2 pt-2">
-          <Button type="button" variant="ghost" onClick={onClose}>Annuler</Button>
-          <Button type="button" onClick={envoyer} disabled={sending || !to}>
-            {sending ? 'Envoi…' : 'Envoyer'}
-          </Button>
-        </div>
-      </div>
-    </Dialog>
-  )
-}
-
-function AjouterFournisseurConsulteDialog({
-  open,
-  onClose,
-  optimisation,
-}: {
-  open: boolean
-  onClose: () => void
-  optimisation: Optimisation | null
-}) {
-  const { data: comptes } = useComptes()
-  const fournisseurs = (comptes ?? []).filter((c) => c.type_compte === 'fournisseur')
-  const ajouter = useAjouterFournisseurConsulte()
-
-  const [fournisseurId, setFournisseurId] = useState('')
-  const [feedback, setFeedback] = useState<string | null>(null)
-
-  function reset() {
-    setFournisseurId('')
-    setFeedback(null)
-  }
-
-  async function handleSubmit(e: React.FormEvent) {
-    e.preventDefault()
-    const fournisseur = fournisseurs.find((f) => f.id === fournisseurId)
-    if (!optimisation || !fournisseur) return
-    try {
-      await ajouter.mutateAsync({ optimisationId: optimisation.id, fournisseurCompteId: fournisseur.id, fournisseurNom: fournisseur.nom })
-      reset()
-      onClose()
-    } catch (err) {
-      setFeedback(err instanceof Error ? err.message : 'Erreur inconnue')
-    }
-  }
-
-  return (
-    <Dialog open={open} onClose={() => { reset(); onClose() }} title="Ajouter un fournisseur consulté" description="Suivi de mise en concurrence — qui a été sollicité pour cette optimisation.">
-      <form onSubmit={handleSubmit} className="space-y-3">
-        <FormField label="Fournisseur">
-          <Select value={fournisseurId} onChange={(e) => setFournisseurId(e.target.value)} required>
-            <option value="">Sélectionner…</option>
-            {fournisseurs.map((f) => <option key={f.id} value={f.id}>{f.nom}</option>)}
-          </Select>
-        </FormField>
-        {feedback && <p className="text-xs text-red-600">{feedback}</p>}
-        <div className="flex justify-end gap-2 pt-2">
-          <Button type="button" variant="ghost" onClick={() => { reset(); onClose() }}>Annuler</Button>
-          <Button type="submit" disabled={ajouter.isPending}>Ajouter</Button>
-        </div>
-      </form>
-    </Dialog>
-  )
-}
-
-function AjouterSuiviDialog({
-  open,
-  onClose,
-  optimisationId,
-  fournisseurConsulte,
-}: {
-  open: boolean
-  onClose: () => void
-  optimisationId: string | null
-  fournisseurConsulte: FournisseurConsulte | null
-}) {
-  const { data: statutsRef } = useReferenceTable('statuts_consultations_fournisseurs')
-  const ajouter = useAjouterSuiviConsultation()
-
-  const [statutId, setStatutId] = useState('')
-  const [commentaire, setCommentaire] = useState('')
-  const [feedback, setFeedback] = useState<string | null>(null)
-
-  function reset() {
-    setStatutId('')
-    setCommentaire('')
-    setFeedback(null)
-  }
-
-  async function handleSubmit(e: React.FormEvent) {
-    e.preventDefault()
-    const statut = (statutsRef ?? []).find((s) => s.id === statutId)
-    if (!fournisseurConsulte || !optimisationId || !statut) return
-    try {
-      await ajouter.mutateAsync({
-        optimisationId,
-        optimisationFournisseurId: fournisseurConsulte.id,
-        statutId: statut.id,
-        statutLibelle: statut.libelle,
-        commentaire: commentaire || null,
-      })
-      reset()
-      onClose()
-    } catch (err) {
-      setFeedback(err instanceof Error ? err.message : 'Erreur inconnue')
-    }
-  }
-
-  return (
-    <Dialog
-      open={open}
-      onClose={() => { reset(); onClose() }}
-      title="Suivi de consultation"
-      description={fournisseurConsulte ? `Nouvel événement pour ${fournisseurConsulte.fournisseur_nom}.` : undefined}
-    >
-      <form onSubmit={handleSubmit} className="space-y-3">
-        <FormField label="Statut">
-          <Select value={statutId} onChange={(e) => setStatutId(e.target.value)} required>
-            <option value="">Sélectionner…</option>
-            {(statutsRef ?? []).map((s) => <option key={s.id} value={s.id}>{s.libelle}</option>)}
-          </Select>
-        </FormField>
-        <FormField label="Commentaire">
-          <Textarea rows={3} value={commentaire} onChange={(e) => setCommentaire(e.target.value)} placeholder="Optionnel" />
-        </FormField>
-        {feedback && <p className="text-xs text-red-600">{feedback}</p>}
-        <div className="flex justify-end gap-2 pt-2">
-          <Button type="button" variant="ghost" onClick={() => { reset(); onClose() }}>Annuler</Button>
-          <Button type="submit" disabled={ajouter.isPending}>Enregistrer</Button>
-        </div>
-      </form>
-    </Dialog>
-  )
-}
+type CleOnglet = 'reco' | 'cmd' | 'perimetre' | 'docs'
 
 export default function RecommandationDetail() {
   const { id } = useParams()
   const navigate = useNavigate()
-  // Perimetre de la fiche, lu cote serveur : la recommandation etait cherchee dans les 1694 du
-  // CRM, et ses contacts dans les 3380 (meme correctif que les fiches compte et site).
   const { data: reco } = useRecommandation(id)
   const { data: etapesRef } = useReferenceTable('etapes_recommandation')
   const { data: statutsVersionsRef } = useReferenceTable('statuts_versions_recommandation')
+  const { data: typesDocumentsRef } = useReferenceTable('types_documents')
+  const { data: typesActionsRef } = useReferenceTable('types_actions')
+  const { data: typesInteractionsRef } = useReferenceTable('types_interactions')
+  const { data: statutsActionsRef } = useReferenceTable('statuts_actions')
   const { data: contacts } = useContactsParCompte(reco?.compte_id)
-  const [emailDialogVersion, setEmailDialogVersion] = useState<VersionRecommandation | null>(null)
-  const [confirmDelete, setConfirmDelete] = useState(false)
-  const [ajouterFournisseurFor, setAjouterFournisseurFor] = useState<Optimisation | null>(null)
-  const [showCotationWizard, setShowCotationWizard] = useState(false)
-  const [showContratWizard, setShowContratWizard] = useState(false)
-  const [suiviFor, setSuiviFor] = useState<{ optimisationId: string; fc: FournisseurConsulte } | null>(null)
+  const { data: compte } = useCompte(reco?.compte_id)
+  const { data: compteurs } = useCompteurs()
+  const { data: objectifs } = useObjectifsRecommandation(reco?.id)
+
+  // Fil d'activité : les trois sources filtrées côté serveur sur la recommandation elle-même.
+  const { data: interactions } = useInteractionsParRecommandation(reco?.id)
+  const { data: actions } = useActionsParRecommandation(reco?.id)
+  const { data: signaux } = useSignauxParRecommandation(reco?.id)
+  // Documents du dossier ET de chacune de ses versions — l'onglet les range par version.
+  const entitesDocuments = useMemo(
+    () => (reco ? [reco.id, ...reco.versions.map((v) => v.id)] : undefined),
+    [reco],
+  )
+  const { data: documents } = useDocumentsParEntites(entitesDocuments)
+
   const etapes = etapesRef && etapesRef.length > 0 ? etapesRef : FALLBACK_ETAPES_RECOMMANDATION
   const statutsVersions = statutsVersionsRef && statutsVersionsRef.length > 0 ? statutsVersionsRef : FALLBACK_STATUTS_VERSIONS
+  const typesDocuments = typesDocumentsRef && typesDocumentsRef.length > 0 ? typesDocumentsRef : FALLBACK_TYPES_DOCUMENTS
+
   const canManage = useCanManage(reco?.proprietaire_id)
   const isAdmin = useIsAdmin()
   const { data: profilsAdmin } = useProfilsAdmin()
-  const deleteRecommandation = useDeleteRecommandation()
-  const goBack = useGoBack('/recommandations')
 
-  // Edition en place : la modale « Modifier » disparait.
   const updateRecoPartiel = useUpdateRecommandationPartiel()
-  const majReco = async (patch: PatchRecommandation) => {
-    await updateRecoPartiel.mutateAsync({ id: id as string, patch })
-  }
-  // Clôture — voir le panneau plus bas. `estClose` se lit sur la finalité et non sur l'étape :
-  // une recommandation peut être posée sur l'étape Clôture sans qualification finale (c'est le
-  // cas de 130 lignes en base), et l'inverse n'existe pas.
+  const updateVersion = useUpdateVersionPartiel()
   const cloturerReco = useCloturerRecommandation()
   const rouvrirReco = useRouvrirRecommandation()
+  const avancerEtape = useAvancerEtapeRecommandation()
+  const deleteRecommandation = useDeleteRecommandation()
+  const televerser = useTeleverserDocuments()
+  const createAction = useCreateAction()
+  const createInteraction = useCreateInteraction()
+  const suppression = useSuppression()
+  const goBack = useGoBack('/recommandations')
+
+  const [onglet, setOnglet] = useState<CleOnglet>('reco')
+  const [versionAfficheeId, setVersionAfficheeId] = useState<string | null>(null)
   const [clotureOuverte, setClotureOuverte] = useState(false)
   const [finaliteChoisie, setFinaliteChoisie] = useState<CleFinalite | null>(null)
   const [motifBrouillon, setMotifBrouillon] = useState('')
   const [reactivationBrouillon, setReactivationBrouillon] = useState('')
-  const estClose = Boolean(reco?.finalite_cloture && FINALITES_RECOMMANDATION[reco.finalite_cloture as CleFinalite])
+  const [nouvelleVersionOuverte, setNouvelleVersionOuverte] = useState(false)
+  const [wizardCotation, setWizardCotation] = useState<{ prefill: PrefillCotation | null } | null>(null)
+  const [showContratWizard, setShowContratWizard] = useState(false)
+  const [emailDialogVersion, setEmailDialogVersion] = useState<VersionRecommandation | null>(null)
+  const [ajouterFournisseurFor, setAjouterFournisseurFor] = useState<Optimisation | null>(null)
+  const [suiviFor, setSuiviFor] = useState<{ optimisationId: string; fc: FournisseurConsulte } | null>(null)
+  const [confirmDelete, setConfirmDelete] = useState(false)
+  const [coutOuvert, setCoutOuvert] = useState(false)
+  const [coutBrouillon, setCoutBrouillon] = useState('')
+  const [toast, setToast] = useState<string | null>(null)
+
+  function signaler(message: string) {
+    setToast(message)
+    setTimeout(() => setToast(null), 2400)
+  }
+
+  const retourInline = {
+    onSaved: () => signaler('✓ enregistré'),
+    onError: (e: Error) => signaler(`Erreur : ${e.message}`),
+  }
+
+  const majReco = async (patch: PatchRecommandation) => {
+    await updateRecoPartiel.mutateAsync({ id: id as string, patch })
+  }
+
+  // `estClose` se lit sur la finalité et non sur l'étape : une recommandation peut être posée sur
+  // l'étape Clôture sans qualification finale (130 lignes en base), et l'inverse n'existe pas.
+  const finalite = (reco?.finalite_cloture ?? null) as CleFinalite | null
+  const estClose = Boolean(finalite && FINALITES_RECOMMANDATION[finalite])
+
+  // Version affichée : celle choisie à la main, sinon l'active, sinon la plus récente. Les versions
+  // arrivent déjà triées du plus récent au plus ancien.
+  const versionAffichee = useMemo(() => {
+    if (!reco || reco.versions.length === 0) return null
+    return (
+      reco.versions.find((v) => v.id === versionAfficheeId)
+      ?? reco.versions.find((v) => v.version_actuelle)
+      ?? reco.versions[0]
+    )
+  }, [reco, versionAfficheeId])
+
+  const versionActive = reco?.versions.find((v) => v.version_actuelle) ?? reco?.versions[0] ?? null
+  const contactPrincipal =
+    contacts?.find((c) => c.id === reco?.contact_signataire_id)
+    ?? contacts?.find((c) => c.contact_principal)
+    ?? contacts?.[0]
+
+  /**
+   * Ordre des onglets : « Commande du client » d'abord tant que le dossier est au Diagnostic et pas
+   * clos — c'est la règle `cmdFirst` de la maquette. À ce stade il n'y a encore rien à comparer, et
+   * ce qu'on ouvre la fiche pour lire, c'est la demande du client.
+   */
+  const commandeDabord = reco?.etape === 'DIAGNOSTIC' && !estClose
+  const onglets: { cle: CleOnglet; libelle: string; badge?: string }[] = useMemo(() => {
+    const cmd = { cle: 'cmd' as CleOnglet, libelle: 'Commande du client', badge: (objectifs ?? []).length > 0 ? `${(objectifs ?? []).length} obj.` : undefined }
+    const rec = { cle: 'reco' as CleOnglet, libelle: 'Recommandation', badge: reco && reco.versions.length > 0 ? `${reco.versions.length} vers.` : undefined }
+    return [
+      ...(commandeDabord ? [cmd, rec] : [rec, cmd]),
+      { cle: 'perimetre', libelle: 'Périmètre', badge: (reco?.compteur_ids ?? []).length > 0 ? String((reco?.compteur_ids ?? []).length) : undefined },
+      { cle: 'docs', libelle: 'Documents', badge: (documents ?? []).length > 0 ? String((documents ?? []).length) : undefined },
+    ]
+  }, [commandeDabord, objectifs, reco, documents])
+
+  useRaccourcisOnglets(
+    useMemo(() => onglets.map((o) => o.cle), [onglets]),
+    setOnglet,
+  )
+
+  // L'onglet par défaut suit la même règle que l'ordre : au Diagnostic, on ouvre sur la commande.
+  useEffect(() => {
+    if (commandeDabord) setOnglet('cmd')
+  }, [commandeDabord])
+
+  const etapeSuivante = reco ? etapeSuivanteDuRail(etapes, reco.etape) : null
   const clotureValide = Boolean(
     finaliteChoisie
     && motifBrouillon.trim()
     && (!exigeDateReactivation(finaliteChoisie) || reactivationBrouillon.trim()),
   )
-
-  const [toastFiche, setToastFiche] = useState<string | null>(null)
-  const retourInline = {
-    onSaved: () => {
-      setToastFiche('✓ enregistré')
-      setTimeout(() => setToastFiche(null), 2200)
-    },
-    onError: (e: Error) => {
-      setToastFiche(`Erreur : ${e.message}`)
-      setTimeout(() => setToastFiche(null), 2200)
-    },
-  }
-  const contactPrincipal = contacts?.find((c) => c.compte_id === reco?.compte_id && c.contact_principal)
-
-  function signaler(message: string) {
-    setToastFiche(message)
-    setTimeout(() => setToastFiche(null), 2200)
-  }
 
   async function confirmerCloture() {
     if (!reco || !finaliteChoisie) return signaler('Choisissez une qualification finale')
@@ -720,7 +241,13 @@ export default function RecommandationDetail() {
         etapeClotureId: etapes.find((e) => e.code === 'CLOTURE')?.id ?? null,
       })
       setClotureOuverte(false)
-      signaler(`✓ Clôturée : ${FINALITES_RECOMMANDATION[finaliteChoisie].libelle}`)
+      signaler(
+        finaliteChoisie === 'ACCEPTEE'
+          ? '✓ Recommandation acceptée'
+          : finaliteChoisie === 'REFUSEE'
+            ? '✗ Recommandation refusée'
+            : '— Recommandation expirée',
+      )
     } catch (e) {
       signaler(`Erreur : ${e instanceof Error ? e.message : String(e)}`)
     }
@@ -729,8 +256,8 @@ export default function RecommandationDetail() {
   async function rouvrir() {
     if (!reco) return
     try {
-      // Retour sur la première étape active du cycle, pas sur une étape codée en dur : les
-      // étapes sont pilotées par la table de référence et ont déjà changé une fois (12/08).
+      // Retour sur la première étape active du cycle, pas sur une étape codée en dur : les étapes
+      // sont pilotées par la table de référence et ont déjà changé une fois (12/08).
       await rouvrirReco.mutateAsync({
         id: reco.id,
         etapeReouvertureId: etapes.find((e) => e.code !== 'CLOTURE')?.id ?? null,
@@ -741,7 +268,15 @@ export default function RecommandationDetail() {
     }
   }
 
-  const suppression = useSuppression()
+  async function avancer() {
+    if (!reco || !etapeSuivante) return
+    try {
+      await avancerEtape.mutateAsync({ id: reco.id, etapeSuivanteId: etapeSuivante.id })
+      signaler(`→ Étape suivante : ${etapeSuivante.libelle}`)
+    } catch (e) {
+      signaler(`Erreur : ${e instanceof Error ? e.message : String(e)}`)
+    }
+  }
 
   function handleDelete() {
     if (!reco) return
@@ -751,525 +286,677 @@ export default function RecommandationDetail() {
     )
   }
 
-  return (
-    <div>
-      <Topbar crumb="Recommandations" title={reco?.titre ?? 'Recommandation'} />
-      <div className="p-4 sm:p-6">
-        <Button variant="ghost" size="sm" className="mb-4" onClick={goBack}>
-          <ArrowLeft className="h-4 w-4" />
-          Retour aux recommandations
-        </Button>
+  /** « Rappel » du fil d'activité : une tâche à demain 9 h, rattachée à la recommandation. */
+  async function planifierRappel() {
+    if (!reco) return
+    const types = typesActionsRef && typesActionsRef.length > 0 ? typesActionsRef : FALLBACK_TYPES_ACTIONS
+    const type = types.find((t) => t.code === 'RELANCE') ?? types.find((t) => t.code === 'APPEL') ?? types[0]
+    const statut = (statutsActionsRef ?? []).find((s) => s.code === 'A_FAIRE') ?? (statutsActionsRef ?? [])[0]
+    const demain = new Date()
+    demain.setDate(demain.getDate() + 1)
+    demain.setHours(9, 0, 0, 0)
+    try {
+      await createAction.mutateAsync({
+        titre: `Suivre la recommandation ${reco.titre}`,
+        type_action_id: type?.id ?? null,
+        type_action_libelle: type?.libelle ?? 'Relance',
+        site_id: reco.sites[0]?.id ?? null,
+        site_nom: reco.sites[0]?.nom ?? '',
+        contact_id: contactPrincipal?.id ?? null,
+        contact_nom: contactPrincipal ? `${contactPrincipal.prenom} ${contactPrincipal.nom}` : '',
+        priorite: reco.priorite,
+        echeance: demain.toISOString(),
+        commentaire: 'Rappel planifié depuis la fiche Recommandation.',
+        statut_id: statut?.id ?? null,
+        recommandation_id: reco.id,
+        recommandation_titre: reco.titre,
+      })
+      signaler('⏰ Rappel planifié demain 09:00')
+    } catch (e) {
+      signaler(`Erreur : ${e instanceof Error ? e.message : String(e)}`)
+    }
+  }
 
-        {!reco ? (
-          <p className="text-sm text-navy-500">Recommandation introuvable.</p>
-        ) : (
+  /** « Loguer un appel » : une interaction d'appel sortant sur la recommandation. */
+  async function loguerAppel() {
+    if (!reco) return
+    const types = typesInteractionsRef && typesInteractionsRef.length > 0 ? typesInteractionsRef : FALLBACK_TYPES_INTERACTIONS
+    const type = types.find((t) => t.code === 'APPEL') ?? types[0]
+    try {
+      await createInteraction.mutateAsync({
+        type_interaction_id: type?.id ?? null,
+        type_interaction_libelle: type?.libelle ?? 'Appel',
+        date_interaction: new Date().toISOString(),
+        sens: 'sortant',
+        objet: contactPrincipal ? `Appel — ${contactPrincipal.prenom} ${contactPrincipal.nom}` : 'Appel sortant',
+        resume: null,
+        resultat: null,
+        compte_id: reco.compte_id || null,
+        compte_nom: reco.compte_nom,
+        site_id: reco.sites[0]?.id ?? null,
+        site_nom: reco.sites[0]?.nom ?? '',
+        contact_id: contactPrincipal?.id ?? null,
+        contact_nom: contactPrincipal ? `${contactPrincipal.prenom} ${contactPrincipal.nom}` : '',
+        issue_interaction_id: null,
+        recommandation_id: reco.id,
+        recommandation_nom: reco.titre,
+      })
+      signaler('📞 Appel loggé — complétez le compte rendu depuis le fil')
+    } catch (e) {
+      signaler(`Erreur : ${e instanceof Error ? e.message : String(e)}`)
+    }
+  }
+
+  if (!reco) {
+    return (
+      <div>
+        <Topbar crumb="Recommandations" title="Recommandation" />
+        <div className="p-4 sm:p-6">
+          <Button variant="ghost" size="sm" className="mb-4" onClick={goBack}>
+            <ArrowLeft className="h-4 w-4" />
+            Retour aux recommandations
+          </Button>
+          <p className="text-sm text-navy-500">{id ? 'Recommandation introuvable.' : 'Chargement…'}</p>
+        </div>
+      </div>
+    )
+  }
+
+  const coutSuggere = coutPrestationEstime(versionAffichee?.gains_estimes)
+  const filActivite = (
+    <ActivityFeed
+      compteId={reco.compte_id}
+      compteNom={reco.compte_nom}
+      siteId={reco.sites[0]?.id ?? null}
+      siteNom={reco.sites[0]?.nom ?? ''}
+      signaux={signaux ?? []}
+      interactions={interactions ?? []}
+      actions={actions ?? []}
+      documents={documents ?? []}
+      recommandationId={reco.id}
+      recommandationNom={reco.titre}
+      actionsRapides={
+        canManage ? (
           <>
-            <Card className="mb-4 p-6">
-              <div className="mb-5 flex items-center justify-between gap-3">
-                <div className="flex items-center gap-3">
-                  <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-amber-100 text-amber-600">
-                    <Sparkle className="h-5 w-5" />
-                  </span>
-                  {canManage ? (
-                    <div className="min-w-0 flex-1">
-                      <InlineField
-                        variant="text"
-                        value={reco.titre}
-                        className="font-display text-lg font-semibold text-navy-900"
-                        // `nom` est NOT NULL en base -- et c'est la seule colonne affichee dans la
-                        // liste des recommandations : vide, la ligne devient introuvable.
-                        onCommit={async (titre) => {
-                          if (titre.trim() === '') throw new Error('Le titre de la recommandation est obligatoire.')
-                          await majReco({ nom: titre.trim() })
-                        }}
-                        {...retourInline}
-                      />
-                    </div>
-                  ) : (
-                    <p className="font-display text-lg font-semibold text-navy-900">{reco.titre}</p>
+            <button
+              type="button"
+              onClick={planifierRappel}
+              disabled={createAction.isPending}
+              className="inline-flex flex-1 items-center justify-center gap-1.5 rounded-kw-md border border-kw-border-strong bg-white px-1 py-[7px] text-kw-sm font-bold text-kw-amber-dark hover:border-[#e0c48a] hover:bg-kw-amber-light disabled:opacity-60"
+            >
+              <Clock className="h-[11px] w-[11px]" /> Rappel
+            </button>
+            <button
+              type="button"
+              onClick={loguerAppel}
+              disabled={createInteraction.isPending}
+              className="inline-flex flex-1 items-center justify-center gap-1.5 rounded-kw-md border border-kw-border-strong bg-white px-1 py-[7px] text-kw-sm font-bold text-kw-green hover:border-[#c4ddd3] hover:bg-kw-green-tint disabled:opacity-60"
+            >
+              <Phone className="h-[11px] w-[11px]" /> Loguer un appel
+            </button>
+          </>
+        ) : undefined
+      }
+    />
+  )
+
+  return (
+    <div className="flex h-[calc(100vh-52px-56px)] flex-col overflow-hidden md:h-[calc(100vh-52px)]">
+      <Topbar crumb="Recommandations" title={reco.titre} />
+
+      {/* ── Bandeau ── */}
+      <div className="flex flex-none flex-wrap items-center gap-3.5 border-b border-kw-border bg-white px-4 py-3 sm:px-6">
+        <Button variant="ghost" size="icon" onClick={goBack} title="Retour aux recommandations">
+          <ArrowLeft className="h-4 w-4" />
+        </Button>
+        <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-[10px] text-white" style={{ background: 'linear-gradient(135deg,#8a4b2a,#cf9a5e)' }}>
+          <Sparkle className="h-[18px] w-[18px]" />
+        </span>
+        <div className="min-w-0 flex-1">
+          <div className="flex flex-wrap items-center gap-2.5">
+            {/* La référence quand elle existe (aucune des 1703 n'en a aujourd'hui), le nom sinon —
+                et c'est le nom qui reste modifiable, puisque c'est lui qui identifie le dossier
+                dans les listes. */}
+            {reco.reference && (
+              <span className="font-mono text-[15px] font-bold tracking-[-0.01em] text-kw-ink">{reco.reference}</span>
+            )}
+            {canManage ? (
+              <InlineField
+                variant="text"
+                value={reco.titre}
+                className="text-[17px] font-bold tracking-tight text-kw-ink"
+                onCommit={async (titre) => {
+                  // `nom` est NOT NULL en base -- et c'est la seule colonne affichée dans la liste
+                  // des recommandations : vide, la ligne devient introuvable.
+                  if (titre.trim() === '') throw new Error('Le titre de la recommandation est obligatoire.')
+                  await majReco({ nom: titre.trim() })
+                }}
+                {...retourInline}
+              />
+            ) : (
+              <span className="text-[17px] font-bold tracking-tight text-kw-ink">{reco.titre}</span>
+            )}
+            <span
+              className="whitespace-nowrap rounded-kw-pill border px-[11px] py-[3px] text-kw-xs font-extrabold tracking-[0.05em]"
+              style={
+                estClose && finalite
+                  ? { color: FINALITES_RECOMMANDATION[finalite].couleur, background: FINALITES_RECOMMANDATION[finalite].fond, borderColor: FINALITES_RECOMMANDATION[finalite].bordure }
+                  : { color: '#8a4b2a', background: '#f7ece3', borderColor: '#ecdcc2' }
+              }
+            >
+              {estClose && finalite
+                ? FINALITES_RECOMMANDATION[finalite].libelle.toUpperCase()
+                : `EN COURS${versionActive ? ` · ${versionActive.nom || `V${versionActive.numero_version ?? ''}`} ACTIVE` : ''}`}
+            </span>
+            {reco.type_energie && (
+              <span
+                className={cn(
+                  'inline-flex items-center gap-1.5 whitespace-nowrap rounded-kw-pill border px-2.5 py-[3px] text-kw-xs font-bold tracking-[0.04em]',
+                  reco.type_energie === 'gaz'
+                    ? 'border-[#c9dcea] bg-kw-gas-light text-kw-gas'
+                    : 'border-[#f2dd96] bg-kw-gold-light text-kw-gold',
+                )}
+              >
+                {reco.type_energie === 'gaz' ? <Flame className="h-[11px] w-[11px]" /> : <Zap className="h-[11px] w-[11px]" />}
+                {reco.type_energie === 'gaz' ? 'GAZ' : 'ÉLECTRICITÉ'}
+              </span>
+            )}
+          </div>
+          <p className="mt-0.5 truncate text-kw-xs text-kw-faint">
+            {reco.compte_nom} · créée le {new Date(reco.date_creation).toLocaleDateString('fr-FR')}
+            {reco.conseiller ? ` · ${reco.conseiller}` : ''}
+          </p>
+        </div>
+
+        <div className="hidden items-center gap-1.5 lg:flex">
+          {canManage && (
+            <Button size="sm" onClick={() => setNouvelleVersionOuverte((v) => !v)}>
+              <Plus className="h-3.5 w-3.5" />
+              Nouvelle version
+            </Button>
+          )}
+          {canManage && reco.versions.length > 0 && (
+            <Button variant="outline" size="sm" onClick={() => setShowContratWizard(true)}>
+              <FileText className="h-3.5 w-3.5" />
+              Demande de contrat
+            </Button>
+          )}
+          {canManage && (
+            <Button variant="outline" size="sm" onClick={() => setConfirmDelete(true)}>
+              <Trash2 className="h-3.5 w-3.5" />
+              Supprimer
+            </Button>
+          )}
+        </div>
+
+        {/* Propriétaire — réattribuable par un administrateur, comme dans le design. */}
+        <div className="hidden flex-none flex-col items-start gap-0.5 rounded-kw-xl border border-kw-border-subtle bg-kw-subtle px-2.5 py-1.5 lg:flex">
+          {isAdmin ? (
+            <InlineField
+              variant="select"
+              label="Propriétaire"
+              emptyLabel="aucun"
+              value={reco.proprietaire_id ?? ''}
+              options={(profilsAdmin ?? []).map((p) => ({ value: p.id, label: `${p.prenom} ${p.nom}` }))}
+              onCommit={(v) => majReco({ proprietaire_id: v || null })}
+              {...retourInline}
+            />
+          ) : (
+            <span className="text-kw-xs font-bold text-kw-label">
+              <ArrowLeftRight className="mr-1 inline h-2.5 w-2.5 text-kw-ghost" />
+              {reco.conseiller || 'Sans propriétaire'}
+            </span>
+          )}
+          {canManage ? (
+            <InlineField
+              variant="select"
+              label="Priorité"
+              value={String(reco.priorite)}
+              options={Object.entries(PRIORITE_LABEL).map(([value, label]) => ({ value, label }))}
+              onCommit={(v) => majReco({ priorite: Number(v) })}
+              {...retourInline}
+            />
+          ) : (
+            <span className="whitespace-nowrap text-kw-tiny text-kw-faint">
+              Priorité {PRIORITE_LABEL[reco.priorite] ?? reco.priorite}
+            </span>
+          )}
+        </div>
+      </div>
+
+      {/* ── Onglets ── */}
+      <div className="flex flex-none gap-0.5 overflow-x-auto border-b border-kw-border bg-white px-4 pt-2.5 sm:px-6">
+        {onglets.map((o) => {
+          const actif = onglet === o.cle
+          return (
+            <button
+              key={o.cle}
+              type="button"
+              onClick={() => setOnglet(o.cle)}
+              className={cn(
+                'inline-flex shrink-0 items-center gap-1.5 whitespace-nowrap border-b-[2.5px] px-3.5 py-2.5 text-kw-xl font-semibold transition-colors',
+                actif ? 'border-[#8a4b2a] text-kw-ink' : 'border-transparent text-kw-meta hover:text-kw-ink',
+              )}
+            >
+              {o.libelle}
+              {o.badge && (
+                <span
+                  className={cn(
+                    'rounded-[9px] px-[7px] py-px text-[9.5px] font-extrabold',
+                    actif ? 'bg-kw-amber-light text-[#8a4b2a]' : 'bg-kw-muted text-kw-meta',
                   )}
-                </div>
-                {canManage && (
-                  <div className="flex shrink-0 items-center gap-1.5">
-                    {/* Plus de bouton « Modifier » : titre, priorite, description et note interne
-                        s'editent la ou ils s'affichent. */}
-                    {estClose ? (
-                      <Button variant="outline" size="sm" onClick={rouvrir} disabled={rouvrirReco.isPending}>
-                        <RefreshCw className="h-3.5 w-3.5" />
-                        {rouvrirReco.isPending ? 'Réouverture…' : 'Rouvrir'}
-                      </Button>
-                    ) : (
-                      <Button variant="outline" size="sm" onClick={() => { setClotureOuverte(true); setFinaliteChoisie(null); setMotifBrouillon('') }}>
-                        <Lock className="h-3.5 w-3.5" />
-                        Clôturer
-                      </Button>
+                >
+                  {o.badge}
+                </span>
+              )}
+            </button>
+          )
+        })}
+        <div className="flex-1" />
+        <span className="hidden self-center font-mono text-kw-xs text-kw-ghost lg:inline">
+          1–{onglets.length} pour naviguer
+        </span>
+      </div>
+
+      {/* ── 3 colonnes ── */}
+      <div className="grid flex-1 grid-cols-1 overflow-hidden lg:grid-cols-[256px_minmax(0,1fr)_292px]">
+        {/* Volet gauche */}
+        <div className="hidden border-r border-kw-border lg:block">
+          <VoletGaucheReco
+            reco={reco}
+            compte={compte}
+            contacts={contacts ?? []}
+            contactPrincipal={contactPrincipal}
+            versionAffichee={versionAffichee}
+            onChoisirVersion={(v) => { setVersionAfficheeId(v.id); setOnglet('reco') }}
+            onMajContactSignataire={async (contactId) => {
+              try {
+                await majReco({ contact_signataire_id: contactId })
+                signaler('✓ Contact principal mis à jour')
+              } catch (e) {
+                signaler(`Erreur : ${e instanceof Error ? e.message : String(e)}`)
+              }
+            }}
+            coutEstimeSuggere={coutSuggere}
+            onFixerCout={() => {
+              setCoutBrouillon(
+                reco.cout_prestation_reel != null
+                  ? String(reco.cout_prestation_reel)
+                  : reco.cout_prestation_estime != null
+                    ? String(reco.cout_prestation_estime)
+                    : coutSuggere != null
+                      ? String(coutSuggere)
+                      : '',
+              )
+              setCoutOuvert(true)
+            }}
+            onDefinirEstime={async (montant) => {
+              try {
+                await majReco({ cout_prestation_estime: montant })
+                signaler(`✓ Coût estimé : ${montant.toLocaleString('fr-FR')} €`)
+              } catch (e) {
+                signaler(`Erreur : ${e instanceof Error ? e.message : String(e)}`)
+              }
+            }}
+            peutModifier={canManage}
+            signaler={signaler}
+          />
+        </div>
+
+        {/* Centre */}
+        <div className="overflow-y-auto bg-kw-bg px-4 py-4 sm:px-5">
+          {onglet === 'reco' && (
+            <div className="flex animate-kw-fade-slide flex-col gap-3.5">
+              <RailCycleVie
+                etapes={etapes}
+                codeCourant={reco.etape}
+                finalite={estClose ? finalite : null}
+                peutModifier={canManage}
+                clotureOuverte={clotureOuverte}
+                onOuvrirCloture={() => {
+                  setClotureOuverte((v) => !v)
+                  setFinaliteChoisie(null)
+                  setMotifBrouillon('')
+                }}
+                onAvancer={avancer}
+                onRouvrir={rouvrir}
+                avanceEnCours={avancerEtape.isPending}
+              >
+                {clotureOuverte && !estClose && (
+                  <div className="mt-2.5 animate-kw-fade-slide rounded-kw-xl border-[1.5px] border-[#dcc39c] bg-kw-amber-light px-[13px] py-[11px]">
+                    <div className="mb-2 flex flex-wrap items-center gap-2">
+                      <span className="min-w-[160px] flex-1 self-center text-kw-base text-kw-meta">
+                        Quelle clôture a eu lieu ?
+                      </span>
+                      {/* Les trois finalités de la base, pas les cinq du dessin : remapper aurait
+                          réinterprété 1573 recommandations closes (décision du 16/08/2026). */}
+                      {CLES_FINALITES.map((cle) => {
+                        const f = FINALITES_RECOMMANDATION[cle]
+                        const actif = finaliteChoisie === cle
+                        return (
+                          <button
+                            key={cle}
+                            type="button"
+                            onClick={() => setFinaliteChoisie(cle)}
+                            className="rounded-kw-md px-3.5 py-2 text-kw-md font-bold transition-colors"
+                            style={{
+                              color: actif ? '#fff' : f.couleur,
+                              background: actif ? f.couleur : '#fff',
+                              border: `1.5px solid ${f.bordure}`,
+                              boxShadow: actif ? `0 3px 9px ${f.couleur}4d` : 'none',
+                            }}
+                          >
+                            {cle === 'ACCEPTEE' ? '✓ ' : cle === 'REFUSEE' ? '✗ ' : '— '}
+                            {f.libelle}
+                          </button>
+                        )
+                      })}
+                    </div>
+                    <label className="mb-1 block text-kw-xs font-bold uppercase tracking-wide text-kw-faint" htmlFor="motif-cloture">
+                      Motif <span className="text-kw-red">*</span>
+                    </label>
+                    <textarea
+                      id="motif-cloture"
+                      rows={2}
+                      value={motifBrouillon}
+                      onChange={(e) => setMotifBrouillon(e.target.value)}
+                      placeholder="Pourquoi cette recommandation est-elle close ?"
+                      className="w-full rounded-kw-md border border-kw-border-strong bg-white px-2.5 py-1.5 text-kw-lg text-kw-ink outline-none focus:ring-1 focus:ring-kw-green"
+                    />
+                    {/* La date de réactivation n'apparaît que si la finalité l'exige. Aucune des
+                        trois valeurs actuelles ne le fait ; le champ est prêt pour le jour où une
+                        finalité de report sera ajoutée. */}
+                    {finaliteChoisie && exigeDateReactivation(finaliteChoisie) && (
+                      <div className="mt-2">
+                        <label className="mb-1 block text-kw-xs font-bold uppercase tracking-wide text-kw-faint" htmlFor="date-reactivation">
+                          Date de réactivation <span className="text-kw-red">*</span>
+                        </label>
+                        <input
+                          id="date-reactivation"
+                          type="date"
+                          value={reactivationBrouillon}
+                          onChange={(e) => setReactivationBrouillon(e.target.value)}
+                          className="rounded-kw-md border border-kw-border-strong bg-white px-2.5 py-1.5 font-mono text-kw-lg text-kw-ink outline-none focus:ring-1 focus:ring-kw-green"
+                        />
+                      </div>
                     )}
-                    <Button variant="outline" size="sm" onClick={() => setConfirmDelete(true)}>
-                      <Trash2 className="h-3.5 w-3.5" />
-                      Supprimer
-                    </Button>
+                    <div className="mt-2.5 flex items-center justify-end gap-2">
+                      <Button type="button" variant="ghost" size="sm" onClick={() => setClotureOuverte(false)}>
+                        Annuler
+                      </Button>
+                      <Button type="button" size="sm" onClick={confirmerCloture} disabled={!clotureValide || cloturerReco.isPending}>
+                        {cloturerReco.isPending ? 'Clôture…' : 'Confirmer la clôture'}
+                      </Button>
+                    </div>
                   </div>
                 )}
-              </div>
+              </RailCycleVie>
 
-              {/* Clôture — le geste de la maquette « Fiche Opportunité » : on choisit une
-                  qualification finale, on dit POURQUOI, et le bouton reste inactif tant que les
-                  deux ne sont pas là. Les finalités sont les trois de la base (décision de
-                  Naoëlle le 16/08/2026) et non les cinq du design : remapper aurait réinterprété
-                  1573 recommandations closes. */}
-              {clotureOuverte && !estClose && (
-                <div className="mt-3 rounded-xl border border-amber-200 bg-amber-50/60 p-3.5">
-                  <p className="mb-2 text-[10px] font-bold uppercase tracking-wide text-navy-500">Clôturer la recommandation</p>
-                  <div className="mb-3 flex flex-wrap gap-2">
-                    {CLES_FINALITES.map((cle) => {
-                      const f = FINALITES_RECOMMANDATION[cle]
-                      const actif = finaliteChoisie === cle
-                      return (
-                        <button
-                          key={cle}
-                          type="button"
-                          onClick={() => setFinaliteChoisie(cle)}
-                          className="rounded-lg border px-3.5 py-1.5 text-[11.5px] font-bold transition-colors"
-                          style={{
-                            color: actif ? '#fff' : f.couleur,
-                            background: actif ? f.couleur : f.fond,
-                            borderColor: f.bordure,
-                          }}
-                        >
-                          {f.libelle}
-                        </button>
-                      )
-                    })}
-                  </div>
-                  <label className="mb-1 block text-[10px] font-bold uppercase tracking-wide text-navy-400" htmlFor="motif-cloture">
-                    Motif <span className="text-red-500">*</span>
-                  </label>
-                  <textarea
-                    id="motif-cloture"
-                    rows={2}
-                    value={motifBrouillon}
-                    onChange={(e) => setMotifBrouillon(e.target.value)}
-                    placeholder="Pourquoi cette recommandation est-elle close ?"
-                    className="w-full rounded-lg border border-navy-200 bg-white px-2.5 py-1.5 text-xs text-navy-800 outline-none focus:ring-1 focus:ring-kiwi-500"
-                  />
-                  {/* La date de réactivation n'apparaît que si la finalité l'exige. Aucune des
-                      trois valeurs actuelles ne le fait ; le champ est prêt pour le jour où une
-                      finalité de report sera ajoutée. */}
-                  {finaliteChoisie && exigeDateReactivation(finaliteChoisie) && (
-                    <div className="mt-2">
-                      <label className="mb-1 block text-[10px] font-bold uppercase tracking-wide text-navy-400" htmlFor="date-reactivation">
-                        Date de réactivation <span className="text-red-500">*</span>
-                      </label>
-                      <input
-                        id="date-reactivation"
-                        type="date"
-                        value={reactivationBrouillon}
-                        onChange={(e) => setReactivationBrouillon(e.target.value)}
-                        className="rounded-lg border border-navy-200 bg-white px-2.5 py-1.5 font-mono text-xs text-navy-800 outline-none focus:ring-1 focus:ring-kiwi-500"
-                      />
-                    </div>
-                  )}
-                  <div className="mt-3 flex items-center justify-end gap-2">
-                    <Button type="button" variant="ghost" size="sm" onClick={() => setClotureOuverte(false)}>Annuler</Button>
-                    <Button type="button" size="sm" onClick={confirmerCloture} disabled={!clotureValide || cloturerReco.isPending}>
-                      {cloturerReco.isPending ? 'Clôture…' : 'Confirmer la clôture'}
-                    </Button>
-                  </div>
-                </div>
-              )}
-
-              {/* Une fois close, la fiche dit laquelle et pourquoi -- c'est tout l'objet du motif
+              {/* Une fois close, la fiche dit laquelle et pourquoi — c'est tout l'objet du motif
                   obligatoire : le dossier se relit sans avoir à demander à son auteur. */}
-              {estClose && (
+              {estClose && finalite && (
                 <div
-                  className="mt-3 rounded-xl border p-3.5"
+                  className="rounded-kw-xl border px-3.5 py-3"
                   style={{
-                    background: FINALITES_RECOMMANDATION[reco.finalite_cloture as CleFinalite].fond,
-                    borderColor: FINALITES_RECOMMANDATION[reco.finalite_cloture as CleFinalite].bordure,
+                    background: FINALITES_RECOMMANDATION[finalite].fond,
+                    borderColor: FINALITES_RECOMMANDATION[finalite].bordure,
                   }}
                 >
                   <div className="flex flex-wrap items-center gap-2">
-                    <span
-                      className="rounded-xl px-3 py-1 text-[10px] font-extrabold uppercase tracking-wide"
-                      style={{
-                        color: FINALITES_RECOMMANDATION[reco.finalite_cloture as CleFinalite].couleur,
-                        background: '#fff',
-                      }}
-                    >
-                      {FINALITES_RECOMMANDATION[reco.finalite_cloture as CleFinalite].libelle}
-                    </span>
                     {reco.date_cloture && (
-                      <span className="font-mono text-[11px] text-navy-500">
+                      <span className="font-mono text-kw-base text-kw-label">
                         close le {new Date(reco.date_cloture).toLocaleDateString('fr-FR')}
                       </span>
                     )}
                     {reco.date_reactivation && (
-                      <span className="font-mono text-[11px] text-navy-500">
+                      <span className="font-mono text-kw-base text-kw-label">
                         · à reprendre le {new Date(reco.date_reactivation).toLocaleDateString('fr-FR')}
                       </span>
                     )}
                   </div>
                   {reco.motif_cloture ? (
-                    <p className="mt-2 text-xs text-navy-700">{reco.motif_cloture}</p>
+                    <p className="mt-1.5 text-kw-lg text-kw-body">{reco.motif_cloture}</p>
                   ) : (
-                    <p className="mt-2 text-[11px] italic text-navy-400">
-                      Motif non renseigné — cette recommandation a été close avant que le motif ne soit demandé.
+                    <p className="mt-1.5 text-kw-base italic text-kw-faint">
+                      Motif non renseigné — cette recommandation a été close avant que le motif ne
+                      soit demandé.
                     </p>
                   )}
                 </div>
               )}
 
-              <EtapeStepper steps={etapes} currentCode={reco.etape} />
-            </Card>
-
-            <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
-              <Card className="lg:col-span-1">
-                <CardHeader>
-                  <CardTitle>Dossier</CardTitle>
-                </CardHeader>
-                <CardContent className="space-y-2 text-sm">
-                  <p><span className="text-navy-400">Compte :</span> <EntityLink to={`/comptes/${reco.compte_id}`}>{reco.compte_nom}</EntityLink></p>
-                  <p>
-                    <span className="text-navy-400">Sites :</span>{' '}
-                    {reco.sites.map((s, i) => (
-                      <span key={s.id}>
-                        {i > 0 && ', '}
-                        <EntityLink to={`/sites/${s.id}`}>{s.nom}</EntityLink>
-                      </span>
-                    ))}
-                  </p>
-                  {reco.origine && <p><span className="text-navy-400">Origine :</span> {reco.origine}</p>}
-                  {/* Edition en place : la priorite se change ici plutot que dans une modale.
-                      Elle vaut 1, 2 ou 3 en base ; on presente les libelles, pas les chiffres. */}
-                  {canManage ? (
-                    <InlineField
-                      variant="select"
-                      label="Priorité"
-                      value={String(reco.priorite)}
-                      options={Object.entries(PRIORITE_LABEL).map(([value, label]) => ({ value, label }))}
-                      onCommit={(v) => majReco({ priorite: Number(v) })}
-                      {...retourInline}
-                    />
-                  ) : (
-                    <p><span className="text-navy-400">Priorité :</span> {PRIORITE_LABEL[reco.priorite] ?? reco.priorite}</p>
-                  )}
-                  <p><span className="text-navy-400">Conseiller :</span> {reco.conseiller}</p>
-                  {isAdmin && (
-                    <InlineField
-                      variant="select"
-                      label="Propriétaire"
-                      emptyLabel="aucun"
-                      value={reco.proprietaire_id ?? ''}
-                      options={(profilsAdmin ?? []).map((p) => ({ value: p.id, label: `${p.prenom} ${p.nom}` }))}
-                      onCommit={(v) => majReco({ proprietaire_id: v || null })}
-                      {...retourInline}
-                    />
-                  )}
-                  <p><span className="text-navy-400">Créée le :</span> {new Date(reco.date_creation).toLocaleDateString('fr-FR')}</p>
-                  {reco.type_energie && <p><span className="text-navy-400">Énergie :</span> {reco.type_energie === 'gaz' ? 'Gaz' : 'Électricité'}</p>}
-                  {/* « Opportunité » est le mot de Salesforce et de Tools ; dans Kimatch on dit
-                      « recommandation » partout dans l'interface (demande de William, 15/08/2026).
-                      Le champ garde son nom en base, seul le libellé change. */}
-                  {reco.type_opportunite && <p><span className="text-navy-400">Type de recommandation :</span> {reco.type_opportunite}</p>}
-                  {reco.date_cloture && <p><span className="text-navy-400">Clôture visée :</span> {new Date(reco.date_cloture).toLocaleDateString('fr-FR')}</p>}
-                  {reco.contact_signataire_id && (
-                    <div className="space-y-1 rounded-lg bg-navy-50 p-2.5">
-                      <p className="text-[11px] font-semibold uppercase tracking-wide text-navy-400">Contact</p>
-                      <p><EntityLink to={`/contacts/${reco.contact_signataire_id}`}>{reco.contact_signataire_nom}</EntityLink></p>
-                      {reco.contact_signataire_email && <p className="text-xs text-navy-500">{reco.contact_signataire_email}</p>}
-                      {reco.contact_signataire_telephone && <p className="text-xs text-navy-500">{reco.contact_signataire_telephone}</p>}
-                    </div>
-                  )}
-                  {(reco.marge_brute != null || reco.marge_nette != null || reco.marge_nette_coeff != null || reco.marge_apporteur != null) && (
-                    <div className="space-y-1 rounded-lg bg-navy-50 p-2.5">
-                      <p className="text-[11px] font-semibold uppercase tracking-wide text-navy-400">Marges</p>
-                      {reco.marge_brute != null && <p><span className="text-navy-400">Marge brute :</span> {reco.marge_brute.toLocaleString('fr-FR')} €</p>}
-                      {reco.marge_nette != null && <p><span className="text-navy-400">Marge nette :</span> {reco.marge_nette.toLocaleString('fr-FR')} €</p>}
-                      {reco.marge_nette_coeff != null && <p><span className="text-navy-400">Marge nette avec coeff :</span> {reco.marge_nette_coeff.toLocaleString('fr-FR')} €</p>}
-                      {reco.marge_apporteur != null && <p><span className="text-navy-400">Marge apporteur d'affaires :</span> {reco.marge_apporteur.toLocaleString('fr-FR')} €</p>}
-                      {reco.marge_nette_mwh != null && <p><span className="text-navy-400">Marge nette par MWh :</span> {reco.marge_nette_mwh.toLocaleString('fr-FR')} €/MWh</p>}
-                    </div>
-                  )}
-
-                  {/* L'affaire elle-meme : montant, fournisseur retenu, duree, et l'ecart avec le
-                      contrat precedent. Champs repris de l'opportunite Salesforce le 15/08/2026 —
-                      « le montant n'est pas affiche sur toutes les recos » venait de leur absence
-                      en base, pas de l'affichage. Ils restent nuls sur les recommandations que le
-                      rapprochement par nom n'a pas pu identifier sans ambiguite. */}
-                  {(reco.montant != null || reco.fournisseur_nom || reco.duree_mois != null
-                    || reco.budget_ancienne_offre != null || reco.difference_budgetaire != null
-                    || reco.commission_nette != null) && (
-                    <div className="space-y-1 rounded-lg bg-kiwi-50 p-2.5">
-                      <p className="text-[11px] font-semibold uppercase tracking-wide text-navy-400">L'affaire</p>
-                      {reco.montant != null && (
-                        <p><span className="text-navy-400">Montant :</span> <span className="font-semibold text-navy-800">{reco.montant.toLocaleString('fr-FR')} €</span></p>
-                      )}
-                      {reco.fournisseur_nom && (
-                        <p><span className="text-navy-400">Fournisseur :</span>{' '}
-                          {reco.fournisseur_compte_id
-                            ? <EntityLink to={`/comptes/${reco.fournisseur_compte_id}`}>{reco.fournisseur_nom}</EntityLink>
-                            : reco.fournisseur_nom}
-                        </p>
-                      )}
-                      {reco.duree_mois != null && <p><span className="text-navy-400">Durée :</span> {reco.duree_mois} mois</p>}
-                      {reco.volume_contractuel != null && <p><span className="text-navy-400">Volume :</span> {reco.volume_contractuel.toLocaleString('fr-FR')} MWh</p>}
-                      {reco.budget_ancienne_offre != null && <p><span className="text-navy-400">Budget ancienne offre :</span> {reco.budget_ancienne_offre.toLocaleString('fr-FR')} €</p>}
-                      {reco.budget_nouvelle_offre != null && <p><span className="text-navy-400">Budget nouvelle offre :</span> {reco.budget_nouvelle_offre.toLocaleString('fr-FR')} €</p>}
-                      {reco.difference_budgetaire != null && (
-                        <p>
-                          <span className="text-navy-400">Différence budgétaire annuelle :</span>{' '}
-                          <span className={cn('font-semibold', reco.difference_budgetaire < 0 ? 'text-kiwi-700' : 'text-navy-800')}>
-                            {reco.difference_budgetaire.toLocaleString('fr-FR')} €
-                            {reco.difference_budgetaire_pourcentage != null && ` (${reco.difference_budgetaire_pourcentage.toLocaleString('fr-FR')} %)`}
-                          </span>
-                        </p>
-                      )}
-                      {reco.commission_nette != null && <p><span className="text-navy-400">Commission nette KiWee :</span> {reco.commission_nette.toLocaleString('fr-FR')} €</p>}
-                      {reco.commission_interne != null && <p><span className="text-navy-400">Commission interne :</span> {reco.commission_interne.toLocaleString('fr-FR')} €</p>}
-                      {reco.remuneration_apporteur != null && <p><span className="text-navy-400">Rémunération apporteur :</span> {reco.remuneration_apporteur.toLocaleString('fr-FR')} €</p>}
-                    </div>
-                  )}
-                  {/* Description et note interne : elles n'apparaissaient PAS quand elles etaient
-                      vides, donc rien n'invitait a les remplir et il fallait ouvrir la modale pour
-                      decouvrir qu'elles existaient. Elles s'affichent maintenant en pointille
-                      cliquable. La note interne garde son fond ambre : elle ne sort pas au client. */}
-                  {canManage ? (
-                    <>
-                      <InlineField
-                        variant="longtext"
-                        label="Description"
-                        emptyLabel="ajouter une description"
-                        rows={4}
-                        value={reco.description ?? ''}
-                        onCommit={(v) => majReco({ description: v.trim() || null })}
-                        {...retourInline}
-                      />
-                      <div className="rounded-lg bg-amber-50 p-2">
-                        <InlineField
-                          variant="longtext"
-                          label="Note interne"
-                          emptyLabel="ajouter une note interne"
-                          rows={3}
-                          value={reco.commentaire_interne ?? ''}
-                          onCommit={(v) => majReco({ commentaire_interne: v.trim() || null })}
-                          {...retourInline}
-                        />
-                      </div>
-                    </>
-                  ) : (
-                    <>
-                      {reco.description && <p className="text-navy-600">{reco.description}</p>}
-                      {reco.commentaire_interne && (
-                        <p className="rounded-lg bg-amber-50 p-2 text-xs text-amber-800">Note interne : {reco.commentaire_interne}</p>
-                      )}
-                    </>
-                  )}
-                  <HistoriqueDiscret tableNom="recommandations" ligneId={reco.id} />
-                </CardContent>
-              </Card>
-
-              <Card className="lg:col-span-2">
-                <CardHeader>
-                  <CardTitle>Historique des versions</CardTitle>
-                  {canManage && (
-                    <div className="flex gap-2">
-                      <Button size="sm" variant="outline" onClick={() => setShowCotationWizard(true)}>
-                        <RefreshCw className="h-3.5 w-3.5" />
-                        {reco.versions.length > 0 ? 'Actualiser' : 'Nouvelle cotation'}
-                      </Button>
-                      {/* Fin du circuit : la demande de contrat part de l'opportunité, comme Tools.
-                          Elle n'a de sens qu'une fois une cotation produite. */}
-                      {reco.versions.length > 0 && (
-                        <Button size="sm" onClick={() => setShowContratWizard(true)}>
-                          <FileText className="h-3.5 w-3.5" />
-                          Demande de contrat
-                        </Button>
-                      )}
-                    </div>
-                  )}
-                </CardHeader>
-                <CardContent className="space-y-3">
-                  {reco.versions.length === 0 && (
-                    <p className="text-sm text-navy-400">Aucune version produite pour le moment — analyse en cours.</p>
-                  )}
-                  {reco.versions.map((version) => {
-                    const statutLabel = statutsVersions.find((s) => s.code === version.statut)?.libelle ?? version.statut
+              {/* Sélecteur de version */}
+              {reco.versions.length > 0 && (
+                <div className="flex flex-wrap items-center gap-2">
+                  {reco.versions.map((v) => {
+                    const affichee = versionAffichee?.id === v.id
+                    const remplacee = !v.version_actuelle
                     return (
-                      <div key={version.id} className="rounded-lg border border-navy-100 p-4">
-                        <div className="flex items-center justify-between gap-2">
-                          <p className="flex items-center gap-1.5 text-sm font-semibold text-navy-800">
-                            {version.nom || 'Version'}
-                            {version.est_figee && <Lock className="h-3 w-3 text-navy-400" />}
-                          </p>
-                          <div className="flex items-center gap-1.5">
-                            {version.version_actuelle && <Badge tone="kiwi">Actuelle</Badge>}
-                            <Badge tone={STATUT_VERSION_TONE[version.statut] ?? 'neutral'}>{statutLabel}</Badge>
-                          </div>
-                        </div>
-                        <p className="mt-1 text-sm text-navy-600">{version.resume}</p>
-                        {version.contexte_et_hypotheses && <p className="mt-1 text-xs text-navy-500">{version.contexte_et_hypotheses}</p>}
-
-                        <div className="mt-2 flex flex-wrap gap-3 text-xs text-navy-400">
-                          {version.economie_pourcentage !== null && (
-                            <span>Économie : <span className="font-medium text-kiwi-700">{version.economie_pourcentage}%</span></span>
-                          )}
-                          {version.niveau_confiance !== null && <span>Confiance : {version.niveau_confiance}%</span>}
-                          {version.date_presentation_client && (
-                            <span>Présentée le {new Date(version.date_presentation_client).toLocaleDateString('fr-FR')}</span>
-                          )}
-                          {version.date_decision_client && (
-                            <span>Décision le {new Date(version.date_decision_client).toLocaleDateString('fr-FR')}</span>
-                          )}
-                        </div>
-
-                        <div className="mt-2 flex items-center justify-between text-xs text-navy-400">
-                          <span>Motif : {version.motif_creation}</span>
-                          {version.gains_estimes !== null && (
-                            <span className="font-medium text-kiwi-700">Gain estimé : {version.gains_estimes.toLocaleString('fr-FR')} €</span>
-                          )}
-                        </div>
-                        {version.contact_id && (
-                          <div className="mt-1 text-xs text-navy-400">
-                            Contact de la cotation : <EntityLink to={`/contacts/${version.contact_id}`}>{version.contact_nom}</EntityLink>
-                          </div>
-                        )}
-
-                        {version.optimisations.length > 0 && (
-                          <div className="mt-3 space-y-2 border-t border-navy-100 pt-3">
-                            {version.optimisations.map((optimisation) => (
-                              <div key={optimisation.id} className="pl-2">
-                                <div className="flex items-center justify-between">
-                                  <p className="text-xs font-medium text-navy-600">{optimisation.nom || optimisation.type_optimisation}</p>
-                                  {optimisation.est_retenue && <Badge tone="kiwi">Retenue</Badge>}
-                                </div>
-                                {optimisation.gain_estime_annuel !== null && (
-                                  <p className="text-[11px] text-navy-500">
-                                    Gain estimé : {optimisation.gain_estime_annuel.toLocaleString('fr-FR')} €/an
-                                    {optimisation.roi_mois !== null ? ` · ROI ${optimisation.roi_mois} mois` : ''}
-                                  </p>
-                                )}
-                                {optimisation.offres.length === 0 ? (
-                                  <p className="pl-2 text-xs text-navy-400">Aucune offre pour cette optimisation.</p>
-                                ) : (
-                                  <div className="mt-1 space-y-1.5 pl-2">
-                                    {optimisation.offres.map((offre) => (
-                                      <div key={offre.id} className="rounded-md bg-navy-50 px-2.5 py-1.5">
-                                        <div className="flex items-center justify-between">
-                                          <div>
-                                            <p className="text-xs font-medium text-navy-800">{offre.fournisseur_nom}</p>
-                                            <p className="text-[11px] text-navy-500">{offre.nom || offre.reference_offre}{offre.duree_mois ? ` · ${offre.duree_mois} mois` : ''}</p>
-                                          </div>
-                                          <div className="text-right">
-                                            {offre.montant_annuel_ht !== null && (
-                                              <p className="text-xs font-semibold text-navy-800">{offre.montant_annuel_ht.toLocaleString('fr-FR')} €/an</p>
-                                            )}
-                                            {offre.economie_pourcentage !== null && (
-                                              <p className="text-[11px] font-medium text-kiwi-700">-{offre.economie_pourcentage}%</p>
-                                            )}
-                                          </div>
-                                        </div>
-                                        {offre.details_par_compteur.length > 0 && (
-                                          <details className="mt-1.5">
-                                            <summary className="cursor-pointer text-[10.5px] text-navy-400 hover:text-navy-600">
-                                              Détail par compteur ({offre.details_par_compteur.length})
-                                            </summary>
-                                            <div className="mt-1 space-y-1 border-t border-navy-100 pt-1.5">
-                                              {offre.details_par_compteur.map((d) => (
-                                                <div key={d.id} className="flex items-center justify-between text-[11px]">
-                                                  <span className="text-navy-600">{d.compteur_label || '—'}</span>
-                                                  <span className="font-medium text-navy-700">
-                                                    {d.cout_total_annuel_estime_ht !== null ? `${d.cout_total_annuel_estime_ht.toLocaleString('fr-FR')} €/an` : '—'}
-                                                    {d.economie_pourcentage !== null ? ` · -${d.economie_pourcentage}%` : ''}
-                                                  </span>
-                                                </div>
-                                              ))}
-                                            </div>
-                                          </details>
-                                        )}
-                                      </div>
-                                    ))}
-                                  </div>
-                                )}
-
-                                {optimisation.type_optimisation_code === MISE_EN_CONCURRENCE && (
-                                  <div className="mt-2 border-t border-navy-100 pt-2">
-                                    <div className="flex items-center justify-between">
-                                      <p className="text-[10.5px] font-semibold uppercase tracking-wide text-navy-400">Fournisseurs consultés</p>
-                                      <button
-                                        type="button"
-                                        onClick={() => setAjouterFournisseurFor(optimisation)}
-                                        className="text-[11px] font-medium text-kiwi-700 hover:underline"
-                                      >
-                                        + Ajouter
-                                      </button>
-                                    </div>
-                                    {optimisation.fournisseurs_consultes.length === 0 ? (
-                                      <p className="pl-2 text-xs text-navy-400">Aucun fournisseur consulté pour l'instant.</p>
-                                    ) : (
-                                      <div className="mt-1 space-y-1">
-                                        {optimisation.fournisseurs_consultes.map((fc) => (
-                                          <div key={fc.id} className="flex items-center justify-between rounded-md bg-navy-50 px-2.5 py-1.5">
-                                            <div>
-                                              <p className="text-xs font-medium text-navy-800">{fc.fournisseur_nom}</p>
-                                              {fc.historique.length > 0 && (
-                                                <details className="mt-0.5">
-                                                  <summary className="cursor-pointer text-[10.5px] text-navy-400 hover:text-navy-600">
-                                                    Historique ({fc.historique.length})
-                                                  </summary>
-                                                  <div className="mt-1 space-y-0.5 border-t border-navy-100 pt-1">
-                                                    {fc.historique.map((h) => (
-                                                      <p key={h.id} className="text-[11px] text-navy-500">
-                                                        {new Date(h.date_evenement).toLocaleDateString('fr-FR')} — {h.statut}
-                                                        {h.commentaire ? ` · ${h.commentaire}` : ''}
-                                                      </p>
-                                                    ))}
-                                                  </div>
-                                                </details>
-                                              )}
-                                            </div>
-                                            <div className="flex items-center gap-2">
-                                              {fc.statut_actuel && <Badge tone="neutral">{fc.statut_actuel}</Badge>}
-                                              <button
-                                                type="button"
-                                                onClick={() => setSuiviFor({ optimisationId: optimisation.id, fc })}
-                                                className="text-[11px] font-medium text-kiwi-700 hover:underline"
-                                              >
-                                                + Suivi
-                                              </button>
-                                            </div>
-                                          </div>
-                                        ))}
-                                      </div>
-                                    )}
-                                  </div>
-                                )}
-                              </div>
-                            ))}
-                          </div>
-                        )}
-
-                        <div className="mt-2 flex items-center gap-3">
-                          <button
-                            type="button"
-                            onClick={() => setEmailDialogVersion(version)}
-                            className="inline-flex items-center gap-1.5 text-xs font-medium text-kiwi-700 hover:underline"
-                          >
-                            <Mail className="h-3.5 w-3.5" />
-                            Envoyer par email
-                          </button>
-                        </div>
-                      </div>
+                      <button
+                        key={v.id}
+                        type="button"
+                        onClick={() => setVersionAfficheeId(v.id)}
+                        className="inline-flex items-center gap-[7px] rounded-kw-lg px-4 py-2 font-mono text-kw-h4 font-extrabold"
+                        style={
+                          affichee
+                            ? {
+                                background: remplacee ? '#5c5f66' : 'linear-gradient(135deg,#8a4b2a,#cf9a5e)',
+                                color: '#fff',
+                                boxShadow: remplacee ? 'none' : '0 4px 12px rgba(176,118,60,.32)',
+                              }
+                            : {
+                                background: '#fff',
+                                color: remplacee ? '#a3a5a0' : '#8a4b2a',
+                                border: `1.5px solid ${remplacee ? '#e0dfdb' : '#dcc39c'}`,
+                              }
+                        }
+                      >
+                        {v.nom || `V${v.numero_version ?? '?'}`}
+                        <span
+                          className="rounded-kw-md px-[7px] py-0.5 font-sans text-kw-micro font-extrabold uppercase tracking-[0.05em]"
+                          style={
+                            affichee
+                              ? { background: 'rgba(255,255,255,.22)', color: '#fff' }
+                              : remplacee
+                                ? { background: '#f0efec', color: '#a3a5a0' }
+                                : { background: '#f7ece3', color: '#8a4b2a' }
+                          }
+                        >
+                          {v.version_actuelle ? 'Active' : 'Remplacée'}
+                        </span>
+                      </button>
                     )
                   })}
-                </CardContent>
-              </Card>
+                  <span className="flex-1" />
+                  {canManage && (
+                    <button
+                      type="button"
+                      onClick={() => setNouvelleVersionOuverte((v) => !v)}
+                      className="inline-flex items-center gap-1.5 rounded-kw-lg border-[1.5px] border-dashed border-[#dcc39c] bg-white px-[13px] py-[7px] text-kw-base font-bold text-[#8a4b2a] hover:bg-kw-amber-light"
+                    >
+                      <Plus className="h-3 w-3" /> Créer une nouvelle version
+                    </button>
+                  )}
+                </div>
+              )}
+
+              {/* Panneau « nouvelle version » — les deux gestes du design. */}
+              {nouvelleVersionOuverte && canManage && (
+                <div className="flex animate-kw-fade-slide flex-wrap gap-2.5 rounded-[13px] border-[1.5px] border-[#dcc39c] bg-white px-[15px] py-[13px]">
+                  <div className="min-w-[200px] flex-1 self-center text-kw-base text-kw-meta">
+                    {versionActive ? (
+                      <>
+                        La création d'une nouvelle version passe automatiquement{' '}
+                        <b className="text-kw-ink">{versionActive.nom || `V${versionActive.numero_version ?? ''}`}</b> au
+                        statut <b className="text-kw-label">Remplacée</b>.
+                      </>
+                    ) : (
+                      <>Première cotation du dossier : durées par PDL, type de prix, puis fournisseurs à consulter.</>
+                    )}
+                  </div>
+                  {versionActive && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setWizardCotation({
+                          prefill: {
+                            dureesParCompteur: versionActive.durees_par_compteur ?? {},
+                            typesPrix: versionActive.types_prix ?? [],
+                            // Les fournisseurs déjà consultés sur la version reprise : la
+                            // duplication sert justement à relancer les mêmes.
+                            fournisseurIds: versionActive.optimisations.flatMap((o) =>
+                              o.fournisseurs_consultes.map((f) => f.fournisseur_compte_id),
+                            ),
+                            dateSouhaitee: versionActive.date_souhaitee?.slice(0, 10) ?? '',
+                          },
+                        })
+                        setNouvelleVersionOuverte(false)
+                      }}
+                      className="inline-flex items-center gap-[7px] rounded-kw-lg px-[15px] py-[9px] text-kw-md font-bold text-white shadow-[0_3px_10px_rgba(176,118,60,.3)]"
+                      style={{ background: 'linear-gradient(135deg,#8a4b2a,#cf9a5e)' }}
+                    >
+                      <Copy className="h-3.5 w-3.5" />
+                      Dupliquer {versionActive.nom || `V${versionActive.numero_version ?? ''}`}
+                    </button>
+                  )}
+                  <button
+                    type="button"
+                    onClick={() => { setWizardCotation({ prefill: null }); setNouvelleVersionOuverte(false) }}
+                    className="inline-flex items-center gap-[7px] rounded-kw-lg border border-kw-border-strong bg-white px-[15px] py-[9px] text-kw-md font-bold text-kw-ink hover:bg-kw-bg"
+                  >
+                    <FilePlus2 className="h-3.5 w-3.5" />
+                    {versionActive ? 'Créer vierge' : 'Lancer la cotation'}
+                  </button>
+                </div>
+              )}
+
+              <ComparatifVersions
+                reco={reco}
+                versionAffichee={versionAffichee}
+                onChoisirVersion={(v) => setVersionAfficheeId(v.id)}
+                onMajEconomies={async (versionId, economies) => {
+                  try {
+                    await updateVersion.mutateAsync({ versionId, patch: { gain_estime_annuel: economies } })
+                    signaler('✓ Modifié')
+                  } catch (e) {
+                    signaler(`Erreur : ${e instanceof Error ? e.message : String(e)}`)
+                  }
+                }}
+                peutModifier={canManage}
+              />
+
+              {versionAffichee && (
+                <DetailVersion
+                  version={versionAffichee}
+                  statutsVersions={statutsVersions}
+                  onEnvoyerEmail={() => setEmailDialogVersion(versionAffichee)}
+                  onAjouterFournisseur={setAjouterFournisseurFor}
+                  onAjouterSuivi={(optimisationId, fc) => setSuiviFor({ optimisationId, fc })}
+                  peutModifier={canManage}
+                />
+              )}
+
+              {/* Description et note interne : elles restent éditables en place, et s'affichent en
+                  pointillé cliquable même vides — sans quoi rien n'invite à les remplir. */}
+              <div className="rounded-[13px] border border-kw-border bg-white px-[17px] py-3.5">
+                <p className="mb-2 text-kw-xs font-bold uppercase tracking-[0.08em] text-kw-faint">Notes du dossier</p>
+                {canManage ? (
+                  <div className="space-y-2">
+                    <InlineField
+                      variant="longtext"
+                      label="Description"
+                      emptyLabel="ajouter une description"
+                      rows={4}
+                      value={reco.description ?? ''}
+                      onCommit={(v) => majReco({ description: v.trim() || null })}
+                      {...retourInline}
+                    />
+                    {/* Fond ambre : la note interne ne sort pas au client. */}
+                    <div className="rounded-kw-md bg-kw-amber-light p-2">
+                      <InlineField
+                        variant="longtext"
+                        label="Note interne"
+                        emptyLabel="ajouter une note interne"
+                        rows={3}
+                        value={reco.commentaire_interne ?? ''}
+                        onCommit={(v) => majReco({ commentaire_interne: v.trim() || null })}
+                        {...retourInline}
+                      />
+                    </div>
+                  </div>
+                ) : (
+                  <div className="space-y-2">
+                    {reco.description && <p className="text-kw-lg text-kw-body">{reco.description}</p>}
+                    {reco.commentaire_interne && (
+                      <p className="rounded-kw-md bg-kw-amber-light p-2 text-kw-base text-kw-amber-dark">
+                        Note interne : {reco.commentaire_interne}
+                      </p>
+                    )}
+                    {!reco.description && !reco.commentaire_interne && (
+                      <p className="text-kw-base text-kw-faint">Aucune note.</p>
+                    )}
+                  </div>
+                )}
+                <HistoriqueDiscret tableNom="recommandations" ligneId={reco.id} />
+              </div>
             </div>
-          </>
-        )}
+          )}
+
+          {onglet === 'cmd' && (
+            <OngletCommandeClient
+              reco={reco}
+              peutModifier={canManage}
+              onMajContexte={(texte) => majReco({ contexte_demande: texte })}
+              signaler={signaler}
+            />
+          )}
+
+          {onglet === 'perimetre' && <OngletPerimetre reco={reco} compteurs={compteurs ?? []} />}
+
+          {onglet === 'docs' && (
+            <OngletDocuments
+              reco={reco}
+              documents={documents ?? []}
+              versionAfficheeId={versionAffichee?.id ?? null}
+              typesDocuments={typesDocuments}
+              peutModifier={canManage}
+              onDeposer={async (fichiers, typeDocumentId, entite) => {
+                await televerser.mutateAsync({
+                  fichiers,
+                  entite_type: entite.type,
+                  entite_id: entite.id,
+                  type_document_id: typeDocumentId,
+                  type_document_libelle: typesDocuments.find((x) => x.id === typeDocumentId)?.libelle ?? '',
+                })
+                signaler('✓ Document ajouté')
+              }}
+            />
+          )}
+
+          {/* Le fil d'activité sur mobile, où la troisième colonne n'a pas la place d'exister. */}
+          <div className="mt-3.5 rounded-[13px] border border-kw-border bg-white p-3 lg:hidden">
+            <p className="mb-2 text-kw-xs font-bold uppercase tracking-[0.08em] text-kw-faint">
+              Activité · recommandation
+            </p>
+            {filActivite}
+          </div>
+        </div>
+
+        {/* Fil d'activité */}
+        <div className="hidden flex-col border-l border-kw-border bg-white lg:flex">
+          <div className="flex flex-none items-center gap-2 px-4 pb-2 pt-3">
+            <span className="text-kw-xs font-bold uppercase tracking-[0.08em] text-kw-faint">
+              Activité · recommandation
+            </span>
+          </div>
+          <div className="min-h-0 flex-1 overflow-hidden px-3 pb-3">{filActivite}</div>
+        </div>
       </div>
-      {reco && emailDialogVersion && (
+
+      {/* ── Dialogues ── */}
+      {emailDialogVersion && (
         <EnvoyerEmailDialog
-          open={!!emailDialogVersion}
+          open
           onClose={() => setEmailDialogVersion(null)}
           reco={reco}
           version={emailDialogVersion}
@@ -1279,16 +966,11 @@ export default function RecommandationDetail() {
       {/* Montés seulement à l'ouverture : le `Dialog` masque son contenu mais ne démonte pas le
           composant qui l'entoure, dont tous les hooks (calcul d'éligibilité sur l'ensemble des
           fournisseurs, effets) tourneraient en permanence sur la fiche. */}
-      {reco && showCotationWizard && (
-        <CotationWizard open onClose={() => setShowCotationWizard(false)} reco={reco} />
+      {wizardCotation && (
+        <CotationWizard open onClose={() => setWizardCotation(null)} reco={reco} prefill={wizardCotation.prefill} />
       )}
-      {reco && showContratWizard && (
-        <ContratWizard
-          open
-          onClose={() => setShowContratWizard(false)}
-          reco={reco}
-          onCreated={() => setShowContratWizard(false)}
-        />
+      {showContratWizard && (
+        <ContratWizard open onClose={() => setShowContratWizard(false)} reco={reco} onCreated={() => setShowContratWizard(false)} />
       )}
       <AjouterFournisseurConsulteDialog
         open={!!ajouterFournisseurFor}
@@ -1301,6 +983,74 @@ export default function RecommandationDetail() {
         optimisationId={suiviFor?.optimisationId ?? null}
         fournisseurConsulte={suiviFor?.fc ?? null}
       />
+
+      {/* Fixer le coût de prestation. Un dialogue et non une saisie en place : le montant facturé
+          est la contrepartie de la prestation, il se pose une fois et se relit dans l'historique. */}
+      <Dialog
+        open={coutOuvert}
+        onClose={() => setCoutOuvert(false)}
+        title="Fixer le coût de prestation"
+        description="Montant réellement facturé au client. L'estimation, elle, reste affichée à côté pour comparaison."
+      >
+        <div className="space-y-3">
+          <label className="block text-xs font-semibold uppercase tracking-wide text-navy-400" htmlFor="cout-reel">
+            Montant facturé (€)
+          </label>
+          <input
+            id="cout-reel"
+            type="number"
+            min={0}
+            step={1}
+            value={coutBrouillon}
+            onChange={(e) => setCoutBrouillon(e.target.value)}
+            className="w-full rounded-lg border border-navy-200 bg-white px-3 py-2 font-mono text-sm text-navy-800 outline-none focus:ring-2 focus:ring-kiwi-500/20"
+          />
+          {coutSuggere != null && (
+            <p className="text-xs text-navy-500">
+              Pour repère : 12 % des économies estimées de {versionAffichee?.nom ?? 'la version affichée'} font{' '}
+              <b>{coutSuggere.toLocaleString('fr-FR')} €</b>.
+            </p>
+          )}
+          <div className="flex justify-end gap-2 pt-2">
+            {reco.cout_prestation_reel != null && (
+              <Button
+                type="button"
+                variant="ghost"
+                onClick={async () => {
+                  try {
+                    await majReco({ cout_prestation_reel: null })
+                    setCoutOuvert(false)
+                    signaler('↺ Montant remis à l’estimation')
+                  } catch (e) {
+                    signaler(`Erreur : ${e instanceof Error ? e.message : String(e)}`)
+                  }
+                }}
+              >
+                Effacer le montant fixé
+              </Button>
+            )}
+            <Button type="button" variant="ghost" onClick={() => setCoutOuvert(false)}>Annuler</Button>
+            <Button
+              type="button"
+              disabled={coutBrouillon.trim() === '' || Number(coutBrouillon) < 0}
+              onClick={async () => {
+                const montant = Math.round(Number(coutBrouillon))
+                if (!Number.isFinite(montant) || montant < 0) return
+                try {
+                  await majReco({ cout_prestation_reel: montant })
+                  setCoutOuvert(false)
+                  signaler(`✓ Coût de prestation fixé : ${montant.toLocaleString('fr-FR')} €`)
+                } catch (e) {
+                  signaler(`Erreur : ${e instanceof Error ? e.message : String(e)}`)
+                }
+              }}
+            >
+              Fixer le montant
+            </Button>
+          </div>
+        </div>
+      </Dialog>
+
       <Dialog
         open={confirmDelete}
         onClose={() => setConfirmDelete(false)}
@@ -1311,16 +1061,24 @@ export default function RecommandationDetail() {
           <p className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-xs text-red-700">{suppression.erreur}</p>
         )}
         <div className="flex justify-end gap-2 pt-2">
-          <Button type="button" variant="ghost" onClick={() => { suppression.reinitialiser(); setConfirmDelete(false) }}>Annuler</Button>
-          <Button type="button" variant="outline" className="border-red-200 text-red-600 hover:bg-red-50" disabled={suppression.enCours} onClick={handleDelete}>
-                {suppression.enCours ? 'Suppression…' : 'Supprimer définitivement'}
-              </Button>
+          <Button type="button" variant="ghost" onClick={() => { suppression.reinitialiser(); setConfirmDelete(false) }}>
+            Annuler
+          </Button>
+          <Button
+            type="button"
+            variant="outline"
+            className="border-red-200 text-red-600 hover:bg-red-50"
+            disabled={suppression.enCours}
+            onClick={handleDelete}
+          >
+            {suppression.enCours ? 'Suppression…' : 'Supprimer définitivement'}
+          </Button>
         </div>
       </Dialog>
 
-      {toastFiche && (
-        <div className="fixed bottom-[70px] left-1/2 z-50 -translate-x-1/2 whitespace-nowrap rounded-lg bg-ink-800 px-4 py-2.5 text-xs font-semibold text-white shadow-lg lg:bottom-6">
-          {toastFiche}
+      {toast && (
+        <div className="fixed bottom-[70px] left-1/2 z-50 -translate-x-1/2 animate-kw-toast-in whitespace-nowrap rounded-kw-lg bg-ink-900 px-4 py-2.5 text-kw-lg font-semibold text-white shadow-kw-toast lg:bottom-6">
+          {toast}
         </div>
       )}
     </div>

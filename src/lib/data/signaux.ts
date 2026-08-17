@@ -22,7 +22,7 @@ interface RawSignal {
 
 /** `siteIds` restreint la lecture aux signaux d'un périmètre de sites — celui d'un compte, en
  *  pratique. Les signaux n'ont pas de compte_id : ils se rattachent au site. */
-async function fetchSignaux(siteIds?: string[], signalId?: string): Promise<Signal[]> {
+async function fetchSignaux(siteIds?: string[], signalId?: string, recommandationId?: string): Promise<Signal[]> {
 
   try {
     if (siteIds && siteIds.length === 0) return []
@@ -35,6 +35,7 @@ async function fetchSignaux(siteIds?: string[], signalId?: string): Promise<Sign
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       (q: any) => {
         if (signalId) return q.eq('id', signalId)
+        if (recommandationId) return q.eq('recommandation_id', recommandationId).order('date_creation', { ascending: false })
         return (siteIds ? q.in('site_id', siteIds) : q).order('date_creation', { ascending: false })
       },
     )
@@ -79,6 +80,15 @@ export function useSignal(signalId: string | undefined) {
 }
 export function useSignaux() {
   return useQuery({ queryKey: ['signaux'], queryFn: () => fetchSignaux() })
+}
+
+/** Signaux nés d'une recommandation (746 lignes en portent la référence) — pour son fil d'activité. */
+export function useSignauxParRecommandation(recoId: string | undefined) {
+  return useQuery({
+    queryKey: ['signaux', 'recommandation', recoId],
+    queryFn: () => fetchSignaux(undefined, undefined, recoId as string),
+    enabled: !!recoId,
+  })
 }
 
 /** Signaux d'un périmètre de sites, filtrés côté serveur. À préférer sur toute fiche. */

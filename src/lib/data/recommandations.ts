@@ -45,6 +45,14 @@ interface RawRecommandation {
   commission_nette?: number | null
   remuneration_apporteur?: number | null
   fournisseur_compte_id?: string | null
+  /** Colonnes de la fiche Recommandation portée depuis la maquette (migration 20260816180000).
+   *  Optionnelles pour la même raison que les précédentes : le select est en `*`. */
+  contexte_demande?: string | null
+  cout_prestation_estime?: number | null
+  cout_prestation_reel?: number | null
+  /** Référence métier affichée en tête de fiche (« RC-2026-027 » dans le design). La colonne
+   *  existe mais est vide sur les 1703 lignes : la fiche retombe donc sur le nom. */
+  reference?: string | null
   etape: { code: string } | null
   origine: { libelle: string } | null
   type_energie?: { code: string } | null
@@ -497,6 +505,10 @@ async function fetchRecommandations(
       fournisseur_compte_id: r.fournisseur_compte_id ?? null,
       fournisseur_nom: r.fournisseur_compte_id ? (fournisseursParId.get(r.fournisseur_compte_id) ?? null) : null,
       id_salesforce: r.id_salesforce ?? null,
+      reference: r.reference ?? null,
+      contexte_demande: r.contexte_demande ?? null,
+      cout_prestation_estime: r.cout_prestation_estime ?? null,
+      cout_prestation_reel: r.cout_prestation_reel ?? null,
     }))
   } catch (error) {
     console.error('fetchRecommandations', error)
@@ -887,6 +899,12 @@ export type PatchRecommandation = Partial<{
   commentaire_interne: string | null
   priorite: number
   proprietaire_id: string | null
+  /** « Contexte de la demande » de l'onglet Commande du client. À ne pas confondre avec
+   *  `commentaire_interne`, qui est une note de travail et n'a pas à sortir au client. */
+  contexte_demande: string | null
+  cout_prestation_estime: number | null
+  cout_prestation_reel: number | null
+  contact_signataire_id: string | null
 }>
 
 /**
@@ -1006,6 +1024,64 @@ export function useAjouterSuiviConsultation() {
       if (error) throw new Error(error.message)
     },
     onSuccess: () => { void queryClient.invalidateQueries({ queryKey: ['recommandations'] }) },
+  })
+}
+
+/**
+ * « Étape suivante » du rail de cycle de vie.
+ *
+ * Le rail de la maquette compte quatre crans : Diagnostic → Consultation → Décision → Clôture.
+ * Ce sont EXACTEMENT les quatre étapes utilisées en base (1573 en Clôture, 93 en Consultation,
+ * 31 en Diagnostic, 6 en Décision) ; les neuf autres lignes de `etapes_recommandation` sont
+ * l'ancien cycle et n'ont plus aucune recommandation dessus.
+ *
+ * L'avancée est calculée sur la liste des étapes reçue plutôt que sur des codes en dur : la table
+ * a déjà changé une fois (12/08/2026). La clôture n'est jamais atteinte par ce bouton — elle
+ * demande une finalité et un motif, c'est `useCloturerRecommandation` qui s'en charge.
+ */
+export function useAvancerEtapeRecommandation() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: async (input: { id: string; etapeSuivanteId: string }) => {
+      const { error } = await supabase
+        .from('recommandations')
+        .update({ etape_id: input.etapeSuivanteId })
+        .eq('id', input.id)
+      if (error) throw new Error(error.message)
+    },
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['recommandations'] }),
+  })
+}
+
+/**
+ * Édition en place d'une case du comparatif des versions.
+ *
+ * Seules les colonnes réellement portées par `versions_recommandation` passent par ici. Le
+ * fournisseur, le budget, le prix au MWh et la durée d'engagement du comparatif n'y sont pas :
+ * ils appartiennent à l'OFFRE retenue (`offres_fournisseurs` et son détail par compteur), pas à
+ * la version. Les rendre modifiables depuis le comparatif reviendrait à réécrire une offre depuis
+ * un tableau de comparaison, ou à les écrire nulle part.
+ */
+export function useUpdateVersionPartiel() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: async (input: {
+      versionId: string
+      patch: Partial<{
+        nom: string
+        gain_estime_annuel: number | null
+        economie_estimee_pourcentage: number | null
+        niveau_confiance: number | null
+        date_expiration: string | null
+      }>
+    }) => {
+      const { error } = await supabase
+        .from('versions_recommandation')
+        .update({ ...input.patch, date_modification: new Date().toISOString() })
+        .eq('id', input.versionId)
+      if (error) throw new Error(error.message)
+    },
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['recommandations'] }),
   })
 }
 

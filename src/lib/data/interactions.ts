@@ -196,7 +196,7 @@ export function useInteractionsForCompte(compteId: string | undefined, siteIds: 
   })
 }
 
-async function fetchInteractionsByColumn(column: 'contact_id' | 'site_id', value: string): Promise<Interaction[]> {
+async function fetchInteractionsByColumn(column: 'contact_id' | 'site_id' | 'recommandation_id', value: string): Promise<Interaction[]> {
   const { data, error } = await supabase
     .from('interactions')
     .select(INTERACTIONS_SELECT)
@@ -228,6 +228,20 @@ export function useInteractionsForSite(siteId: string | undefined) {
   })
 }
 
+/**
+ * Interactions rattachées à une recommandation — le fil d'activité de la fiche.
+ *
+ * `interactions.recommandation_id` est renseigné sur 23 930 lignes : le fil a de quoi vivre dès
+ * le premier jour. Filtré côté serveur, comme partout ailleurs : la table fait 66 643 lignes.
+ */
+export function useInteractionsParRecommandation(recoId: string | undefined) {
+  return useQuery({
+    queryKey: ['interactions', 'recommandation', recoId],
+    queryFn: () => fetchInteractionsByColumn('recommandation_id', recoId as string),
+    enabled: !!recoId,
+  })
+}
+
 /** Index de recherche globale : charge TOUT, donc lent — n'appeler qu'à l'ouverture de la
  * recherche, jamais au montage d'un écran. */
 export function useInteractions() {
@@ -256,6 +270,10 @@ interface CreateInteractionInput {
   contact_nom: string
   issue_interaction_id: string | null
   issue_libelle?: string
+  /** Recommandation d'origine. Sans elle, une note écrite depuis la fiche recommandation partait
+   *  au niveau du compte et ne revenait jamais dans le fil de la fiche où elle a été saisie. */
+  recommandation_id?: string | null
+  recommandation_nom?: string | null
 }
 
 interface CreateInteractionResult {
@@ -286,6 +304,8 @@ export function useCreateInteraction() {
         contact_nom: input.contact_nom,
         issue_libelle: input.issue_libelle,
         proprietaire_id: null,
+        recommandation_id: input.recommandation_id ?? null,
+        recommandation_nom: input.recommandation_nom ?? null,
       }
 
       // L'auteur n'était pas renseigné : toute note ajoutée depuis Kimatch arrivait anonyme, et le
@@ -305,6 +325,7 @@ export function useCreateInteraction() {
           compte_id: input.compte_id,
           site_id: input.site_id,
           contact_id: input.contact_id,
+          ...(input.recommandation_id ? { recommandation_id: input.recommandation_id } : {}),
           ...(auteurId ? { auteur_profil_id: auteurId, proprietaire_id: auteurId } : {}),
           ...(input.type_interaction_id ? { type_interaction_id: input.type_interaction_id } : {}),
           ...(input.issue_interaction_id ? { issue_interaction_id: input.issue_interaction_id } : {}),

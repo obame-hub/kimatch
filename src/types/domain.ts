@@ -206,6 +206,22 @@ export interface Recommandation {
   fournisseur_nom?: string | null
   /** Identifiant Salesforce de l'opportunité d'origine — évite de rapprocher par le nom. */
   id_salesforce?: string | null
+  /**
+   * Champs de la fiche Recommandation portée depuis la maquette de William
+   * (migration 20260816180000).
+   *
+   * `reference` est la référence métier affichée en tête de fiche (« RC-2026-027 » dans le
+   * design). La colonne existe mais elle est VIDE sur les 1703 recommandations : aucune référence
+   * n'a jamais été attribuée. La fiche retombe donc sur le nom, et l'attribution des références
+   * reste à décider (voir POINTS-A-ARBITRER.md).
+   */
+  reference?: string | null
+  /** Ce que le client a demandé, dans ses termes. Distinct de `commentaire_interne`, qui est une
+   *  note de travail et n'a pas à sortir au client. */
+  contexte_demande?: string | null
+  cout_prestation_estime?: number | null
+  /** Coût facturé, une fois fixé. NULL tant que l'estimation n'a pas été arrêtée. */
+  cout_prestation_reel?: number | null
 }
 
 export interface ActionItem {

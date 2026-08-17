@@ -140,6 +140,9 @@ export function ActivityFeed({
   actions,
   documents,
   filterDimension,
+  recommandationId,
+  recommandationNom,
+  actionsRapides,
 }: {
   siteId?: string | null
   siteNom?: string
@@ -151,6 +154,13 @@ export function ActivityFeed({
   documents: DocumentItem[]
   /** Active le sélecteur "Par site / Par contact" (fiche Compte). Sans ce prop, seuls les chips "Par contact" apparaissent si des contacts sont taggés. */
   filterDimension?: 'site'
+  /** Rattache les notes écrites ici à une recommandation. Sans cela, une note saisie sur la fiche
+   *  recommandation partirait au niveau du compte et ne reviendrait jamais dans ce fil. */
+  recommandationId?: string | null
+  recommandationNom?: string
+  /** Boutons d'action rapide au-dessus du champ de note — « Rappel » et « Loguer un appel » dans la
+   *  maquette de la fiche Recommandation. La fiche fournit le geste, le fil fournit la place. */
+  actionsRapides?: ReactNode
 }) {
   const navigate = useNavigate()
   const createInteraction = useCreateInteraction()
@@ -215,6 +225,8 @@ export function ActivityFeed({
       contact_id: null,
       contact_nom: '',
       issue_interaction_id: null,
+      recommandation_id: recommandationId ?? null,
+      recommandation_nom: recommandationNom ?? null,
     })
     setNote('')
     setFeedback(result.persisted ? 'Note ajoutée.' : 'Note ajoutée localement (non synchronisée avec Supabase).')
@@ -299,7 +311,9 @@ export function ActivityFeed({
         )}
       </div>
 
-      <form onSubmit={envoyerNote} className="flex items-start gap-2 border-t border-navy-100 pt-2.5">
+      {actionsRapides && <div className="flex gap-1.5 border-t border-navy-100 pt-2.5">{actionsRapides}</div>}
+
+      <form onSubmit={envoyerNote} className={cn('flex items-start gap-2 pt-2.5', !actionsRapides && 'border-t border-navy-100')}>
         <Textarea
           rows={2}
           value={note}

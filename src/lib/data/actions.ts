@@ -28,7 +28,7 @@ interface RawAction {
 /** `siteIds` restreint la lecture aux tâches d'un périmètre de sites. Les tâches sans site
  *  (purement personnelles ou liées à un seul contact) ne concernent pas une fiche compte : elles
  *  sont donc hors périmètre quand le filtre est fourni. */
-async function fetchActions(siteIds?: string[], actionId?: string): Promise<ActionItem[]> {
+async function fetchActions(siteIds?: string[], actionId?: string, recommandationId?: string): Promise<ActionItem[]> {
   try {
     if (siteIds && siteIds.length === 0) return []
     const data = await fetchAllRows<RawAction>(
@@ -37,6 +37,7 @@ async function fetchActions(siteIds?: string[], actionId?: string): Promise<Acti
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       (q: any) => {
         if (actionId) return q.eq('id', actionId)
+        if (recommandationId) return q.eq('recommandation_id', recommandationId).order('date_prevue')
         return (siteIds ? q.in('site_id', siteIds) : q).order('date_prevue')
       },
     )
@@ -92,6 +93,21 @@ export function useActions() {
   return useQuery({ queryKey: ['actions'], queryFn: () => fetchActions() })
 }
 
+/**
+ * Tâches rattachées à une recommandation — le fil d'activité de la fiche.
+ *
+ * `actions.recommandation_id` existe depuis longtemps mais ne comptait ZÉRO ligne au 17/08/2026 :
+ * rien ne créait de tâche depuis une recommandation. Le bouton « Rappel » du fil est le premier à
+ * en produire.
+ */
+export function useActionsParRecommandation(recoId: string | undefined) {
+  return useQuery({
+    queryKey: ['actions', 'recommandation', recoId],
+    queryFn: () => fetchActions(undefined, undefined, recoId as string),
+    enabled: !!recoId,
+  })
+}
+
 /** Tâches d'un périmètre de sites, filtrées côté serveur. À préférer sur toute fiche. */
 export function useActionsParSites(siteIds: string[] | undefined) {
   const cle = [...(siteIds ?? [])].sort()
@@ -114,6 +130,10 @@ interface CreateActionInput {
   echeance: string | null
   commentaire: string | null
   statut_id: string | null
+  /** Recommandation d'origine — le bouton « Rappel » du fil d'activité de la fiche. Sans elle, la
+   *  tâche existe mais ne revient jamais dans le fil de la recommandation qui l'a créée. */
+  recommandation_id?: string | null
+  recommandation_titre?: string
 }
 
 interface CreateActionResult {
@@ -143,8 +163,8 @@ export function useCreateAction() {
         site_id: input.site_id,
         contact_id: input.contact_id,
         contact_nom: input.contact_nom,
-        recommandation_id: null,
-        recommandation_titre: '',
+        recommandation_id: input.recommandation_id ?? null,
+        recommandation_titre: input.recommandation_titre ?? '',
         proprietaire_id: null,
       }
 
@@ -157,6 +177,7 @@ export function useCreateAction() {
           priorite: input.priorite,
           date_prevue: input.echeance,
           commentaire: input.commentaire,
+          ...(input.recommandation_id ? { recommandation_id: input.recommandation_id } : {}),
           ...(input.type_action_id ? { type_action_id: input.type_action_id } : {}),
           ...(input.statut_id ? { statut_id: input.statut_id } : {}),
         })
@@ -170,6 +191,11 @@ export function useCreateAction() {
       queryClient.setQueryData<ActionItem[]>(['actions'], (old) => (old ? [action, ...old] : [action]))
       return { action, persisted }
     },
+    /** Même motif que pour les interactions : les fiches lisent des clés dérivées
+     *  (`['actions','recommandation',…]`, `['actions','sites',…]`) que le `setQueryData` ci-dessus
+     *  ne touche pas. Sans invalidation du préfixe, un rappel créé depuis une fiche n'y apparaît
+     *  qu'après rechargement de la page. */
+    onSuccess: () => { void queryClient.invalidateQueries({ queryKey: ['actions'] }) },
   })
 }
 
