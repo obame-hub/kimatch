@@ -97,16 +97,28 @@ export interface OffreFournisseurCompteur {
 
 export interface OffreFournisseur {
   id: string
+  /** Fournisseur consulté dont cette offre est la réponse — la clé qui range « la ou les offres
+   *  différentes » sous chaque fournisseur (demande de Michel, 17/08/2026). */
+  optimisation_fournisseur_id: string | null
   fournisseur_nom: string
   reference_offre: string | null
   nom: string | null
   description: string | null
+  /** ENVOYEE → ACCUSE_RECEPTION → RELANCEE → INFO_COMPLEMENTAIRE_DEMANDEE → RECUE / REFUSEE.
+   *  Vocabulaire de `statuts_consultations_fournisseurs` ; la colonne est un texte libre. */
   statut: string | null
   montant_annuel_ht: number | null
   montant_total_ht: number | null
   economie_annuelle_estimee: number | null
   economie_pourcentage: number | null
   duree_mois: number | null
+  /** Fixe | Indexé — ce qui distingue deux offres du même fournisseur sur la même durée. */
+  type_prix?: string | null
+  /** Prix €/MWh tel que le fournisseur l'annonce. Donnée primaire de l'offre : le détail par PDL,
+   *  quand il existe, la précise sans la remplacer. */
+  prix_moyen_mwh?: number | null
+  date_reception?: string | null
+  date_validite?: string | null
   est_offre_recommandee: boolean
   details_par_compteur: OffreFournisseurCompteur[]
 }
@@ -126,6 +138,15 @@ export interface FournisseurConsulte {
   date_creation: string
   statut_actuel: string | null
   historique: SuiviConsultationFournisseur[]
+  /**
+   * Les offres de CE fournisseur : celle qu'il a envoyée, ou les plusieurs qu'il propose (24 et
+   * 36 mois, fixe et indexé…).
+   *
+   * « Il faut qu'on voie sous chaque fournisseur consulté la ou les offres différentes, sinon la
+   * version ne sert à rien » (Michel, 17/08/2026). Une ligne est créée par combinaison demandée dès
+   * la consultation, en attente de réponse, puis complétée quand elle arrive.
+   */
+  offres: OffreFournisseur[]
 }
 
 export interface Optimisation {

@@ -223,7 +223,7 @@ export function CotationWizard({
     const typeOptim = (typesOptimisationsRef ?? []).find((t) => t.code === MISE_EN_CONCURRENCE)
     const etapeEnAnalyse = trouverParCode(etapesRef, 'CONSULTATION', 'EN_ANALYSE')
 
-    await createVersion.mutateAsync({
+    const rapport = await createVersion.mutateAsync({
       recommandation_id: reco.id,
       compteur_ids: reco.compteur_ids ?? [],
       motif_id: motif?.id ?? null,
@@ -265,8 +265,24 @@ export function CotationWizard({
       ].join('\n'),
     )
 
-    setFeedback('Cotation créée.')
-    setTimeout(() => { reset(); onClose() }, 700)
+    /**
+     * Ce que la cotation a vraiment produit, dit au conseiller.
+     *
+     * Les offres attendues (une par durée × type de prix et par fournisseur) sont ce qu'il va
+     * remplir à mesure des réponses : s'il n'en a aucune, il doit l'apprendre ici et pas en
+     * découvrant un écran vide. C'est précisément le silence — un `console.error` — qui a laissé la
+     * création d'offres cassée du 16 au 17/08/2026.
+     */
+    const morceaux = [`Cotation créée avec ${rapport.offresCreees} offre${rapport.offresCreees > 1 ? 's' : ''} attendue${rapport.offresCreees > 1 ? 's' : ''}.`]
+    if (rapport.offresEchouees > 0) {
+      morceaux.push(`⚠ ${rapport.offresEchouees} offre(s) attendue(s) n'ont pas pu être créées : le suivi des réponses sera à saisir à la main.`)
+    }
+    if (rapport.fournisseursSansFiche > 0) {
+      morceaux.push(`⚠ ${rapport.fournisseursSansFiche} fournisseur(s) consulté(s) sans fiche fournisseur : aucune offre suivie pour eux.`)
+    }
+    setFeedback(morceaux.join(' '))
+    // Laissé plus longtemps à l'écran quand il y a un avertissement à lire.
+    setTimeout(() => { reset(); onClose() }, morceaux.length > 1 ? 3500 : 700)
   }
 
   return (

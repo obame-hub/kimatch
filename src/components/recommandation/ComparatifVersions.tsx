@@ -46,13 +46,16 @@ function offreRetenue(version: VersionRecommandation): OffreFournisseur | null {
 }
 
 /**
- * Prix moyen au MWh d'une offre, pondéré par les volumes de chaque PDL.
+ * Prix au MWh d'une offre.
  *
- * Une offre porte plusieurs points de livraison, chacun avec sa consommation et son coût de
- * fourniture. Une moyenne simple donnerait autant de poids à un PDL de 6 MWh qu'à un de 800.
+ * Le prix ANNONCÉ par le fournisseur d'abord (`prix_moyen_mwh`, saisi sous le fournisseur consulté) :
+ * c'est la donnée primaire, celle qu'il écrit dans son mail et sur laquelle on compare. À défaut, la
+ * moyenne pondérée par les volumes du détail par PDL — une moyenne simple donnerait autant de poids à
+ * un PDL de 6 MWh qu'à un de 800.
  */
 function prixMoyenMWh(offre: OffreFournisseur | null): number | null {
   if (!offre) return null
+  if (offre.prix_moyen_mwh != null) return offre.prix_moyen_mwh
   let cout = 0
   let volume = 0
   for (const d of offre.details_par_compteur) {
@@ -140,7 +143,7 @@ export function ComparatifVersions({
           const p = prixMoyenMWh(offreRetenue(v))
           return p != null ? `${p.toLocaleString('fr-FR', { maximumFractionDigits: 2 })} €` : '—'
         },
-        raisonVide: 'Moyenne pondérée par les volumes du détail par PDL de l’offre retenue — non chiffré.',
+        raisonVide: 'Prix annoncé par le fournisseur retenu, ou moyenne pondérée du détail par PDL — non chiffré.',
       },
       {
         cle: 'duree',
@@ -149,7 +152,8 @@ export function ComparatifVersions({
         valeur: () => null,
         texte: (v) => {
           const offre = offreRetenue(v)
-          if (offre?.duree_mois != null) return `${offre.duree_mois} mois`
+          // La durée et le type de prix ensemble : c'est le couple qui identifie l'offre retenue.
+          if (offre?.duree_mois != null) return [`${offre.duree_mois} mois`, offre.type_prix].filter(Boolean).join(' · ')
           // À défaut d'offre, les durées demandées à la consultation disent déjà l'intention.
           if (v.durees.length > 0) return `${v.durees.join(' / ')} mois (demandé)`
           return '—'

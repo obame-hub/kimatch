@@ -853,6 +853,7 @@ export default function RecommandationDetail() {
                   onAjouterFournisseur={setAjouterFournisseurFor}
                   onAjouterSuivi={(optimisationId, fc) => setSuiviFor({ optimisationId, fc })}
                   peutModifier={canManage}
+                  signaler={signaler}
                 />
               )}
 

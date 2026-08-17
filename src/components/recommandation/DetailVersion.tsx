@@ -1,7 +1,9 @@
 import { Mail, Lock } from 'lucide-react'
 import { Badge } from '@/components/ui/badge'
 import { EntityLink } from '@/components/ui/entity-link'
+import { OffresDuFournisseur } from '@/components/recommandation/OffresDuFournisseur'
 import { STATUT_VERSION_TONE } from '@/lib/referenceFallbacks'
+import { cn } from '@/lib/utils'
 import type { ReferenceRow } from '@/lib/data/referenceTables'
 import type { VersionRecommandation, Optimisation, FournisseurConsulte } from '@/types/domain'
 
@@ -26,6 +28,7 @@ export function DetailVersion({
   onAjouterFournisseur,
   onAjouterSuivi,
   peutModifier,
+  signaler,
 }: {
   version: VersionRecommandation
   statutsVersions: ReferenceRow[]
@@ -33,6 +36,7 @@ export function DetailVersion({
   onAjouterFournisseur: (optimisation: Optimisation) => void
   onAjouterSuivi: (optimisationId: string, fc: FournisseurConsulte) => void
   peutModifier: boolean
+  signaler: (message: string) => void
 }) {
   const statutLabel = statutsVersions.find((s) => s.code === version.statut)?.libelle ?? version.statut
 
@@ -100,63 +104,19 @@ export function DetailVersion({
                   </p>
                 )}
 
-                {/* Offres reçues */}
-                {optimisation.offres.length === 0 ? (
-                  <p className="pl-2 text-kw-base text-kw-faint">Aucune offre chiffrée pour cette optimisation.</p>
-                ) : (
-                  <div className="mt-1.5 space-y-1.5 pl-2">
-                    {optimisation.offres.map((offre) => (
-                      <div key={offre.id} className="rounded-kw-md bg-kw-bg px-2.5 py-1.5">
-                        <div className="flex items-center justify-between gap-2">
-                          <div className="min-w-0">
-                            <p className="truncate text-kw-base font-semibold text-kw-ink">{offre.fournisseur_nom}</p>
-                            <p className="truncate text-kw-sm text-kw-meta">
-                              {offre.nom || offre.reference_offre || offre.statut || 'Offre'}
-                              {offre.duree_mois ? ` · ${offre.duree_mois} mois` : ''}
-                            </p>
-                          </div>
-                          <div className="shrink-0 text-right">
-                            {offre.montant_annuel_ht !== null && (
-                              <p className="text-kw-base font-bold text-kw-ink">
-                                {offre.montant_annuel_ht.toLocaleString('fr-FR')} €/an
-                              </p>
-                            )}
-                            {offre.economie_pourcentage !== null && (
-                              <p className="text-kw-sm font-semibold text-kw-green">−{offre.economie_pourcentage} %</p>
-                            )}
-                          </div>
-                        </div>
-                        {offre.details_par_compteur.length > 0 && (
-                          <details className="mt-1.5">
-                            <summary className="cursor-pointer text-kw-sm text-kw-faint hover:text-kw-label">
-                              Détail par compteur ({offre.details_par_compteur.length})
-                            </summary>
-                            <div className="mt-1 space-y-1 border-t border-kw-border-faint pt-1.5">
-                              {offre.details_par_compteur.map((d) => (
-                                <div key={d.id} className="flex items-center justify-between text-kw-base">
-                                  <span className="text-kw-label">{d.compteur_label || '—'}</span>
-                                  <span className="font-medium text-kw-label">
-                                    {d.cout_total_annuel_estime_ht !== null
-                                      ? `${d.cout_total_annuel_estime_ht.toLocaleString('fr-FR')} €/an`
-                                      : '—'}
-                                    {d.economie_pourcentage !== null ? ` · −${d.economie_pourcentage} %` : ''}
-                                  </span>
-                                </div>
-                              ))}
-                            </div>
-                          </details>
-                        )}
-                      </div>
-                    ))}
-                  </div>
-                )}
-
-                {/* Fournisseurs consultés — le suivi de mise en concurrence. */}
-                {optimisation.type_optimisation_code === MISE_EN_CONCURRENCE && (
+                {/*
+                  Fournisseurs consultés, et SOUS CHACUN ses offres.
+                  « Il faut qu'on voie sous chaque fournisseur consulté la ou les offres
+                  différentes, sinon la version ne sert à rien » (Michel, 17/08/2026). Les offres
+                  étaient listées à plat sous l'optimisation, sans qu'on sache laquelle venait de
+                  qui, et sans pouvoir en comparer deux d'un même fournisseur.
+                */}
+                {(optimisation.type_optimisation_code === MISE_EN_CONCURRENCE
+                  || optimisation.fournisseurs_consultes.length > 0) && (
                   <div className="mt-2 border-t border-kw-border-faint pt-2">
                     <div className="flex items-center justify-between">
                       <p className="text-kw-sm font-bold uppercase tracking-wide text-kw-faint">
-                        Fournisseurs consultés
+                        Fournisseurs consultés et offres reçues
                       </p>
                       {peutModifier && (
                         <button
@@ -164,22 +124,50 @@ export function DetailVersion({
                           onClick={() => onAjouterFournisseur(optimisation)}
                           className="text-kw-base font-semibold text-kw-green hover:underline"
                         >
-                          + Ajouter
+                          + Consulter un fournisseur
                         </button>
                       )}
                     </div>
                     {optimisation.fournisseurs_consultes.length === 0 ? (
                       <p className="pl-2 text-kw-base text-kw-faint">Aucun fournisseur consulté pour l'instant.</p>
                     ) : (
-                      <div className="mt-1 space-y-1">
-                        {optimisation.fournisseurs_consultes.map((fc) => (
-                          <div key={fc.id} className="flex items-start justify-between gap-2 rounded-kw-md bg-kw-bg px-2.5 py-1.5">
-                            <div className="min-w-0">
-                              <p className="truncate text-kw-base font-semibold text-kw-ink">{fc.fournisseur_nom}</p>
+                      <div className="mt-1.5 space-y-2">
+                        {optimisation.fournisseurs_consultes.map((fc) => {
+                          const retenue = fc.offres.find((o) => o.est_offre_recommandee)
+                          const chiffrees = fc.offres.filter((o) => o.montant_annuel_ht != null || o.prix_moyen_mwh != null)
+                          return (
+                            <div
+                              key={fc.id}
+                              className={cn(
+                                'rounded-kw-lg border px-2.5 py-2',
+                                retenue ? 'border-[#dcc39c] bg-[#fdf9f0]/60' : 'border-kw-border bg-kw-subtle',
+                              )}
+                            >
+                              <div className="flex flex-wrap items-center gap-2">
+                                <p className="text-kw-md font-bold text-kw-ink">{fc.fournisseur_nom}</p>
+                                {/* Ce que ce fournisseur a répondu, d'un coup d'œil. */}
+                                <span className="text-kw-sm text-kw-meta">
+                                  {fc.offres.length === 0
+                                    ? 'aucune offre suivie'
+                                    : `${chiffrees.length}/${fc.offres.length} offre${fc.offres.length > 1 ? 's' : ''} chiffrée${chiffrees.length > 1 ? 's' : ''}`}
+                                </span>
+                                <span className="flex-1" />
+                                {fc.statut_actuel && <Badge tone="neutral">{fc.statut_actuel}</Badge>}
+                                {peutModifier && (
+                                  <button
+                                    type="button"
+                                    onClick={() => onAjouterSuivi(optimisation.id, fc)}
+                                    className="text-kw-base font-semibold text-kw-green hover:underline"
+                                  >
+                                    + Suivi
+                                  </button>
+                                )}
+                              </div>
+
                               {fc.historique.length > 0 && (
-                                <details className="mt-0.5">
+                                <details className="mt-1">
                                   <summary className="cursor-pointer text-kw-sm text-kw-faint hover:text-kw-label">
-                                    Historique ({fc.historique.length})
+                                    Historique de consultation ({fc.historique.length})
                                   </summary>
                                   <div className="mt-1 space-y-0.5 border-t border-kw-border-faint pt-1">
                                     {fc.historique.map((h) => (
@@ -191,23 +179,43 @@ export function DetailVersion({
                                   </div>
                                 </details>
                               )}
+
+                              <OffresDuFournisseur
+                                fournisseur={fc}
+                                optimisationId={optimisation.id}
+                                dureesDemandees={version.durees}
+                                typesPrixDemandes={version.types_prix}
+                                peutModifier={peutModifier}
+                                signaler={signaler}
+                              />
                             </div>
-                            <div className="flex shrink-0 items-center gap-2">
-                              {fc.statut_actuel && <Badge tone="neutral">{fc.statut_actuel}</Badge>}
-                              {peutModifier && (
-                                <button
-                                  type="button"
-                                  onClick={() => onAjouterSuivi(optimisation.id, fc)}
-                                  className="text-kw-base font-semibold text-kw-green hover:underline"
-                                >
-                                  + Suivi
-                                </button>
-                              )}
-                            </div>
-                          </div>
-                        ))}
+                          )
+                        })}
                       </div>
                     )}
+                  </div>
+                )}
+
+                {/* Offres sans fournisseur consulté : les 0 ligne actuelles n'en produiront pas, mais
+                    une offre orpheline ne doit pas devenir invisible sous prétexte qu'elle ne se
+                    range nulle part. */}
+                {optimisation.offres.some((o) => !o.optimisation_fournisseur_id) && (
+                  <div className="mt-2 border-t border-kw-border-faint pt-2">
+                    <p className="text-kw-sm font-bold uppercase tracking-wide text-kw-faint">
+                      Offres non rattachées à un fournisseur consulté
+                    </p>
+                    {optimisation.offres
+                      .filter((o) => !o.optimisation_fournisseur_id)
+                      .map((offre) => (
+                        <div key={offre.id} className="mt-1 flex items-center justify-between gap-2 rounded-kw-md bg-kw-bg px-2.5 py-1.5">
+                          <span className="truncate text-kw-base font-semibold text-kw-ink">
+                            {offre.fournisseur_nom} · {offre.nom || offre.reference_offre || 'Offre'}
+                          </span>
+                          <span className="shrink-0 font-mono text-kw-base text-kw-label">
+                            {offre.montant_annuel_ht != null ? `${offre.montant_annuel_ht.toLocaleString('fr-FR')} €/an` : '—'}
+                          </span>
+                        </div>
+                      ))}
                   </div>
                 )}
               </div>
