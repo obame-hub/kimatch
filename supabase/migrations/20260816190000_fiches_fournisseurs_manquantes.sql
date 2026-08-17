@@ -10,11 +10,31 @@
 -- écarte proprement et le trace en console, mais le vrai correctif est ici : un fournisseur
 -- qu'on peut consulter doit avoir sa fiche.
 --
--- Seul `compte_id` est obligatoire (vérifié colonne par colonne) : tout le reste a une valeur par
--- défaut. `statut_partenariat` vaut donc 'A_QUALIFIER', ce qui est exact — ces fiches sont créées
--- vides et restent à qualifier. On ne coche NI `fournit_electricite` NI `fournit_gaz` : les
--- deviner d'après le nom du compte serait une invention, et une fiche fournisseur qui annonce
--- fournir du gaz à tort ferait ressortir le fournisseur dans les mauvaises consultations.
+-- PREMIÈRE TENTATIVE REFUSÉE, ET POURQUOI CETTE VERSION COCHE LES DEUX ÉNERGIES.
+--
+-- La version initiale ne renseignait ni `fournit_electricite` ni `fournit_gaz`, pour ne pas
+-- inventer ce qu'un fournisseur vend. La base l'a refusée (erreur 23514) :
+--
+--     CHECK ((fournit_electricite = true) OR (fournit_gaz = true))
+--
+-- Au moins une énergie est donc obligatoire. J'ai cherché à la DÉDUIRE de l'historique réel —
+-- fournisseurs consultés → optimisation → version → compteurs → type d'énergie — plutôt que du
+-- nom du compte : **0 déductible sur 33**. Même ENGIE (2 consultations) et VATTENFALL (4) ne
+-- donnent rien, parce que le chemin passe par `versions_recommandation_compteurs`, qui ne compte
+-- que 13 lignes dans toute la base. La donnée n'existe pas.
+--
+-- Les deux énergies sont donc cochées, avec `statut_partenariat` à 'A_QUALIFIER' — ce qui est
+-- exact : ces fiches sont créées vides et restent à qualifier.
+--
+-- Le choix assumé : une fiche trop large se voit et se corrige, une fiche trop étroite ne se voit
+-- pas. Ne cocher que l'électricité ferait disparaître GAZ DE BARR ou GAZ DE BORDEAUX des
+-- consultations gaz sans que personne ne s'en aperçoive. À l'inverse, un fournisseur gaz proposé
+-- sur une consultation électricité est immédiatement visible par le conseiller, qui choisit ses
+-- fournisseurs à la main.
+--
+-- CONTREPARTIE À CONNAÎTRE : jusqu'à qualification, les 32 fiches ressortent sur les deux
+-- énergies. C'est le prix de ne rien masquer. Qualifier au fil de l'eau, ou faire une passe
+-- dédiée avec Michel qui connaît le marché.
 --
 -- ENEDIS EST VOLONTAIREMENT EXCLU. Il figure parmi les comptes de type fournisseur, mais c'est le
 -- gestionnaire du réseau de distribution : il n'a jamais vendu d'électricité et ne peut pas être
@@ -24,8 +44,8 @@
 
 begin;
 
-insert into public.comptes_fournisseurs (compte_id)
-select co.id
+insert into public.comptes_fournisseurs (compte_id, fournit_electricite, fournit_gaz)
+select co.id, true, true
 from public.comptes co
 left join public.comptes_fournisseurs cf on cf.compte_id = co.id
 where co.type_compte_id in (
@@ -50,5 +70,6 @@ commit;
 --     and cf.compte_id is null;
 --   -- attendu : une seule ligne, ENEDIS
 --
---   select statut_partenariat, count(*) from public.comptes_fournisseurs group by 1;
+--   select statut_partenariat, fournit_electricite, fournit_gaz, count(*)
+--   from public.comptes_fournisseurs group by 1,2,3 order by 4 desc;
 --   -- les 32 nouvelles doivent être en A_QUALIFIER
