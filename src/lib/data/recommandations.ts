@@ -769,9 +769,69 @@ export function useCreateVersion() {
           .single()
         optimisationId = (optimisation as { id: string } | null)?.id ?? null
         if (optimisationId) {
-          await supabase
+          // Les fournisseurs consultés. On récupère leurs identifiants : ils servent juste après
+          // à créer l'offre attendue de chacun.
+          const { data: consultes } = await supabase
             .from('optimisations_fournisseurs')
             .insert(input.fournisseur_ids.map((fournisseur_compte_id) => ({ optimisation_id: optimisationId, fournisseur_compte_id })))
+            .select('id, fournisseur_compte_id')
+
+          // Une OFFRE PAR FOURNISSEUR CONSULTÉ, créée dès la consultation (demande de Michel,
+          // 16/08/2026). La table `offres_fournisseurs` existait avec la bonne clé étrangère
+          // (`optimisation_fournisseur_id`) mais comptait ZÉRO ligne : personne ne la remplissait,
+          // donc le statut d'une offre n'était visible nulle part et il fallait le déduire de
+          // l'historique de consultation.
+          //
+          // Le statut de départ est ENVOYEE et non le défaut de la colonne (RECUE) : au moment de
+          // la consultation, rien n'a encore été reçu. Marquer « reçue » d'emblée ferait croire à
+          // une réponse fournisseur qui n'existe pas.
+          //
+          // Vocabulaire repris de `statuts_consultations_fournisseurs`
+          // (ENVOYEE → ACCUSE_RECEPTION → RELANCEE → INFO_COMPLEMENTAIRE_DEMANDEE → RECUE /
+          // REFUSEE) plutôt qu'un second jeu de codes à côté : `offres_fournisseurs.statut` est un
+          // texte libre sans table de référence, et deux vocabulaires auraient divergé.
+          const lignesConsultees = (consultes ?? []) as { id: string; fournisseur_compte_id: string }[]
+          if (lignesConsultees.length > 0) {
+            // `compte_fournisseur_id` est NOT NULL et référence `comptes_fournisseurs(compte_id)`,
+            // PAS `comptes(id)`. Or au 16/08/2026 seuls 19 des 52 comptes de type fournisseur ont
+            // une ligne dans `comptes_fournisseurs` : insérer une offre pour l'un des 33 autres
+            // partirait en violation de clé étrangère et, en lot, ferait échouer TOUTES les offres
+            // de la cotation. On ne crée donc l'offre que pour ceux qui peuvent en porter une.
+            const { data: eligibles } = await supabase
+              .from('comptes_fournisseurs')
+              .select('compte_id')
+              .in('compte_id', lignesConsultees.map((cf) => cf.fournisseur_compte_id))
+            const idsEligibles = new Set(((eligibles ?? []) as { compte_id: string }[]).map((e) => e.compte_id))
+
+            const avecOffre = lignesConsultees.filter((cf) => idsEligibles.has(cf.fournisseur_compte_id))
+            const sansOffre = lignesConsultees.filter((cf) => !idsEligibles.has(cf.fournisseur_compte_id))
+            if (sansOffre.length > 0) {
+              // Tracé et non tu : le fournisseur reste bien consulté, mais son offre ne peut pas
+              // être suivie tant que sa fiche fournisseur n'est pas complétée. Le silence ferait
+              // croire à un oubli de l'application.
+              console.warn(
+                `${sansOffre.length} fournisseur(s) consulté(s) sans fiche dans comptes_fournisseurs : `
+                + "aucune offre créée pour eux. Compléter leur fiche fournisseur pour pouvoir suivre l'offre.",
+                sansOffre.map((cf) => cf.fournisseur_compte_id),
+              )
+            }
+
+            if (avecOffre.length > 0) {
+              const { error: eOffres } = await supabase.from('offres_fournisseurs').insert(
+                avecOffre.map((cf, i) => ({
+                  optimisation_id: optimisationId,
+                  optimisation_fournisseur_id: cf.id,
+                  compte_fournisseur_id: cf.fournisseur_compte_id,
+                  statut: 'ENVOYEE',
+                  est_offre_recommandee: false,
+                  ordre_classement: i + 1,
+                })),
+              )
+              // Non bloquant : la cotation est déjà créée à ce stade. Si la création des offres
+              // échoue, on ne perd ni la version ni les fournisseurs consultés.
+              if (eOffres) console.error('Création des offres fournisseurs échouée', eOffres)
+            }
+          }
         }
       }
 
