@@ -27,6 +27,7 @@ import { OngletCommandeClient } from '@/components/recommandation/OngletCommande
 import { OngletPerimetre } from '@/components/recommandation/OngletPerimetre'
 import { OngletDocuments } from '@/components/recommandation/OngletDocuments'
 import { DetailVersion } from '@/components/recommandation/DetailVersion'
+import { BlocAffaire } from '@/components/recommandation/BlocAffaire'
 import {
   CotationWizard,
   EnvoyerEmailDialog,
@@ -904,6 +905,8 @@ export default function RecommandationDetail() {
                   }}
                 />
               )}
+
+              <BlocAffaire reco={reco} />
 
               {/* Description et note interne : elles restent éditables en place, et s'affichent en
                   pointillé cliquable même vides — sans quoi rien n'invite à les remplir. */}
