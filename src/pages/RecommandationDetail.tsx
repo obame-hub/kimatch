@@ -47,6 +47,7 @@ import {
   useDeleteRecommandation,
   useDeleteVersion,
   useChangerStatutConsultation,
+  CODES_STATUT_CONSULTATION_PROPOSES,
   type PatchRecommandation,
 } from '@/lib/data/recommandations'
 import { useObjectifsRecommandation } from '@/lib/data/objectifsClient'
@@ -861,7 +862,9 @@ export default function RecommandationDetail() {
                   peutModifier={canManage}
                   signaler={signaler}
                   onSupprimer={() => setVersionASupprimer(versionAffichee)}
-                  statutsConsultation={statutsConsultationRef ?? []}
+                  statutsConsultation={(statutsConsultationRef ?? []).filter((s) =>
+                    (CODES_STATUT_CONSULTATION_PROPOSES as readonly string[]).includes(s.code),
+                  )}
                   onChangerStatut={async (fc, statutId) => {
                     const statut = (statutsConsultationRef ?? []).find((s) => s.id === statutId)
                     if (!statut) return
@@ -871,11 +874,15 @@ export default function RecommandationDetail() {
                         statutId: statut.id,
                         statutCode: statut.code,
                       })
-                      signaler(
-                        statut.code === 'RECUE'
-                          ? `✓ ${fc.fournisseur_nom} : offre reçue — les offres acceptées passent en reçues`
-                          : `✓ ${fc.fournisseur_nom} : ${statut.libelle}`,
-                      )
+                      // Le message dit ce que le geste a fait AUX OFFRES, pas seulement au
+                      // fournisseur : c'est la partie invisible et c'est celle qui surprend.
+                      const suite: Record<string, string> = {
+                        ACCEPTEE: ' — ses offres en attente passent en acceptées',
+                        REFUSEE: ' — ses offres en attente passent en refusées',
+                        ACCEPTEE_PARTIELLEMENT: ' — à vous de marquer quelle durée est refusée',
+                        RECUE: ' — les offres acceptées passent en reçues',
+                      }
+                      signaler(`✓ ${fc.fournisseur_nom} : ${statut.libelle}${suite[statut.code] ?? ''}`)
                     } catch (e) {
                       signaler(`Erreur : ${e instanceof Error ? e.message : String(e)}`)
                     }

@@ -1150,6 +1150,24 @@ export const STATUTS_OFFRE = [
 ] as const
 
 /**
+ * Les seuls statuts PROPOSÉS pour un fournisseur consulté (décision de Naoëlle, 18/08/2026).
+ *
+ * La table `statuts_consultations_fournisseurs` en compte huit, mais quatre suffisent au geste réel :
+ * la demande part, puis le fournisseur accepte, accepte en partie, ou refuse.
+ *
+ * Les quatre autres codes — ACCUSE_RECEPTION, RELANCEE, INFO_COMPLEMENTAIRE_DEMANDEE, RECUE — ne
+ * sont PAS retirés de la table : 637 accusés de réception, 18 relances et 1464 réponses reçues les
+ * portent dans l'historique importé de Salesforce. Les proposer à la saisie encombrait le menu ;
+ * les supprimer rendrait cet historique illisible. On restreint donc le choix, pas le vocabulaire.
+ */
+export const CODES_STATUT_CONSULTATION_PROPOSES = [
+  'ENVOYEE',
+  'ACCEPTEE',
+  'ACCEPTEE_PARTIELLEMENT',
+  'REFUSEE',
+] as const
+
+/**
  * Statut d'un FOURNISSEUR CONSULTÉ, enregistré comme un événement de suivi.
  *
  * Le suivi est un objet d'activité et non un champ (« il faut que ce soit un objet pour qu'il y ait
@@ -1157,10 +1175,22 @@ export const STATUTS_OFFRE = [
  * `suivis_consultations_fournisseurs`, on garde donc l'historique de la relance et non seulement
  * l'état final.
  *
- * LA RÈGLE MÉTIER DE LA RÉUNION est appliquée ici : « quand je vais basculer à offre reçue, il va
- * mettre en offre reçue QUE l'offre qui a été acceptée ». Les offres refusées restent refusées, et
- * celles encore en attente ne deviennent pas reçues par ricochet — sinon on croirait avoir reçu un
- * prix pour une durée que le fournisseur n'a jamais acceptée de coter.
+ * LES RÈGLES MÉTIER DE LA RÉUNION sont appliquées ici, et elles descendent toutes du même principe :
+ * la demande porte sur TOUTES les offres du fournisseur à la fois.
+ *
+ *  · « Accepté par le fournisseur, ça veut dire qu'il a accepté les deux durées et les deux types en
+ *    même temps » — donc passer le fournisseur à ACCEPTEE accepte ses offres encore en attente. Sans
+ *    ça, le conseiller devrait rouvrir chaque offre pour dire ce qu'il vient déjà de dire.
+ *  · REFUSEE : symétrique, le fournisseur ne cote rien.
+ *  · ACCEPTEE_PARTIELLEMENT : on ne touche à RIEN. C'est tout le sens du statut — le conseiller
+ *    désigne lui-même quelle durée passe et laquelle est refusée, l'application ne peut pas le
+ *    devenir à sa place.
+ *  · RECUE : « quand je vais basculer à offre reçue, il va mettre en offre reçue QUE l'offre qui a
+ *    été acceptée ». Ce statut n'est plus proposé à la saisie (décision du 18/08/2026) mais la règle
+ *    reste : 1464 consultations le portent dans l'historique importé.
+ *
+ * Dans tous les cas, seules les offres ENCORE EN ATTENTE sont touchées : une offre déjà tranchée à la
+ * main ne doit pas être réécrite par un changement de statut global.
  */
 export function useChangerStatutConsultation() {
   const queryClient = useQueryClient()
@@ -1178,14 +1208,24 @@ export function useChangerStatutConsultation() {
       })
       if (error) throw new Error(error.message)
 
-      if (input.statutCode !== 'RECUE') return
+      // Répercussion sur les offres du fournisseur, selon le statut posé.
+      const repercussion: Record<string, { depuis: string; vers: string; dateReception?: boolean }> = {
+        ACCEPTEE: { depuis: 'EN_ATTENTE', vers: 'ACCEPTEE' },
+        REFUSEE: { depuis: 'EN_ATTENTE', vers: 'REFUSEE' },
+        RECUE: { depuis: 'ACCEPTEE', vers: 'RECUE', dateReception: true },
+      }
+      const regle = repercussion[input.statutCode]
+      if (!regle) return
 
-      // Seules les offres acceptées passent en reçue.
       const { error: eOffres } = await supabase
         .from('offres_fournisseurs')
-        .update({ statut: 'RECUE', date_reception: new Date().toISOString().slice(0, 10), date_modification: new Date().toISOString() })
+        .update({
+          statut: regle.vers,
+          ...(regle.dateReception ? { date_reception: new Date().toISOString().slice(0, 10) } : {}),
+          date_modification: new Date().toISOString(),
+        })
         .eq('optimisation_fournisseur_id', input.optimisationFournisseurId)
-        .eq('statut', 'ACCEPTEE')
+        .eq('statut', regle.depuis)
       if (eOffres) throw new Error(eOffres.message)
     },
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ['recommandations'] }),
