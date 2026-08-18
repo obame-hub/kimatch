@@ -19,16 +19,26 @@
 -- déroulantes, tri) : renuméroter six lignes de référence ne touche aucune donnée métier, et sans ça
 -- « Acceptée » apparaîtrait après « Offre reçue » dans les menus, ce qui se lit à l'envers.
 --
--- `RECUE` est renommée « Offre reçue » au lieu de « Réponse reçue » : c'est le mot employé en réunion,
--- et il est plus juste — ce qu'on attend du fournisseur est une offre, pas une réponse. Le code ne
--- change pas, donc les 1464 suivis qui la portent ne sont pas touchés.
+-- `RECUE` est renommée « Offre reçue » au lieu de « Réponse reçue », mais elle n'est PLUS PROPOSÉE à
+-- la saisie : une demande ne se « reçoit » pas, ce sont les offres qui arrivent, et chacune passe en
+-- « reçue » à son propre niveau — là où l'on saisit son prix et où l'on joindra son fichier. Le code
+-- reste dans la table parce que 1464 suivis importés de Salesforce le portent : il doit rester
+-- lisible dans l'historique, simplement plus posable. Même raison pour ACCUSE_RECEPTION (637),
+-- RELANCEE (18) et INFO_COMPLEMENTAIRE_DEMANDEE.
 
 begin;
 
 insert into public.statuts_consultations_fournisseurs (code, libelle, ordre) values
-  ('ACCEPTEE',               'Acceptée',               5),
-  ('ACCEPTEE_PARTIELLEMENT', 'Acceptée partiellement', 6)
+  ('ACCEPTEE',               'Demande acceptée',               5),
+  ('ACCEPTEE_PARTIELLEMENT', 'Demande acceptée partiellement', 6)
 on conflict (code) do nothing;
+
+-- Les quatre libellés parlent de LA DEMANDE, pas de l'offre : « demande envoyée quand il a demandé
+-- les offres, demande acceptée quand elles ont toutes été acceptées, acceptée partiellement quand
+-- juste un type ou une durée a été accepté — ou qu'une alternative a été proposée — et demande
+-- refusée » (Naoëlle, 18/08/2026). « Acceptée » tout court laissait croire qu'une offre était
+-- acceptée, alors que c'est la demande qui l'est.
+update public.statuts_consultations_fournisseurs set libelle = 'Demande refusée' where code = 'REFUSEE';
 
 update public.statuts_consultations_fournisseurs set ordre = 1 where code = 'ENVOYEE';
 update public.statuts_consultations_fournisseurs set ordre = 2 where code = 'ACCUSE_RECEPTION';
@@ -58,8 +68,9 @@ commit;
 -- Vérification après application (à coller tel quel) :
 --
 --   select code, libelle, ordre from public.statuts_consultations_fournisseurs order by ordre;
---   -- attendu : 8 lignes, de « Demande envoyée » à « Refusée », avec Acceptée en 5 et
---   --           Acceptée partiellement en 6
+--   -- attendu : 8 lignes. Les QUATRE proposées à la saisie sont « Demande envoyée » (1),
+--   --           « Demande acceptée » (5), « Demande acceptée partiellement » (6) et
+--   --           « Demande refusée » (8). Les quatre autres ne servent qu'à relire l'historique.
 --
 --   select statut, count(*) from public.offres_fournisseurs group by 1 order by 2 desc;
 --   -- attendu : plus aucune ligne en 'ENVOYEE' (11 passent en 'EN_ATTENTE', 1 reste 'REFUSEE')

@@ -855,14 +855,13 @@ export function useCreateVersion() {
           // donc le statut d'une offre n'était visible nulle part et il fallait le déduire de
           // l'historique de consultation.
           //
-          // Le statut de départ est ENVOYEE et non le défaut de la colonne (RECUE) : au moment de
-          // la consultation, rien n'a encore été reçu. Marquer « reçue » d'emblée ferait croire à
-          // une réponse fournisseur qui n'existe pas.
+          // Le statut de départ n'est PAS le défaut de la colonne (RECUE) : au moment de la
+          // consultation, rien n'a encore été reçu. Marquer « reçue » d'emblée ferait croire à une
+          // réponse fournisseur qui n'existe pas.
           //
-          // Vocabulaire repris de `statuts_consultations_fournisseurs`
-          // (ENVOYEE → ACCUSE_RECEPTION → RELANCEE → INFO_COMPLEMENTAIRE_DEMANDEE → RECUE /
-          // REFUSEE) plutôt qu'un second jeu de codes à côté : `offres_fournisseurs.statut` est un
-          // texte libre sans table de référence, et deux vocabulaires auraient divergé.
+          // Vocabulaire de l'offre : voir STATUTS_OFFRE. Il est distinct de celui du fournisseur
+          // consulté, parce qu'il répond à une autre question — « ce fournisseur accepte-t-il de
+          // coter CETTE durée ? » et non « où en est la demande ? ».
           const lignesConsultees = (consultes ?? []) as { id: string; fournisseur_compte_id: string }[]
           if (lignesConsultees.length > 0) {
             // `compte_fournisseur_id` est NOT NULL et référence `comptes_fournisseurs(compte_id)`,
@@ -1185,9 +1184,13 @@ export const CODES_STATUT_CONSULTATION_PROPOSES = [
  *  · ACCEPTEE_PARTIELLEMENT : on ne touche à RIEN. C'est tout le sens du statut — le conseiller
  *    désigne lui-même quelle durée passe et laquelle est refusée, l'application ne peut pas le
  *    devenir à sa place.
- *  · RECUE : « quand je vais basculer à offre reçue, il va mettre en offre reçue QUE l'offre qui a
- *    été acceptée ». Ce statut n'est plus proposé à la saisie (décision du 18/08/2026) mais la règle
- *    reste : 1464 consultations le portent dans l'historique importé.
+ *
+ * PAS DE RÈGLE « OFFRE REÇUE » ICI, et c'est volontaire. Ce statut n'existe plus à cet étage : les
+ * quatre statuts qualifient la DEMANDE, et une demande ne se « reçoit » pas — ce sont les offres qui
+ * arrivent. Chaque offre passe donc en « reçue » individuellement, là où l'on saisit son prix et où
+ * l'on joindra son fichier. Garder ici une règle qu'aucun geste ne peut plus déclencher laisserait
+ * croire à un automatisme inexistant. Le code RECUE reste lisible dans l'historique (1464 suivis
+ * importés de Salesforce le portent), il n'est simplement plus posable.
  *
  * Dans tous les cas, seules les offres ENCORE EN ATTENTE sont touchées : une offre déjà tranchée à la
  * main ne doit pas être réécrite par un changement de statut global.
@@ -1209,21 +1212,16 @@ export function useChangerStatutConsultation() {
       if (error) throw new Error(error.message)
 
       // Répercussion sur les offres du fournisseur, selon le statut posé.
-      const repercussion: Record<string, { depuis: string; vers: string; dateReception?: boolean }> = {
+      const repercussion: Record<string, { depuis: string; vers: string }> = {
         ACCEPTEE: { depuis: 'EN_ATTENTE', vers: 'ACCEPTEE' },
         REFUSEE: { depuis: 'EN_ATTENTE', vers: 'REFUSEE' },
-        RECUE: { depuis: 'ACCEPTEE', vers: 'RECUE', dateReception: true },
       }
       const regle = repercussion[input.statutCode]
       if (!regle) return
 
       const { error: eOffres } = await supabase
         .from('offres_fournisseurs')
-        .update({
-          statut: regle.vers,
-          ...(regle.dateReception ? { date_reception: new Date().toISOString().slice(0, 10) } : {}),
-          date_modification: new Date().toISOString(),
-        })
+        .update({ statut: regle.vers, date_modification: new Date().toISOString() })
         .eq('optimisation_fournisseur_id', input.optimisationFournisseurId)
         .eq('statut', regle.depuis)
       if (eOffres) throw new Error(eOffres.message)

@@ -880,7 +880,6 @@ export default function RecommandationDetail() {
                         ACCEPTEE: ' — ses offres en attente passent en acceptées',
                         REFUSEE: ' — ses offres en attente passent en refusées',
                         ACCEPTEE_PARTIELLEMENT: ' — à vous de marquer quelle durée est refusée',
-                        RECUE: ' — les offres acceptées passent en reçues',
                       }
                       signaler(`✓ ${fc.fournisseur_nom} : ${statut.libelle}${suite[statut.code] ?? ''}`)
                     } catch (e) {
