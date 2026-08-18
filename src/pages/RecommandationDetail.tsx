@@ -45,6 +45,8 @@ import {
   useRouvrirRecommandation,
   useAvancerEtapeRecommandation,
   useDeleteRecommandation,
+  useDeleteVersion,
+  useChangerStatutConsultation,
   type PatchRecommandation,
 } from '@/lib/data/recommandations'
 import { useObjectifsRecommandation } from '@/lib/data/objectifsClient'
@@ -104,6 +106,7 @@ export default function RecommandationDetail() {
   const { data: typesActionsRef } = useReferenceTable('types_actions')
   const { data: typesInteractionsRef } = useReferenceTable('types_interactions')
   const { data: statutsActionsRef } = useReferenceTable('statuts_actions')
+  const { data: statutsConsultationRef } = useReferenceTable('statuts_consultations_fournisseurs')
   const { data: contacts } = useContactsParCompte(reco?.compte_id)
   const { data: compte } = useCompte(reco?.compte_id)
   const { data: compteurs } = useCompteurs()
@@ -134,6 +137,8 @@ export default function RecommandationDetail() {
   const rouvrirReco = useRouvrirRecommandation()
   const avancerEtape = useAvancerEtapeRecommandation()
   const deleteRecommandation = useDeleteRecommandation()
+  const deleteVersion = useDeleteVersion()
+  const changerStatutConsultation = useChangerStatutConsultation()
   const televerser = useTeleverserDocuments()
   const createAction = useCreateAction()
   const createInteraction = useCreateInteraction()
@@ -153,6 +158,7 @@ export default function RecommandationDetail() {
   const [ajouterFournisseurFor, setAjouterFournisseurFor] = useState<Optimisation | null>(null)
   const [suiviFor, setSuiviFor] = useState<{ optimisationId: string; fc: FournisseurConsulte } | null>(null)
   const [confirmDelete, setConfirmDelete] = useState(false)
+  const [versionASupprimer, setVersionASupprimer] = useState<VersionRecommandation | null>(null)
   const [coutOuvert, setCoutOuvert] = useState(false)
   const [coutBrouillon, setCoutBrouillon] = useState('')
   const [toast, setToast] = useState<string | null>(null)
@@ -854,6 +860,26 @@ export default function RecommandationDetail() {
                   onAjouterSuivi={(optimisationId, fc) => setSuiviFor({ optimisationId, fc })}
                   peutModifier={canManage}
                   signaler={signaler}
+                  onSupprimer={() => setVersionASupprimer(versionAffichee)}
+                  statutsConsultation={statutsConsultationRef ?? []}
+                  onChangerStatut={async (fc, statutId) => {
+                    const statut = (statutsConsultationRef ?? []).find((s) => s.id === statutId)
+                    if (!statut) return
+                    try {
+                      await changerStatutConsultation.mutateAsync({
+                        optimisationFournisseurId: fc.id,
+                        statutId: statut.id,
+                        statutCode: statut.code,
+                      })
+                      signaler(
+                        statut.code === 'RECUE'
+                          ? `✓ ${fc.fournisseur_nom} : offre reçue — les offres acceptées passent en reçues`
+                          : `✓ ${fc.fournisseur_nom} : ${statut.libelle}`,
+                      )
+                    } catch (e) {
+                      signaler(`Erreur : ${e instanceof Error ? e.message : String(e)}`)
+                    }
+                  }}
                 />
               )}
 
@@ -1050,6 +1076,75 @@ export default function RecommandationDetail() {
             </Button>
           </div>
         </div>
+      </Dialog>
+
+      {/* Suppression d'une version. La confirmation dit ce qui part avec elle : la cascade emporte
+          les fournisseurs consultés, leurs offres et le suivi, et personne ne devine ça tout seul. */}
+      <Dialog
+        open={!!versionASupprimer}
+        onClose={() => setVersionASupprimer(null)}
+        title={`Supprimer ${versionASupprimer?.nom || 'cette version'} ?`}
+        description="Utile quand une version a été créée par erreur. Irréversible."
+      >
+        {versionASupprimer && (
+          <div className="space-y-3">
+            <div className="rounded-kw-md border border-kw-amber-border bg-kw-amber-light px-3 py-2 text-xs text-kw-label">
+              <p className="font-semibold text-kw-ink">Seront supprimés avec elle :</p>
+              <ul className="mt-1 list-disc space-y-0.5 pl-4">
+                <li>
+                  {versionASupprimer.optimisations.length} optimisation
+                  {versionASupprimer.optimisations.length > 1 ? 's' : ''}
+                </li>
+                <li>
+                  {versionASupprimer.optimisations.reduce((n, o) => n + o.fournisseurs_consultes.length, 0)} fournisseur(s)
+                  consulté(s) et leur suivi
+                </li>
+                <li>
+                  {versionASupprimer.optimisations.reduce((n, o) => n + o.offres.length, 0)} offre(s), dont{' '}
+                  {versionASupprimer.optimisations.reduce(
+                    (n, o) => n + o.offres.filter((x) => x.montant_annuel_ht != null || x.prix_moyen_mwh != null).length,
+                    0,
+                  )}{' '}
+                  déjà chiffrée(s)
+                </li>
+              </ul>
+            </div>
+            {versionASupprimer.version_actuelle && reco.versions.length > 1 && (
+              <p className="text-xs text-kw-meta">
+                C'est la version active : la plus récente des restantes prendra sa place.
+              </p>
+            )}
+            {reco.versions.length === 1 && (
+              <p className="text-xs text-kw-meta">
+                C'est la seule version du dossier : la recommandation repartira sans cotation.
+              </p>
+            )}
+            <div className="flex justify-end gap-2 pt-1">
+              <Button type="button" variant="ghost" onClick={() => setVersionASupprimer(null)}>Annuler</Button>
+              <Button
+                type="button"
+                variant="outline"
+                className="border-red-200 text-red-600 hover:bg-red-50"
+                disabled={deleteVersion.isPending}
+                onClick={async () => {
+                  const nom = versionASupprimer.nom || 'Version'
+                  try {
+                    await deleteVersion.mutateAsync({ versionId: versionASupprimer.id, recommandationId: reco.id })
+                    // La version affichée vient de disparaître : on relâche la sélection pour que la
+                    // fiche retombe sur la version active, sinon elle pointerait dans le vide.
+                    setVersionAfficheeId(null)
+                    setVersionASupprimer(null)
+                    signaler(`${nom} supprimée`)
+                  } catch (e) {
+                    signaler(`Erreur : ${e instanceof Error ? e.message : String(e)}`)
+                  }
+                }}
+              >
+                {deleteVersion.isPending ? 'Suppression…' : 'Supprimer définitivement'}
+              </Button>
+            </div>
+          </div>
+        )}
       </Dialog>
 
       <Dialog

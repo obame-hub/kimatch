@@ -927,7 +927,10 @@ export function useCreateVersion() {
                   nom: [c.duree ? `${c.duree} mois` : null, c.typePrix].filter(Boolean).join(' — ') || 'Offre attendue',
                   duree_mois: c.duree,
                   type_prix: c.typePrix,
-                  statut: 'ENVOYEE',
+                  // « En attente » et non « envoyée » : la demande, elle, est portée par le
+                  // fournisseur consulté ; l'offre attend de savoir si ce fournisseur accepte de
+                  // coter CETTE durée (réunion du 17/08/2026, statuts à deux étages).
+                  statut: 'EN_ATTENTE',
                   est_offre_recommandee: false,
                   ordre_classement: i + 1,
                 })),
@@ -1131,6 +1134,64 @@ export function useAjouterFournisseurConsulte() {
   })
 }
 
+/**
+ * Statuts d'une OFFRE — une durée × un type de prix.
+ *
+ * « Sur chacune des durées type, j'aurais juste accepté ou refusé » (réunion du 17/08/2026). Le
+ * fournisseur accepte-t-il de coter CETTE durée ? Puis, quand la demande aboutit, l'offre est reçue.
+ * `EN_ATTENTE` est l'état de départ : la demande est partie, le fournisseur n'a pas encore dit s'il
+ * répondrait sur cette durée-là.
+ */
+export const STATUTS_OFFRE = [
+  { code: 'EN_ATTENTE', libelle: 'En attente' },
+  { code: 'ACCEPTEE', libelle: 'Acceptée' },
+  { code: 'REFUSEE', libelle: 'Refusée' },
+  { code: 'RECUE', libelle: 'Reçue' },
+] as const
+
+/**
+ * Statut d'un FOURNISSEUR CONSULTÉ, enregistré comme un événement de suivi.
+ *
+ * Le suivi est un objet d'activité et non un champ (« il faut que ce soit un objet pour qu'il y ait
+ * une vraie activité ») : chaque changement ajoute une ligne datée dans
+ * `suivis_consultations_fournisseurs`, on garde donc l'historique de la relance et non seulement
+ * l'état final.
+ *
+ * LA RÈGLE MÉTIER DE LA RÉUNION est appliquée ici : « quand je vais basculer à offre reçue, il va
+ * mettre en offre reçue QUE l'offre qui a été acceptée ». Les offres refusées restent refusées, et
+ * celles encore en attente ne deviennent pas reçues par ricochet — sinon on croirait avoir reçu un
+ * prix pour une durée que le fournisseur n'a jamais acceptée de coter.
+ */
+export function useChangerStatutConsultation() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: async (input: {
+      optimisationFournisseurId: string
+      statutId: string
+      statutCode: string
+      commentaire?: string | null
+    }) => {
+      const { error } = await supabase.from('suivis_consultations_fournisseurs').insert({
+        optimisation_fournisseur_id: input.optimisationFournisseurId,
+        statut_id: input.statutId,
+        commentaire: input.commentaire ?? null,
+      })
+      if (error) throw new Error(error.message)
+
+      if (input.statutCode !== 'RECUE') return
+
+      // Seules les offres acceptées passent en reçue.
+      const { error: eOffres } = await supabase
+        .from('offres_fournisseurs')
+        .update({ statut: 'RECUE', date_reception: new Date().toISOString().slice(0, 10), date_modification: new Date().toISOString() })
+        .eq('optimisation_fournisseur_id', input.optimisationFournisseurId)
+        .eq('statut', 'ACCEPTEE')
+      if (eOffres) throw new Error(eOffres.message)
+    },
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['recommandations'] }),
+  })
+}
+
 export function useAjouterSuiviConsultation() {
   const queryClient = useQueryClient()
   return useMutation({
@@ -1211,6 +1272,56 @@ export function useUpdateVersionPartiel() {
 }
 
 /**
+ * Suppression d'une version — « si tu en crées une sans faire exprès » (réunion du 17/08/2026).
+ *
+ * La cascade est tenue par la base et vérifiée : supprimer la version emporte ses optimisations, ses
+ * fournisseurs consultés, leurs offres, leurs suivis, ses compteurs et ses durées. La clé
+ * `offres_fournisseurs.optimisation_fournisseur_id` est en NO ACTION et non RESTRICT : la
+ * vérification est repoussée à la fin de l'instruction, donc les offres supprimées par l'autre
+ * chemin de cascade ne bloquent pas. Testé en transaction annulée avant d'écrire ce code.
+ *
+ * CE QUE LA BASE NE FAIT PAS ET QU'IL FAUT FAIRE ICI : si la version supprimée était la version
+ * actuelle, la recommandation se retrouve sans aucune version active — état incohérent, où la fiche
+ * n'a plus de version de référence et où le badge « EN COURS · V… ACTIVE » n'affiche plus rien. On
+ * promeut donc la plus haute version restante.
+ */
+export function useDeleteVersion() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: async (input: { versionId: string; recommandationId: string }) => {
+      const { data: avant, error: eLecture } = await supabase
+        .from('versions_recommandation')
+        .select('id, version_actuelle')
+        .eq('id', input.versionId)
+        .maybeSingle()
+      if (eLecture) throw new Error(eLecture.message)
+      const etaitActuelle = Boolean((avant as { version_actuelle?: boolean } | null)?.version_actuelle)
+
+      const { error } = await supabase.from('versions_recommandation').delete().eq('id', input.versionId)
+      if (error) throw new Error(error.message)
+
+      if (!etaitActuelle) return
+      const { data: restantes } = await supabase
+        .from('versions_recommandation')
+        .select('id, numero_version')
+        .eq('recommandation_id', input.recommandationId)
+        .order('numero_version', { ascending: false })
+        .limit(1)
+      const remplacante = ((restantes ?? []) as { id: string }[])[0]
+      // Aucune version restante : la recommandation repart à l'état d'avant la première cotation,
+      // ce qui est cohérent. Rien à promouvoir.
+      if (!remplacante) return
+      const { error: ePromotion } = await supabase
+        .from('versions_recommandation')
+        .update({ version_actuelle: true, date_modification: new Date().toISOString() })
+        .eq('id', remplacante.id)
+      if (ePromotion) throw new Error(ePromotion.message)
+    },
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['recommandations'] }),
+  })
+}
+
+/**
  * Offres reçues d'un fournisseur consulté — ajouter, corriger, retirer, retenir.
  *
  * « Il faut qu'on voie sous chaque fournisseur consulté la ou les offres différentes, sinon la
@@ -1257,7 +1368,7 @@ export function useAjouterOffre() {
         nom: libelleOffre(input.duree_mois, input.type_prix),
         duree_mois: input.duree_mois,
         type_prix: input.type_prix,
-        statut: 'ENVOYEE',
+        statut: 'EN_ATTENTE',
         est_offre_recommandee: false,
       }
       const { error } = await supabase.from('offres_fournisseurs').insert(ligne)

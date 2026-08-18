@@ -7,6 +7,7 @@ import {
   useSupprimerOffre,
   useRetenirOffre,
   libelleOffre,
+  STATUTS_OFFRE,
   type PatchOffre,
 } from '@/lib/data/recommandations'
 import type { FournisseurConsulte, OffreFournisseur } from '@/types/domain'
@@ -19,7 +20,7 @@ import type { FournisseurConsulte, OffreFournisseur } from '@/types/domain'
  * et en indexé, peut répondre plusieurs offres : c'est entre elles qu'on arbitre, et l'une d'elles
  * est retenue — celle que lit le comparatif des versions.
  *
- * La grille est créée dès la consultation, une ligne par combinaison demandée, au statut ENVOYEE et
+ * La grille est créée dès la consultation, une ligne par combinaison demandée, « en attente » et
  * sans montant : chaque ligne est une réponse attendue. Le conseiller saisit le prix quand le mail
  * arrive, en cliquant sur le pointillé — pas de modale, pas de formulaire à ouvrir.
  *
@@ -29,22 +30,11 @@ import type { FournisseurConsulte, OffreFournisseur } from '@/types/domain'
  * remplacer.
  */
 
-const STATUTS = [
-  ['ENVOYEE', 'Envoyée'],
-  ['ACCUSE_RECEPTION', 'Accusé de réception'],
-  ['RELANCEE', 'Relancée'],
-  ['INFO_COMPLEMENTAIRE_DEMANDEE', 'Info demandée'],
-  ['RECUE', 'Reçue'],
-  ['REFUSEE', 'Refusée'],
-] as const
-
 const TON_STATUT: Record<string, string> = {
-  ENVOYEE: 'bg-kw-muted text-kw-meta',
-  ACCUSE_RECEPTION: 'bg-kw-blue-light text-kw-blue',
-  RELANCEE: 'bg-kw-amber-light text-kw-amber-dark',
-  INFO_COMPLEMENTAIRE_DEMANDEE: 'bg-kw-amber-light text-kw-amber-dark',
-  RECUE: 'bg-kw-green-light text-kw-green',
+  EN_ATTENTE: 'bg-kw-muted text-kw-meta',
+  ACCEPTEE: 'bg-kw-blue-light text-kw-blue',
   REFUSEE: 'bg-kw-red-light text-kw-red',
+  RECUE: 'bg-kw-green-light text-kw-green',
 }
 
 /** Saisie en place d'un nombre : pointillé cliquable, Entrée valide, Échap annule. */
@@ -182,25 +172,25 @@ export function OffresDuFournisseur({
 
                 {peutModifier ? (
                   <select
-                    value={offre.statut ?? 'ENVOYEE'}
-                    onChange={(e) => patcher(offre, { statut: e.target.value }, `✓ ${libelleOffre(offre.duree_mois, offre.type_prix)} : ${STATUTS.find(([c]) => c === e.target.value)?.[1]}`)}
+                    value={offre.statut ?? 'EN_ATTENTE'}
+                    onChange={(e) => patcher(offre, { statut: e.target.value }, `✓ ${libelleOffre(offre.duree_mois, offre.type_prix)} : ${STATUTS_OFFRE.find((st) => st.code === e.target.value)?.libelle}`)}
                     className={cn(
                       'rounded-kw-xs border-0 px-1.5 py-0.5 text-kw-micro font-extrabold uppercase tracking-[0.05em] outline-none',
-                      TON_STATUT[offre.statut ?? 'ENVOYEE'] ?? 'bg-kw-muted text-kw-meta',
+                      TON_STATUT[offre.statut ?? 'EN_ATTENTE'] ?? 'bg-kw-muted text-kw-meta',
                     )}
                   >
-                    {STATUTS.map(([code, libelle]) => (
-                      <option key={code} value={code}>{libelle}</option>
+                    {STATUTS_OFFRE.map((st) => (
+                      <option key={st.code} value={st.code}>{st.libelle}</option>
                     ))}
                   </select>
                 ) : (
                   <span
                     className={cn(
                       'rounded-kw-xs px-1.5 py-0.5 text-kw-micro font-extrabold uppercase tracking-[0.05em]',
-                      TON_STATUT[offre.statut ?? 'ENVOYEE'] ?? 'bg-kw-muted text-kw-meta',
+                      TON_STATUT[offre.statut ?? 'EN_ATTENTE'] ?? 'bg-kw-muted text-kw-meta',
                     )}
                   >
-                    {STATUTS.find(([c]) => c === offre.statut)?.[1] ?? offre.statut ?? 'Envoyée'}
+                    {STATUTS_OFFRE.find((st) => st.code === offre.statut)?.libelle ?? offre.statut ?? 'En attente'}
                   </span>
                 )}
 

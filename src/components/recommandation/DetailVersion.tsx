@@ -1,4 +1,4 @@
-import { Mail, Lock } from 'lucide-react'
+import { Mail, Lock, Trash2 } from 'lucide-react'
 import { Badge } from '@/components/ui/badge'
 import { EntityLink } from '@/components/ui/entity-link'
 import { OffresDuFournisseur } from '@/components/recommandation/OffresDuFournisseur'
@@ -27,16 +27,24 @@ export function DetailVersion({
   onEnvoyerEmail,
   onAjouterFournisseur,
   onAjouterSuivi,
+  onChangerStatut,
+  statutsConsultation,
   peutModifier,
   signaler,
+  onSupprimer,
 }: {
   version: VersionRecommandation
   statutsVersions: ReferenceRow[]
   onEnvoyerEmail: () => void
   onAjouterFournisseur: (optimisation: Optimisation) => void
   onAjouterSuivi: (optimisationId: string, fc: FournisseurConsulte) => void
+  /** Change le statut de la demande, en enregistrant un événement de suivi daté. */
+  onChangerStatut: (fc: FournisseurConsulte, statutId: string) => void
+  statutsConsultation: ReferenceRow[]
   peutModifier: boolean
   signaler: (message: string) => void
+  /** Ouvre la confirmation de suppression, tenue par la fiche : elle sait ce qui va être perdu. */
+  onSupprimer: () => void
 }) {
   const statutLabel = statutsVersions.find((s) => s.code === version.statut)?.libelle ?? version.statut
 
@@ -54,6 +62,18 @@ export function DetailVersion({
         <span className="flex-1" />
         {version.version_actuelle && <Badge tone="kiwi">Actuelle</Badge>}
         <Badge tone={STATUT_VERSION_TONE[version.statut] ?? 'neutral'}>{statutLabel}</Badge>
+        {/* Supprimer une version créée par erreur (demande de la réunion du 17/08/2026). Discret et
+            à droite : c'est un geste de rattrapage, pas une action courante. */}
+        {peutModifier && (
+          <button
+            type="button"
+            onClick={onSupprimer}
+            title="Supprimer cette version"
+            className="rounded-kw-sm p-1 text-kw-ghost hover:bg-kw-red-light hover:text-kw-red"
+          >
+            <Trash2 className="h-3.5 w-3.5" />
+          </button>
+        )}
       </div>
 
       <div className="space-y-3 px-[17px] py-3.5">
@@ -151,15 +171,45 @@ export function DetailVersion({
                                     ? 'aucune offre suivie'
                                     : `${chiffrees.length}/${fc.offres.length} offre${fc.offres.length > 1 ? 's' : ''} chiffrée${chiffrees.length > 1 ? 's' : ''}`}
                                 </span>
+                                {fc.offres.some((o) => o.statut === 'REFUSEE') && fc.offres.some((o) => o.statut === 'ACCEPTEE') && (
+                                  // Le commercial doit voir ça sans ouvrir chaque offre : c'est tout
+                                  // l'objet du statut « acceptée partiellement ».
+                                  <span className="rounded-kw-xs bg-kw-amber-light px-1.5 py-0.5 text-kw-micro font-extrabold uppercase tracking-[0.05em] text-kw-amber-dark">
+                                    partiellement accepté
+                                  </span>
+                                )}
                                 <span className="flex-1" />
-                                {fc.statut_actuel && <Badge tone="neutral">{fc.statut_actuel}</Badge>}
+                                {/*
+                                  Le statut de la DEMANDE, au niveau du fournisseur consulté : elle
+                                  porte sur toutes ses offres à la fois. Chaque changement ajoute une
+                                  ligne datée dans l'historique — c'est un objet d'activité, pas un
+                                  champ (réunion du 17/08/2026). « Offre reçue » fait basculer en
+                                  reçues les seules offres acceptées.
+                                */}
+                                {peutModifier ? (
+                                  <select
+                                    value=""
+                                    onChange={(e) => { if (e.target.value) onChangerStatut(fc, e.target.value) }}
+                                    className="rounded-kw-sm border border-kw-border-strong bg-white px-1.5 py-0.5 text-kw-base font-semibold text-kw-label outline-none"
+                                  >
+                                    <option value="">
+                                      {fc.statut_actuel ? `${fc.statut_actuel} — changer…` : 'Statut de la demande…'}
+                                    </option>
+                                    {statutsConsultation.map((st) => (
+                                      <option key={st.id} value={st.id}>{st.libelle}</option>
+                                    ))}
+                                  </select>
+                                ) : (
+                                  fc.statut_actuel && <Badge tone="neutral">{fc.statut_actuel}</Badge>
+                                )}
                                 {peutModifier && (
                                   <button
                                     type="button"
                                     onClick={() => onAjouterSuivi(optimisation.id, fc)}
+                                    title="Ajouter un suivi avec un commentaire"
                                     className="text-kw-base font-semibold text-kw-green hover:underline"
                                   >
-                                    + Suivi
+                                    + Suivi détaillé
                                   </button>
                                 )}
                               </div>
