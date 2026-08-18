@@ -28,10 +28,15 @@
 
 begin;
 
+-- `do update` et non `do nothing` : la première version de cette migration a été appliquée avec les
+-- libellés « Acceptée » / « Acceptée partiellement », et `do nothing` a ensuite ignoré leur
+-- correction — la migration n'était rejouable que pour les lignes absentes, pas pour leur contenu.
+-- C'est le genre de détail qui fait qu'on relit une migration « déjà passée » sans comprendre
+-- pourquoi l'écran ne dit pas la même chose qu'elle.
 insert into public.statuts_consultations_fournisseurs (code, libelle, ordre) values
   ('ACCEPTEE',               'Demande acceptée',               5),
   ('ACCEPTEE_PARTIELLEMENT', 'Demande acceptée partiellement', 6)
-on conflict (code) do nothing;
+on conflict (code) do update set libelle = excluded.libelle, ordre = excluded.ordre;
 
 -- Les quatre libellés parlent de LA DEMANDE, pas de l'offre : « demande envoyée quand il a demandé
 -- les offres, demande acceptée quand elles ont toutes été acceptées, acceptée partiellement quand

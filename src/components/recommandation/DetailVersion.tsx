@@ -184,21 +184,25 @@ export function DetailVersion({
                                   champ (réunion du 17/08/2026). « Offre reçue » fait basculer en
                                   reçues les seules offres acceptées.
                                 */}
-                                {peutModifier ? (
+                                {/* Le statut courant se lit sur le badge, le menu ne sert qu'à le
+                                    changer. L'invite du menu ne répète donc pas le statut en cours —
+                                    elle le faisait, et « Demande envoyée » apparaissait deux fois. */}
+                                {fc.statut_actuel && <Badge tone="neutral">{fc.statut_actuel}</Badge>}
+                                {peutModifier && (
                                   <select
                                     value=""
                                     onChange={(e) => { if (e.target.value) onChangerStatut(fc, e.target.value) }}
                                     className="rounded-kw-sm border border-kw-border-strong bg-white px-1.5 py-0.5 text-kw-base font-semibold text-kw-label outline-none"
                                   >
-                                    <option value="">
-                                      {fc.statut_actuel ? `${fc.statut_actuel} — changer…` : 'Statut de la demande…'}
-                                    </option>
-                                    {statutsConsultation.map((st) => (
-                                      <option key={st.id} value={st.id}>{st.libelle}</option>
-                                    ))}
+                                    <option value="">{fc.statut_actuel ? 'Changer…' : 'Statut de la demande…'}</option>
+                                    {statutsConsultation
+                                      // Le statut deja en cours n'a pas a etre reproposé : le choisir
+                                      // ajouterait un evenement de suivi identique au precedent.
+                                      .filter((st) => st.libelle !== fc.statut_actuel)
+                                      .map((st) => (
+                                        <option key={st.id} value={st.id}>{st.libelle}</option>
+                                      ))}
                                   </select>
-                                ) : (
-                                  fc.statut_actuel && <Badge tone="neutral">{fc.statut_actuel}</Badge>
                                 )}
                               </div>
 
