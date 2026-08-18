@@ -1,6 +1,8 @@
 import { useState } from 'react'
 import { Plus, Trash2, Star, Check } from 'lucide-react'
 import { cn } from '@/lib/utils'
+import { ChampNombre } from '@/components/ui/champ-nombre'
+import { PrixParCompteur } from '@/components/recommandation/PrixParCompteur'
 import {
   useAjouterOffre,
   useUpdateOffrePartiel,
@@ -10,7 +12,7 @@ import {
   STATUTS_OFFRE,
   type PatchOffre,
 } from '@/lib/data/recommandations'
-import type { FournisseurConsulte, OffreFournisseur } from '@/types/domain'
+import type { FournisseurConsulte, OffreFournisseur, VersionRecommandation, Compteur } from '@/types/domain'
 
 /**
  * Les offres d'UN fournisseur consulté.
@@ -37,77 +39,11 @@ const TON_STATUT: Record<string, string> = {
   RECUE: 'bg-kw-green-light text-kw-green',
 }
 
-/** Saisie en place d'un nombre : pointillé cliquable, Entrée valide, Échap annule. */
-function ChampNombre({
-  valeur,
-  suffixe,
-  placeholder,
-  decimales,
-  onCommit,
-  peutModifier,
-  titre,
-}: {
-  valeur: number | null | undefined
-  suffixe: string
-  placeholder: string
-  decimales?: number
-  onCommit: (v: number | null) => void
-  peutModifier: boolean
-  titre: string
-}) {
-  const [edition, setEdition] = useState(false)
-  const [brouillon, setBrouillon] = useState('')
-
-  const affiche =
-    valeur != null
-      ? `${valeur.toLocaleString('fr-FR', { maximumFractionDigits: decimales ?? 0 })} ${suffixe}`
-      : placeholder
-
-  function commettre() {
-    setEdition(false)
-    const brut = brouillon.trim().replace(/\s/g, '').replace(',', '.')
-    if (brut === '') return onCommit(null)
-    const n = Number.parseFloat(brut)
-    if (!Number.isFinite(n) || n < 0) return
-    onCommit(n)
-  }
-
-  if (edition) {
-    return (
-      <input
-        autoFocus
-        value={brouillon}
-        onChange={(e) => setBrouillon(e.target.value)}
-        onBlur={commettre}
-        onKeyDown={(e) => {
-          if (e.key === 'Enter') commettre()
-          if (e.key === 'Escape') setEdition(false)
-        }}
-        placeholder={suffixe}
-        className="w-[86px] rounded-kw-sm border border-kw-green bg-white px-1.5 py-0.5 font-mono text-kw-base font-bold text-kw-ink outline-none ring-[3px] ring-kw-green/10"
-      />
-    )
-  }
-  return (
-    <button
-      type="button"
-      disabled={!peutModifier}
-      title={peutModifier ? `${titre} — cliquer pour saisir` : titre}
-      onClick={() => { setBrouillon(valeur != null ? String(valeur) : ''); setEdition(true) }}
-      className={cn(
-        'font-mono text-kw-base',
-        peutModifier && 'cursor-text border-b border-dashed border-[#d9d0bd]',
-        valeur != null ? 'font-bold text-kw-ink' : 'text-kw-ghost',
-      )}
-    >
-      {affiche}
-    </button>
-  )
-}
-
 export function OffresDuFournisseur({
   fournisseur,
   optimisationId,
+  version,
+  compteurs,
   dureesDemandees,
   typesPrixDemandes,
   peutModifier,
@@ -115,6 +51,9 @@ export function OffresDuFournisseur({
 }: {
   fournisseur: FournisseurConsulte
   optimisationId: string
+  /** La version, pour ses points de livraison — c'est sur eux que se saisissent les prix. */
+  version: VersionRecommandation
+  compteurs: Compteur[]
   /** Durées demandées à la consultation — proposées en premier à l'ajout d'une offre. */
   dureesDemandees: number[]
   typesPrixDemandes: string[]
@@ -279,6 +218,16 @@ export function OffresDuFournisseur({
                     onCommit={(v) => patcher(offre, { economie_annuelle_estimee: v }, v != null ? `✓ Économie : ${v.toLocaleString('fr-FR')} €/an` : 'Économie effacée')}
                   />
                 </span>
+                <PrixParCompteur
+                  offre={offre}
+                  version={version}
+                  compteurs={compteurs}
+                  peutModifier={peutModifier}
+                  signaler={signaler}
+                />
+
+              </div>
+              <div className="mt-1.5 flex flex-wrap items-center gap-x-4 gap-y-1">
                 {recue && offre.prix_moyen_mwh == null && offre.montant_annuel_ht == null && (
                   // Une offre marquée reçue sans aucun chiffre est une contradiction visible : on le
                   // signale plutôt que de la laisser passer pour renseignée.

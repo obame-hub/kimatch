@@ -5,7 +5,7 @@ import { OffresDuFournisseur } from '@/components/recommandation/OffresDuFournis
 import { STATUT_VERSION_TONE } from '@/lib/referenceFallbacks'
 import { cn } from '@/lib/utils'
 import type { ReferenceRow } from '@/lib/data/referenceTables'
-import type { VersionRecommandation, Optimisation, FournisseurConsulte } from '@/types/domain'
+import type { VersionRecommandation, Optimisation, FournisseurConsulte, Compteur } from '@/types/domain'
 
 const MISE_EN_CONCURRENCE = 'MISE_EN_CONCURRENCE'
 
@@ -28,6 +28,7 @@ export function DetailVersion({
   onAjouterFournisseur,
   onChangerStatut,
   statutsConsultation,
+  compteurs,
   peutModifier,
   signaler,
   onSupprimer,
@@ -39,6 +40,8 @@ export function DetailVersion({
   /** Change le statut de la demande, en enregistrant un événement de suivi daté. */
   onChangerStatut: (fc: FournisseurConsulte, statutId: string) => void
   statutsConsultation: ReferenceRow[]
+  /** Les compteurs du périmètre, pour la saisie des prix par PDL. */
+  compteurs: Compteur[]
   peutModifier: boolean
   signaler: (message: string) => void
   /** Ouvre la confirmation de suppression, tenue par la fiche : elle sait ce qui va être perdu. */
@@ -225,6 +228,8 @@ export function DetailVersion({
                               <OffresDuFournisseur
                                 fournisseur={fc}
                                 optimisationId={optimisation.id}
+                                version={version}
+                                compteurs={compteurs}
                                 dureesDemandees={version.durees}
                                 typesPrixDemandes={version.types_prix}
                                 peutModifier={peutModifier}

@@ -879,6 +879,7 @@ export default function RecommandationDetail() {
                   peutModifier={canManage}
                   signaler={signaler}
                   onSupprimer={() => setVersionASupprimer(versionAffichee)}
+                  compteurs={compteurs ?? []}
                   statutsConsultation={(statutsConsultationRef ?? []).filter((s) =>
                     (CODES_STATUT_CONSULTATION_PROPOSES as readonly string[]).includes(s.code),
                   )}

@@ -68,6 +68,14 @@ export interface VersionRecommandation {
   date_presentation_client: string | null
   date_decision_client: string | null
   compteur_ids: string[]
+  /**
+   * Les points de livraison de la version, AVEC l'identifiant du lien.
+   *
+   * `compteur_ids` ne suffit pas pour saisir un prix : `offres_fournisseurs_compteurs` référence le
+   * lien version ↔ compteur (`versions_recommandation_compteurs.id`), pas le compteur. C'est ce lien
+   * que la migration du 18/08/2026 a posé sur 2007 versions.
+   */
+  compteurs: { lien_id: string; compteur_id: string; label: string }[]
   optimisations: Optimisation[]
   /** Contact de la cotation (Cotation__c.Contact__c en Salesforce) -- ajoute le 31/07/2026. */
   contact_id?: string | null
@@ -96,8 +104,35 @@ export interface VersionRecommandation {
   date_souhaitee: string | null
 }
 
+/**
+ * Prix d'une offre sur UN point de livraison électrique (`offres_compteurs_electricite`).
+ *
+ * Les classes sont nommées comme celles de la consommation du compteur (BASE, HP, HC, HPE, HCE, HPH,
+ * HCH, POINTE) : l'écran n'affiche que celles que le compteur consomme réellement, plutôt que huit
+ * champs dont six vides.
+ */
+export interface PrixOffreElectricite {
+  type_prix: string | null
+  formule_tarifaire: string | null
+  /** €/MWh par classe temporelle. Clés en majuscules, comme `Compteur.consoParClasseMwh`. */
+  prix_mwh_par_classe: Record<string, number>
+  abonnement_fourniture_annuel_ht: number | null
+}
+
+/** Prix d'une offre sur UN point de livraison gaz (`offres_compteurs_gaz`). */
+export interface PrixOffreGaz {
+  type_prix: string | null
+  prix_energie_mwh: number | null
+  /** Consommation annuelle de référence retenue par le fournisseur pour son prix. */
+  car_reference_mwh: number | null
+  abonnement_fourniture_annuel_ht: number | null
+}
+
 export interface OffreFournisseurCompteur {
   id: string
+  /** Lien version ↔ compteur dont cette ligne dépend. Nécessaire pour créer la ligne : la table
+   *  `offres_fournisseurs_compteurs` référence ce lien, pas le compteur directement. */
+  version_recommandation_compteur_id: string
   compteur_id: string
   compteur_label: string
   consommation_annuelle_reference_mwh: number | null
@@ -107,6 +142,9 @@ export interface OffreFournisseurCompteur {
   cout_total_annuel_estime_ht: number | null
   economie_annuelle_estimee: number | null
   economie_pourcentage: number | null
+  /** Le prix détaillé, selon l'énergie du compteur. Un même périmètre peut mélanger les deux. */
+  prix_electricite: PrixOffreElectricite | null
+  prix_gaz: PrixOffreGaz | null
 }
 
 export interface OffreFournisseur {

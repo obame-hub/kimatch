@@ -303,6 +303,67 @@ async function fetchRecommandations(
       ),
     ])
 
+    // Prix par point de livraison, une table par énergie. Requêtes SÉPARÉES et tolérantes : ces deux
+    // tables étaient vides jusqu'au 18/08/2026 et un embed les citant ferait échouer tout le
+    // chargement si l'une venait à manquer sur un environnement.
+    interface RawPrixElec {
+      offre_compteur_id: string
+      type_prix: string | null
+      formule_tarifaire: string | null
+      abonnement_fourniture_annuel_ht: number | null
+      prix_base_mwh: number | null
+      prix_hp_mwh: number | null
+      prix_hc_mwh: number | null
+      prix_hpe_mwh: number | null
+      prix_hce_mwh: number | null
+      prix_hph_mwh: number | null
+      prix_hch_mwh: number | null
+      prix_pointe_mwh: number | null
+    }
+    interface RawPrixGaz {
+      offre_compteur_id: string
+      type_prix: string | null
+      prix_energie_mwh: number | null
+      car_reference_mwh: number | null
+      abonnement_fourniture_annuel_ht: number | null
+    }
+    const idsDetails = offresCompteursRows.map((d) => d.id)
+    const [prixElecRows, prixGazRows] = idsDetails.length === 0
+      ? [[] as RawPrixElec[], [] as RawPrixGaz[]]
+      : await Promise.all([
+          fetchAllRows<RawPrixElec>(
+            'offres_compteurs_electricite',
+            'offre_compteur_id, type_prix, formule_tarifaire, abonnement_fourniture_annuel_ht, prix_base_mwh, prix_hp_mwh, prix_hc_mwh, prix_hpe_mwh, prix_hce_mwh, prix_hph_mwh, prix_hch_mwh, prix_pointe_mwh',
+            surColonne('offre_compteur_id', idsDetails),
+          ).catch(() => [] as RawPrixElec[]),
+          fetchAllRows<RawPrixGaz>(
+            'offres_compteurs_gaz',
+            'offre_compteur_id, type_prix, prix_energie_mwh, car_reference_mwh, abonnement_fourniture_annuel_ht',
+            surColonne('offre_compteur_id', idsDetails),
+          ).catch(() => [] as RawPrixGaz[]),
+        ])
+
+    const CLASSES_PRIX = ['base', 'hp', 'hc', 'hpe', 'hce', 'hph', 'hch', 'pointe'] as const
+    const prixElecParDetail = new Map(prixElecRows.map((r) => {
+      const parClasse: Record<string, number> = {}
+      for (const k of CLASSES_PRIX) {
+        const v = r[`prix_${k}_mwh` as keyof RawPrixElec] as number | null
+        if (v != null) parClasse[k.toUpperCase()] = v
+      }
+      return [r.offre_compteur_id, {
+        type_prix: r.type_prix,
+        formule_tarifaire: r.formule_tarifaire,
+        prix_mwh_par_classe: parClasse,
+        abonnement_fourniture_annuel_ht: r.abonnement_fourniture_annuel_ht,
+      }]
+    }))
+    const prixGazParDetail = new Map(prixGazRows.map((r) => [r.offre_compteur_id, {
+      type_prix: r.type_prix,
+      prix_energie_mwh: r.prix_energie_mwh,
+      car_reference_mwh: r.car_reference_mwh,
+      abonnement_fourniture_annuel_ht: r.abonnement_fourniture_annuel_ht,
+    }]))
+
     interface RawVersionCompteur {
       id: string
       version_recommandation_id: string
@@ -311,12 +372,19 @@ async function fetchRecommandations(
     }
 
     const compteurIdsParVersion = new Map<string, string[]>()
+    // Les compteurs de la version AVEC l'identifiant du lien : c'est lui que réclame
+    // `offres_fournisseurs_compteurs` pour qu'un prix puisse être saisi sur ce PDL.
+    const compteursParVersion = new Map<string, { lien_id: string; compteur_id: string; label: string }[]>()
     const versionCompteurById = new Map<string, { compteurId: string; label: string }>()
     for (const vc of versionsCompteursRows as unknown as RawVersionCompteur[]) {
       const list = compteurIdsParVersion.get(vc.version_recommandation_id) ?? []
       list.push(vc.compteur_id)
       compteurIdsParVersion.set(vc.version_recommandation_id, list)
-      versionCompteurById.set(vc.id, { compteurId: vc.compteur_id, label: vc.compteur?.libelle || vc.compteur?.numero_point || '' })
+      const label = vc.compteur?.libelle || vc.compteur?.numero_point || ''
+      versionCompteurById.set(vc.id, { compteurId: vc.compteur_id, label })
+      const liens = compteursParVersion.get(vc.version_recommandation_id) ?? []
+      liens.push({ lien_id: vc.id, compteur_id: vc.compteur_id, label })
+      compteursParVersion.set(vc.version_recommandation_id, liens)
     }
 
     const detailsParOffre = new Map<string, OffreFournisseurCompteurType[]>()
@@ -325,6 +393,7 @@ async function fetchRecommandations(
       const list = detailsParOffre.get(dc.offre_fournisseur_id) ?? []
       list.push({
         id: dc.id,
+        version_recommandation_compteur_id: dc.version_recommandation_compteur_id,
         compteur_id: vc?.compteurId ?? '',
         compteur_label: vc?.label ?? '',
         consommation_annuelle_reference_mwh: dc.consommation_annuelle_reference_mwh,
@@ -334,6 +403,8 @@ async function fetchRecommandations(
         cout_total_annuel_estime_ht: dc.cout_total_annuel_estime_ht,
         economie_annuelle_estimee: dc.economie_annuelle_estimee,
         economie_pourcentage: dc.economie_pourcentage,
+        prix_electricite: prixElecParDetail.get(dc.id) ?? null,
+        prix_gaz: prixGazParDetail.get(dc.id) ?? null,
       })
       detailsParOffre.set(dc.offre_fournisseur_id, list)
     }
@@ -486,6 +557,7 @@ async function fetchRecommandations(
         date_presentation_client: v.date_presentation_client,
         date_decision_client: v.date_decision_client,
         compteur_ids: compteurIdsParVersion.get(v.id) ?? [],
+        compteurs: compteursParVersion.get(v.id) ?? [],
         optimisations: optimisationsParVersion.get(v.id) ?? [],
         contact_id: v.contact_id,
         contact_nom: v.contact ? `${v.contact.prenom} ${v.contact.nom}` : null,
@@ -1475,6 +1547,109 @@ export function useRetenirOffre() {
         .from('offres_fournisseurs')
         .update({ est_offre_recommandee: true, date_modification: new Date().toISOString() })
         .eq('id', input.offreId)
+      if (error) throw new Error(error.message)
+    },
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['recommandations'] }),
+  })
+}
+
+/**
+ * Saisie des prix d'une offre sur UN point de livraison.
+ *
+ * Demande de la réunion du 17/08/2026 : « Erwan vient saisir les prix dans les compteurs concernés,
+ * sachant que dans une offre il peut y avoir plusieurs compteurs, et gaz et élec mélangés. »
+ *
+ * Deux écritures enchaînées, parce que le schéma sépare le coût du prix :
+ *
+ *   1. `offres_fournisseurs_compteurs` — la ligne offre × PDL, avec les coûts annuels. Créée si elle
+ *      n'existe pas, d'où l'`upsert` sur la contrainte d'unicité (offre, lien version-compteur).
+ *   2. `offres_compteurs_electricite` OU `offres_compteurs_gaz` — le prix détaillé, selon l'énergie
+ *      du compteur. La clé primaire de ces deux tables EST l'identifiant de la ligne du dessus, donc
+ *      il faut la créer d'abord et récupérer son id.
+ *
+ * Un même périmètre peut mélanger les deux énergies (2 recommandations sur 1692 le font) : c'est
+ * l'appelant qui dit laquelle, à partir du compteur, et non une propriété de l'offre.
+ */
+export interface PrixParCompteur {
+  /** Coûts annuels de la ligne offre × PDL. Tous optionnels : on saisit ce qu'on a. */
+  consommation_annuelle_reference_mwh?: number | null
+  cout_fourniture_annuel_ht?: number | null
+  cout_acheminement_annuel_ht?: number | null
+  cout_taxes_annuel?: number | null
+  cout_total_annuel_estime_ht?: number | null
+  /** Électricité : un prix par classe temporelle (clés BASE, HP, HC, HPE, HCE, HPH, HCH, POINTE). */
+  prix_mwh_par_classe?: Record<string, number | null>
+  /** Gaz : un seul prix d'énergie. */
+  prix_energie_mwh?: number | null
+  car_reference_mwh?: number | null
+  abonnement_fourniture_annuel_ht?: number | null
+  type_prix?: string | null
+  formule_tarifaire?: string | null
+}
+
+export function useEnregistrerPrixCompteur() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: async (input: {
+      offreId: string
+      /** Lien version ↔ compteur, et non l'identifiant du compteur : voir l'en-tête. */
+      versionCompteurId: string
+      energie: 'electricite' | 'gaz'
+      prix: PrixParCompteur
+    }) => {
+      const p = input.prix
+      const { data: ligne, error: eLigne } = await supabase
+        .from('offres_fournisseurs_compteurs')
+        .upsert(
+          {
+            offre_fournisseur_id: input.offreId,
+            version_recommandation_compteur_id: input.versionCompteurId,
+            ...(p.consommation_annuelle_reference_mwh !== undefined ? { consommation_annuelle_reference_mwh: p.consommation_annuelle_reference_mwh } : {}),
+            ...(p.cout_fourniture_annuel_ht !== undefined ? { cout_fourniture_annuel_ht: p.cout_fourniture_annuel_ht } : {}),
+            ...(p.cout_acheminement_annuel_ht !== undefined ? { cout_acheminement_annuel_ht: p.cout_acheminement_annuel_ht } : {}),
+            ...(p.cout_taxes_annuel !== undefined ? { cout_taxes_annuel: p.cout_taxes_annuel } : {}),
+            ...(p.cout_total_annuel_estime_ht !== undefined ? { cout_total_annuel_estime_ht: p.cout_total_annuel_estime_ht } : {}),
+            date_modification: new Date().toISOString(),
+          },
+          { onConflict: 'offre_fournisseur_id,version_recommandation_compteur_id' },
+        )
+        .select('id')
+        .single()
+      if (eLigne) throw new Error(eLigne.message)
+      const detailId = (ligne as { id: string }).id
+
+      if (input.energie === 'electricite') {
+        const parClasse = p.prix_mwh_par_classe ?? {}
+        const colonnes: Record<string, number | null> = {}
+        for (const [classe, valeur] of Object.entries(parClasse)) {
+          colonnes[`prix_${classe.toLowerCase()}_mwh`] = valeur
+        }
+        const { error } = await supabase.from('offres_compteurs_electricite').upsert(
+          {
+            offre_compteur_id: detailId,
+            ...colonnes,
+            ...(p.type_prix !== undefined ? { type_prix: p.type_prix } : {}),
+            ...(p.formule_tarifaire !== undefined ? { formule_tarifaire: p.formule_tarifaire } : {}),
+            ...(p.abonnement_fourniture_annuel_ht !== undefined ? { abonnement_fourniture_annuel_ht: p.abonnement_fourniture_annuel_ht } : {}),
+            date_modification: new Date().toISOString(),
+          },
+          { onConflict: 'offre_compteur_id' },
+        )
+        if (error) throw new Error(error.message)
+        return
+      }
+
+      const { error } = await supabase.from('offres_compteurs_gaz').upsert(
+        {
+          offre_compteur_id: detailId,
+          ...(p.prix_energie_mwh !== undefined ? { prix_energie_mwh: p.prix_energie_mwh } : {}),
+          ...(p.car_reference_mwh !== undefined ? { car_reference_mwh: p.car_reference_mwh } : {}),
+          ...(p.type_prix !== undefined ? { type_prix: p.type_prix } : {}),
+          ...(p.abonnement_fourniture_annuel_ht !== undefined ? { abonnement_fourniture_annuel_ht: p.abonnement_fourniture_annuel_ht } : {}),
+          date_modification: new Date().toISOString(),
+        },
+        { onConflict: 'offre_compteur_id' },
+      )
       if (error) throw new Error(error.message)
     },
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ['recommandations'] }),
