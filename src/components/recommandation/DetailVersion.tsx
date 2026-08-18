@@ -29,6 +29,7 @@ export function DetailVersion({
   onChangerStatut,
   statutsConsultation,
   compteurs,
+  typeDocumentOffreId,
   peutModifier,
   signaler,
   onSupprimer,
@@ -42,6 +43,7 @@ export function DetailVersion({
   statutsConsultation: ReferenceRow[]
   /** Les compteurs du périmètre, pour la saisie des prix par PDL. */
   compteurs: Compteur[]
+  typeDocumentOffreId: string | null
   peutModifier: boolean
   signaler: (message: string) => void
   /** Ouvre la confirmation de suppression, tenue par la fiche : elle sait ce qui va être perdu. */
@@ -230,6 +232,7 @@ export function DetailVersion({
                                 optimisationId={optimisation.id}
                                 version={version}
                                 compteurs={compteurs}
+                                typeDocumentOffreId={typeDocumentOffreId}
                                 dureesDemandees={version.durees}
                                 typesPrixDemandes={version.types_prix}
                                 peutModifier={peutModifier}

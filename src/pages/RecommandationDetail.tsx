@@ -28,6 +28,7 @@ import { OngletPerimetre } from '@/components/recommandation/OngletPerimetre'
 import { OngletDocuments } from '@/components/recommandation/OngletDocuments'
 import { DetailVersion } from '@/components/recommandation/DetailVersion'
 import { BlocAffaire } from '@/components/recommandation/BlocAffaire'
+import { SuiteDuDossier } from '@/components/recommandation/SuiteDuDossier'
 import {
   CotationWizard,
   EnvoyerEmailDialog,
@@ -880,6 +881,11 @@ export default function RecommandationDetail() {
                   signaler={signaler}
                   onSupprimer={() => setVersionASupprimer(versionAffichee)}
                   compteurs={compteurs ?? []}
+                  typeDocumentOffreId={
+                    // « Offre » si la table de référence le propose, sinon rien : le dépôt
+                    // fonctionne sans type, et inventer un code de type serait pire.
+                    typesDocuments.find((t) => /offre/i.test(t.libelle))?.id ?? null
+                  }
                   statutsConsultation={(statutsConsultationRef ?? []).filter((s) =>
                     (CODES_STATUT_CONSULTATION_PROPOSES as readonly string[]).includes(s.code),
                   )}
@@ -908,6 +914,8 @@ export default function RecommandationDetail() {
               )}
 
               <BlocAffaire reco={reco} />
+
+              <SuiteDuDossier recoId={reco.id} />
 
               {/* Description et note interne : elles restent éditables en place, et s'affichent en
                   pointillé cliquable même vides — sans quoi rien n'invite à les remplir. */}

@@ -26,6 +26,9 @@ const ENTITE_LABELS: Record<string, string> = {
   recommandation: 'Recommandation',
   version_recommandation: 'Version de recommandation',
   contrat: 'Contrat',
+  // La grille de prix reçue d'un fournisseur, rattachée à l'offre qu'elle chiffre et non à la
+  // version : un fournisseur consulté sur 24 et 36 mois envoie une grille par durée.
+  offre_fournisseur: 'Offre fournisseur',
 }
 
 /** `entiteIds` restreint la lecture aux documents d'un ensemble d'objets — le compte, ses sites,

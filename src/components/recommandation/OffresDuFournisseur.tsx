@@ -3,6 +3,7 @@ import { Plus, Trash2, Star, Check } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { ChampNombre } from '@/components/ui/champ-nombre'
 import { PrixParCompteur } from '@/components/recommandation/PrixParCompteur'
+import { FichierOffre } from '@/components/recommandation/FichierOffre'
 import {
   useAjouterOffre,
   useUpdateOffrePartiel,
@@ -44,6 +45,7 @@ export function OffresDuFournisseur({
   optimisationId,
   version,
   compteurs,
+  typeDocumentOffreId,
   dureesDemandees,
   typesPrixDemandes,
   peutModifier,
@@ -54,6 +56,8 @@ export function OffresDuFournisseur({
   /** La version, pour ses points de livraison — c'est sur eux que se saisissent les prix. */
   version: VersionRecommandation
   compteurs: Compteur[]
+  /** Type de document à poser sur les offres jointes, si la table de référence en propose un. */
+  typeDocumentOffreId: string | null
   /** Durées demandées à la consultation — proposées en premier à l'ajout d'une offre. */
   dureesDemandees: number[]
   typesPrixDemandes: string[]
@@ -218,6 +222,14 @@ export function OffresDuFournisseur({
                     onCommit={(v) => patcher(offre, { economie_annuelle_estimee: v }, v != null ? `✓ Économie : ${v.toLocaleString('fr-FR')} €/an` : 'Économie effacée')}
                   />
                 </span>
+                <FichierOffre
+                  offreId={offre.id}
+                  libelleOffre={libelleOffre(offre.duree_mois, offre.type_prix)}
+                  typeDocumentOffreId={typeDocumentOffreId}
+                  peutModifier={peutModifier}
+                  signaler={signaler}
+                />
+
                 <PrixParCompteur
                   offre={offre}
                   version={version}
