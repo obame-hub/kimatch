@@ -815,7 +815,7 @@ export default function RecommandationDetail() {
                         statut <b className="text-kw-label">Remplacée</b>.
                       </>
                     ) : (
-                      <>Première cotation du dossier : durées par PDL, type de prix, puis fournisseurs à consulter.</>
+                      <>Première version du dossier : durées par PDL, type de prix, puis fournisseurs à consulter.</>
                     )}
                   </div>
                   {versionActive && (
@@ -849,7 +849,7 @@ export default function RecommandationDetail() {
                     className="inline-flex items-center gap-[7px] rounded-kw-lg border border-kw-border-strong bg-white px-[15px] py-[9px] text-kw-md font-bold text-kw-ink hover:bg-kw-bg"
                   >
                     <FilePlus2 className="h-3.5 w-3.5" />
-                    {versionActive ? 'Créer vierge' : 'Lancer la cotation'}
+                    {versionActive ? 'Créer vierge' : 'Créer la version'}
                   </button>
                 </div>
               )}
@@ -1016,7 +1016,18 @@ export default function RecommandationDetail() {
           composant qui l'entoure, dont tous les hooks (calcul d'éligibilité sur l'ensemble des
           fournisseurs, effets) tourneraient en permanence sur la fiche. */}
       {wizardCotation && (
-        <CotationWizard open onClose={() => setWizardCotation(null)} reco={reco} prefill={wizardCotation.prefill} />
+        <CotationWizard
+          open
+          onClose={() => setWizardCotation(null)}
+          reco={reco}
+          prefill={wizardCotation.prefill}
+          onCree={(versionId) => {
+            // On la designe explicitement plutot que de compter sur le repli « version active » :
+            // c'est celle qu'on vient de creer qu'on veut voir, et sur l'onglet qui la montre.
+            setVersionAfficheeId(versionId)
+            setOnglet('reco')
+          }}
+        />
       )}
       {showContratWizard && (
         <ContratWizard open onClose={() => setShowContratWizard(false)} reco={reco} onCreated={() => setShowContratWizard(false)} />

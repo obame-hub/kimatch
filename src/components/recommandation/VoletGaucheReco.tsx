@@ -326,7 +326,7 @@ export function VoletGaucheReco({
         }
       >
         {reco.versions.length === 0 ? (
-          <p className="text-kw-base text-kw-faint">Aucune version — la première cotation reste à produire.</p>
+          <p className="text-kw-base text-kw-faint">Aucune version — la première reste à produire.</p>
         ) : (
           <div className="flex flex-col">
             {/* Les versions arrivent déjà triées du plus récent au plus ancien (numero_version

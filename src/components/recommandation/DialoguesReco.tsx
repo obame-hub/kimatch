@@ -47,12 +47,15 @@ export function CotationWizard({
   onClose,
   reco,
   prefill,
+  onCree,
 }: {
   open: boolean
   onClose: () => void
   reco: Recommandation
-  /** Valeurs de départ reprises d'une version précédente. `null` = cotation vierge. */
+  /** Valeurs de départ reprises d'une version précédente. `null` = version vierge. */
   prefill?: PrefillCotation | null
+  /** Appelé avec la version créée : la fiche l'affiche aussitôt, sans attendre un rechargement. */
+  onCree?: (versionId: string) => void
 }) {
   const { data: comptes } = useComptes()
   const { data: compteurs } = useCompteurs()
@@ -272,13 +275,15 @@ export function CotationWizard({
      * découvrant un écran vide. C'est précisément le silence — un `console.error` — qui a laissé la
      * création d'offres cassée du 16 au 17/08/2026.
      */
-    const morceaux = [`Cotation créée avec ${rapport.offresCreees} offre${rapport.offresCreees > 1 ? 's' : ''} attendue${rapport.offresCreees > 1 ? 's' : ''}.`]
+    const morceaux = [`Version créée avec ${rapport.offresCreees} offre${rapport.offresCreees > 1 ? 's' : ''} attendue${rapport.offresCreees > 1 ? 's' : ''}.`]
     if (rapport.offresEchouees > 0) {
       morceaux.push(`⚠ ${rapport.offresEchouees} offre(s) attendue(s) n'ont pas pu être créées : le suivi des réponses sera à saisir à la main.`)
     }
     if (rapport.fournisseursSansFiche > 0) {
       morceaux.push(`⚠ ${rapport.fournisseursSansFiche} fournisseur(s) consulté(s) sans fiche fournisseur : aucune offre suivie pour eux.`)
     }
+    // La fiche sélectionne la nouvelle version avant que le dialogue ne se ferme.
+    if (rapport.versionId) onCree?.(rapport.versionId)
     setFeedback(morceaux.join(' '))
     // Laissé plus longtemps à l'écran quand il y a un avertissement à lire.
     setTimeout(() => { reset(); onClose() }, morceaux.length > 1 ? 3500 : 700)
@@ -288,7 +293,7 @@ export function CotationWizard({
     <Dialog
       open={open}
       onClose={() => { reset(); onClose() }}
-      title={prefill ? 'Dupliquer la version' : estActualisation ? 'Actualiser la cotation' : 'Nouvelle cotation'}
+      title={prefill ? 'Dupliquer la version' : 'Nouvelle version'}
       description="Sélectionne les durées, la date souhaitée puis les fournisseurs à consulter — l'éligibilité est vérifiée automatiquement par PDL."
       className="max-w-2xl"
     >
@@ -296,7 +301,7 @@ export function CotationWizard({
       {/* Garde-fou de connexion, même emplacement et mêmes outils que dans Tools (CotationPage :
           required={["salesforce","gmail"]}) -- les demandes de cotation partent depuis l'adresse
           Gmail du commercial. */}
-      <WizardConnectionGate required={['crm', 'gmail']} feature="création de cotation">
+      <WizardConnectionGate required={['crm', 'gmail']} feature="création de version">
         {estActualisation && (
           <p className="rounded-kw-lg border border-[#f0e4cd] bg-kw-amber-light px-3 py-2 text-xs text-kw-label">
             La version en cours passera au statut <b>Remplacée</b> : la nouvelle devient la version
@@ -487,7 +492,7 @@ export function CotationWizard({
         <div className="flex justify-end gap-2 border-t border-navy-100 pt-3">
           <Button type="button" variant="ghost" onClick={() => { reset(); onClose() }}>Annuler</Button>
           <Button type="button" onClick={handleValider} disabled={createVersion.isPending || !toutesDureesRenseignees || durees.length === 0 || fournisseurIds.length === 0}>
-            {estActualisation ? 'Actualiser' : 'Créer la cotation'}
+            Créer la version
           </Button>
         </div>
       </WizardConnectionGate>

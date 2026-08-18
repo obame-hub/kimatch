@@ -97,7 +97,7 @@ export function DetailVersion({
           {version.types_prix.length > 0 && <span>Type de prix : {version.types_prix.join(', ')}</span>}
           {version.contact_id && (
             <span>
-              Contact de la cotation :{' '}
+              Contact de la version :{' '}
               <EntityLink to={`/contacts/${version.contact_id}`}>{version.contact_nom}</EntityLink>
             </span>
           )}

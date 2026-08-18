@@ -979,9 +979,17 @@ export function useCreateVersion() {
         await supabase.from('recommandations').update({ etape_id: input.etape_en_analyse_id }).eq('id', input.recommandation_id)
       }
 
-      queryClient.invalidateQueries({ queryKey: ['recommandations'] })
       return { versionId, offresCreees, offresEchouees, fournisseursSansFiche }
     },
+    /**
+     * Invalidation ATTENDUE, et dans `onSuccess` plutôt qu'au fil du `mutationFn`.
+     *
+     * Elle était appelée sans être attendue : `mutateAsync` rendait la main aussitôt, le dialogue se
+     * fermait, et la fiche n'affichait la nouvelle version qu'au rechargement suivant. En la
+     * retournant depuis `onSuccess`, React Query attend le rafraîchissement avant de résoudre
+     * `mutateAsync` — quand le dialogue se ferme, la version est déjà là.
+     */
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['recommandations'] }),
   })
 }
 
