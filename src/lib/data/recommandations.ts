@@ -161,6 +161,10 @@ interface RawOffreFournisseurCompteur {
   cout_total_annuel_estime_ht: number | null
   economie_annuelle_estimee: number | null
   economie_pourcentage: number | null
+  /** Marges en €/MWh, migration 20260818140000. Optionnelles : le select est en `*`, elles arrivent
+   *  d'elles-mêmes une fois la migration appliquée. */
+  marge_retenue_eur_mwh?: number | null
+  marge_reelle_eur_mwh?: number | null
 }
 
 /** `compteId` restreint toute la cascade aux recommandations d'un compte. Voir le commentaire au
@@ -292,7 +296,9 @@ async function fetchRecommandations(
     const [offresCompteursRows, suivisConsultationRows] = await Promise.all([
       listeSeule ? aucune<RawOffreFournisseurCompteur>() : fetchAllRows<RawOffreFournisseurCompteur>(
         'offres_fournisseurs_compteurs',
-        'id, offre_fournisseur_id, version_recommandation_compteur_id, consommation_annuelle_reference_mwh, cout_fourniture_annuel_ht, cout_acheminement_annuel_ht, cout_taxes_annuel, cout_total_annuel_estime_ht, economie_annuelle_estimee, economie_pourcentage',
+        // `*` : les deux colonnes de marge viennent de la migration 20260818140000 et peuvent ne pas
+        // encore exister. Un select qui les nomme renverrait 400 et ferait perdre TOUS les détails.
+        '*',
         cible ? surColonne('offre_fournisseur_id', offresRows.map((o) => o.id)) : undefined,
       ),
       listeSeule ? aucune<RawSuiviConsultation>() : fetchAllRows<RawSuiviConsultation>(
@@ -403,6 +409,8 @@ async function fetchRecommandations(
         cout_total_annuel_estime_ht: dc.cout_total_annuel_estime_ht,
         economie_annuelle_estimee: dc.economie_annuelle_estimee,
         economie_pourcentage: dc.economie_pourcentage,
+        marge_retenue_eur_mwh: dc.marge_retenue_eur_mwh ?? null,
+        marge_reelle_eur_mwh: dc.marge_reelle_eur_mwh ?? null,
         prix_electricite: prixElecParDetail.get(dc.id) ?? null,
         prix_gaz: prixGazParDetail.get(dc.id) ?? null,
       })
@@ -1577,6 +1585,8 @@ export interface PrixParCompteur {
   cout_acheminement_annuel_ht?: number | null
   cout_taxes_annuel?: number | null
   cout_total_annuel_estime_ht?: number | null
+  marge_retenue_eur_mwh?: number | null
+  marge_reelle_eur_mwh?: number | null
   /** Électricité : un prix par classe temporelle (clés BASE, HP, HC, HPE, HCE, HPH, HCH, POINTE). */
   prix_mwh_par_classe?: Record<string, number | null>
   /** Gaz : un seul prix d'énergie. */
@@ -1609,6 +1619,8 @@ export function useEnregistrerPrixCompteur() {
             ...(p.cout_acheminement_annuel_ht !== undefined ? { cout_acheminement_annuel_ht: p.cout_acheminement_annuel_ht } : {}),
             ...(p.cout_taxes_annuel !== undefined ? { cout_taxes_annuel: p.cout_taxes_annuel } : {}),
             ...(p.cout_total_annuel_estime_ht !== undefined ? { cout_total_annuel_estime_ht: p.cout_total_annuel_estime_ht } : {}),
+            ...(p.marge_retenue_eur_mwh !== undefined ? { marge_retenue_eur_mwh: p.marge_retenue_eur_mwh } : {}),
+            ...(p.marge_reelle_eur_mwh !== undefined ? { marge_reelle_eur_mwh: p.marge_reelle_eur_mwh } : {}),
             date_modification: new Date().toISOString(),
           },
           { onConflict: 'offre_fournisseur_id,version_recommandation_compteur_id' },

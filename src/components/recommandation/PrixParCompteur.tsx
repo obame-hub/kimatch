@@ -231,6 +231,69 @@ export function PrixParCompteur({
                   )}
                 </div>
 
+                {/*
+                  Les marges de KiWee sur ce PDL (demande de Michel, 18/08/2026). En €/MWh, comme un
+                  courtier les décide. Les deux sont côte à côte pour que l'ÉCART se voie : c'est lui
+                  qui dit si la cotation a tenu ses promesses, et il ne saute pas aux yeux quand les
+                  deux chiffres vivent dans deux écrans.
+                */}
+                <div className="mt-1 flex flex-wrap items-center gap-x-4 gap-y-1 border-t border-kw-border-faint pt-1">
+                  <span className="flex items-center gap-1.5">
+                    <span className="text-kw-tiny uppercase tracking-[0.05em] text-kw-faint">Marge retenue</span>
+                    <ChampNombre
+                      valeur={detail?.marge_retenue_eur_mwh}
+                      suffixe="€/MWh"
+                      placeholder="— €/MWh"
+                      decimales={2}
+                      largeur="w-[80px]"
+                      titre="Marge décidée en cotant cette offre sur ce PDL"
+                      peutModifier={peutModifier}
+                      onCommit={(v) => sauver(
+                        lien.lien_id,
+                        gaz ? 'gaz' : 'electricite',
+                        { marge_retenue_eur_mwh: v },
+                        v != null ? `✓ Marge retenue : ${v.toLocaleString('fr-FR')} €/MWh` : 'Marge retenue effacée',
+                      )}
+                    />
+                  </span>
+                  <span className="flex items-center gap-1.5">
+                    <span className="text-kw-tiny uppercase tracking-[0.05em] text-kw-faint">Marge réelle</span>
+                    <ChampNombre
+                      valeur={detail?.marge_reelle_eur_mwh}
+                      suffixe="€/MWh"
+                      placeholder="— €/MWh"
+                      decimales={2}
+                      largeur="w-[80px]"
+                      titre="Marge effectivement obtenue sur ce PDL"
+                      peutModifier={peutModifier}
+                      onCommit={(v) => sauver(
+                        lien.lien_id,
+                        gaz ? 'gaz' : 'electricite',
+                        { marge_reelle_eur_mwh: v },
+                        v != null ? `✓ Marge réelle : ${v.toLocaleString('fr-FR')} €/MWh` : 'Marge réelle effacée',
+                      )}
+                    />
+                  </span>
+                  {detail?.marge_retenue_eur_mwh != null && detail?.marge_reelle_eur_mwh != null
+                    && detail.marge_reelle_eur_mwh !== detail.marge_retenue_eur_mwh && (
+                    <span
+                      className={cn(
+                        'rounded-kw-xs px-1.5 py-px text-kw-micro font-extrabold uppercase tracking-[0.05em]',
+                        detail.marge_reelle_eur_mwh < detail.marge_retenue_eur_mwh
+                          ? 'bg-kw-red-light text-kw-red'
+                          : 'bg-kw-green-light text-kw-green',
+                      )}
+                      title="Écart entre la marge obtenue et celle décidée en cotant"
+                    >
+                      {detail.marge_reelle_eur_mwh > detail.marge_retenue_eur_mwh ? '+' : ''}
+                      {(detail.marge_reelle_eur_mwh - detail.marge_retenue_eur_mwh).toLocaleString('fr-FR', {
+                        maximumFractionDigits: 2,
+                      })}{' '}
+                      €/MWh
+                    </span>
+                  )}
+                </div>
+
                 {/* Le coût annuel de CE PDL : c'est lui qu'additionne le comparatif, et c'est lui qui
                     permet de calculer un prix moyen pondéré par les volumes. */}
                 <div className="mt-1 flex flex-wrap items-center gap-x-4 gap-y-1 border-t border-kw-border-faint pt-1">

@@ -142,6 +142,14 @@ export interface OffreFournisseurCompteur {
   cout_total_annuel_estime_ht: number | null
   economie_annuelle_estimee: number | null
   economie_pourcentage: number | null
+  /**
+   * Marges de KiWee sur ce PDL pour cette offre, en €/MWh (demande de Michel, 18/08/2026).
+   *
+   * `retenue` est décidée en cotant, `reelle` est constatée après coup — l'écart entre les deux est
+   * l'information utile, d'où deux colonnes plutôt qu'une qu'on écraserait.
+   */
+  marge_retenue_eur_mwh: number | null
+  marge_reelle_eur_mwh: number | null
   /** Le prix détaillé, selon l'énergie du compteur. Un même périmètre peut mélanger les deux. */
   prix_electricite: PrixOffreElectricite | null
   prix_gaz: PrixOffreGaz | null
