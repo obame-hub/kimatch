@@ -1,4 +1,4 @@
-import { Mail, Lock, Trash2 } from 'lucide-react'
+import { Mail, Lock, Trash2, ExternalLink } from 'lucide-react'
 import { Badge } from '@/components/ui/badge'
 import { EntityLink } from '@/components/ui/entity-link'
 import { OffresDuFournisseur } from '@/components/recommandation/OffresDuFournisseur'
@@ -169,6 +169,39 @@ export function DetailVersion({
                               <div className="flex flex-wrap items-center gap-2">
                                 <p className="text-kw-md font-bold text-kw-ink">{fc.fournisseur_nom}</p>
                                 {/* Ce que ce fournisseur a répondu, d'un coup d'œil. */}
+                                {/*
+                                  Le circuit de ce fournisseur. « Outil en ligne » veut dire qu'aucune
+                                  demande ne part : Erwan va lire les prix chez le fournisseur, et le
+                                  suivi démarre directement à « Demande acceptée » (réunion du
+                                  17/08/2026, 23:49).
+                                */}
+                                {fc.mode_consultation === 'OUTIL_EN_LIGNE' ? (
+                                  fc.url_outil_consultation ? (
+                                    <a
+                                      href={fc.url_outil_consultation}
+                                      target="_blank"
+                                      rel="noreferrer"
+                                      title="Ouvrir l'outil de pricing du fournisseur"
+                                      className="inline-flex items-center gap-1 rounded-kw-xs bg-kw-blue-light px-1.5 py-0.5 text-kw-micro font-extrabold uppercase tracking-[0.05em] text-kw-blue hover:underline"
+                                    >
+                                      Outil en ligne <ExternalLink className="h-2.5 w-2.5" />
+                                    </a>
+                                  ) : (
+                                    <span
+                                      title="Les prix se consultent directement chez le fournisseur — aucune demande à envoyer. L'adresse de l'outil n'est pas renseignée."
+                                      className="rounded-kw-xs bg-kw-blue-light px-1.5 py-0.5 text-kw-micro font-extrabold uppercase tracking-[0.05em] text-kw-blue"
+                                    >
+                                      Outil en ligne
+                                    </span>
+                                  )
+                                ) : (
+                                  <span
+                                    title="La demande d'offre part par email, puis on attend l'accusé de réception"
+                                    className="rounded-kw-xs bg-kw-muted px-1.5 py-0.5 text-kw-micro font-extrabold uppercase tracking-[0.05em] text-kw-meta"
+                                  >
+                                    Par email
+                                  </span>
+                                )}
                                 <span className="text-kw-sm text-kw-meta">
                                   {fc.offres.length === 0
                                     ? 'aucune offre suivie'
@@ -204,6 +237,10 @@ export function DetailVersion({
                                       // Le statut deja en cours n'a pas a etre reproposé : le choisir
                                       // ajouterait un evenement de suivi identique au precedent.
                                       .filter((st) => st.libelle !== fc.statut_actuel)
+                                      // Chez un fournisseur a outil en ligne, « Demande envoyee » ne
+                                      // veut rien dire : rien n'est jamais envoye. Le suivi demarre
+                                      // a « Demande acceptee ».
+                                      .filter((st) => fc.mode_consultation !== 'OUTIL_EN_LIGNE' || st.code !== 'ENVOYEE')
                                       .map((st) => (
                                         <option key={st.id} value={st.id}>{st.libelle}</option>
                                       ))}

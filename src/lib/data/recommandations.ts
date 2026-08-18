@@ -115,6 +115,13 @@ interface RawFournisseurConsulte {
   fournisseur: { nom: string } | null
 }
 
+/** Comment on consulte un fournisseur — lu à part de la fiche fournisseur (migration 20260818160000). */
+interface RawModeFournisseur {
+  compte_id: string
+  mode_consultation: string | null
+  url_outil_consultation: string | null
+}
+
 interface RawSuiviConsultation {
   id: string
   optimisation_fournisseur_id: string
@@ -417,6 +424,18 @@ async function fetchRecommandations(
       detailsParOffre.set(dc.offre_fournisseur_id, list)
     }
 
+    // Le mode de consultation, requête SÉPARÉE et tolérante : les colonnes datent du 18/08/2026 et
+    // un select qui les nomme sur une base non migrée ferait échouer TOUS les fournisseurs consultés.
+    const idsFournisseursConsultes = [...new Set(fournisseursConsultesRows.map((f) => f.fournisseur_compte_id))]
+    const modesRows = idsFournisseursConsultes.length === 0 || listeSeule
+      ? []
+      : await fetchAllRows<RawModeFournisseur>(
+          'comptes_fournisseurs',
+          'compte_id, mode_consultation, url_outil_consultation',
+          surColonne('compte_id', idsFournisseursConsultes),
+        ).catch(() => [] as RawModeFournisseur[])
+    const modeParFournisseur = new Map(modesRows.map((m) => [m.compte_id, m]))
+
     const historiqueParFournisseur = new Map<string, SuiviConsultationFournisseur[]>()
     for (const s of suivisConsultationRows) {
       const list = historiqueParFournisseur.get(s.optimisation_fournisseur_id) ?? []
@@ -488,6 +507,12 @@ async function fetchRecommandations(
         statut_actuel: historique.length > 0 ? historique[historique.length - 1].statut : null,
         historique,
         offres: offresParFournisseurConsulte.get(f.id) ?? [],
+        // `EMAIL` par défaut, comme la colonne : c'est le circuit de presque tous les fournisseurs,
+        // et se tromper de ce côté n'affiche qu'une étape de trop.
+        mode_consultation: modeParFournisseur.get(f.fournisseur_compte_id)?.mode_consultation === 'OUTIL_EN_LIGNE'
+          ? 'OUTIL_EN_LIGNE'
+          : 'EMAIL',
+        url_outil_consultation: modeParFournisseur.get(f.fournisseur_compte_id)?.url_outil_consultation ?? null,
       })
       fournisseursConsultesParOptimisation.set(f.optimisation_id, list)
     }

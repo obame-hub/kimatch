@@ -207,6 +207,15 @@ export interface FournisseurConsulte {
    * la consultation, en attente de réponse, puis complétée quand elle arrive.
    */
   offres: OffreFournisseur[]
+  /**
+   * Comment on consulte ce fournisseur (réunion du 17/08/2026).
+   *
+   * `EMAIL` : la demande part par mail, on attend l'accusé de réception — Gaz Européen, Gedia.
+   * `OUTIL_EN_LIGNE` : les prix sont consultables directement, aucune demande à envoyer, le suivi
+   * démarre à « Demande acceptée » — Ilek.
+   */
+  mode_consultation: 'EMAIL' | 'OUTIL_EN_LIGNE'
+  url_outil_consultation: string | null
 }
 
 export interface Optimisation {
