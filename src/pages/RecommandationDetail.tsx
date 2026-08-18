@@ -31,7 +31,6 @@ import {
   CotationWizard,
   EnvoyerEmailDialog,
   AjouterFournisseurConsulteDialog,
-  AjouterSuiviDialog,
   type PrefillCotation,
 } from '@/components/recommandation/DialoguesReco'
 import { ContratWizard } from '@/components/contrat/ContratWizard'
@@ -71,7 +70,7 @@ import {
   FALLBACK_TYPES_ACTIONS,
   FALLBACK_TYPES_INTERACTIONS,
 } from '@/lib/referenceFallbacks'
-import type { VersionRecommandation, Optimisation, FournisseurConsulte } from '@/types/domain'
+import type { VersionRecommandation, Optimisation } from '@/types/domain'
 
 /**
  * Fiche Recommandation — portage de la maquette « Fiche Recommandation.dc.html » de William.
@@ -157,7 +156,6 @@ export default function RecommandationDetail() {
   const [showContratWizard, setShowContratWizard] = useState(false)
   const [emailDialogVersion, setEmailDialogVersion] = useState<VersionRecommandation | null>(null)
   const [ajouterFournisseurFor, setAjouterFournisseurFor] = useState<Optimisation | null>(null)
-  const [suiviFor, setSuiviFor] = useState<{ optimisationId: string; fc: FournisseurConsulte } | null>(null)
   const [confirmDelete, setConfirmDelete] = useState(false)
   const [versionASupprimer, setVersionASupprimer] = useState<VersionRecommandation | null>(null)
   const [coutOuvert, setCoutOuvert] = useState(false)
@@ -858,7 +856,6 @@ export default function RecommandationDetail() {
                   statutsVersions={statutsVersions}
                   onEnvoyerEmail={() => setEmailDialogVersion(versionAffichee)}
                   onAjouterFournisseur={setAjouterFournisseurFor}
-                  onAjouterSuivi={(optimisationId, fc) => setSuiviFor({ optimisationId, fc })}
                   peutModifier={canManage}
                   signaler={signaler}
                   onSupprimer={() => setVersionASupprimer(versionAffichee)}
@@ -1009,12 +1006,6 @@ export default function RecommandationDetail() {
         open={!!ajouterFournisseurFor}
         onClose={() => setAjouterFournisseurFor(null)}
         optimisation={ajouterFournisseurFor}
-      />
-      <AjouterSuiviDialog
-        open={!!suiviFor}
-        onClose={() => setSuiviFor(null)}
-        optimisationId={suiviFor?.optimisationId ?? null}
-        fournisseurConsulte={suiviFor?.fc ?? null}
       />
 
       {/* Fixer le coût de prestation. Un dialogue et non une saisie en place : le montant facturé

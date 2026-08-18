@@ -1230,26 +1230,9 @@ export function useChangerStatutConsultation() {
   })
 }
 
-export function useAjouterSuiviConsultation() {
-  const queryClient = useQueryClient()
-  return useMutation({
-    mutationFn: async (input: {
-      optimisationId: string
-      optimisationFournisseurId: string
-      statutId: string
-      statutLibelle: string
-      commentaire: string | null
-    }) => {
-      const { error } = await supabase.from('suivis_consultations_fournisseurs').insert({
-        optimisation_fournisseur_id: input.optimisationFournisseurId,
-        statut_id: input.statutId,
-        commentaire: input.commentaire,
-      })
-      if (error) throw new Error(error.message)
-    },
-    onSuccess: () => { void queryClient.invalidateQueries({ queryKey: ['recommandations'] }) },
-  })
-}
+// `useAjouterSuiviConsultation` a été retiré le 18/08/2026 avec le bouton « + Suivi détaillé » :
+// changer le statut de la demande écrit déjà l'événement de suivi daté, et un second chemin pour
+// ajouter la même ligne à la main n'apportait qu'une façon de plus de se tromper.
 
 /**
  * « Étape suivante » du rail de cycle de vie.

@@ -26,7 +26,6 @@ export function DetailVersion({
   statutsVersions,
   onEnvoyerEmail,
   onAjouterFournisseur,
-  onAjouterSuivi,
   onChangerStatut,
   statutsConsultation,
   peutModifier,
@@ -37,7 +36,6 @@ export function DetailVersion({
   statutsVersions: ReferenceRow[]
   onEnvoyerEmail: () => void
   onAjouterFournisseur: (optimisation: Optimisation) => void
-  onAjouterSuivi: (optimisationId: string, fc: FournisseurConsulte) => void
   /** Change le statut de la demande, en enregistrant un événement de suivi daté. */
   onChangerStatut: (fc: FournisseurConsulte, statutId: string) => void
   statutsConsultation: ReferenceRow[]
@@ -201,16 +199,6 @@ export function DetailVersion({
                                   </select>
                                 ) : (
                                   fc.statut_actuel && <Badge tone="neutral">{fc.statut_actuel}</Badge>
-                                )}
-                                {peutModifier && (
-                                  <button
-                                    type="button"
-                                    onClick={() => onAjouterSuivi(optimisation.id, fc)}
-                                    title="Ajouter un suivi avec un commentaire"
-                                    className="text-kw-base font-semibold text-kw-green hover:underline"
-                                  >
-                                    + Suivi détaillé
-                                  </button>
                                 )}
                               </div>
 

@@ -6,7 +6,6 @@ import { FormField, Input, Select, Textarea } from '@/components/ui/form'
 import { WizardConnectionGate } from '@/components/ui/connection-gate'
 import {
   useAjouterFournisseurConsulte,
-  useAjouterSuiviConsultation,
   useCreateVersion,
 } from '@/lib/data/recommandations'
 import { useReferenceTable } from '@/lib/data/referenceTables'
@@ -20,7 +19,7 @@ import { notifyEmail } from '@/lib/data/emailSettings'
 import { ZONE_ORDER_COTATION, ZONE_LABEL_COTATION, zoneDuFournisseur } from '@/lib/fournisseurZones'
 import { computeEstimatedCommission } from '@/lib/commission'
 import { trouverParCode } from '@/lib/codeReferentiel'
-import type { Recommandation, VersionRecommandation, Optimisation, FournisseurConsulte } from '@/types/domain'
+import type { Recommandation, VersionRecommandation, Optimisation } from '@/types/domain'
 
 /**
  * Dialogues de la fiche Recommandation.
@@ -608,76 +607,6 @@ export function AjouterFournisseurConsulteDialog({
         <div className="flex justify-end gap-2 pt-2">
           <Button type="button" variant="ghost" onClick={() => { reset(); onClose() }}>Annuler</Button>
           <Button type="submit" disabled={ajouter.isPending}>Ajouter</Button>
-        </div>
-      </form>
-    </Dialog>
-  )
-}
-
-export function AjouterSuiviDialog({
-  open,
-  onClose,
-  optimisationId,
-  fournisseurConsulte,
-}: {
-  open: boolean
-  onClose: () => void
-  optimisationId: string | null
-  fournisseurConsulte: FournisseurConsulte | null
-}) {
-  const { data: statutsRef } = useReferenceTable('statuts_consultations_fournisseurs')
-  const ajouter = useAjouterSuiviConsultation()
-
-  const [statutId, setStatutId] = useState('')
-  const [commentaire, setCommentaire] = useState('')
-  const [feedback, setFeedback] = useState<string | null>(null)
-
-  function reset() {
-    setStatutId('')
-    setCommentaire('')
-    setFeedback(null)
-  }
-
-  async function handleSubmit(e: React.FormEvent) {
-    e.preventDefault()
-    const statut = (statutsRef ?? []).find((s) => s.id === statutId)
-    if (!fournisseurConsulte || !optimisationId || !statut) return
-    try {
-      await ajouter.mutateAsync({
-        optimisationId,
-        optimisationFournisseurId: fournisseurConsulte.id,
-        statutId: statut.id,
-        statutLibelle: statut.libelle,
-        commentaire: commentaire || null,
-      })
-      reset()
-      onClose()
-    } catch (err) {
-      setFeedback(err instanceof Error ? err.message : 'Erreur inconnue')
-    }
-  }
-
-  return (
-    <Dialog
-      open={open}
-      onClose={() => { reset(); onClose() }}
-      title="Suivi de consultation"
-      description={fournisseurConsulte ? `Nouvel événement pour ${fournisseurConsulte.fournisseur_nom}.` : undefined}
-    >
-      <form onSubmit={handleSubmit} className="space-y-3">
-        <FormField label="Statut">
-          <Select value={statutId} onChange={(e) => setStatutId(e.target.value)} required>
-            <option value="">Sélectionner…</option>
-            {(statutsRef ?? []).map((s) => <option key={s.id} value={s.id}>{s.libelle}</option>)}
-          </Select>
-        </FormField>
-        <FormField label="Commentaire">
-          <Textarea rows={3} value={commentaire} onChange={(e) => setCommentaire(e.target.value)} placeholder="Optionnel" />
-        </FormField>
-        {feedback && <p className="text-xs text-red-600">{feedback}</p>}
-        <div className="flex justify-end gap-2 pt-2">
-          <Button type="button" variant="ghost" onClick={() => { reset(); onClose() }}>Annuler</Button>
-          <Button type="submit" disabled={ajouter.isPending}>Enregistrer</Button>
         </div>
       </form>
     </Dialog>
