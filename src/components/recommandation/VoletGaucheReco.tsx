@@ -9,6 +9,7 @@ import {
   urlEtudeClient,
   ilYA,
 } from '@/lib/data/partagesEtude'
+import type { ReferenceRow } from '@/lib/data/referenceTables'
 import type { Recommandation, VersionRecommandation, Contact, Compte } from '@/types/domain'
 
 /**
@@ -145,6 +146,7 @@ export function VoletGaucheReco({
   contacts,
   contactPrincipal,
   versionAffichee,
+  statutsVersions,
   onChoisirVersion,
   onMajContactSignataire,
   coutEstimeSuggere,
@@ -158,6 +160,8 @@ export function VoletGaucheReco({
   contacts: Contact[]
   contactPrincipal: Contact | null | undefined
   versionAffichee: VersionRecommandation | null
+  /** Table de référence des statuts de version : la frise affiche le libellé, pas le code. */
+  statutsVersions: ReferenceRow[]
   onChoisirVersion: (version: VersionRecommandation) => void
   onMajContactSignataire: (contactId: string) => void
   /** Ce que vaudrait l'estimation si on l'appliquait maintenant — calculée par la fiche à partir
@@ -346,12 +350,18 @@ export function VoletGaucheReco({
                     />
                     {i < reco.versions.length - 1 && <span className="min-h-2 w-0.5 flex-1 bg-[#eee4d2]" />}
                   </div>
+                  {/*
+                    Deux lignes et non une seule. Mesuré dans le navigateur le 18/08/2026 : sur une
+                    colonne de 256 px, « Version 4 » + le statut + la date débordaient de 32 px, et
+                    le nom se coupait en « Version » / « 4 ». Le nom et le statut tiennent la
+                    première ligne, la date passe dessous — plus rien ne déborde et le nom reste lisible.
+                  */}
                   <button
                     type="button"
                     onClick={() => onChoisirVersion(v)}
                     title="Afficher cette version"
                     className={cn(
-                      'mb-1.5 flex flex-1 items-center gap-[7px] rounded-kw-lg border px-[9px] py-[7px] text-left transition-colors',
+                      'mb-1.5 flex min-w-0 flex-1 flex-col gap-0.5 rounded-kw-lg border px-[9px] py-[7px] text-left transition-colors',
                       affichee
                         ? 'border-[#dcc39c] bg-kw-amber-light ring-1 ring-[#dcc39c]'
                         : expiree
@@ -359,18 +369,28 @@ export function VoletGaucheReco({
                           : 'border-[#dcc39c] bg-kw-amber-light',
                     )}
                   >
-                    <span className={cn('font-mono text-kw-md font-extrabold', expiree ? 'text-kw-faint' : 'text-[#8a4b2a]')}>
-                      {v.nom || `V${v.numero_version ?? '?'}`}
+                    <span className="flex min-w-0 items-center gap-[7px]">
+                      <span
+                        className={cn(
+                          'truncate font-mono text-kw-md font-extrabold',
+                          expiree ? 'text-kw-faint' : 'text-[#8a4b2a]',
+                        )}
+                      >
+                        {v.nom || `V${v.numero_version ?? '?'}`}
+                      </span>
+                      <span
+                        className={cn(
+                          'shrink-0 rounded-[7px] px-1.5 py-px text-[8px] font-extrabold uppercase tracking-[0.05em]',
+                          expiree ? 'bg-kw-muted text-kw-faint' : 'bg-[#8a4b2a] text-white',
+                        )}
+                      >
+                        {/* Le LIBELLÉ du statut, pas son code : la frise affichait « REMPLACEE »,
+                            tel quel, sans accent — c'est la clé technique et non un mot français. */}
+                        {v.version_actuelle
+                          ? 'Active'
+                          : statutsVersions.find((st) => st.code === v.statut)?.libelle || 'Remplacée'}
+                      </span>
                     </span>
-                    <span
-                      className={cn(
-                        'rounded-[7px] px-1.5 py-px text-[8px] font-extrabold uppercase tracking-[0.05em]',
-                        expiree ? 'bg-kw-muted text-kw-faint' : 'bg-[#8a4b2a] text-white',
-                      )}
-                    >
-                      {v.version_actuelle ? 'Active' : v.statut || 'Remplacée'}
-                    </span>
-                    <span className="flex-1" />
                     <span className="font-mono text-kw-tiny text-kw-faint">
                       {new Date(v.date_creation).toLocaleDateString('fr-FR')}
                     </span>

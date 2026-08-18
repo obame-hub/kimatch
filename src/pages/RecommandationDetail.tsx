@@ -594,6 +594,7 @@ export default function RecommandationDetail() {
             contacts={contacts ?? []}
             contactPrincipal={contactPrincipal}
             versionAffichee={versionAffichee}
+            statutsVersions={statutsVersions}
             onChoisirVersion={(v) => { setVersionAfficheeId(v.id); setOnglet('reco') }}
             onMajContactSignataire={async (contactId) => {
               try {
