@@ -367,6 +367,25 @@ export default function RecommandationDetail() {
     )
   }
 
+  /**
+   * « Nouvelle version » depuis le bandeau, quel que soit l'onglet affiché.
+   *
+   * Le bouton ne faisait rien quand on venait de créer la recommandation : il basculait bien l'état
+   * du panneau, mais ce panneau vit dans l'onglet « Recommandation » — et sur un dossier au
+   * Diagnostic la fiche s'ouvre sur « Commande du client ». Le clic partait donc dans le vide.
+   *
+   * Sans aucune version, on va droit au wizard : le panneau n'aurait proposé qu'un seul choix,
+   * puisqu'il n'y a rien à dupliquer.
+   */
+  function ouvrirNouvelleVersion() {
+    if (!reco || reco.versions.length === 0) {
+      setWizardCotation({ prefill: null })
+      return
+    }
+    setOnglet('reco')
+    setNouvelleVersionOuverte((v) => !v)
+  }
+
   const coutSuggere = coutPrestationEstime(versionAffichee?.gains_estimes)
   const filActivite = (
     <ActivityFeed
@@ -406,7 +425,7 @@ export default function RecommandationDetail() {
   )
 
   return (
-    <div className="flex h-[calc(100vh-52px-56px)] flex-col overflow-hidden md:h-[calc(100vh-52px)]">
+    <div className="flex h-full flex-col overflow-hidden">
       <Topbar crumb="Recommandations" title={reco.titre} />
 
       {/* ── Bandeau ── */}
@@ -475,7 +494,7 @@ export default function RecommandationDetail() {
 
         <div className="hidden items-center gap-1.5 lg:flex">
           {canManage && (
-            <Button size="sm" onClick={() => setNouvelleVersionOuverte((v) => !v)}>
+            <Button size="sm" onClick={ouvrirNouvelleVersion}>
               <Plus className="h-3.5 w-3.5" />
               Nouvelle version
             </Button>

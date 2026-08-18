@@ -216,7 +216,7 @@ export default function SiteDetail() {
   }
 
   return (
-    <div className="flex h-[calc(100vh-52px-56px)] flex-col overflow-hidden md:h-[calc(100vh-52px)]">
+    <div className="flex h-full flex-col overflow-hidden">
       <Topbar crumb="Sites" title={site.nom} />
 
       {/* Bandeau site */}
