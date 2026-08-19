@@ -339,6 +339,12 @@ async function fetchRecommandations(
       prix_energie_mwh: number | null
       car_reference_mwh: number | null
       abonnement_fourniture_annuel_ht: number | null
+      /** Décomposition ajoutée le 19/08/2026 — optionnelles, le select est en `*`. */
+      prix_cee_mwh?: number | null
+      prix_cpb_mwh?: number | null
+      prix_atrd_mwh?: number | null
+      prix_agn_mwh?: number | null
+      cta_annuel_ht?: number | null
     }
     const idsDetails = offresCompteursRows.map((d) => d.id)
     const [prixElecRows, prixGazRows] = idsDetails.length === 0
@@ -351,7 +357,9 @@ async function fetchRecommandations(
           ).catch(() => [] as RawPrixElec[]),
           fetchAllRows<RawPrixGaz>(
             'offres_compteurs_gaz',
-            'offre_compteur_id, type_prix, prix_energie_mwh, car_reference_mwh, abonnement_fourniture_annuel_ht',
+            // `*` : la décomposition (CEE, CPB, ATRD, AGN, CTA) vient de la migration 20260819100000.
+            // La nommer avant qu'elle soit appliquée ferait perdre TOUS les prix gaz.
+            '*',
             surColonne('offre_compteur_id', idsDetails),
           ).catch(() => [] as RawPrixGaz[]),
         ])
@@ -373,8 +381,13 @@ async function fetchRecommandations(
     const prixGazParDetail = new Map(prixGazRows.map((r) => [r.offre_compteur_id, {
       type_prix: r.type_prix,
       prix_energie_mwh: r.prix_energie_mwh,
+      prix_cee_mwh: r.prix_cee_mwh ?? null,
+      prix_cpb_mwh: r.prix_cpb_mwh ?? null,
+      prix_atrd_mwh: r.prix_atrd_mwh ?? null,
+      prix_agn_mwh: r.prix_agn_mwh ?? null,
       car_reference_mwh: r.car_reference_mwh,
       abonnement_fourniture_annuel_ht: r.abonnement_fourniture_annuel_ht,
+      cta_annuel_ht: r.cta_annuel_ht ?? null,
     }]))
 
     interface RawVersionCompteur {
@@ -1610,12 +1623,20 @@ export interface PrixParCompteur {
   cout_acheminement_annuel_ht?: number | null
   cout_taxes_annuel?: number | null
   cout_total_annuel_estime_ht?: number | null
+  /** Économie face au contrat en cours sur ce PDL. Saisie : le budget actuel n'est pas dans l'offre,
+   *  on ne peut donc pas la déduire ici. */
+  economie_annuelle_estimee?: number | null
   marge_retenue_eur_mwh?: number | null
   marge_reelle_eur_mwh?: number | null
   /** Électricité : un prix par classe temporelle (clés BASE, HP, HC, HPE, HCE, HPH, HCH, POINTE). */
   prix_mwh_par_classe?: Record<string, number | null>
-  /** Gaz : un seul prix d'énergie. */
+  /** Gaz : la molécule, puis sa décomposition. */
   prix_energie_mwh?: number | null
+  prix_cee_mwh?: number | null
+  prix_cpb_mwh?: number | null
+  prix_atrd_mwh?: number | null
+  prix_agn_mwh?: number | null
+  cta_annuel_ht?: number | null
   car_reference_mwh?: number | null
   abonnement_fourniture_annuel_ht?: number | null
   type_prix?: string | null
@@ -1644,6 +1665,7 @@ export function useEnregistrerPrixCompteur() {
             ...(p.cout_acheminement_annuel_ht !== undefined ? { cout_acheminement_annuel_ht: p.cout_acheminement_annuel_ht } : {}),
             ...(p.cout_taxes_annuel !== undefined ? { cout_taxes_annuel: p.cout_taxes_annuel } : {}),
             ...(p.cout_total_annuel_estime_ht !== undefined ? { cout_total_annuel_estime_ht: p.cout_total_annuel_estime_ht } : {}),
+            ...(p.economie_annuelle_estimee !== undefined ? { economie_annuelle_estimee: p.economie_annuelle_estimee } : {}),
             ...(p.marge_retenue_eur_mwh !== undefined ? { marge_retenue_eur_mwh: p.marge_retenue_eur_mwh } : {}),
             ...(p.marge_reelle_eur_mwh !== undefined ? { marge_reelle_eur_mwh: p.marge_reelle_eur_mwh } : {}),
             date_modification: new Date().toISOString(),
@@ -1680,6 +1702,11 @@ export function useEnregistrerPrixCompteur() {
         {
           offre_compteur_id: detailId,
           ...(p.prix_energie_mwh !== undefined ? { prix_energie_mwh: p.prix_energie_mwh } : {}),
+          ...(p.prix_cee_mwh !== undefined ? { prix_cee_mwh: p.prix_cee_mwh } : {}),
+          ...(p.prix_cpb_mwh !== undefined ? { prix_cpb_mwh: p.prix_cpb_mwh } : {}),
+          ...(p.prix_atrd_mwh !== undefined ? { prix_atrd_mwh: p.prix_atrd_mwh } : {}),
+          ...(p.prix_agn_mwh !== undefined ? { prix_agn_mwh: p.prix_agn_mwh } : {}),
+          ...(p.cta_annuel_ht !== undefined ? { cta_annuel_ht: p.cta_annuel_ht } : {}),
           ...(p.car_reference_mwh !== undefined ? { car_reference_mwh: p.car_reference_mwh } : {}),
           ...(p.type_prix !== undefined ? { type_prix: p.type_prix } : {}),
           ...(p.abonnement_fourniture_annuel_ht !== undefined ? { abonnement_fourniture_annuel_ht: p.abonnement_fourniture_annuel_ht } : {}),

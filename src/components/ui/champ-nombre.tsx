@@ -42,9 +42,18 @@ export function ChampNombre({
   function commettre() {
     setEdition(false)
     const brut = brouillon.trim().replace(/\s/g, '').replace(',', '.')
-    if (brut === '') return onCommit(null)
+    if (brut === '') {
+      // Rien saisi ET rien à effacer : on ne touche pas à la base. Sans ce garde-fou, entrer dans
+      // une case vide puis en sortir écrivait `null` — donc CRÉAIT les lignes de détail et de prix,
+      // vides. Constaté le 19/08/2026 : deux lignes de prix gaz entièrement nulles existaient parce
+      // que quelqu'un avait simplement cliqué dans un champ. Regarder ne doit pas écrire.
+      if (valeur == null) return
+      return onCommit(null)
+    }
     const n = Number.parseFloat(brut)
     if (!Number.isFinite(n) || n < 0) return
+    // Valeur inchangée : pas d'écriture, et pas de notification qui ferait croire à une modification.
+    if (n === valeur) return
     onCommit(n)
   }
 

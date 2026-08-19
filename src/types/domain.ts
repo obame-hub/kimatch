@@ -119,13 +119,27 @@ export interface PrixOffreElectricite {
   abonnement_fourniture_annuel_ht: number | null
 }
 
-/** Prix d'une offre sur UN point de livraison gaz (`offres_compteurs_gaz`). */
+/**
+ * Prix d'une offre sur UN point de livraison gaz (`offres_compteurs_gaz`).
+ *
+ * Décomposé comme le fournisseur le facture (demande du 19/08/2026) : l'énergie d'un côté, les
+ * contributions de l'autre. Tout est en €/MWh sauf l'abonnement et la CTA, en €/an — c'est la
+ * distinction qui compte, la confondre ferait un facteur mille dans le budget.
+ */
 export interface PrixOffreGaz {
   type_prix: string | null
+  /** Prix de la molécule : l'énergie nue, hors CEE et CPB. */
   prix_energie_mwh: number | null
+  prix_cee_mwh: number | null
+  prix_cpb_mwh: number | null
+  /** ATRD : accès des tiers au réseau de distribution, part variable. */
+  prix_atrd_mwh: number | null
+  prix_agn_mwh: number | null
   /** Consommation annuelle de référence retenue par le fournisseur pour son prix. */
   car_reference_mwh: number | null
   abonnement_fourniture_annuel_ht: number | null
+  /** Contribution Tarifaire d'Acheminement, en €/AN et non au MWh. */
+  cta_annuel_ht: number | null
 }
 
 export interface OffreFournisseurCompteur {
