@@ -92,11 +92,18 @@ function Champ({ libelle, children }: { libelle: string; children: React.ReactNo
  * RÈGLE DE MICHEL, appel du 19/08/2026 : « il va prendre en compte la marge retenue parce que ce sera
  * égal à la marge réelle plus ou moins la marge ajustée ». Donc :
  *
- *   marge retenue = marge réelle + marge ajustable
+ *   marge retenue = marge de référence + marge ajustable
  *
- * La marge réelle est la marge de base que le commercial pose (« la marge réelle de 3 €, ou disons de
- * 6 € »), la marge ajustable son ajustement (« j'augmente de 1 €, j'ajuste de 2 € »), négatif compris
- * — d'où le « plus ou moins » : c'est le SIGNE de l'ajustable qui le porte, pas une soustraction.
+ * La marge de référence est la marge de base que le commercial pose (« la marge réelle de 3 €, ou
+ * disons de 6 € », que Michel appelle aussi « la marge de référence de base » — c'est ce libellé que
+ * Naoëlle a retenu le 19/08 pour l'écran). La marge ajustable est son ajustement (« j'augmente de
+ * 1 €, j'ajuste de 2 € »), négatif compris — d'où le « plus ou moins » : c'est le SIGNE de
+ * l'ajustable qui le porte, pas une soustraction.
+ *
+ * LA COLONNE RESTE `marge_reelle_eur_mwh`, et les identifiants du code avec elle. Renommer la colonne
+ * demanderait d'appliquer la migration AVANT le déploiement du code, sinon toute saisie de marge
+ * échoue entre les deux. Le jeu n'en vaut la chandelle que si quelqu'un le demande : ici seul le
+ * libellé lu à l'écran change.
  *
  * ELLE N'EST DONC PLUS SAISIE. Elle l'était jusqu'au 19/08 ; la laisser modifiable à côté de ses deux
  * termes permettrait d'afficher une retenue qui contredit sa propre définition.
@@ -628,16 +635,16 @@ export function PrixParCompteur({
                     qu'elle est la somme des deux précédentes — et c'est elle que liront les calculs
                     de commission. */}
                 <div className="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1 border-t border-kw-border-faint pt-1.5">
-                  <Champ libelle="Marge réelle">
+                  <Champ libelle="Marge référence">
                     <ChampNombre
                       valeur={detail?.marge_reelle_eur_mwh}
                       suffixe="€/MWh" placeholder="— €/MWh" decimales={2} largeur="w-[76px]"
-                      titre="Marge de base posée par le commercial sur ce PDL, avant tout ajustement"
+                      titre="Marge de référence posée par le commercial sur ce PDL, avant tout ajustement"
                       peutModifier={peutModifier}
                       onCommit={(v) => sauver({
                         ...base,
                         prix: { marge_reelle_eur_mwh: v },
-                        message: v != null ? `✓ Marge réelle : ${v.toLocaleString('fr-FR')} €/MWh` : 'Marge réelle effacée',
+                        message: v != null ? `✓ Marge référence : ${v.toLocaleString('fr-FR')} €/MWh` : 'Marge référence effacée',
                       })}
                     />
                   </Champ>
@@ -659,7 +666,7 @@ export function PrixParCompteur({
                       const retenue = margeRetenue(detail?.marge_reelle_eur_mwh, detail?.marge_ajustable_eur_mwh)
                       return retenue != null ? (
                         <span
-                          title="Marge réelle + marge ajustable — c'est elle qui sert au calcul de la commission, et c'est elle qui entre dans le budget énergie"
+                          title="Marge référence + marge ajustable — c'est elle qui sert au calcul de la commission, et c'est elle qui entre dans le budget énergie"
                           className="cursor-help font-mono text-kw-base font-bold text-kw-ink"
                         >
                           {retenue.toLocaleString('fr-FR', { maximumFractionDigits: 2 })} €/MWh
