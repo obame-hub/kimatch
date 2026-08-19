@@ -171,6 +171,7 @@ interface RawOffreFournisseurCompteur {
   /** Marges en €/MWh, migration 20260818140000. Optionnelles : le select est en `*`, elles arrivent
    *  d'elles-mêmes une fois la migration appliquée. */
   marge_retenue_eur_mwh?: number | null
+  marge_ajustable_eur_mwh?: number | null
   marge_reelle_eur_mwh?: number | null
 }
 
@@ -303,8 +304,9 @@ async function fetchRecommandations(
     const [offresCompteursRows, suivisConsultationRows] = await Promise.all([
       listeSeule ? aucune<RawOffreFournisseurCompteur>() : fetchAllRows<RawOffreFournisseurCompteur>(
         'offres_fournisseurs_compteurs',
-        // `*` : les deux colonnes de marge viennent de la migration 20260818140000 et peuvent ne pas
-        // encore exister. Un select qui les nomme renverrait 400 et ferait perdre TOUS les détails.
+        // `*` : les colonnes de marge arrivent par migrations successives — 20260818140000 pour la
+        // retenue et la réelle (appliquée), 20260819120000 pour l'ajustable (en attente). Un select
+        // qui nomme une colonne absente renvoie 400 et fait perdre TOUS les détails.
         '*',
         cible ? surColonne('offre_fournisseur_id', offresRows.map((o) => o.id)) : undefined,
       ),
@@ -430,6 +432,7 @@ async function fetchRecommandations(
         economie_annuelle_estimee: dc.economie_annuelle_estimee,
         economie_pourcentage: dc.economie_pourcentage,
         marge_retenue_eur_mwh: dc.marge_retenue_eur_mwh ?? null,
+        marge_ajustable_eur_mwh: dc.marge_ajustable_eur_mwh ?? null,
         marge_reelle_eur_mwh: dc.marge_reelle_eur_mwh ?? null,
         prix_electricite: prixElecParDetail.get(dc.id) ?? null,
         prix_gaz: prixGazParDetail.get(dc.id) ?? null,
@@ -1623,10 +1626,14 @@ export interface PrixParCompteur {
   cout_acheminement_annuel_ht?: number | null
   cout_taxes_annuel?: number | null
   cout_total_annuel_estime_ht?: number | null
-  /** Économie face au contrat en cours sur ce PDL. Saisie : le budget actuel n'est pas dans l'offre,
-   *  on ne peut donc pas la déduire ici. */
+  /** Économie face au contrat en cours. Plus exposée par PDL depuis le 19/08/2026 : elle se saisit
+   *  sur la ligne de l'offre, à un seul endroit. Le chemin reste ouvert pour les 0 ligne déjà en
+   *  base et pour une reprise éventuelle. */
   economie_annuelle_estimee?: number | null
+  /** Les trois marges, dans l'ordre chronologique de la négociation : décidée, encore négociable,
+   *  constatée. Aucune ne se déduit des autres. */
   marge_retenue_eur_mwh?: number | null
+  marge_ajustable_eur_mwh?: number | null
   marge_reelle_eur_mwh?: number | null
   /** Électricité : un prix par classe temporelle (clés BASE, HP, HC, HPE, HCE, HPH, HCH, POINTE). */
   prix_mwh_par_classe?: Record<string, number | null>
@@ -1667,6 +1674,7 @@ export function useEnregistrerPrixCompteur() {
             ...(p.cout_total_annuel_estime_ht !== undefined ? { cout_total_annuel_estime_ht: p.cout_total_annuel_estime_ht } : {}),
             ...(p.economie_annuelle_estimee !== undefined ? { economie_annuelle_estimee: p.economie_annuelle_estimee } : {}),
             ...(p.marge_retenue_eur_mwh !== undefined ? { marge_retenue_eur_mwh: p.marge_retenue_eur_mwh } : {}),
+            ...(p.marge_ajustable_eur_mwh !== undefined ? { marge_ajustable_eur_mwh: p.marge_ajustable_eur_mwh } : {}),
             ...(p.marge_reelle_eur_mwh !== undefined ? { marge_reelle_eur_mwh: p.marge_reelle_eur_mwh } : {}),
             date_modification: new Date().toISOString(),
           },

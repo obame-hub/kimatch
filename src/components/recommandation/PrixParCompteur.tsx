@@ -549,19 +549,6 @@ export function PrixParCompteur({
                         })}
                       />
                     </Champ>
-                    <Champ libelle="Économie">
-                      <ChampNombre
-                        valeur={detail?.economie_annuelle_estimee}
-                        suffixe="€/an" placeholder="— €/an" largeur="w-[90px]"
-                        titre="Économie annuelle face au contrat en cours sur ce PDL"
-                        peutModifier={peutModifier}
-                        onCommit={(v) => sauver({
-                          ...base,
-                          prix: { economie_annuelle_estimee: v },
-                          message: v != null ? `✓ Économie : ${v.toLocaleString('fr-FR')} €/an` : 'Économie effacée',
-                        })}
-                      />
-                    </Champ>
                     <Champ libelle="Conso retenue">
                       <ChampNombre
                         valeur={detail?.consommation_annuelle_reference_mwh}
@@ -599,6 +586,19 @@ export function PrixParCompteur({
                         ...base,
                         prix: { marge_retenue_eur_mwh: v },
                         message: v != null ? `✓ Marge retenue : ${v.toLocaleString('fr-FR')} €/MWh` : 'Marge retenue effacée',
+                      })}
+                    />
+                  </Champ>
+                  <Champ libelle="Marge ajustable">
+                    <ChampNombre
+                      valeur={detail?.marge_ajustable_eur_mwh}
+                      suffixe="€/MWh" placeholder="— €/MWh" decimales={2} largeur="w-[76px]"
+                      titre="Marge qu'on s'autorise encore à ajuster en négociation sur ce PDL"
+                      peutModifier={peutModifier}
+                      onCommit={(v) => sauver({
+                        ...base,
+                        prix: { marge_ajustable_eur_mwh: v },
+                        message: v != null ? `✓ Marge ajustable : ${v.toLocaleString('fr-FR')} €/MWh` : 'Marge ajustable effacée',
                       })}
                     />
                   </Champ>

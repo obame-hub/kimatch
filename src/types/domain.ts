@@ -163,6 +163,7 @@ export interface OffreFournisseurCompteur {
    * l'information utile, d'où deux colonnes plutôt qu'une qu'on écraserait.
    */
   marge_retenue_eur_mwh: number | null
+  marge_ajustable_eur_mwh: number | null
   marge_reelle_eur_mwh: number | null
   /** Le prix détaillé, selon l'énergie du compteur. Un même périmètre peut mélanger les deux. */
   prix_electricite: PrixOffreElectricite | null
