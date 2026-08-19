@@ -344,6 +344,8 @@ async function fetchRecommandations(
       prix_hph_p0_mwh?: number | null
       prix_hch_p0_mwh?: number | null
       prix_pointe_p0_mwh?: number | null
+      /** Migration 20260819180000. */
+      prix_turpe_annuel_ht?: number | null
     }
     interface RawPrixGaz {
       offre_compteur_id: string
@@ -395,6 +397,7 @@ async function fetchRecommandations(
         formule_tarifaire: r.formule_tarifaire,
         p0_mwh_par_classe: p0ParClasse,
         prix_mwh_par_classe: parClasse,
+        prix_turpe_annuel_ht: r.prix_turpe_annuel_ht ?? null,
         abonnement_fourniture_annuel_ht: r.abonnement_fourniture_annuel_ht,
       }]
     }))
@@ -1660,6 +1663,8 @@ export interface PrixParCompteur {
   p0_mwh_par_classe?: Record<string, number | null>
   /** Électricité : les prix présentés, P0 de la classe + marge de référence. CALCULÉS. */
   prix_mwh_par_classe?: Record<string, number | null>
+  /** Électricité : le TURPE en €/an, saisi. */
+  prix_turpe_annuel_ht?: number | null
   /** Gaz : le P0 saisi, la molécule présentée (P0 + marge, calculée), puis la décomposition. */
   prix_molecule_p0_mwh?: number | null
   prix_energie_mwh?: number | null
@@ -1755,6 +1760,7 @@ export function useEnregistrerPrixCompteur() {
         for (const [classe, valeur] of Object.entries(p.p0_mwh_par_classe ?? {})) {
           colonnes[`prix_${classe.toLowerCase()}_p0_mwh`] = valeur
         }
+        if (p.prix_turpe_annuel_ht !== undefined) colonnes.prix_turpe_annuel_ht = p.prix_turpe_annuel_ht
         const { error } = await supabase.from('offres_compteurs_electricite').upsert(
           {
             offre_compteur_id: detailId,

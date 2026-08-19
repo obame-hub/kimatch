@@ -34,15 +34,31 @@ export function coutPrestationEstime(economies: number | null | undefined): numb
   return Math.round(economies * TAUX_PRESTATION)
 }
 
-/** L'offre retenue d'une version : celle marquée recommandée, sinon la moins chère à l'année. */
+/**
+ * L'offre retenue d'une version : celle marquée recommandée, sinon la moins chère à l'année.
+ *
+ * `null` QUAND AUCUNE OFFRE N'EST CHIFFRÉE, et c'est le point important. La fonction se rabattait sur
+ * `offres[0]`, c'est-à-dire la première que la requête ramenait — l'ordre de la base. Sur un dossier
+ * à deux fournisseurs consultés et aucune offre reçue, le comparatif annonçait donc « Fournisseur :
+ * OHM ENERGIE » et « 36 mois · Fixe » comme s'il s'agissait d'une conclusion, alors que MET était
+ * consulté aussi et que personne n'avait rien décidé (signalé par Naoëlle le 19/08/2026).
+ *
+ * Mieux vaut ne rien dire que dire au hasard : les lignes chiffrées affichent « — » avec leur raison,
+ * et la ligne Fournisseur liste les fournisseurs consultés.
+ */
 function offreRetenue(version: VersionRecommandation): OffreFournisseur | null {
   const offres = version.optimisations.flatMap((o) => o.offres)
-  if (offres.length === 0) return null
   const recommandee = offres.find((o) => o.est_offre_recommandee)
   if (recommandee) return recommandee
   const chiffrees = offres.filter((o) => o.montant_annuel_ht != null)
-  if (chiffrees.length === 0) return offres[0]
+  if (chiffrees.length === 0) return null
   return chiffrees.reduce((a, b) => ((a.montant_annuel_ht ?? 0) <= (b.montant_annuel_ht ?? 0) ? a : b))
+}
+
+/** Les fournisseurs consultés d'une version, dédoublonnés et dans l'ordre d'affichage. */
+function fournisseursConsultes(version: VersionRecommandation): string[] {
+  const noms = version.optimisations.flatMap((o) => o.fournisseurs_consultes.map((f) => f.fournisseur_nom))
+  return [...new Set(noms.filter(Boolean))]
 }
 
 /**
@@ -131,8 +147,16 @@ export function ComparatifVersions({
         libelle: 'Fournisseur',
         meilleur: null,
         valeur: () => null,
-        texte: (v) => offreRetenue(v)?.fournisseur_nom || '—',
-        raisonVide: "Se lit sur l'offre retenue — aucune offre n'a encore été reçue.",
+        // Une offre retenue donne UN fournisseur, c'est une décision. Sinon on liste ceux qu'on a
+        // consultés : c'est l'état réel du dossier, et c'est ce que la personne cherche à voir.
+        texte: (v) => {
+          const retenue = offreRetenue(v)
+          if (retenue?.fournisseur_nom) return retenue.fournisseur_nom
+          const consultes = fournisseursConsultes(v)
+          if (consultes.length === 0) return '—'
+          return consultes.join(' · ') + (consultes.length > 1 ? ' (consultés)' : ' (consulté)')
+        },
+        raisonVide: "Aucun fournisseur consulté sur cette version.",
       },
       {
         cle: 'prix',

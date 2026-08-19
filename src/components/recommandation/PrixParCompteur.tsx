@@ -61,6 +61,41 @@ function classesDuCompteur(compteur: Compteur | undefined): string[] {
   return presentes.length > 0 ? [...presentes] : ['BASE']
 }
 
+/**
+ * Ajouter une classe que le compteur ne déclare pas.
+ *
+ * POURQUOI C'EST NÉCESSAIRE. `classesDuCompteur` lit les volumes venus d'Enedis, et ces volumes
+ * manquent souvent : sur 2193 compteurs C5, 302 déclarent BASE, 61 déclarent HP/HC, et 1802 — 82 % —
+ * ne déclarent AUCUNE classe (vérifié le 19/08/2026 ; ni profil_tarifaire, ni tarif_distribution, ni
+ * profil_consommation ne comblent le trou, les trois sont vides sur ces 1802). Sans ce sélecteur, un
+ * C5 réellement en heures pleines / creuses n'offrait qu'un champ « Base » et son prix ne pouvait pas
+ * être saisi du tout.
+ *
+ * L'ajout ne vaut que pour l'affichage en cours : il ne modifie pas le compteur, il ouvre un champ.
+ * Le prix saisi, lui, est bien enregistré sur sa classe.
+ */
+function AjouterClasse({ presentes, onAjouter }: {
+  presentes: string[]
+  onAjouter: (classe: string) => void
+}) {
+  const absentes = ORDRE_CLASSES.filter((c) => !presentes.includes(c))
+  if (absentes.length === 0) return null
+  return (
+    <label className="flex items-center gap-1 text-kw-tiny text-kw-meta">
+      <span className="sr-only">Ajouter une classe tarifaire</span>
+      <select
+        value=""
+        onChange={(e) => { if (e.target.value) onAjouter(e.target.value) }}
+        title="Le compteur ne déclare pas cette classe, mais le fournisseur la cote : l'ajouter ouvre son champ de saisie."
+        className="cursor-pointer rounded-kw-xs border border-dashed border-kw-border-strong bg-transparent px-1.5 py-px text-kw-micro font-bold text-kw-meta hover:border-kw-green hover:text-kw-green"
+      >
+        <option value="">+ classe</option>
+        {absentes.map((c) => <option key={c} value={c}>{LIBELLE_CLASSE[c] ?? c}</option>)}
+      </select>
+    </label>
+  )
+}
+
 /** Somme qui reste `null` si aucun terme n'est connu — zéro et inconnu ne se disent pas pareil. */
 function somme(...v: (number | null | undefined)[]): number | null {
   return v.reduce<number | null>((t, x) => (x == null ? t : (t ?? 0) + x), null)
@@ -171,11 +206,20 @@ function budgetsDepuisPrix(opts: {
     if (volume == null) continue
     energie = (energie ?? 0) + prix * volume
   }
-  const contribution = detail?.cout_acheminement_annuel_ht ?? null
+  // L'ABONNEMENT EST DANS L'ÉNERGIE en électricité, et c'est la différence avec le gaz. Michel,
+  // 19/08/2026 : « consommation heures pleines hiver fois le prix, ainsi de suite, PLUS l'abonnement
+  // annuel, et la somme me donne le budget énergie ». Sa raison : au gaz l'abonnement relève de
+  // l'acheminement, alors qu'en électricité c'est un supplément que le fournisseur ajoute librement —
+  // l'acheminement, lui, c'est le TURPE.
+  const energieAvecAbonnement = somme(energie, p?.abonnement_fourniture_annuel_ht)
+  // L'acheminement électrique EST le TURPE, saisi à la main faute de barème dans l'application. On
+  // retombe sur le budget déjà en base tant qu'aucun TURPE n'est saisi, pour ne pas effacer une
+  // valeur que quelqu'un aurait posée avant que ce champ existe.
+  const contribution = p?.prix_turpe_annuel_ht ?? detail?.cout_acheminement_annuel_ht ?? null
   return {
-    energie,
+    energie: energieAvecAbonnement,
     contribution,
-    total: somme(energie, p?.abonnement_fourniture_annuel_ht, contribution),
+    total: somme(energieAvecAbonnement, contribution),
   }
 }
 
@@ -186,7 +230,7 @@ const CHAMPS_DE_PRIX = [
   'consommation_annuelle_reference_mwh',
   // Le P0 et la marge composent la molécule, qui commande le budget énergie : les omettre ici
   // laisserait un budget périmé après un ajustement de marge.
-  'prix_molecule_p0_mwh', 'marge_reelle_eur_mwh',
+  'prix_molecule_p0_mwh', 'marge_reelle_eur_mwh', 'prix_turpe_annuel_ht',
 ] as const
 
 const PRIX_GAZ_VIDE: PrixOffreGaz = {
@@ -211,6 +255,8 @@ export function PrixParCompteur({
   signaler: (message: string) => void
 }) {
   const [ouvert, setOuvert] = useState(false)
+  // Les classes ouvertes à la main, par point de livraison — voir AjouterClasse pour le pourquoi.
+  const [classesEnPlus, setClassesEnPlus] = useState<Record<string, string[]>>({})
   const navigate = useNavigate()
   const enregistrer = useEnregistrerPrixCompteur()
 
@@ -303,6 +349,9 @@ export function PrixParCompteur({
             abonnement_fourniture_annuel_ht: prix.abonnement_fourniture_annuel_ht !== undefined
               ? prix.abonnement_fourniture_annuel_ht
               : detail?.prix_electricite?.abonnement_fourniture_annuel_ht ?? null,
+            prix_turpe_annuel_ht: prix.prix_turpe_annuel_ht !== undefined
+              ? prix.prix_turpe_annuel_ht
+              : detail?.prix_electricite?.prix_turpe_annuel_ht ?? null,
           }
 
       const b = budgetsDepuisPrix({
@@ -321,7 +370,10 @@ export function PrixParCompteur({
           ? { prix_energie_mwh: moleculePresentee(p0, marge) }
           : { p0_mwh_par_classe: p0ParClasse, prix_mwh_par_classe: prixElec?.prix_mwh_par_classe ?? {} }),
         ...(b.energie != null ? { cout_fourniture_annuel_ht: b.energie } : {}),
-        ...(gaz && b.contribution != null ? { cout_acheminement_annuel_ht: b.contribution } : {}),
+        // L'acheminement se recalcule dans les deux énergies : ATRD + AGN + CTA au gaz, le TURPE
+        // saisi en électricité. Il n'était calculé qu'au gaz tant que l'électricité n'avait pas de
+        // source pour lui.
+        ...(b.contribution != null ? { cout_acheminement_annuel_ht: b.contribution } : {}),
         ...(b.total != null ? { cout_total_annuel_estime_ht: b.total } : {}),
       }
     }
@@ -354,7 +406,12 @@ export function PrixParCompteur({
             const compteur = parId.get(lien.compteur_id)
             const gaz = compteur?.type_energie === 'gaz'
             const detail = detailParLien.get(lien.lien_id)
-            const classes = gaz ? [] : classesDuCompteur(compteur)
+            // Les classes du compteur, plus celles qu'on a ouvertes à la main sur ce PDL, remises
+            // dans l'ordre d'un tarif pour que la lecture ne dépende pas de l'ordre des clics.
+            const classes = gaz
+              ? []
+              : ORDRE_CLASSES.filter((c) => classesDuCompteur(compteur).includes(c)
+                  || (classesEnPlus[lien.lien_id] ?? []).includes(c))
             const base = { lienId: lien.lien_id, gaz, compteur, detail }
             const volumeConnu = gaz
               ? (detail?.consommation_annuelle_reference_mwh ?? detail?.prix_gaz?.car_reference_mwh ?? compteur?.car_mwh) != null
@@ -547,36 +604,33 @@ export function PrixParCompteur({
                             )
                           })}
                         </Groupe>
-                        <Groupe titre="P0 — prix nets hors marge, €/MWh">
-                          {classes.map((classe) => (
-                            <Champ key={classe} libelle={LIBELLE_CLASSE[classe] ?? classe}>
-                              <ChampNombre
-                                valeur={detail?.prix_electricite?.p0_mwh_par_classe?.[classe]}
-                                suffixe="€/MWh" placeholder="— €/MWh" decimales={2} largeur="w-[76px]"
-                                titre={`P0 ${LIBELLE_CLASSE[classe] ?? classe} : prix net du fournisseur pour cette classe, hors marge`}
-                                peutModifier={peutModifier}
-                                onCommit={(v) => sauver({
-                                  ...base,
-                                  prix: { p0_mwh_par_classe: { [classe]: v }, type_prix: offre.type_prix ?? null },
-                                  message: v != null
-                                    ? `✓ P0 ${LIBELLE_CLASSE[classe] ?? classe} : ${v.toLocaleString('fr-FR')} €/MWh`
-                                    : 'P0 effacé',
-                                })}
-                              />
-                            </Champ>
-                          ))}
-                        </Groupe>
-                        <Groupe titre="Abonnement">
+                        <Groupe titre="Abonnement et acheminement — €/an">
                           <Champ libelle="Abonnement">
                             <ChampNombre
                               valeur={detail?.prix_electricite?.abonnement_fourniture_annuel_ht}
                               suffixe="€/an" placeholder="— €/an" largeur="w-[86px]"
-                              titre="Abonnement fourniture annuel HT"
+                              titre="Abonnement fourniture annuel HT. En électricité il est compté DANS le budget énergie, contrairement au gaz où il fait son propre budget."
                               peutModifier={peutModifier}
                               onCommit={(v) => sauver({
                                 ...base,
                                 prix: { abonnement_fourniture_annuel_ht: v },
                                 message: v != null ? `✓ Abonnement : ${v.toLocaleString('fr-FR')} €/an` : 'Abonnement effacé',
+                              })}
+                            />
+                          </Champ>
+                          {/* Saisi à la main, assumé provisoire : Michel, 19/08/2026 — « dans un
+                              premier temps on pourra le calculer nous-mêmes avec Kiwee Tools ». Le
+                              barème réglementaire n'est pas dans l'application. */}
+                          <Champ libelle="Prix TURPE">
+                            <ChampNombre
+                              valeur={detail?.prix_electricite?.prix_turpe_annuel_ht}
+                              suffixe="€/an" placeholder="— €/an" largeur="w-[86px]"
+                              titre="TURPE annuel HT de ce PDL, en €/an et non au MWh. À calculer à côté puis reporter ici — il alimente le budget TURPE de l'offre."
+                              peutModifier={peutModifier}
+                              onCommit={(v) => sauver({
+                                ...base,
+                                prix: { prix_turpe_annuel_ht: v },
+                                message: v != null ? `✓ Prix TURPE : ${v.toLocaleString('fr-FR')} €/an` : 'Prix TURPE effacé',
                               })}
                             />
                           </Champ>
@@ -618,13 +672,13 @@ export function PrixParCompteur({
                         )
                       })()}
                     </Champ>
-                    <Champ libelle="Contribution">
+                    <Champ libelle={gaz ? 'Contribution' : 'TURPE'}>
                       <ChampNombre
                         valeur={detail?.cout_acheminement_annuel_ht}
                         suffixe="€/an" placeholder="— €/an" largeur="w-[90px]"
                         titre={gaz
                           ? "Budget des contributions — recalculé depuis l'ATRD, l'AGN et la CTA"
-                          : "Acheminement (TURPE) — à saisir : le barème réglementaire n'est pas dans l'application"}
+                          : 'Budget TURPE — reprend le prix TURPE saisi à gauche'}
                         peutModifier={peutModifier}
                         onCommit={(v) => sauver({
                           ...base,
@@ -681,6 +735,34 @@ export function PrixParCompteur({
                     marge, ce sera forcément la marge réelle que j'ajoute. » Leurs colonnes restent en
                     base, vides — la logique a changé trois fois ce matin, un drop ne se rejoue pas. */}
                 <div className="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1 border-t border-kw-border-faint pt-1.5">
+                  {!gaz && (
+                    <Groupe titre="P0 · Prix de l'énergie — €/MWh">
+                      {classes.map((classe) => (
+                        <Champ key={classe} libelle={LIBELLE_CLASSE[classe] ?? classe}>
+                          <ChampNombre
+                            valeur={detail?.prix_electricite?.p0_mwh_par_classe?.[classe]}
+                            suffixe="€/MWh" placeholder="— €/MWh" decimales={2} largeur="w-[76px]"
+                            titre={`P0 ${LIBELLE_CLASSE[classe] ?? classe} : prix net du fournisseur pour cette classe, hors marge`}
+                            peutModifier={peutModifier}
+                            onCommit={(v) => sauver({
+                              ...base,
+                              prix: { p0_mwh_par_classe: { [classe]: v }, type_prix: offre.type_prix ?? null },
+                              message: v != null
+                                ? `✓ P0 ${LIBELLE_CLASSE[classe] ?? classe} : ${v.toLocaleString('fr-FR')} €/MWh`
+                                : 'P0 effacé',
+                            })}
+                          />
+                        </Champ>
+                      ))}
+                      <AjouterClasse
+                        presentes={classes}
+                        onAjouter={(classe) => setClassesEnPlus((m) => ({
+                          ...m,
+                          [lien.lien_id]: [...(m[lien.lien_id] ?? []), classe],
+                        }))}
+                      />
+                    </Groupe>
+                  )}
                   {gaz && (
                     <Champ libelle="Molécule P0">
                       <ChampNombre

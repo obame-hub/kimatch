@@ -120,6 +120,8 @@ export interface PrixOffreElectricite {
   /** €/MWh par classe temporelle, prix PRÉSENTÉS au client : P0 de la classe + marge de référence.
    *  CALCULÉS depuis le 19/08/2026 — ne pas saisir directement. */
   prix_mwh_par_classe: Record<string, number>
+  /** TURPE de ce PDL, en €/AN. Saisi à la main : le barème n'est pas dans l'application. */
+  prix_turpe_annuel_ht: number | null
   abonnement_fourniture_annuel_ht: number | null
 }
 

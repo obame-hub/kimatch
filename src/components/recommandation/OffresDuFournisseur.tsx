@@ -75,10 +75,24 @@ function sommesDesPdl(offre: OffreFournisseur) {
       return v == null ? total : (total ?? 0) + v
     }, null)
 
+  // GAZ ET ÉLECTRICITÉ NE SE COMPTENT PAS PAREIL, décision de Michel du 19/08/2026 :
+  //
+  //   · l'abonnement gaz fait son propre budget — « quand c'est abonnement gaz, il y aura un budget
+  //     abonnement » ;
+  //   · l'abonnement électrique est déjà DANS le budget énergie — « quand c'est abonnement
+  //     électricité, ça rentre dans le budget énergie » — donc l'additionner ici le compterait deux
+  //     fois ;
+  //   · et à la place, l'électricité montre le TURPE : « il n'y a pas un budget abonnement en
+  //     électricité, à la place on peut mettre TURPE ».
+  //
+  // Chaque somme reste `null` quand aucun PDL ne la renseigne, et l'écran n'affiche alors pas la
+  // ligne. Une offre 100 % électrique ne montre donc aucune ligne gaz, et une offre mixte — il en
+  // existe — montre les deux sans qu'on ait à la configurer.
   return {
     energie: somme((d) => d.cout_fourniture_annuel_ht),
-    abonnement: somme((d) => d.prix_gaz?.abonnement_fourniture_annuel_ht ?? d.prix_electricite?.abonnement_fourniture_annuel_ht),
-    contribution: somme((d) => d.cout_acheminement_annuel_ht),
+    abonnementGaz: somme((d) => d.prix_gaz?.abonnement_fourniture_annuel_ht),
+    turpe: somme((d) => d.prix_electricite?.prix_turpe_annuel_ht),
+    contribution: somme((d) => (d.prix_gaz ? d.cout_acheminement_annuel_ht : null)),
     total: somme((d) => d.cout_total_annuel_estime_ht),
   }
 }
@@ -247,14 +261,24 @@ export function OffresDuFournisseur({
                   <span className="text-kw-tiny uppercase tracking-[0.05em] text-kw-faint">Budget énergie</span>
                   <BudgetCalcule valeur={sommes.energie} />
                 </span>
-                <span className="flex items-center gap-1.5">
-                  <span className="text-kw-tiny uppercase tracking-[0.05em] text-kw-faint">Budget abonnement</span>
-                  <BudgetCalcule valeur={sommes.abonnement} />
-                </span>
-                <span className="flex items-center gap-1.5">
-                  <span className="text-kw-tiny uppercase tracking-[0.05em] text-kw-faint">Budget contribution</span>
-                  <BudgetCalcule valeur={sommes.contribution} />
-                </span>
+                {sommes.abonnementGaz != null && (
+                  <span className="flex items-center gap-1.5">
+                    <span className="text-kw-tiny uppercase tracking-[0.05em] text-kw-faint">Budget abonnement gaz</span>
+                    <BudgetCalcule valeur={sommes.abonnementGaz} />
+                  </span>
+                )}
+                {sommes.turpe != null && (
+                  <span className="flex items-center gap-1.5">
+                    <span className="text-kw-tiny uppercase tracking-[0.05em] text-kw-faint">Budget TURPE</span>
+                    <BudgetCalcule valeur={sommes.turpe} />
+                  </span>
+                )}
+                {sommes.contribution != null && (
+                  <span className="flex items-center gap-1.5">
+                    <span className="text-kw-tiny uppercase tracking-[0.05em] text-kw-faint">Budget contribution</span>
+                    <BudgetCalcule valeur={sommes.contribution} />
+                  </span>
+                )}
                 <span className="flex items-center gap-1.5">
                   <span className="text-kw-tiny uppercase tracking-[0.05em] text-kw-faint">Budget total</span>
                   {/* CALCULÉ depuis le 19/08/2026, comme les trois budgets qui le précèdent — Michel :
