@@ -299,15 +299,15 @@ export default function SiteDetail() {
       </div>
 
       {/* 3 zones */}
-      <div className="grid flex-1 grid-cols-1 overflow-hidden lg:grid-cols-[300px_minmax(0,1fr)_340px]">
+      <div className="grid min-h-0 flex-1 grid-cols-1 overflow-hidden lg:grid-cols-[300px_minmax(0,1fr)_340px]">
         {/* Colonne gauche — Compte + Contacts (desktop uniquement) */}
-        <div className="hidden flex-col gap-3.5 overflow-y-auto border-r border-navy-100 bg-navy-50/60 p-3.5 lg:flex">
+        <div className="hidden min-h-0 flex-col gap-3.5 overflow-y-auto border-r border-navy-100 bg-navy-50/60 p-3.5 lg:flex">
           <ComptePanel compte={compte} compteNom={site.compte_nom} compteId={site.compte_id} onCopy={showToast} />
           <ContactsPanel contacts={contactsDuSite} />
         </div>
 
         {/* Centre — contenu de l'onglet */}
-        <div className="overflow-y-auto bg-navy-50 p-4 sm:p-5">
+        <div className="min-h-0 overflow-y-auto bg-navy-50 p-4 sm:p-5">
           {tab === 'synthese' && (
             <div className="flex flex-col gap-3.5">
               <HealthCard health={health} donutColor={donutColor} />
@@ -740,11 +740,11 @@ export default function SiteDetail() {
         </div>
 
         {/* Colonne droite — Activité persistante (desktop uniquement) */}
-        <div className="hidden flex-col border-l border-navy-100 bg-white lg:flex">
-          <div className="flex items-center gap-2 px-3.5 py-3">
+        <div className="hidden min-h-0 flex-col border-l border-navy-100 bg-white lg:flex">
+          <div className="flex flex-none items-center gap-2 px-3.5 py-3">
             <span className="text-[10px] font-bold uppercase tracking-wide text-navy-400">Activité</span>
           </div>
-          <div className="flex-1 overflow-hidden px-3.5 pb-3.5">
+          <div className="min-h-0 flex-1 overflow-hidden px-3.5 pb-3.5">
             <ActivityFeed
               siteId={site.id}
               siteNom={site.nom}

@@ -585,9 +585,9 @@ export default function RecommandationDetail() {
       </div>
 
       {/* ── 3 colonnes ── */}
-      <div className="grid flex-1 grid-cols-1 overflow-hidden lg:grid-cols-[256px_minmax(0,1fr)_292px]">
+      <div className="grid min-h-0 flex-1 grid-cols-1 overflow-hidden lg:grid-cols-[256px_minmax(0,1fr)_292px]">
         {/* Volet gauche */}
-        <div className="hidden border-r border-kw-border lg:block">
+        <div className="hidden min-h-0 overflow-y-auto border-r border-kw-border lg:block">
           <VoletGaucheReco
             reco={reco}
             compte={compte}
@@ -631,7 +631,7 @@ export default function RecommandationDetail() {
         </div>
 
         {/* Centre */}
-        <div className="overflow-y-auto bg-kw-bg px-4 py-4 sm:px-5">
+        <div className="min-h-0 overflow-y-auto bg-kw-bg px-4 py-4 sm:px-5">
           {onglet === 'reco' && (
             <div className="flex animate-kw-fade-slide flex-col gap-3.5">
               <RailCycleVie
@@ -1005,7 +1005,7 @@ export default function RecommandationDetail() {
         </div>
 
         {/* Fil d'activité */}
-        <div className="hidden flex-col border-l border-kw-border bg-white lg:flex">
+        <div className="hidden min-h-0 flex-col border-l border-kw-border bg-white lg:flex">
           <div className="flex flex-none items-center gap-2 px-4 pb-2 pt-3">
             <span className="text-kw-xs font-bold uppercase tracking-[0.08em] text-kw-faint">
               Activité · recommandation
