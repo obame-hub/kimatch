@@ -157,3 +157,31 @@
     transform: translateX(320%) skewX(-18deg);
   }
 }
+
+/* IMPRESSION DU DOCUMENT COMPARATIF (19/08/2026).
+   Michel veut pouvoir « générer un document comparatif » sans qu'on embarque un générateur de PDF :
+   c'est le navigateur qui imprime, et ces règles ne laissent sur la page que le document lui-même.
+   La technique : on masque tout depuis la racine, puis on rend visible la seule branche qui mène au
+   document — masquer les frères à chaque niveau demanderait de connaître la structure de la page. */
+@media print {
+  body:has(#document-comparatif) * {
+    visibility: hidden;
+  }
+  body:has(#document-comparatif) #document-comparatif,
+  body:has(#document-comparatif) #document-comparatif * {
+    visibility: visible;
+  }
+  /* Le document reprend le flux normal : la modale est en position fixed et le tronquerait à la
+     hauteur de l'écran, sans jamais imprimer les pages suivantes. */
+  body:has(#document-comparatif) #document-comparatif {
+    position: absolute;
+    inset: 0 auto auto 0;
+    width: 100%;
+    padding: 0;
+    background: #fff;
+  }
+  /* Une ligne de tableau ne doit pas se couper en deux pages, et les en-têtes se répètent. */
+  #document-comparatif tr { break-inside: avoid; }
+  #document-comparatif thead { display: table-header-group; }
+  @page { margin: 14mm; }
+}

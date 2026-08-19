@@ -22,6 +22,7 @@ import { InlineField } from '@/components/ui/inline-field'
 import { ActivityFeed } from '@/components/site/ActivityFeed'
 import { RailCycleVie, etapeSuivanteDuRail } from '@/components/recommandation/RailCycleVie'
 import { ComparatifVersions, coutPrestationEstime } from '@/components/recommandation/ComparatifVersions'
+import { DocumentComparatif } from '@/components/recommandation/DocumentComparatif'
 import { VoletGaucheReco } from '@/components/recommandation/VoletGaucheReco'
 import { OngletCommandeClient } from '@/components/recommandation/OngletCommandeClient'
 import { OngletPerimetre } from '@/components/recommandation/OngletPerimetre'
@@ -154,6 +155,7 @@ export default function RecommandationDetail() {
   const [motifBrouillon, setMotifBrouillon] = useState('')
   const [reactivationBrouillon, setReactivationBrouillon] = useState('')
   const [nouvelleVersionOuverte, setNouvelleVersionOuverte] = useState(false)
+  const [documentOuvert, setDocumentOuvert] = useState(false)
   const [wizardCotation, setWizardCotation] = useState<{ prefill: PrefillCotation | null } | null>(null)
   const [showContratWizard, setShowContratWizard] = useState(false)
   const [emailDialogVersion, setEmailDialogVersion] = useState<VersionRecommandation | null>(null)
@@ -795,6 +797,16 @@ export default function RecommandationDetail() {
                     )
                   })}
                   <span className="flex-1" />
+                  {/* Michel, 19/08/2026 : « quand le commercial a fini de générer sa version, il va
+                      pouvoir générer un document comparatif. » Le geste se place donc là, au bout des
+                      versions, à côté de celui qui en crée une nouvelle. */}
+                  <button
+                    type="button"
+                    onClick={() => setDocumentOuvert(true)}
+                    className="inline-flex items-center gap-1.5 rounded-kw-lg border-[1.5px] border-kw-border-strong bg-white px-[13px] py-[7px] text-kw-base font-bold text-kw-label hover:bg-kw-subtle"
+                  >
+                    <FileText className="h-3 w-3" /> Document comparatif
+                  </button>
                   {canManage && (
                     <button
                       type="button"
@@ -1016,6 +1028,17 @@ export default function RecommandationDetail() {
       </div>
 
       {/* ── Dialogues ── */}
+      {versionAffichee && (
+        <DocumentComparatif
+          ouvert={documentOuvert}
+          onFermer={() => setDocumentOuvert(false)}
+          reco={reco}
+          version={versionAffichee}
+          compte={compte}
+          compteurs={compteurs ?? []}
+        />
+      )}
+
       {emailDialogVersion && (
         <EnvoyerEmailDialog
           open
