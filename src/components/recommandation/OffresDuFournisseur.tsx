@@ -75,14 +75,8 @@ function sommesDesPdl(offre: OffreFournisseur) {
       return v == null ? total : (total ?? 0) + v
     }, null)
 
-  const volume = somme((d) => d.consommation_annuelle_reference_mwh)
-  const energie = somme((d) => d.cout_fourniture_annuel_ht)
   return {
-    // Prix moyen : le budget énergie rapporté aux volumes. C'est un RÉSULTAT, plus une saisie — le
-    // prix se tape par composante et par PDL, l'offre en affiche le résumé. Un seul endroit pour
-    // écrire, un seul pour lire.
-    prixMoyen: energie != null && volume != null && volume > 0 ? energie / volume : null,
-    energie,
+    energie: somme((d) => d.cout_fourniture_annuel_ht),
     abonnement: somme((d) => d.prix_gaz?.abonnement_fourniture_annuel_ht ?? d.prix_electricite?.abonnement_fourniture_annuel_ht),
     contribution: somme((d) => d.cout_acheminement_annuel_ht),
     total: somme((d) => d.cout_total_annuel_estime_ht),
@@ -249,24 +243,6 @@ export function OffresDuFournisseur({
                 parfois un budget global sans détailler, et il faut pouvoir le noter tel quel.
               */}
               <div className="mt-1.5 flex flex-wrap items-center gap-x-4 gap-y-1">
-                <span className="flex items-center gap-1.5">
-                  <span className="text-kw-tiny uppercase tracking-[0.05em] text-kw-faint">Prix moyen</span>
-                  {sommes.prixMoyen != null ? (
-                    <span
-                      title="Budget énergie rapporté aux volumes des points de livraison. Marge comprise, puisque le budget énergie la porte — c'est un prix de vente. Calculé, non saisi."
-                      className="cursor-help font-mono text-kw-base font-bold text-kw-ink"
-                    >
-                      {sommes.prixMoyen.toLocaleString('fr-FR', { maximumFractionDigits: 2 })} €/MWh
-                    </span>
-                  ) : (
-                    <span
-                      title="Se calcule dès qu'un prix et une consommation sont saisis dans « Détail par compteur »"
-                      className="cursor-help font-mono text-kw-base text-kw-ghost"
-                    >
-                      — €/MWh
-                    </span>
-                  )}
-                </span>
                 <span className="flex items-center gap-1.5">
                   <span className="text-kw-tiny uppercase tracking-[0.05em] text-kw-faint">Budget énergie</span>
                   <BudgetCalcule valeur={sommes.energie} />
