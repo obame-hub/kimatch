@@ -8,29 +8,50 @@ import {
   moleculePresentee,
   ORDRE_CLASSES,
   PRIX_GAZ_VIDE,
+  somme,
 } from '@/lib/calculs/prixOffre'
 import type { PrixParCompteur as PrixSaisi } from '@/lib/data/recommandations'
 import type { Compteur, OffreFournisseurCompteur, PrixOffreElectricite } from '@/types/domain'
 
 /**
- * Saisir d'un coup tous les prix d'une offre sur UN point de livraison.
+ * Le formulaire de saisie des prix d'une offre sur UN point de livraison.
  *
  * DEMANDE DE MICHEL, 19/08/2026 : « il vous faudra avoir une espèce de formulaire qui permet
- * justement la saisie des informations. » La saisie inline du dépliant tenait quand un compteur gaz
- * avait trois champs ; elle ne tient plus avec huit P0, huit prix présentés, l'abonnement, le TURPE,
- * la marge, la consommation et cinq budgets.
+ * justement la saisie des informations », et son objectif du jour : « le plus important, c'est que
+ * quand les commerciaux arrivent, on puisse faire tout ce qu'on pouvait faire avant — demander une
+ * offre, ajuster la marge, générer un document ».
  *
- * CE QUE LE FORMULAIRE APPORTE, au-delà de la place :
+ * CE QUI COMPTE ICI, ET QUE LA PREMIÈRE VERSION AVAIT RATÉ : le formulaire doit EXPLIQUER. Naoëlle
+ * l'a dit sans détour dans l'appel du matin — « si c'est un peu compliqué à expliquer, les
+ * commerciaux ils vont pas nous rater ». Déplacer les mêmes champs dans une fenêtre ne rend service à
+ * personne. Trois exigences en découlent :
  *
- *   · les budgets se recalculent À CHAQUE FRAPPE, avant d'enregistrer quoi que ce soit — on voit
- *     l'effet d'une marge ou d'un P0 sans avoir à valider pour le découvrir ;
- *   · une seule écriture à la validation, au lieu d'une par champ. Saisir huit classes ne déclenche
- *     plus huit enregistrements, huit recalculs et huit rechargements ;
- *   · fermer sans valider ne laisse rien derrière, ce qui permet d'essayer un prix.
+ *   1. CHAQUE CHAMP PORTE SON EXPLICATION EN CLAIR, sous le champ, pas dans une infobulle qu'il faut
+ *      deviner en survolant. Un commercial qui ouvre l'écran pour la première fois doit savoir ce
+ *      qu'est un P0 sans demander à Michel.
  *
- * LES FORMULES NE SONT PAS ICI. Elles viennent de `@/lib/calculs/prixOffre`, les mêmes que le
- * dépliant et le comparatif : c'est tout l'intérêt de les avoir sorties.
+ *   2. LE CALCUL SE DÉROULE À CÔTÉ, avec les nombres réels et les opérateurs : « 45,00 + 5,00 = 50,00
+ *      €/MWh », puis « × 118 MWh = 6 248,10 € ». Pas seulement le résultat : le chemin. C'est ce qui
+ *      permet de repérer soi-même le chiffre qu'on a mal tapé.
+ *
+ *   3. IL REMPLACE LA SAISIE INLINE. Deux endroits pour saisir la même chose, c'est deux endroits à
+ *      apprendre et deux endroits à corriger. Le dépliant ne fait plus que lire.
+ *
+ * LES FORMULES VIENNENT DE `@/lib/calculs/prixOffre` — les mêmes que le dépliant et le document
+ * comparatif. Les étapes affichées ici sont construites à partir des mêmes nombres, et leur somme est
+ * vérifiée contre le total que renvoie `budgetsDepuisPrix`.
  */
+
+/** Une étape du calcul, telle qu'elle s'affiche : « + CEE  2,10 €/MWh ». */
+interface Etape {
+  operateur?: '+' | '×' | '='
+  libelle: string
+  valeur: number | null
+  unite: string
+  /** Un résultat intermédiaire se lit en gras : c'est un palier, pas un ingrédient. */
+  palier?: boolean
+}
+
 export function SaisiePrixDialog({
   ouvert,
   onFermer,
@@ -47,22 +68,20 @@ export function SaisiePrixDialog({
   compteur: Compteur | undefined
   libelleCompteur: string
   detail: OffreFournisseurCompteur | undefined
-  /** Reçoit le patch complet : c'est l'appelant qui sait écrire, et qui recalcule à son tour. */
   onEnregistrer: (prix: PrixSaisi) => Promise<void>
   enCours: boolean
 }) {
-  // Un brouillon, distinct de la base : rien ne part avant la validation. `undefined` veut dire
-  // « pas touché », `null` « effacé volontairement » — la même convention que le patch envoyé.
+  // Un brouillon : rien ne part avant la validation, ce qui permet d'essayer un prix. `undefined`
+  // veut dire « pas touché », `null` « effacé volontairement » — la convention du patch envoyé.
   const [brouillon, setBrouillon] = useState<PrixSaisi>({})
-  // Les classes ouvertes à la main, pour un compteur qui ne déclare pas la sienne (82 % des C5).
   const [classesEnPlus, setClassesEnPlus] = useState<string[]>([])
+  const [budgetsForces, setBudgetsForces] = useState(false)
 
   const classes = useMemo(
     () => (gaz ? [] : ORDRE_CLASSES.filter((c) => classesDuCompteur(compteur).includes(c) || classesEnPlus.includes(c))),
     [gaz, compteur, classesEnPlus],
   )
 
-  /** La valeur à afficher : le brouillon s'il touche ce champ, la base sinon. */
   function valeur(cle: keyof PrixSaisi, base: number | null | undefined): number | null {
     const v = brouillon[cle]
     if (v === undefined) return base ?? null
@@ -76,31 +95,39 @@ export function SaisiePrixDialog({
     if (saisi !== undefined) return saisi
     return detail?.prix_electricite?.p0_mwh_par_classe?.[classe] ?? null
   }
-  function poserP0(classe: string, v: number | null) {
-    setBrouillon((b) => ({ ...b, p0_mwh_par_classe: { ...(b.p0_mwh_par_classe ?? {}), [classe]: v } }))
-  }
 
+  const p0 = valeur('prix_molecule_p0_mwh', detail?.prix_gaz?.prix_molecule_p0_mwh)
   const marge = valeur('marge_reelle_eur_mwh', detail?.marge_reelle_eur_mwh)
-  const conso = valeur('consommation_annuelle_reference_mwh', detail?.consommation_annuelle_reference_mwh)
+  const cee = valeur('prix_cee_mwh', detail?.prix_gaz?.prix_cee_mwh)
+  const cpb = valeur('prix_cpb_mwh', detail?.prix_gaz?.prix_cpb_mwh)
+  const atrd = valeur('prix_atrd_mwh', detail?.prix_gaz?.prix_atrd_mwh)
+  const agn = valeur('prix_agn_mwh', detail?.prix_gaz?.prix_agn_mwh)
+  const cta = valeur('cta_annuel_ht', detail?.prix_gaz?.cta_annuel_ht)
+  const turpe = valeur('prix_turpe_annuel_ht', detail?.prix_electricite?.prix_turpe_annuel_ht)
   const abonnement = valeur(
     'abonnement_fourniture_annuel_ht',
     gaz ? detail?.prix_gaz?.abonnement_fourniture_annuel_ht : detail?.prix_electricite?.abonnement_fourniture_annuel_ht,
   )
+  const conso = valeur('consommation_annuelle_reference_mwh', detail?.consommation_annuelle_reference_mwh)
+    ?? (gaz ? compteur?.car_mwh : compteur?.consommation_annuelle_mwh)
+    ?? null
 
-  // Les budgets du brouillon, recalculés à chaque frappe par les MÊMES fonctions que l'écriture.
+  const molecule = moleculePresentee(p0, marge)
+  const consoParClasse = compteur?.consoParClasseMwh ?? {}
+
+  // Les budgets, par les fonctions qui écrivent en base : ce sont eux qui font foi.
   const budgets = useMemo(() => {
-    const p0 = valeur('prix_molecule_p0_mwh', detail?.prix_gaz?.prix_molecule_p0_mwh)
     const prixGaz = gaz
       ? {
           ...PRIX_GAZ_VIDE,
           ...(detail?.prix_gaz ?? {}),
           prix_molecule_p0_mwh: p0,
-          prix_energie_mwh: moleculePresentee(p0, marge),
-          prix_cee_mwh: valeur('prix_cee_mwh', detail?.prix_gaz?.prix_cee_mwh),
-          prix_cpb_mwh: valeur('prix_cpb_mwh', detail?.prix_gaz?.prix_cpb_mwh),
-          prix_atrd_mwh: valeur('prix_atrd_mwh', detail?.prix_gaz?.prix_atrd_mwh),
-          prix_agn_mwh: valeur('prix_agn_mwh', detail?.prix_gaz?.prix_agn_mwh),
-          cta_annuel_ht: valeur('cta_annuel_ht', detail?.prix_gaz?.cta_annuel_ht),
+          prix_energie_mwh: molecule,
+          prix_cee_mwh: cee,
+          prix_cpb_mwh: cpb,
+          prix_atrd_mwh: atrd,
+          prix_agn_mwh: agn,
+          cta_annuel_ht: cta,
           abonnement_fourniture_annuel_ht: abonnement,
         }
       : null
@@ -116,19 +143,50 @@ export function SaisiePrixDialog({
               .filter(([, v]) => v != null) as [string, number][],
           ),
           abonnement_fourniture_annuel_ht: abonnement,
-          prix_turpe_annuel_ht: valeur('prix_turpe_annuel_ht', detail?.prix_electricite?.prix_turpe_annuel_ht),
+          prix_turpe_annuel_ht: turpe,
         }
     return budgetsDepuisPrix({ gaz, compteur, detail, prixGaz, prixElec, consoForcee: conso })
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [brouillon, detail, gaz, compteur, classes, marge, conso, abonnement])
+  }, [brouillon, detail, gaz, compteur, classes, conso])
 
-  const volumeConnu = conso != null || (gaz ? compteur?.car_mwh : compteur?.consommation_annuelle_mwh) != null
+  // ── Le calcul, déroulé ──────────────────────────────────────────────────────
+  const etapesEnergie: Etape[] = gaz
+    ? [
+        { libelle: 'Molécule (P0 + marge)', valeur: molecule, unite: '€/MWh' },
+        { operateur: '+', libelle: 'CEE', valeur: cee, unite: '€/MWh' },
+        { operateur: '+', libelle: 'CPB', valeur: cpb, unite: '€/MWh' },
+        { operateur: '=', libelle: 'Prix de l’énergie', valeur: somme(molecule, cee, cpb), unite: '€/MWh', palier: true },
+        { operateur: '×', libelle: 'Consommation retenue', valeur: conso, unite: 'MWh' },
+        { operateur: '=', libelle: 'Budget énergie', valeur: budgets.energie, unite: '€/an', palier: true },
+      ]
+    : [
+        ...classes.map((c): Etape => ({
+          operateur: '+',
+          libelle: `${LIBELLE_CLASSE[c] ?? c} · ${fmt(moleculePresentee(p0DeClasse(c), marge))} €/MWh × ${fmt(consoParClasse[c] ?? null)} MWh`,
+          valeur: multiplie(moleculePresentee(p0DeClasse(c), marge), consoParClasse[c] ?? (classes.length === 1 ? conso : null)),
+          unite: '€/an',
+        })),
+        { operateur: '+', libelle: 'Abonnement (compté ici, pas à part)', valeur: abonnement, unite: '€/an' },
+        { operateur: '=', libelle: 'Budget énergie', valeur: budgets.energie, unite: '€/an', palier: true },
+      ]
+
+  const etapesContribution: Etape[] = gaz
+    ? [
+        { libelle: 'ATRD', valeur: atrd, unite: '€/MWh' },
+        { operateur: '+', libelle: 'AGN', valeur: agn, unite: '€/MWh' },
+        { operateur: '×', libelle: 'Consommation retenue', valeur: conso, unite: 'MWh' },
+        { operateur: '+', libelle: 'CTA (déjà en €/an)', valeur: cta, unite: '€/an' },
+        { operateur: '=', libelle: 'Budget contribution', valeur: budgets.contribution, unite: '€/an', palier: true },
+      ]
+    : [{ libelle: 'TURPE saisi', valeur: turpe, unite: '€/an', palier: true }]
+
   const rienDeSaisi = Object.keys(brouillon).length === 0
 
   async function valider() {
     if (rienDeSaisi) return onFermer()
     await onEnregistrer(brouillon)
     setBrouillon({})
+    setBudgetsForces(false)
     onFermer()
   }
 
@@ -136,198 +194,288 @@ export function SaisiePrixDialog({
     <Dialog
       open={ouvert}
       onClose={onFermer}
-      title={`Prix — ${libelleCompteur}`}
-      description={gaz ? 'Compteur gaz' : 'Compteur électricité'}
-      className="max-w-2xl"
+      title={`Prix de l’offre — ${libelleCompteur}`}
+      description={
+        gaz
+          ? 'Compteur gaz. Saisissez les prix du fournisseur : les budgets annuels se calculent à mesure.'
+          : 'Compteur électricité. Saisissez les prix du fournisseur : les budgets annuels se calculent à mesure.'
+      }
+      className="max-w-4xl"
     >
-      <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_200px]">
-        <div className="flex flex-col gap-3">
+      <div className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_320px]">
+        {/* ── Les saisies ─────────────────────────────────────────────────── */}
+        <div className="flex flex-col gap-4">
           {gaz ? (
             <>
-              <Bloc titre="Prix de l'énergie — €/MWh">
-                <Ligne libelle="Molécule P0">
-                  <ChampNombre
-                    valeur={valeur('prix_molecule_p0_mwh', detail?.prix_gaz?.prix_molecule_p0_mwh)}
-                    suffixe="€/MWh" placeholder="— €/MWh" decimales={2} largeur="w-[92px]"
-                    titre="Prix net de la molécule, hors marge"
-                    peutModifier
-                    onCommit={(v) => poser('prix_molecule_p0_mwh', v)}
-                  />
-                </Ligne>
-                <Ligne libelle="Marge référence">
-                  <ChampNombre
-                    valeur={marge}
-                    suffixe="€/MWh" placeholder="— €/MWh" decimales={2} largeur="w-[92px]"
-                    titre="La marge. Molécule présentée = Molécule P0 + marge."
-                    peutModifier
-                    onCommit={(v) => poser('marge_reelle_eur_mwh', v)}
-                  />
-                </Ligne>
-                <Resultat
-                  libelle="= Molécule"
-                  valeur={moleculePresentee(valeur('prix_molecule_p0_mwh', detail?.prix_gaz?.prix_molecule_p0_mwh), marge)}
+              <Section
+                numero={1}
+                titre="Le prix de l’énergie"
+                aide="Ce que le fournisseur facture pour le gaz lui-même, au mégawattheure."
+              >
+                <Champ
+                  libelle="Molécule P0"
+                  aide="Le prix nu du fournisseur, sans votre marge. C’est le chiffre qu’il annonce dans son offre."
+                  unite="€/MWh"
+                  valeur={p0}
+                  onCommit={(v) => poser('prix_molecule_p0_mwh', v)}
+                />
+                <Champ
+                  libelle="Marge de référence"
+                  aide="Votre marge, au mégawattheure. La modifier change le prix présenté au client, et donc le budget."
+                  unite="€/MWh"
+                  valeur={marge}
+                  onCommit={(v) => poser('marge_reelle_eur_mwh', v)}
+                />
+                <Deduit
+                  libelle="Molécule présentée au client"
+                  calcul={`${fmt(p0)} + ${fmt(marge)}`}
+                  valeur={molecule}
                   unite="€/MWh"
                 />
-                <Ligne libelle="CEE">
-                  <ChampNombre
-                    valeur={valeur('prix_cee_mwh', detail?.prix_gaz?.prix_cee_mwh)}
-                    suffixe="€/MWh" placeholder="— €/MWh" decimales={2} largeur="w-[92px]"
-                    titre="Certificats d'économies d'énergie refacturés" peutModifier
-                    onCommit={(v) => poser('prix_cee_mwh', v)}
-                  />
-                </Ligne>
-                <Ligne libelle="CPB">
-                  <ChampNombre
-                    valeur={valeur('prix_cpb_mwh', detail?.prix_gaz?.prix_cpb_mwh)}
-                    suffixe="€/MWh" placeholder="— €/MWh" decimales={2} largeur="w-[92px]"
-                    titre="CPB" peutModifier
-                    onCommit={(v) => poser('prix_cpb_mwh', v)}
-                  />
-                </Ligne>
-              </Bloc>
-              <Bloc titre="Abonnement — €/an">
-                <Ligne libelle="Abonnement">
-                  <ChampNombre
-                    valeur={abonnement}
-                    suffixe="€/an" placeholder="— €/an" largeur="w-[92px]"
-                    titre="Abonnement fourniture annuel HT. Au gaz il fait son propre budget." peutModifier
-                    onCommit={(v) => poser('abonnement_fourniture_annuel_ht', v)}
-                  />
-                </Ligne>
-              </Bloc>
-              <Bloc titre="Contributions">
-                <Ligne libelle="ATRD">
-                  <ChampNombre
-                    valeur={valeur('prix_atrd_mwh', detail?.prix_gaz?.prix_atrd_mwh)}
-                    suffixe="€/MWh" placeholder="— €/MWh" decimales={2} largeur="w-[92px]"
-                    titre="Accès des tiers au réseau de distribution, part variable" peutModifier
-                    onCommit={(v) => poser('prix_atrd_mwh', v)}
-                  />
-                </Ligne>
-                <Ligne libelle="AGN">
-                  <ChampNombre
-                    valeur={valeur('prix_agn_mwh', detail?.prix_gaz?.prix_agn_mwh)}
-                    suffixe="€/MWh" placeholder="— €/MWh" decimales={2} largeur="w-[92px]"
-                    titre="AGN" peutModifier
-                    onCommit={(v) => poser('prix_agn_mwh', v)}
-                  />
-                </Ligne>
-                <Ligne libelle="CTA">
-                  <ChampNombre
-                    valeur={valeur('cta_annuel_ht', detail?.prix_gaz?.cta_annuel_ht)}
-                    suffixe="€/an" placeholder="— €/an" largeur="w-[92px]"
-                    titre="Contribution tarifaire d'acheminement — en €/an, pas au MWh" peutModifier
-                    onCommit={(v) => poser('cta_annuel_ht', v)}
-                  />
-                </Ligne>
-              </Bloc>
+                <Champ
+                  libelle="CEE"
+                  aide="Certificats d’économies d’énergie que le fournisseur refacture, au mégawattheure."
+                  unite="€/MWh"
+                  valeur={cee}
+                  onCommit={(v) => poser('prix_cee_mwh', v)}
+                />
+                <Champ
+                  libelle="CPB"
+                  aide="Contribution passage biométhane, au mégawattheure."
+                  unite="€/MWh"
+                  valeur={cpb}
+                  onCommit={(v) => poser('prix_cpb_mwh', v)}
+                />
+              </Section>
+
+              <Section
+                numero={2}
+                titre="L’abonnement"
+                aide="Facturé à l’année quel que soit le volume consommé. Au gaz, il forme son propre budget."
+              >
+                <Champ
+                  libelle="Abonnement"
+                  aide="Montant annuel hors taxes de l’abonnement fourniture."
+                  unite="€/an"
+                  valeur={abonnement}
+                  onCommit={(v) => poser('abonnement_fourniture_annuel_ht', v)}
+                />
+              </Section>
+
+              <Section
+                numero={3}
+                titre="Les contributions"
+                aide="Ce qui ne revient pas au fournisseur : l’acheminement et les taxes. Le client les paie dans tous les cas."
+              >
+                <Champ
+                  libelle="ATRD"
+                  aide="Accès des tiers au réseau de distribution, part variable au mégawattheure."
+                  unite="€/MWh"
+                  valeur={atrd}
+                  onCommit={(v) => poser('prix_atrd_mwh', v)}
+                />
+                <Champ
+                  libelle="AGN"
+                  aide="Achat de gaz naturel, au mégawattheure."
+                  unite="€/MWh"
+                  valeur={agn}
+                  onCommit={(v) => poser('prix_agn_mwh', v)}
+                />
+                <Champ
+                  libelle="CTA"
+                  aide="Contribution tarifaire d’acheminement. Attention : elle est en euros par AN, pas au mégawattheure."
+                  unite="€/an"
+                  valeur={cta}
+                  onCommit={(v) => poser('cta_annuel_ht', v)}
+                />
+              </Section>
             </>
           ) : (
             <>
-              <Bloc titre="P0 · Prix de l'énergie — €/MWh">
+              <Section
+                numero={1}
+                titre="Les prix P0 par classe"
+                aide="Un prix nu par plage horosaisonnière, tel que le fournisseur le cote. Seules les classes que le compteur consomme sont proposées."
+              >
                 {classes.map((classe) => (
-                  <Ligne key={classe} libelle={LIBELLE_CLASSE[classe] ?? classe}>
-                    <ChampNombre
-                      valeur={p0DeClasse(classe)}
-                      suffixe="€/MWh" placeholder="— €/MWh" decimales={2} largeur="w-[92px]"
-                      titre={`P0 ${LIBELLE_CLASSE[classe] ?? classe} : prix net du fournisseur, hors marge`}
-                      peutModifier
-                      onCommit={(v) => poserP0(classe, v)}
-                    />
-                    <Resultat
-                      libelle="→"
-                      valeur={moleculePresentee(p0DeClasse(classe), marge)}
-                      unite="€/MWh"
-                      discret
-                    />
-                  </Ligne>
+                  <Champ
+                    key={classe}
+                    libelle={`P0 ${LIBELLE_CLASSE[classe] ?? classe}`}
+                    aide={
+                      consoParClasse[classe] != null
+                        ? `Volume de cette classe : ${fmt(consoParClasse[classe])} MWh/an.`
+                        : 'Volume de cette classe inconnu — son budget ne pourra pas se calculer.'
+                    }
+                    unite="€/MWh"
+                    valeur={p0DeClasse(classe)}
+                    onCommit={(v) =>
+                      setBrouillon((b) => ({
+                        ...b,
+                        p0_mwh_par_classe: { ...(b.p0_mwh_par_classe ?? {}), [classe]: v },
+                      }))
+                    }
+                    apres={
+                      <Fleche valeur={moleculePresentee(p0DeClasse(classe), marge)} />
+                    }
+                  />
                 ))}
-                {/* Le compteur ne déclare pas toujours ses classes : 82 % des C5 n'en déclarent
-                    aucune. On peut donc en ouvrir une à la main. */}
                 {ORDRE_CLASSES.filter((c) => !classes.includes(c)).length > 0 && (
-                  <select
-                    value=""
-                    onChange={(e) => { if (e.target.value) setClassesEnPlus((l) => [...l, e.target.value]) }}
-                    className="w-fit cursor-pointer rounded-kw-xs border border-dashed border-kw-border-strong bg-transparent px-1.5 py-0.5 text-kw-micro font-bold text-kw-meta hover:border-kw-green hover:text-kw-green"
-                  >
-                    <option value="">+ classe</option>
-                    {ORDRE_CLASSES.filter((c) => !classes.includes(c)).map((c) => (
-                      <option key={c} value={c}>{LIBELLE_CLASSE[c] ?? c}</option>
-                    ))}
-                  </select>
+                  <div className="flex flex-wrap items-center gap-2">
+                    <select
+                      value=""
+                      onChange={(e) => { if (e.target.value) setClassesEnPlus((l) => [...l, e.target.value]) }}
+                      className="cursor-pointer rounded-kw-xs border border-dashed border-kw-border-strong bg-transparent px-1.5 py-0.5 text-kw-micro font-bold text-kw-meta hover:border-kw-green hover:text-kw-green"
+                    >
+                      <option value="">+ ajouter une classe</option>
+                      {ORDRE_CLASSES.filter((c) => !classes.includes(c)).map((c) => (
+                        <option key={c} value={c}>{LIBELLE_CLASSE[c] ?? c}</option>
+                      ))}
+                    </select>
+                    <span className="text-kw-tiny text-kw-faint">
+                      si le fournisseur cote une plage que le compteur ne déclare pas
+                    </span>
+                  </div>
                 )}
-              </Bloc>
-              <Bloc titre="Marge">
-                <Ligne libelle="Marge référence">
-                  <ChampNombre
-                    valeur={marge}
-                    suffixe="€/MWh" placeholder="— €/MWh" decimales={2} largeur="w-[92px]"
-                    titre="La marge s'ajoute à CHAQUE classe tarifaire." peutModifier
-                    onCommit={(v) => poser('marge_reelle_eur_mwh', v)}
-                  />
-                </Ligne>
-              </Bloc>
-              <Bloc titre="Abonnement et acheminement — €/an">
-                <Ligne libelle="Abonnement">
-                  <ChampNombre
-                    valeur={abonnement}
-                    suffixe="€/an" placeholder="— €/an" largeur="w-[92px]"
-                    titre="En électricité l'abonnement est compté DANS le budget énergie." peutModifier
-                    onCommit={(v) => poser('abonnement_fourniture_annuel_ht', v)}
-                  />
-                </Ligne>
-                <Ligne libelle="Prix TURPE">
-                  <ChampNombre
-                    valeur={valeur('prix_turpe_annuel_ht', detail?.prix_electricite?.prix_turpe_annuel_ht)}
-                    suffixe="€/an" placeholder="— €/an" largeur="w-[92px]"
-                    titre="TURPE annuel HT — calculé à côté puis reporté ici" peutModifier
-                    onCommit={(v) => poser('prix_turpe_annuel_ht', v)}
-                  />
-                </Ligne>
-              </Bloc>
+              </Section>
+
+              <Section
+                numero={2}
+                titre="La marge"
+                aide="Une seule marge pour ce point de livraison. Elle s’ajoute à chacune des classes ci-dessus."
+              >
+                <Champ
+                  libelle="Marge de référence"
+                  aide="Votre marge, au mégawattheure. Chaque prix présenté au client vaut son P0 plus cette marge."
+                  unite="€/MWh"
+                  valeur={marge}
+                  onCommit={(v) => poser('marge_reelle_eur_mwh', v)}
+                />
+              </Section>
+
+              <Section
+                numero={3}
+                titre="L’abonnement et l’acheminement"
+                aide="En électricité l’abonnement est compté DANS le budget énergie, et l’acheminement s’appelle le TURPE."
+              >
+                <Champ
+                  libelle="Abonnement"
+                  aide="Supplément annuel que le fournisseur ajoute librement. Il entre dans le budget énergie, pas dans un budget à part."
+                  unite="€/an"
+                  valeur={abonnement}
+                  onCommit={(v) => poser('abonnement_fourniture_annuel_ht', v)}
+                />
+                <Champ
+                  libelle="Prix TURPE"
+                  aide="Tarif d’utilisation des réseaux, en euros par an. À calculer à côté (Kiwee Tools) puis reporter ici : le barème réglementaire n’est pas dans l’application."
+                  unite="€/an"
+                  valeur={turpe}
+                  onCommit={(v) => poser('prix_turpe_annuel_ht', v)}
+                />
+              </Section>
             </>
           )}
 
-          <Bloc titre="Volume">
-            <Ligne libelle="Conso retenue">
-              <ChampNombre
-                valeur={conso}
-                suffixe="MWh" placeholder="— MWh" largeur="w-[92px]"
-                titre="Consommation retenue par le fournisseur — c'est elle qui convertit les €/MWh en €/an"
-                peutModifier
-                onCommit={(v) => poser('consommation_annuelle_reference_mwh', v)}
-              />
-            </Ligne>
-            {!volumeConnu && (
-              <p className="text-kw-tiny leading-snug text-kw-amber-dark">
-                Sans consommation, les budgets ne peuvent pas se calculer.
+          <Section
+            numero={4}
+            titre="Le volume"
+            aide="C’est lui qui transforme les euros par mégawattheure en euros par an. Sans lui, aucun budget ne peut se calculer."
+          >
+            <Champ
+              libelle="Consommation retenue"
+              aide={
+                (gaz ? compteur?.car_mwh : compteur?.consommation_annuelle_mwh) != null
+                  ? `Laissez vide pour utiliser le volume du compteur : ${fmt(gaz ? compteur?.car_mwh ?? null : compteur?.consommation_annuelle_mwh ?? null)} MWh/an.`
+                  : 'Le compteur ne porte aucun volume : renseignez celui que le fournisseur a retenu.'
+              }
+              unite="MWh"
+              valeur={valeur('consommation_annuelle_reference_mwh', detail?.consommation_annuelle_reference_mwh)}
+              onCommit={(v) => poser('consommation_annuelle_reference_mwh', v)}
+            />
+            {conso == null && (
+              <p className="rounded-kw-xs bg-kw-amber-light px-2 py-1 text-kw-tiny leading-snug text-kw-amber-dark">
+                Sans volume, les budgets restent vides. Ils ne valent pas zéro : ils sont inconnus.
               </p>
             )}
-          </Bloc>
+          </Section>
         </div>
 
-        {/* Les budgets, recalculés en direct : on voit l'effet de la saisie avant d'enregistrer. */}
-        <div className="flex flex-col gap-1.5 rounded-kw-lg border border-kw-border bg-kw-subtle p-3 lg:self-start">
-          <span className="text-kw-tiny font-bold uppercase tracking-[0.06em] text-kw-faint">
-            Budget — €/an
-          </span>
-          <BudgetLu libelle="Énergie" valeur={budgets.energie} />
-          {gaz && <BudgetLu libelle="Abonnement gaz" valeur={abonnement} />}
-          <BudgetLu libelle={gaz ? 'Contribution' : 'TURPE'} valeur={budgets.contribution} />
-          <div className="mt-0.5 border-t border-kw-border-faint pt-1.5">
-            <BudgetLu libelle="Total" valeur={budgets.total} fort />
-          </div>
-          {!gaz && (
-            <p className="mt-1 text-kw-micro leading-snug text-kw-faint">
-              L'abonnement est compté dans le budget énergie, pas à part.
+        {/* ── Le calcul, déroulé ──────────────────────────────────────────── */}
+        <div className="flex flex-col gap-3 rounded-kw-lg border border-kw-border bg-kw-subtle p-3 lg:self-start">
+          <div>
+            <span className="text-kw-tiny font-bold uppercase tracking-[0.06em] text-kw-faint">
+              Comment le budget se calcule
+            </span>
+            <p className="mt-0.5 text-kw-tiny leading-snug text-kw-meta">
+              Chaque ligne se met à jour dès que vous tapez. Si un montant vous surprend, la ligne qui
+              le précède dit d’où il vient.
             </p>
+          </div>
+
+          <Calcul titre="Budget énergie" etapes={etapesEnergie} />
+          {gaz && (
+            <Calcul
+              titre="Budget abonnement"
+              etapes={[{ libelle: 'Abonnement annuel', valeur: abonnement, unite: '€/an', palier: true }]}
+            />
           )}
+          <Calcul titre={gaz ? 'Budget contribution' : 'Budget TURPE'} etapes={etapesContribution} />
+
+          <div className="rounded-kw-md border border-kw-ink bg-white px-2.5 py-2">
+            <div className="flex items-baseline justify-between gap-2">
+              <span className="text-kw-sm font-extrabold">Budget total</span>
+              <span className={`font-mono text-kw-md font-extrabold tabular-nums ${budgets.total == null ? 'text-kw-ghost' : 'text-kw-ink'}`}>
+                {budgets.total == null ? '— €' : `${Math.round(budgets.total).toLocaleString('fr-FR')} €`}
+              </span>
+            </div>
+            <p className="mt-0.5 text-kw-micro leading-snug text-kw-faint">
+              {gaz
+                ? 'Énergie + abonnement + contributions.'
+                : 'Énergie (abonnement compris) + TURPE.'}
+            </p>
+          </div>
+
+          {/* La correction manuelle d'un budget existait avant ce formulaire, et elle a un vrai usage :
+              un fournisseur annonce parfois un montant global sans détailler ses prix. On la garde,
+              repliée, avec l'avertissement qui va avec. */}
+          <div className="border-t border-kw-border-faint pt-2">
+            {!budgetsForces ? (
+              <button
+                type="button"
+                onClick={() => setBudgetsForces(true)}
+                className="text-kw-tiny font-bold text-kw-meta underline decoration-dotted hover:text-kw-green"
+              >
+                Le fournisseur n’a donné qu’un budget global ?
+              </button>
+            ) : (
+              <div className="flex flex-col gap-1.5">
+                <p className="text-kw-tiny leading-snug text-kw-meta">
+                  Ces montants remplacent le calcul. Ils seront écrasés dès qu’un prix sera saisi.
+                </p>
+                <Champ
+                  libelle="Budget énergie"
+                  aide=""
+                  unite="€/an"
+                  valeur={valeur('cout_fourniture_annuel_ht', detail?.cout_fourniture_annuel_ht)}
+                  onCommit={(v) => poser('cout_fourniture_annuel_ht', v)}
+                  compact
+                />
+                <Champ
+                  libelle="Budget total"
+                  aide=""
+                  unite="€/an"
+                  valeur={valeur('cout_total_annuel_estime_ht', detail?.cout_total_annuel_estime_ht)}
+                  onCommit={(v) => poser('cout_total_annuel_estime_ht', v)}
+                  compact
+                />
+              </div>
+            )}
+          </div>
         </div>
       </div>
 
       <div className="mt-4 flex items-center justify-end gap-2 border-t border-kw-border pt-3">
         <span className="mr-auto text-kw-tiny text-kw-faint">
-          {rienDeSaisi ? 'Aucune modification' : 'Fermer sans enregistrer annule la saisie'}
+          {rienDeSaisi ? 'Aucune modification' : 'Annuler ferme sans rien enregistrer'}
         </span>
         <button
           type="button"
@@ -342,54 +490,131 @@ export function SaisiePrixDialog({
           disabled={enCours || rienDeSaisi}
           className="rounded-kw-md bg-kw-green px-3 py-[7px] text-kw-sm font-bold text-white hover:brightness-95 disabled:opacity-50"
         >
-          {enCours ? 'Enregistrement…' : 'Enregistrer'}
+          {enCours ? 'Enregistrement…' : 'Enregistrer les prix'}
         </button>
       </div>
     </Dialog>
   )
 }
 
-function Bloc({ titre, children }: { titre: string; children: React.ReactNode }) {
-  return (
-    <div className="flex flex-col gap-1">
-      <span className="text-kw-tiny font-bold uppercase tracking-[0.06em] text-kw-faint">{titre}</span>
-      <div className="flex flex-col gap-1">{children}</div>
-    </div>
-  )
+/** `null` se lit « — » et non « 0 » : une donnée absente n'est pas une donnée nulle. */
+function fmt(v: number | null | undefined): string {
+  return v == null ? '—' : v.toLocaleString('fr-FR', { maximumFractionDigits: 2 })
 }
 
-function Ligne({ libelle, children }: { libelle: string; children: React.ReactNode }) {
-  return (
-    <div className="flex items-center gap-2">
-      <span className="min-w-[118px] text-kw-sm text-kw-meta">{libelle}</span>
-      {children}
-    </div>
-  )
+function multiplie(a: number | null, b: number | null | undefined): number | null {
+  return a == null || b == null ? null : a * b
 }
 
-function Resultat({ libelle, valeur, unite, discret }: {
-  libelle: string
-  valeur: number | null
-  unite: string
-  discret?: boolean
+function Section({ numero, titre, aide, children }: {
+  numero: number
+  titre: string
+  aide: string
+  children: React.ReactNode
 }) {
   return (
-    <span className="flex items-center gap-1.5">
-      <span className={discret ? 'text-kw-tiny text-kw-ghost' : 'text-kw-sm text-kw-meta'}>{libelle}</span>
-      <span className={`font-mono ${valeur == null ? 'text-kw-ghost' : 'font-bold text-kw-ink'} ${discret ? 'text-kw-sm' : 'text-kw-base'}`}>
-        {valeur == null ? `— ${unite}` : `${valeur.toLocaleString('fr-FR', { maximumFractionDigits: 2 })} ${unite}`}
+    <section className="flex flex-col gap-2">
+      <div className="flex items-baseline gap-2">
+        <span className="flex h-[18px] w-[18px] shrink-0 items-center justify-center rounded-full bg-kw-ink text-kw-micro font-extrabold text-white">
+          {numero}
+        </span>
+        <div>
+          <h4 className="text-kw-base font-extrabold text-kw-ink">{titre}</h4>
+          <p className="text-kw-tiny leading-snug text-kw-meta">{aide}</p>
+        </div>
+      </div>
+      <div className="flex flex-col gap-2 pl-[26px]">{children}</div>
+    </section>
+  )
+}
+
+/** Un champ avec son explication SOUS lui : elle doit se lire sans survoler quoi que ce soit. */
+function Champ({ libelle, aide, unite, valeur, onCommit, apres, compact }: {
+  libelle: string
+  aide: string
+  unite: string
+  valeur: number | null
+  onCommit: (v: number | null) => void
+  apres?: React.ReactNode
+  compact?: boolean
+}) {
+  return (
+    <div className="flex flex-col gap-0.5">
+      <div className="flex flex-wrap items-center gap-2">
+        <label className={`${compact ? 'min-w-[92px]' : 'min-w-[132px]'} text-kw-sm font-semibold text-kw-label`}>
+          {libelle}
+        </label>
+        <ChampNombre
+          valeur={valeur}
+          suffixe={unite}
+          placeholder={`— ${unite}`}
+          decimales={unite === '€/MWh' ? 2 : undefined}
+          largeur={compact ? 'w-[86px]' : 'w-[100px]'}
+          titre={aide}
+          peutModifier
+          onCommit={onCommit}
+        />
+        {apres}
+      </div>
+      {aide && !compact && (
+        <p className={`${compact ? '' : 'ml-[140px]'} text-kw-tiny leading-snug text-kw-faint`}>{aide}</p>
+      )}
+    </div>
+  )
+}
+
+/** Un résultat intermédiaire, montré à l'endroit où il se produit. */
+function Deduit({ libelle, calcul, valeur, unite }: {
+  libelle: string
+  calcul: string
+  valeur: number | null
+  unite: string
+}) {
+  return (
+    <div className="flex flex-wrap items-center gap-2 rounded-kw-xs bg-kw-green-tint px-2 py-1">
+      <span className="min-w-[132px] text-kw-sm font-semibold text-kw-label">{libelle}</span>
+      <span className="font-mono text-kw-tiny text-kw-meta">{calcul} =</span>
+      <span className={`font-mono text-kw-base font-extrabold ${valeur == null ? 'text-kw-ghost' : 'text-kw-green'}`}>
+        {fmt(valeur)} {unite}
+      </span>
+    </div>
+  )
+}
+
+function Fleche({ valeur }: { valeur: number | null }) {
+  return (
+    <span className="flex items-center gap-1 text-kw-tiny text-kw-faint">
+      → prix client
+      <span className={`font-mono font-bold ${valeur == null ? 'text-kw-ghost' : 'text-kw-green'}`}>
+        {fmt(valeur)} €/MWh
       </span>
     </span>
   )
 }
 
-function BudgetLu({ libelle, valeur, fort }: { libelle: string; valeur: number | null; fort?: boolean }) {
+/** Le déroulé d'un budget : chaque ingrédient, son opérateur, et le palier atteint. */
+function Calcul({ titre, etapes }: { titre: string; etapes: Etape[] }) {
   return (
-    <div className="flex items-baseline justify-between gap-2">
-      <span className="text-kw-sm text-kw-meta">{libelle}</span>
-      <span className={`font-mono ${valeur == null ? 'text-kw-ghost' : 'text-kw-ink'} ${fort ? 'text-kw-md font-extrabold' : 'text-kw-base font-bold'}`}>
-        {valeur == null ? '— €' : `${Math.round(valeur).toLocaleString('fr-FR')} €`}
-      </span>
+    <div className="flex flex-col gap-0.5">
+      <span className="text-kw-tiny font-bold text-kw-label">{titre}</span>
+      <div className="flex flex-col">
+        {etapes.map((e, i) => (
+          <div
+            key={`${e.libelle}-${i}`}
+            className={`flex items-baseline gap-1.5 ${e.palier ? 'mt-0.5 border-t border-kw-border-faint pt-0.5' : ''}`}
+          >
+            <span className="w-3 shrink-0 font-mono text-kw-tiny text-kw-faint">{e.operateur ?? ''}</span>
+            <span className={`min-w-0 flex-1 truncate text-kw-tiny ${e.palier ? 'font-bold text-kw-ink' : 'text-kw-meta'}`}>
+              {e.libelle}
+            </span>
+            <span
+              className={`shrink-0 font-mono tabular-nums ${e.valeur == null ? 'text-kw-ghost' : 'text-kw-ink'} ${e.palier ? 'text-kw-sm font-extrabold' : 'text-kw-tiny'}`}
+            >
+              {fmt(e.valeur)} {e.unite}
+            </span>
+          </div>
+        ))}
+      </div>
     </div>
   )
 }
