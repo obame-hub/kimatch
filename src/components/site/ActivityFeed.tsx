@@ -281,7 +281,7 @@ export function ActivityFeed({
         </div>
       )}
 
-      <div className="flex-1 space-y-1.5 overflow-y-auto pr-1">
+      <div className="min-h-0 flex-1 space-y-1.5 overflow-y-auto pr-1">
         {rows.length === 0 && <p className="text-sm text-navy-400">Aucune activité pour le moment.</p>}
         {rows.map((row, idx) =>
           row.type === 'header' ? (

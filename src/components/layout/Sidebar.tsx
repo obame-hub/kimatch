@@ -103,7 +103,7 @@ export function Sidebar() {
           </button>
         </div>
 
-        <nav className="flex-1 space-y-1 overflow-y-auto overflow-x-hidden px-2.5 py-1 scrollbar-thin md:overflow-visible md:px-0">
+        <nav className="min-h-0 flex-1 space-y-1 overflow-y-auto overflow-x-hidden px-2.5 py-1 scrollbar-thin md:overflow-visible md:px-0">
           {navItems.map((item) => (
             <SidebarLink key={item.to} {...item} onClick={close} />
           ))}

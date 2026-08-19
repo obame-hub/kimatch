@@ -220,7 +220,7 @@ export default function SiteDetail() {
       <Topbar crumb="Sites" title={site.nom} />
 
       {/* Bandeau site */}
-      <div className="flex flex-wrap items-center gap-3.5 border-b border-navy-100 bg-white px-4 py-3.5 sm:px-6">
+      <div className="flex flex-none flex-wrap items-center gap-3.5 border-b border-navy-100 bg-white px-4 py-3.5 sm:px-6">
         <Button variant="ghost" size="icon" onClick={goBack} title="Retour aux sites">
           <ArrowLeft className="h-4 w-4" />
         </Button>

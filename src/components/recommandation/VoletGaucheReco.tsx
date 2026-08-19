@@ -219,7 +219,7 @@ export function VoletGaucheReco({
   }
 
   return (
-    <div className="flex flex-col gap-3 overflow-y-auto bg-kw-subtle p-3.5">
+    <div className="flex flex-col gap-3 bg-kw-subtle p-3.5">
       {/* ── COMPTE ── */}
       <Carte
         icone={<Building2 className="h-[11px] w-[11px]" />}

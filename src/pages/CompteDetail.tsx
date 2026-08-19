@@ -333,7 +333,7 @@ export default function CompteDetail() {
       <Topbar crumb="Comptes" title={compte.nom} />
 
       {/* Bandeau compte */}
-      <div className="flex flex-wrap items-start gap-4 bg-kw-surface px-4 pt-3.5 sm:px-[22px]">
+      <div className="flex flex-none flex-wrap items-start gap-4 bg-kw-surface px-4 pt-3.5 sm:px-[22px]">
         <Button variant="ghost" size="icon" onClick={goBack} title="Retour aux comptes" className="mt-1">
           <ArrowLeft className="h-4 w-4" />
         </Button>
