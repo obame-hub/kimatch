@@ -135,6 +135,9 @@ export default {
           '0%': { opacity: '0', transform: 'translateY(6px)' },
           '100%': { opacity: '1', transform: 'translateY(0)' },
         },
+        // Un fondu SANS transformation : c'est le voile des fenêtres modales, et une transformation
+        // sur lui en ferait le référentiel de ses propres descendants fixed.
+        'kw-fade': { from: { opacity: '0' }, to: { opacity: '1' } },
         'kw-fade-slide': { from: { opacity: '0', transform: 'translateY(-6px)' }, to: { opacity: '1', transform: 'none' } },
         'kw-float-up': { from: { opacity: '0', transform: 'translateY(10px)' }, to: { opacity: '1', transform: 'none' } },
         'kw-slide-in-r': { from: { opacity: '0', transform: 'translateX(46px)' }, to: { opacity: '1', transform: 'none' } },
@@ -155,6 +158,7 @@ export default {
       },
       animation: {
         'fade-up': 'fade-up 0.35s ease-out both',
+        'kw-fade': 'kw-fade .12s ease both',
         'kw-fade-slide': 'kw-fade-slide .16s ease both',
         'kw-float-up': 'kw-float-up .16s ease both',
         'kw-slide-in-r': 'kw-slide-in-r .3s cubic-bezier(.3,1.1,.4,1) both',
