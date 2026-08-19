@@ -253,7 +253,7 @@ export function OffresDuFournisseur({
                   <span className="text-kw-tiny uppercase tracking-[0.05em] text-kw-faint">Prix moyen</span>
                   {sommes.prixMoyen != null ? (
                     <span
-                      title="Budget énergie rapporté aux volumes des points de livraison — calculé, non saisi"
+                      title="Budget énergie rapporté aux volumes des points de livraison. Marge comprise, puisque le budget énergie la porte — c'est un prix de vente. Calculé, non saisi."
                       className="cursor-help font-mono text-kw-base font-bold text-kw-ink"
                     >
                       {sommes.prixMoyen.toLocaleString('fr-FR', { maximumFractionDigits: 2 })} €/MWh
@@ -281,26 +281,13 @@ export function OffresDuFournisseur({
                 </span>
                 <span className="flex items-center gap-1.5">
                   <span className="text-kw-tiny uppercase tracking-[0.05em] text-kw-faint">Budget total</span>
-                  <ChampNombre
-                    valeur={offre.montant_annuel_ht}
-                    suffixe="€/an"
-                    placeholder="— €/an"
-                    titre="Budget total annuel HT de l'offre — c'est ce montant que reprend le comparatif des versions"
-                    peutModifier={peutModifier}
-                    onCommit={(v) => patcher(offre, { montant_annuel_ht: v }, v != null ? `✓ Budget total : ${v.toLocaleString('fr-FR')} €/an` : 'Budget total effacé')}
-                  />
-                  {/* Le total des PDL ne colle pas au total saisi : on le signale sans rien réécrire,
-                      et on propose de l'aligner. L'écart est souvent la vraie information. */}
-                  {sommes.total != null && Math.round(sommes.total) !== Math.round(offre.montant_annuel_ht ?? -1) && peutModifier && (
-                    <button
-                      type="button"
-                      onClick={() => patcher(offre, { montant_annuel_ht: sommes.total }, `✓ Budget total : ${Math.round(sommes.total!).toLocaleString('fr-FR')} €/an`)}
-                      title="Reprendre la somme des points de livraison"
-                      className="rounded-kw-xs border border-dashed border-kw-border-strong px-1.5 py-px text-kw-micro font-bold text-kw-meta hover:border-kw-green hover:text-kw-green"
-                    >
-                      = {Math.round(sommes.total).toLocaleString('fr-FR')} €/an
-                    </button>
-                  )}
+                  {/* CALCULÉ depuis le 19/08/2026, comme les trois budgets qui le précèdent — Michel :
+                      « budget total, ce sera exactement la même chose », c'est-à-dire la somme des
+                      points de livraison. Il était saisi, avec un bouton pour l'aligner sur cette
+                      somme : deux chiffres possibles, et rien pour dire lequel comptait.
+                      `montant_annuel_ht` reste écrit en base à chaque saisie de prix, parce que c'est
+                      lui que lisent le comparatif des versions et les listes. */}
+                  <BudgetCalcule valeur={sommes.total} />
                 </span>
                 <span className="flex items-center gap-1.5">
                   <span className="text-kw-tiny uppercase tracking-[0.05em] text-kw-faint">Économie</span>

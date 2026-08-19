@@ -1650,6 +1650,44 @@ export interface PrixParCompteur {
   formule_tarifaire?: string | null
 }
 
+/**
+ * Reporte sur l'offre la somme des budgets totaux de ses points de livraison.
+ *
+ * RÈGLE DE MICHEL, 19/08/2026 : « budget total, ce sera exactement la même chose », c'est-à-dire la
+ * somme des compteurs, comme les trois budgets qui le précèdent. L'écran de l'offre l'affiche
+ * calculé ; cette fonction l'écrit dans `montant_annuel_ht`, parce que le comparatif des versions et
+ * les listes lisent cette colonne et non les détails.
+ *
+ * ON RELIT LA BASE plutôt que d'additionner ce que le navigateur avait en mémoire : deux personnes
+ * peuvent saisir des PDL différents de la même offre en même temps, et la somme d'un cache périmé
+ * écraserait le travail de l'autre.
+ *
+ * UN ÉCHEC ICI N'ANNULE PAS LA SAISIE DU PRIX : le prix par compteur est la donnée que l'utilisateur
+ * vient d'entrer, le total n'en est qu'un résumé recalculable. On le signale en console et on laisse
+ * passer, plutôt que de faire échouer une saisie qui a réussi.
+ */
+async function reporterTotalSurOffre(offreId: string) {
+  const { data, error } = await supabase
+    .from('offres_fournisseurs_compteurs')
+    .select('cout_total_annuel_estime_ht')
+    .eq('offre_fournisseur_id', offreId)
+  if (error) {
+    console.error('report du budget total sur l’offre :', error.message)
+    return
+  }
+  const lignes = (data ?? []) as { cout_total_annuel_estime_ht: number | null }[]
+  // `null` si AUCUN PDL n'est chiffré : un 0 € ferait passer une offre non chiffrable pour gratuite.
+  const total = lignes.reduce<number | null>(
+    (t, l) => (l.cout_total_annuel_estime_ht == null ? t : (t ?? 0) + Number(l.cout_total_annuel_estime_ht)),
+    null,
+  )
+  const { error: eMaj } = await supabase
+    .from('offres_fournisseurs')
+    .update({ montant_annuel_ht: total, date_modification: new Date().toISOString() })
+    .eq('id', offreId)
+  if (eMaj) console.error('report du budget total sur l’offre :', eMaj.message)
+}
+
 export function useEnregistrerPrixCompteur() {
   const queryClient = useQueryClient()
   return useMutation({
@@ -1703,6 +1741,7 @@ export function useEnregistrerPrixCompteur() {
           { onConflict: 'offre_compteur_id' },
         )
         if (error) throw new Error(error.message)
+        await reporterTotalSurOffre(input.offreId)
         return
       }
 
@@ -1723,6 +1762,7 @@ export function useEnregistrerPrixCompteur() {
         { onConflict: 'offre_compteur_id' },
       )
       if (error) throw new Error(error.message)
+      await reporterTotalSurOffre(input.offreId)
     },
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ['recommandations'] }),
   })
