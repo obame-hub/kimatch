@@ -1,5 +1,15 @@
 import { useState } from 'react'
-import { ChevronDown, ChevronRight, Zap, Flame, ExternalLink } from 'lucide-react'
+import {
+  budgetsDepuisPrix,
+  CHAMPS_DE_PRIX,
+  classesDuCompteur,
+  LIBELLE_CLASSE,
+  moleculePresentee,
+  ORDRE_CLASSES,
+  PRIX_GAZ_VIDE,
+} from '@/lib/calculs/prixOffre'
+import { SaisiePrixDialog } from './SaisiePrixDialog'
+import { ChevronDown, ChevronRight, Zap, Flame, ExternalLink, PenLine } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
 import { cn } from '@/lib/utils'
 import { ChampNombre } from '@/components/ui/champ-nombre'
@@ -31,35 +41,16 @@ import type {
  * sont à jour. Ils restent modifiables à la main — un fournisseur annonce parfois un budget global
  * sans détailler — et une correction manuelle tient jusqu'à la prochaine saisie de prix.
  *
- * POURQUOI PAS LES HUIT CLASSES DE PRIX EN ÉLECTRICITÉ. Huit classes et sept puissances font quinze
- * champs par compteur, presque tous vides. On n'affiche que les classes que le compteur CONSOMME
- * réellement, lues dans `consoParClasseMwh` (renseigné par la synchronisation Enedis). Un C5 en base
- * n'a qu'un champ, un C3 en a quatre. Sans information de consommation on propose Base.
+ * POURQUOI PAS LES HUIT CLASSES DE PRIX EN ÉLECTRICITÉ D'EMBLÉE. Huit classes et sept puissances font
+ * quinze champs par compteur, presque tous vides. On n'affiche que les classes que le compteur
+ * CONSOMME réellement, lues dans `consoParClasseMwh` (renseigné par la synchronisation Enedis) — et
+ * quand cette information manque, ce qui est le cas de 82 % des C5, le sélecteur `AjouterClasse` en
+ * ouvre une à la main.
  *
- * LE GAZ EST DÉCOMPOSÉ, l'électricité pas encore : les composantes ne sont pas les mêmes (TURPE au
- * lieu d'ATRD, accise, pas de CPB) et personne ne les a cadrées.
+ * LES FORMULES NE SONT PLUS ICI : elles vivent dans `@/lib/calculs/prixOffre`, parce que la modale de
+ * saisie et le document comparatif les appliquent aussi. Une formule recopiée finit par diverger — la
+ * journée du 19/08/2026 en a donné deux exemples, la marge comptée deux fois puis l'abonnement.
  */
-
-/** Les classes temporelles dans l'ordre où un tarif les présente. */
-const ORDRE_CLASSES = ['BASE', 'HP', 'HC', 'HPH', 'HCH', 'HPE', 'HCE', 'POINTE'] as const
-
-const LIBELLE_CLASSE: Record<string, string> = {
-  BASE: 'Base',
-  HP: 'Heures pleines',
-  HC: 'Heures creuses',
-  HPH: 'Pleines hiver',
-  HCH: 'Creuses hiver',
-  HPE: 'Pleines été',
-  HCE: 'Creuses été',
-  POINTE: 'Pointe',
-}
-
-/** Les classes à proposer pour un compteur : celles qu'il consomme, Base à défaut. */
-function classesDuCompteur(compteur: Compteur | undefined): string[] {
-  const conso = compteur?.consoParClasseMwh ?? {}
-  const presentes = ORDRE_CLASSES.filter((c) => (conso[c] ?? 0) > 0)
-  return presentes.length > 0 ? [...presentes] : ['BASE']
-}
 
 /**
  * Ajouter une classe que le compteur ne déclare pas.
@@ -96,10 +87,6 @@ function AjouterClasse({ presentes, onAjouter }: {
   )
 }
 
-/** Somme qui reste `null` si aucun terme n'est connu — zéro et inconnu ne se disent pas pareil. */
-function somme(...v: (number | null | undefined)[]): number | null {
-  return v.reduce<number | null>((t, x) => (x == null ? t : (t ?? 0) + x), null)
-}
 
 /** Un intitulé de groupe, au-dessus de ses champs. */
 function Groupe({ titre, children }: { titre: string; children: React.ReactNode }) {
@@ -121,124 +108,9 @@ function Champ({ libelle, children }: { libelle: string; children: React.ReactNo
   )
 }
 
-/**
- * La molécule telle qu'elle est présentée au client : le prix net du fournisseur, plus la marge.
- *
- * RÈGLE DE MICHEL, appel du 19/08/2026 : « Le champ actuel qui s'appelle molécule sera égal à
- * molécule P0 plus marge. » Sa raison : « le prix de la molécule, ce n'est pas juste saisi, c'est
- * quelque chose qui est présenté » — le prix nu du fournisseur, lui, c'est le P0, « on l'appelait même
- * pas molécule, on l'appelait P0 ».
- *
- *   molécule = molécule P0 + marge de référence
- *
- * LA MARGE N'EST DONC PLUS UN TERME À PART DANS LE BUDGET. Elle y entre par la molécule, une seule
- * fois. L'ajouter aussi au budget énergie la compterait deux fois — c'est ce que faisait le calcul de
- * ce matin, avant que Michel ne referme la question.
- *
- * ET IL N'Y A PLUS QU'UNE MARGE : « on n'a plus besoin des trois autres types de marge, on a besoin
- * d'une seule marge […] dès que je change la marge, ce sera forcément la marge réelle que j'ajoute. »
- * La marge ajustable et la marge retenue quittent l'écran.
- */
-function moleculePresentee(p0: number | null | undefined, marge: number | null | undefined) {
-  return somme(p0, marge)
-}
 
-/**
- * Les budgets annuels qu'impliquent les prix unitaires, pour UN point de livraison.
- *
- * `null` si la consommation est inconnue : sans volume, un prix au MWh ne donne aucun budget, et
- * écrire 0 € ferait passer une offre non chiffrable pour gratuite.
- *
- * CE QUI N'EST PAS CALCULÉ, et pourquoi : l'acheminement électrique (TURPE) dépend d'un barème
- * réglementaire annuel que l'application ne connaît pas. On ne l'invente pas — il reste saisi, et le
- * total en tient compte quand il l'est. Côté gaz, l'ATRD et l'AGN sont des prix au MWh donnés par le
- * fournisseur : eux, on sait les multiplier.
- */
-function budgetsDepuisPrix(opts: {
-  gaz: boolean
-  compteur: Compteur | undefined
-  detail: OffreFournisseurCompteur | undefined
-  /** Les prix APRÈS application de la saisie en cours, pas ceux encore en base. */
-  prixGaz?: PrixOffreGaz | null
-  prixElec?: PrixOffreElectricite | null
-  /** La consommation à retenir, si la saisie en cours la change. */
-  consoForcee?: number | null
-}): { energie: number | null; contribution: number | null; total: number | null } {
-  const { gaz, compteur, detail } = opts
 
-  if (gaz) {
-    const p = opts.prixGaz
-    const conso = opts.consoForcee
-      ?? detail?.consommation_annuelle_reference_mwh
-      ?? p?.car_reference_mwh
-      ?? compteur?.car_mwh
-      ?? null
-    if (conso == null) return { energie: null, contribution: null, total: null }
-    // Budget Énergie = conso × (molécule + CEE + CPB) — formule de Michel du 19/08/2026.
-    // La marge est DANS `prix_energie_mwh`, que l'appelant a déjà calculé comme P0 + marge. La
-    // rajouter ici la compterait deux fois.
-    const partEnergie = somme(p?.prix_energie_mwh, p?.prix_cee_mwh, p?.prix_cpb_mwh)
-    const partAcheminement = somme(p?.prix_atrd_mwh, p?.prix_agn_mwh)
-    const energie = partEnergie == null ? null : partEnergie * conso
-    const contribution = partAcheminement == null && p?.cta_annuel_ht == null
-      ? null
-      : (partAcheminement ?? 0) * conso + (p?.cta_annuel_ht ?? 0)
-    return {
-      energie,
-      contribution,
-      total: somme(energie, p?.abonnement_fourniture_annuel_ht, contribution),
-    }
-  }
 
-  // Électricité : chaque classe se valorise sur SA consommation, pas sur le total du PDL.
-  const p = opts.prixElec
-  const conso = opts.consoForcee
-    ?? detail?.consommation_annuelle_reference_mwh
-    ?? compteur?.consommation_annuelle_mwh
-    ?? null
-  const consoParClasse = compteur?.consoParClasseMwh ?? {}
-  const classesSaisies = Object.entries(p?.prix_mwh_par_classe ?? {})
-    .filter(([, v]) => v != null) as [string, number][]
-  let energie: number | null = null
-  for (const [classe, prix] of classesSaisies) {
-    // À défaut de ventilation par classe, un tarif à une seule classe porte sur le volume total.
-    const volume = consoParClasse[classe] ?? (classesSaisies.length === 1 ? conso : null)
-    if (volume == null) continue
-    energie = (energie ?? 0) + prix * volume
-  }
-  // L'ABONNEMENT EST DANS L'ÉNERGIE en électricité, et c'est la différence avec le gaz. Michel,
-  // 19/08/2026 : « consommation heures pleines hiver fois le prix, ainsi de suite, PLUS l'abonnement
-  // annuel, et la somme me donne le budget énergie ». Sa raison : au gaz l'abonnement relève de
-  // l'acheminement, alors qu'en électricité c'est un supplément que le fournisseur ajoute librement —
-  // l'acheminement, lui, c'est le TURPE.
-  const energieAvecAbonnement = somme(energie, p?.abonnement_fourniture_annuel_ht)
-  // L'acheminement électrique EST le TURPE, saisi à la main faute de barème dans l'application. On
-  // retombe sur le budget déjà en base tant qu'aucun TURPE n'est saisi, pour ne pas effacer une
-  // valeur que quelqu'un aurait posée avant que ce champ existe.
-  const contribution = p?.prix_turpe_annuel_ht ?? detail?.cout_acheminement_annuel_ht ?? null
-  return {
-    energie: energieAvecAbonnement,
-    contribution,
-    total: somme(energieAvecAbonnement, contribution),
-  }
-}
-
-/** Les champs dont la saisie doit déclencher un recalcul des budgets. */
-const CHAMPS_DE_PRIX = [
-  'prix_energie_mwh', 'prix_cee_mwh', 'prix_cpb_mwh', 'prix_atrd_mwh', 'prix_agn_mwh',
-  'cta_annuel_ht', 'abonnement_fourniture_annuel_ht', 'p0_mwh_par_classe',
-  'consommation_annuelle_reference_mwh',
-  // Le P0 et la marge composent la molécule, qui commande le budget énergie : les omettre ici
-  // laisserait un budget périmé après un ajustement de marge.
-  'prix_molecule_p0_mwh', 'marge_reelle_eur_mwh', 'prix_turpe_annuel_ht',
-] as const
-
-const PRIX_GAZ_VIDE: PrixOffreGaz = {
-  type_prix: null, prix_molecule_p0_mwh: null, prix_energie_mwh: null,
-  prix_cee_mwh: null, prix_cpb_mwh: null,
-  prix_atrd_mwh: null, prix_agn_mwh: null, car_reference_mwh: null,
-  abonnement_fourniture_annuel_ht: null, cta_annuel_ht: null,
-}
 
 export function PrixParCompteur({
   offre,
@@ -257,6 +129,8 @@ export function PrixParCompteur({
   const [ouvert, setOuvert] = useState(false)
   // Les classes ouvertes à la main, par point de livraison — voir AjouterClasse pour le pourquoi.
   const [classesEnPlus, setClassesEnPlus] = useState<Record<string, string[]>>({})
+  // Le point de livraison dont le formulaire est ouvert, s'il y en a un.
+  const [saisieOuverte, setSaisieOuverte] = useState<string | null>(null)
   const navigate = useNavigate()
   const enregistrer = useEnregistrerPrixCompteur()
 
@@ -444,6 +318,19 @@ export function PrixParCompteur({
                     </span>
                   )}
                   <span className="flex-1" />
+                  {/* Le formulaire complet, demandé par Michel le 19/08/2026. Les champs inline
+                      restent : ils vont plus vite pour corriger UNE valeur, la modale sert à saisir
+                      une grille entière et montre les budgets avant d'enregistrer. */}
+                  {peutModifier && (
+                    <button
+                      type="button"
+                      onClick={() => setSaisieOuverte(lien.lien_id)}
+                      className="inline-flex items-center gap-1 rounded-kw-xs border border-kw-border-strong bg-white px-1.5 py-px text-kw-micro font-bold text-kw-label hover:border-kw-green hover:text-kw-green"
+                    >
+                      <PenLine className="h-2.5 w-2.5" />
+                      Saisir les prix
+                    </button>
+                  )}
                   <span className="font-mono text-kw-tiny text-kw-faint">
                     {gaz
                       ? compteur?.car_mwh != null
@@ -454,6 +341,17 @@ export function PrixParCompteur({
                         : 'conso inconnue'}
                   </span>
                 </div>
+
+                <SaisiePrixDialog
+                  ouvert={saisieOuverte === lien.lien_id}
+                  onFermer={() => setSaisieOuverte(null)}
+                  gaz={gaz}
+                  compteur={compteur}
+                  libelleCompteur={compteur?.numero_pdl || compteur?.utilisation || lien.label || 'Compteur'}
+                  detail={detail}
+                  enCours={enregistrer.isPending}
+                  onEnregistrer={(prix) => sauver({ ...base, prix, message: '✓ Prix enregistrés' })}
+                />
 
                 {/* ── Prix unitaires à gauche, budgets annuels à droite ── */}
                 <div className="mt-2 grid grid-cols-1 gap-x-6 gap-y-2 lg:grid-cols-[1.4fr_1fr]">
