@@ -114,7 +114,11 @@ export interface VersionRecommandation {
 export interface PrixOffreElectricite {
   type_prix: string | null
   formule_tarifaire: string | null
-  /** €/MWh par classe temporelle. Clés en majuscules, comme `Compteur.consoParClasseMwh`. */
+  /** Les P0 en €/MWh par classe temporelle : prix nets hors marge, SAISIS. Clés en majuscules,
+   *  comme `Compteur.consoParClasseMwh`. */
+  p0_mwh_par_classe: Record<string, number>
+  /** €/MWh par classe temporelle, prix PRÉSENTÉS au client : P0 de la classe + marge de référence.
+   *  CALCULÉS depuis le 19/08/2026 — ne pas saisir directement. */
   prix_mwh_par_classe: Record<string, number>
   abonnement_fourniture_annuel_ht: number | null
 }

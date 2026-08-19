@@ -334,6 +334,16 @@ async function fetchRecommandations(
       prix_hph_mwh: number | null
       prix_hch_mwh: number | null
       prix_pointe_mwh: number | null
+      // Les P0 par classe, migration 20260819160000. Optionnels : une base non migrée les renvoie
+      // simplement absents, et le select est passé à `*` pour cette raison.
+      prix_base_p0_mwh?: number | null
+      prix_hp_p0_mwh?: number | null
+      prix_hc_p0_mwh?: number | null
+      prix_hpe_p0_mwh?: number | null
+      prix_hce_p0_mwh?: number | null
+      prix_hph_p0_mwh?: number | null
+      prix_hch_p0_mwh?: number | null
+      prix_pointe_p0_mwh?: number | null
     }
     interface RawPrixGaz {
       offre_compteur_id: string
@@ -355,7 +365,10 @@ async function fetchRecommandations(
       : await Promise.all([
           fetchAllRows<RawPrixElec>(
             'offres_compteurs_electricite',
-            'offre_compteur_id, type_prix, formule_tarifaire, abonnement_fourniture_annuel_ht, prix_base_mwh, prix_hp_mwh, prix_hc_mwh, prix_hpe_mwh, prix_hce_mwh, prix_hph_mwh, prix_hch_mwh, prix_pointe_mwh',
+            // `*` et non la liste nommée : les huit colonnes P0 viennent de la migration
+            // 20260819160000, et un select qui nomme une colonne absente renvoie 400 — tous les prix
+            // électricité seraient perdus. Même prudence que pour le gaz.
+            '*',
             surColonne('offre_compteur_id', idsDetails),
           ).catch(() => [] as RawPrixElec[]),
           fetchAllRows<RawPrixGaz>(
@@ -370,13 +383,17 @@ async function fetchRecommandations(
     const CLASSES_PRIX = ['base', 'hp', 'hc', 'hpe', 'hce', 'hph', 'hch', 'pointe'] as const
     const prixElecParDetail = new Map(prixElecRows.map((r) => {
       const parClasse: Record<string, number> = {}
+      const p0ParClasse: Record<string, number> = {}
       for (const k of CLASSES_PRIX) {
         const v = r[`prix_${k}_mwh` as keyof RawPrixElec] as number | null
         if (v != null) parClasse[k.toUpperCase()] = v
+        const p0 = r[`prix_${k}_p0_mwh` as keyof RawPrixElec] as number | null | undefined
+        if (p0 != null) p0ParClasse[k.toUpperCase()] = p0
       }
       return [r.offre_compteur_id, {
         type_prix: r.type_prix,
         formule_tarifaire: r.formule_tarifaire,
+        p0_mwh_par_classe: p0ParClasse,
         prix_mwh_par_classe: parClasse,
         abonnement_fourniture_annuel_ht: r.abonnement_fourniture_annuel_ht,
       }]
@@ -1638,7 +1655,10 @@ export interface PrixParCompteur {
   marge_retenue_eur_mwh?: number | null
   marge_ajustable_eur_mwh?: number | null
   marge_reelle_eur_mwh?: number | null
-  /** Électricité : un prix par classe temporelle (clés BASE, HP, HC, HPE, HCE, HPH, HCH, POINTE). */
+  /** Électricité : les P0 par classe temporelle (clés BASE, HP, HC, HPE, HCE, HPH, HCH, POINTE).
+   *  SAISIS ; c'est d'eux que découlent les prix présentés. */
+  p0_mwh_par_classe?: Record<string, number | null>
+  /** Électricité : les prix présentés, P0 de la classe + marge de référence. CALCULÉS. */
   prix_mwh_par_classe?: Record<string, number | null>
   /** Gaz : le P0 saisi, la molécule présentée (P0 + marge, calculée), puis la décomposition. */
   prix_molecule_p0_mwh?: number | null
@@ -1728,10 +1748,12 @@ export function useEnregistrerPrixCompteur() {
       const detailId = (ligne as { id: string }).id
 
       if (input.energie === 'electricite') {
-        const parClasse = p.prix_mwh_par_classe ?? {}
         const colonnes: Record<string, number | null> = {}
-        for (const [classe, valeur] of Object.entries(parClasse)) {
+        for (const [classe, valeur] of Object.entries(p.prix_mwh_par_classe ?? {})) {
           colonnes[`prix_${classe.toLowerCase()}_mwh`] = valeur
+        }
+        for (const [classe, valeur] of Object.entries(p.p0_mwh_par_classe ?? {})) {
+          colonnes[`prix_${classe.toLowerCase()}_p0_mwh`] = valeur
         }
         const { error } = await supabase.from('offres_compteurs_electricite').upsert(
           {

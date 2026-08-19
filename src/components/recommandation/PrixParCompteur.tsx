@@ -182,7 +182,7 @@ function budgetsDepuisPrix(opts: {
 /** Les champs dont la saisie doit déclencher un recalcul des budgets. */
 const CHAMPS_DE_PRIX = [
   'prix_energie_mwh', 'prix_cee_mwh', 'prix_cpb_mwh', 'prix_atrd_mwh', 'prix_agn_mwh',
-  'cta_annuel_ht', 'abonnement_fourniture_annuel_ht', 'prix_mwh_par_classe',
+  'cta_annuel_ht', 'abonnement_fourniture_annuel_ht', 'p0_mwh_par_classe',
   'consommation_annuelle_reference_mwh',
   // Le P0 et la marge composent la molécule, qui commande le budget énergie : les omettre ici
   // laisserait un budget périmé après un ajustement de marge.
@@ -259,6 +259,14 @@ export function PrixParCompteur({
       const p0 = prix.prix_molecule_p0_mwh !== undefined
         ? prix.prix_molecule_p0_mwh
         : detail?.prix_gaz?.prix_molecule_p0_mwh ?? null
+      // Électricité : un P0 par classe tarifaire. Une saisie ne porte qu'UNE classe, les autres
+      // restent — d'où la fusion plutôt qu'un remplacement.
+      const p0ParClasse: Record<string, number> = Object.fromEntries(
+        Object.entries({
+          ...(detail?.prix_electricite?.p0_mwh_par_classe ?? {}),
+          ...(prix.p0_mwh_par_classe ?? {}),
+        }).filter(([, v]) => v != null) as [string, number][],
+      )
 
       const prixGaz: PrixOffreGaz | null = gaz
         ? {
@@ -285,11 +293,12 @@ export function PrixParCompteur({
             type_prix: detail?.prix_electricite?.type_prix ?? null,
             formule_tarifaire: detail?.prix_electricite?.formule_tarifaire ?? null,
             // Fusion classe par classe : une saisie ne porte qu'UNE classe, les autres restent.
+            p0_mwh_par_classe: p0ParClasse,
+            // Les prix présentés découlent des P0 : chaque classe reçoit la même marge, comme la
+            // molécule au gaz. Ils ne se saisissent plus.
             prix_mwh_par_classe: Object.fromEntries(
-              Object.entries({
-                ...(detail?.prix_electricite?.prix_mwh_par_classe ?? {}),
-                ...(prix.prix_mwh_par_classe ?? {}),
-              }).filter(([, v]) => v != null) as [string, number][],
+              Object.entries(p0ParClasse).map(([classe, v]) => [classe, moleculePresentee(v, marge)])
+                .filter(([, v]) => v != null) as [string, number][],
             ),
             abonnement_fourniture_annuel_ht: prix.abonnement_fourniture_annuel_ht !== undefined
               ? prix.abonnement_fourniture_annuel_ht
@@ -306,9 +315,11 @@ export function PrixParCompteur({
       })
       patch = {
         ...prix,
-        // La molécule présentée part avec le reste, gaz seulement : côté électricité le prix se tape
-        // par classe tarifaire, et Michel n'a pas encore cadré le P0 de ce côté-là.
-        ...(gaz ? { prix_energie_mwh: moleculePresentee(p0, marge) } : {}),
+        // Les prix présentés partent avec le reste : la molécule au gaz, les huit classes en
+        // électricité. Dans les deux cas c'est P0 + marge, jamais une saisie directe.
+        ...(gaz
+          ? { prix_energie_mwh: moleculePresentee(p0, marge) }
+          : { p0_mwh_par_classe: p0ParClasse, prix_mwh_par_classe: prixElec?.prix_mwh_par_classe ?? {} }),
         ...(b.energie != null ? { cout_fourniture_annuel_ht: b.energie } : {}),
         ...(gaz && b.contribution != null ? { cout_acheminement_annuel_ht: b.contribution } : {}),
         ...(b.total != null ? { cout_total_annuel_estime_ht: b.total } : {}),
@@ -507,20 +518,49 @@ export function PrixParCompteur({
                       </>
                     ) : (
                       <>
+                        {/* CALCULÉS depuis le 19/08/2026, comme la molécule au gaz : chaque classe
+                            vaut son P0 plus la marge de référence. Les P0 se saisissent juste après. */}
                         <Groupe titre="Prix de l'énergie — €/MWh">
+                          {classes.map((classe) => {
+                            const px = moleculePresentee(
+                              detail?.prix_electricite?.p0_mwh_par_classe?.[classe],
+                              detail?.marge_reelle_eur_mwh,
+                            )
+                            return (
+                              <Champ key={classe} libelle={LIBELLE_CLASSE[classe] ?? classe}>
+                                {px != null ? (
+                                  <span
+                                    title={`P0 ${LIBELLE_CLASSE[classe] ?? classe} + marge de référence — prix présenté au client`}
+                                    className="cursor-help font-mono text-kw-base font-bold text-kw-ink"
+                                  >
+                                    {px.toLocaleString('fr-FR', { maximumFractionDigits: 2 })} €/MWh
+                                  </span>
+                                ) : (
+                                  <span
+                                    title={`Se calcule dès que le P0 ${LIBELLE_CLASSE[classe] ?? classe} ou la marge est saisi`}
+                                    className="cursor-help font-mono text-kw-base text-kw-ghost"
+                                  >
+                                    — €/MWh
+                                  </span>
+                                )}
+                              </Champ>
+                            )
+                          })}
+                        </Groupe>
+                        <Groupe titre="P0 — prix nets hors marge, €/MWh">
                           {classes.map((classe) => (
                             <Champ key={classe} libelle={LIBELLE_CLASSE[classe] ?? classe}>
                               <ChampNombre
-                                valeur={detail?.prix_electricite?.prix_mwh_par_classe?.[classe]}
+                                valeur={detail?.prix_electricite?.p0_mwh_par_classe?.[classe]}
                                 suffixe="€/MWh" placeholder="— €/MWh" decimales={2} largeur="w-[76px]"
-                                titre={`Prix ${LIBELLE_CLASSE[classe] ?? classe} annoncé pour ce PDL`}
+                                titre={`P0 ${LIBELLE_CLASSE[classe] ?? classe} : prix net du fournisseur pour cette classe, hors marge`}
                                 peutModifier={peutModifier}
                                 onCommit={(v) => sauver({
                                   ...base,
-                                  prix: { prix_mwh_par_classe: { [classe]: v }, type_prix: offre.type_prix ?? null },
+                                  prix: { p0_mwh_par_classe: { [classe]: v }, type_prix: offre.type_prix ?? null },
                                   message: v != null
-                                    ? `✓ ${LIBELLE_CLASSE[classe] ?? classe} : ${v.toLocaleString('fr-FR')} €/MWh`
-                                    : 'Prix effacé',
+                                    ? `✓ P0 ${LIBELLE_CLASSE[classe] ?? classe} : ${v.toLocaleString('fr-FR')} €/MWh`
+                                    : 'P0 effacé',
                                 })}
                               />
                             </Champ>
@@ -640,8 +680,8 @@ export function PrixParCompteur({
                     autres types de marge, on a besoin d'une seule marge […] dès que je change la
                     marge, ce sera forcément la marge réelle que j'ajoute. » Leurs colonnes restent en
                     base, vides — la logique a changé trois fois ce matin, un drop ne se rejoue pas. */}
-                {gaz ? (
-                  <div className="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1 border-t border-kw-border-faint pt-1.5">
+                <div className="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1 border-t border-kw-border-faint pt-1.5">
+                  {gaz && (
                     <Champ libelle="Molécule P0">
                       <ChampNombre
                         valeur={detail?.prix_gaz?.prix_molecule_p0_mwh}
@@ -655,33 +695,28 @@ export function PrixParCompteur({
                         })}
                       />
                     </Champ>
-                    <Champ libelle="Marge référence">
-                      <ChampNombre
-                        valeur={detail?.marge_reelle_eur_mwh}
-                        suffixe="€/MWh" placeholder="— €/MWh" decimales={2} largeur="w-[76px]"
-                        titre="La marge, en €/MWh. La changer change la molécule présentée, et donc le budget énergie."
-                        peutModifier={peutModifier}
-                        onCommit={(v) => sauver({
-                          ...base,
-                          prix: { marge_reelle_eur_mwh: v },
-                          message: v != null ? `✓ Marge référence : ${v.toLocaleString('fr-FR')} €/MWh` : 'Marge référence effacée',
-                        })}
-                      />
-                    </Champ>
-                    <span className="text-kw-tiny text-kw-faint">
-                      Molécule = Molécule P0 + Marge référence
-                    </span>
-                  </div>
-                ) : (
-                  /* Côté électricité le prix se tape par classe tarifaire (HP, HC, HPH…). Michel :
-                     « il faudra juste rajouter P0 », et il prépare la note. On n'affiche donc pas une
-                     marge qui n'entrerait dans aucun calcul — un champ qui semble agir sans agir est
-                     pire qu'un champ absent. */
-                  <p className="mt-2 border-t border-kw-border-faint pt-1.5 text-kw-tiny leading-snug text-kw-meta">
-                    Molécule P0 et marge : la décomposition électricité reste à cadrer avec Michel, les
-                    composantes ne sont pas les mêmes qu'au gaz.
-                  </p>
-                )}
+                  )}
+                  <Champ libelle="Marge référence">
+                    <ChampNombre
+                      valeur={detail?.marge_reelle_eur_mwh}
+                      suffixe="€/MWh" placeholder="— €/MWh" decimales={2} largeur="w-[76px]"
+                      titre={gaz
+                        ? 'La marge, en €/MWh. La changer change la molécule présentée, et donc le budget énergie.'
+                        : "La marge, en €/MWh. Elle s'ajoute à CHAQUE classe tarifaire, et change donc tous les prix présentés."}
+                      peutModifier={peutModifier}
+                      onCommit={(v) => sauver({
+                        ...base,
+                        prix: { marge_reelle_eur_mwh: v },
+                        message: v != null ? `✓ Marge référence : ${v.toLocaleString('fr-FR')} €/MWh` : 'Marge référence effacée',
+                      })}
+                    />
+                  </Champ>
+                  <span className="text-kw-tiny text-kw-faint">
+                    {gaz
+                      ? 'Molécule = Molécule P0 + Marge référence'
+                      : 'Chaque prix de classe = son P0 + Marge référence'}
+                  </span>
+                </div>
               </div>
             )
           })}
