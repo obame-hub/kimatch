@@ -40,6 +40,49 @@ const TON_STATUT: Record<string, string> = {
   RECUE: 'bg-kw-green-light text-kw-green',
 }
 
+/** Affiche un budget somme des points de livraison — lecture seule, il se saisit dans le détail. */
+function BudgetCalcule({ valeur }: { valeur: number | null }) {
+  if (valeur == null) {
+    return (
+      <span
+        title="Se calcule en additionnant les points de livraison — saisir les prix dans « Détail par compteur »"
+        className="cursor-help font-mono text-kw-base text-kw-ghost"
+      >
+        — €/an
+      </span>
+    )
+  }
+  return (
+    <span
+      title="Somme des points de livraison de cette offre"
+      className="cursor-help font-mono text-kw-base font-bold text-kw-ink"
+    >
+      {Math.round(valeur).toLocaleString('fr-FR')} €/an
+    </span>
+  )
+}
+
+/**
+ * Les budgets de l'offre, additionnés sur ses points de livraison.
+ *
+ * `null` et non zéro quand rien n'est saisi : un budget de 0 € et un budget inconnu ne se disent pas
+ * de la même façon, et confondre les deux ferait passer une offre non chiffrée pour gratuite.
+ */
+function sommesDesPdl(offre: OffreFournisseur) {
+  const somme = (extrait: (d: OffreFournisseur['details_par_compteur'][number]) => number | null | undefined) =>
+    offre.details_par_compteur.reduce<number | null>((total, d) => {
+      const v = extrait(d)
+      return v == null ? total : (total ?? 0) + v
+    }, null)
+
+  return {
+    energie: somme((d) => d.cout_fourniture_annuel_ht),
+    abonnement: somme((d) => d.prix_gaz?.abonnement_fourniture_annuel_ht ?? d.prix_electricite?.abonnement_fourniture_annuel_ht),
+    contribution: somme((d) => d.cout_acheminement_annuel_ht),
+    total: somme((d) => d.cout_total_annuel_estime_ht),
+  }
+}
+
 export function OffresDuFournisseur({
   fournisseur,
   optimisationId,
@@ -92,6 +135,7 @@ export function OffresDuFournisseur({
         </p>
       ) : (
         offres.map((offre) => {
+          const sommes = sommesDesPdl(offre)
           const recue = offre.statut === 'RECUE'
           const refusee = offre.statut === 'REFUSEE'
           return (
@@ -185,31 +229,54 @@ export function OffresDuFournisseur({
                 )}
               </div>
 
-              {/* Les chiffres de l'offre. Affichés même vides, en pointillé : sans quoi rien
-                  n'indique qu'ils se saisissent ici. */}
+              {/*
+                Les cinq budgets de l'offre, en €/an (demande du 19/08/2026). Ils remplacent le
+                triptyque « prix / budget / économie » : le prix au MWh n'était pas de la même nature
+                que les deux autres, et il manquait la décomposition.
+
+                Énergie, abonnement et contribution sont la SOMME des points de livraison : ils ne
+                sont pas saisissables ici, parce qu'ils se saisissent là où ils se décident — dans le
+                détail par compteur. Deux endroits pour un même chiffre finissent toujours par se
+                contredire.
+
+                Le total et l'économie, eux, existent en propre sur l'offre : un fournisseur annonce
+                parfois un budget global sans détailler, et il faut pouvoir le noter tel quel.
+              */}
               <div className="mt-1.5 flex flex-wrap items-center gap-x-4 gap-y-1">
                 <span className="flex items-center gap-1.5">
-                  <span className="text-kw-tiny uppercase tracking-[0.05em] text-kw-faint">Prix</span>
-                  <ChampNombre
-                    valeur={offre.prix_moyen_mwh}
-                    suffixe="€/MWh"
-                    placeholder="— €/MWh"
-                    decimales={2}
-                    titre="Prix annoncé par le fournisseur"
-                    peutModifier={peutModifier}
-                    onCommit={(v) => patcher(offre, { prix_moyen_mwh: v }, v != null ? `✓ Prix : ${v.toLocaleString('fr-FR')} €/MWh` : 'Prix effacé')}
-                  />
+                  <span className="text-kw-tiny uppercase tracking-[0.05em] text-kw-faint">Budget énergie</span>
+                  <BudgetCalcule valeur={sommes.energie} />
                 </span>
                 <span className="flex items-center gap-1.5">
-                  <span className="text-kw-tiny uppercase tracking-[0.05em] text-kw-faint">Budget</span>
+                  <span className="text-kw-tiny uppercase tracking-[0.05em] text-kw-faint">Budget abonnement</span>
+                  <BudgetCalcule valeur={sommes.abonnement} />
+                </span>
+                <span className="flex items-center gap-1.5">
+                  <span className="text-kw-tiny uppercase tracking-[0.05em] text-kw-faint">Budget contribution</span>
+                  <BudgetCalcule valeur={sommes.contribution} />
+                </span>
+                <span className="flex items-center gap-1.5">
+                  <span className="text-kw-tiny uppercase tracking-[0.05em] text-kw-faint">Budget total</span>
                   <ChampNombre
                     valeur={offre.montant_annuel_ht}
                     suffixe="€/an"
                     placeholder="— €/an"
-                    titre="Montant annuel HT de l'offre"
+                    titre="Budget total annuel HT de l'offre — c'est ce montant que reprend le comparatif des versions"
                     peutModifier={peutModifier}
-                    onCommit={(v) => patcher(offre, { montant_annuel_ht: v }, v != null ? `✓ Budget : ${v.toLocaleString('fr-FR')} €/an` : 'Budget effacé')}
+                    onCommit={(v) => patcher(offre, { montant_annuel_ht: v }, v != null ? `✓ Budget total : ${v.toLocaleString('fr-FR')} €/an` : 'Budget total effacé')}
                   />
+                  {/* Le total des PDL ne colle pas au total saisi : on le signale sans rien réécrire,
+                      et on propose de l'aligner. L'écart est souvent la vraie information. */}
+                  {sommes.total != null && Math.round(sommes.total) !== Math.round(offre.montant_annuel_ht ?? -1) && peutModifier && (
+                    <button
+                      type="button"
+                      onClick={() => patcher(offre, { montant_annuel_ht: sommes.total }, `✓ Budget total : ${Math.round(sommes.total!).toLocaleString('fr-FR')} €/an`)}
+                      title="Reprendre la somme des points de livraison"
+                      className="rounded-kw-xs border border-dashed border-kw-border-strong px-1.5 py-px text-kw-micro font-bold text-kw-meta hover:border-kw-green hover:text-kw-green"
+                    >
+                      = {Math.round(sommes.total).toLocaleString('fr-FR')} €/an
+                    </button>
+                  )}
                 </span>
                 <span className="flex items-center gap-1.5">
                   <span className="text-kw-tiny uppercase tracking-[0.05em] text-kw-faint">Économie</span>
@@ -240,7 +307,7 @@ export function OffresDuFournisseur({
 
               </div>
               <div className="mt-1.5 flex flex-wrap items-center gap-x-4 gap-y-1">
-                {recue && offre.prix_moyen_mwh == null && offre.montant_annuel_ht == null && (
+                {recue && offre.montant_annuel_ht == null && sommes.total == null && (
                   // Une offre marquée reçue sans aucun chiffre est une contradiction visible : on le
                   // signale plutôt que de la laisser passer pour renseignée.
                   <span className="text-kw-tiny font-semibold text-kw-amber-dark">
