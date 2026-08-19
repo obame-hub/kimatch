@@ -129,6 +129,9 @@ export interface PrixOffreElectricite {
 export interface PrixOffreGaz {
   type_prix: string | null
   /** Prix de la molécule : l'énergie nue, hors CEE et CPB. */
+  /** Le P0 : prix net de la molécule hors marge, saisi. */
+  prix_molecule_p0_mwh: number | null
+  /** La molécule présentée au client : P0 + marge de référence. CALCULÉE depuis le 19/08/2026. */
   prix_energie_mwh: number | null
   prix_cee_mwh: number | null
   prix_cpb_mwh: number | null

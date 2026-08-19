@@ -338,6 +338,7 @@ async function fetchRecommandations(
     interface RawPrixGaz {
       offre_compteur_id: string
       type_prix: string | null
+      prix_molecule_p0_mwh: number | null
       prix_energie_mwh: number | null
       car_reference_mwh: number | null
       abonnement_fourniture_annuel_ht: number | null
@@ -382,6 +383,8 @@ async function fetchRecommandations(
     }))
     const prixGazParDetail = new Map(prixGazRows.map((r) => [r.offre_compteur_id, {
       type_prix: r.type_prix,
+      // `?? null` : la colonne date du 19/08/2026, une base non migrée la renvoie absente.
+      prix_molecule_p0_mwh: r.prix_molecule_p0_mwh ?? null,
       prix_energie_mwh: r.prix_energie_mwh,
       prix_cee_mwh: r.prix_cee_mwh ?? null,
       prix_cpb_mwh: r.prix_cpb_mwh ?? null,
@@ -1637,7 +1640,8 @@ export interface PrixParCompteur {
   marge_reelle_eur_mwh?: number | null
   /** Électricité : un prix par classe temporelle (clés BASE, HP, HC, HPE, HCE, HPH, HCH, POINTE). */
   prix_mwh_par_classe?: Record<string, number | null>
-  /** Gaz : la molécule, puis sa décomposition. */
+  /** Gaz : le P0 saisi, la molécule présentée (P0 + marge, calculée), puis la décomposition. */
+  prix_molecule_p0_mwh?: number | null
   prix_energie_mwh?: number | null
   prix_cee_mwh?: number | null
   prix_cpb_mwh?: number | null
@@ -1748,6 +1752,7 @@ export function useEnregistrerPrixCompteur() {
       const { error } = await supabase.from('offres_compteurs_gaz').upsert(
         {
           offre_compteur_id: detailId,
+          ...(p.prix_molecule_p0_mwh !== undefined ? { prix_molecule_p0_mwh: p.prix_molecule_p0_mwh } : {}),
           ...(p.prix_energie_mwh !== undefined ? { prix_energie_mwh: p.prix_energie_mwh } : {}),
           ...(p.prix_cee_mwh !== undefined ? { prix_cee_mwh: p.prix_cee_mwh } : {}),
           ...(p.prix_cpb_mwh !== undefined ? { prix_cpb_mwh: p.prix_cpb_mwh } : {}),

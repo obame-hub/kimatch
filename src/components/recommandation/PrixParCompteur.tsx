@@ -87,29 +87,25 @@ function Champ({ libelle, children }: { libelle: string; children: React.ReactNo
 }
 
 /**
- * La marge retenue : celle qui sert au calcul de la commission du commercial.
+ * La molécule telle qu'elle est présentée au client : le prix net du fournisseur, plus la marge.
  *
- * RÈGLE DE MICHEL, appel du 19/08/2026 : « il va prendre en compte la marge retenue parce que ce sera
- * égal à la marge réelle plus ou moins la marge ajustée ». Donc :
+ * RÈGLE DE MICHEL, appel du 19/08/2026 : « Le champ actuel qui s'appelle molécule sera égal à
+ * molécule P0 plus marge. » Sa raison : « le prix de la molécule, ce n'est pas juste saisi, c'est
+ * quelque chose qui est présenté » — le prix nu du fournisseur, lui, c'est le P0, « on l'appelait même
+ * pas molécule, on l'appelait P0 ».
  *
- *   marge retenue = marge de référence + marge ajustable
+ *   molécule = molécule P0 + marge de référence
  *
- * La marge de référence est la marge de base que le commercial pose (« la marge réelle de 3 €, ou
- * disons de 6 € », que Michel appelle aussi « la marge de référence de base » — c'est ce libellé que
- * Naoëlle a retenu le 19/08 pour l'écran). La marge ajustable est son ajustement (« j'augmente de
- * 1 €, j'ajuste de 2 € »), négatif compris — d'où le « plus ou moins » : c'est le SIGNE de
- * l'ajustable qui le porte, pas une soustraction.
+ * LA MARGE N'EST DONC PLUS UN TERME À PART DANS LE BUDGET. Elle y entre par la molécule, une seule
+ * fois. L'ajouter aussi au budget énergie la compterait deux fois — c'est ce que faisait le calcul de
+ * ce matin, avant que Michel ne referme la question.
  *
- * LA COLONNE RESTE `marge_reelle_eur_mwh`, et les identifiants du code avec elle. Renommer la colonne
- * demanderait d'appliquer la migration AVANT le déploiement du code, sinon toute saisie de marge
- * échoue entre les deux. Le jeu n'en vaut la chandelle que si quelqu'un le demande : ici seul le
- * libellé lu à l'écran change.
- *
- * ELLE N'EST DONC PLUS SAISIE. Elle l'était jusqu'au 19/08 ; la laisser modifiable à côté de ses deux
- * termes permettrait d'afficher une retenue qui contredit sa propre définition.
+ * ET IL N'Y A PLUS QU'UNE MARGE : « on n'a plus besoin des trois autres types de marge, on a besoin
+ * d'une seule marge […] dès que je change la marge, ce sera forcément la marge réelle que j'ajoute. »
+ * La marge ajustable et la marge retenue quittent l'écran.
  */
-function margeRetenue(reelle: number | null | undefined, ajustable: number | null | undefined) {
-  return somme(reelle, ajustable)
+function moleculePresentee(p0: number | null | undefined, marge: number | null | undefined) {
+  return somme(p0, marge)
 }
 
 /**
@@ -132,9 +128,6 @@ function budgetsDepuisPrix(opts: {
   prixElec?: PrixOffreElectricite | null
   /** La consommation à retenir, si la saisie en cours la change. */
   consoForcee?: number | null
-  /** Les deux marges APRÈS la saisie en cours. Leur somme entre dans le budget énergie. */
-  margeReelle?: number | null
-  margeAjustable?: number | null
 }): { energie: number | null; contribution: number | null; total: number | null } {
   const { gaz, compteur, detail } = opts
 
@@ -146,16 +139,10 @@ function budgetsDepuisPrix(opts: {
       ?? compteur?.car_mwh
       ?? null
     if (conso == null) return { energie: null, contribution: null, total: null }
-    // Budget Énergie = conso × (molécule + marge + CEE + CPB) — formule de Michel du 19/08/2026.
-    // La marge prise est la RETENUE, c'est-à-dire réelle + ajustable : le budget énergie est ce que
-    // paie le client, il porte donc toute la marge du courtier et pas seulement son ajustement. Avec
-    // l'ajustable seul, une offre sans ajustement se vendrait au prix d'achat.
-    const partEnergie = somme(
-      p?.prix_energie_mwh,
-      margeRetenue(opts.margeReelle, opts.margeAjustable),
-      p?.prix_cee_mwh,
-      p?.prix_cpb_mwh,
-    )
+    // Budget Énergie = conso × (molécule + CEE + CPB) — formule de Michel du 19/08/2026.
+    // La marge est DANS `prix_energie_mwh`, que l'appelant a déjà calculé comme P0 + marge. La
+    // rajouter ici la compterait deux fois.
+    const partEnergie = somme(p?.prix_energie_mwh, p?.prix_cee_mwh, p?.prix_cpb_mwh)
     const partAcheminement = somme(p?.prix_atrd_mwh, p?.prix_agn_mwh)
     const energie = partEnergie == null ? null : partEnergie * conso
     const contribution = partAcheminement == null && p?.cta_annuel_ht == null
@@ -197,13 +184,14 @@ const CHAMPS_DE_PRIX = [
   'prix_energie_mwh', 'prix_cee_mwh', 'prix_cpb_mwh', 'prix_atrd_mwh', 'prix_agn_mwh',
   'cta_annuel_ht', 'abonnement_fourniture_annuel_ht', 'prix_mwh_par_classe',
   'consommation_annuelle_reference_mwh',
-  // Les marges depuis le 19/08/2026 : elles sont dans le budget énergie, les omettre ici laisserait
-  // un budget périmé après un ajustement de marge — exactement ce qu'on vient de corriger.
-  'marge_reelle_eur_mwh', 'marge_ajustable_eur_mwh',
+  // Le P0 et la marge composent la molécule, qui commande le budget énergie : les omettre ici
+  // laisserait un budget périmé après un ajustement de marge.
+  'prix_molecule_p0_mwh', 'marge_reelle_eur_mwh',
 ] as const
 
 const PRIX_GAZ_VIDE: PrixOffreGaz = {
-  type_prix: null, prix_energie_mwh: null, prix_cee_mwh: null, prix_cpb_mwh: null,
+  type_prix: null, prix_molecule_p0_mwh: null, prix_energie_mwh: null,
+  prix_cee_mwh: null, prix_cpb_mwh: null,
   prix_atrd_mwh: null, prix_agn_mwh: null, car_reference_mwh: null,
   abonnement_fourniture_annuel_ht: null, cta_annuel_ht: null,
 }
@@ -263,11 +251,23 @@ export function PrixParCompteur({
     let patch: PrixSaisi = prix
 
     if (CHAMPS_DE_PRIX.some((k) => k in prix)) {
+      // La marge et le P0 APRÈS la saisie en cours : `!== undefined` et non `??`, pour qu'un
+      // effacement volontaire (null) ne se fasse pas remplacer par la valeur d'avant.
+      const marge = prix.marge_reelle_eur_mwh !== undefined
+        ? prix.marge_reelle_eur_mwh
+        : detail?.marge_reelle_eur_mwh ?? null
+      const p0 = prix.prix_molecule_p0_mwh !== undefined
+        ? prix.prix_molecule_p0_mwh
+        : detail?.prix_gaz?.prix_molecule_p0_mwh ?? null
+
       const prixGaz: PrixOffreGaz | null = gaz
         ? {
             ...PRIX_GAZ_VIDE,
             ...(detail?.prix_gaz ?? {}),
-            ...(prix.prix_energie_mwh !== undefined ? { prix_energie_mwh: prix.prix_energie_mwh } : {}),
+            // La molécule n'est plus saisie : elle vaut P0 + marge, et c'est cette valeur que voient
+            // le budget énergie et les autres écrans.
+            prix_molecule_p0_mwh: p0,
+            prix_energie_mwh: moleculePresentee(p0, marge),
             ...(prix.prix_cee_mwh !== undefined ? { prix_cee_mwh: prix.prix_cee_mwh } : {}),
             ...(prix.prix_cpb_mwh !== undefined ? { prix_cpb_mwh: prix.prix_cpb_mwh } : {}),
             ...(prix.prix_atrd_mwh !== undefined ? { prix_atrd_mwh: prix.prix_atrd_mwh } : {}),
@@ -296,15 +296,6 @@ export function PrixParCompteur({
               : detail?.prix_electricite?.abonnement_fourniture_annuel_ht ?? null,
           }
 
-      // Les marges APRÈS la saisie en cours : `!== undefined` et non `??`, pour qu'un effacement
-      // volontaire (null) ne se fasse pas remplacer par la valeur d'avant.
-      const margeReelle = prix.marge_reelle_eur_mwh !== undefined
-        ? prix.marge_reelle_eur_mwh
-        : detail?.marge_reelle_eur_mwh ?? null
-      const margeAjustable = prix.marge_ajustable_eur_mwh !== undefined
-        ? prix.marge_ajustable_eur_mwh
-        : detail?.marge_ajustable_eur_mwh ?? null
-
       const b = budgetsDepuisPrix({
         gaz,
         compteur,
@@ -312,14 +303,12 @@ export function PrixParCompteur({
         prixGaz,
         prixElec,
         consoForcee: prix.consommation_annuelle_reference_mwh,
-        margeReelle,
-        margeAjustable,
       })
       patch = {
         ...prix,
-        // La marge retenue est un résultat, écrit avec ses termes : c'est elle que liront les calculs
-        // de commission, hors de cet écran.
-        marge_retenue_eur_mwh: margeRetenue(margeReelle, margeAjustable),
+        // La molécule présentée part avec le reste, gaz seulement : côté électricité le prix se tape
+        // par classe tarifaire, et Michel n'a pas encore cadré le P0 de ce côté-là.
+        ...(gaz ? { prix_energie_mwh: moleculePresentee(p0, marge) } : {}),
         ...(b.energie != null ? { cout_fourniture_annuel_ht: b.energie } : {}),
         ...(gaz && b.contribution != null ? { cout_acheminement_annuel_ht: b.contribution } : {}),
         ...(b.total != null ? { cout_total_annuel_estime_ht: b.total } : {}),
@@ -404,18 +393,31 @@ export function PrixParCompteur({
                     {gaz ? (
                       <>
                         <Groupe titre="Prix de l'énergie — €/MWh">
+                          {/* CALCULÉE depuis le 19/08/2026, et non plus saisie : Michel — « le prix
+                              de la molécule ne peut pas être saisi de manière brute », c'est le prix
+                              présenté au client. Il se tape en deux morceaux plus bas, P0 et marge. */}
                           <Champ libelle="Molécule">
-                            <ChampNombre
-                              valeur={detail?.prix_gaz?.prix_energie_mwh}
-                              suffixe="€/MWh" placeholder="— €/MWh" decimales={2} largeur="w-[76px]"
-                              titre="Prix de la molécule, l'énergie nue"
-                              peutModifier={peutModifier}
-                              onCommit={(v) => sauver({
-                                ...base,
-                                prix: { prix_energie_mwh: v, type_prix: offre.type_prix ?? null },
-                                message: v != null ? `✓ Molécule : ${v.toLocaleString('fr-FR')} €/MWh` : 'Molécule effacée',
-                              })}
-                            />
+                            {(() => {
+                              const m = moleculePresentee(
+                                detail?.prix_gaz?.prix_molecule_p0_mwh,
+                                detail?.marge_reelle_eur_mwh,
+                              )
+                              return m != null ? (
+                                <span
+                                  title="Molécule P0 + marge de référence — c'est le prix présenté au client, et c'est lui qui entre dans le budget énergie"
+                                  className="cursor-help font-mono text-kw-base font-bold text-kw-ink"
+                                >
+                                  {m.toLocaleString('fr-FR', { maximumFractionDigits: 2 })} €/MWh
+                                </span>
+                              ) : (
+                                <span
+                                  title="Se calcule dès que la molécule P0 ou la marge de référence est saisie, en bas de ce bloc"
+                                  className="cursor-help font-mono text-kw-base text-kw-ghost"
+                                >
+                                  — €/MWh
+                                </span>
+                              )
+                            })()}
                           </Champ>
                           <Champ libelle="CEE">
                             <ChampNombre
@@ -629,59 +631,57 @@ export function PrixParCompteur({
                   </div>
                 </div>
 
-                {/* ── Marges ──
-                    L'ORDRE EST CELUI DU RAISONNEMENT DE MICHEL (19/08/2026) : le commercial pose sa
-                    marge de base, l'ajuste, et la retenue tombe. Elle est en lecture seule parce
-                    qu'elle est la somme des deux précédentes — et c'est elle que liront les calculs
-                    de commission. */}
-                <div className="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1 border-t border-kw-border-faint pt-1.5">
-                  <Champ libelle="Marge référence">
-                    <ChampNombre
-                      valeur={detail?.marge_reelle_eur_mwh}
-                      suffixe="€/MWh" placeholder="— €/MWh" decimales={2} largeur="w-[76px]"
-                      titre="Marge de référence posée par le commercial sur ce PDL, avant tout ajustement"
-                      peutModifier={peutModifier}
-                      onCommit={(v) => sauver({
-                        ...base,
-                        prix: { marge_reelle_eur_mwh: v },
-                        message: v != null ? `✓ Marge référence : ${v.toLocaleString('fr-FR')} €/MWh` : 'Marge référence effacée',
-                      })}
-                    />
-                  </Champ>
-                  <Champ libelle="Marge ajustable">
-                    <ChampNombre
-                      valeur={detail?.marge_ajustable_eur_mwh}
-                      suffixe="€/MWh" placeholder="— €/MWh" decimales={2} largeur="w-[76px]"
-                      titre="Ajustement décidé en négociation : positif pour augmenter la marge, négatif pour la céder"
-                      peutModifier={peutModifier}
-                      onCommit={(v) => sauver({
-                        ...base,
-                        prix: { marge_ajustable_eur_mwh: v },
-                        message: v != null ? `✓ Marge ajustable : ${v.toLocaleString('fr-FR')} €/MWh` : 'Marge ajustable effacée',
-                      })}
-                    />
-                  </Champ>
-                  <Champ libelle="= Marge retenue">
-                    {(() => {
-                      const retenue = margeRetenue(detail?.marge_reelle_eur_mwh, detail?.marge_ajustable_eur_mwh)
-                      return retenue != null ? (
-                        <span
-                          title="Marge référence + marge ajustable — c'est elle qui sert au calcul de la commission, et c'est elle qui entre dans le budget énergie"
-                          className="cursor-help font-mono text-kw-base font-bold text-kw-ink"
-                        >
-                          {retenue.toLocaleString('fr-FR', { maximumFractionDigits: 2 })} €/MWh
-                        </span>
-                      ) : (
-                        <span
-                          title="Se calcule dès qu'une des deux marges est saisie"
-                          className="cursor-help font-mono text-kw-base text-kw-ghost"
-                        >
-                          — €/MWh
-                        </span>
-                      )
-                    })()}
-                  </Champ>
-                </div>
+                {/* ── Ce qui compose la molécule ──
+                    Michel, 19/08/2026 : « là où tu as mis les informations de marge de référence, ici
+                    je mettrai molécule P0, marge de référence tout simplement. Et c'est ça qui calcule
+                    molécule. » Les deux seules saisies, côte à côte, à l'endroit où on lit le résultat.
+
+                    MARGE AJUSTABLE ET MARGE RETENUE SONT PARTIES : « on n'a plus besoin des trois
+                    autres types de marge, on a besoin d'une seule marge […] dès que je change la
+                    marge, ce sera forcément la marge réelle que j'ajoute. » Leurs colonnes restent en
+                    base, vides — la logique a changé trois fois ce matin, un drop ne se rejoue pas. */}
+                {gaz ? (
+                  <div className="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1 border-t border-kw-border-faint pt-1.5">
+                    <Champ libelle="Molécule P0">
+                      <ChampNombre
+                        valeur={detail?.prix_gaz?.prix_molecule_p0_mwh}
+                        suffixe="€/MWh" placeholder="— €/MWh" decimales={2} largeur="w-[76px]"
+                        titre="Prix net de la molécule, hors marge — le P0 du fournisseur"
+                        peutModifier={peutModifier}
+                        onCommit={(v) => sauver({
+                          ...base,
+                          prix: { prix_molecule_p0_mwh: v, type_prix: offre.type_prix ?? null },
+                          message: v != null ? `✓ Molécule P0 : ${v.toLocaleString('fr-FR')} €/MWh` : 'Molécule P0 effacée',
+                        })}
+                      />
+                    </Champ>
+                    <Champ libelle="Marge référence">
+                      <ChampNombre
+                        valeur={detail?.marge_reelle_eur_mwh}
+                        suffixe="€/MWh" placeholder="— €/MWh" decimales={2} largeur="w-[76px]"
+                        titre="La marge, en €/MWh. La changer change la molécule présentée, et donc le budget énergie."
+                        peutModifier={peutModifier}
+                        onCommit={(v) => sauver({
+                          ...base,
+                          prix: { marge_reelle_eur_mwh: v },
+                          message: v != null ? `✓ Marge référence : ${v.toLocaleString('fr-FR')} €/MWh` : 'Marge référence effacée',
+                        })}
+                      />
+                    </Champ>
+                    <span className="text-kw-tiny text-kw-faint">
+                      Molécule = Molécule P0 + Marge référence
+                    </span>
+                  </div>
+                ) : (
+                  /* Côté électricité le prix se tape par classe tarifaire (HP, HC, HPH…). Michel :
+                     « il faudra juste rajouter P0 », et il prépare la note. On n'affiche donc pas une
+                     marge qui n'entrerait dans aucun calcul — un champ qui semble agir sans agir est
+                     pire qu'un champ absent. */
+                  <p className="mt-2 border-t border-kw-border-faint pt-1.5 text-kw-tiny leading-snug text-kw-meta">
+                    Molécule P0 et marge : la décomposition électricité reste à cadrer avec Michel, les
+                    composantes ne sont pas les mêmes qu'au gaz.
+                  </p>
+                )}
               </div>
             )
           })}
