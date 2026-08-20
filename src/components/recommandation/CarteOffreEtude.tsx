@@ -121,7 +121,22 @@ export function CarteOffreEtude({
         onClick={() => setOuvert((v) => !v)}
         onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setOuvert((v) => !v) } }}
         title={ouvert ? 'Replier le détail' : 'Ouvrir le détail de cette offre'}
-        className="flex cursor-pointer flex-wrap items-center gap-x-3 gap-y-2 px-3.5 py-3 hover:bg-kw-subtle"
+        className={cn(
+          'cursor-pointer items-center gap-x-3 gap-y-2 px-3.5 py-3 hover:bg-kw-subtle',
+          // UNE GRILLE À COLONNES FIXES dans le comparatif client, et non une rangée flexible.
+          //
+          // En flex, la largeur de chaque zone suit son contenu : une offre portant le badge
+          // « ★ Recommandation Kiwee » poussait sa barre et ses montants plus loin que les autres, et
+          // rien ne s'alignait d'une ligne à l'autre (signalé le 20/08/2026 — « c'est pas joli, le
+          // décalage »). Des colonnes de largeur déclarée règlent la question pour toutes les cartes
+          // à la fois, quel que soit le contenu de chacune.
+          //
+          // En interne, la rangée flexible reste la bonne réponse : il n'y a ni logo ni barre, et les
+          // deux ressorts latéraux centrent les chiffres au pixel.
+          avecIdentite
+            ? 'grid grid-cols-[40px_minmax(150px,1.1fr)_minmax(170px,1.6fr)_112px_136px_auto]'
+            : 'flex flex-wrap',
+        )}
       >
         {/* TROIS ZONES : l'identité à gauche, les chiffres au CENTRE, les actions à DROITE.
             Demande de Naoëlle du 20/08/2026. Les deux zones latérales portent `flex-1` : c'est ce qui
@@ -142,6 +157,25 @@ export function CarteOffreEtude({
           </button>
         )}
 
+        {/* LE LOGO EN TÊTE DE LIGNE, comme dans la maquette : c'est lui qu'on repère avant d'avoir
+            lu le nom. Il était placé entre la barre et les montants, ce qui le noyait au milieu.
+            Quand on ne l'a pas, une pastille d'initiales — afficher le logo d'un autre fournisseur
+            serait bien pire que de ne rien afficher. */}
+        {avecIdentite && (
+          logo ? (
+            <img src={logo} alt="" className="h-8 w-8 shrink-0 justify-self-center rounded-kw-sm object-contain" />
+          ) : (
+            <span
+              className={cn(
+                'flex h-8 w-8 shrink-0 items-center justify-center justify-self-center rounded-kw-sm text-kw-tiny font-extrabold',
+                offre.est_offre_recommandee ? 'bg-kw-green text-white' : 'bg-kw-muted text-kw-meta',
+              )}
+            >
+              {initialesFournisseur(offre.fournisseur_nom)}
+            </span>
+          )
+        )}
+
         {/* RIEN N'EST RÉPÉTÉ ICI. Michel puis Naoëlle, 20/08/2026 : « je vois Gaz Européen, après
             je revois encore Gaz Européen moins chère, je ne comprends plus » — puis « c'est écrit
             deux fois 12 mois fixe, c'est trop d'information ».
@@ -149,7 +183,7 @@ export function CarteOffreEtude({
             Dans le détail de version, l'en-tête de l'offre porte DÉJÀ sa durée, son type de prix, son
             statut et le bouton « Retenir » : la carte n'ajoute que les chiffres et la saisie. Elle ne
             reprend l'identité que dans le résumé client, où aucun en-tête ne la porte. */}
-        <span className={cn('min-w-[130px] flex-1', !avecIdentite && 'hidden')}>
+        <span className={cn('min-w-0', !avecIdentite ? 'hidden' : '')}>
           <span className="flex flex-wrap items-baseline gap-1.5">
             {avecFournisseur && (
               <span className="text-kw-md font-extrabold">{offre.fournisseur_nom || 'Fournisseur'}</span>
@@ -182,7 +216,7 @@ export function CarteOffreEtude({
             c'est plus de la présentation. Lui, qu'est-ce qu'il veut voir ? Il veut voir Gaz Européen,
             et puis la marge et le budget. » Elle reste donc dans le résumé client, où elle explique
             pourquoi deux offres au même total ne se valent pas. */}
-        <span className={cn('min-w-[160px] flex-1', !avecBarre && 'hidden')}>
+        <span className={cn('min-w-0', !avecBarre && 'hidden')}>
           {sommeParts != null && sommeParts > 0 ? (
             <>
               <span className="flex h-3.5 overflow-hidden rounded-kw-sm bg-kw-muted">
@@ -213,35 +247,12 @@ export function CarteOffreEtude({
           )}
         </span>
 
-        {/* LE LOGO DU FOURNISSEUR, dans le comparatif client seulement — c'est ce qui permet de
-            reconnaître une offre avant d'avoir lu son nom. Quand on n'a pas le logo, une pastille
-            d'initiales : afficher le logo d'un autre fournisseur serait bien pire que de ne rien
-            afficher. */}
-        {avecIdentite && (
-          logo ? (
-            <img
-              src={logo}
-              alt=""
-              className="h-8 w-8 shrink-0 rounded-kw-sm object-contain"
-            />
-          ) : (
-            <span
-              className={cn(
-                'flex h-8 w-8 shrink-0 items-center justify-center rounded-kw-sm text-kw-tiny font-extrabold',
-                offre.est_offre_recommandee ? 'bg-kw-green text-white' : 'bg-kw-muted text-kw-meta',
-              )}
-            >
-              {initialesFournisseur(offre.fournisseur_nom)}
-            </span>
-          )
-        )}
-
         {!avecIdentite && <span className="min-w-0 flex-1" />}
 
         {/* ── Les chiffres, au centre ──
             Michel : « il veut savoir : est-ce que j'ai reçu l'offre de Gaz Européen ? Voici la marge.
             Voici le budget. Fin du game. » */}
-        <span className="flex shrink-0 items-center gap-5 text-center">
+        <span className={cn('flex items-center text-center', avecIdentite ? 'justify-end gap-4' : 'shrink-0 gap-5')}>
           {!avecBarre && (
             <span>
               <span className="block font-mono text-kw-base font-bold tabular-nums">
@@ -292,7 +303,7 @@ export function CarteOffreEtude({
         {/* ── Les actions, à droite ──
             `flex-1` fait ici office de second ressort : avec celui de la zone d'identité, il garde
             les chiffres au milieu quelle que soit la largeur des boutons. */}
-        <span className="flex min-w-0 flex-1 items-center justify-end gap-2">
+        <span className={cn('flex min-w-0 items-center justify-end gap-2', !avecIdentite && 'flex-1')}>
           {actions}
           <span className="w-3 shrink-0 text-center text-kw-sm text-kw-faint">{ouvert ? '▾' : '▸'}</span>
         </span>

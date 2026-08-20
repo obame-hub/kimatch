@@ -5,6 +5,7 @@ import { ORDRE_CLASSES, somme } from '@/lib/calculs/prixOffre'
 import { libelleOffre } from '@/lib/data/recommandations'
 import kiweePicto from '@/assets/kiwee-picto.png'
 import { CarteOffreEtude } from './CarteOffreEtude'
+import { ResumeEtudeClient } from './ResumeEtudeClient'
 import type {
   Compte,
   Compteur,
@@ -406,6 +407,20 @@ export function DocumentComparatif({
               Michel, 20/08/2026 : « sur le bouton qui sera document comparatif, on pourra reprendre
               encore son même truc » — le même modèle que dans le détail de version, donc le même
               composant. Une seule présentation à apprendre, et une seule à corriger. */}
+          {/* ── Le résumé, avant le comparatif ──
+              L'ordre des onglets de William, qui est aussi celui des questions du client : combien
+              j'économise, puis avec qui. Un comparatif ouvert sans résumé oblige à additionner des
+              colonnes pour savoir si l'étude valait la peine. */}
+          <div className="mt-5">
+            <ResumeEtudeClient
+              reco={reco}
+              version={version}
+              compteurs={compteurs}
+              offres={colonnes}
+              offreRetenue={retenue ?? null}
+            />
+          </div>
+
           {/* ── Le comparatif d'offres, au modèle de l'étude client de William ──
               Michel demande de « reprendre son même truc ». Trois choses de sa maquette manquaient et
               changent la lecture :
