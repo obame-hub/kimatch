@@ -21,16 +21,21 @@ import type {
  * CARAUDREY). C'est le document de référence que Michel demandait depuis deux jours : « c'est celui
  * d'Enéo qu'il faut se baser ».
  *
- * SA STRUCTURE, dans l'ordre du modèle :
+ * SA STRUCTURE, telle que Michel l'a cadrée le 20/08/2026 après nous avoir montré Enéo à l'écran —
+ * « nous, on veut juste voir ça dans un premier temps : donc fournisseur, budget comparatif, et
+ * ensuite après tu peux aller voir le détail » :
  *
  *   1. l'en-tête à quatre colonnes — Kiwee, le conseiller, le destinataire, le client ;
  *   2. le titre daté, puis trois encarts : sites, énergie, validité ;
  *   3. la note sur le statut de courtier et le mode de rémunération ;
- *   4. les fournisseurs consultés ;
- *   5. la synthèse annuelle : une colonne par offre, les budgets décomposés jusqu'au TTC, puis les
- *      analyses tarifaires ;
- *   6. le détail par point de livraison ;
- *   7. le lexique des composantes.
+ *   4. la synthèse : une colonne par fournisseur, les budgets décomposés jusqu'au TTC ;
+ *   5. le détail par point de livraison ;
+ *   6. le lexique des composantes.
+ *
+ * DEUX CHOSES SONT VOLONTAIREMENT ABSENTES, sur sa consigne : « sans les trucs des évolutions, on les
+ * rajoutera après. Ni fournisseurs consultés. » Les lignes d'évolution supposent de toute façon une
+ * offre de référence qui n'existe pas encore dans le modèle de données. La position tarifaire les
+ * remplace : elle classe sans comparer à autre chose que les offres du tableau.
  *
  * LA DÉCOMPOSITION SUIT LE MODÈLE À LA LETTRE, et elle diffère selon l'énergie — c'est le point que
  * le rapport a permis de trancher, là où Michel devait « envoyer les documents » :
@@ -190,8 +195,8 @@ export function DocumentComparatif({
     >
       <div className="mb-4 flex items-center gap-2 border-b border-kw-border pb-3 print:hidden">
         <p className="mr-auto text-kw-sm text-kw-meta">
-          Reproduit le compte rendu Enéo. « Imprimer » ouvre la fenêtre du navigateur, où
-          « Enregistrer au format PDF » produit le fichier.
+          Synthèse par fournisseur, puis détail par point de livraison. Le bouton ouvre la fenêtre
+          d'impression du navigateur, où « Enregistrer au format PDF » produit le fichier.
         </p>
         <button
           type="button"
@@ -200,7 +205,7 @@ export function DocumentComparatif({
           className="inline-flex items-center gap-1.5 rounded-kw-md bg-kw-green px-3.5 py-2 text-kw-sm font-bold text-white shadow-kw-green hover:brightness-95 disabled:opacity-50 disabled:shadow-none"
         >
           <Printer className="h-3.5 w-3.5" />
-          Imprimer / PDF
+          Télécharger le rapport
         </button>
       </div>
 
@@ -276,21 +281,7 @@ export function DocumentComparatif({
             </p>
           </section>
 
-          {/* ── 4. Les fournisseurs consultés ───────────────────────────────── */}
-          <h2 className="mt-5 text-kw-base font-extrabold">Fournisseurs consultés</h2>
-          <p className="mb-1.5 text-kw-tiny text-kw-meta">
-            {colonnes.length} offre{colonnes.length > 1 ? 's' : ''} chiffrée
-            {colonnes.length > 1 ? 's' : ''} sur cette consultation.
-          </p>
-          <div className="flex flex-wrap gap-1.5">
-            {[...new Set(colonnes.map((o) => o.fournisseur_nom).filter(Boolean))].map((nom) => (
-              <span key={nom} className="rounded-kw-xs border border-kw-border bg-kw-subtle px-2 py-0.5 text-kw-sm font-semibold">
-                {nom}
-              </span>
-            ))}
-          </div>
-
-          {/* ── 5. La synthèse annuelle ─────────────────────────────────────── */}
+          {/* ── 4. La synthèse annuelle ─────────────────────────────────────── */}
           <h2 className="mt-5 text-kw-base font-extrabold">
             Synthèse annuelle des {colonnes.length} offre{colonnes.length > 1 ? 's' : ''} de fourniture
           </h2>
@@ -325,10 +316,13 @@ export function DocumentComparatif({
                   texte={(o) => libelleOffre(o.duree_mois, o.type_prix)} />
                 <Ligne titre={toutGaz ? 'Prix molécule' : 'Type de prix'} colonnes={colonnes} vedette={miseEnAvant?.id}
                   texte={(o) => o.type_prix || '—'} />
-                {!toutGaz && (
-                  <Ligne titre="Énergie verte" colonnes={colonnes} vedette={miseEnAvant?.id}
-                    texte={(o) => (budgets(o).go != null && budgets(o).go! > 0 ? 'Incluse' : 'Non incluse')} />
-                )}
+                {/* Enéo l'affiche dans les deux énergies, pas seulement en électricité. */}
+                <Ligne titre="Énergie verte" colonnes={colonnes} vedette={miseEnAvant?.id}
+                  texte={(o) => (budgets(o).go != null && budgets(o).go! > 0 ? 'Incluse' : 'Non incluse')} />
+                <Ligne titre="Valable jusqu'au" colonnes={colonnes} vedette={miseEnAvant?.id}
+                  texte={(o) => (o.date_validite
+                    ? new Date(o.date_validite).toLocaleDateString('fr-FR')
+                    : '—')} />
 
                 <Rubrique titre="Budgets en € / an (1)" nb={colonnes.length} />
                 <Montant titre="Total TTC" colonnes={colonnes} vedette={miseEnAvant?.id} val={(o) => budgets(o).ttc} fort />
@@ -349,23 +343,18 @@ export function DocumentComparatif({
                 <Montant titre="CTA" colonnes={colonnes} vedette={miseEnAvant?.id}
                   val={(o) => somme(budgets(o).ctaGaz, budgets(o).ctaElec)} sous />
 
-                <Rubrique titre="Analyses tarifaires" nb={colonnes.length} />
-                <Ligne titre="Prix moyen (2)" colonnes={colonnes} vedette={miseEnAvant?.id}
+                <Rubrique titre="Comparaison" nb={colonnes.length} />
+                <Ligne titre="Prix moyen (abo. + énergie) (2)" colonnes={colonnes} vedette={miseEnAvant?.id}
                   texte={(o) => {
                     const p = budgets(o).prixMoyen
                     return p == null ? '—' : `${p.toLocaleString('fr-FR', { maximumFractionDigits: 2 })} €/MWh`
                   }} />
-                {colonnes.length > 1 && (
-                  <Ligne titre="Écart avec la moins chère" colonnes={colonnes} vedette={miseEnAvant?.id}
-                    texte={(o) => {
-                      const base = colonnes[0].montant_annuel_ht ?? 0
-                      const a = o.montant_annuel_ht ?? 0
-                      if (o.id === colonnes[0].id) return '—'
-                      const pct = base > 0 ? ((a - base) / base) * 100 : null
-                      return `+ ${Math.round(a - base).toLocaleString('fr-FR')} € / an HTVA`
-                        + (pct != null ? ` (${pct.toLocaleString('fr-FR', { maximumFractionDigits: 2 })} %)` : '')
-                    }} />
-                )}
+                {/* LA POSITION TARIFAIRE remplace les lignes d'évolution. Michel, 20/08/2026,
+                    après nous avoir montré Enéo : « sans les trucs des évolutions, on les rajoutera
+                    après ». Le classement, lui, ne compare pas à une offre de référence — il se lit
+                    dans le tableau et Enéo l'affiche sous ce nom. */}
+                <Ligne titre="Position tarifaire" colonnes={colonnes} vedette={miseEnAvant?.id}
+                  texte={(o) => `n° ${colonnes.findIndex((x) => x.id === o.id) + 1}`} />
               </tbody>
             </table>
           </div>
@@ -378,7 +367,7 @@ export function DocumentComparatif({
             à la consommation annuelle des points de livraison.
           </p>
 
-          {/* ── 6. Le détail par point de livraison ─────────────────────────── */}
+          {/* ── 5. Le détail par point de livraison ─────────────────────────── */}
           <h2 className="mt-6 text-kw-base font-extrabold">
             Détail des {colonnes.length} offre{colonnes.length > 1 ? 's' : ''} de fourniture par point
             de livraison
@@ -445,7 +434,7 @@ export function DocumentComparatif({
             </table>
           </div>
 
-          {/* ── 7. Le lexique ───────────────────────────────────────────────── */}
+          {/* ── 6. Le lexique ───────────────────────────────────────────────── */}
           <h2 className="mt-6 text-kw-base font-extrabold">Lexique</h2>
           <div className="mt-1 grid grid-cols-1 gap-x-6 gap-y-2 sm:grid-cols-2 lg:grid-cols-3">
             {(toutGaz ? LEXIQUE_GAZ : LEXIQUE_ELEC).map((e) => (
