@@ -403,13 +403,14 @@ export function DocumentComparatif({
             livraison, puis un point de livraison pour ses composantes.
           </p>
           <div className="flex flex-col gap-2">
-            {colonnes.map((o, rang) => (
+            {colonnes.map((o) => (
               <CarteOffreEtude
                 key={o.id}
                 offre={o}
                 compteurs={compteurs}
                 reference={colonnes[0] ?? null}
-                rang={rang + 1}
+                avecFournisseur
+                avecBarre
               />
             ))}
           </div>

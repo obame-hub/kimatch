@@ -1,16 +1,7 @@
 import { useState } from 'react'
-import {
-  budgetsDepuisPrix,
-  CHAMPS_DE_PRIX,
-  classesDuCompteur,
-  LIBELLE_CLASSE,
-  moleculePresentee,
-  ORDRE_CLASSES,
-  PRIX_GAZ_VIDE,
-} from '@/lib/calculs/prixOffre'
+import { budgetsDepuisPrix, CHAMPS_DE_PRIX, moleculePresentee, PRIX_GAZ_VIDE } from '@/lib/calculs/prixOffre'
 import { SaisiePrixDialog } from './SaisiePrixDialog'
-import { ChevronDown, ChevronRight, Zap, Flame, ExternalLink, PenLine } from 'lucide-react'
-import { useNavigate } from 'react-router-dom'
+import { Zap, Flame, PenLine } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { useEnregistrerPrixCompteur, type PrixParCompteur as PrixSaisi } from '@/lib/data/recommandations'
 import type {
@@ -73,10 +64,10 @@ export function PrixParCompteur({
   peutModifier: boolean
   signaler: (message: string) => void
 }) {
-  const [ouvert, setOuvert] = useState(false)
   // Le point de livraison dont le formulaire est ouvert, s'il y en a un.
   const [saisieOuverte, setSaisieOuverte] = useState<string | null>(null)
-  const navigate = useNavigate()
+  // Le menu de choix du point de livraison, quand l'offre en couvre plusieurs.
+  const [choixOuvert, setChoixOuvert] = useState(false)
   const enregistrer = useEnregistrerPrixCompteur()
 
   const parId = new Map(compteurs.map((c) => [c.id, c]))
@@ -216,205 +207,139 @@ export function PrixParCompteur({
       signaler(messageDErreur(e))
     }
   }
+
+  /**
+   * Traduit l'échec d'un enregistrement en quelque chose d'actionnable.
+   *
+   * POURQUOI CETTE FONCTION EXISTE. Le 20/08/2026, Michel signale que le P0, l'abonnement et le TURPE
+   * ne s'enregistrent pas, alors que la marge et la consommation passent. La cause : la colonne
+   * `prix_turpe_annuel_ht` n'existait pas encore en base. Dès que le champ était touché, PostgREST
+   * rejetait TOUTE l'écriture du prix — les trois champs de cette table partaient donc ensemble, et
+   * l'écran affichait « column ... does not exist », un message dans lequel personne ne lit « il
+   * manque une migration ».
+   */  function messageDErreur(e: unknown): string {
+    const brut = e instanceof Error ? e.message : String(e)
+    if (/column .* does not exist|PGRST204|42703|schema cache/i.test(brut)) {
+      return `Enregistrement refusé : la base n'a pas encore la colonne attendue. Une migration reste à appliquer. (${brut})`
+    }
+    return `Erreur : ${brut}`
+  }
+
+  // Un seul point de livraison : le bouton l'ouvre directement. Plusieurs : il ouvre un choix, parce
+  // qu'un bouton qui décide à votre place duquel il s'agit est un bouton qu'on n'ose plus cliquer.
+  const unSeul = version.compteurs.length === 1
+
   return (
-    <div className="mt-2 border-t border-kw-border-faint pt-1.5">
-      <button
-        type="button"
-        onClick={() => setOuvert((v) => !v)}
-        className="inline-flex items-center gap-1 text-kw-sm font-semibold text-kw-label hover:text-kw-ink"
-      >
-        {ouvert ? <ChevronDown className="h-3 w-3" /> : <ChevronRight className="h-3 w-3" />}
-        Détail par compteur
-        <span className="font-normal text-kw-faint">
-          ({chiffres}/{version.compteurs.length} chiffré{chiffres > 1 ? 's' : ''})
-        </span>
-      </button>
+    <>
+      {peutModifier && (
+        <span className="relative inline-flex">
+          <button
+            type="button"
+            onClick={(e) => {
+              e.stopPropagation()
+              if (unSeul) setSaisieOuverte(version.compteurs[0].lien_id)
+              else setChoixOuvert((v) => !v)
+            }}
+            title={`Saisir les prix de cette offre — ${chiffres} point${chiffres > 1 ? 's' : ''} de livraison chiffré${chiffres > 1 ? 's' : ''} sur ${version.compteurs.length}`}
+            className={cn(
+              'inline-flex items-center gap-1 rounded-kw-md px-2 py-1 text-kw-tiny font-bold',
+              chiffres === 0
+                ? 'bg-kw-green text-white hover:brightness-95'
+                : 'border border-kw-border-strong bg-white text-kw-label hover:border-kw-green hover:text-kw-green',
+            )}
+          >
+            <PenLine className="h-2.5 w-2.5" />
+            {chiffres === 0 ? 'Saisir les prix' : 'Modifier les prix'}
+            {!unSeul && (
+              <span className="font-normal text-kw-faint">
+                {chiffres}/{version.compteurs.length}
+              </span>
+            )}
+          </button>
 
-      {ouvert && (
-        <div className="mt-1.5 space-y-1.5">
-          {version.compteurs.map((lien) => {
-            const compteur = parId.get(lien.compteur_id)
-            const gaz = compteur?.type_energie === 'gaz'
-            const detail = detailParLien.get(lien.lien_id)
-            const classes = gaz ? [] : ORDRE_CLASSES.filter((c) => classesDuCompteur(compteur).includes(c))
-            const volume = gaz
-              ? detail?.consommation_annuelle_reference_mwh ?? compteur?.car_mwh ?? null
-              : detail?.consommation_annuelle_reference_mwh ?? compteur?.consommation_annuelle_mwh ?? null
-            // « Chiffré » veut dire qu'un PRIX existe, pas qu'un budget existe : c'est le prix qui se
-            // saisit, le budget n'en est que la conséquence.
-            const chiffre = gaz
-              ? detail?.prix_gaz?.prix_molecule_p0_mwh != null || detail?.prix_gaz?.prix_energie_mwh != null
-              : Object.keys(detail?.prix_electricite?.p0_mwh_par_classe ?? {}).length > 0
-                || Object.keys(detail?.prix_electricite?.prix_mwh_par_classe ?? {}).length > 0
-
-            return (
-              <div key={lien.lien_id} className="rounded-kw-md border border-kw-border-subtle bg-kw-subtle px-2.5 py-2">
-                <div className="flex flex-wrap items-center gap-2">
-                  <span
-                    className={cn(
-                      'flex h-5 w-5 shrink-0 items-center justify-center rounded-kw-sm',
-                      gaz ? 'bg-kw-gas-light text-kw-gas' : 'bg-kw-gold-light text-kw-gold',
-                    )}
-                  >
-                    {gaz ? <Flame className="h-2.5 w-2.5" /> : <Zap className="h-2.5 w-2.5" />}
-                  </span>
+          {/* Le choix du point de livraison, quand il y en a plusieurs. Chaque ligne dit si elle est
+              déjà chiffrée : c'est l'information qui décide où aller. */}
+          {choixOuvert && !unSeul && (
+            <span
+              onClick={(e) => e.stopPropagation()}
+              className="animate-kw-fade-slide absolute right-0 top-full z-30 mt-1 flex w-64 flex-col rounded-kw-lg border border-kw-border bg-white py-1 shadow-kw-panel"
+            >
+              <span className="px-3 py-1 text-kw-micro font-bold uppercase tracking-[0.08em] text-kw-faint">
+                Quel point de livraison ?
+              </span>
+              {version.compteurs.map((lien) => {
+                const compteur = parId.get(lien.compteur_id)
+                const detail = detailParLien.get(lien.lien_id)
+                const chiffre = detail?.prix_gaz?.prix_molecule_p0_mwh != null
+                  || detail?.prix_gaz?.prix_energie_mwh != null
+                  || Object.keys(detail?.prix_electricite?.p0_mwh_par_classe ?? {}).length > 0
+                  || Object.keys(detail?.prix_electricite?.prix_mwh_par_classe ?? {}).length > 0
+                return (
                   <button
+                    key={lien.lien_id}
                     type="button"
-                    onClick={() => navigate(`/compteurs/${lien.compteur_id}`)}
-                    className="inline-flex items-center gap-1 text-kw-base font-bold text-kw-ink hover:text-kw-green hover:underline"
+                    onClick={() => { setChoixOuvert(false); setSaisieOuverte(lien.lien_id) }}
+                    className="flex items-center gap-2 px-3 py-1.5 text-left hover:bg-kw-subtle"
                   >
-                    {compteur?.utilisation || lien.label || 'Compteur'}
-                    <ExternalLink className="h-2.5 w-2.5" />
-                  </button>
-                  <span className="font-mono text-kw-tiny text-kw-faint">{compteur?.numero_pdl ?? ''}</span>
-                  {compteur?.segment && (
-                    <span className="rounded-kw-xs bg-kw-muted px-1.5 py-px text-kw-micro font-bold text-kw-meta">
-                      {compteur.segment}
-                    </span>
-                  )}
-                  <span className="font-mono text-kw-tiny text-kw-faint">
-                    {volume != null ? `${volume.toLocaleString('fr-FR')} MWh/an` : 'volume inconnu'}
-                  </span>
-                  <span className="flex-1" />
-                  {peutModifier && (
-                    <button
-                      type="button"
-                      onClick={() => setSaisieOuverte(lien.lien_id)}
+                    <span
                       className={cn(
-                        'inline-flex items-center gap-1 rounded-kw-md px-2 py-[3px] text-kw-tiny font-bold',
-                        chiffre
-                          ? 'border border-kw-border-strong bg-white text-kw-label hover:border-kw-green hover:text-kw-green'
-                          : 'bg-kw-green text-white hover:brightness-95',
+                        'flex h-4 w-4 shrink-0 items-center justify-center rounded-kw-xs',
+                        compteur?.type_energie === 'gaz'
+                          ? 'bg-kw-gas-light text-kw-gas'
+                          : 'bg-kw-gold-light text-kw-gold',
                       )}
                     >
-                      <PenLine className="h-2.5 w-2.5" />
-                      {chiffre ? 'Modifier les prix' : 'Saisir les prix'}
-                    </button>
-                  )}
-                </div>
-
-                <SaisiePrixDialog
-                  ouvert={saisieOuverte === lien.lien_id}
-                  onFermer={() => setSaisieOuverte(null)}
-                  gaz={gaz}
-                  compteur={compteur}
-                  libelleCompteur={compteur?.numero_pdl || compteur?.utilisation || lien.label || 'Compteur'}
-                  detail={detail}
-                  dureeMois={offre.duree_mois}
-                  enCours={enregistrer.isPending}
-                  onEnregistrer={(prix) => sauver({
-                    lienId: lien.lien_id, gaz, compteur, detail, prix, message: '✓ Prix enregistrés',
-                  })}
-                />
-
-                {/* ── Lecture seule ──
-                    LA SAISIE INLINE A ÉTÉ RETIRÉE le 19/08/2026, à la demande de Naoëlle :
-                    « justement pour enlever l'inline ». Deux endroits pour saisir la même chose, ce
-                    sont deux endroits à apprendre — et l'inline n'expliquait aucun de ses champs. Le
-                    dépliant lit, le formulaire écrit et explique. */}
-                {!chiffre ? (
-                  <p className="mt-1.5 text-kw-tiny text-kw-faint">
-                    Aucun prix saisi sur ce point de livraison.
-                  </p>
-                ) : (
-                  <div className="mt-1.5 grid grid-cols-1 gap-x-6 gap-y-1.5 lg:grid-cols-[1.3fr_1fr]">
-                    <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
-                      {gaz ? (
-                        <>
-                          <Lu libelle="Molécule" valeur={detail?.prix_gaz?.prix_energie_mwh} unite="€/MWh" fort />
-                          <Lu libelle="P0" valeur={detail?.prix_gaz?.prix_molecule_p0_mwh} unite="€/MWh" />
-                          <Lu libelle="Marge" valeur={detail?.marge_reelle_eur_mwh} unite="€/MWh" />
-                          <Lu libelle="CEE" valeur={detail?.prix_gaz?.prix_cee_mwh} unite="€/MWh" />
-                          <Lu libelle="CPB" valeur={detail?.prix_gaz?.prix_cpb_mwh} unite="€/MWh" />
-                          <Lu libelle="Abonnement" valeur={detail?.prix_gaz?.abonnement_fourniture_annuel_ht} unite="€/an" />
-                          <Lu libelle="ATRD" valeur={detail?.prix_gaz?.prix_atrd_mwh} unite="€/MWh" />
-                          <Lu libelle="AGN" valeur={detail?.prix_gaz?.prix_agn_mwh} unite="€/MWh" />
-                          <Lu libelle="CTA" valeur={detail?.prix_gaz?.cta_annuel_ht} unite="€/an" />
-                        </>
-                      ) : (
-                        <>
-                          {classes.map((classe) => (
-                            <Lu
-                              key={classe}
-                              libelle={LIBELLE_CLASSE[classe] ?? classe}
-                              valeur={detail?.prix_electricite?.prix_mwh_par_classe?.[classe]}
-                              unite="€/MWh"
-                              fort
-                            />
-                          ))}
-                          <Lu libelle="Marge" valeur={detail?.marge_reelle_eur_mwh} unite="€/MWh" />
-                          <Lu libelle="Abonnement" valeur={detail?.prix_electricite?.abonnement_fourniture_annuel_ht} unite="€/an" />
-                          <Lu libelle="TURPE" valeur={detail?.prix_electricite?.prix_turpe_annuel_ht} unite="€/an" />
-                        </>
+                      {compteur?.type_energie === 'gaz'
+                        ? <Flame className="h-2 w-2" />
+                        : <Zap className="h-2 w-2" />}
+                    </span>
+                    <span className="min-w-0 flex-1 truncate font-mono text-kw-tiny">
+                      {compteur?.numero_pdl || lien.label || 'Compteur'}
+                    </span>
+                    <span
+                      className={cn(
+                        'shrink-0 text-kw-micro font-bold',
+                        chiffre ? 'text-kw-green' : 'text-kw-faint',
                       )}
-                    </div>
-
-                    <div className="flex flex-wrap items-center gap-x-3 gap-y-1 lg:border-l lg:border-kw-border-faint lg:pl-5">
-                      <Lu libelle="Budget énergie" valeur={detail?.cout_fourniture_annuel_ht} unite="€/an" />
-                      {gaz && (
-                        <Lu libelle="Budget abonnement" valeur={detail?.prix_gaz?.abonnement_fourniture_annuel_ht} unite="€/an" />
-                      )}
-                      <Lu
-                        libelle={gaz ? 'Budget contribution' : 'Budget TURPE'}
-                        valeur={detail?.cout_acheminement_annuel_ht}
-                        unite="€/an"
-                      />
-                      <Lu libelle="Budget total" valeur={detail?.cout_total_annuel_estime_ht} unite="€/an" fort />
-                    </div>
-                  </div>
-                )}
-              </div>
-            )
-          })}
-        </div>
+                    >
+                      {chiffre ? 'chiffré' : 'à chiffrer'}
+                    </span>
+                  </button>
+                )
+              })}
+            </span>
+          )}
+        </span>
       )}
-    </div>
-  )
-}
 
-/**
- * Traduit l'échec d'un enregistrement en quelque chose d'actionnable.
- *
- * POURQUOI CETTE FONCTION EXISTE. Le 20/08/2026, Michel signale que le P0, l'abonnement et le TURPE
- * ne s'enregistrent pas, alors que la marge et la consommation passent. La cause : la colonne
- * `prix_turpe_annuel_ht` n'existait pas encore en base, la migration n'avait pas été appliquée. Dès
- * que le champ TURPE était touché, PostgREST rejetait TOUTE l'écriture du prix — les trois champs de
- * cette table partaient donc ensemble, et l'écran affichait « Erreur : column ... does not exist »,
- * un message dans lequel personne ne lit « il manque une migration ».
- *
- * Une colonne absente est le seul cas où l'utilisateur ne peut rien faire d'autre qu'appeler à
- * l'aide : autant que le message le dise, plutôt que de laisser chercher.
- */
-function messageDErreur(e: unknown): string {
-  const brut = e instanceof Error ? e.message : String(e)
-  // PostgREST : 42703 en SQL, PGRST204 pour une colonne inconnue du schéma mis en cache.
-  if (/column .* does not exist|PGRST204|42703|schema cache/i.test(brut)) {
-    return `Enregistrement refusé : la base n'a pas encore la colonne attendue. Une migration reste à appliquer. (${brut})`
-  }
-  return `Erreur : ${brut}`
-}
-
-/** Une valeur en lecture. `null` se lit « — » et jamais « 0 ». */
-function Lu({ libelle, valeur, unite, fort }: {
-  libelle: string
-  valeur: number | null | undefined
-  unite: string
-  fort?: boolean
-}) {
-  return (
-    <span className="flex items-baseline gap-1">
-      <span className="text-kw-tiny text-kw-faint">{libelle}</span>
-      <span
-        className={cn(
-          'font-mono tabular-nums',
-          valeur == null ? 'text-kw-ghost' : 'text-kw-ink',
-          fort ? 'text-kw-base font-bold' : 'text-kw-tiny',
-        )}
-      >
-        {valeur == null
-          ? `— ${unite}`
-          : `${unite === '€/an' ? Math.round(valeur).toLocaleString('fr-FR') : valeur.toLocaleString('fr-FR', { maximumFractionDigits: 2 })} ${unite}`}
-      </span>
-    </span>
+      {/* LE DÉPLIANT DE RELECTURE A DISPARU. Michel, 20/08/2026 : « quand je clique ici j'ai le
+          détail, ensuite si je clique sur le détail j'ai ça — donc ça, on peut l'enlever, c'est plus
+          propre. » La carte de l'offre montre déjà les prix et les budgets par point de livraison ;
+          ce composant ne fait plus qu'ouvrir la saisie. */}
+      {version.compteurs.map((lien) => {
+        const compteur = parId.get(lien.compteur_id)
+        return (
+          <SaisiePrixDialog
+            key={lien.lien_id}
+            ouvert={saisieOuverte === lien.lien_id}
+            onFermer={() => setSaisieOuverte(null)}
+            gaz={compteur?.type_energie === 'gaz'}
+            compteur={compteur}
+            libelleCompteur={compteur?.numero_pdl || compteur?.utilisation || lien.label || 'Compteur'}
+            detail={detailParLien.get(lien.lien_id)}
+            dureeMois={offre.duree_mois}
+            enCours={enregistrer.isPending}
+            onEnregistrer={(prix) => sauver({
+              lienId: lien.lien_id,
+              gaz: compteur?.type_energie === 'gaz',
+              compteur,
+              detail: detailParLien.get(lien.lien_id),
+              prix,
+              message: '✓ Prix enregistrés',
+            })}
+          />
+        )
+      })}
+    </>
   )
 }

@@ -207,8 +207,18 @@ export function Topbar({ title, crumb }: { title: string; crumb?: string }) {
     inputRef.current?.blur()
   }
 
+  // GRILLE À TROIS COLONNES, et non une rangée à ressorts.
+  //
+  // Le logo était posé entre deux `flex-1`, ce qui le centrait sur l'espace RESTANT — donc à droite,
+  // puisque le fil d'Ariane, la recherche et le ticker occupent bien plus de place que le bouton de
+  // déconnexion. Signalé le 20/08/2026.
+  //
+  // Deux colonnes latérales de largeur identique (`minmax(0,1fr)`) le centrent sur la page, sans
+  // recourir à un positionnement absolu : celui-ci avait déjà provoqué un recouvrement du ticker dès
+  // 1568 px, corrigé le 16/08/2026, et on ne le réintroduit pas.
   return (
-    <header className="relative flex h-[52px] items-center gap-3.5 border-b border-navy-100 bg-white px-4 sm:px-5">
+    <header className="relative grid h-[52px] grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] items-center gap-3.5 border-b border-navy-100 bg-white px-4 sm:px-5">
+      <div className="flex min-w-0 items-center gap-3.5">
       <div className="min-w-0 truncate text-[12px] text-navy-500">
         {crumb && <span>{crumb} / </span>}
         <span className="font-semibold text-navy-800">{title}</span>
@@ -258,17 +268,15 @@ export function Topbar({ title, crumb }: { title: string; crumb?: string }) {
           venait se poser SUR le ticker et masquait « BASE Cal27 », qui se lisait « ...27 ».
           Remis dans le flux entre deux ressorts : il reste au milieu de l'espace disponible et ne
           peut plus recouvrir quoi que ce soit, quelle que soit la largeur. */}
-      <div className="flex-1" />
+      </div>
 
       <img
         src={kimatchLogo}
-        alt="KiWee"
-        className="pointer-events-none hidden h-9 w-auto shrink-0 object-contain md:block"
+        alt="Kimatch"
+        className="pointer-events-none hidden h-9 w-auto shrink-0 justify-self-center object-contain md:block"
       />
 
-      <div className="flex-1" />
-
-      <div className="flex shrink-0 items-center gap-2">
+      <div className="flex shrink-0 items-center justify-end gap-2 justify-self-end">
         <button
           type="button"
           onClick={() => void signOut()}

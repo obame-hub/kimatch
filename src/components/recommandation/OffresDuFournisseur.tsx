@@ -128,7 +128,7 @@ export function OffresDuFournisseur({
           {peutModifier && ' Ajoutez-en une dès qu\'il répond.'}
         </p>
       ) : (
-        offres.map((offre, rang) => {
+        offres.map((offre) => {
           // La moins chère des offres chiffrées sert de repère d'écart, faute d'offre de référence.
           const offreLaMoinsChere = offres
             .filter((o) => o.montant_annuel_ht != null)
@@ -245,7 +245,6 @@ export function OffresDuFournisseur({
                   offre={offre}
                   compteurs={compteurs}
                   reference={offreLaMoinsChere}
-                  rang={rang + 1}
                   actions={
                     <span className="flex items-center gap-2">
                       <span className="flex items-center gap-1.5">

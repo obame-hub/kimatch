@@ -32,7 +32,8 @@ export function CarteOffreEtude({
   offre,
   compteurs,
   reference,
-  rang,
+  avecFournisseur = false,
+  avecBarre = false,
   aChoisir,
   choisie,
   onChoisir,
@@ -43,7 +44,10 @@ export function CarteOffreEtude({
   compteurs: Compteur[]
   /** L'offre de comparaison — la moins chère du lot, en attendant l'offre de référence de Michel. */
   reference: OffreFournisseur | null
-  rang: number
+  /** Le nom du fournisseur : inutile sous un groupe qui le porte déjà, indispensable sans lui. */
+  avecFournisseur?: boolean
+  /** La barre de répartition : présentation client, bruit pour le commercial. */
+  avecBarre?: boolean
   /** Affiche la case de sélection, comme la maquette qui invite à comparer 2 ou 3 offres. */
   aChoisir?: boolean
   choisie?: boolean
@@ -56,6 +60,11 @@ export function CarteOffreEtude({
   const parId = new Map(compteurs.map((c) => [c.id, c]))
 
   const b = budgetsDeLOffre(offre)
+  // La marge de l'offre : celle de ses points de livraison quand elle est la même partout, sinon on
+  // ne l'affiche pas — une moyenne de marges ne veut rien dire pour un commercial qui négocie.
+  const marges = [...new Set(offre.details_par_compteur.map((d) => (d.type_marge === 'FIXE' ? d.marge_fixe_eur : d.marge_reelle_eur_mwh)).filter((v) => v != null))]
+  const marge = marges.length === 1 ? marges[0]! : null
+  const typeMarge = offre.details_par_compteur[0]?.type_marge ?? 'VARIABLE'
   const total = offre.montant_annuel_ht ?? b.total
   const ecart = total != null && reference?.montant_annuel_ht != null && reference.id !== offre.id
     ? total - reference.montant_annuel_ht
@@ -79,8 +88,20 @@ export function CarteOffreEtude({
         offre.est_offre_recommandee ? 'border-[1.5px] border-kw-green' : 'border-kw-border',
       )}
     >
-      {/* ── La ligne de l'offre ─────────────────────────────────────────────── */}
-      <div className="flex flex-wrap items-center gap-x-3 gap-y-2 px-3.5 py-3">
+      {/* ── La ligne de l'offre ──
+          TOUTE LA LIGNE OUVRE LE DÉTAIL. Naoëlle, 20/08/2026 : « privilégie les clics dans les
+          blocs, pour ne pas appuyer sur des liens et avoir du bruit écrit. » Un bouton « Détail » en
+          plus de la ligne, c'est un mot de plus à lire pour un geste qu'on devine. Les commandes
+          qu'on ne veut pas déclencher par mégarde — retenir, saisir, joindre — arrêtent la
+          propagation, chacune de son côté. */}
+      <div
+        role="button"
+        tabIndex={0}
+        onClick={() => setOuvert((v) => !v)}
+        onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setOuvert((v) => !v) } }}
+        title={ouvert ? 'Replier le détail' : 'Ouvrir le détail de cette offre'}
+        className="flex cursor-pointer flex-wrap items-center gap-x-3 gap-y-2 px-3.5 py-3 hover:bg-kw-subtle"
+      >
         {aChoisir && (
           <button
             type="button"
@@ -95,40 +116,38 @@ export function CarteOffreEtude({
           </button>
         )}
 
-        <span
-          className={cn(
-            'flex h-8 w-8 shrink-0 items-center justify-center rounded-kw-sm text-kw-sm font-extrabold',
-            offre.est_offre_recommandee ? 'bg-kw-green text-white' : 'bg-kw-muted text-kw-meta',
-          )}
-        >
-          {initiales(offre.fournisseur_nom)}
-        </span>
-
-        <span className="min-w-[140px] flex-1">
-          <span className="flex flex-wrap items-center gap-1.5">
-            <span className="text-kw-md font-extrabold">{offre.fournisseur_nom || 'Fournisseur'}</span>
+        {/* LE NOM DU FOURNISSEUR NE SE RÉPÈTE PLUS ICI. Michel, 20/08/2026 : « je vois Gaz
+            Européen, après je revois encore Gaz Européen moins chère, je ne comprends plus. » Il est
+            déjà en titre du groupe qui contient cette carte ; la carte identifie l'OFFRE — sa durée,
+            son type de prix. Le nom ne revient que dans le résumé client, où il n'y a pas de groupe
+            au-dessus pour le porter (`avecFournisseur`). */}
+        <span className="min-w-[130px] flex-1">
+          <span className="flex flex-wrap items-baseline gap-1.5">
+            {avecFournisseur && (
+              <span className="text-kw-md font-extrabold">{offre.fournisseur_nom || 'Fournisseur'}</span>
+            )}
+            <span className={cn('font-mono', avecFournisseur ? 'text-kw-sm text-kw-meta' : 'text-kw-md font-extrabold')}>
+              {libelleOffre(offre.duree_mois, offre.type_prix)}
+            </span>
             {offre.est_offre_recommandee && (
               <span className="rounded-kw-xs bg-kw-green-light px-1.5 py-px text-kw-micro font-bold uppercase tracking-[0.06em] text-kw-green">
                 Retenue
               </span>
             )}
-            {!offre.est_offre_recommandee && reference?.id === offre.id && (
-              <span className="rounded-kw-xs bg-kw-muted px-1.5 py-px text-kw-micro font-bold uppercase tracking-[0.06em] text-kw-meta">
-                Moins chère
-              </span>
-            )}
-            {!offre.est_offre_recommandee && reference?.id !== offre.id && (
-              <span className="text-kw-micro font-bold text-kw-faint">n° {rang}</span>
-            )}
           </span>
-          <span className="mt-0.5 block font-mono text-kw-tiny text-kw-meta">
-            {libelleOffre(offre.duree_mois, offre.type_prix)}
-            {offre.date_validite && ` · valable jusqu'au ${new Date(offre.date_validite).toLocaleDateString('fr-FR')}`}
-          </span>
+          {offre.date_validite && (
+            <span className="mt-0.5 block font-mono text-kw-micro text-kw-faint">
+              valable jusqu'au {new Date(offre.date_validite).toLocaleDateString('fr-FR')}
+            </span>
+          )}
         </span>
 
-        {/* La barre segmentée : la composition du budget, lisible sans chiffres. */}
-        <span className="min-w-[160px] flex-1">
+        {/* LA BARRE NE S'AFFICHE QUE POUR LE CLIENT. Michel, 20/08/2026, en parlant de la
+            répartition : « ces informations là, on n'a pas besoin de décorer comme ici, parce que ça
+            c'est plus de la présentation. Lui, qu'est-ce qu'il veut voir ? Il veut voir Gaz Européen,
+            et puis la marge et le budget. » Elle reste donc dans le résumé client, où elle explique
+            pourquoi deux offres au même total ne se valent pas. */}
+        <span className={cn('min-w-[160px] flex-1', !avecBarre && 'hidden')}>
           {sommeParts != null && sommeParts > 0 ? (
             <>
               <span className="flex h-3.5 overflow-hidden rounded-kw-sm bg-kw-muted">
@@ -154,11 +173,24 @@ export function CarteOffreEtude({
           )}
         </span>
 
+        {/* LA MARGE, à côté du budget. Michel : « il veut savoir : est-ce que j'ai reçu l'offre
+            de Gaz Européen ? Voici la marge. Voici le budget. Fin du game. » */}
+        {!avecBarre && (
+          <span className="min-w-[92px] text-right">
+            <span className="block font-mono text-kw-base font-bold tabular-nums">
+              {marge == null ? <span className="text-kw-ghost">—</span> : `${marge.toLocaleString('fr-FR', { maximumFractionDigits: 2 })} €`}
+            </span>
+            <span className="block text-kw-micro text-kw-faint">
+              marge {typeMarge === 'FIXE' ? 'fixe' : '€/MWh'}
+            </span>
+          </span>
+        )}
+
         <span className="min-w-[96px] text-right">
           <span className="block font-mono text-kw-lg font-extrabold tabular-nums">
             {total == null ? '—' : Math.round(total).toLocaleString('fr-FR')}
           </span>
-          <span className="block text-kw-micro text-kw-faint">total HT / an</span>
+          <span className="block text-kw-micro text-kw-faint">budget HT / an</span>
         </span>
 
         <span className="min-w-[92px] text-right">
@@ -182,13 +214,7 @@ export function CarteOffreEtude({
 
         {actions}
 
-        <button
-          type="button"
-          onClick={() => setOuvert((v) => !v)}
-          className="inline-flex items-center gap-1 rounded-kw-md border border-kw-border-strong bg-white px-2 py-1.5 text-kw-tiny font-bold text-kw-label hover:bg-kw-subtle"
-        >
-          Détail {ouvert ? '▾' : '▸'}
-        </button>
+        <span className="w-3 shrink-0 text-center text-kw-sm text-kw-faint">{ouvert ? '▾' : '▸'}</span>
       </div>
 
       {/* ── Niveau 2 : un point de livraison par ligne ──────────────────────── */}
@@ -394,10 +420,6 @@ export function turpeDetaille(d: OffreFournisseur['details_par_compteur'][number
   )
 }
 
-function initiales(nom: string | null | undefined) {
-  if (!nom) return '—'
-  return nom.split(/\s+/).slice(0, 2).map((m) => m[0]).join('').toUpperCase()
-}
 
 function Cellule({ libelle, valeur, unite, estompe }: {
   libelle: string
