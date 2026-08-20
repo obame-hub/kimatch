@@ -410,6 +410,7 @@ export function DocumentComparatif({
                 compteurs={compteurs}
                 reference={colonnes[0] ?? null}
                 avecFournisseur
+                avecIdentite
                 avecBarre
               />
             ))}

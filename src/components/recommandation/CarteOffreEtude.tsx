@@ -33,6 +33,7 @@ export function CarteOffreEtude({
   compteurs,
   reference,
   avecFournisseur = false,
+  avecIdentite = false,
   avecBarre = false,
   aChoisir,
   choisie,
@@ -47,6 +48,8 @@ export function CarteOffreEtude({
   reference: OffreFournisseur | null
   /** Le nom du fournisseur : inutile sous un groupe qui le porte déjà, indispensable sans lui. */
   avecFournisseur?: boolean
+  /** L'identité de l'offre — durée et type de prix. À masquer quand un en-tête la porte au-dessus. */
+  avecIdentite?: boolean
   /** La barre de répartition : présentation client, bruit pour le commercial. */
   avecBarre?: boolean
   /** Affiche la case de sélection, comme la maquette qui invite à comparer 2 ou 3 offres. */
@@ -87,8 +90,13 @@ export function CarteOffreEtude({
   return (
     <div
       className={cn(
-        'overflow-hidden rounded-kw-lg border bg-white',
-        offre.est_offre_recommandee ? 'border-[1.5px] border-kw-green' : 'border-kw-border',
+        'overflow-hidden',
+        // Un cadre seulement quand la carte est autonome. Dans le détail de version elle vit à
+        // l'intérieur du bloc de l'offre : deux bordures imbriquées pour une seule chose se lisent
+        // comme deux choses.
+        avecIdentite
+          ? cn('rounded-kw-lg border bg-white', offre.est_offre_recommandee ? 'border-[1.5px] border-kw-green' : 'border-kw-border')
+          : 'rounded-kw-md',
       )}
     >
       {/* ── La ligne de l'offre ──
@@ -124,12 +132,14 @@ export function CarteOffreEtude({
           </button>
         )}
 
-        {/* LE NOM DU FOURNISSEUR NE SE RÉPÈTE PLUS ICI. Michel, 20/08/2026 : « je vois Gaz
-            Européen, après je revois encore Gaz Européen moins chère, je ne comprends plus. » Il est
-            déjà en titre du groupe qui contient cette carte ; la carte identifie l'OFFRE — sa durée,
-            son type de prix. Le nom ne revient que dans le résumé client, où il n'y a pas de groupe
-            au-dessus pour le porter (`avecFournisseur`). */}
-        <span className="min-w-[130px] flex-1">
+        {/* RIEN N'EST RÉPÉTÉ ICI. Michel puis Naoëlle, 20/08/2026 : « je vois Gaz Européen, après
+            je revois encore Gaz Européen moins chère, je ne comprends plus » — puis « c'est écrit
+            deux fois 12 mois fixe, c'est trop d'information ».
+
+            Dans le détail de version, l'en-tête de l'offre porte DÉJÀ sa durée, son type de prix, son
+            statut et le bouton « Retenir » : la carte n'ajoute que les chiffres et la saisie. Elle ne
+            reprend l'identité que dans le résumé client, où aucun en-tête ne la porte. */}
+        <span className={cn('min-w-[130px] flex-1', !avecIdentite && 'hidden')}>
           <span className="flex flex-wrap items-baseline gap-1.5">
             {avecFournisseur && (
               <span className="text-kw-md font-extrabold">{offre.fournisseur_nom || 'Fournisseur'}</span>
@@ -180,6 +190,8 @@ export function CarteOffreEtude({
             <span className="text-kw-tiny text-kw-ghost">composition inconnue — aucun prix saisi</span>
           )}
         </span>
+
+        {!avecIdentite && <span className="min-w-0 flex-1" />}
 
         {/* ── Les chiffres, au centre ──
             Michel : « il veut savoir : est-ce que j'ai reçu l'offre de Gaz Européen ? Voici la marge.
