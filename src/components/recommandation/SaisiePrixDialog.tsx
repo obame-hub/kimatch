@@ -295,7 +295,7 @@ export function SaisiePrixDialog({
       }
       className="max-w-4xl"
     >
-      <FilEtapes etapes={etapes} courante={etape} onAller={setEtape} />
+      <FilEtapes etapes={etapes} courante={etape} onAller={(i) => setEtape(Math.max(0, Math.min(i, derniere)))} />
 
       <div className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_320px]">
         {/* ── Les saisies ─────────────────────────────────────────────────── */}
@@ -766,7 +766,7 @@ export function SaisiePrixDialog({
         {etape > 0 && (
           <button
             type="button"
-            onClick={() => setEtape((e) => e - 1)}
+            onClick={() => setEtape((e) => Math.max(e - 1, 0))}
             className="rounded-kw-md border border-kw-border-strong bg-white px-3 py-[7px] text-kw-sm font-bold text-kw-label hover:bg-kw-subtle"
           >
             ← Précédent
@@ -775,7 +775,7 @@ export function SaisiePrixDialog({
         {etape < derniere ? (
           <button
             type="button"
-            onClick={() => setEtape((e) => e + 1)}
+            onClick={() => setEtape((e) => Math.min(e + 1, derniere))}
             className="rounded-kw-md bg-kw-ink px-3 py-[7px] text-kw-sm font-bold text-white hover:brightness-110"
           >
             Suivant →
