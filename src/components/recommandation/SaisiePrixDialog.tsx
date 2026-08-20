@@ -9,6 +9,7 @@ import {
   ORDRE_CLASSES,
   PRIX_GAZ_VIDE,
   somme,
+  type TypeMarge,
 } from '@/lib/calculs/prixOffre'
 import type { PrixParCompteur as PrixSaisi } from '@/lib/data/recommandations'
 import type { Compteur, OffreFournisseurCompteur, PrixOffreElectricite } from '@/types/domain'
@@ -97,7 +98,12 @@ export function SaisiePrixDialog({
   }
 
   const p0 = valeur('prix_molecule_p0_mwh', detail?.prix_gaz?.prix_molecule_p0_mwh)
-  const marge = valeur('marge_reelle_eur_mwh', detail?.marge_reelle_eur_mwh)
+  // VARIABLE ou FIXE — réunion du 20/08/2026. En fixe, le fournisseur impose sa marge : elle est
+  // déjà dans son P0, donc elle ne s'y ajoute pas.
+  const typeMarge: TypeMarge = brouillon.type_marge ?? detail?.type_marge ?? 'VARIABLE'
+  const margeVariable = valeur('marge_reelle_eur_mwh', detail?.marge_reelle_eur_mwh)
+  const margeFixe = valeur('marge_fixe_eur_mwh', detail?.marge_fixe_eur_mwh)
+  const contributions = valeur('cout_taxes_annuel', detail?.cout_taxes_annuel)
   const cee = valeur('prix_cee_mwh', detail?.prix_gaz?.prix_cee_mwh)
   const cpb = valeur('prix_cpb_mwh', detail?.prix_gaz?.prix_cpb_mwh)
   const atrd = valeur('prix_atrd_mwh', detail?.prix_gaz?.prix_atrd_mwh)
@@ -112,7 +118,7 @@ export function SaisiePrixDialog({
     ?? (gaz ? compteur?.car_mwh : compteur?.consommation_annuelle_mwh)
     ?? null
 
-  const molecule = moleculePresentee(p0, marge)
+  const molecule = moleculePresentee(p0, margeVariable, typeMarge)
   const consoParClasse = compteur?.consoParClasseMwh ?? {}
 
   // Les budgets, par les fonctions qui écrivent en base : ce sont eux qui font foi.
@@ -139,15 +145,15 @@ export function SaisiePrixDialog({
           p0_mwh_par_classe: {},
           prix_mwh_par_classe: Object.fromEntries(
             classes
-              .map((c) => [c, moleculePresentee(p0DeClasse(c), marge)])
+              .map((c) => [c, moleculePresentee(p0DeClasse(c), margeVariable, typeMarge)])
               .filter(([, v]) => v != null) as [string, number][],
           ),
           abonnement_fourniture_annuel_ht: abonnement,
           prix_turpe_annuel_ht: turpe,
         }
-    return budgetsDepuisPrix({ gaz, compteur, detail, prixGaz, prixElec, consoForcee: conso })
+    return budgetsDepuisPrix({ gaz, compteur, detail, prixGaz, prixElec, consoForcee: conso, contributionSaisie: contributions })
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [brouillon, detail, gaz, compteur, classes, conso])
+  }, [brouillon, detail, gaz, compteur, classes, conso, contributions, typeMarge])
 
   // ── Le calcul, déroulé ──────────────────────────────────────────────────────
   const etapesEnergie: Etape[] = gaz
@@ -162,8 +168,8 @@ export function SaisiePrixDialog({
     : [
         ...classes.map((c): Etape => ({
           operateur: '+',
-          libelle: `${LIBELLE_CLASSE[c] ?? c} · ${fmt(moleculePresentee(p0DeClasse(c), marge))} €/MWh × ${fmt(consoParClasse[c] ?? null)} MWh`,
-          valeur: multiplie(moleculePresentee(p0DeClasse(c), marge), consoParClasse[c] ?? (classes.length === 1 ? conso : null)),
+          libelle: `${LIBELLE_CLASSE[c] ?? c} · ${fmt(moleculePresentee(p0DeClasse(c), margeVariable, typeMarge))} €/MWh × ${fmt(consoParClasse[c] ?? null)} MWh`,
+          valeur: multiplie(moleculePresentee(p0DeClasse(c), margeVariable, typeMarge), consoParClasse[c] ?? (classes.length === 1 ? conso : null)),
           unite: '€/an',
         })),
         { operateur: '+', libelle: 'Abonnement (compté ici, pas à part)', valeur: abonnement, unite: '€/an' },
@@ -219,16 +225,30 @@ export function SaisiePrixDialog({
                   valeur={p0}
                   onCommit={(v) => poser('prix_molecule_p0_mwh', v)}
                 />
-                <Champ
-                  libelle="Marge de référence"
-                  aide="Votre marge, au mégawattheure. La modifier change le prix présenté au client, et donc le budget."
-                  unite="€/MWh"
-                  valeur={marge}
-                  onCommit={(v) => poser('marge_reelle_eur_mwh', v)}
+                <ChoixMarge
+                  valeur={typeMarge}
+                  onChoisir={(t) => setBrouillon((b) => ({ ...b, type_marge: t }))}
                 />
+                {typeMarge === 'VARIABLE' ? (
+                  <Champ
+                    libelle="Marge de référence"
+                    aide="Votre marge, au mégawattheure. La modifier change le prix présenté au client, et donc le budget."
+                    unite="€/MWh"
+                    valeur={margeVariable}
+                    onCommit={(v) => poser('marge_reelle_eur_mwh', v)}
+                  />
+                ) : (
+                  <Champ
+                    libelle="Marge fixe"
+                    aide="La marge que le fournisseur impose et qu’on ne peut pas changer. Elle est déjà comprise dans son P0 : on l’enregistre pour la connaître, elle ne s’ajoute pas au prix."
+                    unite="€/MWh"
+                    valeur={margeFixe}
+                    onCommit={(v) => poser('marge_fixe_eur_mwh', v)}
+                  />
+                )}
                 <Deduit
-                  libelle="Molécule présentée au client"
-                  calcul={`${fmt(p0)} + ${fmt(marge)}`}
+                  libelle="Prix présenté au client"
+                  calcul={typeMarge === 'FIXE' ? `${fmt(p0)} — marge fixe déjà dedans` : `${fmt(p0)} + ${fmt(margeVariable)}`}
                   valeur={molecule}
                   unite="€/MWh"
                 />
@@ -315,7 +335,7 @@ export function SaisiePrixDialog({
                       }))
                     }
                     apres={
-                      <Fleche valeur={moleculePresentee(p0DeClasse(classe), marge)} />
+                      <Fleche valeur={moleculePresentee(p0DeClasse(classe), margeVariable, typeMarge)} />
                     }
                   />
                 ))}
@@ -341,15 +361,29 @@ export function SaisiePrixDialog({
               <Section
                 numero={2}
                 titre="La marge"
-                aide="Une seule marge pour ce point de livraison. Elle s’ajoute à chacune des classes ci-dessus."
+                aide="Une seule marge pour ce point de livraison, quelle que soit la classe tarifaire."
               >
-                <Champ
-                  libelle="Marge de référence"
-                  aide="Votre marge, au mégawattheure. Chaque prix présenté au client vaut son P0 plus cette marge."
-                  unite="€/MWh"
-                  valeur={marge}
-                  onCommit={(v) => poser('marge_reelle_eur_mwh', v)}
+                <ChoixMarge
+                  valeur={typeMarge}
+                  onChoisir={(t) => setBrouillon((b) => ({ ...b, type_marge: t }))}
                 />
+                {typeMarge === 'VARIABLE' ? (
+                  <Champ
+                    libelle="Marge de référence"
+                    aide="Votre marge, au mégawattheure. Chaque prix présenté au client vaut son P0 plus cette marge."
+                    unite="€/MWh"
+                    valeur={margeVariable}
+                    onCommit={(v) => poser('marge_reelle_eur_mwh', v)}
+                  />
+                ) : (
+                  <Champ
+                    libelle="Marge fixe"
+                    aide="La marge que le fournisseur impose et qu’on ne peut pas changer. Elle est déjà comprise dans ses P0 : on l’enregistre pour la connaître, elle ne s’ajoute pas aux prix."
+                    unite="€/MWh"
+                    valeur={margeFixe}
+                    onCommit={(v) => poser('marge_fixe_eur_mwh', v)}
+                  />
+                )}
               </Section>
 
               <Section
@@ -370,6 +404,18 @@ export function SaisiePrixDialog({
                   unite="€/an"
                   valeur={turpe}
                   onCommit={(v) => poser('prix_turpe_annuel_ht', v)}
+                />
+                {/* Michel, 20/08/2026 : « là, il manque les informations de contribution qu'il
+                    faudrait qu'on rajoute ». Il doit envoyer les documents qui en listent les
+                    composantes — « ça, je vais te l'envoyer parce que ça, tu l'as pas forcément ».
+                    En attendant, un montant annuel global : mieux vaut une ligne juste qu'une
+                    décomposition inventée qu'il faudrait défaire. */}
+                <Champ
+                  libelle="Contributions"
+                  aide="Total annuel des contributions et taxes, hors TURPE. En un seul montant pour l’instant : les composantes de l’électricité restent à cadrer avec Michel."
+                  unite="€/an"
+                  valeur={contributions}
+                  onCommit={(v) => poser('cout_taxes_annuel', v)}
                 />
               </Section>
             </>
@@ -506,6 +552,51 @@ function multiplie(a: number | null, b: number | null | undefined): number | nul
   return a == null || b == null ? null : a * b
 }
 
+/**
+ * Marge fixe ou variable.
+ *
+ * Michel, 20/08/2026 : « dans l'idéal, ce serait que le commercial choisisse si c'est une marge fixe
+ * ou une marge variable […] quand c'est une marge fixe, ça n'a pas d'impact sur le prix ».
+ *
+ * LA RÈGLE EST ÉCRITE SOUS LES BOUTONS, et elle change avec le choix. Un aiguillage qui modifie
+ * silencieusement un calcul est le meilleur moyen de faire signer un prix faux : autant dire, à
+ * l'endroit du clic, ce que le clic fait.
+ */
+function ChoixMarge({ valeur, onChoisir }: {
+  valeur: TypeMarge
+  onChoisir: (t: TypeMarge) => void
+}) {
+  const options: { cle: TypeMarge; libelle: string }[] = [
+    { cle: 'VARIABLE', libelle: 'Marge variable' },
+    { cle: 'FIXE', libelle: 'Marge fixe' },
+  ]
+  return (
+    <div className="flex flex-col gap-1">
+      <div className="inline-flex w-fit rounded-kw-md border border-kw-border-strong bg-white p-0.5">
+        {options.map((o) => (
+          <button
+            key={o.cle}
+            type="button"
+            onClick={() => onChoisir(o.cle)}
+            className={
+              valeur === o.cle
+                ? 'rounded-kw-sm bg-kw-ink px-3 py-1 text-kw-sm font-bold text-white'
+                : 'rounded-kw-sm px-3 py-1 text-kw-sm font-bold text-kw-meta hover:text-kw-ink'
+            }
+          >
+            {o.libelle}
+          </button>
+        ))}
+      </div>
+      <p className="text-kw-tiny leading-snug text-kw-faint">
+        {valeur === 'VARIABLE'
+          ? 'Votre marge s’ajoute au P0 : elle augmente le prix présenté au client.'
+          : 'Le fournisseur impose sa marge, déjà comprise dans son P0. Elle n’est pas ajoutée au prix — on l’enregistre pour la connaître.'}
+      </p>
+    </div>
+  )
+}
+
 function Section({ numero, titre, aide, children }: {
   numero: number
   titre: string
@@ -571,23 +662,35 @@ function Deduit({ libelle, calcul, valeur, unite }: {
   unite: string
 }) {
   return (
-    <div className="flex flex-wrap items-center gap-2 rounded-kw-xs bg-kw-green-tint px-2 py-1">
-      <span className="min-w-[132px] text-kw-sm font-semibold text-kw-label">{libelle}</span>
+    <div className="flex flex-wrap items-baseline gap-2 rounded-kw-md border border-kw-green-border bg-kw-green-tint px-2.5 py-1.5">
+      <span className="min-w-[132px] text-kw-sm font-bold text-kw-green">{libelle}</span>
       <span className="font-mono text-kw-tiny text-kw-meta">{calcul} =</span>
-      <span className={`font-mono text-kw-base font-extrabold ${valeur == null ? 'text-kw-ghost' : 'text-kw-green'}`}>
-        {fmt(valeur)} {unite}
+      <span className={`font-mono text-[19px] font-extrabold leading-none tabular-nums ${valeur == null ? 'text-kw-ghost' : 'text-kw-green'}`}>
+        {fmt(valeur)}
       </span>
+      <span className="text-kw-tiny font-semibold text-kw-green">{unite}</span>
     </div>
   )
 }
 
+/**
+ * Le prix client, à côté du P0 qui le produit.
+ *
+ * Michel, 20/08/2026 : « il faut que ce soit un peu plus impactant en termes de visibilité, pour que
+ * le commercial voie bien que quand on met 100 € et 5 € de marge, le prix c'est 105 € ». D'où le
+ * fond teinté et la taille : c'est le chiffre qui part chez le client, il ne doit pas se lire en
+ * petit à côté d'une saisie.
+ */
 function Fleche({ valeur }: { valeur: number | null }) {
   return (
-    <span className="flex items-center gap-1 text-kw-tiny text-kw-faint">
-      → prix client
-      <span className={`font-mono font-bold ${valeur == null ? 'text-kw-ghost' : 'text-kw-green'}`}>
-        {fmt(valeur)} €/MWh
+    <span className="inline-flex items-baseline gap-1.5 rounded-kw-xs bg-kw-green-tint px-2 py-0.5">
+      <span className="text-kw-micro font-bold uppercase tracking-[0.08em] text-kw-green">
+        Prix client
       </span>
+      <span className={`font-mono text-kw-md font-extrabold tabular-nums ${valeur == null ? 'text-kw-ghost' : 'text-kw-green'}`}>
+        {fmt(valeur)}
+      </span>
+      <span className="text-kw-tiny font-semibold text-kw-green">€/MWh</span>
     </span>
   )
 }

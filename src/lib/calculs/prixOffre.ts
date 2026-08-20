@@ -74,9 +74,20 @@ export function classesDuCompteur(compteur: Compteur | undefined): string[] {
  * d'une seule marge […] dès que je change la marge, ce sera forcément la marge réelle que j'ajoute. »
  * La marge ajustable et la marge retenue quittent l'écran.
  */
-export function moleculePresentee(p0: number | null | undefined, marge: number | null | undefined) {
+export function moleculePresentee(
+  p0: number | null | undefined,
+  marge: number | null | undefined,
+  typeMarge: TypeMarge = 'VARIABLE',
+) {
+  // MARGE FIXE : le fournisseur a déjà pris sa marge dans son P0. L'ajouter la compterait deux fois
+  // et gonflerait le prix annoncé au client (Michel, 20/08/2026 : « quand c'est une marge fixe, ça
+  // n'a pas d'impact sur le prix »).
+  if (typeMarge === 'FIXE') return p0 ?? null
   return somme(p0, marge)
 }
+
+/** Le type de marge d'une ligne offre × PDL. Voir la migration 20260820100000. */
+export type TypeMarge = 'VARIABLE' | 'FIXE'
 
 export const PRIX_GAZ_VIDE: PrixOffreGaz = {
   type_prix: null, prix_molecule_p0_mwh: null, prix_energie_mwh: null,
@@ -115,6 +126,9 @@ export function budgetsDepuisPrix(opts: {
   prixElec?: PrixOffreElectricite | null
   /** La consommation à retenir, si la saisie en cours la change. */
   consoForcee?: number | null
+  /** Le budget des contributions, saisi en €/an. Électricité seulement pour l'instant : ses
+   *  composantes ne sont pas cadrées, Michel doit les envoyer (réunion du 20/08/2026). */
+  contributionSaisie?: number | null
 }): { energie: number | null; contribution: number | null; total: number | null } {
   const { gaz, compteur, detail } = opts
 
@@ -167,10 +181,16 @@ export function budgetsDepuisPrix(opts: {
   // L'acheminement électrique EST le TURPE, saisi à la main faute de barème dans l'application. On
   // retombe sur le budget déjà en base tant qu'aucun TURPE n'est saisi, pour ne pas effacer une
   // valeur que quelqu'un aurait posée avant que ce champ existe.
-  const contribution = p?.prix_turpe_annuel_ht ?? detail?.cout_acheminement_annuel_ht ?? null
+  const turpe = p?.prix_turpe_annuel_ht ?? detail?.cout_acheminement_annuel_ht ?? null
+  // LES CONTRIBUTIONS S'AJOUTENT AU TURPE, elles ne le remplacent pas. Michel, 20/08/2026 : « tu as
+  // un budget énergie de 1500, tu as un budget TURPE de 500, et tu vas avoir un budget contribution
+  // […] et tu auras le budget total. » Quatre budgets, pas trois.
+  const contributions = opts.contributionSaisie !== undefined
+    ? opts.contributionSaisie
+    : detail?.cout_taxes_annuel ?? null
   return {
     energie: energieAvecAbonnement,
-    contribution,
-    total: somme(energieAvecAbonnement, contribution),
+    contribution: turpe,
+    total: somme(energieAvecAbonnement, turpe, contributions),
   }
 }

@@ -171,6 +171,11 @@ export interface OffreFournisseurCompteur {
    * `retenue` est décidée en cotant, `reelle` est constatée après coup — l'écart entre les deux est
    * l'information utile, d'où deux colonnes plutôt qu'une qu'on écraserait.
    */
+  /** VARIABLE : la marge de référence s'ajoute au P0. FIXE : le fournisseur l'impose, elle est déjà
+   *  dans son P0 et ne s'y ajoute pas. Migration 20260820100000. */
+  type_marge: 'VARIABLE' | 'FIXE'
+  /** La marge imposée par le fournisseur, quand type_marge vaut FIXE. Jamais ajoutée au prix. */
+  marge_fixe_eur_mwh: number | null
   marge_retenue_eur_mwh: number | null
   marge_ajustable_eur_mwh: number | null
   marge_reelle_eur_mwh: number | null

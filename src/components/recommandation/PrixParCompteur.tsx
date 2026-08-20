@@ -201,7 +201,7 @@ export function PrixParCompteur({
       await enregistrer.mutateAsync({ offreId: offre.id, versionCompteurId: lienId, energie, prix: patch })
       signaler(message)
     } catch (e) {
-      signaler(`Erreur : ${e instanceof Error ? e.message : String(e)}`)
+      signaler(messageDErreur(e))
     }
   }
   return (
@@ -357,6 +357,28 @@ export function PrixParCompteur({
       )}
     </div>
   )
+}
+
+/**
+ * Traduit l'échec d'un enregistrement en quelque chose d'actionnable.
+ *
+ * POURQUOI CETTE FONCTION EXISTE. Le 20/08/2026, Michel signale que le P0, l'abonnement et le TURPE
+ * ne s'enregistrent pas, alors que la marge et la consommation passent. La cause : la colonne
+ * `prix_turpe_annuel_ht` n'existait pas encore en base, la migration n'avait pas été appliquée. Dès
+ * que le champ TURPE était touché, PostgREST rejetait TOUTE l'écriture du prix — les trois champs de
+ * cette table partaient donc ensemble, et l'écran affichait « Erreur : column ... does not exist »,
+ * un message dans lequel personne ne lit « il manque une migration ».
+ *
+ * Une colonne absente est le seul cas où l'utilisateur ne peut rien faire d'autre qu'appeler à
+ * l'aide : autant que le message le dise, plutôt que de laisser chercher.
+ */
+function messageDErreur(e: unknown): string {
+  const brut = e instanceof Error ? e.message : String(e)
+  // PostgREST : 42703 en SQL, PGRST204 pour une colonne inconnue du schéma mis en cache.
+  if (/column .* does not exist|PGRST204|42703|schema cache/i.test(brut)) {
+    return `Enregistrement refusé : la base n'a pas encore la colonne attendue. Une migration reste à appliquer. (${brut})`
+  }
+  return `Erreur : ${brut}`
 }
 
 /** Une valeur en lecture. `null` se lit « — » et jamais « 0 ». */
