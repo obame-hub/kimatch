@@ -193,6 +193,18 @@
     max-width: none !important;
     background: #fff !important;
   }
+  /* LES FONDS ET LES COULEURS DOIVENT S'IMPRIMER.
+     Par défaut, les navigateurs suppriment les aplats à l'impression pour économiser l'encre : le
+     bandeau vert du résumé sortait en gris et son texte blanc devenait illisible (signalé le
+     20/08/2026). `print-color-adjust: exact` demande le rendu fidèle. C'est justifié ici parce que
+     la couleur PORTE de l'information — les quatre segments de la barre de répartition ne se
+     distinguent que par elle, et un bandeau blanc à texte blanc ne se lit pas du tout. */
+  #document-comparatif,
+  #document-comparatif * {
+    print-color-adjust: exact !important;
+    -webkit-print-color-adjust: exact !important;
+  }
+
   /* Une ligne de tableau ne doit pas se couper en deux pages, et les en-têtes se répètent. */
   #document-comparatif tr { break-inside: avoid; }
   #document-comparatif thead { display: table-header-group; }

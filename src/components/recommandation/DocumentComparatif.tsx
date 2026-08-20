@@ -3,6 +3,7 @@ import { Dialog } from '@/components/ui/dialog'
 import { Printer } from 'lucide-react'
 import { ORDRE_CLASSES, somme } from '@/lib/calculs/prixOffre'
 import { libelleOffre } from '@/lib/data/recommandations'
+import { cn } from '@/lib/utils'
 import kiweePicto from '@/assets/kiwee-picto.png'
 import { CarteOffreEtude } from './CarteOffreEtude'
 import { ResumeEtudeClient } from './ResumeEtudeClient'
@@ -107,6 +108,23 @@ export function DocumentComparatif({
   // du tableau de synthèse. Seul l'affichage des cartes suit le tri choisi, sinon changer l'ordre
   // changerait aussi ce à quoi on se compare.
   const [tri, setTri] = useState<'total' | 'fournisseur' | 'duree'>('total')
+
+  // LES ONGLETS DE WILLIAM. Naoëlle, 20/08/2026 : « je veux que tu fonctionnes comme William, par
+  // onglet, pour que ça ne fasse pas une longue modale comme ça. »
+  //
+  // Trois onglets là où sa maquette en a quatre : Puissances et Vote n'existent pas encore, et Michel
+  // les exclut lui-même. Le compte rendu — en-tête, synthèse annuelle, détail par PDL, lexique — tient
+  // dans le troisième : c'est la partie formelle, celle qu'on relit avant d'envoyer.
+  //
+  // À L'IMPRESSION, TOUT SORT. Les onglets servent à consulter, pas à découper le document : un
+  // rapport imprimé auquel il manquerait deux sections selon l'onglet ouvert serait un piège. D'où
+  // `print:block` sur chaque section.
+  const [onglet, setOnglet] = useState<'resume' | 'comparatif' | 'rapport'>('resume')
+  const onglets = [
+    { cle: 'resume' as const, titre: 'Résumé' },
+    { cle: 'comparatif' as const, titre: 'Comparatif d’offres', compte: colonnes.length },
+    { cle: 'rapport' as const, titre: 'Compte rendu' },
+  ]
   const colonnesTriees = useMemo(() => {
     const l = [...colonnes]
     if (tri === 'fournisseur') return l.sort((a, b) => (a.fournisseur_nom ?? '').localeCompare(b.fournisseur_nom ?? ''))
@@ -285,6 +303,39 @@ export function DocumentComparatif({
             </Bloc>
           </header>
 
+          {/* ── La barre d'onglets ── */}
+          <nav className="mt-4 flex flex-wrap gap-1 rounded-kw-lg bg-kw-muted p-1 print:hidden">
+            {onglets.map((o) => (
+              <button
+                key={o.cle}
+                type="button"
+                onClick={() => setOnglet(o.cle)}
+                className={cn(
+                  'flex flex-1 items-center justify-center gap-1.5 rounded-kw-md px-3 py-2 text-kw-sm font-bold',
+                  onglet === o.cle
+                    ? 'bg-white text-kw-ink shadow-kw-panel'
+                    : 'text-kw-meta hover:text-kw-ink',
+                )}
+              >
+                {o.titre}
+                {o.compte != null && (
+                  <span
+                    className={cn(
+                      'rounded-full px-1.5 py-px text-kw-micro font-bold',
+                      onglet === o.cle ? 'bg-kw-green-light text-kw-green' : 'bg-white text-kw-faint',
+                    )}
+                  >
+                    {o.compte}
+                  </span>
+                )}
+              </button>
+            ))}
+          </nav>
+
+          {/* L'en-tête formel du compte rendu : titre daté, encarts, statut de courtier.
+              Visible dans son onglet, et TOUJOURS à l'impression : un rapport imprimé
+              auquel il manquerait une section selon l'onglet ouvert serait un piège. */}
+          <div className={cn('print:block', onglet === 'rapport' ? '' : 'hidden')}>
           {/* ── 2. Le titre daté et les trois encarts ───────────────────────── */}
           <div className="mt-4 flex flex-wrap items-end justify-between gap-4">
             <div>
@@ -403,10 +454,12 @@ export function DocumentComparatif({
             à la consommation annuelle des points de livraison.
           </p>
 
-          {/* ── 5. Le détail offre par offre, au modèle de l'étude client ──
-              Michel, 20/08/2026 : « sur le bouton qui sera document comparatif, on pourra reprendre
-              encore son même truc » — le même modèle que dans le détail de version, donc le même
-              composant. Une seule présentation à apprendre, et une seule à corriger. */}
+          </div>
+
+          {/* Le résumé : ce que le client lit en premier.
+              Visible dans son onglet, et TOUJOURS à l'impression : un rapport imprimé
+              auquel il manquerait une section selon l'onglet ouvert serait un piège. */}
+          <div className={cn('print:block', onglet === 'resume' ? '' : 'hidden')}>
           {/* ── Le résumé, avant le comparatif ──
               L'ordre des onglets de William, qui est aussi celui des questions du client : combien
               j'économise, puis avec qui. Un comparatif ouvert sans résumé oblige à additionner des
@@ -421,6 +474,16 @@ export function DocumentComparatif({
             />
           </div>
 
+          </div>
+
+          {/* Le comparatif et le détail offre par offre.
+              Visible dans son onglet, et TOUJOURS à l'impression : un rapport imprimé
+              auquel il manquerait une section selon l'onglet ouvert serait un piège. */}
+          <div className={cn('print:block', onglet === 'comparatif' ? '' : 'hidden')}>
+          {/* ── 5. Le détail offre par offre, au modèle de l'étude client ──
+              Michel, 20/08/2026 : « sur le bouton qui sera document comparatif, on pourra reprendre
+              encore son même truc » — le même modèle que dans le détail de version, donc le même
+              composant. Une seule présentation à apprendre, et une seule à corriger. */}
           {/* ── Le comparatif d'offres, au modèle de l'étude client de William ──
               Michel demande de « reprendre son même truc ». Trois choses de sa maquette manquaient et
               changent la lecture :
@@ -491,6 +554,12 @@ export function DocumentComparatif({
             ))}
           </div>
 
+          </div>
+
+          {/* Le détail par point de livraison et le lexique, la partie formelle du rapport.
+              Visible dans son onglet, et TOUJOURS à l'impression : un rapport imprimé
+              auquel il manquerait une section selon l'onglet ouvert serait un piège. */}
+          <div className={cn('print:block', onglet === 'rapport' ? '' : 'hidden')}>
           {/* ── 6. Le détail par point de livraison ─────────────────────────── */}
           <h2 className="mt-6 text-kw-base font-extrabold">
             Détail des {colonnes.length} offre{colonnes.length > 1 ? 's' : ''} de fourniture par point
@@ -567,6 +636,8 @@ export function DocumentComparatif({
                 <span className="block text-kw-tiny leading-snug text-kw-body">{e.definition}</span>
               </div>
             ))}
+          </div>
+
           </div>
 
           <footer className="mt-6 flex items-end justify-between gap-6 border-t border-kw-ink pt-2">
