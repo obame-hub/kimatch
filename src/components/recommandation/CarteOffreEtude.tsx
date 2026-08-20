@@ -38,6 +38,7 @@ export function CarteOffreEtude({
   choisie,
   onChoisir,
   actions,
+  chiffresEnPlus,
 }: {
   offre: OffreFournisseur
   /** Les compteurs de la fiche, pour nommer les points de livraison et connaître leurs volumes. */
@@ -52,8 +53,10 @@ export function CarteOffreEtude({
   aChoisir?: boolean
   choisie?: boolean
   onChoisir?: () => void
-  /** Ce qu'on greffe à droite : boutons de statut, pièce jointe… selon l'écran qui l'affiche. */
+  /** Ce qu'on greffe à droite : saisie, pièce jointe… selon l'écran qui l'affiche. */
   actions?: React.ReactNode
+  /** Un chiffre de plus au centre, à côté du budget — l'économie, par exemple. */
+  chiffresEnPlus?: React.ReactNode
 }) {
   const [ouvert, setOuvert] = useState(false)
   const [pdlOuvert, setPdlOuvert] = useState<string | null>(null)
@@ -102,6 +105,11 @@ export function CarteOffreEtude({
         title={ouvert ? 'Replier le détail' : 'Ouvrir le détail de cette offre'}
         className="flex cursor-pointer flex-wrap items-center gap-x-3 gap-y-2 px-3.5 py-3 hover:bg-kw-subtle"
       >
+        {/* TROIS ZONES : l'identité à gauche, les chiffres au CENTRE, les actions à DROITE.
+            Demande de Naoëlle du 20/08/2026. Les deux zones latérales portent `flex-1` : c'est ce qui
+            centre réellement le groupe du milieu, alors qu'un simple `mx-auto` l'aurait décalé dès que
+            les deux côtés n'ont pas la même largeur — ce qui est le cas ici, l'identité étant plus
+            longue que les boutons. */}
         {aChoisir && (
           <button
             type="button"
@@ -173,48 +181,57 @@ export function CarteOffreEtude({
           )}
         </span>
 
-        {/* LA MARGE, à côté du budget. Michel : « il veut savoir : est-ce que j'ai reçu l'offre
-            de Gaz Européen ? Voici la marge. Voici le budget. Fin du game. » */}
-        {!avecBarre && (
-          <span className="min-w-[92px] text-right">
-            <span className="block font-mono text-kw-base font-bold tabular-nums">
-              {marge == null ? <span className="text-kw-ghost">—</span> : `${marge.toLocaleString('fr-FR', { maximumFractionDigits: 2 })} €`}
-            </span>
-            <span className="block text-kw-micro text-kw-faint">
-              marge {typeMarge === 'FIXE' ? 'fixe' : '€/MWh'}
-            </span>
-          </span>
-        )}
-
-        <span className="min-w-[96px] text-right">
-          <span className="block font-mono text-kw-lg font-extrabold tabular-nums">
-            {total == null ? '—' : Math.round(total).toLocaleString('fr-FR')}
-          </span>
-          <span className="block text-kw-micro text-kw-faint">budget HT / an</span>
-        </span>
-
-        <span className="min-w-[92px] text-right">
-          {ecart == null ? (
-            <span className="text-kw-tiny text-kw-ghost">—</span>
-          ) : (
-            <span
-              className={cn(
-                'font-mono text-kw-base font-extrabold tabular-nums',
-                ecart > 0 ? 'text-kw-red' : 'text-kw-green',
-              )}
-            >
-              {ecart > 0 ? '+' : ''}
-              {Math.round(ecart).toLocaleString('fr-FR')} €
+        {/* ── Les chiffres, au centre ──
+            Michel : « il veut savoir : est-ce que j'ai reçu l'offre de Gaz Européen ? Voici la marge.
+            Voici le budget. Fin du game. » */}
+        <span className="flex shrink-0 items-center gap-5 text-center">
+          {!avecBarre && (
+            <span>
+              <span className="block font-mono text-kw-base font-bold tabular-nums">
+                {marge == null ? <span className="text-kw-ghost">—</span> : `${marge.toLocaleString('fr-FR', { maximumFractionDigits: 2 })} €`}
+              </span>
+              <span className="block text-kw-micro text-kw-faint">
+                marge {typeMarge === 'FIXE' ? 'fixe' : '€/MWh'}
+              </span>
             </span>
           )}
-          <span className="block text-kw-micro text-kw-faint">
-            {ecart == null ? 'référence' : 'vs moins chère'}
+
+          <span>
+            <span className="block font-mono text-kw-lg font-extrabold tabular-nums">
+              {total == null ? '—' : Math.round(total).toLocaleString('fr-FR')}
+            </span>
+            <span className="block text-kw-micro text-kw-faint">budget HT / an</span>
           </span>
+
+          <span>
+            {ecart == null ? (
+              <span className="block text-kw-base text-kw-ghost">—</span>
+            ) : (
+              <span
+                className={cn(
+                  'block font-mono text-kw-base font-extrabold tabular-nums',
+                  ecart > 0 ? 'text-kw-red' : 'text-kw-green',
+                )}
+              >
+                {ecart > 0 ? '+' : ''}
+                {Math.round(ecart).toLocaleString('fr-FR')} €
+              </span>
+            )}
+            <span className="block text-kw-micro text-kw-faint">
+              {ecart == null ? 'référence' : 'vs moins chère'}
+            </span>
+          </span>
+
+          {chiffresEnPlus}
         </span>
 
-        {actions}
-
-        <span className="w-3 shrink-0 text-center text-kw-sm text-kw-faint">{ouvert ? '▾' : '▸'}</span>
+        {/* ── Les actions, à droite ──
+            `flex-1` fait ici office de second ressort : avec celui de la zone d'identité, il garde
+            les chiffres au milieu quelle que soit la largeur des boutons. */}
+        <span className="flex min-w-0 flex-1 items-center justify-end gap-2">
+          {actions}
+          <span className="w-3 shrink-0 text-center text-kw-sm text-kw-faint">{ouvert ? '▾' : '▸'}</span>
+        </span>
       </div>
 
       {/* ── Niveau 2 : un point de livraison par ligne ──────────────────────── */}

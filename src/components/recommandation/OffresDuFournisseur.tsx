@@ -245,10 +245,10 @@ export function OffresDuFournisseur({
                   offre={offre}
                   compteurs={compteurs}
                   reference={offreLaMoinsChere}
-                  actions={
-                    <span className="flex items-center gap-2">
-                      <span className="flex items-center gap-1.5">
-                        <span className="text-kw-micro uppercase tracking-[0.05em] text-kw-faint">Économie</span>
+                  // L'ÉCONOMIE EST UN CHIFFRE : elle rejoint le budget au centre, pas les boutons.
+                  chiffresEnPlus={
+                    <span onClick={(e) => e.stopPropagation()}>
+                      <span className="block">
                         <ChampNombre
                           valeur={offre.economie_annuelle_estimee}
                           suffixe="€/an"
@@ -258,6 +258,14 @@ export function OffresDuFournisseur({
                           onCommit={(v) => patcher(offre, { economie_annuelle_estimee: v }, v != null ? `✓ Économie : ${v.toLocaleString('fr-FR')} €/an` : 'Économie effacée')}
                         />
                       </span>
+                      <span className="block text-kw-micro text-kw-faint">économie</span>
+                    </span>
+                  }
+                  // LA SAISIE EST À DROITE DU BLOC, demande de Naoëlle du 20/08/2026. Elle était en
+                  // dessous : un bouton posé sous la ligne se lit comme s'il appartenait au dépliant,
+                  // alors qu'il commande la ligne elle-même.
+                  actions={
+                    <span onClick={(e) => e.stopPropagation()} className="flex items-center gap-2">
                       <FichierOffre
                         offreId={offre.id}
                         libelleOffre={libelleOffre(offre.duree_mois, offre.type_prix)}
@@ -265,15 +273,15 @@ export function OffresDuFournisseur({
                         peutModifier={peutModifier}
                         signaler={signaler}
                       />
+                      <PrixParCompteur
+                        offre={offre}
+                        version={version}
+                        compteurs={compteurs}
+                        peutModifier={peutModifier}
+                        signaler={signaler}
+                      />
                     </span>
                   }
-                />
-                <PrixParCompteur
-                  offre={offre}
-                  version={version}
-                  compteurs={compteurs}
-                  peutModifier={peutModifier}
-                  signaler={signaler}
                 />
               </div>
               <div className="mt-1.5 flex flex-wrap items-center gap-x-4 gap-y-1">
