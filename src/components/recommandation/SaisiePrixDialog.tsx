@@ -60,6 +60,7 @@ export function SaisiePrixDialog({
   compteur,
   libelleCompteur,
   detail,
+  dureeMois,
   onEnregistrer,
   enCours,
 }: {
@@ -69,6 +70,8 @@ export function SaisiePrixDialog({
   compteur: Compteur | undefined
   libelleCompteur: string
   detail: OffreFournisseurCompteur | undefined
+  /** La durée de l'offre, pour rapporter la marge fixe à une année. Sert d'affichage, pas de calcul. */
+  dureeMois: number | null
   onEnregistrer: (prix: PrixSaisi) => Promise<void>
   enCours: boolean
 }) {
@@ -239,8 +242,8 @@ export function SaisiePrixDialog({
                   />
                 ) : (
                   <Champ
-                    libelle="Marge fixe"
-                    aide="Le montant que le fournisseur arrête lui-même, en euros et non au mégawattheure : il ne dépend pas du volume consommé. On ne peut pas le négocier, et il ne s’ajoute pas au prix — le fournisseur l’a déjà compris dans son P0."
+                    libelle="Marge fixe (durée totale)"
+                    aide={aideMargeFixe(dureeMois, margeFixe)}
                     unite="€"
                     valeur={margeFixe}
                     onCommit={(v) => poser('marge_fixe_eur', v)}
@@ -377,8 +380,8 @@ export function SaisiePrixDialog({
                   />
                 ) : (
                   <Champ
-                    libelle="Marge fixe"
-                    aide="Le montant que le fournisseur arrête lui-même, en euros et non au mégawattheure : il ne dépend pas du volume consommé. On ne peut pas le négocier, et il ne s’ajoute pas au prix — le fournisseur l’a déjà compris dans son P0."
+                    libelle="Marge fixe (durée totale)"
+                    aide={aideMargeFixe(dureeMois, margeFixe)}
                     unite="€"
                     valeur={margeFixe}
                     onCommit={(v) => poser('marge_fixe_eur', v)}
@@ -543,6 +546,27 @@ export function SaisiePrixDialog({
   )
 }
 
+/**
+ * L'explication de la marge fixe, avec son équivalent annuel quand on connaît la durée.
+ *
+ * NAOËLLE, 20/08/2026 : « c'est sur toute la durée du contrat ». La distinction n'est pas un détail :
+ * sur 36 mois, lire 150 € comme un montant annuel triple la rentabilité qu'on croit avoir. Le repère
+ * annuel s'affiche donc à côté de la saisie — calculé, jamais enregistré, puisqu'il se déduit de la
+ * durée de l'offre et changerait avec elle.
+ */
+function aideMargeFixe(dureeMois: number | null, montant: number | null): string {
+  const base = 'Le montant que le fournisseur arrête lui-même, en euros et pour TOUTE LA DURÉE du '
+    + 'contrat — ni au mégawattheure, ni par an. On ne peut pas le négocier, et il ne s’ajoute pas au '
+    + 'prix : le fournisseur l’a déjà compris dans son P0.'
+  if (dureeMois == null || dureeMois <= 0) {
+    return base + ' La durée de l’offre n’est pas renseignée, l’équivalent annuel ne peut pas s’afficher.'
+  }
+  if (montant == null) return base + ` L’offre court sur ${dureeMois} mois.`
+  const parAn = montant / (dureeMois / 12)
+  return base + ` Sur ${dureeMois} mois, cela représente `
+    + `${parAn.toLocaleString('fr-FR', { maximumFractionDigits: 2 })} € par an.`
+}
+
 /** `null` se lit « — » et non « 0 » : une donnée absente n'est pas une donnée nulle. */
 function fmt(v: number | null | undefined): string {
   return v == null ? '—' : v.toLocaleString('fr-FR', { maximumFractionDigits: 2 })
@@ -591,7 +615,7 @@ function ChoixMarge({ valeur, onChoisir }: {
       <p className="text-kw-tiny leading-snug text-kw-faint">
         {valeur === 'VARIABLE'
           ? 'Votre marge s’ajoute au P0 : elle augmente le prix présenté au client.'
-          : 'Le fournisseur arrête un montant en euros, indépendant du volume, déjà compris dans son P0. Il ne s’ajoute pas au prix : on l’enregistre pour savoir ce que rapporte le dossier.'}
+          : 'Le fournisseur arrête un montant en euros pour toute la durée du contrat, indépendant du volume et déjà compris dans son P0. Il ne s’ajoute pas au prix : on l’enregistre pour savoir ce que rapporte le dossier.'}
       </p>
     </div>
   )

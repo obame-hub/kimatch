@@ -288,6 +288,7 @@ export function PrixParCompteur({
                   compteur={compteur}
                   libelleCompteur={compteur?.numero_pdl || compteur?.utilisation || lien.label || 'Compteur'}
                   detail={detail}
+                  dureeMois={offre.duree_mois}
                   enCours={enregistrer.isPending}
                   onEnregistrer={(prix) => sauver({
                     lienId: lien.lien_id, gaz, compteur, detail, prix, message: '✓ Prix enregistrés',
