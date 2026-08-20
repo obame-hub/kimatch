@@ -797,15 +797,17 @@ export default function RecommandationDetail() {
                     )
                   })}
                   <span className="flex-1" />
-                  {/* Michel, 19/08/2026 : « quand le commercial a fini de générer sa version, il va
-                      pouvoir générer un document comparatif. » Le geste se place donc là, au bout des
-                      versions, à côté de celui qui en crée une nouvelle. */}
+                  {/* LE LIBELLÉ DIT CE QU'ON VOIT, PAS CE QU'ON FABRIQUE. Michel, 20/08/2026 : « si
+                      je mets document comparatif, j'ai l'impression que je vais générer un document
+                      que je ne génère pas tout de suite — je peux juste voir. […] Il faut que le
+                      verbatim du bouton t'indique ce que tu vas avoir. » D'où « Voir le résumé de la
+                      version » : l'écran s'ouvre, et c'est de là qu'on imprime si on le décide. */}
                   <button
                     type="button"
                     onClick={() => setDocumentOuvert(true)}
                     className="inline-flex items-center gap-1.5 rounded-kw-lg border-[1.5px] border-kw-border-strong bg-white px-[13px] py-[7px] text-kw-base font-bold text-kw-label hover:bg-kw-subtle"
                   >
-                    <FileText className="h-3 w-3" /> Document comparatif
+                    <FileText className="h-3 w-3" /> Voir le résumé de la version
                   </button>
                   {canManage && (
                     <button

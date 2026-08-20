@@ -3,6 +3,7 @@ import { Plus, Trash2, Star, Check } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { ChampNombre } from '@/components/ui/champ-nombre'
 import { PrixParCompteur } from '@/components/recommandation/PrixParCompteur'
+import { CarteOffreEtude } from '@/components/recommandation/CarteOffreEtude'
 import { FichierOffre } from '@/components/recommandation/FichierOffre'
 import {
   useAjouterOffre,
@@ -40,27 +41,6 @@ const TON_STATUT: Record<string, string> = {
   RECUE: 'bg-kw-green-light text-kw-green',
 }
 
-/** Affiche un budget somme des points de livraison — lecture seule, il se saisit dans le détail. */
-function BudgetCalcule({ valeur }: { valeur: number | null }) {
-  if (valeur == null) {
-    return (
-      <span
-        title="Se calcule en additionnant les points de livraison — saisir les prix dans « Détail par compteur »"
-        className="cursor-help font-mono text-kw-base text-kw-ghost"
-      >
-        — €/an
-      </span>
-    )
-  }
-  return (
-    <span
-      title="Somme des points de livraison de cette offre"
-      className="cursor-help font-mono text-kw-base font-bold text-kw-ink"
-    >
-      {Math.round(valeur).toLocaleString('fr-FR')} €/an
-    </span>
-  )
-}
 
 /**
  * Les budgets de l'offre, additionnés sur ses points de livraison.
@@ -148,7 +128,11 @@ export function OffresDuFournisseur({
           {peutModifier && ' Ajoutez-en une dès qu\'il répond.'}
         </p>
       ) : (
-        offres.map((offre) => {
+        offres.map((offre, rang) => {
+          // La moins chère des offres chiffrées sert de repère d'écart, faute d'offre de référence.
+          const offreLaMoinsChere = offres
+            .filter((o) => o.montant_annuel_ht != null)
+            .reduce<typeof offre | null>((a, o) => (a == null || (o.montant_annuel_ht ?? 0) < (a.montant_annuel_ht ?? 0) ? o : a), null)
           const sommes = sommesDesPdl(offre)
           const recue = offre.statut === 'RECUE'
           const refusee = offre.statut === 'REFUSEE'
@@ -243,71 +227,48 @@ export function OffresDuFournisseur({
                 )}
               </div>
 
-              {/*
-                Les cinq budgets de l'offre, en €/an (demande du 19/08/2026). Ils remplacent le
-                triptyque « prix / budget / économie » : le prix au MWh n'était pas de la même nature
-                que les deux autres, et il manquait la décomposition.
+              {/* ── L'offre à la façon de l'étude client ──
+                  Michel, 20/08/2026 à 13h15, après nous avoir montré la maquette de William :
+                  « dans le détail des offres, le même modèle que dans fiche étude clients […] tu vois
+                  comme ça, là on pourra venir saisir les informations. »
 
-                Énergie, abonnement et contribution sont la SOMME des points de livraison : ils ne
-                sont pas saisissables ici, parce qu'ils se saisissent là où ils se décident — dans le
-                détail par compteur. Deux endroits pour un même chiffre finissent toujours par se
-                contredire.
+                  La carte remplace la ligne des cinq budgets. Elle dit la même chose et deux de plus :
+                  la RÉPARTITION du budget en une barre, et l'écart avec la moins chère. Le détail se
+                  déplie en cascade — offre, puis point de livraison, puis composantes — au lieu de
+                  tout étaler d'emblée.
 
-                Le total et l'économie, eux, existent en propre sur l'offre : un fournisseur annonce
-                parfois un budget global sans détailler, et il faut pouvoir le noter tel quel.
-              */}
-              <div className="mt-1.5 flex flex-wrap items-center gap-x-4 gap-y-1">
-                <span className="flex items-center gap-1.5">
-                  <span className="text-kw-tiny uppercase tracking-[0.05em] text-kw-faint">Budget énergie</span>
-                  <BudgetCalcule valeur={sommes.energie} />
-                </span>
-                {sommes.abonnementGaz != null && (
-                  <span className="flex items-center gap-1.5">
-                    <span className="text-kw-tiny uppercase tracking-[0.05em] text-kw-faint">Budget abonnement gaz</span>
-                    <BudgetCalcule valeur={sommes.abonnementGaz} />
-                  </span>
-                )}
-                {sommes.turpe != null && (
-                  <span className="flex items-center gap-1.5">
-                    <span className="text-kw-tiny uppercase tracking-[0.05em] text-kw-faint">Budget TURPE</span>
-                    <BudgetCalcule valeur={sommes.turpe} />
-                  </span>
-                )}
-                {sommes.contribution != null && (
-                  <span className="flex items-center gap-1.5">
-                    <span className="text-kw-tiny uppercase tracking-[0.05em] text-kw-faint">Budget contribution</span>
-                    <BudgetCalcule valeur={sommes.contribution} />
-                  </span>
-                )}
-                <span className="flex items-center gap-1.5">
-                  <span className="text-kw-tiny uppercase tracking-[0.05em] text-kw-faint">Budget total</span>
-                  {/* CALCULÉ depuis le 19/08/2026, comme les trois budgets qui le précèdent — Michel :
-                      « budget total, ce sera exactement la même chose », c'est-à-dire la somme des
-                      points de livraison. Il était saisi, avec un bouton pour l'aligner sur cette
-                      somme : deux chiffres possibles, et rien pour dire lequel comptait.
-                      `montant_annuel_ht` reste écrit en base à chaque saisie de prix, parce que c'est
-                      lui que lisent le comparatif des versions et les listes. */}
-                  <BudgetCalcule valeur={sommes.total} />
-                </span>
-                <span className="flex items-center gap-1.5">
-                  <span className="text-kw-tiny uppercase tracking-[0.05em] text-kw-faint">Économie</span>
-                  <ChampNombre
-                    valeur={offre.economie_annuelle_estimee}
-                    suffixe="€/an"
-                    placeholder="— €/an"
-                    titre="Économie annuelle estimée face au contrat actuel"
-                    peutModifier={peutModifier}
-                    onCommit={(v) => patcher(offre, { economie_annuelle_estimee: v }, v != null ? `✓ Économie : ${v.toLocaleString('fr-FR')} €/an` : 'Économie effacée')}
-                  />
-                </span>
-                <FichierOffre
-                  offreId={offre.id}
-                  libelleOffre={libelleOffre(offre.duree_mois, offre.type_prix)}
-                  typeDocumentOffreId={typeDocumentOffreId}
-                  peutModifier={peutModifier}
-                  signaler={signaler}
+                  LA LECTURE EST ICI, L'ÉCRITURE RESTE EN DESSOUS. `PrixParCompteur` garde le bouton
+                  de saisie par point de livraison : la carte ne montre que les PDL déjà chiffrés,
+                  alors qu'il faut pouvoir saisir sur ceux qui ne le sont pas encore. */}
+              <div className="mt-2">
+                <CarteOffreEtude
+                  offre={offre}
+                  compteurs={compteurs}
+                  reference={offreLaMoinsChere}
+                  rang={rang + 1}
+                  actions={
+                    <span className="flex items-center gap-2">
+                      <span className="flex items-center gap-1.5">
+                        <span className="text-kw-micro uppercase tracking-[0.05em] text-kw-faint">Économie</span>
+                        <ChampNombre
+                          valeur={offre.economie_annuelle_estimee}
+                          suffixe="€/an"
+                          placeholder="— €/an"
+                          titre="Économie annuelle estimée face au contrat actuel"
+                          peutModifier={peutModifier}
+                          onCommit={(v) => patcher(offre, { economie_annuelle_estimee: v }, v != null ? `✓ Économie : ${v.toLocaleString('fr-FR')} €/an` : 'Économie effacée')}
+                        />
+                      </span>
+                      <FichierOffre
+                        offreId={offre.id}
+                        libelleOffre={libelleOffre(offre.duree_mois, offre.type_prix)}
+                        typeDocumentOffreId={typeDocumentOffreId}
+                        peutModifier={peutModifier}
+                        signaler={signaler}
+                      />
+                    </span>
+                  }
                 />
-
                 <PrixParCompteur
                   offre={offre}
                   version={version}
@@ -315,7 +276,6 @@ export function OffresDuFournisseur({
                   peutModifier={peutModifier}
                   signaler={signaler}
                 />
-
               </div>
               <div className="mt-1.5 flex flex-wrap items-center gap-x-4 gap-y-1">
                 {recue && offre.montant_annuel_ht == null && sommes.total == null && (
