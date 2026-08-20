@@ -102,7 +102,7 @@ export function SaisiePrixDialog({
   // déjà dans son P0, donc elle ne s'y ajoute pas.
   const typeMarge: TypeMarge = brouillon.type_marge ?? detail?.type_marge ?? 'VARIABLE'
   const margeVariable = valeur('marge_reelle_eur_mwh', detail?.marge_reelle_eur_mwh)
-  const margeFixe = valeur('marge_fixe_eur_mwh', detail?.marge_fixe_eur_mwh)
+  const margeFixe = valeur('marge_fixe_eur', detail?.marge_fixe_eur)
   const contributions = valeur('cout_taxes_annuel', detail?.cout_taxes_annuel)
   const cee = valeur('prix_cee_mwh', detail?.prix_gaz?.prix_cee_mwh)
   const cpb = valeur('prix_cpb_mwh', detail?.prix_gaz?.prix_cpb_mwh)
@@ -240,10 +240,10 @@ export function SaisiePrixDialog({
                 ) : (
                   <Champ
                     libelle="Marge fixe"
-                    aide="La marge que le fournisseur impose et qu’on ne peut pas changer. Elle est déjà comprise dans son P0 : on l’enregistre pour la connaître, elle ne s’ajoute pas au prix."
-                    unite="€/MWh"
+                    aide="Le montant que le fournisseur arrête lui-même, en euros et non au mégawattheure : il ne dépend pas du volume consommé. On ne peut pas le négocier, et il ne s’ajoute pas au prix — le fournisseur l’a déjà compris dans son P0."
+                    unite="€"
                     valeur={margeFixe}
-                    onCommit={(v) => poser('marge_fixe_eur_mwh', v)}
+                    onCommit={(v) => poser('marge_fixe_eur', v)}
                   />
                 )}
                 <Deduit
@@ -378,10 +378,10 @@ export function SaisiePrixDialog({
                 ) : (
                   <Champ
                     libelle="Marge fixe"
-                    aide="La marge que le fournisseur impose et qu’on ne peut pas changer. Elle est déjà comprise dans ses P0 : on l’enregistre pour la connaître, elle ne s’ajoute pas aux prix."
-                    unite="€/MWh"
+                    aide="Le montant que le fournisseur arrête lui-même, en euros et non au mégawattheure : il ne dépend pas du volume consommé. On ne peut pas le négocier, et il ne s’ajoute pas au prix — le fournisseur l’a déjà compris dans son P0."
+                    unite="€"
                     valeur={margeFixe}
-                    onCommit={(v) => poser('marge_fixe_eur_mwh', v)}
+                    onCommit={(v) => poser('marge_fixe_eur', v)}
                   />
                 )}
               </Section>
@@ -591,7 +591,7 @@ function ChoixMarge({ valeur, onChoisir }: {
       <p className="text-kw-tiny leading-snug text-kw-faint">
         {valeur === 'VARIABLE'
           ? 'Votre marge s’ajoute au P0 : elle augmente le prix présenté au client.'
-          : 'Le fournisseur impose sa marge, déjà comprise dans son P0. Elle n’est pas ajoutée au prix — on l’enregistre pour la connaître.'}
+          : 'Le fournisseur arrête un montant en euros, indépendant du volume, déjà compris dans son P0. Il ne s’ajoute pas au prix : on l’enregistre pour savoir ce que rapporte le dossier.'}
       </p>
     </div>
   )

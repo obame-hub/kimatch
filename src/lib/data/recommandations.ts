@@ -171,7 +171,7 @@ interface RawOffreFournisseurCompteur {
   /** Marges en €/MWh, migration 20260818140000. Optionnelles : le select est en `*`, elles arrivent
    *  d'elles-mêmes une fois la migration appliquée. */
   type_marge?: string | null
-  marge_fixe_eur_mwh?: number | null
+  marge_fixe_eur?: number | null
   marge_retenue_eur_mwh?: number | null
   marge_ajustable_eur_mwh?: number | null
   marge_reelle_eur_mwh?: number | null
@@ -459,7 +459,7 @@ async function fetchRecommandations(
         // `?? 'VARIABLE'` : la colonne vient de 20260820100000 et peut manquer sur une base non
         // migrée. Le défaut reproduit le comportement d'avant, où toute marge entrait dans le prix.
         type_marge: dc.type_marge === 'FIXE' ? 'FIXE' : 'VARIABLE',
-        marge_fixe_eur_mwh: dc.marge_fixe_eur_mwh ?? null,
+        marge_fixe_eur: dc.marge_fixe_eur ?? null,
         marge_retenue_eur_mwh: dc.marge_retenue_eur_mwh ?? null,
         marge_ajustable_eur_mwh: dc.marge_ajustable_eur_mwh ?? null,
         marge_reelle_eur_mwh: dc.marge_reelle_eur_mwh ?? null,
@@ -1661,8 +1661,8 @@ export interface PrixParCompteur {
   economie_annuelle_estimee?: number | null
   /** VARIABLE ou FIXE : décide si la marge entre dans le prix présenté (migration 20260820100000). */
   type_marge?: 'VARIABLE' | 'FIXE'
-  /** La marge imposée par le fournisseur, enregistrée mais jamais ajoutée au prix. */
-  marge_fixe_eur_mwh?: number | null
+  /** La marge imposée par le fournisseur, en EUROS. Enregistrée, jamais ajoutée au prix. */
+  marge_fixe_eur?: number | null
   marge_retenue_eur_mwh?: number | null
   marge_ajustable_eur_mwh?: number | null
   marge_reelle_eur_mwh?: number | null
@@ -1752,7 +1752,7 @@ export function useEnregistrerPrixCompteur() {
             ...(p.marge_ajustable_eur_mwh !== undefined ? { marge_ajustable_eur_mwh: p.marge_ajustable_eur_mwh } : {}),
             ...(p.marge_reelle_eur_mwh !== undefined ? { marge_reelle_eur_mwh: p.marge_reelle_eur_mwh } : {}),
             ...(p.type_marge !== undefined ? { type_marge: p.type_marge } : {}),
-            ...(p.marge_fixe_eur_mwh !== undefined ? { marge_fixe_eur_mwh: p.marge_fixe_eur_mwh } : {}),
+            ...(p.marge_fixe_eur !== undefined ? { marge_fixe_eur: p.marge_fixe_eur } : {}),
             date_modification: new Date().toISOString(),
           },
           { onConflict: 'offre_fournisseur_id,version_recommandation_compteur_id' },
