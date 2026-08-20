@@ -177,6 +177,12 @@ export function PrixParCompteur({
             prix_go_mwh: detail?.prix_electricite?.prix_go_mwh ?? null,
             accise_annuel_ht: detail?.prix_electricite?.accise_annuel_ht ?? null,
             cta_annuel_ht: detail?.prix_electricite?.cta_annuel_ht ?? null,
+            // Capacité et TURPE détaillé : repris de la base, ils se saisissent dans le formulaire.
+            capacite_mwh_par_classe: detail?.prix_electricite?.capacite_mwh_par_classe ?? {},
+            turpe_gestion_annuel_ht: detail?.prix_electricite?.turpe_gestion_annuel_ht ?? null,
+            turpe_comptage_annuel_ht: detail?.prix_electricite?.turpe_comptage_annuel_ht ?? null,
+            turpe_soutirage_fixe_annuel_ht: detail?.prix_electricite?.turpe_soutirage_fixe_annuel_ht ?? null,
+            turpe_soutirage_variable_annuel_ht: detail?.prix_electricite?.turpe_soutirage_variable_annuel_ht ?? null,
           }
 
       const b = budgetsDepuisPrix({

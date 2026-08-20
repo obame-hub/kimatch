@@ -258,11 +258,19 @@ export function CarteOffreEtude({
                                 { l: 'CPB', pu: d.prix_gaz?.prix_cpb_mwh, vol: volume },
                               ]
                             : [
-                                ...ORDRE_CLASSES.map((c) => ({
-                                  l: LIBELLE_CLASSE[c] ?? c,
-                                  pu: d.prix_electricite?.prix_mwh_par_classe?.[c] ?? null,
-                                  vol: compteur?.consoParClasseMwh?.[c] ?? null,
-                                })).filter((x) => x.pu != null),
+                                // L'ÉLECTRON ET LA CAPACITÉ, POSTE PAR POSTE — la maquette de William
+                                // les sépare, et pour une bonne raison : la capacité est bien plus
+                                // chère en pointe qu'en creuses d'été, ce qu'un prix unique cacherait.
+                                ...ORDRE_CLASSES.flatMap((c) => {
+                                  const vol = compteur?.consoParClasseMwh?.[c] ?? null
+                                  const electron = d.prix_electricite?.prix_mwh_par_classe?.[c] ?? null
+                                  const capa = d.prix_electricite?.capacite_mwh_par_classe?.[c] ?? null
+                                  const nom = LIBELLE_CLASSE[c] ?? c
+                                  return [
+                                    { l: `${nom} · électron`, pu: electron, vol },
+                                    { l: `${nom} · capacité`, pu: capa, vol },
+                                  ].filter((x) => x.pu != null)
+                                }),
                                 { l: 'CEE', pu: d.prix_electricite?.prix_cee_mwh ?? null, vol: volume },
                                 { l: 'GO', pu: d.prix_electricite?.prix_go_mwh ?? null, vol: volume },
                               ]}
@@ -282,7 +290,15 @@ export function CarteOffreEtude({
                                 { l: 'CTA', montant: d.prix_gaz?.cta_annuel_ht },
                               ]
                             : [
-                                { l: 'TURPE', montant: d.prix_electricite?.prix_turpe_annuel_ht },
+                                // Le TURPE en quatre parts quand elles sont saisies, sinon son total.
+                                ...(turpeDetaille(d) != null
+                                  ? [
+                                      { l: 'TURPE · gestion', montant: d.prix_electricite?.turpe_gestion_annuel_ht },
+                                      { l: 'TURPE · comptage', montant: d.prix_electricite?.turpe_comptage_annuel_ht },
+                                      { l: 'TURPE · soutirage fixe', montant: d.prix_electricite?.turpe_soutirage_fixe_annuel_ht },
+                                      { l: 'TURPE · soutirage variable', montant: d.prix_electricite?.turpe_soutirage_variable_annuel_ht },
+                                    ]
+                                  : [{ l: 'TURPE', montant: d.prix_electricite?.prix_turpe_annuel_ht }]),
                                 { l: 'AE — accise', montant: d.prix_electricite?.accise_annuel_ht },
                                 { l: 'CTA', montant: d.prix_electricite?.cta_annuel_ht },
                               ]}
@@ -325,9 +341,25 @@ function abonnementDe(d: OffreFournisseur['details_par_compteur'][number]) {
 function contributionsDe(d: OffreFournisseur['details_par_compteur'][number]) {
   if (d.prix_gaz) return d.cout_acheminement_annuel_ht ?? null
   return somme(
-    d.prix_electricite?.prix_turpe_annuel_ht ?? d.cout_acheminement_annuel_ht,
+    turpeDetaille(d) ?? d.prix_electricite?.prix_turpe_annuel_ht ?? d.cout_acheminement_annuel_ht,
     d.prix_electricite?.accise_annuel_ht,
     d.prix_electricite?.cta_annuel_ht,
+  )
+}
+
+/**
+ * La somme des quatre parts du TURPE, ou `null` si aucune n'est saisie.
+ *
+ * Quand le détail existe, il fait foi : garder le champ global en parallèle donnerait deux totaux
+ * possibles pour la même chose, et rien pour dire lequel compte.
+ */
+export function turpeDetaille(d: OffreFournisseur['details_par_compteur'][number]) {
+  const e = d.prix_electricite
+  return somme(
+    e?.turpe_gestion_annuel_ht,
+    e?.turpe_comptage_annuel_ht,
+    e?.turpe_soutirage_fixe_annuel_ht,
+    e?.turpe_soutirage_variable_annuel_ht,
   )
 }
 

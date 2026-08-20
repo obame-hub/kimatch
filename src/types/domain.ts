@@ -130,6 +130,14 @@ export interface PrixOffreElectricite {
   accise_annuel_ht: number | null
   /** CTA, en €/AN. Composante des contributions, en électricité comme au gaz. */
   cta_annuel_ht: number | null
+  /** Le mécanisme de capacité, en €/MWh par classe horosaisonnière. Clés BASE, HP, HC, HPE, HCE,
+   *  HPH, HCH, POINTE — comme prix_mwh_par_classe. Il se facture au poste, d'où un prix par classe. */
+  capacite_mwh_par_classe: Record<string, number>
+  /** Les quatre parts du TURPE, en €/AN. Leur somme fait le TURPE quand elles sont renseignées. */
+  turpe_gestion_annuel_ht: number | null
+  turpe_comptage_annuel_ht: number | null
+  turpe_soutirage_fixe_annuel_ht: number | null
+  turpe_soutirage_variable_annuel_ht: number | null
   abonnement_fourniture_annuel_ht: number | null
 }
 

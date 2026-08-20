@@ -353,6 +353,19 @@ async function fetchRecommandations(
       prix_go_mwh?: number | null
       accise_annuel_ht?: number | null
       cta_annuel_ht?: number | null
+      /** Migration 20260820180000 — capacité par classe et TURPE détaillé. */
+      prix_base_capacite_mwh?: number | null
+      prix_hp_capacite_mwh?: number | null
+      prix_hc_capacite_mwh?: number | null
+      prix_hpe_capacite_mwh?: number | null
+      prix_hce_capacite_mwh?: number | null
+      prix_hph_capacite_mwh?: number | null
+      prix_hch_capacite_mwh?: number | null
+      prix_pointe_capacite_mwh?: number | null
+      turpe_gestion_annuel_ht?: number | null
+      turpe_comptage_annuel_ht?: number | null
+      turpe_soutirage_fixe_annuel_ht?: number | null
+      turpe_soutirage_variable_annuel_ht?: number | null
     }
     interface RawPrixGaz {
       offre_compteur_id: string
@@ -395,11 +408,14 @@ async function fetchRecommandations(
     const prixElecParDetail = new Map(prixElecRows.map((r) => {
       const parClasse: Record<string, number> = {}
       const p0ParClasse: Record<string, number> = {}
+      const capaParClasse: Record<string, number> = {}
       for (const k of CLASSES_PRIX) {
         const v = r[`prix_${k}_mwh` as keyof RawPrixElec] as number | null
         if (v != null) parClasse[k.toUpperCase()] = v
         const p0 = r[`prix_${k}_p0_mwh` as keyof RawPrixElec] as number | null | undefined
         if (p0 != null) p0ParClasse[k.toUpperCase()] = p0
+        const capa = r[`prix_${k}_capacite_mwh` as keyof RawPrixElec] as number | null | undefined
+        if (capa != null) capaParClasse[k.toUpperCase()] = capa
       }
       return [r.offre_compteur_id, {
         type_prix: r.type_prix,
@@ -411,6 +427,11 @@ async function fetchRecommandations(
         prix_go_mwh: r.prix_go_mwh ?? null,
         accise_annuel_ht: r.accise_annuel_ht ?? null,
         cta_annuel_ht: r.cta_annuel_ht ?? null,
+        capacite_mwh_par_classe: capaParClasse,
+        turpe_gestion_annuel_ht: r.turpe_gestion_annuel_ht ?? null,
+        turpe_comptage_annuel_ht: r.turpe_comptage_annuel_ht ?? null,
+        turpe_soutirage_fixe_annuel_ht: r.turpe_soutirage_fixe_annuel_ht ?? null,
+        turpe_soutirage_variable_annuel_ht: r.turpe_soutirage_variable_annuel_ht ?? null,
         abonnement_fourniture_annuel_ht: r.abonnement_fourniture_annuel_ht,
       }]
     }))
@@ -1689,6 +1710,12 @@ export interface PrixParCompteur {
    *  la mutation qui aiguille vers la bonne table selon l'énergie. */
   prix_go_mwh?: number | null
   accise_annuel_ht?: number | null
+  /** Électricité : la capacité par classe, et les quatre parts du TURPE. */
+  capacite_mwh_par_classe?: Record<string, number | null>
+  turpe_gestion_annuel_ht?: number | null
+  turpe_comptage_annuel_ht?: number | null
+  turpe_soutirage_fixe_annuel_ht?: number | null
+  turpe_soutirage_variable_annuel_ht?: number | null
   /** Gaz : le P0 saisi, la molécule présentée (P0 + marge, calculée), puis la décomposition. */
   prix_molecule_p0_mwh?: number | null
   prix_energie_mwh?: number | null
@@ -1786,6 +1813,13 @@ export function useEnregistrerPrixCompteur() {
         }
         for (const [classe, valeur] of Object.entries(p.p0_mwh_par_classe ?? {})) {
           colonnes[`prix_${classe.toLowerCase()}_p0_mwh`] = valeur
+        }
+        for (const [classe, valeur] of Object.entries(p.capacite_mwh_par_classe ?? {})) {
+          colonnes[`prix_${classe.toLowerCase()}_capacite_mwh`] = valeur
+        }
+        for (const cle of ['turpe_gestion_annuel_ht', 'turpe_comptage_annuel_ht',
+          'turpe_soutirage_fixe_annuel_ht', 'turpe_soutirage_variable_annuel_ht'] as const) {
+          if (p[cle] !== undefined) colonnes[cle] = p[cle] ?? null
         }
         if (p.prix_turpe_annuel_ht !== undefined) colonnes.prix_turpe_annuel_ht = p.prix_turpe_annuel_ht
         if (p.prix_cee_mwh !== undefined) colonnes.prix_cee_mwh = p.prix_cee_mwh

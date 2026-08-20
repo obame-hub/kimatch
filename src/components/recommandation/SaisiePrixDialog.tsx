@@ -99,6 +99,12 @@ export function SaisiePrixDialog({
     if (saisi !== undefined) return saisi
     return detail?.prix_electricite?.p0_mwh_par_classe?.[classe] ?? null
   }
+  /** Le mécanisme de capacité, qui se facture au poste horaire comme le prix de l'énergie. */
+  function capaDeClasse(classe: string): number | null {
+    const saisi = brouillon.capacite_mwh_par_classe?.[classe]
+    if (saisi !== undefined) return saisi
+    return detail?.prix_electricite?.capacite_mwh_par_classe?.[classe] ?? null
+  }
 
   const p0 = valeur('prix_molecule_p0_mwh', detail?.prix_gaz?.prix_molecule_p0_mwh)
   // VARIABLE ou FIXE — réunion du 20/08/2026. En fixe, le fournisseur impose sa marge : elle est
@@ -114,6 +120,13 @@ export function SaisiePrixDialog({
   const agn = valeur('prix_agn_mwh', detail?.prix_gaz?.prix_agn_mwh)
   const cta = valeur('cta_annuel_ht', detail?.prix_gaz?.cta_annuel_ht)
   const turpe = valeur('prix_turpe_annuel_ht', detail?.prix_electricite?.prix_turpe_annuel_ht)
+  const turpeGestion = valeur('turpe_gestion_annuel_ht', detail?.prix_electricite?.turpe_gestion_annuel_ht)
+  const turpeComptage = valeur('turpe_comptage_annuel_ht', detail?.prix_electricite?.turpe_comptage_annuel_ht)
+  const turpeSoutFixe = valeur('turpe_soutirage_fixe_annuel_ht', detail?.prix_electricite?.turpe_soutirage_fixe_annuel_ht)
+  const turpeSoutVar = valeur('turpe_soutirage_variable_annuel_ht', detail?.prix_electricite?.turpe_soutirage_variable_annuel_ht)
+  // La somme des quatre parts fait foi dès qu'une seule est saisie : sinon on garderait deux totaux
+  // possibles, celui du détail et celui du champ global.
+  const turpeDetaille = somme(turpeGestion, turpeComptage, turpeSoutFixe, turpeSoutVar)
   // Les composantes du compte rendu Enéo, côté électricité. Les clés du payload sont partagées avec
   // le gaz (CEE, CTA) : c'est la mutation qui aiguille vers la bonne table selon l'énergie.
   const ceeElec = valeur('prix_cee_mwh', detail?.prix_electricite?.prix_cee_mwh)
@@ -160,16 +173,22 @@ export function SaisiePrixDialog({
               .filter(([, v]) => v != null) as [string, number][],
           ),
           abonnement_fourniture_annuel_ht: abonnement,
-          prix_turpe_annuel_ht: turpe,
+          prix_turpe_annuel_ht: turpeDetaille ?? turpe,
           // Les composantes du compte rendu de consultation, saisies plus bas dans le formulaire.
           prix_cee_mwh: ceeElec,
           prix_go_mwh: go,
           accise_annuel_ht: accise,
           cta_annuel_ht: ctaElec,
+          // Capacité et TURPE détaillé : repris de la base, ils se saisissent dans le formulaire.
+          capacite_mwh_par_classe: detail?.prix_electricite?.capacite_mwh_par_classe ?? {},
+          turpe_gestion_annuel_ht: detail?.prix_electricite?.turpe_gestion_annuel_ht ?? null,
+          turpe_comptage_annuel_ht: detail?.prix_electricite?.turpe_comptage_annuel_ht ?? null,
+          turpe_soutirage_fixe_annuel_ht: detail?.prix_electricite?.turpe_soutirage_fixe_annuel_ht ?? null,
+          turpe_soutirage_variable_annuel_ht: detail?.prix_electricite?.turpe_soutirage_variable_annuel_ht ?? null,
         }
     return budgetsDepuisPrix({ gaz, compteur, detail, prixGaz, prixElec, consoForcee: conso, contributionSaisie: contributions })
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [brouillon, detail, gaz, compteur, classes, conso, contributions, typeMarge])
+  }, [brouillon, detail, gaz, compteur, classes, conso, contributions, typeMarge, turpeDetaille])
 
   // ── Le calcul, déroulé ──────────────────────────────────────────────────────
   const etapesEnergie: Etape[] = gaz
@@ -358,7 +377,29 @@ export function SaisiePrixDialog({
                       }))
                     }
                     apres={
-                      <Fleche valeur={moleculePresentee(p0DeClasse(classe), margeVariable, typeMarge)} />
+                      <span className="flex flex-wrap items-center gap-2">
+                        <Fleche valeur={moleculePresentee(p0DeClasse(classe), margeVariable, typeMarge)} />
+                        <span className="flex items-center gap-1.5">
+                          <span className="text-kw-micro font-bold uppercase tracking-[0.06em] text-kw-faint">
+                            Capacité
+                          </span>
+                          <ChampNombre
+                            valeur={capaDeClasse(classe)}
+                            suffixe="€/MWh"
+                            placeholder="— €/MWh"
+                            decimales={2}
+                            largeur="w-[82px]"
+                            titre="Mécanisme de capacité pour cette plage horaire, en €/MWh. Il garantit l'approvisionnement du réseau lors des pointes nationales, et se facture par poste."
+                            peutModifier
+                            onCommit={(v) =>
+                              setBrouillon((b) => ({
+                                ...b,
+                                capacite_mwh_par_classe: { ...(b.capacite_mwh_par_classe ?? {}), [classe]: v },
+                              }))
+                            }
+                          />
+                        </span>
+                      </span>
                     }
                   />
                 ))}
@@ -442,13 +483,51 @@ export function SaisiePrixDialog({
                   valeur={abonnement}
                   onCommit={(v) => poser('abonnement_fourniture_annuel_ht', v)}
                 />
+                {/* LE TURPE EN QUATRE PARTS, comme la maquette de William. La part fixe du soutirage
+                    mérite d'être isolée : c'est la seule que réduit une optimisation de puissance, et
+                    donc la seule qui rende cette optimisation chiffrable un jour. */}
                 <Champ
-                  libelle="Prix TURPE"
-                  aide="Tarif d’utilisation des réseaux, en euros par an. À calculer à côté (Kiwee Tools) puis reporter ici : le barème réglementaire n’est pas dans l’application."
+                  libelle="TURPE · gestion"
+                  aide="Frais fixes de gestion du dossier par le gestionnaire de réseau."
                   unite="€/an"
-                  valeur={turpe}
-                  onCommit={(v) => poser('prix_turpe_annuel_ht', v)}
+                  valeur={turpeGestion}
+                  onCommit={(v) => poser('turpe_gestion_annuel_ht', v)}
                 />
+                <Champ
+                  libelle="TURPE · comptage"
+                  aide="Location et entretien du compteur par le gestionnaire de réseau."
+                  unite="€/an"
+                  valeur={turpeComptage}
+                  onCommit={(v) => poser('turpe_comptage_annuel_ht', v)}
+                />
+                <Champ
+                  libelle="TURPE · soutirage fixe"
+                  aide="Part fixe du soutirage, calculée sur les puissances souscrites. C’est elle qu’une optimisation de puissance fait baisser."
+                  unite="€/an"
+                  valeur={turpeSoutFixe}
+                  onCommit={(v) => poser('turpe_soutirage_fixe_annuel_ht', v)}
+                />
+                <Champ
+                  libelle="TURPE · soutirage variable"
+                  aide="Part variable du soutirage, proportionnelle à l’énergie réellement acheminée."
+                  unite="€/an"
+                  valeur={turpeSoutVar}
+                  onCommit={(v) => poser('turpe_soutirage_variable_annuel_ht', v)}
+                />
+                {turpeDetaille != null ? (
+                  <p className="rounded-kw-xs bg-kw-amber-light px-2 py-1 text-kw-tiny leading-snug text-kw-amber-dark">
+                    TURPE total : {Math.round(turpeDetaille).toLocaleString('fr-FR')} € / an — la somme
+                    des quatre parts. Le champ global ci-dessous est ignoré tant qu’elles sont saisies.
+                  </p>
+                ) : (
+                  <Champ
+                    libelle="TURPE (total)"
+                    aide="À utiliser quand le détail n’est pas connu : un montant annuel global, calculé à côté puis reporté ici."
+                    unite="€/an"
+                    valeur={turpe}
+                    onCommit={(v) => poser('prix_turpe_annuel_ht', v)}
+                  />
+                )}
                 {/* Michel, 20/08/2026 : « là, il manque les informations de contribution qu'il
                     faudrait qu'on rajoute ». Il doit envoyer les documents qui en listent les
                     composantes — « ça, je vais te l'envoyer parce que ça, tu l'as pas forcément ».
