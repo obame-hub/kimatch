@@ -62,8 +62,11 @@ export function CarteOffreEtude({
     : null
 
   // Les trois parts du budget. Sans total, aucune barre : une barre vide ferait croire à un zéro.
+  // L'abonnement n'a sa part de barre qu'au gaz : ailleurs il est dans l'énergie, et la barre
+  // dépasserait 100 % de ce que le client paie.
+  const abonnementAPart = offre.details_par_compteur.some((d) => !!d.prix_gaz)
   const parts = [
-    { cle: 'abonnement', libelle: 'Abonnement', valeur: b.abonnement, couleur: 'bg-kw-blue' },
+    { cle: 'abonnement', libelle: 'Abonnement', valeur: abonnementAPart ? b.abonnement : null, couleur: 'bg-kw-blue' },
     { cle: 'energie', libelle: 'Énergie', valeur: b.energie, couleur: 'bg-kw-green' },
     { cle: 'contributions', libelle: 'Contributions', valeur: b.contributions, couleur: 'bg-kw-gold' },
   ].filter((p) => p.valeur != null && p.valeur > 0)
@@ -220,17 +223,33 @@ export function CarteOffreEtude({
                         </span>
                       </span>
                       <Cellule libelle="CONSO" valeur={volume} unite="MWh" />
-                      <Cellule libelle="ABONNEMENT" valeur={abonnementDe(d)} unite="€" />
+                      {/* AU GAZ L'ABONNEMENT EST UN POSTE À PART, en électricité il est DANS l'énergie
+                          (règle de Michel du 19/08/2026). L'afficher comme une colonne autonome des
+                          deux côtés le ferait compter deux fois quand on additionne la ligne — c'est
+                          ce que le test du 20/08 a montré. Côté électricité il est donc marqué inclus,
+                          et il n'entre pas dans le total de la ligne. */}
+                      <Cellule
+                        libelle={gaz ? 'ABONNEMENT' : 'ABONNEMENT (inclus)'}
+                        valeur={abonnementDe(d)}
+                        unite="€"
+                        estompe={!gaz}
+                      />
                       <Cellule libelle="ÉNERGIE" valeur={d.cout_fourniture_annuel_ht} unite="€" />
                       <Cellule libelle="CONTRIBUTIONS" valeur={contributionsDe(d)} unite="€" />
                       <span className="min-w-[86px] text-right">
                         <span className="block text-kw-micro font-bold tracking-[0.05em] text-kw-faint">
                           TOTAL / AN
                         </span>
+                        {/* LE TOTAL EST LA SOMME DE CE QUI EST MONTRÉ SUR LA LIGNE, pas la valeur
+                            stockée. Sur un PDL réel, le total en base valait 21 957 € alors que la
+                            ligne affichait 18 757 d'énergie et 3 746 de contributions, soit 22 503 :
+                            l'accise et la CTA, ajoutées le matin même, n'étaient pas dans le total
+                            stocké. Une ligne qui ne s'additionne pas ne se fait pas pardonner. */}
                         <span className="block font-mono text-kw-base font-extrabold tabular-nums text-kw-green">
-                          {d.cout_total_annuel_estime_ht == null
-                            ? '—'
-                            : `${Math.round(d.cout_total_annuel_estime_ht).toLocaleString('fr-FR')} €`}
+                          {(() => {
+                            const t = totalDeLaLigne(d)
+                            return t == null ? '—' : `${Math.round(t).toLocaleString('fr-FR')} €`
+                          })()}
                         </span>
                       </span>
                     </button>
@@ -323,7 +342,19 @@ export function budgetsDeLOffre(offre: OffreFournisseur) {
   const abonnement = cumul(abonnementDe)
   const energie = cumul((d) => d.cout_fourniture_annuel_ht)
   const contributions = cumul(contributionsDe)
-  return { abonnement, energie, contributions, total: somme(abonnement, energie, contributions) }
+  // Le total additionne les lignes, chacune sachant si son abonnement compte à part ou non.
+  return { abonnement, energie, contributions, total: cumul(totalDeLaLigne) }
+}
+
+/**
+ * Le total d'un point de livraison : la somme de ce que la ligne montre.
+ *
+ * L'abonnement n'y entre QU'AU GAZ. En électricité il est déjà compris dans le budget énergie, et
+ * l'additionner le compterait deux fois — écart constaté sur un PDL réel le 20/08/2026.
+ */
+function totalDeLaLigne(d: OffreFournisseur['details_par_compteur'][number]) {
+  const gaz = !!d.prix_gaz
+  return somme(gaz ? abonnementDe(d) : null, d.cout_fourniture_annuel_ht, contributionsDe(d))
 }
 
 /** L'abonnement du PDL, quelle que soit son énergie. */
@@ -368,11 +399,17 @@ function initiales(nom: string | null | undefined) {
   return nom.split(/\s+/).slice(0, 2).map((m) => m[0]).join('').toUpperCase()
 }
 
-function Cellule({ libelle, valeur, unite }: { libelle: string; valeur: number | null | undefined; unite: string }) {
+function Cellule({ libelle, valeur, unite, estompe }: {
+  libelle: string
+  valeur: number | null | undefined
+  unite: string
+  /** Une valeur déjà comptée ailleurs se lit en gris : elle informe sans inviter à l'additionner. */
+  estompe?: boolean
+}) {
   return (
     <span className="min-w-[74px]">
       <span className="block text-kw-micro font-bold tracking-[0.05em] text-kw-faint">{libelle}</span>
-      <span className="block font-mono text-kw-sm font-bold tabular-nums">
+      <span className={cn('block font-mono text-kw-sm tabular-nums', estompe ? 'font-normal text-kw-faint' : 'font-bold')}>
         {valeur == null
           ? <span className="text-kw-ghost">—</span>
           : `${unite === 'MWh' ? valeur.toLocaleString('fr-FR', { maximumFractionDigits: 2 }) : Math.round(valeur).toLocaleString('fr-FR')} ${unite}`}
