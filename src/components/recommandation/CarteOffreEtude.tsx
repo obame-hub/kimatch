@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { cn } from '@/lib/utils'
 import { LIBELLE_CLASSE, ORDRE_CLASSES, somme } from '@/lib/calculs/prixOffre'
 import { libelleOffre } from '@/lib/data/recommandations'
+import { initialesFournisseur, logoFournisseur } from '@/lib/logosFournisseurs'
 import type { Compteur, OffreFournisseur } from '@/types/domain'
 
 /**
@@ -65,6 +66,7 @@ export function CarteOffreEtude({
   const [pdlOuvert, setPdlOuvert] = useState<string | null>(null)
   const parId = new Map(compteurs.map((c) => [c.id, c]))
 
+  const logo = logoFournisseur(offre.fournisseur_nom)
   const b = budgetsDeLOffre(offre)
   // La marge de l'offre : celle de ses points de livraison quand elle est la même partout, sinon on
   // ne l'affiche pas — une moyenne de marges ne veut rien dire pour un commercial qui négocie.
@@ -156,8 +158,15 @@ export function CarteOffreEtude({
               {libelleOffre(offre.duree_mois, offre.type_prix)}
             </span>
             {offre.est_offre_recommandee && (
-              <span className="rounded-kw-xs bg-kw-green-light px-1.5 py-px text-kw-micro font-bold uppercase tracking-[0.06em] text-kw-green">
-                Retenue
+              <span
+                className={cn(
+                  'rounded-kw-xs px-1.5 py-px text-kw-micro font-bold uppercase tracking-[0.06em]',
+                  // Dans le comparatif client, c'est une recommandation qu'on assume — la maquette de
+                  // William la marque en vert plein. En interne, « Retenue » suffit.
+                  avecIdentite ? 'bg-kw-green text-white' : 'bg-kw-green-light text-kw-green',
+                )}
+              >
+                {avecIdentite ? '★ Recommandation Kiwee' : 'Retenue'}
               </span>
             )}
           </span>
@@ -203,6 +212,29 @@ export function CarteOffreEtude({
             <span className="text-kw-tiny text-kw-ghost">composition inconnue — aucun prix saisi</span>
           )}
         </span>
+
+        {/* LE LOGO DU FOURNISSEUR, dans le comparatif client seulement — c'est ce qui permet de
+            reconnaître une offre avant d'avoir lu son nom. Quand on n'a pas le logo, une pastille
+            d'initiales : afficher le logo d'un autre fournisseur serait bien pire que de ne rien
+            afficher. */}
+        {avecIdentite && (
+          logo ? (
+            <img
+              src={logo}
+              alt=""
+              className="h-8 w-8 shrink-0 rounded-kw-sm object-contain"
+            />
+          ) : (
+            <span
+              className={cn(
+                'flex h-8 w-8 shrink-0 items-center justify-center rounded-kw-sm text-kw-tiny font-extrabold',
+                offre.est_offre_recommandee ? 'bg-kw-green text-white' : 'bg-kw-muted text-kw-meta',
+              )}
+            >
+              {initialesFournisseur(offre.fournisseur_nom)}
+            </span>
+          )
+        )}
 
         {!avecIdentite && <span className="min-w-0 flex-1" />}
 
