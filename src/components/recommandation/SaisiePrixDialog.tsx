@@ -80,6 +80,14 @@ export function SaisiePrixDialog({
   const [brouillon, setBrouillon] = useState<PrixSaisi>({})
   const [classesEnPlus, setClassesEnPlus] = useState<string[]>([])
   const [budgetsForces, setBudgetsForces] = useState(false)
+  const [etape, setEtape] = useState(0)
+
+  // LES ÉTAPES, dans l'ordre où l'on rassemble les informations d'une offre. La dernière est un
+  // récapitulatif : on n'enregistre que de là, ce qui garantit qu'on a vu ce qu'on écrit.
+  const etapes = gaz
+    ? [{ titre: 'Énergie' }, { titre: 'Abonnement' }, { titre: 'Contributions' }, { titre: 'Volume' }, { titre: 'Vérification' }]
+    : [{ titre: 'Prix P0' }, { titre: 'Composantes' }, { titre: 'Marge' }, { titre: 'Réseau' }, { titre: 'Volume' }, { titre: 'Vérification' }]
+  const derniere = etapes.length - 1
 
   const classes = useMemo(
     () => (gaz ? [] : ORDRE_CLASSES.filter((c) => classesDuCompteur(compteur).includes(c) || classesEnPlus.includes(c))),
@@ -223,11 +231,55 @@ export function SaisiePrixDialog({
 
   const rienDeSaisi = Object.keys(brouillon).length === 0
 
+  // CE QU'ON S'APPRÊTE À ÉCRIRE, en clair. On liste les valeurs EFFECTIVES — brouillon fusionné avec
+  // la base — et non le seul brouillon : quelqu'un qui ne corrige qu'un chiffre doit relire l'offre
+  // entière avant d'enregistrer, pas sa dernière frappe.
+  const euros = (v: number | null, unite: string) =>
+    v == null ? null : `${v.toLocaleString('fr-FR', { maximumFractionDigits: 2 })} ${unite}`
+  const recapitulatif = (gaz
+    ? [
+        { libelle: 'Molécule P0', valeur: euros(p0, '€/MWh') },
+        {
+          libelle: typeMarge === 'FIXE' ? 'Marge fixe' : 'Marge de référence',
+          valeur: euros(typeMarge === 'FIXE' ? margeFixe : margeVariable, typeMarge === 'FIXE' ? '€' : '€/MWh'),
+          note: typeMarge === 'FIXE' ? 'sur la durée du contrat, hors prix' : 'comprise dans le prix client',
+        },
+        { libelle: 'Molécule présentée', valeur: euros(molecule, '€/MWh'), note: 'prix client' },
+        { libelle: 'CEE', valeur: euros(cee, '€/MWh') },
+        { libelle: 'CPB', valeur: euros(cpb, '€/MWh') },
+        { libelle: 'Abonnement', valeur: euros(abonnement, '€/an') },
+        { libelle: 'ATRT', valeur: euros(atrt, '€/MWh') },
+        { libelle: 'ATRD', valeur: euros(atrd, '€/MWh') },
+        { libelle: 'AGN', valeur: euros(agn, '€/MWh') },
+        { libelle: 'CTA', valeur: euros(cta, '€/an') },
+      ]
+    : [
+        ...classes.map((c) => ({
+          libelle: `P0 ${LIBELLE_CLASSE[c] ?? c}`,
+          valeur: euros(p0DeClasse(c), '€/MWh'),
+          note: capaDeClasse(c) != null ? `capacité ${capaDeClasse(c)!.toLocaleString('fr-FR')} €/MWh` : undefined,
+        })),
+        {
+          libelle: typeMarge === 'FIXE' ? 'Marge fixe' : 'Marge de référence',
+          valeur: euros(typeMarge === 'FIXE' ? margeFixe : margeVariable, typeMarge === 'FIXE' ? '€' : '€/MWh'),
+          note: typeMarge === 'FIXE' ? 'sur la durée du contrat, hors prix' : 'comprise dans chaque prix client',
+        },
+        { libelle: 'CEE', valeur: euros(ceeElec, '€/MWh') },
+        { libelle: 'GO', valeur: euros(go, '€/MWh') },
+        { libelle: 'Abonnement', valeur: euros(abonnement, '€/an'), note: 'compté dans le budget énergie' },
+        { libelle: 'TURPE', valeur: euros(turpeDetaille ?? turpe, '€/an'), note: turpeDetaille != null ? 'somme des quatre parts' : undefined },
+        { libelle: 'AE — accise', valeur: euros(accise, '€/an') },
+        { libelle: 'CTA', valeur: euros(ctaElec, '€/an') },
+      ])
+    .concat([{ libelle: 'Consommation retenue', valeur: conso == null ? null : `${conso.toLocaleString('fr-FR', { maximumFractionDigits: 2 })} MWh` }])
+    .filter((r): r is { libelle: string; valeur: string; note?: string } => r.valeur != null)
+
   async function valider() {
     if (rienDeSaisi) return onFermer()
     await onEnregistrer(brouillon)
     setBrouillon({})
     setBudgetsForces(false)
+    setEtape(0)
     onFermer()
   }
 
@@ -243,15 +295,19 @@ export function SaisiePrixDialog({
       }
       className="max-w-4xl"
     >
+      <FilEtapes etapes={etapes} courante={etape} onAller={setEtape} />
+
       <div className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_320px]">
         {/* ── Les saisies ─────────────────────────────────────────────────── */}
         <div className="flex flex-col gap-4">
           {gaz ? (
             <>
-              <Section
+              <Etape
                 numero={1}
                 titre="Le prix de l’énergie"
                 aide="Ce que le fournisseur facture pour le gaz lui-même, au mégawattheure."
+                vigilance="le P0 est le prix NU du fournisseur. S’il vous a annoncé un prix marge comprise, basculez sur « marge fixe » plutôt que de la retirer à la main."
+                active={etape === 0}
               >
                 <Champ
                   libelle="Molécule P0"
@@ -301,12 +357,14 @@ export function SaisiePrixDialog({
                   valeur={cpb}
                   onCommit={(v) => poser('prix_cpb_mwh', v)}
                 />
-              </Section>
+              </Etape>
 
-              <Section
+              <Etape
                 numero={2}
                 titre="L’abonnement"
                 aide="Facturé à l’année quel que soit le volume consommé. Au gaz, il forme son propre budget."
+                vigilance="ce montant est ANNUEL. Un abonnement annoncé au mois se multiplie par douze avant d’être saisi ici."
+                active={etape === 1}
               >
                 <Champ
                   libelle="Abonnement"
@@ -315,12 +373,14 @@ export function SaisiePrixDialog({
                   valeur={abonnement}
                   onCommit={(v) => poser('abonnement_fourniture_annuel_ht', v)}
                 />
-              </Section>
+              </Etape>
 
-              <Section
+              <Etape
                 numero={3}
                 titre="Les contributions"
                 aide="Ce qui ne revient pas au fournisseur : l’acheminement et les taxes. Le client les paie dans tous les cas."
+                vigilance="l’ATRT et l’ATRD sont au mégawattheure, la CTA en euros par AN. Les confondre fait un facteur mille."
+                active={etape === 2}
               >
                 <Champ
                   libelle="ATRT"
@@ -350,14 +410,16 @@ export function SaisiePrixDialog({
                   valeur={cta}
                   onCommit={(v) => poser('cta_annuel_ht', v)}
                 />
-              </Section>
+              </Etape>
             </>
           ) : (
             <>
-              <Section
+              <Etape
                 numero={1}
                 titre="Les prix P0 par classe"
                 aide="Un prix nu par plage horosaisonnière, tel que le fournisseur le cote. Seules les classes que le compteur consomme sont proposées."
+                vigilance="une classe laissée vide ne produira aucun budget, même si la marge est saisie. Si le fournisseur cote une plage que le compteur ne déclare pas, ajoutez-la."
+                active={etape === 0}
               >
                 {classes.map((classe) => (
                   <Champ
@@ -420,12 +482,14 @@ export function SaisiePrixDialog({
                     </span>
                   </div>
                 )}
-              </Section>
+              </Etape>
 
-              <Section
+              <Etape
                 numero={2}
                 titre="Les composantes de l’énergie"
                 aide="Ce que le fournisseur refacture en plus du prix de l’électricité, au mégawattheure."
+                vigilance="les garanties d’origine ne sont dues que si l’offre inclut l’énergie verte. Laissez vide plutôt que de saisir zéro si l’information manque."
+                active={etape === 1}
               >
                 <Champ
                   libelle="CEE"
@@ -441,12 +505,14 @@ export function SaisiePrixDialog({
                   valeur={go}
                   onCommit={(v) => poser('prix_go_mwh', v)}
                 />
-              </Section>
+              </Etape>
 
-              <Section
+              <Etape
                 numero={3}
                 titre="La marge"
                 aide="Une seule marge pour ce point de livraison, quelle que soit la classe tarifaire."
+                vigilance="marge variable ou marge fixe ? La première s’ajoute au prix présenté au client, la seconde non — le fournisseur l’a déjà prise dans son P0."
+                active={etape === 2}
               >
                 <ChoixMarge
                   valeur={typeMarge}
@@ -469,12 +535,14 @@ export function SaisiePrixDialog({
                     onCommit={(v) => poser('marge_fixe_eur', v)}
                   />
                 )}
-              </Section>
+              </Etape>
 
-              <Section
+              <Etape
                 numero={4}
                 titre="L’abonnement et l’acheminement"
                 aide="En électricité l’abonnement est compté DANS le budget énergie, et l’acheminement s’appelle le TURPE."
+                vigilance="tous ces montants sont ANNUELS. Un abonnement au mois se multiplie par douze, et le TURPE se saisit en quatre parts dès qu’on les connaît."
+                active={etape === 3}
               >
                 <Champ
                   libelle="Abonnement"
@@ -549,14 +617,39 @@ export function SaisiePrixDialog({
                   valeur={ctaElec}
                   onCommit={(v) => poser('cta_annuel_ht', v)}
                 />
-              </Section>
+              </Etape>
             </>
           )}
 
-          <Section
-            numero={4}
+          <Etape
+            numero={gaz ? 5 : 6}
+            titre="Vérification"
+            aide="Relisez avant d’enregistrer. Le détail du calcul est à droite : chaque ligne dit d’où vient le montant au-dessus."
+            active={etape === derniere}
+          >
+            <div className="flex flex-col gap-1.5">
+              {recapitulatif.length === 0 ? (
+                <p className="rounded-kw-md border border-dashed border-kw-border-strong bg-kw-subtle px-3 py-2 text-kw-sm text-kw-meta">
+                  Rien n’a été saisi. Revenez aux étapes précédentes, ou fermez sans enregistrer.
+                </p>
+              ) : (
+                recapitulatif.map((r) => (
+                  <div key={r.libelle} className="flex items-baseline gap-2 border-b border-kw-border-faint pb-1">
+                    <span className="min-w-[160px] text-kw-sm text-kw-meta">{r.libelle}</span>
+                    <span className="font-mono text-kw-base font-bold tabular-nums">{r.valeur}</span>
+                    {r.note && <span className="text-kw-tiny text-kw-faint">{r.note}</span>}
+                  </div>
+                ))
+              )}
+            </div>
+          </Etape>
+
+          <Etape
+            numero={gaz ? 4 : 5}
             titre="Le volume"
             aide="C’est lui qui transforme les euros par mégawattheure en euros par an. Sans lui, aucun budget ne peut se calculer."
+            vigilance="c’est la consommation que LE FOURNISSEUR a retenue pour établir son prix, pas forcément celle du compteur. Un écart entre les deux se paie en régularisation."
+            active={etape === (gaz ? 3 : 4)}
           >
             <Champ
               libelle="Consommation retenue"
@@ -574,7 +667,7 @@ export function SaisiePrixDialog({
                 Sans volume, les budgets restent vides. Ils ne valent pas zéro : ils sont inconnus.
               </p>
             )}
-          </Section>
+          </Etape>
         </div>
 
         {/* ── Le calcul, déroulé ──────────────────────────────────────────── */}
@@ -651,9 +744,17 @@ export function SaisiePrixDialog({
         </div>
       </div>
 
-      <div className="mt-4 flex items-center justify-end gap-2 border-t border-kw-border pt-3">
+      {/* LE PIED : on avance étape par étape, et on n'enregistre QUE depuis la vérification.
+          C'est le seul point où l'assistant contraint — Michel veut « qu'ils prennent le temps de
+          vérifier l'information », et le seul moyen honnête d'y obliger est de faire passer le bouton
+          d'enregistrement par l'écran qui montre ce qu'on écrit. */}
+      <div className="mt-4 flex flex-wrap items-center justify-end gap-2 border-t border-kw-border pt-3">
         <span className="mr-auto text-kw-tiny text-kw-faint">
-          {rienDeSaisi ? 'Aucune modification' : 'Annuler ferme sans rien enregistrer'}
+          {rienDeSaisi
+            ? 'Aucune modification'
+            : etape === derniere
+              ? `${recapitulatif.length} valeur${recapitulatif.length > 1 ? 's' : ''} à enregistrer`
+              : `Étape ${etape + 1} sur ${etapes.length}`}
         </span>
         <button
           type="button"
@@ -662,14 +763,33 @@ export function SaisiePrixDialog({
         >
           Annuler
         </button>
-        <button
-          type="button"
-          onClick={valider}
-          disabled={enCours || rienDeSaisi}
-          className="rounded-kw-md bg-kw-green px-3 py-[7px] text-kw-sm font-bold text-white hover:brightness-95 disabled:opacity-50"
-        >
-          {enCours ? 'Enregistrement…' : 'Enregistrer les prix'}
-        </button>
+        {etape > 0 && (
+          <button
+            type="button"
+            onClick={() => setEtape((e) => e - 1)}
+            className="rounded-kw-md border border-kw-border-strong bg-white px-3 py-[7px] text-kw-sm font-bold text-kw-label hover:bg-kw-subtle"
+          >
+            ← Précédent
+          </button>
+        )}
+        {etape < derniere ? (
+          <button
+            type="button"
+            onClick={() => setEtape((e) => e + 1)}
+            className="rounded-kw-md bg-kw-ink px-3 py-[7px] text-kw-sm font-bold text-white hover:brightness-110"
+          >
+            Suivant →
+          </button>
+        ) : (
+          <button
+            type="button"
+            onClick={valider}
+            disabled={enCours || rienDeSaisi}
+            className="rounded-kw-md bg-kw-green px-3 py-[7px] text-kw-sm font-bold text-white hover:brightness-95 disabled:opacity-50"
+          >
+            {enCours ? 'Enregistrement…' : 'Enregistrer les prix'}
+          </button>
+        )}
       </div>
     </Dialog>
   )
@@ -750,25 +870,77 @@ function ChoixMarge({ valeur, onChoisir }: {
   )
 }
 
-function Section({ numero, titre, aide, children }: {
+/**
+ * Une étape de l'assistant. Elle ne se rend que si c'est celle en cours.
+ *
+ * MICHEL, 20/08/2026 : « est-ce qu'il est possible d'avoir une espèce de formulaire avec plusieurs
+ * étapes ? […] Pour l'instant ça va être manuel, donc pour chaque saisie je veux vraiment qu'ils
+ * réfléchissent. Je ne veux pas que ce soit trop rapide. Il faut qu'ils prennent le temps de vérifier
+ * l'information. »
+ *
+ * L'INTENTION EST DE RALENTIR, pas d'empêcher. D'où le choix de ne rien rendre obligatoire : ni case
+ * à cocher, ni champ requis. Ce qui ralentit, c'est qu'on ne voit qu'une famille de prix à la fois,
+ * avec son point de vigilance, et qu'on passe forcément par un récapitulatif avant d'enregistrer.
+ * Un formulaire qui bloque se contourne en tapant n'importe quoi ; un formulaire qui montre ce qu'on
+ * vient de saisir se relit.
+ */
+function Etape({ numero, titre, aide, vigilance, active, children }: {
   numero: number
   titre: string
   aide: string
+  /** Ce qu'on se trompe le plus souvent à cette étape. Absent quand il n'y a rien de particulier. */
+  vigilance?: string
+  active: boolean
   children: React.ReactNode
 }) {
+  if (!active) return null
   return (
-    <section className="flex flex-col gap-2">
+    <section className="animate-kw-fade-slide flex flex-col gap-2.5">
       <div className="flex items-baseline gap-2">
         <span className="flex h-[18px] w-[18px] shrink-0 items-center justify-center rounded-full bg-kw-ink text-kw-micro font-extrabold text-white">
           {numero}
         </span>
         <div>
-          <h4 className="text-kw-base font-extrabold text-kw-ink">{titre}</h4>
+          <h4 className="text-kw-md font-extrabold text-kw-ink">{titre}</h4>
           <p className="text-kw-tiny leading-snug text-kw-meta">{aide}</p>
         </div>
       </div>
-      <div className="flex flex-col gap-2 pl-[26px]">{children}</div>
+      {vigilance && (
+        <p className="ml-[26px] rounded-kw-md border border-kw-amber-border bg-kw-amber-light px-2.5 py-1.5 text-kw-tiny leading-snug text-kw-amber-dark">
+          <b>À vérifier</b> — {vigilance}
+        </p>
+      )}
+      <div className="flex flex-col gap-2.5 pl-[26px]">{children}</div>
     </section>
+  )
+}
+
+/** Le fil des étapes : où l'on en est, et ce qui reste. Cliquable pour revenir en arrière. */
+function FilEtapes({ etapes, courante, onAller }: {
+  etapes: { titre: string }[]
+  courante: number
+  onAller: (i: number) => void
+}) {
+  return (
+    <div className="mb-4 flex flex-wrap items-center gap-1.5 border-b border-kw-border pb-3">
+      {etapes.map((e, i) => (
+        <button
+          key={e.titre}
+          type="button"
+          onClick={() => onAller(i)}
+          className={
+            i === courante
+              ? 'flex items-center gap-1.5 rounded-kw-md bg-kw-ink px-2.5 py-1 text-kw-tiny font-bold text-white'
+              : i < courante
+                ? 'flex items-center gap-1.5 rounded-kw-md bg-kw-green-light px-2.5 py-1 text-kw-tiny font-bold text-kw-green hover:brightness-95'
+                : 'flex items-center gap-1.5 rounded-kw-md bg-kw-muted px-2.5 py-1 text-kw-tiny font-bold text-kw-faint hover:text-kw-meta'
+          }
+        >
+          <span className="font-mono">{i < courante ? '✓' : i + 1}</span>
+          {e.titre}
+        </button>
+      ))}
+    </div>
   )
 }
 
