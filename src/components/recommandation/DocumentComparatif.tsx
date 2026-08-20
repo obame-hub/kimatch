@@ -20,9 +20,10 @@ import type {
  * du HTML mis en page pour l'impression et pas un générateur de PDF — le navigateur fabrique le PDF.
  *
  * C'EST UN DOCUMENT KIWEE, PAS KIMATCH (Naoëlle, 20/08/2026). Kimatch est le CRM, un outil interne ;
- * le client ne connaît que Kiwee. Le logotype est composé du picto de la marque et du mot, faute d'un
- * fichier « Kiwee » dans le dépôt — `src/assets/kiwee-logo.png` contient en réalité le logo Kimatch,
- * malgré son nom.
+ * le client ne connaît que Kiwee. Le logotype est donc composé du picto de la marque et du mot :
+ * le dépôt ne contient aucun logotype « Kiwee », son seul fichier étant celui de Kimatch
+ * (`src/assets/kimatch-logo.png`, renommé le 20/08/2026 — il s'appelait `kiwee-logo.png`, ce qui
+ * avait de quoi tromper). Le jour où le vrai fichier arrive, il remplace cette composition.
  *
  * CE QUI GUIDE LA MISE EN PAGE. Le lecteur n'est pas un courtier : il cherche combien il paie et
  * laquelle choisir. Donc, dans cet ordre — la recommandation en clair et en gros, puis le tableau qui

@@ -5,7 +5,7 @@
 // toutes lettres : les tabs DocuSign de Kimatch (api/docusign/_client.ts) sont posés par
 // détection de ces ancres textuelles, pas par coordonnées comme dans Tools.
 import jsPDF from 'jspdf'
-import logoKiwee from '@/assets/kiwee-logo.png'
+import logoEnTete from '@/assets/kimatch-logo.png'
 import type { Compte, Contact, Compteur } from '@/types/domain'
 
 export interface MandatPdfResult {
@@ -186,7 +186,7 @@ export async function generateMandatKiweePdf({ compte, contact, compteurs, duree
   const tiersCompany = 'KIWEE ENERGIE FRANCE'
   const tiersSiren = '933 716 474'
   const tiersAddress = '131 BOULEVARD PEREIRE, 75017 PARIS'
-  const logo = await loadImageAsBase64(logoKiwee)
+  const logo = await loadImageAsBase64(logoEnTete)
 
   let y = drawPageHeader(doc, logo)
 

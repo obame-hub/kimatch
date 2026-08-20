@@ -18,7 +18,7 @@ import {
 import { useAuth } from '@/lib/auth'
 import { navItems } from '@/lib/navItems'
 import { cn } from '@/lib/utils'
-import kiweeLogo from '@/assets/kiwee-logo.png'
+import kimatchLogo from '@/assets/kimatch-logo.png'
 import { useMarketTicker } from '@/lib/data/marche'
 import { useRechercheGlobale } from '@/lib/data/rechercheGlobale'
 import { SEARCH_KIND_LABEL, type SearchKind } from '@/lib/search'
@@ -261,7 +261,7 @@ export function Topbar({ title, crumb }: { title: string; crumb?: string }) {
       <div className="flex-1" />
 
       <img
-        src={kiweeLogo}
+        src={kimatchLogo}
         alt="KiWee"
         className="pointer-events-none hidden h-9 w-auto shrink-0 object-contain md:block"
       />
