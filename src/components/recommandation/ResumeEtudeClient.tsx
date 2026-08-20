@@ -110,10 +110,17 @@ export function ResumeEtudeClient({
           </span>
 
           <p className="mt-3 text-kw-sm text-white/75">Votre potentiel d’économies annuel</p>
-          <p className="font-mono text-[42px] font-extrabold leading-none tracking-[-0.02em]">
-            {economie != null ? `−${Math.round(economie).toLocaleString('fr-FR')} €` : '—'}
-            <span className="ml-2 align-middle text-kw-sm font-semibold text-white/70">/ an HT</span>
-          </p>
+          {/* PAS DE TIRET GÉANT À LA PLACE DU MONTANT. Un cadratin à 42 px en police à chasse fixe
+              dessine une barre noire large : à l'impression, le rapport avait l'air censuré
+              (constaté le 20/08/2026). Quand le chiffre manque, on le dit avec des mots. */}
+          {economie != null ? (
+            <p className="font-mono text-[42px] font-extrabold leading-none tracking-[-0.02em]">
+              −{Math.round(economie).toLocaleString('fr-FR')} €
+              <span className="ml-2 align-middle text-kw-sm font-semibold text-white/70">/ an HT</span>
+            </p>
+          ) : (
+            <p className="text-kw-h2 font-extrabold leading-tight">Reste à chiffrer</p>
+          )}
           {economie == null && (
             <p className="mt-1.5 text-kw-tiny leading-snug text-white/70">
               Elle se calcule dès que l’économie d’une offre est renseignée face au contrat en cours.

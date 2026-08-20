@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { Dialog } from '@/components/ui/dialog'
 import { Printer } from 'lucide-react'
 import { ORDRE_CLASSES, somme } from '@/lib/calculs/prixOffre'
@@ -238,6 +238,35 @@ export function DocumentComparatif({
 
   const dateDuJour = new Date().toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' })
 
+  // LE NOM DU DOCUMENT IMPRIMÉ. Le navigateur écrit le titre de l'onglet en tête de chaque page :
+  // le rapport client sortait donc marqué « Kimatch », qui est notre CRM interne et n'a rien à faire
+  // sous les yeux d'un client (signalé le 20/08/2026). On lui substitue le nom du document le temps
+  // de l'impression, puis on rend son titre à l'onglet.
+  //
+  // L'URL en pied de page ne dépend pas de nous : c'est la case « En-têtes et pieds de page » de la
+  // fenêtre d'impression, à décocher côté navigateur.
+  const nomDuClient = compte?.nom ?? reco.compte_nom ?? null
+  useEffect(() => {
+    if (!ouvert) return
+    const titreDeLOnglet = document.title
+    const titreDuRapport = ['Kiwee - Compte rendu de consultation', nomDuClient]
+      .filter(Boolean)
+      .join(' - ')
+    const avant = () => {
+      document.title = titreDuRapport
+    }
+    const apres = () => {
+      document.title = titreDeLOnglet
+    }
+    window.addEventListener('beforeprint', avant)
+    window.addEventListener('afterprint', apres)
+    return () => {
+      window.removeEventListener('beforeprint', avant)
+      window.removeEventListener('afterprint', apres)
+      document.title = titreDeLOnglet
+    }
+  }, [ouvert, nomDuClient])
+
   return (
     <Dialog
       open={ouvert}
@@ -303,40 +332,10 @@ export function DocumentComparatif({
             </Bloc>
           </header>
 
-          {/* ── La barre d'onglets ── */}
-          <nav className="mt-4 flex flex-wrap gap-1 rounded-kw-lg bg-kw-muted p-1 print:hidden">
-            {onglets.map((o) => (
-              <button
-                key={o.cle}
-                type="button"
-                onClick={() => setOnglet(o.cle)}
-                className={cn(
-                  'flex flex-1 items-center justify-center gap-1.5 rounded-kw-md px-3 py-2 text-kw-sm font-bold',
-                  onglet === o.cle
-                    ? 'bg-white text-kw-ink shadow-kw-panel'
-                    : 'text-kw-meta hover:text-kw-ink',
-                )}
-              >
-                {o.titre}
-                {o.compte != null && (
-                  <span
-                    className={cn(
-                      'rounded-full px-1.5 py-px text-kw-micro font-bold',
-                      onglet === o.cle ? 'bg-kw-green-light text-kw-green' : 'bg-white text-kw-faint',
-                    )}
-                  >
-                    {o.compte}
-                  </span>
-                )}
-              </button>
-            ))}
-          </nav>
-
-          {/* L'en-tête formel du compte rendu : titre daté, encarts, statut de courtier.
-              Visible dans son onglet, et TOUJOURS à l'impression : un rapport imprimé
-              auquel il manquerait une section selon l'onglet ouvert serait un piège. */}
-          <div className={cn('print:block', onglet === 'rapport' ? '' : 'hidden')}>
-          {/* ── 2. Le titre daté et les trois encarts ───────────────────────── */}
+          {/* ── 2. L'identification du document, hors des onglets ───────────────
+              Le titre daté, le périmètre et le statut de courtier ne dépendent pas de l'onglet
+              ouvert : ils disent DE QUOI on parle. Les enfermer dans « Compte rendu » faisait
+              perdre le nom du document dès qu'on regardait le résumé. */}
           <div className="mt-4 flex flex-wrap items-end justify-between gap-4">
             <div>
               <h1 className="font-display text-kw-lg font-extrabold leading-tight">
@@ -367,6 +366,60 @@ export function DocumentComparatif({
             </p>
           </section>
 
+          {/* ── La barre d'onglets ── */}
+          <nav className="mt-4 flex flex-wrap gap-1 rounded-kw-lg bg-kw-muted p-1 print:hidden">
+            {onglets.map((o) => (
+              <button
+                key={o.cle}
+                type="button"
+                onClick={() => setOnglet(o.cle)}
+                className={cn(
+                  'flex flex-1 items-center justify-center gap-1.5 rounded-kw-md px-3 py-2 text-kw-sm font-bold',
+                  onglet === o.cle
+                    ? 'bg-white text-kw-ink shadow-kw-panel'
+                    : 'text-kw-meta hover:text-kw-ink',
+                )}
+              >
+                {o.titre}
+                {o.compte != null && (
+                  <span
+                    className={cn(
+                      'rounded-full px-1.5 py-px text-kw-micro font-bold',
+                      onglet === o.cle ? 'bg-kw-green-light text-kw-green' : 'bg-white text-kw-faint',
+                    )}
+                  >
+                    {o.compte}
+                  </span>
+                )}
+              </button>
+            ))}
+          </nav>
+
+          {/* Le résumé : ce que le client lit en premier.
+              Visible dans son onglet, et TOUJOURS à l'impression : un rapport imprimé
+              auquel il manquerait une section selon l'onglet ouvert serait un piège. */}
+          <div className={cn('print:block', onglet === 'resume' ? '' : 'hidden')}>
+          {/* ── Le résumé, avant le comparatif ──
+              L'ordre des onglets de William, qui est aussi celui des questions du client : combien
+              j'économise, puis avec qui. Un comparatif ouvert sans résumé oblige à additionner des
+              colonnes pour savoir si l'étude valait la peine. */}
+          <div className="mt-5">
+            <ResumeEtudeClient
+              reco={reco}
+              version={version}
+              compteurs={compteurs}
+              offres={colonnes}
+              offreRetenue={retenue ?? null}
+            />
+          </div>
+
+          </div>
+
+          {/* Le compte rendu : la synthèse annuelle, puis plus bas le détail par point de
+              livraison et le lexique.
+              Visible dans son onglet, et TOUJOURS à l'impression : un rapport imprimé
+              auquel il manquerait une section selon l'onglet ouvert serait un piège. */}
+          <div className={cn('print:block', onglet === 'rapport' ? '' : 'hidden')}>
           {/* ── 4. La synthèse annuelle ─────────────────────────────────────── */}
           <h2 className="mt-5 text-kw-base font-extrabold">
             Synthèse annuelle des {colonnes.length} offre{colonnes.length > 1 ? 's' : ''} de fourniture
@@ -453,26 +506,6 @@ export function DocumentComparatif({
             (2) Le prix moyen est un indicateur : la somme des budgets Abonnement et Énergie rapportée
             à la consommation annuelle des points de livraison.
           </p>
-
-          </div>
-
-          {/* Le résumé : ce que le client lit en premier.
-              Visible dans son onglet, et TOUJOURS à l'impression : un rapport imprimé
-              auquel il manquerait une section selon l'onglet ouvert serait un piège. */}
-          <div className={cn('print:block', onglet === 'resume' ? '' : 'hidden')}>
-          {/* ── Le résumé, avant le comparatif ──
-              L'ordre des onglets de William, qui est aussi celui des questions du client : combien
-              j'économise, puis avec qui. Un comparatif ouvert sans résumé oblige à additionner des
-              colonnes pour savoir si l'étude valait la peine. */}
-          <div className="mt-5">
-            <ResumeEtudeClient
-              reco={reco}
-              version={version}
-              compteurs={compteurs}
-              offres={colonnes}
-              offreRetenue={retenue ?? null}
-            />
-          </div>
 
           </div>
 
@@ -682,8 +715,6 @@ const LEXIQUE_ELEC = [
   { terme: 'CTA', definition: 'Contribution tarifaire d’acheminement. Finance les retraites des industries électriques et gazières ; identique chez tous les fournisseurs.' },
   { terme: 'Abonnement', definition: 'Part fixe de la facture, indépendante du volume consommé. En électricité, elle est comptée dans le budget énergie.' },
 ]
-
-
 
 function Bloc({ titre, children }: { titre: string; children: React.ReactNode }) {
   return (

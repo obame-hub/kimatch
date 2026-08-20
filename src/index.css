@@ -205,9 +205,28 @@
     -webkit-print-color-adjust: exact !important;
   }
 
-  /* Une ligne de tableau ne doit pas se couper en deux pages, et les en-têtes se répètent. */
+  /* CE QUI NE DOIT PAS SE COUPER, ET RIEN DE PLUS.
+     `break-inside: avoid` sur les <section> entières était la cause des pages blanches signalées le
+     20/08/2026 : un bloc de 300 px qu'on interdit de couper et qui ne tient pas dans le bas de page
+     saute la page ENTIÈRE et laisse le vide derrière lui. On protège donc les petites unités — une
+     ligne de tableau, une carte d'offre, une entrée de lexique — et on laisse les grands ensembles
+     se répartir librement. */
   #document-comparatif tr { break-inside: avoid; }
   #document-comparatif thead { display: table-header-group; }
-  #document-comparatif section { break-inside: avoid; }
+  /* Un titre seul en bas de page, sans ce qu'il annonce, n'a aucun sens. */
+  #document-comparatif h2,
+  #document-comparatif h3 { break-after: avoid; }
+
+  /* LES CONTENEURS À DÉFILEMENT HORIZONTAL REDEVIENNENT ORDINAIRES.
+     `overflow-x: auto` fait de l'élément une boîte de défilement, et une boîte de défilement est
+     monolithique : le navigateur refuse de la couper entre deux pages. Le grand tableau de synthèse
+     partait donc en bloc à la page suivante. Sur le papier il n'y a pas de défilement, donc rien à
+     conserver. Les `overflow-hidden` sont laissés tels quels : ce sont eux qui arrondissent les
+     angles et découpent les segments de la barre de répartition. */
+  #document-comparatif .overflow-x-auto { overflow: visible !important; }
+
+  /* La croix de fermeture de la fenêtre n'a rien à faire sur le papier. */
+  body:has(#document-comparatif) button:has(> svg.lucide-x) { display: none !important; }
+
   @page { margin: 12mm; }
 }

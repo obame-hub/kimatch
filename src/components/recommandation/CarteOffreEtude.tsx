@@ -100,7 +100,10 @@ export function CarteOffreEtude({
   return (
     <div
       className={cn(
-        'overflow-hidden',
+        // `break-inside-avoid` : une carte ne se coupe pas entre deux pages à l'impression. C'est la
+        // bonne granularité — on interdit de casser UNE carte, sans interdire de casser la liste,
+        // sinon la liste entière saute à la page suivante et laisse une page blanche derrière elle.
+        'overflow-hidden break-inside-avoid',
         // Un cadre seulement quand la carte est autonome. Dans le détail de version elle vit à
         // l'intérieur du bloc de l'offre : deux bordures imbriquées pour une seule chose se lisent
         // comme deux choses.
@@ -123,18 +126,29 @@ export function CarteOffreEtude({
         title={ouvert ? 'Replier le détail' : 'Ouvrir le détail de cette offre'}
         className={cn(
           'cursor-pointer items-center gap-x-3 gap-y-2 px-3.5 py-3 hover:bg-kw-subtle',
-          // UNE GRILLE À COLONNES FIXES dans le comparatif client, et non une rangée flexible.
+          // UNE GRILLE À COLONNES DÉCLARÉES dans le comparatif client, et non une rangée flexible.
           //
           // En flex, la largeur de chaque zone suit son contenu : une offre portant le badge
           // « ★ Recommandation Kiwee » poussait sa barre et ses montants plus loin que les autres, et
           // rien ne s'alignait d'une ligne à l'autre (signalé le 20/08/2026 — « c'est pas joli, le
-          // décalage »). Des colonnes de largeur déclarée règlent la question pour toutes les cartes
-          // à la fois, quel que soit le contenu de chacune.
+          // décalage »). Des colonnes déclarées règlent la question pour toutes les cartes à la fois.
+          //
+          // CINQ COLONNES POUR CINQ CELLULES. La première version en déclarait six — logo, identité,
+          // barre, puis 112 px, 136 px et `auto`. Or la ligne ne porte que cinq enfants : les deux
+          // chiffres voyagent ensemble dans une seule cellule. Celle-ci héritait donc des 112 px
+          // prévus pour le seul budget, et à la largeur d'une page A4 « 14 319 » s'imprimait
+          // par-dessus la barre tandis que l'écart s'enroulait sur trois lignes (mesuré à 703 px le
+          // 20/08/2026). Compter les cellules avant de compter les colonnes.
+          //
+          // LES DEUX COLONNES SOUPLES ONT UN MINIMUM DE ZÉRO : c'est ce qui rend le débordement
+          // impossible à toute largeur. C'est le texte descriptif qui se resserre, jamais un chiffre.
+          // Les colonnes chiffrées gardent une largeur fixe — sans elle les montants ne s'alignent pas
+          // d'une carte à l'autre, chaque carte étant sa propre grille.
           //
           // En interne, la rangée flexible reste la bonne réponse : il n'y a ni logo ni barre, et les
           // deux ressorts latéraux centrent les chiffres au pixel.
           avecIdentite
-            ? 'grid grid-cols-[40px_minmax(150px,1.1fr)_minmax(170px,1.6fr)_112px_136px_auto]'
+            ? 'grid grid-cols-[32px_minmax(0,1.15fr)_minmax(0,1.5fr)_204px_28px]'
             : 'flex flex-wrap',
         )}
       >
@@ -252,7 +266,15 @@ export function CarteOffreEtude({
         {/* ── Les chiffres, au centre ──
             Michel : « il veut savoir : est-ce que j'ai reçu l'offre de Gaz Européen ? Voici la marge.
             Voici le budget. Fin du game. » */}
-        <span className={cn('flex items-center text-center', avecIdentite ? 'justify-end gap-4' : 'shrink-0 gap-5')}>
+        <span
+          className={cn(
+            'items-center whitespace-nowrap text-center',
+            // Côté client, le budget et l'écart occupent chacun une colonne de largeur fixe : c'est à
+            // cette condition qu'ils s'alignent d'une carte à l'autre, puisque chaque carte est une
+            // grille indépendante. `whitespace-nowrap` interdit à un montant de s'enrouler.
+            avecIdentite ? 'grid grid-cols-[72px_132px] justify-items-end' : 'flex shrink-0 gap-5',
+          )}
+        >
           {!avecBarre && (
             <span>
               <span className="block font-mono text-kw-base font-bold tabular-nums">
@@ -327,7 +349,7 @@ export function CarteOffreEtude({
                   ?? null
                 const estOuvert = pdlOuvert === d.id
                 return (
-                  <div key={d.id} className="overflow-hidden rounded-kw-md border border-kw-border bg-white">
+                  <div key={d.id} className="overflow-hidden break-inside-avoid rounded-kw-md border border-kw-border bg-white">
                     <button
                       type="button"
                       onClick={() => setPdlOuvert(estOuvert ? null : d.id)}
