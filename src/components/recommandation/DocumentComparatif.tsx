@@ -1,7 +1,7 @@
 import { useMemo } from 'react'
 import { Dialog } from '@/components/ui/dialog'
 import { Printer } from 'lucide-react'
-import { somme } from '@/lib/calculs/prixOffre'
+import { LIBELLE_CLASSE, ORDRE_CLASSES, somme } from '@/lib/calculs/prixOffre'
 import { libelleOffre } from '@/lib/data/recommandations'
 import kiweePicto from '@/assets/kiwee-picto.png'
 import type {
@@ -367,7 +367,156 @@ export function DocumentComparatif({
             à la consommation annuelle des points de livraison.
           </p>
 
-          {/* ── 5. Le détail par point de livraison ─────────────────────────── */}
+          {/* ── 5. Le détail offre par offre ────────────────────────────────────
+              C'EST LA SECTION QUI MANQUAIT, et c'est ce qui faisait dire à Naoëlle que « ça ne
+              ressemble pas du tout ». Les pages 6 et 7 du rapport Enéo ne sont pas un tableau : c'est
+              un bloc par offre, où l'on voit à gauche les prix unitaires au MWh et à droite comment
+              le budget se compose — les composantes posées côte à côte, reliées par des + et un =.
+              Un tableau donne les mêmes nombres ; il ne montre pas l'assemblage. */}
+          <h2 className="mt-6 text-kw-base font-extrabold">
+            Détail des {colonnes.length} offre{colonnes.length > 1 ? 's' : ''} de fourniture
+          </h2>
+          <div className="mt-1 flex flex-col gap-2">
+            {colonnes.map((o, rang) => {
+              const b = budgets(o)
+              const vedette = o.id === miseEnAvant?.id
+              // Les prix unitaires de l'offre, moyennés sur ses points de livraison quand il y en a
+              // plusieurs : c'est ce que la colonne « Moyen » du rapport affiche.
+              const moyen = (f: (d: OffreFournisseur['details_par_compteur'][number]) => number | null | undefined) => {
+                const vals = o.details_par_compteur.map(f).filter((v): v is number => v != null)
+                return vals.length === 0 ? null : vals.reduce((a, c) => a + c, 0) / vals.length
+              }
+              const unitaires = toutGaz
+                ? [
+                    { libelle: 'Molécule', valeur: moyen((d) => d.prix_gaz?.prix_energie_mwh) },
+                    { libelle: 'CEE', valeur: moyen((d) => d.prix_gaz?.prix_cee_mwh) },
+                    { libelle: 'CPB', valeur: moyen((d) => d.prix_gaz?.prix_cpb_mwh) },
+                  ]
+                : ORDRE_CLASSES
+                    .map((c) => ({
+                      libelle: LIBELLE_CLASSE[c] ?? c,
+                      valeur: moyen((d) => d.prix_electricite?.prix_mwh_par_classe?.[c]),
+                    }))
+                    .filter((x) => x.valeur != null)
+                    .concat([
+                      { libelle: 'CEE', valeur: moyen((d) => d.prix_electricite?.prix_cee_mwh) },
+                      { libelle: 'GO', valeur: moyen((d) => d.prix_electricite?.prix_go_mwh) },
+                    ])
+
+              return (
+                <section
+                  key={o.id}
+                  className={`rounded-kw-lg border ${vedette ? 'border-kw-green bg-kw-green-tint' : 'border-kw-border bg-white'} px-3 py-2.5`}
+                >
+                  <div className="grid grid-cols-1 gap-x-5 gap-y-2 lg:grid-cols-[150px_1fr_96px_minmax(0,1.5fr)]">
+                    {/* Colonne 1 — l'offre et son engagement */}
+                    <div>
+                      <span className="block text-kw-micro font-bold uppercase tracking-[0.1em] text-kw-faint">
+                        {o.est_offre_recommandee ? 'Retenue' : `Proposée · n° ${rang + 1}`}
+                      </span>
+                      <span className="block font-display text-kw-base font-extrabold leading-tight">
+                        {o.fournisseur_nom || 'Fournisseur'}
+                      </span>
+                      <span className="block text-kw-tiny text-kw-meta">
+                        {libelleOffre(o.duree_mois, o.type_prix)}
+                      </span>
+                      {o.date_validite && (
+                        <span className="block text-kw-micro text-kw-faint">
+                          valable jusqu'au {new Date(o.date_validite).toLocaleDateString('fr-FR')}
+                        </span>
+                      )}
+                    </div>
+
+                    {/* Colonne 2 — les prix unitaires, comme la colonne « Prix en €/MWh » du modèle */}
+                    <div>
+                      <span className="block text-kw-micro font-bold uppercase tracking-[0.1em] text-kw-faint">
+                        Prix en €/MWh
+                      </span>
+                      <div className="mt-0.5 flex flex-wrap gap-x-3 gap-y-0.5">
+                        {unitaires.every((u) => u.valeur == null) ? (
+                          <span className="text-kw-tiny text-kw-ghost">non détaillé</span>
+                        ) : (
+                          unitaires.map((u) => (
+                            <span key={u.libelle} className="flex items-baseline gap-1">
+                              <span className="text-kw-tiny text-kw-meta">{u.libelle}</span>
+                              <span className={`font-mono text-kw-sm tabular-nums ${u.valeur == null ? 'text-kw-ghost' : 'font-bold'}`}>
+                                {u.valeur == null
+                                  ? '—'
+                                  : u.valeur.toLocaleString('fr-FR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                              </span>
+                            </span>
+                          ))
+                        )}
+                      </div>
+                      <span className="mt-1 block text-kw-micro text-kw-faint">
+                        Abonnement{' '}
+                        <span className="font-mono">
+                          {b.abonnement == null
+                            ? '—'
+                            : `${b.abonnement.toLocaleString('fr-FR', { maximumFractionDigits: 2 })} € / an`}
+                        </span>
+                      </span>
+                    </div>
+
+                    {/* Colonne 3 — le prix moyen, encadré comme dans le modèle */}
+                    <div className="flex flex-col items-start justify-center rounded-kw-md border border-kw-border-strong bg-kw-subtle px-2 py-1">
+                      <span className="text-kw-micro font-bold uppercase tracking-[0.08em] text-kw-faint">
+                        Prix moyen
+                      </span>
+                      <span className="font-mono text-kw-base font-extrabold tabular-nums">
+                        {b.prixMoyen == null
+                          ? '—'
+                          : b.prixMoyen.toLocaleString('fr-FR', { maximumFractionDigits: 2 })}
+                      </span>
+                      <span className="text-kw-micro text-kw-faint">€/MWh</span>
+                    </div>
+
+                    {/* Colonne 4 — la composition du budget, l'assemblage que le tableau ne montre pas */}
+                    <div>
+                      <span className="block text-kw-micro font-bold uppercase tracking-[0.1em] text-kw-faint">
+                        Budget annuel moyen en € / an
+                      </span>
+                      <div className="mt-1 flex flex-wrap items-stretch gap-1">
+                        <Cube libelle="Abo." valeur={b.abonnement} />
+                        <Operateur>+</Operateur>
+                        <Cube
+                          libelle="Énergie"
+                          valeur={b.energie}
+                          detail={[
+                            { l: 'Molécule', v: b.molecule },
+                            { l: 'CEE', v: b.cee },
+                            { l: 'CPB', v: b.cpb },
+                            { l: 'GO', v: b.go },
+                          ]}
+                        />
+                        <Operateur>+</Operateur>
+                        <Cube
+                          libelle="Contrib."
+                          valeur={b.contributions}
+                          detail={[
+                            { l: 'ATRT', v: b.atrt },
+                            { l: 'ATRD', v: b.atrd },
+                            { l: 'AGN', v: b.agn },
+                            { l: 'TURPE', v: b.turpe },
+                            { l: 'AE', v: b.accise },
+                            { l: 'CTA', v: somme(b.ctaGaz, b.ctaElec) },
+                          ]}
+                        />
+                        <Operateur>=</Operateur>
+                        <Cube libelle="HTVA" valeur={b.htva} fort />
+                        <Operateur>+</Operateur>
+                        <Cube libelle={`TVA ${Math.round(TAUX_TVA * 100)} %`} valeur={b.tva} />
+                        <Operateur>=</Operateur>
+                        <Cube libelle="TTC" valeur={b.ttc} fort accent />
+                      </div>
+                    </div>
+                  </div>
+                </section>
+              )
+            })}
+          </div>
+
+          {/* ── 6. Le détail par point de livraison ─────────────────────────── */}
           <h2 className="mt-6 text-kw-base font-extrabold">
             Détail des {colonnes.length} offre{colonnes.length > 1 ? 's' : ''} de fourniture par point
             de livraison
@@ -434,7 +583,7 @@ export function DocumentComparatif({
             </table>
           </div>
 
-          {/* ── 6. Le lexique ───────────────────────────────────────────────── */}
+          {/* ── 7. Le lexique ───────────────────────────────────────────────── */}
           <h2 className="mt-6 text-kw-base font-extrabold">Lexique</h2>
           <div className="mt-1 grid grid-cols-1 gap-x-6 gap-y-2 sm:grid-cols-2 lg:grid-cols-3">
             {(toutGaz ? LEXIQUE_GAZ : LEXIQUE_ELEC).map((e) => (
@@ -487,6 +636,58 @@ const LEXIQUE_ELEC = [
   { terme: 'CTA', definition: 'Contribution tarifaire d’acheminement. Finance les retraites des industries électriques et gazières ; identique chez tous les fournisseurs.' },
   { terme: 'Abonnement', definition: 'Part fixe de la facture, indépendante du volume consommé. En électricité, elle est comptée dans le budget énergie.' },
 ]
+
+/**
+ * Un bloc du schéma de budget, avec ses composantes en dessous.
+ *
+ * C'est la brique de la colonne « Budget annuel moyen » du rapport Enéo : le montant, et sous lui ce
+ * qui le compose. Reliés par les opérateurs, ces blocs montrent l'assemblage — ce qu'une colonne de
+ * tableau ne fait pas.
+ */
+function Cube({ libelle, valeur, detail, fort, accent }: {
+  libelle: string
+  valeur: number | null | undefined
+  detail?: { l: string; v: number | null | undefined }[]
+  fort?: boolean
+  accent?: boolean
+}) {
+  const composantes = (detail ?? []).filter((d) => d.v != null)
+  return (
+    <div
+      className={`min-w-[74px] rounded-kw-sm border px-1.5 py-1 ${
+        accent
+          ? 'border-kw-green bg-white'
+          : fort
+            ? 'border-kw-ink bg-white'
+            : 'border-kw-border bg-kw-subtle'
+      }`}
+    >
+      <span className="block text-kw-micro font-bold uppercase tracking-[0.06em] text-kw-faint">
+        {libelle}
+      </span>
+      <span
+        className={`block font-mono tabular-nums ${valeur == null ? 'text-kw-ghost' : accent ? 'text-kw-green' : ''} ${
+          fort ? 'text-kw-base font-extrabold' : 'text-kw-sm font-bold'
+        }`}
+      >
+        {valeur == null ? '—' : Math.round(valeur).toLocaleString('fr-FR')}
+      </span>
+      {composantes.length > 0 && (
+        <span className="mt-0.5 block border-t border-kw-border-faint pt-0.5 text-kw-micro leading-tight text-kw-faint">
+          {composantes.map((d) => `${d.l} ${Math.round(d.v!).toLocaleString('fr-FR')}`).join(' + ')}
+        </span>
+      )}
+    </div>
+  )
+}
+
+function Operateur({ children }: { children: React.ReactNode }) {
+  return (
+    <span className="flex items-center px-0.5 font-mono text-kw-base font-bold text-kw-faint">
+      {children}
+    </span>
+  )
+}
 
 function Bloc({ titre, children }: { titre: string; children: React.ReactNode }) {
   return (
