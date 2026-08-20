@@ -79,10 +79,17 @@ export function moleculePresentee(
   marge: number | null | undefined,
   typeMarge: TypeMarge = 'VARIABLE',
 ) {
+  // SANS PRIX FOURNISSEUR, PAS DE PRIX CLIENT. Constaté en testant l'écran le 20/08/2026 : sur un
+  // compteur à cinq classes horosaisonnières dont une seule était cotée, la marge seule faisait un
+  // prix pour les quatre autres — et donc un budget pour des classes que le fournisseur n'a jamais
+  // chiffrées. L'aperçu annonçait 21 279,55 € là où l'enregistrement écrivait 18 757,28 €, parce que
+  // l'écriture, elle, écarte déjà les classes sans P0. Un aperçu qui ne dit pas ce qui sera écrit est
+  // pire qu'un aperçu absent.
+  if (p0 == null) return null
   // MARGE FIXE : le fournisseur a déjà pris sa marge dans son P0. L'ajouter la compterait deux fois
   // et gonflerait le prix annoncé au client (Michel, 20/08/2026 : « quand c'est une marge fixe, ça
   // n'a pas d'impact sur le prix »).
-  if (typeMarge === 'FIXE') return p0 ?? null
+  if (typeMarge === 'FIXE') return p0
   return somme(p0, marge)
 }
 
