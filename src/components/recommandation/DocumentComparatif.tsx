@@ -143,7 +143,6 @@ export function DocumentComparatif({
       }, null)
 
     const abonnement = cumul((d) => d.prix_gaz?.abonnement_fourniture_annuel_ht ?? d.prix_electricite?.abonnement_fourniture_annuel_ht)
-    const energie = cumul((d) => d.cout_fourniture_annuel_ht)
     const contributions = somme(
       cumul((d) => (d.prix_gaz ? d.cout_acheminement_annuel_ht : null)),
       cumul((d) => d.prix_electricite?.prix_turpe_annuel_ht),
@@ -151,12 +150,35 @@ export function DocumentComparatif({
       cumul((d) => d.prix_electricite?.cta_annuel_ht),
     )
     const htva = offre.montant_annuel_ht
+
+    // Le détail des composantes, dans l'ordre du modèle.
+    const molecule = parMwh((d) => d.prix_gaz?.prix_energie_mwh)
+    const classes = somme(
+      ...ORDRE_CLASSES.map((cl) => parMwh((d) => d.prix_electricite?.prix_mwh_par_classe?.[cl])),
+    )
+    const cee = somme(parMwh((d) => d.prix_gaz?.prix_cee_mwh), parMwh((d) => d.prix_electricite?.prix_cee_mwh))
+    const cpb = parMwh((d) => d.prix_gaz?.prix_cpb_mwh)
+    const go = parMwh((d) => d.prix_electricite?.prix_go_mwh)
+
+    // L'ÉNERGIE VAUT LA SOMME DE CE QU'ON MONTRE SOUS ELLE, et non le budget stocké.
+    //
+    // Constaté en vérifiant le document sur un vrai dossier le 20/08/2026 : une offre affichait
+    // « Énergie 1 265 » avec, juste dessous, « Molécule 6 325 + CEE 575 + CPB 115 ». Deux nombres
+    // contradictoires côte à côte, parce que `cout_fourniture_annuel_ht` datait d'une saisie
+    // antérieure au recalcul automatique et que les composantes, elles, se déduisent des prix
+    // affichés à gauche. Sur un document remis au client, cet écart est indéfendable.
+    //
+    // On additionne donc ce qu'on montre. Le budget stocké sert de repli quand aucune composante
+    // n'est connue — mieux vaut un total sans détail qu'aucun chiffre.
+    const energieDetaillee = somme(molecule, classes, cee, cpb, go)
+    const energie = energieDetaillee ?? cumul((d) => d.cout_fourniture_annuel_ht)
+
     return {
-      // Le détail des composantes, dans l'ordre du modèle.
-      molecule: parMwh((d) => d.prix_gaz?.prix_energie_mwh),
-      cee: somme(parMwh((d) => d.prix_gaz?.prix_cee_mwh), parMwh((d) => d.prix_electricite?.prix_cee_mwh)),
-      cpb: parMwh((d) => d.prix_gaz?.prix_cpb_mwh),
-      go: parMwh((d) => d.prix_electricite?.prix_go_mwh),
+      molecule,
+      classes,
+      cee,
+      cpb,
+      go,
       atrt: parMwh((d) => d.prix_gaz?.prix_atrt_mwh),
       atrd: parMwh((d) => d.prix_gaz?.prix_atrd_mwh),
       agn: parMwh((d) => d.prix_gaz?.prix_agn_mwh),
@@ -331,6 +353,7 @@ export function DocumentComparatif({
                 <Montant titre="Abonnement" colonnes={colonnes} vedette={miseEnAvant?.id} val={(o) => budgets(o).abonnement} />
                 <Montant titre="Énergie" colonnes={colonnes} vedette={miseEnAvant?.id} val={(o) => budgets(o).energie} />
                 <Montant titre="Molécule" colonnes={colonnes} vedette={miseEnAvant?.id} val={(o) => budgets(o).molecule} sous />
+                <Montant titre="Prix par classe" colonnes={colonnes} vedette={miseEnAvant?.id} val={(o) => budgets(o).classes} sous />
                 <Montant titre="CEE" colonnes={colonnes} vedette={miseEnAvant?.id} val={(o) => budgets(o).cee} sous />
                 <Montant titre="CPB" colonnes={colonnes} vedette={miseEnAvant?.id} val={(o) => budgets(o).cpb} sous />
                 <Montant titre="GO" colonnes={colonnes} vedette={miseEnAvant?.id} val={(o) => budgets(o).go} sous />
@@ -484,6 +507,7 @@ export function DocumentComparatif({
                           valeur={b.energie}
                           detail={[
                             { l: 'Molécule', v: b.molecule },
+                            { l: 'Classes', v: b.classes },
                             { l: 'CEE', v: b.cee },
                             { l: 'CPB', v: b.cpb },
                             { l: 'GO', v: b.go },
