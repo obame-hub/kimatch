@@ -1036,6 +1036,11 @@ export default function RecommandationDetail() {
           version={versionAffichee}
           compte={compte}
           compteurs={compteurs ?? []}
+          contactClient={contactPrincipal ?? null}
+          conseiller={(() => {
+            const p = (profilsAdmin ?? []).find((x) => x.id === reco.proprietaire_id)
+            return p ? { nom: `${p.prenom} ${p.nom}`, email: p.email } : null
+          })()}
         />
       )}
 

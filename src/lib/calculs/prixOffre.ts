@@ -92,7 +92,7 @@ export type TypeMarge = 'VARIABLE' | 'FIXE'
 export const PRIX_GAZ_VIDE: PrixOffreGaz = {
   type_prix: null, prix_molecule_p0_mwh: null, prix_energie_mwh: null,
   prix_cee_mwh: null, prix_cpb_mwh: null,
-  prix_atrd_mwh: null, prix_agn_mwh: null, car_reference_mwh: null,
+  prix_atrt_mwh: null, prix_atrd_mwh: null, prix_agn_mwh: null, car_reference_mwh: null,
   abonnement_fourniture_annuel_ht: null, cta_annuel_ht: null,
 }
 

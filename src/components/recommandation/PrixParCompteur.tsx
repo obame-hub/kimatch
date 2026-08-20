@@ -171,6 +171,12 @@ export function PrixParCompteur({
             prix_turpe_annuel_ht: prix.prix_turpe_annuel_ht !== undefined
               ? prix.prix_turpe_annuel_ht
               : detail?.prix_electricite?.prix_turpe_annuel_ht ?? null,
+            // Les composantes du compte rendu de consultation. On repart de la base : elles ne se
+            // saisissent pas encore ici, mais le type les exige et le calcul les lira.
+            prix_cee_mwh: detail?.prix_electricite?.prix_cee_mwh ?? null,
+            prix_go_mwh: detail?.prix_electricite?.prix_go_mwh ?? null,
+            accise_annuel_ht: detail?.prix_electricite?.accise_annuel_ht ?? null,
+            cta_annuel_ht: detail?.prix_electricite?.cta_annuel_ht ?? null,
           }
 
       const b = budgetsDepuisPrix({

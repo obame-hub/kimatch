@@ -109,10 +109,17 @@ export function SaisiePrixDialog({
   const contributions = valeur('cout_taxes_annuel', detail?.cout_taxes_annuel)
   const cee = valeur('prix_cee_mwh', detail?.prix_gaz?.prix_cee_mwh)
   const cpb = valeur('prix_cpb_mwh', detail?.prix_gaz?.prix_cpb_mwh)
+  const atrt = valeur('prix_atrt_mwh', detail?.prix_gaz?.prix_atrt_mwh)
   const atrd = valeur('prix_atrd_mwh', detail?.prix_gaz?.prix_atrd_mwh)
   const agn = valeur('prix_agn_mwh', detail?.prix_gaz?.prix_agn_mwh)
   const cta = valeur('cta_annuel_ht', detail?.prix_gaz?.cta_annuel_ht)
   const turpe = valeur('prix_turpe_annuel_ht', detail?.prix_electricite?.prix_turpe_annuel_ht)
+  // Les composantes du compte rendu Enéo, côté électricité. Les clés du payload sont partagées avec
+  // le gaz (CEE, CTA) : c'est la mutation qui aiguille vers la bonne table selon l'énergie.
+  const ceeElec = valeur('prix_cee_mwh', detail?.prix_electricite?.prix_cee_mwh)
+  const go = valeur('prix_go_mwh', detail?.prix_electricite?.prix_go_mwh)
+  const accise = valeur('accise_annuel_ht', detail?.prix_electricite?.accise_annuel_ht)
+  const ctaElec = valeur('cta_annuel_ht', detail?.prix_electricite?.cta_annuel_ht)
   const abonnement = valeur(
     'abonnement_fourniture_annuel_ht',
     gaz ? detail?.prix_gaz?.abonnement_fourniture_annuel_ht : detail?.prix_electricite?.abonnement_fourniture_annuel_ht,
@@ -134,6 +141,7 @@ export function SaisiePrixDialog({
           prix_energie_mwh: molecule,
           prix_cee_mwh: cee,
           prix_cpb_mwh: cpb,
+          prix_atrt_mwh: atrt,
           prix_atrd_mwh: atrd,
           prix_agn_mwh: agn,
           cta_annuel_ht: cta,
@@ -153,6 +161,11 @@ export function SaisiePrixDialog({
           ),
           abonnement_fourniture_annuel_ht: abonnement,
           prix_turpe_annuel_ht: turpe,
+          // Les composantes du compte rendu de consultation, saisies plus bas dans le formulaire.
+          prix_cee_mwh: ceeElec,
+          prix_go_mwh: go,
+          accise_annuel_ht: accise,
+          cta_annuel_ht: ctaElec,
         }
     return budgetsDepuisPrix({ gaz, compteur, detail, prixGaz, prixElec, consoForcee: conso, contributionSaisie: contributions })
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -291,8 +304,15 @@ export function SaisiePrixDialog({
                 aide="Ce qui ne revient pas au fournisseur : l’acheminement et les taxes. Le client les paie dans tous les cas."
               >
                 <Champ
+                  libelle="ATRT"
+                  aide="Accès des tiers au réseau de TRANSPORT (NaTran, Teréga), au mégawattheure. Souvent nul parce qu’inclus dans l’abonnement — dans ce cas saisir 0, qui n’est pas la même chose que de laisser vide."
+                  unite="€/MWh"
+                  valeur={atrt}
+                  onCommit={(v) => poser('prix_atrt_mwh', v)}
+                />
+                <Champ
                   libelle="ATRD"
-                  aide="Accès des tiers au réseau de distribution, part variable au mégawattheure."
+                  aide="Accès des tiers au réseau de DISTRIBUTION (GRDF), part variable au mégawattheure."
                   unite="€/MWh"
                   valeur={atrd}
                   onCommit={(v) => poser('prix_atrd_mwh', v)}
@@ -363,6 +383,27 @@ export function SaisiePrixDialog({
 
               <Section
                 numero={2}
+                titre="Les composantes de l’énergie"
+                aide="Ce que le fournisseur refacture en plus du prix de l’électricité, au mégawattheure."
+              >
+                <Champ
+                  libelle="CEE"
+                  aide="Certificats d’économies d’énergie refacturés, au mégawattheure. Ils entrent dans le budget énergie."
+                  unite="€/MWh"
+                  valeur={ceeElec}
+                  onCommit={(v) => poser('prix_cee_mwh', v)}
+                />
+                <Champ
+                  libelle="GO — énergie verte"
+                  aide="Garanties d’origine, au mégawattheure. C’est la part « énergie verte » du compte rendu : incluse ou non selon l’offre."
+                  unite="€/MWh"
+                  valeur={go}
+                  onCommit={(v) => poser('prix_go_mwh', v)}
+                />
+              </Section>
+
+              <Section
+                numero={3}
                 titre="La marge"
                 aide="Une seule marge pour ce point de livraison, quelle que soit la classe tarifaire."
               >
@@ -390,7 +431,7 @@ export function SaisiePrixDialog({
               </Section>
 
               <Section
-                numero={3}
+                numero={4}
                 titre="L’abonnement et l’acheminement"
                 aide="En électricité l’abonnement est compté DANS le budget énergie, et l’acheminement s’appelle le TURPE."
               >
@@ -413,12 +454,21 @@ export function SaisiePrixDialog({
                     composantes — « ça, je vais te l'envoyer parce que ça, tu l'as pas forcément ».
                     En attendant, un montant annuel global : mieux vaut une ligne juste qu'une
                     décomposition inventée qu'il faudrait défaire. */}
+                {/* Les composantes du compte rendu de consultation, telles que le rapport Enéo les
+                    liste côté électricité : AE et CTA en €/an, aux côtés du TURPE. */}
                 <Champ
-                  libelle="Contributions"
-                  aide="Total annuel des contributions et taxes, hors TURPE. En un seul montant pour l’instant : les composantes de l’électricité restent à cadrer avec Michel."
+                  libelle="AE — accise"
+                  aide="Accise sur l’électricité (ex-TICFE), en euros par an. Fixée par l’État : elle est identique chez tous les fournisseurs."
                   unite="€/an"
-                  valeur={contributions}
-                  onCommit={(v) => poser('cout_taxes_annuel', v)}
+                  valeur={accise}
+                  onCommit={(v) => poser('accise_annuel_ht', v)}
+                />
+                <Champ
+                  libelle="CTA"
+                  aide="Contribution tarifaire d’acheminement, en euros par an. Identique chez tous les fournisseurs."
+                  unite="€/an"
+                  valeur={ctaElec}
+                  onCommit={(v) => poser('cta_annuel_ht', v)}
                 />
               </Section>
             </>

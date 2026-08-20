@@ -348,6 +348,11 @@ async function fetchRecommandations(
       prix_pointe_p0_mwh?: number | null
       /** Migration 20260819180000. */
       prix_turpe_annuel_ht?: number | null
+      /** Migration 20260820160000 — les composantes du compte rendu de consultation. */
+      prix_cee_mwh?: number | null
+      prix_go_mwh?: number | null
+      accise_annuel_ht?: number | null
+      cta_annuel_ht?: number | null
     }
     interface RawPrixGaz {
       offre_compteur_id: string
@@ -359,6 +364,8 @@ async function fetchRecommandations(
       /** Décomposition ajoutée le 19/08/2026 — optionnelles, le select est en `*`. */
       prix_cee_mwh?: number | null
       prix_cpb_mwh?: number | null
+      /** ATRT, migration 20260820160000. */
+      prix_atrt_mwh?: number | null
       prix_atrd_mwh?: number | null
       prix_agn_mwh?: number | null
       cta_annuel_ht?: number | null
@@ -400,6 +407,10 @@ async function fetchRecommandations(
         p0_mwh_par_classe: p0ParClasse,
         prix_mwh_par_classe: parClasse,
         prix_turpe_annuel_ht: r.prix_turpe_annuel_ht ?? null,
+        prix_cee_mwh: r.prix_cee_mwh ?? null,
+        prix_go_mwh: r.prix_go_mwh ?? null,
+        accise_annuel_ht: r.accise_annuel_ht ?? null,
+        cta_annuel_ht: r.cta_annuel_ht ?? null,
         abonnement_fourniture_annuel_ht: r.abonnement_fourniture_annuel_ht,
       }]
     }))
@@ -407,6 +418,7 @@ async function fetchRecommandations(
       type_prix: r.type_prix,
       // `?? null` : la colonne date du 19/08/2026, une base non migrée la renvoie absente.
       prix_molecule_p0_mwh: r.prix_molecule_p0_mwh ?? null,
+      prix_atrt_mwh: r.prix_atrt_mwh ?? null,
       prix_energie_mwh: r.prix_energie_mwh,
       prix_cee_mwh: r.prix_cee_mwh ?? null,
       prix_cpb_mwh: r.prix_cpb_mwh ?? null,
@@ -1673,11 +1685,16 @@ export interface PrixParCompteur {
   prix_mwh_par_classe?: Record<string, number | null>
   /** Électricité : le TURPE en €/an, saisi. */
   prix_turpe_annuel_ht?: number | null
+  /** Électricité : GO et accise. Les CEE et la CTA partagent leur clé de payload avec le gaz — c'est
+   *  la mutation qui aiguille vers la bonne table selon l'énergie. */
+  prix_go_mwh?: number | null
+  accise_annuel_ht?: number | null
   /** Gaz : le P0 saisi, la molécule présentée (P0 + marge, calculée), puis la décomposition. */
   prix_molecule_p0_mwh?: number | null
   prix_energie_mwh?: number | null
   prix_cee_mwh?: number | null
   prix_cpb_mwh?: number | null
+  prix_atrt_mwh?: number | null
   prix_atrd_mwh?: number | null
   prix_agn_mwh?: number | null
   cta_annuel_ht?: number | null
@@ -1771,6 +1788,10 @@ export function useEnregistrerPrixCompteur() {
           colonnes[`prix_${classe.toLowerCase()}_p0_mwh`] = valeur
         }
         if (p.prix_turpe_annuel_ht !== undefined) colonnes.prix_turpe_annuel_ht = p.prix_turpe_annuel_ht
+        if (p.prix_cee_mwh !== undefined) colonnes.prix_cee_mwh = p.prix_cee_mwh
+        if (p.prix_go_mwh !== undefined) colonnes.prix_go_mwh = p.prix_go_mwh
+        if (p.accise_annuel_ht !== undefined) colonnes.accise_annuel_ht = p.accise_annuel_ht
+        if (p.cta_annuel_ht !== undefined) colonnes.cta_annuel_ht = p.cta_annuel_ht
         const { error } = await supabase.from('offres_compteurs_electricite').upsert(
           {
             offre_compteur_id: detailId,
@@ -1794,6 +1815,7 @@ export function useEnregistrerPrixCompteur() {
           ...(p.prix_energie_mwh !== undefined ? { prix_energie_mwh: p.prix_energie_mwh } : {}),
           ...(p.prix_cee_mwh !== undefined ? { prix_cee_mwh: p.prix_cee_mwh } : {}),
           ...(p.prix_cpb_mwh !== undefined ? { prix_cpb_mwh: p.prix_cpb_mwh } : {}),
+          ...(p.prix_atrt_mwh !== undefined ? { prix_atrt_mwh: p.prix_atrt_mwh } : {}),
           ...(p.prix_atrd_mwh !== undefined ? { prix_atrd_mwh: p.prix_atrd_mwh } : {}),
           ...(p.prix_agn_mwh !== undefined ? { prix_agn_mwh: p.prix_agn_mwh } : {}),
           ...(p.cta_annuel_ht !== undefined ? { cta_annuel_ht: p.cta_annuel_ht } : {}),

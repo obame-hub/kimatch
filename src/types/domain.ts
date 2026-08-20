@@ -122,6 +122,14 @@ export interface PrixOffreElectricite {
   prix_mwh_par_classe: Record<string, number>
   /** TURPE de ce PDL, en €/AN. Saisi à la main : le barème n'est pas dans l'application. */
   prix_turpe_annuel_ht: number | null
+  /** CEE refacturées, en €/MWh. Composante du budget énergie. */
+  prix_cee_mwh: number | null
+  /** Garanties d'Origine, en €/MWh — la part « énergie verte ». Composante du budget énergie. */
+  prix_go_mwh: number | null
+  /** AE — accise sur l'électricité, en €/AN. Composante des contributions. */
+  accise_annuel_ht: number | null
+  /** CTA, en €/AN. Composante des contributions, en électricité comme au gaz. */
+  cta_annuel_ht: number | null
   abonnement_fourniture_annuel_ht: number | null
 }
 
@@ -142,6 +150,8 @@ export interface PrixOffreGaz {
   prix_cee_mwh: number | null
   prix_cpb_mwh: number | null
   /** ATRD : accès des tiers au réseau de distribution, part variable. */
+  /** ATRT — accès au réseau de TRANSPORT, en €/MWh. Distinct de l'ATRD (distribution). */
+  prix_atrt_mwh: number | null
   prix_atrd_mwh: number | null
   prix_agn_mwh: number | null
   /** Consommation annuelle de référence retenue par le fournisseur pour son prix. */
