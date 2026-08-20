@@ -158,30 +158,44 @@
   }
 }
 
-/* IMPRESSION DU DOCUMENT COMPARATIF (19/08/2026).
-   Michel veut pouvoir « générer un document comparatif » sans qu'on embarque un générateur de PDF :
-   c'est le navigateur qui imprime, et ces règles ne laissent sur la page que le document lui-même.
-   La technique : on masque tout depuis la racine, puis on rend visible la seule branche qui mène au
-   document — masquer les frères à chaque niveau demanderait de connaître la structure de la page. */
+/* IMPRESSION DU DOCUMENT COMPARATIF.
+   Michel veut pouvoir sortir un document sans qu'on embarque un générateur de PDF : c'est le
+   navigateur qui imprime, et ces règles ne laissent sur la page que le document lui-même.
+
+   POURQUOI PAS `visibility` — c'était la première version, et elle produisait une page blanche avant
+   le document (signalé le 20/08/2026). `visibility: hidden` masque sans libérer la place : toute
+   l'application restait dans le flux, occupait sa hauteur, et le document imprimé commençait donc
+   après elle. `display: none` retire réellement les éléments.
+
+   On masque les enfants directs de `body` et on ne garde que celui qui contient le document — les
+   fenêtres modales sont montées en portail, donc ce conteneur est un frère de l'application, pas un
+   descendant. Le reste du chemin n'a plus besoin d'être décrit. */
 @media print {
-  body:has(#document-comparatif) * {
-    visibility: hidden;
+  body:has(#document-comparatif) > * {
+    display: none !important;
   }
-  body:has(#document-comparatif) #document-comparatif,
-  body:has(#document-comparatif) #document-comparatif * {
-    visibility: visible;
+  body:has(#document-comparatif) > *:has(#document-comparatif) {
+    display: block !important;
   }
-  /* Le document reprend le flux normal : la modale est en position fixed et le tronquerait à la
-     hauteur de l'écran, sans jamais imprimer les pages suivantes. */
-  body:has(#document-comparatif) #document-comparatif {
-    position: absolute;
-    inset: 0 auto auto 0;
-    width: 100%;
-    padding: 0;
-    background: #fff;
+  /* Le voile de la fenêtre redevient un conteneur ordinaire : en `fixed`, il tronquerait le document
+     à la hauteur de l'écran et les pages suivantes ne sortiraient jamais. */
+  body:has(#document-comparatif) > *:has(#document-comparatif) {
+    position: static !important;
+    overflow: visible !important;
+    background: #fff !important;
+    padding: 0 !important;
+    backdrop-filter: none !important;
+  }
+  /* La fenêtre elle-même perd sa carte : bordure, ombre, largeur maximale et marges automatiques. */
+  #document-comparatif {
+    margin: 0 !important;
+    padding: 0 !important;
+    max-width: none !important;
+    background: #fff !important;
   }
   /* Une ligne de tableau ne doit pas se couper en deux pages, et les en-têtes se répètent. */
   #document-comparatif tr { break-inside: avoid; }
   #document-comparatif thead { display: table-header-group; }
-  @page { margin: 14mm; }
+  #document-comparatif section { break-inside: avoid; }
+  @page { margin: 12mm; }
 }

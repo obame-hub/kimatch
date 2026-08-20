@@ -1,4 +1,4 @@
-import { useMemo } from 'react'
+import { useMemo, useState } from 'react'
 import { Dialog } from '@/components/ui/dialog'
 import { Printer } from 'lucide-react'
 import { ORDRE_CLASSES, somme } from '@/lib/calculs/prixOffre'
@@ -101,6 +101,17 @@ export function DocumentComparatif({
 
   const retenue = colonnes.find((o) => o.est_offre_recommandee)
   const miseEnAvant = retenue ?? colonnes[0]
+
+  // LE TRI. `colonnes` reste ordonné par prix — c'est lui qui définit la référence d'écart et l'ordre
+  // du tableau de synthèse. Seul l'affichage des cartes suit le tri choisi, sinon changer l'ordre
+  // changerait aussi ce à quoi on se compare.
+  const [tri, setTri] = useState<'total' | 'fournisseur' | 'duree'>('total')
+  const colonnesTriees = useMemo(() => {
+    const l = [...colonnes]
+    if (tri === 'fournisseur') return l.sort((a, b) => (a.fournisseur_nom ?? '').localeCompare(b.fournisseur_nom ?? ''))
+    if (tri === 'duree') return l.sort((a, b) => (a.duree_mois ?? 0) - (b.duree_mois ?? 0))
+    return l
+  }, [colonnes, tri])
 
   const pdl = useMemo(
     () =>
@@ -395,15 +406,64 @@ export function DocumentComparatif({
               Michel, 20/08/2026 : « sur le bouton qui sera document comparatif, on pourra reprendre
               encore son même truc » — le même modèle que dans le détail de version, donc le même
               composant. Une seule présentation à apprendre, et une seule à corriger. */}
-          <h2 className="mt-6 text-kw-base font-extrabold">
-            Détail des {colonnes.length} offre{colonnes.length > 1 ? 's' : ''} de fourniture
-          </h2>
-          <p className="mb-1.5 text-kw-tiny text-kw-meta">
-            La barre montre la répartition du budget. Dépliez une offre pour voir chaque point de
-            livraison, puis un point de livraison pour ses composantes.
-          </p>
-          <div className="flex flex-col gap-2">
-            {colonnes.map((o) => (
+          {/* ── Le comparatif d'offres, au modèle de l'étude client de William ──
+              Michel demande de « reprendre son même truc ». Trois choses de sa maquette manquaient et
+              changent la lecture :
+
+                · LA LÉGENDE des quatre couleurs, sans laquelle la barre est un dégradé muet ;
+                · LE TRI, parce qu'un client ne cherche pas toujours le moins cher — il compare
+                  parfois à durée égale, ou fournisseur par fournisseur ;
+                · LE SÉPARATEUR entre le contrat actuel et les offres négociées : c'est lui qui dit
+                  ce qui sert de référence, et donc ce que veut dire l'écart affiché à droite. */}
+          <div className="mt-6 flex flex-wrap items-baseline gap-x-3 gap-y-1">
+            <h2 className="text-kw-md font-extrabold">Comparatif d'offres</h2>
+            <span className="text-kw-sm text-kw-meta">
+              {energies.join(' et ').toLowerCase()} · budgets annuels HT
+            </span>
+          </div>
+
+          <div className="mt-1.5 flex flex-wrap items-center gap-x-4 gap-y-2">
+            {[
+              ['Abonnement', 'bg-kw-blue'],
+              ['Énergie', 'bg-kw-green'],
+              ['TURPE / réseau', 'bg-kw-gold'],
+              ['Taxes', 'bg-kw-meta'],
+            ].map(([libelle, couleur]) => (
+              <span key={libelle} className="flex items-center gap-1.5 text-kw-tiny font-semibold text-kw-label">
+                <span className={`h-[9px] w-3 shrink-0 rounded-[3px] ${couleur}`} />
+                {libelle}
+              </span>
+            ))}
+            <span className="flex-1" />
+            <span className="text-kw-tiny text-kw-faint print:hidden">trier :</span>
+            {([['total', 'Total'], ['fournisseur', 'Fournisseur'], ['duree', 'Durée']] as const).map(([cle, libelle]) => (
+              <button
+                key={cle}
+                type="button"
+                onClick={() => setTri(cle)}
+                className={
+                  tri === cle
+                    ? 'rounded-kw-md bg-kw-ink px-2.5 py-0.5 text-kw-tiny font-bold text-white print:hidden'
+                    : 'rounded-kw-md border border-kw-border-strong bg-white px-2.5 py-0.5 text-kw-tiny font-bold text-kw-label hover:bg-kw-subtle print:hidden'
+                }
+              >
+                {libelle}
+              </button>
+            ))}
+          </div>
+
+          <div className="mt-2 flex items-center gap-2.5">
+            <span className="text-kw-tiny font-bold uppercase tracking-[0.09em] text-kw-green">
+              Les offres négociées par Kiwee
+            </span>
+            <span className="h-[1.5px] flex-1 bg-gradient-to-r from-kw-green-border to-transparent" />
+            <span className="text-kw-tiny text-kw-faint">
+              écart calculé face à la moins chère
+            </span>
+          </div>
+
+          <div className="mt-1.5 flex flex-col gap-2">
+            {colonnesTriees.map((o) => (
               <CarteOffreEtude
                 key={o.id}
                 offre={o}

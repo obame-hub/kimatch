@@ -75,15 +75,23 @@ export function CarteOffreEtude({
   const ecart = total != null && reference?.montant_annuel_ht != null && reference.id !== offre.id
     ? total - reference.montant_annuel_ht
     : null
+  const ecartPct = ecart != null && reference?.montant_annuel_ht
+    ? (ecart / reference.montant_annuel_ht) * 100
+    : null
 
   // Les trois parts du budget. Sans total, aucune barre : une barre vide ferait croire à un zéro.
-  // L'abonnement n'a sa part de barre qu'au gaz : ailleurs il est dans l'énergie, et la barre
-  // dépasserait 100 % de ce que le client paie.
+  // QUATRE SEGMENTS, ceux de la maquette de William et dans ses couleurs : abonnement en bleu,
+  // énergie en vert, réseau en doré, taxes en gris. La distinction réseau / taxes compte pour le
+  // client : le réseau baisse avec une optimisation de puissance, les taxes non.
+  //
+  // L'abonnement n'a sa part qu'au gaz : ailleurs il est dans l'énergie, et la barre dépasserait
+  // 100 % de ce que le client paie.
   const abonnementAPart = offre.details_par_compteur.some((d) => !!d.prix_gaz)
   const parts = [
     { cle: 'abonnement', libelle: 'Abonnement', valeur: abonnementAPart ? b.abonnement : null, couleur: 'bg-kw-blue' },
     { cle: 'energie', libelle: 'Énergie', valeur: b.energie, couleur: 'bg-kw-green' },
-    { cle: 'contributions', libelle: 'Contributions', valeur: b.contributions, couleur: 'bg-kw-gold' },
+    { cle: 'reseau', libelle: 'TURPE / réseau', valeur: b.reseau, couleur: 'bg-kw-gold' },
+    { cle: 'taxes', libelle: 'Taxes', valeur: b.taxes, couleur: 'bg-kw-meta' },
   ].filter((p) => p.valeur != null && p.valeur > 0)
   const sommeParts = somme(...parts.map((p) => p.valeur))
 
@@ -178,12 +186,17 @@ export function CarteOffreEtude({
                   />
                 ))}
               </span>
-              <span className="mt-1 flex flex-wrap gap-x-2.5 font-mono text-kw-micro text-kw-faint">
-                {parts.map((p) => (
-                  <span key={p.cle}>
-                    {p.libelle} {Math.round((p.valeur! / sommeParts) * 100)} %
-                  </span>
-                ))}
+              {/* DEUX REPÈRES SEULEMENT, aux extrémités, comme la maquette : la part d'énergie à
+                  gauche, celle du réseau et des taxes à droite. Quatre pourcentages alignés se lisent
+                  comme un tableau ; deux se lisent d'un coup d'œil. Le détail reste au survol de
+                  chaque segment. */}
+              <span className="mt-1 flex justify-between font-mono text-kw-micro text-kw-faint">
+                <span>
+                  énergie {Math.round(((b.energie ?? 0) / sommeParts) * 100)} %
+                </span>
+                <span>
+                  taxes+réseau {Math.round((((b.reseau ?? 0) + (b.taxes ?? 0)) / sommeParts) * 100)} %
+                </span>
               </span>
             </>
           ) : (
@@ -217,21 +230,28 @@ export function CarteOffreEtude({
 
           <span>
             {ecart == null ? (
-              <span className="block text-kw-base text-kw-ghost">—</span>
+              <span className="block text-kw-sm text-kw-faint">référence</span>
             ) : (
               <span
                 className={cn(
-                  'block font-mono text-kw-base font-extrabold tabular-nums',
-                  ecart > 0 ? 'text-kw-red' : 'text-kw-green',
+                  'inline-flex items-baseline gap-1.5 rounded-kw-sm px-2 py-0.5 font-mono text-kw-sm font-extrabold tabular-nums',
+                  ecart > 0 ? 'bg-kw-red-light text-kw-red' : 'bg-kw-green-light text-kw-green',
                 )}
               >
-                {ecart > 0 ? '+' : ''}
-                {Math.round(ecart).toLocaleString('fr-FR')} €
+                {/* Flèche, montant et pourcentage, comme la maquette : « ▼ −1 760 € · 12,4 % ». Le
+                    pourcentage seul cache l'ordre de grandeur, le montant seul cache l'ampleur. */}
+                <span>{ecart > 0 ? '▲' : '▼'}</span>
+                <span>
+                  {ecart > 0 ? '+' : '−'}
+                  {Math.abs(Math.round(ecart)).toLocaleString('fr-FR')} €
+                </span>
+                {ecartPct != null && (
+                  <span className="font-normal">
+                    · {Math.abs(ecartPct).toLocaleString('fr-FR', { maximumFractionDigits: 1 })} %
+                  </span>
+                )}
               </span>
             )}
-            <span className="block text-kw-micro text-kw-faint">
-              {ecart == null ? 'référence' : 'vs moins chère'}
-            </span>
           </span>
 
           {chiffresEnPlus}
@@ -290,7 +310,8 @@ export function CarteOffreEtude({
                         estompe={!gaz}
                       />
                       <Cellule libelle="ÉNERGIE" valeur={d.cout_fourniture_annuel_ht} unite="€" />
-                      <Cellule libelle="CONTRIBUTIONS" valeur={contributionsDe(d)} unite="€" />
+                      <Cellule libelle={gaz ? 'RÉSEAU' : 'TURPE'} valeur={reseauDe(d)} unite="€" />
+                      <Cellule libelle="TAXES" valeur={taxesDe(d)} unite="€" />
                       <span className="min-w-[86px] text-right">
                         <span className="block text-kw-micro font-bold tracking-[0.05em] text-kw-faint">
                           TOTAL / AN
@@ -396,9 +417,11 @@ export function budgetsDeLOffre(offre: OffreFournisseur) {
     offre.details_par_compteur.reduce<number | null>((t, d) => somme(t, f(d)), null)
   const abonnement = cumul(abonnementDe)
   const energie = cumul((d) => d.cout_fourniture_annuel_ht)
+  const reseau = cumul(reseauDe)
+  const taxes = cumul(taxesDe)
   const contributions = cumul(contributionsDe)
   // Le total additionne les lignes, chacune sachant si son abonnement compte à part ou non.
-  return { abonnement, energie, contributions, total: cumul(totalDeLaLigne) }
+  return { abonnement, energie, reseau, taxes, contributions, total: cumul(totalDeLaLigne) }
 }
 
 /**
@@ -418,19 +441,55 @@ function abonnementDe(d: OffreFournisseur['details_par_compteur'][number]) {
 }
 
 /**
- * Les contributions du PDL.
+ * Le RÉSEAU d'un point de livraison : ce qui finance l'acheminement.
  *
- * Au gaz, `cout_acheminement_annuel_ht` porte déjà ATRD + AGN + CTA, recalculé à chaque saisie. En
- * électricité, il porte le TURPE, auquel s'ajoutent l'accise et la CTA — les trois que le compte
- * rendu de consultation liste sous « Contributions ».
+ * La maquette de William sépare le réseau des taxes, et c'est une distinction qui a du sens pour le
+ * client : le réseau se négocie indirectement — une optimisation de puissance le fait baisser — tandis
+ * que les taxes sont identiques chez tous les fournisseurs. Les mêler dans un seul segment ferait
+ * croire que rien n'est actionnable.
+ *
+ *   GAZ          ATRT + ATRD
+ *   ÉLECTRICITÉ  TURPE
+ */
+function reseauDe(d: OffreFournisseur['details_par_compteur'][number]) {
+  const vol = volumeDe(d)
+  if (d.prix_gaz) {
+    const parMwh = somme(d.prix_gaz.prix_atrt_mwh, d.prix_gaz.prix_atrd_mwh)
+    return parMwh == null || vol == null ? null : parMwh * vol
+  }
+  return turpeDetaille(d) ?? d.prix_electricite?.prix_turpe_annuel_ht ?? d.cout_acheminement_annuel_ht ?? null
+}
+
+/**
+ * Les TAXES d'un point de livraison : ce que le fournisseur ne fixe pas.
+ *
+ *   GAZ          AGN + CTA
+ *   ÉLECTRICITÉ  accise + CTA
+ */
+function taxesDe(d: OffreFournisseur['details_par_compteur'][number]) {
+  const vol = volumeDe(d)
+  if (d.prix_gaz) {
+    const agn = d.prix_gaz.prix_agn_mwh != null && vol != null ? d.prix_gaz.prix_agn_mwh * vol : null
+    return somme(agn, d.prix_gaz.cta_annuel_ht)
+  }
+  return somme(d.prix_electricite?.accise_annuel_ht, d.prix_electricite?.cta_annuel_ht)
+}
+
+/** Le volume du PDL : celui retenu par le fournisseur, à défaut celui du compteur. */
+function volumeDe(d: OffreFournisseur['details_par_compteur'][number]) {
+  return d.consommation_annuelle_reference_mwh ?? d.prix_gaz?.car_reference_mwh ?? null
+}
+
+/**
+ * Les contributions, réseau et taxes réunis.
+ *
+ * Reste utilisée là où l'on ne veut qu'un total — la vue interne du commercial, qui n'a pas besoin de
+ * la distinction que le client, lui, doit comprendre.
  */
 function contributionsDe(d: OffreFournisseur['details_par_compteur'][number]) {
-  if (d.prix_gaz) return d.cout_acheminement_annuel_ht ?? null
-  return somme(
-    turpeDetaille(d) ?? d.prix_electricite?.prix_turpe_annuel_ht ?? d.cout_acheminement_annuel_ht,
-    d.prix_electricite?.accise_annuel_ht,
-    d.prix_electricite?.cta_annuel_ht,
-  )
+  const somme2 = somme(reseauDe(d), taxesDe(d))
+  // Repli sur le budget d'acheminement quand les composantes ne sont pas détaillées.
+  return somme2 ?? d.cout_acheminement_annuel_ht ?? null
 }
 
 /**
