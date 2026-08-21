@@ -709,6 +709,13 @@ export interface Contrat {
    * Optionnel le temps que la migration 20260821130000 soit appliquée.
    */
   date_declenchement_tacite?: string | null
+  /**
+   * Combien de jours avant la date limite ce contrat doit être signalé.
+   *
+   * Saisi par le commercial : Michel, 21/08/2026 — « dépend du fournisseur, on peut pas calculer,
+   * c'est le commercial qui le met ». Vide, l'application se replie sur 90 jours en le signalant.
+   */
+  jours_alerte_tacite?: number | null
   clause_renegociation_anticipee?: boolean | null
   clause_engagement_consommation?: boolean | null
   clause_energie_verte?: boolean | null

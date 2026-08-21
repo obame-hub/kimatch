@@ -34,11 +34,16 @@ const FOURNISSEURS_RENEGOCIATION_RECOMMANDEE = ['GAZ EUROPEEN', 'SEFE']
 /**
  * L'ALERTE DE RECONDUCTION TACITE, telle qu'elle se lit dans une liste.
  *
- * Quatre-vingt-dix jours d'avance, le même seuil que sur la fiche : assez pour consulter les
- * fournisseurs avant que la fenêtre de résiliation se referme, les préavis valant le plus souvent
- * 60 jours. Au-delà, on ne dit rien — une liste où tout est signalé ne signale plus rien.
+ * LE DÉLAI VIENT DU CONTRAT. Michel, 21/08/2026 : « dépend du fournisseur, on peut pas calculer,
+ * c'est le commercial qui le met. » Les 90 jours ne sont plus qu'un repli, pour qu'un contrat non
+ * renseigné soit signalé quand même plutôt que de passer inaperçu.
+ *
+ * Au-delà du délai, on ne dit rien : une liste où tout est signalé ne signale plus rien.
  */
-function alerteTacite(jourISO: string | null | undefined): { texte: string; passee: boolean } | null {
+function alerteTacite(
+  jourISO: string | null | undefined,
+  joursAlerte: number | null | undefined,
+): { texte: string; passee: boolean } | null {
   if (!jourISO) return null
   const jour = new Date(jourISO)
   if (Number.isNaN(jour.getTime())) return null
@@ -48,7 +53,7 @@ function alerteTacite(jourISO: string | null | undefined): { texte: string; pass
   if (jours < 0) {
     return { texte: `Reconduit — date limite passée le ${jour.toLocaleDateString('fr-FR')}`, passee: true }
   }
-  if (jours > 90) return null
+  if (jours > (joursAlerte ?? 90)) return null
   if (jours === 0) return { texte: 'Dernier jour pour résilier', passee: false }
   return {
     texte: `À résilier sous ${jours} jour${jours > 1 ? 's' : ''} — avant le ${jour.toLocaleDateString('fr-FR')}`,
@@ -479,7 +484,7 @@ export default function Contrats() {
                       fiche pour découvrir n'alerte personne : sur les 465 contrats qui portent cette
                       date, 11 tombent dans les six prochains mois. C'est ici qu'on les voit. */}
                   {(() => {
-                    const alerte = alerteTacite(c.date_declenchement_tacite)
+                    const alerte = alerteTacite(c.date_declenchement_tacite, c.jours_alerte_tacite)
                     if (!alerte) return null
                     return (
                       <p className={cn('font-semibold', alerte.passee ? 'text-red-600' : 'text-amber-700')}>

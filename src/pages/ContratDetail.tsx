@@ -121,17 +121,18 @@ const CLAUSES: { key: keyof Pick<Contrat, 'clause_tacite_reconduction' | 'clause
 ]
 
 /**
- * COMBIEN DE JOURS AVANT L'ÉCHÉANCE ON PRÉVIENT.
+ * LE DÉLAI D'ALERTE PAR DÉFAUT, quand le contrat n'en porte pas.
  *
- * Quatre-vingt-dix jours, faute de réponse de Michel sur le délai qu'il lui faut. C'est le seul
- * chiffre à changer si ce n'est pas le bon : il ne sert qu'à décider quand le bandeau s'allume, et
- * jamais à un calcul.
+ * Michel, 21/08/2026 : « dépend du fournisseur, on peut pas calculer, c'est le commercial qui le
+ * met. » Le délai est donc une donnée du contrat — `jours_alerte_tacite` — et non une règle de
+ * l'application. Celle-ci ne garde qu'un repli, pour qu'un contrat non renseigné alerte quand même
+ * plutôt que de rester muet, et l'écran dit alors que c'est un repli.
  *
- * Le raisonnement derrière : sur les contrats où l'on connaît le préavis, il vaut le plus souvent
- * 60 jours, parfois 30. Prévenir 90 jours avant l'échéance laisse donc un mois pour consulter les
- * fournisseurs AVANT que la fenêtre de résiliation se referme.
+ * Quatre-vingt-dix jours parce que les préavis connus valent le plus souvent 60 jours, parfois 30 :
+ * il reste ainsi un mois pour reconsulter avant que la fenêtre se referme. C'est une valeur d'attente,
+ * pas une vérité.
  */
-const JOURS_ALERTE_TACITE = 90
+const JOURS_ALERTE_DEFAUT = 90
 
 /**
  * Où en est la reconduction tacite de ce contrat.
@@ -144,6 +145,10 @@ const JOURS_ALERTE_TACITE = 90
 function echeanceTacite(contrat: Contrat): {
   jour: Date
   jours: number
+  /** Le délai d'alerte retenu : celui du contrat, ou le repli. */
+  seuil: number
+  /** Vrai quand le contrat n'en porte pas et qu'on a pris le repli. */
+  seuilParDefaut: boolean
   passee: boolean
   urgent: boolean
   texte: string
@@ -155,10 +160,13 @@ function echeanceTacite(contrat: Contrat): {
   aujourdhui.setHours(0, 0, 0, 0)
   const jours = Math.round((jour.getTime() - aujourdhui.getTime()) / 86400000)
   const affichee = jour.toLocaleDateString('fr-FR')
+  const seuil = contrat.jours_alerte_tacite ?? JOURS_ALERTE_DEFAUT
   if (jours < 0) {
     return {
       jour,
       jours,
+      seuil,
+      seuilParDefaut: contrat.jours_alerte_tacite == null,
       passee: true,
       urgent: false,
       texte: `La date limite de résiliation est passée depuis le ${affichee} : ce contrat s'est reconduit, ou va le faire, sans qu'on puisse s'y opposer.`,
@@ -167,8 +175,10 @@ function echeanceTacite(contrat: Contrat): {
   return {
     jour,
     jours,
+    seuil,
+    seuilParDefaut: contrat.jours_alerte_tacite == null,
     passee: false,
-    urgent: jours <= JOURS_ALERTE_TACITE,
+    urgent: jours <= seuil,
     texte:
       jours === 0
         ? `Dernier jour pour résilier : c'est aujourd'hui. Demain, le contrat est reconduit.`
@@ -710,32 +720,77 @@ export default function ContratDetail() {
                   date rangée dans une grille de champs ne se voit pas. */}
               {(() => {
                 const e = echeanceTacite(contrat)
+
+                // LA SAISIE, TOUJOURS DISPONIBLE. Michel, 21/08/2026 : la tacite se renseigne
+                // « par contrat », et l'information se lit « sur le contrat ou l'ancien contrat en
+                // cours ». C'est donc ici, sur la fiche où l'on a le PDF sous les yeux, que ça se
+                // remplit — et pour 1 134 contrats sur 1 599, tout reste à remplir.
+                const saisie = (
+                  <div className="mt-3 grid grid-cols-1 gap-3 sm:grid-cols-3">
+                    <InlineField
+                      variant="select"
+                      label="Reconduction tacite"
+                      emptyLabel="on ne sait pas"
+                      value={contrat.clause_tacite_reconduction == null ? '' : contrat.clause_tacite_reconduction ? 'oui' : 'non'}
+                      options={[{ value: 'oui', label: 'Oui' }, { value: 'non', label: 'Non' }]}
+                      onCommit={(v) => majContrat({ clause_tacite_reconduction: v === '' ? null : v === 'oui' })}
+                      {...retourInline}
+                    />
+                    <InlineField
+                      variant="date"
+                      label="Date limite de résiliation"
+                      value={contrat.date_declenchement_tacite ?? null}
+                      onCommit={(v) => majContrat({ date_declenchement_tacite: v || null })}
+                      {...retourInline}
+                    />
+                    {/* LE DÉLAI D'ALERTE EST UNE DONNÉE DU CONTRAT. « Dépend du fournisseur, on peut
+                        pas calculer, c'est le commercial qui le met. » */}
+                    <InlineField
+                      variant="number"
+                      label="Prévenir X jours avant"
+                      unit="jours"
+                      emptyLabel={`${JOURS_ALERTE_DEFAUT} par défaut`}
+                      value={contrat.jours_alerte_tacite ?? null}
+                      onCommit={(v) => majContrat({ jours_alerte_tacite: v })}
+                      {...retourInline}
+                    />
+                  </div>
+                )
+
+                // Quatre situations, et chacune dit quoi faire.
+                if (contrat.clause_tacite_reconduction === false) {
+                  // Pas de tacite : rien à surveiller, on ne prend pas de place. La saisie reste
+                  // accessible au cas où l'information serait fausse.
+                  return (
+                    <div className="rounded-xl border border-navy-100 bg-white p-4">
+                      <p className="text-[10px] font-bold uppercase tracking-wide text-navy-400">
+                        Reconduction tacite
+                      </p>
+                      <p className="mt-1 text-xs text-navy-500">
+                        Ce contrat ne se reconduit pas tout seul : il s'arrête à sa date de fin.
+                      </p>
+                      {saisie}
+                    </div>
+                  )
+                }
+
                 if (!e) {
-                  // Rien à afficher, sauf si la clause dit « tacite » : là, l'absence de date est
-                  // elle-même l'information à corriger.
-                  if (!contrat.clause_tacite_reconduction) return null
+                  const inconnu = contrat.clause_tacite_reconduction == null
                   return (
                     <div className="rounded-xl border border-amber-200 bg-amber-50 p-4">
                       <p className="text-[10px] font-bold uppercase tracking-wide text-amber-700">
                         Reconduction tacite
                       </p>
                       <p className="mt-1 text-xs leading-relaxed text-amber-800">
-                        Ce contrat se reconduit tacitement, mais sa date limite de résiliation n'est
-                        pas renseignée : personne ne peut savoir quand il faut agir. Renseignez-la
-                        ci-dessous — elle vaut la date de fin moins le préavis.
+                        {inconnu
+                          ? "On ne sait pas si ce contrat se reconduit tout seul. L'information est écrite dans le contrat lui-même, ou dans le précédent : reportez-la ici, sinon personne ne peut savoir s'il faut agir ni quand."
+                          : "Ce contrat se reconduit tacitement, mais sa date limite de résiliation n'est pas renseignée : personne ne peut savoir quand il faut agir. Elle est écrite dans le contrat, autour de la date de fin moins le préavis — mais elle ne se calcule pas, reportez celle qui y figure."}
                       </p>
-                      <div className="mt-2.5">
-                        <InlineField
-                          variant="date"
-                          label="Date limite de résiliation"
-                          value={null}
-                          onCommit={(v) => majContrat({ date_declenchement_tacite: v || null })}
-                          {...retourInline}
-                        />
-                      </div>
+                      {saisie}
                     </div>
                   )
                 }
+
                 return (
                   <div
                     className={cn(
@@ -762,27 +817,24 @@ export default function ContratDetail() {
                       )}
                     >
                       {e.texte}
+                      {!e.passee && (
+                        <>
+                          {' '}
+                          <span className={e.urgent ? 'text-amber-700' : 'text-navy-400'}>
+                            Signalé à {e.seuil} jours
+                            {e.seuilParDefaut && ' (valeur par défaut, à confirmer)'}.
+                          </span>
+                        </>
+                      )}
                     </p>
-                    <div className="mt-2.5 grid grid-cols-1 gap-3 sm:grid-cols-2">
-                      <InlineField
-                        variant="date"
-                        label="Date limite de résiliation"
-                        value={contrat.date_declenchement_tacite ?? null}
-                        onCommit={(v) => majContrat({ date_declenchement_tacite: v || null })}
-                        {...retourInline}
-                      />
-                      <div>
-                        <p className="mb-0.5 text-[10px] uppercase tracking-wide text-navy-400">
-                          Fin du contrat · préavis
-                        </p>
-                        <p className="text-xs font-semibold text-navy-800">
-                          {contrat.date_fin ? new Date(contrat.date_fin).toLocaleDateString('fr-FR') : '—'}
-                          {contrat.preavis_resiliation_jours != null && (
-                            <> · {contrat.preavis_resiliation_jours} jours de préavis</>
-                          )}
-                        </p>
-                      </div>
-                    </div>
+                    <p className="mt-1.5 text-[10.5px] text-navy-400">
+                      Fin du contrat :{' '}
+                      {contrat.date_fin ? new Date(contrat.date_fin).toLocaleDateString('fr-FR') : '—'}
+                      {contrat.preavis_resiliation_jours != null && (
+                        <> · {contrat.preavis_resiliation_jours} jours de préavis</>
+                      )}
+                    </p>
+                    {saisie}
                   </div>
                 )
               })()}
