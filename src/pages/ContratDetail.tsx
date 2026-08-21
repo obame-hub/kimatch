@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react'
 import { ApercuDocument } from '@/components/document/ApercuDocument'
 import { useParams, useNavigate } from 'react-router-dom'
-import { ArrowLeft, Zap, Flame, Trash2, Building2, MapPin, Gauge, FileText, Plus, Euro, X, Eye, PenLine, Check } from 'lucide-react'
+import { ArrowLeft, Zap, Flame, Trash2, Building2, MapPin, Gauge, FileText, Plus, Euro, X, Eye, PenLine, Check, ExternalLink, Send, MailOpen, FileSignature, PenTool } from 'lucide-react'
 import { Topbar } from '@/components/layout/Topbar'
 import { Button } from '@/components/ui/button'
 import { ZoneDepotFichiers } from '@/components/ui/zone-depot-fichiers'
@@ -16,7 +16,14 @@ import { useSites } from '@/lib/data/sites'
 import { useComptes } from '@/lib/data/comptes'
 import { useContacts } from '@/lib/data/contacts'
 import { useDocuments, useTeleverserDocuments } from '@/lib/data/documents'
-import { sendContratForSignature, connectDocusign, DocusignNonConnecte } from '@/lib/data/docusign'
+import {
+  sendContratForSignature,
+  connectDocusign,
+  etatEnveloppeContrat,
+  lienEnveloppeDocusign,
+  DocusignNonConnecte,
+  type EtatEnveloppe,
+} from '@/lib/data/docusign'
 import { useReferenceTable } from '@/lib/data/referenceTables'
 import { useFormulesTarifaires, useTarifsByContratCompteurs, useCreateTarif, useDeleteTarif } from '@/lib/data/tarifs'
 import { useCanManage, useIsAdmin, useProfilsAdmin } from '@/lib/data/roles'
@@ -782,10 +789,17 @@ export default function ContratDetail() {
 
               <ClausesCard contrat={contrat} />
 
-              {/* PLUS DE BLOC « SIGNATURE (DOCUSIGN) » EN BAS DE PAGE. Naoëlle, 21/08/2026 : le
-                  bouton monte dans l'en-tête à côté de Supprimer, et le bloc s'en va. L'état de la
-                  signature n'est pas perdu pour autant : il se lit dans la pastille de l'en-tête,
-                  près du statut du contrat, et le détail des dates dans l'infobulle. */}
+              {/* ── CE QUI EST PARTI À LA SIGNATURE ──
+                  Naoëlle, 21/08/2026, après avoir envoyé le contrat de SDC AMPLITUDE 2 : « j'ai
+                  envoyé ce contrat mais j'ai rien qui me montre s'il a bien été envoyé. Comment je
+                  suis sûre que ça a envoyé ? »
+
+                  Elle avait la pastille de l'en-tête et rien d'autre : ni la date, ni le
+                  destinataire, ni moyen de vérifier. Or une pastille qui vient d'un webhook ne
+                  prouve rien — si la notification n'arrive pas, elle affiche un état périmé sans le
+                  savoir. D'où ce bloc, qui montre à qui et quand, et le bouton qui va le demander à
+                  DocuSign plutôt que de se croire. */}
+              <BlocEnvoiSignature contrat={contrat} signaler={showToast} />
             </div>
           )}
 
@@ -1240,5 +1254,203 @@ function DialogSignatureContrat({
         </div>
       )}
     </Dialog>
+  )
+}
+
+/**
+ * Ce qui est parti à la signature : à qui, quand, et où en est-ce.
+ *
+ * Le bloc ne s'affiche que s'il y a quelque chose à dire — une enveloppe existe. Sinon il n'apporte
+ * rien et le bouton de l'en-tête suffit.
+ *
+ * DEUX SOURCES, ET C'EST VOULU. Ce qui est affiché d'emblée vient de la base, donc du webhook :
+ * gratuit et immédiat. « Vérifier auprès de DocuSign » interroge DocuSign en direct et remet la base
+ * d'accord avec lui. La deuxième existe parce que la première peut mentir sans le savoir.
+ */
+function BlocEnvoiSignature({ contrat, signaler }: { contrat: Contrat; signaler: (m: string) => void }) {
+  const [etat, setEtat] = useState<EtatEnveloppe | null>(null)
+  const [enCours, setEnCours] = useState(false)
+
+  if (!contrat.docusign_envelope_id) return null
+
+  const e = etatSignature(contrat)
+  const envoyeLe = etat?.envoyeLe ?? contrat.date_envoi_signature
+  const signeLe = etat?.signeLe ?? contrat.date_signature
+
+  async function verifier() {
+    setEnCours(true)
+    try {
+      const r = await etatEnveloppeContrat(contrat.id)
+      setEtat(r)
+      signaler(
+        r.corrige
+          ? 'Statut corrigé d’après DocuSign — la notification n’était pas arrivée.'
+          : 'DocuSign confirme : rien n’a changé depuis.',
+      )
+    } catch (err) {
+      if (err instanceof DocusignNonConnecte) {
+        signaler('Connectez votre compte DocuSign pour vérifier.')
+      } else {
+        signaler(err instanceof Error ? err.message : 'Vérification impossible')
+      }
+    } finally {
+      setEnCours(false)
+    }
+  }
+
+  return (
+    <div className="rounded-xl border border-navy-100 bg-white p-4">
+      <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
+        <p className="text-[10px] font-bold uppercase tracking-wide text-navy-400">Envoi à la signature</p>
+        <Badge tone={contrat.statut_signature === 'SIGNE' ? 'kiwi' : 'amber'}>{e.libelle}</Badge>
+      </div>
+
+      {/* ── LA FRISE DE L'ENVOI ──
+          Naoëlle, 21/08/2026 : « il faudrait créer une frise de l'état de l'envoi ». Même montage
+          que le « chemin de conversion » du mandat — cercles, libellés, barres de liaison — pour
+          qu'une signature se lise de la même façon sur les deux objets.
+
+          QUATRE ÉTAPES ET NON TROIS : « Ouvert » s'ajoute entre l'envoi et la signature. C'est
+          l'information qui manque le plus quand on attend : le client a-t-il au moins ouvert le
+          document ? DocuSign la connaît, elle arrive avec « Vérifier auprès de DocuSign ».
+
+          Un refus ou une annulation ne sont pas une étape de plus : ils arrêtent la frise là où elle
+          en était et la passent au rouge — ce n'est pas un avancement. */}
+      <FriseEnvoi contrat={contrat} etat={etat} />
+
+      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+        <div>
+          <p className="mb-0.5 text-[10px] uppercase tracking-wide text-navy-400">Envoyé le</p>
+          <p className="text-xs font-semibold text-navy-800">
+            {envoyeLe ? new Date(envoyeLe).toLocaleString('fr-FR') : 'pas encore envoyé'}
+          </p>
+        </div>
+        <div>
+          <p className="mb-0.5 text-[10px] uppercase tracking-wide text-navy-400">Destinataire</p>
+          <p className="truncate text-xs font-semibold text-navy-800">
+            {etat?.signataire?.nom
+              ? `${etat.signataire.nom}${etat.signataire.email ? ` — ${etat.signataire.email}` : ''}`
+              : contrat.contact_signataire_nom || '—'}
+          </p>
+        </div>
+        {signeLe && (
+          <div>
+            <p className="mb-0.5 text-[10px] uppercase tracking-wide text-navy-400">Signé le</p>
+            <p className="text-xs font-semibold text-navy-800">{new Date(signeLe).toLocaleString('fr-FR')}</p>
+          </div>
+        )}
+        {etat?.signataire?.recuLe && (
+          <div>
+            <p className="mb-0.5 text-[10px] uppercase tracking-wide text-navy-400">Ouvert par le signataire</p>
+            <p className="text-xs font-semibold text-navy-800">
+              {new Date(etat.signataire.recuLe).toLocaleString('fr-FR')}
+            </p>
+          </div>
+        )}
+      </div>
+
+      <div className="mt-3 flex flex-wrap items-center gap-2">
+        <Button type="button" size="sm" variant="outline" onClick={verifier} disabled={enCours}>
+          {enCours ? 'Vérification…' : 'Vérifier auprès de DocuSign'}
+        </Button>
+        {/* LE LIEN EST LÀ D'EMBLÉE, sans attendre la vérification : c'est quand on doute qu'on le
+            cherche, et douter n'est pas un clic de plus à mériter. */}
+        <a
+          href={etat?.lien ?? lienEnveloppeDocusign(contrat.docusign_envelope_id)}
+          target="_blank"
+          rel="noreferrer"
+          className="inline-flex items-center gap-1 text-xs font-semibold text-kiwi-700 underline decoration-dotted hover:text-kiwi-800"
+        >
+          Voir l’enveloppe dans DocuSign
+          <ExternalLink className="h-3 w-3" />
+        </a>
+        <span className="font-mono text-[10.5px] text-navy-300">{contrat.docusign_envelope_id}</span>
+      </div>
+    </div>
+  )
+}
+
+/**
+ * L'avancement de l'envoi, en quatre temps.
+ *
+ * L'étape atteinte se déduit d'abord de ce que DocuSign vient de dire, à défaut de ce que la base
+ * porte. « Ouvert » ne peut venir que de DocuSign : la base ne sait pas si le client a ouvert le
+ * document, et c'est pourtant ce qu'on veut savoir en attendant une signature.
+ */
+function FriseEnvoi({ contrat, etat }: { contrat: Contrat; etat: EtatEnveloppe | null }) {
+  const statut = etat?.statut ?? contrat.statut_signature
+  const arrete = statut === 'REFUSE' || statut === 'ANNULE'
+  const ouvert = Boolean(etat?.signataire?.recuLe)
+
+  const atteinte =
+    statut === 'SIGNE' ? 3 : ouvert ? 2 : statut === 'ENVOYE' ? 1 : 0
+
+  const etapes = [
+    { libelle: 'Préparé', icone: PenTool },
+    { libelle: 'Envoyé', icone: Send },
+    { libelle: 'Ouvert', icone: MailOpen },
+    { libelle: 'Signé', icone: FileSignature },
+  ]
+
+  return (
+    <div>
+      <div className="flex items-center">
+        {etapes.map((s, i) => {
+          const faite = i <= atteinte
+          return (
+            <div key={s.libelle} className="flex flex-1 items-center last:flex-none">
+              <div className="flex flex-col items-center gap-1.5">
+                <span
+                  className={cn(
+                    'flex h-8 w-8 shrink-0 items-center justify-center rounded-full',
+                    !faite
+                      ? 'bg-navy-100 text-navy-400'
+                      : arrete
+                        ? 'bg-gradient-to-br from-red-600 to-red-500 text-white shadow-sm'
+                        : 'bg-gradient-to-br from-kiwi-600 to-kiwi-500 text-white shadow-sm',
+                  )}
+                >
+                  <s.icone className="h-3.5 w-3.5" />
+                </span>
+                <span
+                  className={cn(
+                    'whitespace-nowrap text-[11px] font-bold',
+                    faite ? (arrete ? 'text-red-700' : 'text-navy-800') : 'text-navy-400',
+                  )}
+                >
+                  {s.libelle}
+                </span>
+              </div>
+              {i < etapes.length - 1 && (
+                <div
+                  className={cn(
+                    'mx-1 h-1 flex-1 rounded',
+                    i < atteinte
+                      ? arrete
+                        ? 'bg-gradient-to-r from-red-600 to-red-500'
+                        : 'bg-gradient-to-r from-kiwi-600 to-kiwi-500'
+                      : 'bg-navy-100',
+                  )}
+                />
+              )}
+            </div>
+          )
+        })}
+      </div>
+
+      {arrete && (
+        <p className="mt-2 text-[11px] font-semibold text-red-700">
+          {statut === 'REFUSE'
+            ? 'Le signataire a refusé de signer : la frise s’arrête là.'
+            : 'L’enveloppe a été annulée dans DocuSign : la frise s’arrête là.'}
+        </p>
+      )}
+      {!arrete && !etat && (
+        <p className="mt-2 text-[10.5px] leading-snug text-navy-400">
+          « Ouvert » ne peut venir que de DocuSign : cliquez sur « Vérifier auprès de DocuSign » pour
+          savoir si le signataire a ouvert le document.
+        </p>
+      )}
+    </div>
   )
 }

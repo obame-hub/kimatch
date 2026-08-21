@@ -190,6 +190,54 @@ export const DOCUSIGN_NON_CONNECTE = 'DOCUSIGN_NON_CONNECTE'
 export class DocusignNonConnecte extends Error {}
 
 /**
+ * L'adresse d'une enveloppe sur le site DocuSign.
+ *
+ * Naoëlle, 21/08/2026 : « ajouter un lien DocuSign vers l'enveloppe, comme ça si on a un doute on
+ * clique dessus pour voir sur DocuSign si ça a été envoyé. » Le lien doit donc être là AVANT toute
+ * vérification — c'est justement quand on doute qu'on le cherche.
+ *
+ * Il ne dépend que de la région du compte, pas de l'enveloppe : le compte Kiwee est en Europe
+ * (`eu.docusign.net` côté API), ce qui correspond à `apps-eu.docusign.com` côté site. La correspondance
+ * est ici plutôt qu'en dur dans un écran, pour qu'un déménagement de région se corrige à un endroit.
+ */
+export function lienEnveloppeDocusign(envelopeId: string): string {
+  return `https://apps-eu.docusign.com/documents/details/${envelopeId}`
+}
+
+/** Ce que DocuSign répond sur l'état d'une enveloppe. */
+export interface EtatEnveloppe {
+  envoye: boolean
+  statut: string | null
+  statutDocusign: string | null
+  envoyeLe: string | null
+  signeLe: string | null
+  signataire: { nom?: string; email?: string; statut?: string; recuLe?: string | null } | null
+  lien: string
+  /** Vrai quand DocuSign etait en avance sur nous et qu'on vient de rattraper le retard. */
+  corrige: boolean
+}
+
+/**
+ * Demande à DocuSign où en est vraiment l'enveloppe d'un contrat.
+ *
+ * Naoëlle, 21/08/2026 : « comment je suis sûre que ça a envoyé ? » Le statut affiché vient du
+ * webhook, et un webhook peut ne pas arriver. Cet appel interroge DocuSign directement et remet la
+ * base d'accord avec lui — c'est la seule réponse qui ne demande pas de faire confiance.
+ */
+export async function etatEnveloppeContrat(contratId: string): Promise<EtatEnveloppe> {
+  const { data } = await supabase.auth.getSession()
+  const token = data.session?.access_token
+  if (!token) throw new Error('Non authentifié.')
+  const res = await fetch(`/api/docusign/etat-enveloppe?contratId=${encodeURIComponent(contratId)}`, {
+    headers: { Authorization: `Bearer ${token}` },
+  })
+  const resultat = (await res.json()) as EtatEnveloppe & { error?: string; code?: string }
+  if (resultat.code === DOCUSIGN_NON_CONNECTE) throw new DocusignNonConnecte(resultat.error ?? 'Compte DocuSign non connecté')
+  if (!res.ok || resultat.error) throw new Error(resultat.error ?? 'Erreur DocuSign inconnue')
+  return resultat
+}
+
+/**
  * Envoyer un CONTRAT à la signature.
  *
  * URGENCE DU 21/08/2026 : Michel ne pouvait pas envoyer le contrat de SDC AMPLITUDE 2, faute de tout
