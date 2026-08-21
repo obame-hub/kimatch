@@ -29,23 +29,17 @@ function extension(nom: string): string {
 
 export function OngletFichiers({
   documents,
-  onAjouter,
   onOuvrir,
   onDeposer,
-  onLien,
   typesDocuments,
 }: {
   documents: DocumentItem[]
-  onAjouter: () => void
   onOuvrir: (doc: DocumentItem) => void
-  /** Dépôt réel de fichiers. Absent, on retombe sur l'ancien formulaire par URL. */
-  onDeposer?: (fichiers: File[], typeDocumentId: string | null) => Promise<void>
-  /** Rattachement d'un lien, glisse ou colle sur la zone de depot. */
-  onLien?: (url: string, nom: string, typeDocumentId: string | null) => Promise<void>
+  /** Dépôt réel de fichiers. C'est le seul moyen d'ajouter : parcourir le poste, ou glisser. */
+  onDeposer: (fichiers: File[], typeDocumentId: string | null) => Promise<void>
   typesDocuments?: { id: string; libelle: string }[]
 }) {
   const [categorie, setCategorie] = useState<string>('tous')
-  const [survol, setSurvol] = useState(false)
 
   const categories = useMemo(() => {
     const parType = new Map<string, number>()
@@ -91,26 +85,11 @@ export function OngletFichiers({
         fichier était perdu. Ce n'était pas un choix d'interface mais une contrainte de la base —
         le bucket « documents » ne portait aucune politique d'écriture, il n'y avait donc aucun
         moyen d'y déposer quoi que ce soit depuis le navigateur (migration 20260816130000).
+
+        Il n'y a plus de zone de repli vers ce formulaire : Naoëlle, 21/08/2026 — « on n'ajoute
+        jamais par URL, seulement parcourir le PC et glisser-déposer. »
       */}
-      {onDeposer ? (
-        <ZoneDepotFichiers types={typesDocuments ?? []} onDeposer={onDeposer} onLien={onLien} />
-      ) : (
-        <div
-          onDragOver={(e) => { e.preventDefault(); setSurvol(true) }}
-          onDragLeave={() => setSurvol(false)}
-          onDrop={(e) => { e.preventDefault(); setSurvol(false); onAjouter() }}
-          onClick={onAjouter}
-          className="flex cursor-pointer flex-col items-center gap-1.5 rounded-xl border-2 border-dashed px-4 py-6 text-center transition-all duration-[150ms]"
-          style={{
-            borderColor: survol ? '#0d7a5f' : '#dcdad5',
-            background: survol ? '#eaf4f0' : '#fbfbfa',
-            color: survol ? '#0d7a5f' : '#83868f',
-          }}
-        >
-          <span className="text-xs font-bold">Glissez-déposez vos fichiers ici</span>
-          <span className="text-[10.5px] opacity-75">PDF, images, emails — catégorisés ensuite en un clic</span>
-        </div>
-      )}
+      <ZoneDepotFichiers types={typesDocuments ?? []} onDeposer={onDeposer} />
 
       <div className="overflow-hidden rounded-xl border border-[#e7e6e2] bg-white">
         {affiches.map((d) => {

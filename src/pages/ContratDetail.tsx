@@ -15,7 +15,7 @@ import { useContrat, useUpdateContratPartiel, useDeleteContrat, type PatchContra
 import { useSites } from '@/lib/data/sites'
 import { useComptes } from '@/lib/data/comptes'
 import { useContacts } from '@/lib/data/contacts'
-import { useDocuments, useCreateDocument, useTeleverserDocuments } from '@/lib/data/documents'
+import { useDocuments, useTeleverserDocuments } from '@/lib/data/documents'
 import { useReferenceTable } from '@/lib/data/referenceTables'
 import { useFormulesTarifaires, useTarifsByContratCompteurs, useCreateTarif, useDeleteTarif } from '@/lib/data/tarifs'
 import { useCanManage, useIsAdmin, useProfilsAdmin } from '@/lib/data/roles'
@@ -127,69 +127,6 @@ function ClausesCard({ contrat }: { contrat: Contrat }) {
         ))}
       </div>
     </div>
-  )
-}
-
-function AddFichierDialog({ open, onClose, contratId, onSaved }: { open: boolean; onClose: () => void; contratId: string; onSaved: () => void }) {
-  const { data: typesRef } = useReferenceTable('types_documents')
-  const types = typesRef && typesRef.length > 0 ? typesRef : FALLBACK_TYPES_DOCUMENTS
-  const createDocument = useCreateDocument()
-
-  const [nom, setNom] = useState('')
-  const [url, setUrl] = useState('')
-  const [typeDocumentId, setTypeDocumentId] = useState('')
-  const [feedback, setFeedback] = useState<string | null>(null)
-
-  function reset() {
-    setNom('')
-    setUrl('')
-    setTypeDocumentId('')
-    setFeedback(null)
-  }
-
-  async function handleSubmit(e: React.FormEvent) {
-    e.preventDefault()
-    const type = types.find((t) => t.id === typeDocumentId)
-    const result = await createDocument.mutateAsync({
-      nom,
-      url,
-      type_document_id: typeDocumentId || null,
-      type_document_libelle: type?.libelle ?? '',
-      entite_type: 'contrat',
-      entite_id: contratId,
-    })
-    onSaved()
-    if (!result.persisted) {
-      setFeedback('Ajouté localement (non synchronisé avec Supabase).')
-      setTimeout(() => { reset(); onClose() }, 700)
-    } else {
-      reset()
-      onClose()
-    }
-  }
-
-  return (
-    <Dialog open={open} onClose={() => { reset(); onClose() }} title="Ajouter un fichier" description="Rattacher un document à ce contrat.">
-      <form onSubmit={handleSubmit} className="space-y-3">
-        <FormField label="Nom du document">
-          <Input value={nom} onChange={(e) => setNom(e.target.value)} required placeholder="Ex. Contrat signé — CT-2024-118" />
-        </FormField>
-        <FormField label="Lien du document (URL)">
-          <Input type="url" value={url} onChange={(e) => setUrl(e.target.value)} required placeholder="https://…" />
-        </FormField>
-        <FormField label="Type de document">
-          <Select value={typeDocumentId} onChange={(e) => setTypeDocumentId(e.target.value)}>
-            <option value="">Sélectionner…</option>
-            {types.map((t) => <option key={t.id} value={t.id}>{t.libelle}</option>)}
-          </Select>
-        </FormField>
-        {feedback && <p className="text-xs text-navy-500">{feedback}</p>}
-        <div className="flex justify-end gap-2 pt-2">
-          <Button type="button" variant="ghost" onClick={() => { reset(); onClose() }}>Annuler</Button>
-          <Button type="submit" disabled={createDocument.isPending}>Ajouter</Button>
-        </div>
-      </form>
-    </Dialog>
   )
 }
 
@@ -366,12 +303,8 @@ export default function ContratDetail() {
 
   const [tab, setTab] = useState<TabKey>('contrat')
   const [confirmDelete, setConfirmDelete] = useState(false)
-  const [addFichierOpen, setAddFichierOpen] = useState(false)
 
   const televerser = useTeleverserDocuments()
-  // Le rattachement par lien, depuis la zone de depot : meme creation de document que
-  // l'ancienne modale, sans la modale.
-  const creerDocument = useCreateDocument()
 
   const { data: typesDocsRef } = useReferenceTable('types_documents')
 
@@ -801,16 +734,6 @@ export default function ContratDetail() {
                   politiques d'ecriture (migration 20260816130000). */}
               <ZoneDepotFichiers
                 types={typesDocs}
-                onLien={async (url, nom, typeDocumentId) => {
-                  await creerDocument.mutateAsync({
-                    nom,
-                    url,
-                    type_document_id: typeDocumentId,
-                    type_document_libelle: typesDocs.find((x) => x.id === typeDocumentId)?.libelle ?? '',
-                    entite_type: 'contrat',
-                    entite_id: contrat.id,
-                  })
-                }}
                 onDeposer={async (fichiers, typeDocumentId) => {
                   await televerser.mutateAsync({
                     fichiers,
@@ -859,7 +782,6 @@ export default function ContratDetail() {
         </div>
       </div>
 
-      {addFichierOpen && <AddFichierDialog open={addFichierOpen} onClose={() => setAddFichierOpen(false)} contratId={contrat.id} onSaved={() => {}} />}
       {addTarifFor && (
         <AddTarifDialog
           open

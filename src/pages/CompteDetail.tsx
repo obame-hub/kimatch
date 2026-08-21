@@ -56,7 +56,7 @@ import { useContratsParCompte } from '@/lib/data/contrats'
 import { useInteractionsForCompte } from '@/lib/data/interactions'
 import { useMandatsParCompte } from '@/lib/data/mandats'
 import { useActionsParSites } from '@/lib/data/actions'
-import { useDocumentsParEntites, useCreateDocument, useTeleverserDocuments } from '@/lib/data/documents'
+import { useDocumentsParEntites, useTeleverserDocuments } from '@/lib/data/documents'
 import { useHistorique } from '@/lib/data/historique'
 import { useEllisphereScore } from '@/lib/data/ellisphere'
 import { useReferenceTable } from '@/lib/data/referenceTables'
@@ -164,11 +164,7 @@ export default function CompteDetail() {
   const [confirmDelete, setConfirmDelete] = useState(false)
   // Voir HubCreation : le hub s'approprie le clavier quand il est ouvert, « R » notamment.
   const [hubOuvert, setHubOuvert] = useState(false)
-  const [addFichierOpen, setAddFichierOpen] = useState(false)
   const televerser = useTeleverserDocuments()
-  // Le rattachement par lien, depuis la zone de depot : meme creation de document que
-  // l'ancienne modale, sans la modale.
-  const creerDocument = useCreateDocument()
   const { data: typesDocumentsRef } = useReferenceTable('types_documents')
   const typesDocuments = typesDocumentsRef && typesDocumentsRef.length > 0 ? typesDocumentsRef : FALLBACK_TYPES_DOCUMENTS
   const [addCompteurOpen, setAddCompteurOpen] = useState(false)
@@ -601,20 +597,8 @@ export default function CompteDetail() {
           {tab === 'fichiers' && (
             <OngletFichiers
               documents={documentsDuCompte}
-              onAjouter={() => setAddFichierOpen(true)}
               onOuvrir={(d) => navigate(`/documents/${d.id}`)}
               typesDocuments={typesDocuments}
-              onLien={async (url, nom, typeDocumentId) => {
-                await creerDocument.mutateAsync({
-                  nom,
-                  url,
-                  type_document_id: typeDocumentId,
-                  type_document_libelle: typesDocuments.find((t) => t.id === typeDocumentId)?.libelle ?? '',
-                  entite_type: 'compte',
-                  entite_id: compte.id,
-                })
-                showToast('✓ Lien rattaché')
-              }}
               onDeposer={async (fichiers, typeDocumentId) => {
                 await televerser.mutateAsync({
                   fichiers,
@@ -682,13 +666,6 @@ export default function CompteDetail() {
       )}
 
       <EditCompteDialog compte={compte} open={editOpen} onClose={() => setEditOpen(false)} />
-
-      <AddFichierDialog
-        open={addFichierOpen}
-        onClose={() => setAddFichierOpen(false)}
-        compteId={compte.id}
-        onSaved={() => showToast('✓ Fichier ajouté')}
-      />
 
       {/* Monté seulement à l'ouverture : ce dialogue charge TOUS les contacts et TOUS les
           compteurs (il doit détecter un PDL déjà existant ailleurs dans le CRM). Monté en
@@ -1527,69 +1504,6 @@ function CommentaireCard({ compte }: { compte: Compte }) {
   )
 }
 
-
-function AddFichierDialog({ open, onClose, compteId, onSaved }: { open: boolean; onClose: () => void; compteId: string; onSaved: () => void }) {
-  const { data: typesRef } = useReferenceTable('types_documents')
-  const types = typesRef && typesRef.length > 0 ? typesRef : FALLBACK_TYPES_DOCUMENTS
-  const createDocument = useCreateDocument()
-
-  const [nom, setNom] = useState('')
-  const [url, setUrl] = useState('')
-  const [typeDocumentId, setTypeDocumentId] = useState('')
-  const [feedback, setFeedback] = useState<string | null>(null)
-
-  function reset() {
-    setNom('')
-    setUrl('')
-    setTypeDocumentId('')
-    setFeedback(null)
-  }
-
-  async function handleSubmit(e: React.FormEvent) {
-    e.preventDefault()
-    const type = types.find((t) => t.id === typeDocumentId)
-    const result = await createDocument.mutateAsync({
-      nom,
-      url,
-      type_document_id: typeDocumentId || null,
-      type_document_libelle: type?.libelle ?? '',
-      entite_type: 'compte',
-      entite_id: compteId,
-    })
-    onSaved()
-    if (!result.persisted) {
-      setFeedback('Ajouté localement (non synchronisé avec Supabase).')
-      setTimeout(() => { reset(); onClose() }, 700)
-    } else {
-      reset()
-      onClose()
-    }
-  }
-
-  return (
-    <Dialog open={open} onClose={() => { reset(); onClose() }} title="Ajouter un fichier" description="Rattacher un document à ce compte.">
-      <form onSubmit={handleSubmit} className="space-y-3">
-        <FormField label="Nom du document">
-          <Input value={nom} onChange={(e) => setNom(e.target.value)} required placeholder="Ex. Kbis — Foncia Lyon Rhône" />
-        </FormField>
-        <FormField label="Lien du document (URL)">
-          <Input type="url" value={url} onChange={(e) => setUrl(e.target.value)} required placeholder="https://…" />
-        </FormField>
-        <FormField label="Type de document">
-          <Select value={typeDocumentId} onChange={(e) => setTypeDocumentId(e.target.value)}>
-            <option value="">Sélectionner…</option>
-            {types.map((t) => <option key={t.id} value={t.id}>{t.libelle}</option>)}
-          </Select>
-        </FormField>
-        {feedback && <p className="text-xs text-navy-500">{feedback}</p>}
-        <div className="flex justify-end gap-2 pt-2">
-          <Button type="button" variant="ghost" onClick={() => { reset(); onClose() }}>Annuler</Button>
-          <Button type="submit" disabled={createDocument.isPending}>Ajouter</Button>
-        </div>
-      </form>
-    </Dialog>
-  )
-}
 
 function EditCompteClientDialog({ compte, open, onClose }: { compte: Compte; open: boolean; onClose: () => void }) {
   // Charge ici, et non par la fiche : le selecteur d'apporteur a besoin de tous les partenaires,
