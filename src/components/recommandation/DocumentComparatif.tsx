@@ -1,7 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import { Dialog } from '@/components/ui/dialog'
 import { Printer } from 'lucide-react'
-import { ORDRE_CLASSES, somme } from '@/lib/calculs/prixOffre'
 import { libelleOffre } from '@/lib/data/recommandations'
 import { cn } from '@/lib/utils'
 import kiweePicto from '@/assets/kiwee-picto.png'
@@ -11,7 +10,6 @@ import type {
   Compte,
   Compteur,
   Contact,
-  OffreFournisseur,
   Recommandation,
   VersionRecommandation,
 } from '@/types/domain'
@@ -66,7 +64,6 @@ import type {
  * certains cas, et il vaut mieux que le lecteur voie lequel a été appliqué.
  */
 
-const TAUX_TVA = 0.2
 
 export function DocumentComparatif({
   ouvert,
@@ -168,79 +165,7 @@ export function DocumentComparatif({
   // Le rapport annonce l'énergie du dossier en en-tête. Un périmètre mixte existe : on le dit.
   const energies = [...new Set(pdl.map((l) => l.energie))]
   const toutGaz = energies.length === 1 && energies[0] === 'Gaz naturel'
-  const volumeTotal = pdl.reduce<number | null>((t, l) => somme(t, l.volume), null)
 
-  /** Les composantes d'une offre, additionnées sur ses points de livraison. */
-  function budgets(offre: OffreFournisseur) {
-    const cumul = (f: (d: OffreFournisseur['details_par_compteur'][number]) => number | null | undefined) =>
-      offre.details_par_compteur.reduce<number | null>((t, d) => somme(t, f(d)), null)
-    const parMwh = (f: (d: OffreFournisseur['details_par_compteur'][number]) => number | null | undefined) =>
-      // Une composante au MWh devient un budget en la multipliant par le volume de SON point de
-      // livraison, jamais par le volume total : deux PDL n'ont pas le même tarif ni le même volume.
-      offre.details_par_compteur.reduce<number | null>((t, d) => {
-        const prix = f(d)
-        const vol = d.consommation_annuelle_reference_mwh
-          ?? parId.get(d.compteur_id)?.car_mwh
-          ?? parId.get(d.compteur_id)?.consommation_annuelle_mwh
-          ?? null
-        return prix == null || vol == null ? t : somme(t, prix * vol)
-      }, null)
-
-    const abonnement = cumul((d) => d.prix_gaz?.abonnement_fourniture_annuel_ht ?? d.prix_electricite?.abonnement_fourniture_annuel_ht)
-    const contributions = somme(
-      cumul((d) => (d.prix_gaz ? d.cout_acheminement_annuel_ht : null)),
-      cumul((d) => d.prix_electricite?.prix_turpe_annuel_ht),
-      cumul((d) => d.prix_electricite?.accise_annuel_ht),
-      cumul((d) => d.prix_electricite?.cta_annuel_ht),
-    )
-    const htva = offre.montant_annuel_ht
-
-    // Le détail des composantes, dans l'ordre du modèle.
-    const molecule = parMwh((d) => d.prix_gaz?.prix_energie_mwh)
-    const classes = somme(
-      ...ORDRE_CLASSES.map((cl) => parMwh((d) => d.prix_electricite?.prix_mwh_par_classe?.[cl])),
-    )
-    const cee = somme(parMwh((d) => d.prix_gaz?.prix_cee_mwh), parMwh((d) => d.prix_electricite?.prix_cee_mwh))
-    const cpb = parMwh((d) => d.prix_gaz?.prix_cpb_mwh)
-    const go = parMwh((d) => d.prix_electricite?.prix_go_mwh)
-
-    // L'ÉNERGIE VAUT LA SOMME DE CE QU'ON MONTRE SOUS ELLE, et non le budget stocké.
-    //
-    // Constaté en vérifiant le document sur un vrai dossier le 20/08/2026 : une offre affichait
-    // « Énergie 1 265 » avec, juste dessous, « Molécule 6 325 + CEE 575 + CPB 115 ». Deux nombres
-    // contradictoires côte à côte, parce que `cout_fourniture_annuel_ht` datait d'une saisie
-    // antérieure au recalcul automatique et que les composantes, elles, se déduisent des prix
-    // affichés à gauche. Sur un document remis au client, cet écart est indéfendable.
-    //
-    // On additionne donc ce qu'on montre. Le budget stocké sert de repli quand aucune composante
-    // n'est connue — mieux vaut un total sans détail qu'aucun chiffre.
-    const energieDetaillee = somme(molecule, classes, cee, cpb, go)
-    const energie = energieDetaillee ?? cumul((d) => d.cout_fourniture_annuel_ht)
-
-    return {
-      molecule,
-      classes,
-      cee,
-      cpb,
-      go,
-      atrt: parMwh((d) => d.prix_gaz?.prix_atrt_mwh),
-      atrd: parMwh((d) => d.prix_gaz?.prix_atrd_mwh),
-      agn: parMwh((d) => d.prix_gaz?.prix_agn_mwh),
-      ctaGaz: cumul((d) => d.prix_gaz?.cta_annuel_ht),
-      turpe: cumul((d) => d.prix_electricite?.prix_turpe_annuel_ht),
-      accise: cumul((d) => d.prix_electricite?.accise_annuel_ht),
-      ctaElec: cumul((d) => d.prix_electricite?.cta_annuel_ht),
-      abonnement,
-      energie,
-      contributions,
-      htva,
-      tva: htva == null ? null : htva * TAUX_TVA,
-      ttc: htva == null ? null : htva * (1 + TAUX_TVA),
-      prixMoyen: energie != null && volumeTotal != null && volumeTotal > 0
-        ? somme(energie, abonnement)! / volumeTotal
-        : null,
-    }
-  }
 
   // La validité annoncée en en-tête est la plus PROCHE des offres comparées : passé cette date, le
   // comparatif n'est plus opposable, même si d'autres offres tiennent plus longtemps.
@@ -428,99 +353,17 @@ export function DocumentComparatif({
 
           </div>
 
-          {/* Le compte rendu : la synthèse annuelle, puis plus bas le détail par point de
-              livraison et le lexique.
-              Visible dans son onglet, et TOUJOURS à l'impression : un rapport imprimé
-              auquel il manquerait une section selon l'onglet ouvert serait un piège. */}
-          <div className={cn('print:block', onglet === 'comparatif' ? '' : 'hidden')}>
-          {/* ── 4. La synthèse annuelle ─────────────────────────────────────── */}
-          <h2 className="mt-8 text-kw-base font-extrabold">
-            Synthèse annuelle des {colonnes.length} offre{colonnes.length > 1 ? 's' : ''} de fourniture
-          </h2>
-          <div className="mt-1 overflow-x-auto">
-            <table className="w-full border-collapse text-kw-sm">
-              <thead>
-                <tr>
-                  <th className="w-[26%] border-b-2 border-kw-ink p-1.5 text-left text-kw-tiny font-bold uppercase tracking-[0.06em] text-kw-faint">
-                    Type d'offre
-                  </th>
-                  {colonnes.map((o) => {
-                    const vedette = o.id === miseEnAvant?.id
-                    return (
-                      <th
-                        key={o.id}
-                        className={`border-b-2 p-1.5 text-right align-bottom ${vedette ? 'border-kw-green bg-kw-green-tint' : 'border-kw-ink'}`}
-                      >
-                        <span className="block text-kw-tiny font-normal text-kw-meta">
-                          {o.est_offre_recommandee ? 'Retenue' : 'Proposée'}
-                        </span>
-                        <span className="block font-display text-kw-base font-extrabold">
-                          {o.fournisseur_nom || 'Fournisseur'}
-                        </span>
-                      </th>
-                    )
-                  })}
-                </tr>
-              </thead>
-              <tbody>
-                <Rubrique titre="Caractéristiques" nb={colonnes.length} />
-                <Ligne titre="Engagement" colonnes={colonnes} vedette={miseEnAvant?.id}
-                  texte={(o) => libelleOffre(o.duree_mois, o.type_prix)} />
-                <Ligne titre={toutGaz ? 'Prix molécule' : 'Type de prix'} colonnes={colonnes} vedette={miseEnAvant?.id}
-                  texte={(o) => o.type_prix || '—'} />
-                {/* Enéo l'affiche dans les deux énergies, pas seulement en électricité. */}
-                <Ligne titre="Énergie verte" colonnes={colonnes} vedette={miseEnAvant?.id}
-                  texte={(o) => (budgets(o).go != null && budgets(o).go! > 0 ? 'Incluse' : 'Non incluse')} />
-                <Ligne titre="Valable jusqu'au" colonnes={colonnes} vedette={miseEnAvant?.id}
-                  texte={(o) => (o.date_validite
-                    ? new Date(o.date_validite).toLocaleDateString('fr-FR')
-                    : '—')} />
+          {/* PLUS DE « SYNTHÈSE ANNUELLE ». Naoëlle, 21/08/2026 : « ce bloc il faut l'enlever car on
+              a les détails quand on clique sur le fournisseur », puis « la synthèse annuelle en
+              colonne, là, il faut l'enlever ».
 
-                <Rubrique titre="Budgets en € / an (1)" nb={colonnes.length} />
-                <Montant titre="Total TTC" colonnes={colonnes} vedette={miseEnAvant?.id} val={(o) => budgets(o).ttc} fort />
-                <Montant titre={`TVA (${Math.round(TAUX_TVA * 100)} %)`} colonnes={colonnes} vedette={miseEnAvant?.id} val={(o) => budgets(o).tva} discret />
-                <Montant titre="Total HTVA" colonnes={colonnes} vedette={miseEnAvant?.id} val={(o) => budgets(o).htva} fort />
-                <Montant titre="Abonnement" colonnes={colonnes} vedette={miseEnAvant?.id} val={(o) => budgets(o).abonnement} />
-                <Montant titre="Énergie" colonnes={colonnes} vedette={miseEnAvant?.id} val={(o) => budgets(o).energie} />
-                <Montant titre="Molécule" colonnes={colonnes} vedette={miseEnAvant?.id} val={(o) => budgets(o).molecule} sous />
-                <Montant titre="Prix par classe" colonnes={colonnes} vedette={miseEnAvant?.id} val={(o) => budgets(o).classes} sous />
-                <Montant titre="CEE" colonnes={colonnes} vedette={miseEnAvant?.id} val={(o) => budgets(o).cee} sous />
-                <Montant titre="CPB" colonnes={colonnes} vedette={miseEnAvant?.id} val={(o) => budgets(o).cpb} sous />
-                <Montant titre="GO" colonnes={colonnes} vedette={miseEnAvant?.id} val={(o) => budgets(o).go} sous />
-                <Montant titre="Contributions" colonnes={colonnes} vedette={miseEnAvant?.id} val={(o) => budgets(o).contributions} />
-                <Montant titre="ATRT" colonnes={colonnes} vedette={miseEnAvant?.id} val={(o) => budgets(o).atrt} sous />
-                <Montant titre="ATRD" colonnes={colonnes} vedette={miseEnAvant?.id} val={(o) => budgets(o).atrd} sous />
-                <Montant titre="AGN" colonnes={colonnes} vedette={miseEnAvant?.id} val={(o) => budgets(o).agn} sous />
-                <Montant titre="TURPE" colonnes={colonnes} vedette={miseEnAvant?.id} val={(o) => budgets(o).turpe} sous />
-                <Montant titre="AE" colonnes={colonnes} vedette={miseEnAvant?.id} val={(o) => budgets(o).accise} sous />
-                <Montant titre="CTA" colonnes={colonnes} vedette={miseEnAvant?.id}
-                  val={(o) => somme(budgets(o).ctaGaz, budgets(o).ctaElec)} sous />
+              Le tableau reprenait, en colonnes, ce que chaque carte d'offre dit déjà quand on
+              l'ouvre : total TTC, TVA, HTVA, abonnement, énergie et ses composantes, contributions et
+              les leurs. Deux présentations du même chiffre, et deux endroits à corriger quand une
+              composante change. Les notes (1) et (2) partent avec lui : elles ne renvoyaient qu'à ses
+              lignes.
 
-                <Rubrique titre="Comparaison" nb={colonnes.length} />
-                <Ligne titre="Prix moyen (abo. + énergie) (2)" colonnes={colonnes} vedette={miseEnAvant?.id}
-                  texte={(o) => {
-                    const p = budgets(o).prixMoyen
-                    return p == null ? '—' : `${p.toLocaleString('fr-FR', { maximumFractionDigits: 2 })} €/MWh`
-                  }} />
-                {/* LA POSITION TARIFAIRE remplace les lignes d'évolution. Michel, 20/08/2026,
-                    après nous avoir montré Enéo : « sans les trucs des évolutions, on les rajoutera
-                    après ». Le classement, lui, ne compare pas à une offre de référence — il se lit
-                    dans le tableau et Enéo l'affiche sous ce nom. */}
-                <Ligne titre="Position tarifaire" colonnes={colonnes} vedette={miseEnAvant?.id}
-                  texte={(o) => `n° ${colonnes.findIndex((x) => x.id === o.id) + 1}`} />
-              </tbody>
-            </table>
-          </div>
-          <p className="mt-2.5 text-kw-micro leading-relaxed text-kw-faint">
-            (1) Budget annuel moyen établi selon le profil, la consommation annuelle des points de
-            livraison et les composantes réglementaires en vigueur au moment de l'analyse. Il inclut
-            l'intégralité des composantes facturées par les fournisseurs.
-            <br />
-            (2) Le prix moyen est un indicateur : la somme des budgets Abonnement et Énergie rapportée
-            à la consommation annuelle des points de livraison.
-          </p>
-
-          </div>
+              À l'impression le détail ne se perd pas : chaque offre a sa page, dépliée entièrement. */}
 
           {/* Le comparatif et le détail offre par offre.
               Visible dans son onglet, et TOUJOURS à l'impression : un rapport imprimé
@@ -785,69 +628,5 @@ function Encart({ libelle, valeur }: { libelle: string; valeur: string }) {
   )
 }
 
-/** Un intitulé de rubrique, comme les bandeaux « Caractéristiques » ou « Budgets » du modèle. */
-function Rubrique({ titre, nb }: { titre: string; nb: number }) {
-  return (
-    <tr className="bg-kw-muted">
-      <td colSpan={nb + 1} className="px-1.5 py-1 text-kw-tiny font-bold uppercase tracking-[0.06em] text-kw-label">
-        {titre}
-      </td>
-    </tr>
-  )
-}
 
-/** Une ligne de texte : engagement, type de prix, prix moyen. */
-function Ligne({ titre, colonnes, texte, vedette }: {
-  titre: string
-  colonnes: OffreFournisseur[]
-  texte: (o: OffreFournisseur) => string
-  vedette?: string
-}) {
-  return (
-    <tr className="border-b border-kw-border-faint">
-      <td className="p-1.5 text-kw-meta">{titre}</td>
-      {colonnes.map((o) => (
-        <td key={o.id} className={`p-1.5 text-right ${o.id === vedette ? 'bg-kw-green-tint' : ''}`}>
-          {texte(o)}
-        </td>
-      ))}
-    </tr>
-  )
-}
 
-/**
- * Une ligne de montant.
- *
- * MASQUÉE SI AUCUNE OFFRE NE LA RENSEIGNE : sur un document client, une ligne de tirets donne
- * l'impression d'un travail inachevé — et c'est ce qui fait qu'un dossier tout électrique n'affiche
- * aucune composante gaz sans qu'on ait à le configurer.
- */
-function Montant({ titre, colonnes, val, vedette, fort, sous, discret }: {
-  titre: string
-  colonnes: OffreFournisseur[]
-  val: (o: OffreFournisseur) => number | null | undefined
-  vedette?: string
-  fort?: boolean
-  sous?: boolean
-  discret?: boolean
-}) {
-  const valeurs = colonnes.map(val)
-  if (valeurs.every((v) => v == null)) return null
-  return (
-    <tr className={fort ? 'border-y border-kw-ink' : 'border-b border-kw-border-faint'}>
-      <td className={`p-1.5 ${fort ? 'font-extrabold' : sous ? 'pl-5 text-kw-faint' : 'text-kw-meta'}`}>
-        {titre}
-      </td>
-      {valeurs.map((v, i) => (
-        <td
-          key={colonnes[i].id}
-          className={`p-1.5 text-right font-mono tabular-nums ${colonnes[i].id === vedette ? 'bg-kw-green-tint' : ''} ${
-            fort ? 'text-kw-base font-extrabold' : sous || discret ? 'text-kw-tiny text-kw-body' : ''
-          }`}
-        >
-          {v == null ? <span className="text-kw-ghost">—</span> : `${Math.round(v).toLocaleString('fr-FR')} €`}
-        </td>
-      ))}
-    </tr>
-  )
-}

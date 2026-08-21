@@ -388,7 +388,12 @@ export function CarteOffreEtude({
                 const volume = d.consommation_annuelle_reference_mwh
                   ?? (gaz ? compteur?.car_mwh : compteur?.consommation_annuelle_mwh)
                   ?? null
-                const estOuvert = pdlOuvert === d.id
+                // DÉPLIÉ JUSQU'AU BOUT quand le document l'exige. Naoëlle, 21/08/2026 : « il faut
+                // que ça s'affiche exactement comme quand on déplie l'offre entièrement ». Forcer
+                // seulement la liste des compteurs ne suffisait pas : les composantes — abonnement,
+                // énergie ligne par ligne, contributions — vivent un niveau plus bas, et c'est là
+                // qu'est l'information qu'un PDF doit porter.
+                const estOuvert = deplieToujours || pdlOuvert === d.id
                 return (
                   <div key={d.id} className="overflow-hidden break-inside-avoid rounded-kw-md border border-kw-border bg-white">
                     <button
@@ -400,11 +405,21 @@ export function CarteOffreEtude({
                           12 px s'ajoutaient à gauche seulement et décalaient d'autant le groupe de
                           chiffres : mesuré à 975 px là où ceux de l'offre tombaient à 963. Deux
                           ressorts de part et d'autre, et rien d'autre, centrent exactement. */}
-                      <span className="flex min-w-0 flex-1 items-center gap-x-3 sm:flex-none">
+                      {/* `overflow-hidden` ET `truncate` : SANS EUX LA COLONNE DÉBORDE SUR LES CHIFFRES.
+                          Signalé le 21/08/2026 sur les pages de détail du document — « regarde les
+                          chiffres, tout se chevauche » — et la cause n'est pas la grille mais son
+                          contenu. La colonne de gauche vaut `minmax(0,1fr)` : elle PEUT descendre à
+                          zéro, et c'est ce qui garantit que les chiffres ne soient jamais pousses
+                          dehors. Mais un texte qui ne sait pas se couper sort quand même de sa
+                          colonne et se superpose au voisin. Il faut donc dire à la fois « la colonne
+                          peut rétrécir » et « le texte se coupe quand elle rétrécit ». */}
+                      <span className="flex min-w-0 flex-1 items-center gap-x-3 overflow-hidden sm:flex-none">
                         <span className="w-3 shrink-0 text-kw-tiny text-kw-faint">{estOuvert ? '▾' : '▸'}</span>
-                        <span className="min-w-0 font-mono text-kw-sm font-bold">
-                          {compteur?.numero_pdl || d.compteur_label || 'Compteur'}
-                          <span className="ml-1.5 rounded-kw-xs bg-kw-muted px-1.5 py-px font-sans text-kw-micro font-bold text-kw-meta">
+                        <span className="flex min-w-0 items-center gap-1.5">
+                          <span className="truncate font-mono text-kw-sm font-bold">
+                            {compteur?.numero_pdl || d.compteur_label || 'Compteur'}
+                          </span>
+                          <span className="shrink-0 rounded-kw-xs bg-kw-muted px-1.5 py-px text-kw-micro font-bold text-kw-meta">
                             {gaz ? 'Gaz' : 'Élec'}
                           </span>
                         </span>

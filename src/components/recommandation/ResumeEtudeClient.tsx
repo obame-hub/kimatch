@@ -74,15 +74,27 @@ export function ResumeEtudeClient({
           Ce qui reste : l'offre qu'on recommande, les objectifs du client, son périmètre. Trois
           choses, et le client sait ce qu'on lui propose et pourquoi. */}
       {offreRetenue ? (
-        <div>
-          <div className="mb-2 flex flex-wrap items-baseline gap-x-3 gap-y-1">
-            <h2 className="text-kw-md font-extrabold">Notre recommandation</h2>
-            <span className="text-kw-sm text-kw-meta">
+        <div className="overflow-hidden rounded-kw-xl border-[1.5px] border-kw-green bg-kw-green-tint">
+          {/* MISE EN VALEUR SUR FOND VERT. Naoëlle, 21/08/2026 : « j'aimerais bien que dans résumé,
+              l'offre de recommandation Kiwee soit un peu mieux mise en valeur avec un fond vert, un
+              truc comme ça. »
+
+              Le vert n'est pas décoratif : c'est la couleur que l'application donne déjà à ce qui est
+              retenu — le badge « ★ Recommandation Kiwee », la carte encadrée dans le comparatif. Le
+              résumé ne fait donc que porter plus haut un code qui existe, au lieu d'en inventer un.
+
+              Le bandeau vert plein porte le titre, la carte reste sur fond clair en dessous : ses
+              chiffres et sa barre de répartition ont besoin de leurs propres couleurs pour se lire,
+              et du blanc derrière pour ressortir. */}
+          <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1 bg-kw-green px-4 py-2.5 text-white">
+            <h2 className="text-kw-md font-extrabold">★ Notre recommandation</h2>
+            <span className="text-kw-sm text-white/75">
               {offres.length > 1
                 ? `retenue parmi ${offres.length} offres comparées`
                 : 'la seule offre chiffrée à ce jour'}
             </span>
           </div>
+          <div className="p-3">
           {/* `reference={null}` : dans le résumé, l'offre recommandée ne se compare à rien — elle
               EST la référence. L'écart affiché face à une autre offre n'aurait pas de sens ici, c'est
               le rôle du comparatif. */}
@@ -94,6 +106,7 @@ export function ResumeEtudeClient({
             avecIdentite
             avecBarre
           />
+          </div>
         </div>
       ) : (
         <p className="rounded-kw-lg border border-dashed border-kw-border-strong bg-kw-subtle px-4 py-3 text-kw-base text-kw-meta">
