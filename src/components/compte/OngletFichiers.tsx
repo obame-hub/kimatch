@@ -32,6 +32,7 @@ export function OngletFichiers({
   onAjouter,
   onOuvrir,
   onDeposer,
+  onLien,
   typesDocuments,
 }: {
   documents: DocumentItem[]
@@ -39,6 +40,8 @@ export function OngletFichiers({
   onOuvrir: (doc: DocumentItem) => void
   /** Dépôt réel de fichiers. Absent, on retombe sur l'ancien formulaire par URL. */
   onDeposer?: (fichiers: File[], typeDocumentId: string | null) => Promise<void>
+  /** Rattachement d'un lien, glisse ou colle sur la zone de depot. */
+  onLien?: (url: string, nom: string, typeDocumentId: string | null) => Promise<void>
   typesDocuments?: { id: string; libelle: string }[]
 }) {
   const [categorie, setCategorie] = useState<string>('tous')
@@ -90,7 +93,7 @@ export function OngletFichiers({
         moyen d'y déposer quoi que ce soit depuis le navigateur (migration 20260816130000).
       */}
       {onDeposer ? (
-        <ZoneDepotFichiers types={typesDocuments ?? []} onDeposer={onDeposer} />
+        <ZoneDepotFichiers types={typesDocuments ?? []} onDeposer={onDeposer} onLien={onLien} />
       ) : (
         <div
           onDragOver={(e) => { e.preventDefault(); setSurvol(true) }}

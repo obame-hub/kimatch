@@ -1,5 +1,5 @@
-import { useRef, useState } from 'react'
-import { Upload, Loader2, FileText, CheckCircle2, X } from 'lucide-react'
+import { useEffect, useRef, useState } from 'react'
+import { Upload, Loader2, FileText, CheckCircle2, Link2, X } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
 /**
@@ -61,9 +61,39 @@ function cle(f: File): string {
   return `${f.name}|${f.size}|${f.lastModified}`
 }
 
+/**
+ * Le texte est-il un lien qu'on peut rattacher ?
+ *
+ * On n'accepte que http et https. Un `file://` ne serait lisible que sur le poste qui l'a déposé, et
+ * les autres protocoles n'ont rien à faire dans un document partagé.
+ */
+function lienValide(texte: string): string | null {
+  const propre = texte.trim()
+  if (!propre || /\s/.test(propre)) return null
+  try {
+    const u = new URL(propre)
+    return u.protocol === 'http:' || u.protocol === 'https:' ? u.href : null
+  } catch {
+    return null
+  }
+}
+
+/** Le nom qu'on donne au lien : le dernier segment s'il ressemble à un fichier, sinon le domaine. */
+function nomDuLien(url: string): string {
+  try {
+    const u = new URL(url)
+    const dernier = u.pathname.split('/').filter(Boolean).pop()
+    if (dernier && dernier.includes('.')) return decodeURIComponent(dernier)
+    return u.hostname.replace(/^www\./, '')
+  } catch {
+    return url
+  }
+}
+
 export function ZoneDepotFichiers({
   types,
   onDeposer,
+  onLien,
   accept,
   className,
 }: {
@@ -71,6 +101,17 @@ export function ZoneDepotFichiers({
   types: { id: string; libelle: string }[]
   /** Depot effectif. Recoit les fichiers et la categorie retenue. */
   onDeposer: (fichiers: File[], typeDocumentId: string | null) => Promise<void>
+  /**
+   * Rattachement d'un LIEN, quand la fiche sait le faire.
+   *
+   * Naoëlle, 21/08/2026 : « mets autrement qu'un bouton. » Retirer le bouton « Ajouter un fichier »
+   * emportait avec lui le seul accès au rattachement par URL. Il revient ici, par deux gestes et
+   * aucun élément d'interface de plus : on peut GLISSER un lien depuis un autre onglet sur la zone,
+   * ou simplement le COLLER quand on est sur la fiche.
+   *
+   * Sans cette fonction, la zone n'accepte pas les liens et ne les annonce pas.
+   */
+  onLien?: (url: string, nom: string, typeDocumentId: string | null) => Promise<void>
   accept?: string
   className?: string
 }) {
@@ -78,6 +119,7 @@ export function ZoneDepotFichiers({
   const [enCours, setEnCours] = useState(false)
   const [erreur, setErreur] = useState<string | null>(null)
   const [enAttente, setEnAttente] = useState<File[]>([])
+  const [liens, setLiens] = useState<string[]>([])
   const [typeId, setTypeId] = useState('')
   const inputRef = useRef<HTMLInputElement>(null)
 
@@ -99,18 +141,61 @@ export function ZoneDepotFichiers({
     // tous en « Autre » et le classement est à refaire à la main.
   }
 
+  function recevoirLien(brut: string | null | undefined): boolean {
+    if (!onLien) return false
+    const url = lienValide(brut ?? '')
+    if (!url) return false
+    setErreur(null)
+    setLiens((avant) => (avant.includes(url) ? avant : [...avant, url]))
+    return true
+  }
+
   function retirer(f: File) {
     setEnAttente((avant) => avant.filter((x) => cle(x) !== cle(f)))
     setErreur(null)
   }
 
+  function retirerLien(url: string) {
+    setLiens((avant) => avant.filter((x) => x !== url))
+    setErreur(null)
+  }
+
+  // COLLER UN LIEN SUR LA FICHE SUFFIT. Deuxième geste, sans rien ajouter à l'écran.
+  //
+  // On ne détourne jamais un collage destiné à un champ : si le focus est dans une zone de saisie,
+  // on laisse passer. Et rien n'est écrit sans confirmation — le lien rejoint la liste d'attente,
+  // il faut encore choisir une catégorie et cliquer sur Déposer.
+  useEffect(() => {
+    if (!onLien) return
+    const surCollage = (e: ClipboardEvent) => {
+      const cible = document.activeElement
+      if (
+        cible instanceof HTMLInputElement ||
+        cible instanceof HTMLTextAreaElement ||
+        cible instanceof HTMLSelectElement ||
+        (cible instanceof HTMLElement && cible.isContentEditable)
+      ) {
+        return
+      }
+      if (recevoirLien(e.clipboardData?.getData('text/plain'))) e.preventDefault()
+    }
+    document.addEventListener('paste', surCollage)
+    return () => document.removeEventListener('paste', surCollage)
+    // `recevoirLien` ne dépend que de `onLien` pour son effet de bord.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [onLien])
+
   async function confirmer() {
-    if (enCours || enAttente.length === 0) return
+    if (enCours || (enAttente.length === 0 && liens.length === 0)) return
     setEnCours(true)
     setErreur(null)
     try {
-      await onDeposer(enAttente, typeId || null)
+      if (enAttente.length > 0) await onDeposer(enAttente, typeId || null)
+      if (liens.length > 0 && onLien) {
+        for (const url of liens) await onLien(url, nomDuLien(url), typeId || null)
+      }
       setEnAttente([])
+      setLiens([])
       setTypeId('')
     } catch (e) {
       setErreur(messageDeDepot(e))
@@ -119,7 +204,8 @@ export function ZoneDepotFichiers({
     }
   }
 
-  const enAttenteDe = enAttente.length
+  // Fichiers et liens comptent pour la même chose : des pièces en attente de dépôt.
+  const enAttenteDe = enAttente.length + liens.length
   const pluriel = enAttenteDe > 1 ? 's' : ''
 
   return (
@@ -134,7 +220,16 @@ export function ZoneDepotFichiers({
           if (e.currentTarget.contains(e.relatedTarget as Node | null)) return
           setSurvol(false)
         }}
-        onDrop={(e) => { e.preventDefault(); setSurvol(false); recevoir(e.dataTransfer.files) }}
+        onDrop={(e) => {
+          e.preventDefault()
+          setSurvol(false)
+          if (e.dataTransfer.files.length > 0) {
+            recevoir(e.dataTransfer.files)
+            return
+          }
+          // Pas de fichier : c'est peut-être un lien traîné depuis un autre onglet.
+          recevoirLien(e.dataTransfer.getData('text/uri-list') || e.dataTransfer.getData('text/plain'))
+        }}
         onClick={() => inputRef.current?.click()}
         className={cn(
           'flex cursor-pointer flex-col items-center justify-center gap-1.5 rounded-xl border-2 border-dashed px-4 py-6 text-center transition-colors',
@@ -163,7 +258,9 @@ export function ZoneDepotFichiers({
             <p className="text-sm font-medium text-navy-700">
               {survol ? 'Déposez vos fichiers ici' : 'Glissez des fichiers, ou cliquez pour parcourir'}
             </p>
-            <p className="text-xs text-navy-400">Contrat, facture, avenant, mail, photo…</p>
+            <p className="text-xs text-navy-400">
+              Contrat, facture, avenant, mail, photo…{onLien ? ' ou collez un lien' : ''}
+            </p>
           </>
         )}
         <input
@@ -181,6 +278,25 @@ export function ZoneDepotFichiers({
           {/* Une vignette par fichier : le carré à icône donne au fichier une présence que la ligne
               de texte n'avait pas, et l'extension dit sa nature sans avoir à lire tout le nom. */}
           <ul className="divide-y divide-navy-100">
+            {liens.map((url) => (
+              <li key={url} className="flex items-center gap-3 px-3 py-2.5">
+                <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-kiwi-50 ring-1 ring-kiwi-200">
+                  <Link2 className="h-4 w-4 text-kiwi-600" />
+                </span>
+                <span className="min-w-0 flex-1">
+                  <span className="block truncate text-sm font-semibold text-navy-800">{nomDuLien(url)}</span>
+                  <span className="block truncate text-xs text-navy-400">Lien · {url}</span>
+                </span>
+                <button
+                  type="button"
+                  onClick={() => retirerLien(url)}
+                  title="Retirer ce lien"
+                  className="shrink-0 rounded-lg p-1.5 text-navy-400 hover:bg-navy-50 hover:text-navy-700"
+                >
+                  <X className="h-3.5 w-3.5" />
+                </button>
+              </li>
+            ))}
             {enAttente.map((f) => (
               <li key={cle(f)} className="flex items-center gap-3 px-3 py-2.5">
                 <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-kiwi-50 ring-1 ring-kiwi-200">
@@ -215,7 +331,7 @@ export function ZoneDepotFichiers({
             </select>
             <button
               type="button"
-              onClick={() => { setEnAttente([]); setErreur(null) }}
+              onClick={() => { setEnAttente([]); setLiens([]); setErreur(null) }}
               className="rounded-lg px-2.5 py-1.5 text-xs text-navy-500 hover:bg-navy-100"
             >
               Annuler

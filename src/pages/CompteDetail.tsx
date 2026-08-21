@@ -166,6 +166,9 @@ export default function CompteDetail() {
   const [hubOuvert, setHubOuvert] = useState(false)
   const [addFichierOpen, setAddFichierOpen] = useState(false)
   const televerser = useTeleverserDocuments()
+  // Le rattachement par lien, depuis la zone de depot : meme creation de document que
+  // l'ancienne modale, sans la modale.
+  const creerDocument = useCreateDocument()
   const { data: typesDocumentsRef } = useReferenceTable('types_documents')
   const typesDocuments = typesDocumentsRef && typesDocumentsRef.length > 0 ? typesDocumentsRef : FALLBACK_TYPES_DOCUMENTS
   const [addCompteurOpen, setAddCompteurOpen] = useState(false)
@@ -601,6 +604,17 @@ export default function CompteDetail() {
               onAjouter={() => setAddFichierOpen(true)}
               onOuvrir={(d) => navigate(`/documents/${d.id}`)}
               typesDocuments={typesDocuments}
+              onLien={async (url, nom, typeDocumentId) => {
+                await creerDocument.mutateAsync({
+                  nom,
+                  url,
+                  type_document_id: typeDocumentId,
+                  type_document_libelle: typesDocuments.find((t) => t.id === typeDocumentId)?.libelle ?? '',
+                  entite_type: 'compte',
+                  entite_id: compte.id,
+                })
+                showToast('✓ Lien rattaché')
+              }}
               onDeposer={async (fichiers, typeDocumentId) => {
                 await televerser.mutateAsync({
                   fichiers,

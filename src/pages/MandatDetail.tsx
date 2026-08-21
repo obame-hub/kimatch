@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
-import { ArrowLeft, FileCheck2, FileSignature, Trash2, Building2, MapPin, Gauge, FileText, Plus, Phone, Mail } from 'lucide-react'
+import { ArrowLeft, FileCheck2, FileSignature, Trash2, Building2, MapPin, Gauge, FileText, Phone, Mail } from 'lucide-react'
 import { Topbar } from '@/components/layout/Topbar'
 import { Button } from '@/components/ui/button'
 import { ZoneDepotFichiers } from '@/components/ui/zone-depot-fichiers'
@@ -271,6 +271,9 @@ export default function MandatDetail() {
   const [addFichierOpen, setAddFichierOpen] = useState(false)
 
   const televerser = useTeleverserDocuments()
+  // Le rattachement par lien, depuis la zone de depot : meme creation de document que
+  // l'ancienne modale, sans la modale.
+  const creerDocument = useCreateDocument()
 
   const { data: typesDocsRef } = useReferenceTable('types_documents')
 
@@ -570,16 +573,26 @@ export default function MandatDetail() {
 
           {tab === 'fichiers' && (
             <div className="flex flex-col gap-3.5">
-              <div className="flex items-center justify-end">
-                <Button size="sm" onClick={() => setAddFichierOpen(true)}>
-                  <Plus className="h-3.5 w-3.5" />
-                  Ajouter un fichier
-                </Button>
-              </div>
+              {/* PAS DE BOUTON « Ajouter un fichier ». Naoelle, 21/08/2026 : « si on peut cliquer
+                  ou deposer c'est bon, pas besoin de bruit visuel avec un bouton », puis « fais le
+                  menage partout ». La zone juste en dessous dit les deux gestes et les accepte tous
+                  les deux ; le bouton doublait l'un d'eux. Le rattachement par lien, qui n'etait
+                  accessible que par lui, se fait desormais dans la zone — en y glissant le lien, ou
+                  en le collant. */}
               {/* Depot reel de fichiers — possible depuis que le bucket « documents » a des
                   politiques d'ecriture (migration 20260816130000). */}
               <ZoneDepotFichiers
                 types={typesDocs}
+                onLien={async (url, nom, typeDocumentId) => {
+                  await creerDocument.mutateAsync({
+                    nom,
+                    url,
+                    type_document_id: typeDocumentId,
+                    type_document_libelle: typesDocs.find((x) => x.id === typeDocumentId)?.libelle ?? '',
+                    entite_type: 'mandat',
+                    entite_id: mandat.id,
+                  })
+                }}
                 onDeposer={async (fichiers, typeDocumentId) => {
                   await televerser.mutateAsync({
                     fichiers,
