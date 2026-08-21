@@ -367,8 +367,18 @@ export function DocumentComparatif({
 
           {/* Le comparatif et le détail offre par offre.
               Visible dans son onglet, et TOUJOURS à l'impression : un rapport imprimé
-              auquel il manquerait une section selon l'onglet ouvert serait un piège. */}
-          <div className={cn('print:block', onglet === 'comparatif' ? '' : 'hidden')}>
+              auquel il manquerait une section selon l'onglet ouvert serait un piège.
+
+              PAGE 2 DU DOCUMENT. Naoëlle, 21/08/2026 : « première page compte rendu de consultation,
+              deuxième page comparatif d'offres, ensuite chaque page a le détail de l'offre du
+              fournisseur par page, et le lexique toujours en dernière page. » Le saut de page ne se
+              voit qu'à l'impression — sur un écran qui défile, il n'a aucun effet. */}
+          <div
+            className={cn(
+              'print:block print:break-before-page',
+              onglet === 'comparatif' ? '' : 'hidden',
+            )}
+          >
           {/* ── 5. Le détail offre par offre, au modèle de l'étude client ──
               Michel, 20/08/2026 : « sur le bouton qui sera document comparatif, on pourra reprendre
               encore son même truc » — le même modèle que dans le détail de version, donc le même
@@ -526,11 +536,12 @@ export function DocumentComparatif({
               clique pas : ce que le clic révélait doit y être ouvert, sinon l'information n'existe
               plus. C'est la même règle que pour les onglets, et elle vient du même constat.
 
-              `break-before-page` sur chaque offre sauf la première : la première continue la page du
-              comparatif au lieu d'ouvrir une page à moitié vide. */}
+              UNE PAGE PAR OFFRE, LA PREMIÈRE COMPRISE. Elle continuait la page du comparatif ; elle
+              ouvre maintenant la sienne, pour que la pagination soit celle que Naoëlle a demandée :
+              compte rendu, comparatif, puis une offre par page. */}
           <div className="hidden print:block">
-            {offresDetaillees.map((o, i) => (
-              <div key={o.id} className={cn(i > 0 && 'break-before-page')}>
+            {offresDetaillees.map((o) => (
+              <div key={o.id} className="break-before-page">
                 <h2 className="mt-8 text-kw-base font-extrabold">
                   Détail — {o.fournisseur_nom || 'Fournisseur'} · {libelleOffre(o.duree_mois, o.type_prix)}
                   {o.est_offre_recommandee && (
@@ -554,7 +565,11 @@ export function DocumentComparatif({
             ))}
           </div>
 
-          {/* ── 7. Le lexique ───────────────────────────────────────────────── */}
+          {/* ── 7. Le lexique, EN DERNIÈRE PAGE ─────────────────────────────────
+              « Le lexique toujours en dernière page. » C'est une annexe : on y revient quand un
+              terme arrête la lecture, on ne la lit pas au fil. Elle ouvre donc sa propre page plutôt
+              que de finir celle de la dernière offre. */}
+          <div className="print:break-before-page">
           <h2 className="mt-8 text-kw-base font-extrabold">Lexique</h2>
           <div className="mt-1 grid grid-cols-1 gap-x-6 gap-y-2 sm:grid-cols-2 lg:grid-cols-3">
             {(toutGaz ? LEXIQUE_GAZ : LEXIQUE_ELEC).map((e) => (
@@ -563,6 +578,7 @@ export function DocumentComparatif({
                 <span className="block text-kw-tiny leading-snug text-kw-body">{e.definition}</span>
               </div>
             ))}
+          </div>
           </div>
 
           </div>
