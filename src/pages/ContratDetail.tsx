@@ -862,6 +862,27 @@ export default function ContratDetail() {
  * puis qui clique « Envoyer » lui-même : rien ne part automatiquement.
  */
 /**
+ * Teinte de la plaque d'extension, par famille de fichier — même code couleur que l'onglet Fichiers
+ * du compte, pour qu'un PDF ait la même tête partout dans l'application.
+ */
+const PLAQUES_FICHIER: Record<string, { couleur: string; fond: string }> = {
+  pdf: { couleur: '#c2452d', fond: '#fbeae5' },
+  jpg: { couleur: '#7c5bb0', fond: '#f1ecf8' },
+  jpeg: { couleur: '#7c5bb0', fond: '#f1ecf8' },
+  png: { couleur: '#7c5bb0', fond: '#f1ecf8' },
+  eml: { couleur: '#3b5f8a', fond: '#e9eff6' },
+  msg: { couleur: '#3b5f8a', fond: '#e9eff6' },
+  xlsx: { couleur: '#0d7a5f', fond: '#eaf4f0' },
+  csv: { couleur: '#0d7a5f', fond: '#eaf4f0' },
+  docx: { couleur: '#4f5aa8', fond: '#eef0fa' },
+}
+
+function extensionFichier(nom: string): string {
+  const point = nom.lastIndexOf('.')
+  return point > 0 ? nom.slice(point + 1).toLowerCase() : 'fic'
+}
+
+/**
  * L'état de la signature, en trois mots et une infobulle.
  *
  * Le bloc de bas de page est parti (Naoëlle, 21/08/2026 : « enlève le bloc en bas de page »). Ce qu'il
@@ -993,30 +1014,46 @@ function DialogSignatureContrat({
             <p className="mb-1 text-[10px] font-bold uppercase tracking-wide text-navy-400">
               Document à faire signer
             </p>
-            <div className="max-h-[220px] space-y-1.5 overflow-y-auto pr-1">
+            {/* DES VIGNETTES, PAS UNE LISTE. Naoëlle, 21/08/2026 : « je veux que ce soit un genre de
+                bloc avec des icônes modernes de fichier à cliquer dessus pour sélectionner. » Une
+                vignette par fichier, en grille : la plaque d'extension porte la couleur de sa famille
+                — le même code que l'onglet Fichiers du compte — et se coche quand on la choisit.
+
+                LE NOM AFFICHÉ EST CELUI DU DOCUMENT, pas celui du fichier. C'est ce qui manquait :
+                l'onglet Fichiers montre « Contrat envoyé » et « 500074230 — SDC AMPLITUDE 2 … »,
+                là où le déroulant affichait « Contrat_envoye_1_contrat.pdf » et
+                « 571f3e56-93f8-…pdf ». Mêmes documents, noms différents — de quoi croire qu'il
+                s'agissait d'autres fichiers. */}
+            <div className="grid max-h-[260px] grid-cols-1 gap-2 overflow-y-auto pr-1 sm:grid-cols-2">
               {documents.map((d) => {
                 const choisi = documentRetenu?.id === d.id
+                const ext = extensionFichier(d.nom_fichier || d.nom)
+                const plaque = PLAQUES_FICHIER[ext] ?? { couleur: '#5c5f66', fond: '#f2f1ee' }
                 return (
                   <button
                     key={d.id}
                     type="button"
                     onClick={() => setDocumentId(d.id)}
+                    title={d.nom_fichier || d.nom}
                     className={cn(
-                      'flex w-full items-center gap-3 rounded-lg border p-2.5 text-left transition-all',
+                      'relative flex flex-col items-start gap-2 rounded-xl border-2 p-3 text-left transition-all',
                       choisi
-                        ? 'border-kiwi-500 bg-kiwi-50 ring-1 ring-kiwi-200'
-                        : 'border-navy-200 hover:border-kiwi-300 hover:bg-navy-50',
+                        ? 'border-kiwi-500 bg-kiwi-50'
+                        : 'border-navy-100 bg-white hover:-translate-y-0.5 hover:border-kiwi-300 hover:shadow-md',
                     )}
                   >
+                    {choisi && (
+                      <span className="absolute right-2 top-2 flex h-5 w-5 items-center justify-center rounded-full bg-kiwi-600 text-white">
+                        <Check className="h-3 w-3" />
+                      </span>
+                    )}
                     <span
-                      className={cn(
-                        'flex h-9 w-9 shrink-0 items-center justify-center rounded-lg',
-                        choisi ? 'bg-kiwi-600 text-white' : 'bg-navy-100 text-navy-500',
-                      )}
+                      className="flex h-11 w-11 items-center justify-center rounded-xl text-[10px] font-extrabold uppercase"
+                      style={{ background: plaque.fond, color: plaque.couleur }}
                     >
-                      <FileText className="h-4 w-4" />
+                      {ext}
                     </span>
-                    <span className="min-w-0 flex-1">
+                    <span className="min-w-0 self-stretch">
                       <span className="block truncate text-sm font-bold text-navy-800">{d.nom}</span>
                       <span className="block truncate text-[10.5px] text-navy-400">
                         {[d.type_document, new Date(d.date_creation).toLocaleDateString('fr-FR')]
@@ -1024,7 +1061,6 @@ function DialogSignatureContrat({
                           .join(' · ')}
                       </span>
                     </span>
-                    {choisi && <Check className="h-4 w-4 shrink-0 text-kiwi-600" />}
                   </button>
                 )
               })}
