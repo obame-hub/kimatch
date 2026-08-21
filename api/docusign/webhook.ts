@@ -155,7 +155,72 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       )
       .eq('docusign_envelope_id', envelopeId)
       .maybeSingle()
+    // UNE ENVELOPPE PEUT PORTER UN CONTRAT et non un mandat, depuis le 21/08/2026. On regarde donc
+    // du cote des contrats avant de conclure qu'on ne connait pas l'enveloppe.
+    //
+    // Le traitement d'un contrat s'arrete ici : on inscrit son statut de signature et ses dates, et
+    // rien de plus. L'archivage du signe, la synchro GRD et les notifications sont propres au
+    // mandat -- un contrat signe ne declenche pas de demande de donnees aupres du gestionnaire de
+    // reseau, c'est le mandat qui y donne droit.
     if (!mandatConnu) {
+      const { data: contrat } = await admin
+        .from('contrats')
+        .select('id, statut_signature')
+        .eq('docusign_envelope_id', envelopeId)
+        .maybeSingle()
+      if (contrat) {
+        const session = await sessionQuelconque(admin, null)
+        if (!session) {
+          console.error('[docusign webhook] aucune session pour verifier le contrat', { envelopeId })
+          res.status(200).json({ ok: true, skipped: true, reason: 'aucune session DocuSign pour vérifier' })
+          return
+        }
+        const envRes = await fetch(
+          `${session.base_uri}/restapi/v2.1/accounts/${session.account_id}/envelopes/${envelopeId}`,
+          { headers: { Authorization: `Bearer ${session.access_token}` } },
+        )
+        const env = (await envRes.json()) as { status?: string; completedDateTime?: string; sentDateTime?: string }
+        if (!envRes.ok || !env.status) {
+          res.status(502).json({ error: 'Statut DocuSign illisible' })
+          return
+        }
+        const parEvenement: Record<string, string> = {
+          sent: 'ENVOYE',
+          delivered: 'ENVOYE',
+          completed: 'SIGNE',
+          declined: 'REFUSE',
+          voided: 'ANNULE',
+        }
+        const statutSignature = parEvenement[env.status]
+        if (!statutSignature) {
+          res.status(200).json({ ok: true, skipped: true, reason: `statut ${env.status} ignoré` })
+          return
+        }
+        // Une signature ne se defait pas : un rejeu de notification ne doit pas ramener un contrat
+        // signe a « envoye ».
+        if (contrat.statut_signature === 'SIGNE' && statutSignature === 'ENVOYE') {
+          res.status(200).json({ ok: true, skipped: true, reason: 'statut conservé' })
+          return
+        }
+        const { error: eContrat } = await admin
+          .from('contrats')
+          .update({
+            statut_signature: statutSignature,
+            ...(env.sentDateTime ? { date_envoi_signature: env.sentDateTime } : {}),
+            ...(statutSignature === 'SIGNE'
+              ? { date_signature: env.completedDateTime ?? new Date().toISOString() }
+              : {}),
+            date_modification: new Date().toISOString(),
+          })
+          .eq('id', contrat.id)
+        if (eContrat) {
+          res.status(502).json({ error: eContrat.message })
+          return
+        }
+        console.log('[docusign webhook] contrat mis a jour', { envelopeId, statutSignature })
+        res.status(200).json({ ok: true, envelopeId, objet: 'contrat', statutSignature })
+        return
+      }
       res.status(200).json({ ok: true, skipped: true, reason: 'enveloppe inconnue' })
       return
     }

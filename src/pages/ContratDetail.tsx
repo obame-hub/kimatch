@@ -16,6 +16,7 @@ import { useSites } from '@/lib/data/sites'
 import { useComptes } from '@/lib/data/comptes'
 import { useContacts } from '@/lib/data/contacts'
 import { useDocuments, useTeleverserDocuments } from '@/lib/data/documents'
+import { sendContratForSignature, connectDocusign, DocusignNonConnecte } from '@/lib/data/docusign'
 import { useReferenceTable } from '@/lib/data/referenceTables'
 import { useFormulesTarifaires, useTarifsByContratCompteurs, useCreateTarif, useDeleteTarif } from '@/lib/data/tarifs'
 import { useCanManage, useIsAdmin, useProfilsAdmin } from '@/lib/data/roles'
@@ -24,7 +25,7 @@ import { FALLBACK_STATUTS_CONTRATS, STATUT_CONTRAT_TONE, FALLBACK_TYPES_DOCUMENT
 import { useGoBack } from '@/lib/useGoBack'
 import { useRaccourcisOnglets } from '@/lib/useRaccourcisOnglets'
 import { cn } from '@/lib/utils'
-import type { Contrat, TarifContratCompteur } from '@/types/domain'
+import type { Contact, Contrat, DocumentItem, TarifContratCompteur } from '@/types/domain'
 
 const FORMULE_CHAMPS: Record<string, { key: string; label: string }[]> = {
   BASE: [{ key: 'prix_base_eur_mwh', label: 'Prix Base (€/MWh)' }],
@@ -276,6 +277,12 @@ export default function ContratDetail() {
   const isAdmin = useIsAdmin()
   const { data: profilsAdmin } = useProfilsAdmin()
   const { data: tousContacts } = useContacts()
+  // Les contacts qui peuvent signer : ceux du compte porteur du contrat, et seulement s'ils ont une
+  // adresse — DocuSign envoie par email, un contact sans email ne peut rien recevoir.
+  const contactsDuCompte = useMemo(
+    () => (tousContacts ?? []).filter((c) => c.compte_id === contrat?.compte_id && !!c.email),
+    [tousContacts, contrat?.compte_id],
+  )
   const deleteContrat = useDeleteContrat()
 
   // Edition en place : un champ se corrige la ou il se lit, sans modale.
@@ -618,25 +625,17 @@ export default function ContratDetail() {
 
               <ClausesCard contrat={contrat} />
 
-              {(contrat.statut_signature || contrat.docusign_envelope_id) && (
-                <div className="rounded-xl border border-navy-100 bg-white p-4">
-                  <p className="mb-2.5 text-[10px] font-bold uppercase tracking-wide text-navy-400">Signature (DocuSign)</p>
-                  <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-                    {contrat.statut_signature && (
-                      <div>
-                        <p className="mb-0.5 text-[10px] uppercase tracking-wide text-navy-400">Statut</p>
-                        <Badge tone="amber">{contrat.statut_signature}</Badge>
-                      </div>
-                    )}
-                    {contrat.date_envoi_signature && (
-                      <div>
-                        <p className="mb-0.5 text-[10px] uppercase tracking-wide text-navy-400">Envoyé le</p>
-                        <p className="text-xs font-semibold text-navy-800">{new Date(contrat.date_envoi_signature).toLocaleDateString('fr-FR')}</p>
-                      </div>
-                    )}
-                  </div>
-                </div>
-              )}
+              {/* ── LA SIGNATURE DU CONTRAT ──
+                  Ce bloc ne faisait qu'AFFICHER un état de signature — un état qui n'avait jamais pu
+                  naître, puisque rien ne permettait d'envoyer un contrat. Michel s'y est heurté le
+                  21/08/2026 sur SDC AMPLITUDE 2 : « je n'arrive pas à l'envoyer en DocuSign, je ne
+                  vois même pas le bouton. » Il n'y en avait pas. */}
+              <BlocSignatureContrat
+                contrat={contrat}
+                documents={documentsDuContrat}
+                contacts={contactsDuCompte}
+                signaler={showToast}
+              />
             </div>
           )}
 
@@ -825,6 +824,153 @@ export default function ContratDetail() {
       {toast && (
         <div className="fixed bottom-[70px] left-1/2 z-50 -translate-x-1/2 whitespace-nowrap rounded-lg bg-ink-800 px-4 py-2.5 text-xs font-semibold text-white shadow-lg lg:bottom-6">
           {toast}
+        </div>
+      )}
+    </div>
+  )
+}
+
+/**
+ * Envoyer le contrat à la signature, et suivre où il en est.
+ *
+ * DEUX RÈGLES QUI NE SE NÉGOCIENT PAS.
+ *
+ * On envoie le PDF DU FOURNISSEUR, celui déposé sur la fiche : Kimatch ne fabrique pas de contrat.
+ * S'il n'y a aucun fichier, il n'y a rien à faire signer, et on le dit plutôt que d'offrir un bouton
+ * qui échouerait.
+ *
+ * Et l'enveloppe part en BROUILLON. Naoëlle, 21/08/2026 : « il faut envoyer au signataire, mais bien
+ * sûr ouvrir DocuSign pour vérifier avant et bien placer toutes les ancres. » Un contrat de
+ * fournisseur ne porte pas nos ancres de signature — sans passage par l'éditeur, le signataire
+ * recevrait un document où rien n'indique où signer. C'est donc l'expéditeur qui place les champs,
+ * puis qui clique « Envoyer » lui-même : rien ne part automatiquement.
+ */
+function BlocSignatureContrat({
+  contrat,
+  documents,
+  contacts,
+  signaler,
+}: {
+  contrat: Contrat
+  documents: DocumentItem[]
+  contacts: Contact[]
+  signaler: (message: string) => void
+}) {
+  const [documentId, setDocumentId] = useState('')
+  const [contactId, setContactId] = useState('')
+  const [envoiEnCours, setEnvoiEnCours] = useState(false)
+  const [besoinConnexion, setBesoinConnexion] = useState(false)
+
+  // Choix par défaut : le signataire déjà désigné sur le contrat, et l'unique document s'il n'y en a
+  // qu'un. Deux clics de moins dans le cas courant.
+  const contactRetenu = contacts.find((c) => c.id === (contactId || contrat.contact_signataire_id)) ?? null
+  const documentRetenu = documents.find((d) => d.id === documentId) ?? (documents.length === 1 ? documents[0] : null)
+
+  async function envoyer() {
+    if (!documentRetenu || !contactRetenu?.email) return
+    setEnvoiEnCours(true)
+    setBesoinConnexion(false)
+    try {
+      const resultat = await sendContratForSignature({
+        contratId: contrat.id,
+        documentUrl: documentRetenu.url,
+        documentName: documentRetenu.nom_fichier || documentRetenu.nom || 'Contrat.pdf',
+        signerEmail: contactRetenu.email,
+        signerName: `${contactRetenu.prenom} ${contactRetenu.nom}`,
+        emailSubject: `KiWee Énergie — Contrat à signer (${contrat.compte_nom || contrat.site_nom || ''})`.trim(),
+        returnUrl: `${window.location.origin}/contrats/${contrat.id}`,
+      })
+      if (resultat.senderViewUrl) {
+        // On quitte Kimatch pour l'éditeur DocuSign : c'est là que les champs se posent et que
+        // l'envoi se déclenche.
+        window.location.href = resultat.senderViewUrl
+        return
+      }
+      signaler('Enveloppe créée en brouillon dans DocuSign.')
+    } catch (e) {
+      if (e instanceof DocusignNonConnecte) setBesoinConnexion(true)
+      signaler(e instanceof Error ? e.message : 'Erreur DocuSign inconnue')
+    } finally {
+      setEnvoiEnCours(false)
+    }
+  }
+
+  return (
+    <div className="rounded-xl border border-navy-100 bg-white p-4">
+      <p className="mb-2.5 text-[10px] font-bold uppercase tracking-wide text-navy-400">Signature (DocuSign)</p>
+
+      {(contrat.statut_signature || contrat.docusign_envelope_id) && (
+        <div className="mb-3 grid grid-cols-1 gap-3 sm:grid-cols-2">
+          {contrat.statut_signature && (
+            <div>
+              <p className="mb-0.5 text-[10px] uppercase tracking-wide text-navy-400">Statut</p>
+              <Badge tone={contrat.statut_signature === 'SIGNE' ? 'kiwi' : 'amber'}>{contrat.statut_signature}</Badge>
+            </div>
+          )}
+          {contrat.date_envoi_signature && (
+            <div>
+              <p className="mb-0.5 text-[10px] uppercase tracking-wide text-navy-400">Envoyé le</p>
+              <p className="text-xs font-semibold text-navy-800">
+                {new Date(contrat.date_envoi_signature).toLocaleDateString('fr-FR')}
+              </p>
+            </div>
+          )}
+          {contrat.date_signature && (
+            <div>
+              <p className="mb-0.5 text-[10px] uppercase tracking-wide text-navy-400">Signé le</p>
+              <p className="text-xs font-semibold text-navy-800">
+                {new Date(contrat.date_signature).toLocaleDateString('fr-FR')}
+              </p>
+            </div>
+          )}
+        </div>
+      )}
+
+      {documents.length === 0 ? (
+        <p className="text-xs text-navy-500">
+          Aucun fichier sur ce contrat. Déposez d'abord le PDF du fournisseur dans l'onglet Fichiers :
+          c'est ce document-là qui part à la signature.
+        </p>
+      ) : contacts.length === 0 ? (
+        <p className="text-xs text-navy-500">
+          Aucun contact du compte n'a d'adresse email. DocuSign envoie par email : renseignez-en une
+          sur le contact qui doit signer.
+        </p>
+      ) : (
+        <div className="space-y-2.5">
+          <FormField label="Document à faire signer">
+            <Select value={documentRetenu?.id ?? ''} onChange={(e) => setDocumentId(e.target.value)}>
+              {documents.map((d) => (
+                <option key={d.id} value={d.id}>{d.nom_fichier || d.nom}</option>
+              ))}
+            </Select>
+          </FormField>
+          <FormField label="Signataire">
+            <Select value={contactRetenu?.id ?? ''} onChange={(e) => setContactId(e.target.value)}>
+              <option value="">Choisir…</option>
+              {contacts.map((c) => (
+                <option key={c.id} value={c.id}>{c.prenom} {c.nom} — {c.email}</option>
+              ))}
+            </Select>
+          </FormField>
+          <p className="text-[10.5px] leading-snug text-navy-400">
+            L'enveloppe est créée en brouillon et DocuSign s'ouvre : c'est là que vous placez les zones
+            de signature sur le document, puis que vous cliquez « Envoyer ». Rien ne part
+            automatiquement.
+          </p>
+          {besoinConnexion && (
+            <Button type="button" size="sm" onClick={() => { connectDocusign().catch(() => {}) }}>
+              Connecter mon compte DocuSign
+            </Button>
+          )}
+          <Button
+            type="button"
+            size="sm"
+            onClick={envoyer}
+            disabled={envoiEnCours || !documentRetenu || !contactRetenu?.email}
+          >
+            {envoiEnCours ? 'Préparation…' : 'Ouvrir DocuSign pour placer les signatures'}
+          </Button>
         </div>
       )}
     </div>

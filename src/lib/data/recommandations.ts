@@ -148,6 +148,8 @@ interface RawOffreFournisseur {
   economie_pourcentage: number | null
   duree_mois: number | null
   est_offre_recommandee: boolean
+  /** Migration 20260821120000 — absente tant qu'elle n'est pas appliquee. */
+  nature_offre?: string | null
   date_reception?: string | null
   date_validite?: string | null
   /** Colonnes ajoutées le 17/08/2026 (migration 20260817140000). Optionnelles : le select les
@@ -551,6 +553,9 @@ async function fetchRecommandations(
         date_reception: o.date_reception ?? null,
         date_validite: o.date_validite ?? null,
         est_offre_recommandee: o.est_offre_recommandee,
+        // Repli sur PROPOSEE tant que la migration 20260821120000 n'est pas appliquée : c'est ce
+        // que sont les 39 offres existantes, aucune n'a jamais pu être autre chose.
+        nature_offre: o.nature_offre ?? 'PROPOSEE',
         details_par_compteur: detailsParOffre.get(o.id) ?? [],
       }
       const list = offresParOptimisation.get(o.optimisation_id) ?? []
@@ -1332,6 +1337,41 @@ export function useAjouterFournisseurConsulte() {
  * `EN_ATTENTE` est l'état de départ : la demande est partie, le fournisseur n'a pas encore dit s'il
  * répondrait sur cette durée-là.
  */
+/**
+ * LES TROIS NATURES D'UNE OFFRE. Michel, 21/08/2026 : « t'as trois types d'offres. T'as l'offre
+ * proposée, t'as l'offre de reconduction, et t'as l'offre en cours. »
+ *
+ * `retenable` porte la règle qu'il a énoncée dans le même souffle : « bien indiquer que ces offres-là,
+ * on ne peut pas les retenir. Parce que s'ils retiennent la reconduction, c'est qu'en fait on a perdu
+ * le dossier. » Retenir signifie « voilà ce que Kiwee a obtenu » ; ni le contrat actuel ni la
+ * proposition du fournisseur en place ne peuvent tenir ce rôle.
+ */
+export const NATURES_OFFRE = [
+  {
+    code: 'PROPOSEE',
+    libelle: 'Proposée',
+    retenable: true,
+    aide: 'Une offre que nous avons négociée et que nous présentons au client.',
+  },
+  {
+    code: 'RECONDUCTION',
+    libelle: 'Reconduction',
+    retenable: false,
+    aide: "La proposition du fournisseur en place, tacite ou non. Elle entre au comparatif comme repère, mais la retenir voudrait dire que le dossier est perdu.",
+  },
+  {
+    code: 'EN_COURS',
+    libelle: 'Offre en cours',
+    retenable: false,
+    aide: "Le contrat que le client a aujourd'hui. C'est le point de comparaison, pas une offre à retenir.",
+  },
+] as const
+
+/** La nature d'une offre, avec son repli sur la nature courante. */
+export function natureDeLOffre(code: string | null | undefined) {
+  return NATURES_OFFRE.find((n) => n.code === code) ?? NATURES_OFFRE[0]
+}
+
 export const STATUTS_OFFRE = [
   { code: 'EN_ATTENTE', libelle: 'En attente' },
   { code: 'ACCEPTEE', libelle: 'Acceptée' },
@@ -1543,6 +1583,7 @@ export function useDeleteVersion() {
  */
 export interface PatchOffre {
   nom?: string
+  nature_offre?: string
   reference_offre?: string | null
   statut?: string
   duree_mois?: number | null

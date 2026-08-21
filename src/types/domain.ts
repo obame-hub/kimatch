@@ -228,6 +228,17 @@ export interface OffreFournisseur {
   date_reception?: string | null
   date_validite?: string | null
   est_offre_recommandee: boolean
+  /**
+   * CE QU'EST l'offre, à distinguer de `statut` qui dit où en est la négociation.
+   *
+   * `PROPOSEE` — négociée par Kiwee, la seule qu'on puisse retenir.
+   * `RECONDUCTION` — la proposition du fournisseur en place, tacite ou non.
+   * `EN_COURS` — le contrat actuel du client, saisi comme repère.
+   *
+   * Optionnel le temps que la migration 20260821120000 soit appliquée ; la lecture retombe sur
+   * `PROPOSEE`, ce que sont toutes les offres existantes.
+   */
+  nature_offre?: string | null
   details_par_compteur: OffreFournisseurCompteur[]
 }
 

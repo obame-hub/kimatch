@@ -189,10 +189,42 @@ export const DOCUSIGN_NON_CONNECTE = 'DOCUSIGN_NON_CONNECTE'
 
 export class DocusignNonConnecte extends Error {}
 
+/**
+ * Envoyer un CONTRAT à la signature.
+ *
+ * URGENCE DU 21/08/2026 : Michel ne pouvait pas envoyer le contrat de SDC AMPLITUDE 2, faute de tout
+ * chemin pour le faire — DocuSign n'était branché que sur les mandats.
+ *
+ * DEUX DIFFÉRENCES AVEC LE MANDAT, et elles comptent.
+ *
+ * Le document n'est pas fabriqué par nous : c'est le PDF du fournisseur, déjà déposé sur la fiche.
+ * On l'envoie donc par son URL plutôt qu'en le générant.
+ *
+ * Et aucune ancre n'y est imprimée. Le mandat porte `\s1\`, `\d1\`, `\l1\` là où les champs doivent
+ * tomber ; un contrat de fournisseur n'a rien de tel. C'est l'expéditeur qui place les champs, dans
+ * DocuSign, avant d'envoyer — d'où le brouillon obligatoire ici, et non un choix.
+ */
+export async function sendContratForSignature(input: {
+  contratId: string
+  documentUrl: string
+  documentName?: string
+  signerEmail: string
+  signerName: string
+  emailSubject?: string
+  returnUrl?: string
+}): Promise<SendMandatResult> {
+  return appelerEnvoi({ ...input, draft: true })
+}
+
 export async function sendMandatForSignature(input: SendMandatInput): Promise<SendMandatResult> {
+  return appelerEnvoi(input)
+}
+
+/** Le corps commun des deux envois : même endpoint, même traitement des erreurs. */
+async function appelerEnvoi(input: object): Promise<SendMandatResult> {
   const { data } = await supabase.auth.getSession()
   const token = data.session?.access_token
-  if (!token) throw new Error('Non authentifié — connecte-toi pour envoyer un mandat.')
+  if (!token) throw new Error('Non authentifié — connecte-toi pour envoyer un document à la signature.')
 
   const res = await fetch('/api/docusign/send', {
     method: 'POST',

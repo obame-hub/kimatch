@@ -4,6 +4,18 @@ import { createClient, type SupabaseClient } from '@supabase/supabase-js'
 type Admin = SupabaseClient<any, any, any, any, any>
 
 /** Nom de la ligne `documents` portant le mandat tel qu'il a ete ENVOYE a la signature. */
+/**
+ * L'OBJET QU'ON FAIT SIGNER. Le mandat, ou le contrat.
+ *
+ * Naoelle, 21/08/2026, en urgence : Michel ne pouvait pas envoyer un contrat a la signature, et pour
+ * une raison simple -- rien ne le permettait. DocuSign n'etait branche que sur les mandats, sur toute
+ * la chaine : l'envoi, l'archivage, le retour du webhook.
+ */
+export interface ObjetSigne {
+  type: 'mandat' | 'contrat'
+  id: string
+}
+
 export const NOM_ENVOYE = 'Mandat envoyé'
 /** Nom de la ligne `documents` portant le mandat SIGNE. */
 export const NOM_SIGNE = 'Mandat signé'
@@ -58,42 +70,44 @@ async function deposer(chemin: string, pdf: Uint8Array): Promise<string> {
  * cours. On journalise, on ne fait pas echouer l'envoi pour autant.
  */
 export async function archiverDocumentsEnvoyes(
-  mandatId: string,
+  objet: ObjetSigne,
   compteNom: string,
   documents: { pdfBase64: string; fileName: string }[],
 ): Promise<void> {
   const admin = clientAdmin()
   if (!admin) return
 
-  const { data: typeDoc } = await admin.from('types_documents').select('id').eq('code', 'MANDAT').maybeSingle()
+  const contrat = objet.type === 'contrat'
+  const codeType = contrat ? 'CONTRAT' : 'MANDAT'
+  const { data: typeDoc } = await admin.from('types_documents').select('id').eq('code', codeType).maybeSingle()
 
   for (const [i, doc] of documents.entries()) {
     const pdf = Buffer.from(doc.pdfBase64, 'base64')
     if (!pdf.length) continue
     // Le chemin ne depend que du mandat et du rang du document : un renvoi ecrase la version
     // precedente au lieu d'accumuler des fichiers a chaque tentative.
-    const nomFichier = `Mandat_envoye_${i + 1}_${nomSur(compteNom)}.pdf`
-    const chemin = `mandats/${mandatId}/${nomFichier}`
+    const nomFichier = `${contrat ? 'Contrat' : 'Mandat'}_envoye_${i + 1}_${nomSur(compteNom)}.pdf`
+    const chemin = `${objet.type}s/${objet.id}/${nomFichier}`
     const url = await deposer(chemin, new Uint8Array(pdf))
 
     // Idempotent : renvoyer le mandat ne cree pas une seconde ligne pour le meme rang.
     const { data: existant } = await admin
       .from('documents')
       .select('id')
-      .eq('entite_type', 'mandat')
-      .eq('entite_id', mandatId)
+      .eq('entite_type', objet.type)
+      .eq('entite_id', objet.id)
       .eq('nom_fichier', nomFichier)
       .maybeSingle()
 
     const ligne = {
       ...(typeDoc ? { type_document_id: typeDoc.id } : {}),
-      nom: NOM_ENVOYE,
+      nom: contrat ? 'Contrat envoyé' : NOM_ENVOYE,
       nom_fichier: nomFichier,
       url,
       mime_type: 'application/pdf',
       taille_octets: pdf.length,
-      entite_type: 'mandat',
-      entite_id: mandatId,
+      entite_type: objet.type,
+      entite_id: objet.id,
     }
     if (existant) await admin.from('documents').update(ligne).eq('id', existant.id)
     else await admin.from('documents').insert(ligne)

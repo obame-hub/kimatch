@@ -76,6 +76,19 @@ export interface SendEnvelopeInput {
    * que Tools, sur demande explicite (04/08/2026) -- avant ça Kimatch envoyait direct ("sent"). */
   draft?: boolean
   returnUrl?: string
+  /**
+   * Poser les champs de signature par ANCRES, ou laisser l'expediteur les placer.
+   *
+   * Les ancres `\s1\`, `\d1\`, `\l1\` sont imprimees dans le PDF par `mandatPdf.ts` : elles ne
+   * valent que pour un document que NOUS fabriquons. Un contrat vient du fournisseur et ne les
+   * contient pas -- ancrer dessus ne poserait aucun champ, et le signataire recevrait un document
+   * sans nulle part ou signer.
+   *
+   * Pour ces documents-la, on cree un brouillon sans champ et l'expediteur les place lui-meme dans
+   * DocuSign. Naoelle, 21/08/2026 : « il faut envoyer au signataire mais bien sur ouvrir DocuSign
+   * pour verifier avant et bien placer toutes les ancres. »
+   */
+  ancres?: boolean
 }
 
 export interface SendEnvelopeResult {
@@ -105,7 +118,9 @@ export async function sendEnvelope(ctx: DocusignContext, input: SendEnvelopeInpu
           // mots ordinaires ("Signature", "Date") : le texte légal du mandat contient lui-même
           // ces mots en prose ("date de signature", etc.), ce qui créerait de faux tabs partout
           // si on ancrait sur les mots eux-mêmes.
-          tabs: {
+          //
+          // `ancres: false` n'en pose aucune : voir le commentaire de l'option.
+          tabs: input.ancres === false ? undefined : {
             signHereTabs: [{ anchorString: '\\s1\\', anchorUnits: 'pixels', anchorXOffset: '0', anchorYOffset: '-8' }],
             dateSignedTabs: [{ anchorString: '\\d1\\', anchorUnits: 'pixels', anchorXOffset: '0', anchorYOffset: '-8', font: 'Arial', fontSize: 'Size8' }],
             // Le lieu de signature : un champ libre, obligatoire, ancre sur « Lieu : » du mandat
