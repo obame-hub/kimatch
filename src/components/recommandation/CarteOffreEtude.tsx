@@ -145,11 +145,22 @@ export function CarteOffreEtude({
           // Les colonnes chiffrées gardent une largeur fixe — sans elle les montants ne s'alignent pas
           // d'une carte à l'autre, chaque carte étant sa propre grille.
           //
-          // En interne, la rangée flexible reste la bonne réponse : il n'y a ni logo ni barre, et les
-          // deux ressorts latéraux centrent les chiffres au pixel.
+          // EN INTERNE, TROIS COLONNES À CÔTÉS ÉGAUX. Les deux ressorts `flex-1` ne centraient pas :
+          // `flex: 1 1 0%` distribue l'espace libre à parts égales, mais aucun des deux ne peut
+          // descendre sous la largeur de son contenu. Le ressort de droite portant les boutons, il
+          // débordait de sa part et poussait les chiffres vers la gauche — d'une ligne à l'autre les
+          // montants ne tombaient donc pas au même endroit, selon que le bouton disait « Saisir les
+          // prix » ou « Modifier les prix » (visible sur la capture du 20/08/2026).
+          //
+          // Deux colonnes `minmax(0,1fr)` sont égales par construction, quoi qu'elles contiennent. La
+          // colonne du milieu prend la largeur de ses chiffres. C'est le montage déjà retenu pour
+          // centrer le logo de la barre du haut.
           avecIdentite
             ? 'grid grid-cols-[32px_minmax(0,1.15fr)_minmax(0,1.5fr)_204px_28px]'
-            : 'flex flex-wrap',
+            // La grille ne prend qu'à partir de `sm` : en dessous, la somme des largeurs minimales
+            // — les chiffres plus les boutons — dépasse celle d'un téléphone. La rangée souple s'y
+            // replie sur deux lignes, comme avant, et les ressorts reprennent leur office.
+            : 'flex flex-wrap sm:grid sm:grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)]',
         )}
       >
         {/* TROIS ZONES : l'identité à gauche, les chiffres au CENTRE, les actions à DROITE.
@@ -157,20 +168,6 @@ export function CarteOffreEtude({
             centre réellement le groupe du milieu, alors qu'un simple `mx-auto` l'aurait décalé dès que
             les deux côtés n'ont pas la même largeur — ce qui est le cas ici, l'identité étant plus
             longue que les boutons. */}
-        {aChoisir && (
-          <button
-            type="button"
-            onClick={onChoisir}
-            title="Sélectionner pour comparer"
-            className={cn(
-              'flex h-4 w-4 shrink-0 items-center justify-center rounded-kw-xs border text-kw-micro font-bold',
-              choisie ? 'border-kw-green bg-kw-green text-white' : 'border-kw-border-strong bg-white',
-            )}
-          >
-            {choisie ? '✓' : ''}
-          </button>
-        )}
-
         {/* LE LOGO EN TÊTE DE LIGNE, comme dans la maquette : c'est lui qu'on repère avant d'avoir
             lu le nom. Il était placé entre la barre et les montants, ce qui le noyait au milieu.
             Quand on ne l'a pas, une pastille d'initiales — afficher le logo d'un autre fournisseur
@@ -261,7 +258,27 @@ export function CarteOffreEtude({
           )}
         </span>
 
-        {!avecIdentite && <span className="min-w-0 flex-1" />}
+        {/* LA COLONNE DE GAUCHE de la vue interne. Elle est vide la plupart du temps — son rôle est
+            de faire contrepoids à celle des boutons — et accueille la case de sélection quand la vue
+            propose de comparer des offres. La case doit vivre ICI et non en tête de ligne : en
+            grille, un enfant de plus décalerait toutes les colonnes d'un cran. */}
+        {!avecIdentite && (
+          <span className="flex min-w-0 flex-1 items-center sm:flex-none">
+            {aChoisir && (
+              <button
+                type="button"
+                onClick={onChoisir}
+                title="Sélectionner pour comparer"
+                className={cn(
+                  'flex h-4 w-4 shrink-0 items-center justify-center rounded-kw-xs border text-kw-micro font-bold',
+                  choisie ? 'border-kw-green bg-kw-green text-white' : 'border-kw-border-strong bg-white',
+                )}
+              >
+                {choisie ? '✓' : ''}
+              </button>
+            )}
+          </span>
+        )}
 
         {/* ── Les chiffres, au centre ──
             Michel : « il veut savoir : est-ce que j'ai reçu l'offre de Gaz Européen ? Voici la marge.
@@ -272,7 +289,9 @@ export function CarteOffreEtude({
             // Côté client, le budget et l'écart occupent chacun une colonne de largeur fixe : c'est à
             // cette condition qu'ils s'alignent d'une carte à l'autre, puisque chaque carte est une
             // grille indépendante. `whitespace-nowrap` interdit à un montant de s'enrouler.
-            avecIdentite ? 'grid grid-cols-[72px_132px] justify-items-end' : 'flex shrink-0 gap-5',
+            // `gap-7` en interne : Naoëlle, 20/08/2026, « un peu aéré entre eux afin que
+            // visuellement ça fasse joli ». Quatre chiffres serrés se lisent comme un seul nombre.
+            avecIdentite ? 'grid grid-cols-[72px_132px] justify-items-end' : 'flex shrink-0 gap-7',
           )}
         >
           {!avecBarre && (
@@ -325,7 +344,13 @@ export function CarteOffreEtude({
         {/* ── Les actions, à droite ──
             `flex-1` fait ici office de second ressort : avec celui de la zone d'identité, il garde
             les chiffres au milieu quelle que soit la largeur des boutons. */}
-        <span className={cn('flex min-w-0 items-center justify-end gap-2', !avecIdentite && 'flex-1')}>
+        <span
+          className={cn(
+            'flex min-w-0 items-center justify-end gap-2',
+            // Le ressort ne sert qu'à la rangée souple, sous `sm` : en grille il est ignoré.
+            !avecIdentite && 'flex-1 sm:flex-none',
+          )}
+        >
           {actions}
           <span className="w-3 shrink-0 text-center text-kw-sm text-kw-faint">{ouvert ? '▾' : '▸'}</span>
         </span>
@@ -353,46 +378,62 @@ export function CarteOffreEtude({
                     <button
                       type="button"
                       onClick={() => setPdlOuvert(estOuvert ? null : d.id)}
-                      className="flex w-full flex-wrap items-center gap-x-3 gap-y-1.5 px-3 py-2 text-left hover:bg-kw-subtle"
+                      className="flex w-full flex-wrap items-center gap-x-3 gap-y-1.5 px-3 py-2 text-left hover:bg-kw-subtle sm:grid sm:grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)]"
                     >
-                      <span className="w-3 shrink-0 text-kw-tiny text-kw-faint">{estOuvert ? '▾' : '▸'}</span>
-                      <span className="min-w-[130px] flex-1 font-mono text-kw-sm font-bold">
-                        {compteur?.numero_pdl || d.compteur_label || 'Compteur'}
-                        <span className="ml-1.5 rounded-kw-xs bg-kw-muted px-1.5 py-px font-sans text-kw-micro font-bold text-kw-meta">
-                          {gaz ? 'Gaz' : 'Élec'}
+                      {/* LE CHEVRON VOYAGE AVEC LE NUMÉRO DE PDL, dans le même ressort. Séparé, ses
+                          12 px s'ajoutaient à gauche seulement et décalaient d'autant le groupe de
+                          chiffres : mesuré à 975 px là où ceux de l'offre tombaient à 963. Deux
+                          ressorts de part et d'autre, et rien d'autre, centrent exactement. */}
+                      <span className="flex min-w-0 flex-1 items-center gap-x-3 sm:flex-none">
+                        <span className="w-3 shrink-0 text-kw-tiny text-kw-faint">{estOuvert ? '▾' : '▸'}</span>
+                        <span className="min-w-0 font-mono text-kw-sm font-bold">
+                          {compteur?.numero_pdl || d.compteur_label || 'Compteur'}
+                          <span className="ml-1.5 rounded-kw-xs bg-kw-muted px-1.5 py-px font-sans text-kw-micro font-bold text-kw-meta">
+                            {gaz ? 'Gaz' : 'Élec'}
+                          </span>
                         </span>
                       </span>
-                      <Cellule libelle="CONSO" valeur={volume} unite="MWh" />
-                      {/* AU GAZ L'ABONNEMENT EST UN POSTE À PART, en électricité il est DANS l'énergie
-                          (règle de Michel du 19/08/2026). L'afficher comme une colonne autonome des
-                          deux côtés le ferait compter deux fois quand on additionne la ligne — c'est
-                          ce que le test du 20/08 a montré. Côté électricité il est donc marqué inclus,
-                          et il n'entre pas dans le total de la ligne. */}
-                      <Cellule
-                        libelle={gaz ? 'ABONNEMENT' : 'ABONNEMENT (inclus)'}
-                        valeur={abonnementDe(d)}
-                        unite="€"
-                        estompe={!gaz}
-                      />
-                      <Cellule libelle="ÉNERGIE" valeur={d.cout_fourniture_annuel_ht} unite="€" />
-                      <Cellule libelle={gaz ? 'RÉSEAU' : 'TURPE'} valeur={reseauDe(d)} unite="€" />
-                      <Cellule libelle="TAXES" valeur={taxesDe(d)} unite="€" />
-                      <span className="min-w-[86px] text-right">
-                        <span className="block text-kw-micro font-bold tracking-[0.05em] text-kw-faint">
-                          TOTAL / AN
-                        </span>
-                        {/* LE TOTAL EST LA SOMME DE CE QUI EST MONTRÉ SUR LA LIGNE, pas la valeur
-                            stockée. Sur un PDL réel, le total en base valait 21 957 € alors que la
-                            ligne affichait 18 757 d'énergie et 3 746 de contributions, soit 22 503 :
-                            l'accise et la CTA, ajoutées le matin même, n'étaient pas dans le total
-                            stocké. Une ligne qui ne s'additionne pas ne se fait pas pardonner. */}
-                        <span className="block font-mono text-kw-base font-extrabold tabular-nums text-kw-green">
-                          {(() => {
-                            const t = totalDeLaLigne(d)
-                            return t == null ? '—' : `${Math.round(t).toLocaleString('fr-FR')} €`
-                          })()}
+                      {/* LES CHIFFRES DU COMPTEUR SE CENTRENT, comme ceux de l'offre juste au-dessus.
+                          Naoëlle, 20/08/2026 : « fais en sorte que les prix de l'offre et les prix par
+                          compteurs soient centrés et un peu aérés entre eux ». Ils étaient collés au
+                          bord droit — le numéro de PDL portait le seul ressort de la ligne et poussait
+                          tout devant lui — tandis que ceux de l'offre étaient centrés : deux blocs de
+                          chiffres l'un sous l'autre, sur deux axes différents. Un second ressort après
+                          le groupe rétablit l'axe commun. */}
+                      <span className="flex flex-wrap items-center justify-center gap-x-6 gap-y-1.5">
+                        <Cellule libelle="CONSO" valeur={volume} unite="MWh" />
+                        {/* AU GAZ L'ABONNEMENT EST UN POSTE À PART, en électricité il est DANS l'énergie
+                            (règle de Michel du 19/08/2026). L'afficher comme une colonne autonome des
+                            deux côtés le ferait compter deux fois quand on additionne la ligne — c'est
+                            ce que le test du 20/08 a montré. Côté électricité il est donc marqué inclus,
+                            et il n'entre pas dans le total de la ligne. */}
+                        <Cellule
+                          libelle={gaz ? 'ABONNEMENT' : 'ABONNEMENT (inclus)'}
+                          valeur={abonnementDe(d)}
+                          unite="€"
+                          estompe={!gaz}
+                        />
+                        <Cellule libelle="ÉNERGIE" valeur={d.cout_fourniture_annuel_ht} unite="€" />
+                        <Cellule libelle={gaz ? 'RÉSEAU' : 'TURPE'} valeur={reseauDe(d)} unite="€" />
+                        <Cellule libelle="TAXES" valeur={taxesDe(d)} unite="€" />
+                        <span className="min-w-[86px] text-right">
+                          <span className="block text-kw-micro font-bold tracking-[0.05em] text-kw-faint">
+                            TOTAL / AN
+                          </span>
+                          {/* LE TOTAL EST LA SOMME DE CE QUI EST MONTRÉ SUR LA LIGNE, pas la valeur
+                              stockée. Sur un PDL réel, le total en base valait 21 957 € alors que la
+                              ligne affichait 18 757 d'énergie et 3 746 de contributions, soit 22 503 :
+                              l'accise et la CTA, ajoutées le matin même, n'étaient pas dans le total
+                              stocké. Une ligne qui ne s'additionne pas ne se fait pas pardonner. */}
+                          <span className="block font-mono text-kw-base font-extrabold tabular-nums text-kw-green">
+                            {(() => {
+                              const t = totalDeLaLigne(d)
+                              return t == null ? '—' : `${Math.round(t).toLocaleString('fr-FR')} €`
+                            })()}
+                          </span>
                         </span>
                       </span>
+                      <span className="min-w-0 flex-1" />
                     </button>
 
                     {/* ── Niveau 3 : les composantes, en blocs ───────────────── */}
