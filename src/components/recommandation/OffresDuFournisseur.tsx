@@ -12,6 +12,8 @@ import {
   useRetenirOffre,
   libelleOffre,
   STATUTS_OFFRE,
+  NATURES_OFFRE,
+  natureDeLOffre,
   type PatchOffre,
 } from '@/lib/data/recommandations'
 import type { FournisseurConsulte, OffreFournisseur, VersionRecommandation, Compteur } from '@/types/domain'
@@ -134,6 +136,7 @@ export function OffresDuFournisseur({
             .filter((o) => o.montant_annuel_ht != null)
             .reduce<typeof offre | null>((a, o) => (a == null || (o.montant_annuel_ht ?? 0) < (a.montant_annuel_ht ?? 0) ? o : a), null)
           const sommes = sommesDesPdl(offre)
+          const nature = natureDeLOffre(offre.nature_offre)
           const recue = offre.statut === 'RECUE'
           const refusee = offre.statut === 'REFUSEE'
           return (
@@ -179,14 +182,67 @@ export function OffresDuFournisseur({
                   </span>
                 )}
 
+                {/* ── LA NATURE DE L'OFFRE ──
+                    Michel, 21/08/2026 : « t'as trois types d'offres. T'as l'offre proposée, t'as
+                    l'offre de reconduction, et t'as l'offre en cours. »
+
+                    Elle se règle ici, sur la ligne de l'offre, parce que c'est là qu'on la découvre :
+                    « en réalité, peu importe l'offre, même si c'est déjà une offre qu'on a proposée,
+                    je peux venir ici sur l'offre et juste indiquer que c'est l'offre de
+                    reconduction ». On ne la demande donc pas à la création. */}
+                {peutModifier ? (
+                  <select
+                    value={nature.code}
+                    title={nature.aide}
+                    onChange={(e) => patcher(
+                      offre,
+                      { nature_offre: e.target.value },
+                      `✓ ${libelleOffre(offre.duree_mois, offre.type_prix)} : ${NATURES_OFFRE.find((n) => n.code === e.target.value)?.libelle}`,
+                    )}
+                    className={cn(
+                      'rounded-kw-xs border-0 px-1.5 py-0.5 text-kw-micro font-extrabold uppercase tracking-[0.05em] outline-none',
+                      nature.retenable ? 'bg-kw-muted text-kw-meta' : 'bg-kw-amber-light text-kw-amber-dark',
+                    )}
+                  >
+                    {NATURES_OFFRE.map((n) => (
+                      <option key={n.code} value={n.code}>{n.libelle}</option>
+                    ))}
+                  </select>
+                ) : (
+                  !nature.retenable && (
+                    <span
+                      title={nature.aide}
+                      className="rounded-kw-xs bg-kw-amber-light px-1.5 py-0.5 text-kw-micro font-extrabold uppercase tracking-[0.05em] text-kw-amber-dark"
+                    >
+                      {nature.libelle}
+                    </span>
+                  )
+                )}
+
                 <span className="flex-1" />
 
                 {peutModifier && (
                   <>
                     <button
                       type="button"
-                      title={offre.est_offre_recommandee ? 'Offre retenue — cliquer pour ne plus la retenir' : 'Retenir cette offre : c\'est elle que reprend le comparatif des versions'}
+                      disabled={!nature.retenable && !offre.est_offre_recommandee}
+                      title={
+                        !nature.retenable && !offre.est_offre_recommandee
+                          ? `${nature.libelle} : ${nature.aide}`
+                          : offre.est_offre_recommandee
+                            ? 'Offre retenue — cliquer pour ne plus la retenir'
+                            : 'Retenir cette offre : c\'est elle que reprend le comparatif des versions'
+                      }
                       onClick={async () => {
+                        // ON NE RETIENT PAS UNE RECONDUCTION NI L'OFFRE EN COURS. Michel, 21/08/2026 :
+                        // « s'ils retiennent la reconduction, c'est qu'en fait on a perdu le
+                        // dossier. » Dans ce cas on marque la proposition refusée et l'on note que le
+                        // client a conservé son offre — retenir voudrait dire l'inverse.
+                        //
+                        // Le garde laisse passer le DÉTRICOTAGE : une offre déjà retenue qu'on
+                        // requalifie en reconduction doit pouvoir être dé-retenue, sinon elle reste
+                        // coincée.
+                        if (!nature.retenable && !offre.est_offre_recommandee) return
                         try {
                           await retenir.mutateAsync({ optimisationId, offreId: offre.est_offre_recommandee ? null : offre.id })
                           signaler(
@@ -200,6 +256,9 @@ export function OffresDuFournisseur({
                       }}
                       className={cn(
                         'inline-flex items-center gap-1 rounded-kw-sm px-1.5 py-0.5 text-kw-micro font-extrabold uppercase tracking-[0.05em]',
+                        // Un bouton hors d'usage doit le montrer, sinon on clique et rien ne se
+                        // passe — le pire des retours.
+                        'disabled:cursor-not-allowed disabled:opacity-40',
                         offre.est_offre_recommandee
                           ? 'bg-[#8a4b2a] text-white'
                           : 'border border-kw-border-strong bg-white text-kw-meta hover:bg-kw-bg',

@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { cn } from '@/lib/utils'
 import { LIBELLE_CLASSE, ORDRE_CLASSES, somme } from '@/lib/calculs/prixOffre'
-import { libelleOffre } from '@/lib/data/recommandations'
+import { libelleOffre, natureDeLOffre } from '@/lib/data/recommandations'
 import { initialesFournisseur, logoFournisseur } from '@/lib/logosFournisseurs'
 import type { Compteur, OffreFournisseur } from '@/types/domain'
 
@@ -202,6 +202,15 @@ export function CarteOffreEtude({
             <span className={cn('font-mono', avecFournisseur ? 'text-kw-sm text-kw-meta' : 'text-kw-md font-extrabold')}>
               {libelleOffre(offre.duree_mois, offre.type_prix)}
             </span>
+            {/* LE CONTRAT ACTUEL ET LA RECONDUCTION SE DISENT, dans le document remis au client :
+                sans cela, une ligne du comparatif qui n'est pas une de nos offres se lirait comme
+                une de nos offres. Michel, 21/08/2026, à propos de la proposition du fournisseur en
+                place : « c'est pas non plus l'offre que moi je propose. » */}
+            {!natureDeLOffre(offre.nature_offre).retenable && (
+              <span className="rounded-kw-xs bg-kw-muted px-1.5 py-px text-kw-micro font-bold uppercase tracking-[0.06em] text-kw-meta">
+                {natureDeLOffre(offre.nature_offre).libelle}
+              </span>
+            )}
             {offre.est_offre_recommandee && (
               <span
                 className={cn(
