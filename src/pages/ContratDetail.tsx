@@ -113,6 +113,62 @@ const CLAUSES: { key: keyof Pick<Contrat, 'clause_tacite_reconduction' | 'clause
   { key: 'clause_penalites_resiliation', label: 'Pénalités de résiliation anticipée' },
 ]
 
+/**
+ * COMBIEN DE JOURS AVANT L'ÉCHÉANCE ON PRÉVIENT.
+ *
+ * Quatre-vingt-dix jours, faute de réponse de Michel sur le délai qu'il lui faut. C'est le seul
+ * chiffre à changer si ce n'est pas le bon : il ne sert qu'à décider quand le bandeau s'allume, et
+ * jamais à un calcul.
+ *
+ * Le raisonnement derrière : sur les contrats où l'on connaît le préavis, il vaut le plus souvent
+ * 60 jours, parfois 30. Prévenir 90 jours avant l'échéance laisse donc un mois pour consulter les
+ * fournisseurs AVANT que la fenêtre de résiliation se referme.
+ */
+const JOURS_ALERTE_TACITE = 90
+
+/**
+ * Où en est la reconduction tacite de ce contrat.
+ *
+ * `null` quand il n'y a rien à dire — pas de date connue. On ne devine pas : un contrat dont on
+ * ignore s'il se reconduit tout seul ne doit pas afficher une échéance inventée. Sur les 1 599
+ * contrats, 465 portent cette date après la reprise du 21/08/2026 ; pour les autres, l'information
+ * n'existe ni dans Kimatch ni dans Salesforce, et c'est cela qu'il faut aller chercher.
+ */
+function echeanceTacite(contrat: Contrat): {
+  jour: Date
+  jours: number
+  passee: boolean
+  urgent: boolean
+  texte: string
+} | null {
+  if (!contrat.date_declenchement_tacite) return null
+  const jour = new Date(contrat.date_declenchement_tacite)
+  if (Number.isNaN(jour.getTime())) return null
+  const aujourdhui = new Date()
+  aujourdhui.setHours(0, 0, 0, 0)
+  const jours = Math.round((jour.getTime() - aujourdhui.getTime()) / 86400000)
+  const affichee = jour.toLocaleDateString('fr-FR')
+  if (jours < 0) {
+    return {
+      jour,
+      jours,
+      passee: true,
+      urgent: false,
+      texte: `La date limite de résiliation est passée depuis le ${affichee} : ce contrat s'est reconduit, ou va le faire, sans qu'on puisse s'y opposer.`,
+    }
+  }
+  return {
+    jour,
+    jours,
+    passee: false,
+    urgent: jours <= JOURS_ALERTE_TACITE,
+    texte:
+      jours === 0
+        ? `Dernier jour pour résilier : c'est aujourd'hui. Demain, le contrat est reconduit.`
+        : `Il reste ${jours} jour${jours > 1 ? 's' : ''} pour résilier — jusqu'au ${affichee}. Passé ce jour, le contrat se reconduit tout seul.`,
+  }
+}
+
 function ClausesCard({ contrat }: { contrat: Contrat }) {
   const renseignees = CLAUSES.filter((c) => contrat[c.key] != null)
   if (renseignees.length === 0) return null
@@ -636,6 +692,93 @@ export default function ContratDetail() {
               </div>
               <HistoriqueDiscret tableNom="contrats" ligneId={contrat.id} />
               </div>
+
+              {/* ── LA RECONDUCTION TACITE ──
+                  Ce que Kimatch ignorait jusqu'au 21/08/2026 : la DATE au-delà de laquelle le contrat
+                  se reconduit tout seul. Salesforce la portait, sur 505 contrats ; Kimatch n'avait
+                  même pas de colonne pour l'accueillir. Elle décide de tout — passé ce jour, il n'y a
+                  plus rien à négocier pendant toute la durée du contrat suivant.
+
+                  Le bandeau s'allume quand l'échéance approche ou qu'elle est passée, parce qu'une
+                  date rangée dans une grille de champs ne se voit pas. */}
+              {(() => {
+                const e = echeanceTacite(contrat)
+                if (!e) {
+                  // Rien à afficher, sauf si la clause dit « tacite » : là, l'absence de date est
+                  // elle-même l'information à corriger.
+                  if (!contrat.clause_tacite_reconduction) return null
+                  return (
+                    <div className="rounded-xl border border-amber-200 bg-amber-50 p-4">
+                      <p className="text-[10px] font-bold uppercase tracking-wide text-amber-700">
+                        Reconduction tacite
+                      </p>
+                      <p className="mt-1 text-xs leading-relaxed text-amber-800">
+                        Ce contrat se reconduit tacitement, mais sa date limite de résiliation n'est
+                        pas renseignée : personne ne peut savoir quand il faut agir. Renseignez-la
+                        ci-dessous — elle vaut la date de fin moins le préavis.
+                      </p>
+                      <div className="mt-2.5">
+                        <InlineField
+                          variant="date"
+                          label="Date limite de résiliation"
+                          value={null}
+                          onCommit={(v) => majContrat({ date_declenchement_tacite: v || null })}
+                          {...retourInline}
+                        />
+                      </div>
+                    </div>
+                  )
+                }
+                return (
+                  <div
+                    className={cn(
+                      'rounded-xl border p-4',
+                      e.passee
+                        ? 'border-red-200 bg-red-50'
+                        : e.urgent
+                          ? 'border-amber-200 bg-amber-50'
+                          : 'border-navy-100 bg-white',
+                    )}
+                  >
+                    <p
+                      className={cn(
+                        'text-[10px] font-bold uppercase tracking-wide',
+                        e.passee ? 'text-red-700' : e.urgent ? 'text-amber-700' : 'text-navy-400',
+                      )}
+                    >
+                      Reconduction tacite
+                    </p>
+                    <p
+                      className={cn(
+                        'mt-1 text-xs leading-relaxed',
+                        e.passee ? 'text-red-800' : e.urgent ? 'text-amber-800' : 'text-navy-700',
+                      )}
+                    >
+                      {e.texte}
+                    </p>
+                    <div className="mt-2.5 grid grid-cols-1 gap-3 sm:grid-cols-2">
+                      <InlineField
+                        variant="date"
+                        label="Date limite de résiliation"
+                        value={contrat.date_declenchement_tacite ?? null}
+                        onCommit={(v) => majContrat({ date_declenchement_tacite: v || null })}
+                        {...retourInline}
+                      />
+                      <div>
+                        <p className="mb-0.5 text-[10px] uppercase tracking-wide text-navy-400">
+                          Fin du contrat · préavis
+                        </p>
+                        <p className="text-xs font-semibold text-navy-800">
+                          {contrat.date_fin ? new Date(contrat.date_fin).toLocaleDateString('fr-FR') : '—'}
+                          {contrat.preavis_resiliation_jours != null && (
+                            <> · {contrat.preavis_resiliation_jours} jours de préavis</>
+                          )}
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                )
+              })()}
 
               <ClausesCard contrat={contrat} />
 

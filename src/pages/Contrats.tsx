@@ -31,6 +31,31 @@ import { cn } from '@/lib/utils'
 // à Tools qui la masque entièrement pour les autres fournisseurs).
 const FOURNISSEURS_RENEGOCIATION_RECOMMANDEE = ['GAZ EUROPEEN', 'SEFE']
 
+/**
+ * L'ALERTE DE RECONDUCTION TACITE, telle qu'elle se lit dans une liste.
+ *
+ * Quatre-vingt-dix jours d'avance, le même seuil que sur la fiche : assez pour consulter les
+ * fournisseurs avant que la fenêtre de résiliation se referme, les préavis valant le plus souvent
+ * 60 jours. Au-delà, on ne dit rien — une liste où tout est signalé ne signale plus rien.
+ */
+function alerteTacite(jourISO: string | null | undefined): { texte: string; passee: boolean } | null {
+  if (!jourISO) return null
+  const jour = new Date(jourISO)
+  if (Number.isNaN(jour.getTime())) return null
+  const aujourdhui = new Date()
+  aujourdhui.setHours(0, 0, 0, 0)
+  const jours = Math.round((jour.getTime() - aujourdhui.getTime()) / 86400000)
+  if (jours < 0) {
+    return { texte: `Reconduit — date limite passée le ${jour.toLocaleDateString('fr-FR')}`, passee: true }
+  }
+  if (jours > 90) return null
+  if (jours === 0) return { texte: 'Dernier jour pour résilier', passee: false }
+  return {
+    texte: `À résilier sous ${jours} jour${jours > 1 ? 's' : ''} — avant le ${jour.toLocaleDateString('fr-FR')}`,
+    passee: false,
+  }
+}
+
 const CLAUSES: { key: 'clause_tacite_reconduction' | 'clause_renegociation_anticipee' | 'clause_engagement_consommation' | 'clause_energie_verte' | 'clause_indexation_prix' | 'clause_penalites_resiliation'; label: string }[] = [
   { key: 'clause_tacite_reconduction', label: 'Tacite reconduction' },
   { key: 'clause_renegociation_anticipee', label: 'Renégociation anticipée' },
@@ -450,6 +475,18 @@ export default function Contrats() {
                     {c.date_fin ? new Date(c.date_fin).toLocaleDateString('fr-FR') : '—'}
                   </p>
                   {c.compteurs.length > 0 && <p>{c.compteurs.length} compteur{c.compteurs.length > 1 ? 's' : ''} couvert{c.compteurs.length > 1 ? 's' : ''}</p>}
+                  {/* LA RECONDUCTION TACITE, DANS LA LISTE. Une échéance qu'il faut ouvrir chaque
+                      fiche pour découvrir n'alerte personne : sur les 465 contrats qui portent cette
+                      date, 11 tombent dans les six prochains mois. C'est ici qu'on les voit. */}
+                  {(() => {
+                    const alerte = alerteTacite(c.date_declenchement_tacite)
+                    if (!alerte) return null
+                    return (
+                      <p className={cn('font-semibold', alerte.passee ? 'text-red-600' : 'text-amber-700')}>
+                        {alerte.texte}
+                      </p>
+                    )
+                  })()}
                 </div>
               </Card>
             )

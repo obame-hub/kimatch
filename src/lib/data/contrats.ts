@@ -28,6 +28,7 @@ interface RawContrat {
   prix_molecule_eur_mwh: number | null
   type_prix: string | null
   clause_tacite_reconduction: boolean | null
+  date_declenchement_tacite?: string | null
   clause_renegociation_anticipee: boolean | null
   clause_engagement_consommation: boolean | null
   clause_energie_verte: boolean | null
@@ -119,6 +120,7 @@ async function fetchContrats(compteId?: string, contratId?: string, listeSeule =
       type_prix: c.type_prix,
       strategie_tarifaire: c.strategie_tarifaire ?? null,
       clause_tacite_reconduction: c.clause_tacite_reconduction,
+      date_declenchement_tacite: c.date_declenchement_tacite ?? null,
       clause_renegociation_anticipee: c.clause_renegociation_anticipee,
       clause_engagement_consommation: c.clause_engagement_consommation,
       clause_energie_verte: c.clause_energie_verte,
@@ -368,6 +370,8 @@ export type PatchContrat = Partial<{
   date_debut: string | null
   date_fin: string | null
   preavis_resiliation_jours: number | null
+  date_declenchement_tacite: string | null
+  clause_tacite_reconduction: boolean | null
   proprietaire_id: string | null
   contact_signataire_id: string | null
 }>

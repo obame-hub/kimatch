@@ -699,6 +699,16 @@ export interface Contrat {
   /** marge_fixe (défaut) | prix_cible -- ajouté le 04/08/2026 pour le flot Contrat. */
   strategie_tarifaire?: string | null
   clause_tacite_reconduction?: boolean | null
+  /**
+   * DATE LIMITE DE RÉSILIATION : passé ce jour, le contrat se reconduit tout seul.
+   *
+   * Reprise du champ Salesforce « Déclenchement tacite ». Elle vaut à peu près `date_fin - préavis`
+   * sans y être égale — Salesforce retire un jour de plus — donc on garde SA date plutôt que
+   * d'imposer une formule dont on ne connaît pas la règle exacte.
+   *
+   * Optionnel le temps que la migration 20260821130000 soit appliquée.
+   */
+  date_declenchement_tacite?: string | null
   clause_renegociation_anticipee?: boolean | null
   clause_engagement_consommation?: boolean | null
   clause_energie_verte?: boolean | null
