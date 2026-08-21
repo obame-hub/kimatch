@@ -16,6 +16,32 @@ import { cn } from '@/lib/utils'
  * Le clic reste possible : le glisser-deposer n'existe pas sur mobile, et certains preferent
  * l'explorateur de fichiers.
  */
+/**
+ * Traduit l'échec d'un dépôt en phrase qui dit quoi faire.
+ *
+ * Agathe, le 21/08/2026, s'est vu répondre `new row for relation "documents" violates check
+ * constraint "documents_entite_type_check"` en essayant de joindre une facture à un compteur. Le
+ * message était exact et parfaitement inutilisable : rien n'y indiquait que le refus venait de la
+ * BASE et non du fichier, ni qu'une migration restait à appliquer.
+ *
+ * On garde le texte d'origine entre parenthèses : c'est lui qui nomme la contrainte, et c'est de ce
+ * nom qu'on repart pour corriger.
+ */
+function messageDeDepot(e: unknown): string {
+  const brut = e instanceof Error ? e.message : String(e)
+  if (!brut) return 'Le dépôt a échoué.'
+  if (/violates check constraint|23514/i.test(brut)) {
+    return `Dépôt refusé : la base n'accepte pas encore de fichier sur ce type d'objet. Une migration reste à appliquer. (${brut})`
+  }
+  if (/column .* does not exist|PGRST204|42703|schema cache/i.test(brut)) {
+    return `Dépôt refusé : la base n'a pas la colonne attendue. Une migration reste à appliquer. (${brut})`
+  }
+  if (/violates row-level security|42501/i.test(brut)) {
+    return `Dépôt refusé : vos droits ne couvrent pas cet objet. (${brut})`
+  }
+  return `Le dépôt a échoué : ${brut}`
+}
+
 export function ZoneDepotFichiers({
   types,
   onDeposer,
@@ -54,7 +80,7 @@ export function ZoneDepotFichiers({
       setEnAttente([])
       setTypeId('')
     } catch (e) {
-      setErreur(e instanceof Error ? e.message : "Le dépôt a échoué.")
+      setErreur(messageDeDepot(e))
     } finally {
       setEnCours(false)
     }

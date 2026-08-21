@@ -26,6 +26,10 @@ const ENTITE_LABELS: Record<string, string> = {
   recommandation: 'Recommandation',
   version_recommandation: 'Version de recommandation',
   contrat: 'Contrat',
+  // Un fichier peut être rattaché à un point de livraison précis — la facture, le contrat, la photo
+  // du compteur. Le libellé manquait ici, si bien que la colonne « objet lié » affichait la valeur
+  // brute « compteur » au lieu de « Compteur ».
+  compteur: 'Compteur',
   // La grille de prix reçue d'un fournisseur, rattachée à l'offre qu'elle chiffre et non à la
   // version : un fournisseur consulté sur 24 et 36 mois envoie une grille par durée.
   offre_fournisseur: 'Offre fournisseur',
