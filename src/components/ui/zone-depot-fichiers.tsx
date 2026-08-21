@@ -1,5 +1,5 @@
 import { useRef, useState } from 'react'
-import { Upload, Loader2, FileText } from 'lucide-react'
+import { Upload, Loader2, FileText, CheckCircle2, X } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
 /**
@@ -16,6 +16,7 @@ import { cn } from '@/lib/utils'
  * Le clic reste possible : le glisser-deposer n'existe pas sur mobile, et certains preferent
  * l'explorateur de fichiers.
  */
+
 /**
  * Traduit l'échec d'un dépôt en phrase qui dit quoi faire.
  *
@@ -42,6 +43,24 @@ function messageDeDepot(e: unknown): string {
   return `Le dépôt a échoué : ${brut}`
 }
 
+/** Le poids, dans l'unité qui se lit. */
+function poids(octets: number): string {
+  if (octets > 1024 * 1024) return `${(octets / 1024 / 1024).toFixed(1)} Mo`
+  return `${Math.max(1, Math.round(octets / 1024))} Ko`
+}
+
+/** L'extension, en majuscules, pour reconnaître la nature du fichier d'un coup d'œil. */
+function extension(nom: string): string {
+  const point = nom.lastIndexOf('.')
+  if (point <= 0 || point === nom.length - 1) return 'fichier'
+  return nom.slice(point + 1).toUpperCase()
+}
+
+/** Deux fichiers sont le même si le nom, le poids et la date de modification concordent. */
+function cle(f: File): string {
+  return `${f.name}|${f.size}|${f.lastModified}`
+}
+
 export function ZoneDepotFichiers({
   types,
   onDeposer,
@@ -64,11 +83,25 @@ export function ZoneDepotFichiers({
 
   function recevoir(liste: FileList | null) {
     setErreur(null)
-    const fichiers = Array.from(liste ?? [])
-    if (fichiers.length === 0) return
-    // On ne depose pas tout de suite : la categorie se choisit d'abord, sinon les fichiers
-    // arrivent tous en « Autre » et le classement est a refaire a la main.
-    setEnAttente(fichiers)
+    const arrivants = Array.from(liste ?? [])
+    if (arrivants.length === 0) return
+    // ON AJOUTE, ON NE REMPLACE PAS. Déposer un second fichier effaçait le premier : testé le
+    // 21/08/2026 en déposant « premier.pdf » puis « second.pdf », seul le second restait. Or on
+    // dépose volontiers ses pièces une par une, et rien n'annonçait la perte.
+    //
+    // Le même fichier déposé deux fois n'apparaît qu'une fois : nom, poids et date de modification
+    // identiques, c'est le même.
+    setEnAttente((avant) => {
+      const vues = new Set(avant.map(cle))
+      return [...avant, ...arrivants.filter((f) => !vues.has(cle(f)))]
+    })
+    // On ne dépose pas tout de suite : la catégorie se choisit d'abord, sinon les fichiers arrivent
+    // tous en « Autre » et le classement est à refaire à la main.
+  }
+
+  function retirer(f: File) {
+    setEnAttente((avant) => avant.filter((x) => cle(x) !== cle(f)))
+    setErreur(null)
   }
 
   async function confirmer() {
@@ -86,23 +119,53 @@ export function ZoneDepotFichiers({
     }
   }
 
+  const enAttenteDe = enAttente.length
+  const pluriel = enAttenteDe > 1 ? 's' : ''
+
   return (
     <div className={className}>
       <div
         onDragOver={(e) => { e.preventDefault(); setSurvol(true) }}
-        onDragLeave={() => setSurvol(false)}
+        onDragLeave={(e) => {
+          // ON NE QUITTE LA ZONE QUE SI ON EN SORT VRAIMENT. `dragleave` remonte depuis les enfants :
+          // passer au-dessus de l'icône ou du texte, à l'intérieur du cadre, éteignait le
+          // surlignage. Testé le 21/08/2026 — un `dragleave` émis par le paragraphe intérieur
+          // ramenait la zone à son état de repos alors que le fichier était toujours au-dessus.
+          if (e.currentTarget.contains(e.relatedTarget as Node | null)) return
+          setSurvol(false)
+        }}
         onDrop={(e) => { e.preventDefault(); setSurvol(false); recevoir(e.dataTransfer.files) }}
         onClick={() => inputRef.current?.click()}
         className={cn(
           'flex cursor-pointer flex-col items-center justify-center gap-1.5 rounded-xl border-2 border-dashed px-4 py-6 text-center transition-colors',
-          survol ? 'border-kiwi-500 bg-kiwi-50' : 'border-navy-200 hover:border-kiwi-400 hover:bg-navy-50',
+          survol || enAttenteDe > 0
+            ? 'border-kiwi-500 bg-kiwi-50'
+            : 'border-navy-200 hover:border-kiwi-400 hover:bg-navy-50',
         )}
       >
-        <Upload className={cn('h-5 w-5', survol ? 'text-kiwi-600' : 'text-navy-400')} />
-        <p className="text-sm font-medium text-navy-700">
-          {survol ? 'Déposez vos fichiers ici' : 'Glissez des fichiers, ou cliquez pour parcourir'}
-        </p>
-        <p className="text-xs text-navy-400">Contrat, facture, avenant, mail, photo…</p>
+        {/* LA ZONE ACCUSE RÉCEPTION. Naoëlle, 21/08/2026 : « je trouve qu'on ne capte pas assez qu'un
+            fichier a été glissé-déposé ou choisi. » La zone continuait d'inviter à déposer comme si
+            rien n'était arrivé, et le seul signe était une ligne grise de 12 px en dessous. C'est
+            ici que l'œil se trouve au moment du dépôt : c'est donc ici qu'il faut le dire. */}
+        {enAttenteDe > 0 ? (
+          <>
+            <CheckCircle2 className="h-5 w-5 text-kiwi-600" />
+            <p className="text-sm font-semibold text-kiwi-800">
+              {enAttenteDe} fichier{pluriel} prêt{pluriel} à être déposé{pluriel}
+            </p>
+            <p className="text-xs text-kiwi-700">
+              Choisissez une catégorie ci-dessous — ou glissez-en d'autres
+            </p>
+          </>
+        ) : (
+          <>
+            <Upload className={cn('h-5 w-5', survol ? 'text-kiwi-600' : 'text-navy-400')} />
+            <p className="text-sm font-medium text-navy-700">
+              {survol ? 'Déposez vos fichiers ici' : 'Glissez des fichiers, ou cliquez pour parcourir'}
+            </p>
+            <p className="text-xs text-navy-400">Contrat, facture, avenant, mail, photo…</p>
+          </>
+        )}
         <input
           ref={inputRef}
           type="file"
@@ -113,21 +176,35 @@ export function ZoneDepotFichiers({
         />
       </div>
 
-      {enAttente.length > 0 && (
-        <div className="mt-2.5 space-y-2 rounded-xl border border-navy-100 bg-white p-3">
-          <ul className="space-y-1">
+      {enAttenteDe > 0 && (
+        <div className="mt-2.5 overflow-hidden rounded-xl border border-kiwi-200 bg-white">
+          {/* Une vignette par fichier : le carré à icône donne au fichier une présence que la ligne
+              de texte n'avait pas, et l'extension dit sa nature sans avoir à lire tout le nom. */}
+          <ul className="divide-y divide-navy-100">
             {enAttente.map((f) => (
-              <li key={f.name} className="flex items-center gap-2 text-xs text-navy-600">
-                <FileText className="h-3.5 w-3.5 shrink-0 text-navy-400" />
-                <span className="truncate">{f.name}</span>
-                <span className="ml-auto shrink-0 font-mono text-navy-400">
-                  {f.size > 1024 * 1024 ? `${(f.size / 1024 / 1024).toFixed(1)} Mo` : `${Math.round(f.size / 1024)} Ko`}
+              <li key={cle(f)} className="flex items-center gap-3 px-3 py-2.5">
+                <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-kiwi-50 ring-1 ring-kiwi-200">
+                  <FileText className="h-4 w-4 text-kiwi-600" />
                 </span>
+                <span className="min-w-0 flex-1">
+                  <span className="block truncate text-sm font-semibold text-navy-800">{f.name}</span>
+                  <span className="block text-xs text-navy-400">
+                    {extension(f.name)} · {poids(f.size)}
+                  </span>
+                </span>
+                <button
+                  type="button"
+                  onClick={() => retirer(f)}
+                  title="Retirer ce fichier"
+                  className="shrink-0 rounded-lg p-1.5 text-navy-400 hover:bg-navy-50 hover:text-navy-700"
+                >
+                  <X className="h-3.5 w-3.5" />
+                </button>
               </li>
             ))}
           </ul>
 
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 border-t border-navy-100 bg-navy-50/50 px-3 py-2.5">
             <select
               value={typeId}
               onChange={(e) => setTypeId(e.target.value)}
@@ -139,7 +216,7 @@ export function ZoneDepotFichiers({
             <button
               type="button"
               onClick={() => { setEnAttente([]); setErreur(null) }}
-              className="rounded-lg px-2.5 py-1.5 text-xs text-navy-500 hover:bg-navy-50"
+              className="rounded-lg px-2.5 py-1.5 text-xs text-navy-500 hover:bg-navy-100"
             >
               Annuler
             </button>
@@ -150,11 +227,13 @@ export function ZoneDepotFichiers({
               className="flex items-center gap-1.5 rounded-lg bg-kiwi-600 px-3 py-1.5 text-xs font-semibold text-white disabled:opacity-50"
             >
               {enCours && <Loader2 className="h-3 w-3 animate-spin" />}
-              {enCours ? 'Dépôt…' : `Déposer ${enAttente.length > 1 ? `(${enAttente.length})` : ''}`}
+              {enCours ? 'Dépôt…' : `Déposer ${enAttenteDe > 1 ? `(${enAttenteDe})` : ''}`}
             </button>
           </div>
 
-          {erreur && <p className="rounded-lg border border-red-200 bg-red-50 px-2.5 py-1.5 text-xs text-red-700">{erreur}</p>}
+          {erreur && (
+            <p className="border-t border-red-200 bg-red-50 px-3 py-2 text-xs text-red-700">{erreur}</p>
+          )}
         </div>
       )}
     </div>

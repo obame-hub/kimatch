@@ -76,14 +76,10 @@ export function OngletFichiers({
             </button>
           )
         })}
-        <span className="flex-1" />
-        <button
-          type="button"
-          onClick={onAjouter}
-          className="cursor-pointer whitespace-nowrap rounded-[7px] bg-[#16181d] px-3 py-1.5 text-[11px] font-semibold text-white transition-colors hover:bg-[#2c2f36]"
-        >
-          ＋ Ajouter un fichier
-        </button>
+        {/* PAS DE BOUTON « Ajouter un fichier ». Naoelle, 21/08/2026 : « si on peut cliquer ou
+            deposer c'est bon, pas besoin de bruit visuel avec un bouton. » La zone juste en dessous
+            dit deja les deux gestes et les accepte tous les deux — le bouton doublait l'un d'eux
+            sans rien ouvrir de plus. */}
       </div>
 
       {/*
