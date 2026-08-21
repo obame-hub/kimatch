@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react'
 import { ApercuDocument } from '@/components/document/ApercuDocument'
 import { useParams, useNavigate } from 'react-router-dom'
-import { ArrowLeft, Zap, Flame, Trash2, Building2, MapPin, Gauge, FileText, Plus, Euro, X, Eye } from 'lucide-react'
+import { ArrowLeft, Zap, Flame, Trash2, Building2, MapPin, Gauge, FileText, Plus, Euro, X, Eye, PenLine } from 'lucide-react'
 import { Topbar } from '@/components/layout/Topbar'
 import { Button } from '@/components/ui/button'
 import { ZoneDepotFichiers } from '@/components/ui/zone-depot-fichiers'
@@ -272,6 +272,7 @@ export default function ContratDetail() {
   const fournisseur = comptes?.find((c) => c.id === contrat?.fournisseur_compte_id)
   // Aperçu d'un fichier sans quitter la fiche contrat (demande d'Agathe, 07/08/2026).
   const [apercu, setApercu] = useState<{ url: string; nom: string; nomFichier: string } | null>(null)
+  const [signatureOuverte, setSignatureOuverte] = useState(false)
   const documentsDuContrat = useMemo(() => documents?.filter((d) => d.entite_type === 'contrat' && d.entite_id === id) ?? [], [documents, id])
   const canManage = useCanManage(contrat?.proprietaire_id)
   const isAdmin = useIsAdmin()
@@ -381,6 +382,15 @@ export default function ContratDetail() {
           <div className="flex flex-wrap items-center gap-2">
             <p className="truncate text-xl font-bold tracking-tight text-navy-800">{contrat.fournisseur_nom}</p>
             <Badge tone={STATUT_CONTRAT_TONE[contrat.statut] ?? 'neutral'}>{statuts.find((s) => s.code === contrat.statut)?.libelle ?? contrat.statut}</Badge>
+            {/* L'ÉTAT DE LA SIGNATURE, quand il y en a un. Il vaut la place qu'il prend : c'est lui
+                qui dit si le contrat est parti, revenu signé, ou refusé. */}
+            {contrat.statut_signature && (
+              <span title={etatSignature(contrat).detail}>
+                <Badge tone={contrat.statut_signature === 'SIGNE' ? 'kiwi' : 'amber'}>
+                  {etatSignature(contrat).libelle}
+                </Badge>
+              </span>
+            )}
           </div>
           <p className="truncate text-xs text-navy-500">{contrat.type_energie === 'gaz' ? 'Gaz' : 'Électricité'} · {site?.nom ?? contrat.site_nom}</p>
           <p className="truncate text-[10.5px] text-navy-400">
@@ -392,6 +402,10 @@ export default function ContratDetail() {
         {canManage && (
           <div className="flex gap-1.5">
             {/* Plus de bouton « Modifier » : les champs s'editent dans « Détail du contrat ». */}
+            <Button size="sm" onClick={() => setSignatureOuverte(true)}>
+              <PenLine className="h-3.5 w-3.5" />
+              Envoyer via DocuSign
+            </Button>
             <Button variant="outline" size="sm" onClick={() => setConfirmDelete(true)}>
               <Trash2 className="h-3.5 w-3.5" />
               Supprimer
@@ -625,17 +639,10 @@ export default function ContratDetail() {
 
               <ClausesCard contrat={contrat} />
 
-              {/* ── LA SIGNATURE DU CONTRAT ──
-                  Ce bloc ne faisait qu'AFFICHER un état de signature — un état qui n'avait jamais pu
-                  naître, puisque rien ne permettait d'envoyer un contrat. Michel s'y est heurté le
-                  21/08/2026 sur SDC AMPLITUDE 2 : « je n'arrive pas à l'envoyer en DocuSign, je ne
-                  vois même pas le bouton. » Il n'y en avait pas. */}
-              <BlocSignatureContrat
-                contrat={contrat}
-                documents={documentsDuContrat}
-                contacts={contactsDuCompte}
-                signaler={showToast}
-              />
+              {/* PLUS DE BLOC « SIGNATURE (DOCUSIGN) » EN BAS DE PAGE. Naoëlle, 21/08/2026 : le
+                  bouton monte dans l'en-tête à côté de Supprimer, et le bloc s'en va. L'état de la
+                  signature n'est pas perdu pour autant : il se lit dans la pastille de l'en-tête,
+                  près du statut du contrat, et le détail des dates dans l'infobulle. */}
             </div>
           )}
 
@@ -807,6 +814,15 @@ export default function ContratDetail() {
         </div>
       </Dialog>
 
+      <DialogSignatureContrat
+        ouvert={signatureOuverte}
+        onFermer={() => setSignatureOuverte(false)}
+        contrat={contrat}
+        documents={documentsDuContrat}
+        contacts={contactsDuCompte}
+        signaler={showToast}
+      />
+
       {/* Aperçu du fichier sans quitter la fiche : monté seulement à l'ouverture, sinon il
           téléchargerait le document à chaque affichage de la page. */}
       {apercu && (
@@ -845,12 +861,61 @@ export default function ContratDetail() {
  * recevrait un document où rien n'indique où signer. C'est donc l'expéditeur qui place les champs,
  * puis qui clique « Envoyer » lui-même : rien ne part automatiquement.
  */
-function BlocSignatureContrat({
+/**
+ * L'état de la signature, en trois mots et une infobulle.
+ *
+ * Le bloc de bas de page est parti (Naoëlle, 21/08/2026 : « enlève le bloc en bas de page »). Ce qu'il
+ * portait d'utile — où en est la signature, et depuis quand — tient dans une pastille près du statut
+ * du contrat : c'est là qu'on regarde en arrivant sur la fiche.
+ */
+function etatSignature(contrat: Contrat): { libelle: string; detail: string } {
+  const jour = (d: string | null | undefined) => (d ? new Date(d).toLocaleDateString('fr-FR') : null)
+  const envoye = jour(contrat.date_envoi_signature)
+  const signe = jour(contrat.date_signature)
+  switch (contrat.statut_signature) {
+    case 'BROUILLON':
+      return {
+        libelle: 'Signature préparée',
+        detail: "L'enveloppe existe dans DocuSign mais n'a pas encore été envoyée.",
+      }
+    case 'ENVOYE':
+      return { libelle: 'Envoyé à signer', detail: envoye ? `Envoyé le ${envoye}.` : 'Envoyé à la signature.' }
+    case 'SIGNE':
+      return { libelle: 'Signé', detail: signe ? `Signé le ${signe}.` : 'Signé.' }
+    case 'REFUSE':
+      return { libelle: 'Signature refusée', detail: 'Le signataire a refusé de signer.' }
+    case 'ANNULE':
+      return { libelle: 'Signature annulée', detail: "L'enveloppe a été annulée dans DocuSign." }
+    default:
+      return { libelle: contrat.statut_signature ?? '—', detail: '' }
+  }
+}
+
+/**
+ * Envoyer le contrat à la signature.
+ *
+ * DEUX RÈGLES QUI NE SE NÉGOCIENT PAS.
+ *
+ * On envoie le PDF DU FOURNISSEUR, celui déposé sur la fiche : Kimatch ne fabrique pas de contrat.
+ * S'il n'y a aucun fichier, il n'y a rien à faire signer, et on le dit plutôt que d'offrir un bouton
+ * qui échouerait.
+ *
+ * Et l'enveloppe part en BROUILLON. Naoëlle, 21/08/2026 : « il faut envoyer au signataire, mais bien
+ * sûr ouvrir DocuSign pour vérifier avant et bien placer toutes les ancres. » Un contrat de
+ * fournisseur ne porte pas nos ancres de signature — sans passage par l'éditeur, le signataire
+ * recevrait un document où rien n'indique où signer. C'est donc l'expéditeur qui place les champs,
+ * puis qui clique « Envoyer » lui-même : rien ne part automatiquement.
+ */
+function DialogSignatureContrat({
+  ouvert,
+  onFermer,
   contrat,
   documents,
   contacts,
   signaler,
 }: {
+  ouvert: boolean
+  onFermer: () => void
   contrat: Contrat
   documents: DocumentItem[]
   contacts: Contact[]
@@ -887,6 +952,7 @@ function BlocSignatureContrat({
         return
       }
       signaler('Enveloppe créée en brouillon dans DocuSign.')
+      onFermer()
     } catch (e) {
       if (e instanceof DocusignNonConnecte) setBesoinConnexion(true)
       signaler(e instanceof Error ? e.message : 'Erreur DocuSign inconnue')
@@ -896,36 +962,12 @@ function BlocSignatureContrat({
   }
 
   return (
-    <div className="rounded-xl border border-navy-100 bg-white p-4">
-      <p className="mb-2.5 text-[10px] font-bold uppercase tracking-wide text-navy-400">Signature (DocuSign)</p>
-
-      {(contrat.statut_signature || contrat.docusign_envelope_id) && (
-        <div className="mb-3 grid grid-cols-1 gap-3 sm:grid-cols-2">
-          {contrat.statut_signature && (
-            <div>
-              <p className="mb-0.5 text-[10px] uppercase tracking-wide text-navy-400">Statut</p>
-              <Badge tone={contrat.statut_signature === 'SIGNE' ? 'kiwi' : 'amber'}>{contrat.statut_signature}</Badge>
-            </div>
-          )}
-          {contrat.date_envoi_signature && (
-            <div>
-              <p className="mb-0.5 text-[10px] uppercase tracking-wide text-navy-400">Envoyé le</p>
-              <p className="text-xs font-semibold text-navy-800">
-                {new Date(contrat.date_envoi_signature).toLocaleDateString('fr-FR')}
-              </p>
-            </div>
-          )}
-          {contrat.date_signature && (
-            <div>
-              <p className="mb-0.5 text-[10px] uppercase tracking-wide text-navy-400">Signé le</p>
-              <p className="text-xs font-semibold text-navy-800">
-                {new Date(contrat.date_signature).toLocaleDateString('fr-FR')}
-              </p>
-            </div>
-          )}
-        </div>
-      )}
-
+    <Dialog
+      open={ouvert}
+      onClose={onFermer}
+      title="Envoyer via DocuSign"
+      description="Le document part en brouillon : vous placez les zones de signature dans DocuSign, puis vous envoyez."
+    >
       {documents.length === 0 ? (
         <p className="text-xs text-navy-500">
           Aucun fichier sur ce contrat. Déposez d'abord le PDF du fournisseur dans l'onglet Fichiers :
@@ -937,7 +979,7 @@ function BlocSignatureContrat({
           sur le contact qui doit signer.
         </p>
       ) : (
-        <div className="space-y-2.5">
+        <div className="space-y-3">
           <FormField label="Document à faire signer">
             <Select value={documentRetenu?.id ?? ''} onChange={(e) => setDocumentId(e.target.value)}>
               {documents.map((d) => (
@@ -954,25 +996,27 @@ function BlocSignatureContrat({
             </Select>
           </FormField>
           <p className="text-[10.5px] leading-snug text-navy-400">
-            L'enveloppe est créée en brouillon et DocuSign s'ouvre : c'est là que vous placez les zones
-            de signature sur le document, puis que vous cliquez « Envoyer ». Rien ne part
-            automatiquement.
+            Un contrat vient du fournisseur : il ne porte pas nos repères de signature. C'est pourquoi
+            DocuSign s'ouvre — vous y placez les zones sur le document, puis vous cliquez « Envoyer ».
+            Rien ne part automatiquement.
           </p>
           {besoinConnexion && (
             <Button type="button" size="sm" onClick={() => { connectDocusign().catch(() => {}) }}>
               Connecter mon compte DocuSign
             </Button>
           )}
-          <Button
-            type="button"
-            size="sm"
-            onClick={envoyer}
-            disabled={envoiEnCours || !documentRetenu || !contactRetenu?.email}
-          >
-            {envoiEnCours ? 'Préparation…' : 'Ouvrir DocuSign pour placer les signatures'}
-          </Button>
+          <div className="flex justify-end gap-2 pt-1">
+            <Button type="button" variant="ghost" onClick={onFermer}>Annuler</Button>
+            <Button
+              type="button"
+              onClick={envoyer}
+              disabled={envoiEnCours || !documentRetenu || !contactRetenu?.email}
+            >
+              {envoiEnCours ? 'Préparation…' : 'Ouvrir DocuSign'}
+            </Button>
+          </div>
         </div>
       )}
-    </div>
+    </Dialog>
   )
 }
