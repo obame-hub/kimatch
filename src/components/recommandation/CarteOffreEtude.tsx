@@ -405,7 +405,9 @@ export function CarteOffreEtude({
                     <button
                       type="button"
                       onClick={() => setPdlOuvert(estOuvert ? null : d.id)}
-                      className="flex w-full flex-wrap items-center gap-x-3 gap-y-1.5 px-3 py-2 text-left hover:bg-kw-subtle sm:grid sm:grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)]"
+                      // `ligne-compteur` : un repère pour la feuille d'impression, qui replie cette
+                      // ligne au lieu de la serrer. Voir la règle dans `index.css`.
+                      className="ligne-compteur flex w-full flex-wrap items-center gap-x-3 gap-y-1.5 px-3 py-2 text-left hover:bg-kw-subtle sm:grid sm:grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)]"
                     >
                       {/* LE CHEVRON VOYAGE AVEC LE NUMÉRO DE PDL, dans le même ressort. Séparé, ses
                           12 px s'ajoutaient à gauche seulement et décalaient d'autant le groupe de

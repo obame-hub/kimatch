@@ -225,6 +225,22 @@
      angles et découpent les segments de la barre de répartition. */
   #document-comparatif .overflow-x-auto { overflow: visible !important; }
 
+  /* LA LIGNE D'UN COMPTEUR SE REPLIE, ELLE NE SE SERRE PAS.
+     À l'écran cette ligne est une grille à trois colonnes dont les deux côtés valent
+     `minmax(0,1fr)` : c'est ce qui centre exactement le groupe de chiffres. Mais sur une page A4, ce
+     groupe — conso, abonnement, énergie, réseau, taxes, total — réclame presque toute la largeur
+     disponible, et les deux côtés tombent alors à ZÉRO. Le numéro de point de livraison disparaissait
+     purement et simplement : mesuré à 0 px de large le 21/08/2026, « je ne comprends pas pourquoi le
+     bloc du fournisseur est vide dans le document ».
+
+     Sur le papier, montrer tout passe avant centrer : la ligne redevient une rangée souple, qui se
+     replie sur deux lignes si nécessaire. Un numéro de PDL absent d'un document client est une faute ;
+     des chiffres décentrés, non. */
+  #document-comparatif .ligne-compteur {
+    display: flex !important;
+    flex-wrap: wrap !important;
+  }
+
   /* La croix de fermeture de la fenêtre n'a rien à faire sur le papier. */
   body:has(#document-comparatif) button:has(> svg.lucide-x) { display: none !important; }
 
