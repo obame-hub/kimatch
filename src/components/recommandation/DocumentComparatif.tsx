@@ -119,11 +119,24 @@ export function DocumentComparatif({
   // À L'IMPRESSION, TOUT SORT. Les onglets servent à consulter, pas à découper le document : un
   // rapport imprimé auquel il manquerait deux sections selon l'onglet ouvert serait un piège. D'où
   // `print:block` sur chaque section.
-  const [onglet, setOnglet] = useState<'resume' | 'comparatif' | 'rapport'>('resume')
+  // DEUX ONGLETS, PLUS TROIS. Michel, 21/08/2026 : « on peut mettre juste résumé et comparatif ».
+  // L'onglet « Compte rendu » disait la même chose que le comparatif, en moins bien : le détail d'une
+  // offre s'obtient en cliquant sur sa carte. Naoëlle, dans le même échange : « ça sert à rien
+  // d'avoir deux onglets qui font la même chose ». Ce que le compte rendu portait d'utile — la
+  // synthèse annuelle, le détail par point de livraison, le lexique — rejoint le comparatif, dont il
+  // fait partie.
+  const [onglet, setOnglet] = useState<'resume' | 'comparatif'>('resume')
+
+  // L'ORDRE DES PAGES DE DÉTAIL. Michel, 21/08/2026 : « ce sera présenté par ordre de, évidemment,
+  // l'offre recommandée, et ensuite les autres viennent après. » Le reste garde le tri du comparatif.
+  const offresDetaillees = useMemo(() => {
+    const retenue = colonnes.find((o) => o.est_offre_recommandee)
+    if (!retenue) return colonnes
+    return [retenue, ...colonnes.filter((o) => o.id !== retenue.id)]
+  }, [colonnes])
   const onglets = [
     { cle: 'resume' as const, titre: 'Résumé' },
     { cle: 'comparatif' as const, titre: 'Comparatif d’offres', compte: colonnes.length },
-    { cle: 'rapport' as const, titre: 'Compte rendu' },
   ]
   const colonnesTriees = useMemo(() => {
     const l = [...colonnes]
@@ -367,7 +380,7 @@ export function DocumentComparatif({
           </section>
 
           {/* ── La barre d'onglets ── */}
-          <nav className="mt-4 flex flex-wrap gap-1 rounded-kw-lg bg-kw-muted p-1 print:hidden">
+          <nav className="mt-5 flex flex-wrap gap-1 rounded-kw-lg bg-kw-muted p-1 print:hidden">
             {onglets.map((o) => (
               <button
                 key={o.cle}
@@ -403,7 +416,7 @@ export function DocumentComparatif({
               L'ordre des onglets de William, qui est aussi celui des questions du client : combien
               j'économise, puis avec qui. Un comparatif ouvert sans résumé oblige à additionner des
               colonnes pour savoir si l'étude valait la peine. */}
-          <div className="mt-5">
+          <div className="mt-6">
             <ResumeEtudeClient
               reco={reco}
               version={version}
@@ -419,9 +432,9 @@ export function DocumentComparatif({
               livraison et le lexique.
               Visible dans son onglet, et TOUJOURS à l'impression : un rapport imprimé
               auquel il manquerait une section selon l'onglet ouvert serait un piège. */}
-          <div className={cn('print:block', onglet === 'rapport' ? '' : 'hidden')}>
+          <div className={cn('print:block', onglet === 'comparatif' ? '' : 'hidden')}>
           {/* ── 4. La synthèse annuelle ─────────────────────────────────────── */}
-          <h2 className="mt-5 text-kw-base font-extrabold">
+          <h2 className="mt-8 text-kw-base font-extrabold">
             Synthèse annuelle des {colonnes.length} offre{colonnes.length > 1 ? 's' : ''} de fourniture
           </h2>
           <div className="mt-1 overflow-x-auto">
@@ -498,7 +511,7 @@ export function DocumentComparatif({
               </tbody>
             </table>
           </div>
-          <p className="mt-1.5 text-kw-micro leading-snug text-kw-faint">
+          <p className="mt-2.5 text-kw-micro leading-relaxed text-kw-faint">
             (1) Budget annuel moyen établi selon le profil, la consommation annuelle des points de
             livraison et les composantes réglementaires en vigueur au moment de l'analyse. Il inclut
             l'intégralité des composantes facturées par les fournisseurs.
@@ -526,7 +539,7 @@ export function DocumentComparatif({
                   parfois à durée égale, ou fournisseur par fournisseur ;
                 · LE SÉPARATEUR entre le contrat actuel et les offres négociées : c'est lui qui dit
                   ce qui sert de référence, et donc ce que veut dire l'écart affiché à droite. */}
-          <div className="mt-6 flex flex-wrap items-baseline gap-x-3 gap-y-1">
+          <div className="mt-8 flex flex-wrap items-baseline gap-x-3 gap-y-1">
             <h2 className="text-kw-md font-extrabold">Comparatif d'offres</h2>
             <span className="text-kw-sm text-kw-meta">
               {energies.join(' et ').toLowerCase()} · budgets annuels HT
@@ -592,9 +605,9 @@ export function DocumentComparatif({
           {/* Le détail par point de livraison et le lexique, la partie formelle du rapport.
               Visible dans son onglet, et TOUJOURS à l'impression : un rapport imprimé
               auquel il manquerait une section selon l'onglet ouvert serait un piège. */}
-          <div className={cn('print:block', onglet === 'rapport' ? '' : 'hidden')}>
+          <div className={cn('print:block', onglet === 'comparatif' ? '' : 'hidden')}>
           {/* ── 6. Le détail par point de livraison ─────────────────────────── */}
-          <h2 className="mt-6 text-kw-base font-extrabold">
+          <h2 className="mt-8 text-kw-base font-extrabold">
             Détail des {colonnes.length} offre{colonnes.length > 1 ? 's' : ''} de fourniture par point
             de livraison
           </h2>
@@ -660,8 +673,46 @@ export function DocumentComparatif({
             </table>
           </div>
 
+          {/* ── LE DÉTAIL, UNE OFFRE PAR PAGE — À L'IMPRESSION SEULEMENT ──
+              Michel, 21/08/2026 : « chaque offre, une page. C'est-à-dire que si on en a 10, il y aura
+              10 pages. » Et : « cette option de tout déplier d'un coup, c'est uniquement dans le
+              document. »
+
+              POURQUOI SEULEMENT À L'IMPRESSION. À l'écran, le détail d'une offre s'obtient en
+              cliquant sur sa carte — c'est plus court et ça n'encombre rien. Un PDF, lui, ne se
+              clique pas : ce que le clic révélait doit y être ouvert, sinon l'information n'existe
+              plus. C'est la même règle que pour les onglets, et elle vient du même constat.
+
+              `break-before-page` sur chaque offre sauf la première : la première continue la page du
+              comparatif au lieu d'ouvrir une page à moitié vide. */}
+          <div className="hidden print:block">
+            {offresDetaillees.map((o, i) => (
+              <div key={o.id} className={cn(i > 0 && 'break-before-page')}>
+                <h2 className="mt-8 text-kw-base font-extrabold">
+                  Détail — {o.fournisseur_nom || 'Fournisseur'} · {libelleOffre(o.duree_mois, o.type_prix)}
+                  {o.est_offre_recommandee && (
+                    <span className="ml-2 rounded-kw-xs bg-kw-green-light px-1.5 py-px text-kw-micro font-bold uppercase tracking-[0.06em] text-kw-green">
+                      Notre recommandation
+                    </span>
+                  )}
+                </h2>
+                <div className="mt-2">
+                  <CarteOffreEtude
+                    offre={o}
+                    compteurs={compteurs}
+                    reference={miseEnAvant ?? null}
+                    avecFournisseur
+                    avecIdentite
+                    avecBarre
+                    deplieToujours
+                  />
+                </div>
+              </div>
+            ))}
+          </div>
+
           {/* ── 7. Le lexique ───────────────────────────────────────────────── */}
-          <h2 className="mt-6 text-kw-base font-extrabold">Lexique</h2>
+          <h2 className="mt-8 text-kw-base font-extrabold">Lexique</h2>
           <div className="mt-1 grid grid-cols-1 gap-x-6 gap-y-2 sm:grid-cols-2 lg:grid-cols-3">
             {(toutGaz ? LEXIQUE_GAZ : LEXIQUE_ELEC).map((e) => (
               <div key={e.terme}>
@@ -673,7 +724,7 @@ export function DocumentComparatif({
 
           </div>
 
-          <footer className="mt-6 flex items-end justify-between gap-6 border-t border-kw-ink pt-2">
+          <footer className="mt-10 flex items-end justify-between gap-6 border-t border-kw-ink pt-3">
             <p className="max-w-[70%] text-kw-micro leading-snug text-kw-faint">
               Montants annuels établis sur les volumes de référence indiqués. Un tiret signale une
               donnée non renseignée, et non un montant nul. Les prix restent soumis aux conditions du

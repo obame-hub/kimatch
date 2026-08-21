@@ -1,6 +1,6 @@
 import { useMemo } from 'react'
 import { cn } from '@/lib/utils'
-import { somme } from '@/lib/calculs/prixOffre'
+import { CarteOffreEtude } from './CarteOffreEtude'
 import { useObjectifsRecommandation } from '@/lib/data/objectifsClient'
 import type { Compteur, OffreFournisseur, Recommandation, VersionRecommandation } from '@/types/domain'
 
@@ -59,123 +59,51 @@ export function ResumeEtudeClient({
       volume: gaz ? c?.car_mwh ?? null : c?.consommation_annuelle_mwh ?? null,
     }
   })
-  const volumeTotal = pdl.reduce<number | null>((t, l) => somme(t, l.volume), null)
-
-  // L'ÉCONOMIE VIENT DE CE QUI EST SAISI, jamais d'une estimation maison. L'offre retenue d'abord —
-  // c'est la décision — puis la moins chère, puis le gain porté par la version.
-  const economieOffre = offreRetenue?.economie_annuelle_estimee ?? offres[0]?.economie_annuelle_estimee ?? null
-  const economie = economieOffre ?? version.gains_estimes ?? null
-
-  // La part du budget que l'étude couvre : l'économie rapportée au budget de l'offre de référence.
-  const budgetReference = offreRetenue?.montant_annuel_ht ?? offres[0]?.montant_annuel_ht ?? null
-  const partDuBudget = economie != null && budgetReference != null && budgetReference > 0
-    ? (economie / budgetReference) * 100
-    : null
-
-  const solutions = [
-    {
-      cle: 'offres',
-      titre: 'Comparatif d’offres',
-      detail: `${offres.length} offre${offres.length > 1 ? 's' : ''} chiffrée${offres.length > 1 ? 's' : ''}`,
-      montant: economieOffre,
-      etat: economieOffre != null ? null : offres.length > 0 ? 'à chiffrer' : 'en attente d’offres',
-    },
-    {
-      cle: 'puissances',
-      titre: 'Optimisation des puissances',
-      detail: 'TURPE · sans changer de fournisseur',
-      montant: null,
-      // La part fixe du soutirage existe en base depuis le 20/08/2026 ; ce qui manque, ce sont les
-      // relevés de puissance du compteur, sans lesquels aucun gain ne peut être calculé.
-      etat: 'à l’étude',
-    },
-    {
-      cle: 'fiscale',
-      titre: 'Optimisation fiscale',
-      detail: 'accise et CTA',
-      montant: null,
-      etat: 'à l’étude',
-    },
-  ]
-
   return (
-    <section className="flex flex-col gap-3">
-      {/* ── Le potentiel d'économies, et les solutions qui le composent ──────── */}
-      <div className="grid gap-0 overflow-hidden rounded-kw-xl lg:grid-cols-[minmax(0,1.15fr)_minmax(0,1fr)]">
-        <div className="bg-gradient-to-br from-[#0b5c48] to-[#0d7a5f] px-5 py-4 text-white">
-          <span className="inline-flex items-center gap-1.5 rounded-full bg-white/15 px-2.5 py-1 text-kw-micro font-bold uppercase tracking-[0.08em]">
-            <span className="h-1.5 w-1.5 rounded-full bg-white/80" />
-            {economie != null ? 'Étude prête' : 'Étude en cours'} ·{' '}
-            {offres.length} offre{offres.length > 1 ? 's' : ''} comparée{offres.length > 1 ? 's' : ''}
-          </span>
+    <section className="flex flex-col gap-5">
+      {/* ── L'OFFRE RECOMMANDÉE, ET RIEN D'AUTRE ──
+          Michel, 21/08/2026 : « en résumé, je mets l'offre recommandée. Je mets que cette première
+          partie. […] je mettrais pas ce truc en vert. »
 
-          <p className="mt-3 text-kw-sm text-white/75">Votre potentiel d’économies annuel</p>
-          {/* PAS DE TIRET GÉANT À LA PLACE DU MONTANT. Un cadratin à 42 px en police à chasse fixe
-              dessine une barre noire large : à l'impression, le rapport avait l'air censuré
-              (constaté le 20/08/2026). Quand le chiffre manque, on le dit avec des mots. */}
-          {economie != null ? (
-            <p className="font-mono text-[42px] font-extrabold leading-none tracking-[-0.02em]">
-              −{Math.round(economie).toLocaleString('fr-FR')} €
-              <span className="ml-2 align-middle text-kw-sm font-semibold text-white/70">/ an HT</span>
-            </p>
-          ) : (
-            <p className="text-kw-h2 font-extrabold leading-tight">Reste à chiffrer</p>
-          )}
-          {economie == null && (
-            <p className="mt-1.5 text-kw-tiny leading-snug text-white/70">
-              Elle se calcule dès que l’économie d’une offre est renseignée face au contrat en cours.
-            </p>
-          )}
+          Le bandeau vert — potentiel d'économies et « solutions proposées » — est retiré. Il annonçait
+          l'optimisation des puissances et l'optimisation fiscale comme « à l'étude » alors qu'aucune
+          n'est chiffrable aujourd'hui : « je ne mettrai pas forcément la partie en vert, parce que
+          j'ai pas encore les autres optimisations de puissance et tout ça. On pourra le rajouter
+          après, mais quand on le rajoute, c'est parce qu'on a déjà les autres éléments. »
 
-          <div className="mt-4 flex flex-wrap gap-x-7 gap-y-2 border-t border-white/15 pt-3">
-            <Repere
-              valeur={partDuBudget != null ? `${Math.round(partDuBudget)} %` : '—'}
-              libelle="de votre budget"
-            />
-            <Repere
-              valeur={volumeTotal != null ? `${Math.round(volumeTotal).toLocaleString('fr-FR')} MWh` : '—'}
-              libelle="analysés / an"
-            />
-            <Repere valeur={String(offres.length)} libelle="offres consultées" />
-            <Repere valeur={String(pdl.length)} libelle={`point${pdl.length > 1 ? 's' : ''} de livraison`} />
+          Ce qui reste : l'offre qu'on recommande, les objectifs du client, son périmètre. Trois
+          choses, et le client sait ce qu'on lui propose et pourquoi. */}
+      {offreRetenue ? (
+        <div>
+          <div className="mb-2 flex flex-wrap items-baseline gap-x-3 gap-y-1">
+            <h2 className="text-kw-md font-extrabold">Notre recommandation</h2>
+            <span className="text-kw-sm text-kw-meta">
+              {offres.length > 1
+                ? `retenue parmi ${offres.length} offres comparées`
+                : 'la seule offre chiffrée à ce jour'}
+            </span>
           </div>
+          {/* `reference={null}` : dans le résumé, l'offre recommandée ne se compare à rien — elle
+              EST la référence. L'écart affiché face à une autre offre n'aurait pas de sens ici, c'est
+              le rôle du comparatif. */}
+          <CarteOffreEtude
+            offre={offreRetenue}
+            compteurs={compteurs}
+            reference={null}
+            avecFournisseur
+            avecIdentite
+            avecBarre
+          />
         </div>
-
-        <div className="flex flex-col gap-1.5 bg-[#0a5241] px-4 py-4">
-          <p className="text-kw-micro font-bold uppercase tracking-[0.09em] text-white/55">
-            Les solutions proposées
-          </p>
-          {solutions.map((sol) => (
-            <div
-              key={sol.cle}
-              className={cn(
-                'flex items-center gap-3 rounded-kw-md px-3 py-2',
-                sol.montant != null ? 'bg-white/12' : 'bg-white/[0.06]',
-              )}
-            >
-              <span className="min-w-0 flex-1">
-                <span className={cn('block text-kw-sm font-bold', sol.montant != null ? 'text-white' : 'text-white/70')}>
-                  {sol.titre}
-                </span>
-                <span className="block text-kw-micro text-white/55">{sol.detail}</span>
-              </span>
-              {sol.montant != null ? (
-                <span className="shrink-0 text-right">
-                  <span className="block font-mono text-kw-base font-extrabold text-white">
-                    −{Math.round(sol.montant).toLocaleString('fr-FR')} €
-                  </span>
-                  <span className="block text-kw-micro text-white/55">/ an</span>
-                </span>
-              ) : (
-                <span className="shrink-0 font-mono text-kw-tiny text-white/50">{sol.etat}</span>
-              )}
-            </div>
-          ))}
-        </div>
-      </div>
+      ) : (
+        <p className="rounded-kw-lg border border-dashed border-kw-border-strong bg-kw-subtle px-4 py-3 text-kw-base text-kw-meta">
+          Aucune offre n'est encore retenue. Le résumé annoncera notre recommandation dès qu'une offre
+          sera marquée « Retenue » dans la version.
+        </p>
+      )}
 
       {/* ── Ce que le client a demandé, et sur quels sites ───────────────────── */}
-      <div className="grid gap-3 lg:grid-cols-2">
+      <div className="grid gap-4 lg:grid-cols-2">
         <div className="rounded-kw-lg border border-kw-border bg-white px-4 py-3">
           <p className="text-kw-micro font-bold uppercase tracking-[0.09em] text-kw-faint">Vos objectifs</p>
           {(objectifs ?? []).length === 0 ? (
@@ -258,12 +186,3 @@ export function ResumeEtudeClient({
   )
 }
 
-/** Un des repères chiffrés du bandeau : la valeur d'abord, ce qu'elle mesure ensuite. */
-function Repere({ valeur, libelle }: { valeur: string; libelle: string }) {
-  return (
-    <span>
-      <span className="block font-mono text-kw-md font-extrabold">{valeur}</span>
-      <span className="block text-kw-micro text-white/60">{libelle}</span>
-    </span>
-  )
-}

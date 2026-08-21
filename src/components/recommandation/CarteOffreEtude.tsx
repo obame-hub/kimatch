@@ -41,6 +41,7 @@ export function CarteOffreEtude({
   onChoisir,
   actions,
   chiffresEnPlus,
+  deplieToujours,
 }: {
   offre: OffreFournisseur
   /** Les compteurs de la fiche, pour nommer les points de livraison et connaître leurs volumes. */
@@ -61,8 +62,14 @@ export function CarteOffreEtude({
   actions?: React.ReactNode
   /** Un chiffre de plus au centre, à côté du budget — l'économie, par exemple. */
   chiffresEnPlus?: React.ReactNode
+  /** Détail ouvert d'office : le document imprimé, où l'on ne clique pas. */
+  deplieToujours?: boolean
 }) {
   const [ouvert, setOuvert] = useState(false)
+  // DÉPLIÉE D'OFFICE, pour le document imprimé. Michel, 21/08/2026 : « quand on va télécharger le
+  // rapport, ce sera exactement la même chose, c'est déplié ». Un PDF ne se clique pas : ce que
+  // l'écran cache derrière un clic doit y être ouvert.
+  const deplie = deplieToujours || ouvert
   const [pdlOuvert, setPdlOuvert] = useState<string | null>(null)
   const parId = new Map(compteurs.map((c) => [c.id, c]))
 
@@ -123,7 +130,7 @@ export function CarteOffreEtude({
         tabIndex={0}
         onClick={() => setOuvert((v) => !v)}
         onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setOuvert((v) => !v) } }}
-        title={ouvert ? 'Replier le détail' : 'Ouvrir le détail de cette offre'}
+        title={deplie ? 'Replier le détail' : 'Ouvrir le détail de cette offre'}
         className={cn(
           'cursor-pointer items-center gap-x-3 gap-y-2 px-3.5 py-3 hover:bg-kw-subtle',
           // UNE GRILLE À COLONNES DÉCLARÉES dans le comparatif client, et non une rangée flexible.
@@ -361,12 +368,12 @@ export function CarteOffreEtude({
           )}
         >
           {actions}
-          <span className="w-3 shrink-0 text-center text-kw-sm text-kw-faint">{ouvert ? '▾' : '▸'}</span>
+          <span className="w-3 shrink-0 text-center text-kw-sm text-kw-faint">{deplie ? '▾' : '▸'}</span>
         </span>
       </div>
 
       {/* ── Niveau 2 : un point de livraison par ligne ──────────────────────── */}
-      {ouvert && (
+      {deplie && (
         <div className="border-t border-kw-border-faint bg-kw-subtle px-3.5 py-3">
           <p className="mb-2 text-kw-micro font-bold uppercase tracking-[0.07em] text-kw-faint">
             Budget par compteur · dépliez pour le détail
