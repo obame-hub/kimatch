@@ -27,12 +27,57 @@ async function lireCorpsBrut(req: VercelRequest): Promise<string> {
   return Buffer.concat(morceaux).toString('utf8')
 }
 
+// CE QUE DIT DOCUSIGN. Ces codes decrivent le sort de l'ENVELOPPE, pas celui du mandat : voir
+// `statutAEcrire` plus bas, qui traduit une signature en mandat actif.
+//
+// `voided` renvoyait vers 'REVOQUE', un code qui n'existe pas dans `statuts_mandats` -- la table ne
+// connait que ANNULE. La recherche ne trouvait rien, `statutRow` restait nul et le statut n'etait
+// tout simplement pas ecrit : une enveloppe annulee chez DocuSign laissait le mandat en « Envoye »,
+// indefiniment.
 const STATUT_CODE_PAR_EVENEMENT: Record<string, string> = {
   sent: 'ENVOYE',
   delivered: 'ENVOYE',
   completed: 'SIGNE',
   declined: 'REFUSE',
-  voided: 'REVOQUE',
+  voided: 'ANNULE',
+}
+
+/**
+ * Le statut a inscrire sur le mandat, a partir de ce que dit DocuSign.
+ *
+ * UNE SIGNATURE REND LE MANDAT ACTIF. Signale par Michel le 21/08/2026 : « c'est signe, mais il est
+ * toujours pas actif. Ce qui fait que je reviens ici pour dire tiens, je vais creer une
+ * recommandation, et ca ne montre pas ce compte. Il faut savoir comment basculer automatiquement le
+ * mandat au mandat actif. »
+ *
+ * Rien, nulle part, ne faisait passer un mandat de Signe a Actif : ni ce webhook, ni l'application,
+ * ni un declencheur en base, ni une tache planifiee -- verifie le 21/08/2026. Les 1075 mandats
+ * Actifs venaient tous de la reprise Salesforce, ou ils arrivaient deja actifs. Autrement dit AUCUN
+ * mandat signe dans Kimatch n'a jamais pu servir : trois etaient bloques a Signe.
+ *
+ * Or toute l'application se fonde sur `statut === 'ACTIF'` -- la liste des comptes du wizard de
+ * recommandation, la sante d'un site, la matrice de couverture, les compteurs deja couverts, l'etat
+ * « pret pour une recommandation » d'un compte. Un mandat qui reste a Signe est donc un mandat
+ * invisible, alors qu'il est signe.
+ *
+ * ON N'ATTEND PAS DE VALIDATION MANUELLE. C'est la demande explicite de Michel, et rien dans le
+ * metier n'en appelle une : le mandat entre en vigueur a sa signature. La date de signature reste
+ * ecrite et le PDF signe reste archive, donc la trace du passage par la signature ne se perd pas.
+ *
+ * La fenetre de validite est posee a la creation -- debut a la date du jour, fin a debut + duree --
+ * et la signature arrive necessairement apres. Elle couvre donc le jour de la signature, et le
+ * mandat est actif tout de suite. Un mandat qui serait signe hors de sa fenetre reste a Signe : il
+ * n'est pas en vigueur, ce serait mentir que de l'annoncer actif.
+ */
+function statutAEcrire(
+  statutDocusign: string,
+  fenetre: { debut: string | null; fin: string | null },
+): string {
+  if (statutDocusign !== 'SIGNE') return statutDocusign
+  const aujourdhui = new Date().toISOString().slice(0, 10)
+  const commence = !fenetre.debut || fenetre.debut <= aujourdhui
+  const courtEncore = !fenetre.fin || fenetre.fin >= aujourdhui
+  return commence && courtEncore ? 'ACTIF' : 'SIGNE'
 }
 
 interface ConnectPayload {
@@ -105,7 +150,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     // d'appeler DocuSign.
     const { data: mandatConnu } = await admin
       .from('mandats')
-      .select('id, cree_par_id, proprietaire_id, statut:statuts_mandats(code, ordre)')
+      .select(
+        'id, cree_par_id, proprietaire_id, date_debut_validite, date_fin_validite, statut:statuts_mandats(code, ordre)',
+      )
       .eq('docusign_envelope_id', envelopeId)
       .maybeSingle()
     if (!mandatConnu) {
@@ -139,7 +186,24 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       res.status(200).json({ ok: true, skipped: true, reason: `statut ${status} ignoré` })
       return
     }
-    const { data: statutRow } = await admin.from('statuts_mandats').select('id, ordre').eq('code', statutCode).maybeSingle()
+    // `statutCode` dit ce qu'est devenue l'enveloppe ; `codeAEcrire` ce que devient le mandat.
+    const codeAEcrire = statutAEcrire(statutCode, {
+      debut: (mandatConnu.date_debut_validite as string | null) ?? null,
+      fin: (mandatConnu.date_fin_validite as string | null) ?? null,
+    })
+    const { data: statutRow } = await admin
+      .from('statuts_mandats')
+      .select('id, ordre')
+      .eq('code', codeAEcrire)
+      .maybeSingle()
+    if (!statutRow) {
+      // Un code absent du referentiel ne doit pas passer inapercu : c'est exactement ce qui faisait
+      // perdre silencieusement les annulations.
+      console.error('[docusign webhook] code de statut inconnu du referentiel', {
+        envelopeId,
+        codeAEcrire,
+      })
+    }
 
     // Un statut ne recule jamais. DocuSign ne connait que le sort de l'enveloppe : une fois signee,
     // elle reste « completed » pour toujours. Le mandat, lui, continue sa vie -- il devient Actif,
@@ -152,14 +216,14 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     const statutActuel = (Array.isArray(mandatConnu.statut) ? mandatConnu.statut[0] : mandatConnu.statut) as
       | { code: string; ordre: number }
       | null
-    const finNegative = statutCode === 'REFUSE' || statutCode === 'REVOQUE' || statutCode === 'ANNULE'
+    const finNegative = codeAEcrire === 'REFUSE' || codeAEcrire === 'ANNULE'
     const reculerait =
       !finNegative && statutRow && statutActuel != null && statutActuel.ordre >= (statutRow.ordre ?? 0)
     if (reculerait) {
       console.log('[docusign webhook] statut conserve', {
         envelopeId,
         actuel: statutActuel?.code,
-        propose: statutCode,
+        propose: codeAEcrire,
       })
     }
     // Horodatages pris sur l'enveloppe verifiee, pas sur la notification : ce sont les memes que
@@ -208,7 +272,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       }
     }
 
-    res.status(200).json({ ok: true, envelopeId, statutCode })
+    res.status(200).json({ ok: true, envelopeId, statutCode, statutEcrit: codeAEcrire })
   } catch (err) {
     res.status(500).json({ error: err instanceof Error ? err.message : 'Erreur inconnue' })
   }
