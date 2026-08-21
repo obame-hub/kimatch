@@ -19,16 +19,29 @@ import { clientService, rafraichirJeton, type SessionDocusign } from './_oauth.j
  * d'avertissement dans l'application (voir DocusignBanner) plutôt qu'un échec silencieux.
  */
 export default async function handler(req: VercelRequest, res: VercelResponse) {
-  // Deux gardes, l'une ou l'autre suffit :
-  //  - l'en-tête x-vercel-cron, que Vercel ajoute lui-même à ses invocations planifiées et qu'un
-  //    appel extérieur ne peut pas fabriquer ;
-  //  - CRON_SECRET si quelqu'un la définit un jour, pour pouvoir déclencher la tâche à la main.
-  const estCron = Boolean(req.headers['x-vercel-cron'])
+  // LA GARDE. `CRON_SECRET` d'abord, l'en-tête ensuite — et dans cet ordre pour une raison précise.
+  //
+  // Le commentaire précédent affirmait qu'un appel extérieur ne peut pas fabriquer l'en-tête
+  // `x-vercel-cron`. C'est FAUX : n'importe qui peut poser cet en-tête sur une requête, Vercel ne
+  // le filtre pas. Vérifié le 21/08/2026 en déclenchant cette tâche depuis l'extérieur avec un
+  // simple `curl -H "x-vercel-cron: 1"` — elle a tourné. Ce n'est donc pas une barrière.
+  //
+  // La barrière réelle est `CRON_SECRET` : quand la variable est définie, Vercel l'envoie lui-même
+  // en `Authorization: Bearer …` sur ses invocations planifiées, et nous n'acceptons plus que ça.
+  // Tant qu'elle n'est pas définie, on accepte l'en-tête pour ne pas casser la planification, mais
+  // on le journalise : une tâche ouverte à tous doit se voir dans les journaux.
   const secret = process.env.CRON_SECRET
-  const secretFourni = req.headers.authorization === `Bearer ${secret}`
-  if (!estCron && !(secret && secretFourni)) {
-    res.status(401).json({ error: 'Réservé à la tâche planifiée' })
-    return
+  if (secret) {
+    if (req.headers.authorization !== `Bearer ${secret}`) {
+      res.status(401).json({ error: 'Réservé à la tâche planifiée' })
+      return
+    }
+  } else {
+    if (!req.headers['x-vercel-cron']) {
+      res.status(401).json({ error: 'Réservé à la tâche planifiée' })
+      return
+    }
+    console.warn('[cron] CRON_SECRET non définie : cette tâche est déclenchable par n’importe qui')
   }
 
   const admin = clientService()
