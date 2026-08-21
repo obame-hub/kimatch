@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react'
 import { ApercuDocument } from '@/components/document/ApercuDocument'
 import { useParams, useNavigate } from 'react-router-dom'
-import { ArrowLeft, Zap, Flame, Trash2, Building2, MapPin, Gauge, FileText, Plus, Euro, X, Eye, PenLine } from 'lucide-react'
+import { ArrowLeft, Zap, Flame, Trash2, Building2, MapPin, Gauge, FileText, Plus, Euro, X, Eye, PenLine, Check } from 'lucide-react'
 import { Topbar } from '@/components/layout/Topbar'
 import { Button } from '@/components/ui/button'
 import { ZoneDepotFichiers } from '@/components/ui/zone-depot-fichiers'
@@ -980,13 +980,56 @@ function DialogSignatureContrat({
         </p>
       ) : (
         <div className="space-y-3">
-          <FormField label="Document à faire signer">
-            <Select value={documentRetenu?.id ?? ''} onChange={(e) => setDocumentId(e.target.value)}>
-              {documents.map((d) => (
-                <option key={d.id} value={d.id}>{d.nom_fichier || d.nom}</option>
-              ))}
-            </Select>
-          </FormField>
+          {/* LE FICHIER SE CHOISIT D'UN CLIC, pas dans un déroulant. Naoëlle, 21/08/2026 : « fais en
+              sorte que le bouton ouvre un bloc où tu choisis avec un clic le fichier que tu veux
+              envoyer, ça montre les fichiers qui se trouvent dans l'onglet Fichiers de l'objet
+              contrat. »
+
+              Ce sont donc exactement les mêmes lignes que l'onglet Fichiers — même vignette, même
+              nom, même catégorie — pour qu'on reconnaisse le document sans avoir à le relire. Un
+              déroulant n'aurait montré que des noms de fichiers, souvent illisibles quand ils
+              sortent d'un téléchargement. */}
+          <div>
+            <p className="mb-1 text-[10px] font-bold uppercase tracking-wide text-navy-400">
+              Document à faire signer
+            </p>
+            <div className="max-h-[220px] space-y-1.5 overflow-y-auto pr-1">
+              {documents.map((d) => {
+                const choisi = documentRetenu?.id === d.id
+                return (
+                  <button
+                    key={d.id}
+                    type="button"
+                    onClick={() => setDocumentId(d.id)}
+                    className={cn(
+                      'flex w-full items-center gap-3 rounded-lg border p-2.5 text-left transition-all',
+                      choisi
+                        ? 'border-kiwi-500 bg-kiwi-50 ring-1 ring-kiwi-200'
+                        : 'border-navy-200 hover:border-kiwi-300 hover:bg-navy-50',
+                    )}
+                  >
+                    <span
+                      className={cn(
+                        'flex h-9 w-9 shrink-0 items-center justify-center rounded-lg',
+                        choisi ? 'bg-kiwi-600 text-white' : 'bg-navy-100 text-navy-500',
+                      )}
+                    >
+                      <FileText className="h-4 w-4" />
+                    </span>
+                    <span className="min-w-0 flex-1">
+                      <span className="block truncate text-sm font-bold text-navy-800">{d.nom}</span>
+                      <span className="block truncate text-[10.5px] text-navy-400">
+                        {[d.type_document, new Date(d.date_creation).toLocaleDateString('fr-FR')]
+                          .filter(Boolean)
+                          .join(' · ')}
+                      </span>
+                    </span>
+                    {choisi && <Check className="h-4 w-4 shrink-0 text-kiwi-600" />}
+                  </button>
+                )
+              })}
+            </div>
+          </div>
           <FormField label="Signataire">
             <Select value={contactRetenu?.id ?? ''} onChange={(e) => setContactId(e.target.value)}>
               <option value="">Choisir…</option>
