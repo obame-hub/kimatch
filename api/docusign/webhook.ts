@@ -217,6 +217,26 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
           res.status(502).json({ error: eContrat.message })
           return
         }
+        // LE CONTRAT SIGNÉ REVIENT SUR LA FICHE, comme le mandat signé. Naoëlle, 21/08/2026 :
+        // « comme mandat, on remplace le fichier avec le fichier signé. »
+        //
+        // Best-effort assume : l'enveloppe est signée chez DocuSign, le statut est déjà inscrit. Si
+        // le téléchargement échoue, on journalise et on rend la main plutôt que de faire rejouer la
+        // notification indéfiniment.
+        if (statutSignature === 'SIGNE') {
+          try {
+            const { data: porteur } = await admin
+              .from('contrats')
+              .select('compte:comptes(nom)')
+              .eq('id', contrat.id)
+              .maybeSingle()
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            const compteNom = (porteur as any)?.compte?.nom ?? 'contrat'
+            await archiverContratSigne(admin, session, envelopeId, contrat.id, compteNom)
+          } catch (docErr) {
+            console.error('[docusign-webhook] archivage du contrat signé échoué', docErr)
+          }
+        }
         console.log('[docusign webhook] contrat mis a jour', { envelopeId, statutSignature })
         res.status(200).json({ ok: true, envelopeId, objet: 'contrat', statutSignature })
         return
@@ -356,6 +376,67 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
  * Le depot passe par la cle de service : le bucket « documents » n'accorde aucune ecriture aux
  * utilisateurs, et il n'a pas a en accorder pour cet usage puisque c'est le serveur qui archive.
  */
+/**
+ * Rapatrie le contrat signé depuis DocuSign et le pose sur la fiche.
+ *
+ * Deux différences avec le mandat, et elles tiennent à la même cause : le PDF du fournisseur est
+ * déjà sur la fiche, déposé par une personne.
+ *
+ * On n'archive donc AUCUNE copie à l'envoi (voir `send.ts`), et l'on ne retire rien à la signature :
+ * le signé s'ajoute au document d'origine. Supprimer un fichier déposé par quelqu'un, depuis un
+ * webhook, sur la foi d'une notification extérieure, n'est pas une chose à faire.
+ */
+async function archiverContratSigne(
+  admin: Admin,
+  session: { base_uri: string; account_id: string; access_token: string },
+  envelopeId: string,
+  contratId: string,
+  compteNom: string,
+) {
+  const NOM = 'Contrat signé'
+  // Deja archive : le webhook peut etre rejoue plusieurs fois pour la meme enveloppe.
+  const { data: existant } = await admin
+    .from('documents')
+    .select('id')
+    .eq('entite_type', 'contrat')
+    .eq('entite_id', contratId)
+    .eq('nom', NOM)
+    .maybeSingle()
+  if (existant) return
+
+  const res = await fetch(
+    `${session.base_uri}/restapi/v2.1/accounts/${session.account_id}/envelopes/${envelopeId}/documents/combined`,
+    { headers: { Authorization: `Bearer ${session.access_token}` } },
+  )
+  if (!res.ok) throw new Error(`téléchargement du contrat signé refusé (${res.status})`)
+  const pdf = Buffer.from(await res.arrayBuffer())
+  if (!pdf.length) throw new Error('contrat signé vide')
+
+  const url = process.env.VITE_SUPABASE_URL as string
+  const cle = process.env.SUPABASE_SERVICE_ROLE_KEY as string
+  const nomFichier = `Contrat_signe_${compteNom.replace(/[^A-Za-z0-9]+/g, '_')}.pdf`
+  const chemin = `contrats/${contratId}/${nomFichier}`
+  const depot = await fetch(`${url}/storage/v1/object/documents/${chemin}`, {
+    method: 'POST',
+    headers: { Authorization: `Bearer ${cle}`, 'Content-Type': 'application/pdf', 'x-upsert': 'true' },
+    body: new Uint8Array(pdf),
+  })
+  if (!depot.ok) throw new Error(`dépôt dans le stockage refusé (${depot.status})`)
+
+  const { data: typeDoc } = await admin.from('types_documents').select('id').eq('code', 'CONTRAT').maybeSingle()
+  const { error } = await admin.from('documents').insert({
+    ...(typeDoc ? { type_document_id: typeDoc.id } : {}),
+    nom: NOM,
+    nom_fichier: nomFichier,
+    url: `${url}/storage/v1/object/public/documents/${chemin}`,
+    mime_type: 'application/pdf',
+    taille_octets: pdf.length,
+    entite_type: 'contrat',
+    entite_id: contratId,
+  })
+  if (error) throw new Error(error.message)
+}
+
 async function archiverDocumentSigne(
   admin: Admin,
   session: { base_uri: string; account_id: string; access_token: string },

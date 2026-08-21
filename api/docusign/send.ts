@@ -121,7 +121,16 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         : { data: null }
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const compteNom = (porteur as any)?.compte?.nom ?? objet.type
-      await archiverDocumentsEnvoyes(objet, compteNom, documents)
+
+      // PAS DE COPIE POUR UN CONTRAT. Le mandat est FABRIQUÉ à la volée par Kimatch : il n'existe
+      // nulle part ailleurs, et sans cette copie on n'aurait aucune trace de ce qu'on a soumis au
+      // client. Un contrat, lui, vient du fournisseur et se trouve déjà dans les fichiers de la
+      // fiche — c'est même de là qu'on l'a pris pour l'envoyer.
+      //
+      // La copie faite le 21/08/2026 sur SDC AMPLITUDE 2 en était la preuve : deux lignes pour le
+      // même PDF, 5 315 860 octets chacune, à une minute trente d'intervalle. Naoëlle : « pas besoin
+      // de garder cette copie. »
+      if (!estContrat) await archiverDocumentsEnvoyes(objet, compteNom, documents)
 
       // LA DATE D'ENVOI, ÉCRITE TOUT DE SUITE. Côté mandat c'est le webhook qui la pose au premier
       // événement DocuSign ; côté contrat on ne peut pas attendre : un brouillon que l'expéditeur
