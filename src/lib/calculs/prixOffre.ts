@@ -192,9 +192,18 @@ export function budgetsDepuisPrix(opts: {
   // LES CONTRIBUTIONS S'AJOUTENT AU TURPE, elles ne le remplacent pas. Michel, 20/08/2026 : « tu as
   // un budget énergie de 1500, tu as un budget TURPE de 500, et tu vas avoir un budget contribution
   // […] et tu auras le budget total. » Quatre budgets, pas trois.
-  const contributions = opts.contributionSaisie !== undefined
-    ? opts.contributionSaisie
-    : detail?.cout_taxes_annuel ?? null
+  //
+  // ET CES CONTRIBUTIONS SONT L'ACCISE ET LA CTA. Elles étaient saisies dans le formulaire, écrites
+  // en base, affichées sur la carte de l'offre — et absentes de ce total. Sur le seul point de
+  // livraison électrique chiffré, cela faisait 546 € par an de moins que la ligne juste au-dessus
+  // (accise 450 + CTA 96), constaté le 21/08/2026. Un total qui ne vaut pas la somme de ce qu'on
+  // montre ne se fait pas pardonner : c'est exactement l'erreur corrigée la veille au gaz.
+  //
+  // `cout_taxes_annuel` reste le repli : c'est le montant global que portaient les offres reprises
+  // avant que l'accise et la CTA aient leurs propres champs.
+  const taxesDetaillees = somme(p?.accise_annuel_ht, p?.cta_annuel_ht)
+  const contributions = taxesDetaillees
+    ?? (opts.contributionSaisie !== undefined ? opts.contributionSaisie : detail?.cout_taxes_annuel ?? null)
   return {
     energie: energieAvecAbonnement,
     contribution: turpe,

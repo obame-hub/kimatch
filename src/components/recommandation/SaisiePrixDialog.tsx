@@ -85,9 +85,23 @@ export function SaisiePrixDialog({
 
   // LES ÉTAPES, dans l'ordre où l'on rassemble les informations d'une offre. La dernière est un
   // récapitulatif : on n'enregistre que de là, ce qui garantit qu'on a vu ce qu'on écrit.
-  const etapes = gaz
-    ? [{ titre: 'Énergie' }, { titre: 'Abonnement' }, { titre: 'Contributions' }, { titre: 'Volume' }, { titre: 'Vérification' }]
-    : [{ titre: 'Prix P0' }, { titre: 'Composantes' }, { titre: 'Marge' }, { titre: 'Réseau' }, { titre: 'Volume' }, { titre: 'Vérification' }]
+  //
+  // LE MÊME PARCOURS AUX DEUX ÉNERGIES. Michel, 21/08/2026, après avoir suivi la modale gazière
+  // pas à pas : « ça, c'est pour moi le modèle. Maintenant sur l'élec, tu vois, j'ai plus la même
+  // chose. Repartir, avoir exactement la même logique que pour le gaz. »
+  //
+  // L'électricité avait six étapes à elle — Prix P0, Composantes, Marge, Réseau, Volume,
+  // Vérification — parce qu'elle avait été écrite après, en suivant ses propres champs plutôt que
+  // la manière dont on saisit une offre. Or on saisit une offre de la même façon quelle que soit
+  // l'énergie : ce que coûte l'énergie, ce que coûte l'abonnement, ce que l'État et le réseau
+  // prélèvent, sur quel volume, puis on relit. Les champs diffèrent, le parcours non.
+  const etapes = [
+    { titre: 'Énergie' },
+    { titre: 'Abonnement' },
+    { titre: 'Contributions' },
+    { titre: 'Volume' },
+    { titre: 'Vérification' },
+  ]
   const derniere = etapes.length - 1
 
   const classes = useMemo(
@@ -228,7 +242,15 @@ export function SaisiePrixDialog({
         { operateur: '+', libelle: 'CTA (déjà en €/an)', valeur: cta, unite: '€/an' },
         { operateur: '=', libelle: 'Budget contribution', valeur: budgets.contribution, unite: '€/an', palier: true },
       ]
-    : [{ libelle: 'TURPE saisi', valeur: turpe, unite: '€/an', palier: true }]
+    : [{ libelle: turpeDetaille != null ? 'TURPE (somme des quatre parts)' : 'TURPE saisi', valeur: turpeDetaille ?? turpe, unite: '€/an', palier: true }]
+
+  // LES TAXES ÉLECTRIQUES, montrées à part. Elles entrent dans le total depuis le 21/08/2026 : les
+  // afficher est ce qui permet de vérifier que le total vaut bien la somme de ce qu'on voit.
+  const etapesTaxes: Etape[] = [
+    { libelle: 'AE — accise', valeur: accise, unite: '€/an' },
+    { operateur: '+', libelle: 'CTA', valeur: ctaElec, unite: '€/an' },
+    { operateur: '=', libelle: 'Budget contribution', valeur: somme(accise, ctaElec), unite: '€/an', palier: true },
+  ]
 
   const rienDeSaisi = Object.keys(brouillon).length === 0
 
@@ -415,11 +437,14 @@ export function SaisiePrixDialog({
             </>
           ) : (
             <>
+              {/* L'ÉTAPE « ÉNERGIE », dans le même ordre qu'au gaz : le prix nu du fournisseur, puis
+                  la marge, puis ce qu'il refacture au mégawattheure. La différence est qu'ici le prix
+                  nu se cote par plage horosaisonnière et non en une seule molécule. */}
               <Etape
                 numero={1}
-                titre="Les prix P0 par classe"
-                aide="Un prix nu par plage horosaisonnière, tel que le fournisseur le cote. Seules les classes que le compteur consomme sont proposées."
-                vigilance="une classe laissée vide ne produira aucun budget, même si la marge est saisie. Si le fournisseur cote une plage que le compteur ne déclare pas, ajoutez-la."
+                titre="Le prix de l’énergie"
+                aide="Ce que le fournisseur facture pour l’électricité elle-même. Un prix nu par plage horosaisonnière, tel qu’il le cote."
+                vigilance="le P0 est le prix NU du fournisseur. S’il vous a annoncé un prix marge comprise, basculez sur « marge fixe » plutôt que de la retirer à la main. Et une classe laissée vide ne produira aucun budget, même si la marge est saisie."
                 active={etape === 0}
               >
                 {classes.map((classe) => (
@@ -483,38 +508,10 @@ export function SaisiePrixDialog({
                     </span>
                   </div>
                 )}
-              </Etape>
 
-              <Etape
-                numero={2}
-                titre="Les composantes de l’énergie"
-                aide="Ce que le fournisseur refacture en plus du prix de l’électricité, au mégawattheure."
-                vigilance="les garanties d’origine ne sont dues que si l’offre inclut l’énergie verte. Laissez vide plutôt que de saisir zéro si l’information manque."
-                active={etape === 1}
-              >
-                <Champ
-                  libelle="CEE"
-                  aide="Certificats d’économies d’énergie refacturés, au mégawattheure. Ils entrent dans le budget énergie."
-                  unite="€/MWh"
-                  valeur={ceeElec}
-                  onCommit={(v) => poser('prix_cee_mwh', v)}
-                />
-                <Champ
-                  libelle="GO — énergie verte"
-                  aide="Garanties d’origine, au mégawattheure. C’est la part « énergie verte » du compte rendu : incluse ou non selon l’offre."
-                  unite="€/MWh"
-                  valeur={go}
-                  onCommit={(v) => poser('prix_go_mwh', v)}
-                />
-              </Etape>
-
-              <Etape
-                numero={3}
-                titre="La marge"
-                aide="Une seule marge pour ce point de livraison, quelle que soit la classe tarifaire."
-                vigilance="marge variable ou marge fixe ? La première s’ajoute au prix présenté au client, la seconde non — le fournisseur l’a déjà prise dans son P0."
-                active={etape === 2}
-              >
+                {/* LA MARGE VIT ICI, comme au gaz : Michel la saisit dans le même geste que le prix
+                    nu, et il attend de voir tout de suite qu'une marge fixe ne déplace pas le prix
+                    présenté. Une seule marge pour le point de livraison, quelle que soit la classe. */}
                 <ChoixMarge
                   valeur={typeMarge}
                   onChoisir={(t) => setBrouillon((b) => ({ ...b, type_marge: t }))}
@@ -522,7 +519,7 @@ export function SaisiePrixDialog({
                 {typeMarge === 'VARIABLE' ? (
                   <Champ
                     libelle="Marge de référence"
-                    aide="Votre marge, au mégawattheure. Chaque prix présenté au client vaut son P0 plus cette marge."
+                    aide="Votre marge, au mégawattheure. Chaque prix présenté au client vaut son P0 plus cette marge — la flèche à côté de chaque classe le montre."
                     unite="€/MWh"
                     valeur={margeVariable}
                     onCommit={(v) => poser('marge_reelle_eur_mwh', v)}
@@ -536,14 +533,31 @@ export function SaisiePrixDialog({
                     onCommit={(v) => poser('marge_fixe_eur', v)}
                   />
                 )}
+
+                {/* Puis ce que le fournisseur refacture au mégawattheure, à la place des CEE et CPB
+                    du gaz. */}
+                <Champ
+                  libelle="CEE"
+                  aide="Certificats d’économies d’énergie refacturés, au mégawattheure. Ils entrent dans le budget énergie."
+                  unite="€/MWh"
+                  valeur={ceeElec}
+                  onCommit={(v) => poser('prix_cee_mwh', v)}
+                />
+                <Champ
+                  libelle="GO — énergie verte"
+                  aide="Garanties d’origine, au mégawattheure. C’est la part « énergie verte » du compte rendu : incluse ou non selon l’offre. Laissez vide plutôt que de saisir zéro si l’information manque."
+                  unite="€/MWh"
+                  valeur={go}
+                  onCommit={(v) => poser('prix_go_mwh', v)}
+                />
               </Etape>
 
               <Etape
-                numero={4}
-                titre="L’abonnement et l’acheminement"
-                aide="En électricité l’abonnement est compté DANS le budget énergie, et l’acheminement s’appelle le TURPE."
-                vigilance="tous ces montants sont ANNUELS. Un abonnement au mois se multiplie par douze, et le TURPE se saisit en quatre parts dès qu’on les connaît."
-                active={etape === 3}
+                numero={2}
+                titre="L’abonnement"
+                aide="Facturé à l’année quel que soit le volume consommé. En électricité, il est compté DANS le budget énergie et ne forme pas un budget à part."
+                vigilance="ce montant est ANNUEL. Un abonnement annoncé au mois se multiplie par douze avant d’être saisi ici."
+                active={etape === 1}
               >
                 <Champ
                   libelle="Abonnement"
@@ -552,6 +566,15 @@ export function SaisiePrixDialog({
                   valeur={abonnement}
                   onCommit={(v) => poser('abonnement_fourniture_annuel_ht', v)}
                 />
+              </Etape>
+
+              <Etape
+                numero={3}
+                titre="Les contributions"
+                aide="Ce que le réseau et l’État prélèvent, en euros par an. Le même poste qu’au gaz — ici c’est le TURPE, l’accise et la CTA."
+                vigilance="tous ces montants sont ANNUELS, et le TURPE se saisit en quatre parts dès qu’on les connaît. L’accise et la CTA sont identiques chez tous les fournisseurs : un écart entre deux offres sur ces lignes est une erreur de saisie."
+                active={etape === 2}
+              >
                 {/* LE TURPE EN QUATRE PARTS, comme la maquette de William. La part fixe du soutirage
                     mérite d'être isolée : c'est la seule que réduit une optimisation de puissance, et
                     donc la seule qui rende cette optimisation chiffrable un jour. */}
@@ -623,7 +646,7 @@ export function SaisiePrixDialog({
           )}
 
           <Etape
-            numero={gaz ? 5 : 6}
+            numero={5}
             titre="Vérification"
             aide="Relisez avant d’enregistrer. Le détail du calcul est à droite : chaque ligne dit d’où vient le montant au-dessus."
             active={etape === derniere}
@@ -646,11 +669,11 @@ export function SaisiePrixDialog({
           </Etape>
 
           <Etape
-            numero={gaz ? 4 : 5}
+            numero={4}
             titre="Le volume"
             aide="C’est lui qui transforme les euros par mégawattheure en euros par an. Sans lui, aucun budget ne peut se calculer."
             vigilance="c’est la consommation que LE FOURNISSEUR a retenue pour établir son prix, pas forcément celle du compteur. Un écart entre les deux se paie en régularisation."
-            active={etape === (gaz ? 3 : 4)}
+            active={etape === 3}
           >
             <Champ
               libelle="Consommation retenue"
@@ -698,6 +721,7 @@ export function SaisiePrixDialog({
             />
           )}
           <Calcul titre={gaz ? 'Budget contribution' : 'Budget TURPE'} etapes={etapesContribution} />
+          {!gaz && <Calcul titre="Budget contribution" etapes={etapesTaxes} />}
 
           <div className="rounded-kw-md border border-kw-ink bg-white px-2.5 py-2">
             <div className="flex items-baseline justify-between gap-2">
@@ -709,7 +733,7 @@ export function SaisiePrixDialog({
             <p className="mt-0.5 text-kw-xs leading-snug text-kw-faint">
               {gaz
                 ? 'Énergie + abonnement + contributions.'
-                : 'Énergie (abonnement compris) + TURPE.'}
+                : 'Énergie (abonnement compris) + TURPE + contributions.'}
             </p>
           </div>
 
