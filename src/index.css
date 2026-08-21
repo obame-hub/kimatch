@@ -225,6 +225,28 @@
      angles et découpent les segments de la barre de répartition. */
   #document-comparatif .overflow-x-auto { overflow: visible !important; }
 
+  /* AUCUNE ANIMATION SUR LE PAPIER — ET C'EST CE QUI RENDAIT LE DÉTAIL INVISIBLE.
+     Naoëlle, 21/08/2026, sur le PDF : « je ne vois toujours pas les détails. » Le bloc était bien
+     là, à la bonne hauteur, et vide.
+
+     LA CHAÎNE EXACTE, prouvée par la mesure. Les pages de détail vivent dans un conteneur
+     `hidden print:block` : à l'écran elles sont en `display: none`. Or un élément en `display: none`
+     NE DÉMARRE PAS ses animations. Le bloc des composantes porte `animate-kw-fade-slide`, dont les
+     images-clés partent de `opacity: 0` avec un remplissage `both` — c'est-à-dire que l'état de
+     DÉPART s'applique avant même que l'animation commence. Résultat : opacité 0, pour toujours.
+     Mesuré le 21/08/2026 — opacité 0 à l'instant où le bloc devient visible, et toujours 0 quatre
+     cents millisecondes plus tard : l'animation ne part jamais.
+
+     C'est aussi pourquoi la simulation d'impression ne montrait rien d'anormal : en la rendant
+     visible à l'écran pour la mesurer, on faisait tourner l'animation, et elle finissait à 1.
+
+     Annuler l'animation suffit : sans elle, le remplissage ne s'applique plus et l'élément reprend
+     son opacité normale. On ne perd rien — une apparition en fondu n'a aucun sens sur du papier. */
+  #document-comparatif,
+  #document-comparatif * {
+    animation: none !important;
+  }
+
   /* LA LIGNE D'UN COMPTEUR SE REPLIE, ELLE NE SE SERRE PAS.
      À l'écran cette ligne est une grille à trois colonnes dont les deux côtés valent
      `minmax(0,1fr)` : c'est ce qui centre exactement le groupe de chiffres. Mais sur une page A4, ce
