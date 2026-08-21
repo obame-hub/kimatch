@@ -138,6 +138,7 @@ export function CreateRecommandationDialog({
   const [contactId, setContactId] = useState('')
   const [dateClotureManuelle, setDateClotureManuelle] = useState('')
   const [rechercheP, setRechercheP] = useState('')
+  const [rechercheC, setRechercheC] = useState('')
   const [origineId, setOrigineId] = useState('')
   const [priorite, setPriorite] = useState(2)
   const [description, setDescription] = useState('')
@@ -182,6 +183,44 @@ export function CreateRecommandationDialog({
       (c) => compteursSousMandat.has(c.id) && c.type_energie === typeEnergie && !engages.has(c.id),
     )
   }, [compteId, typeEnergieId, typeEnergie, compteurs, compteursSousMandat, engages])
+
+  // LES COMPTES OUVRANT DROIT À UNE RECOMMANDATION : ceux qui portent au moins un mandat actif.
+  // Même règle qu'avant, seule la présentation change.
+  //
+  // On les enrichit depuis la liste des comptes pour pouvoir chercher sur le SIREN et la ville, et
+  // pas seulement sur le nom : deux syndics homonymes ne se distinguent que par là.
+  const comptesEligibles = useMemo(() => {
+    const parId = new Map((comptes ?? []).map((c) => [c.id, c]))
+    const parCompte = new Map<
+      string,
+      { id: string; nom: string; siren: string | null; ville: string; mandats: number }
+    >()
+    for (const m of mandats ?? []) {
+      if (m.statut !== 'ACTIF') continue
+      const deja = parCompte.get(m.compte_id)
+      if (deja) {
+        deja.mandats += 1
+        continue
+      }
+      const compte = parId.get(m.compte_id)
+      parCompte.set(m.compte_id, {
+        id: m.compte_id,
+        nom: compte?.nom || m.compte_nom || 'Compte',
+        siren: compte?.siren ?? null,
+        ville: compte?.ville || '',
+        mandats: 1,
+      })
+    }
+    return [...parCompte.values()].sort((a, b) => a.nom.localeCompare(b.nom))
+  }, [mandats, comptes])
+
+  const comptesAffiches = useMemo(() => {
+    const q = rechercheC.trim().toLowerCase()
+    if (!q) return comptesEligibles
+    return comptesEligibles.filter((c) =>
+      [c.nom, c.siren, c.ville].filter(Boolean).some((v) => String(v).toLowerCase().includes(q)),
+    )
+  }, [comptesEligibles, rechercheC])
 
   const codePostalDe = useMemo(() => {
     const parSite = new Map((sitesDuCompte ?? []).map((s) => [s.id, s.code_postal]))
@@ -391,23 +430,102 @@ export function CreateRecommandationDialog({
 
           <Card className="min-h-[340px] p-5">
             {/* ÉTAPE « Compte » — propre à Kimatch, absente quand on vient d'une fiche compte. */}
+            {/* ÉTAPE « Compte » — propre à Kimatch, absente quand on vient d'une fiche compte.
+
+                UNE RECHERCHE, PLUS UN DÉROULANT. Michel, 21/08/2026 : « il va me demander de
+                chercher un compte, mais en fait là c'est une liste carrément. C'est-à-dire que si
+                ton truc c'est Z, il faut aller jusqu'à Z à chaque fois. Je ne peux pas faire une
+                recherche directement comme dans les autres. » Six cent seize comptes portent un
+                mandat actif : un `<select>` natif y est inutilisable.
+
+                L'étape suivante de ce même wizard — les points de livraison — cherchait déjà de
+                cette façon. On reprend son montage à l'identique : champ de recherche, compteur de
+                résultats, lignes cliquables dans un cadre qui défile. Une seule manière de choisir
+                à apprendre dans le parcours, au lieu de deux. */}
             {!compteImpose && etape === 1 && (
-              <div className="space-y-4">
-                <div className="space-y-1 text-center">
+              <div className="space-y-3">
+                <div className="space-y-1">
                   <h4 className="text-base font-semibold text-navy-900">Sur quel compte ?</h4>
-                  <p className="text-sm text-navy-500">Seuls les comptes portant un mandat actif ont des PDL éligibles.</p>
+                  <p className="text-sm text-navy-500">
+                    {comptesEligibles.length} compte{comptesEligibles.length > 1 ? 's' : ''} avec un
+                    mandat actif — seuls ceux-là ont des PDL éligibles.
+                  </p>
                 </div>
-                <FormField label="Compte">
-                  <Select
-                    value={compteId}
-                    onChange={(e) => { setCompteId(e.target.value); setCompteurIds([]); setContactId('') }}
-                  >
-                    <option value="">Sélectionner un compte…</option>
-                    {[...new Map((mandats ?? []).filter((m) => m.statut === 'ACTIF').map((m) => [m.compte_id, m.compte_nom])).entries()]
-                      .sort((a, b) => a[1].localeCompare(b[1]))
-                      .map(([id, nom]) => <option key={id} value={id}>{nom}</option>)}
-                  </Select>
-                </FormField>
+
+                <div className="relative">
+                  <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-navy-400" />
+                  <Input
+                    value={rechercheC}
+                    onChange={(e) => setRechercheC(e.target.value)}
+                    placeholder="Rechercher (nom, SIREN, ville)…"
+                    className="pl-9"
+                    autoFocus
+                  />
+                </div>
+
+                {/* Le compte retenu est rappelé sous le champ : sa ligne peut avoir défilé hors du
+                    cadre, et on doit pouvoir vérifier son choix sans remonter. */}
+                <div className="flex items-center justify-between gap-3 text-sm">
+                  <span className="min-w-0 truncate">
+                    {compteCible ? (
+                      <>
+                        <span className="text-navy-400">Choisi : </span>
+                        <strong className="text-navy-800">{compteCible.nom}</strong>
+                      </>
+                    ) : (
+                      <span className="text-navy-400">Aucun compte choisi</span>
+                    )}
+                  </span>
+                  {rechercheC.trim() !== '' && (
+                    <span className="shrink-0 text-navy-400">
+                      {comptesAffiches.length} résultat{comptesAffiches.length > 1 ? 's' : ''}
+                    </span>
+                  )}
+                </div>
+
+                <div className="max-h-[300px] space-y-1.5 overflow-y-auto pr-1">
+                  {comptesAffiches.length === 0 ? (
+                    <p className="py-10 text-center text-sm text-navy-400">
+                      Aucun compte ne correspond. Un compte sans mandat actif n'apparaît pas ici.
+                    </p>
+                  ) : (
+                    comptesAffiches.map((c) => {
+                      const choisi = compteId === c.id
+                      return (
+                        <button
+                          key={c.id}
+                          type="button"
+                          onClick={() => { setCompteId(c.id); setCompteurIds([]); setContactId('') }}
+                          className={cn(
+                            'flex w-full items-center gap-3 rounded-lg border p-2.5 text-left transition-all',
+                            choisi
+                              ? 'border-kiwi-500 bg-kiwi-50 ring-1 ring-kiwi-200'
+                              : 'border-navy-200 hover:border-kiwi-300 hover:bg-navy-50',
+                          )}
+                        >
+                          <div
+                            className={cn(
+                              'flex h-5 w-5 shrink-0 items-center justify-center rounded-full',
+                              choisi ? 'bg-kiwi-600 text-white' : 'border border-navy-300',
+                            )}
+                          >
+                            {choisi && <Check className="h-3.5 w-3.5" />}
+                          </div>
+                          <Briefcase className="h-4 w-4 shrink-0 text-navy-400" />
+                          <div className="min-w-0 flex-1">
+                            <span className="block truncate text-sm font-medium text-navy-800">{c.nom}</span>
+                            <span className="mt-0.5 block truncate text-xs text-navy-400">
+                              {[c.ville, c.siren ? `SIREN ${c.siren}` : null].filter(Boolean).join(' · ') || '—'}
+                            </span>
+                          </div>
+                          <Badge tone="neutral">
+                            {c.mandats} mandat{c.mandats > 1 ? 's' : ''}
+                          </Badge>
+                        </button>
+                      )
+                    })
+                  )}
+                </div>
               </div>
             )}
 
