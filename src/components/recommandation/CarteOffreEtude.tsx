@@ -307,7 +307,13 @@ export function CarteOffreEtude({
             // grille indépendante. `whitespace-nowrap` interdit à un montant de s'enrouler.
             // `gap-7` en interne : Naoëlle, 20/08/2026, « un peu aéré entre eux afin que
             // visuellement ça fasse joli ». Quatre chiffres serrés se lisent comme un seul nombre.
-            avecIdentite ? 'grid grid-cols-[72px_132px] justify-items-end' : 'flex shrink-0 gap-7',
+            // 76 ET 152 PIXELS, MESURÉS ET NON DEVINÉS. La pastille d'écart « ▲ +7 749 € · 108,4 % »
+            // demande 138 px ; la piste en faisait 132. Avec `justify-items: end`, un contenu trop
+            // large ne déborde pas à droite mais à GAUCHE — il mord sur la colonne du budget, dont le
+            // libellé se coupait en « budget HT / a. » (constaté le 21/08/2026 sur les pages de détail
+            // du document). 152 px laissent la place à un écart à cinq chiffres et trois chiffres de
+            // pourcentage, 76 px au libellé du budget en entier.
+            avecIdentite ? 'grid grid-cols-[76px_152px] justify-items-end' : 'flex shrink-0 gap-7',
           )}
         >
           {!avecBarre && (
