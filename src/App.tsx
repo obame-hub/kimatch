@@ -9,6 +9,9 @@ import SiteDetail from '@/pages/SiteDetail'
 import Signaux from '@/pages/Signaux'
 import Opportunites from '@/pages/Opportunites'
 import OpportuniteDetail from '@/pages/OpportuniteDetail'
+import Prospection from '@/pages/Prospection'
+import Requetes from '@/pages/Requetes'
+import Remunerations from '@/pages/Remunerations'
 import SignalDetail from '@/pages/SignalDetail'
 import Recommandations from '@/pages/Recommandations'
 import RecommandationDetail from '@/pages/RecommandationDetail'
@@ -46,8 +49,11 @@ function App() {
           <Route path="/" element={<Dashboard />} />
           <Route path="/sites" element={<Sites />} />
           <Route path="/sites/:id" element={<SiteDetail />} />
+          <Route path="/prospection" element={<Prospection />} />
           <Route path="/opportunites" element={<Opportunites />} />
           <Route path="/opportunites/:id" element={<OpportuniteDetail />} />
+          <Route path="/requetes" element={<Requetes />} />
+          <Route path="/remunerations" element={<Remunerations />} />
           <Route path="/signaux" element={<Signaux />} />
           <Route path="/signaux/:id" element={<SignalDetail />} />
           <Route path="/recommandations" element={<Recommandations />} />

@@ -4,6 +4,9 @@ import {
   MapPin,
   Radio,
   Target,
+  Filter,
+  LifeBuoy as Support,
+  Euro,
   Sparkle,
   User,
   Settings,
@@ -26,8 +29,14 @@ export const navItems = [
   // Portefeuille / Demande entrante / Partenaire → Opportunite → Recommandation » (Michel,
   // 23/08/2026). L'ordre du menu raconte l'ordre du travail.
   { to: '/signaux', label: 'Signaux', icon: Radio, accent: 'bg-red-500', tint: 'text-red-400' },
+  { to: '/prospection', label: 'Prospection', icon: Filter, accent: 'bg-slate-500', tint: 'text-slate-300' },
   { to: '/opportunites', label: 'Opportunités', icon: Target, accent: 'bg-amber-500', tint: 'text-amber-300' },
   { to: '/recommandations', label: 'Recommandations', icon: Sparkle, accent: 'bg-amber-500', tint: 'text-amber-300' },
+  { to: '/remunerations', label: 'Rémunérations', icon: Euro, accent: 'bg-emerald-600', tint: 'text-emerald-300' },
+  // LA REQUETE EST A PART, comme dans le memo : « un autre objet actif mais PARALLELE a la chaine
+  // commerciale ». Elle ferme la liste plutot que de s'y inserer, pour qu'on ne la lise pas comme une
+  // etape de l'entonnoir.
+  { to: '/requetes', label: 'Requêtes', icon: Support, accent: 'bg-rose-500', tint: 'text-rose-300' },
 ]
 
 // Séparés des objets métier ci-dessus : support et réglages, affichés en bas du rail
