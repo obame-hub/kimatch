@@ -196,7 +196,7 @@ export function useInteractionsForCompte(compteId: string | undefined, siteIds: 
   })
 }
 
-async function fetchInteractionsByColumn(column: 'contact_id' | 'site_id' | 'recommandation_id', value: string): Promise<Interaction[]> {
+async function fetchInteractionsByColumn(column: 'contact_id' | 'site_id' | 'recommandation_id' | 'opportunite_id', value: string): Promise<Interaction[]> {
   const { data, error } = await supabase
     .from('interactions')
     .select(INTERACTIONS_SELECT)
@@ -244,6 +244,21 @@ export function useInteractionsParRecommandation(recoId: string | undefined) {
 
 /** Index de recherche globale : charge TOUT, donc lent — n'appeler qu'à l'ouverture de la
  * recherche, jamais au montage d'un écran. */
+/**
+ * Les interactions d'une opportunité, c'est-à-dire celles LANCÉES DEPUIS elle.
+ *
+ * Michel n'a pas tranché quels échanges d'un compte appartiennent à une opportunité : on n'en
+ * déduit donc rien pour les 66 646 interactions existantes. Celles-ci portent `opportunite_id`
+ * parce qu'elles ont été créées depuis sa fiche, ce qui est la seule affirmation sûre.
+ */
+export function useInteractionsParOpportunite(opportuniteId: string | undefined) {
+  return useQuery({
+    queryKey: ['interactions', 'opportunite', opportuniteId],
+    queryFn: () => fetchInteractionsByColumn('opportunite_id', opportuniteId as string),
+    enabled: !!opportuniteId,
+  })
+}
+
 export function useInteractions() {
   return useQuery({ queryKey: ['interactions'], queryFn: () => fetchInteractions(null) })
 }
@@ -274,6 +289,10 @@ interface CreateInteractionInput {
    *  au niveau du compte et ne revenait jamais dans le fil de la fiche où elle a été saisie. */
   recommandation_id?: string | null
   recommandation_nom?: string | null
+  /** Opportunité d'origine — même raison que la recommandation ci-dessus : sans elle, une action
+   *  lancée depuis la fiche opportunité partait au niveau du compte et ne revenait pas dans son
+   *  flux d'actualité. */
+  opportunite_id?: string | null
 }
 
 interface CreateInteractionResult {
@@ -326,6 +345,7 @@ export function useCreateInteraction() {
           site_id: input.site_id,
           contact_id: input.contact_id,
           ...(input.recommandation_id ? { recommandation_id: input.recommandation_id } : {}),
+          ...(input.opportunite_id ? { opportunite_id: input.opportunite_id } : {}),
           ...(auteurId ? { auteur_profil_id: auteurId, proprietaire_id: auteurId } : {}),
           ...(input.type_interaction_id ? { type_interaction_id: input.type_interaction_id } : {}),
           ...(input.issue_interaction_id ? { issue_interaction_id: input.issue_interaction_id } : {}),

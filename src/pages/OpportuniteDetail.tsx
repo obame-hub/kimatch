@@ -16,6 +16,8 @@ import { useDocumentsParEntites, useTeleverserDocuments } from '@/lib/data/docum
 import { useReferenceTable } from '@/lib/data/referenceTables'
 import { FriseStatut } from '@/components/opportunite/FriseStatut'
 import { FluxActualite } from '@/components/opportunite/FluxActualite'
+import { ActionsRapides, type ActionRapide } from '@/components/opportunite/ActionsRapides'
+import { useInteractionsParOpportunite, useCreateInteraction } from '@/lib/data/interactions'
 import {
   prerequisOpportunite,
   statutDerive,
@@ -75,6 +77,13 @@ export default function OpportuniteDetail() {
   const [mandatOuvert, setMandatOuvert] = useState(false)
   const [onglet, setOnglet] = useState<'opportunite' | 'fichiers' | 'historique'>('opportunite')
   const [hubOuvert, setHubOuvert] = useState(false)
+  // L'action qu'on est en train de consigner : la maquette dit « chaque action est consignée dans le
+  // flux », et une ligne sans un mot d'explication n'apprendrait rien à celui qui la relira.
+  const [noteAction, setNoteAction] = useState<ActionRapide | null>(null)
+  const [actionEnCours, setActionEnCours] = useState<string | null>(null)
+  const { data: interactionsOpp } = useInteractionsParOpportunite(id)
+  const { data: typesInteractionsRef } = useReferenceTable('types_interactions')
+  const creerInteraction = useCreateInteraction()
   const { data: documents } = useDocumentsParEntites(id ? [id] : undefined)
   const { data: typesDocumentsRef } = useReferenceTable('types_documents')
   const typesDocuments = typesDocumentsRef ?? []
@@ -764,11 +773,34 @@ export default function OpportuniteDetail() {
                 )}
               </Card>
 
+              <ActionsRapides
+                enCours={actionEnCours}
+                onAction={async (a) => {
+                  // Les deux actions de la famille « Décision » changent l'état du dossier : elles
+                  // sont déléguées aux mécanismes qui existent déjà, plutôt que consignées.
+                  if (a.cle === 'recommandation') {
+                    if (convertie) navigate('/recommandations')
+                    else signaler("Une recommandation ne se crée qu'une fois l'opportunité convertie.")
+                    return
+                  }
+                  if (a.cle === 'ecarter') {
+                    setClotureOuverte(true)
+                    return
+                  }
+                  setNoteAction(a)
+                }}
+              />
+
               <Card className="p-4 lg:hidden">
                 <p className="mb-2 text-[10px] font-bold uppercase tracking-[0.08em] text-navy-400">
                   Flux d'actualité
                 </p>
-                <FluxActualite tableNom="opportunites" ligneId={opportunite.id} dateCreation={opportunite.date_creation} />
+                <FluxActualite
+                  tableNom="opportunites"
+                  ligneId={opportunite.id}
+                  dateCreation={opportunite.date_creation}
+                  interactions={interactionsOpp ?? []}
+                />
               </Card>
 
               <Card className="p-4">
@@ -858,7 +890,12 @@ export default function OpportuniteDetail() {
           </div>
 
           <div className="min-h-0 flex-1 overflow-y-auto px-3 pb-3">
-            <FluxActualite tableNom="opportunites" ligneId={opportunite.id} dateCreation={opportunite.date_creation} />
+            <FluxActualite
+              tableNom="opportunites"
+              ligneId={opportunite.id}
+              dateCreation={opportunite.date_creation}
+              interactions={interactionsOpp ?? []}
+            />
           </div>
         </div>
       </div>
@@ -899,6 +936,53 @@ export default function OpportuniteDetail() {
           </WizardConnectionGate>
         )}
       </Dialog>
+
+      {/* CONSIGNER UNE ACTION. Le type d'interaction est celui de l'action (un appel est un APPEL),
+          l'objet est son libellé, et le résumé est ce que la personne écrit. L'interaction porte
+          `opportunite_id` : c'est ce qui la fait revenir dans le flux de cette fiche. */}
+      {noteAction && (
+        <Dialog
+          open
+          onClose={() => setNoteAction(null)}
+          title={noteAction.libelle}
+          description="Ce que vous notez ici apparaîtra dans le flux d'actualité de l'opportunité. Le statut, lui, ne change pas."
+        >
+          <FormulaireNoteAction
+            enCours={actionEnCours === noteAction.cle}
+            onAnnuler={() => setNoteAction(null)}
+            onValider={async (resume) => {
+              const action = noteAction
+              setActionEnCours(action.cle)
+              try {
+                const type = (typesInteractionsRef ?? []).find((t) => t.code === action.typeInteraction)
+                await creerInteraction.mutateAsync({
+                  type_interaction_id: type?.id ?? null,
+                  type_interaction_libelle: type?.libelle ?? action.libelle,
+                  date_interaction: new Date().toISOString(),
+                  sens: null,
+                  objet: action.libelle,
+                  resume: resume.trim() || null,
+                  resultat: null,
+                  compte_id: opportunite.compte_id,
+                  compte_nom: opportunite.compte_nom,
+                  site_id: null,
+                  site_nom: '',
+                  contact_id: opportunite.contact_id,
+                  contact_nom: contact ? `${contact.prenom} ${contact.nom}` : '',
+                  issue_interaction_id: null,
+                  opportunite_id: opportunite.id,
+                })
+                setNoteAction(null)
+                signaler('✓ ' + action.libelle + ' — consigné dans le flux')
+              } catch (e) {
+                signaler(e instanceof Error ? e.message : 'Enregistrement impossible')
+              } finally {
+                setActionEnCours(null)
+              }
+            }}
+          />
+        </Dialog>
+      )}
 
       {ajoutOuvert && opportunite.compte_id && (
         <DialogAjoutPerimetre
@@ -1066,6 +1150,37 @@ const ONGLETS = [
   { cle: 'fichiers' as const, libelle: 'Fichiers' },
   { cle: 'historique' as const, libelle: 'Historique' },
 ]
+
+/**
+ * La note qui accompagne une action rapide. Un champ, deux boutons : tout ce qu'il faut pour que
+ * l'action laisse une trace utile plutôt qu'une ligne muette.
+ */
+function FormulaireNoteAction({ onValider, onAnnuler, enCours }: {
+  onValider: (resume: string) => Promise<void>
+  onAnnuler: () => void
+  enCours: boolean
+}) {
+  const [resume, setResume] = useState('')
+  return (
+    <div className="space-y-3">
+      <FormField label="Ce qui s'est passé">
+        <Textarea
+          value={resume}
+          onChange={(e) => setResume(e.target.value)}
+          rows={3}
+          placeholder="Ce qui a été dit, demandé, constaté…"
+          autoFocus
+        />
+      </FormField>
+      <div className="flex justify-end gap-2 pt-1">
+        <Button type="button" variant="ghost" onClick={onAnnuler}>Annuler</Button>
+        <Button type="button" disabled={enCours} onClick={() => void onValider(resume)}>
+          {enCours ? 'Enregistrement…' : 'Consigner'}
+        </Button>
+      </div>
+    </div>
+  )
+}
 
 function DialogCloture({ opportunite, statutClotureId, onFermer, onValide, majOpp }: {
   opportunite: Opportunite

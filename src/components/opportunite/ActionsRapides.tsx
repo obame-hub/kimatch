@@ -1,0 +1,141 @@
+import { Phone, Mail, Gauge, TrendingUp, CalendarDays, Sparkle, Check, FileText, Loader2 } from 'lucide-react'
+import { cn } from '@/lib/utils'
+
+/**
+ * Le bloc « Actions rapides » de la maquette de William, avec ses six familles.
+ *
+ * SES MOTS, SUR SA MAQUETTE : « chaque action est consignée dans le flux, sans changer le statut ».
+ * C'est toute la logique du bloc — on note ce qu'on vient de faire, on ne fait pas avancer le
+ * dossier. Le statut, lui, se calcule à partir des objets réunis.
+ *
+ * LES SIX FAMILLES ET LEURS COULEURS SONT LES SIENNES, relevées dans sa constante `FAMILIES` :
+ * Qualification #a8317f, Contact #7c5bb0, Données #4f5aa8, Analyse #0d7a5f, Organisation #c8940a,
+ * Décision #8a4b2a. Chacune porte deux actions, les mêmes que chez lui.
+ *
+ * CHAQUE ACTION CRÉE UNE INTERACTION rattachée à l'opportunité (colonne ajoutée par la migration
+ * 20260823210000), au compte et au contact. Elle apparaît donc dans le flux de la colonne de droite,
+ * exactement comme la maquette le montre. Le type d'interaction est choisi par action — un appel est
+ * un APPEL, une demande de facture une NOTE_INTERNE — pour que les filtres existants les retrouvent.
+ *
+ * DEUX ACTIONS NE SONT PAS DE SIMPLES NOTES, et elles sont traitées à part : « Créer une
+ * recommandation » et « Écarter l'opportunité » changent l'état du dossier. Elles sont donc
+ * déléguées à l'écran, qui sait déjà les faire (règle de conversion, dialogue de clôture).
+ */
+
+export interface ActionRapide {
+  cle: string
+  libelle: string
+  /** Code du type d'interaction à consigner, ou `null` si l'action est déléguée à l'écran. */
+  typeInteraction: string | null
+  icone: typeof Phone
+}
+
+export interface FamilleActions {
+  nom: string
+  /** Classes Tailwind : texte et fond de la pastille, aux teintes de William. */
+  teinte: string
+  actions: ActionRapide[]
+}
+
+const FAMILLES_ACTIONS: FamilleActions[] = [
+  {
+    nom: 'Qualification',
+    teinte: 'bg-opp-100 text-opp-600',
+    actions: [
+      { cle: 'besoin', libelle: 'Qualifier le besoin', typeInteraction: 'NOTE_INTERNE', icone: Check },
+      { cle: 'perimetre', libelle: 'Vérifier le périmètre', typeInteraction: 'NOTE_INTERNE', icone: Check },
+    ],
+  },
+  {
+    nom: 'Contact',
+    teinte: 'bg-violet-100 text-violet-500',
+    actions: [
+      { cle: 'appel', libelle: 'Appeler le contact', typeInteraction: 'APPEL', icone: Phone },
+      { cle: 'email', libelle: 'Envoyer un email', typeInteraction: 'EMAIL', icone: Mail },
+    ],
+  },
+  {
+    nom: 'Données',
+    teinte: 'bg-indigo-50 text-indigo-600',
+    actions: [
+      { cle: 'facture', libelle: 'Demander une facture', typeInteraction: 'NOTE_INTERNE', icone: FileText },
+      { cle: 'index', libelle: 'Relever un index', typeInteraction: 'NOTE_INTERNE', icone: Gauge },
+    ],
+  },
+  {
+    nom: 'Analyse',
+    teinte: 'bg-kiwi-50 text-kiwi-700',
+    actions: [
+      { cle: 'economie', libelle: 'Simuler une économie', typeInteraction: 'NOTE_INTERNE', icone: TrendingUp },
+      { cle: 'marche', libelle: 'Comparer au marché', typeInteraction: 'NOTE_INTERNE', icone: TrendingUp },
+    ],
+  },
+  {
+    nom: 'Organisation',
+    teinte: 'bg-amber-100 text-amber-700',
+    actions: [
+      { cle: 'rappel', libelle: 'Planifier un rappel', typeInteraction: 'NOTE_INTERNE', icone: CalendarDays },
+      { cle: 'tache', libelle: 'Créer une tâche', typeInteraction: 'NOTE_INTERNE', icone: CalendarDays },
+    ],
+  },
+  {
+    nom: 'Décision',
+    // #8a4b2a sur #f7ece3 : le brun de William, absent de la palette, posé en valeurs littérales.
+    teinte: 'bg-[#f7ece3] text-[#8a4b2a]',
+    actions: [
+      { cle: 'recommandation', libelle: 'Créer une recommandation', typeInteraction: null, icone: Sparkle },
+      { cle: 'ecarter', libelle: "Écarter l'opportunité", typeInteraction: null, icone: Check },
+    ],
+  },
+]
+
+export function ActionsRapides({ onAction, enCours }: {
+  /** `typeInteraction` nul : l'action est déléguée à l'écran, qui sait quoi en faire. */
+  onAction: (action: ActionRapide) => void | Promise<void>
+  /** Clé de l'action en cours d'enregistrement, pour ne pas la déclencher deux fois. */
+  enCours: string | null
+}) {
+  return (
+    <div className="rounded-[13px] border border-kw-border bg-white p-4">
+      <div className="mb-3 flex flex-wrap items-center gap-2">
+        <p className="text-[10px] font-bold uppercase tracking-[0.08em] text-navy-400">Actions rapides</p>
+        <span className="flex-1" />
+        <p className="text-[10px] text-navy-300">
+          chaque action est consignée dans le flux, sans changer le statut
+        </p>
+      </div>
+      <div className="grid grid-cols-1 gap-2.5 sm:grid-cols-2 xl:grid-cols-3">
+        {FAMILLES_ACTIONS.map((f) => {
+          const IconeFamille = f.actions[0].icone
+          return (
+          <div key={f.nom} className="rounded-[11px] border border-kw-border-faint bg-kw-subtle p-2.5">
+            <div className="mb-2 flex items-center gap-1.5">
+              <span className={cn('flex h-5 w-5 shrink-0 items-center justify-center rounded-md', f.teinte)}>
+                <IconeFamille className="h-3 w-3" />
+              </span>
+              <span className="text-[10.5px] font-bold text-navy-700">{f.nom}</span>
+            </div>
+            <div className="flex flex-col gap-1">
+              {f.actions.map((a) => {
+                const IconeAction = a.icone
+                return (
+                <button
+                  key={a.cle}
+                  type="button"
+                  disabled={enCours === a.cle}
+                  onClick={() => void onAction(a)}
+                  className="flex items-center gap-1.5 rounded-lg border border-transparent px-2 py-1 text-left text-[11.5px] font-medium text-navy-600 transition-colors hover:border-kw-border hover:bg-white hover:text-navy-800 disabled:opacity-50"
+                >
+                  {enCours === a.cle ? <Loader2 className="h-3 w-3 shrink-0 animate-spin" /> : <IconeAction className="h-3 w-3 shrink-0 text-navy-300" />}
+                  {a.libelle}
+                </button>
+                )
+              })}
+            </div>
+          </div>
+          )
+        })}
+      </div>
+    </div>
+  )
+}

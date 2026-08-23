@@ -1,4 +1,4 @@
-import { Pencil, Sparkle } from 'lucide-react'
+import { Pencil, Sparkle, MessageSquare } from 'lucide-react'
 import { useHistorique, type HistoriqueEntry } from '@/lib/data/historique'
 import { cn } from '@/lib/utils'
 
@@ -64,19 +64,61 @@ function libelleJour(iso: string): string {
   return jour.toLocaleDateString('fr-FR', { day: 'numeric', month: 'long' })
 }
 
-export function FluxActualite({ tableNom, ligneId, dateCreation }: {
+/** Ce que le flux affiche, quelle qu'en soit la source. */
+interface Evenement {
+  id: string
+  date: string
+  /** `modif` : une valeur a changé. `echange` : une action consignée depuis la fiche. */
+  genre: 'modif' | 'echange'
+  nature: string
+  texte: React.ReactNode
+  auteur: string
+}
+
+export function FluxActualite({ tableNom, ligneId, dateCreation, interactions = [] }: {
   tableNom: string
   ligneId: string | undefined
   /** La création n'est pas dans l'historique des modifications : on la pose en pied de flux. */
   dateCreation: string
+  /**
+   * Les échanges consignés depuis la fiche (bloc « Actions rapides »). Ils viennent d'une autre
+   * table que l'historique : le flux les mêle dans l'ordre du temps, sinon on lirait deux listes
+   * côte à côte au lieu d'une chronologie.
+   */
+  interactions?: { id: string; date_interaction: string; type_interaction: string; objet: string | null; resume: string | null; auteur: string }[]
 }) {
   const { data: entrees } = useHistorique(tableNom, ligneId)
   const liste: HistoriqueEntry[] = entrees ?? []
 
+  const evenements: Evenement[] = [
+    ...liste.map((e) => ({
+      id: e.id,
+      date: e.date_modification,
+      genre: 'modif' as const,
+      nature: libelleChamp(e.champ),
+      texte: (
+        <>
+          <span className="text-navy-400 line-through">{valeurLisible(e.ancienne_valeur)}</span>
+          {' → '}
+          <span className="font-semibold">{valeurLisible(e.nouvelle_valeur)}</span>
+        </>
+      ),
+      auteur: e.modifie_par_nom ?? 'Kimatch',
+    })),
+    ...interactions.map((i) => ({
+      id: i.id,
+      date: i.date_interaction,
+      genre: 'echange' as const,
+      nature: i.objet || i.type_interaction,
+      texte: i.resume ? <span className="whitespace-pre-line">{i.resume}</span> : <span className="text-navy-400">sans détail</span>,
+      auteur: i.auteur || 'Kimatch',
+    })),
+  ]
+
   // Regroupement par journée, du plus récent au plus ancien.
-  const jours: { jour: string; entrees: HistoriqueEntry[] }[] = []
-  for (const e of [...liste].sort((a, b) => b.date_modification.localeCompare(a.date_modification))) {
-    const jour = libelleJour(e.date_modification)
+  const jours: { jour: string; entrees: Evenement[] }[] = []
+  for (const e of [...evenements].sort((a, b) => b.date.localeCompare(a.date))) {
+    const jour = libelleJour(e.date)
     const dernier = jours[jours.length - 1]
     if (dernier && dernier.jour === jour) dernier.entrees.push(e)
     else jours.push({ jour, entrees: [e] })
@@ -93,23 +135,35 @@ export function FluxActualite({ tableNom, ligneId, dateCreation }: {
             <div className="h-[1.5px] flex-1 bg-kw-border" />
           </div>
           {groupe.entrees.map((e) => (
-            <div key={e.id} className="flex gap-2 rounded-[11px] border border-kw-border bg-white px-2.5 py-2">
-              <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-lg bg-navy-50 text-navy-500">
-                <Pencil className="h-3 w-3" />
+            <div
+              key={e.id}
+              className={cn(
+                'flex gap-2 rounded-[11px] border px-2.5 py-2',
+                e.genre === 'echange' ? 'border-violet-200 bg-violet-50/50' : 'border-kw-border bg-white',
+              )}
+            >
+              <span
+                className={cn(
+                  'flex h-6 w-6 shrink-0 items-center justify-center rounded-lg',
+                  e.genre === 'echange' ? 'bg-violet-100 text-violet-500' : 'bg-navy-50 text-navy-500',
+                )}
+              >
+                {e.genre === 'echange' ? <MessageSquare className="h-3 w-3" /> : <Pencil className="h-3 w-3" />}
               </span>
               <div className="min-w-0 flex-1">
-                <span className="mb-1 inline-block rounded-md bg-navy-50 px-1.5 py-0.5 text-[9px] font-extrabold uppercase tracking-[0.06em] text-navy-500">
-                  {libelleChamp(e.champ)}
+                <span
+                  className={cn(
+                    'mb-1 inline-block rounded-md px-1.5 py-0.5 text-[9px] font-extrabold uppercase tracking-[0.06em]',
+                    e.genre === 'echange' ? 'bg-violet-100 text-violet-600' : 'bg-navy-50 text-navy-500',
+                  )}
+                >
+                  {e.nature}
                 </span>
-                <p className="text-[11px] leading-snug text-navy-700">
-                  <span className="text-navy-400 line-through">{valeurLisible(e.ancienne_valeur)}</span>
-                  {' → '}
-                  <span className="font-semibold">{valeurLisible(e.nouvelle_valeur)}</span>
-                </p>
+                <p className="text-[11px] leading-snug text-navy-700">{e.texte}</p>
                 <p className="mt-1 font-mono text-[9.5px] text-navy-400">
-                  {new Date(e.date_modification).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })}
+                  {new Date(e.date).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })}
                   {' · '}
-                  {e.modifie_par_nom ?? 'Kimatch'}
+                  {e.auteur}
                 </p>
               </div>
             </div>
