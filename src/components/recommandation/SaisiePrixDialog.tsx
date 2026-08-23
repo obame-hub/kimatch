@@ -263,7 +263,7 @@ export function SaisiePrixDialog({
     ? [
         { libelle: 'Molécule P0', valeur: euros(p0, '€/MWh') },
         {
-          libelle: typeMarge === 'FIXE' ? 'Marge fixe' : 'Marge de référence',
+          libelle: typeMarge === 'FIXE' ? 'Marge fixe' : 'Marge de référence (brute)',
           valeur: euros(typeMarge === 'FIXE' ? margeFixe : margeVariable, typeMarge === 'FIXE' ? '€' : '€/MWh'),
           note: typeMarge === 'FIXE' ? 'sur la durée du contrat, hors prix' : 'comprise dans le prix client',
         },
@@ -283,7 +283,7 @@ export function SaisiePrixDialog({
           note: capaDeClasse(c) != null ? `capacité ${capaDeClasse(c)!.toLocaleString('fr-FR')} €/MWh` : undefined,
         })),
         {
-          libelle: typeMarge === 'FIXE' ? 'Marge fixe' : 'Marge de référence',
+          libelle: typeMarge === 'FIXE' ? 'Marge fixe' : 'Marge de référence (brute)',
           valeur: euros(typeMarge === 'FIXE' ? margeFixe : margeVariable, typeMarge === 'FIXE' ? '€' : '€/MWh'),
           note: typeMarge === 'FIXE' ? 'sur la durée du contrat, hors prix' : 'comprise dans chaque prix client',
         },
@@ -344,13 +344,24 @@ export function SaisiePrixDialog({
                   onChoisir={(t) => setBrouillon((b) => ({ ...b, type_marge: t }))}
                 />
                 {typeMarge === 'VARIABLE' ? (
-                  <Champ
-                    libelle="Marge de référence"
-                    aide="Votre marge, au mégawattheure. La modifier change le prix présenté au client, et donc le budget."
-                    unite="€/MWh"
-                    valeur={margeVariable}
-                    onCommit={(v) => poser('marge_reelle_eur_mwh', v)}
-                  />
+                  <>
+                    <Champ
+                      libelle="Marge de référence (brute)"
+                      aide="La marge BRUTE, celle qui entre dans le prix présenté au client. C'est aussi celle qu'on annonce au fournisseur : elle est partagée avec lui."
+                      unite="€/MWh"
+                      valeur={margeVariable}
+                      onCommit={(v) => poser('marge_reelle_eur_mwh', v)}
+                    />
+                    {/* CE QUE KIWEE PERCOIT VRAIMENT, la moitie. C'est le chiffre sur lequel se
+                        calcule la commission versee par le fournisseur, et celui que le commercial a
+                        en tete quand il annonce une marge — il ne le voyait nulle part. */}
+                    <Deduit
+                      libelle="Marge nette Kiwee"
+                      calcul={`${fmt(margeVariable)} ÷ 2 (partagée avec le fournisseur)`}
+                      valeur={margeNette(margeVariable)}
+                      unite="€/MWh"
+                    />
+                  </>
                 ) : (
                   <Champ
                     libelle="Marge fixe (durée totale)"
@@ -521,13 +532,24 @@ export function SaisiePrixDialog({
                   onChoisir={(t) => setBrouillon((b) => ({ ...b, type_marge: t }))}
                 />
                 {typeMarge === 'VARIABLE' ? (
-                  <Champ
-                    libelle="Marge de référence"
-                    aide="Votre marge, au mégawattheure. Chaque prix présenté au client vaut son P0 plus cette marge — la flèche à côté de chaque classe le montre."
-                    unite="€/MWh"
-                    valeur={margeVariable}
-                    onCommit={(v) => poser('marge_reelle_eur_mwh', v)}
-                  />
+                  <>
+                    <Champ
+                      libelle="Marge de référence (brute)"
+                      aide="La marge BRUTE : chaque prix présenté au client vaut son P0 plus cette marge. C'est aussi celle qu'on annonce au fournisseur, elle est partagée avec lui."
+                      unite="€/MWh"
+                      valeur={margeVariable}
+                      onCommit={(v) => poser('marge_reelle_eur_mwh', v)}
+                    />
+                    {/* CE QUE KIWEE PERCOIT VRAIMENT, la moitie. C'est le chiffre sur lequel se
+                        calcule la commission versee par le fournisseur, et celui que le commercial a
+                        en tete quand il annonce une marge — il ne le voyait nulle part. */}
+                    <Deduit
+                      libelle="Marge nette Kiwee"
+                      calcul={`${fmt(margeVariable)} ÷ 2 (partagée avec le fournisseur)`}
+                      valeur={margeNette(margeVariable)}
+                      unite="€/MWh"
+                    />
+                  </>
                 ) : (
                   <Champ
                     libelle="Marge fixe (durée totale)"
@@ -1016,6 +1038,33 @@ function Champ({ libelle, aide, unite, valeur, onCommit, apres, compact }: {
 }
 
 /** Un résultat intermédiaire, montré à l'endroit où il se produit. */
+/**
+ * LA PART DE KIWEE DANS LA MARGE ANNONCEE AU FOURNISSEUR.
+ *
+ * Michel, 21/08/2026 : « La marge nette, c'est la marge que Kiwee percoit directement — c'est avec
+ * cette marge-la qu'on calcule la commission qu'on va percevoir par le fournisseur. Par contre, la
+ * marge indiquee dans la cotation aupres des fournisseurs, c'est la marge BRUTE, c'est-a-dire la
+ * marge partagee avec les fournisseurs. Si dans la demande de cotation je demande une marge de 3 EUR,
+ * le systeme va calculer que la marge a indiquer dans le prix de la molecule sera de 6. »
+ *
+ * DEUX CHIFFRES, PAS UN. La marge que cette modale fait saisir — « marge de reference » — est celle
+ * qui entre dans le prix presente au client : c'est la marge BRUTE. Ce que Kiwee touche en est la
+ * moitie. Le commercial ne voyait que la premiere, alors que la seconde est celle qui l'interesse.
+ *
+ * SEULEMENT SUR UNE MARGE VARIABLE : « si bien evidemment on est sur une marge variable et non une
+ * marge fixe ». Une marge fixe est deja dans le P0 du fournisseur, il n'y a rien a partager.
+ *
+ * `0.5` ET NON UNE FORMULE : c'est un partage par moitie, tel qu'il l'a enonce. Si le partage devient
+ * un jour propre a chaque fournisseur, c'est cette constante qui devient un champ.
+ */
+const PART_KIWEE_DANS_LA_MARGE = 0.5
+
+/** La marge nette : ce que Kiwee percoit, sur une marge variable. */
+function margeNette(margeBrute: number | null | undefined): number | null {
+  if (margeBrute == null) return null
+  return margeBrute * PART_KIWEE_DANS_LA_MARGE
+}
+
 function Deduit({ libelle, calcul, valeur, unite }: {
   libelle: string
   calcul: string
