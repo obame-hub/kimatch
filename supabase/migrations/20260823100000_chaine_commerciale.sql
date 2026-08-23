@@ -24,6 +24,30 @@
 
 begin;
 
+-- ══ 0. RATTRAPAGE, A EXECUTER AVANT TOUTE ECRITURE ═══════════════════════════
+--
+-- La premiere version de ce fichier posait `trg_audit_trace` sur les neuf tables, y compris quatre
+-- qui n'ont pas les colonnes que ce declencheur ecrit (`cree_par_id`, `modifie_par_id`,
+-- `proprietaire_id`). Resultat : toute ecriture sur ces quatre tables echouait avec « record "new"
+-- has no field "cree_par_id" » — et notamment l'ajout d'un site ou d'un compteur au perimetre d'une
+-- opportunite, c'est-a-dire le cas des syndics.
+--
+-- Ce retrait est EN TETE et non a la fin : le semis des statuts, plus bas, est un `insert`, et un
+-- declencheur `before insert` s'execute avant meme que `on conflict do nothing` n'ait son mot a dire.
+-- Le laisser en fin de fichier rendait la migration irrejouable.
+do $$
+declare t text;
+begin
+  foreach t in array array['opportunites_sites', 'opportunites_compteurs',
+                           'statuts_opportunites', 'statuts_requetes']
+  loop
+    -- `to_regclass` renvoie null si la table n'existe pas encore : premiere application, rien a faire.
+    if to_regclass('public.' || t) is not null then
+      execute format('drop trigger if exists trg_audit_trace on public.%I', t);
+    end if;
+  end loop;
+end $$;
+
 -- ══ 1. LISTE ════════════════════════════════════════════════════════════════
 --
 -- « Au départ : une ligne avec un contact, une société, un email et un téléphone. » Une liste EST
@@ -86,6 +110,12 @@ create table if not exists public.pistes (
   date_modification timestamptz not null default now()
 );
 
+-- REJOUABLE. Ces deux clefs croisees etaient les seules a ne pas etre precedees d'un `drop if
+-- exists` : un second passage de la migration echouait dessus en 42710, « constraint already
+-- exists » — constate le 23/08/2026, apres une premiere application pourtant reussie. Une migration
+-- qu'on ne peut pas relancer est un piege : on ne sait plus si elle est passee, et la relancer pour
+-- le verifier casse.
+alter table public.listes drop constraint if exists listes_piste_fk;
 alter table public.listes
   add constraint listes_piste_fk foreign key (piste_id) references public.pistes (id) on delete set null;
 
@@ -161,6 +191,7 @@ alter table public.opportunites drop constraint if exists opportunites_qualifica
 alter table public.opportunites add constraint opportunites_qualification_check
   check (qualification_fin is null or qualification_fin = any (array['CONVERTIE', 'NON_QUALIFIEE', 'PERDUE', 'REPORTEE', 'ANNULEE']));
 
+alter table public.pistes drop constraint if exists pistes_opportunite_fk;
 alter table public.pistes
   add constraint pistes_opportunite_fk foreign key (opportunite_id) references public.opportunites (id) on delete set null;
 
@@ -299,6 +330,16 @@ create index if not exists idx_remunerations_contrat on public.remunerations (co
 -- choix fait le 14/08 pour tout Kimatch — « l'outil est celui d'une équipe de dix personnes qui se
 -- remplacent ». Une table créée sans politique serait MUETTE pour l'application : RLS est actif par
 -- défaut et refuse tout tant qu'aucune politique ne l'autorise.
+--
+-- LA POLITIQUE VA SUR LES NEUF TABLES, LE DECLENCHEUR D'AUDIT SUR CINQ SEULEMENT. `fn_audit_trace`
+-- ecrit `new.cree_par_id`, `new.proprietaire_id` et `new.modifie_par_id` : posee sur une table qui
+-- n'a pas ces colonnes, elle fait echouer la moindre ecriture avec « record "new" has no field
+-- "cree_par_id" ». C'est ce qui se passait sur les quatre tables ci-dessous, et cela cassait
+-- justement l'ajout d'un site ou d'un compteur au perimetre — le cas des syndics. Verifie le
+-- 23/08/2026 : aucune autre table de Kimatch ne porte ce declencheur sans ces colonnes, la
+-- convention est donc bien « audit sur les objets metier, pas sur les tables de liaison ni sur les
+-- referentiels de statuts ». Les liaisons n'ont rien a auditer (on les cree et on les supprime,
+-- on ne les modifie pas) et les statuts ne bougent qu'en migration.
 do $$
 declare t text;
 begin
@@ -309,9 +350,16 @@ begin
     execute format('alter table public.%I enable row level security', t);
     execute format('drop policy if exists authenticated_all on public.%I', t);
     execute format('create policy authenticated_all on public.%I for all to authenticated using (true) with check (true)', t);
+  end loop;
+
+  -- Le declencheur, uniquement la ou les colonnes d'audit existent.
+  foreach t in array array['listes', 'pistes', 'opportunites', 'requetes', 'remunerations']
+  loop
     execute format('drop trigger if exists trg_audit_trace on public.%I', t);
     execute format('create trigger trg_audit_trace before insert or update on public.%I for each row execute function fn_audit_trace()', t);
   end loop;
+
+  -- Le retrait des quatre tables posees a tort est fait en tete de fichier (section 0).
 end $$;
 
 commit;
