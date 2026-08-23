@@ -176,18 +176,28 @@ export function useConvertirPisteEnOpportunite() {
   const qc = useQueryClient()
   return useMutation({
     mutationFn: async ({ piste, statutNouvelleId, signal }: { piste: Piste; statutNouvelleId: string | null; signal: string | null }) => {
-      const { data, error } = await supabase
+      const base = {
+        origine: 'PISTE',
+        piste_id: piste.id,
+        compte_id: piste.compte_id,
+        contact_id: piste.contact_id,
+        ...(statutNouvelleId ? { statut_id: statutNouvelleId } : {}),
+      }
+
+      // LE SIGNAL A SON CHAMP DEPUIS LE 23/08/2026. Il partait dans `commentaire`, si bien que le
+      // contrôle de prérequis se réduisait à « il y a un commentaire, donc il y a un signal » —
+      // n'importe quelle note libre le validait. Repli sur le commentaire tant que la migration
+      // 20260823150000 n'est pas appliquée : mieux vaut un signal mal rangé qu'une conversion qui
+      // échoue.
+      let reponse = await supabase
         .from('opportunites')
-        .insert({
-          origine: 'PISTE',
-          piste_id: piste.id,
-          compte_id: piste.compte_id,
-          contact_id: piste.contact_id,
-          commentaire: signal,
-          ...(statutNouvelleId ? { statut_id: statutNouvelleId } : {}),
-        })
+        .insert({ ...base, signal_libelle: signal })
         .select('id')
         .single()
+      if (reponse.error && /signal_libelle/.test(reponse.error.message)) {
+        reponse = await supabase.from('opportunites').insert({ ...base, commentaire: signal }).select('id').single()
+      }
+      const { data, error } = reponse
       if (error) throw new Error(messageDErreur(error.message))
       const oppId = (data as { id: string }).id
       await supabase.from('pistes').update({ opportunite_id: oppId }).eq('id', piste.id)

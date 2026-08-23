@@ -25,6 +25,7 @@ interface RawOpportunite {
   contact_id: string | null
   piste_id: string | null
   signal_id: string | null
+  signal_libelle: string | null
   qualification_fin: string | null
   motif_cloture: string | null
   date_cloture: string | null
@@ -120,6 +121,7 @@ async function fetchOpportunites(opportuniteId?: string): Promise<Opportunite[]>
       prochaine_action: o.prochaine_action,
       prochaine_action_echeance: o.prochaine_action_echeance,
       prochaine_action_faite_le: o.prochaine_action_faite_le,
+      signal_libelle: o.signal_libelle ?? null,
       score_maturite: o.score_maturite,
       commentaire: o.commentaire,
       proprietaire_id: o.proprietaire_id,
@@ -202,6 +204,7 @@ export type PatchOpportunite = Partial<{
   prochaine_action: string | null
   prochaine_action_echeance: string | null
   prochaine_action_faite_le: string | null
+  signal_libelle: string | null
   commentaire: string | null
   proprietaire_id: string | null
 }>
@@ -230,21 +233,36 @@ export function useCreerOpportunite() {
       type_opportunite: string | null
       statut_id: string | null
       commentaire: string | null
+      /** Le signal constaté, quand il n'est pas un signal enregistré. Prérequis de création. */
+      signal_libelle?: string | null
+      signal_id?: string | null
       site_ids?: string[]
       compteur_ids?: string[]
     }) => {
-      const { data, error } = await supabase
+      const base = {
+        compte_id: input.compte_id,
+        contact_id: input.contact_id,
+        origine: input.origine,
+        type_opportunite: input.type_opportunite,
+        ...(input.statut_id ? { statut_id: input.statut_id } : {}),
+        ...(input.signal_id ? { signal_id: input.signal_id } : {}),
+        commentaire: input.commentaire,
+      }
+
+      // UN SEUL CHAMP INCONNU FAIT ÉCHOUER TOUTE L'ÉCRITURE. PostgREST rejette l'insertion entière
+      // quand la charge nomme une colonne absente. `signal_libelle` arrive par la migration
+      // 20260823150000 : tant qu'elle n'est pas appliquée, on retente sans elle plutôt que de
+      // laisser la création tomber, et le signal rejoint le commentaire pour ne pas être perdu.
+      let reponse = await supabase
         .from('opportunites')
-        .insert({
-          compte_id: input.compte_id,
-          contact_id: input.contact_id,
-          origine: input.origine,
-          type_opportunite: input.type_opportunite,
-          ...(input.statut_id ? { statut_id: input.statut_id } : {}),
-          commentaire: input.commentaire,
-        })
+        .insert({ ...base, ...(input.signal_libelle ? { signal_libelle: input.signal_libelle } : {}) })
         .select('id')
         .single()
+      if (reponse.error && input.signal_libelle && /signal_libelle/.test(reponse.error.message)) {
+        const commentaire = [input.signal_libelle, input.commentaire].filter(Boolean).join(' — ')
+        reponse = await supabase.from('opportunites').insert({ ...base, commentaire }).select('id').single()
+      }
+      const { data, error } = reponse
       if (error) throw new Error(messageDErreur(error.message))
       const id = (data as { id: string }).id
 

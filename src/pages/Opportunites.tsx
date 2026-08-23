@@ -7,7 +7,7 @@ import { Card } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Dialog } from '@/components/ui/dialog'
-import { FormField, Select, Textarea } from '@/components/ui/form'
+import { FormField, Input, Select, Textarea } from '@/components/ui/form'
 import { ListToolbar } from '@/components/ui/list-toolbar'
 import { PiedDeListe } from '@/components/ui/pied-de-liste'
 import { EntityLink } from '@/components/ui/entity-link'
@@ -23,6 +23,20 @@ import { useComptes } from '@/lib/data/comptes'
 import { useContacts } from '@/lib/data/contacts'
 import { cn } from '@/lib/utils'
 import type { Opportunite } from '@/types/domain'
+
+/**
+ * Les signaux positifs, tels que Michel les énumère : « échéance connue à moins de 2 ans, demande
+ * explicite du client, marché favorable, potentiel d'optimisation TURPE, autre besoin commercial
+ * concret ». Proposés en un clic parce que ce sont les quatre cinquièmes des cas ; le champ reste
+ * libre pour le reste.
+ */
+const SIGNAUX_EXEMPLES = [
+  'Échéance de contrat à moins de 2 ans',
+  'Demande explicite du client',
+  'Marché favorable',
+  "Potentiel d'optimisation TURPE",
+  'Autre besoin commercial',
+]
 
 /**
  * La liste des opportunités.
@@ -200,8 +214,16 @@ function DialogCreation({ onFermer }: { onFermer: () => void }) {
   const [contactId, setContactId] = useState('')
   const [origine, setOrigine] = useState('')
   const [type, setType] = useState('')
+  const [signal, setSignal] = useState('')
   const [commentaire, setCommentaire] = useState('')
   const [erreur, setErreur] = useState<string | null>(null)
+
+  // LE MINIMUM POUR LANCER UNE OPPORTUNITÉ. Michel, 23/08/2026 : « il nous faut au minimum un signal
+  // et un contact ». Deux, et seulement deux : le compte, le périmètre et le mandat se rassemblent
+  // ensuite — c'est le travail de l'opportunité. Le compte suit toutefois le contact, puisqu'on
+  // choisit le contact dans la liste d'un compte.
+  const signalDonne = signal.trim().length > 0
+  const minimumTenu = signalDonne && Boolean(contactId)
 
   const contactsDuCompte = useMemo(
     () => (contacts ?? []).filter((c) => !compteId || c.compte_id === compteId),
@@ -218,6 +240,7 @@ function DialogCreation({ onFermer }: { onFermer: () => void }) {
         type_opportunite: type.trim() || null,
         statut_id: statuts?.find((s) => s.code === 'NOUVELLE')?.id ?? null,
         commentaire: commentaire.trim() || null,
+        signal_libelle: signal.trim() || null,
       })
       onFermer()
       navigate(`/opportunites/${id}`)
@@ -231,9 +254,36 @@ function DialogCreation({ onFermer }: { onFermer: () => void }) {
       open
       onClose={onFermer}
       title="Nouvelle opportunité"
-      description="Le compte et le contact peuvent venir plus tard : les rassembler est le travail de l'opportunité."
+      description="Un signal et un contact suffisent à la lancer. Le compte, le périmètre et le mandat se rassemblent ensuite : c'est le travail de l'opportunité."
     >
       <div className="space-y-3">
+        {/* LE SIGNAL EN PREMIER, parce que c'est lui qui justifie l'opportunité. Les cinq exemples
+            sont ceux de Michel, mot pour mot ; le champ reste libre pour le reste. */}
+        <FormField label="Signal positif">
+          <div className="flex flex-wrap gap-1.5">
+            {SIGNAUX_EXEMPLES.map((e) => (
+              <button
+                key={e}
+                type="button"
+                onClick={() => setSignal(e)}
+                className={cn(
+                  'rounded-lg border px-2.5 py-1 text-xs transition-colors',
+                  signal === e
+                    ? 'border-kiwi-500 bg-kiwi-50 font-semibold text-kiwi-800'
+                    : 'border-navy-200 text-navy-600 hover:bg-navy-50',
+                )}
+              >
+                {e}
+              </button>
+            ))}
+          </div>
+          <Input
+            value={signal}
+            onChange={(e) => setSignal(e.target.value)}
+            placeholder="…ou décrire le signal"
+            className="mt-2"
+          />
+        </FormField>
         <FormField label="Origine">
           <Select value={origine} onChange={(e) => setOrigine(e.target.value)}>
             <option value="">Choisir…</option>
@@ -270,9 +320,18 @@ function DialogCreation({ onFermer }: { onFermer: () => void }) {
 
         {erreur && <p className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-xs text-red-700">{erreur}</p>}
 
+        {/* On dit CE QUI MANQUE, plutôt que de griser un bouton sans explication. */}
+        {!minimumTenu && (
+          <p className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-800">
+            Il manque {!signalDonne && 'le signal'}
+            {!signalDonne && !contactId && ' et '}
+            {!contactId && 'le contact'} : c'est le minimum pour lancer une opportunité.
+          </p>
+        )}
+
         <div className="flex justify-end gap-2 pt-1">
           <Button type="button" variant="ghost" onClick={onFermer}>Annuler</Button>
-          <Button type="button" onClick={valider} disabled={creer.isPending}>
+          <Button type="button" onClick={valider} disabled={creer.isPending || !minimumTenu}>
             {creer.isPending ? 'Création…' : 'Créer l’opportunité'}
           </Button>
         </div>

@@ -772,6 +772,11 @@ export interface Opportunite {
   contact_nom: string
   piste_id: string | null
   signal_id: string | null
+  /**
+   * Le signal constaté sans être enregistré dans `signaux`. Prérequis de création avec le contact
+   * (Michel, 23/08/2026) : `signal_id` OU `signal_libelle`, l'un des deux suffit.
+   */
+  signal_libelle: string | null
   /** Code du statut : NOUVELLE | EN_QUALIFICATION | EN_ATTENTE | QUALIFIEE | CLOTUREE */
   statut: string
   statut_libelle: string
@@ -785,7 +790,11 @@ export interface Opportunite {
   prochaine_action: string | null
   prochaine_action_echeance: string | null
   prochaine_action_faite_le: string | null
-  /** Attend ses barèmes : rien ne le calcule aujourd'hui. */
+  /**
+   * INUTILISÉ, ET VOLONTAIREMENT. Michel, 23/08/2026 : « je ne préfère pas utiliser le concept de
+   * score pour le moment, ça va nous embrouiller — je préfère qu'on gère des scores un peu plus
+   * tard, avec de l'historique. » La maturité se lit à la validité des objets, pas à un chiffre.
+   */
   score_maturite: number | null
   commentaire: string | null
   proprietaire_id: string | null

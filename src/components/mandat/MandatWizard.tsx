@@ -58,11 +58,23 @@ export function MandatWizard({
   compteId,
   onClose,
   onCree,
+  contactInitialId,
+  compteursInitiaux,
 }: {
   compteId: string
   onClose: () => void
   /** Appelé après création, avant la redirection vers DocuSign. */
   onCree?: (mandatId: string) => void
+  /**
+   * Pré-remplissage, pour l'appel depuis une opportunité.
+   *
+   * Michel, 23/08/2026 : « on peut lancer la demande de mandat depuis l'opportunité ». Partir de
+   * l'opportunité, c'est déjà savoir pour qui et sur quels compteurs : les ressaisir serait un
+   * doublon, et un doublon où l'on se trompe. Les deux valeurs ne servent qu'à l'état initial — le
+   * commercial reste libre de les changer dans l'assistant.
+   */
+  contactInitialId?: string
+  compteursInitiaux?: string[]
 }) {
   const { data: comptes } = useComptes()
   const { data: sites } = useSites()
@@ -76,8 +88,8 @@ export function MandatWizard({
   const markEnvoye = useMarkMandatEnvoye()
 
   const [etape, setEtape] = useState(1)
-  const [contactId, setContactId] = useState('')
-  const [compteurIds, setCompteurIds] = useState<string[]>([])
+  const [contactId, setContactId] = useState(contactInitialId ?? '')
+  const [compteurIds, setCompteurIds] = useState<string[]>(compteursInitiaux ?? [])
   const [dureeMois, setDureeMois] = useState<number>(DUREE_DEFAUT)
   const [avecEnergix, setAvecEnergix] = useState(true)
   const [rechercheContact, setRechercheContact] = useState('')

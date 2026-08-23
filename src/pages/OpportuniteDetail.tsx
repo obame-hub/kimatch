@@ -23,6 +23,7 @@ import { useSitesParCompte } from '@/lib/data/sites'
 import { useCompteurs } from '@/lib/data/compteurs'
 import { useContacts } from '@/lib/data/contacts'
 import { useMandats } from '@/lib/data/mandats'
+import { MandatWizard } from '@/components/mandat/MandatWizard'
 import { useRecommandationsListe } from '@/lib/data/recommandations'
 import { cn } from '@/lib/utils'
 import type { Opportunite } from '@/types/domain'
@@ -35,15 +36,22 @@ import type { Opportunite } from '@/types/domain'
  * qui liste ce qui manque, et la règle de conversion affichée là où elle s'applique —
  * « une recommandation ne se crée qu'une fois l'opportunité qualifiée en Convertie ».
  *
- * CE QUI N'Y EST PAS ENCORE : le score de maturité. La maquette le décrit — points par nature du
- * déclencheur × urgence, décote journalière — mais les barèmes n'ont pas été donnés. Le bloc est donc
- * absent plutôt que rempli de chiffres inventés.
+ * PAS DE SCORE, ET CE N'EST PLUS UNE ATTENTE. La maquette décrivait une jauge — points par nature du
+ * déclencheur × urgence, décote journalière. Michel a tranché le 23/08/2026 : « je ne préfère pas
+ * utiliser le concept de score pour le moment, ça va nous embrouiller. Je préfère qu'on gère des
+ * scores uniquement un peu plus tard, avec de l'historique. » Et il donne la mesure qui la remplace :
+ * « la maturité se fait si les objets sont valides : un signal positif, un contact, un compte et des
+ * compteurs avec des mandats, un accord ». La maturité n'est donc plus un chiffre mais une liste de
+ * cases, celle-là même qui commande la conversion : un seul bloc, pas deux.
  */
 
 /** Les six prérequis de conversion, tels que Michel les énumère. */
 function prerequis(o: Opportunite, mandatCouvre: boolean) {
   return [
-    { cle: 'signal', libelle: 'Un signal positif identifié', ok: Boolean(o.signal_id || o.type_opportunite || o.commentaire) },
+    // LE SIGNAL NE SE DÉDUIT PAS. Ce contrôle acceptait « un type d'opportunité ou un commentaire » :
+    // n'importe quelle note libre validait donc le prérequis. Il lit maintenant le signal lui-même,
+    // enregistré (`signal_id`) ou constaté (`signal_libelle`).
+    { cle: 'signal', libelle: 'Un signal positif identifié', ok: Boolean(o.signal_id || o.signal_libelle) },
     { cle: 'contact', libelle: 'Un contact identifié', ok: Boolean(o.contact_id) },
     { cle: 'compte', libelle: 'Un compte identifié', ok: Boolean(o.compte_id) },
     { cle: 'perimetre', libelle: 'Au moins un site ou point de livraison', ok: o.site_ids.length + o.compteur_ids.length > 0 },
@@ -68,6 +76,9 @@ export default function OpportuniteDetail() {
   const [toast, setToast] = useState<string | null>(null)
   const [clotureOuverte, setClotureOuverte] = useState(false)
   const [ajoutOuvert, setAjoutOuvert] = useState(false)
+  // « On peut lancer la demande de mandat depuis l'opportunité » (Michel, 23/08/2026). Le bouton
+  // renvoyait sur la fiche compte, ce qui faisait perdre le périmètre qu'on vient d'établir.
+  const [mandatOuvert, setMandatOuvert] = useState(false)
 
   function signaler(m: string) {
     setToast(m)
@@ -188,13 +199,17 @@ export default function OpportuniteDetail() {
           {/* ══ COLONNE PRINCIPALE ══ */}
           <div className="flex flex-col gap-3">
 
-            {/* ── CE QUI MANQUE POUR CONVERTIR ──
-                Maquette : « Opportunité incomplète — {champ} à renseigner ». C'est le cœur de
-                l'écran : l'opportunité n'existe que pour rassembler ces six choses. */}
+            {/* ── LA MATURITÉ DE L'OPPORTUNITÉ ──
+                Michel, 23/08/2026 : « la maturité se fait si les objets sont valides ». C'est donc ce
+                bloc, et pas une jauge : le cœur de l'écran, l'opportunité n'existant que pour
+                rassembler ces six choses. Maquette : « Opportunité incomplète — {champ} à
+                renseigner ». */}
             <Card className={cn('p-4', manquants.length === 0 ? 'border-kiwi-200 bg-kiwi-50/60' : 'border-amber-200 bg-amber-50')}>
               <div className="flex flex-wrap items-center justify-between gap-2">
                 <p className={cn('text-[10px] font-bold uppercase tracking-wide', manquants.length === 0 ? 'text-kiwi-700' : 'text-amber-700')}>
-                  {manquants.length === 0 ? 'Prête à convertir' : `Opportunité incomplète — ${manquants.length} élément${manquants.length > 1 ? 's' : ''} manquant${manquants.length > 1 ? 's' : ''}`}
+                  {manquants.length === 0
+                    ? 'Opportunité mûre — prête à convertir'
+                    : `Maturité — ${listePrerequis.length - manquants.length}/${listePrerequis.length} objets valides`}
                 </p>
                 {manquants.length === 0 && !opportunite.qualification_fin && (
                   <Button size="sm" onClick={() => setClotureOuverte(true)}>
@@ -275,10 +290,10 @@ export default function OpportuniteDetail() {
                   size="sm"
                   variant="outline"
                   className="mt-2.5"
-                  onClick={() => navigate(`/comptes/${opportunite.compte_id}`)}
+                  onClick={() => setMandatOuvert(true)}
                 >
                   <FileSignature className="h-3.5 w-3.5" />
-                  Créer le mandat depuis la fiche compte
+                  Lancer la demande de mandat
                 </Button>
               )}
             </Card>
@@ -481,18 +496,9 @@ export default function OpportuniteDetail() {
               )}
             </Card>
 
-            {/* LE SCORE DE MATURITÉ ATTEND SES RÈGLES. On le dit plutôt que de laisser un vide, et on
-                ne montre pas une jauge à zéro qui se lirait comme « opportunité froide ». */}
-            <Card className="p-4">
-              <p className="mb-1 text-[10px] font-bold uppercase tracking-wide text-navy-400">
-                Maturité de l'opportunité
-              </p>
-              <p className="text-xs leading-relaxed text-navy-500">
-                Le score se calculera à partir des déclencheurs — leur nature multipliée par leur
-                urgence, moins une décote pour les jours sans action. Les barèmes restent à définir :
-                afficher une jauge avant de les connaître donnerait un classement faux.
-              </p>
-            </Card>
+            {/* PAS DE BLOC « SCORE » ICI. Il annonçait une jauge à venir ; Michel l'a écartée le
+                23/08/2026 et la maturité se lit désormais dans la liste d'objets valides du bloc
+                principal. Deux endroits pour la même chose se contrediraient. */}
           </div>
         </div>
       </div>
@@ -504,6 +510,20 @@ export default function OpportuniteDetail() {
           onFermer={() => setClotureOuverte(false)}
           onValide={(m) => { setClotureOuverte(false); signaler(m) }}
           majOpp={majOpp}
+        />
+      )}
+
+      {/* L'ASSISTANT MANDAT, LANCÉ DEPUIS L'OPPORTUNITÉ. Pré-rempli avec le contact de
+          l'opportunité et les compteurs du périmètre QUI NE SONT PAS COUVERTS : ce sont eux qui
+          motivent la demande, et les ressaisir serait le moyen de se tromper. L'assistant crée le
+          mandat puis ouvre le brouillon DocuSign pour vérification avant envoi. */}
+      {mandatOuvert && opportunite.compte_id && (
+        <MandatWizard
+          compteId={opportunite.compte_id}
+          contactInitialId={opportunite.contact_id ?? undefined}
+          compteursInitiaux={couverture.manquants.length > 0 ? couverture.manquants : opportunite.compteur_ids}
+          onClose={() => setMandatOuvert(false)}
+          onCree={() => signaler('✓ Mandat créé — ouverture de DocuSign')}
         />
       )}
 
