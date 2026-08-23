@@ -7,9 +7,9 @@ import { Card } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Dialog } from '@/components/ui/dialog'
-import { FormField, Input, Select, Textarea } from '@/components/ui/form'
+import { FormField, Input, Select } from '@/components/ui/form'
 import { ListToolbar } from '@/components/ui/list-toolbar'
-import { ChoixParRecherche } from '@/components/ui/choix-recherche'
+import { DialogConversionPiste } from '@/components/prospection/DialogConversionPiste'
 import {
   useListes,
   usePistes,
@@ -22,7 +22,6 @@ import {
   VALIDATIONS_PISTE,
 } from '@/lib/data/prospection'
 import { useStatutsOpportunites } from '@/lib/data/opportunites'
-import { useContacts } from '@/lib/data/contacts'
 import { cn } from '@/lib/utils'
 import type { LigneListe, Piste } from '@/types/domain'
 
@@ -322,10 +321,11 @@ function OngletPistes({ pistes, signaler }: { pistes: Piste[]; signaler: (m: str
       )}
 
       {signalPour && (
-        <DialogSignal
+        <DialogConversionPiste
           piste={signalPour}
           onFermer={() => setSignalPour(null)}
           onValide={async (signal, contactId, compteId) => {
+            // Le contact est desormais garanti : le dialogue l'a rattache ou cree.
             try {
               const id = await convertir.mutateAsync({
                 piste: signalPour,
@@ -343,102 +343,6 @@ function OngletPistes({ pistes, signaler }: { pistes: Piste[]; signaler: (m: str
         />
       )}
     </>
-  )
-}
-
-/**
- * Le signal qui fait basculer la piste.
- *
- * « La Piste devient une Opportunité lorsqu'un signal positif est identifié, par exemple : échéance
- * connue à moins de 2 ans, demande explicite du client, marché favorable, potentiel d'optimisation
- * TURPE, autre besoin commercial concret. » On le demande donc, en clair : c'est le premier des six
- * prérequis de conversion, et l'opportunité s'ouvrira avec.
- */
-function DialogSignal({ piste, onFermer, onValide }: {
-  piste: Piste
-  onFermer: () => void
-  onValide: (signal: string, contactId: string | null, compteId: string | null) => void
-}) {
-  const { data: contacts } = useContacts()
-  const [signal, setSignal] = useState('')
-  const [contactId, setContactId] = useState(piste.contact_id ?? '')
-  const [compteId, setCompteId] = useState(piste.compte_id ?? '')
-  const exemples = [
-    'Échéance de contrat à moins de 2 ans',
-    'Demande explicite du client',
-    'Marché favorable',
-    "Potentiel d'optimisation TURPE",
-    'Autre besoin commercial',
-  ]
-
-  // LE MINIMUM DE MICHEL S'APPLIQUE ICI AUSSI. « Pour lancer une opportunité il nous faut au minimum
-  // un signal et un contact » (23/08/2026). La conversion ne demandait que le signal : on obtenait
-  // donc une opportunité sans contact, qui affichait « contact manquant » juste après qu'on ait
-  // validé que la piste EST un contact joignable. Constaté à l'écran le 23/08.
-  //
-  // ON RATTACHE, ON NE CRÉE PAS. Une piste porte le contact en texte libre (nom, courriel,
-  // téléphone) ; en faire un contact et un compte du patrimoine est une décision qui ne m'appartient
-  // pas — Michel tient à la traçabilité de ces objets. Le dialogue propose donc de rattacher un
-  // contact EXISTANT, et dit quoi faire quand il n'existe pas encore.
-  const pret = signal.trim().length > 0 && Boolean(contactId)
-
-  return (
-    <Dialog
-      open
-      onClose={onFermer}
-      title="Quel signal fait de cette piste une opportunité ?"
-      description={piste.societe ?? undefined}
-    >
-      <div className="space-y-3">
-        <div className="flex flex-wrap gap-1.5">
-          {exemples.map((e) => (
-            <button
-              key={e}
-              type="button"
-              onClick={() => setSignal(e)}
-              className={cn(
-                'rounded-lg border px-2.5 py-1 text-xs transition-colors',
-                signal === e ? 'border-kiwi-500 bg-kiwi-50 text-kiwi-800' : 'border-navy-200 text-navy-600 hover:bg-navy-50',
-              )}
-            >
-              {e}
-            </button>
-          ))}
-        </div>
-        <FormField label="Le signal, en une phrase">
-          <Textarea value={signal} onChange={(e) => setSignal(e.target.value)} rows={2} placeholder="Ce qui justifie d'ouvrir une affaire maintenant…" />
-        </FormField>
-
-        <FormField label="Le contact dans Kimatch">
-          <ChoixParRecherche
-            items={contacts ?? []}
-            valeur={contactId}
-            onChoisir={(c) => { setContactId(c?.id ?? ''); setCompteId(c?.compte_id ?? '') }}
-            placeholder={piste.contact_nom ? `Chercher « ${piste.contact_nom} »…` : 'Nom, compte ou courriel…'}
-            principal={(c) => `${c.prenom} ${c.nom}`}
-            secondaire={(c) => c.compte_nom || null}
-            filtre={(c, q) => [c.prenom, c.nom, c.compte_nom, c.email].some((v) => (v ?? '').toLowerCase().includes(q))}
-            aucun="Aucun contact. Créez-le depuis Contacts, puis revenez ici."
-            totalLibelle={`${(contacts ?? []).length} contacts`}
-          />
-        </FormField>
-
-        {!pret && (
-          <p className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-800">
-            Il manque {!signal.trim() && 'le signal'}
-            {!signal.trim() && !contactId && ' et '}
-            {!contactId && 'le contact'} : c'est le minimum pour lancer une opportunité.
-          </p>
-        )}
-
-        <div className="flex justify-end gap-2 pt-1">
-          <Button type="button" variant="ghost" onClick={onFermer}>Annuler</Button>
-          <Button type="button" onClick={() => onValide(signal.trim(), contactId || null, compteId || null)} disabled={!pret}>
-            Créer l'opportunité
-          </Button>
-        </div>
-      </div>
-    </Dialog>
   )
 }
 

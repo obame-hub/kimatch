@@ -12,6 +12,9 @@ import { InlineField } from '@/components/ui/inline-field'
 import { EntityLink } from '@/components/ui/entity-link'
 import { HistoriqueDiscret } from '@/components/ui/historique-discret'
 import {
+  prerequisOpportunite,
+  statutDerive,
+  TON_PIPELINE,
   useOpportunite,
   useMajOpportunite,
   useMajPerimetreOpportunite,
@@ -45,21 +48,6 @@ import type { Opportunite } from '@/types/domain'
  * compteurs avec des mandats, un accord ». La maturité n'est donc plus un chiffre mais une liste de
  * cases, celle-là même qui commande la conversion : un seul bloc, pas deux.
  */
-
-/** Les six prérequis de conversion, tels que Michel les énumère. */
-function prerequis(o: Opportunite, mandatCouvre: boolean) {
-  return [
-    // LE SIGNAL NE SE DÉDUIT PAS. Ce contrôle acceptait « un type d'opportunité ou un commentaire » :
-    // n'importe quelle note libre validait donc le prérequis. Il lit maintenant le signal lui-même,
-    // enregistré (`signal_id`) ou constaté (`signal_libelle`).
-    { cle: 'signal', libelle: 'Un signal positif identifié', ok: Boolean(o.signal_id || o.signal_libelle) },
-    { cle: 'contact', libelle: 'Un contact identifié', ok: Boolean(o.contact_id) },
-    { cle: 'compte', libelle: 'Un compte identifié', ok: Boolean(o.compte_id) },
-    { cle: 'perimetre', libelle: 'Au moins un site ou point de livraison', ok: o.site_ids.length + o.compteur_ids.length > 0 },
-    { cle: 'mandat', libelle: 'Un mandat actif couvrant le périmètre', ok: mandatCouvre },
-    { cle: 'accord', libelle: 'L’accord du client pour lancer une recommandation', ok: o.accord_client },
-  ]
-}
 
 export default function OpportuniteDetail() {
   const { id } = useParams<{ id: string }>()
@@ -96,29 +84,25 @@ export default function OpportuniteDetail() {
     onError: (e: Error) => signaler(e.message),
   }
 
-  // LE MANDAT CONTRE LE PÉRIMÈTRE. C'est l'apport de la maquette : on ne demande pas « y a-t-il un
-  // mandat » mais « le périmètre est-il couvert ». Un mandat actif qui ne couvre pas l'immeuble visé
-  // ne sert à rien, et c'est le cas courant chez un syndic qui apporte un nouvel immeuble.
-  const couverture = useMemo(() => {
-    if (!opportunite) return { mandat: null, couverts: [] as string[], manquants: [] as string[] }
-    const actifs = (mandats ?? []).filter((m) => m.statut === 'ACTIF' && m.compte_id === opportunite.compte_id)
-    const couvertsParMandat = new Set(actifs.flatMap((m) => m.compteur_ids))
-    const cibles = opportunite.compteur_ids
-    return {
-      mandat: actifs[0] ?? null,
-      couverts: cibles.filter((c) => couvertsParMandat.has(c)),
-      manquants: cibles.filter((c) => !couvertsParMandat.has(c)),
-    }
-  }, [opportunite, mandats])
-
-  // Un périmètre vide n'est pas « couvert » : il n'y a rien à couvrir, et la conversion attend
-  // d'abord qu'on lui donne un périmètre.
-  const mandatCouvre = Boolean(
-    opportunite && opportunite.compteur_ids.length > 0 && couverture.manquants.length === 0 && couverture.mandat,
+  // LE MÊME CALCUL QUE LA LISTE, ET AU MÊME ENDROIT. Prérequis, couverture du mandat et palier du
+  // pipeline sortent de `prerequisOpportunite` et `statutDerive` : deux copies auraient fini par
+  // afficher deux états différents du même dossier.
+  const bilan = useMemo(
+    () => (opportunite ? prerequisOpportunite(opportunite, mandats ?? []) : null),
+    [opportunite, mandats],
   )
-
-  const listePrerequis = opportunite ? prerequis(opportunite, mandatCouvre) : []
-  const manquants = listePrerequis.filter((p) => !p.ok)
+  const palier = useMemo(
+    () => (opportunite ? statutDerive(opportunite, mandats ?? []) : null),
+    [opportunite, mandats],
+  )
+  const couverture = {
+    mandat: bilan?.mandat ?? null,
+    couverts: bilan?.couverts ?? [],
+    manquants: bilan?.manquantsDuMandat ?? [],
+  }
+  const mandatCouvre = bilan?.mandatCouvre ?? false
+  const listePrerequis = bilan?.liste ?? []
+  const manquants = bilan?.manquants ?? []
   const convertie = opportunite?.qualification_fin === 'CONVERTIE'
 
   const recosLiees = useMemo(
@@ -179,7 +163,7 @@ export default function OpportuniteDetail() {
               <p className="truncate text-xl font-bold tracking-tight text-navy-800">
                 {opportunite.compte_nom || 'Compte à identifier'}
               </p>
-              <Badge tone={opportunite.statut === 'QUALIFIEE' ? 'kiwi' : 'amber'}>{opportunite.statut_libelle}</Badge>
+              <Badge tone={TON_PIPELINE[palier?.code ?? ''] ?? 'neutral'}>{palier?.libelle ?? opportunite.statut_libelle}</Badge>
               {opportunite.qualification_fin && (
                 <Badge tone={convertie ? 'kiwi' : 'neutral'}>
                   {QUALIFICATIONS_FIN.find((q) => q.code === opportunite.qualification_fin)?.libelle ?? opportunite.qualification_fin}
@@ -405,15 +389,15 @@ export default function OpportuniteDetail() {
                   onCommit={(v) => majOpp({ origine: v || null })}
                   {...retourInline}
                 />
-                <InlineField
-                  variant="select"
-                  label="Statut"
-                  emptyLabel="—"
-                  value={statuts?.find((s) => s.code === opportunite.statut)?.id ?? ''}
-                  options={(statuts ?? []).map((s) => ({ value: s.id, label: s.libelle }))}
-                  onCommit={(v) => majOpp({ statut_id: v || null })}
-                  {...retourInline}
-                />
+                {/* LE STATUT NE SE CHOISIT PLUS. Il se lisait dans une liste déroulante, ce qui
+                    permettait de le poser sur « À valider » alors que le mandat manquait juste à
+                    côté. Michel donne à chaque palier un sens qui décrit les objets réunis : il est
+                    donc calculé, et affiché en lecture seule avec la tâche du moment. */}
+                <div>
+                  <p className="text-[10px] font-bold uppercase tracking-wide text-navy-400">Statut</p>
+                  <p className="mt-0.5 text-sm font-medium text-navy-800">{palier?.libelle}</p>
+                  <p className="text-[11px] leading-snug text-navy-500">{palier?.tache}</p>
+                </div>
                 <InlineField
                   variant="text"
                   label="Type d’opportunité"

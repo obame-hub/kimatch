@@ -15,12 +15,16 @@ import { EntityLink } from '@/components/ui/entity-link'
 import { useTranchesAffichage } from '@/lib/useTranchesAffichage'
 import { useListControls } from '@/lib/useListControls'
 import {
+  statutDerive,
+  TON_PIPELINE,
+  type MandatPourCouverture,
   useOpportunites,
   useStatutsOpportunites,
   useCreerOpportunite,
   ORIGINES_OPPORTUNITE,
 } from '@/lib/data/opportunites'
 import { useContacts } from '@/lib/data/contacts'
+import { useMandats } from '@/lib/data/mandats'
 import { cn } from '@/lib/utils'
 import type { Opportunite } from '@/types/domain'
 
@@ -52,16 +56,12 @@ const SIGNAUX_EXEMPLES = [
  */
 
 /** Le ton de la pastille par statut : le vert pour ce qui avance, l'ambre pour ce qui attend. */
-const TON_STATUT: Record<string, 'kiwi' | 'amber' | 'neutral'> = {
-  NOUVELLE: 'neutral',
-  EN_QUALIFICATION: 'amber',
-  EN_ATTENTE: 'amber',
-  QUALIFIEE: 'kiwi',
-  CLOTUREE: 'neutral',
-}
 
-function CarteOpportunite({ opportunite }: { opportunite: Opportunite }) {
+function CarteOpportunite({ opportunite, mandats }: { opportunite: Opportunite; mandats: MandatPourCouverture[] }) {
   const navigate = useNavigate()
+  // LE MÊME PALIER QUE SUR LA FICHE, calculé par la même fonction : une liste qui annoncerait
+  // « À valider » sur une opportunité que la fiche montre « À compléter » ne servirait à rien.
+  const palier = statutDerive(opportunite, mandats)
   const origine = ORIGINES_OPPORTUNITE.find((o) => o.code === opportunite.origine)
   const retard = echeanceEnRetard(opportunite.prochaine_action_echeance, opportunite.prochaine_action_faite_le)
 
@@ -83,7 +83,7 @@ function CarteOpportunite({ opportunite }: { opportunite: Opportunite }) {
             {[opportunite.reference, origine?.libelle, opportunite.type_opportunite].filter(Boolean).join(' · ') || '—'}
           </p>
         </div>
-        <Badge tone={TON_STATUT[opportunite.statut] ?? 'neutral'}>{opportunite.statut_libelle}</Badge>
+        <Badge tone={TON_PIPELINE[palier.code] ?? 'neutral'}>{palier.libelle}</Badge>
       </div>
 
       <div className="mt-2.5 space-y-1 text-xs text-navy-500">
@@ -94,6 +94,7 @@ function CarteOpportunite({ opportunite }: { opportunite: Opportunite }) {
             <> · {opportunite.recommandation_ids.length} recommandation{opportunite.recommandation_ids.length > 1 ? 's' : ''}</>
           )}
         </p>
+        <p className="text-navy-400">{palier.tache}</p>
         {opportunite.prochaine_action && (
           <p className={cn(retard && 'font-semibold text-red-600')}>
             {opportunite.prochaine_action}
@@ -122,6 +123,9 @@ function echeanceEnRetard(echeance: string | null, faiteLe: string | null): bool
 
 export default function Opportunites() {
   const { data: opportunites, isLoading } = useOpportunites()
+  // Les mandats disent si le périmètre est couvert, donc où se situe chaque opportunité dans le
+  // pipeline. Le même hook alimente les fiches : la requête est le plus souvent déjà en cache.
+  const { data: mandats } = useMandats()
   const [creation, setCreation] = useState(false)
 
   const controles = useListControls(opportunites, {
@@ -177,7 +181,7 @@ export default function Opportunites() {
           </Card>
         ) : (
           <div className="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-3">
-            {tranche.visibles.map((o) => <CarteOpportunite key={o.id} opportunite={o} />)}
+            {tranche.visibles.map((o) => <CarteOpportunite key={o.id} opportunite={o} mandats={mandats ?? []} />)}
           </div>
         )}
 

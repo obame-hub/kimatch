@@ -170,6 +170,125 @@ export function useStatutsOpportunites() {
  * lorsqu'un signal positif est détecté ; d'une demande entrante ; d'une demande ou opportunité
  * apportée par un partenaire ».
  */
+/**
+ * LE PIPELINE DE MICHEL, ET IL SE CALCULE.
+ *
+ * Michel, 23/08/2026 : « NOUVELLE → À QUALIFIER → À COMPLÉTER → À VALIDER → CONVERTIE », avec pour
+ * chaque palier ce qu'il veut dire — « compte / organisation à confirmer », « site à rattacher +
+ * mandat à obtenir », « tout est prêt, il manque l'accord du client », « recommandation créée ».
+ *
+ * Chaque palier nomme donc CE QU'IL RESTE À RÉUNIR. Le statut n'est pas une étiquette posée à côté
+ * des objets : c'est leur état. Il se calcule ici, au lieu de se choisir dans une liste déroulante
+ * qui finirait par contredire les cases cochées juste à côté — et c'est la même mesure que la
+ * maturité, « la maturité se fait si les objets sont valides ».
+ *
+ * UN POINT À CONFIRMER AVEC MICHEL. Dans sa table, « Nouvelle » vaut « signal positif + contact
+ * valide » ; mais en données, une opportunité qui a son signal et son contact et rien d'autre est
+ * exactement dans l'état « compte à confirmer », c'est-à-dire À qualifier. Les deux paliers se
+ * recouvrent, sauf à ajouter un geste humain (« je la prends en main »). En attendant sa réponse,
+ * « Nouvelle » est réservée aux opportunités dont le minimum n'est PAS encore réuni — ce qui arrive
+ * pour celles créées avant la règle du 23/08 — et la question lui est posée.
+ */
+export const PIPELINE_OPPORTUNITE = [
+  { code: 'NOUVELLE', libelle: 'Nouvelle', sens: 'Le minimum n’est pas réuni : il manque le signal ou le contact.' },
+  { code: 'A_QUALIFIER', libelle: 'À qualifier', sens: 'Compte ou organisation à confirmer.' },
+  { code: 'A_COMPLETER', libelle: 'À compléter', sens: 'Site à rattacher, mandat à obtenir.' },
+  { code: 'A_VALIDER', libelle: 'À valider', sens: 'Tout est prêt : il manque l’accord du client.' },
+  { code: 'CONVERTIE', libelle: 'Convertie', sens: 'Recommandation créée.' },
+] as const
+
+/** Un mandat, réduit à ce qu'il faut pour dire s'il couvre un périmètre. */
+export interface MandatPourCouverture {
+  statut: string
+  compte_id: string | null
+  compteur_ids: string[]
+}
+
+/**
+ * Les six prérequis, dans l'ordre où Michel les énumère : « un signal positif, un contact, un compte
+ * et des compteurs avec des mandats, un accord ».
+ *
+ * LE MANDAT SE VÉRIFIE CONTRE LE PÉRIMÈTRE, pas dans l'absolu. C'est l'apport de la maquette : un
+ * mandat actif qui ne couvre pas l'immeuble visé ne sert à rien, et c'est le cas courant chez un
+ * syndic qui apporte un nouvel immeuble.
+ */
+// Generique : la fonction n'a besoin que de trois champs, mais elle RENVOIE le mandat retenu, et
+// l'appelant veut le sien en entier (sa reference, sa date de fin). Le type se propage donc.
+export function prerequisOpportunite<T extends MandatPourCouverture>(o: Opportunite, mandats: T[]) {
+  const actifs = mandats.filter((m) => m.statut === 'ACTIF' && m.compte_id === o.compte_id)
+  const couvertsParMandat = new Set(actifs.flatMap((m) => m.compteur_ids))
+  const manquantsDuMandat = o.compteur_ids.filter((c) => !couvertsParMandat.has(c))
+  // Un périmètre vide n'est pas « couvert » : il n'y a rien à couvrir, et la conversion attend
+  // d'abord qu'on lui donne un périmètre.
+  const mandatCouvre = o.compteur_ids.length > 0 && manquantsDuMandat.length === 0 && actifs.length > 0
+
+  const liste = [
+    { cle: 'signal', libelle: 'Un signal positif identifié', ok: Boolean(o.signal_id || o.signal_libelle) },
+    { cle: 'contact', libelle: 'Un contact identifié', ok: Boolean(o.contact_id) },
+    { cle: 'compte', libelle: 'Un compte identifié', ok: Boolean(o.compte_id) },
+    { cle: 'perimetre', libelle: 'Au moins un site ou point de livraison', ok: o.site_ids.length + o.compteur_ids.length > 0 },
+    { cle: 'mandat', libelle: 'Un mandat actif couvrant le périmètre', ok: mandatCouvre },
+    { cle: 'accord', libelle: 'L’accord du client pour lancer une recommandation', ok: o.accord_client },
+  ]
+
+  return {
+    liste,
+    manquants: liste.filter((p) => !p.ok),
+    mandatCouvre,
+    mandat: actifs[0] ?? null,
+    couverts: o.compteur_ids.filter((c) => couvertsParMandat.has(c)),
+    manquantsDuMandat,
+  }
+}
+
+/**
+ * Le palier du pipeline, déduit des objets réunis — plus ce qu'il reste à faire, en une phrase.
+ */
+export function statutDerive(o: Opportunite, mandats: MandatPourCouverture[]) {
+  const { liste } = prerequisOpportunite(o, mandats)
+  const ok = (cle: string) => liste.find((p) => p.cle === cle)?.ok ?? false
+
+  if (o.recommandation_ids.length > 0) {
+    return { code: 'CONVERTIE', libelle: 'Convertie', tache: 'Recommandation créée.' }
+  }
+  if (!ok('signal') || !ok('contact')) {
+    return {
+      code: 'NOUVELLE',
+      libelle: 'Nouvelle',
+      tache: !ok('signal') && !ok('contact')
+        ? 'Identifier le signal et le contact.'
+        : !ok('signal') ? 'Identifier le signal positif.' : 'Identifier le contact.',
+    }
+  }
+  if (!ok('compte')) {
+    return { code: 'A_QUALIFIER', libelle: 'À qualifier', tache: 'Confirmer le compte, c’est-à-dire l’organisation.' }
+  }
+  if (!ok('perimetre') || !ok('mandat')) {
+    return {
+      code: 'A_COMPLETER',
+      libelle: 'À compléter',
+      tache: !ok('perimetre') ? 'Rattacher un site ou un point de livraison.' : 'Obtenir un mandat couvrant le périmètre.',
+    }
+  }
+  // Dernier palier avant la conversion : soit l'accord manque, soit il est là et la recommandation
+  // reste à créer. Michel s'arrête à « Convertie = recommandation créée », donc ces deux cas
+  // partagent le même palier — seule la tâche change.
+  return {
+    code: 'A_VALIDER',
+    libelle: 'À valider',
+    tache: !ok('accord') ? 'Obtenir l’accord du client.' : 'Créer la recommandation.',
+  }
+}
+
+/** La couleur du palier : ce qui reste à faire se lit avant le libellé. */
+export const TON_PIPELINE: Record<string, 'kiwi' | 'amber' | 'neutral'> = {
+  NOUVELLE: 'neutral',
+  A_QUALIFIER: 'amber',
+  A_COMPLETER: 'amber',
+  A_VALIDER: 'kiwi',
+  CONVERTIE: 'kiwi',
+}
+
 export const ORIGINES_OPPORTUNITE = [
   { code: 'PISTE', libelle: 'Piste convertie' },
   { code: 'PORTEFEUILLE', libelle: 'Portefeuille KiWee' },
