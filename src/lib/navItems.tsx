@@ -3,6 +3,7 @@ import {
   Building2,
   MapPin,
   Radio,
+  Target,
   Sparkle,
   User,
   Settings,
@@ -21,7 +22,11 @@ export const navItems = [
   { to: '/comptes', label: 'Comptes', icon: Building2, accent: 'bg-sky-500', tint: 'text-sky-400' },
   { to: '/contacts', label: 'Contacts', icon: User, accent: 'bg-violet-500', tint: 'text-violet-400' },
   { to: '/sites', label: 'Sites', icon: MapPin, accent: 'bg-kiwi-600', tint: 'text-kiwi-400' },
+  // L'OPPORTUNITE PRECEDE LA RECOMMANDATION dans le rail comme dans la chaine : « Piste /
+  // Portefeuille / Demande entrante / Partenaire → Opportunite → Recommandation » (Michel,
+  // 23/08/2026). L'ordre du menu raconte l'ordre du travail.
   { to: '/signaux', label: 'Signaux', icon: Radio, accent: 'bg-red-500', tint: 'text-red-400' },
+  { to: '/opportunites', label: 'Opportunités', icon: Target, accent: 'bg-amber-500', tint: 'text-amber-300' },
   { to: '/recommandations', label: 'Recommandations', icon: Sparkle, accent: 'bg-amber-500', tint: 'text-amber-300' },
 ]
 

@@ -748,3 +748,137 @@ export interface TarifContratCompteur {
   date_fin_validite: string | null
   actif: boolean
 }
+
+/**
+ * L'OPPORTUNITÉ : un potentiel commercial concret.
+ *
+ * Mémo de Michel, 23/08/2026 : « Une Opportunité représente un potentiel commercial concret. Elle
+ * peut concerner plusieurs immeubles et plusieurs compteurs, notamment pour les syndics. Une
+ * Opportunité peut générer une ou plusieurs Recommandations. »
+ *
+ * Elle se place ENTRE le patrimoine (compte, contact, sites, compteurs, mandat) et la
+ * recommandation : c'est elle qui rassemble les prérequis, la recommandation qui fait le travail de
+ * pricing.
+ */
+export interface Opportunite {
+  id: string
+  reference: string | null
+  /** PISTE | PORTEFEUILLE | DEMANDE_ENTRANTE | PARTENAIRE */
+  origine: string | null
+  type_opportunite: string | null
+  compte_id: string | null
+  compte_nom: string
+  contact_id: string | null
+  contact_nom: string
+  piste_id: string | null
+  signal_id: string | null
+  /** Code du statut : NOUVELLE | EN_QUALIFICATION | EN_ATTENTE | QUALIFIEE | CLOTUREE */
+  statut: string
+  statut_libelle: string
+  /** CONVERTIE | NON_QUALIFIEE | PERDUE | REPORTEE | ANNULEE */
+  qualification_fin: string | null
+  motif_cloture: string | null
+  date_cloture: string | null
+  date_reactivation: string | null
+  /** Le seul prérequis qu'aucune donnée ne déduit : l'accord du client pour lancer une reco. */
+  accord_client: boolean
+  prochaine_action: string | null
+  prochaine_action_echeance: string | null
+  prochaine_action_faite_le: string | null
+  /** Attend ses barèmes : rien ne le calcule aujourd'hui. */
+  score_maturite: number | null
+  commentaire: string | null
+  proprietaire_id: string | null
+  proprietaire_nom: string
+  date_creation: string
+  date_modification: string
+  /** Le périmètre, tel que les tables de liaison le portent. */
+  site_ids: string[]
+  compteur_ids: string[]
+  /** Les recommandations nées de cette opportunité. */
+  recommandation_ids: string[]
+}
+
+/** La PISTE : « un contact fiable et joignable, identifié comme responsable des contrats d'énergie ». */
+export interface Piste {
+  id: string
+  reference: string | null
+  societe: string | null
+  contact_nom: string | null
+  email: string | null
+  telephone: string | null
+  /** Les cinq validations qui font passer une Liste en Piste. */
+  contact_valide: boolean
+  societe_validee: boolean
+  email_valide: boolean
+  portable_valide: boolean
+  est_decisionnaire: boolean
+  compte_id: string | null
+  contact_id: string | null
+  liste_id: string | null
+  opportunite_id: string | null
+  commentaire: string | null
+  proprietaire_id: string | null
+  date_creation: string
+}
+
+/** La LISTE : « au départ, une ligne avec un contact, une société, un email et un téléphone ». */
+export interface LigneListe {
+  id: string
+  reference: string | null
+  societe: string | null
+  contact_nom: string | null
+  email: string | null
+  telephone: string | null
+  source: string | null
+  commentaire: string | null
+  piste_id: string | null
+  proprietaire_id: string | null
+  date_creation: string
+}
+
+/** La REQUÊTE : « traiter et résoudre un problème ou une demande ». Parallèle à la chaîne. */
+export interface Requete {
+  id: string
+  reference: string | null
+  /** FACTURATION | CONTRAT | COMPTEUR | FOURNISSEUR | DOCUMENT | RECLAMATION | AUTRE */
+  categorie: string | null
+  objet: string | null
+  description: string | null
+  resolution: string | null
+  compte_id: string | null
+  compte_nom: string
+  contact_id: string | null
+  site_id: string | null
+  compteur_id: string | null
+  contrat_id: string | null
+  statut: string
+  statut_libelle: string
+  date_echeance: string | null
+  date_resolution: string | null
+  proprietaire_id: string | null
+  date_creation: string
+}
+
+/** La RÉMUNÉRATION : le bout de la chaîne, ce que Kiwee perçoit une fois le contrat signé. */
+export interface Remuneration {
+  id: string
+  reference: string | null
+  contrat_id: string | null
+  recommandation_id: string | null
+  compte_id: string | null
+  compte_nom: string
+  fournisseur_compte_id: string | null
+  fournisseur_nom: string
+  montant_attendu_ht: number | null
+  montant_percu_ht: number | null
+  date_attendue: string | null
+  date_perception: string | null
+  hors_kiwee: boolean
+  motif_exception: string | null
+  commentaire: string | null
+  /** ATTENDUE | FACTUREE | PERCUE | ANNULEE */
+  statut: string | null
+  proprietaire_id: string | null
+  date_creation: string
+}

@@ -7,6 +7,8 @@ import Dashboard from '@/pages/Dashboard'
 import Sites from '@/pages/Sites'
 import SiteDetail from '@/pages/SiteDetail'
 import Signaux from '@/pages/Signaux'
+import Opportunites from '@/pages/Opportunites'
+import OpportuniteDetail from '@/pages/OpportuniteDetail'
 import SignalDetail from '@/pages/SignalDetail'
 import Recommandations from '@/pages/Recommandations'
 import RecommandationDetail from '@/pages/RecommandationDetail'
@@ -44,6 +46,8 @@ function App() {
           <Route path="/" element={<Dashboard />} />
           <Route path="/sites" element={<Sites />} />
           <Route path="/sites/:id" element={<SiteDetail />} />
+          <Route path="/opportunites" element={<Opportunites />} />
+          <Route path="/opportunites/:id" element={<OpportuniteDetail />} />
           <Route path="/signaux" element={<Signaux />} />
           <Route path="/signaux/:id" element={<SignalDetail />} />
           <Route path="/recommandations" element={<Recommandations />} />
