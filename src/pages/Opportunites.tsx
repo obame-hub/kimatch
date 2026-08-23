@@ -25,6 +25,63 @@ import { cn } from '@/lib/utils'
 import type { Opportunite } from '@/types/domain'
 
 /**
+ * Choisir un compte parmi quelques milliers.
+ *
+ * Reprend le motif de l'assistant mandat (`Mandats.tsx`) plutôt que d'en inventer un : une
+ * recherche, cinquante résultats au plus, et le total annoncé quand on n'a rien tapé. Une fois le
+ * compte choisi il s'affiche seul, avec le moyen d'en changer — la liste n'a plus rien à dire.
+ */
+function ChoixCompte({ comptes, compteId, onChange }: {
+  comptes: { id: string; nom: string; ville?: string | null }[]
+  compteId: string
+  onChange: (id: string) => void
+}) {
+  const [recherche, setRecherche] = useState('')
+  const choisi = comptes.find((c) => c.id === compteId)
+
+  if (choisi) {
+    return (
+      <div className="flex items-center gap-2 rounded-lg border border-navy-200 bg-white px-3 py-2">
+        <span className="min-w-0 flex-1 truncate text-sm font-medium text-navy-800">{choisi.nom}</span>
+        <button
+          type="button"
+          onClick={() => { onChange(''); setRecherche('') }}
+          className="shrink-0 text-xs font-semibold text-kiwi-700 hover:underline"
+        >
+          changer
+        </button>
+      </div>
+    )
+  }
+
+  const q = recherche.trim().toLowerCase()
+  const filtres = comptes.filter((c) => !q || c.nom.toLowerCase().includes(q)).slice(0, 50)
+
+  return (
+    <div className="space-y-1.5">
+      <Input value={recherche} onChange={(e) => setRecherche(e.target.value)} placeholder="Nom du compte… (facultatif)" />
+      {q && (
+        <div className="max-h-[152px] overflow-y-auto rounded-lg border border-navy-100">
+          {filtres.map((c) => (
+            <button
+              key={c.id}
+              type="button"
+              onClick={() => onChange(c.id)}
+              className="flex w-full items-center gap-2 border-b border-navy-50 px-3 py-2 text-left last:border-b-0 hover:bg-navy-50/60"
+            >
+              <span className="min-w-0 flex-1 truncate text-xs font-semibold text-navy-800">{c.nom}</span>
+              {c.ville && <span className="shrink-0 text-[10.5px] text-navy-400">{c.ville}</span>}
+            </button>
+          ))}
+          {filtres.length === 0 && <p className="p-3 text-center text-xs text-navy-400">Aucun compte trouvé.</p>}
+        </div>
+      )}
+      {!q && <p className="text-[10.5px] text-navy-400">{comptes.length} comptes — tapez pour chercher.</p>}
+    </div>
+  )
+}
+
+/**
  * Les signaux positifs, tels que Michel les énumère : « échéance connue à moins de 2 ans, demande
  * explicite du client, marché favorable, potentiel d'optimisation TURPE, autre besoin commercial
  * concret ». Proposés en un clic parce que ce sont les quatre cinquièmes des cas ; le champ reste
@@ -284,19 +341,19 @@ function DialogCreation({ onFermer }: { onFermer: () => void }) {
             className="mt-2"
           />
         </FormField>
-        <FormField label="Origine">
-          <Select value={origine} onChange={(e) => setOrigine(e.target.value)}>
-            <option value="">Choisir…</option>
-            {ORIGINES_OPPORTUNITE.map((o) => <option key={o.code} value={o.code}>{o.libelle}</option>)}
-          </Select>
-        </FormField>
+        {/* DEUX PAR RANGÉE. Sur une seule colonne, le formulaire faisait 700 px de haut : le bouton
+            « Créer l'opportunité » tombait sous la ligne de flottaison et n'était jamais visible à
+            l'ouverture (mesuré à l'écran, viewport de 709 px). */}
+        {/* LE COMPTE SE CHERCHE, IL NE SE DÉROULE PAS. La liste comptait 2 765 options (mesuré) —
+            le même défaut que Naoëlle avait signalé sur l'assistant de recommandation le
+            21/08/2026 : « c'est encore une liste de sélection déroulante ». Même motif que
+            l'assistant mandat : une recherche, cinquante résultats au plus, et le total annoncé. */}
         <FormField label="Compte">
-          <Select value={compteId} onChange={(e) => { setCompteId(e.target.value); setContactId('') }}>
-            <option value="">À identifier</option>
-            {[...(comptes ?? [])]
-              .sort((a, b) => a.nom.localeCompare(b.nom))
-              .map((c) => <option key={c.id} value={c.id}>{c.nom}</option>)}
-          </Select>
+          <ChoixCompte
+            comptes={comptes ?? []}
+            compteId={compteId}
+            onChange={(id) => { setCompteId(id); setContactId('') }}
+          />
         </FormField>
         <FormField label="Contact">
           <Select value={contactId} onChange={(e) => setContactId(e.target.value)} disabled={!compteId}>
@@ -306,16 +363,24 @@ function DialogCreation({ onFermer }: { onFermer: () => void }) {
             ))}
           </Select>
         </FormField>
-        <FormField label="Type d’opportunité">
-          <Select value={type} onChange={(e) => setType(e.target.value)}>
-            <option value="">Choisir…</option>
-            <option value="Captation">Captation</option>
-            <option value="Renouvellement">Renouvellement</option>
-            <option value="Optimisation">Optimisation</option>
-          </Select>
-        </FormField>
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+          <FormField label="Origine">
+            <Select value={origine} onChange={(e) => setOrigine(e.target.value)}>
+              <option value="">Choisir…</option>
+              {ORIGINES_OPPORTUNITE.map((o) => <option key={o.code} value={o.code}>{o.libelle}</option>)}
+            </Select>
+          </FormField>
+          <FormField label="Type d’opportunité">
+            <Select value={type} onChange={(e) => setType(e.target.value)}>
+              <option value="">Choisir…</option>
+              <option value="Captation">Captation</option>
+              <option value="Renouvellement">Renouvellement</option>
+              <option value="Optimisation">Optimisation</option>
+            </Select>
+          </FormField>
+        </div>
         <FormField label="Commentaire">
-          <Textarea value={commentaire} onChange={(e) => setCommentaire(e.target.value)} rows={2} placeholder="Le signal, la demande, le contexte…" />
+          <Textarea value={commentaire} onChange={(e) => setCommentaire(e.target.value)} rows={2} placeholder="Le contexte, ce qu'on sait déjà…" />
         </FormField>
 
         {erreur && <p className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-xs text-red-700">{erreur}</p>}

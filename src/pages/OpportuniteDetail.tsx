@@ -6,6 +6,7 @@ import { Card } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Dialog } from '@/components/ui/dialog'
+import { WizardConnectionGate } from '@/components/ui/connection-gate'
 import { FormField, Select, Textarea } from '@/components/ui/form'
 import { InlineField } from '@/components/ui/inline-field'
 import { EntityLink } from '@/components/ui/entity-link'
@@ -517,15 +518,29 @@ export default function OpportuniteDetail() {
           l'opportunité et les compteurs du périmètre QUI NE SONT PAS COUVERTS : ce sont eux qui
           motivent la demande, et les ressaisir serait le moyen de se tromper. L'assistant crée le
           mandat puis ouvre le brouillon DocuSign pour vérification avant envoi. */}
-      {mandatOuvert && opportunite.compte_id && (
-        <MandatWizard
-          compteId={opportunite.compte_id}
-          contactInitialId={opportunite.contact_id ?? undefined}
-          compteursInitiaux={couverture.manquants.length > 0 ? couverture.manquants : opportunite.compteur_ids}
-          onClose={() => setMandatOuvert(false)}
-          onCree={() => signaler('✓ Mandat créé — ouverture de DocuSign')}
-        />
-      )}
+      <Dialog
+        open={mandatOuvert && Boolean(opportunite.compte_id)}
+        onClose={() => setMandatOuvert(false)}
+        title="Demande de mandat"
+        description="Le mandat autorise KiWee à intervenir sur le périmètre de cette opportunité. Le contact et les compteurs non couverts sont déjà sélectionnés."
+        className="max-w-2xl"
+      >
+        {/* MONTÉ SEULEMENT À L'OUVERTURE : l'assistant appelle six tables entières. Et enveloppé
+            dans un Dialog, parce qu'il rend un simple div — monté nu, son contenu était bien dans
+            le DOM mais invisible à l'écran (constaté sur kimatch.fr). La garde de connexion évite
+            de remplir quatre étapes pour échouer sur DocuSign à la fin. */}
+        {mandatOuvert && opportunite.compte_id && (
+          <WizardConnectionGate required={['crm', 'docusign']} feature="demande de mandat">
+            <MandatWizard
+              compteId={opportunite.compte_id}
+              contactInitialId={opportunite.contact_id ?? undefined}
+              compteursInitiaux={couverture.manquants.length > 0 ? couverture.manquants : opportunite.compteur_ids}
+              onClose={() => setMandatOuvert(false)}
+              onCree={() => signaler('✓ Mandat créé — ouverture de DocuSign')}
+            />
+          </WizardConnectionGate>
+        )}
+      </Dialog>
 
       {ajoutOuvert && opportunite.compte_id && (
         <DialogAjoutPerimetre
