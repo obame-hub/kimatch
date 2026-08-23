@@ -72,6 +72,20 @@ export default {
           700: '#243c58',
         },
         // Violet — contacts.
+        // LA COULEUR DE L'OPPORTUNITE, relevee dans « Fiche Opportunite.dc.html » (William) :
+        // #a8317f pour l'accent, le degrade #8c2168 → #c14e9c pour les pastilles et les boutons,
+        // #fdf5fa / #fbeaf4 / #f0cfe3 pour les fonds et bordures claires. Chaque objet du CRM a sa
+        // teinte chez William — bleu pour le compte, violet pour le contact, vert pour le site :
+        // celle-ci manquait, et la fiche opportunite en etait donc grise.
+        opp: {
+          50: '#fdf5fa',
+          100: '#fbeaf4',
+          200: '#f0cfe3',
+          300: '#e8c3dc',
+          400: '#c14e9c',
+          500: '#a8317f',
+          600: '#8c2168',
+        },
         violet: {
           50: '#f6f2fa',
           100: '#f1edf7',
@@ -155,6 +169,14 @@ export default {
         'kw-hub-row': { from: { opacity: '0', transform: 'translateX(6px)' }, to: { opacity: '1', transform: 'none' } },
         'kw-hero-rise': { from: { opacity: '0', transform: 'translateY(12px)' }, to: { opacity: '1', transform: 'none' } },
         'kw-glow-pulse': { '0%, 100%': { opacity: '.42' }, '50%': { opacity: '.72' } },
+        // FRISE DE STATUT DE L'OPPORTUNITE (maquette du 23/08/2026). `ringPulse` fait respirer le
+        // jalon courant, `stripeMove` fait defiler les hachures du segment qui reste a franchir :
+        // c'est ce qui distingue « l'etape en cours » d'une frise inerte.
+        'kw-opp-pulse': {
+          '0%, 100%': { boxShadow: '0 0 0 0 rgba(168,49,127,.30)' },
+          '50%': { boxShadow: '0 0 0 12px rgba(168,49,127,0)' },
+        },
+        'kw-stripe': { to: { backgroundPosition: '36px 0' } },
       },
       animation: {
         'fade-up': 'fade-up 0.35s ease-out both',
@@ -168,6 +190,8 @@ export default {
         'kw-toast-in': 'kw-toast-in .2s ease both',
         'kw-soft-pulse': 'kw-soft-pulse 1.6s ease infinite',
         'kw-card-rise': 'kw-card-rise .4s ease-out both',
+        'kw-opp-pulse': 'kw-opp-pulse 2s ease-out infinite',
+        'kw-stripe': 'kw-stripe 1.1s linear infinite',
         'kw-sheen': 'kw-sheen 5.5s ease-in-out infinite',
         'kw-hub-pop': 'kw-hub-pop .17s cubic-bezier(.2,.9,.3,1.1) both',
         'kw-hub-row': 'kw-hub-row .2s ease-out both',

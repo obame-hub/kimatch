@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
-import { ArrowLeft, Target, Plus, X, Check, AlertTriangle, Building2, User, MapPin, Gauge, FileSignature } from 'lucide-react'
+import { ArrowLeft, Target, Plus, Check, AlertTriangle, Building2, User, MapPin, Gauge, FileSignature } from 'lucide-react'
 import { Topbar } from '@/components/layout/Topbar'
 import { Card } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
@@ -11,10 +11,11 @@ import { FormField, Select, Textarea } from '@/components/ui/form'
 import { InlineField } from '@/components/ui/inline-field'
 import { EntityLink } from '@/components/ui/entity-link'
 import { HistoriqueDiscret } from '@/components/ui/historique-discret'
+import { FriseStatut } from '@/components/opportunite/FriseStatut'
 import {
   prerequisOpportunite,
   statutDerive,
-  TON_PIPELINE,
+  PIPELINE_OPPORTUNITE,
   useOpportunite,
   useMajOpportunite,
   useMajPerimetreOpportunite,
@@ -68,6 +69,7 @@ export default function OpportuniteDetail() {
   // « On peut lancer la demande de mandat depuis l'opportunité » (Michel, 23/08/2026). Le bouton
   // renvoyait sur la fiche compte, ce qui faisait perdre le périmètre qu'on vient d'établir.
   const [mandatOuvert, setMandatOuvert] = useState(false)
+  const [onglet, setOnglet] = useState<'opportunite' | 'fichiers' | 'historique'>('opportunite')
 
   function signaler(m: string) {
     setToast(m)
@@ -115,6 +117,36 @@ export default function OpportuniteDetail() {
     [compteurs, opportunite],
   )
 
+  // LE PÉRIMÈTRE EN ARBRE, comme dans la maquette : l'immeuble porte ses compteurs. Un compteur du
+  // périmètre dont le site n'est pas retenu est affiché à part plutôt que caché — sinon on ne
+  // comprendrait pas pourquoi le décompte ne tombe pas juste.
+  const sitesDuPerimetre = useMemo(
+    () => (sitesDuCompte ?? []).filter((st) => opportunite?.site_ids.includes(st.id)),
+    [sitesDuCompte, opportunite],
+  )
+  const compteursHorsSite = useMemo(
+    () => compteursDuPerimetre.filter((c) => !opportunite?.site_ids.includes(c.site_id ?? '')),
+    [compteursDuPerimetre, opportunite],
+  )
+  const compteursParSite = (siteId: string) => compteursDuPerimetre.filter((c) => c.site_id === siteId)
+
+  // Une échéance dépassée et non faite : c'est ce qui fait passer la carte au rouge.
+  const enRetard = Boolean(
+    opportunite?.prochaine_action_echeance &&
+      !opportunite.prochaine_action_faite_le &&
+      new Date(opportunite.prochaine_action_echeance) < new Date(),
+  )
+
+  async function retirer(table: 'sites' | 'compteurs', cible: string, libelle: string) {
+    if (!opportunite) return
+    try {
+      await majPerimetre.mutateAsync({ opportuniteId: opportunite.id, table, action: 'retirer', cibleId: cible })
+      signaler('✓ ' + libelle + ' retiré du périmètre')
+    } catch (e) {
+      signaler(e instanceof Error ? e.message : 'Retrait impossible')
+    }
+  }
+
   if (isLoading) {
     return (
       <div className="flex min-h-0 flex-1 flex-col">
@@ -143,365 +175,579 @@ export default function OpportuniteDetail() {
   return (
     <div className="flex min-h-0 flex-1 flex-col">
       <Topbar title="Opportunité" crumb={opportunite.compte_nom || 'Opportunité'} />
-      <div className="min-h-0 flex-1 overflow-y-auto px-4 py-4 lg:px-6">
 
-        {/* ── L'EN-TÊTE ── */}
-        <div className="mb-4 flex flex-wrap items-start gap-3">
-          <button
-            type="button"
-            onClick={() => navigate('/opportunites')}
-            className="mt-1 rounded-lg p-1.5 text-navy-400 hover:bg-navy-100 hover:text-navy-700"
-            title="Retour aux opportunités"
-          >
-            <ArrowLeft className="h-4 w-4" />
-          </button>
-          <span className="mt-0.5 flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-amber-100 text-amber-600">
-            <Target className="h-5 w-5" />
-          </span>
-          <div className="min-w-0 flex-1">
-            <div className="flex flex-wrap items-center gap-2">
-              <p className="truncate text-xl font-bold tracking-tight text-navy-800">
-                {opportunite.compte_nom || 'Compte à identifier'}
-              </p>
-              <Badge tone={TON_PIPELINE[palier?.code ?? ''] ?? 'neutral'}>{palier?.libelle ?? opportunite.statut_libelle}</Badge>
-              {opportunite.qualification_fin && (
-                <Badge tone={convertie ? 'kiwi' : 'neutral'}>
-                  {QUALIFICATIONS_FIN.find((q) => q.code === opportunite.qualification_fin)?.libelle ?? opportunite.qualification_fin}
-                </Badge>
-              )}
-            </div>
-            <p className="truncate text-xs text-navy-500">
-              {[opportunite.reference, origine?.libelle, opportunite.type_opportunite].filter(Boolean).join(' · ') || 'Origine à préciser'}
-            </p>
-            <p className="truncate text-[10.5px] text-navy-400">
-              Créée le {new Date(opportunite.date_creation).toLocaleDateString('fr-FR')}
-              {opportunite.proprietaire_nom && <> · Propriétaire : {opportunite.proprietaire_nom}</>}
-            </p>
+      {/* ══ BANDEAU D'IDENTITÉ ══
+          Relevé dans le fichier source de William : pastille de 40 px au dégradé magenta, référence
+          en JetBrains Mono à 20 px, l'origine en pastille magenta cliquable, le type en pastille
+          neutre, puis le compte et le résumé du périmètre en seconde ligne. À droite, le
+          propriétaire et les dates dans un cartouche. */}
+      <div className="flex flex-none flex-wrap items-center gap-4 border-b border-kw-border bg-white px-4 pb-3 pt-3.5 lg:px-6">
+        <button
+          type="button"
+          onClick={() => navigate('/opportunites')}
+          className="rounded-lg p-1.5 text-navy-400 hover:bg-navy-100 hover:text-navy-700"
+          title="Retour aux opportunités"
+        >
+          <ArrowLeft className="h-4 w-4" />
+        </button>
+        <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-[10px] bg-gradient-to-br from-opp-600 to-opp-400 text-white shadow-[0_4px_12px_rgba(168,49,127,.28)]">
+          <Target className="h-[19px] w-[19px]" strokeWidth={2.1} />
+        </span>
+
+        <div className="flex min-w-0 flex-1 flex-col gap-1.5">
+          <div className="flex flex-wrap items-center gap-2">
+            <span className="font-mono text-[20px] font-bold tracking-tight text-navy-800">
+              {opportunite.reference || 'Sans référence'}
+            </span>
+            <InlineField
+              variant="select"
+              label=""
+              emptyLabel="origine à préciser"
+              value={opportunite.origine ?? ''}
+              options={ORIGINES_OPPORTUNITE.map((o) => ({ value: o.code, label: o.libelle }))}
+              onCommit={(v) => majOpp({ origine: v || null })}
+              className="inline-flex rounded-xl border border-opp-200 bg-opp-100 px-2.5 py-0.5 text-[10px] font-extrabold uppercase tracking-wide text-opp-600"
+              {...retourInline}
+            />
+            <InlineField
+              variant="text"
+              label=""
+              emptyLabel="type à préciser"
+              value={opportunite.type_opportunite ?? ''}
+              onCommit={(v) => majOpp({ type_opportunite: v.trim() || null })}
+              className="inline-flex rounded-xl border border-kw-border bg-navy-50 px-2.5 py-0.5 text-[10px] font-bold text-navy-600"
+              {...retourInline}
+            />
+            {opportunite.qualification_fin && (
+              <Badge tone={convertie ? 'kiwi' : 'neutral'}>
+                {QUALIFICATIONS_FIN.find((q) => q.code === opportunite.qualification_fin)?.libelle ?? opportunite.qualification_fin}
+              </Badge>
+            )}
+          </div>
+          <div className="flex flex-wrap items-center gap-2 text-[11px] text-navy-500">
+            {opportunite.compte_id ? (
+              <span className="inline-flex items-center gap-1.5 font-bold text-sky-700">
+                <Building2 className="h-3 w-3" />
+                <EntityLink to={`/comptes/${opportunite.compte_id}`}>{opportunite.compte_nom}</EntityLink>
+              </span>
+            ) : (
+              <span className="font-semibold text-amber-700">Compte à identifier</span>
+            )}
+            <span className="text-navy-200">·</span>
+            <span>
+              {opportunite.compteur_ids.length} compteur{opportunite.compteur_ids.length > 1 ? 's' : ''} ·{' '}
+              {opportunite.site_ids.length} immeuble{opportunite.site_ids.length > 1 ? 's' : ''}
+            </span>
           </div>
         </div>
 
-        {/* ══ TROIS COLONNES, COMME LA FICHE RECOMMANDATION ══
-            Michel, 23/08/2026 : « je partirais sur la même base que la recommandation : les objets
-            rattachés à cette opportunité à gauche et les activités à droite ». Les blocs sont ceux
-            d'avant, déplacés et non réécrits. Les largeurs sont celles de la fiche recommandation
-            (264 px / reste / 300 px) pour que les deux écrans se ressemblent vraiment. */}
-        <div className="grid grid-cols-1 gap-3 lg:grid-cols-[264px_minmax(0,1fr)_300px]">
-          {/* ══ LES OBJETS RATTACHÉS ══
-              Dans l'ordre où l'opportunité les réunit : le compte, le contact, le périmètre, le
-              mandat qui le couvre, puis ce qui en est né. */}
-          <div className="flex flex-col gap-3">
-            <Card className="p-4">
-              <p className="mb-2 text-[10px] font-bold uppercase tracking-wide text-navy-400">Compte</p>
-              {opportunite.compte_id ? (
-                <div className="flex items-center gap-2">
-                  <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-sky-100 text-sky-600">
-                    <Building2 className="h-4 w-4" />
-                  </span>
-                  <EntityLink to={`/comptes/${opportunite.compte_id}`}>{opportunite.compte_nom}</EntityLink>
-                </div>
-              ) : (
-                <p className="text-xs text-navy-500">À identifier — c'est un prérequis de conversion.</p>
-              )}
-            </Card>
+        <div className="flex flex-none flex-col items-start gap-0.5 rounded-[10px] border border-kw-border-faint bg-kw-surface px-3 py-1.5">
+          <span className="text-[10px] font-bold text-navy-600">
+            {opportunite.proprietaire_nom || 'Sans propriétaire'}
+          </span>
+          <span className="whitespace-nowrap font-mono text-[9px] text-navy-400">
+            Créée {new Date(opportunite.date_creation).toLocaleDateString('fr-FR')} · Modifiée{' '}
+            {new Date(opportunite.date_modification).toLocaleDateString('fr-FR')}
+          </span>
+        </div>
+      </div>
 
-            <Card className="p-4">
-              <p className="mb-2 text-[10px] font-bold uppercase tracking-wide text-navy-400">Contact principal</p>
-              {contact ? (
-                <div className="flex items-center gap-2">
-                  <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-violet-100 text-violet-600">
-                    <User className="h-4 w-4" />
+      {/* ══ ONGLETS ══ Opportunité · Fichiers · Historique, comme la maquette. */}
+      <div className="flex flex-none items-center gap-0.5 border-b border-kw-border bg-white px-4 pt-2.5 lg:px-6">
+        {ONGLETS.map((o) => (
+          <button
+            key={o.cle}
+            type="button"
+            onClick={() => setOnglet(o.cle)}
+            className={cn(
+              'flex items-center gap-1.5 border-b-2 px-3 pb-2 pt-1.5 text-[12.5px] transition-colors',
+              onglet === o.cle
+                ? 'border-opp-500 font-bold text-navy-800'
+                : 'border-transparent font-medium text-navy-500 hover:text-navy-700',
+            )}
+          >
+            {o.libelle}
+            {o.cle === 'historique' && null}
+          </button>
+        ))}
+        <span className="ml-auto hidden font-mono text-[10px] text-navy-300 sm:block">1–3 pour naviguer</span>
+      </div>
+
+      {/* ══ TROIS COLONNES ══ 256 / reste / 300, les largeurs de la maquette. */}
+      <div className="grid min-h-0 flex-1 grid-cols-1 overflow-hidden lg:grid-cols-[256px_minmax(0,1fr)_300px]">
+
+        {/* ── COLONNE GAUCHE : les objets rattachés ── */}
+        <div className="min-h-0 space-y-3 overflow-y-auto border-r border-kw-border bg-kw-subtle p-3.5 lg:block">
+          <BlocLateral
+            titre="Compte"
+            couleurIcone="bg-sky-100 text-sky-700"
+            icone={<Building2 className="h-[11px] w-[11px]" />}
+            lien={opportunite.compte_id ? `/comptes/${opportunite.compte_id}` : undefined}
+            couleurLien="text-sky-700"
+          >
+            {opportunite.compte_id ? (
+              <div className="flex items-center gap-2">
+                <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-md bg-sky-100 text-[9.5px] font-bold text-sky-700">
+                  {(opportunite.compte_nom || '?').slice(0, 2).toUpperCase()}
+                </span>
+                <EntityLink to={`/comptes/${opportunite.compte_id}`}>{opportunite.compte_nom}</EntityLink>
+              </div>
+            ) : (
+              <p className="text-[11px] text-navy-500">À identifier — c'est un prérequis de conversion.</p>
+            )}
+          </BlocLateral>
+
+          <BlocLateral
+            titre="Contact principal"
+            couleurIcone="bg-violet-100 text-violet-500"
+            icone={<User className="h-[11px] w-[11px]" />}
+            lien={contact ? `/contacts/${contact.id}` : undefined}
+            couleurLien="text-violet-500"
+          >
+            {contact ? (
+              <div className="flex items-center gap-2">
+                <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-violet-500 to-violet-400 text-[11px] font-bold text-white">
+                  {`${contact.prenom[0] ?? ''}${contact.nom[0] ?? ''}`.toUpperCase()}
+                </span>
+                <div className="min-w-0">
+                  <EntityLink to={`/contacts/${contact.id}`}>{contact.prenom} {contact.nom}</EntityLink>
+                  {contact.fonction && <p className="truncate text-[10px] text-navy-400">{contact.fonction}</p>}
+                </div>
+              </div>
+            ) : (
+              <p className="text-[11px] text-navy-500">À identifier — c'est un prérequis de conversion.</p>
+            )}
+          </BlocLateral>
+
+          {/* LE PÉRIMÈTRE EN ARBRE, comme la maquette : l'immeuble, puis ses compteurs indentés
+              derrière un filet, chacun avec sa croix pour sortir du périmètre. */}
+          <BlocLateral
+            titre="Périmètre"
+            couleurIcone="bg-indigo-50 text-indigo-600"
+            icone={<Gauge className="h-[11px] w-[11px]" />}
+            compteur={opportunite.site_ids.length + opportunite.compteur_ids.length}
+          >
+            {sitesDuPerimetre.length === 0 && compteursHorsSite.length === 0 ? (
+              <p className="text-[11px] text-navy-500">
+                Aucun site ni compteur. Ajoutez-en au moins un : c'est un prérequis de conversion.
+              </p>
+            ) : (
+              <div className="flex flex-col gap-2">
+                {sitesDuPerimetre.map((site) => (
+                  <div key={site.id}>
+                    <div className="mb-1 flex items-center gap-1.5">
+                      <span className="flex h-4 w-4 shrink-0 items-center justify-center rounded-[5px] bg-kiwi-50 text-kiwi-700">
+                        <MapPin className="h-2.5 w-2.5" />
+                      </span>
+                      <span className="min-w-0 flex-1 truncate text-[11.5px] font-bold">
+                        <EntityLink to={`/sites/${site.id}`}>{site.nom}</EntityLink>
+                      </span>
+                      <button
+                        type="button"
+                        onClick={() => retirer('sites', site.id, site.nom)}
+                        title="Retirer du périmètre"
+                        className="shrink-0 px-0.5 text-[11px] text-navy-300 hover:text-red-600"
+                      >
+                        ×
+                      </button>
+                    </div>
+                    <div className="ml-[7px] flex flex-col gap-0.5 border-l-[1.5px] border-kw-border-faint pl-2">
+                      {compteursParSite(site.id).map((c) => (
+                        <LigneCompteur
+                          key={c.id}
+                          compteur={c}
+                          horsMandat={couverture.manquants.includes(c.id)}
+                          onRetirer={() => retirer('compteurs', c.id, c.numero_pdl)}
+                        />
+                      ))}
+                      {compteursParSite(site.id).length === 0 && (
+                        <p className="py-0.5 text-[10px] text-navy-400">aucun compteur retenu</p>
+                      )}
+                    </div>
+                  </div>
+                ))}
+                {compteursHorsSite.length > 0 && (
+                  <div className="flex flex-col gap-0.5">
+                    {compteursHorsSite.map((c) => (
+                      <LigneCompteur
+                        key={c.id}
+                        compteur={c}
+                        horsMandat={couverture.manquants.includes(c.id)}
+                        onRetirer={() => retirer('compteurs', c.id, c.numero_pdl)}
+                      />
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
+            {opportunite.compte_id && (
+              <button
+                type="button"
+                onClick={() => setAjoutOuvert(true)}
+                className="mt-2 text-[11px] font-bold text-indigo-600 hover:underline"
+              >
+                ＋ Ajouter au périmètre
+              </button>
+            )}
+          </BlocLateral>
+
+          {/* LE MANDAT, VÉRIFIÉ CONTRE LE PÉRIMÈTRE — l'apport de la maquette : la question n'est
+              pas « y a-t-il un mandat » mais « le périmètre est-il couvert ». */}
+          <BlocLateral
+            titre="Mandat"
+            couleurIcone={mandatCouvre ? 'bg-kiwi-50 text-kiwi-700' : 'bg-amber-100 text-amber-700'}
+            icone={<FileSignature className="h-[11px] w-[11px]" />}
+            badge={mandatCouvre ? 'couvert' : couverture.mandat ? 'partiel' : 'absent'}
+            badgeTon={mandatCouvre ? 'kiwi' : 'amber'}
+          >
+            {couverture.mandat ? (
+              <>
+                <p className="text-[11px] text-navy-700">
+                  <EntityLink to={`/mandats/${couverture.mandat.id}`}>
+                    {couverture.mandat.id_salesforce || 'Mandat actif'}
+                  </EntityLink>
+                  {couverture.mandat.date_fin_validite && (
+                    <span className="block text-[10px] text-navy-400">
+                      valide jusqu'au {new Date(couverture.mandat.date_fin_validite).toLocaleDateString('fr-FR')}
+                    </span>
+                  )}
+                </p>
+                {couverture.manquants.length > 0 && (
+                  <p className="mt-1 text-[10.5px] font-semibold leading-snug text-amber-800">
+                    {couverture.manquants.length} compteur{couverture.manquants.length > 1 ? 's' : ''} non couvert
+                    {couverture.manquants.length > 1 ? 's' : ''} — un nouveau mandat doit être envoyé à{' '}
+                    {contact ? `${contact.prenom} ${contact.nom}` : 'au signataire'}.
+                  </p>
+                )}
+              </>
+            ) : (
+              <p className="text-[11px] leading-snug text-navy-500">
+                {opportunite.compte_id
+                  ? 'Aucun mandat actif sur ce compte.'
+                  : "Le compte n'est pas identifié : la couverture ne peut pas être vérifiée."}
+              </p>
+            )}
+            {opportunite.compte_id && !mandatCouvre && (
+              <button
+                type="button"
+                onClick={() => setMandatOuvert(true)}
+                className="mt-2 text-[11px] font-bold text-opp-500 hover:underline"
+              >
+                ＋ Lancer la demande de mandat
+              </button>
+            )}
+          </BlocLateral>
+        </div>
+
+        {/* ── COLONNE CENTRALE ── */}
+        <div className="min-h-0 overflow-y-auto p-3.5 lg:px-5">
+          {onglet === 'opportunite' && (
+            <div className="flex animate-kw-fade-slide flex-col gap-3.5">
+
+              {/* BANDEAU INCOMPLET — les manquants en pastilles tiretées, comme la maquette. */}
+              {manquants.length > 0 && (
+                <div className="flex items-center gap-3 rounded-xl border-[1.5px] border-amber-200 border-l-4 border-l-amber-500 bg-gradient-to-r from-amber-50 to-white px-3.5 py-2.5">
+                  <span className="flex h-[26px] w-[26px] shrink-0 items-center justify-center rounded-lg bg-amber-100 p-1 text-amber-700">
+                    <AlertTriangle className="h-3.5 w-3.5" />
                   </span>
-                  <div className="min-w-0">
-                    <EntityLink to={`/contacts/${contact.id}`}>{contact.prenom} {contact.nom}</EntityLink>
-                    {contact.fonction && <p className="truncate text-[10.5px] text-navy-400">{contact.fonction}</p>}
+                  <div className="min-w-0 flex-1">
+                    <p className="text-xs font-bold text-amber-800">Opportunité incomplète</p>
+                    <div className="mt-1 flex flex-wrap items-center gap-1.5">
+                      {manquants.map((m) => (
+                        <span
+                          key={m.cle}
+                          className="rounded-md border border-dashed border-amber-300 bg-white px-2 py-0.5 text-[10px] font-bold text-amber-700"
+                        >
+                          {m.libelle}
+                        </span>
+                      ))}
+                    </div>
                   </div>
                 </div>
-              ) : (
-                <p className="text-xs text-navy-500">À identifier — c'est un prérequis de conversion.</p>
               )}
-            </Card>
 
-            {/* ── LE PÉRIMÈTRE ── */}
-            <Card className="p-4">
-              <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
-                <p className="text-[10px] font-bold uppercase tracking-wide text-navy-400">
-                  Périmètre
-                </p>
-                <div className="flex items-center gap-2">
-                  <Badge tone="neutral">
-                    {opportunite.site_ids.length} site{opportunite.site_ids.length > 1 ? 's' : ''} ·{' '}
-                    {opportunite.compteur_ids.length} compteur{opportunite.compteur_ids.length > 1 ? 's' : ''}
-                  </Badge>
-                  {opportunite.compte_id && (
-                    <Button size="sm" variant="outline" onClick={() => setAjoutOuvert(true)}>
-                      <Plus className="h-3.5 w-3.5" /> Ajouter
-                    </Button>
+              {/* LA FRISE DE STATUT */}
+              <Card className="px-4 pb-2.5 pt-3">
+                <div className="flex flex-wrap items-center gap-2">
+                  <p className="text-[10px] font-bold uppercase tracking-[0.08em] text-navy-400">
+                    Statut de l'opportunité
+                  </p>
+                  <span className="flex-1" />
+                  {!opportunite.qualification_fin && manquants.length === 0 && (
+                    <button
+                      type="button"
+                      onClick={() => setClotureOuverte(true)}
+                      className="rounded-lg border-[1.5px] border-opp-500 bg-opp-50 px-3 py-1.5 text-[11px] font-bold text-navy-800 transition-colors hover:bg-opp-100"
+                    >
+                      Qualifier la clôture… ▾
+                    </button>
                   )}
                 </div>
-              </div>
-
-              {opportunite.site_ids.length === 0 && opportunite.compteur_ids.length === 0 ? (
-                <p className="text-xs text-navy-500">
-                  {opportunite.compte_id
-                    ? 'Aucun site ni compteur. Ajoutez-en au moins un : c’est un prérequis de conversion.'
-                    : 'Identifiez d’abord le compte pour choisir ses sites et ses compteurs.'}
+                <FriseStatut
+                  jalons={PIPELINE_OPPORTUNITE.map((p) => ({ code: p.code, libelle: p.libelle }))}
+                  courant={palier?.code ?? 'NOUVELLE'}
+                  finalite={
+                    opportunite.qualification_fin
+                      ? {
+                          libelle: QUALIFICATIONS_FIN.find((q) => q.code === opportunite.qualification_fin)?.libelle ?? '',
+                          perdue: !convertie,
+                        }
+                      : null
+                  }
+                />
+                <p className="border-t border-kw-border-faint pt-2 text-[11px] text-navy-500">
+                  <span className="font-semibold text-navy-700">{palier?.libelle}</span> — {palier?.tache}
                 </p>
-              ) : (
-                <div className="space-y-1.5">
-                  {(sitesDuCompte ?? []).filter((s) => opportunite.site_ids.includes(s.id)).map((s) => (
-                    <LignePerimetre
-                      key={s.id}
-                      icone={<MapPin className="h-3.5 w-3.5" />}
-                      libelle={s.nom}
-                      lien={`/sites/${s.id}`}
-                      onRetirer={async () => {
-                        await majPerimetre.mutateAsync({ action: 'retirer', table: 'sites', opportuniteId: opportunite.id, cibleId: s.id })
-                        signaler('Site retiré du périmètre')
-                      }}
-                    />
-                  ))}
-                  {compteursDuPerimetre.map((c) => (
-                    <LignePerimetre
-                      key={c.id}
-                      icone={<Gauge className="h-3.5 w-3.5" />}
-                      libelle={`${c.numero_pdl || c.utilisation || 'Compteur'}${c.site_nom ? ` — ${c.site_nom}` : ''}`}
-                      lien={`/compteurs/${c.id}`}
-                      alerte={couverture.manquants.includes(c.id) ? 'hors mandat' : undefined}
-                      onRetirer={async () => {
-                        await majPerimetre.mutateAsync({ action: 'retirer', table: 'compteurs', opportuniteId: opportunite.id, cibleId: c.id })
-                        signaler('Compteur retiré du périmètre')
-                      }}
-                    />
-                  ))}
+                {opportunite.motif_cloture && (
+                  <div className="mt-2 flex items-start gap-2 border-t border-kw-border-faint pt-2">
+                    <span className="shrink-0 pt-px text-[9.5px] font-extrabold uppercase tracking-[0.06em] text-navy-400">
+                      Motif
+                    </span>
+                    <span className="text-[11.5px] leading-relaxed text-navy-700">{opportunite.motif_cloture}</span>
+                  </div>
+                )}
+              </Card>
+
+              {/* LA MATURITÉ — l'anneau de la maquette, mais il compte des objets valides et non des
+                  points : Michel a écarté le score le 23/08/2026. */}
+              <Card className="p-4">
+                <p className="mb-1 text-[10px] font-bold uppercase tracking-[0.08em] text-navy-400">
+                  Maturité de l'opportunité
+                </p>
+                <div className="grid grid-cols-1 items-center gap-5 pt-1.5 sm:grid-cols-[270px_minmax(0,1fr)]">
+                  <div className="flex items-center gap-3.5">
+                    <AnneauMaturite valides={listePrerequis.length - manquants.length} total={listePrerequis.length} />
+                    <div className="min-w-0">
+                      <p className="text-[12.5px] font-bold leading-snug text-navy-800">
+                        {manquants.length === 0 ? 'Prête à convertir' : `${manquants.length} objet${manquants.length > 1 ? 's' : ''} à réunir`}
+                      </p>
+                      <p className="mt-0.5 text-[10.5px] leading-relaxed text-navy-500">
+                        La maturité se lit à la validité des objets, pas à un score.
+                      </p>
+                    </div>
+                  </div>
+                  <div className="flex flex-col gap-1 border-navy-50 sm:border-l sm:pl-5">
+                    {listePrerequis.map((p) => (
+                      <div key={p.cle} className="flex items-center gap-2">
+                        <span
+                          className={cn(
+                            'h-1.5 w-1.5 shrink-0 rounded-full',
+                            p.ok ? 'bg-kiwi-600' : 'bg-amber-400',
+                          )}
+                        />
+                        <span className={cn('min-w-0 flex-1 text-[10.5px]', p.ok ? 'text-navy-600' : 'font-semibold text-navy-800')}>
+                          {p.libelle}
+                        </span>
+                        <span className={cn('font-mono text-[10px] font-bold', p.ok ? 'text-kiwi-700' : 'text-amber-600')}>
+                          {p.ok ? 'ok' : 'à faire'}
+                        </span>
+                      </div>
+                    ))}
+                  </div>
                 </div>
-              )}
-            </Card>
+                {!opportunite.accord_client && (
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    className="mt-3"
+                    onClick={async () => {
+                      await majOpp({ accord_client: true })
+                      signaler("✓ Accord du client noté")
+                    }}
+                  >
+                    <Check className="h-3.5 w-3.5" /> Noter l'accord du client
+                  </Button>
+                )}
+              </Card>
 
+              {/* LA PROCHAINE ACTION — carte dédiée, avec l'échéance en pastille et les deux
+                  boutons de la maquette. */}
+              <Card className={cn('p-4', enRetard && 'border-red-200 bg-red-50/40')}>
+                <div className="mb-2.5 flex items-center gap-2">
+                  <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-md bg-amber-100 text-amber-700">
+                    <Check className="h-3 w-3" />
+                  </span>
+                  <p className="text-[10px] font-bold uppercase tracking-[0.08em] text-navy-400">Prochaine action</p>
+                  <span className="flex-1" />
+                  {opportunite.prochaine_action_echeance && (
+                    <span
+                      className={cn(
+                        'rounded-md border px-2 py-0.5 font-mono text-[10px] font-bold',
+                        enRetard
+                          ? 'border-red-200 bg-red-100 text-red-700'
+                          : 'border-amber-200 bg-amber-50 text-amber-700',
+                      )}
+                    >
+                      échéance {new Date(opportunite.prochaine_action_echeance).toLocaleDateString('fr-FR')}
+                    </span>
+                  )}
+                </div>
+                <div className="flex flex-col gap-2">
+                  <LigneAction libelle="Action">
+                    <InlineField
+                      variant="text"
+                      label=""
+                      emptyLabel="aucune action prévue"
+                      value={opportunite.prochaine_action ?? ''}
+                      onCommit={(v) => majOpp({ prochaine_action: v.trim() || null, prochaine_action_faite_le: null })}
+                      {...retourInline}
+                    />
+                  </LigneAction>
+                  <LigneAction libelle="Échéance">
+                    <InlineField
+                      variant="date"
+                      label=""
+                      emptyLabel="sans échéance"
+                      value={opportunite.prochaine_action_echeance?.slice(0, 10) ?? null}
+                      onCommit={(v) => majOpp({ prochaine_action_echeance: v || null })}
+                      {...retourInline}
+                    />
+                  </LigneAction>
+                  <LigneAction libelle="Responsable">
+                    <span className="text-xs text-navy-700">{opportunite.proprietaire_nom || '—'}</span>
+                  </LigneAction>
+                </div>
+                {opportunite.prochaine_action && (
+                  <div className="mt-3 flex flex-wrap gap-2 border-t border-kw-border-faint pt-2.5">
+                    <Button
+                      size="sm"
+                      onClick={async () => {
+                        await majOpp({ prochaine_action_faite_le: new Date().toISOString() })
+                        signaler('✓ Action marquée faite')
+                      }}
+                    >
+                      <Check className="h-3.5 w-3.5" /> Marquer fait
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={async () => {
+                        // Reprogrammer, c'est repousser d'une semaine : le geste le plus courant, et
+                        // celui que la maquette met derrière ce bouton.
+                        const base = opportunite.prochaine_action_echeance
+                          ? new Date(opportunite.prochaine_action_echeance)
+                          : new Date()
+                        base.setDate(base.getDate() + 7)
+                        await majOpp({ prochaine_action_echeance: base.toISOString().slice(0, 10), prochaine_action_faite_le: null })
+                        signaler('✓ Reportée d’une semaine')
+                      }}
+                    >
+                      ↻ Reprogrammer
+                    </Button>
+                  </div>
+                )}
+                {opportunite.prochaine_action_faite_le && (
+                  <p className="mt-2 text-[10.5px] text-kiwi-700">
+                    Faite le {new Date(opportunite.prochaine_action_faite_le).toLocaleDateString('fr-FR')}.
+                  </p>
+                )}
+              </Card>
 
-            {/* ── LE MANDAT, VÉRIFIÉ CONTRE LE PÉRIMÈTRE ── */}
-            <Card className="p-4">
-              <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
-                <p className="text-[10px] font-bold uppercase tracking-wide text-navy-400">Mandat</p>
-                <Badge tone={mandatCouvre ? 'kiwi' : 'amber'}>
-                  {mandatCouvre ? 'Périmètre couvert' : couverture.mandat ? 'Couverture partielle' : 'Aucun mandat actif'}
-                </Badge>
-              </div>
-              {couverture.mandat ? (
-                <>
-                  <p className="text-xs text-navy-700">
-                    <EntityLink to={`/mandats/${couverture.mandat.id}`}>
-                      {couverture.mandat.id_salesforce || 'Mandat actif'}
-                    </EntityLink>
-                    {couverture.mandat.date_fin_validite && (
-                      <> · valide jusqu'au {new Date(couverture.mandat.date_fin_validite).toLocaleDateString('fr-FR')}</>
+              {/* LES RECOMMANDATIONS LIÉES, ET LA RÈGLE DE CONVERSION */}
+              <Card className="p-4">
+                <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
+                  <p className="text-[10px] font-bold uppercase tracking-[0.08em] text-navy-400">
+                    Recommandations liées
+                  </p>
+                  <Badge tone="neutral">{recosLiees.length}</Badge>
+                </div>
+                {recosLiees.length > 0 ? (
+                  <div className="flex flex-col gap-1.5">
+                    {recosLiees.map((r) => (
+                      <div key={r.id} className="flex items-center justify-between gap-2 rounded-lg border border-kw-border-faint px-3 py-2">
+                        <EntityLink to={`/recommandations/${r.id}`}>{r.titre || 'Recommandation'}</EntityLink>
+                        <span className="text-[10.5px] text-navy-400">{r.etape}</span>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <p className="text-xs leading-relaxed text-navy-500">
+                    Une recommandation ne se crée qu'une fois l'opportunité qualifiée en{' '}
+                    <strong className="font-semibold text-navy-700">Convertie</strong>.
+                    {manquants.length > 0 && (
+                      <> Il reste {manquants.length} élément{manquants.length > 1 ? 's' : ''} à rassembler.</>
                     )}
                   </p>
-                  {couverture.manquants.length === 0 ? (
-                    <p className="mt-1 text-xs text-navy-500">
-                      Le périmètre entier ({opportunite.compteur_ids.length} compteur
-                      {opportunite.compteur_ids.length > 1 ? 's' : ''}) est couvert. Aucune action nécessaire.
-                    </p>
-                  ) : (
-                    <p className="mt-1 text-xs font-semibold text-amber-800">
-                      {couverture.manquants.length} compteur{couverture.manquants.length > 1 ? 's' : ''} du périmètre
-                      {couverture.manquants.length > 1 ? ' ne sont pas couverts' : " n'est pas couvert"} par ce mandat.
-                      Un nouveau mandat doit être créé et envoyé à {contact ? `${contact.prenom} ${contact.nom}` : 'au signataire'}.
-                    </p>
-                  )}
-                </>
-              ) : (
-                <p className="text-xs text-navy-500">
-                  {opportunite.compte_id
-                    ? "Aucun mandat actif sur ce compte. Un mandat est nécessaire avant de lancer une recommandation."
-                    : "Le compte n'est pas encore identifié : la couverture du mandat ne peut pas être vérifiée."}
-                </p>
-              )}
-              {opportunite.compte_id && !mandatCouvre && (
-                <Button
-                  size="sm"
-                  variant="outline"
-                  className="mt-2.5"
-                  onClick={() => setMandatOuvert(true)}
-                >
-                  <FileSignature className="h-3.5 w-3.5" />
-                  Lancer la demande de mandat
-                </Button>
-              )}
-            </Card>
-
-
-            <Card className="p-4">
-              <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
-                <p className="text-[10px] font-bold uppercase tracking-wide text-navy-400">
-                  Recommandations liées
-                </p>
-                {convertie ? (
-                  <Button size="sm" onClick={() => navigate(`/recommandations?opportunite=${opportunite.id}`)}>
-                    <Plus className="h-3.5 w-3.5" /> Créer une recommandation
-                  </Button>
-                ) : (
-                  <Badge tone="neutral">{recosLiees.length}</Badge>
                 )}
-              </div>
-              {recosLiees.length > 0 && (
-                <div className="space-y-1.5">
-                  {recosLiees.map((r) => (
-                    <div key={r.id} className="flex items-center justify-between gap-2 rounded-lg bg-navy-50/60 px-3 py-2">
-                      <span className="min-w-0 truncate text-xs font-medium text-navy-800">{r.titre}</span>
-                      <EntityLink to={`/recommandations/${r.id}`}>ouvrir →</EntityLink>
-                    </div>
-                  ))}
-                </div>
-              )}
-              {!convertie && (
-                <p className="text-xs leading-relaxed text-navy-500">
-                  Une recommandation ne se crée qu'une fois l'opportunité qualifiée en{' '}
-                  <strong className="text-navy-700">Convertie</strong>.
-                  {manquants.length > 0 && (
-                    <> Il reste {manquants.length} élément{manquants.length > 1 ? 's' : ''} à rassembler.</>
-                  )}
-                </p>
-              )}
-            </Card>
-          </div>
+              </Card>
 
-          {/* ══ L'OPPORTUNITÉ ELLE-MÊME ══ */}
-          <div className="flex flex-col gap-3">
-            {/* ── LA MATURITÉ DE L'OPPORTUNITÉ ──
-                Michel, 23/08/2026 : « la maturité se fait si les objets sont valides ». C'est donc ce
-                bloc, et pas une jauge : le cœur de l'écran, l'opportunité n'existant que pour
-                rassembler ces six choses. Maquette : « Opportunité incomplète — {champ} à
-                renseigner ». */}
-            <Card className={cn('p-4', manquants.length === 0 ? 'border-kiwi-200 bg-kiwi-50/60' : 'border-amber-200 bg-amber-50')}>
-              <div className="flex flex-wrap items-center justify-between gap-2">
-                <p className={cn('text-[10px] font-bold uppercase tracking-wide', manquants.length === 0 ? 'text-kiwi-700' : 'text-amber-700')}>
-                  {manquants.length === 0
-                    ? 'Opportunité mûre — prête à convertir'
-                    : `Maturité — ${listePrerequis.length - manquants.length}/${listePrerequis.length} objets valides`}
-                </p>
-                {manquants.length === 0 && !opportunite.qualification_fin && (
-                  <Button size="sm" onClick={() => setClotureOuverte(true)}>
-                    Qualifier la clôture
-                  </Button>
-                )}
-              </div>
-              <ul className="mt-2.5 grid grid-cols-1 gap-1.5 sm:grid-cols-2">
-                {listePrerequis.map((p) => (
-                  <li key={p.cle} className="flex items-start gap-2 text-xs">
-                    <span className={cn(
-                      'mt-px flex h-4 w-4 shrink-0 items-center justify-center rounded-full',
-                      p.ok ? 'bg-kiwi-600 text-white' : 'border border-amber-300 bg-white',
-                    )}>
-                      {p.ok && <Check className="h-2.5 w-2.5" />}
-                    </span>
-                    <span className={p.ok ? 'text-navy-600' : 'font-semibold text-amber-800'}>{p.libelle}</span>
-                  </li>
-                ))}
-              </ul>
-              {/* L'accord du client ne se déduit d'aucune donnée : il se coche. */}
-              {!opportunite.accord_client && (
-                <Button
-                  size="sm"
-                  variant="outline"
-                  className="mt-3"
-                  onClick={async () => {
-                    await majOpp({ accord_client: true })
-                    signaler('✓ Accord du client noté')
-                  }}
-                >
-                  <Check className="h-3.5 w-3.5" />
-                  Noter l'accord du client
-                </Button>
-              )}
-            </Card>
-
-
-            <Card className="p-4">
-              <p className="mb-2.5 text-[10px] font-bold uppercase tracking-wide text-navy-400">Détail</p>
-              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-                <InlineField
-                  variant="select"
-                  label="Origine"
-                  emptyLabel="à préciser"
-                  value={opportunite.origine ?? ''}
-                  options={ORIGINES_OPPORTUNITE.map((o) => ({ value: o.code, label: o.libelle }))}
-                  onCommit={(v) => majOpp({ origine: v || null })}
-                  {...retourInline}
-                />
-                {/* LE STATUT NE SE CHOISIT PLUS. Il se lisait dans une liste déroulante, ce qui
-                    permettait de le poser sur « À valider » alors que le mandat manquait juste à
-                    côté. Michel donne à chaque palier un sens qui décrit les objets réunis : il est
-                    donc calculé, et affiché en lecture seule avec la tâche du moment. */}
-                <div>
-                  <p className="text-[10px] font-bold uppercase tracking-wide text-navy-400">Statut</p>
-                  <p className="mt-0.5 text-sm font-medium text-navy-800">{palier?.libelle}</p>
-                  <p className="text-[11px] leading-snug text-navy-500">{palier?.tache}</p>
-                </div>
-                <InlineField
-                  variant="text"
-                  label="Type d’opportunité"
-                  emptyLabel="à préciser"
-                  value={opportunite.type_opportunite ?? ''}
-                  onCommit={(v) => majOpp({ type_opportunite: v.trim() || null })}
-                  {...retourInline}
-                />
-                <InlineField
-                  variant="select"
-                  label="Contact"
-                  emptyLabel="à identifier"
-                  value={opportunite.contact_id ?? ''}
-                  options={(contacts ?? [])
-                    .filter((c) => !opportunite.compte_id || c.compte_id === opportunite.compte_id)
-                    .map((c) => ({ value: c.id, label: `${c.prenom} ${c.nom}` }))}
-                  onCommit={(v) => majOpp({ contact_id: v || null })}
-                  {...retourInline}
-                />
-                <InlineField
-                  variant="text"
-                  label="Prochaine action"
-                  emptyLabel="aucune"
-                  value={opportunite.prochaine_action ?? ''}
-                  onCommit={(v) => majOpp({ prochaine_action: v.trim() || null, prochaine_action_faite_le: null })}
-                  {...retourInline}
-                />
-                <InlineField
-                  variant="date"
-                  label="Échéance de l’action"
-                  emptyLabel="sans échéance"
-                  value={opportunite.prochaine_action_echeance?.slice(0, 10) ?? null}
-                  onCommit={(v) => majOpp({ prochaine_action_echeance: v || null })}
-                  {...retourInline}
-                />
-              </div>
-              <div className="mt-3">
+              <Card className="p-4">
+                <p className="mb-2 text-[10px] font-bold uppercase tracking-[0.08em] text-navy-400">Commentaire</p>
                 <InlineField
                   variant="longtext"
-                  label="Commentaire"
+                  label=""
                   emptyLabel="aucun"
                   value={opportunite.commentaire ?? ''}
                   onCommit={(v: string) => majOpp({ commentaire: v.trim() || null })}
                   {...retourInline}
                 />
-              </div>
-            </Card>
+                {(opportunite.signal_libelle || opportunite.signal_id) && (
+                  <p className="mt-3 border-t border-kw-border-faint pt-2 text-[11px] text-navy-500">
+                    <span className="font-bold uppercase tracking-wide text-opp-500">Signal</span>{' '}
+                    {opportunite.signal_libelle ?? 'signal enregistré'}
+                  </p>
+                )}
+              </Card>
+            </div>
+          )}
+
+          {onglet === 'historique' && (
+            <div className="animate-kw-fade-slide">
+              <Card className="p-4">
+                <p className="mb-2 text-[10px] font-bold uppercase tracking-[0.08em] text-navy-400">
+                  Historique des modifications
+                </p>
+                <HistoriqueDiscret tableNom="opportunites" ligneId={opportunite.id} />
+              </Card>
+            </div>
+          )}
+
+          {onglet === 'fichiers' && (
+            <div className="animate-kw-fade-slide">
+              <Card className="p-4">
+                <p className="text-xs text-navy-500">
+                  Les fichiers d'une opportunité ne sont pas encore branchés : ils vivent aujourd'hui
+                  sur le compte, le mandat et le contrat. L'onglet existe pour ne pas laisser croire
+                  qu'il manque, et attend d'être relié.
+                </p>
+              </Card>
+            </div>
+          )}
+        </div>
+
+        {/* ── COLONNE DROITE : le flux d'actualité ── */}
+        <div className="hidden min-h-0 flex-col border-l border-kw-border bg-white lg:flex">
+          <div className="flex flex-none items-center gap-2 px-4 pb-2 pt-3">
+            <p className="text-[10px] font-bold uppercase tracking-[0.08em] text-navy-400">Flux d'actualité</p>
           </div>
 
-          {/* ══ LES ACTIVITÉS ══
-              Pour l'instant l'historique des modifications, qui est l'activité que cet objet
-              produit réellement. Les interactions (appels, courriels) sont portées par le compte et
-              le contact, pas par l'opportunité : les afficher ici demanderait de décider lesquelles
-              lui appartiennent, ce que Michel n'a pas tranché. */}
-          <div className="flex flex-col gap-3">
-            <Card className="p-4">
-              <p className="mb-2 text-[10px] font-bold uppercase tracking-wide text-navy-400">
-                Activité · opportunité
-              </p>
-              <HistoriqueDiscret tableNom="opportunites" ligneId={opportunite.id} />
-            </Card>
+          {/* L'ORIGINE ÉPINGLÉE, avec le halo magenta de la maquette. */}
+          <div className="relative mx-3 mb-2.5 flex-none overflow-hidden rounded-xl border-[1.5px] border-opp-200 bg-gradient-to-br from-opp-50 to-white px-3 py-2.5">
+            <span className="absolute -right-3.5 -top-3.5 h-[52px] w-[52px] rounded-full bg-[radial-gradient(circle,rgba(168,49,127,.13),transparent_70%)]" />
+            <p className="mb-1.5 text-[9px] font-extrabold uppercase tracking-[0.07em] text-opp-500">
+              📌 Origine de l'opportunité
+            </p>
+            <div className="flex items-start gap-2">
+              <span className="flex h-[26px] w-[26px] shrink-0 items-center justify-center rounded-lg bg-gradient-to-br from-opp-600 to-opp-400 p-1 text-white">
+                <Target className="h-3 w-3" />
+              </span>
+              <div className="min-w-0">
+                <p className="text-[11.5px] font-bold leading-snug text-navy-800">
+                  {opportunite.signal_libelle || origine?.libelle || 'Origine à préciser'}
+                </p>
+                <p className="mt-0.5 font-mono text-[9.5px] text-navy-400">
+                  {new Date(opportunite.date_creation).toLocaleDateString('fr-FR')} ·{' '}
+                  {new Date(opportunite.date_creation).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })}
+                </p>
+              </div>
+            </div>
+          </div>
+
+          <div className="min-h-0 flex-1 overflow-y-auto px-3 pb-3">
+            <HistoriqueDiscret tableNom="opportunites" ligneId={opportunite.id} />
           </div>
         </div>
       </div>
-
       {clotureOuverte && (
         <DialogCloture
           opportunite={opportunite}
@@ -557,40 +803,156 @@ export default function OpportuniteDetail() {
   )
 }
 
-/** Une ligne du périmètre : ce qu'elle est, et le moyen de la retirer. */
-function LignePerimetre({ icone, libelle, lien, alerte, onRetirer }: {
+/**
+ * Un bloc de la colonne de gauche, au format de la maquette : pastille d'icône colorée à la teinte
+ * de l'objet, intitulé en petites capitales espacées, puis à droite le compteur, le badge ou le lien
+ * « ouvrir → ». C'est ce gabarit répété qui donne à la colonne son unité.
+ */
+function BlocLateral({ titre, icone, couleurIcone, lien, couleurLien, compteur, badge, badgeTon, children }: {
+  titre: string
   icone: React.ReactNode
-  libelle: string
-  lien: string
-  alerte?: string
+  couleurIcone: string
+  lien?: string
+  couleurLien?: string
+  compteur?: number
+  badge?: string
+  badgeTon?: 'kiwi' | 'amber'
+  children: React.ReactNode
+}) {
+  const navigate = useNavigate()
+  return (
+    <div className="rounded-[11px] border border-kw-border bg-white px-3.5 py-3">
+      <div className="mb-2 flex items-center gap-1.5">
+        <span className={cn('flex h-5 w-5 shrink-0 items-center justify-center rounded-md', couleurIcone)}>
+          {icone}
+        </span>
+        <span className="text-[10px] font-bold uppercase tracking-[0.08em] text-navy-400">{titre}</span>
+        <span className="flex-1" />
+        {typeof compteur === 'number' && (
+          <span className="rounded-[5px] bg-indigo-50 px-1.5 py-0.5 text-[9.5px] font-extrabold text-indigo-600">
+            {compteur}
+          </span>
+        )}
+        {badge && (
+          <span
+            className={cn(
+              'rounded-[5px] px-1.5 py-0.5 text-[9.5px] font-extrabold',
+              badgeTon === 'kiwi' ? 'bg-kiwi-50 text-kiwi-700' : 'bg-amber-100 text-amber-700',
+            )}
+          >
+            {badge}
+          </span>
+        )}
+        {lien && (
+          <button
+            type="button"
+            onClick={() => navigate(lien)}
+            className={cn('text-[10.5px] font-semibold hover:underline', couleurLien ?? 'text-kiwi-700')}
+          >
+            ouvrir →
+          </button>
+        )}
+      </div>
+      {children}
+    </div>
+  )
+}
+
+/** Un compteur du périmètre : son PDL en chiffres fixes, son énergie, et la croix pour l'en sortir. */
+function LigneCompteur({ compteur, horsMandat, onRetirer }: {
+  compteur: { id: string; numero_pdl: string; type_energie: string }
+  horsMandat: boolean
   onRetirer: () => void
 }) {
+  const gaz = compteur.type_energie === 'gaz'
   return (
-    <div className="flex items-center gap-2 rounded-lg bg-navy-50/60 px-3 py-2">
-      <span className="shrink-0 text-navy-400">{icone}</span>
-      <span className="min-w-0 flex-1 truncate text-xs font-medium text-navy-800">
-        <EntityLink to={lien}>{libelle}</EntityLink>
+    <div className="flex items-center gap-1.5 py-0.5">
+      <span
+        className={cn(
+          'flex h-3.5 w-3.5 shrink-0 items-center justify-center rounded-[4px] text-[7px] font-extrabold',
+          gaz ? 'bg-sky-100 text-sky-700' : 'bg-amber-100 text-amber-700',
+        )}
+      >
+        {gaz ? 'G' : 'E'}
       </span>
-      {alerte && <Badge tone="amber">{alerte}</Badge>}
+      <span className="min-w-0 flex-1 truncate font-mono text-[10.5px] font-semibold">
+        <EntityLink to={`/compteurs/${compteur.id}`}>{compteur.numero_pdl}</EntityLink>
+      </span>
+      {horsMandat && (
+        <span className="shrink-0 rounded-[4px] bg-amber-100 px-1 text-[8.5px] font-extrabold text-amber-700">
+          hors mandat
+        </span>
+      )}
       <button
         type="button"
         onClick={onRetirer}
         title="Retirer du périmètre"
-        className="shrink-0 rounded p-1 text-navy-300 hover:bg-white hover:text-red-500"
+        className="shrink-0 px-0.5 text-[11px] text-navy-300 hover:text-red-600"
       >
-        <X className="h-3 w-3" />
+        ×
       </button>
     </div>
   )
 }
 
 /**
- * La qualification de clôture.
+ * L'anneau de la maquette, mais il compte des OBJETS VALIDES et non des points.
  *
- * Maquette : « Quelle qualification finale retenez-vous ? » avec un motif et, pour un report, une
- * date de réactivation. Convertie est la seule qui ouvre la création d'une recommandation — l'écran
- * le dit avant de valider, parce que c'est une décision qu'on ne prend pas par mégarde.
+ * William dessinait un score sur 100 dans un anneau de 78 px. Michel a écarté le score le
+ * 23/08/2026 ; l'anneau reste, parce qu'il donne d'un coup d'œil l'avancement, et il porte
+ * maintenant « 3 / 6 objets ». Le tracé est un cercle SVG dont on découpe la circonférence : plus
+ * lisible qu'un dégradé conique, et net à toutes les tailles.
  */
+function AnneauMaturite({ valides, total }: { valides: number; total: number }) {
+  const rayon = 33
+  const circonference = 2 * Math.PI * rayon
+  const part = total > 0 ? valides / total : 0
+  const complet = valides === total && total > 0
+  return (
+    <div className="relative h-[78px] w-[78px] shrink-0">
+      <svg viewBox="0 0 78 78" className="h-full w-full -rotate-90">
+        <circle cx="39" cy="39" r={rayon} fill="none" stroke="#f0efec" strokeWidth="7" />
+        <circle
+          cx="39"
+          cy="39"
+          r={rayon}
+          fill="none"
+          stroke={complet ? '#0d7a5f' : '#a8317f'}
+          strokeWidth="7"
+          strokeLinecap="round"
+          strokeDasharray={`${circonference * part} ${circonference}`}
+          className="transition-[stroke-dasharray] duration-500 ease-out"
+        />
+      </svg>
+      <div className="absolute inset-0 flex flex-col items-center justify-center">
+        <span className={cn('font-mono text-[19px] font-extrabold leading-none', complet ? 'text-kiwi-700' : 'text-opp-500')}>
+          {valides}
+        </span>
+        <span className="font-mono text-[10px] text-navy-400">/ {total}</span>
+      </div>
+    </div>
+  )
+}
+
+/** Une ligne de la carte « prochaine action » : intitulé fixe à gauche, valeur modifiable à droite. */
+function LigneAction({ libelle, children }: { libelle: string; children: React.ReactNode }) {
+  return (
+    <div className="flex items-start gap-2.5">
+      <span className="w-[74px] shrink-0 pt-1 text-[9.5px] font-extrabold uppercase tracking-[0.06em] text-navy-400">
+        {libelle}
+      </span>
+      <div className="min-w-0 flex-1">{children}</div>
+    </div>
+  )
+}
+
+/** Les trois onglets de la maquette. */
+const ONGLETS = [
+  { cle: 'opportunite' as const, libelle: 'Opportunité' },
+  { cle: 'fichiers' as const, libelle: 'Fichiers' },
+  { cle: 'historique' as const, libelle: 'Historique' },
+]
+
 function DialogCloture({ opportunite, statutClotureId, onFermer, onValide, majOpp }: {
   opportunite: Opportunite
   statutClotureId: string | null
