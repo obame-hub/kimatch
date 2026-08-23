@@ -55,6 +55,18 @@ export default function Requetes() {
     setTimeout(() => setToast(null), 2600)
   }
 
+  const compteurs = useMemo(() => {
+    const toutes = requetes ?? []
+    const maintenant = Date.now()
+    return {
+      aTraiter: toutes.filter((r) => !['RESOLUE', 'ABANDONNEE'].includes(r.statut)).length,
+      enRetard: toutes.filter(
+        (r) => !['RESOLUE', 'ABANDONNEE'].includes(r.statut) && r.date_echeance && new Date(r.date_echeance).getTime() < maintenant,
+      ).length,
+      resolues: toutes.filter((r) => r.statut === 'RESOLUE').length,
+    }
+  }, [requetes])
+
   const filtrees = useMemo(() => {
     const q = recherche.trim().toLowerCase()
     return (requetes ?? [])
@@ -72,12 +84,22 @@ export default function Requetes() {
         <PageHeader
           title="Requêtes"
           description="Ce qui bloque un client, et ce qu'on fait pour le débloquer. Parallèle à la chaîne commerciale."
+          icone={<LifeBuoy className="h-[19px] w-[19px]" strokeWidth={2.1} />}
+          teinte="from-[#a8371f] to-[#c2452d]"
           actions={
             <Button size="sm" onClick={() => setCreation(true)}>
               <Plus className="h-3.5 w-3.5" /> Nouvelle requête
             </Button>
           }
         />
+
+        {/* TROIS TUILES AVANT LA LISTE, comme les écrans de William : ce qu'on vient vérifier d'un
+            coup d'œil. « En retard » est la seule qui doit sauter aux yeux, donc la seule colorée. */}
+        <div className="mb-3 grid grid-cols-1 gap-3 sm:grid-cols-3">
+          <Tuile libelle="À traiter" valeur={String(compteurs.aTraiter)} />
+          <Tuile libelle="En retard" valeur={String(compteurs.enRetard)} accent={compteurs.enRetard > 0 ? 'rouge' : undefined} />
+          <Tuile libelle="Résolues" valeur={String(compteurs.resolues)} accent="kiwi" />
+        </div>
 
         <ListToolbar query={recherche} onQueryChange={setRecherche} placeholder="Objet, compte, catégorie…" count={filtrees.length}>
           <Button size="sm" variant={ouvertes ? 'default' : 'outline'} onClick={() => setOuvertes((v) => !v)}>
@@ -151,19 +173,33 @@ function CarteRequete({ requete, statuts, onStatut, onResolution }: {
   const [resolution, setResolution] = useState(requete.resolution ?? '')
   const categorie = CATEGORIES_REQUETE.find((c) => c.code === requete.categorie)
   const resolue = requete.statut === 'RESOLUE'
-  const enRetard = requete.date_echeance && !resolue && new Date(requete.date_echeance) < new Date()
+  const enRetard = Boolean(requete.date_echeance && !resolue && new Date(requete.date_echeance) < new Date())
 
   return (
-    <Card className="p-3.5">
+    <div className={cn(
+      'rounded-[13px] border bg-white p-3.5 transition-shadow hover:shadow-[0_8px_22px_-14px_rgba(22,24,29,.28)]',
+      enRetard ? 'border-red-200' : 'border-kw-border',
+    )}>
       <div className="flex items-start justify-between gap-2">
-        <div className="min-w-0">
-          <p className="truncate text-sm font-medium text-navy-800">{requete.objet || 'Sans objet'}</p>
-          <p className="truncate text-xs text-navy-500">
-            {[categorie?.libelle, requete.compte_id ? undefined : 'compte non rattaché'].filter(Boolean).join(' · ')}
-            {requete.compte_id && (
-              <> · <EntityLink to={`/comptes/${requete.compte_id}`}>{requete.compte_nom}</EntityLink></>
+        <div className="flex min-w-0 items-start gap-2.5">
+          <span
+            className={cn(
+              'mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-lg',
+              resolue ? 'bg-kiwi-50 text-kiwi-700' : enRetard ? 'bg-red-100 text-red-700' : 'bg-[#f7e6e2] text-[#a8371f]',
             )}
-          </p>
+          >
+            <LifeBuoy className="h-3.5 w-3.5" />
+          </span>
+          <div className="min-w-0">
+            <p className="truncate text-sm font-semibold text-navy-800">{requete.objet || 'Sans objet'}</p>
+            <p className="truncate text-[11px] text-navy-500">
+              {requete.reference && <span className="font-mono text-navy-400">{requete.reference} · </span>}
+              {[categorie?.libelle, requete.compte_id ? undefined : 'compte non rattaché'].filter(Boolean).join(' · ')}
+              {requete.compte_id && (
+                <> · <EntityLink to={`/comptes/${requete.compte_id}`}>{requete.compte_nom}</EntityLink></>
+              )}
+            </p>
+          </div>
         </div>
         <Badge tone={TON_STATUT[requete.statut] ?? 'neutral'}>{requete.statut_libelle}</Badge>
       </div>
@@ -192,7 +228,7 @@ function CarteRequete({ requete, statuts, onStatut, onResolution }: {
         />
       </div>
 
-      <div className="mt-2.5 flex flex-wrap items-center gap-1.5">
+      <div className="mt-2.5 flex flex-wrap items-center gap-1.5 border-t border-kw-border-faint pt-2.5">
         {statuts.map((s) => (
           <button
             key={s.id}
@@ -210,7 +246,25 @@ function CarteRequete({ requete, statuts, onStatut, onResolution }: {
           </button>
         ))}
       </div>
-    </Card>
+    </div>
+  )
+}
+
+/** Une tuile de tête : un intitulé en petites capitales, un nombre en chiffres fixes. */
+function Tuile({ libelle, valeur, accent }: { libelle: string; valeur: string; accent?: 'kiwi' | 'rouge' }) {
+  return (
+    <div className={cn(
+      'rounded-[13px] border bg-white px-3.5 py-3',
+      accent === 'kiwi' ? 'border-kiwi-200 bg-kiwi-50/50' : accent === 'rouge' ? 'border-red-200 bg-red-50' : 'border-kw-border',
+    )}>
+      <p className="text-[10px] font-bold uppercase tracking-[0.08em] text-navy-400">{libelle}</p>
+      <p className={cn(
+        'mt-0.5 font-mono text-lg font-extrabold tabular-nums',
+        accent === 'rouge' ? 'text-red-700' : accent === 'kiwi' ? 'text-kiwi-700' : 'text-navy-800',
+      )}>
+        {valeur}
+      </p>
+    </div>
   )
 }
 

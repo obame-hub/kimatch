@@ -79,6 +79,8 @@ export default function Remunerations() {
         <PageHeader
           title="Rémunérations"
           description="Ce que Kiwee attend et ce qu'elle a perçu. L'écart entre les deux est le suivi."
+          icone={<Euro className="h-[19px] w-[19px]" strokeWidth={2.2} />}
+          teinte="from-kiwi-700 to-kiwi-500"
           actions={
             <Button size="sm" onClick={() => setCreation(true)}>
               <Plus className="h-3.5 w-3.5" /> Nouvelle rémunération
@@ -164,12 +166,11 @@ function Tuile({ libelle, valeur, detail, accent }: {
   accent?: 'kiwi' | 'rouge'
 }) {
   return (
-    <Card className={cn(
-      'p-3.5',
-      accent === 'kiwi' && 'border-kiwi-200 bg-kiwi-50/60',
-      accent === 'rouge' && 'border-red-200 bg-red-50',
+    <div className={cn(
+      'rounded-[13px] border bg-white px-3.5 py-3',
+      accent === 'kiwi' ? 'border-kiwi-200 bg-kiwi-50/50' : accent === 'rouge' ? 'border-red-200 bg-red-50' : 'border-kw-border',
     )}>
-      <p className="text-[10px] font-bold uppercase tracking-wide text-navy-400">{libelle}</p>
+      <p className="text-[10px] font-bold uppercase tracking-[0.08em] text-navy-400">{libelle}</p>
       <p className={cn(
         'mt-0.5 font-mono text-lg font-extrabold tabular-nums',
         accent === 'rouge' ? 'text-red-700' : accent === 'kiwi' ? 'text-kiwi-700' : 'text-navy-800',
@@ -177,7 +178,7 @@ function Tuile({ libelle, valeur, detail, accent }: {
         {valeur}
       </p>
       {detail && <p className="text-[10.5px] text-navy-500">{detail} en attente</p>}
-    </Card>
+    </div>
   )
 }
 
@@ -195,15 +196,29 @@ function LigneRemuneration({ remuneration: r, onStatut, onPercu }: {
     : null
 
   return (
-    <div className="flex flex-wrap items-center gap-3 border-b border-navy-50 px-4 py-3 last:border-b-0">
-      <div className="min-w-[180px] flex-1">
-        <p className="truncate text-sm font-medium text-navy-800">
-          {r.compte_id ? <EntityLink to={`/comptes/${r.compte_id}`}>{r.compte_nom}</EntityLink> : 'Compte non rattaché'}
-        </p>
-        <p className="truncate text-xs text-navy-500">
-          {[r.fournisseur_nom || null, r.reference].filter(Boolean).join(' · ') || '—'}
-          {r.hors_kiwee && ' · hors Kiwee'}
-        </p>
+    <div className={cn(
+      'flex flex-wrap items-center gap-3 border-b border-kw-border-faint px-4 py-3 last:border-b-0',
+      enRetard && 'bg-red-50/40',
+    )}>
+      <div className="flex min-w-[180px] flex-1 items-start gap-2.5">
+        <span
+          className={cn(
+            'mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-lg',
+            r.statut === 'PERCUE' ? 'bg-kiwi-50 text-kiwi-700' : enRetard ? 'bg-red-100 text-red-700' : 'bg-navy-50 text-navy-500',
+          )}
+        >
+          <Euro className="h-3.5 w-3.5" />
+        </span>
+        <div className="min-w-0">
+          <p className="truncate text-sm font-semibold text-navy-800">
+            {r.compte_id ? <EntityLink to={`/comptes/${r.compte_id}`}>{r.compte_nom}</EntityLink> : 'Compte non rattaché'}
+          </p>
+          <p className="truncate text-[11px] text-navy-500">
+            {r.reference && <span className="font-mono text-navy-400">{r.reference} · </span>}
+            {r.fournisseur_nom || 'fournisseur non précisé'}
+            {r.hors_kiwee && ' · hors Kiwee'}
+          </p>
+        </div>
       </div>
 
       <div className="min-w-[96px] text-right">
