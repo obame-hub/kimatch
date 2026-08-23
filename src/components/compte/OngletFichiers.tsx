@@ -32,12 +32,19 @@ export function OngletFichiers({
   onOuvrir,
   onDeposer,
   typesDocuments,
+  nomEntite,
 }: {
   documents: DocumentItem[]
   onOuvrir: (doc: DocumentItem) => void
   /** Dépôt réel de fichiers. C'est le seul moyen d'ajouter : parcourir le poste, ou glisser. */
   onDeposer: (fichiers: File[], typeDocumentId: string | null) => Promise<void>
   typesDocuments?: { id: string; libelle: string }[]
+  /**
+   * Ce dont on parle quand il n'y a aucun fichier. Le composant a ete ecrit pour la fiche compte et
+   * annoncait « aucun fichier sur ce compte » partout ou on le reutilisait — vu sur la fiche
+   * opportunite le 23/08/2026.
+   */
+  nomEntite?: string
 }) {
   const [categorie, setCategorie] = useState<string>('tous')
 
@@ -129,7 +136,7 @@ export function OngletFichiers({
 
         {affiches.length === 0 && (
           <div className="p-5 text-center text-xs text-[#83868f]">
-            {documents.length === 0 ? 'Aucun fichier sur ce compte' : 'Aucun fichier dans cette catégorie'}
+            {documents.length === 0 ? `Aucun fichier sur ${nomEntite ?? 'ce compte'}` : 'Aucun fichier dans cette catégorie'}
           </div>
         )}
       </div>

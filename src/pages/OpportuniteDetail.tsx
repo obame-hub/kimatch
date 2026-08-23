@@ -806,6 +806,7 @@ export default function OpportuniteDetail() {
                 documents={documentsDeLOpportunite}
                 onOuvrir={(d) => navigate(`/documents/${d.id}`)}
                 typesDocuments={typesDocuments}
+                nomEntite="cette opportunité"
                 onDeposer={async (fichiers, typeDocumentId) => {
                   await televerser.mutateAsync({
                     fichiers,
