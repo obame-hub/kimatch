@@ -180,106 +180,44 @@ export default function OpportuniteDetail() {
           </div>
         </div>
 
-        <div className="grid grid-cols-1 gap-3 lg:grid-cols-[minmax(0,1fr)_320px]">
-          {/* ══ COLONNE PRINCIPALE ══ */}
+        {/* ══ TROIS COLONNES, COMME LA FICHE RECOMMANDATION ══
+            Michel, 23/08/2026 : « je partirais sur la même base que la recommandation : les objets
+            rattachés à cette opportunité à gauche et les activités à droite ». Les blocs sont ceux
+            d'avant, déplacés et non réécrits. Les largeurs sont celles de la fiche recommandation
+            (264 px / reste / 300 px) pour que les deux écrans se ressemblent vraiment. */}
+        <div className="grid grid-cols-1 gap-3 lg:grid-cols-[264px_minmax(0,1fr)_300px]">
+          {/* ══ LES OBJETS RATTACHÉS ══
+              Dans l'ordre où l'opportunité les réunit : le compte, le contact, le périmètre, le
+              mandat qui le couvre, puis ce qui en est né. */}
           <div className="flex flex-col gap-3">
-
-            {/* ── LA MATURITÉ DE L'OPPORTUNITÉ ──
-                Michel, 23/08/2026 : « la maturité se fait si les objets sont valides ». C'est donc ce
-                bloc, et pas une jauge : le cœur de l'écran, l'opportunité n'existant que pour
-                rassembler ces six choses. Maquette : « Opportunité incomplète — {champ} à
-                renseigner ». */}
-            <Card className={cn('p-4', manquants.length === 0 ? 'border-kiwi-200 bg-kiwi-50/60' : 'border-amber-200 bg-amber-50')}>
-              <div className="flex flex-wrap items-center justify-between gap-2">
-                <p className={cn('text-[10px] font-bold uppercase tracking-wide', manquants.length === 0 ? 'text-kiwi-700' : 'text-amber-700')}>
-                  {manquants.length === 0
-                    ? 'Opportunité mûre — prête à convertir'
-                    : `Maturité — ${listePrerequis.length - manquants.length}/${listePrerequis.length} objets valides`}
-                </p>
-                {manquants.length === 0 && !opportunite.qualification_fin && (
-                  <Button size="sm" onClick={() => setClotureOuverte(true)}>
-                    Qualifier la clôture
-                  </Button>
-                )}
-              </div>
-              <ul className="mt-2.5 grid grid-cols-1 gap-1.5 sm:grid-cols-2">
-                {listePrerequis.map((p) => (
-                  <li key={p.cle} className="flex items-start gap-2 text-xs">
-                    <span className={cn(
-                      'mt-px flex h-4 w-4 shrink-0 items-center justify-center rounded-full',
-                      p.ok ? 'bg-kiwi-600 text-white' : 'border border-amber-300 bg-white',
-                    )}>
-                      {p.ok && <Check className="h-2.5 w-2.5" />}
-                    </span>
-                    <span className={p.ok ? 'text-navy-600' : 'font-semibold text-amber-800'}>{p.libelle}</span>
-                  </li>
-                ))}
-              </ul>
-              {/* L'accord du client ne se déduit d'aucune donnée : il se coche. */}
-              {!opportunite.accord_client && (
-                <Button
-                  size="sm"
-                  variant="outline"
-                  className="mt-3"
-                  onClick={async () => {
-                    await majOpp({ accord_client: true })
-                    signaler('✓ Accord du client noté')
-                  }}
-                >
-                  <Check className="h-3.5 w-3.5" />
-                  Noter l'accord du client
-                </Button>
+            <Card className="p-4">
+              <p className="mb-2 text-[10px] font-bold uppercase tracking-wide text-navy-400">Compte</p>
+              {opportunite.compte_id ? (
+                <div className="flex items-center gap-2">
+                  <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-sky-100 text-sky-600">
+                    <Building2 className="h-4 w-4" />
+                  </span>
+                  <EntityLink to={`/comptes/${opportunite.compte_id}`}>{opportunite.compte_nom}</EntityLink>
+                </div>
+              ) : (
+                <p className="text-xs text-navy-500">À identifier — c'est un prérequis de conversion.</p>
               )}
             </Card>
 
-            {/* ── LE MANDAT, VÉRIFIÉ CONTRE LE PÉRIMÈTRE ── */}
             <Card className="p-4">
-              <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
-                <p className="text-[10px] font-bold uppercase tracking-wide text-navy-400">Mandat</p>
-                <Badge tone={mandatCouvre ? 'kiwi' : 'amber'}>
-                  {mandatCouvre ? 'Périmètre couvert' : couverture.mandat ? 'Couverture partielle' : 'Aucun mandat actif'}
-                </Badge>
-              </div>
-              {couverture.mandat ? (
-                <>
-                  <p className="text-xs text-navy-700">
-                    <EntityLink to={`/mandats/${couverture.mandat.id}`}>
-                      {couverture.mandat.id_salesforce || 'Mandat actif'}
-                    </EntityLink>
-                    {couverture.mandat.date_fin_validite && (
-                      <> · valide jusqu'au {new Date(couverture.mandat.date_fin_validite).toLocaleDateString('fr-FR')}</>
-                    )}
-                  </p>
-                  {couverture.manquants.length === 0 ? (
-                    <p className="mt-1 text-xs text-navy-500">
-                      Le périmètre entier ({opportunite.compteur_ids.length} compteur
-                      {opportunite.compteur_ids.length > 1 ? 's' : ''}) est couvert. Aucune action nécessaire.
-                    </p>
-                  ) : (
-                    <p className="mt-1 text-xs font-semibold text-amber-800">
-                      {couverture.manquants.length} compteur{couverture.manquants.length > 1 ? 's' : ''} du périmètre
-                      {couverture.manquants.length > 1 ? ' ne sont pas couverts' : " n'est pas couvert"} par ce mandat.
-                      Un nouveau mandat doit être créé et envoyé à {contact ? `${contact.prenom} ${contact.nom}` : 'au signataire'}.
-                    </p>
-                  )}
-                </>
+              <p className="mb-2 text-[10px] font-bold uppercase tracking-wide text-navy-400">Contact principal</p>
+              {contact ? (
+                <div className="flex items-center gap-2">
+                  <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-violet-100 text-violet-600">
+                    <User className="h-4 w-4" />
+                  </span>
+                  <div className="min-w-0">
+                    <EntityLink to={`/contacts/${contact.id}`}>{contact.prenom} {contact.nom}</EntityLink>
+                    {contact.fonction && <p className="truncate text-[10.5px] text-navy-400">{contact.fonction}</p>}
+                  </div>
+                </div>
               ) : (
-                <p className="text-xs text-navy-500">
-                  {opportunite.compte_id
-                    ? "Aucun mandat actif sur ce compte. Un mandat est nécessaire avant de lancer une recommandation."
-                    : "Le compte n'est pas encore identifié : la couverture du mandat ne peut pas être vérifiée."}
-                </p>
-              )}
-              {opportunite.compte_id && !mandatCouvre && (
-                <Button
-                  size="sm"
-                  variant="outline"
-                  className="mt-2.5"
-                  onClick={() => setMandatOuvert(true)}
-                >
-                  <FileSignature className="h-3.5 w-3.5" />
-                  Lancer la demande de mandat
-                </Button>
+                <p className="text-xs text-navy-500">À identifier — c'est un prérequis de conversion.</p>
               )}
             </Card>
 
@@ -339,10 +277,59 @@ export default function OpportuniteDetail() {
               )}
             </Card>
 
-            {/* ── LES RECOMMANDATIONS LIÉES, ET LA RÈGLE DE CONVERSION ──
-                Maquette : « Recommandations — disponibles après clôture. Une recommandation ne se
-                crée qu'une fois l'opportunité qualifiée en Convertie. » La règle s'affiche là où elle
-                s'applique, plutôt que d'être un refus sans explication. */}
+
+            {/* ── LE MANDAT, VÉRIFIÉ CONTRE LE PÉRIMÈTRE ── */}
+            <Card className="p-4">
+              <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
+                <p className="text-[10px] font-bold uppercase tracking-wide text-navy-400">Mandat</p>
+                <Badge tone={mandatCouvre ? 'kiwi' : 'amber'}>
+                  {mandatCouvre ? 'Périmètre couvert' : couverture.mandat ? 'Couverture partielle' : 'Aucun mandat actif'}
+                </Badge>
+              </div>
+              {couverture.mandat ? (
+                <>
+                  <p className="text-xs text-navy-700">
+                    <EntityLink to={`/mandats/${couverture.mandat.id}`}>
+                      {couverture.mandat.id_salesforce || 'Mandat actif'}
+                    </EntityLink>
+                    {couverture.mandat.date_fin_validite && (
+                      <> · valide jusqu'au {new Date(couverture.mandat.date_fin_validite).toLocaleDateString('fr-FR')}</>
+                    )}
+                  </p>
+                  {couverture.manquants.length === 0 ? (
+                    <p className="mt-1 text-xs text-navy-500">
+                      Le périmètre entier ({opportunite.compteur_ids.length} compteur
+                      {opportunite.compteur_ids.length > 1 ? 's' : ''}) est couvert. Aucune action nécessaire.
+                    </p>
+                  ) : (
+                    <p className="mt-1 text-xs font-semibold text-amber-800">
+                      {couverture.manquants.length} compteur{couverture.manquants.length > 1 ? 's' : ''} du périmètre
+                      {couverture.manquants.length > 1 ? ' ne sont pas couverts' : " n'est pas couvert"} par ce mandat.
+                      Un nouveau mandat doit être créé et envoyé à {contact ? `${contact.prenom} ${contact.nom}` : 'au signataire'}.
+                    </p>
+                  )}
+                </>
+              ) : (
+                <p className="text-xs text-navy-500">
+                  {opportunite.compte_id
+                    ? "Aucun mandat actif sur ce compte. Un mandat est nécessaire avant de lancer une recommandation."
+                    : "Le compte n'est pas encore identifié : la couverture du mandat ne peut pas être vérifiée."}
+                </p>
+              )}
+              {opportunite.compte_id && !mandatCouvre && (
+                <Button
+                  size="sm"
+                  variant="outline"
+                  className="mt-2.5"
+                  onClick={() => setMandatOuvert(true)}
+                >
+                  <FileSignature className="h-3.5 w-3.5" />
+                  Lancer la demande de mandat
+                </Button>
+              )}
+            </Card>
+
+
             <Card className="p-4">
               <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
                 <p className="text-[10px] font-bold uppercase tracking-wide text-navy-400">
@@ -376,6 +363,58 @@ export default function OpportuniteDetail() {
                 </p>
               )}
             </Card>
+          </div>
+
+          {/* ══ L'OPPORTUNITÉ ELLE-MÊME ══ */}
+          <div className="flex flex-col gap-3">
+            {/* ── LA MATURITÉ DE L'OPPORTUNITÉ ──
+                Michel, 23/08/2026 : « la maturité se fait si les objets sont valides ». C'est donc ce
+                bloc, et pas une jauge : le cœur de l'écran, l'opportunité n'existant que pour
+                rassembler ces six choses. Maquette : « Opportunité incomplète — {champ} à
+                renseigner ». */}
+            <Card className={cn('p-4', manquants.length === 0 ? 'border-kiwi-200 bg-kiwi-50/60' : 'border-amber-200 bg-amber-50')}>
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <p className={cn('text-[10px] font-bold uppercase tracking-wide', manquants.length === 0 ? 'text-kiwi-700' : 'text-amber-700')}>
+                  {manquants.length === 0
+                    ? 'Opportunité mûre — prête à convertir'
+                    : `Maturité — ${listePrerequis.length - manquants.length}/${listePrerequis.length} objets valides`}
+                </p>
+                {manquants.length === 0 && !opportunite.qualification_fin && (
+                  <Button size="sm" onClick={() => setClotureOuverte(true)}>
+                    Qualifier la clôture
+                  </Button>
+                )}
+              </div>
+              <ul className="mt-2.5 grid grid-cols-1 gap-1.5 sm:grid-cols-2">
+                {listePrerequis.map((p) => (
+                  <li key={p.cle} className="flex items-start gap-2 text-xs">
+                    <span className={cn(
+                      'mt-px flex h-4 w-4 shrink-0 items-center justify-center rounded-full',
+                      p.ok ? 'bg-kiwi-600 text-white' : 'border border-amber-300 bg-white',
+                    )}>
+                      {p.ok && <Check className="h-2.5 w-2.5" />}
+                    </span>
+                    <span className={p.ok ? 'text-navy-600' : 'font-semibold text-amber-800'}>{p.libelle}</span>
+                  </li>
+                ))}
+              </ul>
+              {/* L'accord du client ne se déduit d'aucune donnée : il se coche. */}
+              {!opportunite.accord_client && (
+                <Button
+                  size="sm"
+                  variant="outline"
+                  className="mt-3"
+                  onClick={async () => {
+                    await majOpp({ accord_client: true })
+                    signaler('✓ Accord du client noté')
+                  }}
+                >
+                  <Check className="h-3.5 w-3.5" />
+                  Noter l'accord du client
+                </Button>
+              )}
+            </Card>
+
 
             <Card className="p-4">
               <p className="mb-2.5 text-[10px] font-bold uppercase tracking-wide text-navy-400">Détail</p>
@@ -444,46 +483,21 @@ export default function OpportuniteDetail() {
                   {...retourInline}
                 />
               </div>
-              <HistoriqueDiscret tableNom="opportunites" ligneId={opportunite.id} />
             </Card>
           </div>
 
-          {/* ══ COLONNE LATÉRALE ══ */}
+          {/* ══ LES ACTIVITÉS ══
+              Pour l'instant l'historique des modifications, qui est l'activité que cet objet
+              produit réellement. Les interactions (appels, courriels) sont portées par le compte et
+              le contact, pas par l'opportunité : les afficher ici demanderait de décider lesquelles
+              lui appartiennent, ce que Michel n'a pas tranché. */}
           <div className="flex flex-col gap-3">
             <Card className="p-4">
-              <p className="mb-2 text-[10px] font-bold uppercase tracking-wide text-navy-400">Compte</p>
-              {opportunite.compte_id ? (
-                <div className="flex items-center gap-2">
-                  <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-sky-100 text-sky-600">
-                    <Building2 className="h-4 w-4" />
-                  </span>
-                  <EntityLink to={`/comptes/${opportunite.compte_id}`}>{opportunite.compte_nom}</EntityLink>
-                </div>
-              ) : (
-                <p className="text-xs text-navy-500">À identifier — c'est un prérequis de conversion.</p>
-              )}
+              <p className="mb-2 text-[10px] font-bold uppercase tracking-wide text-navy-400">
+                Activité · opportunité
+              </p>
+              <HistoriqueDiscret tableNom="opportunites" ligneId={opportunite.id} />
             </Card>
-
-            <Card className="p-4">
-              <p className="mb-2 text-[10px] font-bold uppercase tracking-wide text-navy-400">Contact principal</p>
-              {contact ? (
-                <div className="flex items-center gap-2">
-                  <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-violet-100 text-violet-600">
-                    <User className="h-4 w-4" />
-                  </span>
-                  <div className="min-w-0">
-                    <EntityLink to={`/contacts/${contact.id}`}>{contact.prenom} {contact.nom}</EntityLink>
-                    {contact.fonction && <p className="truncate text-[10.5px] text-navy-400">{contact.fonction}</p>}
-                  </div>
-                </div>
-              ) : (
-                <p className="text-xs text-navy-500">À identifier — c'est un prérequis de conversion.</p>
-              )}
-            </Card>
-
-            {/* PAS DE BLOC « SCORE » ICI. Il annonçait une jauge à venir ; Michel l'a écartée le
-                23/08/2026 et la maturité se lit désormais dans la liste d'objets valides du bloc
-                principal. Deux endroits pour la même chose se contrediraient. */}
           </div>
         </div>
       </div>
