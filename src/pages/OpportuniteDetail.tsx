@@ -764,6 +764,13 @@ export default function OpportuniteDetail() {
                 )}
               </Card>
 
+              <Card className="p-4 lg:hidden">
+                <p className="mb-2 text-[10px] font-bold uppercase tracking-[0.08em] text-navy-400">
+                  Flux d'actualité
+                </p>
+                <FluxActualite tableNom="opportunites" ligneId={opportunite.id} dateCreation={opportunite.date_creation} />
+              </Card>
+
               <Card className="p-4">
                 <p className="mb-2 text-[10px] font-bold uppercase tracking-[0.08em] text-navy-400">Commentaire</p>
                 <InlineField
