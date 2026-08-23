@@ -601,19 +601,55 @@ export function DocumentComparatif({
 }
 
 /**
- * Le lexique, reformulé à partir des définitions du rapport.
+ * Le lexique du document client, VÉRIFIÉ AUX SOURCES.
  *
  * REFORMULÉ ET NON RECOPIÉ : ce sont des notions réglementaires, mais le texte du modèle appartient à
  * son éditeur. Les définitions disent la même chose dans nos mots.
+ *
+ * ET VÉRIFIÉ, DEPUIS LE 21/08/2026. Michel, ce jour-là : « ne déduis rien quand tu ne connais pas un
+ * terme ou un fonctionnement, fais des recherches sur internet dans le monde de l'énergie. »
+ * L'avertissement portait : ces définitions sont imprimées dans un document remis au client, et j'en
+ * avais écrit une FAUSSE.
+ *
+ * CE QUI A ÉTÉ CORRIGÉ, et sur quelle base :
+ *
+ * · CPB — je le décrivais comme une attestation d'origine du biométhane. C'en est le contraire : un
+ *   QUOTA D'OBLIGATION. Créé par l'article 95 de la loi Climat et Résilience d'août 2021, il oblige
+ *   chaque fournisseur de gaz à restituer, depuis le 1er janvier 2026, un nombre de certificats
+ *   proportionnel au gaz livré à ses clients résidentiels et tertiaires — 0,0041 certificat par MWh en
+ *   2026, 0,0182 en 2027. Le fournisseur peut produire le biométhane ou acheter les certificats sans
+ *   le gaz. C'est facturé À PART du prix du gaz. Attester l'origine, c'est le rôle des garanties
+ *   d'origine, pas du CPB. Sources : connaissancedesenergies.org, engie-solutions.com,
+ *   totalenergies.fr (consultés le 21/08/2026).
+ *
+ * · CTA — j'omettais l'essentiel de son calcul : elle ne porte PAS sur la consommation mais sur la
+ *   part fixe de l'acheminement (le TURPE en électricité, l'ATRD au gaz). C'est ce qui explique
+ *   qu'elle apparaisse en euros par an et non au mégawattheure. Taux arrêtés par les ministres après
+ *   avis de la CRE, au profit de la caisse des industries électriques et gazières.
+ *   Sources : Wikipédia, selectra.info, connaissancedesenergies.org.
+ *
+ * · AGN et AE — « identique chez tous les fournisseurs » est vrai mais se lisait comme « le même
+ *   montant pour tout le monde ». Le taux ne dépend pas du fournisseur, il dépend de l'USAGE et de la
+ *   catégorie de client. Ex-TICGN et ex-TICFE, unifiées en accises par l'ordonnance 2021-1843 du
+ *   22 décembre 2021, code des impositions sur les biens et services. Sources : opera-energie.com,
+ *   dune-energie.fr, selectra.info.
+ *
+ * · ATRD — révisé chaque 1er juillet, ce qui compte pour un budget annuel : il change en cours
+ *   d'année. NaTran est bien le nouveau nom de GRTgaz depuis janvier 2025.
+ *   Sources : moncourtierenergie.com, engie.fr, natrangroupe.com.
+ *
+ * CE QUI N'A PAS ÉTÉ VÉRIFIÉ et reste à faire confirmer par Michel : la définition de la molécule et
+ * celle des classes horosaisonnières, qui décrivent nos propres conventions de calcul plus qu'une
+ * notion réglementaire.
  */
 const LEXIQUE_GAZ = [
   { terme: 'Molécule', definition: 'Le gaz lui-même : la part de la facture proportionnelle au volume consommé. Son prix est fixé par le contrat de fourniture.' },
   { terme: 'CEE', definition: 'Certificats d’économies d’énergie. Dispositif qui oblige les fournisseurs à promouvoir l’efficacité énergétique ; le coût dépend du fournisseur.' },
-  { terme: 'CPB', definition: 'Certificats de production de biogaz : ils attestent qu’une quantité d’énergie a été produite à partir de biométhane. Coût défini au contrat.' },
-  { terme: 'ATRT', definition: 'Accès des tiers au réseau de transport. Finance le réseau géré par NaTran et Teréga ; tarif fixé par la CRE, identique chez tous les fournisseurs.' },
-  { terme: 'ATRD', definition: 'Accès des tiers au réseau de distribution (GRDF et entreprises locales). Tarif fixé par la CRE, identique chez tous les fournisseurs.' },
-  { terme: 'AGN', definition: 'Accise sur les gaz naturels, ex-TICGN. Taxe fixée par l’État, identique chez tous les fournisseurs.' },
-  { terme: 'CTA', definition: 'Contribution tarifaire d’acheminement. Finance les retraites des industries électriques et gazières ; identique chez tous les fournisseurs.' },
+  { terme: 'CPB', definition: 'Certificats de production de biogaz. Depuis le 1ᵉʳ janvier 2026, chaque fournisseur doit restituer un nombre de certificats proportionnel au gaz livré ; il les produit ou les achète. Facturé à part du prix du gaz, ce coût dépend du fournisseur.' },
+  { terme: 'ATRT', definition: 'Accès des tiers au réseau de transport. Finance les grands réseaux de NaTran (ex-GRTgaz) et Teréga ; tarif fixé par la CRE, identique chez tous les fournisseurs.' },
+  { terme: 'ATRD', definition: 'Accès des tiers au réseau de distribution (GRDF et entreprises locales). Tarif fixé par la CRE et révisé chaque 1ᵉʳ juillet, identique chez tous les fournisseurs.' },
+  { terme: 'AGN', definition: 'Accise sur les gaz naturels, ex-TICGN. Taxe de l’État : son taux dépend de l’usage, jamais du fournisseur.' },
+  { terme: 'CTA', definition: 'Contribution tarifaire d’acheminement. Finance les retraites des industries électriques et gazières. Calculée sur la part fixe de l’acheminement et non sur la consommation, elle est identique chez tous les fournisseurs.' },
 ]
 
 const LEXIQUE_ELEC = [
@@ -621,8 +657,8 @@ const LEXIQUE_ELEC = [
   { terme: 'CEE', definition: 'Certificats d’économies d’énergie. Dispositif qui oblige les fournisseurs à promouvoir l’efficacité énergétique ; le coût dépend du fournisseur.' },
   { terme: 'GO', definition: 'Garanties d’origine : elles attestent qu’une quantité d’électricité a été produite à partir de sources renouvelables. C’est la part « énergie verte » de l’offre.' },
   { terme: 'TURPE', definition: 'Tarif d’utilisation des réseaux publics d’électricité. Finance le transport et la distribution ; fixé par la CRE, identique chez tous les fournisseurs.' },
-  { terme: 'AE', definition: 'Accise sur l’électricité, ex-TICFE. Taxe fixée par l’État, identique chez tous les fournisseurs.' },
-  { terme: 'CTA', definition: 'Contribution tarifaire d’acheminement. Finance les retraites des industries électriques et gazières ; identique chez tous les fournisseurs.' },
+  { terme: 'AE', definition: 'Accise sur l’électricité, ex-TICFE. Taxe de l’État : son taux dépend de l’usage, jamais du fournisseur.' },
+  { terme: 'CTA', definition: 'Contribution tarifaire d’acheminement. Finance les retraites des industries électriques et gazières. Calculée sur la part fixe du TURPE et non sur la consommation, elle est identique chez tous les fournisseurs.' },
   { terme: 'Abonnement', definition: 'Part fixe de la facture, indépendante du volume consommé. En électricité, elle est comptée dans le budget énergie.' },
 ]
 

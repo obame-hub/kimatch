@@ -375,7 +375,11 @@ export function SaisiePrixDialog({
                 />
                 <Champ
                   libelle="CPB"
-                  aide="Contribution passage biométhane, au mégawattheure."
+                  // « Contribution passage biométhane » était une invention de ma part. CPB signifie
+                  // CERTIFICATS DE PRODUCTION DE BIOGAZ : un quota que le fournisseur doit restituer
+                  // depuis le 1er janvier 2026, proportionnel au gaz livré, et qu'il refacture à part.
+                  // Vérifié aux sources le 21/08/2026 — voir le lexique de DocumentComparatif.
+                  aide="Certificats de production de biogaz, au mégawattheure. Quota que le fournisseur doit restituer depuis 2026 et qu'il refacture à part du prix du gaz."
                   unite="€/MWh"
                   valeur={cpb}
                   onCommit={(v) => poser('prix_cpb_mwh', v)}
