@@ -11,6 +11,9 @@ import { FormField, Select, Textarea } from '@/components/ui/form'
 import { InlineField } from '@/components/ui/inline-field'
 import { EntityLink } from '@/components/ui/entity-link'
 import { HistoriqueDiscret } from '@/components/ui/historique-discret'
+import { OngletFichiers } from '@/components/compte/OngletFichiers'
+import { useDocumentsParEntites, useTeleverserDocuments } from '@/lib/data/documents'
+import { useReferenceTable } from '@/lib/data/referenceTables'
 import { FriseStatut } from '@/components/opportunite/FriseStatut'
 import { FluxActualite } from '@/components/opportunite/FluxActualite'
 import {
@@ -71,6 +74,17 @@ export default function OpportuniteDetail() {
   // renvoyait sur la fiche compte, ce qui faisait perdre le périmètre qu'on vient d'établir.
   const [mandatOuvert, setMandatOuvert] = useState(false)
   const [onglet, setOnglet] = useState<'opportunite' | 'fichiers' | 'historique'>('opportunite')
+  const [hubOuvert, setHubOuvert] = useState(false)
+  const { data: documents } = useDocumentsParEntites(id ? [id] : undefined)
+  const { data: typesDocumentsRef } = useReferenceTable('types_documents')
+  const typesDocuments = typesDocumentsRef ?? []
+  const televerser = useTeleverserDocuments()
+  // `useDocumentsParEntites` interroge par identifiant d'entité : on retient ceux qui portent bien
+  // le type `opportunite`, sinon un site et une opportunité de même identifiant se mélangeraient.
+  const documentsDeLOpportunite = useMemo(
+    () => (documents ?? []).filter((d) => d.entite_type === 'opportunite'),
+    [documents],
+  )
 
   function signaler(m: string) {
     setToast(m)
@@ -242,6 +256,80 @@ export default function OpportuniteDetail() {
           </div>
         </div>
 
+        {/* LE BOUTON « + CRÉER » DE LA MAQUETTE, et il ouvre vraiment quelque chose : les quatre
+            gestes qui font avancer cette opportunité, chacun déjà implémenté ailleurs sur l'écran.
+            Un bouton d'en-tête qui ne fait rien est pire que pas de bouton. Chaque entrée
+            s'éteint quand elle n'a pas de sens — pas de mandat sans compte, pas de recommandation
+            avant la conversion. */}
+        <div className="relative flex-none">
+          <Button size="sm" onClick={() => setHubOuvert((v) => !v)}>
+            <Plus className="h-3.5 w-3.5" /> Créer
+          </Button>
+          {hubOuvert && (
+            <>
+              {/* Un voile transparent ferme le menu au premier clic ailleurs, sans écouteur global. */}
+              <div className="fixed inset-0 z-40" onClick={() => setHubOuvert(false)} />
+              <div className="absolute right-0 top-full z-50 mt-1.5 w-[248px] animate-kw-hub-pop rounded-[13px] border border-kw-border bg-white p-1.5 shadow-[0_18px_44px_-12px_rgba(22,24,29,.22)]">
+                {[
+                  {
+                    cle: 'perimetre',
+                    libelle: 'Ajouter au périmètre',
+                    dispo: Boolean(opportunite.compte_id),
+                    raison: 'Il faut d’abord un compte.',
+                    action: () => setAjoutOuvert(true),
+                  },
+                  {
+                    cle: 'mandat',
+                    libelle: 'Lancer la demande de mandat',
+                    dispo: Boolean(opportunite.compte_id) && !mandatCouvre,
+                    raison: mandatCouvre ? 'Le périmètre est déjà couvert.' : 'Il faut d’abord un compte.',
+                    action: () => setMandatOuvert(true),
+                  },
+                  {
+                    cle: 'accord',
+                    libelle: 'Noter l’accord du client',
+                    dispo: !opportunite.accord_client,
+                    raison: 'L’accord est déjà noté.',
+                    action: async () => {
+                      await majOpp({ accord_client: true })
+                      signaler('✓ Accord du client noté')
+                    },
+                  },
+                  {
+                    cle: 'cloture',
+                    libelle: 'Qualifier la clôture',
+                    dispo: !opportunite.qualification_fin,
+                    raison: 'Déjà qualifiée.',
+                    action: () => setClotureOuverte(true),
+                  },
+                ].map((a) => (
+                  <button
+                    key={a.cle}
+                    type="button"
+                    disabled={!a.dispo}
+                    title={a.dispo ? undefined : a.raison}
+                    onClick={() => { setHubOuvert(false); void a.action() }}
+                    className={cn(
+                      'flex w-full items-center gap-2.5 rounded-[9px] px-2.5 py-2 text-left text-[12.5px] font-semibold transition-colors',
+                      a.dispo ? 'text-navy-800 hover:bg-navy-50' : 'cursor-not-allowed text-navy-300',
+                    )}
+                  >
+                    <span
+                      className={cn(
+                        'flex h-6 w-6 shrink-0 items-center justify-center rounded-md',
+                        a.dispo ? 'bg-opp-100 text-opp-600' : 'bg-navy-50 text-navy-300',
+                      )}
+                    >
+                      <Plus className="h-3 w-3" />
+                    </span>
+                    {a.libelle}
+                  </button>
+                ))}
+              </div>
+            </>
+          )}
+        </div>
+
         <div className="flex flex-none flex-col items-start gap-0.5 rounded-[10px] border border-kw-border-faint bg-kw-surface px-3 py-1.5">
           <span className="text-[10px] font-bold text-navy-600">
             {opportunite.proprietaire_nom || 'Sans propriétaire'}
@@ -268,7 +356,11 @@ export default function OpportuniteDetail() {
             )}
           >
             {o.libelle}
-            {o.cle === 'historique' && null}
+            {o.cle === 'fichiers' && documentsDeLOpportunite.length > 0 && (
+              <span className="rounded-md bg-navy-100 px-1.5 py-0.5 text-[9.5px] font-extrabold text-navy-600">
+                {documentsDeLOpportunite.length}
+              </span>
+            )}
           </button>
         ))}
         <span className="ml-auto hidden font-mono text-[10px] text-navy-300 sm:block">1–3 pour naviguer</span>
@@ -705,13 +797,26 @@ export default function OpportuniteDetail() {
 
           {onglet === 'fichiers' && (
             <div className="animate-kw-fade-slide">
-              <Card className="p-4">
-                <p className="text-xs text-navy-500">
-                  Les fichiers d'une opportunité ne sont pas encore branchés : ils vivent aujourd'hui
-                  sur le compte, le mandat et le contrat. L'onglet existe pour ne pas laisser croire
-                  qu'il manque, et attend d'être relié.
-                </p>
-              </Card>
+              {/* LE MÊME COMPOSANT QUE LA FICHE COMPTE, pas une copie : dépôt par glisser ou par
+                  parcours du poste, catégories, ouverture de la fiche document. La table
+                  `documents` était déjà générique (`entite_type` + `entite_id`) ; seule sa
+                  contrainte CHECK refusait `opportunite`, levée par la migration 20260823200000 —
+                  exactement le blocage d'Agathe sur les compteurs, même cause. */}
+              <OngletFichiers
+                documents={documentsDeLOpportunite}
+                onOuvrir={(d) => navigate(`/documents/${d.id}`)}
+                typesDocuments={typesDocuments}
+                onDeposer={async (fichiers, typeDocumentId) => {
+                  await televerser.mutateAsync({
+                    fichiers,
+                    entite_type: 'opportunite',
+                    entite_id: opportunite.id,
+                    type_document_id: typeDocumentId,
+                    type_document_libelle: typesDocuments.find((t) => t.id === typeDocumentId)?.libelle ?? '',
+                  })
+                  signaler(`✓ ${fichiers.length} fichier${fichiers.length > 1 ? 's' : ''} déposé${fichiers.length > 1 ? 's' : ''}`)
+                }}
+              />
             </div>
           )}
         </div>
