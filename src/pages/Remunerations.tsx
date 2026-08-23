@@ -3,10 +3,11 @@ import { Plus, Euro, AlertTriangle } from 'lucide-react'
 import { Topbar } from '@/components/layout/Topbar'
 import { PageHeader } from '@/components/ui/page-header'
 import { Card } from '@/components/ui/card'
+import { ChoixParRecherche } from '@/components/ui/choix-recherche'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Dialog } from '@/components/ui/dialog'
-import { FormField, Input, Select, Textarea } from '@/components/ui/form'
+import { FormField, Input, Textarea } from '@/components/ui/form'
 import { ListToolbar } from '@/components/ui/list-toolbar'
 import { EntityLink } from '@/components/ui/entity-link'
 import {
@@ -269,33 +270,47 @@ function DialogCreation({ onFermer, signaler }: { onFermer: () => void; signaler
   const [motif, setMotif] = useState('')
   const [erreur, setErreur] = useState<string | null>(null)
 
-  const contratsDuCompte = useMemo(
-    () => (contrats ?? []).filter((c) => !compteId || c.compte_id === compteId),
-    [contrats, compteId],
-  )
-  const contratChoisi = contratsDuCompte.find((c) => c.id === contratId)
+  const contratChoisi = (contrats ?? []).find((c) => c.id === contratId)
 
   return (
     <Dialog open onClose={onFermer} title="Nouvelle rémunération" description="Ce que Kiwee attend d'un contrat signé.">
       <div className="space-y-3">
-        <FormField label="Compte">
-          <Select value={compteId} onChange={(e) => { setCompteId(e.target.value); setContratId('') }}>
-            <option value="">Choisir…</option>
-            {[...(comptes ?? [])].sort((a, b) => a.nom.localeCompare(b.nom))
-              .map((c) => <option key={c.id} value={c.id}>{c.nom}</option>)}
-          </Select>
-        </FormField>
+        {/* LE CONTRAT COMMANDE, LE COMPTE SUIT.
+            « Une rémunération naît d'un contrat signé via Kiwee » : le contrat est donc l'entrée
+            naturelle, et il connaît déjà son compte. Deux listes déroulantes de 2 765 et 1 601
+            options (mesuré à l'écran le 23/08/2026) deviennent une recherche. */}
         <FormField label="Contrat">
-          <Select value={contratId} onChange={(e) => setContratId(e.target.value)} disabled={!compteId}>
-            <option value="">{compteId ? 'Non rattachée à un contrat' : 'Choisir un compte d’abord'}</option>
-            {contratsDuCompte.map((c) => (
-              <option key={c.id} value={c.id}>
-                {c.fournisseur_nom} — {c.site_nom}
-                {c.date_debut ? ` (${new Date(c.date_debut).toLocaleDateString('fr-FR')})` : ''}
-              </option>
-            ))}
-          </Select>
+          <ChoixParRecherche
+            items={contrats ?? []}
+            valeur={contratId}
+            onChoisir={(c) => { setContratId(c?.id ?? ''); setCompteId(c?.compte_id ?? '') }}
+            placeholder="Compte, fournisseur ou site…"
+            principal={(c) => `${c.fournisseur_nom || 'Fournisseur inconnu'} — ${c.site_nom}`}
+            secondaire={(c) => c.compte_nom || null}
+            filtre={(c, q) => [c.compte_nom, c.fournisseur_nom, c.site_nom, c.reference_fournisseur]
+              .some((v) => (v ?? '').toLowerCase().includes(q))}
+            aucun="Aucun contrat. Une rémunération peut aussi se rattacher au compte seul."
+            totalLibelle={`${(contrats ?? []).length} contrats`}
+          />
         </FormField>
+
+        {/* SANS CONTRAT, LE COMPTE SUFFIT. C'est le cas d'un contrat signé hors Kiwee, qui n'existe
+            pas forcément ici : la rémunération d'exception doit quand même pouvoir se rattacher. */}
+        {!contratId && (
+          <FormField label="Compte">
+            <ChoixParRecherche
+              items={comptes ?? []}
+              valeur={compteId}
+              onChoisir={(c) => setCompteId(c?.id ?? '')}
+              placeholder="Nom du compte…"
+              principal={(c) => c.nom}
+              secondaire={(c) => c.ville || null}
+              filtre={(c, q) => c.nom.toLowerCase().includes(q)}
+              aucun="Aucun compte trouvé."
+              totalLibelle={`${(comptes ?? []).length} comptes`}
+            />
+          </FormField>
+        )}
         <FormField label="Montant attendu HT">
           <Input value={montant} onChange={(e) => setMontant(e.target.value)} placeholder="0" className="text-right font-mono" />
         </FormField>

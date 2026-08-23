@@ -175,12 +175,21 @@ export function useCreerPiste() {
 export function useConvertirPisteEnOpportunite() {
   const qc = useQueryClient()
   return useMutation({
-    mutationFn: async ({ piste, statutNouvelleId, signal }: { piste: Piste; statutNouvelleId: string | null; signal: string | null }) => {
+    mutationFn: async ({ piste, statutNouvelleId, signal, contactId, compteId }: {
+      piste: Piste
+      statutNouvelleId: string | null
+      signal: string | null
+      /** Le contact retenu au moment de la conversion : prerequis de Michel, il ne peut pas etre nul. */
+      contactId?: string | null
+      compteId?: string | null
+    }) => {
       const base = {
         origine: 'PISTE',
         piste_id: piste.id,
-        compte_id: piste.compte_id,
-        contact_id: piste.contact_id,
+        // Ce que le dialogue a retenu prime sur ce que la piste portait : une piste peut avoir ete
+        // rattachee a un contact du patrimoine au moment meme de la conversion.
+        compte_id: compteId ?? piste.compte_id,
+        contact_id: contactId ?? piste.contact_id,
         ...(statutNouvelleId ? { statut_id: statutNouvelleId } : {}),
       }
 
@@ -200,7 +209,17 @@ export function useConvertirPisteEnOpportunite() {
       const { data, error } = reponse
       if (error) throw new Error(messageDErreur(error.message))
       const oppId = (data as { id: string }).id
-      await supabase.from('pistes').update({ opportunite_id: oppId }).eq('id', piste.id)
+      // La piste garde la trace du contact retenu : sans cela l'information ne vivrait que sur
+      // l'opportunite, et la piste continuerait d'afficher un contact en texte libre alors qu'on
+      // vient de le rattacher au patrimoine.
+      await supabase
+        .from('pistes')
+        .update({
+          opportunite_id: oppId,
+          ...(contactId ? { contact_id: contactId } : {}),
+          ...(compteId ? { compte_id: compteId } : {}),
+        })
+        .eq('id', piste.id)
       return oppId
     },
     onSuccess: () => {

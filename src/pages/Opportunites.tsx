@@ -4,6 +4,7 @@ import { Plus, Target } from 'lucide-react'
 import { Topbar } from '@/components/layout/Topbar'
 import { PageHeader } from '@/components/ui/page-header'
 import { Card } from '@/components/ui/card'
+import { ChoixParRecherche } from '@/components/ui/choix-recherche'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Dialog } from '@/components/ui/dialog'
@@ -21,74 +22,7 @@ import {
 } from '@/lib/data/opportunites'
 import { useContacts } from '@/lib/data/contacts'
 import { cn } from '@/lib/utils'
-import type { Contact, Opportunite } from '@/types/domain'
-
-/**
- * Choisir un contact parmi quelques milliers — et, avec lui, son compte.
- *
- * Reprend le motif de recherche de l'assistant mandat (`Mandats.tsx`) plutôt que d'en inventer un :
- * une recherche, cinquante résultats au plus, le total annoncé tant qu'on n'a rien tapé. On cherche
- * sur le nom, le prénom, le compte et le courriel, parce qu'on se souvient rarement de la même
- * chose. Une fois le contact choisi, il s'affiche seul avec son compte et le moyen d'en changer.
- */
-function ChoixContact({ contacts, contactId, onChange }: {
-  contacts: Contact[]
-  contactId: string
-  onChange: (id: string, compteId: string) => void
-}) {
-  const [recherche, setRecherche] = useState('')
-  const choisi = contacts.find((c) => c.id === contactId)
-
-  if (choisi) {
-    return (
-      <div className="flex items-center gap-2 rounded-lg border border-navy-200 bg-white px-3 py-2">
-        <div className="min-w-0 flex-1">
-          <p className="truncate text-sm font-medium text-navy-800">{choisi.prenom} {choisi.nom}</p>
-          <p className="truncate text-[11px] text-navy-400">
-            {[choisi.compte_nom, choisi.fonction].filter(Boolean).join(' · ')}
-          </p>
-        </div>
-        <button
-          type="button"
-          onClick={() => { onChange('', ''); setRecherche('') }}
-          className="shrink-0 text-xs font-semibold text-kiwi-700 hover:underline"
-        >
-          changer
-        </button>
-      </div>
-    )
-  }
-
-  const q = recherche.trim().toLowerCase()
-  const filtres = q
-    ? contacts
-        .filter((c) => [c.prenom, c.nom, c.compte_nom, c.email].some((v) => (v ?? '').toLowerCase().includes(q)))
-        .slice(0, 50)
-    : []
-
-  return (
-    <div className="space-y-1.5">
-      <Input value={recherche} onChange={(e) => setRecherche(e.target.value)} placeholder="Nom, compte ou courriel…" />
-      {q && (
-        <div className="max-h-[152px] overflow-y-auto rounded-lg border border-navy-100">
-          {filtres.map((c) => (
-            <button
-              key={c.id}
-              type="button"
-              onClick={() => onChange(c.id, c.compte_id)}
-              className="flex w-full items-center gap-2 border-b border-navy-50 px-3 py-2 text-left last:border-b-0 hover:bg-navy-50/60"
-            >
-              <span className="min-w-0 flex-1 truncate text-xs font-semibold text-navy-800">{c.prenom} {c.nom}</span>
-              <span className="shrink-0 truncate text-[10.5px] text-navy-400">{c.compte_nom}</span>
-            </button>
-          ))}
-          {filtres.length === 0 && <p className="p-3 text-center text-xs text-navy-400">Aucun contact trouvé.</p>}
-        </div>
-      )}
-      {!q && <p className="text-[10.5px] text-navy-400">{contacts.length} contacts — tapez pour chercher.</p>}
-    </div>
-  )
-}
+import type { Opportunite } from '@/types/domain'
 
 /**
  * Les signaux positifs, tels que Michel les énumère : « échéance connue à moins de 2 ans, demande
@@ -354,10 +288,16 @@ function DialogCreation({ onFermer }: { onFermer: () => void }) {
             compte, donc le choisir suffit à connaître les deux. C'est aussi ce que dit la règle de
             Michel — « au minimum un signal et un contact » : le compte n'est pas demandé, il suit. */}
         <FormField label="Contact">
-          <ChoixContact
-            contacts={contacts ?? []}
-            contactId={contactId}
-            onChange={(id, compte) => { setContactId(id); setCompteId(compte) }}
+          <ChoixParRecherche
+            items={contacts ?? []}
+            valeur={contactId}
+            onChoisir={(c) => { setContactId(c?.id ?? ''); setCompteId(c?.compte_id ?? '') }}
+            placeholder="Nom, compte ou courriel…"
+            principal={(c) => `${c.prenom} ${c.nom}`}
+            secondaire={(c) => [c.compte_nom, c.fonction].filter(Boolean).join(' · ') || null}
+            filtre={(c, q) => [c.prenom, c.nom, c.compte_nom, c.email].some((v) => (v ?? '').toLowerCase().includes(q))}
+            aucun="Aucun contact. Créez-le depuis Contacts, puis revenez ici."
+            totalLibelle={`${(contacts ?? []).length} contacts`}
           />
         </FormField>
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
