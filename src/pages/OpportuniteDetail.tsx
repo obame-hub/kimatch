@@ -12,6 +12,7 @@ import { InlineField } from '@/components/ui/inline-field'
 import { EntityLink } from '@/components/ui/entity-link'
 import { HistoriqueDiscret } from '@/components/ui/historique-discret'
 import { FriseStatut } from '@/components/opportunite/FriseStatut'
+import { FluxActualite } from '@/components/opportunite/FluxActualite'
 import {
   prerequisOpportunite,
   statutDerive,
@@ -744,7 +745,7 @@ export default function OpportuniteDetail() {
           </div>
 
           <div className="min-h-0 flex-1 overflow-y-auto px-3 pb-3">
-            <HistoriqueDiscret tableNom="opportunites" ligneId={opportunite.id} />
+            <FluxActualite tableNom="opportunites" ligneId={opportunite.id} dateCreation={opportunite.date_creation} />
           </div>
         </div>
       </div>
