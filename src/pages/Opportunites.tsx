@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { Plus, Target } from 'lucide-react'
 import { Topbar } from '@/components/layout/Topbar'
@@ -19,33 +19,38 @@ import {
   useCreerOpportunite,
   ORIGINES_OPPORTUNITE,
 } from '@/lib/data/opportunites'
-import { useComptes } from '@/lib/data/comptes'
 import { useContacts } from '@/lib/data/contacts'
 import { cn } from '@/lib/utils'
-import type { Opportunite } from '@/types/domain'
+import type { Contact, Opportunite } from '@/types/domain'
 
 /**
- * Choisir un compte parmi quelques milliers.
+ * Choisir un contact parmi quelques milliers — et, avec lui, son compte.
  *
- * Reprend le motif de l'assistant mandat (`Mandats.tsx`) plutôt que d'en inventer un : une
- * recherche, cinquante résultats au plus, et le total annoncé quand on n'a rien tapé. Une fois le
- * compte choisi il s'affiche seul, avec le moyen d'en changer — la liste n'a plus rien à dire.
+ * Reprend le motif de recherche de l'assistant mandat (`Mandats.tsx`) plutôt que d'en inventer un :
+ * une recherche, cinquante résultats au plus, le total annoncé tant qu'on n'a rien tapé. On cherche
+ * sur le nom, le prénom, le compte et le courriel, parce qu'on se souvient rarement de la même
+ * chose. Une fois le contact choisi, il s'affiche seul avec son compte et le moyen d'en changer.
  */
-function ChoixCompte({ comptes, compteId, onChange }: {
-  comptes: { id: string; nom: string; ville?: string | null }[]
-  compteId: string
-  onChange: (id: string) => void
+function ChoixContact({ contacts, contactId, onChange }: {
+  contacts: Contact[]
+  contactId: string
+  onChange: (id: string, compteId: string) => void
 }) {
   const [recherche, setRecherche] = useState('')
-  const choisi = comptes.find((c) => c.id === compteId)
+  const choisi = contacts.find((c) => c.id === contactId)
 
   if (choisi) {
     return (
       <div className="flex items-center gap-2 rounded-lg border border-navy-200 bg-white px-3 py-2">
-        <span className="min-w-0 flex-1 truncate text-sm font-medium text-navy-800">{choisi.nom}</span>
+        <div className="min-w-0 flex-1">
+          <p className="truncate text-sm font-medium text-navy-800">{choisi.prenom} {choisi.nom}</p>
+          <p className="truncate text-[11px] text-navy-400">
+            {[choisi.compte_nom, choisi.fonction].filter(Boolean).join(' · ')}
+          </p>
+        </div>
         <button
           type="button"
-          onClick={() => { onChange(''); setRecherche('') }}
+          onClick={() => { onChange('', ''); setRecherche('') }}
           className="shrink-0 text-xs font-semibold text-kiwi-700 hover:underline"
         >
           changer
@@ -55,28 +60,32 @@ function ChoixCompte({ comptes, compteId, onChange }: {
   }
 
   const q = recherche.trim().toLowerCase()
-  const filtres = comptes.filter((c) => !q || c.nom.toLowerCase().includes(q)).slice(0, 50)
+  const filtres = q
+    ? contacts
+        .filter((c) => [c.prenom, c.nom, c.compte_nom, c.email].some((v) => (v ?? '').toLowerCase().includes(q)))
+        .slice(0, 50)
+    : []
 
   return (
     <div className="space-y-1.5">
-      <Input value={recherche} onChange={(e) => setRecherche(e.target.value)} placeholder="Nom du compte… (facultatif)" />
+      <Input value={recherche} onChange={(e) => setRecherche(e.target.value)} placeholder="Nom, compte ou courriel…" />
       {q && (
         <div className="max-h-[152px] overflow-y-auto rounded-lg border border-navy-100">
           {filtres.map((c) => (
             <button
               key={c.id}
               type="button"
-              onClick={() => onChange(c.id)}
+              onClick={() => onChange(c.id, c.compte_id)}
               className="flex w-full items-center gap-2 border-b border-navy-50 px-3 py-2 text-left last:border-b-0 hover:bg-navy-50/60"
             >
-              <span className="min-w-0 flex-1 truncate text-xs font-semibold text-navy-800">{c.nom}</span>
-              {c.ville && <span className="shrink-0 text-[10.5px] text-navy-400">{c.ville}</span>}
+              <span className="min-w-0 flex-1 truncate text-xs font-semibold text-navy-800">{c.prenom} {c.nom}</span>
+              <span className="shrink-0 truncate text-[10.5px] text-navy-400">{c.compte_nom}</span>
             </button>
           ))}
-          {filtres.length === 0 && <p className="p-3 text-center text-xs text-navy-400">Aucun compte trouvé.</p>}
+          {filtres.length === 0 && <p className="p-3 text-center text-xs text-navy-400">Aucun contact trouvé.</p>}
         </div>
       )}
-      {!q && <p className="text-[10.5px] text-navy-400">{comptes.length} comptes — tapez pour chercher.</p>}
+      {!q && <p className="text-[10.5px] text-navy-400">{contacts.length} contacts — tapez pour chercher.</p>}
     </div>
   )
 }
@@ -262,7 +271,6 @@ export default function Opportunites() {
  */
 function DialogCreation({ onFermer }: { onFermer: () => void }) {
   const navigate = useNavigate()
-  const { data: comptes } = useComptes()
   const { data: contacts } = useContacts()
   const { data: statuts } = useStatutsOpportunites()
   const creer = useCreerOpportunite()
@@ -278,14 +286,9 @@ function DialogCreation({ onFermer }: { onFermer: () => void }) {
   // LE MINIMUM POUR LANCER UNE OPPORTUNITÉ. Michel, 23/08/2026 : « il nous faut au minimum un signal
   // et un contact ». Deux, et seulement deux : le compte, le périmètre et le mandat se rassemblent
   // ensuite — c'est le travail de l'opportunité. Le compte suit toutefois le contact, puisqu'on
-  // choisit le contact dans la liste d'un compte.
+  // choisit un contact, qui appartient deja a un compte.
   const signalDonne = signal.trim().length > 0
   const minimumTenu = signalDonne && Boolean(contactId)
-
-  const contactsDuCompte = useMemo(
-    () => (contacts ?? []).filter((c) => !compteId || c.compte_id === compteId),
-    [contacts, compteId],
-  )
 
   async function valider() {
     setErreur(null)
@@ -344,24 +347,18 @@ function DialogCreation({ onFermer }: { onFermer: () => void }) {
         {/* DEUX PAR RANGÉE. Sur une seule colonne, le formulaire faisait 700 px de haut : le bouton
             « Créer l'opportunité » tombait sous la ligne de flottaison et n'était jamais visible à
             l'ouverture (mesuré à l'écran, viewport de 709 px). */}
-        {/* LE COMPTE SE CHERCHE, IL NE SE DÉROULE PAS. La liste comptait 2 765 options (mesuré) —
-            le même défaut que Naoëlle avait signalé sur l'assistant de recommandation le
-            21/08/2026 : « c'est encore une liste de sélection déroulante ». Même motif que
-            l'assistant mandat : une recherche, cinquante résultats au plus, et le total annoncé. */}
-        <FormField label="Compte">
-          <ChoixCompte
-            comptes={comptes ?? []}
-            compteId={compteId}
-            onChange={(id) => { setCompteId(id); setContactId('') }}
-          />
-        </FormField>
+        {/* LE CONTACT SE CHERCHE, ET LE COMPTE EN DÉCOULE.
+            Deux listes déroulantes de 2 765 et 3 387 options (mesuré à l'écran) — le défaut signalé
+            le 21/08 sur l'assistant de recommandation : « c'est encore une liste de sélection
+            déroulante ». Et deux champs pour une seule information : un contact appartient à un
+            compte, donc le choisir suffit à connaître les deux. C'est aussi ce que dit la règle de
+            Michel — « au minimum un signal et un contact » : le compte n'est pas demandé, il suit. */}
         <FormField label="Contact">
-          <Select value={contactId} onChange={(e) => setContactId(e.target.value)} disabled={!compteId}>
-            <option value="">{compteId ? 'À identifier' : 'Choisir un compte d’abord'}</option>
-            {contactsDuCompte.map((c) => (
-              <option key={c.id} value={c.id}>{c.prenom} {c.nom}</option>
-            ))}
-          </Select>
+          <ChoixContact
+            contacts={contacts ?? []}
+            contactId={contactId}
+            onChange={(id, compte) => { setContactId(id); setCompteId(compte) }}
+          />
         </FormField>
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
           <FormField label="Origine">
