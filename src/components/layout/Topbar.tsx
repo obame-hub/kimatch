@@ -16,7 +16,8 @@ import {
   MessageSquare,
 } from 'lucide-react'
 import { useAuth } from '@/lib/auth'
-import { navItems } from '@/lib/navItems'
+import { pagesRecherchables } from '@/lib/navItems'
+import type { NavItem } from '@/lib/navItems'
 import { cn } from '@/lib/utils'
 import kimatchLogo from '@/assets/kimatch-logo.png'
 import { useMarketTicker } from '@/lib/data/marche'
@@ -95,7 +96,7 @@ function ResultatsRecherche({
   onPremierResultat,
 }: {
   query: string
-  pageMatches: typeof navItems
+  pageMatches: NavItem[]
   onGoTo: (to: string) => void
   onPremierResultat: (to: string | null) => void
 }) {
@@ -198,7 +199,12 @@ export function Topbar({ title, crumb }: { title: string; crumb?: string }) {
   }, [])
 
   const trimmed = query.trim()
-  const pageMatches = trimmed ? navItems.filter((n) => n.label.toLowerCase().includes(trimmed.toLowerCase())).slice(0, 5) : []
+  // On cherche dans TOUTES les pages, pas seulement dans le rail : les listes sorties du rail
+  // (Signaux, Contrats, Mandats, Taches, Documents, Interactions, Versions) resteraient sinon
+  // atteignables a l'URL seule.
+  const pageMatches = trimmed
+    ? pagesRecherchables.filter((n) => n.label.toLowerCase().includes(trimmed.toLowerCase())).slice(0, 5)
+    : []
 
   function goTo(to: string) {
     navigate(to)

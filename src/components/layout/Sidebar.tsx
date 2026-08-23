@@ -1,24 +1,15 @@
 import { NavLink } from 'react-router-dom'
-import type { LucideIcon } from 'lucide-react'
 import { X, ShieldCheck } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import kiweePicto from '@/assets/kiwee-picto.png'
 import { useSidebar } from '@/lib/layout'
 import { useIsAdmin, useMonProfil } from '@/lib/data/roles'
 import { useAuth } from '@/lib/auth'
-import { navItems, bottomNavItems } from '@/lib/navItems'
+import { navItems, travailNavItems, bottomNavItems } from '@/lib/navItems'
+import type { NavItem } from '@/lib/navItems'
 import { getImpersonationInfo } from '@/lib/data/impersonation'
 
-interface NavItemDef {
-  to: string
-  label: string
-  icon: LucideIcon
-  end?: boolean
-  accent: string
-  tint: string
-}
-
-function SidebarLink({ to, label, icon: Icon, end, accent, tint, onClick }: NavItemDef & { onClick: () => void }) {
+function SidebarLink({ to, label, icon: Icon, end, onClick }: NavItem & { onClick: () => void }) {
   return (
     <NavLink
       to={to}
@@ -34,13 +25,16 @@ function SidebarLink({ to, label, icon: Icon, end, accent, tint, onClick }: NavI
     >
       {({ isActive }) => (
         <>
+          {/* UNE SEULE TEINTE AU REPOS. Chaque entree portait sa couleur (rouge, rose, ambre,
+              emeraude...) : onze teintes saturees dans un rail de 56 px de large. La couleur ne dit
+              plus quel objet mais ou l'on se trouve, comme chez William. */}
           <span
             className={cn(
               'flex h-7 w-7 shrink-0 items-center justify-center rounded-lg transition-colors',
-              isActive ? accent : 'bg-transparent',
+              isActive ? 'bg-kiwi-600' : 'bg-transparent',
             )}
           >
-            <Icon className={cn('h-4 w-4', isActive ? 'text-white' : tint)} />
+            <Icon className={cn('h-4 w-4', isActive ? 'text-white' : 'text-navy-400')} />
           </span>
           <span className="min-w-0 flex-1 truncate whitespace-nowrap md:hidden">
             {label}
@@ -62,8 +56,8 @@ export function Sidebar() {
   const { data: profil } = useMonProfil()
   // Support/Paramètres (et Administration pour les admins) sont séparés des objets métier
   // ci-dessus : regroupés en bas du rail, juste au-dessus du profil.
-  const bottomItems: NavItemDef[] = isAdmin
-    ? [...bottomNavItems, { to: '/administration', label: 'Administration', icon: ShieldCheck, accent: 'bg-ink-700', tint: 'text-navy-300' }]
+  const bottomItems: NavItem[] = isAdmin
+    ? [...bottomNavItems, { to: '/administration', label: 'Administration', icon: ShieldCheck }]
     : bottomNavItems
   const initiales = profil
     ? `${profil.prenom[0] ?? ''}${profil.nom[0] ?? ''}`.toUpperCase()
@@ -105,6 +99,12 @@ export function Sidebar() {
 
         <nav className="min-h-0 flex-1 space-y-1 overflow-y-auto overflow-x-hidden px-2.5 py-1 scrollbar-thin md:overflow-visible md:px-0">
           {navItems.map((item) => (
+            <SidebarLink key={item.to} {...item} onClick={close} />
+          ))}
+          {/* Un filet, et non un titre de section : le rail replie fait 56 px, un intitule n'y
+              tiendrait pas. Il separe les objets du patrimoine des ecrans de travail. */}
+          <div className="mx-2 my-2 border-t border-ink-800 md:mx-3" />
+          {travailNavItems.map((item) => (
             <SidebarLink key={item.to} {...item} onClick={close} />
           ))}
         </nav>
