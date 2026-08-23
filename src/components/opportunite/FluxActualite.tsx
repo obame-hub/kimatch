@@ -118,13 +118,17 @@ export function FluxActualite({ tableNom, ligneId, dateCreation }: {
       ))}
 
       {/* LA CRÉATION FERME LE FLUX. Elle n'est pas dans `historique_modifications` — le déclencheur
-          n'y écrit que les mises à jour — et un flux qui commence dans le vide se lit mal. */}
-      <div className="flex items-center gap-2 px-0.5 pb-0.5 pt-2.5">
-        <span className="rounded-md bg-navy-50 px-1.5 py-0.5 text-[9px] font-extrabold uppercase tracking-[0.07em] text-navy-500">
-          {libelleJour(dateCreation)}
-        </span>
-        <div className="h-[1.5px] flex-1 bg-kw-border" />
-      </div>
+          n'y écrit que les mises à jour — et un flux qui commence dans le vide se lit mal.
+          SON SÉPARATEUR NE S'AFFICHE QUE S'IL CHANGE DE JOURNÉE : créée et modifiée le même jour,
+          « Aujourd'hui » apparaissait deux fois dans le même fil (vu à l'écran le 23/08/2026). */}
+      {libelleJour(dateCreation) !== jours[jours.length - 1]?.jour && (
+        <div className="flex items-center gap-2 px-0.5 pb-0.5 pt-2.5">
+          <span className="rounded-md bg-navy-50 px-1.5 py-0.5 text-[9px] font-extrabold uppercase tracking-[0.07em] text-navy-500">
+            {libelleJour(dateCreation)}
+          </span>
+          <div className="h-[1.5px] flex-1 bg-kw-border" />
+        </div>
+      )}
       <div className={cn('flex gap-2 rounded-[11px] border border-opp-200 bg-opp-50/60 px-2.5 py-2')}>
         <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-lg bg-gradient-to-br from-opp-600 to-opp-400 text-white">
           <Sparkle className="h-3 w-3" />
