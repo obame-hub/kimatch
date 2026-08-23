@@ -267,6 +267,7 @@ function DialogCreation({ onFermer, signaler }: { onFermer: () => void; signaler
   const [montant, setMontant] = useState('')
   const [dateAttendue, setDateAttendue] = useState('')
   const [horsKiwee, setHorsKiwee] = useState(false)
+  const [parCompte, setParCompte] = useState(false)
   const [motif, setMotif] = useState('')
   const [erreur, setErreur] = useState<string | null>(null)
 
@@ -294,9 +295,20 @@ function DialogCreation({ onFermer, signaler }: { onFermer: () => void; signaler
           />
         </FormField>
 
-        {/* SANS CONTRAT, LE COMPTE SUFFIT. C'est le cas d'un contrat signé hors Kiwee, qui n'existe
-            pas forcément ici : la rémunération d'exception doit quand même pouvoir se rattacher. */}
-        {!contratId && (
+        {/* SANS CONTRAT, LE COMPTE SUFFIT — mais on ne montre pas deux recherches d'emblée.
+            Le cas existe : un contrat signé hors Kiwee n'est pas forcément enregistré ici, et la
+            rémunération d'exception doit quand même se rattacher à quelque chose. Il est donc
+            proposé en un mot plutôt qu'affiché en permanence. */}
+        {!contratId && !parCompte && (
+          <button
+            type="button"
+            onClick={() => setParCompte(true)}
+            className="text-xs font-semibold text-kiwi-700 hover:underline"
+          >
+            Aucun contrat ici ? Rattacher au compte seul
+          </button>
+        )}
+        {!contratId && parCompte && (
           <FormField label="Compte">
             <ChoixParRecherche
               items={comptes ?? []}
@@ -326,7 +338,12 @@ function DialogCreation({ onFermer, signaler }: { onFermer: () => void; signaler
         {/* L'EXCEPTION SE JUSTIFIE. « Contrat hors KiWee → pas de rémunération KiWee, sauf
             exception » : cocher la case oblige donc à dire laquelle. */}
         <label className="flex items-start gap-2 rounded-lg bg-navy-50/60 px-3 py-2 text-xs text-navy-700">
-          <input type="checkbox" checked={horsKiwee} onChange={(e) => setHorsKiwee(e.target.checked)} className="mt-0.5" />
+          <input
+            type="checkbox"
+            checked={horsKiwee}
+            onChange={(e) => { setHorsKiwee(e.target.checked); if (e.target.checked) setParCompte(true) }}
+            className="mt-0.5"
+          />
           <span>
             Contrat signé hors Kiwee
             <span className="block text-[10.5px] text-navy-400">
