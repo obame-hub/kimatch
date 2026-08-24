@@ -57,7 +57,10 @@ export function OngletRecommandations({ recommandations }: { recommandations: Re
   const [filtre, setFiltre] = useState<'tous' | CleFinalite>('tous')
 
   const { actives, historique } = useMemo(() => {
-    const closes = recommandations.filter((r) => r.etape === 'CLOTURE' || r.finalite_cloture)
+    // Les trois issues terminales de Michel, plus la finalité pour les dossiers d'avant.
+    const closes = recommandations.filter(
+      (r) => ['ACCEPTEE', 'REFUSEE', 'ABANDONNEE'].includes(r.etape) || r.finalite_cloture,
+    )
     return {
       actives: recommandations.filter((r) => !closes.includes(r)),
       historique: closes,

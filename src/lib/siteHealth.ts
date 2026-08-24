@@ -7,7 +7,7 @@ export interface SiteHealth {
   raisons: string[]
 }
 
-const SIGNAUX_FERMES = new Set(['CLOTURE', 'REFUSE', 'TRANSFORME'])
+const SIGNAUX_FERMES = new Set(['CONVERTI', 'ECARTE'])
 const VERSIONS_INACTIVES = new Set(['REFUSEE', 'EXPIREE', 'ARCHIVEE', 'REMPLACEE'])
 const SEUIL_ECHEANCE_JOURS = 90
 

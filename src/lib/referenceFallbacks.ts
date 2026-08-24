@@ -3,34 +3,27 @@ import type { ReferenceRow } from '@/lib/data/referenceTables'
 // Filet de sécurité si la table de référence en base répond vide (erreur transitoire, etc.) --
 // reflètent les vraies valeurs pour que l'app reste utilisable le temps que ça se rétablisse.
 
+// Les quatre statuts de signal de Michel (24/08/2026) : Nouveau → À qualifier → Converti → Écarté.
+// Les huit anciens codes ont été renommés ou fusionnés par la migration 20260824150000.
 export const FALLBACK_STATUTS_SIGNAUX: ReferenceRow[] = [
   { id: '1', code: 'NOUVEAU', libelle: 'Nouveau', ordre: 10, couleur: '#64748B', icone: null },
-  { id: '2', code: 'A_CONTACTER', libelle: 'À contacter', ordre: 20, couleur: '#F59E0B', icone: null },
-  { id: '3', code: 'CONTACTE', libelle: 'Contacté', ordre: 30, couleur: '#3B82F6', icone: null },
-  { id: '4', code: 'REPORTE', libelle: 'Reporté', ordre: 40, couleur: '#8B5CF6', icone: null },
-  { id: '5', code: 'INTERET_CONFIRME', libelle: 'Intérêt confirmé', ordre: 50, couleur: '#10B981', icone: null },
-  { id: '6', code: 'REFUSE', libelle: 'Refusé', ordre: 60, couleur: '#EF4444', icone: null },
-  { id: '7', code: 'TRANSFORME', libelle: 'Transformé en recommandation', ordre: 70, couleur: '#059669', icone: null },
-  { id: '8', code: 'CLOTURE', libelle: 'Clôturé', ordre: 80, couleur: '#475569', icone: null },
+  { id: '2', code: 'A_QUALIFIER', libelle: 'À qualifier', ordre: 20, couleur: '#F59E0B', icone: null },
+  { id: '3', code: 'CONVERTI', libelle: 'Converti', ordre: 30, couleur: '#059669', icone: null },
+  { id: '4', code: 'ECARTE', libelle: 'Écarté', ordre: 40, couleur: '#475569', icone: null },
 ]
 
-// Modèle cible du 12/08/2026 : Diagnostic → Consultation → Décision → Clôture, la clôture prenant
-// le libellé de sa finalité (Acceptée, Refusée, Expirée). Les 9 anciennes étapes restent listées
-// derrière, car ce filet sert aussi tant que la migration des référentiels n'est pas appliquée.
+// Les huit paliers de recommandation de Michel (diapositive 13 du 24/08/2026) : Brouillon →
+// Consultation → Offres reçues → À présenter → Présentée → Acceptée / Refusée / Abandonnée. Sa
+// règle : « le statut évolue, il ne régresse jamais », d'où des ordres strictement croissants.
 export const FALLBACK_ETAPES_RECOMMANDATION: ReferenceRow[] = [
-  { id: 'd1', code: 'DIAGNOSTIC', libelle: 'Diagnostic', ordre: 10, couleur: null, icone: null },
+  { id: 'd1', code: 'BROUILLON', libelle: 'Brouillon', ordre: 10, couleur: null, icone: null },
   { id: 'd2', code: 'CONSULTATION', libelle: 'Consultation', ordre: 20, couleur: null, icone: null },
-  { id: 'd3', code: 'DECISION', libelle: 'Décision', ordre: 30, couleur: null, icone: null },
-  { id: 'd4', code: 'CLOTURE', libelle: 'Clôture', ordre: 40, couleur: null, icone: null },
-  { id: '1', code: 'A_PREPARER', libelle: 'À préparer', ordre: 110, couleur: null, icone: null },
-  { id: '2', code: 'EN_ANALYSE', libelle: 'En analyse', ordre: 20, couleur: null, icone: null },
-  { id: '3', code: 'EN_PREPARATION', libelle: 'En préparation', ordre: 30, couleur: null, icone: null },
-  { id: '4', code: 'PRETE', libelle: 'Prête', ordre: 40, couleur: null, icone: null },
-  { id: '5', code: 'PRESENTEE', libelle: 'Présentée au client', ordre: 50, couleur: null, icone: null },
-  { id: '6', code: 'ACTUALISATION', libelle: 'À actualiser', ordre: 60, couleur: null, icone: null },
-  { id: '7', code: 'ACCEPTEE', libelle: 'Acceptée', ordre: 70, couleur: null, icone: null },
-  { id: '8', code: 'REFUSEE', libelle: 'Refusée', ordre: 80, couleur: null, icone: null },
-  { id: '9', code: 'CLOTUREE', libelle: 'Clôturée', ordre: 90, couleur: null, icone: null },
+  { id: 'd3', code: 'OFFRES_RECUES', libelle: 'Offres reçues', ordre: 30, couleur: null, icone: null },
+  { id: 'd4', code: 'A_PRESENTER', libelle: 'À présenter', ordre: 40, couleur: null, icone: null },
+  { id: 'd5', code: 'PRESENTEE', libelle: 'Présentée', ordre: 50, couleur: null, icone: null },
+  { id: 'd6', code: 'ACCEPTEE', libelle: 'Acceptée', ordre: 70, couleur: null, icone: null },
+  { id: 'd7', code: 'REFUSEE', libelle: 'Refusée', ordre: 80, couleur: null, icone: null },
+  { id: 'd8', code: 'ABANDONNEE', libelle: 'Abandonnée', ordre: 90, couleur: null, icone: null },
 ]
 
 // « En construction, c'est quand quelqu'un bosse dessus. Disponible, ça veut dire prête à être
@@ -50,23 +43,19 @@ export const FALLBACK_STATUTS_VERSIONS: ReferenceRow[] = [
   { id: '9', code: 'ARCHIVEE', libelle: 'Archivée', ordre: 90, couleur: null, icone: null },
 ]
 
+// Les huit paliers de Michel, plus les statuts de version qui partagent cette table de tons.
 export const ETAPE_TONE: Record<string, 'neutral' | 'amber' | 'kiwi' | 'blue'> = {
-  DIAGNOSTIC: 'neutral',
+  BROUILLON: 'neutral',
   CONSULTATION: 'blue',
-  DECISION: 'amber',
-  CLOTURE: 'neutral',
+  OFFRES_RECUES: 'blue',
+  A_PRESENTER: 'amber',
+  PRESENTEE: 'amber',
+  ACCEPTEE: 'kiwi',
+  REFUSEE: 'neutral',
+  ABANDONNEE: 'neutral',
   EN_CONSTRUCTION: 'neutral',
   DISPONIBLE: 'kiwi',
   EN_DECISION: 'amber',
-  A_PREPARER: 'neutral',
-  EN_ANALYSE: 'blue',
-  EN_PREPARATION: 'blue',
-  PRETE: 'kiwi',
-  PRESENTEE: 'kiwi',
-  ACTUALISATION: 'amber',
-  ACCEPTEE: 'kiwi',
-  REFUSEE: 'neutral',
-  CLOTUREE: 'kiwi',
 }
 
 export const STATUT_VERSION_TONE: Record<string, 'neutral' | 'amber' | 'kiwi' | 'blue'> = {

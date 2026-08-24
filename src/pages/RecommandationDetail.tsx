@@ -207,7 +207,7 @@ export default function RecommandationDetail() {
    * clos — c'est la règle `cmdFirst` de la maquette. À ce stade il n'y a encore rien à comparer, et
    * ce qu'on ouvre la fiche pour lire, c'est la demande du client.
    */
-  const commandeDabord = reco?.etape === 'DIAGNOSTIC' && !estClose
+  const commandeDabord = reco?.etape === 'BROUILLON' && !estClose
   const onglets: { cle: CleOnglet; libelle: string; badge?: string }[] = useMemo(() => {
     const cmd = { cle: 'cmd' as CleOnglet, libelle: 'Commande du client', badge: (objectifs ?? []).length > 0 ? `${(objectifs ?? []).length} obj.` : undefined }
     const rec = { cle: 'reco' as CleOnglet, libelle: 'Recommandation', badge: reco && reco.versions.length > 0 ? `${reco.versions.length} vers.` : undefined }
@@ -247,7 +247,12 @@ export default function RecommandationDetail() {
         finalite: finaliteChoisie,
         motif: motifBrouillon,
         dateReactivation: reactivationBrouillon || null,
-        etapeClotureId: etapes.find((e) => e.code === 'CLOTURE')?.id ?? null,
+        // L'ÉTAPE D'ARRIVÉE EST L'ISSUE ELLE-MÊME. Michel a remplacé l'unique « Clôture » par
+        // trois paliers terminaux — Acceptée, Refusée, Abandonnée. « Expirée » est un abandon :
+        // c'est le troisième terme de sa diapositive 11, « accepter, refuser ou abandonner ».
+        etapeClotureId:
+          etapes.find((e) => e.code === (finaliteChoisie === 'ACCEPTEE' ? 'ACCEPTEE' : finaliteChoisie === 'REFUSEE' ? 'REFUSEE' : 'ABANDONNEE'))?.id ??
+          null,
       })
       setClotureOuverte(false)
       signaler(
@@ -269,7 +274,13 @@ export default function RecommandationDetail() {
       // sont pilotées par la table de référence et ont déjà changé une fois (12/08).
       await rouvrirReco.mutateAsync({
         id: reco.id,
-        etapeReouvertureId: etapes.find((e) => e.code !== 'CLOTURE')?.id ?? null,
+        // Rouvrir, c'est revenir au premier palier VIVANT — celui de plus petit ordre parmi ceux
+        // qui ne sont pas terminaux. `e.code !== 'CLOTURE'` renvoyait la première ligne de la table,
+        // quelle qu'elle soit ; maintenant que trois paliers sont terminaux, il faut les écarter.
+        etapeReouvertureId:
+          [...etapes]
+            .filter((e) => !['ACCEPTEE', 'REFUSEE', 'ABANDONNEE'].includes(e.code))
+            .sort((a, b) => (a.ordre ?? 0) - (b.ordre ?? 0))[0]?.id ?? null,
       })
       signaler('↻ Recommandation rouverte')
     } catch (e) {

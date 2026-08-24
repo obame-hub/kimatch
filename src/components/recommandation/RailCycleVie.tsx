@@ -18,13 +18,17 @@ import type { ReferenceRow } from '@/lib/data/referenceTables'
  * les cinq du dessin (décision de Naoëlle du 16/08/2026).
  */
 
-const CODES_RAIL = ['DIAGNOSTIC', 'CONSULTATION', 'DECISION', 'CLOTURE'] as const
+// LES CINQ PALIERS VIVANTS de Michel : les trois issues terminales (Acceptée, Refusée,
+// Abandonnée) ne sont pas des crans du rail, c'est la finalité qui les porte — comme avant, où
+// « Clôture » prenait la couleur de son issue.
+const CODES_RAIL = ['BROUILLON', 'CONSULTATION', 'OFFRES_RECUES', 'A_PRESENTER', 'PRESENTEE'] as const
 
 const ICONES_ETAPE: Record<string, LucideIcon> = {
-  DIAGNOSTIC: ExternalLink,
+  BROUILLON: ExternalLink,
   CONSULTATION: Send,
-  DECISION: Check,
-  CLOTURE: Shield,
+  OFFRES_RECUES: Check,
+  A_PRESENTER: Send,
+  PRESENTEE: Shield,
 }
 
 const ICONES_FINALITE: Record<CleFinalite, LucideIcon> = {
@@ -47,7 +51,9 @@ export function etapeSuivanteDuRail(etapes: ReferenceRow[], codeCourant: string)
   // Hors rail (ancien cycle) : on renvoie le premier cran, qui remet le dossier sur le circuit.
   if (i < 0) return rail[0] ?? null
   const suivante = rail[i + 1]
-  if (!suivante || suivante.code === 'CLOTURE') return null
+  // Après « Présentée », l'étape suivante est une décision : elle exige une finalité, donc elle ne
+  // s'atteint pas par le bouton « étape suivante ».
+  if (!suivante) return null
   return suivante
 }
 

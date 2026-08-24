@@ -325,7 +325,7 @@ export default function CompteurDetail() {
   const contratIdsDuCompteur = useMemo(() => new Set(contratsDuCompteur.map((c) => c.id)), [contratsDuCompteur])
   const signauxDuCompteur = useMemo(() => signaux?.filter((s) => s.contrat_id && contratIdsDuCompteur.has(s.contrat_id)) ?? [], [signaux, contratIdsDuCompteur])
   const recoActiveDuSite = useMemo(
-    () => recommandations?.find((r) => compteur && r.sites.some((s) => s.id === compteur.site_id) && !['ACCEPTEE', 'REFUSEE', 'CLOTUREE'].includes(r.etape)),
+    () => recommandations?.find((r) => compteur && r.sites.some((s) => s.id === compteur.site_id) && !['ACCEPTEE', 'REFUSEE', 'ABANDONNEE'].includes(r.etape)),
     [recommandations, compteur],
   )
 

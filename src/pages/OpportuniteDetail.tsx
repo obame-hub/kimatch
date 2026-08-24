@@ -902,7 +902,9 @@ export default function OpportuniteDetail() {
       {clotureOuverte && (
         <DialogCloture
           opportunite={opportunite}
-          statutClotureId={statuts?.find((s) => s.code === 'CLOTUREE')?.id ?? null}
+          // « Abandonnée » a remplacé « Clôturée » : c'est le sixième palier de Michel, et la
+          // qualification finale dit laquelle des raisons a fermé le dossier.
+          statutClotureId={statuts?.find((s) => s.code === 'ABANDONNEE')?.id ?? null}
           onFermer={() => setClotureOuverte(false)}
           onValide={(m) => { setClotureOuverte(false); signaler(m) }}
           majOpp={majOpp}

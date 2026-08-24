@@ -182,19 +182,20 @@ export function useStatutsOpportunites() {
  * qui finirait par contredire les cases cochées juste à côté — et c'est la même mesure que la
  * maturité, « la maturité se fait si les objets sont valides ».
  *
- * UN POINT À CONFIRMER AVEC MICHEL. Dans sa table, « Nouvelle » vaut « signal positif + contact
- * valide » ; mais en données, une opportunité qui a son signal et son contact et rien d'autre est
- * exactement dans l'état « compte à confirmer », c'est-à-dire À qualifier. Les deux paliers se
- * recouvrent, sauf à ajouter un geste humain (« je la prends en main »). En attendant sa réponse,
- * « Nouvelle » est réservée aux opportunités dont le minimum n'est PAS encore réuni — ce qui arrive
- * pour celles créées avant la règle du 23/08 — et la question lui est posée.
+ * LA QUESTION DE LA VEILLE EST TRANCHÉE. Je demandais comment distinguer « Nouvelle » d'« En
+ * qualification », les deux décrivant en données le même état. Sa présentation du 24/08 donne le
+ * critère : « Nouvelle — issue d'un signal validé » contre « En qualification — besoin, périmètre,
+ * potentiel ». Ce qui les sépare est donc le PÉRIMÈTRE : tant qu'aucun site ni compteur n'est
+ * rattaché, l'opportunité vient d'arriver ; dès qu'on y touche, elle est en qualification. Aucun
+ * geste humain à inventer, et le palier reste calculé.
  */
 export const PIPELINE_OPPORTUNITE = [
-  { code: 'NOUVELLE', libelle: 'Nouvelle', sens: 'Le minimum n’est pas réuni : il manque le signal ou le contact.' },
-  { code: 'A_QUALIFIER', libelle: 'À qualifier', sens: 'Compte ou organisation à confirmer.' },
-  { code: 'A_COMPLETER', libelle: 'À compléter', sens: 'Site à rattacher, mandat à obtenir.' },
-  { code: 'A_VALIDER', libelle: 'À valider', sens: 'Tout est prêt : il manque l’accord du client.' },
-  { code: 'CONVERTIE', libelle: 'Convertie', sens: 'Recommandation créée.' },
+  { code: 'NOUVELLE', libelle: 'Nouvelle', sens: 'Issue d’un signal validé.' },
+  { code: 'EN_QUALIFICATION', libelle: 'En qualification', sens: 'Besoin, périmètre, potentiel.' },
+  { code: 'COUVERTURE_MANDAT', libelle: 'Couverture mandat', sens: 'Vérifier chaque site du périmètre.' },
+  { code: 'PRETE_A_CONVERTIR', libelle: 'Prête à convertir', sens: 'Données et conditions réunies.' },
+  { code: 'CONVERTIE', libelle: 'Convertie', sens: 'Recommandations par périmètre.' },
+  { code: 'ABANDONNEE', libelle: 'Abandonnée', sens: 'Fermée avec un motif.' },
 ] as const
 
 /** Un mandat, réduit à ce qu'il faut pour dire s'il couvre un périmètre. */
@@ -248,9 +249,23 @@ export function statutDerive(o: Opportunite, mandats: MandatPourCouverture[]) {
   const { liste } = prerequisOpportunite(o, mandats)
   const ok = (cle: string) => liste.find((p) => p.cle === cle)?.ok ?? false
 
+  // « Convertie — recommandations par périmètre » : une opportunité qui a produit au moins une
+  // recommandation a abouti, quoi qu'il manque par ailleurs.
   if (o.recommandation_ids.length > 0) {
-    return { code: 'CONVERTIE', libelle: 'Convertie', tache: 'Recommandation créée.' }
+    return { code: 'CONVERTIE', libelle: 'Convertie', tache: 'Recommandations créées.' }
   }
+  // « Abandonnée — fermée avec un motif ». Une qualification finale autre que CONVERTIE ferme le
+  // dossier : perdue, non qualifiée, reportée ou annulée.
+  if (o.qualification_fin && o.qualification_fin !== 'CONVERTIE') {
+    return {
+      code: 'ABANDONNEE',
+      libelle: 'Abandonnée',
+      tache: o.motif_cloture ? o.motif_cloture : 'Fermée sans motif renseigné.',
+    }
+  }
+  // « Nouvelle — issue d'un signal validé » : elle vient d'arriver, rien n'a encore été rassemblé.
+  // Ce qui la distingue d'« En qualification », c'est qu'aucun périmètre n'a été touché — c'est le
+  // premier geste du commercial, et le seul qui se lise dans les données.
   if (!ok('signal') || !ok('contact')) {
     return {
       code: 'NOUVELLE',
@@ -260,33 +275,39 @@ export function statutDerive(o: Opportunite, mandats: MandatPourCouverture[]) {
         : !ok('signal') ? 'Identifier le signal positif.' : 'Identifier le contact.',
     }
   }
-  if (!ok('compte')) {
-    return { code: 'A_QUALIFIER', libelle: 'À qualifier', tache: 'Confirmer le compte, c’est-à-dire l’organisation.' }
-  }
-  if (!ok('perimetre') || !ok('mandat')) {
+  if (!ok('compte') || !ok('perimetre')) {
     return {
-      code: 'A_COMPLETER',
-      libelle: 'À compléter',
-      tache: !ok('perimetre') ? 'Rattacher un site ou un point de livraison.' : 'Obtenir un mandat couvrant le périmètre.',
+      code: !ok('perimetre') && !ok('compte') ? 'NOUVELLE' : 'EN_QUALIFICATION',
+      libelle: !ok('perimetre') && !ok('compte') ? 'Nouvelle' : 'En qualification',
+      tache: !ok('compte') ? 'Confirmer le compte, c’est-à-dire l’organisation.' : 'Rattacher un site ou un point de livraison.',
     }
   }
-  // Dernier palier avant la conversion : soit l'accord manque, soit il est là et la recommandation
-  // reste à créer. Michel s'arrête à « Convertie = recommandation créée », donc ces deux cas
-  // partagent le même palier — seule la tâche change.
+  // « Couverture mandat — vérifier chaque site du périmètre ». Michel : « le mandat n'est obligatoire
+  // que si le compteur n'est pas couvert par un mandat ».
+  if (!ok('mandat')) {
+    return {
+      code: 'COUVERTURE_MANDAT',
+      libelle: 'Couverture mandat',
+      tache: 'Obtenir un mandat couvrant le périmètre.',
+    }
+  }
+  // « Prête à convertir — données et conditions réunies ». Reste l'accord du client, puis la
+  // recommandation à lancer : deux tâches, un seul palier.
   return {
-    code: 'A_VALIDER',
-    libelle: 'À valider',
-    tache: !ok('accord') ? 'Obtenir l’accord du client.' : 'Créer la recommandation.',
+    code: 'PRETE_A_CONVERTIR',
+    libelle: 'Prête à convertir',
+    tache: !ok('accord') ? 'Obtenir l’accord du client.' : 'Lancer la recommandation.',
   }
 }
 
 /** La couleur du palier : ce qui reste à faire se lit avant le libellé. */
 export const TON_PIPELINE: Record<string, 'kiwi' | 'amber' | 'neutral'> = {
   NOUVELLE: 'neutral',
-  A_QUALIFIER: 'amber',
-  A_COMPLETER: 'amber',
-  A_VALIDER: 'kiwi',
+  EN_QUALIFICATION: 'amber',
+  COUVERTURE_MANDAT: 'amber',
+  PRETE_A_CONVERTIR: 'kiwi',
   CONVERTIE: 'kiwi',
+  ABANDONNEE: 'neutral',
 }
 
 export const ORIGINES_OPPORTUNITE = [

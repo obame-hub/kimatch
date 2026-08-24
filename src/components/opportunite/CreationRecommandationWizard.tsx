@@ -354,7 +354,7 @@ export function CreateRecommandationDialog({
     if (createRecommandation.isPending || termine) return
     if (!compteCible || compteursChoisis.length === 0 || mixInvalide || !mandatRetenu) return
     const origine = origines.find((o) => o.id === origineId)
-    const etapeInitiale = trouverParCode(etapes, 'DIAGNOSTIC', 'A_PREPARER')
+    const etapeInitiale = trouverParCode(etapes, 'BROUILLON', 'CONSULTATION')
 
     const result = await createRecommandation.mutateAsync({
       titre,

@@ -8,7 +8,7 @@ import { useQuery } from '@tanstack/react-query'
 import { fetchMonPortefeuille, filtrerMesElements } from '@/lib/data/visibility'
 import { useMonProfil } from '@/lib/data/roles'
 
-const SIGNAUX_FERMES = ['CLOTURE', 'REFUSE', 'TRANSFORME']
+const SIGNAUX_FERMES = ['CONVERTI', 'ECARTE']
 const ACTIONS_FERMEES = ['TERMINEE', 'ANNULEE']
 
 /**
@@ -18,7 +18,7 @@ const ACTIONS_FERMEES = ['TERMINEE', 'ANNULEE']
  * code et l'application de la migration. Les anciens codes seront retirés une fois la migration
  * passée en production et vérifiée.
  */
-const RECOS_FERMEES = ['CLOTUREE', 'REFUSEE', 'ACCEPTEE', 'CLOTURE']
+const RECOS_FERMEES = ['ACCEPTEE', 'REFUSEE', 'ABANDONNEE']
 /** Un contrat « à suivre » n'est ni actif, ni terminé : il reste quelque chose à faire dessus. */
 const CONTRATS_A_SUIVRE = ['NOUVEAU', 'EN_PREPARATION', 'A_SIGNER', 'SIGNE', 'BROUILLON', 'DEMANDE', 'RECEPTIONNE', 'ENVOYE']
 /**
