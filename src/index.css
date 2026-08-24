@@ -286,6 +286,17 @@
     flex-wrap: wrap !important;
   }
 
+  /* LE BANDEAU DE LA FENÊTRE MODALE NE S IMPRIME PAS, et c est ce qui creait une premiere page
+     vide (signale par Naoelle le 24/08/2026). Le titre et la description du dialogue occupaient le
+     haut de la feuille ; la diapositive de 183 mm ne tenait plus dans ce qui restait, et comme on
+     lui interdit d etre coupee elle partait entiere a la page suivante — laissant une page 1 avec
+     trois lignes de texte, puis quatre pages au total.
+     On masque donc tout enfant de la boite de dialogue qui ne contient PAS le document : son
+     bandeau de titre comme sa barre d outils. */
+  body:has(#document-comparatif) div:has(> #document-comparatif) > div:not(:has(#document-comparatif)) {
+    display: none !important;
+  }
+
   /* La croix de fermeture de la fenêtre n'a rien à faire sur le papier. */
   body:has(#document-comparatif) button:has(> svg.lucide-x) { display: none !important; }
 
