@@ -548,7 +548,7 @@ export default function Administration() {
     <div>
       <Topbar title="Administration" />
       <div className="p-4 sm:p-6">
-        <PageHeader title="Administration" description="Gestion des utilisateurs, rôles et permissions de KiWee OS." />
+        <PageHeader title="Administration" description="Gestion des utilisateurs, rôles, permissions et automatismes de Kimatch." />
 
         {import.meta.env.VITE_ENV_LABEL !== 'sandbox' && <SandboxCard />}
 
@@ -621,7 +621,9 @@ export default function Administration() {
                   ? 'Postes, rôles & permissions'
                   : tab === 'acces'
                     ? 'Emails autorisés à créer un compte'
-                    : 'Assignations profil ↔ compte'}
+                    : tab === 'automatismes'
+                      ? 'Automatismes'
+                      : 'Assignations profil ↔ compte'}
             </CardTitle>
           </CardHeader>
           <CardContent>

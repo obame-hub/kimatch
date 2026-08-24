@@ -162,7 +162,10 @@ function heureLisible(cron: string): string {
     // nous est la source d'erreur classique quand on vient vérifier qu'elle a tourné.
     const hUtc = Number(heure)
     const hParis = (hUtc + 2) % 24
-    return `chaque nuit à ${String(hUtc).padStart(2, '0')} h ${minute} UTC — ${String(hParis).padStart(2, '0')} h ${minute} à Paris`
+    // La minute se complète aussi : « 03 h 0 UTC » se lisait à l'écran, ce qui a l'air d'un bug
+    // d'affichage et fait douter du reste de la page.
+    const mm = minute.padStart(2, '0')
+    return `chaque nuit à ${String(hUtc).padStart(2, '0')} h ${mm} UTC — ${String(hParis).padStart(2, '0')} h ${mm} à Paris`
   }
   return `expression cron : ${cron}`
 }
