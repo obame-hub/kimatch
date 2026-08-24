@@ -44,7 +44,13 @@ interface LigneCompte {
   nb_sites: number
 }
 
-export default function Comptes() {
+/**
+ * ENCAPSULABLE DANS LA PAGE PATRIMOINE. `sansEntete` masque la barre du haut quand cette liste est
+ * affichée comme onglet de /patrimoine (diapositive 8 de Michel : « la page Patrimoine rassemble ces
+ * objets et permet de naviguer du compte jusqu'au compteur et au contrat »). L'en-tête de page, lui,
+ * reste : il porte le bouton de création et la phrase qui dit ce qu'est l'objet.
+ */
+export default function Comptes({ sansEntete }: { sansEntete?: boolean }) {
   const navigate = useNavigate()
   const [typeFilter, setTypeFilter] = useState('')
 
@@ -59,7 +65,7 @@ export default function Comptes() {
 
   return (
     <div>
-      <Topbar title="Comptes" />
+      {!sansEntete && <Topbar title="Comptes" />}
       <div className="p-4 sm:p-6">
         <PageHeader
           title="Comptes"

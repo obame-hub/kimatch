@@ -114,7 +114,13 @@ interface LigneMandat {
   nb_sites_couverts: number
 }
 
-export default function Mandats() {
+/**
+ * ENCAPSULABLE DANS LA PAGE PATRIMOINE. `sansEntete` masque la barre du haut quand cette liste est
+ * affichée comme onglet de /patrimoine (diapositive 8 de Michel : « la page Patrimoine rassemble ces
+ * objets et permet de naviguer du compte jusqu'au compteur et au contrat »). L'en-tête de page, lui,
+ * reste : il porte le bouton de création et la phrase qui dit ce qu'est l'objet.
+ */
+export default function Mandats({ sansEntete }: { sansEntete?: boolean }) {
   const { data: statutsRef } = useReferenceTable('statuts_mandats')
   const statuts = statutsRef && statutsRef.length > 0 ? statutsRef : FALLBACK_STATUTS_MANDATS
   const navigate = useNavigate()
@@ -142,7 +148,7 @@ export default function Mandats() {
 
   return (
     <div>
-      <Topbar title="Mandats" />
+      {!sansEntete && <Topbar title="Mandats" />}
       <div className="p-4 sm:p-6">
         <PageHeader
           title="Mandats"

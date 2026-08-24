@@ -40,7 +40,13 @@ import { cn } from '@/lib/utils'
 const TRANCHE_INITIALE = 100
 const TRANCHE_SUIVANTE = 200
 
-export default function Sites() {
+/**
+ * ENCAPSULABLE DANS LA PAGE PATRIMOINE. `sansEntete` masque la barre du haut quand cette liste est
+ * affichée comme onglet de /patrimoine (diapositive 8 de Michel : « la page Patrimoine rassemble ces
+ * objets et permet de naviguer du compte jusqu'au compteur et au contrat »). L'en-tête de page, lui,
+ * reste : il porte le bouton de création et la phrase qui dit ce qu'est l'objet.
+ */
+export default function Sites({ sansEntete }: { sansEntete?: boolean }) {
   const navigate = useNavigate()
   const location = useLocation()
   const openCreateForCompteId = (location.state as { openCreateForCompteId?: string } | null)?.openCreateForCompteId
@@ -93,7 +99,7 @@ export default function Sites() {
 
   return (
     <div>
-      <Topbar title="Sites" />
+      {!sansEntete && <Topbar title="Sites" />}
       <div className="p-4 sm:p-6">
         <PageHeader
           title="Sites"

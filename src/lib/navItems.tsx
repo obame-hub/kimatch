@@ -1,4 +1,5 @@
 import {
+  Gauge,
   Home,
   Building2,
   MapPin,
@@ -54,9 +55,13 @@ export interface NavItem {
  */
 export const navItems: NavItem[] = [
   { to: '/', label: 'Tableau de bord', icon: Home, end: true },
-  { to: '/comptes', label: 'Comptes', icon: Building2 },
-  { to: '/sites', label: 'Sites', icon: MapPin },
-  { to: '/contacts', label: 'Contacts', icon: User },
+  // UNE SEULE ENTRÉE POUR LE PATRIMOINE — diapositive 8 : « la page Patrimoine rassemble ces objets
+  // et permet de naviguer du compte jusqu'au compteur et au contrat ». Comptes, Sites et Contacts
+  // étaient trois entrées séparées, et mandats, contrats, compteurs et documents n'en avaient plus
+  // aucune depuis le ménage du 23/08 — sept objets qui décrivent la même chose, éclatés en sept
+  // endroits. Leurs adresses restent valides : /comptes, /sites, /contacts fonctionnent toujours,
+  // seul le rail change.
+  { to: '/patrimoine', label: 'Patrimoine', icon: Building2 },
   // L'OPPORTUNITÉ PRÉCÈDE LA RECOMMANDATION, dans le rail comme dans la chaîne : « Piste /
   // Portefeuille / Demande entrante / Partenaire → Opportunité → Recommandation » (Michel,
   // 23/08/2026). L'ordre du menu raconte l'ordre du travail — et c'est aussi celui de William.
@@ -101,6 +106,11 @@ export const pagesRecherchables: NavItem[] = [
   ...travailNavItems,
   ...bottomNavItems,
   { to: '/signaux', label: 'Signaux', icon: Radio },
+  // Les listes du patrimoine restent trouvables par la recherche, chacune sur son onglet.
+  { to: '/comptes', label: 'Comptes', icon: Building2 },
+  { to: '/sites', label: 'Sites', icon: MapPin },
+  { to: '/contacts', label: 'Contacts', icon: User },
+  { to: '/compteurs', label: 'Compteurs', icon: Gauge },
   { to: '/contrats', label: 'Contrats', icon: FileText },
   { to: '/mandats', label: 'Mandats', icon: ShieldCheck },
   { to: '/taches', label: 'Tâches', icon: CheckSquare },

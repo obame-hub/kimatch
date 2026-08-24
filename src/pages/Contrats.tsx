@@ -388,7 +388,13 @@ function CreateContratDialog({ open, onClose }: { open: boolean; onClose: () => 
   )
 }
 
-export default function Contrats() {
+/**
+ * ENCAPSULABLE DANS LA PAGE PATRIMOINE. `sansEntete` masque la barre du haut quand cette liste est
+ * affichée comme onglet de /patrimoine (diapositive 8 de Michel : « la page Patrimoine rassemble ces
+ * objets et permet de naviguer du compte jusqu'au compteur et au contrat »). L'en-tête de page, lui,
+ * reste : il porte le bouton de création et la phrase qui dit ce qu'est l'objet.
+ */
+export default function Contrats({ sansEntete }: { sansEntete?: boolean }) {
   const { data: contrats, isLoading } = useContrats()
   const { data: statutsRef } = useReferenceTable('statuts_contrats')
   const statuts = statutsRef && statutsRef.length > 0 ? statutsRef : FALLBACK_STATUTS_CONTRATS
@@ -413,7 +419,7 @@ export default function Contrats() {
 
   return (
     <div>
-      <Topbar title="Contrats" />
+      {!sansEntete && <Topbar title="Contrats" />}
       <div className="p-4 sm:p-6">
         <PageHeader
           title="Contrats"

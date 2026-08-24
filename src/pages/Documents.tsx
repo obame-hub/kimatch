@@ -145,7 +145,13 @@ interface LigneDocument {
   date_creation: string
 }
 
-export default function Documents() {
+/**
+ * ENCAPSULABLE DANS LA PAGE PATRIMOINE. `sansEntete` masque la barre du haut quand cette liste est
+ * affichée comme onglet de /patrimoine (diapositive 8 de Michel : « la page Patrimoine rassemble ces
+ * objets et permet de naviguer du compte jusqu'au compteur et au contrat »). L'en-tête de page, lui,
+ * reste : il porte le bouton de création et la phrase qui dit ce qu'est l'objet.
+ */
+export default function Documents({ sansEntete }: { sansEntete?: boolean }) {
   const navigate = useNavigate()
   const [showCreate, setShowCreate] = useState(false)
 
@@ -158,7 +164,7 @@ export default function Documents() {
 
   return (
     <div>
-      <Topbar title="Documents" />
+      {!sansEntete && <Topbar title="Documents" />}
       <div className="p-4 sm:p-6">
         <PageHeader
           title="Documents"
