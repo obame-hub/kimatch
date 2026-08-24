@@ -18,13 +18,13 @@
 -- signaux saisis par les conseillers serait faux de 864.
 alter table signaux add column if not exists origine text not null default 'MANUEL';
 
-do $
-begin
-  if not exists (select 1 from pg_constraint where conname = 'signaux_origine_check') then
-    alter table signaux add constraint signaux_origine_check
-      check (origine in ('MANUEL', 'AUTOMATIQUE', 'IMPORT'));
-  end if;
-end $;
+-- PAS DE BLOC `do` ICI. Ma premiere version en utilisait un pour ne pas rejouer la contrainte ;
+-- le delimiteur $$ n a pas survecu a l ecriture du fichier et Postgres a refuse la migration
+-- (« syntax error at or near "$" », signale par Naoelle le 24/08/2026). Le `drop ... if exists`
+-- suivi de l `add` obtient exactement le meme resultat en SQL simple, et se rejoue aussi bien.
+alter table signaux drop constraint if exists signaux_origine_check;
+alter table signaux add constraint signaux_origine_check
+  check (origine in ('MANUEL', 'AUTOMATIQUE', 'IMPORT'));
 
 -- Les signaux presents avant cette migration viennent tous de la reprise Salesforce.
 update signaux set origine = 'IMPORT'
