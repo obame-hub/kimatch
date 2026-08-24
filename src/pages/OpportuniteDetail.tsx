@@ -35,6 +35,7 @@ import { useCompteurs } from '@/lib/data/compteurs'
 import { useContacts } from '@/lib/data/contacts'
 import { useMandats } from '@/lib/data/mandats'
 import { MandatWizard } from '@/components/mandat/MandatWizard'
+import { CreateRecommandationDialog } from '@/components/opportunite/CreationRecommandationWizard'
 import { useRecommandationsListe } from '@/lib/data/recommandations'
 import { cn } from '@/lib/utils'
 import type { Opportunite } from '@/types/domain'
@@ -75,6 +76,7 @@ export default function OpportuniteDetail() {
   // « On peut lancer la demande de mandat depuis l'opportunité » (Michel, 23/08/2026). Le bouton
   // renvoyait sur la fiche compte, ce qui faisait perdre le périmètre qu'on vient d'établir.
   const [mandatOuvert, setMandatOuvert] = useState(false)
+  const [recoOuverte, setRecoOuverte] = useState(false)
   const [onglet, setOnglet] = useState<'opportunite' | 'fichiers' | 'historique'>('opportunite')
   const [hubOuvert, setHubOuvert] = useState(false)
   // L'action qu'on est en train de consigner : la maquette dit « chaque action est consignée dans le
@@ -130,6 +132,12 @@ export default function OpportuniteDetail() {
   const listePrerequis = bilan?.liste ?? []
   const manquants = bilan?.manquants ?? []
   const convertie = opportunite?.qualification_fin === 'CONVERTIE'
+  /**
+   * QUAND LA CONVERSION EST POSSIBLE. Palier 4 de la diapositive 10 — « Prête à convertir : données
+   * et conditions réunies » — ou déjà convertie, puisque « une opportunité convertie peut créer
+   * plusieurs recommandations selon les périmètres à traiter ». Une opportunité abandonnée, non.
+   */
+  const peutConvertir = palier?.code === 'PRETE_A_CONVERTIR' || palier?.code === 'CONVERTIE'
 
   const recosLiees = useMemo(
     () => (recommandations ?? []).filter((r) => opportunite?.recommandation_ids.includes(r.id)),
@@ -757,8 +765,8 @@ export default function OpportuniteDetail() {
                   </p>
                   <Badge tone="neutral">{recosLiees.length}</Badge>
                 </div>
-                {recosLiees.length > 0 ? (
-                  <div className="flex flex-col gap-1.5">
+                {recosLiees.length > 0 && (
+                  <div className="mb-2.5 flex flex-col gap-1.5">
                     {recosLiees.map((r) => (
                       <div key={r.id} className="flex items-center justify-between gap-2 rounded-lg border border-kw-border-faint px-3 py-2">
                         <EntityLink to={`/recommandations/${r.id}`}>{r.titre || 'Recommandation'}</EntityLink>
@@ -766,13 +774,48 @@ export default function OpportuniteDetail() {
                       </div>
                     ))}
                   </div>
+                )}
+
+                {/* ══════════ LA CONVERSION PAR PÉRIMÈTRE — diapositive 10 ══════════
+                    « Convertie : recommandations par périmètre » et « une opportunité convertie peut
+                    créer PLUSIEURS recommandations selon les périmètres à traiter ».
+
+                    LE MESSAGE D'AVANT ÉTAIT CIRCULAIRE, et il n'y avait aucun bouton : il disait
+                    « une recommandation ne se crée qu'une fois l'opportunité qualifiée en Convertie »
+                    alors que « Convertie » se DÉDUIT de l'existence d'une recommandation. On ne
+                    pouvait donc jamais convertir, et l'action rapide « recommandation » renvoyait sur
+                    la liste des recommandations, où le lien vers l'opportunité était perdu.
+
+                    Ce qui débloque la conversion, c'est le palier 4 — « Prête à convertir : données
+                    et conditions réunies ». Et une opportunité déjà convertie garde le bouton, pour
+                    le périmètre suivant. */}
+                {peutConvertir ? (
+                  <button
+                    type="button"
+                    onClick={() => setRecoOuverte(true)}
+                    className="w-full rounded-lg bg-gradient-to-br from-opp-600 to-opp-400 px-3 py-2 text-xs font-bold text-white shadow-[0_3px_10px_rgba(140,33,104,.22)] hover:brightness-105"
+                  >
+                    ＋ {recosLiees.length > 0 ? 'Créer une autre recommandation' : 'Créer la recommandation'}
+                  </button>
                 ) : (
                   <p className="text-xs leading-relaxed text-navy-500">
-                    Une recommandation ne se crée qu'une fois l'opportunité qualifiée en{' '}
-                    <strong className="font-semibold text-navy-700">Convertie</strong>.
-                    {manquants.length > 0 && (
-                      <> Il reste {manquants.length} élément{manquants.length > 1 ? 's' : ''} à rassembler.</>
+                    {manquants.length > 0 ? (
+                      <>
+                        Il reste à rassembler{' '}
+                        <strong className="font-semibold text-navy-700">
+                          {manquants.map((m) => m.libelle.toLowerCase()).join(', ')}
+                        </strong>{' '}
+                        avant de pouvoir convertir.
+                      </>
+                    ) : (
+                      <>Cette opportunité est fermée : elle ne peut plus produire de recommandation.</>
                     )}
+                  </p>
+                )}
+                {peutConvertir && recosLiees.length > 0 && (
+                  <p className="mt-2 text-[10.5px] leading-snug text-navy-400">
+                    Une recommandation par périmètre à traiter : on peut n'en couvrir qu'une partie et
+                    revenir ici pour le reste.
                   </p>
                 )}
               </Card>
@@ -783,8 +826,15 @@ export default function OpportuniteDetail() {
                   // Les deux actions de la famille « Décision » changent l'état du dossier : elles
                   // sont déléguées aux mécanismes qui existent déjà, plutôt que consignées.
                   if (a.cle === 'recommandation') {
-                    if (convertie) navigate('/recommandations')
-                    else signaler("Une recommandation ne se crée qu'une fois l'opportunité convertie.")
+                    // On ouvre le dialogue ICI. Renvoyer sur la liste des recommandations faisait
+                    // perdre le lien à l'opportunité : la recommandation créée là-bas n'y revenait
+                    // jamais, donc l'opportunité restait éternellement « Prête à convertir ».
+                    if (peutConvertir) setRecoOuverte(true)
+                    else if (manquants.length > 0) {
+                      signaler(`Il reste à rassembler : ${manquants.map((m) => m.libelle.toLowerCase()).join(', ')}.`)
+                    } else {
+                      signaler('Cette opportunité est fermée : elle ne peut plus produire de recommandation.')
+                    }
                     return
                   }
                   if (a.cle === 'ecarter') {
@@ -914,6 +964,23 @@ export default function OpportuniteDetail() {
           majOpp={majOpp}
         />
       )}
+
+      {/* L'ASSISTANT DE RECOMMANDATION, LANCÉ DEPUIS L'OPPORTUNITÉ.
+          Le compte est imposé — on sait de qui il s'agit — et le périmètre part de celui de
+          l'opportunité, tout en restant modifiable : c'est précisément le geste de découper en
+          plusieurs recommandations, une par périmètre à traiter (diapositive 10). La recommandation
+          créée garde `opportunite_id`, sans quoi elle ne reviendrait jamais à son opportunité. */}
+      <CreateRecommandationDialog
+        open={recoOuverte}
+        onClose={() => setRecoOuverte(false)}
+        opportuniteId={opportunite.id}
+        initialCompteId={opportunite.compte_id ?? undefined}
+        initialCompteurIds={opportunite.compteur_ids}
+        onCreated={(recoId) => {
+          setRecoOuverte(false)
+          navigate(`/recommandations/${recoId}`)
+        }}
+      />
 
       {/* L'ASSISTANT MANDAT, LANCÉ DEPUIS L'OPPORTUNITÉ. Pré-rempli avec le contact de
           l'opportunité et les compteurs du périmètre QUI NE SONT PAS COUVERTS : ce sont eux qui

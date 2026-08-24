@@ -104,11 +104,22 @@ export function CreateRecommandationDialog({
   onClose,
   onCreated,
   initialCompteId,
+  opportuniteId,
+  initialCompteurIds,
 }: {
   open: boolean
   onClose: () => void
   onCreated: (recoId: string) => void
   initialCompteId?: string
+  /**
+   * L'opportunité qu'on convertit, quand on arrive de sa fiche. Diapositive 10 : « une opportunité
+   * convertie peut créer plusieurs recommandations selon les périmètres à traiter » — donc ce
+   * dialogue s'ouvre autant de fois qu'il y a de périmètres, et chaque recommandation garde le lien.
+   */
+  opportuniteId?: string
+  /** Périmètre proposé au départ — celui de l'opportunité. Reste modifiable : c'est justement le
+   *  geste de découper en plusieurs recommandations. */
+  initialCompteurIds?: string[]
 }) {
   const { data: mandats } = useMandats()
   const { data: compteurs } = useCompteurs()
@@ -134,7 +145,7 @@ export function CreateRecommandationDialog({
   const [etape, setEtape] = useState(1)
   const [compteId, setCompteId] = useState(initialCompteId ?? '')
   const [typeEnergieId, setTypeEnergieId] = useState('')
-  const [compteurIds, setCompteurIds] = useState<string[]>([])
+  const [compteurIds, setCompteurIds] = useState<string[]>(initialCompteurIds ?? [])
   const [contactId, setContactId] = useState('')
   const [dateClotureManuelle, setDateClotureManuelle] = useState('')
   const [rechercheP, setRechercheP] = useState('')
@@ -367,6 +378,7 @@ export function CreateRecommandationDialog({
       contact_signataire_id: contactEffectifId || null,
       date_cloture: dateCloture || null,
       type_opportunite: typeOpportunite,
+      opportunite_id: opportuniteId ?? null,
       etape_id: etapeInitiale?.id ?? null,
       origine_id: origineId || null,
       origine_libelle: origine?.libelle,

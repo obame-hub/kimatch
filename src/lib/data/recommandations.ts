@@ -832,6 +832,15 @@ interface CreateRecommandationInput {
   priorite: number
   description: string
   commentaire_interne: string
+  /**
+   * L'opportunité dont cette recommandation est la conversion.
+   *
+   * Diapositive 10 : « Conversion par périmètre — une opportunité convertie peut créer PLUSIEURS
+   * recommandations selon les périmètres à traiter ». Sans ce lien, une recommandation créée depuis
+   * une opportunité n'y revenait pas : l'opportunité restait « Prête à convertir » pour toujours,
+   * puisque son palier se déduit de `recommandation_ids`.
+   */
+  opportunite_id?: string | null
 }
 
 interface CreateRecommandationResult {
@@ -884,6 +893,7 @@ export function useCreateRecommandation() {
           ...(input.type_energie_id ? { type_energie_id: input.type_energie_id } : {}),
           ...(input.etape_id ? { etape_id: input.etape_id } : {}),
           ...(input.origine_id ? { origine_id: input.origine_id } : {}),
+          ...(input.opportunite_id ? { opportunite_id: input.opportunite_id } : {}),
         })
         .select('id')
         .single()
@@ -909,6 +919,11 @@ export function useCreateRecommandation() {
       queryClient.setQueryData<Recommandation[]>(['recommandations'], (old) =>
         old ? [recommandation, ...old] : [recommandation],
       )
+      // L'OPPORTUNITÉ DOIT SE RELIRE. Son palier se déduit de ses recommandations : sans cette
+      // invalidation, elle resterait affichée « Prête à convertir » alors qu'elle vient de convertir.
+      if (input.opportunite_id) {
+        queryClient.invalidateQueries({ queryKey: ['opportunites'] })
+      }
       return { recommandation, persisted }
     },
   })
