@@ -1,15 +1,14 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo } from 'react'
 import { Dialog } from '@/components/ui/dialog'
 import { Printer } from 'lucide-react'
 import { libelleOffre } from '@/lib/data/recommandations'
 import { cn } from '@/lib/utils'
 import kiweePicto from '@/assets/kiwee-picto.png'
-import { CarteOffreEtude } from './CarteOffreEtude'
-import { ResumeEtudeClient } from './ResumeEtudeClient'
 import type {
   Compte,
   Compteur,
   Contact,
+  OffreFournisseur,
   Recommandation,
   VersionRecommandation,
 } from '@/types/domain'
@@ -17,53 +16,71 @@ import type {
 /**
  * Le compte rendu de consultation : le document qu'on remet au client pour qu'il choisisse.
  *
- * REPRODUIT LE RAPPORT ENÉO, sur les deux modèles que Naoëlle a fournis le 20/08/2026 —
- * AO-GN-260812-OJUJ (gaz, AGENCE NANTAISE DE GESTION) et AO-EL-260811-KCAZ (électricité, ÉTUDE
- * CARAUDREY). C'est le document de référence que Michel demandait depuis deux jours : « c'est celui
- * d'Enéo qu'il faut se baser ».
+ * TROIS PAGES, ET PAS UNE DE PLUS. Michel a fourni le 24/08/2026 le cahier des charges exact —
+ * page 1 « Décision », page 2 « Comparaison », page 3 « Conditions essentielles » — avec un objectif
+ * qui commande tout le reste : « le résultat doit permettre au client de comprendre en moins d'une
+ * minute quelle offre retenir, combien elle coûte, combien elle économise et avant quelle date il
+ * doit décider ».
  *
- * SA STRUCTURE, telle que Michel l'a cadrée le 20/08/2026 après nous avoir montré Enéo à l'écran —
- * « nous, on veut juste voir ça dans un premier temps : donc fournisseur, budget comparatif, et
- * ensuite après tu peux aller voir le détail » :
+ * CE QUI A ÉTÉ SUPPRIMÉ, sur sa liste, et c'est beaucoup : les courbes de marché, la présentation des
+ * fournisseurs, le lexique complet, les définitions des producteurs/transporteurs/distributeurs, la
+ * répétition de la recommandation sur plusieurs pages, les longues descriptions des composantes
+ * tarifaires, les pages ne portant qu'une note, les codes couleur multiples et les jauges peu
+ * explicites, la mention « dépliez pour le détail » dans un PDF qui n'est pas interactif, et les
+ * informations administratives répétées.
  *
- *   1. l'en-tête à quatre colonnes — Kiwee, le conseiller, le destinataire, le client ;
- *   2. le titre daté, puis trois encarts : sites, énergie, validité ;
- *   3. la note sur le statut de courtier et le mode de rémunération ;
- *   4. la synthèse : une colonne par fournisseur, les budgets décomposés jusqu'au TTC ;
- *   5. le détail par point de livraison ;
- *   6. le lexique des composantes.
+ * CELA REVIENT SUR SA DEMANDE DU 21/08, et il le sait : « chaque offre prend une page, dépliée
+ * entièrement » disparaît, puisque « répétition de la recommandation sur plusieurs pages » et
+ * « longues descriptions des composantes tarifaires » figurent maintenant parmi les éléments à
+ * supprimer. Seule l'offre RETENUE garde ses conditions, en page 3.
  *
- * DEUX CHOSES SONT VOLONTAIREMENT ABSENTES, sur sa consigne : « sans les trucs des évolutions, on les
- * rajoutera après. Ni fournisseurs consultés. » Les lignes d'évolution supposent de toute façon une
- * offre de référence qui n'existe pas encore dans le modèle de données. La position tarifaire les
- * remplace : elle classe sans comparer à autre chose que les offres du tableau.
+ * SA RÈGLE GÉNÉRALE, répétée deux fois pendant l'appel : « on ne met rien qui n'est pas utile. Si ce
+ * n'est pas nécessaire, on ne met pas. » Son exemple de ce qu'il faut retirer : la répartition
+ * énergie / taxes / acheminement — « c'est joli, c'est vrai, mais personne ne regarde ça ».
  *
- * LA DÉCOMPOSITION SUIT LE MODÈLE À LA LETTRE, et elle diffère selon l'énergie — c'est le point que
- * le rapport a permis de trancher, là où Michel devait « envoyer les documents » :
+ * DEUX POINTS OÙ JE NE PEUX PAS INVENTER, et qui s'affichent donc pour ce qu'ils sont :
  *
- *   Total TTC = TVA + Total HTVA          et    Total HTVA = Abonnement + Énergie + Contributions
+ * · LA DATE DE DÉBUT n'existe nulle part dans nos données — ni sur l'offre, ni sur la version. Ce
+ *   qui existe, depuis l'import des échéances du 24/08, c'est l'échéance du contrat actuel : la
+ *   fourniture commence quand le précédent s'arrête. La ligne l'affiche donc en le disant
+ *   (« échéance du contrat actuel »), plutôt que d'annoncer au client une date qu'il n'a pas donnée.
  *
- *     GAZ          Énergie        Molécule + CEE + CPB
- *                  Contributions  ATRT + ATRD + AGN + CTA
- *     ÉLECTRICITÉ  Énergie        prix par classe + CEE + GO
- *                  Contributions  TURPE + AE + CTA
- *
- * CE QUE CE DOCUMENT NE REPRODUIT PAS, et pourquoi — plutôt que de faire semblant :
- *
- *   · LES COURBES DE PRIX EEX. Aucune donnée de marché n'entre dans Kimatch. Un graphique inventé sur
- *     un document remis au client serait pire que son absence.
- *   · LES DESCRIPTIONS DE FOURNISSEURS (« fondé en 2005, actif au niveau national… »).
- *     `comptes_fournisseurs` n'a pas de champ pour cela ; le document liste les noms.
- *   · LA VOLATILITÉ et l'ÉVOLUTION VERSUS L'OFFRE DE RECONDUCTION. Elles supposent de distinguer
- *     l'offre ACTUELLE et l'offre de RECONDUCTION des offres proposées — c'est l'« offre de
- *     référence » dont Michel parlait le 19/08, qui n'est pas encore modélisée. L'écart entre offres
- *     comparées, lui, est calculé : les deux montants sont dans le tableau.
- *
- * LA TVA EST CALCULÉE À 20 %, le taux des deux modèles (2 687,98 sur 13 439,91 au gaz ; 388,73 sur
- * 1 943,67 en électricité). Le taux est affiché à côté du montant : un taux réduit existe dans
- * certains cas, et il vaut mieux que le lecteur voie lequel a été appliqué.
+ * · LES COMPOSANTES manquantes affichent « à vérifier » et non un tiret ni un zéro. C'est le mot que
+ *   Michel emploie lui-même dans son modèle, et sa règle est explicite : « chaque total doit pouvoir
+ *   être reconstitué à partir des colonnes ». Un blanc laisserait croire à une absence de coût.
  */
 
+/** Un montant en euros, ou « à vérifier » quand la composante n'est pas saisie. */
+function euros(v: number | null | undefined): string {
+  if (v == null) return 'à vérifier'
+  return v.toLocaleString('fr-FR', { maximumFractionDigits: 0 }) + ' €'
+}
+
+function dateFr(iso: string | null | undefined): string {
+  if (!iso) return 'à confirmer'
+  return new Date(iso).toLocaleDateString('fr-FR')
+}
+
+/** Les composantes d'une offre, additionnées sur tous ses points de livraison. */
+function composantes(offre: OffreFournisseur) {
+  const lignes = offre.details_par_compteur
+  const somme = (lire: (l: (typeof lignes)[number]) => number | null | undefined) => {
+    const valeurs = lignes.map(lire).filter((v): v is number => v != null)
+    return valeurs.length === 0 ? null : valeurs.reduce((t, v) => t + v, 0)
+  }
+  return {
+    abonnement: somme((l) => l.prix_gaz?.abonnement_fourniture_annuel_ht ?? l.prix_electricite?.abonnement_fourniture_annuel_ht),
+    energie: somme((l) => l.cout_fourniture_annuel_ht),
+    // « Réseau et taxes » en une seule colonne : c'est ainsi que Michel l'a écrit, et le client ne
+    // décide pas sur la répartition entre acheminement et fiscalité.
+    reseauEtTaxes: (() => {
+      const acheminement = somme((l) => l.cout_acheminement_annuel_ht)
+      const taxes = somme((l) => l.cout_taxes_annuel)
+      if (acheminement == null && taxes == null) return null
+      return (acheminement ?? 0) + (taxes ?? 0)
+    })(),
+  }
+}
 
 export function DocumentComparatif({
   ouvert,
@@ -81,15 +98,15 @@ export function DocumentComparatif({
   version: VersionRecommandation
   compte: Compte | null | undefined
   compteurs: Compteur[]
-  /** Le destinataire du document, tel que le rapport l'annonce en « À l'attention de ». */
+  /** Le destinataire du document. */
   contactClient: Contact | null | undefined
-  /** Le conseiller qui suit le dossier. La recommandation n'en porte que l'identifiant, la page a
-   *  la liste des profils : c'est elle qui résout le nom. */
+  /** Le conseiller qui suit le dossier — la recommandation n'en porte que l'identifiant. */
   conseiller: { nom: string; email?: string | null; telephone?: string | null } | null
 }) {
   const parId = useMemo(() => new Map(compteurs.map((c) => [c.id, c])), [compteurs])
 
-  const colonnes = useMemo(
+  // Les offres chiffrées, de la moins chère à la plus chère. Cet ordre définit la référence d'écart.
+  const offres = useMemo(
     () =>
       version.optimisations
         .flatMap((o) => o.offres)
@@ -98,49 +115,18 @@ export function DocumentComparatif({
     [version],
   )
 
-  const retenue = colonnes.find((o) => o.est_offre_recommandee)
-  const miseEnAvant = retenue ?? colonnes[0]
+  const retenue = offres.find((o) => o.est_offre_recommandee) ?? offres[0] ?? null
 
-  // LE TRI. `colonnes` reste ordonné par prix — c'est lui qui définit la référence d'écart et l'ordre
-  // du tableau de synthèse. Seul l'affichage des cartes suit le tri choisi, sinon changer l'ordre
-  // changerait aussi ce à quoi on se compare.
-  const [tri, setTri] = useState<'total' | 'fournisseur' | 'duree'>('total')
-
-  // LES ONGLETS DE WILLIAM. Naoëlle, 20/08/2026 : « je veux que tu fonctionnes comme William, par
-  // onglet, pour que ça ne fasse pas une longue modale comme ça. »
-  //
-  // Trois onglets là où sa maquette en a quatre : Puissances et Vote n'existent pas encore, et Michel
-  // les exclut lui-même. Le compte rendu — en-tête, synthèse annuelle, détail par PDL, lexique — tient
-  // dans le troisième : c'est la partie formelle, celle qu'on relit avant d'envoyer.
-  //
-  // À L'IMPRESSION, TOUT SORT. Les onglets servent à consulter, pas à découper le document : un
-  // rapport imprimé auquel il manquerait deux sections selon l'onglet ouvert serait un piège. D'où
-  // `print:block` sur chaque section.
-  // DEUX ONGLETS, PLUS TROIS. Michel, 21/08/2026 : « on peut mettre juste résumé et comparatif ».
-  // L'onglet « Compte rendu » disait la même chose que le comparatif, en moins bien : le détail d'une
-  // offre s'obtient en cliquant sur sa carte. Naoëlle, dans le même échange : « ça sert à rien
-  // d'avoir deux onglets qui font la même chose ». Ce que le compte rendu portait d'utile — la
-  // synthèse annuelle, le détail par point de livraison, le lexique — rejoint le comparatif, dont il
-  // fait partie.
-  const [onglet, setOnglet] = useState<'resume' | 'comparatif'>('resume')
-
-  // L'ORDRE DES PAGES DE DÉTAIL. Michel, 21/08/2026 : « ce sera présenté par ordre de, évidemment,
-  // l'offre recommandée, et ensuite les autres viennent après. » Le reste garde le tri du comparatif.
-  const offresDetaillees = useMemo(() => {
-    const retenue = colonnes.find((o) => o.est_offre_recommandee)
-    if (!retenue) return colonnes
-    return [retenue, ...colonnes.filter((o) => o.id !== retenue.id)]
-  }, [colonnes])
-  const onglets = [
-    { cle: 'resume' as const, titre: 'Résumé' },
-    { cle: 'comparatif' as const, titre: 'Comparatif d’offres', compte: colonnes.length },
-  ]
-  const colonnesTriees = useMemo(() => {
-    const l = [...colonnes]
-    if (tri === 'fournisseur') return l.sort((a, b) => (a.fournisseur_nom ?? '').localeCompare(b.fournisseur_nom ?? ''))
-    if (tri === 'duree') return l.sort((a, b) => (a.duree_mois ?? 0) - (b.duree_mois ?? 0))
-    return l
-  }, [colonnes, tri])
+  // L'ÉCONOMIE ANNONCÉE EST CELLE DE SON MODÈLE : « économie par rapport à l'offre suivante », et non
+  // face au contrat actuel. C'est l'écart avec la première offre plus chère que celle retenue.
+  const suivante = useMemo(() => {
+    if (!retenue) return null
+    return offres.find((o) => o.id !== retenue.id && (o.montant_annuel_ht ?? 0) >= (retenue.montant_annuel_ht ?? 0)) ?? null
+  }, [offres, retenue])
+  const economie =
+    retenue && suivante && retenue.montant_annuel_ht != null && suivante.montant_annuel_ht != null
+      ? suivante.montant_annuel_ht - retenue.montant_annuel_ht
+      : null
 
   const pdl = useMemo(
     () =>
@@ -148,54 +134,40 @@ export function DocumentComparatif({
         const c = parId.get(lien.compteur_id)
         const gaz = c?.type_energie === 'gaz'
         return {
-          lienId: lien.lien_id,
           reference: c?.numero_pdl || lien.label || 'Point de livraison',
-          libelle: gaz ? 'PCE' : 'PRM',
-          adresse: [c?.adresse, [c?.code_postal, c?.ville].filter(Boolean).join(' ')].filter(Boolean).join(', '),
           site: c?.site_nom ?? null,
-          gaz,
           energie: gaz ? 'Gaz naturel' : 'Électricité',
           volume: gaz ? c?.car_mwh ?? null : c?.consommation_annuelle_mwh ?? null,
-          segment: c?.segment ?? null,
+          echeance: c?.date_echeance ?? null,
         }
       }),
     [version, parId],
   )
 
-  // Le rapport annonce l'énergie du dossier en en-tête. Un périmètre mixte existe : on le dit.
   const energies = [...new Set(pdl.map((l) => l.energie))]
-  const toutGaz = energies.length === 1 && energies[0] === 'Gaz naturel'
+  const volumeTotal = pdl.map((l) => l.volume).filter((v): v is number => v != null).reduce((t, v) => t + v, 0)
+  const sites = [...new Set(pdl.map((l) => l.site).filter(Boolean))] as string[]
 
+  // La validité annoncée est la PLUS PROCHE des offres comparées : passé cette date, le comparatif
+  // n'est plus opposable, même si d'autres offres tiennent plus longtemps.
+  const validite = offres.map((o) => o.date_validite).filter((d): d is string => !!d).sort()[0] ?? null
 
-  // La validité annoncée en en-tête est la plus PROCHE des offres comparées : passé cette date, le
-  // comparatif n'est plus opposable, même si d'autres offres tiennent plus longtemps.
-  const validite = colonnes
-    .map((o) => o.date_validite)
-    .filter((d): d is string => !!d)
-    .sort()[0] ?? null
+  // La date de début : l'échéance du contrat actuel, la plus proche du périmètre. Voir l'en-tête.
+  const echeances = pdl.map((l) => l.echeance).filter((d): d is string => !!d).sort()
+  const debut = echeances[0] ?? null
+  const debutsDifferents = new Set(echeances).size > 1
 
-  const dateDuJour = new Date().toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' })
-
-  // LE NOM DU DOCUMENT IMPRIMÉ. Le navigateur écrit le titre de l'onglet en tête de chaque page :
-  // le rapport client sortait donc marqué « Kimatch », qui est notre CRM interne et n'a rien à faire
-  // sous les yeux d'un client (signalé le 20/08/2026). On lui substitue le nom du document le temps
-  // de l'impression, puis on rend son titre à l'onglet.
-  //
-  // L'URL en pied de page ne dépend pas de nous : c'est la case « En-têtes et pieds de page » de la
-  // fenêtre d'impression, à décocher côté navigateur.
   const nomDuClient = compte?.nom ?? reco.compte_nom ?? null
+
+  // Le navigateur écrit le titre de l'onglet en tête de chaque page : le rapport client sortait
+  // marqué « Kimatch », qui est notre CRM interne (signalé le 20/08/2026). On lui substitue le nom du
+  // document le temps de l'impression.
   useEffect(() => {
     if (!ouvert) return
     const titreDeLOnglet = document.title
-    const titreDuRapport = ['Kiwee - Compte rendu de consultation', nomDuClient]
-      .filter(Boolean)
-      .join(' - ')
-    const avant = () => {
-      document.title = titreDuRapport
-    }
-    const apres = () => {
-      document.title = titreDeLOnglet
-    }
+    const titreDuRapport = ['Kiwee - Compte rendu de consultation', nomDuClient].filter(Boolean).join(' - ')
+    const avant = () => { document.title = titreDuRapport }
+    const apres = () => { document.title = titreDeLOnglet }
     window.addEventListener('beforeprint', avant)
     window.addEventListener('afterprint', apres)
     return () => {
@@ -205,23 +177,26 @@ export function DocumentComparatif({
     }
   }, [ouvert, nomDuClient])
 
+  const comp = retenue ? composantes(retenue) : null
+  const detailRetenue = retenue?.details_par_compteur[0] ?? null
+
   return (
     <Dialog
       open={ouvert}
       onClose={onFermer}
-      title="Résumé de la version"
-      description={`Version ${version.numero_version ?? ''} — ${colonnes.length} offre${colonnes.length > 1 ? 's' : ''} chiffrée${colonnes.length > 1 ? 's' : ''}`}
-      className="max-w-6xl print:max-w-none print:border-0 print:p-0 print:shadow-none"
+      title="Compte rendu de consultation"
+      description={`Version ${version.numero_version ?? ''} — ${offres.length} offre${offres.length > 1 ? 's' : ''} chiffrée${offres.length > 1 ? 's' : ''} · trois pages`}
+      className="max-w-5xl print:max-w-none print:border-0 print:p-0 print:shadow-none"
     >
       <div className="mb-4 flex items-center gap-2 border-b border-kw-border pb-3 print:hidden">
         <p className="mr-auto text-kw-sm text-kw-meta">
-          Synthèse par fournisseur, puis détail par point de livraison. Le bouton ouvre la fenêtre
+          Trois pages : la décision, la comparaison, les conditions. Le bouton ouvre la fenêtre
           d'impression du navigateur, où « Enregistrer au format PDF » produit le fichier.
         </p>
         <button
           type="button"
           onClick={() => window.print()}
-          disabled={colonnes.length === 0}
+          disabled={offres.length === 0}
           className="inline-flex items-center gap-1.5 rounded-kw-md bg-kw-green px-3.5 py-2 text-kw-sm font-bold text-white shadow-kw-green hover:brightness-95 disabled:opacity-50 disabled:shadow-none"
         >
           <Printer className="h-3.5 w-3.5" />
@@ -229,456 +204,243 @@ export function DocumentComparatif({
         </button>
       </div>
 
-      {colonnes.length === 0 ? (
+      {offres.length === 0 || !retenue ? (
         <p className="rounded-kw-lg border border-dashed border-kw-border-strong bg-kw-subtle p-4 text-kw-base text-kw-meta">
-          Aucune offre de cette version n'a de budget total. Le compte rendu se remplit dès qu'un prix
-          est saisi sur un point de livraison : le budget total de chaque offre en découle.
+          Aucune offre de cette version n'a de budget annuel. Le compte rendu se remplit dès qu'un prix
+          est saisi sur un point de livraison : le budget de chaque offre en découle.
         </p>
       ) : (
         <div id="document-comparatif" className="bg-white text-kw-ink">
-          {/* ── 1. L'en-tête à quatre colonnes du modèle ────────────────────── */}
-          <header className="grid grid-cols-2 gap-x-6 gap-y-3 border-b border-kw-border pb-3 lg:grid-cols-4">
-            <div>
-              <div className="mb-1 flex items-center gap-1.5">
+
+          {/* ══════════ PAGE 1 — DÉCISION ══════════ */}
+          <section>
+            {/* L'expéditeur et le destinataire, une fois et sur cette page seulement. « Informations
+                administratives répétées » est sur la liste des choses à supprimer : elles ne sont
+                donc plus reprises en pied de page ni en tête des suivantes. */}
+            <header className="flex flex-wrap items-start justify-between gap-4 border-b border-kw-border pb-3">
+              <div className="flex items-center gap-2">
                 <img src={kiweePicto} alt="" className="h-6 w-auto" />
-                <span className="font-display text-kw-md font-extrabold leading-none tracking-[-0.02em]">
-                  Kiwee
-                </span>
+                <span className="font-display text-kw-md font-extrabold leading-none tracking-[-0.02em]">Kiwee</span>
               </div>
-              <p className="text-kw-tiny leading-tight text-kw-body">
-                KIWEE ENERGIE FRANCE
-                <br />131 BOULEVARD PEREIRE
-                <br />75017 PARIS
-                <br />FRANCE
-              </p>
-            </div>
-            <Bloc titre="Votre conseiller">
-              {conseiller?.nom ?? '—'}
-              {conseiller?.email && <span className="block text-kw-faint">{conseiller.email}</span>}
-              {conseiller?.telephone && <span className="block text-kw-faint">{conseiller.telephone}</span>}
-            </Bloc>
-            <Bloc titre="À l'attention de">
-              {contactClient
-                ? [contactClient.prenom, contactClient.nom].filter(Boolean).join(' ')
-                : '—'}
-              {contactClient?.email && <span className="block text-kw-faint">{contactClient.email}</span>}
-              {contactClient?.telephone && <span className="block text-kw-faint">{contactClient.telephone}</span>}
-            </Bloc>
-            <Bloc titre={compte?.nom ?? reco.compte_nom ?? 'Client'}>
-              {pdl[0]?.adresse || '—'}
-              <span className="block">France</span>
-            </Bloc>
-          </header>
+              <div className="text-right text-kw-tiny leading-snug text-kw-body">
+                {conseiller?.nom && <span className="block font-bold">{conseiller.nom}</span>}
+                {conseiller?.email && <span className="block text-kw-faint">{conseiller.email}</span>}
+                {conseiller?.telephone && <span className="block text-kw-faint">{conseiller.telephone}</span>}
+              </div>
+            </header>
 
-          {/* ── 2. L'identification du document, hors des onglets ───────────────
-              Le titre daté, le périmètre et le statut de courtier ne dépendent pas de l'onglet
-              ouvert : ils disent DE QUOI on parle. Les enfermer dans « Compte rendu » faisait
-              perdre le nom du document dès qu'on regardait le résumé. */}
-          <div className="mt-4 flex flex-wrap items-end justify-between gap-4">
-            <div>
-              <h1 className="font-display text-kw-lg font-extrabold leading-tight">
-                Compte rendu de consultation
-              </h1>
-              <p className="text-kw-sm text-kw-meta">au {dateDuJour}</p>
-            </div>
-            <div className="flex flex-wrap gap-2">
-              <Encart libelle="Sites" valeur={String(new Set(pdl.map((l) => l.site ?? l.reference)).size)} />
-              <Encart libelle="Énergie" valeur={energies.join(' et ') || '—'} />
-              <Encart
-                libelle="Validité"
-                valeur={validite ? new Date(validite).toLocaleDateString('fr-FR') : 'à confirmer'}
+            <h1 className="mt-5 font-display text-kw-lg font-extrabold uppercase leading-tight tracking-[-0.01em]">
+              Compte rendu de consultation — {energies.join(' et ')}
+            </h1>
+
+            <dl className="mt-3 grid grid-cols-1 gap-x-8 gap-y-1 sm:grid-cols-2">
+              <Ligne libelle="Client" valeur={nomDuClient ?? '—'} />
+              <Ligne
+                libelle={sites.length > 1 ? 'Sites' : 'Site'}
+                valeur={sites.length === 0 ? '—' : sites.length <= 2 ? sites.join(', ') : `${sites.length} sites`}
               />
-            </div>
-          </div>
+              <Ligne
+                libelle="Consommation de référence"
+                valeur={volumeTotal > 0 ? `${volumeTotal.toLocaleString('fr-FR', { maximumFractionDigits: 2 })} MWh/an` : 'à vérifier'}
+              />
+              <Ligne
+                libelle="Date de début"
+                valeur={debut ? `${dateFr(debut)}${debutsDifferents ? ' au plus tôt' : ''}` : 'à confirmer'}
+                precision={debut ? 'échéance du contrat actuel' : undefined}
+              />
+              <Ligne libelle="Validité des offres" valeur={dateFr(validite)} />
+              {contactClient && (
+                <Ligne
+                  libelle="À l'attention de"
+                  valeur={[contactClient.prenom, contactClient.nom].filter(Boolean).join(' ')}
+                />
+              )}
+            </dl>
 
-          {/* ── 3. Le statut de courtier ────────────────────────────────────── */}
-          <section className="mt-3 rounded-kw-md bg-kw-subtle px-3 py-2">
-            <h2 className="text-kw-sm font-bold">À propos de notre accompagnement</h2>
-            <p className="mt-0.5 text-kw-tiny leading-snug text-kw-body">
-              En tant que courtier spécialisé, notre mission est de vous accompagner dans la
-              comparaison des offres de fourniture d'énergie. Ce rapport applique des hypothèses
-              identiques à l'ensemble des offres présentées, afin qu'elles soient comparables entre
-              elles. Conformément à notre statut de courtier, notre prestation est rémunérée par le
-              fournisseur retenu, via une commission incluse dans les tarifs proposés : nous ne
-              facturons rien directement au client final.
+            {/* L'OFFRE RECOMMANDÉE. C'est la seule chose que le client doit retenir de la page. */}
+            <div className="mt-6 rounded-kw-lg border-2 border-kw-green bg-kw-green-tint p-4">
+              <p className="text-kw-tiny font-extrabold uppercase tracking-[0.09em] text-kw-green">
+                Offre recommandée
+              </p>
+              <p className="mt-1 font-display text-kw-lg font-extrabold leading-tight">
+                {retenue.fournisseur_nom} — {libelleOffre(retenue.duree_mois, retenue.type_prix)}
+              </p>
+              <div className="mt-3 flex flex-wrap gap-x-10 gap-y-2">
+                <div>
+                  <p className="text-kw-tiny font-bold uppercase tracking-[0.07em] text-kw-meta">Budget annuel</p>
+                  <p className="font-mono text-kw-lg font-extrabold tabular-nums">
+                    {euros(retenue.montant_annuel_ht)} <span className="text-kw-sm font-bold">HTVA</span>
+                  </p>
+                </div>
+                {economie != null && economie > 0 && (
+                  <div>
+                    <p className="text-kw-tiny font-bold uppercase tracking-[0.07em] text-kw-meta">
+                      Économie par rapport à l'offre suivante
+                    </p>
+                    <p className="font-mono text-kw-lg font-extrabold tabular-nums text-kw-green">
+                      {euros(economie)}/an
+                    </p>
+                  </div>
+                )}
+              </div>
+            </div>
+
+            <h2 className="mt-5 text-kw-base font-extrabold">Pourquoi cette offre ?</h2>
+            <ul className="mt-1 space-y-0.5 text-kw-base leading-snug">
+              {/* Chaque raison est vérifiable sur les données affichées, sauf la dernière, qui est la
+                  phrase de Michel : elle dit que le commercial a contrôlé la conformité au besoin. */}
+              {offres[0]?.id === retenue.id && <li>• Offre la moins chère.</li>}
+              {retenue.type_prix && retenue.duree_mois != null && (
+                <li>• Prix {retenue.type_prix.toLowerCase()} pendant {retenue.duree_mois} mois.</li>
+              )}
+              <li>• Conditions conformes au besoin exprimé.</li>
+            </ul>
+
+            {validite && (
+              <p className="mt-5 rounded-kw-md bg-kw-muted px-3 py-2 text-kw-base font-bold">
+                Décision attendue avant le {dateFr(validite)}.
+              </p>
+            )}
+          </section>
+
+          {/* ══════════ PAGE 2 — COMPARAISON ══════════ */}
+          <section className="mt-10 print:break-before-page">
+            <h2 className="font-display text-kw-md font-extrabold">Comparaison des offres</h2>
+
+            {/* UN TABLEAU, PAS DES JAUGES. « Codes couleur multiples et jauges peu explicites » est
+                sur la liste à supprimer : les barres de composantes et leur légende disparaissent au
+                profit de colonnes qu'on peut additionner. */}
+            <div className="mt-2 overflow-x-auto">
+              <table className="w-full border-collapse text-kw-sm">
+                <thead>
+                  <tr className="border-b-2 border-kw-ink text-left">
+                    <th className="py-1.5 pr-3 font-bold">Fournisseur</th>
+                    <th className="py-1.5 pr-3 font-bold">Durée</th>
+                    <th className="py-1.5 pr-3 font-bold">Type de prix</th>
+                    <th className="py-1.5 pr-3 text-right font-bold">Abonnement</th>
+                    <th className="py-1.5 pr-3 text-right font-bold">Énergie</th>
+                    <th className="py-1.5 pr-3 text-right font-bold">Réseau et taxes</th>
+                    <th className="py-1.5 pr-3 text-right font-bold">Budget annuel</th>
+                    <th className="py-1.5 text-right font-bold">Écart</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {offres.map((o) => {
+                    const c = composantes(o)
+                    const estRetenue = o.id === retenue.id
+                    const ecart =
+                      o.montant_annuel_ht != null && retenue.montant_annuel_ht != null
+                        ? o.montant_annuel_ht - retenue.montant_annuel_ht
+                        : null
+                    return (
+                      <tr
+                        key={o.id}
+                        className={cn('border-b border-kw-border-faint', estRetenue && 'bg-kw-green-tint font-bold')}
+                      >
+                        <td className="py-1.5 pr-3">{o.fournisseur_nom}</td>
+                        <td className="py-1.5 pr-3">{o.duree_mois != null ? `${o.duree_mois} mois` : '—'}</td>
+                        <td className="py-1.5 pr-3">{o.type_prix ?? '—'}</td>
+                        <td className="py-1.5 pr-3 text-right font-mono tabular-nums">{euros(c.abonnement)}</td>
+                        <td className="py-1.5 pr-3 text-right font-mono tabular-nums">{euros(c.energie)}</td>
+                        <td className="py-1.5 pr-3 text-right font-mono tabular-nums">{euros(c.reseauEtTaxes)}</td>
+                        <td className="py-1.5 pr-3 text-right font-mono tabular-nums">{euros(o.montant_annuel_ht)}</td>
+                        <td className="py-1.5 text-right font-mono tabular-nums">
+                          {estRetenue ? 'Référence' : ecart == null ? '—' : `+${euros(ecart)}`}
+                        </td>
+                      </tr>
+                    )
+                  })}
+                </tbody>
+              </table>
+            </div>
+
+            <p className="mt-2 text-kw-tiny leading-snug text-kw-body">
+              Tous les montants sont présentés sur une même base, hors TVA. Chaque budget annuel doit
+              pouvoir être reconstitué à partir des colonnes qui le précèdent ; « à vérifier » signale
+              une composante non saisie, et non un montant nul.
             </p>
           </section>
 
-          {/* ── La barre d'onglets ── */}
-          <nav className="mt-5 flex flex-wrap gap-1 rounded-kw-lg bg-kw-muted p-1 print:hidden">
-            {onglets.map((o) => (
-              <button
-                key={o.cle}
-                type="button"
-                onClick={() => setOnglet(o.cle)}
-                className={cn(
-                  'flex flex-1 items-center justify-center gap-1.5 rounded-kw-md px-3 py-2 text-kw-sm font-bold',
-                  onglet === o.cle
-                    ? 'bg-white text-kw-ink shadow-kw-panel'
-                    : 'text-kw-meta hover:text-kw-ink',
-                )}
-              >
-                {o.titre}
-                {o.compte != null && (
-                  <span
-                    className={cn(
-                      'rounded-full px-1.5 py-px text-kw-micro font-bold',
-                      onglet === o.cle ? 'bg-kw-green-light text-kw-green' : 'bg-white text-kw-faint',
-                    )}
-                  >
-                    {o.compte}
-                  </span>
-                )}
-              </button>
-            ))}
-          </nav>
+          {/* ══════════ PAGE 3 — CONDITIONS ESSENTIELLES ══════════ */}
+          <section className="mt-10 print:break-before-page">
+            <h2 className="font-display text-kw-md font-extrabold">
+              Conditions essentielles — {retenue.fournisseur_nom}
+            </h2>
 
-          {/* Le résumé : ce que le client lit en premier.
-              Visible dans son onglet, et TOUJOURS à l'impression : un rapport imprimé
-              auquel il manquerait une section selon l'onglet ouvert serait un piège. */}
-          <div className={cn('print:block', onglet === 'resume' ? '' : 'hidden')}>
-          {/* ── Le résumé, avant le comparatif ──
-              L'ordre des onglets de William, qui est aussi celui des questions du client : combien
-              j'économise, puis avec qui. Un comparatif ouvert sans résumé oblige à additionner des
-              colonnes pour savoir si l'étude valait la peine. */}
-          <div className="mt-6">
-            <ResumeEtudeClient
-              reco={reco}
-              version={version}
-              compteurs={compteurs}
-              offres={colonnes}
-              offreRetenue={retenue ?? null}
-            />
-          </div>
-
-          </div>
-
-          {/* PLUS DE « SYNTHÈSE ANNUELLE ». Naoëlle, 21/08/2026 : « ce bloc il faut l'enlever car on
-              a les détails quand on clique sur le fournisseur », puis « la synthèse annuelle en
-              colonne, là, il faut l'enlever ».
-
-              Le tableau reprenait, en colonnes, ce que chaque carte d'offre dit déjà quand on
-              l'ouvre : total TTC, TVA, HTVA, abonnement, énergie et ses composantes, contributions et
-              les leurs. Deux présentations du même chiffre, et deux endroits à corriger quand une
-              composante change. Les notes (1) et (2) partent avec lui : elles ne renvoyaient qu'à ses
-              lignes.
-
-              À l'impression le détail ne se perd pas : chaque offre a sa page, dépliée entièrement. */}
-
-          {/* Le comparatif et le détail offre par offre.
-              Visible dans son onglet, et TOUJOURS à l'impression : un rapport imprimé
-              auquel il manquerait une section selon l'onglet ouvert serait un piège.
-
-              PAGE 2 DU DOCUMENT. Naoëlle, 21/08/2026 : « première page compte rendu de consultation,
-              deuxième page comparatif d'offres, ensuite chaque page a le détail de l'offre du
-              fournisseur par page, et le lexique toujours en dernière page. » Le saut de page ne se
-              voit qu'à l'impression — sur un écran qui défile, il n'a aucun effet. */}
-          <div
-            className={cn(
-              'print:block print:break-before-page',
-              onglet === 'comparatif' ? '' : 'hidden',
-            )}
-          >
-          {/* ── 5. Le détail offre par offre, au modèle de l'étude client ──
-              Michel, 20/08/2026 : « sur le bouton qui sera document comparatif, on pourra reprendre
-              encore son même truc » — le même modèle que dans le détail de version, donc le même
-              composant. Une seule présentation à apprendre, et une seule à corriger. */}
-          {/* ── Le comparatif d'offres, au modèle de l'étude client de William ──
-              Michel demande de « reprendre son même truc ». Trois choses de sa maquette manquaient et
-              changent la lecture :
-
-                · LA LÉGENDE des quatre couleurs, sans laquelle la barre est un dégradé muet ;
-                · LE TRI, parce qu'un client ne cherche pas toujours le moins cher — il compare
-                  parfois à durée égale, ou fournisseur par fournisseur ;
-                · LE SÉPARATEUR entre le contrat actuel et les offres négociées : c'est lui qui dit
-                  ce qui sert de référence, et donc ce que veut dire l'écart affiché à droite. */}
-          <div className="mt-8 flex flex-wrap items-baseline gap-x-3 gap-y-1">
-            <h2 className="text-kw-md font-extrabold">Comparatif d'offres</h2>
-            <span className="text-kw-sm text-kw-meta">
-              {energies.join(' et ').toLowerCase()} · budgets annuels HT
-            </span>
-          </div>
-
-          <div className="mt-1.5 flex flex-wrap items-center gap-x-4 gap-y-2">
-            {[
-              ['Abonnement', 'bg-kw-blue'],
-              ['Énergie', 'bg-kw-green'],
-              ['TURPE / réseau', 'bg-kw-gold'],
-              ['Taxes', 'bg-kw-meta'],
-            ].map(([libelle, couleur]) => (
-              <span key={libelle} className="flex items-center gap-1.5 text-kw-tiny font-semibold text-kw-label">
-                <span className={`h-[9px] w-3 shrink-0 rounded-[3px] ${couleur}`} />
-                {libelle}
-              </span>
-            ))}
-            <span className="flex-1" />
-            <span className="text-kw-tiny text-kw-faint print:hidden">trier :</span>
-            {([['total', 'Total'], ['fournisseur', 'Fournisseur'], ['duree', 'Durée']] as const).map(([cle, libelle]) => (
-              <button
-                key={cle}
-                type="button"
-                onClick={() => setTri(cle)}
-                className={
-                  tri === cle
-                    ? 'rounded-kw-md bg-kw-ink px-2.5 py-0.5 text-kw-tiny font-bold text-white print:hidden'
-                    : 'rounded-kw-md border border-kw-border-strong bg-white px-2.5 py-0.5 text-kw-tiny font-bold text-kw-label hover:bg-kw-subtle print:hidden'
+            <dl className="mt-2 grid grid-cols-1 gap-x-8 gap-y-1 sm:grid-cols-2">
+              <Ligne libelle="Durée" valeur={retenue.duree_mois != null ? `${retenue.duree_mois} mois` : 'à vérifier'} />
+              <Ligne libelle="Prix" valeur={retenue.type_prix ?? 'à vérifier'} />
+              <Ligne libelle="Date de début" valeur={debut ? dateFr(debut) : 'à confirmer'} />
+              <Ligne libelle="Budget annuel" valeur={`${euros(retenue.montant_annuel_ht)} HTVA`} />
+              <Ligne
+                libelle="Prix de la molécule"
+                valeur={
+                  detailRetenue?.prix_gaz?.prix_energie_mwh != null
+                    ? `${detailRetenue.prix_gaz.prix_energie_mwh.toLocaleString('fr-FR', { maximumFractionDigits: 2 })} €/MWh`
+                    : retenue.prix_moyen_mwh != null
+                      ? `${retenue.prix_moyen_mwh.toLocaleString('fr-FR', { maximumFractionDigits: 2 })} €/MWh`
+                      : 'à vérifier'
                 }
-              >
-                {libelle}
-              </button>
-            ))}
-          </div>
-
-          <div className="mt-2 flex items-center gap-2.5">
-            <span className="text-kw-tiny font-bold uppercase tracking-[0.09em] text-kw-green">
-              Les offres négociées par Kiwee
-            </span>
-            <span className="h-[1.5px] flex-1 bg-gradient-to-r from-kw-green-border to-transparent" />
-            <span className="text-kw-tiny text-kw-faint">
-              écart calculé face à la moins chère
-            </span>
-          </div>
-
-          <div className="mt-1.5 flex flex-col gap-2">
-            {colonnesTriees.map((o) => (
-              <CarteOffreEtude
-                key={o.id}
-                offre={o}
-                compteurs={compteurs}
-                reference={colonnes[0] ?? null}
-                avecFournisseur
-                avecIdentite
-                avecBarre
               />
-            ))}
-          </div>
+              <Ligne libelle="Abonnement" valeur={euros(comp?.abonnement)} />
+              <Ligne
+                libelle="CEE"
+                valeur={
+                  detailRetenue?.prix_gaz?.prix_cee_mwh != null
+                    ? `${detailRetenue.prix_gaz.prix_cee_mwh.toLocaleString('fr-FR', { maximumFractionDigits: 2 })} €/MWh`
+                    : 'à vérifier'
+                }
+              />
+              <Ligne
+                libelle="CPB"
+                valeur={
+                  detailRetenue?.prix_gaz?.prix_cpb_mwh != null
+                    ? `${detailRetenue.prix_gaz.prix_cpb_mwh.toLocaleString('fr-FR', { maximumFractionDigits: 2 })} €/MWh`
+                    : 'à vérifier'
+                }
+              />
+            </dl>
 
-          </div>
-
-          {/* Le détail par point de livraison et le lexique, la partie formelle du rapport.
-              Visible dans son onglet, et TOUJOURS à l'impression : un rapport imprimé
-              auquel il manquerait une section selon l'onglet ouvert serait un piège. */}
-          <div className={cn('print:block', onglet === 'comparatif' ? '' : 'hidden')}>
-          {/* ── 6. Le détail par point de livraison ─────────────────────────── */}
-          <h2 className="mt-8 text-kw-base font-extrabold">
-            Détail des {colonnes.length} offre{colonnes.length > 1 ? 's' : ''} de fourniture par point
-            de livraison
-          </h2>
-          <div className="mt-1 overflow-x-auto">
-            <table className="w-full border-collapse text-kw-sm">
-              <thead>
-                <tr>
-                  <th className="border-b border-kw-border p-1.5 text-left text-kw-tiny font-bold uppercase tracking-[0.06em] text-kw-faint">
-                    Point de livraison
-                  </th>
-                  <th className="border-b border-kw-border p-1.5 text-right text-kw-tiny font-bold uppercase tracking-[0.06em] text-kw-faint">
-                    Conso. annuelle
-                  </th>
-                  {colonnes.map((o) => (
-                    <th
-                      key={o.id}
-                      className={`border-b border-kw-border p-1.5 text-right text-kw-tiny font-bold ${o.id === miseEnAvant?.id ? 'bg-kw-green-tint text-kw-green' : 'text-kw-meta'}`}
-                    >
-                      {o.fournisseur_nom || 'Fournisseur'}
-                    </th>
-                  ))}
-                </tr>
-              </thead>
-              <tbody>
-                {pdl.map((l) => (
-                  <tr key={l.lienId} className="border-b border-kw-border-faint">
-                    <td className="p-1.5">
-                      <span className="text-kw-tiny font-bold text-kw-faint">{l.libelle}</span>{' '}
-                      <span className="font-mono text-kw-sm">{l.reference}</span>
-                      <span className="ml-1.5 rounded-kw-xs bg-kw-muted px-1.5 py-px text-kw-micro font-bold text-kw-meta">
-                        {l.energie}
-                      </span>
-                      {l.segment && (
-                        <span className="ml-1 text-kw-micro text-kw-faint">{l.segment}</span>
-                      )}
-                      {(l.site || l.adresse) && (
-                        <span className="block text-kw-tiny text-kw-faint">
-                          {[l.site, l.adresse].filter(Boolean).join(' — ')}
-                        </span>
-                      )}
-                    </td>
-                    <td className="p-1.5 text-right font-mono tabular-nums text-kw-meta">
-                      {l.volume != null
-                        ? `${l.volume.toLocaleString('fr-FR', { minimumFractionDigits: 3, maximumFractionDigits: 3 })} MWh`
-                        : '—'}
-                    </td>
-                    {colonnes.map((o) => {
-                      const d = o.details_par_compteur.find((x) => x.version_recommandation_compteur_id === l.lienId)
-                      return (
-                        <td
-                          key={o.id}
-                          className={`p-1.5 text-right font-mono tabular-nums ${o.id === miseEnAvant?.id ? 'bg-kw-green-tint font-bold' : ''}`}
-                        >
-                          {d?.cout_total_annuel_estime_ht != null
-                            ? `${Math.round(d.cout_total_annuel_estime_ht).toLocaleString('fr-FR')} €`
-                            : <span className="text-kw-ghost">—</span>}
-                        </td>
-                      )
-                    })}
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-
-          {/* ── LE DÉTAIL, UNE OFFRE PAR PAGE — À L'IMPRESSION SEULEMENT ──
-              Michel, 21/08/2026 : « chaque offre, une page. C'est-à-dire que si on en a 10, il y aura
-              10 pages. » Et : « cette option de tout déplier d'un coup, c'est uniquement dans le
-              document. »
-
-              POURQUOI SEULEMENT À L'IMPRESSION. À l'écran, le détail d'une offre s'obtient en
-              cliquant sur sa carte — c'est plus court et ça n'encombre rien. Un PDF, lui, ne se
-              clique pas : ce que le clic révélait doit y être ouvert, sinon l'information n'existe
-              plus. C'est la même règle que pour les onglets, et elle vient du même constat.
-
-              UNE PAGE PAR OFFRE, LA PREMIÈRE COMPRISE. Elle continuait la page du comparatif ; elle
-              ouvre maintenant la sienne, pour que la pagination soit celle que Naoëlle a demandée :
-              compte rendu, comparatif, puis une offre par page. */}
-          <div className="hidden print:block">
-            {offresDetaillees.map((o) => (
-              <div key={o.id} className="break-before-page">
-                <h2 className="mt-8 text-kw-base font-extrabold">
-                  Détail — {o.fournisseur_nom || 'Fournisseur'} · {libelleOffre(o.duree_mois, o.type_prix)}
-                  {o.est_offre_recommandee && (
-                    <span className="ml-2 rounded-kw-xs bg-kw-green-light px-1.5 py-px text-kw-micro font-bold uppercase tracking-[0.06em] text-kw-green">
-                      Notre recommandation
-                    </span>
-                  )}
-                </h2>
-                <div className="mt-2">
-                  <CarteOffreEtude
-                    offre={o}
-                    compteurs={compteurs}
-                    reference={miseEnAvant ?? null}
-                    avecFournisseur
-                    avecIdentite
-                    avecBarre
-                    deplieToujours
-                  />
-                </div>
+            {/* « Conditions particulières : uniquement si elles influencent la décision » — donc rien
+                du tout quand le champ est vide, et pas une ligne « — » qui occuperait la place. */}
+            {retenue.description && (
+              <div className="mt-3">
+                <p className="text-kw-tiny font-bold uppercase tracking-[0.07em] text-kw-meta">
+                  Conditions particulières
+                </p>
+                <p className="mt-0.5 text-kw-base leading-snug">{retenue.description}</p>
               </div>
-            ))}
-          </div>
+            )}
 
-          {/* ── 7. Le lexique, EN DERNIÈRE PAGE ─────────────────────────────────
-              « Le lexique toujours en dernière page. » C'est une annexe : on y revient quand un
-              terme arrête la lecture, on ne la lit pas au fil. Elle ouvre donc sa propre page plutôt
-              que de finir celle de la dernière offre. */}
-          <div className="print:break-before-page">
-          <h2 className="mt-8 text-kw-base font-extrabold">Lexique</h2>
-          <div className="mt-1 grid grid-cols-1 gap-x-6 gap-y-2 sm:grid-cols-2 lg:grid-cols-3">
-            {(toutGaz ? LEXIQUE_GAZ : LEXIQUE_ELEC).map((e) => (
-              <div key={e.terme}>
-                <span className="block text-kw-sm font-bold">{e.terme}</span>
-                <span className="block text-kw-tiny leading-snug text-kw-body">{e.definition}</span>
-              </div>
-            ))}
-          </div>
-          </div>
-
-          </div>
-
-          <footer className="mt-10 flex items-end justify-between gap-6 border-t border-kw-ink pt-3">
-            <p className="max-w-[70%] text-kw-micro leading-snug text-kw-faint">
-              Montants annuels établis sur les volumes de référence indiqués. Un tiret signale une
-              donnée non renseignée, et non un montant nul. Les prix restent soumis aux conditions du
-              fournisseur et à la date de validité de son offre.
+            <h3 className="mt-6 text-kw-base font-extrabold">Méthode</h3>
+            <p className="mt-0.5 text-kw-sm leading-snug text-kw-body">
+              Budget calculé à partir d'une consommation annuelle de{' '}
+              {volumeTotal > 0
+                ? `${volumeTotal.toLocaleString('fr-FR', { maximumFractionDigits: 2 })} MWh`
+                : 'la consommation de référence indiquée'}{' '}
+              et des composantes réglementaires applicables à la date de l'analyse. Les mêmes
+              hypothèses sont appliquées à toutes les offres comparées.
             </p>
-            <div className="flex items-center gap-1.5 text-kw-tiny text-kw-faint">
-              <img src={kiweePicto} alt="" className="h-4 w-auto" />
-              <span className="font-semibold">Kiwee</span>
-            </div>
-          </footer>
+            <p className="mt-2 text-kw-sm leading-snug text-kw-body">
+              Kiwee intervient comme courtier et est rémunéré par le fournisseur retenu, sans
+              facturation directe au client.
+            </p>
+          </section>
         </div>
       )}
     </Dialog>
   )
 }
 
-/**
- * Le lexique du document client, VÉRIFIÉ AUX SOURCES.
- *
- * REFORMULÉ ET NON RECOPIÉ : ce sont des notions réglementaires, mais le texte du modèle appartient à
- * son éditeur. Les définitions disent la même chose dans nos mots.
- *
- * ET VÉRIFIÉ, DEPUIS LE 21/08/2026. Michel, ce jour-là : « ne déduis rien quand tu ne connais pas un
- * terme ou un fonctionnement, fais des recherches sur internet dans le monde de l'énergie. »
- * L'avertissement portait : ces définitions sont imprimées dans un document remis au client, et j'en
- * avais écrit une FAUSSE.
- *
- * CE QUI A ÉTÉ CORRIGÉ, et sur quelle base :
- *
- * · CPB — je le décrivais comme une attestation d'origine du biométhane. C'en est le contraire : un
- *   QUOTA D'OBLIGATION. Créé par l'article 95 de la loi Climat et Résilience d'août 2021, il oblige
- *   chaque fournisseur de gaz à restituer, depuis le 1er janvier 2026, un nombre de certificats
- *   proportionnel au gaz livré à ses clients résidentiels et tertiaires — 0,0041 certificat par MWh en
- *   2026, 0,0182 en 2027. Le fournisseur peut produire le biométhane ou acheter les certificats sans
- *   le gaz. C'est facturé À PART du prix du gaz. Attester l'origine, c'est le rôle des garanties
- *   d'origine, pas du CPB. Sources : connaissancedesenergies.org, engie-solutions.com,
- *   totalenergies.fr (consultés le 21/08/2026).
- *
- * · CTA — j'omettais l'essentiel de son calcul : elle ne porte PAS sur la consommation mais sur la
- *   part fixe de l'acheminement (le TURPE en électricité, l'ATRD au gaz). C'est ce qui explique
- *   qu'elle apparaisse en euros par an et non au mégawattheure. Taux arrêtés par les ministres après
- *   avis de la CRE, au profit de la caisse des industries électriques et gazières.
- *   Sources : Wikipédia, selectra.info, connaissancedesenergies.org.
- *
- * · AGN et AE — « identique chez tous les fournisseurs » est vrai mais se lisait comme « le même
- *   montant pour tout le monde ». Le taux ne dépend pas du fournisseur, il dépend de l'USAGE et de la
- *   catégorie de client. Ex-TICGN et ex-TICFE, unifiées en accises par l'ordonnance 2021-1843 du
- *   22 décembre 2021, code des impositions sur les biens et services. Sources : opera-energie.com,
- *   dune-energie.fr, selectra.info.
- *
- * · ATRD — révisé chaque 1er juillet, ce qui compte pour un budget annuel : il change en cours
- *   d'année. NaTran est bien le nouveau nom de GRTgaz depuis janvier 2025.
- *   Sources : moncourtierenergie.com, engie.fr, natrangroupe.com.
- *
- * CE QUI N'A PAS ÉTÉ VÉRIFIÉ et reste à faire confirmer par Michel : la définition de la molécule et
- * celle des classes horosaisonnières, qui décrivent nos propres conventions de calcul plus qu'une
- * notion réglementaire.
- */
-const LEXIQUE_GAZ = [
-  { terme: 'Molécule', definition: 'Le gaz lui-même : la part de la facture proportionnelle au volume consommé. Son prix est fixé par le contrat de fourniture.' },
-  { terme: 'CEE', definition: 'Certificats d’économies d’énergie. Dispositif qui oblige les fournisseurs à promouvoir l’efficacité énergétique ; le coût dépend du fournisseur.' },
-  { terme: 'CPB', definition: 'Certificats de production de biogaz. Depuis le 1ᵉʳ janvier 2026, chaque fournisseur doit restituer un nombre de certificats proportionnel au gaz livré ; il les produit ou les achète. Facturé à part du prix du gaz, ce coût dépend du fournisseur.' },
-  { terme: 'ATRT', definition: 'Accès des tiers au réseau de transport. Finance les grands réseaux de NaTran (ex-GRTgaz) et Teréga ; tarif fixé par la CRE, identique chez tous les fournisseurs.' },
-  { terme: 'ATRD', definition: 'Accès des tiers au réseau de distribution (GRDF et entreprises locales). Tarif fixé par la CRE et révisé chaque 1ᵉʳ juillet, identique chez tous les fournisseurs.' },
-  { terme: 'AGN', definition: 'Accise sur les gaz naturels, ex-TICGN. Taxe de l’État : son taux dépend de l’usage, jamais du fournisseur.' },
-  { terme: 'CTA', definition: 'Contribution tarifaire d’acheminement. Finance les retraites des industries électriques et gazières. Calculée sur la part fixe de l’acheminement et non sur la consommation, elle est identique chez tous les fournisseurs.' },
-]
-
-const LEXIQUE_ELEC = [
-  { terme: 'Classes horosaisonnières', definition: 'Le prix de l’électricité varie selon la période : heures pleines ou creuses, hiver ou été, pointe. Chaque classe a son prix et son volume.' },
-  { terme: 'CEE', definition: 'Certificats d’économies d’énergie. Dispositif qui oblige les fournisseurs à promouvoir l’efficacité énergétique ; le coût dépend du fournisseur.' },
-  { terme: 'GO', definition: 'Garanties d’origine : elles attestent qu’une quantité d’électricité a été produite à partir de sources renouvelables. C’est la part « énergie verte » de l’offre.' },
-  { terme: 'TURPE', definition: 'Tarif d’utilisation des réseaux publics d’électricité. Finance le transport et la distribution ; fixé par la CRE, identique chez tous les fournisseurs.' },
-  { terme: 'AE', definition: 'Accise sur l’électricité, ex-TICFE. Taxe de l’État : son taux dépend de l’usage, jamais du fournisseur.' },
-  { terme: 'CTA', definition: 'Contribution tarifaire d’acheminement. Finance les retraites des industries électriques et gazières. Calculée sur la part fixe du TURPE et non sur la consommation, elle est identique chez tous les fournisseurs.' },
-  { terme: 'Abonnement', definition: 'Part fixe de la facture, indépendante du volume consommé. En électricité, elle est comptée dans le budget énergie.' },
-]
-
-function Bloc({ titre, children }: { titre: string; children: React.ReactNode }) {
+/** Une ligne « libellé : valeur », avec sa précision facultative sous la valeur. */
+function Ligne({ libelle, valeur, precision }: { libelle: string; valeur: string; precision?: string }) {
   return (
-    <div>
-      <span className="block text-kw-micro font-bold uppercase tracking-[0.1em] text-kw-faint">{titre}</span>
-      <p className="text-kw-tiny leading-tight text-kw-body">{children}</p>
+    <div className="flex items-baseline gap-2 border-b border-kw-border-faint py-1">
+      <dt className="shrink-0 text-kw-sm text-kw-meta">{libelle}</dt>
+      <dd className="ml-auto text-right text-kw-base font-bold">
+        {valeur}
+        {precision && <span className="block text-kw-tiny font-normal text-kw-faint">{precision}</span>}
+      </dd>
     </div>
   )
 }
-
-function Encart({ libelle, valeur }: { libelle: string; valeur: string }) {
-  return (
-    <div className="min-w-[92px] rounded-kw-md border border-kw-border bg-kw-subtle px-2.5 py-1.5">
-      <span className="block text-kw-micro font-bold uppercase tracking-[0.1em] text-kw-faint">{libelle}</span>
-      <span className="block text-kw-base font-extrabold leading-tight">{valeur}</span>
-    </div>
-  )
-}
-
-
-

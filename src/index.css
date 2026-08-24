@@ -60,6 +60,29 @@
   .scrollbar-thin::-webkit-scrollbar-thumb {
     @apply bg-navy-200 rounded-full;
   }
+
+  /* L'ascenseur du rail de gauche.
+     `scrollbar-thin` a un pouce en `navy-200`, clair : sur le fond presque noir du rail il tranchait
+     comme un trait blanc sur toute la hauteur. Ici la piste est transparente et le pouce prend
+     `ink-700`, la meme famille fixe que le reste du rail — visible quand on le cherche, invisible
+     quand on ne le cherche pas. `scrollbar-color` couvre Firefox, qui ignore les pseudo-elements
+     WebKit. */
+  .scrollbar-rail {
+    scrollbar-width: thin;
+    scrollbar-color: #2c2f36 transparent;
+  }
+  .scrollbar-rail::-webkit-scrollbar {
+    width: 5px;
+  }
+  .scrollbar-rail::-webkit-scrollbar-track {
+    background: transparent;
+  }
+  .scrollbar-rail::-webkit-scrollbar-thumb {
+    @apply rounded-full bg-ink-700;
+  }
+  .scrollbar-rail:hover::-webkit-scrollbar-thumb {
+    @apply bg-ink-600;
+  }
 }
 
 /* "white" reste un blanc pur théorique dans tout le reste de l'app (texte sur badge coloré,

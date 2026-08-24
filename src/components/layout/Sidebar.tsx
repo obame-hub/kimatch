@@ -172,7 +172,7 @@ export function Sidebar() {
           <nav
             ref={barre}
             onScroll={majDegrades}
-            className="h-full space-y-1 overflow-y-auto overflow-x-hidden px-2.5 py-1 scrollbar-thin md:px-0"
+            className="h-full space-y-1 overflow-y-auto overflow-x-hidden px-2.5 py-1 scrollbar-rail md:px-0"
           >
             {navItems.map((item) => (
               <SidebarLink key={item.to} {...item} onClick={close} />
