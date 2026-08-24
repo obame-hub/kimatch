@@ -18,6 +18,8 @@ import { useCompte } from '@/lib/data/comptes'
 import { InlineField } from '@/components/ui/inline-field'
 import { useContacts } from '@/lib/data/contacts'
 import { useContrats } from '@/lib/data/contrats'
+import { natureEcheance } from '@/lib/echeance'
+import { BadgeEcheance } from '@/components/compteur/BadgeEcheance'
 import { useMandats } from '@/lib/data/mandats'
 import { useSignaux } from '@/lib/data/signaux'
 import { useRecommandationsListe } from '@/lib/data/recommandations'
@@ -323,6 +325,12 @@ export default function CompteurDetail() {
   const mandatDuCompteur = mandats?.find((m) => compteur && m.site_ids.includes(compteur.site_id))
   const documentsDuCompteur = useMemo(() => documents?.filter((d) => d.entite_type === 'compteur' && d.entite_id === id) ?? [], [documents, id])
   const contratIdsDuCompteur = useMemo(() => new Set(contratsDuCompteur.map((c) => c.id)), [contratsDuCompteur])
+  // Prouvée ou estimée : diapositive 6 de Michel. La preuve est le contrat rattaché, donc elle se
+  // déduit ici et ne se stocke nulle part — voir src/lib/echeance.ts.
+  const echeance = useMemo(
+    () => natureEcheance(compteur?.date_echeance, contratsDuCompteur),
+    [compteur?.date_echeance, contratsDuCompteur],
+  )
   const signauxDuCompteur = useMemo(() => signaux?.filter((s) => s.contrat_id && contratIdsDuCompteur.has(s.contrat_id)) ?? [], [signaux, contratIdsDuCompteur])
   const recoActiveDuSite = useMemo(
     () => recommandations?.find((r) => compteur && r.sites.some((s) => s.id === compteur.site_id) && !['ACCEPTEE', 'REFUSEE', 'ABANDONNEE'].includes(r.etape)),
@@ -720,8 +728,20 @@ export default function CompteurDetail() {
                       <EntityLink to={`/comptes/${compteur.fournisseur_actuel_compte_id}`}>{compteur.fournisseur_actuel_nom}</EntityLink>
                     </p>
                   )}
-                  {compteur.date_echeance && (
-                    <p><span className="text-navy-400">Échéance :</span> {new Date(compteur.date_echeance).toLocaleDateString('fr-FR')}</p>
+                  {/* L'ÉCHÉANCE S'AFFICHE MÊME ABSENTE. « Sans échéance contractuelle — prouvée ou
+                      estimée — la piste reste à qualifier » : une ligne qui disparaît quand la donnée
+                      manque ne dit pas qu'il faut aller la chercher, elle laisse croire qu'il n'y a
+                      rien à savoir. 588 compteurs sont dans ce cas. */}
+                  <p className="flex flex-wrap items-center gap-x-2 gap-y-1">
+                    <span className="text-navy-400">Échéance :</span>
+                    <span>{echeance.date ? new Date(echeance.date + 'T12:00:00').toLocaleDateString('fr-FR') : '—'}</span>
+                    <BadgeEcheance e={echeance} dense />
+                  </p>
+                  {echeance.contredit && echeance.dateDeclaree && (
+                    <p className="text-[11px] italic text-kw-red">
+                      Date déclarée sur le compteur : {new Date(echeance.dateDeclaree + 'T12:00:00').toLocaleDateString('fr-FR')} — c’est la
+                      fin du contrat rattaché qui est retenue ci-dessus.
+                    </p>
                   )}
                   <div className="flex flex-wrap items-center justify-between gap-2 text-navy-400">
                     <p>
