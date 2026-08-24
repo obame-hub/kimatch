@@ -21,6 +21,7 @@ import { HistoriqueDiscret } from '@/components/ui/historique-discret'
 import { InlineField } from '@/components/ui/inline-field'
 import { ActivityFeed } from '@/components/site/ActivityFeed'
 import { RailCycleVie, etapeSuivanteDuRail } from '@/components/recommandation/RailCycleVie'
+import { suggestionRelance } from '@/lib/relance'
 import { ComparatifVersions, coutPrestationEstime } from '@/components/recommandation/ComparatifVersions'
 import { DocumentComparatif } from '@/components/recommandation/DocumentComparatif'
 import { VoletGaucheReco } from '@/components/recommandation/VoletGaucheReco'
@@ -208,6 +209,29 @@ export default function RecommandationDetail() {
    * ce qu'on ouvre la fiche pour lire, c'est la demande du client.
    */
   const commandeDabord = reco?.etape === 'BROUILLON' && !estClose
+
+  /**
+   * « Cette offre a été envoyée il y a deux jours, vous n'avez toujours pas de retour, souhaitez-vous
+   * relancer — fin du game » (Michel, 24/08/2026). La règle et ses garde-fous sont dans
+   * src/lib/relance.ts ; ici on ne fait que l'afficher.
+   */
+  // La dernière relance consignée se reconnaît à l'objet de l'interaction, écrit par
+  // `consignerRelance` ci-dessous. Reconnaître par le libellé n'est pas élégant, mais la table des
+  // interactions n'a pas de type « relance » et en ajouter un est une migration : c'est le prix de
+  // ne rien faire appliquer pour cette fonctionnalité.
+  const derniereRelance = useMemo(() => {
+    const dates = (interactions ?? [])
+      .filter((i) => (i.objet ?? '').startsWith('Relance —'))
+      .map((i) => i.date_interaction)
+      .filter(Boolean)
+      .sort()
+    return dates.length ? dates[dates.length - 1] : null
+  }, [interactions])
+
+  const relance = useMemo(
+    () => (reco ? suggestionRelance(reco.etape, versionActive, derniereRelance) : null),
+    [reco, versionActive, derniereRelance],
+  )
   const onglets: { cle: CleOnglet; libelle: string; badge?: string }[] = useMemo(() => {
     const cmd = { cle: 'cmd' as CleOnglet, libelle: 'Commande du client', badge: (objectifs ?? []).length > 0 ? `${(objectifs ?? []).length} obj.` : undefined }
     const rec = { cle: 'reco' as CleOnglet, libelle: 'Recommandation', badge: reco && reco.versions.length > 0 ? `${reco.versions.length} vers.` : undefined }
@@ -332,6 +356,41 @@ export default function RecommandationDetail() {
         recommandation_titre: reco.titre,
       })
       signaler('⏰ Rappel planifié demain 09:00')
+    } catch (e) {
+      signaler(`Erreur : ${e instanceof Error ? e.message : String(e)}`)
+    }
+  }
+
+  /**
+   * CONSIGNER LA RELANCE. « Fin du game » (Michel) : Kimatch ne relance pas, il enregistre que le
+   * commercial l'a fait. L'échange rejoint le fil de la recommandation, et la date de la relance sert
+   * de nouveau point de départ au décompte des deux jours ouvrés — sans quoi la suggestion se
+   * réafficherait indéfiniment sur un dossier qu'on vient justement de relancer.
+   */
+  async function consignerRelance() {
+    if (!reco || !relance) return
+    const types = typesInteractionsRef && typesInteractionsRef.length > 0 ? typesInteractionsRef : FALLBACK_TYPES_INTERACTIONS
+    const type = types.find((t) => t.code === 'APPEL') ?? types[0]
+    try {
+      await createInteraction.mutateAsync({
+        type_interaction_id: type?.id ?? null,
+        type_interaction_libelle: type?.libelle ?? 'Appel',
+        date_interaction: new Date().toISOString(),
+        sens: 'sortant',
+        objet: `Relance — sans retour depuis ${relance.joursOuvres} jours ouvrés`,
+        resume: null,
+        resultat: null,
+        compte_id: reco.compte_id || null,
+        compte_nom: reco.compte_nom,
+        site_id: reco.sites[0]?.id ?? null,
+        site_nom: reco.sites[0]?.nom ?? '',
+        contact_id: contactPrincipal?.id ?? null,
+        contact_nom: contactPrincipal ? `${contactPrincipal.prenom} ${contactPrincipal.nom}` : '',
+        issue_interaction_id: null,
+        recommandation_id: reco.id,
+        recommandation_nom: reco.titre,
+      })
+      signaler('✓ relance consignée — complétez le compte rendu depuis le fil')
     } catch (e) {
       signaler(`Erreur : ${e instanceof Error ? e.message : String(e)}`)
     }
@@ -731,6 +790,27 @@ export default function RecommandationDetail() {
                   </div>
                 )}
               </RailCycleVie>
+
+              {/* ══════════ LA RELANCE APRÈS DEUX JOURS OUVRÉS ══════════
+                  « Kimatch va juste lui dire : voilà ce que tu devrais faire. À lui de décider de le
+                  faire ou pas » (Michel, 24/08/2026). D'où une SUGGESTION et non une alerte : pas de
+                  rouge, pas de compte à rebours, et le bouton ne fait que consigner l'échange que le
+                  commercial a réellement eu — aucune relance ne part toute seule. */}
+              {relance && (
+                <div className="flex flex-wrap items-center gap-3 rounded-kw-xl border border-amber-200 bg-gradient-to-r from-amber-50 to-white px-3.5 py-3">
+                  <span className="flex h-[26px] w-[26px] shrink-0 items-center justify-center rounded-lg bg-amber-100 text-amber-700">
+                    <Clock className="h-3.5 w-3.5" />
+                  </span>
+                  <p className="min-w-0 flex-1 text-kw-base text-kw-body">{relance.texte}</p>
+                  <button
+                    type="button"
+                    onClick={consignerRelance}
+                    className="shrink-0 rounded-kw-md bg-amber-600 px-3 py-1.5 text-kw-sm font-bold text-white hover:brightness-105"
+                  >
+                    Consigner une relance
+                  </button>
+                </div>
+              )}
 
               {/* Une fois close, la fiche dit laquelle et pourquoi — c'est tout l'objet du motif
                   obligatoire : le dossier se relit sans avoir à demander à son auteur. */}
