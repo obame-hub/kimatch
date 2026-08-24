@@ -152,10 +152,17 @@ export function DocumentComparatif({
   // n'est plus opposable, même si d'autres offres tiennent plus longtemps.
   const validite = offres.map((o) => o.date_validite).filter((d): d is string => !!d).sort()[0] ?? null
 
-  // La date de début : l'échéance du contrat actuel, la plus proche du périmètre. Voir l'en-tête.
+  // LA DATE DE DÉBUT EST UNE DONNÉE, PAS UNE DÉDUCTION. `version.date_souhaitee` porte la date de
+  // livraison attendue, reprise de `Cotation__c.Livraison_attendue_le__c` — renseignée sur 1 899 des
+  // 2 022 versions. Ma première version affichait à sa place l'échéance du contrat actuel, faute
+  // d'avoir cherché ce champ : une déduction correcte, mais ce n'est pas ce que le client a demandé.
+  //
+  // L'échéance reste le repli quand la date souhaitée manque : la fourniture commence bien quand le
+  // contrat précédent s'arrête, et la ligne dit alors d'où vient la date.
   const echeances = pdl.map((l) => l.echeance).filter((d): d is string => !!d).sort()
-  const debut = echeances[0] ?? null
-  const debutsDifferents = new Set(echeances).size > 1
+  const debutSouhaite = version.date_souhaitee ?? null
+  const debut = debutSouhaite ?? echeances[0] ?? null
+  const debutsDifferents = !debutSouhaite && new Set(echeances).size > 1
 
   const nomDuClient = compte?.nom ?? reco.compte_nom ?? null
 
@@ -246,7 +253,7 @@ export function DocumentComparatif({
               <Ligne
                 libelle="Date de début"
                 valeur={debut ? `${dateFr(debut)}${debutsDifferents ? ' au plus tôt' : ''}` : 'à confirmer'}
-                precision={debut ? 'échéance du contrat actuel' : undefined}
+                precision={debutSouhaite ? undefined : debut ? 'échéance du contrat actuel' : undefined}
               />
               <Ligne libelle="Validité des offres" valeur={dateFr(validite)} />
               {contactClient && (
