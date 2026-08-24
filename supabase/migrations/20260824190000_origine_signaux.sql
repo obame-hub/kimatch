@@ -11,6 +11,8 @@
 -- d'aucune colonne supplémentaire.
 -- ════════════════════════════════════════════════════════════════════════════════════════════════
 
+begin;
+
 -- ── 1. La provenance ────────────────────────────────────────────────────────────────────────────
 -- TROIS VALEURS ET NON DEUX. « Manuel » et « automatique » ne suffisent pas à décrire l'existant :
 -- les 864 signaux en base ne sont ni l'un ni l'autre, ils ont été importés. Les ranger d'office dans
@@ -45,3 +47,5 @@ comment on column signaux.origine is
   'MANUEL (saisi dans Kimatch), AUTOMATIQUE (produit par une regle), IMPORT (reprise Salesforce).';
 comment on column signaux.cle_generation is
   'Cle deterministe du fait qui a produit le signal, p. ex. ECHEANCE:<compteur_id>:<date>. Unique, nulle pour les signaux non generes.';
+
+commit;
