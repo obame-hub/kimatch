@@ -18,6 +18,10 @@
     {
       "path": "/api/mandats/expirer",
       "schedule": "15 3 * * *"
+    },
+    {
+      "path": "/api/signaux/echeances",
+      "schedule": "30 3 * * *"
     }
   ]
 }
