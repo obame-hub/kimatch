@@ -1,8 +1,9 @@
 import { Fragment, useState } from 'react'
-import { ShieldCheck, Users, Mail, Trash2, Plus, UserCog, Building2 } from 'lucide-react'
+import { ShieldCheck, Users, Mail, Trash2, Plus, UserCog, Building2, Cog } from 'lucide-react'
 import { Topbar } from '@/components/layout/Topbar'
 import { PageHeader } from '@/components/ui/page-header'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { Automatismes } from '@/components/administration/Automatismes'
 import { Button } from '@/components/ui/button'
 import { Input, Select } from '@/components/ui/form'
 import { Badge } from '@/components/ui/badge'
@@ -39,7 +40,7 @@ import { useRefreshSandbox } from '@/lib/data/sandboxRefresh'
 import { RefreshCw, ExternalLink } from 'lucide-react'
 import { useSandboxLastRefresh } from '@/lib/data/sandboxRefresh'
 
-type Tab = 'utilisateurs' | 'permissions' | 'acces' | 'assignations'
+type Tab = 'utilisateurs' | 'permissions' | 'acces' | 'assignations' | 'automatismes'
 
 // Gere depuis l'admin de la PROD (comme la page "Sandbox" d'un org Salesforce) : infos + bouton
 // d'actualisation qui recopie les dernieres donnees de prod dans la sandbox. Clonage/suppression
@@ -596,6 +597,19 @@ export default function Administration() {
             <Building2 className="h-4 w-4" />
             Assignations
           </button>
+          {/* « Qu'on puisse voir quoi tourne déjà afin de ne pas avoir de doublons » (Naoëlle,
+              24/08/2026). En lecture seule : le pilotage passe par le code. */}
+          <button
+            type="button"
+            onClick={() => setTab('automatismes')}
+            className={cn(
+              'flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-sm font-medium',
+              tab === 'automatismes' ? 'bg-kiwi-500/15 text-kiwi-700' : 'text-navy-500 hover:bg-navy-50',
+            )}
+          >
+            <Cog className="h-4 w-4" />
+            Automatismes
+          </button>
         </div>
 
         <Card>
@@ -611,7 +625,7 @@ export default function Administration() {
             </CardTitle>
           </CardHeader>
           <CardContent>
-            {tab === 'utilisateurs' ? <UtilisateursTab /> : tab === 'permissions' ? <PermissionsTab /> : tab === 'acces' ? <AccesAutorisesTab /> : <AssignationsTab />}
+            {tab === 'utilisateurs' ? <UtilisateursTab /> : tab === 'permissions' ? <PermissionsTab /> : tab === 'acces' ? <AccesAutorisesTab /> : tab === 'automatismes' ? <Automatismes /> : <AssignationsTab />}
           </CardContent>
         </Card>
       </div>
