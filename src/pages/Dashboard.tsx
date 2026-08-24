@@ -185,10 +185,18 @@ export default function Dashboard() {
     (data?.recosPretes ?? 0) +
     (data?.contratsASigner ?? 0) +
     (data?.mandatsTresEnRetard ?? 0)
+  // « TOUT EST À JOUR » NE PEUT PAS SE DIRE AU-DESSUS D'UN ARRIÉRÉ. Vu à l'écran le 24/08/2026 : la
+  // phrase annonçait « rien d'urgent — tout est à jour » avec, trois centimètres plus bas, 4 452
+  // compteurs dont l'échéance est absente ou dépassée. Rien d'urgent est vrai ; tout est à jour ne
+  // l'est pas. Le patrimoine n'entre pas dans le décompte des urgences — c'est un travail de fond,
+  // pas une échéance du jour — mais il se dit.
+  const arriere = data?.patrimoineAReprendre ?? 0
   const resume = isLoading
     ? 'Chargement de votre journée…'
     : aTraiter === 0
-      ? 'Rien d’urgent aujourd’hui — tout est à jour.'
+      ? arriere > 0
+        ? `Rien d’urgent aujourd’hui. À votre rythme : ${arriere.toLocaleString('fr-FR')} compteurs dont l’échéance est absente ou dépassée.`
+        : 'Rien d’urgent aujourd’hui — tout est à jour.'
       : `${aTraiter} élément${aTraiter > 1 ? 's' : ''} à traiter en priorité${mesTachesDuJour.length ? ` · ${mesTachesDuJour.length} tâche${mesTachesDuJour.length > 1 ? 's' : ''} du jour` : ''}.`
 
   return (
