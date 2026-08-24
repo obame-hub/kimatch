@@ -182,6 +182,10 @@ export function useUpdateSignal() {
 export type PatchSignal = Partial<{
   commentaire: string | null
   gravite: number | null
+  /** Nouveau → À qualifier → Converti / Écarté, les quatre statuts de la diapositive 13. Rien ne
+   *  pouvait faire avancer un signal avant le 24/08/2026 : sa fiche n'avait aucune action, et les
+   *  864 signaux de la base étaient donc figés là où l'import les avait laissés. */
+  statut_id: string | null
 }>
 
 /** Mise à jour d'un seul champ. `useUpdateSignal` écrit toujours `commentaire`, même quand on ne
