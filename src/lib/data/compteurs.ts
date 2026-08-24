@@ -178,6 +178,137 @@ export function useCompteurs() {
   return useQuery({ queryKey: ['compteurs'], queryFn: () => fetchCompteurs() })
 }
 
+// ══ LA LISTE DES COMPTEURS ══════════════════════════════════════════════════════════════════════
+//
+// `useCompteurs()` NE CONVIENT PAS À UNE LISTE. Il lit les 7 899 compteurs avec huit relations
+// jointes chacun — électricité, gaz, propriétaire, fournisseur, deux contacts, site, type. J'ai
+// construit la page /compteurs dessus le 24/08/2026 en écrivant « volumétrie assumée » : à
+// l'ouverture, l'ONGLET DU NAVIGATEUR A GELÉ, capture d'écran impossible, moteur de rendu bloqué.
+// Ce n'était donc pas de la lenteur à assumer, c'était un défaut.
+//
+// LA BASE FAIT LE TRAVAIL, SANS MIGRATION. PostgREST sait filtrer, trier, compter et paginer : la
+// page ne reçoit que sa tranche, avec six colonnes et une seule jointure. Un `count: exact` rend le
+// total sans rapporter de lignes. C'est le même chemin que la liste des sites a pris le 15/08, à
+// ceci près qu'elle a eu droit à une fonction SQL — ici tout tient dans la requête, donc rien à
+// faire appliquer.
+
+export type FiltreEcheance = 'tous' | 'absente' | 'depassee' | 'six_mois'
+export type TriCompteurs = 'numero_point' | 'date_echeance' | 'consommation_annuelle_mwh'
+
+export interface LigneCompteur {
+  id: string
+  numero_pdl: string
+  site_id: string
+  site_nom: string
+  type_energie: 'electricite' | 'gaz'
+  localisation_site: string | null
+  date_echeance: string | null
+  consommation_annuelle_mwh: number | null
+  /** Total de la sélection, rendu par la base — identique sur chaque ligne. */
+  total: number
+}
+
+function jourIso(decalageMois = 0): string {
+  const d = new Date()
+  if (decalageMois) d.setMonth(d.getMonth() + decalageMois)
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
+}
+
+export function useCompteursListe(options: {
+  recherche: string
+  filtre: FiltreEcheance
+  tri: TriCompteurs
+  sens: 'asc' | 'desc'
+  limite: number
+}) {
+  const { recherche, filtre, tri, sens, limite } = options
+  return useQuery({
+    queryKey: ['compteurs', 'liste', recherche, filtre, tri, sens, limite],
+    queryFn: async (): Promise<LigneCompteur[]> => {
+      const comptesVisibles = await fetchComptesVisibles()
+      const sitesVisibles = await fetchSitesVisiblesIds(comptesVisibles)
+      // Périmètre vide : la personne ne voit aucun site, donc aucun compteur. Sans ce court-circuit,
+      // un `.in()` sur une liste vide rendrait TOUT.
+      if (sitesVisibles !== null && sitesVisibles.length === 0) return []
+
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      let q: any = supabase
+        .from('compteurs')
+        .select('id, numero_point, site_id, date_echeance, consommation_annuelle_mwh, localisation_site, type_energie:types_energies(code), site:sites(nom)', { count: 'exact' })
+        .eq('actif', true)
+
+      if (sitesVisibles !== null) q = q.in('site_id', sitesVisibles)
+
+      // Les deux cas de la diapositive 7 — « absentes ou dépassées » — plus ce qui arrive.
+      if (filtre === 'absente') q = q.is('date_echeance', null)
+      if (filtre === 'depassee') q = q.lt('date_echeance', jourIso())
+      if (filtre === 'six_mois') q = q.gte('date_echeance', jourIso()).lte('date_echeance', jourIso(6))
+
+      // La recherche porte sur le PDL et sur l'emplacement. Le nom du site appartient à une table
+      // jointe : PostgREST ne sait pas le chercher dans un `or`, et la liste des sites a eu besoin
+      // d'une fonction SQL pour ça. Le champ le dit, plutôt que de chercher à moitié en silence.
+      const mots = recherche.trim()
+      if (mots) q = q.or(`numero_point.ilike.%${mots}%,localisation_site.ilike.%${mots}%`)
+
+      // `nullsFirst: false` : un compteur sans échéance n'est pas « le plus urgent », c'est un
+      // compteur dont on ne sait rien. Il va en fin de liste, pas en tête.
+      q = q.order(tri, { ascending: sens === 'asc', nullsFirst: false }).range(0, Math.max(0, limite - 1))
+
+      const { data, error, count } = await q
+      if (error) throw new Error(error.message)
+
+      type Brut = {
+        id: string
+        numero_point: string
+        site_id: string
+        date_echeance: string | null
+        consommation_annuelle_mwh: number | null
+        localisation_site: string | null
+        type_energie: { code: string } | { code: string }[] | null
+        site: { nom: string } | { nom: string }[] | null
+      }
+      const un = <T,>(v: T | T[] | null): T | null => (Array.isArray(v) ? v[0] ?? null : v)
+
+      return ((data ?? []) as Brut[]).map((c) => ({
+        id: c.id,
+        numero_pdl: c.numero_point,
+        site_id: c.site_id,
+        site_nom: un(c.site)?.nom ?? '',
+        type_energie: ((un(c.type_energie)?.code ?? 'electricite').toLowerCase() === 'gaz' ? 'gaz' : 'electricite') as 'electricite' | 'gaz',
+        localisation_site: c.localisation_site ?? null,
+        date_echeance: c.date_echeance ?? null,
+        consommation_annuelle_mwh: c.consommation_annuelle_mwh,
+        total: count ?? 0,
+      }))
+    },
+  })
+}
+
+/**
+ * Les quatre nombres des onglets de filtre, comptés en base et sans rapporter une seule ligne.
+ * Mesuré en production le 24/08/2026 : 7 899 compteurs, 588 sans échéance, 3 861 dépassées.
+ */
+export function useComptesEcheances() {
+  return useQuery({
+    queryKey: ['compteurs', 'comptes-echeances'],
+    queryFn: async () => {
+      const tete = () => supabase.from('compteurs').select('id', { count: 'exact', head: true }).eq('actif', true)
+      const [tous, absente, depassee, sixMois] = await Promise.all([
+        tete(),
+        tete().is('date_echeance', null),
+        tete().lt('date_echeance', jourIso()),
+        tete().gte('date_echeance', jourIso()).lte('date_echeance', jourIso(6)),
+      ])
+      return {
+        tous: tous.count ?? 0,
+        absente: absente.count ?? 0,
+        depassee: depassee.count ?? 0,
+        six_mois: sixMois.count ?? 0,
+      }
+    },
+  })
+}
+
 /** Compteurs des sites donnés -- pour les fiches de détail. */
 export function useCompteursParSites(siteIds: string[] | undefined) {
   const cle = [...(siteIds ?? [])].sort()
