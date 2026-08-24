@@ -326,7 +326,7 @@ export function DocumentComparatif({
                 page blanche ; deux cartes remplissent la largeur, et chacune garde ses composantes
                 pour que le total reste reconstituable — sa règle. */}
             <div
-              className="mt-4 grid flex-1 items-stretch gap-4"
+              className="my-auto grid gap-4"
               style={{ gridTemplateColumns: `repeat(${Math.min(offres.length, 4)}, minmax(0, 1fr))` }}
             >
               {offres.slice(0, 4).map((o) => {
@@ -363,8 +363,6 @@ export function DocumentComparatif({
                       <Composante libelle="Énergie" valeur={euros(c.energie)} />
                       <Composante libelle="Réseau et taxes" valeur={euros(c.reseauEtTaxes)} />
                     </div>
-
-                    <span className="flex-1" />
 
                     <div className="mt-4 border-t-2 border-[#17211D] pt-2.5">
                       <p className="text-[9.5px] font-extrabold uppercase tracking-[0.1em] text-[#61706A]">
