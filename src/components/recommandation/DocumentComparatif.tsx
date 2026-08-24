@@ -222,7 +222,7 @@ export function DocumentComparatif({
 
           {/* ══════════ DIAPOSITIVE 1 — DÉCISION ══════════ */}
           <Diapo>
-            <div className="grid flex-1 grid-cols-1 gap-6 lg:grid-cols-[minmax(0,1fr)_400px]">
+            <div className="grid flex-1 grid-cols-1 gap-6 lg:grid-cols-[minmax(0,1fr)_400px] print:grid-cols-[minmax(0,1fr)_360px]">
               <div className="flex flex-col">
                 <Chapeau>Compte rendu de consultation</Chapeau>
                 <h1 className="mt-1 font-display text-[26px] font-extrabold leading-[1.1] tracking-[-0.02em] text-[#17211D]">
@@ -395,7 +395,7 @@ export function DocumentComparatif({
               {retenue.fournisseur_nom}
             </h2>
 
-            <div className="mt-4 grid flex-1 grid-cols-1 gap-6 lg:grid-cols-[minmax(0,1fr)_320px]">
+            <div className="mt-4 grid flex-1 grid-cols-1 gap-6 lg:grid-cols-[minmax(0,1fr)_320px] print:grid-cols-[minmax(0,1fr)_300px]">
               <dl className="grid grid-cols-1 gap-x-8 self-start sm:grid-cols-2">
                 <Ligne libelle="Durée" valeur={retenue.duree_mois != null ? `${retenue.duree_mois} mois` : 'à vérifier'} />
                 <Ligne libelle="Prix" valeur={retenue.type_prix ?? 'à vérifier'} />
@@ -529,7 +529,7 @@ function Diapo({ children, saut }: { children: React.ReactNode; saut?: boolean }
   return (
     <section
       className={cn(
-        'flex min-h-[190mm] flex-col rounded-[18px] border border-[#D9DFDC] bg-white p-8 print:rounded-none print:border-0 print:p-0',
+        'flex min-h-[190mm] flex-col rounded-[18px] border border-[#D9DFDC] bg-white p-8 print:h-[183mm] print:min-h-0 print:break-inside-avoid print:overflow-hidden print:rounded-none print:border-0 print:p-0',
         saut && 'print:break-before-page',
       )}
     >
