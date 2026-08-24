@@ -20,10 +20,15 @@ import { FALLBACK_STATUTS_SIGNAUX } from '@/lib/referenceFallbacks'
  *   3 • CONVERTIR — « l'action Valider et créer l'opportunité crée une opportunité liée et passe
  *                    le signal à Converti. »
  *
- * CE MAILLON N'EXISTAIT PAS. Constaté le 24/08/2026 : `useCreerOpportunite` était écrit mais aucun
- * écran ne l'appelait — l'unique opportunité en base vient d'une conversion de piste. Il n'y avait
- * donc aucun moyen de créer une opportunité dans Kimatch, et la chaîne signal → opportunité de sa
- * diapositive 5 s'arrêtait au signal.
+ * CE MAILLON N'EXISTAIT PAS — mais pas pour la raison que j'avais écrite ici. J'ai d'abord affirmé
+ * que « `useCreerOpportunite` n'était appelé par aucun écran » : c'était FAUX, la liste des
+ * opportunités a son propre dialogue de création (Opportunites.tsx). J'avais cherché
+ * `useCreateOpportunite` — le mauvais nom — et conclu d'un résultat vide.
+ *
+ * Ce qui manquait réellement, et que ce fichier apporte : la conversion DEPUIS UN SIGNAL. La fiche
+ * signal n'offrait que « Supprimer », donc la chaîne signal → opportunité de la diapositive 5 ne
+ * pouvait pas se parcourir : on pouvait créer une opportunité de toutes pièces, jamais la faire
+ * naître du signal qui la justifie — et rien ne reliait alors les deux.
  *
  * LE CONTACT EST OBLIGATOIRE, LE PÉRIMÈTRE NON. Michel, 24/08/2026 : « pour lancer une opportunité
  * il nous faut au minimum un signal et un contact ». Le périmètre, lui, appartient au palier
