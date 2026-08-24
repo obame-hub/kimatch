@@ -292,8 +292,14 @@
      lui interdit d etre coupee elle partait entiere a la page suivante — laissant une page 1 avec
      trois lignes de texte, puis quatre pages au total.
      On masque donc tout enfant de la boite de dialogue qui ne contient PAS le document : son
-     bandeau de titre comme sa barre d outils. */
-  body:has(#document-comparatif) div:has(> #document-comparatif) > div:not(:has(#document-comparatif)) {
+     bandeau de titre comme sa barre d outils.
+
+     ATTENTION AU SELECTEUR : ma premiere version disait `> div:not(:has(#document-comparatif))`, ce
+     qui masquait AUSSI le document. `:has` ne regarde que les descendants, jamais l element lui-meme :
+     le document ne se contient pas, donc il satisfaisait le `:not` et disparaissait avec les autres.
+     Resultat signale par Naoelle : une seule page, entierement blanche. On exclut donc le document
+     par son identifiant, ce qui se lit d ailleurs plus directement — "tout sauf le document". */
+  body:has(#document-comparatif) div:has(> #document-comparatif) > *:not(#document-comparatif) {
     display: none !important;
   }
 
