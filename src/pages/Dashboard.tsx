@@ -1,5 +1,5 @@
 import { useNavigate } from 'react-router-dom'
-import { Check, FileText, Sparkle, ShieldCheck, Zap, ChevronRight } from 'lucide-react'
+import { Check, Sparkle, Filter, Building2, Target, ChevronRight } from 'lucide-react'
 import { Topbar } from '@/components/layout/Topbar'
 import { TuileIndicateur } from '@/components/dashboard/TuileIndicateur'
 import { FilPortefeuille } from '@/components/dashboard/FilPortefeuille'
@@ -11,36 +11,40 @@ function todayIso() {
   return new Date().toISOString().slice(0, 10)
 }
 
-/** Dégradés des quatre tuiles de tête, repris de la maquette de William au pixel. Ils sont propres
- * au tableau de bord et n'ont pas d'équivalent dans la palette Tailwind. */
+/**
+ * LES QUATRE ACTIVITÉS DE LA DIAPOSITIVE 12 — « le commercial pilote quatre activités » : PISTES,
+ * PATRIMOINE, OPPORTUNITÉS, RECOMMANDATIONS. Les dégradés viennent de la maquette de William ; ils
+ * ont seulement changé d'attribution, pas de valeur, sauf l'opportunité qui prend le magenta de sa
+ * fiche (famille `opp`) pour que la couleur dise la même chose partout dans l'application.
+ */
 const TUILES = {
-  signal: { haut: '#cf5238', bas: '#9e3722' },
+  piste: { haut: '#3d95a5', bas: '#256571' },
+  patrimoine: { haut: '#b08f14', bas: '#8a6d08' },
+  opportunite: { haut: '#a8437f', bas: '#8c2168' },
   reco: { haut: '#9d5b30', bas: '#6f3a1e' },
-  mandat: { haut: '#b08f14', bas: '#8a6d08' },
-  contrat: { haut: '#3d95a5', bas: '#256571' },
 } as const
 
 /** Couleur d'accent de chaque section, cohérente avec sa tuile. */
 const ACCENTS: Record<SectionAction['cle'], { haut: string; bas: string }> = {
-  signal: TUILES.signal,
+  piste: TUILES.piste,
+  patrimoine: TUILES.patrimoine,
+  opportunite: TUILES.opportunite,
   reco: TUILES.reco,
-  mandat: TUILES.mandat,
-  contrat: TUILES.contrat,
 }
 
-const ICONES: Record<SectionAction['cle'], typeof Zap> = {
-  signal: Zap,
+const ICONES: Record<SectionAction['cle'], typeof Sparkle> = {
+  piste: Filter,
+  patrimoine: Building2,
+  opportunite: Target,
   reco: Sparkle,
-  mandat: ShieldCheck,
-  contrat: FileText,
 }
 
 /** Liste complète correspondant à une section, pour le lien « tout voir ». */
 const LISTES: Record<SectionAction['cle'], string> = {
-  signal: '/signaux',
+  piste: '/prospection',
+  patrimoine: '/patrimoine?objet=compteurs',
+  opportunite: '/opportunites',
   reco: '/recommandations',
-  mandat: '/mandats',
-  contrat: '/contrats',
 }
 
 function Section({ section }: { section: SectionAction }) {
@@ -172,8 +176,15 @@ export default function Dashboard() {
   })
 
   // Une phrase qui résume la journée, plutôt qu'un texte d'accueil figé.
+  // Ce qui est PRÊT ou EN RETARD, pas ce qui existe : une piste prête à passer, une opportunité
+  // prête à convertir, une recommandation prête à présenter, un contrat à signer, un mandat qui
+  // traîne depuis plus de deux semaines.
   const aTraiter =
-    (data?.signauxNouveaux ?? 0) + (data?.recosPretes ?? 0) + (data?.mandatsTresEnRetard ?? 0) + (data?.contratsASigner ?? 0)
+    (data?.pistesPretes ?? 0) +
+    (data?.opportunitesPretes ?? 0) +
+    (data?.recosPretes ?? 0) +
+    (data?.contratsASigner ?? 0) +
+    (data?.mandatsTresEnRetard ?? 0)
   const resume = isLoading
     ? 'Chargement de votre journée…'
     : aTraiter === 0
@@ -197,52 +208,52 @@ export default function Dashboard() {
       <div className="px-6 pb-9 pt-[18px]">
         <div className="mb-5 grid grid-cols-1 gap-[13px] sm:grid-cols-2 xl:grid-cols-4">
           <TuileIndicateur
-            libelle="Suivi des contrats"
-            valeur={data?.contratsASuivre ?? 0}
+            libelle="Pistes à qualifier"
+            valeur={data?.pistesAQualifier ?? 0}
             unite="en cours"
-            detail={`${data?.contratsASigner ?? 0} à signer`}
-            icone={FileText}
-            couleurHaut={TUILES.contrat.haut}
-            couleurBas={TUILES.contrat.bas}
-            remplissage={Math.min(1, (data?.contratsASuivre ?? 0) / 40)}
+            detail={`${data?.pistesPretes ?? 0} prêtes à passer en patrimoine`}
+            icone={Filter}
+            couleurHaut={TUILES.piste.haut}
+            couleurBas={TUILES.piste.bas}
+            remplissage={Math.min(1, (data?.pistesAQualifier ?? 0) / 40)}
             index={0}
-            onClick={() => navigate('/contrats')}
+            onClick={() => navigate('/prospection')}
           />
           <TuileIndicateur
-            libelle="Suivi des recommandations"
+            libelle="Patrimoine à actualiser"
+            valeur={data?.patrimoineAReprendre ?? 0}
+            unite="compteurs"
+            detail={`${data?.echeancesDepassees ?? 0} échéances dépassées`}
+            icone={Building2}
+            couleurHaut={TUILES.patrimoine.haut}
+            couleurBas={TUILES.patrimoine.bas}
+            remplissage={Math.min(1, (data?.patrimoineAReprendre ?? 0) / 5000)}
+            index={1}
+            onClick={() => navigate('/patrimoine?objet=compteurs')}
+          />
+          <TuileIndicateur
+            libelle="Opportunités et signaux"
+            valeur={data?.opportunitesOuvertes ?? 0}
+            unite="en cours"
+            detail={`${data?.signauxOuverts ?? 0} signaux à qualifier`}
+            icone={Target}
+            couleurHaut={TUILES.opportunite.haut}
+            couleurBas={TUILES.opportunite.bas}
+            remplissage={Math.min(1, (data?.opportunitesOuvertes ?? 0) / 30)}
+            index={2}
+            onClick={() => navigate('/opportunites')}
+          />
+          <TuileIndicateur
+            libelle="Recommandations"
             valeur={data?.recommandationsEnCours ?? 0}
-            unite="aujourd’hui"
+            unite="en cours"
             detail={`${data?.recosPretes ?? 0} prêtes à présenter`}
             icone={Sparkle}
             couleurHaut={TUILES.reco.haut}
             couleurBas={TUILES.reco.bas}
             remplissage={Math.min(1, (data?.recommandationsEnCours ?? 0) / 150)}
-            index={1}
-            onClick={() => navigate('/recommandations')}
-          />
-          <TuileIndicateur
-            libelle="Suivi des mandats"
-            valeur={data?.mandatsARelancer ?? 0}
-            unite="en attente"
-            detail={`${data?.mandatsTresEnRetard ?? 0} sans réponse depuis plus de 14 j`}
-            icone={ShieldCheck}
-            couleurHaut={TUILES.mandat.haut}
-            couleurBas={TUILES.mandat.bas}
-            remplissage={Math.min(1, (data?.mandatsARelancer ?? 0) / 50)}
-            index={2}
-            onClick={() => navigate('/mandats')}
-          />
-          <TuileIndicateur
-            libelle="Suivi des signaux"
-            valeur={data?.signauxOuverts ?? 0}
-            unite="ouverts"
-            detail={`${data?.signauxNouveaux ?? 0} nouveaux à qualifier`}
-            icone={Zap}
-            couleurHaut={TUILES.signal.haut}
-            couleurBas={TUILES.signal.bas}
-            remplissage={Math.min(1, (data?.signauxOuverts ?? 0) / 250)}
             index={3}
-            onClick={() => navigate('/signaux')}
+            onClick={() => navigate('/recommandations')}
           />
         </div>
 

@@ -4,6 +4,9 @@ import { useRecommandationsListe } from '@/lib/data/recommandations'
 import { useActions } from '@/lib/data/actions'
 import { useContratsListe } from '@/lib/data/contrats'
 import { useMandatsListe } from '@/lib/data/mandats'
+import { usePistes } from '@/lib/data/prospection'
+import { useOpportunites, statutDerive } from '@/lib/data/opportunites'
+import { supabase } from '@/lib/supabase'
 import { useQuery } from '@tanstack/react-query'
 import { fetchMonPortefeuille, filtrerMesElements } from '@/lib/data/visibility'
 import { useMonProfil } from '@/lib/data/roles'
@@ -28,6 +31,48 @@ const CONTRATS_A_SUIVRE = ['NOUVEAU', 'EN_PREPARATION', 'A_SIGNER', 'SIGNE', 'BR
  * dans l'ancien référentiel.
  */
 const VERSIONS_PRETES = ['DISPONIBLE', 'VALIDEE']
+
+/**
+ * LE PATRIMOINE À RÉACTIVER — diapositive 7 : « détecter les échéances inexploitables : le contact
+ * est déjà dans le patrimoine, mais toutes les dates liées à ses sites et compteurs sont ABSENTES OU
+ * DÉPASSÉES ».
+ *
+ * DEUX COMPTAGES ET DOUZE LIGNES, PAS 7 899 COMPTEURS. Le tableau de bord est la page que tout le
+ * monde ouvre en premier : y ajouter le chargement complet des compteurs coûterait à chaque visite
+ * de chaque poste. `count: exact, head: true` ne rend qu'un nombre, sans une seule ligne, et les
+ * exemples affichés sont bornés à six par groupe — ce que la section montre de toute façon.
+ *
+ * Mesuré en production le 24/08/2026 : 588 compteurs sans aucune échéance, 3 861 déjà dépassées.
+ */
+function useEcheancesAReprendre() {
+  return useQuery({
+    queryKey: ['tableau-de-bord', 'echeances-a-reprendre'],
+    queryFn: async () => {
+      const jour = new Date()
+      const iso = `${jour.getFullYear()}-${String(jour.getMonth() + 1).padStart(2, '0')}-${String(jour.getDate()).padStart(2, '0')}`
+      const colonnes = 'id, numero_point, date_echeance, site:sites(nom)'
+
+      const [absentes, depassees, exAbsentes, exDepassees] = await Promise.all([
+        supabase.from('compteurs').select('id', { count: 'exact', head: true }).is('date_echeance', null).eq('actif', true),
+        supabase.from('compteurs').select('id', { count: 'exact', head: true }).lt('date_echeance', iso).eq('actif', true),
+        supabase.from('compteurs').select(colonnes).is('date_echeance', null).eq('actif', true).limit(6),
+        // Les plus anciennes d'abord : une échéance dépassée depuis trois ans est un contact perdu
+        // de vue, pas un oubli de la semaine.
+        supabase.from('compteurs').select(colonnes).lt('date_echeance', iso).eq('actif', true).order('date_echeance').limit(6),
+      ])
+
+      type Ligne = { id: string; numero_point: string; date_echeance: string | null; site: { nom: string } | { nom: string }[] | null }
+      const nomDuSite = (l: Ligne) => (Array.isArray(l.site) ? l.site[0]?.nom : l.site?.nom) ?? 'Site inconnu'
+
+      return {
+        nbAbsentes: absentes.count ?? 0,
+        nbDepassees: depassees.count ?? 0,
+        absentes: ((exAbsentes.data ?? []) as Ligne[]).map((l) => ({ id: l.id, pdl: l.numero_point, site: nomDuSite(l), echeance: null as string | null })),
+        depassees: ((exDepassees.data ?? []) as Ligne[]).map((l) => ({ id: l.id, pdl: l.numero_point, site: nomDuSite(l), echeance: l.date_echeance })),
+      }
+    },
+  })
+}
 
 /** Nombre de jours écoulés depuis une date ISO. */
 function joursDepuis(iso: string | null | undefined): number | null {
@@ -55,7 +100,18 @@ export interface GroupeAction {
 }
 
 export interface SectionAction {
-  cle: 'mandat' | 'reco' | 'contrat' | 'signal'
+  /**
+   * LES QUATRE ACTIVITÉS DE LA DIAPOSITIVE 12 — « le commercial pilote quatre activités » :
+   * PISTES (qualifier les nouveaux contacts), PATRIMOINE (actualiser les contacts existants),
+   * OPPORTUNITÉS (faire avancer les projets), RECOMMANDATIONS (conclure avec le client).
+   *
+   * AVANT, LES BLOCS ÉTAIENT contrat · reco · mandat · signal — un découpage par objet, pas par
+   * activité. Deux de ces objets ne sont pas des activités mais des étapes : le mandat est le
+   * palier 3 de l'opportunité (« Couverture mandat »), et le contrat est l'exécution de la
+   * décision. Ils n'ont donc pas disparu, ils ont rejoint l'activité dont ils font partie — rien
+   * de ce qui était à traiter ne sort de l'écran.
+   */
+  cle: 'piste' | 'patrimoine' | 'opportunite' | 'reco'
   titre: string
   precision: string
   total: number
@@ -80,6 +136,9 @@ export function useDashboardStats() {
   const actions = useActions()
   const contrats = useContratsListe()
   const mandats = useMandatsListe()
+  const pistes = usePistes()
+  const opportunites = useOpportunites()
+  const echeances = useEcheancesAReprendre()
   const { data: monProfil } = useMonProfil()
   // « t'es censé voir uniquement les contrats qui sont à toi » (William, 12/08/2026). Le tableau de
   // bord répond à « qu'ai-je à traiter ? », pas à « qu'ai-je le droit de voir ? » : la règle vaut
@@ -92,6 +151,8 @@ export function useDashboardStats() {
     actions.isLoading ||
     contrats.isLoading ||
     mandats.isLoading ||
+    pistes.isLoading ||
+    opportunites.isLoading ||
     portefeuille === undefined
 
   const data = useMemo(() => {
@@ -152,7 +213,6 @@ export function useDashboardStats() {
     // ── Contrats à suivre ─────────────────────────────────────────────────────────────────
     const contratsASuivre = mesContrats.filter((c) => CONTRATS_A_SUIVRE.includes(c.statut))
     const contratsASigner = contratsASuivre.filter((c) => c.statut === 'A_SIGNER')
-    const contratsAPreparer = contratsASuivre.filter((c) => c.statut !== 'A_SIGNER')
 
     const ligneContrat = (c: (typeof contratsASuivre)[number], aSigner: boolean): LigneAction => ({
       id: c.id,
@@ -166,7 +226,6 @@ export function useDashboardStats() {
     // ── Signaux à traiter ─────────────────────────────────────────────────────────────────
     const signauxOuvertsList = mesSignaux.filter((s) => !SIGNAUX_FERMES.includes(s.statut))
     const signauxNouveaux = signauxOuvertsList.filter((s) => s.statut === 'NOUVEAU')
-    const signauxEnCours = signauxOuvertsList.filter((s) => s.statut !== 'NOUVEAU')
 
     const ligneSignal = (s: (typeof signauxOuvertsList)[number], nouveau: boolean): LigneAction => ({
       id: s.id,
@@ -177,63 +236,179 @@ export function useDashboardStats() {
       to: `/signaux/${s.id}`,
     })
 
+    // ── Pistes à qualifier — « appeler après l'Agent Pistes et confirmer le passage en
+    //    patrimoine » (diapositive 12) ─────────────────────────────────────────────────────────
+    //
+    // Une piste est finie quand elle a produit son opportunité. Les cinq validations de la piste
+    // disent où elle en est : société, contact, e-mail, portable, décisionnaire.
+    const pistesOuvertes = (pistes.data ?? []).filter((p) => !p.opportunite_id)
+    const validations = (p: (typeof pistesOuvertes)[number]) =>
+      [p.societe_validee, p.contact_valide, p.email_valide, p.portable_valide, p.est_decisionnaire].filter(Boolean).length
+    const pistesPretes = pistesOuvertes.filter((p) => validations(p) === 5)
+    const pistesACompleter = pistesOuvertes.filter((p) => validations(p) < 5)
+
+    const lignePiste = (p: (typeof pistesOuvertes)[number], prete: boolean): LigneAction => ({
+      id: p.id,
+      titre: p.societe || p.contact_nom || 'Piste sans nom',
+      sousTitre: [p.contact_nom, p.telephone].filter(Boolean).join(' · ') || 'Coordonnées à compléter',
+      echeance: prete ? 'Prête' : `${validations(p)}/5`,
+      urgent: prete,
+      to: '/prospection',
+    })
+
+    // ── Opportunités à faire avancer — « qualifier le périmètre, la couverture du mandat et la
+    //    conversion » ─────────────────────────────────────────────────────────────────────────
+    const mesOpportunites = filtrerMesElements(opportunites.data ?? [], portefeuille, monProfil?.id, {
+      proprietaireId: (o) => o.proprietaire_id,
+      compteId: (o) => o.compte_id ?? undefined,
+    })
+    const oppOuvertes = mesOpportunites.filter((o) => {
+      const palier = statutDerive(o, mandats.data ?? []).code
+      return palier !== 'CONVERTIE' && palier !== 'ABANDONNEE'
+    })
+
+    const ligneOpportunite = (o: (typeof oppOuvertes)[number]): LigneAction => {
+      const d = statutDerive(o, mandats.data ?? [])
+      return {
+        id: o.id,
+        titre: o.compte_nom || o.reference || 'Opportunité',
+        // Le palier ne suffit pas : c'est la TÂCHE qui dit quoi faire, et c'est ce que le
+        // commercial vient chercher sur cette page.
+        sousTitre: d.tache,
+        echeance: d.libelle,
+        urgent: d.code === 'PRETE_A_CONVERTIR',
+        to: `/opportunites/${o.id}`,
+      }
+    }
+
     // Les listes sont bornées à 6 lignes : au-delà, l'écran devient une liste et non un tableau
     // de bord. Le compteur de la section indique le total, et un lien mène à la liste complète.
     const LIMITE = 6
 
+    const dateFr = (iso: string | null) => (iso ? new Date(iso + 'T12:00:00').toLocaleDateString('fr-FR') : '—')
+
     const sections: SectionAction[] = [
+      // ══ 1 · PISTES — « qualifier les nouveaux contacts » ══════════════════════════════════
       {
-        cle: 'contrat',
-        titre: 'Suivi des contrats',
-        precision: 'ni actifs ni terminés — il reste une étape',
-        total: contratsASuivre.length,
-        groupes: [
-          { libelle: 'À signer', lignes: contratsASigner.slice(0, LIMITE).map((c) => ligneContrat(c, true)), siVide: 'Aucun contrat à signer.' },
-          { libelle: 'En préparation', lignes: contratsAPreparer.slice(0, LIMITE).map((c) => ligneContrat(c, false)), siVide: 'Aucun contrat en préparation.' },
-        ],
-      },
-      {
-        cle: 'reco',
-        titre: 'Suivi des recommandations',
-        precision: 'en attente d’une action de votre part',
-        total: recosOuvertes.length,
-        groupes: [
-          { libelle: 'Prêtes à présenter', lignes: recosPretes.slice(0, LIMITE).map((r) => ligneReco(r, true)), siVide: 'Aucune recommandation prête.' },
-          { libelle: 'En préparation', lignes: recosEnCours.slice(0, LIMITE).map((r) => ligneReco(r, false)), siVide: 'Aucune recommandation en préparation.' },
-        ],
-      },
-      {
-        cle: 'mandat',
-        titre: 'Suivi des mandats',
-        precision: 'sans signature depuis 7 jours ou plus',
-        total: mandatsEnAttente.length,
+        cle: 'piste',
+        titre: 'Pistes à qualifier',
+        precision: 'appeler, vérifier, faire passer en patrimoine',
+        total: pistesOuvertes.length,
         groupes: [
           {
-            libelle: 'Plus de 14 jours',
-            lignes: mandatsEnAttente.filter((m) => (m.age ?? 0) > 14).slice(0, LIMITE).map(ligneMandat),
+            libelle: 'Prêtes à passer en patrimoine',
+            lignes: pistesPretes.slice(0, LIMITE).map((p) => lignePiste(p, true)),
+            siVide: 'Aucune piste entièrement vérifiée.',
+          },
+          {
+            libelle: 'À compléter',
+            lignes: pistesACompleter.slice(0, LIMITE).map((p) => lignePiste(p, false)),
+            siVide: 'Aucune piste en cours de vérification.',
+          },
+        ],
+      },
+      // ══ 2 · PATRIMOINE — « rappeler les contacts aux échéances vides ou dépassées » ════════
+      {
+        cle: 'patrimoine',
+        titre: 'Patrimoine à actualiser',
+        precision: 'échéances absentes ou dépassées',
+        total: (echeances.data?.nbAbsentes ?? 0) + (echeances.data?.nbDepassees ?? 0),
+        groupes: [
+          {
+            libelle: `Échéance dépassée${echeances.data ? ` — ${echeances.data.nbDepassees}` : ''}`,
+            lignes: (echeances.data?.depassees ?? []).map((l) => ({
+              id: l.id,
+              titre: l.site,
+              sousTitre: `PDL ${l.pdl}`,
+              echeance: dateFr(l.echeance),
+              urgent: true,
+              to: `/compteurs/${l.id}`,
+            })),
+            siVide: 'Aucune échéance dépassée.',
+          },
+          {
+            libelle: `Sans échéance${echeances.data ? ` — ${echeances.data.nbAbsentes}` : ''}`,
+            lignes: (echeances.data?.absentes ?? []).map((l) => ({
+              id: l.id,
+              titre: l.site,
+              sousTitre: `PDL ${l.pdl}`,
+              echeance: 'inconnue',
+              urgent: false,
+              to: `/compteurs/${l.id}`,
+            })),
+            siVide: 'Toutes les échéances sont renseignées.',
+          },
+        ],
+      },
+      // ══ 3 · OPPORTUNITÉS — « faire avancer les projets » ══════════════════════════════════
+      //
+      // LE SIGNAL ET LE MANDAT VIVENT ICI. Le signal est l'entrée de l'opportunité (diapositive 9,
+      // « valider et créer l'opportunité »), et le mandat en est le palier 3 (« Couverture
+      // mandat »). Ils avaient chacun leur bloc ; ils sont maintenant dans l'activité dont ils
+      // font partie, sans rien perdre.
+      {
+        cle: 'opportunite',
+        titre: 'Opportunités et signaux',
+        precision: 'du signal détecté à la conversion',
+        total: signauxOuvertsList.length + oppOuvertes.length + mandatsEnAttente.length,
+        groupes: [
+          {
+            libelle: 'Signaux à qualifier',
+            // Les nouveaux ET ceux déjà pris en qualification : « le signal arrive en À qualifier »
+            // (diapositive 9), c'est l'état dans lequel il attend une décision. N'afficher que les
+            // « Nouveau » cachait précisément ceux que le commercial avait pris en main.
+            lignes: signauxOuvertsList.slice(0, LIMITE).map((sig) => ligneSignal(sig, sig.statut === 'NOUVEAU')),
+            siVide: 'Aucun signal en attente de qualification.',
+          },
+          {
+            libelle: 'Opportunités à faire avancer',
+            lignes: oppOuvertes.slice(0, LIMITE).map(ligneOpportunite),
+            siVide: 'Aucune opportunité en cours.',
+          },
+          {
+            libelle: 'Mandats sans signature',
+            lignes: mandatsEnAttente.slice(0, LIMITE).map(ligneMandat),
             siVide: 'Aucun mandat en souffrance.',
           },
-          {
-            libelle: '7 à 14 jours',
-            lignes: mandatsEnAttente.filter((m) => (m.age ?? 0) <= 14).slice(0, LIMITE).map(ligneMandat),
-            siVide: 'Aucun mandat récent à relancer.',
-          },
         ],
       },
+      // ══ 4 · RECOMMANDATIONS — « conclure avec le client » ═════════════════════════════════
+      //
+      // Le contrat rejoint cette activité : il est l'exécution de la décision (diapositive 5,
+      // « Contrat — décision exécutée »).
       {
-        cle: 'signal',
-        titre: 'Suivi des signaux',
-        precision: 'opportunités détectées, non encore qualifiées',
-        total: signauxOuvertsList.length,
+        cle: 'reco',
+        titre: 'Recommandations à conclure',
+        precision: 'comparer, présenter, enregistrer la décision',
+        total: recosOuvertes.length + contratsASigner.length,
         groupes: [
-          { libelle: 'Nouveaux', lignes: signauxNouveaux.slice(0, LIMITE).map((s) => ligneSignal(s, true)), siVide: 'Aucun signal nouveau.' },
-          { libelle: 'En cours de qualification', lignes: signauxEnCours.slice(0, LIMITE).map((s) => ligneSignal(s, false)), siVide: 'Aucun signal en cours.' },
+          {
+            libelle: 'Prêtes à présenter',
+            lignes: recosPretes.slice(0, LIMITE).map((r) => ligneReco(r, true)),
+            siVide: 'Aucune recommandation prête.',
+          },
+          {
+            libelle: 'En préparation',
+            lignes: recosEnCours.slice(0, LIMITE).map((r) => ligneReco(r, false)),
+            siVide: 'Aucune recommandation en préparation.',
+          },
+          {
+            libelle: 'Contrats à signer',
+            lignes: contratsASigner.slice(0, LIMITE).map((c) => ligneContrat(c, true)),
+            siVide: 'Aucun contrat à signer.',
+          },
         ],
       },
     ]
 
     return {
-      // Indicateurs de tête
+      // Indicateurs de tête — un par activité de la diapositive 12.
+      pistesAQualifier: pistesOuvertes.length,
+      pistesPretes: pistesPretes.length,
+      patrimoineAReprendre: (echeances.data?.nbAbsentes ?? 0) + (echeances.data?.nbDepassees ?? 0),
+      echeancesDepassees: echeances.data?.nbDepassees ?? 0,
+      opportunitesOuvertes: oppOuvertes.length,
+      opportunitesPretes: oppOuvertes.filter((o) => statutDerive(o, mandats.data ?? []).code === 'PRETE_A_CONVERTIR').length,
       signauxOuverts: signauxOuvertsList.length,
       signauxNouveaux: signauxNouveaux.length,
       recommandationsEnCours: recosOuvertes.length,
@@ -251,7 +426,7 @@ export function useDashboardStats() {
     }
     // `portefeuille` arrive en asynchrone : sans lui en dépendance, le filtre resterait figé sur
     // son état initial (vide) et le tableau de bord n'afficherait jamais rien.
-  }, [signaux.data, recommandations.data, actions.data, contrats.data, mandats.data, portefeuille, monProfil?.id])
+  }, [signaux.data, recommandations.data, actions.data, contrats.data, mandats.data, pistes.data, opportunites.data, echeances.data, portefeuille, monProfil?.id])
 
   return { data, isLoading }
 }
