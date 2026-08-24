@@ -24,12 +24,24 @@
  * dossiers, dont 303 déjà acceptés et 267 refusés ou abandonnés. Une suggestion qui crie sur des
  * dossiers clos n'est pas une aide, c'est du bruit qu'on apprend à ignorer.
  *
- * Trois conditions, donc :
+ * LA RECOMMANDATION DOIT ÊTRE À L'ÉTAPE « PRÉSENTÉE ». Question posée à Michel le 24/08/2026, et
+ * tranchée le 25/08 : sa diapositive 11 dit « Consultation = solliciter les fournisseurs ». Un
+ * dossier à ce palier attend une réponse de FOURNISSEUR, pas de client — lui suggérer de relancer le
+ * client serait un contresens. Et sa règle « le statut évolue, il ne régresse jamais » tranche le cas
+ * ambigu : si l'étape dit Consultation, la présentation appartient au tour précédent.
+ *
+ * L'effet est mesuré, et il est brutal : de 91 dossiers à 3. Les 76 en consultation et les 12 à
+ * d'autres étapes portent une version présentée sans décision, mais ce sont des écarts de la reprise
+ * Salesforce — l'étape et la date de présentation s'y contredisent. Trois suggestions justes valent
+ * mieux que quatre-vingt-onze dont on apprend à ignorer le bandeau ; et la règle sera exacte pour
+ * tout ce qui sera présenté depuis Kimatch.
+ *
+ * Quatre conditions, donc :
  *   1. la recommandation est encore ouverte — ni acceptée, ni refusée, ni abandonnée ;
- *   2. c'est la version ACTUELLE qui a été présentée (une version remplacée par une plus récente
- *      n'attend plus de réponse : 169 des 190 cas restants sont dans ce cas, la recommandation étant
- *      repartie en consultation) ;
- *   3. deux jours ouvrés sont passés.
+ *   2. elle est à l'étape « Présentée » : c'est le seul palier où l'on attend le client ;
+ *   3. c'est la version ACTUELLE qui a été présentée — une version remplacée par une plus récente
+ *      n'attend plus de réponse ;
+ *   4. deux jours ouvrés sont passés.
  *
  * LES JOURS FÉRIÉS NE SONT PAS TRAITÉS. « Ouvrés » exclut ici les samedis et dimanches, rien de
  * plus : la liste des fériés français est une donnée que nous n'avons pas, et l'inventer déplacerait
@@ -39,6 +51,12 @@
 
 /** Les étapes terminales de la diapositive 13 : au-delà, plus rien à relancer. */
 const ETAPES_FERMEES = ['ACCEPTEE', 'REFUSEE', 'ABANDONNEE']
+
+/**
+ * Le seul palier où l'on attend le client. « Présentée » suit « À présenter » dans sa diapositive 11 :
+ * l'offre est partie, la balle est chez le décisionnaire.
+ */
+const ETAPE_QUI_ATTEND_LE_CLIENT = 'PRESENTEE'
 
 const SEUIL_JOURS_OUVRES = 2
 
@@ -93,6 +111,8 @@ export function suggestionRelance(
 ): SuggestionRelance | null {
   if (!version) return null
   if (ETAPES_FERMEES.includes(etape)) return null
+  // Avant « Présentée », on attend les fournisseurs, pas le client.
+  if (etape !== ETAPE_QUI_ATTEND_LE_CLIENT) return null
   if (version.version_actuelle === false) return null
   if (!version.date_presentation_client) return null
   if (version.date_decision_client) return null
