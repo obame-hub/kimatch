@@ -296,9 +296,19 @@ export function DocumentComparatif({
               <li>• Conditions conformes au besoin exprimé.</li>
             </ul>
 
-            {validite && (
+            {validite ? (
               <p className="mt-5 rounded-kw-md bg-kw-muted px-3 py-2 text-kw-base font-bold">
                 Décision attendue avant le {dateFr(validite)}.
+              </p>
+            ) : (
+              /* SANS DATE DE VALIDITÉ, PAS DE PHRASE — mais le commercial doit le savoir. Écrire
+                 « décision attendue avant le à confirmer » dans un document client serait pire que
+                 de ne rien écrire ; taire le manque au commercial le serait aussi. D'où un
+                 avertissement qui ne s'imprime pas. */
+              <p className="mt-5 rounded-kw-md border border-dashed border-kw-amber bg-kw-amber-light px-3 py-2 text-kw-sm font-semibold text-kw-amber-dark print:hidden">
+                Aucune date de validité n'est saisie sur les offres : la phrase « décision attendue
+                avant le… » ne peut pas s'écrire, et c'est elle qui fait décider. À renseigner sur
+                l'offre avant d'envoyer le document.
               </p>
             )}
           </section>
