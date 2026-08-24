@@ -200,6 +200,12 @@ export function DocumentComparatif({
         <p className="mr-auto text-kw-sm text-kw-meta">
           Trois pages en paysage, une par question : quelle offre, à quel prix, à quelles conditions.
           Le bouton ouvre la fenêtre d'impression, où « Enregistrer au format PDF » produit le fichier.
+          {' '}
+          <strong className="font-semibold text-kw-text">
+            Décochez « En-têtes et pieds de page »
+          </strong>{' '}
+          dans cette fenêtre : sinon le navigateur ajoute lui-même la date et l'adresse du CRM autour
+          de chaque page, et l'adresse n'a rien à faire dans un document client.
         </p>
         <button
           type="button"
