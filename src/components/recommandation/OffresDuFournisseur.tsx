@@ -219,6 +219,50 @@ export function OffresDuFournisseur({
                   )
                 )}
 
+                {/* ══════════ LA DATE DE VALIDITÉ DE L'OFFRE ══════════
+                    Michel, appel du 24/08/2026 à 31:08 : « on est sur des dates de validité dans le
+                    général d'un jour [...] une recommandation quand elle est lancée, c'est comme si
+                    j'ai lancé un appel d'offres : j'ai une DATE FIXE. » Et il veut l'alerte qui va
+                    avec : « recommandation en statut offre — attention, vous devez l'envoyer
+                    aujourd'hui ».
+
+                    LA COLONNE EXISTAIT, LE CHAMP NON. Constaté le 24/08/2026 : `date_validite` est
+                    AFFICHÉE sur la carte d'étude (« valable jusqu'au… ») et lue par le comparatif
+                    des versions, `PatchOffre` la porte, `useUpdateOffrePartiel` sait l'écrire — mais
+                    aucun écran ne permettait de la saisir. Résultat : 0 des 42 offres en base en a
+                    une, et l'alerte qu'il demande n'avait aucune donnée pour se calculer.
+
+                    Elle se règle ici, sur la ligne de l'offre, pour la même raison que la nature :
+                    c'est là qu'on la découvre en lisant la réponse du fournisseur. */}
+                {peutModifier ? (
+                  <label
+                    className="flex items-center gap-1 text-kw-micro font-bold uppercase tracking-[0.05em] text-kw-meta"
+                    title="Date de validité indiquée par le fournisseur. Passé cette date, l’offre n’est plus opposable."
+                  >
+                    valable au
+                    <input
+                      type="date"
+                      value={offre.date_validite?.slice(0, 10) ?? ''}
+                      onChange={(e) =>
+                        patcher(
+                          offre,
+                          { date_validite: e.target.value || null },
+                          e.target.value
+                            ? `✓ ${libelleOffre(offre.duree_mois, offre.type_prix)} : valable jusqu’au ${new Date(e.target.value + 'T12:00:00').toLocaleDateString('fr-FR')}`
+                            : 'Date de validité effacée',
+                        )
+                      }
+                      className="rounded-kw-xs border-0 bg-kw-muted px-1.5 py-0.5 font-mono text-kw-micro font-extrabold text-kw-meta outline-none"
+                    />
+                  </label>
+                ) : (
+                  offre.date_validite && (
+                    <span className="rounded-kw-xs bg-kw-muted px-1.5 py-0.5 font-mono text-kw-micro font-extrabold text-kw-meta">
+                      valable au {new Date(offre.date_validite + 'T12:00:00').toLocaleDateString('fr-FR')}
+                    </span>
+                  )
+                )}
+
                 <span className="flex-1" />
 
                 {peutModifier && (
