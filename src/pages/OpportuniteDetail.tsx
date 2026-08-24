@@ -586,7 +586,11 @@ export default function OpportuniteDetail() {
                   )}
                 </div>
                 <FriseStatut
-                  jalons={PIPELINE_OPPORTUNITE.map((p) => ({ code: p.code, libelle: p.libelle }))}
+                  {/* « Abandonnée » N'EST PAS UN CRAN DU RAIL : c'est une issue, au même titre
+                      que les qualifications finales. L'afficher à la suite de « Convertie » donnait
+                      à lire qu'on passe de l'une à l'autre. La frise ferme donc sur la finalité,
+                      qu'elle sait déjà rendre en rouge ou en vert. */}
+                  jalons={PIPELINE_OPPORTUNITE.filter((p) => p.code !== 'ABANDONNEE').map((p) => ({ code: p.code, libelle: p.libelle }))}
                   courant={palier?.code ?? 'NOUVELLE'}
                   finalite={
                     opportunite.qualification_fin
