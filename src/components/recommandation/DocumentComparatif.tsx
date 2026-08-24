@@ -456,6 +456,49 @@ export function DocumentComparatif({
               </div>
             </div>
 
+            {/* LE PÉRIMÈTRE COUVERT, et ce n'est pas du remplissage : la page 3 était aux deux
+                tiers vide, ce qui est exactement le reproche de Michel sur la page de comparaison
+                — « l'aspect visuel paraît vide ». Ce qu'on y met répond à la question que le client
+                se pose en signant : sur quoi porte l'offre ? Le tableau dit ses points de
+                livraison, leur volume et l'échéance de leur contrat actuel — cette dernière
+                disponible depuis l'import de ce matin. */}
+            {pdl.length > 0 && (
+              <div className="mt-5 border-t border-[#D9DFDC] pt-3">
+                <p className="text-[10px] font-extrabold uppercase tracking-[0.12em] text-[#61706A]">
+                  Périmètre couvert — {pdl.length} point{pdl.length > 1 ? 's' : ''} de livraison
+                </p>
+                <table className="mt-1.5 w-full border-collapse text-[11.5px]">
+                  <thead>
+                    <tr className="border-b border-[#D9DFDC] text-left text-[9.5px] font-extrabold uppercase tracking-[0.08em] text-[#61706A]">
+                      <th className="py-1 pr-3">Site</th>
+                      <th className="py-1 pr-3">Référence</th>
+                      <th className="py-1 pr-3">Énergie</th>
+                      <th className="py-1 pr-3 text-right">Volume annuel</th>
+                      <th className="py-1 text-right">Échéance actuelle</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {pdl.slice(0, 8).map((l) => (
+                      <tr key={l.reference} className="border-b border-[#F1FAF6]">
+                        <td className="py-1 pr-3 text-[#17211D]">{l.site ?? '—'}</td>
+                        <td className="py-1 pr-3 font-mono text-[11px] text-[#3F4249]">{l.reference}</td>
+                        <td className="py-1 pr-3 text-[#3F4249]">{l.energie}</td>
+                        <td className="py-1 pr-3 text-right font-mono tabular-nums text-[#17211D]">
+                          {l.volume != null ? l.volume.toLocaleString('fr-FR', { maximumFractionDigits: 2 }) + ' MWh' : '—'}
+                        </td>
+                        <td className="py-1 text-right font-mono tabular-nums text-[#3F4249]">{l.echeance ? dateFr(l.echeance) : '—'}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+                {pdl.length > 8 && (
+                  <p className="mt-1 text-[10px] text-[#61706A]">
+                    et {pdl.length - 8} autre{pdl.length - 8 > 1 ? 's' : ''} point{pdl.length - 8 > 1 ? 's' : ''} de livraison.
+                  </p>
+                )}
+              </div>
+            )}
+
             {/* « Conditions particulières : uniquement si elles influencent la décision » — donc rien
                 quand le champ est vide, et pas une ligne « — » qui occuperait la place. */}
             {retenue.description && (
