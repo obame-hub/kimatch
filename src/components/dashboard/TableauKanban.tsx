@@ -38,6 +38,17 @@ export interface ColonneKanban {
   couleur?: string | null
 }
 
+/**
+ * LA CARTE, TELLE QUE MICHEL LA DESSINE dans ses six maquettes du 25/08/2026.
+ *
+ * Quatre étages, du haut vers le bas : l'étiquette de NATURE, le titre et son client, le MOTIF dans
+ * son cadre, et les CHIFFRES en pied. Chacun répond à une question que le commercial se pose avant
+ * d'ouvrir la fiche : de quoi il s'agit, chez qui, pourquoi c'est là, et combien ça pèse.
+ *
+ * TOUS LES ÉTAGES SONT OPTIONNELS et se replient s'ils sont absents : les six pages ne portent pas
+ * les mêmes informations, et une carte de recommandation n'a pas de nature à annoncer là où une carte
+ * de signal en a une. Une carte qui n'a que son titre reste une carte correcte.
+ */
 export interface CarteKanban {
   id: string
   titre: string
@@ -46,6 +57,18 @@ export interface CarteKanban {
   mention?: string
   /** Vrai quand la carte mérite d'être traitée avant les autres de sa colonne. */
   urgent?: boolean
+  /** L'étiquette de nature, en tête de carte — le type de signal, l'origine d'une piste. */
+  nature?: string
+  /**
+   * La phrase qui dit POURQUOI la carte existe, dans son cadre — « l'échéance tombe dans 4 mois ».
+   *
+   * C'est l'apport de ses maquettes : sur un kanban, la colonne dit l'état et le titre dit l'objet,
+   * mais rien ne disait le motif. Le commercial devait ouvrir la fiche pour savoir s'il devait s'en
+   * occuper maintenant.
+   */
+  motif?: string
+  /** Chiffres en pied de carte, deux au plus pour rester lisibles — un volume, un montant. */
+  chiffres?: { libelle: string; valeur: string }[]
   to: string
 }
 
@@ -101,7 +124,7 @@ export function TableauKanban({
           <div
             key={col.code}
             style={{ borderTopColor: col.couleur ?? '#d5d7d2' }}
-            className="flex w-[212px] shrink-0 flex-col rounded-kw-lg border-t-[3px] bg-kw-subtle/70 p-2.5"
+            className="flex w-[236px] shrink-0 flex-col rounded-kw-lg border-t-[3px] bg-kw-subtle/70 p-2.5"
           >
             <div className="mb-2 flex items-center gap-1.5 px-0.5">
               <p className="truncate text-kw-xs font-bold uppercase tracking-[0.06em] text-kw-meta">
@@ -125,10 +148,40 @@ export function TableauKanban({
                   )}
                 >
                   <span className="min-w-0 flex-1">
+                    {/* ── L'étiquette de nature ── */}
+                    {c.nature && (
+                      <span className="mb-1 inline-block max-w-full truncate rounded-[3px] bg-kw-bloc px-1.5 py-px text-kw-micro font-bold uppercase tracking-[0.06em] text-kw-meta">
+                        {c.nature}
+                      </span>
+                    )}
+
                     <span className="block truncate text-kw-sm font-bold text-kw-ink">{c.titre}</span>
                     {c.sousTitre && (
                       <span className="block truncate text-kw-micro text-kw-meta">{c.sousTitre}</span>
                     )}
+
+                    {/* ── Le motif, dans son cadre. Deux lignes au plus : au-delà, ce n'est plus un
+                           motif, c'est un commentaire, et il a sa place sur la fiche. ── */}
+                    {c.motif && (
+                      <span className="mt-1 block rounded-[4px] bg-kw-bloc px-1.5 py-1 text-kw-micro leading-snug text-kw-body line-clamp-2">
+                        {c.motif}
+                      </span>
+                    )}
+
+                    {/* ── Les chiffres en pied ── */}
+                    {c.chiffres && c.chiffres.length > 0 && (
+                      <span className="mt-1.5 flex flex-wrap gap-x-3 gap-y-1">
+                        {c.chiffres.map((n) => (
+                          <span key={n.libelle} className="block">
+                            <span className="block text-kw-micro text-kw-faint">{n.libelle}</span>
+                            <span className="block font-mono text-kw-xs font-extrabold tabular-nums text-kw-ink">
+                              {n.valeur}
+                            </span>
+                          </span>
+                        ))}
+                      </span>
+                    )}
+
                     {c.mention && (
                       <span
                         className={cn(

@@ -28,10 +28,11 @@
  */
 import { lazy, Suspense } from 'react'
 import { useSearchParams } from 'react-router-dom'
-import { Building2, Users, MapPin, Gauge, FileCheck2, FileSignature, Files } from 'lucide-react'
+import { Building2, Users, MapPin, Gauge, FileCheck2, FileSignature, Files, TrendingUp } from 'lucide-react'
 import { Topbar } from '@/components/layout/Topbar'
 import { cn } from '@/lib/utils'
 
+const PerformanceComptes = lazy(() => import('@/pages/PerformanceComptes'))
 const Comptes = lazy(() => import('@/pages/Comptes'))
 const Contacts = lazy(() => import('@/pages/Contacts'))
 const Sites = lazy(() => import('@/pages/Sites'))
@@ -42,6 +43,10 @@ const Documents = lazy(() => import('@/pages/Documents'))
 
 /** L'ordre est celui de sa diapositive : du compte jusqu'au compteur, puis ce qui l'engage. */
 const OBJETS = [
+  /* SA PAGE 2 EN PREMIER ONGLET. Le PDF du 25/08/2026 l'appelle « Patrimoine des comptes » et en
+     fait la vue d'entrée du patrimoine : on regarde d'abord l'état de la donnée, ensuite les objets
+     un par un. Les sept onglets existants ne bougent pas — celui-ci s'ajoute devant. */
+  { cle: 'performance', libelle: 'Performance', icone: TrendingUp, sens: 'La fiabilité de la donnée, compte par compte', Page: PerformanceComptes },
   { cle: 'comptes', libelle: 'Comptes', icone: Building2, sens: 'L’entreprise ou l’organisation cliente', Page: Comptes },
   { cle: 'contacts', libelle: 'Contacts', icone: Users, sens: 'Les personnes et leurs rôles', Page: Contacts },
   { cle: 'sites', libelle: 'Sites', icone: MapPin, sens: 'Les lieux de consommation', Page: Sites },

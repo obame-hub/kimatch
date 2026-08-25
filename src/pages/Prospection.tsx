@@ -283,14 +283,30 @@ function OngletPistes({ pistes, signaler }: { pistes: Piste[]; signaler: (m: str
           cartes={Object.fromEntries(
             COLONNES_PISTE.map((c) => [
               c.code,
-              pistes.filter((p) => colonneDe(p) === c.code).filter(correspond).map((p) => ({
-                id: p.id,
-                titre: p.societe || p.contact_nom || 'Piste sans nom',
-                sousTitre: [p.contact_nom, p.telephone].filter(Boolean).join(' · ') || undefined,
-                mention: `${VALIDATIONS_PISTE.filter((v) => Boolean(p[v.cle])).length}/5 vérifié`,
-                urgent: !p.opportunite_id && pisteQualifiee(p),
-                to: p.opportunite_id ? `/opportunites/${p.opportunite_id}` : '/prospection',
-              })),
+              pistes.filter((p) => colonneDe(p) === c.code).filter(correspond).map((p) => {
+                const validees = VALIDATIONS_PISTE.filter((v) => Boolean(p[v.cle]))
+                const manquantes = VALIDATIONS_PISTE.filter((v) => !p[v.cle])
+                return {
+                  id: p.id,
+                  titre: p.societe || p.contact_nom || 'Piste sans nom',
+                  sousTitre: [p.contact_nom, p.telephone].filter(Boolean).join(' · ') || undefined,
+                  /* PAS D'ÉTIQUETTE DE NATURE ICI, et pas de volume non plus. Sa maquette met un
+                     volume en GWh sur ces cartes, mais une piste n'a ni compteur ni consommation en
+                     base — c'est même sa définition : elle devient patrimoine LE JOUR où on lui
+                     rattache un compteur. Le chiffre n'existe donc pas, et je ne l'invente pas.
+                     Quant à la nature, `pistes` ne porte que l'identifiant de sa liste, pas son nom. */
+                  /* LE MOTIF DIT CE QUI MANQUE POUR AVANCER, et non le commentaire libre : sur une
+                     piste, la seule question est ce qu'il reste à vérifier avant de la convertir.
+                     C'est aussi la seule chose que le commercial peut faire quelque chose. */
+                  motif:
+                    manquantes.length === 0
+                      ? 'Les cinq vérifications sont faites : la piste peut être convertie.'
+                      : 'À vérifier : ' + manquantes.map((v) => v.libelle.toLowerCase()).join(', '),
+                  mention: `${validees.length}/5 vérifié`,
+                  urgent: !p.opportunite_id && pisteQualifiee(p),
+                  to: p.opportunite_id ? `/opportunites/${p.opportunite_id}` : '/prospection',
+                }
+              }),
             ]),
           )}
           onCarte={(id) => setPanneauPour(pistes.find((p) => p.id === id) ?? null)}

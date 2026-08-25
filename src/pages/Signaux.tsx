@@ -3,7 +3,6 @@ import { useNavigate } from 'react-router-dom'
 import { Plus, CheckSquare, Check } from 'lucide-react'
 import { Topbar } from '@/components/layout/Topbar'
 import { PageHeader } from '@/components/ui/page-header'
-import { Card } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Dialog } from '@/components/ui/dialog'
 import { FormField, Select, Textarea } from '@/components/ui/form'
@@ -12,7 +11,6 @@ import { useSites } from '@/lib/data/sites'
 import { useCreateAction } from '@/lib/data/actions'
 import { useReferenceTable } from '@/lib/data/referenceTables'
 import { FALLBACK_STATUTS_SIGNAUX, FALLBACK_TYPES_SIGNAUX, FALLBACK_STATUTS_ACTIONS } from '@/lib/referenceFallbacks'
-import { EntityLink } from '@/components/ui/entity-link'
 import type { Signal } from '@/types/domain'
 import { cn } from '@/lib/utils'
 import { estIdReel } from '@/lib/referenceFallbacks'
@@ -43,37 +41,62 @@ function SignalCard({ signal }: { signal: Signal }) {
     setTacheCree(true)
   }
 
+  /**
+   * LA STRUCTURE DE SES CARTES, page 3 du PDF du 25/08/2026 : une étiquette de NATURE en tête, le
+   * client, le MOTIF dans son cadre, et une action en pied.
+   *
+   * LE TYPE DE SIGNAL MONTE EN TÊTE et le site devient le titre — l'inverse de ce qui était affiché.
+   * C'est la bonne hiérarchie : sur une colonne de dix cartes, ce qu'on cherche d'abord est de quoi
+   * il s'agit, pas où. Le type est aussi ce qui décide de l'action à mener, donc il doit se lire en
+   * premier.
+   *
+   * LE PIED GARDE SON ACTION. Ses maquettes portent une action par carte — « Qualifier la variation »,
+   * « Associer au contact », « Compléter les données » — et le libellé exact dépend du type de signal,
+   * une règle que lui seul peut donner. En attendant, la carte garde la seule action générique qui
+   * existe déjà et qui ne suppose rien : créer la tâche de suivi.
+   */
   return (
-    <Card className="animate-fade-up p-3.5 transition-all hover:-translate-y-0.5 hover:shadow-lg">
+    <div className="overflow-hidden rounded-kw-lg border border-kw-border bg-white transition-shadow hover:shadow-kw-card-open">
       <div
         role="button"
         tabIndex={0}
         onClick={() => navigate(`/signaux/${signal.id}`)}
         onKeyDown={(e) => e.key === 'Enter' && navigate(`/signaux/${signal.id}`)}
-        className="cursor-pointer"
+        className="cursor-pointer px-3 pb-2.5 pt-3"
       >
-        <p className="text-sm font-medium text-navy-800"><EntityLink to={`/sites/${signal.site_id}`}>{signal.site_nom}</EntityLink></p>
-        <p className="mt-1 text-xs text-navy-500">{signal.type_signal}</p>
-        <p className="mt-2 line-clamp-2 text-xs text-navy-400">{signal.description}</p>
-        <div className="mt-3 flex items-center justify-between text-[11px] text-navy-400">
-          <span>{signal.conseiller}</span>
-          <span>{new Date(signal.date_creation).toLocaleDateString('fr-FR', { day: '2-digit', month: '2-digit' })}</span>
+        <span className="mb-1.5 inline-block max-w-full truncate rounded-[3px] bg-kw-bloc px-1.5 py-px text-kw-micro font-bold uppercase tracking-[0.06em] text-kw-meta">
+          {signal.type_signal}
+        </span>
+        <p className="truncate text-kw-sm font-bold text-kw-ink">{signal.site_nom}</p>
+        {signal.description && (
+          <p className="mt-1.5 line-clamp-2 rounded-[4px] bg-kw-bloc px-1.5 py-1 text-kw-micro leading-snug text-kw-body">
+            {signal.description}
+          </p>
+        )}
+        <div className="mt-2 flex items-center justify-between gap-2 text-kw-micro text-kw-faint">
+          <span className="truncate">{signal.conseiller}</span>
+          <span className="shrink-0 font-mono tabular-nums">
+            {new Date(signal.date_creation).toLocaleDateString('fr-FR', { day: '2-digit', month: '2-digit' })}
+          </span>
         </div>
       </div>
 
-      <div className="mt-3 flex items-center gap-1.5 border-t border-navy-100 pt-2.5" onClick={(e) => e.stopPropagation()}>
+      <div
+        className="flex items-center gap-1.5 border-t border-kw-border-faint bg-kw-bloc px-2 py-1.5"
+        onClick={(e) => e.stopPropagation()}
+      >
         <button
           type="button"
           onClick={creerTache}
           disabled={tacheCree}
-          className="ml-auto flex items-center gap-1 rounded-full px-2 py-1 text-[10px] font-medium text-navy-500 hover:bg-navy-100 disabled:opacity-50"
+          className="ml-auto flex items-center gap-1 rounded-kw-md px-1.5 py-0.5 text-kw-micro font-bold text-kw-green hover:bg-white disabled:opacity-50"
           title="Créer une tâche de suivi"
         >
           <CheckSquare className="h-3 w-3" />
           {tacheCree ? 'Tâche créée' : 'Créer une tâche'}
         </button>
       </div>
-    </Card>
+    </div>
   )
 }
 
@@ -229,7 +252,7 @@ export default function Signaux() {
                 <div
                   key={col.id}
                   style={{ borderTopColor: col.couleur ?? undefined }}
-                  className={cn('flex w-[240px] shrink-0 flex-col rounded-xl border-t-4 bg-navy-50/60 p-3')}
+                  className={cn('flex w-[236px] shrink-0 flex-col rounded-kw-lg border-t-[3px] bg-kw-subtle/70 p-2.5')}
                 >
                   <div className="mb-3 flex items-center gap-2 px-1">
                     <span className="h-2 w-2 rounded-full" style={{ backgroundColor: col.couleur ?? '#8698ba' }} />

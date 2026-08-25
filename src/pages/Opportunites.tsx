@@ -3,6 +3,8 @@ import { useSearchParams } from 'react-router-dom'
 import { useNavigate } from 'react-router-dom'
 import { Plus, Target, Check } from 'lucide-react'
 import { TableauKanban } from '@/components/dashboard/TableauKanban'
+import { BandeauColonnes } from '@/components/dashboard/BandeauColonnes'
+import { volumeLisible } from '@/lib/volume'
 import { Topbar } from '@/components/layout/Topbar'
 import { PageHeader } from '@/components/ui/page-header'
 import { Card } from '@/components/ui/card'
@@ -16,6 +18,7 @@ import {
   statutDerive,
   PIPELINE_OPPORTUNITE,
   useOpportunites,
+  usePoidsOpportunites,
   useStatutsOpportunites,
   useCreerOpportunite,
   ORIGINES_OPPORTUNITE,
@@ -55,6 +58,7 @@ const SIGNAUX_EXEMPLES = [
 
 export default function Opportunites() {
   const { data: opportunites, isLoading } = useOpportunites()
+  const { data: poids } = usePoidsOpportunites()
   // Les mandats disent si le périmètre est couvert, donc où se situe chaque opportunité dans le
   // pipeline. Le même hook alimente les fiches : la requête est le plus souvent déjà en cache.
   const { data: mandats } = useMandats()
@@ -88,6 +92,29 @@ export default function Opportunites() {
     ? filtrees
     : filtrees.filter((o) => estVivante(statutDerive(o, mandats ?? []).code))
   const paliers = PIPELINE_OPPORTUNITE.filter((p) => avecClos || estVivante(p.code))
+
+  /**
+   * LE POIDS DE CHAQUE PALIER — le bandeau de sa page 5.
+   *
+   * Le volume se somme sur les opportunités RÉELLEMENT AFFICHÉES, palier par palier : le bandeau et
+   * le tableau doivent parler de la même population, sinon on ne sait plus laquelle croire. C'est
+   * pour cette raison que le calcul part de `filtrees` et du même `statutDerive` que les colonnes,
+   * et non d'une requête séparée qui aurait sa propre idée du périmètre.
+   */
+  const parPalier = paliers.map((p) => {
+    const dedans = filtrees.filter((o) => statutDerive(o, mandats ?? []).code === p.code)
+    let mwh: number | null = null
+    for (const o of dedans) {
+      const v = poids?.[o.id]?.mwh
+      if (typeof v === 'number') mwh = (mwh ?? 0) + v
+    }
+    return { code: p.code, libelle: p.libelle, nb: dedans.length, mwh }
+  })
+
+  const volumeTotal = parPalier.reduce<number | null>(
+    (t, p) => (p.mwh == null ? t : (t ?? 0) + p.mwh),
+    null,
+  )
 
   return (
     <div className="flex min-h-0 flex-1 flex-col">
@@ -156,6 +183,21 @@ export default function Opportunites() {
              fermé. C'est la différence avec le tableau de bord, qui ne montre que le travail
              restant. La recherche du bandeau ci-dessus s'y applique aussi. */
           <div className="mt-4">
+            <BandeauColonnes
+              intitule={avecClos ? 'Volume de toutes les opportunités' : 'Volume des opportunités ouvertes'}
+              total={volumeLisible(volumeTotal)}
+              precision={
+                volumeTotal == null
+                  ? 'Aucun compteur rattaché : le volume se déduit du périmètre de chaque opportunité.'
+                  : `${parPalier.reduce((n, p) => n + p.nb, 0)} opportunité${parPalier.reduce((n, p) => n + p.nb, 0) > 1 ? 's' : ''}`
+              }
+              cellules={parPalier.map((p) => ({
+                libelle: p.libelle,
+                valeur: volumeLisible(p.mwh),
+                precision: `${p.nb} opportunité${p.nb > 1 ? 's' : ''}`,
+              }))}
+            />
+
             <TableauKanban
               /* SEULS LES PALIERS VIVANTS. Michel, 25/08/2026 à 14 h 29 : « pareil pour les
                  opportunités » — n'afficher que les actives. « Convertie » et « Abandonnée » sont des
@@ -169,10 +211,27 @@ export default function Opportunites() {
                     .filter((o) => statutDerive(o, mandats ?? []).code === p.code)
                     .map((o) => {
                       const d = statutDerive(o, mandats ?? [])
+                      const p = poids?.[o.id]
+                      const chiffres: { libelle: string; valeur: string }[] = []
+                      const vol = volumeLisible(p?.mwh)
+                      if (vol) chiffres.push({ libelle: 'Volume', valeur: vol })
+                      if (p?.margeNette != null) {
+                        chiffres.push({
+                          libelle: 'Marge',
+                          valeur: p.margeNette.toLocaleString('fr-FR', { maximumFractionDigits: 0 }) + ' €',
+                        })
+                      }
                       return {
                         id: o.id,
                         titre: o.compte_nom || o.reference || 'Opportunité',
-                        sousTitre: d.tache,
+                        sousTitre: o.contact_nom || undefined,
+                        /* LA NATURE ET LE MOTIF DE SES CARTES : le type dit de quoi il s'agit, et le
+                           signal dit pourquoi l'opportunité existe — c'est sa règle de création,
+                           « un signal et un contact ». La tâche déduite du palier prend la place du
+                           motif quand aucun signal n'est nommé : il faut toujours une raison. */
+                        nature: o.type_opportunite ?? o.origine ?? undefined,
+                        motif: o.signal_libelle ?? o.prochaine_action ?? d.tache ?? undefined,
+                        chiffres: chiffres.length > 0 ? chiffres : undefined,
                         mention: o.reference ?? undefined,
                         urgent: d.code === 'PRETE_A_CONVERTIR',
                         to: `/opportunites/${o.id}`,

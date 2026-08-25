@@ -468,3 +468,70 @@ function messageDErreur(brut: string): string {
   }
   return brut
 }
+
+export interface PoidsOpportunite {
+  /** Somme des consommations annuelles des compteurs rattachés, en MWh. */
+  mwh: number | null
+  /** Marge nette de la ou des recommandations nées de cette opportunité. */
+  margeNette: number | null
+}
+
+/**
+ * CE QUE PÈSE CHAQUE OPPORTUNITÉ — page 5 du PDF de Michel du 25/08/2026.
+ *
+ * Sa page porte un bandeau « Volume des opportunités ouvertes » en GWh, découpé par palier, et chaque
+ * carte annonce son volume et sa marge. Ni l'un ni l'autre n'existe sur `opportunites` : la table n'a
+ * AUCUNE colonne de montant ni de volume. Les deux se déduisent des objets rattachés, et c'est bien
+ * ainsi — un volume saisi à la main sur une opportunité divergerait de ses compteurs dès la première
+ * modification.
+ *
+ *   LE VOLUME vient des compteurs de `opportunites_compteurs`.
+ *   LA MARGE vient des recommandations qui portent `opportunite_id` — l'opportunité ne rapporte rien
+ *   par elle-même, elle rapporte ce que la recommandation qu'elle a produite rapporte.
+ *
+ * DEUX REQUÊTES POUR TOUTES LES OPPORTUNITÉS, et non deux par carte : la page charge déjà sa liste
+ * complète côté navigateur, et il y a une opportunité active en base au 26/08/2026. Interroger par
+ * carte serait payer un aller-retour réseau pour éviter une addition.
+ *
+ * ET CE BANDEAU SERA À ZÉRO AU DÉPART, en toute honnêteté : `opportunites_compteurs` ne compte qu'UN
+ * seul lien en base. Ce n'est pas un défaut du calcul, c'est que le périmètre n'est pas encore saisi —
+ * il se remplira quand les commerciaux créeront leurs opportunités à la main, cette semaine.
+ */
+export function usePoidsOpportunites() {
+  return useQuery({
+    queryKey: ['opportunites', 'poids'],
+    staleTime: 60 * 1000,
+    queryFn: async (): Promise<Record<string, PoidsOpportunite>> => {
+      const [liens, recos] = await Promise.all([
+        supabase
+          .from('opportunites_compteurs')
+          .select('opportunite_id, compteurs(consommation_annuelle_mwh)'),
+        supabase
+          .from('recommandations')
+          .select('opportunite_id, marge_nette')
+          .eq('actif', true)
+          .not('opportunite_id', 'is', null),
+      ])
+
+      const out: Record<string, PoidsOpportunite> = {}
+      const poser = (id: string) => (out[id] ??= { mwh: null, margeNette: null })
+
+      type Lien = { opportunite_id: string; compteurs: { consommation_annuelle_mwh: number | null } | null }
+      for (const l of (liens.data ?? []) as unknown as Lien[]) {
+        const v = l.compteurs?.consommation_annuelle_mwh
+        if (typeof v !== 'number') continue
+        const p = poser(l.opportunite_id)
+        p.mwh = (p.mwh ?? 0) + v
+      }
+
+      type Reco = { opportunite_id: string; marge_nette: number | null }
+      for (const r of (recos.data ?? []) as unknown as Reco[]) {
+        if (typeof r.marge_nette !== 'number') continue
+        const p = poser(r.opportunite_id)
+        p.margeNette = (p.margeNette ?? 0) + r.marge_nette
+      }
+
+      return out
+    },
+  })
+}
