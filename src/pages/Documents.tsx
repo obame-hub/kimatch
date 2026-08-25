@@ -104,7 +104,11 @@ function CreateDocumentDialog({ open, onClose }: { open: boolean; onClose: () =>
           />
         </FormField>
         <FormField label="Type de document">
-          <Select value={typeDocumentId} onChange={(e) => setTypeDocumentId(e.target.value)}>
+          {/* OBLIGATOIRE : `documents.type_document_id` est NOT NULL sans valeur par défaut. Laissé
+              vide, il était omis de l'insertion, la base refusait la ligne, et l'écran annonçait un
+              enregistrement local — le document n'existait pas. Dernier formulaire du circuit dans ce
+              cas ; les autres (compteur, contrat, interaction, tâche, signal) sont désormais fermés. */}
+          <Select value={typeDocumentId} onChange={(e) => setTypeDocumentId(e.target.value)} required>
             <option value="">Sélectionner…</option>
             {types.map((t) => <option key={t.id} value={t.id}>{t.libelle}</option>)}
           </Select>

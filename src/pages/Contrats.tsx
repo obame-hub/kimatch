@@ -401,8 +401,25 @@ export default function Contrats({ sansEntete }: { sansEntete?: boolean }) {
   const navigate = useNavigate()
   const [showCreate, setShowCreate] = useState(false)
   const [statutFilter, setStatutFilter] = useState('')
+  /**
+   * LES 549 CONTRATS SANS FOURNISSEUR DEVIENNENT TRAVAILLABLES.
+   *
+   * Le trou est connu depuis plusieurs jours et la question posée à Michel est restée sans réponse.
+   * En attendant, ces contrats étaient noyés dans les 1 600 autres : on savait qu'ils existaient sans
+   * pouvoir les ouvrir un par un. Un filtre suffit à en faire une liste d'appels — c'est exactement
+   * ce que Michel demande cette semaine, que le commercial sache ce qu'il a à faire.
+   *
+   * Le compte s'affiche sur le bouton : un filtre qui ne dit pas combien il cache n'incite personne
+   * à cliquer dessus.
+   */
+  const [sansFournisseur, setSansFournisseur] = useState(false)
+  const nbSansFournisseur = (contrats ?? []).filter((c) => !c.fournisseur_nom).length
 
-  const contratsFiltresParStatut = statutFilter ? contrats?.filter((c) => c.statut === statutFilter) : contrats
+  const contratsFiltresParStatut = (() => {
+    let liste = statutFilter ? contrats?.filter((c) => c.statut === statutFilter) : contrats
+    if (sansFournisseur) liste = liste?.filter((c) => !c.fournisseur_nom)
+    return liste
+  })()
 
   const { query, setQuery, sortKey, setSortKey, items: filteredContrats } = useListControls(contratsFiltresParStatut, {
     searchFields: (c) => [c.fournisseur_nom, c.site_nom, c.reference_fournisseur, c.id_salesforce],
@@ -443,6 +460,23 @@ export default function Contrats({ sansEntete }: { sansEntete?: boolean }) {
             <option value="">Tous les statuts</option>
             {statuts.map((s) => <option key={s.id} value={s.code}>{s.libelle}</option>)}
           </Select>
+          {nbSansFournisseur > 0 && (
+            <button
+              type="button"
+              onClick={() => setSansFournisseur((v) => !v)}
+              title="Contrats dont le fournisseur n'est pas renseigné : la donnée est à compléter avant de pouvoir comparer une offre."
+              className={
+                sansFournisseur
+                  ? 'shrink-0 rounded-kw-md border border-ink-800 bg-ink-800 px-2.5 py-1.5 text-kw-xs font-semibold text-white'
+                  : 'shrink-0 rounded-kw-md border border-kw-border bg-white px-2.5 py-1.5 text-kw-xs font-semibold text-kw-meta hover:bg-kw-subtle'
+              }
+            >
+              Sans fournisseur
+              <span className={sansFournisseur ? 'ml-1.5 font-mono text-white/70' : 'ml-1.5 font-mono text-kw-meta'}>
+                {nbSansFournisseur}
+              </span>
+            </button>
+          )}
           <Select value={sortKey} onChange={(e) => setSortKey(e.target.value)} className="w-auto">
             <option value="site_nom">Trier par site</option>
             <option value="fournisseur_nom">Trier par fournisseur</option>

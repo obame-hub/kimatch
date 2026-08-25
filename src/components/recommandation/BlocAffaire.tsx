@@ -45,10 +45,18 @@ export function BlocAffaire({ reco }: { reco: Recommandation }) {
 
   return (
     <div className="rounded-[13px] border border-kw-border bg-white px-[17px] py-3.5">
+      {/* LA MENTION ÉTAIT ÉCRITE EN DUR, donc affirmée sur des dossiers qui ne viennent pas de
+          Salesforce — les 109 recommandations sans `id_salesforce`, dont celles de l'import du
+          13/08. Elle ne s'affiche plus que quand l'origine est vérifiable.
+
+          POURQUOI ELLE COMPTE : ces quinze chiffres ne sont produits par AUCUN écran de Kimatch
+          (vérifié le 25/08 : le code ne fait que les lire). Ils viennent de la reprise, c'est-à-dire
+          d'une photo prise le jour de l'import — pas d'un calcul que l'application refait. La
+          mention est donc la seule chose qui dit au commercial de quand datent ces montants. */}
       <div className="mb-2 flex items-center gap-2">
         <span className="text-kw-xs font-bold uppercase tracking-[0.08em] text-kw-faint">L'affaire</span>
         <span className="flex-1" />
-        <span className="text-kw-tiny text-kw-faint">repris de Salesforce</span>
+        {reco.id_salesforce && <span className="text-kw-tiny text-kw-faint">repris de Salesforce</span>}
       </div>
 
       <div className="grid grid-cols-1 gap-x-8 sm:grid-cols-2">
