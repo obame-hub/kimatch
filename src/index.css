@@ -306,13 +306,10 @@
   /* La croix de fermeture de la fenêtre n'a rien à faire sur le papier. */
   body:has(#document-comparatif) button:has(> svg.lucide-x) { display: none !important; }
 
-  /* LE PAPIER PASSE EN PAYSAGE, et c'est ce qui fait la difference entre un document et une
-     presentation. Michel, 24/08/2026 : « je souhaite que le document soit genere en PDF avec un
-     style PowerPoint pour plus de dynamisme, plutot que le format Word actuel. » Ses propres
-     diapositives font 13,33 x 7,5 pouces — du 16:9 — la ou nous sortions en A4 portrait : aucune
-     mise en page ne peut avoir l air d une diapositive dans une colonne haute et etroite.
-     Et cela repond du meme coup a son second reproche — « avec seulement deux fournisseurs,
-     l aspect visuel parait vide » : en paysage, deux offres cote a cote remplissent la largeur.
-     Un seul ecran de l application imprime (le compte rendu), la regle peut donc etre globale. */
-  @page { size: A4 landscape; margin: 10mm; }
+  /* LE PAPIER REVIENT EN PORTRAIT. Michel, 25/08/2026 : apres avoir vu la version paysage, il
+     renvoie le PDF portrait du 24/08 en demandant « qu'on refasse celui-la ». Le paysage etait sa
+     demande de la veille — « un style PowerPoint pour plus de dynamisme, plutot que le format Word
+     actuel » — mais devant le resultat il prefere le document. On garde donc ses marges d'origine,
+     12 mm, et un seul ecran de l'application imprime, donc la regle reste globale. */
+  @page { margin: 12mm; }
 }

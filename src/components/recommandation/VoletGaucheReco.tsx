@@ -140,6 +140,23 @@ function Selecteur({
   )
 }
 
+/**
+ * COÛT DE PRESTATION ET ÉTUDE CLIENT SONT MASQUÉS. Michel, 25/08/2026 : « supprimer les informations
+ * inutiles du dossier — coût de prestation, étude client », et il précise « POUR LE MOMENT ».
+ *
+ * D'où un interrupteur et non une suppression. Retirer les deux blocs laissait derrière eux leurs
+ * propriétés, leurs rappels, le dialogue « Fixer le coût de prestation » du parent et une quinzaine
+ * de variables orphelines : un grand nettoyage, difficile à défaire, pour quelque chose qu'il a
+ * qualifié de provisoire. Repasser à `true` les fait revenir tels quels.
+ *
+ * À NE PAS CONFONDRE AVEC LA COMMISSION ESTIMÉE, qu'il demande au contraire de GARDER — « la
+ * commission estimée qui se calcule automatiquement selon la marge ». Ce sont deux choses
+ * différentes : le coût de prestation est un montant saisi à la main sur le dossier
+ * (`cout_prestation_estime`), la commission estimée se calcule depuis la marge dans le dialogue de
+ * création de version. Elle n'est pas touchée ici.
+ */
+const AFFICHER_COUT_ET_ETUDE = false
+
 export function VoletGaucheReco({
   reco,
   compte,
@@ -403,6 +420,7 @@ export function VoletGaucheReco({
       </Carte>
 
       {/* ── COÛT DE PRESTATION ── */}
+      {AFFICHER_COUT_ET_ETUDE && (
       <Carte
         icone={<Coins className="h-[11px] w-[11px]" />}
         teinte="bg-kw-amber-light text-[#8a4b2a]"
@@ -464,8 +482,10 @@ export function VoletGaucheReco({
             : 'Le réel se fixe à la clôture, sur les économies constatées.'}
         </p>
       </Carte>
+      )}
 
       {/* ── ÉTUDE CLIENT ── */}
+      {AFFICHER_COUT_ET_ETUDE && (
       <div className="rounded-kw-xl border-[1.5px] border-[#c4ddd3] bg-gradient-to-br from-kw-green-tint to-white px-[13px] py-3">
         <div className="mb-[9px] flex items-center gap-[7px]">
           <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-kw-sm bg-kw-green-light text-kw-green">
@@ -599,6 +619,7 @@ export function VoletGaucheReco({
           </p>
         )}
       </div>
+      )}
     </div>
   )
 }

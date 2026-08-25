@@ -30,7 +30,6 @@ import { OngletPerimetre } from '@/components/recommandation/OngletPerimetre'
 import { OngletDocuments } from '@/components/recommandation/OngletDocuments'
 import { DetailVersion } from '@/components/recommandation/DetailVersion'
 import { BlocAffaire } from '@/components/recommandation/BlocAffaire'
-import { SuiteDuDossier } from '@/components/recommandation/SuiteDuDossier'
 import {
   CotationWizard,
   EnvoyerEmailDialog,
@@ -98,7 +97,7 @@ import type { VersionRecommandation, Optimisation } from '@/types/domain'
 
 const PRIORITE_LABEL: Record<number, string> = { 1: 'Haute', 2: 'Normale', 3: 'Basse' }
 
-type CleOnglet = 'reco' | 'cmd' | 'perimetre' | 'docs'
+type CleOnglet = 'reco' | 'cmd' | 'comparatif' | 'perimetre' | 'docs'
 
 export default function RecommandationDetail() {
   const { id } = useParams()
@@ -237,6 +236,10 @@ export default function RecommandationDetail() {
     const rec = { cle: 'reco' as CleOnglet, libelle: 'Recommandation', badge: reco && reco.versions.length > 0 ? `${reco.versions.length} vers.` : undefined }
     return [
       ...(commandeDabord ? [cmd, rec] : [rec, cmd]),
+      // LE COMPARATIF A SON PROPRE ONGLET. Michel, 25/08/2026 : « le bloc de comparatif de version
+      // on le transforme en onglet », et « conserver uniquement les détails de la version active,
+      // pas le comparatif » sur l'onglet Recommandation.
+      { cle: 'comparatif', libelle: 'Comparatif', badge: reco && reco.versions.length > 1 ? `${reco.versions.length} vers.` : undefined },
       { cle: 'perimetre', libelle: 'Périmètre', badge: (reco?.compteur_ids ?? []).length > 0 ? String((reco?.compteur_ids ?? []).length) : undefined },
       { cle: 'docs', libelle: 'Documents', badge: (documents ?? []).length > 0 ? String((documents ?? []).length) : undefined },
     ]
@@ -845,48 +848,19 @@ export default function RecommandationDetail() {
                 </div>
               )}
 
-              {/* Sélecteur de version */}
+              {/* LES TUILES DE VERSION SONT PARTIES. Michel, 25/08/2026 : « il veut enlever ce bloc
+                  avec les tuiles de versions ». Elles doublaient la liste du volet de gauche, qui
+                  reste le sélecteur de version — et le comparatif, où l'on passe d'une version à
+                  l'autre, a désormais son propre onglet. Les deux boutons de cette barre restent :
+                  ils ne concernent pas les versions mais le document et la création.
+
+                  Le commentaire est ICI et non à l'intérieur du `&&` : entre la parenthèse
+                  ouvrante et le premier élément, on est dans une expression JavaScript, où un
+                  commentaire de style JSX est une erreur de syntaxe. C'est la deuxième fois que je
+                  m'y reprends — et écrire la séquence fermante dans le texte referme le commentaire
+                  par surprise, ce qui fut ma faute suivante. */}
               {reco.versions.length > 0 && (
                 <div className="flex flex-wrap items-center gap-2">
-                  {reco.versions.map((v) => {
-                    const affichee = versionAffichee?.id === v.id
-                    const remplacee = !v.version_actuelle
-                    return (
-                      <button
-                        key={v.id}
-                        type="button"
-                        onClick={() => setVersionAfficheeId(v.id)}
-                        className="inline-flex items-center gap-[7px] rounded-kw-lg px-4 py-2 font-mono text-kw-h4 font-extrabold"
-                        style={
-                          affichee
-                            ? {
-                                background: remplacee ? '#5c5f66' : 'linear-gradient(135deg,#8a4b2a,#cf9a5e)',
-                                color: '#fff',
-                                boxShadow: remplacee ? 'none' : '0 4px 12px rgba(176,118,60,.32)',
-                              }
-                            : {
-                                background: '#fff',
-                                color: remplacee ? '#a3a5a0' : '#8a4b2a',
-                                border: `1.5px solid ${remplacee ? '#e0dfdb' : '#dcc39c'}`,
-                              }
-                        }
-                      >
-                        {v.nom || `V${v.numero_version ?? '?'}`}
-                        <span
-                          className="rounded-kw-md px-[7px] py-0.5 font-sans text-kw-micro font-extrabold uppercase tracking-[0.05em]"
-                          style={
-                            affichee
-                              ? { background: 'rgba(255,255,255,.22)', color: '#fff' }
-                              : remplacee
-                                ? { background: '#f0efec', color: '#a3a5a0' }
-                                : { background: '#f7ece3', color: '#8a4b2a' }
-                          }
-                        >
-                          {v.version_actuelle ? 'Active' : 'Remplacée'}
-                        </span>
-                      </button>
-                    )
-                  })}
                   <span className="flex-1" />
                   {/* LE LIBELLÉ DIT CE QU'ON VOIT, PAS CE QU'ON FABRIQUE. Michel, 20/08/2026 : « si
                       je mets document comparatif, j'ai l'impression que je vais générer un document
@@ -962,21 +936,6 @@ export default function RecommandationDetail() {
                 </div>
               )}
 
-              <ComparatifVersions
-                reco={reco}
-                versionAffichee={versionAffichee}
-                onChoisirVersion={(v) => setVersionAfficheeId(v.id)}
-                onMajEconomies={async (versionId, economies) => {
-                  try {
-                    await updateVersion.mutateAsync({ versionId, patch: { gain_estime_annuel: economies } })
-                    signaler('✓ Modifié')
-                  } catch (e) {
-                    signaler(`Erreur : ${e instanceof Error ? e.message : String(e)}`)
-                  }
-                }}
-                peutModifier={canManage}
-              />
-
               {versionAffichee && (
                 <DetailVersion
                   version={versionAffichee}
@@ -1021,49 +980,9 @@ export default function RecommandationDetail() {
 
               <BlocAffaire reco={reco} />
 
-              <SuiteDuDossier recoId={reco.id} />
-
-              {/* Description et note interne : elles restent éditables en place, et s'affichent en
-                  pointillé cliquable même vides — sans quoi rien n'invite à les remplir. */}
+{/* LES NOTES DU DOSSIER SONT RETIREES « pour le moment » (Michel, 25/08/2026). L'historique,
+                  lui, reste : il trace les modifications du dossier et ne fait pas partie des notes. */}
               <div className="rounded-[13px] border border-kw-border bg-white px-[17px] py-3.5">
-                <p className="mb-2 text-kw-xs font-bold uppercase tracking-[0.08em] text-kw-faint">Notes du dossier</p>
-                {canManage ? (
-                  <div className="space-y-2">
-                    <InlineField
-                      variant="longtext"
-                      label="Description"
-                      emptyLabel="ajouter une description"
-                      rows={4}
-                      value={reco.description ?? ''}
-                      onCommit={(v) => majReco({ description: v.trim() || null })}
-                      {...retourInline}
-                    />
-                    {/* Fond ambre : la note interne ne sort pas au client. */}
-                    <div className="rounded-kw-md bg-kw-amber-light p-2">
-                      <InlineField
-                        variant="longtext"
-                        label="Note interne"
-                        emptyLabel="ajouter une note interne"
-                        rows={3}
-                        value={reco.commentaire_interne ?? ''}
-                        onCommit={(v) => majReco({ commentaire_interne: v.trim() || null })}
-                        {...retourInline}
-                      />
-                    </div>
-                  </div>
-                ) : (
-                  <div className="space-y-2">
-                    {reco.description && <p className="text-kw-lg text-kw-body">{reco.description}</p>}
-                    {reco.commentaire_interne && (
-                      <p className="rounded-kw-md bg-kw-amber-light p-2 text-kw-base text-kw-amber-dark">
-                        Note interne : {reco.commentaire_interne}
-                      </p>
-                    )}
-                    {!reco.description && !reco.commentaire_interne && (
-                      <p className="text-kw-base text-kw-faint">Aucune note.</p>
-                    )}
-                  </div>
-                )}
                 <HistoriqueDiscret tableNom="recommandations" ligneId={reco.id} />
               </div>
             </div>
@@ -1076,6 +995,29 @@ export default function RecommandationDetail() {
               onMajContexte={(texte) => majReco({ contexte_demande: texte })}
               signaler={signaler}
             />
+          )}
+
+          {/* L'ONGLET COMPARATIF. Michel, 25/08/2026 : « le bloc de comparatif de version on le
+              transforme en onglet ». L'onglet Recommandation ne garde donc que les détails de la
+              version active — sa deuxième demande du même moment. On passe d'une version à l'autre
+              en cliquant une colonne du comparatif, ou depuis le volet de gauche. */}
+          {onglet === 'comparatif' && (
+            <div className="animate-kw-fade-slide">
+                <ComparatifVersions
+                  reco={reco}
+                  versionAffichee={versionAffichee}
+                  onChoisirVersion={(v) => setVersionAfficheeId(v.id)}
+                  onMajEconomies={async (versionId, economies) => {
+                    try {
+                      await updateVersion.mutateAsync({ versionId, patch: { gain_estime_annuel: economies } })
+                      signaler('✓ Modifié')
+                    } catch (e) {
+                      signaler(`Erreur : ${e instanceof Error ? e.message : String(e)}`)
+                    }
+                  }}
+                  peutModifier={canManage}
+                />
+            </div>
           )}
 
           {onglet === 'perimetre' && <OngletPerimetre reco={reco} compteurs={compteurs ?? []} />}

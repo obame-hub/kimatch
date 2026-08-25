@@ -40,11 +40,10 @@ import type {
  *
  * DEUX POINTS OÙ JE NE PEUX PAS INVENTER, et qui s'affichent donc pour ce qu'ils sont :
  *
- * · LA DATE DE DÉBUT vient de `version.date_souhaitee`, reprise de
- *   `Cotation__c.Livraison_attendue_le__c` — renseignée sur 1 899 des 2 022 versions. J'avais
- *   d'abord écrit qu'elle n'existait pas dans nos données, puis qu'elle n'avait pas été importée :
- *   les deux étaient faux. L'échéance du contrat actuel ne sert que de repli, et la ligne le dit
- *   alors.
+ * · LA DATE DE DÉBUT n'existe nulle part dans nos données — ni sur l'offre, ni sur la version. Ce
+ *   qui existe, depuis l'import des échéances du 24/08, c'est l'échéance du contrat actuel : la
+ *   fourniture commence quand le précédent s'arrête. La ligne l'affiche donc en le disant
+ *   (« échéance du contrat actuel »), plutôt que d'annoncer au client une date qu'il n'a pas donnée.
  *
  * · LES COMPOSANTES manquantes affichent « à vérifier » et non un tiret ni un zéro. C'est le mot que
  *   Michel emploie lui-même dans son modèle, et sa règle est explicite : « chaque total doit pouvoir
@@ -194,18 +193,19 @@ export function DocumentComparatif({
       onClose={onFermer}
       title="Compte rendu de consultation"
       description={`Version ${version.numero_version ?? ''} — ${offres.length} offre${offres.length > 1 ? 's' : ''} chiffrée${offres.length > 1 ? 's' : ''} · trois pages`}
-      className="max-w-6xl print:max-w-none print:border-0 print:p-0 print:shadow-none"
+      className="max-w-5xl print:max-w-none print:border-0 print:p-0 print:shadow-none"
     >
       <div className="mb-4 flex items-center gap-2 border-b border-kw-border pb-3 print:hidden">
         <p className="mr-auto text-kw-sm text-kw-meta">
-          Trois pages en paysage, une par question : quelle offre, à quel prix, à quelles conditions.
-          Le bouton ouvre la fenêtre d'impression, où « Enregistrer au format PDF » produit le fichier.
+          Trois pages : la décision, la comparaison, les conditions. Le bouton ouvre la fenêtre
+          d'impression du navigateur, où « Enregistrer au format PDF » produit le fichier.
           {' '}
           <strong className="font-semibold text-kw-text">
             Décochez « En-têtes et pieds de page »
           </strong>{' '}
-          dans cette fenêtre : sinon le navigateur ajoute lui-même la date et l'adresse du CRM autour
-          de chaque page, et l'adresse n'a rien à faire dans un document client.
+          dans cette fenêtre : c'est ce que Michel demande le 25/08 — sinon le navigateur ajoute
+          lui-même la date et l'adresse du CRM autour de chaque page, et l'adresse n'a rien à faire
+          dans un document client.
         </p>
         <button
           type="button"
@@ -224,368 +224,243 @@ export function DocumentComparatif({
           est saisi sur un point de livraison : le budget de chaque offre en découle.
         </p>
       ) : (
-        <div id="document-comparatif" className="space-y-6 print:space-y-0">
+        <div id="document-comparatif" className="bg-white text-kw-ink">
 
-          {/* ══════════ DIAPOSITIVE 1 — DÉCISION ══════════ */}
-          <Diapo>
-            <div className="grid flex-1 grid-cols-1 gap-6 lg:grid-cols-[minmax(0,1fr)_400px] print:grid-cols-[minmax(0,1fr)_360px]">
-              <div className="flex flex-col">
-                <Chapeau>Compte rendu de consultation</Chapeau>
-                <h1 className="mt-1 font-display text-[26px] font-extrabold leading-[1.1] tracking-[-0.02em] text-[#17211D]">
-                  {nomDuClient ?? 'Client'}
-                  <span className="block text-[#61706A]">{energies.join(' et ')}</span>
-                </h1>
-
-                <dl className="mt-5 grid grid-cols-1 gap-x-8 sm:grid-cols-2">
-                  <Ligne
-                    libelle={sites.length > 1 ? 'Sites' : 'Site'}
-                    valeur={sites.length === 0 ? '—' : sites.length <= 2 ? sites.join(', ') : `${sites.length} sites`}
-                  />
-                  <Ligne
-                    libelle="Consommation de référence"
-                    valeur={volumeTotal > 0 ? `${volumeTotal.toLocaleString('fr-FR', { maximumFractionDigits: 2 })} MWh/an` : 'à vérifier'}
-                  />
-                  <Ligne
-                    libelle="Date de début"
-                    valeur={debut ? `${dateFr(debut)}${debutsDifferents ? ' au plus tôt' : ''}` : 'à confirmer'}
-                    precision={debutSouhaite ? undefined : debut ? 'échéance du contrat actuel' : undefined}
-                  />
-                  <Ligne libelle="Validité des offres" valeur={dateFr(validite)} />
-                  {contactClient && (
-                    <Ligne
-                      libelle="À l'attention de"
-                      valeur={[contactClient.prenom, contactClient.nom].filter(Boolean).join(' ')}
-                    />
-                  )}
-                  <Ligne libelle="Votre conseiller" valeur={conseiller?.nom ?? '—'} precision={conseiller?.email ?? undefined} />
-                </dl>
-
-                <span className="flex-1" />
-
-                <h2 className="mt-5 text-[15px] font-extrabold text-[#17211D]">Pourquoi cette offre ?</h2>
-                <ul className="mt-1.5 space-y-1">
-                  {/* Chaque raison est vérifiable sur les chiffres de la page suivante, sauf la
-                      dernière, qui est la phrase de Michel : elle dit que le commercial a contrôlé
-                      la conformité au besoin. */}
-                  {offres[0]?.id === retenue.id && <Puce>Offre la moins chère des {offres.length} comparées.</Puce>}
-                  {retenue.type_prix && retenue.duree_mois != null && (
-                    <Puce>Prix {retenue.type_prix.toLowerCase()} pendant {retenue.duree_mois} mois.</Puce>
-                  )}
-                  <Puce>Conditions conformes au besoin exprimé.</Puce>
-                </ul>
+          {/* ══════════ PAGE 1 — DÉCISION ══════════ */}
+          <section>
+            {/* L'expéditeur et le destinataire, une fois et sur cette page seulement. « Informations
+                administratives répétées » est sur la liste des choses à supprimer : elles ne sont
+                donc plus reprises en pied de page ni en tête des suivantes. */}
+            <header className="flex flex-wrap items-start justify-between gap-4 border-b border-kw-border pb-3">
+              <div className="flex items-center gap-2">
+                <img src={kiweePicto} alt="" className="h-6 w-auto" />
+                <span className="font-display text-kw-md font-extrabold leading-none tracking-[-0.02em]">Kiwee</span>
               </div>
+              <div className="text-right text-kw-tiny leading-snug text-kw-body">
+                {conseiller?.nom && <span className="block font-bold">{conseiller.nom}</span>}
+                {conseiller?.email && <span className="block text-kw-faint">{conseiller.email}</span>}
+                {conseiller?.telephone && <span className="block text-kw-faint">{conseiller.telephone}</span>}
+              </div>
+            </header>
 
-              {/* LA DÉCISION, À DROITE ET EN GRAND. C'est la seule chose que le client doit retenir
-                  de la page ; elle occupe donc une colonne entière plutôt qu'un encadré posé sous
-                  du texte. */}
-              <div className="flex flex-col justify-center rounded-[18px] bg-gradient-to-br from-[#0D7A5F] to-[#199B78] p-6 text-white">
-                <p className="text-[10px] font-extrabold uppercase tracking-[0.14em] text-white/70">
-                  Offre recommandée
-                </p>
-                <p className="mt-2 font-display text-[30px] font-extrabold leading-none">{retenue.fournisseur_nom}</p>
-                <p className="mt-1 text-[14px] font-semibold text-white/80">
-                  {libelleOffre(retenue.duree_mois, retenue.type_prix)}
-                </p>
+            <h1 className="mt-5 font-display text-kw-lg font-extrabold uppercase leading-tight tracking-[-0.01em]">
+              Compte rendu de consultation — {energies.join(' et ')}
+            </h1>
 
-                <div className="mt-6 border-t border-white/25 pt-4">
-                  <p className="text-[10px] font-extrabold uppercase tracking-[0.12em] text-white/70">Budget annuel</p>
-                  <p className="font-mono text-[34px] font-extrabold leading-none tabular-nums">
-                    {euros(retenue.montant_annuel_ht)}
+            <dl className="mt-3 grid grid-cols-1 gap-x-8 gap-y-1 sm:grid-cols-2">
+              <Ligne libelle="Client" valeur={nomDuClient ?? '—'} />
+              <Ligne
+                libelle={sites.length > 1 ? 'Sites' : 'Site'}
+                valeur={sites.length === 0 ? '—' : sites.length <= 2 ? sites.join(', ') : `${sites.length} sites`}
+              />
+              <Ligne
+                libelle="Consommation de référence"
+                valeur={volumeTotal > 0 ? `${volumeTotal.toLocaleString('fr-FR', { maximumFractionDigits: 2 })} MWh/an` : 'à vérifier'}
+              />
+              <Ligne
+                libelle="Date de début"
+                valeur={debut ? `${dateFr(debut)}${debutsDifferents ? ' au plus tôt' : ''}` : 'à confirmer'}
+                precision={debutSouhaite ? undefined : debut ? 'échéance du contrat actuel' : undefined}
+              />
+              <Ligne libelle="Validité des offres" valeur={dateFr(validite)} />
+              {contactClient && (
+                <Ligne
+                  libelle="À l'attention de"
+                  valeur={[contactClient.prenom, contactClient.nom].filter(Boolean).join(' ')}
+                />
+              )}
+            </dl>
+
+            {/* L'OFFRE RECOMMANDÉE. C'est la seule chose que le client doit retenir de la page. */}
+            <div className="mt-6 rounded-kw-lg border-2 border-kw-green bg-kw-green-tint p-4">
+              <p className="text-kw-tiny font-extrabold uppercase tracking-[0.09em] text-kw-green">
+                Offre recommandée
+              </p>
+              <p className="mt-1 font-display text-kw-lg font-extrabold leading-tight">
+                {retenue.fournisseur_nom} — {libelleOffre(retenue.duree_mois, retenue.type_prix)}
+              </p>
+              <div className="mt-3 flex flex-wrap gap-x-10 gap-y-2">
+                <div>
+                  <p className="text-kw-tiny font-bold uppercase tracking-[0.07em] text-kw-meta">Budget annuel</p>
+                  <p className="font-mono text-kw-lg font-extrabold tabular-nums">
+                    {euros(retenue.montant_annuel_ht)} <span className="text-kw-sm font-bold">HTVA</span>
                   </p>
-                  <p className="text-[11px] text-white/70">hors TVA</p>
                 </div>
-
                 {economie != null && economie > 0 && (
-                  <div className="mt-4 rounded-[12px] bg-white/15 px-3.5 py-2.5">
-                    <p className="text-[10px] font-extrabold uppercase tracking-[0.12em] text-white/80">
-                      Économie face à l'offre suivante
+                  <div>
+                    <p className="text-kw-tiny font-bold uppercase tracking-[0.07em] text-kw-meta">
+                      Économie par rapport à l'offre suivante
                     </p>
-                    <p className="font-mono text-[20px] font-extrabold leading-tight tabular-nums">
+                    <p className="font-mono text-kw-lg font-extrabold tabular-nums text-kw-green">
                       {euros(economie)}/an
                     </p>
                   </div>
                 )}
-
-                {validite ? (
-                  <p className="mt-5 text-[13px] font-bold leading-snug">
-                    Décision attendue avant le {dateFr(validite)}.
-                  </p>
-                ) : (
-                  <p className="mt-5 rounded-[10px] border border-dashed border-white/50 px-3 py-2 text-[11px] font-semibold leading-snug print:hidden">
-                    Aucune date de validité n'est saisie sur les offres : la phrase « décision
-                    attendue avant le… » ne peut pas s'écrire, et c'est elle qui fait décider.
-                  </p>
-                )}
-              </div>
-            </div>
-          </Diapo>
-
-          {/* ══════════ DIAPOSITIVE 2 — COMPARAISON ══════════ */}
-          <Diapo saut>
-            <Chapeau>Comparaison</Chapeau>
-            <h2 className="mt-1 font-display text-[24px] font-extrabold leading-tight tracking-[-0.01em] text-[#17211D]">
-              {offres.length} offre{offres.length > 1 ? 's' : ''} sur la même base
-            </h2>
-
-            {/* DES CARTES CÔTE À CÔTE, PAS UN TABLEAU. Michel, 24/08/2026 : « avec seulement deux
-                fournisseurs, l'aspect visuel paraît vide ». Un tableau de deux lignes laisse une
-                page blanche ; deux cartes remplissent la largeur, et chacune garde ses composantes
-                pour que le total reste reconstituable — sa règle. */}
-            <div
-              className="my-auto grid gap-4"
-              style={{ gridTemplateColumns: `repeat(${Math.min(offres.length, 4)}, minmax(0, 1fr))` }}
-            >
-              {offres.slice(0, 4).map((o) => {
-                const c = composantes(o)
-                const estRetenue = o.id === retenue.id
-                const ecart =
-                  o.montant_annuel_ht != null && retenue.montant_annuel_ht != null
-                    ? o.montant_annuel_ht - retenue.montant_annuel_ht
-                    : null
-                return (
-                  <div
-                    key={o.id}
-                    className={cn(
-                      'flex flex-col rounded-[16px] border-2 p-5',
-                      estRetenue ? 'border-[#0D7A5F] bg-[#F1FAF6]' : 'border-[#D9DFDC] bg-white',
-                    )}
-                  >
-                    <div className="flex items-start justify-between gap-2">
-                      <p className="font-display text-[19px] font-extrabold leading-tight text-[#17211D]">
-                        {o.fournisseur_nom}
-                      </p>
-                      {estRetenue && (
-                        <span className="shrink-0 rounded-full bg-[#0D7A5F] px-2.5 py-0.5 text-[9px] font-extrabold uppercase tracking-[0.1em] text-white">
-                          Recommandée
-                        </span>
-                      )}
-                    </div>
-                    <p className="mt-0.5 text-[12px] font-semibold text-[#61706A]">
-                      {libelleOffre(o.duree_mois, o.type_prix)}
-                    </p>
-
-                    <div className="mt-4 space-y-1.5 border-t border-[#D9DFDC] pt-3">
-                      <Composante libelle="Abonnement" valeur={euros(c.abonnement)} />
-                      <Composante libelle="Énergie" valeur={euros(c.energie)} />
-                      <Composante libelle="Réseau et taxes" valeur={euros(c.reseauEtTaxes)} />
-                    </div>
-
-                    <div className="mt-4 border-t-2 border-[#17211D] pt-2.5">
-                      <p className="text-[9.5px] font-extrabold uppercase tracking-[0.1em] text-[#61706A]">
-                        Budget annuel
-                      </p>
-                      <p className="font-mono text-[24px] font-extrabold leading-none tabular-nums text-[#17211D]">
-                        {euros(o.montant_annuel_ht)}
-                      </p>
-                      <p className={cn('mt-1 text-[12px] font-bold', estRetenue ? 'text-[#0D7A5F]' : 'text-[#61706A]')}>
-                        {estRetenue ? 'Référence' : ecart == null ? '—' : `+ ${euros(ecart)} par an`}
-                      </p>
-                    </div>
-                  </div>
-                )
-              })}
-            </div>
-
-            <p className="mt-3 text-[10px] leading-snug text-[#61706A]">
-              Tous les montants sont hors TVA, sur les mêmes hypothèses. Chaque budget annuel se
-              reconstitue à partir des trois composantes qui le précèdent ; « à vérifier » signale une
-              composante non saisie, et non un montant nul.
-              {offres.length > 4 && ` ${offres.length - 4} autre${offres.length - 4 > 1 ? 's' : ''} offre${offres.length - 4 > 1 ? 's' : ''} chiffrée${offres.length - 4 > 1 ? 's' : ''} n'${offres.length - 4 > 1 ? 'apparaissent' : 'apparaît'} pas sur cette page.`}
-            </p>
-          </Diapo>
-
-          {/* ══════════ DIAPOSITIVE 3 — CONDITIONS ESSENTIELLES ══════════ */}
-          <Diapo saut>
-            <Chapeau>Conditions essentielles</Chapeau>
-            <h2 className="mt-1 font-display text-[24px] font-extrabold leading-tight tracking-[-0.01em] text-[#17211D]">
-              {retenue.fournisseur_nom}
-            </h2>
-
-            <div className="mt-4 grid flex-1 grid-cols-1 gap-6 lg:grid-cols-[minmax(0,1fr)_320px] print:grid-cols-[minmax(0,1fr)_300px]">
-              <dl className="grid grid-cols-1 gap-x-8 self-start sm:grid-cols-2">
-                <Ligne libelle="Durée" valeur={retenue.duree_mois != null ? `${retenue.duree_mois} mois` : 'à vérifier'} />
-                <Ligne libelle="Prix" valeur={retenue.type_prix ?? 'à vérifier'} />
-                <Ligne libelle="Date de début" valeur={debut ? dateFr(debut) : 'à confirmer'} />
-                <Ligne libelle="Budget annuel" valeur={`${euros(retenue.montant_annuel_ht)} hors TVA`} />
-                <Ligne
-                  libelle="Prix de la molécule"
-                  valeur={
-                    detailRetenue?.prix_gaz?.prix_energie_mwh != null
-                      ? `${detailRetenue.prix_gaz.prix_energie_mwh.toLocaleString('fr-FR', { maximumFractionDigits: 2 })} €/MWh`
-                      : retenue.prix_moyen_mwh != null
-                        ? `${retenue.prix_moyen_mwh.toLocaleString('fr-FR', { maximumFractionDigits: 2 })} €/MWh`
-                        : 'à vérifier'
-                  }
-                />
-                <Ligne libelle="Abonnement" valeur={euros(comp?.abonnement)} />
-                <Ligne
-                  libelle="CEE"
-                  valeur={
-                    detailRetenue?.prix_gaz?.prix_cee_mwh != null
-                      ? `${detailRetenue.prix_gaz.prix_cee_mwh.toLocaleString('fr-FR', { maximumFractionDigits: 2 })} €/MWh`
-                      : 'à vérifier'
-                  }
-                />
-                <Ligne
-                  libelle="CPB"
-                  valeur={
-                    detailRetenue?.prix_gaz?.prix_cpb_mwh != null
-                      ? `${detailRetenue.prix_gaz.prix_cpb_mwh.toLocaleString('fr-FR', { maximumFractionDigits: 2 })} €/MWh`
-                      : 'à vérifier'
-                  }
-                />
-              </dl>
-
-              <div className="flex flex-col gap-3 self-start rounded-[16px] bg-[#F1FAF6] p-5">
-                <div>
-                  <p className="text-[10px] font-extrabold uppercase tracking-[0.12em] text-[#0D7A5F]">Méthode</p>
-                  <p className="mt-1 text-[11.5px] leading-relaxed text-[#3F4249]">
-                    Budget calculé sur une consommation annuelle de{' '}
-                    {volumeTotal > 0
-                      ? `${volumeTotal.toLocaleString('fr-FR', { maximumFractionDigits: 2 })} MWh`
-                      : 'la consommation de référence indiquée'}{' '}
-                    et des composantes réglementaires applicables à la date de l'analyse. Les mêmes
-                    hypothèses sont appliquées à toutes les offres comparées.
-                  </p>
-                </div>
-                <div className="border-t border-[#D9DFDC] pt-3">
-                  <p className="text-[10px] font-extrabold uppercase tracking-[0.12em] text-[#0D7A5F]">
-                    Notre rémunération
-                  </p>
-                  <p className="mt-1 text-[11.5px] leading-relaxed text-[#3F4249]">
-                    Kiwee intervient comme courtier et est rémunéré par le fournisseur retenu, sans
-                    facturation directe au client.
-                  </p>
-                </div>
               </div>
             </div>
 
-            {/* LE PÉRIMÈTRE COUVERT, et ce n'est pas du remplissage : la page 3 était aux deux
-                tiers vide, ce qui est exactement le reproche de Michel sur la page de comparaison
-                — « l'aspect visuel paraît vide ». Ce qu'on y met répond à la question que le client
-                se pose en signant : sur quoi porte l'offre ? Le tableau dit ses points de
-                livraison, leur volume et l'échéance de leur contrat actuel — cette dernière
-                disponible depuis l'import de ce matin. */}
-            {pdl.length > 0 && (
-              <div className="mt-5 border-t border-[#D9DFDC] pt-3">
-                <p className="text-[10px] font-extrabold uppercase tracking-[0.12em] text-[#61706A]">
-                  Périmètre couvert — {pdl.length} point{pdl.length > 1 ? 's' : ''} de livraison
-                </p>
-                <table className="mt-1.5 w-full border-collapse text-[11.5px]">
-                  <thead>
-                    <tr className="border-b border-[#D9DFDC] text-left text-[9.5px] font-extrabold uppercase tracking-[0.08em] text-[#61706A]">
-                      <th className="py-1 pr-3">Site</th>
-                      <th className="py-1 pr-3">Référence</th>
-                      <th className="py-1 pr-3">Énergie</th>
-                      <th className="py-1 pr-3 text-right">Volume annuel</th>
-                      <th className="py-1 text-right">Échéance actuelle</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {pdl.slice(0, 8).map((l) => (
-                      <tr key={l.reference} className="border-b border-[#F1FAF6]">
-                        <td className="py-1 pr-3 text-[#17211D]">{l.site ?? '—'}</td>
-                        <td className="py-1 pr-3 font-mono text-[11px] text-[#3F4249]">{l.reference}</td>
-                        <td className="py-1 pr-3 text-[#3F4249]">{l.energie}</td>
-                        <td className="py-1 pr-3 text-right font-mono tabular-nums text-[#17211D]">
-                          {l.volume != null ? l.volume.toLocaleString('fr-FR', { maximumFractionDigits: 2 }) + ' MWh' : '—'}
-                        </td>
-                        <td className="py-1 text-right font-mono tabular-nums text-[#3F4249]">{l.echeance ? dateFr(l.echeance) : '—'}</td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-                {pdl.length > 8 && (
-                  <p className="mt-1 text-[10px] text-[#61706A]">
-                    et {pdl.length - 8} autre{pdl.length - 8 > 1 ? 's' : ''} point{pdl.length - 8 > 1 ? 's' : ''} de livraison.
-                  </p>
-                )}
-              </div>
+            <h2 className="mt-5 text-kw-base font-extrabold">Pourquoi cette offre ?</h2>
+            <ul className="mt-1 space-y-0.5 text-kw-base leading-snug">
+              {/* Chaque raison est vérifiable sur les données affichées, sauf la dernière, qui est la
+                  phrase de Michel : elle dit que le commercial a contrôlé la conformité au besoin. */}
+              {offres[0]?.id === retenue.id && <li>• Offre la moins chère.</li>}
+              {retenue.type_prix && retenue.duree_mois != null && (
+                <li>• Prix {retenue.type_prix.toLowerCase()} pendant {retenue.duree_mois} mois.</li>
+              )}
+              <li>• Conditions conformes au besoin exprimé.</li>
+            </ul>
+
+            {validite ? (
+              <p className="mt-5 rounded-kw-md bg-kw-muted px-3 py-2 text-kw-base font-bold">
+                Décision attendue avant le {dateFr(validite)}.
+              </p>
+            ) : (
+              /* SANS DATE DE VALIDITÉ, PAS DE PHRASE — mais le commercial doit le savoir. Écrire
+                 « décision attendue avant le à confirmer » dans un document client serait pire que
+                 de ne rien écrire ; taire le manque au commercial le serait aussi. D'où un
+                 avertissement qui ne s'imprime pas. */
+              <p className="mt-5 rounded-kw-md border border-dashed border-kw-amber bg-kw-amber-light px-3 py-2 text-kw-sm font-semibold text-kw-amber-dark print:hidden">
+                Aucune date de validité n'est saisie sur les offres : la phrase « décision attendue
+                avant le… » ne peut pas s'écrire, et c'est elle qui fait décider. À renseigner sur
+                l'offre avant d'envoyer le document.
+              </p>
             )}
+          </section>
+
+          {/* ══════════ PAGE 2 — COMPARAISON ══════════ */}
+          <section className="mt-10 print:break-before-page">
+            <h2 className="font-display text-kw-md font-extrabold">Comparaison des offres</h2>
+
+            {/* UN TABLEAU, PAS DES JAUGES. « Codes couleur multiples et jauges peu explicites » est
+                sur la liste à supprimer : les barres de composantes et leur légende disparaissent au
+                profit de colonnes qu'on peut additionner. */}
+            <div className="mt-2 overflow-x-auto">
+              <table className="w-full border-collapse text-kw-sm">
+                <thead>
+                  <tr className="border-b-2 border-kw-ink text-left">
+                    <th className="py-1.5 pr-3 font-bold">Fournisseur</th>
+                    <th className="py-1.5 pr-3 font-bold">Durée</th>
+                    <th className="py-1.5 pr-3 font-bold">Type de prix</th>
+                    <th className="py-1.5 pr-3 text-right font-bold">Abonnement</th>
+                    <th className="py-1.5 pr-3 text-right font-bold">Énergie</th>
+                    <th className="py-1.5 pr-3 text-right font-bold">Réseau et taxes</th>
+                    <th className="py-1.5 pr-3 text-right font-bold">Budget annuel</th>
+                    <th className="py-1.5 text-right font-bold">Écart</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {offres.map((o) => {
+                    const c = composantes(o)
+                    const estRetenue = o.id === retenue.id
+                    const ecart =
+                      o.montant_annuel_ht != null && retenue.montant_annuel_ht != null
+                        ? o.montant_annuel_ht - retenue.montant_annuel_ht
+                        : null
+                    return (
+                      <tr
+                        key={o.id}
+                        className={cn('border-b border-kw-border-faint', estRetenue && 'bg-kw-green-tint font-bold')}
+                      >
+                        <td className="py-1.5 pr-3">{o.fournisseur_nom}</td>
+                        <td className="py-1.5 pr-3">{o.duree_mois != null ? `${o.duree_mois} mois` : '—'}</td>
+                        <td className="py-1.5 pr-3">{o.type_prix ?? '—'}</td>
+                        <td className="py-1.5 pr-3 text-right font-mono tabular-nums">{euros(c.abonnement)}</td>
+                        <td className="py-1.5 pr-3 text-right font-mono tabular-nums">{euros(c.energie)}</td>
+                        <td className="py-1.5 pr-3 text-right font-mono tabular-nums">{euros(c.reseauEtTaxes)}</td>
+                        <td className="py-1.5 pr-3 text-right font-mono tabular-nums">{euros(o.montant_annuel_ht)}</td>
+                        <td className="py-1.5 text-right font-mono tabular-nums">
+                          {estRetenue ? 'Référence' : ecart == null ? '—' : `+${euros(ecart)}`}
+                        </td>
+                      </tr>
+                    )
+                  })}
+                </tbody>
+              </table>
+            </div>
+
+            <p className="mt-2 text-kw-tiny leading-snug text-kw-body">
+              Tous les montants sont présentés sur une même base, hors TVA. Chaque budget annuel doit
+              pouvoir être reconstitué à partir des colonnes qui le précèdent ; « à vérifier » signale
+              une composante non saisie, et non un montant nul.
+            </p>
+          </section>
+
+          {/* ══════════ PAGE 3 — CONDITIONS ESSENTIELLES ══════════ */}
+          <section className="mt-10 print:break-before-page">
+            <h2 className="font-display text-kw-md font-extrabold">
+              Conditions essentielles — {retenue.fournisseur_nom}
+            </h2>
+
+            <dl className="mt-2 grid grid-cols-1 gap-x-8 gap-y-1 sm:grid-cols-2">
+              <Ligne libelle="Durée" valeur={retenue.duree_mois != null ? `${retenue.duree_mois} mois` : 'à vérifier'} />
+              <Ligne libelle="Prix" valeur={retenue.type_prix ?? 'à vérifier'} />
+              <Ligne libelle="Date de début" valeur={debut ? dateFr(debut) : 'à confirmer'} />
+              <Ligne libelle="Budget annuel" valeur={`${euros(retenue.montant_annuel_ht)} HTVA`} />
+              <Ligne
+                libelle="Prix de la molécule"
+                valeur={
+                  detailRetenue?.prix_gaz?.prix_energie_mwh != null
+                    ? `${detailRetenue.prix_gaz.prix_energie_mwh.toLocaleString('fr-FR', { maximumFractionDigits: 2 })} €/MWh`
+                    : retenue.prix_moyen_mwh != null
+                      ? `${retenue.prix_moyen_mwh.toLocaleString('fr-FR', { maximumFractionDigits: 2 })} €/MWh`
+                      : 'à vérifier'
+                }
+              />
+              <Ligne libelle="Abonnement" valeur={euros(comp?.abonnement)} />
+              <Ligne
+                libelle="CEE"
+                valeur={
+                  detailRetenue?.prix_gaz?.prix_cee_mwh != null
+                    ? `${detailRetenue.prix_gaz.prix_cee_mwh.toLocaleString('fr-FR', { maximumFractionDigits: 2 })} €/MWh`
+                    : 'à vérifier'
+                }
+              />
+              <Ligne
+                libelle="CPB"
+                valeur={
+                  detailRetenue?.prix_gaz?.prix_cpb_mwh != null
+                    ? `${detailRetenue.prix_gaz.prix_cpb_mwh.toLocaleString('fr-FR', { maximumFractionDigits: 2 })} €/MWh`
+                    : 'à vérifier'
+                }
+              />
+            </dl>
 
             {/* « Conditions particulières : uniquement si elles influencent la décision » — donc rien
-                quand le champ est vide, et pas une ligne « — » qui occuperait la place. */}
+                du tout quand le champ est vide, et pas une ligne « — » qui occuperait la place. */}
             {retenue.description && (
-              <div className="mt-4 border-t border-[#D9DFDC] pt-3">
-                <p className="text-[10px] font-extrabold uppercase tracking-[0.12em] text-[#61706A]">
+              <div className="mt-3">
+                <p className="text-kw-tiny font-bold uppercase tracking-[0.07em] text-kw-meta">
                   Conditions particulières
                 </p>
-                <p className="mt-1 text-[12px] leading-relaxed text-[#3F4249]">{retenue.description}</p>
+                <p className="mt-0.5 text-kw-base leading-snug">{retenue.description}</p>
               </div>
             )}
-          </Diapo>
+
+            <h3 className="mt-6 text-kw-base font-extrabold">Méthode</h3>
+            <p className="mt-0.5 text-kw-sm leading-snug text-kw-body">
+              Budget calculé à partir d'une consommation annuelle de{' '}
+              {volumeTotal > 0
+                ? `${volumeTotal.toLocaleString('fr-FR', { maximumFractionDigits: 2 })} MWh`
+                : 'la consommation de référence indiquée'}{' '}
+              et des composantes réglementaires applicables à la date de l'analyse. Les mêmes
+              hypothèses sont appliquées à toutes les offres comparées.
+            </p>
+          </section>
         </div>
       )}
     </Dialog>
   )
 }
 
-/**
- * UNE DIAPOSITIVE, et non un paragraphe de plus dans une page qui défile.
- *
- * Michel, 24/08/2026 : « je souhaite que le document soit généré en PDF avec un style PowerPoint
- * pour plus de dynamisme, plutôt que le format Word actuel. » Trois choses distinguent une
- * diapositive d'un document : le format paysage (réglé dans `@page`), une hauteur FIXE que le
- * contenu remplit au lieu de s'arrêter où il veut, et un pied de page discret.
- *
- * La hauteur de 190 mm est celle d'une page A4 paysage moins ses marges de 10 mm. À l'écran, elle
- * devient un minimum : la fenêtre défile, le papier non.
- */
-function Diapo({ children, saut }: { children: React.ReactNode; saut?: boolean }) {
-  return (
-    <section
-      className={cn(
-        'flex min-h-[190mm] flex-col rounded-[18px] border border-[#D9DFDC] bg-white p-8 print:h-[183mm] print:min-h-0 print:break-inside-avoid print:overflow-hidden print:rounded-none print:border-0 print:p-0',
-        saut && 'print:break-before-page',
-      )}
-    >
-      <div className="flex min-h-0 flex-1 flex-col">{children}</div>
-      <footer className="mt-5 flex items-center gap-2 border-t border-[#D9DFDC] pt-2.5">
-        <img src={kiweePicto} alt="" className="h-4 w-auto" />
-        <span className="text-[10px] font-bold text-[#17211D]">Kiwee</span>
-        <span className="ml-auto text-[9.5px] text-[#61706A]">
-          Compte rendu de consultation — {new Date().toLocaleDateString('fr-FR')}
-        </span>
-      </footer>
-    </section>
-  )
-}
-
-/** Le chapeau en petites capitales espacées, comme au-dessus de chacun de ses titres. */
-function Chapeau({ children }: { children: React.ReactNode }) {
-  return (
-    <p className="text-[10px] font-extrabold uppercase tracking-[0.14em] text-[#0D7A5F]">{children}</p>
-  )
-}
-
-/** Une ligne « libellé / valeur », l'un au-dessus de l'autre : plus lisible en grand qu'alignée. */
+/** Une ligne « libellé : valeur », avec sa précision facultative sous la valeur. */
 function Ligne({ libelle, valeur, precision }: { libelle: string; valeur: string; precision?: string }) {
   return (
-    <div className="border-b border-[#D9DFDC] py-2">
-      <dt className="text-[9.5px] font-extrabold uppercase tracking-[0.1em] text-[#61706A]">{libelle}</dt>
-      <dd className="mt-0.5 text-[14px] font-bold leading-tight text-[#17211D]">
+    <div className="flex items-baseline gap-2 border-b border-kw-border-faint py-1">
+      <dt className="shrink-0 text-kw-sm text-kw-meta">{libelle}</dt>
+      <dd className="ml-auto text-right text-kw-base font-bold">
         {valeur}
-        {precision && <span className="block text-[10px] font-normal text-[#61706A]">{precision}</span>}
+        {precision && <span className="block text-kw-tiny font-normal text-kw-faint">{precision}</span>}
       </dd>
     </div>
-  )
-}
-
-/** Une composante de budget dans une carte d'offre. */
-function Composante({ libelle, valeur }: { libelle: string; valeur: string }) {
-  return (
-    <div className="flex items-baseline justify-between gap-2">
-      <span className="text-[11.5px] text-[#61706A]">{libelle}</span>
-      <span className="font-mono text-[12.5px] font-semibold tabular-nums text-[#17211D]">{valeur}</span>
-    </div>
-  )
-}
-
-function Puce({ children }: { children: React.ReactNode }) {
-  return (
-    <li className="flex gap-2 text-[13px] leading-snug text-[#3F4249]">
-      <span className="mt-[7px] h-1.5 w-1.5 shrink-0 rounded-full bg-[#0D7A5F]" />
-      <span>{children}</span>
-    </li>
   )
 }
