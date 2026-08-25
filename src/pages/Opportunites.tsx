@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { Plus, Target } from 'lucide-react'
+import { Plus, Target, Check } from 'lucide-react'
 import { TableauKanban } from '@/components/dashboard/TableauKanban'
 import { Topbar } from '@/components/layout/Topbar'
 import { PageHeader } from '@/components/ui/page-header'
@@ -58,6 +58,7 @@ export default function Opportunites() {
   // pipeline. Le même hook alimente les fiches : la requête est le plus souvent déjà en cache.
   const { data: mandats } = useMandats()
   const [creation, setCreation] = useState(false)
+  const [avecClos, setAvecClos] = useState(false)
 
   const controles = useListControls(opportunites, {
     searchFields: (o) => [o.compte_nom, o.reference, o.contact_nom, o.type_opportunite],
@@ -77,10 +78,11 @@ export default function Opportunites() {
    * `filtrees` porte encore les converties et les abandonnées : les compter au-dessus de colonnes qui
    * ne les affichent plus serait le premier écart qu'on remarque, et celui qui fait douter du reste.
    */
-  const vivantes = filtrees.filter((o) => {
-    const palier = statutDerive(o, mandats ?? []).code
-    return palier !== 'CONVERTIE' && palier !== 'ABANDONNEE'
-  })
+  const estVivante = (code: string) => code !== 'CONVERTIE' && code !== 'ABANDONNEE'
+  const vivantes = avecClos
+    ? filtrees
+    : filtrees.filter((o) => estVivante(statutDerive(o, mandats ?? []).code))
+  const paliers = PIPELINE_OPPORTUNITE.filter((p) => avecClos || estVivante(p.code))
 
   return (
     <div className="flex min-h-0 flex-1 flex-col">
@@ -116,6 +118,31 @@ export default function Opportunites() {
           count={vivantes.length}
         />
 
+        <div className="mb-3">
+        {/* INCLURE LES DOSSIERS CLOS. Demandé par Naoëlle le 25/08/2026, après que j'aie signalé la
+            conséquence de la règle de Michel : un dossier clos ne se trouvait plus par la recherche
+            de cette page, et c'est le genre de chose qu'on découvre au mauvais moment.
+            Décoché par défaut — sa règle reste la règle, la case est l'exception. */}
+        <button
+          type="button"
+          onClick={() => setAvecClos((v) => !v)}
+          className={cn(
+            'inline-flex shrink-0 items-center gap-1.5 rounded-kw-md border px-2.5 py-1.5 text-kw-sm font-bold transition-colors',
+            avecClos
+              ? 'border-ink-800 bg-ink-800 text-white'
+              : 'border-kw-border-strong bg-white text-kw-meta hover:bg-kw-subtle',
+          )}
+        >
+          <span className={cn(
+            'flex h-3.5 w-3.5 items-center justify-center rounded-[3px]',
+            avecClos ? 'bg-white/25' : 'border border-kw-border-strong',
+          )}>
+            {avecClos && <Check className="h-2.5 w-2.5" />}
+          </span>
+          Inclure les dossiers clos
+        </button>
+        </div>
+
         {isLoading ? (
           <p className="mt-4 text-sm text-navy-400">Chargement…</p>
         ) : vivantes.length > 0 ? (
@@ -129,9 +156,9 @@ export default function Opportunites() {
                  opportunités » — n'afficher que les actives. « Convertie » et « Abandonnée » sont des
                  aboutissements : elles quittent le plan de travail et restent lisibles depuis la
                  fiche du compte, la recherche ⌘K, ou leur lien direct. */
-              colonnes={PIPELINE_OPPORTUNITE.filter((p) => p.code !== 'CONVERTIE' && p.code !== 'ABANDONNEE').map((p) => ({ code: p.code, libelle: p.libelle }))}
+              colonnes={paliers.map((p) => ({ code: p.code, libelle: p.libelle }))}
               cartes={Object.fromEntries(
-                PIPELINE_OPPORTUNITE.filter((p) => p.code !== 'CONVERTIE' && p.code !== 'ABANDONNEE').map((p) => [
+                paliers.map((p) => [
                   p.code,
                   filtrees
                     .filter((o) => statutDerive(o, mandats ?? []).code === p.code)

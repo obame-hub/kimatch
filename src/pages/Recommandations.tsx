@@ -1,9 +1,10 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { Plus } from 'lucide-react'
+import { Plus, Check } from 'lucide-react'
 import { Topbar } from '@/components/layout/Topbar'
 import { PageHeader } from '@/components/ui/page-header'
 import { Button } from '@/components/ui/button'
+import { cn } from '@/lib/utils'
 import { useReferenceTable } from '@/lib/data/referenceTables'
 import { useIsAdmin, useMonProfil } from '@/lib/data/roles'
 import { FALLBACK_ETAPES_RECOMMANDATION } from '@/lib/referenceFallbacks'
@@ -74,6 +75,7 @@ export default function Recommandations() {
    * local suffit, et le total se lit sur la somme des colonnes — qui sont, elles, comptées en base.
    */
   const [recherche, setRecherche] = useState('')
+  const [avecClos, setAvecClos] = useState(false)
 
   /**
    * LE TABLEAU EST SERVI PAR LA BASE, une requête par colonne.
@@ -89,7 +91,7 @@ export default function Recommandations() {
   const tableau = useKanbanServeur<LigneReco>({
     vue: 'v_recommandations_liste',
     colonneStatut: 'etape',
-    colonnes: etapes.filter((e) => !ETAPES_CLOSES.includes(e.code)).map((e) => ({ code: e.code, libelle: e.libelle })),
+    colonnes: etapes.filter((e) => avecClos || !ETAPES_CLOSES.includes(e.code)).map((e) => ({ code: e.code, libelle: e.libelle })),
     colonnesRecherche: ['nom', 'compte_nom', 'conseiller'],
     recherche,
     filtres: { compte_proprietaire_id: filtreProprietaire },
@@ -113,6 +115,28 @@ export default function Recommandations() {
               et le tri appartenaient à la liste : les étapes SONT les colonnes du tableau, et une
               colonne ne se trie pas de l'extérieur. La recherche, elle, reste — elle traverse toutes
               les colonnes. */}
+        {/* INCLURE LES DOSSIERS CLOS. Demandé par Naoëlle le 25/08/2026, après que j'aie signalé la
+            conséquence de la règle de Michel : un dossier clos ne se trouvait plus par la recherche
+            de cette page, et c'est le genre de chose qu'on découvre au mauvais moment.
+            Décoché par défaut — sa règle reste la règle, la case est l'exception. */}
+        <button
+          type="button"
+          onClick={() => setAvecClos((v) => !v)}
+          className={cn(
+            'inline-flex shrink-0 items-center gap-1.5 rounded-kw-md border px-2.5 py-1.5 text-kw-sm font-bold transition-colors',
+            avecClos
+              ? 'border-ink-800 bg-ink-800 text-white'
+              : 'border-kw-border-strong bg-white text-kw-meta hover:bg-kw-subtle',
+          )}
+        >
+          <span className={cn(
+            'flex h-3.5 w-3.5 items-center justify-center rounded-[3px]',
+            avecClos ? 'bg-white/25' : 'border border-kw-border-strong',
+          )}>
+            {avecClos && <Check className="h-2.5 w-2.5" />}
+          </span>
+          Inclure les dossiers clos
+        </button>
         </ListToolbar>
 
         <TableauKanban

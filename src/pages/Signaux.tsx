@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { Plus, CheckSquare } from 'lucide-react'
+import { Plus, CheckSquare, Check } from 'lucide-react'
 import { Topbar } from '@/components/layout/Topbar'
 import { PageHeader } from '@/components/ui/page-header'
 import { Card } from '@/components/ui/card'
@@ -155,15 +155,17 @@ export default function Signaux() {
    * 831 encore à qualifier. Un signal converti se relit depuis l'opportunité qu'il a produite.
    */
   const tousLesStatuts = statutsRef && statutsRef.length > 0 ? statutsRef : FALLBACK_STATUTS_SIGNAUX
-  const columns = tousLesStatuts.filter((c) => c.code !== 'CONVERTI' && c.code !== 'ECARTE')
+  const estVivant = (code: string) => code !== 'CONVERTI' && code !== 'ECARTE'
+  const columns = tousLesStatuts.filter((c) => avecClos || estVivant(c.code))
   const [showCreate, setShowCreate] = useState(false)
   const [query, setQuery] = useState('')
+  const [avecClos, setAvecClos] = useState(false)
 
   const q = query.trim().toLowerCase()
   const visibles = (signaux ?? [])
     // Le compteur du bandeau doit dire ce que le tableau montre : sans ce filtre il annoncerait
     // 1 457 signaux au-dessus de colonnes qui n'en affichent que 831.
-    .filter((s) => s.statut !== 'CONVERTI' && s.statut !== 'ECARTE')
+    .filter((s) => avecClos || estVivant(s.statut))
     .filter((s) =>
       !q || [s.site_nom, s.type_signal, s.description, s.conseiller].some((f) => (f ?? '').toLowerCase().includes(q)),
     )
@@ -178,7 +180,31 @@ export default function Signaux() {
           actions={<Button onClick={() => setShowCreate(true)}><Plus className="h-4 w-4" />Nouveau signal</Button>}
         />
 
-        <ListToolbar query={query} onQueryChange={setQuery} placeholder="Rechercher un site, un type de signal…" count={visibles.length} />
+        <div className="mb-3.5 flex flex-wrap items-center gap-3">
+          <ListToolbar query={query} onQueryChange={setQuery} placeholder="Rechercher un site, un type de signal…" count={visibles.length} />
+        {/* INCLURE LES DOSSIERS CLOS. Demandé par Naoëlle le 25/08/2026, après que j'aie signalé la
+            conséquence de la règle de Michel : un dossier clos ne se trouvait plus par la recherche
+            de cette page, et c'est le genre de chose qu'on découvre au mauvais moment.
+            Décoché par défaut — sa règle reste la règle, la case est l'exception. */}
+        <button
+          type="button"
+          onClick={() => setAvecClos((v) => !v)}
+          className={cn(
+            'inline-flex shrink-0 items-center gap-1.5 rounded-kw-md border px-2.5 py-1.5 text-kw-sm font-bold transition-colors',
+            avecClos
+              ? 'border-ink-800 bg-ink-800 text-white'
+              : 'border-kw-border-strong bg-white text-kw-meta hover:bg-kw-subtle',
+          )}
+        >
+          <span className={cn(
+            'flex h-3.5 w-3.5 items-center justify-center rounded-[3px]',
+            avecClos ? 'bg-white/25' : 'border border-kw-border-strong',
+          )}>
+            {avecClos && <Check className="h-2.5 w-2.5" />}
+          </span>
+          Inclure les dossiers clos
+        </button>
+        </div>
 
         {isLoading ? (
           <p className="text-sm text-navy-400">Chargement…</p>
