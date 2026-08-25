@@ -1,25 +1,19 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { Plus, Target, LayoutList, Columns3 } from 'lucide-react'
+import { Plus, Target } from 'lucide-react'
 import { TableauKanban } from '@/components/dashboard/TableauKanban'
 import { Topbar } from '@/components/layout/Topbar'
 import { PageHeader } from '@/components/ui/page-header'
 import { Card } from '@/components/ui/card'
 import { ChoixParRecherche } from '@/components/ui/choix-recherche'
 import { Button } from '@/components/ui/button'
-import { Badge } from '@/components/ui/badge'
 import { Dialog } from '@/components/ui/dialog'
 import { FormField, Input, Select, Textarea } from '@/components/ui/form'
 import { ListToolbar } from '@/components/ui/list-toolbar'
-import { PiedDeListe } from '@/components/ui/pied-de-liste'
-import { EntityLink } from '@/components/ui/entity-link'
-import { useTranchesAffichage } from '@/lib/useTranchesAffichage'
 import { useListControls } from '@/lib/useListControls'
 import {
   statutDerive,
   PIPELINE_OPPORTUNITE,
-  TON_PIPELINE,
-  type MandatPourCouverture,
   useOpportunites,
   useStatutsOpportunites,
   useCreerOpportunite,
@@ -28,7 +22,6 @@ import {
 import { useContacts } from '@/lib/data/contacts'
 import { useMandats } from '@/lib/data/mandats'
 import { cn } from '@/lib/utils'
-import type { Opportunite } from '@/types/domain'
 
 /**
  * Les signaux positifs, tels que Michel les énumère : « échéance connue à moins de 2 ans, demande
@@ -57,71 +50,7 @@ const SIGNAUX_EXEMPLES = [
  * qui commande une action aujourd'hui.
  */
 
-/** Le ton de la pastille par statut : le vert pour ce qui avance, l'ambre pour ce qui attend. */
 
-function CarteOpportunite({ opportunite, mandats }: { opportunite: Opportunite; mandats: MandatPourCouverture[] }) {
-  const navigate = useNavigate()
-  // LE MÊME PALIER QUE SUR LA FICHE, calculé par la même fonction : une liste qui annoncerait
-  // « À valider » sur une opportunité que la fiche montre « À compléter » ne servirait à rien.
-  const palier = statutDerive(opportunite, mandats)
-  const origine = ORIGINES_OPPORTUNITE.find((o) => o.code === opportunite.origine)
-  const retard = echeanceEnRetard(opportunite.prochaine_action_echeance, opportunite.prochaine_action_faite_le)
-
-  return (
-    <Card
-      className="animate-fade-up cursor-pointer p-3.5 transition-all hover:-translate-y-0.5 hover:shadow-lg"
-      onClick={() => navigate(`/opportunites/${opportunite.id}`)}
-    >
-      <div className="flex items-start justify-between gap-2">
-        <div className="min-w-0">
-          <p className="truncate text-sm font-medium text-navy-800">
-            {opportunite.compte_id ? (
-              <EntityLink to={`/comptes/${opportunite.compte_id}`}>{opportunite.compte_nom}</EntityLink>
-            ) : (
-              <span className="text-navy-400">Compte à identifier</span>
-            )}
-          </p>
-          <p className="mt-0.5 truncate text-xs text-navy-500">
-            {[opportunite.reference, origine?.libelle, opportunite.type_opportunite].filter(Boolean).join(' · ') || '—'}
-          </p>
-        </div>
-        <Badge tone={TON_PIPELINE[palier.code] ?? 'neutral'}>{palier.libelle}</Badge>
-      </div>
-
-      <div className="mt-2.5 space-y-1 text-xs text-navy-500">
-        <p>
-          {opportunite.site_ids.length} site{opportunite.site_ids.length > 1 ? 's' : ''} ·{' '}
-          {opportunite.compteur_ids.length} compteur{opportunite.compteur_ids.length > 1 ? 's' : ''}
-          {opportunite.recommandation_ids.length > 0 && (
-            <> · {opportunite.recommandation_ids.length} recommandation{opportunite.recommandation_ids.length > 1 ? 's' : ''}</>
-          )}
-        </p>
-        <p className="text-navy-400">{palier.tache}</p>
-        {opportunite.prochaine_action && (
-          <p className={cn(retard && 'font-semibold text-red-600')}>
-            {opportunite.prochaine_action}
-            {opportunite.prochaine_action_echeance && (
-              <> — {new Date(opportunite.prochaine_action_echeance).toLocaleDateString('fr-FR')}</>
-            )}
-          </p>
-        )}
-        {opportunite.qualification_fin && (
-          <p className="text-navy-400">Clôturée : {opportunite.qualification_fin.toLowerCase().replace('_', ' ')}</p>
-        )}
-      </div>
-    </Card>
-  )
-}
-
-/** Une échéance dépassée et non faite : le seul état de la liste qui commande d'agir aujourd'hui. */
-function echeanceEnRetard(echeance: string | null, faiteLe: string | null): boolean {
-  if (!echeance || faiteLe) return false
-  const j = new Date(echeance)
-  if (Number.isNaN(j.getTime())) return false
-  const aujourdhui = new Date()
-  aujourdhui.setHours(0, 0, 0, 0)
-  return j.getTime() < aujourdhui.getTime()
-}
 
 export default function Opportunites() {
   const { data: opportunites, isLoading } = useOpportunites()
@@ -129,7 +58,6 @@ export default function Opportunites() {
   // pipeline. Le même hook alimente les fiches : la requête est le plus souvent déjà en cache.
   const { data: mandats } = useMandats()
   const [creation, setCreation] = useState(false)
-  const [vue, setVue] = useState<'liste' | 'kanban'>('liste')
 
   const controles = useListControls(opportunites, {
     searchFields: (o) => [o.compte_nom, o.reference, o.contact_nom, o.type_opportunite],
@@ -141,7 +69,6 @@ export default function Opportunites() {
     defaultSort: 'recentes',
   })
   const filtrees = controles.items ?? []
-  const tranche = useTranchesAffichage(filtrees, controles.query + controles.sortKey)
 
   return (
     <div className="flex min-h-0 flex-1 flex-col">
@@ -160,58 +87,26 @@ export default function Opportunites() {
           }
         />
 
-        {/* ══════════ LISTE OU KANBAN ══════════
-            Michel, appel du 25/08/2026 : la vue kanban est « sur les pages de chaque objet », et
-            « sur l'opportunité, c'est là où je veux voir LA VISION ». Il ajoute : « sur chaque type
-            de page on garde toujours de base le truc » — la liste reste donc le défaut, le tableau
-            s'ajoute.
+        {/* PLUS DE BASCULEMENT : LE KANBAN EST LA SEULE VUE. Naoëlle, 25/08/2026 : « garde juste la
+            vue kanban pour partout, enlève la vue de liste, on garde que kanban, donc enlève le
+            toggle liste/kanban ». Michel avait dit la veille « sur chaque type de page on garde
+            toujours de base le truc », que j'avais lu comme « garder la liste » ; sa décision
+            tranche.
 
             ON NE DÉPLACE PAS LES CARTES. Le palier d'une opportunité se CALCULE à partir des objets
             réunis (« la maturité se fait si les objets sont valides ») : glisser une carte ne
             voudrait rien dire, elle reviendrait à sa place au rechargement. Cliquer une carte ouvre
             l'opportunité, où les gestes qui font avancer existent et vérifient leurs conditions. */}
-        <div className="mb-3 flex items-center gap-2">
-          <span className="text-kw-xs font-bold uppercase tracking-[0.08em] text-kw-faint">Vue</span>
-          <div className="flex items-center gap-1 rounded-kw-lg border-[1.5px] border-kw-border-strong bg-white p-1">
-            {([
-              { cle: 'liste' as const, libelle: 'Liste', icone: LayoutList },
-              { cle: 'kanban' as const, libelle: 'Kanban', icone: Columns3 },
-            ]).map((v) => {
-              const Icone = v.icone
-              return (
-                <button
-                  key={v.cle}
-                  type="button"
-                  onClick={() => setVue(v.cle)}
-                  className={cn(
-                    'inline-flex items-center gap-1.5 rounded-kw-md px-3 py-1.5 text-kw-sm font-bold transition-colors',
-                    vue === v.cle ? 'bg-ink-800 text-white' : 'text-kw-label hover:bg-kw-subtle',
-                  )}
-                >
-                  <Icone className="h-3.5 w-3.5" strokeWidth={2.2} />
-                  {v.libelle}
-                </button>
-              )
-            })}
-          </div>
-        </div>
-
         <ListToolbar
           query={controles.query}
           onQueryChange={controles.setQuery}
           placeholder="Rechercher un compte, une référence…"
           count={filtrees.length}
-        >
-          <Select value={controles.sortKey} onChange={(e) => controles.setSortKey(e.target.value)} className="w-auto">
-            <option value="recentes">Les plus récentes</option>
-            <option value="compte">Par compte</option>
-            <option value="echeance">Par échéance</option>
-          </Select>
-        </ListToolbar>
+        />
 
         {isLoading ? (
           <p className="mt-4 text-sm text-navy-400">Chargement…</p>
-        ) : vue === 'kanban' ? (
+        ) : filtrees.length > 0 ? (
           /* LES SIX PALIERS DE SA DIAPOSITIVE 13, colonnes terminales comprises : sur la page d'un
              objet, le tableau montre TOUT le pipeline, y compris ce qui a abouti et ce qui s'est
              fermé. C'est la différence avec le tableau de bord, qui ne montre que le travail
@@ -240,29 +135,17 @@ export default function Opportunites() {
               siVide="Aucune opportunité ne correspond."
             />
           </div>
-        ) : filtrees.length === 0 ? (
+        ) : (
           <Card className="mt-4 flex flex-col items-center gap-2 p-8 text-center">
             <Target className="h-6 w-6 text-navy-300" />
             <p className="text-sm font-medium text-navy-700">Aucune opportunité</p>
             <p className="max-w-md text-xs text-navy-400">
-              Une opportunité naît d'une piste convertie, d'un signal sur le portefeuille, d'une demande
-              entrante ou d'un partenaire. Créez-en une pour commencer à rassembler ses prérequis.
+              Une opportunité naît d'une piste convertie, d'un signal sur le portefeuille, d'une
+              demande entrante ou d'un partenaire. Créez-en une pour commencer à rassembler ses
+              prérequis.
             </p>
           </Card>
-        ) : (
-          <div className="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-3">
-            {tranche.visibles.map((o) => <CarteOpportunite key={o.id} opportunite={o} mandats={mandats ?? []} />)}
-          </div>
         )}
-
-        <PiedDeListe
-          affiches={tranche.visibles.length}
-          total={tranche.total}
-          reste={tranche.reste}
-          onAfficherPlus={tranche.afficherPlus}
-          tailleTrancheSuivante={tranche.tailleTrancheSuivante}
-          libelle="opportunités"
-        />
       </div>
 
       {creation && <DialogCreation onFermer={() => setCreation(false)} />}

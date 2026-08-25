@@ -33,13 +33,13 @@ import type { PrixOffreGaz } from '@/types/domain'
  * l'accise sur les gaz naturels, nouveau nom de la TICGN. Ce qui manquait n'était donc pas le calcul
  * mais LA TVA : aucune colonne contenant « tva » ou « ttc » n'existe dans toute la base.
  *
- * LE TAUX EST ÉCRIT ICI, ET AFFICHÉ À L'ÉCRAN. Il vient de leur document, qui l'énonce pour les deux
- * assiettes. Il n'est pas déduit — mais il n'est pas garanti pour un autre fournisseur ni pour un
- * autre client : la TVA du gaz a connu plusieurs régimes. Le libellé porte donc toujours le taux,
- * pour qu'un total TTC ne puisse jamais être lu sans savoir sur quoi il repose.
+ * LE TAUX VAUT POUR TOUS LES FOURNISSEURS, tranché par Naoëlle le 25/08/2026 : « oui, la TVA 20 %
+ * c'est pour tous les fournisseurs ». Il n'est donc plus une hypothèse tirée du seul document de Gaz
+ * Européen. Le libellé le porte quand même à l'écran — un total TTC ne doit pas pouvoir être lu sans
+ * savoir sur quoi il repose, et le jour où un régime change, c'est cette ligne qui le dira.
  */
 
-/** Le taux des deux assiettes, tel que Gaz Européen l'énonce sur son offre du 25/08/2026. */
+/** Le taux des deux assiettes. Vaut pour tous les fournisseurs (Naoëlle, 25/08/2026). */
 export const TAUX_TVA_GAZ = 0.2
 
 export interface BudgetGazDecompose {
@@ -57,6 +57,8 @@ export interface BudgetGazDecompose {
   tvaConsommation: number
   totalHt: number
   totalTtc: number
+  /** Total HT ÷ consommation. Le pendant du prix moyen TTC, pour la lecture hors taxes. */
+  prixMoyenHtMwh: number
   /** Total TTC ÷ consommation — « y compris abonnement et taxes », comme ils l'écrivent. */
   prixMoyenTtcMwh: number
   /** Vrai quand une composante manque : le total est alors partiel et doit se dire tel quel. */
@@ -113,6 +115,7 @@ export function budgetGazDecompose(
     tvaConsommation,
     totalHt,
     totalTtc,
+    prixMoyenHtMwh: totalHt / conso,
     prixMoyenTtcMwh: totalTtc / conso,
     incomplet,
   }

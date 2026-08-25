@@ -1,23 +1,15 @@
 import { useState } from 'react'
-import { PiedDeListe } from '@/components/ui/pied-de-liste'
 import { useNavigate } from 'react-router-dom'
-import { Plus, Sparkle, LayoutList, Columns3} from 'lucide-react'
+import { Plus } from 'lucide-react'
 import { Topbar } from '@/components/layout/Topbar'
 import { PageHeader } from '@/components/ui/page-header'
-import { Card } from '@/components/ui/card'
-import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
-import { EntityLink } from '@/components/ui/entity-link'
-import { EtapeCompact } from '@/components/ui/etape-stepper'
-import { Select } from '@/components/ui/form'
 import { useReferenceTable } from '@/lib/data/referenceTables'
 import { useIsAdmin, useMonProfil } from '@/lib/data/roles'
-import { FALLBACK_ETAPES_RECOMMANDATION, ETAPE_TONE } from '@/lib/referenceFallbacks'
+import { FALLBACK_ETAPES_RECOMMANDATION } from '@/lib/referenceFallbacks'
 import { ListToolbar } from '@/components/ui/list-toolbar'
-import { useListeServeur } from '@/lib/useListeServeur'
 import { useKanbanServeur } from '@/lib/useKanbanServeur'
 import { TableauKanban } from '@/components/dashboard/TableauKanban'
-import { cn } from '@/lib/utils'
 import { CreateRecommandationDialog } from '@/components/opportunite/CreationRecommandationWizard'
 
 /** Le formulaire de création vit désormais dans son propre fichier, réécrit le 15/08/2026 en
@@ -61,16 +53,13 @@ export default function Recommandations() {
   const etapes = etapesRef && etapesRef.length > 0 ? etapesRef : FALLBACK_ETAPES_RECOMMANDATION
   const navigate = useNavigate()
   const [showCreate, setShowCreate] = useState(false)
-  const [etapeFilter, setEtapeFilter] = useState('')
-  const [vue, setVue] = useState<'liste' | 'kanban'>('liste')
 
-  const liste = useListeServeur<LigneReco>({
-    vue: 'v_recommandations_liste',
-    colonnesRecherche: ['nom', 'compte_nom', 'conseiller'],
-    triParDefaut: 'nom',
-    // Le filtre par etape descend en base : sinon il ne porterait que sur la tranche chargee.
-    filtres: { etape: etapeFilter || null, compte_proprietaire_id: filtreProprietaire },
-  })
+  /**
+   * LA RECHERCHE SURVIT À LA LISTE. `useListeServeur` ne servait plus qu'à porter la saisie et le
+   * total : le garder aurait lancé une requête paginée dont personne n'affiche le résultat. Un état
+   * local suffit, et le total se lit sur la somme des colonnes — qui sont, elles, comptées en base.
+   */
+  const [recherche, setRecherche] = useState('')
 
   /**
    * LE TABLEAU EST SERVI PAR LA BASE, une requête par colonne.
@@ -88,9 +77,10 @@ export default function Recommandations() {
     colonneStatut: 'etape',
     colonnes: etapes.map((e) => ({ code: e.code, libelle: e.libelle })),
     colonnesRecherche: ['nom', 'compte_nom', 'conseiller'],
-    recherche: liste.query,
+    recherche,
     filtres: { compte_proprietaire_id: filtreProprietaire },
-    actif: vue === 'kanban',
+    // Le tableau est la seule vue : il est toujours actif.
+    actif: true,
   })
 
   return (
@@ -103,53 +93,15 @@ export default function Recommandations() {
           actions={<Button onClick={() => setShowCreate(true)}><Plus className="h-4 w-4" />Nouvelle recommandation</Button>}
         />
 
-        <ListToolbar query={liste.query} onQueryChange={liste.setQuery} placeholder="Rechercher une recommandation, un compte…" count={liste.total}>
-          {/* « Sur chaque type de page on garde toujours de base le truc » (Michel, 25/08) : la liste
-              reste le défaut, le tableau s'ajoute. */}
-          <div className="flex items-center gap-1 rounded-kw-lg border-[1.5px] border-kw-border-strong bg-white p-1">
-            {([
-              { cle: 'liste' as const, libelle: 'Liste', icone: LayoutList },
-              { cle: 'kanban' as const, libelle: 'Kanban', icone: Columns3 },
-            ]).map((v) => {
-              const Icone = v.icone
-              return (
-                <button
-                  key={v.cle}
-                  type="button"
-                  onClick={() => setVue(v.cle)}
-                  className={cn(
-                    'inline-flex items-center gap-1.5 rounded-kw-md px-2.5 py-1 text-kw-sm font-bold transition-colors',
-                    vue === v.cle ? 'bg-ink-800 text-white' : 'text-kw-label hover:bg-kw-subtle',
-                  )}
-                >
-                  <Icone className="h-3.5 w-3.5" strokeWidth={2.2} />
-                  {v.libelle}
-                </button>
-              )
-            })}
-          </div>
-          {/* Le filtre par étape n'a pas de sens en tableau : les étapes SONT les colonnes. */}
-          {vue === 'liste' && <Select value={etapeFilter} onChange={(e) => setEtapeFilter(e.target.value)} className="w-auto">
-            <option value="">Toutes les étapes</option>
-            {etapes.map((e) => <option key={e.id} value={e.code}>{e.libelle}</option>)}
-          </Select>}
-          {vue === 'liste' && <Select value={liste.tri} onChange={(e) => liste.trierPar(e.target.value)} className="w-auto">
-            <option value="nom">Trier par titre</option>
-            <option value="compte_nom">Trier par compte</option>
-            <option value="priorite">Trier par priorité</option>
-          </Select>}
+        <ListToolbar query={recherche} onQueryChange={setRecherche} placeholder="Rechercher une recommandation, un compte…" count={(tableau.data ?? []).reduce((n, c) => n + c.total, 0)}>
+          {/* PLUS DE BASCULEMENT, PLUS DE FILTRE PAR ÉTAPE, PLUS DE TRI. Naoëlle, 25/08/2026 :
+              « garde juste la vue kanban pour partout, enlève la vue de liste ». Le filtre par étape
+              et le tri appartenaient à la liste : les étapes SONT les colonnes du tableau, et une
+              colonne ne se trie pas de l'extérieur. La recherche, elle, reste — elle traverse toutes
+              les colonnes. */}
         </ListToolbar>
 
-        {liste.erreur && <p className="mb-4 text-sm text-red-600">{liste.erreur}</p>}
-        {!liste.isLoading && !liste.erreur && liste.lignes.length === 0 && (
-          <p className="mb-4 text-sm text-navy-400">
-            {liste.query.trim() || etapeFilter
-              ? 'Aucune recommandation ne correspond à la recherche.'
-              : "Aucune recommandation pour l'instant — c'est le cœur du métier KiWee : une proposition chiffrée (optimisations, offres) pour un ou plusieurs sites. Utilise « Nouvelle recommandation » pour en créer une."}
-          </p>
-        )}
-        {vue === 'kanban' ? (
-          <TableauKanban
+        <TableauKanban
             colonnes={(tableau.data ?? []).map((c) => ({ code: c.code, libelle: c.libelle }))}
             cartes={Object.fromEntries(
               (tableau.data ?? []).map((c) => [
@@ -168,58 +120,6 @@ export default function Recommandations() {
             totaux={Object.fromEntries((tableau.data ?? []).map((c) => [c.code, c.total]))}
             siVide={tableau.isLoading ? 'Chargement…' : 'Aucune recommandation ne correspond.'}
           />
-        ) : (
-        <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
-          {liste.isLoading && <p className="text-sm text-navy-400">Chargement…</p>}
-          {liste.lignes.map((reco) => {
-            const etapeLabel = etapes.find((e) => e.code === reco.etape)?.libelle ?? reco.etape
-            return (
-              <Card
-                key={reco.id}
-                className="animate-fade-up cursor-pointer p-5 transition-all hover:-translate-y-0.5 hover:shadow-lg"
-                onClick={() => navigate(`/recommandations/${reco.id}`)}
-              >
-                <div className="mb-2 flex items-start justify-between gap-2">
-                  <div className="flex items-center gap-2">
-                    <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-amber-100 text-amber-600">
-                      <Sparkle className="h-4 w-4" />
-                    </span>
-                    <p className="font-display font-medium text-navy-800">{reco.nom}</p>
-                  </div>
-                  <Badge tone={ETAPE_TONE[reco.etape] ?? 'neutral'}>{etapeLabel}</Badge>
-                </div>
-                <p className="text-xs text-navy-500">
-                  <EntityLink to={`/comptes/${reco.compte_id}`}>{reco.compte_nom}</EntityLink>
-                  {' · '}
-                  {(reco.sites ?? []).map((s, i) => (
-                    <span key={s.id}>
-                      {i > 0 && ', '}
-                      <EntityLink to={`/sites/${s.id}`}>{s.nom}</EntityLink>
-                    </span>
-                  ))}
-                </p>
-
-                <div className="mt-4">
-                  <EtapeCompact steps={etapes} currentCode={reco.etape} />
-                </div>
-
-                <div className="mt-3 flex items-center justify-between text-xs text-navy-400">
-                  <span>{reco.conseiller}</span>
-                  <span>{reco.nb_versions} version{reco.nb_versions > 1 ? 's' : ''}</span>
-                </div>
-              </Card>
-            )
-          })}
-          <PiedDeListe
-            affiches={liste.lignes.length}
-            total={liste.total}
-            reste={liste.reste}
-            onAfficherPlus={liste.afficherPlus}
-            tailleTrancheSuivante={liste.tailleTrancheSuivante}
-            libelle="recommandations"
-          />
-        </div>
-        )}
       </div>
       {showCreate && (
         <CreateRecommandationDialog

@@ -1,3 +1,4 @@
+import { useState } from 'react'
 import { budgetGazDecompose, TAUX_TVA_GAZ } from '@/lib/calculs/budgetGaz'
 import type { PrixOffreGaz } from '@/types/domain'
 
@@ -18,8 +19,9 @@ import type { PrixOffreGaz } from '@/types/domain'
  *     dans les dépenses énergétiques comme ils le font ;
  *   · le TOTAL EST TTC, avec ses deux lignes de TVA — la CTA taxée avec l'abonnement, l'accise avec
  *     la consommation. Aucune colonne « tva » n'existe dans notre base : ces montants sont calculés
- *     à l'affichage, et le taux est écrit dans chaque libellé pour qu'on ne puisse pas lire un total
- *     TTC sans savoir sur quoi il repose.
+ *     à l'affichage, au taux de 20 % qui vaut pour tous les fournisseurs (Naoëlle, 25/08/2026). Le
+ *     taux reste écrit dans chaque libellé : un total TTC ne doit pas pouvoir être lu sans savoir
+ *     sur quoi il repose.
  *
  * GAZ SEULEMENT, et c'est dit à l'écran quand ce n'est pas du gaz. Un compteur d'électricité n'a ni
  * molécule, ni CEE, ni accise gaz : ses composantes sont le TURPE et les classes horosaisonnières,
@@ -79,6 +81,18 @@ export function ConditionsFournisseurRetenu({
   /** La consommation à retenir, quand elle ne vient pas des prix de l'offre. */
   consommation: number | null
 }) {
+  /**
+   * HORS TAXES OU TOUTES TAXES — demandé par Naoëlle le 25/08/2026 : « avoir la possibilité de voir
+   * l'offre avec ou sans TVA, via toggle ou autre chose que tu juges bien ».
+   *
+   * LE BASCULEMENT NE S'IMPRIME PAS, et c'est le point : ce qui est affiché au moment d'imprimer est
+   * ce qui part chez le client. La personne qui envoie choisit donc sa base au lieu de subir celle
+   * qu'on aurait figée — un syndic raisonne en TTC, une entreprise assujettie en HT.
+   *
+   * TTC PAR DÉFAUT, parce que c'est la base du document de Gaz Européen dont Michel veut « le même
+   * affichage », et parce que c'est le montant que le client paie réellement.
+   */
+  const [base, setBase] = useState<'ttc' | 'ht'>('ttc')
   const b = budgetGazDecompose(prixGaz, consommation)
 
   if (!prixGaz || !b) {
@@ -133,27 +147,64 @@ export function ConditionsFournisseurRetenu({
 
       {/* ══════════ LE BUDGET ANNUEL INDICATIF ══════════ */}
       <div>
-        <p className="text-kw-base font-extrabold uppercase tracking-[0.04em] text-kw-ink">
-          Budget annuel indicatif
-        </p>
+        <div className="flex flex-wrap items-baseline gap-2">
+          <p className="text-kw-base font-extrabold uppercase tracking-[0.04em] text-kw-ink">
+            Budget annuel indicatif
+          </p>
+          {/* Le choix se fait ici et ne s'imprime pas : le papier ne porte que la base retenue. */}
+          <span className="flex items-center gap-0.5 rounded-kw-md border border-kw-border-strong bg-white p-0.5 print:hidden">
+            {([
+              { cle: 'ttc' as const, libelle: 'TTC' },
+              { cle: 'ht' as const, libelle: 'HT' },
+            ]).map((o) => (
+              <button
+                key={o.cle}
+                type="button"
+                onClick={() => setBase(o.cle)}
+                title={o.cle === 'ttc' ? 'Toutes taxes comprises — ce que le client paie' : 'Hors taxes — pour un client assujetti'}
+                className={
+                  base === o.cle
+                    ? 'rounded-kw-sm bg-ink-800 px-2 py-0.5 text-kw-micro font-extrabold text-white'
+                    : 'rounded-kw-sm px-2 py-0.5 text-kw-micro font-bold text-kw-meta hover:bg-kw-subtle'
+                }
+              >
+                {o.libelle}
+              </button>
+            ))}
+          </span>
+        </div>
 
         <div className="mt-1">
           <LignePrix intitule="Abonnement" valeur={euros(b.abonnement) + ' HT/an'} />
           <LignePrix intitule="Dépenses énergétiques" valeur={euros(b.depensesEnergetiques) + ' HT/an'} />
           <LignePrix intitule="CTA" valeur={euros(b.cta) + ' HT/an'} />
           <LignePrix intitule="Accise sur les gaz naturels" sigle="ex-TICGN" valeur={euros(b.accise) + ' HT/an'} />
-          <LignePrix intitule={`TVA sur abonnement (${pourcent})`} valeur={euros(b.tvaAbonnement) + '/an'} />
-          <LignePrix intitule={`TVA hors abonnement (${pourcent})`} valeur={euros(b.tvaConsommation) + '/an'} />
+          {/* Les deux lignes de TVA disparaissent en base hors taxes : les montrer sans les compter
+              dans le total serait le meilleur moyen de faire douter du total. */}
+          {base === 'ttc' && (
+            <>
+              <LignePrix intitule={`TVA sur abonnement (${pourcent})`} valeur={euros(b.tvaAbonnement) + '/an'} />
+              <LignePrix intitule={`TVA hors abonnement (${pourcent})`} valeur={euros(b.tvaConsommation) + '/an'} />
+            </>
+          )}
         </div>
 
         <div className="mt-2 rounded-kw-lg border-2 border-kw-green bg-kw-green-tint px-3 py-2">
-          <LignePrix intitule="Total dépenses" valeur={euros(b.totalTtc) + ' TTC/an'} fort />
           <LignePrix
-            intitule="Prix moyen annuel du MWh"
-            valeur={euros(b.prixMoyenTtcMwh) + ' TTC/MWh'}
+            intitule="Total dépenses"
+            valeur={euros(base === 'ttc' ? b.totalTtc : b.totalHt) + (base === 'ttc' ? ' TTC/an' : ' HT/an')}
             fort
           />
-          <p className="pt-1 text-kw-micro text-kw-meta">Y compris abonnement et taxes.</p>
+          <LignePrix
+            intitule="Prix moyen annuel du MWh"
+            valeur={euros(base === 'ttc' ? b.prixMoyenTtcMwh : b.prixMoyenHtMwh) + (base === 'ttc' ? ' TTC/MWh' : ' HT/MWh')}
+            fort
+          />
+          <p className="pt-1 text-kw-micro text-kw-meta">
+            {base === 'ttc'
+              ? 'Y compris abonnement et taxes.'
+              : 'Hors TVA, abonnement compris. Un client assujetti la récupère.'}
+          </p>
         </div>
 
         {debut && (
@@ -173,8 +224,10 @@ export function ConditionsFournisseurRetenu({
 
         <p className="mt-2 text-kw-micro leading-snug text-kw-faint">
           Montants indicatifs, calculés sur la consommation de référence et les composantes
-          réglementaires applicables à la date de l’analyse. TVA appliquée au taux de {pourcent} sur
-          les deux assiettes — abonnement et CTA d’une part, consommation et accise de l’autre.
+          réglementaires applicables à la date de l’analyse.
+          {base === 'ttc'
+            ? ` TVA appliquée au taux de ${pourcent} sur les deux assiettes — abonnement et CTA d’une part, consommation et accise de l’autre.`
+            : ' Montants hors TVA.'}
         </p>
       </div>
     </div>
