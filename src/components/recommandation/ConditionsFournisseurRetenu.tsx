@@ -183,16 +183,36 @@ export function ConditionsFournisseurRetenu({
           </span>
         </div>
 
-        {/* TROIS GRANDES LIGNES, une par famille du prix détaillé. */}
+        {/* LES MÊMES TROIS FAMILLES QU'À GAUCHE, avec leurs intitulés verts. Michel, 25/08/2026 :
+            « dans les deux, tu as trois grandes lignes — si ce n'est que la ligne du budget c'est le
+            montant total, et les lignes [du prix détaillé] le montant détaillé de chaque composante ».
+            Les deux colonnes se lisent donc en miroir : même titre, même ordre, détail d'un côté,
+            total de l'autre. */}
         <div className="mt-1">
-          <Ligne intitule="Budget prix fournisseur" valeur={`${euros(b.budgetFournisseur)} HT/an`} />
-          <Ligne intitule="Budget acheminement et distribution" valeur={`${euros(b.budgetAcheminement)} HT/an`} />
-          <Ligne intitule="Budget des taxes" valeur={`${euros(b.budgetTaxes)} HT/an`} />
+          <Famille>Prix du fournisseur</Famille>
+          <Ligne intitule="Montant total" valeur={`${euros(b.budgetFournisseur)} HT/an`} />
+
+          <Famille>Acheminement, distribution et transport</Famille>
+          <Ligne intitule="Montant total" valeur={`${euros(b.budgetAcheminement)} HT/an`} />
+
+          <Famille>Taxe</Famille>
+          <Ligne intitule="Montant total" valeur={`${euros(b.budgetTaxes)} HT/an`} />
           {/* LA TVA EST GROUPÉE : les deux assiettes sont au même taux depuis que l'abonnement est
               passé de 5,5 % à 20 %. Elle disparaît en base hors taxes — la montrer sans la compter
               dans le total serait le meilleur moyen de faire douter du total. */}
-          {ttc && <Ligne intitule={`TVA (${pourcent})`} valeur={`${euros(b.tva)}/an`} />}
         </div>
+
+        {/* LA TVA EST HORS DES TROIS FAMILLES, et c'est ce qui garde les deux colonnes parallèles :
+            trois intitulés verts à gauche, trois à droite, et rien de plus. Michel : « on les mettra
+            juste en dessous du budget ». Un quatrième titre vert ici n'aurait aucun vis-à-vis dans le
+            prix détaillé — et c'est précisément le parallélisme que Naoëlle demande.
+            Elle disparaît en base hors taxes : la montrer sans la compter dans le total serait le
+            meilleur moyen de faire douter du total. */}
+        {ttc && (
+          <div className="mt-1.5 border-t border-kw-border pt-1.5">
+            <Ligne intitule={`TVA (${pourcent})`} valeur={`${euros(b.tva)}/an`} />
+          </div>
+        )}
 
         <div className="mt-2 rounded-kw-lg border-2 border-kw-green bg-kw-green-tint px-3 py-2">
           <Ligne
