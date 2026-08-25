@@ -55,15 +55,25 @@ const CARTES_PAR_COLONNE = 8
 export function TableauKanban({
   colonnes,
   cartes,
+  totaux,
   siVide,
 }: {
   colonnes: ColonneKanban[]
   /** Cartes indexées par code de colonne, déjà ordonnées par urgence par l'appelant. */
   cartes: Record<string, CarteKanban[]>
+  /**
+   * Le vrai total par colonne, quand il ne se déduit PAS du nombre de cartes fournies.
+   *
+   * Sur une page dont la liste est paginée en base — les recommandations — l'appelant ne reçoit que
+   * dix cartes par colonne et le total vient d'un `count` séparé. Sans ce paramètre, la colonne
+   * annoncerait « 10 » sur 648 dossiers, et « et 2 autres » là où il en reste 640.
+   */
+  totaux?: Record<string, number>
   siVide: string
 }) {
   const navigate = useNavigate()
-  const total = colonnes.reduce((n, c) => n + (cartes[c.code]?.length ?? 0), 0)
+  const compte = (code: string) => totaux?.[code] ?? cartes[code]?.length ?? 0
+  const total = colonnes.reduce((n, c) => n + compte(c.code), 0)
 
   if (total === 0) {
     return (
@@ -89,7 +99,7 @@ export function TableauKanban({
                 {col.libelle}
               </p>
               <span className="ml-auto shrink-0 rounded-kw-md bg-white px-1.5 py-px font-mono text-kw-micro font-extrabold text-kw-meta">
-                {liste.length}
+                {compte(col.code)}
               </span>
             </div>
 
@@ -126,9 +136,9 @@ export function TableauKanban({
               ))}
               {/* On dit ce qu'on ne montre pas — une colonne coupée en silence se lit comme une
                   colonne vidée. */}
-              {liste.length > montrees.length && (
+              {compte(col.code) > montrees.length && (
                 <p className="px-0.5 pt-0.5 text-kw-micro text-kw-faint">
-                  et {liste.length - montrees.length} autre{liste.length - montrees.length > 1 ? 's' : ''}
+                  et {compte(col.code) - montrees.length} autre{compte(col.code) - montrees.length > 1 ? 's' : ''}
                 </p>
               )}
             </div>

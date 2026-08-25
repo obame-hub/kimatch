@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { PiedDeListe } from '@/components/ui/pied-de-liste'
 import { useNavigate } from 'react-router-dom'
-import { Plus, Sparkle } from 'lucide-react'
+import { Plus, Sparkle, LayoutList, Columns3} from 'lucide-react'
 import { Topbar } from '@/components/layout/Topbar'
 import { PageHeader } from '@/components/ui/page-header'
 import { Card } from '@/components/ui/card'
@@ -15,6 +15,9 @@ import { useIsAdmin, useMonProfil } from '@/lib/data/roles'
 import { FALLBACK_ETAPES_RECOMMANDATION, ETAPE_TONE } from '@/lib/referenceFallbacks'
 import { ListToolbar } from '@/components/ui/list-toolbar'
 import { useListeServeur } from '@/lib/useListeServeur'
+import { useKanbanServeur } from '@/lib/useKanbanServeur'
+import { TableauKanban } from '@/components/dashboard/TableauKanban'
+import { cn } from '@/lib/utils'
 import { CreateRecommandationDialog } from '@/components/opportunite/CreationRecommandationWizard'
 
 /** Le formulaire de création vit désormais dans son propre fichier, réécrit le 15/08/2026 en
@@ -59,6 +62,7 @@ export default function Recommandations() {
   const navigate = useNavigate()
   const [showCreate, setShowCreate] = useState(false)
   const [etapeFilter, setEtapeFilter] = useState('')
+  const [vue, setVue] = useState<'liste' | 'kanban'>('liste')
 
   const liste = useListeServeur<LigneReco>({
     vue: 'v_recommandations_liste',
@@ -66,6 +70,27 @@ export default function Recommandations() {
     triParDefaut: 'nom',
     // Le filtre par etape descend en base : sinon il ne porterait que sur la tranche chargee.
     filtres: { etape: etapeFilter || null, compte_proprietaire_id: filtreProprietaire },
+  })
+
+  /**
+   * LE TABLEAU EST SERVI PAR LA BASE, une requête par colonne.
+   *
+   * La liste de cette page est paginée côté serveur : construire le tableau à partir de la tranche
+   * chargée ferait compter les cent lignes reçues au lieu des 648 réelles, et laisserait des colonnes
+   * vides simplement parce que leur page n'a pas été demandée. Voir useKanbanServeur.
+   *
+   * Les huit étapes, terminales comprises : sur la page d'un objet, le tableau montre tout le
+   * pipeline. La recherche et le filtre de propriétaire de la liste s'y appliquent — sans quoi les
+   * deux vues montreraient deux populations différentes sous le même bandeau.
+   */
+  const tableau = useKanbanServeur<LigneReco>({
+    vue: 'v_recommandations_liste',
+    colonneStatut: 'etape',
+    colonnes: etapes.map((e) => ({ code: e.code, libelle: e.libelle })),
+    colonnesRecherche: ['nom', 'compte_nom', 'conseiller'],
+    recherche: liste.query,
+    filtres: { compte_proprietaire_id: filtreProprietaire },
+    actif: vue === 'kanban',
   })
 
   return (
@@ -79,15 +104,40 @@ export default function Recommandations() {
         />
 
         <ListToolbar query={liste.query} onQueryChange={liste.setQuery} placeholder="Rechercher une recommandation, un compte…" count={liste.total}>
-          <Select value={etapeFilter} onChange={(e) => setEtapeFilter(e.target.value)} className="w-auto">
+          {/* « Sur chaque type de page on garde toujours de base le truc » (Michel, 25/08) : la liste
+              reste le défaut, le tableau s'ajoute. */}
+          <div className="flex items-center gap-1 rounded-kw-lg border-[1.5px] border-kw-border-strong bg-white p-1">
+            {([
+              { cle: 'liste' as const, libelle: 'Liste', icone: LayoutList },
+              { cle: 'kanban' as const, libelle: 'Kanban', icone: Columns3 },
+            ]).map((v) => {
+              const Icone = v.icone
+              return (
+                <button
+                  key={v.cle}
+                  type="button"
+                  onClick={() => setVue(v.cle)}
+                  className={cn(
+                    'inline-flex items-center gap-1.5 rounded-kw-md px-2.5 py-1 text-kw-sm font-bold transition-colors',
+                    vue === v.cle ? 'bg-ink-800 text-white' : 'text-kw-label hover:bg-kw-subtle',
+                  )}
+                >
+                  <Icone className="h-3.5 w-3.5" strokeWidth={2.2} />
+                  {v.libelle}
+                </button>
+              )
+            })}
+          </div>
+          {/* Le filtre par étape n'a pas de sens en tableau : les étapes SONT les colonnes. */}
+          {vue === 'liste' && <Select value={etapeFilter} onChange={(e) => setEtapeFilter(e.target.value)} className="w-auto">
             <option value="">Toutes les étapes</option>
             {etapes.map((e) => <option key={e.id} value={e.code}>{e.libelle}</option>)}
-          </Select>
-          <Select value={liste.tri} onChange={(e) => liste.trierPar(e.target.value)} className="w-auto">
+          </Select>}
+          {vue === 'liste' && <Select value={liste.tri} onChange={(e) => liste.trierPar(e.target.value)} className="w-auto">
             <option value="nom">Trier par titre</option>
             <option value="compte_nom">Trier par compte</option>
             <option value="priorite">Trier par priorité</option>
-          </Select>
+          </Select>}
         </ListToolbar>
 
         {liste.erreur && <p className="mb-4 text-sm text-red-600">{liste.erreur}</p>}
@@ -98,6 +148,27 @@ export default function Recommandations() {
               : "Aucune recommandation pour l'instant — c'est le cœur du métier KiWee : une proposition chiffrée (optimisations, offres) pour un ou plusieurs sites. Utilise « Nouvelle recommandation » pour en créer une."}
           </p>
         )}
+        {vue === 'kanban' ? (
+          <TableauKanban
+            colonnes={(tableau.data ?? []).map((c) => ({ code: c.code, libelle: c.libelle }))}
+            cartes={Object.fromEntries(
+              (tableau.data ?? []).map((c) => [
+                c.code,
+                c.lignes.map((r) => ({
+                  id: r.id,
+                  titre: r.nom,
+                  sousTitre: r.compte_nom ?? undefined,
+                  mention: r.nb_versions > 1 ? `${r.nb_versions} versions` : undefined,
+                  to: `/recommandations/${r.id}`,
+                })),
+              ]),
+            )}
+            /* LE TOTAL VIENT DE LA BASE, pas du nombre de cartes reçues : dix par colonne sont
+               demandées, et une colonne peut en compter six cents. */
+            totaux={Object.fromEntries((tableau.data ?? []).map((c) => [c.code, c.total]))}
+            siVide={tableau.isLoading ? 'Chargement…' : 'Aucune recommandation ne correspond.'}
+          />
+        ) : (
         <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
           {liste.isLoading && <p className="text-sm text-navy-400">Chargement…</p>}
           {liste.lignes.map((reco) => {
@@ -148,6 +219,7 @@ export default function Recommandations() {
             libelle="recommandations"
           />
         </div>
+        )}
       </div>
       {showCreate && (
         <CreateRecommandationDialog

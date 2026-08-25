@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { Plus, ArrowRight, Check, Users, Filter, Paperclip } from 'lucide-react'
+import { Plus, ArrowRight, Check, Users, Filter, Paperclip, LayoutList, Columns3} from 'lucide-react'
 import { Topbar } from '@/components/layout/Topbar'
 import { PageHeader } from '@/components/ui/page-header'
 import { Card } from '@/components/ui/card'
@@ -26,6 +26,7 @@ import {
 } from '@/lib/data/prospection'
 import { useStatutsOpportunites } from '@/lib/data/opportunites'
 import { cn } from '@/lib/utils'
+import { TableauKanban } from '@/components/dashboard/TableauKanban'
 import type { LigneListe, Piste } from '@/types/domain'
 
 /**
@@ -233,6 +234,7 @@ function OngletPistes({ pistes, signaler }: { pistes: Piste[]; signaler: (m: str
   // Même règle que pour les listes : l'onglet compte les pistes encore ouvertes, la liste montre
   // les mêmes.
   const [ouvertes, setOuvertes] = useState(true)
+  const [vue, setVue] = useState<'liste' | 'kanban'>('liste')
 
   const filtrees = useMemo(() => {
     const q = recherche.trim().toLowerCase()
@@ -244,16 +246,79 @@ function OngletPistes({ pistes, signaler }: { pistes: Piste[]; signaler: (m: str
 
   const converties = pistes.filter((p) => p.opportunite_id).length
 
+  /**
+   * LES TROIS ÉTATS D'UNE PISTE — les colonnes de son tableau.
+   *
+   * Michel veut un kanban sur la page des pistes (appel du 25/08). Mais une piste n'a PAS de colonne
+   * de statut : elle porte cinq validations — société, contact, e-mail, portable, décisionnaire — et
+   * un lien vers l'opportunité qu'elle a produite. Son pipeline se déduit donc de ces deux choses,
+   * exactement comme le palier d'une opportunité se déduit de ses objets.
+   */
+  const COLONNES_PISTE = [
+    { code: 'A_COMPLETER', libelle: 'À compléter' },
+    { code: 'PRETE', libelle: 'Prête à convertir' },
+    { code: 'CONVERTIE', libelle: 'Convertie' },
+  ] as const
+  const colonneDe = (p: Piste) =>
+    p.opportunite_id ? 'CONVERTIE' : pisteQualifiee(p) ? 'PRETE' : 'A_COMPLETER'
+  const correspond = (p: Piste) => {
+    const q = recherche.trim().toLowerCase()
+    return !q || [p.societe, p.contact_nom, p.email].filter(Boolean).some((v) => String(v).toLowerCase().includes(q))
+  }
+
   return (
     <>
       <ListToolbar query={recherche} onQueryChange={setRecherche} placeholder="Société, contact, email…" count={filtrees.length}>
-        {converties > 0 && (
+        {/* « Sur chaque type de page on garde toujours de base le truc » : la liste reste le défaut. */}
+        <div className="flex items-center gap-1 rounded-kw-lg border-[1.5px] border-kw-border-strong bg-white p-1">
+          {([
+            { cle: 'liste' as const, libelle: 'Liste', icone: LayoutList },
+            { cle: 'kanban' as const, libelle: 'Kanban', icone: Columns3 },
+          ]).map((v) => {
+            const Icone = v.icone
+            return (
+              <button
+                key={v.cle}
+                type="button"
+                onClick={() => setVue(v.cle)}
+                className={cn(
+                  'inline-flex items-center gap-1.5 rounded-kw-md px-2.5 py-1 text-kw-sm font-bold transition-colors',
+                  vue === v.cle ? 'bg-ink-800 text-white' : 'text-kw-label hover:bg-kw-subtle',
+                )}
+              >
+                <Icone className="h-3.5 w-3.5" strokeWidth={2.2} />
+                {v.libelle}
+              </button>
+            )
+          })}
+        </div>
+        {vue === 'liste' && converties > 0 && (
           <Button size="sm" variant={ouvertes ? 'default' : 'outline'} onClick={() => setOuvertes((v) => !v)}>
             {ouvertes ? 'Ouvertes seulement' : 'Toutes'}
           </Button>
         )}
       </ListToolbar>
-      {filtrees.length === 0 ? (
+      {vue === 'kanban' ? (
+        /* LE TABLEAU IGNORE LE FILTRE « OUVERTES SEULEMENT » : sa troisième colonne EST celle des
+           converties, et la masquer laisserait une colonne toujours vide sans dire pourquoi. */
+        <TableauKanban
+          colonnes={COLONNES_PISTE.map((c) => ({ code: c.code, libelle: c.libelle }))}
+          cartes={Object.fromEntries(
+            COLONNES_PISTE.map((c) => [
+              c.code,
+              pistes.filter((p) => colonneDe(p) === c.code).filter(correspond).map((p) => ({
+                id: p.id,
+                titre: p.societe || p.contact_nom || 'Piste sans nom',
+                sousTitre: [p.contact_nom, p.telephone].filter(Boolean).join(' · ') || undefined,
+                mention: `${VALIDATIONS_PISTE.filter((v) => Boolean(p[v.cle])).length}/5 vérifié`,
+                urgent: !p.opportunite_id && pisteQualifiee(p),
+                to: p.opportunite_id ? `/opportunites/${p.opportunite_id}` : '/prospection',
+              })),
+            ]),
+          )}
+          siVide="Aucune piste ne correspond."
+        />
+      ) : filtrees.length === 0 ? (
         <Card className="flex flex-col items-center gap-2 p-8 text-center">
           <Users className="h-6 w-6 text-navy-300" />
           <p className="text-sm font-medium text-navy-700">Aucune piste</p>
