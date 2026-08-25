@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { useSearchParams } from 'react-router-dom'
 import { useNavigate } from 'react-router-dom'
 import { Plus, Target, Check } from 'lucide-react'
 import { TableauKanban } from '@/components/dashboard/TableauKanban'
@@ -57,7 +58,11 @@ export default function Opportunites() {
   // Les mandats disent si le périmètre est couvert, donc où se situe chaque opportunité dans le
   // pipeline. Le même hook alimente les fiches : la requête est le plus souvent déjà en cache.
   const { data: mandats } = useMandats()
-  const [creation, setCreation] = useState(false)
+  // LE BOUTON « NOUVELLE OPPORTUNITÉ » DU TABLEAU DE BORD OUVRE VRAIMENT LE FORMULAIRE. Sa maquette
+  // le place en haut à droite de l'accueil ; un bouton qui se contenterait d'amener sur la liste
+  // obligerait à le chercher une seconde fois. L'état initial lit donc le paramètre d'URL.
+  const [parametres] = useSearchParams()
+  const [creation, setCreation] = useState(parametres.get('nouveau') === '1')
   const [avecClos, setAvecClos] = useState(false)
 
   const controles = useListControls(opportunites, {

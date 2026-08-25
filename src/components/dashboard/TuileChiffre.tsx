@@ -1,0 +1,55 @@
+import type { LucideIcon } from 'lucide-react'
+import { cn } from '@/lib/utils'
+
+/**
+ * UNE TUILE CHIFFRÉE DE LA MAQUETTE DE MICHEL : icône en pastille à gauche, badge à droite, le
+ * nombre en gros, son libellé dessous. Quatre côte à côte.
+ *
+ * LE BADGE N'EST PAS DÉCORATIF, et c'est la seule liberté que j'ai prise : sa maquette écrit
+ * « 3 prioritaires » sur les signaux, or `signaux.gravite` est nulle sur toutes les lignes de la
+ * base — le chiffre n'aurait aucune source. Chaque badge porte donc une grandeur qui existe, et
+ * `titre` en donne la définition au survol : personne ne doit avoir à devenir devin pour savoir ce
+ * que compte un nombre affiché sur un tableau de bord.
+ */
+export function TuileChiffre({
+  icone: Icone,
+  teinte,
+  badge,
+  valeur,
+  libelle,
+  definition,
+  onClick,
+}: {
+  icone: LucideIcon
+  /** Les classes de la pastille — fond et couleur d'icône. */
+  teinte: string
+  badge: string | null
+  valeur: string
+  libelle: string
+  definition: string
+  onClick: () => void
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      title={definition}
+      className="rounded-kw-3xl border border-kw-border bg-white px-4 py-4 text-left transition-shadow hover:shadow-kw-card-open"
+    >
+      <div className="flex items-start justify-between gap-2">
+        <span className={cn('flex h-9 w-9 items-center justify-center rounded-kw-xl', teinte)}>
+          <Icone className="h-[17px] w-[17px]" strokeWidth={2.3} />
+        </span>
+        {badge && (
+          <span className="rounded-kw-md bg-kw-bloc px-2 py-1 text-kw-micro font-bold text-kw-meta">
+            {badge}
+          </span>
+        )}
+      </div>
+      <p className="mt-4 font-mono text-[25px] font-extrabold leading-none tabular-nums text-kw-ink">
+        {valeur}
+      </p>
+      <p className="mt-1.5 text-kw-sm text-kw-body">{libelle}</p>
+    </button>
+  )
+}
