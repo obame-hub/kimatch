@@ -217,82 +217,143 @@ export function useChiffresTableauDeBord() {
   })
 }
 
-export interface ActionDuJour {
+export type GroupeJournee = 'SIGNAL' | 'MANDAT' | 'RECOMMANDATION' | 'AUTRE'
+
+export interface ActionAFaire {
   id: string
   titre: string
-  /** Heure locale « 09:30 », ou null si l'action est datée sans heure. */
-  heure: string | null
-  datePrevue: string
-  type: string | null
-  statut: string | null
-  /** Le client ou le site concerné — le « Maison Oria · Visioconférence » de la maquette. */
+  /** Le client ou le site concerné — la deuxième ligne de ses cartes. */
   contexte: string | null
-  /** Vrai dans l'heure qui vient : c'est le badge « Dans 45 min ». */
-  imminente: boolean
-  minutesAvant: number | null
+  groupe: GroupeJournee
+  /** Fait ou non : c'est l'état de la case à cocher. */
+  faite: boolean
+  /** Jours restants avant l'échéance. Négatif quand elle est passée, `null` sans date. */
+  joursRestants: number | null
+  /** `priorite` de la base, 0 à 100. Au-delà de 70, la ligne est signalée comme prioritaire. */
+  priorite: number | null
+}
+
+/** Ce que porte le badge de droite : la couleur dit l'urgence, le texte dit pourquoi. */
+export function badgeAction(a: ActionAFaire): { texte: string; ton: 'rouge' | 'ambre' | 'neutre' } | null {
+  if (a.faite) return null
+  if (a.joursRestants != null && a.joursRestants < 0) return { texte: 'En retard', ton: 'rouge' }
+  if (a.joursRestants === 0) return { texte: "Aujourd'hui", ton: 'ambre' }
+  if (a.priorite != null && a.priorite >= 70) return { texte: 'Prioritaire', ton: 'ambre' }
+  if (a.joursRestants != null) return { texte: `${a.joursRestants} jour${a.joursRestants > 1 ? 's' : ''}`, ton: 'neutre' }
+  return null
+}
+
+export const LIBELLE_GROUPE: Record<GroupeJournee, string> = {
+  SIGNAL: 'Signaux',
+  MANDAT: 'Mandats',
+  RECOMMANDATION: 'Recommandations',
+  AUTRE: 'Autres',
 }
 
 /**
- * LES ACTIONS DU JOUR DE L'UTILISATEUR CONNECTÉ.
+ * MES ACTIONS, GROUPÉES PAR OBJET — « Ma journée » de sa maquette du 25/08/2026.
  *
- * `date_prevue` est un timestamp, donc l'heure de la maquette sort de la base et n'est pas inventée.
- * Une action datée à minuit pile est traitée comme une action SANS heure : c'est ce qu'un import
- * produit, et afficher « 00:00 » ferait croire à un rendez-vous nocturne.
+ * Il l'a redessinée le soir même : plus d'agenda horaire, mais une LISTE À COCHER groupée par objet,
+ * avec un badge d'urgence à droite et un basculement à réaliser / réalisé / tout. C'est un plan de
+ * travail, pas un emploi du temps — et c'est plus juste, parce qu'une relance n'a pas d'heure.
+ *
+ * IL DEMANDE UN GROUPE « OPPORTUNITÉS » QUI NE PEUT PAS EXISTER. `actions` porte un lien vers un
+ * signal, un mandat, une recommandation, une version, un site, un contact — mais AUCUNE colonne
+ * `opportunite_id` (vérifié en base le 26/08/2026). Le groupe s'appelle donc « Mandats », qui est
+ * l'objet réellement rattaché, et c'est d'ailleurs ce que montre son propre exemple sous
+ * « Opportunités » : « faire avancer le mandat ». À lui de dire s'il veut le lien manquant.
+ *
+ * LA PORTÉE N'EST PAS « AUJOURD'HUI » MAIS « À FAIRE ». Ses badges disent « 3 jours », « 2 jours » :
+ * il ne montre pas la journée au sens de l'agenda, il montre ce qui attend. On prend donc tout ce qui
+ * n'est pas fait et qui est dû — échéance passée, aujourd'hui, ou dans les sept jours — plus les
+ * actions sans date, qui sinon n'apparaîtraient jamais nulle part.
  */
-export function useActionsDuJour(profilId: string | null | undefined) {
+export function useMesActions(profilId: string | null | undefined) {
   return useQuery({
-    queryKey: ['tableau-de-bord', 'journee', profilId],
+    queryKey: ['tableau-de-bord', 'mes-actions', profilId],
     enabled: !!profilId,
     staleTime: 60 * 1000,
-    queryFn: async (): Promise<ActionDuJour[]> => {
-      const d = new Date()
-      const debut = new Date(d.getFullYear(), d.getMonth(), d.getDate()).toISOString()
-      const fin = new Date(d.getFullYear(), d.getMonth(), d.getDate() + 1).toISOString()
+    queryFn: async (): Promise<ActionAFaire[]> => {
+      const jour = new Date()
+      const finDeSemaine = new Date(jour.getFullYear(), jour.getMonth(), jour.getDate() + 8).toISOString()
+      const debutDuJour = new Date(jour.getFullYear(), jour.getMonth(), jour.getDate()).toISOString()
 
-      const { data } = await supabase
-        .from('actions')
-        .select(
-          'id, titre, date_prevue, priorite, type_action:types_actions(libelle), statut:statuts_actions(code, libelle), contact:contacts(prenom, nom), site:sites(nom)',
-        )
-        .eq('actif', true)
-        .eq('responsable_profil_id', profilId)
-        .is('date_realisation', null)
-        .gte('date_prevue', debut)
-        .lt('date_prevue', fin)
-        .order('date_prevue')
+      const colonnes =
+        'id, titre, priorite, date_prevue, date_realisation, signal_id, mandat_id, recommandation_id, version_recommandation_id, type_action:types_actions(libelle), contact:contacts(prenom, nom), site:sites(nom)'
+
+      // Deux requêtes plutôt qu'un `or` : ce qui reste à faire, et ce qui a été fait aujourd'hui —
+      // le basculement « Réalisé » de sa maquette montre la journée écoulée, pas tout l'historique.
+      const [aFaire, faites] = await Promise.all([
+        supabase
+          .from('actions')
+          .select(colonnes)
+          .eq('actif', true)
+          .eq('responsable_profil_id', profilId)
+          .is('date_realisation', null)
+          .or(`date_prevue.lt.${finDeSemaine},date_prevue.is.null`)
+          .order('date_prevue', { nullsFirst: false })
+          .limit(60),
+        supabase
+          .from('actions')
+          .select(colonnes)
+          .eq('actif', true)
+          .eq('responsable_profil_id', profilId)
+          .gte('date_realisation', debutDuJour)
+          .order('date_realisation', { ascending: false })
+          .limit(30),
+      ])
 
       type Ligne = {
         id: string
         titre: string | null
-        date_prevue: string
+        priorite: number | null
+        date_prevue: string | null
+        date_realisation: string | null
+        signal_id: string | null
+        mandat_id: string | null
+        recommandation_id: string | null
+        version_recommandation_id: string | null
         type_action: { libelle: string } | null
-        statut: { code: string; libelle: string } | null
         contact: { prenom: string | null; nom: string | null } | null
         site: { nom: string | null } | null
       }
 
-      const maintenant = Date.now()
+      const lire = (a: Ligne): ActionAFaire => {
+        const groupe: GroupeJournee = a.signal_id
+          ? 'SIGNAL'
+          : a.mandat_id
+            ? 'MANDAT'
+            : a.recommandation_id || a.version_recommandation_id
+              ? 'RECOMMANDATION'
+              : 'AUTRE'
 
-      return ((data ?? []) as unknown as Ligne[]).map((a) => {
-        const quand = new Date(a.date_prevue)
-        const minuit = quand.getHours() === 0 && quand.getMinutes() === 0
-        const contexte =
-          [a.contact?.prenom, a.contact?.nom].filter(Boolean).join(' ') || a.site?.nom || null
-        const minutes = Math.round((quand.getTime() - maintenant) / 60_000)
+        // Le nombre de jours se compte sur des jours de calendrier, pas sur des millisecondes : une
+        // échéance ce soir à 18 h doit dire « aujourd'hui » et non « dans 0,3 jour ».
+        let joursRestants: number | null = null
+        if (a.date_prevue) {
+          const d = new Date(a.date_prevue)
+          const aJour = Date.UTC(d.getFullYear(), d.getMonth(), d.getDate())
+          const auj = Date.UTC(jour.getFullYear(), jour.getMonth(), jour.getDate())
+          joursRestants = Math.round((aJour - auj) / 86_400_000)
+        }
+
         return {
           id: a.id,
           titre: a.titre || a.type_action?.libelle || 'Action',
-          heure: minuit
-            ? null
-            : quand.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' }),
-          datePrevue: a.date_prevue,
-          type: a.type_action?.libelle ?? null,
-          statut: a.statut?.libelle ?? null,
-          contexte: [contexte, a.type_action?.libelle].filter(Boolean).join(' · ') || null,
-          imminente: !minuit && minutes > 0 && minutes <= 60,
-          minutesAvant: minuit ? null : minutes,
+          contexte:
+            [a.contact?.prenom, a.contact?.nom].filter(Boolean).join(' ') || a.site?.nom || null,
+          groupe,
+          faite: !!a.date_realisation,
+          joursRestants,
+          priorite: a.priorite,
         }
-      })
+      }
+
+      const toutes = [
+        ...((aFaire.data ?? []) as unknown as Ligne[]),
+        ...((faites.data ?? []) as unknown as Ligne[]),
+      ]
+      return toutes.map(lire)
     },
   })
 }

@@ -18,7 +18,7 @@ import { BandeauMarge } from '@/components/dashboard/BandeauMarge'
 import { TuileChiffre } from '@/components/dashboard/TuileChiffre'
 import { MaJournee } from '@/components/dashboard/MaJournee'
 import { useDashboardStats, type SectionAction } from '@/lib/data/dashboard'
-import { useChiffresTableauDeBord, useActionsDuJour } from '@/lib/data/tableauDeBord'
+import { useChiffresTableauDeBord, useMesActions } from '@/lib/data/tableauDeBord'
 import { useMonProfil } from '@/lib/data/roles'
 
 /**
@@ -190,7 +190,7 @@ export default function Dashboard() {
   const { data, isLoading } = useDashboardStats()
   const { data: monProfil } = useMonProfil()
   const { data: chiffres, isLoading: chiffresEnCours } = useChiffresTableauDeBord()
-  const { data: journee, isLoading: journeeEnCours } = useActionsDuJour(monProfil?.id)
+  const { data: journee, isLoading: journeeEnCours } = useMesActions(monProfil?.id)
 
   // « MARDI 25 AOÛT 2026 » — la date complète, comme sur sa maquette.
   const dateDuJour = new Date().toLocaleDateString('fr-FR', {

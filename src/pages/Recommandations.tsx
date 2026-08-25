@@ -11,6 +11,7 @@ import { FALLBACK_ETAPES_RECOMMANDATION } from '@/lib/referenceFallbacks'
 import { ListToolbar } from '@/components/ui/list-toolbar'
 import { useKanbanServeur } from '@/lib/useKanbanServeur'
 import { TableauKanban } from '@/components/dashboard/TableauKanban'
+import { BandeauColonnes } from '@/components/dashboard/BandeauColonnes'
 import { CreateRecommandationDialog } from '@/components/opportunite/CreationRecommandationWizard'
 
 /** Le formulaire de création vit désormais dans son propre fichier, réécrit le 15/08/2026 en
@@ -29,6 +30,9 @@ interface LigneReco {
   priorite: number
   nb_versions: number
   sites: { id: string; nom: string }[]
+  /** Ajoutées à la vue le 26/08/2026 pour le bandeau de la page 6. */
+  marge_nette: number | null
+  montant: number | null
 }
 
 /** Les trois issues terminales de la diapositive 13. */
@@ -95,9 +99,31 @@ export default function Recommandations() {
     colonnesRecherche: ['nom', 'compte_nom', 'conseiller'],
     recherche,
     filtres: { compte_proprietaire_id: filtreProprietaire },
+    /**
+     * LA MARGE SE SOMME EN BASE, colonne par colonne. Michel, PDF du 25/08/2026, page 6 : un bandeau
+     * « Marge totale des recommandations » découpé en à envoyer, à présenter, décision attendue,
+     * acceptées. La somme suit les mêmes filtres que les colonnes — recherche et propriétaire
+     * comprises — sans quoi le bandeau démentirait le tableau juste en dessous.
+     */
+    colonneSomme: 'marge_nette',
     // Le tableau est la seule vue : il est toujours actif.
     actif: true,
   })
+
+  /**
+   * LE TOTAL EST LA SOMME DES COLONNES AFFICHÉES, et pas celle de toutes les recommandations.
+   *
+   * C'est voulu : quand « inclure les dossiers clos » est décoché, le bandeau doit annoncer la marge
+   * du travail EN COURS. Un total qui inclurait les 1 573 dossiers clos écraserait les 199 355 € des
+   * colonnes ouvertes et ne voudrait plus rien dire — on lirait l'historique de Kiwee, pas son
+   * pipeline.
+   */
+  const colonnes = tableau.data ?? []
+  const margeTotale = colonnes.reduce((t, c) => t + (c.somme ?? 0), 0)
+  const nbDossiers = colonnes.reduce((n, c) => n + c.total, 0)
+  const margeConnue = colonnes.some((c) => c.somme != null)
+
+  const euros = (v: number) => v.toLocaleString('fr-FR', { maximumFractionDigits: 0 }) + ' €'
 
   return (
     <div>
@@ -109,7 +135,7 @@ export default function Recommandations() {
           actions={<Button onClick={() => setShowCreate(true)}><Plus className="h-4 w-4" />Nouvelle recommandation</Button>}
         />
 
-        <ListToolbar query={recherche} onQueryChange={setRecherche} placeholder="Rechercher une recommandation, un compte…" count={(tableau.data ?? []).reduce((n, c) => n + c.total, 0)}>
+        <ListToolbar query={recherche} onQueryChange={setRecherche} placeholder="Rechercher une recommandation, un compte…" count={nbDossiers}>
           {/* PLUS DE BASCULEMENT, PLUS DE FILTRE PAR ÉTAPE, PLUS DE TRI. Naoëlle, 25/08/2026 :
               « garde juste la vue kanban pour partout, enlève la vue de liste ». Le filtre par étape
               et le tri appartenaient à la liste : les étapes SONT les colonnes du tableau, et une
@@ -139,23 +165,46 @@ export default function Recommandations() {
         </button>
         </ListToolbar>
 
+        <BandeauColonnes
+          intitule="Marge totale des recommandations"
+          total={margeConnue ? euros(margeTotale) : null}
+          precision={
+            nbDossiers === 0
+              ? undefined
+              : `${nbDossiers.toLocaleString('fr-FR')} recommandation${nbDossiers > 1 ? 's' : ''}${avecClos ? '' : ' — hors dossiers clos'}`
+          }
+          cellules={colonnes.map((c) => ({
+            libelle: c.libelle,
+            valeur: c.somme == null ? null : euros(c.somme),
+            precision: `${c.total.toLocaleString('fr-FR')} dossier${c.total > 1 ? 's' : ''}`,
+          }))}
+        />
+
         <TableauKanban
-            colonnes={(tableau.data ?? []).map((c) => ({ code: c.code, libelle: c.libelle }))}
+            colonnes={colonnes.map((c) => ({ code: c.code, libelle: c.libelle }))}
             cartes={Object.fromEntries(
-              (tableau.data ?? []).map((c) => [
+              colonnes.map((c) => [
                 c.code,
                 c.lignes.map((r) => ({
                   id: r.id,
                   titre: r.nom,
                   sousTitre: r.compte_nom ?? undefined,
-                  mention: r.nb_versions > 1 ? `${r.nb_versions} versions` : undefined,
+                  /* LA MENTION PORTE LA MARGE, comme sur ses cartes. Le nombre de versions reprend
+                     la place quand la marge n'est pas connue — c'est le cas de tout dossier né dans
+                     Kimatch, dont aucun écran ne remplit encore les chiffres d'affaire. */
+                  mention:
+                    r.marge_nette != null
+                      ? euros(r.marge_nette)
+                      : r.nb_versions > 1
+                        ? `${r.nb_versions} versions`
+                        : undefined,
                   to: `/recommandations/${r.id}`,
                 })),
               ]),
             )}
             /* LE TOTAL VIENT DE LA BASE, pas du nombre de cartes reçues : dix par colonne sont
                demandées, et une colonne peut en compter six cents. */
-            totaux={Object.fromEntries((tableau.data ?? []).map((c) => [c.code, c.total]))}
+            totaux={Object.fromEntries(colonnes.map((c) => [c.code, c.total]))}
             siVide={tableau.isLoading ? 'Chargement…' : 'Aucune recommandation ne correspond.'}
           />
       </div>

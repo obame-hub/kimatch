@@ -284,6 +284,9 @@ export function useCompleteAction() {
       queryClient.setQueryData<ActionItem[]>(['actions'], (old) =>
         old?.map((a) => (a.id === actionId ? { ...a, statut: 'TERMINEE', date_realisation: now } : a)),
       )
+      // « Ma journée » du tableau de bord lit sa propre requête : sans cette invalidation, la case
+      // se cochait et la ligne restait « à réaliser » jusqu'au rechargement de la page.
+      queryClient.invalidateQueries({ queryKey: ['tableau-de-bord', 'mes-actions'] })
       return { persisted }
     },
   })

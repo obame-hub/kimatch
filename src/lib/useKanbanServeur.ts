@@ -15,6 +15,20 @@ import { supabase } from '@/lib/supabase'
  *
  * LES FILTRES DE LA PAGE SUIVENT, recherche comprise : sinon le tableau et la liste montreraient deux
  * populations différentes sous le même bandeau de recherche, et on ne saurait plus laquelle croire.
+ *
+ * ET IL SAIT SOMMER UNE COLONNE, depuis le 26/08/2026. Michel a envoyé six maquettes, et elles
+ * partagent un motif : chaque page reçoit un bandeau chiffré en haut, DÉCOUPÉ SELON LES COLONNES du
+ * tableau qui est en dessous — la marge pour les recommandations, le volume pour les opportunités.
+ *
+ * CE TOTAL NE PEUT PAS SE CALCULER SUR LES CARTES REÇUES. On en demande dix par colonne ; une colonne
+ * peut en compter six cents. Sommer ce qu'on a sous la main donnerait le total de dix dossiers
+ * présenté comme celui de la colonne — exactement l'erreur que `count: exact` évite déjà pour le
+ * nombre de cartes. La somme part donc en base, avec LES MÊMES filtres que la colonne : le bandeau et
+ * les colonnes doivent additionner la même population, sinon l'un démentira l'autre à l'écran.
+ *
+ * PostgREST ne fait pas de SUM : on rapporte la colonne numérique seule — un nombre par ligne, rien
+ * d'autre — et on additionne. Six cents nombres pèsent quelques kilo-octets, sans commune mesure avec
+ * les lignes complètes.
  */
 
 export interface ColonneServeur {
@@ -29,6 +43,13 @@ export interface ResultatColonne<T> {
   total: number
   /** Les premières lignes seulement — de quoi remplir la colonne à l'écran. */
   lignes: T[]
+  /**
+   * La somme de `colonneSomme` sur TOUTE la colonne, `null` si aucune somme n'est demandée.
+   *
+   * Zéro et `null` ne disent pas la même chose : zéro est une colonne dont les dossiers ne rapportent
+   * rien, `null` une colonne dont on n'a rien demandé. Le bandeau les affiche différemment.
+   */
+  somme: number | null
 }
 
 /** Nombre de cartes demandées par colonne. Le tableau en affiche huit et annonce le reste. */
@@ -44,32 +65,61 @@ export function useKanbanServeur<T>(options: {
   recherche: string
   /** Filtres supplémentaires appliqués à toutes les colonnes — la visibilité, par exemple. */
   filtres?: Record<string, string | null>
+  /** Colonne numérique à additionner sur chaque colonne du tableau — la marge, un volume. */
+  colonneSomme?: string
   actif: boolean
 }) {
-  const { vue, colonneStatut, colonnes, colonnesRecherche, recherche, filtres, actif } = options
+  const { vue, colonneStatut, colonnes, colonnesRecherche, recherche, filtres, colonneSomme, actif } = options
 
   return useQuery({
-    queryKey: ['kanban-serveur', vue, colonneStatut, colonnes.map((c) => c.code), recherche.trim(), filtres],
+    queryKey: ['kanban-serveur', vue, colonneStatut, colonnes.map((c) => c.code), recherche.trim(), filtres, colonneSomme],
     enabled: actif,
     queryFn: async (): Promise<ResultatColonne<T>[]> => {
       const mots = recherche.trim().split(/\s+/).filter(Boolean)
 
+      // UN SEUL ENDROIT POUR LES FILTRES. La somme doit porter exactement la même sélection que la
+      // colonne ; deux chaînes de filtres écrites côte à côte finissent toujours par diverger.
+      const filtrer = (code: string, colonnesLues: string, avecCompte: boolean) => {
+        let req = avecCompte
+          ? supabase.from(vue).select(colonnesLues, { count: 'exact' })
+          : supabase.from(vue).select(colonnesLues)
+        req = req.eq(colonneStatut, code)
+        for (const [colonne, valeur] of Object.entries(filtres ?? {})) {
+          if (valeur != null && valeur !== '') req = req.eq(colonne, valeur)
+        }
+        // Chaque mot doit se retrouver dans au moins une colonne cherchée — même règle que la
+        // liste, pour que « rue victor » trouve autant que « victor rue ».
+        for (const mot of mots) {
+          req = req.or(colonnesRecherche.map((c) => `${c}.ilike.%${mot}%`).join(','))
+        }
+        return req
+      }
+
       return Promise.all(
         colonnes.map(async (col) => {
-          let req = supabase.from(vue).select('*', { count: 'exact' }).eq(colonneStatut, col.code)
+          const [cartes, agregat] = await Promise.all([
+            filtrer(col.code, '*', true).range(0, CARTES_PAR_COLONNE - 1),
+            colonneSomme ? filtrer(col.code, colonneSomme, false) : Promise.resolve(null),
+          ])
 
-          for (const [colonne, valeur] of Object.entries(filtres ?? {})) {
-            if (valeur != null && valeur !== '') req = req.eq(colonne, valeur)
-          }
-          // Chaque mot doit se retrouver dans au moins une colonne cherchée — même règle que la
-          // liste, pour que « rue victor » trouve autant que « victor rue ».
-          for (const mot of mots) {
-            req = req.or(colonnesRecherche.map((c) => `${c}.ilike.%${mot}%`).join(','))
+          if (cartes.error) throw new Error(cartes.error.message)
+
+          let somme: number | null = null
+          if (agregat && !agregat.error) {
+            somme = 0
+            for (const ligne of (agregat.data ?? []) as unknown as Record<string, unknown>[]) {
+              const v = ligne[colonneSomme as string]
+              if (typeof v === 'number') somme += v
+            }
           }
 
-          const { data, error, count } = await req.range(0, CARTES_PAR_COLONNE - 1)
-          if (error) throw new Error(error.message)
-          return { code: col.code, libelle: col.libelle, total: count ?? 0, lignes: (data ?? []) as T[] }
+          return {
+            code: col.code,
+            libelle: col.libelle,
+            total: cartes.count ?? 0,
+            lignes: (cartes.data ?? []) as T[],
+            somme,
+          }
         }),
       )
     },
