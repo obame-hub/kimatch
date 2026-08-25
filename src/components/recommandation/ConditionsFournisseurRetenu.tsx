@@ -291,7 +291,7 @@ export function ConditionsFournisseurRetenu({
       </div>
 
       {/* ══════ CE QUI N'A PAS DE VIS-À-VIS : EN PLEINE LARGEUR, SOUS LES DEUX COLONNES ══════ */}
-      <div className="mt-6 rounded-kw-lg border-2 border-kw-green bg-kw-green-tint px-4 py-3 print:mt-3">
+      <div className="mt-6 rounded-kw-lg border-2 border-kw-green bg-kw-green-tint px-4 py-3 print:mt-2">
         <Ligne
           intitule={ttc ? 'Total TTC' : 'Total hors taxes'}
           valeur={euros(ttc ? b.totalTtc : b.totalHt) + '/an'}
@@ -312,7 +312,7 @@ export function ConditionsFournisseurRetenu({
       {/* « C'est pas la date à laquelle on a fait la demande de cotation, c'est le DÉBUT DE
           FOURNITURE. » */}
       {debut && (
-        <p className="mt-3 rounded-kw-lg bg-kw-bloc px-3.5 py-2.5 text-kw-h4 font-bold uppercase tracking-[0.05em] text-kw-ink">
+        <p className="mt-3 rounded-kw-lg bg-kw-bloc px-3.5 py-2.5 text-kw-h4 font-bold uppercase tracking-[0.05em] text-kw-ink print:mt-2 print:py-1.5">
           Début de fourniture le {dateFr(debut)}
         </p>
       )}
@@ -326,11 +326,16 @@ export function ConditionsFournisseurRetenu({
         </p>
       )}
 
-      {/* Les mentions restent sur le blanc : ce sont les seules lignes qu'on peut ne pas lire, et
-          leur donner un aplat leur donnerait un poids qu'elles n'ont pas. */}
-      <p className="mt-3 max-w-[95ch] text-kw-xs leading-relaxed text-kw-faint">
-        Montants indicatifs, calculés sur la consommation de référence et les composantes
-        réglementaires applicables à la date de l’analyse.
+      {/* CETTE MENTION TENAIT SUR DEUX LIGNES POUR RIEN : « calculés sur la consommation de
+          référence et les composantes réglementaires applicables à la date de l'analyse » est repris
+          MOT POUR MOT par le bloc « Méthode », deux blocs plus bas sur la même page. La règle de
+          Michel s'applique telle quelle — « on ne met rien qui n'est pas utile ». Ne reste donc ici
+          que ce que Méthode ne dit pas : le caractère indicatif et la base de TVA.
+
+          Les mentions restent sur le blanc : ce sont les seules lignes qu'on peut ne pas lire, et un
+          aplat leur donnerait un poids qu'elles n'ont pas. */}
+      <p className="mt-3 max-w-[95ch] text-kw-xs leading-relaxed text-kw-faint print:mt-2">
+        Montants indicatifs.
         {ttc ? ' TVA appliquée au taux de ' + pourcent + '.' : ' Montants hors TVA.'}
       </p>
     </div>

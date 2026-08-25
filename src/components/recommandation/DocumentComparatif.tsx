@@ -441,7 +441,7 @@ export function DocumentComparatif({
           {/* CETTE PAGE REND 8 MM DE MARGE VERTICALE — 12 en haut, 8 en bas au lieu de 14 et 14.
               C'est la dernière feuille : rien ne la suit, donc une marge basse plus courte ne se
               remarque pas, alors qu'une quatrième page portant trois lignes se remarque beaucoup. */}
-          <section className={'mt-10 print:mt-0 print:break-before-page print:flex print:min-h-[210mm] print:flex-col print:px-[20mm] print:pb-[8mm] print:pt-[12mm]'}>
+          <section className={'mt-10 print:mt-0 print:break-before-page print:flex print:min-h-[210mm] print:flex-col print:px-[20mm] print:pb-[6mm] print:pt-[12mm]'}>
             <h2 className="font-display text-kw-md font-extrabold print:text-[22pt] print:leading-tight print:border-b-2 print:border-kw-green print:pb-2">
               Conditions détaillées — {retenue.fournisseur_nom}
             </h2>
@@ -484,7 +484,7 @@ export function DocumentComparatif({
 
             {/* LA MÉTHODE EST UNE CATÉGORIE À PART ENTIÈRE : c'est ce qui rend les chiffres
                 opposables. Même aplat que les autres, et son titre prend le vert des familles. */}
-            <div className="mt-5 rounded-kw-lg bg-kw-bloc px-4 py-3 print:mt-3 print:py-2">
+            <div className="mt-5 rounded-kw-lg bg-kw-bloc px-4 py-3 print:mt-2 print:py-1.5">
               <h3 className="text-kw-sm font-extrabold uppercase tracking-[0.09em] text-kw-green">Méthode</h3>
               <p className="mt-1 text-kw-xs leading-relaxed text-kw-body">
               Budget calculé à partir d'une consommation annuelle de{' '}
