@@ -3,41 +3,57 @@ import { budgetGazDecompose, TAUX_TVA_GAZ } from '@/lib/calculs/budgetGaz'
 import type { PrixOffreGaz } from '@/types/domain'
 
 /**
- * LES CONDITIONS DU FOURNISSEUR RETENU, PRÉSENTÉES COMME IL LES A ENVOYÉES.
+ * LES CONDITIONS DÉTAILLÉES DU FOURNISSEUR RETENU.
  *
- * Michel, appel du 25/08/2026 : « je veux le même affichage sur condition essentielle, qui reprend
- * exactement le détail que le fournisseur a envoyé, mais uniquement pour LE FOURNISSEUR RETENU ».
+ * Structure dictée ligne par ligne par Michel, appel du 25/08/2026 à 14 h 52. Deux colonnes :
  *
- * La référence est l'offre 500074350 de Gaz Européen, qu'il a envoyée à Naoëlle : deux blocs, le prix
- * du MWh décomposé par nature de rémunération, puis le budget annuel indicatif poste par poste
- * jusqu'au total TTC et au prix moyen du MWh. C'est cette structure qui est reprise ici, pas une
- * interprétation : « qu'on se retrouve à peu près sur le même type d'information ».
+ *   PRIX DÉTAILLÉ                        BUDGET ANNUEL INDICATIF
+ *     Prix du fournisseur                  Budget prix fournisseur
+ *       molécule                           Budget acheminement et distribution
+ *       certificat d'économie d'énergie    Budget des taxes
+ *       certificat de production biogaz    ────
+ *     Acheminement, distribution           TVA (20 %)
+ *     et transport                         Total TTC · prix moyen du MWh
+ *       total abonnement                   Début de fourniture
+ *       terme quantité distribution
+ *     Taxe
+ *       CTA
+ *       accise sur le gaz naturel
  *
- * DEUX CHOSES QUE NOUS N'AVIONS PAS et qui font l'essentiel de leur clarté :
+ * SES CORRECTIONS, UNE PAR UNE :
  *
- *   · le budget est décomposé en SIX postes au lieu de trois, l'acheminement variable étant fondu
- *     dans les dépenses énergétiques comme ils le font ;
- *   · le TOTAL EST TTC, avec ses deux lignes de TVA — la CTA taxée avec l'abonnement, l'accise avec
- *     la consommation. Aucune colonne « tva » n'existe dans notre base : ces montants sont calculés
- *     à l'affichage, au taux de 20 % qui vaut pour tous les fournisseurs (Naoëlle, 25/08/2026). Le
- *     taux reste écrit dans chaque libellé : un total TTC ne doit pas pouvoir être lu sans savoir
- *     sur quoi il repose.
+ * · « PRIX DU MÉGAWATTHEURE, ça n'a pas de sens parce qu'il y a des trucs qui sont [à part],
+ *   notamment l'abonnement. Je mettrais PRIX DÉTAILLÉ. » Le titre annonçait une unité que la moitié
+ *   des lignes ne portent pas.
+ * · « On ne met pas RÉMUNÉRATION, on met simplement acheminement, distribution et transport. »
+ * · La molécule perd sa mention « P0 + marge » : la marge ne se montre pas au client.
+ * · Un intitulé TAXE, avec la CTA et l'accise dessous — « un titre pour dire que c'est la taxe ».
+ * · L'accise s'affiche en €/MWh dans le prix détaillé, « le montant mégawattheure qui sera calculé
+ *   en fonction de la consommation », et non en € par an.
+ * · Durée, type de prix et consommation de référence QUITTENT ce bloc : « tout ça, c'est déjà
+ *   indiqué [en page 1] donc je ne vais pas venir le remettre là ». Ne restent ici que les
+ *   informations propres à l'offre retenue.
+ * · Le budget n'a plus que TROIS grandes lignes, une par famille — « la ligne du budget c'est le
+ *   montant total, et les lignes [du prix détaillé] le montant de chaque composante ».
+ * · La TVA est GROUPÉE en une ligne, « parce que c'est 20 % maintenant » sur les deux assiettes.
+ * · « PRISE D'EFFET » devient DÉBUT DE FOURNITURE : « c'est pas la date à laquelle on a fait la
+ *   demande de cotation, c'est le début de fourniture ».
  *
- * GAZ SEULEMENT, et c'est dit à l'écran quand ce n'est pas du gaz. Un compteur d'électricité n'a ni
- * molécule, ni CEE, ni accise gaz : ses composantes sont le TURPE et les classes horosaisonnières,
- * et transposer cette présentation serait inventer un document qu'aucun fournisseur n'a envoyé.
+ * GAZ SEULEMENT. Un compteur d'électricité n'a ni molécule, ni CEE, ni accise gaz : ses composantes
+ * sont le TURPE et les classes horosaisonnières. Transposer cette présentation serait inventer un
+ * document qu'aucun fournisseur n'a envoyé — l'appelant retombe alors sur les lignes essentielles.
  */
 
-const euros = (v: number | null | undefined, decimales = 2) =>
+const euros = (v: number | null | undefined) =>
   v == null
     ? 'à vérifier'
-    : `${v.toLocaleString('fr-FR', { minimumFractionDigits: decimales, maximumFractionDigits: decimales })} €`
+    : `${v.toLocaleString('fr-FR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} €`
 
 const parMwh = (v: number | null | undefined) =>
   v == null ? 'à vérifier' : `${v.toLocaleString('fr-FR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} €/MWh`
 
-/** Une ligne du tableau : intitulé à gauche, sigle au milieu, montant à droite. */
-function LignePrix({
+/** Une ligne : intitulé à gauche, sigle au milieu, montant à droite. */
+function Ligne({
   intitule,
   sigle,
   valeur,
@@ -53,44 +69,40 @@ function LignePrix({
       <span className={fort ? 'text-kw-base font-bold text-kw-ink' : 'text-kw-base text-kw-body'}>{intitule}</span>
       {sigle && <span className="font-mono text-kw-micro text-kw-faint">{sigle}</span>}
       <span className="flex-1" />
-      <span className={fort ? 'font-mono text-kw-base font-extrabold tabular-nums text-kw-ink' : 'font-mono text-kw-base tabular-nums text-kw-body'}>
+      <span
+        className={
+          fort
+            ? 'font-mono text-kw-base font-extrabold tabular-nums text-kw-ink'
+            : 'font-mono text-kw-base tabular-nums text-kw-body'
+        }
+      >
         {valeur}
       </span>
     </div>
   )
 }
 
-function Titre({ children }: { children: string }) {
-  return (
-    <p className="mt-3 text-kw-micro font-extrabold uppercase tracking-[0.09em] text-kw-green">{children}</p>
-  )
+/** Les intitulés de famille, en vert — « comme rémunération des CEE, je vais mettre taxe ». */
+function Famille({ children }: { children: string }) {
+  return <p className="mt-3 text-kw-micro font-extrabold uppercase tracking-[0.09em] text-kw-green">{children}</p>
 }
 
 export function ConditionsFournisseurRetenu({
-  dureeMois,
-  typePrix,
   debut,
   prixGaz,
   consommation,
 }: {
-  dureeMois: number | null
-  typePrix: string | null
-  /** Date ISO de prise d'effet, si elle est connue. */
+  /** Date ISO du DÉBUT DE FOURNITURE — et non celle de la demande de cotation. */
   debut: string | null
   prixGaz: PrixOffreGaz | null | undefined
   /** La consommation à retenir, quand elle ne vient pas des prix de l'offre. */
   consommation: number | null
 }) {
   /**
-   * HORS TAXES OU TOUTES TAXES — demandé par Naoëlle le 25/08/2026 : « avoir la possibilité de voir
-   * l'offre avec ou sans TVA, via toggle ou autre chose que tu juges bien ».
-   *
-   * LE BASCULEMENT NE S'IMPRIME PAS, et c'est le point : ce qui est affiché au moment d'imprimer est
-   * ce qui part chez le client. La personne qui envoie choisit donc sa base au lieu de subir celle
-   * qu'on aurait figée — un syndic raisonne en TTC, une entreprise assujettie en HT.
-   *
-   * TTC PAR DÉFAUT, parce que c'est la base du document de Gaz Européen dont Michel veut « le même
-   * affichage », et parce que c'est le montant que le client paie réellement.
+   * HORS TAXES OU TOUTES TAXES — « total TTC ou total hors taxe », et « le prix moyen TTC ou le prix
+   * moyen hors taxes ». Le basculement NE S'IMPRIME PAS : ce qui est affiché au moment d'imprimer est
+   * ce qui part chez le client, donc celui qui envoie choisit sa base — un syndic raisonne en TTC,
+   * une entreprise assujettie en HT.
    */
   const [base, setBase] = useState<'ttc' | 'ht'>('ttc')
   const b = budgetGazDecompose(prixGaz, consommation)
@@ -107,45 +119,38 @@ export function ConditionsFournisseurRetenu({
 
   const dateFr = (iso: string) => new Date(iso + 'T12:00:00').toLocaleDateString('fr-FR')
   const pourcent = `${(TAUX_TVA_GAZ * 100).toLocaleString('fr-FR', { maximumFractionDigits: 1 })} %`
+  const ttc = base === 'ttc'
 
   return (
-    <div className="mt-2 grid grid-cols-1 gap-x-10 gap-y-2 sm:grid-cols-2">
-      {/* ══════════ LE PRIX DU MWH ══════════ */}
+    <div className="mt-2 grid grid-cols-1 gap-x-10 gap-y-3 sm:grid-cols-2">
+      {/* ══════════ PRIX DÉTAILLÉ ══════════ */}
       <div>
-        <p className="text-kw-base font-extrabold uppercase tracking-[0.04em] text-kw-ink">Prix du MWh</p>
+        <p className="text-kw-base font-extrabold uppercase tracking-[0.04em] text-kw-ink">Prix détaillé</p>
 
-        <Titre>Prix fournisseur</Titre>
-        <LignePrix intitule="Molécule" sigle="P0 + marge" valeur={parMwh(prixGaz.prix_energie_mwh)} />
+        <Famille>Prix du fournisseur</Famille>
+        <Ligne intitule="Molécule" valeur={parMwh(prixGaz.prix_energie_mwh)} />
+        <Ligne intitule="Certificat d’économie d’énergie" sigle="CEE" valeur={parMwh(prixGaz.prix_cee_mwh)} />
+        <Ligne intitule="Certificat de production biogaz" sigle="CPB" valeur={parMwh(prixGaz.prix_cpb_mwh)} />
 
-        <Titre>Rémunération acheminement distribution et transport</Titre>
-        <LignePrix intitule="Total abonnement" sigle="Ab(M)" valeur={euros(prixGaz.abonnement_fourniture_annuel_ht) + '/an'} />
-        <LignePrix intitule="Terme quantité distribution" sigle="ATRD" valeur={parMwh(prixGaz.prix_atrd_mwh)} />
+        <Famille>Acheminement, distribution et transport</Famille>
+        <Ligne
+          intitule="Total abonnement"
+          sigle="Ab(M)"
+          valeur={`${euros(prixGaz.abonnement_fourniture_annuel_ht)}/an`}
+        />
+        <Ligne intitule="Terme quantité distribution" sigle="ATRD" valeur={parMwh(prixGaz.prix_atrd_mwh)} />
         {prixGaz.prix_atrt_mwh != null && (
-          <LignePrix intitule="Terme quantité transport" sigle="ATRT" valeur={parMwh(prixGaz.prix_atrt_mwh)} />
+          <Ligne intitule="Terme quantité transport" sigle="ATRT" valeur={parMwh(prixGaz.prix_atrt_mwh)} />
         )}
 
-        <Titre>Rémunération du dispositif CEE</Titre>
-        {/* LEUR DOCUMENT SÉPARE CEE CLASSIQUES ET PRÉCARITÉ ; nous n'avons qu'une colonne. On affiche
-            donc le total sans prétendre à une ventilation qu'on n'a pas — l'inventer serait pire que
-            de la regrouper. */}
-        <LignePrix intitule="Certificats d’économie d’énergie" sigle="CEE" valeur={parMwh(prixGaz.prix_cee_mwh)} />
-
-        <Titre>Rémunération du dispositif CPB</Titre>
-        <LignePrix intitule="Certificat de production de biogaz" sigle="CPB" valeur={parMwh(prixGaz.prix_cpb_mwh)} />
-
-        <div className="mt-3 flex flex-wrap gap-x-6 gap-y-1 text-kw-sm text-kw-body">
-          <span>
-            Consommation de référence :{' '}
-            <strong className="font-mono font-bold">
-              {b.conso.toLocaleString('fr-FR', { maximumFractionDigits: 3 })} MWh
-            </strong>
-          </span>
-          {dureeMois != null && <span>Durée : <strong className="font-bold">{dureeMois} mois</strong></span>}
-          {typePrix && <span>Prix : <strong className="font-bold">{typePrix}</strong></span>}
-        </div>
+        <Famille>Taxe</Famille>
+        <Ligne intitule="Contribution tarifaire d’acheminement" sigle="CTA" valeur={`${euros(prixGaz.cta_annuel_ht)}/an`} />
+        {/* L'accise en €/MWh et non en € par an : « je vais donc juste mettre le montant mégawattheure
+            qui sera calculé en fonction de la consommation ». */}
+        <Ligne intitule="Accise sur le gaz naturel" sigle="ex-TICGN" valeur={parMwh(prixGaz.prix_agn_mwh)} />
       </div>
 
-      {/* ══════════ LE BUDGET ANNUEL INDICATIF ══════════ */}
+      {/* ══════════ BUDGET ANNUEL INDICATIF ══════════ */}
       <div>
         <div className="flex flex-wrap items-baseline gap-2">
           <p className="text-kw-base font-extrabold uppercase tracking-[0.04em] text-kw-ink">
@@ -161,7 +166,11 @@ export function ConditionsFournisseurRetenu({
                 key={o.cle}
                 type="button"
                 onClick={() => setBase(o.cle)}
-                title={o.cle === 'ttc' ? 'Toutes taxes comprises — ce que le client paie' : 'Hors taxes — pour un client assujetti'}
+                title={
+                  o.cle === 'ttc'
+                    ? 'Toutes taxes comprises — ce que le client paie'
+                    : 'Hors taxes — pour un client assujetti'
+                }
                 className={
                   base === o.cle
                     ? 'rounded-kw-sm bg-ink-800 px-2 py-0.5 text-kw-micro font-extrabold text-white'
@@ -174,42 +183,40 @@ export function ConditionsFournisseurRetenu({
           </span>
         </div>
 
+        {/* TROIS GRANDES LIGNES, une par famille du prix détaillé. */}
         <div className="mt-1">
-          <LignePrix intitule="Abonnement" valeur={euros(b.abonnement) + ' HT/an'} />
-          <LignePrix intitule="Dépenses énergétiques" valeur={euros(b.depensesEnergetiques) + ' HT/an'} />
-          <LignePrix intitule="CTA" valeur={euros(b.cta) + ' HT/an'} />
-          <LignePrix intitule="Accise sur les gaz naturels" sigle="ex-TICGN" valeur={euros(b.accise) + ' HT/an'} />
-          {/* Les deux lignes de TVA disparaissent en base hors taxes : les montrer sans les compter
+          <Ligne intitule="Budget prix fournisseur" valeur={`${euros(b.budgetFournisseur)} HT/an`} />
+          <Ligne intitule="Budget acheminement et distribution" valeur={`${euros(b.budgetAcheminement)} HT/an`} />
+          <Ligne intitule="Budget des taxes" valeur={`${euros(b.budgetTaxes)} HT/an`} />
+          {/* LA TVA EST GROUPÉE : les deux assiettes sont au même taux depuis que l'abonnement est
+              passé de 5,5 % à 20 %. Elle disparaît en base hors taxes — la montrer sans la compter
               dans le total serait le meilleur moyen de faire douter du total. */}
-          {base === 'ttc' && (
-            <>
-              <LignePrix intitule={`TVA sur abonnement (${pourcent})`} valeur={euros(b.tvaAbonnement) + '/an'} />
-              <LignePrix intitule={`TVA hors abonnement (${pourcent})`} valeur={euros(b.tvaConsommation) + '/an'} />
-            </>
-          )}
+          {ttc && <Ligne intitule={`TVA (${pourcent})`} valeur={`${euros(b.tva)}/an`} />}
         </div>
 
         <div className="mt-2 rounded-kw-lg border-2 border-kw-green bg-kw-green-tint px-3 py-2">
-          <LignePrix
-            intitule="Total dépenses"
-            valeur={euros(base === 'ttc' ? b.totalTtc : b.totalHt) + (base === 'ttc' ? ' TTC/an' : ' HT/an')}
+          <Ligne
+            intitule={ttc ? 'Total TTC' : 'Total hors taxes'}
+            valeur={`${euros(ttc ? b.totalTtc : b.totalHt)}/an`}
             fort
           />
-          <LignePrix
+          <Ligne
             intitule="Prix moyen annuel du MWh"
-            valeur={euros(base === 'ttc' ? b.prixMoyenTtcMwh : b.prixMoyenHtMwh) + (base === 'ttc' ? ' TTC/MWh' : ' HT/MWh')}
+            valeur={`${euros(ttc ? b.prixMoyenTtcMwh : b.prixMoyenHtMwh)} ${ttc ? 'TTC' : 'HT'}/MWh`}
             fort
           />
           <p className="pt-1 text-kw-micro text-kw-meta">
-            {base === 'ttc'
+            {ttc
               ? 'Y compris abonnement et taxes.'
               : 'Hors TVA, abonnement compris. Un client assujetti la récupère.'}
           </p>
         </div>
 
+        {/* « C'est pas la date à laquelle on a fait la demande de cotation, c'est le DÉBUT DE
+            FOURNITURE. » */}
         {debut && (
           <p className="mt-2 text-kw-sm font-bold uppercase tracking-[0.04em] text-kw-ink">
-            Prise d’effet le {dateFr(debut)}
+            Début de fourniture le {dateFr(debut)}
           </p>
         )}
 
@@ -225,9 +232,7 @@ export function ConditionsFournisseurRetenu({
         <p className="mt-2 text-kw-micro leading-snug text-kw-faint">
           Montants indicatifs, calculés sur la consommation de référence et les composantes
           réglementaires applicables à la date de l’analyse.
-          {base === 'ttc'
-            ? ` TVA appliquée au taux de ${pourcent} sur les deux assiettes — abonnement et CTA d’une part, consommation et accise de l’autre.`
-            : ' Montants hors TVA.'}
+          {ttc ? ` TVA appliquée au taux de ${pourcent}.` : ' Montants hors TVA.'}
         </p>
       </div>
     </div>

@@ -1,66 +1,55 @@
 import type { PrixOffreGaz } from '@/types/domain'
 
 /**
- * LE BUDGET GAZ DÉCOMPOSÉ COMME LE FAIT GAZ EUROPÉEN.
+ * LE BUDGET GAZ, DÉCOMPOSÉ COMME MICHEL LE DEMANDE.
  *
- * Michel, appel du 25/08/2026 : « on prend le document que je t'avais envoyé, de Gaz Européen, qu'on
- * analyse pour qu'on se retrouve à peu près sur le même type d'information », et « je veux le même
- * affichage sur condition essentielle, qui reprend exactement le détail que le fournisseur a envoyé,
- * mais uniquement pour le fournisseur retenu ».
+ * Appel du 25/08/2026 à 14 h 52, où il détaille la structure ligne par ligne. Trois familles, et
+ * trois seulement :
  *
- * LEUR DOCUMENT A ÉTÉ RECONSTITUÉ À L'EURO, sur l'offre 500074350 du 25/08/2026 (CABINET MOLINIER,
- * SDC 10PERI, 227 MWh, prix fixe 36 mois) :
+ *   PRIX FOURNISSEUR              molécule · certificats d'économie d'énergie · biogaz
+ *   ACHEMINEMENT, DISTRIBUTION    total abonnement (€/an) · terme quantité distribution (€/MWh)
+ *   ET TRANSPORT
+ *   TAXE                          CTA (€/an) · accise sur le gaz naturel (€/MWh)
  *
- *   dépenses énergétiques = CAR × (P0 + TQd + CEEc + CEEp + CPB) = 227 × 74,846 = 16 990,04
- *   abonnement                                                                  =  2 502,95
- *   CTA                                                                         =     48,62
- *   TICGN                             = CAR × 16,66                             =  3 781,82
- *   TVA sur abonnement    = (abonnement + CTA) × 20 %                           =    510,31
- *   TVA hors abonnement   = (dépenses énergétiques + TICGN) × 20 %              =  4 154,37
- *   TOTAL DÉPENSES                                                              = 27 988,11 TTC
- *   prix moyen du MWh     = total ÷ CAR                                         =    123,30 TTC
+ * « Sur le budget annuel, du coup, j'aurais que trois grandes lignes » — une par famille, contre les
+ * six postes que j'avais reproduits du document de Gaz Européen. Sa raison : « la ligne du budget
+ * c'est le montant total, et les lignes du prix détaillé le montant de chaque composante ».
  *
- * LES DEUX ASSIETTES DE TVA SONT LE PIÈGE, et c'est là qu'un calcul se trompe sans qu'on le voie :
- * la CTA est taxée AVEC L'ABONNEMENT, l'accise AVEC LA CONSOMMATION. Leur note de bas de page le dit
- * — « TVA appliquée : Abonnement, CTA : 20 % — Consommation, TICGN : 20,0 % ». Regrouper « le fixe
- * d'un côté, le variable de l'autre » donne un total faux, et c'est le regroupement qui vient
- * naturellement à l'esprit.
+ * LA TVA EST GROUPÉE, et il explique pourquoi : « t'as pas besoin de mettre une TVA sur abonnement ou
+ * hors abonnement, parce que c'est 20 % maintenant. Avant il y avait une TVA de 5 % pour l'abonnement
+ * et les autres à 20 %, maintenant tout est passé à 20 %. » Le groupement est donc EXACT et non
+ * approché : deux assiettes au même taux se somment. Vérifié sur leur document — 23 323,43 × 1,20 =
+ * 27 988,12 contre 27 988,11 annoncés, un centime d'arrondi.
  *
- * NOTRE CALCUL HORS TAXES ÉTAIT DÉJÀ JUSTE. Vérifié le 25/08/2026 en passant leurs propres chiffres
- * dans `budgetsDepuisPrix` : 23 324,34 € HT contre 23 323,43 € annoncés — 91 centimes d'écart, qui
- * viennent de l'arrondi de LEURS prix unitaires (leur somme réelle vaut 74,846 et non 74,85). Nos
- * termes sont les leurs sous d'autres noms : leur TQd est notre ATRD, leur TICGN est notre AGN —
- * l'accise sur les gaz naturels, nouveau nom de la TICGN. Ce qui manquait n'était donc pas le calcul
- * mais LA TVA : aucune colonne contenant « tva » ou « ttc » n'existe dans toute la base.
- *
- * LE TAUX VAUT POUR TOUS LES FOURNISSEURS, tranché par Naoëlle le 25/08/2026 : « oui, la TVA 20 %
- * c'est pour tous les fournisseurs ». Il n'est donc plus une hypothèse tirée du seul document de Gaz
- * Européen. Le libellé le porte quand même à l'écran — un total TTC ne doit pas pouvoir être lu sans
- * savoir sur quoi il repose, et le jour où un régime change, c'est cette ligne qui le dira.
+ * NOTRE CALCUL HORS TAXES ÉTAIT DÉJÀ JUSTE, vérifié le 25/08/2026 en passant les chiffres de Gaz
+ * Européen dans `budgetsDepuisPrix` : 23 324,34 € HT contre 23 323,43 annoncés — 91 centimes venant
+ * de l'arrondi de LEURS prix unitaires. Nos termes sont les leurs sous d'autres noms : leur TQd est
+ * notre ATRD, leur TICGN est notre AGN, l'accise sur les gaz naturels. Ce qui manquait n'était pas le
+ * calcul mais la TVA : aucune colonne « tva » ou « ttc » n'existe dans la base.
  */
 
-/** Le taux des deux assiettes. Vaut pour tous les fournisseurs (Naoëlle, 25/08/2026). */
+/** Le taux unique. Vaut pour tous les fournisseurs et pour les deux assiettes (Michel, 25/08/2026). */
 export const TAUX_TVA_GAZ = 0.2
 
 export interface BudgetGazDecompose {
   /** La consommation retenue, en MWh — le diviseur de tout le reste. */
   conso: number
-  /** CAR × (molécule + acheminement variable + CEE + CPB). */
-  depensesEnergetiques: number
-  abonnement: number
-  cta: number
-  /** L'accise sur les gaz naturels, ex-TICGN : CAR × prix au MWh. */
-  accise: number
-  /** (abonnement + CTA) × taux. */
-  tvaAbonnement: number
-  /** (dépenses énergétiques + accise) × taux. */
-  tvaConsommation: number
+
+  // ── Les trois grandes lignes du budget annuel ──
+  /** Molécule + CEE + CPB, au prorata de la consommation. */
+  budgetFournisseur: number
+  /** Abonnement annuel + terme quantité de distribution et de transport. */
+  budgetAcheminement: number
+  /** CTA annuelle + accise sur les gaz naturels. */
+  budgetTaxes: number
+
   totalHt: number
+  /** La TVA groupée : les deux assiettes étant au même taux, elles se somment sans perte. */
+  tva: number
   totalTtc: number
-  /** Total HT ÷ consommation. Le pendant du prix moyen TTC, pour la lecture hors taxes. */
   prixMoyenHtMwh: number
-  /** Total TTC ÷ consommation — « y compris abonnement et taxes », comme ils l'écrivent. */
   prixMoyenTtcMwh: number
+
   /** Vrai quand une composante manque : le total est alors partiel et doit se dire tel quel. */
   incomplet: boolean
 }
@@ -83,37 +72,32 @@ export function budgetGazDecompose(
   // `prix_energie_mwh` est la molécule PRÉSENTÉE — P0 + marge de référence — déjà calculée en amont.
   // Reprendre le P0 nu ici ferait un budget hors marge, donc un budget qui n'est pas celui du client.
   const molecule = prix.prix_energie_mwh
-  const acheminementVariable = (prix.prix_atrd_mwh ?? 0) + (prix.prix_atrt_mwh ?? 0)
   const cee = prix.prix_cee_mwh
   const cpb = prix.prix_cpb_mwh
+  const acheminementMwh = (prix.prix_atrd_mwh ?? 0) + (prix.prix_atrt_mwh ?? 0)
 
-  // Une composante absente n'est pas zéro : on le retient pour le dire, mais on ne bloque pas le
-  // calcul — un budget partiel annoncé comme tel vaut mieux que rien du tout.
+  // Une composante absente n'est pas zéro : on le retient pour le dire, sans bloquer le calcul —
+  // un budget partiel annoncé comme tel vaut mieux que rien du tout.
   const incomplet =
     molecule == null || cee == null || cpb == null ||
     prix.prix_atrd_mwh == null || prix.prix_agn_mwh == null ||
     prix.abonnement_fourniture_annuel_ht == null || prix.cta_annuel_ht == null
 
-  const depensesEnergetiques = ((molecule ?? 0) + acheminementVariable + (cee ?? 0) + (cpb ?? 0)) * conso
-  const abonnement = prix.abonnement_fourniture_annuel_ht ?? 0
-  const cta = prix.cta_annuel_ht ?? 0
-  const accise = (prix.prix_agn_mwh ?? 0) * conso
+  const budgetFournisseur = ((molecule ?? 0) + (cee ?? 0) + (cpb ?? 0)) * conso
+  const budgetAcheminement = (prix.abonnement_fourniture_annuel_ht ?? 0) + acheminementMwh * conso
+  const budgetTaxes = (prix.cta_annuel_ht ?? 0) + (prix.prix_agn_mwh ?? 0) * conso
 
-  const tvaAbonnement = (abonnement + cta) * TAUX_TVA_GAZ
-  const tvaConsommation = (depensesEnergetiques + accise) * TAUX_TVA_GAZ
-
-  const totalHt = depensesEnergetiques + abonnement + cta + accise
-  const totalTtc = totalHt + tvaAbonnement + tvaConsommation
+  const totalHt = budgetFournisseur + budgetAcheminement + budgetTaxes
+  const tva = totalHt * TAUX_TVA_GAZ
+  const totalTtc = totalHt + tva
 
   return {
     conso,
-    depensesEnergetiques,
-    abonnement,
-    cta,
-    accise,
-    tvaAbonnement,
-    tvaConsommation,
+    budgetFournisseur,
+    budgetAcheminement,
+    budgetTaxes,
     totalHt,
+    tva,
     totalTtc,
     prixMoyenHtMwh: totalHt / conso,
     prixMoyenTtcMwh: totalTtc / conso,

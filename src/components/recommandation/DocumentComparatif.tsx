@@ -17,7 +17,7 @@ import type {
  * Le compte rendu de consultation : le document qu'on remet au client pour qu'il choisisse.
  *
  * TROIS PAGES, ET PAS UNE DE PLUS. Michel a fourni le 24/08/2026 le cahier des charges exact —
- * page 1 « Décision », page 2 « Comparaison », page 3 « Conditions essentielles » — avec un objectif
+ * page 1 « Décision », page 2 « Comparaison », page 3 « Conditions détaillées » — avec un objectif
  * qui commande tout le reste : « le résultat doit permettre au client de comprendre en moins d'une
  * minute quelle offre retenir, combien elle coûte, combien elle économise et avant quelle date il
  * doit décider ».
@@ -51,6 +51,13 @@ import type {
  */
 
 /** Un montant en euros, ou « à vérifier » quand la composante n'est pas saisie. */
+/**
+ * L'heure de la décision attendue. « Mettez toujours l'heure de 15 heures — ce sera toujours
+ * 15 heures » (Michel, 25/08/2026). Constante et non paramètre : il l'a posée comme une règle, pas
+ * comme un réglage.
+ */
+const HEURE_DECISION = '15 h'
+
 function euros(v: number | null | undefined): string {
   if (v == null) return 'à vérifier'
   return v.toLocaleString('fr-FR', { maximumFractionDigits: 0 }) + ' €'
@@ -310,20 +317,16 @@ export function DocumentComparatif({
               </div>
             </div>
 
-            <h2 className="mt-5 text-kw-base font-extrabold">Pourquoi cette offre ?</h2>
-            <ul className="mt-1 space-y-0.5 text-kw-base leading-snug">
-              {/* Chaque raison est vérifiable sur les données affichées, sauf la dernière, qui est la
-                  phrase de Michel : elle dit que le commercial a contrôlé la conformité au besoin. */}
-              {offres[0]?.id === retenue.id && <li>• Offre la moins chère.</li>}
-              {retenue.type_prix && retenue.duree_mois != null && (
-                <li>• Prix {retenue.type_prix.toLowerCase()} pendant {retenue.duree_mois} mois.</li>
-              )}
-              <li>• Conditions conformes au besoin exprimé.</li>
-            </ul>
+            {/* « POURQUOI CETTE OFFRE ? » EST RETIRÉE, « pour le moment » (Michel, 25/08/2026 à
+                14 h 52). C'était le seul élément de cette page à changer. Le bloc de décision remonte
+                donc à sa place — « on remonte légèrement décision attendue avant telle date ».
 
+                ET IL PORTE TOUJOURS UNE HEURE : « mettez toujours l'heure de 15 heures. Ce sera
+                toujours 15 heures. » Une échéance sans heure se lit « fin de journée », ce qui n'est
+                pas ce qu'il veut dire — et c'est le genre de flou qui coûte une affaire. */}
             {validite ? (
-              <p className="mt-5 rounded-kw-md bg-kw-muted px-3 py-2 text-kw-base font-bold">
-                Décision attendue avant le {dateFr(validite)}.
+              <p className="mt-4 rounded-kw-md bg-kw-muted px-3 py-2 text-kw-base font-bold">
+                Décision attendue avant le {dateFr(validite)} à {HEURE_DECISION}.
               </p>
             ) : (
               /* SANS DATE DE VALIDITÉ, PAS DE PHRASE — mais le commercial doit le savoir. Écrire
@@ -391,17 +394,32 @@ export function DocumentComparatif({
               </table>
             </div>
 
+            {/* LA CONSOMMATION DE RÉFÉRENCE APPARTIENT À CETTE PAGE. Michel, 25/08/2026 : « on le
+                mettrait sur la partie comparaison des offres, parce que c'est sur les offres qu'on
+                compare la consommation de référence ». Elle quitte donc les conditions détaillées :
+                c'est le volume commun sur lequel tous ces budgets sont calculés, donc la clé de
+                lecture du tableau qui précède. */}
+            {volumeTotal > 0 && (
+              <p className="mt-2 text-kw-base font-bold">
+                Consommation de référence :{' '}
+                <span className="font-mono">
+                  {volumeTotal.toLocaleString('fr-FR', { maximumFractionDigits: 2 })} MWh/an
+                </span>
+              </p>
+            )}
+
             <p className="mt-2 text-kw-tiny leading-snug text-kw-body">
-              Tous les montants sont présentés sur une même base, hors TVA. Chaque budget annuel doit
-              pouvoir être reconstitué à partir des colonnes qui le précèdent ; « à vérifier » signale
-              une composante non saisie, et non un montant nul.
+              Tous les montants sont présentés sur une même base, hors TVA, et calculés sur cette même
+              consommation. Chaque budget annuel doit pouvoir être reconstitué à partir des colonnes
+              qui le précèdent ; « à vérifier » signale une composante non saisie, et non un montant
+              nul.
             </p>
           </section>
 
           {/* ══════════ PAGE 3 — CONDITIONS ESSENTIELLES ══════════ */}
           <section className={'mt-10 print:mt-0 print:break-before-page print:flex print:min-h-[210mm] print:flex-col print:px-[20mm] print:py-[14mm]'}>
             <h2 className="font-display text-kw-md font-extrabold print:text-[22pt] print:leading-tight print:border-b-2 print:border-kw-green print:pb-2">
-              Conditions essentielles — {retenue.fournisseur_nom}
+              Conditions détaillées — {retenue.fournisseur_nom}
             </h2>
 
             {/* ══════════ LE DÉTAIL DU FOURNISSEUR RETENU, TEL QU'IL L'A ENVOYÉ ══════════
@@ -416,8 +434,6 @@ export function DocumentComparatif({
                 aurait l'air cassé. */}
             {detailRetenue?.prix_gaz ? (
               <ConditionsFournisseurRetenu
-                dureeMois={retenue.duree_mois ?? null}
-                typePrix={retenue.type_prix ?? null}
                 debut={debut}
                 prixGaz={detailRetenue.prix_gaz}
                 consommation={detailRetenue.consommation_annuelle_reference_mwh ?? volumeTotal ?? null}
