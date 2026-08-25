@@ -149,17 +149,23 @@ function CreateSignalDialog({ open, onClose }: { open: boolean; onClose: () => v
 export default function Signaux() {
   const { data: signaux, isLoading } = useSignaux()
   const { data: statutsRef } = useReferenceTable('statuts_signaux')
+  const [showCreate, setShowCreate] = useState(false)
+  const [query, setQuery] = useState('')
+  const [avecClos, setAvecClos] = useState(false)
+
   /**
    * SEULS LES SIGNAUX ACTIFS. Michel, 25/08/2026 à 14 h 29 : « pareil pour [...] les signaux ».
    * « Converti » et « Écarté » sont les deux fins de sa diapositive 13 — 542 et 84 signaux, contre
    * 831 encore à qualifier. Un signal converti se relit depuis l'opportunité qu'il a produite.
+   *
+   * L'ORDRE DE CES LIGNES COMPTE. `columns` lit `avecClos` : déclaré après, il vaut une page blanche
+   * — « Cannot access before initialization ». Le typecheck ne l'a PAS vu, parce que la référence
+   * vit dans la fonction passée à `.filter` et que TypeScript suppose qu'elle s'exécutera plus tard.
+   * Le build non plus. C'est le navigateur qui l'a dit, et il faut donc y aller voir.
    */
   const tousLesStatuts = statutsRef && statutsRef.length > 0 ? statutsRef : FALLBACK_STATUTS_SIGNAUX
   const estVivant = (code: string) => code !== 'CONVERTI' && code !== 'ECARTE'
   const columns = tousLesStatuts.filter((c) => avecClos || estVivant(c.code))
-  const [showCreate, setShowCreate] = useState(false)
-  const [query, setQuery] = useState('')
-  const [avecClos, setAvecClos] = useState(false)
 
   const q = query.trim().toLowerCase()
   const visibles = (signaux ?? [])
