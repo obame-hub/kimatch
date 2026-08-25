@@ -104,6 +104,11 @@ export default {
           subtle: '#fbfbfa',
           muted: '#f0efec',
           sunken: '#f4f3ef',
+          // L'APLAT DES BLOCS DU RAPPORT CLIENT. Naoëlle, 25/08/2026 : « un gris plus clair, quasi
+          // blanc gris ». #f4f3ef (sunken) faisait des blocs trop presents sur un document imprime,
+          // #fbfbfa (subtle) disparait completement. Celui-ci se voit sans peser : c'est exactement
+          // ce qu'on demande a un fond qui ne fait que delimiter.
+          bloc: '#f9f9f7',
           border: '#e7e6e2',
           'border-strong': '#e0dfdb',
           'border-subtle': '#f0efec',

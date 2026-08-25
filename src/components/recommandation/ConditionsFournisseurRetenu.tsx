@@ -52,12 +52,18 @@ import type { PrixOffreGaz } from '@/types/domain'
  *
  * La grille et l'ordre ne changent pas : les titres restent face à face.
  *
+ * ET LA PAGE 3 DOIT TENIR SUR UNE FEUILLE (Naoëlle, 25/08/2026 : « là elle débordent »). Tout ce qui
+ * se resserre pour y arriver est en variante `print:` — l'écran garde exactement la version aérée
+ * qu'elle vient de valider. Aucune police ne baisse : ce sont les ESPACES qui se resserrent, parce
+ * qu'un caractère plus petit se paie en lisibilité alors que 2 px de padding en moins ne se voient
+ * pas. Le compte est de ~144 px récupérés pour ~100 px de débordement.
+ *
  * DES APLATS POUR SÉPARER LES CATÉGORIES, demandés par Naoëlle le 25/08/2026 : « des blocs très très
  * clairs en fond pour séparer les catégories, car là tout est sur fond blanc et on ne sait pas où
  * donner de la tête … afin que ça ne fasse pas trop de couleur ». Chaque famille repose donc sur un
  * aplat, et les six aplats sont IDENTIQUES : ils ne hiérarchisent rien, ils délimitent.
  *
- * UN SEUL GRIS, DÉJÀ DANS LA CHARTE — `kw-sunken`, #f4f3ef, le plus clair des fonds de l'app. Aucune
+ * UN SEUL GRIS, DÉJÀ DANS LA CHARTE — `kw-sunken`, #f9f9f7, le plus clair des fonds de l'app. Aucune
  * couleur n'entre dans le document : le vert reste réservé à ce qui fait décider (l'offre retenue en
  * page 1, le total ici), le gris ne fait que poser les limites. C'est la condition pour que les
  * blocs aident à lire au lieu d'ajouter du bruit.
@@ -91,7 +97,7 @@ function Ligne({
   fort?: boolean
 }) {
   return (
-    <div className="flex items-baseline gap-3 border-b border-kw-border py-[7px] last:border-b-0">
+    <div className="flex items-baseline gap-3 border-b border-kw-border py-[7px] last:border-b-0 print:py-[5px]">
       <span className={fort ? 'text-kw-h3 font-bold text-kw-ink' : 'text-kw-h4 text-kw-body'}>{intitule}</span>
       {sigle && <span className="font-mono text-kw-tiny text-kw-faint">{sigle}</span>}
       <span className="flex-1" />
@@ -114,7 +120,7 @@ function Ligne({
  * qu'on vient justement d'alléger.
  */
 function Bloc({ children }: { children: ReactNode }) {
-  return <div className="rounded-kw-lg bg-kw-sunken px-3.5 py-3">{children}</div>
+  return <div className="rounded-kw-lg bg-kw-bloc px-3.5 py-3 print:py-2">{children}</div>
 }
 
 /** Les intitulés de famille, en vert — « comme rémunération des CEE, je vais mettre taxe ». */
@@ -182,8 +188,18 @@ export function ConditionsFournisseurRetenu({
   return (
     <div className="mt-2">
       {/* `gap-y-4` et non `gap-y-1` : entre deux aplats, l'espace est ce qui les fait lire comme
-          deux blocs. Serrés, ils ne formeraient qu'une seule zone grise. */}
-      <div className="grid grid-cols-1 items-start gap-x-14 gap-y-4 sm:grid-cols-2">
+          deux blocs. Serrés, ils ne formeraient qu'une seule zone grise.
+
+          ET SURTOUT `items-stretch` À LA PLACE DE `items-start` — c'est ce qui fait les blocs miroir.
+          Naoëlle, 25/08/2026 : « je veux que les blocs de gauche aient la même taille que les blocs
+          de droite pour bien comprendre que ce sont des blocs miroir qui se correspondent ».
+
+          En `items-start` chaque cellule prenait la hauteur de son contenu : à gauche trois lignes,
+          à droite une seule, donc deux aplats de tailles différentes que rien ne désignait comme une
+          paire. En `items-stretch` les deux cellules d'une même ligne de grille montent à la hauteur
+          de la plus haute — la correspondance devient visible sans une seule ligne de texte pour
+          l'expliquer. Le contenu, lui, reste calé en haut : c'est le flux normal d'un bloc. */}
+      <div className="grid grid-cols-1 items-stretch gap-x-14 gap-y-4 sm:grid-cols-2 print:gap-y-2.5">
         {/* ── Ligne 1 : les deux en-têtes de colonne, hors aplat — ce sont des titres ── */}
         <p className="border-b-2 border-kw-ink pb-1 text-kw-h2 font-extrabold uppercase tracking-[0.05em] text-kw-ink">Prix détaillé</p>
         <div className="flex flex-wrap items-baseline gap-2 border-b-2 border-kw-ink pb-1">
@@ -275,7 +291,7 @@ export function ConditionsFournisseurRetenu({
       </div>
 
       {/* ══════ CE QUI N'A PAS DE VIS-À-VIS : EN PLEINE LARGEUR, SOUS LES DEUX COLONNES ══════ */}
-      <div className="mt-6 rounded-kw-lg border-2 border-kw-green bg-kw-green-tint px-4 py-3">
+      <div className="mt-6 rounded-kw-lg border-2 border-kw-green bg-kw-green-tint px-4 py-3 print:mt-3">
         <Ligne
           intitule={ttc ? 'Total TTC' : 'Total hors taxes'}
           valeur={euros(ttc ? b.totalTtc : b.totalHt) + '/an'}
@@ -296,7 +312,7 @@ export function ConditionsFournisseurRetenu({
       {/* « C'est pas la date à laquelle on a fait la demande de cotation, c'est le DÉBUT DE
           FOURNITURE. » */}
       {debut && (
-        <p className="mt-3 rounded-kw-lg bg-kw-sunken px-3.5 py-2.5 text-kw-h4 font-bold uppercase tracking-[0.05em] text-kw-ink">
+        <p className="mt-3 rounded-kw-lg bg-kw-bloc px-3.5 py-2.5 text-kw-h4 font-bold uppercase tracking-[0.05em] text-kw-ink">
           Début de fourniture le {dateFr(debut)}
         </p>
       )}

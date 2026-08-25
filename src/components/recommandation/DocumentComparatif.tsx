@@ -42,7 +42,7 @@ import type {
  * en fond pour séparer les catégories, car là tout est sur fond blanc et on ne sait pas où donner de
  * la tête … afin que ça ne fasse pas trop de couleur ».
  *
- * UN SEUL GRIS POUR TOUT LE DOCUMENT : `kw-sunken`, #f4f3ef. Les repères du dossier, l'en-tête du
+ * UN SEUL GRIS POUR TOUT LE DOCUMENT : `kw-sunken`, #f9f9f7. Les repères du dossier, l'en-tête du
  * tableau, la consommation de référence, les six familles de conditions et la méthode reposent sur le
  * même aplat — le lecteur apprend la convention une fois et la relit partout.
  *
@@ -283,7 +283,7 @@ export function DocumentComparatif({
 
             {/* LES REPÈRES DU DOSSIER, sur leur aplat : client, site, volume, dates. Six
                 informations de même nature, donc un bloc et non six lignes flottantes. */}
-            <dl className="mt-3 grid grid-cols-1 gap-x-8 rounded-kw-lg bg-kw-sunken px-4 py-3 sm:grid-cols-2">
+            <dl className="mt-3 grid grid-cols-1 gap-x-8 rounded-kw-lg bg-kw-bloc px-4 py-3 sm:grid-cols-2">
               <Ligne libelle="Client" valeur={nomDuClient ?? '—'} />
               <Ligne
                 libelle={sites.length > 1 ? 'Sites' : 'Site'}
@@ -374,7 +374,7 @@ export function DocumentComparatif({
             <div className="mt-2 overflow-x-auto">
               <table className="w-full border-collapse text-kw-sm">
                 <thead>
-                  <tr className="border-b-2 border-kw-ink bg-kw-sunken text-left">
+                  <tr className="border-b-2 border-kw-ink bg-kw-bloc text-left">
                     <th className="px-2 py-1.5 font-bold">Fournisseur</th>
                     <th className="px-2 py-1.5 font-bold">Durée</th>
                     <th className="px-2 py-1.5 font-bold">Type de prix</th>
@@ -421,7 +421,7 @@ export function DocumentComparatif({
                 c'est le volume commun sur lequel tous ces budgets sont calculés, donc la clé de
                 lecture du tableau qui précède. */}
             {volumeTotal > 0 && (
-              <p className="mt-3 rounded-kw-lg bg-kw-sunken px-4 py-2.5 text-kw-base font-bold">
+              <p className="mt-3 rounded-kw-lg bg-kw-bloc px-4 py-2.5 text-kw-base font-bold">
                 Consommation de référence :{' '}
                 <span className="font-mono">
                   {volumeTotal.toLocaleString('fr-FR', { maximumFractionDigits: 2 })} MWh/an
@@ -438,7 +438,10 @@ export function DocumentComparatif({
           </section>
 
           {/* ══════════ PAGE 3 — CONDITIONS ESSENTIELLES ══════════ */}
-          <section className={'mt-10 print:mt-0 print:break-before-page print:flex print:min-h-[210mm] print:flex-col print:px-[20mm] print:py-[14mm]'}>
+          {/* CETTE PAGE REND 8 MM DE MARGE VERTICALE — 12 en haut, 8 en bas au lieu de 14 et 14.
+              C'est la dernière feuille : rien ne la suit, donc une marge basse plus courte ne se
+              remarque pas, alors qu'une quatrième page portant trois lignes se remarque beaucoup. */}
+          <section className={'mt-10 print:mt-0 print:break-before-page print:flex print:min-h-[210mm] print:flex-col print:px-[20mm] print:pb-[8mm] print:pt-[12mm]'}>
             <h2 className="font-display text-kw-md font-extrabold print:text-[22pt] print:leading-tight print:border-b-2 print:border-kw-green print:pb-2">
               Conditions détaillées — {retenue.fournisseur_nom}
             </h2>
@@ -460,7 +463,7 @@ export function DocumentComparatif({
                 consommation={detailRetenue.consommation_annuelle_reference_mwh ?? volumeTotal ?? null}
               />
             ) : (
-              <dl className="mt-2 grid grid-cols-1 gap-x-8 rounded-kw-lg bg-kw-sunken px-4 py-3 sm:grid-cols-2">
+              <dl className="mt-2 grid grid-cols-1 gap-x-8 rounded-kw-lg bg-kw-bloc px-4 py-3 sm:grid-cols-2">
                 <Ligne libelle="Durée" valeur={retenue.duree_mois != null ? `${retenue.duree_mois} mois` : 'à vérifier'} />
                 <Ligne libelle="Prix" valeur={retenue.type_prix ?? 'à vérifier'} />
                 <Ligne libelle="Date de début" valeur={debut ? dateFr(debut) : 'à confirmer'} />
@@ -471,7 +474,7 @@ export function DocumentComparatif({
             {/* « Conditions particulières : uniquement si elles influencent la décision » — donc rien
                 du tout quand le champ est vide, et pas une ligne « — » qui occuperait la place. */}
             {retenue.description && (
-              <div className="mt-3 rounded-kw-lg bg-kw-sunken px-4 py-3">
+              <div className="mt-3 rounded-kw-lg bg-kw-bloc px-4 py-3">
                 <p className="text-kw-sm font-extrabold uppercase tracking-[0.09em] text-kw-green">
                   Conditions particulières
                 </p>
@@ -481,7 +484,7 @@ export function DocumentComparatif({
 
             {/* LA MÉTHODE EST UNE CATÉGORIE À PART ENTIÈRE : c'est ce qui rend les chiffres
                 opposables. Même aplat que les autres, et son titre prend le vert des familles. */}
-            <div className="mt-5 rounded-kw-lg bg-kw-sunken px-4 py-3">
+            <div className="mt-5 rounded-kw-lg bg-kw-bloc px-4 py-3 print:mt-3 print:py-2">
               <h3 className="text-kw-sm font-extrabold uppercase tracking-[0.09em] text-kw-green">Méthode</h3>
               <p className="mt-1 text-kw-xs leading-relaxed text-kw-body">
               Budget calculé à partir d'une consommation annuelle de{' '}
