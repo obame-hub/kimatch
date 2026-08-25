@@ -149,14 +149,24 @@ function CreateSignalDialog({ open, onClose }: { open: boolean; onClose: () => v
 export default function Signaux() {
   const { data: signaux, isLoading } = useSignaux()
   const { data: statutsRef } = useReferenceTable('statuts_signaux')
-  const columns = statutsRef && statutsRef.length > 0 ? statutsRef : FALLBACK_STATUTS_SIGNAUX
+  /**
+   * SEULS LES SIGNAUX ACTIFS. Michel, 25/08/2026 à 14 h 29 : « pareil pour [...] les signaux ».
+   * « Converti » et « Écarté » sont les deux fins de sa diapositive 13 — 542 et 84 signaux, contre
+   * 831 encore à qualifier. Un signal converti se relit depuis l'opportunité qu'il a produite.
+   */
+  const tousLesStatuts = statutsRef && statutsRef.length > 0 ? statutsRef : FALLBACK_STATUTS_SIGNAUX
+  const columns = tousLesStatuts.filter((c) => c.code !== 'CONVERTI' && c.code !== 'ECARTE')
   const [showCreate, setShowCreate] = useState(false)
   const [query, setQuery] = useState('')
 
   const q = query.trim().toLowerCase()
-  const visibles = (signaux ?? []).filter((s) =>
-    !q || [s.site_nom, s.type_signal, s.description, s.conseiller].some((f) => (f ?? '').toLowerCase().includes(q)),
-  )
+  const visibles = (signaux ?? [])
+    // Le compteur du bandeau doit dire ce que le tableau montre : sans ce filtre il annoncerait
+    // 1 457 signaux au-dessus de colonnes qui n'en affichent que 831.
+    .filter((s) => s.statut !== 'CONVERTI' && s.statut !== 'ECARTE')
+    .filter((s) =>
+      !q || [s.site_nom, s.type_signal, s.description, s.conseiller].some((f) => (f ?? '').toLowerCase().includes(q)),
+    )
 
   return (
     <div>

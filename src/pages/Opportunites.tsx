@@ -70,6 +70,18 @@ export default function Opportunites() {
   })
   const filtrees = controles.items ?? []
 
+  /**
+   * LES OPPORTUNITÉS VIVANTES — celles que le tableau montre.
+   *
+   * Michel, 25/08/2026 à 14 h 29 : « pareil pour les opportunités », n'afficher que les actives.
+   * `filtrees` porte encore les converties et les abandonnées : les compter au-dessus de colonnes qui
+   * ne les affichent plus serait le premier écart qu'on remarque, et celui qui fait douter du reste.
+   */
+  const vivantes = filtrees.filter((o) => {
+    const palier = statutDerive(o, mandats ?? []).code
+    return palier !== 'CONVERTIE' && palier !== 'ABANDONNEE'
+  })
+
   return (
     <div className="flex min-h-0 flex-1 flex-col">
       <Topbar title="Opportunités" />
@@ -101,21 +113,25 @@ export default function Opportunites() {
           query={controles.query}
           onQueryChange={controles.setQuery}
           placeholder="Rechercher un compte, une référence…"
-          count={filtrees.length}
+          count={vivantes.length}
         />
 
         {isLoading ? (
           <p className="mt-4 text-sm text-navy-400">Chargement…</p>
-        ) : filtrees.length > 0 ? (
+        ) : vivantes.length > 0 ? (
           /* LES SIX PALIERS DE SA DIAPOSITIVE 13, colonnes terminales comprises : sur la page d'un
              objet, le tableau montre TOUT le pipeline, y compris ce qui a abouti et ce qui s'est
              fermé. C'est la différence avec le tableau de bord, qui ne montre que le travail
              restant. La recherche du bandeau ci-dessus s'y applique aussi. */
           <div className="mt-4">
             <TableauKanban
-              colonnes={PIPELINE_OPPORTUNITE.map((p) => ({ code: p.code, libelle: p.libelle }))}
+              /* SEULS LES PALIERS VIVANTS. Michel, 25/08/2026 à 14 h 29 : « pareil pour les
+                 opportunités » — n'afficher que les actives. « Convertie » et « Abandonnée » sont des
+                 aboutissements : elles quittent le plan de travail et restent lisibles depuis la
+                 fiche du compte, la recherche ⌘K, ou leur lien direct. */
+              colonnes={PIPELINE_OPPORTUNITE.filter((p) => p.code !== 'CONVERTIE' && p.code !== 'ABANDONNEE').map((p) => ({ code: p.code, libelle: p.libelle }))}
               cartes={Object.fromEntries(
-                PIPELINE_OPPORTUNITE.map((p) => [
+                PIPELINE_OPPORTUNITE.filter((p) => p.code !== 'CONVERTIE' && p.code !== 'ABANDONNEE').map((p) => [
                   p.code,
                   filtrees
                     .filter((o) => statutDerive(o, mandats ?? []).code === p.code)

@@ -30,6 +30,20 @@ interface LigneReco {
   sites: { id: string; nom: string }[]
 }
 
+/** Les trois issues terminales de la diapositive 13. */
+const ETAPES_CLOSES = ['ACCEPTEE', 'REFUSEE', 'ABANDONNEE']
+
+/**
+ * SEULS LES OBJETS ACTIFS SONT AFFICHÉS. Michel, 25/08/2026 à 14 h 29 : « pour les recommandations,
+ * n'afficher que les recommandations actives (non clôturées) » — et « pareil pour les opportunités
+ * et les signaux ».
+ *
+ * Les colonnes terminales disparaissent donc du tableau. Ce que ça retire est massif et c'est le
+ * but : 1 574 recommandations closes sur 1 707, qui noyaient les 133 vivantes.
+ *
+ * CE QUI RESTE ATTEIGNABLE : un dossier clos se lit toujours depuis la fiche de son compte, depuis
+ * la recherche ⌘K, et par son lien direct. Il quitte le plan de travail, il ne disparaît pas.
+ */
 export default function Recommandations() {
   const { data: etapesRef } = useReferenceTable('etapes_recommandation')
   /**
@@ -75,7 +89,7 @@ export default function Recommandations() {
   const tableau = useKanbanServeur<LigneReco>({
     vue: 'v_recommandations_liste',
     colonneStatut: 'etape',
-    colonnes: etapes.map((e) => ({ code: e.code, libelle: e.libelle })),
+    colonnes: etapes.filter((e) => !ETAPES_CLOSES.includes(e.code)).map((e) => ({ code: e.code, libelle: e.libelle })),
     colonnesRecherche: ['nom', 'compte_nom', 'conseiller'],
     recherche,
     filtres: { compte_proprietaire_id: filtreProprietaire },
