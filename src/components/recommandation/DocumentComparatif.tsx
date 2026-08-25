@@ -226,8 +226,18 @@ export function DocumentComparatif({
       ) : (
         <div id="document-comparatif" className="bg-white text-kw-ink">
 
-          {/* ══════════ PAGE 1 — DÉCISION ══════════ */}
-          <section>
+          {/* ══════════ PAGE 1 — DÉCISION ══════════
+
+              LES TROIS SECTIONS SONT LES TROIS DIAPOSITIVES. À l'écran elles se suivent dans un
+              document, comme avant ; à l'impression chacune occupe une feuille paysage entière, avec
+              les marges à l'intérieur — c'est ce qui fait la différence de sensation entre un
+              document et une présentation. Aucun bloc n'est déplacé, aucun n'est redessiné : c'est
+              exactement ce que Michel a reproché à la version du 24/08.
+
+              `min-h` et non `h` : si une consultation compte cinq ou six offres, le tableau doit
+              pouvoir déborder sur une feuille de plus. Une hauteur fixe couperait des lignes en
+              silence, et un comparatif tronqué est pire qu'un comparatif sur deux pages. */}
+          <section className={'print:flex print:min-h-[210mm] print:flex-col print:px-[20mm] print:py-[14mm]'}>
             {/* L'expéditeur et le destinataire, une fois et sur cette page seulement. « Informations
                 administratives répétées » est sur la liste des choses à supprimer : elles ne sont
                 donc plus reprises en pied de page ni en tête des suivantes. */}
@@ -243,7 +253,7 @@ export function DocumentComparatif({
               </div>
             </header>
 
-            <h1 className="mt-5 font-display text-kw-lg font-extrabold uppercase leading-tight tracking-[-0.01em]">
+            <h1 className="mt-5 font-display text-kw-lg font-extrabold uppercase leading-tight tracking-[-0.01em] print:mt-8 print:text-[24pt] print:border-b-2 print:border-kw-green print:pb-2">
               Compte rendu de consultation — {energies.join(' et ')}
             </h1>
 
@@ -328,8 +338,10 @@ export function DocumentComparatif({
           </section>
 
           {/* ══════════ PAGE 2 — COMPARAISON ══════════ */}
-          <section className="mt-10 print:break-before-page">
-            <h2 className="font-display text-kw-md font-extrabold">Comparaison des offres</h2>
+          <section className={'mt-10 print:mt-0 print:break-before-page print:flex print:min-h-[210mm] print:flex-col print:px-[20mm] print:py-[14mm]'}>
+            <h2 className="font-display text-kw-md font-extrabold print:text-[22pt] print:leading-tight print:border-b-2 print:border-kw-green print:pb-2">
+              Comparaison des offres
+            </h2>
 
             {/* UN TABLEAU, PAS DES JAUGES. « Codes couleur multiples et jauges peu explicites » est
                 sur la liste à supprimer : les barres de composantes et leur légende disparaissent au
@@ -386,8 +398,8 @@ export function DocumentComparatif({
           </section>
 
           {/* ══════════ PAGE 3 — CONDITIONS ESSENTIELLES ══════════ */}
-          <section className="mt-10 print:break-before-page">
-            <h2 className="font-display text-kw-md font-extrabold">
+          <section className={'mt-10 print:mt-0 print:break-before-page print:flex print:min-h-[210mm] print:flex-col print:px-[20mm] print:py-[14mm]'}>
+            <h2 className="font-display text-kw-md font-extrabold print:text-[22pt] print:leading-tight print:border-b-2 print:border-kw-green print:pb-2">
               Conditions essentielles — {retenue.fournisseur_nom}
             </h2>
 

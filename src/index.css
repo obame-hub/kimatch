@@ -306,10 +306,19 @@
   /* La croix de fermeture de la fenêtre n'a rien à faire sur le papier. */
   body:has(#document-comparatif) button:has(> svg.lucide-x) { display: none !important; }
 
-  /* LE PAPIER REVIENT EN PORTRAIT. Michel, 25/08/2026 : apres avoir vu la version paysage, il
-     renvoie le PDF portrait du 24/08 en demandant « qu'on refasse celui-la ». Le paysage etait sa
-     demande de la veille — « un style PowerPoint pour plus de dynamisme, plutot que le format Word
-     actuel » — mais devant le resultat il prefere le document. On garde donc ses marges d'origine,
-     12 mm, et un seul ecran de l'application imprime, donc la regle reste globale. */
-  @page { margin: 12mm; }
+  /* LE PAPIER EST UNE DIAPOSITIVE, ET RIEN D'AUTRE NE CHANGE.
+     Michel, 25/08/2026, rapporte par Naoelle : « quand on telecharge le rapport il veut garder la
+     MEME VUE que le compte rendu de consultation mais avec un affichage type PowerPoint SANS
+     DENATURER LE VISUEL ».
+
+     C'EST LA CLE DE SON REFUS DE LA VEILLE. Le 24/08 j'avais compris « style PowerPoint » comme une
+     invitation a tout redessiner — cartes cote a cote, colonne verte pleine hauteur, blocs
+     deplaces. Sa reaction : « trop destructure ». Ce qu'il veut est l'inverse : les memes blocs, au
+     meme endroit, dans le meme ordre, POSES SUR UNE DIAPOSITIVE.
+
+     Donc une seule chose bouge ici — la feuille. Paysage, et marge nulle : c'est la marge qui
+     trahit le document. Une diapositive va bord a bord, ses marges sont a l'interieur. Tout le reste
+     du rendu imprime est obtenu par des variantes `print:` dans DocumentComparatif, donc l'ecran
+     n'est pas touche d'un pixel. */
+  @page { size: A4 landscape; margin: 0; }
 }
