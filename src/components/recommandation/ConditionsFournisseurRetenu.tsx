@@ -39,6 +39,19 @@ import type { PrixOffreGaz } from '@/types/domain'
  * · « PRISE D'EFFET » devient DÉBUT DE FOURNITURE : « c'est pas la date à laquelle on a fait la
  *   demande de cotation, c'est le début de fourniture ».
  *
+ * AÉRÉ ET LISIBLE, demandé par Naoëlle le 25/08/2026 : « aère tout ça, augmente un peu la police,
+ * rends tout ça plus lisible ». C'est un document CLIENT — il se lit une fois, souvent vite, parfois
+ * sur papier. Trois réglages, et aucun ne touche à la structure :
+ *
+ *   · le corps passe de 11 à 13 px et les intitulés de famille de 8,5 à 10,5 px — l'échelle du
+ *     document, pas celle d'une interface dense ;
+ *   · les lignes respirent (padding vertical presque doublé) et les familles s'écartent, parce que
+ *     c'est L'ESPACE, plus que la taille, qui fait qu'un tableau se lit d'un coup d'œil ;
+ *   · les montants gagnent en graisse : ce sont eux qu'on cherche, ils doivent accrocher l'œil avant
+ *     l'intitulé qui les décrit.
+ *
+ * La grille et l'ordre ne changent pas : les titres restent face à face.
+ *
  * GAZ SEULEMENT. Un compteur d'électricité n'a ni molécule, ni CEE, ni accise gaz : ses composantes
  * sont le TURPE et les classes horosaisonnières. Transposer cette présentation serait inventer un
  * document qu'aucun fournisseur n'a envoyé — l'appelant retombe alors sur les lignes essentielles.
@@ -65,15 +78,15 @@ function Ligne({
   fort?: boolean
 }) {
   return (
-    <div className="flex items-baseline gap-3 border-b border-kw-border-faint py-[3px] last:border-b-0">
-      <span className={fort ? 'text-kw-base font-bold text-kw-ink' : 'text-kw-base text-kw-body'}>{intitule}</span>
-      {sigle && <span className="font-mono text-kw-micro text-kw-faint">{sigle}</span>}
+    <div className="flex items-baseline gap-3 border-b border-kw-border-faint py-[7px] last:border-b-0">
+      <span className={fort ? 'text-kw-h3 font-bold text-kw-ink' : 'text-kw-h4 text-kw-body'}>{intitule}</span>
+      {sigle && <span className="font-mono text-kw-tiny text-kw-faint">{sigle}</span>}
       <span className="flex-1" />
       <span
         className={
           fort
-            ? 'font-mono text-kw-base font-extrabold tabular-nums text-kw-ink'
-            : 'font-mono text-kw-base tabular-nums text-kw-body'
+            ? 'font-mono text-kw-h3 font-extrabold tabular-nums text-kw-ink'
+            : 'font-mono text-kw-h4 font-semibold tabular-nums text-kw-ink'
         }
       >
         {valeur}
@@ -84,7 +97,11 @@ function Ligne({
 
 /** Les intitulés de famille, en vert — « comme rémunération des CEE, je vais mettre taxe ». */
 function Famille({ children }: { children: string }) {
-  return <p className="mt-3 text-kw-micro font-extrabold uppercase tracking-[0.09em] text-kw-green">{children}</p>
+  return (
+    <p className="mb-1 mt-5 text-kw-sm font-extrabold uppercase tracking-[0.1em] text-kw-green first:mt-0">
+      {children}
+    </p>
+  )
 }
 
 export function ConditionsFournisseurRetenu({
@@ -109,7 +126,7 @@ export function ConditionsFournisseurRetenu({
 
   if (!prixGaz || !b) {
     return (
-      <p className="mt-2 rounded-kw-md border border-dashed border-kw-border-strong bg-kw-subtle px-3 py-2 text-kw-sm text-kw-meta">
+      <p className="mt-2 rounded-kw-md border border-dashed border-kw-border-strong bg-kw-subtle px-3 py-2.5 text-kw-h4 leading-relaxed text-kw-meta">
         Le détail du fournisseur retenu n’est pas disponible : il demande les composantes de prix et la
         consommation de référence du point de livraison. Saisissez-les sur l’offre pour que cette page
         reprenne la présentation du fournisseur.
@@ -142,11 +159,11 @@ export function ConditionsFournisseurRetenu({
    */
   return (
     <div className="mt-2">
-      <div className="grid grid-cols-1 items-start gap-x-10 sm:grid-cols-2">
+      <div className="grid grid-cols-1 items-start gap-x-14 gap-y-1 sm:grid-cols-2">
         {/* ── Ligne 1 : les deux en-têtes de colonne ── */}
-        <p className="text-kw-base font-extrabold uppercase tracking-[0.04em] text-kw-ink">Prix détaillé</p>
-        <div className="flex flex-wrap items-baseline gap-2">
-          <p className="text-kw-base font-extrabold uppercase tracking-[0.04em] text-kw-ink">
+        <p className="border-b-2 border-kw-ink pb-1 text-kw-h2 font-extrabold uppercase tracking-[0.05em] text-kw-ink">Prix détaillé</p>
+        <div className="flex flex-wrap items-baseline gap-2 border-b-2 border-kw-ink pb-1">
+          <p className="text-kw-h2 font-extrabold uppercase tracking-[0.05em] text-kw-ink">
             Budget annuel indicatif
           </p>
           {/* Le choix se fait ici et ne s'imprime pas : le papier ne porte que la base retenue. */}
@@ -234,7 +251,7 @@ export function ConditionsFournisseurRetenu({
       </div>
 
       {/* ══════ CE QUI N'A PAS DE VIS-À-VIS : EN PLEINE LARGEUR, SOUS LES DEUX COLONNES ══════ */}
-      <div className="mt-4 rounded-kw-lg border-2 border-kw-green bg-kw-green-tint px-3 py-2">
+      <div className="mt-7 rounded-kw-lg border-2 border-kw-green bg-kw-green-tint px-4 py-3">
         <Ligne
           intitule={ttc ? 'Total TTC' : 'Total hors taxes'}
           valeur={euros(ttc ? b.totalTtc : b.totalHt) + '/an'}
@@ -245,7 +262,7 @@ export function ConditionsFournisseurRetenu({
           valeur={euros(ttc ? b.prixMoyenTtcMwh : b.prixMoyenHtMwh) + (ttc ? ' TTC/MWh' : ' HT/MWh')}
           fort
         />
-        <p className="pt-1 text-kw-micro text-kw-meta">
+        <p className="pt-1.5 text-kw-xs text-kw-meta">
           {ttc
             ? 'Y compris abonnement et taxes.'
             : 'Hors TVA, abonnement compris. Un client assujetti la récupère.'}
@@ -255,7 +272,7 @@ export function ConditionsFournisseurRetenu({
       {/* « C'est pas la date à laquelle on a fait la demande de cotation, c'est le DÉBUT DE
           FOURNITURE. » */}
       {debut && (
-        <p className="mt-2 text-kw-sm font-bold uppercase tracking-[0.04em] text-kw-ink">
+        <p className="mt-3 text-kw-h4 font-bold uppercase tracking-[0.05em] text-kw-ink">
           Début de fourniture le {dateFr(debut)}
         </p>
       )}
@@ -263,13 +280,13 @@ export function ConditionsFournisseurRetenu({
       {/* UN BUDGET PARTIEL SE DIT. Sans cette mention, un total amputé d'une composante non saisie se
           lirait comme un total complet — et c'est un chiffre que le client compare. */}
       {b.incomplet && (
-        <p className="mt-2 rounded-kw-md border border-dashed border-kw-amber bg-kw-amber-light px-2.5 py-1.5 text-kw-micro font-semibold text-kw-amber-dark">
+        <p className="mt-3 rounded-kw-md border border-dashed border-kw-amber bg-kw-amber-light px-3 py-2 text-kw-xs font-semibold text-kw-amber-dark">
           Une ou plusieurs composantes ne sont pas saisies : ce budget est partiel. Les lignes marquées
           « à vérifier » ci-dessus indiquent lesquelles.
         </p>
       )}
 
-      <p className="mt-2 text-kw-micro leading-snug text-kw-faint">
+      <p className="mt-3 max-w-[95ch] text-kw-xs leading-relaxed text-kw-faint">
         Montants indicatifs, calculés sur la consommation de référence et les composantes
         réglementaires applicables à la date de l’analyse.
         {ttc ? ' TVA appliquée au taux de ' + pourcent + '.' : ' Montants hors TVA.'}
