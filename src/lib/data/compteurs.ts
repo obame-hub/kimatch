@@ -192,7 +192,20 @@ export function useCompteurs() {
 // ceci près qu'elle a eu droit à une fonction SQL — ici tout tient dans la requête, donc rien à
 // faire appliquer.
 
-export type FiltreEcheance = 'tous' | 'absente' | 'depassee' | 'six_mois'
+/**
+ * LES FILTRES DE LA LISTE DES COMPTEURS.
+ *
+ * Les trois derniers viennent de la diapositive 6 de Michel — échéance PROUVÉE (« contrat rattaché
+ * dans Kiwee »), ESTIMÉE (« date déclarée par le client, sans preuve ») — et de sa conséquence : une
+ * date déclarée que le contrat contredit. Ils sont calculés par la vue `v_compteurs_liste`
+ * (migration 20260825200000), avec la règle exacte de `echeance.ts`.
+ *
+ * ET LES TROIS PREMIERS CHANGENT D'ASSIETTE, c'est une correction : ils portaient sur la date
+ * DÉCLARÉE, ils portent désormais sur la date RETENUE — celle du contrat quand il y en a un. Un
+ * compteur sans date déclarée mais couvert par un contrat en cours n'est pas « sans échéance » : on
+ * connaît la sienne, elle vient du contrat. Le décompte passe donc de 591 à 589.
+ */
+export type FiltreEcheance = 'tous' | 'absente' | 'depassee' | 'six_mois' | 'prouvee' | 'estimee' | 'contredit'
 export type TriCompteurs = 'numero_point' | 'date_echeance' | 'consommation_annuelle_mwh'
 
 export interface LigneCompteur {
@@ -202,10 +215,39 @@ export interface LigneCompteur {
   site_nom: string
   type_energie: 'electricite' | 'gaz'
   localisation_site: string | null
+  /** La date RETENUE : celle du contrat quand il y en a un, la déclarée sinon. */
   date_echeance: string | null
+  /** `compteurs.date_echeance` — ce que le client a déclaré. */
+  dateDeclaree: string | null
+  /** La fin du contrat en cours, quand il en existe un. */
+  datePreuve: string | null
+  nature: 'PROUVEE' | 'ESTIMEE' | 'ABSENTE'
+  /** Un contrat en cours contredit la date déclarée de plus d'un mois. */
+  contredit: boolean
   consommation_annuelle_mwh: number | null
   /** Total de la sélection, rendu par la base — identique sur chaque ligne. */
   total: number
+}
+
+/**
+ * VRAI QUAND LA VUE N'EXISTE PAS ENCORE EN BASE.
+ *
+ * Le SQL et l'écran arrivent dans le même dépôt, mais pas au même moment : je rédige la migration,
+ * Naoëlle l'applique (ou Michel). Entre les deux, la liste des compteurs interrogerait une vue
+ * absente et la page tomberait — une régression en production pour un écran qui marchait.
+ *
+ * Alors la liste retombe sur la table, sans la nature. Les trois filtres de la diapositive 6 ne
+ * rendent alors rien, et l'écran le dit ; tout le reste fonctionne comme avant. Ce repli est du code
+ * mort dès la migration appliquée, et c'est très bien : une page blanche coûte plus cher.
+ */
+function vueAbsente(error: { code?: string; message?: string } | null): boolean {
+  if (!error) return false
+  // 42P01 = undefined_table côté Postgres ; PostgREST rend PGRST205 quand le schéma ne l'expose pas.
+  return (
+    error.code === '42P01' ||
+    error.code === 'PGRST205' ||
+    (error.message ?? '').includes('v_compteurs_liste')
+  )
 }
 
 function jourIso(decalageMois = 0): string {
@@ -231,30 +273,72 @@ export function useCompteursListe(options: {
       // un `.in()` sur une liste vide rendrait TOUT.
       if (sitesVisibles !== null && sitesVisibles.length === 0) return []
 
+      // La recherche porte sur le PDL et sur l'emplacement. Le nom du site appartient à une table
+      // jointe : PostgREST ne sait pas le chercher dans un `or`, et la liste des sites a eu besoin
+      // d'une fonction SQL pour ça. Le champ le dit, plutôt que de chercher à moitié en silence.
+      const mots = recherche.trim()
+
+      // LA VUE PORTE LA NATURE, LA TABLE NE LA PORTE PAS. Filtrer « prouvée » côté navigateur
+      // demanderait les 7 899 compteurs ET leurs contrats — c'est ce qui a gelé l'onglet le 24/08.
+      // Les colonnes sont plates : pas de jointure imbriquée à démêler au retour.
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       let q: any = supabase
-        .from('compteurs')
-        .select('id, numero_point, site_id, date_echeance, consommation_annuelle_mwh, localisation_site, type_energie:types_energies(code), site:sites(nom)', { count: 'exact' })
+        .from('v_compteurs_liste')
+        .select(
+          'id, numero_point, site_id, date_echeance, date_declaree, date_preuve, nature_echeance, contredit, consommation_annuelle_mwh, localisation_site, type_energie_code, site_nom',
+          { count: 'exact' },
+        )
         .eq('actif', true)
 
       if (sitesVisibles !== null) q = q.in('site_id', sitesVisibles)
 
       // Les deux cas de la diapositive 7 — « absentes ou dépassées » — plus ce qui arrive.
-      if (filtre === 'absente') q = q.is('date_echeance', null)
+      if (filtre === 'absente') q = q.eq('nature_echeance', 'ABSENTE')
       if (filtre === 'depassee') q = q.lt('date_echeance', jourIso())
       if (filtre === 'six_mois') q = q.gte('date_echeance', jourIso()).lte('date_echeance', jourIso(6))
+      if (filtre === 'prouvee') q = q.eq('nature_echeance', 'PROUVEE')
+      if (filtre === 'estimee') q = q.eq('nature_echeance', 'ESTIMEE')
+      if (filtre === 'contredit') q = q.eq('contredit', true)
 
-      // La recherche porte sur le PDL et sur l'emplacement. Le nom du site appartient à une table
-      // jointe : PostgREST ne sait pas le chercher dans un `or`, et la liste des sites a eu besoin
-      // d'une fonction SQL pour ça. Le champ le dit, plutôt que de chercher à moitié en silence.
-      const mots = recherche.trim()
       if (mots) q = q.or(`numero_point.ilike.%${mots}%,localisation_site.ilike.%${mots}%`)
 
       // `nullsFirst: false` : un compteur sans échéance n'est pas « le plus urgent », c'est un
       // compteur dont on ne sait rien. Il va en fin de liste, pas en tête.
       q = q.order(tri, { ascending: sens === 'asc', nullsFirst: false }).range(0, Math.max(0, limite - 1))
 
-      const { data, error, count } = await q
+      let { data, error, count } = await q
+
+      // LE REPLI : la vue n'est pas encore appliquée, on relit la table. Les trois filtres de nature
+      // ne rendent rien dans ce cas — c'est le prix d'un écran qui reste debout.
+      if (vueAbsente(error)) {
+        if (filtre === 'prouvee' || filtre === 'estimee' || filtre === 'contredit') return []
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        let t: any = supabase
+          .from('compteurs')
+          .select('id, numero_point, site_id, date_echeance, consommation_annuelle_mwh, localisation_site, types_energies(code), sites(nom)', { count: 'exact' })
+          .eq('actif', true)
+        if (sitesVisibles !== null) t = t.in('site_id', sitesVisibles)
+        if (filtre === 'absente') t = t.is('date_echeance', null)
+        if (filtre === 'depassee') t = t.lt('date_echeance', jourIso())
+        if (filtre === 'six_mois') t = t.gte('date_echeance', jourIso()).lte('date_echeance', jourIso(6))
+        if (mots) t = t.or(`numero_point.ilike.%${mots}%,localisation_site.ilike.%${mots}%`)
+        t = t.order(tri, { ascending: sens === 'asc', nullsFirst: false }).range(0, Math.max(0, limite - 1))
+        const repli = await t
+        if (repli.error) throw new Error(repli.error.message)
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        data = (repli.data ?? []).map((c: any) => ({
+          ...c,
+          date_declaree: c.date_echeance,
+          date_preuve: null,
+          nature_echeance: c.date_echeance ? 'ESTIMEE' : 'ABSENTE',
+          contredit: false,
+          type_energie_code: Array.isArray(c.types_energies) ? c.types_energies[0]?.code : c.types_energies?.code,
+          site_nom: Array.isArray(c.sites) ? c.sites[0]?.nom : c.sites?.nom,
+        }))
+        count = repli.count
+        error = null
+      }
+
       if (error) throw new Error(error.message)
 
       type Brut = {
@@ -262,21 +346,28 @@ export function useCompteursListe(options: {
         numero_point: string
         site_id: string
         date_echeance: string | null
+        date_declaree: string | null
+        date_preuve: string | null
+        nature_echeance: 'PROUVEE' | 'ESTIMEE' | 'ABSENTE'
+        contredit: boolean | null
         consommation_annuelle_mwh: number | null
         localisation_site: string | null
-        type_energie: { code: string } | { code: string }[] | null
-        site: { nom: string } | { nom: string }[] | null
+        type_energie_code: string | null
+        site_nom: string | null
       }
-      const un = <T,>(v: T | T[] | null): T | null => (Array.isArray(v) ? v[0] ?? null : v)
 
       return ((data ?? []) as Brut[]).map((c) => ({
         id: c.id,
         numero_pdl: c.numero_point,
         site_id: c.site_id,
-        site_nom: un(c.site)?.nom ?? '',
-        type_energie: ((un(c.type_energie)?.code ?? 'electricite').toLowerCase() === 'gaz' ? 'gaz' : 'electricite') as 'electricite' | 'gaz',
+        site_nom: c.site_nom ?? '',
+        type_energie: ((c.type_energie_code ?? 'electricite').toLowerCase() === 'gaz' ? 'gaz' : 'electricite') as 'electricite' | 'gaz',
         localisation_site: c.localisation_site ?? null,
         date_echeance: c.date_echeance ?? null,
+        dateDeclaree: c.date_declaree ?? null,
+        datePreuve: c.date_preuve ?? null,
+        nature: c.nature_echeance,
+        contredit: !!c.contredit,
         consommation_annuelle_mwh: c.consommation_annuelle_mwh,
         total: count ?? 0,
       }))
@@ -292,18 +383,46 @@ export function useComptesEcheances() {
   return useQuery({
     queryKey: ['compteurs', 'comptes-echeances'],
     queryFn: async () => {
-      const tete = () => supabase.from('compteurs').select('id', { count: 'exact', head: true }).eq('actif', true)
-      const [tous, absente, depassee, sixMois] = await Promise.all([
+      const tete = () => supabase.from('v_compteurs_liste').select('id', { count: 'exact', head: true }).eq('actif', true)
+      const [tous, absente, depassee, sixMois, prouvee, estimee, contredit] = await Promise.all([
         tete(),
-        tete().is('date_echeance', null),
+        tete().eq('nature_echeance', 'ABSENTE'),
         tete().lt('date_echeance', jourIso()),
         tete().gte('date_echeance', jourIso()).lte('date_echeance', jourIso(6)),
+        tete().eq('nature_echeance', 'PROUVEE'),
+        tete().eq('nature_echeance', 'ESTIMEE'),
+        tete().eq('contredit', true),
       ])
+
+      // MÊME REPLI QUE LA LISTE : sans la vue, on compte sur la table et les trois nouveaux onglets
+      // n'affichent pas de nombre plutôt que d'afficher zéro — zéro serait un mensonge.
+      if (vueAbsente(tous.error)) {
+        const t = () => supabase.from('compteurs').select('id', { count: 'exact', head: true }).eq('actif', true)
+        const [a, b, c, d] = await Promise.all([
+          t(),
+          t().is('date_echeance', null),
+          t().lt('date_echeance', jourIso()),
+          t().gte('date_echeance', jourIso()).lte('date_echeance', jourIso(6)),
+        ])
+        return {
+          tous: a.count ?? 0,
+          absente: b.count ?? 0,
+          depassee: c.count ?? 0,
+          six_mois: d.count ?? 0,
+          prouvee: null,
+          estimee: null,
+          contredit: null,
+        }
+      }
+
       return {
         tous: tous.count ?? 0,
         absente: absente.count ?? 0,
         depassee: depassee.count ?? 0,
         six_mois: sixMois.count ?? 0,
+        prouvee: (prouvee.count ?? 0) as number | null,
+        estimee: (estimee.count ?? 0) as number | null,
+        contredit: (contredit.count ?? 0) as number | null,
       }
     },
   })

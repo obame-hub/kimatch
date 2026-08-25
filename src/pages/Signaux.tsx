@@ -15,6 +15,7 @@ import { FALLBACK_STATUTS_SIGNAUX, FALLBACK_TYPES_SIGNAUX, FALLBACK_STATUTS_ACTI
 import { EntityLink } from '@/components/ui/entity-link'
 import type { Signal } from '@/types/domain'
 import { cn } from '@/lib/utils'
+import { estIdReel } from '@/lib/referenceFallbacks'
 import { ListToolbar } from '@/components/ui/list-toolbar'
 
 function SignalCard({ signal }: { signal: Signal }) {
@@ -101,6 +102,11 @@ function CreateSignalDialog({ open, onClose }: { open: boolean; onClose: () => v
     const site = sites?.find((s) => s.id === siteId)
     const type = types.find((t) => t.id === typeSignalId)
     const statutNouveau = statuts.find((s) => s.code === 'NOUVEAU')
+    // MÊME GARDE QUE SUR LES TÂCHES : `signaux.statut_id` et `signaux.type_signal_id` sont NOT NULL.
+    if (!estIdReel(statutNouveau?.id)) {
+      setFeedback('Les statuts de signal ne sont pas chargés : rechargez la page avant de créer le signal.')
+      return
+    }
     if (!site) return
 
     const result = await createSignal.mutateAsync({
@@ -128,7 +134,8 @@ function CreateSignalDialog({ open, onClose }: { open: boolean; onClose: () => v
           </Select>
         </FormField>
         <FormField label="Type de signal">
-          <Select value={typeSignalId} onChange={(e) => setTypeSignalId(e.target.value)}>
+          {/* OBLIGATOIRE : `signaux.type_signal_id` est NOT NULL sans valeur par défaut. */}
+          <Select value={typeSignalId} onChange={(e) => setTypeSignalId(e.target.value)} required>
             <option value="">Sélectionner un type…</option>
             {types.map((t) => <option key={t.id} value={t.id}>{t.libelle}</option>)}
           </Select>

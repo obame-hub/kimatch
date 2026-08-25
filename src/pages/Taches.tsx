@@ -9,6 +9,7 @@ import { EntityLink } from '@/components/ui/entity-link'
 import { Dialog } from '@/components/ui/dialog'
 import { FormField, Input, Select, Textarea } from '@/components/ui/form'
 import { echeanceLisible, instantTache } from '@/lib/heureTache'
+import { estIdReel } from '@/lib/referenceFallbacks'
 import { useActions, useCreateAction, useCompleteAction } from '@/lib/data/actions'
 import { useSites } from '@/lib/data/sites'
 import { useContacts } from '@/lib/data/contacts'
@@ -58,6 +59,14 @@ function CreateActionDialog({ open, onClose }: { open: boolean; onClose: () => v
     const contact = contacts?.find((c) => c.id === contactId)
     const statutAFaire = statuts.find((s) => s.code === 'A_FAIRE')
 
+    // LE STATUT EST OBLIGATOIRE EN BASE (`actions.statut_id` NOT NULL, sans valeur par défaut) et il
+    // vient d'une table de référence. Si cette table n'a pas répondu, on tient un identifiant de
+    // repli que Postgres refusera — mieux vaut le dire tout de suite que créer une tâche fantôme.
+    if (!estIdReel(statutAFaire?.id)) {
+      setFeedback('Les statuts de tâche ne sont pas chargés : rechargez la page avant de créer la tâche.')
+      return
+    }
+
     const result = await createAction.mutateAsync({
       titre,
       type_action_id: typeId || null,
@@ -86,7 +95,10 @@ function CreateActionDialog({ open, onClose }: { open: boolean; onClose: () => v
         </FormField>
         <div className="grid grid-cols-2 gap-3">
           <FormField label="Type">
-            <Select value={typeId} onChange={(e) => setTypeId(e.target.value)}>
+            {/* OBLIGATOIRE : `actions.type_action_id` est NOT NULL sans valeur par défaut. Laissé
+                vide, il était simplement omis de l'insertion, la base refusait la ligne, et l'écran
+                annonçait « ajoutée localement » — la tâche n'existait pas. */}
+            <Select value={typeId} onChange={(e) => setTypeId(e.target.value)} required>
               <option value="">Sélectionner…</option>
               {types.map((t) => <option key={t.id} value={t.id}>{t.libelle}</option>)}
             </Select>

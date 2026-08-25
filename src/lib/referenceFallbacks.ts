@@ -1,5 +1,24 @@
 import type { ReferenceRow } from '@/lib/data/referenceTables'
 
+/**
+ * UN IDENTIFIANT DE REPLI N'EST PAS UN IDENTIFIANT DE BASE, et c'est un piège découvert en auditant
+ * le parcours manuel le 25/08/2026.
+ *
+ * Les listes de repli ci-dessous portent des identifiants inventés — '1', '2', 'd1' — parce qu'elles
+ * n'existent que pour garder les libellés affichables si une table de référence répond vide. Mais les
+ * formulaires les utilisent aussi pour ÉCRIRE : `statut_id: statutNouveau?.id`. Envoyé à Postgres,
+ * '1' n'est pas un uuid, l'insertion échoue, et l'application annonce alors « ajouté localement, non
+ * synchronisé » — un faux succès, qui est bien pire qu'une erreur.
+ *
+ * Cette fonction sert donc de garde : avant d'écrire, on vérifie que l'identifiant vient vraiment de
+ * la base. S'il ne l'est pas, on refuse la création EN LE DISANT, plutôt que de fabriquer une ligne
+ * que la base rejettera.
+ */
+export function estIdReel(id: string | null | undefined): boolean {
+  if (!id) return false
+  return /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id)
+}
+
 // Filet de sécurité si la table de référence en base répond vide (erreur transitoire, etc.) --
 // reflètent les vraies valeurs pour que l'app reste utilisable le temps que ça se rétablisse.
 

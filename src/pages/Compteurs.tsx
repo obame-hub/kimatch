@@ -21,12 +21,14 @@
  * (`useCompteursListe`), donc ils portent sur TOUS les compteurs et non sur ce qui aurait été
  * téléchargé — et la page ne reçoit que sa tranche de cent lignes.
  *
- * CE QUE ÇA COÛTE, ET C'EST DIT À L'ÉCRAN. « Prouvée » exige de savoir si un contrat est rattaché,
- * ce qui vit dans une autre table : PostgREST ne peut pas en faire un filtre. La nature s'affiche
- * donc pour les lignes visibles, à partir des contrats chargés une fois, mais on ne peut pas filtrer
- * sur elle sans une vue en base. Le champ de recherche a la même limite pour le nom du site, qui
- * appartient à la table jointe — le message de liste vide le dit plutôt que de chercher à moitié en
- * silence.
+ * ON PEUT DÉSORMAIS FILTRER SUR LA NATURE, ce qui n'était pas le cas jusqu'au 25/08/2026 : « prouvée »
+ * exige de savoir si un contrat est rattaché, donc de lire une autre table, et PostgREST n'en fait pas
+ * un filtre. La vue `v_compteurs_liste` (migration 20260825200000) porte maintenant la nature comme
+ * une colonne, avec la règle exacte de `echeance.ts` — vérifiée en répétition : 1 036 prouvées,
+ * 6 276 estimées, 589 absentes, 144 contradictions, les chiffres de l'application au compteur près.
+ *
+ * Reste la limite du champ de recherche sur le nom du site, qui appartient à la table jointe — le
+ * message de liste vide le dit plutôt que de chercher à moitié en silence.
  */
 import { useEffect, useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
@@ -60,6 +62,14 @@ const FILTRES: { cle: FiltreEcheance; libelle: string; aide: string }[] = [
   { cle: 'absente', libelle: 'Sans échéance', aide: 'Aucune date : le compteur reste à qualifier (diapositive 7).' },
   { cle: 'depassee', libelle: 'Dépassée', aide: 'L’échéance est passée : la donnée est inexploitable en l’état.' },
   { cle: 'six_mois', libelle: 'Dans 6 mois', aide: 'L’échéance tombe dans les six prochains mois.' },
+  // LES TROIS DE LA DIAPOSITIVE 6 : la nature de l'échéance, et la contradiction qui en découle.
+  { cle: 'prouvee', libelle: 'Prouvée', aide: 'Un contrat rattaché dans Kimatch porte cette date de fin.' },
+  { cle: 'estimee', libelle: 'Estimée', aide: 'Date déclarée par le client, sans contrat pour l’attester.' },
+  {
+    cle: 'contredit',
+    libelle: 'Contredite',
+    aide: 'Un contrat en cours contredit la date déclarée de plus d’un mois : les deux sont affichées, on ne tranche pas à la place du client.',
+  },
 ]
 
 export default function Compteurs({ sansEntete }: { sansEntete?: boolean }) {
