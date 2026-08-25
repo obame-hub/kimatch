@@ -19,9 +19,68 @@ import { fetchAllRows } from '@/lib/data/paginatedFetch'
 // fonction au montage d'un ecran, pour un resultat identique. Vide par `viderCacheAcces`.
 let cacheComptesVisibles: Promise<string[] | null> | null = null
 
+let cacheMesComptes: Promise<string[] | null> | null = null
+
 /** Vide le cache du périmètre de visibilité. Appelé par `viderCacheAcces`. */
 export function viderCacheVisibilite() {
   cacheComptesVisibles = null
+  cacheMesComptes = null
+}
+
+/**
+ * LES COMPTES DONT JE SUIS PROPRIÉTAIRE. `null` = aucune restriction (administrateurs).
+ *
+ * Michel, appel du 25/08/2026 : « est-ce qu'on pourrait faire en sorte, LÀ EN URGENCE, que chaque
+ * commercial ne voie que les recommandations sur lesquelles il est propriétaire du compte », avec
+ * l'exemple qui la motive : « Matthieu veut regarder ses recommandations, mais il a les
+ * recommandations de tout le monde ». Naoëlle, dans le même appel : « OK vas-y, pas de souci ».
+ *
+ * CE N'EST PAS UN RETOUR À LA RESTRICTION GÉNÉRALE, et la nuance est capitale. Le périmètre par
+ * compte a été levé le 14/08 par une décision de Naoëlle qu'elle a qualifiée de non négociable —
+ * « il faut que tous les commerciaux voient tous les comptes, pour pouvoir les gérer en l'absence
+ * d'un collègue ». `calculerComptesVisibles` reste donc inchangée : comptes, sites, contacts,
+ * compteurs, contrats, signaux restent visibles de tous. SEULES LES RECOMMANDATIONS sont filtrées,
+ * parce que c'est ce qu'il a demandé et rien de plus.
+ *
+ * LES ADMINISTRATEURS VOIENT TOUT — c'est sa propre phrase, « à part toi, moi », en ouvrant la
+ * question. Michel est super-administrateur, Naoëlle administratrice ; son exemple porte sur
+ * Matthieu, conseiller.
+ *
+ * Mesuré avant d'écrire, le 25/08/2026 : 2 744 des 2 764 comptes portent un propriétaire, et AUCUNE
+ * des 1 707 recommandations n'est rattachée à un compte qui en manque — donc aucune ne devient
+ * invisible pour tout le monde. La répartition : Marie 648, Guillaume 498, Matthieu 295, Thomas 183,
+ * Fabien 74, William 8, Naoëlle 1.
+ */
+export function fetchMesComptes(): Promise<string[] | null> {
+  if (!cacheMesComptes) {
+    cacheMesComptes = calculerMesComptes().catch((err) => {
+      cacheMesComptes = null
+      throw err
+    })
+  }
+  return cacheMesComptes
+}
+
+async function calculerMesComptes(): Promise<string[] | null> {
+  const { data: userData } = await supabase.auth.getUser()
+  // Session absente : on ne montre rien plutôt que tout. Même précaution que pour les comptes
+  // visibles — une erreur d'authentification ne doit jamais élargir un périmètre.
+  if (!userData.user) return []
+
+  const { data: role } = await supabase
+    .from('profils_roles_acces')
+    .select('role_acces:roles_acces(code)')
+    .eq('profil_id', userData.user.id)
+    .maybeSingle()
+  const brut = (role as { role_acces: { code: string } | { code: string }[] | null } | null)?.role_acces
+  const code = (Array.isArray(brut) ? brut[0]?.code : brut?.code) ?? null
+  if (code === 'ADMIN' || code === 'SUPER_ADMIN') return null
+
+  // `profils.id` EST l'identifiant du compte d'authentification, la jointure est donc directe.
+  const lignes = await fetchAllRows<{ id: string }>('comptes', 'id', (q) =>
+    q.eq('proprietaire_id', userData.user!.id),
+  )
+  return lignes.map((l) => l.id)
 }
 
 /**

@@ -9,7 +9,7 @@ import type {
   FournisseurConsulte,
   SuiviConsultationFournisseur,
 } from '@/types/domain'
-import { fetchComptesVisibles, filterVisibles } from '@/lib/data/visibility'
+import { fetchComptesVisibles, fetchMesComptes, filterVisibles } from '@/lib/data/visibility'
 import { fetchAllRows } from '@/lib/data/paginatedFetch'
 
 interface RawRecommandation {
@@ -688,6 +688,17 @@ async function fetchRecommandations(
     }
 
     const comptesVisibles = await fetchComptesVisibles()
+    /**
+     * CHAQUE CONSEILLER NE VOIT QUE LES RECOMMANDATIONS DE SES COMPTES. Michel, 25/08/2026, « là en
+     * urgence » : « Matthieu veut regarder ses recommandations, mais il a les recommandations de
+     * tout le monde ». Accordé par Naoëlle dans le même appel.
+     *
+     * Deux périmètres se cumulent, et ils ne disent pas la même chose : `comptesVisibles` est la
+     * visibilité générale (levée pour tous depuis le 14/08, donc `null`), `mesComptes` est la
+     * propriété. Les administrateurs reçoivent `null` ici aussi et voient tout — « à part toi,
+     * moi », dit-il en posant la question.
+     */
+    const mesComptes = await fetchMesComptes()
 
     // Nom du fournisseur retenu. Requete SEPAREE et tolerante, jamais un embed PostgREST :
     // `fournisseur_compte_id` date du 15/08/2026 et peut manquer sur un environnement pas encore
@@ -701,7 +712,8 @@ async function fetchRecommandations(
       for (const f of fournisseurs ?? []) fournisseursParId.set(f.id, f.nom)
     }
 
-    return filterVisibles(recos, comptesVisibles, (r) => r.compte?.id).map((r) => ({
+    const visibles = filterVisibles(recos, comptesVisibles, (r) => r.compte?.id)
+    return filterVisibles(visibles, mesComptes, (r) => r.compte?.id).map((r) => ({
       id: r.id,
       titre: r.nom,
       compte_id: r.compte?.id ?? '',
