@@ -11,6 +11,7 @@ import { EntityLink } from '@/components/ui/entity-link'
 import { EtapeCompact } from '@/components/ui/etape-stepper'
 import { Select } from '@/components/ui/form'
 import { useReferenceTable } from '@/lib/data/referenceTables'
+import { useIsAdmin, useMonProfil } from '@/lib/data/roles'
 import { FALLBACK_ETAPES_RECOMMANDATION, ETAPE_TONE } from '@/lib/referenceFallbacks'
 import { ListToolbar } from '@/components/ui/list-toolbar'
 import { useListeServeur } from '@/lib/useListeServeur'
@@ -36,6 +37,24 @@ interface LigneReco {
 
 export default function Recommandations() {
   const { data: etapesRef } = useReferenceTable('etapes_recommandation')
+  /**
+   * CHAQUE CONSEILLER NE VOIT QUE LES RECOMMANDATIONS DE SES COMPTES. Michel, 25/08/2026, « là en
+   * urgence » : « Matthieu veut regarder ses recommandations, mais il a les recommandations de tout
+   * le monde ». Accordé par Naoëlle dans le même appel.
+   *
+   * LE FILTRE EST ICI PARCE QUE CETTE PAGE NE LIT PAS `fetchRecommandations`. J'avais d'abord filtré
+   * cette fonction, qui sert les fiches et le tableau de bord — mais /recommandations, l'écran DONT
+   * IL PARLE, lit la vue `v_recommandations_liste` par `useListeServeur`. Le filtre était donc partout
+   * sauf à l'endroit du reproche. La colonne `compte_proprietaire_id` vient de la migration
+   * 20260825120000, écrite pour ça.
+   *
+   * LES ADMINISTRATEURS VOIENT TOUT — sa phrase en posant la question, « à part toi, moi ». Tant que
+   * le rôle n'est pas connu, on ne filtre pas : afficher trop brièvement est moins trompeur que de
+   * montrer une liste vide qu'on prendrait pour « je n'ai rien à traiter ».
+   */
+  const estAdmin = useIsAdmin()
+  const { data: monProfil } = useMonProfil()
+  const filtreProprietaire = !estAdmin && monProfil?.id ? monProfil.id : null
   const etapes = etapesRef && etapesRef.length > 0 ? etapesRef : FALLBACK_ETAPES_RECOMMANDATION
   const navigate = useNavigate()
   const [showCreate, setShowCreate] = useState(false)
@@ -46,7 +65,7 @@ export default function Recommandations() {
     colonnesRecherche: ['nom', 'compte_nom', 'conseiller'],
     triParDefaut: 'nom',
     // Le filtre par etape descend en base : sinon il ne porterait que sur la tranche chargee.
-    filtres: { etape: etapeFilter || null },
+    filtres: { etape: etapeFilter || null, compte_proprietaire_id: filtreProprietaire },
   })
 
   return (
