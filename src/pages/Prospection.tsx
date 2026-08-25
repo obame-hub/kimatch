@@ -40,8 +40,18 @@ import type { LigneListe, Piste } from '@/types/domain'
  * ce que le mémo décrit — les quatre informations d'une liste, les cinq validations d'une piste, et
  * les deux bascules — sans rien inventer autour.
  */
+/**
+ * LA LISTE DISPARAÎT DE L'AFFICHAGE, LA PISTE RESTE. Michel, 25/08/2026 : « on enlève liste, du coup
+ * on ne garde que piste ».
+ *
+ * Un interrupteur et non une suppression : les lignes de liste existent en base, `useListes` et son
+ * dialogue de création fonctionnent, et la conversion d'une ligne en piste reste le chemin d'entrée
+ * du travail. Repasser à `true` fait revenir l'onglet tel quel.
+ */
+const AFFICHER_LES_LISTES = false
+
 export default function Prospection() {
-  const [onglet, setOnglet] = useState<'listes' | 'pistes'>('listes')
+  const [onglet, setOnglet] = useState<'listes' | 'pistes'>(AFFICHER_LES_LISTES ? 'listes' : 'pistes')
   const { data: listes } = useListes()
   const { data: pistes } = usePistes()
   const [creation, setCreation] = useState<null | 'liste' | 'piste'>(null)
@@ -79,7 +89,7 @@ export default function Prospection() {
             lisent pareil. Le troisième jalon n'est pas un onglet — il dit où mène le travail. */}
         <div className="mb-4 flex flex-wrap items-center gap-0.5 border-b border-kw-border">
           {([
-            { cle: 'listes' as const, titre: 'Listes', compte: nonConverties.length },
+            ...(AFFICHER_LES_LISTES ? [{ cle: 'listes' as const, titre: 'Listes', compte: nonConverties.length }] : []),
             { cle: 'pistes' as const, titre: 'Pistes', compte: pistesOuvertes.length },
           ]).map((o) => (
             <button
@@ -107,7 +117,7 @@ export default function Prospection() {
           </span>
         </div>
 
-        {onglet === 'listes'
+        {onglet === 'listes' && AFFICHER_LES_LISTES
           ? <OngletListes lignes={listes ?? []} signaler={signaler} />
           : <OngletPistes pistes={pistes ?? []} signaler={signaler} />}
       </div>

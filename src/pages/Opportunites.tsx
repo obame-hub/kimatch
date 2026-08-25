@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { Plus, Target } from 'lucide-react'
+import { Plus, Target, LayoutList, Columns3 } from 'lucide-react'
+import { TableauKanban } from '@/components/dashboard/TableauKanban'
 import { Topbar } from '@/components/layout/Topbar'
 import { PageHeader } from '@/components/ui/page-header'
 import { Card } from '@/components/ui/card'
@@ -16,6 +17,7 @@ import { useTranchesAffichage } from '@/lib/useTranchesAffichage'
 import { useListControls } from '@/lib/useListControls'
 import {
   statutDerive,
+  PIPELINE_OPPORTUNITE,
   TON_PIPELINE,
   type MandatPourCouverture,
   useOpportunites,
@@ -127,6 +129,7 @@ export default function Opportunites() {
   // pipeline. Le même hook alimente les fiches : la requête est le plus souvent déjà en cache.
   const { data: mandats } = useMandats()
   const [creation, setCreation] = useState(false)
+  const [vue, setVue] = useState<'liste' | 'kanban'>('liste')
 
   const controles = useListControls(opportunites, {
     searchFields: (o) => [o.compte_nom, o.reference, o.contact_nom, o.type_opportunite],
@@ -157,6 +160,42 @@ export default function Opportunites() {
           }
         />
 
+        {/* ══════════ LISTE OU KANBAN ══════════
+            Michel, appel du 25/08/2026 : la vue kanban est « sur les pages de chaque objet », et
+            « sur l'opportunité, c'est là où je veux voir LA VISION ». Il ajoute : « sur chaque type
+            de page on garde toujours de base le truc » — la liste reste donc le défaut, le tableau
+            s'ajoute.
+
+            ON NE DÉPLACE PAS LES CARTES. Le palier d'une opportunité se CALCULE à partir des objets
+            réunis (« la maturité se fait si les objets sont valides ») : glisser une carte ne
+            voudrait rien dire, elle reviendrait à sa place au rechargement. Cliquer une carte ouvre
+            l'opportunité, où les gestes qui font avancer existent et vérifient leurs conditions. */}
+        <div className="mb-3 flex items-center gap-2">
+          <span className="text-kw-xs font-bold uppercase tracking-[0.08em] text-kw-faint">Vue</span>
+          <div className="flex items-center gap-1 rounded-kw-lg border-[1.5px] border-kw-border-strong bg-white p-1">
+            {([
+              { cle: 'liste' as const, libelle: 'Liste', icone: LayoutList },
+              { cle: 'kanban' as const, libelle: 'Kanban', icone: Columns3 },
+            ]).map((v) => {
+              const Icone = v.icone
+              return (
+                <button
+                  key={v.cle}
+                  type="button"
+                  onClick={() => setVue(v.cle)}
+                  className={cn(
+                    'inline-flex items-center gap-1.5 rounded-kw-md px-3 py-1.5 text-kw-sm font-bold transition-colors',
+                    vue === v.cle ? 'bg-ink-800 text-white' : 'text-kw-label hover:bg-kw-subtle',
+                  )}
+                >
+                  <Icone className="h-3.5 w-3.5" strokeWidth={2.2} />
+                  {v.libelle}
+                </button>
+              )
+            })}
+          </div>
+        </div>
+
         <ListToolbar
           query={controles.query}
           onQueryChange={controles.setQuery}
@@ -172,6 +211,35 @@ export default function Opportunites() {
 
         {isLoading ? (
           <p className="mt-4 text-sm text-navy-400">Chargement…</p>
+        ) : vue === 'kanban' ? (
+          /* LES SIX PALIERS DE SA DIAPOSITIVE 13, colonnes terminales comprises : sur la page d'un
+             objet, le tableau montre TOUT le pipeline, y compris ce qui a abouti et ce qui s'est
+             fermé. C'est la différence avec le tableau de bord, qui ne montre que le travail
+             restant. La recherche du bandeau ci-dessus s'y applique aussi. */
+          <div className="mt-4">
+            <TableauKanban
+              colonnes={PIPELINE_OPPORTUNITE.map((p) => ({ code: p.code, libelle: p.libelle }))}
+              cartes={Object.fromEntries(
+                PIPELINE_OPPORTUNITE.map((p) => [
+                  p.code,
+                  filtrees
+                    .filter((o) => statutDerive(o, mandats ?? []).code === p.code)
+                    .map((o) => {
+                      const d = statutDerive(o, mandats ?? [])
+                      return {
+                        id: o.id,
+                        titre: o.compte_nom || o.reference || 'Opportunité',
+                        sousTitre: d.tache,
+                        mention: o.reference ?? undefined,
+                        urgent: d.code === 'PRETE_A_CONVERTIR',
+                        to: `/opportunites/${o.id}`,
+                      }
+                    }),
+                ]),
+              )}
+              siVide="Aucune opportunité ne correspond."
+            />
+          </div>
         ) : filtrees.length === 0 ? (
           <Card className="mt-4 flex flex-col items-center gap-2 p-8 text-center">
             <Target className="h-6 w-6 text-navy-300" />

@@ -80,9 +80,14 @@ export const navItems: NavItem[] = [
  */
 export const travailNavItems: NavItem[] = [
   { to: '/prospection', label: 'Prospection', icon: Filter },
-  // LA REQUÊTE EST À PART, comme dans le mémo : « un autre objet actif mais PARALLÈLE à la chaîne
-  // commerciale ». Icône `Inbox` et non la bouée : la bouée sert déjà au Support en bas du rail, et
-  // deux bouées identiques dans un rail de 56 px ne se distinguent pas (vu sur capture).
+  // REQUÊTES ET RÉMUNÉRATIONS SORTENT DU RAIL. Michel, 25/08/2026 : « ça, je disais, ça sert à rien,
+  // donc ça on peut l'enlever POUR LE MOMENT » — les deux dans la même phrase. Les pages, leurs
+  // données et leurs écrans restent entiers : seules les entrées du menu disparaissent, et elles
+  // restent trouvables par la recherche ⌘K ci-dessous.
+]
+
+/** Les deux objets retirés du rail le 25/08/2026, gardés ici pour les remettre d'un geste. */
+export const navItemsMasques: NavItem[] = [
   { to: '/requetes', label: 'Requêtes', icon: Inbox },
   { to: '/remunerations', label: 'Rémunérations', icon: Euro },
 ]
@@ -104,6 +109,8 @@ export const bottomNavItems: NavItem[] = [
 export const pagesRecherchables: NavItem[] = [
   ...navItems,
   ...travailNavItems,
+  // Retirées du rail le 25/08, mais toujours atteignables : masquer n'est pas supprimer.
+  ...navItemsMasques,
   ...bottomNavItems,
   { to: '/signaux', label: 'Signaux', icon: Radio },
   // Les listes du patrimoine restent trouvables par la recherche, chacune sur son onglet.
