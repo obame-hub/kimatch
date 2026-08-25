@@ -188,6 +188,20 @@ export default function RecommandationDetail() {
     await updateRecoPartiel.mutateAsync({ id: id as string, patch })
   }
 
+  /**
+   * LE PÉRIMÈTRE DE CETTE RECOMMANDATION, et non tous les compteurs de Kimatch.
+   *
+   * `useCompteurs()` rend les 7 899 compteurs de la base : c'est ce que reçoit l'onglet Périmètre,
+   * qui filtre lui-même sur `reco.compteur_ids`. En descendant le périmètre dans le volet gauche le
+   * 25/08/2026, je lui ai passé la liste ENTIÈRE — la carte annonçait donc « Périmètre 7899 » sur
+   * chaque recommandation, et listait des points de livraison étrangers au dossier. Signalé par
+   * Naoëlle dans l'heure.
+   */
+  const compteursDuPerimetre = useMemo(() => {
+    const ids = new Set(reco?.compteur_ids ?? [])
+    return (compteurs ?? []).filter((c) => ids.has(c.id))
+  }, [compteurs, reco?.compteur_ids])
+
   // `estClose` se lit sur la finalité et non sur l'étape : une recommandation peut être posée sur
   // l'étape Clôture sans qualification finale (130 lignes en base), et l'inverse n'existe pas.
   const finalite = (reco?.finalite_cloture ?? null) as CleFinalite | null
@@ -682,7 +696,7 @@ export default function RecommandationDetail() {
             reco={reco}
             compte={compte}
             contacts={contacts ?? []}
-            compteurs={compteurs ?? []}
+            compteurs={compteursDuPerimetre}
             documents={(documents ?? []).map((d) => ({ id: d.id, nom: d.nom, type_document: d.type_document ?? null }))}
             contactPrincipal={contactPrincipal}
             versionAffichee={versionAffichee}
