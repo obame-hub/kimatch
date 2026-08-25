@@ -17,8 +17,9 @@ import { FilPortefeuille } from '@/components/dashboard/FilPortefeuille'
 import { BandeauMarge } from '@/components/dashboard/BandeauMarge'
 import { TuileChiffre } from '@/components/dashboard/TuileChiffre'
 import { MaJournee } from '@/components/dashboard/MaJournee'
+import { MaPerformance } from '@/components/dashboard/MaPerformance'
 import { useDashboardStats, type SectionAction } from '@/lib/data/dashboard'
-import { useChiffresTableauDeBord, useMesActions } from '@/lib/data/tableauDeBord'
+import { useChiffresTableauDeBord, useMaPerformance, useMesActions } from '@/lib/data/tableauDeBord'
 import { useMonProfil } from '@/lib/data/roles'
 
 /**
@@ -191,6 +192,7 @@ export default function Dashboard() {
   const { data: monProfil } = useMonProfil()
   const { data: chiffres, isLoading: chiffresEnCours } = useChiffresTableauDeBord()
   const { data: journee, isLoading: journeeEnCours } = useMesActions(monProfil?.id)
+  const { data: perso, isLoading: persoEnCours } = useMaPerformance(monProfil?.id)
 
   // « MARDI 25 AOÛT 2026 » — la date complète, comme sur sa maquette.
   const dateDuJour = new Date().toLocaleDateString('fr-FR', {
@@ -282,6 +284,13 @@ export default function Dashboard() {
             definition="Somme des montants d’affaire des recommandations ouvertes. Le badge dit combien d’entre elles portent un montant : le pipe est partiel tant qu’elles ne sont pas toutes chiffrées."
             onClick={() => navigate('/recommandations')}
           />
+        </div>
+
+        {/* ══════ MA PERFORMANCE ══════
+            Sa maquette révisée place le personnel SOUS le global : on lit d'abord où en est Kiwee,
+            ensuite sa part. L'inverse ferait du tableau de bord un miroir. */}
+        <div className="mt-4">
+          <MaPerformance chiffres={perso} chargement={persoEnCours} prenom={null} />
         </div>
 
         {/* ══════ MA JOURNÉE ══════ */}

@@ -357,3 +357,83 @@ export function useMesActions(profilId: string | null | undefined) {
     },
   })
 }
+
+export interface MaPerformance {
+  margeMois: number
+  nbAcceptees: number
+  nbDecidees: number
+  /** Acceptées ÷ décidées, en pourcentage. `null` quand rien n'a été décidé ce mois. */
+  tauxTransformation: number | null
+  margeMoyenne: number | null
+  /** La même moyenne sur toute l'équipe — la seule référence que la base sache produire. */
+  margeMoyenneEquipe: number | null
+}
+
+/**
+ * MA PERFORMANCE — le second bloc de sa maquette révisée du 25/08/2026.
+ *
+ * Il sépare désormais deux échelles de la MÊME mesure : « Performance globale Kiwee » et
+ * « Ma performance ». Ce faisant il a réglé sa propre question du matin — il n'y a plus de partage
+ * « Commercial 60 % / Kiwee 40 % » à calculer, il y a une équipe et un commercial.
+ *
+ * L'AFFAIRE EST CRÉDITÉE AU PROPRIÉTAIRE, PAS AU RESPONSABLE, et ce n'est pas un choix de style :
+ * `responsable_profil_id` n'est renseigné que sur 10 recommandations sur 1 708, contre 1 696 pour
+ * `proprietaire_id` (mesuré le 26/08/2026). Sur le responsable, chacun aurait vu zéro.
+ *
+ * CHAQUE TUILE PORTE SA RÉFÉRENCE, comme sur sa maquette — mais seulement celles que la base sait
+ * produire. Ses objectifs chiffrés (33 000 € par commercial, 520 000 € pour Kiwee) n'existent nulle
+ * part : aucune table ne les porte. Les tuiles montrent donc ce qui est vérifiable — la moyenne de
+ * l'équipe, le dénominateur du taux — et aucune barre ne prétend mesurer un objectif absent.
+ *
+ * « ACCEPTÉES SUR PRÉSENTÉES » DEVIENT « SUR DÉCIDÉES ». Sa maquette dit « 12 acceptées sur 50
+ * présentées », mais la base ne garde pas la trace d'un passage par « Présentée » : une affaire
+ * acceptée porte l'étape Acceptée, et rien ne dit qu'elle a été présentée. Le dénominateur honnête
+ * est donc l'ensemble des affaires DÉCIDÉES sur le mois — acceptées, refusées, abandonnées — qui
+ * forment une partition et se comptent sans supposition.
+ */
+export function useMaPerformance(profilId: string | null | undefined) {
+  return useQuery({
+    queryKey: ['tableau-de-bord', 'ma-performance', profilId],
+    enabled: !!profilId,
+    staleTime: 5 * 60 * 1000,
+    queryFn: async (): Promise<MaPerformance> => {
+      const etapes = await idsParCode('etapes_recommandation')
+      const debut = debutDeMois(0)
+      const fin = debutDeMois(1)
+
+      const surLeMois = (colonnes: string) =>
+        supabase
+          .from('recommandations')
+          .select(colonnes)
+          .eq('actif', true)
+          .gte('date_cloture', debut)
+          .lt('date_cloture', fin)
+
+      const decidees = [etapes.ACCEPTEE, etapes.REFUSEE, etapes.ABANDONNEE].filter(Boolean)
+
+      const [mes, mesDecidees, equipe] = await Promise.all([
+        surLeMois('marge_nette').eq('proprietaire_id', profilId).eq('etape_id', etapes.ACCEPTEE),
+        surLeMois('id').eq('proprietaire_id', profilId).in('etape_id', decidees),
+        // La moyenne de l'équipe : toutes les affaires acceptées du mois, tous propriétaires.
+        surLeMois('marge_nette').eq('etape_id', etapes.ACCEPTEE),
+      ])
+
+      const lignes = (mes.data ?? []) as unknown as { marge_nette: number | null }[]
+      const lignesEquipe = (equipe.data ?? []) as unknown as { marge_nette: number | null }[]
+
+      const margeMois = somme(lignes, 'marge_nette')
+      const nbAcceptees = lignes.length
+      const nbDecidees = ((mesDecidees.data ?? []) as unknown[]).length
+      const margeEquipe = somme(lignesEquipe, 'marge_nette')
+
+      return {
+        margeMois,
+        nbAcceptees,
+        nbDecidees,
+        tauxTransformation: nbDecidees > 0 ? (nbAcceptees / nbDecidees) * 100 : null,
+        margeMoyenne: nbAcceptees > 0 ? margeMois / nbAcceptees : null,
+        margeMoyenneEquipe: lignesEquipe.length > 0 ? margeEquipe / lignesEquipe.length : null,
+      }
+    },
+  })
+}

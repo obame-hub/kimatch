@@ -62,7 +62,11 @@ export function BandeauMarge({
         {/* ── LE CHIFFRE DU MOIS ── */}
         <div>
           <div className="flex items-center gap-2">
-            <p className="text-kw-xs font-bold text-kw-body">Marge générée</p>
+            {/* SON TITRE DU SOIR : « Performance globale Kiwee ». La maquette du matin disait
+                simplement « Marge générée » ; en séparant l'échelle de l'équipe de la sienne, il a
+                rendu le mot « globale » nécessaire — sans lui, un commercial lirait ce chiffre
+                comme le sien. */}
+            <p className="text-kw-xs font-bold text-kw-body">Performance globale Kiwee</p>
             <span className="rounded-kw-md border border-kw-green-border bg-white px-2 py-0.5 text-kw-micro font-bold capitalize text-kw-meta">
               {mois}
             </span>
@@ -93,7 +97,7 @@ export function BandeauMarge({
                 par rapport au mois dernier ({euros(c.margeMoisPrecedent)})
               </>
             ) : (
-              'Marge nette des recommandations acceptées ce mois.'
+              'Marge nette de toutes les recommandations acceptées ce mois.'
             )}
           </p>
         </div>
