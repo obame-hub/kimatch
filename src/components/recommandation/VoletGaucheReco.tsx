@@ -1,7 +1,8 @@
 import { useState, type ReactNode } from 'react'
-import { Building2, User, History, Coins, Send, Phone, Mail, RotateCcw, Search, Check, ExternalLink, Copy } from 'lucide-react'
+import { Building2, User, History, Coins, Send, Phone, Mail, RotateCcw, Search, Check, ExternalLink, Copy, Gauge, Folder } from 'lucide-react'
 import { EntityLink } from '@/components/ui/entity-link'
 import { cn } from '@/lib/utils'
+import type { Compteur } from '@/types/domain'
 import {
   usePartageEtudeClient,
   useEnvoyerEtudeClient,
@@ -161,6 +162,8 @@ export function VoletGaucheReco({
   reco,
   compte,
   contacts,
+  compteurs,
+  documents,
   contactPrincipal,
   versionAffichee,
   statutsVersions,
@@ -175,6 +178,9 @@ export function VoletGaucheReco({
   reco: Recommandation
   compte: Compte | null | undefined
   contacts: Contact[]
+  /** Le périmètre et les documents descendent ici depuis les onglets — voir le bloc ci-dessous. */
+  compteurs: Compteur[]
+  documents: { id: string; nom: string; type_document: string | null }[]
   contactPrincipal: Contact | null | undefined
   versionAffichee: VersionRecommandation | null
   /** Table de référence des statuts de version : la frise affiche le libellé, pas le code. */
@@ -334,6 +340,78 @@ export function VoletGaucheReco({
           </p>
         )}
       </div>
+
+      {/* ══════════ PÉRIMÈTRE ══════════
+          Michel, 25/08/2026 : « le périmètre, je le mettrais en dessous de contact », et la règle
+          qu'il en tire — « tous les objets qui sont liés à la recommandation, ou à l'opportunité, je
+          les mettrais toujours sur la gauche, comme ça on a toujours la même logique ». Naoëlle a
+          reformulé : « au compteur, dans un carré à gauche, en dessous de contact principal ». */}
+      <Carte
+        icone={<Gauge className="h-[11px] w-[11px]" />}
+        teinte="bg-kw-muted text-kw-meta"
+        titre="Périmètre"
+        droite={<span className="font-mono text-kw-micro font-extrabold text-kw-faint">{compteurs.length}</span>}
+      >
+        {compteurs.length === 0 ? (
+          <p className="text-kw-micro text-kw-faint">Aucun point de livraison rattaché.</p>
+        ) : (
+          <div className="flex flex-col gap-1">
+            {compteurs.slice(0, 6).map((k) => (
+              <a
+                key={k.id}
+                href={`/compteurs/${k.id}`}
+                className="flex items-baseline justify-between gap-2 rounded-kw-sm px-1 py-0.5 hover:bg-kw-bg"
+              >
+                <span className="truncate font-mono text-kw-micro font-bold text-kw-ink">{k.numero_pdl}</span>
+                <span className="shrink-0 font-mono text-kw-micro text-kw-faint">
+                  {k.consommation_annuelle_mwh != null
+                    ? `${k.consommation_annuelle_mwh.toLocaleString('fr-FR', { maximumFractionDigits: 0 })} MWh`
+                    : '—'}
+                </span>
+              </a>
+            ))}
+            {/* On dit le reste plutôt que de le couper en silence. */}
+            {compteurs.length > 6 && (
+              <span className="px-1 text-kw-micro text-kw-faint">et {compteurs.length - 6} autres</span>
+            )}
+          </div>
+        )}
+      </Carte>
+
+      {/* ══════════ DOCUMENTS ══════════
+          « Les documents et document, c'est un objet aussi, je le mettrais en dessous. » Il précise
+          pourquoi l'onglet ne servait à rien : « les documents sont dans les versions en vérité, donc
+          en réalité j'ai pas besoin de documents » — sauf un cas qu'il nomme lui-même, « le client a
+          envoyé une offre d'un fournisseur qu'il a déjà reçue ». D'où une carte et non un onglet :
+          l'exception se voit sans occuper une place permanente. */}
+      <Carte
+        icone={<Folder className="h-[11px] w-[11px]" />}
+        teinte="bg-kw-muted text-kw-meta"
+        titre="Documents"
+        droite={<span className="font-mono text-kw-micro font-extrabold text-kw-faint">{documents.length}</span>}
+      >
+        {documents.length === 0 ? (
+          <p className="text-kw-micro text-kw-faint">
+            Aucun document sur le dossier — ceux des consultations vivent sur leur version.
+          </p>
+        ) : (
+          <div className="flex flex-col gap-1">
+            {documents.slice(0, 6).map((d) => (
+              <a
+                key={d.id}
+                href={`/documents/${d.id}`}
+                className="truncate rounded-kw-sm px-1 py-0.5 text-kw-micro font-semibold text-kw-ink hover:bg-kw-bg"
+                title={d.nom}
+              >
+                {d.nom}
+              </a>
+            ))}
+            {documents.length > 6 && (
+              <span className="px-1 text-kw-micro text-kw-faint">et {documents.length - 6} autres</span>
+            )}
+          </div>
+        )}
+      </Carte>
 
       {/* ── VERSIONS ── */}
       <Carte

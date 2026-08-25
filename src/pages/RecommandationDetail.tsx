@@ -99,6 +99,14 @@ const PRIORITE_LABEL: Record<number, string> = { 1: 'Haute', 2: 'Normale', 3: 'B
 
 type CleOnglet = 'reco' | 'cmd' | 'comparatif' | 'perimetre' | 'docs'
 
+/**
+ * COMMANDE DU CLIENT EST MASQUÉE. Michel, 25/08/2026 : « pour le moment, commande client, je le
+ * mettrais pas parce que pour l'instant on ne l'utilise pas en réalité » — et Naoëlle a précisé :
+ * effacer de l'AFFICHAGE, pas de la base. L'onglet, son contenu et ses objectifs restent entiers
+ * derrière cet interrupteur ; un mot à changer pour les faire revenir.
+ */
+const AFFICHER_COMMANDE_CLIENT = false
+
 export default function RecommandationDetail() {
   const { id } = useParams()
   const navigate = useNavigate()
@@ -232,18 +240,25 @@ export default function RecommandationDetail() {
     [reco, versionActive, derniereRelance],
   )
   const onglets: { cle: CleOnglet; libelle: string; badge?: string }[] = useMemo(() => {
-    const cmd = { cle: 'cmd' as CleOnglet, libelle: 'Commande du client', badge: (objectifs ?? []).length > 0 ? `${(objectifs ?? []).length} obj.` : undefined }
-    const rec = { cle: 'reco' as CleOnglet, libelle: 'Recommandation', badge: reco && reco.versions.length > 0 ? `${reco.versions.length} vers.` : undefined }
+    // DEUX ONGLETS, ET C'EST TOUT. Michel, 25/08/2026 : « je garderai recommandation donc avec les
+    // infos de la recommandation, je garde les comparatifs [...] ça fait recommandation, ça fait
+    // comparatif tout simplement ».
+    //
+    // COMMANDE DU CLIENT part de l'affichage : « pour le moment, commande client, je le mettrais
+    // pas parce que pour l'instant on ne l'utilise pas en réalité ». Naoëlle a précisé le geste —
+    // « l'effacer de l'affichage, pas de la base » — d'où un interrupteur et non une suppression.
+    //
+    // PÉRIMÈTRE ET DOCUMENTS descendent dans le volet de gauche, et la raison qu'il en donne vaut
+    // pour tout l'écran : « tous les objets qui sont liés à la recommandation, ou à l'opportunité,
+    // je les mettrais toujours sur la gauche, comme ça on a toujours la même logique ».
     return [
-      ...(commandeDabord ? [cmd, rec] : [rec, cmd]),
-      // LE COMPARATIF A SON PROPRE ONGLET. Michel, 25/08/2026 : « le bloc de comparatif de version
-      // on le transforme en onglet », et « conserver uniquement les détails de la version active,
-      // pas le comparatif » sur l'onglet Recommandation.
-      { cle: 'comparatif', libelle: 'Comparatif', badge: reco && reco.versions.length > 1 ? `${reco.versions.length} vers.` : undefined },
-      { cle: 'perimetre', libelle: 'Périmètre', badge: (reco?.compteur_ids ?? []).length > 0 ? String((reco?.compteur_ids ?? []).length) : undefined },
-      { cle: 'docs', libelle: 'Documents', badge: (documents ?? []).length > 0 ? String((documents ?? []).length) : undefined },
+      { cle: 'reco' as CleOnglet, libelle: 'Recommandation', badge: reco && reco.versions.length > 0 ? `${reco.versions.length} vers.` : undefined },
+      { cle: 'comparatif' as CleOnglet, libelle: 'Comparatif', badge: reco && reco.versions.length > 1 ? `${reco.versions.length} vers.` : undefined },
+      ...(AFFICHER_COMMANDE_CLIENT
+        ? [{ cle: 'cmd' as CleOnglet, libelle: 'Commande du client', badge: (objectifs ?? []).length > 0 ? `${(objectifs ?? []).length} obj.` : undefined }]
+        : []),
     ]
-  }, [commandeDabord, objectifs, reco, documents])
+  }, [objectifs, reco])
 
   useRaccourcisOnglets(
     useMemo(() => onglets.map((o) => o.cle), [onglets]),
@@ -252,7 +267,7 @@ export default function RecommandationDetail() {
 
   // L'onglet par défaut suit la même règle que l'ordre : au Diagnostic, on ouvre sur la commande.
   useEffect(() => {
-    if (commandeDabord) setOnglet('cmd')
+    if (commandeDabord && AFFICHER_COMMANDE_CLIENT) setOnglet('cmd')
   }, [commandeDabord])
 
   const etapeSuivante = reco ? etapeSuivanteDuRail(etapes, reco.etape) : null
@@ -667,6 +682,8 @@ export default function RecommandationDetail() {
             reco={reco}
             compte={compte}
             contacts={contacts ?? []}
+            compteurs={compteurs ?? []}
+            documents={(documents ?? []).map((d) => ({ id: d.id, nom: d.nom, type_document: d.type_document ?? null }))}
             contactPrincipal={contactPrincipal}
             versionAffichee={versionAffichee}
             statutsVersions={statutsVersions}
