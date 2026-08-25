@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, type ReactNode } from 'react'
 import { budgetGazDecompose, TAUX_TVA_GAZ } from '@/lib/calculs/budgetGaz'
 import type { PrixOffreGaz } from '@/types/domain'
 
@@ -52,6 +52,19 @@ import type { PrixOffreGaz } from '@/types/domain'
  *
  * La grille et l'ordre ne changent pas : les titres restent face à face.
  *
+ * DES APLATS POUR SÉPARER LES CATÉGORIES, demandés par Naoëlle le 25/08/2026 : « des blocs très très
+ * clairs en fond pour séparer les catégories, car là tout est sur fond blanc et on ne sait pas où
+ * donner de la tête … afin que ça ne fasse pas trop de couleur ». Chaque famille repose donc sur un
+ * aplat, et les six aplats sont IDENTIQUES : ils ne hiérarchisent rien, ils délimitent.
+ *
+ * UN SEUL GRIS, DÉJÀ DANS LA CHARTE — `kw-sunken`, #f4f3ef, le plus clair des fonds de l'app. Aucune
+ * couleur n'entre dans le document : le vert reste réservé à ce qui fait décider (l'offre retenue en
+ * page 1, le total ici), le gris ne fait que poser les limites. C'est la condition pour que les
+ * blocs aident à lire au lieu d'ajouter du bruit.
+ *
+ * ET LES FILETS INTÉRIEURS PASSENT DE #f5f4f1 À #e7e6e2 : sur fond blanc le filet le plus pâle
+ * suffisait, sur un aplat gris il devenait plus clair que son propre fond — donc invisible.
+ *
  * GAZ SEULEMENT. Un compteur d'électricité n'a ni molécule, ni CEE, ni accise gaz : ses composantes
  * sont le TURPE et les classes horosaisonnières. Transposer cette présentation serait inventer un
  * document qu'aucun fournisseur n'a envoyé — l'appelant retombe alors sur les lignes essentielles.
@@ -78,7 +91,7 @@ function Ligne({
   fort?: boolean
 }) {
   return (
-    <div className="flex items-baseline gap-3 border-b border-kw-border-faint py-[7px] last:border-b-0">
+    <div className="flex items-baseline gap-3 border-b border-kw-border py-[7px] last:border-b-0">
       <span className={fort ? 'text-kw-h3 font-bold text-kw-ink' : 'text-kw-h4 text-kw-body'}>{intitule}</span>
       {sigle && <span className="font-mono text-kw-tiny text-kw-faint">{sigle}</span>}
       <span className="flex-1" />
@@ -93,6 +106,15 @@ function Ligne({
       </span>
     </div>
   )
+}
+
+/**
+ * UN BLOC DE CATÉGORIE : l'aplat sur lequel repose une famille, titre vert compris. Ni bordure ni
+ * ombre — un aplat suffit à dire « ceci va ensemble », et six blocs bordés redessineraient la grille
+ * qu'on vient justement d'alléger.
+ */
+function Bloc({ children }: { children: ReactNode }) {
+  return <div className="rounded-kw-lg bg-kw-sunken px-3.5 py-3">{children}</div>
 }
 
 /** Les intitulés de famille, en vert — « comme rémunération des CEE, je vais mettre taxe ». */
@@ -159,8 +181,10 @@ export function ConditionsFournisseurRetenu({
    */
   return (
     <div className="mt-2">
-      <div className="grid grid-cols-1 items-start gap-x-14 gap-y-1 sm:grid-cols-2">
-        {/* ── Ligne 1 : les deux en-têtes de colonne ── */}
+      {/* `gap-y-4` et non `gap-y-1` : entre deux aplats, l'espace est ce qui les fait lire comme
+          deux blocs. Serrés, ils ne formeraient qu'une seule zone grise. */}
+      <div className="grid grid-cols-1 items-start gap-x-14 gap-y-4 sm:grid-cols-2">
+        {/* ── Ligne 1 : les deux en-têtes de colonne, hors aplat — ce sont des titres ── */}
         <p className="border-b-2 border-kw-ink pb-1 text-kw-h2 font-extrabold uppercase tracking-[0.05em] text-kw-ink">Prix détaillé</p>
         <div className="flex flex-wrap items-baseline gap-2 border-b-2 border-kw-ink pb-1">
           <p className="text-kw-h2 font-extrabold uppercase tracking-[0.05em] text-kw-ink">
@@ -194,19 +218,19 @@ export function ConditionsFournisseurRetenu({
         </div>
 
         {/* ── Ligne 2 : PRIX DU FOURNISSEUR ── */}
-        <div>
+        <Bloc>
           <Famille>Prix du fournisseur</Famille>
           <Ligne intitule="Molécule" valeur={parMwh(prixGaz.prix_energie_mwh)} />
           <Ligne intitule="Certificat d’économie d’énergie" sigle="CEE" valeur={parMwh(prixGaz.prix_cee_mwh)} />
           <Ligne intitule="Certificat de production biogaz" sigle="CPB" valeur={parMwh(prixGaz.prix_cpb_mwh)} />
-        </div>
-        <div>
+        </Bloc>
+        <Bloc>
           <Famille>Prix du fournisseur</Famille>
           <Ligne intitule="Montant total" valeur={euros(b.budgetFournisseur) + ' HT/an'} />
-        </div>
+        </Bloc>
 
         {/* ── Ligne 3 : ACHEMINEMENT, DISTRIBUTION ET TRANSPORT ── */}
-        <div>
+        <Bloc>
           <Famille>Acheminement, distribution et transport</Famille>
           <Ligne
             intitule="Total abonnement"
@@ -217,14 +241,14 @@ export function ConditionsFournisseurRetenu({
           {prixGaz.prix_atrt_mwh != null && (
             <Ligne intitule="Terme quantité transport" sigle="ATRT" valeur={parMwh(prixGaz.prix_atrt_mwh)} />
           )}
-        </div>
-        <div>
+        </Bloc>
+        <Bloc>
           <Famille>Acheminement, distribution et transport</Famille>
           <Ligne intitule="Montant total" valeur={euros(b.budgetAcheminement) + ' HT/an'} />
-        </div>
+        </Bloc>
 
         {/* ── Ligne 4 : TAXE ── */}
-        <div>
+        <Bloc>
           <Famille>Taxe</Famille>
           <Ligne
             intitule="Contribution tarifaire d’acheminement"
@@ -234,8 +258,8 @@ export function ConditionsFournisseurRetenu({
           {/* L'accise en €/MWh et non par an : « le montant mégawattheure qui sera calculé en
               fonction de la consommation ». */}
           <Ligne intitule="Accise sur le gaz naturel" sigle="ex-TICGN" valeur={parMwh(prixGaz.prix_agn_mwh)} />
-        </div>
-        <div>
+        </Bloc>
+        <Bloc>
           <Famille>Taxe</Famille>
           <Ligne intitule="Montant total" valeur={euros(b.budgetTaxes) + ' HT/an'} />
           {/* LA TVA EST HORS DES TROIS FAMILLES — « on les mettra juste en dessous du budget ». Elle
@@ -243,15 +267,15 @@ export function ConditionsFournisseurRetenu({
               laisserait la gauche vide. Elle disparaît en base hors taxes : la montrer sans la
               compter dans le total serait le meilleur moyen de faire douter du total. */}
           {ttc && (
-            <div className="mt-1.5 border-t border-kw-border pt-1.5">
+            <div className="mt-1.5 border-t-2 border-kw-border-strong pt-1.5">
               <Ligne intitule={'TVA (' + pourcent + ')'} valeur={euros(b.tva) + '/an'} />
             </div>
           )}
-        </div>
+        </Bloc>
       </div>
 
       {/* ══════ CE QUI N'A PAS DE VIS-À-VIS : EN PLEINE LARGEUR, SOUS LES DEUX COLONNES ══════ */}
-      <div className="mt-7 rounded-kw-lg border-2 border-kw-green bg-kw-green-tint px-4 py-3">
+      <div className="mt-6 rounded-kw-lg border-2 border-kw-green bg-kw-green-tint px-4 py-3">
         <Ligne
           intitule={ttc ? 'Total TTC' : 'Total hors taxes'}
           valeur={euros(ttc ? b.totalTtc : b.totalHt) + '/an'}
@@ -272,7 +296,7 @@ export function ConditionsFournisseurRetenu({
       {/* « C'est pas la date à laquelle on a fait la demande de cotation, c'est le DÉBUT DE
           FOURNITURE. » */}
       {debut && (
-        <p className="mt-3 text-kw-h4 font-bold uppercase tracking-[0.05em] text-kw-ink">
+        <p className="mt-3 rounded-kw-lg bg-kw-sunken px-3.5 py-2.5 text-kw-h4 font-bold uppercase tracking-[0.05em] text-kw-ink">
           Début de fourniture le {dateFr(debut)}
         </p>
       )}
@@ -286,6 +310,8 @@ export function ConditionsFournisseurRetenu({
         </p>
       )}
 
+      {/* Les mentions restent sur le blanc : ce sont les seules lignes qu'on peut ne pas lire, et
+          leur donner un aplat leur donnerait un poids qu'elles n'ont pas. */}
       <p className="mt-3 max-w-[95ch] text-kw-xs leading-relaxed text-kw-faint">
         Montants indicatifs, calculés sur la consommation de référence et les composantes
         réglementaires applicables à la date de l’analyse.

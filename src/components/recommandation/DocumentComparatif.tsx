@@ -38,6 +38,22 @@ import type {
  * n'est pas nécessaire, on ne met pas. » Son exemple de ce qu'il faut retirer : la répartition
  * énergie / taxes / acheminement — « c'est joli, c'est vrai, mais personne ne regarde ça ».
  *
+ * UN APLAT PAR CATÉGORIE, SUR LES TROIS PAGES. Naoëlle, 25/08/2026 : « des blocs très très clairs
+ * en fond pour séparer les catégories, car là tout est sur fond blanc et on ne sait pas où donner de
+ * la tête … afin que ça ne fasse pas trop de couleur ».
+ *
+ * UN SEUL GRIS POUR TOUT LE DOCUMENT : `kw-sunken`, #f4f3ef. Les repères du dossier, l'en-tête du
+ * tableau, la consommation de référence, les six familles de conditions et la méthode reposent sur le
+ * même aplat — le lecteur apprend la convention une fois et la relit partout.
+ *
+ * LE VERT NE SERT QU'À DÉCIDER — l'offre recommandée et le total. C'est aussi pourquoi la ligne de
+ * l'offre retenue garde son fond vert dans un tableau dont l'en-tête est gris : deux gris auraient
+ * effacé la seule information que le client cherche.
+ *
+ * ET LES APLATS S'IMPRIMENT : `print-color-adjust: exact` est déjà posé sur `#document-comparatif`
+ * dans index.css. Sans lui, les navigateurs suppriment les fonds à l'impression pour économiser
+ * l'encre, et le rapport téléchargé serait resté le document tout blanc qu'on corrige ici.
+ *
  * DEUX POINTS OÙ JE NE PEUX PAS INVENTER, et qui s'affichent donc pour ce qu'ils sont :
  *
  * · LA DATE DE DÉBUT n'existe nulle part dans nos données — ni sur l'offre, ni sur la version. Ce
@@ -265,7 +281,9 @@ export function DocumentComparatif({
               Compte rendu de consultation — {energies.join(' et ')}
             </h1>
 
-            <dl className="mt-3 grid grid-cols-1 gap-x-8 gap-y-1 sm:grid-cols-2">
+            {/* LES REPÈRES DU DOSSIER, sur leur aplat : client, site, volume, dates. Six
+                informations de même nature, donc un bloc et non six lignes flottantes. */}
+            <dl className="mt-3 grid grid-cols-1 gap-x-8 rounded-kw-lg bg-kw-sunken px-4 py-3 sm:grid-cols-2">
               <Ligne libelle="Client" valeur={nomDuClient ?? '—'} />
               <Ligne
                 libelle={sites.length > 1 ? 'Sites' : 'Site'}
@@ -325,7 +343,10 @@ export function DocumentComparatif({
                 toujours 15 heures. » Une échéance sans heure se lit « fin de journée », ce qui n'est
                 pas ce qu'il veut dire — et c'est le genre de flou qui coûte une affaire. */}
             {validite ? (
-              <p className="mt-4 rounded-kw-md bg-kw-muted px-3 py-2 text-kw-base font-bold">
+              /* CETTE LIGNE N'EST PAS UNE CATÉGORIE, C'EST UNE ÉCHÉANCE — elle prend donc le gris
+                 d'un cran plus dense (#f0efec) et une bordure, pour ne pas se confondre avec les
+                 blocs d'information qui l'entourent. */
+              <p className="mt-4 rounded-kw-md border border-kw-border-strong bg-kw-muted px-4 py-2.5 text-kw-md font-bold">
                 Décision attendue avant le {dateFr(validite)} à {HEURE_DECISION}.
               </p>
             ) : (
@@ -353,15 +374,15 @@ export function DocumentComparatif({
             <div className="mt-2 overflow-x-auto">
               <table className="w-full border-collapse text-kw-sm">
                 <thead>
-                  <tr className="border-b-2 border-kw-ink text-left">
-                    <th className="py-1.5 pr-3 font-bold">Fournisseur</th>
-                    <th className="py-1.5 pr-3 font-bold">Durée</th>
-                    <th className="py-1.5 pr-3 font-bold">Type de prix</th>
-                    <th className="py-1.5 pr-3 text-right font-bold">Abonnement</th>
-                    <th className="py-1.5 pr-3 text-right font-bold">Énergie</th>
-                    <th className="py-1.5 pr-3 text-right font-bold">Réseau et taxes</th>
-                    <th className="py-1.5 pr-3 text-right font-bold">Budget annuel</th>
-                    <th className="py-1.5 text-right font-bold">Écart</th>
+                  <tr className="border-b-2 border-kw-ink bg-kw-sunken text-left">
+                    <th className="px-2 py-1.5 font-bold">Fournisseur</th>
+                    <th className="px-2 py-1.5 font-bold">Durée</th>
+                    <th className="px-2 py-1.5 font-bold">Type de prix</th>
+                    <th className="px-2 py-1.5 text-right font-bold">Abonnement</th>
+                    <th className="px-2 py-1.5 text-right font-bold">Énergie</th>
+                    <th className="px-2 py-1.5 text-right font-bold">Réseau et taxes</th>
+                    <th className="px-2 py-1.5 text-right font-bold">Budget annuel</th>
+                    <th className="px-2 py-1.5 text-right font-bold">Écart</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -377,14 +398,14 @@ export function DocumentComparatif({
                         key={o.id}
                         className={cn('border-b border-kw-border-faint', estRetenue && 'bg-kw-green-tint font-bold')}
                       >
-                        <td className="py-1.5 pr-3">{o.fournisseur_nom}</td>
-                        <td className="py-1.5 pr-3">{o.duree_mois != null ? `${o.duree_mois} mois` : '—'}</td>
-                        <td className="py-1.5 pr-3">{o.type_prix ?? '—'}</td>
-                        <td className="py-1.5 pr-3 text-right font-mono tabular-nums">{euros(c.abonnement)}</td>
-                        <td className="py-1.5 pr-3 text-right font-mono tabular-nums">{euros(c.energie)}</td>
-                        <td className="py-1.5 pr-3 text-right font-mono tabular-nums">{euros(c.reseauEtTaxes)}</td>
-                        <td className="py-1.5 pr-3 text-right font-mono tabular-nums">{euros(o.montant_annuel_ht)}</td>
-                        <td className="py-1.5 text-right font-mono tabular-nums">
+                        <td className="px-2 py-1.5 pr-3">{o.fournisseur_nom}</td>
+                        <td className="px-2 py-1.5 pr-3">{o.duree_mois != null ? `${o.duree_mois} mois` : '—'}</td>
+                        <td className="px-2 py-1.5 pr-3">{o.type_prix ?? '—'}</td>
+                        <td className="px-2 py-1.5 text-right font-mono tabular-nums">{euros(c.abonnement)}</td>
+                        <td className="px-2 py-1.5 text-right font-mono tabular-nums">{euros(c.energie)}</td>
+                        <td className="px-2 py-1.5 text-right font-mono tabular-nums">{euros(c.reseauEtTaxes)}</td>
+                        <td className="px-2 py-1.5 text-right font-mono tabular-nums">{euros(o.montant_annuel_ht)}</td>
+                        <td className="px-2 py-1.5 text-right font-mono tabular-nums">
                           {estRetenue ? 'Référence' : ecart == null ? '—' : `+${euros(ecart)}`}
                         </td>
                       </tr>
@@ -400,7 +421,7 @@ export function DocumentComparatif({
                 c'est le volume commun sur lequel tous ces budgets sont calculés, donc la clé de
                 lecture du tableau qui précède. */}
             {volumeTotal > 0 && (
-              <p className="mt-2 text-kw-base font-bold">
+              <p className="mt-3 rounded-kw-lg bg-kw-sunken px-4 py-2.5 text-kw-base font-bold">
                 Consommation de référence :{' '}
                 <span className="font-mono">
                   {volumeTotal.toLocaleString('fr-FR', { maximumFractionDigits: 2 })} MWh/an
@@ -439,7 +460,7 @@ export function DocumentComparatif({
                 consommation={detailRetenue.consommation_annuelle_reference_mwh ?? volumeTotal ?? null}
               />
             ) : (
-              <dl className="mt-2 grid grid-cols-1 gap-x-8 gap-y-1 sm:grid-cols-2">
+              <dl className="mt-2 grid grid-cols-1 gap-x-8 rounded-kw-lg bg-kw-sunken px-4 py-3 sm:grid-cols-2">
                 <Ligne libelle="Durée" valeur={retenue.duree_mois != null ? `${retenue.duree_mois} mois` : 'à vérifier'} />
                 <Ligne libelle="Prix" valeur={retenue.type_prix ?? 'à vérifier'} />
                 <Ligne libelle="Date de début" valeur={debut ? dateFr(debut) : 'à confirmer'} />
@@ -450,23 +471,27 @@ export function DocumentComparatif({
             {/* « Conditions particulières : uniquement si elles influencent la décision » — donc rien
                 du tout quand le champ est vide, et pas une ligne « — » qui occuperait la place. */}
             {retenue.description && (
-              <div className="mt-3">
-                <p className="text-kw-tiny font-bold uppercase tracking-[0.07em] text-kw-meta">
+              <div className="mt-3 rounded-kw-lg bg-kw-sunken px-4 py-3">
+                <p className="text-kw-sm font-extrabold uppercase tracking-[0.09em] text-kw-green">
                   Conditions particulières
                 </p>
-                <p className="mt-0.5 text-kw-base leading-snug">{retenue.description}</p>
+                <p className="mt-1 text-kw-h4 leading-relaxed">{retenue.description}</p>
               </div>
             )}
 
-            <h3 className="mt-6 text-kw-base font-extrabold">Méthode</h3>
-            <p className="mt-0.5 text-kw-sm leading-snug text-kw-body">
+            {/* LA MÉTHODE EST UNE CATÉGORIE À PART ENTIÈRE : c'est ce qui rend les chiffres
+                opposables. Même aplat que les autres, et son titre prend le vert des familles. */}
+            <div className="mt-5 rounded-kw-lg bg-kw-sunken px-4 py-3">
+              <h3 className="text-kw-sm font-extrabold uppercase tracking-[0.09em] text-kw-green">Méthode</h3>
+              <p className="mt-1 text-kw-xs leading-relaxed text-kw-body">
               Budget calculé à partir d'une consommation annuelle de{' '}
               {volumeTotal > 0
                 ? `${volumeTotal.toLocaleString('fr-FR', { maximumFractionDigits: 2 })} MWh`
                 : 'la consommation de référence indiquée'}{' '}
               et des composantes réglementaires applicables à la date de l'analyse. Les mêmes
-              hypothèses sont appliquées à toutes les offres comparées.
-            </p>
+                hypothèses sont appliquées à toutes les offres comparées.
+              </p>
+            </div>
           </section>
         </div>
       )}
@@ -477,7 +502,7 @@ export function DocumentComparatif({
 /** Une ligne « libellé : valeur », avec sa précision facultative sous la valeur. */
 function Ligne({ libelle, valeur, precision }: { libelle: string; valeur: string; precision?: string }) {
   return (
-    <div className="flex items-baseline gap-2 border-b border-kw-border-faint py-1">
+    <div className="flex items-baseline gap-2 border-b border-kw-border py-1 last:border-b-0">
       <dt className="shrink-0 text-kw-sm text-kw-meta">{libelle}</dt>
       <dd className="ml-auto text-right text-kw-base font-bold">
         {valeur}
