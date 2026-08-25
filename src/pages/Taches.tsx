@@ -8,6 +8,7 @@ import { Button } from '@/components/ui/button'
 import { EntityLink } from '@/components/ui/entity-link'
 import { Dialog } from '@/components/ui/dialog'
 import { FormField, Input, Select, Textarea } from '@/components/ui/form'
+import { echeanceLisible, instantTache } from '@/lib/heureTache'
 import { useActions, useCreateAction, useCompleteAction } from '@/lib/data/actions'
 import { useSites } from '@/lib/data/sites'
 import { useContacts } from '@/lib/data/contacts'
@@ -31,6 +32,9 @@ function CreateActionDialog({ open, onClose }: { open: boolean; onClose: () => v
   const [siteId, setSiteId] = useState('')
   const [contactId, setContactId] = useState('')
   const [echeance, setEcheance] = useState('')
+  // L'HEURE EST FACULTATIVE : la plupart des tâches sont des « à faire », pas des rendez-vous.
+  // Laissée vide, l'échéance vaut minuit local et « Ma journée » n'affiche pas d'heure.
+  const [heure, setHeure] = useState('')
   const [priorite, setPriorite] = useState(50)
   const [commentaire, setCommentaire] = useState('')
   const [feedback, setFeedback] = useState<string | null>(null)
@@ -41,6 +45,7 @@ function CreateActionDialog({ open, onClose }: { open: boolean; onClose: () => v
     setSiteId('')
     setContactId('')
     setEcheance('')
+    setHeure('')
     setPriorite(50)
     setCommentaire('')
     setFeedback(null)
@@ -62,7 +67,7 @@ function CreateActionDialog({ open, onClose }: { open: boolean; onClose: () => v
       contact_id: contactId || null,
       contact_nom: contact ? `${contact.prenom} ${contact.nom}` : '',
       priorite,
-      echeance: echeance || null,
+      echeance: instantTache(echeance, heure),
       commentaire: commentaire || null,
       statut_id: statutAFaire?.id ?? null,
     })
@@ -87,7 +92,19 @@ function CreateActionDialog({ open, onClose }: { open: boolean; onClose: () => v
             </Select>
           </FormField>
           <FormField label="Échéance">
-            <Input type="date" value={echeance} onChange={(e) => setEcheance(e.target.value)} />
+            <div className="flex gap-2">
+              <Input type="date" value={echeance} onChange={(e) => setEcheance(e.target.value)} />
+              {/* L'heure ne s'active qu'une fois la date posée : une heure sans jour ne veut rien
+                  dire, et un champ actif qui ne sera pas enregistré est un piège. */}
+              <Input
+                type="time"
+                value={heure}
+                disabled={!echeance}
+                onChange={(e) => setHeure(e.target.value)}
+                className="w-[110px]"
+                title="Heure facultative — sans elle, la tâche est simplement datée du jour"
+              />
+            </div>
           </FormField>
         </div>
         <div className="grid grid-cols-2 gap-3">
@@ -195,7 +212,7 @@ export default function Taches() {
               trailing={
                 <span className="flex flex-col items-end gap-1">
                   <Badge tone={STATUT_ACTION_TONE[a.statut] ?? 'neutral'}>{statuts.find((s) => s.code === a.statut)?.libelle ?? a.statut}</Badge>
-                  {a.echeance && <span className="text-navy-400">{new Date(a.echeance).toLocaleDateString('fr-FR')}</span>}
+                  {a.echeance && <span className="text-navy-400">{echeanceLisible(a.echeance)}</span>}
                 </span>
               }
               onClick={() => navigate(`/taches/${a.id}`)}

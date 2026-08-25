@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
+import { heureDe, instantTache } from '@/lib/heureTache'
 import { ArrowLeft, CheckSquare, Check, Trash2 } from 'lucide-react'
 import { Topbar } from '@/components/layout/Topbar'
 import { Button } from '@/components/ui/button'
@@ -145,7 +146,10 @@ export default function ActionDetail() {
                     label="Échéance"
                     emptyLabel="ajouter une échéance"
                     value={action.echeance ? action.echeance.slice(0, 10) : null}
-                    onCommit={(date_prevue) => majAction({ date_prevue })}
+                    /* MODIFIER LA DATE NE DOIT PAS EFFACER L'HEURE. Le champ en ligne ne rend
+                       qu'une date ; envoyée telle quelle, elle remplaçait un instant « 26/08 à
+                       09:30 » par minuit UTC. On recompose donc l'instant en gardant l'heure. */
+                    onCommit={(d) => majAction({ date_prevue: instantTache(d, heureDe(action.echeance)) })}
                     {...retourInline}
                   />
                   <InlineField
