@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { ArrowRight, Gauge, TrendingUp, UserCheck, CalendarCheck } from 'lucide-react'
+import { ArrowRight, Download, Gauge, TrendingUp, UserCheck, CalendarCheck } from 'lucide-react'
 import { PageHeader } from '@/components/ui/page-header'
 import { ListToolbar } from '@/components/ui/list-toolbar'
 import { Select } from '@/components/ui/form'
@@ -11,6 +11,7 @@ import {
   type TriPatrimoine,
 } from '@/lib/data/patrimoineComptes'
 import { volumeLisible } from '@/lib/volume'
+import { supabase } from '@/lib/supabase'
 import { cn } from '@/lib/utils'
 
 /**
@@ -101,6 +102,61 @@ export default function PerformanceComptes({ sansEntete }: { sansEntete?: boolea
     n == null || !d ? '—' : Math.round((100 * n) / d) + ' %'
 
   const total = liste.data?.[0]?.total ?? 0
+  const [exportEnCours, setExportEnCours] = useState(false)
+
+  /**
+   * L'EXPORT DE SA MAQUETTE — le bouton en haut à droite de sa page 2.
+   *
+   * Il porte sur TOUS les comptes, pas sur la tranche affichée : un export qui ne rend que les
+   * cinquante lignes visibles est un piège, on s'en aperçoit une fois le fichier ouvert. La
+   * recherche en cours est en revanche respectée — si on a filtré, c'est qu'on veut ce filtre.
+   *
+   * POINT-VIRGULE ET BOM, et ce n'est pas un détail : Excel en français découpe sur le point-virgule
+   * et lit l'UTF-8 uniquement s'il trouve la marque d'ordre des octets. Sans les deux, le fichier
+   * s'ouvre en une seule colonne avec les accents cassés — et personne ne s'en sert.
+   */
+  async function exporter() {
+    setExportEnCours(true)
+    try {
+      let q = supabase
+        .from('v_comptes_patrimoine')
+        .select(
+          'compte_nom, nb_compteurs, volume_mwh, nb_avec_contact, pct_contact, nb_echeance_valide, pct_echeance, nb_recos_acceptees, pct_recommandation, score',
+        )
+      const mots = recherche.trim()
+      if (mots) q = q.ilike('compte_nom', `%${mots}%`)
+      const { data, error } = await q.order(tri.cle, { ascending: tri.sens === 'asc', nullsFirst: false })
+      if (error || !data) return
+
+      const entetes = [
+        'Compte', 'Compteurs', 'Volume MWh', 'Compteurs liés à un contact', '% liés à un contact',
+        'Échéances valides', "% d'échéances valides", 'Recommandations acceptées',
+        '% recommandations par compteur', 'Score sur 100',
+      ]
+      const cellule = (v: unknown) => {
+        const t = v == null ? '' : String(v)
+        return /[";\r\n]/.test(t) ? '"' + t.replace(/"/g, '""') + '"' : t
+      }
+      const lignes = (data as unknown as Record<string, unknown>[]).map((r) =>
+        [
+          r.compte_nom, r.nb_compteurs, r.volume_mwh, r.nb_avec_contact, r.pct_contact,
+          r.nb_echeance_valide, r.pct_echeance, r.nb_recos_acceptees, r.pct_recommandation, r.score,
+        ]
+          .map(cellule)
+          .join(';'),
+      )
+
+      const csv = '﻿' + [entetes.join(';'), ...lignes].join('\r\n')
+      const url = URL.createObjectURL(new Blob([csv], { type: 'text/csv;charset=utf-8' }))
+      const a = document.createElement('a')
+      a.href = url
+      a.download = `patrimoine-comptes-${new Date().toISOString().slice(0, 10)}.csv`
+      a.click()
+      URL.revokeObjectURL(url)
+    } finally {
+      setExportEnCours(false)
+    }
+  }
 
   return (
     <div>
@@ -197,6 +253,16 @@ export default function PerformanceComptes({ sansEntete }: { sansEntete?: boolea
           placeholder="Rechercher un compte…"
           count={total}
         >
+          <button
+            type="button"
+            onClick={exporter}
+            disabled={exportEnCours}
+            title="Exporter tous les comptes de la sélection au format CSV"
+            className="inline-flex shrink-0 items-center gap-1.5 rounded-kw-md border border-kw-border-strong bg-white px-2.5 py-1.5 text-kw-sm font-bold text-kw-meta hover:bg-kw-subtle disabled:opacity-50"
+          >
+            <Download className="h-3.5 w-3.5" />
+            {exportEnCours ? 'Export…' : 'Exporter'}
+          </button>
           <Select
             value={String(indiceTri)}
             onChange={(e) => setIndiceTri(Number(e.target.value))}
