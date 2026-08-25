@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { Plus, ArrowRight, Check, Users, Filter, Paperclip, LayoutList, Columns3} from 'lucide-react'
+import { Plus, ArrowRight, Users, Filter } from 'lucide-react'
 import { Topbar } from '@/components/layout/Topbar'
 import { PageHeader } from '@/components/ui/page-header'
 import { Card } from '@/components/ui/card'
@@ -18,7 +18,6 @@ import {
   usePistes,
   useCreerLigneListe,
   useCreerPiste,
-  useMajPiste,
   useConvertirEnPiste,
   useConvertirPisteEnOpportunite,
   pisteQualifiee,
@@ -26,6 +25,7 @@ import {
 } from '@/lib/data/prospection'
 import { useStatutsOpportunites } from '@/lib/data/opportunites'
 import { cn } from '@/lib/utils'
+import { PanneauPiste } from '@/components/prospection/PanneauPiste'
 import { TableauKanban } from '@/components/dashboard/TableauKanban'
 import type { LigneListe, Piste } from '@/types/domain'
 
@@ -224,27 +224,26 @@ function OngletListes({ lignes, signaler }: { lignes: LigneListe[]; signaler: (m
 function OngletPistes({ pistes, signaler }: { pistes: Piste[]; signaler: (m: string) => void }) {
   const navigate = useNavigate()
   const [recherche, setRecherche] = useState('')
-  const maj = useMajPiste()
   const convertir = useConvertirPisteEnOpportunite()
   const { data: statuts } = useStatutsOpportunites()
   const [signalPour, setSignalPour] = useState<Piste | null>(null)
+  const [panneauPour, setPanneauPour] = useState<Piste | null>(null)
   // LES FICHIERS D'UNE PISTE. Une piste n'a pas de fiche à elle : le dialogue est donc le seul
   // endroit possible, et il porte le même onglet Fichiers que le compte et l'opportunité.
   const [fichiersPour, setFichiersPour] = useState<Piste | null>(null)
   // Même règle que pour les listes : l'onglet compte les pistes encore ouvertes, la liste montre
   // les mêmes.
-  const [ouvertes, setOuvertes] = useState(true)
-  const [vue, setVue] = useState<'liste' | 'kanban'>('liste')
 
+  /**
+   * Ce que le tableau montre — donc ce que le compteur du bandeau doit annoncer. Plus de filtre
+   * « ouvertes seulement » : les converties ont leur colonne, elles font partie du décompte.
+   */
   const filtrees = useMemo(() => {
     const q = recherche.trim().toLowerCase()
-    return pistes
-      .filter((p) => (ouvertes ? !p.opportunite_id : true))
-      .filter((p) => !q || [p.societe, p.contact_nom, p.email].filter(Boolean)
-        .some((v) => String(v).toLowerCase().includes(q)))
-  }, [pistes, recherche, ouvertes])
+    return pistes.filter((p) => !q || [p.societe, p.contact_nom, p.email].filter(Boolean)
+      .some((v) => String(v).toLowerCase().includes(q)))
+  }, [pistes, recherche])
 
-  const converties = pistes.filter((p) => p.opportunite_id).length
 
   /**
    * LES TROIS ÉTATS D'UNE PISTE — les colonnes de son tableau.
@@ -269,36 +268,14 @@ function OngletPistes({ pistes, signaler }: { pistes: Piste[]; signaler: (m: str
   return (
     <>
       <ListToolbar query={recherche} onQueryChange={setRecherche} placeholder="Société, contact, email…" count={filtrees.length}>
-        {/* « Sur chaque type de page on garde toujours de base le truc » : la liste reste le défaut. */}
-        <div className="flex items-center gap-1 rounded-kw-lg border-[1.5px] border-kw-border-strong bg-white p-1">
-          {([
-            { cle: 'liste' as const, libelle: 'Liste', icone: LayoutList },
-            { cle: 'kanban' as const, libelle: 'Kanban', icone: Columns3 },
-          ]).map((v) => {
-            const Icone = v.icone
-            return (
-              <button
-                key={v.cle}
-                type="button"
-                onClick={() => setVue(v.cle)}
-                className={cn(
-                  'inline-flex items-center gap-1.5 rounded-kw-md px-2.5 py-1 text-kw-sm font-bold transition-colors',
-                  vue === v.cle ? 'bg-ink-800 text-white' : 'text-kw-label hover:bg-kw-subtle',
-                )}
-              >
-                <Icone className="h-3.5 w-3.5" strokeWidth={2.2} />
-                {v.libelle}
-              </button>
-            )
-          })}
-        </div>
-        {vue === 'liste' && converties > 0 && (
-          <Button size="sm" variant={ouvertes ? 'default' : 'outline'} onClick={() => setOuvertes((v) => !v)}>
-            {ouvertes ? 'Ouvertes seulement' : 'Toutes'}
-          </Button>
-        )}
+        {/* PLUS DE BASCULEMENT, PLUS DE FILTRE « OUVERTES SEULEMENT ». Naoëlle, 25/08/2026 :
+            « garde juste la vue kanban pour partout », puis « crée les actions sur les pistes, les
+            listes ne servent à rien, on fera tout sur pistes ».
+
+            Le filtre n'avait plus de sens : la troisième colonne du tableau EST celle des converties.
+            Et les actions que portait la carte de liste — cocher, convertir, joindre un fichier —
+            vivent désormais dans le panneau qui s'ouvre au clic sur une carte. */}
       </ListToolbar>
-      {vue === 'kanban' ? (
         /* LE TABLEAU IGNORE LE FILTRE « OUVERTES SEULEMENT » : sa troisième colonne EST celle des
            converties, et la masquer laisserait une colonne toujours vide sans dire pourquoi. */
         <TableauKanban
@@ -316,135 +293,20 @@ function OngletPistes({ pistes, signaler }: { pistes: Piste[]; signaler: (m: str
               })),
             ]),
           )}
+          onCarte={(id) => setPanneauPour(pistes.find((p) => p.id === id) ?? null)}
           siVide="Aucune piste ne correspond."
         />
-      ) : filtrees.length === 0 ? (
-        <Card className="flex flex-col items-center gap-2 p-8 text-center">
-          <Users className="h-6 w-6 text-navy-300" />
-          <p className="text-sm font-medium text-navy-700">Aucune piste</p>
-          <p className="max-w-md text-xs text-navy-400">
-            Une piste est un contact fiable et joignable, identifié comme responsable des contrats
-            d'énergie. Elle naît d'une ligne de liste vérifiée.
-          </p>
-        </Card>
-      ) : (
-        <div className="grid grid-cols-1 gap-3 lg:grid-cols-2">
-          {filtrees.map((p) => {
-            const mure = pisteQualifiee(p)
-            const faites = VALIDATIONS_PISTE.filter((v) => Boolean(p[v.cle])).length
-            return (
-              <div
-                key={p.id}
-                className={cn(
-                  'rounded-[13px] border bg-white p-3.5 transition-shadow hover:shadow-[0_8px_22px_-14px_rgba(22,24,29,.28)]',
-                  p.opportunite_id ? 'border-kiwi-200 bg-kiwi-50/30' : mure ? 'border-indigo-200' : 'border-kw-border',
-                )}
-              >
-                <div className="flex items-start justify-between gap-2">
-                  <div className="flex min-w-0 items-start gap-2.5">
-                    <span
-                      className={cn(
-                        'mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-lg',
-                        p.opportunite_id ? 'bg-kiwi-50 text-kiwi-700' : 'bg-indigo-50 text-indigo-600',
-                      )}
-                    >
-                      <Users className="h-3.5 w-3.5" />
-                    </span>
-                    <div className="min-w-0">
-                      <p className="truncate text-sm font-semibold text-navy-800">{p.societe || 'Société inconnue'}</p>
-                      <p className="truncate text-[11px] text-navy-500">
-                        {p.reference && <span className="font-mono text-navy-400">{p.reference} · </span>}
-                        {p.contact_nom || 'Contact inconnu'}
-                      </p>
-                      <p className="truncate text-[10.5px] text-navy-400">
-                        {[p.email, p.telephone].filter(Boolean).join(' · ') || 'Ni email ni téléphone'}
-                      </p>
-                    </div>
-                  </div>
-                  {p.opportunite_id ? (
-                    <Badge tone="kiwi">Convertie</Badge>
-                  ) : (
-                    <Badge tone={mure ? 'kiwi' : 'amber'}>{faites}/5 vérifié{faites > 1 ? 's' : ''}</Badge>
-                  )}
-                </div>
 
-                {/* L'AVANCEMENT EN BARRE : cinq cases cochées se comptent mal du regard, une barre
-                    se lit d'un coup. Même idée que l'anneau de la fiche opportunité. */}
-                {!p.opportunite_id && (
-                  <div className="mt-2.5 h-1 overflow-hidden rounded-full bg-navy-100">
-                    <div
-                      className={cn('h-full rounded-full transition-[width] duration-500', mure ? 'bg-kiwi-600' : 'bg-indigo-500')}
-                      style={{ width: `${(faites / VALIDATIONS_PISTE.length) * 100}%` }}
-                    />
-                  </div>
-                )}
-
-                <div className="mt-2.5 grid grid-cols-1 gap-1 sm:grid-cols-2">
-                  {VALIDATIONS_PISTE.map((v) => {
-                    const coche = Boolean(p[v.cle])
-                    return (
-                      <button
-                        key={v.cle}
-                        type="button"
-                        disabled={Boolean(p.opportunite_id)}
-                        onClick={async () => {
-                          try {
-                            await maj.mutateAsync({ id: p.id, patch: { [v.cle]: !coche } })
-                          } catch (e) {
-                            signaler(e instanceof Error ? e.message : 'Enregistrement impossible')
-                          }
-                        }}
-                        className={cn(
-                          'flex items-center gap-2 rounded-lg px-2 py-1.5 text-left text-xs transition-colors',
-                          coche ? 'text-navy-700' : 'text-navy-400',
-                          !p.opportunite_id && 'hover:bg-navy-50',
-                          p.opportunite_id && 'cursor-default',
-                        )}
-                      >
-                        <span className={cn(
-                          'flex h-4 w-4 shrink-0 items-center justify-center rounded',
-                          coche ? 'bg-kiwi-600 text-white' : 'border border-navy-300 bg-white',
-                        )}>
-                          {coche && <Check className="h-2.5 w-2.5" />}
-                        </span>
-                        {v.libelle}
-                      </button>
-                    )
-                  })}
-                </div>
-
-                {p.opportunite_id ? (
-                  <Button size="sm" variant="outline" className="mt-2.5" onClick={() => navigate(`/opportunites/${p.opportunite_id}`)}>
-                    Ouvrir l'opportunité
-                    <ArrowRight className="h-3.5 w-3.5" />
-                  </Button>
-                ) : (
-                  <div className="mt-2.5">
-                    <Button size="sm" disabled={!mure} onClick={() => setSignalPour(p)}>
-                      Créer l'opportunité
-                      <ArrowRight className="h-3.5 w-3.5" />
-                    </Button>
-                    {!mure && (
-                      <p className="mt-1.5 text-[10.5px] leading-snug text-navy-400">
-                        Les cinq vérifications doivent être faites : sans elles on ouvrirait une affaire
-                        sur un contact qu'on ne sait pas joindre.
-                      </p>
-                    )}
-                  </div>
-                )}
-
-                <button
-                  type="button"
-                  onClick={() => setFichiersPour(p)}
-                  className="mt-2.5 flex items-center gap-1.5 text-[11px] font-semibold text-indigo-600 hover:underline"
-                >
-                  <Paperclip className="h-3 w-3" /> Fichiers de la piste
-                </button>
-              </div>
-            )
-          })}
-        </div>
-      )}
+      {/* LE PANNEAU D'UNE PISTE. Il DÉCLENCHE les deux dialogues ci-dessous plutôt que de les
+          contenir : celui de conversion demande le signal et crée compte, contact et opportunité —
+          il appartient à la page, pas au panneau. */}
+      <PanneauPiste
+        piste={panneauPour}
+        onFermer={() => setPanneauPour(null)}
+        onConvertir={(p) => { setPanneauPour(null); setSignalPour(p) }}
+        onFichiers={(p) => { setPanneauPour(null); setFichiersPour(p) }}
+        signaler={signaler}
+      />
 
       {fichiersPour && (
         <DialogFichiersPiste piste={fichiersPour} onFermer={() => setFichiersPour(null)} signaler={signaler} />

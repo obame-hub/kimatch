@@ -56,6 +56,7 @@ export function TableauKanban({
   colonnes,
   cartes,
   totaux,
+  onCarte,
   siVide,
 }: {
   colonnes: ColonneKanban[]
@@ -69,6 +70,14 @@ export function TableauKanban({
    * annoncerait « 10 » sur 648 dossiers, et « et 2 autres » là où il en reste 640.
    */
   totaux?: Record<string, number>
+  /**
+   * Que faire au clic, quand ouvrir une page ne convient pas.
+   *
+   * Les pistes n'ont pas de fiche : leurs actions — cocher les cinq validations, convertir, joindre
+   * un fichier — vivaient dans la carte de liste. Sans ce rappel, retirer la liste rendrait la page
+   * inutilisable. Fourni, il l'emporte sur `to`.
+   */
+  onCarte?: (id: string) => void
   siVide: string
 }) {
   const navigate = useNavigate()
@@ -109,7 +118,7 @@ export function TableauKanban({
                 <button
                   key={c.id}
                   type="button"
-                  onClick={() => navigate(c.to)}
+                  onClick={() => (onCarte ? onCarte(c.id) : navigate(c.to))}
                   className={cn(
                     'group flex items-start gap-1.5 rounded-kw-md border bg-white px-2 py-1.5 text-left transition-colors hover:bg-kw-bg',
                     c.urgent ? 'border-kw-amber' : 'border-kw-border-faint',
