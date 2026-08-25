@@ -1,11 +1,8 @@
-import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { Check, Sparkle, Filter, Building2, Target, ChevronRight } from 'lucide-react'
 import { Topbar } from '@/components/layout/Topbar'
 import { TuileIndicateur } from '@/components/dashboard/TuileIndicateur'
 import { FilPortefeuille } from '@/components/dashboard/FilPortefeuille'
-import { TableauKanban } from '@/components/dashboard/TableauKanban'
-import { cn } from '@/lib/utils'
 import { useDashboardStats, type SectionAction } from '@/lib/data/dashboard'
 import { useActions } from '@/lib/data/actions'
 import { useMonProfil } from '@/lib/data/roles'
@@ -156,11 +153,6 @@ function Section({ section }: { section: SectionAction }) {
 
 export default function Dashboard() {
   const navigate = useNavigate()
-  // BLOCS OU KANBAN, et les blocs restent le défaut. Michel demande la vue kanban ; elle montre le
-  // pipeline d'un coup d'œil, mais elle ne dit pas ce qu'il faut FAIRE — les blocs le disent, avec
-  // leurs groupes « prêtes à présenter », « mandats sans signature ». Les deux répondent à deux
-  // questions différentes, donc on garde les deux plutôt que d'en sacrifier une.
-  const [vue, setVue] = useState<'blocs' | 'kanban'>('blocs')
   const { data, isLoading } = useDashboardStats()
   const { data: monProfil } = useMonProfil()
   const { data: actions } = useActions()
@@ -273,52 +265,11 @@ export default function Dashboard() {
           />
         </div>
 
-        <div className="mb-3.5 flex items-center gap-1 rounded-kw-lg border border-kw-border bg-white p-0.5 w-fit">
-          {(['blocs', 'kanban'] as const).map((v) => (
-            <button
-              key={v}
-              type="button"
-              onClick={() => setVue(v)}
-              className={cn(
-                'rounded-kw-md px-3 py-1.5 text-kw-sm font-bold',
-                vue === v ? 'bg-ink-800 text-white' : 'text-kw-meta hover:bg-kw-subtle',
-              )}
-            >
-              {v === 'blocs' ? 'À traiter' : 'Kanban'}
-            </button>
-          ))}
-        </div>
-
         <div className="grid grid-cols-1 items-start gap-4 xl:grid-cols-[minmax(0,1fr)_336px]">
           <div className="flex min-w-0 flex-col gap-4">
-            {vue === 'blocs' ? (
-              (data?.sections ?? []).map((section) => <Section key={section.cle} section={section} />)
-            ) : (
-              /* LES TROIS OBJETS À STATUTS de la diapositive 13, dans l'ordre de priorité rappelé
-                 par Naoëlle — recommandation, opportunité, puis le signal qui alimente la seconde.
-                 Le patrimoine et les pistes n'ont pas de pipeline : ils restent dans les blocs. */
-              <>
-                {([
-                  { cle: 'recommandations', titre: 'Recommandations', vide: 'Aucune recommandation en cours.' },
-                  { cle: 'opportunites', titre: 'Opportunités', vide: 'Aucune opportunité en cours.' },
-                  { cle: 'signaux', titre: 'Signaux', vide: 'Aucun signal à qualifier.' },
-                ] as const).map((t) => {
-                  const tableau = data?.kanban?.[t.cle]
-                  return (
-                    <div key={t.cle}>
-                      <p className="mb-2 text-kw-xs font-bold uppercase tracking-[0.08em] text-kw-faint">
-                        {t.titre}
-                      </p>
-                      <TableauKanban
-                        colonnes={tableau?.colonnes ?? []}
-                        cartes={tableau?.cartes ?? {}}
-                        siVide={t.vide}
-                      />
-                    </div>
-                  )
-                })}
-              </>
-            )}
+            {(data?.sections ?? []).map((section) => (
+              <Section key={section.cle} section={section} />
+            ))}
           </div>
 
           <FilPortefeuille />

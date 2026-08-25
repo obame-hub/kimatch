@@ -5,7 +5,7 @@ import { useActions } from '@/lib/data/actions'
 import { useContratsListe } from '@/lib/data/contrats'
 import { useMandatsListe } from '@/lib/data/mandats'
 import { usePistes } from '@/lib/data/prospection'
-import { useOpportunites, statutDerive, PIPELINE_OPPORTUNITE } from '@/lib/data/opportunites'
+import { useOpportunites, statutDerive } from '@/lib/data/opportunites'
 import { supabase } from '@/lib/supabase'
 import { useQuery } from '@tanstack/react-query'
 import { fetchMonPortefeuille, filtrerMesElements } from '@/lib/data/visibility'
@@ -73,28 +73,6 @@ function useEcheancesAReprendre() {
     },
   })
 }
-
-/**
- * LES TROIS OBJETS QUI ONT DES STATUTS — diapositive 13, « des statuts simples rendent le flux
- * lisible ». C'est exactement la liste des objets kanbanisables : le patrimoine et les pistes, les
- * deux autres activités du tableau de bord, n'ont pas de pipeline.
- *
- * LES COLONNES TERMINALES SONT ÉCARTÉES. « Converti », « Écarté », « Acceptée », « Refusée » et
- * « Abandonnée » sont des aboutissements : les afficher noierait le travail restant sous les dossiers
- * finis — 1 573 recommandations closes contre 134 vivantes.
- */
-const COLONNES_RECOMMANDATION = [
-  { code: 'BROUILLON', libelle: 'Brouillon' },
-  { code: 'CONSULTATION', libelle: 'Consultation' },
-  { code: 'OFFRES_RECUES', libelle: 'Offres reçues' },
-  { code: 'A_PRESENTER', libelle: 'À présenter' },
-  { code: 'PRESENTEE', libelle: 'Présentée' },
-] as const
-
-const COLONNES_SIGNAL = [
-  { code: 'NOUVEAU', libelle: 'Nouveau' },
-  { code: 'A_QUALIFIER', libelle: 'À qualifier' },
-] as const
 
 /** Nombre de jours écoulés depuis une date ISO. */
 function joursDepuis(iso: string | null | undefined): number | null {
@@ -307,96 +285,13 @@ export function useDashboardStats() {
     // de bord. Le compteur de la section indique le total, et un lien mène à la liste complète.
     const LIMITE = 6
 
-    // ══════════════════════════════════════════════════════════════════════════════════════════
-    // LE KANBAN — trois tableaux, dans l'ordre de priorité (recommandation, opportunité, signal).
-    //
-    // Les cartes sont ORDONNÉES PAR URGENCE dans leur colonne, pas par date : un tableau de bord
-    // répond à « par quoi je commence ». Ce qui est urgent dépend de l'objet, donc chaque tableau
-    // définit le sien — une recommandation prête à présenter, une opportunité prête à convertir, un
-    // signal encore neuf.
-    //
-    // Aucun chargement de plus : ces trois listes sont déjà en mémoire pour les blocs.
-    // ══════════════════════════════════════════════════════════════════════════════════════════
-    type CarteK = { id: string; titre: string; sousTitre?: string; mention?: string; urgent?: boolean; to: string }
-    const grouper = <T,>(items: T[], cle: (i: T) => string, carte: (i: T) => CarteK, urgent: (i: T) => boolean) => {
-      const out: Record<string, CarteK[]> = {}
-      // Les urgents d'abord, l'ordre d'arrivée ensuite — un tri stable suffit, inutile d'inventer
-      // un score.
-      for (const i of [...items].sort((a, b) => Number(urgent(b)) - Number(urgent(a)))) {
-        const k = cle(i)
-        out[k] = [...(out[k] ?? []), carte(i)]
-      }
-      return out
-    }
-
-    const kanban = {
-      recommandations: {
-        colonnes: COLONNES_RECOMMANDATION.map((c) => ({ code: c.code, libelle: c.libelle })),
-        cartes: grouper(
-          recosOuvertes,
-          (r) => r.etape,
-          (r) => ({
-            id: r.id,
-            titre: r.titre,
-            sousTitre: r.compte_nom,
-            mention: estPrete(r) ? 'prête à présenter' : undefined,
-            urgent: estPrete(r),
-            to: `/recommandations/${r.id}`,
-          }),
-          estPrete,
-        ),
-      },
-      opportunites: {
-        // Les quatre paliers vivants : « Convertie » et « Abandonnée » sont des fins.
-        colonnes: PIPELINE_OPPORTUNITE.filter((p) => p.code !== 'CONVERTIE' && p.code !== 'ABANDONNEE').map((p) => ({
-          code: p.code,
-          libelle: p.libelle,
-        })),
-        cartes: grouper(
-          oppOuvertes,
-          (o) => statutDerive(o, mandats.data ?? []).code,
-          (o) => {
-            const d = statutDerive(o, mandats.data ?? [])
-            return {
-              id: o.id,
-              titre: o.compte_nom || o.reference || 'Opportunité',
-              sousTitre: d.tache,
-              urgent: d.code === 'PRETE_A_CONVERTIR',
-              to: `/opportunites/${o.id}`,
-            }
-          },
-          (o) => statutDerive(o, mandats.data ?? []).code === 'PRETE_A_CONVERTIR',
-        ),
-      },
-      signaux: {
-        colonnes: COLONNES_SIGNAL.map((c) => ({ code: c.code, libelle: c.libelle })),
-        cartes: grouper(
-          signauxOuvertsList,
-          (sig) => sig.statut,
-          (sig) => ({
-            id: sig.id,
-            titre: sig.site_nom || 'Signal',
-            sousTitre: sig.type_signal || undefined,
-            urgent: sig.statut === 'NOUVEAU',
-            to: `/signaux/${sig.id}`,
-          }),
-          (sig) => sig.statut === 'NOUVEAU',
-        ),
-      },
-    }
-
     const dateFr = (iso: string | null) => (iso ? new Date(iso + 'T12:00:00').toLocaleDateString('fr-FR') : '—')
 
     const sections: SectionAction[] = [
-      // ══════════════════════════════════════════════════════════════════════════════════════
-      // L'ORDRE EST CELUI DE LA PRIORITÉ, PAS CELUI DE LA DIAPOSITIVE.
-      //
-      // Rappelé par Naoëlle le 25/08/2026 : « l'ordre de priorité c'était recommandation,
-      // opportunité, patrimoine et pistes à la fin ». J'avais rangé ces blocs dans l'ordre de la
-      // diapositive 12 — Pistes, Patrimoine, Opportunités, Recommandations — qui raconte la CHAÎNE,
-      // de l'acquisition à la décision. Un tableau de bord ne raconte pas la chaîne : il répond à
-      // « par quoi je commence », et on commence par ce qui est le plus près de se signer.
-      // ══════════════════════════════════════════════════════════════════════════════════════
+      // L'ORDRE EST CELUI DE LA PRIORITÉ, PAS CELUI DE LA DIAPOSITIVE. Naoëlle, 25/08/2026 :
+      // « l'ordre de priorité c'était recommandation, opportunité, patrimoine et pistes à la fin ».
+      // La diapositive 12 raconte la CHAÎNE, de l'acquisition à la décision ; un tableau de bord
+      // répond à « par quoi je commence », et on commence par ce qui est le plus près de se signer.
       // ══ 1 · RECOMMANDATIONS — « conclure avec le client » ═════════════════════════════════
       //
       // Le contrat rejoint cette activité : il est l'exécution de la décision (diapositive 5,
@@ -529,7 +424,6 @@ export function useDashboardStats() {
       actionsEnAttente: (actions.data ?? []).filter((a) => !ACTIONS_FERMEES.includes(a.statut)).length,
 
       sections,
-      kanban,
       // Conservés pour les écrans qui s'en servent déjà.
       actionsPrioritaires: (actions.data ?? []).slice(0, 4),
       signauxRecents: signauxOuvertsList.slice(0, 5),
