@@ -82,6 +82,8 @@ function composantes(offre: OffreFournisseur) {
   }
 }
 
+import { ConditionsFournisseurRetenu } from '@/components/recommandation/ConditionsFournisseurRetenu'
+
 export function DocumentComparatif({
   ouvert,
   onFermer,
@@ -184,7 +186,6 @@ export function DocumentComparatif({
     }
   }, [ouvert, nomDuClient])
 
-  const comp = retenue ? composantes(retenue) : null
   const detailRetenue = retenue?.details_par_compteur[0] ?? null
 
   return (
@@ -403,39 +404,32 @@ export function DocumentComparatif({
               Conditions essentielles — {retenue.fournisseur_nom}
             </h2>
 
-            <dl className="mt-2 grid grid-cols-1 gap-x-8 gap-y-1 sm:grid-cols-2">
-              <Ligne libelle="Durée" valeur={retenue.duree_mois != null ? `${retenue.duree_mois} mois` : 'à vérifier'} />
-              <Ligne libelle="Prix" valeur={retenue.type_prix ?? 'à vérifier'} />
-              <Ligne libelle="Date de début" valeur={debut ? dateFr(debut) : 'à confirmer'} />
-              <Ligne libelle="Budget annuel" valeur={`${euros(retenue.montant_annuel_ht)} HTVA`} />
-              <Ligne
-                libelle="Prix de la molécule"
-                valeur={
-                  detailRetenue?.prix_gaz?.prix_energie_mwh != null
-                    ? `${detailRetenue.prix_gaz.prix_energie_mwh.toLocaleString('fr-FR', { maximumFractionDigits: 2 })} €/MWh`
-                    : retenue.prix_moyen_mwh != null
-                      ? `${retenue.prix_moyen_mwh.toLocaleString('fr-FR', { maximumFractionDigits: 2 })} €/MWh`
-                      : 'à vérifier'
-                }
+            {/* ══════════ LE DÉTAIL DU FOURNISSEUR RETENU, TEL QU'IL L'A ENVOYÉ ══════════
+                Michel, 25/08/2026 : « je veux le même affichage sur condition essentielle, qui
+                reprend exactement le détail que le fournisseur a envoyé, mais uniquement pour le
+                fournisseur retenu ». La référence est l'offre de Gaz Européen qu'il a transmise :
+                le prix du MWh décomposé par nature de rémunération, puis le budget annuel poste par
+                poste jusqu'au total TTC.
+
+                LE REPLI EXISTE ET IL EST HONNÊTE : sans détail gaz saisi sur le PDL retenu, on
+                revient aux quatre lignes essentielles plutôt que d'afficher un tableau vide qui
+                aurait l'air cassé. */}
+            {detailRetenue?.prix_gaz ? (
+              <ConditionsFournisseurRetenu
+                dureeMois={retenue.duree_mois ?? null}
+                typePrix={retenue.type_prix ?? null}
+                debut={debut}
+                prixGaz={detailRetenue.prix_gaz}
+                consommation={detailRetenue.consommation_annuelle_reference_mwh ?? volumeTotal ?? null}
               />
-              <Ligne libelle="Abonnement" valeur={euros(comp?.abonnement)} />
-              <Ligne
-                libelle="CEE"
-                valeur={
-                  detailRetenue?.prix_gaz?.prix_cee_mwh != null
-                    ? `${detailRetenue.prix_gaz.prix_cee_mwh.toLocaleString('fr-FR', { maximumFractionDigits: 2 })} €/MWh`
-                    : 'à vérifier'
-                }
-              />
-              <Ligne
-                libelle="CPB"
-                valeur={
-                  detailRetenue?.prix_gaz?.prix_cpb_mwh != null
-                    ? `${detailRetenue.prix_gaz.prix_cpb_mwh.toLocaleString('fr-FR', { maximumFractionDigits: 2 })} €/MWh`
-                    : 'à vérifier'
-                }
-              />
-            </dl>
+            ) : (
+              <dl className="mt-2 grid grid-cols-1 gap-x-8 gap-y-1 sm:grid-cols-2">
+                <Ligne libelle="Durée" valeur={retenue.duree_mois != null ? `${retenue.duree_mois} mois` : 'à vérifier'} />
+                <Ligne libelle="Prix" valeur={retenue.type_prix ?? 'à vérifier'} />
+                <Ligne libelle="Date de début" valeur={debut ? dateFr(debut) : 'à confirmer'} />
+                <Ligne libelle="Budget annuel" valeur={`${euros(retenue.montant_annuel_ht)} HTVA`} />
+              </dl>
+            )}
 
             {/* « Conditions particulières : uniquement si elles influencent la décision » — donc rien
                 du tout quand le champ est vide, et pas une ligne « — » qui occuperait la place. */}
