@@ -121,37 +121,30 @@ export function ConditionsFournisseurRetenu({
   const pourcent = `${(TAUX_TVA_GAZ * 100).toLocaleString('fr-FR', { maximumFractionDigits: 1 })} %`
   const ttc = base === 'ttc'
 
+  /**
+   * UNE GRILLE, UNE LIGNE PAR FAMILLE — et c'est la seule façon d'aligner les titres.
+   *
+   * Naoëlle, 25/08/2026 : « que chaque titre vert ait son équivalent bien en face à face », et
+   * « l'encadré total TTC en bas des conditions détaillées, comme ça on laisse la possibilité à prix
+   * détaillé et budget annuel indicatif d'être bien parallèles l'un l'autre sans décalage ».
+   *
+   * DEUX COLONNES INDÉPENDANTES NE PEUVENT PAS S'ALIGNER : la gauche porte trois lignes sous « Prix
+   * du fournisseur », la droite une seule. Dès la deuxième famille les titres se décalent, et l'écart
+   * grandit à chaque bloc. Aucun réglage d'espacement n'y change quoi que ce soit — c'est la
+   * structure qui était fausse.
+   *
+   * Chaque famille est donc une LIGNE DE GRILLE de deux cellules : elles partagent leur bord haut,
+   * donc les deux titres verts sont à la même hauteur, quel que soit le nombre de lignes de détail.
+   *
+   * ET CE QUI N'A PAS DE VIS-À-VIS PASSE DESSOUS, en pleine largeur : le total, le prix moyen, le
+   * début de fourniture et les mentions. Les garder dans la colonne de droite était précisément ce
+   * qui l'allongeait et cassait le parallèle.
+   */
   return (
-    <div className="mt-2 grid grid-cols-1 gap-x-10 gap-y-3 sm:grid-cols-2">
-      {/* ══════════ PRIX DÉTAILLÉ ══════════ */}
-      <div>
+    <div className="mt-2">
+      <div className="grid grid-cols-1 items-start gap-x-10 sm:grid-cols-2">
+        {/* ── Ligne 1 : les deux en-têtes de colonne ── */}
         <p className="text-kw-base font-extrabold uppercase tracking-[0.04em] text-kw-ink">Prix détaillé</p>
-
-        <Famille>Prix du fournisseur</Famille>
-        <Ligne intitule="Molécule" valeur={parMwh(prixGaz.prix_energie_mwh)} />
-        <Ligne intitule="Certificat d’économie d’énergie" sigle="CEE" valeur={parMwh(prixGaz.prix_cee_mwh)} />
-        <Ligne intitule="Certificat de production biogaz" sigle="CPB" valeur={parMwh(prixGaz.prix_cpb_mwh)} />
-
-        <Famille>Acheminement, distribution et transport</Famille>
-        <Ligne
-          intitule="Total abonnement"
-          sigle="Ab(M)"
-          valeur={`${euros(prixGaz.abonnement_fourniture_annuel_ht)}/an`}
-        />
-        <Ligne intitule="Terme quantité distribution" sigle="ATRD" valeur={parMwh(prixGaz.prix_atrd_mwh)} />
-        {prixGaz.prix_atrt_mwh != null && (
-          <Ligne intitule="Terme quantité transport" sigle="ATRT" valeur={parMwh(prixGaz.prix_atrt_mwh)} />
-        )}
-
-        <Famille>Taxe</Famille>
-        <Ligne intitule="Contribution tarifaire d’acheminement" sigle="CTA" valeur={`${euros(prixGaz.cta_annuel_ht)}/an`} />
-        {/* L'accise en €/MWh et non en € par an : « je vais donc juste mettre le montant mégawattheure
-            qui sera calculé en fonction de la consommation ». */}
-        <Ligne intitule="Accise sur le gaz naturel" sigle="ex-TICGN" valeur={parMwh(prixGaz.prix_agn_mwh)} />
-      </div>
-
-      {/* ══════════ BUDGET ANNUEL INDICATIF ══════════ */}
-      <div>
         <div className="flex flex-wrap items-baseline gap-2">
           <p className="text-kw-base font-extrabold uppercase tracking-[0.04em] text-kw-ink">
             Budget annuel indicatif
@@ -183,78 +176,104 @@ export function ConditionsFournisseurRetenu({
           </span>
         </div>
 
-        {/* LES MÊMES TROIS FAMILLES QU'À GAUCHE, avec leurs intitulés verts. Michel, 25/08/2026 :
-            « dans les deux, tu as trois grandes lignes — si ce n'est que la ligne du budget c'est le
-            montant total, et les lignes [du prix détaillé] le montant détaillé de chaque composante ».
-            Les deux colonnes se lisent donc en miroir : même titre, même ordre, détail d'un côté,
-            total de l'autre. */}
-        <div className="mt-1">
+        {/* ── Ligne 2 : PRIX DU FOURNISSEUR ── */}
+        <div>
           <Famille>Prix du fournisseur</Famille>
-          <Ligne intitule="Montant total" valeur={`${euros(b.budgetFournisseur)} HT/an`} />
+          <Ligne intitule="Molécule" valeur={parMwh(prixGaz.prix_energie_mwh)} />
+          <Ligne intitule="Certificat d’économie d’énergie" sigle="CEE" valeur={parMwh(prixGaz.prix_cee_mwh)} />
+          <Ligne intitule="Certificat de production biogaz" sigle="CPB" valeur={parMwh(prixGaz.prix_cpb_mwh)} />
+        </div>
+        <div>
+          <Famille>Prix du fournisseur</Famille>
+          <Ligne intitule="Montant total" valeur={euros(b.budgetFournisseur) + ' HT/an'} />
+        </div>
 
+        {/* ── Ligne 3 : ACHEMINEMENT, DISTRIBUTION ET TRANSPORT ── */}
+        <div>
           <Famille>Acheminement, distribution et transport</Famille>
-          <Ligne intitule="Montant total" valeur={`${euros(b.budgetAcheminement)} HT/an`} />
+          <Ligne
+            intitule="Total abonnement"
+            sigle="Ab(M)"
+            valeur={euros(prixGaz.abonnement_fourniture_annuel_ht) + '/an'}
+          />
+          <Ligne intitule="Terme quantité distribution" sigle="ATRD" valeur={parMwh(prixGaz.prix_atrd_mwh)} />
+          {prixGaz.prix_atrt_mwh != null && (
+            <Ligne intitule="Terme quantité transport" sigle="ATRT" valeur={parMwh(prixGaz.prix_atrt_mwh)} />
+          )}
+        </div>
+        <div>
+          <Famille>Acheminement, distribution et transport</Famille>
+          <Ligne intitule="Montant total" valeur={euros(b.budgetAcheminement) + ' HT/an'} />
+        </div>
 
+        {/* ── Ligne 4 : TAXE ── */}
+        <div>
           <Famille>Taxe</Famille>
-          <Ligne intitule="Montant total" valeur={`${euros(b.budgetTaxes)} HT/an`} />
-          {/* LA TVA EST GROUPÉE : les deux assiettes sont au même taux depuis que l'abonnement est
-              passé de 5,5 % à 20 %. Elle disparaît en base hors taxes — la montrer sans la compter
-              dans le total serait le meilleur moyen de faire douter du total. */}
-        </div>
-
-        {/* LA TVA EST HORS DES TROIS FAMILLES, et c'est ce qui garde les deux colonnes parallèles :
-            trois intitulés verts à gauche, trois à droite, et rien de plus. Michel : « on les mettra
-            juste en dessous du budget ». Un quatrième titre vert ici n'aurait aucun vis-à-vis dans le
-            prix détaillé — et c'est précisément le parallélisme que Naoëlle demande.
-            Elle disparaît en base hors taxes : la montrer sans la compter dans le total serait le
-            meilleur moyen de faire douter du total. */}
-        {ttc && (
-          <div className="mt-1.5 border-t border-kw-border pt-1.5">
-            <Ligne intitule={`TVA (${pourcent})`} valeur={`${euros(b.tva)}/an`} />
-          </div>
-        )}
-
-        <div className="mt-2 rounded-kw-lg border-2 border-kw-green bg-kw-green-tint px-3 py-2">
           <Ligne
-            intitule={ttc ? 'Total TTC' : 'Total hors taxes'}
-            valeur={`${euros(ttc ? b.totalTtc : b.totalHt)}/an`}
-            fort
+            intitule="Contribution tarifaire d’acheminement"
+            sigle="CTA"
+            valeur={euros(prixGaz.cta_annuel_ht) + '/an'}
           />
-          <Ligne
-            intitule="Prix moyen annuel du MWh"
-            valeur={`${euros(ttc ? b.prixMoyenTtcMwh : b.prixMoyenHtMwh)} ${ttc ? 'TTC' : 'HT'}/MWh`}
-            fort
-          />
-          <p className="pt-1 text-kw-micro text-kw-meta">
-            {ttc
-              ? 'Y compris abonnement et taxes.'
-              : 'Hors TVA, abonnement compris. Un client assujetti la récupère.'}
-          </p>
+          {/* L'accise en €/MWh et non par an : « le montant mégawattheure qui sera calculé en
+              fonction de la consommation ». */}
+          <Ligne intitule="Accise sur le gaz naturel" sigle="ex-TICGN" valeur={parMwh(prixGaz.prix_agn_mwh)} />
         </div>
+        <div>
+          <Famille>Taxe</Famille>
+          <Ligne intitule="Montant total" valeur={euros(b.budgetTaxes) + ' HT/an'} />
+          {/* LA TVA EST HORS DES TROIS FAMILLES — « on les mettra juste en dessous du budget ». Elle
+              reste dans cette cellule pour ne pas ajouter une quatrième ligne de grille qui
+              laisserait la gauche vide. Elle disparaît en base hors taxes : la montrer sans la
+              compter dans le total serait le meilleur moyen de faire douter du total. */}
+          {ttc && (
+            <div className="mt-1.5 border-t border-kw-border pt-1.5">
+              <Ligne intitule={'TVA (' + pourcent + ')'} valeur={euros(b.tva) + '/an'} />
+            </div>
+          )}
+        </div>
+      </div>
 
-        {/* « C'est pas la date à laquelle on a fait la demande de cotation, c'est le DÉBUT DE
-            FOURNITURE. » */}
-        {debut && (
-          <p className="mt-2 text-kw-sm font-bold uppercase tracking-[0.04em] text-kw-ink">
-            Début de fourniture le {dateFr(debut)}
-          </p>
-        )}
-
-        {/* UN BUDGET PARTIEL SE DIT. Sans cette mention, un total amputé d'une composante non saisie
-            se lirait comme un total complet — et c'est un chiffre que le client compare. */}
-        {b.incomplet && (
-          <p className="mt-2 rounded-kw-md border border-dashed border-kw-amber bg-kw-amber-light px-2.5 py-1.5 text-kw-micro font-semibold text-kw-amber-dark">
-            Une ou plusieurs composantes ne sont pas saisies : ce budget est partiel. Les lignes
-            marquées « à vérifier » ci-contre indiquent lesquelles.
-          </p>
-        )}
-
-        <p className="mt-2 text-kw-micro leading-snug text-kw-faint">
-          Montants indicatifs, calculés sur la consommation de référence et les composantes
-          réglementaires applicables à la date de l’analyse.
-          {ttc ? ` TVA appliquée au taux de ${pourcent}.` : ' Montants hors TVA.'}
+      {/* ══════ CE QUI N'A PAS DE VIS-À-VIS : EN PLEINE LARGEUR, SOUS LES DEUX COLONNES ══════ */}
+      <div className="mt-4 rounded-kw-lg border-2 border-kw-green bg-kw-green-tint px-3 py-2">
+        <Ligne
+          intitule={ttc ? 'Total TTC' : 'Total hors taxes'}
+          valeur={euros(ttc ? b.totalTtc : b.totalHt) + '/an'}
+          fort
+        />
+        <Ligne
+          intitule="Prix moyen annuel du MWh"
+          valeur={euros(ttc ? b.prixMoyenTtcMwh : b.prixMoyenHtMwh) + (ttc ? ' TTC/MWh' : ' HT/MWh')}
+          fort
+        />
+        <p className="pt-1 text-kw-micro text-kw-meta">
+          {ttc
+            ? 'Y compris abonnement et taxes.'
+            : 'Hors TVA, abonnement compris. Un client assujetti la récupère.'}
         </p>
       </div>
+
+      {/* « C'est pas la date à laquelle on a fait la demande de cotation, c'est le DÉBUT DE
+          FOURNITURE. » */}
+      {debut && (
+        <p className="mt-2 text-kw-sm font-bold uppercase tracking-[0.04em] text-kw-ink">
+          Début de fourniture le {dateFr(debut)}
+        </p>
+      )}
+
+      {/* UN BUDGET PARTIEL SE DIT. Sans cette mention, un total amputé d'une composante non saisie se
+          lirait comme un total complet — et c'est un chiffre que le client compare. */}
+      {b.incomplet && (
+        <p className="mt-2 rounded-kw-md border border-dashed border-kw-amber bg-kw-amber-light px-2.5 py-1.5 text-kw-micro font-semibold text-kw-amber-dark">
+          Une ou plusieurs composantes ne sont pas saisies : ce budget est partiel. Les lignes marquées
+          « à vérifier » ci-dessus indiquent lesquelles.
+        </p>
+      )}
+
+      <p className="mt-2 text-kw-micro leading-snug text-kw-faint">
+        Montants indicatifs, calculés sur la consommation de référence et les composantes
+        réglementaires applicables à la date de l’analyse.
+        {ttc ? ' TVA appliquée au taux de ' + pourcent + '.' : ' Montants hors TVA.'}
+      </p>
     </div>
   )
 }
