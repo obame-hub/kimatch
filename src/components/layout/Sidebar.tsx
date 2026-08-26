@@ -1,5 +1,4 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
-import { createPortal } from 'react-dom'
 import { NavLink } from 'react-router-dom'
 import { X, ShieldCheck } from 'lucide-react'
 import { cn } from '@/lib/utils'
@@ -11,55 +10,34 @@ import { navItems, cycleNavItems, productionNavItems, bottomNavItems } from '@/l
 import type { NavItem } from '@/lib/navItems'
 import { getImpersonationInfo } from '@/lib/data/impersonation'
 
+
 /**
- * L'INFO-BULLE SORT DU RAIL, ET C'EST TOUTE LA CLEF DU DEFILEMENT.
+ * L'INTITULÉ D'UNE RUBRIQUE — Pilotage, Cycle commercial, Production.
  *
- * Elle etait posee en `absolute left-full` DANS le lien, donc dans la barre de navigation. Une barre
- * qui defile a forcement `overflow` autre que `visible`, et un `overflow` coupe ce qui depasse : les
- * info-bulles auraient ete tronquees. C'est pour cela que la barre etait laissee en
- * `md:overflow-visible` — et donc qu'elle ne defilait pas du tout sur grand ecran. Les entrees
- * debordaient alors PAR-DESSUS le filet de section et le bloc du bas, ce que Naoelle a vu le
- * 24/08/2026 : l'euro des Remunerations posé sur la barre de section.
+ * Ils remplacent les filets qui séparaient les groupes. Un filet dit « ces entrées vont ensemble » ;
+ * un intitulé dit POURQUOI, et c'est ce que l'architecture de Michel cherche à faire passer : le
+ * pilotage n'est pas le cycle commercial, et la production vient après les deux.
  *
- * Rendue dans `document.body`, l'info-bulle n'a plus d'ancetre qui la coupe. La barre peut defiler,
- * et ajouter un objet ne cassera plus rien.
+ * Le premier n'a pas de marge haute : il touche le sommet du rail, où il n'a rien à séparer.
  */
-function InfoBulle({ ancre, label }: { ancre: HTMLElement; label: string }) {
-  const r = ancre.getBoundingClientRect()
-  return createPortal(
-    <span
-      className="pointer-events-none fixed z-[60] -translate-y-1/2 whitespace-nowrap rounded-md bg-ink-800 px-2 py-1 text-xs font-medium text-white shadow-lg"
-      style={{ left: r.right + 8, top: r.top + r.height / 2 }}
-    >
-      {label}
-    </span>,
-    document.body,
+function Rubrique({ children }: { children: string }) {
+  return (
+    <p className="mb-1 mt-4 px-3 text-[10px] font-bold uppercase tracking-[0.11em] text-ink-500 first:mt-1">
+      {children}
+    </p>
   )
 }
 
-/**
- * Le rail se replie par CSS (`md:w-14`) et non par un etat : on interroge donc la media query. Lue
- * au moment du survol, elle est forcement a jour.
- */
-function railReplie(): boolean {
-  return typeof window !== 'undefined' && window.matchMedia('(min-width: 768px)').matches
-}
-
 function SidebarLink({ to, label, icon: Icon, end, onClick }: NavItem & { onClick: () => void }) {
-  // `null` tant qu'on ne survole pas : l'info-bulle n'existe pas dans le DOM au repos.
-  const [survole, setSurvole] = useState<HTMLElement | null>(null)
-
   return (
     <NavLink
-      onMouseEnter={(e) => setSurvole(e.currentTarget)}
-      onMouseLeave={() => setSurvole(null)}
       to={to}
       end={end}
       onClick={onClick}
       className={({ isActive }) =>
         cn(
           'group relative flex items-center gap-3 rounded-lg py-2 pl-2 pr-3 text-sm font-medium transition-colors',
-          'md:justify-center md:px-0',
+          'md:px-2',
           // LES TEINTES DU RAIL SONT FIXES, ET C'EST LA RAISON D'ETRE DE `ink-*`. Le rail garde son
           // fond `ink-950` dans les deux themes, alors que les jetons `navy-*` s'inversent :
           // `navy-300` valait 201,203,198 en clair mais 58,61,68 en sombre — soit un gris presque
@@ -82,12 +60,10 @@ function SidebarLink({ to, label, icon: Icon, end, onClick }: NavItem & { onClic
           >
             <Icon className={cn('h-4 w-4', isActive ? 'text-white' : 'text-ink-400')} />
           </span>
-          <span className="min-w-0 flex-1 truncate whitespace-nowrap md:hidden">
-            {label}
-          </span>
-          {/* Au survol seulement, et seulement quand le rail est replié : déplié, le libellé est
-              déjà lu à côté de l'icône. */}
-          {survole && railReplie() && <InfoBulle ancre={survole} label={label} />}
+          <span className="min-w-0 flex-1 truncate whitespace-nowrap">{label}</span>
+          {/* PLUS D'INFO-BULLE : elle disait le libellé quand le rail était replié, et le libellé
+              est maintenant écrit à côté de l'icône. La garder ferait apparaître au survol un texte
+              déjà lisible, ce qui n'informe pas et masque la ligne voisine. */}
         </>
       )}
     </NavLink>
@@ -142,7 +118,13 @@ export function Sidebar() {
         className={cn(
           'fixed left-0 z-50 flex flex-col overflow-hidden border-r border-ink-800 bg-ink-950 transition-transform duration-200 ease-out',
           impersonating ? 'top-7 bottom-0' : 'inset-y-0',
-          'w-64 md:w-14 md:overflow-visible',
+          /* LE RAIL EST DÉPLIÉ, LIBELLÉS VISIBLES. Naoëlle, 27/08/2026 : « maintenant on va mettre
+             les noms de chaque logo ». Il faisait 56 px depuis toujours, ce qui obligeait à
+             reconnaître onze pictogrammes ou à survoler chacun pour lire son info-bulle.
+
+             LES COULEURS DE KIMATCH NE BOUGENT PAS — sa consigne : « tu gardes notre code couleur ».
+             Fond `ink-950`, actif en `kiwi-600`, icônes `ink-400` : seule la largeur change. */
+          'w-64 md:w-[212px] md:overflow-visible',
           open ? 'translate-x-0' : '-translate-x-full md:translate-x-0',
         )}
       >
@@ -174,19 +156,15 @@ export function Sidebar() {
             onScroll={majDegrades}
             className="h-full space-y-1 overflow-y-auto overflow-x-hidden px-2.5 py-1 scrollbar-rail md:px-0"
           >
+            <Rubrique>Pilotage</Rubrique>
             {navItems.map((item) => (
               <SidebarLink key={item.to} {...item} onClick={close} />
             ))}
-            {/* Un filet, et non un titre de section : le rail replie fait 56 px, un intitule n'y
-                tiendrait pas. Il separe les objets du patrimoine des ecrans de travail. */}
-            <div className="mx-2 my-2 border-t border-ink-800 md:mx-3" />
+            <Rubrique>Cycle commercial</Rubrique>
             {cycleNavItems.map((item) => (
               <SidebarLink key={item.to} {...item} onClick={close} />
             ))}
-            {/* LA RUBRIQUE PRODUCTION du dossier UX du 26/08 : Pricing et Requêtes. Séparée du
-                cycle commercial par un filet, pour la même raison que le premier — le rail replié
-                fait 56 px, un intitulé de section n'y tiendrait pas. */}
-            <div className="mx-2 my-2 border-t border-ink-800 md:mx-3" />
+            <Rubrique>Production</Rubrique>
             {productionNavItems.map((item) => (
               <SidebarLink key={item.to} {...item} onClick={close} />
             ))}

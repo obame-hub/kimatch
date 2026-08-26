@@ -29,7 +29,7 @@ export function AppLayout() {
         <DocusignBanner />
         <div className="flex min-h-0 flex-1 bg-navy-50">
           <Sidebar />
-          <main className={cn('min-w-0 flex-1 overflow-y-auto pb-14 md:pb-0 md:pl-14', impersonating && 'pt-7')}>
+          <main className={cn('min-w-0 flex-1 overflow-y-auto pb-14 md:pb-0 md:pl-[212px]', impersonating && 'pt-7')}>
             <Outlet />
           </main>
         </div>
