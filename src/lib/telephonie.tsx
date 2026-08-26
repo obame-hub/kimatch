@@ -26,13 +26,16 @@ import type { ReactNode } from 'react'
  * à côté de chaque bouton d'appel. C'est le seul point que Lovable n'a pas mentionné, et c'est celui
  * qui décide si l'extension sert à quelque chose.
  *
- * LE LIEN `tel:` EST CONSERVÉ, sur la recommandation de Lovable : « l'extension reconnaît les numéros
- * en texte simple comme en lien tel:, et le tel: a l'avantage d'être aussi natif — sans l'extension,
- * le navigateur propose quand même d'appeler ». Sur un téléphone, c'est même le bon comportement.
+ * `tel:` NE RESTE QUE SUR MOBILE, et c'est une correction constatée à l'écran. Lovable indiquait que
+ * l'extension intercepte aussi les liens `tel:` ; sur le poste de Naoëlle, extension installée, elle ne
+ * le fait pas — Chrome affiche « Ouvrir Sélectionner une application ? », exactement le symptôme que
+ * Michel a signalé. Le lien `tel:` est donc réservé aux appareils tactiles, où il est le bon
+ * comportement : le téléphone compose.
  *
- * IL FAUT DONC LE DIRE FRANCHEMENT : garder `tel:` ne corrige pas à lui seul ce que Michel a signalé.
- * Sans l'extension, le clic ouvrira toujours l'application du poste. Avec elle, le commercial clique
- * l'icône Allo posée à côté du numéro. Le code prépare le terrain ; l'extension fait l'appel.
+ * SUR ORDINATEUR, LE BOUTON NE NAVIGUE PLUS. Il copie le numéro et dit quoi faire. L'appel se lance en
+ * cliquant l'icône que l'extension Allo pose à côté du NUMÉRO AFFICHÉ — pas depuis un bouton de
+ * Kimatch, puisque aucun code ne peut ouvrir Allo. Un bouton qui rouvrirait la boîte de dialogue du
+ * système serait un bouton qui ment.
  *
  * CE QUE CET ENTONNOIR APPORTE MALGRÉ TOUT : le numéro part au format international. `tel:+33612345678`
  * est composable partout, `tel:06 12 34 56 78` ne l'est pas hors de France — et c'est une seule
@@ -97,10 +100,36 @@ export function TelephonieProvider({ children }: { children: ReactNode }) {
       return m
     }
 
-    // Le numéro normalisé, remis au système : c'est ce que Lovable recommande, et c'est ce que
-    // l'extension Allo sait intercepter. Sur mobile, c'est directement le bon comportement.
-    window.location.href = 'tel:' + e164
-    return e164
+    /**
+     * SUR UN APPAREIL TACTILE, `tel:` est le bon geste : le téléphone compose, sans intermédiaire.
+     *
+     * Sur ordinateur, non — et c'est constaté, pas supposé : Chrome ouvre « Sélectionner une
+     * application » et n'a jamais entendu parler d'Allo. On copie donc le numéro et on dit où
+     * cliquer. Le test porte sur le POINTEUR et non sur la largeur de l'écran : un portable à écran
+     * tactile de 15 pouces compose très bien, une fenêtre étroite sur un poste fixe non.
+     */
+    const tactile =
+      typeof window !== 'undefined' &&
+      window.matchMedia?.('(hover: none) and (pointer: coarse)').matches === true
+
+    if (tactile) {
+      window.location.href = 'tel:' + e164
+      return e164
+    }
+
+    let copie = false
+    try {
+      await navigator.clipboard?.writeText(e164)
+      copie = true
+    } catch {
+      copie = false
+    }
+
+    const m = copie
+      ? `${e164} copié — pour appeler, cliquez l’icône Allo à côté du numéro.`
+      : `Pour appeler ${e164}, cliquez l’icône Allo à côté du numéro.`
+    setMessage(m)
+    return m
   }, [])
 
   useEffect(() => {
