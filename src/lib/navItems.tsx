@@ -53,8 +53,14 @@ export interface NavItem {
  * 23/08/2026. William tient toutes ses icônes dans un même gris et n'éclaire que l'entrée active.
  * La couleur ne dit donc plus « quel objet », elle dit « où je suis ».
  */
+/**
+ * ══ PILOTAGE ══ — la première rubrique de son architecture du 26/08/2026.
+ *
+ * « PILOTAGE : Vue d'ensemble, Patrimoine. » Deux écrans qui ne font avancer aucune affaire : ils
+ * disent où l'on en est et ce que vaut le portefeuille.
+ */
 export const navItems: NavItem[] = [
-  { to: '/', label: 'Tableau de bord', icon: Home, end: true },
+  { to: '/', label: 'Vue d’ensemble', icon: Home, end: true },
   // UNE SEULE ENTRÉE POUR LE PATRIMOINE — diapositive 8 : « la page Patrimoine rassemble ces objets
   // et permet de naviguer du compte jusqu'au compteur et au contrat ». Comptes, Sites et Contacts
   // étaient trois entrées séparées, et mandats, contrats, compteurs et documents n'en avaient plus
@@ -62,28 +68,31 @@ export const navItems: NavItem[] = [
   // endroits. Leurs adresses restent valides : /comptes, /sites, /contacts fonctionnent toujours,
   // seul le rail change.
   { to: '/patrimoine', label: 'Patrimoine', icon: Building2 },
-  // L'OPPORTUNITÉ PRÉCÈDE LA RECOMMANDATION, dans le rail comme dans la chaîne : « Piste /
-  // Portefeuille / Demande entrante / Partenaire → Opportunité → Recommandation » (Michel,
-  // 23/08/2026). L'ordre du menu raconte l'ordre du travail — et c'est aussi celui de William.
-  { to: '/opportunites', label: 'Opportunités', icon: Target },
-  { to: '/recommandations', label: 'Recommandations', icon: Sparkle },
 ]
 
+
+
 /**
- * Le second groupe : les écrans de travail qui n'ont PAS d'objet parent où les retrouver.
+ * ══ CYCLE COMMERCIAL ══ — la deuxième rubrique de son architecture du 26/08/2026.
  *
- * Une piste n'a pas encore de compte — c'est justement ce qui la définit — donc Prospection ne peut
- * se lire de nulle part ailleurs. Une requête et une rémunération se rattachent bien à un compte,
- * mais on vient les consulter pour trier ce qui traîne, toutes affaires confondues : « quelles
- * commissions sont en retard » ne se lit pas compte par compte. Ils sont séparés par un filet du
- * groupe précédent pour qu'on ne les lise pas comme des objets du patrimoine.
+ * « CYCLE COMMERCIAL : Signaux, Pistes, Opportunités, Recommandations. » L'ordre est celui du
+ * travail, et il raconte la chaîne : un signal se détecte, devient une piste, mûrit en opportunité,
+ * se conclut en recommandation.
+ *
+ * DEUX CORRECTIONS PAR RAPPORT À CE QUI ÉTAIT EN PLACE :
+ *
+ * · SIGNAUX N'ÉTAIT PAS DANS LE RAIL DU TOUT. La page existait, avec ses 830 signaux à traiter, mais
+ *   elle ne se trouvait que par la recherche ⌘K — un écran d'entrée du cycle commercial qu'il fallait
+ *   chercher pour ouvrir.
+ * · « PROSPECTION » DEVIENT « PISTES ». C'est le nom de son architecture et celui de l'objet ; la
+ *   page s'appelle déjà « Pistes » dans son titre. Un menu qui nomme autrement ce qu'il ouvre fait
+ *   hésiter à chaque clic.
  */
-export const travailNavItems: NavItem[] = [
-  { to: '/prospection', label: 'Prospection', icon: Filter },
-  // REQUÊTES ET RÉMUNÉRATIONS SORTENT DU RAIL. Michel, 25/08/2026 : « ça, je disais, ça sert à rien,
-  // donc ça on peut l'enlever POUR LE MOMENT » — les deux dans la même phrase. Les pages, leurs
-  // données et leurs écrans restent entiers : seules les entrées du menu disparaissent, et elles
-  // restent trouvables par la recherche ⌘K ci-dessous.
+export const cycleNavItems: NavItem[] = [
+  { to: '/signaux', label: 'Signaux', icon: Radio },
+  { to: '/prospection', label: 'Pistes', icon: Filter },
+  { to: '/opportunites', label: 'Opportunités', icon: Target },
+  { to: '/recommandations', label: 'Recommandations', icon: Sparkle },
 ]
 
 /** Les deux objets retirés du rail le 25/08/2026, gardés ici pour les remettre d'un geste. */
@@ -119,7 +128,7 @@ export const bottomNavItems: NavItem[] = [
  */
 export const pagesRecherchables: NavItem[] = [
   ...navItems,
-  ...travailNavItems,
+  ...cycleNavItems,
   // Retirées du rail le 25/08, mais toujours atteignables : masquer n'est pas supprimer.
   ...productionNavItems,
   ...navItemsMasques,
