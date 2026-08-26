@@ -14,6 +14,7 @@ import {
   useStatutsRequetes,
   useCreerRequete,
   useMajRequete,
+  useTypesRequetes,
   CATEGORIES_REQUETE,
   type PatchRequete,
 } from '@/lib/data/requetes'
@@ -44,6 +45,20 @@ const TON_STATUT: Record<string, 'kiwi' | 'amber' | 'neutral'> = {
   RESOLUE: 'kiwi',
   ABANDONNEE: 'neutral',
 }
+
+/**
+ * LES TROIS COLONNES DE SA RÈGLE 8, et la correspondance avec nos quatre statuts.
+ *
+ * « Clôturé » regroupe Résolue et Abandonnée : les deux sortent du plan de travail, et ce qui les
+ * distingue se lit sur la carte. C'est un regroupement d'AFFICHAGE — les statuts restent quatre en
+ * base, parce que « résolue » et « abandonnée » ne racontent pas la même histoire et qu'on ne peut
+ * pas la réécrire après coup.
+ */
+const COLONNES_REQUETE: { code: string; libelle: string; statuts: string[]; couleur: string }[] = [
+  { code: 'NOUVEAU', libelle: 'Nouveau', statuts: ['NOUVELLE'], couleur: '#83868f' },
+  { code: 'EN_COURS', libelle: 'En cours de traitement', statuts: ['EN_TRAITEMENT'], couleur: '#b57a24' },
+  { code: 'CLOTURE', libelle: 'Clôturé', statuts: ['RESOLUE', 'ABANDONNEE'], couleur: '#0d7a5f' },
+]
 
 export default function Requetes() {
   const { data: requetes } = useRequetes()
@@ -123,8 +138,40 @@ export default function Requetes() {
             </p>
           </Card>
         ) : (
-          <div className="grid grid-cols-1 gap-3 lg:grid-cols-2">
-            {filtrees.map((r) => (
+          /* ══════ TROIS COLONNES, ET NON QUATRE STATUTS ══════
+             Règle n° 8 du dossier UX du 26/08 : « les statuts sont Nouveau, En cours de traitement et
+             Clôturé ». La base en porte quatre — Nouvelle, En traitement, Résolue, Abandonnée — dont
+             les deux dernières sont clôturantes.
+
+             LES DEUX FINS SE REGROUPENT SOUS « CLÔTURÉ », et c'est la lecture fidèle de sa règle
+             plutôt qu'une simplification : une requête abandonnée et une requête résolue sont toutes
+             deux hors du plan de travail, et ce qui les sépare — pourquoi elle s'est terminée — se lit
+             sur la carte, pas dans un titre de colonne. Fusionner les statuts en base aurait en
+             revanche détruit cette distinction pour toujours.
+
+             LE KANBAN EST LA SEULE VUE, comme partout ailleurs depuis le 25/08. */
+          <div className="flex gap-3 overflow-x-auto pb-2">
+            {COLONNES_REQUETE.map((col) => {
+              const dedans = filtrees.filter((r) => col.statuts.includes(r.statut))
+              return (
+                <div
+                  key={col.code}
+                  style={{ borderTopColor: col.couleur }}
+                  className="flex w-[300px] shrink-0 flex-col gap-2 rounded-kw-lg border-t-[3px] bg-kw-subtle/70 p-2.5"
+                >
+                  <div className="mb-0.5 flex items-center gap-1.5 px-0.5">
+                    <span className="h-1.5 w-1.5 shrink-0 rounded-full" style={{ background: col.couleur }} />
+                    <p className="truncate text-kw-xs font-bold uppercase tracking-[0.06em] text-kw-meta">
+                      {col.libelle}
+                    </p>
+                    <span className="ml-auto shrink-0 rounded-kw-md bg-white px-1.5 py-px font-mono text-kw-micro font-extrabold text-kw-meta">
+                      {dedans.length}
+                    </span>
+                  </div>
+                  {dedans.length === 0 && (
+                    <p className="px-0.5 text-kw-micro text-kw-faint">Vide</p>
+                  )}
+                  {dedans.map((r) => (
               <CarteRequete
                 key={r.id}
                 requete={r}
@@ -160,7 +207,10 @@ export default function Requetes() {
                   }
                 }}
               />
-            ))}
+                  ))}
+                </div>
+              )
+            })}
           </div>
         )}
       </div>
@@ -456,6 +506,8 @@ function DialogCreation({ onFermer, signaler }: { onFermer: () => void; signaler
   const { data: comptes } = useComptes()
   const { data: statuts } = useStatutsRequetes()
   const creer = useCreerRequete()
+  const { data: types } = useTypesRequetes()
+  const [typeRequeteId, setTypeRequeteId] = useState('')
   const [categorie, setCategorie] = useState('')
   const [objet, setObjet] = useState('')
   const [description, setDescription] = useState('')
@@ -469,9 +521,19 @@ function DialogCreation({ onFermer, signaler }: { onFermer: () => void; signaler
   return (
     <Dialog open onClose={onFermer} title="Nouvelle requête" description="Un problème à traiter, indépendant de la chaîne commerciale.">
       <div className="space-y-3">
-        <FormField label="Catégorie">
-          <Select value={categorie} onChange={(e) => setCategorie(e.target.value)}>
+        {/* LE TYPE D'ABORD, LE SUJET ENSUITE. Ses quatre types disent la NATURE de la requête — ce
+            qui décide du traitement — la catégorie dit son sujet. On demande donc la nature en
+            premier, et le sujet reste facultatif : deux grilles, deux usages, et aucune des deux
+            n'est perdue. */}
+        <FormField label="Type">
+          <Select value={typeRequeteId} onChange={(e) => setTypeRequeteId(e.target.value)} required>
             <option value="">Choisir…</option>
+            {(types ?? []).map((t) => <option key={t.id} value={t.id}>{t.libelle}</option>)}
+          </Select>
+        </FormField>
+        <FormField label="Sujet (facultatif)">
+          <Select value={categorie} onChange={(e) => setCategorie(e.target.value)}>
+            <option value="">Non précisé</option>
             {CATEGORIES_REQUETE.map((c) => <option key={c.code} value={c.code}>{c.libelle}</option>)}
           </Select>
         </FormField>
@@ -524,12 +586,13 @@ function DialogCreation({ onFermer, signaler }: { onFermer: () => void; signaler
           <Button type="button" variant="ghost" onClick={onFermer}>Annuler</Button>
           <Button
             type="button"
-            disabled={creer.isPending || !objet.trim()}
+            disabled={creer.isPending || !objet.trim() || !typeRequeteId}
             onClick={async () => {
               setErreur(null)
               try {
                 await creer.mutateAsync({
                   categorie: categorie || null,
+                  type_requete_id: typeRequeteId || null,
                   objet: objet.trim(),
                   description: description.trim() || null,
                   compte_id: compteId || null,

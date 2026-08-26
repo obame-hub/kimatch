@@ -873,6 +873,10 @@ export interface Requete {
   site_nom: string | null
   compteur_numero: string | null
   contact_nom: string | null
+  /** Les quatre types du 26/08 : Demande, Réclamation, Contrôle contractuel, Contrôle tarifaire. */
+  type_requete_id: string | null
+  type_requete_code: string | null
+  type_requete_libelle: string | null
   statut: string
   statut_libelle: string
   date_echeance: string | null

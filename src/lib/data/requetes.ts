@@ -18,7 +18,39 @@ import type { Requete } from '@/types/domain'
  * PAS DE MAQUETTE pour cet écran : ce qui suit s'en tient au mémo.
  */
 
-/** Les sujets, tels que Michel les énumère. */
+/**
+ * LES QUATRE TYPES DE MICHEL — règle n° 8 du dossier UX du 26/08/2026 : « les types sont Demande,
+ * Réclamation, Contrôle contractuel et Contrôle tarifaire ».
+ *
+ * CE N'EST PAS UN RENOMMAGE DES CATÉGORIES, C'EST UNE AUTRE GRILLE. Les sept catégories de son mémo
+ * du 23/08 décrivent le SUJET de la requête — facturation, contrat, compteur… Ses quatre types
+ * décrivent sa NATURE : demande-t-on quelque chose, se plaint-on, vérifie-t-on un contrat, vérifie-t-on
+ * un prix. La seconde grille sert mieux un kanban, et c'est probablement pourquoi il l'a changée : le
+ * traitement dépend de la nature, pas du sujet. Une réclamation se traite comme une réclamation,
+ * qu'elle porte sur une facture ou sur un compteur.
+ *
+ * LES DEUX COEXISTENT, et la catégorie n'est pas supprimée : les deux requêtes déjà en base portent
+ * CONTRAT et COMPTEUR, et les écraser pour faire propre aurait détruit la seule information qu'on ait
+ * sur elles. L'écran affiche le type quand il existe, la catégorie sinon.
+ */
+export function useTypesRequetes() {
+  return useQuery({
+    queryKey: ['types_requetes'],
+    // Une table de référence : elle ne change pas pendant une session.
+    staleTime: 30 * 60 * 1000,
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('types_requetes')
+        .select('id, code, libelle, ordre')
+        .eq('actif', true)
+        .order('ordre')
+      if (error) throw new Error(error.message)
+      return (data ?? []) as { id: string; code: string; libelle: string; ordre: number }[]
+    },
+  })
+}
+
+/** Les sujets, tels que Michel les énumérait le 23/08 — conservés pour les requêtes déjà saisies. */
 export const CATEGORIES_REQUETE = [
   { code: 'FACTURATION', libelle: 'Facturation' },
   { code: 'CONTRAT', libelle: 'Contrat' },
@@ -41,12 +73,14 @@ interface RawRequete {
   site_id: string | null
   compteur_id: string | null
   contrat_id: string | null
+  type_requete_id: string | null
   date_echeance: string | null
   date_resolution: string | null
   proprietaire_id: string | null
   date_creation: string
   statut: { code: string; libelle: string } | null
   compte: { nom: string } | null
+  type_requete: { code: string; libelle: string } | null
   site: { nom: string } | null
   compteur: { numero_point: string } | null
   contact: { prenom: string | null; nom: string | null } | null
@@ -59,7 +93,7 @@ export function useRequetes() {
       try {
         const lignes = await fetchAllRows<RawRequete>(
           'requetes',
-          '*, statut:statuts_requetes(code, libelle), compte:comptes(nom), site:sites(nom), compteur:compteurs(numero_point), contact:contacts(prenom, nom)',
+          '*, statut:statuts_requetes(code, libelle), compte:comptes(nom), type_requete:types_requetes(code, libelle), site:sites(nom), compteur:compteurs(numero_point), contact:contacts(prenom, nom)',
           // eslint-disable-next-line @typescript-eslint/no-explicit-any
           (q: any) => q.order('date_creation', { ascending: false }),
         )
@@ -79,6 +113,9 @@ export function useRequetes() {
           site_id: r.site_id,
           compteur_id: r.compteur_id,
           contrat_id: r.contrat_id,
+          type_requete_id: r.type_requete_id ?? null,
+          type_requete_code: r.type_requete?.code ?? null,
+          type_requete_libelle: r.type_requete?.libelle ?? null,
           site_nom: r.site?.nom ?? null,
           compteur_numero: r.compteur?.numero_point ?? null,
           contact_nom: [r.contact?.prenom, r.contact?.nom].filter(Boolean).join(' ') || null,
@@ -133,6 +170,7 @@ export function useCreerRequete() {
       site_id: string | null
       compteur_id: string | null
       contact_id: string | null
+      type_requete_id: string | null
       statut_id: string | null
       date_echeance: string | null
     }) => {
@@ -145,6 +183,7 @@ export function useCreerRequete() {
         compteur_id: input.compteur_id,
         contact_id: input.contact_id,
         date_echeance: input.date_echeance,
+        ...(input.type_requete_id ? { type_requete_id: input.type_requete_id } : {}),
         ...(input.statut_id ? { statut_id: input.statut_id } : {}),
       }).select('id').single()
       if (error) throw new Error(messageDErreur(error.message))
@@ -160,6 +199,7 @@ export type PatchRequete = Partial<{
   description: string | null
   resolution: string | null
   compte_id: string | null
+  type_requete_id: string | null
   /** Modifiables après coup : une réclamation arrive rarement avec son numéro de compteur. */
   site_id: string | null
   compteur_id: string | null
