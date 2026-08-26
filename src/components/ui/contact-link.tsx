@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
-import { Phone, Mail, Copy } from 'lucide-react'
+import { Phone, Mail, Copy, Check } from 'lucide-react'
 import { useTelephonie } from '@/lib/telephonie'
 import { cn } from '@/lib/utils'
 
@@ -102,18 +102,67 @@ function ContactPopover({
   )
 }
 
-/** Numéro affiché n'importe où dans l'app : au survol (web) / au clic (mobile), propose d'appeler ou de copier. */
+/**
+ * UN NUMÉRO DE TÉLÉPHONE — EN TEXTE SIMPLE, ET C'EST TOUT L'ENJEU.
+ *
+ * Constaté le 26/08/2026, et de la façon la plus claire possible : l'extension Allo a décoré le numéro
+ * affiché dans NOTRE PROPRE bandeau de confirmation, alors qu'elle ignorait celui des fiches. La
+ * différence tenait au balisage — dans le bandeau, du texte ; dans les fiches, un `<button>`. Les
+ * extensions de ce type sautent volontairement les éléments cliquables, pour ne pas doubler une action
+ * que le site a déjà posée sur le numéro.
+ *
+ * LE NUMÉRO REDEVIENT DONC UN SIMPLE `<span>`, et c'est ce qui rend l'appel possible : l'extension y
+ * pose son icône, et cliquer cette icône lance l'appel dans Allo. C'était la demande de Michel.
+ *
+ * ET LE BOUTON « APPELER » DISPARAÎT SUR ORDINATEUR — pas par simplification, par honnêteté : aucun
+ * code ne peut ouvrir Allo, donc il ne savait que copier, exactement ce que fait le bouton copier juste
+ * à côté. Un bouton qui promet un appel et se contente d'une copie est un bouton qui mentait, et en
+ * prime il empêchait l'extension de travailler. Sur un appareil tactile il reste : là, `tel:` compose
+ * vraiment.
+ */
 export function PhoneLink({ value, className }: { value: string; className?: string }) {
   const { appeler } = useTelephonie()
+  const [copie, setCopie] = useState(false)
+  // Le pointeur, pas la largeur : un portable tactile compose, une fenêtre étroite sur un poste fixe
+  // non. Calculé au rendu — ce trait ne change pas en cours de session.
+  const tactile =
+    typeof window !== 'undefined' &&
+    window.matchMedia?.('(hover: none) and (pointer: coarse)').matches === true
+
   return (
-    <ContactPopover
-      value={value}
-      className={className}
-      monospace
-      actionLabel="Appeler"
-      onAction={() => void appeler(value)}
-      ActionIcon={Phone}
-    />
+    <span className="group/tel inline-flex items-center gap-1 align-middle">
+      {/* Rien de cliquable autour du numéro : c'est la condition pour qu'Allo le décore. */}
+      <span className={cn('font-mono', className)}>{value}</span>
+
+      {tactile ? (
+        <button
+          type="button"
+          title="Appeler"
+          onClick={(e) => {
+            e.stopPropagation()
+            void appeler(value)
+          }}
+          className="shrink-0 rounded p-0.5 text-kiwi-600"
+        >
+          <Phone className="h-3 w-3" />
+        </button>
+      ) : (
+        <button
+          type="button"
+          title={copie ? 'Numéro copié' : 'Copier le numéro'}
+          onClick={(e) => {
+            e.stopPropagation()
+            navigator.clipboard
+              ?.writeText(value)
+              .then(() => setCopie(true))
+              .catch(() => {})
+          }}
+          className="shrink-0 rounded p-0.5 text-navy-300 opacity-0 transition-opacity hover:text-navy-600 focus:opacity-100 group-hover/tel:opacity-100"
+        >
+          {copie ? <Check className="h-3 w-3 text-kiwi-600" /> : <Copy className="h-3 w-3" />}
+        </button>
+      )}
+    </span>
   )
 }
 
