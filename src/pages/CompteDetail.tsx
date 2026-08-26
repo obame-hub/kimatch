@@ -74,6 +74,7 @@ import { useRaccourcisOnglets } from '@/lib/useRaccourcisOnglets'
 import type { Compte, Contact, Site, TypeCompte, Signal, Contrat, Mandat, Compteur, Recommandation } from '@/types/domain'
 import { SitesMap, type SitesMapItem } from '@/components/site/SitesMap'
 import { computeSiteHealth } from '@/lib/siteHealth'
+import { appelerNumero } from '@/lib/telephonie'
 
 const typeMeta: Record<TypeCompte, { label: string; tone: 'kiwi' | 'blue' | 'amber' | 'neutral' }> = {
   client: { label: 'Consommateur', tone: 'kiwi' },
@@ -1386,15 +1387,17 @@ function ContactsPanel({ contacts, compteId }: { contacts: Contact[]; compteId: 
                 </div>
               </div>
               <div className="mt-2 flex gap-1.5">
-                <a
-                  href={c.telephone ? `tel:${c.telephone}` : undefined}
+                <button
+                  type="button"
+                  onClick={() => c.telephone && void appelerNumero(c.telephone)}
+                  disabled={!c.telephone}
                   className={cn(
                     'flex flex-1 items-center justify-center gap-1.5 rounded-kw-md border border-kw-border-strong bg-kw-surface py-1.5 text-kw-sm font-semibold text-kw-label transition-colors',
                     c.telephone ? 'hover:border-kw-green-border hover:bg-kw-green-light hover:text-kw-green' : 'pointer-events-none opacity-40',
                   )}
                 >
                   <Phone className="h-2.5 w-2.5" /> Appeler
-                </a>
+                </button>
                 <a
                   href={c.email ? `mailto:${c.email}` : undefined}
                   className={cn(

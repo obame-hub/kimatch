@@ -5,6 +5,7 @@ import { InstallPrompt } from '@/components/layout/InstallPrompt'
 import { ImpersonationBanner } from '@/components/layout/ImpersonationBanner'
 import { DocusignBanner } from '@/components/layout/DocusignBanner'
 import { SidebarProvider } from '@/lib/layout'
+import { TelephonieProvider } from '@/lib/telephonie'
 import { getImpersonationInfo } from '@/lib/data/impersonation'
 import { cn } from '@/lib/utils'
 
@@ -13,6 +14,10 @@ export function AppLayout() {
 
   return (
     <SidebarProvider>
+      {/* LE TÉLÉPHONE EST MONTÉ UNE FOIS POUR TOUTE L'APPLICATION. Son panneau doit survivre à la
+          navigation : un appel en cours ne peut pas être coupé parce qu'on change de page pour
+          consulter la fiche du client qu'on a au bout du fil. */}
+      <TelephonieProvider>
       <ImpersonationBanner />
       {/* En flux normal, contrairement au bandeau d'emprunt d'identité qui est en position fixe :
           les deux peuvent s'afficher ensemble sans se superposer, et celui-ci pousse le contenu au
@@ -31,6 +36,7 @@ export function AppLayout() {
       </div>
       <BottomNav />
       <InstallPrompt />
+      </TelephonieProvider>
     </SidebarProvider>
   )
 }

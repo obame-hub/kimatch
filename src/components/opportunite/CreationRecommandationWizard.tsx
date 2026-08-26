@@ -63,6 +63,7 @@ import { FALLBACK_ETAPES_RECOMMANDATION, FALLBACK_TYPES_ORIGINES, FALLBACK_TYPES
 import { trouverParCode } from '@/lib/codeReferentiel'
 import { cn } from '@/lib/utils'
 import type { Compteur } from '@/types/domain'
+import { appelerNumero } from '@/lib/telephonie'
 
 const PRIORITE_OPTIONS = [
   { value: 1, label: 'Haute' },
@@ -712,7 +713,13 @@ export function CreateRecommandationDialog({
                           {ct.telephone && (
                             <p className="flex items-center gap-1.5 text-xs text-navy-500">
                               <Phone className="h-3 w-3" />
-                              <a href={`tel:${ct.telephone}`} className="hover:text-navy-800">{ct.telephone}</a>
+                              <button
+                                type="button"
+                                onClick={() => void appelerNumero(ct.telephone)}
+                                className="hover:text-navy-800 hover:underline"
+                              >
+                                {ct.telephone}
+                              </button>
                             </p>
                           )}
                         </div>

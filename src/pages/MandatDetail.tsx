@@ -26,6 +26,7 @@ import { useRaccourcisOnglets } from '@/lib/useRaccourcisOnglets'
 import { cn } from '@/lib/utils'
 import type { Mandat, Contact, Compte, Compteur } from '@/types/domain'
 import { generateMandatKiweePdf, generateMandatEnergixPdf } from '@/lib/mandatPdf'
+import { appelerNumero } from '@/lib/telephonie'
 
 type TabKey = 'mandat' | 'perimetre' | 'fichiers'
 
@@ -384,9 +385,14 @@ export default function MandatDetail() {
               </div>
               <div className="mt-2.5 flex gap-1.5">
                 {contactSignataire.telephone && (
-                  <a href={`tel:${contactSignataire.telephone}`} title="Appeler" className="flex h-7 flex-1 items-center justify-center rounded-lg border border-navy-200 bg-white text-kiwi-600 hover:bg-kiwi-50">
+                  <button
+                    type="button"
+                    onClick={() => void appelerNumero(contactSignataire.telephone)}
+                    title="Appeler"
+                    className="flex h-7 flex-1 items-center justify-center rounded-lg border border-navy-200 bg-white text-kiwi-600 hover:bg-kiwi-50"
+                  >
                     <Phone className="h-3 w-3" />
-                  </a>
+                  </button>
                 )}
                 {contactSignataire.email && (
                   <a href={`mailto:${contactSignataire.email}`} title="Envoyer un email" className="flex h-7 flex-1 items-center justify-center rounded-lg border border-navy-200 bg-white text-sky-500 hover:bg-sky-50">

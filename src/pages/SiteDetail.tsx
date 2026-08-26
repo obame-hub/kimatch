@@ -48,6 +48,7 @@ import { cn } from '@/lib/utils'
 import { useGoBack } from '@/lib/useGoBack'
 import { useRaccourcisOnglets } from '@/lib/useRaccourcisOnglets'
 import type { Compte, Contact } from '@/types/domain'
+import { appelerNumero } from '@/lib/telephonie'
 
 type TabKey = 'synthese' | 'contrats' | 'compteurs' | 'recommandations' | 'signaux' | 'mandats' | 'fichiers' | 'historique' | 'activite'
 
@@ -240,7 +241,7 @@ export default function SiteDetail() {
             variant="outline"
             size="sm"
             disabled={!contactPrincipal?.telephone}
-            onClick={() => contactPrincipal?.telephone && (window.location.href = `tel:${contactPrincipal.telephone}`)}
+            onClick={() => contactPrincipal?.telephone && void appelerNumero(contactPrincipal.telephone)}
           >
             <Phone className="h-3.5 w-3.5" />
             Appeler
@@ -791,7 +792,7 @@ export default function SiteDetail() {
             {contactPrincipal?.telephone && (
               <button
                 type="button"
-                onClick={() => { setSheetOpen(false); window.location.href = `tel:${contactPrincipal.telephone}` }}
+                onClick={() => { setSheetOpen(false); void appelerNumero(contactPrincipal.telephone) }}
                 className="flex w-full items-center gap-3 rounded-xl px-3.5 py-3 text-left hover:bg-navy-50"
               >
                 <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-kiwi-100 text-kiwi-600"><Phone className="h-3.5 w-3.5" /></span>
@@ -1114,9 +1115,14 @@ function ContactsPanel({ contacts }: { contacts: Contact[] | undefined }) {
                   <p className="truncate text-[10.5px] text-navy-400">{c.fonction || '—'}</p>
                 </div>
                 {c.telephone && (
-                  <a href={`tel:${c.telephone}`} title="Appeler" className="flex h-[26px] w-[26px] shrink-0 items-center justify-center rounded-md border border-kiwi-100 bg-kiwi-50 text-kiwi-600">
+                  <button
+                    type="button"
+                    onClick={() => void appelerNumero(c.telephone)}
+                    title="Appeler"
+                    className="flex h-[26px] w-[26px] shrink-0 items-center justify-center rounded-md border border-kiwi-100 bg-kiwi-50 text-kiwi-600"
+                  >
                     <Phone className="h-3 w-3" />
-                  </a>
+                  </button>
                 )}
               </div>
               <div className="ml-[39px] mt-1.5 flex flex-col gap-1 text-[11px]">

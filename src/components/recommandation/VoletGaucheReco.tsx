@@ -12,6 +12,7 @@ import {
 } from '@/lib/data/partagesEtude'
 import type { ReferenceRow } from '@/lib/data/referenceTables'
 import type { Recommandation, VersionRecommandation, Contact, Compte } from '@/types/domain'
+import { appelerNumero } from '@/lib/telephonie'
 
 /**
  * Volet gauche de la fiche Recommandation — les cinq cartes de la maquette de William :
@@ -310,17 +311,18 @@ export function VoletGaucheReco({
               </div>
             </div>
             <div className="mt-2.5 flex gap-1.5">
-              <a
-                href={contactPrincipal.telephone ? `tel:${contactPrincipal.telephone}` : undefined}
+              <button
+                type="button"
+                onClick={() => contactPrincipal.telephone && void appelerNumero(contactPrincipal.telephone)}
                 title={contactPrincipal.telephone || 'Aucun téléphone'}
-                aria-disabled={!contactPrincipal.telephone}
+                disabled={!contactPrincipal.telephone}
                 className={cn(
                   'flex h-7 flex-1 items-center justify-center rounded-kw-sm border border-kw-border-strong bg-white text-kw-green',
                   contactPrincipal.telephone ? 'hover:bg-kw-green-light' : 'pointer-events-none opacity-40',
                 )}
               >
                 <Phone className="h-3 w-3" />
-              </a>
+              </button>
               <a
                 href={contactPrincipal.email ? `mailto:${contactPrincipal.email}` : undefined}
                 title={contactPrincipal.email || 'Aucun email'}

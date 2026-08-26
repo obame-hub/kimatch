@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import { Phone, Mail, Copy } from 'lucide-react'
+import { useTelephonie } from '@/lib/telephonie'
 import { cn } from '@/lib/utils'
 
 function usePopover() {
@@ -24,13 +25,17 @@ function ContactPopover({
   monospace,
   actionLabel,
   actionHref,
+  onAction,
   ActionIcon,
 }: {
   value: string
   className?: string
   monospace?: boolean
   actionLabel: string
-  actionHref: string
+  /** Lien classique — le courriel. Absent quand l'action est un appel, qui n'est plus un lien. */
+  actionHref?: string
+  /** Action a executer — l'appel Aircall. */
+  onAction?: () => void
   ActionIcon: typeof Phone
 }) {
   const { open, setOpen, ref } = usePopover()
@@ -49,17 +54,36 @@ function ContactPopover({
       </button>
       {open && (
         <span className="absolute left-0 top-full z-30 mt-1 flex overflow-hidden rounded-lg border border-navy-100 bg-white shadow-lg">
-          <a
-            href={actionHref}
-            onClick={(e) => {
-              e.stopPropagation()
-              setOpen(false)
-            }}
-            className="flex items-center gap-1.5 whitespace-nowrap px-2.5 py-1.5 text-[11px] font-medium text-navy-700 hover:bg-navy-50"
-          >
-            <ActionIcon className="h-3 w-3 text-kiwi-600" />
-            {actionLabel}
-          </a>
+          {/* UN APPEL N'EST PLUS UN LIEN. Tant que « Appeler » etait un href="tel:", c'etait le
+              systeme d'exploitation qui decidait — et il ouvrait Skype, FaceTime, ou rien du tout.
+              Le bouton compose maintenant dans Aircall, sans quitter Kimatch. Le courriel reste un
+              lien : la, le client de messagerie du poste est bien ce qu'on veut. */}
+          {onAction ? (
+            <button
+              type="button"
+              onClick={(e) => {
+                e.stopPropagation()
+                setOpen(false)
+                onAction()
+              }}
+              className="flex items-center gap-1.5 whitespace-nowrap px-2.5 py-1.5 text-[11px] font-medium text-navy-700 hover:bg-navy-50"
+            >
+              <ActionIcon className="h-3 w-3 text-kiwi-600" />
+              {actionLabel}
+            </button>
+          ) : (
+            <a
+              href={actionHref}
+              onClick={(e) => {
+                e.stopPropagation()
+                setOpen(false)
+              }}
+              className="flex items-center gap-1.5 whitespace-nowrap px-2.5 py-1.5 text-[11px] font-medium text-navy-700 hover:bg-navy-50"
+            >
+              <ActionIcon className="h-3 w-3 text-kiwi-600" />
+              {actionLabel}
+            </a>
+          )}
           <button
             type="button"
             title="Copier"
@@ -80,7 +104,17 @@ function ContactPopover({
 
 /** Numéro affiché n'importe où dans l'app : au survol (web) / au clic (mobile), propose d'appeler ou de copier. */
 export function PhoneLink({ value, className }: { value: string; className?: string }) {
-  return <ContactPopover value={value} className={className} monospace actionLabel="Appeler" actionHref={`tel:${value}`} ActionIcon={Phone} />
+  const { appeler } = useTelephonie()
+  return (
+    <ContactPopover
+      value={value}
+      className={className}
+      monospace
+      actionLabel="Appeler"
+      onAction={() => void appeler(value)}
+      ActionIcon={Phone}
+    />
+  )
 }
 
 /** Email affiché n'importe où dans l'app : au survol (web) / au clic (mobile), propose d'envoyer un mail ou de copier. */
