@@ -46,7 +46,7 @@ const OBJETS = [
   /* SA PAGE 2 EN PREMIER ONGLET. Le PDF du 25/08/2026 l'appelle « Patrimoine des comptes » et en
      fait la vue d'entrée du patrimoine : on regarde d'abord l'état de la donnée, ensuite les objets
      un par un. Les sept onglets existants ne bougent pas — celui-ci s'ajoute devant. */
-  { cle: 'performance', libelle: 'Performance', icone: TrendingUp, sens: 'La fiabilité de la donnée, compte par compte', Page: PerformanceComptes },
+  { cle: 'synthese', libelle: 'Synthèse', icone: TrendingUp, sens: 'Le volume du portefeuille et les données à corriger', Page: PerformanceComptes },
   { cle: 'comptes', libelle: 'Comptes', icone: Building2, sens: 'L’entreprise ou l’organisation cliente', Page: Comptes },
   { cle: 'contacts', libelle: 'Contacts', icone: Users, sens: 'Les personnes et leurs rôles', Page: Contacts },
   { cle: 'sites', libelle: 'Sites', icone: MapPin, sens: 'Les lieux de consommation', Page: Sites },
