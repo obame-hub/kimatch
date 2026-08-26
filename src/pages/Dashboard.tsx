@@ -1,14 +1,14 @@
 import { useNavigate } from 'react-router-dom'
 import {
+  Building2,
   Check,
   CheckSquare,
-  Sparkle,
-  Filter,
-  Building2,
-  Target,
   ChevronRight,
   Diamond,
+  Filter,
   Plus,
+  Sparkle,
+  Target,
   TrendingUp,
   Zap,
 } from 'lucide-react'
@@ -242,7 +242,31 @@ export default function Dashboard() {
           <BandeauMarge chiffres={chiffres} chargement={chiffresEnCours} />
         </div>
 
-        {/* ══════ LES QUATRE TUILES CHIFFRÉES ══════ */}
+        {/* ══════ MA PERFORMANCE ══════
+
+            SA MAQUETTE PLACE LE PERSONNEL DIRECTEMENT SOUS LE GLOBAL, et « directement » est le mot.
+            Sa phrase dans l'appel du 26/08 : « c'est juste en dessous de la performance, pour que la
+            lecture soit correcte ».
+
+            LES QUATRE TUILES CHIFFRÉES S'INTERCALAIENT ICI ; elles sont passées DESSOUS. Deux blocs
+            de performance séparés par une rangée d'indicateurs sont deux blocs qu'on ne compare
+            plus : l'œil doit passer de la marge de Kiwee à la sienne sans rien franchir. */}
+        <div className="mt-4">
+          <MaPerformance chiffres={perso} chargement={persoEnCours} prenom={null} />
+        </div>
+
+
+        {/* ══════ LES QUATRE TUILES CHIFFRÉES ══════
+
+            ELLES ÉTAIENT ENTRE LES DEUX BLOCS DE PERFORMANCE, elles passent dessous. Sa phrase de
+            l'appel du 26/08 : « c'est juste en dessous de la performance, pour que la lecture soit
+            correcte » — et « juste » est le mot. Deux blocs de performance séparés par une rangée
+            d'indicateurs sont deux blocs qu'on ne compare plus : l'œil doit passer de la marge de
+            Kiwee à la sienne sans rien franchir.
+
+            ELLES RESTENT, ET C'EST VOULU : elles répondent à une autre question — non pas « où en
+            est-on » mais « qu'est-ce qui attend ». Leur place est donc après la performance et avant
+            « Ma journée », qui les détaille. La lecture descend ainsi du résultat vers le travail. */}
         <div className="mt-4 grid grid-cols-1 gap-3.5 sm:grid-cols-2 xl:grid-cols-4">
           <TuileChiffre
             icone={Zap}
@@ -284,13 +308,6 @@ export default function Dashboard() {
             definition="Somme des montants d’affaire des recommandations ouvertes. Le badge dit combien d’entre elles portent un montant : le pipe est partiel tant qu’elles ne sont pas toutes chiffrées."
             onClick={() => navigate('/recommandations')}
           />
-        </div>
-
-        {/* ══════ MA PERFORMANCE ══════
-            Sa maquette révisée place le personnel SOUS le global : on lit d'abord où en est Kiwee,
-            ensuite sa part. L'inverse ferait du tableau de bord un miroir. */}
-        <div className="mt-4">
-          <MaPerformance chiffres={perso} chargement={persoEnCours} prenom={null} />
         </div>
 
         {/* ══════ MA JOURNÉE ══════ */}
