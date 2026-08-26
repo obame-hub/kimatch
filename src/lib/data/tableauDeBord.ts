@@ -217,7 +217,7 @@ export function useChiffresTableauDeBord() {
   })
 }
 
-export type GroupeJournee = 'SIGNAL' | 'MANDAT' | 'RECOMMANDATION' | 'AUTRE'
+export type GroupeJournee = 'SIGNAL' | 'OPPORTUNITE' | 'MANDAT' | 'RECOMMANDATION' | 'AUTRE'
 
 export interface ActionAFaire {
   id: string
@@ -245,6 +245,7 @@ export function badgeAction(a: ActionAFaire): { texte: string; ton: 'rouge' | 'a
 
 export const LIBELLE_GROUPE: Record<GroupeJournee, string> = {
   SIGNAL: 'Signaux',
+  OPPORTUNITE: 'Opportunités',
   MANDAT: 'Mandats',
   RECOMMANDATION: 'Recommandations',
   AUTRE: 'Autres',
@@ -257,11 +258,14 @@ export const LIBELLE_GROUPE: Record<GroupeJournee, string> = {
  * avec un badge d'urgence à droite et un basculement à réaliser / réalisé / tout. C'est un plan de
  * travail, pas un emploi du temps — et c'est plus juste, parce qu'une relance n'a pas d'heure.
  *
- * IL DEMANDE UN GROUPE « OPPORTUNITÉS » QUI NE PEUT PAS EXISTER. `actions` porte un lien vers un
- * signal, un mandat, une recommandation, une version, un site, un contact — mais AUCUNE colonne
- * `opportunite_id` (vérifié en base le 26/08/2026). Le groupe s'appelle donc « Mandats », qui est
- * l'objet réellement rattaché, et c'est d'ailleurs ce que montre son propre exemple sous
- * « Opportunités » : « faire avancer le mandat ». À lui de dire s'il veut le lien manquant.
+ * SON GROUPE « OPPORTUNITÉS » EXISTE DEPUIS LE 27/08/2026. Il manquait la colonne : `actions`
+ * portait un lien vers un signal, un mandat, une recommandation, une version, un site et un contact,
+ * mais aucun vers une opportunité. Naoëlle a tranché — « crée les liens de tâche vers opportunité » —
+ * et la migration 20260827100000 l'a ajoutée.
+ *
+ * L'ORDRE DES GROUPES SUIT LA CHAÎNE : signal, opportunité, mandat, recommandation. C'est celui de
+ * son pipeline, et il rend la lecture prévisible — on descend le tunnel de gauche à droite, du plus
+ * amont au plus aval, comme sur la page 5 de sa présentation.
  *
  * LA PORTÉE N'EST PAS « AUJOURD'HUI » MAIS « À FAIRE ». Ses badges disent « 3 jours », « 2 jours » :
  * il ne montre pas la journée au sens de l'agenda, il montre ce qui attend. On prend donc tout ce qui
@@ -279,7 +283,7 @@ export function useMesActions(profilId: string | null | undefined) {
       const debutDuJour = new Date(jour.getFullYear(), jour.getMonth(), jour.getDate()).toISOString()
 
       const colonnes =
-        'id, titre, priorite, date_prevue, date_realisation, signal_id, mandat_id, recommandation_id, version_recommandation_id, type_action:types_actions(libelle), contact:contacts(prenom, nom), site:sites(nom)'
+        'id, titre, priorite, date_prevue, date_realisation, signal_id, opportunite_id, mandat_id, recommandation_id, version_recommandation_id, type_action:types_actions(libelle), contact:contacts(prenom, nom), site:sites(nom)'
 
       // Deux requêtes plutôt qu'un `or` : ce qui reste à faire, et ce qui a été fait aujourd'hui —
       // le basculement « Réalisé » de sa maquette montre la journée écoulée, pas tout l'historique.
@@ -310,6 +314,7 @@ export function useMesActions(profilId: string | null | undefined) {
         date_prevue: string | null
         date_realisation: string | null
         signal_id: string | null
+        opportunite_id: string | null
         mandat_id: string | null
         recommandation_id: string | null
         version_recommandation_id: string | null
@@ -319,13 +324,18 @@ export function useMesActions(profilId: string | null | undefined) {
       }
 
       const lire = (a: Ligne): ActionAFaire => {
+        /* L'ORDRE DES TESTS EST L'ORDRE DE LA CHAÎNE, et il compte : une tâche peut porter
+           plusieurs liens — un mandat naît d'une opportunité. On retient alors l'objet le plus
+           AMONT, celui qui explique pourquoi la tâche existe, plutôt que le dernier rattaché. */
         const groupe: GroupeJournee = a.signal_id
           ? 'SIGNAL'
-          : a.mandat_id
-            ? 'MANDAT'
-            : a.recommandation_id || a.version_recommandation_id
-              ? 'RECOMMANDATION'
-              : 'AUTRE'
+          : a.opportunite_id
+            ? 'OPPORTUNITE'
+            : a.mandat_id
+              ? 'MANDAT'
+              : a.recommandation_id || a.version_recommandation_id
+                ? 'RECOMMANDATION'
+                : 'AUTRE'
 
         // Le nombre de jours se compte sur des jours de calendrier, pas sur des millisecondes : une
         // échéance ce soir à 18 h doit dire « aujourd'hui » et non « dans 0,3 jour ».

@@ -177,7 +177,21 @@ export function RailCycleVie({
             i < dernier ? (
               <div
                 key={`${etape.id}-barre`}
-                className="mx-[-10px] h-[5px] rounded-[3px]"
+                /* LES HACHURES DÉFILENT, comme sur la frise de l'opportunité de William. Signalé par
+                   Naoëlle le 27/08 : « il y a plusieurs objets qui n'ont pas l'animation que William
+                   a faite, les traits qui bougent entre deux statuts ».
+
+                   Le motif était déjà là, mais figé — il disait « cette étape est en cours » sans le
+                   MONTRER. Une hachure immobile se lit comme une texture ; la même qui avance dit
+                   qu'il se passe quelque chose, et c'est tout l'intérêt de l'animation de William.
+
+                   Elle ne s'applique qu'au segment en cours : `animate-kw-stripe` déplace le fond de
+                   36 px, exactement la taille du motif, donc le défilement est continu. */
+                className={cn(
+                  'mx-[-10px] h-[5px] rounded-[3px]',
+                  !finalite && indexCourant >= 0 && i === indexCourant &&
+                    'animate-kw-stripe motion-reduce:animate-none',
+                )}
                 style={
                   finalite && i === dernier - 1
                     ? { background: `linear-gradient(90deg,#cf9a5e,${fin?.couleur ?? '#cf9a5e'})` }

@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { ArrowRight, Check, CheckSquare, FileSignature, ListChecks, Zap } from 'lucide-react'
+import { ArrowRight, Check, CheckSquare, Diamond, FileSignature, ListChecks, Zap } from 'lucide-react'
 import { useCompleteAction } from '@/lib/data/actions'
 import { LIBELLE_GROUPE, badgeAction, type ActionAFaire, type GroupeJournee } from '@/lib/data/tableauDeBord'
 import { cn } from '@/lib/utils'
@@ -17,9 +17,8 @@ import { cn } from '@/lib/utils'
  * personne ne saisira. La case à cocher est d'ailleurs le seul élément de ses six maquettes qui
  * ÉCRIT quelque chose — tout le reste affiche.
  *
- * LE GROUPE « OPPORTUNITÉS » DE SA MAQUETTE N'EXISTE PAS ICI, et ce n'est pas un oubli : `actions`
- * n'a aucune colonne `opportunite_id` (vérifié en base). Le groupe s'appelle « Mandats », l'objet
- * réellement rattaché — et c'est ce que montre son propre exemple, « faire avancer le mandat ».
+ * LE GROUPE « OPPORTUNITÉS » DE SA MAQUETTE EXISTE DEPUIS LE 27/08/2026 : il manquait la colonne
+ * `actions.opportunite_id`, ajoutée par la migration 20260827100000.
  *
  * LES GROUPES VIDES NE S'AFFICHENT PAS. Trois cadres vides sous un compteur à zéro donnent
  * l'impression d'un écran cassé ; une seule phrase dit mieux qu'il n'y a rien à faire.
@@ -27,6 +26,7 @@ import { cn } from '@/lib/utils'
 
 const ICONES: Record<GroupeJournee, typeof Zap> = {
   SIGNAL: Zap,
+  OPPORTUNITE: Diamond,
   MANDAT: FileSignature,
   RECOMMANDATION: CheckSquare,
   AUTRE: ListChecks,
@@ -35,6 +35,7 @@ const ICONES: Record<GroupeJournee, typeof Zap> = {
 /** Une teinte par objet, la même que sur les tuiles du tableau de bord. */
 const TEINTES: Record<GroupeJournee, string> = {
   SIGNAL: 'bg-kw-amber-light text-kw-amber',
+  OPPORTUNITE: 'bg-opp-50 text-opp-600',
   MANDAT: 'bg-sky-50 text-kw-blue',
   RECOMMANDATION: 'bg-kw-green-light text-kw-green',
   AUTRE: 'bg-kw-bloc text-kw-meta',
@@ -46,7 +47,9 @@ const TONS = {
   neutre: 'bg-kw-bloc text-kw-meta',
 } as const
 
-const ORDRE: GroupeJournee[] = ['SIGNAL', 'MANDAT', 'RECOMMANDATION', 'AUTRE']
+/* L'ordre de la chaîne : signal, opportunité, mandat, recommandation. On descend le tunnel du plus
+   amont au plus aval, comme sur la page 5 de sa présentation. */
+const ORDRE: GroupeJournee[] = ['SIGNAL', 'OPPORTUNITE', 'MANDAT', 'RECOMMANDATION', 'AUTRE']
 
 type Portee = 'a_faire' | 'faites' | 'tout'
 
@@ -125,8 +128,9 @@ export function MaJournee({
             {portee === 'faites' ? 'Rien de réalisé aujourd’hui.' : 'Rien à réaliser.'}
           </p>
           <p className="mt-0.5 max-w-[70ch] text-kw-xs leading-relaxed text-kw-meta">
-            Les actions arrivent ici depuis un signal, un mandat ou une recommandation — c’est là
-            qu’elles ont un objet. Une action créée sans rattachement apparaît sous « Autres ».
+            Les actions arrivent ici depuis un signal, une opportunité, un mandat ou une
+            recommandation — c’est là qu’elles ont un objet. Une action créée sans rattachement
+            apparaît sous « Autres ».
           </p>
         </div>
       ) : (

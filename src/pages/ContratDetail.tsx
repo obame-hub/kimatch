@@ -1475,13 +1475,32 @@ function FriseEnvoi({ contrat, etat }: { contrat: Contrat; etat: EtatEnveloppe |
               </div>
               {i < etapes.length - 1 && (
                 <div
+                  /* LE SEGMENT EN COURS EST HACHURÉ ET DÉFILE, comme sur la frise de l'opportunité.
+                     Signalé par Naoëlle le 27/08 : « il faut que tous les statuts des objets aient
+                     cette animation ». Cette frise n'avait que du plein ou du gris — elle disait où
+                     l'on en était sans montrer que quelque chose était en train de se passer.
+
+                     Rien ne défile quand l'envoi est ARRÊTÉ : un refus ou une annulation ne sont pas
+                     une étape en cours, et une hachure qui avancerait derrière eux annoncerait une
+                     progression qui n'aura pas lieu. */
+                  style={
+                    !arrete && i === atteinte
+                      ? {
+                          backgroundImage:
+                            'repeating-linear-gradient(90deg,#c3ddd4 0px,#c3ddd4 7px,#eef5f2 7px,#eef5f2 14px)',
+                          backgroundSize: '36px 100%',
+                        }
+                      : undefined
+                  }
                   className={cn(
                     'mx-1 h-1 flex-1 rounded',
                     i < atteinte
                       ? arrete
                         ? 'bg-gradient-to-r from-red-600 to-red-500'
                         : 'bg-gradient-to-r from-kiwi-600 to-kiwi-500'
-                      : 'bg-navy-100',
+                      : !arrete && i === atteinte
+                        ? 'animate-kw-stripe motion-reduce:animate-none'
+                        : 'bg-navy-100',
                   )}
                 />
               )}

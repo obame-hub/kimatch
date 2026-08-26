@@ -17,19 +17,86 @@ import { cn } from '@/lib/utils'
  *
  * `prefers-reduced-motion` coupe les deux animations : une pulsation permanente est pénible pour
  * qui y est sensible, et l'information reste lisible sans elle (taille, couleur, coche).
+ *
+ * ══ ELLE SERT MAINTENANT À TOUS LES OBJETS ══
+ *
+ * Naoëlle, 27/08/2026 : « il y a plusieurs objets qui n'ont pas l'animation que William a faite dans
+ * la frise des statuts, les traits qui bougent entre deux statuts — il faut que tous les statuts des
+ * objets aient cette animation ».
+ *
+ * Elle était réservée à l'opportunité. Le contrat avait une frise inerte, la recommandation aucune,
+ * le signal et le mandat non plus. Le composant prend donc une TEINTE : le montage, les tailles et
+ * les deux animations de William ne bougent pas d'un pixel, seule la couleur suit l'objet — magenta
+ * pour l'opportunité comme avant, et sa propre famille pour les autres.
+ *
+ * POURQUOI LA COULEUR ET RIEN D'AUTRE : c'est le seul endroit où la frise doit parler de l'objet
+ * qu'elle décrit. Le reste — le jalon qui respire, les hachures qui avancent — dit « vous êtes ici,
+ * voilà ce qui reste », et ça se dit de la même façon partout.
  */
+
+/** Les familles de couleur d'une frise. Chacune reprend les jetons déjà utilisés par son objet. */
+export interface TeinteFrise {
+  /** Dégradé des jalons franchis et des segments derrière soi. */
+  gradient: string
+  /** Ombre portée du jalon courant. */
+  ombreCourant: string
+  /** Ombre portée d'un jalon franchi. */
+  ombreFranchi: string
+  /** Les deux teintes des hachures du segment en cours : trait, puis fond. */
+  hachures: [string, string]
+  /** Animation de pulsation du jalon courant, ou `null` pour ne pas en mettre. */
+  pulsation: string | null
+}
+
+export const TEINTES_FRISE: Record<string, TeinteFrise> = {
+  /** L'opportunité — le magenta de William, inchangé au pixel près. */
+  opportunite: {
+    gradient: 'from-opp-600 to-opp-400',
+    ombreCourant: 'shadow-[0_5px_14px_rgba(168,49,127,.34)]',
+    ombreFranchi: 'shadow-[0_2px_6px_rgba(168,49,127,.2)]',
+    hachures: ['#e8c3dc', '#f4eef1'],
+    pulsation: 'animate-kw-opp-pulse',
+  },
+  /** La recommandation — le vert de Kiwee, sa couleur dans tout le reste de l'app. */
+  recommandation: {
+    gradient: 'from-kiwi-600 to-kiwi-400',
+    ombreCourant: 'shadow-[0_5px_14px_rgba(13,122,95,.34)]',
+    ombreFranchi: 'shadow-[0_2px_6px_rgba(13,122,95,.2)]',
+    hachures: ['#c3ddd4', '#eef5f2'],
+    pulsation: 'animate-kw-soft-pulse',
+  },
+  /** Le signal — l'ambre de la détection, comme sa tuile du tableau de bord. */
+  signal: {
+    gradient: 'from-amber-600 to-amber-400',
+    ombreCourant: 'shadow-[0_5px_14px_rgba(181,122,36,.34)]',
+    ombreFranchi: 'shadow-[0_2px_6px_rgba(181,122,36,.2)]',
+    hachures: ['#e8d5b4', '#f6f1e6'],
+    pulsation: 'animate-kw-soft-pulse',
+  },
+  /** Le contrat et le mandat — le bleu des engagements. */
+  contrat: {
+    gradient: 'from-sky-600 to-sky-400',
+    ombreCourant: 'shadow-[0_5px_14px_rgba(59,95,138,.34)]',
+    ombreFranchi: 'shadow-[0_2px_6px_rgba(59,95,138,.2)]',
+    hachures: ['#c2d0e0', '#eef1f6'],
+    pulsation: 'animate-kw-soft-pulse',
+  },
+}
 export interface JalonFrise {
   code: string
   libelle: string
 }
 
-export function FriseStatut({ jalons, courant, finalite }: {
+export function FriseStatut({ jalons, courant, finalite, teinte = 'opportunite' }: {
   jalons: JalonFrise[]
   /** Code du palier atteint. Les jalons précédents sont « franchis ». */
   courant: string
-  /** Qualification finale, quand l'opportunité est clôturée : elle ferme la frise. */
+  /** Qualification finale, quand l'objet est clôturé : elle ferme la frise. */
   finalite?: { libelle: string; perdue: boolean } | null
+  /** La famille de couleur. Par défaut celle de l'opportunité, pour ne rien changer à l'existant. */
+  teinte?: keyof typeof TEINTES_FRISE
 }) {
+  const t = TEINTES_FRISE[teinte] ?? TEINTES_FRISE.opportunite
   const indexCourant = Math.max(0, jalons.findIndex((j) => j.code === courant))
   // Une opportunité clôturée a tout franchi : la frise s'arrête sur sa qualification finale.
   const atteint = finalite ? jalons.length : indexCourant
@@ -45,12 +112,23 @@ export function FriseStatut({ jalons, courant, finalite }: {
           <div key={jalon.code} className="flex min-w-0 flex-1 items-center">
             {i > 0 && (
               <div
+                /* LES HACHURES PASSENT PAR LE STYLE EN LIGNE, et c'est obligé : Tailwind compile
+                   les classes qu'il LIT dans le source, donc une classe construite à l'exécution
+                   (`bg-[…${couleur}…]`) n'existerait jamais dans la feuille produite. Le motif est
+                   celui de William au pixel près — 7 px de trait, 7 px de fond, défilement de 36. */
+                style={
+                  segmentEnCours
+                    ? {
+                        backgroundImage: `repeating-linear-gradient(90deg,${t.hachures[0]} 0px,${t.hachures[0]} 7px,${t.hachures[1]} 7px,${t.hachures[1]} 14px)`,
+                      }
+                    : undefined
+                }
                 className={cn(
                   '-mx-2.5 h-[5px] flex-1 rounded-[3px]',
                   i <= atteint
-                    ? 'bg-gradient-to-r from-opp-600 to-opp-400'
+                    ? 'bg-gradient-to-r ' + t.gradient
                     : segmentEnCours
-                      ? 'animate-kw-stripe bg-[repeating-linear-gradient(90deg,#e8c3dc_0px,#e8c3dc_7px,#f4eef1_7px,#f4eef1_14px)] bg-[length:36px_100%] motion-reduce:animate-none'
+                      ? 'animate-kw-stripe bg-[length:36px_100%] motion-reduce:animate-none'
                       : 'bg-[#eceae6]',
                 )}
               />
@@ -62,10 +140,10 @@ export function FriseStatut({ jalons, courant, finalite }: {
                   etat === 'courant' ? 'h-[34px] w-[34px]' : 'h-[30px] w-[30px]',
                   etat === 'a_venir'
                     ? 'border-2 border-dashed border-[#dcdad5] bg-white text-[#c0c2bd]'
-                    : 'bg-gradient-to-br from-opp-600 to-opp-400 text-white',
-                  etat === 'courant' && 'shadow-[0_5px_14px_rgba(168,49,127,.34)]',
-                  etat === 'franchi' && 'shadow-[0_2px_6px_rgba(168,49,127,.2)]',
-                  etat === 'courant' && !finalite && 'animate-kw-opp-pulse motion-reduce:animate-none',
+                    : 'bg-gradient-to-br text-white ' + t.gradient,
+                  etat === 'courant' && t.ombreCourant,
+                  etat === 'franchi' && t.ombreFranchi,
+                  etat === 'courant' && !finalite && t.pulsation && t.pulsation + ' motion-reduce:animate-none',
                 )}
               >
                 {etat === 'franchi'
