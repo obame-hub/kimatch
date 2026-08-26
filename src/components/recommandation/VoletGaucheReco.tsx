@@ -12,7 +12,7 @@ import {
 } from '@/lib/data/partagesEtude'
 import type { ReferenceRow } from '@/lib/data/referenceTables'
 import type { Recommandation, VersionRecommandation, Contact, Compte } from '@/types/domain'
-import { appelerNumero } from '@/lib/telephonie'
+import { appelerNumero, numeroLisible } from '@/lib/telephonie'
 
 /**
  * Volet gauche de la fiche Recommandation — les cinq cartes de la maquette de William :
@@ -313,7 +313,7 @@ export function VoletGaucheReco({
                     rien à détecter et l'icône Allo n'apparaît jamais. Le texte est la condition pour
                     que l'appel dans Allo soit possible. */}
                 {contactPrincipal.telephone && (
-                  <div className="truncate font-mono text-kw-xs text-kw-body">{contactPrincipal.telephone}</div>
+                  <div className="truncate font-mono text-kw-xs text-kw-body">{numeroLisible(contactPrincipal.telephone)}</div>
                 )}
               </div>
             </div>

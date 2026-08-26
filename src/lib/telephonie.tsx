@@ -65,6 +65,42 @@ export function numeroInternational(brut: string | null | undefined): string | n
   return /^\+\d{8,15}$/.test(n) ? n : null
 }
 
+/**
+ * LE NUMÉRO TEL QU'ON LE LIT — international, groupé par deux.
+ *
+ * `+33 6 12 34 56 78` plutôt que `0766933888`. Recommandé par Lovable après audit de Tools, et c'est
+ * la bonne recommandation, mais PAS pour la raison qu'on pourrait croire : l'extension Allo a décoré
+ * `+33766933888` sans le moindre espace dans notre bandeau de confirmation, et la documentation d'Allo
+ * dit elle-même reconnaître les numéros non formatés. Les espaces ne servent donc pas la détection.
+ *
+ * ILS SERVENT LA LECTURE, et c'est déjà une bonne raison : un commercial qui dicte un numéro au
+ * téléphone, ou qui le compare à celui d'une facture, lit des paires de chiffres. `0766933888` se
+ * relit trois fois.
+ *
+ * ET ILS SERVENT L'UNIFORMITÉ : nos numéros viennent de la reprise Salesforce tels quels — `06 12 34
+ * 56 78`, `0612345678`, `+33612345678` cohabitent dans la même liste. Les afficher tous de la même
+ * façon est le minimum, d'autant que le préfixe international dit quelque chose d'utile : que le
+ * numéro est composable de n'importe où.
+ *
+ * NON NORMALISABLE, ON MONTRE LE BRUT. Un numéro incomplet reste un numéro qu'un humain reconnaîtra
+ * peut-être ; le remplacer par un tiret perdrait la seule trace qu'on ait.
+ */
+export function numeroLisible(brut: string | null | undefined): string {
+  const e164 = numeroInternational(brut)
+  if (!e164) return brut ?? ''
+
+  // La France, seul cas qui vaille un groupement dédié : indicatif, puis paires.
+  if (e164.startsWith('+33') && e164.length === 12) {
+    const n = e164.slice(3)
+    return '+33 ' + n.slice(0, 1) + ' ' + (n.slice(1).match(/.{1,2}/g) ?? []).join(' ')
+  }
+
+  // Ailleurs, on ne connaît pas les usages de groupement : on sépare l'indicatif et on s'arrête là,
+  // plutôt que d'inventer un découpage qui trahirait le pays.
+  const m = e164.match(/^(\+\d{1,3})(\d+)$/)
+  return m ? m[1] + ' ' + (m[2].match(/.{1,2}/g) ?? []).join(' ') : e164
+}
+
 interface Telephonie {
   /** Prépare l'appel. Rend le message affiché — il y a toujours quelque chose à dire. */
   appeler: (numero: string | null | undefined) => Promise<string>

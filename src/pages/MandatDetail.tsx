@@ -26,7 +26,7 @@ import { useRaccourcisOnglets } from '@/lib/useRaccourcisOnglets'
 import { cn } from '@/lib/utils'
 import type { Mandat, Contact, Compte, Compteur } from '@/types/domain'
 import { generateMandatKiweePdf, generateMandatEnergixPdf } from '@/lib/mandatPdf'
-import { appelerNumero } from '@/lib/telephonie'
+import { appelerNumero, numeroLisible } from '@/lib/telephonie'
 
 type TabKey = 'mandat' | 'perimetre' | 'fichiers'
 
@@ -386,7 +386,7 @@ export default function MandatDetail() {
                     rien à détecter et l'icône Allo n'apparaît jamais. Le texte est la condition pour
                     que l'appel dans Allo soit possible. */}
                   {contactSignataire.telephone && (
-                    <p className="truncate font-mono text-[10.5px] text-navy-600">{contactSignataire.telephone}</p>
+                    <p className="truncate font-mono text-[10.5px] text-navy-600">{numeroLisible(contactSignataire.telephone)}</p>
                   )}
                 </div>
               </div>

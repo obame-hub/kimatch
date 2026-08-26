@@ -48,7 +48,7 @@ import { cn } from '@/lib/utils'
 import { useGoBack } from '@/lib/useGoBack'
 import { useRaccourcisOnglets } from '@/lib/useRaccourcisOnglets'
 import type { Compte, Contact } from '@/types/domain'
-import { appelerNumero } from '@/lib/telephonie'
+import { appelerNumero, numeroLisible } from '@/lib/telephonie'
 
 type TabKey = 'synthese' | 'contrats' | 'compteurs' | 'recommandations' | 'signaux' | 'mandats' | 'fichiers' | 'historique' | 'activite'
 
@@ -1117,7 +1117,7 @@ function ContactsPanel({ contacts }: { contacts: Contact[] | undefined }) {
                       numéros qu'elle VOIT : derrière une icône, elle n'a rien à détecter et son
                       bouton d'appel n'apparaît jamais. */}
                   {c.telephone && (
-                    <p className="truncate font-mono text-[10.5px] text-navy-600">{c.telephone}</p>
+                    <p className="truncate font-mono text-[10.5px] text-navy-600">{numeroLisible(c.telephone)}</p>
                   )}
                 </div>
                 {c.telephone && (

@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import { Phone, Mail, Copy, Check } from 'lucide-react'
-import { useTelephonie } from '@/lib/telephonie'
+import { numeroInternational, numeroLisible, useTelephonie } from '@/lib/telephonie'
 import { cn } from '@/lib/utils'
 
 function usePopover() {
@@ -132,7 +132,7 @@ export function PhoneLink({ value, className }: { value: string; className?: str
   return (
     <span className="group/tel inline-flex items-center gap-1 align-middle">
       {/* Rien de cliquable autour du numéro : c'est la condition pour qu'Allo le décore. */}
-      <span className={cn('font-mono', className)}>{value}</span>
+      <span className={cn('font-mono', className)}>{numeroLisible(value)}</span>
 
       {tactile ? (
         <button
@@ -152,8 +152,11 @@ export function PhoneLink({ value, className }: { value: string; className?: str
           title={copie ? 'Numéro copié' : 'Copier le numéro'}
           onClick={(e) => {
             e.stopPropagation()
+            /* ON COPIE LA FORME COMPOSABLE, pas celle qu'on affiche : collé dans un composeur,
+               `+33612345678` fonctionne partout, `+33 6 12 34 56 78` fait trébucher la moitié
+               d'entre eux sur les espaces. */
             navigator.clipboard
-              ?.writeText(value)
+              ?.writeText(numeroInternational(value) ?? value)
               .then(() => setCopie(true))
               .catch(() => {})
           }}
