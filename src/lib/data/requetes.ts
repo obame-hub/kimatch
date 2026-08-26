@@ -47,6 +47,9 @@ interface RawRequete {
   date_creation: string
   statut: { code: string; libelle: string } | null
   compte: { nom: string } | null
+  site: { nom: string } | null
+  compteur: { numero_point: string } | null
+  contact: { prenom: string | null; nom: string | null } | null
 }
 
 export function useRequetes() {
@@ -56,7 +59,7 @@ export function useRequetes() {
       try {
         const lignes = await fetchAllRows<RawRequete>(
           'requetes',
-          '*, statut:statuts_requetes(code, libelle), compte:comptes(nom)',
+          '*, statut:statuts_requetes(code, libelle), compte:comptes(nom), site:sites(nom), compteur:compteurs(numero_point), contact:contacts(prenom, nom)',
           // eslint-disable-next-line @typescript-eslint/no-explicit-any
           (q: any) => q.order('date_creation', { ascending: false }),
         )
@@ -76,6 +79,9 @@ export function useRequetes() {
           site_id: r.site_id,
           compteur_id: r.compteur_id,
           contrat_id: r.contrat_id,
+          site_nom: r.site?.nom ?? null,
+          compteur_numero: r.compteur?.numero_point ?? null,
+          contact_nom: [r.contact?.prenom, r.contact?.nom].filter(Boolean).join(' ') || null,
           statut: r.statut?.code ?? 'NOUVELLE',
           statut_libelle: r.statut?.libelle ?? 'Nouvelle',
           date_echeance: r.date_echeance,
@@ -113,6 +119,20 @@ export function useCreerRequete() {
       objet: string | null
       description: string | null
       compte_id: string | null
+      /**
+       * LES TROIS RATTACHEMENTS FINS, tous facultatifs. Demandés par la RH le 26/08/2026 : « il
+       * faudrait qu'on puisse préciser de quel site ou num de compteur ou contact, mais que ce soit
+       * facultatif ».
+       *
+       * ILS EXISTAIENT DÉJÀ EN BASE — `requetes` porte site_id, compteur_id, contact_id et
+       * contrat_id depuis l'origine, toutes nullables. Rien à migrer : c'était un trou dans le
+       * formulaire, pas dans le schéma. Une requête arrive souvent avant qu'on sache où elle se
+       * rattache, d'où le facultatif — et d'où le fait qu'on puisse aussi les renseigner APRÈS,
+       * depuis la fiche.
+       */
+      site_id: string | null
+      compteur_id: string | null
+      contact_id: string | null
       statut_id: string | null
       date_echeance: string | null
     }) => {
@@ -121,6 +141,9 @@ export function useCreerRequete() {
         objet: input.objet,
         description: input.description,
         compte_id: input.compte_id,
+        site_id: input.site_id,
+        compteur_id: input.compteur_id,
+        contact_id: input.contact_id,
         date_echeance: input.date_echeance,
         ...(input.statut_id ? { statut_id: input.statut_id } : {}),
       }).select('id').single()
@@ -137,6 +160,10 @@ export type PatchRequete = Partial<{
   description: string | null
   resolution: string | null
   compte_id: string | null
+  /** Modifiables après coup : une réclamation arrive rarement avec son numéro de compteur. */
+  site_id: string | null
+  compteur_id: string | null
+  contact_id: string | null
   statut_id: string | null
   date_echeance: string | null
   date_resolution: string | null

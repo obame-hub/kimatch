@@ -861,6 +861,16 @@ export interface Requete {
   site_id: string | null
   compteur_id: string | null
   contrat_id: string | null
+  /**
+   * Les libellés des trois rattachements fins, résolus par la requête.
+   *
+   * Un identifiant ne s'affiche pas : « Site : 4f3a-… » n'apprend rien à personne. Ils sont donc
+   * ramenés en même temps que la requête, par jointure — une requête de plus par ligne aurait été
+   * un aller-retour réseau pour un nom.
+   */
+  site_nom: string | null
+  compteur_numero: string | null
+  contact_nom: string | null
   statut: string
   statut_libelle: string
   date_echeance: string | null

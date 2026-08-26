@@ -15,8 +15,12 @@ import {
   useCreerRequete,
   useMajRequete,
   CATEGORIES_REQUETE,
+  type PatchRequete,
 } from '@/lib/data/requetes'
 import { useComptes } from '@/lib/data/comptes'
+import { useSitesParCompte } from '@/lib/data/sites'
+import { useCompteursParSites } from '@/lib/data/compteurs'
+import { useContactsParCompte } from '@/lib/data/contacts'
 import { cn } from '@/lib/utils'
 import type { Requete } from '@/types/domain'
 
@@ -139,6 +143,14 @@ export default function Requetes() {
                     signaler(e instanceof Error ? e.message : 'Enregistrement impossible')
                   }
                 }}
+                onRattachement={async (patch) => {
+                  try {
+                    await maj.mutateAsync({ id: r.id, patch })
+                    signaler('✓ Rattachement enregistré')
+                  } catch (e) {
+                    signaler(e instanceof Error ? e.message : 'Enregistrement impossible')
+                  }
+                }}
                 onResolution={async (texte) => {
                   try {
                     await maj.mutateAsync({ id: r.id, patch: { resolution: texte } })
@@ -164,13 +176,15 @@ export default function Requetes() {
   )
 }
 
-function CarteRequete({ requete, statuts, onStatut, onResolution }: {
+function CarteRequete({ requete, statuts, onStatut, onResolution, onRattachement }: {
   requete: Requete
   statuts: { id: string; code: string; libelle: string }[]
   onStatut: (statutId: string, code: string) => void
   onResolution: (texte: string) => void
+  onRattachement: (patch: PatchRequete) => void
 }) {
   const [resolution, setResolution] = useState(requete.resolution ?? '')
+  const [precise, setPrecise] = useState(false)
   const categorie = CATEGORIES_REQUETE.find((c) => c.code === requete.categorie)
   const resolue = requete.statut === 'RESOLUE'
   const enRetard = Boolean(requete.date_echeance && !resolue && new Date(requete.date_echeance) < new Date())
@@ -206,6 +220,71 @@ function CarteRequete({ requete, statuts, onStatut, onResolution }: {
 
       {requete.description && (
         <p className="mt-2 line-clamp-3 text-xs text-navy-500">{requete.description}</p>
+      )}
+
+      {/* ══ OÙ SE PASSE LE PROBLÈME ══
+          Les trois rattachements se lisent d'un coup d'œil quand ils sont renseignés, et se posent
+          ici quand ils ne le sont pas. C'est le second temps de la demande de la RH : une requête
+          arrive souvent avant qu'on sache de quel compteur il s'agit — l'information se complète au
+          téléphone, donc elle doit pouvoir se saisir sans repasser par une création. */}
+      {(requete.site_nom || requete.compteur_numero || requete.contact_nom) && (
+        <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 text-[11px] text-navy-500">
+          {requete.site_nom && (
+            <span>
+              <span className="text-navy-400">Site : </span>
+              <EntityLink to={`/sites/${requete.site_id}`}>{requete.site_nom}</EntityLink>
+            </span>
+          )}
+          {requete.compteur_numero && (
+            <span>
+              <span className="text-navy-400">Compteur : </span>
+              <EntityLink to={`/compteurs/${requete.compteur_id}`}>
+                <span className="font-mono">{requete.compteur_numero}</span>
+              </EntityLink>
+            </span>
+          )}
+          {requete.contact_nom && (
+            <span>
+              <span className="text-navy-400">Contact : </span>
+              <EntityLink to={`/contacts/${requete.contact_id}`}>{requete.contact_nom}</EntityLink>
+            </span>
+          )}
+        </div>
+      )}
+
+      {requete.compte_id && (
+        <div className="mt-2">
+          {precise ? (
+            <div className="rounded-kw-md border border-kw-border bg-kw-bloc p-2.5">
+              <ChampsRattachement
+                compteId={requete.compte_id}
+                siteId={requete.site_id ?? ''}
+                setSiteId={(v) => onRattachement({ site_id: v || null, compteur_id: null })}
+                compteurId={requete.compteur_id ?? ''}
+                setCompteurId={(v) => onRattachement({ compteur_id: v || null })}
+                contactId={requete.contact_id ?? ''}
+                setContactId={(v) => onRattachement({ contact_id: v || null })}
+              />
+              <button
+                type="button"
+                onClick={() => setPrecise(false)}
+                className="mt-2 text-[10.5px] font-semibold text-navy-500 hover:underline"
+              >
+                Terminé
+              </button>
+            </div>
+          ) : (
+            <button
+              type="button"
+              onClick={() => setPrecise(true)}
+              className="text-[10.5px] font-semibold text-kw-green hover:underline"
+            >
+              {requete.site_nom || requete.compteur_numero || requete.contact_nom
+                ? 'Modifier le rattachement'
+                : 'Préciser le site, le compteur ou le contact'}
+            </button>
+          )}
+        </div>
       )}
 
       {requete.date_echeance && (
@@ -268,6 +347,111 @@ function Tuile({ libelle, valeur, accent }: { libelle: string; valeur: string; a
   )
 }
 
+/**
+ * OÙ SE PASSE LE PROBLÈME — le site, le compteur, le contact.
+ *
+ * Demandé par la RH le 26/08/2026 : « il faudrait qu'on puisse préciser de quel site ou num de
+ * compteur ou contact, mais que ce soit facultatif ». Les colonnes existaient déjà en base ; c'était
+ * un trou dans le formulaire.
+ *
+ * LES TROIS LISTES DÉCOULENT DU COMPTE, et c'est ce qui rend le bloc utilisable : proposer les
+ * 17 000 sites de Kimatch dans un menu déroulant serait proposer de chercher une aiguille. Une fois
+ * le compte choisi, il reste ses sites, ses compteurs et ses contacts — quelques lignes.
+ *
+ * ET LE COMPTEUR SE RESSERRE ENCORE SI UN SITE EST CHOISI : sur un syndic de trois cents compteurs,
+ * le site est le seul filtre qui ramène la liste à une taille lisible. Sans site, on montre tous les
+ * compteurs du compte, parce qu'on connaît parfois le PDL sans savoir de quel site il relève — c'est
+ * même le cas le plus fréquent quand la réclamation vient d'une facture.
+ *
+ * TOUT EST FACULTATIF, jusqu'au compte : une réclamation peut arriver avant qu'on sache à qui elle se
+ * rattache, et la refuser pour cette raison ferait perdre l'information.
+ */
+function ChampsRattachement({
+  compteId,
+  siteId,
+  setSiteId,
+  compteurId,
+  setCompteurId,
+  contactId,
+  setContactId,
+}: {
+  compteId: string
+  siteId: string
+  setSiteId: (v: string) => void
+  compteurId: string
+  setCompteurId: (v: string) => void
+  contactId: string
+  setContactId: (v: string) => void
+}) {
+  const { data: sites } = useSitesParCompte(compteId || undefined)
+  const { data: contacts } = useContactsParCompte(compteId || undefined)
+  // Les compteurs du site choisi, ou de tout le compte à défaut.
+  const idsSites = siteId ? [siteId] : (sites ?? []).map((x) => x.id)
+  const { data: compteurs } = useCompteursParSites(compteId ? idsSites : undefined)
+
+  if (!compteId) {
+    return (
+      <p className="rounded-kw-md border border-dashed border-kw-border-strong bg-kw-bloc px-3 py-2 text-kw-xs leading-relaxed text-kw-meta">
+        Choisissez un compte pour pouvoir préciser le site, le compteur ou le contact concerné. Ces
+        trois précisions restent facultatives, et peuvent être ajoutées plus tard depuis la fiche.
+      </p>
+    )
+  }
+
+  return (
+    <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+      <FormField label="Site (facultatif)">
+        <Select
+          value={siteId}
+          onChange={(e) => {
+            setSiteId(e.target.value)
+            // Le compteur choisi peut ne pas appartenir au nouveau site : on le libère plutôt que
+            // de laisser une paire incohérente s'enregistrer.
+            setCompteurId('')
+          }}
+        >
+          <option value="">Non précisé</option>
+          {[...(sites ?? [])]
+            .sort((a, b) => a.nom.localeCompare(b.nom))
+            .map((x) => (
+              <option key={x.id} value={x.id}>
+                {x.nom}
+              </option>
+            ))}
+        </Select>
+      </FormField>
+
+      <FormField label="Compteur (facultatif)">
+        <Select value={compteurId} onChange={(e) => setCompteurId(e.target.value)}>
+          <option value="">Non précisé</option>
+          {[...(compteurs ?? [])]
+            .sort((a, b) => (a.numero_pdl ?? '').localeCompare(b.numero_pdl ?? ''))
+            .map((x) => (
+              <option key={x.id} value={x.id}>
+                {x.numero_pdl}
+                {x.site_nom ? ` — ${x.site_nom}` : ''}
+              </option>
+            ))}
+        </Select>
+      </FormField>
+
+      <FormField label="Contact (facultatif)">
+        <Select value={contactId} onChange={(e) => setContactId(e.target.value)}>
+          <option value="">Non précisé</option>
+          {[...(contacts ?? [])]
+            .sort((a, b) => (a.nom ?? '').localeCompare(b.nom ?? ''))
+            .map((x) => (
+              <option key={x.id} value={x.id}>
+                {[x.prenom, x.nom].filter(Boolean).join(' ')}
+                {x.fonction ? ` — ${x.fonction}` : ''}
+              </option>
+            ))}
+        </Select>
+      </FormField>
+    </div>
+  )
+}
+
 function DialogCreation({ onFermer, signaler }: { onFermer: () => void; signaler: (m: string) => void }) {
   const { data: comptes } = useComptes()
   const { data: statuts } = useStatutsRequetes()
@@ -276,6 +460,9 @@ function DialogCreation({ onFermer, signaler }: { onFermer: () => void; signaler
   const [objet, setObjet] = useState('')
   const [description, setDescription] = useState('')
   const [compteId, setCompteId] = useState('')
+  const [siteId, setSiteId] = useState('')
+  const [compteurId, setCompteurId] = useState('')
+  const [contactId, setContactId] = useState('')
   const [echeance, setEcheance] = useState('')
   const [erreur, setErreur] = useState<string | null>(null)
 
@@ -292,12 +479,33 @@ function DialogCreation({ onFermer, signaler }: { onFermer: () => void; signaler
           <Input value={objet} onChange={(e) => setObjet(e.target.value)} placeholder="Ex. Facture de juillet contestée" />
         </FormField>
         <FormField label="Compte">
-          <Select value={compteId} onChange={(e) => setCompteId(e.target.value)}>
+          {/* CHANGER DE COMPTE VIDE LES TROIS : les sites et compteurs du compte précédent
+              n'appartiennent pas au nouveau, et un identifiant resté là s'enregistrerait sans que
+              personne ne le voie. */}
+          <Select
+            value={compteId}
+            onChange={(e) => {
+              setCompteId(e.target.value)
+              setSiteId('')
+              setCompteurId('')
+              setContactId('')
+            }}
+          >
             <option value="">Non rattachée</option>
             {[...(comptes ?? [])].sort((a, b) => a.nom.localeCompare(b.nom))
               .map((c) => <option key={c.id} value={c.id}>{c.nom}</option>)}
           </Select>
         </FormField>
+        <ChampsRattachement
+          compteId={compteId}
+          siteId={siteId}
+          setSiteId={setSiteId}
+          compteurId={compteurId}
+          setCompteurId={setCompteurId}
+          contactId={contactId}
+          setContactId={setContactId}
+        />
+
         <FormField label="Description">
           <Textarea value={description} onChange={(e) => setDescription(e.target.value)} rows={3} placeholder="Ce qui bloque, et ce qu'on attend…" />
         </FormField>
@@ -325,6 +533,9 @@ function DialogCreation({ onFermer, signaler }: { onFermer: () => void; signaler
                   objet: objet.trim(),
                   description: description.trim() || null,
                   compte_id: compteId || null,
+                  site_id: siteId || null,
+                  compteur_id: compteurId || null,
+                  contact_id: contactId || null,
                   statut_id: statuts?.find((s) => s.code === 'NOUVELLE')?.id ?? null,
                   date_echeance: echeance || null,
                 })
