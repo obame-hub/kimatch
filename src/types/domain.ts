@@ -37,6 +37,8 @@ export interface Signal {
   site_nom: string
   contrat_id: string | null
   type_signal: string
+  /** Code de `types_signaux` — ce sur quoi se décide la prochaine action, jamais le libellé. */
+  type_signal_code: string
   gravite: number | null
   statut: string
   conseiller: string

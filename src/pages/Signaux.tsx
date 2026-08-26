@@ -14,6 +14,7 @@ import { FALLBACK_STATUTS_SIGNAUX, FALLBACK_TYPES_SIGNAUX, FALLBACK_STATUTS_ACTI
 import type { Signal } from '@/types/domain'
 import { cn } from '@/lib/utils'
 import { estIdReel } from '@/lib/referenceFallbacks'
+import { prochaineActionSignal } from '@/lib/prochaineActionSignal'
 import { ListToolbar } from '@/components/ui/list-toolbar'
 
 function SignalCard({ signal }: { signal: Signal }) {
@@ -23,10 +24,24 @@ function SignalCard({ signal }: { signal: Signal }) {
   const statutsActions = statutsActionsRef && statutsActionsRef.length > 0 ? statutsActionsRef : FALLBACK_STATUTS_ACTIONS
   const [tacheCree, setTacheCree] = useState(false)
 
+  /**
+  * LA PROCHAINE ACTION DE SA MAQUETTE, ET ELLE FAIT VRAIMENT QUELQUE CHOSE.
+  *
+  * Son écran porte en pied de carte « Prochaine action » et un libellé — « Qualifier la variation »,
+  * « Vérifier la date », « Créer une piste ». Sur une maquette c'est un texte ; ici le clic CRÉE la
+  * tâche portant ce nom, rattachée au signal.
+  *
+  * C'est le seul choix qui donne son sens au libellé : afficher « Vérifier la date » sans permettre
+  * de l'inscrire quelque part obligerait le commercial à la retenir de tête, et le mot « prochaine »
+  * n'aurait servi qu'à décorer. La tâche apparaît alors dans « Ma journée », sous Signaux — la boucle
+  * de sa page 1 se ferme.
+  */
+  const suivante = prochaineActionSignal(signal.type_signal_code, signal.statut)
+
   function creerTache() {
     const statutAFaire = statutsActions.find((s) => s.code === 'A_FAIRE')
     createAction.mutate({
-      titre: `Traiter le signal — ${signal.type_signal}`,
+      titre: suivante ? suivante.libelle : `Traiter le signal — ${signal.type_signal}`,
       type_action_id: null,
       type_action_libelle: 'Suivi de signal',
       site_id: signal.site_id,
@@ -81,21 +96,33 @@ function SignalCard({ signal }: { signal: Signal }) {
         </div>
       </div>
 
-      <div
-        className="flex items-center gap-1.5 border-t border-kw-border-faint bg-kw-bloc px-2 py-1.5"
-        onClick={(e) => e.stopPropagation()}
-      >
-        <button
-          type="button"
-          onClick={creerTache}
-          disabled={tacheCree}
-          className="ml-auto flex items-center gap-1 rounded-kw-md px-1.5 py-0.5 text-kw-micro font-bold text-kw-green hover:bg-white disabled:opacity-50"
-          title="Créer une tâche de suivi"
+      {suivante && (
+        <div
+          className="flex items-center gap-2 border-t border-kw-border-faint bg-kw-bloc px-2.5 py-1.5"
+          onClick={(e) => e.stopPropagation()}
         >
-          <CheckSquare className="h-3 w-3" />
-          {tacheCree ? 'Tâche créée' : 'Créer une tâche'}
-        </button>
-      </div>
+          <span className="text-kw-micro text-kw-faint">Prochaine action</span>
+          <button
+            type="button"
+            onClick={creerTache}
+            disabled={tacheCree}
+            className="ml-auto flex items-center gap-1 truncate rounded-kw-md px-1 py-0.5 text-kw-micro font-bold text-kw-green hover:bg-white disabled:opacity-60"
+            title={tacheCree ? 'Tâche créée' : `Créer la tâche « ${suivante.libelle} »`}
+          >
+            {tacheCree ? (
+              <>
+                <CheckSquare className="h-3 w-3" />
+                Tâche créée
+              </>
+            ) : (
+              <>
+                {suivante.libelle}
+                <span aria-hidden>→</span>
+              </>
+            )}
+          </button>
+        </div>
+      )}
     </div>
   )
 }

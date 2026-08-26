@@ -12,7 +12,7 @@ interface RawSignal {
   date_creation: string
   commentaire: string | null
   proprietaire_id: string | null
-  type_signal: { libelle: string; poids_defaut: number | null } | null
+  type_signal: { code: string; libelle: string; poids_defaut: number | null } | null
   statut: { code: string } | null
   site: { nom: string } | null
   responsable: { prenom: string; nom: string } | null
@@ -31,7 +31,7 @@ async function fetchSignaux(siteIds?: string[], signalId?: string, recommandatio
       // `recommandations!recommandation_id` : hint de FK explicite -- la table recommandations a
       // plus d'une relation possible avec signaux, un embed non qualifié renvoie une erreur
       // PostgREST PGRST201 (relation ambiguë) qui faisait échouer tout le chargement des signaux.
-      'id, site_id, contrat_id, gravite, date_creation, commentaire, proprietaire_id, type_signal:types_signaux(libelle, poids_defaut), statut:statuts_signaux(code), site:sites(nom), responsable:profils!signaux_responsable_profil_id_fkey(prenom, nom), recommandation_id, recommandation:recommandations!recommandation_id(nom)',
+      'id, site_id, contrat_id, gravite, date_creation, commentaire, proprietaire_id, type_signal:types_signaux(code, libelle, poids_defaut), statut:statuts_signaux(code), site:sites(nom), responsable:profils!signaux_responsable_profil_id_fkey(prenom, nom), recommandation_id, recommandation:recommandations!recommandation_id(nom)',
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       (q: any) => {
         if (signalId) return q.eq('id', signalId)
@@ -49,6 +49,9 @@ async function fetchSignaux(siteIds?: string[], signalId?: string, recommandatio
       site_nom: s.site?.nom ?? '',
       contrat_id: s.contrat_id,
       type_signal: s.type_signal?.libelle ?? '',
+      // LE CODE EN PLUS DU LIBELLÉ : la prochaine action se décide sur le code, jamais sur le
+      // libellé — un libellé se renomme dans une table de référence, un code non.
+      type_signal_code: s.type_signal?.code ?? '',
       gravite: s.gravite,
       statut: s.statut?.code ?? '',
       conseiller: s.responsable ? `${s.responsable.prenom} ${s.responsable.nom}` : '',
@@ -128,6 +131,10 @@ export function useCreateSignal() {
         site_nom: input.site_nom,
         contrat_id: null,
         type_signal: input.type_signal_libelle,
+        // Le code n'est pas connu du formulaire, qui ne manipule que l'identifiant et le libellé.
+        // Vide, la prochaine action retombe sur son repli par statut — le temps que la relecture
+        // depuis la base rende la ligne complète.
+        type_signal_code: '',
         gravite: null,
         statut: 'NOUVEAU',
         conseiller: '',
