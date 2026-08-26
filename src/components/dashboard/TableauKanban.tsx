@@ -36,6 +36,18 @@ export interface ColonneKanban {
   libelle: string
   /** Teinte du filet supérieur. Reprend la couleur du référentiel quand elle existe. */
   couleur?: string | null
+  /**
+   * LA PASTILLE DE TOTAL, collée au titre de colonne — maquettes 5 et 6 du dossier UX du 26/08/2026 :
+   * « afficher le volume de consommation par statut PRÈS DU TITRE DE COLONNE et le total près du titre
+   * de page », « afficher la marge par statut près du titre de chaque colonne ».
+   *
+   * ELLE REMPLACE LE BANDEAU que j'avais livré le matin même, et sa version est meilleure : le chiffre
+   * est là où on lit la colonne, pas dans un tableau récapitulatif au-dessus qu'il faut mettre en
+   * correspondance de tête. Un bandeau séparé oblige à faire le lien ; une pastille le fait pour vous.
+   *
+   * Déjà formatée, unité comprise : le tableau ne sait pas s'il montre des euros ou des GWh.
+   */
+  total?: string | null
 }
 
 /**
@@ -130,6 +142,13 @@ export function TableauKanban({
               <p className="truncate text-kw-xs font-bold uppercase tracking-[0.06em] text-kw-meta">
                 {col.libelle}
               </p>
+              {/* Le total d'abord, le nombre de cartes ensuite : c'est le chiffre qui porte
+                  l'information, le compte n'est qu'une indication de volume. */}
+              {col.total && (
+                <span className="shrink-0 rounded-kw-md bg-kw-green-light px-1.5 py-px font-mono text-kw-micro font-extrabold tabular-nums text-kw-green">
+                  {col.total}
+                </span>
+              )}
               <span className="ml-auto shrink-0 rounded-kw-md bg-white px-1.5 py-px font-mono text-kw-micro font-extrabold text-kw-meta">
                 {compte(col.code)}
               </span>

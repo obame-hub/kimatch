@@ -11,7 +11,6 @@ import { FALLBACK_ETAPES_RECOMMANDATION } from '@/lib/referenceFallbacks'
 import { ListToolbar } from '@/components/ui/list-toolbar'
 import { useKanbanServeur } from '@/lib/useKanbanServeur'
 import { TableauKanban } from '@/components/dashboard/TableauKanban'
-import { BandeauColonnes } from '@/components/dashboard/BandeauColonnes'
 import { CreateRecommandationDialog } from '@/components/opportunite/CreationRecommandationWizard'
 
 /** Le formulaire de création vit désormais dans son propre fichier, réécrit le 15/08/2026 en
@@ -131,6 +130,12 @@ export default function Recommandations() {
       <div className="p-4 sm:p-6">
         <PageHeader
           title="Recommandations"
+          /* LA MARGE TOTALE COLLÉE AU TITRE, comme sur sa maquette. C'est la somme des COLONNES
+             AFFICHÉES : « inclure les dossiers clos » décoché, elle annonce la marge du travail en
+             cours. Un total incluant les 1 573 dossiers clos écraserait les 199 355 € du pipeline et
+             on lirait l'historique de Kiwee au lieu de son plan de charge. */
+          badge={margeConnue ? euros(margeTotale) : undefined}
+          badgeLibelle="Marge totale"
           description="Le véritable produit de KiWee — jamais figée, elle évolue par versions successives."
           actions={<Button onClick={() => setShowCreate(true)}><Plus className="h-4 w-4" />Nouvelle recommandation</Button>}
         />
@@ -165,23 +170,17 @@ export default function Recommandations() {
         </button>
         </ListToolbar>
 
-        <BandeauColonnes
-          intitule="Marge totale des recommandations"
-          total={margeConnue ? euros(margeTotale) : null}
-          precision={
-            nbDossiers === 0
-              ? undefined
-              : `${nbDossiers.toLocaleString('fr-FR')} recommandation${nbDossiers > 1 ? 's' : ''}${avecClos ? '' : ' — hors dossiers clos'}`
-          }
-          cellules={colonnes.map((c) => ({
-            libelle: c.libelle,
-            valeur: c.somme == null ? null : euros(c.somme),
-            precision: `${c.total.toLocaleString('fr-FR')} dossier${c.total > 1 ? 's' : ''}`,
-          }))}
-        />
-
         <TableauKanban
-            colonnes={colonnes.map((c) => ({ code: c.code, libelle: c.libelle }))}
+            /* LA MARGE PAR STATUT, EN PASTILLE DE COLONNE — règle n° 6 du dossier UX du 26/08 :
+               « afficher la marge par statut près du titre de chaque colonne et la marge totale près
+               du titre de page ». Le bandeau récapitulatif livré le matin même disparaît, et sa
+               version est meilleure : le chiffre est là où on lit la colonne, au lieu d'un tableau
+               au-dessus qu'il faut mettre en correspondance de tête. */
+            colonnes={colonnes.map((c) => ({
+              code: c.code,
+              libelle: c.libelle,
+              total: c.somme == null ? null : euros(c.somme),
+            }))}
             cartes={Object.fromEntries(
               colonnes.map((c) => [
                 c.code,

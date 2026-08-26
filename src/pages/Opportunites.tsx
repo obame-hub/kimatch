@@ -3,7 +3,6 @@ import { useSearchParams } from 'react-router-dom'
 import { useNavigate } from 'react-router-dom'
 import { Plus, Target, Check } from 'lucide-react'
 import { TableauKanban } from '@/components/dashboard/TableauKanban'
-import { BandeauColonnes } from '@/components/dashboard/BandeauColonnes'
 import { volumeLisible } from '@/lib/volume'
 import { Topbar } from '@/components/layout/Topbar'
 import { PageHeader } from '@/components/ui/page-header'
@@ -124,6 +123,10 @@ export default function Opportunites() {
           icone={<Target className="h-[19px] w-[19px]" strokeWidth={2.1} />}
           teinte="from-opp-600 to-opp-400"
           title="Opportunités"
+          /* LE VOLUME TOTAL COLLÉ AU TITRE — règle n° 5 : « le total près du titre de page ». C'est
+             la somme des paliers affichés, donc du travail en cours quand les clos sont masqués. */
+          badge={volumeLisible(volumeTotal) ?? undefined}
+          badgeLibelle="Consommation totale"
           description="Un potentiel commercial concret, à faire mûrir jusqu'à la recommandation."
           actions={
             <Button size="sm" onClick={() => setCreation(true)}>
@@ -183,27 +186,19 @@ export default function Opportunites() {
              fermé. C'est la différence avec le tableau de bord, qui ne montre que le travail
              restant. La recherche du bandeau ci-dessus s'y applique aussi. */
           <div className="mt-4">
-            <BandeauColonnes
-              intitule={avecClos ? 'Volume de toutes les opportunités' : 'Volume des opportunités ouvertes'}
-              total={volumeLisible(volumeTotal)}
-              precision={
-                volumeTotal == null
-                  ? 'Aucun compteur rattaché : le volume se déduit du périmètre de chaque opportunité.'
-                  : `${parPalier.reduce((n, p) => n + p.nb, 0)} opportunité${parPalier.reduce((n, p) => n + p.nb, 0) > 1 ? 's' : ''}`
-              }
-              cellules={parPalier.map((p) => ({
-                libelle: p.libelle,
-                valeur: volumeLisible(p.mwh),
-                precision: `${p.nb} opportunité${p.nb > 1 ? 's' : ''}`,
-              }))}
-            />
-
             <TableauKanban
-              /* SEULS LES PALIERS VIVANTS. Michel, 25/08/2026 à 14 h 29 : « pareil pour les
-                 opportunités » — n'afficher que les actives. « Convertie » et « Abandonnée » sont des
-                 aboutissements : elles quittent le plan de travail et restent lisibles depuis la
-                 fiche du compte, la recherche ⌘K, ou leur lien direct. */
-              colonnes={paliers.map((p) => ({ code: p.code, libelle: p.libelle }))}
+              /* SEULS LES PALIERS VIVANTS. Règle n° 5 du dossier UX du 26/08 : « limiter la vue aux
+                 opportunités ouvertes. Une opportunité convertie passe en recommandation. »
+                 « Convertie » et « Abandonnée » sont des aboutissements : elles quittent le plan de
+                 travail et restent lisibles depuis la fiche du compte ou la recherche ⌘K.
+
+                 LE VOLUME PAR STATUT EN PASTILLE DE COLONNE, comme sa maquette — et non plus dans un
+                 bandeau au-dessus. Le chiffre est là où on lit la colonne. */
+              colonnes={parPalier.map((p) => ({
+                code: p.code,
+                libelle: p.libelle,
+                total: volumeLisible(p.mwh),
+              }))}
               cartes={Object.fromEntries(
                 paliers.map((p) => [
                   p.code,
@@ -211,16 +206,15 @@ export default function Opportunites() {
                     .filter((o) => statutDerive(o, mandats ?? []).code === p.code)
                     .map((o) => {
                       const d = statutDerive(o, mandats ?? [])
+                      /* PAS DE MARGE SUR UNE OPPORTUNITÉ — règle n° 5, mot pour mot : « ne pas
+                         afficher la marge ». Et c'est cohérent avec son pipeline : une opportunité
+                         n'a pas encore d'offre, donc pas de marge à elle. La marge apparaît sur la
+                         recommandation, qui est l'objet suivant. Le volume, lui, existe dès le
+                         périmètre. */
                       const p = poids?.[o.id]
                       const chiffres: { libelle: string; valeur: string }[] = []
                       const vol = volumeLisible(p?.mwh)
                       if (vol) chiffres.push({ libelle: 'Volume', valeur: vol })
-                      if (p?.margeNette != null) {
-                        chiffres.push({
-                          libelle: 'Marge',
-                          valeur: p.margeNette.toLocaleString('fr-FR', { maximumFractionDigits: 0 }) + ' €',
-                        })
-                      }
                       return {
                         id: o.id,
                         titre: o.compte_nom || o.reference || 'Opportunité',

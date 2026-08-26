@@ -10,13 +10,24 @@ import { cn } from '@/lib/utils'
  * sait plus où l'on est. Le paramètre est optionnel : les écrans qui ne l'ont pas encore gardent
  * exactement l'apparence d'avant.
  */
-export function PageHeader({ title, description, actions, icone, teinte }: {
+export function PageHeader({ title, description, actions, icone, teinte, badge, badgeLibelle }: {
   title: string
   description?: string
   actions?: ReactNode
   icone?: ReactNode
   /** Classes du dégradé de la pastille, par exemple `from-opp-600 to-opp-400`. */
   teinte?: string
+  /**
+   * LE TOTAL DE LA PAGE, COLLÉ AU TITRE — maquettes 5 et 6 du dossier UX du 26/08/2026 : « le total
+   * près du titre de page », « la marge totale près du titre de page ».
+   *
+   * Déjà formaté, unité comprise : l'en-tête ne sait pas s'il annonce des euros ou des GWh. Collé au
+   * titre et non posé au-dessus, parce que c'est le titre qu'il qualifie — « Recommandations,
+   * 132 800 € » se lit d'un trait, là où un bandeau séparé demande de faire le lien soi-même.
+   */
+  badge?: string
+  /** Ce que le total mesure — « Marge totale », « Consommation totale ». */
+  badgeLibelle?: string
 }) {
   return (
     <div className="mb-6 flex flex-wrap items-start justify-between gap-3">
@@ -32,7 +43,21 @@ export function PageHeader({ title, description, actions, icone, teinte }: {
           </span>
         )}
         <div className="min-w-0">
-          <h2 className="font-display text-xl font-semibold text-navy-900">{title}</h2>
+          <div className="flex flex-wrap items-center gap-2.5">
+            <h2 className="font-display text-xl font-semibold text-navy-900">{title}</h2>
+            {badge && (
+              <span className="inline-flex shrink-0 items-baseline gap-1.5 rounded-kw-pill border border-kw-green-border bg-kw-green-light px-2.5 py-1">
+                {badgeLibelle && (
+                  <span className="text-kw-micro font-bold uppercase tracking-[0.06em] text-kw-meta">
+                    {badgeLibelle}
+                  </span>
+                )}
+                <span className="font-mono text-kw-sm font-extrabold tabular-nums text-kw-green">
+                  {badge}
+                </span>
+              </span>
+            )}
+          </div>
           {description && <p className="mt-1 text-sm text-navy-500">{description}</p>}
         </div>
       </div>
