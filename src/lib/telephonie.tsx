@@ -261,14 +261,21 @@ function BoutonTelephone() {
 
 function PanneauAircall() {
   const { etat, echec, ouvert, fermer, dernierNumero } = useTelephonie()
-  const [jamaisOuvert, setJamaisOuvert] = useState(true)
 
-  useEffect(() => {
-    if (ouvert) setJamaisOuvert(false)
-  }, [ouvert])
-
-  if (jamaisOuvert) return null
-
+  /**
+   * LE PANNEAU EST TOUJOURS DANS LE DOM, seulement caché — et c'est une correction, pas un choix
+   * d'esthétique.
+   *
+   * Ma première version ne le montait qu'à la première ouverture. Or `appeler` fait `setOuvert(true)`
+   * puis, dans la même fonction, construit le Workspace avec `domToLoadWorkspace: '#…'` — React n'a
+   * pas encore rendu, le conteneur n'existe pas, et le SDK n'a rien où s'installer. Le premier appel
+   * échouait donc systématiquement, et le second passait : le pire des symptômes, celui qu'on met une
+   * heure à reproduire.
+   *
+   * Un div vide ne coûte rien, et il retire la course entièrement. C'est aussi ce qui permet à un
+   * appel en cours de survivre à la fermeture du panneau : on cache, on ne démonte pas — démonter
+   * l'iframe couperait la communication.
+   */
   return (
     <div
       className={
