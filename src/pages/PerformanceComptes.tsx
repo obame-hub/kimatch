@@ -245,6 +245,46 @@ export default function PerformanceComptes({ sansEntete }: { sansEntete?: boolea
         />
       </div>
 
+      {/* ══════ L'INDICE, ET CE QU'IL PÈSE ══════
+
+          Le bloc « Indice de performance du compte » de sa maquette : la légende du score. Un score
+          dont on ne peut pas lire la composition ne se discute pas — on le croit ou on l'ignore, et
+          dans les deux cas il ne sert à rien.
+
+          TROIS DIMENSIONS À PARTS ÉGALES, et la quatrième est nommée pour ce qu'elle est. Sa maquette
+          en met quatre à 25 % ; le nombre de compteurs n'est pas un taux, donc il est affiché sans
+          être noté. Le dire ICI plutôt que dans un coin : c'est la seule question ouverte sur cette
+          page, autant qu'il la voie en la lisant. */}
+      <div className="mt-4 rounded-kw-3xl border border-kw-border bg-white px-5 py-4">
+        <p className="text-kw-h4 font-extrabold text-kw-ink">Indice de performance du compte</p>
+        <p className="mt-0.5 text-kw-xs text-kw-meta">
+          Chaque dimension contribue à parts égales au score sur 100.
+        </p>
+
+        <div className="mt-3 grid grid-cols-1 gap-x-8 gap-y-2 sm:grid-cols-2">
+          {[
+            { couleur: 'bg-kw-green', libelle: 'Liés à un contact', poids: '33 %' },
+            { couleur: 'bg-kw-amber', libelle: 'Échéances valides', poids: '33 %' },
+            { couleur: 'bg-kw-blue', libelle: 'Recommandations / compteur', poids: '33 %' },
+            { couleur: 'bg-kw-ghost', libelle: 'Nombre de compteurs', poids: 'affiché, non noté' },
+          ].map((d) => (
+            <div key={d.libelle} className="flex items-baseline gap-2">
+              <span className={cn('h-1.5 w-1.5 shrink-0 rounded-full', d.couleur)} />
+              <span className="truncate text-kw-sm text-kw-body">{d.libelle}</span>
+              <span className="ml-auto shrink-0 font-mono text-kw-xs font-bold tabular-nums text-kw-ink">
+                {d.poids}
+              </span>
+            </div>
+          ))}
+        </div>
+
+        <p className="mt-3 max-w-[95ch] border-t border-kw-border-faint pt-2.5 text-kw-xs leading-relaxed text-kw-faint">
+          Le nombre de compteurs mesure la taille du compte, pas la qualité de sa donnée : le noter
+          demanderait de fixer combien de compteurs valent 100, et ce plafond est une décision
+          commerciale. En attendant, il se lit dans le tableau et sert au tri.
+        </p>
+      </div>
+
       {/* ══════ LE TABLEAU DES COMPTES ══════ */}
       <div className="mt-5">
         <ListToolbar
