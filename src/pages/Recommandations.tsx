@@ -38,6 +38,23 @@ interface LigneReco {
 const ETAPES_CLOSES = ['ACCEPTEE', 'REFUSEE', 'ABANDONNEE']
 
 /**
+ * LES HUIT ÉTAPES RESTENT, LES TROIS FINS PARTAGENT UNE COLONNE.
+ *
+ * Michel, 26/08/2026, répondant à la question posée sur ses quatre colonnes de maquette : garder les
+ * huit étapes, et « acceptée, refusée et abandonnée sont dans clôturé comme d'hab ».
+ *
+ * SA RÉPONSE ÉVITE LE PIÈGE QUE J'AVAIS SIGNALÉ. Remplacer huit étapes par quatre colonnes aurait
+ * changé le pipeline qu'il avait lui-même dicté le 24/08 : « le statut évolue, il ne régresse
+ * jamais » suppose huit crans, pas quatre. Ce qu'il voulait n'était pas moins d'étapes, c'était moins
+ * de COLONNES — et c'est un regroupement d'affichage, exactement comme sur les requêtes.
+ *
+ * CE QUI SÉPARE LES TROIS FINS RESTE LISIBLE : l'étape de chaque dossier s'affiche sur sa carte. Une
+ * affaire acceptée et une affaire abandonnée ne racontent pas la même histoire, et cette histoire ne
+ * se réécrit pas après coup — c'est pourquoi le regroupement ne touche jamais la base.
+ */
+const COLONNE_CLOTUREE = { code: 'CLOTUREE', libelle: 'Clôturée', codes: ETAPES_CLOSES }
+
+/**
  * SEULS LES OBJETS ACTIFS SONT AFFICHÉS. Michel, 25/08/2026 à 14 h 29 : « pour les recommandations,
  * n'afficher que les recommandations actives (non clôturées) » — et « pareil pour les opportunités
  * et les signaux ».
@@ -94,7 +111,13 @@ export default function Recommandations() {
   const tableau = useKanbanServeur<LigneReco>({
     vue: 'v_recommandations_liste',
     colonneStatut: 'etape',
-    colonnes: etapes.filter((e) => avecClos || !ETAPES_CLOSES.includes(e.code)).map((e) => ({ code: e.code, libelle: e.libelle })),
+    /* Les étapes vivantes une par une, puis les trois fins réunies sous « Clôturée » — et seulement
+       si on demande à les voir. Décoché, la page ne montre que le travail en cours : 133 dossiers
+       vivants contre 1 574 clos. */
+    colonnes: [
+      ...etapes.filter((e) => !ETAPES_CLOSES.includes(e.code)).map((e) => ({ code: e.code, libelle: e.libelle })),
+      ...(avecClos ? [COLONNE_CLOTUREE] : []),
+    ],
     colonnesRecherche: ['nom', 'compte_nom', 'conseiller'],
     recherche,
     filtres: { compte_proprietaire_id: filtreProprietaire },
@@ -191,6 +214,11 @@ export default function Recommandations() {
                   /* LA MENTION PORTE LA MARGE, comme sur ses cartes. Le nombre de versions reprend
                      la place quand la marge n'est pas connue — c'est le cas de tout dossier né dans
                      Kimatch, dont aucun écran ne remplit encore les chiffres d'affaire. */
+                  /* L'ÉTAPE EN ÉTIQUETTE DE NATURE : dans la colonne « Clôturée », c'est la seule
+                     chose qui distingue une affaire acceptée d'une abandonnée. Hors de cette
+                     colonne elle répète le titre de colonne, et c'est très bien — une carte qu'on
+                     déplace du regard reste lisible seule. */
+                  nature: etapes.find((e) => e.code === r.etape)?.libelle ?? undefined,
                   mention:
                     r.marge_nette != null
                       ? euros(r.marge_nette)

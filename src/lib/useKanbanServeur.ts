@@ -34,6 +34,21 @@ import { supabase } from '@/lib/supabase'
 export interface ColonneServeur {
   code: string
   libelle: string
+  /**
+   * PLUSIEURS STATUTS SOUS UNE SEULE COLONNE, quand le métier les regroupe.
+   *
+   * Michel, 26/08/2026, sur les recommandations : garder les huit étapes, et « acceptée, refusée et
+   * abandonnée sont dans clôturé comme d'hab ». Même geste que sur les requêtes, où résolue et
+   * abandonnée partagent « Clôturé ».
+   *
+   * C'EST UN REGROUPEMENT D'AFFICHAGE, JAMAIS DE DONNÉE. Les huit étapes restent huit en base : ce
+   * qui sépare une affaire acceptée d'une abandonnée ne se réécrit pas après coup, et la carte le
+   * dit. Une colonne unique évite en revanche trois colonnes terminales qui, à elles seules,
+   * portent 1 574 dossiers sur 1 707 et noient le travail en cours.
+   *
+   * Absent, la colonne ne vaut que pour son propre `code`.
+   */
+  codes?: string[]
 }
 
 export interface ResultatColonne<T> {
@@ -72,18 +87,20 @@ export function useKanbanServeur<T>(options: {
   const { vue, colonneStatut, colonnes, colonnesRecherche, recherche, filtres, colonneSomme, actif } = options
 
   return useQuery({
-    queryKey: ['kanban-serveur', vue, colonneStatut, colonnes.map((c) => c.code), recherche.trim(), filtres, colonneSomme],
+    queryKey: ['kanban-serveur', vue, colonneStatut, colonnes.map((c) => c.codes?.join('+') ?? c.code), recherche.trim(), filtres, colonneSomme],
     enabled: actif,
     queryFn: async (): Promise<ResultatColonne<T>[]> => {
       const mots = recherche.trim().split(/\s+/).filter(Boolean)
 
       // UN SEUL ENDROIT POUR LES FILTRES. La somme doit porter exactement la même sélection que la
       // colonne ; deux chaînes de filtres écrites côte à côte finissent toujours par diverger.
-      const filtrer = (code: string, colonnesLues: string, avecCompte: boolean) => {
+      const filtrer = (codes: string[], colonnesLues: string, avecCompte: boolean) => {
         let req = avecCompte
           ? supabase.from(vue).select(colonnesLues, { count: 'exact' })
           : supabase.from(vue).select(colonnesLues)
-        req = req.eq(colonneStatut, code)
+        // `in` même pour un seul code : une seule chaîne de filtres à maintenir, et PostgREST rend
+        // exactement le même résultat qu'un `eq` sur un tableau d'un élément.
+        req = req.in(colonneStatut, codes)
         for (const [colonne, valeur] of Object.entries(filtres ?? {})) {
           if (valeur != null && valeur !== '') req = req.eq(colonne, valeur)
         }
@@ -97,9 +114,10 @@ export function useKanbanServeur<T>(options: {
 
       return Promise.all(
         colonnes.map(async (col) => {
+          const codes = col.codes && col.codes.length > 0 ? col.codes : [col.code]
           const [cartes, agregat] = await Promise.all([
-            filtrer(col.code, '*', true).range(0, CARTES_PAR_COLONNE - 1),
-            colonneSomme ? filtrer(col.code, colonneSomme, false) : Promise.resolve(null),
+            filtrer(codes, '*', true).range(0, CARTES_PAR_COLONNE - 1),
+            colonneSomme ? filtrer(codes, colonneSomme, false) : Promise.resolve(null),
           ])
 
           if (cartes.error) throw new Error(cartes.error.message)
