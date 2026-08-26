@@ -7,7 +7,7 @@ import kiweePicto from '@/assets/kiwee-picto.png'
 import { useSidebar } from '@/lib/layout'
 import { useIsAdmin, useMonProfil } from '@/lib/data/roles'
 import { useAuth } from '@/lib/auth'
-import { navItems, travailNavItems, bottomNavItems } from '@/lib/navItems'
+import { navItems, travailNavItems, productionNavItems, bottomNavItems } from '@/lib/navItems'
 import type { NavItem } from '@/lib/navItems'
 import { getImpersonationInfo } from '@/lib/data/impersonation'
 
@@ -181,6 +181,13 @@ export function Sidebar() {
                 tiendrait pas. Il separe les objets du patrimoine des ecrans de travail. */}
             <div className="mx-2 my-2 border-t border-ink-800 md:mx-3" />
             {travailNavItems.map((item) => (
+              <SidebarLink key={item.to} {...item} onClick={close} />
+            ))}
+            {/* LA RUBRIQUE PRODUCTION du dossier UX du 26/08 : Pricing et Requêtes. Séparée du
+                cycle commercial par un filet, pour la même raison que le premier — le rail replié
+                fait 56 px, un intitulé de section n'y tiendrait pas. */}
+            <div className="mx-2 my-2 border-t border-ink-800 md:mx-3" />
+            {productionNavItems.map((item) => (
               <SidebarLink key={item.to} {...item} onClick={close} />
             ))}
           </nav>

@@ -38,6 +38,7 @@ import Parametres from '@/pages/Parametres'
 import Administration from '@/pages/Administration'
 import MonProfil from '@/pages/MonProfil'
 import Support from '@/pages/Support'
+import Pricing from '@/pages/Pricing'
 
 function App() {
   return (
@@ -54,6 +55,7 @@ function App() {
           <Route path="/prospection" element={<Prospection />} />
           <Route path="/opportunites" element={<Opportunites />} />
           <Route path="/opportunites/:id" element={<OpportuniteDetail />} />
+          <Route path="/pricing" element={<Pricing />} />
           <Route path="/requetes" element={<Requetes />} />
           <Route path="/remunerations" element={<Remunerations />} />
           <Route path="/signaux" element={<Signaux />} />

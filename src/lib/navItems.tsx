@@ -87,8 +87,19 @@ export const travailNavItems: NavItem[] = [
 ]
 
 /** Les deux objets retirés du rail le 25/08/2026, gardés ici pour les remettre d'un geste. */
-export const navItemsMasques: NavItem[] = [
+/**
+ * LA RUBRIQUE PRODUCTION du dossier UX du 26/08/2026 : Pricing et Requêtes.
+ *
+ * Elles sortent des pages masquées où Requêtes dormait depuis le 25/08 : son architecture leur donne
+ * une rubrique à elles, après le cycle commercial. C'est juste — ni l'une ni l'autre ne fait avancer
+ * une affaire, elles traitent ce qui arrive après ou à côté.
+ */
+export const productionNavItems: NavItem[] = [
+  { to: '/pricing', label: 'Pricing', icon: Euro },
   { to: '/requetes', label: 'Requêtes', icon: Inbox },
+]
+
+export const navItemsMasques: NavItem[] = [
   { to: '/remunerations', label: 'Rémunérations', icon: Euro },
 ]
 
@@ -110,6 +121,7 @@ export const pagesRecherchables: NavItem[] = [
   ...navItems,
   ...travailNavItems,
   // Retirées du rail le 25/08, mais toujours atteignables : masquer n'est pas supprimer.
+  ...productionNavItems,
   ...navItemsMasques,
   ...bottomNavItems,
   { to: '/signaux', label: 'Signaux', icon: Radio },
