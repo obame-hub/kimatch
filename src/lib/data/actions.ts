@@ -154,6 +154,8 @@ export function useCreateAction() {
         statut: 'A_FAIRE',
         priorite: input.priorite,
         responsable: '',
+        // Renseigné juste après, une fois l'utilisateur connu : l'affichage optimiste doit porter le
+        // même responsable que la ligne écrite, sinon la tâche apparaît puis s'évanouit au rechargement.
         responsable_id: null,
         date_creation: new Date().toISOString(),
         echeance: input.echeance ?? '',
@@ -168,6 +170,23 @@ export function useCreateAction() {
         proprietaire_id: null,
       }
 
+      /**
+       * UNE TÂCHE SANS RESPONSABLE N'APPARAÎT DANS AUCUNE JOURNÉE, et c'était le cas des trois seules
+       * tâches en base — signalé par Naoëlle le 27/08 : « pourquoi moi et Michel on ne voit rien dans
+       * ce bloc Ma journée ». `responsable_profil_id` était laissé vide à la création, et « Ma
+       * journée » filtre dessus. Trois tâches créées, zéro visible.
+       *
+       * LE CRÉATEUR EN EST DONC RESPONSABLE PAR DÉFAUT. C'est le comportement juste : on crée une
+       * tâche parce qu'on a quelque chose à faire, pas pour le confier à quelqu'un d'anonyme. Elle se
+       * réassigne ensuite depuis sa fiche.
+       *
+       * `getUser()` PLUTÔT QUE LE PROFIL EN CACHE : la mutation peut partir depuis n'importe quel
+       * écran, y compris ceux qui n'ont pas chargé `useMonProfil`. L'identifiant du profil est celui
+       * du compte authentifié — la table `profils` partage la clé de `auth.users`.
+       */
+      const { data: utilisateur } = await supabase.auth.getUser()
+      const moi = utilisateur?.user?.id ?? null
+
       const { data, error } = await supabase
         .from('actions')
         .insert({
@@ -177,6 +196,7 @@ export function useCreateAction() {
           priorite: input.priorite,
           date_prevue: input.echeance,
           commentaire: input.commentaire,
+          ...(moi ? { responsable_profil_id: moi, proprietaire_id: moi } : {}),
           ...(input.recommandation_id ? { recommandation_id: input.recommandation_id } : {}),
           ...(input.type_action_id ? { type_action_id: input.type_action_id } : {}),
           ...(input.statut_id ? { statut_id: input.statut_id } : {}),
@@ -184,7 +204,7 @@ export function useCreateAction() {
         .select('id')
         .single()
       if (!error && data) {
-        action = { ...action, id: (data as { id: string }).id }
+        action = { ...action, id: (data as { id: string }).id, responsable_id: moi }
         persisted = true
       }
 

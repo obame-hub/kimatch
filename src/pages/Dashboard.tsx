@@ -1,25 +1,16 @@
 import { useNavigate } from 'react-router-dom'
-import {
-  Building2,
-  Check,
-  CheckSquare,
-  ChevronRight,
-  Diamond,
-  Filter,
-  Plus,
-  Sparkle,
-  Target,
-  TrendingUp,
-  Zap,
-} from 'lucide-react'
+import { CheckSquare, Diamond, Plus, TrendingUp, Zap } from 'lucide-react'
 import { Topbar } from '@/components/layout/Topbar'
-import { FilPortefeuille } from '@/components/dashboard/FilPortefeuille'
 import { BandeauMarge } from '@/components/dashboard/BandeauMarge'
 import { TuileChiffre } from '@/components/dashboard/TuileChiffre'
 import { MaJournee } from '@/components/dashboard/MaJournee'
 import { MaPerformance } from '@/components/dashboard/MaPerformance'
-import { useDashboardStats, type SectionAction } from '@/lib/data/dashboard'
-import { useChiffresTableauDeBord, useMaPerformance, useMesActions } from '@/lib/data/tableauDeBord'
+import {
+  useChiffresTableauDeBord,
+  useMaPerformance,
+  useMesActions,
+  useObjectifsDuMois,
+} from '@/lib/data/tableauDeBord'
 import { useMonProfil } from '@/lib/data/roles'
 
 /**
@@ -46,153 +37,16 @@ import { useMonProfil } from '@/lib/data/roles'
  * reproché au rapport du 24/08.
  */
 
-/**
- * LES QUATRE ACTIVITÉS DE LA DIAPOSITIVE 12 — « le commercial pilote quatre activités » : PISTES,
- * PATRIMOINE, OPPORTUNITÉS, RECOMMANDATIONS. Les dégradés viennent de la maquette de William ; ils
- * ont seulement changé d'attribution, pas de valeur, sauf l'opportunité qui prend le magenta de sa
- * fiche (famille `opp`) pour que la couleur dise la même chose partout dans l'application.
- */
-const TUILES = {
-  piste: { haut: '#3d95a5', bas: '#256571' },
-  patrimoine: { haut: '#b08f14', bas: '#8a6d08' },
-  opportunite: { haut: '#a8437f', bas: '#8c2168' },
-  reco: { haut: '#9d5b30', bas: '#6f3a1e' },
-} as const
 
-/** Couleur d'accent de chaque section, cohérente avec sa tuile. */
-const ACCENTS: Record<SectionAction['cle'], { haut: string; bas: string }> = {
-  piste: TUILES.piste,
-  patrimoine: TUILES.patrimoine,
-  opportunite: TUILES.opportunite,
-  reco: TUILES.reco,
-}
 
-const ICONES: Record<SectionAction['cle'], typeof Sparkle> = {
-  piste: Filter,
-  patrimoine: Building2,
-  opportunite: Target,
-  reco: Sparkle,
-}
-
-/** Liste complète correspondant à une section, pour le lien « tout voir ». */
-const LISTES: Record<SectionAction['cle'], string> = {
-  piste: '/prospection',
-  patrimoine: '/patrimoine?objet=compteurs',
-  opportunite: '/opportunites',
-  reco: '/recommandations',
-}
-
-function Section({ section }: { section: SectionAction }) {
-  const navigate = useNavigate()
-  const accent = ACCENTS[section.cle]
-  const Icone = ICONES[section.cle]
-
-  // Tout est traité : on le dit en une ligne verte plutôt que d'afficher un cadre vide.
-  if (section.total === 0) {
-    return (
-      <div className="flex items-center gap-3 rounded-[15px] border border-kiwi-200 bg-kiwi-50 px-[17px] py-3.5">
-        <span className="flex h-[26px] w-[26px] shrink-0 items-center justify-center rounded-lg bg-kiwi-600 text-white">
-          <Check className="h-3.5 w-3.5" />
-        </span>
-        <span className="text-[13.5px] font-semibold tracking-[-.01em] text-kiwi-800">
-          {section.titre} — tout est à jour
-        </span>
-      </div>
-    )
-  }
-
-  return (
-    <div className="overflow-hidden rounded-[15px] border border-navy-100 bg-white">
-      <div
-        className="flex items-center gap-[11px] px-[18px] py-[13px]"
-        style={{ background: `linear-gradient(100deg,${accent.haut} 0%,${accent.bas} 100%)` }}
-      >
-        <span className="flex h-[30px] w-[30px] shrink-0 items-center justify-center rounded-[9px] bg-white/20 text-white">
-          <Icone className="h-4 w-4" />
-        </span>
-        <span className="text-[14.5px] font-bold tracking-[-.01em] text-white">{section.titre}</span>
-        <span className="inline-flex items-center rounded-[20px] bg-white/[.22] px-2.5 py-0.5 font-mono text-[11.5px] font-extrabold text-white">
-          {section.total}
-        </span>
-        <div className="flex-1" />
-        <span className="hidden text-[11px] text-white/[.72] sm:inline">{section.precision}</span>
-      </div>
-
-      {section.groupes.map((groupe) => (
-        <div key={groupe.libelle}>
-          <div className="flex items-center gap-2.5 border-t border-navy-100 bg-navy-50/60 px-[18px] pb-[9px] pt-2.5">
-            <span
-              className="h-[7px] w-[7px] shrink-0 rounded-full"
-              style={{ background: groupe.lignes.length ? accent.bas : undefined }}
-              data-vide={groupe.lignes.length === 0 || undefined}
-            />
-            <span
-              className="text-[11px] font-extrabold uppercase tracking-[.06em]"
-              style={{ color: groupe.lignes.length ? accent.bas : undefined }}
-            >
-              {groupe.libelle}
-            </span>
-            <span
-              className="inline-flex items-center rounded-[20px] px-2 py-px font-mono text-[10.5px] font-bold"
-              style={
-                groupe.lignes.length
-                  ? { color: accent.bas, background: `${accent.bas}18` }
-                  : undefined
-              }
-            >
-              {groupe.lignes.length}
-            </span>
-          </div>
-
-          {groupe.lignes.length === 0 ? (
-            <div className="flex items-center gap-2.5 border-t border-navy-50 px-[18px] py-3.5">
-              <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-md bg-kiwi-50 text-kiwi-600">
-                <Check className="h-3 w-3" />
-              </span>
-              <span className="text-xs text-navy-500">{groupe.siVide}</span>
-            </div>
-          ) : (
-            groupe.lignes.map((ligne) => (
-              <div
-                key={ligne.id}
-                onClick={() => navigate(ligne.to)}
-                className="flex cursor-pointer items-center gap-3 border-t border-navy-50 px-[18px] py-3 transition-colors hover:bg-navy-50/60"
-              >
-                <div className="min-w-0 flex-1">
-                  <p className="truncate text-[13px] font-semibold tracking-[-.01em] text-navy-800">{ligne.titre}</p>
-                  <p className="truncate text-[11.5px] text-navy-500">{ligne.sousTitre}</p>
-                </div>
-                <span
-                  className="shrink-0 font-mono text-[11px] font-bold"
-                  style={{ color: ligne.urgent ? accent.bas : undefined }}
-                >
-                  {ligne.echeance}
-                </span>
-                <ChevronRight className="h-3.5 w-3.5 shrink-0 text-navy-300" />
-              </div>
-            ))
-          )}
-        </div>
-      ))}
-
-      <button
-        type="button"
-        onClick={() => navigate(LISTES[section.cle])}
-        className="w-full border-t border-navy-50 px-[18px] py-2.5 text-left text-[11px] font-semibold text-kiwi-700 transition-colors hover:bg-navy-50/60"
-      >
-        Voir les {section.total} — liste complète
-      </button>
-    </div>
-  )
-}
 
 export default function Dashboard() {
   const navigate = useNavigate()
-  const { data, isLoading } = useDashboardStats()
   const { data: monProfil } = useMonProfil()
   const { data: chiffres, isLoading: chiffresEnCours } = useChiffresTableauDeBord()
   const { data: journee, isLoading: journeeEnCours } = useMesActions(monProfil?.id)
   const { data: perso, isLoading: persoEnCours } = useMaPerformance(monProfil?.id)
+  const { data: objectifs } = useObjectifsDuMois(monProfil?.id)
 
   // « MARDI 25 AOÛT 2026 » — la date complète, comme sur sa maquette.
   const dateDuJour = new Date().toLocaleDateString('fr-FR', {
@@ -239,7 +93,7 @@ export default function Dashboard() {
 
         {/* ══════ LE BANDEAU DE LA MARGE ══════ */}
         <div className="mt-5">
-          <BandeauMarge chiffres={chiffres} chargement={chiffresEnCours} />
+          <BandeauMarge chiffres={chiffres} chargement={chiffresEnCours} objectif={objectifs?.equipe} />
         </div>
 
         {/* ══════ MA PERFORMANCE ══════
@@ -252,7 +106,12 @@ export default function Dashboard() {
             de performance séparés par une rangée d'indicateurs sont deux blocs qu'on ne compare
             plus : l'œil doit passer de la marge de Kiwee à la sienne sans rien franchir. */}
         <div className="mt-4">
-          <MaPerformance chiffres={perso} chargement={persoEnCours} prenom={null} />
+          <MaPerformance
+            chiffres={perso}
+            chargement={persoEnCours}
+            prenom={null}
+            objectif={objectifs?.personnel}
+          />
         </div>
 
 
@@ -315,19 +174,23 @@ export default function Dashboard() {
           <MaJournee actions={journee} chargement={journeeEnCours} />
         </div>
 
-        {/* ══════ CE QU'IL Y A À TRAITER — conservé sous sa maquette, voir la note du fichier ══════ */}
-        <h2 className="mb-3 mt-8 text-kw-h3 font-extrabold tracking-[-0.01em] text-kw-ink">À traiter</h2>
-        {isLoading && <p className="mb-3 text-kw-sm text-kw-meta">Chargement de vos listes…</p>}
+        {/* ══════ RIEN APRÈS « MA JOURNÉE » ══════
 
-        <div className="grid grid-cols-1 items-start gap-4 xl:grid-cols-[minmax(0,1fr)_336px]">
-          <div className="flex min-w-0 flex-col gap-4">
-            {(data?.sections ?? []).map((section) => (
-              <Section key={section.cle} section={section} />
-            ))}
-          </div>
+            Naoëlle, 27/08/2026 : « enlève tout ce qu'il y a en dessous de À traiter, tout ce qui sera
+            à traiter sera dans le bloc Ma journée dans À réaliser, et quand on coche ça part dans
+            Réalisé ».
 
-          <FilPortefeuille />
-        </div>
+            LES QUATRE LISTES « À TRAITER » DISPARAISSENT, et c'est cohérent avec sa maquette qui
+            s'arrête à « Ma journée ». Je les avais gardées le 25/08 parce que la table des tâches
+            était vide et qu'un commercial n'aurait rien eu à faire ; elles faisaient double emploi
+            dès lors que les tâches existent.
+
+            ET ELLES EXISTENT MAINTENANT : la prochaine action d'un signal crée sa tâche, et toute
+            tâche créée est rattachée à son auteur depuis aujourd'hui. Le plan de travail a donc un
+            seul endroit — « Ma journée » — au lieu de deux qui se contredisaient : l'un listait les
+            objets à traiter, l'autre les tâches, sans lien entre eux.
+
+            LE FIL DU PORTEFEUILLE PART AVEC : c'était un flux d'activité, pas un plan de travail. */}
       </div>
     </div>
   )

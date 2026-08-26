@@ -64,10 +64,13 @@ export function MaPerformance({
   chiffres,
   chargement,
   prenom,
+  objectif,
 }: {
   chiffres: Chiffres | undefined
   chargement: boolean
   prenom?: string | null
+  /** Objectif de marge du mois pour ce commercial. `null` : aucune barre, aucune mention. */
+  objectif?: number | null
 }) {
   const c = chiffres
   const vide = chargement || !c
@@ -97,11 +100,17 @@ export function MaPerformance({
             teinte="bg-kw-green-light text-kw-green"
             libelle="Marge générée"
             valeur={vide ? '—' : euros(c.margeMois)}
+            /* L'OBJECTIF PREND LA PLACE DE LA RÉFÉRENCE PAR DÉFAUT quand il existe. Michel les a
+               fixés le 26/08 : Marie et Guillaume 35 k, Matthieu 25 k, Thomas 20 k. Un chiffre se
+               juge d'abord contre ce qu'on lui a demandé. */
             reference={
-              vide
-                ? 'Ce mois'
-                : `sur ${c.nbAcceptees} affaire${c.nbAcceptees > 1 ? 's' : ''} acceptée${c.nbAcceptees > 1 ? 's' : ''}`
+              objectif != null && objectif > 0
+                ? `Objectif ${euros(objectif)}`
+                : vide
+                  ? 'Ce mois'
+                  : `sur ${c.nbAcceptees} affaire${c.nbAcceptees > 1 ? 's' : ''} acceptée${c.nbAcceptees > 1 ? 's' : ''}`
             }
+            part={objectif != null && objectif > 0 && c ? c.margeMois / objectif : null}
           />
         </div>
         <div className="sm:border-b sm:border-l sm:border-kw-border-faint lg:border-b-0 lg:border-r">

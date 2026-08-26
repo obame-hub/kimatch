@@ -437,3 +437,49 @@ export function useMaPerformance(profilId: string | null | undefined) {
     },
   })
 }
+
+export interface ObjectifsDuMois {
+  /** Objectif d'équipe : la SOMME des objectifs individuels, jamais une valeur saisie à part. */
+  equipe: number | null
+  /** Objectif du commercial connecté. */
+  personnel: number | null
+}
+
+/**
+ * LES OBJECTIFS DU MOIS — Michel, Slack du 26/08/2026 à 20 h 24.
+ *
+ * « On part sur un objectif de 115 k par mois, soit 1 380 k en 2026 », puis Marie 35 k, Guillaume
+ * 35 k, Matthieu 25 k, Thomas 20 k.
+ *
+ * L'OBJECTIF D'ÉQUIPE EST LA SOMME DES INDIVIDUELS, et ce n'est pas une interprétation :
+ * 35 + 35 + 25 + 20 = 115, exactement le chiffre qu'il annonce. Le stocker séparément aurait créé
+ * deux vérités — un objectif individuel révisé laisserait un total d'équipe faux, sans qu'on sache
+ * lequel croire.
+ *
+ * PAS D'OBJECTIF, PAS DE BARRE. Le hook rend `null` plutôt que zéro : une barre à 0 % laisse croire
+ * qu'on n'a rien fait, alors qu'elle dit qu'on ne sait pas à quoi comparer.
+ */
+export function useObjectifsDuMois(profilId: string | null | undefined) {
+  return useQuery({
+    queryKey: ['tableau-de-bord', 'objectifs', profilId],
+    staleTime: 30 * 60 * 1000,
+    queryFn: async (): Promise<ObjectifsDuMois> => {
+      const { data, error } = await supabase
+        .from('objectifs_mensuels')
+        .select('profil_id, objectif_marge')
+        .eq('mois', debutDeMois(0))
+      if (error) return { equipe: null, personnel: null }
+
+      const lignes = (data ?? []) as unknown as { profil_id: string | null; objectif_marge: number }[]
+      if (lignes.length === 0) return { equipe: null, personnel: null }
+
+      let equipe = 0
+      let personnel: number | null = null
+      for (const l of lignes) {
+        equipe += Number(l.objectif_marge) || 0
+        if (profilId && l.profil_id === profilId) personnel = Number(l.objectif_marge) || 0
+      }
+      return { equipe, personnel }
+    },
+  })
+}

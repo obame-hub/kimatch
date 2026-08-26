@@ -46,9 +46,12 @@ function Grandeur({
 export function BandeauMarge({
   chiffres,
   chargement,
+  objectif,
 }: {
   chiffres: ChiffresTableauDeBord | undefined
   chargement: boolean
+  /** Objectif d'équipe du mois — la somme des objectifs individuels. `null` : aucune barre. */
+  objectif?: number | null
 }) {
   const mois = new Date().toLocaleDateString('fr-FR', { month: 'long', year: 'numeric' })
   const c = chiffres
@@ -104,8 +107,43 @@ export function BandeauMarge({
 
         <div className="hidden bg-kw-green-border lg:block" />
 
-        {/* ── LES TROIS GRANDEURS, ET LA BARRE ── */}
+        {/* ══ L'OBJECTIF MENSUEL, quand il est connu ══
+
+            Sa maquette porte « Objectif mensuel 520 000 € » et « 93 % atteint ». Ses chiffres réels du
+            26/08 : 115 000 € par mois pour l'équipe, somme des quatre objectifs individuels.
+
+            IL PREND LA PLACE DES TROIS GRANDEURS que j'avais mises faute d'objectif. Elles répondaient
+            à la même question par défaut — « ce chiffre est-il bon ? » — et l'objectif y répond
+            mieux, parce que c'est LUI qui l'a fixé. Les trois grandeurs restent dessous : elles
+            expliquent le comment, l'objectif dit le combien. */}
         <div>
+          {objectif != null && objectif > 0 && (
+            <div className="mb-4 border-b border-kw-green-border pb-3.5">
+              <div className="flex flex-wrap items-end justify-between gap-2">
+                <div>
+                  <p className="text-kw-xs font-bold text-kw-body">Objectif mensuel</p>
+                  <p className="mt-0.5 font-mono text-kw-h1 font-extrabold tabular-nums text-kw-ink">
+                    {euros(objectif)}
+                  </p>
+                </div>
+                <div className="text-right">
+                  <p className="font-mono text-kw-h1 font-extrabold tabular-nums text-kw-green">
+                    {c ? Math.round((c.margeMois / objectif) * 100) : 0} %
+                  </p>
+                  <p className="text-kw-micro text-kw-faint">atteint</p>
+                </div>
+              </div>
+              {/* La barre se plafonne à 100 % : au-delà, ce qui compte est le pourcentage affiché,
+                  pas une barre qui déborderait de son cadre. */}
+              <div className="mt-2 h-1.5 overflow-hidden rounded-kw-pill bg-white">
+                <span
+                  className="block h-full bg-kw-green"
+                  style={{ width: Math.min(100, c ? (c.margeMois / objectif) * 100 : 0) + '%' }}
+                />
+              </div>
+            </div>
+          )}
+
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
             <Grandeur
               couleur="bg-kw-green"
