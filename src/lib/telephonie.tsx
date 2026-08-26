@@ -2,44 +2,41 @@ import { createContext, useCallback, useContext, useEffect, useState } from 'rea
 import type { ReactNode } from 'react'
 
 /**
- * APPELER DEPUIS KIMATCH — et surtout, ne plus ouvrir l'application du poste.
+ * APPELER DEPUIS KIMATCH — un seul entonnoir, un numéro normalisé, et un numéro TOUJOURS VISIBLE.
  *
- * Michel, 26/08/2026, rapporté par Naoëlle : « quand les commerciaux cliquent sur appeler ça leur
- * ouvre l'app de leur ordi, alors qu'il veut que ça ouvre l'application Allo directement sur
- * Kimatch, comme dans Tools ».
+ * Michel, 26/08/2026 : « quand les commerciaux cliquent sur appeler ça leur ouvre l'app de leur ordi,
+ * alors qu'il veut que ça ouvre l'application Allo directement sur Kimatch, comme dans Tools ».
  *
- * CE QUE FAISAIT KIMATCH : un lien `tel:`. Le système d'exploitation l'attrape et ouvre ce qu'il
- * veut — Skype, FaceTime, rien du tout. Le commercial recopie le numéro à la main, et l'appel n'est
- * journalisé nulle part. C'est le défaut à corriger, et il l'est : plus un seul `tel:` dans
- * l'application.
+ * ══ COMMENT ALLO MARCHE VRAIMENT — réponse de Lovable, qui a construit Tools ══
  *
- * ══ CE QUE J'AI CHERCHÉ, ET CE QUE J'AI TROUVÉ ══
+ * « Ce n'est ni un SDK ni une API appelée par Tools. C'est L'EXTENSION CHROME ALLO qui détecte les
+ * numéros affichés sur la page, ajoute une icône Allo à côté et ouvre un popup. Cliquer sur Call lance
+ * l'appel dans l'application Allo. » Allo n'expose aucune URL de composition ; son API REST ne sait
+ * qu'ajouter un numéro à la file du Power Dialer, pas lancer un appel.
  *
- * J'ai d'abord cru qu'il s'agissait d'Aircall : leur org Salesforce porte le paquet « Aircall CTI »
- * avec des utilisateurs assignés. Naoëlle a corrigé — ils ont MIGRÉ SUR ALLO en passant à Tools, et
- * le paquet Aircall est un reste.
+ * DONC AUCUN CODE NE PEUT OUVRIR ALLO. Ce qui répond à la demande de Michel, c'est l'installation de
+ * l'extension sur le Chrome de chaque commercial — une tâche de poste de travail, pas de dépôt. Le
+ * dire est plus utile que de livrer un bouton qui ferait semblant.
  *
- * OR ALLO NE PUBLIE NI SDK NAVIGATEUR NI COMPOSANT À INTÉGRER. Son API REST documentée couvre les
- * appels (en lecture), les contacts, les SMS et les webhooks — AUCUN point d'entrée pour DÉCLENCHER un
- * appel, aucun schéma d'URL du type `allo://`. Ce qu'Allo fournit pour cliquer sur un numéro, c'est
- * une EXTENSION DE NAVIGATEUR qui détecte les numéros sur n'importe quelle page et les rend
- * appelables, plus un raccourci clavier pour ouvrir le composeur.
+ * ══ CE QUE LE CODE PEUT FAIRE, ET QUI COMPTE VRAIMENT ══
  *
- * ET LE CODE DE TOOLS QUE J'AI SOUS LA MAIN NE CONTIENT AUCUNE TRACE D'ALLO — ni dépendance, ni
- * fonction, ni lien : ses trente fonctions couvrent DocuSign, Ellisphere, Enedis, Gmail, Salesforce,
- * SEFE, et rien de téléphonique. Soit ma copie précède la migration, soit Tools n'a effectivement
- * aucun code pour ça et tout passe par l'extension.
+ * L'extension ne décore que ce qu'elle VOIT. Un bouton « Appeler » avec une icône de téléphone et le
+ * numéro caché dans une infobulle ne lui donne rien à détecter — l'icône Allo n'apparaît jamais, et le
+ * commercial conclut que ça ne marche pas. LA VRAIE CONDITION EST DONC D'AFFICHER LE NUMÉRO EN TEXTE,
+ * à côté de chaque bouton d'appel. C'est le seul point que Lovable n'a pas mentionné, et c'est celui
+ * qui décide si l'extension sert à quelque chose.
  *
- * ══ D'OÙ CE COMPORTEMENT INTERMÉDIAIRE, ASSUMÉ ══
+ * LE LIEN `tel:` EST CONSERVÉ, sur la recommandation de Lovable : « l'extension reconnaît les numéros
+ * en texte simple comme en lien tel:, et le tel: a l'avantage d'être aussi natif — sans l'extension,
+ * le navigateur propose quand même d'appeler ». Sur un téléphone, c'est même le bon comportement.
  *
- * Le bouton ne peut pas déclencher l'appel tant qu'on ne sait pas COMMENT Tools le fait. Il fait donc
- * la seule chose utile et honnête : il met le numéro au format international dans le presse-papiers et
- * le dit. Le commercial ouvre Allo — ou clique le numéro que l'extension a rendu appelable — et colle.
- * C'est un geste de plus qu'il n'en faudrait, mais c'est déjà mieux que Skype qui s'ouvre.
+ * IL FAUT DONC LE DIRE FRANCHEMENT : garder `tel:` ne corrige pas à lui seul ce que Michel a signalé.
+ * Sans l'extension, le clic ouvrira toujours l'application du poste. Avec elle, le commercial clique
+ * l'icône Allo posée à côté du numéro. Le code prépare le terrain ; l'extension fait l'appel.
  *
- * DEUX CHOSES NE CHANGERONT PAS quand la réponse arrivera : les huit boutons de l'application passent
- * tous par `appelerNumero`, et la conversion au format international est faite ici. Brancher Allo pour
- * de bon se limitera à remplacer le corps d'UNE fonction.
+ * CE QUE CET ENTONNOIR APPORTE MALGRÉ TOUT : le numéro part au format international. `tel:+33612345678`
+ * est composable partout, `tel:06 12 34 56 78` ne l'est pas hors de France — et c'est une seule
+ * fonction à changer si Allo publie un jour de quoi déclencher un appel.
  */
 
 /**
@@ -88,6 +85,8 @@ export function appelerNumero(numero: string | null | undefined): Promise<string
 }
 
 export function TelephonieProvider({ children }: { children: ReactNode }) {
+  // Le seul message possible : un numéro inexploitable. Le reste est un geste immédiat, il n'a rien
+  // à annoncer — un bandeau « appel lancé » serait du bruit.
   const [message, setMessage] = useState<string | null>(null)
 
   const appeler = useCallback(async (numero: string | null | undefined): Promise<string> => {
@@ -98,19 +97,10 @@ export function TelephonieProvider({ children }: { children: ReactNode }) {
       return m
     }
 
-    // Le presse-papiers peut être refusé — permission bloquée, navigateur ancien. On le dit plutôt
-    // que d'annoncer une copie qui n'a pas eu lieu : le commercial resterait à attendre.
-    let copie = false
-    try {
-      await navigator.clipboard?.writeText(e164)
-      copie = true
-    } catch {
-      copie = false
-    }
-
-    const m = copie ? `${e164} copié — ouvrez Allo pour appeler.` : `Numéro à appeler dans Allo : ${e164}`
-    setMessage(m)
-    return m
+    // Le numéro normalisé, remis au système : c'est ce que Lovable recommande, et c'est ce que
+    // l'extension Allo sait intercepter. Sur mobile, c'est directement le bon comportement.
+    window.location.href = 'tel:' + e164
+    return e164
   }, [])
 
   useEffect(() => {

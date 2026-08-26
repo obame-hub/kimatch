@@ -381,6 +381,13 @@ export default function MandatDetail() {
                 <div className="min-w-0 flex-1">
                   <p className="truncate text-[12.5px] font-bold text-navy-800">{contactSignataire.prenom} {contactSignataire.nom}</p>
                   {contactSignataire.fonction && <p className="truncate text-[10px] text-navy-500">{contactSignataire.fonction}</p>}
+                  {/* LE NUMÉRO S'AFFICHE, ET CE N'EST PAS COSMÉTIQUE. L'extension Allo décore les
+                    numéros qu'elle VOIT sur la page : derrière une icône et une infobulle, elle n'a
+                    rien à détecter et l'icône Allo n'apparaît jamais. Le texte est la condition pour
+                    que l'appel dans Allo soit possible. */}
+                  {contactSignataire.telephone && (
+                    <p className="truncate font-mono text-[10.5px] text-navy-600">{contactSignataire.telephone}</p>
+                  )}
                 </div>
               </div>
               <div className="mt-2.5 flex gap-1.5">

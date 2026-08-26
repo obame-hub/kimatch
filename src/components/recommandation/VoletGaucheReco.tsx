@@ -308,6 +308,13 @@ export function VoletGaucheReco({
                   {contactPrincipal.prenom} {contactPrincipal.nom}
                 </EntityLink>
                 <div className="truncate text-kw-xs text-kw-meta">{contactPrincipal.fonction || 'Fonction non renseignée'}</div>
+                {/* LE NUMÉRO S'AFFICHE, ET CE N'EST PAS COSMÉTIQUE. L'extension Allo décore les
+                    numéros qu'elle VOIT sur la page : derrière une icône et une infobulle, elle n'a
+                    rien à détecter et l'icône Allo n'apparaît jamais. Le texte est la condition pour
+                    que l'appel dans Allo soit possible. */}
+                {contactPrincipal.telephone && (
+                  <div className="truncate font-mono text-kw-xs text-kw-body">{contactPrincipal.telephone}</div>
+                )}
               </div>
             </div>
             <div className="mt-2.5 flex gap-1.5">

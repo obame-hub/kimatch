@@ -1113,6 +1113,12 @@ function ContactsPanel({ contacts }: { contacts: Contact[] | undefined }) {
                     {c.prenom} {c.nom}
                   </button>
                   <p className="truncate text-[10.5px] text-navy-400">{c.fonction || '—'}</p>
+                  {/* LE NUMÉRO S'AFFICHE, ET CE N'EST PAS COSMÉTIQUE. L'extension Allo décore les
+                      numéros qu'elle VOIT : derrière une icône, elle n'a rien à détecter et son
+                      bouton d'appel n'apparaît jamais. */}
+                  {c.telephone && (
+                    <p className="truncate font-mono text-[10.5px] text-navy-600">{c.telephone}</p>
+                  )}
                 </div>
                 {c.telephone && (
                   <button
