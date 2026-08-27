@@ -2,7 +2,13 @@ import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { ArrowRight, Check, CheckSquare, Diamond, FileSignature, ListChecks, Zap } from 'lucide-react'
 import { useCompleteAction } from '@/lib/data/actions'
-import { LIBELLE_GROUPE, badgeAction, type ActionAFaire, type GroupeJournee } from '@/lib/data/tableauDeBord'
+import {
+  LIBELLE_GROUPE,
+  badgeAction,
+  useContexteJournee,
+  type ActionAFaire,
+  type GroupeJournee,
+} from '@/lib/data/tableauDeBord'
 import { cn } from '@/lib/utils'
 
 /**
@@ -56,9 +62,12 @@ type Portee = 'a_faire' | 'faites' | 'tout'
 export function MaJournee({
   actions,
   chargement,
+  profilId,
 }: {
   actions: ActionAFaire[] | undefined
   chargement: boolean
+  /** Sert à expliquer un bloc vide : les tâches sont-elles ailleurs, ou nulle part ? */
+  profilId?: string | null
 }) {
   const navigate = useNavigate()
   const terminer = useCompleteAction()
@@ -73,6 +82,19 @@ export function MaJournee({
   const groupes = ORDRE.map((g) => ({ groupe: g, lignes: visibles.filter((a) => a.groupe === g) })).filter(
     (g) => g.lignes.length > 0,
   )
+
+  /**
+   * POURQUOI C'EST VIDE — la question que Naoëlle a dû poser deux fois, le 27/08/2026.
+   *
+   * UN BLOC VIDE A TROIS CAUSES QUI NE SE RESSEMBLENT PAS : aucune tâche n'existe, elles sont à
+   * quelqu'un d'autre, ou personne ne les a prises. La première se règle en créant du travail, la
+   * deuxième n'est pas un problème, la troisième est un oubli d'attribution. Afficher « Rien à
+   * réaliser » dans les trois cas laisse chercher — et c'est exactement ce qui s'est passé.
+   *
+   * Mesuré ce matin : trois tâches dans toute la base, toutes closes, toutes à Matthieu. Le bloc
+   * était donc vide pour TOUT LE MONDE, y compris pour lui. Ce n'était pas un défaut d'affichage.
+   */
+  const { data: contexte } = useContexteJournee(profilId, groupes.length === 0)
 
   return (
     <div className="rounded-kw-3xl border border-kw-border bg-white">
@@ -127,11 +149,55 @@ export function MaJournee({
           <p className="text-kw-sm font-bold text-kw-ink">
             {portee === 'faites' ? 'Rien de réalisé aujourd’hui.' : 'Rien à réaliser.'}
           </p>
-          <p className="mt-0.5 max-w-[70ch] text-kw-xs leading-relaxed text-kw-meta">
-            Les actions arrivent ici depuis un signal, une opportunité, un mandat ou une
-            recommandation — c’est là qu’elles ont un objet. Une action créée sans rattachement
-            apparaît sous « Autres ».
-          </p>
+          {/* On dit ce qu'on sait, dans l'ordre de ce qui est actionnable. */}
+          {contexte && contexte.total === 0 ? (
+            <p className="mt-0.5 max-w-[70ch] text-kw-xs leading-relaxed text-kw-meta">
+              Aucune tâche n’existe encore dans Kimatch. Elles se créent depuis la{' '}
+              <button
+                type="button"
+                onClick={() => navigate('/signaux')}
+                className="font-bold text-kw-green hover:underline"
+              >
+                prochaine action d’un signal
+              </button>
+              , depuis une opportunité, un mandat ou une recommandation — ou directement dans{' '}
+              <button
+                type="button"
+                onClick={() => navigate('/taches')}
+                className="font-bold text-kw-green hover:underline"
+              >
+                Tâches
+              </button>
+              .
+            </p>
+          ) : contexte && contexte.sansResponsable > 0 ? (
+            <p className="mt-0.5 max-w-[70ch] text-kw-xs leading-relaxed text-kw-meta">
+              {contexte.sansResponsable} tâche{contexte.sansResponsable > 1 ? 's' : ''} ouverte
+              {contexte.sansResponsable > 1 ? 's' : ''} n’{contexte.sansResponsable > 1 ? 'ont' : 'a'} pas
+              de responsable : personne ne {contexte.sansResponsable > 1 ? 'les' : 'la'} verra tant
+              qu’elle{contexte.sansResponsable > 1 ? 's ne seront' : ' ne sera'} pas attribuée
+              {contexte.sansResponsable > 1 ? 's' : ''}.{' '}
+              <button
+                type="button"
+                onClick={() => navigate('/taches')}
+                className="font-bold text-kw-green hover:underline"
+              >
+                Voir les tâches
+              </button>
+            </p>
+          ) : contexte && contexte.ailleurs > 0 ? (
+            <p className="mt-0.5 max-w-[70ch] text-kw-xs leading-relaxed text-kw-meta">
+              Rien pour vous : {contexte.ailleurs} tâche{contexte.ailleurs > 1 ? 's' : ''} ouverte
+              {contexte.ailleurs > 1 ? 's' : ''} {contexte.ailleurs > 1 ? 'sont' : 'est'} suivie
+              {contexte.ailleurs > 1 ? 's' : ''} par d’autres commerciaux.
+            </p>
+          ) : (
+            <p className="mt-0.5 max-w-[70ch] text-kw-xs leading-relaxed text-kw-meta">
+              Les actions arrivent ici depuis un signal, une opportunité, un mandat ou une
+              recommandation — c’est là qu’elles ont un objet. Une action créée sans rattachement
+              apparaît sous « Autres ».
+            </p>
+          )}
         </div>
       ) : (
         <div className="grid grid-cols-1 gap-3 border-t border-kw-border-faint p-3 lg:grid-cols-2">

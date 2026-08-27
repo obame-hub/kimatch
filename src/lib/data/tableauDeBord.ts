@@ -493,3 +493,48 @@ export function useObjectifsDuMois(profilId: string | null | undefined) {
     },
   })
 }
+
+export interface ContexteJournee {
+  /** Tâches ouvertes assignées à quelqu'un d'autre. */
+  ailleurs: number
+  /** Tâches ouvertes que personne n'a prises. */
+  sansResponsable: number
+  /** Total de tâches en base, toutes personnes et tous états confondus. */
+  total: number
+}
+
+/**
+ * POURQUOI « MA JOURNÉE » EST VIDE — et non pas seulement le fait qu'elle l'est.
+ *
+ * Naoëlle, 27/08/2026 : « tu ne m'as toujours pas expliqué pourquoi je vois rien dans Ma journée ».
+ * Elle a raison de le redemander : j'avais corrigé la cause pour l'avenir sans traiter l'existant, et
+ * surtout l'écran ne disait rien.
+ *
+ * UN BLOC VIDE A TROIS CAUSES POSSIBLES, et elles ne se ressemblent pas : il n'y a aucune tâche en
+ * base, il y en a mais elles sont à quelqu'un d'autre, ou il y en a et personne ne les a prises. La
+ * première se règle en créant une tâche, la deuxième n'est pas un problème, la troisième est un oubli
+ * d'attribution. Afficher « Rien à réaliser » dans les trois cas laisse chercher.
+ *
+ * Ce hook rend donc de quoi le dire. Il ne s'exécute QUE quand la journée est vide — inutile de
+ * compter les tâches des autres quand on a les siennes sous les yeux.
+ */
+export function useContexteJournee(profilId: string | null | undefined, actif: boolean) {
+  return useQuery({
+    queryKey: ['tableau-de-bord', 'contexte-journee', profilId],
+    enabled: !!profilId && actif,
+    staleTime: 60 * 1000,
+    queryFn: async (): Promise<ContexteJournee> => {
+      const base = () => supabase.from('actions').select('id', { count: 'exact', head: true }).eq('actif', true)
+      const [ailleurs, sans, total] = await Promise.all([
+        base().is('date_realisation', null).not('responsable_profil_id', 'is', null).neq('responsable_profil_id', profilId as string),
+        base().is('date_realisation', null).is('responsable_profil_id', null),
+        supabase.from('actions').select('id', { count: 'exact', head: true }),
+      ])
+      return {
+        ailleurs: ailleurs.count ?? 0,
+        sansResponsable: sans.count ?? 0,
+        total: total.count ?? 0,
+      }
+    },
+  })
+}

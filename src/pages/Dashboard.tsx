@@ -171,7 +171,7 @@ export default function Dashboard() {
 
         {/* ══════ MA JOURNÉE ══════ */}
         <div className="mt-4">
-          <MaJournee actions={journee} chargement={journeeEnCours} />
+          <MaJournee actions={journee} chargement={journeeEnCours} profilId={monProfil?.id} />
         </div>
 
         {/* ══════ RIEN APRÈS « MA JOURNÉE » ══════
