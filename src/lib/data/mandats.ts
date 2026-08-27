@@ -287,13 +287,17 @@ export function useMarkMandatEnvoye() {
  * Naoëlle, 27/08/2026 : « il faudrait avoir la possibilité de valider un mandat manuellement, car
  * certains partenaires passent par leur propre DocuSign. »
  *
- * ══ LE TROU ÉTAIT PLUS LARGE QUE ÇA ══
+ * ══ CE QUI EXISTE DÉJÀ, ET CE QUI MANQUAIT VRAIMENT ══
  *
- * Mesuré le 27/08 avant d'écrire : il n'existe AUCUN webhook DocuSign dans le projet, et aucun code
- * ne fait passer un mandat à « signé ». `useMarkMandatEnvoye` s'arrête à « envoyé », et l'édition en
- * place ne touche que `date_signature` — sans changer le statut. Donc personne, partenaire ou pas, ne
- * pouvait valider un mandat depuis Kimatch. La répartition le montre : 1 080 « Actif » tous repris de
- * Salesforce, 294 « À préparer », 3 « Envoyé », et ZÉRO passé à l'état signé par l'application.
+ * `api/docusign/webhook.ts` reçoit les événements DocuSign, vérifie leur signature HMAC, met à jour
+ * mandats ET contrats, et archive le PDF signé. Il fonctionne : 6 mandats sont passés à ACTIF avec
+ * date d'envoi et date de signature par ce chemin, dont un le 27/08 même.
+ *
+ * Le trou n'était donc PAS le webhook — c'était le cas où DocuSign n'est jamais impliqué. Quand un
+ * partenaire signe sur SON outil, ou renvoie un PDF signé à l'ancienne, aucune enveloppe n'existe
+ * chez nous : aucun événement n'arrivera jamais, et rien dans l'application ne permettait de
+ * l'enregistrer. `useMarkMandatEnvoye` s'arrête à « envoyé », et l'édition en place ne touche que
+ * `date_signature` sans changer le statut.
  *
  * ══ QUEL STATUT POSER : NI DEVINÉ, NI « SIGNÉ » ══
  *
