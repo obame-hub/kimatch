@@ -73,6 +73,11 @@ import { cn } from '@/lib/utils'
  * Les 55 consultations conservées portent toutes cette date, donc aucune tuile ne reste muette. Sur
  * la colonne « à demander » aujourd'hui : 9 en retard, 5 pour aujourd'hui, 4 à venir.
  *
+ * LA PASTILLE NE SORT QUE SUR « À DEMANDER ». C'est la colonne qu'il a désignée, et c'est aussi la
+ * seule où le mot « retard » est exact : sur « offres reçues », l'offre est là, et un « en retard de
+ * 28 jours » en rouge annoncerait un retard qui n'existe plus. LE TRI, lui, s'applique partout —
+ * classer les cartes par date souhaitée reste juste dans toutes les colonnes.
+ *
  * ══ « VALIDÉES » A ÉTÉ RETIRÉE ══
  *
  * « Enlève la colonne validée, elle ne sert à rien ici » (Naoëlle, même message) — et c'est juste :
@@ -273,7 +278,12 @@ export default function Pricing({ sansEntete }: { sansEntete?: boolean }) {
                 }
                 return {
                   id: l.consultation_id,
-                  echeance: echeanceCotation(l.jours_avant_cotation),
+                  /* LA PASTILLE NE SORT QUE SUR « À DEMANDER » — c'est la colonne que Michel a
+                     désignée, et c'est la seule où « en retard » est vrai. Sur « offres reçues »,
+                     l'offre est arrivée : un « en retard de 28 jours » en rouge y annoncerait un
+                     retard qui n'existe plus. Une fausse alerte coûte plus cher qu'une information
+                     absente, parce qu'elle apprend à ignorer les vraies. */
+                  echeance: c.code === 'A_DEMANDER' ? echeanceCotation(l.jours_avant_cotation) : undefined,
                   /* LE FOURNISSEUR EN TITRE, LE CLIENT EN SOUS-TITRE. Sur cette page on travaille
                      fournisseur par fournisseur — « qui ne m'a pas répondu » — là où les autres
                      kanbans partent du client. */
