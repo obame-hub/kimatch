@@ -78,8 +78,14 @@ export function useKanbanServeur<T>(options: {
   /** Colonnes de recherche, comme pour la liste. */
   colonnesRecherche: string[]
   recherche: string
-  /** Filtres supplémentaires appliqués à toutes les colonnes — la visibilité, par exemple. */
-  filtres?: Record<string, string | null>
+  /**
+   * Filtres supplémentaires appliqués à toutes les colonnes — la visibilité, par exemple.
+   *
+   * Le booléen est accepté depuis le 27/08/2026 : la page Pricing ne montre que les recommandations
+   * en cours, et un `true` écrit `'true'` aurait été un booléen déguisé en texte — le genre de détail
+   * qui se relit mal six mois plus tard.
+   */
+  filtres?: Record<string, string | boolean | null>
   /** Colonne numérique à additionner sur chaque colonne du tableau — la marge, un volume. */
   colonneSomme?: string
   actif: boolean

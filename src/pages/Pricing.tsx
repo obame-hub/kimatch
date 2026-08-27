@@ -24,14 +24,37 @@ import { cn } from '@/lib/utils'
  *
  * ══ CE QUE LA PAGE MONTRE, ET CE QU'ELLE NE PEUT PAS MONTRER ══
  *
- * Répartition mesurée le 26/08 : 36 à demander, 2 060 en attente fournisseur, 1 368 offres reçues,
- * 2 validées. Le déséquilibre est réel et il dit quelque chose — 2 060 demandes parties sans réponse
- * enregistrée, c'est le vrai sujet de cette page.
+ * ══ SEULES LES RECOMMANDATIONS EN COURS ══
+ *
+ * Naoëlle, 27/08/2026 : « filtre juste les recos en cours, le pricing n'a besoin de voir que ça — là
+ * il y a tout et c'est pas ce qu'on veut. »
+ *
+ * Mesuré avant de filtrer : sur les 3 469 consultations affichées, 3 217 appartenaient à une
+ * recommandation déjà tranchée (1 548 acceptées, 763 refusées, 906 abandonnées). 93 % de l'écran
+ * portait donc sur des dossiers où personne n'a plus rien à demander à un fournisseur — et ces lignes
+ * noyaient les 153 demandes réellement en attente, qui sont le seul vrai sujet de cette page.
+ *
+ * La page en montre 305. « En cours » n'est pas redéfini ici : la vue reprend les trois étapes closes
+ * que l'application connaît déjà (acceptée, refusée, abandonnée — Michel, 26/08/2026).
+ *
+ * ══ « VALIDÉES » A ÉTÉ RETIRÉE ══
+ *
+ * « Enlève la colonne validée, elle ne sert à rien ici » (Naoëlle, même message) — et c'est juste :
+ * une offre retenue est une décision de Kiwee, pas une étape du traitement d'une demande fournisseur.
+ * Elle n'avait rien à faire dans un tableau qui suit « où en est ma demande ».
+ *
+ * Ses 2 lignes n'ont pas disparu pour autant : la branche correspondante a été retirée de la vue, et
+ * elles ont rejoint la colonne de leur suivi réel (« Demande acceptée » → en attente fournisseur).
+ * Retirer la colonne sans toucher à la vue les aurait fait s'évaporer sans trace.
  *
  * MAIS LE MONTANT MANQUE PRESQUE PARTOUT : 52 offres chiffrées pour 3 523 consultations. Ce n'est pas
  * un défaut de jointure — vérifié, le lien est renseigné sur les 52 — c'est que les offres reçues sont
  * SUIVIES sans être SAISIES. La carte affiche donc le montant quand il existe et se tait sinon, au
  * lieu d'un zéro qui ferait croire à une offre gratuite.
+ *
+ * Et le filtre rend le trou plus net encore, ce qui est une bonne chose : sur les 305 consultations en
+ * cours, 5 portent un montant — et AUCUNE des 120 de la colonne « offres reçues ». La colonne qui
+ * devrait porter des prix n'en porte aucun. C'est un constat pour Michel, pas un bug à corriger ici.
  *
  * « DEMANDE REFUSÉE » SORT DU TABLEAU. Un fournisseur qui refuse de coter n'est plus dans le
  * pipeline ; l'y laisser gonflerait « en attente » de 57 dossiers morts. La case « inclure les
@@ -51,14 +74,22 @@ interface LignePricing {
   montant_annuel_ht: number | null
   prix_moyen_mwh: number | null
   colonne: string
+  recommandation_etape: string | null
+  reco_en_cours: boolean
 }
 
-/** Ses quatre colonnes, dans son ordre. La cinquième n'apparaît que sur demande. */
+/**
+ * Les trois étapes du traitement d'une demande fournisseur. « Refusées » n'apparaît que sur demande.
+ *
+ * Son dossier UX en annonçait quatre, « validées » comprise ; elle a été retirée le 27/08/2026 sur
+ * demande de Naoëlle. Les trois qui restent ont ceci en commun qu'elles décrivent TOUTES un état de
+ * la demande — pas envoyée, partie, revenue — là où « validée » décrivait une décision interne prise
+ * après coup.
+ */
 const COLONNES = [
   { code: 'A_DEMANDER', libelle: 'À demander' },
   { code: 'EN_ATTENTE', libelle: 'En attente fournisseur' },
   { code: 'RECUE', libelle: 'Offres reçues' },
-  { code: 'VALIDEE', libelle: 'Validées' },
 ] as const
 
 const euros = (v: number) => v.toLocaleString('fr-FR', { maximumFractionDigits: 0 }) + ' €'
@@ -78,6 +109,9 @@ export default function Pricing({ sansEntete }: { sansEntete?: boolean }) {
     colonnes: colonnes.map((c) => ({ code: c.code, libelle: c.libelle })),
     colonnesRecherche: ['fournisseur_nom', 'compte_nom', 'recommandation_nom'],
     recherche,
+    // LE FILTRE DE LA PAGE, appliqué à toutes les colonnes ET aux sommes : le bandeau chiffré doit
+    // additionner la même population que le tableau, sinon l'un démentira l'autre à l'écran.
+    filtres: { reco_en_cours: true },
     // Le montant se somme par colonne : c'est ce qui attend chez chaque fournisseur.
     colonneSomme: 'montant_annuel_ht',
     actif: true,
@@ -98,7 +132,7 @@ export default function Pricing({ sansEntete }: { sansEntete?: boolean }) {
           title="Pricing"
           badge={montantConnu ? euros(montantTotal) : undefined}
           badgeLibelle="Montant chiffré"
-          description="Suivez les offres fournisseurs à chaque étape de leur traitement."
+          description="Suivez les offres fournisseurs à chaque étape de leur traitement. Seuls les dossiers en cours apparaissent."
         />
 
         <ListToolbar
@@ -178,13 +212,13 @@ export default function Pricing({ sansEntete }: { sansEntete?: boolean }) {
           }
         />
 
-        {/* CE QUE LA PAGE NE PEUT PAS DIRE, dit à l'écran. 52 offres chiffrées pour 3 523
-            consultations : les offres reçues sont suivies sans être saisies, et une page de pricing
-            sans montants doit l'annoncer plutôt que de laisser chercher. */}
+        {/* CE QUE LA PAGE NE PEUT PAS DIRE, dit à l'écran. Sur les 305 consultations en cours, 5
+            portent un montant : les offres sont suivies sans être saisies, et une page de pricing sans
+            montants doit l'annoncer plutôt que de laisser chercher. */}
         <p className="mt-3 max-w-[95ch] text-kw-xs leading-relaxed text-kw-faint">
-          Le budget n’apparaît que sur les consultations dont l’offre a été saisie. Une offre reçue mais
-          non chiffrée reste dans sa colonne, sans montant : c’est le suivi qui la fait avancer, pas le
-          prix.
+          Seuls les dossiers en cours apparaissent : une recommandation acceptée, refusée ou abandonnée
+          n’attend plus rien d’un fournisseur. Le budget, lui, n’apparaît que sur les consultations dont
+          l’offre a été saisie — une offre reçue mais non chiffrée reste dans sa colonne, sans montant.
         </p>
       </div>
     </div>
