@@ -34,8 +34,29 @@ import { cn } from '@/lib/utils'
  * portait donc sur des dossiers où personne n'a plus rien à demander à un fournisseur — et ces lignes
  * noyaient les 153 demandes réellement en attente, qui sont le seul vrai sujet de cette page.
  *
- * La page en montre 305. « En cours » n'est pas redéfini ici : la vue reprend les trois étapes closes
- * que l'application connaît déjà (acceptée, refusée, abandonnée — Michel, 26/08/2026).
+ * « En cours » n'est pas redéfini ici : la vue reprend les trois étapes closes que l'application
+ * connaît déjà (acceptée, refusée, abandonnée — Michel, 26/08/2026).
+ *
+ * ══ ET SEULEMENT LA VERSION COURANTE ══
+ *
+ * Michel a trouvé qu'il restait « encore trop d'éléments », et Naoëlle a mis le doigt sur ce qui
+ * manquait (27/08) : « tu as filtré seulement sur les recommandations, il faut aussi qu'on filtre sur
+ * les versions actives, sinon c'est pas logique ».
+ *
+ * Le défaut était dans la vue depuis le début : la jointure ne regardait pas `version_actuelle`. Une
+ * recommandation reprise trois fois affichait les consultations de ses TROIS versions — on demandait
+ * donc au pricing de relancer un fournisseur sur une offre qui n'existe plus. 321 recommandations
+ * portent plus d'une version.
+ *
+ * La page passe de 306 à 191 lignes : 20 à demander, 111 en attente, 60 offres reçues.
+ *
+ * CE QUE JE N'AI PAS FILTRÉ. Aller plus loin en écartant les versions au statut « expirée »
+ * ramènerait la page à 57 lignes, ce qui collerait encore mieux à la remarque de Michel. Mais 96 des
+ * 192 consultations restantes ont une recommandation à l'étape CONSULTATION et une version dite
+ * EXPIREE — une contradiction, pas une information : aucune de ces versions ne porte de date
+ * d'expiration, et 1 171 des 1 242 versions « expirées » viennent de la reprise Salesforce. Filtrer
+ * là-dessus ferait disparaître 135 lignes sur la foi d'un statut dont on ignore le sens d'origine.
+ * La question est posée à Michel ; si le statut est bien mort, la clause est une ligne.
  *
  * ══ « VALIDÉES » A ÉTÉ RETIRÉE ══
  *
@@ -88,6 +109,10 @@ interface LignePricing {
   colonne: string
   recommandation_etape: string | null
   reco_en_cours: boolean
+  version_id: string | null
+  numero_version: number | null
+  version_courante: boolean
+  version_statut: string | null
 }
 
 /**
@@ -121,9 +146,9 @@ export default function Pricing({ sansEntete }: { sansEntete?: boolean }) {
     colonnes: colonnes.map((c) => ({ code: c.code, libelle: c.libelle })),
     colonnesRecherche: ['fournisseur_nom', 'compte_nom', 'recommandation_nom'],
     recherche,
-    // LE FILTRE DE LA PAGE, appliqué à toutes les colonnes ET aux sommes : le bandeau chiffré doit
-    // additionner la même population que le tableau, sinon l'un démentira l'autre à l'écran.
-    filtres: { reco_en_cours: true },
+    // LES DEUX FILTRES DE LA PAGE, appliqués à toutes les colonnes ET aux sommes : le bandeau
+    // chiffré doit additionner la même population que le tableau, sinon l'un démentira l'autre.
+    filtres: { reco_en_cours: true, version_courante: true },
     // Le montant se somme par colonne : c'est ce qui attend chez chaque fournisseur.
     colonneSomme: 'montant_annuel_ht',
     actif: true,
@@ -144,7 +169,7 @@ export default function Pricing({ sansEntete }: { sansEntete?: boolean }) {
           title="Pricing"
           badge={montantConnu ? euros(montantTotal) : undefined}
           badgeLibelle="Montant chiffré"
-          description="Suivez les offres fournisseurs à chaque étape de leur traitement. Seuls les dossiers en cours apparaissent."
+          description="Suivez les offres fournisseurs à chaque étape de leur traitement. Seule la version en cours des dossiers ouverts apparaît."
         />
 
         <ListToolbar
@@ -224,13 +249,14 @@ export default function Pricing({ sansEntete }: { sansEntete?: boolean }) {
           }
         />
 
-        {/* CE QUE LA PAGE NE PEUT PAS DIRE, dit à l'écran. Sur les 305 consultations en cours, 5
-            portent un montant, et aucune des 120 « offres reçues » : le suivi avance d'un clic, la
-            saisie de l'offre est un formulaire séparé que personne ne remplit. Voir l'en-tête. */}
+        {/* CE QUE LA PAGE NE PEUT PAS DIRE, dit à l'écran : le suivi avance d'un clic, la saisie de
+            l'offre est un formulaire séparé que personne ne remplit. Voir l'en-tête. */}
         <p className="mt-3 max-w-[95ch] text-kw-xs leading-relaxed text-kw-faint">
-          Seuls les dossiers en cours apparaissent : une recommandation acceptée, refusée ou abandonnée
-          n’attend plus rien d’un fournisseur. Le budget, lui, n’apparaît que sur les consultations dont
-          l’offre a été saisie — une offre reçue mais non chiffrée reste dans sa colonne, sans montant.
+          Seules les consultations de la version en cours d’un dossier ouvert apparaissent : une
+          recommandation close n’attend plus rien d’un fournisseur, et une ancienne version porte des
+          offres qui ne sont plus celles qu’on défend. Le budget, lui, n’apparaît que sur les
+          consultations dont l’offre a été saisie — une offre reçue mais non chiffrée reste dans sa
+          colonne, sans montant.
         </p>
       </div>
     </div>
