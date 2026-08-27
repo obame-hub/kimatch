@@ -47,14 +47,26 @@ import { cn } from '@/lib/utils'
  * elles ont rejoint la colonne de leur suivi réel (« Demande acceptée » → en attente fournisseur).
  * Retirer la colonne sans toucher à la vue les aurait fait s'évaporer sans trace.
  *
- * MAIS LE MONTANT MANQUE PRESQUE PARTOUT : 52 offres chiffrées pour 3 523 consultations. Ce n'est pas
- * un défaut de jointure — vérifié, le lien est renseigné sur les 52 — c'est que les offres reçues sont
- * SUIVIES sans être SAISIES. La carte affiche donc le montant quand il existe et se tait sinon, au
- * lieu d'un zéro qui ferait croire à une offre gratuite.
+ * MAIS LE MONTANT MANQUE PRESQUE PARTOUT, et ce n'est pas le champ qui est vide — CE SONT LES OFFRES
+ * QUI N'EXISTENT PAS. Mesuré le 27/08/2026 : `offres_fournisseurs` compte 55 lignes pour 3 526
+ * consultations, dont 6 portent un montant. Sur les 120 consultations en cours marquées « offre
+ * reçue », 120 n'ont AUCUNE ligne d'offre.
  *
- * Et le filtre rend le trou plus net encore, ce qui est une bonne chose : sur les 305 consultations en
- * cours, 5 portent un montant — et AUCUNE des 120 de la colonne « offres reçues ». La colonne qui
- * devrait porter des prix n'en porte aucun. C'est un constat pour Michel, pas un bug à corriger ici.
+ * DEUX CAUSES DISTINCTES, et il faut les séparer :
+ *
+ *  1. La reprise Salesforce n'a importé aucune offre par fournisseur — les 55 lignes ont toutes été
+ *     créées en août 2026, dans Kimatch. Salesforce ne portait le montant qu'au niveau de l'affaire
+ *     (`recommandations.budget_nouvelle_offre`, renseigné sur 289 dossiers, TOUS clos) : le chiffre
+ *     final d'une affaire gagnée, jamais « l'offre du fournisseur X ». Il n'y a donc rien à afficher
+ *     pour les dossiers repris, et rien ne le fera apparaître.
+ *
+ *  2. Sur les dossiers vivants, changer le suivi en « offre reçue » est UN CLIC dans une liste
+ *     déroulante, tandis que saisir l'offre est un formulaire à part (« Ajouter une offre de … »).
+ *     Le premier geste est fait, le second non. Le statut avance donc sans le prix.
+ *
+ * La carte affiche le montant quand il existe et se tait sinon, au lieu d'un zéro qui ferait croire à
+ * une offre gratuite. Rendre la saisie obligatoire au passage en « offre reçue » relève d'une décision
+ * de Michel, pas d'un correctif d'affichage.
  *
  * « DEMANDE REFUSÉE » SORT DU TABLEAU. Un fournisseur qui refuse de coter n'est plus dans le
  * pipeline ; l'y laisser gonflerait « en attente » de 57 dossiers morts. La case « inclure les
@@ -213,8 +225,8 @@ export default function Pricing({ sansEntete }: { sansEntete?: boolean }) {
         />
 
         {/* CE QUE LA PAGE NE PEUT PAS DIRE, dit à l'écran. Sur les 305 consultations en cours, 5
-            portent un montant : les offres sont suivies sans être saisies, et une page de pricing sans
-            montants doit l'annoncer plutôt que de laisser chercher. */}
+            portent un montant, et aucune des 120 « offres reçues » : le suivi avance d'un clic, la
+            saisie de l'offre est un formulaire séparé que personne ne remplit. Voir l'en-tête. */}
         <p className="mt-3 max-w-[95ch] text-kw-xs leading-relaxed text-kw-faint">
           Seuls les dossiers en cours apparaissent : une recommandation acceptée, refusée ou abandonnée
           n’attend plus rien d’un fournisseur. Le budget, lui, n’apparaît que sur les consultations dont
