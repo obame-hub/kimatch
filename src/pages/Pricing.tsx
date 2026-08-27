@@ -73,10 +73,17 @@ import { cn } from '@/lib/utils'
  * Les 55 consultations conservées portent toutes cette date, donc aucune tuile ne reste muette. Sur
  * la colonne « à demander » aujourd'hui : 9 en retard, 5 pour aujourd'hui, 4 à venir.
  *
- * LA PASTILLE NE SORT QUE SUR « À DEMANDER ». C'est la colonne qu'il a désignée, et c'est aussi la
- * seule où le mot « retard » est exact : sur « offres reçues », l'offre est là, et un « en retard de
- * 28 jours » en rouge annoncerait un retard qui n'existe plus. LE TRI, lui, s'applique partout —
- * classer les cartes par date souhaitée reste juste dans toutes les colonnes.
+ * DEUX ENDROITS, DEUX RÔLES (Naoëlle, 27/08). Le RELATIF va ENTRE les tuiles, en intertitre —
+ * « En retard d'1 jour », puis toutes les tuiles concernées dessous. L'ABSOLU va SUR la tuile, juste
+ * sous « Demande envoyée ». Une pastille répétée sur huit tuiles consécutives écrit huit fois la
+ * même chose et vole la place du fournisseur ; un intertitre l'écrit une fois et dit en plus COMBIEN
+ * de dossiers partagent l'urgence.
+ *
+ * LE REGROUPEMENT NE SORT QUE SUR « À DEMANDER ». C'est la colonne désignée, et c'est aussi la seule
+ * où le mot « retard » est exact : sur « offres reçues », l'offre est là, et un « en retard de
+ * 28 jours » annoncerait un retard qui n'existe plus. LE TRI, lui, s'applique partout — classer les
+ * cartes par date souhaitée reste juste dans toutes les colonnes, et c'est ce tri serveur qui rend le
+ * regroupement possible : les cartes arrivent déjà dans l'ordre.
  *
  * ══ « VALIDÉES » A ÉTÉ RETIRÉE ══
  *
@@ -155,37 +162,47 @@ const COLONNES = [
 const euros = (v: number) => v.toLocaleString('fr-FR', { maximumFractionDigits: 0 }) + ' €'
 
 /**
- * LA DATE DE COTATION SOUHAITÉE, DITE EN JOURS.
+ * LE GROUPE D'ÉCHÉANCE D'UNE CONSULTATION, écrit ENTRE les tuiles.
  *
- * Michel, 27/08/2026 : la voir sur la tuile sans cliquer, en dates relatives — « dans 3 jours »,
- * « en retard », « aujourd'hui ».
+ * Naoëlle, 27/08/2026 : « je veux pas que les instructions en retard etc. soient sur les tuiles, je
+ * veux que ce soit indiqué entre les tuiles — c'est écrit "en retard de 1 jour" et il y a toutes les
+ * tuiles en retard de 1 jour en dessous ». La date exacte, elle, va sur la tuile.
+ *
+ * UN GROUPE PAR JOUR, ET NON PAR TRANCHE. Regrouper « en retard de 1 à 7 jours » aurait donné des
+ * paquets plus courts, mais aurait effacé l'ordre à l'intérieur : entre un retard de 6 jours et un
+ * retard d'un jour, ce n'est pas le même appel. La clé est donc le nombre de jours lui-même, ce qui
+ * garantit aussi que l'intertitre ne mente jamais sur son contenu.
  *
  * LE NOMBRE DE JOURS EST CALCULÉ EN BASE, pas ici : `jours_avant_cotation` vaut
  * `date_souhaitee - current_date`. C'est la même valeur qui sert au tri serveur, et c'est
  * volontaire — un décompte calculé deux fois, une fois en SQL pour ordonner et une fois en
  * JavaScript pour afficher, finit par se contredire un jour de changement d'heure ou sur un
- * navigateur réglé sur un autre fuseau. Une tuile qui dit « aujourd'hui » en troisième position
- * n'est pas un détail : c'est le tri qui devient faux aux yeux du lecteur.
+ * navigateur réglé sur un autre fuseau. Un intertitre « aujourd'hui » posé au-dessus d'une carte de
+ * demain n'est pas un détail d'affichage : c'est le tri qui devient faux aux yeux du lecteur.
  *
  * LE TON MONTE PAR PALIERS PARCE QUE L'ACTION CHANGE : passé la date, la demande n'est plus à
  * envoyer mais à rattraper ; le jour même, elle est à envoyer maintenant ; à trois jours, elle est
  * à planifier. Au-delà d'une semaine, la date n'est plus qu'un repère, d'où le ton neutre.
  */
-function echeanceCotation(
+function groupeEcheance(
   jours: number | null,
-): { texte: string; ton: 'retard' | 'jour' | 'proche' | 'loin' } | undefined {
-  // Sans date, aucune pastille : un « — » à la place d'une échéance laisserait croire à une
-  // absence de délai, alors qu'il ne s'agit que d'une absence de saisie.
+): { cle: string; texte: string; ton: 'retard' | 'jour' | 'proche' | 'loin' } | undefined {
+  // Sans date, aucun groupe : un intertitre « sans date » créerait une section pour une absence de
+  // saisie. Les 55 consultations affichées portent toutes la leur — la clause est là pour demain.
   if (jours == null) return undefined
+  const cle = String(jours)
   if (jours < 0) {
     const n = Math.abs(jours)
-    return { texte: n === 1 ? 'En retard d’1 jour' : `En retard de ${n} jours`, ton: 'retard' }
+    return { cle, texte: n === 1 ? 'En retard d’1 jour' : `En retard de ${n} jours`, ton: 'retard' }
   }
-  if (jours === 0) return { texte: 'Aujourd’hui', ton: 'jour' }
-  if (jours === 1) return { texte: 'Demain', ton: 'proche' }
-  if (jours <= 7) return { texte: `Dans ${jours} jours`, ton: 'proche' }
-  return { texte: `Dans ${jours} jours`, ton: 'loin' }
+  if (jours === 0) return { cle, texte: 'Aujourd’hui', ton: 'jour' }
+  if (jours === 1) return { cle, texte: 'Demain', ton: 'proche' }
+  if (jours <= 7) return { cle, texte: `Dans ${jours} jours`, ton: 'proche' }
+  return { cle, texte: `Dans ${jours} jours`, ton: 'loin' }
 }
+
+/** La date de cotation souhaitée, telle qu'elle s'écrit sur la tuile. */
+const dateCourte = (iso: string) => new Date(iso).toLocaleDateString('fr-FR')
 
 export default function Pricing({ sansEntete }: { sansEntete?: boolean }) {
   const navigate = useNavigate()
@@ -266,6 +283,16 @@ export default function Pricing({ sansEntete }: { sansEntete?: boolean }) {
               c.code,
               c.lignes.map((l) => {
                 const chiffres: { libelle: string; valeur: string }[] = []
+                /* LA DATE DE COTATION SOUHAITÉE EN TÊTE : les chiffres se rendent juste sous le
+                   motif (« Demande envoyée — 29/06/2026 »), qui est exactement l'endroit demandé.
+                   Elle passe devant le budget parce qu'elle décide de QUAND agir, là où le budget ne
+                   décide de rien sur cette page. */
+                if (l.date_cotation_souhaitee) {
+                  chiffres.push({
+                    libelle: 'Cotation souhaitée',
+                    valeur: dateCourte(l.date_cotation_souhaitee),
+                  })
+                }
                 if (l.montant_annuel_ht != null) {
                   chiffres.push({ libelle: 'Budget annuel', valeur: euros(l.montant_annuel_ht) })
                 }
@@ -278,12 +305,12 @@ export default function Pricing({ sansEntete }: { sansEntete?: boolean }) {
                 }
                 return {
                   id: l.consultation_id,
-                  /* LA PASTILLE NE SORT QUE SUR « À DEMANDER » — c'est la colonne que Michel a
-                     désignée, et c'est la seule où « en retard » est vrai. Sur « offres reçues »,
-                     l'offre est arrivée : un « en retard de 28 jours » en rouge y annoncerait un
-                     retard qui n'existe plus. Une fausse alerte coûte plus cher qu'une information
-                     absente, parce qu'elle apprend à ignorer les vraies. */
-                  echeance: c.code === 'A_DEMANDER' ? echeanceCotation(l.jours_avant_cotation) : undefined,
+                  /* LE REGROUPEMENT NE SORT QUE SUR « À DEMANDER » — c'est la colonne désignée, et
+                     c'est la seule où « en retard » est vrai. Sur « offres reçues », l'offre est
+                     arrivée : un intertitre « en retard de 28 jours » y annoncerait un retard qui
+                     n'existe plus. Une fausse alerte coûte plus cher qu'une information absente,
+                     parce qu'elle apprend à ignorer les vraies. */
+                  groupe: c.code === 'A_DEMANDER' ? groupeEcheance(l.jours_avant_cotation) : undefined,
                   /* LE FOURNISSEUR EN TITRE, LE CLIENT EN SOUS-TITRE. Sur cette page on travaille
                      fournisseur par fournisseur — « qui ne m'a pas répondu » — là où les autres
                      kanbans partent du client. */

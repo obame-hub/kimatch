@@ -1,3 +1,4 @@
+import { Fragment } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { ChevronRight } from 'lucide-react'
 import { cn } from '@/lib/utils'
@@ -82,19 +83,24 @@ export interface CarteKanban {
   /** Chiffres en pied de carte, deux au plus pour rester lisibles — un volume, un montant. */
   chiffres?: { libelle: string; valeur: string }[]
   /**
-   * UNE ÉCHÉANCE EN DATE RELATIVE, à la place d'une date brute.
+   * LE GROUPE AUQUEL LA CARTE APPARTIENT, écrit ENTRE les cartes et non dessus.
    *
-   * Michel, 27/08/2026 : afficher la date de cotation souhaitée sur la tuile « pour que ce soit
-   * visible sans cliquer dessus », en dates relatives — « dans 3 jours », « en retard »,
-   * « aujourd'hui ».
+   * Naoëlle, 27/08/2026 : « je veux pas que les instructions en retard etc. soient sur les tuiles, je
+   * veux que ce soit indiqué entre les tuiles — par exemple c'est écrit "en retard de 1 jour" et il y
+   * a toutes les tuiles en retard de 1 jour en dessous ».
    *
-   * POURQUOI RELATIF PLUTÔT QUE « 26/08/2026 » : une date absolue demande un calcul mental à chaque
-   * lecture, et sur une colonne de quinze tuiles ce calcul se fait quinze fois. « En retard de
-   * 1 jour » se lit sans réfléchir. La date exacte reste sur la fiche, où l'on va quand on agit.
+   * Elle a raison, et c'est un meilleur dessin : une pastille répétée sur huit tuiles consécutives
+   * écrit huit fois la même chose et vole la place du nom du fournisseur. Un intertitre l'écrit une
+   * fois et transforme la colonne en liste lisible d'un coup d'œil — on voit d'emblée COMBIEN de
+   * dossiers partagent la même urgence, ce qu'une pastille par tuile ne montre pas.
    *
-   * `ton` porte la gravité, pas la couleur : c'est la tuile qui décide de l'apparence.
+   * LE REGROUPEMENT SUIT L'ORDRE REÇU, il ne trie pas : l'intertitre apparaît quand `cle` change
+   * d'une carte à la suivante. C'est volontaire — le tri se décide en base (voir useKanbanServeur),
+   * et regrouper ici reviendrait à réordonner un échantillon de dix cartes en ignorant les autres.
+   * Conséquence à assumer : si l'appelant fournit des cartes mal ordonnées, un même groupe peut
+   * apparaître deux fois. Mieux vaut ce défaut visible qu'un tri caché qui contredirait la base.
    */
-  echeance?: { texte: string; ton: 'retard' | 'jour' | 'proche' | 'loin' }
+  groupe?: { cle: string; texte: string; ton: 'retard' | 'jour' | 'proche' | 'loin' }
   to: string
 }
 
@@ -170,9 +176,48 @@ export function TableauKanban({
 
             <div className="flex flex-1 flex-col gap-1.5">
               {montrees.length === 0 && <p className="px-0.5 text-kw-micro text-kw-faint">Vide</p>}
-              {montrees.map((c) => (
+              {montrees.map((c, i) => (
+                <Fragment key={c.id}>
+                  {/* ══ L'INTERTITRE DE GROUPE ══
+                      Écrit dès que la clé change par rapport à la carte précédente. Le premier
+                      intertitre sort toujours, sinon le premier groupe serait le seul sans nom et
+                      on lirait ses cartes comme si elles n'appartenaient à rien. */}
+                  {c.groupe && (i === 0 || montrees[i - 1].groupe?.cle !== c.groupe.cle) && (
+                    <p
+                      className={cn(
+                        'mt-1 flex items-center gap-1.5 px-0.5 pt-1 text-kw-micro font-bold uppercase tracking-[0.06em] first:mt-0 first:pt-0',
+                        c.groupe.ton === 'retard'
+                          ? 'text-kw-red'
+                          : c.groupe.ton === 'jour'
+                            ? 'text-kw-amber-dark'
+                            : c.groupe.ton === 'proche'
+                              ? 'text-kw-amber'
+                              : 'text-kw-meta',
+                      )}
+                    >
+                      <span
+                        className={cn(
+                          'h-1.5 w-1.5 shrink-0 rounded-full',
+                          c.groupe.ton === 'retard'
+                            ? 'bg-kw-red'
+                            : c.groupe.ton === 'jour'
+                              ? 'bg-kw-amber'
+                              : c.groupe.ton === 'proche'
+                                ? 'bg-kw-amber-border'
+                                : 'bg-kw-ghost',
+                        )}
+                      />
+                      <span className="truncate">{c.groupe.texte}</span>
+                      {/* Le nombre de cartes du groupe : c'est ce qu'un intertitre apporte de plus
+                          qu'une pastille par tuile — savoir que le retard porte sur sept dossiers
+                          et non un seul. Compté sur les cartes MONTRÉES, jamais sur le total de la
+                          colonne : annoncer sept quand on n'en affiche que trois serait faux. */}
+                      <span className="ml-auto shrink-0 font-mono opacity-70">
+                        {montrees.filter((x) => x.groupe?.cle === c.groupe?.cle).length}
+                      </span>
+                    </p>
+                  )}
                 <button
-                  key={c.id}
                   type="button"
                   onClick={() => (onCarte ? onCarte(c.id) : navigate(c.to))}
                   className={cn(
@@ -181,33 +226,10 @@ export function TableauKanban({
                   )}
                 >
                   <span className="min-w-0 flex-1">
-                    {/* ── L'étiquette de nature et l'échéance, sur la même ligne ──
-                           L'échéance passe DEVANT le nom du fournisseur : sur une tuile « à
-                           demander », ce qui décide de l'ordre de traitement est le retard, pas
-                           l'identité du fournisseur. ── */}
-                    {(c.nature || c.echeance) && (
-                      <span className="mb-1 flex flex-wrap items-center gap-1">
-                        {c.nature && (
-                          <span className="max-w-full truncate rounded-[3px] bg-kw-bloc px-1.5 py-px text-kw-micro font-bold uppercase tracking-[0.06em] text-kw-meta">
-                            {c.nature}
-                          </span>
-                        )}
-                        {c.echeance && (
-                          <span
-                            className={cn(
-                              'shrink-0 rounded-[3px] border px-1.5 py-px font-mono text-kw-micro font-bold',
-                              c.echeance.ton === 'retard'
-                                ? 'border-kw-red bg-kw-red-light text-kw-red'
-                                : c.echeance.ton === 'jour'
-                                  ? 'border-kw-amber bg-kw-amber-light text-kw-amber-dark'
-                                  : c.echeance.ton === 'proche'
-                                    ? 'border-kw-amber-border bg-kw-amber-light text-kw-amber'
-                                    : 'border-kw-border bg-kw-bloc text-kw-meta',
-                            )}
-                          >
-                            {c.echeance.texte}
-                          </span>
-                        )}
+                    {/* ── L'étiquette de nature ── */}
+                    {c.nature && (
+                      <span className="mb-1 inline-block max-w-full truncate rounded-[3px] bg-kw-bloc px-1.5 py-px text-kw-micro font-bold uppercase tracking-[0.06em] text-kw-meta">
+                        {c.nature}
                       </span>
                     )}
 
@@ -251,6 +273,7 @@ export function TableauKanban({
                   </span>
                   <ChevronRight className="mt-0.5 h-3 w-3 shrink-0 text-kw-faint opacity-0 transition-opacity group-hover:opacity-100" />
                 </button>
+                </Fragment>
               ))}
               {/* On dit ce qu'on ne montre pas — une colonne coupée en silence se lit comme une
                   colonne vidée. */}
