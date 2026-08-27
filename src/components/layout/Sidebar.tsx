@@ -128,11 +128,23 @@ export function Sidebar() {
           open ? 'translate-x-0' : '-translate-x-full md:translate-x-0',
         )}
       >
-        <div className="flex items-center gap-2.5 px-3.5 py-4 md:justify-center md:px-0">
-          <img src={kiweePicto} alt="KiWee" className="h-7 w-7 shrink-0 object-contain drop-shadow-[0_4px_10px_rgba(13,122,95,0.45)]" />
-          <div className="min-w-0 flex-1 md:hidden">
-            <p className="whitespace-nowrap font-display text-sm font-semibold leading-none text-white">Kimatch</p>
-            <p className="whitespace-nowrap text-[11px] text-ink-400">Conseil énergie</p>
+        {/* ══ L'IDENTITÉ REMONTE ICI ══
+            Naoëlle, 27/08/2026 : « enlève le logo Kimatch de la fenêtre principale en haut et
+            place-le au-dessus du menu de gauche, ça désengorge la fenêtre et ça remplit le haut du
+            menu tout vide. » Le rail portait un picto de 28 px centré dans une bande vide.
+
+            LE LOGO N'EST PAS L'IMAGE, C'EST DU TEXTE, et c'est délibéré : `kimatch-logo.png` est un
+            lettrage NOIR sur fond transparent, donc invisible sur ce fond `ink-950`. L'inverser en
+            CSS aurait rendu le mot lisible mais retourné le kiwi vert en magenta. Le picto en
+            couleur plus le nom en blanc donnent la même identité, nette à toute taille, et
+            respectent le code couleur de Kimatch — sa consigne du même jour.
+
+            Le bloc existait déjà pour le menu mobile : il perd seulement son `md:hidden`. */}
+        <div className="flex items-center gap-2.5 border-b border-ink-800 px-3.5 py-4">
+          <img src={kiweePicto} alt="KiWee" className="h-8 w-8 shrink-0 object-contain drop-shadow-[0_4px_10px_rgba(13,122,95,0.45)]" />
+          <div className="min-w-0 flex-1">
+            <p className="whitespace-nowrap font-display text-[15px] font-bold leading-none tracking-[-0.01em] text-white">Kimatch</p>
+            <p className="mt-0.5 whitespace-nowrap text-[10.5px] text-ink-400">Conseil énergie</p>
           </div>
           <button
             type="button"

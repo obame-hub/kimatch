@@ -19,7 +19,6 @@ import { useAuth } from '@/lib/auth'
 import { pagesRecherchables } from '@/lib/navItems'
 import type { NavItem } from '@/lib/navItems'
 import { cn } from '@/lib/utils'
-import kimatchLogo from '@/assets/kimatch-logo.png'
 import { useMarketTicker } from '@/lib/data/marche'
 import { useRechercheGlobale } from '@/lib/data/rechercheGlobale'
 import { SEARCH_KIND_LABEL, type SearchKind } from '@/lib/search'
@@ -223,7 +222,14 @@ export function Topbar({ title, crumb }: { title: string; crumb?: string }) {
   // recourir à un positionnement absolu : celui-ci avait déjà provoqué un recouvrement du ticker dès
   // 1568 px, corrigé le 16/08/2026, et on ne le réintroduit pas.
   return (
-    <header className="relative grid h-[52px] grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] items-center gap-3.5 border-b border-navy-100 bg-white px-4 sm:px-5">
+    /* DEUX COLONNES ET NON TROIS. Naoëlle, 27/08/2026 : « enlève le logo Kimatch de la fenêtre
+       principale en haut et place-le au-dessus du menu de gauche, ça désengorge la fenêtre et ça
+       remplit le haut du menu tout vide. »
+
+       La troisième colonne n'existait QUE pour porter le logo au centre. La laisser vide aurait
+       gardé un trou au milieu de la barre et repoussé la déconnexion vers l'intérieur : retirer un
+       élément et retirer sa place ne sont pas la même chose. */
+    <header className="relative grid h-[52px] grid-cols-[minmax(0,1fr)_auto] items-center gap-3.5 border-b border-navy-100 bg-white px-4 sm:px-5">
       <div className="flex min-w-0 items-center gap-3.5">
       <div className="min-w-0 truncate text-[12px] text-navy-500">
         {crumb && <span>{crumb} / </span>}
@@ -268,19 +274,7 @@ export function Topbar({ title, crumb }: { title: string; crumb?: string }) {
 
       <MarketTicker />
 
-      {/* Le logo etait centre en absolu (`left-1/2 -translate-x-1/2`) par-dessus une barre dont
-          le contenu coule normalement. Des que le fil d'Ariane et le ticker depassaient le milieu
-          de l'ecran -- ce qui arrivait des 1568 px, constate en production le 16/08/2026 -- il
-          venait se poser SUR le ticker et masquait « BASE Cal27 », qui se lisait « ...27 ».
-          Remis dans le flux entre deux ressorts : il reste au milieu de l'espace disponible et ne
-          peut plus recouvrir quoi que ce soit, quelle que soit la largeur. */}
       </div>
-
-      <img
-        src={kimatchLogo}
-        alt="Kimatch"
-        className="pointer-events-none hidden h-9 w-auto shrink-0 justify-self-center object-contain md:block"
-      />
 
       <div className="flex shrink-0 items-center justify-end gap-2 justify-self-end">
         <button
