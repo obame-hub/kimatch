@@ -37,6 +37,7 @@ import {
   type PrefillCotation,
 } from '@/components/recommandation/DialoguesReco'
 import { ContratWizard } from '@/components/contrat/ContratWizard'
+import { useContratsDeRecommandation } from '@/lib/data/contrats'
 import { FINALITES_RECOMMANDATION, CLES_FINALITES, exigeDateReactivation, type CleFinalite } from '@/lib/finalitesRecommandation'
 import { cn } from '@/lib/utils'
 import {
@@ -155,6 +156,10 @@ export default function RecommandationDetail() {
   const createInteraction = useCreateInteraction()
   const suppression = useSuppression()
   const goBack = useGoBack('/recommandations')
+
+  // Les contrats nés de cette recommandation — voir le bloc « Ce que cette recommandation a produit ».
+
+  const { data: contratsIssus } = useContratsDeRecommandation(reco?.id)
 
   const [onglet, setOnglet] = useState<CleOnglet>('reco')
   const [versionAfficheeId, setVersionAfficheeId] = useState<string | null>(null)
@@ -824,6 +829,62 @@ export default function RecommandationDetail() {
                   </div>
                 )}
               </RailCycleVie>
+
+              {/* ══════════ CE QUE CETTE RECOMMANDATION A PRODUIT ══════════
+
+                  Le lien contrat → recommandation dormait : la colonne existait, mais la reprise
+                  Salesforce ne l'avait pas importée (3 contrats renseignés sur 1 598). Rétabli le
+                  27/08/2026 sur 697 contrats depuis `Contract.Opportunit__c`, avec le compte des deux
+                  côtés comme garde-fou — zéro discordance sur 694 rapprochements.
+
+                  Ce bloc est la moitié utile du lien. Sans lui, un commercial qui ouvre une
+                  recommandation acceptée ne voit pas le contrat qu'elle a donné, et ne peut donc pas
+                  vérifier que les conditions signées sont bien celles qu'il avait proposées.
+
+                  Il se tait quand il n'y a rien : sur une recommandation encore en cours, une carte
+                  « aucun contrat » n'apprendrait rien qu'on ne sache déjà en lisant l'étape. */}
+              {contratsIssus && contratsIssus.length > 0 && (
+                <div className="rounded-kw-xl border border-kw-border bg-white p-3.5">
+                  <p className="mb-2.5 text-kw-micro font-bold uppercase tracking-[0.06em] text-kw-faint">
+                    {contratsIssus.length > 1
+                      ? `Les ${contratsIssus.length} contrats issus de cette recommandation`
+                      : 'Le contrat issu de cette recommandation'}
+                  </p>
+                  <div className="flex flex-col gap-1.5">
+                    {contratsIssus.map((ct) => (
+                      <button
+                        key={ct.id}
+                        type="button"
+                        onClick={() => navigate(`/contrats/${ct.id}`)}
+                        className="flex w-full items-center gap-2.5 rounded-kw-lg border border-kw-border-faint bg-kw-subtle px-3 py-2 text-left transition hover:border-kw-green-border hover:bg-kw-green-tint"
+                      >
+                        <span className="flex h-[26px] w-[26px] shrink-0 items-center justify-center rounded-lg bg-kw-green-light text-kw-green">
+                          <FileText className="h-3.5 w-3.5" />
+                        </span>
+                        <span className="min-w-0 flex-1">
+                          <span className="block truncate text-kw-sm font-bold text-kw-ink">
+                            {ct.fournisseur_nom || 'Fournisseur non renseigné'}
+                          </span>
+                          <span className="block truncate text-kw-micro text-kw-faint">
+                            {[
+                              ct.reference_fournisseur,
+                              ct.date_debut
+                                ? `du ${new Date(ct.date_debut).toLocaleDateString('fr-FR')}`
+                                : null,
+                              ct.date_fin
+                                ? `au ${new Date(ct.date_fin).toLocaleDateString('fr-FR')}`
+                                : null,
+                            ]
+                              .filter(Boolean)
+                              .join(' · ') || 'Aucune date renseignée'}
+                          </span>
+                        </span>
+                        <span className="shrink-0 text-kw-micro font-bold text-kw-green">ouvrir →</span>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
 
               {/* ══════════ LA RELANCE APRÈS DEUX JOURS OUVRÉS ══════════
                   « Kimatch va juste lui dire : voilà ce que tu devrais faire. À lui de décider de le

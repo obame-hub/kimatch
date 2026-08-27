@@ -20,6 +20,7 @@ interface RawContrat {
   date_reception_souhaitee?: string | null
   preavis_resiliation_jours: number | null
   proprietaire_id: string | null
+  recommandation_id: string | null
   docusign_envelope_id: string | null
   date_envoi_signature: string | null
   date_signature: string | null
@@ -44,6 +45,7 @@ interface RawContrat {
   contact_signataire: { prenom: string; nom: string } | null
   interlocuteur_pricing: { prenom: string; nom: string } | null
   proprietaire: { prenom: string; nom: string } | null
+  recommandation: { nom: string } | null
   compte: { nom: string } | null
   date_creation: string
   date_modification: string
@@ -57,7 +59,7 @@ async function fetchContrats(compteId?: string, contratId?: string, listeSeule =
       'contrats',
       // `*` plutôt qu'une liste de colonnes fixe : `strategie_tarifaire` vient d'être ajoutée
       // par migration et peut ne pas encore exister en prod au moment du déploiement.
-      '*, site:sites(nom), fournisseur:comptes!contrats_fournisseur_compte_id_fkey(nom), compte:comptes!contrats_compte_id_fkey(nom), type_energie:types_energies(code), statut:statuts_contrats(code), contact_signataire:contacts!contrats_contact_signataire_id_fkey(prenom, nom), interlocuteur_pricing:contacts!contrats_interlocuteur_pricing_contact_id_fkey(prenom, nom), proprietaire:profils!contrats_proprietaire_id_fkey(prenom, nom)',
+      '*, site:sites(nom), fournisseur:comptes!contrats_fournisseur_compte_id_fkey(nom), compte:comptes!contrats_compte_id_fkey(nom), type_energie:types_energies(code), statut:statuts_contrats(code), contact_signataire:contacts!contrats_contact_signataire_id_fkey(prenom, nom), interlocuteur_pricing:contacts!contrats_interlocuteur_pricing_contact_id_fkey(prenom, nom), proprietaire:profils!contrats_proprietaire_id_fkey(prenom, nom), recommandation:recommandations!contrats_recommandation_id_fkey(nom)',
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       (q: any) => {
         if (contratId) return q.eq('id', contratId)
@@ -107,6 +109,8 @@ async function fetchContrats(compteId?: string, contratId?: string, listeSeule =
       compteurs: compteursParContrat.get(c.id) ?? [],
       proprietaire_id: c.proprietaire_id ?? null,
       proprietaire_nom: c.proprietaire ? `${c.proprietaire.prenom} ${c.proprietaire.nom}` : null,
+      recommandation_id: c.recommandation_id ?? null,
+      recommandation_nom: c.recommandation?.nom ?? null,
       contact_signataire_id: c.contact_signataire_id,
       contact_signataire_nom: c.contact_signataire ? `${c.contact_signataire.prenom} ${c.contact_signataire.nom}` : undefined,
       interlocuteur_pricing_contact_id: c.interlocuteur_pricing_contact_id,
@@ -156,6 +160,45 @@ export function useContratsListe() {
 
 export function useContrats() {
   return useQuery({ queryKey: ['contrats'], queryFn: () => fetchContrats() })
+}
+
+/**
+ * LES CONTRATS ISSUS D'UNE RECOMMANDATION.
+ *
+ * Lecture légère et volontairement minimale : la fiche recommandation n'a besoin que de savoir
+ * QU'UN contrat existe et de pouvoir l'ouvrir. Passer par `fetchContrats` aurait chargé les
+ * compteurs et la visibilité pour afficher deux lignes.
+ *
+ * La visibilité n'est pas rejouée ici parce qu'il n'y a rien de plus à cacher : pour voir ce lien
+ * il faut déjà être sur la fiche de la recommandation, et Michel/William ont tranché le 14/08/2026
+ * que tous les commerciaux voient tous les comptes.
+ */
+export function useContratsDeRecommandation(recoId: string | undefined) {
+  return useQuery({
+    queryKey: ['contrats', 'recommandation', recoId],
+    enabled: !!recoId,
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('contrats')
+        .select('id, reference_fournisseur, date_debut, date_fin, fournisseur:comptes!contrats_fournisseur_compte_id_fkey(nom), statut:statuts_contrats(code)')
+        .eq('recommandation_id', recoId as string)
+        .eq('actif', true)
+        .order('date_debut', { ascending: false })
+      if (error) {
+        console.error('useContratsDeRecommandation', error)
+        return []
+      }
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      return (data ?? []).map((c: any) => ({
+        id: c.id as string,
+        reference_fournisseur: (c.reference_fournisseur ?? null) as string | null,
+        date_debut: (c.date_debut ?? null) as string | null,
+        date_fin: (c.date_fin ?? null) as string | null,
+        fournisseur_nom: (c.fournisseur?.nom ?? '') as string,
+        statut: (c.statut?.code ?? '') as string,
+      }))
+    },
+  })
 }
 
 /** Contrats d'un seul compte, filtrés côté serveur. À préférer sur toute fiche. */

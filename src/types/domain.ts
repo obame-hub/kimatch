@@ -686,6 +686,12 @@ export interface Contrat {
   compteurs: { id: string; contrat_compteur_id: string | null; numero_pdl: string; utilisation: string }[]
   proprietaire_id: string | null
   proprietaire_nom?: string | null
+  /** LA RECOMMANDATION QUI A PRODUIT CE CONTRAT.
+   *  Renseignée sur 697 contrats depuis le 27/08/2026 : la reprise Salesforce n'avait pas importé
+   *  ce lien (3 contrats sur 1 598), il a été rétabli depuis `Contract.Opportunit__c`.
+   *  Voir la migration 20260827120000. */
+  recommandation_id?: string | null
+  recommandation_nom?: string | null
   contact_signataire_id?: string | null
   contact_signataire_nom?: string
   docusign_envelope_id: string | null

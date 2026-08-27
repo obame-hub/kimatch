@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react'
 import { ApercuDocument } from '@/components/document/ApercuDocument'
 import { useParams, useNavigate } from 'react-router-dom'
-import { ArrowLeft, Zap, Flame, Trash2, Building2, MapPin, Gauge, FileText, Plus, Euro, X, Eye, PenLine, Check, ExternalLink, Send, MailOpen, FileSignature, PenTool } from 'lucide-react'
+import { ArrowLeft, Zap, Flame, Lightbulb, Trash2, Building2, MapPin, Gauge, FileText, Plus, Euro, X, Eye, PenLine, Check, ExternalLink, Send, MailOpen, FileSignature, PenTool } from 'lucide-react'
 import { Topbar } from '@/components/layout/Topbar'
 import { Button } from '@/components/ui/button'
 import { ZoneDepotFichiers } from '@/components/ui/zone-depot-fichiers'
@@ -553,6 +553,30 @@ export default function ContratDetail() {
             )}
             {fournisseur && <p className="mt-1 text-[10.5px] text-navy-500">{fournisseur.segment}</p>}
           </div>
+
+          {/* ══ D'OÙ VIENT CE CONTRAT ══
+
+              Le lien contrat → recommandation existait en colonne mais n'était renseigné que sur
+              TROIS contrats sur 1 598 : la reprise Salesforce ne l'avait pas importé. Rétabli le
+              27/08/2026 sur 697 contrats depuis `Contract.Opportunit__c` (migration 20260827120000).
+
+              Il ne s'affichait nulle part, et c'est ce qui manquait le plus : sans lui on ne peut pas
+              remonter d'un contrat signé à l'étude qui l'a emporté — donc ni relire les conditions
+              proposées, ni savoir quel travail a produit quel résultat. La carte se tait quand le
+              lien est absent plutôt que d'afficher un « Aucune » qui n'apprendrait rien. */}
+          {contrat.recommandation_id && (
+            <div className="rounded-xl border border-navy-100 bg-white p-3.5">
+              <div className="mb-2 flex items-center gap-1.5">
+                <span className="flex h-5 w-5 items-center justify-center rounded-md bg-amber-100 text-amber-600"><Lightbulb className="h-2.5 w-2.5" /></span>
+                <span className="text-[10px] font-bold uppercase tracking-wide text-navy-400">Issu de la recommandation</span>
+                <div className="flex-1" />
+                <EntityLink to={`/recommandations/${contrat.recommandation_id}`}>ouvrir →</EntityLink>
+              </div>
+              <p className="text-[13px] font-bold text-navy-800">
+                {contrat.recommandation_nom || 'Recommandation'}
+              </p>
+            </div>
+          )}
         </div>
 
         {/* Centre */}
