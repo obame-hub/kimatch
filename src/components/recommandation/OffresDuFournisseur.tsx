@@ -108,6 +108,11 @@ export function OffresDuFournisseur({
   const supprimer = useSupprimerOffre()
   const retenir = useRetenirOffre()
   const [ajoutOuvert, setAjoutOuvert] = useState(false)
+  /* « INDISPONIBLE » : le fournisseur n'a rien à proposer sur ce dossier.
+     Naoëlle, 27/08/2026 : faute de pouvoir le dire, on inventait une durée — et le comparatif
+     présentait au client une offre d'un mois qui n'existait pas. Une offre sans durée porte
+     désormais ce sens, et rien d'autre ne le porte : un seul marqueur, pas deux à maintenir. */
+  const [indisponible, setIndisponible] = useState(false)
   const [nouvelleDuree, setNouvelleDuree] = useState<string>(String(dureesDemandees[0] ?? 36))
   const [nouveauType, setNouveauType] = useState<string>(typesPrixDemandes[0] ?? 'Fixe')
 
@@ -137,6 +142,19 @@ export function OffresDuFournisseur({
             .reduce<typeof offre | null>((a, o) => (a == null || (o.montant_annuel_ht ?? 0) < (a.montant_annuel_ht ?? 0) ? o : a), null)
           const sommes = sommesDesPdl(offre)
           const nature = natureDeLOffre(offre.nature_offre)
+
+          /* ══ POURQUOI « RETENIR » PEUT ÊTRE HORS D'USAGE ══
+             Deux raisons, et jusqu'ici aucune ne se lisait à l'écran : elles n'existaient que dans
+             l'infobulle du bouton. Naoëlle, 27/08/2026 : « explique-moi pourquoi je n'arrive pas à
+             retenir les offres de GAZ EUROPEEN ». Un bouton grisé sans motif visible est un bouton
+             qu'on croit cassé — le motif s'affiche donc maintenant à côté. */
+          const indisponibleOffre = offre.duree_mois == null
+          const retenable = nature.retenable && !indisponibleOffre
+          const blocage = indisponibleOffre
+            ? 'Indisponible : ce fournisseur n’a rien à proposer, il n’y a rien à retenir.'
+            : !nature.retenable
+              ? `${nature.libelle} : ${nature.aide}`
+              : null
           const recue = offre.statut === 'RECUE'
           const refusee = offre.statut === 'REFUSEE'
           return (
@@ -269,10 +287,10 @@ export function OffresDuFournisseur({
                   <>
                     <button
                       type="button"
-                      disabled={!nature.retenable && !offre.est_offre_recommandee}
+                      disabled={!retenable && !offre.est_offre_recommandee}
                       title={
-                        !nature.retenable && !offre.est_offre_recommandee
-                          ? `${nature.libelle} : ${nature.aide}`
+                        !retenable && !offre.est_offre_recommandee
+                          ? blocage ?? ''
                           : offre.est_offre_recommandee
                             ? 'Offre retenue — cliquer pour ne plus la retenir'
                             : 'Retenir cette offre : c\'est elle que reprend le comparatif des versions'
@@ -286,7 +304,7 @@ export function OffresDuFournisseur({
                         // Le garde laisse passer le DÉTRICOTAGE : une offre déjà retenue qu'on
                         // requalifie en reconduction doit pouvoir être dé-retenue, sinon elle reste
                         // coincée.
-                        if (!nature.retenable && !offre.est_offre_recommandee) return
+                        if (!retenable && !offre.est_offre_recommandee) return
                         try {
                           await retenir.mutateAsync({ optimisationId, offreId: offre.est_offre_recommandee ? null : offre.id })
                           signaler(
@@ -311,6 +329,17 @@ export function OffresDuFournisseur({
                       <Star className={cn('h-2.5 w-2.5', offre.est_offre_recommandee && 'fill-current')} />
                       {offre.est_offre_recommandee ? 'Retenue' : 'Retenir'}
                     </button>
+
+                    {/* ── LE MOTIF DU BLOCAGE, ÉCRIT ── Il n'existait que dans l'infobulle, donc il
+                           fallait deviner qu'il y avait quelque chose à survoler. Une seule phrase
+                           courte suffit à transformer « ça ne marche pas » en « il faut changer la
+                           nature de l'offre ». */}
+                    {blocage && !offre.est_offre_recommandee && (
+                      <span className="max-w-[26ch] text-right text-kw-micro leading-tight text-kw-amber-dark">
+                        {blocage}
+                      </span>
+                    )}
+
                     <button
                       type="button"
                       title="Supprimer cette offre"
@@ -409,15 +438,37 @@ export function OffresDuFournisseur({
               type="number"
               min={1}
               max={60}
-              value={nouvelleDuree}
+              value={indisponible ? '' : nouvelleDuree}
+              disabled={indisponible}
               onChange={(e) => setNouvelleDuree(e.target.value.replace(/\D/g, ''))}
-              className="w-16 rounded-kw-sm border border-kw-border-strong bg-white px-1.5 py-0.5 font-mono text-kw-base text-kw-ink outline-none"
+              className="w-16 rounded-kw-sm border border-kw-border-strong bg-white px-1.5 py-0.5 font-mono text-kw-base text-kw-ink outline-none disabled:bg-kw-muted disabled:text-kw-ghost"
             />
-            <span className="text-kw-base text-kw-meta">mois</span>
+            <span className={cn('text-kw-base', indisponible ? 'text-kw-ghost' : 'text-kw-meta')}>mois</span>
+
+            {/* ── LA BASCULE « INDISPONIBLE » ──
+                   Posée À CÔTÉ de la durée et non dans une liste déroulante à part : c'est une
+                   réponse à la même question — « sur quelle durée ? » — et sa réponse est « aucune ».
+                   Elle éteint le champ des mois plutôt que de le laisser saisissable, sinon on
+                   pourrait enregistrer « 36 mois indisponible », qui ne veut rien dire. */}
+            <button
+              type="button"
+              onClick={() => setIndisponible((v) => !v)}
+              aria-pressed={indisponible}
+              title="Le fournisseur n’a aucune offre à proposer sur ce dossier"
+              className={cn(
+                'rounded-kw-sm border px-2 py-0.5 text-kw-base font-bold transition-colors',
+                indisponible
+                  ? 'border-kw-red bg-kw-red-light text-kw-red'
+                  : 'border-kw-border-strong bg-white text-kw-meta hover:bg-kw-bg',
+              )}
+            >
+              Indisponible
+            </button>
             <select
               value={nouveauType}
               onChange={(e) => setNouveauType(e.target.value)}
-              className="rounded-kw-sm border border-kw-border-strong bg-white px-1.5 py-0.5 text-kw-base text-kw-ink outline-none"
+              disabled={indisponible}
+              className="rounded-kw-sm border border-kw-border-strong bg-white px-1.5 py-0.5 text-kw-base text-kw-ink outline-none disabled:bg-kw-muted disabled:text-kw-ghost"
             >
               {[...new Set([...typesPrixDemandes, 'Fixe', 'Indexé'])].map((t) => (
                 <option key={t} value={t}>{t}</option>
@@ -426,15 +477,41 @@ export function OffresDuFournisseur({
             <span className="flex-1" />
             <button
               type="button"
-              onClick={() => setAjoutOuvert(false)}
+              onClick={() => { setAjoutOuvert(false); setIndisponible(false) }}
               className="rounded-kw-sm px-2 py-0.5 text-kw-base font-semibold text-kw-meta hover:bg-white"
             >
               Annuler
             </button>
             <button
               type="button"
-              disabled={ajouter.isPending || !nouvelleDuree}
+              disabled={ajouter.isPending || (!indisponible && !nouvelleDuree)}
               onClick={async () => {
+                // ══ LE CAS « INDISPONIBLE » ══
+                // Une seule ligne suffit par fournisseur : « ce fournisseur n'a rien » ne se dit pas
+                // deux fois. Le statut passe à REFUSEE, qui est déjà le vocabulaire existant pour
+                // « le fournisseur n'accepte pas de coter » — aucun nouveau statut à inventer.
+                if (indisponible) {
+                  if (offres.some((o) => o.duree_mois == null)) {
+                    return signaler(`${fournisseur.fournisseur_nom} est déjà marqué indisponible`)
+                  }
+                  try {
+                    await ajouter.mutateAsync({
+                      optimisationId,
+                      optimisationFournisseurId: fournisseur.id,
+                      fournisseurCompteId: fournisseur.fournisseur_compte_id,
+                      duree_mois: null,
+                      type_prix: null,
+                      statut: 'REFUSEE',
+                    })
+                    setAjoutOuvert(false)
+                    setIndisponible(false)
+                    signaler(`✕ ${fournisseur.fournisseur_nom} marqué indisponible`)
+                  } catch (e) {
+                    signaler(`Erreur : ${e instanceof Error ? e.message : String(e)}`)
+                  }
+                  return
+                }
+
                 const duree = Number(nouvelleDuree)
                 if (!Number.isFinite(duree) || duree < 1 || duree > 60) return signaler('Durée attendue entre 1 et 60 mois')
                 // Doublon : deux offres identiques du même fournisseur ne veulent rien dire, et la

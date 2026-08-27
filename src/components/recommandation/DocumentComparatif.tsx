@@ -177,17 +177,42 @@ export function DocumentComparatif({
   // n'est plus opposable, même si d'autres offres tiennent plus longtemps.
   const validite = offres.map((o) => o.date_validite).filter((d): d is string => !!d).sort()[0] ?? null
 
-  // LA DATE DE DÉBUT EST UNE DONNÉE, PAS UNE DÉDUCTION. `version.date_souhaitee` porte la date de
-  // livraison attendue, reprise de `Cotation__c.Livraison_attendue_le__c` — renseignée sur 1 899 des
-  // 2 022 versions. Ma première version affichait à sa place l'échéance du contrat actuel, faute
-  // d'avoir cherché ce champ : une déduction correcte, mais ce n'est pas ce que le client a demandé.
+  // ══ LA DATE DE DÉBUT EST LE LENDEMAIN DE L'ÉCHÉANCE DU COMPTEUR ══
   //
-  // L'échéance reste le repli quand la date souhaitée manque : la fourniture commence bien quand le
-  // contrat précédent s'arrête, et la ligne dit alors d'où vient la date.
+  // Naoëlle, 27/08/2026 : « la date de début devrait être le champ échéance + 1 jour qu'il y a dans
+  // le compteur lié ». C'est la règle physique : le contrat en place court JUSQU'À son échéance
+  // incluse, donc la nouvelle fourniture commence le jour suivant. Un compteur dont l'échéance tombe
+  // le 31/12/2026 démarre le 01/01/2027 — pas le 31/12.
+  //
+  // ELLE PASSE DEVANT `date_souhaitee`, ET C'EST UN CHANGEMENT ASSUMÉ. Ce champ était prioritaire
+  // jusqu'ici ; il porte la date de livraison demandée à la cotation, reprise de Salesforce. Le
+  // problème constaté le 27/08 : sur un dossier créé le jour même, il valait « aujourd'hui » — une
+  // valeur de saisie par défaut, pas un souhait du client. Le comparatif annonçait donc au client une
+  // fourniture démarrant le jour de l'envoi.
+  //
+  // L'échéance, elle, ne se saisit pas au hasard : elle vient du contrat en cours. Elle est donc la
+  // source la plus fiable des deux, et `date_souhaitee` devient le repli — utile quand aucun compteur
+  // ne porte d'échéance, ce qui arrive sur un périmètre incomplet.
+  //
+  // LA MÊME CONVENTION QU'AILLEURS DANS L'APP : ContratWizard et la création de contrat depuis la
+  // liste préremplissent déjà « échéance + 1 jour ». Le comparatif était le seul endroit à afficher
+  // l'échéance brute, donc à se tromper d'un jour.
   const echeances = pdl.map((l) => l.echeance).filter((d): d is string => !!d).sort()
+
+  // Le calcul se fait à midi pour ne pas glisser d'un jour au passage à l'heure d'été : minuit + un
+  // décalage de fuseau retombe la veille, ce qui produirait exactement l'erreur qu'on corrige.
+  const lendemain = (iso: string): string => {
+    const d = new Date(iso + 'T12:00:00')
+    d.setDate(d.getDate() + 1)
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
+  }
+
   const debutSouhaite = version.date_souhaitee ?? null
-  const debut = debutSouhaite ?? echeances[0] ?? null
-  const debutsDifferents = !debutSouhaite && new Set(echeances).size > 1
+  const premiereEcheance = echeances[0] ?? null
+  const debutEcheance = premiereEcheance ? lendemain(premiereEcheance) : null
+  const debut = debutEcheance ?? debutSouhaite ?? null
+  // Plusieurs compteurs aux échéances différentes : la plus proche fait foi, et la ligne le dit.
+  const debutsDifferents = Boolean(debutEcheance) && new Set(echeances).size > 1
 
   const nomDuClient = compte?.nom ?? reco.compte_nom ?? null
 
@@ -296,7 +321,16 @@ export function DocumentComparatif({
               <Ligne
                 libelle="Date de début"
                 valeur={debut ? `${dateFr(debut)}${debutsDifferents ? ' au plus tôt' : ''}` : 'à confirmer'}
-                precision={debutSouhaite ? undefined : debut ? 'échéance du contrat actuel' : undefined}
+                /* D'OÙ VIENT LA DATE, TOUJOURS DIT. Un client qui lit « 01/01/2027 » doit pouvoir
+                   vérifier : c'est le lendemain de la fin de son contrat actuel. Sans cette mention,
+                   la date paraît décidée par nous. */
+                precision={
+                  debutEcheance
+                    ? 'lendemain de l’échéance du contrat actuel'
+                    : debutSouhaite
+                      ? 'date souhaitée'
+                      : undefined
+                }
               />
               <Ligne libelle="Validité des offres" valeur={dateFr(validite)} />
               {contactClient && (

@@ -1664,8 +1664,25 @@ export interface PatchOffre {
 }
 
 /** Libellé d'une offre : ce qui la distingue des autres du même fournisseur. */
+/**
+ * LE LIBELLÉ D'UNE OFFRE — « 36 mois — Fixe », ou « Indisponible ».
+ *
+ * UNE DURÉE ABSENTE VEUT DIRE QUELQUE CHOSE (Naoëlle, 27/08/2026) : « j'aimerais que dans les choix
+ * des mois tu ajoutes un choix Indisponible ; là j'ai mis un mois, mais en vérité il faudrait mettre
+ * indisponible pour montrer au client que ce n'est pas possible. »
+ *
+ * Le problème qu'elle décrit est réel : faute de pouvoir dire « ce fournisseur n'a rien », on
+ * inventait une durée — et le comparatif présentait alors au client une offre d'un mois qui n'existe
+ * pas. Une donnée fausse est pire qu'une donnée absente, parce qu'on ne peut plus la distinguer d'une
+ * vraie.
+ *
+ * `duree_mois = null` porte donc désormais ce sens, et il n'y a pas de second marqueur à maintenir :
+ * une offre sans durée est une offre qui n'existe pas. (Vérifié le 27/08/2026 : aucune des offres en
+ * base n'avait de durée nulle, la lecture est donc sans ambiguïté rétroactive.)
+ */
 export function libelleOffre(duree: number | null | undefined, typePrix: string | null | undefined): string {
-  return [duree ? `${duree} mois` : null, typePrix].filter(Boolean).join(' — ') || 'Offre'
+  if (duree == null) return 'Indisponible'
+  return [`${duree} mois`, typePrix].filter(Boolean).join(' — ')
 }
 
 export function useAjouterOffre() {
@@ -1677,6 +1694,14 @@ export function useAjouterOffre() {
       fournisseurCompteId: string
       duree_mois: number | null
       type_prix: string | null
+      /**
+       * Statut de départ, quand ce n'est pas « en attente ».
+       *
+       * Une offre marquée indisponible naît REFUSEE : le fournisseur a répondu, et sa réponse est
+       * non. La laisser « en attente » ferait croire qu'on attend encore quelque chose de lui, et
+       * elle apparaîtrait indéfiniment dans les relances.
+       */
+      statut?: string
     }) => {
       // `nom` est NOT NULL sans défaut — l'oublier est exactement ce qui a fait échouer en silence
       // toutes les créations d'offres du 16/08/2026.
@@ -1687,7 +1712,7 @@ export function useAjouterOffre() {
         nom: libelleOffre(input.duree_mois, input.type_prix),
         duree_mois: input.duree_mois,
         type_prix: input.type_prix,
-        statut: 'EN_ATTENTE',
+        statut: input.statut ?? 'EN_ATTENTE',
         est_offre_recommandee: false,
       }
       const { error } = await supabase.from('offres_fournisseurs').insert(ligne)
