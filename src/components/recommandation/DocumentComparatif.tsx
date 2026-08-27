@@ -142,15 +142,47 @@ export function DocumentComparatif({
 
   const retenue = offres.find((o) => o.est_offre_recommandee) ?? offres[0] ?? null
 
-  // L'ÉCONOMIE ANNONCÉE EST CELLE DE SON MODÈLE : « économie par rapport à l'offre suivante », et non
-  // face au contrat actuel. C'est l'écart avec la première offre plus chère que celle retenue.
-  const suivante = useMemo(() => {
-    if (!retenue) return null
-    return offres.find((o) => o.id !== retenue.id && (o.montant_annuel_ht ?? 0) >= (retenue.montant_annuel_ht ?? 0)) ?? null
-  }, [offres, retenue])
-  const economie =
-    retenue && suivante && retenue.montant_annuel_ht != null && suivante.montant_annuel_ht != null
-      ? suivante.montant_annuel_ht - retenue.montant_annuel_ht
+  // ══ DEUX OFFRES, DEUX RÔLES, ET LE RAPPORT LES CONFONDAIT ══
+  //
+  // Michel, 27/08/2026, après avoir généré le rapport : « l'offre de référence de base, c'est celle
+  // de Gaz Européen 1 mois, celle que tu as marquée offre de référence. Mais là il dit que l'offre de
+  // référence, c'est celle de 36 mois. »
+  //
+  // Il avait raison, et le défaut était net : le tableau écrivait « Référence » sur l'offre RETENUE,
+  // et mesurait tous les écarts contre elle. Or ce sont deux faits distincts :
+  //
+  //   · L'OFFRE RETENUE est ce que Kiwee recommande. Elle se signale par sa couleur — « celle que je
+  //     dois recommander, c'est bien celle qui doit être un peu colorée par rapport aux autres ».
+  //   · L'OFFRE DE RÉFÉRENCE est la base de comparaison, désignée à la main sur la fiche. Elle porte
+  //     la mention « Référence » et c'est contre elle que se mesurent les écarts.
+  //
+  // Le plus souvent la référence est l'offre EN COURS — ce que le client paie aujourd'hui — donc les
+  // deux tombent sur des lignes différentes. Les confondre faisait comparer la recommandation à
+  // elle-même, et annonçait un écart de zéro sur la seule ligne qui compte.
+  //
+  // REPLI SUR LA MOINS CHÈRE tant qu'aucune référence n'est désignée : sans lui, tous les rapports
+  // déjà produits perdraient leur colonne d'écart.
+  const reference = useMemo(
+    () => offres.find((o) => o.est_offre_reference) ?? offres[0] ?? null,
+    [offres],
+  )
+
+  // ══ « ÉCONOMIE » OU « AUGMENTATION », SELON LE SIGNE ══
+  //
+  // Michel, même appel : « au lieu de mettre "économie par rapport à l'offre suivante", il va me
+  // mettre "augmentation par rapport à l'offre de référence" ». Sa raison, et elle est commerciale
+  // avant d'être technique : « on est légèrement plus cher que l'offre de référence en vrai, mais
+  // c'est aussi important, parce que le client, ça fait des mois qu'on lui dit de signer et le prix
+  // n'arrête pas d'augmenter — il faut qu'il le voie. »
+  //
+  // Le mot suit donc le chiffre. Le rapport n'affichait le bloc QUE si l'écart était favorable
+  // (`economie > 0`) : une hausse disparaissait purement de la page, et le client ne voyait pas ce
+  // que son attente lui a coûté. Un rapport qui ne montre que les bonnes nouvelles n'est pas un
+  // comparatif, c'est une plaquette.
+  const ecartSurReference =
+    retenue && reference && retenue.id !== reference.id
+      && retenue.montant_annuel_ht != null && reference.montant_annuel_ht != null
+      ? reference.montant_annuel_ht - retenue.montant_annuel_ht
       : null
 
   const pdl = useMemo(
@@ -356,13 +388,20 @@ export function DocumentComparatif({
                     {euros(retenue.montant_annuel_ht)} <span className="text-kw-sm font-bold">HTVA</span>
                   </p>
                 </div>
-                {economie != null && economie > 0 && (
+                {/* Le bloc sort dans les DEUX SENS, et le mot change avec le signe. Une hausse
+                    n'est pas une donnée à cacher : c'est ce que l'attente a coûté au client. */}
+                {ecartSurReference != null && ecartSurReference !== 0 && (
                   <div>
                     <p className="text-kw-tiny font-bold uppercase tracking-[0.07em] text-kw-meta">
-                      Économie par rapport à l'offre suivante
+                      {ecartSurReference > 0 ? 'Économie' : 'Augmentation'} par rapport à l’offre de référence
                     </p>
-                    <p className="font-mono text-kw-lg font-extrabold tabular-nums text-kw-green">
-                      {euros(economie)}/an
+                    <p
+                      className={cn(
+                        'font-mono text-kw-lg font-extrabold tabular-nums',
+                        ecartSurReference > 0 ? 'text-kw-green' : 'text-kw-red',
+                      )}
+                    >
+                      {euros(Math.abs(ecartSurReference))}/an
                     </p>
                   </div>
                 )}
@@ -423,9 +462,12 @@ export function DocumentComparatif({
                   {offres.map((o) => {
                     const c = composantes(o)
                     const estRetenue = o.id === retenue.id
+                    const estReference = reference != null && o.id === reference.id
+                    // L'écart se mesure contre la RÉFÉRENCE, jamais contre la retenue : sinon la
+                    // ligne recommandée affiche zéro et le client ne sait pas par rapport à quoi.
                     const ecart =
-                      o.montant_annuel_ht != null && retenue.montant_annuel_ht != null
-                        ? o.montant_annuel_ht - retenue.montant_annuel_ht
+                      !estReference && o.montant_annuel_ht != null && reference?.montant_annuel_ht != null
+                        ? o.montant_annuel_ht - reference.montant_annuel_ht
                         : null
                     return (
                       <tr
@@ -439,8 +481,23 @@ export function DocumentComparatif({
                         <td className="px-2 py-1.5 text-right font-mono tabular-nums">{euros(c.energie)}</td>
                         <td className="px-2 py-1.5 text-right font-mono tabular-nums">{euros(c.reseauEtTaxes)}</td>
                         <td className="px-2 py-1.5 text-right font-mono tabular-nums">{euros(o.montant_annuel_ht)}</td>
-                        <td className="px-2 py-1.5 text-right font-mono tabular-nums">
-                          {estRetenue ? 'Référence' : ecart == null ? '—' : `+${euros(ecart)}`}
+                        {/* LE SIGNE EST ÉCRIT. La colonne mettait « + » devant tous les écarts,
+                            parce qu'ils étaient tous mesurés contre la moins chère et donc tous
+                            positifs. Contre une référence choisie, une offre peut être moins chère :
+                            un « + » devant une baisse serait un contresens. */}
+                        <td
+                          className={cn(
+                            'px-2 py-1.5 text-right font-mono tabular-nums',
+                            estReference && 'font-bold',
+                            ecart != null && ecart > 0 && 'text-kw-red',
+                            ecart != null && ecart < 0 && 'text-kw-green',
+                          )}
+                        >
+                          {estReference
+                            ? 'Référence'
+                            : ecart == null
+                              ? '—'
+                              : `${ecart > 0 ? '+' : '−'}${euros(Math.abs(ecart))}`}
                         </td>
                       </tr>
                     )

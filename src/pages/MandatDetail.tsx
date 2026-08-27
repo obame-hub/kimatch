@@ -7,6 +7,7 @@ import { ZoneDepotFichiers } from '@/components/ui/zone-depot-fichiers'
 import { Badge } from '@/components/ui/badge'
 import { EntityLink } from '@/components/ui/entity-link'
 import { Dialog } from '@/components/ui/dialog'
+import { FormField, Input } from '@/components/ui/form'
 import { EmailLink } from '@/components/ui/contact-link'
 import { HistoriqueDiscret } from '@/components/ui/historique-discret'
 import { InlineField } from '@/components/ui/inline-field'
@@ -16,11 +17,12 @@ import { useComptes } from '@/lib/data/comptes'
 import { useSites } from '@/lib/data/sites'
 import { useCompteurs } from '@/lib/data/compteurs'
 import { useDocuments, useTeleverserDocuments } from '@/lib/data/documents'
-import { useReferenceTable } from '@/lib/data/referenceTables'
+import { useReferenceTable, type ReferenceRow } from '@/lib/data/referenceTables'
 import { useCanManage, useIsAdmin, useProfilsAdmin } from '@/lib/data/roles'
 import { useSuppression } from '@/lib/useSuppression'
 import { FALLBACK_STATUTS_MANDATS, STATUT_MANDAT_TONE, FALLBACK_TYPES_DOCUMENTS } from '@/lib/referenceFallbacks'
 import { sendMandatForSignature, connectDocusign, DocusignNonConnecte } from '@/lib/data/docusign'
+import { useValiderMandatManuellement } from '@/lib/data/mandats'
 import { useGoBack } from '@/lib/useGoBack'
 import { useRaccourcisOnglets } from '@/lib/useRaccourcisOnglets'
 import { cn } from '@/lib/utils'
@@ -127,6 +129,135 @@ function EnvoyerSignatureDialog({
   )
 }
 
+/**
+ * VALIDER UN MANDAT SIGNÉ AILLEURS.
+ *
+ * Naoëlle, 27/08/2026 : « certains partenaires passent par leur propre DocuSign » — la signature
+ * existe donc, mais dehors, et Kimatch n'avait aucun moyen de l'enregistrer.
+ *
+ * TROIS CHAMPS, PAS PLUS. La date, d'où vient la signature, et c'est tout. Le reste se déduit :
+ * voir `useValiderMandatManuellement` pour le statut et les dates de validité.
+ *
+ * LA DATE EST MODIFIABLE ET NE VAUT PAS FORCÉMENT AUJOURD'HUI : un mandat signé chez le partenaire
+ * il y a trois semaines se saisit avec sa vraie date, sinon la validité court à partir du jour de la
+ * saisie et le mandat vaut trois semaines de trop.
+ */
+function ValiderManuellementDialog({
+  open,
+  onClose,
+  mandat,
+  statuts,
+  signaler,
+}: {
+  open: boolean
+  onClose: () => void
+  mandat: Mandat
+  statuts: ReferenceRow[]
+  signaler: (message: string) => void
+}) {
+  const valider = useValiderMandatManuellement()
+  const aujourdHui = new Date().toISOString().slice(0, 10)
+  const [date, setDate] = useState(mandat.date_signature?.slice(0, 10) ?? aujourdHui)
+  const [origine, setOrigine] = useState('DocuSign du partenaire')
+  const [erreur, setErreur] = useState<string | null>(null)
+
+  const statutActif = statuts.find((st) => st.code === 'ACTIF')
+  const statutExpire = statuts.find((st) => st.code === 'EXPIRE')
+  // Les tables de référence ont un repli local dont les identifiants ne sont PAS des UUID : écrire
+  // avec l'un d'eux échoue en base tout en paraissant réussir. On le refuse explicitement.
+  const estUuid = (v: string | undefined) => !!v && /^[0-9a-f-]{36}$/i.test(v)
+  const statutsUtilisables = estUuid(statutActif?.id) && estUuid(statutExpire?.id)
+
+  // Ce que la validation va écrire, montré AVANT de cliquer : la date de fin se calcule, et une date
+  // calculée qu'on découvre après coup est une date qu'on n'a pas choisie.
+  const finPrevue = (() => {
+    if (mandat.date_fin_validite) return mandat.date_fin_validite.slice(0, 10)
+    if (!mandat.duree_mois) return null
+    const d = new Date((mandat.date_debut_validite?.slice(0, 10) ?? date) + 'T12:00:00')
+    d.setMonth(d.getMonth() + mandat.duree_mois)
+    return d.toISOString().slice(0, 10)
+  })()
+  const seraExpire = Boolean(finPrevue && finPrevue < aujourdHui)
+
+  return (
+    <Dialog
+      open={open}
+      onClose={onClose}
+      title="Valider ce mandat manuellement"
+      description="À utiliser quand la signature s'est faite hors de Kimatch — sur le DocuSign d'un partenaire, par exemple."
+    >
+      <div className="space-y-3">
+        <FormField label="Date de signature" required>
+          <Input type="date" value={date} max={aujourdHui} onChange={(e: React.ChangeEvent<HTMLInputElement>) => setDate(e.target.value)} />
+        </FormField>
+
+        <FormField label="Où la signature a eu lieu">
+          <Input
+            value={origine}
+            onChange={(e: React.ChangeEvent<HTMLInputElement>) => setOrigine(e.target.value)}
+            placeholder="DocuSign du partenaire, signature papier…"
+          />
+        </FormField>
+        <p className="text-[10.5px] text-navy-400">
+          Cette mention est conservée sur le mandat : sans enveloppe DocuSign à consulter, c'est la
+          seule trace de l'endroit où la signature a été recueillie.
+        </p>
+
+        <div className="rounded-lg border border-navy-100 bg-navy-50 px-3 py-2">
+          <p className="text-[10px] uppercase tracking-wide text-navy-400">Ce qui sera enregistré</p>
+          <p className="mt-1 text-xs text-navy-700">
+            Validité du {new Date(((mandat.date_debut_validite?.slice(0, 10)) ?? date) + 'T12:00:00').toLocaleDateString('fr-FR')}
+            {finPrevue ? ` au ${new Date(finPrevue + 'T12:00:00').toLocaleDateString('fr-FR')}` : ', sans date de fin connue'}
+            {' · statut '}
+            <strong>{seraExpire ? 'Expiré' : 'Actif'}</strong>
+          </p>
+          {seraExpire && (
+            <p className="mt-1 text-[10.5px] text-amber-700">
+              La validité est déjà dépassée : le mandat sera enregistré comme expiré, pas comme actif.
+            </p>
+          )}
+        </div>
+
+        {!statutsUtilisables && (
+          <p className="text-xs text-red-600">
+            Statuts de mandat indisponibles — rechargez la page avant de valider.
+          </p>
+        )}
+        {erreur && <p className="text-xs text-red-600">{erreur}</p>}
+
+        <div className="flex justify-end gap-2 pt-2">
+          <Button type="button" variant="ghost" onClick={onClose}>Annuler</Button>
+          <Button
+            type="button"
+            disabled={valider.isPending || !date || !statutsUtilisables}
+            onClick={async () => {
+              setErreur(null)
+              try {
+                const r = await valider.mutateAsync({
+                  mandatId: mandat.id,
+                  dateSignature: date,
+                  commentaire: origine.trim() ? `Signé hors Kimatch : ${origine.trim()}` : null,
+                  statutActifId: statutActif?.id ?? null,
+                  statutExpireId: statutExpire?.id ?? null,
+                  dateDebutValidite: mandat.date_debut_validite,
+                  dateFinValidite: mandat.date_fin_validite,
+                  dureeMois: mandat.duree_mois ?? null,
+                })
+                signaler(r.expire ? '✓ Mandat validé — expiré' : '✓ Mandat validé — actif')
+                onClose()
+              } catch (e) {
+                setErreur(e instanceof Error ? e.message : 'Erreur inconnue')
+              }
+            }}
+          >
+            {valider.isPending ? 'Enregistrement…' : 'Valider le mandat'}
+          </Button>
+        </div>
+      </div>
+    </Dialog>
+  )
+}
+
 function ConversionPathCard({ mandat }: { mandat: Mandat }) {
   const step = mandat.date_signature ? 2 : mandat.date_envoi || mandat.docusign_envelope_id ? 1 : 0
   const steps = [
@@ -204,6 +335,7 @@ export default function MandatDetail() {
   const { data: compteurs } = useCompteurs()
   const { data: documents } = useDocuments()
   const [showEnvoyer, setShowEnvoyer] = useState(false)
+  const [showValider, setShowValider] = useState(false)
   const [confirmDelete, setConfirmDelete] = useState(false)
 
   const televerser = useTeleverserDocuments()
@@ -315,6 +447,14 @@ export default function MandatDetail() {
           </Button>
           {canManage && (
             <>
+              {/* VALIDER À LA MAIN — proposé tant que le mandat n'est pas signé. Après, il n'y a
+                  plus rien à valider, et le bouton ne ferait qu'inviter à écraser une date juste. */}
+              {!mandat.date_signature && (
+                <Button variant="outline" size="sm" onClick={() => setShowValider(true)}>
+                  <FileCheck2 className="h-3.5 w-3.5" />
+                  Valider manuellement
+                </Button>
+              )}
               {/* Plus de bouton « Modifier » : la date de signature s'edite dans « Détail du mandat ». */}
               <Button variant="outline" size="sm" onClick={() => setConfirmDelete(true)}>
                 <Trash2 className="h-3.5 w-3.5" />
@@ -572,6 +712,14 @@ export default function MandatDetail() {
         compte={compte}
         compteurs={compteursDuMandat}
         contact={contactSignataire}
+      />
+
+      <ValiderManuellementDialog
+        open={showValider}
+        onClose={() => setShowValider(false)}
+        mandat={mandat}
+        statuts={statuts}
+        signaler={showToast}
       />
 
       <Dialog

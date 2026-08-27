@@ -281,6 +281,90 @@ export function useMarkMandatEnvoye() {
   })
 }
 
+/**
+ * VALIDER UN MANDAT À LA MAIN — quand la signature s'est faite ailleurs.
+ *
+ * Naoëlle, 27/08/2026 : « il faudrait avoir la possibilité de valider un mandat manuellement, car
+ * certains partenaires passent par leur propre DocuSign. »
+ *
+ * ══ LE TROU ÉTAIT PLUS LARGE QUE ÇA ══
+ *
+ * Mesuré le 27/08 avant d'écrire : il n'existe AUCUN webhook DocuSign dans le projet, et aucun code
+ * ne fait passer un mandat à « signé ». `useMarkMandatEnvoye` s'arrête à « envoyé », et l'édition en
+ * place ne touche que `date_signature` — sans changer le statut. Donc personne, partenaire ou pas, ne
+ * pouvait valider un mandat depuis Kimatch. La répartition le montre : 1 080 « Actif » tous repris de
+ * Salesforce, 294 « À préparer », 3 « Envoyé », et ZÉRO passé à l'état signé par l'application.
+ *
+ * ══ QUEL STATUT POSER : NI DEVINÉ, NI « SIGNÉ » ══
+ *
+ * La base répond sans ambiguïté, et ce n'est pas le statut qu'on croirait :
+ *
+ *   ACTIF    1 080 mandats — signés 1 080/1 080, encore valides 1 080/1 080
+ *   EXPIRE      71 mandats — signés    71/71,    périmés         71/71
+ *   SIGNE        0 mandat
+ *
+ * « Signé » (ordre 40) existe dans la table de référence mais n'est utilisé par aucune ligne : la
+ * convention réelle est qu'un mandat signé est ACTIF s'il court encore, EXPIRÉ sinon. On suit cette
+ * convention plutôt que d'introduire un troisième état que rien ne lit — sans quoi les mandats
+ * validés à la main formeraient un groupe à part, invisible des écrans qui filtrent sur « actif ».
+ *
+ * ══ LA VALIDITÉ SE COMPLÈTE, ELLE NE S'ÉCRASE PAS ══
+ *
+ * Un mandat « à préparer » n'a pas de dates de validité (291 des 294 sont dans ce cas). On les pose
+ * donc à la validation, avec la même formule qu'à la création — début = signature, fin = début +
+ * `duree_mois`. Mais on ne touche PAS à celles déjà renseignées : elles peuvent venir du document
+ * lui-même, et le partenaire a signé ce document-là, pas notre calcul.
+ */
+export function useValiderMandatManuellement() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: async (input: {
+      mandatId: string
+      dateSignature: string
+      /** Où la signature a eu lieu, pour qu'un collègue ne cherche pas une enveloppe inexistante. */
+      commentaire: string | null
+      /** Les statuts de référence, résolus par l'écran (les codes ne sont pas des identifiants). */
+      statutActifId: string | null
+      statutExpireId: string | null
+      /** Dates et durée actuelles, pour ne compléter que ce qui manque. */
+      dateDebutValidite: string | null
+      dateFinValidite: string | null
+      dureeMois: number | null
+    }) => {
+      const debut = input.dateDebutValidite ?? input.dateSignature
+      const fin =
+        input.dateFinValidite ??
+        (input.dureeMois ? addMonthsISO(debut, input.dureeMois) : null)
+
+      // Le statut suit la validité, pas la date du jour de la saisie : on peut très bien enregistrer
+      // aujourd'hui un mandat signé l'an dernier et déjà périmé.
+      const aujourdHui = new Date().toISOString().slice(0, 10)
+      const encoreValide = !fin || fin >= aujourdHui
+      const statutId = encoreValide ? input.statutActifId : input.statutExpireId
+
+      const { error } = await supabase
+        .from('mandats')
+        .update({
+          date_signature: input.dateSignature,
+          date_debut_validite: debut,
+          ...(fin ? { date_fin_validite: fin } : {}),
+          ...(statutId ? { statut_id: statutId } : {}),
+          ...(input.commentaire ? { commentaire: input.commentaire } : {}),
+        })
+        .eq('id', input.mandatId)
+      if (error) throw new Error(error.message)
+
+      return { expire: !encoreValide, dateFin: fin }
+    },
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: ['mandats'] })
+      // Le périmètre du compte affiche l'état des mandats : sans cette invalidation, la fiche
+      // compte continuerait d'annoncer un mandat à préparer.
+      void queryClient.invalidateQueries({ queryKey: ['comptes'] })
+    },
+  })
+}
+
 export interface UpdateMandatInput {
   id: string
   date_signature: string | null
