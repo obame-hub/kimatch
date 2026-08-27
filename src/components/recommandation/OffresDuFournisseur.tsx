@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { Plus, Trash2, Star, Check } from 'lucide-react'
+import { Plus, Trash2, Star, Check, Target } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { ChampNombre } from '@/components/ui/champ-nombre'
 import { PrixParCompteur } from '@/components/recommandation/PrixParCompteur'
@@ -10,6 +10,7 @@ import {
   useUpdateOffrePartiel,
   useSupprimerOffre,
   useRetenirOffre,
+  useDesignerOffreReference,
   libelleOffre,
   STATUTS_OFFRE,
   NATURES_OFFRE,
@@ -87,11 +88,23 @@ export function OffresDuFournisseur({
   typeDocumentOffreId,
   dureesDemandees,
   typesPrixDemandes,
+  repere,
   peutModifier,
   signaler,
 }: {
   fournisseur: FournisseurConsulte
   optimisationId: string
+  /**
+   * L'OFFRE À LAQUELLE ON SE COMPARE, calculée sur TOUTE la cotation et non par fournisseur.
+   *
+   * C'était le défaut : chaque fournisseur prenait sa propre offre la moins chère comme repère, donc
+   * deux offres de deux fournisseurs n'étaient pas comparées à la même chose. La colonne d'écart
+   * était illisible sans qu'on puisse dire pourquoi.
+   *
+   * `null` quand aucune offre n'est chiffrée : la colonne se tait alors, plutôt que d'afficher un
+   * écart contre rien.
+   */
+  repere: OffreFournisseur | null
   /** La version, pour ses points de livraison — c'est sur eux que se saisissent les prix. */
   version: VersionRecommandation
   compteurs: Compteur[]
@@ -107,6 +120,7 @@ export function OffresDuFournisseur({
   const majOffre = useUpdateOffrePartiel()
   const supprimer = useSupprimerOffre()
   const retenir = useRetenirOffre()
+  const designerReference = useDesignerOffreReference()
   const [ajoutOuvert, setAjoutOuvert] = useState(false)
   /* « INDISPONIBLE » : le fournisseur n'a rien à proposer sur ce dossier.
      Naoëlle, 27/08/2026 : faute de pouvoir le dire, on inventait une durée — et le comparatif
@@ -136,11 +150,9 @@ export function OffresDuFournisseur({
         </p>
       ) : (
         offres.map((offre) => {
-          // La moins chère des offres chiffrées sert de repère d'écart, faute d'offre de référence.
-          const offreLaMoinsChere = offres
-            .filter((o) => o.montant_annuel_ht != null)
-            .reduce<typeof offre | null>((a, o) => (a == null || (o.montant_annuel_ht ?? 0) < (a.montant_annuel_ht ?? 0) ? o : a), null)
           const sommes = sommesDesPdl(offre)
+          // Une offre ne se compare pas à elle-même : c'est ELLE le repère, et la carte l'écrit.
+          const repereDeCetteOffre = repere && repere.id !== offre.id ? repere : null
           const nature = natureDeLOffre(offre.nature_offre)
 
           /* ══ POURQUOI « RETENIR » PEUT ÊTRE HORS D'USAGE ══
@@ -330,6 +342,48 @@ export function OffresDuFournisseur({
                       {offre.est_offre_recommandee ? 'Retenue' : 'Retenir'}
                     </button>
 
+                    {/* ══ DÉSIGNER LA RÉFÉRENCE ══
+                        Michel, 27/08/2026 : « une offre de référence peut être n'importe quelle
+                        offre. C'est un peu comme retenir une offre. Je décide que c'est sur cette
+                        offre-là que je vais me baser pour faire le comparatif. »
+
+                        AUCUNE CONDITION DE NATURE ICI, contrairement à « Retenir » : l'offre en
+                        cours est même le repère le plus fréquent — on se compare à ce que le client
+                        paie aujourd'hui. Une offre qu'on ne peut pas retenir peut parfaitement
+                        servir de base de comparaison ; ce sont deux questions différentes. */}
+                    <button
+                      type="button"
+                      title={
+                        offre.est_offre_reference
+                          ? 'Base du comparatif — cliquer pour ne plus s’y comparer'
+                          : 'Se comparer à cette offre : les autres s’afficheront plus chères ou moins chères qu’elle'
+                      }
+                      onClick={async () => {
+                        try {
+                          await designerReference.mutateAsync({
+                            optimisationId,
+                            offreId: offre.est_offre_reference ? null : offre.id,
+                          })
+                          signaler(
+                            offre.est_offre_reference
+                              ? '◎ Référence retirée'
+                              : `◉ Référence : ${fournisseur.fournisseur_nom} ${libelleOffre(offre.duree_mois, offre.type_prix)}`,
+                          )
+                        } catch (e) {
+                          signaler(`Erreur : ${e instanceof Error ? e.message : String(e)}`)
+                        }
+                      }}
+                      className={cn(
+                        'inline-flex items-center gap-1 rounded-kw-sm px-1.5 py-0.5 text-kw-micro font-extrabold uppercase tracking-[0.05em]',
+                        offre.est_offre_reference
+                          ? 'bg-kw-blue text-white'
+                          : 'border border-kw-border-strong bg-white text-kw-meta hover:bg-kw-bg',
+                      )}
+                    >
+                      <Target className="h-2.5 w-2.5" />
+                      Référence
+                    </button>
+
                     {/* ── LE MOTIF DU BLOCAGE, ÉCRIT ── Il n'existait que dans l'infobulle, donc il
                            fallait deviner qu'il y avait quelque chose à survoler. Une seule phrase
                            courte suffit à transformer « ça ne marche pas » en « il faut changer la
@@ -376,7 +430,7 @@ export function OffresDuFournisseur({
                 <CarteOffreEtude
                   offre={offre}
                   compteurs={compteurs}
-                  reference={offreLaMoinsChere}
+                  reference={repereDeCetteOffre}
                   // L'ÉCONOMIE EST UN CHIFFRE : elle rejoint le budget au centre, pas les boutons.
                   chiffresEnPlus={
                     <span onClick={(e) => e.stopPropagation()}>

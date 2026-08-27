@@ -6,9 +6,37 @@ import { OffresDuFournisseur } from '@/components/recommandation/OffresDuFournis
 import { STATUT_VERSION_TONE } from '@/lib/referenceFallbacks'
 import { cn } from '@/lib/utils'
 import type { ReferenceRow } from '@/lib/data/referenceTables'
-import type { VersionRecommandation, Optimisation, FournisseurConsulte, Compteur } from '@/types/domain'
+import type { VersionRecommandation, Optimisation, FournisseurConsulte, Compteur, OffreFournisseur } from '@/types/domain'
 
 const MISE_EN_CONCURRENCE = 'MISE_EN_CONCURRENCE'
+
+/**
+ * L'OFFRE À LAQUELLE TOUTES LES AUTRES SE COMPARENT, sur l'ensemble de la cotation.
+ *
+ * Michel, 27/08/2026 : la référence est DÉSIGNÉE, pas calculée — « je décide que c'est sur cette
+ * offre-là que je vais me baser pour faire le comparatif ». Elle peut être de n'importe quelle
+ * nature, y compris l'offre en cours, qui est même le cas le plus fréquent.
+ *
+ * DEUX DÉFAUTS CORRIGÉS ICI. Avant, le repère était calculé DANS chaque fournisseur : c'était la
+ * moins chère de SES offres. Donc (1) ce n'était pas un choix mais un calcul, et (2) chaque
+ * fournisseur se comparait à un repère différent — deux offres côte à côte n'étaient pas mesurées à
+ * la même aune, et rien ne le disait.
+ *
+ * LE REPLI RESTE LA MOINS CHÈRE DE TOUTE LA COTATION, tant qu'aucune référence n'est désignée : sans
+ * lui, la colonne d'écart serait vide sur tous les dossiers existants. Mais il porte désormais sur
+ * l'ensemble, donc il est au moins cohérent d'une offre à l'autre.
+ */
+function repereDeLaCotation(optimisation: Optimisation): OffreFournisseur | null {
+  const toutes = optimisation.fournisseurs_consultes.flatMap((f) => f.offres)
+  const designee = toutes.find((o) => o.est_offre_reference)
+  if (designee) return designee
+  return toutes
+    .filter((o) => o.montant_annuel_ht != null)
+    .reduce<OffreFournisseur | null>(
+      (a, o) => (a == null || (o.montant_annuel_ht ?? 0) < (a.montant_annuel_ht ?? 0) ? o : a),
+      null,
+    )
+}
 
 /**
  * Détail de la version affichée : optimisations, offres reçues, et suivi des fournisseurs consultés.
@@ -326,6 +354,7 @@ export function DetailVersion({
                               <OffresDuFournisseur
                                 fournisseur={fc}
                                 optimisationId={optimisation.id}
+                                repere={repereDeLaCotation(optimisation)}
                                 version={version}
                                 compteurs={compteurs}
                                 typeDocumentOffreId={typeDocumentOffreId}

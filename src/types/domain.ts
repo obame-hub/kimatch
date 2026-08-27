@@ -230,6 +230,9 @@ export interface OffreFournisseur {
   date_reception?: string | null
   date_validite?: string | null
   est_offre_recommandee: boolean
+  /** L'offre qui sert de base au comparatif : les autres se disent « plus chère » ou « moins chère »
+   *  qu'elle. Désignée à la main, sur n'importe quelle nature — l'offre en cours comprise. */
+  est_offre_reference: boolean
   /**
    * CE QU'EST l'offre, à distinguer de `statut` qui dit où en est la négociation.
    *

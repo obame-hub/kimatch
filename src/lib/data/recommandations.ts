@@ -148,6 +148,8 @@ interface RawOffreFournisseur {
   economie_pourcentage: number | null
   duree_mois: number | null
   est_offre_recommandee: boolean
+  /** L'offre qui sert de base au comparatif — voir useDesignerOffreReference. */
+  est_offre_reference: boolean
   /** Migration 20260821120000 — absente tant qu'elle n'est pas appliquee. */
   nature_offre?: string | null
   date_reception?: string | null
@@ -553,6 +555,7 @@ async function fetchRecommandations(
         date_reception: o.date_reception ?? null,
         date_validite: o.date_validite ?? null,
         est_offre_recommandee: o.est_offre_recommandee,
+        est_offre_reference: o.est_offre_reference ?? false,
         // Repli sur PROPOSEE tant que la migration 20260821120000 n'est pas appliquée : c'est ce
         // que sont les 39 offres existantes, aucune n'a jamais pu être autre chose.
         nature_offre: o.nature_offre ?? 'PROPOSEE',
@@ -1368,10 +1371,34 @@ export function useAjouterFournisseurConsulte() {
  * LES TROIS NATURES D'UNE OFFRE. Michel, 21/08/2026 : « t'as trois types d'offres. T'as l'offre
  * proposée, t'as l'offre de reconduction, et t'as l'offre en cours. »
  *
- * `retenable` porte la règle qu'il a énoncée dans le même souffle : « bien indiquer que ces offres-là,
- * on ne peut pas les retenir. Parce que s'ils retiennent la reconduction, c'est qu'en fait on a perdu
- * le dossier. » Retenir signifie « voilà ce que Kiwee a obtenu » ; ni le contrat actuel ni la
- * proposition du fournisseur en place ne peuvent tenir ce rôle.
+ * ══ UNE RECONDUCTION EST RETENABLE, ET C'EST UNE CORRECTION ══
+ *
+ * Le 21/08, il avait dit : « s'ils retiennent la reconduction, c'est qu'en fait on a perdu le
+ * dossier », et j'en avais fait une interdiction. C'était aller trop loin, il l'a précisé le
+ * 27/08/2026 :
+ *
+ *   « On peut avoir une offre de référence qu'on envoie au client, mais que par exemple Gaz Européen
+ *     nous a envoyée et il passe par nous pour envoyer son offre de reconduction. […] Si on passe par
+ *     Gaz Européen, ce n'est pas une offre perdue, ça peut être une offre à retenir — exactement. »
+ *
+ * La distinction qu'il fait est celle-ci, et elle n'est pas une nuance :
+ *
+ *   · la reconduction TACITE, celle que le fournisseur applique tout seul, est un dossier perdu :
+ *     le client reste chez lui sans que Kiwee ait rien apporté ;
+ *   · la reconduction NÉGOCIÉE ET TRANSMISE PAR NOUS est un dossier gagné. Le client reste chez son
+ *     fournisseur, mais à des conditions que nous avons obtenues. C'est une affaire, et la commission
+ *     est due.
+ *
+ * Ces deux cas partagent le même mot mais pas le même résultat, et la base ne les distingue pas.
+ * Interdire de retenir une reconduction empêchait donc d'enregistrer les dossiers gagnés du second
+ * type. La règle est levée : c'est au commercial de savoir ce qu'il a obtenu.
+ *
+ * ══ SEULE L'OFFRE EN COURS RESTE HORS D'ATTEINTE ══
+ *
+ * Et là sa règle ne bouge pas (27/08) : « le seul truc, c'est que l'offre en cours, ce n'est pas une
+ * offre que je peux proposer. C'est une offre un peu grise, c'est juste un budget présenté » — « à
+ * titre informatif », confirme-t-il. On ne peut pas retenir le contrat que le client a déjà : ce
+ * serait dire que Kiwee a obtenu ce qui existait avant elle.
  */
 export const NATURES_OFFRE = [
   {
@@ -1383,14 +1410,14 @@ export const NATURES_OFFRE = [
   {
     code: 'RECONDUCTION',
     libelle: 'Reconduction',
-    retenable: false,
-    aide: "La proposition du fournisseur en place, tacite ou non. Elle entre au comparatif comme repère, mais la retenir voudrait dire que le dossier est perdu.",
+    retenable: true,
+    aide: "La proposition du fournisseur en place. Retenable quand elle passe par nous : le client reste chez son fournisseur, mais aux conditions que nous avons obtenues.",
   },
   {
     code: 'EN_COURS',
     libelle: 'Offre en cours',
     retenable: false,
-    aide: "Le contrat que le client a aujourd'hui. C'est le point de comparaison, pas une offre à retenir.",
+    aide: "Le contrat que le client a aujourd'hui. C'est un budget de comparaison, à titre informatif : on ne peut pas retenir ce qui existait avant nous.",
   },
 ] as const
 
@@ -1683,6 +1710,48 @@ export interface PatchOffre {
 export function libelleOffre(duree: number | null | undefined, typePrix: string | null | undefined): string {
   if (duree == null) return 'Indisponible'
   return [`${duree} mois`, typePrix].filter(Boolean).join(' — ')
+}
+
+/**
+ * DÉSIGNER L'OFFRE DE RÉFÉRENCE — la base du comparatif.
+ *
+ * Michel, 27/08/2026 : « une offre de référence peut être n'importe quelle offre. C'est un peu comme
+ * retenir une offre. C'est juste que je décide que c'est sur cette offre-là que je vais me baser pour
+ * faire le comparatif. […] Si je prends une offre qui est au milieu, il va me mettre des offres en
+ * disant "offre moins chère que l'offre de référence" ou "offre plus chère". »
+ *
+ * N'IMPORTE QUELLE NATURE, Y COMPRIS L'OFFRE EN COURS. C'est même le cas le plus fréquent : on se
+ * compare à ce que le client paie aujourd'hui. La référence n'a donc rien à voir avec `retenable` —
+ * une offre qu'on ne peut pas retenir peut parfaitement servir de base de comparaison.
+ *
+ * EXCLUSIF PAR COTATION. On retire l'ancienne avant de poser la nouvelle : deux bases de comparaison
+ * rendraient tous les écarts indéterminés, et rien à l'écran ne dirait laquelle a servi. Un index
+ * unique partiel en base garantit la même chose si ce code venait à changer.
+ */
+export function useDesignerOffreReference() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: async (input: { optimisationId: string; offreId: string | null }) => {
+      // Toujours effacer d'abord, y compris quand on repose une référence : sans ce retrait,
+      // l'index unique rejetterait la nouvelle et l'utilisateur verrait une erreur au lieu d'un
+      // changement.
+      const { error: efface } = await supabase
+        .from('offres_fournisseurs')
+        .update({ est_offre_reference: false })
+        .eq('optimisation_id', input.optimisationId)
+        .eq('est_offre_reference', true)
+      if (efface) throw new Error(efface.message)
+
+      if (input.offreId) {
+        const { error } = await supabase
+          .from('offres_fournisseurs')
+          .update({ est_offre_reference: true })
+          .eq('id', input.offreId)
+        if (error) throw new Error(error.message)
+      }
+    },
+    onSuccess: () => { void queryClient.invalidateQueries({ queryKey: ['recommandations'] }) },
+  })
 }
 
 export function useAjouterOffre() {

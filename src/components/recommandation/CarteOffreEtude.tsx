@@ -46,7 +46,12 @@ export function CarteOffreEtude({
   offre: OffreFournisseur
   /** Les compteurs de la fiche, pour nommer les points de livraison et connaître leurs volumes. */
   compteurs: Compteur[]
-  /** L'offre de comparaison — la moins chère du lot, en attendant l'offre de référence de Michel. */
+  /**
+   * L'OFFRE DE COMPARAISON, désignée sur la cotation (voir `repereDeLaCotation`).
+   *
+   * `null` sur l'offre qui EST la référence : elle ne se compare pas à elle-même, la carte affiche
+   * alors le mot « référence » à la place de l'écart.
+   */
   reference: OffreFournisseur | null
   /** Le nom du fournisseur : inutile sous un groupe qui le porte déjà, indispensable sans lui. */
   avecFournisseur?: boolean
@@ -336,9 +341,17 @@ export function CarteOffreEtude({
 
           <span>
             {ecart == null ? (
-              <span className="block text-kw-sm text-kw-faint">référence</span>
+              /* « RÉFÉRENCE » ET NON UN TIRET : cette offre est la base du comparatif, ce n'est pas
+                 une valeur manquante. Michel, 27/08/2026 : les autres se lisent alors « plus chère »
+                 ou « moins chère » qu'elle — d'où l'infobulle sur les écarts, juste en dessous. */
+              <span className="block text-kw-sm font-bold text-kw-blue">référence</span>
             ) : (
               <span
+                title={
+                  ecart > 0
+                    ? 'Plus chère que l’offre de référence'
+                    : 'Moins chère que l’offre de référence'
+                }
                 className={cn(
                   'inline-flex items-baseline gap-1.5 rounded-kw-sm px-2 py-0.5 font-mono text-kw-sm font-extrabold tabular-nums',
                   ecart > 0 ? 'bg-kw-red-light text-kw-red' : 'bg-kw-green-light text-kw-green',
