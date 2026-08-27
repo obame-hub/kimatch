@@ -1,4 +1,5 @@
-import { Mail, Lock, Trash2, ExternalLink } from 'lucide-react'
+import { Mail, Lock, Trash2, ExternalLink, ChevronDown } from 'lucide-react'
+import { useMajStatutVersion } from '@/lib/data/recommandations'
 import { Badge } from '@/components/ui/badge'
 import { EntityLink } from '@/components/ui/entity-link'
 import { OffresDuFournisseur } from '@/components/recommandation/OffresDuFournisseur'
@@ -51,6 +52,30 @@ export function DetailVersion({
 }) {
   const statutLabel = statutsVersions.find((s) => s.code === version.statut)?.libelle ?? version.statut
 
+  /* ══ LE STATUT DE VERSION, CORRIGEABLE À LA MAIN ══
+     Michel, 27/08/2026 : « il faut rendre les statuts de version manuels car il y a eu trop de bugs
+     à l'import Salesforce ». Depuis que le Pricing écarte les versions au statut terminal, un statut
+     faux hérité de la reprise fait disparaître une consultation de l'écran — il faut donc pouvoir
+     le rattraper. Voir useMajStatutVersion. */
+  const majStatut = useMajStatutVersion()
+
+  const changerStatutVersion = async (code: string) => {
+    const cible = statutsVersions.find((st) => st.code === code)
+    // Les tables de référence ont un repli local dont les identifiants ne sont PAS des UUID ('1',
+    // 'd1'…). Écrire avec l'un d'eux échoue en base tout en paraissant réussir à l'écran : on
+    // refuse donc explicitement au lieu de laisser croire à une correction enregistrée.
+    if (!cible || !/^[0-9a-f-]{36}$/i.test(cible.id)) {
+      signaler('Statuts de version indisponibles — rechargez la page avant de corriger.')
+      return
+    }
+    try {
+      await majStatut.mutateAsync({ versionId: version.id, statutVersionId: cible.id })
+      signaler(`✓ Statut de la version : ${cible.libelle}`)
+    } catch (e) {
+      signaler(`Erreur : ${e instanceof Error ? e.message : String(e)}`)
+    }
+  }
+
   return (
     <div className="rounded-[13px] border border-kw-border bg-white">
       <div className="flex flex-wrap items-center gap-2 border-b border-kw-border-subtle px-[17px] py-3">
@@ -64,7 +89,41 @@ export function DetailVersion({
         )}
         <span className="flex-1" />
         {version.version_actuelle && <Badge tone="kiwi">Actuelle</Badge>}
-        <Badge tone={STATUT_VERSION_TONE[version.statut] ?? 'neutral'}>{statutLabel}</Badge>
+        {/* Le statut GARDE son badge — c'est d'abord une information — mais porte un chevron pour
+            annoncer qu'il se change. Sans ce chevron le contrôle n'existerait qu'au survol, et
+            personne ne découvre au survol ce qu'il ne sait pas chercher. */}
+        {peutModifier ? (
+          <span className="relative inline-flex items-center rounded-kw-md transition-shadow hover:shadow-[0_0_0_2px_var(--kw-anneau,rgba(13,122,95,.25))] focus-within:shadow-[0_0_0_2px_rgba(13,122,95,.45)]">
+            <Badge tone={STATUT_VERSION_TONE[version.statut] ?? 'neutral'}>
+              <span className="inline-flex items-center gap-1">
+                {majStatut.isPending ? 'Enregistrement…' : statutLabel}
+                <ChevronDown className="h-2.5 w-2.5 opacity-70" />
+              </span>
+            </Badge>
+            <select
+              aria-label="Corriger le statut de cette version"
+              title="Corriger le statut de cette version"
+              value={version.statut ?? ''}
+              disabled={majStatut.isPending}
+              onChange={(e) => changerStatutVersion(e.target.value)}
+              className="absolute inset-0 w-full cursor-pointer opacity-0"
+            >
+              {/* Le statut courant reste en tête même s'il a disparu de la table de référence :
+                  sinon la liste s'ouvrirait sur une autre valeur et le premier clic écraserait le
+                  statut sans que personne l'ait demandé. */}
+              {!statutsVersions.some((st) => st.code === version.statut) && version.statut && (
+                <option value={version.statut}>{statutLabel}</option>
+              )}
+              {statutsVersions.map((st) => (
+                <option key={st.id} value={st.code ?? ''}>
+                  {st.libelle}
+                </option>
+              ))}
+            </select>
+          </span>
+        ) : (
+          <Badge tone={STATUT_VERSION_TONE[version.statut] ?? 'neutral'}>{statutLabel}</Badge>
+        )}
         {/* Supprimer une version créée par erreur (demande de la réunion du 17/08/2026). Discret et
             à droite : c'est un geste de rattrapage, pas une action courante. */}
         {peutModifier && (

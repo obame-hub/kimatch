@@ -88,12 +88,24 @@ export function useKanbanServeur<T>(options: {
   filtres?: Record<string, string | boolean | null>
   /** Colonne numérique à additionner sur chaque colonne du tableau — la marge, un volume. */
   colonneSomme?: string
+  /**
+   * L'ORDRE DES CARTES, RENDU PAR LA BASE.
+   *
+   * Michel, 27/08/2026, sur le Pricing : « les en retard et avec date de cotation souhaitée proche
+   * sont les premiers visibles ».
+   *
+   * CE TRI NE PEUT PAS SE FAIRE À L'ARRIVÉE. On ne demande que dix cartes par colonne : trier ces
+   * dix-là remettrait dans l'ordre un échantillon pris au hasard, et la carte la plus en retard
+   * resterait invisible parce qu'elle était onzième. Même raison que pour `count: exact` et pour la
+   * somme — ce qui décide de ce qu'on voit doit se décider en base.
+   */
+  ordre?: { colonne: string; ascendant?: boolean }
   actif: boolean
 }) {
-  const { vue, colonneStatut, colonnes, colonnesRecherche, recherche, filtres, colonneSomme, actif } = options
+  const { vue, colonneStatut, colonnes, colonnesRecherche, recherche, filtres, colonneSomme, ordre, actif } = options
 
   return useQuery({
-    queryKey: ['kanban-serveur', vue, colonneStatut, colonnes.map((c) => c.codes?.join('+') ?? c.code), recherche.trim(), filtres, colonneSomme],
+    queryKey: ['kanban-serveur', vue, colonneStatut, colonnes.map((c) => c.codes?.join('+') ?? c.code), recherche.trim(), filtres, colonneSomme, ordre],
     enabled: actif,
     queryFn: async (): Promise<ResultatColonne<T>[]> => {
       const mots = recherche.trim().split(/\s+/).filter(Boolean)
@@ -121,8 +133,17 @@ export function useKanbanServeur<T>(options: {
       return Promise.all(
         colonnes.map(async (col) => {
           const codes = col.codes && col.codes.length > 0 ? col.codes : [col.code]
+          // Le tri porte sur les cartes seules : ordonner la lecture de la somme ne changerait pas
+          // le total et ferait trier la base pour rien.
+          let requeteCartes = filtrer(codes, '*', true)
+          if (ordre) {
+            requeteCartes = requeteCartes.order(ordre.colonne, {
+              ascending: ordre.ascendant !== false,
+              nullsFirst: false,
+            })
+          }
           const [cartes, agregat] = await Promise.all([
-            filtrer(codes, '*', true).range(0, CARTES_PAR_COLONNE - 1),
+            requeteCartes.range(0, CARTES_PAR_COLONNE - 1),
             colonneSomme ? filtrer(codes, colonneSomme, false) : Promise.resolve(null),
           ])
 

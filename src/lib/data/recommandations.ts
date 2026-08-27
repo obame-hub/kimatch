@@ -1519,6 +1519,45 @@ export function useAvancerEtapeRecommandation() {
 }
 
 /**
+ * LE STATUT D'UNE VERSION, CHANGÉ À LA MAIN.
+ *
+ * Michel, 27/08/2026 : « il faut rendre les statuts de version manuels car il y a eu trop de bugs à
+ * l'import Salesforce ».
+ *
+ * Le constat qui lui donne raison, mesuré le même jour : 96 consultations avaient une recommandation
+ * à l'étape CONSULTATION et une version courante au statut EXPIREE. Aucune de ces versions ne porte
+ * de date d'expiration, et 1 171 des 1 242 versions EXPIREE viennent de la reprise. Le statut a donc
+ * été posé par l'import, pas par un événement réel — et depuis que le Pricing filtre dessus
+ * (migration 20260827150000), un statut faux fait DISPARAÎTRE une consultation de l'écran.
+ *
+ * D'où ce point de reprise : sans lui, une donnée héritée d'un import cache du travail réel et
+ * personne ne peut la corriger.
+ *
+ * AUCUNE RÈGLE DE TRANSITION N'EST IMPOSÉE. On pourrait n'autoriser que les passages « logiques »,
+ * mais ce serait exactement le contraire de ce qu'il demande : la raison d'être de ce champ est de
+ * rattraper des états incohérents, et une garde de cohérence empêcherait précisément de sortir d'une
+ * incohérence. Le libellé à l'écran dit que c'est une correction, et l'historique conserve la trace.
+ */
+export function useMajStatutVersion() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: async (input: { versionId: string; statutVersionId: string }) => {
+      const { error } = await supabase
+        .from('versions_recommandation')
+        .update({ statut_version_id: input.statutVersionId })
+        .eq('id', input.versionId)
+      if (error) throw new Error(error.message)
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['recommandations'] })
+      // Le Pricing filtre sur ce statut : sans cette invalidation, une version corrigée resterait
+      // absente de la page jusqu'au prochain rechargement complet.
+      queryClient.invalidateQueries({ queryKey: ['kanban-serveur'] })
+    },
+  })
+}
+
+/**
  * Édition en place d'une case du comparatif des versions.
  *
  * Seules les colonnes réellement portées par `versions_recommandation` passent par ici. Le

@@ -81,6 +81,20 @@ export interface CarteKanban {
   motif?: string
   /** Chiffres en pied de carte, deux au plus pour rester lisibles — un volume, un montant. */
   chiffres?: { libelle: string; valeur: string }[]
+  /**
+   * UNE ÉCHÉANCE EN DATE RELATIVE, à la place d'une date brute.
+   *
+   * Michel, 27/08/2026 : afficher la date de cotation souhaitée sur la tuile « pour que ce soit
+   * visible sans cliquer dessus », en dates relatives — « dans 3 jours », « en retard »,
+   * « aujourd'hui ».
+   *
+   * POURQUOI RELATIF PLUTÔT QUE « 26/08/2026 » : une date absolue demande un calcul mental à chaque
+   * lecture, et sur une colonne de quinze tuiles ce calcul se fait quinze fois. « En retard de
+   * 1 jour » se lit sans réfléchir. La date exacte reste sur la fiche, où l'on va quand on agit.
+   *
+   * `ton` porte la gravité, pas la couleur : c'est la tuile qui décide de l'apparence.
+   */
+  echeance?: { texte: string; ton: 'retard' | 'jour' | 'proche' | 'loin' }
   to: string
 }
 
@@ -167,10 +181,33 @@ export function TableauKanban({
                   )}
                 >
                   <span className="min-w-0 flex-1">
-                    {/* ── L'étiquette de nature ── */}
-                    {c.nature && (
-                      <span className="mb-1 inline-block max-w-full truncate rounded-[3px] bg-kw-bloc px-1.5 py-px text-kw-micro font-bold uppercase tracking-[0.06em] text-kw-meta">
-                        {c.nature}
+                    {/* ── L'étiquette de nature et l'échéance, sur la même ligne ──
+                           L'échéance passe DEVANT le nom du fournisseur : sur une tuile « à
+                           demander », ce qui décide de l'ordre de traitement est le retard, pas
+                           l'identité du fournisseur. ── */}
+                    {(c.nature || c.echeance) && (
+                      <span className="mb-1 flex flex-wrap items-center gap-1">
+                        {c.nature && (
+                          <span className="max-w-full truncate rounded-[3px] bg-kw-bloc px-1.5 py-px text-kw-micro font-bold uppercase tracking-[0.06em] text-kw-meta">
+                            {c.nature}
+                          </span>
+                        )}
+                        {c.echeance && (
+                          <span
+                            className={cn(
+                              'shrink-0 rounded-[3px] border px-1.5 py-px font-mono text-kw-micro font-bold',
+                              c.echeance.ton === 'retard'
+                                ? 'border-kw-red bg-kw-red-light text-kw-red'
+                                : c.echeance.ton === 'jour'
+                                  ? 'border-kw-amber bg-kw-amber-light text-kw-amber-dark'
+                                  : c.echeance.ton === 'proche'
+                                    ? 'border-kw-amber-border bg-kw-amber-light text-kw-amber'
+                                    : 'border-kw-border bg-kw-bloc text-kw-meta',
+                            )}
+                          >
+                            {c.echeance.texte}
+                          </span>
+                        )}
                       </span>
                     )}
 

@@ -50,13 +50,28 @@ import { cn } from '@/lib/utils'
  *
  * La page passe de 306 à 191 lignes : 20 à demander, 111 en attente, 60 offres reçues.
  *
- * CE QUE JE N'AI PAS FILTRÉ. Aller plus loin en écartant les versions au statut « expirée »
- * ramènerait la page à 57 lignes, ce qui collerait encore mieux à la remarque de Michel. Mais 96 des
- * 192 consultations restantes ont une recommandation à l'étape CONSULTATION et une version dite
- * EXPIREE — une contradiction, pas une information : aucune de ces versions ne porte de date
- * d'expiration, et 1 171 des 1 242 versions « expirées » viennent de la reprise Salesforce. Filtrer
- * là-dessus ferait disparaître 135 lignes sur la foi d'un statut dont on ignore le sens d'origine.
- * La question est posée à Michel ; si le statut est bien mort, la clause est une ligne.
+ * ══ ET SEULEMENT LES VERSIONS AU STATUT VIVANT ══
+ *
+ * J'avais laissé les versions au statut « expirée » en suspens : 96 consultations avaient une
+ * recommandation à l'étape CONSULTATION et une version dite EXPIREE, ce qui est une contradiction,
+ * et 1 171 des 1 242 versions expirées venaient de la reprise Salesforce. Je ne voulais pas faire
+ * disparaître 135 lignes sur la foi d'un statut dont j'ignorais le sens d'origine.
+ *
+ * Michel a tranché le 27/08 : on les retire, et il faut rendre les statuts de version modifiables à
+ * la main « car il y a eu trop de bugs à l'import Salesforce ». Sa réponse règle les deux
+ * questions — le statut est bien terminal, et les cas faux se corrigeront à la main.
+ *
+ * La page passe donc de 191 à 55 lignes : 18 à demander, 34 en attente, 3 offres reçues.
+ * (J'avais annoncé 57 : le bon chiffre est 55, mon estimation ne retirait pas ACCEPTEE ni REFUSEE.)
+ *
+ * ══ LA DATE DE COTATION SOUHAITÉE SUR LES TUILES ══
+ *
+ * « Afficher dans les tuiles la date de cotation souhaitée, comme ça c'est visible sans cliquer
+ * dessus, et trier avec des dates relatives — en retard, aujourd'hui, dans 3 jours — sachant que les
+ * en retard et les dates proches sont les premiers visibles. »
+ *
+ * Les 55 consultations conservées portent toutes cette date, donc aucune tuile ne reste muette. Sur
+ * la colonne « à demander » aujourd'hui : 9 en retard, 5 pour aujourd'hui, 4 à venir.
  *
  * ══ « VALIDÉES » A ÉTÉ RETIRÉE ══
  *
@@ -113,6 +128,9 @@ interface LignePricing {
   numero_version: number | null
   version_courante: boolean
   version_statut: string | null
+  version_vivante: boolean
+  date_cotation_souhaitee: string | null
+  jours_avant_cotation: number | null
 }
 
 /**
@@ -131,6 +149,39 @@ const COLONNES = [
 
 const euros = (v: number) => v.toLocaleString('fr-FR', { maximumFractionDigits: 0 }) + ' €'
 
+/**
+ * LA DATE DE COTATION SOUHAITÉE, DITE EN JOURS.
+ *
+ * Michel, 27/08/2026 : la voir sur la tuile sans cliquer, en dates relatives — « dans 3 jours »,
+ * « en retard », « aujourd'hui ».
+ *
+ * LE NOMBRE DE JOURS EST CALCULÉ EN BASE, pas ici : `jours_avant_cotation` vaut
+ * `date_souhaitee - current_date`. C'est la même valeur qui sert au tri serveur, et c'est
+ * volontaire — un décompte calculé deux fois, une fois en SQL pour ordonner et une fois en
+ * JavaScript pour afficher, finit par se contredire un jour de changement d'heure ou sur un
+ * navigateur réglé sur un autre fuseau. Une tuile qui dit « aujourd'hui » en troisième position
+ * n'est pas un détail : c'est le tri qui devient faux aux yeux du lecteur.
+ *
+ * LE TON MONTE PAR PALIERS PARCE QUE L'ACTION CHANGE : passé la date, la demande n'est plus à
+ * envoyer mais à rattraper ; le jour même, elle est à envoyer maintenant ; à trois jours, elle est
+ * à planifier. Au-delà d'une semaine, la date n'est plus qu'un repère, d'où le ton neutre.
+ */
+function echeanceCotation(
+  jours: number | null,
+): { texte: string; ton: 'retard' | 'jour' | 'proche' | 'loin' } | undefined {
+  // Sans date, aucune pastille : un « — » à la place d'une échéance laisserait croire à une
+  // absence de délai, alors qu'il ne s'agit que d'une absence de saisie.
+  if (jours == null) return undefined
+  if (jours < 0) {
+    const n = Math.abs(jours)
+    return { texte: n === 1 ? 'En retard d’1 jour' : `En retard de ${n} jours`, ton: 'retard' }
+  }
+  if (jours === 0) return { texte: 'Aujourd’hui', ton: 'jour' }
+  if (jours === 1) return { texte: 'Demain', ton: 'proche' }
+  if (jours <= 7) return { texte: `Dans ${jours} jours`, ton: 'proche' }
+  return { texte: `Dans ${jours} jours`, ton: 'loin' }
+}
+
 export default function Pricing({ sansEntete }: { sansEntete?: boolean }) {
   const navigate = useNavigate()
   const [recherche, setRecherche] = useState('')
@@ -148,7 +199,11 @@ export default function Pricing({ sansEntete }: { sansEntete?: boolean }) {
     recherche,
     // LES DEUX FILTRES DE LA PAGE, appliqués à toutes les colonnes ET aux sommes : le bandeau
     // chiffré doit additionner la même population que le tableau, sinon l'un démentira l'autre.
-    filtres: { reco_en_cours: true, version_courante: true },
+    filtres: { reco_en_cours: true, version_courante: true, version_vivante: true },
+    // LES RETARDS EN PREMIER (Michel, 27/08/2026). Le tri part en base : on ne demande que dix
+    // cartes par colonne, donc trier à l'arrivée remettrait dans l'ordre un échantillon pris au
+    // hasard et la plus en retard resterait invisible parce qu'onzième.
+    ordre: { colonne: 'date_cotation_souhaitee', ascendant: true },
     // Le montant se somme par colonne : c'est ce qui attend chez chaque fournisseur.
     colonneSomme: 'montant_annuel_ht',
     actif: true,
@@ -218,6 +273,7 @@ export default function Pricing({ sansEntete }: { sansEntete?: boolean }) {
                 }
                 return {
                   id: l.consultation_id,
+                  echeance: echeanceCotation(l.jours_avant_cotation),
                   /* LE FOURNISSEUR EN TITRE, LE CLIENT EN SOUS-TITRE. Sur cette page on travaille
                      fournisseur par fournisseur — « qui ne m'a pas répondu » — là où les autres
                      kanbans partent du client. */
@@ -252,11 +308,11 @@ export default function Pricing({ sansEntete }: { sansEntete?: boolean }) {
         {/* CE QUE LA PAGE NE PEUT PAS DIRE, dit à l'écran : le suivi avance d'un clic, la saisie de
             l'offre est un formulaire séparé que personne ne remplit. Voir l'en-tête. */}
         <p className="mt-3 max-w-[95ch] text-kw-xs leading-relaxed text-kw-faint">
-          Seules les consultations de la version en cours d’un dossier ouvert apparaissent : une
-          recommandation close n’attend plus rien d’un fournisseur, et une ancienne version porte des
-          offres qui ne sont plus celles qu’on défend. Le budget, lui, n’apparaît que sur les
-          consultations dont l’offre a été saisie — une offre reçue mais non chiffrée reste dans sa
-          colonne, sans montant.
+          Seules les consultations encore vivantes apparaissent : la recommandation est ouverte, la
+          version est celle sur laquelle on travaille, et son statut n’est pas terminal. Les cartes
+          sont classées par date de cotation souhaitée, les retards en premier. Le budget, lui,
+          n’apparaît que sur les consultations dont l’offre a été saisie — une offre reçue mais non
+          chiffrée reste dans sa colonne, sans montant.
         </p>
       </div>
     </div>
