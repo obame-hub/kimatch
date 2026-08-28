@@ -207,10 +207,20 @@ export default function RecommandationDetail() {
     return (compteurs ?? []).filter((c) => ids.has(c.id))
   }, [compteurs, reco?.compteur_ids])
 
-  // `estClose` se lit sur la finalité et non sur l'étape : une recommandation peut être posée sur
-  // l'étape Clôture sans qualification finale (130 lignes en base), et l'inverse n'existe pas.
+  /* ══ « CLOS » SE LIT SUR L'ÉTAPE, PLUS SUR LA FINALITÉ ══
+     C'était l'inverse jusqu'au 28/08/2026, et ça produisait un mensonge à l'écran : le dossier
+     ARPAJE - SIEGE affichait « ACCEPTÉE » alors que sa version 2 était en construction. Sa finalité
+     valait bien ACCEPTEE, mais c'était l'historique de la clôture PRÉCÉDENTE — une nouvelle version
+     avait été créée depuis, et le dossier était donc redevenu vivant.
+
+     26 dossiers sont dans ce cas : etape = ACTIVE avec une finalité renseignée. Les afficher comme
+     clos cachait 26 dossiers sur lesquels il y a du travail.
+
+     LA FINALITÉ RESTE, ET ELLE SERT : c'est le résultat de la dernière clôture, une information
+     utile qu'on n'efface pas. Mais elle ne dit plus « ce dossier est fini » — seule l'étape le dit,
+     et elle est calculée par déclencheur depuis la dernière version. */
   const finalite = (reco?.finalite_cloture ?? null) as CleFinalite | null
-  const estClose = Boolean(finalite && FINALITES_RECOMMANDATION[finalite])
+  const estClose = reco?.etape === 'CLOTUREE'
 
   // Version affichée : celle choisie à la main, sinon l'active, sinon la plus récente. Les versions
   // arrivent déjà triées du plus récent au plus ancien.
@@ -586,6 +596,14 @@ export default function RecommandationDetail() {
             ) : (
               <span className="text-[17px] font-bold tracking-tight text-kw-ink">{reco.titre}</span>
             )}
+            {/* ══ LE BADGE PORTE LE STATUT DU DOSSIER — l'un des quatre de Michel ══
+                   Brouillon · Active · À réactiver · Clôturée. Il affichait auparavant la FINALITÉ,
+                   donc « ACCEPTÉE » — un mot qui n'est plus un statut de dossier depuis le 28/08, et
+                   qui pouvait être faux : la finalité d'une clôture passée survit à la création d'une
+                   nouvelle version.
+
+                   La finalité reste écrite À CÔTÉ quand le dossier est réellement clos : « CLÔTURÉE ·
+                   ACCEPTÉE » dit deux choses vraies, là où « ACCEPTÉE » seule en cachait une. */}
             <span
               className="whitespace-nowrap rounded-kw-pill border px-[11px] py-[3px] text-kw-xs font-extrabold tracking-[0.05em]"
               style={
@@ -594,9 +612,17 @@ export default function RecommandationDetail() {
                   : { color: '#8a4b2a', background: '#f7ece3', borderColor: '#ecdcc2' }
               }
             >
-              {estClose && finalite
-                ? FINALITES_RECOMMANDATION[finalite].libelle.toUpperCase()
-                : `EN COURS${versionActive ? ` · ${versionActive.nom || `V${versionActive.numero_version ?? ''}`} ACTIVE` : ''}`}
+              {(() => {
+                const statut = (etapes.find((e) => e.code === reco.etape)?.libelle ?? reco.etape ?? '').toUpperCase()
+                if (estClose) {
+                  return finalite
+                    ? `${statut} · ${FINALITES_RECOMMANDATION[finalite].libelle.toUpperCase()}`
+                    : statut
+                }
+                /* Hors clôture, le badge dit aussi QUELLE version est active : c'est sur elle qu'on
+                   travaille, et c'est l'information que Michel cherche en ouvrant la fiche. */
+                return `${statut}${versionActive ? ` · ${versionActive.nom || `V${versionActive.numero_version ?? ''}`} ACTIVE` : ''}`
+              })()}
             </span>
             {reco.type_energie && (
               <span
