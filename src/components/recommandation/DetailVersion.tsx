@@ -3,7 +3,6 @@ import { useMajStatutVersion } from '@/lib/data/recommandations'
 import { Badge } from '@/components/ui/badge'
 import { EntityLink } from '@/components/ui/entity-link'
 import { OffresDuFournisseur } from '@/components/recommandation/OffresDuFournisseur'
-import { STATUT_VERSION_TONE } from '@/lib/referenceFallbacks'
 import { cn } from '@/lib/utils'
 import type { ReferenceRow } from '@/lib/data/referenceTables'
 import type { VersionRecommandation, Optimisation, FournisseurConsulte, Compteur, OffreFournisseur } from '@/types/domain'
@@ -117,17 +116,26 @@ export function DetailVersion({
         )}
         <span className="flex-1" />
         {version.version_actuelle && <Badge tone="kiwi">Actuelle</Badge>}
-        {/* Le statut GARDE son badge — c'est d'abord une information — mais porte un chevron pour
-            annoncer qu'il se change. Sans ce chevron le contrôle n'existerait qu'au survol, et
-            personne ne découvre au survol ce qu'il ne sait pas chercher. */}
+        {/* ══ LE STATUT NE S'AFFICHE PLUS ICI ══
+            Michel et Naoëlle, appel du 28/08/2026 à 16 h : « c'est la même chose qu'il y a au-dessus
+            donc on peut l'enlever » — « parce que sinon ça embrouille trop, il y a trop de statut ».
+            Le rail du cycle de vie porte déjà le statut de cette version, en gros et avec le mot
+            « actuel ». Le répéter en badge deux lignes plus bas leur a fait croire à une
+            désynchronisation entre les deux.
+
+            MAIS LA CORRECTION RESTE, et c'est délibéré : Michel avait demandé la veille de pouvoir
+            reprendre un statut à la main, « car il y a eu trop de bugs à l'import Salesforce ». Le
+            rail ne sait qu'avancer et clôturer — il ne revient jamais en arrière. Sans ce point de
+            reprise, un statut faux hérité de la reprise serait définitif.
+
+            Ce n'est donc plus un second affichage du statut, c'est une action de rattrapage : elle
+            porte le mot « corriger » et rien d'autre. */}
         {peutModifier ? (
-          <span className="relative inline-flex items-center rounded-kw-md transition-shadow hover:shadow-[0_0_0_2px_var(--kw-anneau,rgba(13,122,95,.25))] focus-within:shadow-[0_0_0_2px_rgba(13,122,95,.45)]">
-            <Badge tone={STATUT_VERSION_TONE[version.statut] ?? 'neutral'}>
-              <span className="inline-flex items-center gap-1">
-                {majStatut.isPending ? 'Enregistrement…' : statutLabel}
-                <ChevronDown className="h-2.5 w-2.5 opacity-70" />
-              </span>
-            </Badge>
+          <span className="relative inline-flex items-center rounded-kw-sm px-1.5 py-0.5 text-kw-micro font-bold text-kw-faint transition-colors hover:bg-kw-bloc hover:text-kw-label focus-within:bg-kw-bloc focus-within:text-kw-label">
+            <span className="inline-flex items-center gap-1">
+              {majStatut.isPending ? 'Enregistrement…' : 'Corriger le statut'}
+              <ChevronDown className="h-2.5 w-2.5 opacity-70" />
+            </span>
             <select
               aria-label="Corriger le statut de cette version"
               title="Corriger le statut de cette version"
@@ -149,9 +157,7 @@ export function DetailVersion({
               ))}
             </select>
           </span>
-        ) : (
-          <Badge tone={STATUT_VERSION_TONE[version.statut] ?? 'neutral'}>{statutLabel}</Badge>
-        )}
+        ) : null}
         {/* Supprimer une version créée par erreur (demande de la réunion du 17/08/2026). Discret et
             à droite : c'est un geste de rattrapage, pas une action courante. */}
         {peutModifier && (

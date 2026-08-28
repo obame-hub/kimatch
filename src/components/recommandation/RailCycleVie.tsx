@@ -169,20 +169,38 @@ export function RailCycleVie({
                         color: '#fff',
                         boxShadow: `0 0 0 7px ${fin.couleur}1a, 0 6px 17px ${fin.couleur}55, inset 0 -2px 6px rgba(0,0,0,.15)`,
                       }
-                    : faite
+                    : /* ══ L'ÉTAPE COURANTE EST LA PLUS VISIBLE, LES FRANCHIES S'EFFACENT ══
+
+                         Naoëlle, 28/08/2026 : « change cette histoire de statut pointillé car on s'y
+                         perd de fou ». Elle a raison, et l'appel de 16 h en donne la preuve : Michel
+                         et elle ont passé une minute à croire que le statut était « Disponible »
+                         alors qu'il était « En décision ». Naoëlle a même conclu que la frise
+                         « n'était pas synchronisée » avec le menu — elle l'était, c'est le dessin
+                         qui mentait.
+
+                         POURQUOI ÇA TROMPAIT : l'étape franchie était pleine, dorée, avec une ombre
+                         portée ; l'étape COURANTE était un cercle blanc en pointillé. L'œil va au
+                         plein. On lisait donc le dernier cran franchi comme l'état actuel, ce qui
+                         décale d'un cran toute la lecture du rail.
+
+                         LA HIÉRARCHIE EST INVERSÉE : le courant prend le plein et l'anneau, le
+                         franchi devient un simple jeton discret avec sa coche. On lit d'abord où on
+                         est, ensuite d'où on vient — c'est l'ordre dans lequel on a besoin de
+                         l'information. */
+                      courante
                       ? {
-                          width: 34,
-                          height: 34,
+                          width: 38,
+                          height: 38,
                           background: DEGRADE_OR,
                           color: '#fff',
-                          boxShadow: '0 3px 10px rgba(176,118,60,.32), inset 0 -2px 5px rgba(0,0,0,.14)',
+                          boxShadow: '0 0 0 6px rgba(207,154,94,.18), 0 5px 14px rgba(176,118,60,.4), inset 0 -2px 5px rgba(0,0,0,.14)',
                         }
-                      : courante
-                        ? { width: 34, height: 34, background: '#fff', border: '2px dashed #cf9a5e', color: '#cf9a5e' }
+                      : faite
+                        ? { width: 30, height: 30, background: '#f3e8db', border: '1.5px solid #e0cdb4', color: '#a9763f' }
                         : { width: 34, height: 34, background: '#fff', border: '2px dashed #dcdad5', color: '#c9cbc6' }
                 }
               >
-                <Icone className={estDernier && finalite ? 'h-[15px] w-[15px]' : 'h-[13px] w-[13px]'} />
+                <Icone className={estDernier && finalite ? 'h-[15px] w-[15px]' : courante ? 'h-[15px] w-[15px]' : 'h-[12px] w-[12px]'} />
               </div>
             </div>,
             i < dernier ? (
@@ -230,18 +248,31 @@ export function RailCycleVie({
           return [
             <div key={`${etape.id}-lbl`} className="min-w-0 break-words pt-[7px] text-center">
               <div
-                className="text-kw-md font-extrabold tracking-[-0.01em]"
+                /* MÊME HIÉRARCHIE QUE LE CERCLE : le libellé courant est le plus lisible, le
+                   franchi s'estompe. Il était l'inverse — le franchi en noir, le courant en brun
+                   clair — ce qui redoublait la confusion du cercle plein. */
+                className={cn(
+                  'tracking-[-0.01em]',
+                  courante ? 'text-kw-lg font-extrabold' : 'text-kw-md font-bold',
+                )}
                 style={{
-                  color: faite
-                    ? estDernier && fin
-                      ? fin.couleur
-                      : '#16181d'
-                    : courante
-                      ? '#8a4b2a'
+                  color: courante
+                    ? '#8a4b2a'
+                    : faite
+                      ? estDernier && fin
+                        ? fin.couleur
+                        : '#a9763f'
                       : '#c0c2bd',
                 }}
               >
                 {estDernier && fin ? fin.libelle : etape.libelle}
+                {/* LE MOT « ACTUEL » SOUS L'ÉTAPE COURANTE. Un dessin peut se lire de travers ;
+                    un mot, non. C'est le filet de sécurité de toute cette correction. */}
+                {courante && (
+                  <span className="mt-0.5 block text-kw-micro font-bold uppercase tracking-[0.08em] text-kw-meta">
+                    actuel
+                  </span>
+                )}
               </div>
             </div>,
             i < dernier ? <div key={`${etape.id}-lbl-vide`} /> : null,
