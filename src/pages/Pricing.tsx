@@ -146,7 +146,20 @@ interface LignePricing {
 }
 
 /**
- * Les trois étapes du traitement d'une demande fournisseur. « Refusées » n'apparaît que sur demande.
+ * LES COLONNES PORTENT LES LIBELLÉS EXACTS DES STATUTS, et non un titre plus parlant.
+ *
+ * Naoëlle, 28/08/2026 : « peux-tu utiliser les termes de nos réels statuts pour ne pas s'embrouiller ».
+ * Les colonnes s'appelaient « À demander », « En attente fournisseur », « Offres reçues » alors que
+ * les statuts s'appellent « Aucun traitement », « Demande envoyée », « Demande acceptée ». Deux
+ * vocabulaires pour la même chose obligeaient à traduire de tête à chaque lecture — et c'est
+ * exactement ce que Michel a demandé de supprimer en simplifiant les statuts.
+ *
+ * ON PERD UN PEU EN CLARTÉ D'INTENTION : « Aucun traitement » dit moins que « À demander » sur ce
+ * qu'il faut faire. C'est le prix assumé d'un seul vocabulaire, et la colonne « Aucun traitement »
+ * porte de toute façon les intertitres de retard, qui disent l'urgence mieux qu'un titre.
+ *
+ * Les trois étapes du traitement d'une demande fournisseur. « Demande refusée » n'apparaît que sur
+ * demande.
  *
  * Son dossier UX en annonçait quatre, « validées » comprise ; elle a été retirée le 27/08/2026 sur
  * demande de Naoëlle. Les trois qui restent ont ceci en commun qu'elles décrivent TOUTES un état de
@@ -154,9 +167,9 @@ interface LignePricing {
  * après coup.
  */
 const COLONNES = [
-  { code: 'A_DEMANDER', libelle: 'À demander' },
-  { code: 'EN_ATTENTE', libelle: 'En attente fournisseur' },
-  { code: 'RECUE', libelle: 'Offres reçues' },
+  { code: 'A_DEMANDER', libelle: 'Aucun traitement' },
+  { code: 'EN_ATTENTE', libelle: 'Demande envoyée' },
+  { code: 'RECUE', libelle: 'Demande acceptée' },
 ] as const
 
 const euros = (v: number) => v.toLocaleString('fr-FR', { maximumFractionDigits: 0 }) + ' €'
@@ -210,7 +223,7 @@ export default function Pricing({ sansEntete }: { sansEntete?: boolean }) {
   const [avecRefusees, setAvecRefusees] = useState(false)
 
   const colonnes = avecRefusees
-    ? [...COLONNES, { code: 'REFUSEE', libelle: 'Refusées' } as const]
+    ? [...COLONNES, { code: 'REFUSEE', libelle: 'Demande refusée' } as const]
     : [...COLONNES]
 
   const tableau = useKanbanServeur<LignePricing>({
