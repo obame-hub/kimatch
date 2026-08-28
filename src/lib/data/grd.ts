@@ -1,4 +1,5 @@
 import { useMutation } from '@tanstack/react-query'
+import { authHeaderJson } from '@/lib/data/authHeader'
 
 export interface GrdGazResult {
   success: boolean
@@ -18,7 +19,7 @@ export function useGrdFetch() {
     mutationFn: async ({ pce, codePostal }: { pce: string; codePostal: string }): Promise<GrdGazResult> => {
       const res = await fetch('/api/grd/fetch-gaz', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: await authHeaderJson(),
         body: JSON.stringify({ pce, codePostal }),
       })
       const data = (await res.json()) as GrdGazResult

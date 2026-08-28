@@ -1,4 +1,5 @@
 import { useMutation } from '@tanstack/react-query'
+import { authHeaderJson } from '@/lib/data/authHeader'
 
 interface ExtractedField {
   value: string | number | null
@@ -30,7 +31,7 @@ export function useExtractDocument() {
       const fileBase64 = await fileToBase64(file)
       const res = await fetch('/api/ocr/extract-document', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: await authHeaderJson(),
         body: JSON.stringify({ fileBase64, fileName: file.name, mediaType: file.type || 'application/pdf' }),
       })
       const data = (await res.json()) as ExtractDocumentResult

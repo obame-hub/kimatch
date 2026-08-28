@@ -1,4 +1,5 @@
 import { useMutation } from '@tanstack/react-query'
+import { authHeader } from '@/lib/data/authHeader'
 
 export interface EllisphereScore {
   siren: string
@@ -12,7 +13,7 @@ export interface EllisphereScore {
 }
 
 async function fetchJson<T>(url: string): Promise<T> {
-  const res = await fetch(url)
+  const res = await fetch(url, { headers: await authHeader() })
   const data = await res.json()
   if (!res.ok) throw new Error(data.error ?? `Erreur ${res.status}`)
   return data as T

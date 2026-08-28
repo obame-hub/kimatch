@@ -1,11 +1,15 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node'
 import { fetchElecData } from './_client.js'
+import { exigerSession } from '../_auth.js'
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   if (req.method !== 'POST') {
     res.status(405).json({ error: 'Méthode non autorisée' })
     return
   }
+
+  const utilisateur = await exigerSession(req, res)
+  if (!utilisateur) return
 
   const pdlId = typeof req.body?.pdlId === 'string' ? req.body.pdlId.trim() : undefined
   if (!pdlId) {

@@ -1,5 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { supabase } from '@/lib/supabase'
+import { authHeader } from '@/lib/data/authHeader'
 
 export type SlackModule = 'compte' | 'contrat' | 'mandat'
 
@@ -43,12 +44,6 @@ export function useUpdateSlackSetting() {
       return { persisted }
     },
   })
-}
-
-async function authHeader(): Promise<Record<string, string>> {
-  const { data } = await supabase.auth.getSession()
-  const token = data.session?.access_token
-  return token ? { Authorization: `Bearer ${token}` } : {}
 }
 
 export function useSlackChannels() {

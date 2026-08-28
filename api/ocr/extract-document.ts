@@ -1,4 +1,5 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node'
+import { exigerSession } from '../_auth.js'
 
 // Client serveur pour l'extraction de contrats/mandats scannés via l'API
 // Anthropic (Claude, vision native PDF/image). Ne jamais importer ce fichier
@@ -55,6 +56,11 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     res.status(405).json({ error: 'Méthode non autorisée' })
     return
   }
+
+  // Cette fonction appelle l'API Anthropic, facturée à l'usage : sans garde, un tiers consommait
+  // le budget de KiWee en postant ses propres documents.
+  const utilisateur = await exigerSession(req, res)
+  if (!utilisateur) return
 
   const apiKey = process.env.ANTHROPIC_API_KEY
   if (!apiKey) {

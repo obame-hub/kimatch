@@ -1,4 +1,5 @@
 import { useMutation } from '@tanstack/react-query'
+import { authHeaderJson } from '@/lib/data/authHeader'
 
 export interface EnedisElecResult {
   success: boolean
@@ -30,7 +31,7 @@ export function useEnedisFetch() {
     mutationFn: async (pdlId: string): Promise<EnedisElecResult> => {
       const res = await fetch('/api/enedis/fetch-elec', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: await authHeaderJson(),
         body: JSON.stringify({ pdlId }),
       })
       const data = (await res.json()) as EnedisElecResult
