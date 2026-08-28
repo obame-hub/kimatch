@@ -1,4 +1,4 @@
-import { Fragment } from 'react'
+import { Fragment, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { ChevronRight } from 'lucide-react'
 import { cn } from '@/lib/utils'
@@ -104,7 +104,7 @@ export interface CarteKanban {
   to: string
 }
 
-/** Nombre de cartes montrées par colonne. Au-delà, on dit combien restent. */
+/** Nombre de cartes montrées par colonne AVANT dépliage. Au-delà, un bouton montre le reste. */
 const CARTES_PAR_COLONNE = 8
 
 export function TableauKanban({
@@ -136,6 +136,21 @@ export function TableauKanban({
   siVide: string
 }) {
   const navigate = useNavigate()
+  /* LES COLONNES DÉPLIÉES, une par une. Naoëlle, 28/08/2026 : « quand je veux appuyer sur les autres
+     pour les voir, c'est impossible ». La mention « et 15 autres » était du texte mort : on annonçait
+     un reste sans donner le moyen de l'atteindre, ce qui est pire que de ne rien annoncer.
+
+     Le dépliage est PAR COLONNE et non global : on déplie celle qu'on travaille, et les autres
+     gardent leur hauteur — sinon le tableau devient un mur et on perd la comparaison entre colonnes,
+     qui est tout l'intérêt d'un kanban. */
+  const [depliees, setDepliees] = useState<Set<string>>(new Set())
+  const basculer = (code: string) =>
+    setDepliees((d) => {
+      const suivant = new Set(d)
+      if (suivant.has(code)) suivant.delete(code)
+      else suivant.add(code)
+      return suivant
+    })
   const compte = (code: string) => totaux?.[code] ?? cartes[code]?.length ?? 0
   const total = colonnes.reduce((n, c) => n + compte(c.code), 0)
 
@@ -151,7 +166,8 @@ export function TableauKanban({
     <div className="flex gap-3 overflow-x-auto pb-2">
       {colonnes.map((col) => {
         const liste = cartes[col.code] ?? []
-        const montrees = liste.slice(0, CARTES_PAR_COLONNE)
+        const depliee = depliees.has(col.code)
+        const montrees = depliee ? liste : liste.slice(0, CARTES_PAR_COLONNE)
         return (
           <div
             key={col.code}
@@ -275,13 +291,59 @@ export function TableauKanban({
                 </button>
                 </Fragment>
               ))}
-              {/* On dit ce qu'on ne montre pas — une colonne coupée en silence se lit comme une
-                  colonne vidée. */}
-              {compte(col.code) > montrees.length && (
-                <p className="px-0.5 pt-0.5 text-kw-micro text-kw-faint">
-                  et {compte(col.code) - montrees.length} autre{compte(col.code) - montrees.length > 1 ? 's' : ''}
-                </p>
-              )}
+              {/* ══ VOIR LE RESTE, OU LE REPLIER ══
+                     On dit ce qu'on ne montre pas — une colonne coupée en silence se lit comme une
+                     colonne vidée — mais on donne maintenant le moyen de l'ouvrir.
+
+                     TROIS CAS, ET LE TROISIÈME EST LE PLUS IMPORTANT :
+                       · il reste des cartes chargées → un bouton les déplie ;
+                       · la colonne est dépliée → un bouton la replie ;
+                       · il reste des cartes NON CHARGÉES → on le dit sans promettre de les montrer.
+                     Le troisième évite le pire des retours : un bouton qui, une fois cliqué,
+                     n'affiche rien de plus parce que la base n'a pas envoyé la suite. */}
+              {(() => {
+                const total = compte(col.code)
+                const reste = total - montrees.length
+                if (reste <= 0 && !depliee) return null
+                const resteChargeable = liste.length - montrees.length
+
+                if (depliee) {
+                  return (
+                    <div className="pt-0.5">
+                      <button
+                        type="button"
+                        onClick={() => basculer(col.code)}
+                        className="rounded-kw-sm px-0.5 text-kw-micro font-bold text-kw-green hover:underline"
+                      >
+                        Replier
+                      </button>
+                      {reste > 0 && (
+                        <span className="ml-1.5 text-kw-micro text-kw-faint">
+                          {reste} de plus, non chargée{reste > 1 ? 's' : ''} — affinez la recherche
+                        </span>
+                      )}
+                    </div>
+                  )
+                }
+
+                return (
+                  <div className="pt-0.5">
+                    {resteChargeable > 0 ? (
+                      <button
+                        type="button"
+                        onClick={() => basculer(col.code)}
+                        className="rounded-kw-sm px-0.5 text-kw-micro font-bold text-kw-green hover:underline"
+                      >
+                        Voir les {reste} autre{reste > 1 ? 's' : ''}
+                      </button>
+                    ) : (
+                      <span className="px-0.5 text-kw-micro text-kw-faint">
+                        et {reste} autre{reste > 1 ? 's' : ''} — affinez la recherche pour les voir
+                      </span>
+                    )}
+                  </div>
+                )
+              })()}
             </div>
           </div>
         )

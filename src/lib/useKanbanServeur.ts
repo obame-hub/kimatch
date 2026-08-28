@@ -67,8 +67,22 @@ export interface ResultatColonne<T> {
   somme: number | null
 }
 
-/** Nombre de cartes demandées par colonne. Le tableau en affiche huit et annonce le reste. */
-const CARTES_PAR_COLONNE = 10
+/**
+ * NOMBRE DE CARTES DEMANDÉES PAR COLONNE.
+ *
+ * Dix suffisaient tant que « et 15 autres » n'était qu'une mention. Naoëlle, 28/08/2026 : « quand je
+ * veux appuyer sur les autres pour les voir, c'est impossible » — la mention devient un bouton, il
+ * faut donc que les cartes soient là quand on déplie.
+ *
+ * CINQUANTE, ET PAS TOUT. Une colonne peut compter des centaines de lignes ; les charger toutes
+ * ferait payer à chaque ouverture de page un volume que personne ne lira. Cinquante couvre le travail
+ * réel d'une colonne — la plus chargée du Pricing en compte 26 — et au-delà, la recherche est le bon
+ * outil, pas le défilement.
+ *
+ * Le total annoncé reste le VRAI total, rendu par `count: exact` : la colonne ne mentira jamais sur
+ * ce qu'elle contient, même si elle n'en montre qu'une partie.
+ */
+const CARTES_PAR_COLONNE = 50
 
 export function useKanbanServeur<T>(options: {
   vue: string
