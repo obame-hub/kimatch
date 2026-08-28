@@ -276,8 +276,12 @@ function OngletPistes({ pistes, signaler }: { pistes: Piste[]; signaler: (m: str
             Et les actions que portait la carte de liste — cocher, convertir, joindre un fichier —
             vivent désormais dans le panneau qui s'ouvre au clic sur une carte. */}
       </ListToolbar>
-        /* LE TABLEAU IGNORE LE FILTRE « OUVERTES SEULEMENT » : sa troisième colonne EST celle des
-           converties, et la masquer laisserait une colonne toujours vide sans dire pourquoi. */
+        {/* LE TABLEAU IGNORE LE FILTRE « OUVERTES SEULEMENT » : sa troisième colonne EST celle des
+            converties, et la masquer laisserait une colonne toujours vide sans dire pourquoi.
+
+            Les accolades manquaient. En JSX, un commentaire de style C posé nu dans le rendu n'est
+            pas un commentaire : c'est du texte. Celui-ci s'affichait donc en production, entre la
+            barre de recherche et le tableau — trouvé par l'audit du 28/08/2026 en ouvrant l'écran. */}
         <TableauKanban
           colonnes={COLONNES_PISTE.map((c) => ({ code: c.code, libelle: c.libelle }))}
           cartes={Object.fromEntries(
