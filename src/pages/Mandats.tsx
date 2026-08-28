@@ -17,6 +17,8 @@ import { useComptes } from '@/lib/data/comptes'
 import { useReferenceTable } from '@/lib/data/referenceTables'
 import { FALLBACK_STATUTS_MANDATS, STATUT_MANDAT_TONE } from '@/lib/referenceFallbacks'
 import { ListToolbar } from '@/components/ui/list-toolbar'
+import { usePerimetre, BasculePerimetre } from '@/lib/perimetre'
+import { useMonProfil } from '@/lib/data/roles'
 
 /**
  * Création d'un mandat depuis la liste : le compte n'est pas connu, on le demande, puis on passe la
@@ -139,11 +141,36 @@ export default function Mandats({ sansEntete }: { sansEntete?: boolean }) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
+  /**
+
+   * « LES MIENS » PAR DEFAUT, « TOUS » D'UN CLIC. Ce n'est pas une restriction : la base
+
+   * laisse tout passer, et c'est la decision du 14/08 qu'on ne defait pas. Seul l'affichage
+
+   * par defaut change, parce qu'on travaille d'abord son propre portefeuille — et il se
+
+   * defait d'un clic quand on reprend celui d'un collegue absent.
+
+   *
+
+   * Le filtre part en base : le total du pied de liste suit, sans quoi il annoncerait un
+
+   * nombre que la liste ne montre pas.
+
+   */
+
+  const { data: monProfil } = useMonProfil()
+
+  const { perimetre, setPerimetre } = usePerimetre('mandats')
+
+  const filtreProprietaire = perimetre === 'moi' && monProfil?.id ? monProfil.id : null
+
+
   const liste = useListeServeur<LigneMandat>({
     vue: 'v_mandats_liste',
     colonnesRecherche: ['compte_nom', 'id_salesforce', 'reference'],
     triParDefaut: 'compte_nom',
-    filtres: { statut: statutFilter || null },
+    filtres: { proprietaire_id: filtreProprietaire, statut: statutFilter || null },
   })
 
   return (
@@ -157,6 +184,7 @@ export default function Mandats({ sansEntete }: { sansEntete?: boolean }) {
         />
 
         <ListToolbar query={liste.query} onQueryChange={liste.setQuery} placeholder="Rechercher un compte…" count={liste.total}>
+          <BasculePerimetre valeur={perimetre} onChange={setPerimetre} libelleMien="Mes mandats" libelleTous="Tous les mandats" />
           <Select value={statutFilter} onChange={(e) => setStatutFilter(e.target.value)} className="w-auto">
             <option value="">Tous les statuts</option>
             {statuts.map((s) => <option key={s.id} value={s.code}>{s.libelle}</option>)}

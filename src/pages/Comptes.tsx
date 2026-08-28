@@ -27,6 +27,8 @@ import { SortableTh } from '@/components/ui/sortable-th'
 import { useListeServeur } from '@/lib/useListeServeur'
 import { useState } from 'react'
 import type { TypeCompte } from '@/types/domain'
+import { usePerimetre, BasculePerimetre } from '@/lib/perimetre'
+import { useMonProfil } from '@/lib/data/roles'
 
 const typeMeta: Record<TypeCompte, { label: string; tone: 'kiwi' | 'blue' | 'amber' | 'neutral' }> = {
   client: { label: 'Consommateur', tone: 'kiwi' },
@@ -54,13 +56,38 @@ export default function Comptes({ sansEntete }: { sansEntete?: boolean }) {
   const navigate = useNavigate()
   const [typeFilter, setTypeFilter] = useState('')
 
+  /**
+
+   * « LES MIENS » PAR DEFAUT, « TOUS » D'UN CLIC. Ce n'est pas une restriction : la base
+
+   * laisse tout passer, et c'est la decision du 14/08 qu'on ne defait pas. Seul l'affichage
+
+   * par defaut change, parce qu'on travaille d'abord son propre portefeuille — et il se
+
+   * defait d'un clic quand on reprend celui d'un collegue absent.
+
+   *
+
+   * Le filtre part en base : le total du pied de liste suit, sans quoi il annoncerait un
+
+   * nombre que la liste ne montre pas.
+
+   */
+
+  const { data: monProfil } = useMonProfil()
+
+  const { perimetre, setPerimetre } = usePerimetre('comptes')
+
+  const filtreProprietaire = perimetre === 'moi' && monProfil?.id ? monProfil.id : null
+
+
   const liste = useListeServeur<LigneCompte>({
     vue: 'v_comptes_liste',
     colonnesRecherche: ['nom', 'segment', 'ville'],
     triParDefaut: 'nom',
     // Le filtre par type descend en base plutôt que de porter sur les lignes déjà chargées :
     // sans cela, filtrer « Fournisseur » n'aurait montré que ceux présents dans la tranche.
-    filtres: { type_compte: typeFilter || null },
+    filtres: { proprietaire_id: filtreProprietaire, type_compte: typeFilter || null },
   })
 
   return (
@@ -78,6 +105,7 @@ export default function Comptes({ sansEntete }: { sansEntete?: boolean }) {
         />
 
         <ListToolbar query={liste.query} onQueryChange={liste.setQuery} placeholder="Rechercher un compte, une ville…" count={liste.total}>
+          <BasculePerimetre valeur={perimetre} onChange={setPerimetre} libelleMien="Mes comptes" libelleTous="Tous les comptes" />
           <Select value={typeFilter} onChange={(e) => setTypeFilter(e.target.value)} className="w-auto">
             <option value="">Tous les types</option>
             {(Object.keys(typeMeta) as TypeCompte[]).map((t) => (

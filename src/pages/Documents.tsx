@@ -22,6 +22,8 @@ import { useReferenceTable } from '@/lib/data/referenceTables'
 import { FALLBACK_TYPES_DOCUMENTS } from '@/lib/referenceFallbacks'
 import { entityRoute } from '@/lib/entityRoute'
 import { ListToolbar } from '@/components/ui/list-toolbar'
+import { usePerimetre, BasculePerimetre } from '@/lib/perimetre'
+import { useMonProfil } from '@/lib/data/roles'
 
 const ENTITE_TYPE_OPTIONS = [
   { value: 'site', label: 'Site' },
@@ -159,8 +161,34 @@ export default function Documents({ sansEntete }: { sansEntete?: boolean }) {
   const navigate = useNavigate()
   const [showCreate, setShowCreate] = useState(false)
 
+  /**
+
+   * « LES MIENS » PAR DEFAUT, « TOUS » D'UN CLIC. Ce n'est pas une restriction : la base
+
+   * laisse tout passer, et c'est la decision du 14/08 qu'on ne defait pas. Seul l'affichage
+
+   * par defaut change, parce qu'on travaille d'abord son propre portefeuille — et il se
+
+   * defait d'un clic quand on reprend celui d'un collegue absent.
+
+   *
+
+   * Le filtre part en base : le total du pied de liste suit, sans quoi il annoncerait un
+
+   * nombre que la liste ne montre pas.
+
+   */
+
+  const { data: monProfil } = useMonProfil()
+
+  const { perimetre, setPerimetre } = usePerimetre('documents')
+
+  const filtreProprietaire = perimetre === 'moi' && monProfil?.id ? monProfil.id : null
+
+
   const liste = useListeServeur<LigneDocument>({
     vue: 'v_documents_liste',
+    filtres: { proprietaire_id: filtreProprietaire },
     colonnesRecherche: ['nom', 'objet_lie', 'auteur', 'type_document'],
     triParDefaut: 'date_creation',
     sensParDefaut: 'desc',
@@ -177,6 +205,7 @@ export default function Documents({ sansEntete }: { sansEntete?: boolean }) {
         />
 
         <ListToolbar query={liste.query} onQueryChange={liste.setQuery} placeholder="Rechercher un document, un auteur…" count={liste.total}>
+          <BasculePerimetre valeur={perimetre} onChange={setPerimetre} libelleMien="Mes documents" libelleTous="Tous les documents" />
           <Select value={liste.tri} onChange={(e) => liste.trierPar(e.target.value)} className="w-auto">
             <option value="date_creation">Trier par date</option>
             <option value="nom">Trier par nom</option>
