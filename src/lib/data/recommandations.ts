@@ -57,6 +57,8 @@ interface RawRecommandation {
   origine: { libelle: string } | null
   type_energie?: { code: string } | null
   responsable: { prenom: string; nom: string } | null
+  /** Le propriétaire du dossier — c'est lui, et pas le responsable, que la reprise a rempli. */
+  proprietaire: { prenom: string; nom: string } | null
   compte: { id: string; nom: string } | null
   contact_signataire: { prenom: string; nom: string; email: string | null; telephone: string | null } | null
 }
