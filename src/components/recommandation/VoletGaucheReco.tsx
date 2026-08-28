@@ -491,8 +491,12 @@ export function VoletGaucheReco({
                         {/* Le LIBELLÉ du statut, pas son code : la frise affichait « REMPLACEE »,
                             tel quel, sans accent — c'est la clé technique et non un mot français. */}
                         {v.version_actuelle
-                          ? 'Active'
-                          : statutsVersions.find((st) => st.code === v.statut)?.libelle || 'Remplacée'}
+                          ? 'Actuelle'
+                          /* PLUS DE REPLI SUR « REMPLACÉE » : ce statut n'existe plus depuis le
+                             28/08/2026. Une version qui a cédé la place est Clôturée, résultat
+                             Expirée. Faute de libellé connu on montre le code brut — voir un code
+                             est laid, voir un statut inventé est faux. */
+                          : statutsVersions.find((st) => st.code === v.statut)?.libelle || v.statut}
                       </span>
                     </span>
                     <span className="font-mono text-kw-tiny text-kw-faint">

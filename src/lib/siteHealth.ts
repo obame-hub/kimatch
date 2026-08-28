@@ -8,7 +8,9 @@ export interface SiteHealth {
 }
 
 const SIGNAUX_FERMES = new Set(['CONVERTI', 'ECARTE'])
-const VERSIONS_INACTIVES = new Set(['REFUSEE', 'EXPIREE', 'ARCHIVEE', 'REMPLACEE'])
+// Une version morte n'a plus qu'un statut : « Clôturée » (Michel, 28/08/2026). Les anciens codes
+// restent listés pour les données non encore migrées et l'historique.
+const VERSIONS_INACTIVES = new Set(['CLOTUREE', 'REFUSEE', 'EXPIREE', 'ARCHIVEE', 'REMPLACEE'])
 const SEUIL_ECHEANCE_JOURS = 90
 
 // Malus par signal ouvert, pondéré par sa gravité individuelle (colonne signaux.gravite,

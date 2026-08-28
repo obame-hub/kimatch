@@ -309,7 +309,7 @@ export function CotationWizard({
       <WizardConnectionGate required={['crm', 'gmail']} feature="création de version">
         {estActualisation && (
           <p className="rounded-kw-lg border border-[#f0e4cd] bg-kw-amber-light px-3 py-2 text-xs text-kw-label">
-            La version en cours passera au statut <b>Remplacée</b> : la nouvelle devient la version
+            La version en cours passera au statut <b>Clôturée</b>, résultat <b>Expirée</b> : la nouvelle devient la version
             active du dossier.
           </p>
         )}

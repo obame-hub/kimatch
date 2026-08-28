@@ -291,7 +291,10 @@ export function ComparatifVersions({
                       active ? 'bg-[#8a4b2a] text-white' : 'bg-kw-muted text-kw-faint',
                     )}
                   >
-                    {active ? 'ACTIVE' : 'REMPLACÉE'}
+                    {/* « ACTUELLE » et non « ACTIVE » : c'est la version courante, et « Active »
+                        est le statut du DOSSIER. Et « REMPLACÉE » n'existe plus — une version qui a
+                        cédé la place est Clôturée, ce que dit son propre statut. */}
+                    {active ? 'ACTUELLE' : 'PRÉCÉDENTE'}
                   </span>
                 </button>
               )

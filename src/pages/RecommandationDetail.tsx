@@ -619,9 +619,15 @@ export default function RecommandationDetail() {
                     ? `${statut} · ${FINALITES_RECOMMANDATION[finalite].libelle.toUpperCase()}`
                     : statut
                 }
-                /* Hors clôture, le badge dit aussi QUELLE version est active : c'est sur elle qu'on
-                   travaille, et c'est l'information que Michel cherche en ouvrant la fiche. */
-                return `${statut}${versionActive ? ` · ${versionActive.nom || `V${versionActive.numero_version ?? ''}`} ACTIVE` : ''}`
+                /* Hors clôture, le badge dit aussi SUR QUELLE VERSION on travaille — c'est
+                   l'information que Michel cherche en ouvrant la fiche.
+
+                   SANS LE MOT « ACTIVE » (Naoëlle, 28/08/2026 : « ça embrouille, il n'y a aucun
+                   statut Active sur les versions »). Elle a raison : « active » désigne la version
+                   COURANTE, pas son statut — et le mot entrait en collision avec « Active », qui est
+                   le statut du DOSSIER, écrit juste avant dans le même badge. « ACTIVE · V2 ACTIVE »
+                   employait donc le même mot pour deux notions différentes. */
+                return `${statut}${versionActive ? ` · VERSION ${versionActive.numero_version ?? ''}`.trimEnd() : ''}`
               })()}
             </span>
             {reco.type_energie && (
@@ -1027,7 +1033,8 @@ export default function RecommandationDetail() {
                       <>
                         La création d'une nouvelle version passe automatiquement{' '}
                         <b className="text-kw-ink">{versionActive.nom || `V${versionActive.numero_version ?? ''}`}</b> au
-                        statut <b className="text-kw-label">Remplacée</b>.
+                        statut <b className="text-kw-label">Clôturée</b>, avec le résultat
+                        <b className="text-kw-label"> Expirée</b>.
                       </>
                     ) : (
                       <>Première version du dossier : durées par PDL, type de prix, puis fournisseurs à consulter.</>
