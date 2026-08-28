@@ -103,7 +103,7 @@ export function FluxActualite({ tableNom, ligneId, dateCreation, interactions = 
           <span className="font-semibold">{valeurLisible(e.nouvelle_valeur)}</span>
         </>
       ),
-      auteur: e.modifie_par_nom ?? 'Kimatch',
+      auteur: e.auteur,
     })),
     ...interactions.map((i) => ({
       id: i.id,

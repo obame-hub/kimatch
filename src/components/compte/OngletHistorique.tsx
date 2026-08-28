@@ -59,9 +59,9 @@ export function OngletHistorique({ entrees }: { entrees: HistoriqueEntry[] | und
             </span>
             <span className="hidden items-center gap-[7px] md:flex">
               <span className="inline-flex h-[22px] w-[22px] flex-none items-center justify-center rounded-full bg-[#e4ded2] text-[8.5px] font-bold text-[#6b6355]">
-                {initiales(h.modifie_par_nom ?? '?')}
+                {initiales(h.auteur)}
               </span>
-              <span className="truncate text-[11.5px] font-semibold">{h.modifie_par_nom ?? 'Auteur inconnu'}</span>
+              <span className="truncate text-[11.5px] font-semibold">{h.auteur}</span>
             </span>
             <span className="hidden md:block">
               <span className="rounded-[5px] bg-[#f2f1ee] px-[7px] py-[3px] font-mono text-[10px] font-semibold text-[#5c5f66]">

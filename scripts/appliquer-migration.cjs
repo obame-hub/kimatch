@@ -138,6 +138,19 @@ async function main() {
 
   const debut = process.hrtime.bigint()
   try {
+    // SIGNER L'HISTORIQUE. Le declencheur d'audit ecrit `auth.uid()`, qui vaut NULL ici : une
+    // migration n'est personne. Resultat, 122 030 des 122 424 lignes d'historique n'avaient aucun
+    // auteur et l'ecran affichait « Auteur inconnu » — ce qui se lit comme un bug alors que c'est
+    // un fait. Ce reglage de session dit ce qui ecrit, et le declencheur le recopie.
+    //
+    // Pas `application_name` : le pooler de Supabase le remplace par « Supavisor », et tout
+    // l'historique se serait retrouve signe d'un nom faux. Un reglage a nous, personne ne l'ecrase.
+    // `set_config` et non `SET` : la commande SET n'accepte pas de parametre, elle veut un litteral.
+    // Passer le nom du fichier par concatenation aurait marche et aurait ete une mauvaise habitude.
+    await client.query('select set_config($1, $2, false)', [
+      'kimatch.origine',
+      'migration ' + path.basename(fichier, '.sql'),
+    ])
     await client.query(sql)
     console.log(
       'resultat  : APPLIQUEE en ' + Math.round(Number(process.hrtime.bigint() - debut) / 1e6) + ' ms',

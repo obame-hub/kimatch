@@ -25,7 +25,7 @@ export function HistoriqueDiscret({ tableNom, ligneId }: { tableNom: string; lig
           ) : (
             entries.map((h) => (
               <p key={h.id} className="text-navy-400">
-                <span className="font-medium text-navy-500">{h.modifie_par_nom ?? 'Quelqu\'un'}</span>
+                <span className="font-medium text-navy-500">{h.auteur}</span>
                 {' a modifié '}
                 <span className="font-medium text-navy-500">{h.champ}</span>
                 {' : '}
