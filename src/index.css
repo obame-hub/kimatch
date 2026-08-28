@@ -21,6 +21,57 @@
     --color-navy-800: 22 24 29;
     --color-navy-900: 16 18 22;
     --color-navy-950: 10 11 13;
+
+    /* ── Les neutres du handoff de William (namespace kw.*) ────────────────────────────────
+     *
+     * MÊME MÉCANIQUE QUE navy-*, ET POUR LA MÊME RAISON — sauf qu'ils y ont échappé jusqu'ici.
+     * C'était le défaut le plus visible de l'audit du 28/08/2026 : `text-kw-ink` restait figé à
+     * #16181d en mode sombre pendant que le `bg-white` de la carte, lui, basculait vers CETTE
+     * MÊME VALEUR. Contraste mesuré : 1,00 — du noir sur du noir. 54 textes devenaient invisibles
+     * sur Pricing, 38 sur Recommandations, et le tableau de bord perdait son titre et ses quatre
+     * indicateurs.
+     *
+     * Les valeurs claires ci-dessous sont RIGOUREUSEMENT celles d'avant, converties en RGB
+     * espace-séparé : le mode clair ne bouge pas d'un pixel. Seule la colonne sombre est nouvelle,
+     * et elle s'aligne sur l'échelle navy déjà réglée plutôt que d'inventer une seconde palette. */
+    --kw-bg: 246 246 244;
+    --kw-surface: 255 255 255;
+    --kw-subtle: 251 251 250;
+    --kw-muted: 240 239 236;
+    --kw-sunken: 244 243 239;
+    --kw-bloc: 249 249 247;
+    --kw-border: 231 230 226;
+    --kw-border-strong: 224 223 219;
+    --kw-border-subtle: 240 239 236;
+    --kw-border-faint: 245 244 241;
+    --kw-ink: 22 24 29;
+    --kw-body: 63 66 74;
+    --kw-label: 92 95 102;
+    --kw-meta: 131 134 143;
+    --kw-faint: 163 165 160;
+    --kw-ghost: 192 194 189;
+
+    /* Les accents et leurs aplats clairs. Ils basculent pour la même raison que les neutres : un
+     * aplat resté clair en mode sombre porterait un texte devenu clair lui aussi. Les valeurs
+     * claires sont celles d'avant, à l'octet près. */
+    --kw-green: 13 122 95;
+    --kw-green-dark: 9 92 71;
+    --kw-green-light: 234 244 240;
+    --kw-green-border: 211 229 222;
+    --kw-green-tint: 244 250 247;
+    --kw-amber: 181 122 36;
+    --kw-amber-dark: 138 100 32;
+    --kw-amber-light: 253 249 240;
+    --kw-amber-border: 240 228 205;
+    --kw-red: 194 69 45;
+    --kw-red-light: 251 234 229;
+    --kw-blue: 59 95 138;
+    --kw-blue-light: 238 240 244;
+    --kw-gas: 74 127 165;
+    --kw-gas-light: 233 241 247;
+    --kw-purple: 124 91 176;
+    --kw-gold: 200 148 10;
+    --kw-gold-light: 253 241 200;
   }
 
   /* Palette sombre dessinée à la main (pas un simple miroir 50↔950) pour garantir un
@@ -39,6 +90,49 @@
     --color-navy-800: 236 238 234; /* titres */
     --color-navy-900: 246 246 244; /* titres forts */
     --color-navy-950: 250 250 249;
+
+    /* Les mêmes neutres kw.*, côté sombre. L'ordre suit celui du clair pour qu'on puisse lire les
+     * deux colonnes en vis-à-vis. `surface` vaut #16181d, exactement ce que `.dark .bg-white`
+     * impose plus bas : les cartes gardent donc le même fond, qu'on écrive bg-white ou
+     * bg-kw-surface — c'est justement l'écart entre les deux qui rendait le texte invisible. */
+    --kw-bg: 10 11 13; /* fond de page */
+    --kw-surface: 22 24 29; /* carte — identique à `.dark .bg-white` */
+    --kw-subtle: 30 33 38;
+    --kw-muted: 42 45 51;
+    --kw-sunken: 30 33 38;
+    --kw-bloc: 26 29 34;
+    --kw-border: 42 45 51;
+    --kw-border-strong: 58 61 68;
+    --kw-border-subtle: 36 39 44;
+    --kw-border-faint: 30 33 38;
+    --kw-ink: 236 238 234; /* titres */
+    --kw-body: 201 203 198; /* texte de corps */
+    --kw-label: 139 142 150;
+    --kw-meta: 139 142 150;
+    --kw-faint: 107 110 118;
+    --kw-ghost: 92 95 102;
+
+    /* Côté sombre, l'aplat devient une teinte foncée de la même couleur et l'accent s'éclaircit :
+     * c'est ce qui garde une pastille lisible sans qu'elle troue l'écran. Les teintes viennent de
+     * l'échelle de marque (kiwi-300, amber-400, sky-300…), pas d'un éclaircissement mécanique. */
+    --kw-green: 95 174 143;
+    --kw-green-dark: 168 212 194;
+    --kw-green-light: 20 37 30;
+    --kw-green-border: 30 58 46;
+    --kw-green-tint: 16 29 23;
+    --kw-amber: 209 163 85;
+    --kw-amber-dark: 224 198 144;
+    --kw-amber-light: 42 35 23;
+    --kw-amber-border: 69 58 34;
+    --kw-red: 224 135 116;
+    --kw-red-light: 45 26 22;
+    --kw-blue: 140 182 206;
+    --kw-blue-light: 26 32 40;
+    --kw-gas: 138 182 209;
+    --kw-gas-light: 22 35 44;
+    --kw-purple: 177 153 214;
+    --kw-gold: 224 184 64;
+    --kw-gold-light: 46 40 18;
   }
 
   html,
