@@ -25,3 +25,7 @@ dist-ssr
 
 .vercel
 .env*
+# ...sauf le modele, qui ne contient que des noms de variables et aucune valeur.
+# Sans cette exception il etait ignore lui aussi, donc absent du depot : un clone neuf n avait
+# aucun modele a remplir. C est ce qui l a laisse deriver a 3 variables sur 28.
+!.env.example
