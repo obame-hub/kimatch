@@ -46,7 +46,7 @@ import {
   useUpdateVersionPartiel,
   useCloturerRecommandation,
   useRouvrirRecommandation,
-  useAvancerEtapeRecommandation,
+  useMajStatutVersion,
   useDeleteRecommandation,
   useDeleteVersion,
   useChangerStatutConsultation,
@@ -147,7 +147,7 @@ export default function RecommandationDetail() {
   const updateVersion = useUpdateVersionPartiel()
   const cloturerReco = useCloturerRecommandation()
   const rouvrirReco = useRouvrirRecommandation()
-  const avancerEtape = useAvancerEtapeRecommandation()
+  const majStatutVersion = useMajStatutVersion()
   const deleteRecommandation = useDeleteRecommandation()
   const deleteVersion = useDeleteVersion()
   const changerStatutConsultation = useChangerStatutConsultation()
@@ -289,7 +289,16 @@ export default function RecommandationDetail() {
     if (commandeDabord && AFFICHER_COMMANDE_CLIENT) setOnglet('cmd')
   }, [commandeDabord])
 
-  const etapeSuivante = reco ? etapeSuivanteDuRail(etapes, reco.etape) : null
+  /* ══ LE RAIL SUIT LA VERSION, PLUS LE DOSSIER ══
+     Michel, 28/08/2026 : « sur quoi on travaille, c'est les versions ». Les cinq paliers de dossier
+     ont disparu — il n'en reste que quatre statuts, dont trois sont déduits et non franchis. Le rail
+     avance donc la VERSION : en construction → disponible → en décision.
+
+     Sans ce changement le rail affichait « Étape "Active" : ancien cycle de vie, hors rail », parce
+     qu'on lui donnait les statuts de version et le statut du dossier. */
+  const etapeSuivante = versionAffichee
+    ? etapeSuivanteDuRail(statutsVersions, versionAffichee.statut)
+    : null
   const clotureValide = Boolean(
     finaliteChoisie
     && motifBrouillon.trim()
@@ -350,10 +359,16 @@ export default function RecommandationDetail() {
   }
 
   async function avancer() {
-    if (!reco || !etapeSuivante) return
+    if (!versionAffichee || !etapeSuivante) return
+    // Le statut du DOSSIER n'est pas touché : un déclencheur en base le recalcule dès que la version
+    // change (migration 20260828120000). L'écrire ici en plus serait dire deux fois la même chose,
+    // et c'est le désordre que Michel a demandé de supprimer.
     try {
-      await avancerEtape.mutateAsync({ id: reco.id, etapeSuivanteId: etapeSuivante.id })
-      signaler(`→ Étape suivante : ${etapeSuivante.libelle}`)
+      await majStatutVersion.mutateAsync({
+        versionId: versionAffichee.id,
+        statutVersionId: etapeSuivante.id,
+      })
+      signaler(`→ Version ${versionAffichee.numero_version ?? ''} : ${etapeSuivante.libelle}`)
     } catch (e) {
       signaler(`Erreur : ${e instanceof Error ? e.message : String(e)}`)
     }
@@ -746,8 +761,8 @@ export default function RecommandationDetail() {
           {onglet === 'reco' && (
             <div className="flex animate-kw-fade-slide flex-col gap-3.5">
               <RailCycleVie
-                etapes={etapes}
-                codeCourant={reco.etape}
+                etapes={statutsVersions}
+                codeCourant={versionAffichee?.statut ?? ''}
                 finalite={estClose ? finalite : null}
                 peutModifier={canManage}
                 clotureOuverte={clotureOuverte}
@@ -758,7 +773,7 @@ export default function RecommandationDetail() {
                 }}
                 onAvancer={avancer}
                 onRouvrir={rouvrir}
-                avanceEnCours={avancerEtape.isPending}
+                avanceEnCours={majStatutVersion.isPending}
               >
                 {clotureOuverte && !estClose && (
                   <div className="mt-2.5 animate-kw-fade-slide rounded-kw-xl border-[1.5px] border-[#dcc39c] bg-kw-amber-light px-[13px] py-[11px]">

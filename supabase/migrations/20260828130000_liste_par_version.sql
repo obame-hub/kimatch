@@ -71,7 +71,16 @@ select r.id,
     --
     -- « À réactiver » sera la colonne la plus chargée au démarrage, et ce n'est pas une anomalie :
     -- 1 264 versions sont expirées en base. C'est l'état réel du portefeuille.
+    -- LE DOSSIER CLOS PASSE AVANT LA VERSION, et c'est le tableau de Michel qui le dit :
+    --
+    --   Décision terminée   Recommandation = À réactiver   Version = Clôturée
+    --   Dossier terminé     Recommandation = Clôturée      Version = Clôturée
+    --
+    -- Les deux lignes ont la même version : ce qui les sépare est l'état du DOSSIER. Ma première
+    -- version de cette colonne ne regardait que la version — les 1 382 dossiers clos tombaient donc
+    -- tous dans « À réactiver », qui annonçait 1 468 au lieu de 86.
     case
+      when e.code = 'CLOTUREE' then 'CLOTUREE'
       when d.statut_version is null then 'BROUILLON'
       when d.statut_version in ('EN_CONSTRUCTION', 'DISPONIBLE', 'EN_DECISION') then d.statut_version
       else 'A_REACTIVER'
