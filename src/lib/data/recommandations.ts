@@ -220,7 +220,7 @@ async function fetchRecommandations(
       // `type_energie_id` viennent d'etre ajoutees par migration et peuvent ne pas encore
       // exister en prod au moment du deploiement -- un select nomme sur une colonne absente
       // ferait echouer la requete (400) pour TOUTES les recommandations.
-      '*, etape:etapes_recommandation(code), origine:types_origines(libelle), type_energie:types_energies(code), responsable:profils!recommandations_responsable_profil_id_fkey(prenom, nom), compte:comptes!recommandations_compte_id_fkey(id, nom), contact_signataire:contacts!recommandations_contact_signataire_id_fkey(prenom, nom, email, telephone)',
+      '*, etape:etapes_recommandation(code), origine:types_origines(libelle), type_energie:types_energies(code), responsable:profils!recommandations_responsable_profil_id_fkey(prenom, nom), proprietaire:profils!recommandations_proprietaire_id_fkey(prenom, nom), compte:comptes!recommandations_compte_id_fkey(id, nom), contact_signataire:contacts!recommandations_contact_signataire_id_fkey(prenom, nom, email, telephone)',
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       (q: any) => {
         if (recoId) return q.eq('id', recoId)
@@ -723,7 +723,16 @@ async function fetchRecommandations(
       compte_nom: r.compte?.nom ?? '',
       sites: sitesParReco.get(r.id) ?? [],
       etape: r.etape?.code ?? '',
-      conseiller: r.responsable ? `${r.responsable.prenom} ${r.responsable.nom}` : '',
+      // LE RESPONSABLE S'IL EXISTE, LE PROPRIÉTAIRE SINON. `responsable_profil_id` n'est renseigné
+      // que sur DIX des 1 713 dossiers : la reprise Salesforce a rempli le propriétaire, jamais le
+      // responsable. Lire le seul responsable laissait la colonne « Conseiller » vide 1 703 fois sur
+      // 1 713, et la recherche par conseiller ne trouvait rien. Même règle que la vue
+      // `v_recommandations_liste`, qui sert l'autre chemin de chargement : les deux doivent rester
+      // d'accord, sinon la même ligne porte deux noms selon l'écran qui l'affiche.
+      conseiller: (() => {
+        const personne = r.responsable ?? r.proprietaire
+        return personne ? `${personne.prenom} ${personne.nom}` : ''
+      })(),
       origine: r.origine?.libelle,
       description: r.description ?? '',
       priorite: r.priorite,
