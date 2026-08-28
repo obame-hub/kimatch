@@ -5,9 +5,10 @@ import { Topbar } from '@/components/layout/Topbar'
 import { PageHeader } from '@/components/ui/page-header'
 import { Button } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
-import { useIsAdmin, useMonProfil } from '@/lib/data/roles'
+import { useMonProfil } from '@/lib/data/roles'
 import { RESULTAT_VERSION_LIBELLE } from '@/lib/referenceFallbacks'
 import { ListToolbar } from '@/components/ui/list-toolbar'
+import { usePerimetre, BasculePerimetre } from '@/lib/perimetre'
 import { useKanbanServeur } from '@/lib/useKanbanServeur'
 import { TableauKanban } from '@/components/dashboard/TableauKanban'
 import { CreateRecommandationDialog } from '@/components/opportunite/CreationRecommandationWizard'
@@ -97,9 +98,23 @@ export default function Recommandations() {
    * le rôle n'est pas connu, on ne filtre pas : afficher trop brièvement est moins trompeur que de
    * montrer une liste vide qu'on prendrait pour « je n'ai rien à traiter ».
    */
-  const estAdmin = useIsAdmin()
   const { data: monProfil } = useMonProfil()
-  const filtreProprietaire = !estAdmin && monProfil?.id ? monProfil.id : null
+
+  /**
+   * LE PERIMETRE EST DESORMAIS UN CHOIX, plus une consequence du role.
+   *
+   * Avant : `!estAdmin && monProfil?.id ? monProfil.id : null`. Un conseiller ne voyait QUE ses
+   * dossiers sans aucun moyen d'en sortir — or « des fois des commerciaux partent en vacances et
+   * les autres s'occupent de leurs dossiers » (Naoelle, 28/08/2026) —, et un administrateur voyait
+   * TOUJOURS tout, sans moyen de se concentrer sur les siens.
+   *
+   * Maintenant : « Mes dossiers » par defaut pour tout le monde, administrateurs compris, et la
+   * bascule « Tous » a cote. Le filtre part en base (useKanbanServeur), donc les colonnes et la
+   * somme de marge suivent — sans quoi le bandeau annoncerait une marge que le tableau ne montre
+   * pas.
+   */
+  const { perimetre, setPerimetre } = usePerimetre('recommandations')
+  const filtreProprietaire = perimetre === 'moi' && monProfil?.id ? monProfil.id : null
   const navigate = useNavigate()
   const [showCreate, setShowCreate] = useState(false)
 
@@ -179,6 +194,12 @@ export default function Recommandations() {
         />
 
         <ListToolbar query={recherche} onQueryChange={setRecherche} placeholder="Rechercher une recommandation, un compte…" count={nbDossiers}>
+          <BasculePerimetre
+            valeur={perimetre}
+            onChange={setPerimetre}
+            libelleMien="Mes dossiers"
+            libelleTous="Tous les dossiers"
+          />
           {/* PLUS DE BASCULEMENT, PLUS DE FILTRE PAR ÉTAPE, PLUS DE TRI. Naoëlle, 25/08/2026 :
               « garde juste la vue kanban pour partout, enlève la vue de liste ». Le filtre par étape
               et le tri appartenaient à la liste : les étapes SONT les colonnes du tableau, et une
