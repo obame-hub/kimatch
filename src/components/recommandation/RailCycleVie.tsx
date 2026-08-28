@@ -21,7 +21,18 @@ import type { ReferenceRow } from '@/lib/data/referenceTables'
 // LES CINQ PALIERS VIVANTS de Michel : les trois issues terminales (Acceptée, Refusée,
 // Abandonnée) ne sont pas des crans du rail, c'est la finalité qui les porte — comme avant, où
 // « Clôture » prenait la couleur de son issue.
-const CODES_RAIL = ['BROUILLON', 'CONSULTATION', 'OFFRES_RECUES', 'A_PRESENTER', 'PRESENTEE'] as const
+/**
+ * LE RAIL SUIT LA VERSION, PLUS LE DOSSIER (Michel, 28/08/2026).
+ *
+ * « Sur quoi on travaille, c'est les versions, ce n'est pas les recommandations. » Les cinq paliers
+ * de dossier — brouillon, consultation, offres reçues, à présenter, présentée — n'existent plus : il
+ * n'en reste que quatre statuts, et trois d'entre eux ne sont pas des étapes qu'on franchit mais des
+ * états déduits. Un rail sur le dossier n'aurait donc plus rien à montrer.
+ *
+ * Les trois paliers ci-dessous sont le vrai chemin d'un travail : on construit, c'est prêt, c'est
+ * chez le client. La clôture n'y figure pas — ce n'est pas un palier de plus, c'est la sortie.
+ */
+const CODES_RAIL = ['EN_CONSTRUCTION', 'DISPONIBLE', 'EN_DECISION'] as const
 
 const ICONES_ETAPE: Record<string, LucideIcon> = {
   BROUILLON: ExternalLink,

@@ -5,9 +5,8 @@ import { Topbar } from '@/components/layout/Topbar'
 import { PageHeader } from '@/components/ui/page-header'
 import { Button } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
-import { useReferenceTable } from '@/lib/data/referenceTables'
 import { useIsAdmin, useMonProfil } from '@/lib/data/roles'
-import { FALLBACK_ETAPES_RECOMMANDATION } from '@/lib/referenceFallbacks'
+import { RESULTAT_VERSION_LIBELLE } from '@/lib/referenceFallbacks'
 import { ListToolbar } from '@/components/ui/list-toolbar'
 import { useKanbanServeur } from '@/lib/useKanbanServeur'
 import { TableauKanban } from '@/components/dashboard/TableauKanban'
@@ -28,31 +27,48 @@ interface LigneReco {
   conseiller: string
   priorite: number
   nb_versions: number
+  /** Le statut de la DERNIÈRE version, et son résultat si elle est clôturée. */
+  statut_version: string | null
+  resultat_version: string | null
+  numero_version: number | null
+  /** La colonne du tableau, calculée par la vue — voir la migration 20260828130000. */
+  colonne_travail: string
   sites: { id: string; nom: string }[]
   /** Ajoutées à la vue le 26/08/2026 pour le bandeau de la page 6. */
   marge_nette: number | null
   montant: number | null
 }
 
-/** Les trois issues terminales de la diapositive 13. */
-const ETAPES_CLOSES = ['ACCEPTEE', 'REFUSEE', 'ABANDONNEE']
-
 /**
- * LES HUIT ÉTAPES RESTENT, LES TROIS FINS PARTAGENT UNE COLONNE.
+ * LES COLONNES DU TABLEAU SONT L'ÉTAT DU TRAVAIL, PAS L'ÉTAPE DU DOSSIER.
  *
- * Michel, 26/08/2026, répondant à la question posée sur ses quatre colonnes de maquette : garder les
- * huit étapes, et « acceptée, refusée et abandonnée sont dans clôturé comme d'hab ».
+ * Michel, 28/08/2026 : « à la place de recommandation, il faut montrer version ». Et sa raison :
+ * « consultation, offres reçues, présentées, en réalité ça ne nous apporte rien, puisque ces
+ * informations je vais les voir sur la version ».
  *
- * SA RÉPONSE ÉVITE LE PIÈGE QUE J'AVAIS SIGNALÉ. Remplacer huit étapes par quatre colonnes aurait
- * changé le pipeline qu'il avait lui-même dicté le 24/08 : « le statut évolue, il ne régresse
- * jamais » suppose huit crans, pas quatre. Ce qu'il voulait n'était pas moins d'étapes, c'était moins
- * de COLONNES — et c'est un regroupement d'affichage, exactement comme sur les requêtes.
+ * Les cinq colonnes ci-dessous sont donc les cinq états réels d'un dossier en cours, et non les
+ * paliers qu'il a franchis :
  *
- * CE QUI SÉPARE LES TROIS FINS RESTE LISIBLE : l'étape de chaque dossier s'affiche sur sa carte. Une
- * affaire acceptée et une affaire abandonnée ne racontent pas la même histoire, et cette histoire ne
- * se réécrit pas après coup — c'est pourquoi le regroupement ne touche jamais la base.
+ *   Brouillon        aucune version — rien n'a encore été étudié          199 dossiers
+ *   En construction  on travaille dessus                                   19
+ *   Disponible       le comparatif est prêt                                 6
+ *   En décision      c'est chez le client                                  21
+ *   À réactiver      la dernière version est morte, le dossier non         86
+ *
+ * LE MOT « RECOMMANDATIONS » RESTE DANS LE MENU, à sa demande : « on peut laisser le terme
+ * recommandation pour ne pas les embrouiller ». Ce sont bien des dossiers qu'on liste — une ligne
+ * par dossier — mais rangés selon l'état de leur dernière version.
+ *
+ * « À RÉACTIVER » SERA LA COLONNE LA PLUS CHARGÉE, et ce n'est pas une anomalie : 1 264 versions sont
+ * expirées en base. C'est l'état réel du portefeuille, et le voir est précisément l'intérêt.
  */
-const COLONNE_CLOTUREE = { code: 'CLOTUREE', libelle: 'Clôturée', codes: ETAPES_CLOSES }
+const COLONNES_TRAVAIL = [
+  { code: 'BROUILLON', libelle: 'Brouillon' },
+  { code: 'EN_CONSTRUCTION', libelle: 'En construction' },
+  { code: 'DISPONIBLE', libelle: 'Disponible' },
+  { code: 'EN_DECISION', libelle: 'En décision' },
+  { code: 'A_REACTIVER', libelle: 'À réactiver' },
+] as const
 
 /**
  * SEULS LES OBJETS ACTIFS SONT AFFICHÉS. Michel, 25/08/2026 à 14 h 29 : « pour les recommandations,
@@ -66,7 +82,6 @@ const COLONNE_CLOTUREE = { code: 'CLOTUREE', libelle: 'Clôturée', codes: ETAPE
  * la recherche ⌘K, et par son lien direct. Il quitte le plan de travail, il ne disparaît pas.
  */
 export default function Recommandations() {
-  const { data: etapesRef } = useReferenceTable('etapes_recommandation')
   /**
    * CHAQUE CONSEILLER NE VOIT QUE LES RECOMMANDATIONS DE SES COMPTES. Michel, 25/08/2026, « là en
    * urgence » : « Matthieu veut regarder ses recommandations, mais il a les recommandations de tout
@@ -85,7 +100,6 @@ export default function Recommandations() {
   const estAdmin = useIsAdmin()
   const { data: monProfil } = useMonProfil()
   const filtreProprietaire = !estAdmin && monProfil?.id ? monProfil.id : null
-  const etapes = etapesRef && etapesRef.length > 0 ? etapesRef : FALLBACK_ETAPES_RECOMMANDATION
   const navigate = useNavigate()
   const [showCreate, setShowCreate] = useState(false)
 
@@ -110,13 +124,14 @@ export default function Recommandations() {
    */
   const tableau = useKanbanServeur<LigneReco>({
     vue: 'v_recommandations_liste',
-    colonneStatut: 'etape',
-    /* Les étapes vivantes une par une, puis les trois fins réunies sous « Clôturée » — et seulement
-       si on demande à les voir. Décoché, la page ne montre que le travail en cours : 133 dossiers
-       vivants contre 1 574 clos. */
+    /* `colonne_travail` réunit en un champ l'état de la dernière version et, à défaut, celui du
+       dossier. Le calcul est fait par la vue : le refaire ici risquerait de le faire autrement. */
+    colonneStatut: 'colonne_travail',
+    /* Les cinq états du travail, puis les dossiers clôturés — et seulement si on demande à les voir.
+       Décoché, la page ne montre que ce qui reste à faire : 331 dossiers contre 1 382 clos. */
     colonnes: [
-      ...etapes.filter((e) => !ETAPES_CLOSES.includes(e.code)).map((e) => ({ code: e.code, libelle: e.libelle })),
-      ...(avecClos ? [COLONNE_CLOTUREE] : []),
+      ...COLONNES_TRAVAIL.map((c) => ({ code: c.code, libelle: c.libelle })),
+      ...(avecClos ? [{ code: 'CLOTUREE', libelle: 'Clôturée' }] : []),
     ],
     colonnesRecherche: ['nom', 'compte_nom', 'conseiller'],
     recherche,
@@ -214,11 +229,19 @@ export default function Recommandations() {
                   /* LA MENTION PORTE LA MARGE, comme sur ses cartes. Le nombre de versions reprend
                      la place quand la marge n'est pas connue — c'est le cas de tout dossier né dans
                      Kimatch, dont aucun écran ne remplit encore les chiffres d'affaire. */
-                  /* L'ÉTAPE EN ÉTIQUETTE DE NATURE : dans la colonne « Clôturée », c'est la seule
-                     chose qui distingue une affaire acceptée d'une abandonnée. Hors de cette
-                     colonne elle répète le titre de colonne, et c'est très bien — une carte qu'on
-                     déplace du regard reste lisible seule. */
-                  nature: etapes.find((e) => e.code === r.etape)?.libelle ?? undefined,
+                  /* L'ÉTIQUETTE PORTE LA VERSION, ET SON RÉSULTAT QUAND ELLE EST CLOSE.
+                     C'est ce qui distingue deux cartes de la même colonne : dans « À réactiver »,
+                     une version expirée et une version refusée ne demandent pas le même appel.
+                     Le numéro de version situe le dossier d'un coup d'œil — troisième tentative
+                     n'est pas la première. */
+                  nature: (() => {
+                    const num = r.numero_version != null ? `V${r.numero_version}` : null
+                    const fin = r.resultat_version
+                      ? RESULTAT_VERSION_LIBELLE[r.resultat_version] ?? r.resultat_version
+                      : null
+                    if (!num) return 'Aucune version'
+                    return [num, fin].filter(Boolean).join(' · ')
+                  })(),
                   mention:
                     r.marge_nette != null
                       ? euros(r.marge_nette)

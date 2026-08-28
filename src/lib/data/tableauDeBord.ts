@@ -116,7 +116,11 @@ export function useChiffresTableauDeBord() {
       const moisSuivant = debutDeMois(1)
       const moisPrecedent = debutDeMois(-1)
 
-      const ouvertes = ['BROUILLON', 'CONSULTATION', 'OFFRES_RECUES', 'A_PRESENTER', 'PRESENTEE']
+      // TROIS CODES AU LIEU DE CINQ (Michel, 28/08/2026) : un dossier non clos est Brouillon,
+      // Active ou À réactiver. « À réactiver » compte parmi les ouverts — c'est même la colonne la
+      // plus chargée aujourd'hui, 86 dossiers contre 46 actifs : l'oublier masquerait l'essentiel
+      // du travail restant.
+      const ouvertes = ['BROUILLON', 'ACTIVE', 'A_REACTIVER']
         .map((c) => etapes[c])
         .filter(Boolean)
       const nonClos = ['NOUVEAU', 'A_QUALIFIER'].map((c) => statutsSignaux[c]).filter(Boolean)

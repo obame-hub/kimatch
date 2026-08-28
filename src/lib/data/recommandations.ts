@@ -817,7 +817,14 @@ export function useRecommandationsParCompte(compteId: string | undefined) {
 
 /** Codes d'étape considérés "clos" -- un PDL rattaché uniquement à des recommandations dans ces
  * étapes est de nouveau éligible à une nouvelle opportunité (même règle que Tools). */
-const ETAPES_CLOSES = new Set(['ACCEPTEE', 'REFUSEE', 'ABANDONNEE'])
+/**
+ * UN DOSSIER CLOS N'A PLUS QU'UN STATUT : « Clôturée ».
+ *
+ * Michel, 28/08/2026 : les huit étapes deviennent quatre — Brouillon, Active, À réactiver, Clôturée.
+ * Le détail de la fin (acceptée, refusée, expirée) vit dans `finalite_cloture`, et non plus dans
+ * l'étape : c'est la même information à un seul endroit.
+ */
+const ETAPES_CLOSES = new Set(['CLOTUREE'])
 
 /** Compteurs déjà engagés dans une recommandation non close -- à exclure de la sélection PDL
  * d'une nouvelle opportunité (Tools : "pas déjà rattaché à une opportunité non close"). */
@@ -972,7 +979,10 @@ export function useCreateVersion() {
 
   return useMutation({
     mutationFn: async (input: CreateVersionInput) => {
-      const { data: statutRemplacee } = await supabase.from('statuts_versions_recommandation').select('id').eq('code', 'REMPLACEE').maybeSingle()
+      // « REMPLACEE » N'EXISTE PLUS (Michel, 28/08/2026). Une version qui cède la place est
+      // désormais CLOTUREE avec le résultat EXPIREE : elle n'est plus valable, et c'est exactement
+      // ce que ce résultat dit. Voir la migration 20260828100000.
+      const { data: statutCloturee } = await supabase.from('statuts_versions_recommandation').select('id').eq('code', 'CLOTUREE').maybeSingle()
       const { data: versionsExistantes } = await supabase
         .from('versions_recommandation')
         .select('id, numero_version, version_actuelle, statut:statuts_versions_recommandation(code)')
@@ -986,15 +996,21 @@ export function useCreateVersion() {
         0,
         ...(versionsExistantes ?? []).map((v) => (v as { numero_version?: number }).numero_version ?? 0),
       ) + 1
+      // On ne touche pas à une version DÉJÀ clôturée : son résultat est un fait acquis — accepté,
+      // refusé — et le réécrire en « expirée » effacerait la décision du client.
       const aTraiter = (versionsExistantes ?? []).filter((v) => {
         const code = (v.statut as { code: string } | { code: string }[] | null)
         const c = Array.isArray(code) ? code[0]?.code : code?.code
-        return v.version_actuelle && c !== 'ACCEPTEE' && c !== 'REFUSEE'
+        return v.version_actuelle && c !== 'CLOTUREE'
       })
-      if (aTraiter.length > 0 && statutRemplacee) {
+      if (aTraiter.length > 0 && statutCloturee) {
         await supabase
           .from('versions_recommandation')
-          .update({ version_actuelle: false, ...(statutRemplacee ? { statut_version_id: statutRemplacee.id } : {}) })
+          .update({
+            version_actuelle: false,
+            statut_version_id: statutCloturee.id,
+            resultat: 'EXPIREE',
+          })
           .in('id', aTraiter.map((v) => v.id))
       }
 
@@ -1426,11 +1442,25 @@ export function natureDeLOffre(code: string | null | undefined) {
   return NATURES_OFFRE.find((n) => n.code === code) ?? NATURES_OFFRE[0]
 }
 
+/**
+ * LES TROIS STATUTS D'UNE OFFRE, et leur définition par Michel (28/08/2026) :
+ *
+ *   EN ATTENTE    « la demande a été envoyée, mais l'offre n'est pas encore disponible »
+ *   DISPONIBLE    « le fournisseur a transmis une offre exploitable »
+ *   INDISPONIBLE  « le fournisseur a refusé la demande ou aucune offre ne peut être proposée »
+ *
+ * ILS NE SE SAISISSENT PLUS À LA MAIN dans le cas courant : un déclencheur en base les pose depuis
+ * le statut de la consultation (migration 20260828120000). La liste reste ici parce qu'il faut
+ * pouvoir corriger un cas particulier — mais ce n'est plus le geste normal.
+ *
+ * « Reçue » et « Acceptée » ont fusionné en DISPONIBLE : dans le modèle de Michel, accepter de coter
+ * et transmettre le prix sont un seul événement — « lorsque le fournisseur accepte et transmet sa
+ * proposition, l'offre passe à Disponible ». Les 12 offres concernées ont été migrées.
+ */
 export const STATUTS_OFFRE = [
   { code: 'EN_ATTENTE', libelle: 'En attente' },
-  { code: 'ACCEPTEE', libelle: 'Acceptée' },
-  { code: 'REFUSEE', libelle: 'Refusée' },
-  { code: 'RECUE', libelle: 'Reçue' },
+  { code: 'DISPONIBLE', libelle: 'Disponible' },
+  { code: 'INDISPONIBLE', libelle: 'Indisponible' },
 ] as const
 
 /**

@@ -64,7 +64,6 @@ export function CotationWizard({
   const { data: motifsRef } = useReferenceTable('motifs_versions_recommandation')
   const { data: statutsVersionsRef } = useReferenceTable('statuts_versions_recommandation')
   const { data: typesOptimisationsRef } = useReferenceTable('types_optimisations')
-  const { data: etapesRef } = useReferenceTable('etapes_recommandation')
   const createVersion = useCreateVersion()
 
   const estActualisation = reco.versions.length > 0
@@ -223,7 +222,11 @@ export function CotationWizard({
     const motif = (motifsRef ?? []).find((m) => m.code === codeMotif) ?? (motifsRef ?? [])[0]
     const statutBrouillon = trouverParCode(statutsVersionsRef, 'EN_CONSTRUCTION', 'BROUILLON')
     const typeOptim = (typesOptimisationsRef ?? []).find((t) => t.code === MISE_EN_CONCURRENCE)
-    const etapeEnAnalyse = trouverParCode(etapesRef, 'CONSULTATION', 'EN_ANALYSE')
+    // LE DOSSIER NE SE POUSSE PLUS À LA MAIN (Michel, 28/08/2026). Créer une version fait passer
+    // le dossier en « Active » tout seul, par déclencheur en base — voir la migration 20260828120000.
+    // Lui pousser une étape ici reviendrait à écrire au même endroit deux fois, et c'est exactement
+    // le désordre qu'on corrige : « je m'embrouille avec les recommandations et les versions ».
+    const etapeEnAnalyse = null
 
     const rapport = await createVersion.mutateAsync({
       recommandation_id: reco.id,
@@ -241,7 +244,9 @@ export function CotationWizard({
       date_souhaitee: dateSouhaitee || null,
       resume: `Durée${durees.length > 1 ? 's' : ''} ${durees.join('/')} mois — ${typesPrix.join(', ')} — ${fournisseurIds.length} fournisseur${fournisseurIds.length > 1 ? 's' : ''} consulté${fournisseurIds.length > 1 ? 's' : ''} — commission estimée ${Math.round(commissionEstimee).toLocaleString('fr-FR')} €`,
       contexte_et_hypotheses: dateSouhaitee ? `Date souhaitée : ${new Date(dateSouhaitee).toLocaleDateString('fr-FR')}` : null,
-      etape_en_analyse_id: etapeEnAnalyse?.id ?? null,
+      // Toujours null : le dossier passe en « Active » par déclencheur en base dès qu'une version
+      // existe. Le champ reste dans l'entrée de la mutation pour ne pas casser ses autres appels.
+      etape_en_analyse_id: etapeEnAnalyse,
     })
     // Email de cotation -- Tools en envoie un à chaque cotation. Destinataires configurables dans
     // Paramètres, comme pour la demande de contrat.

@@ -53,10 +53,14 @@
 const ETAPES_FERMEES = ['ACCEPTEE', 'REFUSEE', 'ABANDONNEE']
 
 /**
- * Le seul palier où l'on attend le client. « Présentée » suit « À présenter » dans sa diapositive 11 :
- * l'offre est partie, la balle est chez le décisionnaire.
+ * Le seul état où l'on attend le client.
+ *
+ * C'ÉTAIT UNE ÉTAPE DE DOSSIER, C'EST DEVENU UN STATUT DE VERSION (Michel, 28/08/2026). « Présentée »
+ * a disparu des étapes de recommandation ; le fait « l'offre est partie, la balle est chez le
+ * décisionnaire » vit maintenant sur la version, sous le nom « En décision ». C'est plus juste : ce
+ * qu'on présente au client est une version, pas un dossier.
  */
-const ETAPE_QUI_ATTEND_LE_CLIENT = 'PRESENTEE'
+const ETAPE_QUI_ATTEND_LE_CLIENT = 'EN_DECISION'
 
 const SEUIL_JOURS_OUVRES = 2
 

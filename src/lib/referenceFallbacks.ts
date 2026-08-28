@@ -32,39 +32,43 @@ export const FALLBACK_STATUTS_SIGNAUX: ReferenceRow[] = [
 ]
 
 // Les huit paliers de recommandation de Michel (diapositive 13 du 24/08/2026) : Brouillon →
-// Consultation → Offres reçues → À présenter → Présentée → Acceptée / Refusée / Abandonnée. Sa
-// règle : « le statut évolue, il ne régresse jamais », d'où des ordres strictement croissants.
+// LE STATUT D'UN DOSSIER SE DÉDUIT DE SA DERNIÈRE VERSION (Michel, 28/08/2026) :
+//   aucune version → Brouillon · dernière version vivante → Active
+//   dernière version clôturée mais dossier non terminé → À réactiver · finalité posée → Clôturée
+// Les huit anciennes étapes sont désactivées en base ; le détail de la fin vit dans
+// `finalite_cloture`. Un déclencheur pose ce statut, il ne se saisit plus.
 export const FALLBACK_ETAPES_RECOMMANDATION: ReferenceRow[] = [
   { id: 'd1', code: 'BROUILLON', libelle: 'Brouillon', ordre: 10, couleur: null, icone: null },
-  { id: 'd2', code: 'CONSULTATION', libelle: 'Consultation', ordre: 20, couleur: null, icone: null },
-  { id: 'd3', code: 'OFFRES_RECUES', libelle: 'Offres reçues', ordre: 30, couleur: null, icone: null },
-  { id: 'd4', code: 'A_PRESENTER', libelle: 'À présenter', ordre: 40, couleur: null, icone: null },
-  { id: 'd5', code: 'PRESENTEE', libelle: 'Présentée', ordre: 50, couleur: null, icone: null },
-  { id: 'd6', code: 'ACCEPTEE', libelle: 'Acceptée', ordre: 70, couleur: null, icone: null },
-  { id: 'd7', code: 'REFUSEE', libelle: 'Refusée', ordre: 80, couleur: null, icone: null },
-  { id: 'd8', code: 'ABANDONNEE', libelle: 'Abandonnée', ordre: 90, couleur: null, icone: null },
+  { id: 'd2', code: 'ACTIVE', libelle: 'Active', ordre: 20, couleur: null, icone: null },
+  { id: 'd3', code: 'A_REACTIVER', libelle: 'À réactiver', ordre: 30, couleur: null, icone: null },
+  { id: 'd4', code: 'CLOTUREE', libelle: 'Clôturée', ordre: 40, couleur: null, icone: null },
 ]
 
 // « En construction, c'est quand quelqu'un bosse dessus. Disponible, ça veut dire prête à être
 // envoyée. En décision, ça veut dire qu'on l'a envoyée, qu'elle est présentée au client. »
+// QUATRE STATUTS, et le résultat d'une version clôturée vit à part, dans `resultat` — acceptée,
+// refusée ou expirée. Fondre les deux en sept codes obligerait chaque écran qui demande « est-ce
+// fini ? » à énumérer trois codes, et à les retrouver tous le jour où un quatrième résultat apparaît.
 export const FALLBACK_STATUTS_VERSIONS: ReferenceRow[] = [
   { id: 'v1', code: 'EN_CONSTRUCTION', libelle: 'En construction', ordre: 10, couleur: null, icone: null },
   { id: 'v2', code: 'DISPONIBLE', libelle: 'Disponible', ordre: 20, couleur: null, icone: null },
   { id: 'v3', code: 'EN_DECISION', libelle: 'En décision', ordre: 30, couleur: null, icone: null },
-  { id: '1', code: 'BROUILLON', libelle: 'Brouillon', ordre: 110, couleur: null, icone: null },
-  { id: '2', code: 'A_VALIDER', libelle: 'À valider', ordre: 20, couleur: null, icone: null },
-  { id: '3', code: 'VALIDEE', libelle: 'Validée en interne', ordre: 30, couleur: null, icone: null },
-  { id: '4', code: 'PRESENTEE', libelle: 'Présentée au client', ordre: 40, couleur: null, icone: null },
-  { id: '5', code: 'REMPLACEE', libelle: 'Remplacée par une nouvelle version', ordre: 50, couleur: null, icone: null },
-  { id: '6', code: 'ACCEPTEE', libelle: 'Acceptée par le client', ordre: 60, couleur: null, icone: null },
-  { id: '7', code: 'REFUSEE', libelle: 'Refusée par le client', ordre: 70, couleur: null, icone: null },
-  { id: '8', code: 'EXPIREE', libelle: 'Expirée', ordre: 80, couleur: null, icone: null },
-  { id: '9', code: 'ARCHIVEE', libelle: 'Archivée', ordre: 90, couleur: null, icone: null },
+  { id: 'v4', code: 'CLOTUREE', libelle: 'Clôturée', ordre: 40, couleur: null, icone: null },
 ]
 
-// Les huit paliers de Michel, plus les statuts de version qui partagent cette table de tons.
+// LES QUATRE STATUTS DE DOSSIER, plus ceux de version qui partagent cette table de tons.
+// Les anciens codes restent listés : ils ne s'écrivent plus, mais l'historique et la table d'audit
+// les portent encore, et un badge sans ton tomberait en gris sans qu'on sache pourquoi.
 export const ETAPE_TONE: Record<string, 'neutral' | 'amber' | 'kiwi' | 'blue'> = {
   BROUILLON: 'neutral',
+  ACTIVE: 'blue',
+  A_REACTIVER: 'amber',
+  CLOTUREE: 'kiwi',
+  // Statuts de version, même table de tons.
+  EN_CONSTRUCTION: 'neutral',
+  DISPONIBLE: 'kiwi',
+  EN_DECISION: 'amber',
+  // Anciens codes, conservés pour l'historique.
   CONSULTATION: 'blue',
   OFFRES_RECUES: 'blue',
   A_PRESENTER: 'amber',
@@ -72,12 +76,14 @@ export const ETAPE_TONE: Record<string, 'neutral' | 'amber' | 'kiwi' | 'blue'> =
   ACCEPTEE: 'kiwi',
   REFUSEE: 'neutral',
   ABANDONNEE: 'neutral',
-  EN_CONSTRUCTION: 'neutral',
-  DISPONIBLE: 'kiwi',
-  EN_DECISION: 'amber',
 }
 
 export const STATUT_VERSION_TONE: Record<string, 'neutral' | 'amber' | 'kiwi' | 'blue'> = {
+  EN_CONSTRUCTION: 'neutral',
+  DISPONIBLE: 'kiwi',
+  EN_DECISION: 'amber',
+  CLOTUREE: 'neutral',
+  // Anciens codes, conservés pour l'historique.
   BROUILLON: 'neutral',
   A_VALIDER: 'amber',
   VALIDEE: 'kiwi',
@@ -87,6 +93,24 @@ export const STATUT_VERSION_TONE: Record<string, 'neutral' | 'amber' | 'kiwi' | 
   REFUSEE: 'neutral',
   EXPIREE: 'neutral',
   ARCHIVEE: 'neutral',
+}
+
+/**
+ * LE TON D'UN RÉSULTAT DE VERSION — acceptée, refusée, expirée.
+ *
+ * Séparé du statut depuis le 28/08/2026 : une version « Clôturée » est neutre, mais son résultat ne
+ * l'est pas. Acceptée mérite le vert, refusée et expirée non.
+ */
+export const RESULTAT_VERSION_TONE: Record<string, 'neutral' | 'amber' | 'kiwi' | 'blue' | 'red'> = {
+  ACCEPTEE: 'kiwi',
+  REFUSEE: 'red',
+  EXPIREE: 'amber',
+}
+
+export const RESULTAT_VERSION_LIBELLE: Record<string, string> = {
+  ACCEPTEE: 'Acceptée',
+  REFUSEE: 'Refusée',
+  EXPIREE: 'Expirée',
 }
 
 export const FALLBACK_STATUTS_MANDATS: ReferenceRow[] = [

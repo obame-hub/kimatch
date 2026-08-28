@@ -2,7 +2,10 @@ import { useNavigate } from 'react-router-dom'
 import { Badge } from '@/components/ui/badge'
 import type { Compteur, Contrat, Mandat, Recommandation } from '@/types/domain'
 
-const VERSIONS_INACTIVES = new Set(['REFUSEE', 'EXPIREE', 'ARCHIVEE', 'REMPLACEE'])
+// Une version morte n'a plus qu'un statut : « Clôturée » (Michel, 28/08/2026). Le détail de la fin
+// — acceptée, refusée, expirée — vit dans `resultat`, et ne change rien ici : ce qui compte est
+// qu'elle ne bouge plus. Les anciens codes restent listés pour les données non encore migrées.
+const VERSIONS_INACTIVES = new Set(['CLOTUREE', 'REFUSEE', 'EXPIREE', 'ARCHIVEE', 'REMPLACEE'])
 const SEUIL_ECHEANCE_JOURS = 90
 
 function joursAvant(date: string | null): number | null {
