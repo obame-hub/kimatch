@@ -85,7 +85,8 @@ export const navItems: NavItem[] = [
  *   elle ne se trouvait que par la recherche ⌘K — un écran d'entrée du cycle commercial qu'il fallait
  *   chercher pour ouvrir.
  * · « PROSPECTION » DEVIENT « PISTES ». C'est le nom de son architecture et celui de l'objet ; la
- *   page s'appelle déjà « Pistes » dans son titre. Un menu qui nomme autrement ce qu'il ouvre fait
+ *   page s'appelle « Pistes » dans son titre depuis le 30/08/2026 — elle s'appelait « Prospection »
+ *   quand ce commentaire a été écrit, ce qui le rendait faux. Un menu qui nomme autrement ce qu'il ouvre fait
  *   hésiter à chaque clic.
  */
 export const cycleNavItems: NavItem[] = [

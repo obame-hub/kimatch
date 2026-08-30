@@ -68,11 +68,30 @@ export default function Prospection() {
 
   return (
     <div className="flex min-h-0 flex-1 flex-col">
-      <Topbar title="Prospection" />
+      {/* « PISTES » ET NON « PROSPECTION ».
+
+           Le menu annonce « Pistes », le commentaire de navItems.tsx affirmait meme que « la page
+           s'appelle deja Pistes dans son titre » — ce qui etait faux. On cliquait sur Pistes et on
+           arrivait sur Prospection, avec un unique onglet Pistes en dessous : trois occurrences du
+           mot pour un seul objet, et une quatrieme qui n'en etait pas.
+
+           L'onglet Listes est desactive (AFFICHER_LES_LISTES) : il ne reste que les pistes, donc le
+           titre generique n'a plus rien a couvrir. */}
+      <Topbar title="Pistes" />
       <div className="min-h-0 flex-1 overflow-y-auto px-4 py-4 lg:px-6">
         <PageHeader
-          title="Prospection"
-          description="Une ligne devient une piste quand on l'a vérifiée ; une piste devient une opportunité quand un signal apparaît."
+          title="Pistes"
+          /* DEUX CHOSES DIFFÉRENTES S'APPELAIENT « UN SIGNAL ».
+
+             Ici, c'est le signal positif que le dialogue de conversion réclame — une phrase qu'on
+             écrit soi-même, « il a demandé un devis », et qui justifie d'ouvrir une opportunité.
+             Sur l'écran Signaux, c'est tout autre chose : la détection automatique d'un contrat qui
+             arrive à échéance. Les deux écrans racontaient donc deux chaînes contradictoires, l'une
+             où le signal ouvre le cycle, l'autre où il le referme.
+
+             La phrase reprend maintenant l'intitulé exact du champ — « Signal positif » — et le
+             second prérequis que Michel a posé : le contact. Rien ne change au fonctionnement. */
+          description="Une ligne devient une piste quand on l'a vérifiée ; une piste devient une opportunité quand on peut nommer un signal positif et un contact."
           icone={<Filter className="h-[19px] w-[19px]" strokeWidth={2.1} />}
           teinte="from-indigo-700 to-indigo-500"
           actions={

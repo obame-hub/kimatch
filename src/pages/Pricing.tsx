@@ -335,7 +335,11 @@ export default function Pricing({ sansEntete }: { sansEntete?: boolean }) {
                   motif:
                     l.statut_libelle && l.date_evenement
                       ? `${l.statut_libelle} — ${new Date(l.date_evenement).toLocaleDateString('fr-FR')}`
-                      : (l.statut_libelle ?? 'Demande non envoyée'),
+                      /* LE MEME MOT QUE LA COLONNE. La colonne s'intitule « Aucun traitement »
+                         — le libelle du statut de reference — et ses cartes annoncaient « Demande
+                         non envoyee ». Deux noms pour un seul etat, sur le meme ecran, a trois
+                         centimetres l'un de l'autre. */
+                      : (l.statut_libelle ?? 'Aucun traitement'),
                   chiffres: chiffres.length > 0 ? chiffres : undefined,
                   mention: l.recommandation_nom ?? undefined,
                   to: `/recommandations/${l.recommandation_id}`,
