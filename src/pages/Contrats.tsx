@@ -17,7 +17,8 @@ import { useComptes } from '@/lib/data/comptes'
 import { useCompteurs } from '@/lib/data/compteurs'
 import { useContacts } from '@/lib/data/contacts'
 import { useReferenceTable } from '@/lib/data/referenceTables'
-import { FALLBACK_STATUTS_CONTRATS, STATUT_CONTRAT_TONE, FALLBACK_TYPES_ENERGIES } from '@/lib/referenceFallbacks'
+import { FALLBACK_STATUTS_CONTRATS, FALLBACK_TYPES_ENERGIES } from '@/lib/referenceFallbacks'
+import { statutVieContrat, LIBELLE_STATUT_VIE, type StatutVie } from '@/lib/statutVieContrat'
 import { ZONE_ORDER_CONTRAT, ZONE_LABEL_CONTRAT, zoneDuFournisseur } from '@/lib/fournisseurZones'
 import { nomJourFerieFR } from '@/lib/joursFeries'
 import { ListToolbar } from '@/components/ui/list-toolbar'
@@ -396,9 +397,22 @@ function CreateContratDialog({ open, onClose }: { open: boolean; onClose: () => 
  */
 export default function Contrats({ sansEntete }: { sansEntete?: boolean }) {
   const { data: contrats, isLoading } = useContrats()
-  const { data: statutsRef } = useReferenceTable('statuts_contrats')
-  const statuts = statutsRef && statutsRef.length > 0 ? statutsRef : FALLBACK_STATUTS_CONTRATS
   const [showCreate, setShowCreate] = useState(false)
+  /**
+   * TROIS STATUTS COHABITAIENT SUR UN CONTRAT, ET L'ÉCRAN MONTRAIT LE MAUVAIS.
+   *
+   * L'ancien `statut_id` MÉLANGE deux notions : « Actif / Terminé / À venir » sur 1 565 contrats,
+   * et « À signer / Signé / Nouveau / En préparation » sur 35. On ne pouvait donc pas filtrer sur
+   * l'un sans perdre l'autre, et la liste déroulante proposait sept entrées dont trois seulement
+   * parlaient de la même chose.
+   *
+   * Les deux jeux plus récents séparent ce que l'ancien confondait : l'un dit où en est la
+   * SIGNATURE, l'autre où en est le CONTRAT. Naoëlle a tranché le 30/08/2026 : on garde la vie du
+   * contrat, trois valeurs.
+   *
+   * Elle est DÉDUITE des dates et non lue en base — voir `statutVieContrat`, qui explique pourquoi
+   * une valeur stockée vieillit en silence.
+   */
   const [statutFilter, setStatutFilter] = useState('')
   /**
    * LES 549 CONTRATS SANS FOURNISSEUR DEVIENNENT TRAVAILLABLES.
@@ -415,7 +429,9 @@ export default function Contrats({ sansEntete }: { sansEntete?: boolean }) {
   const nbSansFournisseur = (contrats ?? []).filter((c) => !c.fournisseur_nom).length
 
   const contratsFiltresParStatut = (() => {
-    let liste = statutFilter ? contrats?.filter((c) => c.statut === statutFilter) : contrats
+    let liste = statutFilter
+      ? contrats?.filter((c) => statutVieContrat(c.date_debut, c.date_fin) === statutFilter)
+      : contrats
     if (sansFournisseur) liste = liste?.filter((c) => !c.fournisseur_nom)
     return liste
   })()
@@ -470,7 +486,9 @@ export default function Contrats({ sansEntete }: { sansEntete?: boolean }) {
             />
           <Select value={statutFilter} onChange={(e) => setStatutFilter(e.target.value)} className="w-auto">
             <option value="">Tous les statuts</option>
-            {statuts.map((s) => <option key={s.id} value={s.code}>{s.libelle}</option>)}
+            {(Object.keys(LIBELLE_STATUT_VIE) as StatutVie[]).map((code) => (
+              <option key={code} value={code}>{LIBELLE_STATUT_VIE[code]}</option>
+            ))}
           </Select>
           {nbSansFournisseur > 0 && (
             <button
@@ -503,7 +521,12 @@ export default function Contrats({ sansEntete }: { sansEntete?: boolean }) {
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3">
           {isLoading && <p className="text-sm text-navy-400">Chargement…</p>}
           {tranche.visibles.map((c) => {
-            const label = statuts.find((s) => s.code === c.statut)?.libelle ?? c.statut
+            /* « En signature » n'est pas un statut de vie : c'est l'absence de vie. Les 35
+               contrats concernés n'ont pas encore de date de début, et leur inventer « à venir »
+               leur donnerait un avenir qu'aucune date ne porte. */
+            const vie = statutVieContrat(c.date_debut, c.date_fin)
+            const label = vie ? LIBELLE_STATUT_VIE[vie] : 'En signature'
+            const ton = vie === 'EN_COURS' ? 'kiwi' : vie === 'EXPIRE' ? 'red' : vie === 'A_VENIR' ? 'blue' : 'neutral'
             const Icon = c.type_energie === 'gaz' ? Flame : Zap
             return (
               <Card
@@ -521,7 +544,7 @@ export default function Contrats({ sansEntete }: { sansEntete?: boolean }) {
                       <p className="font-display font-medium text-navy-800">{c.fournisseur_nom}</p>
                     </div>
                   </div>
-                  <Badge tone={STATUT_CONTRAT_TONE[c.statut] ?? 'neutral'}>{label}</Badge>
+                  <Badge tone={ton}>{label}</Badge>
                 </div>
                 <div className="mt-4 space-y-1 text-xs text-navy-500">
                   <p>Site : <EntityLink to={`/sites/${c.site_id}`}>{c.site_nom}</EntityLink></p>
