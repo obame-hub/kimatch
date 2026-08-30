@@ -106,18 +106,45 @@ valeur juste dépend de si le courtier s'applique ou non. **À arbitrer avec Mic
 
 ---
 
-## Ce que ces règles permettent de changer dans l'application
+## Ce qui a été fait le 30/08/2026
 
-Deux décisions restent à prendre, et elles se tiennent :
+**1. Calculer plutôt que saisir.** Le taux du courtier vit désormais sur la fiche fournisseur
+(`comptes.taux_commission_courtier`), où il est vrai une fois pour toutes : `0,85/0,75 = 1,133333`
+chez les six courtiers, vide chez les fournisseurs en direct. Un déclencheur recalcule les deux
+marges à chaque écriture. L'écart 1,13 / 1,14 / 1,1333 a disparu, et un rapport de 18,50 est
+devenu impossible à saisir.
 
-**1. Calculer plutôt que saisir.** Les marges nette et « commission » se déduisent entièrement de
-la marge brute, de la marge apporteur et du courtier. Les calculer supprimerait d'un coup l'écart
-1,13 / 1,14 / 1,1333 et rendrait impossible un rapport de 18,5. Cela demande d'ajouter **le taux du
-courtier sur la fiche fournisseur**, une fois pour toutes, au lieu de le retaper sur chaque dossier.
+**La remise d'équerre a corrigé ce qui était faux sans remplir ce qui était vide.** Les
+880 dossiers sans marge « commission » le restent : la calculer aurait fait apparaître d'un coup
+880 montants de rémunération que personne n'avait posés. Ils se rempliront quand les dossiers
+seront touchés, chaque fois tracé dans l'historique.
 
-**2. Ce que la fiche affiche.** Trois lignes suffisent à raconter l'affaire de haut en bas :
+*Vérifié après coup : 0 marge nette et 0 marge « commission » en désaccord avec la règle, sur
+1 562 dossiers.*
 
-> Marge brute · − Marge apporteur · = Marge nette
+**2. Ce que la fiche affiche.** La colonne alignait neuf montants sur un pied d'égalité, dont cinq
+portant la même valeur. Elle se lit maintenant comme une soustraction :
 
-La marge « commission » relève de la paie, pas de la négociation : sa place est dans un détail
-dépliable, pas au même niveau que les trois autres.
+```
+   Marge brute          24 953,67 €
+−  Marge apporteur      18 500,91 €
+─────────────────────────────────────
+=  Marge nette           6 452,76 €
+
+  › Détail
+      Marge « commission »   marge nette × 1,133      7 313,13 €
+      Montant de l'affaire                           32 399,61 €
+      Marge par MWh                                    8 €/MWh
+```
+
+La ligne de l'apporteur ne s'affiche que lorsqu'il y en a un. Le taux du courtier est annoncé à
+côté du montant qu'il produit, quand il s'applique.
+
+**Retirées de l'écran, gardées en base :** « Commission nette KiWee », « Commission interne » et
+« Rémunération apporteur » sont les copies Salesforce de la marge nette, de la marge
+« commission » et de la marge apporteur — identiques partout où elles sont renseignées. Les
+afficher à côté de leur équivalent recréait la confusion qu'on venait de défaire.
+
+**Reste à trancher :** les quatorze valeurs du tableau ci-dessus ont été recalculées selon la
+règle. Si l'une d'elles était volontairement différente, c'est maintenant qu'il faut le dire —
+l'historique de chaque dossier garde l'ancienne valeur.
