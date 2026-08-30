@@ -163,7 +163,30 @@ export default function Interactions() {
   const navigate = useNavigate()
   const [showCreate, setShowCreate] = useState(false)
 
-  const { query, setQuery, sortKey, setSortKey, items: filteredInteractions } = useListControls(interactions, {
+  /**
+   * UN ÉCHANGE DATÉ EN 2029 N'A PAS EU LIEU.
+   *
+   * 152 interactions portent une date future, jusqu'au 03/09/2029 : ce sont des rappels — « ech
+   * 31/12/2028 rappeler Mme FABRE 8 mois avant », « renew 5 p allaire », « Rappeler pour
+   * échéance ». Rangés dans la table des échanges faute d'un meilleur endroit au moment de la
+   * reprise.
+   *
+   * Comme cet écran trie du plus récent au plus ancien, ces 152 lignes occupaient TOUTE la première
+   * page d'un écran qui s'appelle « Historique des échanges ». On ouvrait l'historique et on
+   * tombait sur ce qui n'était pas encore arrivé.
+   *
+   * Elles sortent donc de la vue par défaut — et surtout PAS de la base : le bouton « À venir » les
+   * ramène. Les cacher pour de bon reviendrait à perdre des rappels que quelqu'un a pris la peine
+   * d'écrire.
+   */
+  const [aVenir, setAVenir] = useState(false)
+  const maintenant = new Date().toISOString()
+  const interactionsVisibles = interactions?.filter((i) =>
+    aVenir ? i.date_interaction > maintenant : i.date_interaction <= maintenant,
+  )
+  const nbAVenir = interactions?.filter((i) => i.date_interaction > maintenant).length ?? 0
+
+  const { query, setQuery, sortKey, setSortKey, items: filteredInteractions } = useListControls(interactionsVisibles, {
     searchFields: (i) => [i.objet, i.compte_nom, i.site_nom, i.contact_nom, i.auteur, i.type_interaction],
     sorters: {
       date_interaction: (a, b) => b.date_interaction.localeCompare(a.date_interaction),
@@ -191,12 +214,29 @@ export default function Interactions() {
             <option value="compte_nom">Trier par compte</option>
             <option value="type_interaction">Trier par type</option>
           </Select>
+          {nbAVenir > 0 && (
+            <button
+              type="button"
+              onClick={() => setAVenir((v) => !v)}
+              aria-pressed={aVenir}
+              className={`flex h-9 shrink-0 items-center gap-1.5 rounded-kw-md border px-3 text-kw-lg font-semibold transition-colors ${
+                aVenir
+                  ? 'border-kw-ink bg-kw-ink text-white'
+                  : 'border-kw-border-strong bg-kw-surface text-kw-body hover:text-kw-ink'
+              }`}
+            >
+              À venir
+              <span className={`font-mono text-kw-xs tabular-nums ${aVenir ? 'opacity-70' : 'text-kw-meta'}`}>
+                {nbAVenir}
+              </span>
+            </button>
+          )}
         </ListToolbar>
 
         {/* La table compte plus de 66 000 interactions : les charger toutes prenait 30 secondes.
             On s'arrête aux 2000 plus récentes, et on le dit plutôt que de laisser croire que la
             recherche porte sur tout l'historique. */}
-        {!isLoading && interactions && interactions.length >= 2000 && (
+        {!isLoading && !aVenir && interactions && interactions.length >= 2000 && (
           <p className="mb-2.5 text-[11px] text-navy-400">
             Les 2000 interactions les plus récentes sont chargées — la recherche ci-dessus porte sur celles-ci.
             Pour l'historique complet d'un compte, ouvre sa fiche.
