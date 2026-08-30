@@ -2,9 +2,20 @@ import { useState } from 'react'
 import { History } from 'lucide-react'
 import { useHistorique } from '@/lib/data/historique'
 
+/**
+ * L'HISTORIQUE NE SE CHARGE QU'UNE FOIS DEPLIE.
+ *
+ * Ce bouton affichait le NOMBRE de modifications a cote de son libelle — et pour ce seul nombre,
+ * il demandait la liste entiere. Mesure le 31/08/2026 sur la fiche du compte CABINET MICHAU :
+ * 1 932 ms, la requete la plus lente de la page, pour un compteur pose dans un bouton replie que
+ * personne n'avait ouvert. La table porte 122 683 lignes.
+ *
+ * Le nombre apparait donc au depliage, avec le reste. Et si l'onglet Historique de la fiche a deja
+ * ete ouvert, il s'affiche instantanement : les deux partagent la meme cle de requete.
+ */
 export function HistoriqueDiscret({ tableNom, ligneId }: { tableNom: string; ligneId: string | undefined }) {
   const [open, setOpen] = useState(false)
-  const { data: entries } = useHistorique(tableNom, ligneId)
+  const { data: entries } = useHistorique(tableNom, ligneId, open)
 
   if (!ligneId) return null
 
