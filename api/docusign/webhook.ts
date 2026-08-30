@@ -1,5 +1,5 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node'
-import { createHmac, timingSafeEqual } from 'crypto'
+import { verifierSignature, statutPourEnveloppe, doitEcrire } from './_decision'
 import { createClient, type SupabaseClient } from '@supabase/supabase-js'
 import { sessionQuelconque } from './_oauth.js'
 import { runGrdSyncForMandat } from './_grdSync.js'
@@ -88,14 +88,6 @@ interface ConnectPayload {
   }
 }
 
-function verifySignature(rawBody: string, signatureHeader: string | undefined, secret: string): boolean {
-  if (!signatureHeader) return false
-  const expected = createHmac('sha256', secret).update(rawBody, 'utf8').digest('base64')
-  const a = Buffer.from(signatureHeader)
-  const b = Buffer.from(expected)
-  return a.length === b.length && timingSafeEqual(a, b)
-}
-
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   if (req.method !== 'POST') {
     res.status(405).json({ error: 'Méthode non autorisée' })
@@ -120,7 +112,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   // journalisee, mais son absence ne fait plus perdre un statut.
   const secret = process.env.DOCUSIGN_CONNECT_HMAC_SECRET
   const signatureValide = secret
-    ? verifySignature(corpsBrut, req.headers['x-docusign-signature-1'] as string | undefined, secret)
+    ? verifierSignature(corpsBrut, req.headers['x-docusign-signature-1'] as string | undefined, secret)
     : null
 
   let payload: ConnectPayload
@@ -184,21 +176,14 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
           res.status(502).json({ error: 'Statut DocuSign illisible' })
           return
         }
-        const parEvenement: Record<string, string> = {
-          sent: 'ENVOYE',
-          delivered: 'ENVOYE',
-          completed: 'SIGNE',
-          declined: 'REFUSE',
-          voided: 'ANNULE',
-        }
-        const statutSignature = parEvenement[env.status]
+        const statutSignature = statutPourEnveloppe(env.status)
         if (!statutSignature) {
           res.status(200).json({ ok: true, skipped: true, reason: `statut ${env.status} ignoré` })
           return
         }
         // Une signature ne se defait pas : un rejeu de notification ne doit pas ramener un contrat
         // signe a « envoye ».
-        if (contrat.statut_signature === 'SIGNE' && statutSignature === 'ENVOYE') {
+        if (!doitEcrire(contrat.statut_signature, statutSignature)) {
           res.status(200).json({ ok: true, skipped: true, reason: 'statut conservé' })
           return
         }

@@ -1,6 +1,7 @@
 import { useMemo, useState } from 'react'
 import { cn } from '@/lib/utils'
 import type { Recommandation, VersionRecommandation, OffreFournisseur } from '@/types/domain'
+import { prixMoyenMWh } from '@/lib/prixOffre'
 
 /**
  * Comparatif des versions — le tableau central de l'onglet Recommandation.
@@ -59,30 +60,6 @@ function offreRetenue(version: VersionRecommandation): OffreFournisseur | null {
 function fournisseursConsultes(version: VersionRecommandation): string[] {
   const noms = version.optimisations.flatMap((o) => o.fournisseurs_consultes.map((f) => f.fournisseur_nom))
   return [...new Set(noms.filter(Boolean))]
-}
-
-/**
- * Prix au MWh d'une offre.
- *
- * Le prix ANNONCÉ par le fournisseur d'abord (`prix_moyen_mwh`, saisi sous le fournisseur consulté) :
- * c'est la donnée primaire, celle qu'il écrit dans son mail et sur laquelle on compare. À défaut, la
- * moyenne pondérée par les volumes du détail par PDL — une moyenne simple donnerait autant de poids à
- * un PDL de 6 MWh qu'à un de 800.
- */
-function prixMoyenMWh(offre: OffreFournisseur | null): number | null {
-  if (!offre) return null
-  if (offre.prix_moyen_mwh != null) return offre.prix_moyen_mwh
-  let cout = 0
-  let volume = 0
-  for (const d of offre.details_par_compteur) {
-    const mwh = d.consommation_annuelle_reference_mwh
-    const fourniture = d.cout_fourniture_annuel_ht
-    if (mwh == null || mwh <= 0 || fourniture == null) continue
-    cout += fourniture
-    volume += mwh
-  }
-  if (volume <= 0) return null
-  return cout / volume
 }
 
 function euros(n: number): string {
