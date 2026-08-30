@@ -180,6 +180,23 @@ function ResultatsRecherche({
 
 export function Topbar({ title, crumb }: { title: string; crumb?: string }) {
   const { signOut } = useAuth()
+
+  /**
+   * LE NOM DE L'ONGLET DU NAVIGATEUR.
+   *
+   * Les trente-huit ecrans annoncaient tous « Kimatch », le seul <title> du index.html. Cinq onglets
+   * ouverts cote a cote donnaient cinq etiquettes identiques : impossible de retrouver la fiche
+   * qu'on venait de laisser autrement qu'en cliquant dessus une par une. L'historique du navigateur
+   * et les favoris souffraient du meme mal — trente entrees « Kimatch » et rien pour les distinguer.
+   *
+   * Le titre que la barre affiche deja fait exactement l'affaire, et il vaut aussi pour les fiches :
+   * l'onglet d'un compte porte le nom du compte. Le fil d'Ariane s'y ajoute quand il apporte quelque
+   * chose — « ACME SAS · Comptes · Kimatch » — et non quand il repete le titre.
+   */
+  useEffect(() => {
+    const morceaux = [title, crumb === title ? null : crumb, 'Kimatch'].filter(Boolean)
+    document.title = morceaux.join(' · ')
+  }, [title, crumb])
   const navigate = useNavigate()
   const [query, setQuery] = useState('')
   const [focused, setFocused] = useState(false)
@@ -233,7 +250,16 @@ export function Topbar({ title, crumb }: { title: string; crumb?: string }) {
       <div className="flex min-w-0 items-center gap-3.5">
       <div className="min-w-0 truncate text-[12px] text-navy-500">
         {crumb && <span>{crumb} / </span>}
-        <span className="font-semibold text-navy-800">{title}</span>
+        {/* UN TITRE DE NIVEAU 1 PAR ECRAN, et c'est celui-ci.
+
+            Trente-six pages sur trente-huit n'avaient aucun <h1> : les lecteurs d'ecran et le
+            raccourci « aller au titre principal » n'avaient nulle part ou se poser, et le plan du
+            document commencait directement au niveau 2 de l'en-tete de liste.
+
+            La bascule ne change rien a l'oeil : le reset de Tailwind rend aux titres la taille et la
+            graisse de leur parent, donc ce <h1> s'affiche exactement comme le <span> qu'il remplace,
+            aux memes classes. L'en-tete de liste reste en niveau 2, dessous, ce qui est sa place. */}
+        <h1 className="font-semibold text-navy-800">{title}</h1>
       </div>
 
       <div className="relative hidden sm:block">
