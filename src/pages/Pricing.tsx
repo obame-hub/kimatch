@@ -1,5 +1,4 @@
 import { useState } from 'react'
-import { useNavigate } from 'react-router-dom'
 import { Euro } from 'lucide-react'
 import { Topbar } from '@/components/layout/Topbar'
 import { PageHeader } from '@/components/ui/page-header'
@@ -218,7 +217,6 @@ function groupeEcheance(
 const dateCourte = (iso: string) => new Date(iso).toLocaleDateString('fr-FR')
 
 export default function Pricing({ sansEntete }: { sansEntete?: boolean }) {
-  const navigate = useNavigate()
   const [recherche, setRecherche] = useState('')
   const [avecRefusees, setAvecRefusees] = useState(false)
 
@@ -348,10 +346,10 @@ export default function Pricing({ sansEntete }: { sansEntete?: boolean }) {
             ]),
           )}
           totaux={Object.fromEntries(lignes.map((c) => [c.code, c.total]))}
-          onCarte={(id) => {
-            const l = lignes.flatMap((c) => c.lignes).find((x) => x.consultation_id === id)
-            if (l) navigate(`/recommandations/${l.recommandation_id}`)
-          }}
+          /* PAS DE GESTIONNAIRE DE CLIC ICI : chaque tuile porte deja son adresse (`to`, plus
+              haut), et un gestionnaire qui se contente de naviguer la ramenerait a l etat de
+              bouton — sans clic du milieu ni Ctrl+clic. Celui d avant faisait exactement ce que
+              `to` fait : retrouver la consultation pour en tirer l identifiant de recommandation. */
           siVide={
             tableau.isLoading
               ? 'Chargement…'
