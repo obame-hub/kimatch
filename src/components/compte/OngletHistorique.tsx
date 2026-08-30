@@ -83,7 +83,7 @@ export function OngletHistorique({ entrees }: { entrees: HistoriqueEntry[] | und
             </span>
             <span className="hidden md:block">
               <span className="rounded-[5px] bg-[#f2f1ee] px-[7px] py-[3px] font-mono text-[10px] font-semibold text-[#5c5f66]">
-                {h.champ}
+                {h.champ_libelle}
               </span>
             </span>
             <span className="flex min-w-0 flex-wrap items-center gap-[9px]">

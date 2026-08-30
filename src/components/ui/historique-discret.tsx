@@ -27,7 +27,7 @@ export function HistoriqueDiscret({ tableNom, ligneId }: { tableNom: string; lig
               <p key={h.id} className="text-navy-400">
                 <span className={h.estUnePersonne ? 'font-medium text-navy-500' : 'italic text-navy-400'}>{h.auteur}</span>
                 {' a modifié '}
-                <span className="font-medium text-navy-500">{h.champ}</span>
+                <span className="font-medium text-navy-500">{h.champ_libelle}</span>
                 {' : '}
                 <span className="line-through">{h.ancienne_valeur ?? '—'}</span>
                 {' → '}
