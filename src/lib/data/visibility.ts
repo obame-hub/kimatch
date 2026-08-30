@@ -215,11 +215,22 @@ async function calculerMonPortefeuille(): Promise<{ comptes: string[]; sites: st
  * Un objet est « à moi » si son propriétaire est moi ; à défaut de propriétaire renseigné, si le
  * compte auquel il est rattaché est à moi.
  *
- * Ce double critère n'est pas une précaution de style : `proprietaire_id` est vide sur la
+ * CE COMMENTAIRE DISAIT LE CONTRAIRE JUSQU'AU 29/08/2026, et il faut le dire parce que le
+ * comportement de la fonction en dépend. Il affirmait que `proprietaire_id` était vide sur la
  * totalité des mandats (1429/1429), des contrats (1597/1598) et des recommandations (1692/1693),
- * la migration Salesforce ne l'ayant jamais rempli. S'en tenir au propriétaire viderait le
- * tableau de bord de tout le monde ; s'en tenir au compte ignorerait les objets réassignés à la
- * main. La règle couvre l'état actuel de la base comme celui d'après un futur backfill.
+ * et justifiait par là le repli sur le compte. Un remplissage a eu lieu depuis : les chiffres
+ * réels sont 1 450/1 450, 1 070/1 600 et 1 701/1 713.
+ *
+ * La branche de repli ne s'emprunte donc presque plus, ce qui a changé le comportement de cette
+ * fonction sans que personne l'ait décidé — c'est le genre de dérive qu'un commentaire faux
+ * installe en silence. Le double critère reste néanmoins juste : les contrats ont encore 530
+ * lignes sans propriétaire, et un objet réassigné à la main doit suivre sa réassignation, pas son
+ * compte.
+ *
+ * ATTENTION, ce n'est pas la même règle que celle de la bascule « Mes X / Tous les X » (voir
+ * lib/perimetre.tsx), qui filtre sur le propriétaire du COMPTE. Les deux divergent sur 156
+ * dossiers dont le propriétaire diffère de celui de leur compte — constat DAT-07 de l'audit, pas
+ * encore tranché.
  */
 export function filtrerMesElements<T>(
   items: T[],

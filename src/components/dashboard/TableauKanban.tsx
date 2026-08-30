@@ -15,6 +15,12 @@ import { cn } from '@/lib/utils'
  *   RECOMMANDATION  Brouillon · Consultation · Offres reçues · À présenter · Présentée ·
  *                   Acceptée / Refusée
  *
+ * CETTE DERNIÈRE LIGNE N'EST PLUS VRAIE, et elle est laissée là pour qu'on sache d'où l'on vient.
+ * La refonte du 28/08/2026 a ramené le dossier à quatre états DÉDUITS de sa dernière version —
+ * Brouillon · Active · À réactiver · Clôturée — et déplacé le détail de la fin dans
+ * `finalite_cloture`. Les six paliers ci-dessus sont désactivés en base ; l'historique et la table
+ * d'audit les portent encore, c'est pourquoi on ne les efface pas.
+ *
  * ON NE DÉPLACE PAS LES CARTES, ET C'EST UN CHOIX, pas une facilité. Le statut d'une opportunité se
  * CALCULE à partir des objets réunis — « la maturité se fait si les objets sont valides » — donc
  * glisser une carte d'une colonne à l'autre ne voudrait rien dire : elle reviendrait à sa place au
