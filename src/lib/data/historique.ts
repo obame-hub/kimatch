@@ -19,6 +19,18 @@ export interface HistoriqueEntry {
   origine: string | null
   /** Ce qu'on affiche : le nom si on l'a, l'origine sinon. Jamais vide. */
   auteur: string
+  /**
+   * VRAI seulement quand une PERSONNE a fait la modification.
+   *
+   * Naoëlle, 29/08/2026 : « Kimatch n'est pas un utilisateur — si tu dis Kimatch a changé ça, nous
+   * de notre côté on sait pas qui c'est, des 10 personnes travaillant chez KiWee, qui a modifié ».
+   * Elle a raison, et « Kimatch » etait un mauvais mot : il ressemble à un nom, donc il se lit
+   * comme un nom, alors qu'il designe l'absence de nom.
+   *
+   * Ce drapeau permet a l'ecran de traiter les deux cas differemment au lieu de les confondre :
+   * une personne a des initiales et un nom, un traitement a un pictogramme et une etiquette.
+   */
+  estUnePersonne: boolean
 }
 
 interface RawHistorique {
@@ -36,10 +48,17 @@ const CHAMPS_IGNORES = new Set(['date_modification', 'modifie_par_id', 'cree_par
 /**
  * Le nom a afficher devant une ligne d'historique.
  *
- * Trois cas, et aucun ne doit produire un blanc :
- *  · une personne  -> son nom ;
- *  · une migration -> « Migration du 28/08/2026 », lisible plutot que l'horodatage brut du fichier ;
- *  · le reste      -> « Kimatch », qui est vrai : c'est l'application qui a ecrit, pas quelqu'un.
+ * Trois cas, et aucun ne doit se faire passer pour un autre :
+ *  · une personne  -> son nom, et lui seul ;
+ *  · une migration -> « Migration du 28/08/2026 » ;
+ *  · le reste      -> « Traitement automatique ».
+ *
+ * SURTOUT PAS « Kimatch » : c'etait mon premier choix et il etait mauvais. Le mot ressemble a un
+ * nom propre, donc il se lit comme quelqu'un — alors qu'il designe precisement le contraire.
+ * Sur 122 428 lignes d'historique, 122 033 viennent des imports et des migrations : par paquets de
+ * 10 000 a 35 000 en une seule journee, sur six tables a la fois. Personne ne les a faites a la
+ * main, et aucun nom ne peut etre invente pour elles. Les 395 restantes, elles, portent bien le nom
+ * de la personne — Matthieu 219, Naoelle 79, Michel 50, Fabien 26, Thomas 13, William 6, Marie 2.
  */
 function nommerAuteur(h: RawHistorique): string {
   if (h.modifie_par) return `${h.modifie_par.prenom} ${h.modifie_par.nom}`
@@ -50,7 +69,7 @@ function nommerAuteur(h: RawHistorique): string {
     return `Migration du ${j}/${m}/${a}`
   }
   if (o && o !== 'systeme') return o
-  return 'Kimatch'
+  return 'Traitement automatique'
 }
 
 async function fetchHistorique(tableNom: string, ligneId: string): Promise<HistoriqueEntry[]> {
@@ -74,6 +93,7 @@ async function fetchHistorique(tableNom: string, ligneId: string): Promise<Histo
       modifie_par_nom: h.modifie_par ? `${h.modifie_par.prenom} ${h.modifie_par.nom}` : null,
       origine: h.origine,
       auteur: nommerAuteur(h),
+      estUnePersonne: h.modifie_par != null,
     }))
 }
 

@@ -706,7 +706,7 @@ export default function SiteDetail() {
                   historique.map((h) => (
                     <div key={h.id} className="grid grid-cols-[110px_1fr] gap-3 border-b border-navy-50 px-4 py-3 last:border-b-0 sm:grid-cols-[110px_140px_140px_1fr]">
                       <span className="font-mono text-[10.5px] text-navy-500">{new Date(h.date_modification).toLocaleString('fr-FR')}</span>
-                      <span className="hidden text-[11.5px] font-semibold text-navy-700 sm:block">{h.auteur}</span>
+                      <span className={`hidden text-[11.5px] sm:block ${h.estUnePersonne ? 'font-semibold text-navy-700' : 'italic text-navy-400'}`}>{h.auteur}</span>
                       <span className="hidden text-[11.5px] font-medium text-navy-600 sm:block">{h.champ}</span>
                       <span className="flex flex-wrap items-center gap-2 text-[11.5px]">
                         {h.ancienne_valeur && (
