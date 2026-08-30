@@ -1,6 +1,7 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { viderCacheVisibilite, viderCacheMonPortefeuille } from '@/lib/data/visibility'
 import { supabase } from '@/lib/supabase'
+import { utilisateurCourant, viderCacheUtilisateur } from '@/lib/data/utilisateurCourant'
 
 export interface RoleAcces {
   id: string
@@ -242,6 +243,9 @@ let cacheAcces: Promise<CurrentAccess> | null = null
  * À appeler à chaque changement d'utilisateur ou de session. */
 export function viderCacheAcces() {
   cacheAcces = null
+  // L'identite mise en cache appartient a la session qui s'en va : la laisser ferait travailler
+  // le suivant sous le nom du precedent.
+  viderCacheUtilisateur()
   viderCacheVisibilite()
   // Le portefeuille personnel est propre à l'utilisateur connecté : le laisser en place ferait
   // apparaître les comptes du précédent dans le tableau de bord du suivant.
@@ -260,13 +264,13 @@ export function fetchCurrentAccess(): Promise<CurrentAccess> {
 
 async function calculerCurrentAccess(): Promise<CurrentAccess> {
   const empty: CurrentAccess = { roleCode: null, roleLibelle: null, permissions: new Set() }
-  const { data: userData } = await supabase.auth.getUser()
-  if (!userData.user) return empty
+  const utilisateur = await utilisateurCourant()
+  if (!utilisateur) return empty
 
   const { data: roleRow } = await supabase
     .from('profils_roles_acces')
     .select('role_acces:roles_acces(id, code, libelle)')
-    .eq('profil_id', userData.user.id)
+    .eq('profil_id', utilisateur.id)
     .maybeSingle()
   const roleAcces = roleRow?.role_acces as unknown as { id: string; code: string; libelle: string } | null
   if (!roleAcces) return empty
@@ -301,12 +305,12 @@ export interface MonProfil {
 }
 
 async function fetchMonProfil(): Promise<MonProfil | null> {
-  const { data: userData } = await supabase.auth.getUser()
-  if (!userData.user) return null
+  const utilisateur = await utilisateurCourant()
+  if (!utilisateur) return null
   const { data, error } = await supabase
     .from('profils')
     .select('id, prenom, nom, email, photo_url')
-    .eq('id', userData.user.id)
+    .eq('id', utilisateur.id)
     .maybeSingle()
   if (error || !data) return null
   return data as unknown as MonProfil
@@ -320,15 +324,15 @@ export function useUploadMaPhoto() {
   const queryClient = useQueryClient()
   return useMutation({
     mutationFn: async (file: File) => {
-      const { data: userData } = await supabase.auth.getUser()
-      if (!userData.user) throw new Error('Non connecté')
+      const utilisateur = await utilisateurCourant()
+      if (!utilisateur) throw new Error('Non connecté')
       const extension = file.name.split('.').pop() ?? 'jpg'
-      const path = `${userData.user.id}/avatar.${extension}`
+      const path = `${utilisateur.id}/avatar.${extension}`
       const { error: uploadError } = await supabase.storage.from('avatars').upload(path, file, { upsert: true })
       if (uploadError) throw new Error(uploadError.message)
       const { data: publicUrlData } = supabase.storage.from('avatars').getPublicUrl(path)
       const photoUrl = `${publicUrlData.publicUrl}?t=${Date.now()}`
-      const { error: updateError } = await supabase.from('profils').update({ photo_url: photoUrl }).eq('id', userData.user.id)
+      const { error: updateError } = await supabase.from('profils').update({ photo_url: photoUrl }).eq('id', utilisateur.id)
       if (updateError) throw new Error(updateError.message)
       return photoUrl
     },

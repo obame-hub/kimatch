@@ -168,10 +168,18 @@ async function fetchHistorique(tableNom: string, ligneId: string): Promise<Histo
     }))
 }
 
-export function useHistorique(tableNom: string, ligneId: string | undefined) {
+/**
+ * @param actif Ne demander l'historique que lorsqu'on le regarde. La fiche d'un compte ouvre neuf
+ *              onglets et n'en montre qu'un : chargé d'office, l'historique coûtait **1 932 ms**
+ *              sur CABINET MICHAU — mesuré le 31/08/2026, la requête la plus lente de la page —
+ *              pour un onglet que personne n'avait ouvert. La table compte 122 683 lignes.
+ *              Vaut `true` par défaut : les appelants qui affichent l'historique d'emblée n'ont
+ *              rien à changer.
+ */
+export function useHistorique(tableNom: string, ligneId: string | undefined, actif = true) {
   return useQuery({
     queryKey: ['historique', tableNom, ligneId],
     queryFn: () => fetchHistorique(tableNom, ligneId ?? ''),
-    enabled: !!ligneId,
+    enabled: !!ligneId && actif,
   })
 }

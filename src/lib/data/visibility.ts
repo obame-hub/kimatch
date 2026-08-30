@@ -1,4 +1,5 @@
 import { supabase } from '@/lib/supabase'
+import { utilisateurCourant } from '@/lib/data/utilisateurCourant'
 import { fetchAllRows } from '@/lib/data/paginatedFetch'
 
 // Perimetre de visibilite par compte. `null` = aucune restriction ; sinon la liste des compte_id
@@ -62,15 +63,15 @@ export function fetchMesComptes(): Promise<string[] | null> {
 }
 
 async function calculerMesComptes(): Promise<string[] | null> {
-  const { data: userData } = await supabase.auth.getUser()
+  const utilisateur = await utilisateurCourant()
   // Session absente : on ne montre rien plutôt que tout. Même précaution que pour les comptes
   // visibles — une erreur d'authentification ne doit jamais élargir un périmètre.
-  if (!userData.user) return []
+  if (!utilisateur) return []
 
   const { data: role } = await supabase
     .from('profils_roles_acces')
     .select('role_acces:roles_acces(code)')
-    .eq('profil_id', userData.user.id)
+    .eq('profil_id', utilisateur.id)
     .maybeSingle()
   const brut = (role as { role_acces: { code: string } | { code: string }[] | null } | null)?.role_acces
   const code = (Array.isArray(brut) ? brut[0]?.code : brut?.code) ?? null
@@ -78,7 +79,7 @@ async function calculerMesComptes(): Promise<string[] | null> {
 
   // `profils.id` EST l'identifiant du compte d'authentification, la jointure est donc directe.
   const lignes = await fetchAllRows<{ id: string }>('comptes', 'id', (q) =>
-    q.eq('proprietaire_id', userData.user!.id),
+    q.eq('proprietaire_id', utilisateur!.id),
   )
   return lignes.map((l) => l.id)
 }
@@ -123,8 +124,8 @@ export function fetchComptesVisibles(): Promise<string[] | null> {
 async function calculerComptesVisibles(): Promise<string[] | null> {
   // Tout le monde voit tous les comptes. On garde le controle d'authentification : une session
   // absente ne doit pas ouvrir l'acces, elle doit ne rien montrer.
-  const { data: userData } = await supabase.auth.getUser()
-  if (!userData.user) return []
+  const utilisateur = await utilisateurCourant()
+  if (!utilisateur) return []
   return null
 }
 
@@ -193,15 +194,15 @@ export function fetchMonPortefeuille(): Promise<{ comptes: string[]; sites: stri
 }
 
 async function calculerMonPortefeuille(): Promise<{ comptes: string[]; sites: string[] }> {
-  const { data: userData } = await supabase.auth.getUser()
-  if (!userData.user) return { comptes: [], sites: [] }
+  const utilisateur = await utilisateurCourant()
+  if (!utilisateur) return { comptes: [], sites: [] }
 
   // Mêmes deux plafonds que fetchSitesVisiblesIds, et le même effet : cette fonction alimente le
   // tableau de bord et le fil du portefeuille. Non paginée, elle rendait leur contenu incomplet pour
   // Guillaume Gilles (935 comptes, à 65 lignes du seuil) et faux pour Marie Thonnard (1677 sites,
   // donc 677 perdus).
   try {
-    const comptes = await idsParLots('comptes', 'id', 'proprietaire_id', [userData.user.id])
+    const comptes = await idsParLots('comptes', 'id', 'proprietaire_id', [utilisateur.id])
     if (comptes.length === 0) return { comptes: [], sites: [] }
     const sites = await idsParLots('sites', 'id', 'compte_id', comptes)
     return { comptes, sites }

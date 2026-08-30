@@ -222,7 +222,7 @@ export default function CompteDetail() {
     ]
   }, [noteEllipro])
   const canManage = useCanManage(compte?.proprietaire_id)
-  const { data: historique } = useHistorique('comptes', compte?.id)
+  const { data: historique } = useHistorique('comptes', compte?.id, tab === 'historique')
 
   const sitesDuCompte = useMemo(() => sites?.filter((s) => s.compte_id === id) ?? [], [sites, id])
   const siteIdsDuCompte = useMemo(() => new Set(sitesDuCompte.map((s) => s.id)), [sitesDuCompte])
