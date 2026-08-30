@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react'
 import { useListeServeur } from '@/lib/useListeServeur'
 import { PiedDeListe } from '@/components/ui/pied-de-liste'
 import { MandatWizard } from '@/components/mandat/MandatWizard'
-import { useNavigate, useSearchParams } from 'react-router-dom'
+import { useSearchParams } from 'react-router-dom'
 import { Plus, FileCheck2 } from 'lucide-react'
 import { Topbar } from '@/components/layout/Topbar'
 import { PageHeader } from '@/components/ui/page-header'
@@ -125,7 +125,6 @@ interface LigneMandat {
 export default function Mandats({ sansEntete }: { sansEntete?: boolean }) {
   const { data: statutsRef } = useReferenceTable('statuts_mandats')
   const statuts = statutsRef && statutsRef.length > 0 ? statutsRef : FALLBACK_STATUTS_MANDATS
-  const navigate = useNavigate()
   const [searchParams, setSearchParams] = useSearchParams()
   const compteFromUrl = searchParams.get('compte')
   const pdlsFromUrl = searchParams.get('pdls')
@@ -211,7 +210,7 @@ export default function Mandats({ sansEntete }: { sansEntete?: boolean }) {
             return (
               <Card
                 key={m.id}
-                onClick={() => navigate(`/mandats/${m.id}`)}
+                to={`/mandats/${m.id}`}
                 className="animate-fade-up cursor-pointer p-5 transition-all hover:-translate-y-0.5 hover:shadow-lg"
               >
                 <div className="flex items-start justify-between">

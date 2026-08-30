@@ -1,7 +1,6 @@
 import { useState } from 'react'
 import { useListeServeur } from '@/lib/useListeServeur'
 import { PiedDeListe } from '@/components/ui/pied-de-liste'
-import { useNavigate } from 'react-router-dom'
 import { FileText, Plus } from 'lucide-react'
 import { Topbar } from '@/components/layout/Topbar'
 import { PageHeader } from '@/components/ui/page-header'
@@ -158,7 +157,6 @@ interface LigneDocument {
  * reste : il porte le bouton de création et la phrase qui dit ce qu'est l'objet.
  */
 export default function Documents({ sansEntete }: { sansEntete?: boolean }) {
-  const navigate = useNavigate()
   const [showCreate, setShowCreate] = useState(false)
 
   /**
@@ -226,7 +224,7 @@ export default function Documents({ sansEntete }: { sansEntete?: boolean }) {
           {liste.lignes.map((doc) => (
             <Card
               key={doc.id}
-              onClick={() => navigate(`/documents/${doc.id}`)}
+              to={`/documents/${doc.id}`}
               className="animate-fade-up flex cursor-pointer items-center justify-between gap-4 p-4 transition-all hover:-translate-y-0.5 hover:shadow-lg"
             >
               <div className="flex items-center gap-3">

@@ -1,7 +1,6 @@
 import { useState } from 'react'
 import { useTranchesAffichage } from '@/lib/useTranchesAffichage'
 import { PiedDeListe } from '@/components/ui/pied-de-liste'
-import { useNavigate } from 'react-router-dom'
 import { MessageSquare, Plus } from 'lucide-react'
 import { Topbar } from '@/components/layout/Topbar'
 import { PageHeader } from '@/components/ui/page-header'
@@ -160,7 +159,6 @@ function CreateInteractionDialog({ open, onClose }: { open: boolean; onClose: ()
 
 export default function Interactions() {
   const { data: interactions, isLoading } = useInteractionsRecentes()
-  const navigate = useNavigate()
   const [showCreate, setShowCreate] = useState(false)
 
   /**
@@ -256,7 +254,7 @@ export default function Interactions() {
           {tranche.visibles.map((i) => (
             <Card
               key={i.id}
-              onClick={() => navigate(`/interactions/${i.id}`)}
+              to={`/interactions/${i.id}`}
               className="animate-fade-up flex cursor-pointer items-start justify-between gap-4 p-4 transition-all hover:-translate-y-0.5 hover:shadow-lg"
             >
               <div className="flex items-start gap-3">

@@ -1,5 +1,5 @@
-import { Fragment, useState } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { Fragment, useState, type ReactNode } from 'react'
+import { Link } from 'react-router-dom'
 import { ChevronRight } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
@@ -113,6 +113,36 @@ export interface CarteKanban {
 /** Nombre de cartes montrées par colonne AVANT dépliage. Au-delà, un bouton montre le reste. */
 const CARTES_PAR_COLONNE = 8
 
+/**
+ * La tuile d'un tableau : un lien quand elle mene a une fiche, un bouton quand elle declenche
+ * une action. Meme balisage a l'oeil, comportements differents sous la main — et c'est bien la
+ * difference que le navigateur et les lecteurs d'ecran ont besoin de connaitre.
+ */
+function CarteCliquable({
+  to,
+  onClick,
+  className,
+  children,
+}: {
+  to?: string
+  onClick?: () => void
+  className?: string
+  children: ReactNode
+}) {
+  if (to) {
+    return (
+      <Link to={to} className={className}>
+        {children}
+      </Link>
+    )
+  }
+  return (
+    <button type="button" onClick={onClick} className={className}>
+      {children}
+    </button>
+  )
+}
+
 export function TableauKanban({
   colonnes,
   cartes,
@@ -141,7 +171,6 @@ export function TableauKanban({
   onCarte?: (id: string) => void
   siVide: string
 }) {
-  const navigate = useNavigate()
   /* LES COLONNES DÉPLIÉES, une par une. Naoëlle, 28/08/2026 : « quand je veux appuyer sur les autres
      pour les voir, c'est impossible ». La mention « et 15 autres » était du texte mort : on annonçait
      un reste sans donner le moyen de l'atteindre, ce qui est pire que de ne rien annoncer.
@@ -239,9 +268,20 @@ export function TableauKanban({
                       </span>
                     </p>
                   )}
-                <button
-                  type="button"
-                  onClick={() => (onCarte ? onCarte(c.id) : navigate(c.to))}
+                {/* UNE CARTE QUI MENE A UNE FICHE EST UN LIEN, PAS UN BOUTON.
+
+                    En bouton, elle ne repondait ni au clic du milieu, ni au Ctrl+clic, ni au clic
+                    droit « ouvrir dans un nouvel onglet », et ne montrait aucune adresse en bas de
+                    la fenetre avant qu'on clique. Comparer deux dossiers cote a cote — le geste le
+                    plus courant du metier — obligeait a faire un aller-retour par ecran. Un lecteur
+                    d'ecran annoncait « bouton » la ou il s'agit d'aller quelque part.
+
+                    Les cartes qui declenchent une action et non une navigation (onCarte) restent des
+                    boutons : c'est bien ce qu'elles sont. Les classes sont identiques dans les deux
+                    cas, l'apparence ne bouge pas. */}
+                <CarteCliquable
+                  to={onCarte ? undefined : c.to}
+                  onClick={onCarte ? () => onCarte(c.id) : undefined}
                   className={cn(
                     'group flex items-start gap-1.5 rounded-kw-md border bg-white px-2 py-1.5 text-left transition-colors hover:bg-kw-bg',
                     c.urgent ? 'border-kw-amber' : 'border-kw-border-faint',
@@ -294,7 +334,7 @@ export function TableauKanban({
                     )}
                   </span>
                   <ChevronRight className="mt-0.5 h-3 w-3 shrink-0 text-kw-faint opacity-0 transition-opacity group-hover:opacity-100" />
-                </button>
+                </CarteCliquable>
                 </Fragment>
               ))}
               {/* ══ VOIR LE RESTE, OU LE REPLIER ══

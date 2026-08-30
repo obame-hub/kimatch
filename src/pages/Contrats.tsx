@@ -2,7 +2,6 @@ import { useEffect, useMemo, useState } from 'react'
 import { useTranchesAffichage } from '@/lib/useTranchesAffichage'
 import { PiedDeListe } from '@/components/ui/pied-de-liste'
 import { addMonths, format, isValid } from 'date-fns'
-import { useNavigate } from 'react-router-dom'
 import { FileSignature, Zap, Flame, Plus, FileText } from 'lucide-react'
 import { Topbar } from '@/components/layout/Topbar'
 import { PageHeader } from '@/components/ui/page-header'
@@ -398,7 +397,6 @@ export default function Contrats({ sansEntete }: { sansEntete?: boolean }) {
   const { data: contrats, isLoading } = useContrats()
   const { data: statutsRef } = useReferenceTable('statuts_contrats')
   const statuts = statutsRef && statutsRef.length > 0 ? statutsRef : FALLBACK_STATUTS_CONTRATS
-  const navigate = useNavigate()
   const [showCreate, setShowCreate] = useState(false)
   const [statutFilter, setStatutFilter] = useState('')
   /**
@@ -496,7 +494,7 @@ export default function Contrats({ sansEntete }: { sansEntete?: boolean }) {
             return (
               <Card
                 key={c.id}
-                onClick={() => navigate(`/contrats/${c.id}`)}
+                to={`/contrats/${c.id}`}
                 className="animate-fade-up cursor-pointer p-5 transition-all hover:-translate-y-0.5 hover:shadow-lg"
               >
                 <div className="flex items-start justify-between">

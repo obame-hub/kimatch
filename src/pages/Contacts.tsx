@@ -457,7 +457,7 @@ export default function Contacts({ sansEntete }: { sansEntete?: boolean }) {
           {tranche.visibles.map((c) => (
             <Card
               key={c.id}
-              onClick={() => navigate(`/contacts/${c.id}`)}
+              to={`/contacts/${c.id}`}
               className="animate-fade-up cursor-pointer p-5 transition-all hover:-translate-y-0.5 hover:shadow-lg"
             >
               <div className="flex items-start justify-between gap-2">
