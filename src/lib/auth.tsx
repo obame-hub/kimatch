@@ -34,7 +34,25 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   async function signInWithMagicLink(email: string) {
     const { error } = await supabase.auth.signInWithOtp({
       email,
-      options: { emailRedirectTo: window.location.origin },
+      options: {
+        emailRedirectTo: window.location.origin,
+        // DEMANDER UN LIEN NE DOIT PAS OUVRIR UN COMPTE.
+        //
+        // `signInWithOtp` crée l'utilisateur par défaut quand l'adresse est inconnue. Le projet
+        // Supabase acceptant les inscriptions, n'importe quelle adresse tapée dans ce champ
+        // recevait un lien, devenait un utilisateur authentifié — et le déclencheur
+        // handle_new_user lui donnait aussitôt un profil actif avec le rôle CONSEILLER. Les
+        // politiques RLS étant ouvertes à tout utilisateur authentifié, la personne voyait ensuite
+        // l'ensemble des clients, des contrats et des échanges. Connaître l'adresse de Kimatch
+        // suffisait pour entrer.
+        //
+        // Ce réglage-ci ferme la porte de NOTRE écran. Il ne suffit pas à lui seul : quelqu'un qui
+        // appelle directement l'API d'authentification ne passe pas par ce code. Les deux autres
+        // verrous sont les inscriptions à couper dans le tableau de bord Supabase, et le
+        // déclencheur de la migration 20260830130000 qui refuse en base toute adresse absente des
+        // accès autorisés.
+        shouldCreateUser: false,
+      },
     })
     return { error: error?.message ?? null }
   }

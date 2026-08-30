@@ -32,6 +32,11 @@ function messageLisible(brut: string): string {
   if (b.includes('invalid') && b.includes('email')) {
     return "Cette adresse e-mail n'est pas valide."
   }
+  // UNE ADRESSE INCONNUE N'OUVRE PLUS DE COMPTE (30/08/2026). Supabase répond alors « Signups not
+  // allowed for otp », qui laisserait croire à une panne. Ce n'en est pas une : c'est la règle.
+  if (b.includes('signups not allowed') || b.includes('signup is disabled') || b.includes('user not found')) {
+    return "Cette adresse n'a pas accès à Kimatch. Demande à un administrateur de t'ajouter dans Administration → accès autorisés, puis réessaie."
+  }
   return brut
 }
 
