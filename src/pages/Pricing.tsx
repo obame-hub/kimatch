@@ -5,6 +5,7 @@ import { PageHeader } from '@/components/ui/page-header'
 import { ListToolbar } from '@/components/ui/list-toolbar'
 import { TableauKanban } from '@/components/dashboard/TableauKanban'
 import { useKanbanServeur } from '@/lib/useKanbanServeur'
+import { useTriKanban, SelecteurTri } from '@/lib/triKanban'
 import { usePerimetre, BasculePerimetre } from '@/lib/perimetre'
 import { useMonProfil } from '@/lib/data/roles'
 import { cn } from '@/lib/utils'
@@ -228,6 +229,16 @@ export default function Pricing({ sansEntete }: { sansEntete?: boolean }) {
     ? [...COLONNES, { code: 'REFUSEE', libelle: 'Demande refusée' } as const]
     : [...COLONNES]
 
+  /* « ECHEANCE » EN PREMIER, ET CROISSANTE : c'est la demande de Michel du 27/08 — les retards
+     d'abord. Les trois autres axes repondent aux autres questions qu'on se pose ici : combien ca
+     pese, chez qui ca traine, pour quel client. */
+  const { tri, ascendant, setTri, options: optionsTri } = useTriKanban('pricing', [
+    { cle: 'date_cotation_souhaitee', libelle: 'échéance' },
+    { cle: 'montant_annuel_ht', libelle: 'montant', ascendant: false },
+    { cle: 'fournisseur_nom', libelle: 'fournisseur' },
+    { cle: 'compte_nom', libelle: 'compte' },
+  ])
+
   const tableau = useKanbanServeur<LignePricing>({
     vue: 'v_pricing_consultations',
     colonneStatut: 'colonne',
@@ -246,10 +257,11 @@ export default function Pricing({ sansEntete }: { sansEntete?: boolean }) {
       version_vivante: true,
       compte_proprietaire_id: perimetre === 'moi' && monProfil?.id ? monProfil.id : null,
     },
-    // LES RETARDS EN PREMIER (Michel, 27/08/2026). Le tri part en base : on ne demande que dix
-    // cartes par colonne, donc trier à l'arrivée remettrait dans l'ordre un échantillon pris au
-    // hasard et la plus en retard resterait invisible parce qu'onzième.
-    ordre: { colonne: 'date_cotation_souhaitee', ascendant: true },
+    // LES RETARDS EN PREMIER (Michel, 27/08/2026) — c'est le tri par défaut, et il reste le
+    // premier de la liste. Le tri part en base : on ne demande que dix cartes par colonne, donc
+    // trier à l'arrivée remettrait dans l'ordre un échantillon pris au hasard et la plus en retard
+    // resterait invisible parce qu'onzième.
+    ordre: { colonne: tri, ascendant },
     // Le montant se somme par colonne : c'est ce qui attend chez chaque fournisseur.
     colonneSomme: 'montant_annuel_ht',
     actif: true,
@@ -288,6 +300,7 @@ export default function Pricing({ sansEntete }: { sansEntete?: boolean }) {
             libelleMien="Mes consultations"
             libelleTous="Toutes les consultations"
           />
+          <SelecteurTri valeur={tri} onChange={setTri} options={optionsTri} />
           <button
             type="button"
             onClick={() => setAvecRefusees((v) => !v)}

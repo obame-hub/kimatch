@@ -10,6 +10,7 @@ import { Dialog } from '@/components/ui/dialog'
 import { FormField, Input, Select } from '@/components/ui/form'
 import { ListToolbar } from '@/components/ui/list-toolbar'
 import { usePerimetreListe, BasculePerimetre } from '@/lib/perimetre'
+import { useTriKanban, SelecteurTri } from '@/lib/triKanban'
 import { DialogConversionPiste } from '@/components/prospection/DialogConversionPiste'
 import { OngletFichiers } from '@/components/compte/OngletFichiers'
 import { useDocumentsParEntites, useTeleverserDocuments } from '@/lib/data/documents'
@@ -265,11 +266,24 @@ function OngletPistes({ pistes, signaler }: { pistes: Piste[]; signaler: (m: str
     'pistes', pistes, { proprietaireId: (p) => p.proprietaire_id, compteId: (p) => p.compte_id },
   )
 
+  /* Une piste n'a que trois choses a trier : quand elle est arrivee, chez qui, et par qui.
+     Le tri reste local — quatre pistes en base, et l'ecran les charge toutes. */
+  const { tri, ascendant, setTri, options: optionsTri } = useTriKanban('pistes', [
+    { cle: 'date_creation', libelle: 'date de création', ascendant: false },
+    { cle: 'societe', libelle: 'société' },
+    { cle: 'contact_nom', libelle: 'contact' },
+  ])
+
   const filtrees = useMemo(() => {
     const q = recherche.trim().toLowerCase()
-    return (pistesDuPerimetre ?? []).filter((p) => !q || [p.societe, p.contact_nom, p.email].filter(Boolean)
+    const retenues = (pistesDuPerimetre ?? []).filter((p) => !q || [p.societe, p.contact_nom, p.email].filter(Boolean)
       .some((v) => String(v).toLowerCase().includes(q)))
-  }, [pistesDuPerimetre, recherche])
+    /* `localeCompare` et non `<` : « Élan » se range avant « Zenith » en français, et apres en
+       ordre d'octets. Une liste de societes triee a l'octet met tous les accents a la fin. */
+    const sens = ascendant ? 1 : -1
+    return [...retenues].sort((a, b) => sens * String(a[tri as keyof typeof a] ?? '')
+      .localeCompare(String(b[tri as keyof typeof b] ?? ''), 'fr'))
+  }, [pistesDuPerimetre, recherche, tri, ascendant])
 
 
   /**
@@ -301,6 +315,7 @@ function OngletPistes({ pistes, signaler }: { pistes: Piste[]; signaler: (m: str
           libelleMien="Mes pistes"
           libelleTous="Toutes les pistes"
         />
+        <SelecteurTri valeur={tri} onChange={setTri} options={optionsTri} />
         {/* PLUS DE BASCULEMENT, PLUS DE FILTRE « OUVERTES SEULEMENT ». Naoëlle, 25/08/2026 :
             « garde juste la vue kanban pour partout », puis « crée les actions sur les pistes, les
             listes ne servent à rien, on fera tout sur pistes ».

@@ -10,6 +10,7 @@ import { RESULTAT_VERSION_LIBELLE } from '@/lib/referenceFallbacks'
 import { ListToolbar } from '@/components/ui/list-toolbar'
 import { usePerimetre, BasculePerimetre } from '@/lib/perimetre'
 import { useKanbanServeur } from '@/lib/useKanbanServeur'
+import { useTriKanban, SelecteurTri } from '@/lib/triKanban'
 import { TableauKanban } from '@/components/dashboard/TableauKanban'
 import { CreateRecommandationDialog } from '@/components/opportunite/CreationRecommandationWizard'
 
@@ -137,6 +138,15 @@ export default function Recommandations() {
    * pipeline. La recherche et le filtre de propriétaire de la liste s'y appliquent — sans quoi les
    * deux vues montreraient deux populations différentes sous le même bandeau.
    */
+  /* LES QUATRE AXES QUI ONT UN SENS SUR UN DOSSIER. « Marge » d'abord parce que c'est ce que
+     Michel regarde, et decroissante : une marge se lit du plus gros au plus petit. */
+  const { tri, ascendant, setTri, options: optionsTri } = useTriKanban('recommandations', [
+    { cle: 'marge_nette', libelle: 'marge', ascendant: false },
+    { cle: 'date_ouverture', libelle: 'date d’ouverture', ascendant: false },
+    { cle: 'compte_nom', libelle: 'compte' },
+    { cle: 'nom', libelle: 'nom du dossier' },
+  ])
+
   const tableau = useKanbanServeur<LigneReco>({
     vue: 'v_recommandations_liste',
     /* `colonne_travail` réunit en un champ l'état de la dernière version et, à défaut, celui du
@@ -158,6 +168,9 @@ export default function Recommandations() {
      * comprises — sans quoi le bandeau démentirait le tableau juste en dessous.
      */
     colonneSomme: 'marge_nette',
+    /* LE TRI PART EN BASE. Seules dix cartes par colonne sont chargees : trier a l'arrivee
+       reordonnerait un echantillon, et la plus grosse marge resterait invisible parce qu'onzieme. */
+    ordre: { colonne: tri, ascendant },
     // Le tableau est la seule vue : il est toujours actif.
     actif: true,
   })
@@ -200,11 +213,12 @@ export default function Recommandations() {
             libelleMien="Mes dossiers"
             libelleTous="Tous les dossiers"
           />
-          {/* PLUS DE BASCULEMENT, PLUS DE FILTRE PAR ÉTAPE, PLUS DE TRI. Naoëlle, 25/08/2026 :
-              « garde juste la vue kanban pour partout, enlève la vue de liste ». Le filtre par étape
-              et le tri appartenaient à la liste : les étapes SONT les colonnes du tableau, et une
-              colonne ne se trie pas de l'extérieur. La recherche, elle, reste — elle traverse toutes
-              les colonnes. */}
+          {/* LE TRI EST REVENU LE 28/08/2026 : « un système de tri et de filtre sur toutes les vues
+              kanban ». Il avait été retiré trois jours plus tôt, avec le filtre par étape et la vue
+              de liste. Ce qui gênait alors, c'était de trier des COLONNES — les étapes SONT les
+              colonnes, elles ne se trient pas de l'extérieur. Trier les CARTES à l'intérieur d'une
+              colonne est une autre affaire, et c'est celle-là qu'on demande. */}
+          <SelecteurTri valeur={tri} onChange={setTri} options={optionsTri} />
         {/* INCLURE LES DOSSIERS CLOS. Demandé par Naoëlle le 25/08/2026, après que j'aie signalé la
             conséquence de la règle de Michel : un dossier clos ne se trouvait plus par la recherche
             de cette page, et c'est le genre de chose qu'on découvre au mauvais moment.

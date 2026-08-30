@@ -14,6 +14,7 @@ import { FormField, Input, Select, Textarea } from '@/components/ui/form'
 import { ListToolbar } from '@/components/ui/list-toolbar'
 import { useListControls } from '@/lib/useListControls'
 import { usePerimetreListe, BasculePerimetre } from '@/lib/perimetre'
+import { SelecteurTri } from '@/lib/triKanban'
 import {
   statutDerive,
   PIPELINE_OPPORTUNITE,
@@ -76,6 +77,10 @@ export default function Opportunites() {
 
   const controles = useListControls(opportunitesDuPerimetre, {
     searchFields: (o) => [o.compte_nom, o.reference, o.contact_nom, o.type_opportunite],
+    /* LES TROIS COMPARATEURS EXISTAIENT DEJA, sans aucun moyen de choisir entre eux : la page
+       triait toujours par « recentes » et les deux autres etaient du code mort. Ils sont branches
+       au selecteur ci-dessous. Ici le tri peut rester local — cet ecran charge TOUTES les
+       opportunites, contrairement aux tableaux du Pricing et des Recommandations. */
     sorters: {
       recentes: (a, b) => (b.date_creation ?? '').localeCompare(a.date_creation ?? ''),
       compte: (a, b) => (a.compte_nom ?? '').localeCompare(b.compte_nom ?? ''),
@@ -158,6 +163,15 @@ export default function Opportunites() {
           placeholder="Rechercher un compte, une référence…"
           count={vivantes.length}
         >
+          <SelecteurTri
+            valeur={controles.sortKey}
+            onChange={controles.setSortKey}
+            options={[
+              { cle: 'recentes', libelle: 'date de création' },
+              { cle: 'echeance', libelle: 'prochaine échéance' },
+              { cle: 'compte', libelle: 'compte' },
+            ]}
+          />
           <BasculePerimetre
             valeur={perimetre}
             onChange={setPerimetre}
