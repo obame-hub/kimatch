@@ -1,5 +1,8 @@
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useQuery } from '@tanstack/react-query'
 import { cn } from '@/lib/utils'
+import { fetchMonPortefeuille, filtrerMesElements } from '@/lib/data/visibility'
+import { useMonProfil } from '@/lib/data/roles'
 
 /**
  * « MES OBJETS » OU « TOUS LES OBJETS », sur chaque liste de l'application.
@@ -57,6 +60,66 @@ export function usePerimetre(cle: string) {
   const setPerimetre = useCallback((valeur: Perimetre) => setPerimetreEtat(valeur), [])
 
   return { perimetre, setPerimetre, seulementLesMiens: perimetre === 'moi' }
+}
+
+/** Mon portefeuille : les comptes dont je suis propriétaire, et leurs sites. */
+export function useMonPortefeuille() {
+  return useQuery({
+    queryKey: ['mon-portefeuille'],
+    queryFn: fetchMonPortefeuille,
+    // Le portefeuille d'un conseiller ne bouge pas d'une minute à l'autre, et il est interrogé par
+    // chacune des quinze listes : le recalculer à chaque navigation coûterait une requête pour rien.
+    staleTime: 5 * 60 * 1000,
+  })
+}
+
+/**
+ * LA BASCULE POSÉE SUR UNE LISTE DÉJÀ CHARGÉE, filtre compris.
+ *
+ * POURQUOI UN SEUL PROPRIÉTAIRE NE SUFFIT PAS. Filtrer bêtement sur `proprietaire_id` aurait vidé
+ * trois écrans sur quinze — relevé le 30/08/2026 : les signaux ne portent AUCUN propriétaire
+ * (0 sur 1 456), les versions non plus (1 sur 2 030), et les échanges presque pas (3 sur 66 645).
+ * Un « Mes signaux » qui affiche zéro est pire que pas de bascule du tout : on croit n'avoir rien
+ * à faire.
+ *
+ * La règle est donc en cascade, et c'est déjà celle du tableau de bord (`filtrerMesElements`) :
+ * le propriétaire s'il est renseigné, sinon le compte auquel l'objet est rattaché, sinon son site.
+ * Un signal sans propriétaire suit ainsi le site sur lequel il est apparu, et un échange suit son
+ * compte — ce qui est exactement la question que se pose un conseiller.
+ *
+ * Chaque écran dit quels champs lire : le nom des colonnes n'est pas devinable, et un objet peut
+ * porter son propriétaire sous un autre nom (l'auteur, pour un échange).
+ */
+export function usePerimetreListe<T>(
+  cle: string,
+  elements: T[] | undefined,
+  scope: {
+    proprietaireId?: (item: T) => string | null | undefined
+    compteId?: (item: T) => string | null | undefined
+    siteId?: (item: T) => string | null | undefined
+  },
+) {
+  const { perimetre, setPerimetre } = usePerimetre(cle)
+  const { data: monProfil } = useMonProfil()
+  const { data: portefeuille } = useMonPortefeuille()
+
+  const miens = useMemo(
+    () => (elements ? filtrerMesElements(elements, portefeuille, monProfil?.id, scope) : undefined),
+    // `scope` est reconstruit à chaque rendu (ce sont des fonctions écrites sur place) : l'inclure
+    // dans les dépendances annulerait la mémoïsation. Les extracteurs d'un écran ne changent
+    // jamais en cours de route — seule la liste change.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [elements, portefeuille, monProfil?.id],
+  )
+
+  return {
+    perimetre,
+    setPerimetre,
+    /** La liste à afficher, selon la position de la bascule. */
+    visibles: perimetre === 'moi' ? miens : elements,
+    nbMiens: miens?.length,
+    nbTous: elements?.length,
+  }
 }
 
 /**

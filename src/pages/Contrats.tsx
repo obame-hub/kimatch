@@ -22,6 +22,7 @@ import { ZONE_ORDER_CONTRAT, ZONE_LABEL_CONTRAT, zoneDuFournisseur } from '@/lib
 import { nomJourFerieFR } from '@/lib/joursFeries'
 import { ListToolbar } from '@/components/ui/list-toolbar'
 import { useListControls } from '@/lib/useListControls'
+import { usePerimetreListe, BasculePerimetre } from '@/lib/perimetre'
 import { ExtractDocumentButton } from '@/components/ui/document-extraction'
 import { cn } from '@/lib/utils'
 
@@ -419,7 +420,14 @@ export default function Contrats({ sansEntete }: { sansEntete?: boolean }) {
     return liste
   })()
 
-  const { query, setQuery, sortKey, setSortKey, items: filteredContrats } = useListControls(contratsFiltresParStatut, {
+  /* 530 contrats sur 1 600 n'ont pas de proprietaire : la cascade retombe alors sur leur compte,
+     puis sur leur site. Sans elle, un tiers du portefeuille disparaitrait de « Mes contrats ». */
+  const { perimetre, setPerimetre, visibles: contratsDuPerimetre } = usePerimetreListe(
+    'contrats', contratsFiltresParStatut,
+    { proprietaireId: (c) => c.proprietaire_id, compteId: (c) => c.compte_id, siteId: (c) => c.site_id },
+  )
+
+  const { query, setQuery, sortKey, setSortKey, items: filteredContrats } = useListControls(contratsDuPerimetre, {
     searchFields: (c) => [c.fournisseur_nom, c.site_nom, c.reference_fournisseur, c.id_salesforce],
     sorters: {
       site_nom: (a, b) => a.site_nom.localeCompare(b.site_nom),
@@ -454,6 +462,12 @@ export default function Contrats({ sansEntete }: { sansEntete?: boolean }) {
         </p>
 
         <ListToolbar query={query} onQueryChange={setQuery} placeholder="Rechercher un fournisseur, un site…" count={filteredContrats?.length}>
+            <BasculePerimetre
+              valeur={perimetre}
+              onChange={setPerimetre}
+              libelleMien="Mes contrats"
+              libelleTous="Tous les contrats"
+            />
           <Select value={statutFilter} onChange={(e) => setStatutFilter(e.target.value)} className="w-auto">
             <option value="">Tous les statuts</option>
             {statuts.map((s) => <option key={s.id} value={s.code}>{s.libelle}</option>)}

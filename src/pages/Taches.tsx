@@ -17,6 +17,7 @@ import { useReferenceTable } from '@/lib/data/referenceTables'
 import { FALLBACK_TYPES_ACTIONS, FALLBACK_STATUTS_ACTIONS, STATUT_ACTION_TONE } from '@/lib/referenceFallbacks'
 import { ListToolbar } from '@/components/ui/list-toolbar'
 import { useListControls } from '@/lib/useListControls'
+import { usePerimetreListe, BasculePerimetre } from '@/lib/perimetre'
 import { ActivityCard } from '@/components/ui/activity-card'
 
 function CreateActionDialog({ open, onClose }: { open: boolean; onClose: () => void }) {
@@ -154,7 +155,14 @@ export default function Taches() {
   const navigate = useNavigate()
   const [showCreate, setShowCreate] = useState(false)
 
-  const { query, setQuery, sortKey, setSortKey, items: filteredActions } = useListControls(actions, {
+  /* Une tache appartient d'abord a QUI DOIT LA FAIRE : le responsable prime sur le proprietaire,
+     et le site ne sert que de dernier recours pour les taches qui n'ont ni l'un ni l'autre. */
+  const { perimetre, setPerimetre, visibles: actionsDuPerimetre } = usePerimetreListe(
+    'taches', actions,
+    { proprietaireId: (a) => a.responsable_id ?? a.proprietaire_id, siteId: (a) => a.site_id },
+  )
+
+  const { query, setQuery, sortKey, setSortKey, items: filteredActions } = useListControls(actionsDuPerimetre, {
     searchFields: (a) => [a.titre, a.cible_label, a.contact_nom, a.responsable, a.type_action],
     sorters: {
       echeance: (a, b) => (a.echeance ?? '').localeCompare(b.echeance ?? ''),
@@ -178,6 +186,12 @@ export default function Taches() {
         />
 
         <ListToolbar query={query} onQueryChange={setQuery} placeholder="Rechercher une tâche, un site, un contact…" count={filteredActions?.length}>
+            <BasculePerimetre
+              valeur={perimetre}
+              onChange={setPerimetre}
+              libelleMien="Mes tâches"
+              libelleTous="Toutes les tâches"
+            />
           <Select value={sortKey} onChange={(e) => setSortKey(e.target.value)} className="w-auto">
             <option value="echeance">Trier par échéance</option>
             <option value="titre">Trier par titre</option>

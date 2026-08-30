@@ -16,6 +16,7 @@ import { cn } from '@/lib/utils'
 import { estIdReel } from '@/lib/referenceFallbacks'
 import { prochaineActionSignal } from '@/lib/prochaineActionSignal'
 import { ListToolbar } from '@/components/ui/list-toolbar'
+import { usePerimetreListe, BasculePerimetre } from '@/lib/perimetre'
 
 function SignalCard({ signal }: { signal: Signal }) {
   const navigate = useNavigate()
@@ -224,8 +225,15 @@ export default function Signaux() {
   const estVivant = (code: string) => code !== 'CONVERTI' && code !== 'ECARTE'
   const columns = tousLesStatuts.filter((c) => avecClos || estVivant(c.code))
 
+  /* UN SIGNAL NE PORTE AUCUN PROPRIETAIRE — verifie le 30/08/2026 : 0 sur 1 456, ni proprietaire
+     ni responsable. Il suit donc le SITE sur lequel il est apparu, et le site suit son compte.
+     C'est la bonne question de toute facon : « ce signal est-il sur un de mes sites ? ». */
+  const { perimetre, setPerimetre, visibles: signauxDuPerimetre } = usePerimetreListe(
+    'signaux', signaux, { siteId: (s) => s.site_id },
+  )
+
   const q = query.trim().toLowerCase()
-  const visibles = (signaux ?? [])
+  const visibles = (signauxDuPerimetre ?? [])
     // Le compteur du bandeau doit dire ce que le tableau montre : sans ce filtre il annoncerait
     // 1 457 signaux au-dessus de colonnes qui n'en affichent que 831.
     .filter((s) => avecClos || estVivant(s.statut))
@@ -244,7 +252,14 @@ export default function Signaux() {
         />
 
         <div className="mb-3.5 flex flex-wrap items-center gap-3">
-          <ListToolbar query={query} onQueryChange={setQuery} placeholder="Rechercher un site, un type de signal…" count={visibles.length} />
+          <ListToolbar query={query} onQueryChange={setQuery} placeholder="Rechercher un site, un type de signal…" count={visibles.length}>
+            <BasculePerimetre
+              valeur={perimetre}
+              onChange={setPerimetre}
+              libelleMien="Mes signaux"
+              libelleTous="Tous les signaux"
+            />
+          </ListToolbar>
         {/* INCLURE LES DOSSIERS CLOS. Demandé par Naoëlle le 25/08/2026, après que j'aie signalé la
             conséquence de la règle de Michel : un dossier clos ne se trouvait plus par la recherche
             de cette page, et c'est le genre de chose qu'on découvre au mauvais moment.

@@ -39,6 +39,7 @@ import { Card } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { EntityLink } from '@/components/ui/entity-link'
 import { ListToolbar } from '@/components/ui/list-toolbar'
+import { usePerimetre, useMonPortefeuille, BasculePerimetre } from '@/lib/perimetre'
 import { SortableTh } from '@/components/ui/sortable-th'
 import { PiedDeListe } from '@/components/ui/pied-de-liste'
 import { BadgeEcheance } from '@/components/compteur/BadgeEcheance'
@@ -89,7 +90,12 @@ export default function Compteurs({ sansEntete }: { sansEntete?: boolean }) {
     setLimite(TRANCHE_INITIALE)
   }, [recherche, filtre, tri, sens])
 
-  const liste = useCompteursListe({ recherche, filtre, tri, sens, limite })
+  const { perimetre, setPerimetre } = usePerimetre('compteurs')
+  const { data: portefeuille } = useMonPortefeuille()
+  const liste = useCompteursListe({
+    recherche, filtre, tri, sens, limite,
+    sites: perimetre === 'moi' ? (portefeuille?.sites ?? []) : null,
+  })
   const { data: nombres } = useComptesEcheances()
 
   // LES CONTRATS SERVENT LA COLONNE « NATURE », PAS LE FILTRE. 1 600 lignes chargées une fois et
@@ -159,7 +165,14 @@ export default function Compteurs({ sansEntete }: { sansEntete?: boolean }) {
             onQueryChange={setQuery}
             placeholder="Rechercher un PDL ou un emplacement…"
             count={total}
-          />
+          >
+            <BasculePerimetre
+              valeur={perimetre}
+              onChange={setPerimetre}
+              libelleMien="Mes compteurs"
+              libelleTous="Tous les compteurs"
+            />
+          </ListToolbar>
         </div>
 
         <Card className="overflow-x-auto">

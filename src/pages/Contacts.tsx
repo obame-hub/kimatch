@@ -19,6 +19,7 @@ import { useSites } from '@/lib/data/sites'
 import { useCompteurs, useAssignCompteurContact } from '@/lib/data/compteurs'
 import { ListToolbar } from '@/components/ui/list-toolbar'
 import { useListControls } from '@/lib/useListControls'
+import { usePerimetreListe, BasculePerimetre } from '@/lib/perimetre'
 import { toUpperFR, toTitleCaseFR, formatPhoneFR, isValidPhoneFR, isValidEmail } from '@/lib/textFormat'
 import { contactRoleOptions } from '@/lib/contactRoles'
 import type { Contact } from '@/types/domain'
@@ -398,7 +399,11 @@ export default function Contacts({ sansEntete }: { sansEntete?: boolean }) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
-  const { query, setQuery, sortKey, setSortKey, items: filteredContacts } = useListControls(contacts, {
+  const { perimetre, setPerimetre, visibles: contactsDuPerimetre } = usePerimetreListe(
+    'contacts', contacts, { proprietaireId: (c) => c.proprietaire_id, compteId: (c) => c.compte_id },
+  )
+
+  const { query, setQuery, sortKey, setSortKey, items: filteredContacts } = useListControls(contactsDuPerimetre, {
     searchFields: (c) => [c.prenom, c.nom, c.fonction, c.compte_nom, c.email, c.telephone],
     sorters: {
       nom: (a, b) => a.nom.localeCompare(b.nom),
@@ -437,6 +442,12 @@ export default function Contacts({ sansEntete }: { sansEntete?: boolean }) {
         />
 
         <ListToolbar query={query} onQueryChange={setQuery} placeholder="Rechercher un contact, un compte…" count={filteredContacts?.length}>
+            <BasculePerimetre
+              valeur={perimetre}
+              onChange={setPerimetre}
+              libelleMien="Mes contacts"
+              libelleTous="Tous les contacts"
+            />
           <Select value={sortKey} onChange={(e) => setSortKey(e.target.value)} className="w-auto">
             <option value="nom">Trier par nom</option>
             <option value="compte_nom">Trier par compte</option>

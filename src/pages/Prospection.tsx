@@ -9,6 +9,7 @@ import { Badge } from '@/components/ui/badge'
 import { Dialog } from '@/components/ui/dialog'
 import { FormField, Input, Select } from '@/components/ui/form'
 import { ListToolbar } from '@/components/ui/list-toolbar'
+import { usePerimetreListe, BasculePerimetre } from '@/lib/perimetre'
 import { DialogConversionPiste } from '@/components/prospection/DialogConversionPiste'
 import { OngletFichiers } from '@/components/compte/OngletFichiers'
 import { useDocumentsParEntites, useTeleverserDocuments } from '@/lib/data/documents'
@@ -257,11 +258,18 @@ function OngletPistes({ pistes, signaler }: { pistes: Piste[]; signaler: (m: str
    * Ce que le tableau montre — donc ce que le compteur du bandeau doit annoncer. Plus de filtre
    * « ouvertes seulement » : les converties ont leur colonne, elles font partie du décompte.
    */
+  /* UNE PISTE EST UN PROSPECT : elle n'a le plus souvent pas encore de compte, donc pas de
+     portefeuille auquel se rattacher. « Mes pistes » veut dire celles que J'AI OUVERTES — c'est le
+     propriétaire qui répond, et il est renseigné sur les quatre. */
+  const { perimetre, setPerimetre, visibles: pistesDuPerimetre } = usePerimetreListe(
+    'pistes', pistes, { proprietaireId: (p) => p.proprietaire_id, compteId: (p) => p.compte_id },
+  )
+
   const filtrees = useMemo(() => {
     const q = recherche.trim().toLowerCase()
-    return pistes.filter((p) => !q || [p.societe, p.contact_nom, p.email].filter(Boolean)
+    return (pistesDuPerimetre ?? []).filter((p) => !q || [p.societe, p.contact_nom, p.email].filter(Boolean)
       .some((v) => String(v).toLowerCase().includes(q)))
-  }, [pistes, recherche])
+  }, [pistesDuPerimetre, recherche])
 
 
   /**
@@ -287,6 +295,12 @@ function OngletPistes({ pistes, signaler }: { pistes: Piste[]; signaler: (m: str
   return (
     <>
       <ListToolbar query={recherche} onQueryChange={setRecherche} placeholder="Société, contact, email…" count={filtrees.length}>
+        <BasculePerimetre
+          valeur={perimetre}
+          onChange={setPerimetre}
+          libelleMien="Mes pistes"
+          libelleTous="Toutes les pistes"
+        />
         {/* PLUS DE BASCULEMENT, PLUS DE FILTRE « OUVERTES SEULEMENT ». Naoëlle, 25/08/2026 :
             « garde juste la vue kanban pour partout », puis « crée les actions sur les pistes, les
             listes ne servent à rien, on fera tout sur pistes ».

@@ -13,6 +13,7 @@ import { Dialog } from '@/components/ui/dialog'
 import { FormField, Input, Select, Textarea } from '@/components/ui/form'
 import { ListToolbar } from '@/components/ui/list-toolbar'
 import { useListControls } from '@/lib/useListControls'
+import { usePerimetreListe, BasculePerimetre } from '@/lib/perimetre'
 import {
   statutDerive,
   PIPELINE_OPPORTUNITE,
@@ -68,7 +69,12 @@ export default function Opportunites() {
   const [creation, setCreation] = useState(parametres.get('nouveau') === '1')
   const [avecClos, setAvecClos] = useState(false)
 
-  const controles = useListControls(opportunites, {
+  const { perimetre, setPerimetre, visibles: opportunitesDuPerimetre } = usePerimetreListe(
+    'opportunites', opportunites,
+    { proprietaireId: (o) => o.proprietaire_id, compteId: (o) => o.compte_id },
+  )
+
+  const controles = useListControls(opportunitesDuPerimetre, {
     searchFields: (o) => [o.compte_nom, o.reference, o.contact_nom, o.type_opportunite],
     sorters: {
       recentes: (a, b) => (b.date_creation ?? '').localeCompare(a.date_creation ?? ''),
@@ -151,7 +157,14 @@ export default function Opportunites() {
           onQueryChange={controles.setQuery}
           placeholder="Rechercher un compte, une référence…"
           count={vivantes.length}
-        />
+        >
+          <BasculePerimetre
+            valeur={perimetre}
+            onChange={setPerimetre}
+            libelleMien="Mes opportunités"
+            libelleTous="Toutes les opportunités"
+          />
+        </ListToolbar>
 
         <div className="mb-3">
         {/* INCLURE LES DOSSIERS CLOS. Demandé par Naoëlle le 25/08/2026, après que j'aie signalé la

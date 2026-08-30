@@ -186,6 +186,8 @@ async function fetchSitesListe(params: {
   tri: TriSites
   sens: 'asc' | 'desc'
   limite: number
+  /** Ne garder que les sites de ce profil. `null` = tous, c'est le comportement d'avant. */
+  proprietaire?: string | null
 }): Promise<LigneSiteListe[]> {
   const { data, error } = await supabase.rpc('liste_sites', {
     p_recherche: params.recherche.trim() || null,
@@ -193,6 +195,10 @@ async function fetchSitesListe(params: {
     p_sens: params.sens,
     p_limite: params.limite,
     p_decalage: 0,
+    // LE FILTRE DESCEND EN BASE, il ne porte pas sur la page déjà chargée. La liste est paginée :
+    // filtrer à l'arrivée n'aurait montré que les sites du conseiller PARMI les cent premiers de
+    // l'alphabet, et le total affiché en haut aurait démenti ce que la page montre.
+    p_proprietaire: params.proprietaire ?? null,
   })
   if (error) {
     if (estFonctionAbsente(error)) throw new FonctionListeAbsente(error.message)
@@ -212,9 +218,15 @@ async function fetchSitesListe(params: {
  * Le nombre total de sites correspondants voyage dans chaque ligne (colonne `total`) : c'est ce
  * qui alimente le pied de liste sans requête de comptage supplémentaire.
  */
-export function useSitesListe(params: { recherche: string; tri: TriSites; sens: 'asc' | 'desc'; limite: number }) {
+export function useSitesListe(params: {
+  recherche: string
+  tri: TriSites
+  sens: 'asc' | 'desc'
+  limite: number
+  proprietaire?: string | null
+}) {
   return useQuery({
-    queryKey: ['sites', 'liste', params.recherche.trim(), params.tri, params.sens, params.limite],
+    queryKey: ['sites', 'liste', params.recherche.trim(), params.tri, params.sens, params.limite, params.proprietaire ?? null],
     queryFn: () => fetchSitesListe(params),
     // Garder l'affichage précédent pendant qu'une nouvelle tranche arrive évite que la table
     // clignote à chaque frappe ou changement de tri.

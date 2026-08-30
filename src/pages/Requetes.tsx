@@ -8,6 +8,7 @@ import { Badge } from '@/components/ui/badge'
 import { Dialog } from '@/components/ui/dialog'
 import { FormField, Input, Select, Textarea } from '@/components/ui/form'
 import { ListToolbar } from '@/components/ui/list-toolbar'
+import { usePerimetreListe, BasculePerimetre } from '@/lib/perimetre'
 import { EntityLink } from '@/components/ui/entity-link'
 import {
   useRequetes,
@@ -86,15 +87,20 @@ export default function Requetes() {
     }
   }, [requetes])
 
+  const { perimetre, setPerimetre, visibles: requetesDuPerimetre } = usePerimetreListe(
+    'requetes', requetes,
+    { proprietaireId: (r) => r.proprietaire_id, compteId: (r) => r.compte_id, siteId: (r) => r.site_id },
+  )
+
   const filtrees = useMemo(() => {
     const q = recherche.trim().toLowerCase()
-    return (requetes ?? [])
+    return (requetesDuPerimetre ?? [])
       // Par défaut on ne montre que ce qui reste à traiter : une liste de requêtes résolues n'appelle
       // aucune action, et c'est l'action qu'on vient chercher ici.
       .filter((r) => (ouvertes ? !['RESOLUE', 'ABANDONNEE'].includes(r.statut) : true))
       .filter((r) => !q || [r.objet, r.description, r.compte_nom, r.categorie].filter(Boolean)
         .some((v) => String(v).toLowerCase().includes(q)))
-  }, [requetes, recherche, ouvertes])
+  }, [requetesDuPerimetre, recherche, ouvertes])
 
   return (
     <div className="flex min-h-0 flex-1 flex-col">
@@ -121,6 +127,12 @@ export default function Requetes() {
         </div>
 
         <ListToolbar query={recherche} onQueryChange={setRecherche} placeholder="Objet, compte, catégorie…" count={filtrees.length}>
+            <BasculePerimetre
+              valeur={perimetre}
+              onChange={setPerimetre}
+              libelleMien="Mes requêtes"
+              libelleTous="Toutes les requêtes"
+            />
           <Button size="sm" variant={ouvertes ? 'default' : 'outline'} onClick={() => setOuvertes((v) => !v)}>
             {ouvertes ? 'À traiter seulement' : 'Toutes'}
           </Button>

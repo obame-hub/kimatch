@@ -262,10 +262,19 @@ export function useCompteursListe(options: {
   tri: TriCompteurs
   sens: 'asc' | 'desc'
   limite: number
+  /**
+   * Ne garder que les compteurs posés sur ces sites. `null` = tous.
+   *
+   * UN COMPTEUR N'A PAS DE PROPRIÉTAIRE UTILISABLE : la colonne existe et elle est même remplie
+   * (7 896 sur 7 905), mais ce n'est pas la question qu'on se pose devant cet écran. Un compteur
+   * appartient au conseiller qui suit le SITE — c'est le site qui change de main quand quelqu'un
+   * part en vacances, pas le point de livraison.
+   */
+  sites?: string[] | null
 }) {
-  const { recherche, filtre, tri, sens, limite } = options
+  const { recherche, filtre, tri, sens, limite, sites } = options
   return useQuery({
-    queryKey: ['compteurs', 'liste', recherche, filtre, tri, sens, limite],
+    queryKey: ['compteurs', 'liste', recherche, filtre, tri, sens, limite, sites ? sites.length : null],
     queryFn: async (): Promise<LigneCompteur[]> => {
       const comptesVisibles = await fetchComptesVisibles()
       const sitesVisibles = await fetchSitesVisiblesIds(comptesVisibles)
@@ -291,6 +300,14 @@ export function useCompteursListe(options: {
         .eq('actif', true)
 
       if (sitesVisibles !== null) q = q.in('site_id', sitesVisibles)
+
+      // Le filtre d'AFFICHAGE, distinct de celui des droits juste au-dessus : celui-ci répond à
+      // « lesquels sont à moi », l'autre à « lesquels ai-je le droit de voir ». Un portefeuille
+      // vide ne doit rien montrer, et surtout pas tout : `.in()` sur une liste vide rendrait TOUT.
+      if (sites !== null && sites !== undefined) {
+        if (sites.length === 0) return []
+        q = q.in('site_id', sites)
+      }
 
       // Les deux cas de la diapositive 7 — « absentes ou dépassées » — plus ce qui arrive.
       if (filtre === 'absente') q = q.eq('nature_echeance', 'ABSENTE')

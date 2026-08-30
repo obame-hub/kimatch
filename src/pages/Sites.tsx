@@ -28,6 +28,8 @@ import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { EntityLink } from '@/components/ui/entity-link'
 import { ListToolbar } from '@/components/ui/list-toolbar'
+import { usePerimetre, BasculePerimetre } from '@/lib/perimetre'
+import { useMonProfil } from '@/lib/data/roles'
 import { SortableTh } from '@/components/ui/sortable-th'
 import { useFrappePosee } from '@/lib/useFrappePosee'
 import { useSites, useSitesListe, useSitesCarte, type TriSites } from '@/lib/data/sites'
@@ -73,7 +75,12 @@ export default function Sites({ sansEntete }: { sansEntete?: boolean }) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
-  const listeServeur = useSitesListe({ recherche, tri, sens, limite })
+  const { data: monProfil } = useMonProfil()
+  const { perimetre, setPerimetre } = usePerimetre('sites')
+  const listeServeur = useSitesListe({
+    recherche, tri, sens, limite,
+    proprietaire: perimetre === 'moi' && monProfil?.id ? monProfil.id : null,
+  })
   const carteServeur = useSitesCarte(recherche, view === 'carte')
 
   function trierPar(cle: string) {
@@ -108,7 +115,14 @@ export default function Sites({ sansEntete }: { sansEntete?: boolean }) {
         />
 
         <div className="mb-3.5 flex items-center justify-between gap-3">
-          <ListToolbar query={query} onQueryChange={setQuery} placeholder="Rechercher un site, compte, ville…" count={total} />
+          <ListToolbar query={query} onQueryChange={setQuery} placeholder="Rechercher un site, compte, ville…" count={total}>
+            <BasculePerimetre
+              valeur={perimetre}
+              onChange={setPerimetre}
+              libelleMien="Mes sites"
+              libelleTous="Tous les sites"
+            />
+          </ListToolbar>
           <div className="flex shrink-0 gap-1 rounded-lg border border-navy-200 bg-white p-0.5">
             <button
               type="button"

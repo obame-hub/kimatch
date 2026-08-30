@@ -18,6 +18,7 @@ import { useReferenceTable } from '@/lib/data/referenceTables'
 import { FALLBACK_TYPES_INTERACTIONS, FALLBACK_ISSUES_INTERACTIONS } from '@/lib/referenceFallbacks'
 import { ListToolbar } from '@/components/ui/list-toolbar'
 import { useListControls } from '@/lib/useListControls'
+import { usePerimetreListe, BasculePerimetre } from '@/lib/perimetre'
 
 const SENS_OPTIONS = [
   { value: '', label: '—' },
@@ -184,7 +185,15 @@ export default function Interactions() {
   )
   const nbAVenir = interactions?.filter((i) => i.date_interaction > maintenant).length ?? 0
 
-  const { query, setQuery, sortKey, setSortKey, items: filteredInteractions } = useListControls(interactionsVisibles, {
+  /* Le proprietaire d'un echange n'est renseigne que 3 fois sur 66 645 : la cascade retombe donc
+     presque toujours sur le compte, ce qui repond a la vraie question — « cet echange concerne-t-il
+     un de mes clients ? » plutot que « qui l'a saisi ? ». */
+  const { perimetre, setPerimetre, visibles: interactionsDuPerimetre } = usePerimetreListe(
+    'interactions', interactionsVisibles,
+    { proprietaireId: (i) => i.proprietaire_id, compteId: (i) => i.compte_id, siteId: (i) => i.site_id },
+  )
+
+  const { query, setQuery, sortKey, setSortKey, items: filteredInteractions } = useListControls(interactionsDuPerimetre, {
     searchFields: (i) => [i.objet, i.compte_nom, i.site_nom, i.contact_nom, i.auteur, i.type_interaction],
     sorters: {
       date_interaction: (a, b) => b.date_interaction.localeCompare(a.date_interaction),
@@ -207,6 +216,12 @@ export default function Interactions() {
         />
 
         <ListToolbar query={query} onQueryChange={setQuery} placeholder="Rechercher un compte, un contact, un objet…" count={filteredInteractions?.length}>
+            <BasculePerimetre
+              valeur={perimetre}
+              onChange={setPerimetre}
+              libelleMien="Mes échanges"
+              libelleTous="Tous les échanges"
+            />
           <Select value={sortKey} onChange={(e) => setSortKey(e.target.value)} className="w-auto">
             <option value="date_interaction">Trier par date</option>
             <option value="compte_nom">Trier par compte</option>

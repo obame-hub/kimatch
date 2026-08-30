@@ -5,6 +5,8 @@ import { PageHeader } from '@/components/ui/page-header'
 import { ListToolbar } from '@/components/ui/list-toolbar'
 import { TableauKanban } from '@/components/dashboard/TableauKanban'
 import { useKanbanServeur } from '@/lib/useKanbanServeur'
+import { usePerimetre, BasculePerimetre } from '@/lib/perimetre'
+import { useMonProfil } from '@/lib/data/roles'
 import { cn } from '@/lib/utils'
 
 /**
@@ -219,6 +221,8 @@ const dateCourte = (iso: string) => new Date(iso).toLocaleDateString('fr-FR')
 export default function Pricing({ sansEntete }: { sansEntete?: boolean }) {
   const [recherche, setRecherche] = useState('')
   const [avecRefusees, setAvecRefusees] = useState(false)
+  const { data: monProfil } = useMonProfil()
+  const { perimetre, setPerimetre } = usePerimetre('pricing')
 
   const colonnes = avecRefusees
     ? [...COLONNES, { code: 'REFUSEE', libelle: 'Demande refusée' } as const]
@@ -232,7 +236,16 @@ export default function Pricing({ sansEntete }: { sansEntete?: boolean }) {
     recherche,
     // LES DEUX FILTRES DE LA PAGE, appliqués à toutes les colonnes ET aux sommes : le bandeau
     // chiffré doit additionner la même population que le tableau, sinon l'un démentira l'autre.
-    filtres: { reco_en_cours: true, version_courante: true, version_vivante: true },
+    // LE FILTRE DESCEND EN BASE avec les autres. Ce tableau est pagine ET somme par la base : dix
+    // cartes par colonne, un montant total calcule sur l'ensemble. Filtrer a l'arrivee n'aurait
+    // touche que les dix cartes visibles, et le bandeau chiffre aurait continue de compter tout le
+    // monde — les deux se seraient dementis a l'ecran.
+    filtres: {
+      reco_en_cours: true,
+      version_courante: true,
+      version_vivante: true,
+      compte_proprietaire_id: perimetre === 'moi' && monProfil?.id ? monProfil.id : null,
+    },
     // LES RETARDS EN PREMIER (Michel, 27/08/2026). Le tri part en base : on ne demande que dix
     // cartes par colonne, donc trier à l'arrivée remettrait dans l'ordre un échantillon pris au
     // hasard et la plus en retard resterait invisible parce qu'onzième.
@@ -269,6 +282,12 @@ export default function Pricing({ sansEntete }: { sansEntete?: boolean }) {
           {/* MÊME GESTE QUE « INCLURE LES DOSSIERS CLOS » AILLEURS : la règle reste la règle, la case
               est l'exception. Un refus se consulte quand on cherche pourquoi une consultation n'a rien
               donné — pas tous les jours. */}
+          <BasculePerimetre
+            valeur={perimetre}
+            onChange={setPerimetre}
+            libelleMien="Mes consultations"
+            libelleTous="Toutes les consultations"
+          />
           <button
             type="button"
             onClick={() => setAvecRefusees((v) => !v)}
