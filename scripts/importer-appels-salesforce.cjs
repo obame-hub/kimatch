@@ -168,6 +168,37 @@ async function principal() {
   console.log('  A IMPORTER via le compte seul       : ' + bilan.retenu_compte)
   console.log('  TOTAL A IMPORTER                    : ' + aEcrire.length)
 
+  // ══ CONTRÔLE PRÉALABLE ══
+  //
+  // Les contraintes de `interactions` sont vérifiées ICI, sur les 1 010 lignes, avant la moindre
+  // écriture. La transaction protège l'intégrité — elle a bien annulé les 1 010 insertions quand
+  // `sens` était en minuscules — mais elle ne protège pas du temps perdu : on découvrait la valeur
+  // refusée après avoir tout tenté. Autant la refuser avant.
+  const SENS_ADMIS = new Set(['ENTRANT', 'SORTANT', 'INTERNE'])
+  const refus = []
+  for (const e of aEcrire) {
+    const a = e.a
+    const sens = a.CallType === 'Inbound' ? 'ENTRANT' : a.CallType === 'Outbound' ? 'SORTANT' : null
+    if (sens !== null && !SENS_ADMIS.has(sens)) refus.push(a.Id + ' : sens « ' + sens + ' » refuse')
+    // `interactions_contexte_check` : au moins un rattachement. C'est déjà le critère de sélection,
+    // cette garde attrape une régression du dictionnaire plutôt qu'une donnée Salesforce.
+    if (!e.compte_id && !e.contact_id) refus.push(a.Id + ' : aucun rattachement')
+    if (!a.CreatedDate && !a.ActivityDate) refus.push(a.Id + ' : aucune date')
+    const d = a.CallDurationInSeconds
+    if (d !== null && d !== undefined && (!Number.isInteger(d) || d < 0)) {
+      refus.push(a.Id + ' : duree « ' + d + ' » invalide')
+    }
+  }
+  if (refus.length > 0) {
+    console.log('')
+    console.log('CONTROLE PREALABLE : ' + refus.length + ' ligne(s) refusee(s), rien ne sera ecrit.')
+    for (const r of refus.slice(0, 10)) console.log('  ' + r)
+    if (refus.length > 10) console.log('  ... et ' + (refus.length - 10) + ' autres')
+    await c.end()
+    process.exit(1)
+  }
+  console.log('controle prealable                    : les ' + aEcrire.length + ' lignes passent')
+
   if (!ecrire) {
     console.log('')
     console.log('SIMULATION : rien n a ete ecrit.')
@@ -187,7 +218,11 @@ async function principal() {
     for (const e of aEcrire) {
       const a = e.a
       // `sens` : Salesforce le dit dans CallType. Absent, on ne l'invente pas.
-      const sens = a.CallType === 'Inbound' ? 'entrant' : a.CallType === 'Outbound' ? 'sortant' : null
+      //
+      // LES CODES SONT EN MAJUSCULES, et la base le fait respecter : `interactions_sens_check`
+      // n'accepte que ENTRANT, SORTANT, INTERNE ou null. Écrits en minuscules, les 1 010 insertions
+      // ont été refusées d'un coup — la transaction a tout annulé, rien n'est passé à moitié.
+      const sens = a.CallType === 'Inbound' ? 'ENTRANT' : a.CallType === 'Outbound' ? 'SORTANT' : null
       await c.query(SQL_INSERT, [
         typeAppel.id,
         a.CreatedDate || (a.ActivityDate ? a.ActivityDate + 'T12:00:00Z' : null),
