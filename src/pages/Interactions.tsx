@@ -253,7 +253,7 @@ export default function Interactions() {
             On s'arrête aux 2000 plus récentes, et on le dit plutôt que de laisser croire que la
             recherche porte sur tout l'historique. */}
         {!isLoading && !aVenir && interactions && interactions.length >= 2000 && (
-          <p className="mb-2.5 text-[11px] text-km-faint">
+          <p className="mb-2.5 text-km-label text-km-faint">
             Les 2000 interactions les plus récentes sont chargées — la recherche ci-dessus porte sur celles-ci.
             Pour l'historique complet d'un compte, ouvre sa fiche.
           </p>

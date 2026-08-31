@@ -46,7 +46,7 @@ export function TuileChiffre({
           </span>
         )}
       </div>
-      <p className="mt-4 font-mono text-[25px] font-extrabold leading-none tabular-nums text-km-text">
+      <p className="mt-4 font-mono text-km-metric-lg font-bold leading-none tabular-nums text-km-text">
         {valeur}
       </p>
       <p className="mt-1.5 text-km-body text-km-muted">{libelle}</p>

@@ -5,7 +5,7 @@ export function ImpersonationBanner() {
   if (!info) return null
 
   return (
-    <div className="fixed inset-x-0 top-0 z-[60] flex h-7 items-center justify-center gap-3 bg-amber-500 px-4 text-[11px] font-medium text-white shadow">
+    <div className="fixed inset-x-0 top-0 z-[60] flex h-7 items-center justify-center gap-3 bg-amber-500 px-4 text-km-label font-medium text-white shadow">
       <span className="truncate">
         Connecté en tant que <strong>{info.targetNom}</strong> ({info.targetEmail}) — emprunté par {info.adminEmail}
       </span>

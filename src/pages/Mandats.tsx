@@ -83,13 +83,13 @@ export function CreateMandatDialog({
                 className="flex w-full items-center gap-2 border-b border-navy-50 px-3 py-2.5 text-left last:border-b-0 hover:bg-km-bg/60"
               >
                 <span className="min-w-0 flex-1 truncate text-xs font-semibold text-km-text">{c.nom}</span>
-                {c.ville && <span className="shrink-0 text-[10.5px] text-km-faint">{c.ville}</span>}
+                {c.ville && <span className="shrink-0 text-km-xs text-km-faint">{c.ville}</span>}
               </button>
             ))}
             {filtres.length === 0 && <p className="p-4 text-center text-xs text-km-faint">Aucun compte trouvé.</p>}
           </div>
           {!q && (comptes?.length ?? 0) > 50 && (
-            <p className="text-[10.5px] text-km-faint">
+            <p className="text-km-xs text-km-faint">
               50 comptes sur {comptes?.length} affichés — précisez la recherche.
             </p>
           )}
@@ -222,7 +222,7 @@ export default function Mandats({ sansEntete }: { sansEntete?: boolean }) {
                       <FileCheck2 className="h-4 w-4" />
                     </span>
                     <div>
-                      {m.id_salesforce && <p className="font-mono text-[11px] text-km-faint">{m.id_salesforce}</p>}
+                      {m.id_salesforce && <p className="font-mono text-km-label text-km-faint">{m.id_salesforce}</p>}
                       <p className="font-display font-medium text-km-text">
                         <EntityLink to={`/comptes/${m.compte_id}`}>{m.compte_nom}</EntityLink>
                       </p>

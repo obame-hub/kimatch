@@ -28,7 +28,7 @@ export function PdlMethodSheet({
           onClick={() => onChoose('extraction')}
           className="group relative w-full rounded-2xl border-2 border-km-line bg-white p-5 text-left transition-all hover:-translate-y-0.5 hover:border-kiwi-300 hover:shadow-md"
         >
-          <Badge tone="neutral" className="absolute right-3 top-3 text-[10px]">Recommandé</Badge>
+          <Badge tone="neutral" className="absolute right-3 top-3 text-km-xs">Recommandé</Badge>
           <div className="flex items-start gap-4">
             <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-kiwi-50 text-km-green">
               <FileUp className="h-5 w-5" />

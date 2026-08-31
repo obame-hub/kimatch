@@ -52,7 +52,7 @@ export function ChoixParRecherche<T extends { id: string }>({
       <div className="flex items-center gap-2 rounded-lg border border-km-line bg-white px-3 py-2">
         <div className="min-w-0 flex-1">
           <p className="truncate text-sm font-medium text-km-text">{principal(choisi)}</p>
-          {detail && <p className="truncate text-[11px] text-km-faint">{detail}</p>}
+          {detail && <p className="truncate text-km-label text-km-faint">{detail}</p>}
         </div>
         <button
           type="button"
@@ -83,14 +83,14 @@ export function ChoixParRecherche<T extends { id: string }>({
                 className="flex w-full items-center gap-2 border-b border-navy-50 px-3 py-2 text-left last:border-b-0 hover:bg-km-bg/60"
               >
                 <span className="min-w-0 flex-1 truncate text-xs font-semibold text-km-text">{principal(i)}</span>
-                {detail && <span className="shrink-0 truncate text-[10.5px] text-km-faint">{detail}</span>}
+                {detail && <span className="shrink-0 truncate text-km-xs text-km-faint">{detail}</span>}
               </button>
             )
           })}
           {trouves.length === 0 && <p className="p-3 text-center text-xs text-km-faint">{aucun}</p>}
         </div>
       )}
-      {!q && <p className="text-[10.5px] text-km-faint">{totalLibelle} — tapez pour chercher.</p>}
+      {!q && <p className="text-km-xs text-km-faint">{totalLibelle} — tapez pour chercher.</p>}
     </div>
   )
 }

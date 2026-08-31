@@ -152,7 +152,7 @@ export function FriseStatut({ jalons, courant, finalite, teinte = 'opportunite' 
               </div>
               <p
                 className={cn(
-                  'mt-2 text-center text-[11.5px] leading-tight tracking-tight',
+                  'mt-2 text-center text-km-label leading-tight tracking-tight',
                   etat === 'a_venir' ? 'font-semibold text-[#b6b8b3]' : 'font-extrabold text-km-text',
                 )}
               >
@@ -180,7 +180,7 @@ export function FriseStatut({ jalons, courant, finalite, teinte = 'opportunite' 
             >
               <Check className="h-4 w-4" strokeWidth={2.6} />
             </div>
-            <p className={cn('mt-2 text-center text-[11.5px] font-extrabold tracking-tight', finalite.perdue ? 'text-red-700' : 'text-km-green')}>
+            <p className={cn('mt-2 text-center text-km-label font-extrabold tracking-tight', finalite.perdue ? 'text-red-700' : 'text-km-green')}>
               {finalite.libelle}
             </p>
           </div>

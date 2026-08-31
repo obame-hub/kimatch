@@ -229,7 +229,7 @@ export default function SiteDetail() {
         <div className="min-w-0 flex-1">
           <p className="truncate text-xl font-bold tracking-tight text-km-text">{site.nom}</p>
           <p className="truncate text-xs text-km-muted">{compte?.nom ?? site.compte_nom} · {compteursDuSite.length} compteur{compteursDuSite.length > 1 ? 's' : ''}</p>
-          <p className="truncate text-[10.5px] text-km-faint">
+          <p className="truncate text-km-xs text-km-faint">
             {site.date_creation && <>Créé le {new Date(site.date_creation).toLocaleDateString('fr-FR')} · </>}
             Propriétaire : {site.proprietaire_nom || 'Aucun'}
           </p>
@@ -278,7 +278,7 @@ export default function SiteDetail() {
               type="button"
               onClick={() => setTab(t.key)}
               className={cn(
-                'mb-2.5 inline-flex shrink-0 items-center gap-1.5 whitespace-nowrap rounded-full px-3.5 py-2 text-[12.5px] font-semibold transition-colors lg:mb-0 lg:rounded-none lg:border-b-2 lg:px-3 lg:py-2.5 lg:font-normal',
+                'mb-2.5 inline-flex shrink-0 items-center gap-1.5 whitespace-nowrap rounded-full px-3.5 py-2 text-km-body font-semibold transition-colors lg:mb-0 lg:rounded-none lg:border-b-2 lg:px-3 lg:py-2.5 lg:font-normal',
                 t.mobileOnly && 'lg:hidden',
                 isActive
                   ? 'bg-ink-800 text-white lg:border-navy-800 lg:bg-transparent lg:font-semibold lg:text-km-text'
@@ -288,7 +288,7 @@ export default function SiteDetail() {
               <span className="lg:hidden">{t.labelMobile ?? t.label}</span>
               <span className="hidden lg:inline">{t.label}</span>
               {t.badge && (
-                <span className={cn('rounded px-1.5 py-0.5 text-[9.5px] font-bold', isActive ? 'bg-white/20 text-white lg:bg-km-soft lg:text-km-muted' : badgeTone)}>
+                <span className={cn('rounded px-1.5 py-0.5 text-km-tiny font-bold', isActive ? 'bg-white/20 text-white lg:bg-km-soft lg:text-km-muted' : badgeTone)}>
                   {t.badge}
                 </span>
               )}
@@ -321,7 +321,7 @@ export default function SiteDetail() {
                     <span className="text-xs font-semibold text-km-text">{adresse || 'Adresse non renseignée'}</span>
                     <div className="flex-1" />
                     {adresse && (
-                      <a href={`https://www.google.com/maps/search/?api=1&query=${mapQuery}`} target="_blank" rel="noreferrer" className="whitespace-nowrap text-[10.5px] font-semibold">
+                      <a href={`https://www.google.com/maps/search/?api=1&query=${mapQuery}`} target="_blank" rel="noreferrer" className="whitespace-nowrap text-km-xs font-semibold">
                         Itinéraire ↗
                       </a>
                     )}
@@ -329,9 +329,9 @@ export default function SiteDetail() {
                 </div>
                 <div className="rounded-xl border border-km-line bg-white p-4">
                   <div className="mb-3 flex items-center">
-                    <span className="text-[10px] font-bold uppercase tracking-wide text-km-faint">Informations</span>
+                    <span className="text-km-xs font-bold uppercase tracking-wide text-km-faint">Informations</span>
                     <div className="flex-1" />
-                    <span className="text-[10px] text-km-faint">cliquer ⧉ pour copier</span>
+                    <span className="text-km-xs text-km-faint">cliquer ⧉ pour copier</span>
                   </div>
                   {/* Edition en place, plus aucune modale : « le commercial passe ses journees dans
                       l'outil, chaque modale est un clic et une rupture d'attention de trop »
@@ -420,7 +420,7 @@ export default function SiteDetail() {
                     )}
                   </div>
                   {site.latitude == null ? (
-                    <p className="mt-3 text-[10.5px] italic text-km-faint">Coordonnées précises non renseignées — la carte se positionne sur l'adresse/ville.</p>
+                    <p className="mt-3 text-km-xs italic text-km-faint">Coordonnées précises non renseignées — la carte se positionne sur l'adresse/ville.</p>
                   ) : null}
                   {/* Coordonnees editables : la geolocalisation par l'adresse suffit dans la
                       quasi-totalite des cas, mais certains sites (parkings, ZAC, batiments en
@@ -467,7 +467,7 @@ export default function SiteDetail() {
                 <EnergyTimeline compteurs={compteursDuSite} contrats={contratsDuSite} />
               )}
               <div>
-                <p className="mb-2 text-[10px] font-bold uppercase tracking-wide text-km-faint">Historique des contrats par compteur</p>
+                <p className="mb-2 text-km-xs font-bold uppercase tracking-wide text-km-faint">Historique des contrats par compteur</p>
                 <div className="flex flex-col gap-2.5">
                   {compteursDuSite.map((c) => {
                     const historiqueContrats = contratsDuSite
@@ -481,7 +481,7 @@ export default function SiteDetail() {
                             <Icon className="h-3 w-3" />
                           </span>
                           <span className="text-xs font-bold text-km-text">{c.utilisation || c.numero_pdl}</span>
-                          <span className="font-mono text-[10px] text-km-faint">{c.numero_pdl}</span>
+                          <span className="font-mono text-km-xs text-km-faint">{c.numero_pdl}</span>
                         </div>
                         {historiqueContrats.length === 0 ? (
                           <p className="px-3.5 py-2.5 text-xs text-km-faint">Aucun contrat.</p>
@@ -494,7 +494,7 @@ export default function SiteDetail() {
                             >
                               <Badge tone={STATUT_CONTRAT_TONE[ct.statut] ?? 'neutral'}>{statutsContrats.find((s) => s.code === ct.statut)?.libelle ?? ct.statut}</Badge>
                               <span className="flex-1 text-xs font-medium text-km-text">{ct.fournisseur_nom}</span>
-                              <span className="font-mono text-[10px] text-km-faint">
+                              <span className="font-mono text-km-xs text-km-faint">
                                 {ct.date_debut ? new Date(ct.date_debut).toLocaleDateString('fr-FR') : '—'} → {ct.date_fin ? new Date(ct.date_fin).toLocaleDateString('fr-FR') : 'sans échéance'}
                               </span>
                             </div>
@@ -531,7 +531,7 @@ export default function SiteDetail() {
                     </span>
                     <div className="min-w-0 flex-1">
                       <p className="truncate text-sm font-bold text-km-text">{c.utilisation || c.numero_pdl}</p>
-                      <p className="truncate font-mono text-[10px] text-km-faint">
+                      <p className="truncate font-mono text-km-xs text-km-faint">
                         {c.numero_pdl} {contratActif ? `· ${contratActif.fournisseur_nom}` : ''} {c.consommation_annuelle_mwh ? `· ${c.consommation_annuelle_mwh} MWh` : ''}
                       </p>
                     </div>
@@ -559,7 +559,7 @@ export default function SiteDetail() {
                       <Badge tone={ETAPE_TONE[r.etape] ?? 'amber'}>{etapes.find((e) => e.code === r.etape)?.libelle ?? r.etape}</Badge>
                     </div>
                     {derniereVersion && (
-                      <p className="mt-2 text-[11px] text-km-faint">
+                      <p className="mt-2 text-km-label text-km-faint">
                         {derniereVersion.nom || 'Version'} · {statutsVersions.find((s) => s.code === derniereVersion.statut)?.libelle ?? derniereVersion.statut}
                         {derniereVersion.gains_estimes ? ` · gain estimé ${derniereVersion.gains_estimes.toLocaleString('fr-FR')} €/an` : ''}
                       </p>
@@ -601,7 +601,7 @@ export default function SiteDetail() {
                     <span className="flex h-7 w-7 items-center justify-center rounded-lg bg-amber-200 text-amber-700"><FileCheck2 className="h-3.5 w-3.5" /></span>
                     <div className="flex-1">
                       <p className="text-sm font-bold text-km-text">Mandat {mandatDuSite.compte_nom}</p>
-                      <p className="text-[11px] text-km-muted">
+                      <p className="text-km-label text-km-muted">
                         {mandatDuSite.contact_signataire_nom ? `Signataire ${mandatDuSite.contact_signataire_nom}` : 'Signataire non renseigné'}
                         {mandatDuSite.date_signature ? ` · signé le ${new Date(mandatDuSite.date_signature).toLocaleDateString('fr-FR')}` : ''}
                         {mandatDuSite.docusign_envelope_id ? ' · DocuSign ✓' : ''}
@@ -611,9 +611,9 @@ export default function SiteDetail() {
                   </div>
                   <div className="px-4 py-3.5">
                     <div className="mb-2.5 flex items-center gap-2">
-                      <span className="text-[10px] font-bold uppercase tracking-wide text-km-faint">Périmètre du mandat</span>
+                      <span className="text-km-xs font-bold uppercase tracking-wide text-km-faint">Périmètre du mandat</span>
                       <div className="flex-1" />
-                      <span className="text-[11px] font-bold text-km-green">{mandatDuSite.nb_sites_couverts} site{mandatDuSite.nb_sites_couverts > 1 ? 's' : ''} couvert{mandatDuSite.nb_sites_couverts > 1 ? 's' : ''}</span>
+                      <span className="text-km-label font-bold text-km-green">{mandatDuSite.nb_sites_couverts} site{mandatDuSite.nb_sites_couverts > 1 ? 's' : ''} couvert{mandatDuSite.nb_sites_couverts > 1 ? 's' : ''}</span>
                     </div>
                     {compteursDuSite.length > 0 && (
                       <CoverageMatrix compteurs={compteursDuSite} contrats={contratsDuSite} recommandations={recommandationsDuSite} mandat={mandatDuSite} />
@@ -633,13 +633,13 @@ export default function SiteDetail() {
 
               {autresMandatsDuCompte.length > 0 && (
                 <div>
-                  <p className="mb-2 text-[10px] font-bold uppercase tracking-wide text-km-faint">Autres mandats du compte</p>
+                  <p className="mb-2 text-km-xs font-bold uppercase tracking-wide text-km-faint">Autres mandats du compte</p>
                   <div className="flex flex-col gap-2">
                     {autresMandatsDuCompte.map((m) => (
                       <div key={m.id} onClick={() => navigate('/mandats')} className="flex cursor-pointer items-center gap-3 rounded-lg border border-km-line bg-white p-3 hover:bg-km-bg/60">
                         <Badge tone={STATUT_MANDAT_TONE[m.statut] ?? 'neutral'}>{statutsMandats.find((s) => s.code === m.statut)?.libelle ?? m.statut}</Badge>
                         <span className="flex-1 text-xs font-medium text-km-text">{m.nb_sites_couverts} site{m.nb_sites_couverts > 1 ? 's' : ''}</span>
-                        <span className="text-[10.5px] text-km-faint">{m.contact_signataire_nom ?? '—'}</span>
+                        <span className="text-km-xs text-km-faint">{m.contact_signataire_nom ?? '—'}</span>
                       </div>
                     ))}
                   </div>
@@ -686,7 +686,7 @@ export default function SiteDetail() {
                       </span>
                       <div className="min-w-0 flex-1">
                         <p className="truncate text-sm font-bold text-km-text">{d.nom}</p>
-                        <p className="truncate text-[10.5px] text-km-faint">{d.auteur} · {new Date(d.date_creation).toLocaleDateString('fr-FR')}</p>
+                        <p className="truncate text-km-xs text-km-faint">{d.auteur} · {new Date(d.date_creation).toLocaleDateString('fr-FR')}</p>
                       </div>
                       <Badge tone="neutral">{d.type_document}</Badge>
                     </div>
@@ -698,17 +698,17 @@ export default function SiteDetail() {
 
           {tab === 'historique' && (
             <div className="flex flex-col gap-2.5">
-              <p className="text-[11px] text-km-faint">{historique?.length ?? 0} changement{(historique?.length ?? 0) > 1 ? 's' : ''} tracé{(historique?.length ?? 0) > 1 ? 's' : ''} · tous horodatés</p>
+              <p className="text-km-label text-km-faint">{historique?.length ?? 0} changement{(historique?.length ?? 0) > 1 ? 's' : ''} tracé{(historique?.length ?? 0) > 1 ? 's' : ''} · tous horodatés</p>
               <div className="overflow-hidden rounded-xl border border-km-line bg-white">
                 {!historique || historique.length === 0 ? (
                   <p className="p-4 text-sm text-km-faint">Aucune modification enregistrée.</p>
                 ) : (
                   historique.map((h) => (
                     <div key={h.id} className="grid grid-cols-[110px_1fr] gap-3 border-b border-navy-50 px-4 py-3 last:border-b-0 sm:grid-cols-[110px_140px_140px_1fr]">
-                      <span className="font-mono text-[10.5px] text-km-muted">{new Date(h.date_modification).toLocaleString('fr-FR')}</span>
-                      <span className={`hidden text-[11.5px] sm:block ${h.estUnePersonne ? 'font-semibold text-km-text' : 'italic text-km-faint'}`}>{h.auteur}</span>
-                      <span className="hidden text-[11.5px] font-medium text-km-muted sm:block">{h.champ}</span>
-                      <span className="flex flex-wrap items-center gap-2 text-[11.5px]">
+                      <span className="font-mono text-km-xs text-km-muted">{new Date(h.date_modification).toLocaleString('fr-FR')}</span>
+                      <span className={`hidden text-km-label sm:block ${h.estUnePersonne ? 'font-semibold text-km-text' : 'italic text-km-faint'}`}>{h.auteur}</span>
+                      <span className="hidden text-km-label font-medium text-km-muted sm:block">{h.champ}</span>
+                      <span className="flex flex-wrap items-center gap-2 text-km-label">
                         {h.ancienne_valeur && (
                           <>
                             <span className="text-km-faint line-through">{h.ancienne_valeur}</span>
@@ -741,7 +741,7 @@ export default function SiteDetail() {
         {/* Colonne droite — Activité persistante (desktop uniquement) */}
         <div className="hidden min-h-0 flex-col border-l border-km-line bg-white lg:flex">
           <div className="flex flex-none items-center gap-2 px-3.5 py-3">
-            <span className="text-[10px] font-bold uppercase tracking-wide text-km-faint">Activité</span>
+            <span className="text-km-xs font-bold uppercase tracking-wide text-km-faint">Activité</span>
           </div>
           <div className="min-h-0 flex-1 overflow-hidden px-3.5 pb-3.5">
             <ActivityFeed
@@ -1018,21 +1018,21 @@ function HealthCard({ health, donutColor }: { health: ReturnType<typeof computeS
         >
           <div className="flex h-14 w-14 flex-col items-center justify-center rounded-full bg-white">
             <span className="text-xl font-bold leading-none text-km-text">{health.score}</span>
-            <span className="text-[8.5px] font-bold text-km-faint">/ 100</span>
+            <span className="text-km-micro font-bold text-km-faint">/ 100</span>
           </div>
         </div>
         <div className="text-center">
           <p className="text-xs font-bold text-km-text">Santé du site</p>
-          <p className="text-[11px] font-semibold" style={{ color: donutColor }}>{health.label}</p>
+          <p className="text-km-label font-semibold" style={{ color: donutColor }}>{health.label}</p>
         </div>
       </div>
       <div className="p-3.5">
-        <p className="mb-2 text-[10px] font-bold uppercase tracking-wide text-km-faint">Détail du calcul</p>
+        <p className="mb-2 text-km-xs font-bold uppercase tracking-wide text-km-faint">Détail du calcul</p>
         <div className="flex flex-col">
           {health.raisons.map((r) => (
             <div key={r} className="flex items-center gap-2.5 rounded-lg px-2 py-1.5 hover:bg-km-bg">
               <span className="h-1.5 w-1.5 shrink-0 rounded-full" style={{ background: donutColor }} />
-              <span className="flex-1 text-[11.5px] font-medium text-km-text">{r}</span>
+              <span className="flex-1 text-km-label font-medium text-km-text">{r}</span>
             </div>
           ))}
         </div>
@@ -1058,12 +1058,12 @@ function ComptePanel({
         <span className="flex h-5 w-5 items-center justify-center rounded-md bg-sky-100 text-sky-500">
           <Building2 className="h-2.5 w-2.5" />
         </span>
-        <span className="text-[10px] font-bold uppercase tracking-wide text-km-faint">Compte</span>
+        <span className="text-km-xs font-bold uppercase tracking-wide text-km-faint">Compte</span>
         <div className="flex-1" />
         <EntityLink to={`/comptes/${compteId}`}>ouvrir →</EntityLink>
       </div>
-      <p className="text-[13px] font-bold text-sky-500">{compte?.nom ?? compteNom}</p>
-      <div className="mt-2 flex flex-col gap-1.5 text-[11.5px]">
+      <p className="text-km-body font-bold text-sky-500">{compte?.nom ?? compteNom}</p>
+      <div className="mt-2 flex flex-col gap-1.5 text-km-label">
         <div className="flex items-center justify-between">
           <span className="text-km-muted">Type</span>
           <span className="font-semibold text-km-text">{compte?.type_compte ?? '—'}</span>
@@ -1071,13 +1071,13 @@ function ComptePanel({
         {compte?.score_ellipro && (
           <div className="flex items-center justify-between">
             <span className="text-km-muted">Note Ellisphere</span>
-            <span className="rounded bg-kiwi-50 px-1.5 py-0.5 text-[11px] font-extrabold text-km-green">{compte.score_ellipro}</span>
+            <span className="rounded bg-kiwi-50 px-1.5 py-0.5 text-km-label font-extrabold text-km-green">{compte.score_ellipro}</span>
           </div>
         )}
         {compte?.siren && (
           <div className="flex items-center justify-between">
             <span className="text-km-muted">SIREN</span>
-            <button type="button" onClick={() => copyToClipboard(compte.siren ?? '', onCopy)} className="font-mono text-[10.5px] font-semibold hover:text-sky-500">
+            <button type="button" onClick={() => copyToClipboard(compte.siren ?? '', onCopy)} className="font-mono text-km-xs font-semibold hover:text-sky-500">
               {compte.siren} ⧉
             </button>
           </div>
@@ -1096,7 +1096,7 @@ function ContactsPanel({ contacts }: { contacts: Contact[] | undefined }) {
         <span className="flex h-5 w-5 items-center justify-center rounded-md bg-violet-100 text-violet-500">
           <Users className="h-2.5 w-2.5" />
         </span>
-        <span className="text-[10px] font-bold uppercase tracking-wide text-km-faint">Contacts</span>
+        <span className="text-km-xs font-bold uppercase tracking-wide text-km-faint">Contacts</span>
       </div>
       {list.length === 0 && <p className="text-xs text-km-faint">Aucun contact rattaché à ce site.</p>}
       <div className="flex flex-col gap-3">
@@ -1105,19 +1105,19 @@ function ContactsPanel({ contacts }: { contacts: Contact[] | undefined }) {
           return (
             <div key={c.id}>
               <div className="flex items-center gap-2.5">
-                <div className="flex h-[30px] w-[30px] shrink-0 items-center justify-center rounded-full border-[1.5px] border-violet-200 bg-violet-50 text-[10px] font-bold text-violet-600">
+                <div className="flex h-[30px] w-[30px] shrink-0 items-center justify-center rounded-full border-[1.5px] border-violet-200 bg-violet-50 text-km-xs font-bold text-violet-600">
                   {initiales}
                 </div>
                 <div className="min-w-0 flex-1">
-                  <button type="button" onClick={() => navigate(`/contacts/${c.id}`)} className="truncate text-left text-[12.5px] font-bold text-km-text hover:text-violet-600">
+                  <button type="button" onClick={() => navigate(`/contacts/${c.id}`)} className="truncate text-left text-km-body font-bold text-km-text hover:text-violet-600">
                     {c.prenom} {c.nom}
                   </button>
-                  <p className="truncate text-[10.5px] text-km-faint">{c.fonction || '—'}</p>
+                  <p className="truncate text-km-xs text-km-faint">{c.fonction || '—'}</p>
                   {/* LE NUMÉRO S'AFFICHE, ET CE N'EST PAS COSMÉTIQUE. L'extension Allo décore les
                       numéros qu'elle VOIT : derrière une icône, elle n'a rien à détecter et son
                       bouton d'appel n'apparaît jamais. */}
                   {c.telephone && (
-                    <p className="truncate font-mono text-[10.5px] text-km-muted">{numeroLisible(c.telephone)}</p>
+                    <p className="truncate font-mono text-km-xs text-km-muted">{numeroLisible(c.telephone)}</p>
                   )}
                 </div>
                 {c.telephone && (
@@ -1131,9 +1131,9 @@ function ContactsPanel({ contacts }: { contacts: Contact[] | undefined }) {
                   </button>
                 )}
               </div>
-              <div className="ml-[39px] mt-1.5 flex flex-col gap-1 text-[11px]">
+              <div className="ml-[39px] mt-1.5 flex flex-col gap-1 text-km-label">
                 {c.email && <EmailLink value={c.email} className="text-km-muted" />}
-                {c.telephone && <PhoneLink value={c.telephone} className="text-[10.5px] text-km-muted" />}
+                {c.telephone && <PhoneLink value={c.telephone} className="text-km-xs text-km-muted" />}
               </div>
             </div>
           )

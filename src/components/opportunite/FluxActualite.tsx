@@ -168,7 +168,7 @@ export function FluxActualite({ tableNom, ligneId, dateCreation, interactions = 
       {jours.map((groupe) => (
         <div key={groupe.jour} className="flex flex-col gap-1.5">
           <div className="flex items-center gap-2 px-0.5 pb-0.5 pt-2.5">
-            <span className="rounded-md bg-km-bg px-1.5 py-0.5 text-[9px] font-extrabold uppercase tracking-[0.07em] text-km-muted">
+            <span className="rounded-md bg-km-bg px-1.5 py-0.5 text-km-tiny font-extrabold uppercase tracking-[0.07em] text-km-muted">
               {groupe.jour}
             </span>
             <div className="h-[1.5px] flex-1 bg-kw-border" />
@@ -192,14 +192,14 @@ export function FluxActualite({ tableNom, ligneId, dateCreation, interactions = 
               <div className="min-w-0 flex-1">
                 <span
                   className={cn(
-                    'mb-1 inline-block rounded-md px-1.5 py-0.5 text-[9px] font-extrabold uppercase tracking-[0.06em]',
+                    'mb-1 inline-block rounded-md px-1.5 py-0.5 text-km-tiny font-extrabold uppercase tracking-[0.06em]',
                     e.genre === 'echange' ? 'bg-violet-100 text-violet-600' : 'bg-km-bg text-km-muted',
                   )}
                 >
                   {e.nature}
                 </span>
-                <p className="text-[11px] leading-snug text-km-text">{e.texte}</p>
-                <p className="mt-1 font-mono text-[9.5px] text-km-faint">
+                <p className="text-km-label leading-snug text-km-text">{e.texte}</p>
+                <p className="mt-1 font-mono text-km-tiny text-km-faint">
                   {new Date(e.date).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })}
                   {' · '}
                   {e.auteur}
@@ -216,7 +216,7 @@ export function FluxActualite({ tableNom, ligneId, dateCreation, interactions = 
           « Aujourd'hui » apparaissait deux fois dans le même fil (vu à l'écran le 23/08/2026). */}
       {libelleJour(dateCreation) !== jours[jours.length - 1]?.jour && (
         <div className="flex items-center gap-2 px-0.5 pb-0.5 pt-2.5">
-          <span className="rounded-md bg-km-bg px-1.5 py-0.5 text-[9px] font-extrabold uppercase tracking-[0.07em] text-km-muted">
+          <span className="rounded-md bg-km-bg px-1.5 py-0.5 text-km-tiny font-extrabold uppercase tracking-[0.07em] text-km-muted">
             {libelleJour(dateCreation)}
           </span>
           <div className="h-[1.5px] flex-1 bg-kw-border" />
@@ -227,8 +227,8 @@ export function FluxActualite({ tableNom, ligneId, dateCreation, interactions = 
           <Sparkle className="h-3 w-3" />
         </span>
         <div className="min-w-0 flex-1">
-          <p className="text-[11px] font-semibold leading-snug text-km-text">Opportunité créée</p>
-          <p className="mt-1 font-mono text-[9.5px] text-km-faint">
+          <p className="text-km-label font-semibold leading-snug text-km-text">Opportunité créée</p>
+          <p className="mt-1 font-mono text-km-tiny text-km-faint">
             {new Date(dateCreation).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })}
           </p>
         </div>

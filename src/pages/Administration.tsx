@@ -78,7 +78,7 @@ function SandboxCard() {
           </p>
           {refresh.isPending && refresh.progress && (
             <div className="mt-2 w-64">
-              <div className="mb-0.5 flex justify-between text-[10px] text-km-amber">
+              <div className="mb-0.5 flex justify-between text-km-xs text-km-amber">
                 <span className="truncate">{refresh.progress.table}</span>
                 <span>{refresh.progress.done}/{refresh.progress.total}</span>
               </div>

@@ -308,7 +308,7 @@ export function ContratWizard({
                 if (list.length === 0) return null
                 return (
                   <div key={zone}>
-                    <p className="mb-1.5 text-[11px] font-semibold uppercase tracking-wide text-km-faint">
+                    <p className="mb-1.5 text-km-label font-semibold uppercase tracking-wide text-km-faint">
                       {ZONE_LABEL_CONTRAT[zone] ?? 'Autre'}
                     </p>
                     <div className="grid gap-2 sm:grid-cols-2">
@@ -494,7 +494,7 @@ export function ContratWizard({
         </div>
 
         {etape === 1 && fournisseursConsultes.length === 1 && (
-          <p className="text-center text-[11px] text-km-faint">
+          <p className="text-center text-km-label text-km-faint">
             <Badge tone="neutral" className="mr-1">Choix unique</Badge>
             Sélection automatique — utilise « Précédent » depuis l'étape suivante pour revenir.
           </p>

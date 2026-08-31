@@ -846,7 +846,7 @@ export function CreateRecommandationDialog({
 
           {/* Repère discret : sans cette mention, on ne sait plus où l'on est une fois le fil
               d'avancement sorti du champ de vision sur un petit écran. */}
-          <p className="text-center text-[11px] text-km-faint">Étape {etape} sur {ETAPES.length} — {etapeCourante}</p>
+          <p className="text-center text-km-label text-km-faint">Étape {etape} sur {ETAPES.length} — {etapeCourante}</p>
         </div>
       </WizardConnectionGate>
     </Dialog>

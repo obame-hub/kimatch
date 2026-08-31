@@ -293,7 +293,7 @@ export function MandatWizard({
               >
                 <span
                   className={cn(
-                    'flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-[11px] font-bold transition-colors',
+                    'flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-km-label font-bold transition-colors',
                     faite && 'bg-km-green text-white',
                     courante && 'bg-km-green text-white ring-4 ring-kiwi-600/20',
                     !faite && !courante && 'bg-km-soft text-km-faint',
@@ -353,26 +353,26 @@ export function MandatWizard({
                     : 'border-km-line bg-white hover:bg-km-bg/60',
                 )}
               >
-                <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-km-soft text-[11px] font-bold text-km-muted">
+                <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-km-soft text-km-label font-bold text-km-muted">
                   {`${c.prenom?.[0] ?? ''}${c.nom?.[0] ?? ''}`.toUpperCase()}
                 </span>
                 <span className="min-w-0 flex-1">
                   <span className="block truncate text-sm font-bold text-km-text">
                     {c.prenom} {c.nom}
                   </span>
-                  {c.fonction && <span className="block truncate text-[11px] text-km-faint">{c.fonction}</span>}
+                  {c.fonction && <span className="block truncate text-km-label text-km-faint">{c.fonction}</span>}
                   {c.email && (
-                    <span className="mt-1 flex items-center gap-1 truncate text-[10.5px] text-km-muted">
+                    <span className="mt-1 flex items-center gap-1 truncate text-km-xs text-km-muted">
                       <Mail className="h-2.5 w-2.5 shrink-0" /> {c.email}
                     </span>
                   )}
                   {c.telephone && (
-                    <span className="flex items-center gap-1 truncate text-[10.5px] text-km-muted">
+                    <span className="flex items-center gap-1 truncate text-km-xs text-km-muted">
                       <Phone className="h-2.5 w-2.5 shrink-0" /> {c.telephone}
                     </span>
                   )}
                   {!c.email && (
-                    <span className="mt-1 block text-[10.5px] font-semibold text-amber-700">
+                    <span className="mt-1 block text-km-xs font-semibold text-amber-700">
                       Sans e-mail — signature impossible
                     </span>
                   )}
@@ -384,7 +384,7 @@ export function MandatWizard({
           {contactsDuCompte.length === 0 && (
             <div className="rounded-xl border border-dashed border-amber-300 bg-amber-50 p-4 text-center">
               <p className="text-xs font-semibold text-km-amber">Aucun contact sur ce compte</p>
-              <p className="mt-1 text-[11px] text-amber-700">
+              <p className="mt-1 text-km-label text-amber-700">
                 Un mandat doit être signé par quelqu’un : créez d’abord un contact.
               </p>
             </div>
@@ -438,7 +438,7 @@ export function MandatWizard({
                 type="button"
                 onClick={() => basculerFiltre(e, filtresEnergie, setFiltresEnergie)}
                 className={cn(
-                  'rounded-lg border px-2.5 py-1 text-[11px] font-semibold transition-colors',
+                  'rounded-lg border px-2.5 py-1 text-km-label font-semibold transition-colors',
                   filtresEnergie.includes(e)
                     ? 'border-navy-800 bg-navy-800 text-white'
                     : 'border-km-line bg-white text-km-muted',
@@ -460,7 +460,7 @@ export function MandatWizard({
                 type="button"
                 onClick={() => basculerFiltre(cle, filtresEcheance, setFiltresEcheance)}
                 className={cn(
-                  'rounded-lg border px-2.5 py-1 text-[11px] font-semibold transition-colors',
+                  'rounded-lg border px-2.5 py-1 text-km-label font-semibold transition-colors',
                   filtresEcheance.includes(cle)
                     ? 'border-navy-800 bg-navy-800 text-white'
                     : 'border-km-line bg-white text-km-muted',
@@ -469,7 +469,7 @@ export function MandatWizard({
                 {libelle}
               </button>
             ))}
-            <label className="ml-auto flex cursor-pointer items-center gap-1.5 text-[11px] text-km-muted">
+            <label className="ml-auto flex cursor-pointer items-center gap-1.5 text-km-label text-km-muted">
               <input type="checkbox" checked={montrerActifs} onChange={(e) => setMontrerActifs(e.target.checked)} />
               Afficher ceux déjà sous mandat actif
             </label>
@@ -494,15 +494,15 @@ export function MandatWizard({
                     <span className="block truncate text-xs font-semibold text-km-text">
                       {c.utilisation || site?.nom || 'Compteur'}
                     </span>
-                    <span className="block truncate font-mono text-[10.5px] text-km-faint">{c.numero_pdl}</span>
+                    <span className="block truncate font-mono text-km-xs text-km-faint">{c.numero_pdl}</span>
                   </span>
-                  <span className="shrink-0 rounded bg-km-bg px-1.5 py-0.5 text-[10px] font-semibold text-km-muted">
+                  <span className="shrink-0 rounded bg-km-bg px-1.5 py-0.5 text-km-xs font-semibold text-km-muted">
                     {c.type_energie === 'gaz' ? 'Gaz' : 'Élec'}
                   </span>
                   {c.date_echeance && (
                     <span
                       className={cn(
-                        'shrink-0 font-mono text-[10px] font-bold',
+                        'shrink-0 font-mono text-km-xs font-bold',
                         bucket === 'expiree' && 'text-km-red',
                         bucket === 'proche' && 'text-amber-700',
                         bucket === 'lointaine' && 'text-km-faint',
@@ -546,8 +546,8 @@ export function MandatWizard({
                 )}
               >
                 <span className="font-mono text-xl font-bold text-km-text">{d}</span>
-                <span className="text-[11px] text-km-faint">mois</span>
-                {d === DUREE_DEFAUT && <span className="text-[9.5px] font-bold uppercase text-km-green">habituel</span>}
+                <span className="text-km-label text-km-faint">mois</span>
+                {d === DUREE_DEFAUT && <span className="text-km-tiny font-bold uppercase text-km-green">habituel</span>}
               </button>
             ))}
           </div>
@@ -570,7 +570,7 @@ export function MandatWizard({
               </span>
               <span className="min-w-0 flex-1">
                 <span className="block text-sm font-bold text-km-text">Mandat KiWee</span>
-                <span className="block text-[11px] text-km-muted">Toujours inclus</span>
+                <span className="block text-km-label text-km-muted">Toujours inclus</span>
               </span>
             </div>
 
@@ -583,7 +583,7 @@ export function MandatWizard({
               />
               <span className="min-w-0 flex-1">
                 <span className="block text-sm font-bold text-km-text">Mandat Energix</span>
-                <span className="block text-[11px] text-km-muted">Second document, signé en même temps</span>
+                <span className="block text-km-label text-km-muted">Second document, signé en même temps</span>
               </span>
             </label>
           </div>
@@ -599,7 +599,7 @@ export function MandatWizard({
             <p>
               Durée : <span className="font-semibold">{dureeMois} mois</span>
             </p>
-            <p className="mt-2 text-[11px] text-km-muted">
+            <p className="mt-2 text-km-label text-km-muted">
               À la validation, le mandat est créé puis l’éditeur DocuSign s’ouvre : vous vérifiez les
               champs et cliquez sur « Envoyer » vous-même.
             </p>

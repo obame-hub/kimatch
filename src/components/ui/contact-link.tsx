@@ -66,7 +66,7 @@ function ContactPopover({
                 setOpen(false)
                 onAction()
               }}
-              className="flex items-center gap-1.5 whitespace-nowrap px-2.5 py-1.5 text-[11px] font-medium text-km-text hover:bg-km-bg"
+              className="flex items-center gap-1.5 whitespace-nowrap px-2.5 py-1.5 text-km-label font-medium text-km-text hover:bg-km-bg"
             >
               <ActionIcon className="h-3 w-3 text-km-green" />
               {actionLabel}
@@ -78,7 +78,7 @@ function ContactPopover({
                 e.stopPropagation()
                 setOpen(false)
               }}
-              className="flex items-center gap-1.5 whitespace-nowrap px-2.5 py-1.5 text-[11px] font-medium text-km-text hover:bg-km-bg"
+              className="flex items-center gap-1.5 whitespace-nowrap px-2.5 py-1.5 text-km-label font-medium text-km-text hover:bg-km-bg"
             >
               <ActionIcon className="h-3 w-3 text-km-green" />
               {actionLabel}

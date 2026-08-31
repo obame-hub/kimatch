@@ -40,7 +40,13 @@ export function PageHeader({ title, description, actions, badge, badgeLibelle }:
     <div className="mb-5 flex flex-wrap items-end justify-between gap-4">
       <div className="min-w-0">
         <div className="flex flex-wrap items-center gap-2.5">
-          <h2 className="font-display text-[22px] font-[570] leading-tight tracking-[-0.04em] text-km-text sm:text-km-h1">
+          {/* -0,04 em, c'etait le « trop rapproche » : a cette valeur les lettres d'un titre de
+              28 px se touchent presque, et le mot devient un bloc au lieu d'une suite de lettres.
+              Le resserrement vit maintenant dans l'echelle (-0,022 em sur km-h1), pose une fois pour
+              toute l'application au lieu d'etre reecrit ici.
+              La graisse descend de 570 a 540 : c'etait le « grossier ». Inter a 570 sur un titre de
+              28 px donne un gras publicitaire ; 540 garde l'autorite sans l'epaisseur. */}
+          <h2 className="font-display text-km-metric font-[540] text-km-text sm:text-km-h1">
             {title}
           </h2>
           {badge && (

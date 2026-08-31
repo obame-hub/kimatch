@@ -354,10 +354,10 @@ export default function CompteDetail() {
                 onCommit={(nom) => updateCompte.mutateAsync({ id: compte.id, nom, ville: compte.ville, segment: compte.segment, proprietaire_id: compte.proprietaire_id ?? null })}
                 onSaved={() => showToast('✓ enregistré')}
                 onError={(err) => showToast(`Erreur : ${err.message}`)}
-                className="text-[28px] font-bold leading-tight tracking-tight text-km-text"
+                className="text-km-h1 font-bold leading-tight tracking-tight text-km-text"
               />
             ) : (
-              <span className="text-[28px] font-bold leading-tight tracking-tight text-km-text">{compte.nom}</span>
+              <span className="text-km-h1 font-bold leading-tight tracking-tight text-km-text">{compte.nom}</span>
             )}
             {compte.segment && (
               <span className="rounded-[12px] bg-km-blue-soft px-2.5 py-[3px] text-km-label font-semibold text-km-blue">{compte.segment}</span>
@@ -407,7 +407,7 @@ export default function CompteDetail() {
               type="button"
               onClick={() => setConfirmDelete(true)}
               title="Supprimer ce compte"
-              className="inline-flex cursor-pointer items-center gap-1.5 rounded-[9px] border border-[#e0dfdb] bg-white px-3 py-2 text-[11.5px] font-semibold text-[#5c5f66] transition-all duration-[140ms] hover:border-[#f0c8bd] hover:bg-[#fbeae5] hover:text-[#c2452d]"
+              className="inline-flex cursor-pointer items-center gap-1.5 rounded-[9px] border border-[#e0dfdb] bg-white px-3 py-2 text-km-label font-semibold text-[#5c5f66] transition-all duration-[140ms] hover:border-[#f0c8bd] hover:bg-[#fbeae5] hover:text-[#c2452d]"
             >
               <Trash2 className="h-3 w-3" /> Supprimer
             </button>
@@ -434,7 +434,7 @@ export default function CompteDetail() {
               <span className="lg:hidden">{t.labelMobile ?? t.label}</span>
               <span className="hidden lg:inline">{t.label}</span>
               {t.badge && (
-                <span className="rounded-km-sm bg-km-soft px-[5px] py-px text-[9.5px] font-bold text-km-muted">
+                <span className="rounded-km-sm bg-km-soft px-[5px] py-px text-km-tiny font-bold text-km-muted">
                   {t.badge}
                 </span>
               )}
@@ -478,12 +478,12 @@ export default function CompteDetail() {
                   <p className="text-xs text-km-faint">Aucun SIREN renseigné — impossible d'interroger Ellisphere.</p>
                 )}
                 {compte.score_ellipro_maj && (
-                  <p className="text-[10.5px] text-km-faint">Dernière interrogation : {new Date(compte.score_ellipro_maj).toLocaleString('fr-FR')}</p>
+                  <p className="text-km-xs text-km-faint">Dernière interrogation : {new Date(compte.score_ellipro_maj).toLocaleString('fr-FR')}</p>
                 )}
                 {ellisphereScore.isPending && <p className="text-xs text-km-faint">Interrogation d'Ellisphere…</p>}
                 {ellisphereScore.isError && <p className="text-xs text-km-red">{(ellisphereScore.error as Error).message}</p>}
                 {updateScore.isSuccess && (
-                  <p className="text-[10.5px] text-km-faint">
+                  <p className="text-km-xs text-km-faint">
                     {updateScore.data.changed ? 'Score mis à jour.' : 'Score inchangé depuis la dernière interrogation.'}
                   </p>
                 )}
@@ -493,7 +493,7 @@ export default function CompteDetail() {
               {compte.type_compte !== 'kiwee' && (
                 <div className="rounded-xl border border-km-line bg-white p-4">
                   <div className="mb-3 flex items-center justify-between">
-                    <span className="text-[10px] font-bold uppercase tracking-wide text-km-faint">Détails {typeMeta[compte.type_compte].label.toLowerCase()}</span>
+                    <span className="text-km-xs font-bold uppercase tracking-wide text-km-faint">Détails {typeMeta[compte.type_compte].label.toLowerCase()}</span>
                     <Button type="button" size="sm" variant="outline" onClick={() => setShowEditSubtype(true)}>
                       <Pencil className="h-3.5 w-3.5" /> Modifier
                     </Button>
@@ -631,7 +631,7 @@ export default function CompteDetail() {
         {/* Colonne droite — Activité persistante (desktop uniquement) */}
         <div className="hidden min-h-0 flex-col border-l border-km-line bg-white lg:flex">
           <div className="flex items-center gap-2 px-3.5 py-3">
-            <span className="text-[10px] font-bold uppercase tracking-wide text-km-faint">Activité · portefeuille</span>
+            <span className="text-km-xs font-bold uppercase tracking-wide text-km-faint">Activité · portefeuille</span>
           </div>
           <div className="min-h-0 flex-1 overflow-hidden px-3.5 pb-3.5">
             <ActivityFeed
@@ -1078,7 +1078,7 @@ function RecordMetaCard({ compte, canManage, onToast }: { compte: Compte; canMan
         title="Propriétaire — cliquer pour réattribuer"
         className="flex items-center gap-1.5 disabled:cursor-default"
       >
-        <span className="flex h-4 w-4 items-center justify-center rounded-full bg-[#e4ded2] text-[7.5px] font-bold text-[#6b6355]">{initiales}</span>
+        <span className="flex h-4 w-4 items-center justify-center rounded-full bg-[#e4ded2] text-km-micro font-bold text-[#6b6355]">{initiales}</span>
         <span className="text-km-label font-bold text-km-muted">{compte.proprietaire_nom || 'Aucun propriétaire'}</span>
         {canManage && <span className="text-km-faint">▾</span>}
       </button>
@@ -1176,18 +1176,18 @@ function ContratsTabContent({
                 <span className="inline-flex h-[22px] w-[22px] items-center justify-center rounded-md bg-[#eaf4f0] text-[#0d7a5f]">
                   <FileCheck2 className="h-3 w-3" />
                 </span>
-                <span className="text-[10px] font-bold uppercase tracking-[.08em] text-[#a3a5a0]">{hub.label}</span>
+                <span className="text-km-xs font-bold uppercase tracking-[.08em] text-[#a3a5a0]">{hub.label}</span>
               </span>
             ) : (
-              <span className="text-[10px] font-bold uppercase tracking-[.08em] text-[#a3a5a0]">{hub.label}</span>
+              <span className="text-km-xs font-bold uppercase tracking-[.08em] text-[#a3a5a0]">{hub.label}</span>
             )}
             <span
-              className={cn('font-bold leading-[1.15]', hub.principal ? 'text-[30px] tracking-[-.02em]' : 'font-mono text-[22px]')}
+              className={cn('font-bold leading-[1.15]', hub.principal ? 'text-km-h1 tracking-[-.02em]' : 'font-mono text-km-metric')}
               style={{ color: hub.color }}
             >
               {hub.value}
             </span>
-            <span className="text-[10.5px] text-[#83868f]">{hub.sub}</span>
+            <span className="text-km-xs text-[#83868f]">{hub.sub}</span>
           </button>
         ))}
       </div>
@@ -1379,7 +1379,7 @@ function ContactsPanel({ contacts, compteId }: { contacts: Contact[]; compteId: 
                         navigate(`/comptes/${c.compte_id}`)
                       }}
                       title={`Rattaché à ${c.compte_nom} — ouvrir cette fiche`}
-                      className="mt-0.5 inline-flex max-w-full items-center gap-1 rounded bg-km-blue-soft px-1.5 py-px text-[10px] font-semibold text-km-blue transition-colors hover:bg-kw-blue/20"
+                      className="mt-0.5 inline-flex max-w-full items-center gap-1 rounded bg-km-blue-soft px-1.5 py-px text-km-xs font-semibold text-km-blue transition-colors hover:bg-kw-blue/20"
                     >
                       <span className="truncate">via {c.compte_nom}</span>
                     </button>

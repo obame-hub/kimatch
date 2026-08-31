@@ -108,9 +108,9 @@ export function ActionsRapides({ onAction, enCours }: {
   return (
     <div className="rounded-[13px] border border-km-line bg-white p-4">
       <div className="mb-3 flex flex-wrap items-center gap-2">
-        <p className="text-[10px] font-bold uppercase tracking-[0.08em] text-km-faint">Actions rapides</p>
+        <p className="text-km-xs font-bold uppercase tracking-[0.08em] text-km-faint">Actions rapides</p>
         <span className="flex-1" />
-        <p className="text-[10px] text-km-faint">
+        <p className="text-km-xs text-km-faint">
           chaque action est consignée dans le flux, sans changer le statut
         </p>
       </div>
@@ -123,7 +123,7 @@ export function ActionsRapides({ onAction, enCours }: {
               <span className={cn('flex h-5 w-5 shrink-0 items-center justify-center rounded-md', f.teinte)}>
                 <IconeFamille className="h-3 w-3" />
               </span>
-              <span className="text-[10.5px] font-bold text-km-text">{f.nom}</span>
+              <span className="text-km-xs font-bold text-km-text">{f.nom}</span>
             </div>
             <div className="flex flex-col gap-1">
               {f.actions.map((a) => {
@@ -134,7 +134,7 @@ export function ActionsRapides({ onAction, enCours }: {
                   type="button"
                   disabled={enCours === a.cle}
                   onClick={() => void onAction(a)}
-                  className="flex items-center gap-1.5 rounded-lg border border-transparent px-2 py-1 text-left text-[11.5px] font-medium text-km-muted transition-colors hover:border-km-line hover:bg-white hover:text-km-text disabled:opacity-50"
+                  className="flex items-center gap-1.5 rounded-lg border border-transparent px-2 py-1 text-left text-km-label font-medium text-km-muted transition-colors hover:border-km-line hover:bg-white hover:text-km-text disabled:opacity-50"
                 >
                   {enCours === a.cle ? <Loader2 className="h-3 w-3 shrink-0 animate-spin" /> : <IconeAction className="h-3 w-3 shrink-0 text-km-faint" />}
                   {a.libelle}

@@ -116,7 +116,7 @@ export function Sidebar() {
       )}
       <aside
         className={cn(
-          'fixed left-0 z-50 flex flex-col overflow-hidden border-r border-km-line bg-gradient-to-b from-km-side to-[#F5F6F3] transition-transform duration-200 ease-out',
+          'fixed left-0 z-50 flex flex-col overflow-hidden border-r border-km-line bg-gradient-to-b from-km-side to-km-side-bas transition-transform duration-200 ease-out',
           impersonating ? 'top-7 bottom-0' : 'inset-y-0',
           /* LE RAIL EST DÉPLIÉ, LIBELLÉS VISIBLES. Naoëlle, 27/08/2026 : « maintenant on va mettre
              les noms de chaque logo ». Il faisait 56 px depuis toujours, ce qui obligeait à
@@ -185,7 +185,7 @@ export function Sidebar() {
             ))}
           </nav>
           {bas && (
-            <div className="pointer-events-none absolute inset-x-0 bottom-0 z-10 h-5 bg-gradient-to-t from-[#F5F6F3] to-transparent" />
+            <div className="pointer-events-none absolute inset-x-0 bottom-0 z-10 h-5 bg-gradient-to-t from-km-side-bas to-transparent" />
           )}
         </div>
 

@@ -16,9 +16,21 @@ import { cn } from '@/lib/utils'
  * 32 px de haut au lieu de 36 : la hauteur de son bouton, pour qu'un champ et un bouton posés
  * cote a cote dans une barre de travail s'alignent au pixel.
  */
+/* LE PLACEHOLDER EST PLUS PETIT QUE LA VALEUR, ET C'EST VOULU.
+ *
+ * Naoelle, 31/08/2026 : « meme les placeholders dans les barres de recherche sont super grands,
+ * j'aime pas du tout ». Il etait a la taille du texte saisi — donc une invite grise occupait
+ * exactement la place d'une vraie donnee, et un champ vide pesait autant qu'un champ rempli.
+ *
+ * `::placeholder` accepte sa propre taille sans toucher a celle de la valeur : le champ ne saute
+ * pas a la frappe. Un point de moins et un gris plus clair suffisent a le faire reculer.
+ *
+ * Le champ passe de 32 a 34 px de haut pour la meme raison que les interlignes : le texte y etait
+ * colle aux bords. */
 const CONTROLE_BASE =
-  'h-8 w-full rounded-km border border-km-line bg-km-surface px-2.5 text-km-body text-km-text ' +
-  'placeholder:text-km-faint focus:border-km-green focus:outline-none focus:ring-1 focus:ring-km-green'
+  'h-[34px] w-full rounded-km border border-km-line bg-km-surface px-2.5 text-km-body text-km-text ' +
+  'placeholder:text-km-label placeholder:text-km-faint ' +
+  'focus:border-km-green focus:outline-none focus:ring-1 focus:ring-km-green'
 
 export function Label({ className, ...props }: React.LabelHTMLAttributes<HTMLLabelElement>) {
   return <label className={cn('mb-1.5 block text-km-label font-semibold text-km-muted', className)} {...props} />

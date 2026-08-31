@@ -69,14 +69,14 @@ export function OngletFichiers({
               key={cle}
               type="button"
               onClick={() => setCategorie(cle)}
-              className="cursor-pointer rounded-lg border px-[11px] py-[5px] text-[11px] font-semibold transition-all duration-[130ms]"
+              className="cursor-pointer rounded-lg border px-[11px] py-[5px] text-km-label font-semibold transition-all duration-[130ms]"
               style={{
                 color: actif ? '#fff' : '#5c5f66',
                 background: actif ? '#16181d' : '#fff',
                 borderColor: actif ? '#16181d' : '#e0dfdb',
               }}
             >
-              {label} <span className="font-mono text-[9.5px] opacity-70">{n}</span>
+              {label} <span className="font-mono text-km-tiny opacity-70">{n}</span>
             </button>
           )
         })}
@@ -108,25 +108,25 @@ export function OngletFichiers({
               className="flex flex-wrap items-center gap-[11px] border-b border-[#f5f4f1] px-4 py-2.5 transition-colors last:border-b-0 hover:bg-[#fbfbfa]"
             >
               <span
-                className="inline-flex h-8 w-8 flex-none items-center justify-center rounded-lg text-[9px] font-extrabold uppercase"
+                className="inline-flex h-8 w-8 flex-none items-center justify-center rounded-lg text-km-tiny font-extrabold uppercase"
                 style={{ color: plaque.couleur, background: plaque.fond }}
               >
                 {ext}
               </span>
               <div className="min-w-[170px] flex-1">
                 <div className="truncate text-xs font-bold">{d.nom}</div>
-                <div className="mt-px truncate text-[10px] text-[#a3a5a0]">
+                <div className="mt-px truncate text-km-xs text-[#a3a5a0]">
                   {d.auteur} · {new Date(d.date_creation).toLocaleDateString('fr-FR')}
                   {d.objet_lie ? ` · ${d.objet_lie}` : ''}
                 </div>
               </div>
-              <span className="rounded-[5px] bg-[#f2f1ee] px-2 py-1 text-[10px] font-semibold text-[#5c5f66]">
+              <span className="rounded-[5px] bg-[#f2f1ee] px-2 py-1 text-km-xs font-semibold text-[#5c5f66]">
                 {d.type_document}
               </span>
               <button
                 type="button"
                 onClick={() => onOuvrir(d)}
-                className="cursor-pointer rounded-md border border-[#e0dfdb] px-2.5 py-1 text-[10.5px] font-semibold transition-colors hover:bg-[#f6f6f4]"
+                className="cursor-pointer rounded-md border border-[#e0dfdb] px-2.5 py-1 text-km-xs font-semibold transition-colors hover:bg-[#f6f6f4]"
               >
                 Ouvrir
               </button>

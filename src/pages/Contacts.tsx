@@ -254,7 +254,7 @@ function CreateContactDialog({ open, onClose, initialCompteId }: { open: boolean
                   >
                     <Icon className="h-4 w-4" />
                     <span className="font-medium">{r}</span>
-                    {meta?.desc && <span className="text-[11px] opacity-80">{meta.desc}</span>}
+                    {meta?.desc && <span className="text-km-label opacity-80">{meta.desc}</span>}
                   </button>
                 )
               })}

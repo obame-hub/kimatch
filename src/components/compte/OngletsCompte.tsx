@@ -44,8 +44,8 @@ function joursAvant(iso: string | null | undefined): number | null {
 export function TitreSection({ children, precision }: { children: React.ReactNode; precision?: string }) {
   return (
     <div className="flex items-center gap-2">
-      <span className="text-[10px] font-bold uppercase tracking-[.08em] text-[#a3a5a0]">{children}</span>
-      {precision && <span className="text-[10.5px] text-[#a3a5a0]">{precision}</span>}
+      <span className="text-km-xs font-bold uppercase tracking-[.08em] text-[#a3a5a0]">{children}</span>
+      {precision && <span className="text-km-xs text-[#a3a5a0]">{precision}</span>}
     </div>
   )
 }
@@ -102,16 +102,16 @@ export function OngletRecommandations({ recommandations }: { recommandations: Re
             <span className="inline-flex h-[26px] w-[26px] flex-none items-center justify-center rounded-[7px] bg-[#f7ece3] text-[#8a4b2a]">
               <Sparkle className="h-3.5 w-3.5" />
             </span>
-            <span className="min-w-0 flex-1 truncate text-[12.5px] font-bold">{r.titre}</span>
+            <span className="min-w-0 flex-1 truncate text-km-body font-bold">{r.titre}</span>
             <span
               title="Échéance"
-              className="w-[84px] flex-none rounded-[5px] py-[3px] text-center font-mono text-[11px] font-bold"
+              className="w-[84px] flex-none rounded-[5px] py-[3px] text-center font-mono text-km-label font-bold"
               style={{ color: couleurEch, background: fondEch }}
             >
               {jours === null ? '—' : jours < 0 ? `+${-jours} j` : `${jours} j`}
             </span>
             <span
-              className="w-24 flex-none rounded-[5px] py-1 text-center text-[9.5px] font-extrabold uppercase tracking-[.04em]"
+              className="w-24 flex-none rounded-[5px] py-1 text-center text-km-tiny font-extrabold uppercase tracking-[.04em]"
               style={{ color: couleurEtape, background: fondEtape }}
             >
               {r.etape.toLowerCase()}
@@ -122,9 +122,9 @@ export function OngletRecommandations({ recommandations }: { recommandations: Re
       })}
 
       <div className="mt-2.5 flex items-center gap-2.5">
-        <span className="text-[10px] font-bold uppercase tracking-[.08em] text-[#a3a5a0]">Historique du compte</span>
+        <span className="text-km-xs font-bold uppercase tracking-[.08em] text-[#a3a5a0]">Historique du compte</span>
         <div className="h-px flex-1 bg-[#e7e6e2]" />
-        <span className="text-[10.5px] text-[#83868f]">{affichees.length} affichée{affichees.length > 1 ? 's' : ''}</span>
+        <span className="text-km-xs text-[#83868f]">{affichees.length} affichée{affichees.length > 1 ? 's' : ''}</span>
       </div>
 
       <div className="flex flex-wrap gap-[7px]">
@@ -135,7 +135,7 @@ export function OngletRecommandations({ recommandations }: { recommandations: Re
               key={cle}
               type="button"
               onClick={() => setFiltre(cle)}
-              className="inline-flex cursor-pointer select-none items-center gap-[7px] rounded-lg border px-[11px] py-[5px] text-[11px] font-bold transition-all duration-[130ms]"
+              className="inline-flex cursor-pointer select-none items-center gap-[7px] rounded-lg border px-[11px] py-[5px] text-km-label font-bold transition-all duration-[130ms]"
               style={{
                 color: actif ? '#fff' : '#5c5f66',
                 background: actif ? couleur : '#fff',
@@ -148,7 +148,7 @@ export function OngletRecommandations({ recommandations }: { recommandations: Re
               />
               {label}
               <span
-                className="font-mono text-[9.5px] font-extrabold"
+                className="font-mono text-km-tiny font-extrabold"
                 style={{ color: actif ? 'rgba(255,255,255,.8)' : '#a3a5a0' }}
               >
                 {n}
@@ -169,14 +169,14 @@ export function OngletRecommandations({ recommandations }: { recommandations: Re
             className="flex cursor-pointer items-center gap-3 rounded-[11px] border border-[#e7e6e2] bg-white px-[15px] py-[11px] transition-colors hover:bg-[#fbfbfa]"
           >
             <span
-              className="w-[68px] flex-none rounded-[5px] py-1 text-center text-[9px] font-extrabold uppercase tracking-[.05em]"
+              className="w-[68px] flex-none rounded-[5px] py-1 text-center text-km-tiny font-extrabold uppercase tracking-[.05em]"
               style={{ color: finalite.couleur, background: finalite.fond }}
             >
               {finalite.libelle}
             </span>
             <div className="min-w-0 flex-1">
               <div className="truncate text-xs font-semibold">{r.titre}</div>
-              <div className="truncate text-[10.5px] text-[#83868f]">
+              <div className="truncate text-km-xs text-[#83868f]">
                 {derniere?.nom || 'Aucune version'}
                 {r.type_energie ? ` · ${r.type_energie}` : ''}
               </div>
@@ -184,13 +184,13 @@ export function OngletRecommandations({ recommandations }: { recommandations: Re
             {/* La commission n'apparaît que sur une reco acceptée : c'est la seule où KiWee perçoit. */}
             {r.finalite_cloture === 'ACCEPTEE' && r.marge_nette != null && (
               <span title="Commission KiWee perçue" className="flex flex-none flex-col items-end gap-px">
-                <span className="text-[8.5px] font-extrabold uppercase tracking-[.06em] text-[#0d7a5f]">Commission</span>
-                <span className="font-mono text-[13px] font-extrabold tracking-[-.02em] text-[#0d7a5f]">
+                <span className="text-km-micro font-extrabold uppercase tracking-[.06em] text-[#0d7a5f]">Commission</span>
+                <span className="font-mono text-km-body font-extrabold tracking-[-.02em] text-[#0d7a5f]">
                   {Math.round(r.marge_nette).toLocaleString('fr-FR')} €
                 </span>
               </span>
             )}
-            <span className="w-[52px] flex-none text-right font-mono text-[10px] text-[#a3a5a0]">
+            <span className="w-[52px] flex-none text-right font-mono text-km-xs text-[#a3a5a0]">
               {r.date_cloture ? new Date(r.date_cloture).toLocaleDateString('fr-FR', { month: '2-digit', year: '2-digit' }) : '—'}
             </span>
           </div>
@@ -230,11 +230,11 @@ export function OngletSignaux({
   return (
     <div className={`${ANIMATION_ONGLET} flex flex-col gap-2.5`}>
       <div className="flex items-center gap-2.5">
-        <span className="text-[10px] font-bold uppercase tracking-[.08em] text-[#a3a5a0]">
+        <span className="text-km-xs font-bold uppercase tracking-[.08em] text-[#a3a5a0]">
           ⚡ {signaux.length} signal{signaux.length > 1 ? 'ux' : ''} ouvert{signaux.length > 1 ? 's' : ''} · compte
         </span>
         <span className="flex-1" />
-        <span className="text-[10.5px] text-[#83868f]">trié par priorité</span>
+        <span className="text-km-xs text-[#83868f]">trié par priorité</span>
       </div>
 
       {tries.map((s) => {
@@ -251,22 +251,22 @@ export function OngletSignaux({
             }}
           >
             <div className="min-w-[170px] flex-1">
-              <div className="text-[12.5px] font-bold">
+              <div className="text-km-body font-bold">
                 {s.type_signal}{' '}
                 <button
                   type="button"
                   onClick={() => navigate(`/sites/${s.site_id}`)}
-                  className="rounded-[5px] bg-[#f2f1ee] px-1.5 py-px text-[10.5px] font-semibold text-[#5c5f66] transition-colors hover:bg-[#e7e6e2]"
+                  className="rounded-[5px] bg-[#f2f1ee] px-1.5 py-px text-km-xs font-semibold text-[#5c5f66] transition-colors hover:bg-[#e7e6e2]"
                 >
                   {s.site_nom}
                 </button>
               </div>
-              <div className="mt-0.5 text-[11px] text-[#83868f]">{s.description}</div>
+              <div className="mt-0.5 text-km-label text-[#83868f]">{s.description}</div>
             </div>
             <button
               type="button"
               onClick={onVoirTout}
-              className="cursor-pointer rounded-[7px] border border-[#e0dfdb] bg-white px-[11px] py-1.5 text-[11px] font-semibold text-[#5c5f66] transition-colors hover:bg-[#f0efec]"
+              className="cursor-pointer rounded-[7px] border border-[#e0dfdb] bg-white px-[11px] py-1.5 text-km-label font-semibold text-[#5c5f66] transition-colors hover:bg-[#f0efec]"
             >
               Voir dans Signaux
             </button>
@@ -274,12 +274,12 @@ export function OngletSignaux({
               <button
                 type="button"
                 onClick={() => navigate(`/recommandations/${s.recommandation_id}`)}
-                className="cursor-pointer rounded-[7px] bg-[#0d7a5f] px-[11px] py-1.5 text-[11px] font-bold text-white transition-colors hover:bg-[#0a6650]"
+                className="cursor-pointer rounded-[7px] bg-[#0d7a5f] px-[11px] py-1.5 text-km-label font-bold text-white transition-colors hover:bg-[#0a6650]"
               >
                 Recommandation liée
               </button>
             ) : (
-              <span className="rounded-[7px] bg-[#f7ece3] px-[11px] py-1.5 text-[11px] font-bold text-[#8a4b2a]">
+              <span className="rounded-[7px] bg-[#f7ece3] px-[11px] py-1.5 text-km-label font-bold text-[#8a4b2a]">
                 À qualifier
               </span>
             )}

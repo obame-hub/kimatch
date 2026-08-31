@@ -116,7 +116,7 @@ export function OngletDocuments({
             )}
           >
             <div className="flex items-center gap-2">
-              <span className="inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-[7px] bg-km-red-soft text-[8px] font-extrabold text-km-red">
+              <span className="inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-[7px] bg-km-red-soft text-km-micro font-extrabold text-km-red">
                 {(doc.nom_fichier.split('.').pop() || 'FIC').slice(0, 4).toUpperCase()}
               </span>
               <div className="min-w-0 flex-1">

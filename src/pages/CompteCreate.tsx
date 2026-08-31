@@ -167,7 +167,7 @@ export default function CompteCreate() {
           </div>
           {/* Libellés d'étape sous la barre, comme Tools (TYPE / RECHERCHE / CONFIRMATION) --
               l'étape courante est mise en avant. */}
-          <div className="mt-2 flex justify-between text-[10px] font-semibold uppercase tracking-wide">
+          <div className="mt-2 flex justify-between text-km-xs font-semibold uppercase tracking-wide">
             {STEPS.map((label, i) => (
               <span key={label} className={i + 1 === step ? 'text-km-green' : 'text-km-faint'}>{label}</span>
             ))}
@@ -306,7 +306,7 @@ function RnicSearchStep({ picked, onPick }: { picked: RnicResult | null; onPick:
                 <p className="font-medium text-km-text">{toUpperFR(r.nom)}</p>
                 <p className="mt-0.5 text-xs text-km-faint">N° {r.numero}</p>
                 {(r.adresse || r.ville) && <p className="mt-1 flex items-center gap-1 text-xs text-km-muted"><MapPin className="h-3 w-3" /> {r.adresse} · {r.codePostal} {r.ville}</p>}
-                <div className="mt-2 flex flex-wrap gap-1.5 text-[11px] text-km-muted">
+                <div className="mt-2 flex flex-wrap gap-1.5 text-km-label text-km-muted">
                   {r.nombreLots != null && <Badge tone="neutral">{r.nombreLots} lots</Badge>}
                   {r.typeSyndic && <Badge tone="neutral">{r.typeSyndic}</Badge>}
                   {r.mandatEnCours === false && <Badge tone="amber">Pas de mandat en cours</Badge>}
@@ -433,7 +433,7 @@ function CompanySearchStep({
               (n'apparaissent que si la donnée existe), et « Catégorie » = « Siège social »
               (type d'établissement), PAS la catégorie d'entreprise PME/ETI/GE. */}
           <div>
-            <p className="mb-1.5 text-[10px] font-semibold uppercase tracking-wide text-km-faint">Identité légale</p>
+            <p className="mb-1.5 text-km-xs font-semibold uppercase tracking-wide text-km-faint">Identité légale</p>
             <div className="space-y-0.5 text-sm text-km-text">
               <p><span className="text-km-faint">Raison sociale :</span> <span className="font-medium">{toUpperFR(picked.raisonSociale || picked.nomComplet)}</span></p>
               {picked.siret && <p><span className="text-km-faint">SIRET :</span> {picked.siret}</p>}
@@ -442,12 +442,12 @@ function CompanySearchStep({
             </div>
           </div>
           <div>
-            <p className="mb-1.5 text-[10px] font-semibold uppercase tracking-wide text-km-faint">Adresse du siège</p>
+            <p className="mb-1.5 text-km-xs font-semibold uppercase tracking-wide text-km-faint">Adresse du siège</p>
             <p className="text-sm text-km-text">{(picked.street || picked.city) ? <>{toUpperFR(picked.street ?? '')}<br />{picked.postalCode} {toUpperFR(picked.city ?? '')}</> : '—'}</p>
           </div>
           {(picked.codeApe || picked.libelleApe) && (
             <div>
-              <p className="mb-1.5 text-[10px] font-semibold uppercase tracking-wide text-km-faint">Activité</p>
+              <p className="mb-1.5 text-km-xs font-semibold uppercase tracking-wide text-km-faint">Activité</p>
               <div className="space-y-0.5 text-sm text-km-text">
                 {picked.codeApe && <p><span className="text-km-faint">Code APE / NAF :</span> {picked.codeApe}</p>}
                 {picked.libelleApe && <p>{picked.libelleApe}</p>}
@@ -456,7 +456,7 @@ function CompanySearchStep({
           )}
           {(picked.dirigeant || picked.estSiege) && (
             <div>
-              <p className="mb-1.5 text-[10px] font-semibold uppercase tracking-wide text-km-faint">Direction &amp; taille</p>
+              <p className="mb-1.5 text-km-xs font-semibold uppercase tracking-wide text-km-faint">Direction &amp; taille</p>
               <div className="space-y-0.5 text-sm text-km-text">
                 {picked.dirigeant && <p><span className="text-km-faint">Dirigeant :</span> <span className="font-medium">{picked.dirigeant}</span></p>}
                 {picked.estSiege && <p><span className="text-km-faint">Catégorie :</span> Siège social</p>}
@@ -468,7 +468,7 @@ function CompanySearchStep({
               de la réponse XML -- à enrichir côté API pour aller plus loin. */}
           {score?.score && (
             <div className="sm:col-span-2">
-              <p className="mb-1.5 text-[10px] font-semibold uppercase tracking-wide text-km-faint">Score Ellisphere</p>
+              <p className="mb-1.5 text-km-xs font-semibold uppercase tracking-wide text-km-faint">Score Ellisphere</p>
               <p className="text-sm text-km-text">
                 <span className="text-km-faint">Score :</span> <span className="font-medium">{score.score}{score.scale ? ` / ${score.scale}` : ''}</span>
               </p>
@@ -514,11 +514,11 @@ function CompanySearchStep({
                   <p className="font-medium text-km-text">{toUpperFR(c.raisonSociale || c.nomComplet)}</p>
                   {c.etatAdministratif && <Badge tone={c.etatAdministratif === 'Actif' ? 'kiwi' : 'neutral'}>{c.etatAdministratif}</Badge>}
                 </div>
-                {c.siret && <p className="mt-0.5 font-mono text-[11px] text-km-faint">SIRET {c.siret}</p>}
+                {c.siret && <p className="mt-0.5 font-mono text-km-label text-km-faint">SIRET {c.siret}</p>}
                 {(c.street || c.city) && <p className="mt-1 flex items-center gap-1 text-xs text-km-muted"><MapPin className="h-3 w-3" /> {c.street}, {c.postalCode} {c.city}</p>}
                 {/* Badges comme Tools : dirigeant, puis code APE + libellé GROUPÉS, puis
                     « Siège social » quand l'établissement retenu est le siège. */}
-                <div className="mt-2 flex flex-wrap gap-1.5 text-[11px] text-km-muted">
+                <div className="mt-2 flex flex-wrap gap-1.5 text-km-label text-km-muted">
                   {c.dirigeant && <Badge tone="neutral"><Users className="h-3 w-3" /> {c.dirigeant}</Badge>}
                   {(c.codeApe || c.libelleApe) && <Badge tone="neutral">{[c.codeApe, c.libelleApe].filter(Boolean).join(' ')}</Badge>}
                   {c.estSiege && <Badge tone="amber">Siège social</Badge>}
@@ -750,7 +750,7 @@ function NextStepScreen({
           <div className="divide-y divide-km-line rounded-xl border border-km-line bg-white">
             {contactsAjoutes.map((c) => (
               <div key={c.id} className="flex items-center gap-3 px-4 py-3">
-                <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-violet-100 text-[11px] font-semibold text-violet-600">
+                <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-violet-100 text-km-label font-semibold text-violet-600">
                   {`${c.prenom[0] ?? ''}${c.nom[0] ?? ''}`.toUpperCase()}
                 </span>
                 <div className="min-w-0 flex-1">

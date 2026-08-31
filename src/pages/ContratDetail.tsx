@@ -84,12 +84,12 @@ function CycleDeVieCard({ dateDebut, dateFin }: { dateDebut: string; dateFin: st
   return (
     <div className="rounded-xl border border-km-line bg-white p-4">
       <div className="mb-2 flex items-center gap-2">
-        <span className="text-[10px] font-bold uppercase tracking-wide text-km-faint">Cycle de vie</span>
+        <span className="text-km-xs font-bold uppercase tracking-wide text-km-faint">Cycle de vie</span>
         <div className="flex-1" />
         {joursRestants != null && joursRestants >= 0 && (
-          <span className="text-[11px] font-bold text-amber-600">expire dans {joursRestants} jour{joursRestants > 1 ? 's' : ''}</span>
+          <span className="text-km-label font-bold text-amber-600">expire dans {joursRestants} jour{joursRestants > 1 ? 's' : ''}</span>
         )}
-        {joursRestants != null && joursRestants < 0 && <span className="text-[11px] font-bold text-km-faint">{statutLabel}</span>}
+        {joursRestants != null && joursRestants < 0 && <span className="text-km-label font-bold text-km-faint">{statutLabel}</span>}
       </div>
       {fin != null ? (
         <>
@@ -99,7 +99,7 @@ function CycleDeVieCard({ dateDebut, dateFin }: { dateDebut: string; dateFin: st
               <div className="absolute -top-0.5 h-3.5 w-0.5 rounded bg-red-500" style={{ left: `${pct}%` }} />
             )}
           </div>
-          <div className="mt-1.5 flex justify-between font-mono text-[10px] text-km-faint">
+          <div className="mt-1.5 flex justify-between font-mono text-km-xs text-km-faint">
             <span>{new Date(dateDebut).toLocaleDateString('fr-FR')}</span>
             {now >= debut && now <= fin && <span className="font-bold text-red-500">aujourd'hui</span>}
             <span>{new Date(fin).toLocaleDateString('fr-FR')}</span>
@@ -192,7 +192,7 @@ function ClausesCard({ contrat }: { contrat: Contrat }) {
   if (renseignees.length === 0) return null
   return (
     <div className="rounded-xl border border-km-line bg-white p-4">
-      <p className="mb-2.5 text-[10px] font-bold uppercase tracking-wide text-km-faint">Clauses</p>
+      <p className="mb-2.5 text-km-xs font-bold uppercase tracking-wide text-km-faint">Clauses</p>
       <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
         {renseignees.map((c) => (
           <div key={c.key} className="flex items-center justify-between gap-2 rounded-lg bg-km-bg/60 px-3 py-2">
@@ -469,7 +469,7 @@ export default function ContratDetail() {
             )}
           </div>
           <p className="truncate text-xs text-km-muted">{contrat.type_energie === 'gaz' ? 'Gaz' : 'Électricité'} · {site?.nom ?? contrat.site_nom}</p>
-          <p className="truncate text-[10.5px] text-km-faint">
+          <p className="truncate text-km-xs text-km-faint">
             {contrat.date_creation && <>Créé le {new Date(contrat.date_creation).toLocaleDateString('fr-FR')} · </>}
             Propriétaire : {contrat.proprietaire_nom || 'Aucun'}
             {contrat.id_salesforce && <> · <span className="font-mono">{contrat.id_salesforce}</span> (temporaire, pour contrôle)</>}
@@ -500,7 +500,7 @@ export default function ContratDetail() {
               type="button"
               onClick={() => setTab(t.key)}
               className={cn(
-                'mb-2.5 inline-flex shrink-0 items-center gap-1.5 whitespace-nowrap rounded-full px-3.5 py-2 text-[12.5px] font-semibold transition-colors lg:mb-0 lg:rounded-none lg:border-b-2 lg:px-3 lg:py-2.5 lg:font-normal',
+                'mb-2.5 inline-flex shrink-0 items-center gap-1.5 whitespace-nowrap rounded-full px-3.5 py-2 text-km-body font-semibold transition-colors lg:mb-0 lg:rounded-none lg:border-b-2 lg:px-3 lg:py-2.5 lg:font-normal',
                 isActive
                   ? 'bg-ink-800 text-white lg:border-navy-800 lg:bg-transparent lg:font-semibold lg:text-km-text'
                   : 'border border-km-line bg-white text-km-muted hover:bg-km-bg lg:border-0 lg:border-b-2 lg:border-transparent lg:text-km-muted lg:hover:bg-transparent lg:hover:text-km-text',
@@ -508,7 +508,7 @@ export default function ContratDetail() {
             >
               {t.label}
               {t.badge && (
-                <span className={cn('rounded px-1.5 py-0.5 text-[9.5px] font-bold', isActive ? 'bg-white/20 text-white lg:bg-km-soft lg:text-km-muted' : 'bg-km-soft text-km-muted')}>
+                <span className={cn('rounded px-1.5 py-0.5 text-km-tiny font-bold', isActive ? 'bg-white/20 text-white lg:bg-km-soft lg:text-km-muted' : 'bg-km-soft text-km-muted')}>
                   {t.badge}
                 </span>
               )}
@@ -524,11 +524,11 @@ export default function ContratDetail() {
             <div className="rounded-xl border border-km-line bg-white p-3.5">
               <div className="mb-2 flex items-center gap-1.5">
                 <span className="flex h-5 w-5 items-center justify-center rounded-md bg-sky-100 text-sky-500"><Building2 className="h-2.5 w-2.5" /></span>
-                <span className="text-[10px] font-bold uppercase tracking-wide text-km-faint">Compte</span>
+                <span className="text-km-xs font-bold uppercase tracking-wide text-km-faint">Compte</span>
                 <div className="flex-1" />
                 <EntityLink to={`/comptes/${compte.id}`}>ouvrir →</EntityLink>
               </div>
-              <p className="text-[13px] font-bold text-sky-500">{compte.nom}</p>
+              <p className="text-km-body font-bold text-sky-500">{compte.nom}</p>
             </div>
           )}
 
@@ -536,25 +536,25 @@ export default function ContratDetail() {
             <div className="rounded-xl border border-km-line bg-white p-3.5">
               <div className="mb-2 flex items-center gap-1.5">
                 <span className="flex h-5 w-5 items-center justify-center rounded-md bg-km-green-soft text-km-green"><MapPin className="h-2.5 w-2.5" /></span>
-                <span className="text-[10px] font-bold uppercase tracking-wide text-km-faint">Site</span>
+                <span className="text-km-xs font-bold uppercase tracking-wide text-km-faint">Site</span>
                 <div className="flex-1" />
                 <EntityLink to={`/sites/${site.id}`}>ouvrir →</EntityLink>
               </div>
-              <p className="text-[13px] font-bold text-km-green">{site.nom}</p>
+              <p className="text-km-body font-bold text-km-green">{site.nom}</p>
             </div>
           )}
 
           <div className="rounded-xl border border-km-line bg-white p-3.5">
             <div className="mb-2 flex items-center gap-1.5">
               <span className={cn('flex h-5 w-5 items-center justify-center rounded-md', energyClasses)}><Icon className="h-2.5 w-2.5" /></span>
-              <span className="text-[10px] font-bold uppercase tracking-wide text-km-faint">Fournisseur retenu</span>
+              <span className="text-km-xs font-bold uppercase tracking-wide text-km-faint">Fournisseur retenu</span>
             </div>
             {contrat.fournisseur_compte_id ? (
               <EntityLink to={`/comptes/${contrat.fournisseur_compte_id}`}>{contrat.fournisseur_nom}</EntityLink>
             ) : (
-              <p className="text-[13px] font-bold text-km-text">{contrat.fournisseur_nom}</p>
+              <p className="text-km-body font-bold text-km-text">{contrat.fournisseur_nom}</p>
             )}
-            {fournisseur && <p className="mt-1 text-[10.5px] text-km-muted">{fournisseur.segment}</p>}
+            {fournisseur && <p className="mt-1 text-km-xs text-km-muted">{fournisseur.segment}</p>}
           </div>
 
           {/* ══ D'OÙ VIENT CE CONTRAT ══
@@ -571,11 +571,11 @@ export default function ContratDetail() {
             <div className="rounded-xl border border-km-line bg-white p-3.5">
               <div className="mb-2 flex items-center gap-1.5">
                 <span className="flex h-5 w-5 items-center justify-center rounded-md bg-km-amber-soft text-amber-600"><Lightbulb className="h-2.5 w-2.5" /></span>
-                <span className="text-[10px] font-bold uppercase tracking-wide text-km-faint">Issu de la recommandation</span>
+                <span className="text-km-xs font-bold uppercase tracking-wide text-km-faint">Issu de la recommandation</span>
                 <div className="flex-1" />
                 <EntityLink to={`/recommandations/${contrat.recommandation_id}`}>ouvrir →</EntityLink>
               </div>
-              <p className="text-[13px] font-bold text-km-text">
+              <p className="text-km-body font-bold text-km-text">
                 {contrat.recommandation_nom || 'Recommandation'}
               </p>
             </div>
@@ -592,12 +592,12 @@ export default function ContratDetail() {
                 <span className="flex h-5 w-5 items-center justify-center rounded-md bg-km-green-soft text-km-green">
                   <LifeBuoy className="h-2.5 w-2.5" />
                 </span>
-                <span className="text-[10px] font-bold uppercase tracking-wide text-km-faint">Suivi de contrat</span>
+                <span className="text-km-xs font-bold uppercase tracking-wide text-km-faint">Suivi de contrat</span>
                 <div className="flex-1" />
                 <EntityLink to={`/suivis-contrats/${suivi.id}`}>ouvrir →</EntityLink>
               </div>
-              <p className="text-[13px] font-bold text-km-text">{suivi.etape_libelle}</p>
-              <p className="mt-0.5 text-[11px] text-km-muted">
+              <p className="text-km-body font-bold text-km-text">{suivi.etape_libelle}</p>
+              <p className="mt-0.5 text-km-label text-km-muted">
                 {SANTE_LIBELLE[suivi.sante] ?? suivi.sante}
                 {suivi.actions_ouvertes > 0 && ` · ${suivi.actions_ouvertes} action(s) à faire`}
               </p>
@@ -613,10 +613,10 @@ export default function ContratDetail() {
                 <CycleDeVieCard dateDebut={contrat.date_debut} dateFin={contrat.date_fin} />
               )}
               <div className="rounded-xl border border-km-line bg-white p-4">
-              <p className="mb-2.5 text-[10px] font-bold uppercase tracking-wide text-km-faint">Détail du contrat</p>
+              <p className="mb-2.5 text-km-xs font-bold uppercase tracking-wide text-km-faint">Détail du contrat</p>
               <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
                 <div>
-                  <p className="mb-0.5 text-[10px] uppercase tracking-wide text-km-faint">Énergie</p>
+                  <p className="mb-0.5 text-km-xs uppercase tracking-wide text-km-faint">Énergie</p>
                   <Badge tone="neutral">{contrat.type_energie === 'gaz' ? 'Gaz' : 'Électricité'}</Badge>
                 </div>
                 {/* Edition en place : ces champs se corrigeaient dans une modale « Modifier »,
@@ -688,27 +688,27 @@ export default function ContratDetail() {
                   <>
                     {contrat.reference_fournisseur && (
                       <div>
-                        <p className="mb-0.5 text-[10px] uppercase tracking-wide text-km-faint">Référence fournisseur</p>
+                        <p className="mb-0.5 text-km-xs uppercase tracking-wide text-km-faint">Référence fournisseur</p>
                         <p className="font-mono text-xs font-semibold text-km-text">{contrat.reference_fournisseur}</p>
                       </div>
                     )}
                     <div>
-                      <p className="mb-0.5 text-[10px] uppercase tracking-wide text-km-faint">Début</p>
+                      <p className="mb-0.5 text-km-xs uppercase tracking-wide text-km-faint">Début</p>
                       <p className="text-xs font-semibold text-km-text">{contrat.date_debut ? new Date(contrat.date_debut).toLocaleDateString('fr-FR') : '—'}</p>
                     </div>
                     <div>
-                      <p className="mb-0.5 text-[10px] uppercase tracking-wide text-km-faint">Fin</p>
+                      <p className="mb-0.5 text-km-xs uppercase tracking-wide text-km-faint">Fin</p>
                       <p className="text-xs font-semibold text-km-text">{contrat.date_fin ? new Date(contrat.date_fin).toLocaleDateString('fr-FR') : 'sans échéance'}</p>
                     </div>
                     {contrat.preavis_resiliation_jours != null && (
                       <div>
-                        <p className="mb-0.5 text-[10px] uppercase tracking-wide text-km-faint">Préavis de résiliation</p>
+                        <p className="mb-0.5 text-km-xs uppercase tracking-wide text-km-faint">Préavis de résiliation</p>
                         <p className="text-xs font-semibold text-km-text">{contrat.preavis_resiliation_jours} jours</p>
                       </div>
                     )}
                     {contrat.contact_signataire_nom && (
                       <div>
-                        <p className="mb-0.5 text-[10px] uppercase tracking-wide text-km-faint">Signataire</p>
+                        <p className="mb-0.5 text-km-xs uppercase tracking-wide text-km-faint">Signataire</p>
                         {contrat.contact_signataire_id ? (
                           <EntityLink to={`/contacts/${contrat.contact_signataire_id}`} className="text-xs font-semibold">{contrat.contact_signataire_nom}</EntityLink>
                         ) : (
@@ -720,19 +720,19 @@ export default function ContratDetail() {
                 )}
                 {contrat.interlocuteur_pricing_nom && (
                   <div>
-                    <p className="mb-0.5 text-[10px] uppercase tracking-wide text-km-faint">Interlocuteur pricing</p>
+                    <p className="mb-0.5 text-km-xs uppercase tracking-wide text-km-faint">Interlocuteur pricing</p>
                     <p className="text-xs font-semibold text-km-text">{contrat.interlocuteur_pricing_nom}</p>
                   </div>
                 )}
                 {contrat.date_signature && (
                   <div>
-                    <p className="mb-0.5 text-[10px] uppercase tracking-wide text-km-faint">Date de signature</p>
+                    <p className="mb-0.5 text-km-xs uppercase tracking-wide text-km-faint">Date de signature</p>
                     <p className="text-xs font-semibold text-km-text">{new Date(contrat.date_signature).toLocaleDateString('fr-FR')}</p>
                   </div>
                 )}
                 {contrat.date_debut && contrat.date_fin && (
                   <div>
-                    <p className="mb-0.5 text-[10px] uppercase tracking-wide text-km-faint">Durée</p>
+                    <p className="mb-0.5 text-km-xs uppercase tracking-wide text-km-faint">Durée</p>
                     <p className="text-xs font-semibold text-km-text">
                       {Math.round((new Date(contrat.date_fin).getTime() - new Date(contrat.date_debut).getTime()) / (1000 * 60 * 60 * 24 * 30.44))} mois
                     </p>
@@ -740,19 +740,19 @@ export default function ContratDetail() {
                 )}
                 {contrat.type_prix && (
                   <div>
-                    <p className="mb-0.5 text-[10px] uppercase tracking-wide text-km-faint">Type de prix</p>
+                    <p className="mb-0.5 text-km-xs uppercase tracking-wide text-km-faint">Type de prix</p>
                     <Badge tone={contrat.type_prix === 'Fixe' ? 'kiwi' : 'amber'}>{contrat.type_prix}</Badge>
                   </div>
                 )}
                 {contrat.prix_molecule_eur_mwh != null && (
                   <div>
-                    <p className="mb-0.5 text-[10px] uppercase tracking-wide text-km-faint">Prix molécule</p>
+                    <p className="mb-0.5 text-km-xs uppercase tracking-wide text-km-faint">Prix molécule</p>
                     <p className="font-mono text-xs font-semibold text-km-text">{contrat.prix_molecule_eur_mwh.toLocaleString('fr-FR')} €/MWh</p>
                   </div>
                 )}
                 {contrat.strategie_tarifaire && (
                   <div>
-                    <p className="mb-0.5 text-[10px] uppercase tracking-wide text-km-faint">Stratégie tarifaire</p>
+                    <p className="mb-0.5 text-km-xs uppercase tracking-wide text-km-faint">Stratégie tarifaire</p>
                     <p className="text-xs text-km-text">{contrat.strategie_tarifaire === 'prix_cible' ? 'Prix cible' : 'Marge fixe'}</p>
                   </div>
                 )}
@@ -813,7 +813,7 @@ export default function ContratDetail() {
                   // accessible au cas où l'information serait fausse.
                   return (
                     <div className="rounded-xl border border-km-line bg-white p-4">
-                      <p className="text-[10px] font-bold uppercase tracking-wide text-km-faint">
+                      <p className="text-km-xs font-bold uppercase tracking-wide text-km-faint">
                         Reconduction tacite
                       </p>
                       <p className="mt-1 text-xs text-km-muted">
@@ -828,7 +828,7 @@ export default function ContratDetail() {
                   const inconnu = contrat.clause_tacite_reconduction == null
                   return (
                     <div className="rounded-xl border border-amber-200 bg-amber-50 p-4">
-                      <p className="text-[10px] font-bold uppercase tracking-wide text-amber-700">
+                      <p className="text-km-xs font-bold uppercase tracking-wide text-amber-700">
                         Reconduction tacite
                       </p>
                       <p className="mt-1 text-xs leading-relaxed text-km-amber">
@@ -854,7 +854,7 @@ export default function ContratDetail() {
                   >
                     <p
                       className={cn(
-                        'text-[10px] font-bold uppercase tracking-wide',
+                        'text-km-xs font-bold uppercase tracking-wide',
                         e.passee ? 'text-red-700' : e.urgent ? 'text-amber-700' : 'text-km-faint',
                       )}
                     >
@@ -877,7 +877,7 @@ export default function ContratDetail() {
                         </>
                       )}
                     </p>
-                    <p className="mt-1.5 text-[10.5px] text-km-faint">
+                    <p className="mt-1.5 text-km-xs text-km-faint">
                       Fin du contrat :{' '}
                       {contrat.date_fin ? new Date(contrat.date_fin).toLocaleDateString('fr-FR') : '—'}
                       {contrat.preavis_resiliation_jours != null && (
@@ -923,13 +923,13 @@ export default function ContratDetail() {
                         </span>
                         <div className="min-w-0 flex-1">
                           <p className="truncate text-sm font-bold text-km-text">{c.utilisation || c.numero_pdl}</p>
-                          <p className="truncate font-mono text-[10.5px] text-km-faint">{c.numero_pdl}</p>
+                          <p className="truncate font-mono text-km-xs text-km-faint">{c.numero_pdl}</p>
                         </div>
                       </div>
 
                       <div className="mt-3 border-t border-navy-50 pt-3">
                         <div className="mb-2 flex items-center gap-1.5">
-                          <span className="text-[10px] font-bold uppercase tracking-wide text-km-faint">Tarification</span>
+                          <span className="text-km-xs font-bold uppercase tracking-wide text-km-faint">Tarification</span>
                           <div className="flex-1" />
                           {canManage && c.contrat_compteur_id && (
                             <Button size="sm" variant="outline" onClick={() => setAddTarifFor(c.contrat_compteur_id)}>
@@ -950,16 +950,16 @@ export default function ContratDetail() {
                                     {t.formule_libelle && <Badge tone="neutral">{t.formule_libelle}</Badge>}
                                     {!t.actif && <Badge tone="amber">inactif</Badge>}
                                   </div>
-                                  <p className="mt-1 truncate text-[11px] font-semibold text-km-text">{tarifResume(t)}</p>
+                                  <p className="mt-1 truncate text-km-label font-semibold text-km-text">{tarifResume(t)}</p>
                                   {(t.abonnement_mensuel_ht != null || t.abonnement_annuel_ht != null) && (
-                                    <p className="text-[10.5px] text-km-faint">
+                                    <p className="text-km-xs text-km-faint">
                                       Abonnement {t.abonnement_mensuel_ht != null ? `${t.abonnement_mensuel_ht}€/mois` : ''}
                                       {t.abonnement_mensuel_ht != null && t.abonnement_annuel_ht != null ? ' · ' : ''}
                                       {t.abonnement_annuel_ht != null ? `${t.abonnement_annuel_ht}€/an` : ''}
                                     </p>
                                   )}
                                   {(t.date_debut_validite || t.date_fin_validite) && (
-                                    <p className="text-[10.5px] text-km-faint">
+                                    <p className="text-km-xs text-km-faint">
                                       Valide du {t.date_debut_validite ? new Date(t.date_debut_validite).toLocaleDateString('fr-FR') : '…'} au{' '}
                                       {t.date_fin_validite ? new Date(t.date_fin_validite).toLocaleDateString('fr-FR') : 'sans échéance'}
                                     </p>
@@ -1024,7 +1024,7 @@ export default function ContratDetail() {
                       </span>
                       <div className="min-w-0 flex-1">
                         <p className="truncate text-sm font-bold text-km-text">{d.nom}</p>
-                        <p className="truncate text-[10.5px] text-km-faint">{d.auteur} · {new Date(d.date_creation).toLocaleDateString('fr-FR')}</p>
+                        <p className="truncate text-km-xs text-km-faint">{d.auteur} · {new Date(d.date_creation).toLocaleDateString('fr-FR')}</p>
                       </div>
                       <Badge tone="neutral">{d.type_document}</Badge>
                       {d.url && (
@@ -1286,7 +1286,7 @@ function DialogSignatureContrat({
               déroulant n'aurait montré que des noms de fichiers, souvent illisibles quand ils
               sortent d'un téléchargement. */}
           <div>
-            <p className="mb-1 text-[10px] font-bold uppercase tracking-wide text-km-faint">
+            <p className="mb-1 text-km-xs font-bold uppercase tracking-wide text-km-faint">
               Document à faire signer
             </p>
             {/* DES VIGNETTES, PAS UNE LISTE. Naoëlle, 21/08/2026 : « je veux que ce soit un genre de
@@ -1323,14 +1323,14 @@ function DialogSignatureContrat({
                       </span>
                     )}
                     <span
-                      className="flex h-11 w-11 items-center justify-center rounded-xl text-[10px] font-extrabold uppercase"
+                      className="flex h-11 w-11 items-center justify-center rounded-xl text-km-xs font-extrabold uppercase"
                       style={{ background: plaque.fond, color: plaque.couleur }}
                     >
                       {ext}
                     </span>
                     <span className="min-w-0 self-stretch">
                       <span className="block truncate text-sm font-bold text-km-text">{d.nom}</span>
-                      <span className="block truncate text-[10.5px] text-km-faint">
+                      <span className="block truncate text-km-xs text-km-faint">
                         {[d.type_document, new Date(d.date_creation).toLocaleDateString('fr-FR')]
                           .filter(Boolean)
                           .join(' · ')}
@@ -1349,7 +1349,7 @@ function DialogSignatureContrat({
               ))}
             </Select>
           </FormField>
-          <p className="text-[10.5px] leading-snug text-km-faint">
+          <p className="text-km-xs leading-snug text-km-faint">
             Un contrat vient du fournisseur : il ne porte pas nos repères de signature. C'est pourquoi
             DocuSign s'ouvre — vous y placez les zones sur le document, puis vous cliquez « Envoyer ».
             Rien ne part automatiquement.
@@ -1461,7 +1461,7 @@ function BlocEnvoiSignature({ contrat, signaler }: { contrat: Contrat; signaler:
   return (
     <div className="rounded-xl border border-km-line bg-white p-4">
       <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
-        <p className="text-[10px] font-bold uppercase tracking-wide text-km-faint">Envoi à la signature</p>
+        <p className="text-km-xs font-bold uppercase tracking-wide text-km-faint">Envoi à la signature</p>
         <Badge tone={contrat.statut_signature === 'SIGNE' ? 'kiwi' : 'amber'}>{e.libelle}</Badge>
       </div>
 
@@ -1480,13 +1480,13 @@ function BlocEnvoiSignature({ contrat, signaler }: { contrat: Contrat; signaler:
 
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
         <div>
-          <p className="mb-0.5 text-[10px] uppercase tracking-wide text-km-faint">Envoyé le</p>
+          <p className="mb-0.5 text-km-xs uppercase tracking-wide text-km-faint">Envoyé le</p>
           <p className="text-xs font-semibold text-km-text">
             {envoyeLe ? new Date(envoyeLe).toLocaleString('fr-FR') : 'pas encore envoyé'}
           </p>
         </div>
         <div>
-          <p className="mb-0.5 text-[10px] uppercase tracking-wide text-km-faint">Destinataire</p>
+          <p className="mb-0.5 text-km-xs uppercase tracking-wide text-km-faint">Destinataire</p>
           <p className="truncate text-xs font-semibold text-km-text">
             {etat?.signataire?.nom
               ? `${etat.signataire.nom}${etat.signataire.email ? ` — ${etat.signataire.email}` : ''}`
@@ -1495,13 +1495,13 @@ function BlocEnvoiSignature({ contrat, signaler }: { contrat: Contrat; signaler:
         </div>
         {signeLe && (
           <div>
-            <p className="mb-0.5 text-[10px] uppercase tracking-wide text-km-faint">Signé le</p>
+            <p className="mb-0.5 text-km-xs uppercase tracking-wide text-km-faint">Signé le</p>
             <p className="text-xs font-semibold text-km-text">{new Date(signeLe).toLocaleString('fr-FR')}</p>
           </div>
         )}
         {etat?.signataire?.recuLe && (
           <div>
-            <p className="mb-0.5 text-[10px] uppercase tracking-wide text-km-faint">Ouvert par le signataire</p>
+            <p className="mb-0.5 text-km-xs uppercase tracking-wide text-km-faint">Ouvert par le signataire</p>
             <p className="text-xs font-semibold text-km-text">
               {new Date(etat.signataire.recuLe).toLocaleString('fr-FR')}
             </p>
@@ -1524,7 +1524,7 @@ function BlocEnvoiSignature({ contrat, signaler }: { contrat: Contrat; signaler:
           Voir l’enveloppe dans DocuSign
           <ExternalLink className="h-3 w-3" />
         </a>
-        <span className="font-mono text-[10.5px] text-km-faint">{contrat.docusign_envelope_id}</span>
+        <span className="font-mono text-km-xs text-km-faint">{contrat.docusign_envelope_id}</span>
       </div>
     </div>
   )
@@ -1574,7 +1574,7 @@ function FriseEnvoi({ contrat, etat }: { contrat: Contrat; etat: EtatEnveloppe |
                 </span>
                 <span
                   className={cn(
-                    'whitespace-nowrap text-[11px] font-bold',
+                    'whitespace-nowrap text-km-label font-bold',
                     faite ? (arrete ? 'text-red-700' : 'text-km-text') : 'text-km-faint',
                   )}
                 >
@@ -1618,14 +1618,14 @@ function FriseEnvoi({ contrat, etat }: { contrat: Contrat; etat: EtatEnveloppe |
       </div>
 
       {arrete && (
-        <p className="mt-2 text-[11px] font-semibold text-red-700">
+        <p className="mt-2 text-km-label font-semibold text-red-700">
           {statut === 'REFUSE'
             ? 'Le signataire a refusé de signer : la frise s’arrête là.'
             : 'L’enveloppe a été annulée dans DocuSign : la frise s’arrête là.'}
         </p>
       )}
       {!arrete && !etat && (
-        <p className="mt-2 text-[10.5px] leading-snug text-km-faint">
+        <p className="mt-2 text-km-xs leading-snug text-km-faint">
           « Ouvert » ne peut venir que de DocuSign : cliquez sur « Vérifier auprès de DocuSign » pour
           savoir si le signataire a ouvert le document.
         </p>

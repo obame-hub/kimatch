@@ -33,7 +33,17 @@
 
     /* Surfaces */
     --km-bg: 252 252 251;       /* #FCFCFB — fond de page */
-    --km-side: 241 243 240;     /* #F1F3F0 — barre latérale */
+    /* LA BARRE LATERALE EST VERTE, TRES LEGEREMENT. Naoelle, 31/08/2026 : « mets le menu sur un
+       fond vert KiWee mais tres tres clair pour qu'on ait au moins de la nuance et que ca fasse
+       pas tout gris blanc ». Le gris #F1F3F0 etait a un point du blanc de la page : les deux zones
+       se confondaient et l'ecran n'avait plus de structure.
+       #EFF5F1 est le vert de marque #0D7A5F dilue a environ 4 % — assez pour que le rail se
+       detache du contenu, trop peu pour concurrencer le vert des actions, qui doit rester le seul
+       vert franc de l'ecran. */
+    --km-side: 239 245 241;     /* #EFF5F1 — barre latérale, teintée du vert KiWee */
+    /* Le bas du dégradé de la barre. Il était écrit en dur en #F5F6F3, un gris : la teinte verte
+       ne prenait donc qu'en haut du rail et se perdait en descendant. */
+    --km-side-bas: 244 249 246; /* #F4F9F6 */
     --km-surface: 255 255 255;  /* #FFFFFF — carte, tableau */
     --km-soft: 243 245 242;     /* #F3F5F2 — en-tête de tableau, survol */
     --km-line: 224 229 225;     /* #E0E5E1 — bordures */

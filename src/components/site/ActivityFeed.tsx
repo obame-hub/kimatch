@@ -122,7 +122,7 @@ function relativeGroupLabel(dateStr: string): { label: string; diffDays: number 
 }
 
 // Pastille pleine par séparateur de date (mesuré pixel pour pixel dans la référence William :
-// #0d7a5f aujourd'hui, #b57a24 à venir, #16181d passé) -- remplace l'ancien "text-[10px]
+// #0d7a5f aujourd'hui, #b57a24 à venir, #16181d passé) -- remplace l'ancien "text-km-xs
 // text-km-faint" explicitement signalé trop discret dans le prompt de handoff.
 function groupBadgeClass(diffDays: number): string {
   if (diffDays === 0) return 'bg-km-green'
@@ -247,7 +247,7 @@ export function ActivityFeed({
               type="button"
               onClick={() => { setMode(m); setFilterValue(null) }}
               className={cn(
-                'flex-1 rounded-md px-2 py-1 text-[11px] font-semibold transition-colors',
+                'flex-1 rounded-md px-2 py-1 text-km-label font-semibold transition-colors',
                 mode === m ? 'bg-white text-km-text shadow-sm' : 'text-km-muted hover:text-km-text',
               )}
             >
@@ -263,7 +263,7 @@ export function ActivityFeed({
             type="button"
             onClick={() => setFilterValue(null)}
             className={cn(
-              'rounded-full px-2.5 py-1 text-[10.5px] font-semibold',
+              'rounded-full px-2.5 py-1 text-km-xs font-semibold',
               filterValue === null ? 'bg-ink-800 text-white' : 'bg-km-soft text-km-muted hover:bg-km-line',
             )}
           >
@@ -275,7 +275,7 @@ export function ActivityFeed({
               type="button"
               onClick={() => setFilterValue(v)}
               className={cn(
-                'rounded-full px-2.5 py-1 text-[10.5px] font-semibold',
+                'rounded-full px-2.5 py-1 text-km-xs font-semibold',
                 filterValue === v ? 'bg-ink-800 text-white' : 'bg-km-soft text-km-muted hover:bg-km-line',
               )}
             >
@@ -294,7 +294,7 @@ export function ActivityFeed({
                   "Aujourd'hui" / "Hier" doivent se lire au premier coup d'oeil » (brief de
                   William). Le trait qui suit passe en teinte de la pastille plutot qu'en gris
                   neutre, pour que l'oeil suive la ligne. */}
-              <span className={cn('rounded-xl px-3 py-1 text-[12px] font-extrabold uppercase tracking-[0.6px] text-white shadow-sm', groupBadgeClass(row.diffDays))}>
+              <span className={cn('rounded-xl px-3 py-1 text-km-label font-extrabold uppercase tracking-[0.6px] text-white shadow-sm', groupBadgeClass(row.diffDays))}>
                 {row.label}
               </span>
               <div className={cn('h-0.5 flex-1 rounded-full opacity-25', groupBadgeClass(row.diffDays))} />

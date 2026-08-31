@@ -122,7 +122,7 @@ export default function Prospection() {
               type="button"
               onClick={() => setOnglet(o.cle)}
               className={cn(
-                'flex items-center gap-1.5 border-b-2 px-3 pb-2 pt-1 text-[12.5px] transition-colors',
+                'flex items-center gap-1.5 border-b-2 px-3 pb-2 pt-1 text-km-body transition-colors',
                 onglet === o.cle
                   ? 'border-indigo-500 font-bold text-km-text'
                   : 'border-transparent font-medium text-km-muted hover:text-km-text',
@@ -130,14 +130,14 @@ export default function Prospection() {
             >
               {o.titre}
               <span className={cn(
-                'rounded-md px-1.5 py-0.5 text-[9.5px] font-extrabold',
+                'rounded-md px-1.5 py-0.5 text-km-tiny font-extrabold',
                 onglet === o.cle ? 'bg-indigo-50 text-indigo-600' : 'bg-km-bg text-km-faint',
               )}>
                 {o.compte}
               </span>
             </button>
           ))}
-          <span className="ml-auto hidden items-center gap-1 px-2 pb-2 text-[10.5px] text-km-faint sm:flex">
+          <span className="ml-auto hidden items-center gap-1 px-2 pb-2 text-km-xs text-km-faint sm:flex">
             <ArrowRight className="h-3 w-3" /> puis Opportunités
           </span>
         </div>

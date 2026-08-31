@@ -62,12 +62,12 @@ export function OngletPerimetre({
                 <button
                   type="button"
                   onClick={() => navigate(`/sites/${groupe.site!.id}`)}
-                  className="text-[13.5px] font-bold text-km-text hover:text-km-green hover:underline"
+                  className="text-km-body font-bold text-km-text hover:text-km-green hover:underline"
                 >
                   {groupe.site.nom}
                 </button>
               ) : (
-                <span className="text-[13.5px] font-bold text-km-text">Compteurs sans site rattaché à la fiche</span>
+                <span className="text-km-body font-bold text-km-text">Compteurs sans site rattaché à la fiche</span>
               )}
               <span className="flex-1" />
               <span className="text-km-body font-bold text-km-green">
@@ -104,7 +104,7 @@ export function OngletPerimetre({
                     <span className="whitespace-nowrap text-km-name font-bold text-km-text">
                       {c.utilisation || c.localisation_site || c.type_utilisation_compteur || 'Compteur'}
                     </span>
-                    <span className="truncate font-mono text-[9.5px] text-km-faint">{c.numero_pdl}</span>
+                    <span className="truncate font-mono text-km-tiny text-km-faint">{c.numero_pdl}</span>
                     <span className="flex-1" />
                     <span className="whitespace-nowrap font-mono text-km-label text-km-muted">
                       {c.consommation_annuelle_mwh != null

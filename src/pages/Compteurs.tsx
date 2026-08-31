@@ -261,7 +261,7 @@ function LigneTableau({
         {echeance.date ? (
           <span className={cn('text-km-text', depassee && 'font-semibold text-km-red')}>
             {new Date(echeance.date + 'T12:00:00').toLocaleDateString('fr-FR')}
-            {depassee && <span className="ml-1.5 text-[10px] font-bold uppercase">dépassée</span>}
+            {depassee && <span className="ml-1.5 text-km-xs font-bold uppercase">dépassée</span>}
           </span>
         ) : (
           <span className="text-km-faint">—</span>

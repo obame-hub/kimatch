@@ -341,12 +341,12 @@ export default function Signaux() {
                   <div className="mb-3 flex items-center gap-2 px-1">
                     <span className="h-2 w-2 rounded-full" style={{ backgroundColor: col.couleur ?? '#8698ba' }} />
                     <p className="text-xs font-semibold uppercase tracking-wide text-km-muted">{col.libelle}</p>
-                    <span className="ml-auto rounded-full bg-km-line/70 px-1.5 py-0.5 text-[10px] font-medium text-km-muted">
+                    <span className="ml-auto rounded-full bg-km-line/70 px-1.5 py-0.5 text-km-xs font-medium text-km-muted">
                       {items.length}
                     </span>
                   </div>
                   <div className="flex flex-1 flex-col gap-2.5">
-                    {items.length === 0 && <p className="px-1 text-[11px] text-km-faint">Vide</p>}
+                    {items.length === 0 && <p className="px-1 text-km-label text-km-faint">Vide</p>}
                     {items.map((signal) => (
                       <SignalCard key={signal.id} signal={signal} />
                     ))}

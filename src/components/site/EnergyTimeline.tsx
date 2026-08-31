@@ -39,7 +39,7 @@ export function EnergyTimeline({ compteurs, contrats }: { compteurs: Compteur[];
       <div className="mb-3 flex items-center gap-3">
         <span className="text-xs font-semibold uppercase tracking-wide text-km-faint">Frise énergétique</span>
         <div className="flex-1" />
-        <div className="flex items-center gap-3 text-[10px] text-km-faint">
+        <div className="flex items-center gap-3 text-km-xs text-km-faint">
           <span className="flex items-center gap-1"><span className="h-2 w-2 rounded-sm" style={{ background: STATUT_COLOR.ACTIF }} /> actif</span>
           <span className="flex items-center gap-1"><span className="h-2 w-2 rounded-sm" style={{ background: STATUT_COLOR.A_RENOUVELER }} /> à renouveler</span>
           <span className="flex items-center gap-1"><span className="h-2 w-2 rounded-sm" style={{ background: STATUT_COLOR.EXPIRE }} /> expiré</span>
@@ -49,7 +49,7 @@ export function EnergyTimeline({ compteurs, contrats }: { compteurs: Compteur[];
       <div className="relative pt-1">
         <div className="absolute bottom-6 top-0 z-10 w-px bg-red-400" style={{ left: `${todayPct}%` }} />
         <span
-          className="absolute -top-1 z-10 -translate-x-1/2 whitespace-nowrap rounded px-1.5 py-0.5 text-[9px] font-bold text-white"
+          className="absolute -top-1 z-10 -translate-x-1/2 whitespace-nowrap rounded px-1.5 py-0.5 text-km-tiny font-bold text-white"
           style={{ left: `${todayPct}%`, background: '#c2452d' }}
         >
           AUJ.
@@ -82,7 +82,7 @@ export function EnergyTimeline({ compteurs, contrats }: { compteurs: Compteur[];
                 </div>
                 <div className="relative h-6 rounded bg-km-bg">
                   {contratsDuCompteur.length === 0 && (
-                    <span className="absolute inset-0 flex items-center px-2 text-[10px] text-km-faint">Aucun contrat</span>
+                    <span className="absolute inset-0 flex items-center px-2 text-km-xs text-km-faint">Aucun contrat</span>
                   )}
                   {contratsDuCompteur.map((c) => {
                     const left = pct(toTime(c.date_debut, rangeStart))
@@ -92,7 +92,7 @@ export function EnergyTimeline({ compteurs, contrats }: { compteurs: Compteur[];
                       <div
                         key={c.id}
                         onClick={() => navigate(`/contrats/${c.id}`)}
-                        className="absolute top-0 flex h-full cursor-pointer items-center overflow-hidden whitespace-nowrap rounded px-2 text-[10px] font-semibold text-white transition-opacity hover:opacity-90"
+                        className="absolute top-0 flex h-full cursor-pointer items-center overflow-hidden whitespace-nowrap rounded px-2 text-km-xs font-semibold text-white transition-opacity hover:opacity-90"
                         style={{ left: `${left}%`, width: `${width}%`, background: STATUT_COLOR[c.statut] ?? '#a3a5a0' }}
                         title={`${c.fournisseur_nom} · ${c.statut}`}
                       >
@@ -108,7 +108,7 @@ export function EnergyTimeline({ compteurs, contrats }: { compteurs: Compteur[];
 
         <div className="mt-2 grid grid-cols-[130px_1fr]">
           <div />
-          <div className="flex justify-between border-t border-km-line pt-1.5 font-mono text-[9px] text-km-faint">
+          <div className="flex justify-between border-t border-km-line pt-1.5 font-mono text-km-tiny text-km-faint">
             {years.map((y) => <span key={y}>{y}</span>)}
           </div>
         </div>

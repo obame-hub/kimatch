@@ -168,14 +168,14 @@ function Tuile({ libelle, valeur, detail, accent }: {
       'rounded-[13px] border bg-white px-3.5 py-3',
       accent === 'kiwi' ? 'border-kiwi-200 bg-kiwi-50/50' : accent === 'rouge' ? 'border-red-200 bg-km-red-soft' : 'border-km-line',
     )}>
-      <p className="text-[10px] font-bold uppercase tracking-[0.08em] text-km-faint">{libelle}</p>
+      <p className="text-km-xs font-bold uppercase tracking-[0.08em] text-km-faint">{libelle}</p>
       <p className={cn(
         'mt-0.5 font-mono text-lg font-extrabold tabular-nums',
         accent === 'rouge' ? 'text-red-700' : accent === 'kiwi' ? 'text-km-green' : 'text-km-text',
       )}>
         {valeur}
       </p>
-      {detail && <p className="text-[10.5px] text-km-muted">{detail} en attente</p>}
+      {detail && <p className="text-km-xs text-km-muted">{detail} en attente</p>}
     </div>
   )
 }
@@ -211,7 +211,7 @@ function LigneRemuneration({ remuneration: r, onStatut, onPercu }: {
           <p className="truncate text-sm font-semibold text-km-text">
             {r.compte_id ? <EntityLink to={`/comptes/${r.compte_id}`}>{r.compte_nom}</EntityLink> : 'Compte non rattaché'}
           </p>
-          <p className="truncate text-[11px] text-km-muted">
+          <p className="truncate text-km-label text-km-muted">
             {r.reference && <span className="font-mono text-km-faint">{r.reference} · </span>}
             {r.fournisseur_nom || 'fournisseur non précisé'}
             {r.hors_kiwee && ' · hors Kiwee'}
@@ -220,17 +220,17 @@ function LigneRemuneration({ remuneration: r, onStatut, onPercu }: {
       </div>
 
       <div className="min-w-[96px] text-right">
-        <p className="text-[10px] uppercase tracking-wide text-km-faint">Attendu</p>
+        <p className="text-km-xs uppercase tracking-wide text-km-faint">Attendu</p>
         <p className="font-mono text-sm font-bold tabular-nums text-km-text">{euros(r.montant_attendu_ht)}</p>
         {r.date_attendue && (
-          <p className={cn('text-[10px]', enRetard ? 'font-semibold text-km-red' : 'text-km-faint')}>
+          <p className={cn('text-km-xs', enRetard ? 'font-semibold text-km-red' : 'text-km-faint')}>
             {new Date(r.date_attendue).toLocaleDateString('fr-FR')}
           </p>
         )}
       </div>
 
       <div className="min-w-[110px]">
-        <p className="text-[10px] uppercase tracking-wide text-km-faint">Perçu</p>
+        <p className="text-km-xs uppercase tracking-wide text-km-faint">Perçu</p>
         <Input
           value={percu}
           onChange={(e) => setPercu(e.target.value)}
@@ -256,7 +256,7 @@ function LigneRemuneration({ remuneration: r, onStatut, onPercu }: {
             type="button"
             onClick={() => onStatut(s.code)}
             className={cn(
-              'rounded-lg border px-2 py-0.5 text-[10.5px] font-semibold transition-colors',
+              'rounded-lg border px-2 py-0.5 text-km-xs font-semibold transition-colors',
               r.statut === s.code
                 ? `border-transparent ${s.code === 'PERCUE' ? 'bg-km-green text-white' : 'bg-navy-800 text-white'}`
                 : 'border-km-line text-km-muted hover:bg-km-bg',
@@ -359,7 +359,7 @@ function DialogCreation({ onFermer, signaler }: { onFermer: () => void; signaler
           />
           <span>
             Contrat signé hors Kiwee
-            <span className="block text-[10.5px] text-km-faint">
+            <span className="block text-km-xs text-km-faint">
               Normalement sans rémunération : cochez seulement s'il y a une exception.
             </span>
           </span>
@@ -371,7 +371,7 @@ function DialogCreation({ onFermer, signaler }: { onFermer: () => void; signaler
         )}
 
         {horsKiwee && !motif.trim() && (
-          <p className="flex items-start gap-1.5 text-[10.5px] leading-snug text-amber-700">
+          <p className="flex items-start gap-1.5 text-km-xs leading-snug text-amber-700">
             <AlertTriangle className="mt-px h-3 w-3 shrink-0" />
             Sans motif, l'exception ne se justifie pas — et personne ne saura pourquoi cette ligne existe.
           </p>

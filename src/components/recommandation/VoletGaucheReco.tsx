@@ -256,7 +256,7 @@ export function VoletGaucheReco({
         }
       >
         <div className="flex items-center gap-2">
-          <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-km-sm bg-km-blue-soft text-[9.5px] font-bold text-km-blue">
+          <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-km-sm bg-km-blue-soft text-km-tiny font-bold text-km-blue">
             {initiales(reco.compte_nom || '?')}
           </span>
           <div className="min-w-0">
@@ -484,7 +484,7 @@ export function VoletGaucheReco({
                       </span>
                       <span
                         className={cn(
-                          'shrink-0 rounded-[7px] px-1.5 py-px text-[8px] font-extrabold uppercase tracking-[0.05em]',
+                          'shrink-0 rounded-[7px] px-1.5 py-px text-km-micro font-extrabold uppercase tracking-[0.05em]',
                           expiree ? 'bg-km-soft text-km-faint' : 'bg-[#8a4b2a] text-white',
                         )}
                       >
@@ -539,7 +539,7 @@ export function VoletGaucheReco({
         >
           <span className="text-km-label font-extrabold uppercase tracking-[0.06em] text-[#8a4b2a]">Estimé</span>
           {estime != null ? (
-            <span className="font-mono text-[16px] font-extrabold text-km-text">{euros(estime)}</span>
+            <span className="font-mono text-km-title font-extrabold text-km-text">{euros(estime)}</span>
           ) : coutEstimeSuggere != null && peutModifier ? (
             // Pas de montant estimé en base — et il n'y en a sur AUCUNE des 1703 recommandations.
             // Plutôt qu'un tiret muet, la fiche propose le calcul et laisse l'écrire d'un clic.
@@ -552,7 +552,7 @@ export function VoletGaucheReco({
               estimer à {euros(coutEstimeSuggere)}
             </button>
           ) : (
-            <span className="font-mono text-[16px] font-extrabold text-km-faint">— €</span>
+            <span className="font-mono text-km-title font-extrabold text-km-faint">— €</span>
           )}
         </div>
         <div
@@ -563,7 +563,7 @@ export function VoletGaucheReco({
           >
             {coutFixe ? 'Fixé' : 'Réel'}
           </span>
-          <span className={cn('font-mono text-[16px] font-extrabold', coutFixe ? 'text-km-green' : 'text-km-faint')}>
+          <span className={cn('font-mono text-km-title font-extrabold', coutFixe ? 'text-km-green' : 'text-km-faint')}>
             {reel != null ? euros(reel) : '— €'}
           </span>
         </div>
@@ -678,7 +678,7 @@ export function VoletGaucheReco({
                     }
                   }}
                   className={cn(
-                    'rounded-km px-2 py-0.5 font-mono text-[9.5px] font-extrabold',
+                    'rounded-km px-2 py-0.5 font-mono text-km-tiny font-extrabold',
                     actif && partage ? 'bg-km-green text-white' : 'bg-km-soft text-km-muted hover:bg-kw-border',
                   )}
                 >

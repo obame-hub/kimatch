@@ -227,7 +227,7 @@ export function DialogConversionPiste({ piste, onFermer, onValide }: {
         {/* ── LE CONTACT ── */}
         <div className="rounded-xl border border-km-line bg-km-bg/40 p-3">
           <div className="mb-2 flex flex-wrap items-center gap-1.5">
-            <p className="mr-1 text-[10px] font-bold uppercase tracking-wide text-km-faint">Le contact</p>
+            <p className="mr-1 text-km-xs font-bold uppercase tracking-wide text-km-faint">Le contact</p>
             {([
               { cle: 'creer' as const, titre: 'Le créer depuis la piste' },
               { cle: 'rattacher' as const, titre: 'Rattacher un contact existant' },
@@ -237,7 +237,7 @@ export function DialogConversionPiste({ piste, onFermer, onValide }: {
                 type="button"
                 onClick={() => setMode(o.cle)}
                 className={cn(
-                  'rounded-lg border px-2.5 py-1 text-[11px] font-semibold transition-colors',
+                  'rounded-lg border px-2.5 py-1 text-km-label font-semibold transition-colors',
                   mode === o.cle ? 'border-km-green bg-white text-km-green' : 'border-transparent text-km-muted hover:bg-white',
                 )}
               >
@@ -263,7 +263,7 @@ export function DialogConversionPiste({ piste, onFermer, onValide }: {
               {/* Le compte d'abord : un contact appartient à un compte, on ne peut pas le créer sans. */}
               <div>
                 <div className="mb-1.5 flex flex-wrap items-center gap-1.5">
-                  <p className="mr-1 text-[10px] font-bold uppercase tracking-wide text-km-faint">Son compte</p>
+                  <p className="mr-1 text-km-xs font-bold uppercase tracking-wide text-km-faint">Son compte</p>
                   {([
                     { cle: 'creer' as const, titre: 'Le créer' },
                     { cle: 'rattacher' as const, titre: 'En rattacher un existant' },
@@ -273,7 +273,7 @@ export function DialogConversionPiste({ piste, onFermer, onValide }: {
                       type="button"
                       onClick={() => setModeCompte(o.cle)}
                       className={cn(
-                        'rounded-lg border px-2 py-0.5 text-[11px] font-semibold transition-colors',
+                        'rounded-lg border px-2 py-0.5 text-km-label font-semibold transition-colors',
                         modeCompte === o.cle ? 'border-km-green bg-white text-km-green' : 'border-transparent text-km-muted hover:bg-white',
                       )}
                     >
@@ -319,7 +319,7 @@ export function DialogConversionPiste({ piste, onFermer, onValide }: {
                           <p className="truncate text-sm font-medium text-km-text">
                             {entreprise.raisonSociale || entreprise.nomComplet}
                           </p>
-                          <p className="truncate text-[11px] text-km-muted">
+                          <p className="truncate text-km-label text-km-muted">
                             SIREN {entreprise.siren}
                             {entreprise.city && ` · ${entreprise.city}`}
                             {entreprise.libelleApe && ` · ${entreprise.libelleApe}`}
@@ -360,7 +360,7 @@ export function DialogConversionPiste({ piste, onFermer, onValide }: {
                                   <span className="block truncate text-xs font-semibold text-km-text">
                                     {r.raisonSociale || r.nomComplet}
                                   </span>
-                                  <span className="block truncate text-[10.5px] text-km-faint">
+                                  <span className="block truncate text-km-xs text-km-faint">
                                     SIREN {r.siren}{r.city && ` · ${r.city}`}
                                   </span>
                                 </span>
@@ -395,7 +395,7 @@ export function DialogConversionPiste({ piste, onFermer, onValide }: {
                   <Input value={telephone} onChange={(e) => setTelephone(e.target.value)} />
                 </FormField>
               </div>
-              <p className="text-[10.5px] leading-snug text-km-faint">
+              <p className="text-km-xs leading-snug text-km-faint">
                 Créé comme <strong className="font-semibold text-km-muted">Décisionnaire</strong> : la
                 piste a été validée « responsable des contrats d'énergie ».
               </p>

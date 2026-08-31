@@ -130,10 +130,10 @@ export function EllisphereScoreCard({ compteId, siren }: { compteId: string; sir
           <div className="min-w-0 flex-1">
             <div className="flex items-center gap-2">
               <Shield className={cn('h-3.5 w-3.5 shrink-0', tier.text)} />
-              <p className="truncate text-[10px] font-semibold uppercase tracking-wider text-km-faint">
+              <p className="truncate text-km-xs font-semibold uppercase tracking-wider text-km-faint">
                 Score de solvabilité Ellipro
               </p>
-              <Badge tone="neutral" className={cn('ml-auto shrink-0 text-[10px] font-semibold', tier.text)}>
+              <Badge tone="neutral" className={cn('ml-auto shrink-0 text-km-xs font-semibold', tier.text)}>
                 {tier.label}
               </Badge>
             </div>
@@ -151,17 +151,17 @@ export function EllisphereScoreCard({ compteId, siren }: { compteId: string; sir
         {etat.paymentIncidents && (
           <div className="mt-2 flex items-start gap-1.5 rounded-md border border-amber-500/20 bg-amber-500/10 px-2 py-1">
             <AlertTriangle className="mt-0.5 h-3 w-3 shrink-0 text-amber-600" />
-            <p className="text-[11px] text-km-amber">{etat.paymentIncidents}</p>
+            <p className="text-km-label text-km-amber">{etat.paymentIncidents}</p>
           </div>
         )}
 
         <div className="mt-2">
           {etat.synced ? (
-            <span className="inline-flex items-center gap-1 text-[11px] text-km-green">
+            <span className="inline-flex items-center gap-1 text-km-label text-km-green">
               <CheckCircle2 className="h-3 w-3" /> Note synchronisée avec le compte
             </span>
           ) : (
-            <span className="text-[11px] text-km-faint">Note non synchronisée avec le compte</span>
+            <span className="text-km-label text-km-faint">Note non synchronisée avec le compte</span>
           )}
         </div>
       </div>

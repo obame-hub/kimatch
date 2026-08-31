@@ -111,7 +111,7 @@ function EnvoyerSignatureDialog({
         <p className="text-xs text-km-muted">
           Document{inclutEnergix ? 's' : ''} généré{inclutEnergix ? 's' : ''} : Mandat KiWee ({dureeMois} mois){inclutEnergix && ', Autorisation Energix'}.
         </p>
-        <p className="text-[10.5px] text-km-faint">Tu seras redirigé·e vers DocuSign pour vérifier puis cliquer "Envoyer" toi-même — rien ne part automatiquement.</p>
+        <p className="text-km-xs text-km-faint">Tu seras redirigé·e vers DocuSign pour vérifier puis cliquer "Envoyer" toi-même — rien ne part automatiquement.</p>
         {feedback && <p className="text-xs text-km-muted">{feedback}</p>}
         {besoinConnexionDocusign && (
           <Button type="button" size="sm" onClick={() => { connectDocusign().catch(() => {}) }}>
@@ -198,13 +198,13 @@ function ValiderManuellementDialog({
             placeholder="DocuSign du partenaire, signature papier…"
           />
         </FormField>
-        <p className="text-[10.5px] text-km-faint">
+        <p className="text-km-xs text-km-faint">
           Cette mention est conservée sur le mandat : sans enveloppe DocuSign à consulter, c'est la
           seule trace de l'endroit où la signature a été recueillie.
         </p>
 
         <div className="rounded-lg border border-km-line bg-km-bg px-3 py-2">
-          <p className="text-[10px] uppercase tracking-wide text-km-faint">Ce qui sera enregistré</p>
+          <p className="text-km-xs uppercase tracking-wide text-km-faint">Ce qui sera enregistré</p>
           <p className="mt-1 text-xs text-km-text">
             Validité du {new Date(((mandat.date_debut_validite?.slice(0, 10)) ?? date) + 'T12:00:00').toLocaleDateString('fr-FR')}
             {finPrevue ? ` au ${new Date(finPrevue + 'T12:00:00').toLocaleDateString('fr-FR')}` : ', sans date de fin connue'}
@@ -212,7 +212,7 @@ function ValiderManuellementDialog({
             <strong>{seraExpire ? 'Expiré' : 'Actif'}</strong>
           </p>
           {seraExpire && (
-            <p className="mt-1 text-[10.5px] text-amber-700">
+            <p className="mt-1 text-km-xs text-amber-700">
               La validité est déjà dépassée : le mandat sera enregistré comme expiré, pas comme actif.
             </p>
           )}
@@ -314,7 +314,7 @@ function ConversionPathCard({ mandat, signaler }: { mandat: Mandat; signaler: (m
   return (
     <div className="rounded-xl border border-km-line bg-white p-4">
       <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
-        <p className="text-[10px] font-bold uppercase tracking-wide text-km-faint">Chemin de conversion</p>
+        <p className="text-km-xs font-bold uppercase tracking-wide text-km-faint">Chemin de conversion</p>
         {/* LE BOUTON RESTE, même si l'appel automatique est déjà parti : c'est lui qui dit ce qui
             n'a pas marché quand l'automatique a échoué en silence, et c'est ce qu'on cherche quand
             on doute. Il disparaît sur un mandat dont l'état ne peut plus changer. */}
@@ -334,7 +334,7 @@ function ConversionPathCard({ mandat, signaler }: { mandat: Mandat; signaler: (m
               >
                 <s.icon className="h-3.5 w-3.5" />
               </span>
-              <span className={cn('whitespace-nowrap text-[11px] font-bold', i <= step ? 'text-km-text' : 'text-km-faint')}>{s.label}</span>
+              <span className={cn('whitespace-nowrap text-km-label font-bold', i <= step ? 'text-km-text' : 'text-km-faint')}>{s.label}</span>
             </div>
             {i < steps.length - 1 && (
               <div className={cn('mx-1 h-1 flex-1 rounded', i < step ? 'bg-gradient-to-r from-amber-600 to-amber-500' : 'bg-km-soft')} />
@@ -376,7 +376,7 @@ function VerifierEnveloppeMandat({
           setEnCours(false)
         }
       }}
-      className="rounded-km border border-km-line bg-km-surface px-2.5 py-1 text-[10.5px] font-semibold text-km-text transition-colors hover:bg-km-soft disabled:opacity-60"
+      className="rounded-km border border-km-line bg-km-surface px-2.5 py-1 text-km-xs font-semibold text-km-text transition-colors hover:bg-km-soft disabled:opacity-60"
     >
       {enCours ? 'Vérification…' : dejaVerifie ? 'Revérifier auprès de DocuSign' : 'Vérifier auprès de DocuSign'}
     </button>
@@ -393,9 +393,9 @@ function ValiditeCard({ dateDebut, dateFin }: { dateDebut: string; dateFin: stri
   return (
     <div className="rounded-xl border border-km-line bg-white p-4">
       <div className="mb-2 flex items-center gap-2">
-        <span className="text-[10px] font-bold uppercase tracking-wide text-km-faint">Validité</span>
+        <span className="text-km-xs font-bold uppercase tracking-wide text-km-faint">Validité</span>
         <div className="flex-1" />
-        <span className={cn('text-[11px] font-bold', joursRestants < 0 ? 'text-km-faint' : joursRestants < 60 ? 'text-red-500' : 'text-amber-600')}>
+        <span className={cn('text-km-label font-bold', joursRestants < 0 ? 'text-km-faint' : joursRestants < 60 ? 'text-red-500' : 'text-amber-600')}>
           {joursRestants < 0 ? 'expiré' : `expire dans ${joursRestants} jour${joursRestants > 1 ? 's' : ''}`}
         </span>
       </div>
@@ -403,7 +403,7 @@ function ValiditeCard({ dateDebut, dateFin }: { dateDebut: string; dateFin: stri
         <div className="absolute inset-y-0 left-0 rounded-full bg-gradient-to-r from-kiwi-500 to-kiwi-400" style={{ width: `${pct}%` }} />
         {now >= debut && now <= fin && <div className="absolute -top-0.5 h-3.5 w-0.5 rounded bg-red-500" style={{ left: `${pct}%` }} />}
       </div>
-      <div className="mt-1.5 flex justify-between font-mono text-[10px] text-km-faint">
+      <div className="mt-1.5 flex justify-between font-mono text-km-xs text-km-faint">
         <span>{new Date(dateDebut).toLocaleDateString('fr-FR')}</span>
         {now >= debut && now <= fin && <span className="font-bold text-red-500">aujourd'hui</span>}
         <span>{new Date(dateFin).toLocaleDateString('fr-FR')}</span>
@@ -523,7 +523,7 @@ export default function MandatDetail() {
             <Badge tone={STATUT_MANDAT_TONE[mandat.statut] ?? 'neutral'}>{statuts.find((s) => s.code === mandat.statut)?.libelle ?? mandat.statut}</Badge>
           </div>
           <p className="truncate text-xs text-km-muted">{mandat.nb_sites_couverts} site{mandat.nb_sites_couverts > 1 ? 's' : ''} couvert{mandat.nb_sites_couverts > 1 ? 's' : ''}</p>
-          <p className="truncate text-[10.5px] text-km-faint">
+          <p className="truncate text-km-xs text-km-faint">
             {/* C'est le créateur qu'on affiche, pas un propriétaire : Mandat__c n'a pas d'OwnerId
                 côté Salesforce, donc le mandat n'a jamais eu de propriétaire à reprendre. */}
             {mandat.date_creation && <>Créé le {new Date(mandat.date_creation).toLocaleDateString('fr-FR')} </>}
@@ -566,7 +566,7 @@ export default function MandatDetail() {
               type="button"
               onClick={() => setTab(t.key)}
               className={cn(
-                'mb-2.5 inline-flex shrink-0 items-center gap-1.5 whitespace-nowrap rounded-full px-3.5 py-2 text-[12.5px] font-semibold transition-colors lg:mb-0 lg:rounded-none lg:border-b-2 lg:px-3 lg:py-2.5 lg:font-normal',
+                'mb-2.5 inline-flex shrink-0 items-center gap-1.5 whitespace-nowrap rounded-full px-3.5 py-2 text-km-body font-semibold transition-colors lg:mb-0 lg:rounded-none lg:border-b-2 lg:px-3 lg:py-2.5 lg:font-normal',
                 isActive
                   ? 'bg-ink-800 text-white lg:border-navy-800 lg:bg-transparent lg:font-semibold lg:text-km-text'
                   : 'border border-km-line bg-white text-km-muted hover:bg-km-bg lg:border-0 lg:border-b-2 lg:border-transparent lg:text-km-muted lg:hover:bg-transparent lg:hover:text-km-text',
@@ -574,7 +574,7 @@ export default function MandatDetail() {
             >
               {t.label}
               {t.badge && (
-                <span className={cn('rounded px-1.5 py-0.5 text-[9.5px] font-bold', isActive ? 'bg-white/20 text-white lg:bg-km-soft lg:text-km-muted' : 'bg-km-soft text-km-muted')}>
+                <span className={cn('rounded px-1.5 py-0.5 text-km-tiny font-bold', isActive ? 'bg-white/20 text-white lg:bg-km-soft lg:text-km-muted' : 'bg-km-soft text-km-muted')}>
                   {t.badge}
                 </span>
               )}
@@ -590,34 +590,34 @@ export default function MandatDetail() {
             <div className="rounded-xl border border-km-line bg-white p-3.5">
               <div className="mb-2 flex items-center gap-1.5">
                 <span className="flex h-5 w-5 items-center justify-center rounded-md bg-sky-100 text-sky-500"><Building2 className="h-2.5 w-2.5" /></span>
-                <span className="text-[10px] font-bold uppercase tracking-wide text-km-faint">Compte</span>
+                <span className="text-km-xs font-bold uppercase tracking-wide text-km-faint">Compte</span>
                 <div className="flex-1" />
                 <EntityLink to={`/comptes/${compte.id}`}>ouvrir →</EntityLink>
               </div>
-              <p className="text-[13px] font-bold text-sky-500">{compte.nom}</p>
+              <p className="text-km-body font-bold text-sky-500">{compte.nom}</p>
             </div>
           )}
 
           {contactSignataire && (
             <div className="rounded-xl border border-violet-200 bg-gradient-to-br from-violet-50/60 to-white p-3.5">
               <div className="mb-2.5 flex items-center gap-1.5">
-                <span className="text-[10px] font-bold uppercase tracking-wide text-km-faint">Signataire</span>
+                <span className="text-km-xs font-bold uppercase tracking-wide text-km-faint">Signataire</span>
                 <div className="flex-1" />
                 <EntityLink to={`/contacts/${contactSignataire.id}`}>ouvrir →</EntityLink>
               </div>
               <div className="flex items-center gap-2.5">
-                <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-violet-500 to-violet-400 text-[11px] font-bold text-white">
+                <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-violet-500 to-violet-400 text-km-label font-bold text-white">
                   {`${contactSignataire.prenom[0] ?? ''}${contactSignataire.nom[0] ?? ''}`.toUpperCase()}
                 </div>
                 <div className="min-w-0 flex-1">
-                  <p className="truncate text-[12.5px] font-bold text-km-text">{contactSignataire.prenom} {contactSignataire.nom}</p>
-                  {contactSignataire.fonction && <p className="truncate text-[10px] text-km-muted">{contactSignataire.fonction}</p>}
+                  <p className="truncate text-km-body font-bold text-km-text">{contactSignataire.prenom} {contactSignataire.nom}</p>
+                  {contactSignataire.fonction && <p className="truncate text-km-xs text-km-muted">{contactSignataire.fonction}</p>}
                   {/* LE NUMÉRO S'AFFICHE, ET CE N'EST PAS COSMÉTIQUE. L'extension Allo décore les
                     numéros qu'elle VOIT sur la page : derrière une icône et une infobulle, elle n'a
                     rien à détecter et l'icône Allo n'apparaît jamais. Le texte est la condition pour
                     que l'appel dans Allo soit possible. */}
                   {contactSignataire.telephone && (
-                    <p className="truncate font-mono text-[10.5px] text-km-muted">{numeroLisible(contactSignataire.telephone)}</p>
+                    <p className="truncate font-mono text-km-xs text-km-muted">{numeroLisible(contactSignataire.telephone)}</p>
                   )}
                 </div>
               </div>
@@ -651,7 +651,7 @@ export default function MandatDetail() {
                 <ValiditeCard dateDebut={(mandat.date_debut_validite ?? mandat.date_signature) as string} dateFin={mandat.date_fin_validite} />
               )}
               <div className="rounded-xl border border-km-line bg-white p-4">
-              <p className="mb-2.5 text-[10px] font-bold uppercase tracking-wide text-km-faint">Détail du mandat</p>
+              <p className="mb-2.5 text-km-xs font-bold uppercase tracking-wide text-km-faint">Détail du mandat</p>
               <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
                 {/* Edition en place : la date de signature se saisit ici, plus dans une modale.
                     C'est le seul champ que le mandat laisse modifier a la main -- tout le reste
@@ -667,7 +667,7 @@ export default function MandatDetail() {
                   />
                 ) : (
                   <div>
-                    <p className="mb-0.5 text-[10px] uppercase tracking-wide text-km-faint">Date de signature</p>
+                    <p className="mb-0.5 text-km-xs uppercase tracking-wide text-km-faint">Date de signature</p>
                     <p className="text-xs font-semibold text-km-text">{mandat.date_signature ? new Date(mandat.date_signature).toLocaleDateString('fr-FR') : '—'}</p>
                   </div>
                 )}
@@ -683,21 +683,21 @@ export default function MandatDetail() {
                   />
                 )}
                 <div>
-                  <p className="mb-0.5 text-[10px] uppercase tracking-wide text-km-faint">Sites couverts</p>
+                  <p className="mb-0.5 text-km-xs uppercase tracking-wide text-km-faint">Sites couverts</p>
                   <p className="text-xs font-semibold text-km-text">{mandat.nb_sites_couverts}</p>
                 </div>
                 <div>
-                  <p className="mb-0.5 text-[10px] uppercase tracking-wide text-km-faint">Courtiers couverts</p>
+                  <p className="mb-0.5 text-km-xs uppercase tracking-wide text-km-faint">Courtiers couverts</p>
                   <p className="text-xs font-semibold text-km-text">{mandat.courtier_codes.length > 0 ? mandat.courtier_codes.map((code) => COURTIER_LABEL[code] ?? code).join(', ') : '—'}</p>
                 </div>
                 {mandat.docusign_envelope_id && (
                   <div className="sm:col-span-2">
-                    <p className="mb-0.5 text-[10px] uppercase tracking-wide text-km-faint">Enveloppe DocuSign</p>
+                    <p className="mb-0.5 text-km-xs uppercase tracking-wide text-km-faint">Enveloppe DocuSign</p>
                     <p className="font-mono text-xs text-km-muted">{mandat.docusign_envelope_id}</p>
                   </div>
                 )}
               </div>
-              <p className="mt-3 text-[10.5px] italic text-km-faint">
+              <p className="mt-3 text-km-xs italic text-km-faint">
                 Le mandat définit le périmètre de sites que KiWee est autorisé à analyser — une recommandation peut ne porter que sur une partie de ce périmètre.
               </p>
               <HistoriqueDiscret tableNom="mandats" ligneId={mandat.id} />
@@ -723,7 +723,7 @@ export default function MandatDetail() {
                         </span>
                         <div className="min-w-0 flex-1">
                           <p className="truncate text-sm font-bold text-km-text">{s.nom}</p>
-                          <p className="truncate text-[10.5px] text-km-faint">{s.type_site} · {s.ville}</p>
+                          <p className="truncate text-km-xs text-km-faint">{s.type_site} · {s.ville}</p>
                         </div>
                         <Badge tone={s.statut === 'actif' ? 'kiwi' : 'neutral'}>{s.statut}</Badge>
                       </div>
@@ -736,7 +736,7 @@ export default function MandatDetail() {
                           >
                             <Gauge className="h-3 w-3 shrink-0 text-km-faint" />
                             <p className="truncate text-xs font-semibold text-km-text">{c.utilisation || c.numero_pdl}</p>
-                            <p className="truncate font-mono text-[10px] text-km-faint">{c.numero_pdl}</p>
+                            <p className="truncate font-mono text-km-xs text-km-faint">{c.numero_pdl}</p>
                           </div>
                         ))}
                       </div>
@@ -784,7 +784,7 @@ export default function MandatDetail() {
                       </span>
                       <div className="min-w-0 flex-1">
                         <p className="truncate text-sm font-bold text-km-text">{d.nom}</p>
-                        <p className="truncate text-[10.5px] text-km-faint">{d.auteur} · {new Date(d.date_creation).toLocaleDateString('fr-FR')}</p>
+                        <p className="truncate text-km-xs text-km-faint">{d.auteur} · {new Date(d.date_creation).toLocaleDateString('fr-FR')}</p>
                       </div>
                       <Badge tone="neutral">{d.type_document}</Badge>
                     </div>

@@ -140,7 +140,7 @@ export function ContactForm({
           <Briefcase className="h-5 w-5" />
         </span>
         <div className="min-w-0">
-          <p className="text-[10px] uppercase tracking-wide text-km-faint">Nouveau contact pour</p>
+          <p className="text-km-xs uppercase tracking-wide text-km-faint">Nouveau contact pour</p>
           <p className="truncate font-semibold text-km-text">{compteNom}</p>
         </div>
         {segment && <Badge tone="neutral" className="ml-auto shrink-0">{segment}</Badge>}
@@ -157,7 +157,7 @@ export function ContactForm({
           <p className="mb-2">
             Champs en correspondance :
             {Array.from(matchedFields).map((f) => (
-              <span key={f} className="ml-1 rounded border border-amber-500 bg-km-amber-soft px-1.5 py-0.5 text-[10px] font-medium">
+              <span key={f} className="ml-1 rounded border border-amber-500 bg-km-amber-soft px-1.5 py-0.5 text-km-xs font-medium">
                 {DUPLICATE_FIELD_LABEL[f]}
               </span>
             ))}
@@ -211,7 +211,7 @@ export function ContactForm({
               autoComplete="given-name"
               className={matchedRing('fullName')}
             />
-            <p className="mt-1 text-[11px] text-km-faint">
+            <p className="mt-1 text-km-label text-km-faint">
               {matched('fullName')
                 ? <span className="inline-flex items-center gap-1 text-amber-700"><AlertTriangle className="h-3 w-3" /> Doublon Prénom + Nom</span>
                 : 'Auto-formaté'}
@@ -227,7 +227,7 @@ export function ContactForm({
               required
               className={matchedRing('fullName')}
             />
-            <p className="mt-1 text-[11px] text-km-faint">MAJUSCULES auto</p>
+            <p className="mt-1 text-km-label text-km-faint">MAJUSCULES auto</p>
           </div>
         </div>
       </Section>
@@ -237,7 +237,7 @@ export function ContactForm({
         title="Coordonnées"
         action={
           contactsLoading && hasSignal ? (
-            <span className="inline-flex items-center gap-1 text-[11px] text-km-faint">
+            <span className="inline-flex items-center gap-1 text-km-label text-km-faint">
               <Loader2 className="h-3 w-3 animate-spin" /> Vérification doublons…
             </span>
           ) : undefined
@@ -304,7 +304,7 @@ export function ContactForm({
             ) : null}
           </div>
         </div>
-        <p className="flex items-center gap-1 text-[11px] text-km-faint">
+        <p className="flex items-center gap-1 text-km-label text-km-faint">
           <Sparkles className="h-3 w-3 shrink-0" /> Les numéros sont automatiquement convertis au format international (+33…)
         </p>
       </Section>
@@ -337,7 +337,7 @@ export function ContactForm({
                   </span>
                   <span className="min-w-0 flex-1">
                     <span className={cn('block text-sm font-semibold leading-tight', !active && 'text-km-text')}>{r}</span>
-                    {meta?.desc && <span className="mt-0.5 block text-[11px] leading-snug text-km-muted">{meta.desc}</span>}
+                    {meta?.desc && <span className="mt-0.5 block text-km-label leading-snug text-km-muted">{meta.desc}</span>}
                   </span>
                   {active && <Check className="h-4 w-4 shrink-0 sm:absolute sm:right-3 sm:top-3" />}
                 </button>
@@ -345,7 +345,7 @@ export function ContactForm({
             })}
           </div>
           {role === 'Décisionnaire' && (
-            <p className="mt-2 flex items-center gap-1 text-[11px] text-km-green">
+            <p className="mt-2 flex items-center gap-1 text-km-label text-km-green">
               <Check className="h-3 w-3 shrink-0" /> Ce contact sera marqué comme décisionnaire — tu pourras l'affecter à des points de livraison juste après.
             </p>
           )}

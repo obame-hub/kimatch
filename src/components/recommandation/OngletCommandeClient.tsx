@@ -125,7 +125,7 @@ export function OngletCommandeClient({
         <div className="mb-3 flex flex-wrap items-center gap-2">
           <span className="text-km-label font-bold uppercase tracking-[0.08em] text-km-faint">Objectifs du client</span>
           <span className="flex-1" />
-          <span className="flex items-center gap-[11px] text-[9.5px] text-km-muted">
+          <span className="flex items-center gap-[11px] text-km-tiny text-km-muted">
             <span className="flex items-center gap-1">
               <span className="h-[11px] w-[11px] rounded-kw-xs" style={{ background: DEGRADE_OR }} />
               prioritaire
@@ -187,7 +187,7 @@ export function OngletCommandeClient({
                       type="button"
                       onClick={() => basculerPriorite(t.id, t.libelle)}
                       title={prio ? 'Objectif prioritaire — cliquer pour retirer' : 'Désigner comme objectif prioritaire (un seul)'}
-                      className={cn('ml-0.5 select-none leading-none', prio ? 'text-[15px] text-white' : 'text-[13px] text-[#cf9a5e]')}
+                      className={cn('ml-0.5 select-none leading-none', prio ? 'text-km-name text-white' : 'text-km-body text-[#cf9a5e]')}
                     >
                       {prio ? '★' : '☆'}
                     </button>

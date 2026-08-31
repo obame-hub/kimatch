@@ -18,7 +18,7 @@ export function BadgeEcheance({ e, dense = false }: { e: EcheanceCompteur; dense
 
   if (e.nature === 'ABSENTE') {
     return (
-      <Badge tone="neutral" title={SENS_NATURE_ECHEANCE.ABSENTE} className={dense ? 'px-2 py-0 text-[10px]' : undefined}>
+      <Badge tone="neutral" title={SENS_NATURE_ECHEANCE.ABSENTE} className={dense ? 'px-2 py-0 text-km-xs' : undefined}>
         Sans échéance
       </Badge>
     )
@@ -30,14 +30,14 @@ export function BadgeEcheance({ e, dense = false }: { e: EcheanceCompteur; dense
       <Badge
         tone={prouvee ? 'kiwi' : 'amber'}
         title={SENS_NATURE_ECHEANCE[e.nature]}
-        className={dense ? 'px-2 py-0 text-[10px]' : undefined}
+        className={dense ? 'px-2 py-0 text-km-xs' : undefined}
       >
         {prouvee ? 'Prouvée' : 'Estimée'}
       </Badge>
       {e.contredit && e.dateDeclaree && e.datePreuve && (
         <Badge
           tone="red"
-          className={dense ? 'px-2 py-0 text-[10px]' : undefined}
+          className={dense ? 'px-2 py-0 text-km-xs' : undefined}
           title={`Le contrat rattaché finit le ${dateFr(e.datePreuve)}, mais la date déclarée est le ${dateFr(e.dateDeclaree)}. À vérifier auprès du client — la date retenue ici est celle du contrat.`}
         >
           Contredit la date déclarée

@@ -235,7 +235,7 @@ export function CreationCompteurDialog({
       )}
 
       {!compte && !compteImpose && (
-        <p className="mt-2 text-[11px] text-km-faint">
+        <p className="mt-2 text-km-label text-km-faint">
           Choisis d'abord le compte : le site et son point de livraison lui seront rattachés.
         </p>
       )}
@@ -251,7 +251,7 @@ export function CreationCompteurDialog({
           autoOpen={methode === 'extraction'}
         />
         {champsFacture && (
-          <p className="flex items-start gap-1.5 text-[11px] text-km-green">
+          <p className="flex items-start gap-1.5 text-km-label text-km-green">
             <CheckCircle2 className="mt-0.5 h-3 w-3 shrink-0" />
             Facture analysée — les champs reconnus sont pré-remplis ci-dessous. Vérifie-les.
           </p>

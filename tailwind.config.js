@@ -17,6 +17,7 @@ export default {
           faint: 'rgb(var(--km-faint) / <alpha-value>)',
           bg: 'rgb(var(--km-bg) / <alpha-value>)',
           side: 'rgb(var(--km-side) / <alpha-value>)',
+          'side-bas': 'rgb(var(--km-side-bas) / <alpha-value>)',
           surface: 'rgb(var(--km-surface) / <alpha-value>)',
           soft: 'rgb(var(--km-soft) / <alpha-value>)',
           line: 'rgb(var(--km-line) / <alpha-value>)',
@@ -287,15 +288,40 @@ export default {
          * L'echelle retrouve donc sa granularite. Les tailles NOMMEES pour la refonte gardent le
          * plancher de 11 px la ou l'information compte : titre de page, nom de ligne, valeur
          * d'indicateur, corps de tableau. */
-        'km-micro': '8.5px',  /* etiquette dans un espace dense — carte de kanban, pastille */
-        'km-tiny': '9px',
-        'km-xs': '10px',
-        'km-label': '11px',   /* libelle d'indicateur, sous-titre de ligne */
-        'km-body': '13px',    /* cellule de tableau, texte courant */
-        'km-name': '14px',    /* nom d'une ligne */
-        'km-lead': '13px',    /* la phrase sous le titre de page */
-        'km-metric': '20px',  /* valeur d'un indicateur */
-        'km-h1': '28px',      /* titre de page — la seule taille reprise telle quelle */
+        /* ══ CHAQUE TAILLE PORTE SON INTERLIGNE — CORRECTION DU 31/08/2026 ════════════════
+         *
+         * Naoelle : « la police est trop grande ou trop rapprochee ou pas assez aeree, ou
+         * grossiere ; le rendu n'est pas classe du tout depuis les dernieres mises a jour ».
+         *
+         * LA CAUSE ETAIT L'INTERLIGNE, PAS LA TAILLE. Une taille declaree en chaine simple ne
+         * transporte AUCUN interligne : Tailwind laisse alors celui du parent, qui vaut 1,5 fois
+         * la taille HERITEE et non la taille reelle. Un libelle de 11 px dans un bloc en 13 px
+         * heritait donc d'un interligne calcule sur 13 — et un titre de 28 px d'un interligne
+         * calcule sur 13, soit moins que sa propre hauteur de caractere. D'ou le sentiment de
+         * texte tasse : ce n'etait pas la taille, c'etait l'espace entre les lignes.
+         *
+         * Chaque niveau declare maintenant le sien, en couple [taille, interligne]. Les rapports
+         * suivent la meme regle du bas en haut : environ 1,45 pour le texte courant, resserre a
+         * 1,25 sur les grandes tailles ou un interligne large disloque le titre.
+         *
+         * LE TITRE DE PAGE DESCEND DE 28 A 24 PX. C'est le « trop grande » : sur une page de
+         * liste, le titre etait plus haut que la valeur des indicateurs qu'il surplombe, et
+         * ecrasait tout le reste. 24 px le laisse dominer sans hurler.
+         */
+        'km-micro': ['8.5px', { lineHeight: '12px' }],   /* etiquette dans un espace dense */
+        'km-tiny':  ['9px',   { lineHeight: '13px' }],
+        'km-xs':    ['10px',  { lineHeight: '14px' }],
+        'km-label': ['11px',  { lineHeight: '15px', letterSpacing: '0.005em' }],
+        'km-body':  ['13px',  { lineHeight: '19px' }],   /* texte courant, cellule de tableau */
+        'km-name':  ['14px',  { lineHeight: '20px', letterSpacing: '-0.004em' }],
+        'km-lead':  ['13px',  { lineHeight: '20px' }],   /* la phrase sous le titre de page */
+        'km-title': ['16px',  { lineHeight: '22px', letterSpacing: '-0.012em' }], /* titre de fiche */
+        'km-metric':['20px',  { lineHeight: '25px', letterSpacing: '-0.02em' }],
+        /* LA GRANDE VALEUR CHIFFREE — le seul chiffre d'un bandeau ou d'une tuile de synthese.
+           Les valeurs chiffrees etaient ecrites en 18, 19, 20, 22, 25 et 27 px selon l'ecran : six
+           tailles pour deux roles. Elles se rangent en deux niveaux, km-metric et celui-ci. */
+        'km-metric-lg': ['26px', { lineHeight: '30px', letterSpacing: '-0.022em' }],
+        'km-h1':    ['24px',  { lineHeight: '30px', letterSpacing: '-0.022em' }], /* titre de page */
       },
       spacing: {
         'kw-1': '3px', 'kw-2': '5px', 'kw-3': '6px', 'kw-4': '7px', 'kw-5': '9px', 'kw-6': '11px',

@@ -1075,7 +1075,7 @@ function Deduit({ libelle, calcul, valeur, unite }: {
     <div className="flex flex-wrap items-baseline gap-2 rounded-km border border-kw-green-border bg-kw-green-tint px-2.5 py-1.5">
       <span className="min-w-[132px] text-km-name font-bold text-km-green">{libelle}</span>
       <span className="font-mono text-km-body text-km-muted">{calcul} =</span>
-      <span className={`font-mono text-[22px] font-extrabold leading-none tabular-nums ${valeur == null ? 'text-km-faint' : 'text-km-green'}`}>
+      <span className={`font-mono text-km-metric font-bold leading-none tabular-nums ${valeur == null ? 'text-km-faint' : 'text-km-green'}`}>
         {fmt(valeur)}
       </span>
       <span className="text-km-body font-semibold text-km-green">{unite}</span>

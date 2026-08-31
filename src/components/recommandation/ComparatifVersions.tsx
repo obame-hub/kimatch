@@ -236,7 +236,7 @@ export function ComparatifVersions({
       <div className="flex items-center gap-2 border-b border-kw-border-subtle px-[17px] py-3">
         <span className="text-km-micro font-bold uppercase tracking-[0.08em] text-km-faint">Comparatif des versions</span>
         <span className="flex-1" />
-        <span className="flex items-center gap-1.5 text-[9.5px] text-km-muted">
+        <span className="flex items-center gap-1.5 text-km-tiny text-km-muted">
           <span className="h-2.5 w-2.5 rounded-[3px] border border-[#dcc39c] bg-[#f4ecdf]" />
           meilleure valeur
         </span>
@@ -264,7 +264,7 @@ export function ComparatifVersions({
                   {v.nom || `V${v.numero_version ?? '?'}`}
                   <span
                     className={cn(
-                      'rounded-kw-xs px-1.5 py-px font-sans text-[7.5px] font-extrabold tracking-[0.06em]',
+                      'rounded-kw-xs px-1.5 py-px font-sans text-km-micro font-extrabold tracking-[0.06em]',
                       active ? 'bg-[#8a4b2a] text-white' : 'bg-km-soft text-km-faint',
                     )}
                   >
@@ -384,7 +384,7 @@ export function ComparatifVersions({
                       </span>
                       {c.incluse && c.gain != null && (
                         <span
-                          className={cn('font-mono text-[10.5px] font-extrabold', active ? 'text-km-green' : 'text-km-faint')}
+                          className={cn('font-mono text-km-xs font-extrabold', active ? 'text-km-green' : 'text-km-faint')}
                         >
                           −{Math.round(c.gain).toLocaleString('fr-FR')} €/an
                         </span>

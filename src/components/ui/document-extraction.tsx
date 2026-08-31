@@ -52,7 +52,7 @@ export function ExtractDocumentButton({
         {extractDocument.isPending ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <FileScan className="h-3.5 w-3.5" />}
         {label}
       </Button>
-      {feedback && <p className="mt-1.5 text-[11px] text-km-muted">{feedback}</p>}
+      {feedback && <p className="mt-1.5 text-km-label text-km-muted">{feedback}</p>}
     </div>
   )
 }

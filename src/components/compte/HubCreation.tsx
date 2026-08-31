@@ -155,7 +155,7 @@ export function HubCreation({
           </svg>
         </span>
         Créer
-        <span className="font-mono text-[9px] opacity-[.55]">C</span>
+        <span className="font-mono text-km-tiny opacity-[.55]">C</span>
       </button>
 
       {ouvert && (
@@ -171,7 +171,7 @@ export function HubCreation({
               transformOrigin: 'top right',
             }}
           >
-            <div className="px-[10px] pb-[6px] pt-[7px] text-[9px] font-extrabold uppercase tracking-[.09em] text-[#a3a5a0]">
+            <div className="px-[10px] pb-[6px] pt-[7px] text-km-tiny font-extrabold uppercase tracking-[.09em] text-[#a3a5a0]">
               Créer un enregistrement
             </div>
 
@@ -200,10 +200,10 @@ export function HubCreation({
                     </svg>
                   </span>
                   <span className="min-w-0 flex-1">
-                    <span className="block text-[12.5px] font-[650] tracking-[-.01em]">{action.label}</span>
-                    <span className="mt-px block text-[10px] text-[#a3a5a0]">{action.indice}</span>
+                    <span className="block text-km-body font-[650] tracking-[-.01em]">{action.label}</span>
+                    <span className="mt-px block text-km-xs text-[#a3a5a0]">{action.indice}</span>
                   </span>
-                  <span className="flex-none rounded-[5px] border border-[#eceae6] bg-[#f6f6f4] px-1.5 py-0.5 font-mono text-[9.5px] font-bold text-[#b6b8b3]">
+                  <span className="flex-none rounded-[5px] border border-[#eceae6] bg-[#f6f6f4] px-1.5 py-0.5 font-mono text-km-tiny font-bold text-[#b6b8b3]">
                     {action.touche}
                   </span>
                 </div>

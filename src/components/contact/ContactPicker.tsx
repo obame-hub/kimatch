@@ -117,17 +117,17 @@ export function ContactPicker({
           estSelectionne ? 'bg-kiwi-50 ring-1 ring-kiwi-200' : 'hover:bg-km-bg',
         )}
       >
-        <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-km-soft text-[10px] font-bold text-km-muted">
+        <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-km-soft text-km-xs font-bold text-km-muted">
           {initials(contact.prenom, contact.nom)}
         </span>
         <span className="min-w-0 flex-1">
           <span className="flex items-center gap-1.5">
             <span className="truncate text-xs font-medium text-km-text">{joinNameParts(contact.prenom, contact.nom)}</span>
             {montrerCompte && contact.compte_nom && (
-              <Badge tone="neutral" className="shrink-0 px-1 py-0 text-[9px] font-normal">{contact.compte_nom}</Badge>
+              <Badge tone="neutral" className="shrink-0 px-1 py-0 text-km-tiny font-normal">{contact.compte_nom}</Badge>
             )}
           </span>
-          <span className="flex items-center gap-1.5 text-[10px] text-km-faint">
+          <span className="flex items-center gap-1.5 text-km-xs text-km-faint">
             {contact.fonction && <span className="truncate">{contact.fonction}</span>}
             {contact.fonction && contact.email && <span>·</span>}
             {contact.email && <span className="truncate">{contact.email}</span>}
@@ -150,11 +150,11 @@ export function ContactPicker({
       >
         {selected ? (
           <span className="flex min-w-0 items-center gap-2">
-            <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-km-green text-[10px] font-bold text-white">
+            <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-km-green text-km-xs font-bold text-white">
               {initials(selected.prenom, selected.nom)}
             </span>
             <span className="truncate text-sm text-km-text">{selected.prenom} {selected.nom}</span>
-            {isExternal && <Badge tone="neutral" className="shrink-0 px-1.5 py-0 text-[9px]">Externe</Badge>}
+            {isExternal && <Badge tone="neutral" className="shrink-0 px-1.5 py-0 text-km-tiny">Externe</Badge>}
           </span>
         ) : (
           <span className="flex items-center gap-2 text-sm">
@@ -178,7 +178,7 @@ export function ContactPicker({
                 )}
               >
                 Contacts du compte
-                <span className="ml-1 text-[10px] opacity-70">({accountContacts.length})</span>
+                <span className="ml-1 text-km-xs opacity-70">({accountContacts.length})</span>
               </button>
               <button
                 type="button"
@@ -246,7 +246,7 @@ export function ContactPicker({
       )}
 
       {selected && (
-        <div className="flex items-center gap-2 px-1 text-[11px] text-km-faint">
+        <div className="flex items-center gap-2 px-1 text-km-label text-km-faint">
           {selected.email && <span className="truncate">✉ {selected.email}</span>}
           {selected.email && (selected.telephone || selected.telephone_mobile) && <span>·</span>}
           {(selected.telephone || selected.telephone_mobile) && <span>☎ {selected.telephone ?? selected.telephone_mobile}</span>}

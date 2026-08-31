@@ -341,7 +341,7 @@ export function PdlDraftRows({
                     </FormField>
                   </div>
                   {siteExistant && (
-                    <p className="flex items-start gap-1.5 text-[11px] text-km-green">
+                    <p className="flex items-start gap-1.5 text-km-label text-km-green">
                       <CheckCircle2 className="mt-0.5 h-3 w-3 shrink-0" />
                       Sera rattaché au site existant « {siteExistant.nom} ».
                     </p>
@@ -378,7 +378,7 @@ export function PdlDraftRows({
               )}
               {d.typeEnergieId && (
                 <div className="rounded-lg border border-km-line bg-km-bg/60 p-3">
-                  <p className="mb-2 text-[10px] font-semibold uppercase tracking-wide text-km-faint">
+                  <p className="mb-2 text-km-xs font-semibold uppercase tracking-wide text-km-faint">
                     {estElectricite ? 'Caractéristiques techniques' : 'Caractéristiques & consommation'}
                   </p>
                   {estElectricite ? (
@@ -437,7 +437,7 @@ export function PdlDraftRows({
                               })
                             }}
                             disabled={!(d.puissanceParClasseKva[CLASSES_PUISSANCE_ELEC[0].key] ?? '').trim()}
-                            className="text-[11px] font-medium text-km-green hover:underline disabled:cursor-not-allowed disabled:text-km-faint disabled:no-underline"
+                            className="text-km-label font-medium text-km-green hover:underline disabled:cursor-not-allowed disabled:text-km-faint disabled:no-underline"
                           >
                             ⇊ Appliquer la valeur de {CLASSES_PUISSANCE_ELEC[0].label} à toutes les classes
                           </button>
@@ -492,9 +492,9 @@ export function PdlDraftRows({
                 </FormField>
               </div>
               {manquants.has('responsableContactId') ? (
-                <p className="text-[11px] text-amber-700">La sélection d'un responsable est obligatoire.</p>
+                <p className="text-km-label text-amber-700">La sélection d'un responsable est obligatoire.</p>
               ) : (
-                <p className="text-[11px] text-km-faint">
+                <p className="text-km-label text-km-faint">
                   Contacts liés au compte. Si le bon contact n'apparaît pas, cherchez dans tous les contacts du CRM.
                 </p>
               )}

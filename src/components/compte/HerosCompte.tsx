@@ -71,7 +71,7 @@ function Anneau({
         </defs>
       </svg>
       <div className="absolute inset-0 flex items-center justify-center">
-        <span className="font-mono text-[18px] font-extrabold leading-none tracking-[-.02em]">{children}</span>
+        <span className="font-mono text-km-metric font-bold leading-none tracking-[-.02em]">{children}</span>
       </div>
     </div>
   )
@@ -162,9 +162,9 @@ export function HeroValeurCompte({
         </Anneau>
 
         <div className="min-w-0 flex-1">
-          <div className="text-[9px] font-extrabold uppercase tracking-[.1em] text-[#a9c9ea]">Valeur du compte</div>
+          <div className="text-km-tiny font-extrabold uppercase tracking-[.1em] text-[#a9c9ea]">Valeur du compte</div>
           <div className="mt-0.5 truncate text-sm font-extrabold tracking-[-.01em]">{libelle}</div>
-          <div className="mt-[5px] flex items-center gap-[7px] text-[9.5px] font-bold text-white/[.72]">
+          <div className="mt-[5px] flex items-center gap-[7px] text-km-tiny font-bold text-white/[.72]">
             {evolution !== null && (
               <span style={{ color: evolution >= 0 ? '#8fe6bd' : '#ffb4a2' }}>
                 {evolution >= 0 ? '▲' : '▼'} {evolution >= 0 ? '+' : ''}
@@ -178,18 +178,18 @@ export function HeroValeurCompte({
         </div>
 
         {/* Infobulle du détail de calcul, au survol comme dans la maquette (.ib / .ibp). */}
-        <span className="kw-ib h-5 w-5 flex-none self-start rounded-full border border-white/[.24] bg-white/[.16] text-[10px] font-extrabold transition-colors hover:bg-white/[.28]">
+        <span className="kw-ib h-5 w-5 flex-none self-start rounded-full border border-white/[.24] bg-white/[.16] text-km-xs font-extrabold transition-colors hover:bg-white/[.28]">
           <span className="flex h-full w-full items-center justify-center">i</span>
           <span className="kw-ibp">
-            <span className="mb-2 block text-[9px] font-extrabold uppercase tracking-[.07em] text-[#a9c9ea]">
+            <span className="mb-2 block text-km-tiny font-extrabold uppercase tracking-[.07em] text-[#a9c9ea]">
               Détail du calcul
             </span>
             {facteurs.map((f) => (
               <span key={f.libelle} className="mb-2 block last:mb-0">
                 <span className="flex items-baseline gap-2">
-                  <span className="flex-1 text-[10.5px] leading-[1.35] text-white/[.86]">{f.libelle}</span>
+                  <span className="flex-1 text-km-xs leading-[1.35] text-white/[.86]">{f.libelle}</span>
                   <span
-                    className="flex-none font-mono text-[10px] font-bold"
+                    className="flex-none font-mono text-km-xs font-bold"
                     style={{ color: f.teinte === 'potentiel' ? '#ffd79a' : '#a9d4ff' }}
                   >
                     +{f.points}
@@ -210,7 +210,7 @@ export function HeroValeurCompte({
               <button
                 type="button"
                 onClick={onPlanAction}
-                className="mt-2 block w-full rounded-lg bg-white/[.16] py-1.5 text-[10.5px] font-bold transition-colors hover:bg-white/[.26]"
+                className="mt-2 block w-full rounded-lg bg-white/[.16] py-1.5 text-km-xs font-bold transition-colors hover:bg-white/[.26]"
               >
                 ◈ Voir le plan d’action
               </button>
@@ -273,7 +273,7 @@ export function HeroScoreEllipro({
         </Anneau>
 
         <div className="min-w-0 flex-1">
-          <div className="text-[9px] font-extrabold uppercase tracking-[.1em] text-[#9fdcc4]">Score Ellipro</div>
+          <div className="text-km-tiny font-extrabold uppercase tracking-[.1em] text-[#9fdcc4]">Score Ellipro</div>
           <div className="mt-0.5 truncate text-sm font-extrabold tracking-[-.01em]">{libelle}</div>
 
           <div className="mt-[7px] flex items-center gap-[3px]">
@@ -297,7 +297,7 @@ export function HeroScoreEllipro({
             type="button"
             onClick={onActualiser}
             title="Actualiser le score auprès d’Ellisphere"
-            className="h-5 w-5 flex-none self-start rounded-full border border-white/[.24] bg-white/[.16] text-[10px] font-extrabold transition-colors hover:bg-white/[.28]"
+            className="h-5 w-5 flex-none self-start rounded-full border border-white/[.24] bg-white/[.16] text-km-xs font-extrabold transition-colors hover:bg-white/[.28]"
           >
             ↻
           </button>
@@ -307,10 +307,10 @@ export function HeroScoreEllipro({
       <div className="relative mt-[11px] flex flex-wrap gap-x-4 gap-y-1.5 border-t border-white/[.14] pt-[9px]">
         {faits.map((f) => (
           <span key={f.libelle} className="flex items-baseline gap-1.5">
-            <span title={f.aide} className="cursor-help text-[9.5px] font-semibold text-white/[.6]">
+            <span title={f.aide} className="cursor-help text-km-tiny font-semibold text-white/[.6]">
               {f.libelle}
             </span>
-            <span className="font-mono text-[10.5px] font-bold">{f.valeur}</span>
+            <span className="font-mono text-km-xs font-bold">{f.valeur}</span>
           </span>
         ))}
       </div>

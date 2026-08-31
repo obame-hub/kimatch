@@ -236,7 +236,7 @@ export default function OpportuniteDetail() {
 
         <div className="flex min-w-0 flex-1 flex-col gap-1.5">
           <div className="flex flex-wrap items-center gap-2">
-            <span className="font-mono text-[20px] font-bold tracking-tight text-km-text">
+            <span className="font-mono text-km-metric font-bold tracking-tight text-km-text">
               {opportunite.reference || 'Sans référence'}
             </span>
             <InlineField
@@ -246,7 +246,7 @@ export default function OpportuniteDetail() {
               value={opportunite.origine ?? ''}
               options={ORIGINES_OPPORTUNITE.map((o) => ({ value: o.code, label: o.libelle }))}
               onCommit={(v) => majOpp({ origine: v || null })}
-              className="inline-flex rounded-xl border border-opp-200 bg-opp-100 px-2.5 py-0.5 text-[10px] font-extrabold uppercase tracking-wide text-opp-600"
+              className="inline-flex rounded-xl border border-opp-200 bg-opp-100 px-2.5 py-0.5 text-km-xs font-extrabold uppercase tracking-wide text-opp-600"
               {...retourInline}
             />
             <InlineField
@@ -255,7 +255,7 @@ export default function OpportuniteDetail() {
               emptyLabel="type à préciser"
               value={opportunite.type_opportunite ?? ''}
               onCommit={(v) => majOpp({ type_opportunite: v.trim() || null })}
-              className="inline-flex rounded-xl border border-km-line bg-km-bg px-2.5 py-0.5 text-[10px] font-bold text-km-muted"
+              className="inline-flex rounded-xl border border-km-line bg-km-bg px-2.5 py-0.5 text-km-xs font-bold text-km-muted"
               {...retourInline}
             />
             {opportunite.qualification_fin && (
@@ -264,7 +264,7 @@ export default function OpportuniteDetail() {
               </Badge>
             )}
           </div>
-          <div className="flex flex-wrap items-center gap-2 text-[11px] text-km-muted">
+          <div className="flex flex-wrap items-center gap-2 text-km-label text-km-muted">
             {opportunite.compte_id ? (
               <span className="inline-flex items-center gap-1.5 font-bold text-sky-700">
                 <Building2 className="h-3 w-3" />
@@ -335,7 +335,7 @@ export default function OpportuniteDetail() {
                     title={a.dispo ? undefined : a.raison}
                     onClick={() => { setHubOuvert(false); void a.action() }}
                     className={cn(
-                      'flex w-full items-center gap-2.5 rounded-[9px] px-2.5 py-2 text-left text-[12.5px] font-semibold transition-colors',
+                      'flex w-full items-center gap-2.5 rounded-[9px] px-2.5 py-2 text-left text-km-body font-semibold transition-colors',
                       a.dispo ? 'text-km-text hover:bg-km-bg' : 'cursor-not-allowed text-km-faint',
                     )}
                   >
@@ -356,10 +356,10 @@ export default function OpportuniteDetail() {
         </div>
 
         <div className="flex flex-none flex-col items-start gap-0.5 rounded-[10px] border border-km-line bg-km-surface px-3 py-1.5">
-          <span className="text-[10px] font-bold text-km-muted">
+          <span className="text-km-xs font-bold text-km-muted">
             {opportunite.proprietaire_nom || 'Sans propriétaire'}
           </span>
-          <span className="whitespace-nowrap font-mono text-[9px] text-km-faint">
+          <span className="whitespace-nowrap font-mono text-km-tiny text-km-faint">
             Créée {new Date(opportunite.date_creation).toLocaleDateString('fr-FR')} · Modifiée{' '}
             {new Date(opportunite.date_modification).toLocaleDateString('fr-FR')}
           </span>
@@ -374,7 +374,7 @@ export default function OpportuniteDetail() {
             type="button"
             onClick={() => setOnglet(o.cle)}
             className={cn(
-              'flex items-center gap-1.5 border-b-2 px-3 pb-2 pt-1.5 text-[12.5px] transition-colors',
+              'flex items-center gap-1.5 border-b-2 px-3 pb-2 pt-1.5 text-km-body transition-colors',
               onglet === o.cle
                 ? 'border-opp-500 font-bold text-km-text'
                 : 'border-transparent font-medium text-km-muted hover:text-km-text',
@@ -382,13 +382,13 @@ export default function OpportuniteDetail() {
           >
             {o.libelle}
             {o.cle === 'fichiers' && documentsDeLOpportunite.length > 0 && (
-              <span className="rounded-md bg-km-soft px-1.5 py-0.5 text-[9.5px] font-extrabold text-km-muted">
+              <span className="rounded-md bg-km-soft px-1.5 py-0.5 text-km-tiny font-extrabold text-km-muted">
                 {documentsDeLOpportunite.length}
               </span>
             )}
           </button>
         ))}
-        <span className="ml-auto hidden font-mono text-[10px] text-km-faint sm:block">1–3 pour naviguer</span>
+        <span className="ml-auto hidden font-mono text-km-xs text-km-faint sm:block">1–3 pour naviguer</span>
       </div>
 
       {/* ══ TROIS COLONNES ══ 256 / reste / 300, les largeurs de la maquette. */}
@@ -405,13 +405,13 @@ export default function OpportuniteDetail() {
           >
             {opportunite.compte_id ? (
               <div className="flex items-center gap-2">
-                <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-md bg-sky-100 text-[9.5px] font-bold text-sky-700">
+                <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-md bg-sky-100 text-km-tiny font-bold text-sky-700">
                   {(opportunite.compte_nom || '?').slice(0, 2).toUpperCase()}
                 </span>
                 <EntityLink to={`/comptes/${opportunite.compte_id}`}>{opportunite.compte_nom}</EntityLink>
               </div>
             ) : (
-              <p className="text-[11px] text-km-muted">À identifier — c'est un prérequis de conversion.</p>
+              <p className="text-km-label text-km-muted">À identifier — c'est un prérequis de conversion.</p>
             )}
           </BlocLateral>
 
@@ -424,16 +424,16 @@ export default function OpportuniteDetail() {
           >
             {contact ? (
               <div className="flex items-center gap-2">
-                <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-violet-500 to-violet-400 text-[11px] font-bold text-white">
+                <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-violet-500 to-violet-400 text-km-label font-bold text-white">
                   {`${contact.prenom[0] ?? ''}${contact.nom[0] ?? ''}`.toUpperCase()}
                 </span>
                 <div className="min-w-0">
                   <EntityLink to={`/contacts/${contact.id}`}>{contact.prenom} {contact.nom}</EntityLink>
-                  {contact.fonction && <p className="truncate text-[10px] text-km-faint">{contact.fonction}</p>}
+                  {contact.fonction && <p className="truncate text-km-xs text-km-faint">{contact.fonction}</p>}
                 </div>
               </div>
             ) : (
-              <p className="text-[11px] text-km-muted">À identifier — c'est un prérequis de conversion.</p>
+              <p className="text-km-label text-km-muted">À identifier — c'est un prérequis de conversion.</p>
             )}
           </BlocLateral>
 
@@ -446,7 +446,7 @@ export default function OpportuniteDetail() {
             compteur={opportunite.site_ids.length + opportunite.compteur_ids.length}
           >
             {sitesDuPerimetre.length === 0 && compteursHorsSite.length === 0 ? (
-              <p className="text-[11px] text-km-muted">
+              <p className="text-km-label text-km-muted">
                 Aucun site ni compteur. Ajoutez-en au moins un : c'est un prérequis de conversion.
               </p>
             ) : (
@@ -457,14 +457,14 @@ export default function OpportuniteDetail() {
                       <span className="flex h-4 w-4 shrink-0 items-center justify-center rounded-[5px] bg-kiwi-50 text-km-green">
                         <MapPin className="h-2.5 w-2.5" />
                       </span>
-                      <span className="min-w-0 flex-1 truncate text-[11.5px] font-bold">
+                      <span className="min-w-0 flex-1 truncate text-km-label font-bold">
                         <EntityLink to={`/sites/${site.id}`}>{site.nom}</EntityLink>
                       </span>
                       <button
                         type="button"
                         onClick={() => retirer('sites', site.id, site.nom)}
                         title="Retirer du périmètre"
-                        className="shrink-0 px-0.5 text-[11px] text-km-faint hover:text-km-red"
+                        className="shrink-0 px-0.5 text-km-label text-km-faint hover:text-km-red"
                       >
                         ×
                       </button>
@@ -479,7 +479,7 @@ export default function OpportuniteDetail() {
                         />
                       ))}
                       {compteursParSite(site.id).length === 0 && (
-                        <p className="py-0.5 text-[10px] text-km-faint">aucun compteur retenu</p>
+                        <p className="py-0.5 text-km-xs text-km-faint">aucun compteur retenu</p>
                       )}
                     </div>
                   </div>
@@ -502,7 +502,7 @@ export default function OpportuniteDetail() {
               <button
                 type="button"
                 onClick={() => setAjoutOuvert(true)}
-                className="mt-2 text-[11px] font-bold text-indigo-600 hover:underline"
+                className="mt-2 text-km-label font-bold text-indigo-600 hover:underline"
               >
                 ＋ Ajouter au périmètre
               </button>
@@ -520,18 +520,18 @@ export default function OpportuniteDetail() {
           >
             {couverture.mandat ? (
               <>
-                <p className="text-[11px] text-km-text">
+                <p className="text-km-label text-km-text">
                   <EntityLink to={`/mandats/${couverture.mandat.id}`}>
                     {couverture.mandat.id_salesforce || 'Mandat actif'}
                   </EntityLink>
                   {couverture.mandat.date_fin_validite && (
-                    <span className="block text-[10px] text-km-faint">
+                    <span className="block text-km-xs text-km-faint">
                       valide jusqu'au {new Date(couverture.mandat.date_fin_validite).toLocaleDateString('fr-FR')}
                     </span>
                   )}
                 </p>
                 {couverture.manquants.length > 0 && (
-                  <p className="mt-1 text-[10.5px] font-semibold leading-snug text-km-amber">
+                  <p className="mt-1 text-km-xs font-semibold leading-snug text-km-amber">
                     {couverture.manquants.length} compteur{couverture.manquants.length > 1 ? 's' : ''} non couvert
                     {couverture.manquants.length > 1 ? 's' : ''} — un nouveau mandat doit être envoyé à{' '}
                     {contact ? `${contact.prenom} ${contact.nom}` : 'au signataire'}.
@@ -539,7 +539,7 @@ export default function OpportuniteDetail() {
                 )}
               </>
             ) : (
-              <p className="text-[11px] leading-snug text-km-muted">
+              <p className="text-km-label leading-snug text-km-muted">
                 {opportunite.compte_id
                   ? 'Aucun mandat actif sur ce compte.'
                   : "Le compte n'est pas identifié : la couverture ne peut pas être vérifiée."}
@@ -549,7 +549,7 @@ export default function OpportuniteDetail() {
               <button
                 type="button"
                 onClick={() => setMandatOuvert(true)}
-                className="mt-2 text-[11px] font-bold text-opp-500 hover:underline"
+                className="mt-2 text-km-label font-bold text-opp-500 hover:underline"
               >
                 ＋ Lancer la demande de mandat
               </button>
@@ -574,7 +574,7 @@ export default function OpportuniteDetail() {
                       {manquants.map((m) => (
                         <span
                           key={m.cle}
-                          className="rounded-md border border-dashed border-amber-300 bg-white px-2 py-0.5 text-[10px] font-bold text-amber-700"
+                          className="rounded-md border border-dashed border-amber-300 bg-white px-2 py-0.5 text-km-xs font-bold text-amber-700"
                         >
                           {m.libelle}
                         </span>
@@ -587,7 +587,7 @@ export default function OpportuniteDetail() {
               {/* LA FRISE DE STATUT */}
               <Card className="px-4 pb-2.5 pt-3">
                 <div className="flex flex-wrap items-center gap-2">
-                  <p className="text-[10px] font-bold uppercase tracking-[0.08em] text-km-faint">
+                  <p className="text-km-xs font-bold uppercase tracking-[0.08em] text-km-faint">
                     Statut de l'opportunité
                   </p>
                   <span className="flex-1" />
@@ -595,7 +595,7 @@ export default function OpportuniteDetail() {
                     <button
                       type="button"
                       onClick={() => setClotureOuverte(true)}
-                      className="rounded-lg border-[1.5px] border-opp-500 bg-opp-50 px-3 py-1.5 text-[11px] font-bold text-km-text transition-colors hover:bg-opp-100"
+                      className="rounded-lg border-[1.5px] border-opp-500 bg-opp-50 px-3 py-1.5 text-km-label font-bold text-km-text transition-colors hover:bg-opp-100"
                     >
                       Qualifier la clôture… ▾
                     </button>
@@ -617,15 +617,15 @@ export default function OpportuniteDetail() {
                       : null
                   }
                 />
-                <p className="border-t border-km-line pt-2 text-[11px] text-km-muted">
+                <p className="border-t border-km-line pt-2 text-km-label text-km-muted">
                   <span className="font-semibold text-km-text">{palier?.libelle}</span> — {palier?.tache}
                 </p>
                 {opportunite.motif_cloture && (
                   <div className="mt-2 flex items-start gap-2 border-t border-km-line pt-2">
-                    <span className="shrink-0 pt-px text-[9.5px] font-extrabold uppercase tracking-[0.06em] text-km-faint">
+                    <span className="shrink-0 pt-px text-km-tiny font-extrabold uppercase tracking-[0.06em] text-km-faint">
                       Motif
                     </span>
-                    <span className="text-[11.5px] leading-relaxed text-km-text">{opportunite.motif_cloture}</span>
+                    <span className="text-km-label leading-relaxed text-km-text">{opportunite.motif_cloture}</span>
                   </div>
                 )}
               </Card>
@@ -633,17 +633,17 @@ export default function OpportuniteDetail() {
               {/* LA MATURITÉ — l'anneau de la maquette, mais il compte des objets valides et non des
                   points : Michel a écarté le score le 23/08/2026. */}
               <Card className="p-4">
-                <p className="mb-1 text-[10px] font-bold uppercase tracking-[0.08em] text-km-faint">
+                <p className="mb-1 text-km-xs font-bold uppercase tracking-[0.08em] text-km-faint">
                   Maturité de l'opportunité
                 </p>
                 <div className="grid grid-cols-1 items-center gap-5 pt-1.5 sm:grid-cols-[270px_minmax(0,1fr)]">
                   <div className="flex items-center gap-3.5">
                     <AnneauMaturite valides={listePrerequis.length - manquants.length} total={listePrerequis.length} />
                     <div className="min-w-0">
-                      <p className="text-[12.5px] font-bold leading-snug text-km-text">
+                      <p className="text-km-body font-bold leading-snug text-km-text">
                         {manquants.length === 0 ? 'Prête à convertir' : `${manquants.length} objet${manquants.length > 1 ? 's' : ''} à réunir`}
                       </p>
-                      <p className="mt-0.5 text-[10.5px] leading-relaxed text-km-muted">
+                      <p className="mt-0.5 text-km-xs leading-relaxed text-km-muted">
                         La maturité se lit à la validité des objets, pas à un score.
                       </p>
                     </div>
@@ -657,10 +657,10 @@ export default function OpportuniteDetail() {
                             p.ok ? 'bg-km-green' : 'bg-amber-400',
                           )}
                         />
-                        <span className={cn('min-w-0 flex-1 text-[10.5px]', p.ok ? 'text-km-muted' : 'font-semibold text-km-text')}>
+                        <span className={cn('min-w-0 flex-1 text-km-xs', p.ok ? 'text-km-muted' : 'font-semibold text-km-text')}>
                           {p.libelle}
                         </span>
-                        <span className={cn('font-mono text-[10px] font-bold', p.ok ? 'text-km-green' : 'text-amber-600')}>
+                        <span className={cn('font-mono text-km-xs font-bold', p.ok ? 'text-km-green' : 'text-amber-600')}>
                           {p.ok ? 'ok' : 'à faire'}
                         </span>
                       </div>
@@ -689,12 +689,12 @@ export default function OpportuniteDetail() {
                   <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-md bg-km-amber-soft text-amber-700">
                     <Check className="h-3 w-3" />
                   </span>
-                  <p className="text-[10px] font-bold uppercase tracking-[0.08em] text-km-faint">Prochaine action</p>
+                  <p className="text-km-xs font-bold uppercase tracking-[0.08em] text-km-faint">Prochaine action</p>
                   <span className="flex-1" />
                   {opportunite.prochaine_action_echeance && (
                     <span
                       className={cn(
-                        'rounded-md border px-2 py-0.5 font-mono text-[10px] font-bold',
+                        'rounded-md border px-2 py-0.5 font-mono text-km-xs font-bold',
                         enRetard
                           ? 'border-red-200 bg-red-100 text-red-700'
                           : 'border-amber-200 bg-amber-50 text-amber-700',
@@ -759,7 +759,7 @@ export default function OpportuniteDetail() {
                   </div>
                 )}
                 {opportunite.prochaine_action_faite_le && (
-                  <p className="mt-2 text-[10.5px] text-km-green">
+                  <p className="mt-2 text-km-xs text-km-green">
                     Faite le {new Date(opportunite.prochaine_action_faite_le).toLocaleDateString('fr-FR')}.
                   </p>
                 )}
@@ -768,7 +768,7 @@ export default function OpportuniteDetail() {
               {/* LES RECOMMANDATIONS LIÉES, ET LA RÈGLE DE CONVERSION */}
               <Card className="p-4">
                 <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
-                  <p className="text-[10px] font-bold uppercase tracking-[0.08em] text-km-faint">
+                  <p className="text-km-xs font-bold uppercase tracking-[0.08em] text-km-faint">
                     Recommandations liées
                   </p>
                   <Badge tone="neutral">{recosLiees.length}</Badge>
@@ -778,7 +778,7 @@ export default function OpportuniteDetail() {
                     {recosLiees.map((r) => (
                       <div key={r.id} className="flex items-center justify-between gap-2 rounded-lg border border-km-line px-3 py-2">
                         <EntityLink to={`/recommandations/${r.id}`}>{r.titre || 'Recommandation'}</EntityLink>
-                        <span className="text-[10.5px] text-km-faint">{r.etape}</span>
+                        <span className="text-km-xs text-km-faint">{r.etape}</span>
                       </div>
                     ))}
                   </div>
@@ -821,7 +821,7 @@ export default function OpportuniteDetail() {
                   </p>
                 )}
                 {peutConvertir && recosLiees.length > 0 && (
-                  <p className="mt-2 text-[10.5px] leading-snug text-km-faint">
+                  <p className="mt-2 text-km-xs leading-snug text-km-faint">
                     Une recommandation par périmètre à traiter : on peut n'en couvrir qu'une partie et
                     revenir ici pour le reste.
                   </p>
@@ -881,7 +881,7 @@ export default function OpportuniteDetail() {
               />
 
               <Card className="p-4 lg:hidden">
-                <p className="mb-2 text-[10px] font-bold uppercase tracking-[0.08em] text-km-faint">
+                <p className="mb-2 text-km-xs font-bold uppercase tracking-[0.08em] text-km-faint">
                   Flux d'actualité
                 </p>
                 <FluxActualite
@@ -894,7 +894,7 @@ export default function OpportuniteDetail() {
               </Card>
 
               <Card className="p-4">
-                <p className="mb-2 text-[10px] font-bold uppercase tracking-[0.08em] text-km-faint">Commentaire</p>
+                <p className="mb-2 text-km-xs font-bold uppercase tracking-[0.08em] text-km-faint">Commentaire</p>
                 <InlineField
                   variant="longtext"
                   label=""
@@ -904,7 +904,7 @@ export default function OpportuniteDetail() {
                   {...retourInline}
                 />
                 {(opportunite.signal_libelle || opportunite.signal_id) && (
-                  <p className="mt-3 border-t border-km-line pt-2 text-[11px] text-km-muted">
+                  <p className="mt-3 border-t border-km-line pt-2 text-km-label text-km-muted">
                     <span className="font-bold uppercase tracking-wide text-opp-500">Signal</span>{' '}
                     {opportunite.signal_libelle ?? 'signal enregistré'}
                   </p>
@@ -916,7 +916,7 @@ export default function OpportuniteDetail() {
           {onglet === 'historique' && (
             <div className="animate-kw-fade-slide">
               <Card className="p-4">
-                <p className="mb-2 text-[10px] font-bold uppercase tracking-[0.08em] text-km-faint">
+                <p className="mb-2 text-km-xs font-bold uppercase tracking-[0.08em] text-km-faint">
                   Historique des modifications
                 </p>
                 <HistoriqueDiscret tableNom="opportunites" ligneId={opportunite.id} />
@@ -954,13 +954,13 @@ export default function OpportuniteDetail() {
         {/* ── COLONNE DROITE : le flux d'actualité ── */}
         <div className="hidden min-h-0 flex-col border-l border-km-line bg-white lg:flex">
           <div className="flex flex-none items-center gap-2 px-4 pb-2 pt-3">
-            <p className="text-[10px] font-bold uppercase tracking-[0.08em] text-km-faint">Flux d'actualité</p>
+            <p className="text-km-xs font-bold uppercase tracking-[0.08em] text-km-faint">Flux d'actualité</p>
           </div>
 
           {/* L'ORIGINE ÉPINGLÉE, avec le halo magenta de la maquette. */}
           <div className="relative mx-3 mb-2.5 flex-none overflow-hidden rounded-xl border-[1.5px] border-opp-200 bg-gradient-to-br from-opp-50 to-white px-3 py-2.5">
             <span className="absolute -right-3.5 -top-3.5 h-[52px] w-[52px] rounded-full bg-[radial-gradient(circle,rgba(168,49,127,.13),transparent_70%)]" />
-            <p className="mb-1.5 text-[9px] font-extrabold uppercase tracking-[0.07em] text-opp-500">
+            <p className="mb-1.5 text-km-tiny font-extrabold uppercase tracking-[0.07em] text-opp-500">
               📌 Origine de l'opportunité
             </p>
             <div className="flex items-start gap-2">
@@ -968,10 +968,10 @@ export default function OpportuniteDetail() {
                 <Target className="h-3 w-3" />
               </span>
               <div className="min-w-0">
-                <p className="text-[11.5px] font-bold leading-snug text-km-text">
+                <p className="text-km-label font-bold leading-snug text-km-text">
                   {opportunite.signal_libelle || origine?.libelle || 'Origine à préciser'}
                 </p>
-                <p className="mt-0.5 font-mono text-[9.5px] text-km-faint">
+                <p className="mt-0.5 font-mono text-km-tiny text-km-faint">
                   {new Date(opportunite.date_creation).toLocaleDateString('fr-FR')} ·{' '}
                   {new Date(opportunite.date_creation).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })}
                 </p>
@@ -1150,17 +1150,17 @@ function BlocLateral({ titre, icone, couleurIcone, lien, couleurLien, compteur, 
         <span className={cn('flex h-5 w-5 shrink-0 items-center justify-center rounded-md', couleurIcone)}>
           {icone}
         </span>
-        <span className="text-[10px] font-bold uppercase tracking-[0.08em] text-km-faint">{titre}</span>
+        <span className="text-km-xs font-bold uppercase tracking-[0.08em] text-km-faint">{titre}</span>
         <span className="flex-1" />
         {typeof compteur === 'number' && (
-          <span className="rounded-[5px] bg-indigo-50 px-1.5 py-0.5 text-[9.5px] font-extrabold text-indigo-600">
+          <span className="rounded-[5px] bg-indigo-50 px-1.5 py-0.5 text-km-tiny font-extrabold text-indigo-600">
             {compteur}
           </span>
         )}
         {badge && (
           <span
             className={cn(
-              'rounded-[5px] px-1.5 py-0.5 text-[9.5px] font-extrabold',
+              'rounded-[5px] px-1.5 py-0.5 text-km-tiny font-extrabold',
               badgeTon === 'kiwi' ? 'bg-kiwi-50 text-km-green' : 'bg-km-amber-soft text-amber-700',
             )}
           >
@@ -1171,7 +1171,7 @@ function BlocLateral({ titre, icone, couleurIcone, lien, couleurLien, compteur, 
           <button
             type="button"
             onClick={() => navigate(lien)}
-            className={cn('text-[10.5px] font-semibold hover:underline', couleurLien ?? 'text-km-green')}
+            className={cn('text-km-xs font-semibold hover:underline', couleurLien ?? 'text-km-green')}
           >
             ouvrir →
           </button>
@@ -1193,17 +1193,17 @@ function LigneCompteur({ compteur, horsMandat, onRetirer }: {
     <div className="flex items-center gap-1.5 py-0.5">
       <span
         className={cn(
-          'flex h-3.5 w-3.5 shrink-0 items-center justify-center rounded-[4px] text-[7px] font-extrabold',
+          'flex h-3.5 w-3.5 shrink-0 items-center justify-center rounded-[4px] text-km-micro font-extrabold',
           gaz ? 'bg-sky-100 text-sky-700' : 'bg-km-amber-soft text-amber-700',
         )}
       >
         {gaz ? 'G' : 'E'}
       </span>
-      <span className="min-w-0 flex-1 truncate font-mono text-[10.5px] font-semibold">
+      <span className="min-w-0 flex-1 truncate font-mono text-km-xs font-semibold">
         <EntityLink to={`/compteurs/${compteur.id}`}>{compteur.numero_pdl}</EntityLink>
       </span>
       {horsMandat && (
-        <span className="shrink-0 rounded-[4px] bg-km-amber-soft px-1 text-[8.5px] font-extrabold text-amber-700">
+        <span className="shrink-0 rounded-[4px] bg-km-amber-soft px-1 text-km-micro font-extrabold text-amber-700">
           hors mandat
         </span>
       )}
@@ -1211,7 +1211,7 @@ function LigneCompteur({ compteur, horsMandat, onRetirer }: {
         type="button"
         onClick={onRetirer}
         title="Retirer du périmètre"
-        className="shrink-0 px-0.5 text-[11px] text-km-faint hover:text-km-red"
+        className="shrink-0 px-0.5 text-km-label text-km-faint hover:text-km-red"
       >
         ×
       </button>
@@ -1249,10 +1249,10 @@ function AnneauMaturite({ valides, total }: { valides: number; total: number }) 
         />
       </svg>
       <div className="absolute inset-0 flex flex-col items-center justify-center">
-        <span className={cn('font-mono text-[19px] font-extrabold leading-none', complet ? 'text-km-green' : 'text-opp-500')}>
+        <span className={cn('font-mono text-km-metric font-bold leading-none', complet ? 'text-km-green' : 'text-opp-500')}>
           {valides}
         </span>
-        <span className="font-mono text-[10px] text-km-faint">/ {total}</span>
+        <span className="font-mono text-km-xs text-km-faint">/ {total}</span>
       </div>
     </div>
   )
@@ -1262,7 +1262,7 @@ function AnneauMaturite({ valides, total }: { valides: number; total: number }) 
 function LigneAction({ libelle, children }: { libelle: string; children: React.ReactNode }) {
   return (
     <div className="flex items-start gap-2.5">
-      <span className="w-[74px] shrink-0 pt-1 text-[9.5px] font-extrabold uppercase tracking-[0.06em] text-km-faint">
+      <span className="w-[74px] shrink-0 pt-1 text-km-tiny font-extrabold uppercase tracking-[0.06em] text-km-faint">
         {libelle}
       </span>
       <div className="min-w-0 flex-1">{children}</div>
@@ -1418,7 +1418,7 @@ function DialogAjoutPerimetre({ opportunite, onFermer, onAjoute }: {
         {erreur && <p className="rounded-lg border border-red-200 bg-km-red-soft px-3 py-2 text-xs text-red-700">{erreur}</p>}
 
         <div>
-          <p className="mb-1 text-[10px] font-bold uppercase tracking-wide text-km-faint">Sites</p>
+          <p className="mb-1 text-km-xs font-bold uppercase tracking-wide text-km-faint">Sites</p>
           {sitesDisponibles.length === 0 ? (
             <p className="text-xs text-km-faint">Tous les sites du compte sont déjà dans le périmètre.</p>
           ) : (
@@ -1440,7 +1440,7 @@ function DialogAjoutPerimetre({ opportunite, onFermer, onAjoute }: {
         </div>
 
         <div>
-          <p className="mb-1 text-[10px] font-bold uppercase tracking-wide text-km-faint">Compteurs</p>
+          <p className="mb-1 text-km-xs font-bold uppercase tracking-wide text-km-faint">Compteurs</p>
           {compteursDisponibles.length === 0 ? (
             <p className="text-xs text-km-faint">Aucun compteur à ajouter.</p>
           ) : (
@@ -1464,7 +1464,7 @@ function DialogAjoutPerimetre({ opportunite, onFermer, onAjoute }: {
           )}
         </div>
 
-        <p className="flex items-start gap-1.5 text-[10.5px] leading-snug text-km-faint">
+        <p className="flex items-start gap-1.5 text-km-xs leading-snug text-km-faint">
           <AlertTriangle className="mt-px h-3 w-3 shrink-0" />
           Un compteur ajouté hors du mandat actif est signalé dans le périmètre : c'est ce qui déclenche
           la création d'un nouveau mandat.

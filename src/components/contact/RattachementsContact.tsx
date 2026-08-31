@@ -116,10 +116,10 @@ export function RattachementsContact({
       {/* ── Comptes ─────────────────────────────────────────────────────────────────────────── */}
       <div>
         <div className="mb-2 flex items-center gap-2">
-          <span className="text-[10px] font-bold uppercase tracking-[.08em] text-[#a3a5a0]">
+          <span className="text-km-xs font-bold uppercase tracking-[.08em] text-[#a3a5a0]">
             Comptes rattachés
           </span>
-          <span className="text-[10.5px] text-[#a3a5a0]">
+          <span className="text-km-xs text-[#a3a5a0]">
             · {rattachements.length} compte{rattachements.length > 1 ? 's' : ''}
           </span>
           <div className="flex-1" />
@@ -145,13 +145,13 @@ export function RattachementsContact({
                 className="min-w-0 flex-1 text-left"
               >
                 <p className="truncate text-sm font-bold text-km-text">{lien.nom}</p>
-                <p className="truncate text-[10.5px] text-km-faint">
+                <p className="truncate text-km-xs text-km-faint">
                   {lien.relation_directe ? 'Compte de rattachement principal' : 'Intervient sur ce compte'}
                 </p>
               </button>
               {lien.relation_directe ? (
                 <div className="flex shrink-0 items-center gap-1.5">
-                  <span className="rounded bg-[#eaf4f0] px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-[#0d7a5f]">
+                  <span className="rounded bg-[#eaf4f0] px-2 py-0.5 text-km-xs font-bold uppercase tracking-wide text-[#0d7a5f]">
                     Principal
                   </span>
                   {/* ══ LE COMPTE PRINCIPAL SE CORRIGE ICI ══
@@ -193,8 +193,8 @@ export function RattachementsContact({
       {/* ── Sites, regroupés par compte ──────────────────────────────────────────────────────── */}
       <div>
         <div className="mb-2 flex items-center gap-2">
-          <span className="text-[10px] font-bold uppercase tracking-[.08em] text-[#a3a5a0]">Sites rattachés</span>
-          <span className="text-[10.5px] text-[#a3a5a0]">
+          <span className="text-km-xs font-bold uppercase tracking-[.08em] text-[#a3a5a0]">Sites rattachés</span>
+          <span className="text-km-xs text-[#a3a5a0]">
             · {nbSites} site{nbSites > 1 ? 's' : ''} sur {sitesParCompte.length} compte{sitesParCompte.length > 1 ? 's' : ''}
             {nbSitesResponsable > 0 && ` · responsable sur ${nbSitesResponsable}`}
           </span>
@@ -206,7 +206,7 @@ export function RattachementsContact({
           <div className="flex flex-col gap-3">
             {sitesParCompte.map(([cle, groupe]) => (
               <div key={cle}>
-                <div className="mb-1 text-[10.5px] font-semibold text-km-muted">{groupe.compte}</div>
+                <div className="mb-1 text-km-xs font-semibold text-km-muted">{groupe.compte}</div>
                 <div className="flex flex-col gap-1.5">
                   {groupe.sites.map((s) => (
                     <div
@@ -219,12 +219,12 @@ export function RattachementsContact({
                       </span>
                       <div className="min-w-0 flex-1">
                         <p className="truncate text-sm font-bold text-km-text">{s.nom}</p>
-                        {s.fonction && <p className="truncate text-[10.5px] text-km-faint">{s.fonction}</p>}
+                        {s.fonction && <p className="truncate text-km-xs text-km-faint">{s.fonction}</p>}
                       </div>
                       {s.nbCompteurs > 0 && (
                         <span
                           title={`Responsable de ${s.nbCompteurs} compteur${s.nbCompteurs > 1 ? 's' : ''} sur ce site`}
-                          className="shrink-0 rounded bg-[#eef0fa] px-1.5 py-px font-mono text-[9.5px] font-bold text-[#4f5aa8]"
+                          className="shrink-0 rounded bg-[#eef0fa] px-1.5 py-px font-mono text-km-tiny font-bold text-[#4f5aa8]"
                         >
                           {s.nbCompteurs} compteur{s.nbCompteurs > 1 ? 's' : ''}
                         </span>
@@ -232,7 +232,7 @@ export function RattachementsContact({
                       {s.explicite && (
                         <span
                           title="Contact explicitement rattaché à ce site"
-                          className="shrink-0 rounded bg-[#f1ecf8] px-1.5 py-px text-[9.5px] font-bold uppercase tracking-wide text-[#7c5bb0]"
+                          className="shrink-0 rounded bg-[#f1ecf8] px-1.5 py-px text-km-tiny font-bold uppercase tracking-wide text-[#7c5bb0]"
                         >
                           Rattaché
                         </span>
@@ -375,7 +375,7 @@ function DialogChangerPrincipal({
           </Select>
         </FormField>
         {!q && candidats.length > 50 && (
-          <p className="text-[10.5px] text-km-faint">
+          <p className="text-km-xs text-km-faint">
             50 comptes sur {candidats.length} affichés — précisez la recherche pour trouver le bon.
           </p>
         )}
@@ -386,7 +386,7 @@ function DialogChangerPrincipal({
             onChange={(e) => setConserver(e.target.checked)}
             className="mt-0.5"
           />
-          <span className="text-[11px] leading-snug text-km-muted">
+          <span className="text-km-label leading-snug text-km-muted">
             Garder <span className="font-bold text-km-text">{actuel?.nom ?? 'l’ancien compte'}</span> en
             rattachement secondaire.
             <br />
@@ -450,7 +450,7 @@ function DialogRattacher({
           </Select>
         </FormField>
         {!q && candidats.length > 50 && (
-          <p className="text-[10.5px] text-km-faint">
+          <p className="text-km-xs text-km-faint">
             50 comptes sur {candidats.length} affichés — précisez la recherche pour trouver le bon.
           </p>
         )}

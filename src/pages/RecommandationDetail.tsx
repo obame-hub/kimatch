@@ -630,13 +630,13 @@ export default function RecommandationDetail() {
                 et c'est le nom qui reste modifiable, puisque c'est lui qui identifie le dossier
                 dans les listes. */}
             {reco.reference && (
-              <span className="font-mono text-[15px] font-bold tracking-[-0.01em] text-km-text">{reco.reference}</span>
+              <span className="font-mono text-km-name font-bold tracking-[-0.01em] text-km-text">{reco.reference}</span>
             )}
             {canManage ? (
               <InlineField
                 variant="text"
                 value={reco.titre}
-                className="text-[17px] font-bold tracking-tight text-km-text"
+                className="text-km-title font-bold tracking-tight text-km-text"
                 onCommit={async (titre) => {
                   // `nom` est NOT NULL en base -- et c'est la seule colonne affichée dans la liste
                   // des recommandations : vide, la ligne devient introuvable.
@@ -646,7 +646,7 @@ export default function RecommandationDetail() {
                 {...retourInline}
               />
             ) : (
-              <span className="text-[17px] font-bold tracking-tight text-km-text">{reco.titre}</span>
+              <span className="text-km-title font-bold tracking-tight text-km-text">{reco.titre}</span>
             )}
             {/* ══ LE BADGE PORTE LE STATUT DU DOSSIER — l'un des quatre de Michel ══
                    Brouillon · Active · À réactiver · Clôturée. Il affichait auparavant la FINALITÉ,
@@ -767,7 +767,7 @@ export default function RecommandationDetail() {
               {o.badge && (
                 <span
                   className={cn(
-                    'rounded-[9px] px-[7px] py-px text-[9.5px] font-extrabold',
+                    'rounded-[9px] px-[7px] py-px text-km-tiny font-extrabold',
                     actif ? 'bg-km-amber-soft text-[#8a4b2a]' : 'bg-km-soft text-km-muted',
                   )}
                 >

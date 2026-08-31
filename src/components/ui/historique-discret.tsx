@@ -20,7 +20,7 @@ export function HistoriqueDiscret({ tableNom, ligneId }: { tableNom: string; lig
   if (!ligneId) return null
 
   return (
-    <div className="mt-3 text-[11px] text-km-faint">
+    <div className="mt-3 text-km-label text-km-faint">
       <button
         type="button"
         onClick={() => setOpen((o) => !o)}

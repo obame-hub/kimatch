@@ -60,11 +60,15 @@ export function MenuCreer() {
         onClick={() => setOuvert((v) => !v)}
         aria-expanded={ouvert}
         aria-haspopup="menu"
+        /* LE SEUL BOUTON PLEIN DE LA BARRE, ET LE SEUL VERT FRANC. Naoelle, 31/08/2026 :
+           « mets le bouton creer en vert ». Il etait blanc bordé de gris, donc indistinguable des
+           deux selecteurs a sa gauche — alors que c'est la seule action de la barre.
+           Le vert plein est reserve a l'action positive, c'est la regle du dossier de Michel : il
+           n'y en a qu'un par ecran, et c'est celui-ci. Le bouton grandit de 28 a 30 px pour tenir
+           le poids de son fond. */
         className={cn(
-          'inline-flex h-7 items-center gap-1 rounded-km border px-2.5 text-km-label font-semibold transition-colors',
-          ouvert
-            ? 'border-km-green bg-km-green-soft text-km-green'
-            : 'border-km-line bg-km-surface text-km-text hover:bg-km-soft',
+          'inline-flex h-[30px] items-center gap-1.5 rounded-km px-3 text-km-label font-semibold text-white transition-colors',
+          ouvert ? 'bg-kiwi-700' : 'bg-km-green hover:bg-kiwi-700',
         )}
       >
         <Plus className="h-3.5 w-3.5" strokeWidth={2.2} />

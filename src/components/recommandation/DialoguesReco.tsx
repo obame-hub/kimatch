@@ -334,7 +334,7 @@ export function CotationWizard({
                   </span>
                   <div className="min-w-0">
                     <p className="truncate text-sm font-semibold text-km-text">{c.site_nom || 'Sans libellé'}</p>
-                    <p className="truncate font-mono text-[11px] text-km-faint">{c.numero_pdl}</p>
+                    <p className="truncate font-mono text-km-label text-km-faint">{c.numero_pdl}</p>
                   </div>
                   <span className="ml-auto shrink-0 text-xs text-km-faint">{selection.length}/3</span>
                 </div>
@@ -401,7 +401,7 @@ export function CotationWizard({
                     ))}
                   </div>
                 ) : (
-                  <p className="mt-2 text-[11px] text-amber-700">Sélectionne au moins une durée pour ce PDL.</p>
+                  <p className="mt-2 text-km-label text-amber-700">Sélectionne au moins une durée pour ce PDL.</p>
                 )}
               </div>
             )
@@ -468,7 +468,7 @@ export function CotationWizard({
               if (list.length === 0) return null
               return (
                 <div key={zone}>
-                  <p className="mb-1 text-[11px] font-semibold text-km-muted">{ZONE_LABEL_COTATION[zone] ?? 'Autre'}</p>
+                  <p className="mb-1 text-km-label font-semibold text-km-muted">{ZONE_LABEL_COTATION[zone] ?? 'Autre'}</p>
                   <div className="space-y-1 rounded-lg border border-km-line p-2">
                     {list.map((r) => (
                       <label key={r.fournisseur.id} className={`flex items-start gap-2 rounded-md p-1.5 text-sm ${r.eligible ? 'text-km-text hover:bg-km-bg' : 'text-km-faint'}`}>
@@ -478,7 +478,7 @@ export function CotationWizard({
                           {r.eligible ? (
                             <CheckCircle2 className="ml-1.5 inline h-3 w-3 text-km-green" />
                           ) : (
-                            <span className="ml-1.5 inline-flex items-center gap-1 text-[11px] text-amber-600" title={r.reasons.join(' · ')}>
+                            <span className="ml-1.5 inline-flex items-center gap-1 text-km-label text-amber-600" title={r.reasons.join(' · ')}>
                               <AlertTriangle className="h-3 w-3" /> {r.reasons[0]}
                             </span>
                           )}

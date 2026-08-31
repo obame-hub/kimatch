@@ -69,11 +69,11 @@ export function ActivityCard({
             pastel toujours clair, quel que soit le thème — le texte doit rester sombre dessus
             même en mode sombre (où text-km-text/500 basculeraient en clair et deviendraient illisibles). */}
         <p className="truncate text-xs font-medium" style={{ color: '#16181d' }}>{title}</p>
-        {subtitle && <p className="line-clamp-2 text-[11px] leading-snug" style={{ color: '#83868f' }}>{subtitle}</p>}
+        {subtitle && <p className="line-clamp-2 text-km-label leading-snug" style={{ color: '#83868f' }}>{subtitle}</p>}
         {body && (
           <p
             className={cn(
-              'mt-1 whitespace-pre-line rounded-md px-2 py-1 text-[11.5px] leading-snug',
+              'mt-1 whitespace-pre-line rounded-md px-2 py-1 text-km-label leading-snug',
               // Deplie : tout le texte. Replie : trois lignes, et on n'annonce « voir plus » que
               // s'il y a vraiment quelque chose de cache — un compte rendu de deux lignes ne doit
               // pas proposer un depliage qui ne montrerait rien.
@@ -88,14 +88,14 @@ export function ActivityCard({
           <button
             type="button"
             onClick={(e) => { e.stopPropagation(); setDeplie((v) => !v) }}
-            className="mt-0.5 text-[10.5px] font-semibold underline-offset-2 hover:underline"
+            className="mt-0.5 text-km-xs font-semibold underline-offset-2 hover:underline"
             style={{ color: style.fg }}
           >
             {deplie ? 'Réduire' : 'Voir tout le message'}
           </button>
         )}
       </div>
-      {trailing && <span className="shrink-0 text-[10px] font-medium" style={{ color: style.accent }}>{trailing}</span>}
+      {trailing && <span className="shrink-0 text-km-xs font-medium" style={{ color: style.accent }}>{trailing}</span>}
     </div>
   )
   if (href) return <a href={href} target="_blank" rel="noreferrer">{content}</a>

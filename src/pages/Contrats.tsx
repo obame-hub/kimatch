@@ -374,7 +374,7 @@ function CreateContratDialog({ open, onClose }: { open: boolean; onClose: () => 
                 <label key={c.key} className="flex items-center gap-2 text-sm text-km-text">
                   <input type="checkbox" checked={!!clauses[c.key]} onChange={(e) => setClauses((prev) => ({ ...prev, [c.key]: e.target.checked }))} />
                   {c.label}
-                  {recommandee && <span className="text-[10px] text-km-green">— recommandée pour {fournisseurActuel!.nom}</span>}
+                  {recommandee && <span className="text-km-xs text-km-green">— recommandée pour {fournisseurActuel!.nom}</span>}
                 </label>
               )
             })}
@@ -543,7 +543,7 @@ export default function Contrats({ sansEntete }: { sansEntete?: boolean }) {
                       <Icon className="h-4 w-4" />
                     </span>
                     <div>
-                      {c.id_salesforce && <p className="font-mono text-[11px] text-km-faint">{c.id_salesforce}</p>}
+                      {c.id_salesforce && <p className="font-mono text-km-label text-km-faint">{c.id_salesforce}</p>}
                       <p className="font-display font-medium text-km-text">{c.fournisseur_nom}</p>
                     </div>
                   </div>

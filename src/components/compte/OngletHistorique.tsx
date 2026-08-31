@@ -36,7 +36,7 @@ export function OngletHistorique({ entrees }: { entrees: HistoriqueEntry[] | und
 
       <div className="overflow-hidden rounded-xl border border-[#e7e6e2] bg-white">
         <div
-          className={`grid ${grille} border-b border-[#f0efec] px-[18px] py-[11px] text-[10px] font-bold uppercase tracking-[.05em] text-[#a3a5a0]`}
+          className={`grid ${grille} border-b border-[#f0efec] px-[18px] py-[11px] text-km-xs font-bold uppercase tracking-[.05em] text-[#a3a5a0]`}
         >
           <span>Quand</span>
           <span className="hidden md:block">Par</span>
@@ -49,7 +49,7 @@ export function OngletHistorique({ entrees }: { entrees: HistoriqueEntry[] | und
             key={h.id}
             className={`grid ${grille} items-center border-b border-[#f5f4f1] px-[18px] py-3 transition-colors last:border-b-0 hover:bg-[#fbfbfa]`}
           >
-            <span className="font-mono text-[10.5px] text-[#83868f]">
+            <span className="font-mono text-km-xs text-[#83868f]">
               {new Date(h.date_modification).toLocaleString('fr-FR', {
                 day: '2-digit',
                 month: '2-digit',
@@ -64,7 +64,7 @@ export function OngletHistorique({ entrees }: { entrees: HistoriqueEntry[] | und
                   nom propre, et on ne pouvait pas savoir lequel des dix collegues avait touche a
                   quoi. La forme dit maintenant la nature avant meme qu'on lise l'etiquette. */}
               {h.estUnePersonne ? (
-                <span className="inline-flex h-[22px] w-[22px] flex-none items-center justify-center rounded-full bg-[#e4ded2] text-[8.5px] font-bold text-[#6b6355]">
+                <span className="inline-flex h-[22px] w-[22px] flex-none items-center justify-center rounded-full bg-[#e4ded2] text-km-micro font-bold text-[#6b6355]">
                   {initiales(h.auteur)}
                 </span>
               ) : (
@@ -76,24 +76,24 @@ export function OngletHistorique({ entrees }: { entrees: HistoriqueEntry[] | und
                 </span>
               )}
               <span
-                className={`truncate text-[11.5px] ${h.estUnePersonne ? 'font-semibold' : 'italic text-km-muted'}`}
+                className={`truncate text-km-label ${h.estUnePersonne ? 'font-semibold' : 'italic text-km-muted'}`}
               >
                 {h.auteur}
               </span>
             </span>
             <span className="hidden md:block">
-              <span className="rounded-[5px] bg-[#f2f1ee] px-[7px] py-[3px] font-mono text-[10px] font-semibold text-[#5c5f66]">
+              <span className="rounded-[5px] bg-[#f2f1ee] px-[7px] py-[3px] font-mono text-km-xs font-semibold text-[#5c5f66]">
                 {h.champ_libelle}
               </span>
             </span>
             <span className="flex min-w-0 flex-wrap items-center gap-[9px]">
               {h.ancienne_valeur && (
                 <>
-                  <span className="text-[11.5px] text-[#a3a5a0] line-through">{h.ancienne_valeur}</span>
-                  <span className="text-[11px] text-[#c9cbc6]">→</span>
+                  <span className="text-km-label text-[#a3a5a0] line-through">{h.ancienne_valeur}</span>
+                  <span className="text-km-label text-[#c9cbc6]">→</span>
                 </>
               )}
-              <span className="text-[11.5px] font-bold text-[#0d7a5f]">{h.nouvelle_valeur ?? '—'}</span>
+              <span className="text-km-label font-bold text-[#0d7a5f]">{h.nouvelle_valeur ?? '—'}</span>
             </span>
           </div>
         ))}
@@ -101,7 +101,7 @@ export function OngletHistorique({ entrees }: { entrees: HistoriqueEntry[] | und
         {lignes.length === 0 ? (
           <p className="p-4 text-xs text-[#83868f]">Aucune modification enregistrée.</p>
         ) : (
-          <div className="px-[18px] py-2.5 text-[10.5px] text-[#a3a5a0]">
+          <div className="px-[18px] py-2.5 text-km-xs text-[#a3a5a0]">
             Chaque modification de champ est tracée automatiquement — champ, auteur, horodatage,
             ancienne et nouvelle valeur.
           </div>

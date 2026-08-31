@@ -284,7 +284,7 @@ function CarteRequete({ requete, statuts, onStatut, onResolution, onRattachement
           </span>
           <div className="min-w-0">
             <p className="truncate text-sm font-semibold text-km-text">{requete.objet || 'Sans objet'}</p>
-            <p className="truncate text-[11px] text-km-muted">
+            <p className="truncate text-km-label text-km-muted">
               {requete.reference && <span className="font-mono text-km-faint">{requete.reference} · </span>}
               {[categorie?.libelle, requete.compte_id ? undefined : 'compte non rattaché'].filter(Boolean).join(' · ')}
               {requete.compte_id && (
@@ -306,7 +306,7 @@ function CarteRequete({ requete, statuts, onStatut, onResolution, onRattachement
           arrive souvent avant qu'on sache de quel compteur il s'agit — l'information se complète au
           téléphone, donc elle doit pouvoir se saisir sans repasser par une création. */}
       {(requete.site_nom || requete.compteur_numero || requete.contact_nom) && (
-        <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 text-[11px] text-km-muted">
+        <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 text-km-label text-km-muted">
           {requete.site_nom && (
             <span>
               <span className="text-km-faint">Site : </span>
@@ -346,7 +346,7 @@ function CarteRequete({ requete, statuts, onStatut, onResolution, onRattachement
               <button
                 type="button"
                 onClick={() => setPrecise(false)}
-                className="mt-2 text-[10.5px] font-semibold text-km-muted hover:underline"
+                className="mt-2 text-km-xs font-semibold text-km-muted hover:underline"
               >
                 Terminé
               </button>
@@ -355,7 +355,7 @@ function CarteRequete({ requete, statuts, onStatut, onResolution, onRattachement
             <button
               type="button"
               onClick={() => setPrecise(true)}
-              className="text-[10.5px] font-semibold text-km-green hover:underline"
+              className="text-km-xs font-semibold text-km-green hover:underline"
             >
               {requete.site_nom || requete.compteur_numero || requete.contact_nom
                 ? 'Modifier le rattachement'
@@ -366,7 +366,7 @@ function CarteRequete({ requete, statuts, onStatut, onResolution, onRattachement
       )}
 
       {requete.date_echeance && (
-        <p className={cn('mt-1.5 text-[10.5px]', enRetard ? 'font-semibold text-km-red' : 'text-km-faint')}>
+        <p className={cn('mt-1.5 text-km-xs', enRetard ? 'font-semibold text-km-red' : 'text-km-faint')}>
           Échéance : {new Date(requete.date_echeance).toLocaleDateString('fr-FR')}
           {enRetard && ' — dépassée'}
         </p>
@@ -392,7 +392,7 @@ function CarteRequete({ requete, statuts, onStatut, onResolution, onRattachement
             type="button"
             onClick={() => onStatut(s.id, s.code)}
             className={cn(
-              'rounded-lg border px-2.5 py-1 text-[11px] font-semibold transition-colors',
+              'rounded-lg border px-2.5 py-1 text-km-label font-semibold transition-colors',
               requete.statut === s.code
                 ? 'border-km-green bg-kiwi-50 text-km-green'
                 : 'border-km-line text-km-muted hover:bg-km-bg',
@@ -414,7 +414,7 @@ function Tuile({ libelle, valeur, accent }: { libelle: string; valeur: string; a
       'rounded-[13px] border bg-white px-3.5 py-3',
       accent === 'kiwi' ? 'border-kiwi-200 bg-kiwi-50/50' : accent === 'rouge' ? 'border-red-200 bg-km-red-soft' : 'border-km-line',
     )}>
-      <p className="text-[10px] font-bold uppercase tracking-[0.08em] text-km-faint">{libelle}</p>
+      <p className="text-km-xs font-bold uppercase tracking-[0.08em] text-km-faint">{libelle}</p>
       <p className={cn(
         'mt-0.5 font-mono text-lg font-extrabold tabular-nums',
         accent === 'rouge' ? 'text-red-700' : accent === 'kiwi' ? 'text-km-green' : 'text-km-text',

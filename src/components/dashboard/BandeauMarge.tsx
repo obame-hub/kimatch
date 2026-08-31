@@ -78,7 +78,7 @@ export function BandeauMarge({
             <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-km-lg bg-km-green text-white">
               <Euro className="h-5 w-5" strokeWidth={2.4} />
             </span>
-            <p className="font-mono text-[27px] font-extrabold leading-none tabular-nums text-km-text">
+            <p className="font-mono text-km-metric-lg font-bold leading-none tabular-nums text-km-text">
               {chargement || !c ? '—' : euros(c.margeMois)}
             </p>
           </div>

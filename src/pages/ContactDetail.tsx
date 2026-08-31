@@ -188,7 +188,7 @@ export default function ContactDetail() {
             <p className="truncate text-xl font-bold tracking-tight text-km-text">{contact.civilite ? `${contact.civilite} ` : ''}{contact.prenom} {contact.nom}</p>
             {contact.contact_principal && <Badge tone="amber"><Star className="h-3 w-3" /> Contact principal</Badge>}
             {estSignataire && (
-              <span className="inline-flex items-center gap-1 rounded-full bg-km-amber-soft px-2.5 py-0.5 text-[10px] font-bold text-amber-700">
+              <span className="inline-flex items-center gap-1 rounded-full bg-km-amber-soft px-2.5 py-0.5 text-km-xs font-bold text-amber-700">
                 <FileCheck2 className="h-3 w-3" /> SIGNATAIRE
               </span>
             )}
@@ -196,7 +196,7 @@ export default function ContactDetail() {
           <p className="truncate text-xs text-km-muted">
             {contact.fonction || '—'} · <EntityLink to={`/comptes/${contact.compte_id}`}>{contact.compte_nom}</EntityLink>
           </p>
-          <p className="truncate text-[10.5px] text-km-faint">
+          <p className="truncate text-km-xs text-km-faint">
             {contact.date_creation && <>Créé le {new Date(contact.date_creation).toLocaleDateString('fr-FR')} · </>}
             Propriétaire : {contact.proprietaire_nom || 'Aucun'}
           </p>
@@ -220,7 +220,7 @@ export default function ContactDetail() {
               type="button"
               onClick={() => setConfirmDelete(true)}
               title="Supprimer ce contact"
-              className="inline-flex cursor-pointer items-center gap-1.5 rounded-[9px] border border-[#e0dfdb] bg-white px-3 py-2 text-[11.5px] font-semibold text-[#5c5f66] transition-all duration-[140ms] hover:border-[#f0c8bd] hover:bg-[#fbeae5] hover:text-[#c2452d]"
+              className="inline-flex cursor-pointer items-center gap-1.5 rounded-[9px] border border-[#e0dfdb] bg-white px-3 py-2 text-km-label font-semibold text-[#5c5f66] transition-all duration-[140ms] hover:border-[#f0c8bd] hover:bg-[#fbeae5] hover:text-[#c2452d]"
             >
               <Trash2 className="h-3 w-3" /> Supprimer
             </button>
@@ -238,7 +238,7 @@ export default function ContactDetail() {
               type="button"
               onClick={() => setTab(t.key)}
               className={cn(
-                'mb-2.5 inline-flex shrink-0 items-center gap-1.5 whitespace-nowrap rounded-full px-3.5 py-2 text-[12.5px] font-semibold transition-colors lg:mb-0 lg:rounded-none lg:border-b-2 lg:px-3 lg:py-2.5 lg:font-normal',
+                'mb-2.5 inline-flex shrink-0 items-center gap-1.5 whitespace-nowrap rounded-full px-3.5 py-2 text-km-body font-semibold transition-colors lg:mb-0 lg:rounded-none lg:border-b-2 lg:px-3 lg:py-2.5 lg:font-normal',
                 isActive
                   ? 'bg-ink-800 text-white lg:border-navy-800 lg:bg-transparent lg:font-semibold lg:text-km-text'
                   : 'border border-km-line bg-white text-km-muted hover:bg-km-bg lg:border-0 lg:border-b-2 lg:border-transparent lg:text-km-muted lg:hover:bg-transparent lg:hover:text-km-text',
@@ -246,7 +246,7 @@ export default function ContactDetail() {
             >
               {t.label}
               {t.badge && (
-                <span className={cn('rounded px-1.5 py-0.5 text-[9.5px] font-bold', isActive ? 'bg-white/20 text-white lg:bg-km-soft lg:text-km-muted' : 'bg-km-soft text-km-muted')}>
+                <span className={cn('rounded px-1.5 py-0.5 text-km-tiny font-bold', isActive ? 'bg-white/20 text-white lg:bg-km-soft lg:text-km-muted' : 'bg-km-soft text-km-muted')}>
                   {t.badge}
                 </span>
               )}
@@ -264,22 +264,22 @@ export default function ContactDetail() {
                 <span className="flex h-5 w-5 items-center justify-center rounded-md bg-sky-100 text-sky-500">
                   <Building2 className="h-2.5 w-2.5" />
                 </span>
-                <span className="text-[10px] font-bold uppercase tracking-wide text-km-faint">Compte</span>
+                <span className="text-km-xs font-bold uppercase tracking-wide text-km-faint">Compte</span>
                 <div className="flex-1" />
                 <EntityLink to={`/comptes/${compte.id}`}>ouvrir →</EntityLink>
               </div>
-              <p className="text-[13px] font-bold text-sky-500">{compte.nom}</p>
-              <p className="mt-1 text-[11px] text-km-muted">{compte.segment} · {compte.nb_sites} site{compte.nb_sites > 1 ? 's' : ''}</p>
+              <p className="text-km-body font-bold text-sky-500">{compte.nom}</p>
+              <p className="mt-1 text-km-label text-km-muted">{compte.segment} · {compte.nb_sites} site{compte.nb_sites > 1 ? 's' : ''}</p>
             </div>
           )}
 
           <div className="rounded-xl border border-km-line bg-white p-3.5">
             <div className="mb-2.5 flex items-center gap-1.5">
-              <span className="text-[10px] font-bold uppercase tracking-wide text-km-faint">Nos échanges</span>
+              <span className="text-km-xs font-bold uppercase tracking-wide text-km-faint">Nos échanges</span>
             </div>
             <div className="flex items-baseline gap-2">
               <span className="text-2xl font-bold tracking-tight text-km-text">{interactionsDuContact.length}</span>
-              <span className="text-[10.5px] text-km-muted">
+              <span className="text-km-xs text-km-muted">
                 échange{interactionsDuContact.length > 1 ? 's' : ''}
                 {dernierEchange && (
                   <>
@@ -296,7 +296,7 @@ export default function ContactDetail() {
           {tab === 'contact' && (
             <div className="flex flex-col gap-3.5">
               <div className="rounded-xl border border-km-line bg-white p-4">
-                <p className="mb-2.5 text-[10px] font-bold uppercase tracking-wide text-km-faint">Coordonnées</p>
+                <p className="mb-2.5 text-km-xs font-bold uppercase tracking-wide text-km-faint">Coordonnées</p>
                 {/* Édition au clic sur la valeur, et non par un bouton « Modifier » : « c'était pas
                     d'appuyer sur le bouton, c'était d'appuyer sur le champ » (William, 13/08/2026).
                     Les liens tel: et mailto: restent affichés à côté, sinon on perdrait l'appel en
@@ -412,7 +412,7 @@ export default function ContactDetail() {
                 >
                   <div className="min-w-0 flex-1">
                     <p className="truncate text-sm font-bold text-km-text">{ct.fournisseur_nom}</p>
-                    <p className="truncate text-[10.5px] text-km-faint">{ct.site_nom}</p>
+                    <p className="truncate text-km-xs text-km-faint">{ct.site_nom}</p>
                   </div>
                 </div>
               ))}
@@ -435,7 +435,7 @@ export default function ContactDetail() {
                     <p className="truncate text-sm font-bold text-km-text">
                       {m.nb_sites_couverts} site{m.nb_sites_couverts > 1 ? 's' : ''} couvert{m.nb_sites_couverts > 1 ? 's' : ''}
                     </p>
-                    <p className="truncate text-[10.5px] text-km-faint">{m.contact_signataire_id === id ? 'Signataire de ce mandat' : m.contact_signataire_nom ?? '—'}</p>
+                    <p className="truncate text-km-xs text-km-faint">{m.contact_signataire_id === id ? 'Signataire de ce mandat' : m.contact_signataire_nom ?? '—'}</p>
                   </div>
                   <Badge tone={STATUT_MANDAT_TONE[m.statut] ?? 'neutral'}>{statutsMandats.find((s) => s.code === m.statut)?.libelle ?? m.statut}</Badge>
                 </div>
@@ -463,7 +463,7 @@ export default function ContactDetail() {
                       <Badge tone={ETAPE_TONE[r.etape] ?? 'amber'}>{etapes.find((e) => e.code === r.etape)?.libelle ?? r.etape}</Badge>
                     </div>
                     {derniereVersion && (
-                      <p className="ml-9 mt-1.5 text-[11px] text-km-faint">
+                      <p className="ml-9 mt-1.5 text-km-label text-km-faint">
                         {derniereVersion.nom || 'Version'} · {statutsVersions.find((s) => s.code === derniereVersion.statut)?.libelle ?? derniereVersion.statut}
                       </p>
                     )}
@@ -491,7 +491,7 @@ export default function ContactDetail() {
                     <p className="flex-1 truncate text-sm font-bold text-km-text">{d.nom}</p>
                     {d.type_document && <Badge tone="neutral">{d.type_document}</Badge>}
                   </div>
-                  <p className="ml-9 mt-1.5 text-[11px] text-km-faint">
+                  <p className="ml-9 mt-1.5 text-km-label text-km-faint">
                     {d.auteur ? `${d.auteur} · ` : ''}
                     {new Date(d.date_creation).toLocaleDateString('fr-FR')}
                   </p>
@@ -504,7 +504,7 @@ export default function ContactDetail() {
         {/* Colonne droite — Activité persistante (desktop uniquement) */}
         <div className="hidden flex-col border-l border-km-line bg-white lg:flex">
           <div className="flex items-center gap-2 px-3.5 py-3">
-            <span className="text-[10px] font-bold uppercase tracking-wide text-km-faint">Activité</span>
+            <span className="text-km-xs font-bold uppercase tracking-wide text-km-faint">Activité</span>
           </div>
           <div className="min-h-0 flex-1 overflow-hidden px-3.5 pb-3.5">
             <ActivityFeed

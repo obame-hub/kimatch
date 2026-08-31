@@ -129,7 +129,7 @@ export function WizardConnectionGate({
                   </div>
                   <p className="mt-0.5 text-xs text-km-muted">{meta.description}</p>
                   {!ok && !onConnect && indices[key] && (
-                    <p className="mt-1 text-[11px] text-amber-700">{indices[key]}</p>
+                    <p className="mt-1 text-km-label text-amber-700">{indices[key]}</p>
                   )}
                 </div>
               </div>

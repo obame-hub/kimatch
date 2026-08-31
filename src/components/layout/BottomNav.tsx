@@ -28,14 +28,14 @@ export function BottomNav() {
           {({ isActive }) => (
             <>
               <Icon className={cn('h-[18px] w-[18px]', isActive && tint)} />
-              <span className={cn('text-[9px] font-semibold', isActive && tint)}>{label}</span>
+              <span className={cn('text-km-tiny font-semibold', isActive && tint)}>{label}</span>
             </>
           )}
         </NavLink>
       ))}
       <button type="button" onClick={toggle} className="flex flex-1 flex-col items-center gap-0.5 py-1.5 text-km-faint">
         <Menu className="h-[18px] w-[18px]" />
-        <span className="text-[9px] font-semibold">Plus</span>
+        <span className="text-km-tiny font-semibold">Plus</span>
       </button>
     </nav>
   )
