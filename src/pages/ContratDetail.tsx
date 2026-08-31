@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { ApercuDocument } from '@/components/document/ApercuDocument'
 import { useParams, useNavigate } from 'react-router-dom'
 import { ArrowLeft, Zap, Flame, Lightbulb, Trash2, Building2, MapPin, Gauge, FileText, Plus, Euro, X, Eye, PenLine, Check, ExternalLink, Send, MailOpen, FileSignature, PenTool } from 'lucide-react'
@@ -1362,6 +1362,48 @@ function DialogSignatureContrat({
 function BlocEnvoiSignature({ contrat, signaler }: { contrat: Contrat; signaler: (m: string) => void }) {
   const [etat, setEtat] = useState<EtatEnveloppe | null>(null)
   const [enCours, setEnCours] = useState(false)
+
+  /* ══ ON DEMANDE À DOCUSIGN DÈS L'OUVERTURE DE LA FICHE ═══════════════════════════════════════
+
+     Naoëlle, 31/08/2026 : « il faut que quand la personne signe le contrat ou le mandat, ça passe
+     direct au statut signé, il faut pas attendre quelques heures ». Elle a raison, et l'attente
+     n'était pas le bon compromis.
+
+     Le chemin immédiat est la notification DocuSign, et il est désormais fiable : chaque enveloppe
+     porte sa propre demande de notification (voir `demandeDeNotification` dans _client.ts), au lieu
+     de dépendre d'un réglage de compte que personne ne peut vérifier.
+
+     Ce contrôle-ci couvre l'autre moitié du problème : les enveloppes DÉJÀ parties, créées avant ce
+     changement, et le cas où la notification se perd malgré tout. Ouvrir la fiche est exactement le
+     moment où quelqu'un a besoin de la vérité — c'est même la seule raison d'ouvrir la fiche d'un
+     contrat en attente de signature.
+
+     IL NE PART QUE SI L'ÉTAT PEUT ENCORE CHANGER. Un contrat signé, refusé ou annulé ne bougera
+     plus : le redemander serait un appel DocuSign par consultation de fiche, pour rien. Et il ne
+     dit rien à l'écran quand il ne trouve aucun écart — une notification « rien n'a changé » à
+     chaque ouverture serait du bruit. Il ne parle que lorsqu'il corrige quelque chose. */
+  const envelopeId = contrat.docusign_envelope_id
+  const etatFige = ['SIGNE', 'REFUSE', 'ANNULE'].includes(contrat.statut_signature ?? '')
+  useEffect(() => {
+    if (!envelopeId || etatFige) return
+    let vivant = true
+    void etatEnveloppeContrat(contrat.id)
+      .then((r) => {
+        if (!vivant) return
+        setEtat(r)
+        if (r.corrige) signaler('Statut corrigé d’après DocuSign — la notification n’était pas arrivée.')
+      })
+      .catch(() => {
+        /* Silencieux VOLONTAIREMENT. Un compte DocuSign non connecté, une session expirée ou un
+           réseau coupé ne doivent pas jeter une erreur au visage de quelqu'un qui vient seulement
+           lire une fiche : le bouton « Vérifier auprès de DocuSign » est juste en dessous et, lui,
+           dira ce qui n'a pas marché. */
+      })
+    return () => {
+      vivant = false
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [contrat.id, envelopeId, etatFige])
 
   if (!contrat.docusign_envelope_id) return null
 

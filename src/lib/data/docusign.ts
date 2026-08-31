@@ -225,10 +225,23 @@ export interface EtatEnveloppe {
  * base d'accord avec lui — c'est la seule réponse qui ne demande pas de faire confiance.
  */
 export async function etatEnveloppeContrat(contratId: string): Promise<EtatEnveloppe> {
+  return etatEnveloppe({ contratId })
+}
+
+/** Le même appel pour un mandat. Michel, 31/08/2026 : cinq mandats étaient bloqués sans qu'aucun
+ *  écran ne permette de demander à DocuSign où ils en étaient. */
+export async function etatEnveloppeMandat(mandatId: string): Promise<EtatEnveloppe> {
+  return etatEnveloppe({ mandatId })
+}
+
+async function etatEnveloppe(cible: { contratId?: string; mandatId?: string }): Promise<EtatEnveloppe> {
   const { data } = await supabase.auth.getSession()
   const token = data.session?.access_token
   if (!token) throw new Error('Non authentifié.')
-  const res = await fetch(`/api/docusign/etat-enveloppe?contratId=${encodeURIComponent(contratId)}`, {
+  const parametre = cible.contratId
+    ? `contratId=${encodeURIComponent(cible.contratId)}`
+    : `mandatId=${encodeURIComponent(cible.mandatId as string)}`
+  const res = await fetch(`/api/docusign/etat-enveloppe?${parametre}`, {
     headers: { Authorization: `Bearer ${token}` },
   })
   const resultat = (await res.json()) as EtatEnveloppe & { error?: string; code?: string }

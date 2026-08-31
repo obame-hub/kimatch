@@ -29,11 +29,25 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     return
   }
 
+  /* UN MANDAT OU UN CONTRAT. Cet appel ne connaissait que les contrats, et les cinq mandats
+     bloques du 31/08/2026 n'avaient donc aucun moyen d'etre verifies — ni bouton, ni appel. On ne
+     pouvait que constater le blocage sans jamais pouvoir demander a DocuSign ce qu'il en pensait.
+
+     Les deux objets portent les memes colonnes (`docusign_envelope_id`, `statut_signature`,
+     `date_envoi_signature`, `date_signature`), donc le reste du traitement est identique : seule la
+     table change. */
   const contratId = typeof req.query.contratId === 'string' ? req.query.contratId : null
-  if (!contratId) {
-    res.status(400).json({ error: 'contratId requis' })
+  const mandatId = typeof req.query.mandatId === 'string' ? req.query.mandatId : null
+  if (!contratId && !mandatId) {
+    res.status(400).json({ error: 'contratId ou mandatId requis' })
     return
   }
+  if (contratId && mandatId) {
+    res.status(400).json({ error: 'contratId ou mandatId, pas les deux' })
+    return
+  }
+  const table = contratId ? 'contrats' : 'mandats'
+  const objetId = (contratId ?? mandatId) as string
 
   const admin = clientAdmin()
   if (!admin) {
@@ -42,12 +56,12 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   }
 
   const { data: contrat } = await admin
-    .from('contrats')
+    .from(table)
     .select('id, docusign_envelope_id, statut_signature')
-    .eq('id', contratId)
+    .eq('id', objetId)
     .maybeSingle()
   if (!contrat) {
-    res.status(404).json({ error: 'Contrat introuvable' })
+    res.status(404).json({ error: contratId ? 'Contrat introuvable' : 'Mandat introuvable' })
     return
   }
   if (!contrat.docusign_envelope_id) {
@@ -87,7 +101,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     const statut = env.status ? PAR_STATUT[env.status] : undefined
     if (statut && statut !== contrat.statut_signature) {
       await admin
-        .from('contrats')
+        .from(table)
         .update({
           statut_signature: statut,
           ...(env.sentDateTime ? { date_envoi_signature: env.sentDateTime } : {}),

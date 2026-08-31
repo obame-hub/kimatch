@@ -649,23 +649,26 @@ export default function RecommandationDetail() {
                 le sujet de la page — la version qu'on a ouverte ensuite. Chacune porte son propre
                 intitulé, donc plus rien à deviner.
 
-                La finalité reste collée au statut du dossier quand il est clos : « CLÔTURÉE ·
-                ACCEPTÉE » dit deux choses vraies. */}
+                ET LA PASTILLE NE PORTE QUE LE STATUT. Naoëlle, 31/08/2026 : « dans les statuts de
+                recommandation y a pas clôturée acceptée refusé ou expiré, c'est juste à réactivé ou
+                clôturée ». Sa table « Vue globale des statuts » le dit ligne par ligne : un dossier
+                vaut Brouillon, Active, À réactiver ou Clôturée, et rien d'autre.
+
+                J'écrivais « CLÔTURÉE · ACCEPTÉE » dans une seule pastille. Les deux mots sont vrais
+                mais ils ne sont pas de même nature : le premier est le statut, le second est le
+                RÉSULTAT — pourquoi le dossier s'est arrêté. Collés dans la même pastille, ils
+                fabriquent un cinquième statut qui n'existe pas.
+
+                Le résultat n'est pas perdu pour autant : il a sa propre ligne, sous le nom
+                « Résultat », juste en dessous. C'est ce qui distingue les deux dernières lignes de
+                sa table — « décision terminée » laisse le dossier à réactiver, « dossier terminé »
+                le clôt — donc il doit se lire, mais séparément. */}
             <span className="inline-flex flex-col items-start gap-[3px]">
               <span
                 className="whitespace-nowrap rounded-kw-pill border px-[11px] py-[3px] text-km-label font-extrabold tracking-[0.05em]"
-                style={
-                  estClose && finalite
-                    ? { color: FINALITES_RECOMMANDATION[finalite].couleur, background: FINALITES_RECOMMANDATION[finalite].fond, borderColor: FINALITES_RECOMMANDATION[finalite].bordure }
-                    : { color: '#8a4b2a', background: '#f7ece3', borderColor: '#ecdcc2' }
-                }
+                style={{ color: '#8a4b2a', background: '#f7ece3', borderColor: '#ecdcc2' }}
               >
-                {(() => {
-                  const statut = (etapes.find((e) => e.code === reco.etape)?.libelle ?? reco.etape ?? '').toUpperCase()
-                  return estClose && finalite
-                    ? `${statut} · ${FINALITES_RECOMMANDATION[finalite].libelle.toUpperCase()}`
-                    : statut
-                })()}
+                {(etapes.find((e) => e.code === reco.etape)?.libelle ?? reco.etape ?? '').toUpperCase()}
               </span>
               {/* LA LIGNE DE LA VERSION SE TAIT S'IL N'Y EN A AUCUNE. Une pastille « aucune
                   version » n'apprendrait rien : le statut « Brouillon » juste au-dessus le dit
@@ -673,6 +676,21 @@ export default function RecommandationDetail() {
               {versionAffichee && (
                 <span className="whitespace-nowrap rounded-kw-pill border border-km-line bg-km-soft px-[11px] py-[3px] text-km-label font-bold tracking-[0.04em] text-km-muted">
                   {`V${versionAffichee.numero_version ?? ''} · ${(statutsVersions.find((s) => s.code === versionAffichee.statut)?.libelle ?? versionAffichee.statut ?? '').toUpperCase()}`}
+                </span>
+              )}
+              {/* LE RÉSULTAT est écrit « Résultat : Acceptée », en clair. Le mot devant le mot
+                  évite qu'on le prenne pour un troisième statut, et il ne s'affiche que lorsqu'il
+                  y en a un — donc jamais sur un dossier en cours. */}
+              {estClose && finalite && (
+                <span
+                  className="whitespace-nowrap rounded-kw-pill border px-[11px] py-[3px] text-km-label font-bold tracking-[0.04em]"
+                  style={{
+                    color: FINALITES_RECOMMANDATION[finalite].couleur,
+                    background: FINALITES_RECOMMANDATION[finalite].fond,
+                    borderColor: FINALITES_RECOMMANDATION[finalite].bordure,
+                  }}
+                >
+                  {`RÉSULTAT : ${FINALITES_RECOMMANDATION[finalite].libelle.toUpperCase()}`}
                 </span>
               )}
             </span>
@@ -856,8 +874,11 @@ export default function RecommandationDetail() {
                 {clotureOuverte && !estClose && (
                   <div className="mt-2.5 animate-kw-fade-slide rounded-km-lg border-[1.5px] border-[#dcc39c] bg-km-amber-soft px-[13px] py-[11px]">
                     <div className="mb-2 flex flex-wrap items-center gap-2">
+                      {/* « Quelle clôture a eu lieu ? » suivi de trois boutons donnait à croire
+                          qu'on choisissait un statut de clôture. On choisit un RÉSULTAT : le statut,
+                          lui, sera Clôturée quel que soit le bouton. */}
                       <span className="min-w-[160px] flex-1 self-center text-km-body text-km-muted">
-                        Quelle clôture a eu lieu ?
+                        Résultat de ce dossier ?
                       </span>
                       {/* Les trois finalités de la base, pas les cinq du dessin : remapper aurait
                           réinterprété 1573 recommandations closes (décision du 16/08/2026). */}

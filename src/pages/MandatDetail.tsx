@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { ArrowLeft, FileCheck2, FileSignature, Trash2, Building2, MapPin, Gauge, FileText, Phone, Mail } from 'lucide-react'
 import { Topbar } from '@/components/layout/Topbar'
@@ -21,7 +21,7 @@ import { useReferenceTable, type ReferenceRow } from '@/lib/data/referenceTables
 import { useCanManage, useIsAdmin, useProfilsAdmin } from '@/lib/data/roles'
 import { useSuppression } from '@/lib/useSuppression'
 import { FALLBACK_STATUTS_MANDATS, STATUT_MANDAT_TONE, FALLBACK_TYPES_DOCUMENTS } from '@/lib/referenceFallbacks'
-import { sendMandatForSignature, connectDocusign, DocusignNonConnecte } from '@/lib/data/docusign'
+import { sendMandatForSignature, connectDocusign, DocusignNonConnecte, etatEnveloppeMandat } from '@/lib/data/docusign'
 import { useValiderMandatManuellement } from '@/lib/data/mandats'
 import { useGoBack } from '@/lib/useGoBack'
 import { useRaccourcisOnglets } from '@/lib/useRaccourcisOnglets'
@@ -258,7 +258,53 @@ function ValiderManuellementDialog({
   )
 }
 
-function ConversionPathCard({ mandat }: { mandat: Mandat }) {
+/**
+ * LE CHEMIN DE CONVERSION DEMANDE À DOCUSIGN OÙ ON EN EST.
+ *
+ * ── POURQUOI CETTE CARTE A CHANGÉ ─────────────────────────────────────────────────────────────
+ *
+ * Elle lisait la base, et rien d'autre. Or la base n'apprend qu'un mandat a été signé que si une
+ * notification DocuSign nous parvient — et le 31/08/2026 cinq mandats étaient bloqués faute de
+ * l'avoir reçue : CABINET MOLINIER et KIWEE ENERGIE FRANCE à « À préparer » depuis le 14 et le 15
+ * août, Cabinet Louis Porcheret, TRANTRANYUE et RGR BY CABINET WURM à « Envoyé » depuis le 20 et le
+ * 25. La fiche du mandat n'offrait AUCUN moyen de vérifier : ni bouton, ni appel. On ne pouvait que
+ * constater le blocage.
+ *
+ * La fiche du contrat, elle, avait ce bouton depuis le 21/08. Le mandat ne l'a jamais eu — c'est
+ * pourtant sur les mandats que les blocages se sont accumulés.
+ *
+ * ── DEUX PRÉCAUTIONS ──────────────────────────────────────────────────────────────────────────
+ *
+ * L'appel ne part que si le mandat peut encore bouger. Un mandat actif, signé, refusé, annulé ou
+ * expiré ne changera plus : le redemander serait un appel DocuSign par consultation de fiche.
+ *
+ * Et il se tait quand il ne corrige rien. Une notification « rien n'a changé » à chaque ouverture
+ * serait du bruit ; on ne parle que lorsqu'on a rattrapé un retard.
+ */
+function ConversionPathCard({ mandat, signaler }: { mandat: Mandat; signaler: (m: string) => void }) {
+  const [verifie, setVerifie] = useState(false)
+  const envelopeId = mandat.docusign_envelope_id
+  const etatFige = ['ACTIF', 'SIGNE', 'REFUSE', 'ANNULE', 'EXPIRE'].includes(mandat.statut ?? '')
+
+  useEffect(() => {
+    if (!envelopeId || etatFige) return
+    let vivant = true
+    void etatEnveloppeMandat(mandat.id)
+      .then((r) => {
+        if (!vivant) return
+        setVerifie(true)
+        if (r.corrige) signaler('Statut corrigé d’après DocuSign — la notification n’était pas arrivée.')
+      })
+      .catch(() => {
+        /* Silencieux volontairement : une session DocuSign absente ne doit pas jeter une erreur à
+           quelqu'un qui vient seulement lire une fiche. Le bouton, lui, dira ce qui a échoué. */
+      })
+    return () => {
+      vivant = false
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [mandat.id, envelopeId, etatFige])
+
   const step = mandat.date_signature ? 2 : mandat.date_envoi || mandat.docusign_envelope_id ? 1 : 0
   const steps = [
     { label: 'Brouillon', icon: FileCheck2 },
@@ -267,7 +313,15 @@ function ConversionPathCard({ mandat }: { mandat: Mandat }) {
   ]
   return (
     <div className="rounded-xl border border-km-line bg-white p-4">
-      <p className="mb-3 text-[10px] font-bold uppercase tracking-wide text-km-faint">Chemin de conversion</p>
+      <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
+        <p className="text-[10px] font-bold uppercase tracking-wide text-km-faint">Chemin de conversion</p>
+        {/* LE BOUTON RESTE, même si l'appel automatique est déjà parti : c'est lui qui dit ce qui
+            n'a pas marché quand l'automatique a échoué en silence, et c'est ce qu'on cherche quand
+            on doute. Il disparaît sur un mandat dont l'état ne peut plus changer. */}
+        {envelopeId && !etatFige && (
+          <VerifierEnveloppeMandat mandatId={mandat.id} signaler={signaler} dejaVerifie={verifie} />
+        )}
+      </div>
       <div className="flex items-center">
         {steps.map((s, i) => (
           <div key={s.label} className="flex flex-1 items-center last:flex-none">
@@ -289,6 +343,43 @@ function ConversionPathCard({ mandat }: { mandat: Mandat }) {
         ))}
       </div>
     </div>
+  )
+}
+
+/** Le bouton « Vérifier auprès de DocuSign » du mandat, jumeau de celui de la fiche contrat. */
+function VerifierEnveloppeMandat({
+  mandatId,
+  signaler,
+  dejaVerifie,
+}: {
+  mandatId: string
+  signaler: (m: string) => void
+  dejaVerifie: boolean
+}) {
+  const [enCours, setEnCours] = useState(false)
+  return (
+    <button
+      type="button"
+      disabled={enCours}
+      onClick={async () => {
+        setEnCours(true)
+        try {
+          const r = await etatEnveloppeMandat(mandatId)
+          signaler(
+            r.corrige
+              ? 'Statut corrigé d’après DocuSign — la notification n’était pas arrivée.'
+              : `DocuSign confirme : ${r.statutDocusign ?? 'état inconnu'}, rien n'a changé.`,
+          )
+        } catch (err) {
+          signaler(err instanceof Error ? err.message : 'Vérification impossible')
+        } finally {
+          setEnCours(false)
+        }
+      }}
+      className="rounded-km border border-km-line bg-km-surface px-2.5 py-1 text-[10.5px] font-semibold text-km-text transition-colors hover:bg-km-soft disabled:opacity-60"
+    >
+      {enCours ? 'Vérification…' : dejaVerifie ? 'Revérifier auprès de DocuSign' : 'Vérifier auprès de DocuSign'}
+    </button>
   )
 }
 
@@ -555,7 +646,7 @@ export default function MandatDetail() {
         <div className="bg-km-bg p-4 sm:p-5">
           {tab === 'mandat' && (
             <div className="flex flex-col gap-3.5">
-              <ConversionPathCard mandat={mandat} />
+              <ConversionPathCard mandat={mandat} signaler={showToast} />
               {mandat.date_fin_validite && (mandat.date_debut_validite || mandat.date_signature) && (
                 <ValiditeCard dateDebut={(mandat.date_debut_validite ?? mandat.date_signature) as string} dateFin={mandat.date_fin_validite} />
               )}

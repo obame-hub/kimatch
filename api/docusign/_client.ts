@@ -97,11 +97,71 @@ export interface SendEnvelopeResult {
   senderViewUrl?: string
 }
 
+/**
+ * CHAQUE ENVELOPPE PORTE SA PROPRE DEMANDE DE NOTIFICATION.
+ *
+ * ── LE PROBLÈME QUE ÇA RÈGLE ──────────────────────────────────────────────────────────────────
+ *
+ * Le passage automatique au statut « Signé » repose sur une notification que DocuSign nous envoie à
+ * la seconde où le signataire termine. Jusqu'ici, cette notification dépendait UNIQUEMENT d'une
+ * configuration « Connect » posée à la main dans l'administration DocuSign : une case cochée dans
+ * une interface qui ne vit pas dans ce dépôt, que personne dans Kimatch ne peut voir, et dont
+ * personne ne sait dire si elle est encore là.
+ *
+ * Elle a déjà lâché deux fois, avec le même symptôme : rien du tout, en silence. Michel, le
+ * 31/08/2026 : un contrat signé par la cliente affichait encore « pas encore envoyée ». Cinq
+ * mandats étaient dans le même état, dont un depuis dix-sept jours.
+ *
+ * DEPUIS DOCUSIGN, ON PEUT DEMANDER LA NOTIFICATION ENVELOPPE PAR ENVELOPPE. C'est ce bloc. La
+ * demande voyage avec l'enveloppe : elle ne peut plus être décochée par erreur, ni oubliée lors
+ * d'un changement de compte DocuSign, et elle se lit ici, dans le code, au lieu de se deviner.
+ *
+ * ── TROIS DÉTAILS QUI DÉCIDENT SI ÇA MARCHE ───────────────────────────────────────────────────
+ *
+ * `eventData: { version: 'restv2.1', format: 'json' }` est OBLIGATOIRE. Sans lui, DocuSign envoie
+ * l'ancien format XML (`DocuSignEnvelopeInformation`), que notre webhook ne sait pas lire : il y
+ * chercherait `data.envelopeId` et ne trouverait rien. La notification arriverait, et serait
+ * ignorée — soit exactement la panne qu'on répare, en plus difficile à voir.
+ *
+ * `requireAcknowledgment: 'true'` fait REESSAYER DocuSign quand notre réponse n'est pas un 200 :
+ * un déploiement en cours, une fonction froide qui dépasse le délai, une coupure réseau ne coûtent
+ * plus la signature. Sans cet indicateur, une notification ratée est perdue pour toujours.
+ *
+ * L'ADRESSE EST CELLE DU DOMAINE STABLE, jamais celle du déploiement courant. `VERCEL_URL` change
+ * à chaque mise en production : une enveloppe créée aujourd'hui et signée dans trois semaines
+ * notifierait un déploiement périmé. `kimatch.fr` vivra plus longtemps que l'enveloppe.
+ */
+function demandeDeNotification() {
+  const hote = process.env.KIMATCH_URL_PUBLIQUE?.replace(/\/+$/, '') || 'https://kimatch.fr'
+  return {
+    url: `${hote}/api/docusign/webhook`,
+    loggingEnabled: 'true',
+    requireAcknowledgment: 'true',
+    includeDocuments: 'false',
+    includeCertificateOfCompletion: 'false',
+    eventData: { version: 'restv2.1', format: 'json', includeData: ['custom_fields'] },
+    // Les cinq événements que le webhook sait traduire, et aucun de plus : un événement qu'on
+    // ignore n'est pas gratuit, il réveille une fonction pour rien.
+    envelopeEvents: [
+      { envelopeEventStatusCode: 'sent' },
+      { envelopeEventStatusCode: 'delivered' },
+      { envelopeEventStatusCode: 'completed' },
+      { envelopeEventStatusCode: 'declined' },
+      { envelopeEventStatusCode: 'voided' },
+    ],
+  }
+}
+
 export async function sendEnvelope(ctx: DocusignContext, input: SendEnvelopeInput): Promise<SendEnvelopeResult> {
   const envelope = {
     emailSubject: input.emailSubject,
     emailBlurb: input.emailMessage ?? '',
     status: input.draft ? 'created' : 'sent',
+    /* LA NOTIFICATION EST DEMANDÉE MÊME SUR UN BROUILLON — et c'est justement le cas qui compte.
+       Un brouillon est envoyé plus tard, à la main, depuis DocuSign : c'est le moment où Kimatch
+       perd la trace, puisque ce n'est plus lui qui agit. La demande posée dès la création couvre
+       donc l'envoi fait par quelqu'un d'autre, dans une autre fenêtre, une heure plus tard. */
+    eventNotification: demandeDeNotification(),
     documents: input.documents.map((d, i) => ({ documentBase64: d.pdfBase64, name: d.fileName, fileExtension: 'pdf', documentId: String(i + 1) })),
     customFields: input.customFields?.length
       ? { textCustomFields: input.customFields.map((cf) => ({ name: cf.name, value: cf.value, required: 'false', show: 'false' })) }
