@@ -145,19 +145,29 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     const statut = env.status ? PAR_STATUT[env.status] : undefined
     let corrige = false
 
-    if (statut && statut !== statutConnu) {
+    /* ══ ON COMPARE AU STATUT CIBLE, PAS À CELUI DE L'ENVELOPPE ══
+       C'était le défaut : l'enveloppe dit « completed », donc SIGNE, et un mandat déjà à « Signé »
+       paraissait à jour — alors qu'il devait passer « Actif ». Recliquer n'y changeait rien.
+
+       La cible est ce que les règles de traduction produisent, et c'est elle qui doit être comparée à
+       ce qu'on a en base. Sans quoi un objet arrêté à mi-chemin y reste pour toujours. */
+    const cible = statut
+      ? contratId
+        ? statutMetierContrat(statut, fenetre)
+        : statut === 'BROUILLON'
+          ? null
+          : statutAEcrire(statut, fenetre)
+      : null
+
+    if (statut && cible && cible !== statutConnu) {
       if (contratId) {
-        /* Le statut métier suit la signature, par la MÊME règle que le webhook. */
-        const codeMetier = statutMetierContrat(statut, fenetre)
-        let statutMetierId: string | null = null
-        if (codeMetier) {
-          const { data: ligne } = await admin
-            .from('statuts_contrats')
-            .select('id')
-            .eq('code', codeMetier)
-            .maybeSingle()
-          statutMetierId = (ligne as { id: string } | null)?.id ?? null
-        }
+        /* Le statut métier suit la signature, par la MÊME règle que le webhook — `cible` la porte. */
+        const { data: ligne } = await admin
+          .from('statuts_contrats')
+          .select('id')
+          .eq('code', cible)
+          .maybeSingle()
+        const statutMetierId = (ligne as { id: string } | null)?.id ?? null
         const { error } = await admin
           .from('contrats')
           .update({
@@ -176,10 +186,10 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
            On ne fait pas non plus reculer un statut : `doitEcrire` porte cette règle, et une
            signature acquise ne se défait pas parce qu'une notification est rejouée. */
-        /* LA MÊME RÈGLE QUE LE WEBHOOK : une signature rend le mandat ACTIF quand la fenêtre de
-           validité le permet. C'est la demande de Michel du 21/08/2026 — un mandat qui reste à
-           « Signé » est un mandat invisible pour les recommandations, alors qu'il est signé. */
-        const codeCible = statut === 'BROUILLON' ? null : statutAEcrire(statut, fenetre)
+        /* `cible` porte déjà la règle de Michel du 21/08/2026 : une signature rend le mandat ACTIF
+           quand la fenêtre de validité le permet. Un mandat qui reste à « Signé » est invisible pour
+           les recommandations, alors qu'il est signé. */
+        const codeCible = cible
         if (codeCible && doitEcrire(statutConnu, codeCible)) {
           const { data: ligne } = await admin
             .from('statuts_mandats')
