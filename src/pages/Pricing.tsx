@@ -281,12 +281,25 @@ export default function Pricing({ sansEntete }: { sansEntete?: boolean }) {
    * versions « En décision » sur 22 n'ont aucune offre saisie.
    */
   const totalDe = (code: string) => lignes.find((c) => c.code === code)?.total ?? 0
+  /*
+   * LES INDICATEURS PORTENT LES LIBELLÉS DES COLONNES, MOT POUR MOT.
+   *
+   * Ils disaient « À envoyer », « En attente », « Offres reçues » — trois formulations pour les trois
+   * colonnes « Aucun traitement », « Demande envoyée », « Demande acceptée » qui s'affichent juste en
+   * dessous. Sur un même écran, deux vocabulaires pour les mêmes trois piles obligent à faire la
+   * traduction de tête à chaque lecture, et c'est exactement ce dont Michel se plaint : « on s'y perd
+   * de fou ».
+   *
+   * `COLONNES` est la source : ajouter un statut ne laissera pas les indicateurs en arrière.
+   */
+  const libelleDe = (code: string) =>
+    COLONNES.find((c) => c.code === code)?.libelle ?? code
   const mesures = [
     { libelle: 'Consultations', valeur: String(nbTotal), precision: 'Versions en cours' },
-    { libelle: 'À envoyer', valeur: String(totalDe('A_DEMANDER')), precision: 'Action attendue' },
-    { libelle: 'En attente', valeur: String(totalDe('EN_ATTENTE')), precision: 'Chez le fournisseur' },
+    { libelle: libelleDe('A_DEMANDER'), valeur: String(totalDe('A_DEMANDER')), precision: 'Action attendue' },
+    { libelle: libelleDe('EN_ATTENTE'), valeur: String(totalDe('EN_ATTENTE')), precision: 'Chez le fournisseur' },
     {
-      libelle: 'Offres reçues',
+      libelle: libelleDe('RECUE'),
       valeur: String(totalDe('RECUE')),
       precision: montantConnu ? euros(montantTotal) + ' chiffrés' : 'Aucun prix saisi',
     },
