@@ -18,6 +18,8 @@ import { FriseStatut } from '@/components/opportunite/FriseStatut'
 import { FluxActualite } from '@/components/opportunite/FluxActualite'
 import { ActionsRapides, type ActionRapide } from '@/components/opportunite/ActionsRapides'
 import { useInteractionsParOpportunite, useCreateInteraction } from '@/lib/data/interactions'
+import { useActionsParOpportunite } from '@/lib/data/actions'
+import { DialogNouvelleTache } from '@/components/tache/DialogNouvelleTache'
 import {
   prerequisOpportunite,
   statutDerive,
@@ -82,8 +84,14 @@ export default function OpportuniteDetail() {
   // L'action qu'on est en train de consigner : la maquette dit « chaque action est consignée dans le
   // flux », et une ligne sans un mot d'explication n'apprendrait rien à celui qui la relira.
   const [noteAction, setNoteAction] = useState<ActionRapide | null>(null)
+  /* Le formulaire de tâche. `echeance` prérempli quand on arrive par « Planifier un rappel » :
+     un rappel EST une tâche datée, inutile d'en faire un objet à part. */
+  const [tacheOuverte, setTacheOuverte] = useState<{ titre: string; echeance?: string } | null>(null)
   const [actionEnCours, setActionEnCours] = useState<string | null>(null)
   const { data: interactionsOpp } = useInteractionsParOpportunite(id)
+  /* Les tâches de cette opportunité. La colonne `actions.opportunite_id` existait depuis toujours,
+     rien ne la lisait — donc une tâche prise sur une opportunité disparaissait de sa fiche. */
+  const { data: actionsOpp } = useActionsParOpportunite(id)
   const { data: typesInteractionsRef } = useReferenceTable('types_interactions')
   const creerInteraction = useCreateInteraction()
   const { data: documents } = useDocumentsParEntites(id ? [id] : undefined)
@@ -841,6 +849,33 @@ export default function OpportuniteDetail() {
                     setClotureOuverte(true)
                     return
                   }
+                  // ══ « CRÉER UNE TÂCHE » CRÉE UNE TÂCHE ══
+                  //
+                  // Ces deux boutons écrivaient une NOTE_INTERNE dans `interactions` : l'écran
+                  // confirmait, la note apparaissait dans le flux, et aucune tâche n'existait. Mesuré
+                  // le 31/08/2026 : zéro tâche sur une opportunité, sur 11 en base.
+                  //
+                  // Un rappel est une tâche datée à demain 9 h — même formulaire, échéance
+                  // préremplie. Deux mécanismes pour deux objets identiques auraient fini par
+                  // diverger.
+                  if (a.cle === 'tache' || a.cle === 'rappel') {
+                    if (a.cle === 'rappel') {
+                      const demain = new Date()
+                      demain.setDate(demain.getDate() + 1)
+                      demain.setHours(9, 0, 0, 0)
+                      setTacheOuverte({
+                        titre: `Rappeler ${opportunite.compte_nom || 'le client'}`,
+                        // Décalage local retiré : `toISOString` renverrait 07:00 UTC, et le
+                        // formulaire afficherait 07:00 au lieu de 09:00.
+                        echeance: new Date(demain.getTime() - demain.getTimezoneOffset() * 60000)
+                          .toISOString()
+                          .slice(0, 16),
+                      })
+                    } else {
+                      setTacheOuverte({ titre: '' })
+                    }
+                    return
+                  }
                   setNoteAction(a)
                 }}
               />
@@ -854,6 +889,7 @@ export default function OpportuniteDetail() {
                   ligneId={opportunite.id}
                   dateCreation={opportunite.date_creation}
                   interactions={interactionsOpp ?? []}
+                  actions={actionsOpp ?? []}
                 />
               </Card>
 
@@ -949,6 +985,7 @@ export default function OpportuniteDetail() {
               ligneId={opportunite.id}
               dateCreation={opportunite.date_creation}
               interactions={interactionsOpp ?? []}
+              actions={actionsOpp ?? []}
             />
           </div>
         </div>
@@ -1055,6 +1092,22 @@ export default function OpportuniteDetail() {
             }}
           />
         </Dialog>
+      )}
+
+      {tacheOuverte && (
+        <DialogNouvelleTache
+          open
+          onClose={() => setTacheOuverte(null)}
+          titrePrerempli={tacheOuverte.titre}
+          echeanceParDefaut={tacheOuverte.echeance}
+          signaler={signaler}
+          rattachement={{
+            opportunite_id: opportunite.id,
+            contact_id: opportunite.contact_id,
+            contact_nom: contact ? `${contact.prenom} ${contact.nom}` : '',
+            libelle_cible: `l'opportunité ${opportunite.compte_nom || ''}`.trim(),
+          }}
+        />
       )}
 
       {ajoutOuvert && opportunite.compte_id && (

@@ -60,6 +60,7 @@ import { useCompte } from '@/lib/data/comptes'
 import { useCompteurs } from '@/lib/data/compteurs'
 import { useInteractionsParRecommandation } from '@/lib/data/interactions'
 import { useActionsParRecommandation, useCreateAction } from '@/lib/data/actions'
+import { DialogNouvelleTache } from '@/components/tache/DialogNouvelleTache'
 import { useSignauxParRecommandation } from '@/lib/data/signaux'
 import { useDocumentsParEntites, useTeleverserDocuments } from '@/lib/data/documents'
 import { useCreateInteraction } from '@/lib/data/interactions'
@@ -175,6 +176,8 @@ export default function RecommandationDetail() {
   const [ajouterFournisseurFor, setAjouterFournisseurFor] = useState<Optimisation | null>(null)
   const [confirmDelete, setConfirmDelete] = useState(false)
   const [versionASupprimer, setVersionASupprimer] = useState<VersionRecommandation | null>(null)
+  /* Le formulaire de tâche, partagé avec l'opportunité et la piste (Michel, 31/08/2026). */
+  const [tacheOuverte, setTacheOuverte] = useState(false)
   const [coutOuvert, setCoutOuvert] = useState(false)
   const [coutBrouillon, setCoutBrouillon] = useState('')
   const [toast, setToast] = useState<string | null>(null)
@@ -583,6 +586,17 @@ export default function RecommandationDetail() {
               className="inline-flex flex-1 items-center justify-center gap-1.5 rounded-km border border-km-line bg-white px-1 py-[7px] text-km-body font-bold text-km-amber hover:border-[#e0c48a] hover:bg-km-amber-soft disabled:opacity-60"
             >
               <Clock className="h-[11px] w-[11px]" /> Rappel
+            </button>
+            {/* LE RAPPEL RESTE UN RACCOURCI, LA TÂCHE EST LE CAS GÉNÉRAL. Le bouton « Rappel » écrit
+                une tâche figée — demain 9 h, titre imposé ; celui-ci ouvre le formulaire, avec son
+                titre, son type et son échéance. Michel, 31/08/2026 : « créer et suivre des actions
+                dans les recommandations ». Un raccourci ne remplace pas la création. */}
+            <button
+              type="button"
+              onClick={() => setTacheOuverte(true)}
+              className="inline-flex flex-1 items-center justify-center gap-1.5 rounded-km border border-km-line bg-white px-1 py-[7px] text-km-body font-bold text-indigo-600 hover:border-indigo-200 hover:bg-indigo-50"
+            >
+              <Clock className="h-[11px] w-[11px]" /> Tâche
             </button>
             <button
               type="button"
@@ -1305,6 +1319,23 @@ export default function RecommandationDetail() {
         onClose={() => setAjouterFournisseurFor(null)}
         optimisation={ajouterFournisseurFor}
       />
+
+      {tacheOuverte && (
+        <DialogNouvelleTache
+          open
+          onClose={() => setTacheOuverte(false)}
+          signaler={signaler}
+          rattachement={{
+            recommandation_id: reco.id,
+            recommandation_titre: reco.titre,
+            site_id: reco.sites[0]?.id ?? null,
+            site_nom: reco.sites[0]?.nom ?? '',
+            contact_id: contactPrincipal?.id ?? null,
+            contact_nom: contactPrincipal ? `${contactPrincipal.prenom} ${contactPrincipal.nom}` : '',
+            libelle_cible: `la recommandation ${reco.titre}`,
+          }}
+        />
+      )}
 
       {/* Fixer le coût de prestation. Un dialogue et non une saisie en place : le montant facturé
           est la contrepartie de la prestation, il se pose une fois et se relit dans l'historique. */}

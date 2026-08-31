@@ -28,16 +28,34 @@ interface RawAction {
 /** `siteIds` restreint la lecture aux tâches d'un périmètre de sites. Les tâches sans site
  *  (purement personnelles ou liées à un seul contact) ne concernent pas une fiche compte : elles
  *  sont donc hors périmètre quand le filtre est fourni. */
-async function fetchActions(siteIds?: string[], actionId?: string, recommandationId?: string): Promise<ActionItem[]> {
+/**
+ * LES TROIS OBJETS DU CYCLE COMMERCIAL PEUVENT PORTER DES TÂCHES.
+ *
+ * Michel, 31/08/2026 : « permettre de créer et de suivre des actions dans les recommandations, les
+ * opportunités et les pistes ». La lecture ne connaissait que les recommandations et les sites.
+ *
+ * UN SEUL RATTACHEMENT À LA FOIS, et l'ordre des tests le dit : on lit les tâches D'UN objet, jamais
+ * l'union de plusieurs. Une fiche demande ce qui la concerne ; mélanger produirait une liste dont
+ * personne ne saurait dire d'où vient chaque ligne.
+ */
+async function fetchActions(
+  siteIds?: string[],
+  actionId?: string,
+  recommandationId?: string,
+  opportuniteId?: string,
+  pisteId?: string,
+): Promise<ActionItem[]> {
   try {
     if (siteIds && siteIds.length === 0) return []
     const data = await fetchAllRows<RawAction>(
       'actions',
-      'id, titre, site_id, contact_id, recommandation_id, date_creation, date_prevue, date_realisation, priorite, commentaire, proprietaire_id, responsable_profil_id, type_action:types_actions(libelle), statut:statuts_actions(code), responsable:profils!actions_responsable_profil_id_fkey(prenom, nom), site:sites(nom), contact:contacts(prenom, nom), recommandation:recommandations!recommandation_id(nom)',
+      'id, titre, site_id, contact_id, recommandation_id, opportunite_id, piste_id, date_creation, date_prevue, date_realisation, priorite, commentaire, proprietaire_id, responsable_profil_id, type_action:types_actions(libelle), statut:statuts_actions(code), responsable:profils!actions_responsable_profil_id_fkey(prenom, nom), site:sites(nom), contact:contacts(prenom, nom), recommandation:recommandations!recommandation_id(nom)',
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       (q: any) => {
         if (actionId) return q.eq('id', actionId)
         if (recommandationId) return q.eq('recommandation_id', recommandationId).order('date_prevue')
+        if (opportuniteId) return q.eq('opportunite_id', opportuniteId).order('date_prevue')
+        if (pisteId) return q.eq('piste_id', pisteId).order('date_prevue')
         return (siteIds ? q.in('site_id', siteIds) : q).order('date_prevue')
       },
     )
@@ -108,6 +126,24 @@ export function useActionsParRecommandation(recoId: string | undefined) {
   })
 }
 
+/** Tâches d'une opportunité. La colonne `opportunite_id` existait déjà, rien ne la lisait. */
+export function useActionsParOpportunite(opportuniteId: string | undefined) {
+  return useQuery({
+    queryKey: ['actions', 'opportunite', opportuniteId],
+    queryFn: () => fetchActions(undefined, undefined, undefined, opportuniteId as string),
+    enabled: !!opportuniteId,
+  })
+}
+
+/** Tâches d'une piste. `piste_id` vient de la migration 20260831200000. */
+export function useActionsParPiste(pisteId: string | undefined) {
+  return useQuery({
+    queryKey: ['actions', 'piste', pisteId],
+    queryFn: () => fetchActions(undefined, undefined, undefined, undefined, pisteId as string),
+    enabled: !!pisteId,
+  })
+}
+
 /** Tâches d'un périmètre de sites, filtrées côté serveur. À préférer sur toute fiche. */
 export function useActionsParSites(siteIds: string[] | undefined) {
   const cle = [...(siteIds ?? [])].sort()
@@ -134,6 +170,9 @@ interface CreateActionInput {
    *  tâche existe mais ne revient jamais dans le fil de la recommandation qui l'a créée. */
   recommandation_id?: string | null
   recommandation_titre?: string
+  /** Opportunité ou piste d'origine — même rôle que `recommandation_id` (Michel, 31/08/2026). */
+  opportunite_id?: string | null
+  piste_id?: string | null
 }
 
 interface CreateActionResult {
@@ -198,6 +237,8 @@ export function useCreateAction() {
           commentaire: input.commentaire,
           ...(moi ? { responsable_profil_id: moi, proprietaire_id: moi } : {}),
           ...(input.recommandation_id ? { recommandation_id: input.recommandation_id } : {}),
+          ...(input.opportunite_id ? { opportunite_id: input.opportunite_id } : {}),
+          ...(input.piste_id ? { piste_id: input.piste_id } : {}),
           ...(input.type_action_id ? { type_action_id: input.type_action_id } : {}),
           ...(input.statut_id ? { statut_id: input.statut_id } : {}),
         })
@@ -307,6 +348,11 @@ export function useCompleteAction() {
       // « Ma journée » du tableau de bord lit sa propre requête : sans cette invalidation, la case
       // se cochait et la ligne restait « à réaliser » jusqu'au rechargement de la page.
       queryClient.invalidateQueries({ queryKey: ['tableau-de-bord', 'mes-actions'] })
+      // ET LES LISTES PAR OBJET. `setQueryData(['actions'])` ci-dessus ne touche QUE la clé exacte :
+      // les tâches d'une recommandation, d'une opportunité ou d'une piste vivent sous
+      // ['actions', 'opportunite', id] et gardaient leur ancienne valeur. Invalider le préfixe les
+      // couvre toutes, y compris celles que personne n'a encore écrites.
+      queryClient.invalidateQueries({ queryKey: ['actions'] })
       return { persisted }
     },
   })

@@ -6,147 +6,16 @@ import { PageHeader } from '@/components/ui/page-header'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { EntityLink } from '@/components/ui/entity-link'
-import { Dialog } from '@/components/ui/dialog'
-import { FormField, Input, Select, Textarea } from '@/components/ui/form'
-import { echeanceLisible, instantTache } from '@/lib/heureTache'
-import { estIdReel } from '@/lib/referenceFallbacks'
-import { useActions, useCreateAction, useCompleteAction } from '@/lib/data/actions'
-import { useSites } from '@/lib/data/sites'
-import { useContacts } from '@/lib/data/contacts'
+import { echeanceLisible } from '@/lib/heureTache'
+import { useActions, useCompleteAction } from '@/lib/data/actions'
+import { DialogNouvelleTache } from '@/components/tache/DialogNouvelleTache'
 import { useReferenceTable } from '@/lib/data/referenceTables'
-import { FALLBACK_TYPES_ACTIONS, FALLBACK_STATUTS_ACTIONS, STATUT_ACTION_TONE } from '@/lib/referenceFallbacks'
+import { FALLBACK_STATUTS_ACTIONS, STATUT_ACTION_TONE } from '@/lib/referenceFallbacks'
 import { ListToolbar } from '@/components/ui/list-toolbar'
 import { useListControls } from '@/lib/useListControls'
 import { usePerimetreListe, BasculePerimetre } from '@/lib/perimetre'
 import { ActivityCard } from '@/components/ui/activity-card'
 import { useOuvrirCreation } from '@/lib/ouvrirCreation'
-
-function CreateActionDialog({ open, onClose }: { open: boolean; onClose: () => void }) {
-  const { data: sites } = useSites()
-  const { data: contacts } = useContacts()
-  const { data: typesRef } = useReferenceTable('types_actions')
-  const types = typesRef && typesRef.length > 0 ? typesRef : FALLBACK_TYPES_ACTIONS
-  const { data: statutsRef } = useReferenceTable('statuts_actions')
-  const statuts = statutsRef && statutsRef.length > 0 ? statutsRef : FALLBACK_STATUTS_ACTIONS
-  const createAction = useCreateAction()
-
-  const [titre, setTitre] = useState('')
-  const [typeId, setTypeId] = useState('')
-  const [siteId, setSiteId] = useState('')
-  const [contactId, setContactId] = useState('')
-  const [echeance, setEcheance] = useState('')
-  // L'HEURE EST FACULTATIVE : la plupart des tâches sont des « à faire », pas des rendez-vous.
-  // Laissée vide, l'échéance vaut minuit local et « Ma journée » n'affiche pas d'heure.
-  const [heure, setHeure] = useState('')
-  const [priorite, setPriorite] = useState(50)
-  const [commentaire, setCommentaire] = useState('')
-  const [feedback, setFeedback] = useState<string | null>(null)
-
-  function reset() {
-    setTitre('')
-    setTypeId('')
-    setSiteId('')
-    setContactId('')
-    setEcheance('')
-    setHeure('')
-    setPriorite(50)
-    setCommentaire('')
-    setFeedback(null)
-  }
-
-  async function handleSubmit(e: React.FormEvent) {
-    e.preventDefault()
-    const type = types.find((t) => t.id === typeId)
-    const site = sites?.find((s) => s.id === siteId)
-    const contact = contacts?.find((c) => c.id === contactId)
-    const statutAFaire = statuts.find((s) => s.code === 'A_FAIRE')
-
-    // LE STATUT EST OBLIGATOIRE EN BASE (`actions.statut_id` NOT NULL, sans valeur par défaut) et il
-    // vient d'une table de référence. Si cette table n'a pas répondu, on tient un identifiant de
-    // repli que Postgres refusera — mieux vaut le dire tout de suite que créer une tâche fantôme.
-    if (!estIdReel(statutAFaire?.id)) {
-      setFeedback('Les statuts de tâche ne sont pas chargés : rechargez la page avant de créer la tâche.')
-      return
-    }
-
-    const result = await createAction.mutateAsync({
-      titre,
-      type_action_id: typeId || null,
-      type_action_libelle: type?.libelle ?? '',
-      site_id: siteId || null,
-      site_nom: site?.nom ?? '',
-      contact_id: contactId || null,
-      contact_nom: contact ? `${contact.prenom} ${contact.nom}` : '',
-      priorite,
-      echeance: instantTache(echeance, heure),
-      commentaire: commentaire || null,
-      statut_id: statutAFaire?.id ?? null,
-    })
-    setFeedback(result.persisted ? 'Tâche créée.' : 'Tâche ajoutée localement (non synchronisée avec Supabase).')
-    setTimeout(() => {
-      reset()
-      onClose()
-    }, 700)
-  }
-
-  return (
-    <Dialog open={open} onClose={() => { reset(); onClose() }} title="Nouvelle tâche" description="Ajouter une tâche à faire.">
-      <form onSubmit={handleSubmit} className="space-y-3">
-        <FormField label="Titre">
-          <Input value={titre} onChange={(e) => setTitre(e.target.value)} required placeholder="Ex. Relancer le client" />
-        </FormField>
-        <div className="grid grid-cols-2 gap-3">
-          <FormField label="Type">
-            {/* OBLIGATOIRE : `actions.type_action_id` est NOT NULL sans valeur par défaut. Laissé
-                vide, il était simplement omis de l'insertion, la base refusait la ligne, et l'écran
-                annonçait « ajoutée localement » — la tâche n'existait pas. */}
-            <Select value={typeId} onChange={(e) => setTypeId(e.target.value)} required>
-              <option value="">Sélectionner…</option>
-              {types.map((t) => <option key={t.id} value={t.id}>{t.libelle}</option>)}
-            </Select>
-          </FormField>
-          <FormField label="Échéance">
-            <div className="flex gap-2">
-              <Input type="date" value={echeance} onChange={(e) => setEcheance(e.target.value)} />
-              {/* L'heure ne s'active qu'une fois la date posée : une heure sans jour ne veut rien
-                  dire, et un champ actif qui ne sera pas enregistré est un piège. */}
-              <Input
-                type="time"
-                value={heure}
-                disabled={!echeance}
-                onChange={(e) => setHeure(e.target.value)}
-                className="w-[110px]"
-                title="Heure facultative — sans elle, la tâche est simplement datée du jour"
-              />
-            </div>
-          </FormField>
-        </div>
-        <div className="grid grid-cols-2 gap-3">
-          <FormField label="Site (optionnel)">
-            <Select value={siteId} onChange={(e) => setSiteId(e.target.value)}>
-              <option value="">—</option>
-              {sites?.map((s) => <option key={s.id} value={s.id}>{s.nom}</option>)}
-            </Select>
-          </FormField>
-          <FormField label="Contact (optionnel)">
-            <Select value={contactId} onChange={(e) => setContactId(e.target.value)}>
-              <option value="">—</option>
-              {contacts?.map((c) => <option key={c.id} value={c.id}>{c.prenom} {c.nom}</option>)}
-            </Select>
-          </FormField>
-        </div>
-        <FormField label="Commentaire">
-          <Textarea rows={2} value={commentaire} onChange={(e) => setCommentaire(e.target.value)} />
-        </FormField>
-        {feedback && <p className="text-xs text-km-muted">{feedback}</p>}
-        <div className="flex justify-end gap-2 pt-2">
-          <Button type="button" variant="ghost" onClick={() => { reset(); onClose() }}>Annuler</Button>
-          <Button type="submit" disabled={createAction.isPending}>Créer la tâche</Button>
-        </div>
-      </form>
-    </Dialog>
-  )
-}
 
 export default function Taches() {
   const { data: actions, isLoading } = useActions()
@@ -271,7 +140,10 @@ export default function Taches() {
           </div>
         )}
       </div>
-      {showCreate && <CreateActionDialog open={showCreate} onClose={() => setShowCreate(false)} />}
+      {/* Le formulaire a déménagé dans `components/tache` : les fiches recommandation,
+          opportunité et piste ouvrent le MÊME (Michel, 31/08/2026). Sans rattachement, il garde
+          ses sélecteurs de site et de contact — c'est la création libre. */}
+      {showCreate && <DialogNouvelleTache open={showCreate} onClose={() => setShowCreate(false)} />}
     </div>
   )
 }

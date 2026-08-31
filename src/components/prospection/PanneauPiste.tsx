@@ -1,9 +1,13 @@
-import { ArrowRight, Check, Paperclip, Users } from 'lucide-react'
+import { useState } from 'react'
+import { ArrowRight, Check, Paperclip, Plus, Users } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
 import { Sheet } from '@/components/ui/sheet'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { useMajPiste, VALIDATIONS_PISTE, pisteQualifiee } from '@/lib/data/prospection'
+import { useActionsParPiste, useCompleteAction } from '@/lib/data/actions'
+import { DialogNouvelleTache } from '@/components/tache/DialogNouvelleTache'
+import { echeanceLisible } from '@/lib/heureTache'
 import { cn } from '@/lib/utils'
 import type { Piste } from '@/types/domain'
 
@@ -23,6 +27,12 @@ import type { Piste } from '@/types/domain'
  *
  * LES CINQ VALIDATIONS SE FIGENT APRÈS CONVERSION. Une piste convertie a produit son opportunité :
  * décocher une case après coup ne défferait rien et laisserait deux objets qui se contredisent.
+ *
+ * LES TÂCHES VIVENT ICI, ET NULLE PART AILLEURS. Michel, 31/08/2026 : « permettre de créer et de
+ * suivre des actions dans les recommandations, les opportunités et les pistes ». La recommandation et
+ * l'opportunité ont un fil d'activité qui les montre ; la piste n'a que ce panneau. Le bloc ci-dessous
+ * est donc le seul endroit d'où une tâche de piste se crée et se coche — d'où la case à cocher, que
+ * les deux autres écrans délèguent à la page Tâches.
  */
 export function PanneauPiste({
   piste,
@@ -40,6 +50,9 @@ export function PanneauPiste({
 }) {
   const navigate = useNavigate()
   const maj = useMajPiste()
+  const { data: taches } = useActionsParPiste(piste?.id)
+  const cocher = useCompleteAction()
+  const [tacheOuverte, setTacheOuverte] = useState(false)
 
   const mure = piste ? pisteQualifiee(piste) : false
   const faites = piste ? VALIDATIONS_PISTE.filter((v) => Boolean(piste[v.cle])).length : 0
@@ -160,6 +173,74 @@ export function PanneauPiste({
             </div>
           )}
 
+          {/* ── LES TÂCHES DE LA PISTE ── */}
+          <div className="border-t border-km-line pt-3">
+            <div className="mb-1.5 flex items-center justify-between">
+              <p className="text-km-label font-bold uppercase tracking-[0.08em] text-km-faint">
+                Tâches{taches && taches.length > 0 ? ` (${taches.length})` : ''}
+              </p>
+              <button
+                type="button"
+                onClick={() => setTacheOuverte(true)}
+                className="inline-flex items-center gap-1 text-km-label font-bold text-indigo-600 hover:underline"
+              >
+                <Plus className="h-3 w-3" /> Nouvelle tâche
+              </button>
+            </div>
+            {!taches || taches.length === 0 ? (
+              <p className="text-km-label text-km-faint">
+                Aucune tâche. Un rappel à poser avant de relancer ce contact se note ici.
+              </p>
+            ) : (
+              <div className="flex flex-col gap-0.5">
+                {taches.map((t) => {
+                  /* « Faite » se lit sur `date_realisation` : cocher n'écrit que cette date, le code
+                     de statut reste A_FAIRE en base. */
+                  const faite = Boolean(t.date_realisation)
+                  const enRetard =
+                    !faite && t.echeance && t.echeance.slice(0, 10) < new Date().toISOString().slice(0, 10)
+                  return (
+                    <div key={t.id} className="flex items-start gap-2 rounded-km px-1 py-1 hover:bg-km-soft">
+                      <button
+                        type="button"
+                        disabled={faite || cocher.isPending}
+                        onClick={async () => {
+                          try {
+                            await cocher.mutateAsync(t.id)
+                            signaler('✓ Tâche terminée')
+                          } catch (e) {
+                            signaler(e instanceof Error ? e.message : 'Enregistrement impossible')
+                          }
+                        }}
+                        title={faite ? 'Tâche terminée' : 'Marquer comme faite'}
+                        className={cn(
+                          'mt-0.5 flex h-4 w-4 shrink-0 items-center justify-center rounded',
+                          faite ? 'bg-km-green text-white' : 'border border-km-line bg-white hover:border-km-green',
+                        )}
+                      >
+                        {faite && <Check className="h-2.5 w-2.5" />}
+                      </button>
+                      <div className="min-w-0 flex-1">
+                        <p className={cn('truncate text-km-body', faite ? 'text-km-faint line-through' : 'text-km-text')}>
+                          {t.titre}
+                        </p>
+                        <p className="truncate text-km-label text-km-faint">
+                          {t.type_action}
+                          {t.echeance && (
+                            <span className={cn(enRetard && 'font-bold text-km-red')}>
+                              {' · '}
+                              {echeanceLisible(t.echeance)}
+                            </span>
+                          )}
+                        </p>
+                      </div>
+                    </div>
+                  )
+                })}
+              </div>
+            )}
+          </div>
+
           <button
             type="button"
             onClick={() => onFichiers(piste)}
@@ -167,6 +248,19 @@ export function PanneauPiste({
           >
             <Paperclip className="h-3 w-3" /> Fichiers de la piste
           </button>
+
+          {tacheOuverte && (
+            <DialogNouvelleTache
+              open
+              onClose={() => setTacheOuverte(false)}
+              signaler={signaler}
+              rattachement={{
+                piste_id: piste.id,
+                contact_nom: piste.contact_nom ?? '',
+                libelle_cible: `la piste ${piste.societe || piste.contact_nom || ''}`.trim(),
+              }}
+            />
+          )}
         </div>
       )}
     </Sheet>

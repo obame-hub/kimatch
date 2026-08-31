@@ -68,14 +68,14 @@ function libelleJour(iso: string): string {
 interface Evenement {
   id: string
   date: string
-  /** `modif` : une valeur a changé. `echange` : une action consignée depuis la fiche. */
-  genre: 'modif' | 'echange'
+  /** `modif` : une valeur a changé. `echange` : un échange consigné. `tache` : une action à faire. */
+  genre: 'modif' | 'echange' | 'tache'
   nature: string
   texte: React.ReactNode
   auteur: string
 }
 
-export function FluxActualite({ tableNom, ligneId, dateCreation, interactions = [] }: {
+export function FluxActualite({ tableNom, ligneId, dateCreation, interactions = [], actions = [] }: {
   tableNom: string
   ligneId: string | undefined
   /** La création n'est pas dans l'historique des modifications : on la pose en pied de flux. */
@@ -86,6 +86,18 @@ export function FluxActualite({ tableNom, ligneId, dateCreation, interactions = 
    * côte à côte au lieu d'une chronologie.
    */
   interactions?: { id: string; date_interaction: string; type_interaction: string; objet: string | null; resume: string | null; auteur: string }[]
+  /**
+   * LES TÂCHES DE CET OBJET. Michel, 31/08/2026 : « permettre de créer et de suivre des actions dans
+   * les recommandations, les opportunités et les pistes ».
+   *
+   * ELLES SE MÊLENT À LA CHRONOLOGIE, comme les échanges, et pour la même raison : une tâche prise
+   * après un appel se comprend en lisant l'appel juste avant. Deux listes côte à côte obligeraient à
+   * reconstituer l'ordre de tête.
+   *
+   * MAIS ELLES SE DATENT À L'ÉCHÉANCE, pas à la création : ce qui compte sur une tâche est QUAND elle
+   * doit être faite. Une tâche sans échéance se pose à sa création, faute de mieux, et le dit.
+   */
+  actions?: { id: string; titre: string; type_action: string; statut: string; echeance: string; date_creation: string; date_realisation: string | null; responsable: string }[]
 }) {
   const { data: entrees } = useHistorique(tableNom, ligneId)
   const liste: HistoriqueEntry[] = entrees ?? []
@@ -112,6 +124,33 @@ export function FluxActualite({ tableNom, ligneId, dateCreation, interactions = 
       nature: i.objet || i.type_interaction,
       texte: i.resume ? <span className="whitespace-pre-line">{i.resume}</span> : <span className="text-km-faint">sans détail</span>,
       auteur: i.auteur || 'Kimatch',
+    })),
+    ...actions.map((a) => ({
+      id: `tache-${a.id}`,
+      date: a.echeance || a.date_creation,
+      genre: 'tache' as const,
+      nature: a.type_action || 'Tâche',
+      texte: (
+        <span>
+          {a.titre}
+          {/* L'ÉTAT SE LIT SUR LA LIGNE : une tâche faite et une tâche en retard ne demandent pas la
+              même chose, et les distinguer d'un coup d'œil est tout l'intérêt d'un fil.
+
+              « FAITE » SE LIT SUR `date_realisation`, PAS SUR LE STATUT. Cocher une tâche n'écrit que
+              cette date : `useCompleteAction` ne touche pas `statut_id`, qui reste donc à A_FAIRE en
+              base. Tester le code laisserait toutes les tâches cochées affichées « à faire ». */}
+          {a.date_realisation ? (
+            <span className="ml-1.5 text-km-faint">— faite</span>
+          ) : a.statut === 'ANNULEE' ? (
+            <span className="ml-1.5 text-km-faint">— annulée</span>
+          ) : a.echeance && a.echeance.slice(0, 10) < new Date().toISOString().slice(0, 10) ? (
+            <span className="ml-1.5 font-semibold text-km-red">— en retard</span>
+          ) : (
+            <span className="ml-1.5 text-km-faint">— {a.statut === 'EN_COURS' ? 'en cours' : 'à faire'}</span>
+          )}
+        </span>
+      ),
+      auteur: a.responsable || 'sans responsable',
     })),
   ]
 

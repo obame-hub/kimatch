@@ -17,9 +17,11 @@ import { cn } from '@/lib/utils'
  * exactement comme la maquette le montre. Le type d'interaction est choisi par action — un appel est
  * un APPEL, une demande de facture une NOTE_INTERNE — pour que les filtres existants les retrouvent.
  *
- * DEUX ACTIONS NE SONT PAS DE SIMPLES NOTES, et elles sont traitées à part : « Créer une
- * recommandation » et « Écarter l'opportunité » changent l'état du dossier. Elles sont donc
- * déléguées à l'écran, qui sait déjà les faire (règle de conversion, dialogue de clôture).
+ * QUATRE ACTIONS NE SONT PAS DE SIMPLES NOTES, et elles sont traitées à part. « Créer une
+ * recommandation » et « Écarter l'opportunité » changent l'état du dossier ; « Planifier un rappel »
+ * et « Créer une tâche » créent une vraie tâche dans `actions`. Toutes quatre portent
+ * `typeInteraction: null` et sont déléguées à l'écran, qui sait les faire (règle de conversion,
+ * dialogue de clôture, formulaire de tâche).
  */
 
 export interface ActionRapide {
@@ -74,8 +76,16 @@ const FAMILLES_ACTIONS: FamilleActions[] = [
     nom: 'Organisation',
     teinte: 'bg-km-amber-soft text-amber-700',
     actions: [
-      { cle: 'rappel', libelle: 'Planifier un rappel', typeInteraction: 'NOTE_INTERNE', icone: CalendarDays },
-      { cle: 'tache', libelle: 'Créer une tâche', typeInteraction: 'NOTE_INTERNE', icone: CalendarDays },
+      // ══ CES DEUX-LÀ NE SONT PAS DES NOTES : ELLES CRÉENT UNE TÂCHE ══
+      //
+      // Elles portaient `NOTE_INTERNE`, donc « Créer une tâche » écrivait une INTERACTION. L'écran
+      // répondait « consigné dans le flux », la note apparaissait — et la table `actions` ne recevait
+      // rien. Mesuré le 31/08/2026 : zéro tâche rattachée à une opportunité, sur 11 en base.
+      //
+      // `typeInteraction: null` les fait remonter à l'écran, comme « Créer une recommandation » :
+      // c'est lui qui ouvre le formulaire de tâche.
+      { cle: 'rappel', libelle: 'Planifier un rappel', typeInteraction: null, icone: CalendarDays },
+      { cle: 'tache', libelle: 'Créer une tâche', typeInteraction: null, icone: CalendarDays },
     ],
   },
   {
