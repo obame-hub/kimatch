@@ -16,6 +16,10 @@
       "schedule": "0 3 * * *"
     },
     {
+      "path": "/api/docusign/rattraper-enveloppes",
+      "schedule": "0 7,11,16 * * *"
+    },
+    {
       "path": "/api/mandats/expirer",
       "schedule": "15 3 * * *"
     },

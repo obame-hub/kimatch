@@ -1128,9 +1128,25 @@ function etatSignature(contrat: Contrat): { libelle: string; detail: string } {
   const signe = jour(contrat.date_signature)
   switch (contrat.statut_signature) {
     case 'BROUILLON':
+      /* ══ CETTE PHRASE AFFIRMAIT PLUS QU'ELLE NE SAVAIT ══════════════════════════════════════
+
+         Elle disait « l'enveloppe n'a pas encore été envoyée ». C'est ce que Michel a lu le
+         31/08/2026 sur le contrat gaz de SDC 77 Joffre — alors que Marie l'avait signé.
+
+         Kimatch ne sait rien de tel. Il sait seulement qu'il n'a rien appris depuis qu'il a créé
+         l'enveloppe : l'envoi se fait DANS DocuSign, par la personne qui place les ancres, et la
+         seule chose qui nous en informe est une notification Connect qui peut ne jamais arriver —
+         elle a déjà lâché deux fois.
+
+         Une phrase qui affirme à la place de DocuSign ne ressemble pas à une panne : elle
+         ressemble à un contrat pas encore envoyé, donc personne ne va chercher. Elle dit
+         maintenant ce qu'elle sait, et où trouver la réponse. */
       return {
         libelle: 'Signature préparée',
-        detail: "L'enveloppe existe dans DocuSign mais n'a pas encore été envoyée.",
+        detail:
+          "L'enveloppe est prête dans DocuSign. Nous n'avons reçu aucune nouvelle depuis : elle " +
+          "attend peut-être d'être envoyée, ou elle a bougé sans que la notification nous parvienne. " +
+          "« Vérifier auprès de DocuSign » tranche.",
       }
     case 'ENVOYE':
       return { libelle: 'Envoyé à signer', detail: envoye ? `Envoyé le ${envoye}.` : 'Envoyé à la signature.' }
