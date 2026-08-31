@@ -196,7 +196,7 @@ export function useInteractionsForCompte(compteId: string | undefined, siteIds: 
   })
 }
 
-async function fetchInteractionsByColumn(column: 'contact_id' | 'site_id' | 'recommandation_id' | 'opportunite_id', value: string): Promise<Interaction[]> {
+async function fetchInteractionsByColumn(column: 'contact_id' | 'site_id' | 'recommandation_id' | 'opportunite_id' | 'suivi_contrat_id', value: string): Promise<Interaction[]> {
   const { data, error } = await supabase
     .from('interactions')
     .select(INTERACTIONS_SELECT)
@@ -251,6 +251,15 @@ export function useInteractionsParRecommandation(recoId: string | undefined) {
  * déduit donc rien pour les 66 646 interactions existantes. Celles-ci portent `opportunite_id`
  * parce qu'elles ont été créées depuis sa fiche, ce qui est la seule affirmation sûre.
  */
+/** Les échanges consignés sur un suivi de contrat (colonne ajoutée le 31/08/2026). */
+export function useInteractionsParSuiviContrat(suiviId: string | undefined) {
+  return useQuery({
+    queryKey: ['interactions', 'suivi-contrat', suiviId],
+    enabled: !!suiviId,
+    queryFn: () => fetchInteractionsByColumn('suivi_contrat_id', suiviId as string),
+  })
+}
+
 export function useInteractionsParOpportunite(opportuniteId: string | undefined) {
   return useQuery({
     queryKey: ['interactions', 'opportunite', opportuniteId],
@@ -293,6 +302,7 @@ interface CreateInteractionInput {
    *  lancée depuis la fiche opportunité partait au niveau du compte et ne revenait pas dans son
    *  flux d'actualité. */
   opportunite_id?: string | null
+  suivi_contrat_id?: string | null
 }
 
 interface CreateInteractionResult {
@@ -346,6 +356,7 @@ export function useCreateInteraction() {
           contact_id: input.contact_id,
           ...(input.recommandation_id ? { recommandation_id: input.recommandation_id } : {}),
           ...(input.opportunite_id ? { opportunite_id: input.opportunite_id } : {}),
+          ...(input.suivi_contrat_id ? { suivi_contrat_id: input.suivi_contrat_id } : {}),
           ...(auteurId ? { auteur_profil_id: auteurId, proprietaire_id: auteurId } : {}),
           ...(input.type_interaction_id ? { type_interaction_id: input.type_interaction_id } : {}),
           ...(input.issue_interaction_id ? { issue_interaction_id: input.issue_interaction_id } : {}),

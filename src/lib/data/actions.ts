@@ -44,18 +44,20 @@ async function fetchActions(
   recommandationId?: string,
   opportuniteId?: string,
   pisteId?: string,
+  suiviContratId?: string,
 ): Promise<ActionItem[]> {
   try {
     if (siteIds && siteIds.length === 0) return []
     const data = await fetchAllRows<RawAction>(
       'actions',
-      'id, titre, site_id, contact_id, recommandation_id, opportunite_id, piste_id, date_creation, date_prevue, date_realisation, priorite, commentaire, proprietaire_id, responsable_profil_id, type_action:types_actions(libelle), statut:statuts_actions(code), responsable:profils!actions_responsable_profil_id_fkey(prenom, nom), site:sites(nom), contact:contacts(prenom, nom), recommandation:recommandations!recommandation_id(nom)',
+      'id, titre, site_id, contact_id, recommandation_id, opportunite_id, piste_id, suivi_contrat_id, date_creation, date_prevue, date_realisation, priorite, commentaire, proprietaire_id, responsable_profil_id, type_action:types_actions(libelle), statut:statuts_actions(code), responsable:profils!actions_responsable_profil_id_fkey(prenom, nom), site:sites(nom), contact:contacts(prenom, nom), recommandation:recommandations!recommandation_id(nom)',
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       (q: any) => {
         if (actionId) return q.eq('id', actionId)
         if (recommandationId) return q.eq('recommandation_id', recommandationId).order('date_prevue')
         if (opportuniteId) return q.eq('opportunite_id', opportuniteId).order('date_prevue')
         if (pisteId) return q.eq('piste_id', pisteId).order('date_prevue')
+        if (suiviContratId) return q.eq('suivi_contrat_id', suiviContratId).order('date_prevue')
         return (siteIds ? q.in('site_id', siteIds) : q).order('date_prevue')
       },
     )
@@ -126,6 +128,15 @@ export function useActionsParRecommandation(recoId: string | undefined) {
   })
 }
 
+/** Tâches d'un suivi de contrat (colonne ajoutée le 31/08/2026 avec l'objet). */
+export function useActionsParSuiviContrat(suiviId: string | undefined) {
+  return useQuery({
+    queryKey: ['actions', 'suivi-contrat', suiviId],
+    queryFn: () => fetchActions(undefined, undefined, undefined, undefined, undefined, suiviId as string),
+    enabled: !!suiviId,
+  })
+}
+
 /** Tâches d'une opportunité. La colonne `opportunite_id` existait déjà, rien ne la lisait. */
 export function useActionsParOpportunite(opportuniteId: string | undefined) {
   return useQuery({
@@ -173,6 +184,8 @@ interface CreateActionInput {
   /** Opportunité ou piste d'origine — même rôle que `recommandation_id` (Michel, 31/08/2026). */
   opportunite_id?: string | null
   piste_id?: string | null
+  /** Suivi de contrat — le cinquième rattachement possible d'une tâche. */
+  suivi_contrat_id?: string | null
 }
 
 interface CreateActionResult {
@@ -239,6 +252,7 @@ export function useCreateAction() {
           ...(input.recommandation_id ? { recommandation_id: input.recommandation_id } : {}),
           ...(input.opportunite_id ? { opportunite_id: input.opportunite_id } : {}),
           ...(input.piste_id ? { piste_id: input.piste_id } : {}),
+          ...(input.suivi_contrat_id ? { suivi_contrat_id: input.suivi_contrat_id } : {}),
           ...(input.type_action_id ? { type_action_id: input.type_action_id } : {}),
           ...(input.statut_id ? { statut_id: input.statut_id } : {}),
         })

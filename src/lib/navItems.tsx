@@ -107,6 +107,9 @@ export const cycleNavItems: NavItem[] = [
 export const productionNavItems: NavItem[] = [
   { to: '/pricing', label: 'Pricing', icon: Euro },
   { to: '/requetes', label: 'Requêtes', icon: Inbox },
+  // Le dernier objet de la chaîne : ce qui se passe APRÈS la signature. Dossier de transmission du
+  // 31/08/2026, § 2 — la zone Production réunit « Pricing · Requêtes · Suivis de contrats ».
+  { to: '/suivis-contrats', label: 'Suivis de contrats', icon: LifeBuoy },
 ]
 
 export const navItemsMasques: NavItem[] = [

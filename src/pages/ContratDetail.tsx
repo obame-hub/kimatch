@@ -1,12 +1,13 @@
 import { useEffect, useMemo, useState } from 'react'
 import { ApercuDocument } from '@/components/document/ApercuDocument'
 import { useParams, useNavigate } from 'react-router-dom'
-import { ArrowLeft, Zap, Flame, Lightbulb, Trash2, Building2, MapPin, Gauge, FileText, Plus, Euro, X, Eye, PenLine, Check, ExternalLink, Send, MailOpen, FileSignature, PenTool } from 'lucide-react'
+import { ArrowLeft, Zap, Flame, Lightbulb, Trash2, Building2, MapPin, Gauge, FileText, Plus, Euro, X, Eye, PenLine, Check, ExternalLink, Send, MailOpen, FileSignature, PenTool, LifeBuoy} from 'lucide-react'
 import { Topbar } from '@/components/layout/Topbar'
 import { Button } from '@/components/ui/button'
 import { ZoneDepotFichiers } from '@/components/ui/zone-depot-fichiers'
 import { Badge } from '@/components/ui/badge'
 import { EntityLink } from '@/components/ui/entity-link'
+import { useSuiviDuContrat, SANTE_LIBELLE } from '@/lib/data/suivisContrats'
 import { Dialog } from '@/components/ui/dialog'
 import { FormField, Input, Select } from '@/components/ui/form'
 import { HistoriqueDiscret } from '@/components/ui/historique-discret'
@@ -335,6 +336,8 @@ export default function ContratDetail() {
   // Perimetre de la fiche, lu cote serveur : ces lectures parcouraient le CRM entier pour en
   // garder une ligne ou quelques-unes (meme correctif que les fiches compte et site).
   const { data: contrat } = useContrat(id)
+  /* Le suivi ouvert à la signature de ce contrat, s'il existe (objet créé le 31/08/2026). */
+  const { data: suivi } = useSuiviDuContrat(id)
   const { data: sites } = useSites()
   const { data: comptes } = useComptes()
   const { data: documents } = useDocuments()
@@ -574,6 +577,29 @@ export default function ContratDetail() {
               </div>
               <p className="text-[13px] font-bold text-km-text">
                 {contrat.recommandation_nom || 'Recommandation'}
+              </p>
+            </div>
+          )}
+
+          {/* ══ CE QUE CE CONTRAT EST DEVENU ══
+              Le suivi ouvert à sa signature. La carte se tait quand il n'y en a pas — un contrat non
+              signé n'en a pas, et un « Aucun suivi » n'apprendrait rien. Elle porte l'étape et la
+              santé parce que c'est ce qu'on vient chercher depuis un contrat : où en est la vie de
+              cette affaire. */}
+          {suivi && (
+            <div className="rounded-xl border border-km-line bg-white p-3.5">
+              <div className="mb-2 flex items-center gap-1.5">
+                <span className="flex h-5 w-5 items-center justify-center rounded-md bg-km-green-soft text-km-green">
+                  <LifeBuoy className="h-2.5 w-2.5" />
+                </span>
+                <span className="text-[10px] font-bold uppercase tracking-wide text-km-faint">Suivi de contrat</span>
+                <div className="flex-1" />
+                <EntityLink to={`/suivis-contrats/${suivi.id}`}>ouvrir →</EntityLink>
+              </div>
+              <p className="text-[13px] font-bold text-km-text">{suivi.etape_libelle}</p>
+              <p className="mt-0.5 text-[11px] text-km-muted">
+                {SANTE_LIBELLE[suivi.sante] ?? suivi.sante}
+                {suivi.actions_ouvertes > 0 && ` · ${suivi.actions_ouvertes} action(s) à faire`}
               </p>
             </div>
           )}

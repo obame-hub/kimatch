@@ -25,6 +25,8 @@ const Opportunites = lazy(() => import('@/pages/Opportunites'))
 const OpportuniteDetail = lazy(() => import('@/pages/OpportuniteDetail'))
 const Prospection = lazy(() => import('@/pages/Prospection'))
 const Requetes = lazy(() => import('@/pages/Requetes'))
+const SuivisContrats = lazy(() => import('@/pages/SuivisContrats'))
+const SuiviContratDetail = lazy(() => import('@/pages/SuiviContratDetail'))
 const Remunerations = lazy(() => import('@/pages/Remunerations'))
 const SignalDetail = lazy(() => import('@/pages/SignalDetail'))
 const Recommandations = lazy(() => import('@/pages/Recommandations'))
@@ -76,6 +78,8 @@ function App() {
           <Route path="/opportunites/:id" element={<OpportuniteDetail />} />
           <Route path="/pricing" element={<Pricing />} />
           <Route path="/requetes" element={<Requetes />} />
+          <Route path="/suivis-contrats" element={<SuivisContrats />} />
+          <Route path="/suivis-contrats/:id" element={<SuiviContratDetail />} />
           <Route path="/remunerations" element={<Remunerations />} />
           <Route path="/signaux" element={<Signaux />} />
           <Route path="/signaux/:id" element={<SignalDetail />} />

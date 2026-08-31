@@ -142,6 +142,7 @@ export function ActivityFeed({
   filterDimension,
   recommandationId,
   recommandationNom,
+  suiviContratId,
   actionsRapides,
 }: {
   siteId?: string | null
@@ -158,6 +159,8 @@ export function ActivityFeed({
    *  recommandation partirait au niveau du compte et ne reviendrait jamais dans ce fil. */
   recommandationId?: string | null
   recommandationNom?: string
+  /** Même rôle pour un suivi de contrat : une note écrite sur sa fiche doit y rester (31/08/2026). */
+  suiviContratId?: string | null
   /** Boutons d'action rapide au-dessus du champ de note — « Rappel » et « Loguer un appel » dans la
    *  maquette de la fiche Recommandation. La fiche fournit le geste, le fil fournit la place. */
   actionsRapides?: ReactNode
@@ -227,6 +230,7 @@ export function ActivityFeed({
       issue_interaction_id: null,
       recommandation_id: recommandationId ?? null,
       recommandation_nom: recommandationNom ?? null,
+      suivi_contrat_id: suiviContratId ?? null,
     })
     setNote('')
     setFeedback(result.persisted ? 'Note ajoutée.' : 'Note ajoutée localement (non synchronisée avec Supabase).')

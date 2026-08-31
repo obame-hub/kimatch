@@ -35,6 +35,7 @@ export interface RattachementTache {
   recommandation_titre?: string
   opportunite_id?: string | null
   piste_id?: string | null
+  suivi_contrat_id?: string | null
   site_id?: string | null
   site_nom?: string
   contact_id?: string | null
@@ -131,6 +132,7 @@ export function DialogNouvelleTache({
         recommandation_titre: rattachement?.recommandation_titre ?? '',
         opportunite_id: rattachement?.opportunite_id ?? null,
         piste_id: rattachement?.piste_id ?? null,
+        suivi_contrat_id: rattachement?.suivi_contrat_id ?? null,
       })
       const message = result.persisted
         ? '✓ Tâche créée'
