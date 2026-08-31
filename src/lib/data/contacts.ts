@@ -433,6 +433,51 @@ export function useLierContactCompte() {
   })
 }
 
+/**
+ * CHANGER LE COMPTE PRINCIPAL D'UN CONTACT.
+ *
+ * Michel, 31/08/2026 : « rattacher un compte à un contact ». Les rattachements SECONDAIRES existaient
+ * déjà (146 liens sur 77 contacts, mesuré ce jour) ; ce qui manquait, c'était de corriger le compte
+ * principal d'un contact saisi sous le mauvais.
+ *
+ * PASSE PAR UNE FONCTION POSTGRES, ET C'EST LE POINT ESSENTIEL. Le changement touche trois lignes :
+ * `contacts.compte_id`, l'ancienne ligne de `contacts_comptes`, la nouvelle. Le client Supabase ne
+ * sait pas les écrire ensemble — un échec au deuxième appel laisserait le compte principal désaccordé
+ * entre la colonne et la table de liens, exactement ce que `useDelierContactCompte` se donne du mal à
+ * empêcher. La fonction fait tout ou rien, et vérifie l'invariant avant de rendre la main.
+ *
+ * `conserverAncienLien` : garder l'ancien compte en rattachement secondaire (le contact a changé
+ * d'employeur mais reste l'interlocuteur) ou le retirer (c'était une erreur de saisie). Rien ne
+ * distingue les deux de l'extérieur, donc l'écran pose la question.
+ */
+export function useChangerComptePrincipal() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: async ({
+      contactId,
+      compteId,
+      conserverAncienLien,
+    }: {
+      contactId: string
+      compteId: string
+      conserverAncienLien: boolean
+    }) => {
+      const { error } = await supabase.rpc('changer_compte_principal_contact', {
+        p_contact_id: contactId,
+        p_compte_id: compteId,
+        p_conserver_ancien_lien: conserverAncienLien,
+      })
+      if (error) throw new Error(error.message)
+    },
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: ['contacts'] })
+      /* Le compte gagne un contact et l'autre en perd un : sans ces invalidations, les deux fiches
+         compte continueraient d'afficher l'ancienne répartition. */
+      void queryClient.invalidateQueries({ queryKey: ['comptes'] })
+    },
+  })
+}
+
 export function useDelierContactCompte() {
   const queryClient = useQueryClient()
   return useMutation({

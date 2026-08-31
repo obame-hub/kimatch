@@ -1,11 +1,11 @@
 import { useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { Building2, MapPin, Plus, Unlink } from 'lucide-react'
+import { Building2, MapPin, Plus, Repeat, Unlink } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Dialog } from '@/components/ui/dialog'
 import { FormField, Input, Select } from '@/components/ui/form'
 import type { Compte, Compteur, Contact, Site } from '@/types/domain'
-import { useLierContactCompte, useDelierContactCompte } from '@/lib/data/contacts'
+import { useLierContactCompte, useDelierContactCompte, useChangerComptePrincipal } from '@/lib/data/contacts'
 
 /**
  * Onglet « Rattachements » de la fiche contact — appel du 13/08/2026 : « la section rattachement
@@ -37,6 +37,9 @@ export function RattachementsContact({
   const [aDelier, setADelier] = useState<{ id: string; nom: string } | null>(null)
   const lier = useLierContactCompte()
   const delier = useDelierContactCompte()
+  /* Corriger le compte principal — voir `useChangerComptePrincipal`. */
+  const changer = useChangerComptePrincipal()
+  const [changementOuvert, setChangementOuvert] = useState(false)
 
   // Le compte principal d'abord, les autres par ordre alphabétique : c'est celui qui porte
   // l'appartenance réelle du contact, les autres sont des interventions.
@@ -147,9 +150,29 @@ export function RattachementsContact({
                 </p>
               </button>
               {lien.relation_directe ? (
-                <span className="shrink-0 rounded bg-[#eaf4f0] px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-[#0d7a5f]">
-                  Principal
-                </span>
+                <div className="flex shrink-0 items-center gap-1.5">
+                  <span className="rounded bg-[#eaf4f0] px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-[#0d7a5f]">
+                    Principal
+                  </span>
+                  {/* ══ LE COMPTE PRINCIPAL SE CORRIGE ICI ══
+                      Michel, 31/08/2026 : « rattacher un compte à un contact ». On pouvait ajouter
+                      des rattachements secondaires depuis le 13/08, mais un contact saisi sous le
+                      mauvais compte restait dessus pour toujours.
+
+                      « Changer » ET NON « Retirer » : le compte principal ne peut pas être absent —
+                      `contacts.compte_id` est la source de tout le périmètre de visibilité du
+                      contact. On le remplace, on ne le vide pas. */}
+                  {peutModifier && (
+                    <button
+                      type="button"
+                      onClick={() => setChangementOuvert(true)}
+                      title="Changer le compte principal de ce contact"
+                      className="rounded-md p-1.5 text-km-faint transition-colors hover:bg-km-soft hover:text-km-text"
+                    >
+                      <Repeat className="h-3.5 w-3.5" />
+                    </button>
+                  )}
+                </div>
               ) : (
                 peutModifier && (
                   <button
@@ -239,6 +262,23 @@ export function RattachementsContact({
         }}
       />
 
+      <DialogChangerPrincipal
+        ouvert={changementOuvert}
+        onFermer={() => setChangementOuvert(false)}
+        contact={contact}
+        comptes={comptes}
+        enCours={changer.isPending}
+        onValider={async (compteId, conserver) => {
+          try {
+            await changer.mutateAsync({ contactId: contact.id, compteId, conserverAncienLien: conserver })
+            onToast('✓ Compte principal changé')
+            setChangementOuvert(false)
+          } catch (err) {
+            onToast(`Erreur : ${(err as Error).message}`)
+          }
+        }}
+      />
+
       <Dialog
         open={!!aDelier}
         onClose={() => setADelier(null)}
@@ -272,6 +312,98 @@ export function RattachementsContact({
         </div>
       </Dialog>
     </div>
+  )
+}
+
+/**
+ * CHANGER LE COMPTE PRINCIPAL — le dialogue.
+ *
+ * IL POSE LA QUESTION DE L'ANCIEN COMPTE, et c'est le seul point qui demande une décision. Un contact
+ * saisi sous le mauvais compte : l'ancien lien est une erreur, il doit disparaître. Un contact qui
+ * change d'employeur mais reste l'interlocuteur de l'ancien : le lien devient secondaire. Rien ne
+ * distingue les deux de l'extérieur — deviner produirait un rattachement fantôme une fois sur deux.
+ *
+ * PAR DÉFAUT ON RETIRE : la correction d'une saisie est le cas courant, le changement d'employeur
+ * l'exception. Une case cochée par défaut laisserait des liens que personne n'a demandés.
+ */
+function DialogChangerPrincipal({
+  ouvert,
+  onFermer,
+  contact,
+  comptes,
+  enCours,
+  onValider,
+}: {
+  ouvert: boolean
+  onFermer: () => void
+  contact: Contact
+  comptes: Compte[]
+  enCours: boolean
+  onValider: (compteId: string, conserverAncienLien: boolean) => void
+}) {
+  const [compteId, setCompteId] = useState('')
+  const [recherche, setRecherche] = useState('')
+  const [conserver, setConserver] = useState(false)
+
+  const actuel = contact.comptes.find((c) => c.relation_directe)
+  // Même contrainte que pour le rattachement : 2 700 comptes ne tiennent pas dans une liste brute.
+  const q = recherche.trim().toLowerCase()
+  const candidats = comptes.filter((c) => c.id !== contact.compte_id)
+  const filtres = q
+    ? candidats.filter((c) => c.nom.toLowerCase().includes(q)).slice(0, 50)
+    : candidats.slice(0, 50)
+
+  return (
+    <Dialog
+      open={ouvert}
+      onClose={onFermer}
+      title="Changer le compte principal"
+      description={`${contact.prenom} ${contact.nom} est aujourd'hui rattaché à ${actuel?.nom ?? 'un compte'}. Le compte principal détermine où le contact apparaît et qui le voit.`}
+    >
+      <div className="flex flex-col gap-3">
+        <FormField label="Rechercher un compte">
+          <Input value={recherche} onChange={(e) => setRecherche(e.target.value)} placeholder="Nom du compte…" />
+        </FormField>
+        <FormField label="Nouveau compte principal">
+          <Select value={compteId} onChange={(e) => setCompteId(e.target.value)}>
+            <option value="">Sélectionner…</option>
+            {filtres.map((c) => (
+              <option key={c.id} value={c.id}>
+                {c.nom}
+              </option>
+            ))}
+          </Select>
+        </FormField>
+        {!q && candidats.length > 50 && (
+          <p className="text-[10.5px] text-km-faint">
+            50 comptes sur {candidats.length} affichés — précisez la recherche pour trouver le bon.
+          </p>
+        )}
+        <label className="flex items-start gap-2 rounded-km border border-km-line bg-km-soft px-2.5 py-2">
+          <input
+            type="checkbox"
+            checked={conserver}
+            onChange={(e) => setConserver(e.target.checked)}
+            className="mt-0.5"
+          />
+          <span className="text-[11px] leading-snug text-km-muted">
+            Garder <span className="font-bold text-km-text">{actuel?.nom ?? 'l’ancien compte'}</span> en
+            rattachement secondaire.
+            <br />
+            À cocher si le contact reste l’interlocuteur de ce compte. À laisser vide si c’était une
+            erreur de saisie.
+          </span>
+        </label>
+        <div className="flex justify-end gap-2 pt-2">
+          <Button type="button" variant="ghost" onClick={onFermer}>
+            Annuler
+          </Button>
+          <Button type="button" disabled={!compteId || enCours} onClick={() => onValider(compteId, conserver)}>
+            Changer le compte principal
+          </Button>
+        </div>
+      </div>
+    </Dialog>
   )
 }
 
