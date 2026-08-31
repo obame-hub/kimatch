@@ -54,12 +54,19 @@ function SidebarLink({ to, label, icon: Icon, end, onClick }: NavItem & { onClic
              Le sens y gagne : le vert ne sert plus a remplir une pastille, il ne marque plus que
              la selection — c'est la regle de son dossier, « le vert KiWee reserve aux actions
              positives, selections et reperes importants ». */
-          /* SUR FOND SOMBRE, LA SÉLECTION SE FAIT EN VERT PLEIN À FAIBLE OPACITÉ, pas avec le
-             vert pâle des fonds clairs — `km-green-soft` est presque blanc, il ferait une dalle
-             lumineuse. 18 % du vert de marque suffit à détacher la ligne, et l'icône passe au vert
-             franc : deux signaux, dont un seul est une couleur de fond. */
+          /* ══ LE FOND VERT DE L'ONGLET COURANT, ET POURQUOI IL ÉTAIT INVISIBLE ══
+             Naoëlle, 31/08/2026 : « j'aimerais bien qu'il y ait un fond vert clair transparent sur
+             l'onglet sur lequel je me trouve ». Il y EN AVAIT un — `km-green/18` — mais on ne le
+             voyait pas, et le calcul dit pourquoi : le vert de marque #0D7A5F est SOMBRE, alors
+             mélangé à 18 % dans un rail déjà sombre il rend rgb(30,55,47), soit un écart de 1,17
+             avec le fond. En dessous de 1,3, l'œil ne distingue plus un bloc de son support.
+             Sur fond clair, diluer une couleur l'éclaircit ; sur fond sombre, diluer une couleur
+             SOMBRE ne fait presque rien. Il faut donc partir du vert CLAIR de la palette.
+             `kiwi-300` #5FAE8F à 20 % rend rgb(46,66,58) — écart 1,42, franchement visible — et le
+             libellé y garde un contraste de 9,3. L'icône passe au vert clair : deux signaux, dont
+             un seul est une couleur de fond. */
           isActive
-            ? 'bg-km-green/18 font-semibold text-km-side-text'
+            ? 'bg-kiwi-300/20 font-semibold text-km-side-text'
             : 'text-km-side-muted hover:bg-white/[0.055] hover:text-km-side-text',
         )
       }
