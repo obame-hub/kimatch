@@ -1,5 +1,17 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node'
-import { verifierSignature, statutPourEnveloppe, doitEcrire } from './_decision'
+/* L'EXTENSION `.js` EST OBLIGATOIRE ICI, et son absence a coupé DocuSign.
+ *
+ * Le projet est en `"type": "module"` : Node résout les imports relatifs en ESM strict, où un chemin
+ * sans extension n'existe pas. La fonction ne démarrait donc pas du tout — Vercel répondait
+ * FUNCTION_INVOCATION_FAILED en 500 à CHAQUE notification DocuSign, et aucune signature ne remontait.
+ *
+ * Introduit le 30/08/2026 en extrayant ces trois fonctions dans `_decision.ts`. Les 24 autres
+ * imports relatifs de `api/` portent tous leur `.js` ; celui-ci était le seul sans.
+ *
+ * POURQUOI RIEN NE L'A VU : le build passe, le lint passe, et les tests passent — Vitest résout les
+ * chemins comme un bundler, pas comme Node. Seul le runtime déployé échoue. C'est le pire genre de
+ * régression, et la seule défense est d'appeler l'URL après déploiement. */
+import { verifierSignature, statutPourEnveloppe, doitEcrire } from './_decision.js'
 import { createClient, type SupabaseClient } from '@supabase/supabase-js'
 import { sessionQuelconque } from './_oauth.js'
 import { runGrdSyncForMandat } from './_grdSync.js'
