@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { Euro } from 'lucide-react'
+import {  } from 'lucide-react'
 import { Topbar } from '@/components/layout/Topbar'
 import { PageHeader } from '@/components/ui/page-header'
 import { ListToolbar } from '@/components/ui/list-toolbar'
@@ -277,8 +277,6 @@ export default function Pricing({ sansEntete }: { sansEntete?: boolean }) {
       {!sansEntete && <Topbar title="Pricing" />}
       <div className="p-4 sm:p-6">
         <PageHeader
-          icone={<Euro className="h-[19px] w-[19px]" strokeWidth={2.1} />}
-          teinte="from-kiwi-600 to-kiwi-400"
           title="Pricing"
           badge={montantConnu ? euros(montantTotal) : undefined}
           badgeLibelle="Montant chiffré"

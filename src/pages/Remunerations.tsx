@@ -79,8 +79,6 @@ export default function Remunerations() {
         <PageHeader
           title="Rémunérations"
           description="Ce que Kiwee attend et ce qu'elle a perçu. L'écart entre les deux est le suivi."
-          icone={<Euro className="h-[19px] w-[19px]" strokeWidth={2.2} />}
-          teinte="from-kiwi-700 to-kiwi-500"
           actions={
             <Button size="sm" onClick={() => setCreation(true)}>
               <Plus className="h-3.5 w-3.5" /> Nouvelle rémunération

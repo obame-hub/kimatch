@@ -32,7 +32,7 @@
  */
 import { useEffect, useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { Gauge, Zap, Flame } from 'lucide-react'
+import { Zap, Flame } from 'lucide-react'
 import { Topbar } from '@/components/layout/Topbar'
 import { PageHeader } from '@/components/ui/page-header'
 import { Card } from '@/components/ui/card'
@@ -129,8 +129,6 @@ export default function Compteurs({ sansEntete }: { sansEntete?: boolean }) {
       {!sansEntete && <Topbar title="Compteurs" />}
       <div className={sansEntete ? '' : 'p-4 sm:p-6'}>
         <PageHeader
-          icone={<Gauge className="h-[19px] w-[19px]" strokeWidth={2.1} />}
-          teinte="from-navy-700 to-navy-500"
           title="Compteurs"
           description="Les points de livraison — PDL en électricité, PCE en gaz. C’est le compteur qui porte l’échéance, donc le moment d’agir."
         />

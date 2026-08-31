@@ -131,8 +131,6 @@ export default function Opportunites() {
       <Topbar title="Opportunités" />
       <div className="min-h-0 flex-1 overflow-y-auto px-4 py-4 lg:px-6">
         <PageHeader
-          icone={<Target className="h-[19px] w-[19px]" strokeWidth={2.1} />}
-          teinte="from-opp-600 to-opp-400"
           title="Opportunités"
           /* LE VOLUME TOTAL COLLÉ AU TITRE — règle n° 5 : « le total près du titre de page ». C'est
              la somme des paliers affichés, donc du travail en cours quand les clos sont masqués. */

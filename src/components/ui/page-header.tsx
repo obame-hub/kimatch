@@ -2,66 +2,107 @@ import type { ReactNode } from 'react'
 import { cn } from '@/lib/utils'
 
 /**
- * L'en-tête d'un écran de liste.
+ * L'EN-TÊTE D'UN ÉCRAN DE LISTE, refait d'après la maquette de Michel (31/08/2026).
  *
- * LA PASTILLE PORTE LA COULEUR DE L'OBJET, comme chez William : chacun de ses écrans s'ouvre sur une
- * pastille au dégradé de sa famille — bleu pour le compte, violet pour le contact, vert pour le
- * site, magenta pour l'opportunité. Sans elle, deux listes se ressemblent trait pour trait et on ne
- * sait plus où l'on est. Le paramètre est optionnel : les écrans qui ne l'ont pas encore gardent
- * exactement l'apparence d'avant.
+ * Son modèle commun des pages de liste, mot pour mot :
+ *
+ *   « En-tête : nom de la page, phrase explicative et une action principale au maximum. »
+ *
+ * D'où ce qui a disparu de cet en-tête, et pourquoi :
+ *
+ * LA PASTILLE COLORÉE DE L'OBJET. Chaque écran s'ouvrait sur une pastille au dégradé de sa famille
+ * — bleu pour le compte, violet pour le contact, magenta pour l'opportunité. C'était la convention
+ * de William. Michel réserve la couleur au SENS MÉTIER : « le vert KiWee réservé aux actions
+ * positives, sélections et repères importants ». Une pastille décorative par écran dépense la
+ * couleur avant d'avoir rien dit.
+ *
+ * LE TOTAL COLLÉ AU TITRE reste : c'est une information, pas une décoration, et il répond à la
+ * demande de Michel du 26/08 (« le total près du titre de page »). Il passe simplement dans sa
+ * palette — fond vert pâle, texte vert.
+ *
+ * Le titre est en 28 px, la seule taille de sa maquette reprise telle quelle. Il descend à 22 px
+ * sur les petits écrans : 28 px sur 375 px de large mange deux lignes à lui seul.
  */
-export function PageHeader({ title, description, actions, icone, teinte, badge, badgeLibelle }: {
+export function PageHeader({ title, description, actions, badge, badgeLibelle }: {
   title: string
   description?: string
   actions?: ReactNode
-  icone?: ReactNode
-  /** Classes du dégradé de la pastille, par exemple `from-opp-600 to-opp-400`. */
-  teinte?: string
   /**
-   * LE TOTAL DE LA PAGE, COLLÉ AU TITRE — maquettes 5 et 6 du dossier UX du 26/08/2026 : « le total
-   * près du titre de page », « la marge totale près du titre de page ».
-   *
-   * Déjà formaté, unité comprise : l'en-tête ne sait pas s'il annonce des euros ou des GWh. Collé au
-   * titre et non posé au-dessus, parce que c'est le titre qu'il qualifie — « Recommandations,
-   * 132 800 € » se lit d'un trait, là où un bandeau séparé demande de faire le lien soi-même.
+   * Le total de la page, déjà formaté, unité comprise : l'en-tête ne sait pas s'il annonce des
+   * euros ou des GWh. Collé au titre et non posé au-dessus, parce que c'est le titre qu'il
+   * qualifie — « Recommandations, 132 800 € » se lit d'un trait.
    */
   badge?: string
   /** Ce que le total mesure — « Marge totale », « Consommation totale ». */
   badgeLibelle?: string
 }) {
   return (
-    <div className="mb-6 flex flex-wrap items-start justify-between gap-3">
-      <div className="flex min-w-0 items-start gap-3">
-        {icone && (
-          <span
-            className={cn(
-              'mt-0.5 flex h-10 w-10 shrink-0 items-center justify-center rounded-[10px] bg-gradient-to-br text-white shadow-[0_4px_12px_rgba(22,24,29,.14)]',
-              teinte ?? 'from-navy-700 to-navy-500',
-            )}
-          >
-            {icone}
-          </span>
-        )}
-        <div className="min-w-0">
-          <div className="flex flex-wrap items-center gap-2.5">
-            <h2 className="font-display text-xl font-semibold text-navy-900">{title}</h2>
-            {badge && (
-              <span className="inline-flex shrink-0 items-baseline gap-1.5 rounded-kw-pill border border-kw-green-border bg-kw-green-light px-2.5 py-1">
-                {badgeLibelle && (
-                  <span className="text-kw-micro font-bold uppercase tracking-[0.06em] text-kw-meta">
-                    {badgeLibelle}
-                  </span>
-                )}
-                <span className="font-mono text-kw-sm font-extrabold tabular-nums text-kw-green">
-                  {badge}
+    <div className="mb-5 flex flex-wrap items-end justify-between gap-4">
+      <div className="min-w-0">
+        <div className="flex flex-wrap items-center gap-2.5">
+          <h2 className="font-display text-[22px] font-[570] leading-tight tracking-[-0.04em] text-km-text sm:text-km-h1">
+            {title}
+          </h2>
+          {badge && (
+            <span className="inline-flex shrink-0 items-baseline gap-1.5 rounded-km-pill bg-km-green-soft px-2.5 py-1">
+              {badgeLibelle && (
+                <span className="text-km-label font-semibold uppercase tracking-[0.05em] text-km-green/70">
+                  {badgeLibelle}
                 </span>
+              )}
+              <span className="font-mono text-km-body font-bold tabular-nums text-km-green">
+                {badge}
               </span>
-            )}
-          </div>
-          {description && <p className="mt-1 text-sm text-navy-500">{description}</p>}
+            </span>
+          )}
         </div>
+        {description && <p className="mt-1.5 max-w-[76ch] text-km-lead text-km-muted">{description}</p>}
       </div>
-      {actions}
+      {actions && <div className="flex shrink-0 items-center gap-2">{actions}</div>}
+    </div>
+  )
+}
+
+/**
+ * LES INDICATEURS D'UNE PAGE, « quatre mesures maximum, uniquement si elles servent la décision ».
+ *
+ * Le nombre est plafonné à quatre DANS LE CODE et non laissé à la vigilance de chaque écran : une
+ * règle qui repose sur le fait que personne ne l'oublie n'est pas une règle. Un cinquième
+ * indicateur est ignoré, et la console le dit en développement.
+ *
+ * LE PREMIER PORTE UN LISERÉ VERT EN HAUT — c'est le détail de sa maquette (`.km-metric:first-child`)
+ * qui fait qu'on sait où commencer à lire. Il désigne la mesure qui compte le plus, et l'ordre
+ * dans lequel l'écran les passe devient donc une décision, pas un hasard.
+ */
+export function Indicateurs({ mesures }: {
+  mesures: { libelle: string; valeur: string; precision?: string }[]
+}) {
+  if (mesures.length === 0) return null
+
+  if (import.meta.env.DEV && mesures.length > 4) {
+    console.warn(
+      `Indicateurs : ${mesures.length} mesures fournies, les 4 premières seulement sont affichées. ` +
+        '« Quatre mesures maximum, uniquement si elles servent la décision » — dossier du 31/08/2026.',
+    )
+  }
+
+  return (
+    <div className="mb-5 grid grid-cols-2 gap-2.5 lg:grid-cols-4">
+      {mesures.slice(0, 4).map((m, i) => (
+        <div
+          key={m.libelle}
+          className={cn(
+            'min-h-[68px] rounded-km-lg border border-km-line bg-km-surface/80 px-3.5 py-3 shadow-km-metric',
+            i === 0 && 'shadow-[inset_0_2px_0_rgb(var(--km-green)),0_3px_12px_rgba(25,40,33,.035)]',
+          )}
+        >
+          <p className="text-km-label text-km-muted">{m.libelle}</p>
+          <strong className="mt-1 block text-km-metric font-[580] tabular-nums text-km-text">
+            {m.valeur}
+          </strong>
+          {m.precision && <small className="mt-0.5 block text-km-label text-km-faint">{m.precision}</small>}
+        </div>
+      ))}
     </div>
   )
 }

@@ -109,8 +109,6 @@ export default function Requetes() {
         <PageHeader
           title="Requêtes"
           description="Ce qui bloque un client, et ce qu'on fait pour le débloquer. Parallèle à la chaîne commerciale."
-          icone={<LifeBuoy className="h-[19px] w-[19px]" strokeWidth={2.1} />}
-          teinte="from-[#a8371f] to-[#c2452d]"
           actions={
             <Button size="sm" onClick={() => setCreation(true)}>
               <Plus className="h-3.5 w-3.5" /> Nouvelle requête

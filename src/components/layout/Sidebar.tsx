@@ -22,7 +22,7 @@ import { getImpersonationInfo } from '@/lib/data/impersonation'
  */
 function Rubrique({ children }: { children: string }) {
   return (
-    <p className="mb-1 mt-4 px-3 text-[10px] font-bold uppercase tracking-[0.11em] text-ink-500 first:mt-1">
+    <p className="mb-1.5 mt-3.5 px-2.5 text-km-label font-bold uppercase tracking-[0.07em] text-km-faint first:mt-1">
       {children}
     </p>
   )
@@ -36,14 +36,19 @@ function SidebarLink({ to, label, icon: Icon, end, onClick }: NavItem & { onClic
       onClick={onClick}
       className={({ isActive }) =>
         cn(
-          'group relative flex items-center gap-3 rounded-lg py-2 pl-2 pr-3 text-sm font-medium transition-colors',
-          'md:px-2',
-          // LES TEINTES DU RAIL SONT FIXES, ET C'EST LA RAISON D'ETRE DE `ink-*`. Le rail garde son
-          // fond `ink-950` dans les deux themes, alors que les jetons `navy-*` s'inversent :
-          // `navy-300` valait 201,203,198 en clair mais 58,61,68 en sombre — soit un gris presque
-          // invisible sur un fond presque noir. Mesure faite le 23/08/2026. `ink-400` vaut #8b8e96,
-          // exactement la teinte que William donne a ses icones de rail.
-          isActive ? 'text-white' : 'text-ink-300 hover:bg-ink-800 hover:text-white',
+          'group relative flex items-center gap-2 rounded-km py-[7px] pl-2 pr-2.5 text-km-name transition-colors',
+          'md:px-2.5',
+          /* LA BARRE PASSE DU SOMBRE AU CLAIR — maquette de Michel du 31/08/2026. C'etait le
+             changement le plus visible de sa refonte : le rail `ink-950` devient un fond
+             `km-side` en degrade, et l'entree active n'est plus un pave vert mais un fond
+             `km-green-soft` avec l'icone seule en vert.
+
+             Le sens y gagne : le vert ne sert plus a remplir une pastille, il ne marque plus que
+             la selection — c'est la regle de son dossier, « le vert KiWee reserve aux actions
+             positives, selections et reperes importants ». */
+          isActive
+            ? 'bg-km-green-soft font-semibold text-km-text'
+            : 'text-km-muted hover:bg-km-soft hover:text-km-text',
         )
       }
     >
@@ -52,13 +57,8 @@ function SidebarLink({ to, label, icon: Icon, end, onClick }: NavItem & { onClic
           {/* UNE SEULE TEINTE AU REPOS. Chaque entree portait sa couleur (rouge, rose, ambre,
               emeraude...) : onze teintes saturees dans un rail de 56 px de large. La couleur ne dit
               plus quel objet mais ou l'on se trouve, comme chez William. */}
-          <span
-            className={cn(
-              'flex h-7 w-7 shrink-0 items-center justify-center rounded-lg transition-colors',
-              isActive ? 'bg-kiwi-600' : 'bg-transparent',
-            )}
-          >
-            <Icon className={cn('h-4 w-4', isActive ? 'text-white' : 'text-ink-400')} />
+          <span className="flex w-[17px] shrink-0 items-center justify-center">
+            <Icon className={cn('h-4 w-4', isActive ? 'text-km-green' : 'text-km-muted')} />
           </span>
           <span className="min-w-0 flex-1 truncate whitespace-nowrap">{label}</span>
           {/* PLUS D'INFO-BULLE : elle disait le libellé quand le rail était replié, et le libellé
@@ -116,15 +116,15 @@ export function Sidebar() {
       )}
       <aside
         className={cn(
-          'fixed left-0 z-50 flex flex-col overflow-hidden border-r border-ink-800 bg-ink-950 transition-transform duration-200 ease-out',
+          'fixed left-0 z-50 flex flex-col overflow-hidden border-r border-km-line bg-gradient-to-b from-km-side to-[#F5F6F3] transition-transform duration-200 ease-out',
           impersonating ? 'top-7 bottom-0' : 'inset-y-0',
           /* LE RAIL EST DÉPLIÉ, LIBELLÉS VISIBLES. Naoëlle, 27/08/2026 : « maintenant on va mettre
              les noms de chaque logo ». Il faisait 56 px depuis toujours, ce qui obligeait à
              reconnaître onze pictogrammes ou à survoler chacun pour lire son info-bulle.
 
-             LES COULEURS DE KIMATCH NE BOUGENT PAS — sa consigne : « tu gardes notre code couleur ».
-             Fond `ink-950`, actif en `kiwi-600`, icônes `ink-400` : seule la largeur change. */
-          'w-64 md:w-[212px] md:overflow-visible',
+             215 PX, la largeur de sa maquette (215 de barre + le reste fluide). L'application
+             gardera une largeur fluide : c'est la barre qui est fixe, pas le contenu. */
+          'w-64 md:w-[215px] md:overflow-visible',
           open ? 'translate-x-0' : '-translate-x-full md:translate-x-0',
         )}
       >
@@ -140,16 +140,19 @@ export function Sidebar() {
             respectent le code couleur de Kimatch — sa consigne du même jour.
 
             Le bloc existait déjà pour le menu mobile : il perd seulement son `md:hidden`. */}
-        <div className="flex items-center gap-2.5 border-b border-ink-800 px-3.5 py-4">
-          <img src={kiweePicto} alt="KiWee" className="h-8 w-8 shrink-0 object-contain drop-shadow-[0_4px_10px_rgba(13,122,95,0.45)]" />
+        {/* LE LETTRAGE REDEVIENT LISIBLE SUR FOND CLAIR. Il etait en blanc parce que le rail etait
+            noir ; sur le fond clair de Michel il passe en `km-text`, et le picto retrouve sa
+            couleur sans avoir besoin d'ombre portee pour se detacher. */}
+        <div className="flex items-center gap-2.5 px-3 pb-3.5 pt-3.5">
+          <img src={kiweePicto} alt="KiWee" className="h-[26px] w-[26px] shrink-0 object-contain" />
           <div className="min-w-0 flex-1">
-            <p className="whitespace-nowrap font-display text-[15px] font-bold leading-none tracking-[-0.01em] text-white">Kimatch</p>
-            <p className="mt-0.5 whitespace-nowrap text-[10.5px] text-ink-400">Conseil énergie</p>
+            <p className="whitespace-nowrap font-display text-km-name font-bold leading-none tracking-[-0.02em] text-km-text">Kimatch</p>
+            <p className="mt-0.5 whitespace-nowrap text-km-label text-km-muted">Conseil énergie</p>
           </div>
           <button
             type="button"
             onClick={close}
-            className="rounded-lg p-1.5 text-ink-400 hover:bg-ink-800 hover:text-white md:hidden"
+            className="rounded-km p-1.5 text-km-muted hover:bg-km-soft hover:text-km-text md:hidden"
             aria-label="Fermer le menu"
           >
             <X className="h-5 w-5" />
@@ -161,12 +164,12 @@ export function Sidebar() {
             que du cote ou il reste quelque chose. */}
         <div className="relative min-h-0 flex-1">
           {haut && (
-            <div className="pointer-events-none absolute inset-x-0 top-0 z-10 h-5 bg-gradient-to-b from-ink-950 to-transparent" />
+            <div className="pointer-events-none absolute inset-x-0 top-0 z-10 h-5 bg-gradient-to-b from-km-side to-transparent" />
           )}
           <nav
             ref={barre}
             onScroll={majDegrades}
-            className="h-full space-y-1 overflow-y-auto overflow-x-hidden px-2.5 py-1 scrollbar-rail md:px-0"
+            className="h-full space-y-0.5 overflow-y-auto overflow-x-hidden px-2.5 py-1"
           >
             <Rubrique>Pilotage</Rubrique>
             {navItems.map((item) => (
@@ -182,11 +185,11 @@ export function Sidebar() {
             ))}
           </nav>
           {bas && (
-            <div className="pointer-events-none absolute inset-x-0 bottom-0 z-10 h-5 bg-gradient-to-t from-ink-950 to-transparent" />
+            <div className="pointer-events-none absolute inset-x-0 bottom-0 z-10 h-5 bg-gradient-to-t from-[#F5F6F3] to-transparent" />
           )}
         </div>
 
-        <nav className="space-y-1 border-t border-ink-800 px-2.5 py-2 md:px-0">
+        <nav className="space-y-0.5 border-t border-km-line px-2.5 py-2">
           {bottomItems.map((item) => (
             <SidebarLink key={item.to} {...item} onClick={close} />
           ))}
@@ -195,21 +198,19 @@ export function Sidebar() {
         <NavLink
           to="/profil"
           onClick={close}
-          className="group relative flex items-center gap-2.5 border-t border-ink-800 px-3.5 py-3.5 md:justify-center md:px-0"
+          className="group relative flex items-center gap-2.5 border-t border-km-line px-3 py-3"
         >
           {profil?.photo_url ? (
             <img src={profil.photo_url} alt="" className="h-7 w-7 shrink-0 rounded-full object-cover" />
           ) : (
-            <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-ink-700 text-[10px] font-semibold text-ink-100">
+            <div className="flex h-[27px] w-[27px] shrink-0 items-center justify-center rounded-full bg-km-green-soft text-km-label font-bold text-km-green">
               {initiales}
             </div>
           )}
-          <p className="min-w-0 flex-1 truncate whitespace-nowrap text-[11px] text-ink-400 md:hidden">
-            KiWee Énergie · MVP
+          <p className="min-w-0 flex-1 truncate whitespace-nowrap text-km-label text-km-muted">
+            KiWee Énergie
           </p>
-          <span className="pointer-events-none absolute left-full top-1/2 z-50 ml-2 hidden -translate-y-1/2 whitespace-nowrap rounded-md bg-ink-800 px-2 py-1 text-xs font-medium text-white opacity-0 shadow-lg transition-opacity duration-100 group-hover:opacity-100 md:block">
-            Mon profil
-          </span>
+
         </NavLink>
       </aside>
     </>

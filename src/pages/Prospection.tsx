@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { Plus, ArrowRight, Users, Filter } from 'lucide-react'
+import { Plus, ArrowRight, Users } from 'lucide-react'
 import { Topbar } from '@/components/layout/Topbar'
 import { PageHeader } from '@/components/ui/page-header'
 import { Card } from '@/components/ui/card'
@@ -94,8 +94,6 @@ export default function Prospection() {
              La phrase reprend maintenant l'intitulé exact du champ — « Signal positif » — et le
              second prérequis que Michel a posé : le contact. Rien ne change au fonctionnement. */
           description="Une ligne devient une piste quand on l'a vérifiée ; une piste devient une opportunité quand on peut nommer un signal positif et un contact."
-          icone={<Filter className="h-[19px] w-[19px]" strokeWidth={2.1} />}
-          teinte="from-indigo-700 to-indigo-500"
           actions={
             <Button size="sm" onClick={() => setCreation(onglet === 'listes' ? 'liste' : 'piste')}>
               <Plus className="h-3.5 w-3.5" />

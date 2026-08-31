@@ -27,9 +27,10 @@ export function AppLayout() {
           ascenseur, celui de la page, en plus de celui du contenu. */}
       <div className="flex h-screen w-full flex-col">
         <DocusignBanner />
-        <div className="flex min-h-0 flex-1 bg-navy-50">
+        {/* Le fond de page passe au `km-bg` de Michel : #FCFCFB, presque blanc. */}
+        <div className="flex min-h-0 flex-1 bg-km-bg">
           <Sidebar />
-          <main className={cn('min-w-0 flex-1 overflow-y-auto pb-14 md:pb-0 md:pl-[212px]', impersonating && 'pt-7')}>
+          <main className={cn('min-w-0 flex-1 overflow-y-auto pb-14 md:pb-0 md:pl-[215px]', impersonating && 'pt-7')}>
             <Outlet />
           </main>
         </div>
