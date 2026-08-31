@@ -203,14 +203,23 @@ export function TableauKanban({
         const liste = cartes[col.code] ?? []
         const depliee = depliees.has(col.code)
         const montrees = depliee ? liste : liste.slice(0, CARTES_PAR_COLONNE)
+        /* PLUS DE LISERÉ COLORÉ EN HAUT DES COLONNES. Chacune portait la couleur de son statut
+              — bleu, orange, violet — soit une rangée de barres saturées qui n'a rien à voir avec
+              sa maquette. Naoëlle, 31/08/2026 : « tu as laissé les couleurs qui n'ont rien à voir
+              avec le vert ».
+
+              Sa maquette met une PASTILLE VERTE de 5 px devant chaque intitulé, la même pour
+              toutes : elle dit « voici une colonne », pas « voici quelle colonne ». La couleur
+              reste réservée au sens métier — l'urgence d'une carte, un statut — et cesse de
+              décorer une structure que le titre nomme déjà. */
         return (
           <div
             key={col.code}
-            style={{ borderTopColor: col.couleur ?? '#d5d7d2' }}
-            className="flex w-[236px] shrink-0 flex-col rounded-km-md border-t-[3px] bg-km-soft/70 p-2.5"
+            className="flex w-[236px] shrink-0 flex-col rounded-km-md border border-km-line bg-km-soft/70 p-2.5"
           >
             <div className="mb-2 flex items-center gap-1.5 px-0.5">
-              <p className="truncate text-km-micro font-bold uppercase tracking-[0.06em] text-km-muted">
+              <span className="h-[5px] w-[5px] shrink-0 rounded-full bg-km-green" aria-hidden="true" />
+              <p className="truncate text-km-micro font-bold uppercase tracking-[0.055em] text-km-muted">
                 {col.libelle}
               </p>
               {/* Le total d'abord, le nombre de cartes ensuite : c'est le chiffre qui porte
