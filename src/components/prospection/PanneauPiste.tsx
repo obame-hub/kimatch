@@ -59,22 +59,22 @@ export function PanneauPiste({
       {piste && (
         <div className="space-y-4">
           {/* ── QUI C'EST ── */}
-          <div className="flex items-start gap-2.5 rounded-kw-lg border border-kw-border bg-kw-subtle p-3">
+          <div className="flex items-start gap-2.5 rounded-km-md border border-km-line bg-km-soft p-3">
             <span
               className={cn(
                 'mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-lg',
-                convertie ? 'bg-kiwi-50 text-kiwi-700' : 'bg-indigo-50 text-indigo-600',
+                convertie ? 'bg-kiwi-50 text-km-green' : 'bg-indigo-50 text-indigo-600',
               )}
             >
               <Users className="h-3.5 w-3.5" />
             </span>
             <div className="min-w-0 flex-1">
-              <p className="truncate text-kw-base font-bold text-kw-ink">{piste.societe || 'Société inconnue'}</p>
-              <p className="truncate text-kw-sm text-kw-meta">
-                {piste.reference && <span className="font-mono text-kw-faint">{piste.reference} · </span>}
+              <p className="truncate text-km-body font-bold text-km-text">{piste.societe || 'Société inconnue'}</p>
+              <p className="truncate text-km-body text-km-muted">
+                {piste.reference && <span className="font-mono text-km-faint">{piste.reference} · </span>}
                 {piste.contact_nom || 'Contact inconnu'}
               </p>
-              <p className="truncate text-kw-xs text-kw-faint">
+              <p className="truncate text-km-label text-km-faint">
                 {[piste.email, piste.telephone].filter(Boolean).join(' · ') || 'Ni e-mail ni téléphone'}
               </p>
             </div>
@@ -88,9 +88,9 @@ export function PanneauPiste({
           {/* ── L'AVANCEMENT ──
               Cinq cases cochées se comptent mal du regard, une barre se lit d'un coup. */}
           {!convertie && (
-            <div className="h-1 overflow-hidden rounded-full bg-navy-100">
+            <div className="h-1 overflow-hidden rounded-full bg-km-soft">
               <div
-                className={cn('h-full rounded-full transition-[width] duration-500', mure ? 'bg-kiwi-600' : 'bg-indigo-500')}
+                className={cn('h-full rounded-full transition-[width] duration-500', mure ? 'bg-km-green' : 'bg-indigo-500')}
                 style={{ width: `${(faites / VALIDATIONS_PISTE.length) * 100}%` }}
               />
             </div>
@@ -113,16 +113,16 @@ export function PanneauPiste({
                     }
                   }}
                   className={cn(
-                    'flex items-center gap-2.5 rounded-kw-md px-2.5 py-2 text-left text-kw-base transition-colors',
-                    coche ? 'text-kw-ink' : 'text-kw-meta',
-                    !convertie && 'hover:bg-kw-subtle',
+                    'flex items-center gap-2.5 rounded-km px-2.5 py-2 text-left text-km-body transition-colors',
+                    coche ? 'text-km-text' : 'text-km-muted',
+                    !convertie && 'hover:bg-km-soft',
                     convertie && 'cursor-default',
                   )}
                 >
                   <span
                     className={cn(
                       'flex h-4 w-4 shrink-0 items-center justify-center rounded',
-                      coche ? 'bg-kiwi-600 text-white' : 'border border-navy-300 bg-white',
+                      coche ? 'bg-km-green text-white' : 'border border-km-line bg-white',
                     )}
                   >
                     {coche && <Check className="h-2.5 w-2.5" />}
@@ -152,7 +152,7 @@ export function PanneauPiste({
                 <ArrowRight className="h-3.5 w-3.5" />
               </Button>
               {!mure && (
-                <p className="mt-1.5 text-kw-xs leading-snug text-kw-faint">
+                <p className="mt-1.5 text-km-label leading-snug text-km-faint">
                   Les cinq vérifications doivent être faites : sans elles on ouvrirait une affaire sur
                   un contact qu’on ne sait pas joindre.
                 </p>
@@ -163,7 +163,7 @@ export function PanneauPiste({
           <button
             type="button"
             onClick={() => onFichiers(piste)}
-            className="flex items-center gap-1.5 text-kw-sm font-bold text-indigo-600 hover:underline"
+            className="flex items-center gap-1.5 text-km-body font-bold text-indigo-600 hover:underline"
           >
             <Paperclip className="h-3 w-3" /> Fichiers de la piste
           </button>

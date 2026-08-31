@@ -59,11 +59,11 @@ export function OngletDocuments({
   return (
     <div className="flex animate-kw-fade-slide flex-wrap items-start gap-3.5">
       {/* ── Aperçu ── */}
-      <div className="min-w-0 flex-[999_1_340px] overflow-hidden rounded-[13px] border border-kw-border bg-white">
-        <div className="flex flex-wrap items-center gap-2.5 border-b border-kw-border bg-kw-subtle px-[13px] py-2.5">
-          <span className="truncate text-kw-md font-bold text-kw-ink">{courant?.nom ?? 'Aucun document'}</span>
+      <div className="min-w-0 flex-[999_1_340px] overflow-hidden rounded-[13px] border border-km-line bg-white">
+        <div className="flex flex-wrap items-center gap-2.5 border-b border-km-line bg-km-soft px-[13px] py-2.5">
+          <span className="truncate text-km-body font-bold text-km-text">{courant?.nom ?? 'Aucun document'}</span>
           {courant && (
-            <span className="rounded-kw-xs bg-kw-amber-light px-[7px] py-0.5 text-kw-tiny font-extrabold text-[#8a4b2a]">
+            <span className="rounded-kw-xs bg-km-amber-soft px-[7px] py-0.5 text-km-label font-extrabold text-[#8a4b2a]">
               {parVersion.find((d) => d.doc.id === courant.id)?.etiquette}
             </span>
           )}
@@ -73,7 +73,7 @@ export function OngletDocuments({
               href={courant.url}
               target="_blank"
               rel="noreferrer"
-              className="inline-flex items-center gap-1.5 rounded-kw-sm border border-kw-border-strong bg-white px-2.5 py-1 text-kw-sm font-semibold text-kw-label hover:bg-kw-bg"
+              className="inline-flex items-center gap-1.5 rounded-km-sm border border-km-line bg-white px-2.5 py-1 text-km-body font-semibold text-km-muted hover:bg-km-bg"
             >
               <ExternalLink className="h-3 w-3" /> Ouvrir en plein écran
             </a>
@@ -91,9 +91,9 @@ export function OngletDocuments({
             />
           </div>
         ) : (
-          <div className="flex h-[240px] flex-col items-center justify-center gap-2 bg-kw-subtle text-center">
-            <FileText className="h-6 w-6 text-kw-ghost" />
-            <p className="text-kw-base text-kw-meta">
+          <div className="flex h-[240px] flex-col items-center justify-center gap-2 bg-km-soft text-center">
+            <FileText className="h-6 w-6 text-km-faint" />
+            <p className="text-km-body text-km-muted">
               Aucune pièce sur ce dossier. Déposez la proposition commerciale ou le comparatif
               fournisseurs.
             </p>
@@ -103,32 +103,32 @@ export function OngletDocuments({
 
       {/* ── Liste par version + dépôt ── */}
       <div className="flex min-w-[220px] flex-[1_1_220px] flex-col gap-2.5">
-        <div className="text-kw-xs font-bold uppercase tracking-[0.08em] text-kw-faint">Documents par version</div>
-        {parVersion.length === 0 && <p className="text-kw-base text-kw-faint">Aucun document.</p>}
+        <div className="text-km-label font-bold uppercase tracking-[0.08em] text-km-faint">Documents par version</div>
+        {parVersion.length === 0 && <p className="text-km-body text-km-faint">Aucun document.</p>}
         {parVersion.map(({ doc, etiquette, surVersionAffichee }) => (
           <button
             key={doc.id}
             type="button"
             onClick={() => setSelectionne(doc.id)}
             className={cn(
-              'rounded-kw-xl border bg-white px-[11px] py-2.5 text-left',
-              courant?.id === doc.id ? 'border-[#8a4b2a] shadow-[0_2px_8px_rgba(176,118,60,.14)]' : 'border-kw-border hover:border-kw-border-strong',
+              'rounded-km-lg border bg-white px-[11px] py-2.5 text-left',
+              courant?.id === doc.id ? 'border-[#8a4b2a] shadow-[0_2px_8px_rgba(176,118,60,.14)]' : 'border-km-line hover:border-km-line',
             )}
           >
             <div className="flex items-center gap-2">
-              <span className="inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-[7px] bg-kw-red-light text-[8px] font-extrabold text-kw-red">
+              <span className="inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-[7px] bg-km-red-soft text-[8px] font-extrabold text-km-red">
                 {(doc.nom_fichier.split('.').pop() || 'FIC').slice(0, 4).toUpperCase()}
               </span>
               <div className="min-w-0 flex-1">
-                <div className="truncate text-kw-base font-bold text-kw-ink">{doc.nom}</div>
-                <div className="truncate font-mono text-kw-tiny text-kw-faint">
+                <div className="truncate text-km-body font-bold text-km-text">{doc.nom}</div>
+                <div className="truncate font-mono text-km-label text-km-faint">
                   {new Date(doc.date_creation).toLocaleDateString('fr-FR')} · {doc.type_document}
                 </div>
               </div>
               <span
                 className={cn(
-                  'shrink-0 rounded-kw-xs px-1.5 py-0.5 font-mono text-kw-micro font-extrabold',
-                  surVersionAffichee ? 'bg-kw-amber-light text-[#8a4b2a]' : 'bg-kw-muted text-kw-faint',
+                  'shrink-0 rounded-kw-xs px-1.5 py-0.5 font-mono text-km-label font-extrabold',
+                  surVersionAffichee ? 'bg-km-amber-soft text-[#8a4b2a]' : 'bg-km-soft text-km-faint',
                 )}
               >
                 {etiquette}
@@ -143,7 +143,7 @@ export function OngletDocuments({
               types={typesDocuments}
               onDeposer={(fichiers, typeDocumentId) => onDeposer(fichiers, typeDocumentId, cible)}
             />
-            <p className="text-kw-tiny leading-snug text-kw-faint">Le dépôt sera rattaché à {nomCible}.</p>
+            <p className="text-km-label leading-snug text-km-faint">Le dépôt sera rattaché à {nomCible}.</p>
           </>
         )}
       </div>

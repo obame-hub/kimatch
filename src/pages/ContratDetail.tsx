@@ -81,31 +81,31 @@ function CycleDeVieCard({ dateDebut, dateFin }: { dateDebut: string; dateFin: st
   const joursRestants = fin != null ? Math.round((fin - now) / 86400000) : null
 
   return (
-    <div className="rounded-xl border border-navy-100 bg-white p-4">
+    <div className="rounded-xl border border-km-line bg-white p-4">
       <div className="mb-2 flex items-center gap-2">
-        <span className="text-[10px] font-bold uppercase tracking-wide text-navy-400">Cycle de vie</span>
+        <span className="text-[10px] font-bold uppercase tracking-wide text-km-faint">Cycle de vie</span>
         <div className="flex-1" />
         {joursRestants != null && joursRestants >= 0 && (
           <span className="text-[11px] font-bold text-amber-600">expire dans {joursRestants} jour{joursRestants > 1 ? 's' : ''}</span>
         )}
-        {joursRestants != null && joursRestants < 0 && <span className="text-[11px] font-bold text-navy-400">{statutLabel}</span>}
+        {joursRestants != null && joursRestants < 0 && <span className="text-[11px] font-bold text-km-faint">{statutLabel}</span>}
       </div>
       {fin != null ? (
         <>
-          <div className="relative h-2.5 rounded-full bg-navy-100">
+          <div className="relative h-2.5 rounded-full bg-km-soft">
             <div className="absolute inset-y-0 left-0 rounded-full bg-gradient-to-r from-kiwi-500 to-kiwi-400" style={{ width: `${pct}%` }} />
             {now >= debut && now <= fin && (
               <div className="absolute -top-0.5 h-3.5 w-0.5 rounded bg-red-500" style={{ left: `${pct}%` }} />
             )}
           </div>
-          <div className="mt-1.5 flex justify-between font-mono text-[10px] text-navy-400">
+          <div className="mt-1.5 flex justify-between font-mono text-[10px] text-km-faint">
             <span>{new Date(dateDebut).toLocaleDateString('fr-FR')}</span>
             {now >= debut && now <= fin && <span className="font-bold text-red-500">aujourd'hui</span>}
             <span>{new Date(fin).toLocaleDateString('fr-FR')}</span>
           </div>
         </>
       ) : (
-        <p className="text-xs text-navy-400">Débuté le {new Date(dateDebut).toLocaleDateString('fr-FR')} · sans date de fin renseignée.</p>
+        <p className="text-xs text-km-faint">Débuté le {new Date(dateDebut).toLocaleDateString('fr-FR')} · sans date de fin renseignée.</p>
       )}
     </div>
   )
@@ -190,12 +190,12 @@ function ClausesCard({ contrat }: { contrat: Contrat }) {
   const renseignees = CLAUSES.filter((c) => contrat[c.key] != null)
   if (renseignees.length === 0) return null
   return (
-    <div className="rounded-xl border border-navy-100 bg-white p-4">
-      <p className="mb-2.5 text-[10px] font-bold uppercase tracking-wide text-navy-400">Clauses</p>
+    <div className="rounded-xl border border-km-line bg-white p-4">
+      <p className="mb-2.5 text-[10px] font-bold uppercase tracking-wide text-km-faint">Clauses</p>
       <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
         {renseignees.map((c) => (
-          <div key={c.key} className="flex items-center justify-between gap-2 rounded-lg bg-navy-50/60 px-3 py-2">
-            <span className="text-xs text-navy-700">{c.label}</span>
+          <div key={c.key} className="flex items-center justify-between gap-2 rounded-lg bg-km-bg/60 px-3 py-2">
+            <span className="text-xs text-km-text">{c.label}</span>
             <Badge tone={contrat[c.key] ? 'kiwi' : 'neutral'}>{contrat[c.key] ? 'Oui' : 'Non'}</Badge>
           </div>
         ))}
@@ -319,7 +319,7 @@ function AddTarifDialog({
         <FormField label="Indexation">
           <Input value={indexation} onChange={(e) => setIndexation(e.target.value)} placeholder="Ex. fixe, indexé marché…" />
         </FormField>
-        {feedback && <p className="text-xs text-red-600">{feedback}</p>}
+        {feedback && <p className="text-xs text-km-red">{feedback}</p>}
         <div className="flex justify-end gap-2 pt-2">
           <Button type="button" variant="ghost" onClick={() => { reset(); onClose() }}>Annuler</Button>
           <Button type="submit" disabled={createTarif.isPending}>Ajouter</Button>
@@ -416,7 +416,7 @@ export default function ContratDetail() {
     return (
       <div>
         <Topbar crumb="Contrats" title="Contrat" />
-        <div className="p-4 sm:p-6"><p className="text-sm text-navy-400">Chargement…</p></div>
+        <div className="p-4 sm:p-6"><p className="text-sm text-km-faint">Chargement…</p></div>
       </div>
     )
   }
@@ -430,21 +430,21 @@ export default function ContratDetail() {
             <ArrowLeft className="h-4 w-4" />
             Retour aux contrats
           </Button>
-          <p className="text-sm text-navy-500">Contrat introuvable.</p>
+          <p className="text-sm text-km-muted">Contrat introuvable.</p>
         </div>
       </div>
     )
   }
 
   const Icon = contrat.type_energie === 'gaz' ? Flame : Zap
-  const energyClasses = contrat.type_energie === 'gaz' ? 'bg-amber-100 text-amber-600' : 'bg-sky-100 text-sky-500'
+  const energyClasses = contrat.type_energie === 'gaz' ? 'bg-km-amber-soft text-amber-600' : 'bg-sky-100 text-sky-500'
 
   return (
     <div>
       <Topbar crumb="Contrats" title={contrat.fournisseur_nom} />
 
       {/* Bandeau contrat */}
-      <div className="flex flex-wrap items-center gap-3.5 border-b border-navy-100 bg-white px-4 py-3.5 sm:px-6">
+      <div className="flex flex-wrap items-center gap-3.5 border-b border-km-line bg-white px-4 py-3.5 sm:px-6">
         <Button variant="ghost" size="icon" onClick={goBack} title="Retour aux contrats">
           <ArrowLeft className="h-4 w-4" />
         </Button>
@@ -453,7 +453,7 @@ export default function ContratDetail() {
         </span>
         <div className="min-w-0 flex-1">
           <div className="flex flex-wrap items-center gap-2">
-            <p className="truncate text-xl font-bold tracking-tight text-navy-800">{contrat.fournisseur_nom}</p>
+            <p className="truncate text-xl font-bold tracking-tight text-km-text">{contrat.fournisseur_nom}</p>
             <Badge tone={STATUT_CONTRAT_TONE[contrat.statut] ?? 'neutral'}>{statuts.find((s) => s.code === contrat.statut)?.libelle ?? contrat.statut}</Badge>
             {/* L'ÉTAT DE LA SIGNATURE, quand il y en a un. Il vaut la place qu'il prend : c'est lui
                 qui dit si le contrat est parti, revenu signé, ou refusé. */}
@@ -465,8 +465,8 @@ export default function ContratDetail() {
               </span>
             )}
           </div>
-          <p className="truncate text-xs text-navy-500">{contrat.type_energie === 'gaz' ? 'Gaz' : 'Électricité'} · {site?.nom ?? contrat.site_nom}</p>
-          <p className="truncate text-[10.5px] text-navy-400">
+          <p className="truncate text-xs text-km-muted">{contrat.type_energie === 'gaz' ? 'Gaz' : 'Électricité'} · {site?.nom ?? contrat.site_nom}</p>
+          <p className="truncate text-[10.5px] text-km-faint">
             {contrat.date_creation && <>Créé le {new Date(contrat.date_creation).toLocaleDateString('fr-FR')} · </>}
             Propriétaire : {contrat.proprietaire_nom || 'Aucun'}
             {contrat.id_salesforce && <> · <span className="font-mono">{contrat.id_salesforce}</span> (temporaire, pour contrôle)</>}
@@ -488,7 +488,7 @@ export default function ContratDetail() {
       </div>
 
       {/* Onglets */}
-      <div className="flex gap-1.5 overflow-x-auto border-b border-navy-100 bg-white px-4 pt-2.5 lg:gap-0.5 lg:pt-0 sm:px-6">
+      <div className="flex gap-1.5 overflow-x-auto border-b border-km-line bg-white px-4 pt-2.5 lg:gap-0.5 lg:pt-0 sm:px-6">
         {TABS.map((t) => {
           const isActive = tab === t.key
           return (
@@ -499,13 +499,13 @@ export default function ContratDetail() {
               className={cn(
                 'mb-2.5 inline-flex shrink-0 items-center gap-1.5 whitespace-nowrap rounded-full px-3.5 py-2 text-[12.5px] font-semibold transition-colors lg:mb-0 lg:rounded-none lg:border-b-2 lg:px-3 lg:py-2.5 lg:font-normal',
                 isActive
-                  ? 'bg-ink-800 text-white lg:border-navy-800 lg:bg-transparent lg:font-semibold lg:text-navy-800'
-                  : 'border border-navy-200 bg-white text-navy-600 hover:bg-navy-50 lg:border-0 lg:border-b-2 lg:border-transparent lg:text-navy-500 lg:hover:bg-transparent lg:hover:text-navy-700',
+                  ? 'bg-ink-800 text-white lg:border-navy-800 lg:bg-transparent lg:font-semibold lg:text-km-text'
+                  : 'border border-km-line bg-white text-km-muted hover:bg-km-bg lg:border-0 lg:border-b-2 lg:border-transparent lg:text-km-muted lg:hover:bg-transparent lg:hover:text-km-text',
               )}
             >
               {t.label}
               {t.badge && (
-                <span className={cn('rounded px-1.5 py-0.5 text-[9.5px] font-bold', isActive ? 'bg-white/20 text-white lg:bg-navy-100 lg:text-navy-500' : 'bg-navy-100 text-navy-500')}>
+                <span className={cn('rounded px-1.5 py-0.5 text-[9.5px] font-bold', isActive ? 'bg-white/20 text-white lg:bg-km-soft lg:text-km-muted' : 'bg-km-soft text-km-muted')}>
                   {t.badge}
                 </span>
               )}
@@ -516,12 +516,12 @@ export default function ContratDetail() {
 
       <div className="grid grid-cols-1 lg:grid-cols-[256px_1fr]">
         {/* Colonne gauche (desktop uniquement) */}
-        <div className="hidden flex-col gap-3.5 border-r border-navy-100 bg-navy-50/60 p-3.5 lg:flex">
+        <div className="hidden flex-col gap-3.5 border-r border-km-line bg-km-bg/60 p-3.5 lg:flex">
           {compte && (
-            <div className="rounded-xl border border-navy-100 bg-white p-3.5">
+            <div className="rounded-xl border border-km-line bg-white p-3.5">
               <div className="mb-2 flex items-center gap-1.5">
                 <span className="flex h-5 w-5 items-center justify-center rounded-md bg-sky-100 text-sky-500"><Building2 className="h-2.5 w-2.5" /></span>
-                <span className="text-[10px] font-bold uppercase tracking-wide text-navy-400">Compte</span>
+                <span className="text-[10px] font-bold uppercase tracking-wide text-km-faint">Compte</span>
                 <div className="flex-1" />
                 <EntityLink to={`/comptes/${compte.id}`}>ouvrir →</EntityLink>
               </div>
@@ -530,28 +530,28 @@ export default function ContratDetail() {
           )}
 
           {site && (
-            <div className="rounded-xl border border-navy-100 bg-white p-3.5">
+            <div className="rounded-xl border border-km-line bg-white p-3.5">
               <div className="mb-2 flex items-center gap-1.5">
-                <span className="flex h-5 w-5 items-center justify-center rounded-md bg-kiwi-100 text-kiwi-600"><MapPin className="h-2.5 w-2.5" /></span>
-                <span className="text-[10px] font-bold uppercase tracking-wide text-navy-400">Site</span>
+                <span className="flex h-5 w-5 items-center justify-center rounded-md bg-km-green-soft text-km-green"><MapPin className="h-2.5 w-2.5" /></span>
+                <span className="text-[10px] font-bold uppercase tracking-wide text-km-faint">Site</span>
                 <div className="flex-1" />
                 <EntityLink to={`/sites/${site.id}`}>ouvrir →</EntityLink>
               </div>
-              <p className="text-[13px] font-bold text-kiwi-600">{site.nom}</p>
+              <p className="text-[13px] font-bold text-km-green">{site.nom}</p>
             </div>
           )}
 
-          <div className="rounded-xl border border-navy-100 bg-white p-3.5">
+          <div className="rounded-xl border border-km-line bg-white p-3.5">
             <div className="mb-2 flex items-center gap-1.5">
               <span className={cn('flex h-5 w-5 items-center justify-center rounded-md', energyClasses)}><Icon className="h-2.5 w-2.5" /></span>
-              <span className="text-[10px] font-bold uppercase tracking-wide text-navy-400">Fournisseur retenu</span>
+              <span className="text-[10px] font-bold uppercase tracking-wide text-km-faint">Fournisseur retenu</span>
             </div>
             {contrat.fournisseur_compte_id ? (
               <EntityLink to={`/comptes/${contrat.fournisseur_compte_id}`}>{contrat.fournisseur_nom}</EntityLink>
             ) : (
-              <p className="text-[13px] font-bold text-navy-800">{contrat.fournisseur_nom}</p>
+              <p className="text-[13px] font-bold text-km-text">{contrat.fournisseur_nom}</p>
             )}
-            {fournisseur && <p className="mt-1 text-[10.5px] text-navy-500">{fournisseur.segment}</p>}
+            {fournisseur && <p className="mt-1 text-[10.5px] text-km-muted">{fournisseur.segment}</p>}
           </div>
 
           {/* ══ D'OÙ VIENT CE CONTRAT ══
@@ -565,14 +565,14 @@ export default function ContratDetail() {
               proposées, ni savoir quel travail a produit quel résultat. La carte se tait quand le
               lien est absent plutôt que d'afficher un « Aucune » qui n'apprendrait rien. */}
           {contrat.recommandation_id && (
-            <div className="rounded-xl border border-navy-100 bg-white p-3.5">
+            <div className="rounded-xl border border-km-line bg-white p-3.5">
               <div className="mb-2 flex items-center gap-1.5">
-                <span className="flex h-5 w-5 items-center justify-center rounded-md bg-amber-100 text-amber-600"><Lightbulb className="h-2.5 w-2.5" /></span>
-                <span className="text-[10px] font-bold uppercase tracking-wide text-navy-400">Issu de la recommandation</span>
+                <span className="flex h-5 w-5 items-center justify-center rounded-md bg-km-amber-soft text-amber-600"><Lightbulb className="h-2.5 w-2.5" /></span>
+                <span className="text-[10px] font-bold uppercase tracking-wide text-km-faint">Issu de la recommandation</span>
                 <div className="flex-1" />
                 <EntityLink to={`/recommandations/${contrat.recommandation_id}`}>ouvrir →</EntityLink>
               </div>
-              <p className="text-[13px] font-bold text-navy-800">
+              <p className="text-[13px] font-bold text-km-text">
                 {contrat.recommandation_nom || 'Recommandation'}
               </p>
             </div>
@@ -580,17 +580,17 @@ export default function ContratDetail() {
         </div>
 
         {/* Centre */}
-        <div className="bg-navy-50 p-4 sm:p-5">
+        <div className="bg-km-bg p-4 sm:p-5">
           {tab === 'contrat' && (
             <div className="flex flex-col gap-3.5">
               {contrat.date_debut && (
                 <CycleDeVieCard dateDebut={contrat.date_debut} dateFin={contrat.date_fin} />
               )}
-              <div className="rounded-xl border border-navy-100 bg-white p-4">
-              <p className="mb-2.5 text-[10px] font-bold uppercase tracking-wide text-navy-400">Détail du contrat</p>
+              <div className="rounded-xl border border-km-line bg-white p-4">
+              <p className="mb-2.5 text-[10px] font-bold uppercase tracking-wide text-km-faint">Détail du contrat</p>
               <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
                 <div>
-                  <p className="mb-0.5 text-[10px] uppercase tracking-wide text-navy-400">Énergie</p>
+                  <p className="mb-0.5 text-[10px] uppercase tracking-wide text-km-faint">Énergie</p>
                   <Badge tone="neutral">{contrat.type_energie === 'gaz' ? 'Gaz' : 'Électricité'}</Badge>
                 </div>
                 {/* Edition en place : ces champs se corrigeaient dans une modale « Modifier »,
@@ -662,31 +662,31 @@ export default function ContratDetail() {
                   <>
                     {contrat.reference_fournisseur && (
                       <div>
-                        <p className="mb-0.5 text-[10px] uppercase tracking-wide text-navy-400">Référence fournisseur</p>
-                        <p className="font-mono text-xs font-semibold text-navy-800">{contrat.reference_fournisseur}</p>
+                        <p className="mb-0.5 text-[10px] uppercase tracking-wide text-km-faint">Référence fournisseur</p>
+                        <p className="font-mono text-xs font-semibold text-km-text">{contrat.reference_fournisseur}</p>
                       </div>
                     )}
                     <div>
-                      <p className="mb-0.5 text-[10px] uppercase tracking-wide text-navy-400">Début</p>
-                      <p className="text-xs font-semibold text-navy-800">{contrat.date_debut ? new Date(contrat.date_debut).toLocaleDateString('fr-FR') : '—'}</p>
+                      <p className="mb-0.5 text-[10px] uppercase tracking-wide text-km-faint">Début</p>
+                      <p className="text-xs font-semibold text-km-text">{contrat.date_debut ? new Date(contrat.date_debut).toLocaleDateString('fr-FR') : '—'}</p>
                     </div>
                     <div>
-                      <p className="mb-0.5 text-[10px] uppercase tracking-wide text-navy-400">Fin</p>
-                      <p className="text-xs font-semibold text-navy-800">{contrat.date_fin ? new Date(contrat.date_fin).toLocaleDateString('fr-FR') : 'sans échéance'}</p>
+                      <p className="mb-0.5 text-[10px] uppercase tracking-wide text-km-faint">Fin</p>
+                      <p className="text-xs font-semibold text-km-text">{contrat.date_fin ? new Date(contrat.date_fin).toLocaleDateString('fr-FR') : 'sans échéance'}</p>
                     </div>
                     {contrat.preavis_resiliation_jours != null && (
                       <div>
-                        <p className="mb-0.5 text-[10px] uppercase tracking-wide text-navy-400">Préavis de résiliation</p>
-                        <p className="text-xs font-semibold text-navy-800">{contrat.preavis_resiliation_jours} jours</p>
+                        <p className="mb-0.5 text-[10px] uppercase tracking-wide text-km-faint">Préavis de résiliation</p>
+                        <p className="text-xs font-semibold text-km-text">{contrat.preavis_resiliation_jours} jours</p>
                       </div>
                     )}
                     {contrat.contact_signataire_nom && (
                       <div>
-                        <p className="mb-0.5 text-[10px] uppercase tracking-wide text-navy-400">Signataire</p>
+                        <p className="mb-0.5 text-[10px] uppercase tracking-wide text-km-faint">Signataire</p>
                         {contrat.contact_signataire_id ? (
                           <EntityLink to={`/contacts/${contrat.contact_signataire_id}`} className="text-xs font-semibold">{contrat.contact_signataire_nom}</EntityLink>
                         ) : (
-                          <p className="text-xs font-semibold text-navy-800">{contrat.contact_signataire_nom}</p>
+                          <p className="text-xs font-semibold text-km-text">{contrat.contact_signataire_nom}</p>
                         )}
                       </div>
                     )}
@@ -694,40 +694,40 @@ export default function ContratDetail() {
                 )}
                 {contrat.interlocuteur_pricing_nom && (
                   <div>
-                    <p className="mb-0.5 text-[10px] uppercase tracking-wide text-navy-400">Interlocuteur pricing</p>
-                    <p className="text-xs font-semibold text-navy-800">{contrat.interlocuteur_pricing_nom}</p>
+                    <p className="mb-0.5 text-[10px] uppercase tracking-wide text-km-faint">Interlocuteur pricing</p>
+                    <p className="text-xs font-semibold text-km-text">{contrat.interlocuteur_pricing_nom}</p>
                   </div>
                 )}
                 {contrat.date_signature && (
                   <div>
-                    <p className="mb-0.5 text-[10px] uppercase tracking-wide text-navy-400">Date de signature</p>
-                    <p className="text-xs font-semibold text-navy-800">{new Date(contrat.date_signature).toLocaleDateString('fr-FR')}</p>
+                    <p className="mb-0.5 text-[10px] uppercase tracking-wide text-km-faint">Date de signature</p>
+                    <p className="text-xs font-semibold text-km-text">{new Date(contrat.date_signature).toLocaleDateString('fr-FR')}</p>
                   </div>
                 )}
                 {contrat.date_debut && contrat.date_fin && (
                   <div>
-                    <p className="mb-0.5 text-[10px] uppercase tracking-wide text-navy-400">Durée</p>
-                    <p className="text-xs font-semibold text-navy-800">
+                    <p className="mb-0.5 text-[10px] uppercase tracking-wide text-km-faint">Durée</p>
+                    <p className="text-xs font-semibold text-km-text">
                       {Math.round((new Date(contrat.date_fin).getTime() - new Date(contrat.date_debut).getTime()) / (1000 * 60 * 60 * 24 * 30.44))} mois
                     </p>
                   </div>
                 )}
                 {contrat.type_prix && (
                   <div>
-                    <p className="mb-0.5 text-[10px] uppercase tracking-wide text-navy-400">Type de prix</p>
+                    <p className="mb-0.5 text-[10px] uppercase tracking-wide text-km-faint">Type de prix</p>
                     <Badge tone={contrat.type_prix === 'Fixe' ? 'kiwi' : 'amber'}>{contrat.type_prix}</Badge>
                   </div>
                 )}
                 {contrat.prix_molecule_eur_mwh != null && (
                   <div>
-                    <p className="mb-0.5 text-[10px] uppercase tracking-wide text-navy-400">Prix molécule</p>
-                    <p className="font-mono text-xs font-semibold text-navy-800">{contrat.prix_molecule_eur_mwh.toLocaleString('fr-FR')} €/MWh</p>
+                    <p className="mb-0.5 text-[10px] uppercase tracking-wide text-km-faint">Prix molécule</p>
+                    <p className="font-mono text-xs font-semibold text-km-text">{contrat.prix_molecule_eur_mwh.toLocaleString('fr-FR')} €/MWh</p>
                   </div>
                 )}
                 {contrat.strategie_tarifaire && (
                   <div>
-                    <p className="mb-0.5 text-[10px] uppercase tracking-wide text-navy-400">Stratégie tarifaire</p>
-                    <p className="text-xs text-navy-700">{contrat.strategie_tarifaire === 'prix_cible' ? 'Prix cible' : 'Marge fixe'}</p>
+                    <p className="mb-0.5 text-[10px] uppercase tracking-wide text-km-faint">Stratégie tarifaire</p>
+                    <p className="text-xs text-km-text">{contrat.strategie_tarifaire === 'prix_cible' ? 'Prix cible' : 'Marge fixe'}</p>
                   </div>
                 )}
               </div>
@@ -786,11 +786,11 @@ export default function ContratDetail() {
                   // Pas de tacite : rien à surveiller, on ne prend pas de place. La saisie reste
                   // accessible au cas où l'information serait fausse.
                   return (
-                    <div className="rounded-xl border border-navy-100 bg-white p-4">
-                      <p className="text-[10px] font-bold uppercase tracking-wide text-navy-400">
+                    <div className="rounded-xl border border-km-line bg-white p-4">
+                      <p className="text-[10px] font-bold uppercase tracking-wide text-km-faint">
                         Reconduction tacite
                       </p>
-                      <p className="mt-1 text-xs text-navy-500">
+                      <p className="mt-1 text-xs text-km-muted">
                         Ce contrat ne se reconduit pas tout seul : il s'arrête à sa date de fin.
                       </p>
                       {saisie}
@@ -805,7 +805,7 @@ export default function ContratDetail() {
                       <p className="text-[10px] font-bold uppercase tracking-wide text-amber-700">
                         Reconduction tacite
                       </p>
-                      <p className="mt-1 text-xs leading-relaxed text-amber-800">
+                      <p className="mt-1 text-xs leading-relaxed text-km-amber">
                         {inconnu
                           ? "On ne sait pas si ce contrat se reconduit tout seul. L'information est écrite dans le contrat lui-même, ou dans le précédent : reportez-la ici, sinon personne ne peut savoir s'il faut agir ni quand."
                           : "Ce contrat se reconduit tacitement, mais sa date limite de résiliation n'est pas renseignée : personne ne peut savoir quand il faut agir. Elle est écrite dans le contrat, autour de la date de fin moins le préavis — mais elle ne se calcule pas, reportez celle qui y figure."}
@@ -820,16 +820,16 @@ export default function ContratDetail() {
                     className={cn(
                       'rounded-xl border p-4',
                       e.passee
-                        ? 'border-red-200 bg-red-50'
+                        ? 'border-red-200 bg-km-red-soft'
                         : e.urgent
                           ? 'border-amber-200 bg-amber-50'
-                          : 'border-navy-100 bg-white',
+                          : 'border-km-line bg-white',
                     )}
                   >
                     <p
                       className={cn(
                         'text-[10px] font-bold uppercase tracking-wide',
-                        e.passee ? 'text-red-700' : e.urgent ? 'text-amber-700' : 'text-navy-400',
+                        e.passee ? 'text-red-700' : e.urgent ? 'text-amber-700' : 'text-km-faint',
                       )}
                     >
                       Reconduction tacite
@@ -837,21 +837,21 @@ export default function ContratDetail() {
                     <p
                       className={cn(
                         'mt-1 text-xs leading-relaxed',
-                        e.passee ? 'text-red-800' : e.urgent ? 'text-amber-800' : 'text-navy-700',
+                        e.passee ? 'text-red-800' : e.urgent ? 'text-km-amber' : 'text-km-text',
                       )}
                     >
                       {e.texte}
                       {!e.passee && (
                         <>
                           {' '}
-                          <span className={e.urgent ? 'text-amber-700' : 'text-navy-400'}>
+                          <span className={e.urgent ? 'text-amber-700' : 'text-km-faint'}>
                             Signalé à {e.seuil} jours
                             {e.seuilParDefaut && ' (valeur par défaut, à confirmer)'}.
                           </span>
                         </>
                       )}
                     </p>
-                    <p className="mt-1.5 text-[10.5px] text-navy-400">
+                    <p className="mt-1.5 text-[10.5px] text-km-faint">
                       Fin du contrat :{' '}
                       {contrat.date_fin ? new Date(contrat.date_fin).toLocaleDateString('fr-FR') : '—'}
                       {contrat.preavis_resiliation_jours != null && (
@@ -882,12 +882,12 @@ export default function ContratDetail() {
           {tab === 'perimetre' && (
             <div className="flex flex-col gap-2.5">
               {contrat.compteurs.length === 0 ? (
-                <p className="text-sm text-navy-400">Aucun compteur couvert par ce contrat.</p>
+                <p className="text-sm text-km-faint">Aucun compteur couvert par ce contrat.</p>
               ) : (
                 contrat.compteurs.map((c) => {
                   const tarifsDuCompteur = (tarifs ?? []).filter((t) => t.contrat_compteur_id === c.contrat_compteur_id)
                   return (
-                    <div key={c.id} className="rounded-xl border border-navy-100 bg-white p-3.5">
+                    <div key={c.id} className="rounded-xl border border-km-line bg-white p-3.5">
                       <div
                         onClick={() => navigate(`/compteurs/${c.id}`)}
                         className="flex cursor-pointer items-center gap-3 hover:opacity-80"
@@ -896,14 +896,14 @@ export default function ContratDetail() {
                           <Gauge className="h-4 w-4" />
                         </span>
                         <div className="min-w-0 flex-1">
-                          <p className="truncate text-sm font-bold text-navy-800">{c.utilisation || c.numero_pdl}</p>
-                          <p className="truncate font-mono text-[10.5px] text-navy-400">{c.numero_pdl}</p>
+                          <p className="truncate text-sm font-bold text-km-text">{c.utilisation || c.numero_pdl}</p>
+                          <p className="truncate font-mono text-[10.5px] text-km-faint">{c.numero_pdl}</p>
                         </div>
                       </div>
 
                       <div className="mt-3 border-t border-navy-50 pt-3">
                         <div className="mb-2 flex items-center gap-1.5">
-                          <span className="text-[10px] font-bold uppercase tracking-wide text-navy-400">Tarification</span>
+                          <span className="text-[10px] font-bold uppercase tracking-wide text-km-faint">Tarification</span>
                           <div className="flex-1" />
                           {canManage && c.contrat_compteur_id && (
                             <Button size="sm" variant="outline" onClick={() => setAddTarifFor(c.contrat_compteur_id)}>
@@ -913,27 +913,27 @@ export default function ContratDetail() {
                           )}
                         </div>
                         {tarifsDuCompteur.length === 0 ? (
-                          <p className="text-xs text-navy-400">Aucun tarif renseigné.</p>
+                          <p className="text-xs text-km-faint">Aucun tarif renseigné.</p>
                         ) : (
                           <div className="flex flex-col gap-1.5">
                             {tarifsDuCompteur.map((t) => (
-                              <div key={t.id} className="flex items-center gap-2 rounded-lg bg-navy-50/60 px-2.5 py-2">
-                                <Euro className="h-3 w-3 shrink-0 text-navy-400" />
+                              <div key={t.id} className="flex items-center gap-2 rounded-lg bg-km-bg/60 px-2.5 py-2">
+                                <Euro className="h-3 w-3 shrink-0 text-km-faint" />
                                 <div className="min-w-0 flex-1">
                                   <div className="flex flex-wrap items-center gap-1.5">
                                     {t.formule_libelle && <Badge tone="neutral">{t.formule_libelle}</Badge>}
                                     {!t.actif && <Badge tone="amber">inactif</Badge>}
                                   </div>
-                                  <p className="mt-1 truncate text-[11px] font-semibold text-navy-700">{tarifResume(t)}</p>
+                                  <p className="mt-1 truncate text-[11px] font-semibold text-km-text">{tarifResume(t)}</p>
                                   {(t.abonnement_mensuel_ht != null || t.abonnement_annuel_ht != null) && (
-                                    <p className="text-[10.5px] text-navy-400">
+                                    <p className="text-[10.5px] text-km-faint">
                                       Abonnement {t.abonnement_mensuel_ht != null ? `${t.abonnement_mensuel_ht}€/mois` : ''}
                                       {t.abonnement_mensuel_ht != null && t.abonnement_annuel_ht != null ? ' · ' : ''}
                                       {t.abonnement_annuel_ht != null ? `${t.abonnement_annuel_ht}€/an` : ''}
                                     </p>
                                   )}
                                   {(t.date_debut_validite || t.date_fin_validite) && (
-                                    <p className="text-[10.5px] text-navy-400">
+                                    <p className="text-[10.5px] text-km-faint">
                                       Valide du {t.date_debut_validite ? new Date(t.date_debut_validite).toLocaleDateString('fr-FR') : '…'} au{' '}
                                       {t.date_fin_validite ? new Date(t.date_fin_validite).toLocaleDateString('fr-FR') : 'sans échéance'}
                                     </p>
@@ -943,7 +943,7 @@ export default function ContratDetail() {
                                   <button
                                     type="button"
                                     onClick={() => deleteTarif.mutate(t.id)}
-                                    className="shrink-0 rounded p-1 text-navy-300 hover:bg-white hover:text-red-500"
+                                    className="shrink-0 rounded p-1 text-km-faint hover:bg-white hover:text-red-500"
                                     title="Supprimer ce tarif"
                                   >
                                     <X className="h-3 w-3" />
@@ -984,21 +984,21 @@ export default function ContratDetail() {
                 }}
               />
               {documentsDuContrat.length === 0 ? (
-                <p className="text-sm text-navy-400">Aucun fichier pour ce contrat.</p>
+                <p className="text-sm text-km-faint">Aucun fichier pour ce contrat.</p>
               ) : (
-                <div className="overflow-hidden rounded-xl border border-navy-100 bg-white">
+                <div className="overflow-hidden rounded-xl border border-km-line bg-white">
                   {documentsDuContrat.map((d) => (
                     <div
                       key={d.id}
                       onClick={() => navigate(`/documents/${d.id}`)}
-                      className="flex cursor-pointer items-center gap-3 border-b border-navy-50 px-4 py-3 last:border-b-0 hover:bg-navy-50/60"
+                      className="flex cursor-pointer items-center gap-3 border-b border-navy-50 px-4 py-3 last:border-b-0 hover:bg-km-bg/60"
                     >
-                      <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-navy-100 text-navy-500">
+                      <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-km-soft text-km-muted">
                         <FileText className="h-4 w-4" />
                       </span>
                       <div className="min-w-0 flex-1">
-                        <p className="truncate text-sm font-bold text-navy-800">{d.nom}</p>
-                        <p className="truncate text-[10.5px] text-navy-400">{d.auteur} · {new Date(d.date_creation).toLocaleDateString('fr-FR')}</p>
+                        <p className="truncate text-sm font-bold text-km-text">{d.nom}</p>
+                        <p className="truncate text-[10.5px] text-km-faint">{d.auteur} · {new Date(d.date_creation).toLocaleDateString('fr-FR')}</p>
                       </div>
                       <Badge tone="neutral">{d.type_document}</Badge>
                       {d.url && (
@@ -1037,11 +1037,11 @@ export default function ContratDetail() {
         description="Cette action est irréversible. Les compteurs rattachés ne seront pas supprimés mais perdront leur lien à ce contrat."
       >
         {suppression.erreur && (
-          <p className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-xs text-red-700">{suppression.erreur}</p>
+          <p className="rounded-lg border border-red-200 bg-km-red-soft px-3 py-2 text-xs text-red-700">{suppression.erreur}</p>
         )}
         <div className="flex justify-end gap-2 pt-2">
           <Button type="button" variant="ghost" onClick={() => { suppression.reinitialiser(); setConfirmDelete(false) }}>Annuler</Button>
-          <Button type="button" variant="outline" className="border-red-200 text-red-600 hover:bg-red-50" disabled={suppression.enCours} onClick={handleDelete}>
+          <Button type="button" variant="outline" className="border-red-200 text-km-red hover:bg-km-red-soft" disabled={suppression.enCours} onClick={handleDelete}>
                 {suppression.enCours ? 'Suppression…' : 'Supprimer définitivement'}
               </Button>
         </div>
@@ -1223,12 +1223,12 @@ function DialogSignatureContrat({
       description="Le document part en brouillon : vous placez les zones de signature dans DocuSign, puis vous envoyez."
     >
       {documents.length === 0 ? (
-        <p className="text-xs text-navy-500">
+        <p className="text-xs text-km-muted">
           Aucun fichier sur ce contrat. Déposez d'abord le PDF du fournisseur dans l'onglet Fichiers :
           c'est ce document-là qui part à la signature.
         </p>
       ) : contacts.length === 0 ? (
-        <p className="text-xs text-navy-500">
+        <p className="text-xs text-km-muted">
           Aucun contact du compte n'a d'adresse email. DocuSign envoie par email : renseignez-en une
           sur le contact qui doit signer.
         </p>
@@ -1244,7 +1244,7 @@ function DialogSignatureContrat({
               déroulant n'aurait montré que des noms de fichiers, souvent illisibles quand ils
               sortent d'un téléchargement. */}
           <div>
-            <p className="mb-1 text-[10px] font-bold uppercase tracking-wide text-navy-400">
+            <p className="mb-1 text-[10px] font-bold uppercase tracking-wide text-km-faint">
               Document à faire signer
             </p>
             {/* DES VIGNETTES, PAS UNE LISTE. Naoëlle, 21/08/2026 : « je veux que ce soit un genre de
@@ -1271,12 +1271,12 @@ function DialogSignatureContrat({
                     className={cn(
                       'relative flex flex-col items-start gap-2 rounded-xl border-2 p-3 text-left transition-all',
                       choisi
-                        ? 'border-kiwi-500 bg-kiwi-50'
-                        : 'border-navy-100 bg-white hover:-translate-y-0.5 hover:border-kiwi-300 hover:shadow-md',
+                        ? 'border-km-green bg-kiwi-50'
+                        : 'border-km-line bg-white hover:-translate-y-0.5 hover:border-kiwi-300 hover:shadow-md',
                     )}
                   >
                     {choisi && (
-                      <span className="absolute right-2 top-2 flex h-5 w-5 items-center justify-center rounded-full bg-kiwi-600 text-white">
+                      <span className="absolute right-2 top-2 flex h-5 w-5 items-center justify-center rounded-full bg-km-green text-white">
                         <Check className="h-3 w-3" />
                       </span>
                     )}
@@ -1287,8 +1287,8 @@ function DialogSignatureContrat({
                       {ext}
                     </span>
                     <span className="min-w-0 self-stretch">
-                      <span className="block truncate text-sm font-bold text-navy-800">{d.nom}</span>
-                      <span className="block truncate text-[10.5px] text-navy-400">
+                      <span className="block truncate text-sm font-bold text-km-text">{d.nom}</span>
+                      <span className="block truncate text-[10.5px] text-km-faint">
                         {[d.type_document, new Date(d.date_creation).toLocaleDateString('fr-FR')]
                           .filter(Boolean)
                           .join(' · ')}
@@ -1307,7 +1307,7 @@ function DialogSignatureContrat({
               ))}
             </Select>
           </FormField>
-          <p className="text-[10.5px] leading-snug text-navy-400">
+          <p className="text-[10.5px] leading-snug text-km-faint">
             Un contrat vient du fournisseur : il ne porte pas nos repères de signature. C'est pourquoi
             DocuSign s'ouvre — vous y placez les zones sur le document, puis vous cliquez « Envoyer ».
             Rien ne part automatiquement.
@@ -1375,9 +1375,9 @@ function BlocEnvoiSignature({ contrat, signaler }: { contrat: Contrat; signaler:
   }
 
   return (
-    <div className="rounded-xl border border-navy-100 bg-white p-4">
+    <div className="rounded-xl border border-km-line bg-white p-4">
       <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
-        <p className="text-[10px] font-bold uppercase tracking-wide text-navy-400">Envoi à la signature</p>
+        <p className="text-[10px] font-bold uppercase tracking-wide text-km-faint">Envoi à la signature</p>
         <Badge tone={contrat.statut_signature === 'SIGNE' ? 'kiwi' : 'amber'}>{e.libelle}</Badge>
       </div>
 
@@ -1396,14 +1396,14 @@ function BlocEnvoiSignature({ contrat, signaler }: { contrat: Contrat; signaler:
 
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
         <div>
-          <p className="mb-0.5 text-[10px] uppercase tracking-wide text-navy-400">Envoyé le</p>
-          <p className="text-xs font-semibold text-navy-800">
+          <p className="mb-0.5 text-[10px] uppercase tracking-wide text-km-faint">Envoyé le</p>
+          <p className="text-xs font-semibold text-km-text">
             {envoyeLe ? new Date(envoyeLe).toLocaleString('fr-FR') : 'pas encore envoyé'}
           </p>
         </div>
         <div>
-          <p className="mb-0.5 text-[10px] uppercase tracking-wide text-navy-400">Destinataire</p>
-          <p className="truncate text-xs font-semibold text-navy-800">
+          <p className="mb-0.5 text-[10px] uppercase tracking-wide text-km-faint">Destinataire</p>
+          <p className="truncate text-xs font-semibold text-km-text">
             {etat?.signataire?.nom
               ? `${etat.signataire.nom}${etat.signataire.email ? ` — ${etat.signataire.email}` : ''}`
               : contrat.contact_signataire_nom || '—'}
@@ -1411,14 +1411,14 @@ function BlocEnvoiSignature({ contrat, signaler }: { contrat: Contrat; signaler:
         </div>
         {signeLe && (
           <div>
-            <p className="mb-0.5 text-[10px] uppercase tracking-wide text-navy-400">Signé le</p>
-            <p className="text-xs font-semibold text-navy-800">{new Date(signeLe).toLocaleString('fr-FR')}</p>
+            <p className="mb-0.5 text-[10px] uppercase tracking-wide text-km-faint">Signé le</p>
+            <p className="text-xs font-semibold text-km-text">{new Date(signeLe).toLocaleString('fr-FR')}</p>
           </div>
         )}
         {etat?.signataire?.recuLe && (
           <div>
-            <p className="mb-0.5 text-[10px] uppercase tracking-wide text-navy-400">Ouvert par le signataire</p>
-            <p className="text-xs font-semibold text-navy-800">
+            <p className="mb-0.5 text-[10px] uppercase tracking-wide text-km-faint">Ouvert par le signataire</p>
+            <p className="text-xs font-semibold text-km-text">
               {new Date(etat.signataire.recuLe).toLocaleString('fr-FR')}
             </p>
           </div>
@@ -1435,12 +1435,12 @@ function BlocEnvoiSignature({ contrat, signaler }: { contrat: Contrat; signaler:
           href={etat?.lien ?? lienEnveloppeDocusign(contrat.docusign_envelope_id)}
           target="_blank"
           rel="noreferrer"
-          className="inline-flex items-center gap-1 text-xs font-semibold text-kiwi-700 underline decoration-dotted hover:text-kiwi-800"
+          className="inline-flex items-center gap-1 text-xs font-semibold text-km-green underline decoration-dotted hover:text-km-green"
         >
           Voir l’enveloppe dans DocuSign
           <ExternalLink className="h-3 w-3" />
         </a>
-        <span className="font-mono text-[10.5px] text-navy-300">{contrat.docusign_envelope_id}</span>
+        <span className="font-mono text-[10.5px] text-km-faint">{contrat.docusign_envelope_id}</span>
       </div>
     </div>
   )
@@ -1480,7 +1480,7 @@ function FriseEnvoi({ contrat, etat }: { contrat: Contrat; etat: EtatEnveloppe |
                   className={cn(
                     'flex h-8 w-8 shrink-0 items-center justify-center rounded-full',
                     !faite
-                      ? 'bg-navy-100 text-navy-400'
+                      ? 'bg-km-soft text-km-faint'
                       : arrete
                         ? 'bg-gradient-to-br from-red-600 to-red-500 text-white shadow-sm'
                         : 'bg-gradient-to-br from-kiwi-600 to-kiwi-500 text-white shadow-sm',
@@ -1491,7 +1491,7 @@ function FriseEnvoi({ contrat, etat }: { contrat: Contrat; etat: EtatEnveloppe |
                 <span
                   className={cn(
                     'whitespace-nowrap text-[11px] font-bold',
-                    faite ? (arrete ? 'text-red-700' : 'text-navy-800') : 'text-navy-400',
+                    faite ? (arrete ? 'text-red-700' : 'text-km-text') : 'text-km-faint',
                   )}
                 >
                   {s.libelle}
@@ -1524,7 +1524,7 @@ function FriseEnvoi({ contrat, etat }: { contrat: Contrat; etat: EtatEnveloppe |
                         : 'bg-gradient-to-r from-kiwi-600 to-kiwi-500'
                       : !arrete && i === atteinte
                         ? 'animate-kw-stripe motion-reduce:animate-none'
-                        : 'bg-navy-100',
+                        : 'bg-km-soft',
                   )}
                 />
               )}
@@ -1541,7 +1541,7 @@ function FriseEnvoi({ contrat, etat }: { contrat: Contrat; etat: EtatEnveloppe |
         </p>
       )}
       {!arrete && !etat && (
-        <p className="mt-2 text-[10.5px] leading-snug text-navy-400">
+        <p className="mt-2 text-[10.5px] leading-snug text-km-faint">
           « Ouvert » ne peut venir que de DocuSign : cliquez sur « Vérifier auprès de DocuSign » pour
           savoir si le signataire a ouvert le document.
         </p>

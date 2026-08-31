@@ -139,8 +139,8 @@ export function ZoneDepotFichiers({
         className={cn(
           'flex cursor-pointer flex-col items-center justify-center gap-1.5 rounded-xl border-2 border-dashed px-4 py-6 text-center transition-colors',
           survol || enAttenteDe > 0
-            ? 'border-kiwi-500 bg-kiwi-50'
-            : 'border-navy-200 hover:border-kiwi-400 hover:bg-navy-50',
+            ? 'border-km-green bg-kiwi-50'
+            : 'border-km-line hover:border-kiwi-400 hover:bg-km-bg',
         )}
       >
         {/* LA ZONE ACCUSE RÉCEPTION. Naoëlle, 21/08/2026 : « je trouve qu'on ne capte pas assez qu'un
@@ -149,21 +149,21 @@ export function ZoneDepotFichiers({
             ici que l'œil se trouve au moment du dépôt : c'est donc ici qu'il faut le dire. */}
         {enAttenteDe > 0 ? (
           <>
-            <CheckCircle2 className="h-5 w-5 text-kiwi-600" />
-            <p className="text-sm font-semibold text-kiwi-800">
+            <CheckCircle2 className="h-5 w-5 text-km-green" />
+            <p className="text-sm font-semibold text-km-green">
               {enAttenteDe} fichier{pluriel} prêt{pluriel} à être déposé{pluriel}
             </p>
-            <p className="text-xs text-kiwi-700">
+            <p className="text-xs text-km-green">
               Choisissez une catégorie ci-dessous — ou glissez-en d'autres
             </p>
           </>
         ) : (
           <>
-            <Upload className={cn('h-5 w-5', survol ? 'text-kiwi-600' : 'text-navy-400')} />
-            <p className="text-sm font-medium text-navy-700">
+            <Upload className={cn('h-5 w-5', survol ? 'text-km-green' : 'text-km-faint')} />
+            <p className="text-sm font-medium text-km-text">
               {survol ? 'Déposez vos fichiers ici' : 'Glissez des fichiers, ou cliquez pour parcourir'}
             </p>
-            <p className="text-xs text-navy-400">Contrat, facture, avenant, mail, photo…</p>
+            <p className="text-xs text-km-faint">Contrat, facture, avenant, mail, photo…</p>
           </>
         )}
         <input
@@ -180,15 +180,15 @@ export function ZoneDepotFichiers({
         <div className="mt-2.5 overflow-hidden rounded-xl border border-kiwi-200 bg-white">
           {/* Une vignette par fichier : le carré à icône donne au fichier une présence que la ligne
               de texte n'avait pas, et l'extension dit sa nature sans avoir à lire tout le nom. */}
-          <ul className="divide-y divide-navy-100">
+          <ul className="divide-y divide-km-line">
             {enAttente.map((f) => (
               <li key={cle(f)} className="flex items-center gap-3 px-3 py-2.5">
                 <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-kiwi-50 ring-1 ring-kiwi-200">
-                  <FileText className="h-4 w-4 text-kiwi-600" />
+                  <FileText className="h-4 w-4 text-km-green" />
                 </span>
                 <span className="min-w-0 flex-1">
-                  <span className="block truncate text-sm font-semibold text-navy-800">{f.name}</span>
-                  <span className="block text-xs text-navy-400">
+                  <span className="block truncate text-sm font-semibold text-km-text">{f.name}</span>
+                  <span className="block text-xs text-km-faint">
                     {extension(f.name)} · {poids(f.size)}
                   </span>
                 </span>
@@ -196,7 +196,7 @@ export function ZoneDepotFichiers({
                   type="button"
                   onClick={() => retirer(f)}
                   title="Retirer ce fichier"
-                  className="shrink-0 rounded-lg p-1.5 text-navy-400 hover:bg-navy-50 hover:text-navy-700"
+                  className="shrink-0 rounded-lg p-1.5 text-km-faint hover:bg-km-bg hover:text-km-text"
                 >
                   <X className="h-3.5 w-3.5" />
                 </button>
@@ -204,11 +204,11 @@ export function ZoneDepotFichiers({
             ))}
           </ul>
 
-          <div className="flex items-center gap-2 border-t border-navy-100 bg-navy-50/50 px-3 py-2.5">
+          <div className="flex items-center gap-2 border-t border-km-line bg-km-bg/50 px-3 py-2.5">
             <select
               value={typeId}
               onChange={(e) => setTypeId(e.target.value)}
-              className="flex-1 rounded-lg border border-navy-200 bg-white px-2 py-1.5 text-xs text-navy-700 outline-none focus:border-kiwi-500"
+              className="flex-1 rounded-lg border border-km-line bg-white px-2 py-1.5 text-xs text-km-text outline-none focus:border-km-green"
             >
               <option value="">Catégorie…</option>
               {types.map((t) => <option key={t.id} value={t.id}>{t.libelle}</option>)}
@@ -216,7 +216,7 @@ export function ZoneDepotFichiers({
             <button
               type="button"
               onClick={() => { setEnAttente([]); setErreur(null) }}
-              className="rounded-lg px-2.5 py-1.5 text-xs text-navy-500 hover:bg-navy-100"
+              className="rounded-lg px-2.5 py-1.5 text-xs text-km-muted hover:bg-km-soft"
             >
               Annuler
             </button>
@@ -224,7 +224,7 @@ export function ZoneDepotFichiers({
               type="button"
               onClick={confirmer}
               disabled={enCours}
-              className="flex items-center gap-1.5 rounded-lg bg-kiwi-600 px-3 py-1.5 text-xs font-semibold text-white disabled:opacity-50"
+              className="flex items-center gap-1.5 rounded-lg bg-km-green px-3 py-1.5 text-xs font-semibold text-white disabled:opacity-50"
             >
               {enCours && <Loader2 className="h-3 w-3 animate-spin" />}
               {enCours ? 'Dépôt…' : `Déposer ${enAttenteDe > 1 ? `(${enAttenteDe})` : ''}`}
@@ -232,7 +232,7 @@ export function ZoneDepotFichiers({
           </div>
 
           {erreur && (
-            <p className="border-t border-red-200 bg-red-50 px-3 py-2 text-xs text-red-700">{erreur}</p>
+            <p className="border-t border-red-200 bg-km-red-soft px-3 py-2 text-xs text-red-700">{erreur}</p>
           )}
         </div>
       )}

@@ -75,7 +75,7 @@ export function EllisphereScoreCard({ compteId, siren }: { compteId: string; sir
 
   if (etat.phase === 'idle' || etat.phase === 'loading') {
     return (
-      <Card className="flex items-center gap-3 p-4 text-sm text-navy-500">
+      <Card className="flex items-center gap-3 p-4 text-sm text-km-muted">
         <Loader2 className="h-4 w-4 animate-spin" />
         Récupération de la note Ellipro…
       </Card>
@@ -85,7 +85,7 @@ export function EllisphereScoreCard({ compteId, siren }: { compteId: string; sir
   if (etat.phase === 'error') {
     return (
       <Card className="flex items-center justify-between gap-3 p-4">
-        <div className="flex items-center gap-2 text-sm text-navy-500">
+        <div className="flex items-center gap-2 text-sm text-km-muted">
           <AlertTriangle className="h-4 w-4 shrink-0 text-amber-500" />
           Note Ellipro indisponible : {etat.message}
         </div>
@@ -99,7 +99,7 @@ export function EllisphereScoreCard({ compteId, siren }: { compteId: string; sir
   if (etat.score === null) {
     return (
       <Card className="flex items-center justify-between gap-3 p-4">
-        <div className="flex items-center gap-2 text-sm text-navy-500">
+        <div className="flex items-center gap-2 text-sm text-km-muted">
           <Shield className="h-4 w-4 shrink-0" />
           Aucune note Ellisphere disponible pour ce compte.
         </div>
@@ -124,21 +124,21 @@ export function EllisphereScoreCard({ compteId, siren }: { compteId: string; sir
                   échelle entière de 0 à 10. */}
               {Math.round(etat.score)}
             </span>
-            <span className="text-sm font-semibold text-navy-400">/10</span>
+            <span className="text-sm font-semibold text-km-faint">/10</span>
           </div>
 
           <div className="min-w-0 flex-1">
             <div className="flex items-center gap-2">
               <Shield className={cn('h-3.5 w-3.5 shrink-0', tier.text)} />
-              <p className="truncate text-[10px] font-semibold uppercase tracking-wider text-navy-400">
+              <p className="truncate text-[10px] font-semibold uppercase tracking-wider text-km-faint">
                 Score de solvabilité Ellipro
               </p>
               <Badge tone="neutral" className={cn('ml-auto shrink-0 text-[10px] font-semibold', tier.text)}>
                 {tier.label}
               </Badge>
             </div>
-            {etat.creditOpinion && <p className="mt-0.5 truncate text-xs font-medium text-navy-700">{etat.creditOpinion}</p>}
-            <div className="mt-1.5 h-1.5 overflow-hidden rounded-full bg-navy-100">
+            {etat.creditOpinion && <p className="mt-0.5 truncate text-xs font-medium text-km-text">{etat.creditOpinion}</p>}
+            <div className="mt-1.5 h-1.5 overflow-hidden rounded-full bg-km-soft">
               <div className={cn('h-full rounded-full bg-gradient-to-r transition-all duration-700', tier.from, tier.to)} style={{ width: `${pct}%` }} />
             </div>
           </div>
@@ -151,17 +151,17 @@ export function EllisphereScoreCard({ compteId, siren }: { compteId: string; sir
         {etat.paymentIncidents && (
           <div className="mt-2 flex items-start gap-1.5 rounded-md border border-amber-500/20 bg-amber-500/10 px-2 py-1">
             <AlertTriangle className="mt-0.5 h-3 w-3 shrink-0 text-amber-600" />
-            <p className="text-[11px] text-amber-800">{etat.paymentIncidents}</p>
+            <p className="text-[11px] text-km-amber">{etat.paymentIncidents}</p>
           </div>
         )}
 
         <div className="mt-2">
           {etat.synced ? (
-            <span className="inline-flex items-center gap-1 text-[11px] text-kiwi-700">
+            <span className="inline-flex items-center gap-1 text-[11px] text-km-green">
               <CheckCircle2 className="h-3 w-3" /> Note synchronisée avec le compte
             </span>
           ) : (
-            <span className="text-[11px] text-navy-400">Note non synchronisée avec le compte</span>
+            <span className="text-[11px] text-km-faint">Note non synchronisée avec le compte</span>
           )}
         </div>
       </div>

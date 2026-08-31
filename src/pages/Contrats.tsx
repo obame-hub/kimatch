@@ -321,20 +321,20 @@ function CreateContratDialog({ open, onClose }: { open: boolean; onClose: () => 
           {receptionInvalide ? (
             <p className="mt-1 text-xs text-amber-700">{receptionInvalide}</p>
           ) : (
-            <p className="mt-1 text-xs text-navy-400">Jour ouvré (lundi-vendredi), à partir d'aujourd'hui.</p>
+            <p className="mt-1 text-xs text-km-faint">Jour ouvré (lundi-vendredi), à partir d'aujourd'hui.</p>
           )}
         </FormField>
         <div className="grid grid-cols-2 gap-3">
           <FormField label="Date de début">
             <Input type="date" value={dateDebut} onChange={(e) => setDateDebut(e.target.value)} />
-            {compteurIds.length === 1 && <p className="mt-1 text-xs text-navy-400">Préremplie à l'échéance du PDL + 1 jour.</p>}
+            {compteurIds.length === 1 && <p className="mt-1 text-xs text-km-faint">Préremplie à l'échéance du PDL + 1 jour.</p>}
           </FormField>
           <FormField label="Durée (mois)">
             <Input type="number" min={1} value={dureeMois} onChange={(e) => setDureeMois(e.target.value)} />
           </FormField>
         </div>
-        <div className="rounded-lg border border-navy-100 bg-navy-50 px-3 py-2 text-xs text-navy-500">
-          Date de fin (calculée) : <span className="font-medium text-navy-700">{dateFin ? new Date(dateFin).toLocaleDateString('fr-FR') : '—'}</span>
+        <div className="rounded-lg border border-km-line bg-km-bg px-3 py-2 text-xs text-km-muted">
+          Date de fin (calculée) : <span className="font-medium text-km-text">{dateFin ? new Date(dateFin).toLocaleDateString('fr-FR') : '—'}</span>
         </div>
         {siteId && contactsDuSite.length > 0 && (
           <FormField label="Contact signataire (optionnel)">
@@ -347,11 +347,11 @@ function CreateContratDialog({ open, onClose }: { open: boolean; onClose: () => 
         {siteId && (
           <FormField label="Compteurs couverts">
             {compteursDuSite.length === 0 ? (
-              <p className="text-xs text-navy-400">Ce site n'a aucun compteur.</p>
+              <p className="text-xs text-km-faint">Ce site n'a aucun compteur.</p>
             ) : (
-              <div className={`max-h-32 space-y-1 overflow-y-auto rounded-lg border p-2 ${compteurIds.length === 0 ? 'border-amber-500 bg-amber-50/40' : 'border-navy-200'}`}>
+              <div className={`max-h-32 space-y-1 overflow-y-auto rounded-lg border p-2 ${compteurIds.length === 0 ? 'border-amber-500 bg-amber-50/40' : 'border-km-line'}`}>
                 {compteursDuSite.map((c) => (
-                  <label key={c.id} className="flex items-center gap-2 text-sm text-navy-700">
+                  <label key={c.id} className="flex items-center gap-2 text-sm text-km-text">
                     <input type="checkbox" checked={compteurIds.includes(c.id)} onChange={() => toggleCompteur(c.id)} />
                     {c.numero_pdl} — {c.utilisation}
                   </label>
@@ -370,17 +370,17 @@ function CreateContratDialog({ open, onClose }: { open: boolean; onClose: () => 
               const recommandee = c.key === 'clause_renegociation_anticipee' && fournisseurActuel
                 && FOURNISSEURS_RENEGOCIATION_RECOMMANDEE.some((n) => fournisseurActuel.nom.toUpperCase().includes(n))
               return (
-                <label key={c.key} className="flex items-center gap-2 text-sm text-navy-700">
+                <label key={c.key} className="flex items-center gap-2 text-sm text-km-text">
                   <input type="checkbox" checked={!!clauses[c.key]} onChange={(e) => setClauses((prev) => ({ ...prev, [c.key]: e.target.checked }))} />
                   {c.label}
-                  {recommandee && <span className="text-[10px] text-kiwi-700">— recommandée pour {fournisseurActuel!.nom}</span>}
+                  {recommandee && <span className="text-[10px] text-km-green">— recommandée pour {fournisseurActuel!.nom}</span>}
                 </label>
               )
             })}
           </div>
         </FormField>
-        {feedback && <p className="text-xs text-navy-500">{feedback}</p>}
-        <div className="flex justify-end gap-2 border-t border-navy-100 pt-3">
+        {feedback && <p className="text-xs text-km-muted">{feedback}</p>}
+        <div className="flex justify-end gap-2 border-t border-km-line pt-3">
           <Button type="button" variant="ghost" onClick={() => { reset(); onClose() }}>Annuler</Button>
           <Button type="submit" disabled={createContrat.isPending || !canSubmit}>Créer le contrat</Button>
         </div>
@@ -472,9 +472,9 @@ export default function Contrats({ sansEntete }: { sansEntete?: boolean }) {
             </Button>
           }
         />
-        <p className="mb-4 flex items-start gap-1.5 text-xs text-navy-400">
+        <p className="mb-4 flex items-start gap-1.5 text-xs text-km-faint">
           <FileText className="mt-0.5 h-3.5 w-3.5 shrink-0" />
-          Une <span className="font-medium text-navy-600">demande</span> de contrat se crée depuis la recommandation, une fois la cotation faite — elle embarque alors tous ses points de livraison.
+          Une <span className="font-medium text-km-muted">demande</span> de contrat se crée depuis la recommandation, une fois la cotation faite — elle embarque alors tous ses points de livraison.
         </p>
 
         <ListToolbar query={query} onQueryChange={setQuery} placeholder="Rechercher un fournisseur, un site…" count={filteredContrats?.length}>
@@ -497,12 +497,12 @@ export default function Contrats({ sansEntete }: { sansEntete?: boolean }) {
               title="Contrats dont le fournisseur n'est pas renseigné : la donnée est à compléter avant de pouvoir comparer une offre."
               className={
                 sansFournisseur
-                  ? 'shrink-0 rounded-kw-md border border-ink-800 bg-ink-800 px-2.5 py-1.5 text-kw-xs font-semibold text-white'
-                  : 'shrink-0 rounded-kw-md border border-kw-border bg-white px-2.5 py-1.5 text-kw-xs font-semibold text-kw-meta hover:bg-kw-subtle'
+                  ? 'shrink-0 rounded-km border border-ink-800 bg-ink-800 px-2.5 py-1.5 text-km-label font-semibold text-white'
+                  : 'shrink-0 rounded-km border border-km-line bg-white px-2.5 py-1.5 text-km-label font-semibold text-km-muted hover:bg-km-soft'
               }
             >
               Sans fournisseur
-              <span className={sansFournisseur ? 'ml-1.5 font-mono text-white/70' : 'ml-1.5 font-mono text-kw-meta'}>
+              <span className={sansFournisseur ? 'ml-1.5 font-mono text-white/70' : 'ml-1.5 font-mono text-km-muted'}>
                 {nbSansFournisseur}
               </span>
             </button>
@@ -516,10 +516,10 @@ export default function Contrats({ sansEntete }: { sansEntete?: boolean }) {
         </ListToolbar>
 
         {!isLoading && contrats && contrats.length > 0 && filteredContrats?.length === 0 && (
-          <p className="mb-4 text-sm text-navy-400">Aucun contrat ne correspond à la recherche.</p>
+          <p className="mb-4 text-sm text-km-faint">Aucun contrat ne correspond à la recherche.</p>
         )}
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3">
-          {isLoading && <p className="text-sm text-navy-400">Chargement…</p>}
+          {isLoading && <p className="text-sm text-km-faint">Chargement…</p>}
           {tranche.visibles.map((c) => {
             /* « En signature » n'est pas un statut de vie : c'est l'absence de vie. Les 35
                contrats concernés n'ont pas encore de date de début, et leur inventer « à venir »
@@ -536,17 +536,17 @@ export default function Contrats({ sansEntete }: { sansEntete?: boolean }) {
               >
                 <div className="flex items-start justify-between">
                   <div className="flex items-center gap-2">
-                    <span className={cn('flex h-8 w-8 items-center justify-center rounded-lg', c.type_energie === 'gaz' ? 'bg-amber-100 text-amber-600' : 'bg-sky-100 text-sky-500')}>
+                    <span className={cn('flex h-8 w-8 items-center justify-center rounded-lg', c.type_energie === 'gaz' ? 'bg-km-amber-soft text-amber-600' : 'bg-sky-100 text-sky-500')}>
                       <Icon className="h-4 w-4" />
                     </span>
                     <div>
-                      {c.id_salesforce && <p className="font-mono text-[11px] text-navy-400">{c.id_salesforce}</p>}
-                      <p className="font-display font-medium text-navy-800">{c.fournisseur_nom}</p>
+                      {c.id_salesforce && <p className="font-mono text-[11px] text-km-faint">{c.id_salesforce}</p>}
+                      <p className="font-display font-medium text-km-text">{c.fournisseur_nom}</p>
                     </div>
                   </div>
                   <Badge tone={ton}>{label}</Badge>
                 </div>
-                <div className="mt-4 space-y-1 text-xs text-navy-500">
+                <div className="mt-4 space-y-1 text-xs text-km-muted">
                   <p>Site : <EntityLink to={`/sites/${c.site_id}`}>{c.site_nom}</EntityLink></p>
                   {c.reference_fournisseur && <p>Référence : {c.reference_fournisseur}</p>}
                   <p>
@@ -562,7 +562,7 @@ export default function Contrats({ sansEntete }: { sansEntete?: boolean }) {
                     const alerte = alerteTacite(c.date_declenchement_tacite, c.jours_alerte_tacite)
                     if (!alerte) return null
                     return (
-                      <p className={cn('font-semibold', alerte.passee ? 'text-red-600' : 'text-amber-700')}>
+                      <p className={cn('font-semibold', alerte.passee ? 'text-km-red' : 'text-amber-700')}>
                         {alerte.texte}
                       </p>
                     )
@@ -581,7 +581,7 @@ export default function Contrats({ sansEntete }: { sansEntete?: boolean }) {
           />
         </div>
         {!isLoading && contrats?.length === 0 && (
-          <div className="flex flex-col items-center gap-2 py-16 text-navy-400">
+          <div className="flex flex-col items-center gap-2 py-16 text-km-faint">
             <FileSignature className="h-8 w-8" />
             <p className="text-sm">Aucun contrat pour le moment.</p>
           </div>

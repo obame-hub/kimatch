@@ -303,10 +303,10 @@ export default function Pricing({ sansEntete }: { sansEntete?: boolean }) {
             type="button"
             onClick={() => setAvecRefusees((v) => !v)}
             className={cn(
-              'inline-flex shrink-0 items-center gap-1.5 rounded-kw-md border px-2.5 py-1.5 text-kw-sm font-bold transition-colors',
+              'inline-flex shrink-0 items-center gap-1.5 rounded-km border px-2.5 py-1.5 text-km-body font-bold transition-colors',
               avecRefusees
                 ? 'border-ink-800 bg-ink-800 text-white'
-                : 'border-kw-border-strong bg-white text-kw-meta hover:bg-kw-subtle',
+                : 'border-km-line bg-white text-km-muted hover:bg-km-soft',
             )}
           >
             Inclure les demandes refusées
@@ -389,7 +389,7 @@ export default function Pricing({ sansEntete }: { sansEntete?: boolean }) {
 
         {/* CE QUE LA PAGE NE PEUT PAS DIRE, dit à l'écran : le suivi avance d'un clic, la saisie de
             l'offre est un formulaire séparé que personne ne remplit. Voir l'en-tête. */}
-        <p className="mt-3 max-w-[95ch] text-kw-xs leading-relaxed text-kw-faint">
+        <p className="mt-3 max-w-[95ch] text-km-label leading-relaxed text-km-faint">
           Seules les consultations encore vivantes apparaissent : la recommandation est ouverte, la
           version est celle sur laquelle on travaille, et son statut n’est pas terminal. Les cartes
           sont classées par date de cotation souhaitée, les retards en premier. Le budget, lui,

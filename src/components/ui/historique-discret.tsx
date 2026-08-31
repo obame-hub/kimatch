@@ -20,25 +20,25 @@ export function HistoriqueDiscret({ tableNom, ligneId }: { tableNom: string; lig
   if (!ligneId) return null
 
   return (
-    <div className="mt-3 text-[11px] text-navy-300">
+    <div className="mt-3 text-[11px] text-km-faint">
       <button
         type="button"
         onClick={() => setOpen((o) => !o)}
-        className="inline-flex items-center gap-1 hover:text-navy-500"
+        className="inline-flex items-center gap-1 hover:text-km-muted"
       >
         <History className="h-3 w-3" />
         Historique{entries && entries.length > 0 ? ` (${entries.length})` : ''}
       </button>
       {open && (
-        <div className="mt-1.5 space-y-1 border-l border-navy-100 pl-2.5">
+        <div className="mt-1.5 space-y-1 border-l border-km-line pl-2.5">
           {!entries || entries.length === 0 ? (
-            <p className="text-navy-300">Aucune modification enregistrée.</p>
+            <p className="text-km-faint">Aucune modification enregistrée.</p>
           ) : (
             entries.map((h) => (
-              <p key={h.id} className="text-navy-400">
-                <span className={h.estUnePersonne ? 'font-medium text-navy-500' : 'italic text-navy-400'}>{h.auteur}</span>
+              <p key={h.id} className="text-km-faint">
+                <span className={h.estUnePersonne ? 'font-medium text-km-muted' : 'italic text-km-faint'}>{h.auteur}</span>
                 {' a modifié '}
-                <span className="font-medium text-navy-500">{h.champ_libelle}</span>
+                <span className="font-medium text-km-muted">{h.champ_libelle}</span>
                 {' : '}
                 <span className="line-through">{h.ancienne_valeur ?? '—'}</span>
                 {' → '}

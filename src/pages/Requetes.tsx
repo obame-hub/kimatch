@@ -138,11 +138,11 @@ export default function Requetes() {
 
         {filtrees.length === 0 ? (
           <Card className="flex flex-col items-center gap-2 p-8 text-center">
-            <LifeBuoy className="h-6 w-6 text-navy-300" />
-            <p className="text-sm font-medium text-navy-700">
+            <LifeBuoy className="h-6 w-6 text-km-faint" />
+            <p className="text-sm font-medium text-km-text">
               {ouvertes ? 'Rien à traiter' : 'Aucune requête'}
             </p>
-            <p className="max-w-md text-xs text-navy-400">
+            <p className="max-w-md text-xs text-km-faint">
               Une requête naît d'un problème : une facture contestée, un contrat introuvable, un
               compteur qui ne remonte rien.
             </p>
@@ -167,19 +167,19 @@ export default function Requetes() {
                 <div
                   key={col.code}
                   style={{ borderTopColor: col.couleur }}
-                  className="flex w-[300px] shrink-0 flex-col gap-2 rounded-kw-lg border-t-[3px] bg-kw-subtle/70 p-2.5"
+                  className="flex w-[300px] shrink-0 flex-col gap-2 rounded-km-md border-t-[3px] bg-km-soft/70 p-2.5"
                 >
                   <div className="mb-0.5 flex items-center gap-1.5 px-0.5">
                     <span className="h-1.5 w-1.5 shrink-0 rounded-full" style={{ background: col.couleur }} />
-                    <p className="truncate text-kw-xs font-bold uppercase tracking-[0.06em] text-kw-meta">
+                    <p className="truncate text-km-label font-bold uppercase tracking-[0.06em] text-km-muted">
                       {col.libelle}
                     </p>
-                    <span className="ml-auto shrink-0 rounded-kw-md bg-white px-1.5 py-px font-mono text-kw-micro font-extrabold text-kw-meta">
+                    <span className="ml-auto shrink-0 rounded-km bg-white px-1.5 py-px font-mono text-km-label font-extrabold text-km-muted">
                       {dedans.length}
                     </span>
                   </div>
                   {dedans.length === 0 && (
-                    <p className="px-0.5 text-kw-micro text-kw-faint">Vide</p>
+                    <p className="px-0.5 text-km-label text-km-faint">Vide</p>
                   )}
                   {dedans.map((r) => (
               <CarteRequete
@@ -252,22 +252,22 @@ function CarteRequete({ requete, statuts, onStatut, onResolution, onRattachement
   return (
     <div className={cn(
       'rounded-[13px] border bg-white p-3.5 transition-shadow hover:shadow-[0_8px_22px_-14px_rgba(22,24,29,.28)]',
-      enRetard ? 'border-red-200' : 'border-kw-border',
+      enRetard ? 'border-red-200' : 'border-km-line',
     )}>
       <div className="flex items-start justify-between gap-2">
         <div className="flex min-w-0 items-start gap-2.5">
           <span
             className={cn(
               'mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-lg',
-              resolue ? 'bg-kiwi-50 text-kiwi-700' : enRetard ? 'bg-red-100 text-red-700' : 'bg-[#f7e6e2] text-[#a8371f]',
+              resolue ? 'bg-kiwi-50 text-km-green' : enRetard ? 'bg-red-100 text-red-700' : 'bg-[#f7e6e2] text-[#a8371f]',
             )}
           >
             <LifeBuoy className="h-3.5 w-3.5" />
           </span>
           <div className="min-w-0">
-            <p className="truncate text-sm font-semibold text-navy-800">{requete.objet || 'Sans objet'}</p>
-            <p className="truncate text-[11px] text-navy-500">
-              {requete.reference && <span className="font-mono text-navy-400">{requete.reference} · </span>}
+            <p className="truncate text-sm font-semibold text-km-text">{requete.objet || 'Sans objet'}</p>
+            <p className="truncate text-[11px] text-km-muted">
+              {requete.reference && <span className="font-mono text-km-faint">{requete.reference} · </span>}
               {[categorie?.libelle, requete.compte_id ? undefined : 'compte non rattaché'].filter(Boolean).join(' · ')}
               {requete.compte_id && (
                 <> · <EntityLink to={`/comptes/${requete.compte_id}`}>{requete.compte_nom}</EntityLink></>
@@ -279,7 +279,7 @@ function CarteRequete({ requete, statuts, onStatut, onResolution, onRattachement
       </div>
 
       {requete.description && (
-        <p className="mt-2 line-clamp-3 text-xs text-navy-500">{requete.description}</p>
+        <p className="mt-2 line-clamp-3 text-xs text-km-muted">{requete.description}</p>
       )}
 
       {/* ══ OÙ SE PASSE LE PROBLÈME ══
@@ -288,16 +288,16 @@ function CarteRequete({ requete, statuts, onStatut, onResolution, onRattachement
           arrive souvent avant qu'on sache de quel compteur il s'agit — l'information se complète au
           téléphone, donc elle doit pouvoir se saisir sans repasser par une création. */}
       {(requete.site_nom || requete.compteur_numero || requete.contact_nom) && (
-        <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 text-[11px] text-navy-500">
+        <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 text-[11px] text-km-muted">
           {requete.site_nom && (
             <span>
-              <span className="text-navy-400">Site : </span>
+              <span className="text-km-faint">Site : </span>
               <EntityLink to={`/sites/${requete.site_id}`}>{requete.site_nom}</EntityLink>
             </span>
           )}
           {requete.compteur_numero && (
             <span>
-              <span className="text-navy-400">Compteur : </span>
+              <span className="text-km-faint">Compteur : </span>
               <EntityLink to={`/compteurs/${requete.compteur_id}`}>
                 <span className="font-mono">{requete.compteur_numero}</span>
               </EntityLink>
@@ -305,7 +305,7 @@ function CarteRequete({ requete, statuts, onStatut, onResolution, onRattachement
           )}
           {requete.contact_nom && (
             <span>
-              <span className="text-navy-400">Contact : </span>
+              <span className="text-km-faint">Contact : </span>
               <EntityLink to={`/contacts/${requete.contact_id}`}>{requete.contact_nom}</EntityLink>
             </span>
           )}
@@ -315,7 +315,7 @@ function CarteRequete({ requete, statuts, onStatut, onResolution, onRattachement
       {requete.compte_id && (
         <div className="mt-2">
           {precise ? (
-            <div className="rounded-kw-md border border-kw-border bg-kw-bloc p-2.5">
+            <div className="rounded-km border border-km-line bg-km-soft p-2.5">
               <ChampsRattachement
                 compteId={requete.compte_id}
                 siteId={requete.site_id ?? ''}
@@ -328,7 +328,7 @@ function CarteRequete({ requete, statuts, onStatut, onResolution, onRattachement
               <button
                 type="button"
                 onClick={() => setPrecise(false)}
-                className="mt-2 text-[10.5px] font-semibold text-navy-500 hover:underline"
+                className="mt-2 text-[10.5px] font-semibold text-km-muted hover:underline"
               >
                 Terminé
               </button>
@@ -337,7 +337,7 @@ function CarteRequete({ requete, statuts, onStatut, onResolution, onRattachement
             <button
               type="button"
               onClick={() => setPrecise(true)}
-              className="text-[10.5px] font-semibold text-kw-green hover:underline"
+              className="text-[10.5px] font-semibold text-km-green hover:underline"
             >
               {requete.site_nom || requete.compteur_numero || requete.contact_nom
                 ? 'Modifier le rattachement'
@@ -348,7 +348,7 @@ function CarteRequete({ requete, statuts, onStatut, onResolution, onRattachement
       )}
 
       {requete.date_echeance && (
-        <p className={cn('mt-1.5 text-[10.5px]', enRetard ? 'font-semibold text-red-600' : 'text-navy-400')}>
+        <p className={cn('mt-1.5 text-[10.5px]', enRetard ? 'font-semibold text-km-red' : 'text-km-faint')}>
           Échéance : {new Date(requete.date_echeance).toLocaleDateString('fr-FR')}
           {enRetard && ' — dépassée'}
         </p>
@@ -367,7 +367,7 @@ function CarteRequete({ requete, statuts, onStatut, onResolution, onRattachement
         />
       </div>
 
-      <div className="mt-2.5 flex flex-wrap items-center gap-1.5 border-t border-kw-border-faint pt-2.5">
+      <div className="mt-2.5 flex flex-wrap items-center gap-1.5 border-t border-km-line pt-2.5">
         {statuts.map((s) => (
           <button
             key={s.id}
@@ -376,8 +376,8 @@ function CarteRequete({ requete, statuts, onStatut, onResolution, onRattachement
             className={cn(
               'rounded-lg border px-2.5 py-1 text-[11px] font-semibold transition-colors',
               requete.statut === s.code
-                ? 'border-kiwi-500 bg-kiwi-50 text-kiwi-800'
-                : 'border-navy-200 text-navy-500 hover:bg-navy-50',
+                ? 'border-km-green bg-kiwi-50 text-km-green'
+                : 'border-km-line text-km-muted hover:bg-km-bg',
             )}
           >
             {requete.statut === s.code && <Check className="mr-1 inline h-3 w-3" />}
@@ -394,12 +394,12 @@ function Tuile({ libelle, valeur, accent }: { libelle: string; valeur: string; a
   return (
     <div className={cn(
       'rounded-[13px] border bg-white px-3.5 py-3',
-      accent === 'kiwi' ? 'border-kiwi-200 bg-kiwi-50/50' : accent === 'rouge' ? 'border-red-200 bg-red-50' : 'border-kw-border',
+      accent === 'kiwi' ? 'border-kiwi-200 bg-kiwi-50/50' : accent === 'rouge' ? 'border-red-200 bg-km-red-soft' : 'border-km-line',
     )}>
-      <p className="text-[10px] font-bold uppercase tracking-[0.08em] text-navy-400">{libelle}</p>
+      <p className="text-[10px] font-bold uppercase tracking-[0.08em] text-km-faint">{libelle}</p>
       <p className={cn(
         'mt-0.5 font-mono text-lg font-extrabold tabular-nums',
-        accent === 'rouge' ? 'text-red-700' : accent === 'kiwi' ? 'text-kiwi-700' : 'text-navy-800',
+        accent === 'rouge' ? 'text-red-700' : accent === 'kiwi' ? 'text-km-green' : 'text-km-text',
       )}>
         {valeur}
       </p>
@@ -451,7 +451,7 @@ function ChampsRattachement({
 
   if (!compteId) {
     return (
-      <p className="rounded-kw-md border border-dashed border-kw-border-strong bg-kw-bloc px-3 py-2 text-kw-xs leading-relaxed text-kw-meta">
+      <p className="rounded-km border border-dashed border-km-line bg-km-soft px-3 py-2 text-km-label leading-relaxed text-km-muted">
         Choisissez un compte pour pouvoir préciser le site, le compteur ou le contact concerné. Ces
         trois précisions restent facultatives, et peuvent être ajoutées plus tard depuis la fiche.
       </p>
@@ -586,11 +586,11 @@ function DialogCreation({ onFermer, signaler }: { onFermer: () => void; signaler
             type="date"
             value={echeance}
             onChange={(e) => setEcheance(e.target.value)}
-            className="w-full rounded-lg border border-navy-200 bg-white px-3 py-2 text-sm outline-none focus:border-kiwi-500"
+            className="w-full rounded-lg border border-km-line bg-white px-3 py-2 text-sm outline-none focus:border-km-green"
           />
         </FormField>
 
-        {erreur && <p className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-xs text-red-700">{erreur}</p>}
+        {erreur && <p className="rounded-lg border border-red-200 bg-km-red-soft px-3 py-2 text-xs text-red-700">{erreur}</p>}
 
         <div className="flex justify-end gap-2 pt-1">
           <Button type="button" variant="ghost" onClick={onFermer}>Annuler</Button>

@@ -73,22 +73,22 @@ export function CreateMandatDialog({
           <FormField label="Rechercher un compte">
             <Input value={recherche} onChange={(e) => setRecherche(e.target.value)} placeholder="Nom du compte…" autoFocus />
           </FormField>
-          <div className="max-h-[320px] overflow-y-auto rounded-xl border border-navy-100">
+          <div className="max-h-[320px] overflow-y-auto rounded-xl border border-km-line">
             {filtres.map((c) => (
               <button
                 key={c.id}
                 type="button"
                 onClick={() => setCompteId(c.id)}
-                className="flex w-full items-center gap-2 border-b border-navy-50 px-3 py-2.5 text-left last:border-b-0 hover:bg-navy-50/60"
+                className="flex w-full items-center gap-2 border-b border-navy-50 px-3 py-2.5 text-left last:border-b-0 hover:bg-km-bg/60"
               >
-                <span className="min-w-0 flex-1 truncate text-xs font-semibold text-navy-800">{c.nom}</span>
-                {c.ville && <span className="shrink-0 text-[10.5px] text-navy-400">{c.ville}</span>}
+                <span className="min-w-0 flex-1 truncate text-xs font-semibold text-km-text">{c.nom}</span>
+                {c.ville && <span className="shrink-0 text-[10.5px] text-km-faint">{c.ville}</span>}
               </button>
             ))}
-            {filtres.length === 0 && <p className="p-4 text-center text-xs text-navy-400">Aucun compte trouvé.</p>}
+            {filtres.length === 0 && <p className="p-4 text-center text-xs text-km-faint">Aucun compte trouvé.</p>}
           </div>
           {!q && (comptes?.length ?? 0) > 50 && (
-            <p className="text-[10.5px] text-navy-400">
+            <p className="text-[10.5px] text-km-faint">
               50 comptes sur {comptes?.length} affichés — précisez la recherche.
             </p>
           )}
@@ -195,16 +195,16 @@ export default function Mandats({ sansEntete }: { sansEntete?: boolean }) {
           </Select>
         </ListToolbar>
 
-        {liste.erreur && <p className="mb-4 text-sm text-red-600">{liste.erreur}</p>}
+        {liste.erreur && <p className="mb-4 text-sm text-km-red">{liste.erreur}</p>}
         {!liste.isLoading && !liste.erreur && liste.lignes.length === 0 && (
-          <p className="mb-4 text-sm text-navy-400">
+          <p className="mb-4 text-sm text-km-faint">
             {liste.query.trim() || statutFilter
               ? 'Aucun mandat ne correspond à la recherche.'
               : "Aucun mandat pour l'instant — le mandat signé par le client autorise KiWee à négocier sur un périmètre de sites précis. Utilise « Nouveau mandat » pour en créer un."}
           </p>
         )}
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3">
-          {liste.isLoading && <p className="text-sm text-navy-400">Chargement…</p>}
+          {liste.isLoading && <p className="text-sm text-km-faint">Chargement…</p>}
           {liste.lignes.map((m) => {
             const label = statuts.find((s) => s.code === m.statut)?.libelle ?? m.statut
             return (
@@ -215,20 +215,20 @@ export default function Mandats({ sansEntete }: { sansEntete?: boolean }) {
               >
                 <div className="flex items-start justify-between">
                   <div className="flex items-center gap-2">
-                    <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-amber-100 text-amber-600">
+                    <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-km-amber-soft text-amber-600">
                       <FileCheck2 className="h-4 w-4" />
                     </span>
                     <div>
-                      {m.id_salesforce && <p className="font-mono text-[11px] text-navy-400">{m.id_salesforce}</p>}
-                      <p className="font-display font-medium text-navy-800">
+                      {m.id_salesforce && <p className="font-mono text-[11px] text-km-faint">{m.id_salesforce}</p>}
+                      <p className="font-display font-medium text-km-text">
                         <EntityLink to={`/comptes/${m.compte_id}`}>{m.compte_nom}</EntityLink>
                       </p>
                     </div>
                   </div>
                   <Badge tone={STATUT_MANDAT_TONE[m.statut] ?? 'neutral'}>{label}</Badge>
                 </div>
-                <div className="mt-4 space-y-1 text-xs text-navy-500">
-                  <p>Sites couverts : <span className="font-medium text-navy-700">{m.nb_sites_couverts}</span></p>
+                <div className="mt-4 space-y-1 text-xs text-km-muted">
+                  <p>Sites couverts : <span className="font-medium text-km-text">{m.nb_sites_couverts}</span></p>
                   <p>Signé le : {m.date_signature ? new Date(m.date_signature).toLocaleDateString('fr-FR') : '—'}</p>
                 </div>
               </Card>

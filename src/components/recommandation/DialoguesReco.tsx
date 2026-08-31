@@ -308,7 +308,7 @@ export function CotationWizard({
           Gmail du commercial. */}
       <WizardConnectionGate required={['crm', 'gmail']} feature="création de version">
         {estActualisation && (
-          <p className="rounded-kw-lg border border-[#f0e4cd] bg-kw-amber-light px-3 py-2 text-xs text-kw-label">
+          <p className="rounded-km-md border border-[#f0e4cd] bg-km-amber-soft px-3 py-2 text-xs text-km-muted">
             La version en cours passera au statut <b>Clôturée</b>, résultat <b>Expirée</b> : la nouvelle devient la version
             active du dossier.
           </p>
@@ -316,8 +316,8 @@ export function CotationWizard({
         {/* Une carte par PDL, chacune avec ses propres durées -- structure de Tools
             (StepCharacteristics) : « Choisis les durées de contrat » puis une carte par compteur. */}
         <div className="space-y-1">
-          <p className="text-sm font-medium text-navy-800">Choisis les durées de contrat</p>
-          <p className="text-xs text-navy-500">
+          <p className="text-sm font-medium text-km-text">Choisis les durées de contrat</p>
+          <p className="text-xs text-km-muted">
             Pour chaque compteur, sélectionne une ou plusieurs durées.
           </p>
         </div>
@@ -327,16 +327,16 @@ export function CotationWizard({
             const peutAjouter = selection.length < 3
             const saisie = dureeLibre[c.id] ?? ''
             return (
-              <div key={c.id} className={`rounded-xl border p-4 ${selection.length === 0 ? 'border-amber-300 bg-amber-50/40' : 'border-navy-100'}`}>
+              <div key={c.id} className={`rounded-xl border p-4 ${selection.length === 0 ? 'border-amber-300 bg-amber-50/40' : 'border-km-line'}`}>
                 <div className="mb-3 flex items-start gap-3">
-                  <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-navy-50 text-base">
+                  <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-km-bg text-base">
                     {c.type_energie === 'gaz' ? '🔥' : '⚡'}
                   </span>
                   <div className="min-w-0">
-                    <p className="truncate text-sm font-semibold text-navy-800">{c.site_nom || 'Sans libellé'}</p>
-                    <p className="truncate font-mono text-[11px] text-navy-400">{c.numero_pdl}</p>
+                    <p className="truncate text-sm font-semibold text-km-text">{c.site_nom || 'Sans libellé'}</p>
+                    <p className="truncate font-mono text-[11px] text-km-faint">{c.numero_pdl}</p>
                   </div>
-                  <span className="ml-auto shrink-0 text-xs text-navy-400">{selection.length}/3</span>
+                  <span className="ml-auto shrink-0 text-xs text-km-faint">{selection.length}/3</span>
                 </div>
 
                 <div className="flex flex-wrap items-center gap-2">
@@ -351,10 +351,10 @@ export function CotationWizard({
                         disabled={isDisabled}
                         className={`inline-flex select-none items-center justify-center rounded-lg px-4 py-2 text-sm font-medium transition-all ${
                           isSelected
-                            ? 'bg-kiwi-600 text-white shadow-sm hover:bg-kiwi-700'
+                            ? 'bg-km-green text-white shadow-sm hover:bg-kiwi-700'
                             : isDisabled
-                              ? 'cursor-not-allowed bg-navy-50 text-navy-300'
-                              : 'bg-navy-100 text-navy-600 hover:bg-navy-200 hover:text-navy-800'
+                              ? 'cursor-not-allowed bg-km-bg text-km-faint'
+                              : 'bg-km-soft text-km-muted hover:bg-km-line hover:text-km-text'
                         }`}
                       >
                         {d} mois
@@ -373,13 +373,13 @@ export function CotationWizard({
                       onChange={(e) => setDureeLibre((prev) => ({ ...prev, [c.id]: e.target.value.replace(/\D/g, '') }))}
                       onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); ajouterDureeLibre(c.id) } }}
                       disabled={!peutAjouter}
-                      className="w-20 rounded-lg border border-navy-200 bg-white px-3 py-2 text-sm text-navy-800 placeholder:text-navy-400 focus:outline-none focus:ring-2 focus:ring-kiwi-500/20 disabled:cursor-not-allowed disabled:opacity-40 [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
+                      className="w-20 rounded-lg border border-km-line bg-white px-3 py-2 text-sm text-km-text placeholder:text-km-faint focus:outline-none focus:ring-2 focus:ring-kiwi-500/20 disabled:cursor-not-allowed disabled:opacity-40 [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
                     />
                     <button
                       type="button"
                       onClick={() => ajouterDureeLibre(c.id)}
                       disabled={!peutAjouter || !saisie}
-                      className="rounded-lg bg-kiwi-50 px-3 py-2 text-sm font-medium text-kiwi-700 transition-colors hover:bg-kiwi-100 disabled:cursor-not-allowed disabled:opacity-40"
+                      className="rounded-lg bg-kiwi-50 px-3 py-2 text-sm font-medium text-km-green transition-colors hover:bg-km-green-soft disabled:cursor-not-allowed disabled:opacity-40"
                     >
                       +
                     </button>
@@ -387,16 +387,16 @@ export function CotationWizard({
                 </div>
 
                 {selection.length > 0 ? (
-                  <div className="mt-3 flex flex-wrap gap-2 border-t border-navy-100 pt-2">
+                  <div className="mt-3 flex flex-wrap gap-2 border-t border-km-line pt-2">
                     {selection.map((d) => (
                       <button
                         key={d}
                         type="button"
                         onClick={() => toggleDuree(c.id, d)}
-                        className="group inline-flex cursor-pointer items-center gap-2 rounded-lg bg-navy-50 px-3 py-1.5 text-sm transition-colors hover:bg-red-50"
+                        className="group inline-flex cursor-pointer items-center gap-2 rounded-lg bg-km-bg px-3 py-1.5 text-sm transition-colors hover:bg-km-red-soft"
                       >
-                        <span className="font-medium text-navy-800">{d} mois</span>
-                        <X className="h-3 w-3 text-navy-400 group-hover:text-red-600" />
+                        <span className="font-medium text-km-text">{d} mois</span>
+                        <X className="h-3 w-3 text-km-faint group-hover:text-km-red" />
                       </button>
                     ))}
                   </div>
@@ -407,17 +407,17 @@ export function CotationWizard({
             )
           })}
           {compteursDeLaReco.length === 0 && (
-            <p className="text-xs text-navy-400">Aucun PDL rattaché à cette recommandation.</p>
+            <p className="text-xs text-km-faint">Aucun PDL rattaché à cette recommandation.</p>
           )}
         </div>
-        <p className="rounded-lg border border-navy-100 bg-navy-50 px-3 py-2 text-xs text-navy-500">
-          Commission estimée : <span className="font-medium text-navy-700">{commissionEstimee.toLocaleString('fr-FR', { maximumFractionDigits: 0 })} €</span>
-          <span className="text-navy-400"> (C5 : forfait 140 €/PDL · autres : conso/12 × durée max × 3)</span>
+        <p className="rounded-lg border border-km-line bg-km-bg px-3 py-2 text-xs text-km-muted">
+          Commission estimée : <span className="font-medium text-km-text">{commissionEstimee.toLocaleString('fr-FR', { maximumFractionDigits: 0 })} €</span>
+          <span className="text-km-faint"> (C5 : forfait 140 €/PDL · autres : conso/12 × durée max × 3)</span>
         </p>
         <FormField label="Type de prix">
           <div className="flex gap-4">
             {['Fixe', 'Indexé'].map((t) => (
-              <label key={t} className="flex items-center gap-2 text-sm text-navy-700">
+              <label key={t} className="flex items-center gap-2 text-sm text-km-text">
                 <input type="checkbox" checked={typesPrix.includes(t)} onChange={() => toggleTypePrix(t)} /> {t}
               </label>
             ))}
@@ -429,10 +429,10 @@ export function CotationWizard({
 
         <div>
           <div className="mb-2 flex items-center justify-between">
-            <p className="text-xs font-semibold uppercase tracking-wide text-navy-400">
+            <p className="text-xs font-semibold uppercase tracking-wide text-km-faint">
               Fournisseurs à consulter
               {resultats.length > 0 && (
-                <span className="ml-1.5 normal-case text-navy-400">
+                <span className="ml-1.5 normal-case text-km-faint">
                   ({resultats.filter((r) => r.eligible).length} éligible{resultats.filter((r) => r.eligible).length > 1 ? 's' : ''} · {fournisseurIds.length} sélectionné{fournisseurIds.length > 1 ? 's' : ''})
                 </span>
               )}
@@ -440,7 +440,7 @@ export function CotationWizard({
             {resultats.some((r) => r.eligible) && (
               <button
                 type="button"
-                className="text-xs font-medium text-kiwi-700 hover:underline"
+                className="text-xs font-medium text-km-green hover:underline"
                 onClick={() => {
                   const eligibleIds = resultats.filter((r) => r.eligible).map((r) => r.fournisseur.id)
                   const toutSelectionne = eligibleIds.length > 0 && eligibleIds.every((id) => fournisseurIds.includes(id))
@@ -459,7 +459,7 @@ export function CotationWizard({
           />
           <div className="space-y-3">
             {[...ZONE_ORDER_COTATION, 'autre'].every((z) => (parZone.get(z) ?? []).length === 0) && (
-              <p className="rounded-lg border border-dashed border-navy-200 p-3 text-center text-xs text-navy-400">
+              <p className="rounded-lg border border-dashed border-km-line p-3 text-center text-xs text-km-faint">
                 Aucun fournisseur ne correspond à « {rechercheFournisseur} ».
               </p>
             )}
@@ -468,15 +468,15 @@ export function CotationWizard({
               if (list.length === 0) return null
               return (
                 <div key={zone}>
-                  <p className="mb-1 text-[11px] font-semibold text-navy-500">{ZONE_LABEL_COTATION[zone] ?? 'Autre'}</p>
-                  <div className="space-y-1 rounded-lg border border-navy-200 p-2">
+                  <p className="mb-1 text-[11px] font-semibold text-km-muted">{ZONE_LABEL_COTATION[zone] ?? 'Autre'}</p>
+                  <div className="space-y-1 rounded-lg border border-km-line p-2">
                     {list.map((r) => (
-                      <label key={r.fournisseur.id} className={`flex items-start gap-2 rounded-md p-1.5 text-sm ${r.eligible ? 'text-navy-700 hover:bg-navy-50' : 'text-navy-300'}`}>
+                      <label key={r.fournisseur.id} className={`flex items-start gap-2 rounded-md p-1.5 text-sm ${r.eligible ? 'text-km-text hover:bg-km-bg' : 'text-km-faint'}`}>
                         <input type="checkbox" disabled={!r.eligible} checked={fournisseurIds.includes(r.fournisseur.id)} onChange={() => toggleFournisseur(r.fournisseur.id)} className="mt-0.5" />
                         <span className="flex-1">
                           {r.fournisseur.nom}
                           {r.eligible ? (
-                            <CheckCircle2 className="ml-1.5 inline h-3 w-3 text-kiwi-600" />
+                            <CheckCircle2 className="ml-1.5 inline h-3 w-3 text-km-green" />
                           ) : (
                             <span className="ml-1.5 inline-flex items-center gap-1 text-[11px] text-amber-600" title={r.reasons.join(' · ')}>
                               <AlertTriangle className="h-3 w-3" /> {r.reasons[0]}
@@ -489,12 +489,12 @@ export function CotationWizard({
                 </div>
               )
             })}
-            {resultats.length === 0 && <p className="text-xs text-navy-400">Aucun fournisseur actif configuré.</p>}
+            {resultats.length === 0 && <p className="text-xs text-km-faint">Aucun fournisseur actif configuré.</p>}
           </div>
         </div>
 
-        {feedback && <p className="text-xs text-navy-500">{feedback}</p>}
-        <div className="flex justify-end gap-2 border-t border-navy-100 pt-3">
+        {feedback && <p className="text-xs text-km-muted">{feedback}</p>}
+        <div className="flex justify-end gap-2 border-t border-km-line pt-3">
           <Button type="button" variant="ghost" onClick={() => { reset(); onClose() }}>Annuler</Button>
           <Button type="button" onClick={handleValider} disabled={createVersion.isPending || !toutesDureesRenseignees || durees.length === 0 || fournisseurIds.length === 0}>
             Créer la version
@@ -558,7 +558,7 @@ export function EnvoyerEmailDialog({
         <FormField label="Message">
           <Textarea rows={6} value={text} onChange={(e) => setText(e.target.value)} />
         </FormField>
-        {feedback && <p className="text-xs text-navy-600">{feedback}</p>}
+        {feedback && <p className="text-xs text-km-muted">{feedback}</p>}
         <div className="flex justify-end gap-2 pt-2">
           <Button type="button" variant="ghost" onClick={onClose}>Annuler</Button>
           <Button type="button" onClick={envoyer} disabled={sending || !to}>
@@ -613,7 +613,7 @@ export function AjouterFournisseurConsulteDialog({
             {fournisseurs.map((f) => <option key={f.id} value={f.id}>{f.nom}</option>)}
           </Select>
         </FormField>
-        {feedback && <p className="text-xs text-red-600">{feedback}</p>}
+        {feedback && <p className="text-xs text-km-red">{feedback}</p>}
         <div className="flex justify-end gap-2 pt-2">
           <Button type="button" variant="ghost" onClick={() => { reset(); onClose() }}>Annuler</Button>
           <Button type="submit" disabled={ajouter.isPending}>Ajouter</Button>

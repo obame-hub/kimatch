@@ -61,12 +61,12 @@ export default function DocumentDetail() {
         </Button>
 
         {!doc ? (
-          <p className="text-sm text-navy-500">Document introuvable.</p>
+          <p className="text-sm text-km-muted">Document introuvable.</p>
         ) : (
           <Card className="max-w-xl p-6">
             <CardHeader className="px-0 pt-0">
               <div className="flex items-center gap-3">
-                <span className="flex h-10 w-10 items-center justify-center rounded-lg bg-navy-100 text-navy-500">
+                <span className="flex h-10 w-10 items-center justify-center rounded-lg bg-km-soft text-km-muted">
                   <FileText className="h-5 w-5" />
                 </span>
                 <CardTitle className="font-display text-base flex-1">{doc.nom}</CardTitle>
@@ -82,24 +82,24 @@ export default function DocumentDetail() {
               </div>
             </CardHeader>
             <CardContent className="px-0 space-y-3 text-sm">
-              <p><span className="text-navy-400">Type :</span> <Badge tone="neutral">{doc.type_document}</Badge></p>
+              <p><span className="text-km-faint">Type :</span> <Badge tone="neutral">{doc.type_document}</Badge></p>
               <p>
-                <span className="text-navy-400">Objet lié :</span>{' '}
+                <span className="text-km-faint">Objet lié :</span>{' '}
                 {entityRoute(doc.entite_type, doc.entite_id) ? (
                   <EntityLink to={entityRoute(doc.entite_type, doc.entite_id) as string}>{doc.objet_lie}</EntityLink>
                 ) : (
                   doc.objet_lie
                 )}
               </p>
-              <p><span className="text-navy-400">Auteur :</span> {doc.auteur}</p>
-              <p><span className="text-navy-400">Date :</span> {new Date(doc.date_creation).toLocaleDateString('fr-FR')}</p>
+              <p><span className="text-km-faint">Auteur :</span> {doc.auteur}</p>
+              <p><span className="text-km-faint">Date :</span> {new Date(doc.date_creation).toLocaleDateString('fr-FR')}</p>
 
               {/* Edition en place : renommer une piece mal nommee a l'import ne merite pas une
                   modale. L'URL et le nom de fichier restent modifiables -- c'est ce qui permet
                   de reparer un lien casse -- mais tous trois refusent le vide : le document
                   deviendrait introuvable et l'apercu ne saurait plus quoi charger. */}
               {canManage && (
-                <div className="space-y-3 border-t border-navy-100 pt-3">
+                <div className="space-y-3 border-t border-km-line pt-3">
                   <InlineField
                     variant="text"
                     label="Nom du document"
@@ -170,11 +170,11 @@ export default function DocumentDetail() {
             description="Cette action est irréversible."
           >
             {suppression.erreur && (
-              <p className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-xs text-red-700">{suppression.erreur}</p>
+              <p className="rounded-lg border border-red-200 bg-km-red-soft px-3 py-2 text-xs text-red-700">{suppression.erreur}</p>
             )}
             <div className="flex justify-end gap-2 pt-2">
               <Button type="button" variant="ghost" onClick={() => { suppression.reinitialiser(); setConfirmDelete(false) }}>Annuler</Button>
-              <Button type="button" variant="outline" className="border-red-200 text-red-600 hover:bg-red-50" disabled={suppression.enCours} onClick={handleDelete}>
+              <Button type="button" variant="outline" className="border-red-200 text-km-red hover:bg-km-red-soft" disabled={suppression.enCours} onClick={handleDelete}>
                 {suppression.enCours ? 'Suppression…' : 'Supprimer définitivement'}
               </Button>
             </div>

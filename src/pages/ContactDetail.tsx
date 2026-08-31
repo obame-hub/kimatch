@@ -146,7 +146,7 @@ export default function ContactDetail() {
     return (
       <div>
         <Topbar crumb="Contacts" title="Contact" />
-        <div className="p-4 sm:p-6"><p className="text-sm text-navy-400">Chargement…</p></div>
+        <div className="p-4 sm:p-6"><p className="text-sm text-km-faint">Chargement…</p></div>
       </div>
     )
   }
@@ -160,7 +160,7 @@ export default function ContactDetail() {
             <ArrowLeft className="h-4 w-4" />
             Retour aux contacts
           </Button>
-          <p className="text-sm text-navy-500">Contact introuvable.</p>
+          <p className="text-sm text-km-muted">Contact introuvable.</p>
         </div>
       </div>
     )
@@ -176,7 +176,7 @@ export default function ContactDetail() {
       <Topbar crumb="Contacts" title={`${contact.prenom} ${contact.nom}`} />
 
       {/* Bandeau contact */}
-      <div className="flex flex-wrap items-center gap-3.5 border-b border-navy-100 bg-white px-4 py-3.5 sm:px-6">
+      <div className="flex flex-wrap items-center gap-3.5 border-b border-km-line bg-white px-4 py-3.5 sm:px-6">
         <Button variant="ghost" size="icon" onClick={goBack} title="Retour aux contacts">
           <ArrowLeft className="h-4 w-4" />
         </Button>
@@ -185,18 +185,18 @@ export default function ContactDetail() {
         </span>
         <div className="min-w-0 flex-1">
           <div className="flex flex-wrap items-center gap-2">
-            <p className="truncate text-xl font-bold tracking-tight text-navy-800">{contact.civilite ? `${contact.civilite} ` : ''}{contact.prenom} {contact.nom}</p>
+            <p className="truncate text-xl font-bold tracking-tight text-km-text">{contact.civilite ? `${contact.civilite} ` : ''}{contact.prenom} {contact.nom}</p>
             {contact.contact_principal && <Badge tone="amber"><Star className="h-3 w-3" /> Contact principal</Badge>}
             {estSignataire && (
-              <span className="inline-flex items-center gap-1 rounded-full bg-amber-100 px-2.5 py-0.5 text-[10px] font-bold text-amber-700">
+              <span className="inline-flex items-center gap-1 rounded-full bg-km-amber-soft px-2.5 py-0.5 text-[10px] font-bold text-amber-700">
                 <FileCheck2 className="h-3 w-3" /> SIGNATAIRE
               </span>
             )}
           </div>
-          <p className="truncate text-xs text-navy-500">
+          <p className="truncate text-xs text-km-muted">
             {contact.fonction || '—'} · <EntityLink to={`/comptes/${contact.compte_id}`}>{contact.compte_nom}</EntityLink>
           </p>
-          <p className="truncate text-[10.5px] text-navy-400">
+          <p className="truncate text-[10.5px] text-km-faint">
             {contact.date_creation && <>Créé le {new Date(contact.date_creation).toLocaleDateString('fr-FR')} · </>}
             Propriétaire : {contact.proprietaire_nom || 'Aucun'}
           </p>
@@ -229,7 +229,7 @@ export default function ContactDetail() {
       </div>
 
       {/* Onglets */}
-      <div className="flex gap-1.5 overflow-x-auto border-b border-navy-100 bg-white px-4 pt-2.5 lg:gap-0.5 lg:pt-0 sm:px-6">
+      <div className="flex gap-1.5 overflow-x-auto border-b border-km-line bg-white px-4 pt-2.5 lg:gap-0.5 lg:pt-0 sm:px-6">
         {TABS.map((t) => {
           const isActive = tab === t.key
           return (
@@ -240,13 +240,13 @@ export default function ContactDetail() {
               className={cn(
                 'mb-2.5 inline-flex shrink-0 items-center gap-1.5 whitespace-nowrap rounded-full px-3.5 py-2 text-[12.5px] font-semibold transition-colors lg:mb-0 lg:rounded-none lg:border-b-2 lg:px-3 lg:py-2.5 lg:font-normal',
                 isActive
-                  ? 'bg-ink-800 text-white lg:border-navy-800 lg:bg-transparent lg:font-semibold lg:text-navy-800'
-                  : 'border border-navy-200 bg-white text-navy-600 hover:bg-navy-50 lg:border-0 lg:border-b-2 lg:border-transparent lg:text-navy-500 lg:hover:bg-transparent lg:hover:text-navy-700',
+                  ? 'bg-ink-800 text-white lg:border-navy-800 lg:bg-transparent lg:font-semibold lg:text-km-text'
+                  : 'border border-km-line bg-white text-km-muted hover:bg-km-bg lg:border-0 lg:border-b-2 lg:border-transparent lg:text-km-muted lg:hover:bg-transparent lg:hover:text-km-text',
               )}
             >
               {t.label}
               {t.badge && (
-                <span className={cn('rounded px-1.5 py-0.5 text-[9.5px] font-bold', isActive ? 'bg-white/20 text-white lg:bg-navy-100 lg:text-navy-500' : 'bg-navy-100 text-navy-500')}>
+                <span className={cn('rounded px-1.5 py-0.5 text-[9.5px] font-bold', isActive ? 'bg-white/20 text-white lg:bg-km-soft lg:text-km-muted' : 'bg-km-soft text-km-muted')}>
                   {t.badge}
                 </span>
               )}
@@ -257,33 +257,33 @@ export default function ContactDetail() {
 
       <div className="grid grid-cols-1 lg:grid-cols-[280px_1fr_304px]">
         {/* Colonne gauche — Compte (desktop uniquement) */}
-        <div className="hidden flex-col gap-3.5 border-r border-navy-100 bg-navy-50/60 p-3.5 lg:flex">
+        <div className="hidden flex-col gap-3.5 border-r border-km-line bg-km-bg/60 p-3.5 lg:flex">
           {compte && (
-            <div className="rounded-xl border border-navy-100 bg-white p-3.5">
+            <div className="rounded-xl border border-km-line bg-white p-3.5">
               <div className="mb-2 flex items-center gap-1.5">
                 <span className="flex h-5 w-5 items-center justify-center rounded-md bg-sky-100 text-sky-500">
                   <Building2 className="h-2.5 w-2.5" />
                 </span>
-                <span className="text-[10px] font-bold uppercase tracking-wide text-navy-400">Compte</span>
+                <span className="text-[10px] font-bold uppercase tracking-wide text-km-faint">Compte</span>
                 <div className="flex-1" />
                 <EntityLink to={`/comptes/${compte.id}`}>ouvrir →</EntityLink>
               </div>
               <p className="text-[13px] font-bold text-sky-500">{compte.nom}</p>
-              <p className="mt-1 text-[11px] text-navy-500">{compte.segment} · {compte.nb_sites} site{compte.nb_sites > 1 ? 's' : ''}</p>
+              <p className="mt-1 text-[11px] text-km-muted">{compte.segment} · {compte.nb_sites} site{compte.nb_sites > 1 ? 's' : ''}</p>
             </div>
           )}
 
-          <div className="rounded-xl border border-navy-100 bg-white p-3.5">
+          <div className="rounded-xl border border-km-line bg-white p-3.5">
             <div className="mb-2.5 flex items-center gap-1.5">
-              <span className="text-[10px] font-bold uppercase tracking-wide text-navy-400">Nos échanges</span>
+              <span className="text-[10px] font-bold uppercase tracking-wide text-km-faint">Nos échanges</span>
             </div>
             <div className="flex items-baseline gap-2">
-              <span className="text-2xl font-bold tracking-tight text-navy-800">{interactionsDuContact.length}</span>
-              <span className="text-[10.5px] text-navy-500">
+              <span className="text-2xl font-bold tracking-tight text-km-text">{interactionsDuContact.length}</span>
+              <span className="text-[10.5px] text-km-muted">
                 échange{interactionsDuContact.length > 1 ? 's' : ''}
                 {dernierEchange && (
                   <>
-                    <br />dernier : <span className="font-semibold text-kiwi-600">{new Date(dernierEchange.date_interaction).toLocaleDateString('fr-FR')}</span>
+                    <br />dernier : <span className="font-semibold text-km-green">{new Date(dernierEchange.date_interaction).toLocaleDateString('fr-FR')}</span>
                   </>
                 )}
               </span>
@@ -292,11 +292,11 @@ export default function ContactDetail() {
         </div>
 
         {/* Centre */}
-        <div className="bg-navy-50 p-4 sm:p-5">
+        <div className="bg-km-bg p-4 sm:p-5">
           {tab === 'contact' && (
             <div className="flex flex-col gap-3.5">
-              <div className="rounded-xl border border-navy-100 bg-white p-4">
-                <p className="mb-2.5 text-[10px] font-bold uppercase tracking-wide text-navy-400">Coordonnées</p>
+              <div className="rounded-xl border border-km-line bg-white p-4">
+                <p className="mb-2.5 text-[10px] font-bold uppercase tracking-wide text-km-faint">Coordonnées</p>
                 {/* Édition au clic sur la valeur, et non par un bouton « Modifier » : « c'était pas
                     d'appuyer sur le bouton, c'était d'appuyer sur le champ » (William, 13/08/2026).
                     Les liens tel: et mailto: restent affichés à côté, sinon on perdrait l'appel en
@@ -367,11 +367,11 @@ export default function ContactDetail() {
                   </div>
                 ) : (
                 <div className="space-y-2 text-sm">
-                  {contact.role && <p><span className="text-navy-400">Rôle :</span> <Badge tone={contact.role === 'Décisionnaire' ? 'kiwi' : 'neutral'}>{contact.role}</Badge></p>}
-                  <p><span className="text-navy-400">Téléphone :</span> {contact.telephone ? <PhoneLink value={contact.telephone} /> : '—'}</p>
-                  <p><span className="text-navy-400">Mobile :</span> {contact.telephone_mobile ? <PhoneLink value={contact.telephone_mobile} /> : '—'}</p>
-                  <p><span className="text-navy-400">Email :</span> {contact.email ? <EmailLink value={contact.email} /> : '—'}</p>
-                  <p><span className="text-navy-400">Statut :</span> <Badge tone={contact.actif ? 'kiwi' : 'neutral'}>{contact.actif ? 'actif' : 'inactif'}</Badge></p>
+                  {contact.role && <p><span className="text-km-faint">Rôle :</span> <Badge tone={contact.role === 'Décisionnaire' ? 'kiwi' : 'neutral'}>{contact.role}</Badge></p>}
+                  <p><span className="text-km-faint">Téléphone :</span> {contact.telephone ? <PhoneLink value={contact.telephone} /> : '—'}</p>
+                  <p><span className="text-km-faint">Mobile :</span> {contact.telephone_mobile ? <PhoneLink value={contact.telephone_mobile} /> : '—'}</p>
+                  <p><span className="text-km-faint">Email :</span> {contact.email ? <EmailLink value={contact.email} /> : '—'}</p>
+                  <p><span className="text-km-faint">Statut :</span> <Badge tone={contact.actif ? 'kiwi' : 'neutral'}>{contact.actif ? 'actif' : 'inactif'}</Badge></p>
                 </div>
                 )}
 
@@ -379,11 +379,11 @@ export default function ContactDetail() {
                     création et se modifient rarement. */}
                 <div className="mt-3 space-y-2 text-sm">
                   {contact.linkedin_url && (
-                    <p><span className="text-navy-400">LinkedIn :</span> <a href={contact.linkedin_url} target="_blank" rel="noreferrer" className="text-sky-600 hover:underline">{contact.linkedin_url}</a></p>
+                    <p><span className="text-km-faint">LinkedIn :</span> <a href={contact.linkedin_url} target="_blank" rel="noreferrer" className="text-sky-600 hover:underline">{contact.linkedin_url}</a></p>
                   )}
-                  {contact.canal_communication && <p><span className="text-navy-400">Canal préféré :</span> {contact.canal_communication}</p>}
-                  {contact.disponibilites && <p><span className="text-navy-400">Disponibilités :</span> {contact.disponibilites}</p>}
-                  {canManage && <p><span className="text-navy-400">Statut :</span> <Badge tone={contact.actif ? 'kiwi' : 'neutral'}>{contact.actif ? 'actif' : 'inactif'}</Badge></p>}
+                  {contact.canal_communication && <p><span className="text-km-faint">Canal préféré :</span> {contact.canal_communication}</p>}
+                  {contact.disponibilites && <p><span className="text-km-faint">Disponibilités :</span> {contact.disponibilites}</p>}
+                  {canManage && <p><span className="text-km-faint">Statut :</span> <Badge tone={contact.actif ? 'kiwi' : 'neutral'}>{contact.actif ? 'actif' : 'inactif'}</Badge></p>}
                 </div>
                 <HistoriqueDiscret tableNom="contacts" ligneId={contact.id} />
               </div>
@@ -403,16 +403,16 @@ export default function ContactDetail() {
 
           {tab === 'contrats' && (
             <div className="flex flex-col gap-2.5">
-              {contratsDuContact.length === 0 && <p className="text-sm text-navy-400">Aucun contrat signé par ce contact ou sur ses sites rattachés.</p>}
+              {contratsDuContact.length === 0 && <p className="text-sm text-km-faint">Aucun contrat signé par ce contact ou sur ses sites rattachés.</p>}
               {contratsDuContact.map((ct) => (
                 <div
                   key={ct.id}
                   onClick={() => navigate(`/contrats/${ct.id}`)}
-                  className="flex cursor-pointer items-center gap-3 rounded-xl border border-navy-100 bg-white p-3.5 hover:bg-navy-50/60"
+                  className="flex cursor-pointer items-center gap-3 rounded-xl border border-km-line bg-white p-3.5 hover:bg-km-bg/60"
                 >
                   <div className="min-w-0 flex-1">
-                    <p className="truncate text-sm font-bold text-navy-800">{ct.fournisseur_nom}</p>
-                    <p className="truncate text-[10.5px] text-navy-400">{ct.site_nom}</p>
+                    <p className="truncate text-sm font-bold text-km-text">{ct.fournisseur_nom}</p>
+                    <p className="truncate text-[10.5px] text-km-faint">{ct.site_nom}</p>
                   </div>
                 </div>
               ))}
@@ -421,21 +421,21 @@ export default function ContactDetail() {
 
           {tab === 'mandats' && (
             <div className="flex flex-col gap-2.5">
-              {mandatsSignataire.length === 0 && mandatsDuCompte.length === 0 && <p className="text-sm text-navy-400">Aucun mandat pour ce contact.</p>}
+              {mandatsSignataire.length === 0 && mandatsDuCompte.length === 0 && <p className="text-sm text-km-faint">Aucun mandat pour ce contact.</p>}
               {[...mandatsSignataire, ...mandatsDuCompte].map((m) => (
                 <div
                   key={m.id}
                   onClick={() => navigate(`/mandats/${m.id}`)}
-                  className="flex cursor-pointer items-center gap-3 rounded-xl border border-navy-100 bg-white p-3.5 hover:bg-navy-50/60"
+                  className="flex cursor-pointer items-center gap-3 rounded-xl border border-km-line bg-white p-3.5 hover:bg-km-bg/60"
                 >
-                  <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-[10px] bg-amber-100 text-amber-600">
+                  <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-[10px] bg-km-amber-soft text-amber-600">
                     <FileCheck2 className="h-4 w-4" />
                   </span>
                   <div className="min-w-0 flex-1">
-                    <p className="truncate text-sm font-bold text-navy-800">
+                    <p className="truncate text-sm font-bold text-km-text">
                       {m.nb_sites_couverts} site{m.nb_sites_couverts > 1 ? 's' : ''} couvert{m.nb_sites_couverts > 1 ? 's' : ''}
                     </p>
-                    <p className="truncate text-[10.5px] text-navy-400">{m.contact_signataire_id === id ? 'Signataire de ce mandat' : m.contact_signataire_nom ?? '—'}</p>
+                    <p className="truncate text-[10.5px] text-km-faint">{m.contact_signataire_id === id ? 'Signataire de ce mandat' : m.contact_signataire_nom ?? '—'}</p>
                   </div>
                   <Badge tone={STATUT_MANDAT_TONE[m.statut] ?? 'neutral'}>{statutsMandats.find((s) => s.code === m.statut)?.libelle ?? m.statut}</Badge>
                 </div>
@@ -445,7 +445,7 @@ export default function ContactDetail() {
 
           {tab === 'recommandations' && (
             <div className="flex flex-col gap-2.5">
-              {recommandationsDuCompte.length === 0 && <p className="text-sm text-navy-400">Aucune recommandation pour ce compte.</p>}
+              {recommandationsDuCompte.length === 0 && <p className="text-sm text-km-faint">Aucune recommandation pour ce compte.</p>}
               {recommandationsDuCompte.map((r) => {
                 // versions[0] est la plus récente : la liste est triée décroissant depuis le 12/08/2026.
                 const derniereVersion = r.versions[0]
@@ -453,17 +453,17 @@ export default function ContactDetail() {
                   <div
                     key={r.id}
                     onClick={() => navigate(`/recommandations/${r.id}`)}
-                    className="cursor-pointer rounded-xl border border-navy-100 bg-white p-3.5 hover:bg-navy-50/60"
+                    className="cursor-pointer rounded-xl border border-km-line bg-white p-3.5 hover:bg-km-bg/60"
                   >
                     <div className="flex items-center gap-2">
-                      <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-amber-100 text-amber-600">
+                      <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-km-amber-soft text-amber-600">
                         <Sparkle className="h-3.5 w-3.5" />
                       </span>
-                      <p className="flex-1 truncate text-sm font-bold text-navy-800">{r.titre}</p>
+                      <p className="flex-1 truncate text-sm font-bold text-km-text">{r.titre}</p>
                       <Badge tone={ETAPE_TONE[r.etape] ?? 'amber'}>{etapes.find((e) => e.code === r.etape)?.libelle ?? r.etape}</Badge>
                     </div>
                     {derniereVersion && (
-                      <p className="ml-9 mt-1.5 text-[11px] text-navy-400">
+                      <p className="ml-9 mt-1.5 text-[11px] text-km-faint">
                         {derniereVersion.nom || 'Version'} · {statutsVersions.find((s) => s.code === derniereVersion.statut)?.libelle ?? derniereVersion.statut}
                       </p>
                     )}
@@ -476,22 +476,22 @@ export default function ContactDetail() {
           {tab === 'documents' && (
             <div className="flex flex-col gap-2.5">
               {documentsDuContact.length === 0 && (
-                <p className="text-sm text-navy-400">Aucun document rattaché à ce contact.</p>
+                <p className="text-sm text-km-faint">Aucun document rattaché à ce contact.</p>
               )}
               {documentsDuContact.map((d) => (
                 <div
                   key={d.id}
                   onClick={() => navigate(`/documents/${d.id}`)}
-                  className="cursor-pointer rounded-xl border border-navy-100 bg-white p-3.5 hover:bg-navy-50/60"
+                  className="cursor-pointer rounded-xl border border-km-line bg-white p-3.5 hover:bg-km-bg/60"
                 >
                   <div className="flex items-center gap-2">
-                    <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-navy-100 text-navy-500">
+                    <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-km-soft text-km-muted">
                       <FileText className="h-3.5 w-3.5" />
                     </span>
-                    <p className="flex-1 truncate text-sm font-bold text-navy-800">{d.nom}</p>
+                    <p className="flex-1 truncate text-sm font-bold text-km-text">{d.nom}</p>
                     {d.type_document && <Badge tone="neutral">{d.type_document}</Badge>}
                   </div>
-                  <p className="ml-9 mt-1.5 text-[11px] text-navy-400">
+                  <p className="ml-9 mt-1.5 text-[11px] text-km-faint">
                     {d.auteur ? `${d.auteur} · ` : ''}
                     {new Date(d.date_creation).toLocaleDateString('fr-FR')}
                   </p>
@@ -502,9 +502,9 @@ export default function ContactDetail() {
         </div>
 
         {/* Colonne droite — Activité persistante (desktop uniquement) */}
-        <div className="hidden flex-col border-l border-navy-100 bg-white lg:flex">
+        <div className="hidden flex-col border-l border-km-line bg-white lg:flex">
           <div className="flex items-center gap-2 px-3.5 py-3">
-            <span className="text-[10px] font-bold uppercase tracking-wide text-navy-400">Activité</span>
+            <span className="text-[10px] font-bold uppercase tracking-wide text-km-faint">Activité</span>
           </div>
           <div className="min-h-0 flex-1 overflow-hidden px-3.5 pb-3.5">
             <ActivityFeed
@@ -528,11 +528,11 @@ export default function ContactDetail() {
         description="Cette action est irréversible."
       >
         {suppression.erreur && (
-          <p className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-xs text-red-700">{suppression.erreur}</p>
+          <p className="rounded-lg border border-red-200 bg-km-red-soft px-3 py-2 text-xs text-red-700">{suppression.erreur}</p>
         )}
         <div className="flex justify-end gap-2 pt-2">
           <Button type="button" variant="ghost" onClick={() => { suppression.reinitialiser(); setConfirmDelete(false) }}>Annuler</Button>
-          <Button type="button" variant="outline" className="border-red-200 text-red-600 hover:bg-red-50" disabled={suppression.enCours} onClick={handleDelete}>
+          <Button type="button" variant="outline" className="border-red-200 text-km-red hover:bg-km-red-soft" disabled={suppression.enCours} onClick={handleDelete}>
                 {suppression.enCours ? 'Suppression…' : 'Supprimer définitivement'}
               </Button>
         </div>
@@ -663,7 +663,7 @@ function EditContactDialog({ open, onClose, contact, compteSegment }: { open: bo
         <FormField label="Disponibilités">
           <Textarea rows={2} value={disponibilites} onChange={(e) => setDisponibilites(e.target.value)} placeholder="Ex. Disponible en matinée, à privilégier le mardi/jeudi…" />
         </FormField>
-        <label className="flex items-center gap-2 text-sm text-navy-700">
+        <label className="flex items-center gap-2 text-sm text-km-text">
           <input type="checkbox" checked={actif} onChange={(e) => setActif(e.target.checked)} />
           Actif
         </label>
@@ -675,7 +675,7 @@ function EditContactDialog({ open, onClose, contact, compteSegment }: { open: bo
             </Select>
           </FormField>
         )}
-        {feedback && <p className="text-xs text-red-600">{feedback}</p>}
+        {feedback && <p className="text-xs text-km-red">{feedback}</p>}
         <div className="flex justify-end gap-2 pt-2">
           <Button type="button" variant="ghost" onClick={onClose}>Annuler</Button>
           <Button type="submit" disabled={updateContact.isPending}>Enregistrer</Button>

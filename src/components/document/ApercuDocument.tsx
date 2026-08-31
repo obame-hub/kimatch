@@ -87,8 +87,8 @@ export function ApercuDocument({ url, nomFichier }: { url: string; nomFichier: s
 
   if (!mime) {
     return (
-      <div className="space-y-2 rounded-xl border border-navy-100 bg-navy-50/40 p-4">
-        <p className="text-sm text-navy-500">
+      <div className="space-y-2 rounded-xl border border-km-line bg-km-bg/40 p-4">
+        <p className="text-sm text-km-muted">
           Ce format ne peut pas être affiché ici. Ouvre-le dans un onglet ou télécharge-le.
         </p>
         {actions}
@@ -98,7 +98,7 @@ export function ApercuDocument({ url, nomFichier }: { url: string; nomFichier: s
 
   if (chargement) {
     return (
-      <div className="flex items-center gap-2 rounded-xl border border-navy-100 bg-navy-50/40 p-6 text-sm text-navy-400">
+      <div className="flex items-center gap-2 rounded-xl border border-km-line bg-km-bg/40 p-6 text-sm text-km-faint">
         <Loader2 className="h-4 w-4 animate-spin" />
         Chargement de l'aperçu…
       </div>
@@ -108,7 +108,7 @@ export function ApercuDocument({ url, nomFichier }: { url: string; nomFichier: s
   if (erreur || !objectUrl) {
     return (
       <div className="space-y-2 rounded-xl border border-amber-200 bg-amber-50 p-4">
-        <p className="flex items-start gap-1.5 text-sm text-amber-800">
+        <p className="flex items-start gap-1.5 text-sm text-km-amber">
           <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" />
           {erreur ?? 'Aperçu indisponible.'}
         </p>
@@ -120,12 +120,12 @@ export function ApercuDocument({ url, nomFichier }: { url: string; nomFichier: s
   return (
     <div className="space-y-2">
       {mime.startsWith('image/') ? (
-        <img src={objectUrl} alt={nomFichier} className="max-h-[70vh] w-full rounded-xl border border-navy-100 object-contain bg-navy-50/40" />
+        <img src={objectUrl} alt={nomFichier} className="max-h-[70vh] w-full rounded-xl border border-km-line object-contain bg-km-bg/40" />
       ) : (
         <iframe
           src={objectUrl}
           title={nomFichier || 'Aperçu du document'}
-          className="h-[70vh] w-full rounded-xl border border-navy-100 bg-navy-50/40"
+          className="h-[70vh] w-full rounded-xl border border-km-line bg-km-bg/40"
         />
       )}
       {actions}

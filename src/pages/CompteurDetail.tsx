@@ -109,7 +109,7 @@ function AddConsommationDialog({ compteurId, open, onClose }: { compteurId: stri
             </Select>
           </FormField>
         </div>
-        {feedback && <p className="text-xs text-navy-500">{feedback}</p>}
+        {feedback && <p className="text-xs text-km-muted">{feedback}</p>}
         <div className="flex justify-end gap-2 pt-2">
           <Button type="button" variant="ghost" onClick={() => { reset(); onClose() }}>Annuler</Button>
           <Button type="submit" disabled={createConsommation.isPending}>Ajouter</Button>
@@ -146,11 +146,11 @@ function CouvertureCard({
   ]
   const score = items.filter((i) => i.ok).length
   return (
-    <div className="rounded-xl border border-navy-100 bg-white p-3.5">
+    <div className="rounded-xl border border-km-line bg-white p-3.5">
       <div className="mb-2.5 flex items-center gap-1.5">
-        <span className="text-[10px] font-bold uppercase tracking-wide text-navy-400">Couverture</span>
+        <span className="text-[10px] font-bold uppercase tracking-wide text-km-faint">Couverture</span>
         <div className="flex-1" />
-        <span className={cn('rounded px-1.5 py-0.5 font-mono text-[10px] font-bold', score === items.length ? 'bg-kiwi-50 text-kiwi-600' : 'bg-amber-100 text-amber-700')}>
+        <span className={cn('rounded px-1.5 py-0.5 font-mono text-[10px] font-bold', score === items.length ? 'bg-kiwi-50 text-km-green' : 'bg-km-amber-soft text-amber-700')}>
           {score}/{items.length}
         </span>
       </div>
@@ -160,15 +160,15 @@ function CouvertureCard({
             key={it.lbl}
             onClick={it.onClick}
             className={cn(
-              'flex items-center justify-between rounded-lg border border-navy-50 bg-navy-50/60 px-2 py-1.5',
-              it.onClick && 'cursor-pointer hover:bg-navy-100/60',
+              'flex items-center justify-between rounded-lg border border-navy-50 bg-km-bg/60 px-2 py-1.5',
+              it.onClick && 'cursor-pointer hover:bg-km-soft/60',
             )}
           >
-            <span className="text-[11.5px] font-semibold text-navy-700">{it.lbl}</span>
+            <span className="text-[11.5px] font-semibold text-km-text">{it.lbl}</span>
             <span
               className={cn(
                 'rounded-full px-2 py-0.5 text-[9.5px] font-bold',
-                !it.ok ? 'bg-red-100 text-red-600' : it.warn ? 'bg-amber-100 text-amber-700' : 'bg-kiwi-50 text-kiwi-600',
+                !it.ok ? 'bg-red-100 text-km-red' : it.warn ? 'bg-km-amber-soft text-amber-700' : 'bg-kiwi-50 text-km-green',
               )}
             >
               {it.val}
@@ -176,7 +176,7 @@ function CouvertureCard({
           </div>
         ))}
       </div>
-      <p className="mt-2 text-[9.5px] italic text-navy-300">Signaux liés à ce compteur via ses contrats.</p>
+      <p className="mt-2 text-[9.5px] italic text-km-faint">Signaux liés à ce compteur via ses contrats.</p>
     </div>
   )
 }
@@ -210,11 +210,11 @@ function PostesHorairesCard({ compteur }: { compteur: Compteur }) {
   const puissanceMaxAtteinte = valeursPuissance.length > 0 ? Math.max(...valeursPuissance) : null
 
   return (
-    <div className="rounded-xl border border-navy-100 bg-white p-4">
+    <div className="rounded-xl border border-km-line bg-white p-4">
       <div className="mb-3 flex flex-wrap items-baseline gap-2">
-        <span className="text-[10px] font-bold uppercase tracking-wide text-navy-400">Postes horaires — conso &amp; puissance</span>
+        <span className="text-[10px] font-bold uppercase tracking-wide text-km-faint">Postes horaires — conso &amp; puissance</span>
         {puissanceMaxAtteinte != null && (
-          <span className="ml-auto font-mono text-[10px] text-navy-400">
+          <span className="ml-auto font-mono text-[10px] text-km-faint">
             Max atteint : {puissanceMaxAtteinte.toLocaleString('fr-FR')} kVA
           </span>
         )}
@@ -226,8 +226,8 @@ function PostesHorairesCard({ compteur }: { compteur: Compteur }) {
           const kva = puissances[poste]
           return (
             <div key={poste} className="flex items-center gap-3">
-              <span className="w-14 shrink-0 font-mono text-[10.5px] font-bold text-navy-600">{poste}</span>
-              <div className="h-2.5 flex-1 rounded-full bg-navy-100">
+              <span className="w-14 shrink-0 font-mono text-[10.5px] font-bold text-km-muted">{poste}</span>
+              <div className="h-2.5 flex-1 rounded-full bg-km-soft">
                 {mwh != null && consoMax > 0 && (
                   <div
                     className="h-full rounded-full bg-gradient-to-r from-kiwi-500 to-kiwi-400"
@@ -235,10 +235,10 @@ function PostesHorairesCard({ compteur }: { compteur: Compteur }) {
                   />
                 )}
               </div>
-              <span className="w-20 shrink-0 text-right font-mono text-[11px] font-semibold text-navy-800">
+              <span className="w-20 shrink-0 text-right font-mono text-[11px] font-semibold text-km-text">
                 {mwh != null ? `${mwh.toLocaleString('fr-FR')} MWh` : '—'}
               </span>
-              <span className="w-16 shrink-0 text-right font-mono text-[11px] text-navy-500">
+              <span className="w-16 shrink-0 text-right font-mono text-[11px] text-km-muted">
                 {kva != null ? `${kva.toLocaleString('fr-FR')} kVA` : '—'}
               </span>
             </div>
@@ -260,14 +260,14 @@ function ConsommationChart({ consommations }: { consommations: Consommation[] })
   const posteColor = (poste: string) => palette[postesUniques.indexOf(poste) % palette.length]
 
   return (
-    <div className="rounded-xl border border-navy-100 bg-white p-4">
+    <div className="rounded-xl border border-km-line bg-white p-4">
       <div className="mb-3 flex flex-wrap items-center gap-3">
-        <span className="text-[10px] font-bold uppercase tracking-wide text-navy-400">Consommation</span>
-        <span className="rounded bg-navy-100 px-1.5 py-0.5 text-[9.5px] font-bold text-navy-500">{sorted[0]?.unite ?? 'MWh'}</span>
+        <span className="text-[10px] font-bold uppercase tracking-wide text-km-faint">Consommation</span>
+        <span className="rounded bg-km-soft px-1.5 py-0.5 text-[9.5px] font-bold text-km-muted">{sorted[0]?.unite ?? 'MWh'}</span>
         {postesUniques.length > 1 && (
           <div className="ml-auto flex flex-wrap gap-2.5">
             {postesUniques.map((p) => (
-              <span key={p} className="flex items-center gap-1 text-[10px] text-navy-500">
+              <span key={p} className="flex items-center gap-1 text-[10px] text-km-muted">
                 <span className={cn('h-2 w-2 rounded-sm', posteColor(p))} />
                 {p}
               </span>
@@ -278,11 +278,11 @@ function ConsommationChart({ consommations }: { consommations: Consommation[] })
       <div className="flex items-end gap-2 overflow-x-auto pb-1" style={{ height: 140 }}>
         {sorted.map((c) => (
           <div key={c.id} className="flex min-w-[28px] flex-1 flex-col items-center gap-1.5" title={`${c.quantite} ${c.unite} · ${c.poste_tarifaire} · ${c.type_valeur}`}>
-            <span className="text-[9px] font-semibold text-navy-600">{c.quantite}</span>
+            <span className="text-[9px] font-semibold text-km-muted">{c.quantite}</span>
             <div className="flex w-full flex-1 items-end">
               <div className={cn('w-full rounded-t', posteColor(c.poste_tarifaire), c.type_valeur !== 'MESUREE' && 'opacity-60')} style={{ height: `${Math.max(6, (c.quantite / max) * 100)}%` }} />
             </div>
-            <span className="whitespace-nowrap text-[9px] text-navy-400">
+            <span className="whitespace-nowrap text-[9px] text-km-faint">
               {new Date(c.date_debut_periode).toLocaleDateString('fr-FR', { month: 'short', year: '2-digit' })}
             </span>
           </div>
@@ -441,7 +441,7 @@ export default function CompteurDetail() {
     return (
       <div>
         <Topbar crumb="Sites" title="Compteur" />
-        <div className="p-4 sm:p-6"><p className="text-sm text-navy-400">Chargement…</p></div>
+        <div className="p-4 sm:p-6"><p className="text-sm text-km-faint">Chargement…</p></div>
       </div>
     )
   }
@@ -455,21 +455,21 @@ export default function CompteurDetail() {
             <ArrowLeft className="h-4 w-4" />
             Retour au site
           </Button>
-          <p className="text-sm text-navy-500">Compteur introuvable.</p>
+          <p className="text-sm text-km-muted">Compteur introuvable.</p>
         </div>
       </div>
     )
   }
 
   const Icon = compteur.type_energie === 'electricite' ? Zap : Flame
-  const energyClasses = compteur.type_energie === 'electricite' ? 'bg-sky-100 text-sky-500' : 'bg-amber-100 text-amber-600'
+  const energyClasses = compteur.type_energie === 'electricite' ? 'bg-sky-100 text-sky-500' : 'bg-km-amber-soft text-amber-600'
 
   return (
     <div>
       <Topbar crumb="Sites" title={`Compteur ${compteur.numero_pdl}`} />
 
       {/* Bandeau compteur */}
-      <div className="flex flex-wrap items-center gap-3.5 border-b border-navy-100 bg-white px-4 py-3.5 sm:px-6">
+      <div className="flex flex-wrap items-center gap-3.5 border-b border-km-line bg-white px-4 py-3.5 sm:px-6">
         <Button variant="ghost" size="icon" onClick={goBack} title="Retour au site">
           <ArrowLeft className="h-4 w-4" />
         </Button>
@@ -478,11 +478,11 @@ export default function CompteurDetail() {
         </span>
         <div className="min-w-0 flex-1">
           <div className="flex flex-wrap items-center gap-2">
-            <p className="truncate text-xl font-bold tracking-tight text-navy-800">{compteur.utilisation || compteur.numero_pdl}</p>
+            <p className="truncate text-xl font-bold tracking-tight text-km-text">{compteur.utilisation || compteur.numero_pdl}</p>
             <Badge tone={compteur.statut === 'actif' ? 'kiwi' : 'neutral'}>{compteur.statut}</Badge>
           </div>
-          <p className="truncate font-mono text-xs text-navy-400">{compteur.numero_pdl}</p>
-          <p className="truncate text-[10.5px] text-navy-400">
+          <p className="truncate font-mono text-xs text-km-faint">{compteur.numero_pdl}</p>
+          <p className="truncate text-[10.5px] text-km-faint">
             {compteur.date_creation && <>Créé le {new Date(compteur.date_creation).toLocaleDateString('fr-FR')} · </>}
             Propriétaire : {compteur.proprietaire_nom || 'Aucun'}
           </p>
@@ -499,10 +499,10 @@ export default function CompteurDetail() {
       </div>
 
       {/* Onglets */}
-      <div className="flex gap-1.5 overflow-x-auto border-b border-navy-100 bg-white px-4 pt-2.5 lg:gap-0.5 lg:pt-0 sm:px-6">
+      <div className="flex gap-1.5 overflow-x-auto border-b border-km-line bg-white px-4 pt-2.5 lg:gap-0.5 lg:pt-0 sm:px-6">
         {TABS.map((t) => {
           const isActive = tab === t.key
-          const badgeTone = t.key === 'mandats' ? 'bg-amber-200 text-amber-700' : 'bg-navy-100 text-navy-500'
+          const badgeTone = t.key === 'mandats' ? 'bg-amber-200 text-amber-700' : 'bg-km-soft text-km-muted'
           return (
             <button
               key={t.key}
@@ -511,13 +511,13 @@ export default function CompteurDetail() {
               className={cn(
                 'mb-2.5 inline-flex shrink-0 items-center gap-1.5 whitespace-nowrap rounded-full px-3.5 py-2 text-[12.5px] font-semibold transition-colors lg:mb-0 lg:rounded-none lg:border-b-2 lg:px-3 lg:py-2.5 lg:font-normal',
                 isActive
-                  ? 'bg-ink-800 text-white lg:border-navy-800 lg:bg-transparent lg:font-semibold lg:text-navy-800'
-                  : 'border border-navy-200 bg-white text-navy-600 hover:bg-navy-50 lg:border-0 lg:border-b-2 lg:border-transparent lg:text-navy-500 lg:hover:bg-transparent lg:hover:text-navy-700',
+                  ? 'bg-ink-800 text-white lg:border-navy-800 lg:bg-transparent lg:font-semibold lg:text-km-text'
+                  : 'border border-km-line bg-white text-km-muted hover:bg-km-bg lg:border-0 lg:border-b-2 lg:border-transparent lg:text-km-muted lg:hover:bg-transparent lg:hover:text-km-text',
               )}
             >
               {t.label}
               {t.badge && (
-                <span className={cn('rounded px-1.5 py-0.5 text-[9.5px] font-bold', isActive ? 'bg-white/20 text-white lg:bg-navy-100 lg:text-navy-500' : badgeTone)}>
+                <span className={cn('rounded px-1.5 py-0.5 text-[9.5px] font-bold', isActive ? 'bg-white/20 text-white lg:bg-km-soft lg:text-km-muted' : badgeTone)}>
                   {t.badge}
                 </span>
               )}
@@ -528,23 +528,23 @@ export default function CompteurDetail() {
 
       <div className="grid grid-cols-1 lg:grid-cols-[256px_1fr]">
         {/* Colonne gauche — Hiérarchie (desktop uniquement) */}
-        <div className="hidden flex-col gap-3.5 border-r border-navy-100 bg-navy-50/60 p-3.5 lg:flex">
-          <div className="rounded-xl border border-navy-100 bg-white p-3.5">
-            <p className="mb-2 text-[10px] font-bold uppercase tracking-wide text-navy-400">Hiérarchie</p>
+        <div className="hidden flex-col gap-3.5 border-r border-km-line bg-km-bg/60 p-3.5 lg:flex">
+          <div className="rounded-xl border border-km-line bg-white p-3.5">
+            <p className="mb-2 text-[10px] font-bold uppercase tracking-wide text-km-faint">Hiérarchie</p>
             <div className="flex flex-col gap-0.5">
               {compte && (
-                <button type="button" onClick={() => navigate(`/comptes/${compte.id}`)} className="flex items-center gap-2 rounded-lg px-1.5 py-1.5 text-left hover:bg-navy-50">
+                <button type="button" onClick={() => navigate(`/comptes/${compte.id}`)} className="flex items-center gap-2 rounded-lg px-1.5 py-1.5 text-left hover:bg-km-bg">
                   <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-md bg-sky-100 text-sky-500"><Building2 className="h-3 w-3" /></span>
-                  <span className="flex-1 truncate text-xs font-semibold text-navy-800">{compte.nom}</span>
-                  <span className="text-navy-300">›</span>
+                  <span className="flex-1 truncate text-xs font-semibold text-km-text">{compte.nom}</span>
+                  <span className="text-km-faint">›</span>
                 </button>
               )}
-              <div className="ml-[22px] h-2 w-0.5 bg-navy-100" />
+              <div className="ml-[22px] h-2 w-0.5 bg-km-soft" />
               {site && (
-                <button type="button" onClick={() => navigate(`/sites/${site.id}`)} className="flex items-start gap-2 rounded-lg px-1.5 py-1.5 text-left hover:bg-navy-50">
-                  <span className="mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-md bg-kiwi-100 text-kiwi-600"><MapPin className="h-3 w-3" /></span>
+                <button type="button" onClick={() => navigate(`/sites/${site.id}`)} className="flex items-start gap-2 rounded-lg px-1.5 py-1.5 text-left hover:bg-km-bg">
+                  <span className="mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-md bg-km-green-soft text-km-green"><MapPin className="h-3 w-3" /></span>
                   <span className="min-w-0 flex-1">
-                    <span className="block truncate text-xs font-semibold text-navy-800">{site.nom}</span>
+                    <span className="block truncate text-xs font-semibold text-km-text">{site.nom}</span>
                     {/* L'adresse du point de livraison, demandee le 15/08/2026 : « faire apparaitre
                         l'adresse sur l'objet compteur ». Elle vit sur le site, le compteur n'en
                         porte pas — on l'affiche donc ici, sous le site auquel il est rattache.
@@ -553,20 +553,20 @@ export default function CompteurDetail() {
                     {[site.adresse, [site.code_postal, site.ville].filter(Boolean).join(' ')]
                       .filter((p) => p && p.trim())
                       .join(', ') && (
-                      <span className="block truncate text-[11px] text-navy-400">
+                      <span className="block truncate text-[11px] text-km-faint">
                         {[site.adresse, [site.code_postal, site.ville].filter(Boolean).join(' ')]
                           .filter((p) => p && p.trim())
                           .join(', ')}
                       </span>
                     )}
                   </span>
-                  <span className="mt-0.5 text-navy-300">›</span>
+                  <span className="mt-0.5 text-km-faint">›</span>
                 </button>
               )}
-              <div className="ml-[22px] h-2 w-0.5 bg-navy-100" />
-              <div className="flex items-center gap-2 rounded-lg bg-navy-50 px-1.5 py-1.5">
+              <div className="ml-[22px] h-2 w-0.5 bg-km-soft" />
+              <div className="flex items-center gap-2 rounded-lg bg-km-bg px-1.5 py-1.5">
                 <span className={cn('flex h-6 w-6 shrink-0 items-center justify-center rounded-md', energyClasses)}><Icon className="h-3 w-3" /></span>
-                <span className="flex-1 truncate text-xs font-bold text-navy-800">{compteur.utilisation || compteur.numero_pdl}</span>
+                <span className="flex-1 truncate text-xs font-bold text-km-text">{compteur.utilisation || compteur.numero_pdl}</span>
               </div>
             </div>
           </div>
@@ -576,8 +576,8 @@ export default function CompteurDetail() {
               faux dès qu'une copropriété a plusieurs entrées, et c'était le cas de GI155378.
               L'adresse du compteur reste vide par défaut — vide, celle du site fait foi, et la
               fiche le dit plutôt que de laisser croire à un oubli. */}
-          <div className="rounded-xl border border-navy-100 bg-white p-3.5">
-            <p className="mb-2 text-[10px] font-bold uppercase tracking-wide text-navy-400">Localisation dans le site</p>
+          <div className="rounded-xl border border-km-line bg-white p-3.5">
+            <p className="mb-2 text-[10px] font-bold uppercase tracking-wide text-km-faint">Localisation dans le site</p>
             <InlineField
               variant="text"
               value={compteur.localisation_site ?? ''}
@@ -588,7 +588,7 @@ export default function CompteurDetail() {
               onError={(e) => showToast(`Erreur : ${e.message}`)}
             />
 
-            <p className="mb-2 mt-3.5 text-[10px] font-bold uppercase tracking-wide text-navy-400">Adresse du compteur</p>
+            <p className="mb-2 mt-3.5 text-[10px] font-bold uppercase tracking-wide text-km-faint">Adresse du compteur</p>
             <InlineField
               variant="address"
               label=""
@@ -604,7 +604,7 @@ export default function CompteurDetail() {
               onError={(e) => showToast(`Erreur : ${e.message}`)}
             />
             {!compteur.adresse && (
-              <p className="mt-1.5 text-[10.5px] italic text-navy-300">
+              <p className="mt-1.5 text-[10.5px] italic text-km-faint">
                 Non renseignée — c'est l'adresse du site qui fait foi.
               </p>
             )}
@@ -623,16 +623,16 @@ export default function CompteurDetail() {
         </div>
 
         {/* Centre */}
-        <div className="bg-navy-50 p-4 sm:p-5">
+        <div className="bg-km-bg p-4 sm:p-5">
           {tab === 'apercu' && (
             <div className="flex flex-col gap-3.5">
               {consommationsDuCompteur.length > 0 && <ConsommationChart consommations={consommationsDuCompteur} />}
               <PostesHorairesCard compteur={compteur} />
               <div className="grid grid-cols-1 gap-3.5 lg:grid-cols-2">
-              <div className="rounded-xl border border-navy-100 bg-white p-4">
-                <p className="mb-2.5 text-[10px] font-bold uppercase tracking-wide text-navy-400">Détail du compteur</p>
-                <div className="space-y-1.5 text-xs text-navy-700">
-                  <p><span className="text-navy-400">Type d'énergie :</span> {compteur.type_energie === 'electricite' ? 'Électricité' : 'Gaz'}</p>
+              <div className="rounded-xl border border-km-line bg-white p-4">
+                <p className="mb-2.5 text-[10px] font-bold uppercase tracking-wide text-km-faint">Détail du compteur</p>
+                <div className="space-y-1.5 text-xs text-km-text">
+                  <p><span className="text-km-faint">Type d'énergie :</span> {compteur.type_energie === 'electricite' ? 'Électricité' : 'Gaz'}</p>
                   {/* Edition en place, comme partout ailleurs depuis le 16/08/2026. Le libelle et
                       la consommation annuelle etaient les deux seuls champs que la modale
                       « Modifier » savait changer, et ils ne s'affichaient meme pas quand ils
@@ -686,16 +686,16 @@ export default function CompteurDetail() {
                     </>
                   ) : (
                     <>
-                      {compteur.type_utilisation_compteur && <p><span className="text-navy-400">Type d'utilisation :</span> {compteur.type_utilisation_compteur}</p>}
-                      {compteur.consommation_annuelle_mwh != null && <p><span className="text-navy-400">Consommation annuelle :</span> {compteur.consommation_annuelle_mwh} MWh</p>}
+                      {compteur.type_utilisation_compteur && <p><span className="text-km-faint">Type d'utilisation :</span> {compteur.type_utilisation_compteur}</p>}
+                      {compteur.consommation_annuelle_mwh != null && <p><span className="text-km-faint">Consommation annuelle :</span> {compteur.consommation_annuelle_mwh} MWh</p>}
                     </>
                   )}
-                  {compteur.segment && <p><span className="text-navy-400">Segment :</span> {compteur.segment}</p>}
-                  {compteur.tension && <p><span className="text-navy-400">Tension :</span> {compteur.tension}</p>}
-                  {compteur.tarif_distribution && <p><span className="text-navy-400">Tarif :</span> {compteur.tarif_distribution}</p>}
-                  {compteur.car_mwh != null && <p><span className="text-navy-400">CAR :</span> {compteur.car_mwh} MWh</p>}
-                  {compteur.profil_consommation && <p><span className="text-navy-400">Profil :</span> {compteur.profil_consommation}</p>}
-                  {compteur.zone_tarifaire && <p><span className="text-navy-400">Zone tarifaire :</span> {compteur.zone_tarifaire}</p>}
+                  {compteur.segment && <p><span className="text-km-faint">Segment :</span> {compteur.segment}</p>}
+                  {compteur.tension && <p><span className="text-km-faint">Tension :</span> {compteur.tension}</p>}
+                  {compteur.tarif_distribution && <p><span className="text-km-faint">Tarif :</span> {compteur.tarif_distribution}</p>}
+                  {compteur.car_mwh != null && <p><span className="text-km-faint">CAR :</span> {compteur.car_mwh} MWh</p>}
+                  {compteur.profil_consommation && <p><span className="text-km-faint">Profil :</span> {compteur.profil_consommation}</p>}
+                  {compteur.zone_tarifaire && <p><span className="text-km-faint">Zone tarifaire :</span> {compteur.zone_tarifaire}</p>}
                   {/* Responsable et conseil syndical : repris de Salesforce (6710 et 435
                       compteurs) mais jusque-là figés. Modifiables au clic, avec les contacts du
                       compte pour choix — un responsable qui change de poste restait sinon inscrit
@@ -724,7 +724,7 @@ export default function CompteurDetail() {
                   </div>
                   {compteur.fournisseur_actuel_compte_id && (
                     <p>
-                      <span className="text-navy-400">Fournisseur actuel (avant KiWee) :</span>{' '}
+                      <span className="text-km-faint">Fournisseur actuel (avant KiWee) :</span>{' '}
                       <EntityLink to={`/comptes/${compteur.fournisseur_actuel_compte_id}`}>{compteur.fournisseur_actuel_nom}</EntityLink>
                     </p>
                   )}
@@ -733,17 +733,17 @@ export default function CompteurDetail() {
                       manque ne dit pas qu'il faut aller la chercher, elle laisse croire qu'il n'y a
                       rien à savoir. 588 compteurs sont dans ce cas. */}
                   <p className="flex flex-wrap items-center gap-x-2 gap-y-1">
-                    <span className="text-navy-400">Échéance :</span>
+                    <span className="text-km-faint">Échéance :</span>
                     <span>{echeance.date ? new Date(echeance.date + 'T12:00:00').toLocaleDateString('fr-FR') : '—'}</span>
                     <BadgeEcheance e={echeance} dense />
                   </p>
                   {echeance.contredit && echeance.dateDeclaree && (
-                    <p className="text-[11px] italic text-kw-red">
+                    <p className="text-[11px] italic text-km-red">
                       Date déclarée sur le compteur : {new Date(echeance.dateDeclaree + 'T12:00:00').toLocaleDateString('fr-FR')} — c’est la
                       fin du contrat rattaché qui est retenue ci-dessus.
                     </p>
                   )}
-                  <div className="flex flex-wrap items-center justify-between gap-2 text-navy-400">
+                  <div className="flex flex-wrap items-center justify-between gap-2 text-km-faint">
                     <p>
                       {compteur.synchro_eneo
                         ? `Synchronisé le ${compteur.date_derniere_synchro_eneo ? new Date(compteur.date_derniere_synchro_eneo).toLocaleDateString('fr-FR') : '—'}`
@@ -774,29 +774,29 @@ export default function CompteurDetail() {
                       </Button>
                     )}
                   </div>
-                  {syncFeedback && <p className="text-navy-500">{syncFeedback}</p>}
+                  {syncFeedback && <p className="text-km-muted">{syncFeedback}</p>}
                 </div>
                 <HistoriqueDiscret tableNom="compteurs" ligneId={compteur.id} />
               </div>
 
-              <div className="rounded-xl border border-navy-100 bg-white p-4">
+              <div className="rounded-xl border border-km-line bg-white p-4">
                 <div className="mb-2.5 flex items-center justify-between">
-                  <span className="text-[10px] font-bold uppercase tracking-wide text-navy-400">Historique de consommation</span>
+                  <span className="text-[10px] font-bold uppercase tracking-wide text-km-faint">Historique de consommation</span>
                   <Button type="button" size="sm" variant="outline" onClick={() => setShowAdd(true)}>
                     <Plus className="h-3.5 w-3.5" /> Ajouter
                   </Button>
                 </div>
                 <div className="space-y-2">
-                  {consommationsDuCompteur.length === 0 && <p className="text-xs text-navy-400">Aucune période enregistrée.</p>}
+                  {consommationsDuCompteur.length === 0 && <p className="text-xs text-km-faint">Aucune période enregistrée.</p>}
                   {consommationsDuCompteur.map((c) => (
-                    <div key={c.id} className="rounded-lg border border-navy-100 p-3 text-xs">
+                    <div key={c.id} className="rounded-lg border border-km-line p-3 text-xs">
                       <div className="flex items-center justify-between">
-                        <span className="font-medium text-navy-800">
+                        <span className="font-medium text-km-text">
                           {new Date(c.date_debut_periode).toLocaleDateString('fr-FR')} → {new Date(c.date_fin_periode).toLocaleDateString('fr-FR')}
                         </span>
-                        <span className="font-semibold text-navy-800">{c.quantite} {c.unite}</span>
+                        <span className="font-semibold text-km-text">{c.quantite} {c.unite}</span>
                       </div>
-                      <div className="mt-1 flex items-center gap-2 text-navy-500">
+                      <div className="mt-1 flex items-center gap-2 text-km-muted">
                         <Badge tone="neutral">{c.poste_tarifaire}</Badge>
                         <Badge tone={c.type_valeur === 'MESUREE' ? 'kiwi' : 'amber'}>{c.type_valeur}</Badge>
                         {c.source && <span>{c.source}</span>}
@@ -811,21 +811,21 @@ export default function CompteurDetail() {
 
           {tab === 'contrats' && (
             <div className="flex flex-col gap-2.5">
-              {contratsDuCompteur.length === 0 && <p className="text-sm text-navy-400">Aucun contrat ne couvre ce compteur.</p>}
+              {contratsDuCompteur.length === 0 && <p className="text-sm text-km-faint">Aucun contrat ne couvre ce compteur.</p>}
               {contratsDuCompteur.map((ct) => {
                 const CtIcon = ct.type_energie === 'gaz' ? Flame : Zap
                 return (
                   <div
                     key={ct.id}
                     onClick={() => navigate(`/contrats/${ct.id}`)}
-                    className="flex cursor-pointer items-center gap-3 rounded-xl border border-navy-100 bg-white p-3.5 hover:bg-navy-50/60"
+                    className="flex cursor-pointer items-center gap-3 rounded-xl border border-km-line bg-white p-3.5 hover:bg-km-bg/60"
                   >
-                    <span className={cn('flex h-9 w-9 shrink-0 items-center justify-center rounded-[10px]', ct.type_energie === 'gaz' ? 'bg-amber-100 text-amber-600' : 'bg-sky-100 text-sky-500')}>
+                    <span className={cn('flex h-9 w-9 shrink-0 items-center justify-center rounded-[10px]', ct.type_energie === 'gaz' ? 'bg-km-amber-soft text-amber-600' : 'bg-sky-100 text-sky-500')}>
                       <CtIcon className="h-4 w-4" />
                     </span>
                     <div className="min-w-0 flex-1">
-                      <p className="truncate text-sm font-bold text-navy-800">{ct.fournisseur_nom}</p>
-                      <p className="truncate text-[10.5px] text-navy-400">
+                      <p className="truncate text-sm font-bold text-km-text">{ct.fournisseur_nom}</p>
+                      <p className="truncate text-[10.5px] text-km-faint">
                         {ct.date_debut ? new Date(ct.date_debut).toLocaleDateString('fr-FR') : '—'} → {ct.date_fin ? new Date(ct.date_fin).toLocaleDateString('fr-FR') : 'sans échéance'}
                       </p>
                     </div>
@@ -841,14 +841,14 @@ export default function CompteurDetail() {
               {mandatDuCompteur ? (
                 <div
                   onClick={() => navigate(`/mandats/${mandatDuCompteur.id}`)}
-                  className="flex cursor-pointer items-center gap-3 rounded-xl border border-navy-100 bg-white p-3.5 hover:bg-navy-50/60"
+                  className="flex cursor-pointer items-center gap-3 rounded-xl border border-km-line bg-white p-3.5 hover:bg-km-bg/60"
                 >
-                  <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-[10px] bg-amber-100 text-amber-600">
+                  <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-[10px] bg-km-amber-soft text-amber-600">
                     <FileCheck2 className="h-4 w-4" />
                   </span>
                   <div className="min-w-0 flex-1">
-                    <p className="truncate text-sm font-bold text-navy-800">Mandat {mandatDuCompteur.compte_nom}</p>
-                    <p className="truncate text-[10.5px] text-navy-400">{mandatDuCompteur.contact_signataire_nom ?? 'Signataire non renseigné'}</p>
+                    <p className="truncate text-sm font-bold text-km-text">Mandat {mandatDuCompteur.compte_nom}</p>
+                    <p className="truncate text-[10.5px] text-km-faint">{mandatDuCompteur.contact_signataire_nom ?? 'Signataire non renseigné'}</p>
                   </div>
                   <Badge tone={STATUT_MANDAT_TONE[mandatDuCompteur.statut] ?? 'neutral'}>{statutsMandats.find((s) => s.code === mandatDuCompteur.statut)?.libelle ?? mandatDuCompteur.statut}</Badge>
                 </div>
@@ -888,21 +888,21 @@ export default function CompteurDetail() {
                 }}
               />
               {documentsDuCompteur.length === 0 ? (
-                <p className="text-sm text-navy-400">Aucun fichier pour ce compteur.</p>
+                <p className="text-sm text-km-faint">Aucun fichier pour ce compteur.</p>
               ) : (
-                <div className="overflow-hidden rounded-xl border border-navy-100 bg-white">
+                <div className="overflow-hidden rounded-xl border border-km-line bg-white">
                   {documentsDuCompteur.map((d) => (
                     <div
                       key={d.id}
                       onClick={() => navigate(`/documents/${d.id}`)}
-                      className="flex cursor-pointer items-center gap-3 border-b border-navy-50 px-4 py-3 last:border-b-0 hover:bg-navy-50/60"
+                      className="flex cursor-pointer items-center gap-3 border-b border-navy-50 px-4 py-3 last:border-b-0 hover:bg-km-bg/60"
                     >
-                      <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-navy-100 text-navy-500">
+                      <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-km-soft text-km-muted">
                         <FileText className="h-4 w-4" />
                       </span>
                       <div className="min-w-0 flex-1">
-                        <p className="truncate text-sm font-bold text-navy-800">{d.nom}</p>
-                        <p className="truncate text-[10.5px] text-navy-400">{d.auteur} · {new Date(d.date_creation).toLocaleDateString('fr-FR')}</p>
+                        <p className="truncate text-sm font-bold text-km-text">{d.nom}</p>
+                        <p className="truncate text-[10.5px] text-km-faint">{d.auteur} · {new Date(d.date_creation).toLocaleDateString('fr-FR')}</p>
                       </div>
                       <Badge tone="neutral">{d.type_document}</Badge>
                     </div>
@@ -922,11 +922,11 @@ export default function CompteurDetail() {
         description="Cette action est irréversible. L'historique de consommation et les contrats rattachés ne seront pas supprimés mais perdront leur lien à ce compteur."
       >
         {suppression.erreur && (
-          <p className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-xs text-red-700">{suppression.erreur}</p>
+          <p className="rounded-lg border border-red-200 bg-km-red-soft px-3 py-2 text-xs text-red-700">{suppression.erreur}</p>
         )}
         <div className="flex justify-end gap-2 pt-2">
           <Button type="button" variant="ghost" onClick={() => { suppression.reinitialiser(); setConfirmDelete(false) }}>Annuler</Button>
-          <Button type="button" variant="outline" className="border-red-200 text-red-600 hover:bg-red-50" disabled={suppression.enCours} onClick={handleDelete}>
+          <Button type="button" variant="outline" className="border-red-200 text-km-red hover:bg-km-red-soft" disabled={suppression.enCours} onClick={handleDelete}>
                 {suppression.enCours ? 'Suppression…' : 'Supprimer définitivement'}
               </Button>
         </div>
@@ -966,7 +966,7 @@ function ChampContactCompteur({
     if (!contactId) return null
     return (
       <p>
-        <span className="text-navy-400">{libelle} :</span>{' '}
+        <span className="text-km-faint">{libelle} :</span>{' '}
         <EntityLink to={`/contacts/${contactId}`}>{contactNom}</EntityLink>
       </p>
     )

@@ -72,7 +72,7 @@ function SignalCard({ signal }: { signal: Signal }) {
    * existe déjà et qui ne suppose rien : créer la tâche de suivi.
    */
   return (
-    <div className="overflow-hidden rounded-kw-lg border border-kw-border bg-white transition-shadow hover:shadow-kw-card-open">
+    <div className="overflow-hidden rounded-km-md border border-km-line bg-white transition-shadow hover:shadow-kw-card-open">
       <div
         role="button"
         tabIndex={0}
@@ -80,16 +80,16 @@ function SignalCard({ signal }: { signal: Signal }) {
         onKeyDown={(e) => e.key === 'Enter' && navigate(`/signaux/${signal.id}`)}
         className="cursor-pointer px-3 pb-2.5 pt-3"
       >
-        <span className="mb-1.5 inline-block max-w-full truncate rounded-[3px] bg-kw-bloc px-1.5 py-px text-kw-micro font-bold uppercase tracking-[0.06em] text-kw-meta">
+        <span className="mb-1.5 inline-block max-w-full truncate rounded-[3px] bg-km-soft px-1.5 py-px text-km-label font-bold uppercase tracking-[0.06em] text-km-muted">
           {signal.type_signal}
         </span>
-        <p className="truncate text-kw-sm font-bold text-kw-ink">{signal.site_nom}</p>
+        <p className="truncate text-km-body font-bold text-km-text">{signal.site_nom}</p>
         {signal.description && (
-          <p className="mt-1.5 line-clamp-2 rounded-[4px] bg-kw-bloc px-1.5 py-1 text-kw-micro leading-snug text-kw-body">
+          <p className="mt-1.5 line-clamp-2 rounded-[4px] bg-km-soft px-1.5 py-1 text-km-label leading-snug text-km-muted">
             {signal.description}
           </p>
         )}
-        <div className="mt-2 flex items-center justify-between gap-2 text-kw-micro text-kw-faint">
+        <div className="mt-2 flex items-center justify-between gap-2 text-km-label text-km-faint">
           <span className="truncate">{signal.conseiller}</span>
           <span className="shrink-0 font-mono tabular-nums">
             {new Date(signal.date_creation).toLocaleDateString('fr-FR', { day: '2-digit', month: '2-digit' })}
@@ -99,15 +99,15 @@ function SignalCard({ signal }: { signal: Signal }) {
 
       {suivante && (
         <div
-          className="flex items-center gap-2 border-t border-kw-border-faint bg-kw-bloc px-2.5 py-1.5"
+          className="flex items-center gap-2 border-t border-km-line bg-km-soft px-2.5 py-1.5"
           onClick={(e) => e.stopPropagation()}
         >
-          <span className="text-kw-micro text-kw-faint">Prochaine action</span>
+          <span className="text-km-label text-km-faint">Prochaine action</span>
           <button
             type="button"
             onClick={creerTache}
             disabled={tacheCree}
-            className="ml-auto flex items-center gap-1 truncate rounded-kw-md px-1 py-0.5 text-kw-micro font-bold text-kw-green hover:bg-white disabled:opacity-60"
+            className="ml-auto flex items-center gap-1 truncate rounded-km px-1 py-0.5 text-km-label font-bold text-km-green hover:bg-white disabled:opacity-60"
             title={tacheCree ? 'Tâche créée' : `Créer la tâche « ${suivante.libelle} »`}
           >
             {tacheCree ? (
@@ -194,7 +194,7 @@ function CreateSignalDialog({ open, onClose }: { open: boolean; onClose: () => v
         <FormField label="Description">
           <Textarea rows={3} value={description} onChange={(e) => setDescription(e.target.value)} placeholder="Détails du signal…" />
         </FormField>
-        {feedback && <p className="text-xs text-navy-500">{feedback}</p>}
+        {feedback && <p className="text-xs text-km-muted">{feedback}</p>}
         <div className="flex justify-end gap-2 pt-2">
           <Button type="button" variant="ghost" onClick={() => { reset(); onClose() }}>Annuler</Button>
           <Button type="submit" disabled={createSignal.isPending}>Créer le signal</Button>
@@ -307,15 +307,15 @@ export default function Signaux() {
           type="button"
           onClick={() => setAvecClos((v) => !v)}
           className={cn(
-            'inline-flex shrink-0 items-center gap-1.5 rounded-kw-md border px-2.5 py-1.5 text-kw-sm font-bold transition-colors',
+            'inline-flex shrink-0 items-center gap-1.5 rounded-km border px-2.5 py-1.5 text-km-body font-bold transition-colors',
             avecClos
               ? 'border-ink-800 bg-ink-800 text-white'
-              : 'border-kw-border-strong bg-white text-kw-meta hover:bg-kw-subtle',
+              : 'border-km-line bg-white text-km-muted hover:bg-km-soft',
           )}
         >
           <span className={cn(
             'flex h-3.5 w-3.5 items-center justify-center rounded-[3px]',
-            avecClos ? 'bg-white/25' : 'border border-kw-border-strong',
+            avecClos ? 'bg-white/25' : 'border border-km-line',
           )}>
             {avecClos && <Check className="h-2.5 w-2.5" />}
           </span>
@@ -324,7 +324,7 @@ export default function Signaux() {
         </div>
 
         {isLoading ? (
-          <p className="text-sm text-navy-400">Chargement…</p>
+          <p className="text-sm text-km-faint">Chargement…</p>
         ) : (
           <div className="flex gap-4 overflow-x-auto pb-2">
             {columns.map((col) => {
@@ -333,17 +333,17 @@ export default function Signaux() {
                 <div
                   key={col.id}
                   style={{ borderTopColor: col.couleur ?? undefined }}
-                  className={cn('flex w-[236px] shrink-0 flex-col rounded-kw-lg border-t-[3px] bg-kw-subtle/70 p-2.5')}
+                  className={cn('flex w-[236px] shrink-0 flex-col rounded-km-md border-t-[3px] bg-km-soft/70 p-2.5')}
                 >
                   <div className="mb-3 flex items-center gap-2 px-1">
                     <span className="h-2 w-2 rounded-full" style={{ backgroundColor: col.couleur ?? '#8698ba' }} />
-                    <p className="text-xs font-semibold uppercase tracking-wide text-navy-500">{col.libelle}</p>
-                    <span className="ml-auto rounded-full bg-navy-200/70 px-1.5 py-0.5 text-[10px] font-medium text-navy-600">
+                    <p className="text-xs font-semibold uppercase tracking-wide text-km-muted">{col.libelle}</p>
+                    <span className="ml-auto rounded-full bg-km-line/70 px-1.5 py-0.5 text-[10px] font-medium text-km-muted">
                       {items.length}
                     </span>
                   </div>
                   <div className="flex flex-1 flex-col gap-2.5">
-                    {items.length === 0 && <p className="px-1 text-[11px] text-navy-400">Vide</p>}
+                    {items.length === 0 && <p className="px-1 text-[11px] text-km-faint">Vide</p>}
                     {items.map((signal) => (
                       <SignalCard key={signal.id} signal={signal} />
                     ))}

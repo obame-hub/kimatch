@@ -104,14 +104,14 @@ export function DetailVersion({
   }
 
   return (
-    <div className="rounded-[13px] border border-kw-border bg-white">
+    <div className="rounded-[13px] border border-km-line bg-white">
       <div className="flex flex-wrap items-center gap-2 border-b border-kw-border-subtle px-[17px] py-3">
-        <span className="text-kw-xs font-bold uppercase tracking-[0.08em] text-kw-faint">
+        <span className="text-km-label font-bold uppercase tracking-[0.08em] text-km-faint">
           Détail de {version.nom || `la version ${version.numero_version ?? ''}`}
         </span>
         {version.est_figee && (
           <span title="Version figée">
-            <Lock className="h-3 w-3 text-kw-faint" />
+            <Lock className="h-3 w-3 text-km-faint" />
           </span>
         )}
         <span className="flex-1" />
@@ -131,7 +131,7 @@ export function DetailVersion({
             Ce n'est donc plus un second affichage du statut, c'est une action de rattrapage : elle
             porte le mot « corriger » et rien d'autre. */}
         {peutModifier ? (
-          <span className="relative inline-flex items-center rounded-kw-sm px-1.5 py-0.5 text-kw-micro font-bold text-kw-faint transition-colors hover:bg-kw-bloc hover:text-kw-label focus-within:bg-kw-bloc focus-within:text-kw-label">
+          <span className="relative inline-flex items-center rounded-km-sm px-1.5 py-0.5 text-km-label font-bold text-km-faint transition-colors hover:bg-km-soft hover:text-km-muted focus-within:bg-km-soft focus-within:text-km-muted">
             <span className="inline-flex items-center gap-1">
               {majStatut.isPending ? 'Enregistrement…' : 'Corriger le statut'}
               <ChevronDown className="h-2.5 w-2.5 opacity-70" />
@@ -165,7 +165,7 @@ export function DetailVersion({
             type="button"
             onClick={onSupprimer}
             title="Supprimer cette version"
-            className="rounded-kw-sm p-1 text-kw-ghost hover:bg-kw-red-light hover:text-kw-red"
+            className="rounded-km-sm p-1 text-km-faint hover:bg-km-red-soft hover:text-km-red"
           >
             <Trash2 className="h-3.5 w-3.5" />
           </button>
@@ -174,16 +174,16 @@ export function DetailVersion({
 
       <div className="space-y-3 px-[17px] py-3.5">
         <div>
-          <p className="text-kw-lg text-kw-body">{version.resume || 'Aucun résumé.'}</p>
+          <p className="text-km-name text-km-muted">{version.resume || 'Aucun résumé.'}</p>
           {version.contexte_et_hypotheses && (
-            <p className="mt-1 text-kw-base text-kw-meta">{version.contexte_et_hypotheses}</p>
+            <p className="mt-1 text-km-body text-km-muted">{version.contexte_et_hypotheses}</p>
           )}
         </div>
 
-        <div className="flex flex-wrap gap-3 text-kw-base text-kw-faint">
+        <div className="flex flex-wrap gap-3 text-km-body text-km-faint">
           <span>Motif : {version.motif_creation || '—'}</span>
           {version.economie_pourcentage !== null && (
-            <span>Économie : <span className="font-medium text-kw-green">{version.economie_pourcentage} %</span></span>
+            <span>Économie : <span className="font-medium text-km-green">{version.economie_pourcentage} %</span></span>
           )}
           {version.niveau_confiance !== null && <span>Confiance : {version.niveau_confiance} %</span>}
           {version.date_presentation_client && (
@@ -202,19 +202,19 @@ export function DetailVersion({
         </div>
 
         {version.optimisations.length === 0 ? (
-          <p className="text-kw-base text-kw-faint">Aucune optimisation sur cette version.</p>
+          <p className="text-km-body text-km-faint">Aucune optimisation sur cette version.</p>
         ) : (
-          <div className="space-y-2.5 border-t border-kw-border-faint pt-3">
+          <div className="space-y-2.5 border-t border-km-line pt-3">
             {version.optimisations.map((optimisation) => (
               <div key={optimisation.id}>
                 <div className="flex items-center justify-between gap-2">
-                  <p className="text-kw-base font-semibold text-kw-label">
+                  <p className="text-km-body font-semibold text-km-muted">
                     {optimisation.type_optimisation || optimisation.nom}
                   </p>
                   {optimisation.est_retenue && <Badge tone="kiwi">Retenue</Badge>}
                 </div>
                 {optimisation.gain_estime_annuel !== null && (
-                  <p className="text-kw-sm text-kw-meta">
+                  <p className="text-km-body text-km-muted">
                     Gain estimé : {optimisation.gain_estime_annuel.toLocaleString('fr-FR')} €/an
                     {optimisation.roi_mois !== null ? ` · ROI ${optimisation.roi_mois} mois` : ''}
                   </p>
@@ -229,23 +229,23 @@ export function DetailVersion({
                 */}
                 {(optimisation.type_optimisation_code === MISE_EN_CONCURRENCE
                   || optimisation.fournisseurs_consultes.length > 0) && (
-                  <div className="mt-2 border-t border-kw-border-faint pt-2">
+                  <div className="mt-2 border-t border-km-line pt-2">
                     <div className="flex items-center justify-between">
-                      <p className="text-kw-sm font-bold uppercase tracking-wide text-kw-faint">
+                      <p className="text-km-body font-bold uppercase tracking-wide text-km-faint">
                         Fournisseurs consultés et offres reçues
                       </p>
                       {peutModifier && (
                         <button
                           type="button"
                           onClick={() => onAjouterFournisseur(optimisation)}
-                          className="text-kw-base font-semibold text-kw-green hover:underline"
+                          className="text-km-body font-semibold text-km-green hover:underline"
                         >
                           + Consulter un fournisseur
                         </button>
                       )}
                     </div>
                     {optimisation.fournisseurs_consultes.length === 0 ? (
-                      <p className="pl-2 text-kw-base text-kw-faint">Aucun fournisseur consulté pour l'instant.</p>
+                      <p className="pl-2 text-km-body text-km-faint">Aucun fournisseur consulté pour l'instant.</p>
                     ) : (
                       <div className="mt-1.5 space-y-2">
                         {optimisation.fournisseurs_consultes.map((fc) => {
@@ -255,12 +255,12 @@ export function DetailVersion({
                             <div
                               key={fc.id}
                               className={cn(
-                                'rounded-kw-lg border px-2.5 py-2',
-                                retenue ? 'border-[#dcc39c] bg-[#fdf9f0]/60' : 'border-kw-border bg-kw-subtle',
+                                'rounded-km-md border px-2.5 py-2',
+                                retenue ? 'border-[#dcc39c] bg-[#fdf9f0]/60' : 'border-km-line bg-km-soft',
                               )}
                             >
                               <div className="flex flex-wrap items-center gap-2">
-                                <p className="text-kw-md font-bold text-kw-ink">{fc.fournisseur_nom}</p>
+                                <p className="text-km-body font-bold text-km-text">{fc.fournisseur_nom}</p>
                                 {/* Ce que ce fournisseur a répondu, d'un coup d'œil. */}
                                 {/*
                                   Le circuit de ce fournisseur. « Outil en ligne » veut dire qu'aucune
@@ -275,14 +275,14 @@ export function DetailVersion({
                                       target="_blank"
                                       rel="noreferrer"
                                       title="Ouvrir l'outil de pricing du fournisseur"
-                                      className="inline-flex items-center gap-1 rounded-kw-xs bg-kw-blue-light px-1.5 py-0.5 text-kw-micro font-extrabold uppercase tracking-[0.05em] text-kw-blue hover:underline"
+                                      className="inline-flex items-center gap-1 rounded-kw-xs bg-km-blue-soft px-1.5 py-0.5 text-km-label font-extrabold uppercase tracking-[0.05em] text-km-blue hover:underline"
                                     >
                                       Outil en ligne <ExternalLink className="h-2.5 w-2.5" />
                                     </a>
                                   ) : (
                                     <span
                                       title="Les prix se consultent directement chez le fournisseur — aucune demande à envoyer. L'adresse de l'outil n'est pas renseignée."
-                                      className="rounded-kw-xs bg-kw-blue-light px-1.5 py-0.5 text-kw-micro font-extrabold uppercase tracking-[0.05em] text-kw-blue"
+                                      className="rounded-kw-xs bg-km-blue-soft px-1.5 py-0.5 text-km-label font-extrabold uppercase tracking-[0.05em] text-km-blue"
                                     >
                                       Outil en ligne
                                     </span>
@@ -290,12 +290,12 @@ export function DetailVersion({
                                 ) : (
                                   <span
                                     title="La demande d'offre part par email, puis on attend l'accusé de réception"
-                                    className="rounded-kw-xs bg-kw-muted px-1.5 py-0.5 text-kw-micro font-extrabold uppercase tracking-[0.05em] text-kw-meta"
+                                    className="rounded-kw-xs bg-km-soft px-1.5 py-0.5 text-km-label font-extrabold uppercase tracking-[0.05em] text-km-muted"
                                   >
                                     Par email
                                   </span>
                                 )}
-                                <span className="text-kw-sm text-kw-meta">
+                                <span className="text-km-body text-km-muted">
                                   {fc.offres.length === 0
                                     ? 'aucune offre suivie'
                                     : `${chiffrees.length}/${fc.offres.length} offre${fc.offres.length > 1 ? 's' : ''} chiffrée${chiffrees.length > 1 ? 's' : ''}`}
@@ -303,7 +303,7 @@ export function DetailVersion({
                                 {fc.offres.some((o) => o.statut === 'REFUSEE') && fc.offres.some((o) => o.statut === 'ACCEPTEE') && (
                                   // Le commercial doit voir ça sans ouvrir chaque offre : c'est tout
                                   // l'objet du statut « acceptée partiellement ».
-                                  <span className="rounded-kw-xs bg-kw-amber-light px-1.5 py-0.5 text-kw-micro font-extrabold uppercase tracking-[0.05em] text-kw-amber-dark">
+                                  <span className="rounded-kw-xs bg-km-amber-soft px-1.5 py-0.5 text-km-label font-extrabold uppercase tracking-[0.05em] text-km-amber">
                                     partiellement accepté
                                   </span>
                                 )}
@@ -323,7 +323,7 @@ export function DetailVersion({
                                   <select
                                     value=""
                                     onChange={(e) => { if (e.target.value) onChangerStatut(fc, e.target.value) }}
-                                    className="rounded-kw-sm border border-kw-border-strong bg-white px-1.5 py-0.5 text-kw-base font-semibold text-kw-label outline-none"
+                                    className="rounded-km-sm border border-km-line bg-white px-1.5 py-0.5 text-km-body font-semibold text-km-muted outline-none"
                                   >
                                     <option value="">{fc.statut_actuel ? 'Changer…' : 'Statut de la demande…'}</option>
                                     {statutsConsultation
@@ -343,12 +343,12 @@ export function DetailVersion({
 
                               {fc.historique.length > 0 && (
                                 <details className="mt-1">
-                                  <summary className="cursor-pointer text-kw-sm text-kw-faint hover:text-kw-label">
+                                  <summary className="cursor-pointer text-km-body text-km-faint hover:text-km-muted">
                                     Historique de consultation ({fc.historique.length})
                                   </summary>
-                                  <div className="mt-1 space-y-0.5 border-t border-kw-border-faint pt-1">
+                                  <div className="mt-1 space-y-0.5 border-t border-km-line pt-1">
                                     {fc.historique.map((h) => (
-                                      <p key={h.id} className="text-kw-base text-kw-meta">
+                                      <p key={h.id} className="text-km-body text-km-muted">
                                         {new Date(h.date_evenement).toLocaleDateString('fr-FR')} — {h.statut}
                                         {h.commentaire ? ` · ${h.commentaire}` : ''}
                                       </p>
@@ -381,18 +381,18 @@ export function DetailVersion({
                     une offre orpheline ne doit pas devenir invisible sous prétexte qu'elle ne se
                     range nulle part. */}
                 {optimisation.offres.some((o) => !o.optimisation_fournisseur_id) && (
-                  <div className="mt-2 border-t border-kw-border-faint pt-2">
-                    <p className="text-kw-sm font-bold uppercase tracking-wide text-kw-faint">
+                  <div className="mt-2 border-t border-km-line pt-2">
+                    <p className="text-km-body font-bold uppercase tracking-wide text-km-faint">
                       Offres non rattachées à un fournisseur consulté
                     </p>
                     {optimisation.offres
                       .filter((o) => !o.optimisation_fournisseur_id)
                       .map((offre) => (
-                        <div key={offre.id} className="mt-1 flex items-center justify-between gap-2 rounded-kw-md bg-kw-bg px-2.5 py-1.5">
-                          <span className="truncate text-kw-base font-semibold text-kw-ink">
+                        <div key={offre.id} className="mt-1 flex items-center justify-between gap-2 rounded-km bg-km-bg px-2.5 py-1.5">
+                          <span className="truncate text-km-body font-semibold text-km-text">
                             {offre.fournisseur_nom} · {offre.nom || offre.reference_offre || 'Offre'}
                           </span>
-                          <span className="shrink-0 font-mono text-kw-base text-kw-label">
+                          <span className="shrink-0 font-mono text-km-body text-km-muted">
                             {offre.montant_annuel_ht != null ? `${offre.montant_annuel_ht.toLocaleString('fr-FR')} €/an` : '—'}
                           </span>
                         </div>
@@ -404,11 +404,11 @@ export function DetailVersion({
           </div>
         )}
 
-        <div className="border-t border-kw-border-faint pt-2.5">
+        <div className="border-t border-km-line pt-2.5">
           <button
             type="button"
             onClick={onEnvoyerEmail}
-            className="inline-flex items-center gap-1.5 text-kw-base font-semibold text-kw-green hover:underline"
+            className="inline-flex items-center gap-1.5 text-km-body font-semibold text-km-green hover:underline"
           >
             <Mail className="h-3.5 w-3.5" />
             Envoyer cette version par email

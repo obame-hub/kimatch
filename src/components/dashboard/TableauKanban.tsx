@@ -191,7 +191,7 @@ export function TableauKanban({
 
   if (total === 0) {
     return (
-      <p className="rounded-kw-lg border border-dashed border-kw-border-strong bg-kw-subtle px-4 py-3 text-kw-sm text-kw-meta">
+      <p className="rounded-km-md border border-dashed border-km-line bg-km-soft px-4 py-3 text-km-body text-km-muted">
         {siVide}
       </p>
     )
@@ -207,26 +207,26 @@ export function TableauKanban({
           <div
             key={col.code}
             style={{ borderTopColor: col.couleur ?? '#d5d7d2' }}
-            className="flex w-[236px] shrink-0 flex-col rounded-kw-lg border-t-[3px] bg-kw-subtle/70 p-2.5"
+            className="flex w-[236px] shrink-0 flex-col rounded-km-md border-t-[3px] bg-km-soft/70 p-2.5"
           >
             <div className="mb-2 flex items-center gap-1.5 px-0.5">
-              <p className="truncate text-kw-xs font-bold uppercase tracking-[0.06em] text-kw-meta">
+              <p className="truncate text-km-label font-bold uppercase tracking-[0.06em] text-km-muted">
                 {col.libelle}
               </p>
               {/* Le total d'abord, le nombre de cartes ensuite : c'est le chiffre qui porte
                   l'information, le compte n'est qu'une indication de volume. */}
               {col.total && (
-                <span className="shrink-0 rounded-kw-md bg-kw-green-light px-1.5 py-px font-mono text-kw-micro font-extrabold tabular-nums text-kw-green">
+                <span className="shrink-0 rounded-km-md bg-km-green-soft px-1.5 py-px font-mono text-km-label font-extrabold tabular-nums text-km-green">
                   {col.total}
                 </span>
               )}
-              <span className="ml-auto shrink-0 rounded-kw-md bg-white px-1.5 py-px font-mono text-kw-micro font-extrabold text-kw-meta">
+              <span className="ml-auto shrink-0 rounded-km-md bg-km-surface px-1.5 py-px font-mono text-km-label font-extrabold text-km-muted">
                 {compte(col.code)}
               </span>
             </div>
 
             <div className="flex flex-1 flex-col gap-1.5">
-              {montrees.length === 0 && <p className="px-0.5 text-kw-micro text-kw-faint">Vide</p>}
+              {montrees.length === 0 && <p className="px-0.5 text-km-label text-km-faint">Vide</p>}
               {montrees.map((c, i) => (
                 <Fragment key={c.id}>
                   {/* ══ L'INTERTITRE DE GROUPE ══
@@ -236,21 +236,21 @@ export function TableauKanban({
                   {c.groupe && (i === 0 || montrees[i - 1].groupe?.cle !== c.groupe.cle) && (
                     <p
                       className={cn(
-                        'mt-1 flex items-center gap-1.5 px-0.5 pt-1 text-kw-micro font-bold uppercase tracking-[0.06em] first:mt-0 first:pt-0',
+                        'mt-1 flex items-center gap-1.5 px-0.5 pt-1 text-km-label font-bold uppercase tracking-[0.06em] first:mt-0 first:pt-0',
                         c.groupe.ton === 'retard'
-                          ? 'text-kw-red'
+                          ? 'text-km-red'
                           : c.groupe.ton === 'jour'
-                            ? 'text-kw-amber-dark'
+                            ? 'text-km-amber'
                             : c.groupe.ton === 'proche'
-                              ? 'text-kw-amber'
-                              : 'text-kw-meta',
+                              ? 'text-km-amber'
+                              : 'text-km-muted',
                       )}
                     >
                       <span
                         className={cn(
                           'h-1.5 w-1.5 shrink-0 rounded-full',
                           c.groupe.ton === 'retard'
-                            ? 'bg-kw-red'
+                            ? 'bg-km-red'
                             : c.groupe.ton === 'jour'
                               ? 'bg-kw-amber'
                               : c.groupe.ton === 'proche'
@@ -283,27 +283,27 @@ export function TableauKanban({
                   to={onCarte ? undefined : c.to}
                   onClick={onCarte ? () => onCarte(c.id) : undefined}
                   className={cn(
-                    'group flex items-start gap-1.5 rounded-kw-md border bg-white px-2 py-1.5 text-left transition-colors hover:bg-kw-bg',
-                    c.urgent ? 'border-kw-amber' : 'border-kw-border-faint',
+                    'group flex items-start gap-1.5 rounded-km-md border bg-km-surface px-2 py-1.5 text-left transition-colors hover:bg-km-soft',
+                    c.urgent ? 'border-km-amber' : 'border-km-line',
                   )}
                 >
                   <span className="min-w-0 flex-1">
                     {/* ── L'étiquette de nature ── */}
                     {c.nature && (
-                      <span className="mb-1 inline-block max-w-full truncate rounded-[3px] bg-kw-bloc px-1.5 py-px text-kw-micro font-bold uppercase tracking-[0.06em] text-kw-meta">
+                      <span className="mb-1 inline-block max-w-full truncate rounded-[3px] bg-km-soft px-1.5 py-px text-km-label font-bold uppercase tracking-[0.06em] text-km-muted">
                         {c.nature}
                       </span>
                     )}
 
-                    <span className="block truncate text-kw-sm font-bold text-kw-ink">{c.titre}</span>
+                    <span className="block truncate text-km-body font-bold text-km-text">{c.titre}</span>
                     {c.sousTitre && (
-                      <span className="block truncate text-kw-micro text-kw-meta">{c.sousTitre}</span>
+                      <span className="block truncate text-km-label text-km-muted">{c.sousTitre}</span>
                     )}
 
                     {/* ── Le motif, dans son cadre. Deux lignes au plus : au-delà, ce n'est plus un
                            motif, c'est un commentaire, et il a sa place sur la fiche. ── */}
                     {c.motif && (
-                      <span className="mt-1 block rounded-[4px] bg-kw-bloc px-1.5 py-1 text-kw-micro leading-snug text-kw-body line-clamp-2">
+                      <span className="mt-1 block rounded-[4px] bg-km-soft px-1.5 py-1 text-km-label leading-snug text-km-muted line-clamp-2">
                         {c.motif}
                       </span>
                     )}
@@ -313,8 +313,8 @@ export function TableauKanban({
                       <span className="mt-1.5 flex flex-wrap gap-x-3 gap-y-1">
                         {c.chiffres.map((n) => (
                           <span key={n.libelle} className="block">
-                            <span className="block text-kw-micro text-kw-faint">{n.libelle}</span>
-                            <span className="block font-mono text-kw-xs font-extrabold tabular-nums text-kw-ink">
+                            <span className="block text-km-label text-km-faint">{n.libelle}</span>
+                            <span className="block font-mono text-km-label font-extrabold tabular-nums text-km-text">
                               {n.valeur}
                             </span>
                           </span>
@@ -325,15 +325,15 @@ export function TableauKanban({
                     {c.mention && (
                       <span
                         className={cn(
-                          'mt-0.5 block font-mono text-kw-micro font-bold',
-                          c.urgent ? 'text-kw-amber-dark' : 'text-kw-faint',
+                          'mt-0.5 block font-mono text-km-label font-bold',
+                          c.urgent ? 'text-km-amber' : 'text-km-faint',
                         )}
                       >
                         {c.mention}
                       </span>
                     )}
                   </span>
-                  <ChevronRight className="mt-0.5 h-3 w-3 shrink-0 text-kw-faint opacity-0 transition-opacity group-hover:opacity-100" />
+                  <ChevronRight className="mt-0.5 h-3 w-3 shrink-0 text-km-faint opacity-0 transition-opacity group-hover:opacity-100" />
                 </CarteCliquable>
                 </Fragment>
               ))}
@@ -359,12 +359,12 @@ export function TableauKanban({
                       <button
                         type="button"
                         onClick={() => basculer(col.code)}
-                        className="rounded-kw-sm px-0.5 text-kw-micro font-bold text-kw-green hover:underline"
+                        className="rounded-km-sm px-0.5 text-km-label font-bold text-km-green hover:underline"
                       >
                         Replier
                       </button>
                       {reste > 0 && (
-                        <span className="ml-1.5 text-kw-micro text-kw-faint">
+                        <span className="ml-1.5 text-km-label text-km-faint">
                           {reste} de plus, non chargée{reste > 1 ? 's' : ''} — affinez la recherche
                         </span>
                       )}
@@ -378,12 +378,12 @@ export function TableauKanban({
                       <button
                         type="button"
                         onClick={() => basculer(col.code)}
-                        className="rounded-kw-sm px-0.5 text-kw-micro font-bold text-kw-green hover:underline"
+                        className="rounded-km-sm px-0.5 text-km-label font-bold text-km-green hover:underline"
                       >
                         Voir les {reste} autre{reste > 1 ? 's' : ''}
                       </button>
                     ) : (
-                      <span className="px-0.5 text-kw-micro text-kw-faint">
+                      <span className="px-0.5 text-km-label text-km-faint">
                         et {reste} autre{reste > 1 ? 's' : ''} — affinez la recherche pour les voir
                       </span>
                     )}

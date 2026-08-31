@@ -46,13 +46,13 @@ export function ExtractDocumentButton({
   }
 
   return (
-    <div className="rounded-lg border border-dashed border-navy-200 bg-navy-50/60 p-3">
+    <div className="rounded-lg border border-dashed border-km-line bg-km-bg/60 p-3">
       <input ref={inputRef} type="file" accept="application/pdf,image/*" className="hidden" onChange={handleChange} />
       <Button type="button" variant="outline" size="sm" disabled={extractDocument.isPending} onClick={() => inputRef.current?.click()}>
         {extractDocument.isPending ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <FileScan className="h-3.5 w-3.5" />}
         {label}
       </Button>
-      {feedback && <p className="mt-1.5 text-[11px] text-navy-500">{feedback}</p>}
+      {feedback && <p className="mt-1.5 text-[11px] text-km-muted">{feedback}</p>}
     </div>
   )
 }

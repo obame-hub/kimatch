@@ -187,15 +187,15 @@ export default function Opportunites() {
           type="button"
           onClick={() => setAvecClos((v) => !v)}
           className={cn(
-            'inline-flex shrink-0 items-center gap-1.5 rounded-kw-md border px-2.5 py-1.5 text-kw-sm font-bold transition-colors',
+            'inline-flex shrink-0 items-center gap-1.5 rounded-km border px-2.5 py-1.5 text-km-body font-bold transition-colors',
             avecClos
               ? 'border-ink-800 bg-ink-800 text-white'
-              : 'border-kw-border-strong bg-white text-kw-meta hover:bg-kw-subtle',
+              : 'border-km-line bg-white text-km-muted hover:bg-km-soft',
           )}
         >
           <span className={cn(
             'flex h-3.5 w-3.5 items-center justify-center rounded-[3px]',
-            avecClos ? 'bg-white/25' : 'border border-kw-border-strong',
+            avecClos ? 'bg-white/25' : 'border border-km-line',
           )}>
             {avecClos && <Check className="h-2.5 w-2.5" />}
           </span>
@@ -204,7 +204,7 @@ export default function Opportunites() {
         </div>
 
         {isLoading ? (
-          <p className="mt-4 text-sm text-navy-400">Chargement…</p>
+          <p className="mt-4 text-sm text-km-faint">Chargement…</p>
         ) : vivantes.length > 0 ? (
           /* LES SIX PALIERS DE SA DIAPOSITIVE 13, colonnes terminales comprises : sur la page d'un
              objet, le tableau montre TOUT le pipeline, y compris ce qui a abouti et ce qui s'est
@@ -263,9 +263,9 @@ export default function Opportunites() {
           </div>
         ) : (
           <Card className="mt-4 flex flex-col items-center gap-2 p-8 text-center">
-            <Target className="h-6 w-6 text-navy-300" />
-            <p className="text-sm font-medium text-navy-700">Aucune opportunité</p>
-            <p className="max-w-md text-xs text-navy-400">
+            <Target className="h-6 w-6 text-km-faint" />
+            <p className="text-sm font-medium text-km-text">Aucune opportunité</p>
+            <p className="max-w-md text-xs text-km-faint">
               Une opportunité naît d'une piste convertie, d'un signal sur le portefeuille, d'une
               demande entrante ou d'un partenaire. Créez-en une pour commencer à rassembler ses
               prérequis.
@@ -346,8 +346,8 @@ function DialogCreation({ onFermer }: { onFermer: () => void }) {
                 className={cn(
                   'rounded-lg border px-2.5 py-1 text-xs transition-colors',
                   signal === e
-                    ? 'border-kiwi-500 bg-kiwi-50 font-semibold text-kiwi-800'
-                    : 'border-navy-200 text-navy-600 hover:bg-navy-50',
+                    ? 'border-km-green bg-kiwi-50 font-semibold text-km-green'
+                    : 'border-km-line text-km-muted hover:bg-km-bg',
                 )}
               >
                 {e}
@@ -403,11 +403,11 @@ function DialogCreation({ onFermer }: { onFermer: () => void }) {
           <Textarea value={commentaire} onChange={(e) => setCommentaire(e.target.value)} rows={2} placeholder="Le contexte, ce qu'on sait déjà…" />
         </FormField>
 
-        {erreur && <p className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-xs text-red-700">{erreur}</p>}
+        {erreur && <p className="rounded-lg border border-red-200 bg-km-red-soft px-3 py-2 text-xs text-red-700">{erreur}</p>}
 
         {/* On dit CE QUI MANQUE, plutôt que de griser un bouton sans explication. */}
         {!minimumTenu && (
-          <p className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-800">
+          <p className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-km-amber">
             Il manque {!signalDonne && 'le signal'}
             {!signalDonne && !contactId && ' et '}
             {!contactId && 'le contact'} : c'est le minimum pour lancer une opportunité.

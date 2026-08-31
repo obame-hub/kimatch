@@ -123,9 +123,9 @@ function relativeGroupLabel(dateStr: string): { label: string; diffDays: number 
 
 // Pastille pleine par séparateur de date (mesuré pixel pour pixel dans la référence William :
 // #0d7a5f aujourd'hui, #b57a24 à venir, #16181d passé) -- remplace l'ancien "text-[10px]
-// text-navy-400" explicitement signalé trop discret dans le prompt de handoff.
+// text-km-faint" explicitement signalé trop discret dans le prompt de handoff.
 function groupBadgeClass(diffDays: number): string {
-  if (diffDays === 0) return 'bg-kw-green'
+  if (diffDays === 0) return 'bg-km-green'
   if (diffDays > 0) return 'bg-kw-amber'
   return 'bg-kw-ink'
 }
@@ -236,7 +236,7 @@ export function ActivityFeed({
   return (
     <div className="flex h-full min-h-0 flex-col gap-2.5">
       {filterDimension === 'site' && (
-        <div className="flex gap-0.5 rounded-lg bg-navy-100 p-0.5">
+        <div className="flex gap-0.5 rounded-lg bg-km-soft p-0.5">
           {(['site', 'contact'] as const).map((m) => (
             <button
               key={m}
@@ -244,7 +244,7 @@ export function ActivityFeed({
               onClick={() => { setMode(m); setFilterValue(null) }}
               className={cn(
                 'flex-1 rounded-md px-2 py-1 text-[11px] font-semibold transition-colors',
-                mode === m ? 'bg-white text-navy-800 shadow-sm' : 'text-navy-500 hover:text-navy-700',
+                mode === m ? 'bg-white text-km-text shadow-sm' : 'text-km-muted hover:text-km-text',
               )}
             >
               {m === 'site' ? 'Par site' : 'Par contact'}
@@ -260,7 +260,7 @@ export function ActivityFeed({
             onClick={() => setFilterValue(null)}
             className={cn(
               'rounded-full px-2.5 py-1 text-[10.5px] font-semibold',
-              filterValue === null ? 'bg-ink-800 text-white' : 'bg-navy-100 text-navy-600 hover:bg-navy-200',
+              filterValue === null ? 'bg-ink-800 text-white' : 'bg-km-soft text-km-muted hover:bg-km-line',
             )}
           >
             Tous
@@ -272,7 +272,7 @@ export function ActivityFeed({
               onClick={() => setFilterValue(v)}
               className={cn(
                 'rounded-full px-2.5 py-1 text-[10.5px] font-semibold',
-                filterValue === v ? 'bg-ink-800 text-white' : 'bg-navy-100 text-navy-600 hover:bg-navy-200',
+                filterValue === v ? 'bg-ink-800 text-white' : 'bg-km-soft text-km-muted hover:bg-km-line',
               )}
             >
               {v}
@@ -282,7 +282,7 @@ export function ActivityFeed({
       )}
 
       <div className="min-h-0 flex-1 space-y-1.5 overflow-y-auto pr-1">
-        {rows.length === 0 && <p className="text-sm text-navy-400">Aucune activité pour le moment.</p>}
+        {rows.length === 0 && <p className="text-sm text-km-faint">Aucune activité pour le moment.</p>}
         {rows.map((row, idx) =>
           row.type === 'header' ? (
             <div key={`h-${idx}`} className="flex items-center gap-2 pt-2 first:pt-0">
@@ -311,9 +311,9 @@ export function ActivityFeed({
         )}
       </div>
 
-      {actionsRapides && <div className="flex gap-1.5 border-t border-navy-100 pt-2.5">{actionsRapides}</div>}
+      {actionsRapides && <div className="flex gap-1.5 border-t border-km-line pt-2.5">{actionsRapides}</div>}
 
-      <form onSubmit={envoyerNote} className={cn('flex items-start gap-2 pt-2.5', !actionsRapides && 'border-t border-navy-100')}>
+      <form onSubmit={envoyerNote} className={cn('flex items-start gap-2 pt-2.5', !actionsRapides && 'border-t border-km-line')}>
         <Textarea
           rows={2}
           value={note}
@@ -325,7 +325,7 @@ export function ActivityFeed({
           <Send className="h-3.5 w-3.5" />
         </Button>
       </form>
-      {feedback && <p className="text-xs text-navy-500">{feedback}</p>}
+      {feedback && <p className="text-xs text-km-muted">{feedback}</p>}
     </div>
   )
 }

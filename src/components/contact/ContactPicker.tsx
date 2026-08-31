@@ -114,26 +114,26 @@ export function ContactPicker({
         onClick={() => select(contact)}
         className={cn(
           'flex w-full items-center gap-2.5 rounded-md p-2 text-left transition-colors',
-          estSelectionne ? 'bg-kiwi-50 ring-1 ring-kiwi-200' : 'hover:bg-navy-50',
+          estSelectionne ? 'bg-kiwi-50 ring-1 ring-kiwi-200' : 'hover:bg-km-bg',
         )}
       >
-        <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-navy-100 text-[10px] font-bold text-navy-500">
+        <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-km-soft text-[10px] font-bold text-km-muted">
           {initials(contact.prenom, contact.nom)}
         </span>
         <span className="min-w-0 flex-1">
           <span className="flex items-center gap-1.5">
-            <span className="truncate text-xs font-medium text-navy-800">{joinNameParts(contact.prenom, contact.nom)}</span>
+            <span className="truncate text-xs font-medium text-km-text">{joinNameParts(contact.prenom, contact.nom)}</span>
             {montrerCompte && contact.compte_nom && (
               <Badge tone="neutral" className="shrink-0 px-1 py-0 text-[9px] font-normal">{contact.compte_nom}</Badge>
             )}
           </span>
-          <span className="flex items-center gap-1.5 text-[10px] text-navy-400">
+          <span className="flex items-center gap-1.5 text-[10px] text-km-faint">
             {contact.fonction && <span className="truncate">{contact.fonction}</span>}
             {contact.fonction && contact.email && <span>·</span>}
             {contact.email && <span className="truncate">{contact.email}</span>}
           </span>
         </span>
-        {estSelectionne && <Check className="h-3.5 w-3.5 shrink-0 text-kiwi-600" />}
+        {estSelectionne && <Check className="h-3.5 w-3.5 shrink-0 text-km-green" />}
       </button>
     )
   }
@@ -144,16 +144,16 @@ export function ContactPicker({
         type="button"
         onClick={() => setOpen((v) => !v)}
         className={cn(
-          'flex h-auto min-h-9 w-full items-center justify-between rounded-lg border border-navy-200 bg-white px-3 py-2 text-sm font-normal transition-colors hover:bg-navy-50',
-          !selected && 'text-navy-400',
+          'flex h-auto min-h-9 w-full items-center justify-between rounded-lg border border-km-line bg-white px-3 py-2 text-sm font-normal transition-colors hover:bg-km-bg',
+          !selected && 'text-km-faint',
         )}
       >
         {selected ? (
           <span className="flex min-w-0 items-center gap-2">
-            <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-kiwi-600 text-[10px] font-bold text-white">
+            <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-km-green text-[10px] font-bold text-white">
               {initials(selected.prenom, selected.nom)}
             </span>
-            <span className="truncate text-sm text-navy-800">{selected.prenom} {selected.nom}</span>
+            <span className="truncate text-sm text-km-text">{selected.prenom} {selected.nom}</span>
             {isExternal && <Badge tone="neutral" className="shrink-0 px-1.5 py-0 text-[9px]">Externe</Badge>}
           </span>
         ) : (
@@ -162,19 +162,19 @@ export function ContactPicker({
             Sélectionner un responsable…
           </span>
         )}
-        <ChevronDown className="ml-2 h-4 w-4 shrink-0 text-navy-400" />
+        <ChevronDown className="ml-2 h-4 w-4 shrink-0 text-km-faint" />
       </button>
 
       {open && (
-        <div className="absolute left-0 right-0 top-[calc(100%+0.25rem)] z-40 rounded-xl border border-navy-200 bg-white shadow-xl">
+        <div className="absolute left-0 right-0 top-[calc(100%+0.25rem)] z-40 rounded-xl border border-km-line bg-white shadow-xl">
           {!noAccount && (
-            <div className="flex border-b border-navy-100">
+            <div className="flex border-b border-km-line">
               <button
                 type="button"
                 onClick={() => setTab('linked')}
                 className={cn(
                   'flex-1 py-2.5 text-xs font-medium transition-colors',
-                  tab === 'linked' ? 'border-b-2 border-kiwi-600 text-navy-800' : 'text-navy-400 hover:text-navy-700',
+                  tab === 'linked' ? 'border-b-2 border-kiwi-600 text-km-text' : 'text-km-faint hover:text-km-text',
                 )}
               >
                 Contacts du compte
@@ -185,7 +185,7 @@ export function ContactPicker({
                 onClick={() => setTab('global')}
                 className={cn(
                   'flex-1 py-2.5 text-xs font-medium transition-colors',
-                  tab === 'global' ? 'border-b-2 border-kiwi-600 text-navy-800' : 'text-navy-400 hover:text-navy-700',
+                  tab === 'global' ? 'border-b-2 border-kiwi-600 text-km-text' : 'text-km-faint hover:text-km-text',
                 )}
               >
                 <UserPlus className="mr-1 inline h-3 w-3" />
@@ -196,14 +196,14 @@ export function ContactPicker({
 
           <div className="p-2">
             <div className="relative">
-              <Search className="pointer-events-none absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-navy-400" />
+              <Search className="pointer-events-none absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-km-faint" />
               <input
                 autoFocus
                 placeholder={tab === 'linked' ? 'Filtrer les contacts liés…' : 'Rechercher dans tous les contacts…'}
                 value={tab === 'linked' ? linkedSearch : globalSearch}
                 onChange={(e) => (tab === 'linked' ? setLinkedSearch(e.target.value) : setGlobalSearch(e.target.value))}
                 onKeyDown={(e) => { if (e.key === 'Enter') e.preventDefault() }}
-                className="h-8 w-full rounded-lg border border-navy-200 pl-8 pr-2 text-xs text-navy-800 placeholder:text-navy-400 focus:border-kiwi-500 focus:outline-none focus:ring-1 focus:ring-kiwi-500"
+                className="h-8 w-full rounded-lg border border-km-line pl-8 pr-2 text-xs text-km-text placeholder:text-km-faint focus:border-km-green focus:outline-none focus:ring-1 focus:ring-kiwi-500"
               />
             </div>
           </div>
@@ -211,25 +211,25 @@ export function ContactPicker({
           <div className="max-h-[280px] space-y-1 overflow-y-auto px-2 pb-2">
             {tab === 'linked' ? (
               loading ? (
-                <p className="py-6 text-center text-xs text-navy-400">Chargement…</p>
+                <p className="py-6 text-center text-xs text-km-faint">Chargement…</p>
               ) : filteredLinked.length === 0 ? (
-                <p className="py-6 text-center text-xs text-navy-400">
+                <p className="py-6 text-center text-xs text-km-faint">
                   {accountContacts.length === 0 ? 'Aucun contact lié à ce compte' : 'Aucun résultat'}
                 </p>
               ) : (
                 filteredLinked.map((c) => ligne(c))
               )
             ) : globalSearch.trim().length < 2 ? (
-              <p className="py-6 text-center text-xs text-navy-400">Saisissez au moins 2 caractères</p>
+              <p className="py-6 text-center text-xs text-km-faint">Saisissez au moins 2 caractères</p>
             ) : globalResults.length === 0 ? (
-              <p className="py-6 text-center text-xs text-navy-400">Aucun contact trouvé</p>
+              <p className="py-6 text-center text-xs text-km-faint">Aucun contact trouvé</p>
             ) : (
               globalResults.map((c) => ligne(c, true))
             )}
           </div>
 
           {canCreate && (
-            <div className="border-t border-navy-100 p-2">
+            <div className="border-t border-km-line p-2">
               <Button
                 type="button"
                 variant="ghost"
@@ -246,14 +246,14 @@ export function ContactPicker({
       )}
 
       {selected && (
-        <div className="flex items-center gap-2 px-1 text-[11px] text-navy-400">
+        <div className="flex items-center gap-2 px-1 text-[11px] text-km-faint">
           {selected.email && <span className="truncate">✉ {selected.email}</span>}
           {selected.email && (selected.telephone || selected.telephone_mobile) && <span>·</span>}
           {(selected.telephone || selected.telephone_mobile) && <span>☎ {selected.telephone ?? selected.telephone_mobile}</span>}
           <button
             type="button"
             onClick={() => { setDernierChoisi(null); onChange('', null) }}
-            className="ml-auto inline-flex items-center gap-0.5 transition-colors hover:text-red-600"
+            className="ml-auto inline-flex items-center gap-0.5 transition-colors hover:text-km-red"
             aria-label="Retirer le contact"
           >
             <X className="h-3 w-3" /> retirer

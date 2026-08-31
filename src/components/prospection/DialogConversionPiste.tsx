@@ -207,8 +207,8 @@ export function DialogConversionPiste({ piste, onFermer, onValide }: {
                 className={cn(
                   'rounded-lg border px-2.5 py-1 text-xs transition-colors',
                   signal === e
-                    ? 'border-kiwi-500 bg-kiwi-50 font-semibold text-kiwi-800'
-                    : 'border-navy-200 text-navy-600 hover:bg-navy-50',
+                    ? 'border-km-green bg-kiwi-50 font-semibold text-km-green'
+                    : 'border-km-line text-km-muted hover:bg-km-bg',
                 )}
               >
                 {e}
@@ -225,9 +225,9 @@ export function DialogConversionPiste({ piste, onFermer, onValide }: {
         </FormField>
 
         {/* ── LE CONTACT ── */}
-        <div className="rounded-xl border border-navy-100 bg-navy-50/40 p-3">
+        <div className="rounded-xl border border-km-line bg-km-bg/40 p-3">
           <div className="mb-2 flex flex-wrap items-center gap-1.5">
-            <p className="mr-1 text-[10px] font-bold uppercase tracking-wide text-navy-400">Le contact</p>
+            <p className="mr-1 text-[10px] font-bold uppercase tracking-wide text-km-faint">Le contact</p>
             {([
               { cle: 'creer' as const, titre: 'Le créer depuis la piste' },
               { cle: 'rattacher' as const, titre: 'Rattacher un contact existant' },
@@ -238,7 +238,7 @@ export function DialogConversionPiste({ piste, onFermer, onValide }: {
                 onClick={() => setMode(o.cle)}
                 className={cn(
                   'rounded-lg border px-2.5 py-1 text-[11px] font-semibold transition-colors',
-                  mode === o.cle ? 'border-kiwi-500 bg-white text-kiwi-800' : 'border-transparent text-navy-500 hover:bg-white',
+                  mode === o.cle ? 'border-km-green bg-white text-km-green' : 'border-transparent text-km-muted hover:bg-white',
                 )}
               >
                 {o.titre}
@@ -263,7 +263,7 @@ export function DialogConversionPiste({ piste, onFermer, onValide }: {
               {/* Le compte d'abord : un contact appartient à un compte, on ne peut pas le créer sans. */}
               <div>
                 <div className="mb-1.5 flex flex-wrap items-center gap-1.5">
-                  <p className="mr-1 text-[10px] font-bold uppercase tracking-wide text-navy-400">Son compte</p>
+                  <p className="mr-1 text-[10px] font-bold uppercase tracking-wide text-km-faint">Son compte</p>
                   {([
                     { cle: 'creer' as const, titre: 'Le créer' },
                     { cle: 'rattacher' as const, titre: 'En rattacher un existant' },
@@ -274,7 +274,7 @@ export function DialogConversionPiste({ piste, onFermer, onValide }: {
                       onClick={() => setModeCompte(o.cle)}
                       className={cn(
                         'rounded-lg border px-2 py-0.5 text-[11px] font-semibold transition-colors',
-                        modeCompte === o.cle ? 'border-kiwi-500 bg-white text-kiwi-800' : 'border-transparent text-navy-500 hover:bg-white',
+                        modeCompte === o.cle ? 'border-km-green bg-white text-km-green' : 'border-transparent text-km-muted hover:bg-white',
                       )}
                     >
                       {o.titre}
@@ -314,12 +314,12 @@ export function DialogConversionPiste({ piste, onFermer, onValide }: {
                       />
                     ) : entreprise ? (
                       <div className="flex items-start gap-2 rounded-lg border border-kiwi-200 bg-kiwi-50/60 px-3 py-2">
-                        <Building className="mt-0.5 h-3.5 w-3.5 shrink-0 text-kiwi-700" />
+                        <Building className="mt-0.5 h-3.5 w-3.5 shrink-0 text-km-green" />
                         <div className="min-w-0 flex-1">
-                          <p className="truncate text-sm font-medium text-navy-800">
+                          <p className="truncate text-sm font-medium text-km-text">
                             {entreprise.raisonSociale || entreprise.nomComplet}
                           </p>
-                          <p className="truncate text-[11px] text-navy-500">
+                          <p className="truncate text-[11px] text-km-muted">
                             SIREN {entreprise.siren}
                             {entreprise.city && ` · ${entreprise.city}`}
                             {entreprise.libelleApe && ` · ${entreprise.libelleApe}`}
@@ -328,7 +328,7 @@ export function DialogConversionPiste({ piste, onFermer, onValide }: {
                         <button
                           type="button"
                           onClick={() => setEntreprise(null)}
-                          className="shrink-0 text-xs font-semibold text-kiwi-700 hover:underline"
+                          className="shrink-0 text-xs font-semibold text-km-green hover:underline"
                         >
                           changer
                         </button>
@@ -336,7 +336,7 @@ export function DialogConversionPiste({ piste, onFermer, onValide }: {
                     ) : (
                       <div className="space-y-1.5">
                         <div className="relative">
-                          <Search className="pointer-events-none absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-navy-300" />
+                          <Search className="pointer-events-none absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-km-faint" />
                           <Input
                             value={recherche}
                             onChange={(e) => setRecherche(e.target.value)}
@@ -344,30 +344,30 @@ export function DialogConversionPiste({ piste, onFermer, onValide }: {
                             className="pl-8"
                           />
                           {chercheEnCours && (
-                            <Loader2 className="absolute right-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 animate-spin text-navy-300" />
+                            <Loader2 className="absolute right-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 animate-spin text-km-faint" />
                           )}
                         </div>
                         {recherche.trim().length >= 3 && (
-                          <div className="max-h-[152px] overflow-y-auto rounded-lg border border-navy-100 bg-white">
+                          <div className="max-h-[152px] overflow-y-auto rounded-lg border border-km-line bg-white">
                             {resultats.map((r) => (
                               <button
                                 key={r.siret ?? r.siren}
                                 type="button"
                                 onClick={() => setEntreprise(r)}
-                                className="flex w-full items-start gap-2 border-b border-navy-50 px-3 py-2 text-left last:border-b-0 hover:bg-navy-50/60"
+                                className="flex w-full items-start gap-2 border-b border-navy-50 px-3 py-2 text-left last:border-b-0 hover:bg-km-bg/60"
                               >
                                 <span className="min-w-0 flex-1">
-                                  <span className="block truncate text-xs font-semibold text-navy-800">
+                                  <span className="block truncate text-xs font-semibold text-km-text">
                                     {r.raisonSociale || r.nomComplet}
                                   </span>
-                                  <span className="block truncate text-[10.5px] text-navy-400">
+                                  <span className="block truncate text-[10.5px] text-km-faint">
                                     SIREN {r.siren}{r.city && ` · ${r.city}`}
                                   </span>
                                 </span>
                               </button>
                             ))}
                             {!chercheEnCours && resultats.length === 0 && (
-                              <p className="p-3 text-center text-xs text-navy-400">
+                              <p className="p-3 text-center text-xs text-km-faint">
                                 Aucune entreprise trouvée. Un compte sans SIREN n'est possible que
                                 pour un syndic non professionnel.
                               </p>
@@ -395,18 +395,18 @@ export function DialogConversionPiste({ piste, onFermer, onValide }: {
                   <Input value={telephone} onChange={(e) => setTelephone(e.target.value)} />
                 </FormField>
               </div>
-              <p className="text-[10.5px] leading-snug text-navy-400">
-                Créé comme <strong className="font-semibold text-navy-600">Décisionnaire</strong> : la
+              <p className="text-[10.5px] leading-snug text-km-faint">
+                Créé comme <strong className="font-semibold text-km-muted">Décisionnaire</strong> : la
                 piste a été validée « responsable des contrats d'énergie ».
               </p>
             </div>
           )}
         </div>
 
-        {erreur && <p className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-xs text-red-700">{erreur}</p>}
+        {erreur && <p className="rounded-lg border border-red-200 bg-km-red-soft px-3 py-2 text-xs text-red-700">{erreur}</p>}
 
         {!pret && (
-          <p className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-800">
+          <p className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-km-amber">
             Il manque {!signal.trim() && 'le signal'}
             {!signal.trim() && (mode === 'rattacher' ? !contactId : !contactCreable) && ' et '}
             {(mode === 'rattacher' ? !contactId : !contactCreable) && 'le contact'} : c'est le minimum

@@ -35,10 +35,10 @@ function Grandeur({
     <div className="min-w-0">
       <div className="flex items-baseline gap-1.5">
         <span className={'h-1.5 w-1.5 shrink-0 rounded-full ' + couleur} />
-        <span className="truncate text-kw-xs font-bold text-kw-body">{libelle}</span>
-        {precision && <span className="shrink-0 text-kw-micro text-kw-faint">{precision}</span>}
+        <span className="truncate text-km-label font-bold text-km-muted">{libelle}</span>
+        {precision && <span className="shrink-0 text-km-label text-km-faint">{precision}</span>}
       </div>
-      <p className="mt-1 font-mono text-kw-h2 font-extrabold tabular-nums text-kw-ink">{valeur}</p>
+      <p className="mt-1 font-mono text-kw-h2 font-extrabold tabular-nums text-km-text">{valeur}</p>
     </div>
   )
 }
@@ -69,29 +69,29 @@ export function BandeauMarge({
                 simplement « Marge générée » ; en séparant l'échelle de l'équipe de la sienne, il a
                 rendu le mot « globale » nécessaire — sans lui, un commercial lirait ce chiffre
                 comme le sien. */}
-            <p className="text-kw-xs font-bold text-kw-body">Performance globale Kiwee</p>
-            <span className="rounded-kw-md border border-kw-green-border bg-white px-2 py-0.5 text-kw-micro font-bold capitalize text-kw-meta">
+            <p className="text-km-label font-bold text-km-muted">Performance globale Kiwee</p>
+            <span className="rounded-km border border-kw-green-border bg-white px-2 py-0.5 text-km-label font-bold capitalize text-km-muted">
               {mois}
             </span>
           </div>
           <div className="mt-2 flex items-center gap-3">
-            <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-kw-xl bg-kw-green text-white">
+            <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-km-lg bg-km-green text-white">
               <Euro className="h-5 w-5" strokeWidth={2.4} />
             </span>
-            <p className="font-mono text-[27px] font-extrabold leading-none tabular-nums text-kw-ink">
+            <p className="font-mono text-[27px] font-extrabold leading-none tabular-nums text-km-text">
               {chargement || !c ? '—' : euros(c.margeMois)}
             </p>
           </div>
           {/* LA VARIATION SE TAIT QUAND ELLE N'A PAS DE SENS : un mois précédent à zéro ne donne pas
               une hausse « infinie », il donne l'absence de comparaison. */}
-          <p className="mt-2 text-kw-xs text-kw-meta">
+          <p className="mt-2 text-km-label text-km-muted">
             {c && c.variationPct != null ? (
               <>
                 <span
                   className={
                     c.variationPct >= 0
-                      ? 'font-extrabold text-kw-green'
-                      : 'font-extrabold text-kw-red'
+                      ? 'font-extrabold text-km-green'
+                      : 'font-extrabold text-km-red'
                   }
                 >
                   {c.variationPct >= 0 ? '+' : ''}
@@ -121,23 +121,23 @@ export function BandeauMarge({
             <div className="mb-4 border-b border-kw-green-border pb-3.5">
               <div className="flex flex-wrap items-end justify-between gap-2">
                 <div>
-                  <p className="text-kw-xs font-bold text-kw-body">Objectif mensuel</p>
-                  <p className="mt-0.5 font-mono text-kw-h1 font-extrabold tabular-nums text-kw-ink">
+                  <p className="text-km-label font-bold text-km-muted">Objectif mensuel</p>
+                  <p className="mt-0.5 font-mono text-kw-h1 font-extrabold tabular-nums text-km-text">
                     {euros(objectif)}
                   </p>
                 </div>
                 <div className="text-right">
-                  <p className="font-mono text-kw-h1 font-extrabold tabular-nums text-kw-green">
+                  <p className="font-mono text-kw-h1 font-extrabold tabular-nums text-km-green">
                     {c ? Math.round((c.margeMois / objectif) * 100) : 0} %
                   </p>
-                  <p className="text-kw-micro text-kw-faint">atteint</p>
+                  <p className="text-km-label text-km-faint">atteint</p>
                 </div>
               </div>
               {/* La barre se plafonne à 100 % : au-delà, ce qui compte est le pourcentage affiché,
                   pas une barre qui déborderait de son cadre. */}
               <div className="mt-2 h-1.5 overflow-hidden rounded-kw-pill bg-white">
                 <span
-                  className="block h-full bg-kw-green"
+                  className="block h-full bg-km-green"
                   style={{ width: Math.min(100, c ? (c.margeMois / objectif) * 100 : 0) + '%' }}
                 />
               </div>
@@ -146,13 +146,13 @@ export function BandeauMarge({
 
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
             <Grandeur
-              couleur="bg-kw-green"
+              couleur="bg-km-green"
               libelle="Recommandations acceptées"
               precision={c ? `sur ${decidees} décidées` : undefined}
               valeur={chargement || !c ? '—' : String(c.nbAcceptees)}
             />
             <Grandeur
-              couleur="bg-kw-green/40"
+              couleur="bg-km-green/40"
               libelle="Marge moyenne"
               precision="par affaire"
               valeur={chargement || !c || c.margeMoyenne == null ? '—' : euros(c.margeMoyenne)}
@@ -170,16 +170,16 @@ export function BandeauMarge({
           </div>
 
           <div
-            className="mt-4 flex h-1.5 overflow-hidden rounded-kw-pill bg-kw-green/25"
+            className="mt-4 flex h-1.5 overflow-hidden rounded-kw-pill bg-km-green/25"
             title={
               c
                 ? `${c.nbAcceptees} acceptées · ${c.nbRefusees} refusées · ${c.nbAbandonnees} abandonnées`
                 : undefined
             }
           >
-            <span className="bg-kw-green" style={{ width: partAcceptees + '%' }} />
+            <span className="bg-km-green" style={{ width: partAcceptees + '%' }} />
           </div>
-          <p className="mt-1.5 text-kw-micro text-kw-faint">
+          <p className="mt-1.5 text-km-label text-km-faint">
             {c
               ? `${c.nbAcceptees} acceptées, ${c.nbRefusees} refusées, ${c.nbAbandonnees} abandonnées ce mois.`
               : 'Répartition des décisions du mois.'}

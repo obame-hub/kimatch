@@ -153,7 +153,7 @@ export function FriseStatut({ jalons, courant, finalite, teinte = 'opportunite' 
               <p
                 className={cn(
                   'mt-2 text-center text-[11.5px] leading-tight tracking-tight',
-                  etat === 'a_venir' ? 'font-semibold text-[#b6b8b3]' : 'font-extrabold text-navy-800',
+                  etat === 'a_venir' ? 'font-semibold text-[#b6b8b3]' : 'font-extrabold text-km-text',
                 )}
               >
                 {jalon.libelle}
@@ -175,12 +175,12 @@ export function FriseStatut({ jalons, courant, finalite, teinte = 'opportunite' 
             <div
               className={cn(
                 'z-[1] flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-white',
-                finalite.perdue ? 'bg-red-600 shadow-[0_5px_16px_rgba(194,69,45,.35)]' : 'bg-kiwi-600 shadow-[0_5px_16px_rgba(13,122,95,.35)]',
+                finalite.perdue ? 'bg-red-600 shadow-[0_5px_16px_rgba(194,69,45,.35)]' : 'bg-km-green shadow-[0_5px_16px_rgba(13,122,95,.35)]',
               )}
             >
               <Check className="h-4 w-4" strokeWidth={2.6} />
             </div>
-            <p className={cn('mt-2 text-center text-[11.5px] font-extrabold tracking-tight', finalite.perdue ? 'text-red-700' : 'text-kiwi-700')}>
+            <p className={cn('mt-2 text-center text-[11.5px] font-extrabold tracking-tight', finalite.perdue ? 'text-red-700' : 'text-km-green')}>
               {finalite.libelle}
             </p>
           </div>

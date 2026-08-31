@@ -97,15 +97,15 @@ function Ligne({
   fort?: boolean
 }) {
   return (
-    <div className="flex items-baseline gap-3 border-b border-kw-border py-[7px] last:border-b-0 print:py-[5px]">
-      <span className={fort ? 'text-kw-h3 font-bold text-kw-ink' : 'text-kw-h4 text-kw-body'}>{intitule}</span>
-      {sigle && <span className="font-mono text-kw-tiny text-kw-faint">{sigle}</span>}
+    <div className="flex items-baseline gap-3 border-b border-km-line py-[7px] last:border-b-0 print:py-[5px]">
+      <span className={fort ? 'text-km-name font-bold text-km-text' : 'text-km-body text-km-muted'}>{intitule}</span>
+      {sigle && <span className="font-mono text-km-label text-km-faint">{sigle}</span>}
       <span className="flex-1" />
       <span
         className={
           fort
-            ? 'font-mono text-kw-h3 font-extrabold tabular-nums text-kw-ink'
-            : 'font-mono text-kw-h4 font-semibold tabular-nums text-kw-ink'
+            ? 'font-mono text-km-name font-extrabold tabular-nums text-km-text'
+            : 'font-mono text-km-body font-semibold tabular-nums text-km-text'
         }
       >
         {valeur}
@@ -120,13 +120,13 @@ function Ligne({
  * qu'on vient justement d'alléger.
  */
 function Bloc({ children }: { children: ReactNode }) {
-  return <div className="rounded-kw-lg bg-kw-bloc px-3.5 py-3 print:py-2">{children}</div>
+  return <div className="rounded-km-md bg-km-soft px-3.5 py-3 print:py-2">{children}</div>
 }
 
 /** Les intitulés de famille, en vert — « comme rémunération des CEE, je vais mettre taxe ». */
 function Famille({ children }: { children: string }) {
   return (
-    <p className="mb-1 mt-5 text-kw-sm font-extrabold uppercase tracking-[0.1em] text-kw-green first:mt-0">
+    <p className="mb-1 mt-5 text-km-body font-extrabold uppercase tracking-[0.1em] text-km-green first:mt-0">
       {children}
     </p>
   )
@@ -154,7 +154,7 @@ export function ConditionsFournisseurRetenu({
 
   if (!prixGaz || !b) {
     return (
-      <p className="mt-2 rounded-kw-md border border-dashed border-kw-border-strong bg-kw-subtle px-3 py-2.5 text-kw-h4 leading-relaxed text-kw-meta">
+      <p className="mt-2 rounded-km border border-dashed border-km-line bg-km-soft px-3 py-2.5 text-km-body leading-relaxed text-km-muted">
         Le détail du fournisseur retenu n’est pas disponible : il demande les composantes de prix et la
         consommation de référence du point de livraison. Saisissez-les sur l’offre pour que cette page
         reprenne la présentation du fournisseur.
@@ -201,13 +201,13 @@ export function ConditionsFournisseurRetenu({
           l'expliquer. Le contenu, lui, reste calé en haut : c'est le flux normal d'un bloc. */}
       <div className="grid grid-cols-1 items-stretch gap-x-14 gap-y-4 sm:grid-cols-2 print:gap-y-2.5">
         {/* ── Ligne 1 : les deux en-têtes de colonne, hors aplat — ce sont des titres ── */}
-        <p className="border-b-2 border-kw-ink pb-1 text-kw-h2 font-extrabold uppercase tracking-[0.05em] text-kw-ink">Prix détaillé</p>
+        <p className="border-b-2 border-kw-ink pb-1 text-kw-h2 font-extrabold uppercase tracking-[0.05em] text-km-text">Prix détaillé</p>
         <div className="flex flex-wrap items-baseline gap-2 border-b-2 border-kw-ink pb-1">
-          <p className="text-kw-h2 font-extrabold uppercase tracking-[0.05em] text-kw-ink">
+          <p className="text-kw-h2 font-extrabold uppercase tracking-[0.05em] text-km-text">
             Budget annuel indicatif
           </p>
           {/* Le choix se fait ici et ne s'imprime pas : le papier ne porte que la base retenue. */}
-          <span className="flex items-center gap-0.5 rounded-kw-md border border-kw-border-strong bg-white p-0.5 print:hidden">
+          <span className="flex items-center gap-0.5 rounded-km border border-km-line bg-white p-0.5 print:hidden">
             {([
               { cle: 'ttc' as const, libelle: 'TTC' },
               { cle: 'ht' as const, libelle: 'HT' },
@@ -223,8 +223,8 @@ export function ConditionsFournisseurRetenu({
                 }
                 className={
                   base === o.cle
-                    ? 'rounded-kw-sm bg-ink-800 px-2 py-0.5 text-kw-micro font-extrabold text-white'
-                    : 'rounded-kw-sm px-2 py-0.5 text-kw-micro font-bold text-kw-meta hover:bg-kw-subtle'
+                    ? 'rounded-km-sm bg-ink-800 px-2 py-0.5 text-km-label font-extrabold text-white'
+                    : 'rounded-km-sm px-2 py-0.5 text-km-label font-bold text-km-muted hover:bg-km-soft'
                 }
               >
                 {o.libelle}
@@ -283,7 +283,7 @@ export function ConditionsFournisseurRetenu({
               laisserait la gauche vide. Elle disparaît en base hors taxes : la montrer sans la
               compter dans le total serait le meilleur moyen de faire douter du total. */}
           {ttc && (
-            <div className="mt-1.5 border-t-2 border-kw-border-strong pt-1.5">
+            <div className="mt-1.5 border-t-2 border-km-line pt-1.5">
               <Ligne intitule={'TVA (' + pourcent + ')'} valeur={euros(b.tva) + '/an'} />
             </div>
           )}
@@ -291,7 +291,7 @@ export function ConditionsFournisseurRetenu({
       </div>
 
       {/* ══════ CE QUI N'A PAS DE VIS-À-VIS : EN PLEINE LARGEUR, SOUS LES DEUX COLONNES ══════ */}
-      <div className="mt-6 rounded-kw-lg border-2 border-kw-green bg-kw-green-tint px-4 py-3 print:mt-2">
+      <div className="mt-6 rounded-km-md border-2 border-km-green bg-kw-green-tint px-4 py-3 print:mt-2">
         <Ligne
           intitule={ttc ? 'Total TTC' : 'Total hors taxes'}
           valeur={euros(ttc ? b.totalTtc : b.totalHt) + '/an'}
@@ -302,7 +302,7 @@ export function ConditionsFournisseurRetenu({
           valeur={euros(ttc ? b.prixMoyenTtcMwh : b.prixMoyenHtMwh) + (ttc ? ' TTC/MWh' : ' HT/MWh')}
           fort
         />
-        <p className="pt-1.5 text-kw-xs text-kw-meta">
+        <p className="pt-1.5 text-km-label text-km-muted">
           {ttc
             ? 'Y compris abonnement et taxes.'
             : 'Hors TVA, abonnement compris. Un client assujetti la récupère.'}
@@ -312,7 +312,7 @@ export function ConditionsFournisseurRetenu({
       {/* « C'est pas la date à laquelle on a fait la demande de cotation, c'est le DÉBUT DE
           FOURNITURE. » */}
       {debut && (
-        <p className="mt-3 rounded-kw-lg bg-kw-bloc px-3.5 py-2.5 text-kw-h4 font-bold uppercase tracking-[0.05em] text-kw-ink print:mt-2 print:py-1.5">
+        <p className="mt-3 rounded-km-md bg-km-soft px-3.5 py-2.5 text-km-body font-bold uppercase tracking-[0.05em] text-km-text print:mt-2 print:py-1.5">
           Début de fourniture le {dateFr(debut)}
         </p>
       )}
@@ -320,7 +320,7 @@ export function ConditionsFournisseurRetenu({
       {/* UN BUDGET PARTIEL SE DIT. Sans cette mention, un total amputé d'une composante non saisie se
           lirait comme un total complet — et c'est un chiffre que le client compare. */}
       {b.incomplet && (
-        <p className="mt-3 rounded-kw-md border border-dashed border-kw-amber bg-kw-amber-light px-3 py-2 text-kw-xs font-semibold text-kw-amber-dark">
+        <p className="mt-3 rounded-km border border-dashed border-kw-amber bg-km-amber-soft px-3 py-2 text-km-label font-semibold text-km-amber">
           Une ou plusieurs composantes ne sont pas saisies : ce budget est partiel. Les lignes marquées
           « à vérifier » ci-dessus indiquent lesquelles.
         </p>
@@ -334,7 +334,7 @@ export function ConditionsFournisseurRetenu({
 
           Les mentions restent sur le blanc : ce sont les seules lignes qu'on peut ne pas lire, et un
           aplat leur donnerait un poids qu'elles n'ont pas. */}
-      <p className="mt-3 max-w-[95ch] text-kw-xs leading-relaxed text-kw-faint print:mt-2">
+      <p className="mt-3 max-w-[95ch] text-km-label leading-relaxed text-km-faint print:mt-2">
         Montants indicatifs.
         {ttc ? ' TVA appliquée au taux de ' + pourcent + '.' : ' Montants hors TVA.'}
       </p>

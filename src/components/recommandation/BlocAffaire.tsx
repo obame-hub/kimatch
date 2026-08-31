@@ -48,8 +48,8 @@ function euros(n: number): string {
 function Ligne({ libelle, children }: { libelle: string; children: React.ReactNode }) {
   return (
     <div className="flex items-baseline justify-between gap-3 py-1">
-      <span className="text-kw-base text-kw-meta">{libelle}</span>
-      <span className="text-right font-mono text-kw-md font-bold text-kw-ink">{children}</span>
+      <span className="text-km-body text-km-muted">{libelle}</span>
+      <span className="text-right font-mono text-km-body font-bold text-km-text">{children}</span>
     </div>
   )
 }
@@ -62,18 +62,18 @@ function LigneMarge({
     <div
       className={cn(
         'flex items-baseline justify-between gap-3 py-1',
-        total && 'mt-1 border-t border-kw-border pt-2',
+        total && 'mt-1 border-t border-km-line pt-2',
       )}
     >
-      <span className={cn('flex items-baseline gap-1.5 text-kw-base', total ? 'font-semibold text-kw-ink' : 'text-kw-meta')}>
-        {signe && <span className="w-2.5 font-mono text-kw-meta">{signe}</span>}
+      <span className={cn('flex items-baseline gap-1.5 text-km-body', total ? 'font-semibold text-km-text' : 'text-km-muted')}>
+        {signe && <span className="w-2.5 font-mono text-km-muted">{signe}</span>}
         {!signe && <span className="w-2.5" />}
         {libelle}
       </span>
       <span
         className={cn(
           'text-right font-mono font-bold tabular-nums',
-          total ? 'text-kw-lg text-kw-green' : 'text-kw-md text-kw-ink',
+          total ? 'text-km-name text-km-green' : 'text-km-body text-km-text',
         )}
       >
         {euros(montant)}
@@ -117,13 +117,13 @@ export function BlocAffaire({ reco }: { reco: Recommandation }) {
   ].filter(Boolean) as { libelle: string; valeur: string; precision: string | null }[]
 
   return (
-    <div className="rounded-[13px] border border-kw-border bg-white px-[17px] py-3.5">
+    <div className="rounded-[13px] border border-km-line bg-white px-[17px] py-3.5">
       {/* LA MENTION ÉTAIT ÉCRITE EN DUR, donc affirmée sur des dossiers qui ne viennent pas de
           Salesforce. Elle ne s'affiche plus que quand l'origine est vérifiable. */}
       <div className="mb-2 flex items-center gap-2">
-        <span className="text-kw-xs font-bold uppercase tracking-[0.08em] text-kw-faint">L'affaire</span>
+        <span className="text-km-label font-bold uppercase tracking-[0.08em] text-km-faint">L'affaire</span>
         <span className="flex-1" />
-        {reco.id_salesforce && <span className="text-kw-tiny text-kw-faint">repris de Salesforce</span>}
+        {reco.id_salesforce && <span className="text-km-label text-km-faint">repris de Salesforce</span>}
       </div>
 
       <div className="grid grid-cols-1 gap-x-8 sm:grid-cols-2">
@@ -142,7 +142,7 @@ export function BlocAffaire({ reco }: { reco: Recommandation }) {
           {reco.difference_budgetaire != null && (
             <Ligne libelle="Différence annuelle">
               {/* Une différence négative est une BONNE nouvelle pour le client : il paie moins. */}
-              <span className={cn(economise ? 'text-kw-green' : 'text-kw-ink')}>
+              <span className={cn(economise ? 'text-km-green' : 'text-km-text')}>
                 {euros(reco.difference_budgetaire)}
                 {reco.difference_budgetaire_pourcentage != null
                   && ` (${reco.difference_budgetaire_pourcentage.toLocaleString('fr-FR')} %)`}
@@ -162,20 +162,20 @@ export function BlocAffaire({ reco }: { reco: Recommandation }) {
 
           {detail.length > 0 && (
             <details className="group mt-2">
-              <summary className="cursor-pointer list-none text-kw-sm text-kw-meta transition-colors hover:text-kw-ink">
+              <summary className="cursor-pointer list-none text-km-body text-km-muted transition-colors hover:text-km-text">
                 <span className="inline-block w-2.5 font-mono transition-transform group-open:rotate-90">›</span>
                 Détail
               </summary>
               <div className="mt-1 pl-4">
                 {detail.map((d) => (
                   <div key={d.libelle} className="flex items-baseline justify-between gap-3 py-1">
-                    <span className="text-kw-sm text-kw-meta">
+                    <span className="text-km-body text-km-muted">
                       {d.libelle}
                       {d.precision && (
-                        <span className="ml-1.5 font-mono text-kw-tiny text-kw-faint">{d.precision}</span>
+                        <span className="ml-1.5 font-mono text-km-label text-km-faint">{d.precision}</span>
                       )}
                     </span>
-                    <span className="text-right font-mono text-kw-base font-bold tabular-nums text-kw-body">
+                    <span className="text-right font-mono text-km-body font-bold tabular-nums text-km-muted">
                       {d.valeur}
                     </span>
                   </div>

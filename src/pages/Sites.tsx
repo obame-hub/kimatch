@@ -124,18 +124,18 @@ export default function Sites({ sansEntete }: { sansEntete?: boolean }) {
               libelleTous="Tous les sites"
             />
           </ListToolbar>
-          <div className="flex shrink-0 gap-1 rounded-lg border border-navy-200 bg-white p-0.5">
+          <div className="flex shrink-0 gap-1 rounded-lg border border-km-line bg-white p-0.5">
             <button
               type="button"
               onClick={() => setView('liste')}
-              className={cn('flex items-center gap-1.5 rounded-md px-2.5 py-1.5 text-xs font-semibold', view === 'liste' ? 'bg-ink-800 text-white' : 'text-navy-500 ')}
+              className={cn('flex items-center gap-1.5 rounded-md px-2.5 py-1.5 text-xs font-semibold', view === 'liste' ? 'bg-ink-800 text-white' : 'text-km-muted ')}
             >
               <List className="h-3.5 w-3.5" /> Liste
             </button>
             <button
               type="button"
               onClick={() => setView('carte')}
-              className={cn('flex items-center gap-1.5 rounded-md px-2.5 py-1.5 text-xs font-semibold', view === 'carte' ? 'bg-ink-800 text-white' : 'text-navy-500 ')}
+              className={cn('flex items-center gap-1.5 rounded-md px-2.5 py-1.5 text-xs font-semibold', view === 'carte' ? 'bg-ink-800 text-white' : 'text-km-muted ')}
             >
               <MapIcon className="h-3.5 w-3.5" /> Carte
             </button>

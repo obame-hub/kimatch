@@ -483,7 +483,7 @@ export function SaisiePrixDialog({
                       <span className="flex flex-wrap items-center gap-2">
                         <Fleche valeur={moleculePresentee(p0DeClasse(classe), margeVariable, typeMarge)} />
                         <span className="flex items-center gap-1.5">
-                          <span className="text-kw-xs font-bold uppercase tracking-[0.06em] text-kw-faint">
+                          <span className="text-km-label font-bold uppercase tracking-[0.06em] text-km-faint">
                             Capacité
                           </span>
                           <ChampNombre
@@ -511,14 +511,14 @@ export function SaisiePrixDialog({
                     <select
                       value=""
                       onChange={(e) => { if (e.target.value) setClassesEnPlus((l) => [...l, e.target.value]) }}
-                      className="cursor-pointer rounded-kw-xs border border-dashed border-kw-border-strong bg-transparent px-1.5 py-0.5 text-kw-xs font-bold text-kw-meta hover:border-kw-green hover:text-kw-green"
+                      className="cursor-pointer rounded-kw-xs border border-dashed border-km-line bg-transparent px-1.5 py-0.5 text-km-label font-bold text-km-muted hover:border-km-green hover:text-km-green"
                     >
                       <option value="">+ ajouter une classe</option>
                       {ORDRE_CLASSES.filter((c) => !classes.includes(c)).map((c) => (
                         <option key={c} value={c}>{LIBELLE_CLASSE[c] ?? c}</option>
                       ))}
                     </select>
-                    <span className="text-kw-sm text-kw-faint">
+                    <span className="text-km-body text-km-faint">
                       si le fournisseur cote une plage que le compteur ne déclare pas
                     </span>
                   </div>
@@ -633,7 +633,7 @@ export function SaisiePrixDialog({
                   onCommit={(v) => poser('turpe_soutirage_variable_annuel_ht', v)}
                 />
                 {turpeDetaille != null ? (
-                  <p className="rounded-kw-xs bg-kw-amber-light px-2 py-1 text-kw-sm leading-snug text-kw-amber-dark">
+                  <p className="rounded-kw-xs bg-km-amber-soft px-2 py-1 text-km-body leading-snug text-km-amber">
                     TURPE total : {Math.round(turpeDetaille).toLocaleString('fr-FR')} € / an — la somme
                     des quatre parts. Le champ global ci-dessous est ignoré tant qu’elles sont saisies.
                   </p>
@@ -679,15 +679,15 @@ export function SaisiePrixDialog({
           >
             <div className="flex flex-col gap-1.5">
               {recapitulatif.length === 0 ? (
-                <p className="rounded-kw-md border border-dashed border-kw-border-strong bg-kw-subtle px-3 py-2 text-kw-lg text-kw-meta">
+                <p className="rounded-km border border-dashed border-km-line bg-km-soft px-3 py-2 text-km-name text-km-muted">
                   Rien n’a été saisi. Revenez aux étapes précédentes, ou fermez sans enregistrer.
                 </p>
               ) : (
                 recapitulatif.map((r) => (
-                  <div key={r.libelle} className="flex items-baseline gap-2 border-b border-kw-border-faint pb-1">
-                    <span className="min-w-[160px] text-kw-lg text-kw-meta">{r.libelle}</span>
-                    <span className="font-mono text-kw-h4 font-bold tabular-nums">{r.valeur}</span>
-                    {r.note && <span className="text-kw-sm text-kw-faint">{r.note}</span>}
+                  <div key={r.libelle} className="flex items-baseline gap-2 border-b border-km-line pb-1">
+                    <span className="min-w-[160px] text-km-name text-km-muted">{r.libelle}</span>
+                    <span className="font-mono text-km-body font-bold tabular-nums">{r.valeur}</span>
+                    {r.note && <span className="text-km-body text-km-faint">{r.note}</span>}
                   </div>
                 ))
               )}
@@ -713,7 +713,7 @@ export function SaisiePrixDialog({
               onCommit={(v) => poser('consommation_annuelle_reference_mwh', v)}
             />
             {conso == null && (
-              <p className="rounded-kw-xs bg-kw-amber-light px-2 py-1 text-kw-sm leading-snug text-kw-amber-dark">
+              <p className="rounded-kw-xs bg-km-amber-soft px-2 py-1 text-km-body leading-snug text-km-amber">
                 Sans volume, les budgets restent vides. Ils ne valent pas zéro : ils sont inconnus.
               </p>
             )}
@@ -726,14 +726,14 @@ export function SaisiePrixDialog({
             encore vides : il occupe un tiers de la fenêtre pour afficher des tirets. À la
             vérification il devient l'essentiel, puisque c'est lui qui justifie les montants. */}
         <div className={cn(
-          'flex flex-col gap-3 rounded-kw-lg border border-kw-border bg-kw-subtle p-3.5 lg:self-start',
+          'flex flex-col gap-3 rounded-km-md border border-km-line bg-km-soft p-3.5 lg:self-start',
           etape !== derniere && 'hidden',
         )}>
           <div>
-            <span className="text-kw-sm font-bold uppercase tracking-[0.06em] text-kw-faint">
+            <span className="text-km-body font-bold uppercase tracking-[0.06em] text-km-faint">
               Comment le budget se calcule
             </span>
-            <p className="mt-0.5 text-kw-sm leading-snug text-kw-meta">
+            <p className="mt-0.5 text-km-body leading-snug text-km-muted">
               Chaque ligne se met à jour dès que vous tapez. Si un montant vous surprend, la ligne qui
               le précède dit d’où il vient.
             </p>
@@ -749,14 +749,14 @@ export function SaisiePrixDialog({
           <Calcul titre={gaz ? 'Budget contribution' : 'Budget TURPE'} etapes={etapesContribution} />
           {!gaz && <Calcul titre="Budget contribution" etapes={etapesTaxes} />}
 
-          <div className="rounded-kw-md border border-kw-ink bg-white px-2.5 py-2">
+          <div className="rounded-km border border-kw-ink bg-white px-2.5 py-2">
             <div className="flex items-baseline justify-between gap-2">
-              <span className="text-kw-lg font-extrabold">Budget total</span>
-              <span className={`font-mono text-kw-h3 font-extrabold tabular-nums ${budgets.total == null ? 'text-kw-ghost' : 'text-kw-ink'}`}>
+              <span className="text-km-name font-extrabold">Budget total</span>
+              <span className={`font-mono text-km-name font-extrabold tabular-nums ${budgets.total == null ? 'text-km-faint' : 'text-km-text'}`}>
                 {budgets.total == null ? '— €' : `${Math.round(budgets.total).toLocaleString('fr-FR')} €`}
               </span>
             </div>
-            <p className="mt-0.5 text-kw-xs leading-snug text-kw-faint">
+            <p className="mt-0.5 text-km-label leading-snug text-km-faint">
               {gaz
                 ? 'Énergie + abonnement + contributions.'
                 : 'Énergie (abonnement compris) + TURPE + contributions.'}
@@ -766,18 +766,18 @@ export function SaisiePrixDialog({
           {/* La correction manuelle d'un budget existait avant ce formulaire, et elle a un vrai usage :
               un fournisseur annonce parfois un montant global sans détailler ses prix. On la garde,
               repliée, avec l'avertissement qui va avec. */}
-          <div className="border-t border-kw-border-faint pt-2">
+          <div className="border-t border-km-line pt-2">
             {!budgetsForces ? (
               <button
                 type="button"
                 onClick={() => setBudgetsForces(true)}
-                className="text-kw-sm font-bold text-kw-meta underline decoration-dotted hover:text-kw-green"
+                className="text-km-body font-bold text-km-muted underline decoration-dotted hover:text-km-green"
               >
                 Le fournisseur n’a donné qu’un budget global ?
               </button>
             ) : (
               <div className="flex flex-col gap-1.5">
-                <p className="text-kw-sm leading-snug text-kw-meta">
+                <p className="text-km-body leading-snug text-km-muted">
                   Ces montants remplacent le calcul. Ils seront écrasés dès qu’un prix sera saisi.
                 </p>
                 <Champ
@@ -806,8 +806,8 @@ export function SaisiePrixDialog({
           C'est le seul point où l'assistant contraint — Michel veut « qu'ils prennent le temps de
           vérifier l'information », et le seul moyen honnête d'y obliger est de faire passer le bouton
           d'enregistrement par l'écran qui montre ce qu'on écrit. */}
-      <div className="mt-4 flex flex-wrap items-center justify-end gap-2 border-t border-kw-border pt-3">
-        <span className="mr-auto text-kw-sm text-kw-faint">
+      <div className="mt-4 flex flex-wrap items-center justify-end gap-2 border-t border-km-line pt-3">
+        <span className="mr-auto text-km-body text-km-faint">
           {rienDeSaisi
             ? 'Aucune modification'
             : etape === derniere
@@ -817,7 +817,7 @@ export function SaisiePrixDialog({
         <button
           type="button"
           onClick={onFermer}
-          className="rounded-kw-md border border-kw-border-strong bg-white px-3 py-[7px] text-kw-lg font-bold text-kw-label hover:bg-kw-subtle"
+          className="rounded-km border border-km-line bg-white px-3 py-[7px] text-km-name font-bold text-km-muted hover:bg-km-soft"
         >
           Annuler
         </button>
@@ -825,7 +825,7 @@ export function SaisiePrixDialog({
           <button
             type="button"
             onClick={() => setEtape((e) => Math.max(e - 1, 0))}
-            className="rounded-kw-md border border-kw-border-strong bg-white px-3 py-[7px] text-kw-lg font-bold text-kw-label hover:bg-kw-subtle"
+            className="rounded-km border border-km-line bg-white px-3 py-[7px] text-km-name font-bold text-km-muted hover:bg-km-soft"
           >
             ← Précédent
           </button>
@@ -834,7 +834,7 @@ export function SaisiePrixDialog({
           <button
             type="button"
             onClick={() => setEtape((e) => Math.min(e + 1, derniere))}
-            className="rounded-kw-md bg-kw-ink px-3 py-[7px] text-kw-lg font-bold text-white hover:brightness-110"
+            className="rounded-km bg-kw-ink px-3 py-[7px] text-km-name font-bold text-white hover:brightness-110"
           >
             Suivant →
           </button>
@@ -843,7 +843,7 @@ export function SaisiePrixDialog({
             type="button"
             onClick={valider}
             disabled={enCours || rienDeSaisi}
-            className="rounded-kw-md bg-kw-green px-3 py-[7px] text-kw-lg font-bold text-white hover:brightness-95 disabled:opacity-50"
+            className="rounded-km bg-km-green px-3 py-[7px] text-km-name font-bold text-white hover:brightness-95 disabled:opacity-50"
           >
             {enCours ? 'Enregistrement…' : 'Enregistrer les prix'}
           </button>
@@ -903,7 +903,7 @@ function ChoixMarge({ valeur, onChoisir }: {
   ]
   return (
     <div className="flex flex-col gap-1">
-      <div className="inline-flex w-fit rounded-kw-md border border-kw-border-strong bg-white p-0.5">
+      <div className="inline-flex w-fit rounded-km border border-km-line bg-white p-0.5">
         {options.map((o) => (
           <button
             key={o.cle}
@@ -911,15 +911,15 @@ function ChoixMarge({ valeur, onChoisir }: {
             onClick={() => onChoisir(o.cle)}
             className={
               valeur === o.cle
-                ? 'rounded-kw-sm bg-kw-ink px-3 py-1 text-kw-lg font-bold text-white'
-                : 'rounded-kw-sm px-3 py-1 text-kw-lg font-bold text-kw-meta hover:text-kw-ink'
+                ? 'rounded-km-sm bg-kw-ink px-3 py-1 text-km-name font-bold text-white'
+                : 'rounded-km-sm px-3 py-1 text-km-name font-bold text-km-muted hover:text-km-text'
             }
           >
             {o.libelle}
           </button>
         ))}
       </div>
-      <p className="text-kw-sm leading-snug text-kw-faint">
+      <p className="text-km-body leading-snug text-km-faint">
         {valeur === 'VARIABLE'
           ? 'Votre marge s’ajoute au P0 : elle augmente le prix présenté au client.'
           : 'Le fournisseur arrête un montant en euros pour toute la durée du contrat, indépendant du volume et déjà compris dans son P0. Il ne s’ajoute pas au prix : on l’enregistre pour savoir ce que rapporte le dossier.'}
@@ -955,16 +955,16 @@ function Etape({ numero, titre, aide, vigilance, active, children }: {
   return (
     <section className="animate-kw-fade-slide flex flex-col gap-2.5">
       <div className="flex items-baseline gap-2">
-        <span className="flex h-[18px] w-[18px] shrink-0 items-center justify-center rounded-full bg-kw-ink text-kw-xs font-extrabold text-white">
+        <span className="flex h-[18px] w-[18px] shrink-0 items-center justify-center rounded-full bg-kw-ink text-km-label font-extrabold text-white">
           {numero}
         </span>
         <div>
-          <h4 className="text-kw-h3 font-extrabold text-kw-ink">{titre}</h4>
-          <p className="text-kw-sm leading-snug text-kw-meta">{aide}</p>
+          <h4 className="text-km-name font-extrabold text-km-text">{titre}</h4>
+          <p className="text-km-body leading-snug text-km-muted">{aide}</p>
         </div>
       </div>
       {vigilance && (
-        <p className="ml-[26px] rounded-kw-md border border-kw-amber-border bg-kw-amber-light px-2.5 py-1.5 text-kw-sm leading-snug text-kw-amber-dark">
+        <p className="ml-[26px] rounded-km border border-kw-amber-border bg-km-amber-soft px-2.5 py-1.5 text-km-body leading-snug text-km-amber">
           <b>À vérifier</b> — {vigilance}
         </p>
       )}
@@ -980,7 +980,7 @@ function FilEtapes({ etapes, courante, onAller }: {
   onAller: (i: number) => void
 }) {
   return (
-    <div className="mb-4 flex flex-wrap items-center gap-1.5 border-b border-kw-border pb-3">
+    <div className="mb-4 flex flex-wrap items-center gap-1.5 border-b border-km-line pb-3">
       {etapes.map((e, i) => (
         <button
           key={e.titre}
@@ -988,10 +988,10 @@ function FilEtapes({ etapes, courante, onAller }: {
           onClick={() => onAller(i)}
           className={
             i === courante
-              ? 'flex items-center gap-1.5 rounded-kw-md bg-kw-ink px-2.5 py-1 text-kw-sm font-bold text-white'
+              ? 'flex items-center gap-1.5 rounded-km bg-kw-ink px-2.5 py-1 text-km-body font-bold text-white'
               : i < courante
-                ? 'flex items-center gap-1.5 rounded-kw-md bg-kw-green-light px-2.5 py-1 text-kw-sm font-bold text-kw-green hover:brightness-95'
-                : 'flex items-center gap-1.5 rounded-kw-md bg-kw-muted px-2.5 py-1 text-kw-sm font-bold text-kw-faint hover:text-kw-meta'
+                ? 'flex items-center gap-1.5 rounded-km bg-km-green-soft px-2.5 py-1 text-km-body font-bold text-km-green hover:brightness-95'
+                : 'flex items-center gap-1.5 rounded-km bg-km-soft px-2.5 py-1 text-km-body font-bold text-km-faint hover:text-km-muted'
           }
         >
           <span className="font-mono">{i < courante ? '✓' : i + 1}</span>
@@ -1015,7 +1015,7 @@ function Champ({ libelle, aide, unite, valeur, onCommit, apres, compact }: {
   return (
     <div className="flex flex-col gap-0.5">
       <div className="flex flex-wrap items-center gap-2">
-        <label className={`${compact ? 'min-w-[92px]' : 'min-w-[132px]'} text-kw-lg font-semibold text-kw-label`}>
+        <label className={`${compact ? 'min-w-[92px]' : 'min-w-[132px]'} text-km-name font-semibold text-km-muted`}>
           {libelle}
         </label>
         <ChampNombre
@@ -1031,7 +1031,7 @@ function Champ({ libelle, aide, unite, valeur, onCommit, apres, compact }: {
         {apres}
       </div>
       {aide && !compact && (
-        <p className={`${compact ? '' : 'ml-[140px]'} text-kw-sm leading-snug text-kw-faint`}>{aide}</p>
+        <p className={`${compact ? '' : 'ml-[140px]'} text-km-body leading-snug text-km-faint`}>{aide}</p>
       )}
     </div>
   )
@@ -1072,13 +1072,13 @@ function Deduit({ libelle, calcul, valeur, unite }: {
   unite: string
 }) {
   return (
-    <div className="flex flex-wrap items-baseline gap-2 rounded-kw-md border border-kw-green-border bg-kw-green-tint px-2.5 py-1.5">
-      <span className="min-w-[132px] text-kw-lg font-bold text-kw-green">{libelle}</span>
-      <span className="font-mono text-kw-sm text-kw-meta">{calcul} =</span>
-      <span className={`font-mono text-[22px] font-extrabold leading-none tabular-nums ${valeur == null ? 'text-kw-ghost' : 'text-kw-green'}`}>
+    <div className="flex flex-wrap items-baseline gap-2 rounded-km border border-kw-green-border bg-kw-green-tint px-2.5 py-1.5">
+      <span className="min-w-[132px] text-km-name font-bold text-km-green">{libelle}</span>
+      <span className="font-mono text-km-body text-km-muted">{calcul} =</span>
+      <span className={`font-mono text-[22px] font-extrabold leading-none tabular-nums ${valeur == null ? 'text-km-faint' : 'text-km-green'}`}>
         {fmt(valeur)}
       </span>
-      <span className="text-kw-sm font-semibold text-kw-green">{unite}</span>
+      <span className="text-km-body font-semibold text-km-green">{unite}</span>
     </div>
   )
 }
@@ -1094,13 +1094,13 @@ function Deduit({ libelle, calcul, valeur, unite }: {
 function Fleche({ valeur }: { valeur: number | null }) {
   return (
     <span className="inline-flex items-baseline gap-1.5 rounded-kw-xs bg-kw-green-tint px-2 py-0.5">
-      <span className="text-kw-xs font-bold uppercase tracking-[0.08em] text-kw-green">
+      <span className="text-km-label font-bold uppercase tracking-[0.08em] text-km-green">
         Prix client
       </span>
-      <span className={`font-mono text-kw-h3 font-extrabold tabular-nums ${valeur == null ? 'text-kw-ghost' : 'text-kw-green'}`}>
+      <span className={`font-mono text-km-name font-extrabold tabular-nums ${valeur == null ? 'text-km-faint' : 'text-km-green'}`}>
         {fmt(valeur)}
       </span>
-      <span className="text-kw-sm font-semibold text-kw-green">€/MWh</span>
+      <span className="text-km-body font-semibold text-km-green">€/MWh</span>
     </span>
   )
 }
@@ -1109,19 +1109,19 @@ function Fleche({ valeur }: { valeur: number | null }) {
 function Calcul({ titre, etapes }: { titre: string; etapes: Etape[] }) {
   return (
     <div className="flex flex-col gap-0.5">
-      <span className="text-kw-sm font-bold text-kw-label">{titre}</span>
+      <span className="text-km-body font-bold text-km-muted">{titre}</span>
       <div className="flex flex-col">
         {etapes.map((e, i) => (
           <div
             key={`${e.libelle}-${i}`}
-            className={`flex items-baseline gap-1.5 ${e.palier ? 'mt-0.5 border-t border-kw-border-faint pt-0.5' : ''}`}
+            className={`flex items-baseline gap-1.5 ${e.palier ? 'mt-0.5 border-t border-km-line pt-0.5' : ''}`}
           >
-            <span className="w-3 shrink-0 font-mono text-kw-sm text-kw-faint">{e.operateur ?? ''}</span>
-            <span className={`min-w-0 flex-1 truncate text-kw-sm ${e.palier ? 'font-bold text-kw-ink' : 'text-kw-meta'}`}>
+            <span className="w-3 shrink-0 font-mono text-km-body text-km-faint">{e.operateur ?? ''}</span>
+            <span className={`min-w-0 flex-1 truncate text-km-body ${e.palier ? 'font-bold text-km-text' : 'text-km-muted'}`}>
               {e.libelle}
             </span>
             <span
-              className={`shrink-0 font-mono tabular-nums ${e.valeur == null ? 'text-kw-ghost' : 'text-kw-ink'} ${e.palier ? 'text-kw-lg font-extrabold' : 'text-kw-sm'}`}
+              className={`shrink-0 font-mono tabular-nums ${e.valeur == null ? 'text-km-faint' : 'text-km-text'} ${e.palier ? 'text-km-name font-extrabold' : 'text-km-body'}`}
             >
               {fmt(e.valeur)} {e.unite}
             </span>

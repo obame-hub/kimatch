@@ -67,24 +67,24 @@ export default function Dashboard() {
         {/* ══════ L'EN-TÊTE ══════ */}
         <div className="flex flex-wrap items-start gap-4">
           <div className="mr-auto min-w-0">
-            <p className="text-kw-xs font-extrabold uppercase tracking-[0.09em] text-kw-meta">
+            <p className="text-km-label font-extrabold uppercase tracking-[0.09em] text-km-muted">
               {dateDuJour}
             </p>
-            <h1 className="mt-1.5 font-display text-kw-display font-extrabold tracking-[-0.02em] text-kw-ink">
+            <h1 className="mt-1.5 font-display text-kw-display font-extrabold tracking-[-0.02em] text-km-text">
               Bonjour{monProfil?.prenom ? ` ${monProfil.prenom}` : ''},
             </h1>
             {/* « VOS INDICATEURS » DEVIENT « LES INDICATEURS DE L'ÉQUIPE » : les chiffres ne sont pas
                 filtrés sur l'utilisateur, parce que tous les commerciaux voient tous les comptes
                 (Naoëlle, 14/08/2026, non négociable). Écrire « vos » ferait croire à un portefeuille
                 personnel. Seule « Ma journée » est bien personnelle. */}
-            <p className="mt-1 text-kw-sm text-kw-meta">
+            <p className="mt-1 text-km-body text-km-muted">
               Voici les indicateurs de l’équipe et vos actions du jour.
             </p>
           </div>
           <button
             type="button"
             onClick={() => navigate('/opportunites?nouveau=1')}
-            className="inline-flex shrink-0 items-center gap-1.5 rounded-kw-xl bg-kw-green px-4 py-2.5 text-kw-sm font-bold text-white shadow-kw-green transition-[filter] hover:brightness-95"
+            className="inline-flex shrink-0 items-center gap-1.5 rounded-km-lg bg-km-green px-4 py-2.5 text-km-body font-bold text-white shadow-kw-green transition-[filter] hover:brightness-95"
           >
             <Plus className="h-4 w-4" strokeWidth={2.6} />
             Nouvelle opportunité
@@ -129,7 +129,7 @@ export default function Dashboard() {
         <div className="mt-4 grid grid-cols-1 gap-3.5 sm:grid-cols-2 xl:grid-cols-4">
           <TuileChiffre
             icone={Zap}
-            teinte="bg-kw-amber-light text-kw-amber"
+            teinte="bg-km-amber-soft text-km-amber"
             badge={chiffres ? `${chiffres.signauxRecents} cette semaine` : null}
             valeur={nombre(chiffres?.signauxATraiter)}
             libelle="Signaux à traiter"
@@ -138,7 +138,7 @@ export default function Dashboard() {
           />
           <TuileChiffre
             icone={Diamond}
-            teinte="bg-sky-50 text-kw-blue"
+            teinte="bg-sky-50 text-km-blue"
             badge={chiffres ? `+${chiffres.opportunitesRecentes} cette semaine` : null}
             valeur={nombre(chiffres?.opportunitesActives)}
             libelle="Opportunités actives"
@@ -147,7 +147,7 @@ export default function Dashboard() {
           />
           <TuileChiffre
             icone={CheckSquare}
-            teinte="bg-kw-green-light text-kw-green"
+            teinte="bg-km-green-soft text-km-green"
             badge={chiffres ? `${chiffres.recosAPresenter} à présenter` : null}
             valeur={nombre(chiffres?.recosOuvertes)}
             libelle="Recommandations"
@@ -156,7 +156,7 @@ export default function Dashboard() {
           />
           <TuileChiffre
             icone={TrendingUp}
-            teinte="bg-kw-green-light text-kw-green"
+            teinte="bg-km-green-soft text-km-green"
             badge={chiffres ? `${chiffres.pipeRenseigne}/${chiffres.recosOuvertes} chiffrées` : null}
             valeur={
               chiffresEnCours || !chiffres

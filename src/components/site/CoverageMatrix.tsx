@@ -31,10 +31,10 @@ export function CoverageMatrix({
   const mandatActif = mandat?.statut === 'ACTIF'
 
   return (
-    <div className="overflow-x-auto rounded-xl border border-navy-100 bg-white">
-      <div className="flex items-center justify-between border-b border-navy-100 px-4 py-3">
-        <span className="text-xs font-semibold uppercase tracking-wide text-navy-400">Matrice de couverture</span>
-        <div className="flex items-center gap-2 text-xs text-navy-500">
+    <div className="overflow-x-auto rounded-xl border border-km-line bg-white">
+      <div className="flex items-center justify-between border-b border-km-line px-4 py-3">
+        <span className="text-xs font-semibold uppercase tracking-wide text-km-faint">Matrice de couverture</span>
+        <div className="flex items-center gap-2 text-xs text-km-muted">
           <span>Mandat du site :</span>
           {mandat ? (
             <Badge tone={mandatActif ? 'kiwi' : 'amber'}>{mandat.statut}</Badge>
@@ -46,7 +46,7 @@ export function CoverageMatrix({
 
       <table className="w-full text-sm">
         <thead>
-          <tr className="border-b border-navy-100 text-left text-xs uppercase tracking-wide text-navy-400">
+          <tr className="border-b border-km-line text-left text-xs uppercase tracking-wide text-km-faint">
             <th className="px-4 py-2 font-medium">Compteur</th>
             <th className="px-4 py-2 font-medium">Contrat</th>
             <th className="px-4 py-2 font-medium">Échéance</th>
@@ -89,29 +89,29 @@ export function CoverageMatrix({
             return (
               <tr key={compteur.id} className="border-b border-navy-50 last:border-0">
                 <td className="px-4 py-2">
-                  <button className="font-medium text-navy-800 hover:underline" onClick={() => navigate(`/compteurs/${compteur.id}`)}>
+                  <button className="font-medium text-km-text hover:underline" onClick={() => navigate(`/compteurs/${compteur.id}`)}>
                     {compteur.utilisation || compteur.numero_pdl}
                   </button>
                 </td>
-                <td className="px-4 py-2 text-navy-600">
+                <td className="px-4 py-2 text-km-muted">
                   {contratActif ? (
                     <button className="hover:underline" onClick={() => navigate(`/contrats/${contratActif.id}`)}>
                       {contratActif.fournisseur_nom}
                     </button>
                   ) : (
-                    <span className="text-navy-400">Aucun contrat</span>
+                    <span className="text-km-faint">Aucun contrat</span>
                   )}
                 </td>
-                <td className="px-4 py-2 text-navy-600">
+                <td className="px-4 py-2 text-km-muted">
                   {contratActif?.date_fin ? new Date(contratActif.date_fin).toLocaleDateString('fr-FR') : '—'}
                 </td>
                 <td className="px-4 py-2">
                   {recoCouvrante ? (
-                    <button className="text-navy-600 hover:underline" onClick={() => navigate(`/recommandations/${recoCouvrante.id}`)}>
+                    <button className="text-km-muted hover:underline" onClick={() => navigate(`/recommandations/${recoCouvrante.id}`)}>
                       {recoCouvrante.titre}
                     </button>
                   ) : (
-                    <span className="text-navy-400">—</span>
+                    <span className="text-km-faint">—</span>
                   )}
                 </td>
                 <td className="px-4 py-2">

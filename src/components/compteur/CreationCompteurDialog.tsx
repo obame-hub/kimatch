@@ -235,7 +235,7 @@ export function CreationCompteurDialog({
       )}
 
       {!compte && !compteImpose && (
-        <p className="mt-2 text-[11px] text-navy-400">
+        <p className="mt-2 text-[11px] text-km-faint">
           Choisis d'abord le compte : le site et son point de livraison lui seront rattachés.
         </p>
       )}
@@ -251,7 +251,7 @@ export function CreationCompteurDialog({
           autoOpen={methode === 'extraction'}
         />
         {champsFacture && (
-          <p className="flex items-start gap-1.5 text-[11px] text-kiwi-700">
+          <p className="flex items-start gap-1.5 text-[11px] text-km-green">
             <CheckCircle2 className="mt-0.5 h-3 w-3 shrink-0" />
             Facture analysée — les champs reconnus sont pré-remplis ci-dessous. Vérifie-les.
           </p>
@@ -281,7 +281,7 @@ export function CreationCompteurDialog({
               Complète les champs marqués d'une astérisque : ils alimentent l'éligibilité fournisseur lors de la cotation.
             </p>
           )}
-          <div className="flex justify-end gap-2 border-t border-navy-100 pt-3">
+          <div className="flex justify-end gap-2 border-t border-km-line pt-3">
             <Button type="button" variant="ghost" onClick={() => { reset(); onClose() }}>Fermer</Button>
             <Button type="submit" disabled={submitting || draftsIncomplets || drafts.every((d) => d.status === 'saved')}>
               {drafts.length > 1 ? `Créer les ${drafts.length} PDL` : 'Créer le PDL'}

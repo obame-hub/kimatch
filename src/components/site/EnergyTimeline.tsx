@@ -35,11 +35,11 @@ export function EnergyTimeline({ compteurs, contrats }: { compteurs: Compteur[];
   for (let y = startYear; y <= endYear; y++) years.push(y)
 
   return (
-    <div className="rounded-xl border border-navy-100 bg-white p-4">
+    <div className="rounded-xl border border-km-line bg-white p-4">
       <div className="mb-3 flex items-center gap-3">
-        <span className="text-xs font-semibold uppercase tracking-wide text-navy-400">Frise énergétique</span>
+        <span className="text-xs font-semibold uppercase tracking-wide text-km-faint">Frise énergétique</span>
         <div className="flex-1" />
-        <div className="flex items-center gap-3 text-[10px] text-navy-400">
+        <div className="flex items-center gap-3 text-[10px] text-km-faint">
           <span className="flex items-center gap-1"><span className="h-2 w-2 rounded-sm" style={{ background: STATUT_COLOR.ACTIF }} /> actif</span>
           <span className="flex items-center gap-1"><span className="h-2 w-2 rounded-sm" style={{ background: STATUT_COLOR.A_RENOUVELER }} /> à renouveler</span>
           <span className="flex items-center gap-1"><span className="h-2 w-2 rounded-sm" style={{ background: STATUT_COLOR.EXPIRE }} /> expiré</span>
@@ -78,11 +78,11 @@ export function EnergyTimeline({ compteurs, contrats }: { compteurs: Compteur[];
                   >
                     <Icon className="h-3 w-3" />
                   </span>
-                  <span className="truncate text-xs font-semibold text-navy-800">{compteur.utilisation || compteur.numero_pdl}</span>
+                  <span className="truncate text-xs font-semibold text-km-text">{compteur.utilisation || compteur.numero_pdl}</span>
                 </div>
-                <div className="relative h-6 rounded bg-navy-50">
+                <div className="relative h-6 rounded bg-km-bg">
                   {contratsDuCompteur.length === 0 && (
-                    <span className="absolute inset-0 flex items-center px-2 text-[10px] text-navy-400">Aucun contrat</span>
+                    <span className="absolute inset-0 flex items-center px-2 text-[10px] text-km-faint">Aucun contrat</span>
                   )}
                   {contratsDuCompteur.map((c) => {
                     const left = pct(toTime(c.date_debut, rangeStart))
@@ -108,7 +108,7 @@ export function EnergyTimeline({ compteurs, contrats }: { compteurs: Compteur[];
 
         <div className="mt-2 grid grid-cols-[130px_1fr]">
           <div />
-          <div className="flex justify-between border-t border-navy-100 pt-1.5 font-mono text-[9px] text-navy-400">
+          <div className="flex justify-between border-t border-km-line pt-1.5 font-mono text-[9px] text-km-faint">
             {years.map((y) => <span key={y}>{y}</span>)}
           </div>
         </div>

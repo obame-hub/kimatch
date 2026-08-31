@@ -242,8 +242,8 @@ export function ContratWizard({
       <Dialog open={open} onClose={onClose} title="Demande de contrat" description={reco.titre}>
         <div className="flex flex-col items-center gap-3 py-10 text-center">
           <AlertTriangle className="h-8 w-8 text-amber-500" />
-          <p className="font-medium text-navy-800">Aucun point de livraison</p>
-          <p className="max-w-sm text-sm text-navy-500">
+          <p className="font-medium text-km-text">Aucun point de livraison</p>
+          <p className="max-w-sm text-sm text-km-muted">
             Aucun point de livraison n'est rattaché à cette opportunité. Impossible de créer une demande de contrat.
           </p>
         </div>
@@ -270,13 +270,13 @@ export function ContratWizard({
               <div key={label} className="flex flex-1 items-center gap-2">
                 <span className={cn(
                   'flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-xs font-semibold transition-colors',
-                  fait && 'bg-kiwi-600 text-white',
-                  actif && 'bg-kiwi-50 text-kiwi-700 ring-2 ring-kiwi-300',
-                  !actif && !fait && 'bg-navy-100 text-navy-400',
+                  fait && 'bg-km-green text-white',
+                  actif && 'bg-kiwi-50 text-km-green ring-2 ring-kiwi-300',
+                  !actif && !fait && 'bg-km-soft text-km-faint',
                 )}>
                   {fait ? <Check className="h-4 w-4" /> : idx}
                 </span>
-                <span className={cn('hidden truncate text-xs font-medium sm:inline', actif ? 'text-navy-800' : 'text-navy-400')}>{label}</span>
+                <span className={cn('hidden truncate text-xs font-medium sm:inline', actif ? 'text-km-text' : 'text-km-faint')}>{label}</span>
               </div>
             )
           })}
@@ -286,15 +286,15 @@ export function ContratWizard({
         {etape === 1 && (
           <div className="space-y-3">
             <div>
-              <h3 className="font-display text-base font-semibold text-navy-900">Chez quel fournisseur signer ?</h3>
-              <p className="mt-0.5 text-sm text-navy-500">
+              <h3 className="font-display text-base font-semibold text-km-text">Chez quel fournisseur signer ?</h3>
+              <p className="mt-0.5 text-sm text-km-muted">
                 {fournisseursConsultes.length === 1
                   ? 'Un seul fournisseur a été consulté — sélection automatique.'
                   : 'Fournisseurs consultés lors de la cotation.'}
               </p>
             </div>
             <div className="relative">
-              <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-navy-400" />
+              <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-km-faint" />
               <Input
                 value={rechercheFournisseur}
                 onChange={(e) => setRechercheFournisseur(e.target.value)}
@@ -308,7 +308,7 @@ export function ContratWizard({
                 if (list.length === 0) return null
                 return (
                   <div key={zone}>
-                    <p className="mb-1.5 text-[11px] font-semibold uppercase tracking-wide text-navy-400">
+                    <p className="mb-1.5 text-[11px] font-semibold uppercase tracking-wide text-km-faint">
                       {ZONE_LABEL_CONTRAT[zone] ?? 'Autre'}
                     </p>
                     <div className="grid gap-2 sm:grid-cols-2">
@@ -319,7 +319,7 @@ export function ContratWizard({
                           onClick={() => { setFournisseurId(f.id); setEtape(2) }}
                           className={cn(
                             'rounded-xl border-2 p-3 text-left text-sm transition-all hover:-translate-y-0.5 hover:shadow-sm',
-                            fournisseurId === f.id ? 'border-kiwi-500 bg-kiwi-50 font-semibold text-kiwi-700' : 'border-navy-200 hover:border-kiwi-300',
+                            fournisseurId === f.id ? 'border-km-green bg-kiwi-50 font-semibold text-km-green' : 'border-km-line hover:border-kiwi-300',
                           )}
                         >
                           {f.nom}
@@ -330,7 +330,7 @@ export function ContratWizard({
                 )
               })}
               {fournisseursFiltres.length === 0 && (
-                <p className="text-xs text-navy-400">Aucun fournisseur ne correspond à la recherche.</p>
+                <p className="text-xs text-km-faint">Aucun fournisseur ne correspond à la recherche.</p>
               )}
             </div>
           </div>
@@ -340,28 +340,28 @@ export function ContratWizard({
         {etape === 2 && (
           <div className="space-y-4">
             <div>
-              <h3 className="font-display text-base font-semibold text-navy-900">Dates & durée du contrat</h3>
-              <p className="mt-0.5 text-sm text-navy-500">La date de fin est calculée automatiquement.</p>
+              <h3 className="font-display text-base font-semibold text-km-text">Dates & durée du contrat</h3>
+              <p className="mt-0.5 text-sm text-km-muted">La date de fin est calculée automatiquement.</p>
             </div>
             <FormField label="Date de réception souhaitée" required>
               <Input type="date" value={dateReception} onChange={(e) => setDateReception(e.target.value)} />
               {receptionInvalide ? (
                 <p className="mt-1 text-xs text-amber-700">{receptionInvalide}</p>
               ) : (
-                <p className="mt-1 text-xs text-navy-400">Jour ouvré, hors week-ends et jours fériés.</p>
+                <p className="mt-1 text-xs text-km-faint">Jour ouvré, hors week-ends et jours fériés.</p>
               )}
             </FormField>
             <div className="grid grid-cols-2 gap-3">
               <FormField label="Date de début" required>
                 <Input type="date" value={dateDebut} onChange={(e) => setDateDebut(e.target.value)} />
-                {pdls.length === 1 && <p className="mt-1 text-xs text-navy-400">Préremplie à l'échéance du PDL + 1 jour.</p>}
+                {pdls.length === 1 && <p className="mt-1 text-xs text-km-faint">Préremplie à l'échéance du PDL + 1 jour.</p>}
               </FormField>
               <FormField label="Durée (mois)" required>
                 <Input type="number" min={1} value={dureeMois} onChange={(e) => setDureeMois(e.target.value)} />
               </FormField>
             </div>
-            <div className="rounded-lg border border-navy-100 bg-navy-50 px-3 py-2 text-xs text-navy-500">
-              Date de fin (calculée) : <span className="font-medium text-navy-700">{dateFin ? new Date(dateFin).toLocaleDateString('fr-FR') : '—'}</span>
+            <div className="rounded-lg border border-km-line bg-km-bg px-3 py-2 text-xs text-km-muted">
+              Date de fin (calculée) : <span className="font-medium text-km-text">{dateFin ? new Date(dateFin).toLocaleDateString('fr-FR') : '—'}</span>
             </div>
             {dejaSousContrat.length > 0 && (
               <p className="flex items-start gap-1.5 rounded-lg border border-amber-200 bg-amber-50 p-2.5 text-xs text-amber-900">
@@ -376,8 +376,8 @@ export function ContratWizard({
         {etape === 3 && (
           <div className="space-y-4">
             <div>
-              <h3 className="font-display text-base font-semibold text-navy-900">Préférences contractuelles</h3>
-              <p className="mt-0.5 text-sm text-navy-500">Type de prix, clause et stratégie tarifaire.</p>
+              <h3 className="font-display text-base font-semibold text-km-text">Préférences contractuelles</h3>
+              <p className="mt-0.5 text-sm text-km-muted">Type de prix, clause et stratégie tarifaire.</p>
             </div>
             <div>
               <Label>Type de prix <span className="text-red-500">*</span></Label>
@@ -389,7 +389,7 @@ export function ContratWizard({
                     onClick={() => setTypePrix(o)}
                     className={cn(
                       'rounded-lg border px-4 py-2 text-sm font-medium transition-colors',
-                      typePrix === o ? 'border-kiwi-500 bg-kiwi-50 text-kiwi-700' : 'border-navy-200 hover:border-kiwi-300',
+                      typePrix === o ? 'border-km-green bg-kiwi-50 text-km-green' : 'border-km-line hover:border-kiwi-300',
                     )}
                   >
                     {o}
@@ -401,15 +401,15 @@ export function ContratWizard({
             {/* Un seul mécanisme de renégociation, et uniquement chez les fournisseurs qui la
                 proposent -- Tools en a deux qui se chevauchent, on ne reproduit pas la confusion. */}
             {renegociationProposee ? (
-              <label className="flex items-center justify-between gap-3 rounded-lg border border-navy-200 p-3">
+              <label className="flex items-center justify-between gap-3 rounded-lg border border-km-line p-3">
                 <span>
-                  <span className="block text-sm font-medium text-navy-800">Renégociation anticipée</span>
-                  <span className="mt-0.5 block text-xs text-navy-500">Proposée par {fournisseur?.nom}.</span>
+                  <span className="block text-sm font-medium text-km-text">Renégociation anticipée</span>
+                  <span className="mt-0.5 block text-xs text-km-muted">Proposée par {fournisseur?.nom}.</span>
                 </span>
                 <input type="checkbox" checked={renegociation} onChange={(e) => setRenegociation(e.target.checked)} />
               </label>
             ) : (
-              <p className="rounded-lg border border-navy-100 bg-navy-50 p-3 text-xs text-navy-500">
+              <p className="rounded-lg border border-km-line bg-km-bg p-3 text-xs text-km-muted">
                 {fournisseur?.nom} ne propose pas de clause de renégociation anticipée — seuls {FOURNISSEURS_RENEGOCIATION.join(' et ')} le font.
               </p>
             )}
@@ -422,11 +422,11 @@ export function ContratWizard({
                   onClick={() => setStrategie('marge_fixe')}
                   className={cn(
                     'rounded-xl border-2 p-3 text-left transition-all',
-                    strategie === 'marge_fixe' ? 'border-kiwi-500 bg-kiwi-50' : 'border-navy-200 hover:border-kiwi-300',
+                    strategie === 'marge_fixe' ? 'border-km-green bg-kiwi-50' : 'border-km-line hover:border-kiwi-300',
                   )}
                 >
-                  <span className="flex items-center gap-2 text-sm font-semibold text-navy-800"><Coins className="h-4 w-4 text-kiwi-700" /> Marge fixe</span>
-                  <span className="mt-1 block text-xs text-navy-500">Marge en €/MWh</span>
+                  <span className="flex items-center gap-2 text-sm font-semibold text-km-text"><Coins className="h-4 w-4 text-km-green" /> Marge fixe</span>
+                  <span className="mt-1 block text-xs text-km-muted">Marge en €/MWh</span>
                 </button>
                 <button
                   type="button"
@@ -435,11 +435,11 @@ export function ContratWizard({
                   className={cn(
                     'rounded-xl border-2 p-3 text-left transition-all',
                     typePrix !== 'Fixe' && 'cursor-not-allowed opacity-50',
-                    strategie === 'prix_cible' ? 'border-kiwi-500 bg-kiwi-50' : 'border-navy-200 hover:border-kiwi-300',
+                    strategie === 'prix_cible' ? 'border-km-green bg-kiwi-50' : 'border-km-line hover:border-kiwi-300',
                   )}
                 >
-                  <span className="flex items-center gap-2 text-sm font-semibold text-navy-800"><Target className="h-4 w-4 text-kiwi-700" /> Prix cible</span>
-                  <span className="mt-1 block text-xs text-navy-500">
+                  <span className="flex items-center gap-2 text-sm font-semibold text-km-text"><Target className="h-4 w-4 text-km-green" /> Prix cible</span>
+                  <span className="mt-1 block text-xs text-km-muted">
                     {typePrix === 'Fixe' ? 'Prix cible en €/MWh' : 'Disponible uniquement pour un prix « Fixe »'}
                   </span>
                 </button>
@@ -455,8 +455,8 @@ export function ContratWizard({
         {etape === 4 && (
           <div className="space-y-4">
             <div>
-              <h3 className="font-display text-base font-semibold text-navy-900">Signataire du contrat</h3>
-              <p className="mt-0.5 text-sm text-navy-500">Prérempli avec le contact décisionnaire de la recommandation.</p>
+              <h3 className="font-display text-base font-semibold text-km-text">Signataire du contrat</h3>
+              <p className="mt-0.5 text-sm text-km-muted">Prérempli avec le contact décisionnaire de la recommandation.</p>
             </div>
             <ContactPicker
               value={contactId}
@@ -467,18 +467,18 @@ export function ContratWizard({
               accountNom={reco.compte_nom}
               segment={compteCible?.segment}
             />
-            <div className="rounded-lg border border-navy-100 bg-navy-50 p-3 text-xs text-navy-600">
-              <p><span className="text-navy-400">Fournisseur :</span> <span className="font-medium">{fournisseur?.nom}</span></p>
-              <p className="mt-0.5"><span className="text-navy-400">Période :</span> <span className="font-medium">{dateDebut ? new Date(dateDebut).toLocaleDateString('fr-FR') : '—'} → {dateFin ? new Date(dateFin).toLocaleDateString('fr-FR') : '—'}</span> ({dureeMois} mois)</p>
-              <p className="mt-0.5"><span className="text-navy-400">Prix :</span> <span className="font-medium">{typePrix}</span> · {strategie === 'prix_cible' ? 'prix cible' : 'marge'} {montant} €/MWh</p>
-              <p className="mt-0.5"><span className="text-navy-400">Périmètre :</span> <span className="font-medium">{pdls.length} PDL</span></p>
+            <div className="rounded-lg border border-km-line bg-km-bg p-3 text-xs text-km-muted">
+              <p><span className="text-km-faint">Fournisseur :</span> <span className="font-medium">{fournisseur?.nom}</span></p>
+              <p className="mt-0.5"><span className="text-km-faint">Période :</span> <span className="font-medium">{dateDebut ? new Date(dateDebut).toLocaleDateString('fr-FR') : '—'} → {dateFin ? new Date(dateFin).toLocaleDateString('fr-FR') : '—'}</span> ({dureeMois} mois)</p>
+              <p className="mt-0.5"><span className="text-km-faint">Prix :</span> <span className="font-medium">{typePrix}</span> · {strategie === 'prix_cible' ? 'prix cible' : 'marge'} {montant} €/MWh</p>
+              <p className="mt-0.5"><span className="text-km-faint">Périmètre :</span> <span className="font-medium">{pdls.length} PDL</span></p>
             </div>
           </div>
         )}
 
-        {feedback && <p className="text-xs text-navy-500">{feedback}</p>}
+        {feedback && <p className="text-xs text-km-muted">{feedback}</p>}
 
-        <div className="flex items-center justify-between gap-2 border-t border-navy-100 pt-3">
+        <div className="flex items-center justify-between gap-2 border-t border-km-line pt-3">
           <Button type="button" variant="ghost" onClick={() => (etape === 1 ? (reset(), onClose()) : setEtape((e) => e - 1))}>
             {etape === 1 ? 'Annuler' : <><ChevronLeft className="h-4 w-4" /> Précédent</>}
           </Button>
@@ -494,7 +494,7 @@ export function ContratWizard({
         </div>
 
         {etape === 1 && fournisseursConsultes.length === 1 && (
-          <p className="text-center text-[11px] text-navy-400">
+          <p className="text-center text-[11px] text-km-faint">
             <Badge tone="neutral" className="mr-1">Choix unique</Badge>
             Sélection automatique — utilise « Précédent » depuis l'étape suivante pour revenir.
           </p>

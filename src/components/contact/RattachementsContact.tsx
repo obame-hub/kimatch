@@ -131,7 +131,7 @@ export function RattachementsContact({
           {rattachements.map((lien) => (
             <div
               key={lien.id}
-              className="flex items-center gap-3 rounded-xl border border-navy-100 bg-white p-3.5 transition-colors hover:bg-navy-50/60"
+              className="flex items-center gap-3 rounded-xl border border-km-line bg-white p-3.5 transition-colors hover:bg-km-bg/60"
             >
               <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-[10px] bg-[#e9eff6] text-[#3b5f8a]">
                 <Building2 className="h-4 w-4" />
@@ -141,8 +141,8 @@ export function RattachementsContact({
                 onClick={() => navigate(`/comptes/${lien.id}`)}
                 className="min-w-0 flex-1 text-left"
               >
-                <p className="truncate text-sm font-bold text-navy-800">{lien.nom}</p>
-                <p className="truncate text-[10.5px] text-navy-400">
+                <p className="truncate text-sm font-bold text-km-text">{lien.nom}</p>
+                <p className="truncate text-[10.5px] text-km-faint">
                   {lien.relation_directe ? 'Compte de rattachement principal' : 'Intervient sur ce compte'}
                 </p>
               </button>
@@ -156,7 +156,7 @@ export function RattachementsContact({
                     type="button"
                     onClick={() => setADelier({ id: lien.id, nom: lien.nom })}
                     title="Retirer ce rattachement"
-                    className="shrink-0 rounded-md p-1.5 text-navy-300 transition-colors hover:bg-red-50 hover:text-red-600"
+                    className="shrink-0 rounded-md p-1.5 text-km-faint transition-colors hover:bg-km-red-soft hover:text-km-red"
                   >
                     <Unlink className="h-3.5 w-3.5" />
                   </button>
@@ -178,25 +178,25 @@ export function RattachementsContact({
         </div>
 
         {nbSites === 0 ? (
-          <p className="text-sm text-navy-400">Aucun site sur les comptes de ce contact.</p>
+          <p className="text-sm text-km-faint">Aucun site sur les comptes de ce contact.</p>
         ) : (
           <div className="flex flex-col gap-3">
             {sitesParCompte.map(([cle, groupe]) => (
               <div key={cle}>
-                <div className="mb-1 text-[10.5px] font-semibold text-navy-500">{groupe.compte}</div>
+                <div className="mb-1 text-[10.5px] font-semibold text-km-muted">{groupe.compte}</div>
                 <div className="flex flex-col gap-1.5">
                   {groupe.sites.map((s) => (
                     <div
                       key={s.id}
                       onClick={() => navigate(`/sites/${s.id}`)}
-                      className="flex cursor-pointer items-center gap-3 rounded-xl border border-navy-100 bg-white p-3 transition-colors hover:bg-navy-50/60"
+                      className="flex cursor-pointer items-center gap-3 rounded-xl border border-km-line bg-white p-3 transition-colors hover:bg-km-bg/60"
                     >
-                      <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-[9px] bg-kiwi-100 text-kiwi-600">
+                      <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-[9px] bg-km-green-soft text-km-green">
                         <MapPin className="h-3.5 w-3.5" />
                       </span>
                       <div className="min-w-0 flex-1">
-                        <p className="truncate text-sm font-bold text-navy-800">{s.nom}</p>
-                        {s.fonction && <p className="truncate text-[10.5px] text-navy-400">{s.fonction}</p>}
+                        <p className="truncate text-sm font-bold text-km-text">{s.nom}</p>
+                        {s.fonction && <p className="truncate text-[10.5px] text-km-faint">{s.fonction}</p>}
                       </div>
                       {s.nbCompteurs > 0 && (
                         <span
@@ -318,7 +318,7 @@ function DialogRattacher({
           </Select>
         </FormField>
         {!q && candidats.length > 50 && (
-          <p className="text-[10.5px] text-navy-400">
+          <p className="text-[10.5px] text-km-faint">
             50 comptes sur {candidats.length} affichés — précisez la recherche pour trouver le bon.
           </p>
         )}

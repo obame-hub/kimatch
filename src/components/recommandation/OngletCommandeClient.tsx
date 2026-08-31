@@ -94,15 +94,15 @@ export function OngletCommandeClient({
   return (
     <div className="flex animate-kw-fade-slide flex-col gap-3.5">
       {/* ── CONTEXTE DE LA DEMANDE ── */}
-      <div className="rounded-[13px] border border-kw-border bg-white px-[18px] py-3.5">
+      <div className="rounded-[13px] border border-km-line bg-white px-[18px] py-3.5">
         <div className="mb-[11px] flex flex-wrap items-center gap-2">
-          <span className="text-kw-xs font-bold uppercase tracking-[0.08em] text-kw-faint">Contexte de la demande</span>
+          <span className="text-km-label font-bold uppercase tracking-[0.08em] text-km-faint">Contexte de la demande</span>
           <span className="flex-1" />
-          <span className="text-kw-xs text-kw-meta">
-            demande du <b className="font-mono text-kw-ink">{new Date(reco.date_creation).toLocaleDateString('fr-FR')}</b>
+          <span className="text-km-label text-km-muted">
+            demande du <b className="font-mono text-km-text">{new Date(reco.date_creation).toLocaleDateString('fr-FR')}</b>
           </span>
           {reco.conseiller && (
-            <span className="text-kw-xs text-kw-meta">
+            <span className="text-km-label text-km-muted">
               prise par <b className="font-semibold text-kw-purple">{reco.conseiller}</b>
             </span>
           )}
@@ -114,18 +114,18 @@ export function OngletCommandeClient({
           readOnly={!peutModifier}
           placeholder="Consigner la demande du client telle qu'exprimée…"
           className={cn(
-            'min-h-[84px] w-full resize-y rounded-kw-xl border border-kw-border bg-kw-subtle px-[13px] py-[11px] text-kw-lg leading-[1.6] text-kw-ink outline-none placeholder:text-kw-faint',
+            'min-h-[84px] w-full resize-y rounded-km-lg border border-km-line bg-km-soft px-[13px] py-[11px] text-km-name leading-[1.6] text-km-text outline-none placeholder:text-km-faint',
             peutModifier && 'focus:border-[#8a4b2a] focus:bg-white focus:ring-[3px] focus:ring-[#b0763c]/10',
           )}
         />
       </div>
 
       {/* ── OBJECTIFS DU CLIENT ── */}
-      <div className="rounded-[13px] border border-kw-border bg-white px-[18px] py-3.5">
+      <div className="rounded-[13px] border border-km-line bg-white px-[18px] py-3.5">
         <div className="mb-3 flex flex-wrap items-center gap-2">
-          <span className="text-kw-xs font-bold uppercase tracking-[0.08em] text-kw-faint">Objectifs du client</span>
+          <span className="text-km-label font-bold uppercase tracking-[0.08em] text-km-faint">Objectifs du client</span>
           <span className="flex-1" />
-          <span className="flex items-center gap-[11px] text-[9.5px] text-kw-meta">
+          <span className="flex items-center gap-[11px] text-[9.5px] text-km-muted">
             <span className="flex items-center gap-1">
               <span className="h-[11px] w-[11px] rounded-kw-xs" style={{ background: DEGRADE_OR }} />
               prioritaire
@@ -138,7 +138,7 @@ export function OngletCommandeClient({
         </div>
 
         {chips.length === 0 ? (
-          <p className="text-kw-base text-kw-faint">
+          <p className="text-km-body text-km-faint">
             La liste des objectifs n'est pas chargée (table <span className="font-mono">types_objectifs_client</span>).
           </p>
         ) : (
@@ -151,12 +151,12 @@ export function OngletCommandeClient({
                 <span
                   key={t.id}
                   className={cn(
-                    'inline-flex items-center gap-2 rounded-kw-xl',
+                    'inline-flex items-center gap-2 rounded-km-lg',
                     prio
-                      ? 'px-[15px] py-2.5 text-kw-xl font-extrabold text-white shadow-[0_4px_12px_rgba(176,118,60,.32)]'
+                      ? 'px-[15px] py-2.5 text-km-name font-extrabold text-white shadow-[0_4px_12px_rgba(176,118,60,.32)]'
                       : coche
-                        ? 'border-[1.5px] border-[#dcc39c] bg-white px-[13px] py-2 text-kw-md font-bold text-[#8a5f22]'
-                        : 'border border-kw-border-subtle bg-kw-subtle px-[13px] py-2 text-kw-md font-semibold text-kw-faint',
+                        ? 'border-[1.5px] border-[#dcc39c] bg-white px-[13px] py-2 text-km-body font-bold text-[#8a5f22]'
+                        : 'border border-kw-border-subtle bg-km-soft px-[13px] py-2 text-km-body font-semibold text-km-faint',
                   )}
                   style={prio ? { background: DEGRADE_OR } : undefined}
                 >
@@ -199,7 +199,7 @@ export function OngletCommandeClient({
         )}
 
         {(objectifs ?? []).length > 0 && !prioritaire && (
-          <p className="mt-2.5 text-kw-tiny text-kw-faint">
+          <p className="mt-2.5 text-km-label text-km-faint">
             Aucun objectif prioritaire désigné — l'étoile en signale un seul, celui qui décide de la
             stratégie.
           </p>

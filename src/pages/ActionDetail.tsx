@@ -74,13 +74,13 @@ export default function ActionDetail() {
         </Button>
 
         {!action ? (
-          <p className="text-sm text-navy-500">Tâche introuvable.</p>
+          <p className="text-sm text-km-muted">Tâche introuvable.</p>
         ) : (
           <Card className="max-w-xl p-6">
             <CardHeader className="px-0 pt-0">
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-3">
-                  <span className="flex h-10 w-10 items-center justify-center rounded-lg bg-amber-100 text-amber-600">
+                  <span className="flex h-10 w-10 items-center justify-center rounded-lg bg-km-amber-soft text-amber-600">
                     <CheckSquare className="h-5 w-5" />
                   </span>
                   <CardTitle className="font-display text-base">{action.titre}</CardTitle>
@@ -102,14 +102,14 @@ export default function ActionDetail() {
               </div>
             </CardHeader>
             <CardContent className="px-0 space-y-3 text-sm">
-              <p><span className="text-navy-400">Type :</span> {action.type_action}</p>
-              <p><span className="text-navy-400">Créée le :</span> {new Date(action.date_creation).toLocaleDateString('fr-FR')}</p>
-              {action.responsable && <p><span className="text-navy-400">Responsable :</span> {action.responsable}</p>}
+              <p><span className="text-km-faint">Type :</span> {action.type_action}</p>
+              <p><span className="text-km-faint">Créée le :</span> {new Date(action.date_creation).toLocaleDateString('fr-FR')}</p>
+              {action.responsable && <p><span className="text-km-faint">Responsable :</span> {action.responsable}</p>}
               {action.date_realisation && (
-                <p><span className="text-navy-400">Terminée le :</span> {new Date(action.date_realisation).toLocaleDateString('fr-FR')}</p>
+                <p><span className="text-km-faint">Terminée le :</span> {new Date(action.date_realisation).toLocaleDateString('fr-FR')}</p>
               )}
               {action.recommandation_id && (
-                <p><span className="text-navy-400">Recommandation liée :</span> <EntityLink to={`/recommandations/${action.recommandation_id}`}>{action.recommandation_titre}</EntityLink></p>
+                <p><span className="text-km-faint">Recommandation liée :</span> <EntityLink to={`/recommandations/${action.recommandation_id}`}>{action.recommandation_titre}</EntityLink></p>
               )}
 
               {/* Edition en place. Une tache est l'objet qu'on retouche le plus souvent -- une
@@ -182,18 +182,18 @@ export default function ActionDetail() {
                 </div>
               ) : (
                 <>
-                  <p><span className="text-navy-400">Priorité :</span> {action.priorite}</p>
+                  <p><span className="text-km-faint">Priorité :</span> {action.priorite}</p>
                   <p>
-                    <span className="text-navy-400">Échéance :</span>{' '}
+                    <span className="text-km-faint">Échéance :</span>{' '}
                     {action.echeance ? new Date(action.echeance).toLocaleDateString('fr-FR') : '—'}
                   </p>
                   {action.site_id && (
-                    <p><span className="text-navy-400">Site :</span> <EntityLink to={`/sites/${action.site_id}`}>{action.cible_label}</EntityLink></p>
+                    <p><span className="text-km-faint">Site :</span> <EntityLink to={`/sites/${action.site_id}`}>{action.cible_label}</EntityLink></p>
                   )}
                   {action.contact_id && (
-                    <p><span className="text-navy-400">Contact :</span> <EntityLink to={`/contacts/${action.contact_id}`}>{action.contact_nom}</EntityLink></p>
+                    <p><span className="text-km-faint">Contact :</span> <EntityLink to={`/contacts/${action.contact_id}`}>{action.contact_nom}</EntityLink></p>
                   )}
-                  {action.commentaire && <p className="text-navy-600">{action.commentaire}</p>}
+                  {action.commentaire && <p className="text-km-muted">{action.commentaire}</p>}
                 </>
               )}
 
@@ -220,11 +220,11 @@ export default function ActionDetail() {
             description="Cette action est irréversible."
           >
             {suppression.erreur && (
-              <p className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-xs text-red-700">{suppression.erreur}</p>
+              <p className="rounded-lg border border-red-200 bg-km-red-soft px-3 py-2 text-xs text-red-700">{suppression.erreur}</p>
             )}
             <div className="flex justify-end gap-2 pt-2">
               <Button type="button" variant="ghost" onClick={() => { suppression.reinitialiser(); setConfirmDelete(false) }}>Annuler</Button>
-              <Button type="button" variant="outline" className="border-red-200 text-red-600 hover:bg-red-50" disabled={suppression.enCours} onClick={handleDelete}>
+              <Button type="button" variant="outline" className="border-red-200 text-km-red hover:bg-km-red-soft" disabled={suppression.enCours} onClick={handleDelete}>
                 {suppression.enCours ? 'Suppression…' : 'Supprimer définitivement'}
               </Button>
             </div>

@@ -294,9 +294,9 @@ export function MandatWizard({
                 <span
                   className={cn(
                     'flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-[11px] font-bold transition-colors',
-                    faite && 'bg-kiwi-600 text-white',
-                    courante && 'bg-kiwi-600 text-white ring-4 ring-kiwi-600/20',
-                    !faite && !courante && 'bg-navy-100 text-navy-400',
+                    faite && 'bg-km-green text-white',
+                    courante && 'bg-km-green text-white ring-4 ring-kiwi-600/20',
+                    !faite && !courante && 'bg-km-soft text-km-faint',
                   )}
                 >
                   {faite ? <Check className="h-3.5 w-3.5" /> : numero}
@@ -304,33 +304,33 @@ export function MandatWizard({
                 <span
                   className={cn(
                     'whitespace-nowrap text-xs font-semibold',
-                    courante ? 'text-navy-800' : 'hidden text-navy-400 sm:inline',
+                    courante ? 'text-km-text' : 'hidden text-km-faint sm:inline',
                   )}
                 >
                   {e.libelle}
                 </span>
               </button>
-              {numero < ETAPES.length && <span className="mx-1.5 h-px w-4 bg-navy-100 sm:w-8" />}
+              {numero < ETAPES.length && <span className="mx-1.5 h-px w-4 bg-km-soft sm:w-8" />}
             </div>
           )
         })}
       </div>
 
-      <div className="text-center text-xs text-navy-500">
-        Compte : <span className="font-bold text-navy-800">{compte?.nom ?? '—'}</span>
+      <div className="text-center text-xs text-km-muted">
+        Compte : <span className="font-bold text-km-text">{compte?.nom ?? '—'}</span>
       </div>
 
       {/* ── Étape 1 · Contact ─────────────────────────────────────────────────────────────── */}
       {etape === 1 && (
         <div className="flex flex-col gap-3">
           <div className="text-center">
-            <p className="text-base font-bold text-navy-800">Qui est le signataire ?</p>
-            <p className="text-xs text-navy-400">Sélectionnez le contact lié au compte</p>
+            <p className="text-base font-bold text-km-text">Qui est le signataire ?</p>
+            <p className="text-xs text-km-faint">Sélectionnez le contact lié au compte</p>
           </div>
 
           {contactsDuCompte.length > 4 && (
-            <div className="flex items-center gap-2 rounded-lg border border-navy-200 px-3 py-2">
-              <Search className="h-3.5 w-3.5 shrink-0 text-navy-400" />
+            <div className="flex items-center gap-2 rounded-lg border border-km-line px-3 py-2">
+              <Search className="h-3.5 w-3.5 shrink-0 text-km-faint" />
               <input
                 value={rechercheContact}
                 onChange={(e) => setRechercheContact(e.target.value)}
@@ -350,24 +350,24 @@ export function MandatWizard({
                   'flex items-start gap-2.5 rounded-xl border p-3 text-left transition-colors',
                   contactId === c.id
                     ? 'border-kiwi-600 bg-kiwi-50 ring-1 ring-kiwi-600'
-                    : 'border-navy-100 bg-white hover:bg-navy-50/60',
+                    : 'border-km-line bg-white hover:bg-km-bg/60',
                 )}
               >
-                <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-navy-100 text-[11px] font-bold text-navy-600">
+                <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-km-soft text-[11px] font-bold text-km-muted">
                   {`${c.prenom?.[0] ?? ''}${c.nom?.[0] ?? ''}`.toUpperCase()}
                 </span>
                 <span className="min-w-0 flex-1">
-                  <span className="block truncate text-sm font-bold text-navy-800">
+                  <span className="block truncate text-sm font-bold text-km-text">
                     {c.prenom} {c.nom}
                   </span>
-                  {c.fonction && <span className="block truncate text-[11px] text-navy-400">{c.fonction}</span>}
+                  {c.fonction && <span className="block truncate text-[11px] text-km-faint">{c.fonction}</span>}
                   {c.email && (
-                    <span className="mt-1 flex items-center gap-1 truncate text-[10.5px] text-navy-500">
+                    <span className="mt-1 flex items-center gap-1 truncate text-[10.5px] text-km-muted">
                       <Mail className="h-2.5 w-2.5 shrink-0" /> {c.email}
                     </span>
                   )}
                   {c.telephone && (
-                    <span className="flex items-center gap-1 truncate text-[10.5px] text-navy-500">
+                    <span className="flex items-center gap-1 truncate text-[10.5px] text-km-muted">
                       <Phone className="h-2.5 w-2.5 shrink-0" /> {c.telephone}
                     </span>
                   )}
@@ -383,7 +383,7 @@ export function MandatWizard({
 
           {contactsDuCompte.length === 0 && (
             <div className="rounded-xl border border-dashed border-amber-300 bg-amber-50 p-4 text-center">
-              <p className="text-xs font-semibold text-amber-800">Aucun contact sur ce compte</p>
+              <p className="text-xs font-semibold text-km-amber">Aucun contact sur ce compte</p>
               <p className="mt-1 text-[11px] text-amber-700">
                 Un mandat doit être signé par quelqu’un : créez d’abord un contact.
               </p>
@@ -394,7 +394,7 @@ export function MandatWizard({
             <button
               type="button"
               onClick={onClose}
-              className="flex items-center justify-center gap-1.5 rounded-lg border border-dashed border-navy-200 py-2.5 text-xs font-semibold text-navy-500 transition-colors hover:bg-navy-50"
+              className="flex items-center justify-center gap-1.5 rounded-lg border border-dashed border-km-line py-2.5 text-xs font-semibold text-km-muted transition-colors hover:bg-km-bg"
             >
               <UserPlus className="h-3.5 w-3.5" /> Créer un nouveau contact
             </button>
@@ -406,16 +406,16 @@ export function MandatWizard({
       {etape === 2 && (
         <div className="flex flex-col gap-3">
           <div className="text-center">
-            <p className="text-base font-bold text-navy-800">Quels points de livraison ?</p>
-            <p className="text-xs text-navy-400">
+            <p className="text-base font-bold text-km-text">Quels points de livraison ?</p>
+            <p className="text-xs text-km-faint">
               {compteurIds.length} sélectionné{compteurIds.length > 1 ? 's' : ''} sur {compteursAffiches.length} affiché
               {compteursAffiches.length > 1 ? 's' : ''}
             </p>
           </div>
 
           <div className="flex flex-wrap items-center gap-1.5">
-            <div className="flex flex-1 items-center gap-2 rounded-lg border border-navy-200 px-3 py-2">
-              <Search className="h-3.5 w-3.5 shrink-0 text-navy-400" />
+            <div className="flex flex-1 items-center gap-2 rounded-lg border border-km-line px-3 py-2">
+              <Search className="h-3.5 w-3.5 shrink-0 text-km-faint" />
               <input
                 value={recherchePdl}
                 onChange={(e) => setRecherchePdl(e.target.value)}
@@ -441,7 +441,7 @@ export function MandatWizard({
                   'rounded-lg border px-2.5 py-1 text-[11px] font-semibold transition-colors',
                   filtresEnergie.includes(e)
                     ? 'border-navy-800 bg-navy-800 text-white'
-                    : 'border-navy-200 bg-white text-navy-500',
+                    : 'border-km-line bg-white text-km-muted',
                 )}
               >
                 {e === 'electricite' ? 'Électricité' : 'Gaz'}
@@ -463,26 +463,26 @@ export function MandatWizard({
                   'rounded-lg border px-2.5 py-1 text-[11px] font-semibold transition-colors',
                   filtresEcheance.includes(cle)
                     ? 'border-navy-800 bg-navy-800 text-white'
-                    : 'border-navy-200 bg-white text-navy-500',
+                    : 'border-km-line bg-white text-km-muted',
                 )}
               >
                 {libelle}
               </button>
             ))}
-            <label className="ml-auto flex cursor-pointer items-center gap-1.5 text-[11px] text-navy-500">
+            <label className="ml-auto flex cursor-pointer items-center gap-1.5 text-[11px] text-km-muted">
               <input type="checkbox" checked={montrerActifs} onChange={(e) => setMontrerActifs(e.target.checked)} />
               Afficher ceux déjà sous mandat actif
             </label>
           </div>
 
-          <div className="max-h-[320px] overflow-y-auto rounded-xl border border-navy-100">
+          <div className="max-h-[320px] overflow-y-auto rounded-xl border border-km-line">
             {compteursAffiches.map((c) => {
               const site = sitesDuCompte.find((s) => s.id === c.site_id)
               const bucket = bucketEcheance(c.date_echeance)
               return (
                 <label
                   key={c.id}
-                  className="flex cursor-pointer items-center gap-3 border-b border-navy-50 px-3 py-2.5 last:border-b-0 hover:bg-navy-50/60"
+                  className="flex cursor-pointer items-center gap-3 border-b border-navy-50 px-3 py-2.5 last:border-b-0 hover:bg-km-bg/60"
                 >
                   <input
                     type="checkbox"
@@ -491,21 +491,21 @@ export function MandatWizard({
                     className="shrink-0"
                   />
                   <span className="min-w-0 flex-1">
-                    <span className="block truncate text-xs font-semibold text-navy-800">
+                    <span className="block truncate text-xs font-semibold text-km-text">
                       {c.utilisation || site?.nom || 'Compteur'}
                     </span>
-                    <span className="block truncate font-mono text-[10.5px] text-navy-400">{c.numero_pdl}</span>
+                    <span className="block truncate font-mono text-[10.5px] text-km-faint">{c.numero_pdl}</span>
                   </span>
-                  <span className="shrink-0 rounded bg-navy-50 px-1.5 py-0.5 text-[10px] font-semibold text-navy-500">
+                  <span className="shrink-0 rounded bg-km-bg px-1.5 py-0.5 text-[10px] font-semibold text-km-muted">
                     {c.type_energie === 'gaz' ? 'Gaz' : 'Élec'}
                   </span>
                   {c.date_echeance && (
                     <span
                       className={cn(
                         'shrink-0 font-mono text-[10px] font-bold',
-                        bucket === 'expiree' && 'text-red-600',
+                        bucket === 'expiree' && 'text-km-red',
                         bucket === 'proche' && 'text-amber-700',
-                        bucket === 'lointaine' && 'text-navy-400',
+                        bucket === 'lointaine' && 'text-km-faint',
                       )}
                     >
                       {new Date(c.date_echeance).toLocaleDateString('fr-FR', { month: '2-digit', year: '2-digit' })}
@@ -515,7 +515,7 @@ export function MandatWizard({
               )
             })}
             {compteursAffiches.length === 0 && (
-              <p className="p-4 text-center text-xs text-navy-400">
+              <p className="p-4 text-center text-xs text-km-faint">
                 {compteursEligibles.length === 0
                   ? 'Tous les points de livraison de ce compte sont déjà couverts par un mandat actif.'
                   : 'Aucun point de livraison ne correspond aux filtres.'}
@@ -529,8 +529,8 @@ export function MandatWizard({
       {etape === 3 && (
         <div className="flex flex-col gap-3">
           <div className="text-center">
-            <p className="text-base font-bold text-navy-800">Quelle durée ?</p>
-            <p className="text-xs text-navy-400">Durée de validité du mandat</p>
+            <p className="text-base font-bold text-km-text">Quelle durée ?</p>
+            <p className="text-xs text-km-faint">Durée de validité du mandat</p>
           </div>
           <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
             {DUREES.map((d) => (
@@ -542,12 +542,12 @@ export function MandatWizard({
                   'flex flex-col items-center gap-0.5 rounded-xl border py-4 transition-colors',
                   dureeMois === d
                     ? 'border-kiwi-600 bg-kiwi-50 ring-1 ring-kiwi-600'
-                    : 'border-navy-100 bg-white hover:bg-navy-50/60',
+                    : 'border-km-line bg-white hover:bg-km-bg/60',
                 )}
               >
-                <span className="font-mono text-xl font-bold text-navy-800">{d}</span>
-                <span className="text-[11px] text-navy-400">mois</span>
-                {d === DUREE_DEFAUT && <span className="text-[9.5px] font-bold uppercase text-kiwi-700">habituel</span>}
+                <span className="font-mono text-xl font-bold text-km-text">{d}</span>
+                <span className="text-[11px] text-km-faint">mois</span>
+                {d === DUREE_DEFAUT && <span className="text-[9.5px] font-bold uppercase text-km-green">habituel</span>}
               </button>
             ))}
           </div>
@@ -558,23 +558,23 @@ export function MandatWizard({
       {etape === 4 && (
         <div className="flex flex-col gap-3">
           <div className="text-center">
-            <p className="text-base font-bold text-navy-800">Quel type de mandat ?</p>
-            <p className="text-xs text-navy-400">Le mandat KiWee est toujours inclus</p>
+            <p className="text-base font-bold text-km-text">Quel type de mandat ?</p>
+            <p className="text-xs text-km-faint">Le mandat KiWee est toujours inclus</p>
           </div>
 
           <div className="flex flex-col gap-2">
             {/* KiWee non désactivable, comme dans Tools où mandatKiwee est codé à true. */}
             <div className="flex items-center gap-3 rounded-xl border border-kiwi-200 bg-kiwi-50 p-3">
-              <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded bg-kiwi-600 text-white">
+              <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded bg-km-green text-white">
                 <Check className="h-3 w-3" />
               </span>
               <span className="min-w-0 flex-1">
-                <span className="block text-sm font-bold text-navy-800">Mandat KiWee</span>
-                <span className="block text-[11px] text-navy-500">Toujours inclus</span>
+                <span className="block text-sm font-bold text-km-text">Mandat KiWee</span>
+                <span className="block text-[11px] text-km-muted">Toujours inclus</span>
               </span>
             </div>
 
-            <label className="flex cursor-pointer items-center gap-3 rounded-xl border border-navy-100 bg-white p-3 hover:bg-navy-50/60">
+            <label className="flex cursor-pointer items-center gap-3 rounded-xl border border-km-line bg-white p-3 hover:bg-km-bg/60">
               <input
                 type="checkbox"
                 checked={avecEnergix}
@@ -582,14 +582,14 @@ export function MandatWizard({
                 className="h-4 w-4 shrink-0"
               />
               <span className="min-w-0 flex-1">
-                <span className="block text-sm font-bold text-navy-800">Mandat Energix</span>
-                <span className="block text-[11px] text-navy-500">Second document, signé en même temps</span>
+                <span className="block text-sm font-bold text-km-text">Mandat Energix</span>
+                <span className="block text-[11px] text-km-muted">Second document, signé en même temps</span>
               </span>
             </label>
           </div>
 
-          <div className="rounded-xl border border-navy-100 bg-navy-50/60 p-3 text-xs text-navy-600">
-            <p className="mb-1.5 font-bold text-navy-800">Récapitulatif</p>
+          <div className="rounded-xl border border-km-line bg-km-bg/60 p-3 text-xs text-km-muted">
+            <p className="mb-1.5 font-bold text-km-text">Récapitulatif</p>
             <p>
               Signataire : <span className="font-semibold">{contactChoisi ? `${contactChoisi.prenom} ${contactChoisi.nom}` : '—'}</span>
             </p>
@@ -599,7 +599,7 @@ export function MandatWizard({
             <p>
               Durée : <span className="font-semibold">{dureeMois} mois</span>
             </p>
-            <p className="mt-2 text-[11px] text-navy-500">
+            <p className="mt-2 text-[11px] text-km-muted">
               À la validation, le mandat est créé puis l’éditeur DocuSign s’ouvre : vous vérifiez les
               champs et cliquez sur « Envoyer » vous-même.
             </p>
@@ -608,12 +608,12 @@ export function MandatWizard({
       )}
 
       {etat && (
-        <p className="flex items-center justify-center gap-2 text-xs font-semibold text-kiwi-700">
+        <p className="flex items-center justify-center gap-2 text-xs font-semibold text-km-green">
           <Loader2 className="h-3.5 w-3.5 animate-spin" /> {etat}
         </p>
       )}
       {erreur && (
-        <div className="space-y-2 rounded-lg bg-red-50 px-3 py-2">
+        <div className="space-y-2 rounded-lg bg-km-red-soft px-3 py-2">
           <p className="text-xs text-red-700">{erreur}</p>
           {besoinConnexionDocusign && (
             <Button type="button" size="sm" onClick={() => { connectDocusign().catch(() => {}) }}>
@@ -623,7 +623,7 @@ export function MandatWizard({
         </div>
       )}
 
-      <div className="flex items-center justify-between gap-2 border-t border-navy-100 pt-3">
+      <div className="flex items-center justify-between gap-2 border-t border-km-line pt-3">
         <Button
           type="button"
           variant="ghost"

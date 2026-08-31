@@ -80,7 +80,7 @@ export default function Patrimoine() {
 
       {/* La barre d'onglets défile horizontalement plutôt que de se replier : sept objets ne tiennent
           pas sur un téléphone, et un menu déroulant cacherait la structure que Michel veut montrer. */}
-      <div className="border-b border-kw-border bg-white">
+      <div className="border-b border-km-line bg-white">
         <div className="flex gap-1 overflow-x-auto px-4 sm:px-6">
           {OBJETS.map((o) => {
             const Icone = o.icone
@@ -94,10 +94,10 @@ export default function Patrimoine() {
                 // pour sortir de la page.
                 onClick={() => setParams({ objet: o.cle }, { replace: true })}
                 className={cn(
-                  'flex shrink-0 items-center gap-1.5 border-b-2 px-3 py-3 text-kw-sm font-semibold transition-colors',
+                  'flex shrink-0 items-center gap-1.5 border-b-2 px-3 py-3 text-km-body font-semibold transition-colors',
                   courant
-                    ? 'border-kw-green text-kw-text'
-                    : 'border-transparent text-kw-meta hover:border-kw-border-strong hover:text-kw-text',
+                    ? 'border-km-green text-kw-text'
+                    : 'border-transparent text-km-muted hover:border-km-line hover:text-kw-text',
                 )}
                 aria-current={courant ? 'page' : undefined}
               >
@@ -110,7 +110,7 @@ export default function Patrimoine() {
       </div>
 
       <div className="p-4 sm:p-6">
-        <Suspense fallback={<p className="text-kw-sm text-kw-meta">Chargement…</p>}>
+        <Suspense fallback={<p className="text-km-body text-km-muted">Chargement…</p>}>
           {/* `key` force le remontage au changement d'onglet : sans elle, React réutiliserait
               l'état de la liste précédente — recherche saisie, tri, tranche affichée. */}
           <Page key={actif} sansEntete />

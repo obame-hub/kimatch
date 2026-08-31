@@ -56,22 +56,22 @@ export function InstallPrompt() {
   }
 
   return (
-    <div className="fixed inset-x-0 bottom-0 z-[60] flex items-center gap-3 border-t border-navy-100 bg-white px-4 py-3 shadow-[0_-4px_16px_rgba(0,0,0,0.08)] sm:bottom-4 sm:left-4 sm:right-auto sm:max-w-sm sm:rounded-xl sm:border">
+    <div className="fixed inset-x-0 bottom-0 z-[60] flex items-center gap-3 border-t border-km-line bg-white px-4 py-3 shadow-[0_-4px_16px_rgba(0,0,0,0.08)] sm:bottom-4 sm:left-4 sm:right-auto sm:max-w-sm sm:rounded-xl sm:border">
       {deferredPrompt ? (
         <>
-          <Download className="h-5 w-5 shrink-0 text-kiwi-600" />
-          <p className="flex-1 text-xs text-navy-700">Installez Kimatch sur votre écran d'accueil pour un accès plus rapide.</p>
+          <Download className="h-5 w-5 shrink-0 text-km-green" />
+          <p className="flex-1 text-xs text-km-text">Installez Kimatch sur votre écran d'accueil pour un accès plus rapide.</p>
           <Button size="sm" onClick={() => void install()}>Installer</Button>
         </>
       ) : (
         <>
-          <Share className="h-5 w-5 shrink-0 text-kiwi-600" />
-          <p className="flex-1 text-xs text-navy-700">
+          <Share className="h-5 w-5 shrink-0 text-km-green" />
+          <p className="flex-1 text-xs text-km-text">
             Sur iPhone : appuyez sur <strong>Partager</strong> puis <strong>Sur l'écran d'accueil</strong> pour installer Kimatch.
           </p>
         </>
       )}
-      <button type="button" onClick={dismiss} className="shrink-0 rounded-md p-1 text-navy-400 hover:bg-navy-100" aria-label="Fermer">
+      <button type="button" onClick={dismiss} className="shrink-0 rounded-md p-1 text-km-faint hover:bg-km-soft" aria-label="Fermer">
         <X className="h-4 w-4" />
       </button>
     </div>

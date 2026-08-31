@@ -60,42 +60,42 @@ function Bloc({
       onClick={onClick}
       className={cn(
         'overflow-hidden rounded-kw-3xl border',
-        fond ?? 'border-kw-border bg-white',
+        fond ?? 'border-km-line bg-white',
         onClick && 'cursor-pointer transition-shadow hover:shadow-kw-card-open',
       )}
     >
       <div className="flex flex-col sm:flex-row">
         {/* ── Le nombre principal ── */}
         <div className="flex min-w-0 items-start gap-3 px-5 py-4 sm:w-[300px] sm:shrink-0">
-          <span className={cn('flex h-9 w-9 shrink-0 items-center justify-center rounded-kw-xl', teinte)}>
+          <span className={cn('flex h-9 w-9 shrink-0 items-center justify-center rounded-km-lg', teinte)}>
             <Icone className="h-[18px] w-[18px]" strokeWidth={2.3} />
           </span>
           <div className="min-w-0">
-            <p className="text-kw-xs font-bold leading-snug text-kw-body">{intitule}</p>
-            <p className="mt-1 font-mono text-[27px] font-extrabold leading-none tabular-nums text-kw-ink">
+            <p className="text-km-label font-bold leading-snug text-km-muted">{intitule}</p>
+            <p className="mt-1 font-mono text-[27px] font-extrabold leading-none tabular-nums text-km-text">
               {valeur}
             </p>
-            {precision && <p className="mt-1 text-kw-micro text-kw-faint">{precision}</p>}
+            {precision && <p className="mt-1 text-km-label text-km-faint">{precision}</p>}
           </div>
         </div>
 
         {/* ── Les subdivisions ── */}
         {cellules.length > 0 && (
-          <div className="grid flex-1 grid-cols-2 border-t border-kw-border-faint sm:grid-cols-4 sm:border-l sm:border-t-0">
+          <div className="grid flex-1 grid-cols-2 border-t border-km-line sm:grid-cols-4 sm:border-l sm:border-t-0">
             {cellules.map((c, i) => (
               <div
                 key={c.libelle}
                 className={cn(
                   'px-4 py-4',
-                  i % 2 === 1 && 'border-l border-kw-border-faint',
-                  i >= 2 && 'border-t border-kw-border-faint sm:border-t-0',
-                  i % 4 !== 0 && 'sm:border-l sm:border-kw-border-faint',
+                  i % 2 === 1 && 'border-l border-km-line',
+                  i >= 2 && 'border-t border-km-line sm:border-t-0',
+                  i % 4 !== 0 && 'sm:border-l sm:border-km-line',
                 )}
               >
-                <p className="truncate text-kw-micro text-kw-meta" title={c.libelle}>
+                <p className="truncate text-km-label text-km-muted" title={c.libelle}>
                   {c.libelle}
                 </p>
-                <p className="mt-1 font-mono text-kw-h2 font-extrabold tabular-nums text-kw-ink">
+                <p className="mt-1 font-mono text-kw-h2 font-extrabold tabular-nums text-km-text">
                   {c.valeur}
                 </p>
               </div>
@@ -125,7 +125,7 @@ export default function PerformanceComptes({ sansEntete }: { sansEntete?: boolea
       {/* ══════ 1. LES COMPTES ══════ */}
       <Bloc
         icone={CircleDot}
-        teinte="bg-kw-green-light text-kw-green"
+        teinte="bg-km-green-soft text-km-green"
         intitule="Nombre de comptes"
         valeur={n(s?.nbComptes)}
         precision={s ? `${n(s.nbCompteurs)} compteurs actifs` : undefined}
@@ -140,25 +140,25 @@ export default function PerformanceComptes({ sansEntete }: { sansEntete?: boolea
       {/* LA RÉPARTITION PAR SEGMENT EN ENTIER, sur sa propre ligne : elle en compte cinq et les
           tronquer à deux dans le bloc au-dessus aurait caché les syndics, qui sont le cœur du
           portefeuille. */}
-      <div className="rounded-kw-3xl border border-kw-border bg-white px-5 py-4">
-        <p className="text-kw-xs font-bold text-kw-body">Répartition par segment</p>
+      <div className="rounded-kw-3xl border border-km-line bg-white px-5 py-4">
+        <p className="text-km-label font-bold text-km-muted">Répartition par segment</p>
         <div className="mt-3 flex flex-wrap gap-x-8 gap-y-3">
           {(data?.segments ?? []).map((x) => (
             <div key={x.segment} className="min-w-[120px]">
-              <p className="truncate text-kw-micro text-kw-meta" title={x.segment}>
+              <p className="truncate text-km-label text-km-muted" title={x.segment}>
                 {x.segment}
               </p>
-              <p className="mt-0.5 font-mono text-kw-h2 font-extrabold tabular-nums text-kw-ink">
+              <p className="mt-0.5 font-mono text-kw-h2 font-extrabold tabular-nums text-km-text">
                 {n(x.nb)}
               </p>
             </div>
           ))}
-          {isLoading && <p className="text-kw-sm text-kw-meta">Chargement…</p>}
+          {isLoading && <p className="text-km-body text-km-muted">Chargement…</p>}
         </div>
         {/* LA MENTION QUI ÉVITE UN MALENTENDU. Sa règle demande « client / prospect » ; le champ
             n'existe pas en base. Dire pourquoi vaut mieux qu'un décompte inventé sur l'écran même
             qui mesure la qualité de la donnée. */}
-        <p className="mt-3 max-w-[95ch] border-t border-kw-border-faint pt-2.5 text-kw-xs leading-relaxed text-kw-faint">
+        <p className="mt-3 max-w-[95ch] border-t border-km-line pt-2.5 text-km-label leading-relaxed text-km-faint">
           La distinction client / prospect n’est pas saisie : les {n(s?.nbComptes)} comptes
           consommateurs portent tous le même type. « Avec contrat » compte ceux chez qui une fourniture
           est en cours — c’est la mesure la plus proche que la base sache produire.
@@ -169,8 +169,8 @@ export default function PerformanceComptes({ sansEntete }: { sansEntete?: boolea
       <div className="grid grid-cols-1 gap-3.5 xl:grid-cols-2">
         <Bloc
           icone={Clock}
-          teinte="bg-kw-amber-light text-kw-amber"
-          fond="border-kw-amber-border bg-kw-amber-light/40"
+          teinte="bg-km-amber-soft text-km-amber"
+          fond="border-kw-amber-border bg-km-amber-soft/40"
           intitule="Compteurs avec une date d’échéance dépassée ou vide"
           valeur={n(s ? s.nbEcheanceVide + s.nbEcheanceDepassee : undefined)}
           cellules={[
@@ -182,8 +182,8 @@ export default function PerformanceComptes({ sansEntete }: { sansEntete?: boolea
 
         <Bloc
           icone={AlertCircle}
-          teinte="bg-kw-red-light text-kw-red"
-          fond="border-kw-border-strong bg-kw-red-light/30"
+          teinte="bg-km-red-soft text-km-red"
+          fond="border-km-line bg-km-red-soft/30"
           intitule="Compteurs sans responsable"
           valeur={n(s?.nbSansResponsable)}
           precision="Responsable à renseigner"
@@ -195,7 +195,7 @@ export default function PerformanceComptes({ sansEntete }: { sansEntete?: boolea
       {/* ══════ 4. LES ÉCHÉANCES VALIDES, PAR PÉRIODE ══════ */}
       <Bloc
         icone={CheckCircle2}
-        teinte="bg-kw-green-light text-kw-green"
+        teinte="bg-km-green-soft text-km-green"
         intitule="Compteurs par période d’échéance"
         valeur={n(s?.nbEcheanceValide)}
         precision="Uniquement les dates d’échéance valides"

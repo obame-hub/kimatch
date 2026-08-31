@@ -299,11 +299,11 @@ export function PdlDraftRows({
         const kManque = (f: string) => (manquants.has(f) ? CLASSE_MANQUANT : undefined)
 
         return (
-          <div key={d.key} className={`rounded-xl border p-4 ${d.status === 'saved' ? 'border-kiwi-200 bg-kiwi-50/40' : 'border-navy-100'}`}>
+          <div key={d.key} className={`rounded-xl border p-4 ${d.status === 'saved' ? 'border-kiwi-200 bg-kiwi-50/40' : 'border-km-line'}`}>
             <div className="mb-2 flex items-center justify-between">
-              <p className="text-xs font-semibold uppercase tracking-wide text-navy-400">PDL {i + 1}{d.status === 'saved' && ' — créé'}</p>
+              <p className="text-xs font-semibold uppercase tracking-wide text-km-faint">PDL {i + 1}{d.status === 'saved' && ' — créé'}</p>
               {!locked && drafts.length > 1 && (
-                <button type="button" onClick={() => onRemove(d.key)} className="text-navy-400 hover:text-red-600">
+                <button type="button" onClick={() => onRemove(d.key)} className="text-km-faint hover:text-km-red">
                   <Trash2 className="h-3.5 w-3.5" />
                 </button>
               )}
@@ -312,7 +312,7 @@ export function PdlDraftRows({
               {/* Site : un libellé et une adresse, sans étape dédiée. Le site est retrouvé ou créé
                   automatiquement à l'enregistrement. Masqué quand on part déjà d'une fiche site. */}
               {!siteImpose && (
-                <div className="space-y-3 rounded-lg border border-navy-100 bg-navy-50/40 p-3">
+                <div className="space-y-3 rounded-lg border border-km-line bg-km-bg/40 p-3">
                   <FormField label="Libellé du site" required>
                     <Input
                       value={d.libelleSite}
@@ -341,7 +341,7 @@ export function PdlDraftRows({
                     </FormField>
                   </div>
                   {siteExistant && (
-                    <p className="flex items-start gap-1.5 text-[11px] text-kiwi-700">
+                    <p className="flex items-start gap-1.5 text-[11px] text-km-green">
                       <CheckCircle2 className="mt-0.5 h-3 w-3 shrink-0" />
                       Sera rattaché au site existant « {siteExistant.nom} ».
                     </p>
@@ -377,8 +377,8 @@ export function PdlDraftRows({
                 </FormField>
               )}
               {d.typeEnergieId && (
-                <div className="rounded-lg border border-navy-100 bg-navy-50/60 p-3">
-                  <p className="mb-2 text-[10px] font-semibold uppercase tracking-wide text-navy-400">
+                <div className="rounded-lg border border-km-line bg-km-bg/60 p-3">
+                  <p className="mb-2 text-[10px] font-semibold uppercase tracking-wide text-km-faint">
                     {estElectricite ? 'Caractéristiques techniques' : 'Caractéristiques & consommation'}
                   </p>
                   {estElectricite ? (
@@ -437,7 +437,7 @@ export function PdlDraftRows({
                               })
                             }}
                             disabled={!(d.puissanceParClasseKva[CLASSES_PUISSANCE_ELEC[0].key] ?? '').trim()}
-                            className="text-[11px] font-medium text-kiwi-700 hover:underline disabled:cursor-not-allowed disabled:text-navy-300 disabled:no-underline"
+                            className="text-[11px] font-medium text-km-green hover:underline disabled:cursor-not-allowed disabled:text-km-faint disabled:no-underline"
                           >
                             ⇊ Appliquer la valeur de {CLASSES_PUISSANCE_ELEC[0].label} à toutes les classes
                           </button>
@@ -494,12 +494,12 @@ export function PdlDraftRows({
               {manquants.has('responsableContactId') ? (
                 <p className="text-[11px] text-amber-700">La sélection d'un responsable est obligatoire.</p>
               ) : (
-                <p className="text-[11px] text-navy-400">
+                <p className="text-[11px] text-km-faint">
                   Contacts liés au compte. Si le bon contact n'apparaît pas, cherchez dans tous les contacts du CRM.
                 </p>
               )}
             </fieldset>
-            {d.errorMessage && <p className="mt-2 text-xs text-red-600">{d.errorMessage}</p>}
+            {d.errorMessage && <p className="mt-2 text-xs text-km-red">{d.errorMessage}</p>}
           </div>
         )
       })}

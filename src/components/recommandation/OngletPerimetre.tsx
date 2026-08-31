@@ -31,15 +31,15 @@ export function OngletPerimetre({
 
   return (
     <div className="flex animate-kw-fade-slide flex-col gap-3.5">
-      <div className="rounded-kw-lg border border-[#f0e4cd] bg-kw-amber-light px-3 py-2.5 text-kw-sm text-kw-meta">
-        Périmètre <b className="text-kw-ink">unique pour tout le dossier</b> : toutes les versions
+      <div className="rounded-km-md border border-[#f0e4cd] bg-km-amber-soft px-3 py-2.5 text-km-body text-km-muted">
+        Périmètre <b className="text-km-text">unique pour tout le dossier</b> : toutes les versions
         portent sur ces mêmes points de livraison.
       </div>
 
       {duPerimetre.length === 0 && (
-        <div className="rounded-[13px] border border-kw-border bg-white p-6 text-center">
-          <p className="text-kw-lg font-semibold text-kw-ink">Aucun point de livraison rattaché</p>
-          <p className="mt-1 text-kw-base text-kw-meta">
+        <div className="rounded-[13px] border border-km-line bg-white p-6 text-center">
+          <p className="text-km-name font-semibold text-km-text">Aucun point de livraison rattaché</p>
+          <p className="mt-1 text-km-body text-km-muted">
             {ids.length > 0
               ? `${ids.length} compteur(s) référencé(s) mais hors de votre périmètre de visibilité.`
               : 'Cette recommandation ne porte encore sur aucun compteur : la cotation ne pourra pas être lancée.'}
@@ -52,30 +52,30 @@ export function OngletPerimetre({
         .map((groupe) => (
           <div
             key={groupe.site?.id ?? 'orphelins'}
-            className="overflow-hidden rounded-[13px] border border-kw-border bg-white"
+            className="overflow-hidden rounded-[13px] border border-km-line bg-white"
           >
             <div className="flex flex-wrap items-center gap-2.5 border-b border-[#d9e8e0] bg-[#eef5f1] px-4 py-3">
-              <span className="flex h-[26px] w-[26px] shrink-0 items-center justify-center rounded-kw-md bg-kw-green text-white">
+              <span className="flex h-[26px] w-[26px] shrink-0 items-center justify-center rounded-km bg-km-green text-white">
                 <MapPin className="h-3 w-3" />
               </span>
               {groupe.site ? (
                 <button
                   type="button"
                   onClick={() => navigate(`/sites/${groupe.site!.id}`)}
-                  className="text-[13.5px] font-bold text-kw-ink hover:text-kw-green hover:underline"
+                  className="text-[13.5px] font-bold text-km-text hover:text-km-green hover:underline"
                 >
                   {groupe.site.nom}
                 </button>
               ) : (
-                <span className="text-[13.5px] font-bold text-kw-ink">Compteurs sans site rattaché à la fiche</span>
+                <span className="text-[13.5px] font-bold text-km-text">Compteurs sans site rattaché à la fiche</span>
               )}
               <span className="flex-1" />
-              <span className="text-kw-sm font-bold text-kw-green">
+              <span className="text-km-body font-bold text-km-green">
                 {groupe.compteurs.length} compteur{groupe.compteurs.length > 1 ? 's' : ''}
               </span>
             </div>
             {groupe.compteurs.length === 0 ? (
-              <p className="px-4 py-2.5 text-kw-base text-kw-faint">
+              <p className="px-4 py-2.5 text-km-body text-km-faint">
                 Aucun compteur de ce site n'est dans le périmètre.
               </p>
             ) : (
@@ -87,13 +87,13 @@ export function OngletPerimetre({
                     type="button"
                     onClick={() => navigate(`/compteurs/${c.id}`)}
                     className={cn(
-                      'flex w-full items-center gap-2.5 px-4 py-2.5 text-left hover:bg-kw-subtle',
-                      i < groupe.compteurs.length - 1 && 'border-b border-kw-border-faint',
+                      'flex w-full items-center gap-2.5 px-4 py-2.5 text-left hover:bg-km-soft',
+                      i < groupe.compteurs.length - 1 && 'border-b border-km-line',
                     )}
                   >
                     <span
                       className={cn(
-                        'flex h-5 w-5 shrink-0 items-center justify-center rounded-kw-sm',
+                        'flex h-5 w-5 shrink-0 items-center justify-center rounded-km-sm',
                         gaz ? 'bg-kw-gas-light text-kw-gas' : 'bg-kw-gold-light text-kw-gold',
                       )}
                     >
@@ -101,18 +101,18 @@ export function OngletPerimetre({
                     </span>
                     {/* Un compteur n'a pas de nom propre : c'est son usage qui le désigne
                         (« Communs Bât. A »), ou sa localisation sur place à défaut. */}
-                    <span className="whitespace-nowrap text-kw-lg font-bold text-kw-ink">
+                    <span className="whitespace-nowrap text-km-name font-bold text-km-text">
                       {c.utilisation || c.localisation_site || c.type_utilisation_compteur || 'Compteur'}
                     </span>
-                    <span className="truncate font-mono text-[9.5px] text-kw-faint">{c.numero_pdl}</span>
+                    <span className="truncate font-mono text-[9.5px] text-km-faint">{c.numero_pdl}</span>
                     <span className="flex-1" />
-                    <span className="whitespace-nowrap font-mono text-kw-xs text-kw-label">
+                    <span className="whitespace-nowrap font-mono text-km-label text-km-muted">
                       {c.consommation_annuelle_mwh != null
                         ? `${c.consommation_annuelle_mwh.toLocaleString('fr-FR')} MWh/an`
                         : 'conso inconnue'}
                       {c.date_echeance ? ` · éch. ${new Date(c.date_echeance).toLocaleDateString('fr-FR')}` : ''}
                     </span>
-                    <ChevronRight className="h-3 w-3 shrink-0 text-kw-ghost" />
+                    <ChevronRight className="h-3 w-3 shrink-0 text-km-faint" />
                   </button>
                 )
               })

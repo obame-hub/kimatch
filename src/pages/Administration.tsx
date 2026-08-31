@@ -71,14 +71,14 @@ function SandboxCard() {
       <CardContent className="flex flex-wrap items-center justify-between gap-3 p-4">
         <div>
           <p className="text-sm font-semibold text-amber-900">🧪 Sandbox</p>
-          <p className="text-xs text-amber-800">
+          <p className="text-xs text-km-amber">
             {lastRefresh
               ? `Dernière actualisation : ${new Date(lastRefresh.date).toLocaleString('fr-FR')} par ${lastRefresh.parNom}${lastRefresh.succes ? '' : ' (avec erreurs)'}`
               : 'Jamais actualisée pour le moment.'}
           </p>
           {refresh.isPending && refresh.progress && (
             <div className="mt-2 w-64">
-              <div className="mb-0.5 flex justify-between text-[10px] text-amber-800">
+              <div className="mb-0.5 flex justify-between text-[10px] text-km-amber">
                 <span className="truncate">{refresh.progress.table}</span>
                 <span>{refresh.progress.done}/{refresh.progress.total}</span>
               </div>
@@ -121,8 +121,8 @@ function UtilisateursTab() {
   const impersonate = useImpersonateProfil()
   const [feedback, setFeedback] = useState<string | null>(null)
 
-  if (isLoading) return <p className="text-sm text-navy-400">Chargement…</p>
-  if (!profils || profils.length === 0) return <p className="text-sm text-navy-400">Aucun utilisateur.</p>
+  if (isLoading) return <p className="text-sm text-km-faint">Chargement…</p>
+  if (!profils || profils.length === 0) return <p className="text-sm text-km-faint">Aucun utilisateur.</p>
 
   async function handleImpersonate(profilId: string, nom: string) {
     setFeedback(null)
@@ -135,10 +135,10 @@ function UtilisateursTab() {
 
   return (
     <div className="overflow-x-auto">
-      {feedback && <p className="mb-2 text-xs text-red-600">{feedback}</p>}
+      {feedback && <p className="mb-2 text-xs text-km-red">{feedback}</p>}
       <table className="w-full text-sm">
         <thead>
-          <tr className="border-b border-navy-100 text-left text-xs uppercase tracking-wide text-navy-400">
+          <tr className="border-b border-km-line text-left text-xs uppercase tracking-wide text-km-faint">
             <th className="py-2 pr-4">Nom</th>
             <th className="py-2 pr-4">Email</th>
             <th className="py-2 pr-4">Poste</th>
@@ -150,8 +150,8 @@ function UtilisateursTab() {
         <tbody>
           {profils.map((p) => (
             <tr key={p.id} className="border-b border-navy-50">
-              <td className="py-2 pr-4 font-medium text-navy-800">{p.prenom} {p.nom}</td>
-              <td className="py-2 pr-4 text-navy-500"><EmailLink value={p.email} /></td>
+              <td className="py-2 pr-4 font-medium text-km-text">{p.prenom} {p.nom}</td>
+              <td className="py-2 pr-4 text-km-muted"><EmailLink value={p.email} /></td>
               <td className="py-2 pr-4">
                 <Select
                   value={p.poste?.id ?? ''}
@@ -227,24 +227,24 @@ function PermissionMatrix({
   return (
     <table className="w-full text-sm">
       <thead>
-        <tr className="border-b border-navy-100 text-left text-xs uppercase tracking-wide text-navy-400">
+        <tr className="border-b border-km-line text-left text-xs uppercase tracking-wide text-km-faint">
           <th className="py-2 pr-4">Permission</th>
           {columns.map((c) => (
-            <th key={c.id} className="px-2 py-2 text-center font-medium normal-case text-navy-600">{c.libelle}</th>
+            <th key={c.id} className="px-2 py-2 text-center font-medium normal-case text-km-muted">{c.libelle}</th>
           ))}
         </tr>
       </thead>
       <tbody>
         {[...parModule.entries()].map(([module, perms]) => (
           <Fragment key={module}>
-            <tr className="bg-navy-50/60">
-              <td colSpan={columns.length + 1} className="px-1 py-1.5 text-xs font-semibold uppercase tracking-wide text-navy-500">
+            <tr className="bg-km-bg/60">
+              <td colSpan={columns.length + 1} className="px-1 py-1.5 text-xs font-semibold uppercase tracking-wide text-km-muted">
                 {module}
               </td>
             </tr>
             {perms.map((perm) => (
               <tr key={perm.id} className="border-b border-navy-50">
-                <td className="py-1.5 pr-4 text-navy-700">{perm.libelle}</td>
+                <td className="py-1.5 pr-4 text-km-text">{perm.libelle}</td>
                 {columns.map((c) => {
                   const checked = matrix?.has(`${c.id}:${perm.id}`) ?? false
                   return (
@@ -253,7 +253,7 @@ function PermissionMatrix({
                         type="checkbox"
                         checked={checked}
                         onChange={(e) => onToggle(c.id, perm.id, e.target.checked)}
-                        className="h-4 w-4 rounded border-navy-300 text-kiwi-600 focus:ring-kiwi-500"
+                        className="h-4 w-4 rounded border-km-line text-km-green focus:ring-kiwi-500"
                       />
                     </td>
                   )
@@ -293,7 +293,7 @@ function NouveauPosteForm() {
         <Plus className="h-4 w-4" />
         Créer le poste
       </Button>
-      {feedback && <p className="w-full text-xs text-red-600">{feedback}</p>}
+      {feedback && <p className="w-full text-xs text-km-red">{feedback}</p>}
     </form>
   )
 }
@@ -307,13 +307,13 @@ function PermissionsTab() {
   const toggleRole = useToggleRolePermission()
   const togglePoste = useTogglePostePermission()
 
-  if (!roles || !postes || !permissions) return <p className="text-sm text-navy-400">Chargement…</p>
+  if (!roles || !postes || !permissions) return <p className="text-sm text-km-faint">Chargement…</p>
 
   return (
     <div className="space-y-8">
       <div>
-        <h3 className="mb-1 text-sm font-semibold text-navy-800">Postes — permissions de base</h3>
-        <p className="mb-3 text-xs text-navy-500">Le poste définit les permissions de base d'une personne selon sa fonction (Commercial, Cotation, Direction…).</p>
+        <h3 className="mb-1 text-sm font-semibold text-km-text">Postes — permissions de base</h3>
+        <p className="mb-3 text-xs text-km-muted">Le poste définit les permissions de base d'une personne selon sa fonction (Commercial, Cotation, Direction…).</p>
         <NouveauPosteForm />
         <div className="overflow-x-auto">
           <PermissionMatrix
@@ -326,8 +326,8 @@ function PermissionsTab() {
       </div>
 
       <div>
-        <h3 className="mb-1 text-sm font-semibold text-navy-800">Rôles d'accès — ajouts/retraits spécifiques</h3>
-        <p className="mb-3 text-xs text-navy-500">Le rôle d'accès ajoute ou retire des permissions par-dessus celles du poste (ex. Super administrateur voit tout, Service client est plus restreint).</p>
+        <h3 className="mb-1 text-sm font-semibold text-km-text">Rôles d'accès — ajouts/retraits spécifiques</h3>
+        <p className="mb-3 text-xs text-km-muted">Le rôle d'accès ajoute ou retire des permissions par-dessus celles du poste (ex. Super administrateur voit tout, Service client est plus restreint).</p>
         <div className="overflow-x-auto">
           <PermissionMatrix
             columns={roles}
@@ -372,7 +372,7 @@ function AccesAutorisesTab() {
 
   return (
     <div className="space-y-4">
-      <p className="text-sm text-navy-500">
+      <p className="text-sm text-km-muted">
         Seules les adresses email listées ici peuvent créer un compte Kimatch (recevoir un lien de connexion qui fonctionne). Le prénom, le nom, le poste et le rôle renseignés ici sont automatiquement appliqués à la fiche profil lors de la première connexion.
       </p>
       <form onSubmit={handleSubmit} className="flex flex-wrap gap-2">
@@ -396,21 +396,21 @@ function AccesAutorisesTab() {
           Autoriser
         </Button>
       </form>
-      {feedback && <p className="text-xs text-red-600">{feedback}</p>}
+      {feedback && <p className="text-xs text-km-red">{feedback}</p>}
 
       {isLoading ? (
-        <p className="text-sm text-navy-400">Chargement…</p>
+        <p className="text-sm text-km-faint">Chargement…</p>
       ) : !emails || emails.length === 0 ? (
-        <p className="text-sm text-navy-400">Aucune adresse autorisée pour l'instant.</p>
+        <p className="text-sm text-km-faint">Aucune adresse autorisée pour l'instant.</p>
       ) : (
         <ul className="divide-y divide-navy-50">
           {emails.map((a) => (
             <li key={a.id} className="flex flex-wrap items-center justify-between gap-2 py-2 text-sm">
               <div>
                 {(a.prenom || a.nom) && (
-                  <p className="font-medium text-navy-800">{a.prenom} {a.nom}</p>
+                  <p className="font-medium text-km-text">{a.prenom} {a.nom}</p>
                 )}
-                <EmailLink value={a.email} className="text-navy-700" />
+                <EmailLink value={a.email} className="text-km-text" />
               </div>
               <div className="flex items-center gap-2">
                 <Select
@@ -436,7 +436,7 @@ function AccesAutorisesTab() {
                 <button
                   type="button"
                   onClick={() => removeEmail.mutate(a.id)}
-                  className="text-navy-400 hover:text-red-600"
+                  className="text-km-faint hover:text-km-red"
                   aria-label={`Retirer ${a.email}`}
                 >
                   <Trash2 className="h-4 w-4" />
@@ -476,7 +476,7 @@ function AssignationsTab() {
 
   return (
     <div className="space-y-4">
-      <p className="text-sm text-navy-500">
+      <p className="text-sm text-km-muted">
         Détermine sur quels comptes chaque personne intervient — un administrateur (rôle d'accès SUPER_ADMIN/ADMIN) voit toujours tous les comptes, quelles que soient ses assignations ici.
         Tant que la migration des données Salesforce n'est pas faite, la liste des comptes ci-dessous reste vide — c'est normal.
       </p>
@@ -498,24 +498,24 @@ function AssignationsTab() {
           Assigner
         </Button>
       </form>
-      {feedback && <p className="text-xs text-red-600">{feedback}</p>}
+      {feedback && <p className="text-xs text-km-red">{feedback}</p>}
 
       {isLoading ? (
-        <p className="text-sm text-navy-400">Chargement…</p>
+        <p className="text-sm text-km-faint">Chargement…</p>
       ) : !assignations || assignations.length === 0 ? (
-        <p className="text-sm text-navy-400">Aucune assignation pour l'instant.</p>
+        <p className="text-sm text-km-faint">Aucune assignation pour l'instant.</p>
       ) : (
         <ul className="divide-y divide-navy-50">
           {assignations.map((a) => (
             <li key={a.id} className="flex flex-wrap items-center justify-between gap-2 py-2 text-sm">
               <div>
-                <p className="font-medium text-navy-800">{a.profil_nom} <span className="font-normal text-navy-400">→</span> {a.compte_nom}</p>
-                <p className="text-xs text-navy-500">{a.type_role_libelle}</p>
+                <p className="font-medium text-km-text">{a.profil_nom} <span className="font-normal text-km-faint">→</span> {a.compte_nom}</p>
+                <p className="text-xs text-km-muted">{a.type_role_libelle}</p>
               </div>
               <button
                 type="button"
                 onClick={() => remove.mutate(a.id)}
-                className="text-navy-400 hover:text-red-600"
+                className="text-km-faint hover:text-km-red"
                 aria-label={`Retirer ${a.profil_nom} de ${a.compte_nom}`}
               >
                 <Trash2 className="h-4 w-4" />
@@ -538,7 +538,7 @@ export default function Administration() {
         <Topbar title="Administration" />
         <div className="p-4 sm:p-6">
           <PageHeader title="Administration" description="Gestion des utilisateurs, rôles et permissions de Kimatch." />
-          <p className="text-sm text-navy-500">Accès réservé aux administrateurs.</p>
+          <p className="text-sm text-km-muted">Accès réservé aux administrateurs.</p>
         </div>
       </div>
     )
@@ -558,7 +558,7 @@ export default function Administration() {
             onClick={() => setTab('utilisateurs')}
             className={cn(
               'flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-sm font-medium',
-              tab === 'utilisateurs' ? 'bg-kiwi-500/15 text-kiwi-700' : 'text-navy-500 hover:bg-navy-50',
+              tab === 'utilisateurs' ? 'bg-kiwi-500/15 text-km-green' : 'text-km-muted hover:bg-km-bg',
             )}
           >
             <Users className="h-4 w-4" />
@@ -569,7 +569,7 @@ export default function Administration() {
             onClick={() => setTab('permissions')}
             className={cn(
               'flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-sm font-medium',
-              tab === 'permissions' ? 'bg-kiwi-500/15 text-kiwi-700' : 'text-navy-500 hover:bg-navy-50',
+              tab === 'permissions' ? 'bg-kiwi-500/15 text-km-green' : 'text-km-muted hover:bg-km-bg',
             )}
           >
             <ShieldCheck className="h-4 w-4" />
@@ -580,7 +580,7 @@ export default function Administration() {
             onClick={() => setTab('acces')}
             className={cn(
               'flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-sm font-medium',
-              tab === 'acces' ? 'bg-kiwi-500/15 text-kiwi-700' : 'text-navy-500 hover:bg-navy-50',
+              tab === 'acces' ? 'bg-kiwi-500/15 text-km-green' : 'text-km-muted hover:bg-km-bg',
             )}
           >
             <Mail className="h-4 w-4" />
@@ -591,7 +591,7 @@ export default function Administration() {
             onClick={() => setTab('assignations')}
             className={cn(
               'flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-sm font-medium',
-              tab === 'assignations' ? 'bg-kiwi-500/15 text-kiwi-700' : 'text-navy-500 hover:bg-navy-50',
+              tab === 'assignations' ? 'bg-kiwi-500/15 text-km-green' : 'text-km-muted hover:bg-km-bg',
             )}
           >
             <Building2 className="h-4 w-4" />
@@ -604,7 +604,7 @@ export default function Administration() {
             onClick={() => setTab('automatismes')}
             className={cn(
               'flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-sm font-medium',
-              tab === 'automatismes' ? 'bg-kiwi-500/15 text-kiwi-700' : 'text-navy-500 hover:bg-navy-50',
+              tab === 'automatismes' ? 'bg-kiwi-500/15 text-km-green' : 'text-km-muted hover:bg-km-bg',
             )}
           >
             <Cog className="h-4 w-4" />

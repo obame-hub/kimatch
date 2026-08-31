@@ -49,15 +49,15 @@ export function ChoixParRecherche<T extends { id: string }>({
   if (choisi) {
     const detail = secondaire?.(choisi)
     return (
-      <div className="flex items-center gap-2 rounded-lg border border-navy-200 bg-white px-3 py-2">
+      <div className="flex items-center gap-2 rounded-lg border border-km-line bg-white px-3 py-2">
         <div className="min-w-0 flex-1">
-          <p className="truncate text-sm font-medium text-navy-800">{principal(choisi)}</p>
-          {detail && <p className="truncate text-[11px] text-navy-400">{detail}</p>}
+          <p className="truncate text-sm font-medium text-km-text">{principal(choisi)}</p>
+          {detail && <p className="truncate text-[11px] text-km-faint">{detail}</p>}
         </div>
         <button
           type="button"
           onClick={() => { onChoisir(null); setRecherche('') }}
-          className="shrink-0 text-xs font-semibold text-kiwi-700 hover:underline"
+          className="shrink-0 text-xs font-semibold text-km-green hover:underline"
         >
           changer
         </button>
@@ -72,7 +72,7 @@ export function ChoixParRecherche<T extends { id: string }>({
     <div className="space-y-1.5">
       <Input value={recherche} onChange={(e) => setRecherche(e.target.value)} placeholder={placeholder} />
       {q && (
-        <div className="max-h-[152px] overflow-y-auto rounded-lg border border-navy-100">
+        <div className="max-h-[152px] overflow-y-auto rounded-lg border border-km-line">
           {trouves.map((i) => {
             const detail = secondaire?.(i)
             return (
@@ -80,17 +80,17 @@ export function ChoixParRecherche<T extends { id: string }>({
                 key={i.id}
                 type="button"
                 onClick={() => onChoisir(i)}
-                className="flex w-full items-center gap-2 border-b border-navy-50 px-3 py-2 text-left last:border-b-0 hover:bg-navy-50/60"
+                className="flex w-full items-center gap-2 border-b border-navy-50 px-3 py-2 text-left last:border-b-0 hover:bg-km-bg/60"
               >
-                <span className="min-w-0 flex-1 truncate text-xs font-semibold text-navy-800">{principal(i)}</span>
-                {detail && <span className="shrink-0 truncate text-[10.5px] text-navy-400">{detail}</span>}
+                <span className="min-w-0 flex-1 truncate text-xs font-semibold text-km-text">{principal(i)}</span>
+                {detail && <span className="shrink-0 truncate text-[10.5px] text-km-faint">{detail}</span>}
               </button>
             )
           })}
-          {trouves.length === 0 && <p className="p-3 text-center text-xs text-navy-400">{aucun}</p>}
+          {trouves.length === 0 && <p className="p-3 text-center text-xs text-km-faint">{aucun}</p>}
         </div>
       )}
-      {!q && <p className="text-[10.5px] text-navy-400">{totalLibelle} — tapez pour chercher.</p>}
+      {!q && <p className="text-[10.5px] text-km-faint">{totalLibelle} — tapez pour chercher.</p>}
     </div>
   )
 }

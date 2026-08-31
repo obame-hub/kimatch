@@ -103,7 +103,7 @@ export function CarteOffreEtude({
   const abonnementAPart = offre.details_par_compteur.some((d) => !!d.prix_gaz)
   const parts = [
     { cle: 'abonnement', libelle: 'Abonnement', valeur: abonnementAPart ? b.abonnement : null, couleur: 'bg-kw-blue' },
-    { cle: 'energie', libelle: 'Énergie', valeur: b.energie, couleur: 'bg-kw-green' },
+    { cle: 'energie', libelle: 'Énergie', valeur: b.energie, couleur: 'bg-km-green' },
     { cle: 'reseau', libelle: 'TURPE / réseau', valeur: b.reseau, couleur: 'bg-kw-gold' },
     { cle: 'taxes', libelle: 'Taxes', valeur: b.taxes, couleur: 'bg-kw-meta' },
   ].filter((p) => p.valeur != null && p.valeur > 0)
@@ -120,8 +120,8 @@ export function CarteOffreEtude({
         // l'intérieur du bloc de l'offre : deux bordures imbriquées pour une seule chose se lisent
         // comme deux choses.
         avecIdentite
-          ? cn('rounded-kw-lg border bg-white', offre.est_offre_recommandee ? 'border-[1.5px] border-kw-green' : 'border-kw-border')
-          : 'rounded-kw-md',
+          ? cn('rounded-km-md border bg-white', offre.est_offre_recommandee ? 'border-[1.5px] border-km-green' : 'border-km-line')
+          : 'rounded-km',
       )}
     >
       {/* ── La ligne de l'offre ──
@@ -137,7 +137,7 @@ export function CarteOffreEtude({
         onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setOuvert((v) => !v) } }}
         title={deplie ? 'Replier le détail' : 'Ouvrir le détail de cette offre'}
         className={cn(
-          'cursor-pointer items-center gap-x-3 gap-y-2 px-3.5 py-3 hover:bg-kw-subtle',
+          'cursor-pointer items-center gap-x-3 gap-y-2 px-3.5 py-3 hover:bg-km-soft',
           // UNE GRILLE À COLONNES DÉCLARÉES dans le comparatif client, et non une rangée flexible.
           //
           // En flex, la largeur de chaque zone suit son contenu : une offre portant le badge
@@ -186,12 +186,12 @@ export function CarteOffreEtude({
             serait bien pire que de ne rien afficher. */}
         {avecIdentite && (
           logo ? (
-            <img src={logo} alt="" className="h-8 w-8 shrink-0 justify-self-center rounded-kw-sm object-contain" />
+            <img src={logo} alt="" className="h-8 w-8 shrink-0 justify-self-center rounded-km-sm object-contain" />
           ) : (
             <span
               className={cn(
-                'flex h-8 w-8 shrink-0 items-center justify-center justify-self-center rounded-kw-sm text-kw-tiny font-extrabold',
-                offre.est_offre_recommandee ? 'bg-kw-green text-white' : 'bg-kw-muted text-kw-meta',
+                'flex h-8 w-8 shrink-0 items-center justify-center justify-self-center rounded-km-sm text-km-label font-extrabold',
+                offre.est_offre_recommandee ? 'bg-km-green text-white' : 'bg-km-soft text-km-muted',
               )}
             >
               {initialesFournisseur(offre.fournisseur_nom)}
@@ -209,9 +209,9 @@ export function CarteOffreEtude({
         <span className={cn('min-w-0', !avecIdentite ? 'hidden' : '')}>
           <span className="flex flex-wrap items-baseline gap-1.5">
             {avecFournisseur && (
-              <span className="text-kw-md font-extrabold">{offre.fournisseur_nom || 'Fournisseur'}</span>
+              <span className="text-km-body font-extrabold">{offre.fournisseur_nom || 'Fournisseur'}</span>
             )}
-            <span className={cn('font-mono', avecFournisseur ? 'text-kw-sm text-kw-meta' : 'text-kw-md font-extrabold')}>
+            <span className={cn('font-mono', avecFournisseur ? 'text-km-body text-km-muted' : 'text-km-body font-extrabold')}>
               {libelleOffre(offre.duree_mois, offre.type_prix)}
             </span>
             {/* LE CONTRAT ACTUEL ET LA RECONDUCTION SE DISENT, dans le document remis au client :
@@ -219,17 +219,17 @@ export function CarteOffreEtude({
                 une de nos offres. Michel, 21/08/2026, à propos de la proposition du fournisseur en
                 place : « c'est pas non plus l'offre que moi je propose. » */}
             {!natureDeLOffre(offre.nature_offre).retenable && (
-              <span className="rounded-kw-xs bg-kw-muted px-1.5 py-px text-kw-micro font-bold uppercase tracking-[0.06em] text-kw-meta">
+              <span className="rounded-kw-xs bg-km-soft px-1.5 py-px text-km-label font-bold uppercase tracking-[0.06em] text-km-muted">
                 {natureDeLOffre(offre.nature_offre).libelle}
               </span>
             )}
             {offre.est_offre_recommandee && (
               <span
                 className={cn(
-                  'rounded-kw-xs px-1.5 py-px text-kw-micro font-bold uppercase tracking-[0.06em]',
+                  'rounded-kw-xs px-1.5 py-px text-km-label font-bold uppercase tracking-[0.06em]',
                   // Dans le comparatif client, c'est une recommandation qu'on assume — la maquette de
                   // William la marque en vert plein. En interne, « Retenue » suffit.
-                  avecIdentite ? 'bg-kw-green text-white' : 'bg-kw-green-light text-kw-green',
+                  avecIdentite ? 'bg-km-green text-white' : 'bg-km-green-soft text-km-green',
                 )}
               >
                 {avecIdentite ? '★ Recommandation Kiwee' : 'Retenue'}
@@ -237,7 +237,7 @@ export function CarteOffreEtude({
             )}
           </span>
           {offre.date_validite && (
-            <span className="mt-0.5 block font-mono text-kw-micro text-kw-faint">
+            <span className="mt-0.5 block font-mono text-km-label text-km-faint">
               valable jusqu'au {new Date(offre.date_validite).toLocaleDateString('fr-FR')}
             </span>
           )}
@@ -251,7 +251,7 @@ export function CarteOffreEtude({
         <span className={cn('min-w-0', !avecBarre && 'hidden')}>
           {sommeParts != null && sommeParts > 0 ? (
             <>
-              <span className="flex h-3.5 overflow-hidden rounded-kw-sm bg-kw-muted">
+              <span className="flex h-3.5 overflow-hidden rounded-km-sm bg-km-soft">
                 {parts.map((p) => (
                   <span
                     key={p.cle}
@@ -265,7 +265,7 @@ export function CarteOffreEtude({
                   gauche, celle du réseau et des taxes à droite. Quatre pourcentages alignés se lisent
                   comme un tableau ; deux se lisent d'un coup d'œil. Le détail reste au survol de
                   chaque segment. */}
-              <span className="mt-1 flex justify-between font-mono text-kw-micro text-kw-faint">
+              <span className="mt-1 flex justify-between font-mono text-km-label text-km-faint">
                 <span>
                   énergie {Math.round(((b.energie ?? 0) / sommeParts) * 100)} %
                 </span>
@@ -275,7 +275,7 @@ export function CarteOffreEtude({
               </span>
             </>
           ) : (
-            <span className="text-kw-tiny text-kw-ghost">composition inconnue — aucun prix saisi</span>
+            <span className="text-km-label text-km-faint">composition inconnue — aucun prix saisi</span>
           )}
         </span>
 
@@ -291,8 +291,8 @@ export function CarteOffreEtude({
                 onClick={onChoisir}
                 title="Sélectionner pour comparer"
                 className={cn(
-                  'flex h-4 w-4 shrink-0 items-center justify-center rounded-kw-xs border text-kw-micro font-bold',
-                  choisie ? 'border-kw-green bg-kw-green text-white' : 'border-kw-border-strong bg-white',
+                  'flex h-4 w-4 shrink-0 items-center justify-center rounded-kw-xs border text-km-label font-bold',
+                  choisie ? 'border-km-green bg-km-green text-white' : 'border-km-line bg-white',
                 )}
               >
                 {choisie ? '✓' : ''}
@@ -323,20 +323,20 @@ export function CarteOffreEtude({
         >
           {!avecBarre && (
             <span>
-              <span className="block font-mono text-kw-base font-bold tabular-nums">
-                {marge == null ? <span className="text-kw-ghost">—</span> : `${marge.toLocaleString('fr-FR', { maximumFractionDigits: 2 })} €`}
+              <span className="block font-mono text-km-body font-bold tabular-nums">
+                {marge == null ? <span className="text-km-faint">—</span> : `${marge.toLocaleString('fr-FR', { maximumFractionDigits: 2 })} €`}
               </span>
-              <span className="block text-kw-micro text-kw-faint">
+              <span className="block text-km-label text-km-faint">
                 marge {typeMarge === 'FIXE' ? 'fixe' : '€/MWh'}
               </span>
             </span>
           )}
 
           <span>
-            <span className="block font-mono text-kw-lg font-extrabold tabular-nums">
+            <span className="block font-mono text-km-name font-extrabold tabular-nums">
               {total == null ? '—' : Math.round(total).toLocaleString('fr-FR')}
             </span>
-            <span className="block text-kw-micro text-kw-faint">budget HT / an</span>
+            <span className="block text-km-label text-km-faint">budget HT / an</span>
           </span>
 
           <span>
@@ -344,7 +344,7 @@ export function CarteOffreEtude({
               /* « RÉFÉRENCE » ET NON UN TIRET : cette offre est la base du comparatif, ce n'est pas
                  une valeur manquante. Michel, 27/08/2026 : les autres se lisent alors « plus chère »
                  ou « moins chère » qu'elle — d'où l'infobulle sur les écarts, juste en dessous. */
-              <span className="block text-kw-sm font-bold text-kw-blue">référence</span>
+              <span className="block text-km-body font-bold text-km-blue">référence</span>
             ) : (
               <span
                 title={
@@ -353,8 +353,8 @@ export function CarteOffreEtude({
                     : 'Moins chère que l’offre de référence'
                 }
                 className={cn(
-                  'inline-flex items-baseline gap-1.5 rounded-kw-sm px-2 py-0.5 font-mono text-kw-sm font-extrabold tabular-nums',
-                  ecart > 0 ? 'bg-kw-red-light text-kw-red' : 'bg-kw-green-light text-kw-green',
+                  'inline-flex items-baseline gap-1.5 rounded-km-sm px-2 py-0.5 font-mono text-km-body font-extrabold tabular-nums',
+                  ecart > 0 ? 'bg-km-red-soft text-km-red' : 'bg-km-green-soft text-km-green',
                 )}
               >
                 {/* Flèche, montant et pourcentage, comme la maquette : « ▼ −1 760 € · 12,4 % ». Le
@@ -387,18 +387,18 @@ export function CarteOffreEtude({
           )}
         >
           {actions}
-          <span className="w-3 shrink-0 text-center text-kw-sm text-kw-faint">{deplie ? '▾' : '▸'}</span>
+          <span className="w-3 shrink-0 text-center text-km-body text-km-faint">{deplie ? '▾' : '▸'}</span>
         </span>
       </div>
 
       {/* ── Niveau 2 : un point de livraison par ligne ──────────────────────── */}
       {deplie && (
-        <div className="border-t border-kw-border-faint bg-kw-subtle px-3.5 py-3">
-          <p className="mb-2 text-kw-micro font-bold uppercase tracking-[0.07em] text-kw-faint">
+        <div className="border-t border-km-line bg-km-soft px-3.5 py-3">
+          <p className="mb-2 text-km-label font-bold uppercase tracking-[0.07em] text-km-faint">
             Budget par compteur · dépliez pour le détail
           </p>
           {offre.details_par_compteur.length === 0 ? (
-            <p className="text-kw-tiny text-kw-faint">Aucun prix saisi sur cette offre.</p>
+            <p className="text-km-label text-km-faint">Aucun prix saisi sur cette offre.</p>
           ) : (
             <div className="flex flex-col gap-1.5">
               {offre.details_par_compteur.map((d) => {
@@ -414,13 +414,13 @@ export function CarteOffreEtude({
                 // qu'est l'information qu'un PDF doit porter.
                 const estOuvert = deplieToujours || pdlOuvert === d.id
                 return (
-                  <div key={d.id} className="overflow-hidden break-inside-avoid rounded-kw-md border border-kw-border bg-white">
+                  <div key={d.id} className="overflow-hidden break-inside-avoid rounded-km border border-km-line bg-white">
                     <button
                       type="button"
                       onClick={() => setPdlOuvert(estOuvert ? null : d.id)}
                       // `ligne-compteur` : un repère pour la feuille d'impression, qui replie cette
                       // ligne au lieu de la serrer. Voir la règle dans `index.css`.
-                      className="ligne-compteur flex w-full flex-wrap items-center gap-x-3 gap-y-1.5 px-3 py-2 text-left hover:bg-kw-subtle sm:grid sm:grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)]"
+                      className="ligne-compteur flex w-full flex-wrap items-center gap-x-3 gap-y-1.5 px-3 py-2 text-left hover:bg-km-soft sm:grid sm:grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)]"
                     >
                       {/* LE CHEVRON VOYAGE AVEC LE NUMÉRO DE PDL, dans le même ressort. Séparé, ses
                           12 px s'ajoutaient à gauche seulement et décalaient d'autant le groupe de
@@ -435,12 +435,12 @@ export function CarteOffreEtude({
                           colonne et se superpose au voisin. Il faut donc dire à la fois « la colonne
                           peut rétrécir » et « le texte se coupe quand elle rétrécit ». */}
                       <span className="flex min-w-0 flex-1 items-center gap-x-3 overflow-hidden sm:flex-none">
-                        <span className="w-3 shrink-0 text-kw-tiny text-kw-faint">{estOuvert ? '▾' : '▸'}</span>
+                        <span className="w-3 shrink-0 text-km-label text-km-faint">{estOuvert ? '▾' : '▸'}</span>
                         <span className="flex min-w-0 items-center gap-1.5">
-                          <span className="truncate font-mono text-kw-sm font-bold">
+                          <span className="truncate font-mono text-km-body font-bold">
                             {compteur?.numero_pdl || d.compteur_label || 'Compteur'}
                           </span>
-                          <span className="shrink-0 rounded-kw-xs bg-kw-muted px-1.5 py-px text-kw-micro font-bold text-kw-meta">
+                          <span className="shrink-0 rounded-kw-xs bg-km-soft px-1.5 py-px text-km-label font-bold text-km-muted">
                             {gaz ? 'Gaz' : 'Élec'}
                           </span>
                         </span>
@@ -469,7 +469,7 @@ export function CarteOffreEtude({
                         <Cellule libelle={gaz ? 'RÉSEAU' : 'TURPE'} valeur={reseauDe(d)} unite="€" />
                         <Cellule libelle="TAXES" valeur={taxesDe(d)} unite="€" />
                         <span className="min-w-[86px] text-right">
-                          <span className="block text-kw-micro font-bold tracking-[0.05em] text-kw-faint">
+                          <span className="block text-km-label font-bold tracking-[0.05em] text-km-faint">
                             TOTAL / AN
                           </span>
                           {/* LE TOTAL EST LA SOMME DE CE QUI EST MONTRÉ SUR LA LIGNE, pas la valeur
@@ -477,7 +477,7 @@ export function CarteOffreEtude({
                               ligne affichait 18 757 d'énergie et 3 746 de contributions, soit 22 503 :
                               l'accise et la CTA, ajoutées le matin même, n'étaient pas dans le total
                               stocké. Une ligne qui ne s'additionne pas ne se fait pas pardonner. */}
-                          <span className="block font-mono text-kw-base font-extrabold tabular-nums text-kw-green">
+                          <span className="block font-mono text-km-body font-extrabold tabular-nums text-km-green">
                             {(() => {
                               const t = totalDeLaLigne(d)
                               return t == null ? '—' : `${Math.round(t).toLocaleString('fr-FR')} €`
@@ -490,7 +490,7 @@ export function CarteOffreEtude({
 
                     {/* ── Niveau 3 : les composantes, en blocs ───────────────── */}
                     {estOuvert && (
-                      <div className="animate-kw-fade-slide border-t border-kw-border-faint px-3 py-3">
+                      <div className="animate-kw-fade-slide border-t border-km-line px-3 py-3">
                         <BlocCompose
                           couleur="blue"
                           titre="Abonnement"
@@ -676,10 +676,10 @@ function Cellule({ libelle, valeur, unite, estompe }: {
 }) {
   return (
     <span className="min-w-[74px]">
-      <span className="block text-kw-micro font-bold tracking-[0.05em] text-kw-faint">{libelle}</span>
-      <span className={cn('block font-mono text-kw-sm tabular-nums', estompe ? 'font-normal text-kw-faint' : 'font-bold')}>
+      <span className="block text-km-label font-bold tracking-[0.05em] text-km-faint">{libelle}</span>
+      <span className={cn('block font-mono text-km-body tabular-nums', estompe ? 'font-normal text-km-faint' : 'font-bold')}>
         {valeur == null
-          ? <span className="text-kw-ghost">—</span>
+          ? <span className="text-km-faint">—</span>
           : `${unite === 'MWh' ? valeur.toLocaleString('fr-FR', { maximumFractionDigits: 2 }) : Math.round(valeur).toLocaleString('fr-FR')} ${unite}`}
       </span>
     </span>
@@ -701,44 +701,44 @@ function BlocCompose({ couleur, titre, aide, total, lignes }: {
   lignes?: { l: string; pu?: number | null; vol?: number | null; montant?: number | null }[]
 }) {
   const teintes = {
-    blue: { bord: 'border-[#e6edf3]', fond: 'bg-[#f7f9fb]', puce: 'bg-kw-blue', texte: 'text-kw-blue' },
-    green: { bord: 'border-kw-green-border', fond: 'bg-kw-green-tint', puce: 'bg-kw-green', texte: 'text-kw-green' },
-    gold: { bord: 'border-kw-amber-border', fond: 'bg-kw-amber-light', puce: 'bg-kw-gold', texte: 'text-kw-amber-dark' },
+    blue: { bord: 'border-[#e6edf3]', fond: 'bg-[#f7f9fb]', puce: 'bg-kw-blue', texte: 'text-km-blue' },
+    green: { bord: 'border-kw-green-border', fond: 'bg-kw-green-tint', puce: 'bg-km-green', texte: 'text-km-green' },
+    gold: { bord: 'border-kw-amber-border', fond: 'bg-km-amber-soft', puce: 'bg-kw-gold', texte: 'text-km-amber' },
   }[couleur]
   const visibles = (lignes ?? []).filter((x) => x.montant != null || (x.pu != null))
   return (
-    <div className={cn('mb-2 overflow-hidden rounded-kw-md border last:mb-0', teintes.bord)}>
+    <div className={cn('mb-2 overflow-hidden rounded-km border last:mb-0', teintes.bord)}>
       <div className={cn('flex flex-wrap items-center gap-2 border-b px-3 py-2', teintes.bord, teintes.fond)}>
         <span className={cn('h-[7px] w-[7px] shrink-0 rounded-[3px]', teintes.puce)} />
-        <span className={cn('text-kw-micro font-bold uppercase tracking-[0.06em]', teintes.texte)}>{titre}</span>
+        <span className={cn('text-km-label font-bold uppercase tracking-[0.06em]', teintes.texte)}>{titre}</span>
         <span className="flex-1" />
-        <span className={cn('font-mono text-kw-base font-extrabold tabular-nums', teintes.texte)}>
+        <span className={cn('font-mono text-km-body font-extrabold tabular-nums', teintes.texte)}>
           {total == null ? '—' : `${Math.round(total).toLocaleString('fr-FR')} €`}
         </span>
       </div>
-      <p className="px-3 pt-1.5 text-kw-micro leading-snug text-kw-faint">{aide}</p>
+      <p className="px-3 pt-1.5 text-km-label leading-snug text-km-faint">{aide}</p>
       {visibles.length > 0 && (
         <div className="px-3 pb-2 pt-1">
-          <div className="grid grid-cols-[1fr_auto_auto_auto] gap-x-3 gap-y-1 text-kw-tiny">
-            <span className="text-kw-micro font-bold tracking-[0.05em] text-kw-faint">POSTE</span>
-            <span className="text-right text-kw-micro font-bold tracking-[0.05em] text-kw-faint">PRIX</span>
-            <span className="text-right text-kw-micro font-bold tracking-[0.05em] text-kw-faint">VOLUME</span>
-            <span className="text-right text-kw-micro font-bold tracking-[0.05em] text-kw-faint">€ / AN</span>
+          <div className="grid grid-cols-[1fr_auto_auto_auto] gap-x-3 gap-y-1 text-km-label">
+            <span className="text-km-label font-bold tracking-[0.05em] text-km-faint">POSTE</span>
+            <span className="text-right text-km-label font-bold tracking-[0.05em] text-km-faint">PRIX</span>
+            <span className="text-right text-km-label font-bold tracking-[0.05em] text-km-faint">VOLUME</span>
+            <span className="text-right text-km-label font-bold tracking-[0.05em] text-km-faint">€ / AN</span>
             {visibles.map((x) => {
               const montant = x.montant != null
                 ? x.montant
                 : x.pu != null && x.vol != null ? x.pu * x.vol : null
               return (
-                <div key={x.l} className="col-span-4 grid grid-cols-[1fr_auto_auto_auto] gap-x-3 border-t border-kw-border-faint pt-1">
-                  <span className="font-semibold text-kw-label">{x.l}</span>
-                  <span className="text-right font-mono tabular-nums text-kw-meta">
+                <div key={x.l} className="col-span-4 grid grid-cols-[1fr_auto_auto_auto] gap-x-3 border-t border-km-line pt-1">
+                  <span className="font-semibold text-km-muted">{x.l}</span>
+                  <span className="text-right font-mono tabular-nums text-km-muted">
                     {x.pu != null ? `${x.pu.toLocaleString('fr-FR', { maximumFractionDigits: 2 })} €/MWh` : '—'}
                   </span>
-                  <span className="text-right font-mono tabular-nums text-kw-meta">
+                  <span className="text-right font-mono tabular-nums text-km-muted">
                     {x.vol != null ? `${x.vol.toLocaleString('fr-FR', { maximumFractionDigits: 2 })} MWh` : '—'}
                   </span>
                   <span className="text-right font-mono font-bold tabular-nums">
-                    {montant == null ? <span className="text-kw-ghost">—</span> : `${Math.round(montant).toLocaleString('fr-FR')} €`}
+                    {montant == null ? <span className="text-km-faint">—</span> : `${Math.round(montant).toLocaleString('fr-FR')} €`}
                   </span>
                 </div>
               )

@@ -148,7 +148,7 @@ function CreateInteractionDialog({ open, onClose }: { open: boolean; onClose: ()
             {issues.map((i) => <option key={i.id} value={i.id}>{i.libelle}</option>)}
           </Select>
         </FormField>
-        {feedback && <p className="text-xs text-navy-500">{feedback}</p>}
+        {feedback && <p className="text-xs text-km-muted">{feedback}</p>}
         <div className="flex justify-end gap-2 pt-2">
           <Button type="button" variant="ghost" onClick={() => { reset(); onClose() }}>Annuler</Button>
           <Button type="submit" disabled={createInteraction.isPending}>Créer l'interaction</Button>
@@ -232,14 +232,14 @@ export default function Interactions() {
               type="button"
               onClick={() => setAVenir((v) => !v)}
               aria-pressed={aVenir}
-              className={`flex h-9 shrink-0 items-center gap-1.5 rounded-kw-md border px-3 text-kw-lg font-semibold transition-colors ${
+              className={`flex h-9 shrink-0 items-center gap-1.5 rounded-km border px-3 text-km-name font-semibold transition-colors ${
                 aVenir
                   ? 'border-kw-ink bg-kw-ink text-white'
-                  : 'border-kw-border-strong bg-kw-surface text-kw-body hover:text-kw-ink'
+                  : 'border-km-line bg-km-surface text-km-muted hover:text-km-text'
               }`}
             >
               À venir
-              <span className={`font-mono text-kw-xs tabular-nums ${aVenir ? 'opacity-70' : 'text-kw-meta'}`}>
+              <span className={`font-mono text-km-label tabular-nums ${aVenir ? 'opacity-70' : 'text-km-muted'}`}>
                 {nbAVenir}
               </span>
             </button>
@@ -250,21 +250,21 @@ export default function Interactions() {
             On s'arrête aux 2000 plus récentes, et on le dit plutôt que de laisser croire que la
             recherche porte sur tout l'historique. */}
         {!isLoading && !aVenir && interactions && interactions.length >= 2000 && (
-          <p className="mb-2.5 text-[11px] text-navy-400">
+          <p className="mb-2.5 text-[11px] text-km-faint">
             Les 2000 interactions les plus récentes sont chargées — la recherche ci-dessus porte sur celles-ci.
             Pour l'historique complet d'un compte, ouvre sa fiche.
           </p>
         )}
 
         <div className="space-y-2.5">
-          {isLoading && <p className="text-sm text-navy-400">Chargement…</p>}
+          {isLoading && <p className="text-sm text-km-faint">Chargement…</p>}
           {!isLoading && interactions?.length === 0 && (
-            <p className="py-8 text-center text-sm text-navy-400">
+            <p className="py-8 text-center text-sm text-km-faint">
               Aucune interaction pour l'instant — chaque appel, email ou réunion noté avec un compte/contact apparaîtra ici.
             </p>
           )}
           {!isLoading && interactions && interactions.length > 0 && filteredInteractions?.length === 0 && (
-            <p className="py-8 text-center text-sm text-navy-400">Aucune interaction ne correspond à la recherche.</p>
+            <p className="py-8 text-center text-sm text-km-faint">Aucune interaction ne correspond à la recherche.</p>
           )}
           {tranche.visibles.map((i) => (
             <Card
@@ -277,8 +277,8 @@ export default function Interactions() {
                   <MessageSquare className="h-4 w-4" />
                 </span>
                 <div>
-                  <p className="text-sm font-medium text-navy-800">{i.objet || i.type_interaction}</p>
-                  <p className="text-xs text-navy-500">
+                  <p className="text-sm font-medium text-km-text">{i.objet || i.type_interaction}</p>
+                  <p className="text-xs text-km-muted">
                     <InteractionSentence interaction={i} />
                   </p>
                 </div>
@@ -286,7 +286,7 @@ export default function Interactions() {
               <div className="flex shrink-0 flex-col items-end gap-1.5">
                 <Badge tone="neutral">{i.type_interaction}</Badge>
                 {i.issue_libelle && <Badge tone="amber">{i.issue_libelle}</Badge>}
-                <span className="text-xs text-navy-400">{new Date(i.date_interaction).toLocaleDateString('fr-FR')}</span>
+                <span className="text-xs text-km-faint">{new Date(i.date_interaction).toLocaleDateString('fr-FR')}</span>
               </div>
             </Card>
           ))}

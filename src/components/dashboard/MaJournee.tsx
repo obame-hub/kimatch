@@ -40,17 +40,17 @@ const ICONES: Record<GroupeJournee, typeof Zap> = {
 
 /** Une teinte par objet, la même que sur les tuiles du tableau de bord. */
 const TEINTES: Record<GroupeJournee, string> = {
-  SIGNAL: 'bg-kw-amber-light text-kw-amber',
+  SIGNAL: 'bg-km-amber-soft text-km-amber',
   OPPORTUNITE: 'bg-opp-50 text-opp-600',
-  MANDAT: 'bg-sky-50 text-kw-blue',
-  RECOMMANDATION: 'bg-kw-green-light text-kw-green',
-  AUTRE: 'bg-kw-bloc text-kw-meta',
+  MANDAT: 'bg-sky-50 text-km-blue',
+  RECOMMANDATION: 'bg-km-green-soft text-km-green',
+  AUTRE: 'bg-km-soft text-km-muted',
 }
 
 const TONS = {
-  rouge: 'bg-kw-red-light text-kw-red',
-  ambre: 'bg-kw-amber-light text-kw-amber-dark',
-  neutre: 'bg-kw-bloc text-kw-meta',
+  rouge: 'bg-km-red-soft text-km-red',
+  ambre: 'bg-km-amber-soft text-km-amber',
+  neutre: 'bg-km-soft text-km-muted',
 } as const
 
 /* L'ordre de la chaîne : signal, opportunité, mandat, recommandation. On descend le tunnel du plus
@@ -97,11 +97,11 @@ export function MaJournee({
   const { data: contexte } = useContexteJournee(profilId, groupes.length === 0)
 
   return (
-    <div className="rounded-kw-3xl border border-kw-border bg-white">
+    <div className="rounded-kw-3xl border border-km-line bg-white">
       <div className="flex flex-wrap items-center gap-x-3 gap-y-2 px-5 pb-3.5 pt-4">
         <div className="mr-auto">
-          <h2 className="text-kw-h2 font-extrabold tracking-[-0.01em] text-kw-ink">Ma journée</h2>
-          <p className="mt-0.5 text-kw-xs text-kw-meta">
+          <h2 className="text-kw-h2 font-extrabold tracking-[-0.01em] text-km-text">Ma journée</h2>
+          <p className="mt-0.5 text-km-label text-km-muted">
             {chargement
               ? 'Chargement…'
               : nbAFaire === 0
@@ -112,7 +112,7 @@ export function MaJournee({
 
         {/* Le basculement de sa maquette. « Réalisé » ne montre que la journée écoulée : au-delà,
             ce n'est plus une journée, c'est un historique — et il a une page pour ça. */}
-        <span className="flex items-center gap-0.5 rounded-kw-md border border-kw-border bg-kw-bloc p-0.5">
+        <span className="flex items-center gap-0.5 rounded-km border border-km-line bg-km-soft p-0.5">
           {(
             [
               { cle: 'a_faire' as const, libelle: 'À réaliser' },
@@ -125,8 +125,8 @@ export function MaJournee({
               type="button"
               onClick={() => setPortee(o.cle)}
               className={cn(
-                'rounded-kw-sm px-2.5 py-1 text-kw-xs font-bold',
-                portee === o.cle ? 'bg-white text-kw-ink shadow-kw-card' : 'text-kw-meta hover:text-kw-ink',
+                'rounded-km-sm px-2.5 py-1 text-km-label font-bold',
+                portee === o.cle ? 'bg-white text-km-text shadow-kw-card' : 'text-km-muted hover:text-km-text',
               )}
             >
               {o.libelle}
@@ -137,7 +137,7 @@ export function MaJournee({
         <button
           type="button"
           onClick={() => navigate('/taches')}
-          className="inline-flex items-center gap-1 text-kw-xs font-bold text-kw-green hover:underline"
+          className="inline-flex items-center gap-1 text-km-label font-bold text-km-green hover:underline"
         >
           Voir les tâches
           <ArrowRight className="h-3 w-3" />
@@ -145,18 +145,18 @@ export function MaJournee({
       </div>
 
       {groupes.length === 0 ? (
-        <div className="border-t border-kw-border-faint px-5 py-5">
-          <p className="text-kw-sm font-bold text-kw-ink">
+        <div className="border-t border-km-line px-5 py-5">
+          <p className="text-km-body font-bold text-km-text">
             {portee === 'faites' ? 'Rien de réalisé aujourd’hui.' : 'Rien à réaliser.'}
           </p>
           {/* On dit ce qu'on sait, dans l'ordre de ce qui est actionnable. */}
           {contexte && contexte.total === 0 ? (
-            <p className="mt-0.5 max-w-[70ch] text-kw-xs leading-relaxed text-kw-meta">
+            <p className="mt-0.5 max-w-[70ch] text-km-label leading-relaxed text-km-muted">
               Aucune tâche n’existe encore dans Kimatch. Elles se créent depuis la{' '}
               <button
                 type="button"
                 onClick={() => navigate('/signaux')}
-                className="font-bold text-kw-green hover:underline"
+                className="font-bold text-km-green hover:underline"
               >
                 prochaine action d’un signal
               </button>
@@ -164,14 +164,14 @@ export function MaJournee({
               <button
                 type="button"
                 onClick={() => navigate('/taches')}
-                className="font-bold text-kw-green hover:underline"
+                className="font-bold text-km-green hover:underline"
               >
                 Tâches
               </button>
               .
             </p>
           ) : contexte && contexte.sansResponsable > 0 ? (
-            <p className="mt-0.5 max-w-[70ch] text-kw-xs leading-relaxed text-kw-meta">
+            <p className="mt-0.5 max-w-[70ch] text-km-label leading-relaxed text-km-muted">
               {contexte.sansResponsable} tâche{contexte.sansResponsable > 1 ? 's' : ''} ouverte
               {contexte.sansResponsable > 1 ? 's' : ''} n’{contexte.sansResponsable > 1 ? 'ont' : 'a'} pas
               de responsable : personne ne {contexte.sansResponsable > 1 ? 'les' : 'la'} verra tant
@@ -180,19 +180,19 @@ export function MaJournee({
               <button
                 type="button"
                 onClick={() => navigate('/taches')}
-                className="font-bold text-kw-green hover:underline"
+                className="font-bold text-km-green hover:underline"
               >
                 Voir les tâches
               </button>
             </p>
           ) : contexte && contexte.ailleurs > 0 ? (
-            <p className="mt-0.5 max-w-[70ch] text-kw-xs leading-relaxed text-kw-meta">
+            <p className="mt-0.5 max-w-[70ch] text-km-label leading-relaxed text-km-muted">
               Rien pour vous : {contexte.ailleurs} tâche{contexte.ailleurs > 1 ? 's' : ''} ouverte
               {contexte.ailleurs > 1 ? 's' : ''} {contexte.ailleurs > 1 ? 'sont' : 'est'} suivie
               {contexte.ailleurs > 1 ? 's' : ''} par d’autres commerciaux.
             </p>
           ) : (
-            <p className="mt-0.5 max-w-[70ch] text-kw-xs leading-relaxed text-kw-meta">
+            <p className="mt-0.5 max-w-[70ch] text-km-label leading-relaxed text-km-muted">
               Les actions arrivent ici depuis un signal, une opportunité, un mandat ou une
               recommandation — c’est là qu’elles ont un objet. Une action créée sans rattachement
               apparaît sous « Autres ».
@@ -200,21 +200,21 @@ export function MaJournee({
           )}
         </div>
       ) : (
-        <div className="grid grid-cols-1 gap-3 border-t border-kw-border-faint p-3 lg:grid-cols-2">
+        <div className="grid grid-cols-1 gap-3 border-t border-km-line p-3 lg:grid-cols-2">
           {groupes.map(({ groupe, lignes }) => {
             const Icone = ICONES[groupe]
             return (
-              <div key={groupe} className="overflow-hidden rounded-kw-xl border border-kw-border">
-                <div className="flex items-center gap-2.5 bg-kw-bloc px-3.5 py-2.5">
+              <div key={groupe} className="overflow-hidden rounded-km-lg border border-km-line">
+                <div className="flex items-center gap-2.5 bg-km-soft px-3.5 py-2.5">
                   <span
-                    className={cn('flex h-7 w-7 items-center justify-center rounded-kw-md', TEINTES[groupe])}
+                    className={cn('flex h-7 w-7 items-center justify-center rounded-km', TEINTES[groupe])}
                   >
                     <Icone className="h-3.5 w-3.5" strokeWidth={2.4} />
                   </span>
-                  <span className="mr-auto text-kw-sm font-extrabold text-kw-ink">
+                  <span className="mr-auto text-km-body font-extrabold text-km-text">
                     {LIBELLE_GROUPE[groupe]}
                   </span>
-                  <span className="rounded-kw-md bg-white px-2 py-0.5 font-mono text-kw-micro font-bold text-kw-meta">
+                  <span className="rounded-km bg-white px-2 py-0.5 font-mono text-km-label font-bold text-km-muted">
                     {lignes.length}
                   </span>
                 </div>
@@ -226,7 +226,7 @@ export function MaJournee({
                       key={a.id}
                       className={cn(
                         'flex items-start gap-3 px-3.5 py-2.5',
-                        i > 0 && 'border-t border-kw-border-faint',
+                        i > 0 && 'border-t border-km-line',
                       )}
                     >
                       {/* LA CASE ÉCRIT EN BASE. Elle ne se décoche pas : rouvrir une action faite se
@@ -239,8 +239,8 @@ export function MaJournee({
                         className={cn(
                           'mt-0.5 flex h-4 w-4 shrink-0 items-center justify-center rounded-[4px] border transition-colors',
                           a.faite
-                            ? 'border-kw-green bg-kw-green text-white'
-                            : 'border-kw-border-strong bg-white hover:border-kw-green',
+                            ? 'border-km-green bg-km-green text-white'
+                            : 'border-km-line bg-white hover:border-km-green',
                         )}
                       >
                         {a.faite && <Check className="h-2.5 w-2.5" strokeWidth={3.5} />}
@@ -253,21 +253,21 @@ export function MaJournee({
                       >
                         <span
                           className={cn(
-                            'block truncate text-kw-sm font-bold',
-                            a.faite ? 'text-kw-faint line-through' : 'text-kw-ink',
+                            'block truncate text-km-body font-bold',
+                            a.faite ? 'text-km-faint line-through' : 'text-km-text',
                           )}
                         >
                           {a.titre}
                         </span>
                         {a.contexte && (
-                          <span className="block truncate text-kw-xs text-kw-meta">{a.contexte}</span>
+                          <span className="block truncate text-km-label text-km-muted">{a.contexte}</span>
                         )}
                       </button>
 
                       {badge && (
                         <span
                           className={cn(
-                            'mt-0.5 shrink-0 rounded-kw-md px-2 py-0.5 text-kw-micro font-bold',
+                            'mt-0.5 shrink-0 rounded-km px-2 py-0.5 text-km-label font-bold',
                             TONS[badge.ton],
                           )}
                         >

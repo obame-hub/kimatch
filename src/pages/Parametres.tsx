@@ -41,7 +41,7 @@ function Toggle({ checked, onChange }: { checked: boolean; onChange: (v: boolean
       role="switch"
       aria-checked={checked}
       onClick={() => onChange(!checked)}
-      className={cn('relative h-6 w-11 shrink-0 rounded-full transition-colors', checked ? 'bg-kiwi-600' : 'bg-navy-200')}
+      className={cn('relative h-6 w-11 shrink-0 rounded-full transition-colors', checked ? 'bg-km-green' : 'bg-km-line')}
     >
       <span className={cn('absolute top-0.5 h-5 w-5 rounded-full bg-white shadow transition-transform', checked ? 'translate-x-5' : 'translate-x-0.5')} />
     </button>
@@ -81,13 +81,13 @@ function EmailModuleCard({ module, libelle }: { module: EmailModule; libelle: st
   }
 
   return (
-    <div className="rounded-xl border border-navy-100 p-3">
+    <div className="rounded-xl border border-km-line p-3">
       <div className="mb-2 flex items-center justify-between gap-3">
         <div>
-          <p className="text-sm font-medium text-navy-800">{libelle}</p>
-          <p className="text-xs text-navy-400">{row?.actif ? 'Notifications activées' : 'Notifications désactivées'}</p>
+          <p className="text-sm font-medium text-km-text">{libelle}</p>
+          <p className="text-xs text-km-faint">{row?.actif ? 'Notifications activées' : 'Notifications désactivées'}</p>
         </div>
-        <label className="flex items-center gap-2 text-xs text-navy-600">
+        <label className="flex items-center gap-2 text-xs text-km-muted">
           <input
             type="checkbox"
             checked={!!row?.actif}
@@ -108,7 +108,7 @@ function EmailModuleCard({ module, libelle }: { module: EmailModule; libelle: st
         <Button type="button" size="sm" variant="outline" onClick={enregistrer} disabled={updateSetting.isPending}>
           Enregistrer
         </Button>
-        {feedback && <span className="text-xs text-navy-500">{feedback}</span>}
+        {feedback && <span className="text-xs text-km-muted">{feedback}</span>}
       </div>
     </div>
   )
@@ -143,17 +143,17 @@ function SlackModuleCard({ module }: { module: SlackModule }) {
   }
 
   return (
-    <div className="rounded-lg border border-navy-100 p-4">
+    <div className="rounded-lg border border-km-line p-4">
       <div className="flex items-center justify-between">
         <div>
-          <p className="font-medium text-navy-800">{MODULE_LABELS[module]}</p>
-          <p className="text-xs text-navy-400">{row?.enabled ? 'Notifications actives' : 'Notifications désactivées'}</p>
+          <p className="font-medium text-km-text">{MODULE_LABELS[module]}</p>
+          <p className="text-xs text-km-faint">{row?.enabled ? 'Notifications actives' : 'Notifications désactivées'}</p>
         </div>
         <Toggle checked={!!row?.enabled} onChange={(v) => updateSetting.mutate({ module, patch: { enabled: v } })} />
       </div>
 
       <div className="mt-3">
-        <label className="mb-1.5 block text-xs font-medium text-navy-600">Canal Slack</label>
+        <label className="mb-1.5 block text-xs font-medium text-km-muted">Canal Slack</label>
         <Select
           value={row?.channel_id ?? ''}
           onChange={(e) => {
@@ -168,7 +168,7 @@ function SlackModuleCard({ module }: { module: SlackModule }) {
             </option>
           ))}
         </Select>
-        {channelsError && <p className="mt-1 text-xs text-red-600">{(channelsError as Error).message}</p>}
+        {channelsError && <p className="mt-1 text-xs text-km-red">{(channelsError as Error).message}</p>}
       </div>
 
       <div className="mt-3 flex items-center justify-between">
@@ -179,7 +179,7 @@ function SlackModuleCard({ module }: { module: SlackModule }) {
           <RefreshCw className="h-3.5 w-3.5" />
         </Button>
       </div>
-      {feedback && <p className="mt-2 text-xs text-navy-500">{feedback}</p>}
+      {feedback && <p className="mt-2 text-xs text-km-muted">{feedback}</p>}
     </div>
   )
 }
@@ -195,16 +195,16 @@ export default function Parametres() {
         <Card className="max-w-2xl">
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
-              <MessageSquare className="h-5 w-5 text-kiwi-600" />
+              <MessageSquare className="h-5 w-5 text-km-green" />
               Notifications Slack
             </CardTitle>
           </CardHeader>
           <CardContent className="space-y-3">
-            <p className="text-sm text-navy-500">
+            <p className="text-sm text-km-muted">
               Choisissez le canal Slack où envoyer les notifications de chaque événement. Le bot doit être membre des
               canaux privés — les canaux publics fonctionnent automatiquement.
             </p>
-            <div className="flex items-center gap-1.5 text-xs text-navy-400">
+            <div className="flex items-center gap-1.5 text-xs text-km-faint">
               <Hash className="h-3 w-3" />
               D'autres modules (cotations, pistes) arriveront une fois les objets correspondants branchés.
             </div>
@@ -217,12 +217,12 @@ export default function Parametres() {
         <Card className="max-w-2xl">
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
-              <Mail className="h-5 w-5 text-kiwi-600" />
+              <Mail className="h-5 w-5 text-km-green" />
               Notifications par email
             </CardTitle>
           </CardHeader>
           <CardContent className="space-y-3">
-            <p className="text-sm text-navy-500">
+            <p className="text-sm text-km-muted">
               Qui reçoit un email à chaque nouvelle demande de contrat ou cotation. Les messages partent de votre
               propre compte Gmail — les réponses vous reviennent donc directement.
             </p>

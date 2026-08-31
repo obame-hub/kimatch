@@ -422,17 +422,17 @@ export function CreateRecommandationDialog({
                   <div
                     className={cn(
                       'flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-xs font-semibold transition-colors',
-                      passee && 'bg-kiwi-600 text-white',
-                      active && 'bg-kiwi-100 text-kiwi-700 ring-2 ring-kiwi-300',
-                      !active && !passee && 'bg-navy-100 text-navy-400',
+                      passee && 'bg-km-green text-white',
+                      active && 'bg-km-green-soft text-km-green ring-2 ring-kiwi-300',
+                      !active && !passee && 'bg-km-soft text-km-faint',
                     )}
                   >
                     {passee ? <Check className="h-3.5 w-3.5" /> : idx}
                   </div>
-                  <span className={cn('hidden truncate text-xs font-medium sm:inline', active ? 'text-navy-800' : 'text-navy-400')}>
+                  <span className={cn('hidden truncate text-xs font-medium sm:inline', active ? 'text-km-text' : 'text-km-faint')}>
                     {label}
                   </span>
-                  {idx < ETAPES.length && <div className="h-px flex-1 bg-navy-100" />}
+                  {idx < ETAPES.length && <div className="h-px flex-1 bg-km-soft" />}
                 </div>
               )
             })}
@@ -458,15 +458,15 @@ export function CreateRecommandationDialog({
             {!compteImpose && etape === 1 && (
               <div className="space-y-3">
                 <div className="space-y-1">
-                  <h4 className="text-base font-semibold text-navy-900">Sur quel compte ?</h4>
-                  <p className="text-sm text-navy-500">
+                  <h4 className="text-base font-semibold text-km-text">Sur quel compte ?</h4>
+                  <p className="text-sm text-km-muted">
                     {comptesEligibles.length} compte{comptesEligibles.length > 1 ? 's' : ''} avec un
                     mandat actif — seuls ceux-là ont des PDL éligibles.
                   </p>
                 </div>
 
                 <div className="relative">
-                  <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-navy-400" />
+                  <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-km-faint" />
                   <Input
                     value={rechercheC}
                     onChange={(e) => setRechercheC(e.target.value)}
@@ -482,15 +482,15 @@ export function CreateRecommandationDialog({
                   <span className="min-w-0 truncate">
                     {compteCible ? (
                       <>
-                        <span className="text-navy-400">Choisi : </span>
-                        <strong className="text-navy-800">{compteCible.nom}</strong>
+                        <span className="text-km-faint">Choisi : </span>
+                        <strong className="text-km-text">{compteCible.nom}</strong>
                       </>
                     ) : (
-                      <span className="text-navy-400">Aucun compte choisi</span>
+                      <span className="text-km-faint">Aucun compte choisi</span>
                     )}
                   </span>
                   {rechercheC.trim() !== '' && (
-                    <span className="shrink-0 text-navy-400">
+                    <span className="shrink-0 text-km-faint">
                       {comptesAffiches.length} résultat{comptesAffiches.length > 1 ? 's' : ''}
                     </span>
                   )}
@@ -498,7 +498,7 @@ export function CreateRecommandationDialog({
 
                 <div className="max-h-[300px] space-y-1.5 overflow-y-auto pr-1">
                   {comptesAffiches.length === 0 ? (
-                    <p className="py-10 text-center text-sm text-navy-400">
+                    <p className="py-10 text-center text-sm text-km-faint">
                       Aucun compte ne correspond. Un compte sans mandat actif n'apparaît pas ici.
                     </p>
                   ) : (
@@ -512,22 +512,22 @@ export function CreateRecommandationDialog({
                           className={cn(
                             'flex w-full items-center gap-3 rounded-lg border p-2.5 text-left transition-all',
                             choisi
-                              ? 'border-kiwi-500 bg-kiwi-50 ring-1 ring-kiwi-200'
-                              : 'border-navy-200 hover:border-kiwi-300 hover:bg-navy-50',
+                              ? 'border-km-green bg-kiwi-50 ring-1 ring-kiwi-200'
+                              : 'border-km-line hover:border-kiwi-300 hover:bg-km-bg',
                           )}
                         >
                           <div
                             className={cn(
                               'flex h-5 w-5 shrink-0 items-center justify-center rounded-full',
-                              choisi ? 'bg-kiwi-600 text-white' : 'border border-navy-300',
+                              choisi ? 'bg-km-green text-white' : 'border border-km-line',
                             )}
                           >
                             {choisi && <Check className="h-3.5 w-3.5" />}
                           </div>
-                          <Briefcase className="h-4 w-4 shrink-0 text-navy-400" />
+                          <Briefcase className="h-4 w-4 shrink-0 text-km-faint" />
                           <div className="min-w-0 flex-1">
-                            <span className="block truncate text-sm font-medium text-navy-800">{c.nom}</span>
-                            <span className="mt-0.5 block truncate text-xs text-navy-400">
+                            <span className="block truncate text-sm font-medium text-km-text">{c.nom}</span>
+                            <span className="mt-0.5 block truncate text-xs text-km-faint">
                               {[c.ville, c.siren ? `SIREN ${c.siren}` : null].filter(Boolean).join(' · ') || '—'}
                             </span>
                           </div>
@@ -546,8 +546,8 @@ export function CreateRecommandationDialog({
             {etape === iEnergie && (
               <div className="space-y-5">
                 <div className="space-y-1 text-center">
-                  <h4 className="text-base font-semibold text-navy-900">Quelle énergie ?</h4>
-                  <p className="text-sm text-navy-500">Choisis l'énergie principale de l'opportunité</p>
+                  <h4 className="text-base font-semibold text-km-text">Quelle énergie ?</h4>
+                  <p className="text-sm text-km-muted">Choisis l'énergie principale de l'opportunité</p>
                 </div>
                 <div className="mx-auto grid max-w-xl grid-cols-1 gap-4 sm:grid-cols-2">
                   {energies.map((en) => {
@@ -563,22 +563,22 @@ export function CreateRecommandationDialog({
                           'group rounded-xl border-2 p-5 text-left transition-all hover:-translate-y-0.5 hover:shadow-md',
                           actif
                             ? gaz ? 'border-violet-400 bg-violet-50 ring-2 ring-violet-200' : 'border-amber-400 bg-amber-50 ring-2 ring-amber-200'
-                            : 'border-navy-200 bg-white hover:border-navy-300',
+                            : 'border-km-line bg-white hover:border-km-line',
                         )}
                       >
                         <div className="flex items-start gap-3">
                           <div className={cn(
                             'flex h-12 w-12 shrink-0 items-center justify-center rounded-lg transition-transform group-hover:scale-110',
-                            actif ? (gaz ? 'bg-violet-500' : 'bg-amber-500') : (gaz ? 'bg-violet-100' : 'bg-amber-100'),
+                            actif ? (gaz ? 'bg-violet-500' : 'bg-amber-500') : (gaz ? 'bg-violet-100' : 'bg-km-amber-soft'),
                           )}>
                             <Icone className={cn('h-6 w-6', actif ? 'text-white' : gaz ? 'text-violet-500' : 'text-amber-500')} />
                           </div>
                           <div className="flex-1">
                             <div className="flex items-center gap-2">
-                              <p className="font-semibold text-navy-900">{en.libelle}</p>
+                              <p className="font-semibold text-km-text">{en.libelle}</p>
                               {actif && <Check className={cn('h-4 w-4', gaz ? 'text-violet-600' : 'text-amber-600')} />}
                             </div>
-                            <p className="mt-1 text-xs text-navy-500">
+                            <p className="mt-1 text-xs text-km-muted">
                               {gaz ? 'Sites raccordés au réseau gaz naturel' : 'Sites raccordés au réseau électrique'}
                             </p>
                           </div>
@@ -594,14 +594,14 @@ export function CreateRecommandationDialog({
             {etape === iPdl && (
               <div className="space-y-3">
                 <div className="space-y-1">
-                  <h4 className="text-base font-semibold text-navy-900">Points de livraison éligibles</h4>
-                  <p className="text-sm text-navy-500">
+                  <h4 className="text-base font-semibold text-km-text">Points de livraison éligibles</h4>
+                  <p className="text-sm text-km-muted">
                     {compteursEligibles.length} PDL avec un mandat actif pour {typeEnergie === 'gaz' ? 'le gaz' : "l'électricité"} (hors opportunités en cours)
                   </p>
                 </div>
 
                 <div className="relative">
-                  <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-navy-400" />
+                  <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-km-faint" />
                   <Input
                     value={rechercheP}
                     onChange={(e) => setRechercheP(e.target.value)}
@@ -612,8 +612,8 @@ export function CreateRecommandationDialog({
 
                 <div className="flex items-center justify-between text-sm">
                   <span>
-                    <strong className="text-navy-800">{compteurIds.length}</strong>{' '}
-                    <span className="text-navy-400">/ {compteursEligibles.length} sélectionné{compteurIds.length > 1 ? 's' : ''}</span>
+                    <strong className="text-km-text">{compteurIds.length}</strong>{' '}
+                    <span className="text-km-faint">/ {compteursEligibles.length} sélectionné{compteurIds.length > 1 ? 's' : ''}</span>
                   </span>
                   {compteursChoisis.length > 0 && !mixInvalide && (
                     <Badge tone={typeOpportunite === 'Renouvellement' ? 'kiwi' : 'neutral'}>Type : {typeOpportunite}</Badge>
@@ -621,14 +621,14 @@ export function CreateRecommandationDialog({
                 </div>
 
                 {mixInvalide && (
-                  <p className="flex items-center gap-1.5 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-xs text-red-700">
+                  <p className="flex items-center gap-1.5 rounded-lg border border-red-200 bg-km-red-soft px-3 py-2 text-xs text-red-700">
                     <AlertTriangle className="h-3.5 w-3.5 shrink-0" /> Impossible de mélanger clients et prospects
                   </p>
                 )}
 
                 <div className="max-h-[300px] space-y-1.5 overflow-y-auto pr-1">
                   {compteursAffiches.length === 0 ? (
-                    <p className="py-10 text-center text-sm text-navy-400">Aucun point de livraison éligible</p>
+                    <p className="py-10 text-center text-sm text-km-faint">Aucun point de livraison éligible</p>
                   ) : (
                     compteursAffiches.map((c) => {
                       const choisi = compteurIds.includes(c.id)
@@ -641,12 +641,12 @@ export function CreateRecommandationDialog({
                           onClick={() => basculerCompteur(c.id)}
                           className={cn(
                             'flex w-full items-center gap-3 rounded-lg border p-2.5 text-left transition-all',
-                            choisi ? 'border-kiwi-500 bg-kiwi-50 ring-1 ring-kiwi-200' : 'border-navy-200 hover:border-kiwi-300 hover:bg-navy-50',
+                            choisi ? 'border-km-green bg-kiwi-50 ring-1 ring-kiwi-200' : 'border-km-line hover:border-kiwi-300 hover:bg-km-bg',
                           )}
                         >
                           <div className={cn(
                             'flex h-5 w-5 shrink-0 items-center justify-center rounded',
-                            choisi ? 'bg-kiwi-600 text-white' : 'border border-navy-300',
+                            choisi ? 'bg-km-green text-white' : 'border border-km-line',
                           )}>
                             {choisi && <Check className="h-3.5 w-3.5" />}
                           </div>
@@ -655,10 +655,10 @@ export function CreateRecommandationDialog({
                             : <Zap className="h-4 w-4 shrink-0 text-amber-500" />}
                           <div className="min-w-0 flex-1">
                             <div className="flex items-center gap-2">
-                              <span className="truncate text-sm font-medium text-navy-800">{c.utilisation || c.site_nom}</span>
+                              <span className="truncate text-sm font-medium text-km-text">{c.utilisation || c.site_nom}</span>
                               <Badge tone={client ? 'kiwi' : 'neutral'}>{client ? 'Client' : 'Prospect'}</Badge>
                             </div>
-                            <div className="mt-0.5 flex items-center gap-2 text-xs text-navy-400">
+                            <div className="mt-0.5 flex items-center gap-2 text-xs text-km-faint">
                               <span className="font-mono">{c.numero_pdl}</span>
                               {cp && <><span>·</span><span className="flex items-center gap-1"><MapPin className="h-3 w-3" />{cp}</span></>}
                               {c.date_echeance && <><span>·</span><span>Échéance {new Date(c.date_echeance).toLocaleDateString('fr-FR')}</span></>}
@@ -676,7 +676,7 @@ export function CreateRecommandationDialog({
             {etape === iContact && (
               <div className="mx-auto max-w-xl space-y-3">
                 <div className="space-y-1 text-center">
-                  <h4 className="text-base font-semibold text-navy-900">Contact décisionnaire</h4>
+                  <h4 className="text-base font-semibold text-km-text">Contact décisionnaire</h4>
                 </div>
 
                 <ContactPicker
@@ -694,29 +694,29 @@ export function CreateRecommandationDialog({
                   const ct = contacts?.find((x) => x.id === contactEffectifId)
                   if (!ct) return null
                   return (
-                    <Card className="border-dashed bg-navy-50 p-3.5">
+                    <Card className="border-dashed bg-km-bg p-3.5">
                       <div className="flex items-start gap-3">
-                        <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-kiwi-600 font-semibold text-white">
+                        <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-km-green font-semibold text-white">
                           {`${(ct.prenom || '?')[0]}${(ct.nom || '?')[0]}`.toUpperCase()}
                         </div>
                         <div className="min-w-0 flex-1 space-y-1">
-                          <p className="font-semibold text-navy-800">{ct.prenom} {ct.nom}</p>
+                          <p className="font-semibold text-km-text">{ct.prenom} {ct.nom}</p>
                           {ct.fonction && (
-                            <p className="flex items-center gap-1.5 text-xs text-navy-500"><Briefcase className="h-3 w-3" />{ct.fonction}</p>
+                            <p className="flex items-center gap-1.5 text-xs text-km-muted"><Briefcase className="h-3 w-3" />{ct.fonction}</p>
                           )}
                           {ct.email && (
-                            <p className="flex items-center gap-1.5 text-xs text-navy-500">
+                            <p className="flex items-center gap-1.5 text-xs text-km-muted">
                               <Mail className="h-3 w-3" />
-                              <a href={`mailto:${ct.email}`} className="truncate hover:text-navy-800">{ct.email}</a>
+                              <a href={`mailto:${ct.email}`} className="truncate hover:text-km-text">{ct.email}</a>
                             </p>
                           )}
                           {ct.telephone && (
-                            <p className="flex items-center gap-1.5 text-xs text-navy-500">
+                            <p className="flex items-center gap-1.5 text-xs text-km-muted">
                               <Phone className="h-3 w-3" />
                               <button
                                 type="button"
                                 onClick={() => void appelerNumero(ct.telephone)}
-                                className="hover:text-navy-800 hover:underline"
+                                className="hover:text-km-text hover:underline"
                               >
                                 {ct.telephone}
                               </button>
@@ -740,14 +740,14 @@ export function CreateRecommandationDialog({
             {etape === iDate && (
               <div className="mx-auto max-w-md space-y-4">
                 <div className="space-y-1 text-center">
-                  <h4 className="text-base font-semibold text-navy-900">Date prévisionnelle de signature</h4>
+                  <h4 className="text-base font-semibold text-km-text">Date prévisionnelle de signature</h4>
                 </div>
 
                 <FormField label="Date de clôture *">
                   <Input type="date" value={dateCloture} onChange={(e) => setDateClotureManuelle(e.target.value)} />
                   {dateClotureSuggeree && (
-                    <p className="mt-1 text-xs text-navy-400">
-                      Passé le <strong className="text-navy-700">{new Date(dateClotureSuggeree).toLocaleDateString('fr-FR')}</strong>, le préavis de résiliation risque d'être dépassé et la signature compromise.
+                    <p className="mt-1 text-xs text-km-faint">
+                      Passé le <strong className="text-km-text">{new Date(dateClotureSuggeree).toLocaleDateString('fr-FR')}</strong>, le préavis de résiliation risque d'être dépassé et la signature compromise.
                     </p>
                   )}
                 </FormField>
@@ -759,30 +759,30 @@ export function CreateRecommandationDialog({
                 )}
 
                 {titre && (
-                  <div className="rounded-lg border-2 border-dashed border-navy-200 p-3 text-center">
-                    <p className="mb-1 text-xs text-navy-400">Nom de la recommandation</p>
-                    <p className="text-sm font-medium text-navy-800">{titre}</p>
+                  <div className="rounded-lg border-2 border-dashed border-km-line p-3 text-center">
+                    <p className="mb-1 text-xs text-km-faint">Nom de la recommandation</p>
+                    <p className="text-sm font-medium text-km-text">{titre}</p>
                   </div>
                 )}
 
                 {compteursChoisis.length > 0 && !mandatRetenu && (
-                  <p className="flex items-start gap-1.5 rounded-md border border-red-200 bg-red-50 p-2 text-xs text-red-700">
+                  <p className="flex items-start gap-1.5 rounded-md border border-red-200 bg-km-red-soft p-2 text-xs text-red-700">
                     <AlertTriangle className="mt-0.5 h-3.5 w-3.5 shrink-0" /> Aucun mandat actif ne couvre le premier PDL retenu — la recommandation ne peut pas être rattachée.
                   </p>
                 )}
 
                 {/* Champs propres à Kimatch, repliés pour ne pas alourdir le parcours de Tools. */}
-                <div className="rounded-lg border border-navy-100">
+                <div className="rounded-lg border border-km-line">
                   <button
                     type="button"
                     onClick={() => setComplementsOuverts((v) => !v)}
-                    className="flex w-full items-center justify-between px-3 py-2 text-xs font-medium text-navy-600 hover:bg-navy-50"
+                    className="flex w-full items-center justify-between px-3 py-2 text-xs font-medium text-km-muted hover:bg-km-bg"
                   >
                     Informations complémentaires
                     <ChevronRight className={cn('h-3.5 w-3.5 transition-transform', complementsOuverts && 'rotate-90')} />
                   </button>
                   {complementsOuverts && (
-                    <div className="space-y-2.5 border-t border-navy-100 p-3">
+                    <div className="space-y-2.5 border-t border-km-line p-3">
                       <div className="grid grid-cols-2 gap-3">
                         <FormField label="Origine">
                           <Select value={origineId} onChange={(e) => setOrigineId(e.target.value)}>
@@ -809,11 +809,11 @@ export function CreateRecommandationDialog({
             )}
           </Card>
 
-          {feedback && <p className="text-xs text-navy-500">{feedback}</p>}
+          {feedback && <p className="text-xs text-km-muted">{feedback}</p>}
 
           {/* Pied de navigation — « Retour » à gauche, action à droite, comme Tools. L'étape
               Énergie n'a pas de bouton « Continuer » : le choix fait avancer tout seul. */}
-          <div className="flex items-center justify-between border-t border-navy-100 pt-3">
+          <div className="flex items-center justify-between border-t border-km-line pt-3">
             <Button
               type="button"
               variant="ghost"
@@ -846,7 +846,7 @@ export function CreateRecommandationDialog({
 
           {/* Repère discret : sans cette mention, on ne sait plus où l'on est une fois le fil
               d'avancement sorti du champ de vision sur un petit écran. */}
-          <p className="text-center text-[11px] text-navy-300">Étape {etape} sur {ETAPES.length} — {etapeCourante}</p>
+          <p className="text-center text-[11px] text-km-faint">Étape {etape} sur {ETAPES.length} — {etapeCourante}</p>
         </div>
       </WizardConnectionGate>
     </Dialog>

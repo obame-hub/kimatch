@@ -34,22 +34,22 @@ export function TuileChiffre({
       type="button"
       onClick={onClick}
       title={definition}
-      className="rounded-kw-3xl border border-kw-border bg-white px-4 py-4 text-left transition-shadow hover:shadow-kw-card-open"
+      className="rounded-kw-3xl border border-km-line bg-white px-4 py-4 text-left transition-shadow hover:shadow-kw-card-open"
     >
       <div className="flex items-start justify-between gap-2">
-        <span className={cn('flex h-9 w-9 items-center justify-center rounded-kw-xl', teinte)}>
+        <span className={cn('flex h-9 w-9 items-center justify-center rounded-km-lg', teinte)}>
           <Icone className="h-[17px] w-[17px]" strokeWidth={2.3} />
         </span>
         {badge && (
-          <span className="rounded-kw-md bg-kw-bloc px-2 py-1 text-kw-micro font-bold text-kw-meta">
+          <span className="rounded-km bg-km-soft px-2 py-1 text-km-label font-bold text-km-muted">
             {badge}
           </span>
         )}
       </div>
-      <p className="mt-4 font-mono text-[25px] font-extrabold leading-none tabular-nums text-kw-ink">
+      <p className="mt-4 font-mono text-[25px] font-extrabold leading-none tabular-nums text-km-text">
         {valeur}
       </p>
-      <p className="mt-1.5 text-kw-sm text-kw-body">{libelle}</p>
+      <p className="mt-1.5 text-km-body text-km-muted">{libelle}</p>
     </button>
   )
 }

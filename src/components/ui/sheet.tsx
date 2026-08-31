@@ -52,20 +52,20 @@ export function Sheet({ open, onClose, title, description, children, className }
       />
       <div
         className={cn(
-          'absolute inset-y-0 right-0 flex w-full max-w-lg flex-col overflow-y-auto border-l border-navy-100 bg-white p-6 shadow-2xl transition-transform duration-300 ease-out',
+          'absolute inset-y-0 right-0 flex w-full max-w-lg flex-col overflow-y-auto border-l border-km-line bg-white p-6 shadow-2xl transition-transform duration-300 ease-out',
           open ? 'translate-x-0' : 'translate-x-full',
           className,
         )}
       >
         <div className="mb-4 flex items-start justify-between">
           <div>
-            <h3 className="font-display text-base font-semibold text-navy-900">{title}</h3>
-            {description && <p className="mt-1 text-sm text-navy-500">{description}</p>}
+            <h3 className="font-display text-base font-semibold text-km-text">{title}</h3>
+            {description && <p className="mt-1 text-sm text-km-muted">{description}</p>}
           </div>
           <button
             type="button"
             onClick={onClose}
-            className="rounded-md p-1 text-navy-400 transition-colors hover:bg-navy-100 hover:text-navy-700"
+            className="rounded-md p-1 text-km-faint transition-colors hover:bg-km-soft hover:text-km-text"
           >
             <X className="h-4 w-4" />
           </button>

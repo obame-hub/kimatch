@@ -38,10 +38,10 @@ import type { FournisseurConsulte, OffreFournisseur, VersionRecommandation, Comp
  */
 
 const TON_STATUT: Record<string, string> = {
-  EN_ATTENTE: 'bg-kw-muted text-kw-meta',
-  ACCEPTEE: 'bg-kw-blue-light text-kw-blue',
-  REFUSEE: 'bg-kw-red-light text-kw-red',
-  RECUE: 'bg-kw-green-light text-kw-green',
+  EN_ATTENTE: 'bg-km-soft text-km-muted',
+  ACCEPTEE: 'bg-km-blue-soft text-km-blue',
+  REFUSEE: 'bg-km-red-soft text-km-red',
+  RECUE: 'bg-km-green-soft text-km-green',
 }
 
 
@@ -144,7 +144,7 @@ export function OffresDuFournisseur({
   return (
     <div className="mt-1.5 space-y-1.5">
       {offres.length === 0 ? (
-        <p className="text-kw-base text-kw-faint">
+        <p className="text-km-body text-km-faint">
           Aucune offre attendue enregistrée pour ce fournisseur.
           {peutModifier && ' Ajoutez-en une dès qu\'il répond.'}
         </p>
@@ -173,18 +173,18 @@ export function OffresDuFournisseur({
             <div
               key={offre.id}
               className={cn(
-                'rounded-kw-md border px-2.5 py-2',
+                'rounded-km border px-2.5 py-2',
                 offre.est_offre_recommandee
                   ? 'border-[#dcc39c] bg-[#fdf9f0]'
                   : refusee
-                    ? 'border-kw-border-subtle bg-kw-subtle opacity-70'
+                    ? 'border-kw-border-subtle bg-km-soft opacity-70'
                     : 'border-kw-border-subtle bg-white',
               )}
             >
               <div className="flex flex-wrap items-center gap-2">
                 {/* Ce qui distingue l'offre : durée et type de prix. Tous deux modifiables — un
                     fournisseur répond parfois sur une durée qu'on ne lui a pas demandée. */}
-                <span className="font-mono text-kw-md font-extrabold text-kw-ink">
+                <span className="font-mono text-km-body font-extrabold text-km-text">
                   {libelleOffre(offre.duree_mois, offre.type_prix)}
                 </span>
 
@@ -193,8 +193,8 @@ export function OffresDuFournisseur({
                     value={offre.statut ?? 'EN_ATTENTE'}
                     onChange={(e) => patcher(offre, { statut: e.target.value }, `✓ ${libelleOffre(offre.duree_mois, offre.type_prix)} : ${STATUTS_OFFRE.find((st) => st.code === e.target.value)?.libelle}`)}
                     className={cn(
-                      'rounded-kw-xs border-0 px-1.5 py-0.5 text-kw-micro font-extrabold uppercase tracking-[0.05em] outline-none',
-                      TON_STATUT[offre.statut ?? 'EN_ATTENTE'] ?? 'bg-kw-muted text-kw-meta',
+                      'rounded-kw-xs border-0 px-1.5 py-0.5 text-km-label font-extrabold uppercase tracking-[0.05em] outline-none',
+                      TON_STATUT[offre.statut ?? 'EN_ATTENTE'] ?? 'bg-km-soft text-km-muted',
                     )}
                   >
                     {STATUTS_OFFRE.map((st) => (
@@ -204,8 +204,8 @@ export function OffresDuFournisseur({
                 ) : (
                   <span
                     className={cn(
-                      'rounded-kw-xs px-1.5 py-0.5 text-kw-micro font-extrabold uppercase tracking-[0.05em]',
-                      TON_STATUT[offre.statut ?? 'EN_ATTENTE'] ?? 'bg-kw-muted text-kw-meta',
+                      'rounded-kw-xs px-1.5 py-0.5 text-km-label font-extrabold uppercase tracking-[0.05em]',
+                      TON_STATUT[offre.statut ?? 'EN_ATTENTE'] ?? 'bg-km-soft text-km-muted',
                     )}
                   >
                     {STATUTS_OFFRE.find((st) => st.code === offre.statut)?.libelle ?? offre.statut ?? 'En attente'}
@@ -230,8 +230,8 @@ export function OffresDuFournisseur({
                       `✓ ${libelleOffre(offre.duree_mois, offre.type_prix)} : ${NATURES_OFFRE.find((n) => n.code === e.target.value)?.libelle}`,
                     )}
                     className={cn(
-                      'rounded-kw-xs border-0 px-1.5 py-0.5 text-kw-micro font-extrabold uppercase tracking-[0.05em] outline-none',
-                      nature.retenable ? 'bg-kw-muted text-kw-meta' : 'bg-kw-amber-light text-kw-amber-dark',
+                      'rounded-kw-xs border-0 px-1.5 py-0.5 text-km-label font-extrabold uppercase tracking-[0.05em] outline-none',
+                      nature.retenable ? 'bg-km-soft text-km-muted' : 'bg-km-amber-soft text-km-amber',
                     )}
                   >
                     {NATURES_OFFRE.map((n) => (
@@ -242,7 +242,7 @@ export function OffresDuFournisseur({
                   !nature.retenable && (
                     <span
                       title={nature.aide}
-                      className="rounded-kw-xs bg-kw-amber-light px-1.5 py-0.5 text-kw-micro font-extrabold uppercase tracking-[0.05em] text-kw-amber-dark"
+                      className="rounded-kw-xs bg-km-amber-soft px-1.5 py-0.5 text-km-label font-extrabold uppercase tracking-[0.05em] text-km-amber"
                     >
                       {nature.libelle}
                     </span>
@@ -266,7 +266,7 @@ export function OffresDuFournisseur({
                     c'est là qu'on la découvre en lisant la réponse du fournisseur. */}
                 {peutModifier ? (
                   <label
-                    className="flex items-center gap-1 text-kw-micro font-bold uppercase tracking-[0.05em] text-kw-meta"
+                    className="flex items-center gap-1 text-km-label font-bold uppercase tracking-[0.05em] text-km-muted"
                     title="Date de validité indiquée par le fournisseur. Passé cette date, l’offre n’est plus opposable."
                   >
                     valable au
@@ -282,12 +282,12 @@ export function OffresDuFournisseur({
                             : 'Date de validité effacée',
                         )
                       }
-                      className="rounded-kw-xs border-0 bg-kw-muted px-1.5 py-0.5 font-mono text-kw-micro font-extrabold text-kw-meta outline-none"
+                      className="rounded-kw-xs border-0 bg-km-soft px-1.5 py-0.5 font-mono text-km-label font-extrabold text-km-muted outline-none"
                     />
                   </label>
                 ) : (
                   offre.date_validite && (
-                    <span className="rounded-kw-xs bg-kw-muted px-1.5 py-0.5 font-mono text-kw-micro font-extrabold text-kw-meta">
+                    <span className="rounded-kw-xs bg-km-soft px-1.5 py-0.5 font-mono text-km-label font-extrabold text-km-muted">
                       valable au {new Date(offre.date_validite + 'T12:00:00').toLocaleDateString('fr-FR')}
                     </span>
                   )
@@ -329,13 +329,13 @@ export function OffresDuFournisseur({
                         }
                       }}
                       className={cn(
-                        'inline-flex items-center gap-1 rounded-kw-sm px-1.5 py-0.5 text-kw-micro font-extrabold uppercase tracking-[0.05em]',
+                        'inline-flex items-center gap-1 rounded-km-sm px-1.5 py-0.5 text-km-label font-extrabold uppercase tracking-[0.05em]',
                         // Un bouton hors d'usage doit le montrer, sinon on clique et rien ne se
                         // passe — le pire des retours.
                         'disabled:cursor-not-allowed disabled:opacity-40',
                         offre.est_offre_recommandee
                           ? 'bg-[#8a4b2a] text-white'
-                          : 'border border-kw-border-strong bg-white text-kw-meta hover:bg-kw-bg',
+                          : 'border border-km-line bg-white text-km-muted hover:bg-km-bg',
                       )}
                     >
                       <Star className={cn('h-2.5 w-2.5', offre.est_offre_recommandee && 'fill-current')} />
@@ -374,10 +374,10 @@ export function OffresDuFournisseur({
                         }
                       }}
                       className={cn(
-                        'inline-flex items-center gap-1 rounded-kw-sm px-1.5 py-0.5 text-kw-micro font-extrabold uppercase tracking-[0.05em]',
+                        'inline-flex items-center gap-1 rounded-km-sm px-1.5 py-0.5 text-km-label font-extrabold uppercase tracking-[0.05em]',
                         offre.est_offre_reference
                           ? 'bg-kw-blue text-white'
-                          : 'border border-kw-border-strong bg-white text-kw-meta hover:bg-kw-bg',
+                          : 'border border-km-line bg-white text-km-muted hover:bg-km-bg',
                       )}
                     >
                       <Target className="h-2.5 w-2.5" />
@@ -389,7 +389,7 @@ export function OffresDuFournisseur({
                            courte suffit à transformer « ça ne marche pas » en « il faut changer la
                            nature de l'offre ». */}
                     {blocage && !offre.est_offre_recommandee && (
-                      <span className="max-w-[26ch] text-right text-kw-micro leading-tight text-kw-amber-dark">
+                      <span className="max-w-[26ch] text-right text-km-label leading-tight text-km-amber">
                         {blocage}
                       </span>
                     )}
@@ -405,7 +405,7 @@ export function OffresDuFournisseur({
                           signaler(`Erreur : ${e instanceof Error ? e.message : String(e)}`)
                         }
                       }}
-                      className="rounded-kw-sm p-0.5 text-kw-ghost hover:bg-kw-red-light hover:text-kw-red"
+                      className="rounded-km-sm p-0.5 text-km-faint hover:bg-km-red-soft hover:text-km-red"
                     >
                       <Trash2 className="h-3 w-3" />
                     </button>
@@ -444,7 +444,7 @@ export function OffresDuFournisseur({
                           onCommit={(v) => patcher(offre, { economie_annuelle_estimee: v }, v != null ? `✓ Économie : ${v.toLocaleString('fr-FR')} €/an` : 'Économie effacée')}
                         />
                       </span>
-                      <span className="block text-kw-micro text-kw-faint">économie</span>
+                      <span className="block text-km-label text-km-faint">économie</span>
                     </span>
                   }
                   // LA SAISIE EST À DROITE DU BLOC, demande de Naoëlle du 20/08/2026. Elle était en
@@ -474,7 +474,7 @@ export function OffresDuFournisseur({
                 {recue && offre.montant_annuel_ht == null && sommes.total == null && (
                   // Une offre marquée reçue sans aucun chiffre est une contradiction visible : on le
                   // signale plutôt que de la laisser passer pour renseignée.
-                  <span className="text-kw-tiny font-semibold text-kw-amber-dark">
+                  <span className="text-km-label font-semibold text-km-amber">
                     marquée reçue, mais aucun chiffre saisi
                   </span>
                 )}
@@ -486,8 +486,8 @@ export function OffresDuFournisseur({
 
       {peutModifier && (
         ajoutOuvert ? (
-          <div className="flex flex-wrap items-center gap-2 rounded-kw-md border border-dashed border-[#dcc39c] bg-kw-amber-light px-2.5 py-2">
-            <span className="text-kw-base text-kw-label">Offre supplémentaire :</span>
+          <div className="flex flex-wrap items-center gap-2 rounded-km border border-dashed border-[#dcc39c] bg-km-amber-soft px-2.5 py-2">
+            <span className="text-km-body text-km-muted">Offre supplémentaire :</span>
             <input
               type="number"
               min={1}
@@ -495,9 +495,9 @@ export function OffresDuFournisseur({
               value={indisponible ? '' : nouvelleDuree}
               disabled={indisponible}
               onChange={(e) => setNouvelleDuree(e.target.value.replace(/\D/g, ''))}
-              className="w-16 rounded-kw-sm border border-kw-border-strong bg-white px-1.5 py-0.5 font-mono text-kw-base text-kw-ink outline-none disabled:bg-kw-muted disabled:text-kw-ghost"
+              className="w-16 rounded-km-sm border border-km-line bg-white px-1.5 py-0.5 font-mono text-km-body text-km-text outline-none disabled:bg-km-soft disabled:text-km-faint"
             />
-            <span className={cn('text-kw-base', indisponible ? 'text-kw-ghost' : 'text-kw-meta')}>mois</span>
+            <span className={cn('text-km-body', indisponible ? 'text-km-faint' : 'text-km-muted')}>mois</span>
 
             {/* ── LA BASCULE « INDISPONIBLE » ──
                    Posée À CÔTÉ de la durée et non dans une liste déroulante à part : c'est une
@@ -510,10 +510,10 @@ export function OffresDuFournisseur({
               aria-pressed={indisponible}
               title="Le fournisseur n’a aucune offre à proposer sur ce dossier"
               className={cn(
-                'rounded-kw-sm border px-2 py-0.5 text-kw-base font-bold transition-colors',
+                'rounded-km-sm border px-2 py-0.5 text-km-body font-bold transition-colors',
                 indisponible
-                  ? 'border-kw-red bg-kw-red-light text-kw-red'
-                  : 'border-kw-border-strong bg-white text-kw-meta hover:bg-kw-bg',
+                  ? 'border-kw-red bg-km-red-soft text-km-red'
+                  : 'border-km-line bg-white text-km-muted hover:bg-km-bg',
               )}
             >
               Indisponible
@@ -522,7 +522,7 @@ export function OffresDuFournisseur({
               value={nouveauType}
               onChange={(e) => setNouveauType(e.target.value)}
               disabled={indisponible}
-              className="rounded-kw-sm border border-kw-border-strong bg-white px-1.5 py-0.5 text-kw-base text-kw-ink outline-none disabled:bg-kw-muted disabled:text-kw-ghost"
+              className="rounded-km-sm border border-km-line bg-white px-1.5 py-0.5 text-km-body text-km-text outline-none disabled:bg-km-soft disabled:text-km-faint"
             >
               {[...new Set([...typesPrixDemandes, 'Fixe', 'Indexé'])].map((t) => (
                 <option key={t} value={t}>{t}</option>
@@ -532,7 +532,7 @@ export function OffresDuFournisseur({
             <button
               type="button"
               onClick={() => { setAjoutOuvert(false); setIndisponible(false) }}
-              className="rounded-kw-sm px-2 py-0.5 text-kw-base font-semibold text-kw-meta hover:bg-white"
+              className="rounded-km-sm px-2 py-0.5 text-km-body font-semibold text-km-muted hover:bg-white"
             >
               Annuler
             </button>
@@ -587,7 +587,7 @@ export function OffresDuFournisseur({
                   signaler(`Erreur : ${e instanceof Error ? e.message : String(e)}`)
                 }
               }}
-              className="inline-flex items-center gap-1 rounded-kw-sm bg-[#8a4b2a] px-2 py-0.5 text-kw-base font-bold text-white disabled:opacity-60"
+              className="inline-flex items-center gap-1 rounded-km-sm bg-[#8a4b2a] px-2 py-0.5 text-km-body font-bold text-white disabled:opacity-60"
             >
               <Check className="h-3 w-3" /> Ajouter
             </button>
@@ -596,7 +596,7 @@ export function OffresDuFournisseur({
           <button
             type="button"
             onClick={() => setAjoutOuvert(true)}
-            className="inline-flex items-center gap-1 text-kw-base font-semibold text-kw-green hover:underline"
+            className="inline-flex items-center gap-1 text-km-body font-semibold text-km-green hover:underline"
           >
             <Plus className="h-3 w-3" /> Ajouter une offre de {fournisseur.fournisseur_nom}
           </button>

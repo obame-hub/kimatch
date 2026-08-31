@@ -67,7 +67,7 @@ export function ActivityCard({
       <div className="min-w-0 flex-1">
         {/* Couleurs fixes (pas les classes text-navy-*) : le fond de la carte est un lavis
             pastel toujours clair, quel que soit le thème — le texte doit rester sombre dessus
-            même en mode sombre (où text-navy-800/500 basculeraient en clair et deviendraient illisibles). */}
+            même en mode sombre (où text-km-text/500 basculeraient en clair et deviendraient illisibles). */}
         <p className="truncate text-xs font-medium" style={{ color: '#16181d' }}>{title}</p>
         {subtitle && <p className="line-clamp-2 text-[11px] leading-snug" style={{ color: '#83868f' }}>{subtitle}</p>}
         {body && (

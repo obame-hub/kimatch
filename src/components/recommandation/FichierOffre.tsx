@@ -74,15 +74,15 @@ export function FichierOffre({
       {fichiers.map((d) => (
         <span
           key={d.id}
-          className="inline-flex max-w-full items-center gap-1.5 rounded-kw-sm border border-kw-border-subtle bg-white px-1.5 py-0.5"
+          className="inline-flex max-w-full items-center gap-1.5 rounded-km-sm border border-kw-border-subtle bg-white px-1.5 py-0.5"
         >
-          <FileText className="h-3 w-3 shrink-0 text-kw-red" />
+          <FileText className="h-3 w-3 shrink-0 text-km-red" />
           <a
             href={d.url}
             target="_blank"
             rel="noreferrer"
             title={`${d.nom} — ouvrir`}
-            className="truncate text-kw-base font-semibold text-kw-ink hover:underline"
+            className="truncate text-km-body font-semibold text-km-text hover:underline"
           >
             {d.nom}
           </a>
@@ -98,7 +98,7 @@ export function FichierOffre({
                   signaler(`Erreur : ${e instanceof Error ? e.message : String(e)}`)
                 }
               }}
-              className="shrink-0 text-kw-ghost hover:text-kw-red"
+              className="shrink-0 text-km-faint hover:text-km-red"
             >
               <Trash2 className="h-2.5 w-2.5" />
             </button>
@@ -121,7 +121,7 @@ export function FichierOffre({
             disabled={enCours}
             onClick={() => inputRef.current?.click()}
             className={cn(
-              'inline-flex items-center gap-1 rounded-kw-sm border border-dashed border-kw-border-strong px-1.5 py-0.5 text-kw-base font-semibold text-kw-meta hover:border-kw-green hover:text-kw-green',
+              'inline-flex items-center gap-1 rounded-km-sm border border-dashed border-km-line px-1.5 py-0.5 text-km-body font-semibold text-km-muted hover:border-km-green hover:text-km-green',
               enCours && 'opacity-60',
             )}
           >

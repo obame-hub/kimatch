@@ -68,9 +68,9 @@ export function SitesMap({ sites }: { sites: SitesMapItem[] }) {
 
   if (positioned.length === 0) {
     return (
-      <div className="flex h-[420px] flex-col items-center justify-center gap-1 rounded-xl border border-navy-100 bg-white text-center">
-        <p className="text-sm font-semibold text-navy-600">Aucun site n'a de coordonnées enregistrées.</p>
-        <p className="text-xs text-navy-400">Renseigne la latitude/longitude sur une fiche site pour la faire apparaître ici.</p>
+      <div className="flex h-[420px] flex-col items-center justify-center gap-1 rounded-xl border border-km-line bg-white text-center">
+        <p className="text-sm font-semibold text-km-muted">Aucun site n'a de coordonnées enregistrées.</p>
+        <p className="text-xs text-km-faint">Renseigne la latitude/longitude sur une fiche site pour la faire apparaître ici.</p>
       </div>
     )
   }
@@ -81,16 +81,16 @@ export function SitesMap({ sites }: { sites: SitesMapItem[] }) {
   ]
 
   return (
-    <div className="h-[420px] overflow-hidden rounded-xl border border-navy-100">
+    <div className="h-[420px] overflow-hidden rounded-xl border border-km-line">
       <MapContainer center={center} zoom={positioned.length > 1 ? 6 : 12} scrollWheelZoom style={{ height: '100%', width: '100%' }}>
         <CadrerSurLesSites points={positioned.map((s) => [s.latitude, s.longitude] as [number, number])} />
         <TileLayer attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>' url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" />
         {positioned.map((s) => (
           <Marker key={s.id} position={[s.latitude, s.longitude]} icon={pinIcon(TONE_COLOR[s.tone])} eventHandlers={{ click: () => navigate(`/sites/${s.id}`) }}>
             <Popup>
-              <p className="font-semibold text-navy-800">{s.nom}</p>
-              <p className="text-navy-500">{s.compte_nom}</p>
-              {s.ville && <p className="text-navy-400">{s.ville}</p>}
+              <p className="font-semibold text-km-text">{s.nom}</p>
+              <p className="text-km-muted">{s.compte_nom}</p>
+              {s.ville && <p className="text-km-faint">{s.ville}</p>}
             </Popup>
           </Marker>
         ))}

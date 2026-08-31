@@ -70,7 +70,7 @@ export function ChampNombre({
         }}
         placeholder={suffixe}
         className={cn(
-          'rounded-kw-sm border border-kw-green bg-white px-1.5 py-0.5 font-mono text-kw-base font-bold text-kw-ink outline-none ring-[3px] ring-kw-green/10',
+          'rounded-km-sm border border-km-green bg-white px-1.5 py-0.5 font-mono text-km-body font-bold text-km-text outline-none ring-[3px] ring-kw-green/10',
           largeur ?? 'w-[86px]',
         )}
       />
@@ -83,9 +83,9 @@ export function ChampNombre({
       title={peutModifier ? `${titre} — cliquer pour saisir` : titre}
       onClick={() => { setBrouillon(valeur != null ? String(valeur) : ''); setEdition(true) }}
       className={cn(
-        'font-mono text-kw-base',
+        'font-mono text-km-body',
         peutModifier && 'cursor-text border-b border-dashed border-[#d9d0bd]',
-        valeur != null ? 'font-bold text-kw-ink' : 'text-kw-ghost',
+        valeur != null ? 'font-bold text-km-text' : 'text-km-faint',
       )}
     >
       {affiche}

@@ -103,15 +103,15 @@ export default function Remunerations() {
 
         {filtrees.length === 0 ? (
           <Card className="flex flex-col items-center gap-2 p-8 text-center">
-            <Euro className="h-6 w-6 text-navy-300" />
-            <p className="text-sm font-medium text-navy-700">Aucune rémunération</p>
-            <p className="max-w-md text-xs text-navy-400">
+            <Euro className="h-6 w-6 text-km-faint" />
+            <p className="text-sm font-medium text-km-text">Aucune rémunération</p>
+            <p className="max-w-md text-xs text-km-faint">
               Une rémunération naît d'un contrat signé via Kiwee. Un contrat signé hors Kiwee n'en
               produit pas, sauf exception — et l'exception se justifie.
             </p>
           </Card>
         ) : (
-          <div className="overflow-hidden rounded-xl border border-navy-100 bg-white">
+          <div className="overflow-hidden rounded-xl border border-km-line bg-white">
             {filtrees.map((r) => (
               <LigneRemuneration
                 key={r.id}
@@ -166,16 +166,16 @@ function Tuile({ libelle, valeur, detail, accent }: {
   return (
     <div className={cn(
       'rounded-[13px] border bg-white px-3.5 py-3',
-      accent === 'kiwi' ? 'border-kiwi-200 bg-kiwi-50/50' : accent === 'rouge' ? 'border-red-200 bg-red-50' : 'border-kw-border',
+      accent === 'kiwi' ? 'border-kiwi-200 bg-kiwi-50/50' : accent === 'rouge' ? 'border-red-200 bg-km-red-soft' : 'border-km-line',
     )}>
-      <p className="text-[10px] font-bold uppercase tracking-[0.08em] text-navy-400">{libelle}</p>
+      <p className="text-[10px] font-bold uppercase tracking-[0.08em] text-km-faint">{libelle}</p>
       <p className={cn(
         'mt-0.5 font-mono text-lg font-extrabold tabular-nums',
-        accent === 'rouge' ? 'text-red-700' : accent === 'kiwi' ? 'text-kiwi-700' : 'text-navy-800',
+        accent === 'rouge' ? 'text-red-700' : accent === 'kiwi' ? 'text-km-green' : 'text-km-text',
       )}>
         {valeur}
       </p>
-      {detail && <p className="text-[10.5px] text-navy-500">{detail} en attente</p>}
+      {detail && <p className="text-[10.5px] text-km-muted">{detail} en attente</p>}
     </div>
   )
 }
@@ -195,24 +195,24 @@ function LigneRemuneration({ remuneration: r, onStatut, onPercu }: {
 
   return (
     <div className={cn(
-      'flex flex-wrap items-center gap-3 border-b border-kw-border-faint px-4 py-3 last:border-b-0',
-      enRetard && 'bg-red-50/40',
+      'flex flex-wrap items-center gap-3 border-b border-km-line px-4 py-3 last:border-b-0',
+      enRetard && 'bg-km-red-soft/40',
     )}>
       <div className="flex min-w-[180px] flex-1 items-start gap-2.5">
         <span
           className={cn(
             'mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-lg',
-            r.statut === 'PERCUE' ? 'bg-kiwi-50 text-kiwi-700' : enRetard ? 'bg-red-100 text-red-700' : 'bg-navy-50 text-navy-500',
+            r.statut === 'PERCUE' ? 'bg-kiwi-50 text-km-green' : enRetard ? 'bg-red-100 text-red-700' : 'bg-km-bg text-km-muted',
           )}
         >
           <Euro className="h-3.5 w-3.5" />
         </span>
         <div className="min-w-0">
-          <p className="truncate text-sm font-semibold text-navy-800">
+          <p className="truncate text-sm font-semibold text-km-text">
             {r.compte_id ? <EntityLink to={`/comptes/${r.compte_id}`}>{r.compte_nom}</EntityLink> : 'Compte non rattaché'}
           </p>
-          <p className="truncate text-[11px] text-navy-500">
-            {r.reference && <span className="font-mono text-navy-400">{r.reference} · </span>}
+          <p className="truncate text-[11px] text-km-muted">
+            {r.reference && <span className="font-mono text-km-faint">{r.reference} · </span>}
             {r.fournisseur_nom || 'fournisseur non précisé'}
             {r.hors_kiwee && ' · hors Kiwee'}
           </p>
@@ -220,17 +220,17 @@ function LigneRemuneration({ remuneration: r, onStatut, onPercu }: {
       </div>
 
       <div className="min-w-[96px] text-right">
-        <p className="text-[10px] uppercase tracking-wide text-navy-400">Attendu</p>
-        <p className="font-mono text-sm font-bold tabular-nums text-navy-800">{euros(r.montant_attendu_ht)}</p>
+        <p className="text-[10px] uppercase tracking-wide text-km-faint">Attendu</p>
+        <p className="font-mono text-sm font-bold tabular-nums text-km-text">{euros(r.montant_attendu_ht)}</p>
         {r.date_attendue && (
-          <p className={cn('text-[10px]', enRetard ? 'font-semibold text-red-600' : 'text-navy-400')}>
+          <p className={cn('text-[10px]', enRetard ? 'font-semibold text-km-red' : 'text-km-faint')}>
             {new Date(r.date_attendue).toLocaleDateString('fr-FR')}
           </p>
         )}
       </div>
 
       <div className="min-w-[110px]">
-        <p className="text-[10px] uppercase tracking-wide text-navy-400">Perçu</p>
+        <p className="text-[10px] uppercase tracking-wide text-km-faint">Perçu</p>
         <Input
           value={percu}
           onChange={(e) => setPercu(e.target.value)}
@@ -258,8 +258,8 @@ function LigneRemuneration({ remuneration: r, onStatut, onPercu }: {
             className={cn(
               'rounded-lg border px-2 py-0.5 text-[10.5px] font-semibold transition-colors',
               r.statut === s.code
-                ? `border-transparent ${s.code === 'PERCUE' ? 'bg-kiwi-600 text-white' : 'bg-navy-800 text-white'}`
-                : 'border-navy-200 text-navy-500 hover:bg-navy-50',
+                ? `border-transparent ${s.code === 'PERCUE' ? 'bg-km-green text-white' : 'bg-navy-800 text-white'}`
+                : 'border-km-line text-km-muted hover:bg-km-bg',
             )}
           >
             {s.libelle}
@@ -316,7 +316,7 @@ function DialogCreation({ onFermer, signaler }: { onFermer: () => void; signaler
           <button
             type="button"
             onClick={() => setParCompte(true)}
-            className="text-xs font-semibold text-kiwi-700 hover:underline"
+            className="text-xs font-semibold text-km-green hover:underline"
           >
             Aucun contrat ici ? Rattacher au compte seul
           </button>
@@ -344,13 +344,13 @@ function DialogCreation({ onFermer, signaler }: { onFermer: () => void; signaler
             type="date"
             value={dateAttendue}
             onChange={(e) => setDateAttendue(e.target.value)}
-            className="w-full rounded-lg border border-navy-200 bg-white px-3 py-2 text-sm outline-none focus:border-kiwi-500"
+            className="w-full rounded-lg border border-km-line bg-white px-3 py-2 text-sm outline-none focus:border-km-green"
           />
         </FormField>
 
         {/* L'EXCEPTION SE JUSTIFIE. « Contrat hors KiWee → pas de rémunération KiWee, sauf
             exception » : cocher la case oblige donc à dire laquelle. */}
-        <label className="flex items-start gap-2 rounded-lg bg-navy-50/60 px-3 py-2 text-xs text-navy-700">
+        <label className="flex items-start gap-2 rounded-lg bg-km-bg/60 px-3 py-2 text-xs text-km-text">
           <input
             type="checkbox"
             checked={horsKiwee}
@@ -359,7 +359,7 @@ function DialogCreation({ onFermer, signaler }: { onFermer: () => void; signaler
           />
           <span>
             Contrat signé hors Kiwee
-            <span className="block text-[10.5px] text-navy-400">
+            <span className="block text-[10.5px] text-km-faint">
               Normalement sans rémunération : cochez seulement s'il y a une exception.
             </span>
           </span>
@@ -377,7 +377,7 @@ function DialogCreation({ onFermer, signaler }: { onFermer: () => void; signaler
           </p>
         )}
 
-        {erreur && <p className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-xs text-red-700">{erreur}</p>}
+        {erreur && <p className="rounded-lg border border-red-200 bg-km-red-soft px-3 py-2 text-xs text-red-700">{erreur}</p>}
 
         <div className="flex justify-end gap-2 pt-1">
           <Button type="button" variant="ghost" onClick={onFermer}>Annuler</Button>

@@ -70,13 +70,13 @@ export function OngletHistorique({ entrees }: { entrees: HistoriqueEntry[] | und
               ) : (
                 <span
                   title="Modification faite par un import ou une migration, pas par une personne"
-                  className="inline-flex h-[22px] w-[22px] flex-none items-center justify-center rounded-[6px] bg-kw-muted text-kw-meta"
+                  className="inline-flex h-[22px] w-[22px] flex-none items-center justify-center rounded-[6px] bg-km-soft text-km-muted"
                 >
                   <Cog className="h-3 w-3" />
                 </span>
               )}
               <span
-                className={`truncate text-[11.5px] ${h.estUnePersonne ? 'font-semibold' : 'italic text-kw-meta'}`}
+                className={`truncate text-[11.5px] ${h.estUnePersonne ? 'font-semibold' : 'italic text-km-muted'}`}
               >
                 {h.auteur}
               </span>

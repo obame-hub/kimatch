@@ -131,21 +131,21 @@ export function DialogConversionSignal({
       description="Le signal passe à « Converti » et l’opportunité s’ouvre sur le palier « Nouvelle »."
     >
       <div className="space-y-4">
-        <div className="rounded-kw-lg border border-kw-border bg-kw-subtle p-3 text-kw-sm">
+        <div className="rounded-km-md border border-km-line bg-km-soft p-3 text-km-body">
           <p className="flex items-center gap-2 font-semibold text-kw-text">
-            <Radio className="h-3.5 w-3.5 text-kw-red" />
+            <Radio className="h-3.5 w-3.5 text-km-red" />
             {signal.type_signal}
-            <ArrowRight className="h-3.5 w-3.5 text-kw-meta" />
+            <ArrowRight className="h-3.5 w-3.5 text-km-muted" />
             Opportunité
           </p>
-          <p className="mt-1 text-kw-meta">
+          <p className="mt-1 text-km-muted">
             Site : {signal.site_nom}
             {site?.compte_nom ? ` · Compte : ${site.compte_nom}` : ''}
           </p>
         </div>
 
         {aucunContact ? (
-          <p className="rounded-kw-lg border border-dashed border-kw-border-strong bg-kw-subtle p-3 text-kw-sm text-kw-meta">
+          <p className="rounded-km-md border border-dashed border-km-line bg-km-soft p-3 text-km-body text-km-muted">
             Ce compte n’a aucun contact. Une opportunité ne peut pas être lancée sans contact — c’est
             le minimum posé par Michel. Ajoutez d’abord un contact sur le compte, puis revenez ici.
           </p>
@@ -173,12 +173,12 @@ export function DialogConversionSignal({
           />
         </FormField>
 
-        <p className="text-kw-xs text-kw-meta">
+        <p className="text-km-label text-km-muted">
           Le périmètre — sites et compteurs — se définit ensuite, au palier « En qualification ».
         </p>
 
         {erreur && (
-          <p className="rounded-kw-lg border border-red-200 bg-red-50 px-3 py-2 text-kw-sm text-red-700">{erreur}</p>
+          <p className="rounded-km-md border border-red-200 bg-km-red-soft px-3 py-2 text-km-body text-red-700">{erreur}</p>
         )}
 
         <div className="flex justify-end gap-2 pt-1">

@@ -100,10 +100,10 @@ const typeMeta: Record<TypeCompte, { label: string; tone: 'kiwi' | 'blue' | 'amb
  * que le compte est prospect — un compte client détient au moins un compteur client.
  */
 const TYPE_BADGE_STYLE: Record<TypeCompte, { bg: string; border: string; text: string; dot: string; icone: LucideIcon }> = {
-  client: { bg: 'bg-kw-green-light', border: 'border-kw-green-border', text: 'text-kw-green', dot: 'bg-kw-green', icone: Building2 },
-  fournisseur: { bg: 'bg-kw-blue-light', border: 'border-sky-200', text: 'text-kw-blue', dot: 'bg-kw-blue', icone: Factory },
-  partenaire: { bg: 'bg-kw-amber-light', border: 'border-kw-amber-border', text: 'text-kw-amber-dark', dot: 'bg-kw-amber', icone: Handshake },
-  kiwee: { bg: 'bg-kw-muted', border: 'border-kw-border-strong', text: 'text-kw-label', dot: 'bg-kw-ghost', icone: Leaf },
+  client: { bg: 'bg-km-green-soft', border: 'border-kw-green-border', text: 'text-km-green', dot: 'bg-km-green', icone: Building2 },
+  fournisseur: { bg: 'bg-km-blue-soft', border: 'border-sky-200', text: 'text-km-blue', dot: 'bg-kw-blue', icone: Factory },
+  partenaire: { bg: 'bg-km-amber-soft', border: 'border-kw-amber-border', text: 'text-km-amber', dot: 'bg-kw-amber', icone: Handshake },
+  kiwee: { bg: 'bg-km-soft', border: 'border-km-line', text: 'text-km-muted', dot: 'bg-kw-ghost', icone: Leaf },
 }
 
 type TabKey = 'synthese' | 'contrats' | 'compteurs' | 'recommandations' | 'signaux' | 'mandats' | 'fichiers' | 'historique' | 'activite'
@@ -301,7 +301,7 @@ export default function CompteDetail() {
     return (
       <div>
         <Topbar crumb="Comptes" title="Compte" />
-        <div className="p-4 sm:p-6"><p className="text-sm text-navy-400">Chargement…</p></div>
+        <div className="p-4 sm:p-6"><p className="text-sm text-km-faint">Chargement…</p></div>
       </div>
     )
   }
@@ -319,7 +319,7 @@ export default function CompteDetail() {
               compte existait, il etait hors du perimetre de visibilite de Marie, et la fiche
               restait muette. La restriction est levee depuis, mais le message doit rester explicite
               sur les deux causes possibles. */}
-          <p className="text-sm text-navy-500">
+          <p className="text-sm text-km-muted">
             Ce compte n'existe pas, ou vous n'y avez pas accès. Si un collègue vous l'a partagé,
             demandez à un administrateur de vérifier vos droits.
           </p>
@@ -333,14 +333,14 @@ export default function CompteDetail() {
       <Topbar crumb="Comptes" title={compte.nom} />
 
       {/* Bandeau compte */}
-      <div className="flex flex-none flex-wrap items-start gap-4 bg-kw-surface px-4 pt-3.5 sm:px-[22px]">
+      <div className="flex flex-none flex-wrap items-start gap-4 bg-km-surface px-4 pt-3.5 sm:px-[22px]">
         <Button variant="ghost" size="icon" onClick={goBack} title="Retour aux comptes" className="mt-1">
           <ArrowLeft className="h-4 w-4" />
         </Button>
         {/* Icône = objet "compte" au sens de la charte iconographique (bleu #3b5f8a, Building2,
             identique partout dans le CRM) -- ne varie PAS avec le sous-type Client/Fournisseur/
             Partenaire, c'est le badge à pastille juste à côté qui porte cette distinction. */}
-        <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-kw-xl bg-gradient-to-br from-kw-blue to-[#4f78ab] text-white">
+        <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-km-lg bg-gradient-to-br from-kw-blue to-[#4f78ab] text-white">
           <Building2 className="h-[18px] w-[18px]" />
         </span>
         <div className="flex min-w-0 flex-1 flex-col gap-1.5">
@@ -354,25 +354,25 @@ export default function CompteDetail() {
                 onCommit={(nom) => updateCompte.mutateAsync({ id: compte.id, nom, ville: compte.ville, segment: compte.segment, proprietaire_id: compte.proprietaire_id ?? null })}
                 onSaved={() => showToast('✓ enregistré')}
                 onError={(err) => showToast(`Erreur : ${err.message}`)}
-                className="text-[28px] font-bold leading-tight tracking-tight text-kw-ink"
+                className="text-[28px] font-bold leading-tight tracking-tight text-km-text"
               />
             ) : (
-              <span className="text-[28px] font-bold leading-tight tracking-tight text-kw-ink">{compte.nom}</span>
+              <span className="text-[28px] font-bold leading-tight tracking-tight text-km-text">{compte.nom}</span>
             )}
             {compte.segment && (
-              <span className="rounded-[12px] bg-kw-blue-light px-2.5 py-[3px] text-kw-xs font-semibold text-kw-blue">{compte.segment}</span>
+              <span className="rounded-[12px] bg-km-blue-soft px-2.5 py-[3px] text-km-label font-semibold text-km-blue">{compte.segment}</span>
             )}
             {(() => {
               const style = TYPE_BADGE_STYLE[compte.type_compte]
               const IconeType = style.icone
               return (
-                <span className={cn('inline-flex items-center gap-1.5 rounded-[12px] border px-2.5 py-[3px] text-kw-xs font-bold uppercase tracking-wide', style.bg, style.border, style.text)}>
+                <span className={cn('inline-flex items-center gap-1.5 rounded-[12px] border px-2.5 py-[3px] text-km-label font-bold uppercase tracking-wide', style.bg, style.border, style.text)}>
                   <IconeType className="h-3.5 w-3.5" strokeWidth={2.2} />
                   {typeMeta[compte.type_compte].label}
                 </span>
               )
             })()}
-            <span className="text-kw-lg text-kw-meta"><b className="text-kw-ink">{sitesDuCompte.length}</b> site{sitesDuCompte.length > 1 ? 's' : ''} géré{sitesDuCompte.length > 1 ? 's' : ''}</span>
+            <span className="text-km-name text-km-muted"><b className="text-km-text">{sitesDuCompte.length}</b> site{sitesDuCompte.length > 1 ? 's' : ''} géré{sitesDuCompte.length > 1 ? 's' : ''}</span>
           </div>
         </div>
         <div className="flex flex-wrap items-center gap-1.5">
@@ -417,7 +417,7 @@ export default function CompteDetail() {
       </div>
 
       {/* Onglets */}
-      <div className="flex items-center gap-0.5 overflow-x-auto border-b border-kw-border bg-kw-surface px-4 pt-2.5 sm:px-[22px]">
+      <div className="flex items-center gap-0.5 overflow-x-auto border-b border-km-line bg-km-surface px-4 pt-2.5 sm:px-[22px]">
         {TABS.map((t) => {
           const isActive = tab === t.key
           return (
@@ -426,15 +426,15 @@ export default function CompteDetail() {
               type="button"
               onClick={() => setTab(t.key)}
               className={cn(
-                'inline-flex shrink-0 items-center gap-1.5 whitespace-nowrap border-b-2 px-[13px] py-[9px] text-kw-xl transition-colors',
+                'inline-flex shrink-0 items-center gap-1.5 whitespace-nowrap border-b-2 px-[13px] py-[9px] text-km-name transition-colors',
                 t.mobileOnly && 'lg:hidden',
-                isActive ? 'border-kw-ink font-semibold text-kw-ink' : 'border-transparent font-normal text-kw-meta hover:text-kw-ink',
+                isActive ? 'border-kw-ink font-semibold text-km-text' : 'border-transparent font-normal text-km-muted hover:text-km-text',
               )}
             >
               <span className="lg:hidden">{t.labelMobile ?? t.label}</span>
               <span className="hidden lg:inline">{t.label}</span>
               {t.badge && (
-                <span className="rounded-kw-sm bg-kw-muted px-[5px] py-px text-[9.5px] font-bold text-kw-label">
+                <span className="rounded-km-sm bg-km-soft px-[5px] py-px text-[9.5px] font-bold text-km-muted">
                   {t.badge}
                 </span>
               )}
@@ -442,19 +442,19 @@ export default function CompteDetail() {
           )
         })}
         <div className="flex-1" />
-        <span className="hidden pr-1 font-mono text-kw-tiny text-kw-ghost lg:inline">1–8 pour naviguer</span>
+        <span className="hidden pr-1 font-mono text-km-label text-km-faint lg:inline">1–8 pour naviguer</span>
       </div>
 
       {/* 3 zones */}
       <div className="grid min-h-0 flex-1 grid-cols-1 overflow-hidden lg:grid-cols-[300px_minmax(0,1fr)_340px]">
         {/* Colonne gauche — Contacts (desktop uniquement) */}
-        <div className="hidden min-h-0 flex-col gap-3.5 overflow-y-auto border-r border-kw-border bg-kw-subtle p-3.5 lg:flex">
+        <div className="hidden min-h-0 flex-col gap-3.5 overflow-y-auto border-r border-km-line bg-km-soft p-3.5 lg:flex">
           <ContactsPanel contacts={contactsDuCompte} compteId={compte.id} />
           <CommentaireCard compte={compte} />
         </div>
 
         {/* Centre — contenu de l'onglet */}
-        <div className="min-h-0 overflow-y-auto bg-navy-50 p-4 sm:p-5">
+        <div className="min-h-0 overflow-y-auto bg-km-bg p-4 sm:p-5">
           {tab === 'synthese' && (
             <div className="flex flex-col gap-3.5">
               {/* Les deux héros, dans la grille de la maquette : ils se répartissent la largeur et
@@ -473,17 +473,17 @@ export default function CompteDetail() {
 
               {/* Ce qui n'a pas sa place dans le héro : l'absence de SIREN qui empêche toute
                   interrogation, les erreurs, et la date de dernière interrogation. */}
-              <div className="rounded-xl border border-navy-100 bg-kw-surface p-4">
+              <div className="rounded-xl border border-km-line bg-km-surface p-4">
                 {!compte.siren && (
-                  <p className="text-xs text-navy-400">Aucun SIREN renseigné — impossible d'interroger Ellisphere.</p>
+                  <p className="text-xs text-km-faint">Aucun SIREN renseigné — impossible d'interroger Ellisphere.</p>
                 )}
                 {compte.score_ellipro_maj && (
-                  <p className="text-[10.5px] text-navy-400">Dernière interrogation : {new Date(compte.score_ellipro_maj).toLocaleString('fr-FR')}</p>
+                  <p className="text-[10.5px] text-km-faint">Dernière interrogation : {new Date(compte.score_ellipro_maj).toLocaleString('fr-FR')}</p>
                 )}
-                {ellisphereScore.isPending && <p className="text-xs text-navy-400">Interrogation d'Ellisphere…</p>}
-                {ellisphereScore.isError && <p className="text-xs text-red-600">{(ellisphereScore.error as Error).message}</p>}
+                {ellisphereScore.isPending && <p className="text-xs text-km-faint">Interrogation d'Ellisphere…</p>}
+                {ellisphereScore.isError && <p className="text-xs text-km-red">{(ellisphereScore.error as Error).message}</p>}
                 {updateScore.isSuccess && (
-                  <p className="text-[10.5px] text-navy-400">
+                  <p className="text-[10.5px] text-km-faint">
                     {updateScore.data.changed ? 'Score mis à jour.' : 'Score inchangé depuis la dernière interrogation.'}
                   </p>
                 )}
@@ -491,42 +491,42 @@ export default function CompteDetail() {
               </div>
 
               {compte.type_compte !== 'kiwee' && (
-                <div className="rounded-xl border border-navy-100 bg-white p-4">
+                <div className="rounded-xl border border-km-line bg-white p-4">
                   <div className="mb-3 flex items-center justify-between">
-                    <span className="text-[10px] font-bold uppercase tracking-wide text-navy-400">Détails {typeMeta[compte.type_compte].label.toLowerCase()}</span>
+                    <span className="text-[10px] font-bold uppercase tracking-wide text-km-faint">Détails {typeMeta[compte.type_compte].label.toLowerCase()}</span>
                     <Button type="button" size="sm" variant="outline" onClick={() => setShowEditSubtype(true)}>
                       <Pencil className="h-3.5 w-3.5" /> Modifier
                     </Button>
                   </div>
-                  <div className="space-y-1.5 text-xs text-navy-700">
+                  <div className="space-y-1.5 text-xs text-km-text">
                     {compte.type_compte === 'client' && (
                       <>
-                        <p><span className="text-navy-400">Segment compte :</span> {compte.segment_compte_libelle || '—'}</p>
-                        <p><span className="text-navy-400">Conseiller référent :</span> {compte.conseiller_referent_nom || '—'}</p>
-                        <p><span className="text-navy-400">Origine d'acquisition :</span> {compte.origine_acquisition || '—'}</p>
-                        <p><span className="text-navy-400">Mandat-cadre actif :</span> {compte.mandat_cadre_actif ? 'Oui' : 'Non'}</p>
-                        <p><span className="text-navy-400">Apporteur d'affaires :</span> {apporteur?.nom || '—'}</p>
-                        {compte.note_interne && <p><span className="text-navy-400">Note interne :</span> {compte.note_interne}</p>}
+                        <p><span className="text-km-faint">Segment compte :</span> {compte.segment_compte_libelle || '—'}</p>
+                        <p><span className="text-km-faint">Conseiller référent :</span> {compte.conseiller_referent_nom || '—'}</p>
+                        <p><span className="text-km-faint">Origine d'acquisition :</span> {compte.origine_acquisition || '—'}</p>
+                        <p><span className="text-km-faint">Mandat-cadre actif :</span> {compte.mandat_cadre_actif ? 'Oui' : 'Non'}</p>
+                        <p><span className="text-km-faint">Apporteur d'affaires :</span> {apporteur?.nom || '—'}</p>
+                        {compte.note_interne && <p><span className="text-km-faint">Note interne :</span> {compte.note_interne}</p>}
                       </>
                     )}
                     {compte.type_compte === 'fournisseur' && (
                       <>
-                        <p><span className="text-navy-400">Fournit :</span> {[compte.fournit_electricite && 'Électricité', compte.fournit_gaz && 'Gaz'].filter(Boolean).join(', ') || '—'}</p>
-                        <p><span className="text-navy-400">Contact commercial :</span> {compte.contact_commercial_nom || '—'}</p>
-                        <p><span className="text-navy-400">Statut partenariat :</span> <Badge tone="neutral">{compte.statut_partenariat || 'À qualifier'}</Badge></p>
-                        <p><span className="text-navy-400">Limite Ellipro :</span> {compte.limite_ellipro ?? '—'}</p>
-                        {compte.conditions_commerciales && <p><span className="text-navy-400">Conditions :</span> {compte.conditions_commerciales}</p>}
-                        {compte.commentaire_partenariat && <p><span className="text-navy-400">Commentaire :</span> {compte.commentaire_partenariat}</p>}
+                        <p><span className="text-km-faint">Fournit :</span> {[compte.fournit_electricite && 'Électricité', compte.fournit_gaz && 'Gaz'].filter(Boolean).join(', ') || '—'}</p>
+                        <p><span className="text-km-faint">Contact commercial :</span> {compte.contact_commercial_nom || '—'}</p>
+                        <p><span className="text-km-faint">Statut partenariat :</span> <Badge tone="neutral">{compte.statut_partenariat || 'À qualifier'}</Badge></p>
+                        <p><span className="text-km-faint">Limite Ellipro :</span> {compte.limite_ellipro ?? '—'}</p>
+                        {compte.conditions_commerciales && <p><span className="text-km-faint">Conditions :</span> {compte.conditions_commerciales}</p>}
+                        {compte.commentaire_partenariat && <p><span className="text-km-faint">Commentaire :</span> {compte.commentaire_partenariat}</p>}
                       </>
                     )}
                     {compte.type_compte === 'partenaire' && (
                       <>
-                        <p><span className="text-navy-400">Type de partenariat :</span> {compte.type_partenariat || '—'}</p>
-                        <p><span className="text-navy-400">Modèle de rémunération :</span> {compte.modele_remuneration || '—'}</p>
-                        <p><span className="text-navy-400">Contact référent :</span> {compte.contact_referent_nom || '—'}</p>
-                        <p><span className="text-navy-400">Statut partenariat :</span> <Badge tone="neutral">{compte.statut_partenariat || 'À qualifier'}</Badge></p>
-                        <p><span className="text-navy-400">Début du partenariat :</span> {compte.date_debut_partenariat ? new Date(compte.date_debut_partenariat).toLocaleDateString('fr-FR') : '—'}</p>
-                        {compte.commentaire_partenariat && <p><span className="text-navy-400">Commentaire :</span> {compte.commentaire_partenariat}</p>}
+                        <p><span className="text-km-faint">Type de partenariat :</span> {compte.type_partenariat || '—'}</p>
+                        <p><span className="text-km-faint">Modèle de rémunération :</span> {compte.modele_remuneration || '—'}</p>
+                        <p><span className="text-km-faint">Contact référent :</span> {compte.contact_referent_nom || '—'}</p>
+                        <p><span className="text-km-faint">Statut partenariat :</span> <Badge tone="neutral">{compte.statut_partenariat || 'À qualifier'}</Badge></p>
+                        <p><span className="text-km-faint">Début du partenariat :</span> {compte.date_debut_partenariat ? new Date(compte.date_debut_partenariat).toLocaleDateString('fr-FR') : '—'}</p>
+                        {compte.commentaire_partenariat && <p><span className="text-km-faint">Commentaire :</span> {compte.commentaire_partenariat}</p>}
                       </>
                     )}
                   </div>
@@ -567,8 +567,8 @@ export default function CompteDetail() {
           {tab === 'mandats' && (
             <div className="flex flex-col gap-2.5">
               {mandatsDuCompte.length === 0 ? (
-                <div className="rounded-xl border border-dashed border-kw-amber-border bg-kw-amber-light p-4">
-                  <p className="text-kw-lg font-bold text-kw-amber-dark">Aucun mandat pour ce compte</p>
+                <div className="rounded-xl border border-dashed border-kw-amber-border bg-km-amber-soft p-4">
+                  <p className="text-km-name font-bold text-km-amber">Aucun mandat pour ce compte</p>
                   <Button size="sm" className="mt-2.5" onClick={() => navigate('/mandats')}>
                     <Plus className="h-3.5 w-3.5" />
                     Préparer un mandat
@@ -579,14 +579,14 @@ export default function CompteDetail() {
                   <div
                     key={m.id}
                     onClick={() => navigate(`/mandats/${m.id}`)}
-                    className="flex cursor-pointer items-center gap-3 rounded-xl border border-kw-border bg-kw-surface p-3.5 hover:bg-kw-muted"
+                    className="flex cursor-pointer items-center gap-3 rounded-xl border border-km-line bg-km-surface p-3.5 hover:bg-km-soft"
                   >
-                    <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-kw-lg bg-kw-amber-light text-kw-amber-dark">
+                    <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-km-md bg-km-amber-soft text-km-amber">
                       <FileCheck2 className="h-4 w-4" />
                     </span>
                     <div className="min-w-0 flex-1">
-                      <p className="truncate text-kw-h4 font-bold text-kw-ink">{m.nb_sites_couverts} site{m.nb_sites_couverts > 1 ? 's' : ''} couvert{m.nb_sites_couverts > 1 ? 's' : ''}</p>
-                      <p className="truncate text-kw-sm text-kw-meta">{m.contact_signataire_nom ?? 'Signataire non renseigné'}</p>
+                      <p className="truncate text-km-body font-bold text-km-text">{m.nb_sites_couverts} site{m.nb_sites_couverts > 1 ? 's' : ''} couvert{m.nb_sites_couverts > 1 ? 's' : ''}</p>
+                      <p className="truncate text-km-body text-km-muted">{m.contact_signataire_nom ?? 'Signataire non renseigné'}</p>
                     </div>
                     <Badge tone={STATUT_MANDAT_TONE[m.statut] ?? 'neutral'}>{statutsMandats.find((s) => s.code === m.statut)?.libelle ?? m.statut}</Badge>
                   </div>
@@ -629,9 +629,9 @@ export default function CompteDetail() {
         </div>
 
         {/* Colonne droite — Activité persistante (desktop uniquement) */}
-        <div className="hidden min-h-0 flex-col border-l border-navy-100 bg-white lg:flex">
+        <div className="hidden min-h-0 flex-col border-l border-km-line bg-white lg:flex">
           <div className="flex items-center gap-2 px-3.5 py-3">
-            <span className="text-[10px] font-bold uppercase tracking-wide text-navy-400">Activité · portefeuille</span>
+            <span className="text-[10px] font-bold uppercase tracking-wide text-km-faint">Activité · portefeuille</span>
           </div>
           <div className="min-h-0 flex-1 overflow-hidden px-3.5 pb-3.5">
             <ActivityFeed
@@ -755,11 +755,11 @@ export default function CompteDetail() {
         description="Cette action est irréversible. Les sites, contacts et contrats rattachés ne seront pas supprimés mais perdront leur lien à ce compte."
       >
         {suppression.erreur && (
-          <p className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-xs text-red-700">{suppression.erreur}</p>
+          <p className="rounded-lg border border-red-200 bg-km-red-soft px-3 py-2 text-xs text-red-700">{suppression.erreur}</p>
         )}
         <div className="flex justify-end gap-2 pt-2">
           <Button type="button" variant="ghost" onClick={() => { suppression.reinitialiser(); setConfirmDelete(false) }}>Annuler</Button>
-          <Button type="button" variant="outline" className="border-red-200 text-red-600 hover:bg-red-50" disabled={suppression.enCours} onClick={handleDelete}>
+          <Button type="button" variant="outline" className="border-red-200 text-km-red hover:bg-km-red-soft" disabled={suppression.enCours} onClick={handleDelete}>
                 {suppression.enCours ? 'Suppression…' : 'Supprimer définitivement'}
               </Button>
         </div>
@@ -791,19 +791,19 @@ function CompteSitesMap({
   const villes = [...new Set(sitesDuCompte.map((s) => s.ville).filter(Boolean))]
 
   return (
-    <div className="overflow-hidden rounded-xl border border-navy-100 bg-kw-surface">
+    <div className="overflow-hidden rounded-xl border border-km-line bg-km-surface">
       <SitesMap sites={items} />
       <div className="flex flex-wrap items-center gap-3 border-t border-kw-border-subtle px-3.5 py-2">
-        <span className="whitespace-nowrap text-kw-md font-semibold text-kw-ink">
+        <span className="whitespace-nowrap text-km-body font-semibold text-km-text">
           {sitesDuCompte.length} site{sitesDuCompte.length > 1 ? 's' : ''}{villes.length > 0 ? ` · ${villes.slice(0, 2).join(', ')}` : ''}
         </span>
-        <span className="flex flex-wrap gap-2.5 text-kw-xs text-kw-label">
-          <span><span className="mr-1 inline-block h-2 w-2 rounded-full bg-kw-green align-middle" />bonne santé</span>
+        <span className="flex flex-wrap gap-2.5 text-km-label text-km-muted">
+          <span><span className="mr-1 inline-block h-2 w-2 rounded-full bg-km-green align-middle" />bonne santé</span>
           <span><span className="mr-1 inline-block h-2 w-2 rounded-full bg-[#e0a83c] align-middle" />attention</span>
           <span><span className="mr-1 inline-block h-2 w-2 rounded-full bg-kw-red align-middle" />critique</span>
         </span>
         <div className="flex-1" />
-        <span className="text-kw-xs text-kw-faint">clic sur un pin → fiche Site</span>
+        <span className="text-km-label text-km-faint">clic sur un pin → fiche Site</span>
       </div>
     </div>
   )
@@ -819,11 +819,11 @@ interface RelationEvent {
 }
 
 const RELATION_EVENT_STYLE: Record<RelationEventKind, { badge: string; text: string }> = {
-  mandat: { badge: 'Mandat', text: 'bg-kw-amber-light text-kw-amber-dark' },
-  gagne: { badge: 'Gagné', text: 'bg-kw-green-light text-kw-green' },
-  perdu: { badge: 'Perdu', text: 'bg-kw-muted text-kw-label' },
-  litige: { badge: 'Litige', text: 'bg-kw-red-light text-kw-red' },
-  a_venir: { badge: 'À venir', text: 'bg-kw-amber-light text-kw-amber-dark' },
+  mandat: { badge: 'Mandat', text: 'bg-km-amber-soft text-km-amber' },
+  gagne: { badge: 'Gagné', text: 'bg-km-green-soft text-km-green' },
+  perdu: { badge: 'Perdu', text: 'bg-km-soft text-km-muted' },
+  litige: { badge: 'Litige', text: 'bg-km-red-soft text-km-red' },
+  a_venir: { badge: 'À venir', text: 'bg-km-amber-soft text-km-amber' },
 }
 
 // Frise "Historique de la relation" -- présente dans la référence design (William) mais absente
@@ -877,24 +877,24 @@ function RelationTimeline({ compte, mandats, recommandations, signaux }: { compt
   if (events.length === 0) return null
 
   return (
-    <div className="rounded-xl border border-navy-100 bg-kw-surface p-4">
+    <div className="rounded-xl border border-km-line bg-km-surface p-4">
       <div className="mb-3 flex items-center gap-1.5">
-        <span className="text-kw-xs font-bold uppercase tracking-wide text-kw-faint">Historique de la relation</span>
-        <span className="text-kw-xs text-kw-ghost">· tous sites confondus</span>
+        <span className="text-km-label font-bold uppercase tracking-wide text-km-faint">Historique de la relation</span>
+        <span className="text-km-label text-km-faint">· tous sites confondus</span>
       </div>
       <div className="flex flex-col divide-y divide-kw-border-subtle">
         {visibles.map((e) => (
           <div key={e.id} className="flex items-center gap-3 py-2 first:pt-0 last:pb-0">
-            <span className="w-20 shrink-0 font-mono text-kw-sm text-kw-meta">{new Date(e.date).toLocaleDateString('fr-FR')}</span>
-            <p className="min-w-0 flex-1 truncate text-kw-lg text-kw-body">{e.label}</p>
-            <span className={cn('shrink-0 rounded px-1.5 py-0.5 text-kw-xs font-bold uppercase', RELATION_EVENT_STYLE[e.kind].text)}>
+            <span className="w-20 shrink-0 font-mono text-km-body text-km-muted">{new Date(e.date).toLocaleDateString('fr-FR')}</span>
+            <p className="min-w-0 flex-1 truncate text-km-name text-km-muted">{e.label}</p>
+            <span className={cn('shrink-0 rounded px-1.5 py-0.5 text-km-label font-bold uppercase', RELATION_EVENT_STYLE[e.kind].text)}>
               {RELATION_EVENT_STYLE[e.kind].badge}
             </span>
           </div>
         ))}
       </div>
       {events.length > CAP && (
-        <button type="button" onClick={() => setExpanded((v) => !v)} className="mt-2.5 text-kw-sm font-semibold text-kw-blue hover:underline">
+        <button type="button" onClick={() => setExpanded((v) => !v)} className="mt-2.5 text-km-body font-semibold text-km-blue hover:underline">
           {expanded ? '← Réduire' : `Voir les ${events.length} événements →`}
         </button>
       )}
@@ -974,19 +974,19 @@ function IdentiteCard({ compte, onToast }: { compte: Compte; onToast: (msg: stri
   }
 
   return (
-    <div className="rounded-xl border border-navy-100 bg-kw-surface p-4">
+    <div className="rounded-xl border border-km-line bg-km-surface p-4">
       <div className="mb-3.5 flex items-center gap-1.5">
-        <span className="flex h-5 w-5 items-center justify-center rounded-md bg-kw-blue-light text-kw-blue"><Building2 className="h-2.5 w-2.5" /></span>
-        <span className="text-kw-xs font-bold uppercase tracking-wide text-kw-faint">Identité</span>
+        <span className="flex h-5 w-5 items-center justify-center rounded-md bg-km-blue-soft text-km-blue"><Building2 className="h-2.5 w-2.5" /></span>
+        <span className="text-km-label font-bold uppercase tracking-wide text-km-faint">Identité</span>
         <div className="flex-1" />
-        <span className="text-kw-xs text-kw-ghost">cliquer une valeur pour modifier · ⧉ pour copier</span>
+        <span className="text-km-label text-km-faint">cliquer une valeur pour modifier · ⧉ pour copier</span>
       </div>
       <div className="grid grid-cols-2 gap-4">
         <InlineField variant="select" label="Type de compte" value={compte.type_compte} options={[{ value: 'client', label: 'Consommateur' }, { value: 'fournisseur', label: 'Fournisseur' }, { value: 'partenaire', label: 'Partenaire' }, { value: 'kiwee', label: 'KiWee' }]} onCommit={(v) => commit({ type_compte: v as TypeCompte })} onSaved={() => onToast('✓ enregistré')} />
         <InlineField variant="text" label="Typologie" value={compte.segment || ''} emptyLabel="ajouter" onCommit={(v) => commit({ segment: v })} onSaved={() => onToast('✓ enregistré')} />
         <div>
-          <div className="mb-0.5 text-kw-xs font-semibold uppercase tracking-wide text-kw-faint">Statut</div>
-          <span className={cn('rounded px-2 py-0.5 text-kw-xs font-semibold', statutClient ? 'bg-kw-green-light text-kw-green' : 'bg-kw-muted text-kw-label')}>
+          <div className="mb-0.5 text-km-label font-semibold uppercase tracking-wide text-km-faint">Statut</div>
+          <span className={cn('rounded px-2 py-0.5 text-km-label font-semibold', statutClient ? 'bg-km-green-soft text-km-green' : 'bg-km-soft text-km-muted')}>
             {statutClient ? 'Client' : 'Prospect'}
           </span>
         </div>
@@ -996,38 +996,38 @@ function IdentiteCard({ compte, onToast }: { compte: Compte; onToast: (msg: stri
         <InlineField variant="text" label="Libellé APE" value={compte.libelle_ape || ''} emptyLabel="ajouter" onCommit={(v) => commit({ libelle_ape: v || null })} onSaved={() => onToast('✓ enregistré')} />
         {compte.score_ellipro && (
           <div>
-            <div className="mb-0.5 text-kw-xs font-semibold uppercase tracking-wide text-kw-faint">Note Ellipro</div>
-            <span className="rounded bg-kw-green-light px-1.5 py-0.5 text-kw-lg font-extrabold text-kw-green">
+            <div className="mb-0.5 text-km-label font-semibold uppercase tracking-wide text-km-faint">Note Ellipro</div>
+            <span className="rounded bg-km-green-soft px-1.5 py-0.5 text-km-name font-extrabold text-km-green">
               {compte.score_ellipro}{compte.score_ellipro_scale ? ` / ${compte.score_ellipro_scale}` : ''}
             </span>
           </div>
         )}
         <div className="col-span-2">
-          <div className="mb-0.5 text-kw-xs font-semibold uppercase tracking-wide text-kw-faint">Siège social</div>
+          <div className="mb-0.5 text-km-label font-semibold uppercase tracking-wide text-km-faint">Siège social</div>
           {editingAddress ? (
             <div className="flex flex-wrap items-center gap-1.5">
-              <input value={addrDraft.rue} onChange={(e) => setAddrDraft((d) => ({ ...d, rue: e.target.value }))} placeholder="Rue" className="min-w-[150px] flex-[2] rounded-kw-sm border border-kw-green px-1.5 py-1 text-kw-lg outline-none" />
-              <input value={addrDraft.code_postal} onChange={(e) => setAddrDraft((d) => ({ ...d, code_postal: e.target.value }))} placeholder="Code postal" className="w-20 rounded-kw-sm border border-kw-green px-1.5 py-1 font-mono text-kw-lg outline-none" />
-              <input value={addrDraft.ville} onChange={(e) => setAddrDraft((d) => ({ ...d, ville: e.target.value }))} placeholder="Ville" className="min-w-[90px] flex-1 rounded-kw-sm border border-kw-green px-1.5 py-1 text-kw-lg outline-none" />
-              <button type="button" onClick={saveAddress} className="flex h-6 w-6 shrink-0 items-center justify-center rounded-kw-sm bg-kw-green text-white">✓</button>
+              <input value={addrDraft.rue} onChange={(e) => setAddrDraft((d) => ({ ...d, rue: e.target.value }))} placeholder="Rue" className="min-w-[150px] flex-[2] rounded-km-sm border border-km-green px-1.5 py-1 text-km-name outline-none" />
+              <input value={addrDraft.code_postal} onChange={(e) => setAddrDraft((d) => ({ ...d, code_postal: e.target.value }))} placeholder="Code postal" className="w-20 rounded-km-sm border border-km-green px-1.5 py-1 font-mono text-km-name outline-none" />
+              <input value={addrDraft.ville} onChange={(e) => setAddrDraft((d) => ({ ...d, ville: e.target.value }))} placeholder="Ville" className="min-w-[90px] flex-1 rounded-km-sm border border-km-green px-1.5 py-1 text-km-name outline-none" />
+              <button type="button" onClick={saveAddress} className="flex h-6 w-6 shrink-0 items-center justify-center rounded-km-sm bg-km-green text-white">✓</button>
             </div>
           ) : (
             <div className="flex items-start gap-1.5">
-              <button type="button" onClick={() => { setAddrDraft({ rue: compte.rue ?? '', code_postal: compte.code_postal ?? '', ville: compte.ville ?? '' }); setEditingAddress(true) }} className="rounded-kw-sm px-1.5 py-0.5 text-left text-kw-lg text-kw-ink hover:bg-kw-muted">
+              <button type="button" onClick={() => { setAddrDraft({ rue: compte.rue ?? '', code_postal: compte.code_postal ?? '', ville: compte.ville ?? '' }); setEditingAddress(true) }} className="rounded-km-sm px-1.5 py-0.5 text-left text-km-name text-km-text hover:bg-km-soft">
                 {compte.rue || compte.code_postal || compte.ville ? (
                   <>
                     {compte.rue && <span className="block truncate">{compte.rue}</span>}
                     <span className="block truncate">{`${compte.code_postal ?? ''} ${compte.ville ?? ''}`.trim()}</span>
                   </>
                 ) : (
-                  <span className="text-kw-faint">＋ ajouter</span>
+                  <span className="text-km-faint">＋ ajouter</span>
                 )}
               </button>
             </div>
           )}
         </div>
         <div>
-          <div className="mb-0.5 text-kw-xs font-semibold uppercase tracking-wide text-kw-faint">Département</div>
+          <div className="mb-0.5 text-km-label font-semibold uppercase tracking-wide text-km-faint">Département</div>
           <div className="flex items-center gap-2">
             <InlineField variant="text" mono value={compte.departement_code || ''} emptyLabel="—" onCommit={(v) => commit({ departement_code: v || null })} onSaved={() => onToast('✓ enregistré')} className="w-12" />
             <InlineField variant="text" value={compte.departement_nom || ''} emptyLabel="nom" onCommit={(v) => commit({ departement_nom: v || null })} onSaved={() => onToast('✓ enregistré')} />
@@ -1041,9 +1041,9 @@ function IdentiteCard({ compte, onToast }: { compte: Compte; onToast: (msg: stri
 function InfoFieldKw({ label, value, onCopy, mono }: { label: string; value: string; onCopy: (msg: string) => void; mono?: boolean }) {
   return (
     <div>
-      <div className="mb-0.5 text-kw-xs font-semibold uppercase tracking-wide text-kw-faint">{label}</div>
+      <div className="mb-0.5 text-km-label font-semibold uppercase tracking-wide text-km-faint">{label}</div>
       <div className="flex items-center gap-1.5">
-        <button type="button" onClick={() => copyToClipboard(value, onCopy)} title="Cliquer pour copier" className={cn('truncate text-kw-lg font-semibold text-kw-ink hover:text-kw-blue', mono && 'font-mono')}>
+        <button type="button" onClick={() => copyToClipboard(value, onCopy)} title="Cliquer pour copier" className={cn('truncate text-km-name font-semibold text-km-text hover:text-km-blue', mono && 'font-mono')}>
           {value}
         </button>
       </div>
@@ -1070,7 +1070,7 @@ function RecordMetaCard({ compte, canManage, onToast }: { compte: Compte; canMan
   }
 
   return (
-    <div className="relative flex shrink-0 flex-col items-start gap-0.5 rounded-kw-xl border border-kw-border-subtle bg-kw-subtle px-2.5 py-1.5">
+    <div className="relative flex shrink-0 flex-col items-start gap-0.5 rounded-km-lg border border-kw-border-subtle bg-km-soft px-2.5 py-1.5">
       <button
         type="button"
         disabled={!canManage}
@@ -1079,18 +1079,18 @@ function RecordMetaCard({ compte, canManage, onToast }: { compte: Compte; canMan
         className="flex items-center gap-1.5 disabled:cursor-default"
       >
         <span className="flex h-4 w-4 items-center justify-center rounded-full bg-[#e4ded2] text-[7.5px] font-bold text-[#6b6355]">{initiales}</span>
-        <span className="text-kw-xs font-bold text-kw-label">{compte.proprietaire_nom || 'Aucun propriétaire'}</span>
-        {canManage && <span className="text-kw-ghost">▾</span>}
+        <span className="text-km-label font-bold text-km-muted">{compte.proprietaire_nom || 'Aucun propriétaire'}</span>
+        {canManage && <span className="text-km-faint">▾</span>}
       </button>
-      <span className="whitespace-nowrap text-kw-tiny text-kw-faint">
+      <span className="whitespace-nowrap text-km-label text-km-faint">
         {compte.date_creation && <>Créé {new Date(compte.date_creation).toLocaleDateString('fr-FR')} · </>}
         Modifié {compte.date_modification ? new Date(compte.date_modification).toLocaleDateString('fr-FR') : '—'}
       </span>
       {open && (
-        <div className="absolute right-0 top-full z-30 mt-1 max-h-64 w-52 overflow-y-auto rounded-kw-lg border border-kw-border bg-kw-surface py-1 shadow-kw-panel">
-          <button type="button" onClick={() => reassign('')} className="block w-full px-3 py-1.5 text-left text-kw-lg text-kw-body hover:bg-kw-muted">Aucun</button>
+        <div className="absolute right-0 top-full z-30 mt-1 max-h-64 w-52 overflow-y-auto rounded-km-md border border-km-line bg-km-surface py-1 shadow-kw-panel">
+          <button type="button" onClick={() => reassign('')} className="block w-full px-3 py-1.5 text-left text-km-name text-km-muted hover:bg-km-soft">Aucun</button>
           {profilsAdmin?.map((p) => (
-            <button key={p.id} type="button" onClick={() => reassign(p.id)} className="block w-full px-3 py-1.5 text-left text-kw-lg text-kw-body hover:bg-kw-muted">
+            <button key={p.id} type="button" onClick={() => reassign(p.id)} className="block w-full px-3 py-1.5 text-left text-km-name text-km-muted hover:bg-km-soft">
               {p.prenom} {p.nom}
             </button>
           ))}
@@ -1145,7 +1145,7 @@ function ContratsTabContent({
       })
     : contratsFiltres
 
-  if (total === 0) return <p className="text-kw-lg text-kw-faint">Aucun contrat pour ce compte.</p>
+  if (total === 0) return <p className="text-km-name text-km-faint">Aucun contrat pour ce compte.</p>
 
   return (
     <div className="flex flex-col gap-3">
@@ -1194,11 +1194,11 @@ function ContratsTabContent({
 
       {filtre !== 'all' && (
         <div className="flex items-center gap-2">
-          <span className="inline-flex items-center gap-1.5 rounded-kw-pill bg-kw-ink px-3 py-1 text-kw-sm font-bold text-white">
+          <span className="inline-flex items-center gap-1.5 rounded-kw-pill bg-kw-ink px-3 py-1 text-km-body font-bold text-white">
             Filtre : {filtre === 'actifs' ? 'Actifs' : filtre === 'echeances' ? 'Échéances < 12 mois' : 'Sans reco lancée'}
             <button type="button" onClick={() => setFiltre('all')} className="opacity-70 hover:opacity-100">✕</button>
           </span>
-          <span className="text-kw-sm text-kw-meta">{contratsAffiches.length} contrat{contratsAffiches.length > 1 ? 's' : ''} correspondant{contratsAffiches.length > 1 ? 's' : ''}</span>
+          <span className="text-km-body text-km-muted">{contratsAffiches.length} contrat{contratsAffiches.length > 1 ? 's' : ''} correspondant{contratsAffiches.length > 1 ? 's' : ''}</span>
         </div>
       )}
 
@@ -1234,7 +1234,7 @@ function CompteursTabContent({ sites, compteurs }: { sites: Site[]; compteurs: C
       })
     : compteurs
 
-  if (compteurs.length === 0) return <p className="text-kw-lg text-kw-faint">Aucun compteur pour ce compte.</p>
+  if (compteurs.length === 0) return <p className="text-km-name text-km-faint">Aucun compteur pour ce compte.</p>
 
   return (
     <div className="flex flex-col gap-3">
@@ -1265,15 +1265,15 @@ function CompteursTabContent({ sites, compteurs }: { sites: Site[]; compteurs: C
 // « faut que tu mettes une recherche »). Filtre côté appelant, cette fonction ne fait que l'UI.
 function SiteSearchBox({ value, onChange, placeholder, total, unit }: { value: string; onChange: (v: string) => void; placeholder: string; total: number; unit: string }) {
   return (
-    <div className="flex items-center gap-2 rounded-kw-md border border-kw-border-strong bg-kw-surface px-3 py-2">
-      <Search className="h-3.5 w-3.5 shrink-0 text-kw-ghost" />
+    <div className="flex items-center gap-2 rounded-km border border-km-line bg-km-surface px-3 py-2">
+      <Search className="h-3.5 w-3.5 shrink-0 text-km-faint" />
       <input
         value={value}
         onChange={(e) => onChange(e.target.value)}
         placeholder={placeholder}
-        className="min-w-0 flex-1 bg-transparent text-kw-md text-kw-ink outline-none placeholder:text-kw-faint"
+        className="min-w-0 flex-1 bg-transparent text-km-body text-km-text outline-none placeholder:text-km-faint"
       />
-      <span className="shrink-0 text-kw-sm text-kw-meta">{total} {unit}{total > 1 ? 's' : ''}</span>
+      <span className="shrink-0 text-km-body text-km-muted">{total} {unit}{total > 1 ? 's' : ''}</span>
     </div>
   )
 }
@@ -1300,34 +1300,34 @@ function GroupedBySite<T>({
   const groups = sites.map((s) => ({ site: s, items: itemsBySiteId(s.id) })).filter((g) => g.items.length > 0)
   const orphans = orphanItems ?? []
 
-  if (groups.length === 0 && orphans.length === 0) return <p className="text-kw-lg text-kw-faint">{emptyLabel}</p>
+  if (groups.length === 0 && orphans.length === 0) return <p className="text-km-name text-km-faint">{emptyLabel}</p>
 
   return (
-    <div className="overflow-hidden rounded-xl border border-navy-100 bg-white">
+    <div className="overflow-hidden rounded-xl border border-km-line bg-white">
       {groups.map(({ site, items }) => (
         <div
           key={site.id}
           onClick={() => navigate(`/sites/${site.id}`)}
-          className="flex cursor-pointer items-center gap-2.5 border-b border-navy-50 px-4 py-3 last:border-b-0 hover:bg-navy-50/60"
+          className="flex cursor-pointer items-center gap-2.5 border-b border-navy-50 px-4 py-3 last:border-b-0 hover:bg-km-bg/60"
         >
-          <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-kiwi-100 text-kiwi-600">
+          <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-km-green-soft text-km-green">
             <MapPin className="h-3.5 w-3.5" />
           </span>
-          <p className="min-w-0 flex-1 truncate text-kw-h4 font-bold text-kw-ink">{site.nom}</p>
-          <span className={cn('rounded-kw-sm px-1.5 py-0.5 text-kw-xs font-bold uppercase', site.statut === 'actif' ? 'bg-kw-green-light text-kw-green' : 'bg-kw-muted text-kw-label')}>
+          <p className="min-w-0 flex-1 truncate text-km-body font-bold text-km-text">{site.nom}</p>
+          <span className={cn('rounded-km-sm px-1.5 py-0.5 text-km-label font-bold uppercase', site.statut === 'actif' ? 'bg-km-green-soft text-km-green' : 'bg-km-soft text-km-muted')}>
             {site.statut === 'actif' ? 'Client' : 'Prospect'}
           </span>
-          <span className="shrink-0 text-kw-sm text-kw-meta">{renderSummary(items)}</span>
-          <span className="text-kw-ghost">›</span>
+          <span className="shrink-0 text-km-body text-km-muted">{renderSummary(items)}</span>
+          <span className="text-km-faint">›</span>
         </div>
       ))}
       {orphans.length > 0 && (
-        <div className="flex items-center gap-2.5 border-t border-dashed border-navy-200 bg-navy-50/60 px-4 py-3">
-          <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-navy-100 text-navy-500">
+        <div className="flex items-center gap-2.5 border-t border-dashed border-km-line bg-km-bg/60 px-4 py-3">
+          <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-km-soft text-km-muted">
             <MapPin className="h-3.5 w-3.5" />
           </span>
-          <p className="min-w-0 flex-1 truncate text-kw-h4 font-bold text-kw-ink">Sans site rattaché (historique)</p>
-          <span className="shrink-0 text-kw-sm text-kw-meta">{renderSummary(orphans)}</span>
+          <p className="min-w-0 flex-1 truncate text-km-body font-bold text-km-text">Sans site rattaché (historique)</p>
+          <span className="shrink-0 text-km-body text-km-muted">{renderSummary(orphans)}</span>
         </div>
       )}
     </div>
@@ -1339,35 +1339,35 @@ function ContactsPanel({ contacts, compteId }: { contacts: Contact[]; compteId: 
   const [expanded, setExpanded] = useState(false)
   const visibles = expanded ? contacts : contacts.slice(0, 3)
   return (
-    <div className="rounded-kw-2xl border border-kw-border bg-kw-surface p-3.5">
+    <div className="rounded-kw-2xl border border-km-line bg-km-surface p-3.5">
       <div className="mb-2.5 flex items-center gap-1.5">
-        <span className="flex h-5 w-5 items-center justify-center rounded-kw-sm bg-kw-purple/15 text-kw-purple"><Users className="h-2.5 w-2.5" /></span>
-        <span className="text-kw-xs font-bold uppercase tracking-wide text-kw-faint">Contacts</span>
+        <span className="flex h-5 w-5 items-center justify-center rounded-km-sm bg-kw-purple/15 text-kw-purple"><Users className="h-2.5 w-2.5" /></span>
+        <span className="text-km-label font-bold uppercase tracking-wide text-km-faint">Contacts</span>
         <div className="flex-1" />
-        <button type="button" onClick={() => navigate('/contacts', { state: { openCreateForCompteId: compteId } })} className="text-kw-sm font-semibold text-kw-purple">＋</button>
+        <button type="button" onClick={() => navigate('/contacts', { state: { openCreateForCompteId: compteId } })} className="text-km-body font-semibold text-kw-purple">＋</button>
       </div>
-      {contacts.length === 0 && <p className="text-kw-lg text-kw-faint">Aucun contact enregistré pour ce compte.</p>}
+      {contacts.length === 0 && <p className="text-km-name text-km-faint">Aucun contact enregistré pour ce compte.</p>}
       <div className="flex flex-col gap-2">
         {visibles.map((c) => {
           const initiales = `${c.prenom[0] ?? ''}${c.nom[0] ?? ''}`.toUpperCase()
           return (
-            <div key={c.id} className="rounded-kw-xl border border-kw-border-faint bg-kw-subtle p-2.5">
+            <div key={c.id} className="rounded-km-lg border border-km-line bg-km-soft p-2.5">
               <div className="flex items-center gap-2.5">
-                <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full border-[1.5px] border-kw-purple/30 bg-kw-purple/10 text-kw-lg font-bold text-kw-purple">
+                <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full border-[1.5px] border-kw-purple/30 bg-kw-purple/10 text-km-name font-bold text-kw-purple">
                   {initiales}
                 </div>
                 <div className="min-w-0 flex-1">
                   <div className="flex items-center gap-1.5">
-                    <button type="button" onClick={() => navigate(`/contacts/${c.id}`)} className="truncate text-left text-kw-h4 font-bold text-kw-ink hover:text-kw-purple">
+                    <button type="button" onClick={() => navigate(`/contacts/${c.id}`)} className="truncate text-left text-km-body font-bold text-km-text hover:text-kw-purple">
                       {c.prenom} {c.nom}
                     </button>
                     {c.contact_principal && (
                       <span title="Signataire des mandats" className="flex h-[15px] w-[15px] shrink-0 items-center justify-center rounded-kw-xs bg-kw-amber-border">
-                        <FileCheck2 className="h-2.5 w-2.5 text-kw-amber-dark" />
+                        <FileCheck2 className="h-2.5 w-2.5 text-km-amber" />
                       </span>
                     )}
                   </div>
-                  <p className="truncate text-kw-lg text-kw-meta">{c.fonction || '—'}{c.sites.length > 0 ? ` · ${c.sites.length} site${c.sites.length > 1 ? 's' : ''}` : ''}</p>
+                  <p className="truncate text-km-name text-km-muted">{c.fonction || '—'}{c.sites.length > 0 ? ` · ${c.sites.length} site${c.sites.length > 1 ? 's' : ''}` : ''}</p>
                   {/* Un contact peut être rattaché à plusieurs comptes. Quand celui-ci n'est pas
                       son compte principal, on le dit : sans cette mention on croirait qu'il
                       appartient au compte affiché, et on ne saurait pas où le modifier. */}
@@ -1379,7 +1379,7 @@ function ContactsPanel({ contacts, compteId }: { contacts: Contact[]; compteId: 
                         navigate(`/comptes/${c.compte_id}`)
                       }}
                       title={`Rattaché à ${c.compte_nom} — ouvrir cette fiche`}
-                      className="mt-0.5 inline-flex max-w-full items-center gap-1 rounded bg-kw-blue-light px-1.5 py-px text-[10px] font-semibold text-kw-blue transition-colors hover:bg-kw-blue/20"
+                      className="mt-0.5 inline-flex max-w-full items-center gap-1 rounded bg-km-blue-soft px-1.5 py-px text-[10px] font-semibold text-km-blue transition-colors hover:bg-kw-blue/20"
                     >
                       <span className="truncate">via {c.compte_nom}</span>
                     </button>
@@ -1392,8 +1392,8 @@ function ContactsPanel({ contacts, compteId }: { contacts: Contact[]; compteId: 
                   onClick={() => c.telephone && void appelerNumero(c.telephone)}
                   disabled={!c.telephone}
                   className={cn(
-                    'flex flex-1 items-center justify-center gap-1.5 rounded-kw-md border border-kw-border-strong bg-kw-surface py-1.5 text-kw-sm font-semibold text-kw-label transition-colors',
-                    c.telephone ? 'hover:border-kw-green-border hover:bg-kw-green-light hover:text-kw-green' : 'pointer-events-none opacity-40',
+                    'flex flex-1 items-center justify-center gap-1.5 rounded-km border border-km-line bg-km-surface py-1.5 text-km-body font-semibold text-km-muted transition-colors',
+                    c.telephone ? 'hover:border-kw-green-border hover:bg-km-green-soft hover:text-km-green' : 'pointer-events-none opacity-40',
                   )}
                 >
                   <Phone className="h-2.5 w-2.5" /> Appeler
@@ -1401,8 +1401,8 @@ function ContactsPanel({ contacts, compteId }: { contacts: Contact[]; compteId: 
                 <a
                   href={c.email ? `mailto:${c.email}` : undefined}
                   className={cn(
-                    'flex flex-1 items-center justify-center gap-1.5 rounded-kw-md border border-kw-border-strong bg-kw-surface py-1.5 text-kw-sm font-semibold text-kw-label transition-colors',
-                    c.email ? 'hover:border-kw-blue-light hover:bg-kw-blue-light hover:text-kw-blue' : 'pointer-events-none opacity-40',
+                    'flex flex-1 items-center justify-center gap-1.5 rounded-km border border-km-line bg-km-surface py-1.5 text-km-body font-semibold text-km-muted transition-colors',
+                    c.email ? 'hover:border-kw-blue-light hover:bg-km-blue-soft hover:text-km-blue' : 'pointer-events-none opacity-40',
                   )}
                 >
                   <Mail className="h-2.5 w-2.5" /> Email
@@ -1413,7 +1413,7 @@ function ContactsPanel({ contacts, compteId }: { contacts: Contact[]; compteId: 
         })}
       </div>
       {contacts.length > 3 && (
-        <button type="button" onClick={() => setExpanded((v) => !v)} className="mt-2.5 block text-kw-sm font-semibold text-kw-purple hover:underline">
+        <button type="button" onClick={() => setExpanded((v) => !v)} className="mt-2.5 block text-km-body font-semibold text-kw-purple hover:underline">
           {expanded ? '← Réduire' : `Voir les ${contacts.length} contacts →`}
         </button>
       )}
@@ -1475,12 +1475,12 @@ function CommentaireCard({ compte }: { compte: Compte }) {
   if (isKiwee) return null
 
   return (
-    <div className="rounded-kw-2xl border border-kw-border bg-kw-surface p-3.5">
+    <div className="rounded-kw-2xl border border-km-line bg-km-surface p-3.5">
       <div className="mb-2 flex items-center gap-1.5">
-        <span className="text-kw-xs font-bold uppercase tracking-wide text-kw-faint">Commentaire</span>
+        <span className="text-km-label font-bold uppercase tracking-wide text-km-faint">Commentaire</span>
         <div className="flex-1" />
         {!editing && (
-          <button type="button" onClick={() => { setDraft(initialValue); setEditing(true) }} title="Modifier" className="rounded p-0.5 text-kw-ghost hover:bg-kw-muted hover:text-kw-ink">
+          <button type="button" onClick={() => { setDraft(initialValue); setEditing(true) }} title="Modifier" className="rounded p-0.5 text-km-faint hover:bg-km-soft hover:text-km-text">
             <Pencil className="h-3 w-3" />
           </button>
         )}
@@ -1493,14 +1493,14 @@ function CommentaireCard({ compte }: { compte: Compte }) {
           onChange={(e) => setDraft(e.target.value)}
           onBlur={save}
           disabled={pending}
-          className="text-kw-md"
+          className="text-km-body"
         />
       ) : (
         <p
           onClick={() => { setDraft(initialValue); setEditing(true) }}
-          className="cursor-pointer whitespace-pre-wrap rounded-kw-lg p-1 text-kw-md leading-relaxed text-kw-body hover:bg-kw-muted"
+          className="cursor-pointer whitespace-pre-wrap rounded-km-md p-1 text-km-body leading-relaxed text-km-muted hover:bg-km-soft"
         >
-          {initialValue || <span className="text-kw-faint">Cliquer pour ajouter un commentaire…</span>}
+          {initialValue || <span className="text-km-faint">Cliquer pour ajouter un commentaire…</span>}
         </p>
       )}
     </div>
@@ -1561,14 +1561,14 @@ function EditCompteClientDialog({ compte, open, onClose }: { compte: Compte; ope
             </Select>
           </FormField>
         )}
-        <label className="flex items-center gap-2 text-sm text-navy-700">
+        <label className="flex items-center gap-2 text-sm text-km-text">
           <input type="checkbox" checked={mandatCadre} onChange={(e) => setMandatCadre(e.target.checked)} />
           Mandat-cadre actif
         </label>
         <FormField label="Note interne">
           <Textarea rows={3} value={note} onChange={(e) => setNote(e.target.value)} />
         </FormField>
-        {feedback && <p className="text-xs text-navy-500">{feedback}</p>}
+        {feedback && <p className="text-xs text-km-muted">{feedback}</p>}
         <div className="flex justify-end gap-2 pt-2">
           <Button type="button" variant="ghost" onClick={onClose}>Annuler</Button>
           <Button type="submit" disabled={update.isPending}>Enregistrer</Button>
@@ -1611,11 +1611,11 @@ function EditCompteFournisseurDialog({ compte, contacts, open, onClose }: { comp
     <Dialog open={open} onClose={onClose} title="Détails fournisseur">
       <form onSubmit={handleSubmit} className="space-y-3">
         <div className="flex gap-4">
-          <label className="flex items-center gap-2 text-sm text-navy-700">
+          <label className="flex items-center gap-2 text-sm text-km-text">
             <input type="checkbox" checked={electricite} onChange={(e) => setElectricite(e.target.checked)} />
             Fournit l'électricité
           </label>
-          <label className="flex items-center gap-2 text-sm text-navy-700">
+          <label className="flex items-center gap-2 text-sm text-km-text">
             <input type="checkbox" checked={gaz} onChange={(e) => setGaz(e.target.checked)} />
             Fournit le gaz
           </label>
@@ -1640,7 +1640,7 @@ function EditCompteFournisseurDialog({ compte, contacts, open, onClose }: { comp
         <FormField label="Commentaire">
           <Textarea rows={2} value={commentaire} onChange={(e) => setCommentaire(e.target.value)} />
         </FormField>
-        {feedback && <p className="text-xs text-navy-500">{feedback}</p>}
+        {feedback && <p className="text-xs text-km-muted">{feedback}</p>}
         <div className="flex justify-end gap-2 pt-2">
           <Button type="button" variant="ghost" onClick={onClose}>Annuler</Button>
           <Button type="submit" disabled={update.isPending}>Enregistrer</Button>
@@ -1703,7 +1703,7 @@ function EditComptePartenaireDialog({ compte, contacts, open, onClose }: { compt
         <FormField label="Commentaire">
           <Textarea rows={2} value={commentaire} onChange={(e) => setCommentaire(e.target.value)} />
         </FormField>
-        {feedback && <p className="text-xs text-navy-500">{feedback}</p>}
+        {feedback && <p className="text-xs text-km-muted">{feedback}</p>}
         <div className="flex justify-end gap-2 pt-2">
           <Button type="button" variant="ghost" onClick={onClose}>Annuler</Button>
           <Button type="submit" disabled={update.isPending}>Enregistrer</Button>
@@ -1762,7 +1762,7 @@ function EditCompteDialog({ compte, open, onClose }: { compte: Compte; open: boo
             </Select>
           </FormField>
         )}
-        {feedback && <p className="text-xs text-red-600">{feedback}</p>}
+        {feedback && <p className="text-xs text-km-red">{feedback}</p>}
         <div className="flex justify-end gap-2 pt-2">
           <Button type="button" variant="ghost" onClick={onClose}>Annuler</Button>
           <Button type="submit" disabled={updateCompte.isPending}>Enregistrer</Button>

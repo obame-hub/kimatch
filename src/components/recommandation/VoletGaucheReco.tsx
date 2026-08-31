@@ -39,10 +39,10 @@ function Carte({
   className?: string
 }) {
   return (
-    <div className={cn('rounded-kw-xl border border-kw-border bg-white px-[13px] py-3', className)}>
+    <div className={cn('rounded-km-lg border border-km-line bg-white px-[13px] py-3', className)}>
       <div className="mb-[9px] flex items-center gap-[7px]">
-        <span className={cn('flex h-5 w-5 shrink-0 items-center justify-center rounded-kw-sm', teinte)}>{icone}</span>
-        <span className="text-kw-xs font-bold uppercase tracking-[0.08em] text-kw-faint">{titre}</span>
+        <span className={cn('flex h-5 w-5 shrink-0 items-center justify-center rounded-km-sm', teinte)}>{icone}</span>
+        <span className="text-km-label font-bold uppercase tracking-[0.08em] text-km-faint">{titre}</span>
         <span className="flex-1" />
         {droite}
       </div>
@@ -97,7 +97,7 @@ function Selecteur({
         type="button"
         onClick={onBasculer}
         title="Changer l'élément lié"
-        className="flex h-5 w-5 shrink-0 items-center justify-center rounded-kw-sm border border-kw-border-strong bg-white text-kw-xs text-kw-label hover:bg-kw-bg hover:text-kw-ink"
+        className="flex h-5 w-5 shrink-0 items-center justify-center rounded-km-sm border border-km-line bg-white text-km-label text-km-muted hover:bg-km-bg hover:text-km-text"
       >
         ⇄
       </button>
@@ -108,30 +108,30 @@ function Selecteur({
       <button
         type="button"
         onClick={onBasculer}
-        className="flex h-5 w-5 shrink-0 items-center justify-center rounded-kw-sm border border-kw-border-strong bg-kw-bg text-kw-xs text-kw-ink"
+        className="flex h-5 w-5 shrink-0 items-center justify-center rounded-km-sm border border-km-line bg-km-bg text-km-label text-km-text"
       >
         ⇄
       </button>
-      <div className="absolute inset-x-[13px] top-[38px] z-20 animate-kw-fade-slide rounded-kw-lg border border-kw-border-strong bg-white p-[7px] shadow-kw-panel">
-        <div className="flex items-center gap-1.5 rounded-kw-sm border border-kw-border-strong bg-kw-subtle px-2 py-1.5">
-          <Search className="h-[11px] w-[11px] shrink-0 text-kw-faint" />
+      <div className="absolute inset-x-[13px] top-[38px] z-20 animate-kw-fade-slide rounded-km-md border border-km-line bg-white p-[7px] shadow-kw-panel">
+        <div className="flex items-center gap-1.5 rounded-km-sm border border-km-line bg-km-soft px-2 py-1.5">
+          <Search className="h-[11px] w-[11px] shrink-0 text-km-faint" />
           <input
             autoFocus
             value={recherche}
             onChange={(e) => setRecherche(e.target.value)}
             placeholder={placeholder}
-            className="min-w-0 flex-1 border-0 bg-transparent text-kw-base text-kw-ink outline-none placeholder:text-kw-faint"
+            className="min-w-0 flex-1 border-0 bg-transparent text-km-body text-km-text outline-none placeholder:text-km-faint"
           />
         </div>
         {filtrees.length === 0 ? (
-          <p className="px-2 py-2 text-kw-base text-kw-faint">Aucun résultat.</p>
+          <p className="px-2 py-2 text-km-body text-km-faint">Aucun résultat.</p>
         ) : (
           filtrees.map((o) => (
             <button
               key={o.id}
               type="button"
               onClick={() => { onChoisir(o.id); setRecherche('') }}
-              className="block w-full truncate rounded-kw-sm px-2 py-1.5 text-left text-kw-md font-semibold text-kw-ink hover:bg-kw-bg"
+              className="block w-full truncate rounded-km-sm px-2 py-1.5 text-left text-km-body font-semibold text-km-text hover:bg-km-bg"
             >
               {o.libelle}
             </button>
@@ -243,30 +243,30 @@ export function VoletGaucheReco({
   }
 
   return (
-    <div className="flex flex-col gap-3 bg-kw-subtle p-3.5">
+    <div className="flex flex-col gap-3 bg-km-soft p-3.5">
       {/* ── COMPTE ── */}
       <Carte
         icone={<Building2 className="h-[11px] w-[11px]" />}
-        teinte="bg-kw-blue-light text-kw-blue"
+        teinte="bg-km-blue-soft text-km-blue"
         titre="Compte"
         droite={
-          <EntityLink to={`/comptes/${reco.compte_id}`} className="text-kw-sm font-semibold text-kw-blue">
+          <EntityLink to={`/comptes/${reco.compte_id}`} className="text-km-body font-semibold text-km-blue">
             ouvrir →
           </EntityLink>
         }
       >
         <div className="flex items-center gap-2">
-          <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-kw-sm bg-kw-blue-light text-[9.5px] font-bold text-kw-blue">
+          <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-km-sm bg-km-blue-soft text-[9.5px] font-bold text-km-blue">
             {initiales(reco.compte_nom || '?')}
           </span>
           <div className="min-w-0">
-            <EntityLink to={`/comptes/${reco.compte_id}`} className="block truncate text-kw-xl font-bold text-kw-ink">
+            <EntityLink to={`/comptes/${reco.compte_id}`} className="block truncate text-km-name font-bold text-km-text">
               {reco.compte_nom || '—'}
             </EntityLink>
             {/* « Syndic · mandant » dans la maquette : le segment du compte, puis le type de
                 recommandation (Renouvellement / Captation). Le segment est le mot métier, pas
                 `type_compte` qui ne dit que « client ». */}
-            <div className="truncate text-kw-sm text-kw-meta">
+            <div className="truncate text-km-body text-km-muted">
               {[compte?.segment_compte_libelle || compte?.segment, reco.type_opportunite].filter(Boolean).join(' · ')
                 || 'Segment non renseigné'}
             </div>
@@ -275,12 +275,12 @@ export function VoletGaucheReco({
       </Carte>
 
       {/* ── CONTACT PRINCIPAL ── */}
-      <div className="relative rounded-kw-xl border-[1.5px] border-violet-200 bg-gradient-to-br from-violet-50 to-white px-[13px] py-3">
+      <div className="relative rounded-km-lg border-[1.5px] border-violet-200 bg-gradient-to-br from-violet-50 to-white px-[13px] py-3">
         <div className="mb-[9px] flex items-center gap-[7px]">
-          <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-kw-sm bg-violet-100 text-kw-purple">
+          <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-km-sm bg-violet-100 text-kw-purple">
             <User className="h-[11px] w-[11px]" />
           </span>
-          <span className="text-kw-xs font-bold uppercase tracking-[0.08em] text-kw-faint">Contact principal</span>
+          <span className="text-km-label font-bold uppercase tracking-[0.08em] text-km-faint">Contact principal</span>
           <span className="flex-1" />
           {peutModifier && (
             <Selecteur
@@ -292,7 +292,7 @@ export function VoletGaucheReco({
             />
           )}
           {contactPrincipal && (
-            <EntityLink to={`/contacts/${contactPrincipal.id}`} className="text-kw-sm font-semibold text-kw-purple">
+            <EntityLink to={`/contacts/${contactPrincipal.id}`} className="text-km-body font-semibold text-kw-purple">
               ouvrir →
             </EntityLink>
           )}
@@ -300,20 +300,20 @@ export function VoletGaucheReco({
         {contactPrincipal ? (
           <>
             <div className="flex items-center gap-[9px]">
-              <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-violet-500 to-violet-400 text-kw-base font-bold text-white">
+              <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-violet-500 to-violet-400 text-km-body font-bold text-white">
                 {initiales(`${contactPrincipal.prenom} ${contactPrincipal.nom}`)}
               </div>
               <div className="min-w-0">
-                <EntityLink to={`/contacts/${contactPrincipal.id}`} className="block truncate text-kw-xl font-bold text-kw-ink">
+                <EntityLink to={`/contacts/${contactPrincipal.id}`} className="block truncate text-km-name font-bold text-km-text">
                   {contactPrincipal.prenom} {contactPrincipal.nom}
                 </EntityLink>
-                <div className="truncate text-kw-xs text-kw-meta">{contactPrincipal.fonction || 'Fonction non renseignée'}</div>
+                <div className="truncate text-km-label text-km-muted">{contactPrincipal.fonction || 'Fonction non renseignée'}</div>
                 {/* LE NUMÉRO S'AFFICHE, ET CE N'EST PAS COSMÉTIQUE. L'extension Allo décore les
                     numéros qu'elle VOIT sur la page : derrière une icône et une infobulle, elle n'a
                     rien à détecter et l'icône Allo n'apparaît jamais. Le texte est la condition pour
                     que l'appel dans Allo soit possible. */}
                 {contactPrincipal.telephone && (
-                  <div className="truncate font-mono text-kw-xs text-kw-body">{numeroLisible(contactPrincipal.telephone)}</div>
+                  <div className="truncate font-mono text-km-label text-km-muted">{numeroLisible(contactPrincipal.telephone)}</div>
                 )}
               </div>
             </div>
@@ -324,8 +324,8 @@ export function VoletGaucheReco({
                 title={contactPrincipal.telephone || 'Aucun téléphone'}
                 disabled={!contactPrincipal.telephone}
                 className={cn(
-                  'flex h-7 flex-1 items-center justify-center rounded-kw-sm border border-kw-border-strong bg-white text-kw-green',
-                  contactPrincipal.telephone ? 'hover:bg-kw-green-light' : 'pointer-events-none opacity-40',
+                  'flex h-7 flex-1 items-center justify-center rounded-km-sm border border-km-line bg-white text-km-green',
+                  contactPrincipal.telephone ? 'hover:bg-km-green-soft' : 'pointer-events-none opacity-40',
                 )}
               >
                 <Phone className="h-3 w-3" />
@@ -335,8 +335,8 @@ export function VoletGaucheReco({
                 title={contactPrincipal.email || 'Aucun email'}
                 aria-disabled={!contactPrincipal.email}
                 className={cn(
-                  'flex h-7 flex-1 items-center justify-center rounded-kw-sm border border-kw-border-strong bg-white text-kw-blue',
-                  contactPrincipal.email ? 'hover:bg-kw-blue-light' : 'pointer-events-none opacity-40',
+                  'flex h-7 flex-1 items-center justify-center rounded-km-sm border border-km-line bg-white text-km-blue',
+                  contactPrincipal.email ? 'hover:bg-km-blue-soft' : 'pointer-events-none opacity-40',
                 )}
               >
                 <Mail className="h-3 w-3" />
@@ -344,7 +344,7 @@ export function VoletGaucheReco({
             </div>
           </>
         ) : (
-          <p className="text-kw-base text-kw-faint">
+          <p className="text-km-body text-km-faint">
             Aucun contact signataire. {peutModifier && 'Utilisez ⇄ pour en désigner un.'}
           </p>
         )}
@@ -357,22 +357,22 @@ export function VoletGaucheReco({
           reformulé : « au compteur, dans un carré à gauche, en dessous de contact principal ». */}
       <Carte
         icone={<Gauge className="h-[11px] w-[11px]" />}
-        teinte="bg-kw-muted text-kw-meta"
+        teinte="bg-km-soft text-km-muted"
         titre="Périmètre"
-        droite={<span className="font-mono text-kw-micro font-extrabold text-kw-faint">{compteurs.length}</span>}
+        droite={<span className="font-mono text-km-label font-extrabold text-km-faint">{compteurs.length}</span>}
       >
         {compteurs.length === 0 ? (
-          <p className="text-kw-micro text-kw-faint">Aucun point de livraison rattaché.</p>
+          <p className="text-km-label text-km-faint">Aucun point de livraison rattaché.</p>
         ) : (
           <div className="flex flex-col gap-1">
             {compteurs.slice(0, 6).map((k) => (
               <a
                 key={k.id}
                 href={`/compteurs/${k.id}`}
-                className="flex items-baseline justify-between gap-2 rounded-kw-sm px-1 py-0.5 hover:bg-kw-bg"
+                className="flex items-baseline justify-between gap-2 rounded-km-sm px-1 py-0.5 hover:bg-km-bg"
               >
-                <span className="truncate font-mono text-kw-micro font-bold text-kw-ink">{k.numero_pdl}</span>
-                <span className="shrink-0 font-mono text-kw-micro text-kw-faint">
+                <span className="truncate font-mono text-km-label font-bold text-km-text">{k.numero_pdl}</span>
+                <span className="shrink-0 font-mono text-km-label text-km-faint">
                   {k.consommation_annuelle_mwh != null
                     ? `${k.consommation_annuelle_mwh.toLocaleString('fr-FR', { maximumFractionDigits: 0 })} MWh`
                     : '—'}
@@ -381,7 +381,7 @@ export function VoletGaucheReco({
             ))}
             {/* On dit le reste plutôt que de le couper en silence. */}
             {compteurs.length > 6 && (
-              <span className="px-1 text-kw-micro text-kw-faint">et {compteurs.length - 6} autres</span>
+              <span className="px-1 text-km-label text-km-faint">et {compteurs.length - 6} autres</span>
             )}
           </div>
         )}
@@ -395,12 +395,12 @@ export function VoletGaucheReco({
           l'exception se voit sans occuper une place permanente. */}
       <Carte
         icone={<Folder className="h-[11px] w-[11px]" />}
-        teinte="bg-kw-muted text-kw-meta"
+        teinte="bg-km-soft text-km-muted"
         titre="Documents"
-        droite={<span className="font-mono text-kw-micro font-extrabold text-kw-faint">{documents.length}</span>}
+        droite={<span className="font-mono text-km-label font-extrabold text-km-faint">{documents.length}</span>}
       >
         {documents.length === 0 ? (
-          <p className="text-kw-micro text-kw-faint">
+          <p className="text-km-label text-km-faint">
             Aucun document sur le dossier — ceux des consultations vivent sur leur version.
           </p>
         ) : (
@@ -409,14 +409,14 @@ export function VoletGaucheReco({
               <a
                 key={d.id}
                 href={`/documents/${d.id}`}
-                className="truncate rounded-kw-sm px-1 py-0.5 text-kw-micro font-semibold text-kw-ink hover:bg-kw-bg"
+                className="truncate rounded-km-sm px-1 py-0.5 text-km-label font-semibold text-km-text hover:bg-km-bg"
                 title={d.nom}
               >
                 {d.nom}
               </a>
             ))}
             {documents.length > 6 && (
-              <span className="px-1 text-kw-micro text-kw-faint">et {documents.length - 6} autres</span>
+              <span className="px-1 text-km-label text-km-faint">et {documents.length - 6} autres</span>
             )}
           </div>
         )}
@@ -425,16 +425,16 @@ export function VoletGaucheReco({
       {/* ── VERSIONS ── */}
       <Carte
         icone={<History className="h-[11px] w-[11px]" />}
-        teinte="bg-kw-amber-light text-[#8a4b2a]"
+        teinte="bg-km-amber-soft text-[#8a4b2a]"
         titre="Versions"
         droite={
-          <span className="rounded-kw-lg bg-kw-amber-light px-2 py-0.5 text-kw-xs font-extrabold text-[#8a4b2a]">
+          <span className="rounded-km-md bg-km-amber-soft px-2 py-0.5 text-km-label font-extrabold text-[#8a4b2a]">
             {reco.versions.length}
           </span>
         }
       >
         {reco.versions.length === 0 ? (
-          <p className="text-kw-base text-kw-faint">Aucune version — la première reste à produire.</p>
+          <p className="text-km-body text-km-faint">Aucune version — la première reste à produire.</p>
         ) : (
           <div className="flex flex-col">
             {/* Les versions arrivent déjà triées du plus récent au plus ancien (numero_version
@@ -465,19 +465,19 @@ export function VoletGaucheReco({
                     onClick={() => onChoisirVersion(v)}
                     title="Afficher cette version"
                     className={cn(
-                      'mb-1.5 flex min-w-0 flex-1 flex-col gap-0.5 rounded-kw-lg border px-[9px] py-[7px] text-left transition-colors',
+                      'mb-1.5 flex min-w-0 flex-1 flex-col gap-0.5 rounded-km-md border px-[9px] py-[7px] text-left transition-colors',
                       affichee
-                        ? 'border-[#dcc39c] bg-kw-amber-light ring-1 ring-[#dcc39c]'
+                        ? 'border-[#dcc39c] bg-km-amber-soft ring-1 ring-[#dcc39c]'
                         : expiree
-                          ? 'border-kw-border-subtle bg-kw-subtle hover:border-[#dcc39c]'
-                          : 'border-[#dcc39c] bg-kw-amber-light',
+                          ? 'border-kw-border-subtle bg-km-soft hover:border-[#dcc39c]'
+                          : 'border-[#dcc39c] bg-km-amber-soft',
                     )}
                   >
                     <span className="flex min-w-0 items-center gap-[7px]">
                       <span
                         className={cn(
-                          'truncate font-mono text-kw-md font-extrabold',
-                          expiree ? 'text-kw-faint' : 'text-[#8a4b2a]',
+                          'truncate font-mono text-km-body font-extrabold',
+                          expiree ? 'text-km-faint' : 'text-[#8a4b2a]',
                         )}
                       >
                         {v.nom || `V${v.numero_version ?? '?'}`}
@@ -485,7 +485,7 @@ export function VoletGaucheReco({
                       <span
                         className={cn(
                           'shrink-0 rounded-[7px] px-1.5 py-px text-[8px] font-extrabold uppercase tracking-[0.05em]',
-                          expiree ? 'bg-kw-muted text-kw-faint' : 'bg-[#8a4b2a] text-white',
+                          expiree ? 'bg-km-soft text-km-faint' : 'bg-[#8a4b2a] text-white',
                         )}
                       >
                         {/* Le LIBELLÉ du statut, pas son code : la frise affichait « REMPLACEE »,
@@ -499,7 +499,7 @@ export function VoletGaucheReco({
                           : statutsVersions.find((st) => st.code === v.statut)?.libelle || v.statut}
                       </span>
                     </span>
-                    <span className="font-mono text-kw-tiny text-kw-faint">
+                    <span className="font-mono text-km-label text-km-faint">
                       {new Date(v.date_creation).toLocaleDateString('fr-FR')}
                     </span>
                   </button>
@@ -514,7 +514,7 @@ export function VoletGaucheReco({
       {AFFICHER_COUT_ET_ETUDE && (
       <Carte
         icone={<Coins className="h-[11px] w-[11px]" />}
-        teinte="bg-kw-amber-light text-[#8a4b2a]"
+        teinte="bg-km-amber-soft text-[#8a4b2a]"
         titre="Coût de prestation"
         droite={
           peutModifier && (
@@ -523,10 +523,10 @@ export function VoletGaucheReco({
               onClick={onFixerCout}
               title={coutFixe ? 'Montant fixé — cliquer pour le corriger' : "Fixer le montant réellement facturé"}
               className={cn(
-                'whitespace-nowrap rounded-kw-sm border px-[7px] py-0.5 text-kw-micro font-extrabold',
+                'whitespace-nowrap rounded-km-sm border px-[7px] py-0.5 text-km-label font-extrabold',
                 coutFixe
-                  ? 'border-kw-green-border bg-kw-green-light text-kw-green'
-                  : 'border-kw-border-strong bg-white text-kw-meta hover:bg-kw-bg',
+                  ? 'border-kw-green-border bg-km-green-soft text-km-green'
+                  : 'border-km-line bg-white text-km-muted hover:bg-km-bg',
               )}
             >
               {coutFixe ? '✓ FIXÉ' : 'fixer'}
@@ -535,11 +535,11 @@ export function VoletGaucheReco({
         }
       >
         <div
-          className={cn('flex items-center justify-between gap-2 rounded-kw-md px-[9px] py-[7px]', coutFixe ? 'bg-kw-subtle' : 'bg-kw-amber-light')}
+          className={cn('flex items-center justify-between gap-2 rounded-km px-[9px] py-[7px]', coutFixe ? 'bg-km-soft' : 'bg-km-amber-soft')}
         >
-          <span className="text-kw-micro font-extrabold uppercase tracking-[0.06em] text-[#8a4b2a]">Estimé</span>
+          <span className="text-km-label font-extrabold uppercase tracking-[0.06em] text-[#8a4b2a]">Estimé</span>
           {estime != null ? (
-            <span className="font-mono text-[16px] font-extrabold text-kw-ink">{euros(estime)}</span>
+            <span className="font-mono text-[16px] font-extrabold text-km-text">{euros(estime)}</span>
           ) : coutEstimeSuggere != null && peutModifier ? (
             // Pas de montant estimé en base — et il n'y en a sur AUCUNE des 1703 recommandations.
             // Plutôt qu'un tiret muet, la fiche propose le calcul et laisse l'écrire d'un clic.
@@ -547,27 +547,27 @@ export function VoletGaucheReco({
               type="button"
               onClick={() => onDefinirEstime(coutEstimeSuggere)}
               title={`12 % des économies estimées de la version affichée (${euros(coutEstimeSuggere)})`}
-              className="font-mono text-kw-md font-bold text-[#8a4b2a] underline decoration-dashed underline-offset-2 hover:text-kw-ink"
+              className="font-mono text-km-body font-bold text-[#8a4b2a] underline decoration-dashed underline-offset-2 hover:text-km-text"
             >
               estimer à {euros(coutEstimeSuggere)}
             </button>
           ) : (
-            <span className="font-mono text-[16px] font-extrabold text-kw-ghost">— €</span>
+            <span className="font-mono text-[16px] font-extrabold text-km-faint">— €</span>
           )}
         </div>
         <div
-          className={cn('mt-1.5 flex items-center justify-between gap-2 rounded-kw-md px-[9px] py-[7px]', coutFixe ? 'bg-kw-green-light' : 'bg-kw-subtle')}
+          className={cn('mt-1.5 flex items-center justify-between gap-2 rounded-km px-[9px] py-[7px]', coutFixe ? 'bg-km-green-soft' : 'bg-km-soft')}
         >
           <span
-            className={cn('text-kw-micro font-extrabold uppercase tracking-[0.06em]', coutFixe ? 'text-kw-green' : 'text-kw-ghost')}
+            className={cn('text-km-label font-extrabold uppercase tracking-[0.06em]', coutFixe ? 'text-km-green' : 'text-km-faint')}
           >
             {coutFixe ? 'Fixé' : 'Réel'}
           </span>
-          <span className={cn('font-mono text-[16px] font-extrabold', coutFixe ? 'text-kw-green' : 'text-kw-ghost')}>
+          <span className={cn('font-mono text-[16px] font-extrabold', coutFixe ? 'text-km-green' : 'text-km-faint')}>
             {reel != null ? euros(reel) : '— €'}
           </span>
         </div>
-        <p className="mt-1.5 text-kw-tiny leading-snug text-kw-faint">
+        <p className="mt-1.5 text-km-label leading-snug text-km-faint">
           {coutFixe
             ? 'Montant facturé, arrêté à la clôture.'
             : 'Le réel se fixe à la clôture, sur les économies constatées.'}
@@ -577,19 +577,19 @@ export function VoletGaucheReco({
 
       {/* ── ÉTUDE CLIENT ── */}
       {AFFICHER_COUT_ET_ETUDE && (
-      <div className="rounded-kw-xl border-[1.5px] border-[#c4ddd3] bg-gradient-to-br from-kw-green-tint to-white px-[13px] py-3">
+      <div className="rounded-km-lg border-[1.5px] border-[#c4ddd3] bg-gradient-to-br from-kw-green-tint to-white px-[13px] py-3">
         <div className="mb-[9px] flex items-center gap-[7px]">
-          <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-kw-sm bg-kw-green-light text-kw-green">
+          <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-km-sm bg-km-green-soft text-km-green">
             <Send className="h-[11px] w-[11px]" />
           </span>
-          <span className="text-kw-xs font-bold uppercase tracking-[0.08em] text-kw-faint">Étude client</span>
+          <span className="text-km-label font-bold uppercase tracking-[0.08em] text-km-faint">Étude client</span>
           <span className="flex-1" />
           <span
             className={cn(
-              'rounded-kw-lg border px-2 py-0.5 text-kw-micro font-extrabold tracking-[0.05em]',
+              'rounded-km-md border px-2 py-0.5 text-km-label font-extrabold tracking-[0.05em]',
               lienEneo || partage?.date_envoi
-                ? 'border-kw-green-border bg-kw-green-light text-kw-green'
-                : 'border-kw-border-strong bg-white text-kw-faint',
+                ? 'border-kw-green-border bg-km-green-soft text-km-green'
+                : 'border-km-line bg-white text-km-faint',
             )}
           >
             {lienEneo ? 'ENEO' : partage?.date_envoi ? 'ENVOYÉE' : 'NON ENVOYÉE'}
@@ -604,7 +604,7 @@ export function VoletGaucheReco({
         */}
         {lienEneo ? (
           <>
-            <div className="text-kw-sm leading-[1.55] text-kw-label">
+            <div className="text-km-body leading-[1.55] text-km-muted">
               Étude <b>Eneo</b> rattachée à {versionAffichee?.nom || 'cette version'}.
             </div>
             <div className="mt-2.5 flex gap-1.5">
@@ -612,7 +612,7 @@ export function VoletGaucheReco({
                 href={lienEneo}
                 target="_blank"
                 rel="noreferrer"
-                className="inline-flex flex-1 items-center justify-center gap-1.5 rounded-kw-md bg-gradient-to-br from-kw-green to-[#199b78] px-1 py-2 text-kw-sm font-bold text-white shadow-kw-green hover:brightness-105"
+                className="inline-flex flex-1 items-center justify-center gap-1.5 rounded-km bg-gradient-to-br from-kw-green to-[#199b78] px-1 py-2 text-km-body font-bold text-white shadow-kw-green hover:brightness-105"
               >
                 <ExternalLink className="h-3 w-3" /> Ouvrir l'étude Eneo
               </a>
@@ -627,36 +627,36 @@ export function VoletGaucheReco({
                     signaler('Copie refusée par le navigateur')
                   }
                 }}
-                className="inline-flex items-center justify-center rounded-kw-md border border-kw-border-strong bg-white px-2.5 py-2 text-kw-sm font-bold text-kw-label hover:bg-kw-bg"
+                className="inline-flex items-center justify-center rounded-km border border-km-line bg-white px-2.5 py-2 text-km-body font-bold text-km-muted hover:bg-km-bg"
               >
                 <Copy className="h-3 w-3" />
               </button>
             </div>
           </>
         ) : partage?.date_envoi ? (
-          <div className="text-kw-sm leading-[1.55] text-kw-label">
+          <div className="text-km-body leading-[1.55] text-km-muted">
             Envoyée le <b className="font-mono">{new Date(partage.date_envoi).toLocaleDateString('fr-FR')}</b>
             {partage.contact_nom ? <> à {partage.contact_nom}</> : null}
             <br />
             {partage.nb_visites > 0 ? (
-              <span className="font-bold text-kw-green">
+              <span className="font-bold text-km-green">
                 ✓ Consultée {partage.date_derniere_visite ? ilYA(partage.date_derniere_visite) : ''}
               </span>
             ) : (
-              <span className="text-kw-faint">Pas encore consultée</span>
+              <span className="text-km-faint">Pas encore consultée</span>
             )}
             {' · '}
             {partage.nb_visites} visite{partage.nb_visites > 1 ? 's' : ''}
           </div>
         ) : (
-          <p className="text-kw-sm leading-snug text-kw-label">
+          <p className="text-km-body leading-snug text-km-muted">
             Aucun lien d'étude n'a été partagé pour cette recommandation.
           </p>
         )}
 
         {peutModifier && !lienEneo && (
           <div className="mt-[9px] flex items-center gap-1.5">
-            <span className="text-kw-tiny font-extrabold uppercase tracking-[0.06em] text-kw-faint">Expiration</span>
+            <span className="text-km-label font-extrabold uppercase tracking-[0.06em] text-km-faint">Expiration</span>
             {[7, 14, 30].map((j) => {
               const actif = (joursValidite ?? 14) === j
               return (
@@ -678,8 +678,8 @@ export function VoletGaucheReco({
                     }
                   }}
                   className={cn(
-                    'rounded-kw-md px-2 py-0.5 font-mono text-[9.5px] font-extrabold',
-                    actif && partage ? 'bg-kw-green text-white' : 'bg-kw-muted text-kw-label hover:bg-kw-border',
+                    'rounded-km px-2 py-0.5 font-mono text-[9.5px] font-extrabold',
+                    actif && partage ? 'bg-km-green text-white' : 'bg-km-soft text-km-muted hover:bg-kw-border',
                   )}
                 >
                   {j} j
@@ -695,7 +695,7 @@ export function VoletGaucheReco({
               type="button"
               onClick={() => envoyer()}
               disabled={envoyerEtude.isPending}
-              className="inline-flex flex-1 items-center justify-center gap-1.5 rounded-kw-md bg-gradient-to-br from-kw-green to-[#199b78] px-1 py-2 text-kw-sm font-bold text-white shadow-kw-green disabled:opacity-60"
+              className="inline-flex flex-1 items-center justify-center gap-1.5 rounded-km bg-gradient-to-br from-kw-green to-[#199b78] px-1 py-2 text-km-body font-bold text-white shadow-kw-green disabled:opacity-60"
             >
               {partage?.date_envoi ? <><RotateCcw className="h-3 w-3" /> Renvoyer le lien</> : <><Check className="h-3 w-3" /> Créer le lien</>}
             </button>
@@ -704,7 +704,7 @@ export function VoletGaucheReco({
         {/* Sans lien Eneo, on dit franchement que le partage maison n'aboutit pas encore, au lieu de
             laisser croire à un envoi : l'étude interne reste à construire. */}
         {!lienEneo && (
-          <p className="mt-1.5 text-kw-tiny leading-snug text-kw-faint">
+          <p className="mt-1.5 text-km-label leading-snug text-km-faint">
             Aucune étude Eneo sur cette version. Le lien maison est enregistré et copié, pas envoyé
             au client : l'étude interne reste à construire.
           </p>

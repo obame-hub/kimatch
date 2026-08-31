@@ -227,15 +227,15 @@ export default function Recommandations() {
           type="button"
           onClick={() => setAvecClos((v) => !v)}
           className={cn(
-            'inline-flex shrink-0 items-center gap-1.5 rounded-kw-md border px-2.5 py-1.5 text-kw-sm font-bold transition-colors',
+            'inline-flex shrink-0 items-center gap-1.5 rounded-km border px-2.5 py-1.5 text-km-body font-bold transition-colors',
             avecClos
               ? 'border-ink-800 bg-ink-800 text-white'
-              : 'border-kw-border-strong bg-white text-kw-meta hover:bg-kw-subtle',
+              : 'border-km-line bg-white text-km-muted hover:bg-km-soft',
           )}
         >
           <span className={cn(
             'flex h-3.5 w-3.5 items-center justify-center rounded-[3px]',
-            avecClos ? 'bg-white/25' : 'border border-kw-border-strong',
+            avecClos ? 'bg-white/25' : 'border border-km-line',
           )}>
             {avecClos && <Check className="h-2.5 w-2.5" />}
           </span>

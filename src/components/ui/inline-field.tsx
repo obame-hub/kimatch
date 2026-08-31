@@ -88,14 +88,14 @@ export type InlineFieldProps =
   | DateFieldProps
 
 const inputBase =
-  'w-full rounded-kw-sm border border-kw-green bg-kw-surface px-1.5 py-0.5 text-kw-lg text-kw-ink outline-none focus:ring-1 focus:ring-kw-green'
+  'w-full rounded-km-sm border border-km-green bg-km-surface px-1.5 py-0.5 text-km-name text-km-text outline-none focus:ring-1 focus:ring-kw-green'
 
 function EmptyPlaceholder({ label, onClick }: { label: string; onClick: () => void }) {
   return (
     <button
       type="button"
       onClick={onClick}
-      className="rounded-kw-sm border border-dashed border-kw-border-strong px-1.5 py-0.5 text-kw-lg text-kw-faint transition-colors hover:border-kw-green hover:text-kw-green"
+      className="rounded-km-sm border border-dashed border-km-line px-1.5 py-0.5 text-km-name text-km-faint transition-colors hover:border-km-green hover:text-km-green"
     >
       ＋ {label}
     </button>
@@ -142,7 +142,7 @@ function DateInlineField({ value, onCommit, label, emptyLabel = 'ajouter une dat
 
   return (
     <div className={cn('min-w-0', className)}>
-      {label && <div className="mb-0.5 text-kw-xs font-semibold uppercase tracking-wide text-kw-faint">{label}</div>}
+      {label && <div className="mb-0.5 text-km-label font-semibold uppercase tracking-wide text-km-faint">{label}</div>}
       {editing ? (
         <input
           ref={inputRef}
@@ -158,7 +158,7 @@ function DateInlineField({ value, onCommit, label, emptyLabel = 'ajouter une dat
           type="button"
           disabled={disabled}
           onClick={start}
-          className="rounded-kw-sm px-1.5 py-0.5 text-left font-mono text-kw-lg text-kw-ink transition-colors hover:bg-kw-muted"
+          className="rounded-km-sm px-1.5 py-0.5 text-left font-mono text-km-name text-km-text transition-colors hover:bg-km-soft"
         >
           {new Date(value).toLocaleDateString('fr-FR')}
         </button>
@@ -208,13 +208,13 @@ function AddressInlineField({
   if (!editing) {
     return (
       <div className={cn('min-w-0', className)}>
-        {label && <div className="mb-0.5 text-kw-xs font-semibold uppercase tracking-wide text-kw-faint">{label}</div>}
+        {label && <div className="mb-0.5 text-km-label font-semibold uppercase tracking-wide text-km-faint">{label}</div>}
         {concatenee ? (
           <button
             type="button"
             disabled={disabled}
             onClick={start}
-            className="block w-full rounded-kw-sm px-1.5 py-0.5 text-left text-kw-lg text-kw-ink transition-colors hover:bg-kw-muted"
+            className="block w-full rounded-km-sm px-1.5 py-0.5 text-left text-km-name text-km-text transition-colors hover:bg-km-soft"
           >
             {concatenee}
           </button>
@@ -227,7 +227,7 @@ function AddressInlineField({
 
   return (
     <div className={cn('min-w-0 space-y-1.5', className)}>
-      {label && <div className="text-kw-xs font-semibold uppercase tracking-wide text-kw-faint">{label}</div>}
+      {label && <div className="text-km-label font-semibold uppercase tracking-wide text-km-faint">{label}</div>}
 
       {/* La recherche remplit les trois champs d'un coup : c'est elle qui normalise le format,
           et c'est ce qui evite les « 6 av. Charles » a cote des « 6 AVENUE CHARLES ». */}
@@ -270,10 +270,10 @@ function AddressInlineField({
         />
       </div>
       <div className="flex justify-end gap-1.5">
-        <button type="button" onClick={() => setEditing(false)} className="rounded-kw-sm px-2 py-0.5 text-kw-sm text-kw-meta hover:bg-kw-muted">
+        <button type="button" onClick={() => setEditing(false)} className="rounded-km-sm px-2 py-0.5 text-km-body text-km-muted hover:bg-km-soft">
           Annuler
         </button>
-        <button type="button" onClick={valider} disabled={enCours} className="rounded-kw-sm bg-kw-green px-2 py-0.5 text-kw-sm font-semibold text-white disabled:opacity-50">
+        <button type="button" onClick={valider} disabled={enCours} className="rounded-km-sm bg-km-green px-2 py-0.5 text-km-body font-semibold text-white disabled:opacity-50">
           {enCours ? 'Enregistrement…' : 'Valider'}
         </button>
       </div>
@@ -293,7 +293,7 @@ function TextInlineField({ value, onCommit, label, emptyLabel = 'ajouter', onSav
 
   return (
     <div className={cn('min-w-0', className)}>
-      {label && <div className="mb-0.5 text-kw-xs font-semibold uppercase tracking-wide text-kw-faint">{label}</div>}
+      {label && <div className="mb-0.5 text-km-label font-semibold uppercase tracking-wide text-km-faint">{label}</div>}
       {editing ? (
         <input
           ref={inputRef}
@@ -308,7 +308,7 @@ function TextInlineField({ value, onCommit, label, emptyLabel = 'ajouter', onSav
           type="button"
           disabled={disabled}
           onClick={start}
-          className={cn('block w-full truncate rounded-kw-sm px-1.5 py-0.5 text-left text-kw-lg text-kw-ink transition-colors hover:bg-kw-muted', mono && 'font-mono')}
+          className={cn('block w-full truncate rounded-km-sm px-1.5 py-0.5 text-left text-km-name text-km-text transition-colors hover:bg-km-soft', mono && 'font-mono')}
         >
           {displayValue}
         </button>
@@ -331,7 +331,7 @@ function LongTextInlineField({ value, onCommit, label, emptyLabel = 'ajouter un 
 
   return (
     <div className={className}>
-      {label && <div className="mb-1 text-kw-xs font-semibold uppercase tracking-wide text-kw-faint">{label}</div>}
+      {label && <div className="mb-1 text-km-label font-semibold uppercase tracking-wide text-km-faint">{label}</div>}
       {editing ? (
         <textarea
           ref={ref}
@@ -343,7 +343,7 @@ function LongTextInlineField({ value, onCommit, label, emptyLabel = 'ajouter un 
           className={cn(inputBase, 'resize-none leading-relaxed')}
         />
       ) : displayValue ? (
-        <p onClick={start} className="cursor-pointer whitespace-pre-wrap rounded-kw-sm p-1 text-kw-lg leading-relaxed text-kw-body hover:bg-kw-muted">
+        <p onClick={start} className="cursor-pointer whitespace-pre-wrap rounded-km-sm p-1 text-km-name leading-relaxed text-km-muted hover:bg-km-soft">
           {displayValue}
         </p>
       ) : (
@@ -362,7 +362,7 @@ function SelectInlineField({ value, options, onCommit, label, emptyLabel = 'choi
 
   return (
     <div className={cn('min-w-0', className)}>
-      {label && <div className="mb-0.5 text-kw-xs font-semibold uppercase tracking-wide text-kw-faint">{label}</div>}
+      {label && <div className="mb-0.5 text-km-label font-semibold uppercase tracking-wide text-km-faint">{label}</div>}
       {editing ? (
         <select
           ref={ref}
@@ -375,7 +375,7 @@ function SelectInlineField({ value, options, onCommit, label, emptyLabel = 'choi
           {options.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
         </select>
       ) : currentLabel ? (
-        <button type="button" disabled={disabled} onClick={start} className="block w-full truncate rounded-kw-sm px-1.5 py-0.5 text-left text-kw-lg text-kw-ink transition-colors hover:bg-kw-muted">
+        <button type="button" disabled={disabled} onClick={start} className="block w-full truncate rounded-km-sm px-1.5 py-0.5 text-left text-km-name text-km-text transition-colors hover:bg-km-soft">
           {currentLabel}
         </button>
       ) : (
@@ -408,7 +408,7 @@ function NumberInlineField({ value, unit, onCommit, label, emptyLabel = 'ajouter
 
   return (
     <div className={className}>
-      {label && <div className="mb-0.5 text-kw-xs font-semibold uppercase tracking-wide text-kw-faint">{label}</div>}
+      {label && <div className="mb-0.5 text-km-label font-semibold uppercase tracking-wide text-km-faint">{label}</div>}
       {editing ? (
         <div className="flex items-center gap-1">
           <input
@@ -425,11 +425,11 @@ function NumberInlineField({ value, unit, onCommit, label, emptyLabel = 'ajouter
             onKeyDown={handleKeyDown}
             className={cn(inputBase, 'font-mono')}
           />
-          <span className="text-kw-sm text-kw-meta">{unit}</span>
+          <span className="text-km-body text-km-muted">{unit}</span>
         </div>
       ) : displayValue != null ? (
-        <button type="button" disabled={disabled} onClick={start} className="rounded-kw-sm px-1.5 py-0.5 text-left font-mono text-kw-lg text-kw-ink transition-colors hover:bg-kw-muted">
-          {displayValue.toLocaleString('fr-FR')} <span className="text-kw-meta">{unit}</span>
+        <button type="button" disabled={disabled} onClick={start} className="rounded-km-sm px-1.5 py-0.5 text-left font-mono text-km-name text-km-text transition-colors hover:bg-km-soft">
+          {displayValue.toLocaleString('fr-FR')} <span className="text-km-muted">{unit}</span>
         </button>
       ) : (
         <EmptyPlaceholder label={emptyLabel} onClick={start} />

@@ -48,12 +48,12 @@ function ContactPopover({
           e.stopPropagation()
           setOpen((v) => !v)
         }}
-        className={cn('cursor-pointer text-left underline decoration-navy-200 decoration-dashed underline-offset-2 hover:text-kiwi-600 hover:decoration-kiwi-400', monospace && 'font-mono', className)}
+        className={cn('cursor-pointer text-left underline decoration-navy-200 decoration-dashed underline-offset-2 hover:text-km-green hover:decoration-kiwi-400', monospace && 'font-mono', className)}
       >
         {value}
       </button>
       {open && (
-        <span className="absolute left-0 top-full z-30 mt-1 flex overflow-hidden rounded-lg border border-navy-100 bg-white shadow-lg">
+        <span className="absolute left-0 top-full z-30 mt-1 flex overflow-hidden rounded-lg border border-km-line bg-white shadow-lg">
           {/* UN APPEL N'EST PLUS UN LIEN. Tant que « Appeler » etait un href="tel:", c'etait le
               systeme d'exploitation qui decidait — et il ouvrait Skype, FaceTime, ou rien du tout.
               Le bouton compose maintenant dans Aircall, sans quitter Kimatch. Le courriel reste un
@@ -66,9 +66,9 @@ function ContactPopover({
                 setOpen(false)
                 onAction()
               }}
-              className="flex items-center gap-1.5 whitespace-nowrap px-2.5 py-1.5 text-[11px] font-medium text-navy-700 hover:bg-navy-50"
+              className="flex items-center gap-1.5 whitespace-nowrap px-2.5 py-1.5 text-[11px] font-medium text-km-text hover:bg-km-bg"
             >
-              <ActionIcon className="h-3 w-3 text-kiwi-600" />
+              <ActionIcon className="h-3 w-3 text-km-green" />
               {actionLabel}
             </button>
           ) : (
@@ -78,9 +78,9 @@ function ContactPopover({
                 e.stopPropagation()
                 setOpen(false)
               }}
-              className="flex items-center gap-1.5 whitespace-nowrap px-2.5 py-1.5 text-[11px] font-medium text-navy-700 hover:bg-navy-50"
+              className="flex items-center gap-1.5 whitespace-nowrap px-2.5 py-1.5 text-[11px] font-medium text-km-text hover:bg-km-bg"
             >
-              <ActionIcon className="h-3 w-3 text-kiwi-600" />
+              <ActionIcon className="h-3 w-3 text-km-green" />
               {actionLabel}
             </a>
           )}
@@ -92,7 +92,7 @@ function ContactPopover({
               navigator.clipboard?.writeText(value).catch(() => {})
               setOpen(false)
             }}
-            className="flex items-center gap-1 border-l border-navy-100 px-2 py-1.5 text-navy-400 hover:bg-navy-50 hover:text-navy-700"
+            className="flex items-center gap-1 border-l border-km-line px-2 py-1.5 text-km-faint hover:bg-km-bg hover:text-km-text"
           >
             <Copy className="h-3 w-3" />
           </button>
@@ -142,7 +142,7 @@ export function PhoneLink({ value, className }: { value: string; className?: str
             e.stopPropagation()
             void appeler(value)
           }}
-          className="shrink-0 rounded p-0.5 text-kiwi-600"
+          className="shrink-0 rounded p-0.5 text-km-green"
         >
           <Phone className="h-3 w-3" />
         </button>
@@ -160,9 +160,9 @@ export function PhoneLink({ value, className }: { value: string; className?: str
               .then(() => setCopie(true))
               .catch(() => {})
           }}
-          className="shrink-0 rounded p-0.5 text-navy-300 opacity-0 transition-opacity hover:text-navy-600 focus:opacity-100 group-hover/tel:opacity-100"
+          className="shrink-0 rounded p-0.5 text-km-faint opacity-0 transition-opacity hover:text-km-muted focus:opacity-100 group-hover/tel:opacity-100"
         >
-          {copie ? <Check className="h-3 w-3 text-kiwi-600" /> : <Copy className="h-3 w-3" />}
+          {copie ? <Check className="h-3 w-3 text-km-green" /> : <Copy className="h-3 w-3" />}
         </button>
       )}
     </span>

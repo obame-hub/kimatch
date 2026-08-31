@@ -210,12 +210,12 @@ function useDerniersEffets() {
 function Titre({ icone: Icone, children, aide }: { icone: typeof Clock; children: string; aide: string }) {
   return (
     <div className="mb-2.5 mt-6 flex items-start gap-2.5 first:mt-0">
-      <span className="mt-0.5 flex h-[26px] w-[26px] shrink-0 items-center justify-center rounded-lg bg-navy-100 text-navy-600">
+      <span className="mt-0.5 flex h-[26px] w-[26px] shrink-0 items-center justify-center rounded-lg bg-km-soft text-km-muted">
         <Icone className="h-3.5 w-3.5" />
       </span>
       <div className="min-w-0">
-        <h3 className="text-kw-lg font-bold tracking-[-.01em] text-navy-900">{children}</h3>
-        <p className="text-kw-sm text-kw-meta">{aide}</p>
+        <h3 className="text-km-name font-bold tracking-[-.01em] text-km-text">{children}</h3>
+        <p className="text-km-body text-km-muted">{aide}</p>
       </div>
     </div>
   )
@@ -235,13 +235,13 @@ function Ligne({
   ton?: 'neutre' | 'planifie'
 }) {
   return (
-    <div className={cn('border-t border-kw-border-faint px-4 py-3 first:border-t-0', ton === 'planifie' && 'bg-kw-subtle/40')}>
+    <div className={cn('border-t border-km-line px-4 py-3 first:border-t-0', ton === 'planifie' && 'bg-km-soft/40')}>
       <div className="flex flex-wrap items-baseline gap-x-2.5 gap-y-1">
-        <span className="text-kw-base font-bold text-navy-800">{titre}</span>
-        {meta && <span className="font-mono text-kw-xs text-kw-meta">{meta}</span>}
+        <span className="text-km-body font-bold text-km-text">{titre}</span>
+        {meta && <span className="font-mono text-km-label text-km-muted">{meta}</span>}
       </div>
-      <p className="mt-1 max-w-[85ch] text-kw-sm leading-relaxed text-kw-body">{sens}</p>
-      <p className="mt-1.5 font-mono text-kw-xs text-kw-faint">{source}</p>
+      <p className="mt-1 max-w-[85ch] text-km-body leading-relaxed text-km-muted">{sens}</p>
+      <p className="mt-1.5 font-mono text-km-label text-km-faint">{source}</p>
     </div>
   )
 }
@@ -255,13 +255,13 @@ export function Automatismes() {
 
   return (
     <div>
-      <div className="mb-4 rounded-kw-lg border border-kw-border bg-kw-subtle px-4 py-3">
-        <p className="text-kw-sm leading-relaxed text-kw-body">
+      <div className="mb-4 rounded-km-md border border-km-line bg-km-soft px-4 py-3">
+        <p className="text-km-body leading-relaxed text-km-muted">
           Tout ce qui s’exécute sans que personne clique. <strong className="font-semibold">Cette page se lit, elle ne pilote pas</strong> :
           il n’y a aucun bouton pour déclencher ou suspendre quoi que ce soit, le pilotage passe par le
           code. Elle existe pour qu’on sache ce qui tourne déjà avant d’en ajouter.
         </p>
-        <p className="mt-2 text-kw-xs leading-relaxed text-kw-meta">
+        <p className="mt-2 text-km-label leading-relaxed text-km-muted">
           Les tâches planifiées sont <strong className="font-semibold">lues dans <span className="font-mono">vercel.json</span></strong>, donc elles
           ne peuvent pas mentir. Le reste est un inventaire écrit à la main : les déclencheurs de la
           base ne sont pas interrogeables depuis le navigateur. Chaque ligne nomme son fichier — et
@@ -289,7 +289,7 @@ export function Automatismes() {
           )
         })}
       </Card>
-      <p className="mt-1.5 px-1 text-kw-xs italic text-kw-faint">
+      <p className="mt-1.5 px-1 text-km-label italic text-km-faint">
         « Dernier effet observé » et non « dernière exécution » : une tâche qui tourne et ne trouve
         rien à faire ne laisse aucune trace. Une date ancienne ne prouve donc pas qu’elle est en panne.
       </p>
@@ -315,9 +315,9 @@ export function Automatismes() {
         ))}
       </Card>
 
-      <div className="mt-5 flex items-start gap-2 rounded-kw-lg border border-dashed border-kw-border-strong px-4 py-3">
-        <ExternalLink className="mt-0.5 h-3.5 w-3.5 shrink-0 text-kw-meta" />
-        <p className="text-kw-sm leading-relaxed text-kw-meta">
+      <div className="mt-5 flex items-start gap-2 rounded-km-md border border-dashed border-km-line px-4 py-3">
+        <ExternalLink className="mt-0.5 h-3.5 w-3.5 shrink-0 text-km-muted" />
+        <p className="text-km-body leading-relaxed text-km-muted">
           Les journaux d’exécution des tâches planifiées sont chez Vercel, dans{' '}
           <span className="font-mono">Settings → Cron Jobs</span> puis l’onglet des journaux de chaque
           fonction. C’est le seul endroit qui dise si une tâche a été appelée — Kimatch ne voit que ce

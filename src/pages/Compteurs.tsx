@@ -142,15 +142,15 @@ export default function Compteurs({ sansEntete }: { sansEntete?: boolean }) {
               title={f.aide}
               onClick={() => setFiltre(f.cle)}
               className={cn(
-                'rounded-kw-md border px-2.5 py-1.5 text-kw-xs font-semibold',
+                'rounded-km border px-2.5 py-1.5 text-km-label font-semibold',
                 filtre === f.cle
                   ? 'border-ink-800 bg-ink-800 text-white'
-                  : 'border-kw-border bg-white text-kw-meta hover:bg-kw-subtle',
+                  : 'border-km-line bg-white text-km-muted hover:bg-km-soft',
               )}
             >
               {f.libelle}
               {nombres && (
-                <span className={cn('ml-1.5 font-mono', filtre === f.cle ? 'text-white/70' : 'text-kw-meta')}>
+                <span className={cn('ml-1.5 font-mono', filtre === f.cle ? 'text-white/70' : 'text-km-muted')}>
                   {nombres[f.cle]}
                 </span>
               )}
@@ -259,18 +259,18 @@ function LigneTableau({
       </td>
       <td >
         {echeance.date ? (
-          <span className={cn('text-navy-700', depassee && 'font-semibold text-kw-red')}>
+          <span className={cn('text-km-text', depassee && 'font-semibold text-km-red')}>
             {new Date(echeance.date + 'T12:00:00').toLocaleDateString('fr-FR')}
             {depassee && <span className="ml-1.5 text-[10px] font-bold uppercase">dépassée</span>}
           </span>
         ) : (
-          <span className="text-navy-300">—</span>
+          <span className="text-km-faint">—</span>
         )}
       </td>
       <td >
         {/* Tant que les contrats ne sont pas arrivés, on n'écrit pas « estimée » : ce serait affirmer
             l'absence de preuve avant d'avoir regardé. */}
-        {natureConnue ? <BadgeEcheance e={echeance} dense /> : <span className="text-navy-300">…</span>}
+        {natureConnue ? <BadgeEcheance e={echeance} dense /> : <span className="text-km-faint">…</span>}
       </td>
       <td className="text-km-muted">
         {compteur.consommation_annuelle_mwh != null

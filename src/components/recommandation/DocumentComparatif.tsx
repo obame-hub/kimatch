@@ -276,8 +276,8 @@ export function DocumentComparatif({
       description={`Version ${version.numero_version ?? ''} — ${offres.length} offre${offres.length > 1 ? 's' : ''} chiffrée${offres.length > 1 ? 's' : ''} · trois pages`}
       className="max-w-5xl print:max-w-none print:border-0 print:p-0 print:shadow-none"
     >
-      <div className="mb-4 flex items-center gap-2 border-b border-kw-border pb-3 print:hidden">
-        <p className="mr-auto text-kw-sm text-kw-meta">
+      <div className="mb-4 flex items-center gap-2 border-b border-km-line pb-3 print:hidden">
+        <p className="mr-auto text-km-body text-km-muted">
           Trois pages : la décision, la comparaison, les conditions. Le bouton ouvre la fenêtre
           d'impression du navigateur, où « Enregistrer au format PDF » produit le fichier.
           {' '}
@@ -292,7 +292,7 @@ export function DocumentComparatif({
           type="button"
           onClick={() => window.print()}
           disabled={offres.length === 0}
-          className="inline-flex items-center gap-1.5 rounded-kw-md bg-kw-green px-3.5 py-2 text-kw-sm font-bold text-white shadow-kw-green hover:brightness-95 disabled:opacity-50 disabled:shadow-none"
+          className="inline-flex items-center gap-1.5 rounded-km bg-km-green px-3.5 py-2 text-km-body font-bold text-white shadow-kw-green hover:brightness-95 disabled:opacity-50 disabled:shadow-none"
         >
           <Printer className="h-3.5 w-3.5" />
           Télécharger le rapport
@@ -300,12 +300,12 @@ export function DocumentComparatif({
       </div>
 
       {offres.length === 0 || !retenue ? (
-        <p className="rounded-kw-lg border border-dashed border-kw-border-strong bg-kw-subtle p-4 text-kw-base text-kw-meta">
+        <p className="rounded-km-md border border-dashed border-km-line bg-km-soft p-4 text-km-body text-km-muted">
           Aucune offre de cette version n'a de budget annuel. Le compte rendu se remplit dès qu'un prix
           est saisi sur un point de livraison : le budget de chaque offre en découle.
         </p>
       ) : (
-        <div id="document-comparatif" className="bg-white text-kw-ink">
+        <div id="document-comparatif" className="bg-white text-km-text">
 
           {/* ══════════ PAGE 1 — DÉCISION ══════════
 
@@ -322,25 +322,25 @@ export function DocumentComparatif({
             {/* L'expéditeur et le destinataire, une fois et sur cette page seulement. « Informations
                 administratives répétées » est sur la liste des choses à supprimer : elles ne sont
                 donc plus reprises en pied de page ni en tête des suivantes. */}
-            <header className="flex flex-wrap items-start justify-between gap-4 border-b border-kw-border pb-3">
+            <header className="flex flex-wrap items-start justify-between gap-4 border-b border-km-line pb-3">
               <div className="flex items-center gap-2">
                 <img src={kiweePicto} alt="" className="h-6 w-auto" />
-                <span className="font-display text-kw-md font-extrabold leading-none tracking-[-0.02em]">Kiwee</span>
+                <span className="font-display text-km-body font-extrabold leading-none tracking-[-0.02em]">Kiwee</span>
               </div>
-              <div className="text-right text-kw-tiny leading-snug text-kw-body">
+              <div className="text-right text-km-label leading-snug text-km-muted">
                 {conseiller?.nom && <span className="block font-bold">{conseiller.nom}</span>}
-                {conseiller?.email && <span className="block text-kw-faint">{conseiller.email}</span>}
-                {conseiller?.telephone && <span className="block text-kw-faint">{conseiller.telephone}</span>}
+                {conseiller?.email && <span className="block text-km-faint">{conseiller.email}</span>}
+                {conseiller?.telephone && <span className="block text-km-faint">{conseiller.telephone}</span>}
               </div>
             </header>
 
-            <h1 className="mt-5 font-display text-kw-lg font-extrabold uppercase leading-tight tracking-[-0.01em] print:mt-8 print:text-[24pt] print:border-b-2 print:border-kw-green print:pb-2">
+            <h1 className="mt-5 font-display text-km-name font-extrabold uppercase leading-tight tracking-[-0.01em] print:mt-8 print:text-[24pt] print:border-b-2 print:border-km-green print:pb-2">
               Compte rendu de consultation — {energies.join(' et ')}
             </h1>
 
             {/* LES REPÈRES DU DOSSIER, sur leur aplat : client, site, volume, dates. Six
                 informations de même nature, donc un bloc et non six lignes flottantes. */}
-            <dl className="mt-3 grid grid-cols-1 gap-x-8 rounded-kw-lg bg-kw-bloc px-4 py-3 sm:grid-cols-2">
+            <dl className="mt-3 grid grid-cols-1 gap-x-8 rounded-km-md bg-km-soft px-4 py-3 sm:grid-cols-2">
               <Ligne libelle="Client" valeur={nomDuClient ?? '—'} />
               <Ligne
                 libelle={sites.length > 1 ? 'Sites' : 'Site'}
@@ -374,31 +374,31 @@ export function DocumentComparatif({
             </dl>
 
             {/* L'OFFRE RECOMMANDÉE. C'est la seule chose que le client doit retenir de la page. */}
-            <div className="mt-6 rounded-kw-lg border-2 border-kw-green bg-kw-green-tint p-4">
-              <p className="text-kw-tiny font-extrabold uppercase tracking-[0.09em] text-kw-green">
+            <div className="mt-6 rounded-km-md border-2 border-km-green bg-kw-green-tint p-4">
+              <p className="text-km-label font-extrabold uppercase tracking-[0.09em] text-km-green">
                 Offre recommandée
               </p>
-              <p className="mt-1 font-display text-kw-lg font-extrabold leading-tight">
+              <p className="mt-1 font-display text-km-name font-extrabold leading-tight">
                 {retenue.fournisseur_nom} — {libelleOffre(retenue.duree_mois, retenue.type_prix)}
               </p>
               <div className="mt-3 flex flex-wrap gap-x-10 gap-y-2">
                 <div>
-                  <p className="text-kw-tiny font-bold uppercase tracking-[0.07em] text-kw-meta">Budget annuel</p>
-                  <p className="font-mono text-kw-lg font-extrabold tabular-nums">
-                    {euros(retenue.montant_annuel_ht)} <span className="text-kw-sm font-bold">HTVA</span>
+                  <p className="text-km-label font-bold uppercase tracking-[0.07em] text-km-muted">Budget annuel</p>
+                  <p className="font-mono text-km-name font-extrabold tabular-nums">
+                    {euros(retenue.montant_annuel_ht)} <span className="text-km-body font-bold">HTVA</span>
                   </p>
                 </div>
                 {/* Le bloc sort dans les DEUX SENS, et le mot change avec le signe. Une hausse
                     n'est pas une donnée à cacher : c'est ce que l'attente a coûté au client. */}
                 {ecartSurReference != null && ecartSurReference !== 0 && (
                   <div>
-                    <p className="text-kw-tiny font-bold uppercase tracking-[0.07em] text-kw-meta">
+                    <p className="text-km-label font-bold uppercase tracking-[0.07em] text-km-muted">
                       {ecartSurReference > 0 ? 'Économie' : 'Augmentation'} par rapport à l’offre de référence
                     </p>
                     <p
                       className={cn(
-                        'font-mono text-kw-lg font-extrabold tabular-nums',
-                        ecartSurReference > 0 ? 'text-kw-green' : 'text-kw-red',
+                        'font-mono text-km-name font-extrabold tabular-nums',
+                        ecartSurReference > 0 ? 'text-km-green' : 'text-km-red',
                       )}
                     >
                       {euros(Math.abs(ecartSurReference))}/an
@@ -419,7 +419,7 @@ export function DocumentComparatif({
               /* CETTE LIGNE N'EST PAS UNE CATÉGORIE, C'EST UNE ÉCHÉANCE — elle prend donc le gris
                  d'un cran plus dense (#f0efec) et une bordure, pour ne pas se confondre avec les
                  blocs d'information qui l'entourent. */
-              <p className="mt-4 rounded-kw-md border border-kw-border-strong bg-kw-muted px-4 py-2.5 text-kw-md font-bold">
+              <p className="mt-4 rounded-km border border-km-line bg-km-soft px-4 py-2.5 text-km-body font-bold">
                 Décision attendue avant le {dateFr(validite)} à {HEURE_DECISION}.
               </p>
             ) : (
@@ -427,7 +427,7 @@ export function DocumentComparatif({
                  « décision attendue avant le à confirmer » dans un document client serait pire que
                  de ne rien écrire ; taire le manque au commercial le serait aussi. D'où un
                  avertissement qui ne s'imprime pas. */
-              <p className="mt-5 rounded-kw-md border border-dashed border-kw-amber bg-kw-amber-light px-3 py-2 text-kw-sm font-semibold text-kw-amber-dark print:hidden">
+              <p className="mt-5 rounded-km border border-dashed border-kw-amber bg-km-amber-soft px-3 py-2 text-km-body font-semibold text-km-amber print:hidden">
                 Aucune date de validité n'est saisie sur les offres : la phrase « décision attendue
                 avant le… » ne peut pas s'écrire, et c'est elle qui fait décider. À renseigner sur
                 l'offre avant d'envoyer le document.
@@ -437,7 +437,7 @@ export function DocumentComparatif({
 
           {/* ══════════ PAGE 2 — COMPARAISON ══════════ */}
           <section className={'mt-10 print:mt-0 print:break-before-page print:flex print:min-h-[210mm] print:flex-col print:px-[20mm] print:py-[14mm]'}>
-            <h2 className="font-display text-kw-md font-extrabold print:text-[22pt] print:leading-tight print:border-b-2 print:border-kw-green print:pb-2">
+            <h2 className="font-display text-km-body font-extrabold print:text-[22pt] print:leading-tight print:border-b-2 print:border-km-green print:pb-2">
               Comparaison des offres
             </h2>
 
@@ -445,9 +445,9 @@ export function DocumentComparatif({
                 sur la liste à supprimer : les barres de composantes et leur légende disparaissent au
                 profit de colonnes qu'on peut additionner. */}
             <div className="mt-2 overflow-x-auto">
-              <table className="w-full border-collapse text-kw-sm">
+              <table className="w-full border-collapse text-km-body">
                 <thead>
-                  <tr className="border-b-2 border-kw-ink bg-kw-bloc text-left">
+                  <tr className="border-b-2 border-kw-ink bg-km-soft text-left">
                     <th className="px-2 py-1.5 font-bold">Fournisseur</th>
                     <th className="px-2 py-1.5 font-bold">Durée</th>
                     <th className="px-2 py-1.5 font-bold">Type de prix</th>
@@ -472,7 +472,7 @@ export function DocumentComparatif({
                     return (
                       <tr
                         key={o.id}
-                        className={cn('border-b border-kw-border-faint', estRetenue && 'bg-kw-green-tint font-bold')}
+                        className={cn('border-b border-km-line', estRetenue && 'bg-kw-green-tint font-bold')}
                       >
                         <td className="px-2 py-1.5 pr-3">{o.fournisseur_nom}</td>
                         <td className="px-2 py-1.5 pr-3">{o.duree_mois != null ? `${o.duree_mois} mois` : '—'}</td>
@@ -489,8 +489,8 @@ export function DocumentComparatif({
                           className={cn(
                             'px-2 py-1.5 text-right font-mono tabular-nums',
                             estReference && 'font-bold',
-                            ecart != null && ecart > 0 && 'text-kw-red',
-                            ecart != null && ecart < 0 && 'text-kw-green',
+                            ecart != null && ecart > 0 && 'text-km-red',
+                            ecart != null && ecart < 0 && 'text-km-green',
                           )}
                         >
                           {estReference
@@ -512,7 +512,7 @@ export function DocumentComparatif({
                 c'est le volume commun sur lequel tous ces budgets sont calculés, donc la clé de
                 lecture du tableau qui précède. */}
             {volumeTotal > 0 && (
-              <p className="mt-3 rounded-kw-lg bg-kw-bloc px-4 py-2.5 text-kw-base font-bold">
+              <p className="mt-3 rounded-km-md bg-km-soft px-4 py-2.5 text-km-body font-bold">
                 Consommation de référence :{' '}
                 <span className="font-mono">
                   {volumeTotal.toLocaleString('fr-FR', { maximumFractionDigits: 2 })} MWh/an
@@ -520,7 +520,7 @@ export function DocumentComparatif({
               </p>
             )}
 
-            <p className="mt-2 text-kw-tiny leading-snug text-kw-body">
+            <p className="mt-2 text-km-label leading-snug text-km-muted">
               Tous les montants sont présentés sur une même base, hors TVA, et calculés sur cette même
               consommation. Chaque budget annuel doit pouvoir être reconstitué à partir des colonnes
               qui le précèdent ; « à vérifier » signale une composante non saisie, et non un montant
@@ -533,7 +533,7 @@ export function DocumentComparatif({
               C'est la dernière feuille : rien ne la suit, donc une marge basse plus courte ne se
               remarque pas, alors qu'une quatrième page portant trois lignes se remarque beaucoup. */}
           <section className={'mt-10 print:mt-0 print:break-before-page print:flex print:min-h-[210mm] print:flex-col print:px-[20mm] print:pb-[6mm] print:pt-[12mm]'}>
-            <h2 className="font-display text-kw-md font-extrabold print:text-[22pt] print:leading-tight print:border-b-2 print:border-kw-green print:pb-2">
+            <h2 className="font-display text-km-body font-extrabold print:text-[22pt] print:leading-tight print:border-b-2 print:border-km-green print:pb-2">
               Conditions détaillées — {retenue.fournisseur_nom}
             </h2>
 
@@ -554,7 +554,7 @@ export function DocumentComparatif({
                 consommation={detailRetenue.consommation_annuelle_reference_mwh ?? volumeTotal ?? null}
               />
             ) : (
-              <dl className="mt-2 grid grid-cols-1 gap-x-8 rounded-kw-lg bg-kw-bloc px-4 py-3 sm:grid-cols-2">
+              <dl className="mt-2 grid grid-cols-1 gap-x-8 rounded-km-md bg-km-soft px-4 py-3 sm:grid-cols-2">
                 <Ligne libelle="Durée" valeur={retenue.duree_mois != null ? `${retenue.duree_mois} mois` : 'à vérifier'} />
                 <Ligne libelle="Prix" valeur={retenue.type_prix ?? 'à vérifier'} />
                 <Ligne libelle="Date de début" valeur={debut ? dateFr(debut) : 'à confirmer'} />
@@ -565,19 +565,19 @@ export function DocumentComparatif({
             {/* « Conditions particulières : uniquement si elles influencent la décision » — donc rien
                 du tout quand le champ est vide, et pas une ligne « — » qui occuperait la place. */}
             {retenue.description && (
-              <div className="mt-3 rounded-kw-lg bg-kw-bloc px-4 py-3">
-                <p className="text-kw-sm font-extrabold uppercase tracking-[0.09em] text-kw-green">
+              <div className="mt-3 rounded-km-md bg-km-soft px-4 py-3">
+                <p className="text-km-body font-extrabold uppercase tracking-[0.09em] text-km-green">
                   Conditions particulières
                 </p>
-                <p className="mt-1 text-kw-h4 leading-relaxed">{retenue.description}</p>
+                <p className="mt-1 text-km-body leading-relaxed">{retenue.description}</p>
               </div>
             )}
 
             {/* LA MÉTHODE EST UNE CATÉGORIE À PART ENTIÈRE : c'est ce qui rend les chiffres
                 opposables. Même aplat que les autres, et son titre prend le vert des familles. */}
-            <div className="mt-5 rounded-kw-lg bg-kw-bloc px-4 py-3 print:mt-2 print:py-1.5">
-              <h3 className="text-kw-sm font-extrabold uppercase tracking-[0.09em] text-kw-green">Méthode</h3>
-              <p className="mt-1 text-kw-xs leading-relaxed text-kw-body">
+            <div className="mt-5 rounded-km-md bg-km-soft px-4 py-3 print:mt-2 print:py-1.5">
+              <h3 className="text-km-body font-extrabold uppercase tracking-[0.09em] text-km-green">Méthode</h3>
+              <p className="mt-1 text-km-label leading-relaxed text-km-muted">
               Budget calculé à partir d'une consommation annuelle de{' '}
               {volumeTotal > 0
                 ? `${volumeTotal.toLocaleString('fr-FR', { maximumFractionDigits: 2 })} MWh`
@@ -596,11 +596,11 @@ export function DocumentComparatif({
 /** Une ligne « libellé : valeur », avec sa précision facultative sous la valeur. */
 function Ligne({ libelle, valeur, precision }: { libelle: string; valeur: string; precision?: string }) {
   return (
-    <div className="flex items-baseline gap-2 border-b border-kw-border py-1 last:border-b-0">
-      <dt className="shrink-0 text-kw-sm text-kw-meta">{libelle}</dt>
-      <dd className="ml-auto text-right text-kw-base font-bold">
+    <div className="flex items-baseline gap-2 border-b border-km-line py-1 last:border-b-0">
+      <dt className="shrink-0 text-km-body text-km-muted">{libelle}</dt>
+      <dd className="ml-auto text-right text-km-body font-bold">
         {valeur}
-        {precision && <span className="block text-kw-tiny font-normal text-kw-faint">{precision}</span>}
+        {precision && <span className="block text-km-label font-normal text-km-faint">{precision}</span>}
       </dd>
     </div>
   )

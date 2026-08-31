@@ -194,7 +194,7 @@ export default function SiteDetail() {
     return (
       <div>
         <Topbar crumb="Sites" title="Site" />
-        <div className="p-4 sm:p-6"><p className="text-sm text-navy-400">Chargement…</p></div>
+        <div className="p-4 sm:p-6"><p className="text-sm text-km-faint">Chargement…</p></div>
       </div>
     )
   }
@@ -208,7 +208,7 @@ export default function SiteDetail() {
             <ArrowLeft className="h-4 w-4" />
             Retour aux sites
           </Button>
-          <p className="text-sm text-navy-500">Site introuvable.</p>
+          <p className="text-sm text-km-muted">Site introuvable.</p>
         </div>
       </div>
     )
@@ -219,7 +219,7 @@ export default function SiteDetail() {
       <Topbar crumb="Sites" title={site.nom} />
 
       {/* Bandeau site */}
-      <div className="flex flex-none flex-wrap items-center gap-3.5 border-b border-navy-100 bg-white px-4 py-3.5 sm:px-6">
+      <div className="flex flex-none flex-wrap items-center gap-3.5 border-b border-km-line bg-white px-4 py-3.5 sm:px-6">
         <Button variant="ghost" size="icon" onClick={goBack} title="Retour aux sites">
           <ArrowLeft className="h-4 w-4" />
         </Button>
@@ -227,9 +227,9 @@ export default function SiteDetail() {
           <MapPinIcon />
         </span>
         <div className="min-w-0 flex-1">
-          <p className="truncate text-xl font-bold tracking-tight text-navy-800">{site.nom}</p>
-          <p className="truncate text-xs text-navy-500">{compte?.nom ?? site.compte_nom} · {compteursDuSite.length} compteur{compteursDuSite.length > 1 ? 's' : ''}</p>
-          <p className="truncate text-[10.5px] text-navy-400">
+          <p className="truncate text-xl font-bold tracking-tight text-km-text">{site.nom}</p>
+          <p className="truncate text-xs text-km-muted">{compte?.nom ?? site.compte_nom} · {compteursDuSite.length} compteur{compteursDuSite.length > 1 ? 's' : ''}</p>
+          <p className="truncate text-[10.5px] text-km-faint">
             {site.date_creation && <>Créé le {new Date(site.date_creation).toLocaleDateString('fr-FR')} · </>}
             Propriétaire : {site.proprietaire_nom || 'Aucun'}
           </p>
@@ -268,10 +268,10 @@ export default function SiteDetail() {
       </div>
 
       {/* Onglets — pilules sur mobile, soulignés sur desktop, comme chez William */}
-      <div className="flex gap-1.5 overflow-x-auto border-b border-navy-100 bg-white px-4 pt-2.5 lg:gap-0.5 lg:pt-0 sm:px-6">
+      <div className="flex gap-1.5 overflow-x-auto border-b border-km-line bg-white px-4 pt-2.5 lg:gap-0.5 lg:pt-0 sm:px-6">
         {TABS.map((t) => {
           const isActive = tab === t.key
-          const badgeTone = t.key === 'signaux' ? 'bg-red-500 text-white' : t.key === 'mandats' ? 'bg-amber-200 text-amber-700' : 'bg-navy-100 text-navy-500'
+          const badgeTone = t.key === 'signaux' ? 'bg-red-500 text-white' : t.key === 'mandats' ? 'bg-amber-200 text-amber-700' : 'bg-km-soft text-km-muted'
           return (
             <button
               key={t.key}
@@ -281,14 +281,14 @@ export default function SiteDetail() {
                 'mb-2.5 inline-flex shrink-0 items-center gap-1.5 whitespace-nowrap rounded-full px-3.5 py-2 text-[12.5px] font-semibold transition-colors lg:mb-0 lg:rounded-none lg:border-b-2 lg:px-3 lg:py-2.5 lg:font-normal',
                 t.mobileOnly && 'lg:hidden',
                 isActive
-                  ? 'bg-ink-800 text-white lg:border-navy-800 lg:bg-transparent lg:font-semibold lg:text-navy-800'
-                  : 'border border-navy-200 bg-white text-navy-600 hover:bg-navy-50 lg:border-0 lg:border-b-2 lg:border-transparent lg:text-navy-500 lg:hover:bg-transparent lg:hover:text-navy-700',
+                  ? 'bg-ink-800 text-white lg:border-navy-800 lg:bg-transparent lg:font-semibold lg:text-km-text'
+                  : 'border border-km-line bg-white text-km-muted hover:bg-km-bg lg:border-0 lg:border-b-2 lg:border-transparent lg:text-km-muted lg:hover:bg-transparent lg:hover:text-km-text',
               )}
             >
               <span className="lg:hidden">{t.labelMobile ?? t.label}</span>
               <span className="hidden lg:inline">{t.label}</span>
               {t.badge && (
-                <span className={cn('rounded px-1.5 py-0.5 text-[9.5px] font-bold', isActive ? 'bg-white/20 text-white lg:bg-navy-100 lg:text-navy-500' : badgeTone)}>
+                <span className={cn('rounded px-1.5 py-0.5 text-[9.5px] font-bold', isActive ? 'bg-white/20 text-white lg:bg-km-soft lg:text-km-muted' : badgeTone)}>
                   {t.badge}
                 </span>
               )}
@@ -300,25 +300,25 @@ export default function SiteDetail() {
       {/* 3 zones */}
       <div className="grid min-h-0 flex-1 grid-cols-1 overflow-hidden lg:grid-cols-[300px_minmax(0,1fr)_340px]">
         {/* Colonne gauche — Compte + Contacts (desktop uniquement) */}
-        <div className="hidden min-h-0 flex-col gap-3.5 overflow-y-auto border-r border-navy-100 bg-navy-50/60 p-3.5 lg:flex">
+        <div className="hidden min-h-0 flex-col gap-3.5 overflow-y-auto border-r border-km-line bg-km-bg/60 p-3.5 lg:flex">
           <ComptePanel compte={compte} compteNom={site.compte_nom} compteId={site.compte_id} onCopy={showToast} />
           <ContactsPanel contacts={contactsDuSite} />
         </div>
 
         {/* Centre — contenu de l'onglet */}
-        <div className="min-h-0 overflow-y-auto bg-navy-50 p-4 sm:p-5">
+        <div className="min-h-0 overflow-y-auto bg-km-bg p-4 sm:p-5">
           {tab === 'synthese' && (
             <div className="flex flex-col gap-3.5">
               <HealthCard health={health} donutColor={donutColor} />
               <div className="grid grid-cols-1 gap-3.5 lg:grid-cols-[1fr_1.2fr]">
-                <div className="flex flex-col overflow-hidden rounded-xl border border-navy-100 bg-white">
+                <div className="flex flex-col overflow-hidden rounded-xl border border-km-line bg-white">
                   <iframe
                     title="Carte du site"
                     src={`https://maps.google.com/maps?q=${mapQuery}&z=${site.latitude != null ? 16 : 13}&output=embed`}
                     className="block h-[200px] w-full flex-1 border-0"
                   />
                   <div className="flex items-center gap-2 px-3.5 py-2.5">
-                    <span className="text-xs font-semibold text-navy-800">{adresse || 'Adresse non renseignée'}</span>
+                    <span className="text-xs font-semibold text-km-text">{adresse || 'Adresse non renseignée'}</span>
                     <div className="flex-1" />
                     {adresse && (
                       <a href={`https://www.google.com/maps/search/?api=1&query=${mapQuery}`} target="_blank" rel="noreferrer" className="whitespace-nowrap text-[10.5px] font-semibold">
@@ -327,11 +327,11 @@ export default function SiteDetail() {
                     )}
                   </div>
                 </div>
-                <div className="rounded-xl border border-navy-100 bg-white p-4">
+                <div className="rounded-xl border border-km-line bg-white p-4">
                   <div className="mb-3 flex items-center">
-                    <span className="text-[10px] font-bold uppercase tracking-wide text-navy-400">Informations</span>
+                    <span className="text-[10px] font-bold uppercase tracking-wide text-km-faint">Informations</span>
                     <div className="flex-1" />
-                    <span className="text-[10px] text-navy-300">cliquer ⧉ pour copier</span>
+                    <span className="text-[10px] text-km-faint">cliquer ⧉ pour copier</span>
                   </div>
                   {/* Edition en place, plus aucune modale : « le commercial passe ses journees dans
                       l'outil, chaque modale est un clic et une rupture d'attention de trop »
@@ -420,13 +420,13 @@ export default function SiteDetail() {
                     )}
                   </div>
                   {site.latitude == null ? (
-                    <p className="mt-3 text-[10.5px] italic text-navy-300">Coordonnées précises non renseignées — la carte se positionne sur l'adresse/ville.</p>
+                    <p className="mt-3 text-[10.5px] italic text-km-faint">Coordonnées précises non renseignées — la carte se positionne sur l'adresse/ville.</p>
                   ) : null}
                   {/* Coordonnees editables : la geolocalisation par l'adresse suffit dans la
                       quasi-totalite des cas, mais certains sites (parkings, ZAC, batiments en
                       fond de cour) tombent a cote et il faut pouvoir corriger a la main. */}
                   {canManage && (
-                    <div className="mt-3 grid grid-cols-2 gap-3.5 border-t border-navy-100 pt-3">
+                    <div className="mt-3 grid grid-cols-2 gap-3.5 border-t border-km-line pt-3">
                       <InlineField
                         variant="number"
                         label="Latitude"
@@ -462,12 +462,12 @@ export default function SiteDetail() {
           {tab === 'contrats' && (
             <div className="flex flex-col gap-3.5">
               {compteursDuSite.length === 0 ? (
-                <p className="text-sm text-navy-400">Aucun compteur pour ce site.</p>
+                <p className="text-sm text-km-faint">Aucun compteur pour ce site.</p>
               ) : (
                 <EnergyTimeline compteurs={compteursDuSite} contrats={contratsDuSite} />
               )}
               <div>
-                <p className="mb-2 text-[10px] font-bold uppercase tracking-wide text-navy-400">Historique des contrats par compteur</p>
+                <p className="mb-2 text-[10px] font-bold uppercase tracking-wide text-km-faint">Historique des contrats par compteur</p>
                 <div className="flex flex-col gap-2.5">
                   {compteursDuSite.map((c) => {
                     const historiqueContrats = contratsDuSite
@@ -475,26 +475,26 @@ export default function SiteDetail() {
                       .sort((a, b) => new Date(b.date_debut ?? 0).getTime() - new Date(a.date_debut ?? 0).getTime())
                     const Icon = c.type_energie === 'gaz' ? Flame : Zap
                     return (
-                      <div key={c.id} className="overflow-hidden rounded-lg border border-navy-100 bg-white">
-                        <div className="flex items-center gap-2 border-b border-navy-50 bg-navy-50/60 px-3.5 py-2.5">
-                          <span className={cn('flex h-6 w-6 items-center justify-center rounded-md', c.type_energie === 'gaz' ? 'bg-amber-100 text-amber-600' : 'bg-sky-100 text-sky-500')}>
+                      <div key={c.id} className="overflow-hidden rounded-lg border border-km-line bg-white">
+                        <div className="flex items-center gap-2 border-b border-navy-50 bg-km-bg/60 px-3.5 py-2.5">
+                          <span className={cn('flex h-6 w-6 items-center justify-center rounded-md', c.type_energie === 'gaz' ? 'bg-km-amber-soft text-amber-600' : 'bg-sky-100 text-sky-500')}>
                             <Icon className="h-3 w-3" />
                           </span>
-                          <span className="text-xs font-bold text-navy-800">{c.utilisation || c.numero_pdl}</span>
-                          <span className="font-mono text-[10px] text-navy-300">{c.numero_pdl}</span>
+                          <span className="text-xs font-bold text-km-text">{c.utilisation || c.numero_pdl}</span>
+                          <span className="font-mono text-[10px] text-km-faint">{c.numero_pdl}</span>
                         </div>
                         {historiqueContrats.length === 0 ? (
-                          <p className="px-3.5 py-2.5 text-xs text-navy-400">Aucun contrat.</p>
+                          <p className="px-3.5 py-2.5 text-xs text-km-faint">Aucun contrat.</p>
                         ) : (
                           historiqueContrats.map((ct) => (
                             <div
                               key={ct.id}
                               onClick={() => navigate(`/contrats/${ct.id}`)}
-                              className="flex cursor-pointer items-center gap-3 border-t border-navy-50 px-3.5 py-2.5 hover:bg-navy-50/60"
+                              className="flex cursor-pointer items-center gap-3 border-t border-navy-50 px-3.5 py-2.5 hover:bg-km-bg/60"
                             >
                               <Badge tone={STATUT_CONTRAT_TONE[ct.statut] ?? 'neutral'}>{statutsContrats.find((s) => s.code === ct.statut)?.libelle ?? ct.statut}</Badge>
-                              <span className="flex-1 text-xs font-medium text-navy-700">{ct.fournisseur_nom}</span>
-                              <span className="font-mono text-[10px] text-navy-400">
+                              <span className="flex-1 text-xs font-medium text-km-text">{ct.fournisseur_nom}</span>
+                              <span className="font-mono text-[10px] text-km-faint">
                                 {ct.date_debut ? new Date(ct.date_debut).toLocaleDateString('fr-FR') : '—'} → {ct.date_fin ? new Date(ct.date_fin).toLocaleDateString('fr-FR') : 'sans échéance'}
                               </span>
                             </div>
@@ -516,7 +516,7 @@ export default function SiteDetail() {
                   Ajouter un compteur
                 </Button>
               </div>
-              {compteursDuSite.length === 0 && <p className="text-sm text-navy-400">Aucun compteur pour ce site.</p>}
+              {compteursDuSite.length === 0 && <p className="text-sm text-km-faint">Aucun compteur pour ce site.</p>}
               {compteursDuSite.map((c) => {
                 const contratActif = contratsDuSite.find((ct) => ct.compteurs.some((cc) => cc.id === c.id) && ct.statut === 'ACTIF')
                 const Icon = c.type_energie === 'gaz' ? Flame : Zap
@@ -524,14 +524,14 @@ export default function SiteDetail() {
                   <div
                     key={c.id}
                     onClick={() => navigate(`/compteurs/${c.id}`)}
-                    className="flex cursor-pointer items-center gap-3 rounded-xl border border-navy-100 bg-white p-3.5 hover:bg-navy-50/60"
+                    className="flex cursor-pointer items-center gap-3 rounded-xl border border-km-line bg-white p-3.5 hover:bg-km-bg/60"
                   >
-                    <span className={cn('flex h-9 w-9 shrink-0 items-center justify-center rounded-[10px]', c.type_energie === 'gaz' ? 'bg-amber-100 text-amber-600' : 'bg-sky-100 text-sky-500')}>
+                    <span className={cn('flex h-9 w-9 shrink-0 items-center justify-center rounded-[10px]', c.type_energie === 'gaz' ? 'bg-km-amber-soft text-amber-600' : 'bg-sky-100 text-sky-500')}>
                       <Icon className="h-4 w-4" />
                     </span>
                     <div className="min-w-0 flex-1">
-                      <p className="truncate text-sm font-bold text-navy-800">{c.utilisation || c.numero_pdl}</p>
-                      <p className="truncate font-mono text-[10px] text-navy-400">
+                      <p className="truncate text-sm font-bold text-km-text">{c.utilisation || c.numero_pdl}</p>
+                      <p className="truncate font-mono text-[10px] text-km-faint">
                         {c.numero_pdl} {contratActif ? `· ${contratActif.fournisseur_nom}` : ''} {c.consommation_annuelle_mwh ? `· ${c.consommation_annuelle_mwh} MWh` : ''}
                       </p>
                     </div>
@@ -544,7 +544,7 @@ export default function SiteDetail() {
 
           {tab === 'recommandations' && (
             <div className="flex flex-col gap-2.5">
-              {recommandationsDuSite.length === 0 && <p className="text-sm text-navy-400">Aucune recommandation pour ce site.</p>}
+              {recommandationsDuSite.length === 0 && <p className="text-sm text-km-faint">Aucune recommandation pour ce site.</p>}
               {recommandationsDuSite.map((r) => {
                 // versions[0] est la plus récente : la liste est triée décroissant depuis le 12/08/2026.
                 const derniereVersion = r.versions[0]
@@ -552,14 +552,14 @@ export default function SiteDetail() {
                   <div
                     key={r.id}
                     onClick={() => navigate(`/recommandations/${r.id}`)}
-                    className="cursor-pointer rounded-xl border border-navy-100 bg-white p-3.5 hover:bg-navy-50/60"
+                    className="cursor-pointer rounded-xl border border-km-line bg-white p-3.5 hover:bg-km-bg/60"
                   >
                     <div className="flex items-center gap-2">
-                      <p className="flex-1 text-sm font-bold text-navy-800">{r.titre}</p>
+                      <p className="flex-1 text-sm font-bold text-km-text">{r.titre}</p>
                       <Badge tone={ETAPE_TONE[r.etape] ?? 'amber'}>{etapes.find((e) => e.code === r.etape)?.libelle ?? r.etape}</Badge>
                     </div>
                     {derniereVersion && (
-                      <p className="mt-2 text-[11px] text-navy-400">
+                      <p className="mt-2 text-[11px] text-km-faint">
                         {derniereVersion.nom || 'Version'} · {statutsVersions.find((s) => s.code === derniereVersion.statut)?.libelle ?? derniereVersion.statut}
                         {derniereVersion.gains_estimes ? ` · gain estimé ${derniereVersion.gains_estimes.toLocaleString('fr-FR')} €/an` : ''}
                       </p>
@@ -573,15 +573,15 @@ export default function SiteDetail() {
           {tab === 'signaux' && (
             <div className="flex flex-col gap-2.5">
               {signauxDuSite.length === 0 && (
-                <div className="rounded-xl border border-dashed border-kiwi-100 bg-white p-6 text-center text-sm font-semibold text-kiwi-600">
+                <div className="rounded-xl border border-dashed border-kiwi-100 bg-white p-6 text-center text-sm font-semibold text-km-green">
                   ✓ Aucun signal ouvert — site sous contrôle
                 </div>
               )}
               {signauxDuSite.map((s) => (
-                <div key={s.id} className="rounded-xl border border-navy-100 bg-white p-3.5">
+                <div key={s.id} className="rounded-xl border border-km-line bg-white p-3.5">
                   <div className="min-w-0 flex-1">
-                    <p className="text-sm font-bold text-navy-800">{s.type_signal}</p>
-                    <p className="mt-0.5 text-xs text-navy-500">{s.description}</p>
+                    <p className="text-sm font-bold text-km-text">{s.type_signal}</p>
+                    <p className="mt-0.5 text-xs text-km-muted">{s.description}</p>
                   </div>
                   <div className="mt-2.5 flex gap-2 border-t border-navy-50 pt-2.5">
                     <Button variant="ghost" size="sm" className="ml-auto" onClick={() => navigate('/signaux')}>
@@ -596,12 +596,12 @@ export default function SiteDetail() {
           {tab === 'mandats' && (
             <div className="flex flex-col gap-3.5">
               {mandatDuSite ? (
-                <div className="overflow-hidden rounded-xl border border-navy-100 bg-white">
+                <div className="overflow-hidden rounded-xl border border-km-line bg-white">
                   <div className="flex items-center gap-3 border-b border-navy-50 px-4 py-3.5">
                     <span className="flex h-7 w-7 items-center justify-center rounded-lg bg-amber-200 text-amber-700"><FileCheck2 className="h-3.5 w-3.5" /></span>
                     <div className="flex-1">
-                      <p className="text-sm font-bold text-navy-800">Mandat {mandatDuSite.compte_nom}</p>
-                      <p className="text-[11px] text-navy-500">
+                      <p className="text-sm font-bold text-km-text">Mandat {mandatDuSite.compte_nom}</p>
+                      <p className="text-[11px] text-km-muted">
                         {mandatDuSite.contact_signataire_nom ? `Signataire ${mandatDuSite.contact_signataire_nom}` : 'Signataire non renseigné'}
                         {mandatDuSite.date_signature ? ` · signé le ${new Date(mandatDuSite.date_signature).toLocaleDateString('fr-FR')}` : ''}
                         {mandatDuSite.docusign_envelope_id ? ' · DocuSign ✓' : ''}
@@ -611,9 +611,9 @@ export default function SiteDetail() {
                   </div>
                   <div className="px-4 py-3.5">
                     <div className="mb-2.5 flex items-center gap-2">
-                      <span className="text-[10px] font-bold uppercase tracking-wide text-navy-400">Périmètre du mandat</span>
+                      <span className="text-[10px] font-bold uppercase tracking-wide text-km-faint">Périmètre du mandat</span>
                       <div className="flex-1" />
-                      <span className="text-[11px] font-bold text-kiwi-600">{mandatDuSite.nb_sites_couverts} site{mandatDuSite.nb_sites_couverts > 1 ? 's' : ''} couvert{mandatDuSite.nb_sites_couverts > 1 ? 's' : ''}</span>
+                      <span className="text-[11px] font-bold text-km-green">{mandatDuSite.nb_sites_couverts} site{mandatDuSite.nb_sites_couverts > 1 ? 's' : ''} couvert{mandatDuSite.nb_sites_couverts > 1 ? 's' : ''}</span>
                     </div>
                     {compteursDuSite.length > 0 && (
                       <CoverageMatrix compteurs={compteursDuSite} contrats={contratsDuSite} recommandations={recommandationsDuSite} mandat={mandatDuSite} />
@@ -633,13 +633,13 @@ export default function SiteDetail() {
 
               {autresMandatsDuCompte.length > 0 && (
                 <div>
-                  <p className="mb-2 text-[10px] font-bold uppercase tracking-wide text-navy-400">Autres mandats du compte</p>
+                  <p className="mb-2 text-[10px] font-bold uppercase tracking-wide text-km-faint">Autres mandats du compte</p>
                   <div className="flex flex-col gap-2">
                     {autresMandatsDuCompte.map((m) => (
-                      <div key={m.id} onClick={() => navigate('/mandats')} className="flex cursor-pointer items-center gap-3 rounded-lg border border-navy-100 bg-white p-3 hover:bg-navy-50/60">
+                      <div key={m.id} onClick={() => navigate('/mandats')} className="flex cursor-pointer items-center gap-3 rounded-lg border border-km-line bg-white p-3 hover:bg-km-bg/60">
                         <Badge tone={STATUT_MANDAT_TONE[m.statut] ?? 'neutral'}>{statutsMandats.find((s) => s.code === m.statut)?.libelle ?? m.statut}</Badge>
-                        <span className="flex-1 text-xs font-medium text-navy-700">{m.nb_sites_couverts} site{m.nb_sites_couverts > 1 ? 's' : ''}</span>
-                        <span className="text-[10.5px] text-navy-400">{m.contact_signataire_nom ?? '—'}</span>
+                        <span className="flex-1 text-xs font-medium text-km-text">{m.nb_sites_couverts} site{m.nb_sites_couverts > 1 ? 's' : ''}</span>
+                        <span className="text-[10.5px] text-km-faint">{m.contact_signataire_nom ?? '—'}</span>
                       </div>
                     ))}
                   </div>
@@ -672,21 +672,21 @@ export default function SiteDetail() {
                 }}
               />
               {documentsDuSite.length === 0 ? (
-                <p className="text-sm text-navy-400">Aucun fichier pour ce site.</p>
+                <p className="text-sm text-km-faint">Aucun fichier pour ce site.</p>
               ) : (
-                <div className="overflow-hidden rounded-xl border border-navy-100 bg-white">
+                <div className="overflow-hidden rounded-xl border border-km-line bg-white">
                   {documentsDuSite.map((d) => (
                     <div
                       key={d.id}
                       onClick={() => navigate(`/documents/${d.id}`)}
-                      className="flex cursor-pointer items-center gap-3 border-b border-navy-50 px-4 py-3 last:border-b-0 hover:bg-navy-50/60"
+                      className="flex cursor-pointer items-center gap-3 border-b border-navy-50 px-4 py-3 last:border-b-0 hover:bg-km-bg/60"
                     >
-                      <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-navy-100 text-navy-500">
+                      <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-km-soft text-km-muted">
                         <FileText className="h-4 w-4" />
                       </span>
                       <div className="min-w-0 flex-1">
-                        <p className="truncate text-sm font-bold text-navy-800">{d.nom}</p>
-                        <p className="truncate text-[10.5px] text-navy-400">{d.auteur} · {new Date(d.date_creation).toLocaleDateString('fr-FR')}</p>
+                        <p className="truncate text-sm font-bold text-km-text">{d.nom}</p>
+                        <p className="truncate text-[10.5px] text-km-faint">{d.auteur} · {new Date(d.date_creation).toLocaleDateString('fr-FR')}</p>
                       </div>
                       <Badge tone="neutral">{d.type_document}</Badge>
                     </div>
@@ -698,24 +698,24 @@ export default function SiteDetail() {
 
           {tab === 'historique' && (
             <div className="flex flex-col gap-2.5">
-              <p className="text-[11px] text-navy-400">{historique?.length ?? 0} changement{(historique?.length ?? 0) > 1 ? 's' : ''} tracé{(historique?.length ?? 0) > 1 ? 's' : ''} · tous horodatés</p>
-              <div className="overflow-hidden rounded-xl border border-navy-100 bg-white">
+              <p className="text-[11px] text-km-faint">{historique?.length ?? 0} changement{(historique?.length ?? 0) > 1 ? 's' : ''} tracé{(historique?.length ?? 0) > 1 ? 's' : ''} · tous horodatés</p>
+              <div className="overflow-hidden rounded-xl border border-km-line bg-white">
                 {!historique || historique.length === 0 ? (
-                  <p className="p-4 text-sm text-navy-400">Aucune modification enregistrée.</p>
+                  <p className="p-4 text-sm text-km-faint">Aucune modification enregistrée.</p>
                 ) : (
                   historique.map((h) => (
                     <div key={h.id} className="grid grid-cols-[110px_1fr] gap-3 border-b border-navy-50 px-4 py-3 last:border-b-0 sm:grid-cols-[110px_140px_140px_1fr]">
-                      <span className="font-mono text-[10.5px] text-navy-500">{new Date(h.date_modification).toLocaleString('fr-FR')}</span>
-                      <span className={`hidden text-[11.5px] sm:block ${h.estUnePersonne ? 'font-semibold text-navy-700' : 'italic text-navy-400'}`}>{h.auteur}</span>
-                      <span className="hidden text-[11.5px] font-medium text-navy-600 sm:block">{h.champ}</span>
+                      <span className="font-mono text-[10.5px] text-km-muted">{new Date(h.date_modification).toLocaleString('fr-FR')}</span>
+                      <span className={`hidden text-[11.5px] sm:block ${h.estUnePersonne ? 'font-semibold text-km-text' : 'italic text-km-faint'}`}>{h.auteur}</span>
+                      <span className="hidden text-[11.5px] font-medium text-km-muted sm:block">{h.champ}</span>
                       <span className="flex flex-wrap items-center gap-2 text-[11.5px]">
                         {h.ancienne_valeur && (
                           <>
-                            <span className="text-navy-400 line-through">{h.ancienne_valeur}</span>
-                            <span className="text-navy-300">→</span>
+                            <span className="text-km-faint line-through">{h.ancienne_valeur}</span>
+                            <span className="text-km-faint">→</span>
                           </>
                         )}
-                        <span className="font-semibold text-kiwi-600">{h.nouvelle_valeur ?? '—'}</span>
+                        <span className="font-semibold text-km-green">{h.nouvelle_valeur ?? '—'}</span>
                       </span>
                     </div>
                   ))
@@ -739,9 +739,9 @@ export default function SiteDetail() {
         </div>
 
         {/* Colonne droite — Activité persistante (desktop uniquement) */}
-        <div className="hidden min-h-0 flex-col border-l border-navy-100 bg-white lg:flex">
+        <div className="hidden min-h-0 flex-col border-l border-km-line bg-white lg:flex">
           <div className="flex flex-none items-center gap-2 px-3.5 py-3">
-            <span className="text-[10px] font-bold uppercase tracking-wide text-navy-400">Activité</span>
+            <span className="text-[10px] font-bold uppercase tracking-wide text-km-faint">Activité</span>
           </div>
           <div className="min-h-0 flex-1 overflow-hidden px-3.5 pb-3.5">
             <ActivityFeed
@@ -762,7 +762,7 @@ export default function SiteDetail() {
       <button
         type="button"
         onClick={() => setSheetOpen(true)}
-        className="fixed bottom-[70px] right-4 z-30 flex h-[52px] w-[52px] items-center justify-center rounded-full bg-kiwi-600 text-white shadow-lg shadow-kiwi-600/40 lg:hidden"
+        className="fixed bottom-[70px] right-4 z-30 flex h-[52px] w-[52px] items-center justify-center rounded-full bg-km-green text-white shadow-lg shadow-kiwi-600/40 lg:hidden"
         aria-label="Actions rapides"
       >
         <Plus className="h-6 w-6" />
@@ -772,37 +772,37 @@ export default function SiteDetail() {
         <div className="fixed inset-0 z-40 lg:hidden">
           <div className="absolute inset-0 bg-black/35" onClick={() => setSheetOpen(false)} />
           <div className="absolute inset-x-2 bottom-[62px] rounded-[18px] bg-white p-2 shadow-2xl">
-            <div className="mx-auto mb-1.5 mt-0.5 h-1 w-9 rounded-full bg-navy-200" />
+            <div className="mx-auto mb-1.5 mt-0.5 h-1 w-9 rounded-full bg-km-line" />
             <button
               type="button"
               onClick={() => { setTab('activite'); setSheetOpen(false) }}
-              className="flex w-full items-center gap-3 rounded-xl px-3.5 py-3 text-left hover:bg-navy-50"
+              className="flex w-full items-center gap-3 rounded-xl px-3.5 py-3 text-left hover:bg-km-bg"
             >
-              <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-amber-100 text-amber-700"><StickyNote className="h-3.5 w-3.5" /></span>
-              <span className="text-sm font-semibold text-navy-800">Ajouter une note</span>
+              <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-km-amber-soft text-amber-700"><StickyNote className="h-3.5 w-3.5" /></span>
+              <span className="text-sm font-semibold text-km-text">Ajouter une note</span>
             </button>
             <button
               type="button"
               onClick={() => { setSheetOpen(false); navigate('/recommandations') }}
-              className="flex w-full items-center gap-3 rounded-xl px-3.5 py-3 text-left hover:bg-navy-50"
+              className="flex w-full items-center gap-3 rounded-xl px-3.5 py-3 text-left hover:bg-km-bg"
             >
-              <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-amber-100 text-amber-700"><Sparkle className="h-3.5 w-3.5" /></span>
-              <span className="text-sm font-semibold text-navy-800">Nouvelle recommandation</span>
+              <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-km-amber-soft text-amber-700"><Sparkle className="h-3.5 w-3.5" /></span>
+              <span className="text-sm font-semibold text-km-text">Nouvelle recommandation</span>
             </button>
             {contactPrincipal?.telephone && (
               <button
                 type="button"
                 onClick={() => { setSheetOpen(false); void appelerNumero(contactPrincipal.telephone) }}
-                className="flex w-full items-center gap-3 rounded-xl px-3.5 py-3 text-left hover:bg-navy-50"
+                className="flex w-full items-center gap-3 rounded-xl px-3.5 py-3 text-left hover:bg-km-bg"
               >
-                <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-kiwi-100 text-kiwi-600"><Phone className="h-3.5 w-3.5" /></span>
-                <span className="text-sm font-semibold text-navy-800">Appeler {contactPrincipal.prenom} {contactPrincipal.nom}</span>
+                <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-km-green-soft text-km-green"><Phone className="h-3.5 w-3.5" /></span>
+                <span className="text-sm font-semibold text-km-text">Appeler {contactPrincipal.prenom} {contactPrincipal.nom}</span>
               </button>
             )}
             <button
               type="button"
               onClick={() => setSheetOpen(false)}
-              className="mt-1 w-full rounded-xl border-t border-navy-50 py-3 text-center text-sm font-semibold text-navy-400"
+              className="mt-1 w-full rounded-xl border-t border-navy-50 py-3 text-center text-sm font-semibold text-km-faint"
             >
               Annuler
             </button>
@@ -839,7 +839,7 @@ export default function SiteDetail() {
       >
         <div className="flex justify-end gap-2 pt-2">
           <Button type="button" variant="ghost" onClick={() => setConfirmDelete(false)}>Annuler</Button>
-          <Button type="button" variant="outline" className="border-red-200 text-red-600 hover:bg-red-50" disabled={deleteSite.isPending} onClick={handleDelete}>
+          <Button type="button" variant="outline" className="border-red-200 text-km-red hover:bg-km-red-soft" disabled={deleteSite.isPending} onClick={handleDelete}>
             Supprimer définitivement
           </Button>
         </div>
@@ -988,7 +988,7 @@ function AddCompteurDialog({
             Complète les champs marqués d'une astérisque : ils alimentent l'éligibilité fournisseur lors de la cotation.
           </p>
         )}
-        <div className="flex justify-end gap-2 border-t border-navy-100 pt-3">
+        <div className="flex justify-end gap-2 border-t border-km-line pt-3">
           <Button type="button" variant="ghost" onClick={() => { reset(); onClose() }}>Fermer</Button>
           <Button type="submit" disabled={submitting || draftsIncomplets || drafts.every((d) => d.status === 'saved')}>
             {drafts.length > 1 ? `Créer les ${drafts.length} PDL` : 'Créer le PDL'}
@@ -1010,29 +1010,29 @@ function MapPinIcon() {
 
 function HealthCard({ health, donutColor }: { health: ReturnType<typeof computeSiteHealth>; donutColor: string }) {
   return (
-    <div className="grid grid-cols-1 overflow-hidden rounded-xl border border-navy-100 bg-white sm:grid-cols-[220px_1fr]">
-      <div className="flex flex-col items-center justify-center gap-2 border-b border-navy-50 bg-navy-50/60 p-4 sm:border-b-0 sm:border-r">
+    <div className="grid grid-cols-1 overflow-hidden rounded-xl border border-km-line bg-white sm:grid-cols-[220px_1fr]">
+      <div className="flex flex-col items-center justify-center gap-2 border-b border-navy-50 bg-km-bg/60 p-4 sm:border-b-0 sm:border-r">
         <div
           className="relative flex h-[74px] w-[74px] items-center justify-center rounded-full"
           style={{ background: `conic-gradient(${donutColor} 0 ${health.score}%, #eceae6 ${health.score}% 100%)` }}
         >
           <div className="flex h-14 w-14 flex-col items-center justify-center rounded-full bg-white">
-            <span className="text-xl font-bold leading-none text-navy-800">{health.score}</span>
-            <span className="text-[8.5px] font-bold text-navy-300">/ 100</span>
+            <span className="text-xl font-bold leading-none text-km-text">{health.score}</span>
+            <span className="text-[8.5px] font-bold text-km-faint">/ 100</span>
           </div>
         </div>
         <div className="text-center">
-          <p className="text-xs font-bold text-navy-800">Santé du site</p>
+          <p className="text-xs font-bold text-km-text">Santé du site</p>
           <p className="text-[11px] font-semibold" style={{ color: donutColor }}>{health.label}</p>
         </div>
       </div>
       <div className="p-3.5">
-        <p className="mb-2 text-[10px] font-bold uppercase tracking-wide text-navy-400">Détail du calcul</p>
+        <p className="mb-2 text-[10px] font-bold uppercase tracking-wide text-km-faint">Détail du calcul</p>
         <div className="flex flex-col">
           {health.raisons.map((r) => (
-            <div key={r} className="flex items-center gap-2.5 rounded-lg px-2 py-1.5 hover:bg-navy-50">
+            <div key={r} className="flex items-center gap-2.5 rounded-lg px-2 py-1.5 hover:bg-km-bg">
               <span className="h-1.5 w-1.5 shrink-0 rounded-full" style={{ background: donutColor }} />
-              <span className="flex-1 text-[11.5px] font-medium text-navy-700">{r}</span>
+              <span className="flex-1 text-[11.5px] font-medium text-km-text">{r}</span>
             </div>
           ))}
         </div>
@@ -1053,30 +1053,30 @@ function ComptePanel({
   onCopy: (msg: string) => void
 }) {
   return (
-    <div className="rounded-xl border border-navy-100 bg-white p-3.5">
+    <div className="rounded-xl border border-km-line bg-white p-3.5">
       <div className="mb-2 flex items-center gap-1.5">
         <span className="flex h-5 w-5 items-center justify-center rounded-md bg-sky-100 text-sky-500">
           <Building2 className="h-2.5 w-2.5" />
         </span>
-        <span className="text-[10px] font-bold uppercase tracking-wide text-navy-400">Compte</span>
+        <span className="text-[10px] font-bold uppercase tracking-wide text-km-faint">Compte</span>
         <div className="flex-1" />
         <EntityLink to={`/comptes/${compteId}`}>ouvrir →</EntityLink>
       </div>
       <p className="text-[13px] font-bold text-sky-500">{compte?.nom ?? compteNom}</p>
       <div className="mt-2 flex flex-col gap-1.5 text-[11.5px]">
         <div className="flex items-center justify-between">
-          <span className="text-navy-500">Type</span>
-          <span className="font-semibold text-navy-800">{compte?.type_compte ?? '—'}</span>
+          <span className="text-km-muted">Type</span>
+          <span className="font-semibold text-km-text">{compte?.type_compte ?? '—'}</span>
         </div>
         {compte?.score_ellipro && (
           <div className="flex items-center justify-between">
-            <span className="text-navy-500">Note Ellisphere</span>
-            <span className="rounded bg-kiwi-50 px-1.5 py-0.5 text-[11px] font-extrabold text-kiwi-600">{compte.score_ellipro}</span>
+            <span className="text-km-muted">Note Ellisphere</span>
+            <span className="rounded bg-kiwi-50 px-1.5 py-0.5 text-[11px] font-extrabold text-km-green">{compte.score_ellipro}</span>
           </div>
         )}
         {compte?.siren && (
           <div className="flex items-center justify-between">
-            <span className="text-navy-500">SIREN</span>
+            <span className="text-km-muted">SIREN</span>
             <button type="button" onClick={() => copyToClipboard(compte.siren ?? '', onCopy)} className="font-mono text-[10.5px] font-semibold hover:text-sky-500">
               {compte.siren} ⧉
             </button>
@@ -1091,14 +1091,14 @@ function ContactsPanel({ contacts }: { contacts: Contact[] | undefined }) {
   const navigate = useNavigate()
   const list = contacts ?? []
   return (
-    <div className="rounded-xl border border-navy-100 bg-white p-3.5">
+    <div className="rounded-xl border border-km-line bg-white p-3.5">
       <div className="mb-2.5 flex items-center gap-1.5">
         <span className="flex h-5 w-5 items-center justify-center rounded-md bg-violet-100 text-violet-500">
           <Users className="h-2.5 w-2.5" />
         </span>
-        <span className="text-[10px] font-bold uppercase tracking-wide text-navy-400">Contacts</span>
+        <span className="text-[10px] font-bold uppercase tracking-wide text-km-faint">Contacts</span>
       </div>
-      {list.length === 0 && <p className="text-xs text-navy-400">Aucun contact rattaché à ce site.</p>}
+      {list.length === 0 && <p className="text-xs text-km-faint">Aucun contact rattaché à ce site.</p>}
       <div className="flex flex-col gap-3">
         {list.map((c) => {
           const initiales = `${c.prenom[0] ?? ''}${c.nom[0] ?? ''}`.toUpperCase()
@@ -1109,15 +1109,15 @@ function ContactsPanel({ contacts }: { contacts: Contact[] | undefined }) {
                   {initiales}
                 </div>
                 <div className="min-w-0 flex-1">
-                  <button type="button" onClick={() => navigate(`/contacts/${c.id}`)} className="truncate text-left text-[12.5px] font-bold text-navy-800 hover:text-violet-600">
+                  <button type="button" onClick={() => navigate(`/contacts/${c.id}`)} className="truncate text-left text-[12.5px] font-bold text-km-text hover:text-violet-600">
                     {c.prenom} {c.nom}
                   </button>
-                  <p className="truncate text-[10.5px] text-navy-400">{c.fonction || '—'}</p>
+                  <p className="truncate text-[10.5px] text-km-faint">{c.fonction || '—'}</p>
                   {/* LE NUMÉRO S'AFFICHE, ET CE N'EST PAS COSMÉTIQUE. L'extension Allo décore les
                       numéros qu'elle VOIT : derrière une icône, elle n'a rien à détecter et son
                       bouton d'appel n'apparaît jamais. */}
                   {c.telephone && (
-                    <p className="truncate font-mono text-[10.5px] text-navy-600">{numeroLisible(c.telephone)}</p>
+                    <p className="truncate font-mono text-[10.5px] text-km-muted">{numeroLisible(c.telephone)}</p>
                   )}
                 </div>
                 {c.telephone && (
@@ -1125,15 +1125,15 @@ function ContactsPanel({ contacts }: { contacts: Contact[] | undefined }) {
                     type="button"
                     onClick={() => void appelerNumero(c.telephone)}
                     title="Appeler"
-                    className="flex h-[26px] w-[26px] shrink-0 items-center justify-center rounded-md border border-kiwi-100 bg-kiwi-50 text-kiwi-600"
+                    className="flex h-[26px] w-[26px] shrink-0 items-center justify-center rounded-md border border-kiwi-100 bg-kiwi-50 text-km-green"
                   >
                     <Phone className="h-3 w-3" />
                   </button>
                 )}
               </div>
               <div className="ml-[39px] mt-1.5 flex flex-col gap-1 text-[11px]">
-                {c.email && <EmailLink value={c.email} className="text-navy-600" />}
-                {c.telephone && <PhoneLink value={c.telephone} className="text-[10.5px] text-navy-600" />}
+                {c.email && <EmailLink value={c.email} className="text-km-muted" />}
+                {c.telephone && <PhoneLink value={c.telephone} className="text-[10.5px] text-km-muted" />}
               </div>
             </div>
           )

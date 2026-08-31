@@ -20,8 +20,8 @@ export function PiedDeListe({
 }) {
   if (reste <= 0) return null
   return (
-    <div className="flex flex-wrap items-center justify-center gap-3 border-t border-navy-100 py-3">
-      <span className="text-xs text-navy-400">
+    <div className="flex flex-wrap items-center justify-center gap-3 border-t border-km-line py-3">
+      <span className="text-xs text-km-faint">
         {affiches} sur {total} {libelle}
       </span>
       <Button type="button" size="sm" variant="outline" onClick={onAfficherPlus}>

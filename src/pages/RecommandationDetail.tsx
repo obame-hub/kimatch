@@ -497,7 +497,7 @@ export default function RecommandationDetail() {
             <ArrowLeft className="h-4 w-4" />
             Retour aux recommandations
           </Button>
-          <p className="text-sm text-navy-500">{id ? 'Recommandation introuvable.' : 'Chargement…'}</p>
+          <p className="text-sm text-km-muted">{id ? 'Recommandation introuvable.' : 'Chargement…'}</p>
         </div>
       </div>
     )
@@ -542,7 +542,7 @@ export default function RecommandationDetail() {
               type="button"
               onClick={planifierRappel}
               disabled={createAction.isPending}
-              className="inline-flex flex-1 items-center justify-center gap-1.5 rounded-kw-md border border-kw-border-strong bg-white px-1 py-[7px] text-kw-sm font-bold text-kw-amber-dark hover:border-[#e0c48a] hover:bg-kw-amber-light disabled:opacity-60"
+              className="inline-flex flex-1 items-center justify-center gap-1.5 rounded-km border border-km-line bg-white px-1 py-[7px] text-km-body font-bold text-km-amber hover:border-[#e0c48a] hover:bg-km-amber-soft disabled:opacity-60"
             >
               <Clock className="h-[11px] w-[11px]" /> Rappel
             </button>
@@ -550,7 +550,7 @@ export default function RecommandationDetail() {
               type="button"
               onClick={loguerAppel}
               disabled={createInteraction.isPending}
-              className="inline-flex flex-1 items-center justify-center gap-1.5 rounded-kw-md border border-kw-border-strong bg-white px-1 py-[7px] text-kw-sm font-bold text-kw-green hover:border-[#c4ddd3] hover:bg-kw-green-tint disabled:opacity-60"
+              className="inline-flex flex-1 items-center justify-center gap-1.5 rounded-km border border-km-line bg-white px-1 py-[7px] text-km-body font-bold text-km-green hover:border-[#c4ddd3] hover:bg-kw-green-tint disabled:opacity-60"
             >
               <Phone className="h-[11px] w-[11px]" /> Loguer un appel
             </button>
@@ -565,7 +565,7 @@ export default function RecommandationDetail() {
       <Topbar crumb="Recommandations" title={reco.titre} />
 
       {/* ── Bandeau ── */}
-      <div className="flex flex-none flex-wrap items-center gap-3.5 border-b border-kw-border bg-white px-4 py-3 sm:px-6">
+      <div className="flex flex-none flex-wrap items-center gap-3.5 border-b border-km-line bg-white px-4 py-3 sm:px-6">
         <Button variant="ghost" size="icon" onClick={goBack} title="Retour aux recommandations">
           <ArrowLeft className="h-4 w-4" />
         </Button>
@@ -578,13 +578,13 @@ export default function RecommandationDetail() {
                 et c'est le nom qui reste modifiable, puisque c'est lui qui identifie le dossier
                 dans les listes. */}
             {reco.reference && (
-              <span className="font-mono text-[15px] font-bold tracking-[-0.01em] text-kw-ink">{reco.reference}</span>
+              <span className="font-mono text-[15px] font-bold tracking-[-0.01em] text-km-text">{reco.reference}</span>
             )}
             {canManage ? (
               <InlineField
                 variant="text"
                 value={reco.titre}
-                className="text-[17px] font-bold tracking-tight text-kw-ink"
+                className="text-[17px] font-bold tracking-tight text-km-text"
                 onCommit={async (titre) => {
                   // `nom` est NOT NULL en base -- et c'est la seule colonne affichée dans la liste
                   // des recommandations : vide, la ligne devient introuvable.
@@ -594,7 +594,7 @@ export default function RecommandationDetail() {
                 {...retourInline}
               />
             ) : (
-              <span className="text-[17px] font-bold tracking-tight text-kw-ink">{reco.titre}</span>
+              <span className="text-[17px] font-bold tracking-tight text-km-text">{reco.titre}</span>
             )}
             {/* ══ LE BADGE PORTE LE STATUT DU DOSSIER — l'un des quatre de Michel ══
                    Brouillon · Active · À réactiver · Clôturée. Il affichait auparavant la FINALITÉ,
@@ -605,7 +605,7 @@ export default function RecommandationDetail() {
                    La finalité reste écrite À CÔTÉ quand le dossier est réellement clos : « CLÔTURÉE ·
                    ACCEPTÉE » dit deux choses vraies, là où « ACCEPTÉE » seule en cachait une. */}
             <span
-              className="whitespace-nowrap rounded-kw-pill border px-[11px] py-[3px] text-kw-xs font-extrabold tracking-[0.05em]"
+              className="whitespace-nowrap rounded-kw-pill border px-[11px] py-[3px] text-km-label font-extrabold tracking-[0.05em]"
               style={
                 estClose && finalite
                   ? { color: FINALITES_RECOMMANDATION[finalite].couleur, background: FINALITES_RECOMMANDATION[finalite].fond, borderColor: FINALITES_RECOMMANDATION[finalite].bordure }
@@ -633,7 +633,7 @@ export default function RecommandationDetail() {
             {reco.type_energie && (
               <span
                 className={cn(
-                  'inline-flex items-center gap-1.5 whitespace-nowrap rounded-kw-pill border px-2.5 py-[3px] text-kw-xs font-bold tracking-[0.04em]',
+                  'inline-flex items-center gap-1.5 whitespace-nowrap rounded-kw-pill border px-2.5 py-[3px] text-km-label font-bold tracking-[0.04em]',
                   reco.type_energie === 'gaz'
                     ? 'border-[#c9dcea] bg-kw-gas-light text-kw-gas'
                     : 'border-[#f2dd96] bg-kw-gold-light text-kw-gold',
@@ -644,7 +644,7 @@ export default function RecommandationDetail() {
               </span>
             )}
           </div>
-          <p className="mt-0.5 truncate text-kw-xs text-kw-faint">
+          <p className="mt-0.5 truncate text-km-label text-km-faint">
             {reco.compte_nom} · créée le {new Date(reco.date_creation).toLocaleDateString('fr-FR')}
             {reco.conseiller ? ` · ${reco.conseiller}` : ''}
           </p>
@@ -672,7 +672,7 @@ export default function RecommandationDetail() {
         </div>
 
         {/* Propriétaire — réattribuable par un administrateur, comme dans le design. */}
-        <div className="hidden flex-none flex-col items-start gap-0.5 rounded-kw-xl border border-kw-border-subtle bg-kw-subtle px-2.5 py-1.5 lg:flex">
+        <div className="hidden flex-none flex-col items-start gap-0.5 rounded-km-lg border border-kw-border-subtle bg-km-soft px-2.5 py-1.5 lg:flex">
           {isAdmin ? (
             <InlineField
               variant="select"
@@ -684,8 +684,8 @@ export default function RecommandationDetail() {
               {...retourInline}
             />
           ) : (
-            <span className="text-kw-xs font-bold text-kw-label">
-              <ArrowLeftRight className="mr-1 inline h-2.5 w-2.5 text-kw-ghost" />
+            <span className="text-km-label font-bold text-km-muted">
+              <ArrowLeftRight className="mr-1 inline h-2.5 w-2.5 text-km-faint" />
               {reco.conseiller || 'Sans propriétaire'}
             </span>
           )}
@@ -699,7 +699,7 @@ export default function RecommandationDetail() {
               {...retourInline}
             />
           ) : (
-            <span className="whitespace-nowrap text-kw-tiny text-kw-faint">
+            <span className="whitespace-nowrap text-km-label text-km-faint">
               Priorité {PRIORITE_LABEL[reco.priorite] ?? reco.priorite}
             </span>
           )}
@@ -707,7 +707,7 @@ export default function RecommandationDetail() {
       </div>
 
       {/* ── Onglets ── */}
-      <div className="flex flex-none gap-0.5 overflow-x-auto border-b border-kw-border bg-white px-4 pt-2.5 sm:px-6">
+      <div className="flex flex-none gap-0.5 overflow-x-auto border-b border-km-line bg-white px-4 pt-2.5 sm:px-6">
         {onglets.map((o) => {
           const actif = onglet === o.cle
           return (
@@ -716,8 +716,8 @@ export default function RecommandationDetail() {
               type="button"
               onClick={() => setOnglet(o.cle)}
               className={cn(
-                'inline-flex shrink-0 items-center gap-1.5 whitespace-nowrap border-b-[2.5px] px-3.5 py-2.5 text-kw-xl font-semibold transition-colors',
-                actif ? 'border-[#8a4b2a] text-kw-ink' : 'border-transparent text-kw-meta hover:text-kw-ink',
+                'inline-flex shrink-0 items-center gap-1.5 whitespace-nowrap border-b-[2.5px] px-3.5 py-2.5 text-km-name font-semibold transition-colors',
+                actif ? 'border-[#8a4b2a] text-km-text' : 'border-transparent text-km-muted hover:text-km-text',
               )}
             >
               {o.libelle}
@@ -725,7 +725,7 @@ export default function RecommandationDetail() {
                 <span
                   className={cn(
                     'rounded-[9px] px-[7px] py-px text-[9.5px] font-extrabold',
-                    actif ? 'bg-kw-amber-light text-[#8a4b2a]' : 'bg-kw-muted text-kw-meta',
+                    actif ? 'bg-km-amber-soft text-[#8a4b2a]' : 'bg-km-soft text-km-muted',
                   )}
                 >
                   {o.badge}
@@ -735,7 +735,7 @@ export default function RecommandationDetail() {
           )
         })}
         <div className="flex-1" />
-        <span className="hidden self-center font-mono text-kw-xs text-kw-ghost lg:inline">
+        <span className="hidden self-center font-mono text-km-label text-km-faint lg:inline">
           1–{onglets.length} pour naviguer
         </span>
       </div>
@@ -743,7 +743,7 @@ export default function RecommandationDetail() {
       {/* ── 3 colonnes ── */}
       <div className="grid min-h-0 flex-1 grid-cols-1 overflow-hidden lg:grid-cols-[256px_minmax(0,1fr)_292px]">
         {/* Volet gauche */}
-        <div className="hidden min-h-0 overflow-y-auto border-r border-kw-border lg:block">
+        <div className="hidden min-h-0 overflow-y-auto border-r border-km-line lg:block">
           <VoletGaucheReco
             reco={reco}
             compte={compte}
@@ -789,7 +789,7 @@ export default function RecommandationDetail() {
         </div>
 
         {/* Centre */}
-        <div className="min-h-0 overflow-y-auto bg-kw-bg px-4 py-4 sm:px-5">
+        <div className="min-h-0 overflow-y-auto bg-km-bg px-4 py-4 sm:px-5">
           {onglet === 'reco' && (
             <div className="flex animate-kw-fade-slide flex-col gap-3.5">
               <RailCycleVie
@@ -808,9 +808,9 @@ export default function RecommandationDetail() {
                 avanceEnCours={majStatutVersion.isPending}
               >
                 {clotureOuverte && !estClose && (
-                  <div className="mt-2.5 animate-kw-fade-slide rounded-kw-xl border-[1.5px] border-[#dcc39c] bg-kw-amber-light px-[13px] py-[11px]">
+                  <div className="mt-2.5 animate-kw-fade-slide rounded-km-lg border-[1.5px] border-[#dcc39c] bg-km-amber-soft px-[13px] py-[11px]">
                     <div className="mb-2 flex flex-wrap items-center gap-2">
-                      <span className="min-w-[160px] flex-1 self-center text-kw-base text-kw-meta">
+                      <span className="min-w-[160px] flex-1 self-center text-km-body text-km-muted">
                         Quelle clôture a eu lieu ?
                       </span>
                       {/* Les trois finalités de la base, pas les cinq du dessin : remapper aurait
@@ -823,7 +823,7 @@ export default function RecommandationDetail() {
                             key={cle}
                             type="button"
                             onClick={() => setFinaliteChoisie(cle)}
-                            className="rounded-kw-md px-3.5 py-2 text-kw-md font-bold transition-colors"
+                            className="rounded-km px-3.5 py-2 text-km-body font-bold transition-colors"
                             style={{
                               color: actif ? '#fff' : f.couleur,
                               background: actif ? f.couleur : '#fff',
@@ -837,8 +837,8 @@ export default function RecommandationDetail() {
                         )
                       })}
                     </div>
-                    <label className="mb-1 block text-kw-xs font-bold uppercase tracking-wide text-kw-faint" htmlFor="motif-cloture">
-                      Motif <span className="text-kw-red">*</span>
+                    <label className="mb-1 block text-km-label font-bold uppercase tracking-wide text-km-faint" htmlFor="motif-cloture">
+                      Motif <span className="text-km-red">*</span>
                     </label>
                     <textarea
                       id="motif-cloture"
@@ -846,22 +846,22 @@ export default function RecommandationDetail() {
                       value={motifBrouillon}
                       onChange={(e) => setMotifBrouillon(e.target.value)}
                       placeholder="Pourquoi cette recommandation est-elle close ?"
-                      className="w-full rounded-kw-md border border-kw-border-strong bg-white px-2.5 py-1.5 text-kw-lg text-kw-ink outline-none focus:ring-1 focus:ring-kw-green"
+                      className="w-full rounded-km border border-km-line bg-white px-2.5 py-1.5 text-km-name text-km-text outline-none focus:ring-1 focus:ring-kw-green"
                     />
                     {/* La date de réactivation n'apparaît que si la finalité l'exige. Aucune des
                         trois valeurs actuelles ne le fait ; le champ est prêt pour le jour où une
                         finalité de report sera ajoutée. */}
                     {finaliteChoisie && exigeDateReactivation(finaliteChoisie) && (
                       <div className="mt-2">
-                        <label className="mb-1 block text-kw-xs font-bold uppercase tracking-wide text-kw-faint" htmlFor="date-reactivation">
-                          Date de réactivation <span className="text-kw-red">*</span>
+                        <label className="mb-1 block text-km-label font-bold uppercase tracking-wide text-km-faint" htmlFor="date-reactivation">
+                          Date de réactivation <span className="text-km-red">*</span>
                         </label>
                         <input
                           id="date-reactivation"
                           type="date"
                           value={reactivationBrouillon}
                           onChange={(e) => setReactivationBrouillon(e.target.value)}
-                          className="rounded-kw-md border border-kw-border-strong bg-white px-2.5 py-1.5 font-mono text-kw-lg text-kw-ink outline-none focus:ring-1 focus:ring-kw-green"
+                          className="rounded-km border border-km-line bg-white px-2.5 py-1.5 font-mono text-km-name text-km-text outline-none focus:ring-1 focus:ring-kw-green"
                         />
                       </div>
                     )}
@@ -891,8 +891,8 @@ export default function RecommandationDetail() {
                   Il se tait quand il n'y a rien : sur une recommandation encore en cours, une carte
                   « aucun contrat » n'apprendrait rien qu'on ne sache déjà en lisant l'étape. */}
               {contratsIssus && contratsIssus.length > 0 && (
-                <div className="rounded-kw-xl border border-kw-border bg-white p-3.5">
-                  <p className="mb-2.5 text-kw-micro font-bold uppercase tracking-[0.06em] text-kw-faint">
+                <div className="rounded-km-lg border border-km-line bg-white p-3.5">
+                  <p className="mb-2.5 text-km-label font-bold uppercase tracking-[0.06em] text-km-faint">
                     {contratsIssus.length > 1
                       ? `Les ${contratsIssus.length} contrats issus de cette recommandation`
                       : 'Le contrat issu de cette recommandation'}
@@ -903,16 +903,16 @@ export default function RecommandationDetail() {
                         key={ct.id}
                         type="button"
                         onClick={() => navigate(`/contrats/${ct.id}`)}
-                        className="flex w-full items-center gap-2.5 rounded-kw-lg border border-kw-border-faint bg-kw-subtle px-3 py-2 text-left transition hover:border-kw-green-border hover:bg-kw-green-tint"
+                        className="flex w-full items-center gap-2.5 rounded-km-md border border-km-line bg-km-soft px-3 py-2 text-left transition hover:border-kw-green-border hover:bg-kw-green-tint"
                       >
-                        <span className="flex h-[26px] w-[26px] shrink-0 items-center justify-center rounded-lg bg-kw-green-light text-kw-green">
+                        <span className="flex h-[26px] w-[26px] shrink-0 items-center justify-center rounded-lg bg-km-green-soft text-km-green">
                           <FileText className="h-3.5 w-3.5" />
                         </span>
                         <span className="min-w-0 flex-1">
-                          <span className="block truncate text-kw-sm font-bold text-kw-ink">
+                          <span className="block truncate text-km-body font-bold text-km-text">
                             {ct.fournisseur_nom || 'Fournisseur non renseigné'}
                           </span>
-                          <span className="block truncate text-kw-micro text-kw-faint">
+                          <span className="block truncate text-km-label text-km-faint">
                             {[
                               ct.reference_fournisseur,
                               ct.date_debut
@@ -926,7 +926,7 @@ export default function RecommandationDetail() {
                               .join(' · ') || 'Aucune date renseignée'}
                           </span>
                         </span>
-                        <span className="shrink-0 text-kw-micro font-bold text-kw-green">ouvrir →</span>
+                        <span className="shrink-0 text-km-label font-bold text-km-green">ouvrir →</span>
                       </button>
                     ))}
                   </div>
@@ -939,15 +939,15 @@ export default function RecommandationDetail() {
                   rouge, pas de compte à rebours, et le bouton ne fait que consigner l'échange que le
                   commercial a réellement eu — aucune relance ne part toute seule. */}
               {relance && (
-                <div className="flex flex-wrap items-center gap-3 rounded-kw-xl border border-amber-200 bg-gradient-to-r from-amber-50 to-white px-3.5 py-3">
-                  <span className="flex h-[26px] w-[26px] shrink-0 items-center justify-center rounded-lg bg-amber-100 text-amber-700">
+                <div className="flex flex-wrap items-center gap-3 rounded-km-lg border border-amber-200 bg-gradient-to-r from-amber-50 to-white px-3.5 py-3">
+                  <span className="flex h-[26px] w-[26px] shrink-0 items-center justify-center rounded-lg bg-km-amber-soft text-amber-700">
                     <Clock className="h-3.5 w-3.5" />
                   </span>
-                  <p className="min-w-0 flex-1 text-kw-base text-kw-body">{relance.texte}</p>
+                  <p className="min-w-0 flex-1 text-km-body text-km-muted">{relance.texte}</p>
                   <button
                     type="button"
                     onClick={consignerRelance}
-                    className="shrink-0 rounded-kw-md bg-amber-600 px-3 py-1.5 text-kw-sm font-bold text-white hover:brightness-105"
+                    className="shrink-0 rounded-km bg-amber-600 px-3 py-1.5 text-km-body font-bold text-white hover:brightness-105"
                   >
                     Consigner une relance
                   </button>
@@ -958,7 +958,7 @@ export default function RecommandationDetail() {
                   obligatoire : le dossier se relit sans avoir à demander à son auteur. */}
               {estClose && finalite && (
                 <div
-                  className="rounded-kw-xl border px-3.5 py-3"
+                  className="rounded-km-lg border px-3.5 py-3"
                   style={{
                     background: FINALITES_RECOMMANDATION[finalite].fond,
                     borderColor: FINALITES_RECOMMANDATION[finalite].bordure,
@@ -966,20 +966,20 @@ export default function RecommandationDetail() {
                 >
                   <div className="flex flex-wrap items-center gap-2">
                     {reco.date_cloture && (
-                      <span className="font-mono text-kw-base text-kw-label">
+                      <span className="font-mono text-km-body text-km-muted">
                         close le {new Date(reco.date_cloture).toLocaleDateString('fr-FR')}
                       </span>
                     )}
                     {reco.date_reactivation && (
-                      <span className="font-mono text-kw-base text-kw-label">
+                      <span className="font-mono text-km-body text-km-muted">
                         · à reprendre le {new Date(reco.date_reactivation).toLocaleDateString('fr-FR')}
                       </span>
                     )}
                   </div>
                   {reco.motif_cloture ? (
-                    <p className="mt-1.5 text-kw-lg text-kw-body">{reco.motif_cloture}</p>
+                    <p className="mt-1.5 text-km-name text-km-muted">{reco.motif_cloture}</p>
                   ) : (
-                    <p className="mt-1.5 text-kw-base italic text-kw-faint">
+                    <p className="mt-1.5 text-km-body italic text-km-faint">
                       Motif non renseigné — cette recommandation a été close avant que le motif ne
                       soit demandé.
                     </p>
@@ -1009,7 +1009,7 @@ export default function RecommandationDetail() {
                   <button
                     type="button"
                     onClick={() => setDocumentOuvert(true)}
-                    className="inline-flex items-center gap-1.5 rounded-kw-lg border-[1.5px] border-kw-border-strong bg-white px-[13px] py-[7px] text-kw-base font-bold text-kw-label hover:bg-kw-subtle"
+                    className="inline-flex items-center gap-1.5 rounded-km-md border-[1.5px] border-km-line bg-white px-[13px] py-[7px] text-km-body font-bold text-km-muted hover:bg-km-soft"
                   >
                     <FileText className="h-3 w-3" /> Voir le résumé de la version
                   </button>
@@ -1017,7 +1017,7 @@ export default function RecommandationDetail() {
                     <button
                       type="button"
                       onClick={() => setNouvelleVersionOuverte((v) => !v)}
-                      className="inline-flex items-center gap-1.5 rounded-kw-lg border-[1.5px] border-dashed border-[#dcc39c] bg-white px-[13px] py-[7px] text-kw-base font-bold text-[#8a4b2a] hover:bg-kw-amber-light"
+                      className="inline-flex items-center gap-1.5 rounded-km-md border-[1.5px] border-dashed border-[#dcc39c] bg-white px-[13px] py-[7px] text-km-body font-bold text-[#8a4b2a] hover:bg-km-amber-soft"
                     >
                       <Plus className="h-3 w-3" /> Créer une nouvelle version
                     </button>
@@ -1028,13 +1028,13 @@ export default function RecommandationDetail() {
               {/* Panneau « nouvelle version » — les deux gestes du design. */}
               {nouvelleVersionOuverte && canManage && (
                 <div className="flex animate-kw-fade-slide flex-wrap gap-2.5 rounded-[13px] border-[1.5px] border-[#dcc39c] bg-white px-[15px] py-[13px]">
-                  <div className="min-w-[200px] flex-1 self-center text-kw-base text-kw-meta">
+                  <div className="min-w-[200px] flex-1 self-center text-km-body text-km-muted">
                     {versionActive ? (
                       <>
                         La création d'une nouvelle version passe automatiquement{' '}
-                        <b className="text-kw-ink">{versionActive.nom || `V${versionActive.numero_version ?? ''}`}</b> au
-                        statut <b className="text-kw-label">Clôturée</b>, avec le résultat
-                        <b className="text-kw-label"> Expirée</b>.
+                        <b className="text-km-text">{versionActive.nom || `V${versionActive.numero_version ?? ''}`}</b> au
+                        statut <b className="text-km-muted">Clôturée</b>, avec le résultat
+                        <b className="text-km-muted"> Expirée</b>.
                       </>
                     ) : (
                       <>Première version du dossier : durées par PDL, type de prix, puis fournisseurs à consulter.</>
@@ -1058,7 +1058,7 @@ export default function RecommandationDetail() {
                         })
                         setNouvelleVersionOuverte(false)
                       }}
-                      className="inline-flex items-center gap-[7px] rounded-kw-lg px-[15px] py-[9px] text-kw-md font-bold text-white shadow-[0_3px_10px_rgba(176,118,60,.3)]"
+                      className="inline-flex items-center gap-[7px] rounded-km-md px-[15px] py-[9px] text-km-body font-bold text-white shadow-[0_3px_10px_rgba(176,118,60,.3)]"
                       style={{ background: 'linear-gradient(135deg,#8a4b2a,#cf9a5e)' }}
                     >
                       <Copy className="h-3.5 w-3.5" />
@@ -1068,7 +1068,7 @@ export default function RecommandationDetail() {
                   <button
                     type="button"
                     onClick={() => { setWizardCotation({ prefill: null }); setNouvelleVersionOuverte(false) }}
-                    className="inline-flex items-center gap-[7px] rounded-kw-lg border border-kw-border-strong bg-white px-[15px] py-[9px] text-kw-md font-bold text-kw-ink hover:bg-kw-bg"
+                    className="inline-flex items-center gap-[7px] rounded-km-md border border-km-line bg-white px-[15px] py-[9px] text-km-body font-bold text-km-text hover:bg-km-bg"
                   >
                     <FilePlus2 className="h-3.5 w-3.5" />
                     {versionActive ? 'Créer vierge' : 'Créer la version'}
@@ -1122,7 +1122,7 @@ export default function RecommandationDetail() {
 
 {/* LES NOTES DU DOSSIER SONT RETIREES « pour le moment » (Michel, 25/08/2026). L'historique,
                   lui, reste : il trace les modifications du dossier et ne fait pas partie des notes. */}
-              <div className="rounded-[13px] border border-kw-border bg-white px-[17px] py-3.5">
+              <div className="rounded-[13px] border border-km-line bg-white px-[17px] py-3.5">
                 <HistoriqueDiscret tableNom="recommandations" ligneId={reco.id} />
               </div>
             </div>
@@ -1183,8 +1183,8 @@ export default function RecommandationDetail() {
           )}
 
           {/* Le fil d'activité sur mobile, où la troisième colonne n'a pas la place d'exister. */}
-          <div className="mt-3.5 rounded-[13px] border border-kw-border bg-white p-3 lg:hidden">
-            <p className="mb-2 text-kw-xs font-bold uppercase tracking-[0.08em] text-kw-faint">
+          <div className="mt-3.5 rounded-[13px] border border-km-line bg-white p-3 lg:hidden">
+            <p className="mb-2 text-km-label font-bold uppercase tracking-[0.08em] text-km-faint">
               Activité · recommandation
             </p>
             {filActivite}
@@ -1192,9 +1192,9 @@ export default function RecommandationDetail() {
         </div>
 
         {/* Fil d'activité */}
-        <div className="hidden min-h-0 flex-col border-l border-kw-border bg-white lg:flex">
+        <div className="hidden min-h-0 flex-col border-l border-km-line bg-white lg:flex">
           <div className="flex flex-none items-center gap-2 px-4 pb-2 pt-3">
-            <span className="text-kw-xs font-bold uppercase tracking-[0.08em] text-kw-faint">
+            <span className="text-km-label font-bold uppercase tracking-[0.08em] text-km-faint">
               Activité · recommandation
             </span>
           </div>
@@ -1263,7 +1263,7 @@ export default function RecommandationDetail() {
         description="Montant réellement facturé au client. L'estimation, elle, reste affichée à côté pour comparaison."
       >
         <div className="space-y-3">
-          <label className="block text-xs font-semibold uppercase tracking-wide text-navy-400" htmlFor="cout-reel">
+          <label className="block text-xs font-semibold uppercase tracking-wide text-km-faint" htmlFor="cout-reel">
             Montant facturé (€)
           </label>
           <input
@@ -1273,10 +1273,10 @@ export default function RecommandationDetail() {
             step={1}
             value={coutBrouillon}
             onChange={(e) => setCoutBrouillon(e.target.value)}
-            className="w-full rounded-lg border border-navy-200 bg-white px-3 py-2 font-mono text-sm text-navy-800 outline-none focus:ring-2 focus:ring-kiwi-500/20"
+            className="w-full rounded-lg border border-km-line bg-white px-3 py-2 font-mono text-sm text-km-text outline-none focus:ring-2 focus:ring-kiwi-500/20"
           />
           {coutSuggere != null && (
-            <p className="text-xs text-navy-500">
+            <p className="text-xs text-km-muted">
               Pour repère : 12 % des économies estimées de {versionAffichee?.nom ?? 'la version affichée'} font{' '}
               <b>{coutSuggere.toLocaleString('fr-FR')} €</b>.
             </p>
@@ -1331,8 +1331,8 @@ export default function RecommandationDetail() {
       >
         {versionASupprimer && (
           <div className="space-y-3">
-            <div className="rounded-kw-md border border-kw-amber-border bg-kw-amber-light px-3 py-2 text-xs text-kw-label">
-              <p className="font-semibold text-kw-ink">Seront supprimés avec elle :</p>
+            <div className="rounded-km border border-kw-amber-border bg-km-amber-soft px-3 py-2 text-xs text-km-muted">
+              <p className="font-semibold text-km-text">Seront supprimés avec elle :</p>
               <ul className="mt-1 list-disc space-y-0.5 pl-4">
                 <li>
                   {versionASupprimer.optimisations.length} optimisation
@@ -1353,12 +1353,12 @@ export default function RecommandationDetail() {
               </ul>
             </div>
             {versionASupprimer.version_actuelle && reco.versions.length > 1 && (
-              <p className="text-xs text-kw-meta">
+              <p className="text-xs text-km-muted">
                 C'est la version active : la plus récente des restantes prendra sa place.
               </p>
             )}
             {reco.versions.length === 1 && (
-              <p className="text-xs text-kw-meta">
+              <p className="text-xs text-km-muted">
                 C'est la seule version du dossier : la recommandation repartira sans cotation.
               </p>
             )}
@@ -1367,7 +1367,7 @@ export default function RecommandationDetail() {
               <Button
                 type="button"
                 variant="outline"
-                className="border-red-200 text-red-600 hover:bg-red-50"
+                className="border-red-200 text-km-red hover:bg-km-red-soft"
                 disabled={deleteVersion.isPending}
                 onClick={async () => {
                   const nom = versionASupprimer.nom || 'Version'
@@ -1397,7 +1397,7 @@ export default function RecommandationDetail() {
         description="Cette action est irréversible. Les versions, optimisations et offres liées à cette recommandation seront également perdues."
       >
         {suppression.erreur && (
-          <p className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-xs text-red-700">{suppression.erreur}</p>
+          <p className="rounded-lg border border-red-200 bg-km-red-soft px-3 py-2 text-xs text-red-700">{suppression.erreur}</p>
         )}
         <div className="flex justify-end gap-2 pt-2">
           <Button type="button" variant="ghost" onClick={() => { suppression.reinitialiser(); setConfirmDelete(false) }}>
@@ -1406,7 +1406,7 @@ export default function RecommandationDetail() {
           <Button
             type="button"
             variant="outline"
-            className="border-red-200 text-red-600 hover:bg-red-50"
+            className="border-red-200 text-km-red hover:bg-km-red-soft"
             disabled={suppression.enCours}
             onClick={handleDelete}
           >
@@ -1416,7 +1416,7 @@ export default function RecommandationDetail() {
       </Dialog>
 
       {toast && (
-        <div className="fixed bottom-[70px] left-1/2 z-50 -translate-x-1/2 animate-kw-toast-in whitespace-nowrap rounded-kw-lg bg-ink-900 px-4 py-2.5 text-kw-lg font-semibold text-white shadow-kw-toast lg:bottom-6">
+        <div className="fixed bottom-[70px] left-1/2 z-50 -translate-x-1/2 animate-kw-toast-in whitespace-nowrap rounded-km-md bg-ink-900 px-4 py-2.5 text-km-name font-semibold text-white shadow-kw-toast lg:bottom-6">
           {toast}
         </div>
       )}

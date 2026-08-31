@@ -29,10 +29,10 @@ const ROLE_META: Record<string, { icon: typeof Crown; desc: string; active: stri
  * titre en majuscules discrètes, contenu à l'intérieur. */
 function Section({ icon: Icon, title, action, children }: { icon: typeof User; title: string; action?: React.ReactNode; children: React.ReactNode }) {
   return (
-    <div className="space-y-4 rounded-xl border border-navy-100 bg-white p-4">
+    <div className="space-y-4 rounded-xl border border-km-line bg-white p-4">
       <div className="flex items-center gap-2">
-        <Icon className="h-4 w-4 text-navy-400" />
-        <h3 className="text-xs font-semibold uppercase tracking-wide text-navy-400">{title}</h3>
+        <Icon className="h-4 w-4 text-km-faint" />
+        <h3 className="text-xs font-semibold uppercase tracking-wide text-km-faint">{title}</h3>
         {action && <div className="ml-auto">{action}</div>}
       </div>
       {children}
@@ -46,7 +46,7 @@ function IconInput({
 }: React.InputHTMLAttributes<HTMLInputElement> & { icon: typeof Mail; right?: React.ReactNode }) {
   return (
     <div className="relative">
-      <Icon className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-navy-400" />
+      <Icon className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-km-faint" />
       <Input {...props} className={cn('pl-9', className)} />
       {right && <span className="absolute right-3 top-1/2 -translate-y-1/2">{right}</span>}
     </div>
@@ -135,13 +135,13 @@ export function ContactForm({
   return (
     <form onSubmit={handleSubmit} className="space-y-4">
       {/* En-tête de contexte (Tools : « NOUVEAU CONTACT POUR / {compte} » + badge du type) */}
-      <div className="flex items-center gap-3 rounded-xl border border-navy-100 bg-navy-50/60 p-3">
-        <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-kiwi-50 text-kiwi-700">
+      <div className="flex items-center gap-3 rounded-xl border border-km-line bg-km-bg/60 p-3">
+        <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-kiwi-50 text-km-green">
           <Briefcase className="h-5 w-5" />
         </span>
         <div className="min-w-0">
-          <p className="text-[10px] uppercase tracking-wide text-navy-400">Nouveau contact pour</p>
-          <p className="truncate font-semibold text-navy-800">{compteNom}</p>
+          <p className="text-[10px] uppercase tracking-wide text-km-faint">Nouveau contact pour</p>
+          <p className="truncate font-semibold text-km-text">{compteNom}</p>
         </div>
         {segment && <Badge tone="neutral" className="ml-auto shrink-0">{segment}</Badge>}
       </div>
@@ -157,7 +157,7 @@ export function ContactForm({
           <p className="mb-2">
             Champs en correspondance :
             {Array.from(matchedFields).map((f) => (
-              <span key={f} className="ml-1 rounded border border-amber-500 bg-amber-100 px-1.5 py-0.5 text-[10px] font-medium">
+              <span key={f} className="ml-1 rounded border border-amber-500 bg-km-amber-soft px-1.5 py-0.5 text-[10px] font-medium">
                 {DUPLICATE_FIELD_LABEL[f]}
               </span>
             ))}
@@ -191,7 +191,7 @@ export function ContactForm({
                   onClick={() => setCivilite(c)}
                   className={cn(
                     'flex h-9 items-center justify-center gap-1.5 rounded-lg border-2 text-sm transition-colors',
-                    active ? 'border-kiwi-500 bg-kiwi-50 font-semibold text-kiwi-700' : 'border-navy-200 text-navy-500 hover:border-kiwi-300',
+                    active ? 'border-km-green bg-kiwi-50 font-semibold text-km-green' : 'border-km-line text-km-muted hover:border-kiwi-300',
                   )}
                 >
                   <Icon className="h-4 w-4" /> {c}
@@ -211,7 +211,7 @@ export function ContactForm({
               autoComplete="given-name"
               className={matchedRing('fullName')}
             />
-            <p className="mt-1 text-[11px] text-navy-400">
+            <p className="mt-1 text-[11px] text-km-faint">
               {matched('fullName')
                 ? <span className="inline-flex items-center gap-1 text-amber-700"><AlertTriangle className="h-3 w-3" /> Doublon Prénom + Nom</span>
                 : 'Auto-formaté'}
@@ -227,7 +227,7 @@ export function ContactForm({
               required
               className={matchedRing('fullName')}
             />
-            <p className="mt-1 text-[11px] text-navy-400">MAJUSCULES auto</p>
+            <p className="mt-1 text-[11px] text-km-faint">MAJUSCULES auto</p>
           </div>
         </div>
       </Section>
@@ -237,7 +237,7 @@ export function ContactForm({
         title="Coordonnées"
         action={
           contactsLoading && hasSignal ? (
-            <span className="inline-flex items-center gap-1 text-[11px] text-navy-400">
+            <span className="inline-flex items-center gap-1 text-[11px] text-km-faint">
               <Loader2 className="h-3 w-3 animate-spin" /> Vérification doublons…
             </span>
           ) : undefined
@@ -256,12 +256,12 @@ export function ContactForm({
             className={matchedRing('email')}
             right={
               matched('email') ? <AlertTriangle className="h-4 w-4 text-amber-600" />
-              : !emailInvalid && email && isValidEmail(email) ? <Check className="h-4 w-4 text-kiwi-600" />
+              : !emailInvalid && email && isValidEmail(email) ? <Check className="h-4 w-4 text-km-green" />
               : undefined
             }
           />
           {emailError ? (
-            <p className="mt-1 text-xs text-red-600">{emailError}</p>
+            <p className="mt-1 text-xs text-km-red">{emailError}</p>
           ) : matched('email') ? (
             <p className="mt-1 text-xs text-amber-700">Cet email existe déjà sur un autre contact</p>
           ) : null}
@@ -280,7 +280,7 @@ export function ContactForm({
               right={matched('phone') ? <AlertTriangle className="h-4 w-4 text-amber-600" /> : undefined}
             />
             {telError ? (
-              <p className="mt-1 text-xs text-red-600">{telError}</p>
+              <p className="mt-1 text-xs text-km-red">{telError}</p>
             ) : matched('phone') ? (
               <p className="mt-1 text-xs text-amber-700">Numéro déjà utilisé par un contact</p>
             ) : null}
@@ -298,13 +298,13 @@ export function ContactForm({
               right={matched('mobile') ? <AlertTriangle className="h-4 w-4 text-amber-600" /> : undefined}
             />
             {mobError ? (
-              <p className="mt-1 text-xs text-red-600">{mobError}</p>
+              <p className="mt-1 text-xs text-km-red">{mobError}</p>
             ) : matched('mobile') ? (
               <p className="mt-1 text-xs text-amber-700">Numéro déjà utilisé par un contact</p>
             ) : null}
           </div>
         </div>
-        <p className="flex items-center gap-1 text-[11px] text-navy-400">
+        <p className="flex items-center gap-1 text-[11px] text-km-faint">
           <Sparkles className="h-3 w-3 shrink-0" /> Les numéros sont automatiquement convertis au format international (+33…)
         </p>
       </Section>
@@ -329,15 +329,15 @@ export function ContactForm({
                   onClick={() => setRole(active ? '' : r)}
                   className={cn(
                     'relative flex items-center gap-3 rounded-xl border-2 p-3 text-left transition-all sm:block',
-                    active ? cn(meta?.active ?? 'border-kiwi-500 bg-kiwi-50 text-kiwi-700', 'shadow-sm') : 'border-navy-200 bg-white hover:border-kiwi-300',
+                    active ? cn(meta?.active ?? 'border-km-green bg-kiwi-50 text-km-green', 'shadow-sm') : 'border-km-line bg-white hover:border-kiwi-300',
                   )}
                 >
-                  <span className={cn('flex h-9 w-9 shrink-0 items-center justify-center rounded-lg sm:mb-2', active ? 'bg-white/70' : 'bg-navy-50 text-navy-400')}>
+                  <span className={cn('flex h-9 w-9 shrink-0 items-center justify-center rounded-lg sm:mb-2', active ? 'bg-white/70' : 'bg-km-bg text-km-faint')}>
                     <Icon className="h-4 w-4" />
                   </span>
                   <span className="min-w-0 flex-1">
-                    <span className={cn('block text-sm font-semibold leading-tight', !active && 'text-navy-800')}>{r}</span>
-                    {meta?.desc && <span className="mt-0.5 block text-[11px] leading-snug text-navy-500">{meta.desc}</span>}
+                    <span className={cn('block text-sm font-semibold leading-tight', !active && 'text-km-text')}>{r}</span>
+                    {meta?.desc && <span className="mt-0.5 block text-[11px] leading-snug text-km-muted">{meta.desc}</span>}
                   </span>
                   {active && <Check className="h-4 w-4 shrink-0 sm:absolute sm:right-3 sm:top-3" />}
                 </button>
@@ -345,14 +345,14 @@ export function ContactForm({
             })}
           </div>
           {role === 'Décisionnaire' && (
-            <p className="mt-2 flex items-center gap-1 text-[11px] text-kiwi-700">
+            <p className="mt-2 flex items-center gap-1 text-[11px] text-km-green">
               <Check className="h-3 w-3 shrink-0" /> Ce contact sera marqué comme décisionnaire — tu pourras l'affecter à des points de livraison juste après.
             </p>
           )}
         </div>
       </Section>
 
-      <div className="sticky bottom-0 flex items-center justify-between gap-3 border-t border-navy-100 bg-white/90 py-3 backdrop-blur">
+      <div className="sticky bottom-0 flex items-center justify-between gap-3 border-t border-km-line bg-white/90 py-3 backdrop-blur">
         <Button type="button" variant="ghost" onClick={onCancel} disabled={createContact.isPending}>Annuler</Button>
         <Button type="submit" disabled={createContact.isPending || !canSubmit}>
           {createContact.isPending ? <><Loader2 className="h-4 w-4 animate-spin" /> Création en cours…</> : submitLabel}

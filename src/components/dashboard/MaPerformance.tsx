@@ -40,18 +40,18 @@ function Tuile({
 }) {
   return (
     <div className="px-4 py-4">
-      <span className={cn('flex h-8 w-8 items-center justify-center rounded-kw-md', teinte)}>
+      <span className={cn('flex h-8 w-8 items-center justify-center rounded-km', teinte)}>
         <Icone className="h-4 w-4" strokeWidth={2.3} />
       </span>
-      <p className="mt-3 text-kw-xs font-bold text-kw-body">{libelle}</p>
-      <p className="mt-1 font-mono text-[22px] font-extrabold leading-none tabular-nums text-kw-ink">
+      <p className="mt-3 text-km-label font-bold text-km-muted">{libelle}</p>
+      <p className="mt-1 font-mono text-[22px] font-extrabold leading-none tabular-nums text-km-text">
         {valeur}
       </p>
-      <p className="mt-1.5 text-kw-micro text-kw-faint">{reference}</p>
+      <p className="mt-1.5 text-km-label text-km-faint">{reference}</p>
       {part != null && (
-        <div className="mt-2.5 h-1 overflow-hidden rounded-kw-pill bg-kw-bloc">
+        <div className="mt-2.5 h-1 overflow-hidden rounded-kw-pill bg-km-soft">
           <span
-            className="block h-full bg-kw-green"
+            className="block h-full bg-km-green"
             style={{ width: Math.min(100, Math.max(0, part * 100)) + '%' }}
           />
         </div>
@@ -77,27 +77,27 @@ export function MaPerformance({
   const mois = new Date().toLocaleDateString('fr-FR', { month: 'long', year: 'numeric' })
 
   return (
-    <div className="overflow-hidden rounded-kw-3xl border border-kw-border bg-white">
-      <div className="flex flex-wrap items-center gap-x-3 gap-y-1 border-b border-kw-border px-5 pb-3.5 pt-4">
+    <div className="overflow-hidden rounded-kw-3xl border border-km-line bg-white">
+      <div className="flex flex-wrap items-center gap-x-3 gap-y-1 border-b border-km-line px-5 pb-3.5 pt-4">
         <div className="mr-auto">
-          <h2 className="text-kw-h2 font-extrabold tracking-[-0.01em] text-kw-ink">Ma performance</h2>
-          <p className="mt-0.5 text-kw-xs text-kw-meta">
+          <h2 className="text-kw-h2 font-extrabold tracking-[-0.01em] text-km-text">Ma performance</h2>
+          <p className="mt-0.5 text-km-label text-km-muted">
             {/* « Vos comptes » et non « vos dossiers » : l'affaire est créditée au propriétaire du
                 compte, parce que le responsable n'est renseigné que sur 10 recommandations sur
                 1 708. Le dire évite de laisser croire à un compteur personnel qui ne l'est pas. */}
             Les affaires acceptées sur les comptes dont {prenom ? prenom : 'vous'} {prenom ? 'est' : 'êtes'} propriétaire.
           </p>
         </div>
-        <span className="rounded-kw-md border border-kw-border bg-kw-bloc px-2 py-0.5 text-kw-micro font-bold capitalize text-kw-meta">
+        <span className="rounded-km border border-km-line bg-km-soft px-2 py-0.5 text-km-label font-bold capitalize text-km-muted">
           {mois}
         </span>
       </div>
 
       <div className="grid grid-cols-1 divide-y divide-kw-border-faint sm:grid-cols-2 sm:divide-y-0 lg:grid-cols-4">
-        <div className="sm:border-b sm:border-kw-border-faint lg:border-b-0 lg:border-r lg:border-kw-border-faint">
+        <div className="sm:border-b sm:border-km-line lg:border-b-0 lg:border-r lg:border-km-line">
           <Tuile
             icone={Euro}
-            teinte="bg-kw-green-light text-kw-green"
+            teinte="bg-km-green-soft text-km-green"
             libelle="Marge générée"
             valeur={vide ? '—' : euros(c.margeMois)}
             /* L'OBJECTIF PREND LA PLACE DE LA RÉFÉRENCE PAR DÉFAUT quand il existe. Michel les a
@@ -113,20 +113,20 @@ export function MaPerformance({
             part={objectif != null && objectif > 0 && c ? c.margeMois / objectif : null}
           />
         </div>
-        <div className="sm:border-b sm:border-l sm:border-kw-border-faint lg:border-b-0 lg:border-r">
+        <div className="sm:border-b sm:border-l sm:border-km-line lg:border-b-0 lg:border-r">
           <Tuile
             icone={CheckSquare}
-            teinte="bg-kw-green-light text-kw-green"
+            teinte="bg-km-green-soft text-km-green"
             libelle="Recommandations acceptées"
             valeur={vide ? '—' : String(c.nbAcceptees)}
             reference={vide ? 'Ce mois' : `sur ${c.nbDecidees} décidée${c.nbDecidees > 1 ? 's' : ''} ce mois`}
             part={vide || c.nbDecidees === 0 ? null : c.nbAcceptees / c.nbDecidees}
           />
         </div>
-        <div className="lg:border-r lg:border-kw-border-faint">
+        <div className="lg:border-r lg:border-km-line">
           <Tuile
             icone={TrendingUp}
-            teinte="bg-sky-50 text-kw-blue"
+            teinte="bg-sky-50 text-km-blue"
             libelle="Marge moyenne par affaire"
             valeur={vide || c.margeMoyenne == null ? '—' : euros(c.margeMoyenne)}
             reference={
@@ -146,7 +146,7 @@ export function MaPerformance({
         <div>
           <Tuile
             icone={Percent}
-            teinte="bg-kw-amber-light text-kw-amber"
+            teinte="bg-km-amber-soft text-km-amber"
             libelle="Taux de transformation"
             valeur={
               vide || c.tauxTransformation == null

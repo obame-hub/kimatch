@@ -208,7 +208,7 @@ function CreateContactDialog({ open, onClose, initialCompteId }: { open: boolean
                     type="button"
                     onClick={() => setCivilite(c)}
                     className={`flex items-center gap-1.5 rounded-lg border px-3 py-1.5 text-sm transition-colors ${
-                      civilite === c ? 'border-navy-400/60 bg-navy-50 text-navy-700' : 'border-navy-200 text-navy-500 hover:bg-navy-50'
+                      civilite === c ? 'border-navy-400/60 bg-km-bg text-km-text' : 'border-km-line text-km-muted hover:bg-km-bg'
                     }`}
                   >
                     <Icon className="h-4 w-4" /> {c}
@@ -248,7 +248,7 @@ function CreateContactDialog({ open, onClose, initialCompteId }: { open: boolean
                     disabled={!compteId}
                     onClick={() => setRole(r)}
                     className={`flex flex-col items-start gap-1 rounded-lg border p-2.5 text-left text-xs transition-colors disabled:cursor-not-allowed disabled:opacity-50 ${
-                      active ? meta?.active ?? 'border-navy-400/60 bg-navy-50 text-navy-700' : 'border-navy-200 text-navy-500 hover:bg-navy-50'
+                      active ? meta?.active ?? 'border-navy-400/60 bg-km-bg text-km-text' : 'border-km-line text-km-muted hover:bg-km-bg'
                     }`}
                   >
                     <Icon className="h-4 w-4" />
@@ -270,7 +270,7 @@ function CreateContactDialog({ open, onClose, initialCompteId }: { open: boolean
                 onBlur={(e) => setTelephone(e.target.value ? formatPhoneFR(e.target.value) : '')}
                 className={matchedFields.has('phone') ? 'ring-1 ring-amber-400' : undefined}
               />
-              {telError && <p className="mt-1 text-xs text-red-600">{telError}</p>}
+              {telError && <p className="mt-1 text-xs text-km-red">{telError}</p>}
             </FormField>
             <FormField label="Mobile">
               <Input
@@ -279,7 +279,7 @@ function CreateContactDialog({ open, onClose, initialCompteId }: { open: boolean
                 onBlur={(e) => setTelephoneMobile(e.target.value ? formatPhoneFR(e.target.value) : '')}
                 className={matchedFields.has('mobile') ? 'ring-1 ring-amber-400' : undefined}
               />
-              {mobError && <p className="mt-1 text-xs text-red-600">{mobError}</p>}
+              {mobError && <p className="mt-1 text-xs text-km-red">{mobError}</p>}
             </FormField>
           </div>
           <FormField label="Email">
@@ -290,11 +290,11 @@ function CreateContactDialog({ open, onClose, initialCompteId }: { open: boolean
               onBlur={() => setEmailTouched(true)}
               className={matchedFields.has('email') ? 'ring-1 ring-amber-400' : undefined}
             />
-            {emailError && <p className="mt-1 text-xs text-red-600">{emailError}</p>}
+            {emailError && <p className="mt-1 text-xs text-km-red">{emailError}</p>}
           </FormField>
 
           {duplicates.length > 0 && (
-            <div className="rounded-lg border border-amber-200 bg-amber-50 p-3 text-xs text-amber-800">
+            <div className="rounded-lg border border-amber-200 bg-amber-50 p-3 text-xs text-km-amber">
               <p className="mb-1.5 flex items-center gap-1.5 font-medium">
                 <AlertTriangle className="h-3.5 w-3.5" />
                 {duplicates.length === 1 ? 'Un contact similaire existe déjà' : `${duplicates.length} contacts similaires existent déjà`}
@@ -312,11 +312,11 @@ function CreateContactDialog({ open, onClose, initialCompteId }: { open: boolean
           {compteId && (
             <FormField label="Rattaché aux sites (optionnel)">
               {sitesDuCompte.length === 0 ? (
-                <p className="text-xs text-navy-400">Ce compte n'a aucun site.</p>
+                <p className="text-xs text-km-faint">Ce compte n'a aucun site.</p>
               ) : (
-                <div className="max-h-32 space-y-1 overflow-y-auto rounded-lg border border-navy-200 p-2">
+                <div className="max-h-32 space-y-1 overflow-y-auto rounded-lg border border-km-line p-2">
                   {sitesDuCompte.map((s) => (
-                    <label key={s.id} className="flex items-center gap-2 text-sm text-navy-700">
+                    <label key={s.id} className="flex items-center gap-2 text-sm text-km-text">
                       <input type="checkbox" checked={siteIds.includes(s.id)} onChange={() => toggleSite(s.id)} />
                       {s.nom}
                     </label>
@@ -325,7 +325,7 @@ function CreateContactDialog({ open, onClose, initialCompteId }: { open: boolean
               )}
             </FormField>
           )}
-          {feedback && <p className="text-xs text-navy-500">{feedback}</p>}
+          {feedback && <p className="text-xs text-km-muted">{feedback}</p>}
           <div className="flex justify-end gap-2 pt-2">
             <Button type="button" variant="ghost" onClick={() => { reset(); onClose() }}>Annuler</Button>
             <Button type="submit" disabled={createContact.isPending || !canSubmit}>Créer le contact</Button>
@@ -335,9 +335,9 @@ function CreateContactDialog({ open, onClose, initialCompteId }: { open: boolean
 
       {step === 'pdl' && (
         <div className="space-y-3">
-          <div className="max-h-64 space-y-1 overflow-y-auto rounded-lg border border-navy-200 p-2">
+          <div className="max-h-64 space-y-1 overflow-y-auto rounded-lg border border-km-line p-2">
             {compteursDuCompte.map((c) => (
-              <label key={c.id} className="flex items-center gap-2 text-sm text-navy-700">
+              <label key={c.id} className="flex items-center gap-2 text-sm text-km-text">
                 <input type="checkbox" checked={compteurIds.includes(c.id)} onChange={() => toggleCompteur(c.id)} />
                 {c.numero_pdl} — {c.site_nom}
               </label>
@@ -354,7 +354,7 @@ function CreateContactDialog({ open, onClose, initialCompteId }: { open: boolean
 
       {step === 'final' && createdContact && (
         <div className="space-y-4">
-          <div className="flex items-start gap-3 rounded-lg border border-kiwi-200 bg-kiwi-50 p-3 text-sm text-kiwi-800">
+          <div className="flex items-start gap-3 rounded-lg border border-kiwi-200 bg-kiwi-50 p-3 text-sm text-km-green">
             <Check className="mt-0.5 h-4 w-4 shrink-0" />
             <p>
               <span className="font-medium">{createdContact.civilite ? `${createdContact.civilite} ` : ''}{createdContact.prenom} {createdContact.nom}</span> a bien été
@@ -456,15 +456,15 @@ export default function Contacts({ sansEntete }: { sansEntete?: boolean }) {
         </ListToolbar>
 
         {!isLoading && contacts?.length === 0 && (
-          <p className="mb-4 text-sm text-navy-400">
+          <p className="mb-4 text-sm text-km-faint">
             Aucun contact pour l'instant — un contact est une personne chez un compte (signataire, gestionnaire, interlocuteur technique…). Utilise « Créer » pour en ajouter un.
           </p>
         )}
         {!isLoading && contacts && contacts.length > 0 && filteredContacts?.length === 0 && (
-          <p className="mb-4 text-sm text-navy-400">Aucun contact ne correspond à la recherche.</p>
+          <p className="mb-4 text-sm text-km-faint">Aucun contact ne correspond à la recherche.</p>
         )}
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3">
-          {isLoading && <p className="text-sm text-navy-400">Chargement…</p>}
+          {isLoading && <p className="text-sm text-km-faint">Chargement…</p>}
           {tranche.visibles.map((c) => (
             <Card
               key={c.id}
@@ -477,14 +477,14 @@ export default function Contacts({ sansEntete }: { sansEntete?: boolean }) {
                     <User className="h-4 w-4" />
                   </span>
                   <div>
-                    <p className="font-display font-medium text-navy-800">{c.civilite ? `${c.civilite} ` : ''}{c.prenom} {c.nom}</p>
-                    <p className="text-xs text-navy-500">{c.fonction || '—'}</p>
+                    <p className="font-display font-medium text-km-text">{c.civilite ? `${c.civilite} ` : ''}{c.prenom} {c.nom}</p>
+                    <p className="text-xs text-km-muted">{c.fonction || '—'}</p>
                   </div>
                 </div>
                 {c.contact_principal && <Star className="h-4 w-4 shrink-0 text-amber-500" />}
               </div>
               {c.role && <Badge tone={c.role === 'Décisionnaire' ? 'kiwi' : 'neutral'} className="mt-2">{c.role}</Badge>}
-              <div className="mt-4 space-y-1 text-xs text-navy-500">
+              <div className="mt-4 space-y-1 text-xs text-km-muted">
                 <p><EntityLink to={`/comptes/${c.compte_id}`}>{c.compte_nom}</EntityLink></p>
                 {c.email && <p><EmailLink value={c.email} /></p>}
                 {c.telephone && <p><PhoneLink value={c.telephone} /></p>}

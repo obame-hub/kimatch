@@ -50,9 +50,9 @@ export function MandatChainPrompt({
 
   return (
     <div className="space-y-3">
-      <div className="rounded-lg border border-navy-200 bg-navy-50 p-3 text-sm text-navy-700">
+      <div className="rounded-lg border border-km-line bg-km-bg p-3 text-sm text-km-text">
         <p className="font-medium">Enchaîner avec la création des mandats</p>
-        <p className="mt-0.5 text-xs text-navy-500">
+        <p className="mt-0.5 text-xs text-km-muted">
           {compteurs.length} point{compteurs.length > 1 ? 's' : ''} de livraison créé{compteurs.length > 1 ? 's' : ''} sur {compteNom} ·{' '}
           <span className="font-medium">{entries.length} mandat{entries.length > 1 ? 's' : ''}</span> à générer (un par responsable).
         </p>
@@ -69,9 +69,9 @@ export function MandatChainPrompt({
         {entries.map((g, i) => {
           const emailManquant = !!g.contact && !g.contact.email
           return (
-            <div key={g.contact?.id ?? `sans-responsable-${i}`} className="flex items-center justify-between gap-3 rounded-lg border border-navy-100 p-3">
+            <div key={g.contact?.id ?? `sans-responsable-${i}`} className="flex items-center justify-between gap-3 rounded-lg border border-km-line p-3">
               <div className="min-w-0">
-                <p className="truncate text-sm font-medium text-navy-800">
+                <p className="truncate text-sm font-medium text-km-text">
                   {g.contact ? `${g.contact.prenom} ${g.contact.nom}` : 'Sans responsable'}
                   <Badge tone="neutral" className="ml-2">{g.compteurs.length} PDL</Badge>
                 </p>
@@ -81,10 +81,10 @@ export function MandatChainPrompt({
                       <AlertTriangle className="h-3 w-3 shrink-0" /> Email manquant — complète l'adresse email de ce contact, puis reviens ici.
                     </p>
                   ) : (
-                    <p className="mt-0.5 truncate text-xs text-navy-400">{g.contact.email}</p>
+                    <p className="mt-0.5 truncate text-xs text-km-faint">{g.contact.email}</p>
                   )
                 ) : (
-                  <p className="mt-0.5 text-xs text-navy-400">Renseigne un responsable pour pouvoir générer un mandat.</p>
+                  <p className="mt-0.5 text-xs text-km-faint">Renseigne un responsable pour pouvoir générer un mandat.</p>
                 )}
               </div>
               <Button type="button" size="sm" disabled={!g.contact || emailManquant} onClick={() => creerMandat(g)}>

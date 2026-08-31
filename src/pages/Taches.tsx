@@ -137,7 +137,7 @@ function CreateActionDialog({ open, onClose }: { open: boolean; onClose: () => v
         <FormField label="Commentaire">
           <Textarea rows={2} value={commentaire} onChange={(e) => setCommentaire(e.target.value)} />
         </FormField>
-        {feedback && <p className="text-xs text-navy-500">{feedback}</p>}
+        {feedback && <p className="text-xs text-km-muted">{feedback}</p>}
         <div className="flex justify-end gap-2 pt-2">
           <Button type="button" variant="ghost" onClick={() => { reset(); onClose() }}>Annuler</Button>
           <Button type="submit" disabled={createAction.isPending}>Créer la tâche</Button>
@@ -199,7 +199,7 @@ export default function Taches() {
           </Select>
         </ListToolbar>
 
-        {isLoading && <p className="text-sm text-navy-400">Chargement…</p>}
+        {isLoading && <p className="text-sm text-km-faint">Chargement…</p>}
 
         <div className="space-y-2.5">
           {ouvertes.map((a) => (
@@ -210,7 +210,7 @@ export default function Taches() {
                 <button
                   type="button"
                   onClick={(e) => { e.stopPropagation(); completeAction.mutate(a.id) }}
-                  className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full border border-navy-300 text-navy-400 transition-colors hover:border-kiwi-500 hover:text-kiwi-600"
+                  className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full border border-km-line text-km-faint transition-colors hover:border-km-green hover:text-km-green"
                   title="Marquer terminée"
                 >
                   <Circle className="h-3.5 w-3.5" />
@@ -238,28 +238,28 @@ export default function Taches() {
               trailing={
                 <span className="flex flex-col items-end gap-1">
                   <Badge tone={STATUT_ACTION_TONE[a.statut] ?? 'neutral'}>{statuts.find((s) => s.code === a.statut)?.libelle ?? a.statut}</Badge>
-                  {a.echeance && <span className="text-navy-400">{echeanceLisible(a.echeance)}</span>}
+                  {a.echeance && <span className="text-km-faint">{echeanceLisible(a.echeance)}</span>}
                 </span>
               }
               onClick={() => navigate(`/taches/${a.id}`)}
             />
           ))}
           {!isLoading && ouvertes.length === 0 && (
-            <p className="py-8 text-center text-sm text-navy-400">Aucune tâche ouverte — tout est à jour ✓</p>
+            <p className="py-8 text-center text-sm text-km-faint">Aucune tâche ouverte — tout est à jour ✓</p>
           )}
         </div>
 
         {terminees.length > 0 && (
           <div className="mt-6">
-            <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-navy-400">Terminées récemment</p>
+            <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-km-faint">Terminées récemment</p>
             <div className="space-y-1.5">
               {terminees.slice(0, 10).map((a) => (
                 <div
                   key={a.id}
                   onClick={() => navigate(`/taches/${a.id}`)}
-                  className="flex cursor-pointer items-center gap-3 rounded-lg px-3 py-2 text-sm text-navy-400 hover:bg-navy-50/60"
+                  className="flex cursor-pointer items-center gap-3 rounded-lg px-3 py-2 text-sm text-km-faint hover:bg-km-bg/60"
                 >
-                  <Check className="h-3.5 w-3.5 text-kiwi-600" />
+                  <Check className="h-3.5 w-3.5 text-km-green" />
                   <span className="flex-1 line-through">{a.titre}</span>
                   {a.site_id && <EntityLink to={`/sites/${a.site_id}`}>{a.cible_label}</EntityLink>}
                 </div>

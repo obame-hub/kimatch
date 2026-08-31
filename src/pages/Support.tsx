@@ -91,7 +91,7 @@ function CreateDemandeDialog({ open, onClose }: { open: boolean; onClose: () => 
         <FormField label="Description">
           <Textarea rows={4} value={description} onChange={(e) => setDescription(e.target.value)} placeholder="Détaille le contexte, les étapes pour reproduire, ce que tu attendais…" />
         </FormField>
-        {feedback && <p className="text-xs text-navy-500">{feedback}</p>}
+        {feedback && <p className="text-xs text-km-muted">{feedback}</p>}
         <div className="flex justify-end gap-2 pt-2">
           <Button type="button" variant="ghost" onClick={() => { reset(); onClose() }}>Annuler</Button>
           <Button type="submit" disabled={createDemande.isPending || !titre}>Envoyer</Button>
@@ -143,15 +143,15 @@ export default function Support() {
           </Select>
         </ListToolbar>
 
-        {isLoading && <p className="text-sm text-navy-400">Chargement…</p>}
+        {isLoading && <p className="text-sm text-km-faint">Chargement…</p>}
         {!isLoading && demandes?.length === 0 && (
-          <div className="flex flex-col items-center gap-2 py-16 text-navy-400">
+          <div className="flex flex-col items-center gap-2 py-16 text-km-faint">
             <LifeBuoy className="h-8 w-8" />
             <p className="text-sm">Aucune demande pour l'instant.</p>
           </div>
         )}
         {!isLoading && demandes && demandes.length > 0 && filteredDemandes?.length === 0 && (
-          <p className="py-8 text-center text-sm text-navy-400">Aucune demande ne correspond à la recherche.</p>
+          <p className="py-8 text-center text-sm text-km-faint">Aucune demande ne correspond à la recherche.</p>
         )}
 
         <div className="space-y-2.5">
@@ -162,13 +162,13 @@ export default function Support() {
               <Card key={d.id} className="animate-fade-up p-4">
                 <div className="flex items-start justify-between gap-4">
                   <div className="flex items-start gap-3">
-                    <span className="mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-navy-100 text-navy-500">
+                    <span className="mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-km-soft text-km-muted">
                       <Icon className="h-4 w-4" />
                     </span>
                     <div>
-                      <p className="text-sm font-medium text-navy-800">{d.titre}</p>
-                      {d.description && <p className="mt-1 text-xs text-navy-500">{d.description}</p>}
-                      <p className="mt-2 text-xs text-navy-400">
+                      <p className="text-sm font-medium text-km-text">{d.titre}</p>
+                      {d.description && <p className="mt-1 text-xs text-km-muted">{d.description}</p>}
+                      <p className="mt-2 text-xs text-km-faint">
                         {d.auteur_nom} · {new Date(d.date_creation).toLocaleDateString('fr-FR')}
                       </p>
                     </div>

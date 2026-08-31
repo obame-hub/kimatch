@@ -128,7 +128,7 @@ function CreateDocumentDialog({ open, onClose }: { open: boolean; onClose: () =>
             </Select>
           </FormField>
         )}
-        {feedback && <p className="text-xs text-navy-500">{feedback}</p>}
+        {feedback && <p className="text-xs text-km-muted">{feedback}</p>}
         <div className="flex justify-end gap-2 pt-2">
           <Button type="button" variant="ghost" onClick={() => { reset(); onClose() }}>Annuler</Button>
           <Button type="submit" disabled={createDocument.isPending}>Créer le document</Button>
@@ -212,10 +212,10 @@ export default function Documents({ sansEntete }: { sansEntete?: boolean }) {
         </ListToolbar>
 
         <div className="space-y-2.5">
-          {liste.isLoading && <p className="text-sm text-navy-400">Chargement…</p>}
-          {liste.erreur && <p className="py-8 text-center text-sm text-red-600">{liste.erreur}</p>}
+          {liste.isLoading && <p className="text-sm text-km-faint">Chargement…</p>}
+          {liste.erreur && <p className="py-8 text-center text-sm text-km-red">{liste.erreur}</p>}
           {!liste.isLoading && !liste.erreur && liste.lignes.length === 0 && (
-            <p className="py-8 text-center text-sm text-navy-400">
+            <p className="py-8 text-center text-sm text-km-faint">
               {liste.query.trim()
                 ? 'Aucun document ne correspond à la recherche.'
                 : "Aucun document pour l'instant — mandats signés, factures, contrats et pièces jointes de recommandations apparaîtront ici."}
@@ -228,12 +228,12 @@ export default function Documents({ sansEntete }: { sansEntete?: boolean }) {
               className="animate-fade-up flex cursor-pointer items-center justify-between gap-4 p-4 transition-all hover:-translate-y-0.5 hover:shadow-lg"
             >
               <div className="flex items-center gap-3">
-                <span className="flex h-9 w-9 items-center justify-center rounded-lg bg-navy-100 text-navy-500">
+                <span className="flex h-9 w-9 items-center justify-center rounded-lg bg-km-soft text-km-muted">
                   <FileText className="h-4 w-4" />
                 </span>
                 <div>
-                  <p className="text-sm font-medium text-navy-800">{doc.nom}</p>
-                  <p className="text-xs text-navy-500">
+                  <p className="text-sm font-medium text-km-text">{doc.nom}</p>
+                  <p className="text-xs text-km-muted">
                     {doc.entite_type && doc.entite_id && entityRoute(doc.entite_type, doc.entite_id) ? (
                       <EntityLink to={entityRoute(doc.entite_type, doc.entite_id) as string}>{doc.objet_lie}</EntityLink>
                     ) : (
@@ -245,7 +245,7 @@ export default function Documents({ sansEntete }: { sansEntete?: boolean }) {
               </div>
               <div className="flex items-center gap-3">
                 <Badge tone="neutral">{doc.type_document}</Badge>
-                <span className="text-xs text-navy-400">{new Date(doc.date_creation).toLocaleDateString('fr-FR')}</span>
+                <span className="text-xs text-km-faint">{new Date(doc.date_creation).toLocaleDateString('fr-FR')}</span>
               </div>
             </Card>
           ))}

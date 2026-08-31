@@ -99,16 +99,16 @@ export function RailCycleVie({
   const fin = finalite ? FINALITES_RECOMMANDATION[finalite] : null
 
   return (
-    <div className="rounded-[13px] border border-kw-border bg-white px-[18px] pb-2 pt-3">
+    <div className="rounded-[13px] border border-km-line bg-white px-[18px] pb-2 pt-3">
       <div className="flex flex-wrap items-center gap-2">
-        <span className="text-kw-xs font-bold uppercase tracking-[0.08em] text-kw-faint">Cycle de vie</span>
+        <span className="text-km-label font-bold uppercase tracking-[0.08em] text-km-faint">Cycle de vie</span>
         <span className="flex-1" />
         {peutModifier && !finalite && suivante && (
           <button
             type="button"
             onClick={onAvancer}
             disabled={avanceEnCours}
-            className="inline-flex items-center gap-1.5 rounded-kw-md px-[13px] py-1.5 text-kw-base font-bold text-white shadow-[0_3px_9px_rgba(176,118,60,.3)] disabled:opacity-60"
+            className="inline-flex items-center gap-1.5 rounded-km px-[13px] py-1.5 text-km-body font-bold text-white shadow-[0_3px_9px_rgba(176,118,60,.3)] disabled:opacity-60"
             style={{ background: DEGRADE_OR }}
           >
             {avanceEnCours ? 'Enregistrement…' : <>Étape suivante <ArrowRight className="h-[11px] w-[11px]" /></>}
@@ -119,8 +119,8 @@ export function RailCycleVie({
             type="button"
             onClick={onOuvrirCloture}
             className={cn(
-              'inline-flex items-center gap-1.5 rounded-kw-md border-[1.5px] border-[#8a4b2a] px-[13px] py-1.5 text-kw-base font-bold text-kw-ink',
-              clotureOuverte ? 'bg-kw-amber-light' : 'bg-kw-amber-light hover:bg-[#f7ece3]',
+              'inline-flex items-center gap-1.5 rounded-km border-[1.5px] border-[#8a4b2a] px-[13px] py-1.5 text-km-body font-bold text-km-text',
+              clotureOuverte ? 'bg-km-amber-soft' : 'bg-km-amber-soft hover:bg-[#f7ece3]',
             )}
           >
             Clôturer… ▾
@@ -131,7 +131,7 @@ export function RailCycleVie({
             type="button"
             onClick={peutModifier ? onRouvrir : undefined}
             title={peutModifier ? 'Cliquer pour rouvrir' : undefined}
-            className="rounded-kw-pill px-[13px] py-1.5 text-kw-xs font-extrabold tracking-[0.05em] text-white"
+            className="rounded-kw-pill px-[13px] py-1.5 text-km-label font-extrabold tracking-[0.05em] text-white"
             style={{ background: fin.couleur, boxShadow: `0 3px 9px ${fin.couleur}44`, cursor: peutModifier ? 'pointer' : 'default' }}
           >
             {finalite === 'ACCEPTEE' ? '✓ ACCEPTÉE' : finalite === 'REFUSEE' ? '✗ REFUSÉE' : '— EXPIRÉE'}
@@ -253,7 +253,7 @@ export function RailCycleVie({
                    clair — ce qui redoublait la confusion du cercle plein. */
                 className={cn(
                   'tracking-[-0.01em]',
-                  courante ? 'text-kw-lg font-extrabold' : 'text-kw-md font-bold',
+                  courante ? 'text-km-name font-extrabold' : 'text-km-body font-bold',
                 )}
                 style={{
                   color: courante
@@ -269,7 +269,7 @@ export function RailCycleVie({
                 {/* LE MOT « ACTUEL » SOUS L'ÉTAPE COURANTE. Un dessin peut se lire de travers ;
                     un mot, non. C'est le filet de sécurité de toute cette correction. */}
                 {courante && (
-                  <span className="mt-0.5 block text-kw-micro font-bold uppercase tracking-[0.08em] text-kw-meta">
+                  <span className="mt-0.5 block text-km-label font-bold uppercase tracking-[0.08em] text-km-muted">
                     actuel
                   </span>
                 )}
@@ -283,7 +283,7 @@ export function RailCycleVie({
       {/* Une recommandation posée sur une étape de l'ancien cycle ne se voit pas dans le rail :
           on le dit, sinon le rail semble simplement vide sans raison. */}
       {indexCourant < 0 && !finalite && (
-        <p className="pb-1 text-center text-kw-tiny text-kw-faint">
+        <p className="pb-1 text-center text-km-label text-km-faint">
           Étape « {etapes.find((e) => e.code === codeCourant)?.libelle ?? codeCourant} » : ancien cycle de vie, hors rail.
         </p>
       )}

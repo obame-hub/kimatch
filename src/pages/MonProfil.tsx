@@ -43,20 +43,20 @@ function GmailCard() {
     <Card>
       <CardHeader>
         <CardTitle className="flex items-center gap-2">
-          <Mail className="h-5 w-5 text-kiwi-600" />
+          <Mail className="h-5 w-5 text-km-green" />
           Envoi d'emails (Gmail)
         </CardTitle>
       </CardHeader>
       <CardContent className="space-y-3">
-        <p className="text-sm text-navy-500">
+        <p className="text-sm text-km-muted">
           Connectez votre propre compte Gmail — les emails envoyés depuis Kimatch partiront de votre adresse.
         </p>
         {isLoading ? (
-          <p className="text-sm text-navy-400">Chargement…</p>
+          <p className="text-sm text-km-faint">Chargement…</p>
         ) : connection ? (
-          <div className="flex items-center justify-between rounded-lg border border-navy-100 p-4">
-            <div className="flex items-center gap-2 text-sm text-navy-700">
-              <CheckCircle2 className="h-4 w-4 text-kiwi-600" />
+          <div className="flex items-center justify-between rounded-lg border border-km-line p-4">
+            <div className="flex items-center gap-2 text-sm text-km-text">
+              <CheckCircle2 className="h-4 w-4 text-km-green" />
               Connecté en tant que <span className="font-medium">{connection.email_gmail}</span>
             </div>
             <Button size="sm" variant="ghost" onClick={() => disconnect.mutate()} disabled={disconnect.isPending}>
@@ -64,13 +64,13 @@ function GmailCard() {
             </Button>
           </div>
         ) : (
-          <div className="rounded-lg border border-navy-100 p-4">
+          <div className="rounded-lg border border-km-line p-4">
             <Button size="sm" onClick={handleConnect} disabled={connecting}>
               Connecter mon compte Gmail
             </Button>
           </div>
         )}
-        {feedback && <p className="text-xs text-navy-500">{feedback}</p>}
+        {feedback && <p className="text-xs text-km-muted">{feedback}</p>}
       </CardContent>
     </Card>
   )
@@ -113,44 +113,44 @@ function DocusignCard() {
     <Card>
       <CardHeader>
         <CardTitle className="flex items-center gap-2">
-          <FileSignature className="h-5 w-5 text-kiwi-600" />
+          <FileSignature className="h-5 w-5 text-km-green" />
           Signature électronique (DocuSign)
         </CardTitle>
       </CardHeader>
       <CardContent className="space-y-3">
-        <p className="text-sm text-navy-500">
+        <p className="text-sm text-km-muted">
           Connectez votre propre compte DocuSign — les mandats envoyés depuis Kimatch partiront de votre compte,
           apparaîtront dans votre espace DocuSign, et la piste d'audit portera votre nom. À autoriser une seule fois.
         </p>
         {/* Une signature émise depuis l'environnement de démonstration n'a aucune valeur juridique et
             le client reçoit un e-mail marqué DEMO : mieux vaut le voir ici qu'après l'envoi. */}
         {statut?.environnement === 'demonstration' && (
-          <p className="rounded-lg border border-amber-200 bg-amber-50 p-3 text-xs text-amber-800">
+          <p className="rounded-lg border border-amber-200 bg-amber-50 p-3 text-xs text-km-amber">
             Environnement de démonstration : les signatures n'ont pas de valeur juridique et les e-mails portent la
             mention DEMO. À basculer en production avant tout envoi client.
           </p>
         )}
         {statut && !statut.configured ? (
-          <p className="rounded-lg border border-amber-200 bg-amber-50 p-3 text-xs text-amber-800">
+          <p className="rounded-lg border border-amber-200 bg-amber-50 p-3 text-xs text-km-amber">
             L'application DocuSign n'est pas encore configurée côté serveur
             {statut.manquants?.length ? ` (${statut.manquants.join(', ')})` : ''} : la connexion personnelle sera
             possible dès que ce sera fait.
           </p>
         ) : isLoading ? (
-          <p className="text-sm text-navy-400">Chargement…</p>
+          <p className="text-sm text-km-faint">Chargement…</p>
         ) : connexion ? (
-          <div className="flex items-center justify-between rounded-lg border border-navy-100 p-4">
-            <div className="flex items-center gap-2 text-sm text-navy-700">
-              <CheckCircle2 className="h-4 w-4 text-kiwi-600" />
+          <div className="flex items-center justify-between rounded-lg border border-km-line p-4">
+            <div className="flex items-center gap-2 text-sm text-km-text">
+              <CheckCircle2 className="h-4 w-4 text-km-green" />
               Connecté en tant que <span className="font-medium">{connexion.docusign_email ?? connexion.docusign_nom}</span>
-              {connexion.account_nom && <span className="text-navy-400">· {connexion.account_nom}</span>}
+              {connexion.account_nom && <span className="text-km-faint">· {connexion.account_nom}</span>}
             </div>
             <Button size="sm" variant="ghost" onClick={() => disconnect.mutate()} disabled={disconnect.isPending}>
               Déconnecter
             </Button>
           </div>
         ) : (
-          <div className="rounded-lg border border-navy-100 p-4">
+          <div className="rounded-lg border border-km-line p-4">
             <Button size="sm" onClick={handleConnect} disabled={connecting}>
               Connecter mon compte DocuSign
             </Button>
@@ -160,13 +160,13 @@ function DocusignCard() {
             temps, au lieu de laisser croire qu'il faudra recommencer demain. Elle est repoussée
             chaque nuit par la tâche planifiée qui renouvelle les jetons. */}
         {connexion && !connexion.expiree && (
-          <p className={`text-xs ${connexion.bientot_expiree ? 'font-medium text-amber-700' : 'text-navy-400'}`}>
+          <p className={`text-xs ${connexion.bientot_expiree ? 'font-medium text-amber-700' : 'text-km-faint'}`}>
             {connexion.bientot_expiree
               ? `À reconnecter : l'autorisation prend fin le ${new Date(connexion.refresh_expire_le).toLocaleDateString('fr-FR')}.`
               : `Autorisation renouvelée automatiquement chaque nuit — valable jusqu'au ${new Date(connexion.refresh_expire_le).toLocaleDateString('fr-FR')} sans intervention.`}
           </p>
         )}
-        {feedback && <p className="text-xs text-navy-500">{feedback}</p>}
+        {feedback && <p className="text-xs text-km-muted">{feedback}</p>}
       </CardContent>
     </Card>
   )
@@ -229,12 +229,12 @@ export default function MonProfil() {
             </div>
             <div className="min-w-0">
               {isLoading ? (
-                <p className="text-sm text-navy-400">Chargement…</p>
+                <p className="text-sm text-km-faint">Chargement…</p>
               ) : (
                 <>
-                  <p className="font-display text-lg font-semibold text-navy-900">{nomComplet || 'Profil'}</p>
-                  {email && <EmailLink value={email} className="text-sm text-navy-500" />}
-                  {photoFeedback && <p className="mt-1 text-xs text-navy-500">{photoFeedback}</p>}
+                  <p className="font-display text-lg font-semibold text-km-text">{nomComplet || 'Profil'}</p>
+                  {email && <EmailLink value={email} className="text-sm text-km-muted" />}
+                  {photoFeedback && <p className="mt-1 text-xs text-km-muted">{photoFeedback}</p>}
                 </>
               )}
             </div>
@@ -244,12 +244,12 @@ export default function MonProfil() {
         <Card className="max-w-2xl">
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
-              <ShieldCheck className="h-5 w-5 text-kiwi-600" />
+              <ShieldCheck className="h-5 w-5 text-km-green" />
               Rôle d'accès
             </CardTitle>
           </CardHeader>
           <CardContent>
-            <p className="text-sm text-navy-700">
+            <p className="text-sm text-km-text">
               {access?.roleLibelle ?? 'Aucun rôle attribué — contactez un administrateur.'}
             </p>
           </CardContent>

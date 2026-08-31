@@ -107,7 +107,7 @@ export default function Prospection() {
         {/* LES DEUX MOITIÉS DE L'ENTONNOIR, avec le trait souligné des onglets de William plutôt
             qu'un fond gris : le même geste que la fiche opportunité, pour que les deux écrans se
             lisent pareil. Le troisième jalon n'est pas un onglet — il dit où mène le travail. */}
-        <div className="mb-4 flex flex-wrap items-center gap-0.5 border-b border-kw-border">
+        <div className="mb-4 flex flex-wrap items-center gap-0.5 border-b border-km-line">
           {([
             ...(AFFICHER_LES_LISTES ? [{ cle: 'listes' as const, titre: 'Listes', compte: nonConverties.length }] : []),
             { cle: 'pistes' as const, titre: 'Pistes', compte: pistesOuvertes.length },
@@ -119,20 +119,20 @@ export default function Prospection() {
               className={cn(
                 'flex items-center gap-1.5 border-b-2 px-3 pb-2 pt-1 text-[12.5px] transition-colors',
                 onglet === o.cle
-                  ? 'border-indigo-500 font-bold text-navy-800'
-                  : 'border-transparent font-medium text-navy-500 hover:text-navy-700',
+                  ? 'border-indigo-500 font-bold text-km-text'
+                  : 'border-transparent font-medium text-km-muted hover:text-km-text',
               )}
             >
               {o.titre}
               <span className={cn(
                 'rounded-md px-1.5 py-0.5 text-[9.5px] font-extrabold',
-                onglet === o.cle ? 'bg-indigo-50 text-indigo-600' : 'bg-navy-50 text-navy-400',
+                onglet === o.cle ? 'bg-indigo-50 text-indigo-600' : 'bg-km-bg text-km-faint',
               )}>
                 {o.compte}
               </span>
             </button>
           ))}
-          <span className="ml-auto hidden items-center gap-1 px-2 pb-2 text-[10.5px] text-navy-300 sm:flex">
+          <span className="ml-auto hidden items-center gap-1 px-2 pb-2 text-[10.5px] text-km-faint sm:flex">
             <ArrowRight className="h-3 w-3" /> puis Opportunités
           </span>
         </div>
@@ -185,22 +185,22 @@ function OngletListes({ lignes, signaler }: { lignes: LigneListe[]; signaler: (m
       </ListToolbar>
       {filtrees.length === 0 ? (
         <Card className="flex flex-col items-center gap-2 p-8 text-center">
-          <Users className="h-6 w-6 text-navy-300" />
-          <p className="text-sm font-medium text-navy-700">Aucune ligne</p>
-          <p className="max-w-md text-xs text-navy-400">
+          <Users className="h-6 w-6 text-km-faint" />
+          <p className="text-sm font-medium text-km-text">Aucune ligne</p>
+          <p className="max-w-md text-xs text-km-faint">
             Une ligne de liste, c'est le minimum : une société, un contact, un email, un téléphone.
             La vérification vient après.
           </p>
         </Card>
       ) : (
-        <div className="overflow-hidden rounded-xl border border-navy-100 bg-white">
+        <div className="overflow-hidden rounded-xl border border-km-line bg-white">
           {filtrees.map((l) => (
             <div key={l.id} className="flex flex-wrap items-center gap-3 border-b border-navy-50 px-4 py-3 last:border-b-0">
               <div className="min-w-[180px] flex-1">
-                <p className="truncate text-sm font-medium text-navy-800">{l.societe || 'Société inconnue'}</p>
-                <p className="truncate text-xs text-navy-500">{l.contact_nom || 'Contact inconnu'}</p>
+                <p className="truncate text-sm font-medium text-km-text">{l.societe || 'Société inconnue'}</p>
+                <p className="truncate text-xs text-km-muted">{l.contact_nom || 'Contact inconnu'}</p>
               </div>
-              <div className="min-w-[200px] flex-1 text-xs text-navy-500">
+              <div className="min-w-[200px] flex-1 text-xs text-km-muted">
                 <p className="truncate">{l.email || '—'}</p>
                 <p className="truncate font-mono">{l.telephone || '—'}</p>
               </div>

@@ -5,7 +5,7 @@ import { cn } from '@/lib/utils'
  * sans déclencher la navigation du parent (stopPropagation). */
 export function EntityLink({ to, children, className }: { to: string; children: React.ReactNode; className?: string }) {
   const navigate = useNavigate()
-  if (!children) return <span className="text-navy-300">—</span>
+  if (!children) return <span className="text-km-faint">—</span>
   return (
     <span
       role="link"
@@ -20,7 +20,7 @@ export function EntityLink({ to, children, className }: { to: string; children: 
           navigate(to)
         }
       }}
-      className={cn('cursor-pointer text-navy-700 underline decoration-navy-200 underline-offset-2 hover:text-kiwi-700 hover:decoration-kiwi-400', className)}
+      className={cn('cursor-pointer text-km-text underline decoration-navy-200 underline-offset-2 hover:text-km-green hover:decoration-kiwi-400', className)}
     >
       {children}
     </span>

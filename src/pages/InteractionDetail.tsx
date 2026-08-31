@@ -65,7 +65,7 @@ export default function InteractionDetail() {
         </Button>
 
         {!interaction ? (
-          <p className="text-sm text-navy-500">Interaction introuvable.</p>
+          <p className="text-sm text-km-muted">Interaction introuvable.</p>
         ) : (
           <Card className="max-w-xl p-6">
             <CardHeader className="px-0 pt-0">
@@ -91,11 +91,11 @@ export default function InteractionDetail() {
               </div>
             </CardHeader>
             <CardContent className="px-0 space-y-3 text-sm">
-              <p className="rounded-lg bg-navy-50 p-2.5 text-navy-700">
+              <p className="rounded-lg bg-km-bg p-2.5 text-km-text">
                 <InteractionSentence interaction={interaction} />
               </p>
               <p>
-                <span className="text-navy-400">Compte :</span>{' '}
+                <span className="text-km-faint">Compte :</span>{' '}
                 {interaction.compte_id ? (
                   <EntityLink to={`/comptes/${interaction.compte_id}`}>{interaction.compte_nom}</EntityLink>
                 ) : (
@@ -103,7 +103,7 @@ export default function InteractionDetail() {
                 )}
               </p>
               <p>
-                <span className="text-navy-400">Site :</span>{' '}
+                <span className="text-km-faint">Site :</span>{' '}
                 {interaction.site_id ? (
                   <EntityLink to={`/sites/${interaction.site_id}`}>{interaction.site_nom}</EntityLink>
                 ) : (
@@ -112,7 +112,7 @@ export default function InteractionDetail() {
               </p>
               {interaction.contact_nom && (
                 <p>
-                  <span className="text-navy-400">Contact :</span>{' '}
+                  <span className="text-km-faint">Contact :</span>{' '}
                   {interaction.contact_id ? (
                     <EntityLink to={`/contacts/${interaction.contact_id}`}>{interaction.contact_nom}</EntityLink>
                   ) : (
@@ -122,7 +122,7 @@ export default function InteractionDetail() {
               )}
               {interaction.recommandation_id && (
                 <p>
-                  <span className="text-navy-400">Recommandation :</span>{' '}
+                  <span className="text-km-faint">Recommandation :</span>{' '}
                   <EntityLink to={`/recommandations/${interaction.recommandation_id}`}>{interaction.recommandation_nom}</EntityLink>
                 </p>
               )}
@@ -198,13 +198,13 @@ export default function InteractionDetail() {
               ) : (
                 <>
                   {interaction.sens && (
-                    <p><span className="text-navy-400">Sens :</span> {interaction.sens}</p>
+                    <p><span className="text-km-faint">Sens :</span> {interaction.sens}</p>
                   )}
                   {interaction.resume && (
-                    <p><span className="text-navy-400">Résumé :</span> {interaction.resume}</p>
+                    <p><span className="text-km-faint">Résumé :</span> {interaction.resume}</p>
                   )}
                   {interaction.resultat && (
-                    <p><span className="text-navy-400">Résultat :</span> {interaction.resultat}</p>
+                    <p><span className="text-km-faint">Résultat :</span> {interaction.resultat}</p>
                   )}
                 </>
               )}
@@ -215,27 +215,27 @@ export default function InteractionDetail() {
                 </p>
               )}
               {interaction.duree_appel_secondes != null && (
-                <p><span className="text-navy-400">Durée :</span> {Math.floor(interaction.duree_appel_secondes / 60)} min {interaction.duree_appel_secondes % 60}s</p>
+                <p><span className="text-km-faint">Durée :</span> {Math.floor(interaction.duree_appel_secondes / 60)} min {interaction.duree_appel_secondes % 60}s</p>
               )}
               {interaction.numero_correspondant && (
-                <p><span className="text-navy-400">Numéro :</span> {interaction.numero_correspondant}</p>
+                <p><span className="text-km-faint">Numéro :</span> {interaction.numero_correspondant}</p>
               )}
               {interaction.decroche_par && (
-                <p><span className="text-navy-400">Décroché par :</span> {interaction.decroche_par}</p>
+                <p><span className="text-km-faint">Décroché par :</span> {interaction.decroche_par}</p>
               )}
               {interaction.enregistrement_url && (
                 <p>
-                  <span className="text-navy-400">Enregistrement :</span>{' '}
+                  <span className="text-km-faint">Enregistrement :</span>{' '}
                   <a href={interaction.enregistrement_url} target="_blank" rel="noreferrer" className="text-sky-600 underline">
                     Écouter l'appel
                   </a>
                 </p>
               )}
               {interaction.issue_libelle && (
-                <p><span className="text-navy-400">Motif / issue :</span> <Badge tone="amber">{interaction.issue_libelle}</Badge></p>
+                <p><span className="text-km-faint">Motif / issue :</span> <Badge tone="amber">{interaction.issue_libelle}</Badge></p>
               )}
-              <p><span className="text-navy-400">Auteur :</span> {interaction.auteur}</p>
-              <p><span className="text-navy-400">Date :</span> {new Date(interaction.date_interaction).toLocaleDateString('fr-FR')}</p>
+              <p><span className="text-km-faint">Auteur :</span> {interaction.auteur}</p>
+              <p><span className="text-km-faint">Date :</span> {new Date(interaction.date_interaction).toLocaleDateString('fr-FR')}</p>
               <HistoriqueDiscret tableNom="interactions" ligneId={interaction.id} />
             </CardContent>
           </Card>
@@ -252,11 +252,11 @@ export default function InteractionDetail() {
             description="Cette action est irréversible."
           >
             {suppression.erreur && (
-              <p className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-xs text-red-700">{suppression.erreur}</p>
+              <p className="rounded-lg border border-red-200 bg-km-red-soft px-3 py-2 text-xs text-red-700">{suppression.erreur}</p>
             )}
             <div className="flex justify-end gap-2 pt-2">
               <Button type="button" variant="ghost" onClick={() => { suppression.reinitialiser(); setConfirmDelete(false) }}>Annuler</Button>
-              <Button type="button" variant="outline" className="border-red-200 text-red-600 hover:bg-red-50" disabled={suppression.enCours} onClick={handleDelete}>
+              <Button type="button" variant="outline" className="border-red-200 text-km-red hover:bg-km-red-soft" disabled={suppression.enCours} onClick={handleDelete}>
                 {suppression.enCours ? 'Suppression…' : 'Supprimer définitivement'}
               </Button>
             </div>

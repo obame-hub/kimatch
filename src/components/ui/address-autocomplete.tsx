@@ -47,18 +47,18 @@ export function AddressAutocomplete({
         onBlur={() => { blurTimeout.current = setTimeout(() => setOpen(false), 150) }}
         placeholder={placeholder ?? 'Commence à taper une adresse…'}
       />
-      {loading && <Loader2 className="absolute right-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 animate-spin text-navy-400" />}
+      {loading && <Loader2 className="absolute right-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 animate-spin text-km-faint" />}
       {open && results.length > 0 && (
-        <div className="absolute z-20 mt-1 max-h-52 w-full overflow-y-auto rounded-lg border border-navy-200 bg-white shadow-lg">
+        <div className="absolute z-20 mt-1 max-h-52 w-full overflow-y-auto rounded-lg border border-km-line bg-white shadow-lg">
           {results.map((r) => (
             <button
               key={r.label}
               type="button"
               onMouseDown={(e) => e.preventDefault()}
               onClick={() => { if (blurTimeout.current) clearTimeout(blurTimeout.current); onSelect(r); setOpen(false) }}
-              className="flex w-full items-start gap-2 px-3 py-2 text-left text-sm text-navy-700 hover:bg-navy-50"
+              className="flex w-full items-start gap-2 px-3 py-2 text-left text-sm text-km-text hover:bg-km-bg"
             >
-              <MapPin className="mt-0.5 h-3.5 w-3.5 shrink-0 text-navy-400" />
+              <MapPin className="mt-0.5 h-3.5 w-3.5 shrink-0 text-km-faint" />
               {r.label}
             </button>
           ))}

@@ -94,13 +94,13 @@ export function WizardConnectionGate({
   return (
     <Card className="border-amber-200 p-5">
       <div className="flex items-start gap-3">
-        <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-amber-100 text-amber-600">
+        <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-km-amber-soft text-amber-600">
           <AlertTriangle className="h-5 w-5" />
         </span>
         <div className="space-y-1">
-          <h3 className="font-display text-base font-semibold text-navy-900">Connexion requise</h3>
-          <p className="text-sm text-navy-500">
-            Pour démarrer la <span className="font-medium text-navy-800">{feature}</span>, connectez les outils suivants.
+          <h3 className="font-display text-base font-semibold text-km-text">Connexion requise</h3>
+          <p className="text-sm text-km-muted">
+            Pour démarrer la <span className="font-medium text-km-text">{feature}</span>, connectez les outils suivants.
             Les connexions déjà actives restent valides.
           </p>
         </div>
@@ -113,21 +113,21 @@ export function WizardConnectionGate({
           const ok = statut[key]
           const onConnect = actions[key]
           return (
-            <div key={key} className="flex items-center justify-between gap-4 rounded-xl border border-navy-100 bg-white p-4">
+            <div key={key} className="flex items-center justify-between gap-4 rounded-xl border border-km-line bg-white p-4">
               <div className="flex min-w-0 items-start gap-3">
-                <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-kiwi-50 text-kiwi-700">
+                <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-kiwi-50 text-km-green">
                   <Icon className="h-4 w-4" />
                 </span>
                 <div className="min-w-0">
                   <div className="flex flex-wrap items-center gap-2">
-                    <p className="text-sm font-medium text-navy-800">{meta.label}</p>
+                    <p className="text-sm font-medium text-km-text">{meta.label}</p>
                     {ok ? (
                       <Badge tone="kiwi" className="gap-1"><CheckCircle2 className="h-3 w-3" /> Connecté</Badge>
                     ) : (
                       <Badge tone="amber">Non connecté</Badge>
                     )}
                   </div>
-                  <p className="mt-0.5 text-xs text-navy-500">{meta.description}</p>
+                  <p className="mt-0.5 text-xs text-km-muted">{meta.description}</p>
                   {!ok && !onConnect && indices[key] && (
                     <p className="mt-1 text-[11px] text-amber-700">{indices[key]}</p>
                   )}
@@ -141,7 +141,7 @@ export function WizardConnectionGate({
             </div>
           )
         })}
-        <p className="pt-2 text-xs text-navy-400">
+        <p className="pt-2 text-xs text-km-faint">
           Une fois connecté(e), revenez sur cet onglet : la page se mettra à jour automatiquement.
         </p>
       </div>

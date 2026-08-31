@@ -103,16 +103,16 @@ function EnvoyerSignatureDialog({
     <Dialog open={open} onClose={onClose} title="Envoyer pour signature" description="Génère le(s) PDF de mandat et ouvre l'éditeur DocuSign pour vérification et envoi.">
       <div className="space-y-3">
         {!contact?.email && (
-          <p className="text-xs text-red-600">Le contact signataire de ce mandat n'a pas d'adresse email renseignée.</p>
+          <p className="text-xs text-km-red">Le contact signataire de ce mandat n'a pas d'adresse email renseignée.</p>
         )}
         {contact?.email && (
-          <p className="text-xs text-navy-500">Signataire : {contact.prenom} {contact.nom} (<EmailLink value={contact.email!} />)</p>
+          <p className="text-xs text-km-muted">Signataire : {contact.prenom} {contact.nom} (<EmailLink value={contact.email!} />)</p>
         )}
-        <p className="text-xs text-navy-500">
+        <p className="text-xs text-km-muted">
           Document{inclutEnergix ? 's' : ''} généré{inclutEnergix ? 's' : ''} : Mandat KiWee ({dureeMois} mois){inclutEnergix && ', Autorisation Energix'}.
         </p>
-        <p className="text-[10.5px] text-navy-400">Tu seras redirigé·e vers DocuSign pour vérifier puis cliquer "Envoyer" toi-même — rien ne part automatiquement.</p>
-        {feedback && <p className="text-xs text-navy-600">{feedback}</p>}
+        <p className="text-[10.5px] text-km-faint">Tu seras redirigé·e vers DocuSign pour vérifier puis cliquer "Envoyer" toi-même — rien ne part automatiquement.</p>
+        {feedback && <p className="text-xs text-km-muted">{feedback}</p>}
         {besoinConnexionDocusign && (
           <Button type="button" size="sm" onClick={() => { connectDocusign().catch(() => {}) }}>
             Connecter mon compte DocuSign
@@ -198,14 +198,14 @@ function ValiderManuellementDialog({
             placeholder="DocuSign du partenaire, signature papier…"
           />
         </FormField>
-        <p className="text-[10.5px] text-navy-400">
+        <p className="text-[10.5px] text-km-faint">
           Cette mention est conservée sur le mandat : sans enveloppe DocuSign à consulter, c'est la
           seule trace de l'endroit où la signature a été recueillie.
         </p>
 
-        <div className="rounded-lg border border-navy-100 bg-navy-50 px-3 py-2">
-          <p className="text-[10px] uppercase tracking-wide text-navy-400">Ce qui sera enregistré</p>
-          <p className="mt-1 text-xs text-navy-700">
+        <div className="rounded-lg border border-km-line bg-km-bg px-3 py-2">
+          <p className="text-[10px] uppercase tracking-wide text-km-faint">Ce qui sera enregistré</p>
+          <p className="mt-1 text-xs text-km-text">
             Validité du {new Date(((mandat.date_debut_validite?.slice(0, 10)) ?? date) + 'T12:00:00').toLocaleDateString('fr-FR')}
             {finPrevue ? ` au ${new Date(finPrevue + 'T12:00:00').toLocaleDateString('fr-FR')}` : ', sans date de fin connue'}
             {' · statut '}
@@ -219,11 +219,11 @@ function ValiderManuellementDialog({
         </div>
 
         {!statutsUtilisables && (
-          <p className="text-xs text-red-600">
+          <p className="text-xs text-km-red">
             Statuts de mandat indisponibles — rechargez la page avant de valider.
           </p>
         )}
-        {erreur && <p className="text-xs text-red-600">{erreur}</p>}
+        {erreur && <p className="text-xs text-km-red">{erreur}</p>}
 
         <div className="flex justify-end gap-2 pt-2">
           <Button type="button" variant="ghost" onClick={onClose}>Annuler</Button>
@@ -266,8 +266,8 @@ function ConversionPathCard({ mandat }: { mandat: Mandat }) {
     { label: 'Signé', icon: FileCheck2 },
   ]
   return (
-    <div className="rounded-xl border border-navy-100 bg-white p-4">
-      <p className="mb-3 text-[10px] font-bold uppercase tracking-wide text-navy-400">Chemin de conversion</p>
+    <div className="rounded-xl border border-km-line bg-white p-4">
+      <p className="mb-3 text-[10px] font-bold uppercase tracking-wide text-km-faint">Chemin de conversion</p>
       <div className="flex items-center">
         {steps.map((s, i) => (
           <div key={s.label} className="flex flex-1 items-center last:flex-none">
@@ -275,15 +275,15 @@ function ConversionPathCard({ mandat }: { mandat: Mandat }) {
               <span
                 className={cn(
                   'flex h-8 w-8 shrink-0 items-center justify-center rounded-full',
-                  i <= step ? 'bg-gradient-to-br from-amber-600 to-amber-500 text-white shadow-sm' : 'bg-navy-100 text-navy-400',
+                  i <= step ? 'bg-gradient-to-br from-amber-600 to-amber-500 text-white shadow-sm' : 'bg-km-soft text-km-faint',
                 )}
               >
                 <s.icon className="h-3.5 w-3.5" />
               </span>
-              <span className={cn('whitespace-nowrap text-[11px] font-bold', i <= step ? 'text-navy-800' : 'text-navy-400')}>{s.label}</span>
+              <span className={cn('whitespace-nowrap text-[11px] font-bold', i <= step ? 'text-km-text' : 'text-km-faint')}>{s.label}</span>
             </div>
             {i < steps.length - 1 && (
-              <div className={cn('mx-1 h-1 flex-1 rounded', i < step ? 'bg-gradient-to-r from-amber-600 to-amber-500' : 'bg-navy-100')} />
+              <div className={cn('mx-1 h-1 flex-1 rounded', i < step ? 'bg-gradient-to-r from-amber-600 to-amber-500' : 'bg-km-soft')} />
             )}
           </div>
         ))}
@@ -300,19 +300,19 @@ function ValiditeCard({ dateDebut, dateFin }: { dateDebut: string; dateFin: stri
   const joursRestants = Math.round((fin - now) / 86400000)
 
   return (
-    <div className="rounded-xl border border-navy-100 bg-white p-4">
+    <div className="rounded-xl border border-km-line bg-white p-4">
       <div className="mb-2 flex items-center gap-2">
-        <span className="text-[10px] font-bold uppercase tracking-wide text-navy-400">Validité</span>
+        <span className="text-[10px] font-bold uppercase tracking-wide text-km-faint">Validité</span>
         <div className="flex-1" />
-        <span className={cn('text-[11px] font-bold', joursRestants < 0 ? 'text-navy-400' : joursRestants < 60 ? 'text-red-500' : 'text-amber-600')}>
+        <span className={cn('text-[11px] font-bold', joursRestants < 0 ? 'text-km-faint' : joursRestants < 60 ? 'text-red-500' : 'text-amber-600')}>
           {joursRestants < 0 ? 'expiré' : `expire dans ${joursRestants} jour${joursRestants > 1 ? 's' : ''}`}
         </span>
       </div>
-      <div className="relative h-2.5 rounded-full bg-navy-100">
+      <div className="relative h-2.5 rounded-full bg-km-soft">
         <div className="absolute inset-y-0 left-0 rounded-full bg-gradient-to-r from-kiwi-500 to-kiwi-400" style={{ width: `${pct}%` }} />
         {now >= debut && now <= fin && <div className="absolute -top-0.5 h-3.5 w-0.5 rounded bg-red-500" style={{ left: `${pct}%` }} />}
       </div>
-      <div className="mt-1.5 flex justify-between font-mono text-[10px] text-navy-400">
+      <div className="mt-1.5 flex justify-between font-mono text-[10px] text-km-faint">
         <span>{new Date(dateDebut).toLocaleDateString('fr-FR')}</span>
         {now >= debut && now <= fin && <span className="font-bold text-red-500">aujourd'hui</span>}
         <span>{new Date(dateFin).toLocaleDateString('fr-FR')}</span>
@@ -394,7 +394,7 @@ export default function MandatDetail() {
     return (
       <div>
         <Topbar crumb="Mandats" title="Mandat" />
-        <div className="p-4 sm:p-6"><p className="text-sm text-navy-400">Chargement…</p></div>
+        <div className="p-4 sm:p-6"><p className="text-sm text-km-faint">Chargement…</p></div>
       </div>
     )
   }
@@ -408,7 +408,7 @@ export default function MandatDetail() {
             <ArrowLeft className="h-4 w-4" />
             Retour aux mandats
           </Button>
-          <p className="text-sm text-navy-500">Mandat introuvable.</p>
+          <p className="text-sm text-km-muted">Mandat introuvable.</p>
         </div>
       </div>
     )
@@ -419,7 +419,7 @@ export default function MandatDetail() {
       <Topbar crumb="Mandats" title={`Mandat — ${mandat.compte_nom}`} />
 
       {/* Bandeau mandat */}
-      <div className="flex flex-wrap items-center gap-3.5 border-b border-navy-100 bg-white px-4 py-3.5 sm:px-6">
+      <div className="flex flex-wrap items-center gap-3.5 border-b border-km-line bg-white px-4 py-3.5 sm:px-6">
         <Button variant="ghost" size="icon" onClick={goBack} title="Retour aux mandats">
           <ArrowLeft className="h-4 w-4" />
         </Button>
@@ -428,11 +428,11 @@ export default function MandatDetail() {
         </span>
         <div className="min-w-0 flex-1">
           <div className="flex flex-wrap items-center gap-2">
-            <p className="truncate text-xl font-bold tracking-tight text-navy-800">Mandat {mandat.compte_nom}</p>
+            <p className="truncate text-xl font-bold tracking-tight text-km-text">Mandat {mandat.compte_nom}</p>
             <Badge tone={STATUT_MANDAT_TONE[mandat.statut] ?? 'neutral'}>{statuts.find((s) => s.code === mandat.statut)?.libelle ?? mandat.statut}</Badge>
           </div>
-          <p className="truncate text-xs text-navy-500">{mandat.nb_sites_couverts} site{mandat.nb_sites_couverts > 1 ? 's' : ''} couvert{mandat.nb_sites_couverts > 1 ? 's' : ''}</p>
-          <p className="truncate text-[10.5px] text-navy-400">
+          <p className="truncate text-xs text-km-muted">{mandat.nb_sites_couverts} site{mandat.nb_sites_couverts > 1 ? 's' : ''} couvert{mandat.nb_sites_couverts > 1 ? 's' : ''}</p>
+          <p className="truncate text-[10.5px] text-km-faint">
             {/* C'est le créateur qu'on affiche, pas un propriétaire : Mandat__c n'a pas d'OwnerId
                 côté Salesforce, donc le mandat n'a jamais eu de propriétaire à reprendre. */}
             {mandat.date_creation && <>Créé le {new Date(mandat.date_creation).toLocaleDateString('fr-FR')} </>}
@@ -466,7 +466,7 @@ export default function MandatDetail() {
       </div>
 
       {/* Onglets */}
-      <div className="flex gap-1.5 overflow-x-auto border-b border-navy-100 bg-white px-4 pt-2.5 lg:gap-0.5 lg:pt-0 sm:px-6">
+      <div className="flex gap-1.5 overflow-x-auto border-b border-km-line bg-white px-4 pt-2.5 lg:gap-0.5 lg:pt-0 sm:px-6">
         {TABS.map((t) => {
           const isActive = tab === t.key
           return (
@@ -477,13 +477,13 @@ export default function MandatDetail() {
               className={cn(
                 'mb-2.5 inline-flex shrink-0 items-center gap-1.5 whitespace-nowrap rounded-full px-3.5 py-2 text-[12.5px] font-semibold transition-colors lg:mb-0 lg:rounded-none lg:border-b-2 lg:px-3 lg:py-2.5 lg:font-normal',
                 isActive
-                  ? 'bg-ink-800 text-white lg:border-navy-800 lg:bg-transparent lg:font-semibold lg:text-navy-800'
-                  : 'border border-navy-200 bg-white text-navy-600 hover:bg-navy-50 lg:border-0 lg:border-b-2 lg:border-transparent lg:text-navy-500 lg:hover:bg-transparent lg:hover:text-navy-700',
+                  ? 'bg-ink-800 text-white lg:border-navy-800 lg:bg-transparent lg:font-semibold lg:text-km-text'
+                  : 'border border-km-line bg-white text-km-muted hover:bg-km-bg lg:border-0 lg:border-b-2 lg:border-transparent lg:text-km-muted lg:hover:bg-transparent lg:hover:text-km-text',
               )}
             >
               {t.label}
               {t.badge && (
-                <span className={cn('rounded px-1.5 py-0.5 text-[9.5px] font-bold', isActive ? 'bg-white/20 text-white lg:bg-navy-100 lg:text-navy-500' : 'bg-navy-100 text-navy-500')}>
+                <span className={cn('rounded px-1.5 py-0.5 text-[9.5px] font-bold', isActive ? 'bg-white/20 text-white lg:bg-km-soft lg:text-km-muted' : 'bg-km-soft text-km-muted')}>
                   {t.badge}
                 </span>
               )}
@@ -494,12 +494,12 @@ export default function MandatDetail() {
 
       <div className="grid grid-cols-1 lg:grid-cols-[256px_1fr]">
         {/* Colonne gauche (desktop uniquement) */}
-        <div className="hidden flex-col gap-3.5 border-r border-navy-100 bg-navy-50/60 p-3.5 lg:flex">
+        <div className="hidden flex-col gap-3.5 border-r border-km-line bg-km-bg/60 p-3.5 lg:flex">
           {compte && (
-            <div className="rounded-xl border border-navy-100 bg-white p-3.5">
+            <div className="rounded-xl border border-km-line bg-white p-3.5">
               <div className="mb-2 flex items-center gap-1.5">
                 <span className="flex h-5 w-5 items-center justify-center rounded-md bg-sky-100 text-sky-500"><Building2 className="h-2.5 w-2.5" /></span>
-                <span className="text-[10px] font-bold uppercase tracking-wide text-navy-400">Compte</span>
+                <span className="text-[10px] font-bold uppercase tracking-wide text-km-faint">Compte</span>
                 <div className="flex-1" />
                 <EntityLink to={`/comptes/${compte.id}`}>ouvrir →</EntityLink>
               </div>
@@ -510,7 +510,7 @@ export default function MandatDetail() {
           {contactSignataire && (
             <div className="rounded-xl border border-violet-200 bg-gradient-to-br from-violet-50/60 to-white p-3.5">
               <div className="mb-2.5 flex items-center gap-1.5">
-                <span className="text-[10px] font-bold uppercase tracking-wide text-navy-400">Signataire</span>
+                <span className="text-[10px] font-bold uppercase tracking-wide text-km-faint">Signataire</span>
                 <div className="flex-1" />
                 <EntityLink to={`/contacts/${contactSignataire.id}`}>ouvrir →</EntityLink>
               </div>
@@ -519,14 +519,14 @@ export default function MandatDetail() {
                   {`${contactSignataire.prenom[0] ?? ''}${contactSignataire.nom[0] ?? ''}`.toUpperCase()}
                 </div>
                 <div className="min-w-0 flex-1">
-                  <p className="truncate text-[12.5px] font-bold text-navy-800">{contactSignataire.prenom} {contactSignataire.nom}</p>
-                  {contactSignataire.fonction && <p className="truncate text-[10px] text-navy-500">{contactSignataire.fonction}</p>}
+                  <p className="truncate text-[12.5px] font-bold text-km-text">{contactSignataire.prenom} {contactSignataire.nom}</p>
+                  {contactSignataire.fonction && <p className="truncate text-[10px] text-km-muted">{contactSignataire.fonction}</p>}
                   {/* LE NUMÉRO S'AFFICHE, ET CE N'EST PAS COSMÉTIQUE. L'extension Allo décore les
                     numéros qu'elle VOIT sur la page : derrière une icône et une infobulle, elle n'a
                     rien à détecter et l'icône Allo n'apparaît jamais. Le texte est la condition pour
                     que l'appel dans Allo soit possible. */}
                   {contactSignataire.telephone && (
-                    <p className="truncate font-mono text-[10.5px] text-navy-600">{numeroLisible(contactSignataire.telephone)}</p>
+                    <p className="truncate font-mono text-[10.5px] text-km-muted">{numeroLisible(contactSignataire.telephone)}</p>
                   )}
                 </div>
               </div>
@@ -536,13 +536,13 @@ export default function MandatDetail() {
                     type="button"
                     onClick={() => void appelerNumero(contactSignataire.telephone)}
                     title="Appeler"
-                    className="flex h-7 flex-1 items-center justify-center rounded-lg border border-navy-200 bg-white text-kiwi-600 hover:bg-kiwi-50"
+                    className="flex h-7 flex-1 items-center justify-center rounded-lg border border-km-line bg-white text-km-green hover:bg-kiwi-50"
                   >
                     <Phone className="h-3 w-3" />
                   </button>
                 )}
                 {contactSignataire.email && (
-                  <a href={`mailto:${contactSignataire.email}`} title="Envoyer un email" className="flex h-7 flex-1 items-center justify-center rounded-lg border border-navy-200 bg-white text-sky-500 hover:bg-sky-50">
+                  <a href={`mailto:${contactSignataire.email}`} title="Envoyer un email" className="flex h-7 flex-1 items-center justify-center rounded-lg border border-km-line bg-white text-sky-500 hover:bg-sky-50">
                     <Mail className="h-3 w-3" />
                   </a>
                 )}
@@ -552,15 +552,15 @@ export default function MandatDetail() {
         </div>
 
         {/* Centre */}
-        <div className="bg-navy-50 p-4 sm:p-5">
+        <div className="bg-km-bg p-4 sm:p-5">
           {tab === 'mandat' && (
             <div className="flex flex-col gap-3.5">
               <ConversionPathCard mandat={mandat} />
               {mandat.date_fin_validite && (mandat.date_debut_validite || mandat.date_signature) && (
                 <ValiditeCard dateDebut={(mandat.date_debut_validite ?? mandat.date_signature) as string} dateFin={mandat.date_fin_validite} />
               )}
-              <div className="rounded-xl border border-navy-100 bg-white p-4">
-              <p className="mb-2.5 text-[10px] font-bold uppercase tracking-wide text-navy-400">Détail du mandat</p>
+              <div className="rounded-xl border border-km-line bg-white p-4">
+              <p className="mb-2.5 text-[10px] font-bold uppercase tracking-wide text-km-faint">Détail du mandat</p>
               <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
                 {/* Edition en place : la date de signature se saisit ici, plus dans une modale.
                     C'est le seul champ que le mandat laisse modifier a la main -- tout le reste
@@ -576,8 +576,8 @@ export default function MandatDetail() {
                   />
                 ) : (
                   <div>
-                    <p className="mb-0.5 text-[10px] uppercase tracking-wide text-navy-400">Date de signature</p>
-                    <p className="text-xs font-semibold text-navy-800">{mandat.date_signature ? new Date(mandat.date_signature).toLocaleDateString('fr-FR') : '—'}</p>
+                    <p className="mb-0.5 text-[10px] uppercase tracking-wide text-km-faint">Date de signature</p>
+                    <p className="text-xs font-semibold text-km-text">{mandat.date_signature ? new Date(mandat.date_signature).toLocaleDateString('fr-FR') : '—'}</p>
                   </div>
                 )}
                 {isAdmin && (
@@ -592,21 +592,21 @@ export default function MandatDetail() {
                   />
                 )}
                 <div>
-                  <p className="mb-0.5 text-[10px] uppercase tracking-wide text-navy-400">Sites couverts</p>
-                  <p className="text-xs font-semibold text-navy-800">{mandat.nb_sites_couverts}</p>
+                  <p className="mb-0.5 text-[10px] uppercase tracking-wide text-km-faint">Sites couverts</p>
+                  <p className="text-xs font-semibold text-km-text">{mandat.nb_sites_couverts}</p>
                 </div>
                 <div>
-                  <p className="mb-0.5 text-[10px] uppercase tracking-wide text-navy-400">Courtiers couverts</p>
-                  <p className="text-xs font-semibold text-navy-800">{mandat.courtier_codes.length > 0 ? mandat.courtier_codes.map((code) => COURTIER_LABEL[code] ?? code).join(', ') : '—'}</p>
+                  <p className="mb-0.5 text-[10px] uppercase tracking-wide text-km-faint">Courtiers couverts</p>
+                  <p className="text-xs font-semibold text-km-text">{mandat.courtier_codes.length > 0 ? mandat.courtier_codes.map((code) => COURTIER_LABEL[code] ?? code).join(', ') : '—'}</p>
                 </div>
                 {mandat.docusign_envelope_id && (
                   <div className="sm:col-span-2">
-                    <p className="mb-0.5 text-[10px] uppercase tracking-wide text-navy-400">Enveloppe DocuSign</p>
-                    <p className="font-mono text-xs text-navy-600">{mandat.docusign_envelope_id}</p>
+                    <p className="mb-0.5 text-[10px] uppercase tracking-wide text-km-faint">Enveloppe DocuSign</p>
+                    <p className="font-mono text-xs text-km-muted">{mandat.docusign_envelope_id}</p>
                   </div>
                 )}
               </div>
-              <p className="mt-3 text-[10.5px] italic text-navy-400">
+              <p className="mt-3 text-[10.5px] italic text-km-faint">
                 Le mandat définit le périmètre de sites que KiWee est autorisé à analyser — une recommandation peut ne porter que sur une partie de ce périmètre.
               </p>
               <HistoriqueDiscret tableNom="mandats" ligneId={mandat.id} />
@@ -617,22 +617,22 @@ export default function MandatDetail() {
           {tab === 'perimetre' && (
             <div className="flex flex-col gap-3.5">
               {sitesDuMandat.length === 0 ? (
-                <p className="text-sm text-navy-400">Aucun compteur couvert par ce mandat.</p>
+                <p className="text-sm text-km-faint">Aucun compteur couvert par ce mandat.</p>
               ) : (
                 sitesDuMandat.map((s) => {
                   const compteursDuSite = compteursDuMandat.filter((c) => c.site_id === s.id)
                   return (
-                    <div key={s.id} className="rounded-xl border border-navy-100 bg-white p-3.5">
+                    <div key={s.id} className="rounded-xl border border-km-line bg-white p-3.5">
                       <div
                         onClick={() => navigate(`/sites/${s.id}`)}
                         className="mb-2.5 flex cursor-pointer items-center gap-3 hover:opacity-80"
                       >
-                        <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-[10px] bg-kiwi-100 text-kiwi-600">
+                        <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-[10px] bg-km-green-soft text-km-green">
                           <MapPin className="h-4 w-4" />
                         </span>
                         <div className="min-w-0 flex-1">
-                          <p className="truncate text-sm font-bold text-navy-800">{s.nom}</p>
-                          <p className="truncate text-[10.5px] text-navy-400">{s.type_site} · {s.ville}</p>
+                          <p className="truncate text-sm font-bold text-km-text">{s.nom}</p>
+                          <p className="truncate text-[10.5px] text-km-faint">{s.type_site} · {s.ville}</p>
                         </div>
                         <Badge tone={s.statut === 'actif' ? 'kiwi' : 'neutral'}>{s.statut}</Badge>
                       </div>
@@ -641,11 +641,11 @@ export default function MandatDetail() {
                           <div
                             key={c.id}
                             onClick={() => navigate(`/compteurs/${c.id}`)}
-                            className="flex cursor-pointer items-center gap-2 rounded-lg px-1.5 py-1 hover:bg-navy-50/60"
+                            className="flex cursor-pointer items-center gap-2 rounded-lg px-1.5 py-1 hover:bg-km-bg/60"
                           >
-                            <Gauge className="h-3 w-3 shrink-0 text-navy-400" />
-                            <p className="truncate text-xs font-semibold text-navy-700">{c.utilisation || c.numero_pdl}</p>
-                            <p className="truncate font-mono text-[10px] text-navy-400">{c.numero_pdl}</p>
+                            <Gauge className="h-3 w-3 shrink-0 text-km-faint" />
+                            <p className="truncate text-xs font-semibold text-km-text">{c.utilisation || c.numero_pdl}</p>
+                            <p className="truncate font-mono text-[10px] text-km-faint">{c.numero_pdl}</p>
                           </div>
                         ))}
                       </div>
@@ -679,21 +679,21 @@ export default function MandatDetail() {
                 }}
               />
               {documentsDuMandat.length === 0 ? (
-                <p className="text-sm text-navy-400">Aucun fichier lié à ce mandat.</p>
+                <p className="text-sm text-km-faint">Aucun fichier lié à ce mandat.</p>
               ) : (
-                <div className="overflow-hidden rounded-xl border border-navy-100 bg-white">
+                <div className="overflow-hidden rounded-xl border border-km-line bg-white">
                   {documentsDuMandat.map((d) => (
                     <div
                       key={d.id}
                       onClick={() => navigate(`/documents/${d.id}`)}
-                      className="flex cursor-pointer items-center gap-3 border-b border-navy-50 px-4 py-3 last:border-b-0 hover:bg-navy-50/60"
+                      className="flex cursor-pointer items-center gap-3 border-b border-navy-50 px-4 py-3 last:border-b-0 hover:bg-km-bg/60"
                     >
-                      <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-navy-100 text-navy-500">
+                      <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-km-soft text-km-muted">
                         <FileText className="h-4 w-4" />
                       </span>
                       <div className="min-w-0 flex-1">
-                        <p className="truncate text-sm font-bold text-navy-800">{d.nom}</p>
-                        <p className="truncate text-[10.5px] text-navy-400">{d.auteur} · {new Date(d.date_creation).toLocaleDateString('fr-FR')}</p>
+                        <p className="truncate text-sm font-bold text-km-text">{d.nom}</p>
+                        <p className="truncate text-[10.5px] text-km-faint">{d.auteur} · {new Date(d.date_creation).toLocaleDateString('fr-FR')}</p>
                       </div>
                       <Badge tone="neutral">{d.type_document}</Badge>
                     </div>
@@ -729,11 +729,11 @@ export default function MandatDetail() {
         description="Cette action est irréversible. Les recommandations et documents liés à ce mandat ne seront pas supprimés mais perdront leur lien à ce mandat."
       >
         {suppression.erreur && (
-          <p className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-xs text-red-700">{suppression.erreur}</p>
+          <p className="rounded-lg border border-red-200 bg-km-red-soft px-3 py-2 text-xs text-red-700">{suppression.erreur}</p>
         )}
         <div className="flex justify-end gap-2 pt-2">
           <Button type="button" variant="ghost" onClick={() => { suppression.reinitialiser(); setConfirmDelete(false) }}>Annuler</Button>
-          <Button type="button" variant="outline" className="border-red-200 text-red-600 hover:bg-red-50" disabled={suppression.enCours} onClick={handleDelete}>
+          <Button type="button" variant="outline" className="border-red-200 text-km-red hover:bg-km-red-soft" disabled={suppression.enCours} onClick={handleDelete}>
                 {suppression.enCours ? 'Suppression…' : 'Supprimer définitivement'}
               </Button>
         </div>

@@ -100,13 +100,13 @@ export default function SignalDetail() {
         </Button>
 
         {!signal ? (
-          <p className="text-sm text-navy-500">Signal introuvable.</p>
+          <p className="text-sm text-km-muted">Signal introuvable.</p>
         ) : (
           <Card className="max-w-xl p-6">
             <CardHeader className="px-0 pt-0">
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-3">
-                  <span className="flex h-10 w-10 items-center justify-center rounded-lg bg-red-100 text-red-600">
+                  <span className="flex h-10 w-10 items-center justify-center rounded-lg bg-red-100 text-km-red">
                     <Radio className="h-5 w-5" />
                   </span>
                   <CardTitle className="font-display text-base">{signal.type_signal}</CardTitle>
@@ -137,7 +137,7 @@ export default function SignalDetail() {
                   signaux de la base étaient figés là où l'import les avait laissés, et la chaîne
                   signal → opportunité de sa diapositive 5 s'arrêtait au premier maillon. */}
               {canManage && signal.statut !== 'CONVERTI' && signal.statut !== 'ECARTE' && (
-                <div className="flex flex-wrap items-center gap-2 rounded-kw-lg border border-kw-border bg-kw-subtle p-3">
+                <div className="flex flex-wrap items-center gap-2 rounded-km-md border border-km-line bg-km-soft p-3">
                   {signal.statut === 'NOUVEAU' && (
                     <Button size="sm" variant="outline" onClick={() => majStatut('A_QUALIFIER')}>
                       Prendre en qualification
@@ -150,7 +150,7 @@ export default function SignalDetail() {
                   <Button size="sm" variant="ghost" onClick={() => majStatut('ECARTE')}>
                     Écarter
                   </Button>
-                  <span className="text-kw-xs text-kw-meta">
+                  <span className="text-km-label text-km-muted">
                     {signal.statut === 'NOUVEAU'
                       ? 'Nouveau : à vérifier avant d’engager quoi que ce soit.'
                       : 'À qualifier : vérifier la pertinence, compléter le contexte, décider.'}
@@ -158,22 +158,22 @@ export default function SignalDetail() {
                 </div>
               )}
               {signal.statut === 'CONVERTI' && opportuniteDuSignal && (
-                <p className="rounded-kw-lg border border-kiwi-200 bg-kiwi-50 p-3">
-                  <span className="text-navy-400">Converti en opportunité :</span>{' '}
+                <p className="rounded-km-md border border-kiwi-200 bg-kiwi-50 p-3">
+                  <span className="text-km-faint">Converti en opportunité :</span>{' '}
                   <EntityLink to={`/opportunites/${opportuniteDuSignal.id}`}>
                     {opportuniteDuSignal.reference ?? 'voir l’opportunité'}
                   </EntityLink>
                 </p>
               )}
-              <p><span className="text-navy-400">Site :</span> <EntityLink to={`/sites/${signal.site_id}`}>{signal.site_nom}</EntityLink></p>
+              <p><span className="text-km-faint">Site :</span> <EntityLink to={`/sites/${signal.site_id}`}>{signal.site_nom}</EntityLink></p>
               {signal.recommandation_id && (
                 <p>
-                  <span className="text-navy-400">Recommandation liée :</span>{' '}
+                  <span className="text-km-faint">Recommandation liée :</span>{' '}
                   <EntityLink to={`/recommandations/${signal.recommandation_id}`}>{signal.recommandation_nom}</EntityLink>
                 </p>
               )}
-              {signal.conseiller && <p><span className="text-navy-400">Responsable :</span> {signal.conseiller}</p>}
-              <p><span className="text-navy-400">Créé le :</span> {new Date(signal.date_creation).toLocaleDateString('fr-FR')}</p>
+              {signal.conseiller && <p><span className="text-km-faint">Responsable :</span> {signal.conseiller}</p>}
+              <p><span className="text-km-faint">Créé le :</span> {new Date(signal.date_creation).toLocaleDateString('fr-FR')}</p>
               {/* Edition en place : la gravite d'un signal se requalifie souvent apres coup, et
                   la description n'apparaissait PAS tant qu'elle etait vide -- rien n'invitait a
                   la remplir. La gravite est bornee a 0-100 comme dans l'ancienne modale. */}
@@ -200,8 +200,8 @@ export default function SignalDetail() {
                 </>
               ) : (
                 <>
-                  <p><span className="text-navy-400">Gravité :</span> {signal.gravite != null ? `${signal.gravite}/100` : 'Non qualifiée'}</p>
-                  {signal.description && <p className="text-navy-600">{signal.description}</p>}
+                  <p><span className="text-km-faint">Gravité :</span> {signal.gravite != null ? `${signal.gravite}/100` : 'Non qualifiée'}</p>
+                  {signal.description && <p className="text-km-muted">{signal.description}</p>}
                 </>
               )}
               <HistoriqueDiscret tableNom="signaux" ligneId={signal.id} />
@@ -231,11 +231,11 @@ export default function SignalDetail() {
             description="Cette action est irréversible."
           >
             {suppression.erreur && (
-              <p className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-xs text-red-700">{suppression.erreur}</p>
+              <p className="rounded-lg border border-red-200 bg-km-red-soft px-3 py-2 text-xs text-red-700">{suppression.erreur}</p>
             )}
             <div className="flex justify-end gap-2 pt-2">
               <Button type="button" variant="ghost" onClick={() => { suppression.reinitialiser(); setConfirmDelete(false) }}>Annuler</Button>
-              <Button type="button" variant="outline" className="border-red-200 text-red-600 hover:bg-red-50" disabled={suppression.enCours} onClick={handleDelete}>
+              <Button type="button" variant="outline" className="border-red-200 text-km-red hover:bg-km-red-soft" disabled={suppression.enCours} onClick={handleDelete}>
                 {suppression.enCours ? 'Suppression…' : 'Supprimer définitivement'}
               </Button>
             </div>

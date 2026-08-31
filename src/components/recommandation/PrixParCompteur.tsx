@@ -78,7 +78,7 @@ export function PrixParCompteur({
 
   if (version.compteurs.length === 0) {
     return (
-      <p className="mt-1 text-kw-tiny text-kw-faint">
+      <p className="mt-1 text-km-label text-km-faint">
         Aucun point de livraison rattaché à cette version : les prix par PDL ne peuvent pas être saisis.
       </p>
     )
@@ -242,16 +242,16 @@ export function PrixParCompteur({
             }}
             title={`Saisir les prix de cette offre — ${chiffres} point${chiffres > 1 ? 's' : ''} de livraison chiffré${chiffres > 1 ? 's' : ''} sur ${version.compteurs.length}`}
             className={cn(
-              'inline-flex items-center gap-1 rounded-kw-md px-2 py-1 text-kw-tiny font-bold',
+              'inline-flex items-center gap-1 rounded-km px-2 py-1 text-km-label font-bold',
               chiffres === 0
-                ? 'bg-kw-green text-white hover:brightness-95'
-                : 'border border-kw-border-strong bg-white text-kw-label hover:border-kw-green hover:text-kw-green',
+                ? 'bg-km-green text-white hover:brightness-95'
+                : 'border border-km-line bg-white text-km-muted hover:border-km-green hover:text-km-green',
             )}
           >
             <PenLine className="h-2.5 w-2.5" />
             {chiffres === 0 ? 'Saisir les prix' : 'Modifier les prix'}
             {!unSeul && (
-              <span className="font-normal text-kw-faint">
+              <span className="font-normal text-km-faint">
                 {chiffres}/{version.compteurs.length}
               </span>
             )}
@@ -262,9 +262,9 @@ export function PrixParCompteur({
           {choixOuvert && !unSeul && (
             <span
               onClick={(e) => e.stopPropagation()}
-              className="animate-kw-fade-slide absolute right-0 top-full z-30 mt-1 flex w-64 flex-col rounded-kw-lg border border-kw-border bg-white py-1 shadow-kw-panel"
+              className="animate-kw-fade-slide absolute right-0 top-full z-30 mt-1 flex w-64 flex-col rounded-km-md border border-km-line bg-white py-1 shadow-kw-panel"
             >
-              <span className="px-3 py-1 text-kw-micro font-bold uppercase tracking-[0.08em] text-kw-faint">
+              <span className="px-3 py-1 text-km-label font-bold uppercase tracking-[0.08em] text-km-faint">
                 Quel point de livraison ?
               </span>
               {version.compteurs.map((lien) => {
@@ -279,7 +279,7 @@ export function PrixParCompteur({
                     key={lien.lien_id}
                     type="button"
                     onClick={() => { setChoixOuvert(false); setSaisieOuverte(lien.lien_id) }}
-                    className="flex items-center gap-2 px-3 py-1.5 text-left hover:bg-kw-subtle"
+                    className="flex items-center gap-2 px-3 py-1.5 text-left hover:bg-km-soft"
                   >
                     <span
                       className={cn(
@@ -293,13 +293,13 @@ export function PrixParCompteur({
                         ? <Flame className="h-2 w-2" />
                         : <Zap className="h-2 w-2" />}
                     </span>
-                    <span className="min-w-0 flex-1 truncate font-mono text-kw-tiny">
+                    <span className="min-w-0 flex-1 truncate font-mono text-km-label">
                       {compteur?.numero_pdl || lien.label || 'Compteur'}
                     </span>
                     <span
                       className={cn(
-                        'shrink-0 text-kw-micro font-bold',
-                        chiffre ? 'text-kw-green' : 'text-kw-faint',
+                        'shrink-0 text-km-label font-bold',
+                        chiffre ? 'text-km-green' : 'text-km-faint',
                       )}
                     >
                       {chiffre ? 'chiffré' : 'à chiffrer'}
