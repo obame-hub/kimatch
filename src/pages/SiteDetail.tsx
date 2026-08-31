@@ -50,7 +50,7 @@ import { useRaccourcisOnglets } from '@/lib/useRaccourcisOnglets'
 import type { Compte, Contact } from '@/types/domain'
 import { appelerNumero, numeroLisible } from '@/lib/telephonie'
 
-type TabKey = 'synthese' | 'contrats' | 'compteurs' | 'recommandations' | 'signaux' | 'mandats' | 'fichiers' | 'historique' | 'activite'
+type TabKey = 'synthese' | 'contacts' | 'contrats' | 'compteurs' | 'recommandations' | 'signaux' | 'mandats' | 'fichiers' | 'historique' | 'activite'
 
 function copyToClipboard(text: string, onDone: (msg: string) => void) {
   if (!text) return
@@ -156,6 +156,12 @@ export default function SiteDetail() {
 
   const TABS: { key: TabKey; label: string; labelMobile?: string; badge?: string; mobileOnly?: boolean }[] = [
     { key: 'synthese', label: 'Site' },
+    /* ══ LES CONTACTS DEVIENNENT UN ONGLET ══
+       Michel et Naoëlle, 31/08/2026 : « enlever la sidebar de gauche dans certains objets qui
+       montre les objets liés, pour les transformer en onglets dans l'objet sur lequel on se
+       trouve ». Les contacts d'un site SONT un objet lié : leur place est ici, à côté des
+       contrats et des compteurs, pas dans une colonne de 300 px qui rétrécit tout le reste. */
+    { key: 'contacts', label: 'Contacts', badge: contactsDuSite?.length ? String(contactsDuSite.length) : undefined },
     { key: 'contrats', label: 'Contrats' },
     { key: 'compteurs', label: 'Compteurs', badge: compteursDuSite.length ? String(compteursDuSite.length) : undefined },
     { key: 'recommandations', label: 'Recommandations', labelMobile: 'Recos', badge: recommandationsDuSite.length ? String(recommandationsDuSite.length) : undefined },
@@ -228,7 +234,10 @@ export default function SiteDetail() {
         </span>
         <div className="min-w-0 flex-1">
           <p className="truncate text-xl font-bold tracking-tight text-km-text">{site.nom}</p>
-          <p className="truncate text-xs text-km-muted">{compte?.nom ?? site.compte_nom} · {compteursDuSite.length} compteur{compteursDuSite.length > 1 ? 's' : ''}</p>
+          <p className="truncate text-xs text-km-muted">
+            <EntityLink to={`/comptes/${site.compte_id}`}>{compte?.nom ?? site.compte_nom}</EntityLink>
+            {' · '}{compteursDuSite.length} compteur{compteursDuSite.length > 1 ? 's' : ''}
+          </p>
           <p className="truncate text-km-xs text-km-faint">
             {site.date_creation && <>Créé le {new Date(site.date_creation).toLocaleDateString('fr-FR')} · </>}
             Propriétaire : {site.proprietaire_nom || 'Aucun'}
@@ -298,18 +307,17 @@ export default function SiteDetail() {
       </div>
 
       {/* 3 zones */}
-      <div className="grid min-h-0 flex-1 grid-cols-1 overflow-hidden lg:grid-cols-[300px_minmax(0,1fr)_340px]">
+      <div className="grid min-h-0 flex-1 grid-cols-1 overflow-hidden lg:grid-cols-[minmax(0,1fr)_340px]">
         {/* Colonne gauche — Compte + Contacts (desktop uniquement) */}
-        <div className="hidden min-h-0 flex-col gap-3.5 overflow-y-auto border-r border-km-line bg-km-bg/60 p-3.5 lg:flex">
-          <ComptePanel compte={compte} compteNom={site.compte_nom} compteId={site.compte_id} onCopy={showToast} />
-          <ContactsPanel contacts={contactsDuSite} />
-        </div>
-
         {/* Centre — contenu de l'onglet */}
         <div className="min-h-0 overflow-y-auto bg-km-bg p-4 sm:p-5">
           {tab === 'synthese' && (
             <div className="flex flex-col gap-3.5">
               <HealthCard health={health} donutColor={donutColor} />
+              {/* LE COMPTE PARENT RESTE UNE CARTE, il ne rentre pas dans une ligne d'en-tête : il
+                  porte le type, la note Ellisphere et le SIREN copiable. Il vient en tête de
+                  l'onglet parce que c'est le premier « où suis-je » qu'on cherche sur un site. */}
+              <ComptePanel compte={compte} compteNom={site.compte_nom} compteId={site.compte_id} onCopy={showToast} />
               <div className="grid grid-cols-1 gap-3.5 lg:grid-cols-[1fr_1.2fr]">
                 <div className="flex flex-col overflow-hidden rounded-xl border border-km-line bg-white">
                   <iframe
@@ -458,6 +466,8 @@ export default function SiteDetail() {
               </div>
             </div>
           )}
+
+          {tab === 'contacts' && <ContactsPanel contacts={contactsDuSite} />}
 
           {tab === 'contrats' && (
             <div className="flex flex-col gap-3.5">

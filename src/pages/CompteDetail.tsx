@@ -106,7 +106,7 @@ const TYPE_BADGE_STYLE: Record<TypeCompte, { bg: string; border: string; text: s
   kiwee: { bg: 'bg-km-soft', border: 'border-km-line', text: 'text-km-muted', dot: 'bg-km-faint', icone: Leaf },
 }
 
-type TabKey = 'synthese' | 'contrats' | 'compteurs' | 'recommandations' | 'signaux' | 'mandats' | 'fichiers' | 'historique' | 'activite'
+type TabKey = 'synthese' | 'contacts' | 'contrats' | 'compteurs' | 'recommandations' | 'signaux' | 'mandats' | 'fichiers' | 'historique' | 'activite'
 
 function copyToClipboard(text: string, onDone: (msg: string) => void) {
   if (!text) return
@@ -266,6 +266,10 @@ export default function CompteDetail() {
 
   const TABS: { key: TabKey; label: string; labelMobile?: string; badge?: string; mobileOnly?: boolean }[] = [
     { key: 'synthese', label: 'Compte' },
+    /* Les contacts sortent du volet gauche pour rejoindre les autres objets liés (Michel et
+       Naoëlle, 31/08/2026). Ils occupaient 300 px en permanence sur les huit onglets, y compris
+       ceux où l'on ne travaille pas sur les personnes. */
+    { key: 'contacts', label: 'Contacts', badge: contactsDuCompte.length ? String(contactsDuCompte.length) : undefined },
     { key: 'contrats', label: 'Contrats', badge: contratsDuCompte.length ? String(contratsDuCompte.length) : undefined },
     { key: 'compteurs', label: 'Compteurs', badge: compteursDuCompte.length ? String(compteursDuCompte.length) : undefined },
     { key: 'recommandations', label: 'Recommandations', labelMobile: 'Recos', badge: recommandationsDuCompte.length ? String(recommandationsDuCompte.length) : undefined },
@@ -446,19 +450,16 @@ export default function CompteDetail() {
       </div>
 
       {/* 3 zones */}
-      <div className="grid min-h-0 flex-1 grid-cols-1 overflow-hidden lg:grid-cols-[300px_minmax(0,1fr)_340px]">
-        {/* Colonne gauche — Contacts (desktop uniquement) */}
-        <div className="hidden min-h-0 flex-col gap-3.5 overflow-y-auto border-r border-km-line bg-km-soft p-3.5 lg:flex">
-          <ContactsPanel contacts={contactsDuCompte} compteId={compte.id} />
-          <CommentaireCard compte={compte} />
-        </div>
-
+      <div className="grid min-h-0 flex-1 grid-cols-1 overflow-hidden lg:grid-cols-[minmax(0,1fr)_340px]">
         {/* Centre — contenu de l'onglet */}
         <div className="min-h-0 overflow-y-auto bg-km-bg p-4 sm:p-5">
+          {tab === 'contacts' && <ContactsPanel contacts={contactsDuCompte} compteId={compte.id} />}
+
           {tab === 'synthese' && (
             <div className="flex flex-col gap-3.5">
               {/* Les deux héros, dans la grille de la maquette : ils se répartissent la largeur et
                   passent l'un sous l'autre en dessous de 240px chacun. */}
+              <CommentaireCard compte={compte} />
               <div className="grid gap-3" style={{ gridTemplateColumns: 'repeat(auto-fit,minmax(min(240px,100%),1fr))' }}>
                 <ValeurCompteCard compte={compte} sitesDuCompte={sitesDuCompte} contratsDuCompte={contratsDuCompte} />
                 <HeroScoreEllipro

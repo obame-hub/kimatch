@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
-import { ArrowLeft, Star, Trash2, Building2, FileCheck2, FileText, Sparkle } from 'lucide-react'
+import { ArrowLeft, Star, Trash2, FileCheck2, FileText, Sparkle } from 'lucide-react'
 import { Topbar } from '@/components/layout/Topbar'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
@@ -193,12 +193,34 @@ export default function ContactDetail() {
               </span>
             )}
           </div>
+          {/* ══ CE QUE LE VOLET GAUCHE DISAIT, ET QUI TIENT EN DEUX LIGNES ══
+              Michel et Naoëlle, 31/08/2026 : « il y a trop de pollution visuelle ; on aimerait
+              enlever la sidebar de gauche dans certains objets pour avoir de la place pour le bloc
+              principal et la sidebar d'activité ».
+              Sur cette fiche, le volet portait deux cartes. Celle du COMPTE répétait un lien déjà
+              présent ici même — seuls le segment et le nombre de sites étaient inédits, et ils
+              tiennent au bout de la ligne. Celle des ÉCHANGES annonçait un compte et une date que
+              le fil de droite montre en détail : elle reste, en une ligne, parce qu'un total se lit
+              plus vite qu'une liste. 280 px de large pour ça. */}
           <p className="truncate text-xs text-km-muted">
             {contact.fonction || '—'} · <EntityLink to={`/comptes/${contact.compte_id}`}>{contact.compte_nom}</EntityLink>
+            {compte && (
+              <span className="text-km-faint">
+                {' '}· {compte.segment} · {compte.nb_sites} site{compte.nb_sites > 1 ? 's' : ''}
+              </span>
+            )}
           </p>
           <p className="truncate text-km-xs text-km-faint">
             {contact.date_creation && <>Créé le {new Date(contact.date_creation).toLocaleDateString('fr-FR')} · </>}
             Propriétaire : {contact.proprietaire_nom || 'Aucun'}
+            {interactionsDuContact.length > 0 && (
+              <>
+                {' '}· {interactionsDuContact.length} échange{interactionsDuContact.length > 1 ? 's' : ''}
+                {dernierEchange && (
+                  <>, dernier le {new Date(dernierEchange.date_interaction).toLocaleDateString('fr-FR')}</>
+                )}
+              </>
+            )}
           </p>
         </div>
         <div className="flex items-center gap-1.5">
@@ -255,42 +277,7 @@ export default function ContactDetail() {
         })}
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-[280px_1fr_304px]">
-        {/* Colonne gauche — Compte (desktop uniquement) */}
-        <div className="hidden flex-col gap-3.5 border-r border-km-line bg-km-bg/60 p-3.5 lg:flex">
-          {compte && (
-            <div className="rounded-xl border border-km-line bg-white p-3.5">
-              <div className="mb-2 flex items-center gap-1.5">
-                <span className="flex h-5 w-5 items-center justify-center rounded-md bg-sky-100 text-sky-500">
-                  <Building2 className="h-2.5 w-2.5" />
-                </span>
-                <span className="text-km-xs font-bold uppercase tracking-wide text-km-faint">Compte</span>
-                <div className="flex-1" />
-                <EntityLink to={`/comptes/${compte.id}`}>ouvrir →</EntityLink>
-              </div>
-              <p className="text-km-body font-bold text-sky-500">{compte.nom}</p>
-              <p className="mt-1 text-km-label text-km-muted">{compte.segment} · {compte.nb_sites} site{compte.nb_sites > 1 ? 's' : ''}</p>
-            </div>
-          )}
-
-          <div className="rounded-xl border border-km-line bg-white p-3.5">
-            <div className="mb-2.5 flex items-center gap-1.5">
-              <span className="text-km-xs font-bold uppercase tracking-wide text-km-faint">Nos échanges</span>
-            </div>
-            <div className="flex items-baseline gap-2">
-              <span className="text-2xl font-bold tracking-tight text-km-text">{interactionsDuContact.length}</span>
-              <span className="text-km-xs text-km-muted">
-                échange{interactionsDuContact.length > 1 ? 's' : ''}
-                {dernierEchange && (
-                  <>
-                    <br />dernier : <span className="font-semibold text-km-green">{new Date(dernierEchange.date_interaction).toLocaleDateString('fr-FR')}</span>
-                  </>
-                )}
-              </span>
-            </div>
-          </div>
-        </div>
-
+      <div className="grid grid-cols-1 lg:grid-cols-[minmax(0,1fr)_304px]">
         {/* Centre */}
         <div className="bg-km-bg p-4 sm:p-5">
           {tab === 'contact' && (
