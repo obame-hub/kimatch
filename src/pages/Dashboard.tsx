@@ -1,7 +1,8 @@
 import { useNavigate } from 'react-router-dom'
 import { CheckSquare, Diamond, Plus, TrendingUp, Zap } from 'lucide-react'
 import { Topbar } from '@/components/layout/Topbar'
-import { BandeauMarge } from '@/components/dashboard/BandeauMarge'
+import { Button } from '@/components/ui/button'
+import { Indicateurs } from '@/components/ui/page-header'
 import { TuileChiffre } from '@/components/dashboard/TuileChiffre'
 import { MaJournee } from '@/components/dashboard/MaJournee'
 import { MaPerformance } from '@/components/dashboard/MaPerformance'
@@ -59,43 +60,119 @@ export default function Dashboard() {
   const nombre = (v: number | undefined) =>
     chiffresEnCours || v == null ? '—' : v.toLocaleString('fr-FR')
 
+  /**
+   * SES QUATRE MESURES, ET UNE SEULE QUESTION : qu'est-ce qui merite mon attention aujourd'hui ?
+   *
+   * Aucune ne parle de performance passee. Un commercial qui s'assoit le matin ne cherche pas sa
+   * marge du mois, il cherche ce qu'il a a faire — c'est la phrase de Michel de l'appel du 25/08 :
+   * « ce qui est le plus pertinent, c'est que le commercial puisse s'asseoir et savoir ce qu'il a
+   * a faire ».
+   *
+   * LES PRECISIONS NE SONT PAS DECORATIVES : chacune dit d'ou vient le chiffre, ou ce qu'il faut
+   * en faire. Un « 12 » sans « a decider aujourd'hui » n'aide personne a choisir quoi ouvrir.
+   */
+  /* `joursRestants` est deja calcule par la couche de donnees : negatif quand l'echeance est
+     passee, nul sans date. Le recalculer ici depuis une date brute ferait deux verites pour un
+     seul chiffre — et c'est le genre d'ecart qui ne se voit qu'a cote de « Ma journee ». */
+  const aFaire = (journee ?? []).filter((a) => !a.faite)
+  const enRetard = aFaire.filter((a) => (a.joursRestants ?? 0) < 0).length
+  const mesures = [
+    {
+      libelle: 'Actions du jour',
+      valeur: journeeEnCours ? '—' : String(aFaire.length),
+      precision: enRetard > 0 ? `${enRetard} en retard` : 'Rien en retard',
+    },
+    {
+      libelle: 'Signaux à décider',
+      valeur: nombre(chiffres?.signauxATraiter),
+      precision: 'Ouvrir une opportunité, ou écarter',
+    },
+    {
+      libelle: 'À présenter',
+      valeur: nombre(chiffres?.recosAPresenter),
+      precision: 'Le client attend une réponse',
+    },
+    {
+      libelle: 'Opportunités actives',
+      valeur: nombre(chiffres?.opportunitesActives),
+      precision: 'Dans le cycle commercial',
+    },
+  ]
+
   return (
     <div className="flex min-h-0 flex-1 flex-col">
       <Topbar title="Tableau de bord" />
 
       <div className="min-h-0 flex-1 overflow-y-auto px-4 pb-10 pt-6 lg:px-6">
-        {/* ══════ L'EN-TÊTE ══════ */}
-        <div className="flex flex-wrap items-start gap-4">
+        {/* ══════ L'EN-TÊTE, AU MODÈLE COMMUN DE SON DOSSIER ══════
+
+            « Nom de la page, phrase explicative et une action principale au maximum. » La date
+            complète passe au-dessus du titre, en petit : elle situe sans occuper une ligne de titre.
+
+            LE TITRE PASSE DE 23 À 28 PX et perd son extra-gras. Sur sa maquette, un titre de page
+            est en 570 de graisse — assez pour dominer, pas assez pour crier. L'ancien était en
+            extra-gras avec un point d'exclamation implicite. */}
+        <div className="flex flex-wrap items-end gap-4">
           <div className="mr-auto min-w-0">
-            <p className="text-km-label font-extrabold uppercase tracking-[0.09em] text-km-muted">
+            <p className="text-km-label font-semibold uppercase tracking-[0.07em] text-km-faint">
               {dateDuJour}
             </p>
-            <h1 className="mt-1.5 font-display text-kw-display font-extrabold tracking-[-0.02em] text-km-text">
-              Bonjour{monProfil?.prenom ? ` ${monProfil.prenom}` : ''},
+            <h1 className="mt-1 font-display text-km-h1 font-[570] tracking-[-0.04em] text-km-text">
+              Bonjour{monProfil?.prenom ? ` ${monProfil.prenom}` : ''}
             </h1>
             {/* « VOS INDICATEURS » DEVIENT « LES INDICATEURS DE L'ÉQUIPE » : les chiffres ne sont pas
                 filtrés sur l'utilisateur, parce que tous les commerciaux voient tous les comptes
                 (Naoëlle, 14/08/2026, non négociable). Écrire « vos » ferait croire à un portefeuille
                 personnel. Seule « Ma journée » est bien personnelle. */}
-            <p className="mt-1 text-km-body text-km-muted">
-              Voici les indicateurs de l’équipe et vos actions du jour.
+            <p className="mt-1.5 text-km-lead text-km-muted">
+              Les actions qui méritent votre attention aujourd’hui.
             </p>
           </div>
-          <button
-            type="button"
-            onClick={() => navigate('/opportunites?nouveau=1')}
-            className="inline-flex shrink-0 items-center gap-1.5 rounded-km-lg bg-km-green px-4 py-2.5 text-km-body font-bold text-white shadow-kw-green transition-[filter] hover:brightness-95"
-          >
-            <Plus className="h-4 w-4" strokeWidth={2.6} />
+          {/* UNE SEULE ACTION, ET ELLE RESTE VERTE ICI. Son dossier autorise « une action
+              principale au maximum » : sur un écran qui n'en a qu'une, c'est bien celle-là. */}
+          <Button variant="primary" size="lg" onClick={() => navigate('/opportunites?nouveau=1')}>
+            <Plus className="h-3.5 w-3.5" strokeWidth={2.4} />
             Nouvelle opportunité
-          </button>
+          </Button>
         </div>
 
-        {/* ══════ LE BANDEAU DE LA MARGE ══════ */}
+        {/* ══════ LES QUATRE INDICATEURS ══════
+
+            SA MAQUETTE EN COMPTE QUATRE ; CET ÉCRAN EN ALIGNAIT DOUZE. Un bandeau de marge sur
+            toute la largeur, quatre tuiles « Ma performance », quatre tuiles chiffrées, et le
+            tout avant d'arriver à ce qu'il y a à faire. Naoëlle, 31/08/2026 : « la maquette de
+            Michel se veut minimaliste ».
+
+            Ses quatre mesures répondent à une seule question — qu'est-ce qui mérite mon attention
+            aujourd'hui : les actions à faire, les signaux à décider, les décisions attendues du
+            client, les contrats à risque. Aucune ne parle de performance passée.
+
+            LE RESTE N'EST PAS SUPPRIMÉ, IL DESCEND. Son dossier le dit : « pipeline actif présenté
+            en synthèse secondaire ». La marge du mois et la performance personnelle sont un bilan,
+            pas une priorité du matin — elles se lisent après, quand on les cherche. */}
         <div className="mt-5">
-          <BandeauMarge chiffres={chiffres} chargement={chiffresEnCours} objectif={objectifs?.equipe} />
+          <Indicateurs mesures={mesures} />
         </div>
 
+        {/* ══════ MA JOURNÉE ══════ */}
+        <div className="mt-4">
+          <MaJournee actions={journee} chargement={journeeEnCours} profilId={monProfil?.id} />
+        </div>
+
+        {/* ══════ LA SYNTHÈSE SECONDAIRE ══════
+
+            SON DOSSIER : « pipeline actif présenté en synthèse secondaire ». Ces deux blocs
+            étaient AU-DESSUS de « Ma journée » ; ils passent en dessous.
+
+            Ce sont des bilans : la marge du mois, la performance personnelle, le montant du pipe.
+            Un commercial qui s'assoit le matin ne cherche pas sa marge, il cherche ce qu'il a à
+            faire — c'est la phrase de Michel de l'appel du 25/08. Les garder en tête de page
+            faisait passer douze chiffres avant la première action à mener.
+
+            Ils ne sont pas supprimés : on les consulte, simplement, quand on les cherche. */}
+        <h2 className="mb-3 mt-9 text-km-name font-semibold text-km-text">
+          Où en est le mois
+        </h2>
         {/* ══════ MA PERFORMANCE ══════
 
             SA MAQUETTE PLACE LE PERSONNEL DIRECTEMENT SOUS LE GLOBAL, et « directement » est le mot.
@@ -167,11 +244,6 @@ export default function Dashboard() {
             definition="Somme des montants d’affaire des recommandations ouvertes. Le badge dit combien d’entre elles portent un montant : le pipe est partiel tant qu’elles ne sont pas toutes chiffrées."
             onClick={() => navigate('/recommandations')}
           />
-        </div>
-
-        {/* ══════ MA JOURNÉE ══════ */}
-        <div className="mt-4">
-          <MaJournee actions={journee} chargement={journeeEnCours} profilId={monProfil?.id} />
         </div>
 
         {/* ══════ RIEN APRÈS « MA JOURNÉE » ══════
