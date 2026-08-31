@@ -113,6 +113,38 @@ const SCENARIOS = [
     attendu: 'ACTIVE',
     pourquoi: 'Le miroir du cas précédent : mêmes versions, autre courante, autre résultat. C’est ce qui prouve que le tri est bien celui qu’on croit.',
   },
+  // ── LES CAS DE L'APPEL DU 31/08/2026 AVEC MICHEL ──────────────────────────────────────────
+  {
+    titre: 'un contrat sans version : le dossier n’est PAS un brouillon',
+    versions: [],
+    finalite: null,
+    contrat: true,
+    attendu: 'ACTIVE',
+    pourquoi: 'C’est le bug qu’il a trouvé : 29 affaires gagnées s’affichaient comme des brouillons. Sa définition — « Brouillon, c’est une recommandation pour laquelle je n’ai aucune version, et bien évidemment aucun contrat ».',
+  },
+  {
+    titre: 'un contrat ET une finalité, sans version : clôturé',
+    versions: [],
+    finalite: 'ACCEPTEE',
+    contrat: true,
+    attendu: 'CLOTUREE',
+    pourquoi: 'L’affaire a produit un contrat et Salesforce dit qu’elle est gagnée.',
+  },
+  {
+    titre: 'une version VIVANTE gagne sur une finalité importée',
+    versions: ['EN_DECISION'],
+    finalite: 'ACCEPTEE',
+    attendu: 'ACTIVE',
+    pourquoi: '23 dossiers sont dans ce cas. Salesforce dit l’affaire close, quelqu’un travaille dessus aujourd’hui. Fermer un dossier sous les doigts de celui qui y travaille est plus grave que d’afficher une finalité un peu ancienne.',
+  },
+  {
+    titre: 'une clôture MANUELLE gagne sur tout, version vivante comprise',
+    versions: ['EN_CONSTRUCTION'],
+    finalite: null,
+    manuelle: true,
+    attendu: 'CLOTUREE',
+    pourquoi: 'Michel : « la version fait évoluer la recommandation, mais ne clôture JAMAIS la recommandation, ça doit se faire manuellement ». Le geste de quelqu’un ne se défait pas parce qu’une version a bougé ensuite.',
+  },
 ]
 
 async function reference(c, table, code) {
@@ -146,9 +178,9 @@ async function reference(c, table, code) {
 
       const etapeDepart = await reference(c, 'etapes_recommandation', 'BROUILLON')
       const { rows: reco } = await c.query(
-        `insert into recommandations (nom, compte_id, etape_id, finalite_cloture)
-         values ($1, $2, $3, $4) returning id`,
-        [`${MARQUE} — ${s.titre}`, compteId, etapeDepart, s.finalite],
+        `insert into recommandations (nom, compte_id, etape_id, finalite_cloture, date_cloture_manuelle)
+         values ($1, $2, $3, $4, $5) returning id`,
+        [`${MARQUE} — ${s.titre}`, compteId, etapeDepart, s.finalite, s.manuelle ? new Date(0) : null],
       )
       const recoId = reco[0].id
 
@@ -163,6 +195,22 @@ async function reference(c, table, code) {
            values ($1, $2, $3, $4, $5, $6)`,
           [recoId, i + 1, `${MARQUE} v${i + 1}`, statutId, motifId,
             s.courante === undefined ? i === s.versions.length - 1 : s.courante === i],
+        )
+      }
+
+      /* LE CONTRAT, quand le scenario en demande un. C'est le declencheur
+         trg_propager_contrat_vers_recommandation qui doit recalculer l'etape — on n'appelle donc
+         PAS la fonction a la main : c'est le cablage qu'on teste, pas seulement la regle. */
+      if (s.contrat) {
+        const siteQuelconque = (await c.query('select id from sites limit 1')).rows[0]
+        // `type_energie_id` est obligatoire : un contrat porte forcement de l'electricite ou du gaz.
+        // L'energie ne joue aucun role dans la propagation, on prend la premiere.
+        const energieId = (await c.query('select id from types_energies limit 1')).rows[0].id
+        const statutId = (await c.query('select id from statuts_contrats limit 1')).rows[0].id
+        await c.query(
+          `insert into contrats (recommandation_id, compte_id, site_id, reference, type_energie_id, statut_id)
+           values ($1, $2, $3, $4, $5, $6)`,
+          [recoId, compteId, siteQuelconque ? siteQuelconque.id : null, MARQUE, energieId, statutId],
         )
       }
 
@@ -187,12 +235,13 @@ async function reference(c, table, code) {
   // GARDE-FOU 3 : après annulation, plus rien ne doit porter la marque.
   const { rows: reliquat } = await c.query(
     `select (select count(*) from recommandations where nom like $1) as recos,
-            (select count(*) from versions_recommandation where nom like $1) as versions`,
+            (select count(*) from versions_recommandation where nom like $1) as versions,
+            (select count(*) from contrats where reference like $1) as contrats`,
     [`%${MARQUE}%`],
   )
   await c.end()
 
-  console.log('\nPropagation des statuts — huit scénarios\n')
+  console.log('\nPropagation des statuts\n')
   let echecs = 0
   for (const r of resultats) {
     console.log(`${r.ok ? '  OK  ' : ' ECHEC'}  ${r.titre}`)
@@ -203,7 +252,7 @@ async function reference(c, table, code) {
     }
   }
 
-  const restes = Number(reliquat[0].recos) + Number(reliquat[0].versions)
+  const restes = Number(reliquat[0].recos) + Number(reliquat[0].versions) + Number(reliquat[0].contrats)
   console.log(`\n  Reliquat en base apres annulation : ${restes} ligne(s)` + (restes ? '  ← A NETTOYER' : '  (rien, comme prevu)'))
   console.log(`  ${resultats.length - echecs}/${resultats.length} scenarios passent\n`)
 
