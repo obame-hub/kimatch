@@ -423,6 +423,7 @@ export default function Contacts({ sansEntete }: { sansEntete?: boolean }) {
       {!sansEntete && <Topbar title="Contacts" />}
       <div className="p-4 sm:p-6">
         <PageHeader
+          titreMasque={sansEntete}
           title="Contacts"
           description="Les personnes chez vos comptes — signataires, interlocuteurs commerciaux ou techniques."
           actions={

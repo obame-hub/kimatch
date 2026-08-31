@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import { AlertTriangle, CheckCircle2, X } from 'lucide-react'
+import { IconeEnergie } from '@/components/ui/icone-energie'
 import { Button } from '@/components/ui/button'
 import { Dialog } from '@/components/ui/dialog'
 import { FormField, Input, Select, Textarea } from '@/components/ui/form'
@@ -329,8 +330,8 @@ export function CotationWizard({
             return (
               <div key={c.id} className={`rounded-xl border p-4 ${selection.length === 0 ? 'border-amber-300 bg-amber-50/40' : 'border-km-line'}`}>
                 <div className="mb-3 flex items-start gap-3">
-                  <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-km-bg text-base">
-                    {c.type_energie === 'gaz' ? '🔥' : '⚡'}
+                  <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-km bg-km-bg">
+                    <IconeEnergie type={c.type_energie} className="h-4 w-4" />
                   </span>
                   <div className="min-w-0">
                     <p className="truncate text-sm font-semibold text-km-text">{c.site_nom || 'Sans libellé'}</p>

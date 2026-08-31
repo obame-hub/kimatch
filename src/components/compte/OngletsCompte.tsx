@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { ChevronRight, Sparkle } from 'lucide-react'
+import { ChevronRight, Radio, Sparkle } from 'lucide-react'
 import type { Recommandation, Signal } from '@/types/domain'
 import { FINALITES_RECOMMANDATION, type CleFinalite } from '@/lib/finalitesRecommandation'
 
@@ -230,8 +230,12 @@ export function OngletSignaux({
   return (
     <div className={`${ANIMATION_ONGLET} flex flex-col gap-2.5`}>
       <div className="flex items-center gap-2.5">
-        <span className="text-km-xs font-bold uppercase tracking-[.08em] text-[#a3a5a0]">
-          ⚡ {signaux.length} signal{signaux.length > 1 ? 'ux' : ''} ouvert{signaux.length > 1 ? 's' : ''} · compte
+        {/* L'éclair n'était pas une énergie ici, c'était une puce décorative devant un compte de
+            signaux — et un emoji en couleurs pleines au milieu d'une ligne de capitales grises.
+            L'icône des signaux, celle du rail de navigation, dit la même chose et appartient au jeu. */}
+        <span className="inline-flex items-center gap-1.5 text-km-xs font-bold uppercase tracking-[.08em] text-[#a3a5a0]">
+          <Radio className="h-3 w-3 shrink-0" aria-hidden="true" />
+          {signaux.length} signal{signaux.length > 1 ? 'ux' : ''} ouvert{signaux.length > 1 ? 's' : ''} · compte
         </span>
         <span className="flex-1" />
         <span className="text-km-xs text-[#83868f]">trié par priorité</span>

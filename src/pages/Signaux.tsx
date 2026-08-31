@@ -301,12 +301,12 @@ export default function Signaux() {
               libelleMien="Mes signaux"
               libelleTous="Tous les signaux"
             />
-          </ListToolbar>
-        {/* INCLURE LES DOSSIERS CLOS. Demandé par Naoëlle le 25/08/2026, après que j'aie signalé la
+            {/* INCLURE LES DOSSIERS CLOS. Demandé par Naoëlle le 25/08/2026, après que j'aie signalé la
             conséquence de la règle de Michel : un dossier clos ne se trouvait plus par la recherche
             de cette page, et c'est le genre de chose qu'on découvre au mauvais moment.
             Décoché par défaut — sa règle reste la règle, la case est l'exception. */}
-        <BasculeOption actif={avecClos} onChange={setAvecClos} libelle="Inclure les dossiers clos" />
+            <BasculeOption actif={avecClos} onChange={setAvecClos} libelle="Inclure les dossiers clos" />
+          </ListToolbar>
         </div>
 
         {isLoading ? (

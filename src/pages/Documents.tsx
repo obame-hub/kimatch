@@ -200,6 +200,7 @@ export default function Documents({ sansEntete }: { sansEntete?: boolean }) {
       {!sansEntete && <Topbar title="Documents" />}
       <div className="p-4 sm:p-6">
         <PageHeader
+          titreMasque={sansEntete}
           title="Documents"
           description="Tous les documents (mandats, factures, contrats, recommandations) centralisés en un seul endroit."
           actions={<Button onClick={() => setShowCreate(true)}><Plus className="h-4 w-4" />Nouveau document</Button>}

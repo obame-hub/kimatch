@@ -243,17 +243,40 @@ export default {
         'kw-green': '0 4px 14px rgba(13,122,95,.32)',
         /* Ses trois ombres, et elles sont volontairement discretes : une carte se detache par sa
            bordure, pas par son ombre. La coque de l'application est la seule a porter du relief. */
-        'km-card': '0 2px 7px rgba(25,40,33,.035)',
-        'km-metric': '0 3px 12px rgba(25,40,33,.035)',
-        'km-shell': '0 22px 60px rgba(26,43,34,.09)',
+        /* ══ LES OMBRES : PLUS LARGES, PLUS BASSES, MOINS OPAQUES ════════════════════════
+         *
+         * Une ombre courte et contrastee (2 px de flou) dessine un LISERE sous l'element : c'est
+         * le relief des interfaces de 2010, on voit le trait. Une ombre de 2026 est une nappe —
+         * grand rayon, faible opacite, legerement descendue — qui pose l'element sans se montrer.
+         *
+         * La teinte reste celle de la marque (un vert tres sombre, pas un gris neutre) : c'est ce
+         * qui empeche l'ombre de grisailler un fond legerement vert. */
+        'km-card': '0 1px 2px rgba(25,40,33,.04), 0 4px 14px rgba(25,40,33,.045)',
+        'km-metric': '0 1px 2px rgba(25,40,33,.03), 0 6px 22px rgba(25,40,33,.05)',
+        'km-shell': '0 24px 70px rgba(26,43,34,.10)',
+        /* L'ombre d'un menu flottant : plus marquee, parce qu'elle doit detacher le menu du
+           contenu qu'il recouvre. */
+        'km-pop': '0 2px 6px rgba(25,40,33,.06), 0 12px 34px rgba(25,40,33,.13)',
       },
       borderRadius: {
         xl: '0.875rem',
         'kw-xs': '4px', 'kw-sm': '6px', 'kw-md': '8px', 'kw-lg': '9px', 'kw-xl': '11px',
         'kw-2xl': '12px', 'kw-3xl': '14px', 'kw-4xl': '16px', 'kw-5xl': '18px', 'kw-pill': '20px',
-        /* Rayons releves dans sa maquette : 6 sur les petits controles, 8 sur les boutons et les
-           en-tetes de tableau, 9 sur les cartes, 10 sur les indicateurs, 18 sur la coque. */
-        'km-sm': '6px', 'km': '8px', 'km-md': '9px', 'km-lg': '10px', 'km-xl': '18px',
+        /* ══ LES RAYONS, RELEVES LE 31/08/2026 ═══════════════════════════════════════════
+         *
+         * Naoelle : « rien de carre comme dans les annees 2000, il faut que l'app soit rendu
+         * UI/UX 2026 ».
+         *
+         * L'echelle etait 6 / 8 / 9 / 10 / 18 px : relevee de la maquette, mais cette maquette
+         * datait d'avant. A ces valeurs un bouton lit comme un rectangle a coins casses — l'oeil
+         * voit encore l'angle. Le seuil ou une forme cesse d'etre carree et devient une forme
+         * douce se situe vers 10 px sur un controle de 32 px de haut, et vers 14 sur une carte.
+         *
+         * ON MONTE, ON N'ARRONDIT PAS TOUT. Un rayon uniforme de 20 px sur tout ce qui bouge
+         * donne un jouet, pas un outil : la hierarchie des formes disparait avec celle des
+         * tailles. L'ecart entre les niveaux est CONSERVE — petit controle, controle, carte,
+         * panneau, coque — il est seulement decale vers le haut. */
+        'km-sm': '8px', 'km': '10px', 'km-md': '12px', 'km-lg': '16px', 'km-xl': '22px',
         'km-pill': '9999px',
       },
       fontSize: {

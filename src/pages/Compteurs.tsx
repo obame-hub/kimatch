@@ -130,6 +130,7 @@ export default function Compteurs({ sansEntete }: { sansEntete?: boolean }) {
       {!sansEntete && <Topbar title="Compteurs" />}
       <div className={sansEntete ? '' : 'p-4 sm:p-6'}>
         <PageHeader
+          titreMasque={sansEntete}
           title="Compteurs"
           description="Les points de livraison — PDL en électricité, PCE en gaz. C’est le compteur qui porte l’échéance, donc le moment d’agir."
         />

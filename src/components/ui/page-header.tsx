@@ -23,10 +23,21 @@ import { cn } from '@/lib/utils'
  * Le titre est en 28 px, la seule taille de sa maquette reprise telle quelle. Il descend à 22 px
  * sur les petits écrans : 28 px sur 375 px de large mange deux lignes à lui seul.
  */
-export function PageHeader({ title, description, actions, badge, badgeLibelle }: {
+export function PageHeader({ title, description, actions, badge, badgeLibelle, titreMasque }: {
   title: string
   description?: string
   actions?: ReactNode
+  /**
+   * LE TITRE EXISTE MAIS NE S'AFFICHE PAS.
+   *
+   * Une liste montée dans un onglet de Patrimoine écrivait son nom deux fois : dans l'onglet actif
+   * — « Comptes », souligné de vert — et juste en dessous, en 24 px. Deux fois le même mot à
+   * quarante pixels d'écart, sur les sept onglets.
+   *
+   * Il est MASQUÉ, pas supprimé : le titre reste dans le document pour les lecteurs d'écran et pour
+   * la hiérarchie des niveaux de titre, que le retirer casserait.
+   */
+  titreMasque?: boolean
   /**
    * Le total de la page, déjà formaté, unité comprise : l'en-tête ne sait pas s'il annonce des
    * euros ou des GWh. Collé au titre et non posé au-dessus, parce que c'est le titre qu'il
@@ -46,7 +57,13 @@ export function PageHeader({ title, description, actions, badge, badgeLibelle }:
               toute l'application au lieu d'etre reecrit ici.
               La graisse descend de 570 a 540 : c'etait le « grossier ». Inter a 570 sur un titre de
               28 px donne un gras publicitaire ; 540 garde l'autorite sans l'epaisseur. */}
-          <h2 className="font-display text-km-metric font-[540] text-km-text sm:text-km-h1">
+          <h2
+            className={
+              titreMasque
+                ? 'sr-only'
+                : 'font-display text-km-metric font-[540] text-km-text sm:text-km-h1'
+            }
+          >
             {title}
           </h2>
           {badge && (

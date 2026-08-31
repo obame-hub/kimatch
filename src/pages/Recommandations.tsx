@@ -11,6 +11,7 @@ import { usePerimetre, BasculePerimetre } from '@/lib/perimetre'
 import { useKanbanServeur } from '@/lib/useKanbanServeur'
 import { useTriKanban, SelecteurTri } from '@/lib/triKanban'
 import { TableauKanban } from '@/components/dashboard/TableauKanban'
+import { IconeEnergie } from '@/components/ui/icone-energie'
 import { CreateRecommandationDialog } from '@/components/opportunite/CreationRecommandationWizard'
 import { useOuvrirCreation } from '@/lib/ouvrirCreation'
 
@@ -42,6 +43,8 @@ interface LigneReco {
   /** Ajoutées à la vue le 26/08/2026 pour le bandeau de la page 6. */
   marge_nette: number | null
   montant: number | null
+  /** L'énergie du dossier — elle portait l'emoji du nom jusqu'au 31/08/2026. */
+  type_energie: string | null
 }
 
 /**
@@ -278,6 +281,7 @@ export default function Recommandations() {
                 c.lignes.map((r) => ({
                   id: r.id,
                   titre: r.nom,
+                  icone: <IconeEnergie type={r.type_energie} />,
                   sousTitre: r.compte_nom ?? undefined,
                   /* LA MENTION PORTE LA MARGE, comme sur ses cartes. Le nombre de versions reprend
                      la place quand la marge n'est pas connue — c'est le cas de tout dossier né dans

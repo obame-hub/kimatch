@@ -117,6 +117,7 @@ export default function PerformanceComptes({ sansEntete }: { sansEntete?: boolea
     <div className="flex flex-col gap-3.5">
       {!sansEntete && (
         <PageHeader
+          titreMasque={sansEntete}
           title="Patrimoine des comptes"
           description="Suivez le volume des comptes et les compteurs dont les données doivent être corrigées."
         />

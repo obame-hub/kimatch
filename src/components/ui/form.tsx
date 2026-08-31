@@ -66,12 +66,24 @@ Textarea.displayName = 'Textarea'
 
 export const Select = React.forwardRef<HTMLSelectElement, React.SelectHTMLAttributes<HTMLSelectElement>>(
   ({ className, children, ...props }, ref) => (
+    /* LE CHEVRON DU SYSTÈME LAISSE LA PLACE AU NÔTRE.
+       `appearance-none` retire la flèche que le navigateur dessine — grise, pixelisée, différente
+       sur chaque plateforme — et l'image de fond la remplace par un chevron aux traits de
+       l'application. La liste, elle, reste dessinée par le navigateur hors de la page : c'est
+       pourquoi les sélecteurs des barres de travail passent par `MenuChoix`, où tout nous
+       appartient. Ici, dans un formulaire de dialogue, le natif garde sa valeur — clavier, saisie
+       au premier caractère, sélecteur roulant sur mobile — et ne se montre qu'un instant. */
     <select
       ref={ref}
       className={cn(
         CONTROLE_BASE,
+        'cursor-pointer appearance-none bg-[length:14px] bg-[right_0.6rem_center] bg-no-repeat pr-8',
         className,
       )}
+      style={{
+        backgroundImage:
+          "url(\"data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%236b7280' stroke-width='2.2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E\")",
+      }}
       {...props}
     >
       {children}

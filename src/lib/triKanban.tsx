@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState } from 'react'
+import { MenuChoix } from '@/components/ui/menu-choix'
 
 /**
  * LE TRI D'UNE VUE KANBAN.
@@ -76,17 +77,14 @@ export function SelecteurTri({
   options: OptionTri[]
 }) {
   return (
-    <select
-      value={valeur}
-      onChange={(e) => onChange(e.target.value)}
-      aria-label="Trier les cartes"
-      className="h-[32px] shrink-0 rounded-km border border-km-line bg-km-surface px-2.5 text-km-label font-semibold text-km-muted transition-colors hover:bg-km-soft hover:text-km-text"
-    >
-      {options.map((o) => (
-        <option key={o.cle} value={o.cle}>
-          Trier par {o.libelle}
-        </option>
-      ))}
-    </select>
+    /* Le `<select>` natif est parti : ouvert, il affichait la liste blanche à coins droits et la
+       ligne bleue du système, que le navigateur dessine hors de la page et qu'aucune règle CSS
+       n'atteint. Voir `MenuChoix`. */
+    <MenuChoix
+      valeur={valeur}
+      onChange={onChange}
+      ariaLabel="Trier les cartes"
+      choix={options.map((o) => ({ valeur: o.cle, libelle: 'Trier par ' + o.libelle }))}
+    />
   )
 }

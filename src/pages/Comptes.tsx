@@ -21,8 +21,8 @@ import { PageHeader } from '@/components/ui/page-header'
 import { Card } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
-import { Select } from '@/components/ui/form'
 import { ListToolbar } from '@/components/ui/list-toolbar'
+import { MenuChoix } from '@/components/ui/menu-choix'
 import { SortableTh } from '@/components/ui/sortable-th'
 import { Tableau, TableauTete, TableauCorps, NomDeLigne } from '@/components/ui/tableau'
 import { useListeServeur } from '@/lib/useListeServeur'
@@ -96,6 +96,7 @@ export default function Comptes({ sansEntete }: { sansEntete?: boolean }) {
       {!sansEntete && <Topbar title="Comptes" />}
       <div className="p-4 sm:p-6">
         <PageHeader
+          titreMasque={sansEntete}
           title="Comptes"
           description="Le compte représente la relation (client, fournisseur, partenaire) — la valeur se crée sur les sites qui lui sont rattachés."
           actions={(
@@ -107,12 +108,20 @@ export default function Comptes({ sansEntete }: { sansEntete?: boolean }) {
 
         <ListToolbar query={liste.query} onQueryChange={liste.setQuery} placeholder="Rechercher un compte, une ville…" count={liste.total}>
           <BasculePerimetre valeur={perimetre} onChange={setPerimetre} libelleMien="Mes comptes" libelleTous="Tous les comptes" />
-          <Select value={typeFilter} onChange={(e) => setTypeFilter(e.target.value)} className="w-auto">
-            <option value="">Tous les types</option>
-            {(Object.keys(typeMeta) as TypeCompte[]).map((t) => (
-              <option key={t} value={t}>{typeMeta[t].label}</option>
-            ))}
-          </Select>
+          {/* Le sélecteur que Naoëlle a photographié ouvert : liste blanche à coins droits et
+              ligne bleue du système. `MenuChoix` reprend la main sur les trois. */}
+          <MenuChoix
+            valeur={typeFilter}
+            onChange={setTypeFilter}
+            ariaLabel="Filtrer par type de compte"
+            choix={[
+              { valeur: '', libelle: 'Tous les types' },
+              ...(Object.keys(typeMeta) as TypeCompte[]).map((t) => ({
+                valeur: t,
+                libelle: typeMeta[t].label,
+              })),
+            ]}
+          />
         </ListToolbar>
 
         {/* LE TABLEAU PASSE SUR LE COMPOSANT PARTAGE. Cinq ecrans ecrivaient le leur a la main

@@ -81,23 +81,39 @@ function normalizeAccents(s: string): string {
   return s.normalize('NFD').replace(/[̀-ͯ]/g, '').trim()
 }
 
-/** Titre auto-généré, jamais saisi à la main — reprend buildOpportunityName() de Tools
- *  (`src/lib/opportunity-actions.ts`) : « {icône} {COMPTE}[ - SITE] » pour un seul PDL,
- *  « {icône} MULTISITE - {date} - {COMPTE} » au-delà. */
+/**
+ * Titre auto-généré, jamais saisi à la main — reprend buildOpportunityName() de Tools
+ * (`src/lib/opportunity-actions.ts`) : « {COMPTE}[ - SITE] » pour un seul PDL,
+ * « MULTISITE - {date} - {COMPTE} » au-delà.
+ *
+ * ══ L'EMOJI D'ÉNERGIE A ÉTÉ RETIRÉ DU NOM (31/08/2026) ══
+ *
+ * Cette fonction préfixait le titre d'un 🔥 ou d'un ⚡ selon l'énergie. C'était la SOURCE des 204
+ * noms émaillés qu'on a trouvés en base — un caractère décoratif rangé dans une donnée métier.
+ *
+ * Trois conséquences qu'on ne voit pas en le tapant : le nom réel remonte tel quel dans les exports,
+ * les PDF de mandat et les messages Slack ; une recherche sur « CABINET » ne trouve pas
+ * « 🔥 CABINET » quand elle compare le début de la chaîne ; et un tri alphabétique range ces
+ * dossiers hors de l'alphabet.
+ *
+ * L'ÉNERGIE EST DÉJÀ UNE COLONNE — `recommandations.type_energie_id`. L'écran la dessine avec
+ * `IconeEnergie`, en trait fin et à la couleur de l'application. C'est sa place : une information
+ * dans une colonne, une icône dans une vue.
+ */
 function buildTitre(
-  typeEnergie: 'electricite' | 'gaz',
   compteNom: string,
   siteNom: string | null | undefined,
   pdlCount: number,
   dateCloture: string,
 ): string {
-  const icon = typeEnergie === 'gaz' ? '🔥' : '⚡'
   const acc = normalizeAccents(compteNom).toUpperCase()
   if (pdlCount === 1) {
     const site = siteNom ? ` - ${normalizeAccents(siteNom)}` : ''
-    return `${icon} ${acc}${site}`
+    return acc
+      ? `${acc}${site}`
+      : `SANS COMPTE${site}`
   }
-  return `${icon} MULTISITE - ${dateCloture} - ${acc}`
+  return `MULTISITE - ${dateCloture} - ${acc}`
 }
 
 export function CreateRecommandationDialog({
@@ -299,7 +315,7 @@ export function CreateRecommandationDialog({
   const dateCloture = dateClotureManuelle || dateClotureSuggeree
 
   const titre = compteCible && compteursChoisis.length > 0
-    ? buildTitre(typeEnergie, compteCible.nom, compteursChoisis[0].site_nom, compteursChoisis.length, dateCloture)
+    ? buildTitre(compteCible.nom, compteursChoisis[0].site_nom, compteursChoisis.length, dateCloture)
     : ''
 
   // Le mandat porté par la recommandation : celui qui couvre le premier PDL retenu. Il n'est plus

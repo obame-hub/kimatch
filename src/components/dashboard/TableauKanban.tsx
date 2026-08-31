@@ -79,6 +79,15 @@ export interface CarteKanban {
   /** L'étiquette de nature, en tête de carte — le type de signal, l'origine d'une piste. */
   nature?: string
   /**
+   * UNE ICÔNE DEVANT LE TITRE — l'énergie d'un dossier, aujourd'hui.
+   *
+   * Elle remplace l'emoji que 204 noms de recommandation portaient en préfixe (nettoyé en base le
+   * 31/08/2026). Un emoji est dessiné par le système : il change d'aspect d'une machine à l'autre,
+   * arrive en couleurs pleines au milieu d'une interface en traits fins, et ignore la couleur du
+   * texte. Une icône du jeu de l'application ne fait aucune de ces trois choses.
+   */
+  icone?: ReactNode
+  /**
    * La phrase qui dit POURQUOI la carte existe, dans son cadre — « l'échéance tombe dans 4 mois ».
    *
    * C'est l'apport de ses maquettes : sur un kanban, la colonne dit l'état et le titre dit l'objet,
@@ -318,7 +327,10 @@ export function TableauKanban({
                         l'œil n'a aucun point d'entrée et doit tout lire pour trouver le nom.
                         Le titre monte à 13 px, les chiffres à 11 : deux valeurs relevées, rien
                         d'abaissé, et la carte ne gagne que quelques pixels de haut. */}
-                    <span className="block truncate text-km-body font-semibold text-km-text">{c.titre}</span>
+                    <span className="flex items-center gap-1.5">
+                      {c.icone}
+                      <span className="min-w-0 flex-1 truncate text-km-body font-semibold text-km-text">{c.titre}</span>
+                    </span>
                     {c.sousTitre && (
                       <span className="block truncate text-km-tiny text-km-muted">{c.sousTitre}</span>
                     )}
