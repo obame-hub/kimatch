@@ -1,10 +1,34 @@
 /** @type {import('tailwindcss').Config} */
 export default {
-  darkMode: ['class'],
   content: ['./index.html', './src/**/*.{js,ts,jsx,tsx}'],
   theme: {
     extend: {
       colors: {
+        /* ══ LES COULEURS DE LA MAQUETTE DE MICHEL ══════════════════════════════════════════
+         *
+         * Branchees sur les variables de src/index.css, donc composables en opacite :
+         * `bg-km-green/10` fonctionne. Les valeurs sont les siennes au chiffre pres.
+         *
+         * Le vert ne sert QU'aux actions positives, aux selections et aux reperes importants —
+         * c'est la regle de son dossier, et c'est ce qui l'empeche de devenir un fond. */
+        km: {
+          text: 'rgb(var(--km-text) / <alpha-value>)',
+          muted: 'rgb(var(--km-muted) / <alpha-value>)',
+          faint: 'rgb(var(--km-faint) / <alpha-value>)',
+          bg: 'rgb(var(--km-bg) / <alpha-value>)',
+          side: 'rgb(var(--km-side) / <alpha-value>)',
+          surface: 'rgb(var(--km-surface) / <alpha-value>)',
+          soft: 'rgb(var(--km-soft) / <alpha-value>)',
+          line: 'rgb(var(--km-line) / <alpha-value>)',
+          green: 'rgb(var(--km-green) / <alpha-value>)',
+          'green-soft': 'rgb(var(--km-green-soft) / <alpha-value>)',
+          blue: 'rgb(var(--km-blue) / <alpha-value>)',
+          'blue-soft': 'rgb(var(--km-blue-soft) / <alpha-value>)',
+          amber: 'rgb(var(--km-amber) / <alpha-value>)',
+          'amber-soft': 'rgb(var(--km-amber-soft) / <alpha-value>)',
+          red: 'rgb(var(--km-red) / <alpha-value>)',
+          'red-soft': 'rgb(var(--km-red-soft) / <alpha-value>)',
+        },
         // Neutre principal — remappé sur la palette KiWee (chaud, quasi-noir) fournie par William.
         // Valeurs pilotées par variables CSS (voir index.css) pour basculer en mode sombre.
         navy: {
@@ -139,9 +163,12 @@ export default {
           purple: 'rgb(var(--kw-purple) / <alpha-value>)',
         },
       },
+      /* INTER, la police de la maquette de Michel. « Instrument Sans » reste en repli le temps
+         que la refonte passe sur tous les ecrans : sans elle, un ecran encore ancien perdrait sa
+         metrique et se decalerait, ce qui se voit plus qu'un changement de police assume. */
       fontFamily: {
-        sans: ['"Instrument Sans"', 'system-ui', 'ui-sans-serif', 'sans-serif'],
-        display: ['"Instrument Sans"', 'system-ui', 'sans-serif'],
+        sans: ['Inter', '"Instrument Sans"', 'system-ui', 'ui-sans-serif', 'sans-serif'],
+        display: ['Inter', '"Instrument Sans"', 'system-ui', 'sans-serif'],
         mono: ['"JetBrains Mono"', 'ui-monospace', 'monospace'],
       },
       backgroundImage: {
@@ -213,16 +240,40 @@ export default {
         'kw-overlay': '0 24px 60px rgba(0,0,0,.30)',
         'kw-toast': '0 6px 20px rgba(0,0,0,.25)',
         'kw-green': '0 4px 14px rgba(13,122,95,.32)',
+        /* Ses trois ombres, et elles sont volontairement discretes : une carte se detache par sa
+           bordure, pas par son ombre. La coque de l'application est la seule a porter du relief. */
+        'km-card': '0 2px 7px rgba(25,40,33,.035)',
+        'km-metric': '0 3px 12px rgba(25,40,33,.035)',
+        'km-shell': '0 22px 60px rgba(26,43,34,.09)',
       },
       borderRadius: {
         xl: '0.875rem',
         'kw-xs': '4px', 'kw-sm': '6px', 'kw-md': '8px', 'kw-lg': '9px', 'kw-xl': '11px',
         'kw-2xl': '12px', 'kw-3xl': '14px', 'kw-4xl': '16px', 'kw-5xl': '18px', 'kw-pill': '20px',
+        /* Rayons releves dans sa maquette : 6 sur les petits controles, 8 sur les boutons et les
+           en-tetes de tableau, 9 sur les cartes, 10 sur les indicateurs, 18 sur la coque. */
+        'km-sm': '6px', 'km': '8px', 'km-md': '9px', 'km-lg': '10px', 'km-xl': '18px',
+        'km-pill': '9999px',
       },
       fontSize: {
         'kw-micro': '8.5px', 'kw-tiny': '9px', 'kw-xs': '10px', 'kw-sm': '10.5px', 'kw-base': '11px',
         'kw-md': '11.5px', 'kw-lg': '12px', 'kw-xl': '12.5px', 'kw-h4': '13px', 'kw-h3': '14px',
         'kw-h2': '15px', 'kw-h1': '19px', 'kw-display': '23px',
+        /* ══ L'ECHELLE DE TEXTE : SES PROPORTIONS, SA REGLE ════════════════════════════════
+         *
+         * Sa maquette ecrit en 8, 9 et 10 px — mais son propre dossier l'interdit : « texte
+         * courant de 13 a 14 px ; libelles secondaires de 11 a 12 px ; aucune information
+         * essentielle sous 11 px en production ».
+         *
+         * La maquette est une planche dessinee a echelle reduite : ses tailles absolues ne sont
+         * pas des consignes, sa HIERARCHIE en est une. On garde donc les rapports entre les
+         * niveaux et on remonte le tout au-dessus de son plancher de 11 px. */
+        'km-label': '11px',   /* libelle d'indicateur, sous-titre de ligne (etait 8-9px) */
+        'km-body': '13px',    /* cellule de tableau (etait 9px) */
+        'km-name': '14px',    /* nom d'une ligne, texte courant (etait 10px) */
+        'km-lead': '13px',    /* la phrase sous le titre de page (etait 11px) */
+        'km-metric': '20px',  /* valeur d'un indicateur (etait 19px) */
+        'km-h1': '28px',      /* titre de page — la seule taille reprise telle quelle */
       },
       spacing: {
         'kw-1': '3px', 'kw-2': '5px', 'kw-3': '6px', 'kw-4': '7px', 'kw-5': '9px', 'kw-6': '11px',
