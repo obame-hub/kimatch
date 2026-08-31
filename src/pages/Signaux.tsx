@@ -17,6 +17,7 @@ import { estIdReel } from '@/lib/referenceFallbacks'
 import { prochaineActionSignal } from '@/lib/prochaineActionSignal'
 import { ListToolbar } from '@/components/ui/list-toolbar'
 import { usePerimetreListe, BasculePerimetre } from '@/lib/perimetre'
+import { useOuvrirCreation } from '@/lib/ouvrirCreation'
 
 function SignalCard({ signal }: { signal: Signal }) {
   const navigate = useNavigate()
@@ -208,6 +209,8 @@ export default function Signaux() {
   const { data: signaux, isLoading } = useSignaux()
   const { data: statutsRef } = useReferenceTable('statuts_signaux')
   const [showCreate, setShowCreate] = useState(false)
+  // `?creer=1` ouvre ce formulaire depuis le menu « Créer » de la barre du haut.
+  useOuvrirCreation(() => setShowCreate(true))
   const [query, setQuery] = useState('')
   const [avecClos, setAvecClos] = useState(false)
 

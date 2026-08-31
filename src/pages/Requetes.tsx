@@ -25,6 +25,7 @@ import { useCompteursParSites } from '@/lib/data/compteurs'
 import { useContactsParCompte } from '@/lib/data/contacts'
 import { cn } from '@/lib/utils'
 import type { Requete } from '@/types/domain'
+import { useOuvrirCreation } from '@/lib/ouvrirCreation'
 
 /**
  * Les requêtes : « Requête → Traitement → Résolution ».
@@ -67,6 +68,8 @@ export default function Requetes() {
   const maj = useMajRequete()
   const [recherche, setRecherche] = useState('')
   const [creation, setCreation] = useState(false)
+  // `?creer=1` ouvre ce formulaire depuis le menu « Créer » de la barre du haut.
+  useOuvrirCreation(() => setCreation(true))
   const [ouvertes, setOuvertes] = useState(true)
   const [toast, setToast] = useState<string | null>(null)
 

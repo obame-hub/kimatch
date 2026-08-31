@@ -38,6 +38,7 @@ import { SiteHealthBadge } from '@/components/site/SiteHealthBadge'
 import { SitesMap, type SitesMapItem } from '@/components/site/SitesMap'
 import { cn } from '@/lib/utils'
 import { Tableau, TableauTete, TableauCorps } from '@/components/ui/tableau'
+import { useOuvrirCreation } from '@/lib/ouvrirCreation'
 
 /** Première tranche affichée, puis pas d'agrandissement — repris de useTranchesAffichage. */
 const TRANCHE_INITIALE = 100
@@ -54,6 +55,8 @@ export default function Sites({ sansEntete }: { sansEntete?: boolean }) {
   const location = useLocation()
   const openCreateForCompteId = (location.state as { openCreateForCompteId?: string } | null)?.openCreateForCompteId
   const [showCreate, setShowCreate] = useState(!!openCreateForCompteId)
+  // `?creer=1` ouvre ce formulaire depuis le menu « Créer » de la barre du haut.
+  useOuvrirCreation(() => setShowCreate(true))
   const [view, setView] = useState<'liste' | 'carte'>('liste')
   const [toast, setToast] = useState<string | null>(null)
 

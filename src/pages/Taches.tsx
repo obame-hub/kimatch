@@ -19,6 +19,7 @@ import { ListToolbar } from '@/components/ui/list-toolbar'
 import { useListControls } from '@/lib/useListControls'
 import { usePerimetreListe, BasculePerimetre } from '@/lib/perimetre'
 import { ActivityCard } from '@/components/ui/activity-card'
+import { useOuvrirCreation } from '@/lib/ouvrirCreation'
 
 function CreateActionDialog({ open, onClose }: { open: boolean; onClose: () => void }) {
   const { data: sites } = useSites()
@@ -154,6 +155,8 @@ export default function Taches() {
   const completeAction = useCompleteAction()
   const navigate = useNavigate()
   const [showCreate, setShowCreate] = useState(false)
+  // `?creer=1` ouvre ce formulaire depuis le menu « Créer » de la barre du haut.
+  useOuvrirCreation(() => setShowCreate(true))
 
   /* Une tache appartient d'abord a QUI DOIT LA FAIRE : le responsable prime sur le proprietaire,
      et le site ne sert que de dernier recours pour les taches qui n'ont ni l'un ni l'autre. */

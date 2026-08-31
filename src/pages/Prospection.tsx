@@ -31,6 +31,7 @@ import { cn } from '@/lib/utils'
 import { PanneauPiste } from '@/components/prospection/PanneauPiste'
 import { TableauKanban } from '@/components/dashboard/TableauKanban'
 import type { LigneListe, Piste } from '@/types/domain'
+import { useOuvrirCreation } from '@/lib/ouvrirCreation'
 
 /**
  * La prospection : Liste puis Piste, sur un seul écran à deux onglets.
@@ -59,6 +60,9 @@ export default function Prospection() {
   const { data: listes } = useListes()
   const { data: pistes } = usePistes()
   const [creation, setCreation] = useState<null | 'liste' | 'piste'>(null)
+  /* `?creer=1` ouvre le formulaire de PISTE et non celui de liste : l'onglet des listes est
+     désactivé (AFFICHER_LES_LISTES), et le menu « Créer » ne propose que la piste. */
+  useOuvrirCreation(() => setCreation('piste'))
   const [toast, setToast] = useState<string | null>(null)
 
   function signaler(m: string) {

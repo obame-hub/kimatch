@@ -23,6 +23,7 @@ import { usePerimetreListe, BasculePerimetre } from '@/lib/perimetre'
 import { toUpperFR, toTitleCaseFR, formatPhoneFR, isValidPhoneFR, isValidEmail } from '@/lib/textFormat'
 import { contactRoleOptions } from '@/lib/contactRoles'
 import type { Contact } from '@/types/domain'
+import { useOuvrirCreation } from '@/lib/ouvrirCreation'
 
 const DUPLICATE_FIELD_LABEL: Record<ContactDuplicate['fields'][number], string> = {
   email: 'Email',
@@ -390,6 +391,8 @@ export default function Contacts({ sansEntete }: { sansEntete?: boolean }) {
   const [searchParams, setSearchParams] = useSearchParams()
   const compteFromUrl = searchParams.get('compte')
   const [showCreate, setShowCreate] = useState(!!compteFromUrl)
+  // `?creer=1` ouvre ce formulaire depuis le menu « Créer » de la barre du haut.
+  useOuvrirCreation(() => setShowCreate(true))
 
   useEffect(() => {
     if (compteFromUrl) {

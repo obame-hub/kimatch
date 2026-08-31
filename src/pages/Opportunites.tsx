@@ -27,6 +27,7 @@ import {
 import { useContacts } from '@/lib/data/contacts'
 import { useMandats } from '@/lib/data/mandats'
 import { cn } from '@/lib/utils'
+import { useOuvrirCreation } from '@/lib/ouvrirCreation'
 
 /**
  * Les signaux positifs, tels que Michel les énumère : « échéance connue à moins de 2 ans, demande
@@ -68,6 +69,9 @@ export default function Opportunites() {
   // obligerait à le chercher une seconde fois. L'état initial lit donc le paramètre d'URL.
   const [parametres] = useSearchParams()
   const [creation, setCreation] = useState(parametres.get('nouveau') === '1')
+  // `?creer=1` vient du menu « Créer » de la barre du haut. `?nouveau=1` est conservé : le
+  // tableau de bord l'utilise, et des liens ont pu être partagés.
+  useOuvrirCreation(() => setCreation(true))
   const [avecClos, setAvecClos] = useState(false)
 
   const { perimetre, setPerimetre, visibles: opportunitesDuPerimetre } = usePerimetreListe(

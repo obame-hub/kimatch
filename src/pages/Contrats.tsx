@@ -26,6 +26,7 @@ import { useListControls } from '@/lib/useListControls'
 import { usePerimetreListe, BasculePerimetre } from '@/lib/perimetre'
 import { ExtractDocumentButton } from '@/components/ui/document-extraction'
 import { cn } from '@/lib/utils'
+import { useOuvrirCreation } from '@/lib/ouvrirCreation'
 
 // Fournisseurs pour lesquels Tools recommande la renégociation anticipée (ContratWizard.tsx,
 // SPECIAL_SUPPLIERS) -- juste un indice visuel ici, la case reste éditable pour tous (contrairement
@@ -398,6 +399,8 @@ function CreateContratDialog({ open, onClose }: { open: boolean; onClose: () => 
 export default function Contrats({ sansEntete }: { sansEntete?: boolean }) {
   const { data: contrats, isLoading } = useContrats()
   const [showCreate, setShowCreate] = useState(false)
+  // `?creer=1` ouvre ce formulaire depuis le menu « Créer » de la barre du haut.
+  useOuvrirCreation(() => setShowCreate(true))
   /**
    * TROIS STATUTS COHABITAIENT SUR UN CONTRAT, ET L'ÉCRAN MONTRAIT LE MAUVAIS.
    *

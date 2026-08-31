@@ -20,6 +20,7 @@ import { pagesRecherchables } from '@/lib/navItems'
 import type { NavItem } from '@/lib/navItems'
 import { cn } from '@/lib/utils'
 import { useMarketTicker } from '@/lib/data/marche'
+import { MenuCreer } from '@/components/layout/MenuCreer'
 import { useRechercheGlobale } from '@/lib/data/rechercheGlobale'
 import { SEARCH_KIND_LABEL, type SearchKind } from '@/lib/search'
 
@@ -313,6 +314,11 @@ export function Topbar({ title, crumb }: { title: string; crumb?: string }) {
       </div>
 
       <div className="flex shrink-0 items-center justify-end gap-2 justify-self-end">
+        {/* LE BOUTON « CRÉER », SUR LES 36 ÉCRANS. Demande de Naoëlle du 31/08/2026 : « le bouton
+            créer qui permettait de créer tous les objets depuis n'importe quelle vue ». Sa place
+            est ici et pas dans chaque en-tête de page : la barre du haut est montée par tous les
+            écrans, alors qu'un ajout par écran manquerait sur le prochain écran créé. */}
+        <MenuCreer />
         <button
           type="button"
           onClick={() => void signOut()}

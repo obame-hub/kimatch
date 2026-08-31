@@ -19,6 +19,7 @@ import { FALLBACK_STATUTS_MANDATS, STATUT_MANDAT_TONE } from '@/lib/referenceFal
 import { ListToolbar } from '@/components/ui/list-toolbar'
 import { usePerimetre, BasculePerimetre } from '@/lib/perimetre'
 import { useMonProfil } from '@/lib/data/roles'
+import { useOuvrirCreation } from '@/lib/ouvrirCreation'
 
 /**
  * Création d'un mandat depuis la liste : le compte n'est pas connu, on le demande, puis on passe la
@@ -130,6 +131,8 @@ export default function Mandats({ sansEntete }: { sansEntete?: boolean }) {
   const pdlsFromUrl = searchParams.get('pdls')
   const contactFromUrl = searchParams.get('contact')
   const [showCreate, setShowCreate] = useState(!!compteFromUrl)
+  // `?creer=1` ouvre ce formulaire depuis le menu « Créer » de la barre du haut.
+  useOuvrirCreation(() => setShowCreate(true))
   const [statutFilter, setStatutFilter] = useState('')
 
   useEffect(() => {

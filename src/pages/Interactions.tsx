@@ -19,6 +19,7 @@ import { FALLBACK_TYPES_INTERACTIONS, FALLBACK_ISSUES_INTERACTIONS } from '@/lib
 import { ListToolbar } from '@/components/ui/list-toolbar'
 import { useListControls } from '@/lib/useListControls'
 import { usePerimetreListe, BasculePerimetre } from '@/lib/perimetre'
+import { useOuvrirCreation } from '@/lib/ouvrirCreation'
 
 const SENS_OPTIONS = [
   { value: '', label: '—' },
@@ -161,6 +162,8 @@ function CreateInteractionDialog({ open, onClose }: { open: boolean; onClose: ()
 export default function Interactions() {
   const { data: interactions, isLoading } = useInteractionsRecentes()
   const [showCreate, setShowCreate] = useState(false)
+  // `?creer=1` ouvre ce formulaire depuis le menu « Créer » de la barre du haut.
+  useOuvrirCreation(() => setShowCreate(true))
 
   /**
    * UN ÉCHANGE DATÉ EN 2029 N'A PAS EU LIEU.

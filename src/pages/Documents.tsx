@@ -23,6 +23,7 @@ import { entityRoute } from '@/lib/entityRoute'
 import { ListToolbar } from '@/components/ui/list-toolbar'
 import { usePerimetre, BasculePerimetre } from '@/lib/perimetre'
 import { useMonProfil } from '@/lib/data/roles'
+import { useOuvrirCreation } from '@/lib/ouvrirCreation'
 
 const ENTITE_TYPE_OPTIONS = [
   { value: 'site', label: 'Site' },
@@ -158,6 +159,8 @@ interface LigneDocument {
  */
 export default function Documents({ sansEntete }: { sansEntete?: boolean }) {
   const [showCreate, setShowCreate] = useState(false)
+  // `?creer=1` ouvre ce formulaire depuis le menu « Créer » de la barre du haut.
+  useOuvrirCreation(() => setShowCreate(true))
 
   /**
 

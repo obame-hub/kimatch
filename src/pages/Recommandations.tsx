@@ -13,6 +13,7 @@ import { useKanbanServeur } from '@/lib/useKanbanServeur'
 import { useTriKanban, SelecteurTri } from '@/lib/triKanban'
 import { TableauKanban } from '@/components/dashboard/TableauKanban'
 import { CreateRecommandationDialog } from '@/components/opportunite/CreationRecommandationWizard'
+import { useOuvrirCreation } from '@/lib/ouvrirCreation'
 
 /** Le formulaire de création vit désormais dans son propre fichier, réécrit le 15/08/2026 en
  *  parcours à quatre étapes calqué sur l'OpportuniteWizard de Tools. Il reste réexporté ici :
@@ -118,6 +119,8 @@ export default function Recommandations() {
   const filtreProprietaire = perimetre === 'moi' && monProfil?.id ? monProfil.id : null
   const navigate = useNavigate()
   const [showCreate, setShowCreate] = useState(false)
+  // `?creer=1` ouvre ce formulaire depuis le menu « Créer » de la barre du haut.
+  useOuvrirCreation(() => setShowCreate(true))
 
   /**
    * LA RECHERCHE SURVIT À LA LISTE. `useListeServeur` ne servait plus qu'à porter la saisie et le
