@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { Plus, Check } from 'lucide-react'
 import { Topbar } from '@/components/layout/Topbar'
-import { PageHeader } from '@/components/ui/page-header'
+import { PageHeader, Indicateurs } from '@/components/ui/page-header'
 import { Button } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
 import { useMonProfil } from '@/lib/data/roles'
@@ -190,6 +190,21 @@ export default function Recommandations() {
 
   const euros = (v: number) => v.toLocaleString('fr-FR', { maximumFractionDigits: 0 }) + ' €'
 
+  /**
+   * LES QUATRE MESURES SORTENT DES TOTAUX DÉJÀ CALCULÉS PAR LA BASE, colonne par colonne.
+   *
+   * C'est ce qui garantit qu'elles disent la même chose que le tableau juste en dessous. Les
+   * recompter dans le navigateur sur les cartes chargées donnerait un autre chiffre : seules dix
+   * cartes par colonne descendent, alors que le total, lui, compte tout.
+   */
+  const totalDe = (code: string) => colonnes.find((c) => c.code === code)?.total ?? 0
+  const mesures = [
+    { libelle: 'À traiter', valeur: String(nbDossiers), precision: 'Dossiers ouverts' },
+    { libelle: 'En construction', valeur: String(totalDe('EN_CONSTRUCTION')), precision: 'Versions en cours' },
+    { libelle: 'En décision', valeur: String(totalDe('EN_DECISION')), precision: 'Client sollicité' },
+    { libelle: 'À réactiver', valeur: String(totalDe('A_REACTIVER')), precision: 'En sommeil' },
+  ]
+
   return (
     <div>
       <Topbar title="Recommandations" />
@@ -205,6 +220,8 @@ export default function Recommandations() {
           description="Le véritable produit de KiWee — jamais figée, elle évolue par versions successives."
           actions={<Button onClick={() => setShowCreate(true)}><Plus className="h-4 w-4" />Nouvelle recommandation</Button>}
         />
+
+        <Indicateurs mesures={mesures} />
 
         <ListToolbar query={recherche} onQueryChange={setRecherche} placeholder="Rechercher une recommandation, un compte…" count={nbDossiers}>
           <BasculePerimetre

@@ -201,8 +201,8 @@ export function ComparatifVersions({
   if (versions.length === 0) {
     return (
       <div className="rounded-[13px] border border-km-line bg-white p-6 text-center">
-        <p className="text-km-name font-semibold text-km-text">Aucune version à comparer</p>
-        <p className="mt-1 text-km-body text-km-muted">
+        <p className="text-km-body font-semibold text-km-text">Aucune version à comparer</p>
+        <p className="mt-1 text-km-label text-km-muted">
           Le comparatif apparaît dès la première cotation : lancez-la avec « Nouvelle version ».
         </p>
       </div>
@@ -234,7 +234,7 @@ export function ComparatifVersions({
   return (
     <div className="overflow-hidden rounded-[13px] border border-km-line bg-white">
       <div className="flex items-center gap-2 border-b border-kw-border-subtle px-[17px] py-3">
-        <span className="text-km-label font-bold uppercase tracking-[0.08em] text-km-faint">Comparatif des versions</span>
+        <span className="text-km-micro font-bold uppercase tracking-[0.08em] text-km-faint">Comparatif des versions</span>
         <span className="flex-1" />
         <span className="flex items-center gap-1.5 text-[9.5px] text-km-muted">
           <span className="h-2.5 w-2.5 rounded-[3px] border border-[#dcc39c] bg-[#f4ecdf]" />
@@ -256,7 +256,7 @@ export function ComparatifVersions({
                   onClick={() => onChoisirVersion(v)}
                   title="Afficher cette version"
                   className={cn(
-                    'flex items-center gap-[7px] px-2.5 py-2 text-left font-mono text-km-body font-extrabold',
+                    'flex items-center gap-[7px] px-2.5 py-2 text-left font-mono text-km-label font-extrabold',
                     active ? 'bg-[#fdf9f0] text-[#8a4b2a]' : 'text-km-faint',
                     versionAffichee?.id === v.id && 'ring-1 ring-inset ring-[#dcc39c]',
                   )}
@@ -286,7 +286,7 @@ export function ComparatifVersions({
                 className={cn('grid items-center', index < lignes.length - 1 && 'border-b border-km-line')}
                 style={{ gridTemplateColumns: grille }}
               >
-                <span className="px-[17px] py-2.5 text-km-body font-bold text-km-muted">{ligne.libelle}</span>
+                <span className="px-[17px] py-2.5 text-km-label font-bold text-km-muted">{ligne.libelle}</span>
                 {versions.map((v, i) => {
                   const active = v.version_actuelle
                   const idEdition = `${v.id}::${ligne.cle}`
@@ -311,7 +311,7 @@ export function ComparatifVersions({
                             if (e.key === 'Escape') setEnEdition(null)
                           }}
                           placeholder="€ / an"
-                          className="w-[90px] rounded-km-sm border border-km-green bg-white px-1.5 py-0.5 font-mono text-km-body font-extrabold text-km-text outline-none ring-[3px] ring-kw-green/10"
+                          className="w-[90px] rounded-km-sm border border-km-green bg-white px-1.5 py-0.5 font-mono text-km-label font-extrabold text-km-text outline-none ring-[3px] ring-kw-green/10"
                         />
                       ) : (
                         <button
@@ -324,7 +324,7 @@ export function ComparatifVersions({
                             setBrouillon(v.gains_estimes != null ? String(v.gains_estimes) : '')
                           }}
                           className={cn(
-                            'font-mono text-km-body',
+                            'font-mono text-km-label',
                             modifiable ? 'cursor-text border-b border-dashed border-[#d9d0bd]' : 'cursor-help',
                             vide
                               ? 'font-medium text-km-faint'
@@ -347,12 +347,12 @@ export function ComparatifVersions({
 
           {/* ── Solutions incluses ── */}
           <div className="grid" style={{ gridTemplateColumns: '1fr' }}>
-            <span className="border-t border-kw-border-subtle bg-km-soft px-[17px] py-2 text-km-label font-extrabold uppercase tracking-[0.07em] text-km-faint">
+            <span className="border-t border-kw-border-subtle bg-km-soft px-[17px] py-2 text-km-micro font-extrabold uppercase tracking-[0.07em] text-km-faint">
               Solutions incluses
             </span>
           </div>
           {solutions.length === 0 ? (
-            <p className="px-[17px] py-2.5 text-km-body text-km-faint">
+            <p className="px-[17px] py-2.5 text-km-label text-km-faint">
               Aucune optimisation rattachée à ces versions.
             </p>
           ) : (
@@ -362,7 +362,7 @@ export function ComparatifVersions({
                 className={cn('grid items-center', si < solutions.length - 1 && 'border-b border-km-line')}
                 style={{ gridTemplateColumns: grille }}
               >
-                <span className="px-[17px] py-2.5 text-km-body font-bold text-km-muted">{s.libelle}</span>
+                <span className="px-[17px] py-2.5 text-km-label font-bold text-km-muted">{s.libelle}</span>
                 {s.cellules.map((c, i) => {
                   const active = versions[i].version_actuelle
                   return (
@@ -375,7 +375,7 @@ export function ComparatifVersions({
                     >
                       <span
                         className={cn(
-                          'inline-flex h-[17px] w-[17px] shrink-0 items-center justify-center rounded-full text-km-label font-extrabold',
+                          'inline-flex h-[17px] w-[17px] shrink-0 items-center justify-center rounded-full text-km-micro font-extrabold',
                           c.incluse ? 'bg-km-green-soft text-km-green' : 'bg-km-red-soft text-km-red',
                           !active && 'opacity-55',
                         )}
@@ -401,7 +401,7 @@ export function ComparatifVersions({
       {/* Dit une fois, en bas du tableau, d'où viennent les cases vides — plutôt que de laisser
           croire à une panne d'affichage. */}
       {versions.every((v) => v.optimisations.every((o) => o.offres.length === 0)) && (
-        <p className="border-t border-kw-border-subtle bg-km-soft px-[17px] py-2 text-km-label leading-snug text-km-faint">
+        <p className="border-t border-kw-border-subtle bg-km-soft px-[17px] py-2 text-km-micro leading-snug text-km-faint">
           Budget, fournisseur et prix au MWh se lisent sur l'offre retenue de chaque version. Aucune
           offre n'est encore enregistrée ici : elles se remplissent au fil des réponses des
           fournisseurs consultés.

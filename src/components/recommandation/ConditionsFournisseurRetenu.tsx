@@ -98,14 +98,14 @@ function Ligne({
 }) {
   return (
     <div className="flex items-baseline gap-3 border-b border-km-line py-[7px] last:border-b-0 print:py-[5px]">
-      <span className={fort ? 'text-km-name font-bold text-km-text' : 'text-km-body text-km-muted'}>{intitule}</span>
-      {sigle && <span className="font-mono text-km-label text-km-faint">{sigle}</span>}
+      <span className={fort ? 'text-km-body font-bold text-km-text' : 'text-km-label text-km-muted'}>{intitule}</span>
+      {sigle && <span className="font-mono text-km-micro text-km-faint">{sigle}</span>}
       <span className="flex-1" />
       <span
         className={
           fort
-            ? 'font-mono text-km-name font-extrabold tabular-nums text-km-text'
-            : 'font-mono text-km-body font-semibold tabular-nums text-km-text'
+            ? 'font-mono text-km-body font-extrabold tabular-nums text-km-text'
+            : 'font-mono text-km-label font-semibold tabular-nums text-km-text'
         }
       >
         {valeur}
@@ -126,7 +126,7 @@ function Bloc({ children }: { children: ReactNode }) {
 /** Les intitulés de famille, en vert — « comme rémunération des CEE, je vais mettre taxe ». */
 function Famille({ children }: { children: string }) {
   return (
-    <p className="mb-1 mt-5 text-km-body font-extrabold uppercase tracking-[0.1em] text-km-green first:mt-0">
+    <p className="mb-1 mt-5 text-km-label font-extrabold uppercase tracking-[0.1em] text-km-green first:mt-0">
       {children}
     </p>
   )
@@ -154,7 +154,7 @@ export function ConditionsFournisseurRetenu({
 
   if (!prixGaz || !b) {
     return (
-      <p className="mt-2 rounded-km border border-dashed border-km-line bg-km-soft px-3 py-2.5 text-km-body leading-relaxed text-km-muted">
+      <p className="mt-2 rounded-km border border-dashed border-km-line bg-km-soft px-3 py-2.5 text-km-label leading-relaxed text-km-muted">
         Le détail du fournisseur retenu n’est pas disponible : il demande les composantes de prix et la
         consommation de référence du point de livraison. Saisissez-les sur l’offre pour que cette page
         reprenne la présentation du fournisseur.
@@ -223,8 +223,8 @@ export function ConditionsFournisseurRetenu({
                 }
                 className={
                   base === o.cle
-                    ? 'rounded-km-sm bg-ink-800 px-2 py-0.5 text-km-label font-extrabold text-white'
-                    : 'rounded-km-sm px-2 py-0.5 text-km-label font-bold text-km-muted hover:bg-km-soft'
+                    ? 'rounded-km-sm bg-ink-800 px-2 py-0.5 text-km-micro font-extrabold text-white'
+                    : 'rounded-km-sm px-2 py-0.5 text-km-micro font-bold text-km-muted hover:bg-km-soft'
                 }
               >
                 {o.libelle}
@@ -302,7 +302,7 @@ export function ConditionsFournisseurRetenu({
           valeur={euros(ttc ? b.prixMoyenTtcMwh : b.prixMoyenHtMwh) + (ttc ? ' TTC/MWh' : ' HT/MWh')}
           fort
         />
-        <p className="pt-1.5 text-km-label text-km-muted">
+        <p className="pt-1.5 text-km-micro text-km-muted">
           {ttc
             ? 'Y compris abonnement et taxes.'
             : 'Hors TVA, abonnement compris. Un client assujetti la récupère.'}
@@ -312,7 +312,7 @@ export function ConditionsFournisseurRetenu({
       {/* « C'est pas la date à laquelle on a fait la demande de cotation, c'est le DÉBUT DE
           FOURNITURE. » */}
       {debut && (
-        <p className="mt-3 rounded-km-md bg-km-soft px-3.5 py-2.5 text-km-body font-bold uppercase tracking-[0.05em] text-km-text print:mt-2 print:py-1.5">
+        <p className="mt-3 rounded-km-md bg-km-soft px-3.5 py-2.5 text-km-label font-bold uppercase tracking-[0.05em] text-km-text print:mt-2 print:py-1.5">
           Début de fourniture le {dateFr(debut)}
         </p>
       )}
@@ -320,7 +320,7 @@ export function ConditionsFournisseurRetenu({
       {/* UN BUDGET PARTIEL SE DIT. Sans cette mention, un total amputé d'une composante non saisie se
           lirait comme un total complet — et c'est un chiffre que le client compare. */}
       {b.incomplet && (
-        <p className="mt-3 rounded-km border border-dashed border-kw-amber bg-km-amber-soft px-3 py-2 text-km-label font-semibold text-km-amber">
+        <p className="mt-3 rounded-km border border-dashed border-kw-amber bg-km-amber-soft px-3 py-2 text-km-micro font-semibold text-km-amber">
           Une ou plusieurs composantes ne sont pas saisies : ce budget est partiel. Les lignes marquées
           « à vérifier » ci-dessus indiquent lesquelles.
         </p>
@@ -334,7 +334,7 @@ export function ConditionsFournisseurRetenu({
 
           Les mentions restent sur le blanc : ce sont les seules lignes qu'on peut ne pas lire, et un
           aplat leur donnerait un poids qu'elles n'ont pas. */}
-      <p className="mt-3 max-w-[95ch] text-km-label leading-relaxed text-km-faint print:mt-2">
+      <p className="mt-3 max-w-[95ch] text-km-micro leading-relaxed text-km-faint print:mt-2">
         Montants indicatifs.
         {ttc ? ' TVA appliquée au taux de ' + pourcent + '.' : ' Montants hors TVA.'}
       </p>

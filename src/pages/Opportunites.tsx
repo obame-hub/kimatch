@@ -5,7 +5,7 @@ import { Plus, Target, Check } from 'lucide-react'
 import { TableauKanban } from '@/components/dashboard/TableauKanban'
 import { volumeLisible } from '@/lib/volume'
 import { Topbar } from '@/components/layout/Topbar'
-import { PageHeader } from '@/components/ui/page-header'
+import { PageHeader, Indicateurs } from '@/components/ui/page-header'
 import { Card } from '@/components/ui/card'
 import { ChoixParRecherche } from '@/components/ui/choix-recherche'
 import { Button } from '@/components/ui/button'
@@ -103,6 +103,22 @@ export default function Opportunites() {
     : filtrees.filter((o) => estVivante(statutDerive(o, mandats ?? []).code))
   const paliers = PIPELINE_OPPORTUNITE.filter((p) => avecClos || estVivante(p.code))
 
+  /* Les quatre paliers de son dossier — nouvelle, qualification, mandat, prête à recommander —
+     comptés sur les opportunités vivantes. Ils sont DÉRIVÉS des objets réellement présents, jamais
+     choisis à la main : c'est le principe de son chapitre 5.
+
+     Le comptage passe par le MÊME `statutDerive` que les colonnes du tableau, pour la raison déjà
+     écrite plus bas : le bandeau et le tableau doivent parler de la même population, sinon on ne
+     sait plus laquelle croire. */
+  const compterPalier = (code: string) =>
+    vivantes.filter((o) => statutDerive(o, mandats ?? []).code === code).length
+  const mesures = [
+    { libelle: 'En cours', valeur: String(vivantes.length), precision: 'Opportunités vivantes' },
+    { libelle: 'En qualification', valeur: String(compterPalier('EN_QUALIFICATION')), precision: 'Périmètre à valider' },
+    { libelle: 'Couverture mandat', valeur: String(compterPalier('COUVERTURE_MANDAT')), precision: 'Accord à obtenir' },
+    { libelle: 'Prêtes', valeur: String(compterPalier('PRETE_A_CONVERTIR')), precision: 'À recommander' },
+  ]
+
   /**
    * LE POIDS DE CHAQUE PALIER — le bandeau de sa page 5.
    *
@@ -155,6 +171,8 @@ export default function Opportunites() {
             réunis (« la maturité se fait si les objets sont valides ») : glisser une carte ne
             voudrait rien dire, elle reviendrait à sa place au rechargement. Cliquer une carte ouvre
             l'opportunité, où les gestes qui font avancer existent et vérifient leurs conditions. */}
+        <Indicateurs mesures={mesures} />
+
         <ListToolbar
           query={controles.query}
           onQueryChange={controles.setQuery}

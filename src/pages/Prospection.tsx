@@ -10,6 +10,7 @@ import { Dialog } from '@/components/ui/dialog'
 import { FormField, Input, Select } from '@/components/ui/form'
 import { ListToolbar } from '@/components/ui/list-toolbar'
 import { usePerimetreListe, BasculePerimetre } from '@/lib/perimetre'
+import { Indicateurs } from '@/components/ui/page-header'
 import { useTriKanban, SelecteurTri } from '@/lib/triKanban'
 import { DialogConversionPiste } from '@/components/prospection/DialogConversionPiste'
 import { OngletFichiers } from '@/components/compte/OngletFichiers'
@@ -266,6 +267,42 @@ function OngletPistes({ pistes, signaler }: { pistes: Piste[]; signaler: (m: str
 
   /* Une piste n'a que trois choses a trier : quand elle est arrivee, chez qui, et par qui.
      Le tri reste local — quatre pistes en base, et l'ecran les charge toutes. */
+  /**
+   * LES QUATRE MESURES DE L'ECRAN PISTES.
+   *
+   * Elles comptent les VALIDATIONS, parce que c'est ce qui fait avancer une piste : son dossier
+   * demande cinq validations avant conversion, dont le motif commercial. Une piste ne progresse pas
+   * par une decision mais par une information qu'on acquiert — le bandeau doit donc dire combien il
+   * en manque, pas combien de pistes existent.
+   *
+   * Michel a tranche le 31/08 a 11 h 45 : les pistes passent « sur le meme modele que
+   * l'opportunite », donc des etapes derivees des objets presents. Les quatre validations
+   * actuelles (societe, contact, e-mail, portable) ne sont pas les cinq de son dossier : c'est un
+   * chantier a part, et ces mesures comptent ce qui existe aujourd'hui, sans l'annoncer autrement.
+   */
+  const toutes = pistes
+  const mesures = [
+    {
+      libelle: 'A completer',
+      valeur: String(toutes.filter((p) => !p.opportunite_id && !pisteQualifiee(p)).length),
+      precision: 'Validations manquantes',
+    },
+    {
+      libelle: 'Pretes a convertir',
+      valeur: String(toutes.filter((p) => !p.opportunite_id && pisteQualifiee(p)).length),
+      precision: 'Toutes les validations',
+    },
+    {
+      libelle: 'Converties',
+      valeur: String(toutes.filter((p) => p.opportunite_id).length),
+      precision: 'Une opportunite a suivi',
+    },
+    {
+      libelle: 'Sans contact',
+      valeur: String(toutes.filter((p) => !p.opportunite_id && !p.contact_id).length),
+      precision: 'Prerequis de conversion',
+    },
+  ]
   const { tri, ascendant, setTri, options: optionsTri } = useTriKanban('pistes', [
     { cle: 'date_creation', libelle: 'date de création', ascendant: false },
     { cle: 'societe', libelle: 'société' },
@@ -306,6 +343,8 @@ function OngletPistes({ pistes, signaler }: { pistes: Piste[]; signaler: (m: str
 
   return (
     <>
+      <Indicateurs mesures={mesures} />
+
       <ListToolbar query={recherche} onQueryChange={setRecherche} placeholder="Société, contact, email…" count={filtrees.length}>
         <BasculePerimetre
           valeur={perimetre}

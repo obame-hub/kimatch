@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react'
 import { Plus, LifeBuoy, Check } from 'lucide-react'
 import { Topbar } from '@/components/layout/Topbar'
-import { PageHeader } from '@/components/ui/page-header'
+import { PageHeader, Indicateurs } from '@/components/ui/page-header'
 import { Card } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
@@ -84,8 +84,21 @@ export default function Requetes() {
         (r) => !['RESOLUE', 'ABANDONNEE'].includes(r.statut) && r.date_echeance && new Date(r.date_echeance).getTime() < maintenant,
       ).length,
       resolues: toutes.filter((r) => r.statut === 'RESOLUE').length,
+      /* SANS RESPONSABLE : la mesure que son dossier rend indispensable. Il exige qu'« une requête
+         en traitement possède un responsable et une prochaine action » — sans compteur, la règle
+         reste un vœu et personne ne sait combien de requêtes y échappent. */
+      sansResponsable: toutes.filter(
+        (r) => !['RESOLUE', 'ABANDONNEE'].includes(r.statut) && !r.proprietaire_id,
+      ).length,
     }
   }, [requetes])
+
+  const mesures = [
+    { libelle: 'À traiter', valeur: String(compteurs.aTraiter), precision: 'Ouvertes' },
+    { libelle: 'En retard', valeur: String(compteurs.enRetard), precision: 'Prioritaires' },
+    { libelle: 'Résolues', valeur: String(compteurs.resolues), precision: 'Clôturées' },
+    { libelle: 'Sans responsable', valeur: String(compteurs.sansResponsable), precision: 'À attribuer' },
+  ]
 
   const { perimetre, setPerimetre, visibles: requetesDuPerimetre } = usePerimetreListe(
     'requetes', requetes,
@@ -123,6 +136,8 @@ export default function Requetes() {
           <Tuile libelle="En retard" valeur={String(compteurs.enRetard)} accent={compteurs.enRetard > 0 ? 'rouge' : undefined} />
           <Tuile libelle="Résolues" valeur={String(compteurs.resolues)} accent="kiwi" />
         </div>
+
+        <Indicateurs mesures={mesures} />
 
         <ListToolbar query={recherche} onQueryChange={setRecherche} placeholder="Objet, compte, catégorie…" count={filtrees.length}>
             <BasculePerimetre

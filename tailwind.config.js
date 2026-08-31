@@ -268,11 +268,33 @@ export default {
          * La maquette est une planche dessinee a echelle reduite : ses tailles absolues ne sont
          * pas des consignes, sa HIERARCHIE en est une. On garde donc les rapports entre les
          * niveaux et on remonte le tout au-dessus de son plancher de 11 px. */
-        'km-label': '11px',   /* libelle d'indicateur, sous-titre de ligne (etait 8-9px) */
-        'km-body': '13px',    /* cellule de tableau (etait 9px) */
-        'km-name': '14px',    /* nom d'une ligne, texte courant (etait 10px) */
-        'km-lead': '13px',    /* la phrase sous le titre de page (etait 11px) */
-        'km-metric': '20px',  /* valeur d'un indicateur (etait 19px) */
+        /* ══ CORRECTION DU 31/08/2026, APRES AVOIR CASSE LES ECRANS DENSES ═════════════════
+         *
+         * J'avais collapse huit tailles en trois EN LES REMONTANT TOUTES : 8,5 px devenait 11,
+         * 9 px devenait 11, 10,5 devenait 13. Le raisonnement etait bon en principe — son dossier
+         * interdit le texte sous 11 px — mais faux en pratique.
+         *
+         * CE QUI S'EST PASSE. Une carte de kanban empile six informations dans 200 px de large.
+         * Remonter chacune de 8,5 a 11 px gonfle la carte de 30 %, le texte passe a la ligne, et
+         * un nom de fournisseur en police a chasse fixe occupe quatre lignes. Constate en
+         * production sur l'ecran Pricing : les colonnes etaient illisibles.
+         *
+         * LA REGLE DES 11 PX VAUT POUR L'INFORMATION ESSENTIELLE — c'est le mot de son dossier.
+         * Un libelle de colonne dans une carte n'est pas de l'information essentielle : c'est une
+         * etiquette qui accompagne une valeur, elle-meme lisible. La densite est une decision de
+         * design a part entiere, et l'ecraser au nom d'un plancher casse ce qu'on voulait proteger.
+         *
+         * L'echelle retrouve donc sa granularite. Les tailles NOMMEES pour la refonte gardent le
+         * plancher de 11 px la ou l'information compte : titre de page, nom de ligne, valeur
+         * d'indicateur, corps de tableau. */
+        'km-micro': '8.5px',  /* etiquette dans un espace dense — carte de kanban, pastille */
+        'km-tiny': '9px',
+        'km-xs': '10px',
+        'km-label': '11px',   /* libelle d'indicateur, sous-titre de ligne */
+        'km-body': '13px',    /* cellule de tableau, texte courant */
+        'km-name': '14px',    /* nom d'une ligne */
+        'km-lead': '13px',    /* la phrase sous le titre de page */
+        'km-metric': '20px',  /* valeur d'un indicateur */
         'km-h1': '28px',      /* titre de page — la seule taille reprise telle quelle */
       },
       spacing: {

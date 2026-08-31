@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import {  } from 'lucide-react'
 import { Topbar } from '@/components/layout/Topbar'
-import { PageHeader } from '@/components/ui/page-header'
+import { PageHeader, Indicateurs } from '@/components/ui/page-header'
 import { ListToolbar } from '@/components/ui/list-toolbar'
 import { TableauKanban } from '@/components/dashboard/TableauKanban'
 import { useKanbanServeur } from '@/lib/useKanbanServeur'
@@ -272,6 +272,26 @@ export default function Pricing({ sansEntete }: { sansEntete?: boolean }) {
   const montantTotal = lignes.reduce((t, c) => t + (c.somme ?? 0), 0)
   const montantConnu = lignes.some((c) => (c.somme ?? 0) > 0)
 
+  /**
+   * SES QUATRE MESURES PORTENT LA DISTINCTION QUI FAIT TOUT CET ÉCRAN.
+   *
+   * Son dossier y insiste : « acceptée ne veut pas dire disponible. Une offre disponible possède
+   * les prix et montants nécessaires à la comparaison. » On compte donc séparément ce qui ATTEND
+   * une offre et ce qui en a une — c'est la seule façon de voir le trou, et il est béant : 21
+   * versions « En décision » sur 22 n'ont aucune offre saisie.
+   */
+  const totalDe = (code: string) => lignes.find((c) => c.code === code)?.total ?? 0
+  const mesures = [
+    { libelle: 'Consultations', valeur: String(nbTotal), precision: 'Versions en cours' },
+    { libelle: 'À envoyer', valeur: String(totalDe('A_DEMANDER')), precision: 'Action attendue' },
+    { libelle: 'En attente', valeur: String(totalDe('EN_ATTENTE')), precision: 'Chez le fournisseur' },
+    {
+      libelle: 'Offres reçues',
+      valeur: String(totalDe('RECUE')),
+      precision: montantConnu ? euros(montantTotal) + ' chiffrés' : 'Aucun prix saisi',
+    },
+  ]
+
   return (
     <div>
       {!sansEntete && <Topbar title="Pricing" />}
@@ -282,6 +302,8 @@ export default function Pricing({ sansEntete }: { sansEntete?: boolean }) {
           badgeLibelle="Montant chiffré"
           description="Suivez les offres fournisseurs à chaque étape de leur traitement. Seule la version en cours des dossiers ouverts apparaît."
         />
+
+        <Indicateurs mesures={mesures} />
 
         <ListToolbar
           query={recherche}
