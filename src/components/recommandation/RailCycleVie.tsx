@@ -1,4 +1,4 @@
-import { ExternalLink, Send, Check, Shield, ArrowRight } from 'lucide-react'
+import { ExternalLink, Send, Check, Shield } from 'lucide-react'
 import type { LucideIcon } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { FINALITES_RECOMMANDATION, type CleFinalite } from '@/lib/finalitesRecommandation'
@@ -65,13 +65,42 @@ const CODES_DOSSIER = ['BROUILLON', 'ACTIVE', 'A_REACTIVER', 'CLOTUREE'] as cons
  * Deux frises au même niveau de bruit se disputeraient l'œil, et la maquette de Michel se veut
  * minimaliste. Celle-ci dit où en est le dossier ; celle du dessous reste l'endroit où l'on agit.
  */
-function FriseDossier({ etapes, codeCourant }: { etapes: ReferenceRow[]; codeCourant: string }) {
+function FriseDossier({
+  etapes,
+  codeCourant,
+  peutModifier,
+  onCloturer,
+  onRouvrir,
+}: {
+  etapes: ReferenceRow[]
+  codeCourant: string
+  peutModifier: boolean
+  onCloturer: () => void
+  onRouvrir: () => void
+}) {
   const crans = CODES_DOSSIER.map((code) => etapes.find((e) => e.code === code)).filter(
     (e): e is ReferenceRow => !!e,
   )
   if (crans.length === 0) return null
   const indexCourant = crans.findIndex((e) => e.code === codeCourant)
+  const estClos = codeCourant === 'CLOTUREE'
 
+  /* ══ CE QU'ON PEUT CLIQUER ICI, ET CE QU'ON NE PEUT PAS ══════════════════════════════════════
+
+     Naoëlle, 31/08/2026 : « enlève aussi étape suivante et clôturer, on pourra modifier les statuts
+     en cliquant sur les statuts direct de la frise ». Les deux boutons sont partis, la frise les
+     remplace.
+
+     MAIS TROIS DES QUATRE CRANS NE SONT PAS DES CHOIX. Brouillon, Active et À réactiver sont
+     DÉDUITS par la base — aucune version, une version vivante, toutes les versions closes sans
+     conclusion. Les rendre cliquables promettrait une action qui serait défaite au recalcul suivant,
+     c'est-à-dire dès la prochaine version créée.
+
+     Le seul geste que le métier confie à quelqu'un est la clôture. Michel, 31/08/2026 : « la version
+     fait évoluer la recommandation, mais ne clôture JAMAIS la recommandation, ça doit se faire
+     manuellement. » Donc : « Clôturée » ouvre le panneau de résultat, et sur un dossier déjà clos,
+     cliquer n'importe où ailleurs le rouvre. Les autres crans portent une infobulle qui dit pourquoi
+     ils ne se cliquent pas — un cran inerte sans explication se lit comme une panne. */
   return (
     <div className="mb-2.5 border-b border-km-line pb-2.5">
       <p className="mb-1.5 text-km-label font-bold uppercase tracking-[0.08em] text-km-faint">
@@ -80,23 +109,41 @@ function FriseDossier({ etapes, codeCourant }: { etapes: ReferenceRow[]; codeCou
       <div className="flex items-center gap-1">
         {crans.map((cran, i) => {
           const courant = i === indexCourant
+          const estCranCloture = cran.code === 'CLOTUREE'
+          /* Cliquable : « Clôturée » sur un dossier ouvert (on le ferme), et n'importe quel autre
+             cran sur un dossier clos (on le rouvre, la base décide où il retombe). */
+          const actionnable = peutModifier && (estClos ? !estCranCloture : estCranCloture)
+          const infobulle = actionnable
+            ? estClos
+              ? 'Rouvrir ce dossier — la base recalculera son statut'
+              : 'Clôturer ce dossier'
+            : courant
+              ? cran.libelle
+              : `« ${cran.libelle} » est calculé par l'application, d'après les versions et les contrats du dossier.`
+
           /* « À réactiver » et « Clôturée » sont deux SORTIES, pas deux crans successifs : un
              dossier clôturé n'est jamais passé par « à réactiver ». On n'estompe donc pas les crans
              « franchis » comme sur une progression — on met en avant celui où l'on est, et on laisse
              les autres lisibles mais discrets. C'est un repère de position, pas un compteur. */
           return (
             <div key={cran.id} className="flex min-w-0 flex-1 items-center gap-1">
-              <span
+              <button
+                type="button"
+                disabled={!actionnable}
+                onClick={actionnable ? (estClos ? onRouvrir : onCloturer) : undefined}
+                title={infobulle}
                 className={cn(
                   'min-w-0 flex-1 truncate rounded-km px-2 py-[5px] text-center text-km-label font-bold transition-colors',
                   courant
                     ? 'bg-km-green-soft text-km-green ring-1 ring-inset ring-km-green/30'
                     : 'bg-km-soft text-km-faint',
+                  actionnable
+                    ? 'cursor-pointer hover:bg-km-green-soft hover:text-km-green'
+                    : 'cursor-default',
                 )}
-                title={cran.libelle}
               >
                 {cran.libelle}
-              </span>
+              </button>
               {i < crans.length - 1 && (
                 <span className="h-[2px] w-2 shrink-0 rounded-full bg-km-line" aria-hidden="true" />
               )}
@@ -123,7 +170,14 @@ export function etapesDuRail(etapes: ReferenceRow[]): ReferenceRow[] {
   return CODES_RAIL.map((code) => etapes.find((e) => e.code === code)).filter((e): e is ReferenceRow => !!e)
 }
 
-/** L'étape qui suit celle en cours, ou null si la suivante est la clôture (qui exige une finalité). */
+/**
+ * L'étape qui suit celle en cours, ou null si la suivante est la clôture (qui exige une finalité).
+ *
+ * PLUS AUCUN APPELANT depuis le 31/08/2026 : le bouton « Étape suivante » a été remplacé par des
+ * crans cliquables, et une frise ne raisonne pas en « suivant » — chaque cran est une destination.
+ * Conservée parce qu'elle est la seule description écrite de l'ordre du rail, et qu'un écran qui
+ * voudrait un jour proposer « l'étape d'après » la réécrirait à l'identique.
+ */
 export function etapeSuivanteDuRail(etapes: ReferenceRow[], codeCourant: string): ReferenceRow | null {
   const rail = etapesDuRail(etapes)
   const i = rail.findIndex((e) => e.code === codeCourant)
@@ -144,9 +198,8 @@ export function RailCycleVie({
   numeroVersion,
   finalite,
   peutModifier,
-  clotureOuverte,
   onOuvrirCloture,
-  onAvancer,
+  onChoisirStatutVersion,
   onRouvrir,
   avanceEnCours,
   children,
@@ -162,9 +215,10 @@ export function RailCycleVie({
   numeroVersion?: number | null
   finalite: CleFinalite | null
   peutModifier: boolean
-  clotureOuverte: boolean
   onOuvrirCloture: () => void
-  onAvancer: () => void
+  /** Le statut visé pour la version affichée. Remplace « étape suivante », qui n'allait que d'un
+   *  cran et jamais en arrière. */
+  onChoisirStatutVersion: (statutVersionId: string) => void
   onRouvrir: () => void
   avanceEnCours: boolean
   /** Le panneau de clôture, rendu par la fiche (finalité + motif obligatoire). */
@@ -173,7 +227,6 @@ export function RailCycleVie({
   const rail = etapesDuRail(etapes)
   const dernier = rail.length - 1
   const indexCourant = rail.findIndex((e) => e.code === codeCourant)
-  const suivante = etapeSuivanteDuRail(etapes, codeCourant)
   const fin = finalite ? FINALITES_RECOMMANDATION[finalite] : null
 
   return (
@@ -181,56 +234,41 @@ export function RailCycleVie({
       <div className="flex flex-wrap items-center gap-2">
         <span className="text-km-label font-bold uppercase tracking-[0.08em] text-km-faint">Cycle de vie</span>
         <span className="flex-1" />
-        {peutModifier && !finalite && suivante && (
-          <button
-            type="button"
-            onClick={onAvancer}
-            disabled={avanceEnCours}
-            className="inline-flex items-center gap-1.5 rounded-km px-[13px] py-1.5 text-km-body font-bold text-white shadow-[0_3px_9px_rgba(176,118,60,.3)] disabled:opacity-60"
-            style={{ background: DEGRADE_OR }}
-          >
-            {avanceEnCours ? 'Enregistrement…' : <>Étape suivante <ArrowRight className="h-[11px] w-[11px]" /></>}
-          </button>
-        )}
-        {/* ══ LE BOUTON « CLÔTURER » NE DÉPEND PLUS DU RAIL ══════════════════════════════════
+        {/* ══ CETTE EN-TÊTE PORTAIT DEUX BOUTONS. ELLE N'EN PORTE PLUS AUCUN ═════════════════
 
-            Michel, appel du 31/08/2026 : « il y avait déjà un bouton clôturé je crois sur
-            recommandation… donc on peut remettre ça en place, c'est juste qu'il a disparu, je ne
-            sais pas pourquoi. »
+            Naoëlle, 31/08/2026 : « enlève aussi étape suivante et clôturer, on pourra modifier les
+            statuts en cliquant sur les statuts direct de la frise ». Les deux frises sont les
+            commandes, et l'histoire des deux boutons explique pourquoi c'est la bonne réponse.
 
-            POURQUOI IL AVAIT DISPARU. Sa condition était `!suivante` — « il n'y a plus de cran
-            après celui-ci ». Tant que le rail portait les cinq paliers du DOSSIER, cela voulait
-            dire « le dossier est au bout, il ne reste qu'à le fermer ». Le 28/08 le rail est passé
-            aux statuts de la VERSION, et la même condition s'est mise à dire tout autre chose :
-            le bouton n'apparaît plus que si la version affichée est exactement « En décision ».
+            « ÉTAPE SUIVANTE » n'allait que d'un cran, et jamais en arrière. Revenir demandait un
+            SECOND chemin — le menu « Corriger le statut » de la carte de version — donc deux
+            commandes pour un même changement, et il fallait savoir laquelle prendre selon le sens.
+            Un clic sur le cran visé fait les deux, et se lit sans mode d'emploi : on montre où l'on
+            veut aller.
 
-            Il devenait donc introuvable dans les quatre cas les plus courants — aucune version,
-            version en construction, version disponible, version déjà clôturée. Un dossier avec un
-            contrat mais sans version ne pouvait plus être fermé du tout.
+            « CLÔTURER… » avait disparu tout seul, et c'est instructif. Sa condition d'affichage était
+            « il n'y a plus de cran après celui-ci ». Tant que le rail portait les paliers du DOSSIER,
+            cela voulait dire « le dossier est au bout ». Le 28/08 le rail est passé aux statuts de la
+            VERSION, et la même phrase s'est mise à dire tout autre chose : le bouton n'apparaissait
+            plus que si la version affichée était exactement « En décision » — donc introuvable dans
+            les quatre cas courants, et un dossier avec un contrat mais sans version ne pouvait plus
+            être fermé du tout.
 
-            LA CLÔTURE N'EST PAS UN CRAN DE PLUS, C'EST LA SORTIE. Michel : « la version fait
-            évoluer la recommandation, mais ne clôture JAMAIS la recommandation, ça doit se faire
-            manuellement. » Une sortie est ouverte de partout : la seule condition est que le
-            dossier ne soit pas déjà clos, et que la personne ait le droit de le modifier. */}
-        {peutModifier && !finalite && (
-          <button
-            type="button"
-            onClick={onOuvrirCloture}
-            className={cn(
-              'inline-flex items-center gap-1.5 rounded-km border-[1.5px] border-[#8a4b2a] px-[13px] py-1.5 text-km-body font-bold text-km-text',
-              clotureOuverte ? 'bg-km-amber-soft' : 'bg-km-amber-soft hover:bg-[#f7ece3]',
-            )}
-          >
-            Clôturer… ▾
-          </button>
-        )}
+            Un bouton dont la visibilité dépend d'une frise est fragile par construction. Porté PAR la
+            frise, il ne peut plus se perdre : le cran « Clôturée » est toujours là.
+
+            Reste que la clôture n'est pas un cran de plus, c'est la sortie. Michel : « la version
+            fait évoluer la recommandation, mais ne clôture JAMAIS la recommandation, ça doit se faire
+            manuellement. » Voir `FriseDossier` pour ce qui se clique et ce qui ne se clique pas. */}
+
+        {/* LE RÉSULTAT RESTE, LUI, ET CE N'EST PAS UN DOUBLON. La frise dit que le dossier est clos ;
+            elle ne dit pas pourquoi. C'est aussi le seul endroit où le résultat se lit depuis que la
+            frise de la version a cessé de l'emprunter. Ce n'est plus un bouton : rouvrir se fait en
+            cliquant un autre cran de la frise du dossier. */}
         {fin && (
-          <button
-            type="button"
-            onClick={peutModifier ? onRouvrir : undefined}
-            title={peutModifier ? 'Cliquer pour rouvrir' : undefined}
+          <span
             className="rounded-kw-pill px-[13px] py-1.5 text-km-label font-extrabold tracking-[0.05em] text-white"
-            style={{ background: fin.couleur, boxShadow: `0 3px 9px ${fin.couleur}44`, cursor: peutModifier ? 'pointer' : 'default' }}
+            style={{ background: fin.couleur, boxShadow: `0 3px 9px ${fin.couleur}44` }}
           >
             {/* « RÉSULTAT : » devant le mot. Sans lui, cette pastille se lit comme un statut de
                 dossier — or les seuls statuts sont Brouillon, Active, À réactiver et Clôturée
@@ -240,16 +278,25 @@ export function RailCycleVie({
               : finalite === 'REFUSEE'
                 ? 'RÉSULTAT : ✗ REFUSÉE'
                 : 'RÉSULTAT : — EXPIRÉE'}
-          </button>
+          </span>
         )}
       </div>
-
-      {children}
 
       {/* ══ DEUX FRISES, LE DOSSIER PUIS LA VERSION ══
           Naoëlle, 31/08/2026 : « je vois toujours pas la frise de statut de recommandation
           au-dessus des statuts de version ». C'est sa table à deux colonnes, dessinée. */}
-      <FriseDossier etapes={etapesDossier} codeCourant={codeDossier} />
+      <FriseDossier
+        etapes={etapesDossier}
+        codeCourant={codeDossier}
+        peutModifier={peutModifier}
+        onCloturer={onOuvrirCloture}
+        onRouvrir={onRouvrir}
+      />
+
+      {/* LE PANNEAU DE CLÔTURE S'OUVRE SOUS LE CRAN QU'ON VIENT DE CLIQUER, et non au-dessus de la
+          frise comme avant : il parle du dossier, il se place donc contre la frise du dossier. Un
+          panneau qui s'ouvre ailleurs qu'à l'endroit cliqué fait douter que le clic ait porté. */}
+      {children}
 
       {/* LA FRISE DU BAS PORTE MAINTENANT SON NOM. Sans lui, deux frises superposées sans étiquette
           se lisent comme une seule frise en deux morceaux — et c'est justement la confusion qu'on
@@ -280,8 +327,27 @@ export function RailCycleVie({
           const courante = i === indexCourant
           return [
             <div key={etape.id} className="relative z-[1] flex justify-center">
-              <div
-                className="flex items-center justify-center rounded-full"
+              {/* ══ ON CLIQUE LE CRAN VOULU, PAS « SUIVANT » ══
+                  Remplace « Étape suivante » et le menu « Corriger le statut » d'un seul geste : ce
+                  bouton va où on lui dit, en avant comme en arrière. Le cran courant n'est pas
+                  cliquable — y aller quand on y est déjà n'est pas une action. */}
+              <button
+                type="button"
+                disabled={!peutModifier || courante || avanceEnCours}
+                onClick={() => onChoisirStatutVersion(etape.id)}
+                title={
+                  courante
+                    ? `Statut actuel de la version : ${etape.libelle}`
+                    : peutModifier
+                      ? `Passer la version à « ${etape.libelle} »`
+                      : etape.libelle
+                }
+                className={cn(
+                  'flex items-center justify-center rounded-full transition-transform',
+                  peutModifier && !courante && !avanceEnCours
+                    ? 'cursor-pointer hover:scale-[1.08]'
+                    : 'cursor-default',
+                )}
                 style={
                   /* ══ L'ÉTAPE COURANTE EST LA PLUS VISIBLE, LES FRANCHIES S'EFFACENT ══
 
@@ -315,7 +381,7 @@ export function RailCycleVie({
                 }
               >
                 <Icone className={courante ? 'h-[15px] w-[15px]' : 'h-[12px] w-[12px]'} />
-              </div>
+              </button>
             </div>,
             i < dernier ? (
               <div

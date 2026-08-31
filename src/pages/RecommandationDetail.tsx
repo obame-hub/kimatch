@@ -20,7 +20,7 @@ import { Dialog } from '@/components/ui/dialog'
 import { HistoriqueDiscret } from '@/components/ui/historique-discret'
 import { InlineField } from '@/components/ui/inline-field'
 import { ActivityFeed } from '@/components/site/ActivityFeed'
-import { RailCycleVie, etapeSuivanteDuRail } from '@/components/recommandation/RailCycleVie'
+import { RailCycleVie } from '@/components/recommandation/RailCycleVie'
 import { suggestionRelance } from '@/lib/relance'
 import { ComparatifVersions, coutPrestationEstime } from '@/components/recommandation/ComparatifVersions'
 import { DocumentComparatif } from '@/components/recommandation/DocumentComparatif'
@@ -306,9 +306,6 @@ export default function RecommandationDetail() {
 
      Sans ce changement le rail affichait « Étape "Active" : ancien cycle de vie, hors rail », parce
      qu'on lui donnait les statuts de version et le statut du dossier. */
-  const etapeSuivante = versionAffichee
-    ? etapeSuivanteDuRail(statutsVersions, versionAffichee.statut)
-    : null
   /* ══ ON NE CLÔTURE PAS « GAGNÉ » SANS CONTRAT ═══════════════════════════════════════════════
 
      Michel, appel du 31/08/2026 : « même si l'opportunité je l'indique gagner, tant que je n'ai
@@ -398,17 +395,28 @@ export default function RecommandationDetail() {
     }
   }
 
-  async function avancer() {
-    if (!versionAffichee || !etapeSuivante) return
-    // Le statut du DOSSIER n'est pas touché : un déclencheur en base le recalcule dès que la version
-    // change (migration 20260828120000). L'écrire ici en plus serait dire deux fois la même chose,
-    // et c'est le désordre que Michel a demandé de supprimer.
+  /**
+   * ON CLIQUE LE STATUT VOULU SUR LA FRISE, PLUS « ÉTAPE SUIVANTE ».
+   *
+   * Naoëlle, 31/08/2026 : « on pourra modifier les statuts en cliquant sur les statuts direct de la
+   * frise ».
+   *
+   * Ce que ça remplace, et pourquoi c'est mieux : « Étape suivante » n'avançait que d'un cran et
+   * jamais en arrière, ce qui obligeait à un second chemin — le menu « Corriger le statut » de la
+   * carte de version — pour revenir. Deux commandes pour un même changement, et il fallait savoir
+   * laquelle choisir selon le sens. Un clic sur le cran visé fait les deux, et se lit sans mode
+   * d'emploi : on montre où on veut aller.
+   *
+   * Le statut du DOSSIER n'est pas touché ici : un déclencheur en base le recalcule dès que la
+   * version change (migration 20260828120000). L'écrire aussi depuis l'écran serait dire deux fois
+   * la même chose — et c'est exactement le désordre que Michel a demandé de supprimer.
+   */
+  async function choisirStatutVersion(statutVersionId: string) {
+    if (!versionAffichee) return
+    const cible = statutsVersions.find((s) => s.id === statutVersionId)
     try {
-      await majStatutVersion.mutateAsync({
-        versionId: versionAffichee.id,
-        statutVersionId: etapeSuivante.id,
-      })
-      signaler(`→ Version ${versionAffichee.numero_version ?? ''} : ${etapeSuivante.libelle}`)
+      await majStatutVersion.mutateAsync({ versionId: versionAffichee.id, statutVersionId })
+      signaler(`→ Version ${versionAffichee.numero_version ?? ''} : ${cible?.libelle ?? 'statut mis à jour'}`)
     } catch (e) {
       signaler(`Erreur : ${e instanceof Error ? e.message : String(e)}`)
     }
@@ -634,66 +642,23 @@ export default function RecommandationDetail() {
 
                    La finalité reste écrite À CÔTÉ quand le dossier est réellement clos : « CLÔTURÉE ·
                    ACCEPTÉE » dit deux choses vraies, là où « ACCEPTÉE » seule en cachait une. */}
-            {/* ══ DEUX STATUTS, DEUX LIGNES ═══════════════════════════════════════════════════
+            {/* ══ LES PASTILLES DE STATUT SONT PARTIES ══════════════════════════════════════════
 
-                Michel, appel du 31/08/2026 : le statut de la recommandation et celui de la version
-                doivent être « l'un au-dessus de l'autre », pas côte à côte.
+                Naoëlle, 31/08/2026 : « enlève les pastilles à côté du nom, ça sert à rien, c'est
+                laid ». Elle a raison sur les deux points.
 
-                POURQUOI CE N'EST PAS UN DÉTAIL DE MISE EN PAGE. Les deux étaient réunis dans une
-                seule pastille, séparés d'un point médian : « ACTIVE · VERSION 2 ». Rien ne disait
-                lequel des deux morceaux parlait du dossier et lequel parlait de la version — et
-                comme le second ne donnait que le NUMÉRO, le statut de la version n'était affiché
-                nulle part. C'est pourtant celui sur lequel on travaille.
+                ÇA NE SERVAIT À RIEN : depuis que la carte « Cycle de vie » porte les deux frises,
+                ces pastilles répétaient ce qui est écrit quelques pixels plus bas, en plus pauvre —
+                un mot au lieu du chemin. Elles étaient ma première tentative de réponse à la
+                demande de Michel du même jour, et c'est la frise qui y répond.
 
-                Empilées, les deux lignes se lisent dans le bon ordre : le dossier d'abord — c'est
-                le sujet de la page — la version qu'on a ouverte ensuite. Chacune porte son propre
-                intitulé, donc plus rien à deviner.
+                ET C'ÉTAIT LAID : trois pastilles empilées à droite du titre poussaient la ligne du
+                nom sur trois hauteurs et déséquilibraient l'en-tête. Ce genre d'empilement est
+                précisément ce que la maquette de Michel évite.
 
-                ET LA PASTILLE NE PORTE QUE LE STATUT. Naoëlle, 31/08/2026 : « dans les statuts de
-                recommandation y a pas clôturée acceptée refusé ou expiré, c'est juste à réactivé ou
-                clôturée ». Sa table « Vue globale des statuts » le dit ligne par ligne : un dossier
-                vaut Brouillon, Active, À réactiver ou Clôturée, et rien d'autre.
-
-                J'écrivais « CLÔTURÉE · ACCEPTÉE » dans une seule pastille. Les deux mots sont vrais
-                mais ils ne sont pas de même nature : le premier est le statut, le second est le
-                RÉSULTAT — pourquoi le dossier s'est arrêté. Collés dans la même pastille, ils
-                fabriquent un cinquième statut qui n'existe pas.
-
-                Le résultat n'est pas perdu pour autant : il a sa propre ligne, sous le nom
-                « Résultat », juste en dessous. C'est ce qui distingue les deux dernières lignes de
-                sa table — « décision terminée » laisse le dossier à réactiver, « dossier terminé »
-                le clôt — donc il doit se lire, mais séparément. */}
-            <span className="inline-flex flex-col items-start gap-[3px]">
-              <span
-                className="whitespace-nowrap rounded-kw-pill border px-[11px] py-[3px] text-km-label font-extrabold tracking-[0.05em]"
-                style={{ color: '#8a4b2a', background: '#f7ece3', borderColor: '#ecdcc2' }}
-              >
-                {(etapes.find((e) => e.code === reco.etape)?.libelle ?? reco.etape ?? '').toUpperCase()}
-              </span>
-              {/* LA LIGNE DE LA VERSION SE TAIT S'IL N'Y EN A AUCUNE. Une pastille « aucune
-                  version » n'apprendrait rien : le statut « Brouillon » juste au-dessus le dit
-                  déjà, et c'est même sa définition. */}
-              {versionAffichee && (
-                <span className="whitespace-nowrap rounded-kw-pill border border-km-line bg-km-soft px-[11px] py-[3px] text-km-label font-bold tracking-[0.04em] text-km-muted">
-                  {`V${versionAffichee.numero_version ?? ''} · ${(statutsVersions.find((s) => s.code === versionAffichee.statut)?.libelle ?? versionAffichee.statut ?? '').toUpperCase()}`}
-                </span>
-              )}
-              {/* LE RÉSULTAT est écrit « Résultat : Acceptée », en clair. Le mot devant le mot
-                  évite qu'on le prenne pour un troisième statut, et il ne s'affiche que lorsqu'il
-                  y en a un — donc jamais sur un dossier en cours. */}
-              {estClose && finalite && (
-                <span
-                  className="whitespace-nowrap rounded-kw-pill border px-[11px] py-[3px] text-km-label font-bold tracking-[0.04em]"
-                  style={{
-                    color: FINALITES_RECOMMANDATION[finalite].couleur,
-                    background: FINALITES_RECOMMANDATION[finalite].fond,
-                    borderColor: FINALITES_RECOMMANDATION[finalite].bordure,
-                  }}
-                >
-                  {`RÉSULTAT : ${FINALITES_RECOMMANDATION[finalite].libelle.toUpperCase()}`}
-                </span>
-              )}
-            </span>
+                Le résultat de la clôture n'est pas perdu : il reste dans l'en-tête de la carte
+                « Cycle de vie », où il est écrit « RÉSULTAT : ACCEPTÉE ». Le type d'énergie, lui,
+                reste ici — il n'est écrit nulle part ailleurs. */}
             {reco.type_energie && (
               <span
                 className={cn(
@@ -868,13 +833,12 @@ export default function RecommandationDetail() {
                 numeroVersion={versionAffichee?.numero_version ?? null}
                 finalite={estClose ? finalite : null}
                 peutModifier={canManage}
-                clotureOuverte={clotureOuverte}
                 onOuvrirCloture={() => {
                   setClotureOuverte((v) => !v)
                   setFinaliteChoisie(null)
                   setMotifBrouillon('')
                 }}
-                onAvancer={avancer}
+                onChoisirStatutVersion={choisirStatutVersion}
                 onRouvrir={rouvrir}
                 avanceEnCours={majStatutVersion.isPending}
               >
