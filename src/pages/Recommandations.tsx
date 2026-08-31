@@ -36,6 +36,9 @@ interface LigneReco {
   numero_version: number | null
   /** La colonne du tableau, calculée par la vue — voir la migration 20260828130000. */
   colonne_travail: string
+  /** Un contrat de ce dossier attend sa signature — voir la migration 20260831190000. */
+  en_contractualisation: boolean
+  contrat_en_signature_id: string | null
   sites: { id: string; nom: string }[]
   /** Ajoutées à la vue le 26/08/2026 pour le bandeau de la page 6. */
   marge_nette: number | null
@@ -70,6 +73,19 @@ const COLONNES_TRAVAIL = [
   { code: 'EN_CONSTRUCTION', libelle: 'En construction' },
   { code: 'DISPONIBLE', libelle: 'Disponible' },
   { code: 'EN_DECISION', libelle: 'En décision' },
+  /* ══ EN COURS DE CONTRACTUALISATION ══
+     Michel, 31/08/2026 : « ajouter un onglet "En cours de contractualisation" dans les
+     recommandations ; cet onglet doit regrouper les recommandations actives rattachées à un contrat
+     en cours de signature ».
+
+     UNE COLONNE PLUTÔT QU'UN ONGLET, et c'est le sens de sa phrase : « regrouper ». Les 10 dossiers
+     concernés étaient éparpillés dans quatre colonnes — 4 en décision, 3 à réactiver, 2 disponible,
+     1 en construction. Or un dossier dont le contrat est parti à la signature n'est plus « en
+     décision » : il attend une signature. Le travail a changé de nature, et la colonne le dit.
+
+     ELLE SE PLACE APRÈS « EN DÉCISION » parce que c'est l'ordre réel du travail : on construit, on
+     présente, le client décide, on contractualise. La clôture reste la sortie. */
+  { code: 'EN_CONTRACTUALISATION', libelle: 'En contractualisation' },
   { code: 'A_REACTIVER', libelle: 'À réactiver' },
 ] as const
 

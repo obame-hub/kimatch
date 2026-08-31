@@ -737,6 +737,29 @@ export default function CompteurDetail() {
                     <span>{echeance.date ? new Date(echeance.date + 'T12:00:00').toLocaleDateString('fr-FR') : '—'}</span>
                     <BadgeEcheance e={echeance} dense />
                   </p>
+                  {/* ══ LA DATE DÉCLARÉE SE CORRIGE ICI ══
+                      Michel, 31/08/2026 : « donner la possibilité de modifier directement les dates
+                      d'échéance au niveau des compteurs ».
+
+                      ELLE EST SÉPARÉE DE LA LIGNE AU-DESSUS, et c'est volontaire. La ligne
+                      « Échéance » montre la date QUI FAIT FOI — celle du contrat rattaché quand il y
+                      en a un. Ce champ-ci porte la date DÉCLARÉE sur le compteur. Les confondre
+                      donnerait un champ qui s'enregistre sans que l'affichage bouge, et personne ne
+                      comprendrait pourquoi.
+
+                      Quand les deux se contredisent, le message rouge juste en dessous le dit
+                      déjà. */}
+                  {canManage && (
+                    <InlineField
+                      variant="date"
+                      label="Échéance déclarée sur le compteur"
+                      emptyLabel="non renseignée"
+                      value={compteur.date_echeance ? compteur.date_echeance.slice(0, 10) : null}
+                      onCommit={(date_echeance) => majCompteur({ date_echeance: date_echeance || null })}
+                      onSaved={() => showToast('✓ Échéance enregistrée')}
+                      onError={(e: Error) => showToast(`Erreur : ${e.message}`)}
+                    />
+                  )}
                   {echeance.contredit && echeance.dateDeclaree && (
                     <p className="text-[11px] italic text-km-red">
                       Date déclarée sur le compteur : {new Date(echeance.dateDeclaree + 'T12:00:00').toLocaleDateString('fr-FR')} — c’est la
