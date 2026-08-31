@@ -2,7 +2,7 @@ import type { VercelRequest, VercelResponse } from '@vercel/node'
 import { getDocusignContext } from './_client.js'
 import { NON_CONNECTE, profilAppelant } from './_oauth.js'
 import { clientAdmin } from './_archivage.js'
-import { doitEcrire } from './_decision.js'
+import { doitEcrire, statutAEcrire, statutMetierContrat } from './_decision.js'
 
 /**
  * Où en est vraiment une enveloppe, d'après DocuSign lui-même.
@@ -69,9 +69,11 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     return
   }
 
+  /* LES DATES SONT INDISPENSABLES : les deux règles de traduction s'appuient sur la fenêtre de
+     validité pour trancher entre signé, à venir, actif et terminé. */
   const colonnes = contratId
-    ? 'id, docusign_envelope_id, statut_signature'
-    : 'id, docusign_envelope_id, statut:statuts_mandats(code)'
+    ? 'id, docusign_envelope_id, statut_signature, date_debut, date_fin'
+    : 'id, docusign_envelope_id, date_debut_validite, date_fin_validite, statut:statuts_mandats(code)'
   const { data: objet, error: eLecture } = await admin
     .from(table)
     .select(colonnes)
@@ -92,8 +94,15 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     id: string
     docusign_envelope_id: string | null
     statut_signature?: string | null
+    date_debut?: string | null
+    date_fin?: string | null
+    date_debut_validite?: string | null
+    date_fin_validite?: string | null
     statut?: { code: string } | { code: string }[] | null
   }
+  const fenetre = contratId
+    ? { debut: contrat.date_debut ?? null, fin: contrat.date_fin ?? null }
+    : { debut: contrat.date_debut_validite ?? null, fin: contrat.date_fin_validite ?? null }
   /* L'etat connu de notre cote, pour savoir s'il faut corriger. Cote contrat c'est
      `statut_signature` ; cote mandat c'est le code de son statut metier. */
   const statutConnu = contratId
@@ -138,10 +147,22 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
     if (statut && statut !== statutConnu) {
       if (contratId) {
+        /* Le statut métier suit la signature, par la MÊME règle que le webhook. */
+        const codeMetier = statutMetierContrat(statut, fenetre)
+        let statutMetierId: string | null = null
+        if (codeMetier) {
+          const { data: ligne } = await admin
+            .from('statuts_contrats')
+            .select('id')
+            .eq('code', codeMetier)
+            .maybeSingle()
+          statutMetierId = (ligne as { id: string } | null)?.id ?? null
+        }
         const { error } = await admin
           .from('contrats')
           .update({
             statut_signature: statut,
+            ...(statutMetierId ? { statut_id: statutMetierId } : {}),
             ...(env.sentDateTime ? { date_envoi_signature: env.sentDateTime } : {}),
             ...(statut === 'SIGNE' && env.completedDateTime ? { date_signature: env.completedDateTime } : {}),
             date_modification: new Date().toISOString(),
@@ -155,7 +176,10 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
            On ne fait pas non plus reculer un statut : `doitEcrire` porte cette règle, et une
            signature acquise ne se défait pas parce qu'une notification est rejouée. */
-        const codeCible = statut === 'BROUILLON' ? null : statut
+        /* LA MÊME RÈGLE QUE LE WEBHOOK : une signature rend le mandat ACTIF quand la fenêtre de
+           validité le permet. C'est la demande de Michel du 21/08/2026 — un mandat qui reste à
+           « Signé » est un mandat invisible pour les recommandations, alors qu'il est signé. */
+        const codeCible = statut === 'BROUILLON' ? null : statutAEcrire(statut, fenetre)
         if (codeCible && doitEcrire(statutConnu, codeCible)) {
           const { data: ligne } = await admin
             .from('statuts_mandats')

@@ -11,7 +11,7 @@ import type { VercelRequest, VercelResponse } from '@vercel/node'
  * POURQUOI RIEN NE L'A VU : le build passe, le lint passe, et les tests passent — Vitest résout les
  * chemins comme un bundler, pas comme Node. Seul le runtime déployé échoue. C'est le pire genre de
  * régression, et la seule défense est d'appeler l'URL après déploiement. */
-import { verifierSignature, statutPourEnveloppe, doitEcrire } from './_decision.js'
+import { verifierSignature, statutPourEnveloppe, doitEcrire, statutAEcrire, statutMetierContrat } from './_decision.js'
 import { createClient, type SupabaseClient } from '@supabase/supabase-js'
 import { sessionQuelconque } from './_oauth.js'
 import { runGrdSyncForMandat } from './_grdSync.js'
@@ -107,30 +107,7 @@ const STATUT_CODE_PAR_EVENEMENT: Record<string, string> = {
  * SANS DATE DE DÉBUT on s'arrête à SIGNE : c'est vrai et incomplet, là où annoncer « actif » serait
  * une invention. Aucun contrat n'est dans ce cas aujourd'hui, la clause est là pour demain.
  */
-function statutMetierContrat(
-  statutSignature: string,
-  fenetre: { debut: string | null; fin: string | null },
-): string | null {
-  if (statutSignature === 'REFUSE' || statutSignature === 'ANNULE') return 'ANNULE'
-  if (statutSignature === 'ENVOYE') return 'A_SIGNER'
-  if (statutSignature !== 'SIGNE') return null
-  if (!fenetre.debut) return 'SIGNE'
-  const aujourdhui = new Date().toISOString().slice(0, 10)
-  if (fenetre.debut > aujourdhui) return 'A_VENIR'
-  if (fenetre.fin && fenetre.fin < aujourdhui) return 'TERMINE'
-  return 'ACTIF'
-}
 
-function statutAEcrire(
-  statutDocusign: string,
-  fenetre: { debut: string | null; fin: string | null },
-): string {
-  if (statutDocusign !== 'SIGNE') return statutDocusign
-  const aujourdhui = new Date().toISOString().slice(0, 10)
-  const commence = !fenetre.debut || fenetre.debut <= aujourdhui
-  const courtEncore = !fenetre.fin || fenetre.fin >= aujourdhui
-  return commence && courtEncore ? 'ACTIF' : 'SIGNE'
-}
 
 interface ConnectPayload {
   event?: string
