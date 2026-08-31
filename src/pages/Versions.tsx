@@ -10,6 +10,7 @@ import { FALLBACK_STATUTS_VERSIONS, STATUT_VERSION_TONE } from '@/lib/referenceF
 import { ListToolbar } from '@/components/ui/list-toolbar'
 import { SortableTh } from '@/components/ui/sortable-th'
 import { useListControls } from '@/lib/useListControls'
+import { Tableau, TableauTete, TableauCorps } from '@/components/ui/tableau'
 
 export default function Versions() {
   const { data: recommandations, isLoading } = useRecommandationsListe()
@@ -57,27 +58,27 @@ export default function Versions() {
           />
         </ListToolbar>
 
-        <Card className="overflow-x-auto">
-          <table className="w-full min-w-[720px] text-sm">
-            <thead className="border-b border-navy-100 bg-navy-50 text-left text-xs uppercase tracking-wide text-navy-400">
+        <Card className="p-2.5">
+          <Tableau minWidth={720}>
+            <TableauTete>
               <tr>
                 <SortableTh label="Recommandation" sortKey="recoTitre" activeKey={sortKey} dir={sortDir} onSort={toggleSort} />
-                <th className="px-5 py-3 font-medium">Version</th>
-                <th className="px-5 py-3 font-medium">Motif</th>
+                <th className="font-medium">Version</th>
+                <th className="font-medium">Motif</th>
                 <SortableTh label="Statut" sortKey="statut" activeKey={sortKey} dir={sortDir} onSort={toggleSort} />
                 <SortableTh label="Gain estimé" sortKey="gains_estimes" activeKey={sortKey} dir={sortDir} onSort={toggleSort} />
                 <SortableTh label="Date" sortKey="date_creation" activeKey={sortKey} dir={sortDir} onSort={toggleSort} />
               </tr>
-            </thead>
-            <tbody className="divide-y divide-navy-100">
+            </TableauTete>
+            <TableauCorps>
               {isLoading && (
                 <tr>
-                  <td colSpan={6} className="px-5 py-6 text-center text-navy-400">Chargement…</td>
+                  <td colSpan={6} className="px-5 py-6 text-center text-km-faint">Chargement…</td>
                 </tr>
               )}
               {versions.length === 0 && !isLoading && (
                 <tr>
-                  <td colSpan={6} className="px-5 py-6 text-center text-navy-400">
+                  <td colSpan={6} className="px-5 py-6 text-center text-km-faint">
                     {versionsBrutes.length === 0 ? 'Aucune version pour le moment.' : 'Aucune version ne correspond à la recherche.'}
                   </td>
                 </tr>
@@ -86,24 +87,24 @@ export default function Versions() {
                 <tr
                   key={v.id}
                   onClick={() => navigate(`/recommandations/${v.recoId}`)}
-                  className="cursor-pointer transition-colors hover:bg-navy-50"
+                  className="cursor-pointer"
                 >
-                  <td className="px-5 py-3 font-medium text-navy-800">{v.recoTitre}</td>
-                  <td className="px-5 py-3 text-navy-600">{v.nom || '—'}</td>
-                  <td className="px-5 py-3 text-navy-600">{v.motif_creation}</td>
-                  <td className="px-5 py-3">
+                  <td className="font-medium text-km-text">{v.recoTitre}</td>
+                  <td className="text-km-muted">{v.nom || '—'}</td>
+                  <td className="text-km-muted">{v.motif_creation}</td>
+                  <td >
                     <Badge tone={STATUT_VERSION_TONE[v.statut] ?? 'neutral'}>
                       {statuts.find((s) => s.code === v.statut)?.libelle ?? v.statut}
                     </Badge>
                   </td>
-                  <td className="px-5 py-3 text-navy-600">
+                  <td className="text-km-muted">
                     {v.gains_estimes !== null ? `${v.gains_estimes.toLocaleString('fr-FR')} €` : '—'}
                   </td>
-                  <td className="px-5 py-3 text-navy-600">{new Date(v.date_creation).toLocaleDateString('fr-FR')}</td>
+                  <td className="text-km-muted">{new Date(v.date_creation).toLocaleDateString('fr-FR')}</td>
                 </tr>
               ))}
-            </tbody>
-          </table>
+            </TableauCorps>
+          </Tableau>
         </Card>
       </div>
     </div>

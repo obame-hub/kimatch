@@ -1,8 +1,27 @@
 import * as React from 'react'
 import { cn } from '@/lib/utils'
 
+/**
+ * LES CONTROLES DE FORMULAIRE, dans la palette de la maquette de Michel (31/08/2026).
+ *
+ * Le style est ecrit UNE FOIS et partage par le champ, la zone de texte et la liste deroulante.
+ * Il etait recopie trois fois a l'identique : la premiere fois qu'on aurait touche a l'un, les
+ * trois auraient divergé sans que personne s'en apercoive — un formulaire ne se relit pas champ
+ * par champ.
+ *
+ * L'ANNEAU DE FOCUS EST VERT, et c'est un des rares emplois du vert que son dossier autorise :
+ * « le vert KiWee reserve aux actions positives, SELECTIONS et reperes importants ». Le champ ou
+ * l'on ecrit est une selection.
+ *
+ * 32 px de haut au lieu de 36 : la hauteur de son bouton, pour qu'un champ et un bouton posés
+ * cote a cote dans une barre de travail s'alignent au pixel.
+ */
+const CONTROLE_BASE =
+  'h-8 w-full rounded-km border border-km-line bg-km-surface px-2.5 text-km-body text-km-text ' +
+  'placeholder:text-km-faint focus:border-km-green focus:outline-none focus:ring-1 focus:ring-km-green'
+
 export function Label({ className, ...props }: React.LabelHTMLAttributes<HTMLLabelElement>) {
-  return <label className={cn('mb-1.5 block text-xs font-medium text-navy-600', className)} {...props} />
+  return <label className={cn('mb-1.5 block text-km-label font-semibold text-km-muted', className)} {...props} />
 }
 
 export const Input = React.forwardRef<HTMLInputElement, React.InputHTMLAttributes<HTMLInputElement>>(
@@ -10,7 +29,7 @@ export const Input = React.forwardRef<HTMLInputElement, React.InputHTMLAttribute
     <input
       ref={ref}
       className={cn(
-        'h-9 w-full rounded-lg border border-navy-200 bg-white px-3 text-sm text-navy-800 placeholder:text-navy-400 focus:border-kiwi-500 focus:outline-none focus:ring-1 focus:ring-kiwi-500',
+        CONTROLE_BASE,
         className,
       )}
       {...props}
@@ -24,7 +43,7 @@ export const Textarea = React.forwardRef<HTMLTextAreaElement, React.TextareaHTML
     <textarea
       ref={ref}
       className={cn(
-        'w-full rounded-lg border border-navy-200 bg-white px-3 py-2 text-sm text-navy-800 placeholder:text-navy-400 focus:border-kiwi-500 focus:outline-none focus:ring-1 focus:ring-kiwi-500',
+        CONTROLE_BASE, 'h-auto py-2',
         className,
       )}
       {...props}
@@ -38,7 +57,7 @@ export const Select = React.forwardRef<HTMLSelectElement, React.SelectHTMLAttrib
     <select
       ref={ref}
       className={cn(
-        'h-9 w-full rounded-lg border border-navy-200 bg-white px-3 text-sm text-navy-800 focus:border-kiwi-500 focus:outline-none focus:ring-1 focus:ring-kiwi-500',
+        CONTROLE_BASE,
         className,
       )}
       {...props}

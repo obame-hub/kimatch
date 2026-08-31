@@ -20,7 +20,9 @@ export function SortableTh({
   return (
     <th
       onClick={() => onSort(sortKey)}
-      className={cn('cursor-pointer select-none px-5 py-3 font-medium hover:text-navy-600', className)}
+      /* Le remplissage et la couleur viennent desormais du <thead> partage (voir tableau.tsx) :
+         les redeclarer ici ferait diverger les colonnes triables des autres. */
+      className={cn('cursor-pointer select-none transition-colors hover:text-km-text', className)}
     >
       <span className="inline-flex items-center gap-1">
         {label}

@@ -54,6 +54,7 @@ import { useContrats } from '@/lib/data/contrats'
 import { useFrappePosee } from '@/lib/useFrappePosee'
 import { natureEcheance, type EcheanceCompteur } from '@/lib/echeance'
 import { cn } from '@/lib/utils'
+import { Tableau, TableauTete, TableauCorps } from '@/components/ui/tableau'
 
 const TRANCHE_INITIALE = 100
 const TRANCHE_SUIVANTE = 200
@@ -173,25 +174,25 @@ export default function Compteurs({ sansEntete }: { sansEntete?: boolean }) {
           </ListToolbar>
         </div>
 
-        <Card className="overflow-x-auto">
-          <table className="w-full min-w-[820px] text-sm">
-            <thead className="border-b border-navy-100 bg-navy-50 text-left text-xs uppercase tracking-wide text-navy-400">
+        <Card className="p-2.5">
+          <Tableau minWidth={820}>
+            <TableauTete>
               <tr>
                 <SortableTh label="Point de livraison" sortKey="numero_point" activeKey={tri} dir={sens} onSort={trierPar} />
-                <th className="px-5 py-3 font-medium">Site</th>
-                <th className="px-5 py-3 font-medium">Énergie</th>
+                <th className="font-medium">Site</th>
+                <th className="font-medium">Énergie</th>
                 <SortableTh label="Échéance" sortKey="date_echeance" activeKey={tri} dir={sens} onSort={trierPar} />
-                <th className="px-5 py-3 font-medium">Nature</th>
+                <th className="font-medium">Nature</th>
                 <SortableTh label="Consommation" sortKey="consommation_annuelle_mwh" activeKey={tri} dir={sens} onSort={trierPar} />
               </tr>
-            </thead>
-            <tbody className="divide-y divide-navy-100">
+            </TableauTete>
+            <TableauCorps>
               {liste.isLoading && (
-                <tr><td colSpan={6} className="px-5 py-6 text-center text-navy-400">Chargement…</td></tr>
+                <tr><td colSpan={6} className="px-5 py-6 text-center text-km-faint">Chargement…</td></tr>
               )}
               {!liste.isLoading && lignes.length === 0 && (
                 <tr>
-                  <td colSpan={6} className="px-5 py-10 text-center text-sm text-navy-400">
+                  <td colSpan={6} className="px-5 py-10 text-center text-sm text-km-faint">
                     {recherche.trim()
                       ? 'Aucun compteur ne correspond. Le nom du site n’est pas cherché ici — essayez le numéro de PDL ou l’emplacement.'
                       : 'Aucun compteur dans ce filtre.'}
@@ -208,8 +209,8 @@ export default function Compteurs({ sansEntete }: { sansEntete?: boolean }) {
                   onOuvrir={() => navigate(`/compteurs/${c.id}`)}
                 />
               ))}
-            </tbody>
-          </table>
+            </TableauCorps>
+          </Tableau>
           <PiedDeListe
             affiches={lignes.length}
             total={total}
@@ -240,23 +241,23 @@ function LigneTableau({
   const gaz = compteur.type_energie === 'gaz'
   const depassee = !!echeance.date && echeance.date < jour
   return (
-    <tr onClick={onOuvrir} className="cursor-pointer hover:bg-navy-50">
-      <td className="px-5 py-3 font-mono text-xs font-medium text-navy-800">
+    <tr onClick={onOuvrir} className="cursor-pointer">
+      <td className="font-mono text-xs font-medium text-km-text">
         {compteur.numero_pdl}
         {compteur.localisation_site && (
-          <span className="ml-2 font-sans text-navy-400">{compteur.localisation_site}</span>
+          <span className="ml-2 font-sans text-km-faint">{compteur.localisation_site}</span>
         )}
       </td>
-      <td className="px-5 py-3 text-navy-600">
+      <td className="text-km-muted">
         <EntityLink to={`/sites/${compteur.site_id}`}>{compteur.site_nom}</EntityLink>
       </td>
-      <td className="px-5 py-3">
+      <td >
         <span className={cn('inline-flex items-center gap-1.5 text-xs font-semibold', gaz ? 'text-orange-600' : 'text-amber-600')}>
           {gaz ? <Flame className="h-3.5 w-3.5" /> : <Zap className="h-3.5 w-3.5" />}
           {gaz ? 'Gaz' : 'Électricité'}
         </span>
       </td>
-      <td className="px-5 py-3">
+      <td >
         {echeance.date ? (
           <span className={cn('text-navy-700', depassee && 'font-semibold text-kw-red')}>
             {new Date(echeance.date + 'T12:00:00').toLocaleDateString('fr-FR')}
@@ -266,12 +267,12 @@ function LigneTableau({
           <span className="text-navy-300">—</span>
         )}
       </td>
-      <td className="px-5 py-3">
+      <td >
         {/* Tant que les contrats ne sont pas arrivés, on n'écrit pas « estimée » : ce serait affirmer
             l'absence de preuve avant d'avoir regardé. */}
         {natureConnue ? <BadgeEcheance e={echeance} dense /> : <span className="text-navy-300">…</span>}
       </td>
-      <td className="px-5 py-3 text-navy-600">
+      <td className="text-km-muted">
         {compteur.consommation_annuelle_mwh != null
           ? `${compteur.consommation_annuelle_mwh.toLocaleString('fr-FR', { maximumFractionDigits: 2 })} MWh`
           : <Badge tone="neutral">Non renseignée</Badge>}

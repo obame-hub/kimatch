@@ -24,6 +24,7 @@ import { Button } from '@/components/ui/button'
 import { Select } from '@/components/ui/form'
 import { ListToolbar } from '@/components/ui/list-toolbar'
 import { SortableTh } from '@/components/ui/sortable-th'
+import { Tableau, TableauTete, TableauCorps, NomDeLigne } from '@/components/ui/tableau'
 import { useListeServeur } from '@/lib/useListeServeur'
 import { useState } from 'react'
 import type { TypeCompte } from '@/types/domain'
@@ -114,9 +115,13 @@ export default function Comptes({ sansEntete }: { sansEntete?: boolean }) {
           </Select>
         </ListToolbar>
 
-        <Card className="overflow-x-auto">
-          <table className="w-full min-w-[640px] text-sm">
-            <thead className="border-b border-navy-100 bg-navy-50 text-left text-xs uppercase tracking-wide text-navy-400">
+        {/* LE TABLEAU PASSE SUR LE COMPOSANT PARTAGE. Cinq ecrans ecrivaient le leur a la main
+            avec les memes classes recopiees — et elles avaient deja diverge : 640 px de largeur
+            minimale ici, 720 sur Versions, 820 sur Compteurs. Une decision de design ne se
+            propageait donc pas, et personne ne relit cinq ecrans pour verifier une bordure. */}
+        <Card className="p-2.5">
+          <Tableau minWidth={640}>
+            <TableauTete>
               <tr>
                 <SortableTh label="Nom" sortKey="nom" activeKey={liste.tri} dir={liste.sens} onSort={liste.trierPar} />
                 <th className="px-5 py-3 font-medium">Type</th>
@@ -124,21 +129,21 @@ export default function Comptes({ sansEntete }: { sansEntete?: boolean }) {
                 <SortableTh label="Ville" sortKey="ville" activeKey={liste.tri} dir={liste.sens} onSort={liste.trierPar} />
                 <SortableTh label="Sites" sortKey="nb_sites" activeKey={liste.tri} dir={liste.sens} onSort={liste.trierPar} />
               </tr>
-            </thead>
-            <tbody className="divide-y divide-navy-100">
+            </TableauTete>
+            <TableauCorps>
               {liste.isLoading && (
                 <tr>
-                  <td colSpan={5} className="px-5 py-6 text-center text-navy-400">Chargement…</td>
+                  <td colSpan={5} className="py-6 text-center text-km-muted">Chargement…</td>
                 </tr>
               )}
               {liste.erreur && (
                 <tr>
-                  <td colSpan={5} className="px-5 py-6 text-center text-sm text-red-600">{liste.erreur}</td>
+                  <td colSpan={5} className="py-6 text-center text-km-red">{liste.erreur}</td>
                 </tr>
               )}
               {!liste.isLoading && !liste.erreur && liste.lignes.length === 0 && (
                 <tr>
-                  <td colSpan={5} className="px-5 py-10 text-center text-sm text-navy-400">
+                  <td colSpan={5} className="py-10 text-center text-km-muted">
                     {liste.query.trim() || typeFilter
                       ? 'Aucun compte ne correspond à la recherche.'
                       : "Aucun compte pour l'instant — clique sur « Nouveau compte » pour en créer un."}
@@ -149,21 +154,26 @@ export default function Comptes({ sansEntete }: { sansEntete?: boolean }) {
                 <tr
                   key={compte.id}
                   onClick={() => navigate(`/comptes/${compte.id}`)}
-                  className="cursor-pointer transition-colors hover:bg-navy-50"
+                  className="cursor-pointer"
                 >
-                  <td className="px-5 py-3 font-medium text-navy-800">{compte.nom}</td>
-                  <td className="px-5 py-3">
+                  {/* LE NOM PORTE SA PRECISION EN DESSOUS, motif de sa maquette : « Groupe Solstice /
+                      6 sites · 18 compteurs » se lit d'un bloc, la ou deux colonnes obligent l'oeil a
+                      faire l'aller-retour pour rapprocher deux informations qui vont ensemble. */}
+                  <td>
+                    <NomDeLigne precision={compte.ville || undefined}>{compte.nom}</NomDeLigne>
+                  </td>
+                  <td>
                     <Badge tone={typeMeta[compte.type_compte]?.tone ?? 'neutral'}>
                       {typeMeta[compte.type_compte]?.label ?? compte.type_compte}
                     </Badge>
                   </td>
-                  <td className="px-5 py-3 text-navy-600">{compte.segment}</td>
-                  <td className="px-5 py-3 text-navy-600">{compte.ville}</td>
-                  <td className="px-5 py-3 text-navy-600">{compte.nb_sites}</td>
+                  <td className="text-km-muted">{compte.segment}</td>
+                  <td className="text-km-muted">{compte.ville}</td>
+                  <td className="tabular-nums text-km-muted">{compte.nb_sites}</td>
                 </tr>
               ))}
-            </tbody>
-          </table>
+            </TableauCorps>
+          </Tableau>
           <PiedDeListe
             affiches={liste.lignes.length}
             total={liste.total}

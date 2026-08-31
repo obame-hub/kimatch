@@ -37,6 +37,7 @@ import { construireSante, tonDuScore, type SiteHealth } from '@/lib/siteHealth'
 import { SiteHealthBadge } from '@/components/site/SiteHealthBadge'
 import { SitesMap, type SitesMapItem } from '@/components/site/SitesMap'
 import { cn } from '@/lib/utils'
+import { Tableau, TableauTete, TableauCorps } from '@/components/ui/tableau'
 
 /** Première tranche affichée, puis pas d'agrandissement — repris de useTranchesAffichage. */
 const TRANCHE_INITIALE = 100
@@ -100,7 +101,7 @@ export default function Sites({ sansEntete }: { sansEntete?: boolean }) {
       <SortableTh label="Ville" sortKey="ville" activeKey={tri} dir={sens} onSort={trierPar} />
       <SortableTh label="Compteurs" sortKey="nb_compteurs" activeKey={tri} dir={sens} onSort={trierPar} />
       <SortableTh label="Signaux ouverts" sortKey="nb_signaux_ouverts" activeKey={tri} dir={sens} onSort={trierPar} />
-      <th className="px-5 py-3 font-medium">Santé</th>
+      <th className="font-medium">Santé</th>
     </>
   )
 
@@ -127,14 +128,14 @@ export default function Sites({ sansEntete }: { sansEntete?: boolean }) {
             <button
               type="button"
               onClick={() => setView('liste')}
-              className={cn('flex items-center gap-1.5 rounded-md px-2.5 py-1.5 text-xs font-semibold', view === 'liste' ? 'bg-ink-800 text-white' : 'text-navy-500 hover:bg-navy-50')}
+              className={cn('flex items-center gap-1.5 rounded-md px-2.5 py-1.5 text-xs font-semibold', view === 'liste' ? 'bg-ink-800 text-white' : 'text-navy-500 ')}
             >
               <List className="h-3.5 w-3.5" /> Liste
             </button>
             <button
               type="button"
               onClick={() => setView('carte')}
-              className={cn('flex items-center gap-1.5 rounded-md px-2.5 py-1.5 text-xs font-semibold', view === 'carte' ? 'bg-ink-800 text-white' : 'text-navy-500 hover:bg-navy-50')}
+              className={cn('flex items-center gap-1.5 rounded-md px-2.5 py-1.5 text-xs font-semibold', view === 'carte' ? 'bg-ink-800 text-white' : 'text-navy-500 ')}
             >
               <MapIcon className="h-3.5 w-3.5" /> Carte
             </button>
@@ -156,20 +157,20 @@ export default function Sites({ sansEntete }: { sansEntete?: boolean }) {
             )}
 
             {view === 'liste' && (
-              <Card className="overflow-x-auto">
-                <table className="w-full min-w-[720px] text-sm">
-                  <thead className="border-b border-navy-100 bg-navy-50 text-left text-xs uppercase tracking-wide text-navy-400">
+              <Card className="p-2.5">
+                <Tableau minWidth={720}>
+                  <TableauTete>
                     <tr>{enTete}</tr>
-                  </thead>
-                  <tbody className="divide-y divide-navy-100">
+                  </TableauTete>
+                  <TableauCorps>
                     {listeServeur.isLoading && (
                       <tr>
-                        <td colSpan={7} className="px-5 py-6 text-center text-navy-400">Chargement…</td>
+                        <td colSpan={7} className="px-5 py-6 text-center text-km-faint">Chargement…</td>
                       </tr>
                     )}
                     {!listeServeur.isLoading && lignes.length === 0 && (
                       <tr>
-                        <td colSpan={7} className="px-5 py-10 text-center text-sm text-navy-400">
+                        <td colSpan={7} className="px-5 py-10 text-center text-sm text-km-faint">
                           {recherche.trim()
                             ? 'Aucun site ne correspond à la recherche.'
                             : "Aucun site pour l'instant — un site représente un bâtiment, un immeuble ou un local rattaché à un compte (syndic, entreprise…). Clique sur « Nouveau site » pour en créer un."}
@@ -182,30 +183,30 @@ export default function Sites({ sansEntete }: { sansEntete?: boolean }) {
                         <tr
                           key={site.id}
                           onClick={() => navigate(`/sites/${site.id}`)}
-                          className="cursor-pointer hover:bg-navy-50"
+                          className="cursor-pointer"
                         >
-                          <td className="px-5 py-3 font-medium text-navy-800">{site.nom}</td>
-                          <td className="px-5 py-3 text-navy-600">
+                          <td className="font-medium text-km-text">{site.nom}</td>
+                          <td className="text-km-muted">
                             <EntityLink to={`/comptes/${site.compte_id}`}>{site.compte_nom}</EntityLink>
                           </td>
-                          <td className="px-5 py-3 text-navy-600">{site.type_site}</td>
-                          <td className="px-5 py-3 text-navy-600">{site.ville} ({site.code_postal})</td>
-                          <td className="px-5 py-3 text-navy-600">{site.nb_compteurs}</td>
-                          <td className="px-5 py-3">
+                          <td className="text-km-muted">{site.type_site}</td>
+                          <td className="text-km-muted">{site.ville} ({site.code_postal})</td>
+                          <td className="text-km-muted">{site.nb_compteurs}</td>
+                          <td >
                             {site.nb_signaux_ouverts > 0 ? (
                               <Badge tone="amber">{site.nb_signaux_ouverts} ouvert{site.nb_signaux_ouverts > 1 ? 's' : ''}</Badge>
                             ) : (
                               <Badge tone="neutral">Aucun</Badge>
                             )}
                           </td>
-                          <td className="px-5 py-3">
+                          <td >
                             <SiteHealthBadge health={health} />
                           </td>
                         </tr>
                       )
                     })}
-                  </tbody>
-                </table>
+                  </TableauCorps>
+                </Tableau>
                 <PiedDeListe
                   affiches={lignes.length}
                   total={total}
