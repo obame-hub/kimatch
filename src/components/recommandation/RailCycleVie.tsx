@@ -1,4 +1,4 @@
-import { ExternalLink, Send, Check, Shield, X, Minus, ArrowRight } from 'lucide-react'
+import { ExternalLink, Send, Check, Shield, ArrowRight } from 'lucide-react'
 import type { LucideIcon } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { FINALITES_RECOMMANDATION, type CleFinalite } from '@/lib/finalitesRecommandation'
@@ -114,12 +114,6 @@ const ICONES_ETAPE: Record<string, LucideIcon> = {
   OFFRES_RECUES: Check,
   A_PRESENTER: Send,
   PRESENTEE: Shield,
-}
-
-const ICONES_FINALITE: Record<CleFinalite, LucideIcon> = {
-  ACCEPTEE: Check,
-  REFUSEE: X,
-  EXPIREE: Minus,
 }
 
 const DEGRADE_OR = 'linear-gradient(135deg,#8a4b2a,#cf9a5e)'
@@ -238,7 +232,14 @@ export function RailCycleVie({
             className="rounded-kw-pill px-[13px] py-1.5 text-km-label font-extrabold tracking-[0.05em] text-white"
             style={{ background: fin.couleur, boxShadow: `0 3px 9px ${fin.couleur}44`, cursor: peutModifier ? 'pointer' : 'default' }}
           >
-            {finalite === 'ACCEPTEE' ? '✓ ACCEPTÉE' : finalite === 'REFUSEE' ? '✗ REFUSÉE' : '— EXPIRÉE'}
+            {/* « RÉSULTAT : » devant le mot. Sans lui, cette pastille se lit comme un statut de
+                dossier — or les seuls statuts sont Brouillon, Active, À réactiver et Clôturée
+                (Naoëlle, 31/08/2026, table « Vue globale des statuts »). */}
+            {finalite === 'ACCEPTEE'
+              ? 'RÉSULTAT : ✓ ACCEPTÉE'
+              : finalite === 'REFUSEE'
+                ? 'RÉSULTAT : ✗ REFUSÉE'
+                : 'RÉSULTAT : — EXPIRÉE'}
           </button>
         )}
       </div>
@@ -268,24 +269,21 @@ export function RailCycleVie({
         }}
       >
         {rail.flatMap((etape, i) => {
-          const estDernier = i === dernier
-          const Icone = estDernier && finalite ? ICONES_FINALITE[finalite] : ICONES_ETAPE[etape.code] ?? Check
-          const faite = estDernier ? !!finalite : indexCourant >= 0 && i < indexCourant
-          const courante = !finalite && i === indexCourant
+          /* ══ CETTE FRISE NE PARLE QUE DE LA VERSION ══
+             Son dernier cran affichait la FINALITÉ DU DOSSIER à la place de « En décision » — le
+             libellé, l'icône, la couleur. C'était défendable tant que c'était le seul endroit où le
+             résultat pouvait se lire. Depuis qu'une frise du dossier existe au-dessus, deux frises
+             dont l'une emprunte l'information de l'autre sont exactement la confusion qu'elles
+             doivent lever. Le résultat vit maintenant dans sa pastille, nommée. */
+          const Icone = ICONES_ETAPE[etape.code] ?? Check
+          const faite = indexCourant >= 0 && i < indexCourant
+          const courante = i === indexCourant
           return [
             <div key={etape.id} className="relative z-[1] flex justify-center">
               <div
                 className="flex items-center justify-center rounded-full"
                 style={
-                  faite && estDernier && fin
-                    ? {
-                        width: 37,
-                        height: 37,
-                        background: fin.couleur,
-                        color: '#fff',
-                        boxShadow: `0 0 0 7px ${fin.couleur}1a, 0 6px 17px ${fin.couleur}55, inset 0 -2px 6px rgba(0,0,0,.15)`,
-                      }
-                    : /* ══ L'ÉTAPE COURANTE EST LA PLUS VISIBLE, LES FRANCHIES S'EFFACENT ══
+                  /* ══ L'ÉTAPE COURANTE EST LA PLUS VISIBLE, LES FRANCHIES S'EFFACENT ══
 
                          Naoëlle, 28/08/2026 : « change cette histoire de statut pointillé car on s'y
                          perd de fou ». Elle a raison, et l'appel de 16 h en donne la preuve : Michel
@@ -303,8 +301,8 @@ export function RailCycleVie({
                          franchi devient un simple jeton discret avec sa coche. On lit d'abord où on
                          est, ensuite d'où on vient — c'est l'ordre dans lequel on a besoin de
                          l'information. */
-                      courante
-                      ? {
+                  courante
+                    ? {
                           width: 38,
                           height: 38,
                           background: DEGRADE_OR,
@@ -316,7 +314,7 @@ export function RailCycleVie({
                         : { width: 34, height: 34, background: '#fff', border: '2px dashed #dcdad5', color: '#c9cbc6' }
                 }
               >
-                <Icone className={estDernier && finalite ? 'h-[15px] w-[15px]' : courante ? 'h-[15px] w-[15px]' : 'h-[12px] w-[12px]'} />
+                <Icone className={courante ? 'h-[15px] w-[15px]' : 'h-[12px] w-[12px]'} />
               </div>
             </div>,
             i < dernier ? (
@@ -334,23 +332,21 @@ export function RailCycleVie({
                    36 px, exactement la taille du motif, donc le défilement est continu. */
                 className={cn(
                   'mx-[-10px] h-[5px] rounded-[3px]',
-                  !finalite && indexCourant >= 0 && i === indexCourant &&
+                  indexCourant >= 0 && i === indexCourant &&
                     'animate-kw-stripe motion-reduce:animate-none',
                 )}
                 style={
-                  finalite && i === dernier - 1
-                    ? { background: `linear-gradient(90deg,#cf9a5e,${fin?.couleur ?? '#cf9a5e'})` }
-                    : indexCourant >= 0 && i < indexCourant
-                      ? { background: DEGRADE_OR }
-                      : indexCourant >= 0 && i === indexCourant
-                        ? {
+                  indexCourant >= 0 && i < indexCourant
+                    ? { background: DEGRADE_OR }
+                    : indexCourant >= 0 && i === indexCourant
+                      ? {
                             // Barre hachurée : l'étape en cours n'est pas franchie, elle est en train
                             // de l'être. Le design la distingue de la barre pleine.
-                            backgroundImage:
-                              'repeating-linear-gradient(90deg,#ddb98c 0px,#ddb98c 12px,#f4e4cd 12px,#f4e4cd 24px)',
-                            backgroundSize: '36px 5px',
-                          }
-                        : { background: '#eceae6' }
+                          backgroundImage:
+                            'repeating-linear-gradient(90deg,#ddb98c 0px,#ddb98c 12px,#f4e4cd 12px,#f4e4cd 24px)',
+                          backgroundSize: '36px 5px',
+                        }
+                      : { background: '#eceae6' }
                 }
               />
             ) : null,
@@ -358,9 +354,8 @@ export function RailCycleVie({
         })}
 
         {rail.flatMap((etape, i) => {
-          const estDernier = i === dernier
-          const faite = estDernier ? !!finalite : indexCourant >= 0 && i < indexCourant
-          const courante = !finalite && i === indexCourant
+          const faite = indexCourant >= 0 && i < indexCourant
+          const courante = i === indexCourant
           return [
             <div key={`${etape.id}-lbl`} className="min-w-0 break-words pt-[7px] text-center">
               <div
@@ -371,17 +366,9 @@ export function RailCycleVie({
                   'tracking-[-0.01em]',
                   courante ? 'text-km-name font-extrabold' : 'text-km-body font-bold',
                 )}
-                style={{
-                  color: courante
-                    ? '#8a4b2a'
-                    : faite
-                      ? estDernier && fin
-                        ? fin.couleur
-                        : '#a9763f'
-                      : '#c0c2bd',
-                }}
+                style={{ color: courante ? '#8a4b2a' : faite ? '#a9763f' : '#c0c2bd' }}
               >
-                {estDernier && fin ? fin.libelle : etape.libelle}
+                {etape.libelle}
                 {/* LE MOT « ACTUEL » SOUS L'ÉTAPE COURANTE. Un dessin peut se lire de travers ;
                     un mot, non. C'est le filet de sécurité de toute cette correction. */}
                 {courante && (
