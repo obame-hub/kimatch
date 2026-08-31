@@ -142,7 +142,6 @@ export function ActivityFeed({
   filterDimension,
   recommandationId,
   recommandationNom,
-  opportuniteId,
   actionsRapides,
 }: {
   siteId?: string | null
@@ -159,11 +158,6 @@ export function ActivityFeed({
    *  recommandation partirait au niveau du compte et ne reviendrait jamais dans ce fil. */
   recommandationId?: string | null
   recommandationNom?: string
-  /** Même rôle pour une opportunité. Michel, 31/08/2026 : « permettre de créer et de suivre des
-   *  actions dans les recommandations, les opportunités et les pistes ». La colonne
-   *  `interactions.opportunite_id` existait déjà et 23 930 lignes portaient son équivalent
-   *  recommandation — le fil de l'opportunité, lui, ne rattachait rien. */
-  opportuniteId?: string | null
   /** Boutons d'action rapide au-dessus du champ de note — « Rappel » et « Loguer un appel » dans la
    *  maquette de la fiche Recommandation. La fiche fournit le geste, le fil fournit la place. */
   actionsRapides?: ReactNode
@@ -233,7 +227,6 @@ export function ActivityFeed({
       issue_interaction_id: null,
       recommandation_id: recommandationId ?? null,
       recommandation_nom: recommandationNom ?? null,
-      opportunite_id: opportuniteId ?? null,
     })
     setNote('')
     setFeedback(result.persisted ? 'Note ajoutée.' : 'Note ajoutée localement (non synchronisée avec Supabase).')
