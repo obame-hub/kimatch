@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { Plus, CheckSquare, Check } from 'lucide-react'
 import { Topbar } from '@/components/layout/Topbar'
-import { PageHeader } from '@/components/ui/page-header'
+import { PageHeader, Indicateurs } from '@/components/ui/page-header'
 import { Button } from '@/components/ui/button'
 import { Dialog } from '@/components/ui/dialog'
 import { FormField, Select, Textarea } from '@/components/ui/form'
@@ -232,6 +232,43 @@ export default function Signaux() {
     'signaux', signaux, { siteId: (s) => s.site_id },
   )
 
+  /**
+   * LES QUATRE INDICATEURS DE L'ÉCRAN — son modele commun : « quatre mesures maximum, uniquement
+   * si elles servent la decision ».
+   *
+   * Ils sont calculés sur TOUS les signaux, jamais sur ceux que la recherche laisse passer : un
+   * indicateur qui bouge quand on tape dans le champ de recherche ne mesure plus rien. C'est le
+   * tableau qui suit la recherche, pas le bandeau.
+   *
+   * « À DÉCIDER » EN PREMIER, ET C'EST CE QUE DIT LE LISERÉ VERT. Les trois autres racontent ce qui
+   * s'est passé ; celui-là dit ce qui reste à faire, et c'est la question qu'on se pose en ouvrant
+   * l'écran. Son dossier : « une page doit rendre immédiatement compréhensibles le statut, le
+   * prochain geste et le blocage éventuel ».
+   */
+  const tous = signaux ?? []
+  const mesures = [
+    {
+      libelle: 'À décider',
+      valeur: String(tous.filter((x) => estVivant(x.statut)).length),
+      precision: 'Ouvrir une opportunité, ou écarter',
+    },
+    {
+      libelle: 'Convertis',
+      valeur: String(tous.filter((x) => x.statut === 'CONVERTI').length),
+      precision: 'Une opportunité a suivi',
+    },
+    {
+      libelle: 'Écartés',
+      valeur: String(tous.filter((x) => x.statut === 'ECARTE').length),
+      precision: 'Avec un motif',
+    },
+    {
+      libelle: 'Détectés',
+      valeur: String(tous.length),
+      precision: 'Tous créés automatiquement',
+    },
+  ]
+
   const q = query.trim().toLowerCase()
   const visibles = (signauxDuPerimetre ?? [])
     // Le compteur du bandeau doit dire ce que le tableau montre : sans ce filtre il annoncerait
@@ -250,6 +287,8 @@ export default function Signaux() {
           description="Un signal attire l'attention — il ne déclenche jamais automatiquement une recommandation. Il suit un cycle : détection, contact, intérêt confirmé, puis mandat."
           actions={<Button onClick={() => setShowCreate(true)}><Plus className="h-4 w-4" />Nouveau signal</Button>}
         />
+
+        <Indicateurs mesures={mesures} />
 
         <div className="mb-3.5 flex flex-wrap items-center gap-3">
           <ListToolbar query={query} onQueryChange={setQuery} placeholder="Rechercher un site, un type de signal…" count={visibles.length}>
