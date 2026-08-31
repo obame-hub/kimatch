@@ -44,6 +44,27 @@ const TABLES_IN_ORDER = [
   'analyses', 'executions_calculs', 'executions_composants_expertise', 'executions_domaines_expertise',
   'executions_regles_expertise', 'decisions_algorithmes', 'resultats_algorithmes', 'algorithmes_resultats',
   'sessions_expertise',
+
+  // ── VINGT-QUATRE TABLES QUI MANQUAIENT, AJOUTÉES LE 31/08/2026 ─────────────────────────────
+  //
+  // Cette liste est écrite à la main, et rien ne signalait qu'elle avait pris du retard : la base
+  // portait 133 tables, la liste en nommait 107. Les 24 restantes n'étaient pas recopiées — sans
+  // erreur, sans avertissement. La sandbox était donc VIDE là où la production ne l'est pas :
+  // 3 535 rattachements contact-compte, 2 098 liens recommandation-compteur, 1 907 durées de
+  // version. Répéter un geste dans une sandbox qui a perdu ses tables de liaison ne prouve rien.
+  //
+  // L'ordre suit toujours la même règle : les références et les statuts d'abord, les liaisons
+  // ensuite, pour que les clés étrangères trouvent leur cible.
+  'types_requetes', 'types_objectifs_client',
+  'statuts_contrats_avancement', 'statuts_contrats_vie', 'statuts_opportunites', 'statuts_requetes',
+  'eligibility_rules', 'mapping_rules', 'parametres_emails',
+  'contacts_comptes',
+  'listes', 'pistes',
+  'opportunites', 'opportunites_compteurs', 'opportunites_sites',
+  'recommandations_compteurs', 'recommandations_objectifs',
+  'versions_recommandation_durees',
+  'requetes', 'remunerations', 'objectifs_mensuels', 'partages_etude_client',
+  'docusign_sessions', 'proprietaires_en_attente',
 ].filter((t) => !EXCLUDED_TABLES.has(t))
 
 interface TableResult {

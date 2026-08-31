@@ -10,7 +10,8 @@
     "preview": "vite preview",
     "test": "vitest run",
     "test:watch": "vitest",
-    "test:statuts": "node scripts/tester-propagation-statuts.cjs"
+    "test:statuts": "node scripts/tester-propagation-statuts.cjs",
+    "verifier:sandbox": "node scripts/verifier-liste-sandbox.cjs"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.110.6",
