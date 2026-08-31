@@ -2,13 +2,12 @@ import { useState } from 'react'
 import {  } from 'lucide-react'
 import { Topbar } from '@/components/layout/Topbar'
 import { PageHeader, Indicateurs } from '@/components/ui/page-header'
-import { ListToolbar } from '@/components/ui/list-toolbar'
+import { ListToolbar, BasculeOption } from '@/components/ui/list-toolbar'
 import { TableauKanban } from '@/components/dashboard/TableauKanban'
 import { useKanbanServeur } from '@/lib/useKanbanServeur'
 import { useTriKanban, SelecteurTri } from '@/lib/triKanban'
 import { usePerimetre, BasculePerimetre } from '@/lib/perimetre'
 import { useMonProfil } from '@/lib/data/roles'
-import { cn } from '@/lib/utils'
 
 /**
  * PRICING — page 7 du dossier UX du 26/08/2026.
@@ -334,18 +333,7 @@ export default function Pricing({ sansEntete }: { sansEntete?: boolean }) {
             libelleTous="Toutes les consultations"
           />
           <SelecteurTri valeur={tri} onChange={setTri} options={optionsTri} />
-          <button
-            type="button"
-            onClick={() => setAvecRefusees((v) => !v)}
-            className={cn(
-              'inline-flex shrink-0 items-center gap-1.5 rounded-km border px-2.5 py-1.5 text-km-body font-bold transition-colors',
-              avecRefusees
-                ? 'border-ink-800 bg-ink-800 text-white'
-                : 'border-km-line bg-white text-km-muted hover:bg-km-soft',
-            )}
-          >
-            Inclure les demandes refusées
-          </button>
+          <BasculeOption actif={avecRefusees} onChange={setAvecRefusees} libelle="Inclure les demandes refusées" />
         </ListToolbar>
 
         <TableauKanban

@@ -384,7 +384,7 @@ export function DocumentComparatif({
               <div className="mt-3 flex flex-wrap gap-x-10 gap-y-2">
                 <div>
                   <p className="text-km-label font-bold uppercase tracking-[0.07em] text-km-muted">Budget annuel</p>
-                  <p className="font-mono text-km-name font-extrabold tabular-nums">
+                  <p className="text-km-name font-extrabold tabular-nums">
                     {euros(retenue.montant_annuel_ht)} <span className="text-km-body font-bold">HTVA</span>
                   </p>
                 </div>
@@ -397,7 +397,7 @@ export function DocumentComparatif({
                     </p>
                     <p
                       className={cn(
-                        'font-mono text-km-name font-extrabold tabular-nums',
+                        'text-km-name font-extrabold tabular-nums',
                         ecartSurReference > 0 ? 'text-km-green' : 'text-km-red',
                       )}
                     >
@@ -477,17 +477,17 @@ export function DocumentComparatif({
                         <td className="px-2 py-1.5 pr-3">{o.fournisseur_nom}</td>
                         <td className="px-2 py-1.5 pr-3">{o.duree_mois != null ? `${o.duree_mois} mois` : '—'}</td>
                         <td className="px-2 py-1.5 pr-3">{o.type_prix ?? '—'}</td>
-                        <td className="px-2 py-1.5 text-right font-mono tabular-nums">{euros(c.abonnement)}</td>
-                        <td className="px-2 py-1.5 text-right font-mono tabular-nums">{euros(c.energie)}</td>
-                        <td className="px-2 py-1.5 text-right font-mono tabular-nums">{euros(c.reseauEtTaxes)}</td>
-                        <td className="px-2 py-1.5 text-right font-mono tabular-nums">{euros(o.montant_annuel_ht)}</td>
+                        <td className="px-2 py-1.5 text-right tabular-nums">{euros(c.abonnement)}</td>
+                        <td className="px-2 py-1.5 text-right tabular-nums">{euros(c.energie)}</td>
+                        <td className="px-2 py-1.5 text-right tabular-nums">{euros(c.reseauEtTaxes)}</td>
+                        <td className="px-2 py-1.5 text-right tabular-nums">{euros(o.montant_annuel_ht)}</td>
                         {/* LE SIGNE EST ÉCRIT. La colonne mettait « + » devant tous les écarts,
                             parce qu'ils étaient tous mesurés contre la moins chère et donc tous
                             positifs. Contre une référence choisie, une offre peut être moins chère :
                             un « + » devant une baisse serait un contresens. */}
                         <td
                           className={cn(
-                            'px-2 py-1.5 text-right font-mono tabular-nums',
+                            'px-2 py-1.5 text-right tabular-nums',
                             estReference && 'font-bold',
                             ecart != null && ecart > 0 && 'text-km-red',
                             ecart != null && ecart < 0 && 'text-km-green',

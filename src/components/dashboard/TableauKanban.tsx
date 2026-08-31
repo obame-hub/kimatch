@@ -217,21 +217,28 @@ export function TableauKanban({
             key={col.code}
             className="flex w-[236px] shrink-0 flex-col rounded-km-md border border-km-line bg-km-soft/70 p-2.5"
           >
-            <div className="mb-2 flex items-center gap-1.5 px-0.5">
-              <span className="h-[5px] w-[5px] shrink-0 rounded-full bg-km-green" aria-hidden="true" />
-              <p className="truncate text-km-micro font-bold uppercase tracking-[0.055em] text-km-muted">
+            {/* ══ LE TITRE DE COLONNE SUR SA PROPRE LIGNE ══
+                « EN CONTRACTUALISATI… » : sur la capture du 31/08/2026, le titre est tronqué au
+                milieu d'un mot. Il partageait sa ligne avec une pastille, un montant et un compte —
+                dans 236 px de large, il ne lui restait qu'une soixantaine de pixels.
+                Les chiffres passent en dessous : ils se lisent aussi bien, et le titre est enfin
+                entier. C'est la seule information de l'en-tête qui ne se devine pas. */}
+            <div className="mb-2 px-0.5">
+              <p className="truncate text-km-tiny font-bold uppercase tracking-[0.06em] text-km-muted">
                 {col.libelle}
               </p>
-              {/* Le total d'abord, le nombre de cartes ensuite : c'est le chiffre qui porte
-                  l'information, le compte n'est qu'une indication de volume. */}
-              {col.total && (
-                <span className="shrink-0 rounded-km-md bg-km-green-soft px-1.5 py-px font-mono text-km-micro font-extrabold tabular-nums text-km-green">
-                  {col.total}
+              <div className="mt-1 flex items-center gap-1.5">
+                {/* Le total d'abord, le nombre de cartes ensuite : c'est le chiffre qui porte
+                    l'information, le compte n'est qu'une indication de volume. */}
+                {col.total && (
+                  <span className="shrink-0 rounded-km-md bg-km-green-soft px-1.5 py-px text-km-tiny font-bold tabular-nums text-km-green">
+                    {col.total}
+                  </span>
+                )}
+                <span className="ml-auto shrink-0 rounded-km-md bg-km-surface px-1.5 py-px text-km-tiny font-bold tabular-nums text-km-muted">
+                  {compte(col.code)}
                 </span>
-              )}
-              <span className="ml-auto shrink-0 rounded-km-md bg-km-surface px-1.5 py-px font-mono text-km-micro font-extrabold text-km-muted">
-                {compte(col.code)}
-              </span>
+              </div>
             </div>
 
             <div className="flex flex-1 flex-col gap-1.5">
@@ -272,7 +279,7 @@ export function TableauKanban({
                           qu'une pastille par tuile — savoir que le retard porte sur sept dossiers
                           et non un seul. Compté sur les cartes MONTRÉES, jamais sur le total de la
                           colonne : annoncer sept quand on n'en affiche que trois serait faux. */}
-                      <span className="ml-auto shrink-0 font-mono opacity-70">
+                      <span className="ml-auto shrink-0 tabular-nums opacity-70">
                         {montrees.filter((x) => x.groupe?.cle === c.groupe?.cle).length}
                       </span>
                     </p>
@@ -304,15 +311,22 @@ export function TableauKanban({
                       </span>
                     )}
 
-                    <span className="block truncate text-km-label font-bold text-km-text">{c.titre}</span>
+                    {/* ══ TROIS NIVEAUX, PAS UN SEUL ══
+                        Naoëlle, 31/08/2026 : « c'est vraiment pas beau, c'est pas classe et aéré ».
+                        Toute la carte vivait entre 8,5 et 11 px : le titre à 11, absolument tout le
+                        reste à 8,5. Une carte sans hiérarchie n'est pas dense, elle est illisible —
+                        l'œil n'a aucun point d'entrée et doit tout lire pour trouver le nom.
+                        Le titre monte à 13 px, les chiffres à 11 : deux valeurs relevées, rien
+                        d'abaissé, et la carte ne gagne que quelques pixels de haut. */}
+                    <span className="block truncate text-km-body font-semibold text-km-text">{c.titre}</span>
                     {c.sousTitre && (
-                      <span className="block truncate text-km-micro text-km-muted">{c.sousTitre}</span>
+                      <span className="block truncate text-km-tiny text-km-muted">{c.sousTitre}</span>
                     )}
 
                     {/* ── Le motif, dans son cadre. Deux lignes au plus : au-delà, ce n'est plus un
                            motif, c'est un commentaire, et il a sa place sur la fiche. ── */}
                     {c.motif && (
-                      <span className="mt-1 block rounded-[4px] bg-km-soft px-1.5 py-1 text-km-micro leading-snug text-km-muted line-clamp-2">
+                      <span className="mt-1.5 block rounded-[4px] bg-km-soft px-2 py-1.5 text-km-tiny text-km-muted line-clamp-2">
                         {c.motif}
                       </span>
                     )}
@@ -322,8 +336,8 @@ export function TableauKanban({
                       <span className="mt-1.5 flex flex-wrap gap-x-3 gap-y-1">
                         {c.chiffres.map((n) => (
                           <span key={n.libelle} className="block">
-                            <span className="block text-km-micro text-km-faint">{n.libelle}</span>
-                            <span className="block font-mono text-km-micro font-extrabold tabular-nums text-km-text">
+                            <span className="block text-km-micro uppercase tracking-[0.05em] text-km-faint">{n.libelle}</span>
+                            <span className="block text-km-label font-bold tabular-nums text-km-text">
                               {n.valeur}
                             </span>
                           </span>
@@ -334,8 +348,8 @@ export function TableauKanban({
                     {c.mention && (
                       <span
                         className={cn(
-                          'mt-0.5 block font-mono text-km-micro font-bold',
-                          c.urgent ? 'text-km-amber' : 'text-km-faint',
+                          'mt-1 block text-km-label font-semibold tabular-nums',
+                          c.urgent ? 'text-km-amber' : 'text-km-muted',
                         )}
                       >
                         {c.mention}

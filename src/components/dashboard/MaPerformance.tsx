@@ -44,7 +44,7 @@ function Tuile({
         <Icone className="h-4 w-4" strokeWidth={2.3} />
       </span>
       <p className="mt-3 text-km-label font-bold text-km-muted">{libelle}</p>
-      <p className="mt-1 font-mono text-km-metric font-bold leading-none tabular-nums text-km-text">
+      <p className="mt-1 text-km-metric font-bold leading-none tabular-nums text-km-text">
         {valeur}
       </p>
       <p className="mt-1.5 text-km-label text-km-faint">{reference}</p>

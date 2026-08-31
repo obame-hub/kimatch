@@ -56,7 +56,7 @@ export function PageHeader({ title, description, actions, badge, badgeLibelle }:
                   {badgeLibelle}
                 </span>
               )}
-              <span className="font-mono text-km-body font-bold tabular-nums text-km-green">
+              <span className="text-km-body font-bold tabular-nums text-km-green">
                 {badge}
               </span>
             </span>
@@ -102,11 +102,14 @@ export function Indicateurs({ mesures }: {
             i === 0 && 'shadow-[inset_0_2px_0_rgb(var(--km-green)),0_3px_12px_rgba(25,40,33,.035)]',
           )}
         >
-          <p className="text-km-label text-km-muted">{m.libelle}</p>
-          <strong className="mt-1 block text-km-metric font-[580] tabular-nums text-km-text">
+          {/* LE LIBELLÉ EST UNE ÉTIQUETTE, PAS UNE PHRASE. Il était à la taille du texte courant,
+              donc aussi présent que le chiffre qu'il annonce, et la tuile n'avait qu'un seul
+              niveau. En capitales espacées et plus petit, il recule et laisse le chiffre porter. */}
+          <p className="text-km-tiny font-semibold uppercase tracking-[0.07em] text-km-faint">{m.libelle}</p>
+          <strong className="mt-1.5 block text-km-metric font-[580] tabular-nums text-km-text">
             {m.valeur}
           </strong>
-          {m.precision && <small className="mt-0.5 block text-km-label text-km-faint">{m.precision}</small>}
+          {m.precision && <small className="mt-1 block text-km-label text-km-faint">{m.precision}</small>}
         </div>
       ))}
     </div>

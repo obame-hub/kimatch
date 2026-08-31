@@ -686,7 +686,7 @@ export function SaisiePrixDialog({
                 recapitulatif.map((r) => (
                   <div key={r.libelle} className="flex items-baseline gap-2 border-b border-km-line pb-1">
                     <span className="min-w-[160px] text-km-name text-km-muted">{r.libelle}</span>
-                    <span className="font-mono text-km-body font-bold tabular-nums">{r.valeur}</span>
+                    <span className="text-km-body font-bold tabular-nums">{r.valeur}</span>
                     {r.note && <span className="text-km-body text-km-faint">{r.note}</span>}
                   </div>
                 ))
@@ -752,7 +752,7 @@ export function SaisiePrixDialog({
           <div className="rounded-km border border-kw-ink bg-white px-2.5 py-2">
             <div className="flex items-baseline justify-between gap-2">
               <span className="text-km-name font-extrabold">Budget total</span>
-              <span className={`font-mono text-km-name font-extrabold tabular-nums ${budgets.total == null ? 'text-km-faint' : 'text-km-text'}`}>
+              <span className={`text-km-name font-extrabold tabular-nums ${budgets.total == null ?'text-km-faint' : 'text-km-text'}`}>
                 {budgets.total == null ? '— €' : `${Math.round(budgets.total).toLocaleString('fr-FR')} €`}
               </span>
             </div>
@@ -1075,7 +1075,7 @@ function Deduit({ libelle, calcul, valeur, unite }: {
     <div className="flex flex-wrap items-baseline gap-2 rounded-km border border-kw-green-border bg-kw-green-tint px-2.5 py-1.5">
       <span className="min-w-[132px] text-km-name font-bold text-km-green">{libelle}</span>
       <span className="font-mono text-km-body text-km-muted">{calcul} =</span>
-      <span className={`font-mono text-km-metric font-bold leading-none tabular-nums ${valeur == null ? 'text-km-faint' : 'text-km-green'}`}>
+      <span className={`text-km-metric font-bold leading-none tabular-nums ${valeur == null ?'text-km-faint' : 'text-km-green'}`}>
         {fmt(valeur)}
       </span>
       <span className="text-km-body font-semibold text-km-green">{unite}</span>
@@ -1097,7 +1097,7 @@ function Fleche({ valeur }: { valeur: number | null }) {
       <span className="text-km-label font-bold uppercase tracking-[0.08em] text-km-green">
         Prix client
       </span>
-      <span className={`font-mono text-km-name font-extrabold tabular-nums ${valeur == null ? 'text-km-faint' : 'text-km-green'}`}>
+      <span className={`text-km-name font-extrabold tabular-nums ${valeur == null ?'text-km-faint' : 'text-km-green'}`}>
         {fmt(valeur)}
       </span>
       <span className="text-km-body font-semibold text-km-green">€/MWh</span>
@@ -1121,7 +1121,7 @@ function Calcul({ titre, etapes }: { titre: string; etapes: Etape[] }) {
               {e.libelle}
             </span>
             <span
-              className={`shrink-0 font-mono tabular-nums ${e.valeur == null ? 'text-km-faint' : 'text-km-text'} ${e.palier ? 'text-km-name font-extrabold' : 'text-km-body'}`}
+              className={`shrink-0 tabular-nums ${e.valeur == null ?'text-km-faint' : 'text-km-text'} ${e.palier ? 'text-km-name font-extrabold' : 'text-km-body'}`}
             >
               {fmt(e.valeur)} {e.unite}
             </span>

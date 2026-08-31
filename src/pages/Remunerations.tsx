@@ -170,7 +170,7 @@ function Tuile({ libelle, valeur, detail, accent }: {
     )}>
       <p className="text-km-xs font-bold uppercase tracking-[0.08em] text-km-faint">{libelle}</p>
       <p className={cn(
-        'mt-0.5 font-mono text-lg font-extrabold tabular-nums',
+        'mt-0.5 text-lg font-extrabold tabular-nums',
         accent === 'rouge' ? 'text-red-700' : accent === 'kiwi' ? 'text-km-green' : 'text-km-text',
       )}>
         {valeur}
@@ -221,7 +221,7 @@ function LigneRemuneration({ remuneration: r, onStatut, onPercu }: {
 
       <div className="min-w-[96px] text-right">
         <p className="text-km-xs uppercase tracking-wide text-km-faint">Attendu</p>
-        <p className="font-mono text-sm font-bold tabular-nums text-km-text">{euros(r.montant_attendu_ht)}</p>
+        <p className="text-sm font-bold tabular-nums text-km-text">{euros(r.montant_attendu_ht)}</p>
         {r.date_attendue && (
           <p className={cn('text-km-xs', enRetard ? 'font-semibold text-km-red' : 'text-km-faint')}>
             {new Date(r.date_attendue).toLocaleDateString('fr-FR')}

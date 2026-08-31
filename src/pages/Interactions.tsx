@@ -242,7 +242,7 @@ export default function Interactions() {
               }`}
             >
               À venir
-              <span className={`font-mono text-km-label tabular-nums ${aVenir ? 'opacity-70' : 'text-km-muted'}`}>
+              <span className={`text-km-label tabular-nums ${aVenir ?'opacity-70' : 'text-km-muted'}`}>
                 {nbAVenir}
               </span>
             </button>

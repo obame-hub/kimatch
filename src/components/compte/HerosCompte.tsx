@@ -71,7 +71,7 @@ function Anneau({
         </defs>
       </svg>
       <div className="absolute inset-0 flex items-center justify-center">
-        <span className="font-mono text-km-metric font-bold leading-none tracking-[-.02em]">{children}</span>
+        <span className="text-km-metric font-bold tabular-nums leading-none">{children}</span>
       </div>
     </div>
   )

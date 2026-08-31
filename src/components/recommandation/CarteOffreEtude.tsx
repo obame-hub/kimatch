@@ -323,7 +323,7 @@ export function CarteOffreEtude({
         >
           {!avecBarre && (
             <span>
-              <span className="block font-mono text-km-label font-bold tabular-nums">
+              <span className="block text-km-label font-bold tabular-nums">
                 {marge == null ? <span className="text-km-faint">—</span> : `${marge.toLocaleString('fr-FR', { maximumFractionDigits: 2 })} €`}
               </span>
               <span className="block text-km-micro text-km-faint">
@@ -333,7 +333,7 @@ export function CarteOffreEtude({
           )}
 
           <span>
-            <span className="block font-mono text-km-body font-extrabold tabular-nums">
+            <span className="block text-km-body font-extrabold tabular-nums">
               {total == null ? '—' : Math.round(total).toLocaleString('fr-FR')}
             </span>
             <span className="block text-km-micro text-km-faint">budget HT / an</span>
@@ -353,7 +353,7 @@ export function CarteOffreEtude({
                     : 'Moins chère que l’offre de référence'
                 }
                 className={cn(
-                  'inline-flex items-baseline gap-1.5 rounded-km-sm px-2 py-0.5 font-mono text-km-label font-extrabold tabular-nums',
+                  'inline-flex items-baseline gap-1.5 rounded-km-sm px-2 py-0.5 text-km-label font-extrabold tabular-nums',
                   ecart > 0 ? 'bg-km-red-soft text-km-red' : 'bg-km-green-soft text-km-green',
                 )}
               >
@@ -477,7 +477,7 @@ export function CarteOffreEtude({
                               ligne affichait 18 757 d'énergie et 3 746 de contributions, soit 22 503 :
                               l'accise et la CTA, ajoutées le matin même, n'étaient pas dans le total
                               stocké. Une ligne qui ne s'additionne pas ne se fait pas pardonner. */}
-                          <span className="block font-mono text-km-label font-extrabold tabular-nums text-km-green">
+                          <span className="block text-km-label font-extrabold tabular-nums text-km-green">
                             {(() => {
                               const t = totalDeLaLigne(d)
                               return t == null ? '—' : `${Math.round(t).toLocaleString('fr-FR')} €`
@@ -677,7 +677,7 @@ function Cellule({ libelle, valeur, unite, estompe }: {
   return (
     <span className="min-w-[74px]">
       <span className="block text-km-micro font-bold tracking-[0.05em] text-km-faint">{libelle}</span>
-      <span className={cn('block font-mono text-km-label tabular-nums', estompe ? 'font-normal text-km-faint' : 'font-bold')}>
+      <span className={cn('block text-km-label tabular-nums', estompe ? 'font-normal text-km-faint' : 'font-bold')}>
         {valeur == null
           ? <span className="text-km-faint">—</span>
           : `${unite === 'MWh' ? valeur.toLocaleString('fr-FR', { maximumFractionDigits: 2 }) : Math.round(valeur).toLocaleString('fr-FR')} ${unite}`}
@@ -712,7 +712,7 @@ function BlocCompose({ couleur, titre, aide, total, lignes }: {
         <span className={cn('h-[7px] w-[7px] shrink-0 rounded-[3px]', teintes.puce)} />
         <span className={cn('text-km-micro font-bold uppercase tracking-[0.06em]', teintes.texte)}>{titre}</span>
         <span className="flex-1" />
-        <span className={cn('font-mono text-km-label font-extrabold tabular-nums', teintes.texte)}>
+        <span className={cn('text-km-label font-extrabold tabular-nums', teintes.texte)}>
           {total == null ? '—' : `${Math.round(total).toLocaleString('fr-FR')} €`}
         </span>
       </div>
@@ -731,13 +731,13 @@ function BlocCompose({ couleur, titre, aide, total, lignes }: {
               return (
                 <div key={x.l} className="col-span-4 grid grid-cols-[1fr_auto_auto_auto] gap-x-3 border-t border-km-line pt-1">
                   <span className="font-semibold text-km-muted">{x.l}</span>
-                  <span className="text-right font-mono tabular-nums text-km-muted">
+                  <span className="text-right tabular-nums text-km-muted">
                     {x.pu != null ? `${x.pu.toLocaleString('fr-FR', { maximumFractionDigits: 2 })} €/MWh` : '—'}
                   </span>
-                  <span className="text-right font-mono tabular-nums text-km-muted">
+                  <span className="text-right tabular-nums text-km-muted">
                     {x.vol != null ? `${x.vol.toLocaleString('fr-FR', { maximumFractionDigits: 2 })} MWh` : '—'}
                   </span>
-                  <span className="text-right font-mono font-bold tabular-nums">
+                  <span className="text-right font-bold tabular-nums">
                     {montant == null ? <span className="text-km-faint">—</span> : `${Math.round(montant).toLocaleString('fr-FR')} €`}
                   </span>
                 </div>

@@ -72,7 +72,7 @@ function LigneMarge({
       </span>
       <span
         className={cn(
-          'text-right font-mono font-bold tabular-nums',
+          'text-right font-bold tabular-nums',
           total ? 'text-km-name text-km-green' : 'text-km-body text-km-text',
         )}
       >
@@ -175,7 +175,7 @@ export function BlocAffaire({ reco }: { reco: Recommandation }) {
                         <span className="ml-1.5 font-mono text-km-label text-km-faint">{d.precision}</span>
                       )}
                     </span>
-                    <span className="text-right font-mono text-km-body font-bold tabular-nums text-km-muted">
+                    <span className="text-right text-km-body font-bold tabular-nums text-km-muted">
                       {d.valeur}
                     </span>
                   </div>

@@ -72,7 +72,7 @@ function Bloc({
           </span>
           <div className="min-w-0">
             <p className="text-km-label font-bold leading-snug text-km-muted">{intitule}</p>
-            <p className="mt-1 font-mono text-km-metric-lg font-bold leading-none tabular-nums text-km-text">
+            <p className="mt-1 text-km-metric-lg font-bold leading-none tabular-nums text-km-text">
               {valeur}
             </p>
             {precision && <p className="mt-1 text-km-label text-km-faint">{precision}</p>}
@@ -95,7 +95,7 @@ function Bloc({
                 <p className="truncate text-km-label text-km-muted" title={c.libelle}>
                   {c.libelle}
                 </p>
-                <p className="mt-1 font-mono text-kw-h2 font-extrabold tabular-nums text-km-text">
+                <p className="mt-1 text-kw-h2 font-extrabold tabular-nums text-km-text">
                   {c.valeur}
                 </p>
               </div>
@@ -148,7 +148,7 @@ export default function PerformanceComptes({ sansEntete }: { sansEntete?: boolea
               <p className="truncate text-km-label text-km-muted" title={x.segment}>
                 {x.segment}
               </p>
-              <p className="mt-0.5 font-mono text-kw-h2 font-extrabold tabular-nums text-km-text">
+              <p className="mt-0.5 text-kw-h2 font-extrabold tabular-nums text-km-text">
                 {n(x.nb)}
               </p>
             </div>

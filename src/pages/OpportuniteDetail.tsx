@@ -236,7 +236,7 @@ export default function OpportuniteDetail() {
 
         <div className="flex min-w-0 flex-1 flex-col gap-1.5">
           <div className="flex flex-wrap items-center gap-2">
-            <span className="font-mono text-km-metric font-bold tracking-tight text-km-text">
+            <span className="text-km-metric font-bold tabular-nums text-km-text">
               {opportunite.reference || 'Sans référence'}
             </span>
             <InlineField
@@ -1249,7 +1249,7 @@ function AnneauMaturite({ valides, total }: { valides: number; total: number }) 
         />
       </svg>
       <div className="absolute inset-0 flex flex-col items-center justify-center">
-        <span className={cn('font-mono text-km-metric font-bold leading-none', complet ? 'text-km-green' : 'text-opp-500')}>
+        <span className={cn('text-km-metric font-bold tabular-nums leading-none', complet ? 'text-km-green' : 'text-opp-500')}>
           {valides}
         </span>
         <span className="font-mono text-km-xs text-km-faint">/ {total}</span>

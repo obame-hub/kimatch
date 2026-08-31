@@ -104,8 +104,8 @@ function Ligne({
       <span
         className={
           fort
-            ? 'font-mono text-km-body font-extrabold tabular-nums text-km-text'
-            : 'font-mono text-km-label font-semibold tabular-nums text-km-text'
+            ? 'text-km-body font-extrabold tabular-nums text-km-text'
+            : 'text-km-label font-semibold tabular-nums text-km-text'
         }
       >
         {valeur}

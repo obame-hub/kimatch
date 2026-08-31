@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { Plus, CheckSquare, Check } from 'lucide-react'
+import { Plus, CheckSquare } from 'lucide-react'
 import { Topbar } from '@/components/layout/Topbar'
 import { PageHeader, Indicateurs } from '@/components/ui/page-header'
 import { Button } from '@/components/ui/button'
@@ -15,7 +15,7 @@ import type { Signal } from '@/types/domain'
 import { cn } from '@/lib/utils'
 import { estIdReel } from '@/lib/referenceFallbacks'
 import { prochaineActionSignal } from '@/lib/prochaineActionSignal'
-import { ListToolbar } from '@/components/ui/list-toolbar'
+import { ListToolbar, BasculeOption } from '@/components/ui/list-toolbar'
 import { usePerimetreListe, BasculePerimetre } from '@/lib/perimetre'
 import { useOuvrirCreation } from '@/lib/ouvrirCreation'
 
@@ -92,7 +92,7 @@ function SignalCard({ signal }: { signal: Signal }) {
         )}
         <div className="mt-2 flex items-center justify-between gap-2 text-km-label text-km-faint">
           <span className="truncate">{signal.conseiller}</span>
-          <span className="shrink-0 font-mono tabular-nums">
+          <span className="shrink-0 tabular-nums">
             {new Date(signal.date_creation).toLocaleDateString('fr-FR', { day: '2-digit', month: '2-digit' })}
           </span>
         </div>
@@ -306,24 +306,7 @@ export default function Signaux() {
             conséquence de la règle de Michel : un dossier clos ne se trouvait plus par la recherche
             de cette page, et c'est le genre de chose qu'on découvre au mauvais moment.
             Décoché par défaut — sa règle reste la règle, la case est l'exception. */}
-        <button
-          type="button"
-          onClick={() => setAvecClos((v) => !v)}
-          className={cn(
-            'inline-flex shrink-0 items-center gap-1.5 rounded-km border px-2.5 py-1.5 text-km-body font-bold transition-colors',
-            avecClos
-              ? 'border-ink-800 bg-ink-800 text-white'
-              : 'border-km-line bg-white text-km-muted hover:bg-km-soft',
-          )}
-        >
-          <span className={cn(
-            'flex h-3.5 w-3.5 items-center justify-center rounded-[3px]',
-            avecClos ? 'bg-white/25' : 'border border-km-line',
-          )}>
-            {avecClos && <Check className="h-2.5 w-2.5" />}
-          </span>
-          Inclure les dossiers clos
-        </button>
+        <BasculeOption actif={avecClos} onChange={setAvecClos} libelle="Inclure les dossiers clos" />
         </div>
 
         {isLoading ? (

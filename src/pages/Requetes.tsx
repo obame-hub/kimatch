@@ -416,7 +416,7 @@ function Tuile({ libelle, valeur, accent }: { libelle: string; valeur: string; a
     )}>
       <p className="text-km-xs font-bold uppercase tracking-[0.08em] text-km-faint">{libelle}</p>
       <p className={cn(
-        'mt-0.5 font-mono text-lg font-extrabold tabular-nums',
+        'mt-0.5 text-lg font-extrabold tabular-nums',
         accent === 'rouge' ? 'text-red-700' : accent === 'kiwi' ? 'text-km-green' : 'text-km-text',
       )}>
         {valeur}

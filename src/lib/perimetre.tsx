@@ -153,21 +153,24 @@ export function BasculePerimetre({
       onClick={() => onChange(v)}
       aria-pressed={valeur === v}
       className={cn(
-        'flex items-center gap-1.5 rounded-kw-sm px-2.5 py-1 text-kw-lg font-semibold transition-colors',
-        valeur === v ? 'bg-kw-surface text-kw-ink shadow-kw-card' : 'text-kw-label hover:text-kw-ink',
+        'flex h-[26px] items-center gap-1.5 rounded-[6px] px-2.5 text-km-label font-semibold transition-colors',
+        valeur === v ? 'bg-km-surface text-km-text shadow-sm' : 'text-km-muted hover:text-km-text',
       )}
     >
       {libelle}
       {compte != null && (
-        <span className={cn('font-mono text-kw-xs tabular-nums', valeur === v ? 'text-kw-meta' : 'text-kw-faint')}>
+        <span className={cn('text-km-tiny tabular-nums', valeur === v ? 'text-km-muted' : 'text-km-faint')}>
           {compte}
         </span>
       )}
     </button>
   )
 
+  // La même hauteur que les autres contrôles de la barre : 26 px de segment + 2×3 px de
+  // rembourrage = 32 px, la valeur de `CONTROLE_BARRE`. Un pixel d'écart se voit sur une ligne
+  // de quatre contrôles alignés.
   return (
-    <div className="flex shrink-0 items-center gap-0.5 rounded-kw-md bg-kw-muted p-0.5">
+    <div className="flex h-[32px] shrink-0 items-center gap-0.5 rounded-km border border-km-line bg-km-soft p-[3px]">
       {segment('moi', libelleMien, compteMien)}
       {segment('tous', libelleTous, compteTous)}
     </div>

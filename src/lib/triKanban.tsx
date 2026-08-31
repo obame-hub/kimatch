@@ -80,7 +80,7 @@ export function SelecteurTri({
       value={valeur}
       onChange={(e) => onChange(e.target.value)}
       aria-label="Trier les cartes"
-      className="h-9 shrink-0 rounded-kw-md border border-kw-border-strong bg-kw-surface px-2.5 text-kw-lg font-semibold text-kw-body transition-colors hover:text-kw-ink"
+      className="h-[32px] shrink-0 rounded-km border border-km-line bg-km-surface px-2.5 text-km-label font-semibold text-km-muted transition-colors hover:bg-km-soft hover:text-km-text"
     >
       {options.map((o) => (
         <option key={o.cle} value={o.cle}>

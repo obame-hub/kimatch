@@ -1,14 +1,13 @@
 import { useState } from 'react'
 import { Topbar } from '@/components/layout/Topbar'
 import { PageHeader, Indicateurs } from '@/components/ui/page-header'
-import { ListToolbar } from '@/components/ui/list-toolbar'
+import { ListToolbar, BasculeOption } from '@/components/ui/list-toolbar'
 import { TableauKanban } from '@/components/dashboard/TableauKanban'
 import { useKanbanServeur } from '@/lib/useKanbanServeur'
 import { useTriKanban, SelecteurTri } from '@/lib/triKanban'
 import { usePerimetre, BasculePerimetre } from '@/lib/perimetre'
 import { useMonProfil } from '@/lib/data/roles'
 import { SANTE_LIBELLE, type SuiviContrat } from '@/lib/data/suivisContrats'
-import { cn } from '@/lib/utils'
 
 /**
  * SUIVIS DE CONTRATS — la liste.
@@ -154,18 +153,7 @@ export default function SuivisContrats() {
             libelleTous="Tous les suivis"
           />
           <SelecteurTri valeur={tri} onChange={setTri} options={optionsTri} />
-          <button
-            type="button"
-            onClick={() => setAvecClos((v) => !v)}
-            className={cn(
-              'inline-flex shrink-0 items-center gap-1.5 rounded-km border px-2.5 py-1.5 text-km-body font-bold transition-colors',
-              avecClos
-                ? 'border-ink-800 bg-ink-800 text-white'
-                : 'border-km-line bg-white text-km-muted hover:bg-km-soft',
-            )}
-          >
-            Inclure les contrats terminés
-          </button>
+          <BasculeOption actif={avecClos} onChange={setAvecClos} libelle="Inclure les contrats terminés" />
         </ListToolbar>
 
         <TableauKanban

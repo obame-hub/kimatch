@@ -1182,7 +1182,7 @@ function ContratsTabContent({
               <span className="text-km-xs font-bold uppercase tracking-[.08em] text-[#a3a5a0]">{hub.label}</span>
             )}
             <span
-              className={cn('font-bold leading-[1.15]', hub.principal ? 'text-km-h1 tracking-[-.02em]' : 'font-mono text-km-metric')}
+              className={cn('font-bold leading-[1.15]', hub.principal ? 'text-km-h1 tabular-nums' : 'text-km-metric tabular-nums')}
               style={{ color: hub.color }}
             >
               {hub.value}

@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { useSearchParams } from 'react-router-dom'
 import { useNavigate } from 'react-router-dom'
-import { Plus, Target, Check } from 'lucide-react'
+import { Plus, Target } from 'lucide-react'
 import { TableauKanban } from '@/components/dashboard/TableauKanban'
 import { volumeLisible } from '@/lib/volume'
 import { Topbar } from '@/components/layout/Topbar'
@@ -11,7 +11,7 @@ import { ChoixParRecherche } from '@/components/ui/choix-recherche'
 import { Button } from '@/components/ui/button'
 import { Dialog } from '@/components/ui/dialog'
 import { FormField, Input, Select, Textarea } from '@/components/ui/form'
-import { ListToolbar } from '@/components/ui/list-toolbar'
+import { ListToolbar, BasculeOption } from '@/components/ui/list-toolbar'
 import { useListControls } from '@/lib/useListControls'
 import { usePerimetreListe, BasculePerimetre } from '@/lib/perimetre'
 import { SelecteurTri } from '@/lib/triKanban'
@@ -205,24 +205,7 @@ export default function Opportunites() {
             conséquence de la règle de Michel : un dossier clos ne se trouvait plus par la recherche
             de cette page, et c'est le genre de chose qu'on découvre au mauvais moment.
             Décoché par défaut — sa règle reste la règle, la case est l'exception. */}
-        <button
-          type="button"
-          onClick={() => setAvecClos((v) => !v)}
-          className={cn(
-            'inline-flex shrink-0 items-center gap-1.5 rounded-km border px-2.5 py-1.5 text-km-body font-bold transition-colors',
-            avecClos
-              ? 'border-ink-800 bg-ink-800 text-white'
-              : 'border-km-line bg-white text-km-muted hover:bg-km-soft',
-          )}
-        >
-          <span className={cn(
-            'flex h-3.5 w-3.5 items-center justify-center rounded-[3px]',
-            avecClos ? 'bg-white/25' : 'border border-km-line',
-          )}>
-            {avecClos && <Check className="h-2.5 w-2.5" />}
-          </span>
-          Inclure les dossiers clos
-        </button>
+        <BasculeOption actif={avecClos} onChange={setAvecClos} libelle="Inclure les dossiers clos" />
         </div>
 
         {isLoading ? (

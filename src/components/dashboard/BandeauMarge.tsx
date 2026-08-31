@@ -38,7 +38,7 @@ function Grandeur({
         <span className="truncate text-km-label font-bold text-km-muted">{libelle}</span>
         {precision && <span className="shrink-0 text-km-label text-km-faint">{precision}</span>}
       </div>
-      <p className="mt-1 font-mono text-kw-h2 font-extrabold tabular-nums text-km-text">{valeur}</p>
+      <p className="mt-1 text-kw-h2 font-extrabold tabular-nums text-km-text">{valeur}</p>
     </div>
   )
 }
@@ -78,7 +78,7 @@ export function BandeauMarge({
             <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-km-lg bg-km-green text-white">
               <Euro className="h-5 w-5" strokeWidth={2.4} />
             </span>
-            <p className="font-mono text-km-metric-lg font-bold leading-none tabular-nums text-km-text">
+            <p className="text-km-metric-lg font-bold leading-none tabular-nums text-km-text">
               {chargement || !c ? '—' : euros(c.margeMois)}
             </p>
           </div>
@@ -122,12 +122,12 @@ export function BandeauMarge({
               <div className="flex flex-wrap items-end justify-between gap-2">
                 <div>
                   <p className="text-km-label font-bold text-km-muted">Objectif mensuel</p>
-                  <p className="mt-0.5 font-mono text-kw-h1 font-extrabold tabular-nums text-km-text">
+                  <p className="mt-0.5 text-kw-h1 font-extrabold tabular-nums text-km-text">
                     {euros(objectif)}
                   </p>
                 </div>
                 <div className="text-right">
-                  <p className="font-mono text-kw-h1 font-extrabold tabular-nums text-km-green">
+                  <p className="text-kw-h1 font-extrabold tabular-nums text-km-green">
                     {c ? Math.round((c.margeMois / objectif) * 100) : 0} %
                   </p>
                   <p className="text-km-label text-km-faint">atteint</p>
