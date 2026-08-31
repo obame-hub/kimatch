@@ -233,7 +233,7 @@ export function ComparatifVersions({
 
   return (
     <div className="overflow-hidden rounded-[13px] border border-km-line bg-white">
-      <div className="flex items-center gap-2 border-b border-kw-border-subtle px-[17px] py-3">
+      <div className="flex items-center gap-2 border-b border-km-line-soft px-[17px] py-3">
         <span className="text-km-micro font-bold uppercase tracking-[0.08em] text-km-faint">Comparatif des versions</span>
         <span className="flex-1" />
         <span className="flex items-center gap-1.5 text-km-tiny text-km-muted">
@@ -245,7 +245,7 @@ export function ComparatifVersions({
       <div className="overflow-x-auto">
         <div className="min-w-[560px]">
           {/* En-tête : une colonne par version, la version affichée est cliquable pour la choisir. */}
-          <div className="grid border-b border-kw-border-subtle bg-km-soft" style={{ gridTemplateColumns: grille }}>
+          <div className="grid border-b border-km-line-soft bg-km-soft" style={{ gridTemplateColumns: grille }}>
             <span className="px-[17px] py-2" />
             {versions.map((v) => {
               const active = v.version_actuelle
@@ -264,7 +264,7 @@ export function ComparatifVersions({
                   {v.nom || `V${v.numero_version ?? '?'}`}
                   <span
                     className={cn(
-                      'rounded-kw-xs px-1.5 py-px font-sans text-km-micro font-extrabold tracking-[0.06em]',
+                      'rounded-km-sm px-1.5 py-px font-sans text-km-micro font-extrabold tracking-[0.06em]',
                       active ? 'bg-[#8a4b2a] text-white' : 'bg-km-soft text-km-faint',
                     )}
                   >
@@ -311,7 +311,7 @@ export function ComparatifVersions({
                             if (e.key === 'Escape') setEnEdition(null)
                           }}
                           placeholder="€ / an"
-                          className="w-[90px] rounded-km-sm border border-km-green bg-white px-1.5 py-0.5 font-mono text-km-label font-extrabold text-km-text outline-none ring-[3px] ring-kw-green/10"
+                          className="w-[90px] rounded-km-sm border border-km-green bg-white px-1.5 py-0.5 font-mono text-km-label font-extrabold text-km-text outline-none ring-[3px] ring-km-green/10"
                         />
                       ) : (
                         <button
@@ -347,7 +347,7 @@ export function ComparatifVersions({
 
           {/* ── Solutions incluses ── */}
           <div className="grid" style={{ gridTemplateColumns: '1fr' }}>
-            <span className="border-t border-kw-border-subtle bg-km-soft px-[17px] py-2 text-km-micro font-extrabold uppercase tracking-[0.07em] text-km-faint">
+            <span className="border-t border-km-line-soft bg-km-soft px-[17px] py-2 text-km-micro font-extrabold uppercase tracking-[0.07em] text-km-faint">
               Solutions incluses
             </span>
           </div>
@@ -401,7 +401,7 @@ export function ComparatifVersions({
       {/* Dit une fois, en bas du tableau, d'où viennent les cases vides — plutôt que de laisser
           croire à une panne d'affichage. */}
       {versions.every((v) => v.optimisations.every((o) => o.offres.length === 0)) && (
-        <p className="border-t border-kw-border-subtle bg-km-soft px-[17px] py-2 text-km-micro leading-snug text-km-faint">
+        <p className="border-t border-km-line-soft bg-km-soft px-[17px] py-2 text-km-micro leading-snug text-km-faint">
           Budget, fournisseur et prix au MWh se lisent sur l'offre retenue de chaque version. Aucune
           offre n'est encore enregistrée ici : elles se remplissent au fil des réponses des
           fournisseurs consultés.

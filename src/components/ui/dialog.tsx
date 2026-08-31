@@ -18,7 +18,7 @@ interface DialogProps {
  * LE PORTAIL N'EST PAS UN DÉTAIL. Signalé par Naoëlle le 19/08/2026 : « ce serait bien si tu grises
  * tout l'écran, là on ne sait pas où regarder ». Un `position: fixed` se place par rapport au
  * viewport SAUF si un ancêtre porte une transformation — et l'application en est pleine, ne serait-ce
- * que par ses animations d'apparition (`animate-kw-fade-slide` anime `transform`). Un tel ancêtre
+ * que par ses animations d'apparition (`animate-km-fade-slide` anime `transform`). Un tel ancêtre
  * devient le référentiel du voile, qui ne couvre alors que sa boîte : la fenêtre s'ouvrait avec une
  * partie de l'écran restée nette, sans qu'aucun réglage d'opacité n'y change quoi que ce soit.
  *
@@ -41,7 +41,7 @@ export function Dialog({ open, onClose, title, description, children, className 
 
   return createPortal(
     <div
-      className="animate-kw-fade fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-ink-950/65 p-4 py-10 backdrop-blur-[3px]"
+      className="animate-km-fade fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-ink-950/65 p-4 py-10 backdrop-blur-[3px]"
       // Un clic sur le voile ferme, comme partout ailleurs. `currentTarget` et non `target` : un clic
       // dans la fenêtre ne doit pas la refermer.
       onClick={(e) => { if (e.target === e.currentTarget) onClose() }}

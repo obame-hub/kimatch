@@ -72,8 +72,8 @@ export function EnergyTimeline({ compteurs, contrats }: { compteurs: Compteur[];
                     className={
                       'flex h-5 w-5 shrink-0 items-center justify-center rounded ' +
                       (compteur.type_energie === 'electricite'
-                        ? 'bg-kw-gold-light text-kw-gold'
-                        : 'bg-kw-gas-light text-kw-gas')
+                        ? 'bg-km-elec-soft text-km-elec'
+                        : 'bg-km-gaz-soft text-km-gaz')
                     }
                   >
                     <Icon className="h-3 w-3" />

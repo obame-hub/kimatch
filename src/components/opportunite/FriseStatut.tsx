@@ -55,7 +55,7 @@ export const TEINTES_FRISE: Record<string, TeinteFrise> = {
     ombreCourant: 'shadow-[0_5px_14px_rgba(168,49,127,.34)]',
     ombreFranchi: 'shadow-[0_2px_6px_rgba(168,49,127,.2)]',
     hachures: ['#e8c3dc', '#f4eef1'],
-    pulsation: 'animate-kw-opp-pulse',
+    pulsation: 'animate-km-opp-pulse',
   },
   /** La recommandation — le vert de Kiwee, sa couleur dans tout le reste de l'app. */
   recommandation: {
@@ -63,7 +63,7 @@ export const TEINTES_FRISE: Record<string, TeinteFrise> = {
     ombreCourant: 'shadow-[0_5px_14px_rgba(13,122,95,.34)]',
     ombreFranchi: 'shadow-[0_2px_6px_rgba(13,122,95,.2)]',
     hachures: ['#c3ddd4', '#eef5f2'],
-    pulsation: 'animate-kw-soft-pulse',
+    pulsation: 'animate-km-soft-pulse',
   },
   /** Le signal — l'ambre de la détection, comme sa tuile du tableau de bord. */
   signal: {
@@ -71,7 +71,7 @@ export const TEINTES_FRISE: Record<string, TeinteFrise> = {
     ombreCourant: 'shadow-[0_5px_14px_rgba(181,122,36,.34)]',
     ombreFranchi: 'shadow-[0_2px_6px_rgba(181,122,36,.2)]',
     hachures: ['#e8d5b4', '#f6f1e6'],
-    pulsation: 'animate-kw-soft-pulse',
+    pulsation: 'animate-km-soft-pulse',
   },
   /** Le contrat et le mandat — le bleu des engagements. */
   contrat: {
@@ -79,7 +79,7 @@ export const TEINTES_FRISE: Record<string, TeinteFrise> = {
     ombreCourant: 'shadow-[0_5px_14px_rgba(59,95,138,.34)]',
     ombreFranchi: 'shadow-[0_2px_6px_rgba(59,95,138,.2)]',
     hachures: ['#c2d0e0', '#eef1f6'],
-    pulsation: 'animate-kw-soft-pulse',
+    pulsation: 'animate-km-soft-pulse',
   },
 }
 export interface JalonFrise {
@@ -128,7 +128,7 @@ export function FriseStatut({ jalons, courant, finalite, teinte = 'opportunite' 
                   i <= atteint
                     ? 'bg-gradient-to-r ' + t.gradient
                     : segmentEnCours
-                      ? 'animate-kw-stripe bg-[length:36px_100%] motion-reduce:animate-none'
+                      ? 'animate-km-stripe bg-[length:36px_100%] motion-reduce:animate-none'
                       : 'bg-[#eceae6]',
                 )}
               />

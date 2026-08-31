@@ -294,7 +294,7 @@ export default function OpportuniteDetail() {
             <>
               {/* Un voile transparent ferme le menu au premier clic ailleurs, sans écouteur global. */}
               <div className="fixed inset-0 z-40" onClick={() => setHubOuvert(false)} />
-              <div className="absolute right-0 top-full z-50 mt-1.5 w-[248px] animate-kw-hub-pop rounded-[13px] border border-km-line bg-white p-1.5 shadow-[0_18px_44px_-12px_rgba(22,24,29,.22)]">
+              <div className="absolute right-0 top-full z-50 mt-1.5 w-[248px] animate-km-hub-pop rounded-[13px] border border-km-line bg-white p-1.5 shadow-[0_18px_44px_-12px_rgba(22,24,29,.22)]">
                 {[
                   {
                     cle: 'perimetre',
@@ -560,7 +560,7 @@ export default function OpportuniteDetail() {
         {/* ── COLONNE CENTRALE ── */}
         <div className="min-h-0 overflow-y-auto p-3.5 lg:px-5">
           {onglet === 'opportunite' && (
-            <div className="flex animate-kw-fade-slide flex-col gap-3.5">
+            <div className="flex animate-km-fade-slide flex-col gap-3.5">
 
               {/* BANDEAU INCOMPLET — les manquants en pastilles tiretées, comme la maquette. */}
               {manquants.length > 0 && (
@@ -914,7 +914,7 @@ export default function OpportuniteDetail() {
           )}
 
           {onglet === 'historique' && (
-            <div className="animate-kw-fade-slide">
+            <div className="animate-km-fade-slide">
               <Card className="p-4">
                 <p className="mb-2 text-km-xs font-bold uppercase tracking-[0.08em] text-km-faint">
                   Historique des modifications
@@ -925,7 +925,7 @@ export default function OpportuniteDetail() {
           )}
 
           {onglet === 'fichiers' && (
-            <div className="animate-kw-fade-slide">
+            <div className="animate-km-fade-slide">
               {/* LE MÊME COMPOSANT QUE LA FICHE COMPTE, pas une copie : dépôt par glisser ou par
                   parcours du poste, catégories, ouverture de la fiche document. La table
                   `documents` était déjà générique (`entite_type` + `entite_id`) ; seule sa

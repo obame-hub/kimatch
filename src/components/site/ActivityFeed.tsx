@@ -126,8 +126,8 @@ function relativeGroupLabel(dateStr: string): { label: string; diffDays: number 
 // text-km-faint" explicitement signalé trop discret dans le prompt de handoff.
 function groupBadgeClass(diffDays: number): string {
   if (diffDays === 0) return 'bg-km-green'
-  if (diffDays > 0) return 'bg-kw-amber'
-  return 'bg-kw-ink'
+  if (diffDays > 0) return 'bg-km-amber'
+  return 'bg-km-text'
 }
 
 export function ActivityFeed({

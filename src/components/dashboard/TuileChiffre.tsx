@@ -34,7 +34,7 @@ export function TuileChiffre({
       type="button"
       onClick={onClick}
       title={definition}
-      className="rounded-kw-3xl border border-km-line bg-white px-4 py-4 text-left transition-shadow hover:shadow-kw-card-open"
+      className="rounded-km-lg border border-km-line bg-white px-4 py-4 text-left transition-shadow hover:shadow-km-metric"
     >
       <div className="flex items-start justify-between gap-2">
         <span className={cn('flex h-9 w-9 items-center justify-center rounded-km-lg', teinte)}>

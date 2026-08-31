@@ -59,9 +59,9 @@ function Bloc({
     <div
       onClick={onClick}
       className={cn(
-        'overflow-hidden rounded-kw-3xl border',
+        'overflow-hidden rounded-km-lg border',
         fond ?? 'border-km-line bg-white',
-        onClick && 'cursor-pointer transition-shadow hover:shadow-kw-card-open',
+        onClick && 'cursor-pointer transition-shadow hover:shadow-km-metric',
       )}
     >
       <div className="flex flex-col sm:flex-row">
@@ -95,7 +95,7 @@ function Bloc({
                 <p className="truncate text-km-label text-km-muted" title={c.libelle}>
                   {c.libelle}
                 </p>
-                <p className="mt-1 text-kw-h2 font-extrabold tabular-nums text-km-text">
+                <p className="mt-1 text-km-title font-extrabold tabular-nums text-km-text">
                   {c.valeur}
                 </p>
               </div>
@@ -141,7 +141,7 @@ export default function PerformanceComptes({ sansEntete }: { sansEntete?: boolea
       {/* LA RÉPARTITION PAR SEGMENT EN ENTIER, sur sa propre ligne : elle en compte cinq et les
           tronquer à deux dans le bloc au-dessus aurait caché les syndics, qui sont le cœur du
           portefeuille. */}
-      <div className="rounded-kw-3xl border border-km-line bg-white px-5 py-4">
+      <div className="rounded-km-lg border border-km-line bg-white px-5 py-4">
         <p className="text-km-label font-bold text-km-muted">Répartition par segment</p>
         <div className="mt-3 flex flex-wrap gap-x-8 gap-y-3">
           {(data?.segments ?? []).map((x) => (
@@ -149,7 +149,7 @@ export default function PerformanceComptes({ sansEntete }: { sansEntete?: boolea
               <p className="truncate text-km-label text-km-muted" title={x.segment}>
                 {x.segment}
               </p>
-              <p className="mt-0.5 text-kw-h2 font-extrabold tabular-nums text-km-text">
+              <p className="mt-0.5 text-km-title font-extrabold tabular-nums text-km-text">
                 {n(x.nb)}
               </p>
             </div>
@@ -171,7 +171,7 @@ export default function PerformanceComptes({ sansEntete }: { sansEntete?: boolea
         <Bloc
           icone={Clock}
           teinte="bg-km-amber-soft text-km-amber"
-          fond="border-kw-amber-border bg-km-amber-soft/40"
+          fond="border-km-amber-line bg-km-amber-soft/40"
           intitule="Compteurs avec une date d’échéance dépassée ou vide"
           valeur={n(s ? s.nbEcheanceVide + s.nbEcheanceDepassee : undefined)}
           cellules={[

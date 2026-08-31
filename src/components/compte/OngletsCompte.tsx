@@ -12,7 +12,7 @@ import { FINALITES_RECOMMANDATION, type CleFinalite } from '@/lib/finalitesRecom
  * les colonnes restent alignées d'une ligne à l'autre quelle que soit la longueur du libellé.
  */
 
-const ANIMATION_ONGLET = 'animate-kw-fade-slide'
+const ANIMATION_ONGLET = 'animate-km-fade-slide'
 
 /** Teintes d'étape — reprises de `stC`, complétées pour Clôture que la maquette n'affiche pas
  *  dans les recos actives (une reco clôturée passe dans l'historique). */

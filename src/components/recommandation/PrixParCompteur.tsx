@@ -262,7 +262,7 @@ export function PrixParCompteur({
           {choixOuvert && !unSeul && (
             <span
               onClick={(e) => e.stopPropagation()}
-              className="animate-kw-fade-slide absolute right-0 top-full z-30 mt-1 flex w-64 flex-col rounded-km-md border border-km-line bg-white py-1 shadow-kw-panel"
+              className="animate-km-fade-slide absolute right-0 top-full z-30 mt-1 flex w-64 flex-col rounded-km-md border border-km-line bg-white py-1 shadow-km-pop"
             >
               <span className="px-3 py-1 text-km-label font-bold uppercase tracking-[0.08em] text-km-faint">
                 Quel point de livraison ?
@@ -283,10 +283,10 @@ export function PrixParCompteur({
                   >
                     <span
                       className={cn(
-                        'flex h-4 w-4 shrink-0 items-center justify-center rounded-kw-xs',
+                        'flex h-4 w-4 shrink-0 items-center justify-center rounded-km-sm',
                         compteur?.type_energie === 'gaz'
-                          ? 'bg-kw-gas-light text-kw-gas'
-                          : 'bg-kw-gold-light text-kw-gold',
+                          ? 'bg-km-gaz-soft text-km-gaz'
+                          : 'bg-km-elec-soft text-km-elec',
                       )}
                     >
                       {compteur?.type_energie === 'gaz'

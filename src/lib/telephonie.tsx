@@ -186,7 +186,7 @@ export function TelephonieProvider({ children }: { children: ReactNode }) {
     <Contexte.Provider value={{ appeler }}>
       {children}
       {message && (
-        <div className="fixed bottom-[70px] left-1/2 z-[60] -translate-x-1/2 rounded-kw-lg border border-kw-border bg-white px-4 py-2.5 text-kw-sm font-semibold text-kw-ink shadow-kw-panel md:bottom-6">
+        <div className="fixed bottom-[70px] left-1/2 z-[60] -translate-x-1/2 rounded-km border border-km-line bg-white px-4 py-2.5 text-km-xs font-semibold text-km-text shadow-km-pop md:bottom-6">
           {message}
         </div>
       )}

@@ -602,7 +602,7 @@ export default function RecommandationDetail() {
               type="button"
               onClick={loguerAppel}
               disabled={createInteraction.isPending}
-              className="inline-flex flex-1 items-center justify-center gap-1.5 rounded-km border border-km-line bg-white px-1 py-[7px] text-km-body font-bold text-km-green hover:border-[#c4ddd3] hover:bg-kw-green-tint disabled:opacity-60"
+              className="inline-flex flex-1 items-center justify-center gap-1.5 rounded-km border border-km-line bg-white px-1 py-[7px] text-km-body font-bold text-km-green hover:border-[#c4ddd3] hover:bg-km-green-tint disabled:opacity-60"
             >
               <Phone className="h-[11px] w-[11px]" /> Loguer un appel
             </button>
@@ -676,10 +676,10 @@ export default function RecommandationDetail() {
             {reco.type_energie && (
               <span
                 className={cn(
-                  'inline-flex items-center gap-1.5 whitespace-nowrap rounded-kw-pill border px-2.5 py-[3px] text-km-label font-bold tracking-[0.04em]',
+                  'inline-flex items-center gap-1.5 whitespace-nowrap rounded-km-pill border px-2.5 py-[3px] text-km-label font-bold tracking-[0.04em]',
                   reco.type_energie === 'gaz'
-                    ? 'border-[#c9dcea] bg-kw-gas-light text-kw-gas'
-                    : 'border-[#f2dd96] bg-kw-gold-light text-kw-gold',
+                    ? 'border-[#c9dcea] bg-km-gaz-soft text-km-gaz'
+                    : 'border-[#f2dd96] bg-km-elec-soft text-km-elec',
                 )}
               >
                 {reco.type_energie === 'gaz' ? <Flame className="h-[11px] w-[11px]" /> : <Zap className="h-[11px] w-[11px]" />}
@@ -715,7 +715,7 @@ export default function RecommandationDetail() {
         </div>
 
         {/* Propriétaire — réattribuable par un administrateur, comme dans le design. */}
-        <div className="hidden flex-none flex-col items-start gap-0.5 rounded-km-lg border border-kw-border-subtle bg-km-soft px-2.5 py-1.5 lg:flex">
+        <div className="hidden flex-none flex-col items-start gap-0.5 rounded-km-lg border border-km-line-soft bg-km-soft px-2.5 py-1.5 lg:flex">
           {isAdmin ? (
             <InlineField
               variant="select"
@@ -834,7 +834,7 @@ export default function RecommandationDetail() {
         {/* Centre */}
         <div className="min-h-0 overflow-y-auto bg-km-bg px-4 py-4 sm:px-5">
           {onglet === 'reco' && (
-            <div className="flex animate-kw-fade-slide flex-col gap-3.5">
+            <div className="flex animate-km-fade-slide flex-col gap-3.5">
               <RailCycleVie
                 etapes={statutsVersions}
                 /* LA FRISE DU HAUT : les quatre statuts du dossier, tels que la base les calcule.
@@ -857,7 +857,7 @@ export default function RecommandationDetail() {
                 avanceEnCours={majStatutVersion.isPending}
               >
                 {clotureOuverte && !estClose && (
-                  <div className="mt-2.5 animate-kw-fade-slide rounded-km-lg border-[1.5px] border-[#dcc39c] bg-km-amber-soft px-[13px] py-[11px]">
+                  <div className="mt-2.5 animate-km-fade-slide rounded-km-lg border-[1.5px] border-[#dcc39c] bg-km-amber-soft px-[13px] py-[11px]">
                     <div className="mb-2 flex flex-wrap items-center gap-2">
                       {/* « Quelle clôture a eu lieu ? » suivi de trois boutons donnait à croire
                           qu'on choisissait un statut de clôture. On choisit un RÉSULTAT : le statut,
@@ -912,7 +912,7 @@ export default function RecommandationDetail() {
                       value={motifBrouillon}
                       onChange={(e) => setMotifBrouillon(e.target.value)}
                       placeholder="Pourquoi cette recommandation est-elle close ?"
-                      className="w-full rounded-km border border-km-line bg-white px-2.5 py-1.5 text-km-name text-km-text outline-none focus:ring-1 focus:ring-kw-green"
+                      className="w-full rounded-km border border-km-line bg-white px-2.5 py-1.5 text-km-name text-km-text outline-none focus:ring-1 focus:ring-km-green"
                     />
                     {/* La date de réactivation n'apparaît que si la finalité l'exige. Aucune des
                         trois valeurs actuelles ne le fait ; le champ est prêt pour le jour où une
@@ -927,7 +927,7 @@ export default function RecommandationDetail() {
                           type="date"
                           value={reactivationBrouillon}
                           onChange={(e) => setReactivationBrouillon(e.target.value)}
-                          className="rounded-km border border-km-line bg-white px-2.5 py-1.5 font-mono text-km-name text-km-text outline-none focus:ring-1 focus:ring-kw-green"
+                          className="rounded-km border border-km-line bg-white px-2.5 py-1.5 font-mono text-km-name text-km-text outline-none focus:ring-1 focus:ring-km-green"
                         />
                       </div>
                     )}
@@ -969,7 +969,7 @@ export default function RecommandationDetail() {
                         key={ct.id}
                         type="button"
                         onClick={() => navigate(`/contrats/${ct.id}`)}
-                        className="flex w-full items-center gap-2.5 rounded-km-md border border-km-line bg-km-soft px-3 py-2 text-left transition hover:border-kw-green-border hover:bg-kw-green-tint"
+                        className="flex w-full items-center gap-2.5 rounded-km-md border border-km-line bg-km-soft px-3 py-2 text-left transition hover:border-km-green-line hover:bg-km-green-tint"
                       >
                         <span className="flex h-[26px] w-[26px] shrink-0 items-center justify-center rounded-lg bg-km-green-soft text-km-green">
                           <FileText className="h-3.5 w-3.5" />
@@ -1093,7 +1093,7 @@ export default function RecommandationDetail() {
 
               {/* Panneau « nouvelle version » — les deux gestes du design. */}
               {nouvelleVersionOuverte && canManage && (
-                <div className="flex animate-kw-fade-slide flex-wrap gap-2.5 rounded-[13px] border-[1.5px] border-[#dcc39c] bg-white px-[15px] py-[13px]">
+                <div className="flex animate-km-fade-slide flex-wrap gap-2.5 rounded-[13px] border-[1.5px] border-[#dcc39c] bg-white px-[15px] py-[13px]">
                   <div className="min-w-[200px] flex-1 self-center text-km-body text-km-muted">
                     {versionActive ? (
                       <>
@@ -1208,7 +1208,7 @@ export default function RecommandationDetail() {
               version active — sa deuxième demande du même moment. On passe d'une version à l'autre
               en cliquant une colonne du comparatif, ou depuis le volet de gauche. */}
           {onglet === 'comparatif' && (
-            <div className="animate-kw-fade-slide">
+            <div className="animate-km-fade-slide">
                 <ComparatifVersions
                   reco={reco}
                   versionAffichee={versionAffichee}
@@ -1414,7 +1414,7 @@ export default function RecommandationDetail() {
       >
         {versionASupprimer && (
           <div className="space-y-3">
-            <div className="rounded-km border border-kw-amber-border bg-km-amber-soft px-3 py-2 text-xs text-km-muted">
+            <div className="rounded-km border border-km-amber-line bg-km-amber-soft px-3 py-2 text-xs text-km-muted">
               <p className="font-semibold text-km-text">Seront supprimés avec elle :</p>
               <ul className="mt-1 list-disc space-y-0.5 pl-4">
                 <li>
@@ -1499,7 +1499,7 @@ export default function RecommandationDetail() {
       </Dialog>
 
       {toast && (
-        <div className="fixed bottom-[70px] left-1/2 z-50 -translate-x-1/2 animate-kw-toast-in whitespace-nowrap rounded-km-md bg-ink-900 px-4 py-2.5 text-km-name font-semibold text-white shadow-kw-toast lg:bottom-6">
+        <div className="fixed bottom-[70px] left-1/2 z-50 -translate-x-1/2 animate-km-toast-in whitespace-nowrap rounded-km-md bg-ink-900 px-4 py-2.5 text-km-name font-semibold text-white shadow-km-pop lg:bottom-6">
           {toast}
         </div>
       )}

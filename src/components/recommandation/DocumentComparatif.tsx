@@ -281,7 +281,7 @@ export function DocumentComparatif({
           Trois pages : la décision, la comparaison, les conditions. Le bouton ouvre la fenêtre
           d'impression du navigateur, où « Enregistrer au format PDF » produit le fichier.
           {' '}
-          <strong className="font-semibold text-kw-text">
+          <strong className="font-semibold text-km-text">
             Décochez « En-têtes et pieds de page »
           </strong>{' '}
           dans cette fenêtre : c'est ce que Michel demande le 25/08 — sinon le navigateur ajoute
@@ -292,7 +292,7 @@ export function DocumentComparatif({
           type="button"
           onClick={() => window.print()}
           disabled={offres.length === 0}
-          className="inline-flex items-center gap-1.5 rounded-km bg-km-green px-3.5 py-2 text-km-body font-bold text-white shadow-kw-green hover:brightness-95 disabled:opacity-50 disabled:shadow-none"
+          className="inline-flex items-center gap-1.5 rounded-km bg-km-green px-3.5 py-2 text-km-body font-bold text-white shadow-km-green hover:brightness-95 disabled:opacity-50 disabled:shadow-none"
         >
           <Printer className="h-3.5 w-3.5" />
           Télécharger le rapport
@@ -374,7 +374,7 @@ export function DocumentComparatif({
             </dl>
 
             {/* L'OFFRE RECOMMANDÉE. C'est la seule chose que le client doit retenir de la page. */}
-            <div className="mt-6 rounded-km-md border-2 border-km-green bg-kw-green-tint p-4">
+            <div className="mt-6 rounded-km-md border-2 border-km-green bg-km-green-tint p-4">
               <p className="text-km-label font-extrabold uppercase tracking-[0.09em] text-km-green">
                 Offre recommandée
               </p>
@@ -427,7 +427,7 @@ export function DocumentComparatif({
                  « décision attendue avant le à confirmer » dans un document client serait pire que
                  de ne rien écrire ; taire le manque au commercial le serait aussi. D'où un
                  avertissement qui ne s'imprime pas. */
-              <p className="mt-5 rounded-km border border-dashed border-kw-amber bg-km-amber-soft px-3 py-2 text-km-body font-semibold text-km-amber print:hidden">
+              <p className="mt-5 rounded-km border border-dashed border-km-amber bg-km-amber-soft px-3 py-2 text-km-body font-semibold text-km-amber print:hidden">
                 Aucune date de validité n'est saisie sur les offres : la phrase « décision attendue
                 avant le… » ne peut pas s'écrire, et c'est elle qui fait décider. À renseigner sur
                 l'offre avant d'envoyer le document.
@@ -447,7 +447,7 @@ export function DocumentComparatif({
             <div className="mt-2 overflow-x-auto">
               <table className="w-full border-collapse text-km-body">
                 <thead>
-                  <tr className="border-b-2 border-kw-ink bg-km-soft text-left">
+                  <tr className="border-b-2 border-km-text bg-km-soft text-left">
                     <th className="px-2 py-1.5 font-bold">Fournisseur</th>
                     <th className="px-2 py-1.5 font-bold">Durée</th>
                     <th className="px-2 py-1.5 font-bold">Type de prix</th>
@@ -472,7 +472,7 @@ export function DocumentComparatif({
                     return (
                       <tr
                         key={o.id}
-                        className={cn('border-b border-km-line', estRetenue && 'bg-kw-green-tint font-bold')}
+                        className={cn('border-b border-km-line', estRetenue && 'bg-km-green-tint font-bold')}
                       >
                         <td className="px-2 py-1.5 pr-3">{o.fournisseur_nom}</td>
                         <td className="px-2 py-1.5 pr-3">{o.duree_mois != null ? `${o.duree_mois} mois` : '—'}</td>

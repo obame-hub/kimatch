@@ -92,7 +92,7 @@ export function OngletCommandeClient({
   }
 
   return (
-    <div className="flex animate-kw-fade-slide flex-col gap-3.5">
+    <div className="flex animate-km-fade-slide flex-col gap-3.5">
       {/* ── CONTEXTE DE LA DEMANDE ── */}
       <div className="rounded-[13px] border border-km-line bg-white px-[18px] py-3.5">
         <div className="mb-[11px] flex flex-wrap items-center gap-2">
@@ -103,7 +103,7 @@ export function OngletCommandeClient({
           </span>
           {reco.conseiller && (
             <span className="text-km-label text-km-muted">
-              prise par <b className="font-semibold text-kw-purple">{reco.conseiller}</b>
+              prise par <b className="font-semibold text-km-violet">{reco.conseiller}</b>
             </span>
           )}
         </div>
@@ -127,11 +127,11 @@ export function OngletCommandeClient({
           <span className="flex-1" />
           <span className="flex items-center gap-[11px] text-km-tiny text-km-muted">
             <span className="flex items-center gap-1">
-              <span className="h-[11px] w-[11px] rounded-kw-xs" style={{ background: DEGRADE_OR }} />
+              <span className="h-[11px] w-[11px] rounded-km-sm" style={{ background: DEGRADE_OR }} />
               prioritaire
             </span>
             <span className="flex items-center gap-1">
-              <span className="h-[11px] w-[11px] rounded-kw-xs border-[1.5px] border-[#dcc39c] bg-white" />
+              <span className="h-[11px] w-[11px] rounded-km-sm border-[1.5px] border-[#dcc39c] bg-white" />
               secondaire
             </span>
           </span>
@@ -156,7 +156,7 @@ export function OngletCommandeClient({
                       ? 'px-[15px] py-2.5 text-km-name font-extrabold text-white shadow-[0_4px_12px_rgba(176,118,60,.32)]'
                       : coche
                         ? 'border-[1.5px] border-[#dcc39c] bg-white px-[13px] py-2 text-km-body font-bold text-[#8a5f22]'
-                        : 'border border-kw-border-subtle bg-km-soft px-[13px] py-2 text-km-body font-semibold text-km-faint',
+                        : 'border border-km-line-soft bg-km-soft px-[13px] py-2 text-km-body font-semibold text-km-faint',
                   )}
                   style={prio ? { background: DEGRADE_OR } : undefined}
                 >

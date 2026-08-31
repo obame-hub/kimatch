@@ -96,8 +96,8 @@ export default function Patrimoine() {
                 className={cn(
                   'flex shrink-0 items-center gap-1.5 border-b-2 px-3 py-3 text-km-body font-semibold transition-colors',
                   courant
-                    ? 'border-km-green text-kw-text'
-                    : 'border-transparent text-km-muted hover:border-km-line hover:text-kw-text',
+                    ? 'border-km-green text-km-text'
+                    : 'border-transparent text-km-muted hover:border-km-line hover:text-km-text',
                 )}
                 aria-current={courant ? 'page' : undefined}
               >

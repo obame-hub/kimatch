@@ -177,8 +177,8 @@ export function OffresDuFournisseur({
                 offre.est_offre_recommandee
                   ? 'border-[#dcc39c] bg-[#fdf9f0]'
                   : refusee
-                    ? 'border-kw-border-subtle bg-km-soft opacity-70'
-                    : 'border-kw-border-subtle bg-white',
+                    ? 'border-km-line-soft bg-km-soft opacity-70'
+                    : 'border-km-line-soft bg-white',
               )}
             >
               <div className="flex flex-wrap items-center gap-2">
@@ -193,7 +193,7 @@ export function OffresDuFournisseur({
                     value={offre.statut ?? 'EN_ATTENTE'}
                     onChange={(e) => patcher(offre, { statut: e.target.value }, `✓ ${libelleOffre(offre.duree_mois, offre.type_prix)} : ${STATUTS_OFFRE.find((st) => st.code === e.target.value)?.libelle}`)}
                     className={cn(
-                      'rounded-kw-xs border-0 px-1.5 py-0.5 text-km-label font-extrabold uppercase tracking-[0.05em] outline-none',
+                      'rounded-km-sm border-0 px-1.5 py-0.5 text-km-label font-extrabold uppercase tracking-[0.05em] outline-none',
                       TON_STATUT[offre.statut ?? 'EN_ATTENTE'] ?? 'bg-km-soft text-km-muted',
                     )}
                   >
@@ -204,7 +204,7 @@ export function OffresDuFournisseur({
                 ) : (
                   <span
                     className={cn(
-                      'rounded-kw-xs px-1.5 py-0.5 text-km-label font-extrabold uppercase tracking-[0.05em]',
+                      'rounded-km-sm px-1.5 py-0.5 text-km-label font-extrabold uppercase tracking-[0.05em]',
                       TON_STATUT[offre.statut ?? 'EN_ATTENTE'] ?? 'bg-km-soft text-km-muted',
                     )}
                   >
@@ -230,7 +230,7 @@ export function OffresDuFournisseur({
                       `✓ ${libelleOffre(offre.duree_mois, offre.type_prix)} : ${NATURES_OFFRE.find((n) => n.code === e.target.value)?.libelle}`,
                     )}
                     className={cn(
-                      'rounded-kw-xs border-0 px-1.5 py-0.5 text-km-label font-extrabold uppercase tracking-[0.05em] outline-none',
+                      'rounded-km-sm border-0 px-1.5 py-0.5 text-km-label font-extrabold uppercase tracking-[0.05em] outline-none',
                       nature.retenable ? 'bg-km-soft text-km-muted' : 'bg-km-amber-soft text-km-amber',
                     )}
                   >
@@ -242,7 +242,7 @@ export function OffresDuFournisseur({
                   !nature.retenable && (
                     <span
                       title={nature.aide}
-                      className="rounded-kw-xs bg-km-amber-soft px-1.5 py-0.5 text-km-label font-extrabold uppercase tracking-[0.05em] text-km-amber"
+                      className="rounded-km-sm bg-km-amber-soft px-1.5 py-0.5 text-km-label font-extrabold uppercase tracking-[0.05em] text-km-amber"
                     >
                       {nature.libelle}
                     </span>
@@ -282,12 +282,12 @@ export function OffresDuFournisseur({
                             : 'Date de validité effacée',
                         )
                       }
-                      className="rounded-kw-xs border-0 bg-km-soft px-1.5 py-0.5 font-mono text-km-label font-extrabold text-km-muted outline-none"
+                      className="rounded-km-sm border-0 bg-km-soft px-1.5 py-0.5 font-mono text-km-label font-extrabold text-km-muted outline-none"
                     />
                   </label>
                 ) : (
                   offre.date_validite && (
-                    <span className="rounded-kw-xs bg-km-soft px-1.5 py-0.5 font-mono text-km-label font-extrabold text-km-muted">
+                    <span className="rounded-km-sm bg-km-soft px-1.5 py-0.5 font-mono text-km-label font-extrabold text-km-muted">
                       valable au {new Date(offre.date_validite + 'T12:00:00').toLocaleDateString('fr-FR')}
                     </span>
                   )
@@ -376,7 +376,7 @@ export function OffresDuFournisseur({
                       className={cn(
                         'inline-flex items-center gap-1 rounded-km-sm px-1.5 py-0.5 text-km-label font-extrabold uppercase tracking-[0.05em]',
                         offre.est_offre_reference
-                          ? 'bg-kw-blue text-white'
+                          ? 'bg-km-blue text-white'
                           : 'border border-km-line bg-white text-km-muted hover:bg-km-bg',
                       )}
                     >
@@ -512,7 +512,7 @@ export function OffresDuFournisseur({
               className={cn(
                 'rounded-km-sm border px-2 py-0.5 text-km-body font-bold transition-colors',
                 indisponible
-                  ? 'border-kw-red bg-km-red-soft text-km-red'
+                  ? 'border-km-red bg-km-red-soft text-km-red'
                   : 'border-km-line bg-white text-km-muted hover:bg-km-bg',
               )}
             >

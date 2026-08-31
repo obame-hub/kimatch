@@ -138,7 +138,7 @@ export function HeroValeurCompte({
 }) {
   return (
     <div
-      className="animate-kw-hero-rise relative overflow-visible rounded-2xl px-[15px] py-[13px] text-white"
+      className="animate-km-hero-rise relative overflow-visible rounded-2xl px-[15px] py-[13px] text-white"
       style={{
         background: 'radial-gradient(125% 130% at 6% 0%,#4d78ab 0%,#33547d 48%,#1e3654 100%)',
         boxShadow: '0 8px 24px rgba(30,54,84,.24)',
@@ -248,7 +248,7 @@ export function HeroScoreEllipro({
   const remplis = note ?? 0
   return (
     <div
-      className="animate-kw-hero-rise relative overflow-visible rounded-2xl px-[15px] py-[13px] text-white"
+      className="animate-km-hero-rise relative overflow-visible rounded-2xl px-[15px] py-[13px] text-white"
       style={{
         background: 'radial-gradient(125% 130% at 92% 0%,#189c78 0%,#0b5c48 48%,#07382c 100%)',
         boxShadow: '0 8px 24px rgba(7,56,44,.24)',

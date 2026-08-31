@@ -277,10 +277,10 @@ export function TableauKanban({
                           c.groupe.ton === 'retard'
                             ? 'bg-km-red'
                             : c.groupe.ton === 'jour'
-                              ? 'bg-kw-amber'
+                              ? 'bg-km-amber'
                               : c.groupe.ton === 'proche'
-                                ? 'bg-kw-amber-border'
-                                : 'bg-kw-ghost',
+                                ? 'bg-km-amber-line'
+                                : 'bg-km-faint',
                         )}
                       />
                       <span className="truncate">{c.groupe.texte}</span>

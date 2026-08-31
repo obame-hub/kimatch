@@ -1607,7 +1607,7 @@ function FriseEnvoi({ contrat, etat }: { contrat: Contrat; etat: EtatEnveloppe |
                         ? 'bg-gradient-to-r from-red-600 to-red-500'
                         : 'bg-gradient-to-r from-kiwi-600 to-kiwi-500'
                       : !arrete && i === atteinte
-                        ? 'animate-kw-stripe motion-reduce:animate-none'
+                        ? 'animate-km-stripe motion-reduce:animate-none'
                         : 'bg-km-soft',
                   )}
                 />

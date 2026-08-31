@@ -57,13 +57,13 @@ export function OngletDocuments({
     : 'la recommandation'
 
   return (
-    <div className="flex animate-kw-fade-slide flex-wrap items-start gap-3.5">
+    <div className="flex animate-km-fade-slide flex-wrap items-start gap-3.5">
       {/* ── Aperçu ── */}
       <div className="min-w-0 flex-[999_1_340px] overflow-hidden rounded-[13px] border border-km-line bg-white">
         <div className="flex flex-wrap items-center gap-2.5 border-b border-km-line bg-km-soft px-[13px] py-2.5">
           <span className="truncate text-km-body font-bold text-km-text">{courant?.nom ?? 'Aucun document'}</span>
           {courant && (
-            <span className="rounded-kw-xs bg-km-amber-soft px-[7px] py-0.5 text-km-label font-extrabold text-[#8a4b2a]">
+            <span className="rounded-km-sm bg-km-amber-soft px-[7px] py-0.5 text-km-label font-extrabold text-[#8a4b2a]">
               {parVersion.find((d) => d.doc.id === courant.id)?.etiquette}
             </span>
           )}
@@ -127,7 +127,7 @@ export function OngletDocuments({
               </div>
               <span
                 className={cn(
-                  'shrink-0 rounded-kw-xs px-1.5 py-0.5 font-mono text-km-label font-extrabold',
+                  'shrink-0 rounded-km-sm px-1.5 py-0.5 font-mono text-km-label font-extrabold',
                   surVersionAffichee ? 'bg-km-amber-soft text-[#8a4b2a]' : 'bg-km-soft text-km-faint',
                 )}
               >

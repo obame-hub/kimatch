@@ -102,10 +102,10 @@ export function CarteOffreEtude({
   // 100 % de ce que le client paie.
   const abonnementAPart = offre.details_par_compteur.some((d) => !!d.prix_gaz)
   const parts = [
-    { cle: 'abonnement', libelle: 'Abonnement', valeur: abonnementAPart ? b.abonnement : null, couleur: 'bg-kw-blue' },
+    { cle: 'abonnement', libelle: 'Abonnement', valeur: abonnementAPart ? b.abonnement : null, couleur: 'bg-km-blue' },
     { cle: 'energie', libelle: 'Énergie', valeur: b.energie, couleur: 'bg-km-green' },
-    { cle: 'reseau', libelle: 'TURPE / réseau', valeur: b.reseau, couleur: 'bg-kw-gold' },
-    { cle: 'taxes', libelle: 'Taxes', valeur: b.taxes, couleur: 'bg-kw-meta' },
+    { cle: 'reseau', libelle: 'TURPE / réseau', valeur: b.reseau, couleur: 'bg-km-elec' },
+    { cle: 'taxes', libelle: 'Taxes', valeur: b.taxes, couleur: 'bg-km-muted' },
   ].filter((p) => p.valeur != null && p.valeur > 0)
   const sommeParts = somme(...parts.map((p) => p.valeur))
 
@@ -219,14 +219,14 @@ export function CarteOffreEtude({
                 une de nos offres. Michel, 21/08/2026, à propos de la proposition du fournisseur en
                 place : « c'est pas non plus l'offre que moi je propose. » */}
             {!natureDeLOffre(offre.nature_offre).retenable && (
-              <span className="rounded-kw-xs bg-km-soft px-1.5 py-px text-km-micro font-bold uppercase tracking-[0.06em] text-km-muted">
+              <span className="rounded-km-sm bg-km-soft px-1.5 py-px text-km-micro font-bold uppercase tracking-[0.06em] text-km-muted">
                 {natureDeLOffre(offre.nature_offre).libelle}
               </span>
             )}
             {offre.est_offre_recommandee && (
               <span
                 className={cn(
-                  'rounded-kw-xs px-1.5 py-px text-km-micro font-bold uppercase tracking-[0.06em]',
+                  'rounded-km-sm px-1.5 py-px text-km-micro font-bold uppercase tracking-[0.06em]',
                   // Dans le comparatif client, c'est une recommandation qu'on assume — la maquette de
                   // William la marque en vert plein. En interne, « Retenue » suffit.
                   avecIdentite ? 'bg-km-green text-white' : 'bg-km-green-soft text-km-green',
@@ -291,7 +291,7 @@ export function CarteOffreEtude({
                 onClick={onChoisir}
                 title="Sélectionner pour comparer"
                 className={cn(
-                  'flex h-4 w-4 shrink-0 items-center justify-center rounded-kw-xs border text-km-micro font-bold',
+                  'flex h-4 w-4 shrink-0 items-center justify-center rounded-km-sm border text-km-micro font-bold',
                   choisie ? 'border-km-green bg-km-green text-white' : 'border-km-line bg-white',
                 )}
               >
@@ -440,7 +440,7 @@ export function CarteOffreEtude({
                           <span className="truncate font-mono text-km-label font-bold">
                             {compteur?.numero_pdl || d.compteur_label || 'Compteur'}
                           </span>
-                          <span className="shrink-0 rounded-kw-xs bg-km-soft px-1.5 py-px text-km-micro font-bold text-km-muted">
+                          <span className="shrink-0 rounded-km-sm bg-km-soft px-1.5 py-px text-km-micro font-bold text-km-muted">
                             {gaz ? 'Gaz' : 'Élec'}
                           </span>
                         </span>
@@ -490,7 +490,7 @@ export function CarteOffreEtude({
 
                     {/* ── Niveau 3 : les composantes, en blocs ───────────────── */}
                     {estOuvert && (
-                      <div className="animate-kw-fade-slide border-t border-km-line px-3 py-3">
+                      <div className="animate-km-fade-slide border-t border-km-line px-3 py-3">
                         <BlocCompose
                           couleur="blue"
                           titre="Abonnement"
@@ -701,9 +701,9 @@ function BlocCompose({ couleur, titre, aide, total, lignes }: {
   lignes?: { l: string; pu?: number | null; vol?: number | null; montant?: number | null }[]
 }) {
   const teintes = {
-    blue: { bord: 'border-[#e6edf3]', fond: 'bg-[#f7f9fb]', puce: 'bg-kw-blue', texte: 'text-km-blue' },
-    green: { bord: 'border-kw-green-border', fond: 'bg-kw-green-tint', puce: 'bg-km-green', texte: 'text-km-green' },
-    gold: { bord: 'border-kw-amber-border', fond: 'bg-km-amber-soft', puce: 'bg-kw-gold', texte: 'text-km-amber' },
+    blue: { bord: 'border-[#e6edf3]', fond: 'bg-[#f7f9fb]', puce: 'bg-km-blue', texte: 'text-km-blue' },
+    green: { bord: 'border-km-green-line', fond: 'bg-km-green-tint', puce: 'bg-km-green', texte: 'text-km-green' },
+    gold: { bord: 'border-km-amber-line', fond: 'bg-km-amber-soft', puce: 'bg-km-elec', texte: 'text-km-amber' },
   }[couleur]
   const visibles = (lignes ?? []).filter((x) => x.montant != null || (x.pu != null))
   return (

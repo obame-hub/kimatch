@@ -60,7 +60,7 @@ export function OngletFichiers({
   const affiches = categorie === 'tous' ? documents : documents.filter((d) => d.type_document === categorie)
 
   return (
-    <div className="animate-kw-fade-slide flex flex-col gap-3">
+    <div className="animate-km-fade-slide flex flex-col gap-3">
       <div className="flex flex-wrap items-center gap-1.5">
         {categories.map(([cle, label, n]) => {
           const actif = categorie === cle

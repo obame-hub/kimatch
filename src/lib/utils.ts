@@ -2,9 +2,9 @@ import { clsx, type ClassValue } from 'clsx'
 import { extendTailwindMerge } from 'tailwind-merge'
 
 // tailwind-merge ne connaît pas l'échelle de taille de police custom "kw-*" (tailwind.config.js
-// theme.extend.fontSize) : par défaut il classe "text-kw-xs" dans le même groupe que les couleurs
-// de texte ("text-kw-green"...), puisque les deux ont la forme "text-{mot}". Résultat concret :
-// dans tout cn('... text-kw-xs ...', 'text-kw-green'), twMerge élimine silencieusement text-kw-xs
+// theme.extend.fontSize) : par défaut il classe "text-km-xs" dans le même groupe que les couleurs
+// de texte ("text-km-green"...), puisque les deux ont la forme "text-{mot}". Résultat concret :
+// dans tout cn('... text-km-xs ...', 'text-km-green'), twMerge élimine silencieusement text-km-xs
 // en le prenant pour une couleur de texte concurrente -- la taille retombe alors sur 16px par
 // défaut au lieu de 10px. Bug découvert le 03/08/2026 (badges du header "deux fois trop gros").
 const customTwMerge = extendTailwindMerge({

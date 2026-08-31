@@ -267,7 +267,7 @@ export function RailCycleVie({
             cliquant un autre cran de la frise du dossier. */}
         {fin && (
           <span
-            className="rounded-kw-pill px-[13px] py-1.5 text-km-label font-extrabold tracking-[0.05em] text-white"
+            className="rounded-km-pill px-[13px] py-1.5 text-km-label font-extrabold tracking-[0.05em] text-white"
             style={{ background: fin.couleur, boxShadow: `0 3px 9px ${fin.couleur}44` }}
           >
             {/* « RÉSULTAT : » devant le mot. Sans lui, cette pastille se lit comme un statut de
@@ -394,12 +394,12 @@ export function RailCycleVie({
                    MONTRER. Une hachure immobile se lit comme une texture ; la même qui avance dit
                    qu'il se passe quelque chose, et c'est tout l'intérêt de l'animation de William.
 
-                   Elle ne s'applique qu'au segment en cours : `animate-kw-stripe` déplace le fond de
+                   Elle ne s'applique qu'au segment en cours : `animate-km-stripe` déplace le fond de
                    36 px, exactement la taille du motif, donc le défilement est continu. */
                 className={cn(
                   'mx-[-10px] h-[5px] rounded-[3px]',
                   indexCourant >= 0 && i === indexCourant &&
-                    'animate-kw-stripe motion-reduce:animate-none',
+                    'animate-km-stripe motion-reduce:animate-none',
                 )}
                 style={
                   indexCourant >= 0 && i < indexCourant

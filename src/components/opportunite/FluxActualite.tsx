@@ -171,7 +171,7 @@ export function FluxActualite({ tableNom, ligneId, dateCreation, interactions = 
             <span className="rounded-md bg-km-bg px-1.5 py-0.5 text-km-tiny font-extrabold uppercase tracking-[0.07em] text-km-muted">
               {groupe.jour}
             </span>
-            <div className="h-[1.5px] flex-1 bg-kw-border" />
+            <div className="h-[1.5px] flex-1 bg-km-line" />
           </div>
           {groupe.entrees.map((e) => (
             <div
@@ -219,7 +219,7 @@ export function FluxActualite({ tableNom, ligneId, dateCreation, interactions = 
           <span className="rounded-md bg-km-bg px-1.5 py-0.5 text-km-tiny font-extrabold uppercase tracking-[0.07em] text-km-muted">
             {libelleJour(dateCreation)}
           </span>
-          <div className="h-[1.5px] flex-1 bg-kw-border" />
+          <div className="h-[1.5px] flex-1 bg-km-line" />
         </div>
       )}
       <div className={cn('flex gap-2 rounded-[11px] border border-opp-200 bg-opp-50/60 px-2.5 py-2')}>

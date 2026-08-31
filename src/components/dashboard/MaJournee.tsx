@@ -97,10 +97,10 @@ export function MaJournee({
   const { data: contexte } = useContexteJournee(profilId, groupes.length === 0)
 
   return (
-    <div className="rounded-kw-3xl border border-km-line bg-white">
+    <div className="rounded-km-lg border border-km-line bg-white">
       <div className="flex flex-wrap items-center gap-x-3 gap-y-2 px-5 pb-3.5 pt-4">
         <div className="mr-auto">
-          <h2 className="text-kw-h2 font-extrabold tracking-[-0.01em] text-km-text">Ma journée</h2>
+          <h2 className="text-km-title font-extrabold tracking-[-0.01em] text-km-text">Ma journée</h2>
           <p className="mt-0.5 text-km-label text-km-muted">
             {chargement
               ? 'Chargement…'
@@ -126,7 +126,7 @@ export function MaJournee({
               onClick={() => setPortee(o.cle)}
               className={cn(
                 'rounded-km-sm px-2.5 py-1 text-km-label font-bold',
-                portee === o.cle ? 'bg-white text-km-text shadow-kw-card' : 'text-km-muted hover:text-km-text',
+                portee === o.cle ? 'bg-white text-km-text shadow-km-card' : 'text-km-muted hover:text-km-text',
               )}
             >
               {o.libelle}

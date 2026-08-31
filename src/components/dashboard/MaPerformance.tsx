@@ -49,7 +49,7 @@ function Tuile({
       </p>
       <p className="mt-1.5 text-km-label text-km-faint">{reference}</p>
       {part != null && (
-        <div className="mt-2.5 h-1 overflow-hidden rounded-kw-pill bg-km-soft">
+        <div className="mt-2.5 h-1 overflow-hidden rounded-km-pill bg-km-soft">
           <span
             className="block h-full bg-km-green"
             style={{ width: Math.min(100, Math.max(0, part * 100)) + '%' }}
@@ -77,10 +77,10 @@ export function MaPerformance({
   const mois = new Date().toLocaleDateString('fr-FR', { month: 'long', year: 'numeric' })
 
   return (
-    <div className="overflow-hidden rounded-kw-3xl border border-km-line bg-white">
+    <div className="overflow-hidden rounded-km-lg border border-km-line bg-white">
       <div className="flex flex-wrap items-center gap-x-3 gap-y-1 border-b border-km-line px-5 pb-3.5 pt-4">
         <div className="mr-auto">
-          <h2 className="text-kw-h2 font-extrabold tracking-[-0.01em] text-km-text">Ma performance</h2>
+          <h2 className="text-km-title font-extrabold tracking-[-0.01em] text-km-text">Ma performance</h2>
           <p className="mt-0.5 text-km-label text-km-muted">
             {/* « Vos comptes » et non « vos dossiers » : l'affaire est créditée au propriétaire du
                 compte, parce que le responsable n'est renseigné que sur 10 recommandations sur
@@ -93,7 +93,7 @@ export function MaPerformance({
         </span>
       </div>
 
-      <div className="grid grid-cols-1 divide-y divide-kw-border-faint sm:grid-cols-2 sm:divide-y-0 lg:grid-cols-4">
+      <div className="grid grid-cols-1 divide-y divide-km-line-soft sm:grid-cols-2 sm:divide-y-0 lg:grid-cols-4">
         <div className="sm:border-b sm:border-km-line lg:border-b-0 lg:border-r lg:border-km-line">
           <Tuile
             icone={Euro}

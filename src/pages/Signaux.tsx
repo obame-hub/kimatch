@@ -73,7 +73,7 @@ function SignalCard({ signal }: { signal: Signal }) {
    * existe déjà et qui ne suppose rien : créer la tâche de suivi.
    */
   return (
-    <div className="overflow-hidden rounded-km-md border border-km-line bg-white transition-shadow hover:shadow-kw-card-open">
+    <div className="overflow-hidden rounded-km-md border border-km-line bg-white transition-shadow hover:shadow-km-metric">
       <div
         role="button"
         tabIndex={0}

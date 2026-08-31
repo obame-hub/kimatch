@@ -22,7 +22,12 @@ import { getImpersonationInfo } from '@/lib/data/impersonation'
  */
 function Rubrique({ children }: { children: string }) {
   return (
-    <p className="mb-1.5 mt-3.5 px-2.5 text-km-label font-bold uppercase tracking-[0.07em] text-km-faint first:mt-1">
+    /* L'AIR SE MET AU-DESSUS, PAS AUTOUR. Naoëlle : « mets des espaces entre les titres
+       interligne ». Un intitulé séparé également en haut et en bas flotte entre deux groupes sans
+       dire auquel il appartient. Une grande marge devant et une petite derrière le COLLENT aux
+       entrées qu'il annonce : c'est ce qui fait lire trois groupes au lieu d'une liste.
+       L'interligne du titre lui-même ne bouge pas — elle l'a demandé explicitement. */
+    <p className="mb-1 mt-6 px-2.5 text-km-tiny font-bold uppercase tracking-[0.09em] text-km-side-faint first:mt-1">
       {children}
     </p>
   )
@@ -36,7 +41,10 @@ function SidebarLink({ to, label, icon: Icon, end, onClick }: NavItem & { onClic
       onClick={onClick}
       className={({ isActive }) =>
         cn(
-          'group relative flex items-center gap-2 rounded-km py-[7px] pl-2 pr-2.5 text-km-name transition-colors',
+          /* La police des entrées descend de 14 à 13 px (« réduis leur police un peu »), et le
+             rembourrage vertical monte de 7 à 8 px : c'est ce couple qui aère. Réduire seule la
+             police aurait resserré la liste au lieu de la détendre. */
+          'group relative flex items-center gap-2.5 rounded-km py-2 pl-2 pr-2.5 text-km-body transition-colors',
           'md:px-2.5',
           /* LA BARRE PASSE DU SOMBRE AU CLAIR — maquette de Michel du 31/08/2026. C'etait le
              changement le plus visible de sa refonte : le rail `ink-950` devient un fond
@@ -46,9 +54,13 @@ function SidebarLink({ to, label, icon: Icon, end, onClick }: NavItem & { onClic
              Le sens y gagne : le vert ne sert plus a remplir une pastille, il ne marque plus que
              la selection — c'est la regle de son dossier, « le vert KiWee reserve aux actions
              positives, selections et reperes importants ». */
+          /* SUR FOND SOMBRE, LA SÉLECTION SE FAIT EN VERT PLEIN À FAIBLE OPACITÉ, pas avec le
+             vert pâle des fonds clairs — `km-green-soft` est presque blanc, il ferait une dalle
+             lumineuse. 18 % du vert de marque suffit à détacher la ligne, et l'icône passe au vert
+             franc : deux signaux, dont un seul est une couleur de fond. */
           isActive
-            ? 'bg-km-green-soft font-semibold text-km-text'
-            : 'text-km-muted hover:bg-km-soft hover:text-km-text',
+            ? 'bg-km-green/18 font-semibold text-km-side-text'
+            : 'text-km-side-muted hover:bg-white/[0.055] hover:text-km-side-text',
         )
       }
     >
@@ -58,7 +70,9 @@ function SidebarLink({ to, label, icon: Icon, end, onClick }: NavItem & { onClic
               emeraude...) : onze teintes saturees dans un rail de 56 px de large. La couleur ne dit
               plus quel objet mais ou l'on se trouve, comme chez William. */}
           <span className="flex w-[17px] shrink-0 items-center justify-center">
-            <Icon className={cn('h-4 w-4', isActive ? 'text-km-green' : 'text-km-muted')} />
+            {/* Le vert de marque est trop sombre sur l'anthracite : c'est sa version claire qui
+                garde le contraste sans changer de teinte. */}
+            <Icon className={cn('h-4 w-4', isActive ? 'text-kiwi-300' : 'text-km-side-faint')} />
           </span>
           <span className="min-w-0 flex-1 truncate whitespace-nowrap">{label}</span>
           {/* PLUS D'INFO-BULLE : elle disait le libellé quand le rail était replié, et le libellé
@@ -116,7 +130,7 @@ export function Sidebar() {
       )}
       <aside
         className={cn(
-          'fixed left-0 z-50 flex flex-col overflow-hidden border-r border-km-line bg-gradient-to-b from-km-side to-km-side-bas transition-transform duration-200 ease-out',
+          'fixed left-0 z-50 flex flex-col overflow-hidden border-r border-km-side-line bg-gradient-to-b from-km-side to-km-side-bas transition-transform duration-200 ease-out',
           impersonating ? 'top-7 bottom-0' : 'inset-y-0',
           /* LE RAIL EST DÉPLIÉ, LIBELLÉS VISIBLES. Naoëlle, 27/08/2026 : « maintenant on va mettre
              les noms de chaque logo ». Il faisait 56 px depuis toujours, ce qui obligeait à
@@ -140,19 +154,20 @@ export function Sidebar() {
             respectent le code couleur de Kimatch — sa consigne du même jour.
 
             Le bloc existait déjà pour le menu mobile : il perd seulement son `md:hidden`. */}
-        {/* LE LETTRAGE REDEVIENT LISIBLE SUR FOND CLAIR. Il etait en blanc parce que le rail etait
-            noir ; sur le fond clair de Michel il passe en `km-text`, et le picto retrouve sa
-            couleur sans avoir besoin d'ombre portee pour se detacher. */}
-        <div className="flex items-center gap-2.5 px-3 pb-3.5 pt-3.5">
+        {/* LE LETTRAGE SUIT LE FOND DU RAIL. Il a été blanc quand le rail était noir, puis
+            `km-text` quand Michel l'a voulu clair, et il redevient clair maintenant qu'il est
+            anthracite. C'est précisément pour ne plus faire ce va-et-vient à la main que les trois
+            niveaux de texte du rail ont leurs propres jetons : ils suivent le fond, pas la page. */}
+        <div className="flex items-center gap-2.5 px-3 pb-4 pt-4">
           <img src={kiweePicto} alt="KiWee" className="h-[26px] w-[26px] shrink-0 object-contain" />
           <div className="min-w-0 flex-1">
-            <p className="whitespace-nowrap font-display text-km-name font-bold leading-none tracking-[-0.02em] text-km-text">Kimatch</p>
-            <p className="mt-0.5 whitespace-nowrap text-km-label text-km-muted">Conseil énergie</p>
+            <p className="whitespace-nowrap font-display text-km-name font-bold leading-none tracking-[-0.02em] text-km-side-text">Kimatch</p>
+            <p className="mt-1 whitespace-nowrap text-km-tiny uppercase tracking-[0.08em] text-km-side-faint">Conseil énergie</p>
           </div>
           <button
             type="button"
             onClick={close}
-            className="rounded-km p-1.5 text-km-muted hover:bg-km-soft hover:text-km-text md:hidden"
+            className="rounded-km p-1.5 text-km-side-muted hover:bg-white/[0.055] hover:text-km-side-text md:hidden"
             aria-label="Fermer le menu"
           >
             <X className="h-5 w-5" />
@@ -171,12 +186,12 @@ export function Sidebar() {
             onScroll={majDegrades}
             className="h-full space-y-0.5 overflow-y-auto overflow-x-hidden px-2.5 py-1"
           >
+            {/* PILOTAGE réunit le portefeuille ET le cycle commercial. L'intitulé « Cycle
+                commercial » a été retiré le 31/08/2026 : sur onze entrées, trois titres donnaient
+                un rythme d'un titre pour trois lignes, et le rail se lisait comme une table des
+                matières. L'ordre des entrées, lui, ne change pas — il raconte toujours la chaîne. */}
             <Rubrique>Pilotage</Rubrique>
-            {navItems.map((item) => (
-              <SidebarLink key={item.to} {...item} onClick={close} />
-            ))}
-            <Rubrique>Cycle commercial</Rubrique>
-            {cycleNavItems.map((item) => (
+            {[...navItems, ...cycleNavItems].map((item) => (
               <SidebarLink key={item.to} {...item} onClick={close} />
             ))}
             <Rubrique>Production</Rubrique>
@@ -189,7 +204,7 @@ export function Sidebar() {
           )}
         </div>
 
-        <nav className="space-y-0.5 border-t border-km-line px-2.5 py-2">
+        <nav className="space-y-0.5 border-t border-km-side-line px-2.5 py-2.5">
           {bottomItems.map((item) => (
             <SidebarLink key={item.to} {...item} onClick={close} />
           ))}
@@ -198,16 +213,16 @@ export function Sidebar() {
         <NavLink
           to="/profil"
           onClick={close}
-          className="group relative flex items-center gap-2.5 border-t border-km-line px-3 py-3"
+          className="group relative flex items-center gap-2.5 border-t border-km-side-line px-3 py-3 transition-colors hover:bg-white/[0.045]"
         >
           {profil?.photo_url ? (
             <img src={profil.photo_url} alt="" className="h-7 w-7 shrink-0 rounded-full object-cover" />
           ) : (
-            <div className="flex h-[27px] w-[27px] shrink-0 items-center justify-center rounded-full bg-km-green-soft text-km-label font-bold text-km-green">
+            <div className="flex h-[27px] w-[27px] shrink-0 items-center justify-center rounded-full bg-km-green/20 text-km-label font-bold text-kiwi-300">
               {initiales}
             </div>
           )}
-          <p className="min-w-0 flex-1 truncate whitespace-nowrap text-km-label text-km-muted">
+          <p className="min-w-0 flex-1 truncate whitespace-nowrap text-km-label text-km-side-muted">
             KiWee Énergie
           </p>
 

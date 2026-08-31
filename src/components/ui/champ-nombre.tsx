@@ -70,7 +70,7 @@ export function ChampNombre({
         }}
         placeholder={suffixe}
         className={cn(
-          'rounded-km-sm border border-km-green bg-white px-1.5 py-0.5 font-mono text-km-body font-bold text-km-text outline-none ring-[3px] ring-kw-green/10',
+          'rounded-km-sm border border-km-green bg-white px-1.5 py-0.5 font-mono text-km-body font-bold text-km-text outline-none ring-[3px] ring-km-green/10',
           largeur ?? 'w-[86px]',
         )}
       />

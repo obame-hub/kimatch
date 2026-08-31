@@ -29,7 +29,7 @@ import { cn } from '@/lib/utils'
  * Elle a raison, et la cause est structurelle : la barre alignait quatre contrôles issus de DEUX
  * systèmes de jetons. Le champ de recherche en `km-*` (34 px de haut, rayon 8 px, bordure
  * `km-line`), la bascule de périmètre en `kw-*` (rayon `kw-md`, fond `kw-muted`), le sélecteur de
- * tri en `kw-*` aussi mais en 36 px avec `border-kw-border-strong`, et la case d'option recopiée
+ * tri en `kw-*` aussi mais en 36 px avec `border-km-line`, et la case d'option recopiée
  * en dur sur chaque page. Quatre hauteurs, quatre rayons, trois bordures, sur une seule ligne.
  *
  * Aucun réglage de police ne rattrape ça : ce que l'œil lit comme « pas soigné », c'est

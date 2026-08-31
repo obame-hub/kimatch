@@ -112,7 +112,7 @@ function Selecteur({
       >
         ⇄
       </button>
-      <div className="absolute inset-x-[13px] top-[38px] z-20 animate-kw-fade-slide rounded-km-md border border-km-line bg-white p-[7px] shadow-kw-panel">
+      <div className="absolute inset-x-[13px] top-[38px] z-20 animate-km-fade-slide rounded-km-md border border-km-line bg-white p-[7px] shadow-km-pop">
         <div className="flex items-center gap-1.5 rounded-km-sm border border-km-line bg-km-soft px-2 py-1.5">
           <Search className="h-[11px] w-[11px] shrink-0 text-km-faint" />
           <input
@@ -277,7 +277,7 @@ export function VoletGaucheReco({
       {/* ── CONTACT PRINCIPAL ── */}
       <div className="relative rounded-km-lg border-[1.5px] border-violet-200 bg-gradient-to-br from-violet-50 to-white px-[13px] py-3">
         <div className="mb-[9px] flex items-center gap-[7px]">
-          <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-km-sm bg-violet-100 text-kw-purple">
+          <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-km-sm bg-violet-100 text-km-violet">
             <User className="h-[11px] w-[11px]" />
           </span>
           <span className="text-km-label font-bold uppercase tracking-[0.08em] text-km-faint">Contact principal</span>
@@ -292,7 +292,7 @@ export function VoletGaucheReco({
             />
           )}
           {contactPrincipal && (
-            <EntityLink to={`/contacts/${contactPrincipal.id}`} className="text-km-body font-semibold text-kw-purple">
+            <EntityLink to={`/contacts/${contactPrincipal.id}`} className="text-km-body font-semibold text-km-violet">
               ouvrir →
             </EntityLink>
           )}
@@ -469,7 +469,7 @@ export function VoletGaucheReco({
                       affichee
                         ? 'border-[#dcc39c] bg-km-amber-soft ring-1 ring-[#dcc39c]'
                         : expiree
-                          ? 'border-kw-border-subtle bg-km-soft hover:border-[#dcc39c]'
+                          ? 'border-km-line-soft bg-km-soft hover:border-[#dcc39c]'
                           : 'border-[#dcc39c] bg-km-amber-soft',
                     )}
                   >
@@ -525,7 +525,7 @@ export function VoletGaucheReco({
               className={cn(
                 'whitespace-nowrap rounded-km-sm border px-[7px] py-0.5 text-km-label font-extrabold',
                 coutFixe
-                  ? 'border-kw-green-border bg-km-green-soft text-km-green'
+                  ? 'border-km-green-line bg-km-green-soft text-km-green'
                   : 'border-km-line bg-white text-km-muted hover:bg-km-bg',
               )}
             >
@@ -577,7 +577,7 @@ export function VoletGaucheReco({
 
       {/* ── ÉTUDE CLIENT ── */}
       {AFFICHER_COUT_ET_ETUDE && (
-      <div className="rounded-km-lg border-[1.5px] border-[#c4ddd3] bg-gradient-to-br from-kw-green-tint to-white px-[13px] py-3">
+      <div className="rounded-km-lg border-[1.5px] border-[#c4ddd3] bg-gradient-to-br from-km-green-tint to-white px-[13px] py-3">
         <div className="mb-[9px] flex items-center gap-[7px]">
           <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-km-sm bg-km-green-soft text-km-green">
             <Send className="h-[11px] w-[11px]" />
@@ -588,7 +588,7 @@ export function VoletGaucheReco({
             className={cn(
               'rounded-km-md border px-2 py-0.5 text-km-label font-extrabold tracking-[0.05em]',
               lienEneo || partage?.date_envoi
-                ? 'border-kw-green-border bg-km-green-soft text-km-green'
+                ? 'border-km-green-line bg-km-green-soft text-km-green'
                 : 'border-km-line bg-white text-km-faint',
             )}
           >
@@ -612,7 +612,7 @@ export function VoletGaucheReco({
                 href={lienEneo}
                 target="_blank"
                 rel="noreferrer"
-                className="inline-flex flex-1 items-center justify-center gap-1.5 rounded-km bg-gradient-to-br from-kw-green to-[#199b78] px-1 py-2 text-km-body font-bold text-white shadow-kw-green hover:brightness-105"
+                className="inline-flex flex-1 items-center justify-center gap-1.5 rounded-km bg-gradient-to-br from-km-green to-[#199b78] px-1 py-2 text-km-body font-bold text-white shadow-km-green hover:brightness-105"
               >
                 <ExternalLink className="h-3 w-3" /> Ouvrir l'étude Eneo
               </a>
@@ -679,7 +679,7 @@ export function VoletGaucheReco({
                   }}
                   className={cn(
                     'rounded-km px-2 py-0.5 font-mono text-km-tiny font-extrabold',
-                    actif && partage ? 'bg-km-green text-white' : 'bg-km-soft text-km-muted hover:bg-kw-border',
+                    actif && partage ? 'bg-km-green text-white' : 'bg-km-soft text-km-muted hover:bg-km-line',
                   )}
                 >
                   {j} j
@@ -695,7 +695,7 @@ export function VoletGaucheReco({
               type="button"
               onClick={() => envoyer()}
               disabled={envoyerEtude.isPending}
-              className="inline-flex flex-1 items-center justify-center gap-1.5 rounded-km bg-gradient-to-br from-kw-green to-[#199b78] px-1 py-2 text-km-body font-bold text-white shadow-kw-green disabled:opacity-60"
+              className="inline-flex flex-1 items-center justify-center gap-1.5 rounded-km bg-gradient-to-br from-km-green to-[#199b78] px-1 py-2 text-km-body font-bold text-white shadow-km-green disabled:opacity-60"
             >
               {partage?.date_envoi ? <><RotateCcw className="h-3 w-3" /> Renvoyer le lien</> : <><Check className="h-3 w-3" /> Créer le lien</>}
             </button>

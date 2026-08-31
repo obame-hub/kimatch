@@ -105,7 +105,7 @@ export function DetailVersion({
 
   return (
     <div className="rounded-[13px] border border-km-line bg-white">
-      <div className="flex flex-wrap items-center gap-2 border-b border-kw-border-subtle px-[17px] py-3">
+      <div className="flex flex-wrap items-center gap-2 border-b border-km-line-soft px-[17px] py-3">
         <span className="text-km-label font-bold uppercase tracking-[0.08em] text-km-faint">
           Détail de {version.nom || `la version ${version.numero_version ?? ''}`}
         </span>
@@ -275,14 +275,14 @@ export function DetailVersion({
                                       target="_blank"
                                       rel="noreferrer"
                                       title="Ouvrir l'outil de pricing du fournisseur"
-                                      className="inline-flex items-center gap-1 rounded-kw-xs bg-km-blue-soft px-1.5 py-0.5 text-km-label font-extrabold uppercase tracking-[0.05em] text-km-blue hover:underline"
+                                      className="inline-flex items-center gap-1 rounded-km-sm bg-km-blue-soft px-1.5 py-0.5 text-km-label font-extrabold uppercase tracking-[0.05em] text-km-blue hover:underline"
                                     >
                                       Outil en ligne <ExternalLink className="h-2.5 w-2.5" />
                                     </a>
                                   ) : (
                                     <span
                                       title="Les prix se consultent directement chez le fournisseur — aucune demande à envoyer. L'adresse de l'outil n'est pas renseignée."
-                                      className="rounded-kw-xs bg-km-blue-soft px-1.5 py-0.5 text-km-label font-extrabold uppercase tracking-[0.05em] text-km-blue"
+                                      className="rounded-km-sm bg-km-blue-soft px-1.5 py-0.5 text-km-label font-extrabold uppercase tracking-[0.05em] text-km-blue"
                                     >
                                       Outil en ligne
                                     </span>
@@ -290,7 +290,7 @@ export function DetailVersion({
                                 ) : (
                                   <span
                                     title="La demande d'offre part par email, puis on attend l'accusé de réception"
-                                    className="rounded-kw-xs bg-km-soft px-1.5 py-0.5 text-km-label font-extrabold uppercase tracking-[0.05em] text-km-muted"
+                                    className="rounded-km-sm bg-km-soft px-1.5 py-0.5 text-km-label font-extrabold uppercase tracking-[0.05em] text-km-muted"
                                   >
                                     Par email
                                   </span>
@@ -303,7 +303,7 @@ export function DetailVersion({
                                 {fc.offres.some((o) => o.statut === 'REFUSEE') && fc.offres.some((o) => o.statut === 'ACCEPTEE') && (
                                   // Le commercial doit voir ça sans ouvrir chaque offre : c'est tout
                                   // l'objet du statut « acceptée partiellement ».
-                                  <span className="rounded-kw-xs bg-km-amber-soft px-1.5 py-0.5 text-km-label font-extrabold uppercase tracking-[0.05em] text-km-amber">
+                                  <span className="rounded-km-sm bg-km-amber-soft px-1.5 py-0.5 text-km-label font-extrabold uppercase tracking-[0.05em] text-km-amber">
                                     partiellement accepté
                                   </span>
                                 )}

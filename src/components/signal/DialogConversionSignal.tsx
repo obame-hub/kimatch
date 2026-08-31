@@ -132,7 +132,7 @@ export function DialogConversionSignal({
     >
       <div className="space-y-4">
         <div className="rounded-km-md border border-km-line bg-km-soft p-3 text-km-body">
-          <p className="flex items-center gap-2 font-semibold text-kw-text">
+          <p className="flex items-center gap-2 font-semibold text-km-text">
             <Radio className="h-3.5 w-3.5 text-km-red" />
             {signal.type_signal}
             <ArrowRight className="h-3.5 w-3.5 text-km-muted" />

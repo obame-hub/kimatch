@@ -30,7 +30,7 @@ export function OngletPerimetre({
   const orphelins = duPerimetre.filter((c) => !reco.sites.some((s) => s.id === c.site_id))
 
   return (
-    <div className="flex animate-kw-fade-slide flex-col gap-3.5">
+    <div className="flex animate-km-fade-slide flex-col gap-3.5">
       <div className="rounded-km-md border border-[#f0e4cd] bg-km-amber-soft px-3 py-2.5 text-km-body text-km-muted">
         Périmètre <b className="text-km-text">unique pour tout le dossier</b> : toutes les versions
         portent sur ces mêmes points de livraison.
@@ -94,7 +94,7 @@ export function OngletPerimetre({
                     <span
                       className={cn(
                         'flex h-5 w-5 shrink-0 items-center justify-center rounded-km-sm',
-                        gaz ? 'bg-kw-gas-light text-kw-gas' : 'bg-kw-gold-light text-kw-gold',
+                        gaz ? 'bg-km-gaz-soft text-km-gaz' : 'bg-km-elec-soft text-km-elec',
                       )}
                     >
                       {gaz ? <Flame className="h-2.5 w-2.5" /> : <Zap className="h-2.5 w-2.5" />}

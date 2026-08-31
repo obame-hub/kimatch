@@ -89,6 +89,21 @@ export const navItems: NavItem[] = [
  *   quand ce commentaire a été écrit, ce qui le rendait faux. Un menu qui nomme autrement ce qu'il ouvre fait
  *   hésiter à chaque clic.
  */
+/**
+ * ══ DEUX RUBRIQUES, PLUS TROIS ══
+ *
+ * Naoëlle, 31/08/2026, maquette à l'appui : « réduis les titres interligne à Pilotage et
+ * Production ». « Cycle commercial » disparaît, ses quatre entrées rejoignent Pilotage.
+ *
+ * C'est mieux, et pour une raison de fond : sur onze entrées, trois intitulés font un rythme d'un
+ * titre pour trois lignes — le rail ressemble à une table des matières, pas à une navigation. Deux
+ * groupes suffisent à dire ce qui compte : ce qu'on PILOTE (le portefeuille et les affaires en
+ * cours) et ce qu'on PRODUIT (les cotations, les demandes, les contrats à tenir).
+ *
+ * Le tableau reste exporté sous son nom : il porte l'ordre du travail — un signal se détecte,
+ * devient une piste, mûrit en opportunité, se conclut en recommandation — et cet ordre reste vrai,
+ * qu'il ait son titre ou non.
+ */
 export const cycleNavItems: NavItem[] = [
   { to: '/signaux', label: 'Signaux', icon: Radio },
   { to: '/prospection', label: 'Pistes', icon: Filter },

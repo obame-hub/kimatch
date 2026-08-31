@@ -88,7 +88,7 @@ export type InlineFieldProps =
   | DateFieldProps
 
 const inputBase =
-  'w-full rounded-km-sm border border-km-green bg-km-surface px-1.5 py-0.5 text-km-name text-km-text outline-none focus:ring-1 focus:ring-kw-green'
+  'w-full rounded-km-sm border border-km-green bg-km-surface px-1.5 py-0.5 text-km-name text-km-text outline-none focus:ring-1 focus:ring-km-green'
 
 function EmptyPlaceholder({ label, onClick }: { label: string; onClick: () => void }) {
   return (

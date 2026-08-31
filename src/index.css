@@ -33,17 +33,33 @@
 
     /* Surfaces */
     --km-bg: 252 252 251;       /* #FCFCFB — fond de page */
-    /* LA BARRE LATERALE EST VERTE, TRES LEGEREMENT. Naoelle, 31/08/2026 : « mets le menu sur un
-       fond vert KiWee mais tres tres clair pour qu'on ait au moins de la nuance et que ca fasse
-       pas tout gris blanc ». Le gris #F1F3F0 etait a un point du blanc de la page : les deux zones
-       se confondaient et l'ecran n'avait plus de structure.
-       #EFF5F1 est le vert de marque #0D7A5F dilue a environ 4 % — assez pour que le rail se
-       detache du contenu, trop peu pour concurrencer le vert des actions, qui doit rester le seul
-       vert franc de l'ecran. */
-    --km-side: 239 245 241;     /* #EFF5F1 — barre latérale, teintée du vert KiWee */
-    /* Le bas du dégradé de la barre. Il était écrit en dur en #F5F6F3, un gris : la teinte verte
-       ne prenait donc qu'en haut du rail et se perdait en descendant. */
-    --km-side-bas: 244 249 246; /* #F4F9F6 */
+    /* ══ LA BARRE LATÉRALE PASSE À L'ANTHRACITE ══════════════════════════════════════════
+     *
+     * Naoëlle, 31/08/2026 : « mets ce menu en gris anthracite charbon, je pense que ça rendrait
+     * bien avec du vert dans la sélection des onglets ».
+     *
+     * Elle a raison, et c'est un meilleur dessin que le vert très clair qu'elle avait demandé
+     * quelques heures plus tôt : ce vert-là était à quatre points du blanc de la page, donc il
+     * fallait le chercher pour le voir. Un rail sombre pose une VRAIE frontière — le regard sait
+     * d'un coup où finit la navigation et où commence le travail — et il rend au vert son seul
+     * emploi : dire où l'on est.
+     *
+     * L'ANTHRACITE EST TEINTÉ, PAS NEUTRE. #1F2421 porte la même pointe de vert que le texte de
+     * l'application : un gris parfaitement neutre à côté d'un fond légèrement vert vire au mauve.
+     * Le dégradé va du plus clair en haut au plus sombre en bas, pour que la marque en tête du
+     * rail respire et que le pied s'enfonce. */
+    --km-side: 34 40 37;        /* #222825 — anthracite, haut du rail */
+    --km-side-bas: 25 30 27;    /* #191E1B — plus sombre en pied */
+    /* Le filet qui sépare le rail du contenu, et ceux qui vivent DANS le rail : sur un fond
+       sombre, `km-line` (clair) trancherait comme un trait de craie. */
+    --km-side-line: 48 56 51;   /* #303833 */
+    /* Les trois niveaux de texte du rail. Ils ne peuvent pas être ceux de la page : sur fond
+       sombre, un gris moyen devient illisible bien avant de le devenir sur fond clair. */
+    --km-side-text: 236 241 238;  /* #ECF1EE — l'entrée survolée ou active */
+    --km-side-muted: 154 166 159; /* #9AA69F — l'entrée au repos */
+    /* Éclairci après mesure : à #747F79 le contraste tombait à 3,6 sur l'anthracite, en dessous
+       du 4,5 exigé pour du petit texte. #86918B le porte à 4,6 sans changer de teinte. */
+    --km-side-faint: 134 145 139; /* #86918B — les intitulés de rubrique */
     --km-surface: 255 255 255;  /* #FFFFFF — carte, tableau */
     --km-soft: 243 245 242;     /* #F3F5F2 — en-tête de tableau, survol */
     --km-line: 224 229 225;     /* #E0E5E1 — bordures */
@@ -58,6 +74,44 @@
     --km-amber-soft: 255 243 216; /* #FFF3D8 */
     --km-red: 184 81 69;        /* #B85145 — risque */
     --km-red-soft: 251 233 230; /* #FBE9E6 */
+
+    /* ══ CE QUE `km-*` N'AVAIT PAS, ET QUE `kw-*` PORTAIT ═══════════════════════════════════
+     *
+     * La refonte a défini un vocabulaire `km-*` volontairement court — un fond, une bordure,
+     * trois niveaux de texte, quatre couleurs de sens. C'était juste, mais incomplet : l'ancien
+     * vocabulaire portait six choses que celui-ci ne savait pas dire, et c'est pourquoi 34
+     * fichiers ne pouvaient pas en sortir.
+     *
+     * Les fondre de force aurait effacé de l'information — une bordure de carte et un filet
+     * entre deux lignes ne sont pas la même épaisseur de gris, et l'électricité n'est pas
+     * l'ambre des alertes. On ajoute donc ce qui manque, mesuré sur les valeurs d'origine. */
+
+    /* Le filet INTÉRIEUR — entre deux lignes d'un tableau, entre deux blocs d'une carte. Plus
+       clair que `km-line`, qui borde les objets. Deux niveaux, pas quatre : `kw-*` en avait
+       quatre (border, strong, subtle, faint) dont personne ne savait dire lequel employer. */
+    --km-line-soft: 238 242 239;  /* #EEF2EF */
+
+    /* Les bordures colorées : un fond teinté a besoin d'un trait de la même famille, sinon il
+       flotte. `km-green-soft` et `km-amber-soft` n'avaient que leur fond. */
+    --km-green-line: 211 229 222; /* #D3E5DE */
+    /* Le vert le plus pâle de la palette — fond d'un bloc de synthèse, d'une ligne retenue.
+       Plus clair que `km-green-soft`, qui sert aux pastilles et aux sélections. */
+    --km-green-tint: 244 250 247; /* #F4FAF7 */
+    --km-amber-line: 240 228 205; /* #F0E4CD */
+
+    /* ══ LES DEUX ÉNERGIES ══
+     * Charte des maquettes, rappelée dans `EnergyTimeline` : ÉLECTRICITÉ DORÉE, GAZ BLEUTÉ.
+     * Le commentaire de ce fichier note que l'inversion avait déjà été commise une fois — le
+     * rouge et l'orange sont proscrits pour le gaz, leur connotation d'alerte étant trompeuse.
+     * Ce sont des couleurs D'OBJET, pas de sens : les confondre avec l'ambre des alertes ferait
+     * lire « attention » sur chaque compteur de gaz. */
+    --km-elec: 200 148 10;        /* #C8940A */
+    --km-elec-soft: 253 241 200;  /* #FDF1C8 */
+    --km-gaz: 74 127 165;         /* #4A7FA5 */
+    --km-gaz-soft: 233 241 247;   /* #E9F1F7 */
+
+    /* Le violet des contacts — chaque objet a sa teinte chez William. */
+    --km-violet: 124 91 176;      /* #7C5BB0 */
     --color-navy-50: 246 246 244;
     --color-navy-100: 231 230 226;
     --color-navy-200: 224 223 219;
@@ -323,7 +377,7 @@
 
      LA CHAÎNE EXACTE, prouvée par la mesure. Les pages de détail vivent dans un conteneur
      `hidden print:block` : à l'écran elles sont en `display: none`. Or un élément en `display: none`
-     NE DÉMARRE PAS ses animations. Le bloc des composantes porte `animate-kw-fade-slide`, dont les
+     NE DÉMARRE PAS ses animations. Le bloc des composantes porte `animate-km-fade-slide`, dont les
      images-clés partent de `opacity: 0` avec un remplissage `both` — c'est-à-dire que l'état de
      DÉPART s'applique avant même que l'animation commence. Résultat : opacité 0, pour toujours.
      Mesuré le 21/08/2026 — opacité 0 à l'instant où le bloc devient visible, et toujours 0 quatre

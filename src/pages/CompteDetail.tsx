@@ -100,10 +100,10 @@ const typeMeta: Record<TypeCompte, { label: string; tone: 'kiwi' | 'blue' | 'amb
  * que le compte est prospect — un compte client détient au moins un compteur client.
  */
 const TYPE_BADGE_STYLE: Record<TypeCompte, { bg: string; border: string; text: string; dot: string; icone: LucideIcon }> = {
-  client: { bg: 'bg-km-green-soft', border: 'border-kw-green-border', text: 'text-km-green', dot: 'bg-km-green', icone: Building2 },
-  fournisseur: { bg: 'bg-km-blue-soft', border: 'border-sky-200', text: 'text-km-blue', dot: 'bg-kw-blue', icone: Factory },
-  partenaire: { bg: 'bg-km-amber-soft', border: 'border-kw-amber-border', text: 'text-km-amber', dot: 'bg-kw-amber', icone: Handshake },
-  kiwee: { bg: 'bg-km-soft', border: 'border-km-line', text: 'text-km-muted', dot: 'bg-kw-ghost', icone: Leaf },
+  client: { bg: 'bg-km-green-soft', border: 'border-km-green-line', text: 'text-km-green', dot: 'bg-km-green', icone: Building2 },
+  fournisseur: { bg: 'bg-km-blue-soft', border: 'border-sky-200', text: 'text-km-blue', dot: 'bg-km-blue', icone: Factory },
+  partenaire: { bg: 'bg-km-amber-soft', border: 'border-km-amber-line', text: 'text-km-amber', dot: 'bg-km-amber', icone: Handshake },
+  kiwee: { bg: 'bg-km-soft', border: 'border-km-line', text: 'text-km-muted', dot: 'bg-km-faint', icone: Leaf },
 }
 
 type TabKey = 'synthese' | 'contrats' | 'compteurs' | 'recommandations' | 'signaux' | 'mandats' | 'fichiers' | 'historique' | 'activite'
@@ -340,7 +340,7 @@ export default function CompteDetail() {
         {/* Icône = objet "compte" au sens de la charte iconographique (bleu #3b5f8a, Building2,
             identique partout dans le CRM) -- ne varie PAS avec le sous-type Client/Fournisseur/
             Partenaire, c'est le badge à pastille juste à côté qui porte cette distinction. */}
-        <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-km-lg bg-gradient-to-br from-kw-blue to-[#4f78ab] text-white">
+        <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-km-lg bg-gradient-to-br from-km-blue to-[#4f78ab] text-white">
           <Building2 className="h-[18px] w-[18px]" />
         </span>
         <div className="flex min-w-0 flex-1 flex-col gap-1.5">
@@ -428,7 +428,7 @@ export default function CompteDetail() {
               className={cn(
                 'inline-flex shrink-0 items-center gap-1.5 whitespace-nowrap border-b-2 px-[13px] py-[9px] text-km-name transition-colors',
                 t.mobileOnly && 'lg:hidden',
-                isActive ? 'border-kw-ink font-semibold text-km-text' : 'border-transparent font-normal text-km-muted hover:text-km-text',
+                isActive ? 'border-km-text font-semibold text-km-text' : 'border-transparent font-normal text-km-muted hover:text-km-text',
               )}
             >
               <span className="lg:hidden">{t.labelMobile ?? t.label}</span>
@@ -567,7 +567,7 @@ export default function CompteDetail() {
           {tab === 'mandats' && (
             <div className="flex flex-col gap-2.5">
               {mandatsDuCompte.length === 0 ? (
-                <div className="rounded-xl border border-dashed border-kw-amber-border bg-km-amber-soft p-4">
+                <div className="rounded-xl border border-dashed border-km-amber-line bg-km-amber-soft p-4">
                   <p className="text-km-name font-bold text-km-amber">Aucun mandat pour ce compte</p>
                   <Button size="sm" className="mt-2.5" onClick={() => navigate('/mandats')}>
                     <Plus className="h-3.5 w-3.5" />
@@ -793,14 +793,14 @@ function CompteSitesMap({
   return (
     <div className="overflow-hidden rounded-xl border border-km-line bg-km-surface">
       <SitesMap sites={items} />
-      <div className="flex flex-wrap items-center gap-3 border-t border-kw-border-subtle px-3.5 py-2">
+      <div className="flex flex-wrap items-center gap-3 border-t border-km-line-soft px-3.5 py-2">
         <span className="whitespace-nowrap text-km-body font-semibold text-km-text">
           {sitesDuCompte.length} site{sitesDuCompte.length > 1 ? 's' : ''}{villes.length > 0 ? ` · ${villes.slice(0, 2).join(', ')}` : ''}
         </span>
         <span className="flex flex-wrap gap-2.5 text-km-label text-km-muted">
           <span><span className="mr-1 inline-block h-2 w-2 rounded-full bg-km-green align-middle" />bonne santé</span>
           <span><span className="mr-1 inline-block h-2 w-2 rounded-full bg-[#e0a83c] align-middle" />attention</span>
-          <span><span className="mr-1 inline-block h-2 w-2 rounded-full bg-kw-red align-middle" />critique</span>
+          <span><span className="mr-1 inline-block h-2 w-2 rounded-full bg-km-red align-middle" />critique</span>
         </span>
         <div className="flex-1" />
         <span className="text-km-label text-km-faint">clic sur un pin → fiche Site</span>
@@ -882,7 +882,7 @@ function RelationTimeline({ compte, mandats, recommandations, signaux }: { compt
         <span className="text-km-label font-bold uppercase tracking-wide text-km-faint">Historique de la relation</span>
         <span className="text-km-label text-km-faint">· tous sites confondus</span>
       </div>
-      <div className="flex flex-col divide-y divide-kw-border-subtle">
+      <div className="flex flex-col divide-y divide-km-line-soft">
         {visibles.map((e) => (
           <div key={e.id} className="flex items-center gap-3 py-2 first:pt-0 last:pb-0">
             <span className="w-20 shrink-0 font-mono text-km-body text-km-muted">{new Date(e.date).toLocaleDateString('fr-FR')}</span>
@@ -1070,7 +1070,7 @@ function RecordMetaCard({ compte, canManage, onToast }: { compte: Compte; canMan
   }
 
   return (
-    <div className="relative flex shrink-0 flex-col items-start gap-0.5 rounded-km-lg border border-kw-border-subtle bg-km-soft px-2.5 py-1.5">
+    <div className="relative flex shrink-0 flex-col items-start gap-0.5 rounded-km-lg border border-km-line-soft bg-km-soft px-2.5 py-1.5">
       <button
         type="button"
         disabled={!canManage}
@@ -1087,7 +1087,7 @@ function RecordMetaCard({ compte, canManage, onToast }: { compte: Compte; canMan
         Modifié {compte.date_modification ? new Date(compte.date_modification).toLocaleDateString('fr-FR') : '—'}
       </span>
       {open && (
-        <div className="absolute right-0 top-full z-30 mt-1 max-h-64 w-52 overflow-y-auto rounded-km-md border border-km-line bg-km-surface py-1 shadow-kw-panel">
+        <div className="absolute right-0 top-full z-30 mt-1 max-h-64 w-52 overflow-y-auto rounded-km-md border border-km-line bg-km-surface py-1 shadow-km-pop">
           <button type="button" onClick={() => reassign('')} className="block w-full px-3 py-1.5 text-left text-km-name text-km-muted hover:bg-km-soft">Aucun</button>
           {profilsAdmin?.map((p) => (
             <button key={p.id} type="button" onClick={() => reassign(p.id)} className="block w-full px-3 py-1.5 text-left text-km-name text-km-muted hover:bg-km-soft">
@@ -1194,7 +1194,7 @@ function ContratsTabContent({
 
       {filtre !== 'all' && (
         <div className="flex items-center gap-2">
-          <span className="inline-flex items-center gap-1.5 rounded-kw-pill bg-kw-ink px-3 py-1 text-km-body font-bold text-white">
+          <span className="inline-flex items-center gap-1.5 rounded-km-pill bg-km-text px-3 py-1 text-km-body font-bold text-white">
             Filtre : {filtre === 'actifs' ? 'Actifs' : filtre === 'echeances' ? 'Échéances < 12 mois' : 'Sans reco lancée'}
             <button type="button" onClick={() => setFiltre('all')} className="opacity-70 hover:opacity-100">✕</button>
           </span>
@@ -1339,12 +1339,12 @@ function ContactsPanel({ contacts, compteId }: { contacts: Contact[]; compteId: 
   const [expanded, setExpanded] = useState(false)
   const visibles = expanded ? contacts : contacts.slice(0, 3)
   return (
-    <div className="rounded-kw-2xl border border-km-line bg-km-surface p-3.5">
+    <div className="rounded-km-md border border-km-line bg-km-surface p-3.5">
       <div className="mb-2.5 flex items-center gap-1.5">
-        <span className="flex h-5 w-5 items-center justify-center rounded-km-sm bg-kw-purple/15 text-kw-purple"><Users className="h-2.5 w-2.5" /></span>
+        <span className="flex h-5 w-5 items-center justify-center rounded-km-sm bg-km-violet/15 text-km-violet"><Users className="h-2.5 w-2.5" /></span>
         <span className="text-km-label font-bold uppercase tracking-wide text-km-faint">Contacts</span>
         <div className="flex-1" />
-        <button type="button" onClick={() => navigate('/contacts', { state: { openCreateForCompteId: compteId } })} className="text-km-body font-semibold text-kw-purple">＋</button>
+        <button type="button" onClick={() => navigate('/contacts', { state: { openCreateForCompteId: compteId } })} className="text-km-body font-semibold text-km-violet">＋</button>
       </div>
       {contacts.length === 0 && <p className="text-km-name text-km-faint">Aucun contact enregistré pour ce compte.</p>}
       <div className="flex flex-col gap-2">
@@ -1353,16 +1353,16 @@ function ContactsPanel({ contacts, compteId }: { contacts: Contact[]; compteId: 
           return (
             <div key={c.id} className="rounded-km-lg border border-km-line bg-km-soft p-2.5">
               <div className="flex items-center gap-2.5">
-                <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full border-[1.5px] border-kw-purple/30 bg-kw-purple/10 text-km-name font-bold text-kw-purple">
+                <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full border-[1.5px] border-km-violet/30 bg-km-violet/10 text-km-name font-bold text-km-violet">
                   {initiales}
                 </div>
                 <div className="min-w-0 flex-1">
                   <div className="flex items-center gap-1.5">
-                    <button type="button" onClick={() => navigate(`/contacts/${c.id}`)} className="truncate text-left text-km-body font-bold text-km-text hover:text-kw-purple">
+                    <button type="button" onClick={() => navigate(`/contacts/${c.id}`)} className="truncate text-left text-km-body font-bold text-km-text hover:text-km-violet">
                       {c.prenom} {c.nom}
                     </button>
                     {c.contact_principal && (
-                      <span title="Signataire des mandats" className="flex h-[15px] w-[15px] shrink-0 items-center justify-center rounded-kw-xs bg-kw-amber-border">
+                      <span title="Signataire des mandats" className="flex h-[15px] w-[15px] shrink-0 items-center justify-center rounded-km-sm bg-km-amber-line">
                         <FileCheck2 className="h-2.5 w-2.5 text-km-amber" />
                       </span>
                     )}
@@ -1379,7 +1379,7 @@ function ContactsPanel({ contacts, compteId }: { contacts: Contact[]; compteId: 
                         navigate(`/comptes/${c.compte_id}`)
                       }}
                       title={`Rattaché à ${c.compte_nom} — ouvrir cette fiche`}
-                      className="mt-0.5 inline-flex max-w-full items-center gap-1 rounded bg-km-blue-soft px-1.5 py-px text-km-xs font-semibold text-km-blue transition-colors hover:bg-kw-blue/20"
+                      className="mt-0.5 inline-flex max-w-full items-center gap-1 rounded bg-km-blue-soft px-1.5 py-px text-km-xs font-semibold text-km-blue transition-colors hover:bg-km-blue/20"
                     >
                       <span className="truncate">via {c.compte_nom}</span>
                     </button>
@@ -1393,7 +1393,7 @@ function ContactsPanel({ contacts, compteId }: { contacts: Contact[]; compteId: 
                   disabled={!c.telephone}
                   className={cn(
                     'flex flex-1 items-center justify-center gap-1.5 rounded-km border border-km-line bg-km-surface py-1.5 text-km-body font-semibold text-km-muted transition-colors',
-                    c.telephone ? 'hover:border-kw-green-border hover:bg-km-green-soft hover:text-km-green' : 'pointer-events-none opacity-40',
+                    c.telephone ? 'hover:border-km-green-line hover:bg-km-green-soft hover:text-km-green' : 'pointer-events-none opacity-40',
                   )}
                 >
                   <Phone className="h-2.5 w-2.5" /> Appeler
@@ -1402,7 +1402,7 @@ function ContactsPanel({ contacts, compteId }: { contacts: Contact[]; compteId: 
                   href={c.email ? `mailto:${c.email}` : undefined}
                   className={cn(
                     'flex flex-1 items-center justify-center gap-1.5 rounded-km border border-km-line bg-km-surface py-1.5 text-km-body font-semibold text-km-muted transition-colors',
-                    c.email ? 'hover:border-kw-blue-light hover:bg-km-blue-soft hover:text-km-blue' : 'pointer-events-none opacity-40',
+                    c.email ? 'hover:border-km-blue-soft hover:bg-km-blue-soft hover:text-km-blue' : 'pointer-events-none opacity-40',
                   )}
                 >
                   <Mail className="h-2.5 w-2.5" /> Email
@@ -1413,7 +1413,7 @@ function ContactsPanel({ contacts, compteId }: { contacts: Contact[]; compteId: 
         })}
       </div>
       {contacts.length > 3 && (
-        <button type="button" onClick={() => setExpanded((v) => !v)} className="mt-2.5 block text-km-body font-semibold text-kw-purple hover:underline">
+        <button type="button" onClick={() => setExpanded((v) => !v)} className="mt-2.5 block text-km-body font-semibold text-km-violet hover:underline">
           {expanded ? '← Réduire' : `Voir les ${contacts.length} contacts →`}
         </button>
       )}
@@ -1475,7 +1475,7 @@ function CommentaireCard({ compte }: { compte: Compte }) {
   if (isKiwee) return null
 
   return (
-    <div className="rounded-kw-2xl border border-km-line bg-km-surface p-3.5">
+    <div className="rounded-km-md border border-km-line bg-km-surface p-3.5">
       <div className="mb-2 flex items-center gap-1.5">
         <span className="text-km-label font-bold uppercase tracking-wide text-km-faint">Commentaire</span>
         <div className="flex-1" />

@@ -511,7 +511,7 @@ export function SaisiePrixDialog({
                     <select
                       value=""
                       onChange={(e) => { if (e.target.value) setClassesEnPlus((l) => [...l, e.target.value]) }}
-                      className="cursor-pointer rounded-kw-xs border border-dashed border-km-line bg-transparent px-1.5 py-0.5 text-km-label font-bold text-km-muted hover:border-km-green hover:text-km-green"
+                      className="cursor-pointer rounded-km-sm border border-dashed border-km-line bg-transparent px-1.5 py-0.5 text-km-label font-bold text-km-muted hover:border-km-green hover:text-km-green"
                     >
                       <option value="">+ ajouter une classe</option>
                       {ORDRE_CLASSES.filter((c) => !classes.includes(c)).map((c) => (
@@ -633,7 +633,7 @@ export function SaisiePrixDialog({
                   onCommit={(v) => poser('turpe_soutirage_variable_annuel_ht', v)}
                 />
                 {turpeDetaille != null ? (
-                  <p className="rounded-kw-xs bg-km-amber-soft px-2 py-1 text-km-body leading-snug text-km-amber">
+                  <p className="rounded-km-sm bg-km-amber-soft px-2 py-1 text-km-body leading-snug text-km-amber">
                     TURPE total : {Math.round(turpeDetaille).toLocaleString('fr-FR')} € / an — la somme
                     des quatre parts. Le champ global ci-dessous est ignoré tant qu’elles sont saisies.
                   </p>
@@ -713,7 +713,7 @@ export function SaisiePrixDialog({
               onCommit={(v) => poser('consommation_annuelle_reference_mwh', v)}
             />
             {conso == null && (
-              <p className="rounded-kw-xs bg-km-amber-soft px-2 py-1 text-km-body leading-snug text-km-amber">
+              <p className="rounded-km-sm bg-km-amber-soft px-2 py-1 text-km-body leading-snug text-km-amber">
                 Sans volume, les budgets restent vides. Ils ne valent pas zéro : ils sont inconnus.
               </p>
             )}
@@ -749,7 +749,7 @@ export function SaisiePrixDialog({
           <Calcul titre={gaz ? 'Budget contribution' : 'Budget TURPE'} etapes={etapesContribution} />
           {!gaz && <Calcul titre="Budget contribution" etapes={etapesTaxes} />}
 
-          <div className="rounded-km border border-kw-ink bg-white px-2.5 py-2">
+          <div className="rounded-km border border-km-text bg-white px-2.5 py-2">
             <div className="flex items-baseline justify-between gap-2">
               <span className="text-km-name font-extrabold">Budget total</span>
               <span className={`text-km-name font-extrabold tabular-nums ${budgets.total == null ?'text-km-faint' : 'text-km-text'}`}>
@@ -834,7 +834,7 @@ export function SaisiePrixDialog({
           <button
             type="button"
             onClick={() => setEtape((e) => Math.min(e + 1, derniere))}
-            className="rounded-km bg-kw-ink px-3 py-[7px] text-km-name font-bold text-white hover:brightness-110"
+            className="rounded-km bg-km-text px-3 py-[7px] text-km-name font-bold text-white hover:brightness-110"
           >
             Suivant →
           </button>
@@ -911,7 +911,7 @@ function ChoixMarge({ valeur, onChoisir }: {
             onClick={() => onChoisir(o.cle)}
             className={
               valeur === o.cle
-                ? 'rounded-km-sm bg-kw-ink px-3 py-1 text-km-name font-bold text-white'
+                ? 'rounded-km-sm bg-km-text px-3 py-1 text-km-name font-bold text-white'
                 : 'rounded-km-sm px-3 py-1 text-km-name font-bold text-km-muted hover:text-km-text'
             }
           >
@@ -953,9 +953,9 @@ function Etape({ numero, titre, aide, vigilance, active, children }: {
 }) {
   if (!active) return null
   return (
-    <section className="animate-kw-fade-slide flex flex-col gap-2.5">
+    <section className="animate-km-fade-slide flex flex-col gap-2.5">
       <div className="flex items-baseline gap-2">
-        <span className="flex h-[18px] w-[18px] shrink-0 items-center justify-center rounded-full bg-kw-ink text-km-label font-extrabold text-white">
+        <span className="flex h-[18px] w-[18px] shrink-0 items-center justify-center rounded-full bg-km-text text-km-label font-extrabold text-white">
           {numero}
         </span>
         <div>
@@ -964,7 +964,7 @@ function Etape({ numero, titre, aide, vigilance, active, children }: {
         </div>
       </div>
       {vigilance && (
-        <p className="ml-[26px] rounded-km border border-kw-amber-border bg-km-amber-soft px-2.5 py-1.5 text-km-body leading-snug text-km-amber">
+        <p className="ml-[26px] rounded-km border border-km-amber-line bg-km-amber-soft px-2.5 py-1.5 text-km-body leading-snug text-km-amber">
           <b>À vérifier</b> — {vigilance}
         </p>
       )}
@@ -988,7 +988,7 @@ function FilEtapes({ etapes, courante, onAller }: {
           onClick={() => onAller(i)}
           className={
             i === courante
-              ? 'flex items-center gap-1.5 rounded-km bg-kw-ink px-2.5 py-1 text-km-body font-bold text-white'
+              ? 'flex items-center gap-1.5 rounded-km bg-km-text px-2.5 py-1 text-km-body font-bold text-white'
               : i < courante
                 ? 'flex items-center gap-1.5 rounded-km bg-km-green-soft px-2.5 py-1 text-km-body font-bold text-km-green hover:brightness-95'
                 : 'flex items-center gap-1.5 rounded-km bg-km-soft px-2.5 py-1 text-km-body font-bold text-km-faint hover:text-km-muted'
@@ -1072,7 +1072,7 @@ function Deduit({ libelle, calcul, valeur, unite }: {
   unite: string
 }) {
   return (
-    <div className="flex flex-wrap items-baseline gap-2 rounded-km border border-kw-green-border bg-kw-green-tint px-2.5 py-1.5">
+    <div className="flex flex-wrap items-baseline gap-2 rounded-km border border-km-green-line bg-km-green-tint px-2.5 py-1.5">
       <span className="min-w-[132px] text-km-name font-bold text-km-green">{libelle}</span>
       <span className="font-mono text-km-body text-km-muted">{calcul} =</span>
       <span className={`text-km-metric font-bold leading-none tabular-nums ${valeur == null ?'text-km-faint' : 'text-km-green'}`}>
@@ -1093,7 +1093,7 @@ function Deduit({ libelle, calcul, valeur, unite }: {
  */
 function Fleche({ valeur }: { valeur: number | null }) {
   return (
-    <span className="inline-flex items-baseline gap-1.5 rounded-kw-xs bg-kw-green-tint px-2 py-0.5">
+    <span className="inline-flex items-baseline gap-1.5 rounded-km-sm bg-km-green-tint px-2 py-0.5">
       <span className="text-km-label font-bold uppercase tracking-[0.08em] text-km-green">
         Prix client
       </span>

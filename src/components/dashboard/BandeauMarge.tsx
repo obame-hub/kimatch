@@ -38,7 +38,7 @@ function Grandeur({
         <span className="truncate text-km-label font-bold text-km-muted">{libelle}</span>
         {precision && <span className="shrink-0 text-km-label text-km-faint">{precision}</span>}
       </div>
-      <p className="mt-1 text-kw-h2 font-extrabold tabular-nums text-km-text">{valeur}</p>
+      <p className="mt-1 text-km-title font-extrabold tabular-nums text-km-text">{valeur}</p>
     </div>
   )
 }
@@ -60,7 +60,7 @@ export function BandeauMarge({
   const partAcceptees = decidees > 0 && c ? (c.nbAcceptees / decidees) * 100 : 0
 
   return (
-    <div className="rounded-kw-3xl border border-kw-green-border bg-kw-green-tint px-5 py-4">
+    <div className="rounded-km-lg border border-km-green-line bg-km-green-tint px-5 py-4">
       <div className="grid grid-cols-1 gap-5 lg:grid-cols-[minmax(0,340px)_1px_minmax(0,1fr)] lg:gap-6">
         {/* ── LE CHIFFRE DU MOIS ── */}
         <div>
@@ -70,7 +70,7 @@ export function BandeauMarge({
                 rendu le mot « globale » nécessaire — sans lui, un commercial lirait ce chiffre
                 comme le sien. */}
             <p className="text-km-label font-bold text-km-muted">Performance globale Kiwee</p>
-            <span className="rounded-km border border-kw-green-border bg-white px-2 py-0.5 text-km-label font-bold capitalize text-km-muted">
+            <span className="rounded-km border border-km-green-line bg-white px-2 py-0.5 text-km-label font-bold capitalize text-km-muted">
               {mois}
             </span>
           </div>
@@ -105,7 +105,7 @@ export function BandeauMarge({
           </p>
         </div>
 
-        <div className="hidden bg-kw-green-border lg:block" />
+        <div className="hidden bg-km-green-line lg:block" />
 
         {/* ══ L'OBJECTIF MENSUEL, quand il est connu ══
 
@@ -118,16 +118,16 @@ export function BandeauMarge({
             expliquent le comment, l'objectif dit le combien. */}
         <div>
           {objectif != null && objectif > 0 && (
-            <div className="mb-4 border-b border-kw-green-border pb-3.5">
+            <div className="mb-4 border-b border-km-green-line pb-3.5">
               <div className="flex flex-wrap items-end justify-between gap-2">
                 <div>
                   <p className="text-km-label font-bold text-km-muted">Objectif mensuel</p>
-                  <p className="mt-0.5 text-kw-h1 font-extrabold tabular-nums text-km-text">
+                  <p className="mt-0.5 text-km-metric font-extrabold tabular-nums text-km-text">
                     {euros(objectif)}
                   </p>
                 </div>
                 <div className="text-right">
-                  <p className="text-kw-h1 font-extrabold tabular-nums text-km-green">
+                  <p className="text-km-metric font-extrabold tabular-nums text-km-green">
                     {c ? Math.round((c.margeMois / objectif) * 100) : 0} %
                   </p>
                   <p className="text-km-label text-km-faint">atteint</p>
@@ -135,7 +135,7 @@ export function BandeauMarge({
               </div>
               {/* La barre se plafonne à 100 % : au-delà, ce qui compte est le pourcentage affiché,
                   pas une barre qui déborderait de son cadre. */}
-              <div className="mt-2 h-1.5 overflow-hidden rounded-kw-pill bg-white">
+              <div className="mt-2 h-1.5 overflow-hidden rounded-km-pill bg-white">
                 <span
                   className="block h-full bg-km-green"
                   style={{ width: Math.min(100, c ? (c.margeMois / objectif) * 100 : 0) + '%' }}
@@ -158,7 +158,7 @@ export function BandeauMarge({
               valeur={chargement || !c || c.margeMoyenne == null ? '—' : euros(c.margeMoyenne)}
             />
             <Grandeur
-              couleur="bg-kw-blue"
+              couleur="bg-km-blue"
               libelle="Taux d'acceptation"
               precision="du mois"
               valeur={
@@ -170,7 +170,7 @@ export function BandeauMarge({
           </div>
 
           <div
-            className="mt-4 flex h-1.5 overflow-hidden rounded-kw-pill bg-km-green/25"
+            className="mt-4 flex h-1.5 overflow-hidden rounded-km-pill bg-km-green/25"
             title={
               c
                 ? `${c.nbAcceptees} acceptées · ${c.nbRefusees} refusées · ${c.nbAbandonnees} abandonnées`

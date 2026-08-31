@@ -201,9 +201,9 @@ export function ConditionsFournisseurRetenu({
           l'expliquer. Le contenu, lui, reste calé en haut : c'est le flux normal d'un bloc. */}
       <div className="grid grid-cols-1 items-stretch gap-x-14 gap-y-4 sm:grid-cols-2 print:gap-y-2.5">
         {/* ── Ligne 1 : les deux en-têtes de colonne, hors aplat — ce sont des titres ── */}
-        <p className="border-b-2 border-kw-ink pb-1 text-kw-h2 font-extrabold uppercase tracking-[0.05em] text-km-text">Prix détaillé</p>
-        <div className="flex flex-wrap items-baseline gap-2 border-b-2 border-kw-ink pb-1">
-          <p className="text-kw-h2 font-extrabold uppercase tracking-[0.05em] text-km-text">
+        <p className="border-b-2 border-km-text pb-1 text-km-title font-extrabold uppercase tracking-[0.05em] text-km-text">Prix détaillé</p>
+        <div className="flex flex-wrap items-baseline gap-2 border-b-2 border-km-text pb-1">
+          <p className="text-km-title font-extrabold uppercase tracking-[0.05em] text-km-text">
             Budget annuel indicatif
           </p>
           {/* Le choix se fait ici et ne s'imprime pas : le papier ne porte que la base retenue. */}
@@ -291,7 +291,7 @@ export function ConditionsFournisseurRetenu({
       </div>
 
       {/* ══════ CE QUI N'A PAS DE VIS-À-VIS : EN PLEINE LARGEUR, SOUS LES DEUX COLONNES ══════ */}
-      <div className="mt-6 rounded-km-md border-2 border-km-green bg-kw-green-tint px-4 py-3 print:mt-2">
+      <div className="mt-6 rounded-km-md border-2 border-km-green bg-km-green-tint px-4 py-3 print:mt-2">
         <Ligne
           intitule={ttc ? 'Total TTC' : 'Total hors taxes'}
           valeur={euros(ttc ? b.totalTtc : b.totalHt) + '/an'}
@@ -320,7 +320,7 @@ export function ConditionsFournisseurRetenu({
       {/* UN BUDGET PARTIEL SE DIT. Sans cette mention, un total amputé d'une composante non saisie se
           lirait comme un total complet — et c'est un chiffre que le client compare. */}
       {b.incomplet && (
-        <p className="mt-3 rounded-km border border-dashed border-kw-amber bg-km-amber-soft px-3 py-2 text-km-micro font-semibold text-km-amber">
+        <p className="mt-3 rounded-km border border-dashed border-km-amber bg-km-amber-soft px-3 py-2 text-km-micro font-semibold text-km-amber">
           Une ou plusieurs composantes ne sont pas saisies : ce budget est partiel. Les lignes marquées
           « à vérifier » ci-dessus indiquent lesquelles.
         </p>

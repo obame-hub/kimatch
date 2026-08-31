@@ -27,7 +27,7 @@ export function OngletHistorique({ entrees }: { entrees: HistoriqueEntry[] | und
   const grille = 'grid-cols-[130px_1fr] gap-3.5 md:grid-cols-[150px_160px_170px_1fr]'
 
   return (
-    <div className="animate-kw-fade-slide flex flex-col gap-3">
+    <div className="animate-km-fade-slide flex flex-col gap-3">
       <TitreSection
         precision={`· ${lignes.length} changement${lignes.length > 1 ? 's' : ''} tracé${lignes.length > 1 ? 's' : ''} · tous horodatés`}
       >

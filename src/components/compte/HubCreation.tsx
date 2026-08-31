@@ -165,7 +165,7 @@ export function HubCreation({
           <div onClick={() => setOuvert(false)} className="fixed inset-0 z-[60]" />
 
           <div
-            className="animate-kw-hub-pop absolute right-0 top-[calc(100%+9px)] z-[61] w-[264px] rounded-[14px] border border-[#e7e6e2] bg-white p-[7px]"
+            className="animate-km-hub-pop absolute right-0 top-[calc(100%+9px)] z-[61] w-[264px] rounded-[14px] border border-[#e7e6e2] bg-white p-[7px]"
             style={{
               boxShadow: '0 18px 44px -12px rgba(22,24,29,.22),0 2px 8px rgba(22,24,29,.06)',
               transformOrigin: 'top right',
@@ -186,7 +186,7 @@ export function HubCreation({
                     onAction(action.cle)
                   }}
                   title={raison}
-                  className={`animate-kw-hub-row flex items-center gap-[11px] rounded-[10px] px-[10px] py-2 ${
+                  className={`animate-km-hub-row flex items-center gap-[11px] rounded-[10px] px-[10px] py-2 ${
                     raison ? 'cursor-not-allowed opacity-40' : 'cursor-pointer hover:bg-[#f6f6f4]'
                   }`}
                   style={{ animationDelay: `${0.025 * i}s` }}

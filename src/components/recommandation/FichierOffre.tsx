@@ -74,7 +74,7 @@ export function FichierOffre({
       {fichiers.map((d) => (
         <span
           key={d.id}
-          className="inline-flex max-w-full items-center gap-1.5 rounded-km-sm border border-kw-border-subtle bg-white px-1.5 py-0.5"
+          className="inline-flex max-w-full items-center gap-1.5 rounded-km-sm border border-km-line-soft bg-white px-1.5 py-0.5"
         >
           <FileText className="h-3 w-3 shrink-0 text-km-red" />
           <a

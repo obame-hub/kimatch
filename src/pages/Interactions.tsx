@@ -237,7 +237,7 @@ export default function Interactions() {
               aria-pressed={aVenir}
               className={`flex h-9 shrink-0 items-center gap-1.5 rounded-km border px-3 text-km-name font-semibold transition-colors ${
                 aVenir
-                  ? 'border-kw-ink bg-kw-ink text-white'
+                  ? 'border-km-text bg-km-text text-white'
                   : 'border-km-line bg-km-surface text-km-muted hover:text-km-text'
               }`}
             >
