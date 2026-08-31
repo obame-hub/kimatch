@@ -81,6 +81,46 @@ const STATUT_CODE_PAR_EVENEMENT: Record<string, string> = {
  * mandat est actif tout de suite. Un mandat qui serait signe hors de sa fenetre reste a Signe : il
  * n'est pas en vigueur, ce serait mentir que de l'annoncer actif.
  */
+/**
+ * LE STATUT MÉTIER D'UN CONTRAT, à partir de sa signature — l'exact pendant de `statutAEcrire`.
+ *
+ * LE MÊME TROU QUE POUR LES MANDATS, SUR L'AUTRE OBJET. Michel avait signalé le 21/08/2026 :
+ * « c'est signé, mais il est toujours pas actif ». On l'avait corrigé pour les mandats et pas pour
+ * les contrats. Constaté le 31/08 : les 2 contrats signés par DocuSign portaient bien
+ * `statut_signature = SIGNE`, mais leur statut métier restait « Nouveau » — donc ils apparaissaient
+ * comme jamais commencés dans toutes les listes.
+ *
+ * `statut_signature` et `statut_id` répondent à deux questions différentes, et c'est voulu : « où en
+ * est la signature » et « où en est le contrat ». Mais la seconde se déduit de la première dès que la
+ * signature est acquise, et laisser un contrat signé à « Nouveau » n'est pas une nuance, c'est faux.
+ *
+ * LES CODES EXISTENT DÉJÀ dans `statuts_contrats` : A_SIGNER, SIGNE, A_VENIR, ACTIF, TERMINE. Leur
+ * nom ne laisse aucune place à l'interprétation, et la fenêtre de fourniture tranche entre les trois
+ * derniers :
+ *
+ *   envoyé, pas encore signé            → A_SIGNER
+ *   signé, la fourniture n'a pas débuté  → A_VENIR
+ *   signé, la fourniture court           → ACTIF
+ *   signé, la fourniture est finie       → TERMINE
+ *   refusé ou annulé                     → ANNULE
+ *
+ * SANS DATE DE DÉBUT on s'arrête à SIGNE : c'est vrai et incomplet, là où annoncer « actif » serait
+ * une invention. Aucun contrat n'est dans ce cas aujourd'hui, la clause est là pour demain.
+ */
+function statutMetierContrat(
+  statutSignature: string,
+  fenetre: { debut: string | null; fin: string | null },
+): string | null {
+  if (statutSignature === 'REFUSE' || statutSignature === 'ANNULE') return 'ANNULE'
+  if (statutSignature === 'ENVOYE') return 'A_SIGNER'
+  if (statutSignature !== 'SIGNE') return null
+  if (!fenetre.debut) return 'SIGNE'
+  const aujourdhui = new Date().toISOString().slice(0, 10)
+  if (fenetre.debut > aujourdhui) return 'A_VENIR'
+  if (fenetre.fin && fenetre.fin < aujourdhui) return 'TERMINE'
+  return 'ACTIF'
+}
+
 function statutAEcrire(
   statutDocusign: string,
   fenetre: { debut: string | null; fin: string | null },
@@ -169,7 +209,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     if (!mandatConnu) {
       const { data: contrat } = await admin
         .from('contrats')
-        .select('id, statut_signature')
+        .select('id, statut_signature, date_debut, date_fin, statut:statuts_contrats(code)')
         .eq('docusign_envelope_id', envelopeId)
         .maybeSingle()
       if (contrat) {
@@ -199,10 +239,34 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
           res.status(200).json({ ok: true, skipped: true, reason: 'statut conservé' })
           return
         }
+        /* LE STATUT MÉTIER SUIT LA SIGNATURE. Voir `statutMetierContrat` : un contrat signé qui
+           reste « Nouveau » se lit comme jamais commencé dans toutes les listes.
+
+           Le code cible est résolu en base et non écrit en dur : `statuts_contrats` est une table de
+           référence, ses identifiants changent d'un environnement à l'autre. Introuvable, on
+           n'écrit pas le statut métier — la signature, elle, est enregistrée quand même. */
+        const codeMetier = statutMetierContrat(statutSignature, {
+          debut: (contrat as { date_debut?: string | null }).date_debut ?? null,
+          fin: (contrat as { date_fin?: string | null }).date_fin ?? null,
+        })
+        let statutMetierId: string | null = null
+        if (codeMetier) {
+          const { data: ligneStatut } = await admin
+            .from('statuts_contrats')
+            .select('id')
+            .eq('code', codeMetier)
+            .maybeSingle()
+          statutMetierId = (ligneStatut as { id: string } | null)?.id ?? null
+          if (!statutMetierId) {
+            console.error('[docusign-webhook] statut de contrat introuvable', { codeMetier })
+          }
+        }
+
         const { error: eContrat } = await admin
           .from('contrats')
           .update({
             statut_signature: statutSignature,
+            ...(statutMetierId ? { statut_id: statutMetierId } : {}),
             ...(env.sentDateTime ? { date_envoi_signature: env.sentDateTime } : {}),
             ...(statutSignature === 'SIGNE'
               ? { date_signature: env.completedDateTime ?? new Date().toISOString() }
