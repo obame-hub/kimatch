@@ -114,7 +114,27 @@ export function RailCycleVie({
             {avanceEnCours ? 'Enregistrement…' : <>Étape suivante <ArrowRight className="h-[11px] w-[11px]" /></>}
           </button>
         )}
-        {peutModifier && !finalite && !suivante && (
+        {/* ══ LE BOUTON « CLÔTURER » NE DÉPEND PLUS DU RAIL ══════════════════════════════════
+
+            Michel, appel du 31/08/2026 : « il y avait déjà un bouton clôturé je crois sur
+            recommandation… donc on peut remettre ça en place, c'est juste qu'il a disparu, je ne
+            sais pas pourquoi. »
+
+            POURQUOI IL AVAIT DISPARU. Sa condition était `!suivante` — « il n'y a plus de cran
+            après celui-ci ». Tant que le rail portait les cinq paliers du DOSSIER, cela voulait
+            dire « le dossier est au bout, il ne reste qu'à le fermer ». Le 28/08 le rail est passé
+            aux statuts de la VERSION, et la même condition s'est mise à dire tout autre chose :
+            le bouton n'apparaît plus que si la version affichée est exactement « En décision ».
+
+            Il devenait donc introuvable dans les quatre cas les plus courants — aucune version,
+            version en construction, version disponible, version déjà clôturée. Un dossier avec un
+            contrat mais sans version ne pouvait plus être fermé du tout.
+
+            LA CLÔTURE N'EST PAS UN CRAN DE PLUS, C'EST LA SORTIE. Michel : « la version fait
+            évoluer la recommandation, mais ne clôture JAMAIS la recommandation, ça doit se faire
+            manuellement. » Une sortie est ouverte de partout : la seule condition est que le
+            dossier ne soit pas déjà clos, et que la personne ait le droit de le modifier. */}
+        {peutModifier && !finalite && (
           <button
             type="button"
             onClick={onOuvrirCloture}

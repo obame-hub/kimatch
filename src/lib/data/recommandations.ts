@@ -1325,6 +1325,19 @@ export function useCloturerRecommandation() {
           motif_cloture: motif,
           date_reactivation: input.dateReactivation || null,
           date_cloture: existant?.date_cloture ?? new Date().toISOString().slice(0, 10),
+          /* ══ CE CHAMP EST CE QUI FERME VRAIMENT LE DOSSIER ══
+             Michel, 31/08/2026 : « la version fait évoluer la recommandation, mais ne clôture
+             JAMAIS la recommandation, ça doit se faire manuellement. »
+
+             `finalite_cloture` ne suffit pas et ne peut pas suffire : 1 383 recommandations en
+             portent une, héritée de la reprise Salesforce, et 23 d'entre elles ont une version en
+             cours de construction aujourd'hui. La traiter comme une clôture fermerait ces
+             dossiers sous les doigts de ceux qui y travaillent.
+
+             `date_cloture_manuelle` dit tout autre chose : quelqu'un a cliqué ici, maintenant.
+             C'est la seule branche du calcul de statut qui gagne sur tout le reste — y compris
+             sur une version vivante. */
+          date_cloture_manuelle: new Date().toISOString(),
           ...(input.etapeClotureId ? { etape_id: input.etapeClotureId } : {}),
         })
         .eq('id', input.id)
@@ -1351,6 +1364,9 @@ export function useRouvrirRecommandation() {
           finalite_cloture: null,
           motif_cloture: null,
           date_reactivation: null,
+          /* ROUVRIR EFFACE LA CLÔTURE MANUELLE, sinon le calcul de statut refermerait le dossier
+             au premier recalcul : cette branche gagne sur tout, version vivante comprise. */
+          date_cloture_manuelle: null,
           ...(input.etapeReouvertureId ? { etape_id: input.etapeReouvertureId } : {}),
         })
         .eq('id', input.id)

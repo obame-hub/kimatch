@@ -145,6 +145,33 @@ const SCENARIOS = [
     attendu: 'CLOTUREE',
     pourquoi: 'Michel : « la version fait évoluer la recommandation, mais ne clôture JAMAIS la recommandation, ça doit se faire manuellement ». Le geste de quelqu’un ne se défait pas parce qu’une version a bougé ensuite.',
   },
+  /* ── LE BOUTON « CLÔTURER » DE LA FICHE, DE BOUT EN BOUT ──────────────────────────────────
+     Les scénarios ci-dessus posent la clôture manuelle à l'INSERTION, ce qui teste la règle mais
+     pas le câblage : dans l'application, la fiche fait un UPDATE sur un dossier qui existe déjà.
+     Ces deux-là passent par un update, et ne peuvent donc réussir que si le déclencheur
+     `trg_propager_cloture_vers_statut` est bien en place (migration 20260831160000).
+
+     Sans lui, le trou était réel et invisible : un dossier SANS version et SANS contrat — les 157
+     brouillons — ne recalculait son étape à aucun moment, puisque seuls les versions et les
+     contrats déclenchaient le calcul. Cliquer « Clôturer » ne l'aurait pas fermé. */
+  {
+    titre: 'CLIQUER « Clôturer » ferme un dossier nu (ni version ni contrat)',
+    versions: [],
+    finalite: 'REFUSEE',
+    clicCloturer: true,
+    attendu: 'CLOTUREE',
+    pourquoi: 'Le cas des 157 brouillons. Rien ne recalculait leur étape : aucune version, aucun contrat, donc aucun déclencheur. Le bouton aurait été sans effet.',
+  },
+  {
+    titre: 'ROUVRIR renvoie le dossier là où la règle le met, pas sur Brouillon',
+    versions: [],
+    finalite: null,
+    contrat: true,
+    clicCloturer: true,
+    clicRouvrir: true,
+    attendu: 'ACTIVE',
+    pourquoi: 'Un dossier avec contrat rouvert doit redevenir Actif. La fiche choisissait « le premier palier vivant », c’est-à-dire Brouillon — elle recréait le bug du 31/08 à chaque réouverture.',
+  },
 ]
 
 async function reference(c, table, code) {
@@ -218,6 +245,29 @@ async function reference(c, table, code) {
       // l'écriture de la finalité qui doit déclencher le calcul : on la repose telle quelle.
       if (s.versions.length === 0) {
         await c.query('update recommandations set finalite_cloture = $2 where id = $1', [recoId, s.finalite])
+      }
+
+      /* LE CLIC SUR « CLÔTURER », exactement ce qu'écrit `useCloturerRecommandation` : la finalité,
+         le motif, et la date de clôture manuelle. Aucune étape n'est inscrite — c'est le
+         déclencheur qui la déduit, et c'est précisément ce qu'on vérifie. */
+      if (s.clicCloturer) {
+        await c.query(
+          `update recommandations
+              set finalite_cloture = $2, motif_cloture = $3, date_cloture_manuelle = now()
+            where id = $1`,
+          [recoId, s.finalite, MARQUE],
+        )
+      }
+
+      /* LE CLIC SUR « ROUVRIR » : la clôture manuelle et la finalité s'effacent, et le dossier doit
+         retomber là où la règle le met — pas sur une étape choisie par l'écran. */
+      if (s.clicRouvrir) {
+        await c.query(
+          `update recommandations
+              set finalite_cloture = null, motif_cloture = null, date_cloture_manuelle = null
+            where id = $1`,
+          [recoId],
+        )
       }
 
       const { rows: apres } = await c.query(

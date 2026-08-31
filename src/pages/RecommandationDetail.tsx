@@ -309,15 +309,36 @@ export default function RecommandationDetail() {
   const etapeSuivante = versionAffichee
     ? etapeSuivanteDuRail(statutsVersions, versionAffichee.statut)
     : null
+  /* ══ ON NE CLÔTURE PAS « GAGNÉ » SANS CONTRAT ═══════════════════════════════════════════════
+
+     Michel, appel du 31/08/2026 : « même si l'opportunité je l'indique gagner, tant que je n'ai
+     pas le contrat valide, je ne peux pas la clôturer en gagné. »
+
+     CE QUE « VALIDE » VEUT DIRE ICI : la signature est obtenue. Les trois statuts d'avant
+     signature — Nouveau, En préparation, À signer — sont des intentions, et « Annulé » est une
+     intention abandonnée : aucun des quatre ne prouve un gain. Les autres impliquent tous qu'une
+     signature a eu lieu, y compris « Résilié » : un contrat rompu plus tard a bien été gagné.
+
+     Cette règle ne touche QUE la finalité « Acceptée ». Un dossier refusé ou expiré se ferme sans
+     contrat, c'est même le cas normal — le lui interdire enfermerait les dossiers perdus. */
+  const STATUTS_CONTRAT_SIGNE = ['SIGNE', 'A_VENIR', 'ACTIF', 'TERMINE', 'RESILIE']
+  const contratValide = (contratsIssus ?? []).some((ct) => STATUTS_CONTRAT_SIGNE.includes(ct.statut))
+
   const clotureValide = Boolean(
     finaliteChoisie
     && motifBrouillon.trim()
+    && (finaliteChoisie !== 'ACCEPTEE' || contratValide)
     && (!exigeDateReactivation(finaliteChoisie) || reactivationBrouillon.trim()),
   )
 
   async function confirmerCloture() {
     if (!reco || !finaliteChoisie) return signaler('Choisissez une qualification finale')
     if (!motifBrouillon.trim()) return signaler('Le motif est obligatoire')
+    /* Le même contrôle qu'à l'écran, refait ici : un bouton désactivé empêche le clic, il
+       n'empêche pas l'appel. */
+    if (finaliteChoisie === 'ACCEPTEE' && !contratValide) {
+      return signaler('Il faut un contrat signé pour clôturer en « Acceptée »')
+    }
     if (exigeDateReactivation(finaliteChoisie) && !reactivationBrouillon.trim()) {
       return signaler('La date de réactivation est obligatoire')
     }
@@ -327,12 +348,22 @@ export default function RecommandationDetail() {
         finalite: finaliteChoisie,
         motif: motifBrouillon,
         dateReactivation: reactivationBrouillon || null,
-        // L'ÉTAPE D'ARRIVÉE EST L'ISSUE ELLE-MÊME. Michel a remplacé l'unique « Clôture » par
-        // trois paliers terminaux — Acceptée, Refusée, Abandonnée. « Expirée » est un abandon :
-        // c'est le troisième terme de sa diapositive 11, « accepter, refuser ou abandonner ».
-        etapeClotureId:
-          etapes.find((e) => e.code === (finaliteChoisie === 'ACCEPTEE' ? 'ACCEPTEE' : finaliteChoisie === 'REFUSEE' ? 'REFUSEE' : 'ABANDONNEE'))?.id ??
-          null,
+        /* ══ L'ÉCRAN N'INSCRIT PLUS L'ÉTAPE ══════════════════════════════════════════════════
+
+           Il visait ACCEPTEE, REFUSEE ou ABANDONNEE — trois étapes qui portaient ZÉRO dossier au
+           31/08/2026, parce que la base n'écrit que les quatre statuts de Michel : Brouillon,
+           Active, À réactiver, Clôturée. Un dossier fermé depuis la fiche tombait donc dans une
+           étape qu'aucune liste ni aucun filtre ne connaît, et le premier recalcul — une version
+           qui bouge, un contrat qui arrive — l'en ressortait.
+
+           LES TROIS ISSUES SONT LA FINALITÉ, PAS LE STATUT. « Clôturée · Acceptée » dit les deux
+           choses séparément, et c'est déjà ce qu'affiche l'en-tête.
+
+           Désormais l'écran écrit des faits — finalité, motif, date de clôture manuelle — et un
+           déclencheur en base en déduit le statut (migration 20260831160000), comme il le fait
+           déjà quand une version ou un contrat bouge. Un seul auteur, donc plus de contradiction
+           possible entre la fiche et la liste. */
+        etapeClotureId: null,
       })
       setClotureOuverte(false)
       signaler(
@@ -354,13 +385,12 @@ export default function RecommandationDetail() {
       // sont pilotées par la table de référence et ont déjà changé une fois (12/08).
       await rouvrirReco.mutateAsync({
         id: reco.id,
-        // Rouvrir, c'est revenir au premier palier VIVANT — celui de plus petit ordre parmi ceux
-        // qui ne sont pas terminaux. `e.code !== 'CLOTURE'` renvoyait la première ligne de la table,
-        // quelle qu'elle soit ; maintenant que trois paliers sont terminaux, il faut les écarter.
-        etapeReouvertureId:
-          [...etapes]
-            .filter((e) => !['ACCEPTEE', 'REFUSEE', 'ABANDONNEE'].includes(e.code))
-            .sort((a, b) => (a.ordre ?? 0) - (b.ordre ?? 0))[0]?.id ?? null,
+        /* Rouvrir n'a pas d'étape d'arrivée à choisir : effacer la clôture manuelle suffit, et la
+           base recalcule où le dossier retombe vraiment — Brouillon s'il n'a ni version ni
+           contrat, Active si une version vit, À réactiver si tout est clos sans conclusion.
+           Choisir ici « le premier palier vivant » revenait à deviner, et à parfois renvoyer un
+           dossier avec contrat vers « Brouillon ». */
+        etapeReouvertureId: null,
       })
       signaler('↻ Recommandation rouverte')
     } catch (e) {
@@ -604,31 +634,47 @@ export default function RecommandationDetail() {
 
                    La finalité reste écrite À CÔTÉ quand le dossier est réellement clos : « CLÔTURÉE ·
                    ACCEPTÉE » dit deux choses vraies, là où « ACCEPTÉE » seule en cachait une. */}
-            <span
-              className="whitespace-nowrap rounded-kw-pill border px-[11px] py-[3px] text-km-label font-extrabold tracking-[0.05em]"
-              style={
-                estClose && finalite
-                  ? { color: FINALITES_RECOMMANDATION[finalite].couleur, background: FINALITES_RECOMMANDATION[finalite].fond, borderColor: FINALITES_RECOMMANDATION[finalite].bordure }
-                  : { color: '#8a4b2a', background: '#f7ece3', borderColor: '#ecdcc2' }
-              }
-            >
-              {(() => {
-                const statut = (etapes.find((e) => e.code === reco.etape)?.libelle ?? reco.etape ?? '').toUpperCase()
-                if (estClose) {
-                  return finalite
+            {/* ══ DEUX STATUTS, DEUX LIGNES ═══════════════════════════════════════════════════
+
+                Michel, appel du 31/08/2026 : le statut de la recommandation et celui de la version
+                doivent être « l'un au-dessus de l'autre », pas côte à côte.
+
+                POURQUOI CE N'EST PAS UN DÉTAIL DE MISE EN PAGE. Les deux étaient réunis dans une
+                seule pastille, séparés d'un point médian : « ACTIVE · VERSION 2 ». Rien ne disait
+                lequel des deux morceaux parlait du dossier et lequel parlait de la version — et
+                comme le second ne donnait que le NUMÉRO, le statut de la version n'était affiché
+                nulle part. C'est pourtant celui sur lequel on travaille.
+
+                Empilées, les deux lignes se lisent dans le bon ordre : le dossier d'abord — c'est
+                le sujet de la page — la version qu'on a ouverte ensuite. Chacune porte son propre
+                intitulé, donc plus rien à deviner.
+
+                La finalité reste collée au statut du dossier quand il est clos : « CLÔTURÉE ·
+                ACCEPTÉE » dit deux choses vraies. */}
+            <span className="inline-flex flex-col items-start gap-[3px]">
+              <span
+                className="whitespace-nowrap rounded-kw-pill border px-[11px] py-[3px] text-km-label font-extrabold tracking-[0.05em]"
+                style={
+                  estClose && finalite
+                    ? { color: FINALITES_RECOMMANDATION[finalite].couleur, background: FINALITES_RECOMMANDATION[finalite].fond, borderColor: FINALITES_RECOMMANDATION[finalite].bordure }
+                    : { color: '#8a4b2a', background: '#f7ece3', borderColor: '#ecdcc2' }
+                }
+              >
+                {(() => {
+                  const statut = (etapes.find((e) => e.code === reco.etape)?.libelle ?? reco.etape ?? '').toUpperCase()
+                  return estClose && finalite
                     ? `${statut} · ${FINALITES_RECOMMANDATION[finalite].libelle.toUpperCase()}`
                     : statut
-                }
-                /* Hors clôture, le badge dit aussi SUR QUELLE VERSION on travaille — c'est
-                   l'information que Michel cherche en ouvrant la fiche.
-
-                   SANS LE MOT « ACTIVE » (Naoëlle, 28/08/2026 : « ça embrouille, il n'y a aucun
-                   statut Active sur les versions »). Elle a raison : « active » désigne la version
-                   COURANTE, pas son statut — et le mot entrait en collision avec « Active », qui est
-                   le statut du DOSSIER, écrit juste avant dans le même badge. « ACTIVE · V2 ACTIVE »
-                   employait donc le même mot pour deux notions différentes. */
-                return `${statut}${versionActive ? ` · VERSION ${versionActive.numero_version ?? ''}`.trimEnd() : ''}`
-              })()}
+                })()}
+              </span>
+              {/* LA LIGNE DE LA VERSION SE TAIT S'IL N'Y EN A AUCUNE. Une pastille « aucune
+                  version » n'apprendrait rien : le statut « Brouillon » juste au-dessus le dit
+                  déjà, et c'est même sa définition. */}
+              {versionAffichee && (
+                <span className="whitespace-nowrap rounded-kw-pill border border-km-line bg-km-soft px-[11px] py-[3px] text-km-label font-bold tracking-[0.04em] text-km-muted">
+                  {`V${versionAffichee.numero_version ?? ''} · ${(statutsVersions.find((s) => s.code === versionAffichee.statut)?.libelle ?? versionAffichee.statut ?? '').toUpperCase()}`}
+                </span>
+              )}
             </span>
             {reco.type_energie && (
               <span
@@ -818,12 +864,21 @@ export default function RecommandationDetail() {
                       {CLES_FINALITES.map((cle) => {
                         const f = FINALITES_RECOMMANDATION[cle]
                         const actif = finaliteChoisie === cle
+                        /* « Acceptée » reste visible mais inerte sans contrat signé : la masquer
+                           laisserait croire que la finalité n'existe pas, alors que le problème est
+                           qu'il manque une pièce — et l'infobulle dit laquelle. */
+                        const interdit = cle === 'ACCEPTEE' && !contratValide
                         return (
                           <button
                             key={cle}
                             type="button"
+                            disabled={interdit}
+                            title={interdit ? 'Il faut un contrat signé pour clôturer en « Acceptée ».' : undefined}
                             onClick={() => setFinaliteChoisie(cle)}
-                            className="rounded-km px-3.5 py-2 text-km-body font-bold transition-colors"
+                            className={cn(
+                              'rounded-km px-3.5 py-2 text-km-body font-bold transition-colors',
+                              interdit && 'cursor-not-allowed opacity-45',
+                            )}
                             style={{
                               color: actif ? '#fff' : f.couleur,
                               background: actif ? f.couleur : '#fff',
@@ -837,6 +892,11 @@ export default function RecommandationDetail() {
                         )
                       })}
                     </div>
+                    {!contratValide && (
+                      <p className="mb-2 text-km-label text-km-muted">
+                        « Acceptée » demande un contrat signé sur ce dossier — il n'y en a pas encore.
+                      </p>
+                    )}
                     <label className="mb-1 block text-km-label font-bold uppercase tracking-wide text-km-faint" htmlFor="motif-cloture">
                       Motif <span className="text-km-red">*</span>
                     </label>
