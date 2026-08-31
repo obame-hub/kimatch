@@ -34,6 +34,80 @@ import type { ReferenceRow } from '@/lib/data/referenceTables'
  */
 const CODES_RAIL = ['EN_CONSTRUCTION', 'DISPONIBLE', 'EN_DECISION'] as const
 
+/**
+ * LES QUATRE STATUTS DU DOSSIER, DANS L'ORDRE DE SA TABLE.
+ *
+ * Naoëlle, 31/08/2026 : « je vois toujours pas la frise de statut de recommandation au-dessus des
+ * statuts de version ». Michel l'avait demandé le même jour : les deux statuts « l'un au-dessus de
+ * l'autre ». J'avais empilé deux petites pastilles dans l'en-tête de la fiche — ce n'est pas ce
+ * qu'ils demandaient, et ça ne montre rien du chemin.
+ *
+ * SA TABLE « VUE GLOBALE DES STATUTS » A DEUX COLONNES, alignées ligne par ligne : Recommandation
+ * et Version. Deux frises empilées, c'est cette table dessinée — on lit d'un coup d'œil que
+ * « version en construction » veut dire « dossier actif », et que « version clôturée » peut vouloir
+ * dire deux choses selon que le dossier a été clôturé ou non.
+ *
+ * L'ordre est celui de sa table, et c'est aussi celui de la colonne `ordre` en base : Brouillon 10,
+ * Active 20, À réactiver 30, Clôturée 40. Les sept autres lignes de `etapes_recommandation` sont
+ * l'ancien cycle et ne portent aucun dossier.
+ */
+const CODES_DOSSIER = ['BROUILLON', 'ACTIVE', 'A_REACTIVER', 'CLOTUREE'] as const
+
+/**
+ * La frise du DOSSIER, au-dessus de celle de la version.
+ *
+ * ── POURQUOI ELLE EST SOBRE ALORS QUE CELLE DU DESSOUS EST DORÉE ─────────────────────────────
+ *
+ * Parce que le dossier ne s'avance pas à la main : son statut est DÉDUIT du jeu des versions et des
+ * contrats (Michel, 28/08 : « sur quoi on travaille, c'est les versions »). Une frise dorée avec
+ * ses hachures animées annoncerait une progression qu'on pilote ; celle-ci constate.
+ *
+ * Deux frises au même niveau de bruit se disputeraient l'œil, et la maquette de Michel se veut
+ * minimaliste. Celle-ci dit où en est le dossier ; celle du dessous reste l'endroit où l'on agit.
+ */
+function FriseDossier({ etapes, codeCourant }: { etapes: ReferenceRow[]; codeCourant: string }) {
+  const crans = CODES_DOSSIER.map((code) => etapes.find((e) => e.code === code)).filter(
+    (e): e is ReferenceRow => !!e,
+  )
+  if (crans.length === 0) return null
+  const indexCourant = crans.findIndex((e) => e.code === codeCourant)
+
+  return (
+    <div className="mb-2.5 border-b border-km-line pb-2.5">
+      <p className="mb-1.5 text-km-label font-bold uppercase tracking-[0.08em] text-km-faint">
+        Recommandation
+      </p>
+      <div className="flex items-center gap-1">
+        {crans.map((cran, i) => {
+          const courant = i === indexCourant
+          /* « À réactiver » et « Clôturée » sont deux SORTIES, pas deux crans successifs : un
+             dossier clôturé n'est jamais passé par « à réactiver ». On n'estompe donc pas les crans
+             « franchis » comme sur une progression — on met en avant celui où l'on est, et on laisse
+             les autres lisibles mais discrets. C'est un repère de position, pas un compteur. */
+          return (
+            <div key={cran.id} className="flex min-w-0 flex-1 items-center gap-1">
+              <span
+                className={cn(
+                  'min-w-0 flex-1 truncate rounded-km px-2 py-[5px] text-center text-km-label font-bold transition-colors',
+                  courant
+                    ? 'bg-km-green-soft text-km-green ring-1 ring-inset ring-km-green/30'
+                    : 'bg-km-soft text-km-faint',
+                )}
+                title={cran.libelle}
+              >
+                {cran.libelle}
+              </span>
+              {i < crans.length - 1 && (
+                <span className="h-[2px] w-2 shrink-0 rounded-full bg-km-line" aria-hidden="true" />
+              )}
+            </div>
+          )
+        })}
+      </div>
+    </div>
+  )
+}
+
 const ICONES_ETAPE: Record<string, LucideIcon> = {
   BROUILLON: ExternalLink,
   CONSULTATION: Send,
@@ -70,7 +144,10 @@ export function etapeSuivanteDuRail(etapes: ReferenceRow[], codeCourant: string)
 
 export function RailCycleVie({
   etapes,
+  etapesDossier,
+  codeDossier,
   codeCourant,
+  numeroVersion,
   finalite,
   peutModifier,
   clotureOuverte,
@@ -81,7 +158,14 @@ export function RailCycleVie({
   children,
 }: {
   etapes: ReferenceRow[]
+  /** Les statuts du DOSSIER (`etapes_recommandation`), pour la frise du haut. */
+  etapesDossier: ReferenceRow[]
+  /** Le statut du dossier aujourd'hui — celui que la base a calculé. */
+  codeDossier: string
+  /** Le statut de la VERSION affichée, pour la frise du bas. */
   codeCourant: string
+  /** Le numéro de la version affichée, écrit dans l'étiquette de la frise du bas. */
+  numeroVersion?: number | null
   finalite: CleFinalite | null
   peutModifier: boolean
   clotureOuverte: boolean
@@ -160,6 +244,18 @@ export function RailCycleVie({
       </div>
 
       {children}
+
+      {/* ══ DEUX FRISES, LE DOSSIER PUIS LA VERSION ══
+          Naoëlle, 31/08/2026 : « je vois toujours pas la frise de statut de recommandation
+          au-dessus des statuts de version ». C'est sa table à deux colonnes, dessinée. */}
+      <FriseDossier etapes={etapesDossier} codeCourant={codeDossier} />
+
+      {/* LA FRISE DU BAS PORTE MAINTENANT SON NOM. Sans lui, deux frises superposées sans étiquette
+          se lisent comme une seule frise en deux morceaux — et c'est justement la confusion qu'on
+          répare : « En construction » décrit la version, pas le dossier. */}
+      <p className="mb-0.5 text-km-label font-bold uppercase tracking-[0.08em] text-km-faint">
+        Version{typeof numeroVersion === 'number' ? ` ${numeroVersion}` : ''}
+      </p>
 
       {/* Grille : un nœud, une barre, un nœud… puis la rangée des libellés en dessous, alignée
           colonne par colonne comme dans le design. */}

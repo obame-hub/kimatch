@@ -858,7 +858,14 @@ export default function RecommandationDetail() {
             <div className="flex animate-kw-fade-slide flex-col gap-3.5">
               <RailCycleVie
                 etapes={statutsVersions}
+                /* LA FRISE DU HAUT : les quatre statuts du dossier, tels que la base les calcule.
+                   Ce sont deux tables différentes — `etapes_recommandation` pour le dossier,
+                   `statuts_versions_recommandation` pour la version — et c'est précisément ce que
+                   les deux frises rendent visible. */
+                etapesDossier={etapes}
+                codeDossier={reco.etape ?? ''}
                 codeCourant={versionAffichee?.statut ?? ''}
+                numeroVersion={versionAffichee?.numero_version ?? null}
                 finalite={estClose ? finalite : null}
                 peutModifier={canManage}
                 clotureOuverte={clotureOuverte}
