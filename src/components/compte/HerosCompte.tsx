@@ -59,7 +59,7 @@ function Anneau({
               '--l': String(CIRCONFERENCE),
               '--o': String(offset),
               strokeDashoffset: offset,
-              animation: `kw-ring-in 1.1s cubic-bezier(.3,1.05,.4,1) ${delai} both`,
+              animation: `km-heros-ring 1.1s cubic-bezier(.3,1.05,.4,1) ${delai} both`,
             } as CSSProperties
           }
         />
@@ -96,13 +96,13 @@ function Decor({
     <div className="pointer-events-none absolute inset-0 overflow-hidden rounded-2xl">
       <div
         className="absolute h-[200px] w-[200px] rounded-full"
-        style={{ ...halo, animation: `kw-glow-pulse 5s ease-in-out ${delaiHalo} infinite` }}
+        style={{ ...halo, animation: `km-heros-glow 5s ease-in-out ${delaiHalo} infinite` }}
       />
       <div
         className="absolute bottom-0 top-0 w-[60px]"
         style={{
           background: `linear-gradient(90deg,transparent,rgba(255,255,255,${opaciteSheen}),transparent)`,
-          animation: `kw-sheen ${dureeSheen} ease-in-out ${delaiSheen} infinite`,
+          animation: `km-heros-sheen ${dureeSheen} ease-in-out ${delaiSheen} infinite`,
         }}
       />
     </div>

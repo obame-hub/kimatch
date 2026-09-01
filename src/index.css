@@ -310,7 +310,7 @@ html body span[data-allo-c2c][data-allo-c2c-style="1"] > .allo-copy-btn {
    classe `animate-*`. Tailwind n'émet les @keyframes d'un thème que lorsqu'il voit la classe
    correspondante dans les sources : déclarées uniquement dans tailwind.config.js, elles étaient
    purgées du bundle et le halo ne pulsait pas. Les garder ici les rend indépendantes du scan. */
-@keyframes kw-ring-in {
+@keyframes km-heros-ring {
   from {
     stroke-dashoffset: var(--l);
   }
@@ -318,7 +318,7 @@ html body span[data-allo-c2c][data-allo-c2c-style="1"] > .allo-copy-btn {
     stroke-dashoffset: var(--o);
   }
 }
-@keyframes kw-glow-pulse {
+@keyframes km-heros-glow {
   0%,
   100% {
     opacity: 0.42;
@@ -327,7 +327,7 @@ html body span[data-allo-c2c][data-allo-c2c-style="1"] > .allo-copy-btn {
     opacity: 0.72;
   }
 }
-@keyframes kw-sheen {
+@keyframes km-heros-sheen {
   0% {
     transform: translateX(-120%) skewX(-18deg);
   }
