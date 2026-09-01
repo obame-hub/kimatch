@@ -36,7 +36,15 @@ async function fetchSignaux(siteIds?: string[], signalId?: string, recommandatio
       (q: any) => {
         if (signalId) return q.eq('id', signalId)
         if (recommandationId) return q.eq('recommandation_id', recommandationId).order('date_creation', { ascending: false })
-        return (siteIds ? q.in('site_id', siteIds) : q).order('date_creation', { ascending: false })
+        /* ══ LE SCORE D'ABORD, LA DATE ENSUITE ══
+           Michel, 01/09/2026 : « KiMatch classe tous les contacts éligibles par score et fait
+           remonter les 20 meilleurs signaux par commercial ». L'écran triait par date de création :
+           le signal le plus récent passait devant le plus urgent, et le barème n'aurait servi à rien.
+           `nullsFirst: false` : un signal sans score — un type autre qu'échéance, ou un contact sorti
+           de la fenêtre — descend en bas plutôt que de coiffer la liste. */
+        return (siteIds ? q.in('site_id', siteIds) : q)
+          .order('gravite', { ascending: false, nullsFirst: false })
+          .order('date_creation', { ascending: false })
       },
     )
 

@@ -92,7 +92,25 @@ function SignalCard({ signal }: { signal: Signal }) {
         )}
         <div className="mt-2 flex items-center justify-between gap-2 text-km-label text-km-faint">
           <span className="truncate">{signal.conseiller}</span>
-          <span className="shrink-0 tabular-nums">
+          <span className="flex shrink-0 items-center gap-1.5 tabular-nums">
+            {/* ══ LE SCORE DE PRIORITÉ, SUR LA CARTE ══
+                Barème de Michel du 01/09/2026 : échéance 50 · acceptation 25 · interactions 15 ·
+                potentiel 10. Il décide de l'ordre de la colonne — l'afficher est ce qui rend cet
+                ordre lisible. Sans lui, une liste triée par score ressemble à une liste triée au
+                hasard.
+                Le seuil de 60 marque la tranche haute : 29 contacts sur 596 dépassent 80, 143 sont
+                entre 60 et 79. Au-delà de 60, le dossier mérite l'appel du jour. */}
+            {signal.gravite != null && (
+              <span
+                title="Score de priorité sur 100 — échéance, taux d’acceptation, interactions, potentiel"
+                className={cn(
+                  'rounded-km-sm px-1.5 py-px font-bold',
+                  signal.gravite >= 60 ? 'bg-km-green-soft text-km-green' : 'bg-km-soft text-km-muted',
+                )}
+              >
+                {signal.gravite}
+              </span>
+            )}
             {new Date(signal.date_creation).toLocaleDateString('fr-FR', { day: '2-digit', month: '2-digit' })}
           </span>
         </div>
