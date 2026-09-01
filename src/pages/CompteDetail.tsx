@@ -367,12 +367,34 @@ export default function CompteDetail() {
               <span className="rounded-lg bg-km-blue-soft px-2 py-0.5 text-km-xs font-medium text-km-blue">{compte.segment}</span>
             )}
             {(() => {
+              /* ══ CE BLOC PLANTAIT LA FICHE ENTIÈRE ══
+                 Naoëlle, 01/09/2026 : « j'ai ce problème quand je clique sur un contact OHAYON
+                 NISSIM ». Son compte — « M. OHAYON NISSIM (CPIDF IMMOBILIER) » — a un
+                 `type_compte` NUL. `TYPE_BADGE_STYLE[null]` rend `undefined`, et lire `.icone`
+                 dessus lève une TypeError pendant le rendu : React démonte l'arbre et l'écran
+                 devient blanc. Trois comptes sur 2 769 sont dans ce cas.
+
+                 LA LISTE DES COMPTES, ELLE, NE PLANTAIT PAS : elle écrit déjà
+                 `typeMeta[type]?.label ?? type`. La fiche indexait en direct. Le même défaut à
+                 deux endroits, protégé d'un côté et pas de l'autre — c'est exactement ce qui fait
+                 qu'un bogue reste invisible jusqu'au mauvais clic.
+
+                 UN TYPE INCONNU N'EST PAS UNE ERREUR À CACHER : la pastille s'affiche en neutre
+                 avec la valeur brute, ou disparaît si le type est absent. Le reste de la fiche
+                 s'ouvre. */
               const style = TYPE_BADGE_STYLE[compte.type_compte]
+              if (!style) {
+                return compte.type_compte ? (
+                  <span className="inline-flex items-center gap-1 rounded-lg border border-km-line bg-km-soft px-2 py-0.5 text-km-xs font-medium text-km-muted">
+                    {compte.type_compte}
+                  </span>
+                ) : null
+              }
               const IconeType = style.icone
               return (
                 <span className={cn('inline-flex items-center gap-1 rounded-lg border px-2 py-0.5 text-km-xs font-medium', style.bg, style.border, style.text)}>
                   <IconeType className="h-3 w-3" strokeWidth={2} />
-                  {typeMeta[compte.type_compte].label}
+                  {typeMeta[compte.type_compte]?.label ?? compte.type_compte}
                 </span>
               )
             })()}
@@ -494,7 +516,8 @@ export default function CompteDetail() {
               {compte.type_compte !== 'kiwee' && (
                 <div className="rounded-xl border border-km-line bg-white p-4">
                   <div className="mb-3 flex items-center justify-between">
-                    <span className="text-km-xs font-bold uppercase tracking-wide text-km-faint">Détails {typeMeta[compte.type_compte].label.toLowerCase()}</span>
+                    {/* Même garde : sans type, l'intitulé dit « Détails » tout court plutôt que de planter. */}
+                    <span className="text-km-xs font-bold uppercase tracking-wide text-km-faint">Détails {(typeMeta[compte.type_compte]?.label ?? '').toLowerCase()}</span>
                     <Button type="button" size="sm" variant="outline" onClick={() => setShowEditSubtype(true)}>
                       <Pencil className="h-3.5 w-3.5" /> Modifier
                     </Button>

@@ -1053,8 +1053,11 @@ export default function RecommandationDetail() {
                 <div
                   className="rounded-km-lg border px-3.5 py-3"
                   style={{
-                    background: FINALITES_RECOMMANDATION[finalite].fond,
-                    borderColor: FINALITES_RECOMMANDATION[finalite].bordure,
+                    /* `?.` par précaution : les trois finalités connues couvrent 100 % de la
+                       base aujourd'hui, mais une quatrième valeur ajoutée en référence ferait
+                       planter la fiche au rendu — le même défaut que sur la fiche compte. */
+                    background: FINALITES_RECOMMANDATION[finalite]?.fond,
+                    borderColor: FINALITES_RECOMMANDATION[finalite]?.bordure,
                   }}
                 >
                   <div className="flex flex-wrap items-center gap-2">

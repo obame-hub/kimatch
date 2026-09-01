@@ -184,7 +184,7 @@ export default function Support() {
                         {STATUT_OPTIONS.map((s) => <option key={s} value={s}>{STATUT_META[s].label}</option>)}
                       </Select>
                     ) : (
-                      <Badge tone={STATUT_META[d.statut].tone}>{STATUT_META[d.statut].label}</Badge>
+                      <Badge tone={STATUT_META[d.statut]?.tone ?? 'neutral'}>{STATUT_META[d.statut]?.label ?? d.statut}</Badge>
                     )}
                   </div>
                 </div>

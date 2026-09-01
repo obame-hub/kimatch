@@ -199,7 +199,7 @@ export function OngletRecommandations({ recommandations }: { recommandations: Re
 
       {affichees.length === 0 && (
         <div className="rounded-[11px] border border-dashed border-[#e0dfdb] bg-white p-[22px] text-center text-xs text-[#83868f]">
-          Aucune recommandation {filtre === 'tous' ? '' : `${FINALITES_RECOMMANDATION[filtre as CleFinalite].libelle.toLowerCase()} `}sur ce compte
+          Aucune recommandation {filtre === 'tous' ? '' : `${FINALITES_RECOMMANDATION[filtre as CleFinalite]?.libelle.toLowerCase() ?? ''} `}sur ce compte
         </div>
       )}
     </div>
