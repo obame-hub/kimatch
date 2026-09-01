@@ -183,7 +183,7 @@ export default function Mandats({ sansEntete }: { sansEntete?: boolean }) {
           titreMasque={sansEntete}
           title="Mandats"
           description="Le mandat autorise KiWee à intervenir sur un périmètre de sites — il ne se confond pas avec le périmètre étudié par une recommandation."
-          actions={<Button onClick={() => setShowCreate(true)}><Plus className="h-4 w-4" />Nouveau mandat</Button>}
+          actions={sansEntete ? undefined : <Button onClick={() => setShowCreate(true)}><Plus className="h-4 w-4" />Nouveau mandat</Button>}
         />
 
         <ListToolbar query={liste.query} onQueryChange={liste.setQuery} placeholder="Rechercher un compte…" count={liste.total}>

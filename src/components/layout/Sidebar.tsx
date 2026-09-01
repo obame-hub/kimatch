@@ -20,14 +20,17 @@ import { getImpersonationInfo } from '@/lib/data/impersonation'
  *
  * Le premier n'a pas de marge haute : il touche le sommet du rail, où il n'a rien à séparer.
  */
-function Rubrique({ children }: { children: string }) {
+function Rubrique({ children, espaceAvant = false }: { children: string; espaceAvant?: boolean }) {
   return (
     /* L'AIR SE MET AU-DESSUS, PAS AUTOUR. Naoëlle : « mets des espaces entre les titres
        interligne ». Un intitulé séparé également en haut et en bas flotte entre deux groupes sans
        dire auquel il appartient. Une grande marge devant et une petite derrière le COLLENT aux
        entrées qu'il annonce : c'est ce qui fait lire trois groupes au lieu d'une liste.
        L'interligne du titre lui-même ne bouge pas — elle l'a demandé explicitement. */
-    <p className="mb-1 mt-6 px-2.5 text-km-tiny font-bold uppercase tracking-[0.09em] text-km-side-faint first:mt-1">
+    <p className={cn(
+      'mb-1 px-2.5 text-km-tiny font-bold uppercase tracking-[0.09em] text-km-side-faint first:mt-1',
+      espaceAvant ? 'mt-8' : 'mt-6',
+    )}>
       {children}
     </p>
   )
@@ -201,7 +204,7 @@ export function Sidebar() {
             {[...navItems, ...cycleNavItems].map((item) => (
               <SidebarLink key={item.to} {...item} onClick={close} />
             ))}
-            <Rubrique>Production</Rubrique>
+            <Rubrique espaceAvant>Production</Rubrique>
             {productionNavItems.map((item) => (
               <SidebarLink key={item.to} {...item} onClick={close} />
             ))}

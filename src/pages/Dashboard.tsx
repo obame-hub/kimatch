@@ -1,7 +1,6 @@
 import { useNavigate } from 'react-router-dom'
-import { CheckSquare, Diamond, Plus, TrendingUp, Zap } from 'lucide-react'
+import { CheckSquare, Diamond, TrendingUp, Zap } from 'lucide-react'
 import { Topbar } from '@/components/layout/Topbar'
-import { Button } from '@/components/ui/button'
 import { Indicateurs } from '@/components/ui/page-header'
 import { TuileChiffre } from '@/components/dashboard/TuileChiffre'
 import { MaJournee } from '@/components/dashboard/MaJournee'
@@ -128,12 +127,6 @@ export default function Dashboard() {
               Les actions qui méritent votre attention aujourd’hui.
             </p>
           </div>
-          {/* UNE SEULE ACTION, ET ELLE RESTE VERTE ICI. Son dossier autorise « une action
-              principale au maximum » : sur un écran qui n'en a qu'une, c'est bien celle-là. */}
-          <Button variant="primary" size="lg" onClick={() => navigate('/opportunites?nouveau=1')}>
-            <Plus className="h-3.5 w-3.5" strokeWidth={2.4} />
-            Nouvelle opportunité
-          </Button>
         </div>
 
         {/* ══════ LES QUATRE INDICATEURS ══════

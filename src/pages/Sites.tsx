@@ -116,7 +116,7 @@ export default function Sites({ sansEntete }: { sansEntete?: boolean }) {
           titreMasque={sansEntete}
           title="Sites"
           description="L'objet central du patrimoine énergétique — chaque recommandation, signal et contrat s'y rattache."
-          actions={<Button onClick={() => setShowCreate(true)}><Plus className="h-4 w-4" />Nouveau site</Button>}
+          actions={sansEntete ? undefined : <Button onClick={() => setShowCreate(true)}><Plus className="h-4 w-4" />Nouveau site</Button>}
         />
 
         <div className="mb-3.5 flex items-center justify-between gap-3">

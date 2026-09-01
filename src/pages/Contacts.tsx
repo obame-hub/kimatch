@@ -426,7 +426,7 @@ export default function Contacts({ sansEntete }: { sansEntete?: boolean }) {
           titreMasque={sansEntete}
           title="Contacts"
           description="Les personnes chez vos comptes — signataires, interlocuteurs commerciaux ou techniques."
-          actions={
+          actions={sansEntete ? undefined : (
             /* Le hub de création SEUL : « il faut également le mettre sur les autres objets, parce
                que c'est un bouton que de n'importe où je peux venir faire quelque chose »
                (William, 13/08/2026). Le bouton « Nouveau contact » qui doublonnait à côté a été
@@ -442,7 +442,7 @@ export default function Contacts({ sansEntete }: { sansEntete?: boolean }) {
                 if (cle === 'recommandation') navigate('/recommandations')
               }}
             />
-          }
+          )}
         />
 
         <ListToolbar query={query} onQueryChange={setQuery} placeholder="Rechercher un contact, un compte…" count={filteredContacts?.length}>

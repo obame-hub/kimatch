@@ -70,7 +70,7 @@ type CleObjet = (typeof OBJETS)[number]['cle']
 export default function Patrimoine() {
   const [params, setParams] = useSearchParams()
   const demande = params.get('objet')
-  const actif: CleObjet = OBJETS.some((o) => o.cle === demande) ? (demande as CleObjet) : 'comptes'
+  const actif: CleObjet = OBJETS.some((o) => o.cle === demande) ? (demande as CleObjet) : 'synthese'
   const objet = OBJETS.find((o) => o.cle === actif)!
   const Page = objet.Page
 
