@@ -303,7 +303,7 @@ function TextInlineField({ value, onCommit, label, emptyLabel = 'ajouter', onSav
           ref={inputRef}
           value={draft}
           onChange={(e) => setDraft(e.target.value)}
-          onBlur={commit}
+          onBlur={() => { void commit() }}
           onKeyDown={handleKeyDown}
           className={cn(inputBase, mono && 'font-mono')}
         />
@@ -356,7 +356,7 @@ function LongTextInlineField({ value, onCommit, label, emptyLabel = 'ajouter un 
           rows={rows}
           value={draft}
           onChange={(e) => setDraft(e.target.value)}
-          onBlur={commit}
+          onBlur={() => { void commit() }}
           onKeyDown={onKeyDown}
           className={cn(inputBase, 'resize-none leading-relaxed')}
         />
@@ -382,14 +382,42 @@ function SelectInlineField({ value, options, onCommit, label, emptyLabel = 'choi
     <div className={cn('min-w-0', className)}>
       {label && <div className="mb-0.5 text-km-label font-semibold uppercase tracking-wide text-km-faint">{label}</div>}
       {editing ? (
+        /* ══ CE CHAMP N'ENREGISTRAIT RIEN QUAND LA VALEUR ÉTAIT ABSENTE ══
+           Naoëlle, 01/09/2026, sur le type d'un compte qui n'en avait pas : « j'essaie de mettre
+           Consommateur mais ça save pas, ça revient à rien ».
+
+           LE MÉCANISME, EXACTEMENT. À l'ouverture, `draft` prend la valeur courante — ici `null`.
+           Le `<select>` n'a alors aucune option correspondante, et le navigateur affiche par défaut
+           la PREMIÈRE : « Consommateur ». L'utilisateur clique dessus… mais l'affichage ne change
+           pas, donc `onChange` NE SE DÉCLENCHE JAMAIS et `draft` reste `null`. À la sortie du champ,
+           `commit` compare `null` à `null`, conclut qu'il n'y a rien à écrire, et referme. Aucune
+           erreur, aucun message : le champ revenait simplement à vide.
+
+           DEUX CORRECTIONS, ET LES DEUX SONT NÉCESSAIRES.
+
+           1. UNE INVITE EN PREMIÈRE POSITION quand rien n'est renseigné. Elle rend l'affichage
+              cohérent avec `draft` — les deux disent « vide » — de sorte que choisir la première
+              option réelle est un vrai changement.
+
+           2. L'ENREGISTREMENT AU CHOIX, et non à la sortie du champ. Un choix dans une liste est un
+              geste fini : attendre le `blur` était surprenant, et sur certains navigateurs ce blur
+              n'arrive jamais après un clic dans la liste native. La valeur est passée explicitement
+              à `commit`, sans quoi React n'aurait pas encore appliqué `setDraft`. */
         <select
           ref={ref}
-          value={draft}
-          onChange={(e) => { setDraft(e.target.value) }}
-          onBlur={commit}
+          value={draft ?? ''}
+          onChange={(e) => {
+            const v = e.target.value
+            setDraft(v)
+            if (v !== '') void commit(v)
+          }}
+          onBlur={() => { void commit() }}
           onKeyDown={(e) => { if (e.key === 'Escape') cancel() }}
           className={inputBase}
         >
+          {!options.some((o) => o.value === (draft ?? '')) && (
+            <option value="">Sélectionner…</option>
+          )}
           {options.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
         </select>
       ) : currentLabel ? (

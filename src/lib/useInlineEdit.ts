@@ -34,18 +34,28 @@ export function useInlineEdit<T>({ value, onCommit, onSaved, onError, isEqual = 
     setDraft(value)
   }, [value])
 
-  const commit = useCallback(async () => {
+  /**
+   * Enregistre le brouillon — ou la valeur passée en argument.
+   *
+   * L'ARGUMENT EXISTE POUR LES CHOIX DISCRETS. Un champ texte se valide après la frappe, donc l'état
+   * `draft` est à jour quand on valide. Un `<select>`, lui, doit enregistrer AU MOMENT du choix : si
+   * on appelle `commit()` dans le même `onChange` que `setDraft(v)`, React n'a pas encore appliqué
+   * l'état et `commit` enregistrerait l'ancienne valeur. Passer la valeur explicitement lève
+   * l'ambiguïté sans attendre un rendu.
+   */
+  const commit = useCallback(async (valeurExplicite?: T) => {
     if (committingRef.current) return
-    if (isEqual(draft, value)) {
+    const aEcrire = valeurExplicite !== undefined ? valeurExplicite : draft
+    if (isEqual(aEcrire, value)) {
       setEditing(false)
       return
     }
     committingRef.current = true
     setPending(true)
-    setOptimisticValue(draft)
+    setOptimisticValue(aEcrire)
     setEditing(false)
     try {
-      await onCommit(draft)
+      await onCommit(aEcrire)
       onSaved?.()
       setOptimisticValue(null)
     } catch (err) {
