@@ -1491,20 +1491,34 @@ export const STATUTS_OFFRE = [
 ] as const
 
 /**
- * Les seuls statuts PROPOSÉS pour un fournisseur consulté (décision de Naoëlle, 18/08/2026).
+ * Les statuts PROPOSÉS au menu « Changer… » d'un fournisseur consulté.
  *
- * La table `statuts_consultations_fournisseurs` en compte huit, mais quatre suffisent au geste réel :
- * la demande part, puis le fournisseur accepte, accepte en partie, ou refuse.
+ * ══ POURQUOI UNE LISTE ET NON TOUTE LA TABLE ══
  *
- * Les quatre autres codes — ACCUSE_RECEPTION, RELANCEE, INFO_COMPLEMENTAIRE_DEMANDEE, RECUE — ne
- * sont PAS retirés de la table : 637 accusés de réception, 18 relances et 1464 réponses reçues les
- * portent dans l'historique importé de Salesforce. Les proposer à la saisie encombrait le menu ;
- * les supprimer rendrait cet historique illisible. On restreint donc le choix, pas le vocabulaire.
+ * `statuts_consultations_fournisseurs` porte neuf codes, dont cinq désactivés qui ne servent plus
+ * qu'à relire l'historique repris de Salesforce. Les proposer à la saisie encombrerait le menu de
+ * gestes qui n'existent plus.
+ *
+ * ══ MISE À JOUR DU 01/09/2026 ══
+ *
+ * `DISPONIBLE` s'ajoute. Naoëlle : « affiche-le dans Changer au cas où on veut le changer à la main,
+ * mais garde le calcul ». Les deux tiennent ensemble sans conflit : un choix manuel écrit un
+ * événement de suivi, et le déclencheur recalculera au prochain changement d'offre. La main passe
+ * devant jusqu'au fait suivant — c'est le bon ordre, l'humain sait des choses que la base ignore.
+ *
+ * `ACCEPTEE_PARTIELLEMENT` s'en va. Naoëlle, 28/08/2026 : « partiellement acceptée n'existe plus ».
+ * Le code est désactivé en base et ne porte AUCUNE ligne de suivi — vérifié ce jour. Le laisser dans
+ * cette liste était sans effet (le menu ne lit que les statuts actifs) mais faisait croire à un
+ * cinquième choix en lisant le code.
+ *
+ * Au passage, le commentaire précédent affirmait « 637 accusés de réception, 18 relances et 1464
+ * réponses reçues » dans l'historique. C'était vrai à l'écriture ; la migration de données du
+ * 28/08/2026 les a tous remappés. Ces quatre codes portent zéro ligne aujourd'hui.
  */
 export const CODES_STATUT_CONSULTATION_PROPOSES = [
   'ENVOYEE',
   'ACCEPTEE',
-  'ACCEPTEE_PARTIELLEMENT',
+  'DISPONIBLE',
   'REFUSEE',
 ] as const
 
@@ -1516,16 +1530,21 @@ export const CODES_STATUT_CONSULTATION_PROPOSES = [
  * `suivis_consultations_fournisseurs`, on garde donc l'historique de la relance et non seulement
  * l'état final.
  *
- * LES RÈGLES MÉTIER DE LA RÉUNION sont appliquées ici, et elles descendent toutes du même principe :
- * la demande porte sur TOUTES les offres du fournisseur à la fois.
+ * ══ CE QUE CETTE MUTATION NE FAIT PLUS, DEPUIS LE 01/09/2026 ══
  *
- *  · « Accepté par le fournisseur, ça veut dire qu'il a accepté les deux durées et les deux types en
- *    même temps » — donc passer le fournisseur à ACCEPTEE accepte ses offres encore en attente. Sans
- *    ça, le conseiller devrait rouvrir chaque offre pour dire ce qu'il vient déjà de dire.
- *  · REFUSEE : symétrique, le fournisseur ne cote rien.
- *  · ACCEPTEE_PARTIELLEMENT : on ne touche à RIEN. C'est tout le sens du statut — le conseiller
- *    désigne lui-même quelle durée passe et laquelle est refusée, l'application ne peut pas le
- *    devenir à sa place.
+ * Elle répercutait le statut posé sur les offres du fournisseur : ACCEPTEE les rendait toutes
+ * acceptées, REFUSEE toutes refusées. La règle venait de la réunion du 17/08 — « accepté par le
+ * fournisseur, ça veut dire qu'il a accepté les deux durées en même temps » — et elle se tenait tant
+ * que la consultation commandait ses offres.
+ *
+ * Le sens s'est inversé. Naoëlle, 01/09/2026 : le statut de la consultation SE CALCULE d'après ses
+ * offres. Continuer à écrire les offres depuis la consultation écraserait la donnée qui fait
+ * désormais foi, et les deux se répondraient en boucle — c'est exactement ce que la simulation a
+ * montré avant qu'on retire le déclencheur équivalent en base.
+ *
+ * Ce que le conseiller perd : il doit dire l'état de chaque offre. Ce qu'il gagne : un fournisseur
+ * qui répond sur deux sites et pas sur le troisième garde ses deux offres disponibles et son
+ * indisponible, au lieu de voir les trois aplaties.
  *
  * PAS DE RÈGLE « OFFRE REÇUE » ICI, et c'est volontaire. Ce statut n'existe plus à cet étage : les
  * quatre statuts qualifient la DEMANDE, et une demande ne se « reçoit » pas — ce sont les offres qui
@@ -1543,6 +1562,9 @@ export function useChangerStatutConsultation() {
     mutationFn: async (input: {
       optimisationFournisseurId: string
       statutId: string
+      /* `statutCode` ne sert plus au calcul — la répercussion sur les offres est partie. Il reste
+         dans la signature parce que l'écran s'en sert pour composer son message de confirmation, et
+         le retirer obligerait l'appelant à retrouver le code qu'il vient de choisir. */
       statutCode: string
       commentaire?: string | null
     }) => {
@@ -1553,20 +1575,18 @@ export function useChangerStatutConsultation() {
       })
       if (error) throw new Error(error.message)
 
-      // Répercussion sur les offres du fournisseur, selon le statut posé.
-      const repercussion: Record<string, { depuis: string; vers: string }> = {
-        ACCEPTEE: { depuis: 'EN_ATTENTE', vers: 'ACCEPTEE' },
-        REFUSEE: { depuis: 'EN_ATTENTE', vers: 'REFUSEE' },
-      }
-      const regle = repercussion[input.statutCode]
-      if (!regle) return
+      /* ══ LA RÉPERCUSSION SUR LES OFFRES EST RETIRÉE (01/09/2026) ══
+         Ce bloc écrivait `statut: 'ACCEPTEE'` ou `'REFUSEE'` sur les offres du fournisseur. Or une
+         offre n'a que trois statuts — EN_ATTENTE, DISPONIBLE, INDISPONIBLE : ces deux valeurs sont
+         celles de la CONSULTATION. Le code recopiait le statut d'un objet dans un autre qui ne parle
+         pas la même langue, et rien ne l'en empêchait — la colonne n'avait aucune contrainte. Une
+         offre portait encore 'REFUSEE' en base ; elle est réparée et la colonne est verrouillée
+         (migration 20260901120000).
 
-      const { error: eOffres } = await supabase
-        .from('offres_fournisseurs')
-        .update({ statut: regle.vers, date_modification: new Date().toISOString() })
-        .eq('optimisation_fournisseur_id', input.optimisationFournisseurId)
-        .eq('statut', regle.depuis)
-      if (eOffres) throw new Error(eOffres.message)
+         LE SENS A CHANGÉ DE DIRECTION. Depuis aujourd'hui, ce sont les offres qui décident du statut
+         de la consultation, et non l'inverse : `recalculer_statut_consultation` lit leurs statuts au
+         moindre changement. Écrire les offres depuis la consultation reviendrait à écraser la donnée
+         qu'on vient de dire faisant foi — et les deux se répondraient en boucle. */
     },
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ['recommandations'] }),
   })

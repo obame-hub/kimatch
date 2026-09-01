@@ -300,11 +300,24 @@ export function DetailVersion({
                                     ? 'aucune offre suivie'
                                     : `${chiffrees.length}/${fc.offres.length} offre${fc.offres.length > 1 ? 's' : ''} chiffrée${chiffrees.length > 1 ? 's' : ''}`}
                                 </span>
-                                {fc.offres.some((o) => o.statut === 'REFUSEE') && fc.offres.some((o) => o.statut === 'ACCEPTEE') && (
-                                  // Le commercial doit voir ça sans ouvrir chaque offre : c'est tout
-                                  // l'objet du statut « acceptée partiellement ».
-                                  <span className="rounded-km-sm bg-km-amber-soft px-1.5 py-0.5 text-km-label font-extrabold uppercase tracking-[0.05em] text-km-amber">
-                                    partiellement accepté
+                                {/* ══ ELLE NE POUVAIT JAMAIS S'AFFICHER ══
+                                    La condition cherchait des offres au statut REFUSEE ou ACCEPTEE.
+                                    Or une offre n'a que trois statuts — EN_ATTENTE, DISPONIBLE,
+                                    INDISPONIBLE : la pastille était morte depuis la refonte du
+                                    28/08/2026, avec le statut « acceptée partiellement » qu'elle
+                                    accompagnait.
+
+                                    SON INTENTION RESTE JUSTE, et redevient même possible : un
+                                    fournisseur qui répond sur deux sites et pas sur le troisième
+                                    produit désormais un vrai mélange, depuis que la propagation qui
+                                    aplatissait les offres a été retirée. On la rebranche sur les
+                                    statuts réels. */}
+                                {fc.offres.some((o) => o.statut === 'INDISPONIBLE') && fc.offres.some((o) => o.statut === 'DISPONIBLE') && (
+                                  <span
+                                    title="Ce fournisseur a répondu sur une partie du périmètre seulement."
+                                    className="rounded-km-sm bg-km-amber-soft px-1.5 py-0.5 text-km-label font-extrabold uppercase tracking-[0.05em] text-km-amber"
+                                  >
+                                    partiellement disponible
                                   </span>
                                 )}
                                 <span className="flex-1" />
@@ -323,6 +336,13 @@ export function DetailVersion({
                                   <select
                                     value=""
                                     onChange={(e) => { if (e.target.value) onChangerStatut(fc, e.target.value) }}
+                                    /* LE STATUT SE RECALCULE, ET LE MENU LE DIT. Depuis le
+                                       01/09/2026 il se déduit des offres : au moins une en attente
+                                       → acceptée, aucune disponible → refusée, sinon disponible. Un
+                                       choix manuel reste possible et prime jusqu'au fait suivant —
+                                       mais sans cette phrase, le voir changer tout seul après avoir
+                                       saisi une offre passerait pour un bogue. */
+                                    title="Le statut se recalcule automatiquement d'après les offres du fournisseur. Un choix manuel tient jusqu'au prochain changement d'offre."
                                     className="rounded-km-sm border border-km-line bg-white px-1.5 py-0.5 text-km-body font-semibold text-km-muted outline-none"
                                   >
                                     <option value="">{fc.statut_actuel ? 'Changer…' : 'Statut de la demande…'}</option>

@@ -240,6 +240,39 @@
   box-shadow: 0 16px 34px -14px rgba(22, 24, 29, 0.34);
 }
 
+/* Allo continue de détecter et de rendre le numéro cliquable via `data-allo-c2c`, mais son
+   badge jaune/noir ne doit pas remplacer la typographie de Kimatch. La spécificité élevée et
+   `!important` sont nécessaires car la feuille injectée par l'extension emploie elle-même
+   `!important`. On ne masque pas le span : son gestionnaire de clic Allo reste donc intact. */
+html body span[data-allo-c2c][data-allo-c2c-style="1"] {
+  display: inline !important;
+  width: auto !important;
+  height: auto !important;
+  padding: 0 !important;
+  border: 0 !important;
+  border-radius: 0 !important;
+  background: transparent !important;
+  color: inherit !important;
+  box-shadow: none !important;
+  font: inherit !important;
+  letter-spacing: inherit !important;
+  line-height: inherit !important;
+  text-decoration: inherit !important;
+  white-space: inherit !important;
+}
+
+html body span[data-allo-c2c][data-allo-c2c-style="1"]:hover {
+  border: 0 !important;
+  box-shadow: none !important;
+}
+
+html body span[data-allo-c2c][data-allo-c2c-style="1"]::before,
+html body span[data-allo-c2c][data-allo-c2c-style="1"]::after,
+html body span[data-allo-c2c][data-allo-c2c-style="1"] > .allo-copy-btn {
+  display: none !important;
+  content: none !important;
+}
+
 /* Infobulle au survol, reprise de la maquette de William (.ib / .ibp). Le panneau reste dans le
    flux avec visibility plutôt qu'un démontage : la transition d'opacité ne peut pas s'appliquer à
    un élément qui apparaît d'un coup, et un survol qui clignote est pire que pas d'infobulle. */

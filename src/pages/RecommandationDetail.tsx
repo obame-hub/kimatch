@@ -1196,12 +1196,20 @@ export default function RecommandationDetail() {
                         statutId: statut.id,
                         statutCode: statut.code,
                       })
-                      // Le message dit ce que le geste a fait AUX OFFRES, pas seulement au
-                      // fournisseur : c'est la partie invisible et c'est celle qui surprend.
+                      /* ══ CE MESSAGE PROMETTAIT UN EFFET QUI N'EXISTE PLUS ══
+                         Il annonçait « ses offres en attente passent en acceptées » : c'était vrai
+                         tant que le déclencheur `propager_consultation_vers_offre` écrasait les
+                         offres depuis la consultation. Ce déclencheur a été retiré le 01/09/2026 —
+                         il détruisait la nuance entre offres disponibles et indisponibles, et il
+                         bouclait avec le nouveau calcul.
+
+                         Le sens a changé de direction : ce sont les OFFRES qui décident du statut,
+                         plus l'inverse. Le message dit donc maintenant ce qui va vraiment se
+                         passer — le statut choisi tient jusqu'au prochain changement d'offre. */
                       const suite: Record<string, string> = {
-                        ACCEPTEE: ' — ses offres en attente passent en acceptées',
-                        REFUSEE: ' — ses offres en attente passent en refusées',
-                        ACCEPTEE_PARTIELLEMENT: ' — à vous de marquer quelle durée est refusée',
+                        ACCEPTEE: ' — recalculé dès qu’une offre change',
+                        DISPONIBLE: ' — recalculé dès qu’une offre change',
+                        REFUSEE: ' — recalculé dès qu’une offre change',
                       }
                       signaler(`✓ ${fc.fournisseur_nom} : ${statut.libelle}${suite[statut.code] ?? ''}`)
                     } catch (e) {
