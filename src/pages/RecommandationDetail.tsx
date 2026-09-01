@@ -705,7 +705,13 @@ export default function RecommandationDetail() {
             {reco.date_cloture && (
               <>
                 {' · '}
-                {estClose ? 'clôturée' : 'clôture prévue'} le{' '}
+                {/* LE LIBELLÉ SUIT LA FINALITÉ, PAS L'ÉTAPE — corrigé le 31/08/2026 après que
+                    Naoëlle a vu « clôture prévue le 21/04/2026 » sur un dossier gagné et signé.
+                    L'étape d'un dossier redevient « Active » dès qu'une version est vivante, même
+                    s'il a été clôturé avant : 24 dossiers sont dans ce cas. La FINALITÉ, elle, ne
+                    s'écrit qu'au moment d'une clôture réelle — c'est donc elle qui dit si la date
+                    est une fin ou une prévision. */}
+                {reco.finalite_cloture ? 'clôturée' : 'clôture prévue'} le{' '}
                 <span className="font-semibold text-km-muted">
                   {new Date(reco.date_cloture).toLocaleDateString('fr-FR')}
                 </span>
