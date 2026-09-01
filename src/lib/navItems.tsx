@@ -18,6 +18,7 @@ import {
   Folder,
   MessageSquare,
   Layers,
+  ShieldAlert,
 } from 'lucide-react'
 import type { LucideIcon } from 'lucide-react'
 
@@ -68,6 +69,12 @@ export const navItems: NavItem[] = [
   // endroits. Leurs adresses restent valides : /comptes, /sites, /contacts fonctionnent toujours,
   // seul le rail change.
   { to: '/patrimoine', label: 'Patrimoine', icon: Building2 },
+  /* QUALITÉ DES DONNÉES — Michel, 24/08/2026 : « les échéances dépassées, données manquantes
+     ou compteurs sans contrat doivent plutôt générer une alerte portefeuille et ne pas prendre
+     la place des 20 signaux commerciaux ». Sa place est ici, en Pilotage, juste après le
+     patrimoine dont elle décrit les trous — et surtout PAS dans le cycle commercial : réclamer
+     une facture n'est pas une affaire à faire avancer. */
+  { to: '/qualite-donnees', label: 'Qualité des données', icon: ShieldAlert },
 ]
 
 

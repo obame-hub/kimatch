@@ -34,6 +34,7 @@ const Recommandations = lazy(() => import('@/pages/Recommandations'))
 const RecommandationDetail = lazy(() => import('@/pages/RecommandationDetail'))
 const Comptes = lazy(() => import('@/pages/Comptes'))
 const Patrimoine = lazy(() => import('@/pages/Patrimoine'))
+const QualiteDonnees = lazy(() => import('@/pages/QualiteDonnees'))
 const Compteurs = lazy(() => import('@/pages/Compteurs'))
 const CompteCreate = lazy(() => import('@/pages/CompteCreate'))
 const CompteDetail = lazy(() => import('@/pages/CompteDetail'))
@@ -88,6 +89,8 @@ function App() {
           <Route path="/recommandations" element={<Recommandations />} />
           <Route path="/recommandations/:id" element={<RecommandationDetail />} />
           <Route path="/patrimoine" element={<Patrimoine />} />
+          {/* La qualité des données vit à côté du patrimoine : elle en décrit les trous. */}
+          <Route path="/qualite-donnees" element={<QualiteDonnees />} />
           <Route path="/compteurs" element={<Compteurs />} />
           <Route path="/comptes" element={<Comptes />} />
           <Route path="/comptes/nouveau" element={<CompteCreate />} />
