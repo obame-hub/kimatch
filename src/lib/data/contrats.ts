@@ -413,6 +413,7 @@ export function useUpdateContrat() {
  * n'existent pas comme colonnes et feraient répondre 400 à PostgREST.
  */
 export type PatchContrat = Partial<{
+  statut_id: string | null
   reference_fournisseur: string | null
   date_debut: string | null
   date_fin: string | null

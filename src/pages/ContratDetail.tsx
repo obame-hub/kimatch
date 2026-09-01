@@ -633,6 +633,18 @@ export default function ContratDetail() {
                 {canManage ? (
                   <>
                     <InlineField
+                      variant="select"
+                      label="Statut"
+                      value={contrat.statut}
+                      options={statuts.map((s) => ({ value: s.code, label: s.libelle }))}
+                      onCommit={(code) => {
+                        const statut = statuts.find((s) => s.code === code)
+                        if (!statut) throw new Error('Statut de contrat introuvable.')
+                        return majContrat({ statut_id: statut.id })
+                      }}
+                      {...retourInline}
+                    />
+                    <InlineField
                       variant="text" mono
                       label="Référence fournisseur"
                       value={contrat.reference_fournisseur ?? ''}

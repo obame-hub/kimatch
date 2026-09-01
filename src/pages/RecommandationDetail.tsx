@@ -167,6 +167,7 @@ export default function RecommandationDetail() {
   const [clotureOuverte, setClotureOuverte] = useState(false)
   const [finaliteChoisie, setFinaliteChoisie] = useState<CleFinalite | null>(null)
   const [motifBrouillon, setMotifBrouillon] = useState('')
+  const [dateClotureBrouillon, setDateClotureBrouillon] = useState('')
   const [reactivationBrouillon, setReactivationBrouillon] = useState('')
   const [nouvelleVersionOuverte, setNouvelleVersionOuverte] = useState(false)
   const [documentOuvert, setDocumentOuvert] = useState(false)
@@ -328,6 +329,7 @@ export default function RecommandationDetail() {
   const clotureValide = Boolean(
     finaliteChoisie
     && motifBrouillon.trim()
+    && dateClotureBrouillon
     && (finaliteChoisie !== 'ACCEPTEE' || contratValide)
     && (!exigeDateReactivation(finaliteChoisie) || reactivationBrouillon.trim()),
   )
@@ -348,6 +350,7 @@ export default function RecommandationDetail() {
         id: reco.id,
         finalite: finaliteChoisie,
         motif: motifBrouillon,
+        dateCloture: dateClotureBrouillon,
         dateReactivation: reactivationBrouillon || null,
         /* ══ L'ÉCRAN N'INSCRIT PLUS L'ÉTAPE ══════════════════════════════════════════════════
 
@@ -886,6 +889,7 @@ export default function RecommandationDetail() {
                   setClotureOuverte((v) => !v)
                   setFinaliteChoisie(null)
                   setMotifBrouillon('')
+                  setDateClotureBrouillon(new Date().toISOString().slice(0, 10))
                 }}
                 onChoisirStatutVersion={choisirStatutVersion}
                 onRouvrir={rouvrir}
@@ -949,6 +953,19 @@ export default function RecommandationDetail() {
                       placeholder="Pourquoi cette recommandation est-elle close ?"
                       className="w-full rounded-km border border-km-line bg-white px-2.5 py-1.5 text-km-name text-km-text outline-none focus:ring-1 focus:ring-km-green"
                     />
+                    <div className="mt-2">
+                      <label className="mb-1 block text-km-label font-bold uppercase tracking-wide text-km-faint" htmlFor="date-cloture">
+                        Date de clôture <span className="text-km-red">*</span>
+                      </label>
+                      <input
+                        id="date-cloture"
+                        type="date"
+                        value={dateClotureBrouillon}
+                        onChange={(e) => setDateClotureBrouillon(e.target.value)}
+                        className="rounded-km border border-km-line bg-white px-2.5 py-1.5 font-mono text-km-name text-km-text outline-none focus:ring-1 focus:ring-km-green"
+                      />
+                      <p className="mt-1 text-km-label text-km-faint">Préremplie avec aujourd’hui ; modifiez-la si la décision a eu lieu un autre jour.</p>
+                    </div>
                     {/* La date de réactivation n'apparaît que si la finalité l'exige. Aucune des
                         trois valeurs actuelles ne le fait ; le champ est prêt pour le jour où une
                         finalité de report sera ajoutée. */}

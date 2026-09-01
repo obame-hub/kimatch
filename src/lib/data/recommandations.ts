@@ -1305,18 +1305,13 @@ export function useCloturerRecommandation() {
       id: string
       finalite: 'ACCEPTEE' | 'REFUSEE' | 'EXPIREE'
       motif: string
+      dateCloture: string
       dateReactivation?: string | null
       etapeClotureId: string | null
     }) => {
       const motif = input.motif.trim()
       if (motif === '') throw new Error('Le motif est obligatoire.')
-
-      const { data: existant, error: eLecture } = await supabase
-        .from('recommandations')
-        .select('date_cloture')
-        .eq('id', input.id)
-        .single()
-      if (eLecture) throw new Error(eLecture.message)
+      if (!input.dateCloture) throw new Error('La date de clôture est obligatoire.')
 
       const { error } = await supabase
         .from('recommandations')
@@ -1324,7 +1319,9 @@ export function useCloturerRecommandation() {
           finalite_cloture: input.finalite,
           motif_cloture: motif,
           date_reactivation: input.dateReactivation || null,
-          date_cloture: existant?.date_cloture ?? new Date().toISOString().slice(0, 10),
+          // Préremplie avec aujourd'hui dans l'écran, mais volontairement modifiable : certaines
+          // clôtures sont saisies après coup et doivent porter la date réelle de la décision.
+          date_cloture: input.dateCloture,
           /* ══ CE CHAMP EST CE QUI FERME VRAIMENT LE DOSSIER ══
              Michel, 31/08/2026 : « la version fait évoluer la recommandation, mais ne clôture
              JAMAIS la recommandation, ça doit se faire manuellement. »
