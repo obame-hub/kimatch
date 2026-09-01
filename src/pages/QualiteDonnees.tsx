@@ -94,11 +94,15 @@ export default function QualiteDonnees() {
   const filtreProprietaire = perimetre === 'moi' ? monProfil?.id ?? null : null
 
   /* LE FILTRE PORTE SUR UN DÉFAUT PRÉCIS. « Montre-moi les comptes à qui il manque un responsable »
-     est une campagne d'appels ; « montre-moi tous les comptes imparfaits » n'en est pas une.
-     Il se traduit en un tri, pas en une restriction : `.gt(colonne, 0)` n'existe pas dans
-     `useListeServeur`, qui ne fait que des égalités. Trier sur la colonne du défaut met les comptes
-     concernés en tête et laisse les zéros au fond — même service rendu, sans dénaturer le crochet
-     partagé pour un seul écran. */
+     est une campagne d'appels ; « montre-moi tous les comptes imparfaits » n'en est pas une. Le
+     compte est RETIRÉ de la liste s'il ne porte pas ce défaut-là — `filtresPositifs` traduit ça en
+     `.gt(colonne, 0)` côté base, donc le total du bandeau et la pagination suivent.
+
+     PREMIÈRE VERSION CORRIGÉE LE JOUR MÊME. J'avais traduit ce besoin en un simple TRI sur la
+     colonne, faute de filtre d'inégalité dans le crochet partagé. À l'écran, le résultat était
+     l'inverse de ce qui était promis : `trierPar` remet le sens à croissant en changeant de colonne,
+     donc « Sans responsable » affichait une première page entière de comptes qui n'en manquaient
+     pas. Un tri qui ressemble à un filtre trompe ; on a ajouté le vrai filtre. */
   const [defaut, setDefaut] = useState<CleDefaut | ''>('')
 
   const liste = useListeServeur<LigneQualite>({
@@ -107,6 +111,7 @@ export default function QualiteDonnees() {
     triParDefaut: 'mwh_en_defaut',
     sensParDefaut: 'desc',
     filtres: { compte_proprietaire_id: filtreProprietaire },
+    filtresPositifs: defaut ? [defaut] : undefined,
   })
 
   /* LES QUATRE MESURES SONT CELLES DE LA PAGE COURANTE, et le disent. Les recompter sur toute la
@@ -150,10 +155,12 @@ export default function QualiteDonnees() {
             valeur={defaut}
             onChange={(v) => {
               setDefaut(v as CleDefaut | '')
-              /* Choisir un défaut trie dessus : les comptes concernés remontent, les autres
-                 descendent. Revenir à « tous » rend la main au volume d'énergie. */
-              if (v) liste.trierPar(v)
-              else liste.trierPar('mwh_en_defaut')
+              /* Le tri suit le filtre, et TOUJOURS du plus grand au plus petit : sur une campagne
+                 d'appels, le compte à qui il manque trente responsables passe avant celui à qui il
+                 en manque un. Le sens est imposé, jamais laissé au défaut croissant du crochet.
+                 Revenir à « tous les défauts » rend la main au volume d'énergie. */
+              if (v) liste.trierPar(v, 'desc')
+              else liste.trierPar('mwh_en_defaut', 'desc')
             }}
             ariaLabel="Se concentrer sur un défaut"
             choix={[

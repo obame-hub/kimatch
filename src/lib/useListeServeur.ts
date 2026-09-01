@@ -29,6 +29,19 @@ export interface OptionsListeServeur {
   sensParDefaut?: 'asc' | 'desc'
   /** Filtres d'égalité additionnels, appliqués tels quels (un filtre par entrée non nulle). */
   filtres?: Record<string, string | null | undefined>
+  /**
+   * COLONNES NUMÉRIQUES QU'ON EXIGE STRICTEMENT POSITIVES — « seulement les comptes à qui il manque
+   * un responsable ».
+   *
+   * Ajouté le 01/09/2026 pour l'écran Qualité des données. J'avais d'abord traduit ce besoin en un
+   * TRI sur la colonne du défaut, faute d'un filtre d'inégalité ici. Vu à l'écran, c'était un défaut
+   * et pas un compromis : `trierPar` remet le sens à croissant en changeant de colonne, si bien que
+   * demander « sans responsable » affichait en tête les comptes qui n'en manquaient pas — des zéros
+   * sur toute la première page, sous un intitulé qui promettait le contraire.
+   *
+   * Un filtre dit ce qu'il fait ; un tri qui ressemble à un filtre trompe.
+   */
+  filtresPositifs?: string[]
 }
 
 /**
@@ -62,17 +75,21 @@ export function useListeServeur<T>(options: OptionsListeServeur) {
   // Revenir à la première tranche dès que la liste change de nature : sans cela, une nouvelle
   // recherche continuerait de demander les 500 lignes chargées pour la précédente.
   const signature = `${recherche}|${tri}|${sens}|${JSON.stringify(options.filtres ?? {})}`
+    + `|${(options.filtresPositifs ?? []).join(',')}`
   useEffect(() => {
     setLimite(TRANCHE_INITIALE)
   }, [signature])
 
   const resultat = useQuery({
-    queryKey: ['liste-serveur', options.vue, recherche.trim(), tri, sens, limite, options.filtres],
+    queryKey: ['liste-serveur', options.vue, recherche.trim(), tri, sens, limite, options.filtres, options.filtresPositifs],
     queryFn: async () => {
       let req = supabase.from(options.vue).select('*', { count: 'exact' })
 
       for (const [colonne, valeur] of Object.entries(options.filtres ?? {})) {
         if (valeur != null && valeur !== '') req = req.eq(colonne, valeur)
+      }
+      for (const colonne of options.filtresPositifs ?? []) {
+        req = req.gt(colonne, 0)
       }
 
       for (const mot of mots(recherche)) {
@@ -91,7 +108,16 @@ export function useListeServeur<T>(options: OptionsListeServeur) {
     placeholderData: (precedent) => precedent,
   })
 
-  function trierPar(colonne: string) {
+  /**
+   * Cliquer un en-tête trie dessus ; recliquer le même inverse le sens.
+   *
+   * `sensImpose` sert aux appels qui ne viennent pas d'un clic d'en-tête : un écran qui change de
+   * tri par lui-même sait déjà dans quel sens la colonne se lit — un nombre de défauts du plus grand
+   * au plus petit, jamais l'inverse. Sans lui, le passage à une nouvelle colonne retombe sur
+   * croissant, et l'écran affiche des zéros là où il annonçait des manques.
+   */
+  function trierPar(colonne: string, sensImpose?: 'asc' | 'desc') {
+    if (sensImpose) { setTri(colonne); setSens(sensImpose); return }
     if (colonne === tri) setSens((s) => (s === 'asc' ? 'desc' : 'asc'))
     else { setTri(colonne); setSens('asc') }
   }
