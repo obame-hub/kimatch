@@ -1,4 +1,5 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useRef, useState, type ReactNode } from 'react'
+import { Pencil } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { useInlineEdit } from '@/lib/useInlineEdit'
 import { AddressAutocomplete } from '@/components/ui/address-autocomplete'
@@ -25,6 +26,9 @@ interface TextFieldProps extends InlineFieldCommonProps {
   variant: 'text'
   value: string
   onCommit: (value: string) => Promise<void>
+  /** Lecture personnalisée séparée du bouton d'édition — utile pour conserver un lien ou la
+   *  détection d'une extension sur la valeur sans afficher celle-ci une seconde fois. */
+  displayNode?: ReactNode
 }
 
 interface LongTextFieldProps extends InlineFieldCommonProps {
@@ -281,7 +285,7 @@ function AddressInlineField({
   )
 }
 
-function TextInlineField({ value, onCommit, label, emptyLabel = 'ajouter', onSaved, onError, className, disabled, mono }: TextFieldProps) {
+function TextInlineField({ value, onCommit, label, emptyLabel = 'ajouter', onSaved, onError, className, disabled, mono, displayNode }: TextFieldProps) {
   const inputRef = useRef<HTMLInputElement>(null)
   const { editing, draft, setDraft, displayValue, start, commit, handleKeyDown } = useInlineEdit({
     value, onCommit, onSaved, onError,
@@ -303,6 +307,20 @@ function TextInlineField({ value, onCommit, label, emptyLabel = 'ajouter', onSav
           onKeyDown={handleKeyDown}
           className={cn(inputBase, mono && 'font-mono')}
         />
+      ) : displayValue && displayNode ? (
+        <div className={cn('flex min-h-6 items-center gap-1.5 px-1.5 py-0.5 text-km-name text-km-text', mono && 'font-mono')}>
+          <span className="min-w-0 truncate">{displayNode}</span>
+          <button
+            type="button"
+            disabled={disabled}
+            onClick={start}
+            title={`Modifier ${label?.toLocaleLowerCase('fr-FR') ?? 'la valeur'}`}
+            aria-label={`Modifier ${label?.toLocaleLowerCase('fr-FR') ?? 'la valeur'}`}
+            className="shrink-0 rounded-km-sm p-1 text-km-faint transition-colors hover:bg-km-soft hover:text-km-green disabled:hidden"
+          >
+            <Pencil className="h-3 w-3" />
+          </button>
+        </div>
       ) : displayValue ? (
         <button
           type="button"

@@ -284,10 +284,8 @@ export default function ContactDetail() {
             <div className="flex flex-col gap-3.5">
               <div className="rounded-xl border border-km-line bg-white p-4">
                 <p className="mb-2.5 text-km-xs font-bold uppercase tracking-wide text-km-faint">Coordonnées</p>
-                {/* Édition au clic sur la valeur, et non par un bouton « Modifier » : « c'était pas
-                    d'appuyer sur le bouton, c'était d'appuyer sur le champ » (William, 13/08/2026).
-                    Les liens tel: et mailto: restent affichés à côté, sinon on perdrait l'appel en
-                    un clic en rendant le champ éditable. */}
+                {/* Téléphone et e-mail n'apparaissent qu'une fois : la valeur garde son action
+                    (Allo ou courriel) et le petit crayon séparé ouvre l'édition inline. */}
                 {canManage ? (
                   <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
                     <InlineField
@@ -313,44 +311,38 @@ export default function ContactDetail() {
                       onSaved={() => showToast('✓ enregistré')}
                       onError={(err) => showToast(`Erreur : ${err.message}`)}
                     />
-                    <div>
-                      <InlineField
-                        variant="text"
-                        label="Téléphone"
-                        value={contact.telephone ?? ''}
-                        emptyLabel="ajouter"
-                        mono
-                        onCommit={(v) => majChamp({ telephone: v || null })}
-                        onSaved={() => showToast('✓ enregistré')}
-                        onError={(err) => showToast(`Erreur : ${err.message}`)}
-                      />
-                      {contact.telephone && <PhoneLink value={contact.telephone} />}
-                    </div>
-                    <div>
-                      <InlineField
-                        variant="text"
-                        label="Mobile"
-                        value={contact.telephone_mobile ?? ''}
-                        emptyLabel="ajouter"
-                        mono
-                        onCommit={(v) => majChamp({ telephone_mobile: v || null })}
-                        onSaved={() => showToast('✓ enregistré')}
-                        onError={(err) => showToast(`Erreur : ${err.message}`)}
-                      />
-                      {contact.telephone_mobile && <PhoneLink value={contact.telephone_mobile} />}
-                    </div>
-                    <div>
-                      <InlineField
-                        variant="text"
-                        label="Email"
-                        value={contact.email ?? ''}
-                        emptyLabel="ajouter"
-                        onCommit={(v) => majChamp({ email: v || null })}
-                        onSaved={() => showToast('✓ enregistré')}
-                        onError={(err) => showToast(`Erreur : ${err.message}`)}
-                      />
-                      {contact.email && <EmailLink value={contact.email} />}
-                    </div>
+                    <InlineField
+                      variant="text"
+                      label="Téléphone"
+                      value={contact.telephone ?? ''}
+                      displayNode={contact.telephone ? <PhoneLink value={contact.telephone} /> : undefined}
+                      emptyLabel="ajouter"
+                      mono
+                      onCommit={(v) => majChamp({ telephone: v || null })}
+                      onSaved={() => showToast('✓ enregistré')}
+                      onError={(err) => showToast(`Erreur : ${err.message}`)}
+                    />
+                    <InlineField
+                      variant="text"
+                      label="Mobile"
+                      value={contact.telephone_mobile ?? ''}
+                      displayNode={contact.telephone_mobile ? <PhoneLink value={contact.telephone_mobile} /> : undefined}
+                      emptyLabel="ajouter"
+                      mono
+                      onCommit={(v) => majChamp({ telephone_mobile: v || null })}
+                      onSaved={() => showToast('✓ enregistré')}
+                      onError={(err) => showToast(`Erreur : ${err.message}`)}
+                    />
+                    <InlineField
+                      variant="text"
+                      label="Email"
+                      value={contact.email ?? ''}
+                      displayNode={contact.email ? <EmailLink value={contact.email} /> : undefined}
+                      emptyLabel="ajouter"
+                      onCommit={(v) => majChamp({ email: v || null })}
+                      onSaved={() => showToast('✓ enregistré')}
+                      onError={(err) => showToast(`Erreur : ${err.message}`)}
+                    />
                   </div>
                 ) : (
                 <div className="space-y-2 text-sm">
