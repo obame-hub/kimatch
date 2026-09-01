@@ -171,6 +171,13 @@ const COLONNES = [
   { code: 'A_DEMANDER', libelle: 'Aucun traitement' },
   { code: 'EN_ATTENTE', libelle: 'Demande envoyée' },
   { code: 'RECUE', libelle: 'Demande acceptée' },
+  /* ══ « DEMANDE DISPONIBLE », CALCULÉE PAR LA BASE ══
+     Naoëlle, 01/09/2026 : une consultation devient disponible quand plus aucune de ses offres n'est
+     en attente et qu'au moins une est disponible — le mélange disponible + indisponible compte,
+     un fournisseur qui répond sur deux sites sur trois a répondu.
+     APRÈS « acceptée » et non avant : la demande reste acceptée tant que des offres sont attendues,
+     donc une consultation qui apparaîtrait à gauche reculerait sur le tableau à leur arrivée. */
+  { code: 'DISPONIBLE', libelle: 'Demande disponible' },
 ] as const
 
 const euros = (v: number) => v.toLocaleString('fr-FR', { maximumFractionDigits: 0 }) + ' €'
@@ -298,8 +305,11 @@ export default function Pricing({ sansEntete }: { sansEntete?: boolean }) {
     { libelle: libelleDe('A_DEMANDER'), valeur: String(totalDe('A_DEMANDER')), precision: 'Action attendue' },
     { libelle: libelleDe('EN_ATTENTE'), valeur: String(totalDe('EN_ATTENTE')), precision: 'Chez le fournisseur' },
     {
-      libelle: libelleDe('RECUE'),
-      valeur: String(totalDe('RECUE')),
+      /* L'indicateur suit la colonne qui porte l'information utile : ce qu'on peut comparer
+         MAINTENANT, c'est-à-dire les consultations dont les offres sont arrivées. « Acceptée » ne
+         dit que l'attente. */
+      libelle: libelleDe('DISPONIBLE'),
+      valeur: String(totalDe('DISPONIBLE')),
       precision: montantConnu ? euros(montantTotal) + ' chiffrés' : 'Aucun prix saisi',
     },
   ]

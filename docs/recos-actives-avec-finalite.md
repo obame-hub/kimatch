@@ -94,13 +94,3 @@ avec. Ce n'est pas une erreur de saisie répétée : c'est un geste de l'applica
 bout.
 
 ---
-
-## Les deux options
-
-**1 · Clôturer les 24 versions restées ouvertes.** Répare l'existant. Ne protège de rien : le
-problème reviendra à la prochaine clôture groupée.
-
-**2 · Changer la règle — clôturer une recommandation ferme sa dernière version.** Répare l'existant *et* la
-cause. C'est ce que je recommande : les trois lots ci-dessus montrent que le geste se répète.
-
-Dans les deux cas, ce sont des statuts métier : rien n'a été modifié, la décision revient à Michel.
