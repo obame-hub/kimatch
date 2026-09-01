@@ -315,7 +315,15 @@ export default function RecommandationDetail() {
      Cette règle ne touche QUE la finalité « Acceptée ». Un dossier refusé ou expiré se ferme sans
      contrat, c'est même le cas normal — le lui interdire enfermerait les dossiers perdus. */
   const STATUTS_CONTRAT_SIGNE = ['SIGNE', 'A_VENIR', 'ACTIF', 'TERMINE', 'RESILIE']
-  const contratValide = (contratsIssus ?? []).some((ct) => STATUTS_CONTRAT_SIGNE.includes(ct.statut))
+  const contratValide = (contratsIssus ?? []).some((ct) =>
+    /* Le statut du contrat et celui de sa signature sont deux cycles différents. Un contrat peut
+       encore être « Nouveau » côté métier alors que DocuSign l'a déjà marqué SIGNE et daté — c'est
+       précisément le cas de GAZ EUROPEEN sur cette recommandation. La preuve de signature doit
+       donc primer sur l'avancement administratif du contrat. */
+    ct.statut_signature === 'SIGNE'
+    || Boolean(ct.date_signature)
+    || STATUTS_CONTRAT_SIGNE.includes(ct.statut),
+  )
 
   const clotureValide = Boolean(
     finaliteChoisie
