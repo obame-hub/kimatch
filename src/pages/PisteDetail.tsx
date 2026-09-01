@@ -10,6 +10,8 @@ import { InlineField } from '@/components/ui/inline-field'
 import { OngletFichiers } from '@/components/compte/OngletFichiers'
 import { DialogConversionPiste } from '@/components/prospection/DialogConversionPiste'
 import { DialogNouvelleTache } from '@/components/tache/DialogNouvelleTache'
+import { FriseStatut } from '@/components/opportunite/FriseStatut'
+import { FluxActualite } from '@/components/opportunite/FluxActualite'
 import { useGoBack } from '@/lib/useGoBack'
 import { useCanManage } from '@/lib/data/roles'
 import { useActionsParPiste, useCompleteAction } from '@/lib/data/actions'
@@ -161,68 +163,69 @@ export default function PisteDetail() {
         ))}
       </div>
 
-      <div className="min-h-0 flex-1 overflow-y-auto bg-km-bg p-4 sm:p-5">
+      {/* DEUX COLONNES, LE GABARIT DE L'OPPORTUNITE.
+          Naoelle, 01/09/2026 : « affiche-la dans le style de l'objet opportunite avec le flux
+          d'actualite a droite ». Le flux mele l'historique des modifications et les taches dans
+          l'ordre du temps : sur une piste, il raconte qui a verifie quoi et quand. */}
+      <div className="grid min-h-0 flex-1 grid-cols-1 overflow-hidden lg:grid-cols-[minmax(0,1fr)_300px]">
+        <div className="min-h-0 overflow-y-auto bg-km-bg p-4 sm:p-5">
         {onglet === 'piste' && (
-          <div className="flex max-w-[760px] flex-col gap-3.5">
+          <div className="flex flex-col gap-3.5">
             {/* ══ LES CINQ VÉRIFICATIONS ══
                 Elles se figent après conversion : décocher une case après coup ne déferait rien et
                 laisserait deux objets qui se contredisent. */}
+            {/* LES CINQ VERIFICATIONS, EN FRISE.
+                Naoelle, 01/09/2026 : « transforme les 5 verifications en frise de statut animee,
+                ca rendra bien et ca motivera les commerciaux » — puis : « il faudrait qu'il puisse
+                cocher dans n'importe quel ordre, pas forcement une frise chronologique, mais une
+                ligne avec des coches animees ».
+
+                LES DEUX DEMANDES SE TIENNENT, A UNE CONDITION. La frise de l'opportunite raconte un
+                PARCOURS : les jalons avant le courant sont franchis parce qu'on ne saute pas
+                d'etape. Ici, les cinq controles se cochent dans l'ordre ou le commercial obtient
+                les reponses. La frise a donc recu un etat PAR JALON : chaque coche porte le sien,
+                et le trait entre deux coches n'est plein que si les deux le sont — sans quoi il
+                affirmerait une progression lineaire qui n'existe pas.
+
+                La coche restante pulse : c'est elle qui appelle le geste suivant. */}
             <Card className="p-4">
-              <div className="mb-2 flex items-center justify-between">
+              <div className="mb-1 flex items-center justify-between">
                 <p className="text-km-label font-bold uppercase tracking-[0.08em] text-km-faint">
                   Avant de lancer l’opportunité
                 </p>
-                <span className={cn('text-km-label font-bold', mure ? 'text-km-green' : 'text-km-amber')}>
+                <span className={cn('text-km-label font-bold tabular-nums', mure ? 'text-km-green' : 'text-km-amber')}>
                   {faites}/5
                 </span>
               </div>
-              {!convertie && (
-                <div className="mb-3 h-1 overflow-hidden rounded-full bg-km-soft">
-                  <div
-                    className={cn('h-full rounded-full transition-[width] duration-500', mure ? 'bg-km-green' : 'bg-indigo-500')}
-                    style={{ width: `${(faites / VALIDATIONS_PISTE.length) * 100}%` }}
-                  />
-                </div>
-              )}
-              <div className="flex flex-col gap-1">
-                {VALIDATIONS_PISTE.map((v) => {
-                  const coche = Boolean(piste[v.cle])
-                  return (
-                    <button
-                      key={v.cle}
-                      type="button"
-                      disabled={convertie || !canManage}
-                      onClick={async () => {
-                        try {
-                          await maj.mutateAsync({ id: piste.id, patch: { [v.cle]: !coche } })
-                        } catch (e) {
-                          signaler(e instanceof Error ? e.message : 'Enregistrement impossible')
-                        }
-                      }}
-                      className={cn(
-                        'flex items-center gap-2.5 rounded-km px-2.5 py-2 text-left text-km-body transition-colors',
-                        coche ? 'text-km-text' : 'text-km-muted',
-                        !convertie && canManage && 'hover:bg-km-soft',
-                        (convertie || !canManage) && 'cursor-default',
-                      )}
-                    >
-                      <span
-                        className={cn(
-                          'flex h-4 w-4 shrink-0 items-center justify-center rounded',
-                          coche ? 'bg-km-green text-white' : 'border border-km-line bg-white',
-                        )}
-                      >
-                        {coche && <Check className="h-2.5 w-2.5" />}
-                      </span>
-                      {v.libelle}
-                    </button>
-                  )
-                })}
-              </div>
+              <FriseStatut
+                teinte={mure ? 'recommandation' : 'signal'}
+                jalons={VALIDATIONS_PISTE.map((v) => ({
+                  code: v.cle,
+                  libelle: v.libelle,
+                  franchi: Boolean(piste[v.cle]),
+                }))}
+                courant={VALIDATIONS_PISTE.find((v) => !piste[v.cle])?.cle ?? ''}
+                onJalon={
+                  convertie || !canManage
+                    ? undefined
+                    : (code) => {
+                        const cle = code as (typeof VALIDATIONS_PISTE)[number]['cle']
+                        maj
+                          .mutateAsync({ id: piste.id, patch: { [cle]: !piste[cle] } })
+                          .catch((e) => signaler(e instanceof Error ? e.message : 'Enregistrement impossible'))
+                      }
+                }
+              />
               {!mure && !convertie && (
-                <p className="mt-2 border-t border-km-line pt-2 text-km-label leading-snug text-km-faint">
-                  Les cinq vérifications doivent être faites : sans elles, on ouvrirait une affaire
-                  sur un contact qu’on ne sait pas joindre.
+                <p className="mt-3 border-t border-km-line pt-2.5 text-km-label leading-snug text-km-faint">
+                  Cliquez une pastille pour la cocher, dans l’ordre que vous voulez. Les cinq
+                  vérifications doivent être faites : sans elles, on ouvrirait une affaire sur un
+                  contact qu’on ne sait pas joindre.
+                </p>
+              )}
+              {convertie && (
+                <p className="mt-3 border-t border-km-line pt-2.5 text-km-label text-km-faint">
+                  Les vérifications sont figées : la piste a produit son opportunité.
                 </p>
               )}
             </Card>
@@ -423,6 +426,29 @@ export default function PisteDetail() {
             />
           </div>
         )}
+        </div>
+
+        {/* LE FLUX D'ACTUALITÉ, À DROITE — comme sur l'opportunité.
+            Il mêle l'historique des modifications de la piste et ses tâches dans l'ordre du temps.
+            Les INTERACTIONS n'y figurent pas : `interactions` n'a pas de colonne `piste_id`, une
+            piste n'étant pas encore un contact au sens de la table. Passer une liste vide est
+            honnête — le jour où le lien existera, il suffira de la remplir. */}
+        <div className="hidden min-h-0 flex-col border-l border-km-line bg-white lg:flex">
+          <div className="flex-none border-b border-km-line px-3.5 py-2.5">
+            <p className="text-km-label font-bold uppercase tracking-[0.08em] text-km-faint">
+              Flux d’actualité
+            </p>
+          </div>
+          <div className="min-h-0 flex-1 overflow-y-auto p-3">
+            <FluxActualite
+              tableNom="pistes"
+              ligneId={piste.id}
+              dateCreation={piste.date_creation}
+              interactions={[]}
+              actions={actions ?? []}
+            />
+          </div>
+        </div>
       </div>
 
       {tacheOuverte && (

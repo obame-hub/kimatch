@@ -85,9 +85,24 @@ export const TEINTES_FRISE: Record<string, TeinteFrise> = {
 export interface JalonFrise {
   code: string
   libelle: string
+  /**
+   * CE JALON EST-IL FRANCHI, INDÉPENDAMMENT DE SA POSITION ?
+   *
+   * La frise a été écrite pour un PARCOURS : les jalons avant le courant sont franchis, ceux après
+   * restent à venir. C'est vrai d'une opportunité, qui ne saute pas d'étape.
+   *
+   * Ce n'est pas vrai d'une LISTE DE VÉRIFICATIONS. Les cinq contrôles d'une piste — contact,
+   * société, e-mail, portable, décisionnaire — se cochent dans l'ordre où le commercial obtient les
+   * réponses, souvent pas celui de la liste. Sans ce drapeau, cocher le quatrième avant le deuxième
+   * afficherait le quatrième comme « à venir » alors qu'il est fait, et la frise mentirait sur le
+   * travail accompli.
+   *
+   * Absent, le comportement d'origine s'applique : la position décide.
+   */
+  franchi?: boolean
 }
 
-export function FriseStatut({ jalons, courant, finalite, teinte = 'opportunite' }: {
+export function FriseStatut({ jalons, courant, finalite, teinte = 'opportunite', onJalon }: {
   jalons: JalonFrise[]
   /** Code du palier atteint. Les jalons précédents sont « franchis ». */
   courant: string
@@ -95,19 +110,39 @@ export function FriseStatut({ jalons, courant, finalite, teinte = 'opportunite' 
   finalite?: { libelle: string; perdue: boolean } | null
   /** La famille de couleur. Par défaut celle de l'opportunité, pour ne rien changer à l'existant. */
   teinte?: keyof typeof TEINTES_FRISE
+  /**
+   * Bascule un jalon au clic — pour les frises qui sont une LISTE DE VÉRIFICATIONS et non un
+   * parcours. Absent, la frise reste ce qu'elle était : un affichage, pas une commande.
+   */
+  onJalon?: (code: string) => void
 }) {
   const t = TEINTES_FRISE[teinte] ?? TEINTES_FRISE.opportunite
   const indexCourant = Math.max(0, jalons.findIndex((j) => j.code === courant))
   // Une opportunité clôturée a tout franchi : la frise s'arrête sur sa qualification finale.
   const atteint = finalite ? jalons.length : indexCourant
+  /* Quand les jalons portent leur propre état, c'est LUI qui décide — voir `JalonFrise.franchi`.
+     Le « courant » devient alors le premier jalon non franchi, celui qui pulse et appelle l'action. */
+  const parJalon = jalons.some((j) => j.franchi !== undefined)
+  const premierRestant = jalons.findIndex((j) => !j.franchi)
 
   return (
     <div className="flex items-center px-1.5 pb-1.5 pt-4">
       {jalons.map((jalon, i) => {
-        const etat = i < atteint ? 'franchi' : i === atteint ? 'courant' : 'a_venir'
+        const etat = parJalon
+          ? jalons[i].franchi
+            ? 'franchi'
+            : i === premierRestant
+              ? 'courant'
+              : 'a_venir'
+          : i < atteint
+            ? 'franchi'
+            : i === atteint
+              ? 'courant'
+              : 'a_venir'
         // Le segment qui SUIT immédiatement l'étape courante est celui qu'il reste à franchir : on
         // l'affiche hachuré et défilant. Les autres sont pleins ou éteints.
-        const segmentEnCours = i === atteint + 1 && !finalite
+        const reference = parJalon ? (premierRestant === -1 ? jalons.length : premierRestant) : atteint
+        const segmentEnCours = i === reference + 1 && !finalite
         return (
           <div key={jalon.code} className="flex min-w-0 flex-1 items-center">
             {i > 0 && (
@@ -124,8 +159,12 @@ export function FriseStatut({ jalons, courant, finalite, teinte = 'opportunite' 
                     : undefined
                 }
                 className={cn(
-                  '-mx-2.5 h-[5px] flex-1 rounded-[3px]',
-                  i <= atteint
+                  '-mx-2.5 h-[5px] flex-1 rounded-[3px] transition-colors duration-300',
+                  /* EN MODE LISTE DE VÉRIFICATIONS, le trait relie deux coches et ne raconte aucun
+                     ordre : il n'est plein que si LES DEUX qu'il relie sont faites. Le remplir
+                     jusqu'au premier restant, comme sur un parcours, affirmerait une progression
+                     linéaire qui n'existe pas ici. */
+                  (parJalon ? jalons[i - 1]?.franchi && jalons[i].franchi : i <= atteint)
                     ? 'bg-gradient-to-r ' + t.gradient
                     : segmentEnCours
                       ? 'animate-km-stripe bg-[length:36px_100%] motion-reduce:animate-none'
@@ -134,9 +173,17 @@ export function FriseStatut({ jalons, courant, finalite, teinte = 'opportunite' 
               />
             )}
             <div className="flex min-w-0 flex-1 flex-col items-center">
-              <div
+              {/* UN BOUTON QUAND LA FRISE EST UNE COMMANDE, une simple pastille sinon. Un cercle
+                  cliquable qui ne se distingue pas d'un cercle décoratif se découvre par hasard :
+                  d'où le curseur, l'agrandissement au survol et l'intitulé de l'action. */}
+              <button
+                type="button"
+                disabled={!onJalon}
+                onClick={onJalon ? () => onJalon(jalon.code) : undefined}
+                title={onJalon ? (etat === 'franchi' ? `Décocher « ${jalon.libelle} »` : `Cocher « ${jalon.libelle} »`) : undefined}
                 className={cn(
-                  'z-[1] flex shrink-0 items-center justify-center rounded-full',
+                  'z-[1] flex shrink-0 items-center justify-center rounded-full transition-all duration-200',
+                  onJalon && 'cursor-pointer hover:scale-110',
                   etat === 'courant' ? 'h-[34px] w-[34px]' : 'h-[30px] w-[30px]',
                   etat === 'a_venir'
                     ? 'border-2 border-dashed border-[#dcdad5] bg-white text-[#c0c2bd]'
@@ -149,7 +196,7 @@ export function FriseStatut({ jalons, courant, finalite, teinte = 'opportunite' 
                 {etat === 'franchi'
                   ? <Check className="h-3.5 w-3.5" strokeWidth={3} />
                   : <span className={cn('rounded-full bg-current', etat === 'courant' ? 'h-1.5 w-1.5' : 'h-1 w-1')} />}
-              </div>
+              </button>
               <p
                 className={cn(
                   'mt-2 text-center text-km-label leading-tight tracking-tight',
