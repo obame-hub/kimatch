@@ -32,18 +32,43 @@
 -- rendez-vous ou autre échange montrant un intérêt du contact. Un simple email automatique envoyé ne
 -- doit pas être considéré comme une interaction positive. »
 --
--- Le critère commun est que LE CONTACT A RÉAGI. Deux marques le disent dans nos données :
+-- Le critère commun est que LE CONTACT A RÉAGI. Trois marques le disent dans nos données :
 --
---   · `sens = 'ENTRANT'`  — l'échange vient de lui : réponse, appel reçu, demande. 15 665 lignes.
+--   · `sens = 'ENTRANT'` — l'échange vient de lui : réponse, appel reçu, demande. 15 665 lignes.
 --   · un RENDEZ-VOUS, une VISIO ou une VISITE DE SITE — quel qu'en soit le sens, elle a eu lieu,
 --     donc il y a participé.
+--   · LA QUALIFICATION DE L'APPEL, dans `resultat`. C'est la marque la plus fidèle à ses mots, et
+--     je l'avais manquée : les 9 487 appels importés d'Allo n'ont pas de `sens`, mais leur colonne
+--     `resultat` porte la qualification saisie par le commercial.
+--
+-- ══ LES QUALIFICATIONS RÉELLES, RELEVÉES EN BASE ══
+--
+--   retenues comme positives          écartées
+--   ──────────────────────────        ──────────────────────────────────────
+--   'Répondu'              334        'NRP'                            576
+--   'Rappel demandé'       153        'Non joint'                    1 186
+--   'Argumenté – À suivre'  85        'Message sur le répondeur'       623
+--   'Argumenté – Intéressé' 66        'Raccroché'                      435
+--   'Positif'               31        'Argumenté – Refus'               22
+--                                     'Autre', 'Assistant IA'          352
+--
+-- La correspondance avec sa phrase est directe : « demande de rappel » → 'Rappel demandé',
+-- « appel avec échange » → 'Répondu' et les 'Argumenté', « montrant un intérêt » → 'Positif' et
+-- 'Intéressé'. Un refus reste un échange, mais il ne montre aucun intérêt : il ne compte pas.
+--
+-- ══ CE QUE ÇA CHANGE AUJOURD'HUI : RIEN, ET C'EST L'INFORMATION ══
+--
+-- La règle reconnaît 670 interactions de plus — mais **aucun contact éligible n'y gagne un point**.
+-- Ces appels qualifiés vont du 04/08/2025 au 11/03/2026, et **quatre seulement** tombent dans la
+-- fenêtre de 180 jours du barème.
+--
+-- La raison est ailleurs : la reprise des appels s'est arrêtée. Le critère « interactions » ne tient
+-- donc plus que par les 15 665 e-mails entrants. La règle est écrite juste pour le jour où les
+-- appels reviendront ; en attendant, ce critère est sous-alimenté et Michel doit le savoir.
 --
 -- Un e-mail SORTANT seul n'est pas retenu : c'est exactement le cas qu'il exclut. Les notes internes
--- non plus — elles ne sont pas un échange avec le contact.
---
--- LIMITE ASSUMÉE : 31 793 interactions n'ont aucun sens renseigné (reprise Salesforce). Elles ne
--- comptent donc pas comme positives, sauf si leur type est un rendez-vous. C'est le choix prudent :
--- compter un envoi sans réponse comme un signe d'intérêt gonflerait le score de contacts muets.
+-- non plus — elles ne sont pas un échange avec le contact. Restent 20 251 e-mails sans `sens` que
+-- rien ne permet de classer : les compter gonflerait le score de contacts muets.
 --
 -- ══ LE POTENTIEL PASSE PAR LE RESPONSABLE DU COMPTEUR ══
 --
@@ -122,6 +147,15 @@ derniere_positive as (
      and (
        i.sens = 'ENTRANT'
        or coalesce(ti.code, '') in ('RENDEZ_VOUS', 'VISIO', 'VISITE_SITE')
+       -- La qualification de l'appel. `ilike` et non une égalité : `resultat` est un tableau
+       -- sérialisé — « ['Rappel demandé','aircall','inbound',…] » — et la qualification n'y occupe
+       -- pas toujours la même place. Le libellé 'Argumenté – Intéressé ' porte une espace finale
+       -- en base : la chercher sans ancrage évite de la manquer pour un caractère.
+       or i.resultat ilike '%Rappel demandé%'
+       or i.resultat ilike '%Argumenté – Intéressé%'
+       or i.resultat ilike '%Argumenté – À suivre%'
+       or i.resultat ilike '%''Positif''%'
+       or i.resultat ilike '%''Répondu''%'
      )
    group by i.contact_id
 ),
