@@ -159,7 +159,7 @@ function Selecteur({
  */
 const AFFICHER_COUT_ET_ETUDE = false
 
-export function VoletGaucheReco({
+export function RattachementsReco({
   reco,
   compte,
   contacts,
@@ -179,7 +179,7 @@ export function VoletGaucheReco({
   reco: Recommandation
   compte: Compte | null | undefined
   contacts: Contact[]
-  /** Le périmètre et les documents descendent ici depuis les onglets — voir le bloc ci-dessous. */
+  /** Objets et documents liés présentés dans l'onglet Rattachements de la recommandation. */
   compteurs: Compteur[]
   documents: { id: string; nom: string; type_document: string | null }[]
   contactPrincipal: Contact | null | undefined

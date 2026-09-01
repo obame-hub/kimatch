@@ -30,7 +30,7 @@ import type { Mandat, Contact, Compte, Compteur } from '@/types/domain'
 import { generateMandatKiweePdf, generateMandatEnergixPdf } from '@/lib/mandatPdf'
 import { appelerNumero, numeroLisible } from '@/lib/telephonie'
 
-type TabKey = 'mandat' | 'perimetre' | 'fichiers'
+type TabKey = 'mandat' | 'rattachements' | 'perimetre' | 'fichiers'
 
 // Le code de reference reste 'KIWI' en base (cle utilisee par tout le pipeline d'import), seul
 // le libelle affiche change -- renommer le code casserait les jointures existantes pour rien.
@@ -473,6 +473,9 @@ export default function MandatDetail() {
 
   const TABS: { key: TabKey; label: string; badge?: string }[] = [
     { key: 'mandat', label: 'Mandat' },
+    /* Le compte, le signataire, le parcours de conversion et la validité : quatre cartes qui
+       tenaient 256 px sur les trois onglets (Michel et Naoëlle, 31/08/2026). */
+    { key: 'rattachements', label: 'Rattachements' },
     { key: 'perimetre', label: 'Périmètre', badge: compteursDuMandat.length ? String(compteursDuMandat.length) : undefined },
     { key: 'fichiers', label: 'Fichiers', badge: documentsDuMandat.length ? String(documentsDuMandat.length) : undefined },
   ]
@@ -583,67 +586,69 @@ export default function MandatDetail() {
         })}
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-[256px_1fr]">
-        {/* Colonne gauche (desktop uniquement) */}
-        <div className="hidden flex-col gap-3.5 border-r border-km-line bg-km-bg/60 p-3.5 lg:flex">
-          {compte && (
-            <div className="rounded-xl border border-km-line bg-white p-3.5">
-              <div className="mb-2 flex items-center gap-1.5">
-                <span className="flex h-5 w-5 items-center justify-center rounded-md bg-sky-100 text-sky-500"><Building2 className="h-2.5 w-2.5" /></span>
-                <span className="text-km-xs font-bold uppercase tracking-wide text-km-faint">Compte</span>
-                <div className="flex-1" />
-                <EntityLink to={`/comptes/${compte.id}`}>ouvrir →</EntityLink>
-              </div>
-              <p className="text-km-body font-bold text-sky-500">{compte.nom}</p>
-            </div>
-          )}
-
-          {contactSignataire && (
-            <div className="rounded-xl border border-violet-200 bg-gradient-to-br from-violet-50/60 to-white p-3.5">
-              <div className="mb-2.5 flex items-center gap-1.5">
-                <span className="text-km-xs font-bold uppercase tracking-wide text-km-faint">Signataire</span>
-                <div className="flex-1" />
-                <EntityLink to={`/contacts/${contactSignataire.id}`}>ouvrir →</EntityLink>
-              </div>
-              <div className="flex items-center gap-2.5">
-                <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-violet-500 to-violet-400 text-km-label font-bold text-white">
-                  {`${contactSignataire.prenom[0] ?? ''}${contactSignataire.nom[0] ?? ''}`.toUpperCase()}
-                </div>
-                <div className="min-w-0 flex-1">
-                  <p className="truncate text-km-body font-bold text-km-text">{contactSignataire.prenom} {contactSignataire.nom}</p>
-                  {contactSignataire.fonction && <p className="truncate text-km-xs text-km-muted">{contactSignataire.fonction}</p>}
-                  {/* LE NUMÉRO S'AFFICHE, ET CE N'EST PAS COSMÉTIQUE. L'extension Allo décore les
-                    numéros qu'elle VOIT sur la page : derrière une icône et une infobulle, elle n'a
-                    rien à détecter et l'icône Allo n'apparaît jamais. Le texte est la condition pour
-                    que l'appel dans Allo soit possible. */}
-                  {contactSignataire.telephone && (
-                    <p className="truncate font-mono text-km-xs text-km-muted">{numeroLisible(contactSignataire.telephone)}</p>
-                  )}
-                </div>
-              </div>
-              <div className="mt-2.5 flex gap-1.5">
-                {contactSignataire.telephone && (
-                  <button
-                    type="button"
-                    onClick={() => void appelerNumero(contactSignataire.telephone)}
-                    title="Appeler"
-                    className="flex h-7 flex-1 items-center justify-center rounded-lg border border-km-line bg-white text-km-green hover:bg-kiwi-50"
-                  >
-                    <Phone className="h-3 w-3" />
-                  </button>
-                )}
-                {contactSignataire.email && (
-                  <a href={`mailto:${contactSignataire.email}`} title="Envoyer un email" className="flex h-7 flex-1 items-center justify-center rounded-lg border border-km-line bg-white text-sky-500 hover:bg-sky-50">
-                    <Mail className="h-3 w-3" />
-                  </a>
-                )}
-              </div>
-            </div>
-          )}
-        </div>
-
+      <div className="grid grid-cols-1">
         {/* Centre */}
         <div className="bg-km-bg p-4 sm:p-5">
+          {/* Les objets liés et le contexte du mandat, sortis du volet gauche. */}
+          {tab === 'rattachements' && (
+            <div className="flex max-w-[560px] flex-col gap-3.5">
+        {compte && (
+          <div className="rounded-xl border border-km-line bg-white p-3.5">
+            <div className="mb-2 flex items-center gap-1.5">
+              <span className="flex h-5 w-5 items-center justify-center rounded-md bg-sky-100 text-sky-500"><Building2 className="h-2.5 w-2.5" /></span>
+              <span className="text-km-xs font-bold uppercase tracking-wide text-km-faint">Compte</span>
+              <div className="flex-1" />
+              <EntityLink to={`/comptes/${compte.id}`}>ouvrir →</EntityLink>
+            </div>
+            <p className="text-km-body font-bold text-sky-500">{compte.nom}</p>
+          </div>
+        )}
+
+        {contactSignataire && (
+          <div className="rounded-xl border border-violet-200 bg-gradient-to-br from-violet-50/60 to-white p-3.5">
+            <div className="mb-2.5 flex items-center gap-1.5">
+              <span className="text-km-xs font-bold uppercase tracking-wide text-km-faint">Signataire</span>
+              <div className="flex-1" />
+              <EntityLink to={`/contacts/${contactSignataire.id}`}>ouvrir →</EntityLink>
+            </div>
+            <div className="flex items-center gap-2.5">
+              <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-violet-500 to-violet-400 text-km-label font-bold text-white">
+                {`${contactSignataire.prenom[0] ?? ''}${contactSignataire.nom[0] ?? ''}`.toUpperCase()}
+              </div>
+              <div className="min-w-0 flex-1">
+                <p className="truncate text-km-body font-bold text-km-text">{contactSignataire.prenom} {contactSignataire.nom}</p>
+                {contactSignataire.fonction && <p className="truncate text-km-xs text-km-muted">{contactSignataire.fonction}</p>}
+                {/* LE NUMÉRO S'AFFICHE, ET CE N'EST PAS COSMÉTIQUE. L'extension Allo décore les
+                  numéros qu'elle VOIT sur la page : derrière une icône et une infobulle, elle n'a
+                  rien à détecter et l'icône Allo n'apparaît jamais. Le texte est la condition pour
+                  que l'appel dans Allo soit possible. */}
+                {contactSignataire.telephone && (
+                  <p className="truncate font-mono text-km-xs text-km-muted">{numeroLisible(contactSignataire.telephone)}</p>
+                )}
+              </div>
+            </div>
+            <div className="mt-2.5 flex gap-1.5">
+              {contactSignataire.telephone && (
+                <button
+                  type="button"
+                  onClick={() => void appelerNumero(contactSignataire.telephone)}
+                  title="Appeler"
+                  className="flex h-7 flex-1 items-center justify-center rounded-lg border border-km-line bg-white text-km-green hover:bg-kiwi-50"
+                >
+                  <Phone className="h-3 w-3" />
+                </button>
+              )}
+              {contactSignataire.email && (
+                <a href={`mailto:${contactSignataire.email}`} title="Envoyer un email" className="flex h-7 flex-1 items-center justify-center rounded-lg border border-km-line bg-white text-sky-500 hover:bg-sky-50">
+                  <Mail className="h-3 w-3" />
+                </a>
+              )}
+            </div>
+          </div>
+        )}
+            </div>
+          )}
+
           {tab === 'mandat' && (
             <div className="flex flex-col gap-3.5">
               <ConversionPathCard mandat={mandat} signaler={showToast} />

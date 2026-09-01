@@ -36,7 +36,7 @@ import type { Compteur, Consommation } from '@/types/domain'
 const POSTE_OPTIONS = ['TOTAL', 'HP', 'HC', 'POINTE', 'HPH', 'HCH', 'HPE', 'HCE']
 const TYPE_VALEUR_OPTIONS = ['MESUREE', 'ESTIMEE', 'CORRIGEE']
 
-type TabKey = 'apercu' | 'contrats' | 'mandats' | 'fichiers'
+type TabKey = 'apercu' | 'rattachements' | 'contrats' | 'mandats' | 'fichiers'
 
 function AddConsommationDialog({ compteurId, open, onClose }: { compteurId: string; open: boolean; onClose: () => void }) {
   const createConsommation = useCreateConsommation()
@@ -428,6 +428,10 @@ export default function CompteurDetail() {
 
   const TABS: { key: TabKey; label: string; badge?: string }[] = [
     { key: 'apercu', label: 'Compteur' },
+    /* La hiérarchie compte → site → compteur est une NAVIGATION, pas une liste d'objets :
+       elle dit d'où l'on vient. Elle rejoint tout de même cet onglet, parce que c'est la même
+       question — à quoi ce compteur est-il accroché (Michel et Naoëlle, 31/08/2026). */
+    { key: 'rattachements', label: 'Rattachements' },
     { key: 'contrats', label: 'Contrats', badge: contratsDuCompteur.length ? String(contratsDuCompteur.length) : undefined },
     { key: 'mandats', label: 'Mandats', badge: mandatDuCompteur ? undefined : '!' },
     { key: 'fichiers', label: 'Fichiers', badge: documentsDuCompteur.length ? String(documentsDuCompteur.length) : undefined },
@@ -526,104 +530,106 @@ export default function CompteurDetail() {
         })}
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-[256px_1fr]">
-        {/* Colonne gauche — Hiérarchie (desktop uniquement) */}
-        <div className="hidden flex-col gap-3.5 border-r border-km-line bg-km-bg/60 p-3.5 lg:flex">
-          <div className="rounded-xl border border-km-line bg-white p-3.5">
-            <p className="mb-2 text-km-xs font-bold uppercase tracking-wide text-km-faint">Hiérarchie</p>
-            <div className="flex flex-col gap-0.5">
-              {compte && (
-                <button type="button" onClick={() => navigate(`/comptes/${compte.id}`)} className="flex items-center gap-2 rounded-lg px-1.5 py-1.5 text-left hover:bg-km-bg">
-                  <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-md bg-sky-100 text-sky-500"><Building2 className="h-3 w-3" /></span>
-                  <span className="flex-1 truncate text-xs font-semibold text-km-text">{compte.nom}</span>
-                  <span className="text-km-faint">›</span>
-                </button>
-              )}
-              <div className="ml-[22px] h-2 w-0.5 bg-km-soft" />
-              {site && (
-                <button type="button" onClick={() => navigate(`/sites/${site.id}`)} className="flex items-start gap-2 rounded-lg px-1.5 py-1.5 text-left hover:bg-km-bg">
-                  <span className="mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-md bg-km-green-soft text-km-green"><MapPin className="h-3 w-3" /></span>
-                  <span className="min-w-0 flex-1">
-                    <span className="block truncate text-xs font-semibold text-km-text">{site.nom}</span>
-                    {/* L'adresse du point de livraison, demandee le 15/08/2026 : « faire apparaitre
-                        l'adresse sur l'objet compteur ». Elle vit sur le site, le compteur n'en
-                        porte pas — on l'affiche donc ici, sous le site auquel il est rattache.
-                        C'est aussi ce qui permet de voir d'un coup d'oeil qu'un PDL est range sous
-                        le mauvais site, comme l'etait GI155378 avant le 13/08. */}
-                    {[site.adresse, [site.code_postal, site.ville].filter(Boolean).join(' ')]
-                      .filter((p) => p && p.trim())
-                      .join(', ') && (
-                      <span className="block truncate text-km-label text-km-faint">
-                        {[site.adresse, [site.code_postal, site.ville].filter(Boolean).join(' ')]
-                          .filter((p) => p && p.trim())
-                          .join(', ')}
-                      </span>
-                    )}
-                  </span>
-                  <span className="mt-0.5 text-km-faint">›</span>
-                </button>
-              )}
-              <div className="ml-[22px] h-2 w-0.5 bg-km-soft" />
-              <div className="flex items-center gap-2 rounded-lg bg-km-bg px-1.5 py-1.5">
-                <span className={cn('flex h-6 w-6 shrink-0 items-center justify-center rounded-md', energyClasses)}><Icon className="h-3 w-3" /></span>
-                <span className="flex-1 truncate text-xs font-bold text-km-text">{compteur.utilisation || compteur.numero_pdl}</span>
-              </div>
-            </div>
-          </div>
-
-          {/* « LOCALISATION DANS LE SITE » et « ADRESSE DU COMPTEUR » de la maquette.
-              Jusqu'ici la fiche ne pouvait afficher que l'adresse du SITE, faute de colonnes :
-              faux dès qu'une copropriété a plusieurs entrées, et c'était le cas de GI155378.
-              L'adresse du compteur reste vide par défaut — vide, celle du site fait foi, et la
-              fiche le dit plutôt que de laisser croire à un oubli. */}
-          <div className="rounded-xl border border-km-line bg-white p-3.5">
-            <p className="mb-2 text-km-xs font-bold uppercase tracking-wide text-km-faint">Localisation dans le site</p>
-            <InlineField
-              variant="text"
-              value={compteur.localisation_site ?? ''}
-              emptyLabel="où le trouver sur place"
-              disabled={!canManage}
-              onCommit={(v) => majCompteur({ localisation_site: v.trim() || null })}
-              onSaved={() => showToast('✓ enregistré')}
-              onError={(e) => showToast(`Erreur : ${e.message}`)}
-            />
-
-            <p className="mb-2 mt-3.5 text-km-xs font-bold uppercase tracking-wide text-km-faint">Adresse du compteur</p>
-            <InlineField
-              variant="address"
-              label=""
-              rue={compteur.adresse ?? ''}
-              codePostal={compteur.code_postal ?? ''}
-              ville={compteur.ville ?? ''}
-              emptyLabel="préciser si différente du site"
-              disabled={!canManage}
-              onCommit={({ rue, codePostal, ville }) =>
-                majCompteur({ adresse: rue || null, code_postal: codePostal || null, ville: ville || null })
-              }
-              onSaved={() => showToast('✓ enregistré')}
-              onError={(e) => showToast(`Erreur : ${e.message}`)}
-            />
-            {!compteur.adresse && (
-              <p className="mt-1.5 text-km-xs italic text-km-faint">
-                Non renseignée — c'est l'adresse du site qui fait foi.
-              </p>
-            )}
-          </div>
-
-          <CouvertureCard
-            nbSignaux={signauxDuCompteur.length}
-            mandatCouvert={Boolean(mandatDuCompteur)}
-            recoEnCours={Boolean(recoActiveDuSite)}
-            contratCouvert={contratsDuCompteur.length > 0}
-            onSignaux={() => navigate(`/signaux/${signauxDuCompteur[0].id}`)}
-            onMandat={() => setTab('mandats')}
-            onReco={() => recoActiveDuSite && navigate(`/recommandations/${recoActiveDuSite.id}`)}
-            onContrat={() => setTab('contrats')}
-          />
-        </div>
-
+      <div className="grid grid-cols-1">
         {/* Centre */}
         <div className="bg-km-bg p-4 sm:p-5">
+          {/* La hiérarchie et les rattachements, sortis du volet gauche. */}
+          {tab === 'rattachements' && (
+            <div className="flex max-w-[560px] flex-col gap-3.5">
+        <div className="rounded-xl border border-km-line bg-white p-3.5">
+          <p className="mb-2 text-km-xs font-bold uppercase tracking-wide text-km-faint">Hiérarchie</p>
+          <div className="flex flex-col gap-0.5">
+            {compte && (
+              <button type="button" onClick={() => navigate(`/comptes/${compte.id}`)} className="flex items-center gap-2 rounded-lg px-1.5 py-1.5 text-left hover:bg-km-bg">
+                <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-md bg-sky-100 text-sky-500"><Building2 className="h-3 w-3" /></span>
+                <span className="flex-1 truncate text-xs font-semibold text-km-text">{compte.nom}</span>
+                <span className="text-km-faint">›</span>
+              </button>
+            )}
+            <div className="ml-[22px] h-2 w-0.5 bg-km-soft" />
+            {site && (
+              <button type="button" onClick={() => navigate(`/sites/${site.id}`)} className="flex items-start gap-2 rounded-lg px-1.5 py-1.5 text-left hover:bg-km-bg">
+                <span className="mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-md bg-km-green-soft text-km-green"><MapPin className="h-3 w-3" /></span>
+                <span className="min-w-0 flex-1">
+                  <span className="block truncate text-xs font-semibold text-km-text">{site.nom}</span>
+                  {/* L'adresse du point de livraison, demandee le 15/08/2026 : « faire apparaitre
+                      l'adresse sur l'objet compteur ». Elle vit sur le site, le compteur n'en
+                      porte pas — on l'affiche donc ici, sous le site auquel il est rattache.
+                      C'est aussi ce qui permet de voir d'un coup d'oeil qu'un PDL est range sous
+                      le mauvais site, comme l'etait GI155378 avant le 13/08. */}
+                  {[site.adresse, [site.code_postal, site.ville].filter(Boolean).join(' ')]
+                    .filter((p) => p && p.trim())
+                    .join(', ') && (
+                    <span className="block truncate text-km-label text-km-faint">
+                      {[site.adresse, [site.code_postal, site.ville].filter(Boolean).join(' ')]
+                        .filter((p) => p && p.trim())
+                        .join(', ')}
+                    </span>
+                  )}
+                </span>
+                <span className="mt-0.5 text-km-faint">›</span>
+              </button>
+            )}
+            <div className="ml-[22px] h-2 w-0.5 bg-km-soft" />
+            <div className="flex items-center gap-2 rounded-lg bg-km-bg px-1.5 py-1.5">
+              <span className={cn('flex h-6 w-6 shrink-0 items-center justify-center rounded-md', energyClasses)}><Icon className="h-3 w-3" /></span>
+              <span className="flex-1 truncate text-xs font-bold text-km-text">{compteur.utilisation || compteur.numero_pdl}</span>
+            </div>
+          </div>
+        </div>
+
+        {/* « LOCALISATION DANS LE SITE » et « ADRESSE DU COMPTEUR » de la maquette.
+            Jusqu'ici la fiche ne pouvait afficher que l'adresse du SITE, faute de colonnes :
+            faux dès qu'une copropriété a plusieurs entrées, et c'était le cas de GI155378.
+            L'adresse du compteur reste vide par défaut — vide, celle du site fait foi, et la
+            fiche le dit plutôt que de laisser croire à un oubli. */}
+        <div className="rounded-xl border border-km-line bg-white p-3.5">
+          <p className="mb-2 text-km-xs font-bold uppercase tracking-wide text-km-faint">Localisation dans le site</p>
+          <InlineField
+            variant="text"
+            value={compteur.localisation_site ?? ''}
+            emptyLabel="où le trouver sur place"
+            disabled={!canManage}
+            onCommit={(v) => majCompteur({ localisation_site: v.trim() || null })}
+            onSaved={() => showToast('✓ enregistré')}
+            onError={(e) => showToast(`Erreur : ${e.message}`)}
+          />
+
+          <p className="mb-2 mt-3.5 text-km-xs font-bold uppercase tracking-wide text-km-faint">Adresse du compteur</p>
+          <InlineField
+            variant="address"
+            label=""
+            rue={compteur.adresse ?? ''}
+            codePostal={compteur.code_postal ?? ''}
+            ville={compteur.ville ?? ''}
+            emptyLabel="préciser si différente du site"
+            disabled={!canManage}
+            onCommit={({ rue, codePostal, ville }) =>
+              majCompteur({ adresse: rue || null, code_postal: codePostal || null, ville: ville || null })
+            }
+            onSaved={() => showToast('✓ enregistré')}
+            onError={(e) => showToast(`Erreur : ${e.message}`)}
+          />
+          {!compteur.adresse && (
+            <p className="mt-1.5 text-km-xs italic text-km-faint">
+              Non renseignée — c'est l'adresse du site qui fait foi.
+            </p>
+          )}
+        </div>
+
+        <CouvertureCard
+          nbSignaux={signauxDuCompteur.length}
+          mandatCouvert={Boolean(mandatDuCompteur)}
+          recoEnCours={Boolean(recoActiveDuSite)}
+          contratCouvert={contratsDuCompteur.length > 0}
+          onSignaux={() => navigate(`/signaux/${signauxDuCompteur[0].id}`)}
+          onMandat={() => setTab('mandats')}
+          onReco={() => recoActiveDuSite && navigate(`/recommandations/${recoActiveDuSite.id}`)}
+          onContrat={() => setTab('contrats')}
+        />
+            </div>
+          )}
+
           {tab === 'apercu' && (
             <div className="flex flex-col gap-3.5">
               {consommationsDuCompteur.length > 0 && <ConsommationChart consommations={consommationsDuCompteur} />}

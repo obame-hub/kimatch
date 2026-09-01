@@ -23,12 +23,10 @@ import { cn } from '@/lib/utils'
 /**
  * FICHE SUIVI DE CONTRAT.
  *
- * Dossier de transmission KiMatch du 31/08/2026, modèle commun des fiches détaillées et § 11 :
- * « Les objets rattachés sont toujours à gauche des fiches · Le flux d'activité est toujours à droite
- * · La prochaine action et les alertes sont visibles sans chercher dans un onglet. »
- *
- * D'où les trois colonnes, et d'où le bandeau : l'étape, la santé et le prochain geste sont AU-DESSUS
- * de tout onglet. C'est la règle du § 1 — « une page doit rendre immédiatement compréhensibles le
+ * Le flux d'activité reste à droite, tandis que les objets liés sont regroupés dans l'onglet
+ * Rattachements afin de libérer le plan de travail principal.
+ * Le bandeau conserve l'étape, la santé et le prochain geste AU-DESSUS de tout onglet :
+ * une page doit rendre immédiatement compréhensibles le
  * statut, le prochain geste et le blocage éventuel ».
  *
  * L'ÉTAPE AVANCE D'UN CRAN À LA FOIS, et le bouton ne propose que la suivante. Trois étapes sur huit
@@ -52,7 +50,7 @@ function dateLisible(v: string | null | undefined) {
   return v ? new Date(v).toLocaleDateString('fr-FR') : '—'
 }
 
-/** Une ligne de rattachement, à gauche. « Navigation directe vers l'objet » (§ 9). */
+/** Une ligne de l'onglet Rattachements, avec navigation directe vers l'objet. */
 function Rattachement({ icone: Icone, libelle, valeur, to }: {
   icone: typeof Building2
   libelle: string
@@ -95,6 +93,7 @@ export default function SuiviContratDetail() {
   const majChamp = useMajChampSuivi()
 
   const [tacheOuverte, setTacheOuverte] = useState(false)
+  const [onglet, setOnglet] = useState<'suivi' | 'rattachements'>('suivi')
   const [toast, setToast] = useState<string | null>(null)
   function signaler(m: string) {
     setToast(m)
@@ -185,9 +184,30 @@ export default function SuiviContratDetail() {
         })}
       </div>
 
-      <div className="grid min-h-0 flex-1 grid-cols-1 overflow-hidden lg:grid-cols-[260px_1fr_340px]">
-        {/* ══ GAUCHE : LES RATTACHEMENTS (§ 11) ══ */}
-        <div className="hidden flex-col gap-3 overflow-y-auto border-r border-km-line bg-km-bg/60 p-3.5 lg:flex">
+      <div className="flex flex-none items-center gap-0.5 border-b border-km-line bg-white px-4 pt-2.5 sm:px-6">
+        {([
+          { cle: 'suivi' as const, libelle: 'Suivi' },
+          { cle: 'rattachements' as const, libelle: 'Rattachements' },
+        ]).map((item) => (
+          <button
+            key={item.cle}
+            type="button"
+            onClick={() => setOnglet(item.cle)}
+            className={cn(
+              'border-b-2 px-3 pb-2 pt-1.5 text-km-body transition-colors',
+              onglet === item.cle
+                ? 'border-km-green font-bold text-km-text'
+                : 'border-transparent font-medium text-km-muted hover:text-km-text',
+            )}
+          >
+            {item.libelle}
+          </button>
+        ))}
+      </div>
+
+      <div className="grid min-h-0 flex-1 grid-cols-1 overflow-hidden lg:grid-cols-[minmax(0,1fr)_340px]">
+        {/* Contenu de l'onglet Rattachements. */}
+        <div className={cn('col-start-1 row-start-1 flex min-h-0 flex-col gap-3 overflow-y-auto bg-km-bg/60 p-4 sm:p-5', onglet !== 'rattachements' && 'hidden')}>
           <Card className="p-3.5">
             <p className="mb-1 text-km-label font-bold uppercase tracking-[0.08em] text-km-faint">
               Rattachements
@@ -257,7 +277,7 @@ export default function SuiviContratDetail() {
         </div>
 
         {/* ══ CENTRE ══ */}
-        <div className="overflow-y-auto bg-km-bg p-4 sm:p-5">
+        <div className={cn('col-start-1 row-start-1 overflow-y-auto bg-km-bg p-4 sm:p-5', onglet === 'rattachements' && 'hidden')}>
           <div className="flex flex-col gap-3.5">
             {/* LA PROCHAINE ACTION, SON RESPONSABLE ET SON ÉCHÉANCE (§ 9). */}
             <Card className="p-4">

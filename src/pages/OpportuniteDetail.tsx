@@ -79,7 +79,7 @@ export default function OpportuniteDetail() {
   // renvoyait sur la fiche compte, ce qui faisait perdre le périmètre qu'on vient d'établir.
   const [mandatOuvert, setMandatOuvert] = useState(false)
   const [recoOuverte, setRecoOuverte] = useState(false)
-  const [onglet, setOnglet] = useState<'opportunite' | 'fichiers' | 'historique'>('opportunite')
+  const [onglet, setOnglet] = useState<'opportunite' | 'rattachements' | 'fichiers' | 'historique'>('opportunite')
   const [hubOuvert, setHubOuvert] = useState(false)
   // L'action qu'on est en train de consigner : la maquette dit « chaque action est consignée dans le
   // flux », et une ligne sans un mot d'explication n'apprendrait rien à celui qui la relira.
@@ -391,11 +391,12 @@ export default function OpportuniteDetail() {
         <span className="ml-auto hidden font-mono text-km-xs text-km-faint sm:block">1–3 pour naviguer</span>
       </div>
 
-      {/* ══ TROIS COLONNES ══ 256 / reste / 300, les largeurs de la maquette. */}
-      <div className="grid min-h-0 flex-1 grid-cols-1 overflow-hidden lg:grid-cols-[256px_minmax(0,1fr)_300px]">
+      {/* Le volet des objets liés est désormais un onglet : le plan de travail garde toute la
+          largeur disponible, à côté du flux d'activité permanent. */}
+      <div className="grid min-h-0 flex-1 grid-cols-1 overflow-hidden lg:grid-cols-[minmax(0,1fr)_300px]">
 
-        {/* ── COLONNE GAUCHE : les objets rattachés ── */}
-        <div className="min-h-0 space-y-3 overflow-y-auto border-r border-km-line bg-km-soft p-3.5 lg:block">
+        {/* Contenu de l'onglet Rattachements. */}
+        <div className={cn('col-start-1 row-start-1 min-h-0 space-y-3 overflow-y-auto bg-km-soft p-3.5 lg:px-5', onglet !== 'rattachements' && 'hidden')}>
           <BlocLateral
             titre="Compte"
             couleurIcone="bg-sky-100 text-sky-700"
@@ -558,7 +559,7 @@ export default function OpportuniteDetail() {
         </div>
 
         {/* ── COLONNE CENTRALE ── */}
-        <div className="min-h-0 overflow-y-auto p-3.5 lg:px-5">
+        <div className={cn('col-start-1 row-start-1 min-h-0 overflow-y-auto p-3.5 lg:px-5', onglet === 'rattachements' && 'hidden')}>
           {onglet === 'opportunite' && (
             <div className="flex animate-km-fade-slide flex-col gap-3.5">
 
@@ -1273,6 +1274,7 @@ function LigneAction({ libelle, children }: { libelle: string; children: React.R
 /** Les trois onglets de la maquette. */
 const ONGLETS = [
   { cle: 'opportunite' as const, libelle: 'Opportunité' },
+  { cle: 'rattachements' as const, libelle: 'Rattachements' },
   { cle: 'fichiers' as const, libelle: 'Fichiers' },
   { cle: 'historique' as const, libelle: 'Historique' },
 ]

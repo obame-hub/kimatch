@@ -71,7 +71,7 @@ function tarifResume(t: TarifContratCompteur): string {
   return parts.join(' · ') || '—'
 }
 
-type TabKey = 'contrat' | 'perimetre' | 'fichiers'
+type TabKey = 'contrat' | 'rattachements' | 'perimetre' | 'fichiers'
 
 function CycleDeVieCard({ dateDebut, dateFin }: { dateDebut: string; dateFin: string | null }) {
   const debut = new Date(dateDebut).getTime()
@@ -407,6 +407,10 @@ export default function ContratDetail() {
 
   const TABS: { key: TabKey; label: string; badge?: string }[] = [
     { key: 'contrat', label: 'Contrat' },
+    /* Michel et Naoëlle, 31/08/2026 : « plus aucun volet de gauche sur aucun objet ; à la place on
+       leur crée un onglet destiné dans l'objet s'il n'existe pas déjà ». Un contrat est rattaché à
+       un compte, à un fournisseur, à la recommandation qui l'a produit et au suivi qu'il a ouvert. */
+    { key: 'rattachements', label: 'Rattachements' },
     { key: 'perimetre', label: 'Périmètre', badge: contrat?.compteurs.length ? String(contrat.compteurs.length) : undefined },
     { key: 'fichiers', label: 'Fichiers', badge: documentsDuContrat.length ? String(documentsDuContrat.length) : undefined },
   ]
@@ -517,96 +521,97 @@ export default function ContratDetail() {
         })}
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-[256px_1fr]">
-        {/* Colonne gauche (desktop uniquement) */}
-        <div className="hidden flex-col gap-3.5 border-r border-km-line bg-km-bg/60 p-3.5 lg:flex">
-          {compte && (
-            <div className="rounded-xl border border-km-line bg-white p-3.5">
-              <div className="mb-2 flex items-center gap-1.5">
-                <span className="flex h-5 w-5 items-center justify-center rounded-md bg-sky-100 text-sky-500"><Building2 className="h-2.5 w-2.5" /></span>
-                <span className="text-km-xs font-bold uppercase tracking-wide text-km-faint">Compte</span>
-                <div className="flex-1" />
-                <EntityLink to={`/comptes/${compte.id}`}>ouvrir →</EntityLink>
-              </div>
-              <p className="text-km-body font-bold text-sky-500">{compte.nom}</p>
-            </div>
-          )}
-
-          {site && (
-            <div className="rounded-xl border border-km-line bg-white p-3.5">
-              <div className="mb-2 flex items-center gap-1.5">
-                <span className="flex h-5 w-5 items-center justify-center rounded-md bg-km-green-soft text-km-green"><MapPin className="h-2.5 w-2.5" /></span>
-                <span className="text-km-xs font-bold uppercase tracking-wide text-km-faint">Site</span>
-                <div className="flex-1" />
-                <EntityLink to={`/sites/${site.id}`}>ouvrir →</EntityLink>
-              </div>
-              <p className="text-km-body font-bold text-km-green">{site.nom}</p>
-            </div>
-          )}
-
-          <div className="rounded-xl border border-km-line bg-white p-3.5">
-            <div className="mb-2 flex items-center gap-1.5">
-              <span className={cn('flex h-5 w-5 items-center justify-center rounded-md', energyClasses)}><Icon className="h-2.5 w-2.5" /></span>
-              <span className="text-km-xs font-bold uppercase tracking-wide text-km-faint">Fournisseur retenu</span>
-            </div>
-            {contrat.fournisseur_compte_id ? (
-              <EntityLink to={`/comptes/${contrat.fournisseur_compte_id}`}>{contrat.fournisseur_nom}</EntityLink>
-            ) : (
-              <p className="text-km-body font-bold text-km-text">{contrat.fournisseur_nom}</p>
-            )}
-            {fournisseur && <p className="mt-1 text-km-xs text-km-muted">{fournisseur.segment}</p>}
-          </div>
-
-          {/* ══ D'OÙ VIENT CE CONTRAT ══
-
-              Le lien contrat → recommandation existait en colonne mais n'était renseigné que sur
-              TROIS contrats sur 1 598 : la reprise Salesforce ne l'avait pas importé. Rétabli le
-              27/08/2026 sur 697 contrats depuis `Contract.Opportunit__c` (migration 20260827120000).
-
-              Il ne s'affichait nulle part, et c'est ce qui manquait le plus : sans lui on ne peut pas
-              remonter d'un contrat signé à l'étude qui l'a emporté — donc ni relire les conditions
-              proposées, ni savoir quel travail a produit quel résultat. La carte se tait quand le
-              lien est absent plutôt que d'afficher un « Aucune » qui n'apprendrait rien. */}
-          {contrat.recommandation_id && (
-            <div className="rounded-xl border border-km-line bg-white p-3.5">
-              <div className="mb-2 flex items-center gap-1.5">
-                <span className="flex h-5 w-5 items-center justify-center rounded-md bg-km-amber-soft text-amber-600"><Lightbulb className="h-2.5 w-2.5" /></span>
-                <span className="text-km-xs font-bold uppercase tracking-wide text-km-faint">Issu de la recommandation</span>
-                <div className="flex-1" />
-                <EntityLink to={`/recommandations/${contrat.recommandation_id}`}>ouvrir →</EntityLink>
-              </div>
-              <p className="text-km-body font-bold text-km-text">
-                {contrat.recommandation_nom || 'Recommandation'}
-              </p>
-            </div>
-          )}
-
-          {/* ══ CE QUE CE CONTRAT EST DEVENU ══
-              Le suivi ouvert à sa signature. La carte se tait quand il n'y en a pas — un contrat non
-              signé n'en a pas, et un « Aucun suivi » n'apprendrait rien. Elle porte l'étape et la
-              santé parce que c'est ce qu'on vient chercher depuis un contrat : où en est la vie de
-              cette affaire. */}
-          {suivi && (
-            <div className="rounded-xl border border-km-line bg-white p-3.5">
-              <div className="mb-2 flex items-center gap-1.5">
-                <span className="flex h-5 w-5 items-center justify-center rounded-md bg-km-green-soft text-km-green">
-                  <LifeBuoy className="h-2.5 w-2.5" />
-                </span>
-                <span className="text-km-xs font-bold uppercase tracking-wide text-km-faint">Suivi de contrat</span>
-                <div className="flex-1" />
-                <EntityLink to={`/suivis-contrats/${suivi.id}`}>ouvrir →</EntityLink>
-              </div>
-              <p className="text-km-body font-bold text-km-text">{suivi.etape_libelle}</p>
-              <p className="mt-0.5 text-km-label text-km-muted">
-                {SANTE_LIBELLE[suivi.sante] ?? suivi.sante}
-                {suivi.actions_ouvertes > 0 && ` · ${suivi.actions_ouvertes} action(s) à faire`}
-              </p>
-            </div>
-          )}
-        </div>
-
+      <div className="grid grid-cols-1">
         {/* Centre */}
         <div className="bg-km-bg p-4 sm:p-5">
+          {tab === 'rattachements' && (
+            <div className="flex max-w-[560px] flex-col gap-3.5">
+        {compte && (
+          <div className="rounded-xl border border-km-line bg-white p-3.5">
+            <div className="mb-2 flex items-center gap-1.5">
+              <span className="flex h-5 w-5 items-center justify-center rounded-md bg-sky-100 text-sky-500"><Building2 className="h-2.5 w-2.5" /></span>
+              <span className="text-km-xs font-bold uppercase tracking-wide text-km-faint">Compte</span>
+              <div className="flex-1" />
+              <EntityLink to={`/comptes/${compte.id}`}>ouvrir →</EntityLink>
+            </div>
+            <p className="text-km-body font-bold text-sky-500">{compte.nom}</p>
+          </div>
+        )}
+
+        {site && (
+          <div className="rounded-xl border border-km-line bg-white p-3.5">
+            <div className="mb-2 flex items-center gap-1.5">
+              <span className="flex h-5 w-5 items-center justify-center rounded-md bg-km-green-soft text-km-green"><MapPin className="h-2.5 w-2.5" /></span>
+              <span className="text-km-xs font-bold uppercase tracking-wide text-km-faint">Site</span>
+              <div className="flex-1" />
+              <EntityLink to={`/sites/${site.id}`}>ouvrir →</EntityLink>
+            </div>
+            <p className="text-km-body font-bold text-km-green">{site.nom}</p>
+          </div>
+        )}
+
+        <div className="rounded-xl border border-km-line bg-white p-3.5">
+          <div className="mb-2 flex items-center gap-1.5">
+            <span className={cn('flex h-5 w-5 items-center justify-center rounded-md', energyClasses)}><Icon className="h-2.5 w-2.5" /></span>
+            <span className="text-km-xs font-bold uppercase tracking-wide text-km-faint">Fournisseur retenu</span>
+          </div>
+          {contrat.fournisseur_compte_id ? (
+            <EntityLink to={`/comptes/${contrat.fournisseur_compte_id}`}>{contrat.fournisseur_nom}</EntityLink>
+          ) : (
+            <p className="text-km-body font-bold text-km-text">{contrat.fournisseur_nom}</p>
+          )}
+          {fournisseur && <p className="mt-1 text-km-xs text-km-muted">{fournisseur.segment}</p>}
+        </div>
+
+        {/* ══ D'OÙ VIENT CE CONTRAT ══
+
+            Le lien contrat → recommandation existait en colonne mais n'était renseigné que sur
+            TROIS contrats sur 1 598 : la reprise Salesforce ne l'avait pas importé. Rétabli le
+            27/08/2026 sur 697 contrats depuis `Contract.Opportunit__c` (migration 20260827120000).
+
+            Il ne s'affichait nulle part, et c'est ce qui manquait le plus : sans lui on ne peut pas
+            remonter d'un contrat signé à l'étude qui l'a emporté — donc ni relire les conditions
+            proposées, ni savoir quel travail a produit quel résultat. La carte se tait quand le
+            lien est absent plutôt que d'afficher un « Aucune » qui n'apprendrait rien. */}
+        {contrat.recommandation_id && (
+          <div className="rounded-xl border border-km-line bg-white p-3.5">
+            <div className="mb-2 flex items-center gap-1.5">
+              <span className="flex h-5 w-5 items-center justify-center rounded-md bg-km-amber-soft text-amber-600"><Lightbulb className="h-2.5 w-2.5" /></span>
+              <span className="text-km-xs font-bold uppercase tracking-wide text-km-faint">Issu de la recommandation</span>
+              <div className="flex-1" />
+              <EntityLink to={`/recommandations/${contrat.recommandation_id}`}>ouvrir →</EntityLink>
+            </div>
+            <p className="text-km-body font-bold text-km-text">
+              {contrat.recommandation_nom || 'Recommandation'}
+            </p>
+          </div>
+        )}
+
+        {/* ══ CE QUE CE CONTRAT EST DEVENU ══
+            Le suivi ouvert à sa signature. La carte se tait quand il n'y en a pas — un contrat non
+            signé n'en a pas, et un « Aucun suivi » n'apprendrait rien. Elle porte l'étape et la
+            santé parce que c'est ce qu'on vient chercher depuis un contrat : où en est la vie de
+            cette affaire. */}
+        {suivi && (
+          <div className="rounded-xl border border-km-line bg-white p-3.5">
+            <div className="mb-2 flex items-center gap-1.5">
+              <span className="flex h-5 w-5 items-center justify-center rounded-md bg-km-green-soft text-km-green">
+                <LifeBuoy className="h-2.5 w-2.5" />
+              </span>
+              <span className="text-km-xs font-bold uppercase tracking-wide text-km-faint">Suivi de contrat</span>
+              <div className="flex-1" />
+              <EntityLink to={`/suivis-contrats/${suivi.id}`}>ouvrir →</EntityLink>
+            </div>
+            <p className="text-km-body font-bold text-km-text">{suivi.etape_libelle}</p>
+            <p className="mt-0.5 text-km-label text-km-muted">
+              {SANTE_LIBELLE[suivi.sante] ?? suivi.sante}
+              {suivi.actions_ouvertes > 0 && ` · ${suivi.actions_ouvertes} action(s) à faire`}
+            </p>
+          </div>
+        )}
+            </div>
+          )}
+
           {tab === 'contrat' && (
             <div className="flex flex-col gap-3.5">
               {contrat.date_debut && (

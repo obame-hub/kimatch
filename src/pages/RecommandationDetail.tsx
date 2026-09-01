@@ -24,7 +24,7 @@ import { RailCycleVie } from '@/components/recommandation/RailCycleVie'
 import { suggestionRelance } from '@/lib/relance'
 import { ComparatifVersions, coutPrestationEstime } from '@/components/recommandation/ComparatifVersions'
 import { DocumentComparatif } from '@/components/recommandation/DocumentComparatif'
-import { VoletGaucheReco } from '@/components/recommandation/VoletGaucheReco'
+import { RattachementsReco } from '@/components/recommandation/VoletGaucheReco'
 import { OngletCommandeClient } from '@/components/recommandation/OngletCommandeClient'
 import { OngletPerimetre } from '@/components/recommandation/OngletPerimetre'
 import { OngletDocuments } from '@/components/recommandation/OngletDocuments'
@@ -99,7 +99,7 @@ import type { VersionRecommandation, Optimisation } from '@/types/domain'
 
 const PRIORITE_LABEL: Record<number, string> = { 1: 'Haute', 2: 'Normale', 3: 'Basse' }
 
-type CleOnglet = 'reco' | 'cmd' | 'comparatif' | 'perimetre' | 'docs'
+type CleOnglet = 'reco' | 'rattachements' | 'cmd' | 'comparatif' | 'perimetre' | 'docs'
 
 /**
  * COMMANDE DU CLIENT EST MASQUÉE. Michel, 25/08/2026 : « pour le moment, commande client, je le
@@ -272,19 +272,12 @@ export default function RecommandationDetail() {
     [reco, versionActive, derniereRelance],
   )
   const onglets: { cle: CleOnglet; libelle: string; badge?: string }[] = useMemo(() => {
-    // DEUX ONGLETS, ET C'EST TOUT. Michel, 25/08/2026 : « je garderai recommandation donc avec les
-    // infos de la recommandation, je garde les comparatifs [...] ça fait recommandation, ça fait
-    // comparatif tout simplement ».
-    //
-    // COMMANDE DU CLIENT part de l'affichage : « pour le moment, commande client, je le mettrais
-    // pas parce que pour l'instant on ne l'utilise pas en réalité ». Naoëlle a précisé le geste —
-    // « l'effacer de l'affichage, pas de la base » — d'où un interrupteur et non une suppression.
-    //
-    // PÉRIMÈTRE ET DOCUMENTS descendent dans le volet de gauche, et la raison qu'il en donne vaut
-    // pour tout l'écran : « tous les objets qui sont liés à la recommandation, ou à l'opportunité,
-    // je les mettrais toujours sur la gauche, comme ça on a toujours la même logique ».
+    // Recommandation et Comparatif restent les deux espaces de travail. Rattachements accueille
+    // désormais tout le contexte auparavant affiché en permanence à gauche. Commande du client
+    // reste masquée provisoirement sans suppression de ses données.
     return [
       { cle: 'reco' as CleOnglet, libelle: 'Recommandation', badge: reco && reco.versions.length > 0 ? `${reco.versions.length} vers.` : undefined },
+      { cle: 'rattachements' as CleOnglet, libelle: 'Rattachements' },
       { cle: 'comparatif' as CleOnglet, libelle: 'Comparatif', badge: reco && reco.versions.length > 1 ? `${reco.versions.length} vers.` : undefined },
       ...(AFFICHER_COMMANDE_CLIENT
         ? [{ cle: 'cmd' as CleOnglet, libelle: 'Commande du client', badge: (objectifs ?? []).length > 0 ? `${(objectifs ?? []).length} obj.` : undefined }]
@@ -783,11 +776,11 @@ export default function RecommandationDetail() {
         </span>
       </div>
 
-      {/* ── 3 colonnes ── */}
-      <div className="grid min-h-0 flex-1 grid-cols-1 overflow-hidden lg:grid-cols-[256px_minmax(0,1fr)_292px]">
-        {/* Volet gauche */}
-        <div className="hidden min-h-0 overflow-y-auto border-r border-km-line lg:block">
-          <VoletGaucheReco
+      {/* Deux colonnes : contenu de l'onglet courant et activité. L'ancien volet gauche devient
+          le contenu de l'onglet Rattachements sans perdre ses actions ni ses informations. */}
+      <div className="grid min-h-0 flex-1 grid-cols-1 overflow-hidden lg:grid-cols-[minmax(0,1fr)_292px]">
+        <div className={cn('col-start-1 row-start-1 min-h-0 overflow-y-auto', onglet !== 'rattachements' && 'hidden')}>
+          <RattachementsReco
             reco={reco}
             compte={compte}
             contacts={contacts ?? []}
@@ -832,7 +825,7 @@ export default function RecommandationDetail() {
         </div>
 
         {/* Centre */}
-        <div className="min-h-0 overflow-y-auto bg-km-bg px-4 py-4 sm:px-5">
+        <div className={cn('col-start-1 row-start-1 min-h-0 overflow-y-auto bg-km-bg px-4 py-4 sm:px-5', onglet === 'rattachements' && 'hidden')}>
           {onglet === 'reco' && (
             <div className="flex animate-km-fade-slide flex-col gap-3.5">
               <RailCycleVie

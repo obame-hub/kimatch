@@ -308,7 +308,7 @@ export default function SiteDetail() {
 
       {/* 3 zones */}
       <div className="grid min-h-0 flex-1 grid-cols-1 overflow-hidden lg:grid-cols-[minmax(0,1fr)_340px]">
-        {/* Colonne gauche — Compte + Contacts (desktop uniquement) */}
+        {/* Compte et contacts sont présentés dans leurs onglets, sans volet gauche permanent. */}
         {/* Centre — contenu de l'onglet */}
         <div className="min-h-0 overflow-y-auto bg-km-bg p-4 sm:p-5">
           {tab === 'synthese' && (
