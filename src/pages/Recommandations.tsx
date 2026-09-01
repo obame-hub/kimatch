@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { Plus } from 'lucide-react'
 import { Topbar } from '@/components/layout/Topbar'
@@ -6,11 +6,13 @@ import { PageHeader, Indicateurs } from '@/components/ui/page-header'
 import { Button } from '@/components/ui/button'
 import { useMonProfil } from '@/lib/data/roles'
 import { RESULTAT_VERSION_LIBELLE } from '@/lib/referenceFallbacks'
-import { ListToolbar, BasculeOption } from '@/components/ui/list-toolbar'
+import { ListToolbar, BasculeOption, BasculeSegments } from '@/components/ui/list-toolbar'
 import { MenuChoix } from '@/components/ui/menu-choix'
+import { FiltrePeriode, PERIODE_VIDE, periodeActive, type Periode } from '@/components/ui/filtre-periode'
+import { dateRelative, tonDate } from '@/lib/dateRelative'
 import { usePerimetre, BasculePerimetre } from '@/lib/perimetre'
 import { useKanbanServeur } from '@/lib/useKanbanServeur'
-import { useTriKanban, SelecteurTri } from '@/lib/triKanban'
+import { useTriKanban, SelecteurTri, type OptionTri } from '@/lib/triKanban'
 import { TableauKanban } from '@/components/dashboard/TableauKanban'
 import { IconeEnergie } from '@/components/ui/icone-energie'
 import { CreateRecommandationDialog } from '@/components/opportunite/CreationRecommandationWizard'
@@ -37,6 +39,8 @@ interface LigneReco {
   numero_version: number | null
   /** La colonne du tableau, calculée par la vue — voir la migration 20260828130000. */
   colonne_travail: string
+  /** L'axe « statut du dossier », clôture dépliée par sa finalité — migration 20260901160000. */
+  statut_recommandation: string
   /** Un contrat de ce dossier attend sa signature — voir la migration 20260831190000. */
   en_contractualisation: boolean
   contrat_en_signature_id: string | null
@@ -94,6 +98,136 @@ const COLONNES_TRAVAIL = [
   { code: 'EN_CONTRACTUALISATION', libelle: 'En contractualisation' },
   { code: 'A_REACTIVER', libelle: 'À réactiver' },
 ] as const
+
+/**
+ * ══ LA SECONDE VUE : LE STATUT DU DOSSIER, CLÔTURE DÉPLIÉE ══
+ *
+ * Michel, 01/09/2026, deux demandes dans la même phrase : « il aimerait voir les différents types de
+ * clôturé », et — de Naoëlle — « ce serait bien d'avoir deux vues kanban en mode toggle, une avec les
+ * statuts de version comme actuellement et une avec les statuts de recommandation ».
+ *
+ * ELLE NE REMPLACE PAS LA PREMIÈRE, ELLE LA CROISE. Les deux axes existent tous les deux en base et
+ * disent deux choses différentes :
+ *
+ *   AVANCEMENT (`colonne_travail`)     où en est le TRAVAIL — état de la dernière version
+ *   STATUT     (`statut_recommandation`) où en est le DOSSIER — et, s'il est clos, comment
+ *
+ * Mesuré le 01/09/2026 : « Active » se répartit sur quatre colonnes d'avancement (22 en
+ * construction, 19 en décision, 5 disponible, 5 en contractualisation). Aucune des deux vues ne se
+ * déduit de l'autre, et c'est pour cela qu'il en faut deux.
+ *
+ * LES TROIS CLÔTURES SONT TROIS COLONNES, et c'est le cœur de sa demande. 856 acceptées, 311
+ * refusées, 402 expirées : trois natures de fin qui n'appellent pas le même geste — on rappelle un
+ * refus, on relance une expiration, on ne touche pas à une acceptation. Une seule colonne
+ * « Clôturée » de 1 569 cartes les rendait indiscernables.
+ *
+ * DEUX COLONNES SONT VIDES AUJOURD'HUI, et elles restent. Mesuré le 01/09/2026 : aucun Brouillon
+ * (les 1 703 dossiers ont tous au moins une version) et aucun clos sans finalité. Ce ne sont pas des
+ * colonnes décoratives : rien n'oblige à renseigner la finalité en clôturant, et une recommandation
+ * neuve naît Brouillon. Le jour où l'un ou l'autre arrive, il a une colonne où apparaître. Une
+ * colonne vide qui garde la porte vaut mieux qu'un dossier introuvable.
+ */
+const COLONNES_STATUT = [
+  { code: 'BROUILLON', libelle: 'Brouillon' },
+  { code: 'ACTIVE', libelle: 'Active' },
+  { code: 'A_REACTIVER', libelle: 'À réactiver' },
+  { code: 'CLOTUREE_ACCEPTEE', libelle: 'Clôturée · acceptée' },
+  { code: 'CLOTUREE_REFUSEE', libelle: 'Clôturée · refusée' },
+  { code: 'CLOTUREE_EXPIREE', libelle: 'Clôturée · expirée' },
+  { code: 'CLOTUREE', libelle: 'Clôturée · sans finalité' },
+] as const
+
+/** Le libellé d'un état d'avancement, pour l'écrire sur la carte quand la colonne ne le dit plus. */
+const LIBELLE_TRAVAIL: Record<string, string> = {
+  ...Object.fromEntries(COLONNES_TRAVAIL.map((c) => [c.code, c.libelle])),
+  CLOTUREE: 'Clôturée',
+}
+
+/**
+ * LE TRI, LES MÊMES OPTIONS DANS LES DEUX VUES.
+ *
+ * « Dans chaque vue y a un système de filtre et de tri sur tout ce qui est possible dans chaque
+ * vue » (Naoëlle, 01/09/2026). Ces sept colonnes sont celles de la vue qui portent un ordre ayant un
+ * sens métier. Les autres colonnes filtrables ne sont pas triables utilement : trier par énergie ou
+ * par finalité grouperait des cartes que le FILTRE isole mieux.
+ *
+ * Le sens par défaut suit la lecture : un montant se lit du plus gros au plus petit, une échéance du
+ * plus proche au plus lointain, un nom de A à Z.
+ */
+const OPTIONS_TRI: OptionTri[] = [
+  { cle: 'marge_nette', libelle: 'marge', ascendant: false },
+  /* LA DATE DE CLÔTURE, LA PLUS PROCHE D'ABORD. Sur un dossier ouvert, cette date est l'échéance
+     PRÉVUE (le `CloseDate` de Salesforce) : la trier en croissant met en tête ce qui se décide
+     bientôt. Sur un dossier clos, c'est la date réelle. Le tableau ordonne en `nullsFirst: false`,
+     donc un dossier sans date descend — il n'a rien à dire sur cet axe. */
+  { cle: 'date_cloture', libelle: 'date de clôture' },
+  { cle: 'date_ouverture', libelle: 'date d\u2019ouverture', ascendant: false },
+  { cle: 'date_creation', libelle: 'date de création', ascendant: false },
+  { cle: 'montant', libelle: 'montant', ascendant: false },
+  { cle: 'priorite', libelle: 'priorité', ascendant: false },
+  { cle: 'compte_nom', libelle: 'compte' },
+  { cle: 'nom', libelle: 'nom de la recommandation' },
+]
+
+/** Les choix du filtre « statut du dossier » — la même nomenclature que les colonnes de la vue B. */
+const CHOIX_STATUT = [
+  { valeur: '', libelle: 'Tous les statuts' },
+  { valeur: 'BROUILLON', libelle: 'Brouillon', detail: 'aucune version étudiée' },
+  { valeur: 'ACTIVE', libelle: 'Active', detail: 'une version vivante' },
+  { valeur: 'A_REACTIVER', libelle: 'À réactiver', detail: 'dernière version morte' },
+  { valeur: 'CLOTUREE_ACCEPTEE', libelle: 'Clôturée · acceptée', detail: 'clos sur un oui' },
+  { valeur: 'CLOTUREE_REFUSEE', libelle: 'Clôturée · refusée', detail: 'clos sur un non' },
+  { valeur: 'CLOTUREE_EXPIREE', libelle: 'Clôturée · expirée', detail: 'clos par le temps' },
+  { valeur: 'CLOTUREE', libelle: 'Clôturée · sans finalité', detail: 'la finalité manque' },
+]
+
+/** Les choix du filtre « avancement » — la même nomenclature que les colonnes de la vue A. */
+const CHOIX_TRAVAIL = [
+  { valeur: '', libelle: 'Tout l\u2019avancement' },
+  ...COLONNES_TRAVAIL.map((c) => ({ valeur: c.code, libelle: c.libelle })),
+  { valeur: 'CLOTUREE', libelle: 'Clôturée' },
+]
+
+/**
+ * L'ÉNERGIE — deux valeurs en base, et 1 493 dossiers sans énergie renseignée sur 1 703.
+ *
+ * Le filtre est proposé quand même : les 210 dossiers qui la portent sont ceux nés dans Kimatch, et
+ * ce sont eux qu'on travaille. Mais aucun choix « non renseignée » n'est offert : filtrer sur
+ * l'absence d'une donnée n'est pas un besoin commercial, c'est un sujet de qualité de données, et
+ * l'écran qui s'en occupe est un autre.
+ */
+const CHOIX_ENERGIE = [
+  { valeur: '', libelle: 'Toutes les énergies' },
+  { valeur: 'ELECTRICITE', libelle: 'Électricité' },
+  { valeur: 'GAZ', libelle: 'Gaz' },
+]
+
+type VueReco = 'avancement' | 'statut'
+
+/**
+ * LA VUE CHOISIE SURVIT AU RECHARGEMENT, comme le tri et le périmètre.
+ *
+ * Un commercial qui travaille ses clôtures ne veut pas rebasculer à chaque F5, et celui qui vit dans
+ * la vue d'avancement ne doit jamais voir la seconde s'il ne l'a pas demandée.
+ */
+function useVueMemorisee(cle: string, defaut: VueReco) {
+  const [vue, setVue] = useState<VueReco>(() => {
+    try {
+      const garde = localStorage.getItem(cle)
+      return garde === 'statut' || garde === 'avancement' ? garde : defaut
+    } catch {
+      return defaut
+    }
+  })
+  useEffect(() => {
+    try {
+      localStorage.setItem(cle, vue)
+    } catch {
+      /* tant pis : le choix vaudra pour la session */
+    }
+  }, [cle, vue])
+  return [vue, setVue] as const
+}
 
 /**
  * SEULS LES OBJETS ACTIFS SONT AFFICHÉS. Michel, 25/08/2026 à 14 h 29 : « pour les recommandations,
@@ -165,68 +299,87 @@ export default function Recommandations() {
    */
   /* LES QUATRE AXES QUI ONT UN SENS SUR UN DOSSIER. « Marge » d'abord parce que c'est ce que
      Michel regarde, et decroissante : une marge se lit du plus gros au plus petit. */
-  const { tri, ascendant, setTri, options: optionsTri } = useTriKanban('recommandations', [
-    { cle: 'marge_nette', libelle: 'marge', ascendant: false },
-    /* LA DATE DE CLOTURE, EN ORDRE CROISSANT — la plus proche d'abord.
-       Michel, 01/09/2026. Sur un dossier ouvert, cette date est l'echeance PREVUE (le `CloseDate`
-       de Salesforce) : la trier du plus proche au plus lointain met donc en tete ce qui se decide
-       bientot. Sur un dossier clos, c'est la date reelle, et le plus recent remonte en dernier —
-       c'est le bon sens, un dossier clos n'appelle plus d'action.
-       Le tableau ordonne en `nullsFirst: false` : un dossier sans date descend, il n'a rien a dire ici. */
-    { cle: 'date_cloture', libelle: 'date de clôture' },
-    { cle: 'date_ouverture', libelle: 'date d’ouverture', ascendant: false },
-    { cle: 'compte_nom', libelle: 'compte' },
-    { cle: 'nom', libelle: 'nom de la recommandation' },
-  ])
+  /* ══ LES DEUX VUES ══
+     Le tri est mémorisé PAR VUE : on ne trie pas un tableau de clôtures comme un plan de charge.
+     La clé de la première reste `recommandations` — c'est celle que les navigateurs portent déjà,
+     la renommer aurait effacé le choix de chacun sans raison. */
+  const [vue, setVue] = useVueMemorisee('kimatch-vue-recommandations', 'avancement')
+  const triAvancement = useTriKanban('recommandations', OPTIONS_TRI)
+  const triStatut = useTriKanban('recommandations-statut', OPTIONS_TRI)
+  const { tri, ascendant, setTri, options: optionsTri } = vue === 'statut' ? triStatut : triAvancement
+  const parStatut = vue === 'statut'
 
-  /* ══ LE FILTRE PAR STATUT DE RECOMMANDATION ══
-     Michel, 01/09/2026 : « un filtre ou tri ou les deux par statut de recommandation et par date de
-     cloture ». Les quatre statuts sont ceux qu'il rappelle : Brouillon, Active, A reactiver,
-     Cloturee.
+  /* ══ LES FILTRES ══
+     CHAQUE VUE FILTRE SUR L'AXE DE L'AUTRE, et c'est ce qui les rend complémentaires plutôt que
+     redondantes : dans la vue d'avancement on demande « montre-moi les acceptées », dans la vue des
+     statuts « montre-moi ce qui est en décision ». Croiser les deux axes sans changer de vue, c'est
+     exactement ce qu'un filtre sait faire et qu'une colonne ne sait pas.
 
-     POURQUOI UN FILTRE ET NON UN TRI, POUR LE STATUT. Les colonnes du tableau ne sont pas les quatre
-     statuts : ce sont les etats de TRAVAIL — en construction, disponible, en decision, en
-     contractualisation — qui viennent de la derniere version. Trier des colonnes n'aurait aucun sens
-     (elles sont deja l'axe horizontal), mais RESTREINDRE a un statut en a un : « montre-moi ce qui
-     est actif », « montre-moi ce qui est a reactiver ».
+     L'ÉNERGIE ET LA PÉRIODE VALENT DANS LES DEUX : ce sont des propriétés du dossier, pas d'un axe. */
+  const [filtreStatut, setFiltreStatut] = useState('')
+  const [filtreTravail, setFiltreTravail] = useState('')
+  const [filtreEnergie, setFiltreEnergie] = useState('')
+  const [periode, setPeriode] = useState<Periode>(PERIODE_VIDE)
 
-     BROUILLON EST VIDE AUJOURD'HUI, et le choix reste propose. Mesure du 01/09/2026 sur les
-     1 703 recommandations : 1 569 Cloturee, 83 A reactiver, 51 Active, AUCUNE Brouillon — toutes ont
-     recu au moins une version. Filtrer sur Brouillon montrera donc un tableau vide : c'est la bonne
-     reponse (il n'y en a pas), pas une panne. Le statut existe dans le referentiel et une nouvelle
-     recommandation y passe, le retirer du menu serait mentir sur le modele.
-
-     LE STATUT ET LES COLONNES SE RECOUPENT SANS SE CONFONDRE. Un dossier « Actif » se repartit sur
-     quatre colonnes selon l'etat de sa version ; un dossier « A reactiver » n'en occupe qu'une. Le
-     filtre coupe donc en travers du tableau, et c'est exactement ce qu'on veut d'un filtre. */
-  const [filtreEtape, setFiltreEtape] = useState('')
+  /* CE QUI EST POSÉ, ET LE MOYEN DE TOUT RETIRER D'UN GESTE. Avec quatre commandes de filtrage, un
+     tableau vide se diagnostique mal : on ne sait plus laquelle a tout coupé. Le bouton n'apparaît
+     que s'il y a quelque chose à défaire — un bouton grisé en permanence est du bruit.
+     LA CASE « INCLURE LES CLOSES » N'EN FAIT PAS PARTIE : elle AJOUTE une colonne, elle ne retire
+     rien. La remettre à zéro en « effaçant les filtres » ferait disparaître des cartes au moment où
+     l'on croit en libérer. */
+  const filtresPoses =
+    (parStatut ? filtreTravail : filtreStatut) !== '' || filtreEnergie !== '' || periodeActive(periode)
+  const effacerFiltres = () => {
+    setFiltreStatut('')
+    setFiltreTravail('')
+    setFiltreEnergie('')
+    setPeriode(PERIODE_VIDE)
+  }
 
   const tableau = useKanbanServeur<LigneReco>({
     vue: 'v_recommandations_liste',
     /* `colonne_travail` réunit en un champ l'état de la dernière version et, à défaut, celui du
-       dossier. Le calcul est fait par la vue : le refaire ici risquerait de le faire autrement. */
-    colonneStatut: 'colonne_travail',
-    /* Les cinq états du travail, puis les dossiers clôturés — et seulement si on demande à les voir.
-       Décoché, la page ne montre que ce qui reste à faire : 331 dossiers contre 1 382 clos. */
-    colonnes: [
-      ...COLONNES_TRAVAIL.map((c) => ({ code: c.code, libelle: c.libelle })),
-      ...(avecClos ? [{ code: 'CLOTUREE', libelle: 'Clôturée' }] : []),
-    ],
+       dossier ; `statut_recommandation` porte l'étape du dossier, clôture dépliée par sa finalité.
+       Les deux sont calculés par la vue : les refaire ici risquerait de les faire autrement. */
+    colonneStatut: parStatut ? 'statut_recommandation' : 'colonne_travail',
+    /* VUE STATUT : LES SEPT COLONNES, TOUJOURS. La case « inclure les closes » ne s'y applique pas —
+       les trois clôtures SONT le sujet de cette vue, les masquer la viderait de sa raison d'être.
+       Elles sont placées après les colonnes vivantes, donc le travail en cours reste à gauche.
+       VUE AVANCEMENT : les six états du travail, et les clos seulement si on les demande. Décoché,
+       la page ne montre que ce qui reste à faire — 134 dossiers contre 1 569 clos. */
+    colonnes: parStatut
+      ? COLONNES_STATUT.map((c) => ({ code: c.code, libelle: c.libelle }))
+      : [
+          ...COLONNES_TRAVAIL.map((c) => ({ code: c.code, libelle: c.libelle })),
+          ...(avecClos ? [{ code: 'CLOTUREE', libelle: 'Clôturée' }] : []),
+        ],
     colonnesRecherche: ['nom', 'compte_nom', 'conseiller'],
     recherche,
-    /* LE FILTRE DESCEND EN BASE avec les autres. Ce tableau est pagine ET somme par la base :
-       filtrer a l'arrivee n'aurait touche que les cinquante cartes recues, et le bandeau chiffre
-       aurait continue de compter tout le monde. */
-    filtres: { compte_proprietaire_id: filtreProprietaire, etape: filtreEtape || null },
+    /* LES FILTRES DESCENDENT EN BASE. Ce tableau est paginé ET sommé par la base : filtrer à
+       l'arrivée n'aurait touché que les cinquante cartes reçues, et le bandeau chiffré aurait
+       continué de compter tout le monde.
+       Le filtre de l'axe COURANT est neutralisé : dans la vue des statuts, filtrer sur un statut
+       reviendrait à masquer six colonnes sur sept — c'est la colonne elle-même qui le fait déjà. */
+    filtres: {
+      compte_proprietaire_id: filtreProprietaire,
+      statut_recommandation: parStatut ? null : filtreStatut || null,
+      colonne_travail: parStatut ? filtreTravail || null : null,
+      type_energie: filtreEnergie || null,
+    },
+    /* LA PÉRIODE DE CLÔTURE — « le moyen de sélectionner une date ». Sur un dossier ouvert cette
+       date est prévue, sur un dossier clos elle est réelle : le même filtre sert donc à préparer
+       (« les trois prochains mois ») et à faire les comptes (« l'année dernière »). */
+    intervalles: { date_cloture: { min: periode.min, max: periode.max } },
     /**
      * LA MARGE SE SOMME EN BASE, colonne par colonne. Michel, PDF du 25/08/2026, page 6 : un bandeau
      * « Marge totale des recommandations » découpé en à envoyer, à présenter, décision attendue,
-     * acceptées. La somme suit les mêmes filtres que les colonnes — recherche et propriétaire
-     * comprises — sans quoi le bandeau démentirait le tableau juste en dessous.
+     * acceptées. La somme suit les mêmes filtres que les colonnes — recherche, propriétaire et
+     * période comprises — sans quoi le bandeau démentirait le tableau juste en dessous.
      */
     colonneSomme: 'marge_nette',
-    /* LE TRI PART EN BASE. Seules dix cartes par colonne sont chargees : trier a l'arrivee
-       reordonnerait un echantillon, et la plus grosse marge resterait invisible parce qu'onzieme. */
+    /* LE TRI PART EN BASE. Seules cinquante cartes par colonne sont chargées : trier à l'arrivée
+       réordonnerait un échantillon, et la plus grosse marge resterait invisible parce que
+       cinquante-et-unième. */
     ordre: { colonne: tri, ascendant },
     // Le tableau est la seule vue : il est toujours actif.
     actif: true,
@@ -255,12 +408,23 @@ export default function Recommandations() {
    * cartes par colonne descendent, alors que le total, lui, compte tout.
    */
   const totalDe = (code: string) => colonnes.find((c) => c.code === code)?.total ?? 0
-  const mesures = [
-    { libelle: 'À traiter', valeur: String(nbDossiers), precision: 'Recommandations ouvertes' },
-    { libelle: 'En construction', valeur: String(totalDe('EN_CONSTRUCTION')), precision: 'Versions en cours' },
-    { libelle: 'En décision', valeur: String(totalDe('EN_DECISION')), precision: 'Client sollicité' },
-    { libelle: 'À réactiver', valeur: String(totalDe('A_REACTIVER')), precision: 'En sommeil' },
-  ]
+  /* CHAQUE VUE ANNONCE SES PROPRES MESURES. Reprendre les quatre de l'avancement dans la vue des
+     statuts aurait affiché des zéros : « EN_CONSTRUCTION » n'y est pas une colonne, et un indicateur
+     qui compte une colonne absente ne dit pas « aucun », il dit une contre-vérité. */
+  const mesures = parStatut
+    ? [
+        { libelle: 'Actives', valeur: String(totalDe('ACTIVE')), precision: 'Dossiers vivants' },
+        { libelle: 'À réactiver', valeur: String(totalDe('A_REACTIVER')), precision: 'En sommeil' },
+        { libelle: 'Acceptées', valeur: String(totalDe('CLOTUREE_ACCEPTEE')), precision: 'Clos sur un oui' },
+        { libelle: 'Refusées', valeur: String(totalDe('CLOTUREE_REFUSEE')), precision: 'Clos sur un non' },
+        { libelle: 'Expirées', valeur: String(totalDe('CLOTUREE_EXPIREE')), precision: 'Clos par le temps' },
+      ]
+    : [
+        { libelle: 'À traiter', valeur: String(nbDossiers), precision: 'Recommandations ouvertes' },
+        { libelle: 'En construction', valeur: String(totalDe('EN_CONSTRUCTION')), precision: 'Versions en cours' },
+        { libelle: 'En décision', valeur: String(totalDe('EN_DECISION')), precision: 'Client sollicité' },
+        { libelle: 'À réactiver', valeur: String(totalDe('A_REACTIVER')), precision: 'En sommeil' },
+      ]
 
   return (
     <div>
@@ -280,12 +444,105 @@ export default function Recommandations() {
 
         <Indicateurs mesures={mesures} />
 
-        <ListToolbar query={recherche} onQueryChange={setRecherche} placeholder="Rechercher une recommandation, un compte…" count={nbDossiers}>
+        <ListToolbar
+          query={recherche}
+          onQueryChange={setRecherche}
+          placeholder="Rechercher une recommandation, un compte…"
+          count={nbDossiers}
+          /* ══ LA LIGNE DES FILTRES ══
+             Ligne du haut : ce qu'on regarde (périmètre, axe, ordre). Ligne du bas : ce qu'on en
+             retire. Huit commandes sur une seule ligne passaient à la ligne au hasard de la largeur
+             de la fenêtre, en coupant un groupe au milieu. */
+          secondaryRow={
+            <>
+              <span className="mr-0.5 text-km-label font-semibold text-km-faint">Filtrer</span>
+
+              {/* LE FILTRE DE L'AXE OPPOSÉ.
+                  Vue Avancement : on filtre par statut de dossier, les trois clôtures comprises —
+                  c'est là que « voir les différents types de clôturé » se joue sans quitter son plan
+                  de charge. Vue Statut : on filtre par avancement, pour lire « les actives qui sont
+                  en décision ». Un seul des deux est monté à la fois : l'autre porterait sur l'axe
+                  des colonnes, où il ne ferait que masquer six colonnes sur sept. */}
+              {parStatut ? (
+                <MenuChoix
+                  valeur={filtreTravail}
+                  onChange={setFiltreTravail}
+                  ariaLabel="Filtrer par avancement"
+                  choix={CHOIX_TRAVAIL}
+                />
+              ) : (
+                /* CHOISIR UNE CLÔTURE COCHE LA CASE DES CLOS. Sans ce lien, filtrer sur « acceptée »
+                   afficherait un tableau vide — la colonne des clos n'étant pas montée par défaut —
+                   et on croirait à une absence de données plutôt qu'à deux réglages qui se
+                   contredisent. */
+                <MenuChoix
+                  valeur={filtreStatut}
+                  onChange={(v) => {
+                    setFiltreStatut(v)
+                    if (v.startsWith('CLOTUREE')) setAvecClos(true)
+                  }}
+                  ariaLabel="Filtrer par statut de recommandation"
+                  choix={CHOIX_STATUT}
+                />
+              )}
+
+              <MenuChoix
+                valeur={filtreEnergie}
+                onChange={setFiltreEnergie}
+                ariaLabel="Filtrer par énergie"
+                choix={CHOIX_ENERGIE}
+              />
+
+              {/* LA PÉRIODE DE CLÔTURE — « il aimerait sélectionner la date » : deux champs et six
+                  raccourcis, voir `FiltrePeriode`. La même commande sert à préparer (« les 3
+                  prochains mois », sur les dates prévues) et à faire les comptes (« l'année
+                  dernière », sur les dates réelles). */}
+              <FiltrePeriode libelle="Clôture" valeur={periode} onChange={setPeriode} />
+
+              {/* INCLURE LES DOSSIERS CLOS. Demandé par Naoëlle le 25/08/2026, après que j'aie
+                  signalé la conséquence de la règle de Michel : un dossier clos ne se trouvait plus
+                  par la recherche de cette page, et c'est le genre de chose qu'on découvre au mauvais
+                  moment. Décoché par défaut — sa règle reste la règle, la case est l'exception.
+                  ELLE DISPARAÎT DANS LA VUE DES STATUTS : les clôtures y sont trois colonnes
+                  nommées, une case pour les masquer n'y aurait aucun sens. */}
+              {!parStatut && (
+                <BasculeOption
+                  actif={avecClos}
+                  onChange={setAvecClos}
+                  libelle="Inclure les recommandations closes"
+                />
+              )}
+
+              {filtresPoses && (
+                <button
+                  type="button"
+                  onClick={effacerFiltres}
+                  className="ml-auto text-km-label font-semibold text-km-muted underline decoration-km-line underline-offset-2 hover:text-km-text"
+                >
+                  Tout effacer
+                </button>
+              )}
+            </>
+          }
+        >
           <BasculePerimetre
             valeur={perimetre}
             onChange={setPerimetre}
             libelleMien="Mes recommandations"
             libelleTous="Toutes les recommandations"
+          />
+          {/* ══ LA BASCULE DE VUE ══
+              Naoëlle, 01/09/2026 : « deux vues kanban en mode toggle ». Elle est placée juste après
+              le périmètre, avant les filtres : elle décide de ce que les filtres suivants pourront
+              filtrer, donc elle se lit d'abord. */}
+          <BasculeSegments
+            valeur={vue}
+            onChange={(v) => setVue(v as VueReco)}
+            segments={[
+              { valeur: 'avancement', libelle: 'Avancement' },
+              { valeur: 'statut', libelle: 'Statut' },
+            ]}
+            ariaLabel="Choisir l'axe du tableau"
           />
           {/* LE TRI EST REVENU LE 28/08/2026 : « un système de tri et de filtre sur toutes les vues
               kanban ». Il avait été retiré trois jours plus tôt, avec le filtre par étape et la vue
@@ -293,29 +550,7 @@ export default function Recommandations() {
               colonnes, elles ne se trient pas de l'extérieur. Trier les CARTES à l'intérieur d'une
               colonne est une autre affaire, et c'est celle-là qu'on demande. */}
           <SelecteurTri valeur={tri} onChange={setTri} options={optionsTri} />
-          {/* CHOISIR « Cloturee » COCHE LA CASE DES CLOS. Sans ce lien, filtrer sur ce statut
-              afficherait un tableau vide — la colonne des clos n'etant pas montee par defaut — et on
-              croirait a une absence de donnees plutot qu'a deux reglages qui se contredisent. */}
-          <MenuChoix
-            valeur={filtreEtape}
-            onChange={(v) => {
-              setFiltreEtape(v)
-              if (v === 'CLOTUREE') setAvecClos(true)
-            }}
-            ariaLabel="Filtrer par statut de recommandation"
-            choix={[
-              { valeur: '', libelle: 'Tous les statuts' },
-              { valeur: 'BROUILLON', libelle: 'Brouillon', detail: 'aucune version etudiee' },
-              { valeur: 'ACTIVE', libelle: 'Active', detail: 'une version vivante' },
-              { valeur: 'A_REACTIVER', libelle: 'À réactiver', detail: 'derniere version morte' },
-              { valeur: 'CLOTUREE', libelle: 'Clôturée', detail: 'dossier termine' },
-            ]}
-          />
-        {/* INCLURE LES DOSSIERS CLOS. Demandé par Naoëlle le 25/08/2026, après que j'aie signalé la
-            conséquence de la règle de Michel : un dossier clos ne se trouvait plus par la recherche
-            de cette page, et c'est le genre de chose qu'on découvre au mauvais moment.
-            Décoché par défaut — sa règle reste la règle, la case est l'exception. */}
-        <BasculeOption actif={avecClos} onChange={setAvecClos} libelle="Inclure les recommandations closes" />
+
         </ListToolbar>
 
         <TableauKanban
@@ -345,11 +580,19 @@ export default function Recommandations() {
                      une version expirée et une version refusée ne demandent pas le même appel.
                      Le numéro de version situe le dossier d'un coup d'œil — troisième tentative
                      n'est pas la première. */
+                  /* DANS LA VUE DES STATUTS, L'ÉTIQUETTE PORTE L'AVANCEMENT. La colonne y dit le
+                     statut du dossier ; sans cette mention, rien ne distinguerait une « Active » en
+                     construction d'une « Active » déjà chez le client — l'information même qui
+                     décide s'il y a quelque chose à faire aujourd'hui. */
                   nature: (() => {
                     const num = r.numero_version != null ? `V${r.numero_version}` : null
                     const fin = r.resultat_version
                       ? RESULTAT_VERSION_LIBELLE[r.resultat_version] ?? r.resultat_version
                       : null
+                    if (parStatut) {
+                      const av = LIBELLE_TRAVAIL[r.colonne_travail] ?? r.colonne_travail
+                      return [av, num].filter(Boolean).join(' · ')
+                    }
                     if (!num) return 'Aucune version'
                     return [num, fin].filter(Boolean).join(' · ')
                   })(),
@@ -363,11 +606,34 @@ export default function Recommandations() {
                      dossiers « À réactiver », où elle existe en base mais n'était affichée nulle
                      part. Elle passe en pied de carte avec le bon mot : « clôturée » sur un dossier
                      clos, « prévue » sinon — `CloseDate` est la date PRÉVUE tant que l'opportunité
-                     est ouverte, et 126 des nôtres le sont encore dans l'org. */
+                     est ouverte, et 126 des nôtres le sont encore dans l'org.
+
+                     LE MOT SUIT L'ÉTAPE, PAS LA FINALITÉ, depuis le 01/09/2026. Il testait
+                     `finalite_cloture` : or 23 dossiers ACTIFS en portent une, héritée d'une clôture
+                     précédente avant leur réouverture. La carte écrivait donc « Clôturée le
+                     31/10/2028 » sur un dossier vivant dont l'échéance est à venir. Une finalité dit
+                     comment un dossier s'est terminé UNE FOIS ; seule l'étape dit s'il est terminé
+                     MAINTENANT. */
+                  /* LA DISTANCE EN INTERLIGNE — « qu'on mette des dates relatives en interligne »
+                     (Michel, 01/09/2026). Il lisait « Clôture prévue 21/04/2026 » et devait compter
+                     de tête pour savoir si c'était demain ou dans un an. La date exacte reste, la
+                     distance s'ajoute en dessous : l'une sert à préparer, l'autre à décider.
+                     ELLE SE COLORE quand elle est passée ou proche, et RIEN sur un dossier clos :
+                     « il y a huit mois » sur une acceptation n'est pas une alerte, c'est de
+                     l'histoire — la peindre en ambre aurait crié au loup 856 fois. */
                   chiffres: r.date_cloture
                     ? [{
-                        libelle: r.finalite_cloture ? 'Clôturée le' : 'Clôture prévue',
+                        libelle: r.etape === 'CLOTUREE' ? 'Clôturée le' : 'Clôture prévue',
                         valeur: new Date(r.date_cloture).toLocaleDateString('fr-FR'),
+                        precision: dateRelative(r.date_cloture) ?? undefined,
+                        ton:
+                          r.etape === 'CLOTUREE'
+                            ? ('neutre' as const)
+                            : tonDate(r.date_cloture) === 'passe'
+                              ? ('passe' as const)
+                              : tonDate(r.date_cloture) === 'proche'
+                                ? ('proche' as const)
+                                : ('neutre' as const),
                       }]
                     : undefined,
                   to: `/recommandations/${r.id}`,
@@ -377,7 +643,16 @@ export default function Recommandations() {
             /* LE TOTAL VIENT DE LA BASE, pas du nombre de cartes reçues : dix par colonne sont
                demandées, et une colonne peut en compter six cents. */
             totaux={Object.fromEntries(colonnes.map((c) => [c.code, c.total]))}
-            siVide={tableau.isLoading ? 'Chargement…' : 'Aucune recommandation ne correspond.'}
+            /* UN VIDE QUI DIT CE QU'IL FAUT DÉFAIRE. Avec cinq commandes dans la barre, « aucune
+               recommandation » laisse chercher laquelle a tout coupé — et la période est la plus
+               facile à oublier, puisqu'elle se referme après usage. */
+            siVide={
+              tableau.isLoading
+                ? 'Chargement…'
+                : periodeActive(periode)
+                  ? 'Aucune recommandation dans cette période de clôture.'
+                  : 'Aucune recommandation ne correspond.'
+            }
           />
       </div>
       {showCreate && (

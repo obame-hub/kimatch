@@ -95,8 +95,16 @@ export interface CarteKanban {
    * occuper maintenant.
    */
   motif?: string
-  /** Chiffres en pied de carte, deux au plus pour rester lisibles — un volume, un montant. */
-  chiffres?: { libelle: string; valeur: string }[]
+  /**
+   * Chiffres en pied de carte, deux au plus pour rester lisibles — un volume, un montant.
+   *
+   * `precision` ajoute une troisième ligne sous la valeur, en grisé — la distance d'une date,
+   * l'unité d'un volume. Michel, 01/09/2026 : « qu'on mette des dates relatives en interligne ».
+   * Une date exacte ne dit pas l'urgence, une distance ne permet pas de préparer un rendez-vous :
+   * les deux lignes disent deux choses différentes, et la seconde ne vole pas la place de la
+   * première. `ton` la colore quand elle porte une alerte — une échéance passée, une proche.
+   */
+  chiffres?: { libelle: string; valeur: string; precision?: string; ton?: 'passe' | 'proche' | 'neutre' }[]
   /**
    * LE GROUPE AUQUEL LA CARTE APPARTIENT, écrit ENTRE les cartes et non dessus.
    *
@@ -352,6 +360,20 @@ export function TableauKanban({
                             <span className="block text-km-label font-bold tabular-nums text-km-text">
                               {n.valeur}
                             </span>
+                            {n.precision && (
+                              <span
+                                className={cn(
+                                  'block text-km-tiny font-semibold',
+                                  n.ton === 'passe'
+                                    ? 'text-km-amber'
+                                    : n.ton === 'proche'
+                                      ? 'text-km-green'
+                                      : 'text-km-faint',
+                                )}
+                              >
+                                {n.precision}
+                              </span>
+                            )}
                           </span>
                         ))}
                       </span>

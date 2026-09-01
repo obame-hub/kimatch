@@ -75,12 +75,66 @@ export function BasculeOption({ actif, onChange, libelle }: {
   )
 }
 
+/**
+ * UNE BASCULE ENTRE DEUX OU TROIS ÉTATS EXCLUSIFS — l'axe d'un tableau, le mode d'un écran.
+ *
+ * Naoëlle, 01/09/2026 : « deux vues kanban en mode toggle ». Le dessin est celui de
+ * `BasculePerimetre`, qui existait depuis le 28/08 pour « Mes dossiers / Tous » : un rail creux, un
+ * segment plein sur le choix actif. Le reprendre plutôt que d'inventer une seconde apparence pour le
+ * même geste, c'est ce qui évite les quatre hauteurs et trois rayons sur une même ligne que Naoëlle
+ * a photographiés le 31/08.
+ *
+ * PAS DE `MenuChoix` ICI, ET C'EST LA RÈGLE HABITUELLE : deux choix se montrent, ils ne se cachent
+ * pas derrière un clic. On voit d'un coup d'œil qu'une autre vue existe — un menu fermé, non.
+ *
+ * `radiogroup` PLUTÔT QUE DES BOUTONS PRESSÉS : ces segments sont exclusifs, et c'est ce qu'un
+ * lecteur d'écran doit entendre — « 1 sur 2 sélectionné », pas « bouton enfoncé » deux fois.
+ */
+export function BasculeSegments({
+  valeur,
+  onChange,
+  segments,
+  ariaLabel,
+}: {
+  valeur: string
+  onChange: (v: string) => void
+  segments: { valeur: string; libelle: string }[]
+  ariaLabel: string
+}) {
+  return (
+    // 26 px de segment + 2×3 px de rembourrage = 32 px, la valeur de CONTROLE_BARRE. Un pixel
+    // d'écart se voit sur une ligne de cinq contrôles alignés.
+    <div
+      role="radiogroup"
+      aria-label={ariaLabel}
+      className="flex h-[32px] shrink-0 items-center gap-0.5 rounded-km border border-km-line bg-km-soft p-[3px]"
+    >
+      {segments.map((sg) => (
+        <button
+          key={sg.valeur}
+          type="button"
+          role="radio"
+          aria-checked={valeur === sg.valeur}
+          onClick={() => onChange(sg.valeur)}
+          className={cn(
+            'flex h-[26px] items-center rounded-[6px] px-2.5 text-km-label font-semibold transition-colors',
+            valeur === sg.valeur ? 'bg-km-surface text-km-text shadow-sm' : 'text-km-muted hover:text-km-text',
+          )}
+        >
+          {sg.libelle}
+        </button>
+      ))}
+    </div>
+  )
+}
+
 export function ListToolbar({
   query,
   onQueryChange,
   placeholder = 'Rechercher…',
   count,
   children,
+  secondaryRow,
 }: {
   query: string
   onQueryChange: (value: string) => void
@@ -88,9 +142,26 @@ export function ListToolbar({
   /** Nombre de lignes affichées, après recherche, filtre et tri. */
   count?: number
   children?: ReactNode
+  /**
+   * UNE SECONDE LIGNE, POUR LES ÉCRANS QUI FILTRENT BEAUCOUP.
+   *
+   * Ajoutée le 01/09/2026 pour /recommandations, qui porte désormais huit commandes : recherche,
+   * périmètre, bascule de vue, tri, deux filtres de nomenclature, une période, une case à cocher.
+   * Sur une seule ligne, elles passent à la ligne toutes seules — mais au hasard de la largeur de
+   * la fenêtre, en coupant un groupe au milieu. C'est exactement ce que Naoëlle a photographié le
+   * 31/08 : « c'est encore le bordel ».
+   *
+   * LE PARTAGE EST UNE DÉCISION, PAS UN DÉBORDEMENT. Ligne du haut : CE QU'ON REGARDE — le
+   * périmètre, l'axe du tableau, l'ordre. Ligne du bas : CE QU'ON EN RETIRE — les filtres. Deux
+   * questions différentes, deux lignes, et le retour à la ligne ne dépend plus de la fenêtre.
+   *
+   * Les quinze autres listes ne passent rien ici et gardent exactement la barre d'avant.
+   */
+  secondaryRow?: ReactNode
 }) {
   return (
-    <div className="mb-3.5 flex flex-wrap items-center gap-2">
+    <>
+    <div className={cn('flex flex-wrap items-center gap-2', secondaryRow ? 'mb-2' : 'mb-3.5')}>
       <div className="relative w-full max-w-[260px]">
         <Search className="pointer-events-none absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-km-faint" />
         <Input
@@ -107,5 +178,9 @@ export function ListToolbar({
         </span>
       )}
     </div>
+    {secondaryRow && (
+      <div className="mb-3.5 flex flex-wrap items-center gap-2">{secondaryRow}</div>
+    )}
+    </>
   )
 }

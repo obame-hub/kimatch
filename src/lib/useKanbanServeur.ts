@@ -100,6 +100,20 @@ export function useKanbanServeur<T>(options: {
    * qui se relit mal six mois plus tard.
    */
   filtres?: Record<string, string | boolean | null>
+  /**
+   * FILTRES D'INTERVALLE — « du 1er au 30 », « dépassées », « les trois prochains mois ».
+   *
+   * Michel, 01/09/2026 : « le moyen de sélectionner une date ». Un `eq` ne sait pas dire « avant » :
+   * il fallait une seconde forme de filtre, et elle passe par le même entonnoir que les autres pour
+   * que la somme des marges porte exactement la même sélection que les cartes.
+   *
+   * LES DEUX BORNES SONT INCLUSES (`gte` / `lte`) : « du 1er au 30 » contient le 30, comme tout le
+   * monde l'entend. Une borne haute exclusive aurait perdu un dossier par mois sans rien dire.
+   *
+   * Une borne à `null` ne filtre pas de ce côté-là — c'est ce qui permet « tout ce qui est dépassé »
+   * sans avoir à inventer une date de début.
+   */
+  intervalles?: Record<string, { min?: string | null; max?: string | null }>
   /** Colonne numérique à additionner sur chaque colonne du tableau — la marge, un volume. */
   colonneSomme?: string
   /**
@@ -116,10 +130,10 @@ export function useKanbanServeur<T>(options: {
   ordre?: { colonne: string; ascendant?: boolean }
   actif: boolean
 }) {
-  const { vue, colonneStatut, colonnes, colonnesRecherche, recherche, filtres, colonneSomme, ordre, actif } = options
+  const { vue, colonneStatut, colonnes, colonnesRecherche, recherche, filtres, intervalles, colonneSomme, ordre, actif } = options
 
   return useQuery({
-    queryKey: ['kanban-serveur', vue, colonneStatut, colonnes.map((c) => c.codes?.join('+') ?? c.code), recherche.trim(), filtres, colonneSomme, ordre],
+    queryKey: ['kanban-serveur', vue, colonneStatut, colonnes.map((c) => c.codes?.join('+') ?? c.code), recherche.trim(), filtres, intervalles, colonneSomme, ordre],
     enabled: actif,
     queryFn: async (): Promise<ResultatColonne<T>[]> => {
       const mots = recherche.trim().split(/\s+/).filter(Boolean)
@@ -135,6 +149,10 @@ export function useKanbanServeur<T>(options: {
         req = req.in(colonneStatut, codes)
         for (const [colonne, valeur] of Object.entries(filtres ?? {})) {
           if (valeur != null && valeur !== '') req = req.eq(colonne, valeur)
+        }
+        for (const [colonne, bornes] of Object.entries(intervalles ?? {})) {
+          if (bornes.min) req = req.gte(colonne, bornes.min)
+          if (bornes.max) req = req.lte(colonne, bornes.max)
         }
         // Chaque mot doit se retrouver dans au moins une colonne cherchée — même règle que la
         // liste, pour que « rue victor » trouve autant que « victor rue ».
