@@ -24,6 +24,7 @@ const Signaux = lazy(() => import('@/pages/Signaux'))
 const Opportunites = lazy(() => import('@/pages/Opportunites'))
 const OpportuniteDetail = lazy(() => import('@/pages/OpportuniteDetail'))
 const Prospection = lazy(() => import('@/pages/Prospection'))
+const PisteDetail = lazy(() => import('@/pages/PisteDetail'))
 const Requetes = lazy(() => import('@/pages/Requetes'))
 const SuivisContrats = lazy(() => import('@/pages/SuivisContrats'))
 const SuiviContratDetail = lazy(() => import('@/pages/SuiviContratDetail'))
@@ -74,6 +75,7 @@ function App() {
           <Route path="/sites" element={<Sites />} />
           <Route path="/sites/:id" element={<SiteDetail />} />
           <Route path="/prospection" element={<Prospection />} />
+          <Route path="/pistes/:id" element={<PisteDetail />} />
           <Route path="/opportunites" element={<Opportunites />} />
           <Route path="/opportunites/:id" element={<OpportuniteDetail />} />
           <Route path="/pricing" element={<Pricing />} />

@@ -123,6 +123,28 @@ export function usePistes() {
   })
 }
 
+/**
+ * Une piste par son identifiant.
+ *
+ * Michel, 01/09/2026 : « que ce ne soit pas un volet à droite qui s'affiche quand on clique dessus
+ * mais une page dédiée à la piste, affichée comme les opportunités ».
+ *
+ * La piste n'avait pas de lecture unitaire : le panneau recevait l'objet déjà chargé par le kanban.
+ * Une page, elle, s'ouvre par son adresse — depuis un lien, un favori, un retour arrière — et doit
+ * donc savoir se charger seule.
+ */
+export function usePiste(id: string | undefined) {
+  return useQuery({
+    queryKey: ['pistes', 'une', id],
+    enabled: !!id,
+    queryFn: async (): Promise<Piste | null> => {
+      const { data, error } = await supabase.from('pistes').select('*').eq('id', id as string).maybeSingle()
+      if (error) throw new Error(error.message)
+      return (data as Piste | null) ?? null
+    },
+  })
+}
+
 export type PatchPiste = Partial<{
   societe: string | null
   contact_nom: string | null

@@ -1,5 +1,4 @@
 import { useMemo, useState } from 'react'
-import { useNavigate } from 'react-router-dom'
 import { Plus, ArrowRight, Users } from 'lucide-react'
 import { Topbar } from '@/components/layout/Topbar'
 import { PageHeader } from '@/components/ui/page-header'
@@ -12,23 +11,16 @@ import { ListToolbar } from '@/components/ui/list-toolbar'
 import { usePerimetreListe, BasculePerimetre } from '@/lib/perimetre'
 import { Indicateurs } from '@/components/ui/page-header'
 import { useTriKanban, SelecteurTri } from '@/lib/triKanban'
-import { DialogConversionPiste } from '@/components/prospection/DialogConversionPiste'
-import { OngletFichiers } from '@/components/compte/OngletFichiers'
-import { useDocumentsParEntites, useTeleverserDocuments } from '@/lib/data/documents'
-import { useReferenceTable } from '@/lib/data/referenceTables'
 import {
   useListes,
   usePistes,
   useCreerLigneListe,
   useCreerPiste,
   useConvertirEnPiste,
-  useConvertirPisteEnOpportunite,
   pisteQualifiee,
   VALIDATIONS_PISTE,
 } from '@/lib/data/prospection'
-import { useStatutsOpportunites } from '@/lib/data/opportunites'
 import { cn } from '@/lib/utils'
-import { PanneauPiste } from '@/components/prospection/PanneauPiste'
 import { TableauKanban } from '@/components/dashboard/TableauKanban'
 import type { LigneListe, Piste } from '@/types/domain'
 import { useOuvrirCreation } from '@/lib/ouvrirCreation'
@@ -144,7 +136,7 @@ export default function Prospection() {
 
         {onglet === 'listes' && AFFICHER_LES_LISTES
           ? <OngletListes lignes={listes ?? []} signaler={signaler} />
-          : <OngletPistes pistes={pistes ?? []} signaler={signaler} />}
+          : <OngletPistes pistes={pistes ?? []} />}
       </div>
 
       {creation === 'liste' && <DialogLigne onFermer={() => setCreation(null)} signaler={signaler} />}
@@ -245,16 +237,11 @@ function OngletListes({ lignes, signaler }: { lignes: LigneListe[]; signaler: (m
  * ne sont pas toutes cochées, la bascule en opportunité reste fermée : sans elle, on ouvrirait des
  * affaires sur des contacts qu'on ne sait pas joindre.
  */
-function OngletPistes({ pistes, signaler }: { pistes: Piste[]; signaler: (m: string) => void }) {
-  const navigate = useNavigate()
+/* L'onglet ne garde plus que le tableau : conversion, fichiers et vérifications sont passés sur la
+   fiche de la piste (Michel, 01/09/2026). Il n'a donc plus besoin de `signaler` — plus rien ne
+   s'enregistre depuis ici. */
+function OngletPistes({ pistes }: { pistes: Piste[] }) {
   const [recherche, setRecherche] = useState('')
-  const convertir = useConvertirPisteEnOpportunite()
-  const { data: statuts } = useStatutsOpportunites()
-  const [signalPour, setSignalPour] = useState<Piste | null>(null)
-  const [panneauPour, setPanneauPour] = useState<Piste | null>(null)
-  // LES FICHIERS D'UNE PISTE. Une piste n'a pas de fiche à elle : le dialogue est donc le seul
-  // endroit possible, et il porte le même onglet Fichiers que le compte et l'opportunité.
-  const [fichiersPour, setFichiersPour] = useState<Piste | null>(null)
   // Même règle que pour les listes : l'onglet compte les pistes encore ouvertes, la liste montre
   // les mêmes.
 
@@ -397,107 +384,34 @@ function OngletPistes({ pistes, signaler }: { pistes: Piste[]; signaler: (m: str
                       : 'À vérifier : ' + manquantes.map((v) => v.libelle.toLowerCase()).join(', '),
                   mention: `${validees.length}/5 vérifié`,
                   urgent: !p.opportunite_id && pisteQualifiee(p),
-                  to: p.opportunite_id ? `/opportunites/${p.opportunite_id}` : '/prospection',
+                  /* ══ LA CARTE MÈNE À LA FICHE DE LA PISTE ══
+                     Michel, 01/09/2026 : « une page dédiée à la piste, pas un volet à droite ».
+                     Elle menait auparavant à l'opportunité issue de la piste, ou nulle part —
+                     `/prospection`, donc la page qu'on quitte. Une piste convertie garde son
+                     histoire : on ouvre SA fiche, qui porte le lien vers l'opportunité.
+                     `to` et non `onCarte` : une carte qui mène à une fiche doit être un LIEN, pour
+                     répondre au clic du milieu, au Ctrl+clic et au « ouvrir dans un nouvel onglet ».
+                     `onCarte` ouvrait un panneau et privait la carte de tout ça. */
+                  to: `/pistes/${p.id}`,
                 }
               }),
             ]),
           )}
-          onCarte={(id) => setPanneauPour(pistes.find((p) => p.id === id) ?? null)}
           siVide="Aucune piste ne correspond."
         />
 
-      {/* LE PANNEAU D'UNE PISTE. Il DÉCLENCHE les deux dialogues ci-dessous plutôt que de les
-          contenir : celui de conversion demande le signal et crée compte, contact et opportunité —
-          il appartient à la page, pas au panneau. */}
-      <PanneauPiste
-        piste={panneauPour}
-        onFermer={() => setPanneauPour(null)}
-        onConvertir={(p) => { setPanneauPour(null); setSignalPour(p) }}
-        onFichiers={(p) => { setPanneauPour(null); setFichiersPour(p) }}
-        signaler={signaler}
-      />
+      {/* ══ TOUT LE TRAVAIL D'UNE PISTE A DÉMÉNAGÉ SUR SA FICHE ══
+          Michel, 01/09/2026 : « une page dédiée à la piste ». Les cinq vérifications, la conversion
+          en opportunité, les fichiers et les tâches vivent maintenant sur `PisteDetail`.
 
-      {fichiersPour && (
-        <DialogFichiersPiste piste={fichiersPour} onFermer={() => setFichiersPour(null)} signaler={signaler} />
-      )}
-
-      {signalPour && (
-        <DialogConversionPiste
-          piste={signalPour}
-          onFermer={() => setSignalPour(null)}
-          onValide={async (signal, contactId, compteId) => {
-            // Le contact est desormais garanti : le dialogue l'a rattache ou cree.
-            try {
-              const id = await convertir.mutateAsync({
-                piste: signalPour,
-                statutNouvelleId: statuts?.find((s) => s.code === 'NOUVELLE')?.id ?? null,
-                signal,
-                contactId,
-                compteId,
-              })
-              setSignalPour(null)
-              navigate(`/opportunites/${id}`)
-            } catch (e) {
-              signaler(e instanceof Error ? e.message : 'Conversion impossible')
-            }
-          }}
-        />
-      )}
+          Les deux dialogues qui restaient montés ici ont été retirés : plus rien ne les ouvrait
+          depuis que la carte est un lien. Les garder aurait laissé du code mort derrière un
+          commentaire qui promettait un chemin inexistant. */
+      }
     </>
   )
 }
 
-/**
- * Les fichiers d'une piste.
- *
- * POURQUOI UN DIALOGUE. Une piste n'a pas de fiche à elle — c'est un objet de travail, pas un objet
- * du patrimoine — et lui en fabriquer une pour trois fichiers serait disproportionné. Le dialogue
- * porte le composant `OngletFichiers`, celui du compte et de l'opportunité : dépôt par glisser ou
- * par parcours du poste, catégories, ouverture de la fiche document.
- *
- * La contrainte de la table `documents` accepte `piste` depuis la migration 20260823200000.
- */
-function DialogFichiersPiste({ piste, onFermer, signaler }: {
-  piste: Piste
-  onFermer: () => void
-  signaler: (m: string) => void
-}) {
-  const { data: documents } = useDocumentsParEntites([piste.id])
-  const { data: typesDocumentsRef } = useReferenceTable('types_documents')
-  const typesDocuments = typesDocumentsRef ?? []
-  const televerser = useTeleverserDocuments()
-  const navigate = useNavigate()
-
-  // Filtré sur le type d'entité : deux objets de même identifiant ne se mélangent pas.
-  const fichiers = (documents ?? []).filter((d) => d.entite_type === 'piste')
-
-  return (
-    <Dialog
-      open
-      onClose={onFermer}
-      title="Fichiers de la piste"
-      description={piste.societe ?? undefined}
-      className="max-w-2xl"
-    >
-      <OngletFichiers
-        documents={fichiers}
-        onOuvrir={(d) => navigate(`/documents/${d.id}`)}
-        typesDocuments={typesDocuments}
-        nomEntite="cette piste"
-        onDeposer={async (liste, typeDocumentId) => {
-          await televerser.mutateAsync({
-            fichiers: liste,
-            entite_type: 'piste',
-            entite_id: piste.id,
-            type_document_id: typeDocumentId,
-            type_document_libelle: typesDocuments.find((t) => t.id === typeDocumentId)?.libelle ?? '',
-          })
-          signaler(`✓ ${liste.length} fichier${liste.length > 1 ? 's' : ''} déposé${liste.length > 1 ? 's' : ''}`)
-        }}
-      />
-    </Dialog>
-  )
-}
 
 function DialogLigne({ onFermer, signaler }: { onFermer: () => void; signaler: (m: string) => void }) {
   const creer = useCreerLigneListe()
