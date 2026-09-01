@@ -29,7 +29,7 @@ function Rubrique({ children, espaceAvant = false }: { children: string; espaceA
        L'interligne du titre lui-même ne bouge pas — elle l'a demandé explicitement. */
     <p className={cn(
       'mb-1 px-2.5 text-km-tiny font-bold uppercase tracking-[0.09em] text-km-side-faint first:mt-1',
-      espaceAvant ? 'mt-8' : 'mt-6',
+      espaceAvant ? 'mt-10' : 'mt-6',
     )}>
       {children}
     </p>
