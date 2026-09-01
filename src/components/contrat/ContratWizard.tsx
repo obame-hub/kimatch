@@ -76,13 +76,48 @@ export function ContratWizard({
   const [contactId, setContactId] = useState('')
   const [feedback, setFeedback] = useState<string | null>(null)
 
-  const typeEnergie: 'electricite' | 'gaz' = reco.type_energie === 'gaz' ? 'gaz' : 'electricite'
-  const estGaz = typeEnergie === 'gaz'
-  const optionsTypePrix = useMemo(() => (estGaz ? ['Fixe', 'Indexé'] : ['Marché']), [estGaz])
   const pdls = useMemo(
     () => (compteurs ?? []).filter((c) => (reco.compteur_ids ?? []).includes(c.id)),
     [compteurs, reco.compteur_ids],
   )
+
+  /**
+   * L'ÉNERGIE DU CONTRAT VIENT DES COMPTEURS, PAS DE LA RECOMMANDATION.
+   *
+   * Naoëlle, 01/09/2026, capture à l'appui : « pourquoi la reco est électricité si son compteur est
+   * gaz ? ». Le contrat SENAC IMMOBILIER / SDC LE BOIS CHAMPEAUX, créé ici le 21/08/2026, s'affiche
+   * en Électricité alors que son unique compteur — GI041477 — est au gaz, et que son fournisseur est
+   * GAZ EUROPEEN.
+   *
+   * LA LIGNE FAUTIVE ÉTAIT CELLE-CI :
+   *
+   *     reco.type_energie === 'gaz' ? 'gaz' : 'electricite'
+   *
+   * Un ternaire à deux branches sur une valeur qui en a TROIS. `type_energie` est nul sur 1 493 des
+   * 1 703 recommandations — l'énergie n'est renseignée que sur celles nées dans Kimatch. Sur toutes
+   * les autres, « je ne sais pas » tombait dans la branche « sinon », c'est-à-dire électricité. Le
+   * contrat ne se trompait donc pas au hasard : il se trompait TOUJOURS dans le même sens.
+   *
+   * ET CE N'ÉTAIT PAS QU'UNE ÉTIQUETTE. `optionsTypePrix` en dépend : le gaz se vend en Fixe ou
+   * Indexé, l'électricité en Marché. Ce contrat gaz s'est donc vu proposer « Marché » comme seul
+   * choix — et l'a enregistré.
+   *
+   * LES COMPTEURS, EUX, SAVENT. Les 7 911 portent une énergie, sans exception, et le périmètre est
+   * déjà sélectionné à cet endroit. C'est la source la plus sûre disponible : un contrat de
+   * fourniture porte sur des points de livraison, et un point de livraison n'a qu'une énergie.
+   *
+   * LE REPLI NE SERT QUE SI LES COMPTEURS SE CONTREDISENT — deux recommandations mélangent
+   * aujourd'hui gaz et électricité dans leur périmètre. Dans ce cas seulement on retombe sur la
+   * recommandation, faute de mieux.
+   */
+  const typeEnergie: 'electricite' | 'gaz' = useMemo(() => {
+    const desCompteurs = new Set(pdls.map((c) => c.type_energie))
+    if (desCompteurs.size === 1) return [...desCompteurs][0]
+    return reco.type_energie === 'gaz' ? 'gaz' : 'electricite'
+  }, [pdls, reco.type_energie])
+
+  const estGaz = typeEnergie === 'gaz'
+  const optionsTypePrix = useMemo(() => (estGaz ? ['Fixe', 'Indexé'] : ['Marché']), [estGaz])
   const contactsDuCompte = useMemo(
     () => (contacts ?? []).filter((c) => c.compte_id === reco.compte_id),
     [contacts, reco.compte_id],
