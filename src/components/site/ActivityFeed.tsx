@@ -247,7 +247,7 @@ export function ActivityFeed({
               type="button"
               onClick={() => { setMode(m); setFilterValue(null) }}
               className={cn(
-                'flex-1 rounded-md px-2 py-1.5 text-km-label font-medium transition-colors',
+                'flex-1 rounded-md px-2 py-1 text-km-xs font-medium transition-colors',
                 mode === m ? 'bg-white text-km-text shadow-sm' : 'text-km-muted hover:text-km-text',
               )}
             >
@@ -263,7 +263,7 @@ export function ActivityFeed({
             type="button"
             onClick={() => setFilterValue(null)}
             className={cn(
-              'rounded-full px-2.5 py-1 text-km-label font-semibold',
+              'rounded-md px-2 py-0.5 text-km-xs font-medium',
               filterValue === null ? 'bg-ink-800 text-white' : 'bg-km-soft text-km-muted hover:bg-km-line',
             )}
           >
@@ -275,7 +275,7 @@ export function ActivityFeed({
               type="button"
               onClick={() => setFilterValue(v)}
               className={cn(
-                'rounded-full px-2.5 py-1 text-km-label font-semibold',
+                'rounded-md px-2 py-0.5 text-km-xs font-medium',
                 filterValue === v ? 'bg-ink-800 text-white' : 'bg-km-soft text-km-muted hover:bg-km-line',
               )}
             >
@@ -294,7 +294,7 @@ export function ActivityFeed({
                   "Aujourd'hui" / "Hier" doivent se lire au premier coup d'oeil » (brief de
                   William). Le trait qui suit passe en teinte de la pastille plutot qu'en gris
                   neutre, pour que l'oeil suive la ligne. */}
-              <span className={cn('rounded-full px-2.5 py-1 text-km-label font-semibold text-white shadow-sm', groupBadgeClass(row.diffDays))}>
+              <span className={cn('rounded-md px-2 py-0.5 text-km-xs font-semibold text-white', groupBadgeClass(row.diffDays))}>
                 {row.label}
               </span>
               <div className={cn('h-0.5 flex-1 rounded-full opacity-25', groupBadgeClass(row.diffDays))} />

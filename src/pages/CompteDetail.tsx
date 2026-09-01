@@ -364,14 +364,14 @@ export default function CompteDetail() {
               <span className="text-km-h1 font-bold leading-tight tracking-tight text-km-text">{compte.nom}</span>
             )}
             {compte.segment && (
-              <span className="rounded-[12px] bg-km-blue-soft px-2.5 py-[3px] text-km-label font-semibold text-km-blue">{compte.segment}</span>
+              <span className="rounded-lg bg-km-blue-soft px-2 py-0.5 text-km-xs font-medium text-km-blue">{compte.segment}</span>
             )}
             {(() => {
               const style = TYPE_BADGE_STYLE[compte.type_compte]
               const IconeType = style.icone
               return (
-                <span className={cn('inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-km-label font-semibold', style.bg, style.border, style.text)}>
-                  <IconeType className="h-3.5 w-3.5" strokeWidth={2.2} />
+                <span className={cn('inline-flex items-center gap-1 rounded-lg border px-2 py-0.5 text-km-xs font-medium', style.bg, style.border, style.text)}>
+                  <IconeType className="h-3 w-3" strokeWidth={2} />
                   {typeMeta[compte.type_compte].label}
                 </span>
               )

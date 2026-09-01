@@ -168,7 +168,7 @@ export function FluxActualite({ tableNom, ligneId, dateCreation, interactions = 
       {jours.map((groupe) => (
         <div key={groupe.jour} className="flex flex-col gap-2">
           <div className="flex items-center gap-2.5 px-0.5 pb-0.5 pt-3">
-            <span className="rounded-full bg-km-bg px-2 py-1 text-km-label font-semibold text-km-muted">
+            <span className="rounded-md bg-km-bg px-1.5 py-0.5 text-km-xs font-medium text-km-muted">
               {groupe.jour}
             </span>
             <div className="h-[1.5px] flex-1 bg-km-line" />
@@ -192,7 +192,7 @@ export function FluxActualite({ tableNom, ligneId, dateCreation, interactions = 
               <div className="min-w-0 flex-1">
                 <span
                   className={cn(
-                    'mb-1.5 inline-block rounded-md px-1.5 py-0.5 text-km-xs font-semibold',
+                    'mb-1.5 inline-block rounded px-1.5 py-0.5 text-km-tiny font-semibold',
                     e.genre === 'echange' ? 'bg-violet-100 text-violet-600' : 'bg-km-bg text-km-muted',
                   )}
                 >
@@ -216,7 +216,7 @@ export function FluxActualite({ tableNom, ligneId, dateCreation, interactions = 
           « Aujourd'hui » apparaissait deux fois dans le même fil (vu à l'écran le 23/08/2026). */}
       {libelleJour(dateCreation) !== jours[jours.length - 1]?.jour && (
         <div className="flex items-center gap-2.5 px-0.5 pb-0.5 pt-3">
-          <span className="rounded-full bg-km-bg px-2 py-1 text-km-label font-semibold text-km-muted">
+          <span className="rounded-md bg-km-bg px-1.5 py-0.5 text-km-xs font-medium text-km-muted">
             {libelleJour(dateCreation)}
           </span>
           <div className="h-[1.5px] flex-1 bg-km-line" />

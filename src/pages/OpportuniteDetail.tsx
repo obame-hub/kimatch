@@ -246,7 +246,7 @@ export default function OpportuniteDetail() {
               value={opportunite.origine ?? ''}
               options={ORIGINES_OPPORTUNITE.map((o) => ({ value: o.code, label: o.libelle }))}
               onCommit={(v) => majOpp({ origine: v || null })}
-              className="inline-flex rounded-full border border-opp-200 bg-opp-100 px-2.5 py-1 text-km-label font-semibold text-opp-600"
+              className="inline-flex rounded-lg border border-opp-200 bg-opp-100 px-2 py-0.5 text-km-xs font-medium text-opp-600"
               {...retourInline}
             />
             <InlineField
@@ -255,7 +255,7 @@ export default function OpportuniteDetail() {
               emptyLabel="type à préciser"
               value={opportunite.type_opportunite ?? ''}
               onCommit={(v) => majOpp({ type_opportunite: v.trim() || null })}
-              className="inline-flex rounded-full border border-km-line bg-km-bg px-2.5 py-1 text-km-label font-semibold text-km-muted"
+              className="inline-flex rounded-lg border border-km-line bg-km-bg px-2 py-0.5 text-km-xs font-medium text-km-muted"
               {...retourInline}
             />
             {opportunite.qualification_fin && (
