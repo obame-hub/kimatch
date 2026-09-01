@@ -238,7 +238,7 @@ export function ActivityFeed({
   }
 
   return (
-    <div className="flex h-full min-h-0 flex-col gap-2.5">
+    <div className="flex h-full min-h-0 flex-col gap-3">
       {filterDimension === 'site' && (
         <div className="flex gap-0.5 rounded-lg bg-km-soft p-0.5">
           {(['site', 'contact'] as const).map((m) => (
@@ -247,7 +247,7 @@ export function ActivityFeed({
               type="button"
               onClick={() => { setMode(m); setFilterValue(null) }}
               className={cn(
-                'flex-1 rounded-md px-2 py-1 text-km-label font-semibold transition-colors',
+                'flex-1 rounded-md px-2 py-1.5 text-km-label font-medium transition-colors',
                 mode === m ? 'bg-white text-km-text shadow-sm' : 'text-km-muted hover:text-km-text',
               )}
             >
@@ -263,7 +263,7 @@ export function ActivityFeed({
             type="button"
             onClick={() => setFilterValue(null)}
             className={cn(
-              'rounded-full px-2.5 py-1 text-km-xs font-semibold',
+              'rounded-full px-2.5 py-1 text-km-label font-semibold',
               filterValue === null ? 'bg-ink-800 text-white' : 'bg-km-soft text-km-muted hover:bg-km-line',
             )}
           >
@@ -275,7 +275,7 @@ export function ActivityFeed({
               type="button"
               onClick={() => setFilterValue(v)}
               className={cn(
-                'rounded-full px-2.5 py-1 text-km-xs font-semibold',
+                'rounded-full px-2.5 py-1 text-km-label font-semibold',
                 filterValue === v ? 'bg-ink-800 text-white' : 'bg-km-soft text-km-muted hover:bg-km-line',
               )}
             >
@@ -285,16 +285,16 @@ export function ActivityFeed({
         </div>
       )}
 
-      <div className="min-h-0 flex-1 space-y-1.5 overflow-y-auto pr-1">
+      <div className="min-h-0 flex-1 space-y-2 overflow-y-auto pr-1">
         {rows.length === 0 && <p className="text-sm text-km-faint">Aucune activité pour le moment.</p>}
         {rows.map((row, idx) =>
           row.type === 'header' ? (
-            <div key={`h-${idx}`} className="flex items-center gap-2 pt-2 first:pt-0">
+            <div key={`h-${idx}`} className="flex items-center gap-2.5 pt-2.5 first:pt-0">
               {/* 12px et non plus 10 : « les separateurs de date sont trop discrets, "A venir" /
                   "Aujourd'hui" / "Hier" doivent se lire au premier coup d'oeil » (brief de
                   William). Le trait qui suit passe en teinte de la pastille plutot qu'en gris
                   neutre, pour que l'oeil suive la ligne. */}
-              <span className={cn('rounded-xl px-3 py-1 text-km-label font-extrabold uppercase tracking-[0.6px] text-white shadow-sm', groupBadgeClass(row.diffDays))}>
+              <span className={cn('rounded-full px-2.5 py-1 text-km-label font-semibold text-white shadow-sm', groupBadgeClass(row.diffDays))}>
                 {row.label}
               </span>
               <div className={cn('h-0.5 flex-1 rounded-full opacity-25', groupBadgeClass(row.diffDays))} />

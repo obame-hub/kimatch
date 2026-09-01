@@ -164,11 +164,11 @@ export function FluxActualite({ tableNom, ligneId, dateCreation, interactions = 
   }
 
   return (
-    <div className="flex flex-col gap-1.5">
+    <div className="flex flex-col gap-2">
       {jours.map((groupe) => (
-        <div key={groupe.jour} className="flex flex-col gap-1.5">
-          <div className="flex items-center gap-2 px-0.5 pb-0.5 pt-2.5">
-            <span className="rounded-md bg-km-bg px-1.5 py-0.5 text-km-tiny font-extrabold uppercase tracking-[0.07em] text-km-muted">
+        <div key={groupe.jour} className="flex flex-col gap-2">
+          <div className="flex items-center gap-2.5 px-0.5 pb-0.5 pt-3">
+            <span className="rounded-full bg-km-bg px-2 py-1 text-km-label font-semibold text-km-muted">
               {groupe.jour}
             </span>
             <div className="h-[1.5px] flex-1 bg-km-line" />
@@ -177,7 +177,7 @@ export function FluxActualite({ tableNom, ligneId, dateCreation, interactions = 
             <div
               key={e.id}
               className={cn(
-                'flex gap-2 rounded-[11px] border px-2.5 py-2',
+                'flex gap-2.5 rounded-[11px] border px-2.5 py-2.5',
                 e.genre === 'echange' ? 'border-violet-200 bg-violet-50/50' : 'border-km-line bg-white',
               )}
             >
@@ -192,7 +192,7 @@ export function FluxActualite({ tableNom, ligneId, dateCreation, interactions = 
               <div className="min-w-0 flex-1">
                 <span
                   className={cn(
-                    'mb-1 inline-block rounded-md px-1.5 py-0.5 text-km-tiny font-extrabold uppercase tracking-[0.06em]',
+                    'mb-1.5 inline-block rounded-md px-1.5 py-0.5 text-km-xs font-semibold',
                     e.genre === 'echange' ? 'bg-violet-100 text-violet-600' : 'bg-km-bg text-km-muted',
                   )}
                 >
@@ -215,14 +215,14 @@ export function FluxActualite({ tableNom, ligneId, dateCreation, interactions = 
           SON SÉPARATEUR NE S'AFFICHE QUE S'IL CHANGE DE JOURNÉE : créée et modifiée le même jour,
           « Aujourd'hui » apparaissait deux fois dans le même fil (vu à l'écran le 23/08/2026). */}
       {libelleJour(dateCreation) !== jours[jours.length - 1]?.jour && (
-        <div className="flex items-center gap-2 px-0.5 pb-0.5 pt-2.5">
-          <span className="rounded-md bg-km-bg px-1.5 py-0.5 text-km-tiny font-extrabold uppercase tracking-[0.07em] text-km-muted">
+        <div className="flex items-center gap-2.5 px-0.5 pb-0.5 pt-3">
+          <span className="rounded-full bg-km-bg px-2 py-1 text-km-label font-semibold text-km-muted">
             {libelleJour(dateCreation)}
           </span>
           <div className="h-[1.5px] flex-1 bg-km-line" />
         </div>
       )}
-      <div className={cn('flex gap-2 rounded-[11px] border border-opp-200 bg-opp-50/60 px-2.5 py-2')}>
+      <div className={cn('flex gap-2.5 rounded-[11px] border border-opp-200 bg-opp-50/60 px-2.5 py-2.5')}>
         <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-lg bg-gradient-to-br from-opp-600 to-opp-400 text-white">
           <Sparkle className="h-3 w-3" />
         </span>

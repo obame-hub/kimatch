@@ -235,7 +235,7 @@ export default function OpportuniteDetail() {
         </span>
 
         <div className="flex min-w-0 flex-1 flex-col gap-1.5">
-          <div className="flex flex-wrap items-center gap-2">
+          <div className="flex flex-wrap items-center gap-x-2.5 gap-y-2">
             <span className="text-km-metric font-bold tabular-nums text-km-text">
               {opportunite.reference || 'Sans référence'}
             </span>
@@ -246,7 +246,7 @@ export default function OpportuniteDetail() {
               value={opportunite.origine ?? ''}
               options={ORIGINES_OPPORTUNITE.map((o) => ({ value: o.code, label: o.libelle }))}
               onCommit={(v) => majOpp({ origine: v || null })}
-              className="inline-flex rounded-xl border border-opp-200 bg-opp-100 px-2.5 py-0.5 text-km-xs font-extrabold uppercase tracking-wide text-opp-600"
+              className="inline-flex rounded-full border border-opp-200 bg-opp-100 px-2.5 py-1 text-km-label font-semibold text-opp-600"
               {...retourInline}
             />
             <InlineField
@@ -255,7 +255,7 @@ export default function OpportuniteDetail() {
               emptyLabel="type à préciser"
               value={opportunite.type_opportunite ?? ''}
               onCommit={(v) => majOpp({ type_opportunite: v.trim() || null })}
-              className="inline-flex rounded-xl border border-km-line bg-km-bg px-2.5 py-0.5 text-km-xs font-bold text-km-muted"
+              className="inline-flex rounded-full border border-km-line bg-km-bg px-2.5 py-1 text-km-label font-semibold text-km-muted"
               {...retourInline}
             />
             {opportunite.qualification_fin && (

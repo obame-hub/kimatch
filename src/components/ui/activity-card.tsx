@@ -53,7 +53,7 @@ export function ActivityCard({
   const [deplie, setDeplie] = useState(false)
   const content = (
     <div
-      className={cn('flex items-start gap-2.5 rounded-lg p-2.5 transition-colors', (onClick || href) && 'cursor-pointer', className)}
+      className={cn('flex items-start gap-2.5 rounded-lg px-2.5 py-3 transition-colors', (onClick || href) && 'cursor-pointer', className)}
       style={{ background: style.bg, border: `1px solid ${style.border}`, borderLeft: `3px solid ${style.accent}` }}
     >
       {leading ?? (Icon && (
@@ -68,12 +68,12 @@ export function ActivityCard({
         {/* Couleurs fixes (pas les classes text-navy-*) : le fond de la carte est un lavis
             pastel toujours clair, quel que soit le thème — le texte doit rester sombre dessus
             même en mode sombre (où text-km-text/500 basculeraient en clair et deviendraient illisibles). */}
-        <p className="truncate text-xs font-medium" style={{ color: '#16181d' }}>{title}</p>
-        {subtitle && <p className="line-clamp-2 text-km-label leading-snug" style={{ color: '#83868f' }}>{subtitle}</p>}
+        <p className="truncate text-km-label font-semibold" style={{ color: '#16181d' }}>{title}</p>
+        {subtitle && <p className="mt-0.5 line-clamp-2 text-km-label" style={{ color: '#83868f' }}>{subtitle}</p>}
         {body && (
           <p
             className={cn(
-              'mt-1 whitespace-pre-line rounded-md px-2 py-1 text-km-label leading-snug',
+              'mt-1.5 whitespace-pre-line rounded-md px-2 py-1.5 text-km-label',
               // Deplie : tout le texte. Replie : trois lignes, et on n'annonce « voir plus » que
               // s'il y a vraiment quelque chose de cache — un compte rendu de deux lignes ne doit
               // pas proposer un depliage qui ne montrerait rien.

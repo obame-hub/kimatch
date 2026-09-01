@@ -350,7 +350,7 @@ export default function CompteDetail() {
         <div className="flex min-w-0 flex-1 flex-col gap-1.5">
           {/* Titre en 28px et non plus 20 : « nom du compte trop petit » (William, 15/08/2026).
               C'est le titre de la fiche, il doit se lire d'un coup d'œil. */}
-          <div className="flex flex-wrap items-center gap-3">
+          <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
             {canManage ? (
               <InlineField
                 variant="text"
@@ -370,7 +370,7 @@ export default function CompteDetail() {
               const style = TYPE_BADGE_STYLE[compte.type_compte]
               const IconeType = style.icone
               return (
-                <span className={cn('inline-flex items-center gap-1.5 rounded-[12px] border px-2.5 py-[3px] text-km-label font-bold uppercase tracking-wide', style.bg, style.border, style.text)}>
+                <span className={cn('inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-km-label font-semibold', style.bg, style.border, style.text)}>
                   <IconeType className="h-3.5 w-3.5" strokeWidth={2.2} />
                   {typeMeta[compte.type_compte].label}
                 </span>
