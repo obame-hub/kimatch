@@ -683,6 +683,34 @@ export default function RecommandationDetail() {
           <p className="mt-0.5 truncate text-km-label text-km-faint">
             {reco.compte_nom} · créée le {new Date(reco.date_creation).toLocaleDateString('fr-FR')}
             {reco.conseiller ? ` · ${reco.conseiller}` : ''}
+            {/* ══ LA DATE DE CLÔTURE, VISIBLE MÊME QUAND LE DOSSIER N'EST PAS CLOS ══
+                Michel, 31/08/2026, sur un dossier « À réactiver » : « il serait bien d'avoir la
+                possibilité de voir la date de clôture, comme sur Salesforce ».
+
+                ELLE ÉTAIT DÉJÀ EN BASE — vérifié sur les 1 595 dossiers repris : 1 585 dates
+                identiques au champ `CloseDate` de Salesforce, zéro absente, et les 10 écarts sont
+                des clôtures faites DANS Kimatch le 12/08/2026 que Salesforce, gelé en lecture
+                seule, n'a jamais reçues. Rien ne manquait à l'import.
+
+                CE QUI MANQUAIT, C'EST L'AFFICHAGE : le bloc qui la montre est conditionné à
+                `estClose && finalite`. Or les 84 dossiers « À réactiver » ont une date et AUCUNE
+                finalité — le bloc ne s'affichait donc jamais pour eux, et c'est exactement ceux que
+                Michel regardait.
+
+                DEUX LIBELLÉS, PARCE QUE LE CHAMP DIT DEUX CHOSES. `CloseDate` est obligatoire sur
+                toute opportunité Salesforce : sur un dossier clos c'est la date de clôture réelle,
+                sur un dossier ouvert c'est la date PRÉVUE. Mesuré : 126 de nos dossiers sont encore
+                ouverts dans l'org. Écrire « clôturée le » sur ceux-là annoncerait une fin qui n'a
+                pas eu lieu. */}
+            {reco.date_cloture && (
+              <>
+                {' · '}
+                {estClose ? 'clôturée' : 'clôture prévue'} le{' '}
+                <span className="font-semibold text-km-muted">
+                  {new Date(reco.date_cloture).toLocaleDateString('fr-FR')}
+                </span>
+              </>
+            )}
           </p>
         </div>
 

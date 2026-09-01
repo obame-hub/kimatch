@@ -45,6 +45,9 @@ interface LigneReco {
   montant: number | null
   /** L'énergie du dossier — elle portait l'emoji du nom jusqu'au 31/08/2026. */
   type_energie: string | null
+  /** La `CloseDate` reprise de Salesforce : date réelle si le dossier est clos, prévue sinon. */
+  date_cloture: string | null
+  finalite_cloture: string | null
 }
 
 /**
@@ -305,6 +308,17 @@ export default function Recommandations() {
                       : r.nb_versions > 1
                         ? `${r.nb_versions} versions`
                         : undefined,
+                  /* LA DATE DE CLÔTURE SUR LA CARTE. Michel, 31/08/2026 : il la cherchait sur les
+                     dossiers « À réactiver », où elle existe en base mais n'était affichée nulle
+                     part. Elle passe en pied de carte avec le bon mot : « clôturée » sur un dossier
+                     clos, « prévue » sinon — `CloseDate` est la date PRÉVUE tant que l'opportunité
+                     est ouverte, et 126 des nôtres le sont encore dans l'org. */
+                  chiffres: r.date_cloture
+                    ? [{
+                        libelle: r.finalite_cloture ? 'Clôturée le' : 'Clôture prévue',
+                        valeur: new Date(r.date_cloture).toLocaleDateString('fr-FR'),
+                      }]
+                    : undefined,
                   to: `/recommandations/${r.id}`,
                 })),
               ]),
