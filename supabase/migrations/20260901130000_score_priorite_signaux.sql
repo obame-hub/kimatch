@@ -45,14 +45,27 @@
 -- comptent donc pas comme positives, sauf si leur type est un rendez-vous. C'est le choix prudent :
 -- compter un envoi sans réponse comme un signe d'intérêt gonflerait le score de contacts muets.
 --
--- ══ LE POTENTIEL PASSE PAR LE COMPTE, FAUTE DE MIEUX ══
+-- ══ LE POTENTIEL PASSE PAR LE RESPONSABLE DU COMPTEUR ══
 --
--- Michel : « le nombre de compteurs rattachés au contact ». La table `contacts_sites`, qui dirait
--- quels sites un contact suit précisément, est VIDE — zéro ligne. Le seul chemin disponible est donc
--- le compte : les compteurs de tous les sites de son compte, plus ceux dont il est explicitement
--- responsable. Deux contacts d'un même compte reçoivent de ce fait le même potentiel. C'est fidèle à
--- l'intention — mesurer la taille du portefeuille — mais à corriger le jour où `contacts_sites` sera
--- alimentée.
+-- Michel : « le nombre de compteurs rattachés au contact ». Ce lien existe et il est explicite :
+-- `compteurs.responsable_contact_id` — c'est le champ « Responsable » de la fiche compteur.
+-- Naoëlle, 01/09/2026 : « il faut un lien entre contact et compteurs, c'est obligatoire, c'est le
+-- responsable que tu vois dans la fiche compteur. »
+--
+-- Mesuré : 6 724 compteurs actifs sur 7 905 (85 %) le portent, couvrant 2 446 contacts.
+--
+-- POUR LES 1 181 SANS RESPONSABLE, on retombe sur le contact principal du compte — exactement le
+-- repli du générateur. Chaque compteur est ainsi attribué à UN SEUL contact, celui qu'on appellera :
+-- le score compte donc les mêmes compteurs que ceux dont le signal parlera.
+--
+-- CE QU'ON ÉVITE AINSI. Compter les compteurs de tout le compte donnerait à chaque contact d'un
+-- même compte le portefeuille entier — six compteurs de plus en moyenne, mesuré. Sur un critère qui
+-- vaut 10 points et bascule à 2, 4 et 10 compteurs, cet écart déplace la note de deux crans.
+--
+-- (Note de correction : le commentaire d'origine de cette migration affirmait le contraire — que
+-- faute de `contacts_sites`, le seul chemin était le compte. Le code, lui, a toujours utilisé le
+-- responsable ; vérifié après coup sur 2 584 contacts sur 2 584. C'est le commentaire qui était
+-- faux, pas le calcul.)
 -- ════════════════════════════════════════════════════════════════════════════════════════════════
 
 begin;
