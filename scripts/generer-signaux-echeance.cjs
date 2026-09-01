@@ -46,9 +46,22 @@ const APPLIQUER = process.argv.includes('--appliquer')
 const iMois = process.argv.indexOf('--mois')
 const MOIS = iMois > -1 ? Number(process.argv[iMois + 1]) : 12
 
-/** Le nombre de signaux d'échéance ouverts que chaque commercial doit avoir au plus (Michel). */
-const iPlafond = process.argv.indexOf('--plafond')
-const PLAFOND = iPlafond > -1 ? Number(process.argv[iPlafond + 1]) : 20
+/*
+ * ══ LES VINGT SONT UNE RÈGLE D'AFFICHAGE, PAS DE CRÉATION ══
+ *
+ * Naoëlle, 01/09/2026 : « l'écran affiche les 20 meilleures et à chaque fois qu'il en traite un, un
+ * nouveau le remplace ; il faut rien supprimer, le but c'est que tous les signaux soient toujours
+ * traités, qu'il y ait un roulement, mais que le commercial en voie 20 pour que ça ne lui fasse pas
+ * peur. »
+ *
+ * J'avais mis le plafond ICI, sur la création : le générateur refusait d'ouvrir un signal dès qu'un
+ * commercial en avait vingt. C'était l'inverse de ce qu'elle décrit — les contacts au-delà du
+ * vingtième n'auraient jamais eu de signal, donc jamais été traités, et le vivier se serait figé.
+ *
+ * On crée donc pour TOUS les contacts éligibles. C'est l'écran qui n'en montre que vingt, et qui
+ * laisse le suivant remonter dès qu'un est traité. Le classement par score reste ici : il décide de
+ * l'ordre dans lequel ils remonteront.
+ */
 
 if (!Number.isFinite(MOIS) || MOIS < 1 || MOIS > 60) {
   console.error('--mois attend un nombre de mois entre 1 et 60.')
@@ -238,7 +251,6 @@ async function main() {
   const { parContact, orphelins } = grouperParContact(compteurs)
   const dejaEnCours = await contactsDejaEnCours()
   const scores = await lireLesScores()
-  const dejaOuverts = await ouvertsParCommercial()
 
   // ══ 1. LES CANDIDATS ══
   const candidats = []
@@ -285,23 +297,11 @@ async function main() {
   // valent pas si l'un arrive à terme dans trois semaines et l'autre dans trois mois.
   candidats.sort((a, b) => b.score - a.score || String(a.echeance).localeCompare(String(b.echeance)))
 
-  const aCreer = []
-  const places = new Map()
-  let ignoresQuota = 0
-  for (const c of candidats) {
-    const cle = c.commercial_id ?? 'SANS_COMMERCIAL'
-    if (!places.has(cle)) places.set(cle, PLAFOND - (dejaOuverts.get(c.commercial_id) ?? 0))
-    if (places.get(cle) <= 0) {
-      ignoresQuota++
-      continue
-    }
-    places.set(cle, places.get(cle) - 1)
-    aCreer.push(c)
-  }
+  // Tous les candidats sont créés : le roulement se fait à l'écran, pas à la génération.
+  const aCreer = candidats
 
   console.log('══ GÉNÉRATION DES SIGNAUX D’ÉCHÉANCE ══')
   console.log(`horizon                       : ${MOIS} mois`)
-  console.log(`plafond par commercial        : ${PLAFOND} signaux ouverts`)
   console.log(`compteurs dans l’horizon      : ${compteurs.length}`)
   console.log(`contacts concernés            : ${parContact.size}`)
   console.log('')
@@ -310,21 +310,9 @@ async function main() {
   console.log(`  opportunité en cours          : ${ignoresOpportunite}`)
   console.log(`  hors fenêtre au recalcul      : ${ignoresSansScore}`)
   console.log('')
-  console.log(`candidats classés             : ${candidats.length}`)
-  console.log(`écartés faute de place        : ${ignoresQuota}`)
-  console.log(`SIGNAUX À CRÉER               : ${aCreer.length}`)
+  console.log(`SIGNAUX À CRÉER               : ${aCreer.length}  (tous les candidats — l’écran n’en montre que 20)`)
   console.log(`compteurs sans aucun contact  : ${orphelins.length}  ← aucun signal possible`)
   console.log('')
-
-  // Les places restantes par commercial : c'est ce qui explique un petit nombre de créations.
-  if (places.size) {
-    console.log('Places restantes après génération :')
-    for (const [cle, reste] of places) {
-      const deja = dejaOuverts.get(cle === 'SANS_COMMERCIAL' ? null : cle) ?? 0
-      console.log(`  ${String(cle).slice(0, 8)}… : ${deja} déjà ouverts · ${Math.max(0, reste)} place(s) libre(s)`)
-    }
-    console.log('')
-  }
 
   if (aCreer.length) {
     console.log('Cinq premiers signaux, par score décroissant :')

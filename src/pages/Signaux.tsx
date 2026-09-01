@@ -291,13 +291,45 @@ export default function Signaux() {
   ]
 
   const q = query.trim().toLowerCase()
-  const visibles = (signauxDuPerimetre ?? [])
+  const filtres = (signauxDuPerimetre ?? [])
     // Le compteur du bandeau doit dire ce que le tableau montre : sans ce filtre il annoncerait
     // 1 457 signaux au-dessus de colonnes qui n'en affichent que 831.
     .filter((s) => avecClos || estVivant(s.statut))
     .filter((s) =>
       !q || [s.site_nom, s.type_signal, s.description, s.conseiller].some((f) => (f ?? '').toLowerCase().includes(q)),
     )
+
+  /**
+   * ══ VINGT SIGNAUX PAR COMMERCIAL, ET UN ROULEMENT ══
+   *
+   * Naoëlle, 01/09/2026 : « l'écran affiche les 20 meilleurs et à chaque fois qu'il en traite un, un
+   * nouveau le remplace ; il faut rien supprimer, le but c'est que tous les signaux soient toujours
+   * traités, qu'il y ait un roulement, mais que le commercial en voie 20 pour que ça ne lui fasse
+   * pas peur. »
+   *
+   * LA LIMITE EST ICI ET NULLE PART AILLEURS. Elle a d'abord été posée sur la GÉNÉRATION, ce qui
+   * était l'inverse de son intention : les contacts au-delà du vingtième n'auraient jamais reçu de
+   * signal, donc jamais été traités. Tout est créé, tout est classé, et l'écran ne montre que la
+   * tête de file. Traiter un signal — le convertir ou l'écarter — le sort du décompte, et le
+   * suivant remonte de lui-même au prochain rendu.
+   *
+   * PAR COMMERCIAL, pas globalement : c'est SA charge de travail qui doit rester tenable. En vue
+   * « Toutes », chaque commercial garde donc ses vingt.
+   *
+   * LES SIGNAUX CLOS NE COMPTENT PAS DANS LES VINGT. Quand « inclure les clos » est coché, ils
+   * s'ajoutent à l'affichage sans consommer une place : ils sont là pour être relus, pas traités.
+   */
+  const PLAFOND_AFFICHE = 20
+  const compteParCommercial = new Map<string, number>()
+  const visibles = filtres.filter((s) => {
+    if (!estVivant(s.statut)) return true
+    const cle = s.conseiller || '(sans commercial)'
+    const n = (compteParCommercial.get(cle) ?? 0) + 1
+    compteParCommercial.set(cle, n)
+    return n <= PLAFOND_AFFICHE
+  })
+  const enAttente = filtres.filter((x) => estVivant(x.statut)).length
+    - visibles.filter((x) => estVivant(x.statut)).length
 
   return (
     <div>
@@ -313,6 +345,16 @@ export default function Signaux() {
 
         <div className="mb-3.5 flex flex-wrap items-center gap-3">
           <ListToolbar query={query} onQueryChange={setQuery} placeholder="Rechercher un site, un type de signal…" count={visibles.length}>
+            {/* Ce que l'écran ne montre pas doit être dit, sinon « 20 signaux » se lit comme « il
+                n'y en a que 20 » — et le commercial croit son portefeuille vide. */}
+            {enAttente > 0 && (
+              <span
+                title="Les signaux suivants remontent au fur et à mesure que vous traitez ceux affichés."
+                className="inline-flex shrink-0 items-center rounded-km border border-km-line bg-km-soft px-2.5 py-1.5 text-km-label text-km-muted"
+              >
+                20 par commercial · <span className="ml-1 font-semibold text-km-text">{enAttente} en attente</span>
+              </span>
+            )}
             <BasculePerimetre
               valeur={perimetre}
               onChange={setPerimetre}
