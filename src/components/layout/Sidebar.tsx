@@ -231,7 +231,7 @@ export function Sidebar() {
             </div>
           )}
           <p className="min-w-0 flex-1 truncate whitespace-nowrap text-km-label text-km-side-muted">
-            KiWee Énergie
+            Mon profil
           </p>
 
         </NavLink>
