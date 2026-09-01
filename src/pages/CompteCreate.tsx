@@ -746,7 +746,7 @@ function NextStepScreen({
 
       {contactsAjoutes.length > 0 && (
         <div className="mt-6">
-          <p className="mb-3 text-xs font-semibold uppercase tracking-wide text-km-faint">Ajoutés au dossier ({contactsAjoutes.length})</p>
+          <p className="mb-3 text-xs font-semibold uppercase tracking-wide text-km-faint">Ajoutés au compte ({contactsAjoutes.length})</p>
           <div className="divide-y divide-km-line rounded-xl border border-km-line bg-white">
             {contactsAjoutes.map((c) => (
               <div key={c.id} className="flex items-center gap-3 px-4 py-3">

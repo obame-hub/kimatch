@@ -305,7 +305,7 @@ export default function Signaux() {
             conséquence de la règle de Michel : un dossier clos ne se trouvait plus par la recherche
             de cette page, et c'est le genre de chose qu'on découvre au mauvais moment.
             Décoché par défaut — sa règle reste la règle, la case est l'exception. */}
-            <BasculeOption actif={avecClos} onChange={setAvecClos} libelle="Inclure les dossiers clos" />
+            <BasculeOption actif={avecClos} onChange={setAvecClos} libelle="Inclure les signaux clos" />
           </ListToolbar>
         </div>
 

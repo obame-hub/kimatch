@@ -1130,7 +1130,7 @@ export default function RecommandationDetail() {
                         <b className="text-km-muted"> Expirée</b>.
                       </>
                     ) : (
-                      <>Première version du dossier : durées par PDL, type de prix, puis fournisseurs à consulter.</>
+                      <>Première version de la recommandation : durées par PDL, type de prix, puis fournisseurs à consulter.</>
                     )}
                   </div>
                   {versionActive && (

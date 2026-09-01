@@ -508,7 +508,7 @@ export function OffresDuFournisseur({
               type="button"
               onClick={() => setIndisponible((v) => !v)}
               aria-pressed={indisponible}
-              title="Le fournisseur n’a aucune offre à proposer sur ce dossier"
+              title="Le fournisseur n’a aucune offre à proposer sur cette recommandation"
               className={cn(
                 'rounded-km-sm border px-2 py-0.5 text-km-body font-bold transition-colors',
                 indisponible

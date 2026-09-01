@@ -32,7 +32,7 @@ export function OngletPerimetre({
   return (
     <div className="flex animate-km-fade-slide flex-col gap-3.5">
       <div className="rounded-km-md border border-[#f0e4cd] bg-km-amber-soft px-3 py-2.5 text-km-body text-km-muted">
-        Périmètre <b className="text-km-text">unique pour tout le dossier</b> : toutes les versions
+        Périmètre <b className="text-km-text">unique pour toute la recommandation</b> : toutes les versions
         portent sur ces mêmes points de livraison.
       </div>
 

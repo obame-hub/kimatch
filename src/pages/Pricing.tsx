@@ -312,7 +312,7 @@ export default function Pricing({ sansEntete }: { sansEntete?: boolean }) {
           title="Pricing"
           badge={montantConnu ? euros(montantTotal) : undefined}
           badgeLibelle="Montant chiffré"
-          description="Suivez les offres fournisseurs à chaque étape de leur traitement. Seule la version en cours des dossiers ouverts apparaît."
+          description="Suivez les offres fournisseurs à chaque étape de leur traitement. Seule la version en cours des recommandations ouvertes apparaît."
         />
 
         <Indicateurs mesures={mesures} />

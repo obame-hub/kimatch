@@ -168,7 +168,7 @@ export default function Recommandations() {
     { cle: 'marge_nette', libelle: 'marge', ascendant: false },
     { cle: 'date_ouverture', libelle: 'date d’ouverture', ascendant: false },
     { cle: 'compte_nom', libelle: 'compte' },
-    { cle: 'nom', libelle: 'nom du dossier' },
+    { cle: 'nom', libelle: 'nom de la recommandation' },
   ])
 
   const tableau = useKanbanServeur<LigneReco>({
@@ -223,7 +223,7 @@ export default function Recommandations() {
    */
   const totalDe = (code: string) => colonnes.find((c) => c.code === code)?.total ?? 0
   const mesures = [
-    { libelle: 'À traiter', valeur: String(nbDossiers), precision: 'Dossiers ouverts' },
+    { libelle: 'À traiter', valeur: String(nbDossiers), precision: 'Recommandations ouvertes' },
     { libelle: 'En construction', valeur: String(totalDe('EN_CONSTRUCTION')), precision: 'Versions en cours' },
     { libelle: 'En décision', valeur: String(totalDe('EN_DECISION')), precision: 'Client sollicité' },
     { libelle: 'À réactiver', valeur: String(totalDe('A_REACTIVER')), precision: 'En sommeil' },
@@ -251,8 +251,8 @@ export default function Recommandations() {
           <BasculePerimetre
             valeur={perimetre}
             onChange={setPerimetre}
-            libelleMien="Mes dossiers"
-            libelleTous="Tous les dossiers"
+            libelleMien="Mes recommandations"
+            libelleTous="Toutes les recommandations"
           />
           {/* LE TRI EST REVENU LE 28/08/2026 : « un système de tri et de filtre sur toutes les vues
               kanban ». Il avait été retiré trois jours plus tôt, avec le filtre par étape et la vue
@@ -264,7 +264,7 @@ export default function Recommandations() {
             conséquence de la règle de Michel : un dossier clos ne se trouvait plus par la recherche
             de cette page, et c'est le genre de chose qu'on découvre au mauvais moment.
             Décoché par défaut — sa règle reste la règle, la case est l'exception. */}
-        <BasculeOption actif={avecClos} onChange={setAvecClos} libelle="Inclure les dossiers clos" />
+        <BasculeOption actif={avecClos} onChange={setAvecClos} libelle="Inclure les recommandations closes" />
         </ListToolbar>
 
         <TableauKanban

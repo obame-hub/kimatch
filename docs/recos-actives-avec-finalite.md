@@ -1,4 +1,4 @@
-# Les 24 dossiers affichés « Actifs » alors qu'ils portent une finalité
+# Les 24 recommandations affichées « Actifs » alors qu'ils portent une finalité
 
 *Mesuré le 01/09/2026 sur la base de production.*
 
@@ -6,16 +6,16 @@
 
 ## D'abord : d'où sortent les « 45 »
 
-Ce n'était pas 45 recommandations au total. C'est le nombre de dossiers **à l'étape « Active »**.
+Ce n'était pas 45 recommandations au total. C'est le nombre de recommandations **à l'étape « Active »**.
 Voici la répartition complète des **1 700 recommandations actives** :
 
-| Étape | Dossiers |
+| Étape | Recommandations |
 |---|---:|
 | CLOTUREE | 1 568 |
 | A_REACTIVER | 84 |
 | ACTIVE | 48 |
 
-Sur les **48 dossiers « Actifs »**, **24 portent une finalité de clôture** alors que leur
+Sur les **48 recommandations « Actives »**, **24 portent une finalité de clôture** alors que leur
 dernière version est encore ouverte. Soit plus de la moitié.
 
 *(J'avais annoncé 45 il y a deux heures ; le chiffre bouge au fil du travail des commerciaux.)*
@@ -24,15 +24,15 @@ dernière version est encore ouverte. Soit plus de la moitié.
 
 ## Pourquoi ils s'affichent « Actifs »
 
-Kimatch déduit l'étape d'un dossier de **sa dernière version**, dans cet ordre :
+Kimatch déduit l'étape d'une recommandation de **sa dernière version**, dans cet ordre :
 
-1. **une version encore vivante → le dossier est Actif**
+1. **une version encore vivante → la recommandation est Active**
 2. sinon, une finalité renseignée → Clôturé
 3. sinon, aucune version → Brouillon
 
-La règle s'arrête à la ligne 1 et ne regarde jamais la finalité. C'est voulu : un dossier qu'on
-retravaille est actif, quoi qu'il ait porté avant. Sans cette priorité, un dossier gagné puis rouvert
-resterait affiché « Clôturé » alors qu'une proposition est chez le client.
+La règle s'arrête à la ligne 1 et ne regarde jamais la finalité. C'est voulu : une recommandation qu'on
+retravaille est active, quoi qu'il ait porté avant. Sans cette priorité, une recommandation gagnée puis rouverte
+resterait affichée « Clôturée » alors qu'une proposition est chez le client.
 
 **Le problème n'est donc pas la règle, c'est que la version n'a jamais été fermée.**
 
@@ -42,7 +42,7 @@ resterait affiché « Clôturé » alors qu'une proposition est chez le client.
 
 Ceux-là sont gagnés et signés. Ils ne devraient plus apparaître comme actifs.
 
-| Finalité | Clôturé le | Dernière version | Version créée le | Compte | Dossier |
+| Finalité | Clôturé le | Dernière version | Version créée le | Compte | Recommandation |
 |---|---|---|---|---|---|
 | Acceptée | 03/03/2026 | V2 · En décision | 27/02/2026 | E A R L LES SERRES DE VILLEMIN | [RENOU - EARL LES SERRES DE VILLEMIN - SIEGE - 2026-02-24](https://kimatch.fr/recommandations/2a1fec12-5662-4238-864f-220beb58c505) |
 | Acceptée | 03/03/2026 | V2 · En décision | 27/02/2026 | MCM | [RENOU - MCM - SIEGE - 2026-01-19](https://kimatch.fr/recommandations/c3e16ce7-d970-44b1-9f1f-8a1f15e69885) |
@@ -54,7 +54,7 @@ Ceux-là sont gagnés et signés. Ils ne devraient plus apparaître comme actifs
 
 ## Les 19 autres
 
-| Finalité | Clôturé le | Dernière version | Version créée le | Compte | Dossier |
+| Finalité | Clôturé le | Dernière version | Version créée le | Compte | Recommandation |
 |---|---|---|---|---|---|
 | Expirée | 29/07/2026 | V3 · En construction | 19/08/2026 | ASSOCIATION HELIADOUR | [ASSOCIATION HELIADOUR - INSTITUT HELIO MARIN](https://kimatch.fr/recommandations/b6181238-cc86-4d55-a9ab-eb9f40add349) |
 | Refusée | 29/07/2026 | V1 · En construction | 23/07/2026 | GIGNOUX LEMAIRE (ORALIA GIGNOUX LEMAIRE) | [GIGNOUX LEMAIRE (ORALIA GIGNOUX LEMAIRE) - SDC BELVAL I GRENOBLE](https://kimatch.fr/recommandations/454377d9-3f71-4260-a991-2e5d0920fd17) |
@@ -82,14 +82,14 @@ Ceux-là sont gagnés et signés. Ils ne devraient plus apparaître comme actifs
 
 Ce ne sont **pas 24 cas isolés**. Trois lots ressortent — même compte, même date, même finalité :
 
-| Compte | Finalité | Date | Dossiers |
+| Compte | Finalité | Date | Recommandations |
 |---|---|---|---:|
 | CABINET MOLINIER | Expirée | 30/09/2026 | 5 |
 | CENTURY 21 MARTINOD IMMOBILIER | Refusée | 30/07/2026 | 3 |
 | PICPUS IMMOBILIER | Expirée | 30/08/2026 | 3 |
 
 **11 des 24 viennent de 3 clôtures groupées.** Quelqu'un a fermé plusieurs
-dossiers d'un coup, et le geste a posé la finalité sur le dossier sans fermer la version qui allait
+recommandations d'un coup, et le geste a posé la finalité sur la recommandation sans fermer la version qui allait
 avec. Ce n'est pas une erreur de saisie répétée : c'est un geste de l'application qui ne va pas au
 bout.
 
@@ -100,7 +100,7 @@ bout.
 **1 · Clôturer les 24 versions restées ouvertes.** Répare l'existant. Ne protège de rien : le
 problème reviendra à la prochaine clôture groupée.
 
-**2 · Changer la règle — clôturer un dossier ferme sa dernière version.** Répare l'existant *et* la
+**2 · Changer la règle — clôturer une recommandation ferme sa dernière version.** Répare l'existant *et* la
 cause. C'est ce que je recommande : les trois lots ci-dessus montrent que le geste se répète.
 
 Dans les deux cas, ce sont des statuts métier : rien n'a été modifié, la décision revient à Michel.
