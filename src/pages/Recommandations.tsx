@@ -7,6 +7,7 @@ import { Button } from '@/components/ui/button'
 import { useMonProfil } from '@/lib/data/roles'
 import { RESULTAT_VERSION_LIBELLE } from '@/lib/referenceFallbacks'
 import { ListToolbar, BasculeOption } from '@/components/ui/list-toolbar'
+import { MenuChoix } from '@/components/ui/menu-choix'
 import { usePerimetre, BasculePerimetre } from '@/lib/perimetre'
 import { useKanbanServeur } from '@/lib/useKanbanServeur'
 import { useTriKanban, SelecteurTri } from '@/lib/triKanban'
@@ -166,10 +167,39 @@ export default function Recommandations() {
      Michel regarde, et decroissante : une marge se lit du plus gros au plus petit. */
   const { tri, ascendant, setTri, options: optionsTri } = useTriKanban('recommandations', [
     { cle: 'marge_nette', libelle: 'marge', ascendant: false },
+    /* LA DATE DE CLOTURE, EN ORDRE CROISSANT — la plus proche d'abord.
+       Michel, 01/09/2026. Sur un dossier ouvert, cette date est l'echeance PREVUE (le `CloseDate`
+       de Salesforce) : la trier du plus proche au plus lointain met donc en tete ce qui se decide
+       bientot. Sur un dossier clos, c'est la date reelle, et le plus recent remonte en dernier —
+       c'est le bon sens, un dossier clos n'appelle plus d'action.
+       Le tableau ordonne en `nullsFirst: false` : un dossier sans date descend, il n'a rien a dire ici. */
+    { cle: 'date_cloture', libelle: 'date de clôture' },
     { cle: 'date_ouverture', libelle: 'date d’ouverture', ascendant: false },
     { cle: 'compte_nom', libelle: 'compte' },
     { cle: 'nom', libelle: 'nom de la recommandation' },
   ])
+
+  /* ══ LE FILTRE PAR STATUT DE RECOMMANDATION ══
+     Michel, 01/09/2026 : « un filtre ou tri ou les deux par statut de recommandation et par date de
+     cloture ». Les quatre statuts sont ceux qu'il rappelle : Brouillon, Active, A reactiver,
+     Cloturee.
+
+     POURQUOI UN FILTRE ET NON UN TRI, POUR LE STATUT. Les colonnes du tableau ne sont pas les quatre
+     statuts : ce sont les etats de TRAVAIL — en construction, disponible, en decision, en
+     contractualisation — qui viennent de la derniere version. Trier des colonnes n'aurait aucun sens
+     (elles sont deja l'axe horizontal), mais RESTREINDRE a un statut en a un : « montre-moi ce qui
+     est actif », « montre-moi ce qui est a reactiver ».
+
+     BROUILLON EST VIDE AUJOURD'HUI, et le choix reste propose. Mesure du 01/09/2026 sur les
+     1 703 recommandations : 1 569 Cloturee, 83 A reactiver, 51 Active, AUCUNE Brouillon — toutes ont
+     recu au moins une version. Filtrer sur Brouillon montrera donc un tableau vide : c'est la bonne
+     reponse (il n'y en a pas), pas une panne. Le statut existe dans le referentiel et une nouvelle
+     recommandation y passe, le retirer du menu serait mentir sur le modele.
+
+     LE STATUT ET LES COLONNES SE RECOUPENT SANS SE CONFONDRE. Un dossier « Actif » se repartit sur
+     quatre colonnes selon l'etat de sa version ; un dossier « A reactiver » n'en occupe qu'une. Le
+     filtre coupe donc en travers du tableau, et c'est exactement ce qu'on veut d'un filtre. */
+  const [filtreEtape, setFiltreEtape] = useState('')
 
   const tableau = useKanbanServeur<LigneReco>({
     vue: 'v_recommandations_liste',
@@ -184,7 +214,10 @@ export default function Recommandations() {
     ],
     colonnesRecherche: ['nom', 'compte_nom', 'conseiller'],
     recherche,
-    filtres: { compte_proprietaire_id: filtreProprietaire },
+    /* LE FILTRE DESCEND EN BASE avec les autres. Ce tableau est pagine ET somme par la base :
+       filtrer a l'arrivee n'aurait touche que les cinquante cartes recues, et le bandeau chiffre
+       aurait continue de compter tout le monde. */
+    filtres: { compte_proprietaire_id: filtreProprietaire, etape: filtreEtape || null },
     /**
      * LA MARGE SE SOMME EN BASE, colonne par colonne. Michel, PDF du 25/08/2026, page 6 : un bandeau
      * « Marge totale des recommandations » découpé en à envoyer, à présenter, décision attendue,
@@ -260,6 +293,24 @@ export default function Recommandations() {
               colonnes, elles ne se trient pas de l'extérieur. Trier les CARTES à l'intérieur d'une
               colonne est une autre affaire, et c'est celle-là qu'on demande. */}
           <SelecteurTri valeur={tri} onChange={setTri} options={optionsTri} />
+          {/* CHOISIR « Cloturee » COCHE LA CASE DES CLOS. Sans ce lien, filtrer sur ce statut
+              afficherait un tableau vide — la colonne des clos n'etant pas montee par defaut — et on
+              croirait a une absence de donnees plutot qu'a deux reglages qui se contredisent. */}
+          <MenuChoix
+            valeur={filtreEtape}
+            onChange={(v) => {
+              setFiltreEtape(v)
+              if (v === 'CLOTUREE') setAvecClos(true)
+            }}
+            ariaLabel="Filtrer par statut de recommandation"
+            choix={[
+              { valeur: '', libelle: 'Tous les statuts' },
+              { valeur: 'BROUILLON', libelle: 'Brouillon', detail: 'aucune version etudiee' },
+              { valeur: 'ACTIVE', libelle: 'Active', detail: 'une version vivante' },
+              { valeur: 'A_REACTIVER', libelle: 'À réactiver', detail: 'derniere version morte' },
+              { valeur: 'CLOTUREE', libelle: 'Clôturée', detail: 'dossier termine' },
+            ]}
+          />
         {/* INCLURE LES DOSSIERS CLOS. Demandé par Naoëlle le 25/08/2026, après que j'aie signalé la
             conséquence de la règle de Michel : un dossier clos ne se trouvait plus par la recherche
             de cette page, et c'est le genre de chose qu'on découvre au mauvais moment.
