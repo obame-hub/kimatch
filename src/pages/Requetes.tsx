@@ -1,4 +1,5 @@
 import { useMemo, useState } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { Plus, LifeBuoy, Check } from 'lucide-react'
 import { Topbar } from '@/components/layout/Topbar'
 import { PageHeader, Indicateurs } from '@/components/ui/page-header'
@@ -63,6 +64,7 @@ const COLONNES_REQUETE: { code: string; libelle: string; statuts: string[]; coul
 ]
 
 export default function Requetes() {
+  const navigate = useNavigate()
   const { data: requetes } = useRequetes()
   const { data: statuts } = useStatutsRequetes()
   const maj = useMajRequete()
@@ -204,6 +206,7 @@ export default function Requetes() {
                 key={r.id}
                 requete={r}
                 statuts={statuts ?? []}
+                onOuvrir={() => navigate(`/requetes/${r.id}`)}
                 onStatut={async (statutId, code) => {
                   try {
                     await maj.mutateAsync({
@@ -254,12 +257,14 @@ export default function Requetes() {
   )
 }
 
-function CarteRequete({ requete, statuts, onStatut, onResolution, onRattachement }: {
+function CarteRequete({ requete, statuts, onStatut, onResolution, onRattachement, onOuvrir }: {
   requete: Requete
   statuts: { id: string; code: string; libelle: string }[]
   onStatut: (statutId: string, code: string) => void
   onResolution: (texte: string) => void
   onRattachement: (patch: PatchRequete) => void
+  /** Ouvre la fiche. Voir le commentaire sur l'en-tête : seul l'en-tête est cliquable. */
+  onOuvrir: () => void
 }) {
   const [resolution, setResolution] = useState(requete.resolution ?? '')
   const [precise, setPrecise] = useState(false)
@@ -272,7 +277,31 @@ function CarteRequete({ requete, statuts, onStatut, onResolution, onRattachement
       'rounded-[13px] border bg-white p-3.5 transition-shadow hover:shadow-[0_8px_22px_-14px_rgba(22,24,29,.28)]',
       enRetard ? 'border-red-200' : 'border-km-line',
     )}>
-      <div className="flex items-start justify-between gap-2">
+      {/* ══ L'EN-TÊTE OUVRE LA FICHE ══
+          Naoëlle, 01/09/2026 : « on n'arrive pas à ouvrir une requête, quand on clique dessus rien
+          ne se passe ». La carte portait déjà une ombre au survol — une promesse de clic — mais ni
+          la route ni la page n'existaient. Elles existent depuis : `/requetes/:id`.
+
+          SEUL L'EN-TÊTE EST CLIQUABLE, PAS LA CARTE ENTIÈRE. Le corps porte les commandes en ligne :
+          les boutons de statut, la zone de résolution, les sélecteurs de rattachement. Un clic sur la
+          carte entière ferait quitter l'écran au moment où l'on pose le curseur dans la zone de
+          texte — un défaut plus pénible que celui qu'on corrige. L'en-tête (icône, objet, compte)
+          reste une cible confortable et ne contient rien qui se modifie.
+
+          LE LIEN VERS LE COMPTE CONTINUE DE MARCHER : `EntityLink` arrête la propagation du clic,
+          donc cliquer le nom du compte va au compte et non à la requête. */}
+      <div
+        role="link"
+        tabIndex={0}
+        onClick={onOuvrir}
+        onKeyDown={(e) => {
+          if (e.key === 'Enter' || e.key === ' ') {
+            e.preventDefault()
+            onOuvrir()
+          }
+        }}
+        className="group flex cursor-pointer items-start justify-between gap-2 rounded-[9px] outline-none focus-visible:ring-2 focus-visible:ring-km-green/40"
+      >
         <div className="flex min-w-0 items-start gap-2.5">
           <span
             className={cn(
@@ -283,7 +312,9 @@ function CarteRequete({ requete, statuts, onStatut, onResolution, onRattachement
             <LifeBuoy className="h-3.5 w-3.5" />
           </span>
           <div className="min-w-0">
-            <p className="truncate text-sm font-semibold text-km-text">{requete.objet || 'Sans objet'}</p>
+            <p className="truncate text-sm font-semibold text-km-text group-hover:text-km-green">
+              {requete.objet || 'Sans objet'}
+            </p>
             <p className="truncate text-km-label text-km-muted">
               {requete.reference && <span className="font-mono text-km-faint">{requete.reference} · </span>}
               {[categorie?.libelle, requete.compte_id ? undefined : 'compte non rattaché'].filter(Boolean).join(' · ')}
