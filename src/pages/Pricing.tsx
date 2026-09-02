@@ -80,11 +80,23 @@ import { useMonProfil } from '@/lib/data/roles'
  * même chose et vole la place du fournisseur ; un intertitre l'écrit une fois et dit en plus COMBIEN
  * de dossiers partagent l'urgence.
  *
- * LE REGROUPEMENT NE SORT QUE SUR « À DEMANDER ». C'est la colonne désignée, et c'est aussi la seule
- * où le mot « retard » est exact : sur « offres reçues », l'offre est là, et un « en retard de
- * 28 jours » annoncerait un retard qui n'existe plus. LE TRI, lui, s'applique partout — classer les
- * cartes par date souhaitée reste juste dans toutes les colonnes, et c'est ce tri serveur qui rend le
- * regroupement possible : les cartes arrivent déjà dans l'ordre.
+ * LE REGROUPEMENT SORT SUR TOUTES LES COLONNES depuis le 01/09/2026 : « il faut mettre en interligne
+ * des dates relatives sur tout le kanban de pricing, par exemple en retard de x, demain, dans
+ * 3 jours » (Naoëlle). Il ne sortait que sur « Aucun traitement ».
+ *
+ * MAIS LE MOT CHANGE SELON LA COLONNE, parce que le fait change. Tant que la demande est en cours —
+ * aucun traitement, envoyée, acceptée — la date souhaitée est une CIBLE : la manquer est un retard,
+ * et « en retard de 28 jours » est exact. Une fois la réponse arrivée — demande disponible, demande
+ * refusée — il n'y a plus rien à rattraper : le même intertitre y annoncerait un retard qui n'existe
+ * plus, et une fausse alerte coûte plus cher qu'une information absente parce qu'elle apprend à
+ * ignorer les vraies. Sur ces colonnes, l'intertitre dit donc l'ANCIENNETÉ : « souhaitée il y a
+ * 8 jours ». C'est utile et vrai — un prix d'énergie chiffré pour une date passée depuis huit jours
+ * n'a plus la même valeur.
+ *
+ * LE REGROUPEMENT N'APPARAÎT QUE SOUS LE TRI PAR ÉCHÉANCE. `TableauKanban` écrit l'intertitre quand
+ * la clé change d'une carte à la suivante : il ne trie pas, il suit l'ordre reçu. Trié par montant ou
+ * par fournisseur, « Demain » ressortirait trois fois dans la même colonne. Le tri part en base et
+ * l'écran sait lequel est actif : les groupes se taisent quand ce n'est pas celui-là.
  *
  * ══ « VALIDÉES » A ÉTÉ RETIRÉE ══
  *
@@ -207,11 +219,31 @@ const euros = (v: number) => v.toLocaleString('fr-FR', { maximumFractionDigits: 
  */
 function groupeEcheance(
   jours: number | null,
+  /** Vrai sur les colonnes où le fournisseur a répondu : plus rien n'y est en retard. */
+  aboutie: boolean,
 ): { cle: string; texte: string; ton: 'retard' | 'jour' | 'proche' | 'loin' } | undefined {
   // Sans date, aucun groupe : un intertitre « sans date » créerait une section pour une absence de
   // saisie. Les 55 consultations affichées portent toutes la leur — la clause est là pour demain.
   if (jours == null) return undefined
   const cle = String(jours)
+
+  /* ── La réponse est arrivée : on parle d'ancienneté, jamais de retard ──
+     Le ton reste neutre sur toute la colonne. Peindre en ambre une date passée alors que l'offre est
+     là serait précisément la fausse alerte qu'on cherche à éviter. */
+  if (aboutie) {
+    if (jours === 0) return { cle, texte: 'Souhaitée aujourd’hui', ton: 'loin' }
+    if (jours < 0) {
+      const n = Math.abs(jours)
+      return { cle, texte: n === 1 ? 'Souhaitée hier' : `Souhaitée il y a ${n} jours`, ton: 'loin' }
+    }
+    return {
+      cle,
+      texte: jours === 1 ? 'Souhaitée demain' : `Souhaitée dans ${jours} jours`,
+      ton: 'loin',
+    }
+  }
+
+  // ── La demande est encore en cours : la date est une cible, la manquer est un retard ──
   if (jours < 0) {
     const n = Math.abs(jours)
     return { cle, texte: n === 1 ? 'En retard d’1 jour' : `En retard de ${n} jours`, ton: 'retard' }
@@ -221,6 +253,15 @@ function groupeEcheance(
   if (jours <= 7) return { cle, texte: `Dans ${jours} jours`, ton: 'proche' }
   return { cle, texte: `Dans ${jours} jours`, ton: 'loin' }
 }
+
+/**
+ * LES COLONNES OÙ LE FOURNISSEUR A RÉPONDU.
+ *
+ * « Demande disponible » porte au moins une offre reçue, « demande refusée » porte un non : dans les
+ * deux cas l'attente est finie. Les trois autres — aucun traitement, demande envoyée, demande
+ * acceptée — attendent encore quelque chose du fournisseur.
+ */
+const COLONNES_ABOUTIES = new Set(['DISPONIBLE', 'REFUSEE'])
 
 /** La date de cotation souhaitée, telle qu'elle s'écrit sur la tuile. */
 const dateCourte = (iso: string) => new Date(iso).toLocaleDateString('fr-FR')
@@ -244,6 +285,10 @@ export default function Pricing({ sansEntete }: { sansEntete?: boolean }) {
     { cle: 'fournisseur_nom', libelle: 'fournisseur' },
     { cle: 'compte_nom', libelle: 'compte' },
   ])
+
+  /* Les intertitres suivent l'ordre reçu sans le recalculer : ils ne veulent rien dire sous un autre
+     tri que celui des dates. Le nom de la colonne triée est la seule chose à vérifier. */
+  const groupesVisibles = tri === 'date_cotation_souhaitee'
 
   const tableau = useKanbanServeur<LignePricing>({
     vue: 'v_pricing_consultations',
@@ -379,12 +424,15 @@ export default function Pricing({ sansEntete }: { sansEntete?: boolean }) {
                 }
                 return {
                   id: l.consultation_id,
-                  /* LE REGROUPEMENT NE SORT QUE SUR « À DEMANDER » — c'est la colonne désignée, et
-                     c'est la seule où « en retard » est vrai. Sur « offres reçues », l'offre est
-                     arrivée : un intertitre « en retard de 28 jours » y annoncerait un retard qui
-                     n'existe plus. Une fausse alerte coûte plus cher qu'une information absente,
-                     parce qu'elle apprend à ignorer les vraies. */
-                  groupe: c.code === 'A_DEMANDER' ? groupeEcheance(l.jours_avant_cotation) : undefined,
+                  /* L'INTERTITRE SUR TOUTES LES COLONNES, avec le mot qui convient à chacune —
+                     « en retard de 28 jours » tant qu'on attend le fournisseur, « souhaitée il y a
+                     28 jours » quand il a répondu. Voir `groupeEcheance` et l'en-tête du fichier.
+                     Et seulement sous le tri par échéance : le tableau écrit l'intertitre quand la
+                     clé change d'une carte à la suivante, donc trié par montant il répéterait
+                     « Demain » à chaque fois que la date revient. */
+                  groupe: groupesVisibles
+                    ? groupeEcheance(l.jours_avant_cotation, COLONNES_ABOUTIES.has(c.code))
+                    : undefined,
                   /* LE FOURNISSEUR EN TITRE, LE CLIENT EN SOUS-TITRE. Sur cette page on travaille
                      fournisseur par fournisseur — « qui ne m'a pas répondu » — là où les autres
                      kanbans partent du client. */
