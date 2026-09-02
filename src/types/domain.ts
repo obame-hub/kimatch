@@ -838,6 +838,14 @@ export interface Piste {
   liste_id: string | null
   opportunite_id: string | null
   commentaire: string | null
+  /** Le statut, depuis `statuts_pistes` — migration 20260902120000. */
+  statut_id: string | null
+  statut_code: string | null
+  statut_libelle: string | null
+  /** Vrai sur Convertie et Disqualifiée : la piste a quitté le plan de travail. */
+  statut_clos: boolean
+  /** Pourquoi la piste a été écartée. Renseigné avec le statut Disqualifiée, jamais sans. */
+  motif_disqualification: string | null
   proprietaire_id: string | null
   date_creation: string
 }

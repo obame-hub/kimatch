@@ -33,6 +33,33 @@ export const VALIDATIONS_PISTE = [
   { cle: 'est_decisionnaire', libelle: 'Responsable des contrats d’énergie' },
 ] as const
 
+/**
+ * ══ LES STATUTS D'UNE PISTE ══
+ *
+ * Naoëlle, 02/09/2026 : « pour les pistes, il faudrait leur mettre leur statut. Vérifie si la table
+ * existe en base, sinon les statuts sont Nouvelle, En cours de qualification, Clôturée en (Convertie,
+ * Disqualifiée). » Elle n'existait pas : `pistes.statut_id` était là depuis l'origine, sans clé
+ * étrangère et nulle sur les 5 136 lignes. Créée par la migration 20260902120000.
+ *
+ * DEUX ISSUES PORTENT `est_cloture`, il n'y a pas d'étape « Clôturée ». La clôture est la propriété
+ * commune de Convertie et Disqualifiée, pas un état de plus : une cinquième ligne aurait permis
+ * d'être clôturé sans être ni l'un ni l'autre.
+ */
+export function useStatutsPistes() {
+  return useQuery({
+    queryKey: ['statuts_pistes'],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('statuts_pistes')
+        .select('id, code, libelle, ordre, est_cloture')
+        .eq('actif', true)
+        .order('ordre')
+      if (error) throw new Error(error.message)
+      return (data ?? []) as { id: string; code: string; libelle: string; ordre: number; est_cloture: boolean }[]
+    },
+  })
+}
+
 /** Une piste est mûre pour l'opportunité quand les cinq validations sont faites. */
 export function pisteQualifiee(p: Piste): boolean {
   return VALIDATIONS_PISTE.every((v) => Boolean(p[v.cle]))
@@ -138,9 +165,25 @@ export function usePiste(id: string | undefined) {
     queryKey: ['pistes', 'une', id],
     enabled: !!id,
     queryFn: async (): Promise<Piste | null> => {
-      const { data, error } = await supabase.from('pistes').select('*').eq('id', id as string).maybeSingle()
+      /* LE STATUT VIENT AVEC LA PISTE, par jointure. Un identifiant ne s'affiche pas : « Statut :
+         3f2a-… » n'apprend rien. Et une seconde requête pour un libellé serait un aller-retour
+         réseau à chaque ouverture de fiche. */
+      const { data, error } = await supabase
+        .from('pistes')
+        .select('*, statut:statuts_pistes(code, libelle, est_cloture)')
+        .eq('id', id as string)
+        .maybeSingle()
       if (error) throw new Error(error.message)
-      return (data as Piste | null) ?? null
+      if (!data) return null
+      const brut = data as Record<string, unknown> & {
+        statut?: { code: string; libelle: string; est_cloture: boolean } | null
+      }
+      return {
+        ...(brut as unknown as Piste),
+        statut_code: brut.statut?.code ?? null,
+        statut_libelle: brut.statut?.libelle ?? null,
+        statut_clos: Boolean(brut.statut?.est_cloture),
+      }
     },
   })
 }
@@ -159,6 +202,8 @@ export type PatchPiste = Partial<{
   contact_id: string | null
   commentaire: string | null
   opportunite_id: string | null
+  statut_id: string | null
+  motif_disqualification: string | null
 }>
 
 export function useMajPiste() {

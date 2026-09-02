@@ -10,7 +10,6 @@ import { InlineField } from '@/components/ui/inline-field'
 import { OngletFichiers } from '@/components/compte/OngletFichiers'
 import { DialogConversionPiste } from '@/components/prospection/DialogConversionPiste'
 import { DialogNouvelleTache } from '@/components/tache/DialogNouvelleTache'
-import { FriseStatut } from '@/components/opportunite/FriseStatut'
 import { FluxActualite } from '@/components/opportunite/FluxActualite'
 import { useGoBack } from '@/lib/useGoBack'
 import { useCanManage } from '@/lib/data/roles'
@@ -19,11 +18,29 @@ import { useDocumentsParEntites, useTeleverserDocuments } from '@/lib/data/docum
 import { useReferenceTable } from '@/lib/data/referenceTables'
 import { useStatutsOpportunites } from '@/lib/data/opportunites'
 import {
-  usePiste, useMajPiste, useConvertirPisteEnOpportunite,
+  usePiste, useMajPiste, useConvertirPisteEnOpportunite, useStatutsPistes,
   VALIDATIONS_PISTE, pisteQualifiee,
 } from '@/lib/data/prospection'
+import { MenuChoix } from '@/components/ui/menu-choix'
+import { Dialog } from '@/components/ui/dialog'
+import { Textarea } from '@/components/ui/form'
 import { echeanceLisible } from '@/lib/heureTache'
 import { cn } from '@/lib/utils'
+
+/**
+ * LES TONS DES QUATRE STATUTS DE `statuts_pistes`.
+ *
+ * DISQUALIFIÉE N'EST PAS ROUGE. Écarter une piste est un travail fait, pas un échec : sur cinq mille
+ * pistes importées, en écarter est l'issue normale de la majorité. Le rouge est réservé à ce qui
+ * appelle une action ; ici il n'y a plus rien à faire. Convertie est verte parce qu'elle a produit
+ * une affaire.
+ */
+const TON_STATUT_PISTE: Record<string, 'kiwi' | 'amber' | 'neutral'> = {
+  NOUVELLE: 'amber',
+  EN_QUALIFICATION: 'amber',
+  CONVERTIE: 'kiwi',
+  DISQUALIFIEE: 'neutral',
+}
 
 /**
  * FICHE PISTE.
@@ -65,6 +82,7 @@ export default function PisteDetail() {
   const { data: documents } = useDocumentsParEntites(id ? [id] : undefined)
   const { data: typesDocumentsRef } = useReferenceTable('types_documents')
   const { data: statuts } = useStatutsOpportunites()
+  const { data: statutsPistes } = useStatutsPistes()
   const maj = useMajPiste()
   const cocher = useCompleteAction()
   const televerser = useTeleverserDocuments()
@@ -73,6 +91,9 @@ export default function PisteDetail() {
   const [onglet, setOnglet] = useState<CleOnglet>('piste')
   const [tacheOuverte, setTacheOuverte] = useState(false)
   const [conversionOuverte, setConversionOuverte] = useState(false)
+  /* Le motif attend d'être saisi : `null` quand la boîte est fermée, une chaîne (même vide) quand
+     elle est ouverte. Distinguer les deux évite de rouvrir la boîte à chaque rendu. */
+  const [disqualification, setDisqualification] = useState<string | null>(null)
   const [toast, setToast] = useState<string | null>(null)
   function signaler(m: string) {
     setToast(m)
@@ -110,9 +131,15 @@ export default function PisteDetail() {
             <p className="truncate text-km-title font-bold text-km-text">
               {piste.societe || 'Société inconnue'}
             </p>
-            {convertie ? (
-              <Badge tone="kiwi">Convertie</Badge>
-            ) : (
+            {/* LE STATUT D'ABORD, LES VÉRIFICATIONS ENSUITE. Naoëlle, 02/09/2026 : « pour les
+                pistes, il faudrait leur mettre leur statut ». La pastille ne portait que le compte
+                des cinq contrôles — utile, mais ce n'est pas un statut : une piste peut être
+                disqualifiée avec cinq coches, ou nouvelle avec zéro. Les deux se lisent maintenant
+                côte à côte, et ils ne disent pas la même chose. */}
+            <Badge tone={TON_STATUT_PISTE[piste.statut_code ?? ''] ?? 'neutral'}>
+              {piste.statut_libelle ?? 'Sans statut'}
+            </Badge>
+            {!piste.statut_clos && (
               <Badge tone={mure ? 'kiwi' : 'amber'}>{faites}/5 vérifications</Badge>
             )}
           </div>
@@ -121,6 +148,43 @@ export default function PisteDetail() {
             {piste.contact_nom || 'Contact inconnu'}
           </p>
         </div>
+
+        {/* ══ LE STATUT SE CHANGE ICI ══
+            CONVERTIE NE S'OFFRE PAS DANS LA LISTE : elle se gagne en créant l'opportunité, et le
+            déclencheur `trg_piste_convertie_statut` l'écrit alors tout seul. La proposer au menu
+            laisserait marquer « convertie » une piste qui n'a produit aucune opportunité — un statut
+            qui affirme un fait qui n'existe pas.
+            DISQUALIFIÉE DEMANDE SON MOTIF, et c'est la demande de Naoëlle : « mettre un commentaire
+            pour disqualifié ». Écarter une piste sans dire pourquoi perd l'information qui servira à
+            ne pas la rappeler dans six mois. */}
+        {canManage && !convertie && (
+          <MenuChoix
+            valeur={piste.statut_id ?? ''}
+            onChange={(id) => {
+              const cible = statutsPistes?.find((st) => st.id === id)
+              if (!cible) return
+              if (cible.code === 'DISQUALIFIEE') {
+                setDisqualification(piste.motif_disqualification ?? '')
+                return
+              }
+              maj
+                .mutateAsync({
+                  id: piste.id,
+                  /* SORTIR DE DISQUALIFIÉE EFFACE LE MOTIF : il décrivait une mise à l'écart qui
+                     n'a plus lieu. Le laisser ferait lire « disqualifiée pour… » sur une piste
+                     redevenue à travailler — le défaut exact des recommandations rouvertes qui
+                     gardaient leur finalité. */
+                  patch: { statut_id: id, motif_disqualification: null },
+                })
+                .then(() => signaler(`✓ ${cible.libelle}`))
+                .catch((e) => signaler(e instanceof Error ? e.message : 'Enregistrement impossible'))
+            }}
+            ariaLabel="Changer le statut de la piste"
+            choix={(statutsPistes ?? [])
+              .filter((st) => st.code !== 'CONVERTIE')
+              .map((st) => ({ valeur: st.id, libelle: st.libelle }))}
+          />
+        )}
 
         {/* LE GESTE QUI SUIT, ET RIEN D'AUTRE. Une piste convertie mène à son opportunité ; une piste
             mûre se convertit ; une piste incomplète dit ce qui manque, plus bas. */}
@@ -174,22 +238,26 @@ export default function PisteDetail() {
             {/* ══ LES CINQ VÉRIFICATIONS ══
                 Elles se figent après conversion : décocher une case après coup ne déferait rien et
                 laisserait deux objets qui se contredisent. */}
-            {/* LES CINQ VERIFICATIONS, EN FRISE.
-                Naoelle, 01/09/2026 : « transforme les 5 verifications en frise de statut animee,
-                ca rendra bien et ca motivera les commerciaux » — puis : « il faudrait qu'il puisse
-                cocher dans n'importe quel ordre, pas forcement une frise chronologique, mais une
-                ligne avec des coches animees ».
+            {/* ══ LES CINQ VÉRIFICATIONS, EN LISTE DE COCHES ══
+                Naoëlle, 02/09/2026 : « les 5 points de vérification avant de lancer une opportunité,
+                faut les transformer en une liste de coches, car en mode frise on dirait des
+                statuts ».
 
-                LES DEUX DEMANDES SE TIENNENT, A UNE CONDITION. La frise de l'opportunite raconte un
-                PARCOURS : les jalons avant le courant sont franchis parce qu'on ne saute pas
-                d'etape. Ici, les cinq controles se cochent dans l'ordre ou le commercial obtient
-                les reponses. La frise a donc recu un etat PAR JALON : chaque coche porte le sien,
-                et le trait entre deux coches n'est plein que si les deux le sont — sans quoi il
-                affirmerait une progression lineaire qui n'existe pas.
+                ELLE A RAISON, ET C'EST MOI QUI AVAIS MAL LU. Elle avait demandé le 01/09 « une frise
+                de statut animée », puis corrigé le même jour : « qu'il puisse cocher dans n'importe
+                quel ordre, pas forcément une frise chronologique, mais une ligne avec des coches ».
+                J'ai gardé la frise en lui ajoutant un état par jalon — techniquement juste, visuellement
+                faux. Une frise DESSINE un parcours : des pastilles alignées reliées par des segments
+                se lisent comme des étapes qui se succèdent, et le lecteur cherche laquelle vient
+                après. Ces cinq contrôles n'ont pas d'ordre : on vérifie l'e-mail avant ou après le
+                portable, selon ce que le client dit au téléphone.
 
-                La coche restante pulse : c'est elle qui appelle le geste suivant. */}
+                UNE LISTE DE COCHES NE PROMET AUCUN ORDRE. Cinq lignes, cinq cases, chacune
+                indépendante — c'est exactement ce que les données disent : cinq booléens sans
+                relation entre eux. La coche s'anime au clic et la barre de progression donne
+                l'élan qu'elle voulait, sans mentir sur la nature de la chose. */}
             <Card className="p-4">
-              <div className="mb-1 flex items-center justify-between">
+              <div className="mb-2.5 flex items-center justify-between">
                 <p className="text-km-label font-bold uppercase tracking-[0.08em] text-km-faint">
                   Avant de lancer l’opportunité
                 </p>
@@ -197,34 +265,73 @@ export default function PisteDetail() {
                   {faites}/5
                 </span>
               </div>
-              <FriseStatut
-                teinte={mure ? 'recommandation' : 'signal'}
-                jalons={VALIDATIONS_PISTE.map((v) => ({
-                  code: v.cle,
-                  libelle: v.libelle,
-                  franchi: Boolean(piste[v.cle]),
-                }))}
-                courant={VALIDATIONS_PISTE.find((v) => !piste[v.cle])?.cle ?? ''}
-                onJalon={
-                  convertie || !canManage
-                    ? undefined
-                    : (code) => {
-                        const cle = code as (typeof VALIDATIONS_PISTE)[number]['cle']
+
+              {/* LA BARRE PORTE L'ÉLAN, PAS LES COCHES. C'est ce que la frise apportait vraiment —
+                  « ça rendra bien et ça motivera les commerciaux » — et une barre le fait sans
+                  suggérer un ordre entre les cinq contrôles. */}
+              <div className="mb-3 h-1.5 overflow-hidden rounded-full bg-km-soft">
+                <div
+                  className={cn(
+                    'h-full rounded-full transition-[width] duration-500 ease-out',
+                    mure ? 'bg-km-green' : 'bg-km-amber',
+                  )}
+                  style={{ width: `${(faites / VALIDATIONS_PISTE.length) * 100}%` }}
+                />
+              </div>
+
+              <div className="flex flex-col gap-0.5">
+                {VALIDATIONS_PISTE.map((v) => {
+                  const coche = Boolean(piste[v.cle])
+                  const figee = convertie || !canManage
+                  return (
+                    <button
+                      key={v.cle}
+                      type="button"
+                      disabled={figee}
+                      onClick={() => {
                         maj
-                          .mutateAsync({ id: piste.id, patch: { [cle]: !piste[cle] } })
+                          .mutateAsync({ id: piste.id, patch: { [v.cle]: !coche } })
                           .catch((e) => signaler(e instanceof Error ? e.message : 'Enregistrement impossible'))
-                      }
-                }
-              />
+                      }}
+                      className={cn(
+                        'flex items-center gap-2.5 rounded-km px-1.5 py-2 text-left transition-colors',
+                        figee ? 'cursor-default' : 'hover:bg-km-soft',
+                      )}
+                    >
+                      {/* LA CASE S'ANIME AU CLIC : le fond se remplit et la coche apparaît. C'est le
+                          « coches animées » de sa demande du 01/09, qui vaut toujours. */}
+                      <span
+                        className={cn(
+                          'flex h-5 w-5 shrink-0 items-center justify-center rounded-[6px] border transition-all duration-200',
+                          coche
+                            ? 'scale-100 border-km-green bg-km-green text-white'
+                            : 'border-km-line bg-km-surface text-transparent',
+                        )}
+                      >
+                        <Check className={cn('h-3.5 w-3.5 transition-transform duration-200', coche ? 'scale-100' : 'scale-50')} />
+                      </span>
+                      <span
+                        className={cn(
+                          'text-km-body transition-colors',
+                          coche ? 'font-medium text-km-text' : 'text-km-muted',
+                        )}
+                      >
+                        {v.libelle}
+                      </span>
+                    </button>
+                  )
+                })}
+              </div>
+
               {!mure && !convertie && (
-                <p className="mt-3 border-t border-km-line pt-2.5 text-km-label leading-snug text-km-faint">
-                  Cliquez une pastille pour la cocher, dans l’ordre que vous voulez. Les cinq
-                  vérifications doivent être faites : sans elles, on ouvrirait une affaire sur un
-                  contact qu’on ne sait pas joindre.
+                <p className="mt-2.5 border-t border-km-line pt-2.5 text-km-label leading-snug text-km-faint">
+                  Cochez dans l’ordre que vous voulez : ces cinq points n’en ont pas. Les cinq doivent
+                  être faits — sans eux, on ouvrirait une affaire sur un contact qu’on ne sait pas
+                  joindre.
                 </p>
               )}
               {convertie && (
-                <p className="mt-3 border-t border-km-line pt-2.5 text-km-label text-km-faint">
+                <p className="mt-2.5 border-t border-km-line pt-2.5 text-km-label text-km-faint">
                   Les vérifications sont figées : la piste a produit son opportunité.
                 </p>
               )}
@@ -462,6 +569,46 @@ export default function PisteDetail() {
             libelle_cible: `la piste ${piste.societe || piste.contact_nom || ''}`.trim(),
           }}
         />
+      )}
+
+      {/* ══ LE MOTIF DE DISQUALIFICATION ══
+          Une seule zone de texte et deux boutons : le motif est obligatoire pour valider, parce que
+          « disqualifiée » sans raison ne se relit pas. La colonne existe depuis l'import des leads
+          (`motif_disqualification`, 01/09) et portait déjà les motifs venus de Salesforce. */}
+      {disqualification !== null && (
+        <Dialog
+          open
+          onClose={() => setDisqualification(null)}
+          title="Disqualifier cette piste"
+          description="Pourquoi l’écarter ? C’est ce qu’on relira si son nom revient dans une prochaine liste."
+        >
+          <Textarea
+            value={disqualification}
+            onChange={(e) => setDisqualification(e.target.value)}
+            rows={3}
+            placeholder="Ne gère pas l’énergie · déjà chez un courtier · injoignable après cinq appels…"
+            autoFocus
+          />
+          <div className="mt-3 flex justify-end gap-2">
+            <Button variant="ghost" onClick={() => setDisqualification(null)}>Annuler</Button>
+            <Button
+              disabled={!disqualification.trim()}
+              onClick={() => {
+                const cible = statutsPistes?.find((st) => st.code === 'DISQUALIFIEE')
+                if (!cible) return
+                maj
+                  .mutateAsync({
+                    id: piste.id,
+                    patch: { statut_id: cible.id, motif_disqualification: disqualification.trim() },
+                  })
+                  .then(() => { setDisqualification(null); signaler('✓ Piste disqualifiée') })
+                  .catch((e) => signaler(e instanceof Error ? e.message : 'Enregistrement impossible'))
+              }}
+            >
+              Disqualifier
+            </Button>
+          </div>
+        </Dialog>
       )}
 
       {conversionOuverte && (
