@@ -306,6 +306,13 @@ export default function Pricing({ sansEntete }: { sansEntete?: boolean }) {
       reco_en_cours: true,
       version_courante: true,
       version_vivante: true,
+      /* LES VERSIONS PARTIES EN DÉCISION SORTENT DE L'ÉCRAN. Naoëlle, 02/09/2026 : « ne pas
+         afficher les versions en décision, car ça veut dire qu'Erwan a déjà traité et il va les
+         voir ». Cet écran répond à « qu'est-ce que j'attends d'un fournisseur » : une version
+         présentée au client n'attend plus rien d'eux, et la garder demande de relire chaque jour
+         des lignes sur lesquelles il n'y a plus rien à faire.
+         Onze consultations sur les cinquante-et-une affichées étaient dans ce cas. */
+      version_en_decision: false,
       compte_proprietaire_id: perimetre === 'moi' && monProfil?.id ? monProfil.id : null,
     },
     // LES RETARDS EN PREMIER (Michel, 27/08/2026) — c'est le tri par défaut, et il reste le
