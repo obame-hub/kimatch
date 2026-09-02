@@ -75,6 +75,26 @@ interface Evenement {
   auteur: string
 }
 
+/**
+ * CE QUE LE PIED DE FLUX ANNONCE, SELON L'OBJET.
+ *
+ * Le composant a été écrit pour l'opportunité et écrivait « Opportunité créée » en dur. Réutilisé
+ * tel quel sur la fiche piste (31/08) puis sur la fiche requête (01/09), il annonçait donc la
+ * création d'une opportunité sur des objets qui n'en sont pas — vu à l'écran sur la requête
+ * « Cessation du compteur chez gedia », dont le flux affichait « Opportunité créée ».
+ *
+ * LA CLÉ EST `tableNom`, que tous les appelants passent déjà pour lire l'historique. Le libellé se
+ * déduit donc de la même source que les données : impossible d'afficher le nom d'un objet dont on ne
+ * lit pas l'historique. Un objet absent de cette table retombe sur « Objet créé » — c'est laid, mais
+ * ça ne ment pas, et le prochain appelant verra qu'il a une ligne à ajouter.
+ */
+const LIBELLE_CREATION: Record<string, string> = {
+  opportunites: 'Opportunité créée',
+  pistes: 'Piste créée',
+  requetes: 'Requête créée',
+  recommandations: 'Recommandation créée',
+}
+
 export function FluxActualite({ tableNom, ligneId, dateCreation, interactions = [], actions = [] }: {
   tableNom: string
   ligneId: string | undefined
@@ -227,7 +247,9 @@ export function FluxActualite({ tableNom, ligneId, dateCreation, interactions = 
           <Sparkle className="h-3 w-3" />
         </span>
         <div className="min-w-0 flex-1">
-          <p className="text-km-label font-semibold leading-snug text-km-text">Opportunité créée</p>
+          <p className="text-km-label font-semibold leading-snug text-km-text">
+            {LIBELLE_CREATION[tableNom] ?? 'Objet créé'}
+          </p>
           <p className="mt-1 font-mono text-km-tiny text-km-faint">
             {new Date(dateCreation).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })}
           </p>
