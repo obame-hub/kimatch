@@ -50,18 +50,37 @@ const TON_STATUT: Record<string, 'kiwi' | 'amber' | 'neutral'> = {
 }
 
 /**
- * LES TROIS COLONNES DE SA RÈGLE 8, et la correspondance avec nos quatre statuts.
+ * ══ LES COLONNES SONT LES STATUTS DE `statuts_requetes`, LUS EN BASE ══
  *
- * « Clôturé » regroupe Résolue et Abandonnée : les deux sortent du plan de travail, et ce qui les
- * distingue se lit sur la carte. C'est un regroupement d'AFFICHAGE — les statuts restent quatre en
- * base, parce que « résolue » et « abandonnée » ne racontent pas la même histoire et qu'on ne peut
- * pas la réécrire après coup.
+ * Naoëlle, 01/09/2026, capture de la table à l'appui : « il faut mettre les statuts de la requête qui
+ * sont dans cette table ». Elle en porte quatre, avec leur ordre :
+ *
+ *     NOUVELLE       10      Nouvelle
+ *     EN_TRAITEMENT  20      En traitement
+ *     RESOLUE        30      Résolue
+ *     ABANDONNEE     40      Abandonnée
+ *
+ * CE QU'IL Y AVAIT AVANT, ET SES DEUX DÉFAUTS. Trois colonnes écrites en dur — Nouveau, En cours de
+ * traitement, Clôturé — d'après la règle n° 8 du dossier UX du 26/08, la troisième réunissant Résolue
+ * et Abandonnée.
+ *
+ *   · LES LIBELLÉS NE VENAIENT PAS DE LA BASE. La colonne annonçait « Nouveau », la pastille de la
+ *     carte juste en dessous annonçait « Nouvelle » : le même statut portait deux noms sur le même
+ *     écran, et le jour où Michel renomme un statut, seule la pastille aurait suivi.
+ *   · RÉSOLUE ET ABANDONNÉE SE LISAIENT PAREIL. Ce sont deux fins opposées : une requête abandonnée
+ *     est sortie du plan de travail sans que le problème du client soit réglé. Les fondre dans une
+ *     colonne verte « Clôturé » comptait des abandons comme des succès.
+ *
+ * LIRE LA TABLE RÈGLE LES DEUX, et la colonne suivra si un statut est ajouté, sans toucher l'écran.
+ * Les couleurs, elles, restent ici : la table les porte en colonne `couleur`, mais elle vaut NULL sur
+ * les quatre lignes — la déduire du code est le seul moyen de ne pas afficher quatre colonnes grises.
  */
-const COLONNES_REQUETE: { code: string; libelle: string; statuts: string[]; couleur: string }[] = [
-  { code: 'NOUVEAU', libelle: 'Nouveau', statuts: ['NOUVELLE'], couleur: '#83868f' },
-  { code: 'EN_COURS', libelle: 'En cours de traitement', statuts: ['EN_TRAITEMENT'], couleur: '#b57a24' },
-  { code: 'CLOTURE', libelle: 'Clôturé', statuts: ['RESOLUE', 'ABANDONNEE'], couleur: '#0d7a5f' },
-]
+const COULEUR_STATUT: Record<string, string> = {
+  NOUVELLE: '#83868f',
+  EN_TRAITEMENT: '#b57a24',
+  RESOLUE: '#0d7a5f',
+  ABANDONNEE: '#a8371f',
+}
 
 export default function Requetes() {
   const navigate = useNavigate()
@@ -73,6 +92,16 @@ export default function Requetes() {
   // `?creer=1` ouvre ce formulaire depuis le menu « Créer » de la barre du haut.
   useOuvrirCreation(() => setCreation(true))
   const [ouvertes, setOuvertes] = useState(true)
+
+  /* LES COLONNES, DANS L'ORDRE DE LA TABLE. `useStatutsRequetes` rend déjà les lignes triées par
+     `ordre` ; on ne réordonne donc pas ici, on suit. Tant que le référentiel n'est pas chargé, la
+     liste est vide et le tableau ne montre aucune colonne — préférable à des colonnes devinées qui
+     changeraient de nom une seconde plus tard. */
+  const colonnesStatut = (statuts ?? []).map((st) => ({
+    code: st.code,
+    libelle: st.libelle,
+    couleur: COULEUR_STATUT[st.code] ?? '#83868f',
+  }))
   const [toast, setToast] = useState<string | null>(null)
 
   function signaler(m: string) {
@@ -181,8 +210,8 @@ export default function Requetes() {
 
              LE KANBAN EST LA SEULE VUE, comme partout ailleurs depuis le 25/08. */
           <div className="flex gap-3 overflow-x-auto pb-2">
-            {COLONNES_REQUETE.map((col) => {
-              const dedans = filtrees.filter((r) => col.statuts.includes(r.statut))
+            {colonnesStatut.map((col) => {
+              const dedans = filtrees.filter((r) => r.statut === col.code)
               return (
                 <div
                   key={col.code}
