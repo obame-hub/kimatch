@@ -22,7 +22,7 @@ import { HubCreation } from '@/components/compte/HubCreation'
 import { MandatWizard } from '@/components/mandat/MandatWizard'
 import { WizardConnectionGate } from '@/components/ui/connection-gate'
 import { HeroQualiteCompte, HeroScoreEllipro, type FaitEllipro } from '@/components/compte/HerosCompte'
-import { useQualiteCompte, useQualiteCompteurs, manquesCompteur } from '@/lib/data/qualiteCompte'
+import { useQualiteCompte, useQualiteCompteurs, useStatutCommercialSites, manquesCompteur } from '@/lib/data/qualiteCompte'
 import { pastilleScore } from '@/lib/niveauScore'
 import { OngletRecommandations } from '@/components/compte/OngletsCompte'
 import { OngletHistorique } from '@/components/compte/OngletHistorique'
@@ -579,13 +579,14 @@ export default function CompteDetail() {
           {tab === 'contrats' && (
             <ContratsTabContent
               sites={sitesDuCompte}
+              compteId={compte.id}
               contrats={contratsDuCompte}
               recommandations={recommandationsDuCompte}
             />
           )}
 
           {tab === 'compteurs' && (
-            <CompteursTabContent sites={sitesDuCompte} compteurs={compteursDuCompte} />
+            <CompteursTabContent sites={sitesDuCompte} compteId={compte.id} compteurs={compteursDuCompte} />
           )}
 
           {tab === 'recommandations' && <OngletRecommandations recommandations={recommandationsDuCompte} />}
@@ -1042,7 +1043,22 @@ function IdentiteCard({ compte, onToast }: { compte: Compte; onToast: (msg: stri
     return updateField.mutateAsync({ id: compte.id, patch }).then(() => onToast('✓ enregistré')).catch((err) => onToast(`Erreur : ${err.message}`))
   }
 
-  const statutClient = useMemo(() => true, []) // dérivé du statut réel des sites, câblé une fois l'onglet Sites/Compteurs aligné
+  /* ══ CLIENT OU PROSPECT — PLUS UNE CONSTANTE ══════════════════════════════════════════════════
+
+     Cette ligne valait `useMemo(() => true, [])`, avec pour commentaire « câblé une fois l'onglet
+     Sites/Compteurs aligné ». Elle n'a jamais été recâblée : les 2 706 comptes consommateurs
+     s'affichaient « Client ». Naoëlle, 02/09/2026 : « on a beaucoup d'objets client qui ne le sont
+     pas. » 392 le sont.
+
+     La règle vient de Michel le même jour : « un compte est considéré comme Client dès lors qu'au
+     moins un de ses compteurs est rattaché à un contrat ». Elle est calculée en base, avec la même
+     notion de contrat que le barème du score — voir `v_qualite_compte.est_client`.
+
+     `null` tant que la vue n'a pas répondu, et pour les comptes qui ne sont pas des consommateurs :
+     un fournisseur n'est ni client ni prospect, la question ne se pose pas pour lui. Le badge ne
+     s'affiche alors pas du tout, plutôt que d'affirmer l'un ou l'autre. */
+  const { data: qualiteIdentite } = useQualiteCompte(compte.id)
+  const statutClient = qualiteIdentite ? qualiteIdentite.est_client : null
 
   async function saveAddress() {
     await commit({ rue: addrDraft.rue || null, code_postal: addrDraft.code_postal || null, ville: addrDraft.ville })
@@ -1060,12 +1076,21 @@ function IdentiteCard({ compte, onToast }: { compte: Compte; onToast: (msg: stri
       <div className="grid grid-cols-2 gap-4">
         <InlineField variant="select" label="Type de compte" value={compte.type_compte} options={[{ value: 'client', label: 'Consommateur' }, { value: 'fournisseur', label: 'Fournisseur' }, { value: 'partenaire', label: 'Partenaire' }, { value: 'kiwee', label: 'KiWee' }]} onCommit={(v) => commit({ type_compte: v as TypeCompte })} onSaved={() => onToast('✓ enregistré')} />
         <InlineField variant="text" label="Typologie" value={compte.segment || ''} emptyLabel="ajouter" onCommit={(v) => commit({ segment: v })} onSaved={() => onToast('✓ enregistré')} />
-        <div>
-          <div className="mb-0.5 text-km-label font-semibold uppercase tracking-wide text-km-faint">Statut</div>
-          <span className={cn('rounded px-2 py-0.5 text-km-label font-semibold', statutClient ? 'bg-km-green-soft text-km-green' : 'bg-km-soft text-km-muted')}>
-            {statutClient ? 'Client' : 'Prospect'}
-          </span>
-        </div>
+        {statutClient !== null && (
+          <div>
+            <div className="mb-0.5 text-km-label font-semibold uppercase tracking-wide text-km-faint">Statut</div>
+            <span
+              title={
+                statutClient
+                  ? `Client : ${qualiteIdentite?.compteurs_sous_contrat} compteur${(qualiteIdentite?.compteurs_sous_contrat ?? 0) > 1 ? 's' : ''} sous contrat en cours`
+                  : 'Prospect : aucun compteur du compte n’est sous contrat en cours'
+              }
+              className={cn('rounded px-2 py-0.5 text-km-label font-semibold', statutClient ? 'bg-km-green-soft text-km-green' : 'bg-km-soft text-km-muted')}
+            >
+              {statutClient ? 'Client' : 'Prospect'}
+            </span>
+          </div>
+        )}
         {compte.siret && <InfoFieldKw label="SIRET" value={compte.siret} onCopy={onToast} mono />}
         {compte.siren && <InfoFieldKw label="SIREN" value={compte.siren} onCopy={onToast} mono />}
         <InlineField variant="text" label="Code NAF" mono value={compte.code_naf || ''} emptyLabel="ajouter" onCommit={(v) => commit({ code_naf: v || null })} onSaved={() => onToast('✓ enregistré')} />
@@ -1188,9 +1213,10 @@ function contratLifecycle(statut: string): 'actif' | 'a_venir' | 'expire' | 'aut
 }
 
 function ContratsTabContent({
-  sites, contrats, recommandations,
+  sites, compteId, contrats, recommandations,
 }: {
   sites: Site[]
+  compteId: string
   contrats: Contrat[]
   recommandations: Recommandation[]
 }) {
@@ -1288,6 +1314,7 @@ function ContratsTabContent({
 
       <GroupedBySite
         sites={sites}
+        compteId={compteId}
         itemsBySiteId={(siteId) => contratsAffiches.filter((ct) => ct.site_id === siteId)}
         orphanItems={contratsAffiches.filter((ct) => !ct.site_id || !sites.some((s) => s.id === ct.site_id))}
         renderSummary={(items) => {
@@ -1300,7 +1327,7 @@ function ContratsTabContent({
   )
 }
 
-function CompteursTabContent({ sites, compteurs }: { sites: Site[]; compteurs: Compteur[] }) {
+function CompteursTabContent({ sites, compteId, compteurs }: { sites: Site[]; compteId: string; compteurs: Compteur[] }) {
   const [recherche, setRecherche] = useState('')
   const q = recherche.trim().toLowerCase()
   const compteursAffiches = q
@@ -1323,6 +1350,7 @@ function CompteursTabContent({ sites, compteurs }: { sites: Site[]; compteurs: C
       />
       <GroupedBySite
         sites={sites}
+        compteId={compteId}
         itemsBySiteId={(siteId) => compteursAffiches.filter((c) => c.site_id === siteId)}
         orphanItems={compteursAffiches.filter((c) => !sites.some((s) => s.id === c.site_id))}
         renderSummary={(items) => {
@@ -1359,12 +1387,15 @@ function SiteSearchBox({ value, onChange, placeholder, total, unit }: { value: s
 // compteurs en dessous ». Le détail se consulte en cliquant, sur la fiche Site elle-même.
 function GroupedBySite<T>({
   sites,
+  compteId,
   itemsBySiteId,
   renderSummary,
   emptyLabel,
   orphanItems,
 }: {
   sites: Site[]
+  /** Sert au badge Client/Prospect de chaque ligne — voir `useStatutCommercialSites`. */
+  compteId: string
   itemsBySiteId: (siteId: string) => T[]
   renderSummary: (items: T[]) => React.ReactNode
   emptyLabel: string
@@ -1373,6 +1404,11 @@ function GroupedBySite<T>({
   orphanItems?: T[]
 }) {
   const navigate = useNavigate()
+  /* Le badge de chaque site disait `site.statut === 'actif' ? 'Client' : 'Prospect'` — le statut
+     actif/inactif d'un site, sans rapport avec le fait d'être fourni, et qu'aucun site portant un
+     compteur actif n'a jamais à faux : tout s'affichait « Client ». On lit maintenant la même règle
+     que le compte, un cran plus bas. Un site absent de la vue n'a aucun compteur : Prospect. */
+  const { data: sitesClients } = useStatutCommercialSites(compteId)
   const groups = sites.map((s) => ({ site: s, items: itemsBySiteId(s.id) })).filter((g) => g.items.length > 0)
   const orphans = orphanItems ?? []
 
@@ -1390,8 +1426,8 @@ function GroupedBySite<T>({
             <MapPin className="h-3.5 w-3.5" />
           </span>
           <p className="min-w-0 flex-1 truncate text-km-body font-bold text-km-text">{site.nom}</p>
-          <span className={cn('rounded-km-sm px-1.5 py-0.5 text-km-label font-bold uppercase', site.statut === 'actif' ? 'bg-km-green-soft text-km-green' : 'bg-km-soft text-km-muted')}>
-            {site.statut === 'actif' ? 'Client' : 'Prospect'}
+          <span className={cn('rounded-km-sm px-1.5 py-0.5 text-km-label font-bold uppercase', sitesClients?.get(site.id) ? 'bg-km-green-soft text-km-green' : 'bg-km-soft text-km-muted')}>
+            {sitesClients?.get(site.id) ? 'Client' : 'Prospect'}
           </span>
           <span className="shrink-0 text-km-body text-km-muted">{renderSummary(items)}</span>
           <span className="text-km-faint">›</span>

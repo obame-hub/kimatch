@@ -37,6 +37,25 @@ export interface QualiteCompte {
   echeance_a_revoir: number
   sans_responsable: number
   parfaits: number
+  /**
+   * Client ou Prospect — la règle de Michel du 02/09/2026 : « un compte est considéré comme Client
+   * dès lors qu'au moins un de ses compteurs est rattaché à un contrat ».
+   *
+   * Calculé en base (`v_qualite_compte`), avec la MÊME notion de contrat que le barème du score :
+   * un contrat en cours. Le badge de la fiche l'affichait `true` en dur jusqu'ici, ce qui faisait
+   * passer les 2 706 comptes consommateurs pour des clients alors que 392 le sont.
+   */
+  est_client: boolean
+  compteurs_sous_contrat: number
+}
+
+/** Le statut commercial d'un site : la même règle, un cran plus bas. */
+export interface StatutCommercialSite {
+  site_id: string
+  compte_id: string
+  nb_compteurs: number
+  compteurs_sous_contrat: number
+  est_client: boolean
 }
 
 /**
@@ -86,6 +105,36 @@ export function useQualiteCompteurs(compteId: string | undefined, actif: boolean
         .order('consommation_annuelle_mwh', { ascending: false, nullsFirst: false })
       if (error) throw new Error(error.message)
       return (data ?? []) as QualiteCompteur[]
+    },
+  })
+}
+
+/**
+ * Le statut Client/Prospect de chaque site d'un compte.
+ *
+ * La fiche compte étiquette ses sites ligne par ligne, dans les onglets Contrats et Compteurs.
+ * Elle lisait `site.statut === 'actif'` — le statut actif/inactif d'un site, qui n'a rien à voir
+ * avec le fait d'être fourni, et qu'AUCUN site portant un compteur actif n'a jamais à `false`.
+ * Tous les sites s'affichaient donc « Client ».
+ *
+ * Une seule requête pour toute la fiche, et le calcul reste en base : c'est le même `a_contrat`
+ * que le score du compteur, donc les deux ne peuvent pas se contredire.
+ */
+export function useStatutCommercialSites(compteId: string | undefined) {
+  return useQuery({
+    queryKey: ['statut-commercial-sites', compteId],
+    enabled: Boolean(compteId),
+    queryFn: async (): Promise<Map<string, boolean>> => {
+      const { data, error } = await supabase
+        .from('v_statut_commercial_site')
+        .select('site_id, est_client')
+        .eq('compte_id', compteId)
+      if (error) throw new Error(error.message)
+      const m = new Map<string, boolean>()
+      for (const l of (data ?? []) as Pick<StatutCommercialSite, 'site_id' | 'est_client'>[]) {
+        m.set(l.site_id, l.est_client)
+      }
+      return m
     },
   })
 }

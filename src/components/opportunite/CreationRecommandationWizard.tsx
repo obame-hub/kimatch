@@ -71,8 +71,35 @@ const PRIORITE_OPTIONS = [
   { value: 3, label: 'Basse' },
 ]
 
-/** Un PDL compte pour « client » dès qu'un contrat vivant le couvre. */
-const STATUTS_CONTRAT_CLIENT = new Set(['ACTIF', 'A_RENOUVELER'])
+/**
+ * UN PDL COMPTE POUR « CLIENT » DÈS QU'UN CONTRAT EN COURS LE COUVRE.
+ *
+ * ══ CE QUE CE TEST DISAIT AVANT, ET POURQUOI IL ÉTAIT FAUX ══
+ *
+ * `new Set(['ACTIF', 'A_RENOUVELER'])`, comparé au statut du contrat. Deux défauts :
+ *
+ * · `A_RENOUVELER` N'EXISTE PAS dans `statuts_contrats` — la table connaît À signer, À venir,
+ *   Actif, Annulé, En préparation, Nouveau, Résilié, Signé, Terminé. Le code venait de Tools et
+ *   n'a jamais eu d'équivalent ici : il ne reconnaissait donc que « Actif ».
+ * · LE STATUT ADMINISTRATIF N'EST PAS LA COUVERTURE. Un contrat signé qui démarre le mois
+ *   prochain couvre bel et bien son compteur ; un contrat « Actif » dont la date de fin est
+ *   passée ne le couvre plus (8 contrats sont dans ce cas).
+ *
+ * Mesuré le 02/09/2026 : 184 compteurs étaient étiquetés « Prospect » ici alors que le score de
+ * qualité les comptait sous contrat. L'assistant les refusait donc au titre du mélange
+ * client/prospect, et les classait en « Captation » là où c'est un renouvellement.
+ *
+ * ══ LA DÉFINITION RETENUE ══
+ *
+ * Celle de Michel, 02/09/2026 : « rattaché à un contrat », lue comme partout ailleurs dans
+ * l'application — un contrat en cours, c'est-à-dire sans date de fin ou dont la fin n'est pas
+ * passée. C'est mot pour mot `v_qualite_compteur.a_contrat`, et c'est ce qui garantit qu'un
+ * compteur ne peut plus être « sous contrat » sur la fiche et « prospect » dans l'assistant.
+ */
+function contratEnCours(ct: { date_fin: string | null }): boolean {
+  if (!ct.date_fin) return true
+  return new Date(ct.date_fin) >= new Date(new Date().toDateString())
+}
 
 /** Préavis retenu quand le contrat en cours ne le précise pas. */
 const PREAVIS_DEFAUT_JOURS = 60
@@ -277,7 +304,7 @@ export function CreateRecommandationDialog({
   const contratsParCompteurId = useMemo(() => {
     const map = new Map<string, boolean>()
     for (const c of contrats ?? []) {
-      if (!STATUTS_CONTRAT_CLIENT.has(c.statut)) continue
+      if (!contratEnCours(c)) continue
       for (const cpt of c.compteurs) map.set(cpt.id, true)
     }
     return map
@@ -301,7 +328,7 @@ export function CreateRecommandationDialog({
       .map((c) => {
         if (!c.date_echeance) return null
         const contratActuel = (contrats ?? []).find(
-          (ct) => STATUTS_CONTRAT_CLIENT.has(ct.statut) && ct.compteurs.some((cpt) => cpt.id === c.id),
+          (ct) => contratEnCours(ct) && ct.compteurs.some((cpt) => cpt.id === c.id),
         )
         const preavis = contratActuel?.preavis_resiliation_jours ?? PREAVIS_DEFAUT_JOURS
         const d = new Date(c.date_echeance)

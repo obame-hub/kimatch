@@ -131,8 +131,13 @@ export default function PerformanceComptes({ sansEntete }: { sansEntete?: boolea
         valeur={n(s?.nbComptes)}
         precision={s ? `${n(s.nbCompteurs)} compteurs actifs` : undefined}
         cellules={[
-          { libelle: 'Avec contrat', valeur: n(s?.nbAvecContrat) },
-          { libelle: 'Sans contrat', valeur: n(s?.nbSansContrat) },
+          /* « Client » et « Prospect » plutôt que « Avec contrat » / « Sans contrat » : c'est la
+             même mesure, et c'est le mot que le dossier UX demandait (« le nombre de comptes
+             client/prospect ») comme celui que Michel emploie depuis le 02/09/2026. Le compte
+             sous-jacent suit désormais sa règle — au moins un COMPTEUR sous contrat en cours, et
+             non un contrat rattaché au compte, ce qui en comptait 26 de trop. */
+          { libelle: 'Clients', valeur: n(s?.nbAvecContrat) },
+          { libelle: 'Prospects', valeur: n(s?.nbSansContrat) },
           ...(data?.segments ?? []).slice(0, 2).map((x) => ({ libelle: x.segment, valeur: n(x.nb) })),
         ]}
         onClick={() => navigate('/patrimoine?objet=comptes')}
