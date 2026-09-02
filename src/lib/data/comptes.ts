@@ -491,3 +491,53 @@ export function useDeleteCompte() {
     onSuccess: () => { void queryClient.invalidateQueries({ queryKey: ['comptes'] }) },
   })
 }
+
+/**
+ * ══ COMBIEN DE CLIENTS, COMBIEN DE PROSPECTS ══
+ *
+ * Naoëlle, 02/09/2026 : « mets une option pour voir la synthèse des comptes client et prospect,
+ * comme ça j'arrive à voir la différence de chiffres. »
+ *
+ * Deux comptages `head` + `count: exact` : rien ne traverse le réseau, seulement les deux totaux
+ * dans l'en-tête de la réponse. Le calcul reste en base, sur `v_comptes_liste.est_client` — la
+ * même colonne que la liste filtre, donc les chiffres du bandeau et les lignes du tableau ne
+ * peuvent pas diverger.
+ *
+ * ══ CE QUE CES CHIFFRES SUIVENT, ET CE QU'ILS NE SUIVENT PAS ══
+ *
+ * Ils suivent le PÉRIMÈTRE (mes comptes / tous) et le TYPE, parce que ce sont des cadrages : sans
+ * eux, « 392 clients » se lirait à côté d'une liste qui n'en montre que les siens.
+ *
+ * Ils ne suivent PAS la recherche, et l'écran le dit (« au total »). Une synthèse qui se recalcule
+ * à chaque frappe n'est plus une synthèse : la question posée est « combien en ai-je », pas
+ * « combien parmi ceux dont le nom contient Dup ».
+ */
+export interface DecompteStatutCommercial {
+  clients: number
+  prospects: number
+}
+
+export function useDecompteClientsProspects(input: {
+  proprietaireId: string | null
+  typeCompte: string | null
+}) {
+  return useQuery({
+    queryKey: ['comptes', 'decompte-client-prospect', input.proprietaireId, input.typeCompte],
+    staleTime: 5 * 60 * 1000,
+    queryFn: async (): Promise<DecompteStatutCommercial> => {
+      const compter = async (estClient: boolean) => {
+        let req = supabase
+          .from('v_comptes_liste')
+          .select('id', { count: 'exact', head: true })
+          .eq('est_client', estClient)
+        if (input.proprietaireId) req = req.eq('proprietaire_id', input.proprietaireId)
+        if (input.typeCompte) req = req.eq('type_compte', input.typeCompte)
+        const { count, error } = await req
+        if (error) throw new Error(error.message)
+        return count ?? 0
+      }
+      const [clients, prospects] = await Promise.all([compter(true), compter(false)])
+      return { clients, prospects }
+    },
+  })
+}

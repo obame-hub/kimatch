@@ -30,6 +30,8 @@ import { useState } from 'react'
 import type { TypeCompte } from '@/types/domain'
 import { usePerimetre, BasculePerimetre } from '@/lib/perimetre'
 import { useMonProfil } from '@/lib/data/roles'
+import { useDecompteClientsProspects } from '@/lib/data/comptes'
+import { cn } from '@/lib/utils'
 
 const typeMeta: Record<TypeCompte, { label: string; tone: 'kiwi' | 'blue' | 'amber' | 'neutral' }> = {
   client: { label: 'Consommateur', tone: 'kiwi' },
@@ -45,7 +47,19 @@ interface LigneCompte {
   segment: string | null
   type_compte: TypeCompte
   nb_sites: number
+  /**
+   * Règle de Michel du 02/09/2026 : Client dès qu'un compteur du compte est sous contrat en cours.
+   *
+   * OPTIONNELLE À DESSEIN. Le déploiement Vercel part au push, alors que les migrations sont
+   * appliquées à la main : il y a forcément un moment où cet écran est en ligne et la colonne
+   * absente de `v_comptes_liste`. `undefined` se distingue alors de `false`, et la colonne affiche
+   * un tiret plutôt que « Prospect » — c'est-à-dire plutôt qu'exactement le mensonge qu'on corrige.
+   */
+  est_client?: boolean
 }
+
+/** Les trois vues de la synthèse. La valeur est celle passée en filtre à PostgREST. */
+type FiltreStatut = '' | 'true' | 'false'
 
 /**
  * ENCAPSULABLE DANS LA PAGE PATRIMOINE. `sansEntete` masque la barre du haut quand cette liste est
@@ -56,6 +70,7 @@ interface LigneCompte {
 export default function Comptes({ sansEntete }: { sansEntete?: boolean }) {
   const navigate = useNavigate()
   const [typeFilter, setTypeFilter] = useState('')
+  const [statutFilter, setStatutFilter] = useState<FiltreStatut>('')
 
   /**
 
@@ -88,8 +103,32 @@ export default function Comptes({ sansEntete }: { sansEntete?: boolean }) {
     triParDefaut: 'nom',
     // Le filtre par type descend en base plutôt que de porter sur les lignes déjà chargées :
     // sans cela, filtrer « Fournisseur » n'aurait montré que ceux présents dans la tranche.
-    filtres: { proprietaire_id: filtreProprietaire, type_compte: typeFilter || null },
+    filtres: {
+      proprietaire_id: filtreProprietaire,
+      type_compte: typeFilter || null,
+      // 'true' / 'false' partent tels quels : PostgREST lit `est_client=eq.true` sur un booléen.
+      est_client: statutFilter || null,
+    },
   })
+
+  /* ══ LA SYNTHÈSE CLIENT / PROSPECT ══════════════════════════════════════════════════════════
+
+     Naoëlle, 02/09/2026 : « mets une option pour voir la synthèse des comptes client et prospect,
+     comme ça j'arrive à voir la différence de chiffres. »
+
+     Elle est ici plutôt que sur un écran à part parce que le chiffre seul ne suffit jamais : voir
+     « 392 » pose aussitôt la question « lesquels », et un clic doit y répondre. Les trois pastilles
+     sont donc à la fois la synthèse et le filtre. */
+  const decompte = useDecompteClientsProspects({
+    proprietaireId: filtreProprietaire,
+    typeCompte: typeFilter || null,
+  })
+  const total = (decompte.data?.clients ?? 0) + (decompte.data?.prospects ?? 0)
+  const vues: { cle: FiltreStatut; libelle: string; nombre: number | null }[] = [
+    { cle: '', libelle: 'Tous', nombre: decompte.data ? total : null },
+    { cle: 'true', libelle: 'Clients', nombre: decompte.data?.clients ?? null },
+    { cle: 'false', libelle: 'Prospects', nombre: decompte.data?.prospects ?? null },
+  ]
 
   return (
     <div>
@@ -124,6 +163,37 @@ export default function Comptes({ sansEntete }: { sansEntete?: boolean }) {
           />
         </ListToolbar>
 
+        {/* LES CHIFFRES SONT CEUX DU PÉRIMÈTRE, PAS CEUX DE LA RECHERCHE — et le mot « au total »
+            le dit. Une synthèse qui se recalcule à chaque frappe n'est plus une synthèse : la
+            question posée ici est « combien en ai-je », pas « combien parmi ceux dont le nom
+            contient Dup ». La recherche continue de filtrer le tableau, en dessous. */}
+        <div className="mb-3.5 flex flex-wrap items-center gap-2">
+          <span className="mr-0.5 text-km-label font-bold uppercase tracking-[0.08em] text-km-faint">
+            Statut commercial
+          </span>
+          {vues.map((v) => (
+            <button
+              key={v.cle}
+              type="button"
+              onClick={() => setStatutFilter(v.cle)}
+              className={cn(
+                'inline-flex items-center gap-1.5 rounded-km border px-2.5 py-1 text-km-label font-bold transition-colors',
+                statutFilter === v.cle
+                  ? 'border-km-green/30 bg-km-green-soft text-km-green'
+                  : 'border-km-line bg-white text-km-muted hover:text-km-text',
+              )}
+            >
+              {v.libelle}
+              <span className="tabular-nums font-[580]">
+                {v.nombre === null ? '—' : v.nombre.toLocaleString('fr-FR')}
+              </span>
+            </button>
+          ))}
+          <span className="text-km-label text-km-faint">
+            au total · Client = au moins un compteur sous contrat en cours
+          </span>
+        </div>
+
         {/* LE TABLEAU PASSE SUR LE COMPOSANT PARTAGE. Cinq ecrans ecrivaient le leur a la main
             avec les memes classes recopiees — et elles avaient deja diverge : 640 px de largeur
             minimale ici, 720 sur Versions, 820 sur Compteurs. Une decision de design ne se
@@ -137,23 +207,24 @@ export default function Comptes({ sansEntete }: { sansEntete?: boolean }) {
                 <SortableTh label="Segment" sortKey="segment" activeKey={liste.tri} dir={liste.sens} onSort={liste.trierPar} />
                 <SortableTh label="Ville" sortKey="ville" activeKey={liste.tri} dir={liste.sens} onSort={liste.trierPar} />
                 <SortableTh label="Sites" sortKey="nb_sites" activeKey={liste.tri} dir={liste.sens} onSort={liste.trierPar} />
+                <SortableTh label="Statut" sortKey="est_client" activeKey={liste.tri} dir={liste.sens} onSort={liste.trierPar} />
               </tr>
             </TableauTete>
             <TableauCorps>
               {liste.isLoading && (
                 <tr>
-                  <td colSpan={5} className="py-6 text-center text-km-muted">Chargement…</td>
+                  <td colSpan={6} className="py-6 text-center text-km-muted">Chargement…</td>
                 </tr>
               )}
               {liste.erreur && (
                 <tr>
-                  <td colSpan={5} className="py-6 text-center text-km-red">{liste.erreur}</td>
+                  <td colSpan={6} className="py-6 text-center text-km-red">{liste.erreur}</td>
                 </tr>
               )}
               {!liste.isLoading && !liste.erreur && liste.lignes.length === 0 && (
                 <tr>
-                  <td colSpan={5} className="py-10 text-center text-km-muted">
-                    {liste.query.trim() || typeFilter
+                  <td colSpan={6} className="py-10 text-center text-km-muted">
+                    {liste.query.trim() || typeFilter || statutFilter
                       ? 'Aucun compte ne correspond à la recherche.'
                       : "Aucun compte pour l'instant — clique sur « Nouveau compte » pour en créer un."}
                   </td>
@@ -179,6 +250,17 @@ export default function Comptes({ sansEntete }: { sansEntete?: boolean }) {
                   <td className="text-km-muted">{compte.segment}</td>
                   <td className="text-km-muted">{compte.ville}</td>
                   <td className="tabular-nums text-km-muted">{compte.nb_sites}</td>
+                  <td>
+                    {/* La question ne se pose que pour un consommateur : personne ne « démarche »
+                        un fournisseur d'énergie, et lui coller « Prospect » serait un contresens. */}
+                    {compte.type_compte === 'client' && typeof compte.est_client === 'boolean' ? (
+                      <Badge tone={compte.est_client ? 'kiwi' : 'neutral'}>
+                        {compte.est_client ? 'Client' : 'Prospect'}
+                      </Badge>
+                    ) : (
+                      <span className="text-km-faint">—</span>
+                    )}
+                  </td>
                 </tr>
               ))}
             </TableauCorps>
