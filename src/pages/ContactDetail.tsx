@@ -489,7 +489,6 @@ export default function ContactDetail() {
             <ActivityFeed
               compteId={contact.compte_id}
               compteNom={contact.compte_nom}
-              signaux={[]}
               interactions={interactionsDuContact}
               actions={tachesDuContact}
               documents={[]}

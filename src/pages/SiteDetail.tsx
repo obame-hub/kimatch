@@ -29,7 +29,6 @@ import {
   FALLBACK_TYPES_ENERGIES,
 } from '@/lib/referenceFallbacks'
 import { useCanManage, useIsAdmin, useProfilsAdmin } from '@/lib/data/roles'
-import { useSignauxParSites } from '@/lib/data/signaux'
 import { useCompteurs, useCreateCompteur } from '@/lib/data/compteurs'
 import { useRecommandationsParCompte } from '@/lib/data/recommandations'
 import { useContratsParCompte } from '@/lib/data/contrats'
@@ -50,7 +49,7 @@ import { useRaccourcisOnglets } from '@/lib/useRaccourcisOnglets'
 import type { Compte, Contact } from '@/types/domain'
 import { appelerNumero, numeroLisible } from '@/lib/telephonie'
 
-type TabKey = 'synthese' | 'contacts' | 'contrats' | 'compteurs' | 'recommandations' | 'signaux' | 'mandats' | 'fichiers' | 'historique' | 'activite'
+type TabKey = 'synthese' | 'contacts' | 'contrats' | 'compteurs' | 'recommandations' | 'mandats' | 'fichiers' | 'historique' | 'activite'
 
 function copyToClipboard(text: string, onDone: (msg: string) => void) {
   if (!text) return
@@ -66,7 +65,6 @@ export default function SiteDetail() {
   const { data: site } = useSite(id)
   const { data: compte } = useCompte(site?.compte_id)
   const siteIdsPourFiltre = useMemo(() => (id ? [id] : undefined), [id])
-  const { data: signaux } = useSignauxParSites(siteIdsPourFiltre)
   const { data: compteurs } = useCompteursParSites(siteIdsPourFiltre)
   const { data: actions } = useActionsParSites(siteIdsPourFiltre)
   const { data: documents } = useDocumentsParEntites(siteIdsPourFiltre)
@@ -124,7 +122,6 @@ export default function SiteDetail() {
     navigate('/sites')
   }
 
-  const signauxDuSite = useMemo(() => signaux?.filter((s) => s.site_id === id) ?? [], [signaux, id])
   const compteursDuSite = useMemo(() => compteurs?.filter((c) => c.site_id === id) ?? [], [compteurs, id])
   const recommandationsDuSite = useMemo(() => recommandations?.filter((r) => r.sites.some((s) => s.id === id)) ?? [], [recommandations, id])
   const contratsDuSite = useMemo(() => contrats?.filter((c) => c.site_id === id) ?? [], [contrats, id])
@@ -137,7 +134,6 @@ export default function SiteDetail() {
   const autresMandatsDuCompte = (mandats ?? []).filter((m) => m.compte_id === site?.compte_id && m.id !== mandatDuSite?.id)
 
   const health = computeSiteHealth({
-    signaux: signauxDuSite,
     contrats: contratsDuSite,
     recommandations: recommandationsDuSite,
     mandat: mandatDuSite,
@@ -165,7 +161,6 @@ export default function SiteDetail() {
     { key: 'contrats', label: 'Contrats' },
     { key: 'compteurs', label: 'Compteurs', badge: compteursDuSite.length ? String(compteursDuSite.length) : undefined },
     { key: 'recommandations', label: 'Recommandations', labelMobile: 'Recos', badge: recommandationsDuSite.length ? String(recommandationsDuSite.length) : undefined },
-    { key: 'signaux', label: 'Signaux', badge: signauxDuSite.length ? String(signauxDuSite.length) : undefined },
     { key: 'mandats', label: 'Mandats', badge: mandatDuSite ? undefined : '!' },
     { key: 'fichiers', label: 'Fichiers', badge: documentsDuSite.length ? String(documentsDuSite.length) : undefined },
     { key: 'historique', label: 'Historique' },
@@ -189,7 +184,7 @@ export default function SiteDetail() {
     function onKeyDown(e: KeyboardEvent) {
       const target = e.target as HTMLElement
       if (target && (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA')) return
-      const map: Record<string, TabKey> = { '1': 'synthese', '2': 'contrats', '3': 'compteurs', '4': 'recommandations', '5': 'signaux', '6': 'mandats', '7': 'fichiers', '8': 'historique' }
+      const map: Record<string, TabKey> = { '1': 'synthese', '2': 'contrats', '3': 'compteurs', '4': 'recommandations', '5': 'mandats', '6': 'fichiers', '7': 'historique' }
       if (map[e.key]) setTab(map[e.key])
     }
     window.addEventListener('keydown', onKeyDown)
@@ -280,7 +275,7 @@ export default function SiteDetail() {
       <div className="flex gap-1.5 overflow-x-auto border-b border-km-line bg-white px-4 pt-2.5 lg:gap-0.5 lg:pt-0 sm:px-6">
         {TABS.map((t) => {
           const isActive = tab === t.key
-          const badgeTone = t.key === 'signaux' ? 'bg-red-500 text-white' : t.key === 'mandats' ? 'bg-amber-200 text-amber-700' : 'bg-km-soft text-km-muted'
+          const badgeTone = t.key === 'mandats' ? 'bg-amber-200 text-amber-700' : 'bg-km-soft text-km-muted'
           return (
             <button
               key={t.key}
@@ -580,29 +575,6 @@ export default function SiteDetail() {
             </div>
           )}
 
-          {tab === 'signaux' && (
-            <div className="flex flex-col gap-2.5">
-              {signauxDuSite.length === 0 && (
-                <div className="rounded-xl border border-dashed border-kiwi-100 bg-white p-6 text-center text-sm font-semibold text-km-green">
-                  ✓ Aucun signal ouvert — site sous contrôle
-                </div>
-              )}
-              {signauxDuSite.map((s) => (
-                <div key={s.id} className="rounded-xl border border-km-line bg-white p-3.5">
-                  <div className="min-w-0 flex-1">
-                    <p className="text-sm font-bold text-km-text">{s.type_signal}</p>
-                    <p className="mt-0.5 text-xs text-km-muted">{s.description}</p>
-                  </div>
-                  <div className="mt-2.5 flex gap-2 border-t border-navy-50 pt-2.5">
-                    <Button variant="ghost" size="sm" className="ml-auto" onClick={() => navigate('/signaux')}>
-                      Voir dans Signaux
-                    </Button>
-                  </div>
-                </div>
-              ))}
-            </div>
-          )}
-
           {tab === 'mandats' && (
             <div className="flex flex-col gap-3.5">
               {mandatDuSite ? (
@@ -740,7 +712,6 @@ export default function SiteDetail() {
               siteNom={site.nom}
               compteId={site.compte_id}
               compteNom={site.compte_nom}
-              signaux={signauxDuSite}
               interactions={interactionsDuSite}
               actions={actionsDuSite}
               documents={documentsDuSite}
@@ -759,7 +730,6 @@ export default function SiteDetail() {
               siteNom={site.nom}
               compteId={site.compte_id}
               compteNom={site.compte_nom}
-              signaux={signauxDuSite}
               interactions={interactionsDuSite}
               actions={actionsDuSite}
               documents={documentsDuSite}

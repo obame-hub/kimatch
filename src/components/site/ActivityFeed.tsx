@@ -1,6 +1,6 @@
 import { useMemo, useState, type ReactNode } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { Phone, Mail, Users, Radio, CheckSquare, FileText, Send } from 'lucide-react'
+import { Phone, Mail, Users, CheckSquare, FileText, Send } from 'lucide-react'
 import { Textarea } from '@/components/ui/form'
 import { Button } from '@/components/ui/button'
 import { ActivityCard, type ActivityStyleKey } from '@/components/ui/activity-card'
@@ -9,12 +9,12 @@ import { useReferenceTable } from '@/lib/data/referenceTables'
 import { FALLBACK_TYPES_INTERACTIONS } from '@/lib/referenceFallbacks'
 import { InteractionSentence, classifyInteraction } from '@/lib/interactionSentence'
 import { cn } from '@/lib/utils'
-import type { Signal, Interaction, ActionItem, DocumentItem } from '@/types/domain'
+import type { Interaction, ActionItem, DocumentItem } from '@/types/domain'
 
 interface ActivityItem {
   id: string
   date: string
-  kind: 'signal' | 'interaction' | 'action' | 'document'
+  kind: 'interaction' | 'action' | 'document'
   title: string
   subtitle: ReactNode
   /** Ce qui a été écrit — le corps de la note. Le sous-titre dit qui a fait quoi ; sans ce
@@ -27,17 +27,16 @@ interface ActivityItem {
   interaction?: Interaction
 }
 
-function fromSignaux(signaux: Signal[]): ActivityItem[] {
-  return signaux.map((s) => ({
-    id: `sig-${s.id}`,
-    date: s.date_creation,
-    kind: 'signal',
-    title: s.type_signal,
-    subtitle: s.description || s.statut,
-    to: `/signaux/${s.id}`,
-    siteNom: s.site_nom,
-  }))
-}
+/* ══ LES SIGNAUX NE SONT PLUS DANS LE FIL ═══════════════════════════════════════════════════════
+
+   Naoëlle, 02/09/2026 : « enlève toute trace de signal sur toute l'app, même dans le flux
+   d'activité, car ça embrouille les commerciaux ». C'était la trace la plus insistante : le fil est
+   présent sur la fiche compte, la fiche site, la fiche recommandation et le suivi de contrat, et
+   les cartes rouges des signaux y côtoyaient les appels et les notes sans qu'on sache quoi en faire.
+
+   La fonction `fromSignaux` est retirée avec la prop `signaux` du composant. Rien n'est supprimé en
+   base : la table `signaux` garde ses lignes, et remettre le fil en état demande de rétablir cette
+   fonction, la prop, et les quatre appelants — voir `cycleNavItems` (src/lib/navItems.tsx). */
 
 function fromInteractions(interactions: Interaction[]): ActivityItem[] {
   return interactions.map((i) => ({
@@ -83,7 +82,6 @@ function fromDocuments(documents: DocumentItem[]): ActivityItem[] {
 }
 
 const KIND_ICON: Record<ActivityItem['kind'], typeof Phone> = {
-  signal: Radio,
   interaction: Mail,
   action: CheckSquare,
   document: FileText,
@@ -135,7 +133,6 @@ export function ActivityFeed({
   siteNom,
   compteId,
   compteNom,
-  signaux,
   interactions,
   actions,
   documents,
@@ -149,7 +146,6 @@ export function ActivityFeed({
   siteNom?: string
   compteId: string
   compteNom: string
-  signaux: Signal[]
   interactions: Interaction[]
   actions: ActionItem[]
   documents: DocumentItem[]
@@ -177,12 +173,11 @@ export function ActivityFeed({
   const items = useMemo(
     () =>
       [
-        ...fromSignaux(signaux),
         ...fromInteractions(interactions),
         ...fromActions(actions),
         ...fromDocuments(documents),
       ].sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()),
-    [signaux, interactions, actions, documents],
+    [interactions, actions, documents],
   )
 
   const activeDimension = filterDimension === 'site' ? mode : 'contact'

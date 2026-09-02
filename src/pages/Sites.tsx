@@ -24,7 +24,6 @@ import { Plus, List, Map as MapIcon } from 'lucide-react'
 import { Topbar } from '@/components/layout/Topbar'
 import { PageHeader } from '@/components/ui/page-header'
 import { Card } from '@/components/ui/card'
-import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { EntityLink } from '@/components/ui/entity-link'
 import { ListToolbar } from '@/components/ui/list-toolbar'
@@ -103,7 +102,8 @@ export default function Sites({ sansEntete }: { sansEntete?: boolean }) {
       <SortableTh label="Type" sortKey="type_site" activeKey={tri} dir={sens} onSort={trierPar} />
       <SortableTh label="Ville" sortKey="ville" activeKey={tri} dir={sens} onSort={trierPar} />
       <SortableTh label="Compteurs" sortKey="nb_compteurs" activeKey={tri} dir={sens} onSort={trierPar} />
-      <SortableTh label="Signaux ouverts" sortKey="nb_signaux_ouverts" activeKey={tri} dir={sens} onSort={trierPar} />
+      {/* « Signaux ouverts » était la colonne suivante. Retirée le 02/09/2026 avec le sujet —
+          voir `cycleNavItems` (src/lib/navItems.tsx). */}
       <th className="font-medium">Santé</th>
     </>
   )
@@ -115,7 +115,7 @@ export default function Sites({ sansEntete }: { sansEntete?: boolean }) {
         <PageHeader
           titreMasque={sansEntete}
           title="Sites"
-          description="L'objet central du patrimoine énergétique — chaque recommandation, signal et contrat s'y rattache."
+          description="L'objet central du patrimoine énergétique — chaque compteur, recommandation et contrat s'y rattache."
           actions={sansEntete ? undefined : <Button onClick={() => setShowCreate(true)}><Plus className="h-4 w-4" />Nouveau site</Button>}
         />
 
@@ -196,13 +196,6 @@ export default function Sites({ sansEntete }: { sansEntete?: boolean }) {
                           <td className="text-km-muted">{site.type_site}</td>
                           <td className="text-km-muted">{site.ville} ({site.code_postal})</td>
                           <td className="text-km-muted">{site.nb_compteurs}</td>
-                          <td >
-                            {site.nb_signaux_ouverts > 0 ? (
-                              <Badge tone="amber">{site.nb_signaux_ouverts} ouvert{site.nb_signaux_ouverts > 1 ? 's' : ''}</Badge>
-                            ) : (
-                              <Badge tone="neutral">Aucun</Badge>
-                            )}
-                          </td>
                           <td >
                             <SiteHealthBadge health={health} />
                           </td>

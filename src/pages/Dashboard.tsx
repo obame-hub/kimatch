@@ -1,5 +1,5 @@
 import { useNavigate } from 'react-router-dom'
-import { CheckSquare, Diamond, TrendingUp, Zap } from 'lucide-react'
+import { CheckSquare, Diamond, TrendingUp } from 'lucide-react'
 import { Topbar } from '@/components/layout/Topbar'
 import { Indicateurs } from '@/components/ui/page-header'
 import { TuileChiffre } from '@/components/dashboard/TuileChiffre'
@@ -20,10 +20,11 @@ import { useMonProfil } from '@/lib/data/roles'
  * « occupe-toi de la dashboard et on avance notamment sur les écrans ». Son écran se lit de haut en
  * bas : la date et le bonjour, un bandeau « Marge générée », quatre tuiles chiffrées, « Ma journée ».
  *
- * L'ORDRE DES QUATRE TUILES EST LE SIEN — signaux, opportunités, recommandations, montant du pipe.
- * Ce n'est pas l'ordre de priorité de la diapositive 12 (recommandations d'abord), et c'est voulu :
- * une maquette dessinée après l'appel dit ce qu'il veut voir aujourd'hui, pas ce qu'il disait la
- * semaine dernière.
+ * L'ORDRE DES TUILES EST LE SIEN — il les voulait signaux, opportunités, recommandations, montant
+ * du pipe. Ce n'est pas l'ordre de priorité de la diapositive 12 (recommandations d'abord), et c'est
+ * voulu : une maquette dessinée après l'appel dit ce qu'il veut voir aujourd'hui, pas ce qu'il
+ * disait la semaine dernière. Elles sont trois depuis le 02/09/2026 — les signaux ont quitté
+ * l'application entière, pas seulement ce tableau — mais l'ordre des trois restantes est le sien.
  *
  * CE QUI RESTE DE L'ANCIEN TABLEAU DE BORD, ET POURQUOI. Les quatre listes « à traiter » et le fil du
  * portefeuille sont conservés SOUS sa maquette. Sa maquette s'arrête à « Ma journée », mais la table
@@ -82,11 +83,6 @@ export default function Dashboard() {
       precision: enRetard > 0 ? `${enRetard} en retard` : 'Rien en retard',
     },
     {
-      libelle: 'Signaux à décider',
-      valeur: nombre(chiffres?.signauxATraiter),
-      precision: 'Ouvrir une opportunité, ou écarter',
-    },
-    {
       libelle: 'À présenter',
       valeur: nombre(chiffres?.recosAPresenter),
       precision: 'Le client attend une réponse',
@@ -129,16 +125,21 @@ export default function Dashboard() {
           </div>
         </div>
 
-        {/* ══════ LES QUATRE INDICATEURS ══════
+        {/* ══════ LES INDICATEURS DU HAUT ══════
 
             SA MAQUETTE EN COMPTE QUATRE ; CET ÉCRAN EN ALIGNAIT DOUZE. Un bandeau de marge sur
             toute la largeur, quatre tuiles « Ma performance », quatre tuiles chiffrées, et le
             tout avant d'arriver à ce qu'il y a à faire. Naoëlle, 31/08/2026 : « la maquette de
             Michel se veut minimaliste ».
 
-            Ses quatre mesures répondent à une seule question — qu'est-ce qui mérite mon attention
-            aujourd'hui : les actions à faire, les signaux à décider, les décisions attendues du
-            client, les contrats à risque. Aucune ne parle de performance passée.
+            Ils répondent à une seule question — qu'est-ce qui mérite mon attention aujourd'hui :
+            les actions à faire, les décisions attendues du client, les affaires en cours. Aucun ne
+            parle de performance passée.
+
+            ILS SONT TROIS DEPUIS LE 02/09/2026 : « les signaux à décider » est parti avec le reste
+            du sujet (voir `cycleNavItems`). Aucune mesure n'a été inventée pour combler la case —
+            un indicateur qu'on ajoute pour remplir une grille n'aide personne à choisir quoi
+            ouvrir, et c'est exactement ce que ce bloc doit faire.
 
             LE RESTE N'EST PAS SUPPRIMÉ, IL DESCEND. Son dossier le dit : « pipeline actif présenté
             en synthèse secondaire ». La marge du mois et la performance personnelle sont un bilan,
@@ -196,16 +197,9 @@ export default function Dashboard() {
             ELLES RESTENT, ET C'EST VOULU : elles répondent à une autre question — non pas « où en
             est-on » mais « qu'est-ce qui attend ». Leur place est donc après la performance et avant
             « Ma journée », qui les détaille. La lecture descend ainsi du résultat vers le travail. */}
-        <div className="mt-4 grid grid-cols-1 gap-3.5 sm:grid-cols-2 xl:grid-cols-4">
-          <TuileChiffre
-            icone={Zap}
-            teinte="bg-km-amber-soft text-km-amber"
-            badge={chiffres ? `${chiffres.signauxRecents} cette semaine` : null}
-            valeur={nombre(chiffres?.signauxATraiter)}
-            libelle="Signaux à traiter"
-            definition="Signaux au statut Nouveau ou À qualifier. Le badge compte ceux détectés depuis sept jours — la gravité n’étant renseignée sur aucun signal, « prioritaires » n’a pas de source en base."
-            onClick={() => navigate('/signaux')}
-          />
+        {/* Trois tuiles depuis le 02/09/2026 : « Signaux à traiter » est parti avec le sujet. La
+            grille passe à trois colonnes plutôt que d'en laisser une vide. */}
+        <div className="mt-4 grid grid-cols-1 gap-3.5 sm:grid-cols-2 xl:grid-cols-3">
           <TuileChiffre
             icone={Diamond}
             teinte="bg-sky-50 text-km-blue"

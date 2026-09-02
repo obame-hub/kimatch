@@ -21,8 +21,10 @@ import { supabase } from '@/lib/supabase'
  * · `actions` EST VIDE — zéro ligne. « Ma journée » affichera donc un état vide, et c'est la vérité :
  *   la table se remplira quand les commerciaux créeront des actions. La structure existe et suffit
  *   (`date_prevue` est un timestamp, donc l'heure de la maquette est possible, et `priorite` existe).
- * · `signaux.gravite` est nulle PARTOUT : le badge « 3 prioritaires » de la maquette n'a aucune
- *   source. Il est remplacé par les signaux détectés depuis sept jours, qui eux existent.
+ * · LES SIGNAUX NE SONT PLUS COMPTÉS ICI depuis le 02/09/2026 : le sujet a quitté toute
+ *   l'application (voir `cycleNavItems`). Les deux requêtes sur `signaux` sont retirées — pas
+ *   seulement leurs tuiles : un agrégat qu'aucun écran ne lit reste un aller-retour réseau à
+ *   chaque chargement du tableau de bord.
  * · `opportunites` n'a AUCUNE colonne de montant. Le « montant du pipe » vient donc des
  *   recommandations ouvertes (`montant`), seul endroit où un montant d'affaire est stocké.
  * · `remunerations` est vide et `versions_recommandation.gain_estime_annuel` n'est renseignée sur
@@ -86,9 +88,6 @@ export interface ChiffresTableauDeBord {
   nbRefusees: number
   nbAbandonnees: number
 
-  signauxATraiter: number
-  signauxRecents: number
-
   opportunitesActives: number
   opportunitesRecentes: number
 
@@ -106,9 +105,8 @@ export function useChiffresTableauDeBord() {
     // Cinq minutes : ce sont des agrégats de gestion, pas un compteur temps réel.
     staleTime: 5 * 60 * 1000,
     queryFn: async (): Promise<ChiffresTableauDeBord> => {
-      const [etapes, statutsSignaux, statutsOpp] = await Promise.all([
+      const [etapes, statutsOpp] = await Promise.all([
         idsParCode('etapes_recommandation'),
-        idsParCode('statuts_signaux'),
         idsParCode('statuts_opportunites'),
       ])
 
@@ -123,7 +121,6 @@ export function useChiffresTableauDeBord() {
       const ouvertes = ['BROUILLON', 'ACTIVE', 'A_REACTIVER']
         .map((c) => etapes[c])
         .filter(Boolean)
-      const nonClos = ['NOUVEAU', 'A_QUALIFIER'].map((c) => statutsSignaux[c]).filter(Boolean)
       const oppVivantes = ['NOUVELLE', 'EN_QUALIFICATION', 'COUVERTURE_MANDAT', 'PRETE_A_CONVERTIR']
         .map((c) => statutsOpp[c])
         .filter(Boolean)
@@ -155,8 +152,6 @@ export function useChiffresTableauDeBord() {
         rAbandonnees,
         rPipe,
         rAPresenter,
-        rSignaux,
-        rSignauxRecents,
         rOpp,
         rOppRecentes,
       ] = await Promise.all([
@@ -168,12 +163,6 @@ export function useChiffresTableauDeBord() {
         // colonne coûtent moins qu'une vue à créer et à faire appliquer.
         supabase.from('recommandations').select('montant').eq('actif', true).in('etape_id', ouvertes),
         compteEtape(etapes.A_PRESENTER),
-        supabase.from('signaux').select('id', { count: 'exact', head: true }).eq('actif', true).in('statut_id', nonClos),
-        supabase
-          .from('signaux')
-          .select('id', { count: 'exact', head: true })
-          .eq('actif', true)
-          .gte('date_detection', ilYAJours(7)),
         supabase
           .from('opportunites')
           .select('id', { count: 'exact', head: true })
@@ -208,8 +197,6 @@ export function useChiffresTableauDeBord() {
         tauxAcceptation: decidees > 0 ? (nbAcceptees / decidees) * 100 : null,
         nbRefusees,
         nbAbandonnees,
-        signauxATraiter: rSignaux.count ?? 0,
-        signauxRecents: rSignauxRecents.count ?? 0,
         opportunitesActives: rOpp.count ?? 0,
         opportunitesRecentes: rOppRecentes.count ?? 0,
         recosOuvertes: lignesPipe.length,
@@ -221,7 +208,7 @@ export function useChiffresTableauDeBord() {
   })
 }
 
-export type GroupeJournee = 'SIGNAL' | 'OPPORTUNITE' | 'MANDAT' | 'RECOMMANDATION' | 'AUTRE'
+export type GroupeJournee = 'OPPORTUNITE' | 'MANDAT' | 'RECOMMANDATION' | 'AUTRE'
 
 export interface ActionAFaire {
   id: string
@@ -248,7 +235,6 @@ export function badgeAction(a: ActionAFaire): { texte: string; ton: 'rouge' | 'a
 }
 
 export const LIBELLE_GROUPE: Record<GroupeJournee, string> = {
-  SIGNAL: 'Signaux',
   OPPORTUNITE: 'Opportunités',
   MANDAT: 'Mandats',
   RECOMMANDATION: 'Recommandations',
@@ -267,9 +253,14 @@ export const LIBELLE_GROUPE: Record<GroupeJournee, string> = {
  * mais aucun vers une opportunité. Naoëlle a tranché — « crée les liens de tâche vers opportunité » —
  * et la migration 20260827100000 l'a ajoutée.
  *
- * L'ORDRE DES GROUPES SUIT LA CHAÎNE : signal, opportunité, mandat, recommandation. C'est celui de
- * son pipeline, et il rend la lecture prévisible — on descend le tunnel de gauche à droite, du plus
+ * L'ORDRE DES GROUPES SUIT LA CHAÎNE : opportunité, mandat, recommandation. C'est celui de son
+ * pipeline, et il rend la lecture prévisible — on descend le tunnel de gauche à droite, du plus
  * amont au plus aval, comme sur la page 5 de sa présentation.
+ *
+ * LE GROUPE « SIGNAUX » EN TÊTE A DISPARU LE 02/09/2026 avec le reste du sujet (voir
+ * `cycleNavItems`). Les tâches qui ne portent qu'un `signal_id` ne sont PAS perdues : elles
+ * retombent dans « Autres » et restent cochables. Rien n'est supprimé en base, ni la colonne, ni
+ * les liens.
  *
  * LA PORTÉE N'EST PAS « AUJOURD'HUI » MAIS « À FAIRE ». Ses badges disent « 3 jours », « 2 jours » :
  * il ne montre pas la journée au sens de l'agenda, il montre ce qui attend. On prend donc tout ce qui
@@ -287,7 +278,7 @@ export function useMesActions(profilId: string | null | undefined) {
       const debutDuJour = new Date(jour.getFullYear(), jour.getMonth(), jour.getDate()).toISOString()
 
       const colonnes =
-        'id, titre, priorite, date_prevue, date_realisation, signal_id, opportunite_id, mandat_id, recommandation_id, version_recommandation_id, type_action:types_actions(libelle), contact:contacts(prenom, nom), site:sites(nom)'
+        'id, titre, priorite, date_prevue, date_realisation, opportunite_id, mandat_id, recommandation_id, version_recommandation_id, type_action:types_actions(libelle), contact:contacts(prenom, nom), site:sites(nom)'
 
       // Deux requêtes plutôt qu'un `or` : ce qui reste à faire, et ce qui a été fait aujourd'hui —
       // le basculement « Réalisé » de sa maquette montre la journée écoulée, pas tout l'historique.
@@ -317,7 +308,6 @@ export function useMesActions(profilId: string | null | undefined) {
         priorite: number | null
         date_prevue: string | null
         date_realisation: string | null
-        signal_id: string | null
         opportunite_id: string | null
         mandat_id: string | null
         recommandation_id: string | null
@@ -330,16 +320,16 @@ export function useMesActions(profilId: string | null | undefined) {
       const lire = (a: Ligne): ActionAFaire => {
         /* L'ORDRE DES TESTS EST L'ORDRE DE LA CHAÎNE, et il compte : une tâche peut porter
            plusieurs liens — un mandat naît d'une opportunité. On retient alors l'objet le plus
-           AMONT, celui qui explique pourquoi la tâche existe, plutôt que le dernier rattaché. */
-        const groupe: GroupeJournee = a.signal_id
-          ? 'SIGNAL'
-          : a.opportunite_id
-            ? 'OPPORTUNITE'
-            : a.mandat_id
-              ? 'MANDAT'
-              : a.recommandation_id || a.version_recommandation_id
-                ? 'RECOMMANDATION'
-                : 'AUTRE'
+           AMONT, celui qui explique pourquoi la tâche existe, plutôt que le dernier rattaché.
+           `signal_id` n'est plus testé depuis le 02/09/2026 : une tâche qui ne porte que ce
+           lien-là tombe dans « Autres », elle ne disparaît pas de la liste. */
+        const groupe: GroupeJournee = a.opportunite_id
+          ? 'OPPORTUNITE'
+          : a.mandat_id
+            ? 'MANDAT'
+            : a.recommandation_id || a.version_recommandation_id
+              ? 'RECOMMANDATION'
+              : 'AUTRE'
 
         // Le nombre de jours se compte sur des jours de calendrier, pas sur des millisecondes : une
         // échéance ce soir à 18 h doit dire « aujourd'hui » et non « dans 0,3 jour ».

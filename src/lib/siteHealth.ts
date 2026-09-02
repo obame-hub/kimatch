@@ -1,4 +1,4 @@
-import type { Compteur, Contrat, Mandat, Recommandation, Signal } from '@/types/domain'
+import type { Compteur, Contrat, Mandat, Recommandation } from '@/types/domain'
 
 export interface SiteHealth {
   score: number
@@ -7,39 +7,35 @@ export interface SiteHealth {
   raisons: string[]
 }
 
-const SIGNAUX_FERMES = new Set(['CONVERTI', 'ECARTE'])
 // Une version morte n'a plus qu'un statut : « Clôturée » (Michel, 28/08/2026). Les anciens codes
 // restent listés pour les données non encore migrées et l'historique.
 const VERSIONS_INACTIVES = new Set(['CLOTUREE', 'REFUSEE', 'EXPIREE', 'ARCHIVEE', 'REMPLACEE'])
 const SEUIL_ECHEANCE_JOURS = 90
 
-// Malus par signal ouvert, pondéré par sa gravité individuelle (colonne signaux.gravite,
-// 0-100, ajoutée par Michel — indépendante de poids_defaut sur types_signaux qui sert
-// au tri de priorité ailleurs dans l'app). On la ramène sur l'échelle -4 (mineur) à -10
-// (critique) décrite dans le doc métier ; en son absence (signal pas encore qualifié),
-// on retombe sur le poids moyen validé par l'exemple (3 signaux ouverts = -12, soit -4/signal).
-const MALUS_SIGNAL_MIN = 4
-const MALUS_SIGNAL_MAX = 10
+/* ══ LES SIGNAUX NE PÈSENT PLUS SUR LA SANTÉ D'UN SITE ═════════════════════════════════════════
+
+   Naoëlle, 02/09/2026 : le sujet quitte toute l'application (voir `cycleNavItems`). Un malus
+   qu'aucun écran n'explique plus serait pire que pas de malus du tout — on verrait un site à 62
+   sans savoir pourquoi, et sans aucun moyen d'aller voir.
+
+   829 signaux sont ouverts en base (819 « Nouveau », 10 « À qualifier ») : c'est beaucoup de sites
+   dont le score remonte. C'est voulu, et c'est la conséquence assumée du retrait.
+
+   La fonction `liste_sites` continue de calculer `malus_signaux` en base — rien n'y est supprimé,
+   conformément à la consigne. `construireSante` le REND au score plutôt que de le taire. */
 const MALUS_PERIMETRE = 6
 const BONUS_RECO_ACTIVE = 8
-
-function malusSignal(gravite: number | null): number {
-  if (gravite == null) return MALUS_SIGNAL_MIN
-  return Math.round(MALUS_SIGNAL_MIN + (gravite / 100) * (MALUS_SIGNAL_MAX - MALUS_SIGNAL_MIN))
-}
 
 function malusEcheance(joursRestants: number): number {
   return Math.min(20, Math.round((20 * (90 - joursRestants)) / 90))
 }
 
 export function computeSiteHealth({
-  signaux,
   contrats,
   recommandations,
   mandat,
   compteurs,
 }: {
-  signaux: Signal[]
   contrats: Contrat[]
   recommandations: Recommandation[]
   mandat: Mandat | undefined
@@ -47,13 +43,6 @@ export function computeSiteHealth({
 }): SiteHealth {
   let score = 100
   const raisons: string[] = []
-
-  const signauxOuverts = signaux.filter((s) => !SIGNAUX_FERMES.has(s.statut))
-  if (signauxOuverts.length > 0) {
-    const malus = signauxOuverts.reduce((sum, s) => sum + malusSignal(s.gravite), 0)
-    score -= malus
-    raisons.push(`${signauxOuverts.length} ${signauxOuverts.length > 1 ? 'signaux' : 'signal'} ouvert${signauxOuverts.length > 1 ? 's' : ''} (-${malus})`)
-  }
 
   if (!mandat || mandat.statut !== 'ACTIF') {
     score -= MALUS_PERIMETRE
@@ -118,15 +107,15 @@ export interface EcheanceSante {
  */
 export function construireSante(ligne: {
   score_sante: number
-  nb_signaux_ouverts: number
   malus_signaux: number
   sous_mandat_actif: boolean
   echeances: EcheanceSante[] | null
 }): SiteHealth {
   const raisons: string[] = []
 
-  const n = ligne.nb_signaux_ouverts
-  if (n > 0) raisons.push(`${n} ${n > 1 ? 'signaux' : 'signal'} ouvert${n > 1 ? 's' : ''} (-${ligne.malus_signaux})`)
+  /* Le malus des signaux est RENDU au score : la base le retranche encore, l'interface ne
+     l'explique plus. Voir le bloc de commentaire en tête de fichier. */
+  const score = ligne.score_sante + (ligne.malus_signaux ?? 0)
 
   if (!ligne.sous_mandat_actif) raisons.push(`Hors périmètre du mandat actif (-${MALUS_PERIMETRE})`)
 
@@ -137,5 +126,5 @@ export function construireSante(ligne: {
 
   if (raisons.length === 0) raisons.push('Rien à signaler')
 
-  return { ...habiller(ligne.score_sante), raisons }
+  return { ...habiller(Math.min(100, score)), raisons }
 }

@@ -35,10 +35,17 @@ function capitalize(s: string): string {
   return s.length > 0 ? s[0].toUpperCase() + s.slice(1) : s
 }
 
-/** Entité "Related To" (WhatId Salesforce) : recommandation en priorité, sinon signal, site, compte. */
+/**
+ * Entité "Related To" (WhatId Salesforce) : recommandation en priorité, sinon site, compte.
+ *
+ * LE SIGNAL VENAIT EN DEUXIÈME jusqu'au 02/09/2026 — c'est-à-dire au beau milieu du fil
+ * d'activité, dans la phrase même : « Untel a appelé Machin au sujet de <signal> », avec un lien
+ * vers une page qui n'existe plus. Naoëlle : « enlève toute trace de signal sur toute l'app, même
+ * dans le flux d'activité » (voir `cycleNavItems`). Une interaction qui ne portait qu'un signal se
+ * rattache maintenant à son site, à défaut à son compte.
+ */
 function relatedEntity(i: Interaction): { to: string; label: string } | null {
   if (i.recommandation_id && i.recommandation_nom) return { to: `/recommandations/${i.recommandation_id}`, label: i.recommandation_nom }
-  if (i.signal_id && i.signal_nom) return { to: `/signaux/${i.signal_id}`, label: i.signal_nom }
   if (i.site_id && i.site_nom) return { to: `/sites/${i.site_id}`, label: i.site_nom }
   if (i.compte_id && i.compte_nom) return { to: `/comptes/${i.compte_id}`, label: i.compte_nom }
   return null

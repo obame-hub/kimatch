@@ -1,3 +1,17 @@
+/**
+ * ⚠ ÉCRAN DÉBRANCHÉ LE 02/09/2026 — CE FICHIER N'EST PLUS ATTEINT PAR L'APPLICATION.
+ *
+ * Naoëlle : « enlève le menu des signaux et toute trace de signal sur toute l'app maintenant, même
+ * dans le flux d'activité, car ça embrouille les commerciaux ; on reprendra ce sujet plus tard, ne
+ * pas le supprimer en base. »
+ *
+ * Sa route (`/signaux`) est retirée de `App.tsx`, son entrée du rail et de la barre du bas, et les
+ * signaux ne sont plus indexés dans la recherche ⌘K. Le fichier est conservé intact pour le jour
+ * où le sujet sera repris : rien à réécrire, il suffira de rebrancher la route.
+ *
+ * La décision complète et la liste des points de branchement sont dans `cycleNavItems`
+ * (src/lib/navItems.tsx). La table `signaux` et ses 1 456 lignes sont intactes en base.
+ */
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { Plus, CheckSquare } from 'lucide-react'

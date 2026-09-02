@@ -7,7 +7,6 @@ import {
   MapPin,
   User,
   Gauge,
-  Radio,
   FileCheck2,
   Sparkle,
   FileSignature,
@@ -28,7 +27,6 @@ const KIND_ICON: Record<SearchKind, typeof Building2> = {
   site: MapPin,
   contact: User,
   compteur: Gauge,
-  signal: Radio,
   mandat: FileCheck2,
   recommandation: Sparkle,
   contrat: FileSignature,
@@ -42,7 +40,6 @@ const KIND_TINT: Record<SearchKind, string> = {
   site: 'text-km-green',
   contact: 'text-violet-500',
   compteur: 'text-km-muted',
-  signal: 'text-red-500',
   mandat: 'text-amber-600',
   recommandation: 'text-amber-500',
   contrat: 'text-sky-500',
@@ -189,8 +186,8 @@ export function Topbar({ title, crumb }: { title: string; crumb?: string }) {
 
   const trimmed = query.trim()
   // On cherche dans TOUTES les pages, pas seulement dans le rail : les listes sorties du rail
-  // (Signaux, Contrats, Mandats, Taches, Documents, Interactions, Versions) resteraient sinon
-  // atteignables a l'URL seule.
+  // (Contrats, Mandats, Taches, Documents, Interactions, Versions) resteraient sinon atteignables
+  // a l'URL seule. Les Signaux, eux, ne sont plus indexes du tout depuis le 02/09/2026.
   const pageMatches = trimmed
     ? pagesRecherchables.filter((n) => n.label.toLowerCase().includes(trimmed.toLowerCase())).slice(0, 5)
     : []

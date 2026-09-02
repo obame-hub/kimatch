@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { ArrowRight, Check, CheckSquare, Diamond, FileSignature, ListChecks, Zap } from 'lucide-react'
+import { ArrowRight, Check, CheckSquare, Diamond, FileSignature, ListChecks } from 'lucide-react'
 import { useCompleteAction } from '@/lib/data/actions'
 import {
   LIBELLE_GROUPE,
@@ -30,8 +30,7 @@ import { cn } from '@/lib/utils'
  * l'impression d'un écran cassé ; une seule phrase dit mieux qu'il n'y a rien à faire.
  */
 
-const ICONES: Record<GroupeJournee, typeof Zap> = {
-  SIGNAL: Zap,
+const ICONES: Record<GroupeJournee, typeof Diamond> = {
   OPPORTUNITE: Diamond,
   MANDAT: FileSignature,
   RECOMMANDATION: CheckSquare,
@@ -40,7 +39,6 @@ const ICONES: Record<GroupeJournee, typeof Zap> = {
 
 /** Une teinte par objet, la même que sur les tuiles du tableau de bord. */
 const TEINTES: Record<GroupeJournee, string> = {
-  SIGNAL: 'bg-km-amber-soft text-km-amber',
   OPPORTUNITE: 'bg-opp-50 text-opp-600',
   MANDAT: 'bg-sky-50 text-km-blue',
   RECOMMANDATION: 'bg-km-green-soft text-km-green',
@@ -53,9 +51,10 @@ const TONS = {
   neutre: 'bg-km-soft text-km-muted',
 } as const
 
-/* L'ordre de la chaîne : signal, opportunité, mandat, recommandation. On descend le tunnel du plus
-   amont au plus aval, comme sur la page 5 de sa présentation. */
-const ORDRE: GroupeJournee[] = ['SIGNAL', 'OPPORTUNITE', 'MANDAT', 'RECOMMANDATION', 'AUTRE']
+/* L'ordre de la chaîne : opportunité, mandat, recommandation. On descend le tunnel du plus amont au
+   plus aval, comme sur la page 5 de sa présentation. « Signaux » ouvrait cette liste jusqu'au
+   02/09/2026 — voir `GroupeJournee` pour ce que deviennent les tâches concernées. */
+const ORDRE: GroupeJournee[] = ['OPPORTUNITE', 'MANDAT', 'RECOMMANDATION', 'AUTRE']
 
 type Portee = 'a_faire' | 'faites' | 'tout'
 
@@ -152,15 +151,11 @@ export function MaJournee({
           {/* On dit ce qu'on sait, dans l'ordre de ce qui est actionnable. */}
           {contexte && contexte.total === 0 ? (
             <p className="mt-0.5 max-w-[70ch] text-km-label leading-relaxed text-km-muted">
-              Aucune tâche n’existe encore dans Kimatch. Elles se créent depuis la{' '}
-              <button
-                type="button"
-                onClick={() => navigate('/signaux')}
-                className="font-bold text-km-green hover:underline"
-              >
-                prochaine action d’un signal
-              </button>
-              , depuis une opportunité, un mandat ou une recommandation — ou directement dans{' '}
+              {/* La « prochaine action d’un signal » était le premier chemin cité ici : il est
+                  parti le 02/09/2026 avec le sujet des signaux (voir `cycleNavItems`). Les autres
+                  suffisent, et ce sont ceux qu’un commercial emprunte vraiment. */}
+              Aucune tâche n’existe encore dans Kimatch. Elles se créent depuis une opportunité, un
+              mandat ou une recommandation — ou directement dans{' '}
               <button
                 type="button"
                 onClick={() => navigate('/taches')}

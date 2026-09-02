@@ -11,7 +11,6 @@ import {
   Euro,
   Settings,
   LifeBuoy,
-  Radio,
   FileText,
   ShieldCheck,
   CheckSquare,
@@ -104,8 +103,18 @@ export const navItems: NavItem[] = [
  * devient une piste, mûrit en opportunité, se conclut en recommandation — et cet ordre reste vrai,
  * qu'il ait son titre ou non.
  */
+/* ══ LES SIGNAUX SONT SORTIS DU RAIL LE 02/09/2026 ═════════════════════════════════════════════
+
+   Naoëlle : « enlève le menu des signaux et toute trace de signal sur toute l'app maintenant, même
+   dans le flux d'activité, car ça embrouille les commerciaux ; on reprendra ce sujet plus tard, ne
+   pas le supprimer en base. »
+
+   Rien n'est détruit : la table `signaux` et ses 830 lignes restent intactes, les pages
+   `Signaux.tsx` et `SignalDetail.tsx` et le fichier `lib/data/signaux.ts` restent dans le dépôt.
+   C'est le CHEMIN qui est coupé — le rail, la barre du bas, les routes, les onglets de fiche, les
+   tuiles d'accueil et les fils d'activité. Le jour où le sujet est repris, c'est ce commentaire
+   qu'il faut suivre à rebours : `git log -S"/signaux"` retrouve chaque point de branchement. */
 export const cycleNavItems: NavItem[] = [
-  { to: '/signaux', label: 'Signaux', icon: Radio },
   { to: '/prospection', label: 'Pistes', icon: Filter },
   { to: '/opportunites', label: 'Opportunités', icon: Target },
   { to: '/recommandations', label: 'Recommandations', icon: Sparkle },
@@ -141,9 +150,13 @@ export const bottomNavItems: NavItem[] = [
  * CE QUE LA RECHERCHE DOIT TROUVER, rail ou pas.
  *
  * Sortir une page du rail ne doit pas la rendre introuvable : la barre de recherche cherchait
- * uniquement dans le rail, si bien que retirer les Signaux les aurait laissés accessibles à l'URL
- * seule. Les listes qui vivent hors du rail sont donc listées ici, et elles seules s'ajoutent à
- * l'index des pages.
+ * uniquement dans le rail, si bien que retirer une liste l'aurait laissée accessible à l'URL seule.
+ * Les listes qui vivent hors du rail sont donc listées ici, et elles seules s'ajoutent à l'index
+ * des pages.
+ *
+ * LES SIGNAUX FONT EXCEPTION depuis le 02/09/2026, et c'est délibéré : eux ne sont pas « masqués du
+ * rail mais atteignables », ils sont RETIRÉS. Les laisser dans ⌘K rendrait le retrait sans effet —
+ * c'est justement par la recherche qu'on tombait dessus.
  */
 export const pagesRecherchables: NavItem[] = [
   ...navItems,
@@ -152,7 +165,6 @@ export const pagesRecherchables: NavItem[] = [
   ...productionNavItems,
   ...navItemsMasques,
   ...bottomNavItems,
-  { to: '/signaux', label: 'Signaux', icon: Radio },
   // Les listes du patrimoine restent trouvables par la recherche, chacune sur son onglet.
   { to: '/comptes', label: 'Comptes', icon: Building2 },
   { to: '/sites', label: 'Sites', icon: MapPin },

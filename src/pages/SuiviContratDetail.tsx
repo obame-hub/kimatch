@@ -393,7 +393,6 @@ export default function SuiviContratDetail() {
               compteNom={suivi.compte_nom ?? ''}
               siteId={suivi.site_id}
               siteNom={suivi.site_nom ?? ''}
-              signaux={[]}
               interactions={interactions ?? []}
               actions={actions ?? []}
               documents={documentsDuSuivi}

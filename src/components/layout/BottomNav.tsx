@@ -1,16 +1,19 @@
 import { NavLink } from 'react-router-dom'
-import { Home, Building2, MapPin, Sparkle, Radio, Menu } from 'lucide-react'
+import { Home, Building2, MapPin, Sparkle, Menu } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { useSidebar } from '@/lib/layout'
 
 // Destinations de premier niveau (Tâches retiré du menu — accessible via les objets liés
 // et le Tableau de bord). "Plus" est ajouté en dernier pour atteindre les autres sections.
+//
+// Signaux est sorti d'ici le 02/09/2026 avec le reste du sujet — voir `cycleNavItems` dans
+// `lib/navItems.tsx` pour la décision et la façon de le remettre. Les quatre entrées restantes
+// occupent la barre plus largement, ce qui est un gain sur un écran de téléphone.
 const items = [
   { to: '/', label: 'Accueil', icon: Home, end: true, tint: 'text-km-text' },
   { to: '/comptes', label: 'Comptes', icon: Building2, tint: 'text-sky-500' },
   { to: '/sites', label: 'Sites', icon: MapPin, tint: 'text-km-green' },
   { to: '/recommandations', label: 'Recos', icon: Sparkle, tint: 'text-amber-500' },
-  { to: '/signaux', label: 'Signaux', icon: Radio, tint: 'text-red-500' },
 ]
 
 export function BottomNav() {

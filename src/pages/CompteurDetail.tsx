@@ -21,7 +21,6 @@ import { useContrats } from '@/lib/data/contrats'
 import { natureEcheance } from '@/lib/echeance'
 import { BadgeEcheance } from '@/components/compteur/BadgeEcheance'
 import { useMandats } from '@/lib/data/mandats'
-import { useSignaux } from '@/lib/data/signaux'
 import { useRecommandationsListe } from '@/lib/data/recommandations'
 import { useDocuments, useTeleverserDocuments } from '@/lib/data/documents'
 import { useReferenceTable } from '@/lib/data/referenceTables'
@@ -119,27 +118,27 @@ function AddConsommationDialog({ compteurId, open, onClose }: { compteurId: stri
   )
 }
 
+/* La couverture comptait quatre lignes ; « Signaux » a été retirée le 02/09/2026 avec le sujet
+   (voir `cycleNavItems`). Le score passe donc sur trois, et c'est plus juste : « aucun signal
+   ouvert » comptait comme un point de couverture alors que ça ne couvre rien — c'était une absence
+   de mauvaise nouvelle, pas une protection. Les trois qui restent — mandat, reco, contrat — sont
+   bien des choses qu'on met en place. */
 function CouvertureCard({
-  nbSignaux,
   mandatCouvert,
   recoEnCours,
   contratCouvert,
-  onSignaux,
   onMandat,
   onReco,
   onContrat,
 }: {
-  nbSignaux: number
   mandatCouvert: boolean
   recoEnCours: boolean
   contratCouvert: boolean
-  onSignaux?: () => void
   onMandat?: () => void
   onReco?: () => void
   onContrat?: () => void
 }) {
   const items = [
-    { lbl: 'Signaux', ok: nbSignaux === 0, val: nbSignaux > 0 ? `${nbSignaux} ouvert${nbSignaux > 1 ? 's' : ''}` : 'Aucun', onClick: nbSignaux > 0 ? onSignaux : undefined },
     { lbl: 'Mandat', ok: mandatCouvert, val: mandatCouvert ? 'Couvert ✓' : 'Non couvert', onClick: mandatCouvert ? onMandat : undefined },
     { lbl: 'Reco', ok: true, warn: recoEnCours, val: recoEnCours ? 'En cours' : 'Aucune', onClick: recoEnCours ? onReco : undefined },
     { lbl: 'Contrat', ok: contratCouvert, val: contratCouvert ? 'Couvert ✓' : 'Aucun', onClick: contratCouvert ? onContrat : undefined },
@@ -176,7 +175,6 @@ function CouvertureCard({
           </div>
         ))}
       </div>
-      <p className="mt-2 text-km-tiny italic text-km-faint">Signaux liés à ce compteur via ses contrats.</p>
     </div>
   )
 }
@@ -307,7 +305,6 @@ export default function CompteurDetail() {
   const { data: compteDuCompteur } = useCompte(siteDuCompteur?.compte_id)
   const { data: contrats } = useContrats()
   const { data: mandats } = useMandats()
-  const { data: signaux } = useSignaux()
   const { data: recommandations } = useRecommandationsListe()
   const { data: documents } = useDocuments()
   const { data: statutsContratsRef } = useReferenceTable('statuts_contrats')
@@ -324,14 +321,12 @@ export default function CompteurDetail() {
   const contratsDuCompteur = useMemo(() => contrats?.filter((ct) => ct.compteurs.some((cc) => cc.id === id)) ?? [], [contrats, id])
   const mandatDuCompteur = mandats?.find((m) => compteur && m.site_ids.includes(compteur.site_id))
   const documentsDuCompteur = useMemo(() => documents?.filter((d) => d.entite_type === 'compteur' && d.entite_id === id) ?? [], [documents, id])
-  const contratIdsDuCompteur = useMemo(() => new Set(contratsDuCompteur.map((c) => c.id)), [contratsDuCompteur])
   // Prouvée ou estimée : diapositive 6 de Michel. La preuve est le contrat rattaché, donc elle se
   // déduit ici et ne se stocke nulle part — voir src/lib/echeance.ts.
   const echeance = useMemo(
     () => natureEcheance(compteur?.date_echeance, contratsDuCompteur),
     [compteur?.date_echeance, contratsDuCompteur],
   )
-  const signauxDuCompteur = useMemo(() => signaux?.filter((s) => s.contrat_id && contratIdsDuCompteur.has(s.contrat_id)) ?? [], [signaux, contratIdsDuCompteur])
   const recoActiveDuSite = useMemo(
     () => recommandations?.find((r) => compteur && r.sites.some((s) => s.id === compteur.site_id) && !['ACCEPTEE', 'REFUSEE', 'ABANDONNEE'].includes(r.etape)),
     [recommandations, compteur],
@@ -618,11 +613,9 @@ export default function CompteurDetail() {
         </div>
 
         <CouvertureCard
-          nbSignaux={signauxDuCompteur.length}
           mandatCouvert={Boolean(mandatDuCompteur)}
           recoEnCours={Boolean(recoActiveDuSite)}
           contratCouvert={contratsDuCompteur.length > 0}
-          onSignaux={() => navigate(`/signaux/${signauxDuCompteur[0].id}`)}
           onMandat={() => setTab('mandats')}
           onReco={() => recoActiveDuSite && navigate(`/recommandations/${recoActiveDuSite.id}`)}
           onContrat={() => setTab('contrats')}

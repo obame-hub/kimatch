@@ -62,15 +62,30 @@ export function useDocusignConnexion() {
 export type SanteDocusign = 'chargement' | 'inutile' | 'ok' | 'bientot' | 'absente' | 'expiree'
 
 /**
- * La personne connectée a-t-elle déjà créé un mandat DANS Kimatch ?
+ * La personne connectée a-t-elle déjà envoyé un mandat EN SIGNATURE ÉLECTRONIQUE depuis Kimatch ?
  *
  * Sert à ne pas réclamer une connexion DocuSign à qui n'en a pas l'usage. Une seule ligne suffit :
  * `head` + `count` ne rapatrie aucune donnée, juste le total dans l'en-tête.
  *
+ * ══ POURQUOI C'EST L'ENVELOPPE QUI COMPTE, ET PAS LA CRÉATION DU MANDAT ══
+ *
+ * Naoëlle, 02/09/2026 : « enlève l'alerte de connexion à DocuSign de Michel qui apparaît en rouge,
+ * il n'utilise pas DocuSign. » Ce test comptait les mandats CRÉÉS ; Michel en a 4, et zéro parti en
+ * signature. Il recevait donc un bandeau rouge permanent, sans bouton de fermeture, sur une
+ * intégration qu'il n'a jamais utilisée.
+ *
+ * Le même comptage se trompait sur Agathe — 24 mandats créés, 0 envoyé — alors que le 15/08/2026
+ * Naoëlle avait justement demandé qu'elle en soit exempte. Le filtre existait, son critère était
+ * faux : créer un mandat dans Kimatch n'est pas s'en servir pour faire signer.
+ *
+ * Mesuré le 02/09/2026 sur les dix profils actifs : 6 personnes ont au moins une enveloppe
+ * (Guillaume 2, Marie 5, Matthieu 5, Fabien 4, Thomas 2, William 1) — celles que le bandeau doit
+ * bien atteindre. Michel, Agathe et Erwan n'en ont aucune.
+ *
  * Portée réelle, à ne pas surestimer : la migration Salesforce n'a rempli `proprietaire_id` sur
  * aucun mandat (1429 sur 1429, voir `useCanManageEnregistrement`), et les mandats importés n'ont pas
  * davantage de créateur. Ce test ne lit donc PAS l'historique Salesforce — il répond « cette
- * personne a-t-elle déjà lancé un mandat depuis Kimatch ». C'est volontaire : c'est le moment où
+ * personne a-t-elle déjà fait signer depuis Kimatch ». C'est volontaire : c'est le moment où
  * quelqu'un devient concerné par la signature électronique, et à partir de là le bandeau s'applique
  * à lui. Avant, c'est l'écran « Connexion requise » du wizard qui l'arrête, au moment utile.
  */
@@ -84,6 +99,7 @@ export function useEnvoyeurDeMandats() {
       const { count } = await supabase
         .from('mandats')
         .select('id', { count: 'exact', head: true })
+        .not('docusign_envelope_id', 'is', null)
         .or(`cree_par_id.eq.${profilId},proprietaire_id.eq.${profilId}`)
       return (count ?? 0) > 0
     },
@@ -109,11 +125,11 @@ export function useSanteDocusign(): { etat: SanteDocusign; connexion: DocusignCo
 
   if (statut.isLoading || connexion.isLoading || envoyeur.isLoading) return { etat: 'chargement', connexion: null }
   if (!statut.data?.configured) return { etat: 'inutile', connexion: null }
-  // Jamais connecté ET n'a jamais envoyé de mandat : cette personne n'a rien à réparer. Le 15/08/2026
-  // Naoëlle a rappelé qu'Agathe et Erwan restent dans l'équipe mais n'envoient pas de mandats ; sans
-  // ce filtre, ils recevaient un bandeau rouge permanent, sans bouton de fermeture, sur une
-  // intégration qui ne les concerne pas. Un bandeau que la moitié des gens apprend à ignorer ne
-  // remplit plus le rôle que William lui demande.
+  // Jamais connecté ET n'a jamais fait signer : cette personne n'a rien à réparer. Le 15/08/2026
+  // Naoëlle a rappelé qu'Agathe et Erwan restent dans l'équipe mais n'envoient pas de mandats, et le
+  // 02/09/2026 que Michel non plus ; sans ce filtre, ils recevaient un bandeau rouge permanent, sans
+  // bouton de fermeture, sur une intégration qui ne les concerne pas. Un bandeau que la moitié des
+  // gens apprend à ignorer ne remplit plus le rôle que William lui demande.
   //
   // Une autorisation TOMBÉE reste signalée à tout le monde : elle prouve un usage passé, et c'est
   // exactement le cas que William décrit. Et le premier envoi d'une nouvelle recrue reste couvert

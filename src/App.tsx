@@ -20,7 +20,6 @@ import Login from '@/pages/Login'
 const Dashboard = lazy(() => import('@/pages/Dashboard'))
 const Sites = lazy(() => import('@/pages/Sites'))
 const SiteDetail = lazy(() => import('@/pages/SiteDetail'))
-const Signaux = lazy(() => import('@/pages/Signaux'))
 const Opportunites = lazy(() => import('@/pages/Opportunites'))
 const OpportuniteDetail = lazy(() => import('@/pages/OpportuniteDetail'))
 const Prospection = lazy(() => import('@/pages/Prospection'))
@@ -30,7 +29,6 @@ const RequeteDetail = lazy(() => import('@/pages/RequeteDetail'))
 const SuivisContrats = lazy(() => import('@/pages/SuivisContrats'))
 const SuiviContratDetail = lazy(() => import('@/pages/SuiviContratDetail'))
 const Remunerations = lazy(() => import('@/pages/Remunerations'))
-const SignalDetail = lazy(() => import('@/pages/SignalDetail'))
 const Recommandations = lazy(() => import('@/pages/Recommandations'))
 const RecommandationDetail = lazy(() => import('@/pages/RecommandationDetail'))
 const Comptes = lazy(() => import('@/pages/Comptes'))
@@ -85,8 +83,9 @@ function App() {
           <Route path="/suivis-contrats" element={<SuivisContrats />} />
           <Route path="/suivis-contrats/:id" element={<SuiviContratDetail />} />
           <Route path="/remunerations" element={<Remunerations />} />
-          <Route path="/signaux" element={<Signaux />} />
-          <Route path="/signaux/:id" element={<SignalDetail />} />
+          {/* Les deux routes des signaux sont retirées depuis le 02/09/2026 — décision et chemin de
+              retour dans `cycleNavItems` (src/lib/navItems.tsx). Les pages `Signaux.tsx` et
+              `SignalDetail.tsx` restent dans le dépôt : il suffira de rebrancher ces deux lignes. */}
           <Route path="/recommandations" element={<Recommandations />} />
           <Route path="/recommandations/:id" element={<RecommandationDetail />} />
           <Route path="/patrimoine" element={<Patrimoine />} />

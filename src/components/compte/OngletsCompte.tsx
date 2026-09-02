@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { ChevronRight, Radio, Sparkle } from 'lucide-react'
-import type { Recommandation, Signal } from '@/types/domain'
+import { ChevronRight, Sparkle } from 'lucide-react'
+import type { Recommandation } from '@/types/domain'
 import { FINALITES_RECOMMANDATION, type CleFinalite } from '@/lib/finalitesRecommandation'
 
 /**
@@ -206,96 +206,11 @@ export function OngletRecommandations({ recommandations }: { recommandations: Re
   )
 }
 
-// ══ SIGNAUX ═══════════════════════════════════════════════════════════════════════════════════
+/* ══ L'ONGLET « SIGNAUX » A ÉTÉ RETIRÉ DE LA FICHE COMPTE LE 02/09/2026 ═════════════════
 
-export function OngletSignaux({
-  signaux,
-  onVoirTout,
-}: {
-  signaux: Signal[]
-  onVoirTout: () => void
-}) {
-  const navigate = useNavigate()
+   Il occupait la fin de ce fichier : une liste des signaux ouverts du compte, avec son compteur
+   en en-tête et un lien « Voir dans Signaux ». Naoëlle, 02/09/2026 : le sujet quitte toute
+   l'application, il embrouille les commerciaux, et on le reprendra plus tard.
 
-  // Tri par priorité : la maquette annonce « trier : priorité ▾ ». La gravité fait foi, la date
-  // départage à gravité égale.
-  const tries = useMemo(
-    () =>
-      [...signaux].sort(
-        (a, b) => (b.gravite ?? 0) - (a.gravite ?? 0) || b.date_creation.localeCompare(a.date_creation),
-      ),
-    [signaux],
-  )
-
-  return (
-    <div className={`${ANIMATION_ONGLET} flex flex-col gap-2.5`}>
-      <div className="flex items-center gap-2.5">
-        {/* L'éclair n'était pas une énergie ici, c'était une puce décorative devant un compte de
-            signaux — et un emoji en couleurs pleines au milieu d'une ligne de capitales grises.
-            L'icône des signaux, celle du rail de navigation, dit la même chose et appartient au jeu. */}
-        <span className="inline-flex items-center gap-1.5 text-km-xs font-bold uppercase tracking-[.08em] text-[#a3a5a0]">
-          <Radio className="h-3 w-3 shrink-0" aria-hidden="true" />
-          {signaux.length} signal{signaux.length > 1 ? 'ux' : ''} ouvert{signaux.length > 1 ? 's' : ''} · compte
-        </span>
-        <span className="flex-1" />
-        <span className="text-km-xs text-[#83868f]">trié par priorité</span>
-      </div>
-
-      {tries.map((s) => {
-        // Gravité 2 = critique, 1 = à surveiller, 0 ou absent = informatif.
-        const critique = (s.gravite ?? 0) >= 2
-        const vigilance = (s.gravite ?? 0) === 1
-        return (
-          <div
-            key={s.id}
-            className="flex flex-wrap items-center gap-3 rounded-[11px] border bg-white px-[15px] py-3"
-            style={{
-              borderColor: critique ? '#f0c8bd' : vigilance ? '#f0dcb4' : '#e7e6e2',
-              background: critique ? '#fffbfa' : '#fff',
-            }}
-          >
-            <div className="min-w-[170px] flex-1">
-              <div className="text-km-body font-bold">
-                {s.type_signal}{' '}
-                <button
-                  type="button"
-                  onClick={() => navigate(`/sites/${s.site_id}`)}
-                  className="rounded-[5px] bg-[#f2f1ee] px-1.5 py-px text-km-xs font-semibold text-[#5c5f66] transition-colors hover:bg-[#e7e6e2]"
-                >
-                  {s.site_nom}
-                </button>
-              </div>
-              <div className="mt-0.5 text-km-label text-[#83868f]">{s.description}</div>
-            </div>
-            <button
-              type="button"
-              onClick={onVoirTout}
-              className="cursor-pointer rounded-[7px] border border-[#e0dfdb] bg-white px-[11px] py-1.5 text-km-label font-semibold text-[#5c5f66] transition-colors hover:bg-[#f0efec]"
-            >
-              Voir dans Signaux
-            </button>
-            {s.recommandation_id ? (
-              <button
-                type="button"
-                onClick={() => navigate(`/recommandations/${s.recommandation_id}`)}
-                className="cursor-pointer rounded-[7px] bg-[#0d7a5f] px-[11px] py-1.5 text-km-label font-bold text-white transition-colors hover:bg-[#0a6650]"
-              >
-                Recommandation liée
-              </button>
-            ) : (
-              <span className="rounded-[7px] bg-[#f7ece3] px-[11px] py-1.5 text-km-label font-bold text-[#8a4b2a]">
-                À qualifier
-              </span>
-            )}
-          </div>
-        )
-      })}
-
-      {signaux.length === 0 && (
-        <div className="rounded-[11px] border border-dashed border-[#d3e5de] bg-white p-[22px] text-center text-xs font-semibold text-[#0d7a5f]">
-          ✓ Aucun signal ouvert — compte sous contrôle
-        </div>
-      )}
-    </div>
-  )
-}
+   Rien n'est supprimé en base. La décision et le chemin de retour sont décrits en un seul
+   endroit : `cycleNavItems`, dans src/lib/navItems.tsx. */

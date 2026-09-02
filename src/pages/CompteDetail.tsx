@@ -24,7 +24,7 @@ import { WizardConnectionGate } from '@/components/ui/connection-gate'
 import { HeroQualiteCompte, HeroScoreEllipro, type FaitEllipro } from '@/components/compte/HerosCompte'
 import { useQualiteCompte, useQualiteCompteurs, manquesCompteur } from '@/lib/data/qualiteCompte'
 import { pastilleScore } from '@/lib/niveauScore'
-import { OngletRecommandations, OngletSignaux } from '@/components/compte/OngletsCompte'
+import { OngletRecommandations } from '@/components/compte/OngletsCompte'
 import { OngletHistorique } from '@/components/compte/OngletHistorique'
 import { OngletFichiers } from '@/components/compte/OngletFichiers'
 import { Button } from '@/components/ui/button'
@@ -51,7 +51,6 @@ import {
 } from '@/lib/data/comptes'
 import { useSitesParCompte } from '@/lib/data/sites'
 import { useContactsParCompte } from '@/lib/data/contacts'
-import { useSignauxParSites } from '@/lib/data/signaux'
 import { useCompteursParSites } from '@/lib/data/compteurs'
 import { useRecommandationsParCompte } from '@/lib/data/recommandations'
 import { useContratsParCompte } from '@/lib/data/contrats'
@@ -73,7 +72,7 @@ import { ActivityFeed } from '@/components/site/ActivityFeed'
 import { cn } from '@/lib/utils'
 import { useGoBack } from '@/lib/useGoBack'
 import { useRaccourcisOnglets } from '@/lib/useRaccourcisOnglets'
-import type { Compte, Contact, Site, TypeCompte, Signal, Contrat, Mandat, Compteur, Recommandation } from '@/types/domain'
+import type { Compte, Contact, Site, TypeCompte, Contrat, Mandat, Compteur, Recommandation } from '@/types/domain'
 import { SitesMap, type SitesMapItem } from '@/components/site/SitesMap'
 import { computeSiteHealth } from '@/lib/siteHealth'
 import { appelerNumero } from '@/lib/telephonie'
@@ -108,7 +107,7 @@ const TYPE_BADGE_STYLE: Record<TypeCompte, { bg: string; border: string; text: s
   kiwee: { bg: 'bg-km-soft', border: 'border-km-line', text: 'text-km-muted', dot: 'bg-km-faint', icone: Leaf },
 }
 
-type TabKey = 'synthese' | 'contacts' | 'contrats' | 'compteurs' | 'recommandations' | 'signaux' | 'mandats' | 'fichiers' | 'historique' | 'activite'
+type TabKey = 'synthese' | 'contacts' | 'contrats' | 'compteurs' | 'recommandations' | 'mandats' | 'fichiers' | 'historique' | 'activite'
 
 function copyToClipboard(text: string, onDone: (msg: string) => void) {
   if (!text) return
@@ -139,7 +138,6 @@ export default function CompteDetail() {
   // MOLINIER, dont neuf rien que pour les documents et douze tables pour les recommandations. Les
   // postes les plus lents n'y arrivaient pas du tout -- fetchAllRows reessaie deux fois puis
   // abandonne, d'ou une fiche qui restait vide et trois 500 dans la console.
-  const { data: signaux } = useSignauxParSites(siteIdsPourFiltre)
   const { data: recommandations } = useRecommandationsParCompte(id)
   const { data: contrats } = useContratsParCompte(id)
   const { data: mandats } = useMandatsParCompte(id)
@@ -239,7 +237,6 @@ export default function CompteDetail() {
     () => contacts?.filter((c) => c.comptes.some((l) => l.id === id)) ?? [],
     [contacts, id],
   )
-  const signauxDuCompte = useMemo(() => signaux?.filter((s) => siteIdsDuCompte.has(s.site_id)) ?? [], [signaux, siteIdsDuCompte])
   const compteursDuCompte = useMemo(() => compteurs?.filter((c) => siteIdsDuCompte.has(c.site_id)) ?? [], [compteurs, siteIdsDuCompte])
   // Le contrat est lie directement au compte (decision Michel/William 31/07/2026), plus via site_id --
   // reste visible meme si ses compteurs ont change de cabinet entre-temps.
@@ -275,7 +272,6 @@ export default function CompteDetail() {
     { key: 'contrats', label: 'Contrats', badge: contratsDuCompte.length ? String(contratsDuCompte.length) : undefined },
     { key: 'compteurs', label: 'Compteurs', badge: compteursDuCompte.length ? String(compteursDuCompte.length) : undefined },
     { key: 'recommandations', label: 'Recommandations', labelMobile: 'Recos', badge: recommandationsDuCompte.length ? String(recommandationsDuCompte.length) : undefined },
-    { key: 'signaux', label: 'Signaux', badge: signauxDuCompte.length ? String(signauxDuCompte.length) : undefined },
     { key: 'mandats', label: 'Mandats', badge: mandatsDuCompte.length ? String(mandatsDuCompte.length) : undefined },
     { key: 'fichiers', label: 'Fichiers', badge: documentsDuCompte.length ? String(documentsDuCompte.length) : undefined },
     { key: 'historique', label: 'Historique' },
@@ -293,7 +289,7 @@ export default function CompteDetail() {
       // Le hub s'approprie le clavier quand il est ouvert : ses touches (A/S/T/M/R/D) recouvrent
       // celles de la fiche, « R » en particulier.
       if (hubOuvert) return
-      const map: Record<string, TabKey> = { '1': 'synthese', '2': 'contrats', '3': 'compteurs', '4': 'recommandations', '5': 'signaux', '6': 'mandats', '7': 'fichiers', '8': 'historique' }
+      const map: Record<string, TabKey> = { '1': 'synthese', '2': 'contrats', '3': 'compteurs', '4': 'recommandations', '5': 'mandats', '6': 'fichiers', '7': 'historique' }
       if (map[e.key]) setTab(map[e.key])
       // N et R sont partis avec les boutons « Note » et « Relance » le 16/08/2026. R en
       // particulier CREAIT une tache de relance en base : sans bouton pour l'annoncer, une frappe
@@ -570,14 +566,13 @@ export default function CompteDetail() {
                   William du 30/07 : les sites ne doivent pas être listés dans l'onglet Compte). */}
               <CompteSitesMap
                 sitesDuCompte={sitesDuCompte}
-                signaux={signauxDuCompte}
                 contrats={contratsDuCompte}
                 recommandations={recommandationsDuCompte}
                 mandats={mandatsDuCompte}
                 compteurs={compteursDuCompte}
               />
 
-              <RelationTimeline compte={compte} mandats={mandatsDuCompte} recommandations={recommandationsDuCompte} signaux={signauxDuCompte} />
+              <RelationTimeline compte={compte} mandats={mandatsDuCompte} recommandations={recommandationsDuCompte} />
             </div>
           )}
 
@@ -595,7 +590,6 @@ export default function CompteDetail() {
 
           {tab === 'recommandations' && <OngletRecommandations recommandations={recommandationsDuCompte} />}
 
-          {tab === 'signaux' && <OngletSignaux signaux={signauxDuCompte} onVoirTout={() => navigate('/signaux')} />}
 
           {tab === 'mandats' && (
             <div className="flex flex-col gap-2.5">
@@ -652,7 +646,6 @@ export default function CompteDetail() {
             <ActivityFeed
               compteId={compte.id}
               compteNom={compte.nom}
-              signaux={signauxDuCompte}
               interactions={interactionsDuCompte}
               actions={actionsDuCompte}
               documents={documentsDuCompte}
@@ -670,7 +663,6 @@ export default function CompteDetail() {
             <ActivityFeed
               compteId={compte.id}
               compteNom={compte.nom}
-              signaux={signauxDuCompte}
               interactions={interactionsDuCompte}
               actions={actionsDuCompte}
               documents={documentsDuCompte}
@@ -802,10 +794,9 @@ export default function CompteDetail() {
 }
 
 function CompteSitesMap({
-  sitesDuCompte, signaux, contrats, recommandations, mandats, compteurs,
+  sitesDuCompte, contrats, recommandations, mandats, compteurs,
 }: {
   sitesDuCompte: Site[]
-  signaux: Signal[]
   contrats: Contrat[]
   recommandations: Recommandation[]
   mandats: Mandat[]
@@ -813,7 +804,6 @@ function CompteSitesMap({
 }) {
   const items: SitesMapItem[] = sitesDuCompte.map((site) => {
     const health = computeSiteHealth({
-      signaux: signaux.filter((s) => s.site_id === site.id),
       contrats: contrats.filter((c) => c.site_id === site.id),
       recommandations: recommandations.filter((r) => r.sites?.some((s) => s.id === site.id)),
       mandat: mandats.find((m) => m.site_ids?.includes(site.id)),
@@ -860,11 +850,11 @@ const RELATION_EVENT_STYLE: Record<RelationEventKind, { badge: string; text: str
 }
 
 // Frise "Historique de la relation" -- présente dans la référence design (William) mais absente
-// jusqu'ici. Dérivée des données déjà chargées (mandats, recommandations, signaux) : première
+// jusqu'ici. Dérivée des données déjà chargées (mandats, recommandations) : première
 // passe raisonnable, PAS validée avec William/Michel sur le choix exact des jalons ni leurs
 // libellés (voir tâche de suivi) -- à corriger si le classement Gagné/Perdu/Litige ne correspond
 // pas à la réalité métier.
-function buildRelationEvents(compte: Compte, mandats: Mandat[], recommandations: Recommandation[], signaux: Signal[]): RelationEvent[] {
+function buildRelationEvents(compte: Compte, mandats: Mandat[], recommandations: Recommandation[]): RelationEvent[] {
   const events: RelationEvent[] = []
 
   if (compte.date_creation) {
@@ -892,17 +882,15 @@ function buildRelationEvents(compte: Compte, mandats: Mandat[], recommandations:
     }
   }
 
-  for (const s of signaux) {
-    if (/litige/i.test(s.type_signal) || /litige/i.test(s.description)) {
-      events.push({ id: `signal-${s.id}`, date: s.date_creation, label: s.description || s.type_signal, kind: 'litige' })
-    }
-  }
+  /* Les signaux de type « litige » alimentaient une quatrième catégorie de jalons ; ils sont sortis
+     de la frise le 02/09/2026 avec le sujet (voir `cycleNavItems`). Le genre `litige` reste défini :
+     c'est le seul endroit qui saurait le remplir si un autre objet vient le porter. */
 
   return events.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
 }
 
-function RelationTimeline({ compte, mandats, recommandations, signaux }: { compte: Compte; mandats: Mandat[]; recommandations: Recommandation[]; signaux: Signal[] }) {
-  const events = useMemo(() => buildRelationEvents(compte, mandats, recommandations, signaux), [compte, mandats, recommandations, signaux])
+function RelationTimeline({ compte, mandats, recommandations }: { compte: Compte; mandats: Mandat[]; recommandations: Recommandation[] }) {
+  const events = useMemo(() => buildRelationEvents(compte, mandats, recommandations), [compte, mandats, recommandations])
   const [expanded, setExpanded] = useState(false)
   const CAP = 8
   const visibles = expanded ? events : events.slice(0, CAP)

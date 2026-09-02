@@ -33,7 +33,6 @@ const LIBELLES: Record<string, string> = {
   prochaine_action_echeance: 'Échéance',
   prochaine_action_faite_le: 'Action faite',
   commentaire: 'Commentaire',
-  signal_libelle: 'Signal',
   reference: 'Référence',
   proprietaire_id: 'Propriétaire',
 }
@@ -41,6 +40,19 @@ const LIBELLES: Record<string, string> = {
 function libelleChamp(champ: string): string {
   return LIBELLES[champ] ?? champ.replace(/_/g, ' ')
 }
+
+/**
+ * Les champs dont l'historique ne doit RIEN montrer.
+ *
+ * Naoëlle, 02/09/2026 : « enlève toute trace de signal sur toute l'app, même dans le flux
+ * d'activité ». `signal_id` est le lien vers le MODULE Signaux, celui qui est retiré — il ne doit
+ * plus apparaître nulle part, et il n'est renseigné sur aucune des 5 opportunités.
+ *
+ * `signal_libelle` RESTE, lui : ce n'est pas le module, c'est le « signal positif » saisi à la main
+ * quand on convertit une piste, et que Michel a rendu obligatoire (« il nous faut au minimum un
+ * signal et un contact »). Le masquer obligerait à saisir un champ qu'on n'afficherait plus.
+ */
+const CHAMPS_MASQUES = new Set(['signal_id'])
 
 /** `true`/`false` et les identifiants bruts ne se lisent pas : on les traduit ou on les tait. */
 function valeurLisible(v: string | null): string {
@@ -123,7 +135,7 @@ export function FluxActualite({ tableNom, ligneId, dateCreation, interactions = 
   const liste: HistoriqueEntry[] = entrees ?? []
 
   const evenements: Evenement[] = [
-    ...liste.map((e) => ({
+    ...liste.filter((e) => !CHAMPS_MASQUES.has(e.champ)).map((e) => ({
       id: e.id,
       date: e.date_modification,
       genre: 'modif' as const,

@@ -904,10 +904,15 @@ export default function OpportuniteDetail() {
                   onCommit={(v: string) => majOpp({ commentaire: v.trim() || null })}
                   {...retourInline}
                 />
-                {(opportunite.signal_libelle || opportunite.signal_id) && (
+                {/* Le « signal positif » saisi à la conversion de la piste — PAS le module Signaux,
+                    retiré le 02/09/2026 (voir `cycleNavItems`). Le lien `signal_id` vers ce module
+                    ne conditionne donc plus l'affichage : il n'est renseigné sur aucune
+                    opportunité, et il n'a plus d'écran où mener. Le libellé, lui, reste — c'est ce
+                    que Michel a rendu obligatoire pour ouvrir une opportunité. */}
+                {opportunite.signal_libelle && (
                   <p className="mt-3 border-t border-km-line pt-2 text-km-label text-km-muted">
-                    <span className="font-bold uppercase tracking-wide text-opp-500">Signal</span>{' '}
-                    {opportunite.signal_libelle ?? 'signal enregistré'}
+                    <span className="font-bold uppercase tracking-wide text-opp-500">Signal positif</span>{' '}
+                    {opportunite.signal_libelle}
                   </p>
                 )}
               </Card>

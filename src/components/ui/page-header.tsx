@@ -109,8 +109,13 @@ export function Indicateurs({ mesures }: {
     )
   }
 
+  /* LA GRILLE SUIT LE NOMBRE DE MESURES. Elle était figée à quatre colonnes : une page qui n'en
+     fournit que trois — le tableau de bord depuis le retrait des signaux, le 02/09/2026 — laissait
+     une quatrième case vide à droite, qui se lit comme un chiffre qui n'a pas chargé. */
+  const colonnes = mesures.length >= 4 ? 'lg:grid-cols-4' : mesures.length === 3 ? 'lg:grid-cols-3' : 'lg:grid-cols-2'
+
   return (
-    <div className="mb-5 grid grid-cols-2 gap-2.5 lg:grid-cols-4">
+    <div className={cn('mb-5 grid grid-cols-2 gap-2.5', colonnes)}>
       {mesures.slice(0, 4).map((m, i) => (
         <div
           key={m.libelle}

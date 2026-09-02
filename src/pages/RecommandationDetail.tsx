@@ -61,7 +61,6 @@ import { useCompteurs } from '@/lib/data/compteurs'
 import { useInteractionsParRecommandation } from '@/lib/data/interactions'
 import { useActionsParRecommandation, useCreateAction } from '@/lib/data/actions'
 import { DialogNouvelleTache } from '@/components/tache/DialogNouvelleTache'
-import { useSignauxParRecommandation } from '@/lib/data/signaux'
 import { useDocumentsParEntites, useTeleverserDocuments } from '@/lib/data/documents'
 import { useCreateInteraction } from '@/lib/data/interactions'
 import { useCanManage, useIsAdmin, useProfilsAdmin } from '@/lib/data/roles'
@@ -125,10 +124,10 @@ export default function RecommandationDetail() {
   const { data: compteurs } = useCompteurs()
   const { data: objectifs } = useObjectifsRecommandation(reco?.id)
 
-  // Fil d'activité : les trois sources filtrées côté serveur sur la recommandation elle-même.
+  // Fil d'activité : les deux sources filtrées côté serveur sur la recommandation elle-même. Les
+  // signaux en étaient la troisième jusqu'au 02/09/2026 — voir `cycleNavItems`.
   const { data: interactions } = useInteractionsParRecommandation(reco?.id)
   const { data: actions } = useActionsParRecommandation(reco?.id)
-  const { data: signaux } = useSignauxParRecommandation(reco?.id)
   // Documents du dossier ET de chacune de ses versions — l'onglet les range par version.
   const entitesDocuments = useMemo(
     () => (reco ? [reco.id, ...reco.versions.map((v) => v.id)] : undefined),
@@ -574,7 +573,6 @@ export default function RecommandationDetail() {
       compteNom={reco.compte_nom}
       siteId={reco.sites[0]?.id ?? null}
       siteNom={reco.sites[0]?.nom ?? ''}
-      signaux={signaux ?? []}
       interactions={interactions ?? []}
       actions={actions ?? []}
       documents={documents ?? []}

@@ -3,7 +3,6 @@ import type {
   Site,
   Contact,
   Compteur,
-  Signal,
   Mandat,
   Recommandation,
   Contrat,
@@ -17,7 +16,6 @@ export type SearchKind =
   | 'site'
   | 'contact'
   | 'compteur'
-  | 'signal'
   | 'mandat'
   | 'recommandation'
   | 'contrat'
@@ -30,7 +28,6 @@ export const SEARCH_KIND_LABEL: Record<SearchKind, string> = {
   site: 'Sites',
   contact: 'Contacts',
   compteur: 'Compteurs',
-  signal: 'Signaux',
   mandat: 'Mandats',
   recommandation: 'Recommandations',
   contrat: 'Contrats',
@@ -53,7 +50,6 @@ export interface SearchDatasets {
   sites?: Site[]
   contacts?: Contact[]
   compteurs?: Compteur[]
-  signaux?: Signal[]
   mandats?: Mandat[]
   recommandations?: Recommandation[]
   contrats?: Contrat[]
@@ -91,9 +87,9 @@ export function buildSearchIndex(data: SearchDatasets): SearchEntry[] {
       fields: [c.numero_pdl, c.utilisation, c.site_nom],
     })
   }
-  for (const s of data.signaux ?? []) {
-    entries.push({ kind: 'signal', id: s.id, label: s.type_signal, sublabel: s.site_nom, to: '/signaux', fields: [s.type_signal, s.description, s.site_nom] })
-  }
+  /* Les signaux étaient indexés ici. Retirés le 02/09/2026 : les laisser dans ⌘K aurait rendu le
+     retrait sans effet, puisque c'est justement par la recherche qu'on tombait dessus (voir
+     `cycleNavItems`, src/lib/navItems.tsx). */
   for (const m of data.mandats ?? []) {
     entries.push({
       kind: 'mandat',
