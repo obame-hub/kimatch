@@ -21,7 +21,9 @@ import { Topbar } from '@/components/layout/Topbar'
 import { HubCreation } from '@/components/compte/HubCreation'
 import { MandatWizard } from '@/components/mandat/MandatWizard'
 import { WizardConnectionGate } from '@/components/ui/connection-gate'
-import { HeroValeurCompte, HeroScoreEllipro, type FacteurValeur, type FaitEllipro } from '@/components/compte/HerosCompte'
+import { HeroQualiteCompte, HeroScoreEllipro, type FaitEllipro } from '@/components/compte/HerosCompte'
+import { useQualiteCompte, useQualiteCompteurs, manquesCompteur } from '@/lib/data/qualiteCompte'
+import { pastilleScore } from '@/lib/niveauScore'
 import { OngletRecommandations, OngletSignaux } from '@/components/compte/OngletsCompte'
 import { OngletHistorique } from '@/components/compte/OngletHistorique'
 import { OngletFichiers } from '@/components/compte/OngletFichiers'
@@ -483,7 +485,7 @@ export default function CompteDetail() {
                   passent l'un sous l'autre en dessous de 240px chacun. */}
               <CommentaireCard compte={compte} />
               <div className="grid gap-3" style={{ gridTemplateColumns: 'repeat(auto-fit,minmax(min(240px,100%),1fr))' }}>
-                <ValeurCompteCard compte={compte} sitesDuCompte={sitesDuCompte} contratsDuCompte={contratsDuCompte} />
+                <QualiteCompteCard compte={compte} />
                 <HeroScoreEllipro
                   note={noteEllipro}
                   libelle={libelleEllipro}
@@ -926,58 +928,113 @@ function RelationTimeline({ compte, mandats, recommandations, signaux }: { compt
   )
 }
 
-function ValeurCompteCard({ compte, sitesDuCompte, contratsDuCompte }: { compte: Compte; sitesDuCompte: Site[]; contratsDuCompte: Contrat[] }) {
-  const anneeCreation = compte.date_creation ? new Date(compte.date_creation) : null
-  const anciennete = anneeCreation ? Math.max(0, new Date().getFullYear() - anneeCreation.getFullYear()) : 0
-  // "Site client" = a un contrat ACTIF (peu importe si le site lui-même est actif/inactif --
-  // ce sont deux notions différentes : un site peut être en activité sans jamais avoir eu de
-  // contrat signé, et inversement). Décision Naoëlle/William du 05/08/2026.
-  const sitesClients = sitesDuCompte.filter((s) => contratsDuCompte.some((c) => c.site_id === s.id && c.statut === 'ACTIF')).length
-  const ratioClient = sitesDuCompte.length > 0 ? sitesClients / sitesDuCompte.length : 0
-  const prospects = sitesDuCompte.length - sitesClients
+/**
+ * ══ LA QUALITÉ DU COMPTE, ET SES COMPTEURS AU CLIC ══
+ *
+ * Naoëlle, 02/09/2026 : la carte « Valeur du compte » cède la place à la qualité, « et du coup quand
+ * on clique dessus on verra tous les compteurs concernés ».
+ *
+ * CE QUI PART. `ValeurCompteCard` calculait un score à partir de l'ancienneté de la relation, de la
+ * part de sites clients et du nombre de prospects convertibles, avec des coefficients que la maquette
+ * de William laissait « à valider avec lui » et qui ne l'ont jamais été. Le chiffre était une opinion
+ * sans source ; personne ne pouvait dire pourquoi un compte valait 50 plutôt que 65.
+ *
+ * CE QUI ARRIVE se lit ligne à ligne : chaque compteur vaut 0, 30, 50, 70, 80 ou 100 selon trois
+ * faits vérifiables — contrat en cours, échéance à venir, responsable désigné — et le compte prend la
+ * moyenne. Le détail ci-dessous montre exactement quel compteur coûte quoi.
+ *
+ * LE DÉTAIL NE SE CHARGE QU'À L'OUVERTURE. Un cabinet comme MICHAU porte trois cents compteurs : les
+ * lire pour afficher un anneau serait du gâchis, et la vue par compte rend déjà le score et les trois
+ * décomptes.
+ */
+function QualiteCompteCard({ compte }: { compte: Compte }) {
+  const navigate = useNavigate()
+  const [detailOuvert, setDetailOuvert] = useState(false)
+  const { data: qualite } = useQualiteCompte(compte.id)
+  const { data: compteurs, isLoading: chargeCompteurs } = useQualiteCompteurs(compte.id, detailOuvert)
 
-  const ancienneteScore = Math.min(30, anciennete * 5)
-  const ratioScore = Math.round(ratioClient * 40)
-  const prospectsScore = Math.min(20, prospects * 8)
-  const score = Math.min(100, ancienneteScore + ratioScore + prospectsScore)
-
-  // Libellé qualitatif du score, aux paliers de la maquette (« Fort potentiel » à 81).
-  const libelle = score >= 75 ? 'Fort potentiel' : score >= 50 ? 'Potentiel confirmé' : score >= 25 ? 'À développer' : 'Peu engagé'
-
-  const facteurs: FacteurValeur[] = [
-    {
-      libelle: `Ancienneté relation · ${anciennete} an${anciennete > 1 ? 's' : ''}`,
-      points: ancienneteScore,
-      maximum: 30,
-      teinte: 'acquis',
-    },
-    {
-      libelle: `${sitesClients}/${sitesDuCompte.length || 0} sites client (${Math.round(ratioClient * 100)} %)`,
-      points: ratioScore,
-      maximum: 40,
-      teinte: 'acquis',
-    },
-    ...(prospects > 0
-      ? [
-          {
-            libelle: `${prospects} prospect${prospects > 1 ? 's' : ''} convertible${prospects > 1 ? 's' : ''}`,
-            points: prospectsScore,
-            maximum: 20,
-            teinte: 'potentiel' as const,
-          },
-        ]
-      : []),
-  ]
+  /* TANT QUE LA VUE N'A RIEN RENDU, ON AFFICHE ZÉRO ET « aucun compteur ». C'est la réponse voulue
+     pour un compte neuf — « quand on créera un compte, ce score sera à zéro car il n'aura rien » — et
+     elle est vraie aussi pendant la seconde de chargement : afficher un score au hasard le temps que
+     la requête revienne serait pire. */
+  const score = qualite?.score ?? 0
+  const nbCompteurs = qualite?.nb_compteurs ?? 0
 
   return (
-    <HeroValeurCompte
-      score={score}
-      libelle={libelle}
-      facteurs={facteurs}
-      // L'évolution sur 12 mois demanderait un historique du score, que rien n'enregistre
-      // aujourd'hui. Afficher un « ▲ +6 » inventé serait pire que ne rien afficher.
-      evolution={null}
-    />
+    <>
+      <HeroQualiteCompte
+        score={score}
+        nbCompteurs={nbCompteurs}
+        sansContrat={qualite?.sans_contrat ?? 0}
+        echeanceARevoir={qualite?.echeance_a_revoir ?? 0}
+        sansResponsable={qualite?.sans_responsable ?? 0}
+        parfaits={qualite?.parfaits ?? 0}
+        /* Sans compteur, il n'y a rien à ouvrir : la carte ne fait pas semblant d'être cliquable. */
+        onVoirCompteurs={nbCompteurs > 0 ? () => setDetailOuvert(true) : undefined}
+      />
+
+      {detailOuvert && (
+        <Dialog
+          open
+          onClose={() => setDetailOuvert(false)}
+          title={`Qualité des ${nbCompteurs} compteur${nbCompteurs > 1 ? 's' : ''} — ${score}/100`}
+          /* `Dialog` n'a pas de prop de taille : sa largeur se règle par la classe. Trois cents
+             compteurs se lisent mal dans une colonne étroite. */
+          className="max-w-[760px]"
+        >
+          <p className="mb-3 text-km-body leading-relaxed text-km-muted">
+            Du moins bon au meilleur, et à volume égal le plus gros d’abord : c’est l’ordre dans
+            lequel les reprendre. Le score du compte est la moyenne de ces {nbCompteurs} notes.
+          </p>
+
+          {chargeCompteurs && <p className="text-km-body text-km-faint">Chargement…</p>}
+
+          <div className="flex flex-col gap-1.5">
+            {(compteurs ?? []).map((q) => {
+              const manques = manquesCompteur(q)
+              return (
+                <button
+                  key={q.compteur_id}
+                  type="button"
+                  onClick={() => navigate(`/compteurs/${q.compteur_id}`)}
+                  className="flex items-center gap-3 rounded-km border border-km-line bg-km-surface px-3 py-2 text-left transition-colors hover:bg-km-soft"
+                >
+                  {/* LE SCORE EN PASTILLE COLORÉE, la même échelle que le héro : on doit pouvoir
+                      balayer la liste et voir où sont les rouges sans lire les chiffres. */}
+                  <span
+                    className={cn(
+                      'flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-km-label font-extrabold tabular-nums',
+                      pastilleScore(q.score),
+                    )}
+                  >
+                    {q.score}
+                  </span>
+                  <span className="min-w-0 flex-1">
+                    <span className="block truncate font-mono text-km-body font-semibold text-km-text">
+                      {q.numero_point}
+                    </span>
+                    <span className="block truncate text-km-label text-km-muted">
+                      {q.site_nom ?? 'site inconnu'}
+                      {q.consommation_annuelle_mwh
+                        ? ` · ${Math.round(q.consommation_annuelle_mwh).toLocaleString('fr-FR')} MWh`
+                        : ''}
+                    </span>
+                  </span>
+                  {/* CE QUI MANQUE, EN MOTS. Un score seul dit qu'il y a un problème ; la liste des
+                      manques dit lequel, donc quoi faire. Rien à afficher sur un compteur à 100 :
+                      l'absence de mention EST l'information. */}
+                  <span className="hidden max-w-[46%] shrink-0 text-right text-km-label leading-snug text-km-muted sm:block">
+                    {manques.length > 0 ? manques.join(' · ') : (
+                      <span className="text-km-green">contrat et responsable en place</span>
+                    )}
+                  </span>
+                </button>
+              )
+            })}
+          </div>
+        </Dialog>
+      )}
+    </>
   )
 }
 

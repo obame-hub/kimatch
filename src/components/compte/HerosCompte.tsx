@@ -1,4 +1,5 @@
 import type { CSSProperties, ReactNode } from 'react'
+import { teinteScore, teinteEllipro } from '@/lib/niveauScore'
 
 /**
  * Les deux héros de l'onglet Compte — maquette « Fiche Compte » de William (12/08/2026).
@@ -13,6 +14,11 @@ import type { CSSProperties, ReactNode } from 'react'
  * des prospects — chacun sur une échelle de 35 points, l'échelle que ses barres utilisent déjà.
  * Les coefficients restent à valider avec lui.
  */
+
+/** Concaténation de classes, en local : ce fichier n'importait rien jusqu'ici. */
+function cnHero(...classes: (string | false | undefined)[]) {
+  return classes.filter(Boolean).join(' ')
+}
 
 /** Circonférence de l'anneau : r=42 → 2πr ≈ 264, la valeur en dur de la maquette. */
 const CIRCONFERENCE = 264
@@ -120,36 +126,74 @@ export interface FacteurValeur {
 }
 
 /**
- * Héro 1 — valeur du compte. Le score agrège trois facteurs, détaillés dans l'infobulle « i ».
+ * ══ HÉRO 1 — LA QUALITÉ DU COMPTE ══
+ *
+ * Naoëlle, 02/09/2026 : « on va enlever toute la page que tu as créée, mais on va mettre cette
+ * notion à la place de la card valeur du compte sur la fiche du compte, à côté du score Ellipro. Et
+ * du coup quand on clique dessus on verra tous les compteurs concernés. »
+ *
+ * CE QUI PART, ET POURQUOI C'EST UN BON ÉCHANGE. « Valeur du compte » agrégeait trois facteurs
+ * inventés — ancienneté, part de sites clients, potentiel des prospects — avec des coefficients que
+ * la maquette de William laissait « à valider », et qui ne l'ont jamais été. Le chiffre était donc
+ * une opinion sans source. La qualité, elle, se déduit de faits vérifiables : y a-t-il un contrat en
+ * cours, une échéance à venir, un responsable. On remplace un score qu'on ne pouvait pas défendre
+ * par un score qu'on peut expliquer ligne à ligne.
+ *
+ * LA COULEUR SUIT LE SCORE. C'est l'autre demande du même message : « faudrait changer le vert et le
+ * bleu, car ça ne donne pas d'urgence ». Rouge sous 40, orange, jaune, vert à partir de 80 — voir
+ * `niveauScore`. Un compte à 12 et un compte à 95 ne peuvent plus se peindre pareil.
+ *
+ * LA CARTE ENTIÈRE EST LE BOUTON, et non une petite flèche dans un coin : le geste attendu après
+ * avoir lu un mauvais score est d'aller voir lesquels, donc autant que toute la surface l'ouvre.
  */
-export function HeroValeurCompte({
+export function HeroQualiteCompte({
   score,
-  libelle,
-  facteurs,
-  evolution,
-  onPlanAction,
+  nbCompteurs,
+  sansContrat,
+  echeanceARevoir,
+  sansResponsable,
+  parfaits,
+  onVoirCompteurs,
 }: {
   score: number
-  libelle: string
-  facteurs: FacteurValeur[]
-  /** Variation sur 12 mois, nulle quand l'historique ne permet pas de la calculer. */
-  evolution: number | null
-  onPlanAction?: () => void
+  nbCompteurs: number
+  sansContrat: number
+  echeanceARevoir: number
+  sansResponsable: number
+  parfaits: number
+  onVoirCompteurs?: () => void
 }) {
+  const t = teinteScore(score)
+  const vide = nbCompteurs === 0
+
+  /* LES TROIS MANQUES, DANS L'ORDRE DU BARÈME. Le contrat pèse le plus lourd — il fait passer de 30
+     à 100 —, l'échéance ensuite, le responsable en dernier puisqu'il ne vaut que vingt ou trente
+     points. Les afficher dans cet ordre, c'est dire par quoi commencer. */
+  const manques = [
+    { libelle: 'sans contrat en cours', nombre: sansContrat },
+    { libelle: 'échéance absente ou dépassée', nombre: echeanceARevoir },
+    { libelle: 'sans responsable', nombre: sansResponsable },
+  ].filter((m) => m.nombre > 0)
+
   return (
     <div
-      className="animate-km-hero-rise relative overflow-visible rounded-2xl px-[15px] py-[13px] text-white"
-      style={{
-        background: 'radial-gradient(125% 130% at 6% 0%,#4d78ab 0%,#33547d 48%,#1e3654 100%)',
-        boxShadow: '0 8px 24px rgba(30,54,84,.24)',
+      role={onVoirCompteurs ? 'button' : undefined}
+      tabIndex={onVoirCompteurs ? 0 : undefined}
+      onClick={onVoirCompteurs}
+      onKeyDown={(e) => {
+        if (onVoirCompteurs && (e.key === 'Enter' || e.key === ' ')) {
+          e.preventDefault()
+          onVoirCompteurs()
+        }
       }}
+      className={cnHero(
+        'animate-km-hero-rise relative overflow-visible rounded-2xl px-[15px] py-[13px] text-white',
+        onVoirCompteurs && 'cursor-pointer transition-transform hover:-translate-y-0.5 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white/60',
+      )}
+      style={{ background: t.fond, boxShadow: t.ombre }}
     >
       <Decor
-        halo={{
-          right: -60,
-          top: -80,
-          background: 'radial-gradient(circle,rgba(150,200,255,.26),transparent 70%)',
-        }}
+        halo={{ right: -60, top: -80, background: t.halo }}
         dureeSheen="6s"
         delaiSheen="0s"
         delaiHalo="0s"
@@ -157,71 +201,89 @@ export function HeroValeurCompte({
       />
 
       <div className="relative flex items-center gap-3">
-        <Anneau part={score / 100} couleurDebut="#a9d4ff" couleurFin="#5fa8f5" identifiantDegrade="kwGradValeur" delai=".12s">
+        <Anneau
+          part={score / 100}
+          couleurDebut={t.anneau[0]}
+          couleurFin={t.anneau[1]}
+          identifiantDegrade="kwGradQualite"
+          delai=".12s"
+        >
           {score}
         </Anneau>
 
         <div className="min-w-0 flex-1">
-          <div className="text-km-tiny font-extrabold uppercase tracking-[.1em] text-[#a9c9ea]">Valeur du compte</div>
-          <div className="mt-0.5 truncate text-sm font-extrabold tracking-[-.01em]">{libelle}</div>
-          <div className="mt-[5px] flex items-center gap-[7px] text-km-tiny font-bold text-white/[.72]">
-            {evolution !== null && (
-              <span style={{ color: evolution >= 0 ? '#8fe6bd' : '#ffb4a2' }}>
-                {evolution >= 0 ? '▲' : '▼'} {evolution >= 0 ? '+' : ''}
-                {evolution}
-              </span>
+          <div
+            className="text-km-tiny font-extrabold uppercase tracking-[.1em]"
+            style={{ color: t.intitule }}
+          >
+            Qualité du compte
+          </div>
+          <div className="mt-0.5 truncate text-sm font-extrabold tracking-[-.01em]">
+            {vide ? 'Aucun compteur' : t.libelle}
+          </div>
+          <div className="mt-[5px] truncate text-km-tiny font-bold text-white/[.72]">
+            {vide ? (
+              /* UN COMPTE NEUF LE DIT PLUTÔT QUE DE SE TAIRE. « Quand on créera un compte, ce score
+                 sera à zéro car il n'aura rien » : autant écrire pourquoi, sinon on cherche
+                 l'erreur. */
+              'Rien à mesurer tant qu’aucun compteur n’est rattaché'
+            ) : (
+              <>
+                {score}/100
+                <span className="mx-[5px] text-white/[.32]">·</span>
+                {nbCompteurs} compteur{nbCompteurs > 1 ? 's' : ''}
+                {parfaits > 0 && (
+                  <>
+                    <span className="mx-[5px] text-white/[.32]">·</span>
+                    {parfaits} complet{parfaits > 1 ? 's' : ''}
+                  </>
+                )}
+              </>
             )}
-            12 mois
-            <span className="text-white/[.32]">·</span>
-            {score}/100
           </div>
         </div>
 
-        {/* Infobulle du détail de calcul, au survol comme dans la maquette (.ib / .ibp). */}
-        <span className="kw-ib h-5 w-5 flex-none self-start rounded-full border border-white/[.24] bg-white/[.16] text-km-xs font-extrabold transition-colors hover:bg-white/[.28]">
-          <span className="flex h-full w-full items-center justify-center">i</span>
-          <span className="kw-ibp">
-            <span className="mb-2 block text-km-tiny font-extrabold uppercase tracking-[.07em] text-[#a9c9ea]">
-              Détail du calcul
-            </span>
-            {facteurs.map((f) => (
-              <span key={f.libelle} className="mb-2 block last:mb-0">
-                <span className="flex items-baseline gap-2">
-                  <span className="flex-1 text-km-xs leading-[1.35] text-white/[.86]">{f.libelle}</span>
-                  <span
-                    className="flex-none font-mono text-km-xs font-bold"
-                    style={{ color: f.teinte === 'potentiel' ? '#ffd79a' : '#a9d4ff' }}
-                  >
-                    +{f.points}
-                  </span>
-                </span>
-                <span className="mt-1 block h-[3px] overflow-hidden rounded-sm bg-white/[.14]">
-                  <span
-                    className="block h-full rounded-sm"
-                    style={{
-                      width: `${Math.min(100, (f.points / Math.max(1, f.maximum)) * 100)}%`,
-                      background: `linear-gradient(90deg,${f.teinte === 'potentiel' ? '#ffd79a' : '#a9d4ff'},rgba(255,255,255,.55))`,
-                    }}
-                  />
-                </span>
-              </span>
-            ))}
-            {onPlanAction && (
-              <button
-                type="button"
-                onClick={onPlanAction}
-                className="mt-2 block w-full rounded-lg bg-white/[.16] py-1.5 text-km-xs font-bold transition-colors hover:bg-white/[.26]"
+        {/* L'infobulle dit CE QUI MANQUE, pas comment le score est fabriqué : le calcul se lit dans
+            le détail des compteurs, qu'un clic ouvre juste à côté. */}
+        {!vide && (
+          <span className="kw-ib h-5 w-5 flex-none self-start rounded-full border border-white/[.24] bg-white/[.16] text-km-xs font-extrabold transition-colors hover:bg-white/[.28]">
+            <span className="flex h-full w-full items-center justify-center">i</span>
+            <span className="kw-ibp">
+              <span
+                className="mb-2 block text-km-tiny font-extrabold uppercase tracking-[.07em]"
+                style={{ color: t.intitule }}
               >
-                ◈ Voir le plan d’action
-              </button>
-            )}
+                Ce qui manque
+              </span>
+              {manques.length === 0 ? (
+                <span className="block text-km-xs leading-[1.35] text-white/[.86]">
+                  Rien : les {nbCompteurs} compteurs ont un contrat en cours et un responsable.
+                </span>
+              ) : (
+                manques.map((m) => (
+                  <span key={m.libelle} className="mb-1.5 flex items-baseline gap-2 last:mb-0">
+                    <span className="flex-1 text-km-xs leading-[1.35] text-white/[.86]">
+                      {m.libelle}
+                    </span>
+                    <span className="flex-none font-mono text-km-xs font-bold text-white">
+                      {m.nombre}
+                    </span>
+                  </span>
+                ))
+              )}
+              <span className="mt-2 block border-t border-white/[.18] pt-2 text-km-xs leading-[1.35] text-white/[.7]">
+                Moyenne des scores des compteurs. Un compteur vaut 100 avec contrat et responsable,
+                80 sans contrat mais avec échéance à venir et responsable, 0 sans rien.
+              </span>
+            </span>
           </span>
-        </span>
+        )}
       </div>
     </div>
   )
 }
 
+/** Un fait de la fiche Ellisphere : son intitulé, son explication au survol, sa valeur. */
 export interface FaitEllipro {
   libelle: string
   /** Explication affichée au survol du libellé. */
@@ -229,10 +291,6 @@ export interface FaitEllipro {
   valeur: string
 }
 
-/**
- * Héro 2 — score Ellipro. Dix segments plutôt qu'une barre continue : la notation Ellisphere est
- * une note sur 10, la maquette la représente donc en pas discrets.
- */
 export function HeroScoreEllipro({
   note,
   libelle,
@@ -246,12 +304,18 @@ export function HeroScoreEllipro({
   onActualiser?: () => void
 }) {
   const remplis = note ?? 0
+  /* LA MÊME ÉCHELLE QUE LA QUALITÉ, ramenée sur cent : Ellipro note sur dix, dans le même sens.
+     Deux scores côte à côte doivent se comparer d'un regard, et deux échelles de couleur
+     différentes sur la même ligne obligeraient à se rappeler laquelle est laquelle.
+     UN COMPTE JAMAIS INTERROGÉ N'EST PAS ROUGE mais gris : rouge dirait « mauvais » là où la vérité
+     est « inconnu ». Voir `teinteEllipro`. */
+  const t = teinteEllipro(note)
   return (
     <div
       className="animate-km-hero-rise relative overflow-visible rounded-2xl px-[15px] py-[13px] text-white"
       style={{
-        background: 'radial-gradient(125% 130% at 92% 0%,#189c78 0%,#0b5c48 48%,#07382c 100%)',
-        boxShadow: '0 8px 24px rgba(7,56,44,.24)',
+        background: t.fond,
+        boxShadow: t.ombre,
         animationDelay: '60ms',
       }}
     >
@@ -259,7 +323,7 @@ export function HeroScoreEllipro({
         halo={{
           left: -60,
           bottom: -90,
-          background: 'radial-gradient(circle,rgba(120,235,190,.24),transparent 70%)',
+          background: t.halo,
         }}
         dureeSheen="6.5s"
         delaiSheen=".5s"
@@ -268,12 +332,23 @@ export function HeroScoreEllipro({
       />
 
       <div className="relative flex items-center gap-3">
-        <Anneau part={remplis / 10} couleurDebut="#8fe6bd" couleurFin="#3fc492" identifiantDegrade="kwGradEllipro" delai=".2s">
+        <Anneau
+          part={remplis / 10}
+          couleurDebut={t.anneau[0]}
+          couleurFin={t.anneau[1]}
+          identifiantDegrade="kwGradEllipro"
+          delai=".2s"
+        >
           {note ?? '—'}
         </Anneau>
 
         <div className="min-w-0 flex-1">
-          <div className="text-km-tiny font-extrabold uppercase tracking-[.1em] text-[#9fdcc4]">Score Ellipro</div>
+          <div
+            className="text-km-tiny font-extrabold uppercase tracking-[.1em]"
+            style={{ color: t.intitule }}
+          >
+            Score Ellipro
+          </div>
           <div className="mt-0.5 truncate text-sm font-extrabold tracking-[-.01em]">{libelle}</div>
 
           <div className="mt-[7px] flex items-center gap-[3px]">
@@ -283,7 +358,9 @@ export function HeroScoreEllipro({
                 title={`${i + 1} / 10`}
                 className="block h-[6px] flex-1 rounded-[3px]"
                 style={{
-                  background: i < remplis ? 'linear-gradient(180deg,#8fe6bd,#3fc492)' : 'rgba(255,255,255,.16)',
+                  background: i < remplis
+                    ? `linear-gradient(180deg,${t.anneau[0]},${t.anneau[1]})`
+                    : 'rgba(255,255,255,.16)',
                   // Les segments remplis se posent l'un après l'autre, 45 ms d'écart.
                   animation: i < remplis ? `kw-hero-rise .4s ease-out ${260 + i * 45}ms both` : 'none',
                 }}
