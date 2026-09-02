@@ -485,7 +485,14 @@ export default function CompteDetail() {
                   passent l'un sous l'autre en dessous de 240px chacun. */}
               <CommentaireCard compte={compte} />
               <div className="grid gap-3" style={{ gridTemplateColumns: 'repeat(auto-fit,minmax(min(240px,100%),1fr))' }}>
-                <QualiteCompteCard compte={compte} />
+                {/* LA QUALITÉ NE CONCERNE QUE LES CONSOMMATEURS. Trouvé le 02/09/2026 en listant
+                    les comptes sans propriétaire : les vingt étaient des fournisseurs d'énergie.
+                    Un fournisseur n'a ni compteur ni échéance à tenir — la carte y afficherait un 0
+                    rouge sur Vattenfall, ce qui se lirait comme un reproche au lieu d'un
+                    « sans objet ». Les vues de qualité sont désormais restreintes au type
+                    consommateur (migration 20260902150000), et la carte suit la même règle : mieux
+                    vaut ne rien montrer qu'un chiffre qui n'a pas de sens ici. */}
+                {compte.type_compte === 'client' && <QualiteCompteCard compte={compte} />}
                 <HeroScoreEllipro
                   note={noteEllipro}
                   libelle={libelleEllipro}
