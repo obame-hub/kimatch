@@ -110,6 +110,57 @@ export function useQualiteCompteurs(compteId: string | undefined, actif: boolean
 }
 
 /**
+ * Le score d'UN compteur, pour sa propre fiche.
+ *
+ * Naoëlle, 02/09/2026 : « affiche le score des compteurs sur les fiches compteurs avec le calcul
+ * qu'a donné Michel, comme ça je peux vérifier si la moyenne est bonne dans l'onglet synthèse. »
+ *
+ * C'est la bonne façon de vérifier une moyenne : en la remontant à ses termes. La fiche lit donc
+ * `v_qualite_compteur`, la MÊME vue que le compte moyenne et que la synthèse du portefeuille
+ * agrège — pas un recalcul local, qui finirait tôt ou tard par afficher autre chose et rendrait la
+ * vérification impossible.
+ *
+ * `maybeSingle` : la vue ne couvre que les compteurs actifs des comptes consommateurs (migration
+ * 20260902150000). Pour les onze autres, elle rend `null` et la fiche n'affiche pas la carte.
+ */
+export function useQualiteCompteur(compteurId: string | undefined) {
+  return useQuery({
+    queryKey: ['qualite-compteur', compteurId],
+    enabled: Boolean(compteurId),
+    queryFn: async (): Promise<QualiteCompteur | null> => {
+      const { data, error } = await supabase
+        .from('v_qualite_compteur')
+        .select('*')
+        .eq('compteur_id', compteurId)
+        .maybeSingle()
+      if (error) throw new Error(error.message)
+      return (data as QualiteCompteur | null) ?? null
+    },
+  })
+}
+
+/**
+ * La ligne du barème qui a produit le score, en toutes lettres.
+ *
+ * Michel, 02/09/2026, six lignes exactement. L'écrire ici plutôt que dans l'écran garantit que la
+ * phrase affichée correspond au chemin réellement pris par le CASE en base — mêmes trois tests,
+ * même ordre.
+ */
+export function ligneDuBareme(q: QualiteCompteur): string {
+  if (q.a_contrat) {
+    return q.a_responsable ? 'Contrat + responsable' : 'Contrat + sans responsable'
+  }
+  if (q.echeance_future) {
+    return q.a_responsable
+      ? 'Sans contrat + échéance future + responsable'
+      : 'Sans contrat + échéance future + sans responsable'
+  }
+  return q.a_responsable
+    ? 'Sans contrat + échéance absente ou dépassée + responsable'
+    : 'Sans contrat + échéance absente ou dépassée + sans responsable'
+}
+
+/**
  * Le statut Client/Prospect de chaque site d'un compte.
  *
  * La fiche compte étiquette ses sites ligne par ligne, dans les onglets Contrats et Compteurs.

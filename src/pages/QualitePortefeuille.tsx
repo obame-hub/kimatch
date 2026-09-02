@@ -203,6 +203,27 @@ export default function QualitePortefeuille() {
     }))
   }, [comptes])
 
+  /* ══ CLIENTS ET PROSPECTS ══════════════════════════════════════════════════════════════════
+
+     Naoëlle, 02/09/2026 : « je ne la vois pas sur l'écran de synthèse ». La répartition avait été
+     posée sur la LISTE des comptes, où elle sert de filtre — mais c'est ici qu'on vient chercher
+     un état du portefeuille, et une synthèse qui ne dit pas combien de clients on a n'en est pas
+     tout à fait une.
+
+     Elle suit la bascule « Mon patrimoine / Tout Kimatch » comme les deux autres camemberts :
+     mêmes comptes, même périmètre, aucun risque de lire trois cadrages différents sur une ligne.
+
+     `undefined` (migration pas encore appliquée) n'est pas compté comme prospect : la carte
+     n'apparaît alors pas du tout. Une répartition qui annonce « 0 client » serait pire que rien. */
+  const partsClientProspect = useMemo(() => {
+    const l = (comptes ?? []).filter((c) => typeof c.est_client === 'boolean')
+    if (l.length === 0) return null
+    return [
+      { name: 'Clients', value: l.filter((c) => c.est_client).length, couleur: '#0d7a5f' },
+      { name: 'Prospects', value: l.filter((c) => !c.est_client).length, couleur: '#a8aca6' },
+    ]
+  }, [comptes])
+
   const partsCompteurs = useMemo(() => {
     const l = compteurs ?? []
     return TRANCHES.map((t) => ({
@@ -317,13 +338,21 @@ export default function QualitePortefeuille() {
 
       <Indicateurs mesures={mesures} />
 
-      {/* ══ 1. LES DEUX CAMEMBERTS ══
-          Trois parts chacun — 80-100, 50-79, 0-49 — les tranches du cadrage. Côte à côte parce que
-          la question est justement de les comparer : un portefeuille peut avoir de bons comptes et
-          de mauvais compteurs si les mauvais sont concentrés sur quelques gros clients. */}
-      <div className="grid gap-3 lg:grid-cols-2">
+      {/* ══ 1. LES CAMEMBERTS ══
+          Les deux premiers ont trois parts — 80-100, 50-79, 0-49, les tranches du cadrage. Côte à
+          côte parce que la question est justement de les comparer : un portefeuille peut avoir de
+          bons comptes et de mauvais compteurs si les mauvais sont concentrés sur quelques gros
+          clients.
+
+          LE TROISIÈME NE PARLE PAS DE QUALITÉ mais d'état commercial, et c'est pour ça qu'il est
+          ici : à côté des deux autres, il répond à « et sur ces comptes, combien sont réellement
+          fournis ». Un score de 50 sur un client et sur un prospect ne se lit pas pareil. */}
+      <div className={cn('grid gap-3', partsClientProspect ? 'lg:grid-cols-3' : 'lg:grid-cols-2')}>
         <CamembertScore titre="Répartition des comptes" parts={partsComptes} unite="comptes" />
         <CamembertScore titre="Répartition des compteurs" parts={partsCompteurs} unite="compteurs" />
+        {partsClientProspect && (
+          <CamembertScore titre="Clients et prospects" parts={partsClientProspect} unite="comptes" />
+        )}
       </div>
 
       {/* ══ 2. LES TROIS FILTRES ══ */}

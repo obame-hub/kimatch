@@ -56,6 +56,17 @@ export interface CompteQualite {
   nb_compteurs: number
   score: number
   compte_proprietaire_id: string | null
+  /**
+   * Client ou Prospect — règle de Michel du 02/09/2026, calculée par `v_qualite_compte`.
+   *
+   * Un booléen sur 2 706 lignes déjà chargées : la synthèse du portefeuille peut donc afficher la
+   * répartition sans requête supplémentaire, et sur exactement le même périmètre que ses deux
+   * autres camemberts.
+   *
+   * Optionnel : le déploiement part au push, la migration s'applique à la main. Entre les deux, la
+   * colonne est absente et la carte se tait plutôt que d'annoncer « tout prospect ».
+   */
+  est_client?: boolean
 }
 
 const COLONNES_COMPTEUR =
@@ -101,7 +112,7 @@ export function useComptesQualite(proprietaire: string | null) {
     queryFn: () =>
       fetchAllRows<CompteQualite>(
         'v_qualite_compte',
-        'compte_id, compte_nom, nb_compteurs, score, compte_proprietaire_id',
+        'compte_id, compte_nom, nb_compteurs, score, compte_proprietaire_id, est_client',
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         (q) => (proprietaire ? (q as any).eq('compte_proprietaire_id', proprietaire) : q),
       ),

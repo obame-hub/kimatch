@@ -14,6 +14,8 @@ import { useEnedisFetch } from '@/lib/data/enedis'
 import { useGrdFetch } from '@/lib/data/grd'
 import { useConsommations, useCreateConsommation } from '@/lib/data/consommations'
 import { useSite } from '@/lib/data/sites'
+import { useQualiteCompteur, ligneDuBareme, type QualiteCompteur } from '@/lib/data/qualiteCompte'
+import { pastilleScore } from '@/lib/niveauScore'
 import { useCompte } from '@/lib/data/comptes'
 import { InlineField } from '@/components/ui/inline-field'
 import { useContacts } from '@/lib/data/contacts'
@@ -115,6 +117,127 @@ function AddConsommationDialog({ compteurId, open, onClose }: { compteurId: stri
         </div>
       </form>
     </Dialog>
+  )
+}
+
+/**
+ * ══ LE SCORE DU COMPTEUR, ET LE CALCUL QUI LE PRODUIT ══════════════════════════════════════════
+ *
+ * Naoëlle, 02/09/2026 : « affiche le score des compteurs sur les fiches compteurs avec le calcul
+ * qu'a donné Michel, comme ça je peux vérifier si la moyenne est bonne dans l'onglet synthèse. »
+ *
+ * ══ POURQUOI LES TROIS FAITS, ET PAS SEULEMENT LE CHIFFRE ══
+ *
+ * Un « 30/100 » seul ne se vérifie pas : il faut savoir CE QUI a été regardé. Le barème de Michel
+ * ne pose que trois questions — contrat en cours, échéance à venir, responsable — et la carte les
+ * montre dans cet ordre, avec la ligne du barème qui en découle. On peut donc remonter d'un score
+ * de compte à la moyenne, de la moyenne à chaque compteur, et de chaque compteur à un fait
+ * vérifiable sur cette même fiche.
+ *
+ * ══ L'ÉCHÉANCE N'EST PAS TOUJOURS REGARDÉE, ET LA CARTE LE DIT ══
+ *
+ * Sous contrat, le barème s'arrête à la première ligne : l'échéance ne change plus rien. La griser
+ * évite de faire chercher pourquoi une échéance dépassée ne coûte rien à un compteur bien tenu.
+ *
+ * Les six lignes affichées sont celles de son message, mot pour mot — le tableau sert de preuve
+ * autant que d'explication, et c'est ce que Naoëlle est venue vérifier.
+ */
+const BAREME: { libelle: string; points: number }[] = [
+  { libelle: 'Contrat + responsable', points: 100 },
+  { libelle: 'Contrat + sans responsable', points: 70 },
+  { libelle: 'Sans contrat + échéance future + responsable', points: 80 },
+  { libelle: 'Sans contrat + échéance future + sans responsable', points: 50 },
+  { libelle: 'Sans contrat + échéance absente ou dépassée + responsable', points: 30 },
+  { libelle: 'Sans contrat + échéance absente ou dépassée + sans responsable', points: 0 },
+]
+
+function ScoreQualiteCard({ q }: { q: QualiteCompteur }) {
+  const [detail, setDetail] = useState(false)
+  const ligne = ligneDuBareme(q)
+
+  const faits: { libelle: string; vrai: boolean; precision?: string; ignore?: boolean }[] = [
+    { libelle: 'Contrat en cours', vrai: q.a_contrat },
+    {
+      libelle: 'Échéance à venir',
+      vrai: q.echeance_future,
+      precision: q.date_echeance
+        ? new Date(q.date_echeance).toLocaleDateString('fr-FR')
+        : 'aucune échéance',
+      // Sous contrat, la première ligne du barème gagne : l'échéance n'entre plus dans le calcul.
+      ignore: q.a_contrat,
+    },
+    { libelle: 'Responsable', vrai: q.a_responsable, precision: q.responsable_nom || undefined },
+  ]
+
+  return (
+    <div className="rounded-xl border border-km-line bg-white p-3.5">
+      <div className="mb-2.5 flex items-center gap-1.5">
+        <span className="text-km-xs font-bold uppercase tracking-wide text-km-faint">Score de qualité</span>
+        <div className="flex-1" />
+        <span className={cn('rounded px-2 py-0.5 font-mono text-km-xs font-bold', pastilleScore(q.score))}>
+          {q.score}/100
+        </span>
+      </div>
+
+      <div className="flex flex-col gap-1.5">
+        {faits.map((f) => (
+          <div
+            key={f.libelle}
+            className={cn(
+              'flex items-center justify-between rounded-lg border border-navy-50 bg-km-bg/60 px-2 py-1.5',
+              f.ignore && 'opacity-45',
+            )}
+          >
+            <span className="text-km-label font-semibold text-km-text">
+              {f.libelle}
+              {f.ignore && <span className="ml-1 font-normal text-km-faint">· non regardée</span>}
+            </span>
+            <span
+              className={cn(
+                'rounded-full px-2 py-0.5 text-km-tiny font-bold',
+                f.ignore ? 'bg-km-soft text-km-muted' : f.vrai ? 'bg-kiwi-50 text-km-green' : 'bg-red-100 text-km-red',
+              )}
+            >
+              {f.vrai ? f.precision ?? 'Oui' : f.precision ?? 'Non'}
+            </span>
+          </div>
+        ))}
+      </div>
+
+      <p className="mt-2 text-km-tiny italic text-km-faint">
+        {ligne} = {q.score}
+      </p>
+
+      {/* LE BARÈME ENTIER SE DÉPLIE. Vérifier une moyenne, c'est comparer un compteur aux cinq
+          autres cas possibles : les cacher obligerait à ouvrir un autre écran au moment précis où
+          l'on doute. Replié par défaut, parce qu'on ne doute pas à chaque visite. */}
+      <button
+        type="button"
+        onClick={() => setDetail((d) => !d)}
+        className="mt-1 text-km-tiny font-bold text-km-green hover:underline"
+      >
+        {detail ? 'Masquer le barème' : 'Voir le barème complet'}
+      </button>
+      {detail && (
+        <div className="mt-1.5 flex flex-col gap-0.5 border-t border-km-line-soft pt-1.5">
+          {BAREME.map((b) => (
+            <div
+              key={b.libelle}
+              className={cn(
+                'flex items-baseline justify-between gap-2 text-km-tiny',
+                b.libelle === ligne ? 'font-bold text-km-text' : 'text-km-faint',
+              )}
+            >
+              <span className="min-w-0 flex-1">{b.libelle}</span>
+              <span className="font-mono tabular-nums">{b.points}</span>
+            </div>
+          ))}
+          <p className="mt-1 text-km-tiny italic text-km-faint">
+            Le score d'un compte est la moyenne des scores de ses compteurs.
+          </p>
+        </div>
+      )}
+    </div>
   )
 }
 
@@ -306,6 +429,8 @@ export default function CompteurDetail() {
   const { data: contrats } = useContrats()
   const { data: mandats } = useMandats()
   const { data: recommandations } = useRecommandationsListe()
+  // Le score du compteur, lu dans la vue que le compte moyenne — voir `ScoreQualiteCard`.
+  const { data: qualite } = useQualiteCompteur(id)
   const { data: documents } = useDocuments()
   const { data: statutsContratsRef } = useReferenceTable('statuts_contrats')
   const statutsContrats = statutsContratsRef && statutsContratsRef.length > 0 ? statutsContratsRef : FALLBACK_STATUTS_CONTRATS
@@ -611,6 +736,8 @@ export default function CompteurDetail() {
             </p>
           )}
         </div>
+
+        {qualite && <ScoreQualiteCard q={qualite} />}
 
         <CouvertureCard
           mandatCouvert={Boolean(mandatDuCompteur)}
