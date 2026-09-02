@@ -32,20 +32,30 @@ import { Building2, Users, MapPin, Gauge, FileCheck2, Files, TrendingUp } from '
 import { Topbar } from '@/components/layout/Topbar'
 import { cn } from '@/lib/utils'
 
-const PerformanceComptes = lazy(() => import('@/pages/PerformanceComptes'))
 const Comptes = lazy(() => import('@/pages/Comptes'))
 const Contacts = lazy(() => import('@/pages/Contacts'))
 const Sites = lazy(() => import('@/pages/Sites'))
 const Compteurs = lazy(() => import('@/pages/Compteurs'))
 const Mandats = lazy(() => import('@/pages/Mandats'))
+const QualitePortefeuille = lazy(() => import('@/pages/QualitePortefeuille'))
 const Documents = lazy(() => import('@/pages/Documents'))
 
 /** L'ordre est celui de sa diapositive : du compte jusqu'au compteur, puis ce qui l'engage. */
 const OBJETS = [
-  /* SA PAGE 2 EN PREMIER ONGLET. Le PDF du 25/08/2026 l'appelle « Patrimoine des comptes » et en
-     fait la vue d'entrée du patrimoine : on regarde d'abord l'état de la donnée, ensuite les objets
-     un par un. Les sept onglets existants ne bougent pas — celui-ci s'ajoute devant. */
-  { cle: 'synthese', libelle: 'Synthèse', icone: TrendingUp, sens: 'Le volume du portefeuille et les données à corriger', Page: PerformanceComptes },
+  /* ══ L'ONGLET SYNTHÈSE DEVIENT « QUALITÉ DU PORTEFEUILLE » ══
+     Cadrage validé de Naoëlle, 02/09/2026 : « on va effacer le contenu de l'onglet Synthèse dans
+     Patrimoine et on va mettre ça à la place ».
+
+     CE QUI PART : `PerformanceComptes`, la page 2 du PDF du 25/08. Elle affichait quatre blocs de
+     comptage — échéances vides ou dépassées, compteurs sans responsable — sans aucun moyen d'aller
+     voir les lignes derrière. Le constat était juste, il ne menait à rien : on lisait « 3 883
+     échéances dépassées » et on refermait l'onglet.
+
+     CE QUI ARRIVE fait le même constat, puis le rend actionnable : trois filtres qui se combinent,
+     deux histogrammes qui suivent, et un tableau où chaque score s'ouvre sur ses anomalies. Le
+     libellé de l'onglet reste « Synthèse » : c'est le mot du rail, et changer le nom d'un onglet
+     déplace le repère de ceux qui l'utilisent tous les jours. La page, elle, porte son titre. */
+  { cle: 'synthese', libelle: 'Synthèse', icone: TrendingUp, sens: 'La qualité des données du portefeuille, et les corrections à faire', Page: QualitePortefeuille },
   { cle: 'comptes', libelle: 'Comptes', icone: Building2, sens: 'L’entreprise ou l’organisation cliente', Page: Comptes },
   { cle: 'contacts', libelle: 'Contacts', icone: Users, sens: 'Les personnes et leurs rôles', Page: Contacts },
   { cle: 'sites', libelle: 'Sites', icone: MapPin, sens: 'Les lieux de consommation', Page: Sites },
