@@ -15,7 +15,7 @@ import { useGrdFetch } from '@/lib/data/grd'
 import { useConsommations, useCreateConsommation } from '@/lib/data/consommations'
 import { useSite } from '@/lib/data/sites'
 import { useQualiteCompteur, ligneDuBareme, type QualiteCompteur } from '@/lib/data/qualiteCompte'
-import { pastilleScore } from '@/lib/niveauScore'
+import { HeroQualiteCompteur } from '@/components/compte/HerosCompte'
 import { useCompte } from '@/lib/data/comptes'
 import { InlineField } from '@/components/ui/inline-field'
 import { useContacts } from '@/lib/data/contacts'
@@ -171,13 +171,11 @@ function ScoreQualiteCard({ q }: { q: QualiteCompteur }) {
 
   return (
     <div className="rounded-xl border border-km-line bg-white p-3.5">
-      <div className="mb-2.5 flex items-center gap-1.5">
-        <span className="text-km-xs font-bold uppercase tracking-wide text-km-faint">Score de qualité</span>
-        <div className="flex-1" />
-        <span className={cn('rounded px-2 py-0.5 font-mono text-km-xs font-bold', pastilleScore(q.score))}>
-          {q.score}/100
-        </span>
-      </div>
+      {/* Le chiffre et sa couleur sont portés par le héros à gauche : le répéter ici en ferait
+          deux affirmations à rapprocher plutôt qu'une seule à lire. Cette carte explique. */}
+      <p className="mb-2.5 text-km-xs font-bold uppercase tracking-wide text-km-faint">
+        Ce que le barème a regardé
+      </p>
 
       <div className="flex flex-col gap-1.5">
         {faits.map((f) => (
@@ -737,8 +735,6 @@ export default function CompteurDetail() {
           )}
         </div>
 
-        {qualite && <ScoreQualiteCard q={qualite} />}
-
         <CouvertureCard
           mandatCouvert={Boolean(mandatDuCompteur)}
           recoEnCours={Boolean(recoActiveDuSite)}
@@ -752,6 +748,23 @@ export default function CompteurDetail() {
 
           {tab === 'apercu' && (
             <div className="flex flex-col gap-3.5">
+              {/* ══ LE SCORE EN TÊTE DE FICHE ══
+                  Naoëlle, 02/09/2026 : « comme la card de qualité de compte sur la page d'un
+                  compte, sur 100, avec les codes couleur ». Même composant visuel, mêmes seuils :
+                  le score d'un compte étant la moyenne de ceux-ci, les peindre autrement
+                  obligerait à traduire d'un écran à l'autre pour vérifier une moyenne.
+
+                  Il était d'abord posé dans l'onglet « Rattachements » — invisible depuis l'onglet
+                  qu'on ouvre en arrivant, donc invisible tout court. */}
+              {qualite && (
+                <div className="grid grid-cols-1 gap-3.5 lg:grid-cols-[minmax(0,340px)_minmax(0,1fr)]">
+                  <HeroQualiteCompteur
+                    score={qualite.score}
+                    ligneBareme={ligneDuBareme(qualite).toLowerCase()}
+                  />
+                  <ScoreQualiteCard q={qualite} />
+                </div>
+              )}
               {consommationsDuCompteur.length > 0 && <ConsommationChart consommations={consommationsDuCompteur} />}
               <PostesHorairesCard compteur={compteur} />
               <div className="grid grid-cols-1 gap-3.5 lg:grid-cols-2">

@@ -120,6 +120,18 @@ function libellePeriode(cle: string, pas: 'semaine' | 'mois' | 'annee'): string 
 /** L'étiquette de la barre agrégée. Le cadrage en demande UNE pour les deux cas réunis. */
 const CLE_ARRIERE = '__arriere__'
 
+/**
+ * Les trois cadrages de la bascule commerciale. « Tous » d'abord : c'est l'état d'arrivée, et une
+ * page qui s'ouvrirait déjà filtrée annoncerait un portefeuille amputé sans le dire.
+ */
+type StatutCadrage = 'tous' | 'clients' | 'prospects'
+
+const CADRAGES: { cle: StatutCadrage; libelle: string }[] = [
+  { cle: 'tous', libelle: 'Tous' },
+  { cle: 'clients', libelle: 'Clients' },
+  { cle: 'prospects', libelle: 'Prospects' },
+]
+
 export default function QualitePortefeuille() {
   const navigate = useNavigate()
 
@@ -135,9 +147,41 @@ export default function QualitePortefeuille() {
   const { data: monProfil } = useMonProfil()
   const { perimetre, setPerimetre } = usePerimetre('qualite-portefeuille')
   const filtreProprietaire = perimetre === 'moi' ? monProfil?.id ?? null : null
+  const [statut, setStatut] = useState<StatutCadrage>('tous')
 
-  const { data: compteurs, isLoading } = useCompteursQualite(filtreProprietaire)
-  const { data: comptes } = useComptesQualite(filtreProprietaire)
+  const { data: tousCompteurs, isLoading } = useCompteursQualite(filtreProprietaire)
+  const { data: tousComptes } = useComptesQualite(filtreProprietaire)
+
+  /* ══ LA BASCULE CLIENT / PROSPECT ══════════════════════════════════════════════════════════════
+
+     Naoëlle, 02/09/2026 : « je veux qu'il y ait un toggle client/prospect qui change automatiquement
+     les chiffres des deux camemberts comptes et compteurs. »
+
+     C'EST UN CADRAGE, PAS UNE MESURE — et c'est pour ça qu'un troisième camembert (ma première
+     réponse) était le mauvais objet. « 392 clients » à côté de « 50/100 » laisse encore à faire le
+     travail intéressant : le score des clients, celui des prospects, et l'écart entre les deux. Une
+     bascule le donne d'un clic, sur TOUS les chiffres de la page à la fois.
+
+     ELLE SE PLACE AVANT TOUT LE RESTE. Les compteurs sont filtrés par le statut de LEUR COMPTE, pas
+     par eux-mêmes : le statut est une propriété du compte (règle de Michel), et un compteur sous
+     contrat chez un prospect n'existe pas — c'est justement ce qui ferait de son compte un client.
+
+     TANT QUE LA MIGRATION N'EST PAS APPLIQUÉE, `est_client` est absent : la bascule ne s'affiche
+     pas et la page se comporte comme avant, plutôt que de proposer un filtre qui viderait l'écran. */
+  const statutConnu = (tousComptes ?? []).some((c) => typeof c.est_client === 'boolean')
+
+  const comptes = useMemo(() => {
+    if (statut === 'tous') return tousComptes
+    return (tousComptes ?? []).filter((c) => (statut === 'clients' ? c.est_client : c.est_client === false))
+  }, [tousComptes, statut])
+
+  const compteurs = useMemo(() => {
+    if (statut === 'tous') return tousCompteurs
+    const retenus = new Set((comptes ?? []).map((c) => c.compte_id))
+    // Un compteur sans compte rattaché ne peut être ni client ni prospect : il sort dès qu'on
+    // cadre, plutôt que de tomber arbitrairement d'un côté.
+    return (tousCompteurs ?? []).filter((c) => c.compte_id != null && retenus.has(c.compte_id))
+  }, [tousCompteurs, comptes, statut])
 
   const [modeEcheance, setModeEcheance] = useState<ModeEcheance>('toutes')
   const [dateDebut, setDateDebut] = useState('')
@@ -201,27 +245,6 @@ export default function QualitePortefeuille() {
       value: l.filter((c) => trancheDe(c.score) === t.cle).length,
       couleur: t.couleur,
     }))
-  }, [comptes])
-
-  /* ══ CLIENTS ET PROSPECTS ══════════════════════════════════════════════════════════════════
-
-     Naoëlle, 02/09/2026 : « je ne la vois pas sur l'écran de synthèse ». La répartition avait été
-     posée sur la LISTE des comptes, où elle sert de filtre — mais c'est ici qu'on vient chercher
-     un état du portefeuille, et une synthèse qui ne dit pas combien de clients on a n'en est pas
-     tout à fait une.
-
-     Elle suit la bascule « Mon patrimoine / Tout Kimatch » comme les deux autres camemberts :
-     mêmes comptes, même périmètre, aucun risque de lire trois cadrages différents sur une ligne.
-
-     `undefined` (migration pas encore appliquée) n'est pas compté comme prospect : la carte
-     n'apparaît alors pas du tout. Une répartition qui annonce « 0 client » serait pire que rien. */
-  const partsClientProspect = useMemo(() => {
-    const l = (comptes ?? []).filter((c) => typeof c.est_client === 'boolean')
-    if (l.length === 0) return null
-    return [
-      { name: 'Clients', value: l.filter((c) => c.est_client).length, couleur: '#0d7a5f' },
-      { name: 'Prospects', value: l.filter((c) => !c.est_client).length, couleur: '#a8aca6' },
-    ]
   }, [comptes])
 
   const partsCompteurs = useMemo(() => {
@@ -304,10 +327,25 @@ export default function QualitePortefeuille() {
      de Kimatch même quand on est sur son propre portefeuille — et l'écart est grand : Guillaume
      Gilles en a 934, Naoëlle 6. Le mot sous le chiffre évite la mauvaise lecture. */
   const ouPortefeuille = perimetre === 'moi' ? 'de mon patrimoine' : 'de tout Kimatch'
+  /* ET LE CADRAGE COMMERCIAL AVEC. Le chiffre change quand on bascule sur « Clients » : sans le
+     dire sous le nombre, « 50/100 » et « 71/100 » se succèdent au même endroit sans qu'on sache
+     lequel on regarde — et c'est justement l'écart entre les deux qu'on est venu chercher. */
+  const cadrage = statut === 'tous' ? '' : statut === 'clients' ? ', clients' : ', prospects'
   const mesures = [
-    { libelle: 'Scoring global', valeur: `${scoringGlobal}/100`, precision: `Moyenne des comptes ${ouPortefeuille}` },
-    { libelle: 'Comptes', valeur: (comptes?.length ?? 0).toLocaleString('fr-FR'), precision: perimetre === 'moi' ? 'Dont je suis propriétaire' : 'Portefeuille entier' },
-    { libelle: 'Consommation', valeur: `${MWH(consommationTotale)} MWh`, precision: `Compteurs ${ouPortefeuille}` },
+    { libelle: 'Scoring global', valeur: `${scoringGlobal}/100`, precision: `Moyenne des comptes ${ouPortefeuille}${cadrage}` },
+    {
+      libelle: 'Comptes',
+      valeur: (comptes?.length ?? 0).toLocaleString('fr-FR'),
+      precision:
+        statut === 'clients'
+          ? 'Au moins un compteur sous contrat'
+          : statut === 'prospects'
+            ? 'Aucun compteur sous contrat'
+            : perimetre === 'moi'
+              ? 'Dont je suis propriétaire'
+              : 'Portefeuille entier',
+    },
+    { libelle: 'Consommation', valeur: `${MWH(consommationTotale)} MWh`, precision: `Compteurs ${ouPortefeuille}${cadrage}` },
     { libelle: 'Compteurs filtrés', valeur: filtres.length.toLocaleString('fr-FR'), precision: `sur ${(compteurs?.length ?? 0).toLocaleString('fr-FR')}` },
   ]
 
@@ -329,30 +367,51 @@ export default function QualitePortefeuille() {
           libelleMien="Mon patrimoine"
           libelleTous="Tout Kimatch"
         />
+        {/* La bascule commerciale suit celle du périmètre : deux cadrages qui se combinent, lus
+            de gauche à droite — « de qui » puis « lesquels ». */}
+        {statutConnu && (
+          <span className="flex items-center gap-0.5 rounded-km border border-km-line bg-km-soft p-0.5">
+            {CADRAGES.map((c) => (
+              <button
+                key={c.cle}
+                type="button"
+                onClick={() => setStatut(c.cle)}
+                className={cn(
+                  'rounded-km-sm px-2.5 py-1 text-km-label font-bold transition-colors',
+                  statut === c.cle ? 'bg-white text-km-text shadow-km-card' : 'text-km-muted hover:text-km-text',
+                )}
+              >
+                {c.libelle}
+              </button>
+            ))}
+          </span>
+        )}
         <p className="text-km-label text-km-faint">
           {perimetre === 'moi'
             ? 'Les comptes dont vous êtes propriétaire, et leurs compteurs.'
             : 'Tous les comptes de Kimatch, quel qu’en soit le propriétaire.'}
+          {statut !== 'tous' && (
+            <>
+              {' '}
+              {statut === 'clients'
+                ? 'Restreint aux comptes qui ont au moins un compteur sous contrat en cours.'
+                : 'Restreint aux comptes dont aucun compteur n’est sous contrat en cours.'}
+            </>
+          )}
         </p>
       </div>
 
       <Indicateurs mesures={mesures} />
 
-      {/* ══ 1. LES CAMEMBERTS ══
-          Les deux premiers ont trois parts — 80-100, 50-79, 0-49, les tranches du cadrage. Côte à
-          côte parce que la question est justement de les comparer : un portefeuille peut avoir de
-          bons comptes et de mauvais compteurs si les mauvais sont concentrés sur quelques gros
-          clients.
+      {/* ══ 1. LES DEUX CAMEMBERTS ══
+          Trois parts chacun — 80-100, 50-79, 0-49 — les tranches du cadrage. Côte à côte parce que
+          la question est justement de les comparer : un portefeuille peut avoir de bons comptes et
+          de mauvais compteurs si les mauvais sont concentrés sur quelques gros clients.
 
-          LE TROISIÈME NE PARLE PAS DE QUALITÉ mais d'état commercial, et c'est pour ça qu'il est
-          ici : à côté des deux autres, il répond à « et sur ces comptes, combien sont réellement
-          fournis ». Un score de 50 sur un client et sur un prospect ne se lit pas pareil. */}
-      <div className={cn('grid gap-3', partsClientProspect ? 'lg:grid-cols-3' : 'lg:grid-cols-2')}>
+          Ils suivent la bascule Client/Prospect du haut, comme tout le reste de la page. */}
+      <div className="grid gap-3 lg:grid-cols-2">
         <CamembertScore titre="Répartition des comptes" parts={partsComptes} unite="comptes" />
         <CamembertScore titre="Répartition des compteurs" parts={partsCompteurs} unite="compteurs" />
-        {partsClientProspect && (
-          <CamembertScore titre="Clients et prospects" parts={partsClientProspect} unite="comptes" />
-        )}
       </div>
 
       {/* ══ 2. LES TROIS FILTRES ══ */}

@@ -394,3 +394,86 @@ export function HeroScoreEllipro({
     </div>
   )
 }
+
+/**
+ * ══ LE MÊME HÉROS, UN CRAN PLUS BAS : LA QUALITÉ D'UN COMPTEUR ══
+ *
+ * Naoëlle, 02/09/2026 : « je ne vois pas le scoring des compteurs [...] j'aimerais que ça s'affiche
+ * comme la card de qualité de compte sur la page d'un compte, sur 100, avec les codes couleur. »
+ *
+ * MÊME LANGAGE VISUEL, DÉLIBÉRÉMENT. Le score d'un compte est la moyenne de ces scores-là : les
+ * peindre autrement obligerait à traduire mentalement d'un écran à l'autre au moment précis où l'on
+ * cherche à vérifier une moyenne. Même anneau, mêmes seuils de couleur (`niveauScore`), même place
+ * en haut de fiche.
+ *
+ * CE QUI CHANGE : la ligne du dessous. Sur un compte, elle résume un ensemble (« 12 compteurs, 3
+ * complets ») ; ici elle nomme LA LIGNE DU BARÈME qui a produit le chiffre — « sans contrat +
+ * échéance dépassée + sans responsable ». C'est ce qu'on vient lire sur une fiche : pas combien,
+ * mais pourquoi.
+ */
+export function HeroQualiteCompteur({
+  score,
+  ligneBareme,
+  onVoirDetail,
+}: {
+  score: number
+  /** La ligne du barème de Michel qui a produit ce score — voir `ligneDuBareme`. */
+  ligneBareme: string
+  onVoirDetail?: () => void
+}) {
+  const t = teinteScore(score)
+
+  return (
+    <div
+      role={onVoirDetail ? 'button' : undefined}
+      tabIndex={onVoirDetail ? 0 : undefined}
+      onClick={onVoirDetail}
+      onKeyDown={(e) => {
+        if (onVoirDetail && (e.key === 'Enter' || e.key === ' ')) {
+          e.preventDefault()
+          onVoirDetail()
+        }
+      }}
+      className={cnHero(
+        'animate-km-hero-rise relative overflow-visible rounded-2xl px-[15px] py-[13px] text-white',
+        onVoirDetail && 'cursor-pointer transition-transform hover:-translate-y-0.5 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white/60',
+      )}
+      style={{ background: t.fond, boxShadow: t.ombre }}
+    >
+      <Decor
+        halo={{ right: -60, top: -80, background: t.halo }}
+        dureeSheen="6s"
+        delaiSheen="0s"
+        delaiHalo="0s"
+        opaciteSheen=".13"
+      />
+
+      <div className="relative flex items-center gap-3">
+        <Anneau
+          part={score / 100}
+          couleurDebut={t.anneau[0]}
+          couleurFin={t.anneau[1]}
+          identifiantDegrade="kwGradQualiteCompteur"
+          delai=".12s"
+        >
+          {score}
+        </Anneau>
+
+        <div className="min-w-0 flex-1">
+          <div
+            className="text-km-tiny font-extrabold uppercase tracking-[.1em]"
+            style={{ color: t.intitule }}
+          >
+            Qualité du compteur
+          </div>
+          <div className="mt-0.5 truncate text-sm font-extrabold tracking-[-.01em]">{t.libelle}</div>
+          <div className="mt-[5px] text-km-tiny font-bold leading-snug text-white/[.72]">
+            {score}/100
+            <span className="mx-[5px] text-white/[.32]">·</span>
+            {ligneBareme}
+          </div>
+        </div>
+      </div>
+    </div>
+  )
+}
