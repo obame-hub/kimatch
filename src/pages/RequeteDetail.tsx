@@ -10,6 +10,8 @@ import { MenuChoix } from '@/components/ui/menu-choix'
 import { HistoriqueDiscret } from '@/components/ui/historique-discret'
 import { OngletFichiers } from '@/components/compte/OngletFichiers'
 import { FluxActualite } from '@/components/opportunite/FluxActualite'
+import { FriseStatut } from '@/components/opportunite/FriseStatut'
+import { RattachementsRequete } from '@/components/requete/RattachementsRequete'
 import { useCanManage } from '@/lib/data/roles'
 import { useDocumentsParEntites, useTeleverserDocuments } from '@/lib/data/documents'
 import { useReferenceTable } from '@/lib/data/referenceTables'
@@ -48,13 +50,17 @@ import { cn } from '@/lib/utils'
  * « Enregistrer » pour la résolution : ça marchait, mais c'était le seul endroit de l'application
  * qui demandait de valider un champ à la main. Le geste doit être le même partout, sinon on hésite.
  *
- * ══ LES RATTACHEMENTS RESTENT EN LECTURE ══
+ * ══ LES RATTACHEMENTS SE POSENT ICI ══
  *
- * La liste garde son éditeur en cascade — compte → site → compteur → contact — où changer de site
- * libère le compteur, parce qu'un compteur d'un autre site ferait une paire incohérente. Recopier ce
- * comportement ici aurait donné deux versions d'une même règle, et la première divergence serait
- * passée inaperçue. L'onglet dit donc où aller les modifier, plutôt que de proposer un second
- * formulaire qui ne se comporterait pas pareil.
+ * « Il faut aussi les rattachements des requêtes, que ce soit un compte, un contact, etc. — faut
+ * savoir quoi concerne cette requête, à quoi elle est rattachée » (Naoëlle, 01/09/2026).
+ *
+ * J'avais d'abord mis l'onglet en LECTURE SEULE, avec une phrase renvoyant à la liste, pour ne pas
+ * écrire deux fois la cascade compte → site → compteur. Le raisonnement sur la duplication était
+ * juste, la conclusion non : la bonne réponse n'était pas de priver la fiche du geste, c'était de
+ * sortir la cascade de l'écran de liste pour que les deux l'appellent. C'est fait —
+ * `RattachementsRequete` — et le compte lui-même y devient modifiable, ce que la liste ne permettait
+ * pas.
  */
 
 type CleOnglet = 'requete' | 'rattachements' | 'fichiers' | 'historique'
@@ -276,6 +282,63 @@ export default function RequeteDetail() {
         <div className="min-h-0 overflow-y-auto bg-km-bg p-3.5 lg:px-5">
           {onglet === 'requete' && (
             <div className="flex max-w-[760px] flex-col gap-3.5 animate-km-fade-slide">
+              {/* ══ LA FRISE DE STATUT, COMME SUR L'OPPORTUNITÉ ══
+                  « Où est la frise de statut animée comme dans la page opportunité ? » (Naoëlle,
+                  01/09/2026). Le même composant, avec la teinte de la requête.
+
+                  ABANDONNÉE N'EST PAS UN CRAN DU RAIL, exactement comme sur l'opportunité où
+                  « Abandonnée » est retirée des jalons : c'est une ISSUE, pas une étape. L'afficher
+                  à la suite de « Résolue » donnerait à lire qu'on passe de l'une à l'autre. Le rail
+                  est donc Nouvelle → En traitement → Résolue, et l'abandon FERME la frise en rouge,
+                  ce que `finalite` sait déjà rendre.
+
+                  LA FRISE EST CLIQUABLE, et ce n'est pas un doublon du menu du bandeau : les deux
+                  appellent la même mutation, il n'y a pas deux règles. Avancer une requête d'un cran
+                  est le geste le plus fréquent de cet écran ; le faire sur le rail qu'on regarde
+                  déjà vaut mieux que d'aller ouvrir une liste. Le menu reste le seul chemin vers
+                  « Abandonnée », qui n'est pas sur le rail. */}
+              <Card className="px-4 pb-2.5 pt-3">
+                <div className="flex items-center justify-between">
+                  <p className="text-km-xs font-bold uppercase tracking-[0.08em] text-km-faint">
+                    Cycle de vie
+                  </p>
+                  {requete.statut === 'ABANDONNEE' && (
+                    <span className="text-km-label font-semibold text-km-muted">
+                      Close sans résolution
+                    </span>
+                  )}
+                </div>
+                <FriseStatut
+                  teinte="requete"
+                  jalons={(statuts ?? [])
+                    .filter((st) => st.code !== 'ABANDONNEE')
+                    .map((st) => ({ code: st.code, libelle: st.libelle }))}
+                  courant={requete.statut === 'ABANDONNEE' ? 'NOUVELLE' : requete.statut}
+                  finalite={
+                    requete.statut === 'ABANDONNEE'
+                      ? { libelle: 'Abandonnée', perdue: true }
+                      : null
+                  }
+                  onJalon={
+                    canManage
+                      ? (code) => {
+                          const cible = statuts?.find((st) => st.code === code)
+                          if (!cible || cible.code === requete.statut) return
+                          majRequete({
+                            statut_id: cible.id,
+                            date_resolution:
+                              cible.code === 'RESOLUE' ? new Date().toISOString() : null,
+                          })
+                            .then(() => signaler(`✓ ${cible.libelle}`))
+                            .catch((e) =>
+                              signaler(e instanceof Error ? e.message : 'Enregistrement impossible'),
+                            )
+                        }
+                      : undefined
+                  }
+                />
+              </Card>
+
               <Card className="p-4">
                 <p className="mb-2 text-km-xs font-bold uppercase tracking-[0.08em] text-km-faint">
                   Objet
@@ -367,38 +430,83 @@ export default function RequeteDetail() {
           {onglet === 'rattachements' && (
             <div className="max-w-[760px] animate-km-fade-slide">
               <Card className="p-4">
-                <p className="mb-2.5 text-km-xs font-bold uppercase tracking-[0.08em] text-km-faint">
+                <p className="text-km-xs font-bold uppercase tracking-[0.08em] text-km-faint">
                   Ce que la requête concerne
                 </p>
-                <div className="grid grid-cols-2 gap-3.5 sm:grid-cols-4">
-                  <Champ libelle="Compte">
-                    {requete.compte_id ? (
-                      <EntityLink to={`/comptes/${requete.compte_id}`}>{requete.compte_nom}</EntityLink>
-                    ) : '—'}
-                  </Champ>
-                  <Champ libelle="Site">
-                    {requete.site_id ? (
-                      <EntityLink to={`/sites/${requete.site_id}`}>{requete.site_nom}</EntityLink>
-                    ) : '—'}
-                  </Champ>
-                  <Champ libelle="Compteur">
-                    {requete.compteur_id ? (
-                      <EntityLink to={`/compteurs/${requete.compteur_id}`}>{requete.compteur_numero}</EntityLink>
-                    ) : '—'}
-                  </Champ>
-                  <Champ libelle="Contact">
-                    {requete.contact_id ? (
-                      <EntityLink to={`/contacts/${requete.contact_id}`}>{requete.contact_nom}</EntityLink>
-                    ) : '—'}
-                  </Champ>
-                </div>
-                {/* L'ÉDITEUR RESTE SUR LA LISTE, ET UN SEUL EXISTE. La cascade site → compteur y est
-                    écrite : changer de site libère le compteur, sinon la paire devient incohérente.
-                    Un second formulaire ici aurait été une seconde version de cette règle. */}
-                <p className="mt-3.5 border-t border-km-line pt-2.5 text-km-label leading-relaxed text-km-faint">
-                  Les rattachements se modifient depuis la liste des requêtes, sur la carte du
-                  dossier — « Préciser le site, le compteur ou le contact ».
+                <p className="mt-1 text-km-label leading-relaxed text-km-faint">
+                  Du plus large au plus précis. Seul le compte est vraiment nécessaire : sans lui, une
+                  réclamation flotte sans destinataire. Les trois autres se précisent quand on les
+                  apprend.
                 </p>
+
+                {/* CHAQUE CHOIX S'ENREGISTRE TOUT DE SUITE, sans bouton à valider — le geste de
+                    l'application partout ailleurs. La cascade vient du composant partagé : changer de
+                    compte vide les trois précisions, changer de site libère le compteur. */}
+                <div className="mt-3.5">
+                  <RattachementsRequete
+                    compteId={requete.compte_id ?? ''}
+                    setCompteId={
+                      canManage
+                        ? (v) => {
+                            majRequete({
+                              compte_id: v || null,
+                              site_id: null,
+                              compteur_id: null,
+                              contact_id: null,
+                            })
+                              .then(() => signaler('✓ Compte rattaché'))
+                              .catch((e) => signaler(e instanceof Error ? e.message : 'Échec'))
+                          }
+                        : undefined
+                    }
+                    siteId={requete.site_id ?? ''}
+                    setSiteId={(v) => {
+                      majRequete({ site_id: v || null, compteur_id: null })
+                        .then(() => signaler('✓ Site rattaché'))
+                        .catch((e) => signaler(e instanceof Error ? e.message : 'Échec'))
+                    }}
+                    compteurId={requete.compteur_id ?? ''}
+                    setCompteurId={(v) => {
+                      majRequete({ compteur_id: v || null })
+                        .then(() => signaler('✓ Compteur rattaché'))
+                        .catch((e) => signaler(e instanceof Error ? e.message : 'Échec'))
+                    }}
+                    contactId={requete.contact_id ?? ''}
+                    setContactId={(v) => {
+                      majRequete({ contact_id: v || null })
+                        .then(() => signaler('✓ Contact rattaché'))
+                        .catch((e) => signaler(e instanceof Error ? e.message : 'Échec'))
+                    }}
+                  />
+                </div>
+
+                {/* CE QUI EST RATTACHÉ SE RELIT, ET S'OUVRE. Les sélecteurs disent ce qu'on choisit ;
+                    ces liens mènent à l'objet, ce qu'un `<select>` ne fera jamais — et c'est souvent
+                    ce qu'on veut après avoir rattaché : aller voir la fiche du compte. */}
+                {(requete.compte_id || requete.site_id || requete.compteur_id || requete.contact_id) && (
+                  <div className="mt-4 flex flex-wrap gap-x-5 gap-y-2 border-t border-km-line pt-3">
+                    {requete.compte_id && (
+                      <Champ libelle="Compte">
+                        <EntityLink to={`/comptes/${requete.compte_id}`}>{requete.compte_nom}</EntityLink>
+                      </Champ>
+                    )}
+                    {requete.site_id && (
+                      <Champ libelle="Site">
+                        <EntityLink to={`/sites/${requete.site_id}`}>{requete.site_nom}</EntityLink>
+                      </Champ>
+                    )}
+                    {requete.compteur_id && (
+                      <Champ libelle="Compteur">
+                        <EntityLink to={`/compteurs/${requete.compteur_id}`}>{requete.compteur_numero}</EntityLink>
+                      </Champ>
+                    )}
+                    {requete.contact_id && (
+                      <Champ libelle="Contact">
+                        <EntityLink to={`/contacts/${requete.contact_id}`}>{requete.contact_nom}</EntityLink>
+                      </Champ>
+                    )}
+                  </div>
+                )}
               </Card>
             </div>
           )}

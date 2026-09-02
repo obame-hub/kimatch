@@ -21,12 +21,13 @@ import {
   type PatchRequete,
 } from '@/lib/data/requetes'
 import { useComptes } from '@/lib/data/comptes'
-import { useSitesParCompte } from '@/lib/data/sites'
-import { useCompteursParSites } from '@/lib/data/compteurs'
-import { useContactsParCompte } from '@/lib/data/contacts'
 import { cn } from '@/lib/utils'
 import type { Requete } from '@/types/domain'
 import { useOuvrirCreation } from '@/lib/ouvrirCreation'
+/* LA CASCADE DE RATTACHEMENT VIT MAINTENANT DANS SON PROPRE FICHIER : la fiche requête en a
+   besoin aussi, et deux copies d'une règle qui libère le compteur en changeant de site
+   finiraient par diverger. Voir `RattachementsRequete`. */
+import { RattachementsRequete } from '@/components/requete/RattachementsRequete'
 
 /**
  * Les requêtes : « Requête → Traitement → Résolution ».
@@ -394,7 +395,7 @@ function CarteRequete({ requete, statuts, onStatut, onResolution, onRattachement
         <div className="mt-2">
           {precise ? (
             <div className="rounded-km border border-km-line bg-km-soft p-2.5">
-              <ChampsRattachement
+              <RattachementsRequete
                 compteId={requete.compte_id}
                 siteId={requete.site_id ?? ''}
                 setSiteId={(v) => onRattachement({ site_id: v || null, compteur_id: null })}
@@ -504,91 +505,6 @@ function Tuile({ libelle, valeur, accent }: { libelle: string; valeur: string; a
  * TOUT EST FACULTATIF, jusqu'au compte : une réclamation peut arriver avant qu'on sache à qui elle se
  * rattache, et la refuser pour cette raison ferait perdre l'information.
  */
-function ChampsRattachement({
-  compteId,
-  siteId,
-  setSiteId,
-  compteurId,
-  setCompteurId,
-  contactId,
-  setContactId,
-}: {
-  compteId: string
-  siteId: string
-  setSiteId: (v: string) => void
-  compteurId: string
-  setCompteurId: (v: string) => void
-  contactId: string
-  setContactId: (v: string) => void
-}) {
-  const { data: sites } = useSitesParCompte(compteId || undefined)
-  const { data: contacts } = useContactsParCompte(compteId || undefined)
-  // Les compteurs du site choisi, ou de tout le compte à défaut.
-  const idsSites = siteId ? [siteId] : (sites ?? []).map((x) => x.id)
-  const { data: compteurs } = useCompteursParSites(compteId ? idsSites : undefined)
-
-  if (!compteId) {
-    return (
-      <p className="rounded-km border border-dashed border-km-line bg-km-soft px-3 py-2 text-km-label leading-relaxed text-km-muted">
-        Choisissez un compte pour pouvoir préciser le site, le compteur ou le contact concerné. Ces
-        trois précisions restent facultatives, et peuvent être ajoutées plus tard depuis la fiche.
-      </p>
-    )
-  }
-
-  return (
-    <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
-      <FormField label="Site (facultatif)">
-        <Select
-          value={siteId}
-          onChange={(e) => {
-            setSiteId(e.target.value)
-            // Le compteur choisi peut ne pas appartenir au nouveau site : on le libère plutôt que
-            // de laisser une paire incohérente s'enregistrer.
-            setCompteurId('')
-          }}
-        >
-          <option value="">Non précisé</option>
-          {[...(sites ?? [])]
-            .sort((a, b) => a.nom.localeCompare(b.nom))
-            .map((x) => (
-              <option key={x.id} value={x.id}>
-                {x.nom}
-              </option>
-            ))}
-        </Select>
-      </FormField>
-
-      <FormField label="Compteur (facultatif)">
-        <Select value={compteurId} onChange={(e) => setCompteurId(e.target.value)}>
-          <option value="">Non précisé</option>
-          {[...(compteurs ?? [])]
-            .sort((a, b) => (a.numero_pdl ?? '').localeCompare(b.numero_pdl ?? ''))
-            .map((x) => (
-              <option key={x.id} value={x.id}>
-                {x.numero_pdl}
-                {x.site_nom ? ` — ${x.site_nom}` : ''}
-              </option>
-            ))}
-        </Select>
-      </FormField>
-
-      <FormField label="Contact (facultatif)">
-        <Select value={contactId} onChange={(e) => setContactId(e.target.value)}>
-          <option value="">Non précisé</option>
-          {[...(contacts ?? [])]
-            .sort((a, b) => (a.nom ?? '').localeCompare(b.nom ?? ''))
-            .map((x) => (
-              <option key={x.id} value={x.id}>
-                {[x.prenom, x.nom].filter(Boolean).join(' ')}
-                {x.fonction ? ` — ${x.fonction}` : ''}
-              </option>
-            ))}
-        </Select>
-      </FormField>
-    </div>
-  )
-}
 
 function DialogCreation({ onFermer, signaler }: { onFermer: () => void; signaler: (m: string) => void }) {
   const { data: comptes } = useComptes()
@@ -646,7 +562,7 @@ function DialogCreation({ onFermer, signaler }: { onFermer: () => void; signaler
               .map((c) => <option key={c.id} value={c.id}>{c.nom}</option>)}
           </Select>
         </FormField>
-        <ChampsRattachement
+        <RattachementsRequete
           compteId={compteId}
           siteId={siteId}
           setSiteId={setSiteId}

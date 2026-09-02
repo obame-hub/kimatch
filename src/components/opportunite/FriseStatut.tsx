@@ -73,6 +73,20 @@ export const TEINTES_FRISE: Record<string, TeinteFrise> = {
     hachures: ['#e8d5b4', '#f6f1e6'],
     pulsation: 'animate-km-soft-pulse',
   },
+  /**
+   * La requête — la terre cuite déjà employée par sa pastille et son icône dans la liste.
+   *
+   * PAS LE VERT DE KIWEE, ET PAS L'AMBRE DU SIGNAL. Une requête n'est ni une affaire qui avance ni
+   * une alerte : c'est un problème client qu'on doit débloquer. Elle porte cette teinte partout
+   * ailleurs dans l'écran — reprendre une couleur d'un autre objet ferait lire un autre objet.
+   */
+  requete: {
+    gradient: 'from-[#a8371f] to-[#d4694a]',
+    ombreCourant: 'shadow-[0_5px_14px_rgba(168,55,31,.34)]',
+    ombreFranchi: 'shadow-[0_2px_6px_rgba(168,55,31,.2)]',
+    hachures: ['#e8c6bc', '#f7efec'],
+    pulsation: 'animate-km-soft-pulse',
+  },
   /** Le contrat et le mandat — le bleu des engagements. */
   contrat: {
     gradient: 'from-sky-600 to-sky-400',
