@@ -55,6 +55,19 @@ begin;
 -- `bool_or` sur `a_contrat` dit exactement « au moins un » — et rend `false` (jamais NULL) grâce au
 -- `coalesce`, pour qu'un compte sans aucun compteur soit Prospect plutôt qu'indéterminé. C'est la
 -- même convention que le score, qui vaut 0 dans ce cas.
+--
+-- ══ LES DEUX COLONNES SONT AJOUTÉES À LA FIN, ET CE N'EST PAS UN DÉTAIL DE STYLE ══
+--
+-- `create or replace view` refuse de renommer ou de réordonner une colonne existante : il n'accepte
+-- que des ajouts EN QUEUE. Une première rédaction glissait `est_client` en neuvième position, là où
+-- la vue en production porte déjà `compte_proprietaire_id` (ajoutée par la migration
+-- 20260902150000), et Postgres a répondu :
+--
+--     42P16 — cannot change name of view column "compte_proprietaire_id" to "est_client"
+--
+-- L'ordre ci-dessous reprend donc EXACTEMENT celui de `pg_get_viewdef` en base, avec les deux
+-- nouvelles colonnes après. Même raison pour `tcp.code = 'CLIENT'` : c'est ce que la vue teste
+-- aujourd'hui (le libellé est « Consommateur »), et un `create or replace` n'a pas à en changer.
 create or replace view public.v_qualite_compte
 with (security_invoker = true) as
 select
@@ -66,6 +79,7 @@ select
   count(*) filter (where q.compteur_id is not null and not q.echeance_future) as echeance_a_revoir,
   count(*) filter (where q.compteur_id is not null and not q.a_responsable)   as sans_responsable,
   count(*) filter (where q.score = 100)                                       as parfaits,
+  cp.proprietaire_id                                                          as compte_proprietaire_id,
   -- ── La règle de Michel, en une ligne ──
   coalesce(bool_or(q.a_contrat), false)                                       as est_client,
   count(*) filter (where q.a_contrat)                                         as compteurs_sous_contrat
@@ -75,8 +89,8 @@ left join public.v_qualite_compteur q on q.compte_id = cp.id
 where cp.actif
   -- La qualité ne mesure que les comptes consommateurs (migration 20260902150000) : un fournisseur
   -- n'est ni client ni prospect, la question ne se pose pas pour lui.
-  and tcp.libelle = 'Consommateur'
-group by cp.id, cp.nom;
+  and tcp.code = 'CLIENT'
+group by cp.id, cp.nom, cp.proprietaire_id;
 
 comment on view public.v_qualite_compte is
   'Score de qualité d''un compte consommateur = moyenne des scores de ses compteurs actifs (0 s''il n''en a aucun), et son statut commercial : Client dès qu''au moins un compteur est sous contrat en cours, Prospect sinon (règle de Michel du 02/09/2026).';
@@ -101,6 +115,10 @@ group by q.site_id, q.compte_id;
 comment on view public.v_statut_commercial_site is
   'Statut commercial d''un site : Client dès qu''au moins un de ses compteurs est sous contrat en cours. Un site sans compteur n''y figure pas — il est Prospect par absence.';
 
+-- Les privilèges par défaut du rôle qui applique les migrations les accordent déjà, mais une vue
+-- que l'application ne peut pas lire est un écran vide sans message d'erreur : on l'écrit.
+grant select on public.v_statut_commercial_site to anon, authenticated, service_role;
+
 -- ══ 3. LE PATRIMOINE COMPTAIT AUTREMENT ══
 --
 -- `v_patrimoine_synthese.nb_avec_contrat` lisait `contrats.compte_id` — un contrat rattaché au
@@ -114,7 +132,7 @@ with comptes_consommateurs as (
     from public.comptes c
     join public.types_comptes tc on tc.id = c.type_compte_id
    where c.actif and tc.libelle = 'Consommateur'
-), clients as (
+), clients as (  -- le libellé, comme la vue d'origine le testait ; les douze colonnes gardent leur ordre
   -- « Au moins un compteur rattaché à un contrat » — la définition de Michel, celle du barème.
   select distinct s.compte_id
     from public.compteurs cm
