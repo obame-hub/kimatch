@@ -18,6 +18,8 @@ import {
   type CompteurQualite, type TrancheScore,
 } from '@/lib/data/qualitePortefeuille'
 import { pastilleScore } from '@/lib/niveauScore'
+import { usePerimetre, BasculePerimetre } from '@/lib/perimetre'
+import { useMonProfil } from '@/lib/data/roles'
 import { dateRelative } from '@/lib/dateRelative'
 import { cn } from '@/lib/utils'
 
@@ -120,8 +122,22 @@ const CLE_ARRIERE = '__arriere__'
 
 export default function QualitePortefeuille() {
   const navigate = useNavigate()
-  const { data: compteurs, isLoading } = useCompteursQualite()
-  const { data: comptes } = useComptesQualite()
+
+  /* ══ LA BASCULE DE PÉRIMÈTRE ══
+     « Le toggle sera par défaut dans les données du commercial » — et c'est déjà la règle de
+     `usePerimetre`, en place depuis le 28/08 sur les recommandations, les opportunités, les mandats
+     et les requêtes : « Mes dossiers » par défaut pour tout le monde, administrateurs compris, avec
+     la bascule à côté. Rien de neuf à écrire, et le choix se retient d'une visite à l'autre.
+
+     TANT QUE LE PROFIL N'EST PAS CHARGÉ, ON NE FILTRE PAS. Le contraire — filtrer sur `undefined` —
+     rendrait une page vide pendant une fraction de seconde, qu'on lirait comme « je n'ai aucun
+     compte ». Mieux vaut montrer brièvement l'ensemble que faire croire à un portefeuille vide. */
+  const { data: monProfil } = useMonProfil()
+  const { perimetre, setPerimetre } = usePerimetre('qualite-portefeuille')
+  const filtreProprietaire = perimetre === 'moi' ? monProfil?.id ?? null : null
+
+  const { data: compteurs, isLoading } = useCompteursQualite(filtreProprietaire)
+  const { data: comptes } = useComptesQualite(filtreProprietaire)
 
   const [modeEcheance, setModeEcheance] = useState<ModeEcheance>('toutes')
   const [dateDebut, setDateDebut] = useState('')
@@ -263,10 +279,14 @@ export default function QualitePortefeuille() {
     setLimite(100)
   }
 
+  /* LES PRÉCISIONS NOMMENT LE PÉRIMÈTRE. Un « 2 765 comptes » sans mention se lit comme le total
+     de Kimatch même quand on est sur son propre portefeuille — et l'écart est grand : Guillaume
+     Gilles en a 934, Naoëlle 6. Le mot sous le chiffre évite la mauvaise lecture. */
+  const ouPortefeuille = perimetre === 'moi' ? 'de mon patrimoine' : 'de tout Kimatch'
   const mesures = [
-    { libelle: 'Scoring global', valeur: `${scoringGlobal}/100`, precision: 'Moyenne des comptes' },
-    { libelle: 'Comptes', valeur: (comptes?.length ?? 0).toLocaleString('fr-FR'), precision: 'Portefeuille entier' },
-    { libelle: 'Consommation', valeur: `${MWH(consommationTotale)} MWh`, precision: 'Tous compteurs' },
+    { libelle: 'Scoring global', valeur: `${scoringGlobal}/100`, precision: `Moyenne des comptes ${ouPortefeuille}` },
+    { libelle: 'Comptes', valeur: (comptes?.length ?? 0).toLocaleString('fr-FR'), precision: perimetre === 'moi' ? 'Dont je suis propriétaire' : 'Portefeuille entier' },
+    { libelle: 'Consommation', valeur: `${MWH(consommationTotale)} MWh`, precision: `Compteurs ${ouPortefeuille}` },
     { libelle: 'Compteurs filtrés', valeur: filtres.length.toLocaleString('fr-FR'), precision: `sur ${(compteurs?.length ?? 0).toLocaleString('fr-FR')}` },
   ]
 
@@ -277,6 +297,23 @@ export default function QualitePortefeuille() {
         title="Qualité du portefeuille"
         description="Suivre la qualité des données au niveau des comptes et des compteurs, et repérer les corrections à faire."
       />
+
+      {/* LA BASCULE EN TÊTE, AVANT LES CHIFFRES : elle décide de CE QUE tous les chiffres de la page
+          comptent, donc elle se lit avant eux. Placée sous les indicateurs, on lirait « 49/100 » sans
+          savoir de quel portefeuille on parle. */}
+      <div className="flex flex-wrap items-center gap-2.5">
+        <BasculePerimetre
+          valeur={perimetre}
+          onChange={setPerimetre}
+          libelleMien="Mon patrimoine"
+          libelleTous="Tout Kimatch"
+        />
+        <p className="text-km-label text-km-faint">
+          {perimetre === 'moi'
+            ? 'Les comptes dont vous êtes propriétaire, et leurs compteurs.'
+            : 'Tous les comptes de Kimatch, quel qu’en soit le propriétaire.'}
+        </p>
+      </div>
 
       <Indicateurs mesures={mesures} />
 

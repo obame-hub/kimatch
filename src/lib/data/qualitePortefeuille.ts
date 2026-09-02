@@ -46,6 +46,7 @@ export interface CompteurQualite {
   opportunite_en_cours: boolean
   recommandation_en_cours: boolean
   dans_processus_commercial: boolean
+  compte_proprietaire_id: string | null
 }
 
 /** Un compte et son score moyen — la partie haute de la page. */
@@ -54,29 +55,56 @@ export interface CompteQualite {
   compte_nom: string
   nb_compteurs: number
   score: number
+  compte_proprietaire_id: string | null
 }
 
 const COLONNES_COMPTEUR =
   'compteur_id, numero_point, site_id, site_nom, compte_id, compte_nom, type_energie, ' +
   'consommation_annuelle_mwh, date_echeance, responsable_nom, a_contrat, echeance_future, ' +
-  'a_responsable, score, opportunite_en_cours, recommandation_en_cours, dans_processus_commercial'
+  'a_responsable, score, opportunite_en_cours, recommandation_en_cours, dans_processus_commercial, ' +
+  'compte_proprietaire_id'
 
-export function useCompteursQualite() {
+/**
+ * ══ LE PÉRIMÈTRE PART EN BASE, PAS DANS LE NAVIGATEUR ══
+ *
+ * Naoëlle, 02/09/2026 : « un toggle qui montre les données de tout le patrimoine Kimatch, et un
+ * toggle comme si j'étais commercial et je veux voir les données de mon patrimoine à moi ».
+ *
+ * Les trois filtres du cadrage restent en mémoire — ils se combinent à chaque clic et doivent
+ * recalculer deux graphiques. Le périmètre, lui, part en base, et pour une raison de nature : il ne
+ * TRANCHE pas le jeu de données, il le RÉDUIT. Un commercial qui ne voit que ses comptes n'a aucune
+ * raison de télécharger les 7 915 compteurs du portefeuille — Thomas Le Guen en a 752, Marie
+ * Thonnard 2 088. Le filtre allège donc le seul vrai coût de cette page en même temps qu'il répond
+ * à la demande.
+ *
+ * `proprietaire` à `null` veut dire « tout le patrimoine ». Il entre dans la clé de cache : les deux
+ * périmètres se gardent côte à côte, et rebasculer est instantané au second passage.
+ */
+export function useCompteursQualite(proprietaire: string | null) {
   return useQuery({
-    queryKey: ['qualite-portefeuille', 'compteurs'],
+    queryKey: ['qualite-portefeuille', 'compteurs', proprietaire],
     // Une donnée de pilotage ne change pas d'une minute à l'autre : on évite de recharger un
     // mégaoctet chaque fois qu'on revient sur l'onglet.
     staleTime: 5 * 60 * 1000,
-    queryFn: () => fetchAllRows<CompteurQualite>('v_qualite_compteur', COLONNES_COMPTEUR),
+    queryFn: () =>
+      fetchAllRows<CompteurQualite>('v_qualite_compteur', COLONNES_COMPTEUR, (q) =>
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        proprietaire ? (q as any).eq('compte_proprietaire_id', proprietaire) : q,
+      ),
   })
 }
 
-export function useComptesQualite() {
+export function useComptesQualite(proprietaire: string | null) {
   return useQuery({
-    queryKey: ['qualite-portefeuille', 'comptes'],
+    queryKey: ['qualite-portefeuille', 'comptes', proprietaire],
     staleTime: 5 * 60 * 1000,
     queryFn: () =>
-      fetchAllRows<CompteQualite>('v_qualite_compte', 'compte_id, compte_nom, nb_compteurs, score'),
+      fetchAllRows<CompteQualite>(
+        'v_qualite_compte',
+        'compte_id, compte_nom, nb_compteurs, score, compte_proprietaire_id',
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        (q) => (proprietaire ? (q as any).eq('compte_proprietaire_id', proprietaire) : q),
+      ),
   })
 }
 
