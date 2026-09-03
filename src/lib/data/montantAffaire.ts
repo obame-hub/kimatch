@@ -88,3 +88,41 @@ export function manquesMontant(m: MontantCalcule | null | undefined): string[] {
   if (m.sans_duree > 0) manques.push('L’offre retenue n’a pas de durée.')
   return manques
 }
+
+/**
+ * ══ LA PART DE LA MARGE QUI REVIENT À KIWEE, LUE SUR LE FOURNISSEUR ══
+ *
+ * Elle était écrite en dur à 0,5 dans la modale de saisie des prix, sous la règle que Michel a
+ * énoncée le 21/08. William l'a corrigée le 03/09 : « non pas toujours par 2, et certains
+ * fournisseurs on prend moins que ça ». Le taux vit donc sur la fiche du fournisseur.
+ *
+ * POURQUOI CE CROCHET PLUTÔT QU'UNE COLONNE DE PLUS DANS LA REQUÊTE DES OFFRES : la requête de la
+ * cotation ramène déjà l'arbre entier (versions → compteurs → fournisseurs → offres → prix). Y
+ * greffer une jointure de plus pour un seul nombre par fournisseur ferait payer ce nombre à tous
+ * les écrans qui lisent cet arbre, y compris ceux qui n'affichent aucune marge.
+ *
+ * Comme `useMontantCalcule`, il se tait plutôt que de casser l'écran : le repli est 0,5, la règle
+ * d'avant, donc un taux illisible ne change rien à ce qui s'affichait hier.
+ */
+export function useTauxMargeKiwee(compteId: string | null | undefined) {
+  return useQuery({
+    queryKey: ['taux-marge-kiwee', compteId],
+    enabled: Boolean(compteId),
+    retry: false,
+    // Le taux d'un fournisseur ne bouge pas pendant qu'on saisit une offre.
+    staleTime: 5 * 60 * 1000,
+    queryFn: async (): Promise<number | null> => {
+      const { data, error } = await supabase
+        .from('comptes')
+        .select('taux_marge_kiwee')
+        .eq('id', compteId)
+        .maybeSingle()
+      if (error) {
+        if (/does not exist|schema cache|404/i.test(error.message)) return null
+        throw new Error(error.message)
+      }
+      const t = (data as { taux_marge_kiwee: number | null } | null)?.taux_marge_kiwee
+      return t ?? null
+    },
+  })
+}

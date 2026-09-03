@@ -54,6 +54,7 @@ export function PrixParCompteur({
   offre,
   version,
   compteurs,
+  tauxMargeKiwee,
   peutModifier,
   signaler,
 }: {
@@ -61,6 +62,15 @@ export function PrixParCompteur({
   version: VersionRecommandation
   /** Les compteurs chargés par la fiche, pour connaître l'énergie et les classes consommées. */
   compteurs: Compteur[]
+  /**
+   * La part de la marge qui revient à KiWee chez CE fournisseur — simplement transmise à la modale
+   * de saisie, qui en a besoin pour ne plus afficher « ÷ 2 » en dur (William, 03/09/2026).
+   *
+   * Elle passe par ici plutôt que d'être lue dans la modale : le fournisseur est connu du composant
+   * parent, alors que la modale ne voit qu'une offre — laquelle ne porte pas l'identifiant du compte
+   * fournisseur, seulement son nom.
+   */
+  tauxMargeKiwee?: number | null
   peutModifier: boolean
   signaler: (message: string) => void
 }) {
@@ -328,6 +338,7 @@ export function PrixParCompteur({
             libelleCompteur={compteur?.numero_pdl || compteur?.utilisation || lien.label || 'Compteur'}
             detail={detailParLien.get(lien.lien_id)}
             dureeMois={offre.duree_mois}
+            tauxMargeKiwee={tauxMargeKiwee}
             enCours={enregistrer.isPending}
             onEnregistrer={(prix) => sauver({
               lienId: lien.lien_id,

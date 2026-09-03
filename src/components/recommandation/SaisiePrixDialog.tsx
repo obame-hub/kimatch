@@ -2,6 +2,7 @@ import { useMemo, useState } from 'react'
 import { Dialog } from '@/components/ui/dialog'
 import { cn } from '@/lib/utils'
 import { ChampNombre } from '@/components/ui/champ-nombre'
+import { ExplicationCalcul } from '@/components/ui/explication-calcul'
 import {
   budgetsDepuisPrix,
   classesDuCompteur,
@@ -62,6 +63,7 @@ export function SaisiePrixDialog({
   libelleCompteur,
   detail,
   dureeMois,
+  tauxMargeKiwee,
   onEnregistrer,
   enCours,
 }: {
@@ -71,11 +73,25 @@ export function SaisiePrixDialog({
   compteur: Compteur | undefined
   libelleCompteur: string
   detail: OffreFournisseurCompteur | undefined
-  /** La durée de l'offre, pour rapporter la marge fixe à une année. Sert d'affichage, pas de calcul. */
+  /** La durée de l'offre. Sert d'affichage, pas de calcul. */
   dureeMois: number | null
+  /**
+   * La part de la marge annoncée qui revient à KiWee, lue sur la fiche du fournisseur.
+   *
+   * ÉTAIT UNE CONSTANTE, DEVIENT UN PARAMÈTRE. William, 03/09/2026 : « non pas toujours par 2, et
+   * certains fournisseurs on prend moins que ça ». Laisser « ÷ 2 » écrit en dur ici ferait dire à
+   * cet écran la moitié là où le montant de l'affaire compterait 40 % : deux chiffres contradictoires
+   * sur le même dossier, et personne pour savoir lequel croire.
+   *
+   * Absent, on retombe sur 0,5 — la règle de Michel du 21/08, donc l'affichage d'hier.
+   */
+  tauxMargeKiwee?: number | null
   onEnregistrer: (prix: PrixSaisi) => Promise<void>
   enCours: boolean
 }) {
+  /* Le taux effectif et sa forme lisible, une fois pour tout le dialogue. */
+  const taux = tauxMargeKiwee ?? PART_KIWEE_DANS_LA_MARGE
+  const tauxLisible = `${(taux * 100).toLocaleString('fr-FR', { maximumFractionDigits: 1 })} %`
   // Un brouillon : rien ne part avant la validation, ce qui permet d'essayer un prix. `undefined`
   // veut dire « pas touché », `null` « effacé volontairement » — la convention du patch envoyé.
   const [brouillon, setBrouillon] = useState<PrixSaisi>({})
@@ -135,6 +151,45 @@ export function SaisiePrixDialog({
   const typeMarge: TypeMarge = brouillon.type_marge ?? detail?.type_marge ?? 'VARIABLE'
   const margeVariable = valeur('marge_reelle_eur_mwh', detail?.marge_reelle_eur_mwh)
   const margeFixe = valeur('marge_fixe_eur', detail?.marge_fixe_eur)
+
+  /* ══ POURQUOI LA MARGE NETTE VAUT CE QU'ELLE VAUT ══
+     Ce chiffre est le plus mal compris de l'écran : le commercial annonce une marge au fournisseur,
+     et n'en garde qu'une part. L'infobulle nomme donc les deux termes ET dit où changer le taux —
+     sinon on vient demander pourquoi « ça divise ». */
+  const explicationMargeNette = (
+    <ExplicationCalcul
+      titre="Marge nette KiWee"
+      resume={
+        'La marge annoncée au fournisseur est partagée avec lui : la marge nette est ce qui reste à '
+        + 'KiWee. C’est elle qui sert de base à la commission qu’il nous verse, et au montant de '
+        + 'l’affaire.'
+      }
+      etapes={[
+        {
+          libelle: 'Marge annoncée (brute)',
+          valeur: margeVariable != null ? `${fmt(margeVariable)} €/MWh` : null,
+          origine: 'saisie juste au-dessus',
+        },
+        {
+          libelle: 'Part qui revient à KiWee',
+          valeur: tauxLisible,
+          origine: tauxMargeKiwee == null
+            ? 'valeur par défaut : le fournisseur de cette offre n’est pas identifié'
+            : 'fiche du fournisseur, onglet Informations',
+        },
+      ]}
+      resultat={
+        margeVariable != null
+          ? { libelle: 'Marge nette', valeur: `${fmt(margeNette(margeVariable, taux))} €/MWh` }
+          : undefined
+      }
+      manques={
+        margeVariable == null
+          ? ['La marge annoncée n’est pas saisie : sans elle, il n’y a rien à partager.']
+          : undefined
+      }
+    />
+  )
   const contributions = valeur('cout_taxes_annuel', detail?.cout_taxes_annuel)
   const cee = valeur('prix_cee_mwh', detail?.prix_gaz?.prix_cee_mwh)
   const cpb = valeur('prix_cpb_mwh', detail?.prix_gaz?.prix_cpb_mwh)
@@ -264,8 +319,8 @@ export function SaisiePrixDialog({
         { libelle: 'Molécule P0', valeur: euros(p0, '€/MWh') },
         {
           libelle: typeMarge === 'FIXE' ? 'Marge fixe' : 'Marge de référence (brute)',
-          valeur: euros(typeMarge === 'FIXE' ? margeFixe : margeVariable, typeMarge === 'FIXE' ? '€' : '€/MWh'),
-          note: typeMarge === 'FIXE' ? 'sur la durée du contrat, hors prix' : 'comprise dans le prix client',
+          valeur: euros(typeMarge === 'FIXE' ? margeFixe : margeVariable, '€/MWh'),
+          note: typeMarge === 'FIXE' ? 'imposée par le fournisseur, hors prix' : 'comprise dans le prix client',
         },
         { libelle: 'Molécule présentée', valeur: euros(molecule, '€/MWh'), note: 'prix client' },
         { libelle: 'CEE', valeur: euros(cee, '€/MWh') },
@@ -284,8 +339,8 @@ export function SaisiePrixDialog({
         })),
         {
           libelle: typeMarge === 'FIXE' ? 'Marge fixe' : 'Marge de référence (brute)',
-          valeur: euros(typeMarge === 'FIXE' ? margeFixe : margeVariable, typeMarge === 'FIXE' ? '€' : '€/MWh'),
-          note: typeMarge === 'FIXE' ? 'sur la durée du contrat, hors prix' : 'comprise dans chaque prix client',
+          valeur: euros(typeMarge === 'FIXE' ? margeFixe : margeVariable, '€/MWh'),
+          note: typeMarge === 'FIXE' ? 'imposée par le fournisseur, hors prix' : 'comprise dans chaque prix client',
         },
         { libelle: 'CEE', valeur: euros(ceeElec, '€/MWh') },
         { libelle: 'GO', valeur: euros(go, '€/MWh') },
@@ -352,21 +407,23 @@ export function SaisiePrixDialog({
                       valeur={margeVariable}
                       onCommit={(v) => poser('marge_reelle_eur_mwh', v)}
                     />
-                    {/* CE QUE KIWEE PERCOIT VRAIMENT, la moitie. C'est le chiffre sur lequel se
-                        calcule la commission versee par le fournisseur, et celui que le commercial a
-                        en tete quand il annonce une marge — il ne le voyait nulle part. */}
+                    {/* CE QUE KIWEE PERCOIT VRAIMENT. C'est le chiffre sur lequel se calcule la
+                        commission versee par le fournisseur, et celui que le commercial a en tete
+                        quand il annonce une marge — il ne le voyait nulle part. Le taux n'est plus
+                        « ÷ 2 » ecrit en dur : il vient de la fiche du fournisseur. */}
                     <Deduit
                       libelle="Marge nette Kiwee"
-                      calcul={`${fmt(margeVariable)} ÷ 2 (partagée avec le fournisseur)`}
-                      valeur={margeNette(margeVariable)}
+                      calcul={`${fmt(margeVariable)} × ${tauxLisible}`}
+                      valeur={margeNette(margeVariable, taux)}
                       unite="€/MWh"
+                      explication={explicationMargeNette}
                     />
                   </>
                 ) : (
                   <Champ
-                    libelle="Marge fixe (durée totale)"
+                    libelle="Marge fixe"
                     aide={aideMargeFixe(dureeMois, margeFixe)}
-                    unite="€"
+                    unite="€/MWh"
                     valeur={margeFixe}
                     onCommit={(v) => poser('marge_fixe_eur', v)}
                   />
@@ -540,21 +597,23 @@ export function SaisiePrixDialog({
                       valeur={margeVariable}
                       onCommit={(v) => poser('marge_reelle_eur_mwh', v)}
                     />
-                    {/* CE QUE KIWEE PERCOIT VRAIMENT, la moitie. C'est le chiffre sur lequel se
-                        calcule la commission versee par le fournisseur, et celui que le commercial a
-                        en tete quand il annonce une marge — il ne le voyait nulle part. */}
+                    {/* CE QUE KIWEE PERCOIT VRAIMENT. C'est le chiffre sur lequel se calcule la
+                        commission versee par le fournisseur, et celui que le commercial a en tete
+                        quand il annonce une marge — il ne le voyait nulle part. Le taux n'est plus
+                        « ÷ 2 » ecrit en dur : il vient de la fiche du fournisseur. */}
                     <Deduit
                       libelle="Marge nette Kiwee"
-                      calcul={`${fmt(margeVariable)} ÷ 2 (partagée avec le fournisseur)`}
-                      valeur={margeNette(margeVariable)}
+                      calcul={`${fmt(margeVariable)} × ${tauxLisible}`}
+                      valeur={margeNette(margeVariable, taux)}
                       unite="€/MWh"
+                      explication={explicationMargeNette}
                     />
                   </>
                 ) : (
                   <Champ
-                    libelle="Marge fixe (durée totale)"
+                    libelle="Marge fixe"
                     aide={aideMargeFixe(dureeMois, margeFixe)}
-                    unite="€"
+                    unite="€/MWh"
                     valeur={margeFixe}
                     onCommit={(v) => poser('marge_fixe_eur', v)}
                   />
@@ -854,24 +913,38 @@ export function SaisiePrixDialog({
 }
 
 /**
- * L'explication de la marge fixe, avec son équivalent annuel quand on connaît la durée.
+ * ══ L'EXPLICATION DE LA MARGE FIXE, ET SON UNITÉ, REVUES LE 03/09/2026 ══
  *
- * NAOËLLE, 20/08/2026 : « c'est sur toute la durée du contrat ». La distinction n'est pas un détail :
- * sur 36 mois, lire 150 € comme un montant annuel triple la rentabilité qu'on croit avoir. Le repère
- * annuel s'affiche donc à côté de la saisie — calculé, jamais enregistré, puisqu'il se déduit de la
- * durée de l'offre et changerait avec elle.
+ * Elle disait : « le montant que le fournisseur arrête lui-même, en EUROS et pour TOUTE LA DURÉE du
+ * contrat — ni au mégawattheure, ni par an », et affichait l'équivalent annuel. C'était la règle que
+ * Naoëlle avait rapportée le 20/08 et que Michel avait confirmée.
+ *
+ * William dit l'inverse, et c'est lui qui tranche : « une marge fixe c'est en €/MWh du style
+ * 4 €/MWh. Donc y'a pas de montant de l'affaire sans calcul. » Naoëlle, 03/09 : « fais ce que
+ * William dit, il est mieux renseigné que Michel. »
+ *
+ * L'ÉCART N'ÉTAIT PAS COSMÉTIQUE. Tant que l'écran annonce des euros, on y saisit des forfaits, et
+ * le montant de l'affaire les multiplie par le volume et la durée : un « 120 » saisi pour trois ans
+ * sur 227 MWh donne 40 860 € au lieu de 120. D'où l'alerte ci-dessous, qui suit la VALEUR et non la
+ * date de saisie — une marge au mégawattheure à deux chiffres est presque toujours un ancien forfait.
+ *
+ * CE QUI NE CHANGE PAS : la marge fixe ne s'ajoute pas au prix présenté au client, le fournisseur
+ * l'a déjà comprise dans son P0. Seule son unité change — et donc la façon de la multiplier.
  */
 function aideMargeFixe(dureeMois: number | null, montant: number | null): string {
-  const base = 'Le montant que le fournisseur arrête lui-même, en euros et pour TOUTE LA DURÉE du '
-    + 'contrat — ni au mégawattheure, ni par an. On ne peut pas le négocier, et il ne s’ajoute pas au '
-    + 'prix : le fournisseur l’a déjà compris dans son P0.'
-  if (dureeMois == null || dureeMois <= 0) {
-    return base + ' La durée de l’offre n’est pas renseignée, l’équivalent annuel ne peut pas s’afficher.'
-  }
-  if (montant == null) return base + ` L’offre court sur ${dureeMois} mois.`
-  const parAn = montant / (dureeMois / 12)
-  return base + ` Sur ${dureeMois} mois, cela représente `
-    + `${parAn.toLocaleString('fr-FR', { maximumFractionDigits: 2 })} € par an.`
+  const base = 'La marge que le fournisseur impose lui-même, en euros par mégawattheure. On ne peut '
+    + 'pas la négocier, et elle ne s’ajoute pas au prix présenté au client : le fournisseur l’a déjà '
+    + 'comprise dans son P0. Elle sert à calculer ce que l’affaire rapporte.'
+  const duree = dureeMois == null || dureeMois <= 0
+    ? ' La durée de l’offre n’est pas renseignée.'
+    : ` L’offre court sur ${dureeMois} mois.`
+  // Une marge au mégawattheure dépasse rarement 20 € : au-delà, c'est presque toujours un forfait
+  // saisi sous l'ancienne définition, et le montant de l'affaire serait faux d'un facteur volume.
+  const alerte = montant != null && montant > 20
+    ? ' ⚠ Cette valeur est très élevée pour une marge au mégawattheure : vérifiez qu’elle n’a pas été '
+      + 'saisie comme un forfait en euros. L’unité de ce champ a changé le 03/09/2026.'
+    : ''
+  return base + duree + alerte
 }
 
 /** `null` se lit « — » et non « 0 » : une donnée absente n'est pas une donnée nulle. */
@@ -1054,26 +1127,38 @@ function Champ({ libelle, aide, unite, valeur, onCommit, apres, compact }: {
  * SEULEMENT SUR UNE MARGE VARIABLE : « si bien evidemment on est sur une marge variable et non une
  * marge fixe ». Une marge fixe est deja dans le P0 du fournisseur, il n'y a rien a partager.
  *
- * `0.5` ET NON UNE FORMULE : c'est un partage par moitie, tel qu'il l'a enonce. Si le partage devient
- * un jour propre a chaque fournisseur, c'est cette constante qui devient un champ.
+ * ══ LE PARTAGE EST DEVENU UN CHAMP LE 03/09/2026 ══
+ *
+ * « Si le partage devient un jour propre a chaque fournisseur, c'est cette constante qui devient un
+ * champ », disait la note qui suivait. Ce jour est arrivé : William, 03/09/2026 — « non pas toujours
+ * par 2, et certains fournisseurs on prend moins que ça ». Le taux vit sur la fiche du fournisseur
+ * (`comptes.taux_marge_kiwee`), à 50 % partout pour l'instant à sa demande, et modifiable.
+ *
+ * LA CONSTANTE RESTE, COMME REPLI : quand on ne sait pas de quel fournisseur vient l'offre, mieux
+ * vaut l'ancienne règle qu'un champ vide.
  */
 const PART_KIWEE_DANS_LA_MARGE = 0.5
 
-/** La marge nette : ce que Kiwee percoit, sur une marge variable. */
-function margeNette(margeBrute: number | null | undefined): number | null {
+/** La marge nette : ce que Kiwee percoit, sur une marge variable, au taux de son fournisseur. */
+function margeNette(margeBrute: number | null | undefined, taux: number): number | null {
   if (margeBrute == null) return null
-  return margeBrute * PART_KIWEE_DANS_LA_MARGE
+  return margeBrute * taux
 }
 
-function Deduit({ libelle, calcul, valeur, unite }: {
+function Deduit({ libelle, calcul, valeur, unite, explication }: {
   libelle: string
   calcul: string
   valeur: number | null
   unite: string
+  /** L'infobulle « pourquoi ce chiffre », contre l'intitulé : le calcul court est déjà à côté. */
+  explication?: React.ReactNode
 }) {
   return (
     <div className="flex flex-wrap items-baseline gap-2 rounded-km border border-km-green-line bg-km-green-tint px-2.5 py-1.5">
-      <span className="min-w-[132px] text-km-name font-bold text-km-green">{libelle}</span>
+      <span className="flex min-w-[132px] items-center gap-1 text-km-name font-bold text-km-green">
+        {libelle}
+        {explication}
+      </span>
       <span className="font-mono text-km-body text-km-muted">{calcul} =</span>
       <span className={`text-km-metric font-bold leading-none tabular-nums ${valeur == null ?'text-km-faint' : 'text-km-green'}`}>
         {fmt(valeur)}
