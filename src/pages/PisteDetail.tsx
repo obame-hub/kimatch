@@ -11,6 +11,7 @@ import { OngletFichiers } from '@/components/compte/OngletFichiers'
 import { DialogConversionPiste } from '@/components/prospection/DialogConversionPiste'
 import { DialogNouvelleTache } from '@/components/tache/DialogNouvelleTache'
 import { FluxActualite } from '@/components/opportunite/FluxActualite'
+import { FriseStatut } from '@/components/opportunite/FriseStatut'
 import { useGoBack } from '@/lib/useGoBack'
 import { useCanManage } from '@/lib/data/roles'
 import { useActionsParPiste, useCompleteAction } from '@/lib/data/actions'
@@ -235,6 +236,69 @@ export default function PisteDetail() {
         <div className="min-h-0 overflow-y-auto bg-km-bg p-4 sm:p-5">
         {onglet === 'piste' && (
           <div className="flex flex-col gap-3.5">
+            {/* ══ LA FRISE DE STATUT ══════════════════════════════════════════════════════════════
+
+                Naoëlle, 02/09/2026 : « où est la frise animée de statut dans la page piste, je
+                t'avais dit de la mettre ».
+
+                ELLE NE SE CONTREDIT PAS AVEC SA DEMANDE DU MATIN, et c'est moi qui avais confondu
+                les deux objets. « Les 5 points de vérification, faut les transformer en une liste
+                de coches, car en mode frise on dirait des statuts » : les cinq contrôles ne sont
+                pas des statuts, donc pas de frise pour eux — ils sont devenus des coches, plus bas.
+                Le STATUT de la piste, lui, en est un vrai, et c'est justement ce qu'une frise sait
+                dire. J'avais retiré la frise sans la remettre là où elle avait sa place.
+
+                DEUX JALONS, DEUX ISSUES. `statuts_pistes` porte quatre lignes dont deux clôturent.
+                Les deux états de travail — Nouvelle, En qualification — font les jalons ; l'issue
+                ferme la frise, verte si convertie, GRISE si disqualifiée. Pas rouge : écarter une
+                piste est un travail fait, c'est l'issue de la plupart des cinq mille importées, et
+                le rouge est réservé à ce qui appelle une action.
+
+                CLIQUABLE, comme sur la fiche Requête. Mais « Convertie » ne s'atteint pas d'un
+                clic — elle se gagne en créant l'opportunité, et le déclencheur l'écrit — et
+                « Disqualifiée » passe par le menu, qui réclame son motif. La frise ne commande donc
+                que les deux jalons de travail : ce qu'on peut décider seul. */}
+            {statutsPistes && statutsPistes.length > 0 && (
+              <Card className="px-4 pb-1 pt-1">
+                <FriseStatut
+                  teinte="piste"
+                  jalons={statutsPistes
+                    .filter((st) => !st.est_cloture)
+                    .map((st) => ({ code: st.code, libelle: st.libelle }))}
+                  courant={
+                    piste.statut_clos
+                      ? (statutsPistes.find((st) => !st.est_cloture)?.code ?? 'NOUVELLE')
+                      : piste.statut_code ?? 'NOUVELLE'
+                  }
+                  finalite={
+                    piste.statut_clos
+                      ? {
+                          libelle: piste.statut_libelle ?? 'Clôturée',
+                          perdue: false,
+                          neutre: piste.statut_code === 'DISQUALIFIEE',
+                        }
+                      : null
+                  }
+                  onJalon={
+                    canManage && !convertie && !piste.statut_clos
+                      ? (code) => {
+                          const cible = statutsPistes.find((st) => st.code === code)
+                          if (!cible || cible.code === piste.statut_code) return
+                          maj
+                            .mutateAsync({
+                              id: piste.id,
+                              patch: { statut_id: cible.id, motif_disqualification: null },
+                            })
+                            .then(() => signaler(`✓ ${cible.libelle}`))
+                            .catch((e) =>
+                              signaler(e instanceof Error ? e.message : 'Enregistrement impossible'),
+                            )
+                        }
+                      : undefined
+                  }
+                />
+              </Card>
+            )}
             {/* ══ LES CINQ VÉRIFICATIONS ══
                 Elles se figent après conversion : décocher une case après coup ne déferait rien et
                 laisserait deux objets qui se contredisent. */}

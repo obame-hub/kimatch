@@ -87,6 +87,21 @@ export const TEINTES_FRISE: Record<string, TeinteFrise> = {
     hachures: ['#e8c6bc', '#f7efec'],
     pulsation: 'animate-km-soft-pulse',
   },
+  /**
+   * La piste — l'ambre de la prospection, celle que portent déjà ses statuts « Nouvelle » et « En
+   * qualification » dans `TON_STATUT_PISTE`.
+   *
+   * PAS LE MAGENTA DE L'OPPORTUNITÉ, alors que la piste la précède : ce sont deux objets, et une
+   * piste convertie DEVIENT une opportunité. Leur donner la même couleur ferait lire la frise de
+   * l'une comme la suite de l'autre, sur deux écrans qui se ressemblent déjà beaucoup.
+   */
+  piste: {
+    gradient: 'from-amber-600 to-amber-400',
+    ombreCourant: 'shadow-[0_5px_14px_rgba(181,122,36,.34)]',
+    ombreFranchi: 'shadow-[0_2px_6px_rgba(181,122,36,.2)]',
+    hachures: ['#e8d5b4', '#f6f1e6'],
+    pulsation: 'animate-km-soft-pulse',
+  },
   /** Le contrat et le mandat — le bleu des engagements. */
   contrat: {
     gradient: 'from-sky-600 to-sky-400',
@@ -120,8 +135,16 @@ export function FriseStatut({ jalons, courant, finalite, teinte = 'opportunite',
   jalons: JalonFrise[]
   /** Code du palier atteint. Les jalons précédents sont « franchis ». */
   courant: string
-  /** Qualification finale, quand l'objet est clôturé : elle ferme la frise. */
-  finalite?: { libelle: string; perdue: boolean } | null
+  /**
+   * Qualification finale, quand l'objet est clôturé : elle ferme la frise.
+   *
+   * `neutre` COUVRE LES FINS QUI NE SONT NI GAGNÉES NI PERDUES. Une piste disqualifiée en est une :
+   * Naoëlle, 02/09/2026 — « écarter une piste est un travail fait, pas un échec », et sur cinq
+   * mille pistes importées c'est l'issue de la plupart. Le rouge est réservé à ce qui appelle une
+   * action ; le vert dirait qu'on a gagné quelque chose. Ni l'un ni l'autre ne convient, d'où ce
+   * troisième ton.
+   */
+  finalite?: { libelle: string; perdue: boolean; neutre?: boolean } | null
   /** La famille de couleur. Par défaut celle de l'opportunité, pour ne rien changer à l'existant. */
   teinte?: keyof typeof TEINTES_FRISE
   /**
@@ -194,7 +217,19 @@ export function FriseStatut({ jalons, courant, finalite, teinte = 'opportunite',
                 type="button"
                 disabled={!onJalon}
                 onClick={onJalon ? () => onJalon(jalon.code) : undefined}
-                title={onJalon ? (etat === 'franchi' ? `Décocher « ${jalon.libelle} »` : `Cocher « ${jalon.libelle} »`) : undefined}
+                /* L'INTITULÉ DIT LE GESTE RÉEL, et il n'est pas le même dans les deux modes. En
+                   liste de vérifications (`franchi` fourni), on coche et décoche. En parcours —
+                   la requête, la piste — on CHANGE DE STATUT : « Décocher En qualification » y
+                   décrirait une action qui n'existe pas. */
+                title={
+                  onJalon
+                    ? parJalon
+                      ? etat === 'franchi'
+                        ? `Décocher « ${jalon.libelle} »`
+                        : `Cocher « ${jalon.libelle} »`
+                      : `Passer à « ${jalon.libelle} »`
+                    : undefined
+                }
                 className={cn(
                   'z-[1] flex shrink-0 items-center justify-center rounded-full transition-all duration-200',
                   onJalon && 'cursor-pointer hover:scale-110',
@@ -229,19 +264,32 @@ export function FriseStatut({ jalons, courant, finalite, teinte = 'opportunite',
           <div
             className={cn(
               '-mx-2.5 h-[5px] flex-1 rounded-[3px] bg-gradient-to-r',
-              finalite.perdue ? 'from-red-300 to-red-600' : 'from-kiwi-300 to-kiwi-600',
+              finalite.neutre
+                ? 'from-[#d8d6d1] to-[#a9aca6]'
+                : finalite.perdue
+                  ? 'from-red-300 to-red-600'
+                  : 'from-kiwi-300 to-kiwi-600',
             )}
           />
           <div className="flex min-w-0 flex-1 flex-col items-center">
             <div
               className={cn(
                 'z-[1] flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-white',
-                finalite.perdue ? 'bg-red-600 shadow-[0_5px_16px_rgba(194,69,45,.35)]' : 'bg-km-green shadow-[0_5px_16px_rgba(13,122,95,.35)]',
+                finalite.neutre
+                  ? 'bg-[#8d918b] shadow-[0_5px_16px_rgba(90,94,88,.24)]'
+                  : finalite.perdue
+                    ? 'bg-red-600 shadow-[0_5px_16px_rgba(194,69,45,.35)]'
+                    : 'bg-km-green shadow-[0_5px_16px_rgba(13,122,95,.35)]',
               )}
             >
               <Check className="h-4 w-4" strokeWidth={2.6} />
             </div>
-            <p className={cn('mt-2 text-center text-km-label font-extrabold tracking-tight', finalite.perdue ? 'text-red-700' : 'text-km-green')}>
+            <p
+              className={cn(
+                'mt-2 text-center text-km-label font-extrabold tracking-tight',
+                finalite.neutre ? 'text-km-muted' : finalite.perdue ? 'text-red-700' : 'text-km-green',
+              )}
+            >
               {finalite.libelle}
             </p>
           </div>
