@@ -39,7 +39,7 @@ import { cn } from '@/lib/utils'
  *   2. filtres    échéance · scoring · processus commercial, qui se combinent
  *   3. graphiques deux histogrammes jumeaux — compteurs et consommation par échéance
  *   4. tableau    huit colonnes, le score cliquable ouvrant les anomalies
- *   5. barème     inchangé, déjà en base (migration 20260902100000)
+ *   5. barème     en base — 20260902100000, puis 20260903100000 (Michel a corrigé ses chiffres)
  *
  * ══ LE SCORING GLOBAL EST UNE MOYENNE DE MOYENNES, ET C'EST VOULU ══
  *
@@ -50,6 +50,10 @@ import { cn } from '@/lib/utils'
  * cabinet qui en porte trois cents. Mesuré le 02/09 : la moyenne des comptes donne 49,4, celle des
  * compteurs 55,2 — six points d'écart. Le chiffre du cadrage est le premier, parce que la page parle
  * de la qualité du PORTEFEUILLE : un client mal tenu compte pour un client, pas pour ses compteurs.
+ *
+ * Ces deux chiffres datent de l'ancien barème. Depuis la correction de Michel du 02/09/2026
+ * (migration 20260903100000), le scoring global tombe à 40,7 — la baisse est voulue, elle dit que
+ * 6 671 compteurs sur 7 904 ne sont pas sous contrat.
  *
  * ══ POURQUOI LES FILTRES TRAVAILLENT DANS LE NAVIGATEUR ══
  *

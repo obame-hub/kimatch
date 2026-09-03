@@ -272,8 +272,11 @@ export function HeroQualiteCompte({
                 ))
               )}
               <span className="mt-2 block border-t border-white/[.18] pt-2 text-km-xs leading-[1.35] text-white/[.7]">
+                {/* Les trois repères du barème de Michel, version du 02/09/2026. Le premier et le
+                    dernier bornent l'échelle ; celui du milieu dit ce que « pas de contrat » coûte
+                    au mieux — c'est le plafond que sa correction a fait descendre de 80 à 60. */}
                 Moyenne des scores des compteurs. Un compteur vaut 100 avec contrat et responsable,
-                80 sans contrat mais avec échéance à venir et responsable, 0 sans rien.
+                80 avec contrat sans responsable, 60 au mieux sans contrat, 0 sans rien.
               </span>
             </span>
           </span>

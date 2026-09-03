@@ -34,6 +34,7 @@ import { Sheet } from '@/components/ui/sheet'
 import { ContactForm } from '@/components/contact/ContactForm'
 import { PdlMethodSheet, type PdlMethode } from '@/components/compteur/PdlMethodSheet'
 import { CreateRecommandationDialog } from '@/pages/Recommandations'
+import { DialogCreationOpportunite } from '@/pages/Opportunites'
 import { FormField, Input, Select, Textarea } from '@/components/ui/form'
 import { HistoriqueDiscret } from '@/components/ui/historique-discret'
 import { InlineField } from '@/components/ui/inline-field'
@@ -174,6 +175,7 @@ export default function CompteDetail() {
   const [addContactOpen, setAddContactOpen] = useState(false)
   const [addMandatOpen, setAddMandatOpen] = useState(false)
   const [addRecoOpen, setAddRecoOpen] = useState(false)
+  const [addOppOpen, setAddOppOpen] = useState(false)
 
   // Ouvre automatiquement "Nouveau compteur" quand on arrive depuis l'étape "que faire
   // maintenant ?" du wizard de création de compte (CompteCreate.tsx).
@@ -422,6 +424,7 @@ export default function CompteDetail() {
               if (cle === 'contact') setAddContactOpen(true)
               if (cle === 'compteur') setPdlMethodOpen(true)
               if (cle === 'mandat') setAddMandatOpen(true)
+              if (cle === 'opportunite') setAddOppOpen(true)
               if (cle === 'recommandation') setAddRecoOpen(true)
             }}
           />
@@ -772,6 +775,12 @@ export default function CompteDetail() {
           initialCompteId={compte.id}
           onCreated={(recoId) => navigate(`/recommandations/${recoId}`)}
         />
+      )}
+
+      {/* Monté seulement à l'ouverture, comme les trois dialogues ci-dessus : il charge les contacts
+          et les statuts, et rien de tout cela n'a à partir au chargement de la fiche. */}
+      {addOppOpen && (
+        <DialogCreationOpportunite onFermer={() => setAddOppOpen(false)} compteId={compte.id} />
       )}
 
       <Dialog

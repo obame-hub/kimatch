@@ -142,12 +142,22 @@ function AddConsommationDialog({ compteurId, open, onClose }: { compteurId: stri
  * Les six lignes affichées sont celles de son message, mot pour mot — le tableau sert de preuve
  * autant que d'explication, et c'est ce que Naoëlle est venue vérifier.
  */
+/*
+ * Le barème de Michel, VERSION DU 02/09/2026 — il a corrigé la sienne de la veille : « là où c'est
+ * faux, c'est parce que moi je t'ai donné des calculs faux ». L'ancienne notait « sans contrat mais
+ * échéance connue et responsable » à 80, au-dessus de « sous contrat sans responsable » à 70 : un
+ * compteur qu'on ne fournit pas passait devant un compteur qu'on fournit.
+ *
+ * L'ORDRE D'AFFICHAGE SUIT LES POINTS, PAS L'ÉNONCÉ. Michel les dicte dans l'ordre du CASE — le
+ * contrat, puis l'échéance, puis le reste — mais lu sur une fiche, un barème se parcourt du meilleur
+ * au pire : c'est ainsi qu'on situe son compteur d'un coup d'œil, ce que Naoëlle est venue faire ici.
+ */
 const BAREME: { libelle: string; points: number }[] = [
   { libelle: 'Contrat + responsable', points: 100 },
-  { libelle: 'Contrat + sans responsable', points: 70 },
-  { libelle: 'Sans contrat + échéance future + responsable', points: 80 },
-  { libelle: 'Sans contrat + échéance future + sans responsable', points: 50 },
-  { libelle: 'Sans contrat + échéance absente ou dépassée + responsable', points: 30 },
+  { libelle: 'Contrat + sans responsable', points: 80 },
+  { libelle: 'Sans contrat + échéance future + responsable', points: 60 },
+  { libelle: 'Sans contrat + échéance future + sans responsable', points: 40 },
+  { libelle: 'Sans contrat + échéance absente ou dépassée + responsable', points: 20 },
   { libelle: 'Sans contrat + échéance absente ou dépassée + sans responsable', points: 0 },
 ]
 

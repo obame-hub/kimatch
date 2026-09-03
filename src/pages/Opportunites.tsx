@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useMemo, useState } from 'react'
 import { useSearchParams } from 'react-router-dom'
 import { useNavigate } from 'react-router-dom'
 import { Plus, Target } from 'lucide-react'
@@ -279,7 +279,7 @@ export default function Opportunites() {
         )}
       </div>
 
-      {creation && <DialogCreation onFermer={() => setCreation(false)} />}
+      {creation && <DialogCreationOpportunite onFermer={() => setCreation(false)} />}
     </div>
   )
 }
@@ -291,9 +291,30 @@ export default function Opportunites() {
  * reste active, soit en qualification, soit en attente ». Rassembler les prérequis EST le travail de
  * l'opportunité — les exiger à la création reviendrait à interdire d'en créer une.
  */
-function DialogCreation({ onFermer }: { onFermer: () => void }) {
+/**
+ * ══ APPELABLE DEPUIS UNE FICHE COMPTE ══════════════════════════════════════════════════════════
+ *
+ * Michel, réunion du 02/09/2026 : depuis une fiche compte, « je mets créer, tu vois ici je peux
+ * pas ». Sur la recommandation il se trompait — l'entrée est grisée faute de mandat actif, et c'est
+ * la règle. Mais l'opportunité, elle, n'était PAS PROPOSÉE DU TOUT : le hub de la fiche compte
+ * porte six entrées et pas celle-là, alors que l'opportunité est l'objet le plus en amont du cycle.
+ *
+ * `compteId` RESTREINT LA RECHERCHE DE CONTACTS À CE COMPTE. C'est le seul ajustement nécessaire :
+ * le dialogue déduit déjà le compte du contact choisi, donc pré-remplir le compte n'aurait servi à
+ * rien — alors que chercher parmi 3 387 contacts quand on est sur la fiche d'un compte qui en a
+ * quatre, si.
+ */
+export function DialogCreationOpportunite({ onFermer, compteId: compteImpose }: {
+  onFermer: () => void
+  /** Depuis une fiche compte : la recherche de contacts s'y limite. */
+  compteId?: string
+}) {
   const navigate = useNavigate()
-  const { data: contacts } = useContacts()
+  const { data: tousContacts } = useContacts()
+  const contacts = useMemo(
+    () => (compteImpose ? (tousContacts ?? []).filter((c) => c.compte_id === compteImpose) : tousContacts),
+    [tousContacts, compteImpose],
+  )
   const { data: statuts } = useStatutsOpportunites()
   const creer = useCreerOpportunite()
 
@@ -384,8 +405,12 @@ function DialogCreation({ onFermer }: { onFermer: () => void }) {
             principal={(c) => `${c.prenom} ${c.nom}`}
             secondaire={(c) => [c.compte_nom, c.fonction].filter(Boolean).join(' · ') || null}
             filtre={(c, q) => [c.prenom, c.nom, c.compte_nom, c.email].some((v) => (v ?? '').toLowerCase().includes(q))}
-            aucun="Aucun contact. Créez-le depuis Contacts, puis revenez ici."
-            totalLibelle={`${(contacts ?? []).length} contacts`}
+            aucun={
+              compteImpose
+                ? 'Aucun contact sur ce compte. Créez-le depuis l’onglet Contacts de la fiche, puis revenez ici.'
+                : 'Aucun contact. Créez-le depuis Contacts, puis revenez ici.'
+            }
+            totalLibelle={`${(contacts ?? []).length} contact${(contacts ?? []).length > 1 ? 's' : ''}${compteImpose ? ' sur ce compte' : ''}`}
           />
         </FormField>
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">

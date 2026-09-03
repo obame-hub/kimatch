@@ -52,6 +52,26 @@ const ACTIONS = [
     fond: '#eef0fa',
     d: 'M4 4h16v13H4zM8 21h8M12 17v4M9 12l2.5-4v3h3L12 15v-3z',
   },
+  /**
+   * L'OPPORTUNITÉ MANQUAIT AU HUB, et c'est ce que Michel a relevé le 02/09/2026 : depuis une fiche
+   * compte, « je mets créer, tu vois ici je peux pas ». Sur la recommandation il se trompait —
+   * l'entrée existe, grisée faute de mandat actif, et c'est la règle. L'opportunité, elle, n'était
+   * pas proposée du tout.
+   *
+   * ELLE VIENT AVANT LA RECOMMANDATION parce qu'elle la précède dans le cycle : on qualifie une
+   * opportunité, puis on lance la recommandation quand le mandat couvre le périmètre. Le hub se lit
+   * ainsi dans l'ordre du travail — et c'est aussi pourquoi elle n'a besoin, elle, d'aucun prérequis
+   * (Michel, 23/08 : « il nous faut au minimum un signal et un contact »).
+   */
+  {
+    cle: 'opportunite',
+    label: 'Nouvelle opportunité',
+    indice: 'Un signal positif et un contact',
+    touche: 'O',
+    couleur: '#a8317f',
+    fond: '#fbeef6',
+    d: 'M12 3l9 6-9 6-9-6zM3 15l9 6 9-6',
+  },
   {
     cle: 'recommandation',
     label: 'Nouvelle recommandation',

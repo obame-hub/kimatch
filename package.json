@@ -12,6 +12,7 @@
     "test:watch": "vitest",
     "test:statuts": "node scripts/tester-propagation-statuts.cjs",
     "verifier:sandbox": "node scripts/verifier-liste-sandbox.cjs",
+    "auditer:compteurs": "node scripts/auditer-compteurs-salesforce.cjs",
     "dev:sandbox": "vite --mode sandbox"
   },
   "dependencies": {
