@@ -3,6 +3,7 @@ import { useMajStatutVersion } from '@/lib/data/recommandations'
 import { Badge } from '@/components/ui/badge'
 import { EntityLink } from '@/components/ui/entity-link'
 import { OffresDuFournisseur } from '@/components/recommandation/OffresDuFournisseur'
+import { budgetsDeLOffre } from '@/components/recommandation/CarteOffreEtude'
 import { cn } from '@/lib/utils'
 import type { ReferenceRow } from '@/lib/data/referenceTables'
 import type { VersionRecommandation, Optimisation, FournisseurConsulte, Compteur, OffreFournisseur } from '@/types/domain'
@@ -24,15 +25,29 @@ const MISE_EN_CONCURRENCE = 'MISE_EN_CONCURRENCE'
  * LE REPLI RESTE LA MOINS CHÈRE DE TOUTE LA COTATION, tant qu'aucune référence n'est désignée : sans
  * lui, la colonne d'écart serait vide sur tous les dossiers existants. Mais il porte désormais sur
  * l'ensemble, donc il est au moins cohérent d'une offre à l'autre.
+ *
+ * ══ « LA MOINS CHÈRE » SE MESURE COMME LE BUDGET AFFICHÉ (03/09/2026) ══
+ *
+ * Le repli ne regardait que `montant_annuel_ht`, le total annuel saisi à la main sur l'offre. Or la
+ * carte d'offre affiche ce total À DÉFAUT la somme de ses points de livraison — et c'est cette somme
+ * que produit la modale de saisie des prix, qui ne remplit pas le total annuel. Une cotation entière
+ * chiffrée point par point n'avait donc aucun repère, et la colonne d'écart restait vide partout.
+ *
+ * Les deux endroits mesurent désormais un budget de la même façon. `budgetsDeLOffre` est la fonction
+ * que la carte utilise elle-même : la partager évite d'avoir deux définitions de « la moins chère ».
  */
+function budgetDeLOffre(o: OffreFournisseur): number | null {
+  return o.montant_annuel_ht ?? budgetsDeLOffre(o).total
+}
+
 function repereDeLaCotation(optimisation: Optimisation): OffreFournisseur | null {
   const toutes = optimisation.fournisseurs_consultes.flatMap((f) => f.offres)
   const designee = toutes.find((o) => o.est_offre_reference)
   if (designee) return designee
   return toutes
-    .filter((o) => o.montant_annuel_ht != null)
+    .filter((o) => budgetDeLOffre(o) != null)
     .reduce<OffreFournisseur | null>(
-      (a, o) => (a == null || (o.montant_annuel_ht ?? 0) < (a.montant_annuel_ht ?? 0) ? o : a),
+      (a, o) => (a == null || budgetDeLOffre(o)! < budgetDeLOffre(a)! ? o : a),
       null,
     )
 }

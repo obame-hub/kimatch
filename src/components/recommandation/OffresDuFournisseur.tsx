@@ -438,6 +438,7 @@ export function OffresDuFournisseur({
                   offre={offre}
                   compteurs={compteurs}
                   reference={repereDeCetteOffre}
+                  estLeRepere={repere != null && repere.id === offre.id}
                   // L'ÉCONOMIE EST UN CHIFFRE : elle rejoint le budget au centre, pas les boutons.
                   chiffresEnPlus={
                     <span onClick={(e) => e.stopPropagation()}>

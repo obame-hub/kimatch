@@ -34,6 +34,7 @@ export function CarteOffreEtude({
   offre,
   compteurs,
   reference,
+  estLeRepere,
   avecFournisseur = false,
   avecIdentite = false,
   avecBarre = false,
@@ -54,6 +55,20 @@ export function CarteOffreEtude({
    * alors le mot « référence » à la place de l'écart.
    */
   reference: OffreFournisseur | null
+  /**
+   * VRAI quand c'est CETTE offre qui sert de repère à la cotation.
+   *
+   * ══ POURQUOI CE BOOLÉEN EXISTE ══
+   *
+   * `reference` valait `null` dans DEUX situations que la carte confondait : « cette offre EST le
+   * repère » et « la cotation n'a aucun repère ». Elle écrivait « référence » dans les deux — donc,
+   * sur une cotation sans repère, sur CHACUNE de ses offres à la fois.
+   *
+   * Ce n'était pas théorique : mesuré le 03/09/2026, 35 des 41 cotations chiffrées n'ont aucun repère
+   * possible — aucune offre désignée, aucun montant annuel saisi — et 22 d'entre elles portent
+   * plusieurs offres. Vingt-deux cotations où toutes les offres se disaient « référence ».
+   */
+  estLeRepere?: boolean
   /** Le nom du fournisseur : inutile sous un groupe qui le porte déjà, indispensable sans lui. */
   avecFournisseur?: boolean
   /** L'identité de l'offre — durée et type de prix. À masquer quand un en-tête la porte au-dessus. */
@@ -159,11 +174,14 @@ export function CarteOffreEtude({
     <ExplicationCalcul
       titre="Écart à l’offre de référence"
       resume={
-        reference == null
+        estLeRepere
           ? 'Cette offre EST la référence de la cotation : les autres se disent plus chères ou moins '
             + 'chères qu’elle. Elle ne se compare donc pas à elle-même.'
-          : 'De combien cette offre est plus chère ou moins chère que l’offre désignée comme '
-            + 'référence de la cotation — la même pour toutes les offres, tous fournisseurs confondus.'
+          : reference == null
+            ? 'Aucune offre ne sert de repère sur cette cotation : il n’y a donc rien à quoi comparer '
+              + 'celle-ci. Le repère est l’offre désignée à la cible, ou à défaut la moins chère.'
+            : 'De combien cette offre est plus chère ou moins chère que l’offre désignée comme '
+              + 'référence de la cotation — la même pour toutes les offres, tous fournisseurs confondus.'
       }
       etapes={reference == null ? undefined : [
         { libelle: 'Budget de cette offre', valeur: total != null ? `${Math.round(total).toLocaleString('fr-FR')} €` : null, origine: 'colonne de gauche' },
@@ -178,14 +196,19 @@ export function CarteOffreEtude({
         valeur: `${Math.abs(Math.round(ecart)).toLocaleString('fr-FR')} €`,
       } : undefined}
       manques={
-        reference != null && ecart == null
-          ? [
-              total == null
-                ? 'Cette offre n’a pas de budget : il n’y a rien à comparer.'
-                : 'L’offre de référence n’a ni montant annuel saisi ni point de livraison chiffré.',
-              'Une offre se désigne comme référence avec la cible, sur la ligne de l’offre.',
-            ]
-          : undefined
+        estLeRepere || ecart != null
+          ? undefined
+          : reference == null
+            ? [
+                'Aucune offre de cette cotation n’est désignée comme référence, et aucune n’a de '
+                + 'budget qui permettrait de prendre la moins chère à sa place.',
+                'Une offre se désigne comme référence avec la cible, sur sa ligne.',
+              ]
+            : [
+                total == null
+                  ? 'Cette offre n’a pas de budget : il n’y a rien à comparer.'
+                  : 'L’offre de référence n’a ni montant annuel saisi ni point de livraison chiffré.',
+              ]
       }
     />
   ) : null
@@ -475,12 +498,20 @@ export function CarteOffreEtude({
           </span>
 
           <span>
-            {ecart == null ? (
+            {ecart == null && estLeRepere ? (
               /* « RÉFÉRENCE » ET NON UN TIRET : cette offre est la base du comparatif, ce n'est pas
                  une valeur manquante. Michel, 27/08/2026 : les autres se lisent alors « plus chère »
                  ou « moins chère » qu'elle — d'où l'infobulle sur les écarts, juste en dessous. */
               <span className="flex items-center justify-end gap-1 text-km-label font-bold text-km-blue">
                 référence
+                {explicationEcart}
+              </span>
+            ) : ecart == null ? (
+              /* NI RÉFÉRENCE, NI ÉCART : soit la cotation n'a pas de repère, soit il manque un
+                 budget d'un côté. Un tiret et l'infobulle qui dit lequel des deux — écrire
+                 « référence » ici était le défaut corrigé le 03/09/2026. */
+              <span className="flex items-center justify-end gap-1 text-km-label font-bold text-km-faint">
+                —
                 {explicationEcart}
               </span>
             ) : (
