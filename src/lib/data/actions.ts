@@ -313,6 +313,8 @@ export function useUpdateAction() {
  */
 export type PatchAction = Partial<{
   titre: string
+  /** Le statut, changé depuis la frise de la fiche (Naoëlle, 03/09/2026). */
+  statut_id: string | null
   priorite: number
   date_prevue: string | null
   commentaire: string | null

@@ -117,6 +117,20 @@ export const TEINTES_FRISE: Record<string, TeinteFrise> = {
     hachures: ['#e8d5b4', '#f6f1e6'],
     pulsation: 'animate-km-soft-pulse',
   },
+  /**
+   * La tâche — l'ambre de son icône et de sa carte, partout dans l'application.
+   *
+   * MÊME AMBRE QUE LE MANDAT, et c'est assumé : les deux ne se croisent jamais sur un même écran,
+   * et personne ne confond une tâche avec un mandat. Dupliquer la teinte plutôt que réutiliser
+   * `mandat` évite surtout qu'une retouche de couleur sur l'un déteigne sur l'autre par surprise.
+   */
+  tache: {
+    gradient: 'from-amber-600 to-amber-500',
+    ombreCourant: 'shadow-[0_5px_14px_rgba(181,122,36,.34)]',
+    ombreFranchi: 'shadow-[0_2px_6px_rgba(181,122,36,.2)]',
+    hachures: ['#e8d5b4', '#f6f1e6'],
+    pulsation: 'animate-km-soft-pulse',
+  },
   /** Le contrat — le bleu des engagements. */
   contrat: {
     gradient: 'from-sky-600 to-sky-400',

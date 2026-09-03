@@ -4,20 +4,24 @@ import { heureDe, instantTache } from '@/lib/heureTache'
 import { ArrowLeft, CheckSquare, Check, Trash2 } from 'lucide-react'
 import { Topbar } from '@/components/layout/Topbar'
 import { Button } from '@/components/ui/button'
-import { Badge } from '@/components/ui/badge'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { EntityLink } from '@/components/ui/entity-link'
 import { Dialog } from '@/components/ui/dialog'
 import { HistoriqueDiscret } from '@/components/ui/historique-discret'
 import { InlineField } from '@/components/ui/inline-field'
+import { FriseStatut } from '@/components/opportunite/FriseStatut'
 import { useAction, useUpdateActionPartiel, useDeleteAction, useCompleteAction, type PatchAction } from '@/lib/data/actions'
 import { useSites } from '@/lib/data/sites'
 import { useContacts } from '@/lib/data/contacts'
 import { useReferenceTable } from '@/lib/data/referenceTables'
 import { useCanManage } from '@/lib/data/roles'
 import { useSuppression } from '@/lib/useSuppression'
-import { FALLBACK_STATUTS_ACTIONS, STATUT_ACTION_TONE } from '@/lib/referenceFallbacks'
+import { FALLBACK_STATUTS_ACTIONS } from '@/lib/referenceFallbacks'
 import { useGoBack } from '@/lib/useGoBack'
+
+/** Le chemin d'une tâche, dans l'ordre de `statuts_actions`. « Annulée » n'en est pas : c'est la
+ *  sortie, et la frise la porte en finalité. */
+const JALONS_TACHE = ['A_FAIRE', 'EN_COURS', 'EN_ATTENTE', 'TERMINEE'] as const
 
 export default function ActionDetail() {
   const { id } = useParams()
@@ -86,9 +90,9 @@ export default function ActionDetail() {
                   <CardTitle className="font-display text-base">{action.titre}</CardTitle>
                 </div>
                 <div className="flex items-center gap-2">
-                  <Badge tone={STATUT_ACTION_TONE[action.statut] ?? 'neutral'}>
-                    {statuts.find((s) => s.code === action.statut)?.libelle ?? action.statut}
-                  </Badge>
+                  {/* La pastille de statut est partie : la frise juste en dessous la dit mieux, et
+                      deux endroits à tenir d'accord finissent toujours par diverger (Naoëlle,
+                      03/09/2026). */}
                   {canManage && (
                     <>
                       {/* Plus de bouton « Modifier » : les champs s'editent en place ci-dessous. */}
@@ -102,6 +106,51 @@ export default function ActionDetail() {
               </div>
             </CardHeader>
             <CardContent className="px-0 space-y-3 text-sm">
+              {/* ══ LA FRISE DE LA TÂCHE ══════════════════════════════════════════════════════════
+
+                  QUATRE JALONS, UNE SORTIE. `statuts_actions` en compte cinq, dans cet ordre : À
+                  faire, En cours, En attente, Terminée, Annulée. Les quatre premiers sont le
+                  chemin ; « Annulée » est une sortie — une tâche annulée n'est pas plus avancée
+                  qu'une tâche terminée, c'est autre chose.
+
+                  « EN ATTENTE » RESTE UN JALON, alors qu'on peut très bien passer d'« En cours » à
+                  « Terminée » sans y toucher. Une frise ne dit pas ce qu'il FAUT franchir, elle
+                  situe : sauter un cran est un cas courant sur tous les objets, et la retirer
+                  priverait d'un état que le métier a posé en base. */}
+              <FriseStatut
+                teinte="tache"
+                jalons={JALONS_TACHE.map((code) => ({
+                  code,
+                  libelle: statuts.find((s) => s.code === code)?.libelle ?? code,
+                }))}
+                courant={action.statut === 'ANNULEE' ? 'A_FAIRE' : action.statut}
+                finalite={
+                  action.statut === 'ANNULEE'
+                    ? {
+                        libelle: statuts.find((s) => s.code === 'ANNULEE')?.libelle ?? 'Annulée',
+                        perdue: false,
+                        neutre: true,
+                      }
+                    : null
+                }
+                onJalon={
+                  canManage
+                    ? (code: string) => {
+                        const statut = statuts.find((s) => s.code === code)
+                        if (!statut || statut.code === action.statut) return
+                        majAction({ statut_id: statut.id })
+                          .then(() => showToast(`✓ ${statut.libelle}`))
+                          .catch((e) => showToast(e instanceof Error ? `Erreur : ${e.message}` : 'Enregistrement impossible'))
+                      }
+                    : undefined
+                }
+                issues={
+                  canManage && action.statut !== 'ANNULEE'
+                    ? [{ code: 'ANNULEE', libelle: statuts.find((s) => s.code === 'ANNULEE')?.libelle ?? 'Annulée' }]
+                    : undefined
+                }
+              />
+
               <p><span className="text-km-faint">Type :</span> {action.type_action}</p>
               <p><span className="text-km-faint">Créée le :</span> {new Date(action.date_creation).toLocaleDateString('fr-FR')}</p>
               {action.responsable && <p><span className="text-km-faint">Responsable :</span> {action.responsable}</p>}
