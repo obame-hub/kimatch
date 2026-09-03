@@ -1285,6 +1285,31 @@ export type PatchRecommandation = Partial<{
   cout_prestation_estime: number | null
   cout_prestation_reel: number | null
   contact_signataire_id: string | null
+  /* ══ LES CHIFFRES DE L'AFFAIRE, SAISIS À LA MAIN ═══════════════════════════════════════════
+
+     William, 03/09/2026, sur « CABINET MOLINIER - SDC LE FONTENAY » : impossible de saisir le
+     montant. Et pour cause — ce type ne listait que huit champs modifiables, aucun chiffre parmi
+     eux. Le bloc « L'affaire » était en lecture seule d'un bout à l'autre.
+
+     Ça ne s'était pas vu jusque-là parce que les 1 599 recommandations reprises apportaient leurs
+     montants de Salesforce : personne n'avait à les saisir. Cette recommandation est née dans
+     Kimatch — c'est le premier dossier où il faut les écrire.
+
+     Naoëlle, le même jour : « c'est une saisie commerciale, rends éditable le montant et les
+     marges ». */
+  montant: number | null
+  volume_contractuel: number | null
+  budget_ancienne_offre: number | null
+  budget_nouvelle_offre: number | null
+  difference_budgetaire: number | null
+  marge_brute: number | null
+  marge_apporteur: number | null
+  /* Écrite, mais JAMAIS saisie : voir `BlocAffaire`. La règle de Michel du 30/08 —
+     marge nette = marge brute − marge apporteur — la déduit des deux autres, et la colonne existe
+     parce que le tableau de bord la somme directement. */
+  marge_nette: number | null
+  marge_nette_coeff: number | null
+  marge_nette_mwh: number | null
 }>
 
 /**

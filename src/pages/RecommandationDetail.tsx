@@ -1245,7 +1245,7 @@ export default function RecommandationDetail() {
                 />
               )}
 
-              <BlocAffaire reco={reco} />
+              <BlocAffaire reco={reco} peutModifier={canManage} majReco={majReco} signaler={signaler} />
 
 {/* LES NOTES DU DOSSIER SONT RETIREES « pour le moment » (Michel, 25/08/2026). L'historique,
                   lui, reste : il trace les modifications du dossier et ne fait pas partie des notes. */}
