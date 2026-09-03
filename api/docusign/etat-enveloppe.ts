@@ -1,6 +1,5 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node'
-import { getDocusignContext } from './_client.js'
-import { NON_CONNECTE, profilAppelant } from './_oauth.js'
+import { NON_CONNECTE, profilAppelant, clientService, sessionQuelconque } from './_oauth.js'
 import { clientAdmin } from './_archivage.js'
 import { doitEcrire, statutAEcrire, statutMetierContrat } from './_decision.js'
 
@@ -17,6 +16,30 @@ import { doitEcrire, statutAEcrire, statutMetierContrat } from './_decision.js'
  * d'accord avec lui. C'est la seule réponse honnête à « comment je suis sûre ».
  *
  * Lecture seule du point de vue de DocuSign : on ne modifie jamais l'enveloppe.
+ *
+ * ══ LIRE UN STATUT N'EXIGE PAS D'AVOIR SON PROPRE COMPTE DOCUSIGN ═══════════════════════════════
+ *
+ * Naoëlle, 03/09/2026 : « une personne qui utilise Kimatch devrait voir les statuts à jour même si
+ * elle n'utilise pas DocuSign. »
+ *
+ * Elle a raison, et c'est ce qui produisait le défaut de Michel. Cet appel prenait la session de
+ * L'APPELANT : les sept personnes qui en ont une lisaient l'état réel, Michel — qui n'envoie aucun
+ * mandat et n'a donc jamais connecté DocuSign — recevait NON_CONNECTE et restait sur le statut
+ * stocké. Le même contrat affichait « signé » chez les uns, « envoyé » chez lui.
+ *
+ * OR LE STATUT D'UN CONTRAT APPARTIENT À L'ENTREPRISE, PAS À CELUI QUI LE REGARDE. Les sept
+ * sessions pointent le même compte DocuSign (« KIWEE ENERGIE ») : n'importe laquelle sait lire
+ * n'importe quelle enveloppe de ce compte. On se rabat donc sur une autre session quand l'appelant
+ * n'en a pas — exactement ce que fait déjà le cron `rattraper-enveloppes`, qui n'a aucun
+ * utilisateur derrière lui et lit pourtant très bien.
+ *
+ * CE N'EST PAS UN CONTOURNEMENT DE DROITS. L'appelant est authentifié, et il ne voit ce contrat que
+ * si les politiques de la base le lui montrent : le repli ne décide pas de CE QU'IL PEUT VOIR, il
+ * décide seulement AVEC QUEL JETON on interroge DocuSign.
+ *
+ * L'ENVOI, LUI, RESTE PERSONNEL. Une enveloppe part au nom de quelqu'un, avec sa licence
+ * d'expéditeur : `send.ts` continue d'exiger la session de l'appelant, et NON_CONNECTE y garde tout
+ * son sens. Lire et signer ne demandent pas les mêmes droits.
  */
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   const authHeader = req.headers.authorization
@@ -114,9 +137,13 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   }
 
   try {
-    const ctx = await getDocusignContext(profilId)
-    const base = `${ctx.baseUri}/restapi/v2.1/accounts/${ctx.accountId}/envelopes/${contrat.docusign_envelope_id}`
-    const entetes = { Authorization: `Bearer ${ctx.accessToken}` }
+    /* `sessionQuelconque` essaie D'ABORD celle de l'appelant : quand il en a une, rien ne change —
+       même jeton, même compte, même réponse. Elle ne cherche ailleurs que s'il n'en a pas, ou si
+       son jeton ne se renouvelle plus. */
+    const session = await sessionQuelconque(clientService(), profilId)
+    if (!session) throw new Error(NON_CONNECTE)
+    const base = `${session.base_uri}/restapi/v2.1/accounts/${session.account_id}/envelopes/${contrat.docusign_envelope_id}`
+    const entetes = { Authorization: `Bearer ${session.access_token}` }
 
     const [rEnv, rDest] = await Promise.all([
       fetch(base, { headers: entetes }),
@@ -231,8 +258,13 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   } catch (err) {
     const message = err instanceof Error ? err.message : 'Erreur DocuSign inconnue'
     if (message === NON_CONNECTE) {
+      /* Ce cas ne dépend plus du compte de l'appelant : on n'y arrive que si PERSONNE dans
+         l'équipe n'a de session utilisable. Le message le dit, plutôt que de renvoyer quelqu'un
+         connecter un compte qui ne changerait rien à l'affaire. */
       res.status(409).json({
-        error: 'Votre compte DocuSign n’est pas connecté. Ouvrez « Mon profil » et autorisez DocuSign.',
+        error:
+          'Aucun compte DocuSign de l’équipe n’est utilisable en ce moment : le statut ne peut pas être vérifié. ' +
+          'Une reconnexion depuis « Mon profil » — la vôtre ou celle d’un collègue — rétablira la lecture.',
         code: NON_CONNECTE,
       })
       return

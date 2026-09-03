@@ -1420,17 +1420,19 @@ function BlocEnvoiSignature({ contrat, signaler }: { contrat: Contrat; signaler:
      Naoëlle, 03/09/2026 : « pourquoi sur ce contrat Michel est le seul à ne pas voir le statut
      signé, pour lui c'est encore envoyé » — puis « pourtant Matthieu et moi on voit bien signé ».
 
-     LA CAUSE : la vérification ci-dessous part À L'OUVERTURE DE LA FICHE, et elle exige une session
-     DocuSign. Sept personnes en ont une (Matthieu, Fabien, Naoëlle, Guillaume, William, Thomas,
-     Marie) ; Michel n'en a pas. Ils lisent donc l'état RÉEL, lu chez DocuSign ; lui lit l'état
-     stocké, celui qu'a laissé la dernière notification reçue. Deux sources, deux réponses, aucun
-     bug — et rien à l'écran pour le dire.
+     LA CAUSE ÉTAIT DANS L'API, et elle est corrigée là-bas : `etat-enveloppe` prenait la session
+     DocuSign DE L'APPELANT. Sept personnes en ont une, Michel n'en a pas — il recevait donc
+     NON_CONNECTE et restait sur le statut stocké pendant que les autres lisaient l'état réel.
 
-     C'EST CE SILENCE QUI ÉTAIT LE DÉFAUT. Le `catch` était muet « volontairement », pour ne pas
-     jeter une erreur au visage de quelqu'un qui vient lire une fiche. L'intention était bonne, le
-     résultat non : un statut périmé qui a l'air normal se croit, et deux collègues finissent par se
-     contredire au téléphone sans comprendre pourquoi. On ne montre toujours pas d'erreur — on dit
-     que le statut affiché n'a pas pu être vérifié, et comment y remédier. */
+     « Une personne qui utilise Kimatch devrait voir les statuts à jour même si elle n'utilise pas
+     DocuSign » : l'endpoint se rabat désormais sur une autre session de l'équipe, toutes pointant
+     le même compte « KIWEE ENERGIE ». Michel voit maintenant la même chose que tout le monde.
+
+     CE BANDEAU RESTE POUR L'AUTRE MOITIÉ DU PROBLÈME : le silence. Le `catch` était muet
+     « volontairement », pour ne pas jeter une erreur au visage de quelqu'un qui vient lire une
+     fiche. L'intention était bonne, le résultat non : un statut périmé qui a l'air normal se croit,
+     et deux collègues finissent par se contredire au téléphone. Il ne se déclenche plus que si
+     PERSONNE dans l'équipe n'a de session utilisable, ou si DocuSign ne répond pas. */
   const [verification, setVerification] = useState<'non_connecte' | 'echec' | null>(null)
 
   /* ══ ON DEMANDE À DOCUSIGN DÈS L'OUVERTURE DE LA FICHE ═══════════════════════════════════════
@@ -1517,15 +1519,14 @@ function BlocEnvoiSignature({ contrat, signaler }: { contrat: Contrat; signaler:
         <p className="mb-2.5 rounded-km border border-km-amber-line bg-km-amber-soft px-2.5 py-1.5 text-km-label text-amber-800">
           {verification === 'non_connecte' ? (
             <>
-              Ce statut vient de la dernière notification reçue : il n’a pas pu être vérifié auprès
-              de DocuSign, votre compte n’étant pas connecté. Un collègue connecté peut donc voir un
-              état plus récent.{' '}
+              Ce statut vient de la dernière notification reçue : aucun compte DocuSign de l’équipe
+              n’est utilisable en ce moment, il n’a donc pas pu être vérifié.{' '}
               <button
                 type="button"
                 onClick={() => navigate('/profil')}
                 className="font-bold underline decoration-dotted"
               >
-                Connecter mon compte DocuSign
+                Reconnecter DocuSign
               </button>
             </>
           ) : (
