@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { ExplicationCalcul } from '@/components/ui/explication-calcul'
 import { cn } from '@/lib/utils'
 import { LIBELLE_CLASSE, ORDRE_CLASSES, somme } from '@/lib/calculs/prixOffre'
 import { libelleOffre, natureDeLOffre } from '@/lib/data/recommandations'
@@ -85,13 +86,136 @@ export function CarteOffreEtude({
   const marges = [...new Set(offre.details_par_compteur.map((d) => (d.type_marge === 'FIXE' ? d.marge_fixe_eur : d.marge_reelle_eur_mwh)).filter((v) => v != null))]
   const marge = marges.length === 1 ? marges[0]! : null
   const typeMarge = offre.details_par_compteur[0]?.type_marge ?? 'VARIABLE'
+  /* L'abonnement n'a sa part qu'au gaz : ailleurs il est deja dans l'energie, et le compter a
+     part le compterait deux fois. Declare ici parce que le budget s'explique avec lui. */
+  const abonnementAPart = offre.details_par_compteur.some((d) => !!d.prix_gaz)
+
   const total = offre.montant_annuel_ht ?? b.total
-  const ecart = total != null && reference?.montant_annuel_ht != null && reference.id !== offre.id
-    ? total - reference.montant_annuel_ht
+
+  /* ══ L'ÉCART SE CALCULE SUR LA MÊME BASE DES DEUX CÔTÉS ══
+
+     Il ne le faisait pas : cette offre prenait son montant global À DÉFAUT la somme de ses lignes,
+     tandis que la référence ne regardait QUE son montant global. Conséquence, dès qu'on chiffrait une
+     offre de référence point de livraison par point de livraison sans retaper le total annuel — ce
+     que fait justement la modale de saisie des prix — toute la colonne « écart » de la cotation
+     devenait vide, sur toutes les offres à la fois, sans que rien ne dise pourquoi.
+
+     Aucune des deux offres de référence de la base n'est dans ce cas aujourd'hui (l'une a son montant
+     global, l'autre n'a aucun prix du tout), donc rien ne change à l'écran ; c'est la première
+     référence chiffrée par la modale qui aurait déclenché la panne. */
+  const totalReference = reference == null
+    ? null
+    : reference.montant_annuel_ht ?? budgetsDeLOffre(reference).total
+  const ecart = total != null && totalReference != null && reference!.id !== offre.id
+    ? total - totalReference
     : null
-  const ecartPct = ecart != null && reference?.montant_annuel_ht
-    ? (ecart / reference.montant_annuel_ht) * 100
-    : null
+  const ecartPct = ecart != null && totalReference ? (ecart / totalReference) * 100 : null
+
+  /* ══ POURQUOI CES CHIFFRES SONT CE QU'ILS SONT ══
+
+     Naoëlle, 03/09/2026 : « sur chaque champ de calcul, au survol, tu expliques pourquoi c'est
+     rempli, pourquoi c'est pas rempli, comment c'est calculé. »
+
+     PAS DANS LE DOCUMENT IMPRIMÉ. `deplieToujours` marque le rapport téléchargé : une infobulle y
+     serait un rond gris inerte, et les colonnes de chiffres y sont calées au pixel sur des largeurs
+     mesurées (voir plus bas). L'aide vit donc à l'écran seulement. */
+  const explique = !deplieToujours
+
+  const explicationBudget = explique ? (
+    <ExplicationCalcul
+      titre="Budget HT par an"
+      resume={
+        'Ce que le client paierait sur un an avec cette offre, hors taxe. Le montant annuel saisi '
+        + 'sur l’offre fait foi ; sans lui, on additionne les points de livraison chiffrés.'
+      }
+      etapes={
+        offre.montant_annuel_ht != null
+          ? [{
+              libelle: 'Montant annuel de l’offre',
+              valeur: `${Math.round(offre.montant_annuel_ht).toLocaleString('fr-FR')} €`,
+              origine: b.total != null && Math.abs(b.total - offre.montant_annuel_ht) > 1
+                ? `saisi sur l’offre — la somme des points de livraison donne ${Math.round(b.total).toLocaleString('fr-FR')} €`
+                : 'saisi sur l’offre',
+            }]
+          : [
+              { libelle: 'Abonnement', valeur: abonnementAPart && b.abonnement != null ? `${Math.round(b.abonnement).toLocaleString('fr-FR')} €` : null, origine: abonnementAPart ? 'gaz : compté à part' : 'électricité : déjà compris dans l’énergie' },
+              { libelle: 'Énergie', valeur: b.energie != null ? `${Math.round(b.energie).toLocaleString('fr-FR')} €` : null, origine: 'prix du fournisseur × volume' },
+              { libelle: 'Réseau et taxes', valeur: b.contributions != null ? `${Math.round(b.contributions).toLocaleString('fr-FR')} €` : null, origine: 'acheminement, accises, CTA' },
+            ]
+      }
+      resultat={total != null ? { libelle: 'Budget HT / an', valeur: `${Math.round(total).toLocaleString('fr-FR')} €` } : undefined}
+      manques={
+        total == null
+          ? [
+              'Aucun montant annuel n’est saisi sur l’offre, et aucun point de livraison n’est chiffré.',
+              'Le budget apparaîtra dès qu’on aura saisi les prix, avec le bouton « Modifier les prix ».',
+            ]
+          : undefined
+      }
+    />
+  ) : null
+
+  const explicationEcart = explique ? (
+    <ExplicationCalcul
+      titre="Écart à l’offre de référence"
+      resume={
+        reference == null
+          ? 'Cette offre EST la référence de la cotation : les autres se disent plus chères ou moins '
+            + 'chères qu’elle. Elle ne se compare donc pas à elle-même.'
+          : 'De combien cette offre est plus chère ou moins chère que l’offre désignée comme '
+            + 'référence de la cotation — la même pour toutes les offres, tous fournisseurs confondus.'
+      }
+      etapes={reference == null ? undefined : [
+        { libelle: 'Budget de cette offre', valeur: total != null ? `${Math.round(total).toLocaleString('fr-FR')} €` : null, origine: 'colonne de gauche' },
+        {
+          libelle: `Budget de la référence${reference.fournisseur_nom ? ` (${reference.fournisseur_nom})` : ''}`,
+          valeur: totalReference != null ? `${Math.round(totalReference).toLocaleString('fr-FR')} €` : null,
+          origine: reference.montant_annuel_ht != null ? 'montant annuel saisi sur l’offre' : 'somme de ses points de livraison',
+        },
+      ]}
+      resultat={ecart != null ? {
+        libelle: ecart > 0 ? 'Plus chère de' : 'Moins chère de',
+        valeur: `${Math.abs(Math.round(ecart)).toLocaleString('fr-FR')} €`,
+      } : undefined}
+      manques={
+        reference != null && ecart == null
+          ? [
+              total == null
+                ? 'Cette offre n’a pas de budget : il n’y a rien à comparer.'
+                : 'L’offre de référence n’a ni montant annuel saisi ni point de livraison chiffré.',
+              'Une offre se désigne comme référence avec la cible, sur la ligne de l’offre.',
+            ]
+          : undefined
+      }
+    />
+  ) : null
+
+  const explicationMarge = explique ? (
+    <ExplicationCalcul
+      titre={typeMarge === 'FIXE' ? 'Marge fixe' : 'Marge de référence (brute)'}
+      resume={
+        typeMarge === 'FIXE'
+          ? 'La marge que le fournisseur impose, en euros par mégawattheure. Elle est déjà comprise '
+            + 'dans son prix : elle ne s’y ajoute pas.'
+          : 'La marge annoncée au fournisseur, en euros par mégawattheure. Elle s’ajoute à son prix '
+            + 'pour former le prix présenté au client, et elle est partagée avec lui — ce que KiWee '
+            + 'garde vaut moins que ce chiffre.'
+      }
+      etapes={[{
+        libelle: 'Marge saisie sur les points de livraison',
+        valeur: marge != null ? `${marge.toLocaleString('fr-FR', { maximumFractionDigits: 2 })} €/MWh` : null,
+        origine: `${offre.details_par_compteur.length} point${offre.details_par_compteur.length > 1 ? 's' : ''} de livraison sur cette offre`,
+      }]}
+      manques={
+        marge != null ? undefined
+          : marges.length > 1
+            /* UNE MOYENNE DE MARGES NE VEUT RIEN DIRE pour un commercial qui négocie : on dit qu'elles
+               diffèrent plutôt que d'en inventer une seule. */
+            ? [`Les points de livraison de cette offre portent ${marges.length} marges différentes (${marges.map((m) => `${m!.toLocaleString('fr-FR', { maximumFractionDigits: 2 })}`).join(', ')} €/MWh). Une moyenne ne voudrait rien dire : dépliez l’offre pour les voir une par une.`]
+            : ['Aucune marge n’est saisie sur les points de livraison de cette offre.']
+      }
+    />
+  ) : null
 
   // Les trois parts du budget. Sans total, aucune barre : une barre vide ferait croire à un zéro.
   // QUATRE SEGMENTS, ceux de la maquette de William et dans ses couleurs : abonnement en bleu,
@@ -100,7 +224,6 @@ export function CarteOffreEtude({
   //
   // L'abonnement n'a sa part qu'au gaz : ailleurs il est dans l'énergie, et la barre dépasserait
   // 100 % de ce que le client paie.
-  const abonnementAPart = offre.details_par_compteur.some((d) => !!d.prix_gaz)
   const parts = [
     { cle: 'abonnement', libelle: 'Abonnement', valeur: abonnementAPart ? b.abonnement : null, couleur: 'bg-km-blue' },
     { cle: 'energie', libelle: 'Énergie', valeur: b.energie, couleur: 'bg-km-green' },
@@ -318,7 +441,15 @@ export function CarteOffreEtude({
             // libellé se coupait en « budget HT / a. » (constaté le 21/08/2026 sur les pages de détail
             // du document). 152 px laissent la place à un écart à cinq chiffres et trois chiffres de
             // pourcentage, 76 px au libellé du budget en entier.
-            avecIdentite ? 'grid grid-cols-[76px_152px] justify-items-end' : 'flex shrink-0 gap-7',
+            //
+            // +20 PX QUAND L'AIDE S'AFFICHE : l'infobulle ajoute un rond de 16 px et son écart de
+            // 4 px à la pastille d'écart, qui remplissait déjà 138 des 152 px. Le document imprimé
+            // n'a pas d'aide, donc garde ses largeurs validées au pixel.
+            avecIdentite
+              ? explique
+                ? 'grid grid-cols-[76px_172px] justify-items-end'
+                : 'grid grid-cols-[76px_152px] justify-items-end'
+              : 'flex shrink-0 gap-7',
           )}
         >
           {!avecBarre && (
@@ -326,8 +457,9 @@ export function CarteOffreEtude({
               <span className="block text-km-label font-bold tabular-nums">
                 {marge == null ? <span className="text-km-faint">—</span> : `${marge.toLocaleString('fr-FR', { maximumFractionDigits: 2 })} €`}
               </span>
-              <span className="block text-km-micro text-km-faint">
+              <span className="flex items-center justify-center gap-1 text-km-micro text-km-faint">
                 marge {typeMarge === 'FIXE' ? 'fixe' : '€/MWh'}
+                {explicationMarge}
               </span>
             </span>
           )}
@@ -336,7 +468,10 @@ export function CarteOffreEtude({
             <span className="block text-km-body font-extrabold tabular-nums">
               {total == null ? '—' : Math.round(total).toLocaleString('fr-FR')}
             </span>
-            <span className="block text-km-micro text-km-faint">budget HT / an</span>
+            <span className="flex items-center justify-center gap-1 text-km-micro text-km-faint">
+              budget HT / an
+              {explicationBudget}
+            </span>
           </span>
 
           <span>
@@ -344,8 +479,12 @@ export function CarteOffreEtude({
               /* « RÉFÉRENCE » ET NON UN TIRET : cette offre est la base du comparatif, ce n'est pas
                  une valeur manquante. Michel, 27/08/2026 : les autres se lisent alors « plus chère »
                  ou « moins chère » qu'elle — d'où l'infobulle sur les écarts, juste en dessous. */
-              <span className="block text-km-label font-bold text-km-blue">référence</span>
+              <span className="flex items-center justify-end gap-1 text-km-label font-bold text-km-blue">
+                référence
+                {explicationEcart}
+              </span>
             ) : (
+              <span className="inline-flex items-center gap-1">
               <span
                 title={
                   ecart > 0
@@ -369,6 +508,8 @@ export function CarteOffreEtude({
                     · {Math.abs(ecartPct).toLocaleString('fr-FR', { maximumFractionDigits: 1 })} %
                   </span>
                 )}
+              </span>
+              {explicationEcart}
               </span>
             )}
           </span>
