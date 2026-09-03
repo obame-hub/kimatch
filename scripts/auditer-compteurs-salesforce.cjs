@@ -11,7 +11,24 @@
 // faire arbitrer à la source, parce qu'aucun code ne peut les trancher :
 //
 //   · les numéros de PDL en DOUBLON dans Salesforce, avec des consommations divergentes ;
-//   · les compteurs de Kimatch que Salesforce ne connaît pas.
+//   · les compteurs de Kimatch que Salesforce ne connaît pas ;
+//   · les PDL dont SEUL LE CAR est renseigné — voir plus bas, c'est la liste la plus utile.
+//
+// ══ POURQUOI LA TROISIÈME LISTE EXISTE ════════════════════════════════════════════════════════════
+//
+// Michel, sur le PDL 30001650909439 : « la question, c'est comment est arrivé le 2146 ». Réponse :
+// il est dans `Consommation_annuelle__c` (le CAR), sur une fiche qu'il a créée lui-même le
+// 02/09/2024 — pendant que `Consommation_annuelle_MWh__c`, le champ que ses rapports somment, est
+// resté à zéro.
+//
+// CORRIGER L'IMPORT NE SUFFIT DONC PAS. Remettre Kimatch sur le bon champ met ce compteur à 0 :
+// c'est cohérent avec Salesforce, mais la seule consommation connue de ce PDL disparaît. 1 931
+// compteurs sont dans ce cas, et leur CAR est parfois la seule mesure existante.
+//
+// PIRE : LE CAR N'A PAS D'UNITÉ FIABLE. Sur le C2 ci-dessus, 2 146 se lit en MWh et c'est
+// plausible ; sur le C4 30000141275009, le CAR vaut 41 674 quand la vraie valeur est 41,674 — donc
+// des kWh. Aucun code ne peut trancher ligne à ligne : c'est une saisie humaine, dans deux unités.
+// D'où une liste, à reprendre à la source, plutôt qu'une conversion inventée.
 //
 // ══ USAGE ═════════════════════════════════════════════════════════════════════════════════════════
 //
@@ -175,6 +192,29 @@ const nb = (v) => (v === '' || v == null ? null : Number(v))
     'utf8',
   )
 
+  /* La liste la plus utile des trois : les PDL dont le champ officiel est vide alors que le CAR
+     porte une valeur. C'est exactement ce qui disparaîtra de Kimatch au passage sur le bon champ,
+     et ce que quelqu'un doit reporter dans `Consommation_annuelle_MWh__c` — après avoir décidé de
+     son unité. Triée par CAR décroissant : on commence par ce qui pèse. */
+  const carSeul = [...parNom.entries()]
+    .filter(([, l]) => l.length === 1 && !(l[0].mwh > 0) && l[0].car > 0)
+    .map(([n, l]) => ({ nom: n, car: l[0].car, seg: l[0].seg, ene: l[0].ene, k: km.get(n) }))
+    .sort((a, b) => b.car - a.car)
+
+  const fichier3 = path.join(SORTIE, 'pdl-avec-car-mais-sans-consommation-officielle.csv')
+  fs.writeFileSync(
+    fichier3,
+    'PDL;CAR Salesforce;segment;energie;compte;site;affiche aujourd hui dans Kimatch\n' +
+      carSeul
+        .map((x) =>
+          [x.nom, x.car, x.seg, x.ene, x.k?.compte_nom ?? '', x.k?.site_nom ?? '',
+            x.k?.consommation_annuelle_mwh ?? ''].join(';'))
+        .join('\n') + '\n',
+    'utf8',
+  )
+  console.log('  PDL avec un CAR mais sans consommation officielle : ' + carSeul.length)
+  console.log('')
+
   const fichier2 = path.join(SORTIE, 'compteurs-kimatch-inconnus-de-salesforce.csv')
   fs.writeFileSync(
     fichier2,
@@ -192,4 +232,5 @@ const nb = (v) => (v === '' || v == null ? null : Number(v))
   console.log('  A FAIRE ARBITRER A LA SOURCE :')
   console.log('    ' + fichier1)
   console.log('    ' + fichier2)
+  console.log('    ' + fichier3)
 })()
