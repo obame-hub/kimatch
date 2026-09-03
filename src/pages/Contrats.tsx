@@ -63,6 +63,18 @@ function alerteTacite(
   }
 }
 
+/**
+ * Les deux énergies de la bascule, dans la barre d'outils.
+ *
+ * Mêmes icônes et mêmes couleurs que sur la liste des compteurs et que dans `IconeEnergie` :
+ * l'ambre du gaz, le bleu de l'électricité. Deux écrans qui filtrent la même chose doivent le
+ * proposer de la même façon, sinon on réapprend le geste à chaque page.
+ */
+const ENERGIES_CONTRAT = [
+  { cle: 'electricite' as const, Icone: Zap, libelle: 'l’électricité', actif: 'text-km-blue' },
+  { cle: 'gaz' as const, Icone: Flame, libelle: 'le gaz', actif: 'text-km-amber' },
+]
+
 const CLAUSES: { key: 'clause_tacite_reconduction' | 'clause_renegociation_anticipee' | 'clause_engagement_consommation' | 'clause_energie_verte' | 'clause_indexation_prix' | 'clause_penalites_resiliation'; label: string }[] = [
   { key: 'clause_tacite_reconduction', label: 'Tacite reconduction' },
   { key: 'clause_renegociation_anticipee', label: 'Renégociation anticipée' },
@@ -431,11 +443,32 @@ export default function Contrats({ sansEntete }: { sansEntete?: boolean }) {
   const [sansFournisseur, setSansFournisseur] = useState(false)
   const nbSansFournisseur = (contrats ?? []).filter((c) => !c.fournisseur_nom).length
 
+  /* ══ LE FILTRE D'ÉNERGIE, COMME SUR LA LISTE DES COMPTEURS ═════════════════════════════════════
+
+     Naoëlle, 03/09/2026 : « ajoute aussi le filtre énergie sur la vue des contrats ».
+
+     IL EST DANS LA BARRE D'OUTILS ET NON SUR UN EN-TÊTE, parce que cette vue n'est pas un tableau :
+     c'est une grille de cartes, il n'y a pas de colonne « Énergie » sur laquelle se poser. Le geste
+     reste le même — deux icônes, un clic pour n'en garder qu'une, un second pour revenir aux deux —
+     et les couleurs sont celles d'`IconeEnergie`, l'ambre du gaz et le bleu de l'électricité.
+
+     Le compte affiché sur chaque icône vient des contrats du périmètre : un filtre qui ne dit pas
+     combien il cache n'incite personne à cliquer dessus, c'est déjà le parti pris de « Sans
+     fournisseur » juste à côté. */
+  const [energie, setEnergie] = useState<'electricite' | 'gaz' | null>(null)
+  const nbParEnergie = useMemo(() => ({
+    electricite: (contrats ?? []).filter((c) => c.type_energie !== 'gaz').length,
+    gaz: (contrats ?? []).filter((c) => c.type_energie === 'gaz').length,
+  }), [contrats])
+
   const contratsFiltresParStatut = (() => {
     let liste = statutFilter
       ? contrats?.filter((c) => statutVieContrat(c.date_debut, c.date_fin) === statutFilter)
       : contrats
     if (sansFournisseur) liste = liste?.filter((c) => !c.fournisseur_nom)
+    /* `type_energie` vaut 'gaz' ou 'electricite' sur cette liste — la comparaison suit celle de la
+       carte juste en dessous, qui choisit son icône de la même façon. */
+    if (energie) liste = liste?.filter((c) => (c.type_energie === 'gaz' ? 'gaz' : 'electricite') === energie)
     return liste
   })()
 
@@ -447,7 +480,8 @@ export default function Contrats({ sansEntete }: { sansEntete?: boolean }) {
   )
 
   const { query, setQuery, sortKey, setSortKey, items: filteredContrats } = useListControls(contratsDuPerimetre, {
-    searchFields: (c) => [c.fournisseur_nom, c.site_nom, c.reference_fournisseur, c.id_salesforce],
+    // `reference` en tête : c'est le numéro qu'on aura sous les yeux quand on cherchera un contrat.
+    searchFields: (c) => [c.reference, c.fournisseur_nom, c.site_nom, c.reference_fournisseur, c.id_salesforce],
     sorters: {
       site_nom: (a, b) => a.site_nom.localeCompare(b.site_nom),
       fournisseur_nom: (a, b) => a.fournisseur_nom.localeCompare(b.fournisseur_nom),
@@ -480,7 +514,7 @@ export default function Contrats({ sansEntete }: { sansEntete?: boolean }) {
           Une <span className="font-medium text-km-muted">demande</span> de contrat se crée depuis la recommandation, une fois la cotation faite — elle embarque alors tous ses points de livraison.
         </p>
 
-        <ListToolbar query={query} onQueryChange={setQuery} placeholder="Rechercher un fournisseur, un site…" count={filteredContrats?.length}>
+        <ListToolbar query={query} onQueryChange={setQuery} placeholder="Rechercher un numéro, un fournisseur, un site…" count={filteredContrats?.length}>
             <BasculePerimetre
               valeur={perimetre}
               onChange={setPerimetre}
@@ -493,6 +527,27 @@ export default function Contrats({ sansEntete }: { sansEntete?: boolean }) {
               <option key={code} value={code}>{LIBELLE_STATUT_VIE[code]}</option>
             ))}
           </Select>
+          {/* Les deux énergies, avec leur nombre. Discrètes tant qu'aucune n'est retenue. */}
+          <span className="flex shrink-0 items-center gap-1">
+            {ENERGIES_CONTRAT.map(({ cle, Icone, libelle, actif }) => (
+              <button
+                key={cle}
+                type="button"
+                onClick={() => setEnergie((e) => (e === cle ? null : cle))}
+                title={energie === cle ? 'Afficher les deux énergies' : `N’afficher que ${libelle}`}
+                aria-pressed={energie === cle}
+                className={cn(
+                  'flex items-center gap-1 rounded-km border px-2 py-1.5 text-km-label font-semibold transition-colors',
+                  energie === cle
+                    ? 'border-km-line bg-km-soft ' + actif
+                    : 'border-km-line bg-white text-km-faint hover:text-km-muted',
+                )}
+              >
+                <Icone className="h-3.5 w-3.5" />
+                <span className="font-mono">{nbParEnergie[cle]}</span>
+              </button>
+            ))}
+          </span>
           {nbSansFournisseur > 0 && (
             <button
               type="button"
@@ -543,6 +598,10 @@ export default function Contrats({ sansEntete }: { sansEntete?: boolean }) {
                       <Icon className="h-4 w-4" />
                     </span>
                     <div>
+                      {/* NOTRE NUMÉRO EN TÊTE DE CARTE, l'identifiant Salesforce derrière lui.
+                          C'est celui qu'on dictera au téléphone, et 1 484 contrats sur 1 603
+                          portent encore un `id_salesforce` qui ne veut plus rien dire ici. */}
+                      {c.reference && <p className="font-mono text-km-label font-semibold text-km-muted">{c.reference}</p>}
                       {c.id_salesforce && <p className="font-mono text-km-label text-km-faint">{c.id_salesforce}</p>}
                       <p className="font-display font-medium text-km-text">{c.fournisseur_nom}</p>
                     </div>

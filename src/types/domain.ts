@@ -675,6 +675,17 @@ export interface Contrat {
   fournisseur_compte_id: string | null
   fournisseur_nom: string
   type_energie: 'electricite' | 'gaz'
+  /**
+   * NOTRE numéro de contrat, au format CT-00001 — attribué à la création, unique.
+   *
+   * À ne pas confondre avec `reference_fournisseur`, qui est celle du fournisseur, ni avec
+   * `id_salesforce`, celle de l'ancien outil. Aucune des deux n'existe sur un contrat né dans
+   * Kimatch : c'est ce que Naoëlle a constaté le 03/09/2026 en cherchant quoi dire au téléphone.
+   *
+   * Optionnelle le temps que la migration 20260903120000 soit appliquée — le déploiement part au
+   * push, elle s'applique à la main.
+   */
+  reference?: string | null
   reference_fournisseur: string | null
   date_debut: string | null
   date_fin: string | null

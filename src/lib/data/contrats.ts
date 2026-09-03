@@ -13,6 +13,8 @@ interface RawContrat {
   compte_id: string | null
   site_id: string | null
   fournisseur_compte_id: string | null
+  /** Notre numéro, CT-00001 — optionnel tant que la migration 20260903120000 n'est pas appliquée. */
+  reference?: string | null
   reference_fournisseur: string | null
   date_debut: string | null
   date_fin: string | null
@@ -99,6 +101,7 @@ async function fetchContrats(compteId?: string, contratId?: string, listeSeule =
       fournisseur_compte_id: c.fournisseur_compte_id,
       fournisseur_nom: c.fournisseur?.nom ?? '',
       type_energie: (c.type_energie?.code?.toLowerCase() ?? 'electricite') as 'electricite' | 'gaz',
+      reference: c.reference ?? null,
       reference_fournisseur: c.reference_fournisseur,
       date_debut: c.date_debut,
       date_fin: c.date_fin,

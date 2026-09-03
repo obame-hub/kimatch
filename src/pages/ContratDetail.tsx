@@ -472,7 +472,16 @@ export default function ContratDetail() {
               </span>
             )}
           </div>
-          <p className="truncate text-xs text-km-muted">{contrat.type_energie === 'gaz' ? 'Gaz' : 'Électricité'} · {site?.nom ?? contrat.site_nom}</p>
+          {/* NOTRE NUMÉRO, JUSTE SOUS LE NOM DU FOURNISSEUR. Naoëlle, 03/09/2026 : « il faut donner
+              un numéro généré à nos contrats pour les retrouver facilement ». C'est ce qu'on lit à
+              voix haute au téléphone — donc en tête, en chasse fixe, et pas noyé dans le détail
+              avec la référence du fournisseur. */}
+          <p className="truncate text-xs text-km-muted">
+            {contrat.reference && (
+              <span className="font-mono font-semibold text-km-text">{contrat.reference} · </span>
+            )}
+            {contrat.type_energie === 'gaz' ? 'Gaz' : 'Électricité'} · {site?.nom ?? contrat.site_nom}
+          </p>
           <p className="truncate text-km-xs text-km-faint">
             {contrat.date_creation && <>Créé le {new Date(contrat.date_creation).toLocaleDateString('fr-FR')} · </>}
             Propriétaire : {contrat.proprietaire_nom || 'Aucun'}
