@@ -668,6 +668,32 @@ export default function ContratDetail() {
                   }))}
                   courant={courantContrat}
                   finalite={finaliteContrat}
+                  /* ══ ON CLIQUE LA FRISE POUR AVANCER LE CONTRAT ═══════════════════════════════
+
+                     Naoëlle, 03/09/2026, une fois la frise en place : « et du coup comment je
+                     change le statut ». Il était déjà modifiable — en cliquant sa valeur sous
+                     « Statut », dans le détail plus bas — mais plus personne ne l'y cherchait :
+                     quand une frise montre le chemin en haut de page, c'est sur elle qu'on veut
+                     agir. Un contrôle qu'on ne trouve pas équivaut à un contrôle qui n'existe pas.
+
+                     LES SIX JALONS SEULEMENT. Résilier ou annuler ne se fait pas d'un clic sur une
+                     frise dont ils sont absents tant que le contrat vit : ces deux-là restent dans
+                     le sélecteur du détail, qui propose les neuf statuts. Avancer d'une étape est
+                     un geste courant ; sortir un contrat en est un autre, et il vaut mieux qu'il
+                     demande d'aller le chercher. */
+                  onJalon={
+                    canManage
+                      ? (code) => {
+                          const statut = statuts.find((s) => s.code === code)
+                          if (!statut || statut.code === contrat.statut) return
+                          majContrat({ statut_id: statut.id })
+                            .then(() => showToast(`✓ ${statut.libelle}`))
+                            .catch((e) =>
+                              showToast(e instanceof Error ? `Erreur : ${e.message}` : 'Enregistrement impossible'),
+                            )
+                        }
+                      : undefined
+                  }
                 />
               </Card>
               {contrat.date_debut && (
