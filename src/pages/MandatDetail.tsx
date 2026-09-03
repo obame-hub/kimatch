@@ -4,7 +4,8 @@ import { ArrowLeft, FileCheck2, FileSignature, Trash2, Building2, MapPin, Gauge,
 import { Topbar } from '@/components/layout/Topbar'
 import { Button } from '@/components/ui/button'
 import { ZoneDepotFichiers } from '@/components/ui/zone-depot-fichiers'
-import { Badge } from '@/components/ui/badge'
+import { Badge } from '@/components/ui/badge'
+import { FriseStatut } from '@/components/opportunite/FriseStatut'
 import { EntityLink } from '@/components/ui/entity-link'
 import { Dialog } from '@/components/ui/dialog'
 import { FormField, Input } from '@/components/ui/form'
@@ -20,7 +21,7 @@ import { useDocuments, useTeleverserDocuments } from '@/lib/data/documents'
 import { useReferenceTable, type ReferenceRow } from '@/lib/data/referenceTables'
 import { useCanManage, useIsAdmin, useProfilsAdmin } from '@/lib/data/roles'
 import { useSuppression } from '@/lib/useSuppression'
-import { FALLBACK_STATUTS_MANDATS, STATUT_MANDAT_TONE, FALLBACK_TYPES_DOCUMENTS } from '@/lib/referenceFallbacks'
+import { FALLBACK_STATUTS_MANDATS, FALLBACK_TYPES_DOCUMENTS } from '@/lib/referenceFallbacks'
 import { sendMandatForSignature, connectDocusign, DocusignNonConnecte, etatEnveloppeMandat } from '@/lib/data/docusign'
 import { useValiderMandatManuellement } from '@/lib/data/mandats'
 import { useGoBack } from '@/lib/useGoBack'
@@ -281,7 +282,18 @@ function ValiderManuellementDialog({
  * Et il se tait quand il ne corrige rien. Une notification « rien n'a changé » à chaque ouverture
  * serait du bruit ; on ne parle que lorsqu'on a rattrapé un retard.
  */
-function ConversionPathCard({ mandat, signaler }: { mandat: Mandat; signaler: (m: string) => void }) {
+/** Le chemin d'un mandat, dans l'ordre de `statuts_mandats`. */
+const JALONS_MANDAT = ['A_PREPARER', 'ENVOYE', 'EN_SIGNATURE', 'SIGNE', 'ACTIF'] as const
+/** Ses trois sorties : on quitte par l'une d'elles, jamais de l'une à l'autre. */
+const SORTIES_MANDAT = ['EXPIRE', 'REFUSE', 'ANNULE'] as const
+
+function ConversionPathCard({ mandat, signaler, statuts, peutModifier, majStatut }: {
+  mandat: Mandat
+  signaler: (m: string) => void
+  statuts: { id: string; code: string; libelle: string }[]
+  peutModifier: boolean
+  majStatut: (statutId: string) => Promise<void>
+}) {
   const [verifie, setVerifie] = useState(false)
   const envelopeId = mandat.docusign_envelope_id
   const etatFige = ['ACTIF', 'SIGNE', 'REFUSE', 'ANNULE', 'EXPIRE'].includes(mandat.statut ?? '')
@@ -305,16 +317,29 @@ function ConversionPathCard({ mandat, signaler }: { mandat: Mandat; signaler: (m
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [mandat.id, envelopeId, etatFige])
 
-  const step = mandat.date_signature ? 2 : mandat.date_envoi || mandat.docusign_envelope_id ? 1 : 0
-  const steps = [
-    { label: 'Brouillon', icon: FileCheck2 },
-    { label: 'Envoyé', icon: FileSignature },
-    { label: 'Signé', icon: FileCheck2 },
-  ]
+  /* ══ LA FRISE MAISON CÈDE LA PLACE À CELLE DE TOUS LES OBJETS ═════════════════════════════════
+
+     Naoëlle, 03/09/2026 : « enlève toutes les capsules de statut à côté des noms d'objet et garde
+     les frises animées de statut, c'est plus parlant pour nous. Les objets où on n'a pas encore mis
+     de frise, mets-le. »
+
+     Le mandat en avait une, mais faite à la main et AVANT que `FriseStatut` n'existe — c'est même
+     elle qui l'a inspirée (« même montage que le chemin de conversion du mandat »). Deux défauts
+     l'ont fait remplacer :
+
+       · ELLE LISAIT LES DATES, PAS LE STATUT. Trois étapes déduites de `date_signature` et
+         `date_envoi`, quand `statuts_mandats` en compte huit. « En signature », « Actif »,
+         « Expiré » n'y apparaissaient jamais, et la pastille à côté du nom disait autre chose que
+         la frise juste en dessous.
+       · ELLE N'ÉTAIT PAS ANIMÉE. Pas de jalon qui pulse, pas de hachures qui défilent : elle ne
+         disait pas « vous êtes ici », seulement « voici trois cases ».
+
+     Cinq jalons — À préparer, Envoyé, En signature, Signé, Actif — et trois sorties : Expiré,
+     Refusé, Annulé. Un mandat ne passe pas d'« expiré » à « refusé », il sort par l'un des trois. */
   return (
     <div className="rounded-xl border border-km-line bg-white p-4">
       <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
-        <p className="text-km-xs font-bold uppercase tracking-wide text-km-faint">Chemin de conversion</p>
+        <p className="text-km-xs font-bold uppercase tracking-wide text-km-faint">Cycle du mandat</p>
         {/* LE BOUTON RESTE, même si l'appel automatique est déjà parti : c'est lui qui dit ce qui
             n'a pas marché quand l'automatique a échoué en silence, et c'est ce qu'on cherche quand
             on doute. Il disparaît sur un mandat dont l'état ne peut plus changer. */}
@@ -322,26 +347,42 @@ function ConversionPathCard({ mandat, signaler }: { mandat: Mandat; signaler: (m
           <VerifierEnveloppeMandat mandatId={mandat.id} signaler={signaler} dejaVerifie={verifie} />
         )}
       </div>
-      <div className="flex items-center">
-        {steps.map((s, i) => (
-          <div key={s.label} className="flex flex-1 items-center last:flex-none">
-            <div className="flex flex-col items-center gap-1.5">
-              <span
-                className={cn(
-                  'flex h-8 w-8 shrink-0 items-center justify-center rounded-full',
-                  i <= step ? 'bg-gradient-to-br from-amber-600 to-amber-500 text-white shadow-sm' : 'bg-km-soft text-km-faint',
-                )}
-              >
-                <s.icon className="h-3.5 w-3.5" />
-              </span>
-              <span className={cn('whitespace-nowrap text-km-label font-bold', i <= step ? 'text-km-text' : 'text-km-faint')}>{s.label}</span>
-            </div>
-            {i < steps.length - 1 && (
-              <div className={cn('mx-1 h-1 flex-1 rounded', i < step ? 'bg-gradient-to-r from-amber-600 to-amber-500' : 'bg-km-soft')} />
-            )}
-          </div>
-        ))}
-      </div>
+      <FriseStatut
+        teinte="mandat"
+        jalons={JALONS_MANDAT.map((code) => ({
+          code,
+          libelle: statuts.find((s) => s.code === code)?.libelle ?? code,
+        }))}
+        courant={SORTIES_MANDAT.includes(mandat.statut as never) ? 'A_PREPARER' : mandat.statut}
+        finalite={
+          SORTIES_MANDAT.includes(mandat.statut as never)
+            ? {
+                libelle: statuts.find((s) => s.code === mandat.statut)?.libelle ?? mandat.statut,
+                perdue: mandat.statut === 'REFUSE',
+                neutre: mandat.statut !== 'REFUSE',
+              }
+            : null
+        }
+        onJalon={
+          peutModifier
+            ? (code: string) => {
+                const statut = statuts.find((s) => s.code === code)
+                if (!statut || statut.code === mandat.statut) return
+                majStatut(statut.id)
+                  .then(() => signaler(`✓ ${statut.libelle}`))
+                  .catch((e) => signaler(e instanceof Error ? `Erreur : ${e.message}` : 'Enregistrement impossible'))
+              }
+            : undefined
+        }
+        issues={
+          peutModifier
+            ? SORTIES_MANDAT.map((code) => ({
+                code,
+                libelle: statuts.find((s) => s.code === code)?.libelle ?? code,
+              }))
+            : undefined
+        }
+      />
     </div>
   )
 }
@@ -521,10 +562,9 @@ export default function MandatDetail() {
           <FileCheck2 className="h-[18px] w-[18px]" />
         </span>
         <div className="min-w-0 flex-1">
-          <div className="flex flex-wrap items-center gap-2">
-            <p className="truncate text-xl font-bold tracking-tight text-km-text">Mandat {mandat.compte_nom}</p>
-            <Badge tone={STATUT_MANDAT_TONE[mandat.statut] ?? 'neutral'}>{statuts.find((s) => s.code === mandat.statut)?.libelle ?? mandat.statut}</Badge>
-          </div>
+          {/* La pastille de statut est partie : la frise « Cycle du mandat » la dit mieux, et la
+              garder en aurait fait deux endroits à tenir d'accord (Naoëlle, 03/09/2026). */}
+          <p className="truncate text-xl font-bold tracking-tight text-km-text">Mandat {mandat.compte_nom}</p>
           <p className="truncate text-xs text-km-muted">{mandat.nb_sites_couverts} site{mandat.nb_sites_couverts > 1 ? 's' : ''} couvert{mandat.nb_sites_couverts > 1 ? 's' : ''}</p>
           <p className="truncate text-km-xs text-km-faint">
             {/* C'est le créateur qu'on affiche, pas un propriétaire : Mandat__c n'a pas d'OwnerId
@@ -651,7 +691,13 @@ export default function MandatDetail() {
 
           {tab === 'mandat' && (
             <div className="flex flex-col gap-3.5">
-              <ConversionPathCard mandat={mandat} signaler={showToast} />
+              <ConversionPathCard
+                mandat={mandat}
+                signaler={showToast}
+                statuts={statuts}
+                peutModifier={canManage}
+                majStatut={(statut_id) => majMandat({ statut_id })}
+              />
               {mandat.date_fin_validite && (mandat.date_debut_validite || mandat.date_signature) && (
                 <ValiditeCard dateDebut={(mandat.date_debut_validite ?? mandat.date_signature) as string} dateFin={mandat.date_fin_validite} />
               )}

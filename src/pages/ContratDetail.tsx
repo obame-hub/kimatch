@@ -676,11 +676,10 @@ export default function ContratDetail() {
                      quand une frise montre le chemin en haut de page, c'est sur elle qu'on veut
                      agir. Un contrôle qu'on ne trouve pas équivaut à un contrôle qui n'existe pas.
 
-                     LES SIX JALONS SEULEMENT. Résilier ou annuler ne se fait pas d'un clic sur une
-                     frise dont ils sont absents tant que le contrat vit : ces deux-là restent dans
-                     le sélecteur du détail, qui propose les neuf statuts. Avancer d'une étape est
-                     un geste courant ; sortir un contrat en est un autre, et il vaut mieux qu'il
-                     demande d'aller le chercher. */
+                     RÉSILIÉ ET ANNULÉ SONT LÀ AUSSI, à sa demande du 03/09 — mais À CÔTÉ de la
+                     frise, pas dedans. En jalons, le dessin aurait dit « … Actif → Terminé →
+                     Résilié → Annulé », c'est-à-dire un contrat qui passerait de l'un à l'autre.
+                     On sort par l'un OU par l'autre, et depuis n'importe où. Voir `issues`. */
                   onJalon={
                     canManage
                       ? (code) => {
@@ -692,6 +691,14 @@ export default function ContratDetail() {
                               showToast(e instanceof Error ? `Erreur : ${e.message}` : 'Enregistrement impossible'),
                             )
                         }
+                      : undefined
+                  }
+                  issues={
+                    canManage
+                      ? [
+                          { code: 'RESILIE', libelle: statuts.find((s) => s.code === 'RESILIE')?.libelle ?? 'Résilié' },
+                          { code: 'ANNULE', libelle: statuts.find((s) => s.code === 'ANNULE')?.libelle ?? 'Annulé' },
+                        ]
                       : undefined
                   }
                 />

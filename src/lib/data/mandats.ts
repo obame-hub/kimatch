@@ -393,6 +393,8 @@ export function useUpdateMandat() {
 export type PatchMandat = Partial<{
   date_signature: string | null
   proprietaire_id: string | null
+  /** Le statut, changé depuis la frise du cycle (Naoëlle, 03/09/2026). */
+  statut_id: string | null
 }>
 
 /** Mise à jour d'un seul champ. Ne pas passer par `useUpdateMandat` pour ça : il écrit les deux

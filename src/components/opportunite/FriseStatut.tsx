@@ -102,7 +102,22 @@ export const TEINTES_FRISE: Record<string, TeinteFrise> = {
     hachures: ['#e8d5b4', '#f6f1e6'],
     pulsation: 'animate-km-soft-pulse',
   },
-  /** Le contrat et le mandat — le bleu des engagements. */
+  /**
+   * Le mandat — l'ambre qu'il porte déjà partout : son icône, sa carte, ses pastilles de statut.
+   *
+   * PAS LE BLEU DU CONTRAT, alors que le commentaire d'origine les rangeait ensemble sous « les
+   * engagements ». Ce sont deux objets qui se suivent dans le travail — on fait signer un mandat
+   * POUR obtenir un contrat — et deux fiches qui se ressemblent. La couleur est ce qui dit, avant
+   * toute lecture, sur laquelle des deux on se trouve.
+   */
+  mandat: {
+    gradient: 'from-amber-600 to-amber-500',
+    ombreCourant: 'shadow-[0_5px_14px_rgba(181,122,36,.34)]',
+    ombreFranchi: 'shadow-[0_2px_6px_rgba(181,122,36,.2)]',
+    hachures: ['#e8d5b4', '#f6f1e6'],
+    pulsation: 'animate-km-soft-pulse',
+  },
+  /** Le contrat — le bleu des engagements. */
   contrat: {
     gradient: 'from-sky-600 to-sky-400',
     ombreCourant: 'shadow-[0_5px_14px_rgba(59,95,138,.34)]',
@@ -131,7 +146,7 @@ export interface JalonFrise {
   franchi?: boolean
 }
 
-export function FriseStatut({ jalons, courant, finalite, teinte = 'opportunite', onJalon }: {
+export function FriseStatut({ jalons, courant, finalite, teinte = 'opportunite', onJalon, issues }: {
   jalons: JalonFrise[]
   /** Code du palier atteint. Les jalons précédents sont « franchis ». */
   courant: string
@@ -152,6 +167,20 @@ export function FriseStatut({ jalons, courant, finalite, teinte = 'opportunite',
    * parcours. Absent, la frise reste ce qu'elle était : un affichage, pas une commande.
    */
   onJalon?: (code: string) => void
+  /**
+   * LES SORTIES, PROPOSÉES À CÔTÉ DE LA FRISE ET NON DEDANS.
+   *
+   * Naoëlle, 03/09/2026 : « ajoute résilié et annulé dans la frise ». Les mettre EN JALONS aurait
+   * dessiné « … Actif → Terminé → Résilié → Annulé », c'est-à-dire un contrat qui passerait de l'un
+   * à l'autre — ce qui n'arrive jamais : on sort par l'un OU par l'autre, et depuis n'importe où.
+   *
+   * Elles sont donc rendues après la frise, détachées, et cliquables. Le geste qu'elle demande est
+   * là — sortir un objet sans quitter la page — sans faire mentir le dessin sur l'ordre des choses.
+   *
+   * Quand l'objet EST dans une de ces issues, c'est `finalite` qui la porte et cette rangée
+   * disparaît : il n'y a plus de sortie à proposer à ce qui est déjà sorti.
+   */
+  issues?: { code: string; libelle: string }[]
 }) {
   const t = TEINTES_FRISE[teinte] ?? TEINTES_FRISE.opportunite
   const indexCourant = Math.max(0, jalons.findIndex((j) => j.code === courant))
@@ -258,6 +287,24 @@ export function FriseStatut({ jalons, courant, finalite, teinte = 'opportunite',
           </div>
         )
       })}
+
+      {/* LES SORTIES POSSIBLES, séparées de la progression par un trait vertical : elles ne sont
+          pas la suite du chemin, elles en sont la porte de côté. */}
+      {!finalite && issues && issues.length > 0 && onJalon && (
+        <div className="ml-3 flex shrink-0 items-center gap-1 border-l border-km-line pl-3">
+          {issues.map((issue) => (
+            <button
+              key={issue.code}
+              type="button"
+              onClick={() => onJalon(issue.code)}
+              title={`Passer à « ${issue.libelle} »`}
+              className="rounded-km border border-dashed border-[#dcdad5] px-2 py-1 text-km-label font-semibold text-km-faint transition-colors hover:border-km-red/40 hover:bg-km-red-soft hover:text-km-red"
+            >
+              {issue.libelle}
+            </button>
+          ))}
+        </div>
+      )}
 
       {finalite && (
         <div className="flex min-w-0 flex-1 items-center">
