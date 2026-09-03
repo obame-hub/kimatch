@@ -1310,6 +1310,14 @@ export type PatchRecommandation = Partial<{
   marge_nette: number | null
   marge_nette_coeff: number | null
   marge_nette_mwh: number | null
+  /**
+   * Vrai quand le montant vient d'une saisie et non du calcul.
+   *
+   * « La version modifiée à la main écrase le calcul » (William, 03/09/2026). Pour qu'une saisie
+   * SURVIVE au recalcul suivant, il faut se souvenir qu'elle est manuelle : sans ce drapeau, la
+   * règle ne tiendrait que jusqu'au passage suivant du calcul.
+   */
+  montant_saisi_manuellement: boolean
 }>
 
 /**

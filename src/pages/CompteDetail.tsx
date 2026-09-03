@@ -38,6 +38,7 @@ import { DialogCreationOpportunite } from '@/pages/Opportunites'
 import { FormField, Input, Select, Textarea } from '@/components/ui/form'
 import { HistoriqueDiscret } from '@/components/ui/historique-discret'
 import { InlineField } from '@/components/ui/inline-field'
+import { ExplicationCalcul } from '@/components/ui/explication-calcul'
 import { CreationCompteurDialog } from '@/components/compteur/CreationCompteurDialog'
 import {
   useCompte,
@@ -186,6 +187,10 @@ export default function CompteDetail() {
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
+
+  /* La mutation d'un champ de compte, déjà utilisée par les cartes filles. Elle sert ici au taux
+     de partage de la marge, saisi directement dans le bloc « Fournisseur ». */
+  const updateField = useUpdateCompteField()
 
   function showToast(msg: string) {
     setToast(msg)
@@ -547,6 +552,49 @@ export default function CompteDetail() {
                         <p><span className="text-km-faint">Contact commercial :</span> {compte.contact_commercial_nom || '—'}</p>
                         <p><span className="text-km-faint">Statut partenariat :</span> <Badge tone="neutral">{compte.statut_partenariat || 'À qualifier'}</Badge></p>
                         <p><span className="text-km-faint">Limite Ellipro :</span> {compte.limite_ellipro ?? '—'}</p>
+                        {/* ══ LA PART DE LA MARGE QUI REVIENT À KIWEE ══
+                            William, 03/09/2026 : « non pas toujours par 2, et certains fournisseurs
+                            on prend moins que ça ». Le taux était une constante dans le code depuis
+                            la règle de Michel du 21/08 ; il devient un champ, fournisseur par
+                            fournisseur, à 50 % par défaut.
+
+                            IL EST SUR LA FICHE DU FOURNISSEUR ET NULLE PART AILLEURS. Le mettre sur
+                            l'offre obligerait à le ressaisir à chaque cotation, et deux offres du
+                            même fournisseur finiraient par porter deux taux différents. */}
+                        <p className="flex items-center gap-1.5">
+                          <span className="text-km-faint">Part KiWee dans la marge :</span>
+                          <InlineField
+                            variant="number"
+                            label=""
+                            emptyLabel="50"
+                            unit="%"
+                            value={compte.taux_marge_kiwee != null ? Math.round(compte.taux_marge_kiwee * 1000) / 10 : 50}
+                            disabled={!canManage}
+                            onCommit={(v) => {
+                              /* SAISI EN POURCENTAGE, STOCKÉ EN FRACTION. Personne n'écrit « 0,45 »
+                                 pour dire quarante-cinq pour cent, et la contrainte en base tient la
+                                 valeur entre 0 et 1. */
+                              const pourcent = v == null ? 50 : Math.min(100, Math.max(0, v))
+                              return updateField
+                                .mutateAsync({ id: compte.id, patch: { taux_marge_kiwee: pourcent / 100 } })
+                                .then(() => showToast(`✓ Part KiWee : ${pourcent} %`))
+                            }}
+                            onSaved={() => undefined}
+                            onError={(err) => showToast(`Erreur : ${err.message}`)}
+                          />
+                          <ExplicationCalcul
+                            titre="Part KiWee dans la marge"
+                            resume={'La marge annoncée au fournisseur est la marge BRUTE : elle est partagée avec lui. '
+                              + 'Ce taux dit quelle part nous revient, et c’est elle qui sert à calculer le montant des '
+                              + 'affaires gagnées chez ce fournisseur.'}
+                            etapes={[
+                              { libelle: 'Marge annoncée dans la cotation', valeur: 'ex. 4 €/MWh', origine: 'saisie dans « Modifier les prix »' },
+                              { libelle: 'Part KiWee', valeur: `${compte.taux_marge_kiwee != null ? Math.round(compte.taux_marge_kiwee * 1000) / 10 : 50} %`, origine: 'ce champ' },
+                              { libelle: 'Marge nette KiWee', valeur: 'ex. 2 €/MWh', origine: 'le produit des deux' },
+                            ]}
+                            manques={undefined}
+                          />
+                        </p>
                         {compte.conditions_commerciales && <p><span className="text-km-faint">Conditions :</span> {compte.conditions_commerciales}</p>}
                         {compte.commentaire_partenariat && <p><span className="text-km-faint">Commentaire :</span> {compte.commentaire_partenariat}</p>}
                       </>

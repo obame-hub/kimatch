@@ -1,6 +1,8 @@
 import type { Recommandation } from '@/types/domain'
 import { InlineField } from '@/components/ui/inline-field'
+import { ExplicationCalcul, type EtapeCalcul } from '@/components/ui/explication-calcul'
 import type { PatchRecommandation } from '@/lib/data/recommandations'
+import { useMontantCalcule, manquesMontant } from '@/lib/data/montantAffaire'
 import { cn } from '@/lib/utils'
 
 /**
@@ -71,16 +73,20 @@ function euros(n: number): string {
  * impossible pour en remplir un neuf : les champs à saisir étaient précisément ceux qui ne
  * s'affichaient pas. Dès qu'on peut écrire, tout se montre, vide compris.
  */
-function LigneSaisie({ libelle, valeur, unite, onCommit, retour }: {
+function LigneSaisie({ libelle, valeur, unite, onCommit, retour, explication }: {
   libelle: string
   valeur: number | null
   unite: string
   onCommit: (v: number | null) => Promise<void>
   retour: { onSaved: () => void; onError: (e: Error) => void }
+  explication?: React.ReactNode
 }) {
   return (
     <div className="flex items-baseline justify-between gap-3 py-1">
-      <span className="text-km-body text-km-muted">{libelle}</span>
+      <span className="flex items-center gap-1 text-km-body text-km-muted">
+        {libelle}
+        {explication}
+      </span>
       <span className="text-right">
         <InlineField variant="number" label="" value={valeur} unit={unite} emptyLabel="ajouter"
           onCommit={onCommit} {...retour} />
@@ -89,10 +95,19 @@ function LigneSaisie({ libelle, valeur, unite, onCommit, retour }: {
   )
 }
 
-function Ligne({ libelle, children }: { libelle: string; children: React.ReactNode }) {
+function Ligne({ libelle, children, explication }: {
+  libelle: string
+  children: React.ReactNode
+  /** L'infobulle « pourquoi ce chiffre », posée contre l'intitulé et non contre la valeur : c'est
+      l'intitulé qu'on lit quand on ne comprend pas. */
+  explication?: React.ReactNode
+}) {
   return (
     <div className="flex items-baseline justify-between gap-3 py-1">
-      <span className="text-km-body text-km-muted">{libelle}</span>
+      <span className="flex items-center gap-1 text-km-body text-km-muted">
+        {libelle}
+        {explication}
+      </span>
       <span className="text-right font-mono text-km-body font-bold text-km-text">{children}</span>
     </div>
   )
@@ -100,8 +115,14 @@ function Ligne({ libelle, children }: { libelle: string; children: React.ReactNo
 
 /** Une ligne de l'enchaînement des marges : le signe porte le sens, le total porte le trait. */
 function LigneMarge({
-  signe, libelle, montant, total,
-}: { signe?: '−' | '='; libelle: string; montant: number; total?: boolean }) {
+  signe, libelle, montant, total, explication,
+}: {
+  signe?: '−' | '='
+  libelle: string
+  montant: number
+  total?: boolean
+  explication?: React.ReactNode
+}) {
   return (
     <div
       className={cn(
@@ -113,6 +134,7 @@ function LigneMarge({
         {signe && <span className="w-2.5 font-mono text-km-muted">{signe}</span>}
         {!signe && <span className="w-2.5" />}
         {libelle}
+        {explication}
       </span>
       <span
         className={cn(
@@ -158,6 +180,70 @@ export function BlocAffaire({ reco, peutModifier, majReco, signaler }: {
 
   const economise = (reco.difference_budgetaire ?? 0) < 0
   const apporteur = reco.marge_apporteur ?? 0
+
+  /* ══ LE MONTANT CALCULÉ ══
+     La formule est en base (`v_montant_recommandation`). Ce bloc la LIT pour deux choses : proposer
+     le calcul quand le montant est vide, et expliquer d'où sort le chiffre quand il est rempli. */
+  const { data: calcul } = useMontantCalcule(reco.id)
+  const montantCalcule = calcul?.montant_calcule ?? null
+  const manquesDuCalcul = montantCalcule == null ? manquesMontant(calcul) : []
+
+  /* Les termes du calcul, avec les vrais nombres du dossier — c'est ce qui permet à quelqu'un de
+     retrouver son chiffre et de voir lequel des quatre est faux. */
+  const etapesMontant: EtapeCalcul[] = [
+    {
+      libelle: 'Volume de référence, sur un an',
+      valeur: calcul?.conso_totale_mwh != null
+        ? `${calcul.conso_totale_mwh.toLocaleString('fr-FR')} MWh`
+        : null,
+      origine: 'offre retenue de la dernière version',
+    },
+    {
+      libelle: 'Durée du contrat',
+      valeur: calcul?.duree_mois != null ? `${calcul.duree_mois} mois` : null,
+      origine: 'offre retenue',
+    },
+    {
+      libelle: 'Marge annoncée au fournisseur',
+      valeur: calcul?.marge_eur_mwh != null
+        ? `${calcul.marge_eur_mwh.toLocaleString('fr-FR')} €/MWh`
+        : null,
+      origine: 'saisie dans « Modifier les prix »',
+    },
+    {
+      libelle: 'Part qui revient à KiWee',
+      valeur: calcul?.taux_marge != null
+        ? `${(calcul.taux_marge * 100).toLocaleString('fr-FR', { maximumFractionDigits: 1 })} %`
+        : null,
+      origine: calcul?.fournisseur_nom
+        ? `fiche du fournisseur ${calcul.fournisseur_nom}`
+        : 'fiche du fournisseur',
+    },
+  ]
+
+  /** L'infobulle du montant, la même qu'on soit en lecture ou en saisie. */
+  const explicationMontant = (
+    <ExplicationCalcul
+      titre="Montant de l'affaire"
+      resume={
+        'Ce que le dossier rapporte à KiWee sur toute la durée du contrat : le volume annuel ramené '
+        + 'au mois, multiplié par la durée, multiplié par la part de la marge qui nous revient.'
+      }
+      etapes={etapesMontant}
+      resultat={
+        montantCalcule != null
+          ? { libelle: 'Calcul', valeur: euros(montantCalcule) }
+          : undefined
+      }
+      manques={manquesDuCalcul.length > 0 ? manquesDuCalcul : undefined}
+    />
+  )
+
+  /* LE CALCUL NE S'APPLIQUE PAS TOUT SEUL SUR UN MONTANT DÉJÀ ÉCRIT. « La version modifiée à la
+     main écrase le calcul » (William, 03/09) : on propose donc, on n'impose pas. Le bouton
+     n'apparaît que si le calcul aboutit ET diffère de ce qui est enregistré. */
+  const ecartAvecLeCalcul = montantCalcule != null
+    && Math.abs((reco.montant ?? 0) - montantCalcule) > 0.5
 
   /* LE TAUX DU COURTIER, DÉDUIT PLUTÔT QUE REDEMANDÉ. Il vit sur la fiche du fournisseur
      (comptes.taux_commission_courtier) et vaut 0,85/0,75 chez les six courtiers connus. Le rapport
@@ -241,7 +327,23 @@ export function BlocAffaire({ reco, peutModifier, majReco, signaler }: {
                 onCommit={(v) => majReco!(avecMargeNette({ marge_apporteur: v }))} retour={retour} />
               {/* LA SEULE LIGNE QUI NE SE SAISIT PAS : elle est la soustraction des deux du dessus.
                   Voir `LigneSaisie` pour le raisonnement. */}
-              <LigneMarge signe="=" libelle="Marge nette" montant={(reco.marge_brute ?? 0) - (reco.marge_apporteur ?? 0)} total />
+              <LigneMarge
+                signe="="
+                libelle="Marge nette"
+                montant={(reco.marge_brute ?? 0) - (reco.marge_apporteur ?? 0)}
+                total
+                explication={<ExplicationCalcul
+                titre="Marge nette"
+                resume={'Ce que KiWee garde une fois l\u2019apporteur d\u2019affaires payé. C\u2019est cette marge '
+                  + 'qui sert à calculer la commission versée par le fournisseur.'}
+                etapes={[
+                  { libelle: 'Marge brute', valeur: reco.marge_brute != null ? euros(reco.marge_brute) : null, origine: 'saisie sur cette fiche' },
+                  { libelle: 'Marge apporteur', valeur: euros(apporteur), origine: apporteur === 0 ? 'aucun apporteur sur ce dossier' : 'saisie sur cette fiche' },
+                ]}
+                resultat={{ libelle: 'Marge nette', valeur: euros((reco.marge_brute ?? 0) - apporteur) }}
+                manques={reco.marge_brute == null ? ['La marge brute n\u2019est pas saisie : sans elle, la marge nette vaut ce que retranche l\u2019apporteur.'] : undefined}
+              />}
+              />
             </>
           ) : (
             <>
@@ -250,7 +352,23 @@ export function BlocAffaire({ reco, peutModifier, majReco, signaler }: {
                 <LigneMarge signe="−" libelle="Marge apporteur" montant={apporteur} />
               )}
               {reco.marge_nette != null && (
-                <LigneMarge signe={reco.marge_brute != null ? '=' : undefined} libelle="Marge nette" montant={reco.marge_nette} total />
+                <LigneMarge
+                  signe={reco.marge_brute != null ? '=' : undefined}
+                  libelle="Marge nette"
+                  montant={reco.marge_nette}
+                  total
+                  explication={<ExplicationCalcul
+                titre="Marge nette"
+                resume={'Ce que KiWee garde une fois l\u2019apporteur d\u2019affaires payé. C\u2019est cette marge '
+                  + 'qui sert à calculer la commission versée par le fournisseur.'}
+                etapes={[
+                  { libelle: 'Marge brute', valeur: reco.marge_brute != null ? euros(reco.marge_brute) : null, origine: 'saisie sur cette fiche' },
+                  { libelle: 'Marge apporteur', valeur: euros(apporteur), origine: apporteur === 0 ? 'aucun apporteur sur ce dossier' : 'saisie sur cette fiche' },
+                ]}
+                resultat={{ libelle: 'Marge nette', valeur: euros((reco.marge_brute ?? 0) - apporteur) }}
+                manques={reco.marge_brute == null ? ['La marge brute n\u2019est pas saisie : sans elle, la marge nette vaut ce que retranche l\u2019apporteur.'] : undefined}
+              />}
+                />
               )}
             </>
           )}
@@ -261,11 +379,52 @@ export function BlocAffaire({ reco, peutModifier, majReco, signaler }: {
           {editable && (
             <div className="mt-2 border-t border-km-line-soft pt-1.5">
               <LigneSaisie libelle="Montant de l'affaire" valeur={reco.montant ?? null} unite="€"
-                onCommit={(v) => majReco!({ montant: v })} retour={retour} />
+                onCommit={(v) => majReco!({ montant: v, montant_saisi_manuellement: true })}
+                retour={retour} explication={explicationMontant} />
+              {/* LE CALCUL SE PROPOSE, IL NE S'IMPOSE PAS. Un montant saisi à la main gagne — mais
+                  encore faut-il voir que le calcul dit autre chose, et pouvoir le reprendre d'un
+                  geste plutôt que de recopier un chiffre lu dans une infobulle. */}
+              {ecartAvecLeCalcul && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    void majReco!({ montant: montantCalcule, montant_saisi_manuellement: false })
+                      .then(() => signaler?.(`\u2713 Montant repris du calcul : ${euros(montantCalcule!)}`))
+                  }}
+                  className="mb-1 ml-auto block rounded-km bg-km-green-soft px-2 py-1 text-km-label font-semibold text-km-green transition-colors hover:brightness-95"
+                >
+                  Reprendre le calcul : {euros(montantCalcule!)}
+                </button>
+              )}
               <LigneSaisie libelle="Marge « commission »" valeur={reco.marge_nette_coeff ?? null} unite="€"
-                onCommit={(v) => majReco!({ marge_nette_coeff: v })} retour={retour} />
+                onCommit={(v) => majReco!({ marge_nette_coeff: v })} retour={retour}
+                explication={
+                  <ExplicationCalcul
+                    titre="Marge « commission »"
+                    resume={'La part de la marge nette qui sert au commissionnement des salaires. Elle vaut la '
+                      + 'marge nette quand l\u2019affaire est traitée en direct, et moins quand elle passe par un courtier.'}
+                    etapes={[
+                      { libelle: 'Marge nette', valeur: reco.marge_nette != null ? euros(reco.marge_nette) : null, origine: 'marge brute moins apporteur' },
+                      { libelle: 'Taux du courtier', valeur: viaCourtier ? taux!.toLocaleString('fr-FR', { maximumFractionDigits: 3 }) : '1 (en direct)', origine: 'fiche du fournisseur' },
+                    ]}
+                    resultat={reco.marge_nette_coeff != null ? { libelle: 'Marge « commission »', valeur: euros(reco.marge_nette_coeff) } : undefined}
+                    manques={reco.marge_nette_coeff == null ? ['Rien n\u2019est saisi. Sur les dossiers repris de Salesforce, ce chiffre venait de l\u2019import ; sur un dossier n\u00e9 ici, il se saisit.'] : undefined}
+                  />
+                } />
               <LigneSaisie libelle="Marge par MWh" valeur={reco.marge_nette_mwh ?? null} unite="€/MWh"
-                onCommit={(v) => majReco!({ marge_nette_mwh: v })} retour={retour} />
+                onCommit={(v) => majReco!({ marge_nette_mwh: v })} retour={retour}
+                explication={
+                  <ExplicationCalcul
+                    titre="Marge par MWh"
+                    resume={'La marge nette rapportée au volume, pour comparer deux affaires de tailles diff\u00e9rentes. '
+                      + 'Elle ne sert pas à négocier : c\u2019est un repère.'}
+                    etapes={[
+                      { libelle: 'Marge nette', valeur: reco.marge_nette != null ? euros(reco.marge_nette) : null, origine: 'marge brute moins apporteur' },
+                      { libelle: 'Volume contractuel', valeur: reco.volume_contractuel ? `${reco.volume_contractuel.toLocaleString('fr-FR')} MWh` : null, origine: 'saisi sur cette fiche' },
+                    ]}
+                    manques={reco.marge_nette_mwh == null ? ['Rien n\u2019est saisi. Ce chiffre n\u2019est pas d\u00e9duit automatiquement : il vient de l\u2019import Salesforce ou d\u2019une saisie.'] : undefined}
+                  />
+                } />
             </div>
           )}
 

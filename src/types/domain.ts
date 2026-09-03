@@ -502,6 +502,14 @@ export interface Compte {
   contact_commercial_id?: string | null
   contact_commercial_nom?: string | null
   limite_ellipro?: number | null
+  /**
+   * Part de la marge annoncée au fournisseur qui revient à KiWee, entre 0 et 1.
+   *
+   * « Non pas toujours par 2, et certains fournisseurs on prend moins que ça » (William,
+   * 03/09/2026). À 0,5 par défaut sur tous les comptes — la règle de Michel du 21/08 — et
+   * modifiable sur la fiche du fournisseur. Sert au calcul du montant des affaires.
+   */
+  taux_marge_kiwee?: number | null
   /** Critères d'éligibilité fournisseur (Tools: table `suppliers`) -- ajoutés le 04/08/2026 pour
    * le moteur d'éligibilité du flot Cotation. */
   partnership?: string | null
