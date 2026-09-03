@@ -28,7 +28,7 @@
  */
 import { lazy, Suspense } from 'react'
 import { useSearchParams } from 'react-router-dom'
-import { Building2, Users, MapPin, Gauge, FileCheck2, Files, TrendingUp } from 'lucide-react'
+import { Building2, Users, MapPin, Gauge, FileCheck2, FileSignature, Files, TrendingUp } from 'lucide-react'
 import { Topbar } from '@/components/layout/Topbar'
 import { cn } from '@/lib/utils'
 
@@ -37,6 +37,7 @@ const Contacts = lazy(() => import('@/pages/Contacts'))
 const Sites = lazy(() => import('@/pages/Sites'))
 const Compteurs = lazy(() => import('@/pages/Compteurs'))
 const Mandats = lazy(() => import('@/pages/Mandats'))
+const Contrats = lazy(() => import('@/pages/Contrats'))
 const QualitePortefeuille = lazy(() => import('@/pages/QualitePortefeuille'))
 const Documents = lazy(() => import('@/pages/Documents'))
 
@@ -61,17 +62,23 @@ const OBJETS = [
   { cle: 'sites', libelle: 'Sites', icone: MapPin, sens: 'Les lieux de consommation', Page: Sites },
   { cle: 'compteurs', libelle: 'Compteurs', icone: Gauge, sens: 'Les points PDL / PCE', Page: Compteurs },
   { cle: 'mandats', libelle: 'Mandats', icone: FileCheck2, sens: 'L’autorisation d’agir', Page: Mandats },
-  /* CONTRATS EST RETIRÉ DES ONGLETS — dossier UX du 26/08 : « hors périmètre : aucune page Contrats
-     ne doit être réintroduite », confirmé par Naoëlle (« il veut dire retirer contrats du menu »).
+  /* ══ CONTRATS REVIENT DANS LES ONGLETS, LE 03/09/2026 ═════════════════════════════════════════
 
-     MASQUER N'EST PAS SUPPRIMER, et ici la nuance est vitale. Les 1 600 contrats restent en base et
-     continuent de travailler : ce sont EUX qui prouvent les échéances — la nature « prouvée » de
-     `v_compteurs_liste` se calcule sur `contrats.date_fin`, et 1 036 compteurs en dépendent. Retirer
-     la donnée aurait fait basculer ces 1 036 échéances de « prouvée » à « estimée » du jour au
-     lendemain.
+     Naoëlle : « ajoute les contrats ici dans les onglets de Patrimoine ».
 
-     La page reste donc atteignable par la recherche ⌘K et par son lien direct, comme Requêtes et
-     Rémunérations depuis le 25/08. Seul l'onglet disparaît. */
+     C'EST UN RETOUR EN ARRIÈRE ASSUMÉ, et il vaut la peine d'être écrit : le dossier UX du 26/08
+     disait « hors périmètre : aucune page Contrats ne doit être réintroduite », et elle l'avait
+     confirmé à l'époque (« il veut dire retirer contrats du menu »). Elle revient dessus une
+     semaine plus tard — c'est sa décision, et une note qui garderait la trace de l'ancienne sans
+     dire qu'elle est caduque ferait hésiter le prochain à y toucher.
+
+     Ce que la semaine a changé : le contrat porte désormais son propre numéro (CT-00001), un filtre
+     d'énergie et une frise de statut. Ce n'est plus la liste brute qu'on avait retirée.
+
+     SA PLACE EST APRÈS LE MANDAT, et cet ordre est l'argument. Les onglets suivent la chaîne du
+     travail — le compte, ses contacts, ses sites, ses compteurs, ce qui autorise à agir, puis ce
+     qui engage. Un contrat vient après le mandat qu'il a fallu faire signer pour l'obtenir. */
+  { cle: 'contrats', libelle: 'Contrats', icone: FileSignature, sens: 'Ce qui engage le client', Page: Contrats },
   { cle: 'documents', libelle: 'Documents', icone: Files, sens: 'Les pièces justificatives', Page: Documents },
 ] as const
 
