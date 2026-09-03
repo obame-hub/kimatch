@@ -105,7 +105,7 @@ export function CarteOffreEtude({
      part le compterait deux fois. Declare ici parce que le budget s'explique avec lui. */
   const abonnementAPart = offre.details_par_compteur.some((d) => !!d.prix_gaz)
 
-  const total = offre.montant_annuel_ht ?? b.total
+  const total = budgetAnnuelDeLOffre(offre)
 
   /* ══ L'ÉCART SE CALCULE SUR LA MÊME BASE DES DEUX CÔTÉS ══
 
@@ -118,9 +118,7 @@ export function CarteOffreEtude({
      Aucune des deux offres de référence de la base n'est dans ce cas aujourd'hui (l'une a son montant
      global, l'autre n'a aucun prix du tout), donc rien ne change à l'écran ; c'est la première
      référence chiffrée par la modale qui aurait déclenché la panne. */
-  const totalReference = reference == null
-    ? null
-    : reference.montant_annuel_ht ?? budgetsDeLOffre(reference).total
+  const totalReference = reference == null ? null : budgetAnnuelDeLOffre(reference)
   const ecart = total != null && totalReference != null && reference!.id !== offre.id
     ? total - totalReference
     : null
@@ -739,6 +737,26 @@ export function CarteOffreEtude({
       )}
     </div>
   )
+}
+
+/**
+ * ══ LE BUDGET ANNUEL D'UNE OFFRE, UNE SEULE DÉFINITION POUR TOUTE L'APPLICATION ══
+ *
+ * Le montant annuel saisi sur l'offre fait foi — c'est le chiffre que le fournisseur annonce, et il
+ * peut inclure des éléments que le détail ne connaît pas. À défaut, on additionne les points de
+ * livraison chiffrés.
+ *
+ * POURQUOI CETTE FONCTION EXISTE (03/09/2026) : trois écrans avaient chacun leur idée du budget d'une
+ * offre. La carte prenait le montant annuel à défaut la somme des lignes ; le repli « la moins chère »
+ * et la ligne « Budget proposé » du comparatif ne regardaient QUE le montant annuel. Or la modale de
+ * saisie des prix remplit les lignes et pas le montant annuel : la même offre affichait donc un
+ * budget sur sa carte et un tiret dans le comparatif, sans que rien ne dise pourquoi.
+ *
+ * Le prix moyen au mégawattheure suivait déjà exactement ce principe (`prixMoyenMWh`) : le budget
+ * était le seul à ne pas le faire.
+ */
+export function budgetAnnuelDeLOffre(offre: OffreFournisseur): number | null {
+  return offre.montant_annuel_ht ?? budgetsDeLOffre(offre).total
 }
 
 /** Les budgets d'une offre, additionnés sur ses points de livraison. */

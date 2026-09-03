@@ -3,7 +3,7 @@ import { useMajStatutVersion } from '@/lib/data/recommandations'
 import { Badge } from '@/components/ui/badge'
 import { EntityLink } from '@/components/ui/entity-link'
 import { OffresDuFournisseur } from '@/components/recommandation/OffresDuFournisseur'
-import { budgetsDeLOffre } from '@/components/recommandation/CarteOffreEtude'
+import { budgetAnnuelDeLOffre } from '@/components/recommandation/CarteOffreEtude'
 import { cn } from '@/lib/utils'
 import type { ReferenceRow } from '@/lib/data/referenceTables'
 import type { VersionRecommandation, Optimisation, FournisseurConsulte, Compteur, OffreFournisseur } from '@/types/domain'
@@ -33,21 +33,17 @@ const MISE_EN_CONCURRENCE = 'MISE_EN_CONCURRENCE'
  * que produit la modale de saisie des prix, qui ne remplit pas le total annuel. Une cotation entière
  * chiffrée point par point n'avait donc aucun repère, et la colonne d'écart restait vide partout.
  *
- * Les deux endroits mesurent désormais un budget de la même façon. `budgetsDeLOffre` est la fonction
- * que la carte utilise elle-même : la partager évite d'avoir deux définitions de « la moins chère ».
+ * Les deux endroits mesurent désormais un budget de la même façon, celle de `budgetAnnuelDeLOffre` :
+ * une seule définition de « la moins chère » pour toute l'application.
  */
-function budgetDeLOffre(o: OffreFournisseur): number | null {
-  return o.montant_annuel_ht ?? budgetsDeLOffre(o).total
-}
-
 function repereDeLaCotation(optimisation: Optimisation): OffreFournisseur | null {
   const toutes = optimisation.fournisseurs_consultes.flatMap((f) => f.offres)
   const designee = toutes.find((o) => o.est_offre_reference)
   if (designee) return designee
   return toutes
-    .filter((o) => budgetDeLOffre(o) != null)
+    .filter((o) => budgetAnnuelDeLOffre(o) != null)
     .reduce<OffreFournisseur | null>(
-      (a, o) => (a == null || budgetDeLOffre(o)! < budgetDeLOffre(a)! ? o : a),
+      (a, o) => (a == null || budgetAnnuelDeLOffre(o)! < budgetAnnuelDeLOffre(a)! ? o : a),
       null,
     )
 }

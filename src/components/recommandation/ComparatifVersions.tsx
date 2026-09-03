@@ -2,6 +2,7 @@ import { useMemo, useState } from 'react'
 import { cn } from '@/lib/utils'
 import type { Recommandation, VersionRecommandation, OffreFournisseur } from '@/types/domain'
 import { prixMoyenMWh } from '@/lib/prixOffre'
+import { budgetAnnuelDeLOffre } from '@/components/recommandation/CarteOffreEtude'
 
 /**
  * Comparatif des versions — le tableau central de l'onglet Recommandation.
@@ -51,9 +52,19 @@ function offreRetenue(version: VersionRecommandation): OffreFournisseur | null {
   const offres = version.optimisations.flatMap((o) => o.offres)
   const recommandee = offres.find((o) => o.est_offre_recommandee)
   if (recommandee) return recommandee
-  const chiffrees = offres.filter((o) => o.montant_annuel_ht != null)
+  /* « CHIFFRÉE » VEUT DIRE « QUI A UN BUDGET », pas « qui a un total annuel saisi » (03/09/2026).
+     La modale de saisie des prix chiffre point de livraison par point de livraison et ne remplit pas
+     le total annuel : une offre entièrement chiffrée par elle n'entrait donc pas dans cette liste, et
+     le comparatif annonçait « — » là où la carte de l'offre affichait un budget. */
+  const chiffrees = offres.filter((o) => budgetAnnuelDeLOffre(o) != null)
   if (chiffrees.length === 0) return null
-  return chiffrees.reduce((a, b) => ((a.montant_annuel_ht ?? 0) <= (b.montant_annuel_ht ?? 0) ? a : b))
+  return chiffrees.reduce((a, b) => (budgetAnnuelDeLOffre(a)! <= budgetAnnuelDeLOffre(b)! ? a : b))
+}
+
+/** Le budget de l'offre retenue d'une version, avec la même définition que partout ailleurs. */
+function budgetAnnuelOffreRetenue(version: VersionRecommandation): number | null {
+  const offre = offreRetenue(version)
+  return offre == null ? null : budgetAnnuelDeLOffre(offre)
 }
 
 /** Les fournisseurs consultés d'une version, dédoublonnés et dans l'ordre d'affichage. */
@@ -112,12 +123,13 @@ export function ComparatifVersions({
         cle: 'budget',
         libelle: 'Budget proposé',
         meilleur: 'min',
-        valeur: (v) => offreRetenue(v)?.montant_annuel_ht ?? null,
+        valeur: (v) => budgetAnnuelOffreRetenue(v),
         texte: (v) => {
-          const m = offreRetenue(v)?.montant_annuel_ht
+          const m = budgetAnnuelOffreRetenue(v)
           return m != null ? `${euros(m)} / an` : '—'
         },
-        raisonVide: "Vient de l'offre retenue de la version — aucune offre chiffrée pour l'instant.",
+        raisonVide: "Vient de l'offre retenue de la version : son montant annuel s'il est saisi, "
+          + "sinon la somme de ses points de livraison chiffrés. Aucune offre chiffrée pour l'instant.",
       },
       {
         cle: 'fournisseur',
