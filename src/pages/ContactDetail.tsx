@@ -288,6 +288,62 @@ export default function ContactDetail() {
                     (Allo ou courriel) et le petit crayon séparé ouvre l'édition inline. */}
                 {canManage ? (
                   <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                    {/* ══ CIVILITÉ, PRÉNOM, NOM — ÉDITABLES ICI ═══════════════════════════════════
+
+                        William, 03/09/2026, en urgence : « il s'agirait de pouvoir modifier les
+                        champs civilité + nom + prénom d'un contact ».
+
+                        ILS N'ÉTAIENT MODIFIABLES NULLE PART. Le dialogue « Modifier le contact »
+                        les porte encore, mais PLUS AUCUN BOUTON NE L'OUVRE — vérifié, il ne reste
+                        pas un seul `setEditOpen(true)` dans la page. Il est mort quand la fiche est
+                        passée à l'édition en place, et ces trois champs sont partis avec lui :
+                        téléphone, mobile, e-mail, rôle et fonction ont été repris un par un, pas
+                        eux. Une faute de frappe dans un nom devenait donc définitive.
+
+                        EN PREMIER DANS LA CARTE, avant le rôle : c'est l'identité de la personne,
+                        et c'est ce qu'on vient corriger quand on ouvre cette carte pour ça.
+
+                        LE PRÉNOM ET LE NOM NE SE VIDENT PAS. `emptyLabel` est absent volontairement
+                        — un contact sans nom n'est plus repérable nulle part, ni dans la recherche,
+                        ni dans une liste. La civilité, elle, peut rester vide : « — » est une
+                        réponse acceptable, et c'est déjà celle de la moitié des lignes reprises. */}
+                    <InlineField
+                      variant="select"
+                      label="Civilité"
+                      value={contact.civilite ?? ''}
+                      options={[
+                        { value: '', label: '—' },
+                        ...CIVILITE_OPTIONS.map((c) => ({ value: c, label: c })),
+                      ]}
+                      onCommit={(v) => majChamp({ civilite: v || null })}
+                      onSaved={() => showToast('✓ enregistré')}
+                      onError={(err) => showToast(`Erreur : ${err.message}`)}
+                    />
+                    <div className="hidden sm:block" aria-hidden="true" />
+                    <InlineField
+                      variant="text"
+                      label="Prénom"
+                      value={contact.prenom ?? ''}
+                      onCommit={(v) => {
+                        const prenom = v.trim()
+                        if (!prenom) throw new Error('Le prénom ne peut pas être vide.')
+                        return majChamp({ prenom })
+                      }}
+                      onSaved={() => showToast('✓ enregistré')}
+                      onError={(err) => showToast(`Erreur : ${err.message}`)}
+                    />
+                    <InlineField
+                      variant="text"
+                      label="Nom"
+                      value={contact.nom ?? ''}
+                      onCommit={(v) => {
+                        const nom = v.trim()
+                        if (!nom) throw new Error('Le nom ne peut pas être vide.')
+                        return majChamp({ nom })
+                      }}
+                      onSaved={() => showToast('✓ enregistré')}
+                      onError={(err) => showToast(`Erreur : ${err.message}`)}
+                    />
                     <InlineField
                       variant="select"
                       label="Rôle"
