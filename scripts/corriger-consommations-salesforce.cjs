@@ -43,11 +43,16 @@
 //
 // ══ USAGE ═════════════════════════════════════════════════════════════════════════════════════════
 //
-//   sf data query --target-org KiweeOrg --result-format csv ^
-//     --query "SELECT Name, Consommation_annuelle_MWh__c, Consommation_annuelle__c, Energie__c FROM Point_de_livraison__c" ^
-//     > conso-pdl.csv
-//   node scripts/corriger-consommations-salesforce.cjs conso-pdl.csv            (essai à blanc)
-//   node scripts/corriger-consommations-salesforce.cjs conso-pdl.csv --appliquer
+//   node scripts/corriger-consommations-salesforce.cjs               (essai à blanc)
+//   node scripts/corriger-consommations-salesforce.cjs --appliquer
+//
+// SANS ARGUMENT, LE SCRIPT INTERROGE SALESFORCE LUI-MÊME via la CLI `sf` (org KiweeOrg). C'était
+// d'abord un CSV à produire à part, et la première exécution s'est arrêtée sur un `ENOENT: pdl.csv`
+// — deux commandes à enchaîner dans le bon ordre, dont une longue à recopier, c'est une marche de
+// trop pour un script qu'on relancera à chaque reprise de données.
+//
+// On peut toujours lui passer un CSV déjà exporté, par exemple pour rejouer une extraction datée :
+//   node scripts/corriger-consommations-salesforce.cjs pdl.csv
 //
 // Sans `--appliquer`, RIEN n'est écrit : le script compte et repart. Une écriture de 7 900 lignes
 // en production se regarde avant de se lancer.
@@ -55,12 +60,44 @@ const fs = require('fs')
 const path = require('path')
 const { Client } = require(path.join(process.cwd(), 'node_modules', 'pg'))
 
-const CSV = process.argv.find((a) => a.endsWith('.csv'))
-if (!CSV) {
-  console.error('Usage : node scripts/corriger-consommations-salesforce.cjs <export.csv> [--appliquer]')
-  process.exit(1)
-}
 const APPLIQUER = process.argv.includes('--appliquer')
+const CSV_FOURNI = process.argv.find((a) => a.endsWith('.csv'))
+
+/**
+ * L'extraction Salesforce, faite ici quand on ne l'a pas fournie.
+ *
+ * `--result-format csv` écrit sur la sortie standard : on la capture plutôt que de rediriger, pour
+ * que le fichier temporaire vive dans le dossier système et disparaisse avec lui.
+ */
+function exporterDepuisSalesforce() {
+  const { execSync } = require('child_process')
+  const os = require('os')
+  console.log('Interrogation de Salesforce (org KiweeOrg)…')
+
+  /* LA REQUÊTE PASSE PAR UN FICHIER, PAS PAR --query, et ce n'est pas un détour gratuit.
+     `sf` est un .cmd sous Windows : il faut donc un shell, et un shell recoupe la requête sur ses
+     espaces dès qu'elle n'est pas guillemetée exactement comme il l'attend — première tentative :
+     « Unexpected arguments: Name,, Consommation_annuelle_MWh__c,, … ». `--file` ne traverse aucun
+     shell : le SOQL est lu tel quel, et la commande n'a plus un seul espace à protéger. */
+  const soql = path.join(os.tmpdir(), 'kimatch-pdl-' + Date.now() + '.soql')
+  fs.writeFileSync(
+    soql,
+    'SELECT Name, Consommation_annuelle_MWh__c, Consommation_annuelle__c, Energie__c FROM Point_de_livraison__c',
+    'utf8',
+  )
+  const csv = execSync(
+    'sf data query --file "' + soql + '" --target-org KiweeOrg --result-format csv',
+    { encoding: 'utf8', maxBuffer: 64 * 1024 * 1024 },
+  )
+  fs.unlinkSync(soql)
+
+  const fichier = path.join(os.tmpdir(), 'kimatch-pdl-' + Date.now() + '.csv')
+  fs.writeFileSync(fichier, csv, 'utf8')
+  console.log('  export : ' + fichier)
+  return fichier
+}
+
+const CSV = CSV_FOURNI ?? exporterDepuisSalesforce()
 
 const url = fs
   .readFileSync('.env.local', 'utf8')

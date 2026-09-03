@@ -15,20 +15,46 @@
 //
 // ══ USAGE ═════════════════════════════════════════════════════════════════════════════════════════
 //
-//   sf data query --target-org KiweeOrg --result-format csv ^
-//     --query "SELECT Name, Consommation_annuelle_MWh__c, Consommation_annuelle__c, Segment__c, Energie__c FROM Point_de_livraison__c" ^
-//     > pdl.csv
+//   npm run auditer:compteurs                     (interroge Salesforce lui-meme)
+//   npm run auditer:compteurs -- dossier-sortie
+//
+// On peut lui passer un CSV deja exporte pour rejouer une extraction datee :
 //   node scripts/auditer-compteurs-salesforce.cjs pdl.csv [dossier-de-sortie]
 const fs = require('fs')
 const path = require('path')
 const { Client } = require(path.join(process.cwd(), 'node_modules', 'pg'))
 
-const CSV = process.argv.find((a) => a.endsWith('.csv'))
-if (!CSV) {
-  console.error('Usage : node scripts/auditer-compteurs-salesforce.cjs <export.csv> [dossier-sortie]')
-  process.exit(1)
-}
+const CSV_FOURNI = process.argv.find((a) => a.endsWith('.csv'))
 const SORTIE = process.argv.slice(2).find((a) => !a.endsWith('.csv')) ?? '.'
+
+/**
+ * L'extraction Salesforce, faite ici quand on ne l'a pas fournie.
+ *
+ * Le SOQL passe par un FICHIER : `sf` est un .cmd sous Windows, donc la commande traverse un shell,
+ * et celui-ci recoupe la requete sur ses espaces des qu'elle n'est pas guillemetee comme il
+ * l'attend. `--file` ne laisse plus un seul espace a proteger.
+ */
+function exporterDepuisSalesforce() {
+  const { execSync } = require('child_process')
+  const os = require('os')
+  console.log('Interrogation de Salesforce (org KiweeOrg)…')
+  const soql = path.join(os.tmpdir(), 'kimatch-audit-' + Date.now() + '.soql')
+  fs.writeFileSync(
+    soql,
+    'SELECT Name, Consommation_annuelle_MWh__c, Consommation_annuelle__c, Segment__c, Energie__c FROM Point_de_livraison__c',
+    'utf8',
+  )
+  const csv = execSync(
+    'sf data query --file "' + soql + '" --target-org KiweeOrg --result-format csv',
+    { encoding: 'utf8', maxBuffer: 64 * 1024 * 1024 },
+  )
+  fs.unlinkSync(soql)
+  const fichier = path.join(os.tmpdir(), 'kimatch-audit-' + Date.now() + '.csv')
+  fs.writeFileSync(fichier, csv, 'utf8')
+  return fichier
+}
+
+const CSV = CSV_FOURNI ?? exporterDepuisSalesforce()
 
 const url = fs
   .readFileSync('.env.local', 'utf8')
