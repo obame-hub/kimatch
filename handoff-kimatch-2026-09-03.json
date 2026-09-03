@@ -1,0 +1,258 @@
+{
+  "meta": {
+    "objet": "Passation Kimatch — session des 02 et 03/09/2026",
+    "genere_le": "2026-09-03",
+    "pourquoi": "La conversation d'origine est supprimée. Ce fichier suffit à reprendre sans elle.",
+    "repo": "github.com/obame-hub/kimatch (remote 'origin'), branche master, local C:\\Users\\nghou\\kiwee-os",
+    "dernier_commit": "f51e1d9",
+    "etat": "Tout est poussé. Aucune migration en attente — vérifié en base le 03/09 au soir.",
+    "acces": {
+      "base": "SUPABASE_DB_URL dans .env.local, lecture directe via le module pg",
+      "salesforce": "CLI sf, org 'KiweeOrg' (KIWEE ENERGIE FRANCE, production)",
+      "app": "https://kimatch.fr"
+    },
+    "verification_obligatoire": "npm run build (tsc -b + vite) ET npx vitest run. Depuis le 03/09, api/ est enfin typechecké : voir pieges.tsconfig_api."
+  },
+
+  "regles_de_travail": [
+    "Répondre en français.",
+    "Commiter et pousser directement, sans demander.",
+    "Je rédige le SQL, Naoëlle applique elle-même les migrations (node scripts/appliquer-migration.cjs <fichier>). Ne jamais exécuter de DDL soi-même.",
+    "Ne rien déduire d'un terme métier énergie inconnu : chercher ou demander.",
+    "Vérifier avant d'affirmer. Une requête qui ne rend rien ne prouve pas l'absence — elle peut prouver que la jointure est fausse."
+  ],
+
+  "fait": {
+    "recommandations": [
+      {
+        "sujet": "Statut « Active » sur un dossier clôturé à la main",
+        "cause": "Deux migrations du 31/08 ont réécrit recalculer_statut_recommandation à 9 h d'écart ; celle de 23 h est repartie d'une copie antérieure et a perdu la branche date_cloture_manuelle. Le déclencheur de clôture réécrivait ACTIVE dans la seconde suivant le clic.",
+        "migration": "20260902160000_la_cloture_manuelle_prime_a_nouveau.sql",
+        "etat": "appliquée"
+      },
+      {
+        "sujet": "Montant de l'affaire et marges non saisissables",
+        "cause": "PatchRecommandation ne listait que 8 champs, aucun chiffre. Le bloc « L'affaire » était en lecture seule d'un bout à l'autre. Invisible jusque-là car les 1 599 recos reprises apportaient leurs montants de Salesforce.",
+        "fait": "9 champs éditables en place : volume contractuel, budgets ancien/nouveau, différence annuelle, marge brute, marge apporteur, montant, marge « commission », marge par MWh. Le bloc s'affiche même vide en mode édition (39 recos sur 1 710 n'avaient aucun chiffre et voyaient donc un bloc invisible).",
+        "exception": "La marge nette n'est PAS saisissable : recalculée et écrite (marge brute − marge apporteur) dans le même patch, car le tableau de bord somme recommandations.marge_nette directement.",
+        "commit": "b5091b4"
+      }
+    ],
+
+    "signaux": [
+      {
+        "sujet": "Le module Signaux quitte toute l'interface",
+        "demande": "Naoëlle 02/09 : « ça embrouille les commerciaux, on reprendra plus tard, ne pas supprimer en base »",
+        "fait": "Rail, barre du bas, routes, recherche ⌘K, tuiles d'accueil, groupe « Signaux » de Ma journée, onglets des fiches compte et site, colonne de la liste des sites, couverture du compteur, fils d'activité (y compris la phrase « au sujet de <signal> »).",
+        "conserve": "Table signaux (1 456 lignes), fonction liste_sites, cron d'échéances, pages Signaux.tsx et SignalDetail.tsx (annotées, débranchées).",
+        "chemin_de_retour": "cycleNavItems dans src/lib/navItems.tsx porte la décision et la liste des points de branchement. git log -S\"/signaux\" retrouve chacun.",
+        "consequences_assumees": [
+          "La santé d'un site ne porte plus le malus des signaux (829 étaient ouverts) — le score remonte.",
+          "Tableau de bord à 3 indicateurs et 3 tuiles au lieu de 4.",
+          "Couverture d'un compteur sur 3 points au lieu de 4."
+        ],
+        "non_touche": "Le « Signal positif » saisi à la conversion d'une piste : ce n'est pas ce module, c'est le champ que Michel a rendu obligatoire. La ligne « Signaux d'échéance » d'Administration › Automatismes reste (page technique, cron toujours actif).",
+        "commit": "1b05315"
+      }
+    ],
+
+    "client_prospect": [
+      {
+        "sujet": "« Beaucoup d'objets Client qui ne le sont pas »",
+        "cause": "const statutClient = useMemo(() => true, []) dans CompteDetail.tsx — badge écrit en dur. Les 2 706 comptes consommateurs s'affichaient « Client ». Les sites étaient peints d'après site.statut === 'actif', sans rapport.",
+        "regle": "Michel 02/09 18 h 10 : « un compte est Client dès lors qu'au moins un de ses COMPTEURS est rattaché à un contrat ». Lecture retenue : contrat EN COURS (date_fin nulle ou ≥ aujourd'hui), la même que le barème du score.",
+        "chiffres": "392 Clients / 2 314 Prospects sur 2 706 comptes consommateurs.",
+        "migrations": [
+          "20260902170000_client_ou_prospect_se_deduit_des_compteurs.sql (v_qualite_compte.est_client, vue v_statut_commercial_site, v_patrimoine_synthese réaligné)",
+          "20260902180000_la_liste_des_comptes_dit_client_ou_prospect.sql (v_comptes_liste.est_client)"
+        ],
+        "etat": "appliquées",
+        "ecrans": "Badge de la fiche compte, badge par site, synthèse cliquable en tête de /comptes (Tous · Clients · Prospects), bascule sur l'onglet Synthèse du Patrimoine qui recadre TOUS les chiffres.",
+        "ecart_mesure": "Clients : scoring 82/100. Prospects : 45/100. 37 points d'écart, invisibles derrière la moyenne de 50.",
+        "aligne_aussi": "CreationRecommandationWizard testait le statut du contrat contre ['ACTIF','A_RENOUVELER'] — A_RENOUVELER n'existe pas dans statuts_contrats (code venu de Tools). 184 compteurs étaient marqués « Prospect » alors que le score les compte sous contrat.",
+        "commits": ["2f858ac", "4ead53c", "515e2f1", "09b04f7", "5d7f818"]
+      }
+    ],
+
+    "scoring_compteurs": [
+      {
+        "sujet": "Barème corrigé par Michel lui-même",
+        "citation": "Réunion du 02/09 : « là où c'est faux, c'est parce que moi je t'ai donné des calculs faux »",
+        "ancien": "100 / 70 contrat, 80 / 50 échéance future, 30 / 0 sinon",
+        "nouveau": "100 / 80 contrat, 60 / 40 échéance future, 20 / 0 sinon",
+        "raison": "L'ancien notait « sans contrat mais échéance et responsable » (80) AU-DESSUS de « sous contrat sans responsable » (70).",
+        "impact": "Scoring global du portefeuille : 51,7 → 39,7. Baisse voulue — 6 671 compteurs sur 7 904 ne sont pas sous contrat.",
+        "migration": "20260903100000_bareme_du_compteur_corrige_par_michel.sql",
+        "etat": "appliquée",
+        "confirme_par_michel_sans_changement": [
+          "Score d'un compte = moyenne des scores de ses compteurs (0 écart sur 2 637 comptes)",
+          "Score du patrimoine = moyenne des scores des comptes"
+        ],
+        "ecran": "Fiche compteur : héros coloré avec anneau (même composant que la qualité du compte), les 3 faits regardés, la ligne du barème appliquée, et le barème complet dépliable. Onglet « Compteur », pas « Rattachements »."
+      }
+    ],
+
+    "consommations": [
+      {
+        "sujet": "Consommations ×1000, conso fantômes, total 3× trop grand",
+        "cause_unique": "L'import lisait Consommation_annuelle__c (libellé « CAR (MWh) ») au lieu de Consommation_annuelle_MWh__c. 7 372 compteurs portaient exactement le CAR contre 484 le bon champ.",
+        "preuves": [
+          "PDL 30000141275009 (ETS COQUART, C4) : MWh 41,674 · CAR 41 674",
+          "PDL 30001650909439 (GEOPETROL, C2) : MWh 0 · CAR 2 146 — la conso n'était pas inventée, elle venait d'ailleurs"
+        ],
+        "important": "Les deux champs ne sont PAS une conversion l'un de l'autre. 19 PDL seulement ont CAR = MWh × 1000 (mais ils pesaient 1 318 256 à eux seuls). Le CAR est une saisie humaine, dans deux unités selon les lignes.",
+        "correctif": "scripts/corriger-consommations-salesforce.cjs — essai à blanc par défaut, --appliquer pour écrire. Interroge Salesforce lui-même.",
+        "etat": "APPLIQUÉ le 03/09 à 10 h 06. Total passé de 4 224 295 à 1 572 669 MWh. 2 188 valeurs changées.",
+        "gaz_non_concerne": "compteurs_gaz.car_mwh portait déjà 1 480 031 MWh contre 1 484 121 côté Salesforce : le CAR gaz avait bien été importé du bon champ."
+      },
+      {
+        "sujet": "Audit Salesforce ↔ Kimatch",
+        "outil": "npm run auditer:compteurs (scripts/auditer-compteurs-salesforce.cjs) — ne modifie rien, interroge l'org lui-même",
+        "produit": [
+          "pdl-en-doublon-salesforce.csv (31 numéros)",
+          "compteurs-kimatch-inconnus-de-salesforce.csv (24)",
+          "pdl-avec-car-mais-sans-consommation-officielle.csv (1 931)"
+        ],
+        "resultats": {
+          "salesforce": "7 934 lignes PDL, 7 896 numéros distincts, 1 578 907 MWh",
+          "kimatch": "7 915 compteurs actifs",
+          "postes_horaires": "797 côté Salesforce, 793 chez nous — l'import ne perd presque rien, le manque est à la source (sur 4 820 compteurs élec, 793 ont une répartition)"
+        }
+      }
+    ],
+
+    "frises_de_statut": [
+      {
+        "principe": "Naoëlle 03/09 : « enlève toutes les capsules de statut à côté des noms d'objet et garde les frises animées de statut ; les objets où on n'a pas encore mis de frise, mets-le »",
+        "composant": "src/components/opportunite/FriseStatut.tsx — teintes par objet, jalons cliquables (onJalon), finalité (perdue / neutre), et depuis le 03/09 des `issues` : sorties proposées À CÔTÉ de la frise, jamais en jalons (sinon le dessin dit qu'on passe de Résilié à Annulé).",
+        "objets_traites": {
+          "piste": "Nouvelle · En qualification, issues Convertie/Disqualifiée. Disqualifiée en GRIS, pas rouge (écarter est un travail fait). Les 5 vérifications restent des COCHES — Naoëlle avait tranché : « en mode frise on dirait des statuts ».",
+          "contrat": "En préparation · À signer · Signé · À venir · Actif · Terminé, issues Résilié (rouge) / Annulé (gris). Remplace DEUX pastilles qui se contredisaient (statut métier + statut de signature).",
+          "mandat": "À préparer · Envoyé · En signature · Signé · Actif, issues Expiré/Refusé/Annulé. Remplace une frise maison qui lisait les DATES (3 étapes) et non les 8 statuts. Teinte ambre, pas le bleu du contrat.",
+          "suivi_de_contrat": "7 jalons, CLOTURE en finalité portant Résilié ou Terminé. La santé reste en pastille : ce n'est pas une étape mais un jugement porté dessus.",
+          "tache": "À faire · En cours · En attente · Terminée, issue Annulée."
+        },
+        "badges_conserves": "Type de document, type d'interaction, « appel manqué », santé d'un suivi : ce sont des NATURES, pas des statuts. À trancher si Naoëlle veut aussi les retirer.",
+        "commits": ["708e644", "1d94f07", "0c0c4a8", "3e6c548", "cb3d783", "f51e1d9"]
+      }
+    ],
+
+    "docusign": [
+      {
+        "sujet": "Michel était le seul à voir « Envoyé » là où les autres voyaient « Signé »",
+        "cause": "api/docusign/etat-enveloppe.ts prenait la session DocuSign DE L'APPELANT. Sept personnes en ont une (Matthieu, Fabien, Naoëlle, Guillaume, William, Thomas, Marie), Michel non — il recevait NON_CONNECTE et restait sur le statut stocké.",
+        "correctif": "Repli sur sessionQuelconque (qui existait déjà, utilisé par le cron rattraper-enveloppes). Les 7 sessions pointent le même compte « KIWEE ENERGIE ». L'envoi (send.ts) reste personnel : une enveloppe part au nom de quelqu'un avec sa licence.",
+        "aussi": "Le catch de la vérification automatique était muet ; un bandeau dit désormais quand le statut n'a pas pu être confronté à DocuSign.",
+        "commits": ["340e476", "c197a64"]
+      },
+      {
+        "sujet": "Bandeau rouge DocuSign affiché à Michel",
+        "cause": "useEnvoyeurDeMandats comptait les mandats CRÉÉS. Michel en a 4, zéro parti en signature. Agathe idem (24 créés, 0 envoyé) alors qu'elle en était censément exemptée depuis le 15/08.",
+        "correctif": "Le critère compte les enveloppes DocuSign (docusign_envelope_id non nul). 6 personnes gardent le bandeau, Michel/Agathe/Erwan ne le voient plus.",
+        "commit": "1b05315"
+      }
+    ],
+
+    "contrats": [
+      {
+        "sujet": "Numéro de contrat",
+        "demande": "Naoëlle 03/09 : « il faut donner un numéro généré à nos contrats pour les retrouver facilement »",
+        "fait": "contrats.reference existait, vide sur les 1 603 lignes. Format CT-00001, séquence Postgres + index unique, défaut de colonne pour les nouveaux. Ordre = date de création (les petits numéros sont les vieux dossiers).",
+        "migration": "20260903120000_chaque_contrat_porte_son_numero.sql",
+        "etat": "appliquée — 1 604 contrats numérotés",
+        "affichage": "Tête de carte dans la liste, sous le nom du fournisseur sur la fiche, premier critère de recherche."
+      },
+      {
+        "sujet": "« function public.creer_suivi_contrat(uuid) is not unique »",
+        "cause": "CREATE OR REPLACE FUNCTION ne remplace que si la signature est identique. La migration 20260831280000 a ajouté un paramètre → elle a créé une SURCHARGE. Le déclencheur appelait avec 1 argument, ambigu entre les deux. Bloquait le passage à « Signé », donc la clôture des recommandations gagnées.",
+        "migration": "20260903150000_une_seule_fonction_creer_suivi_contrat.sql",
+        "etat": "appliquée — 1 seule fonction restante"
+      }
+    ],
+
+    "divers": [
+      "Bloc « Postes horaires » visible même vide, sur les compteurs ÉLECTRICITÉ seulement (POINTE/HPH/HCH n'existent pas pour le gaz) — commits 285f6cc, cedc886",
+      "Filtre d'énergie : deux icônes sur l'en-tête de colonne (liste des compteurs, filtre en base) et dans la barre d'outils (liste des contrats, avec les nombres) — commits bb88c79, 5cb2212",
+      "Entrée « Opportunité » ajoutée au hub de création de la fiche compte (elle n'y était pas ; la recommandation y est grisée faute de mandat actif, ce qui est la règle — Michel s'était trompé)",
+      "Onglet « Contrats » réintroduit dans Patrimoine, après Mandats — revient sur le dossier UX du 26/08, décision assumée de Naoëlle",
+      "Contact : civilité, prénom, nom éditables en place. Le dialogue « Modifier le contact » existe encore mais AUCUN bouton ne l'ouvre — code mort — commit ee2f7a1",
+      "tsconfig.api.json : le dossier api/ n'était typechecké par AUCUN projet. 5 défauts préexistants corrigés — commit 808a7ca"
+    ]
+  },
+
+  "a_faire": [
+    {
+      "priorite": 1,
+      "sujet": "Calcul du montant de l'affaire",
+      "formule_validee": {
+        "marge_variable": "(consommation_annuelle_reference_mwh ÷ 12) × offres_fournisseurs.duree_mois × (marge_reelle_eur_mwh × 0,5)",
+        "marge_fixe": "marge_fixe_eur tel quel — le champ s'appelle « Marge fixe (durée totale) », elle couvre la durée et ne se partage pas",
+        "exemple_verifie": "Reco 8deb0671-5df4-4c4f-b798-9b45945a4ebd : 227 ÷ 12 × 36 × (4 × 0,5) = 1 362 €"
+      },
+      "ou_lire_les_termes": "Offre retenue = offres_fournisseurs.est_offre_recommandee. Jointure : offres_fournisseurs_compteurs.offre_fournisseur_id → offres_fournisseurs, et .version_recommandation_compteur_id → versions_recommandation_compteurs → versions_recommandation. NE PAS passer par optimisation_id (pointe vers optimisations, pas vers les versions).",
+      "le_split_existe_deja": "PART_KIWEE_DANS_LA_MARGE = 0.5 dans SaisiePrixDialog.tsx, règle de Michel du 21/08 : la marge de cotation est la marge BRUTE, partagée avec le fournisseur. Ne s'applique QU'AUX marges variables. Le commentaire prévoit le jour où le partage deviendra propre à chaque fournisseur.",
+      "decisions_ouvertes": [
+        "Une saisie manuelle doit-elle résister au recalcul ? Aujourd'hui la marge nette écrase toujours. Si oui, il faut mémoriser que la valeur a été saisie.",
+        "Recalcule-t-on l'historique ? La formule ne retrouve que 14 des 1 580 montants existants. Le tableau de bord somme ces montants."
+      ]
+    },
+    {
+      "priorite": 2,
+      "sujet": "Édition inline de tous les champs, objet par objet",
+      "demande": "Naoëlle 03/09 : « rends tous les champs des objets de l'app éditables en inline, comme ça on ne me redemande plus »",
+      "ordre_convenu": ["contact (5 champs restants)", "compteur", "site", "compte"],
+      "contact_restant": "linkedin_url, disponibilites, type_canal_communication_id, actif, proprietaire_id — affichés en lecture seule, plus rien ne permet de les changer depuis que le dialogue est orphelin. Supprimer le dialogue mort une fois les 5 champs repris.",
+      "methode": "InlineField (src/components/ui/inline-field.tsx), variantes text / number / select / longtext / date / adresse. Penser à ajouter le champ au type Patch<Objet> de la couche data, sinon rien ne s'écrit."
+    },
+    {
+      "priorite": 3,
+      "sujet": "À faire arbitrer par Michel — données Salesforce",
+      "points": [
+        "31 numéros de PDL en doublon dans Salesforce, avec des consommations divergentes (GI041021 à 475 et 382,543 ; 30001641542251 avec un CAR de 85 et de 98). Le script de correction les écarte plutôt que de choisir. Fichier pdl-en-doublon-salesforce.csv.",
+        "1 931 PDL dont le CAR est la seule consommation connue — ils sont passés à 0 dans Kimatch. À reporter dans Consommation_annuelle_MWh__c après avoir décidé de leur unité (le CAR est tantôt en kWh, tantôt en MWh). Fichier pdl-avec-car-mais-sans-consommation-officielle.csv, trié par CAR décroissant.",
+        "Le champ CAR n'est PAS sur la mise en page Salesforce : il porte 4 177 064 au total et personne ne le voit. Soit l'ajouter à la mise en page, soit le retirer une fois les valeurs utiles recopiées.",
+        "Le filtre du rapport de Michel à 7 075 enregistrements / 1 368 293,927 MWh reste inconnu — testés sans succès : électricité (4 831), gaz (3 096), avec compte (7 934), segment renseigné (4 183), Client=false (6 885)."
+      ],
+      "non_anomalie": "Les 24 compteurs Kimatch inconnus de Salesforce ont TOUS été créés ici entre le 07/08 et le 02/09/2026. Créations récentes des commerciaux, rien à arbitrer."
+    },
+    {
+      "priorite": 4,
+      "sujet": "Webhook DocuSign",
+      "constat": "Le passage à SIGNE a fonctionné le 21/08 (2 fois) et le 31/08 (1 fois), puis plus rien. Les enveloppes envoyées les 02 et 03/09 sont restées à ENVOYE. Le code note déjà que la notification « a lâché deux fois ». Le cron rattraper-enveloppes (7 h→20 h, toutes les heures) compense un défaut qu'il faudrait traiter.",
+      "a_verifier": "Ouvrir l'enveloppe 944a03d7-42ec-85dc-81c0-9fbee445e3b6 dans DocuSign : si elle y est signée, la notification s'est perdue une troisième fois."
+    },
+    {
+      "priorite": 5,
+      "sujet": "Points laissés en suspens",
+      "points": [
+        "Badges de NATURE (type de document, type d'interaction, appel manqué) : conservés. À trancher si Naoëlle veut les retirer aussi.",
+        "Le bloc « L'affaire » reste masqué pour qui ne peut pas modifier la reco ET dont le dossier n'a aucun chiffre. Une ligne à changer si on le veut visible en lecture seule.",
+        "Michel devrait connecter son compte DocuSign (une minute depuis Mon profil) — plus nécessaire depuis le repli de session, mais ça reste le geste propre."
+      ]
+    }
+  ],
+
+  "pieges_appris": {
+    "create_or_replace_view": "42P16 — ne remplace que si l'ordre ET les noms des colonnes sont identiques. Toujours relire pg_get_viewdef AVANT d'écrire la migration, et n'ajouter qu'EN QUEUE. Rencontré sur v_qualite_compte (colonne compte_proprietaire_id ajoutée entre-temps).",
+    "create_or_replace_function": "42725 — ne remplace que si la SIGNATURE est identique. Ajouter un paramètre crée une surcharge, et un appel devient ambigu. Rencontré sur creer_suivi_contrat.",
+    "tsconfig_api": "Le dossier api/ n'entrait dans aucun projet TypeScript : npm run build passait au vert avec du code serveur cassé, l'erreur n'apparaissait qu'au clic en production (« ctx is not defined »). Corrigé par tsconfig.api.json en moduleResolution NodeNext (les imports serveur portent l'extension .js).",
+    "jointure_des_offres": "offres_fournisseurs.optimisation_id pointe vers optimisations, PAS vers versions_recommandation. Une requête qui ne rend rien ne prouve pas l'absence — vérifier les clés étrangères avec pg_constraint, ou aller voir l'écran (Claude for Chrome).",
+    "fins_de_ligne": "Plusieurs fichiers sont en CRLF, certains mixtes. Éditer avec un script Python en lisant ET écrivant newline='' ; sinon le diff fait des milliers de lignes et devient illisible.",
+    "docusign_connexions": "La vue docusign_connexions est filtrée par utilisateur : lue en direct via pg (sans session), elle rend 0 ligne. Les vraies sessions sont dans docusign_sessions (7 le 03/09)."
+  },
+
+  "chiffres_cles_au_03_09_2026": {
+    "comptes_consommateurs_actifs": 2706,
+    "clients": 392,
+    "prospects": 2314,
+    "scoring_global_portefeuille": 39.7,
+    "compteurs_actifs_kimatch": 7915,
+    "pdl_salesforce": "7 934 lignes / 7 896 distincts",
+    "consommation_totale_apres_correction_mwh": 1572669,
+    "contrats_actifs": 1603,
+    "contrats_numerotes": 1604,
+    "recommandations_actives": 1710,
+    "recommandations_nees_dans_kimatch": 37,
+    "compteurs_elec_avec_postes_horaires": "793 sur 4 820"
+  }
+}
