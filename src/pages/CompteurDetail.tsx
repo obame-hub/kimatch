@@ -349,6 +349,14 @@ function PostesHorairesCard({ compteur }: { compteur: Compteur }) {
      ces valeurs devraient venir. */
   const renseignes = ORDRE_POSTES.filter((p) => conso[p] != null || puissances[p] != null)
   const vide = renseignes.length === 0
+
+  /* ══ SUR UN COMPTEUR GAZ, LA CARTE NE S'AFFICHE PAS DU TOUT ══
+     POINTE, HPH, HCH… sont les classes temporelles de l'ÉLECTRICITÉ. Les afficher vides sur les
+     3 095 compteurs gaz ne dirait pas « on ne les a pas remontées » mais quelque chose de faux :
+     ces postes n'existent pas pour le gaz, qui se décrit par son CAR et son profil. La carte vide
+     répond à un trou de donnée, pas à une donnée sans objet. */
+  if (vide && compteur.type_energie !== 'electricite') return null
+
   const postes = vide ? ORDRE_POSTES : renseignes
 
   const consoMax = Math.max(...postes.map((p) => conso[p] ?? 0), 0)
@@ -369,7 +377,7 @@ function PostesHorairesCard({ compteur }: { compteur: Compteur }) {
       {vide && (
         <p className="mb-3 text-km-label leading-relaxed text-km-muted">
           Aucune répartition remontée pour ce compteur — ni par la reprise Salesforce, ni par une
-          synchronisation. Les huit classes sont listées telles qu'elles seront remplies.
+          synchronisation. Les huit classes sont listées vides : rien n'est calculé ni supposé ici.
         </p>
       )}
 
