@@ -319,10 +319,27 @@ function PostesHorairesCard({ compteur }: { compteur: Compteur }) {
   const conso = compteur.consoParClasseMwh ?? {}
   const puissances = compteur.puissanceParClasseKva ?? {}
 
-  // Un poste est affiché s'il porte une conso OU une puissance : sur un C5 en Base, sept des huit
-  // classes sont vides et les afficher ne dirait rien.
-  const postes = ORDRE_POSTES.filter((p) => conso[p] != null || puissances[p] != null)
-  if (postes.length === 0) return null
+  /* Un poste est affiché s'il porte une conso OU une puissance : sur un C5 en Base, sept des huit
+     classes sont vides et les afficher ne dirait rien.
+
+     ══ SAUF QUAND IL N'Y EN A AUCUN ══════════════════════════════════════════════════════════════
+
+     La carte disparaissait alors complètement, et c'est ce que Naoëlle a relevé le 03/09/2026 :
+     « quand un compteur n'a pas de conso, il faudrait voir quand même le bloc postes horaires conso
+     et puissance, même quand ce n'est pas renseigné ». Michel disait la même chose la veille sur le
+     compteur GEOPETROL : « même si les consos sont à 0, on devrait quand même voir les postes ».
+
+     ILS ONT RAISON, ET L'ENJEU N'EST PAS DÉCORATIF. Une carte absente se lit « ce compteur n'a pas
+     de postes horaires » ; une carte vide se lit « personne ne les a remontés ». C'est la seconde
+     phrase qui est vraie, et c'est la seule des deux sur laquelle on peut agir. Sur 4 820 compteurs
+     électricité, 793 seulement portent une répartition : la carte manquait donc sur la très grande
+     majorité des fiches, exactement là où le trou de donnée méritait d'être vu.
+
+     On affiche alors les huit classes à « — », dans l'ordre du barème, avec la phrase qui dit d'où
+     ces valeurs devraient venir. */
+  const renseignes = ORDRE_POSTES.filter((p) => conso[p] != null || puissances[p] != null)
+  const vide = renseignes.length === 0
+  const postes = vide ? ORDRE_POSTES : renseignes
 
   const consoMax = Math.max(...postes.map((p) => conso[p] ?? 0), 0)
   const valeursPuissance = postes.map((p) => puissances[p]).filter((v): v is number => v != null)
@@ -339,7 +356,14 @@ function PostesHorairesCard({ compteur }: { compteur: Compteur }) {
         )}
       </div>
 
-      <div className="space-y-2">
+      {vide && (
+        <p className="mb-3 text-km-label leading-relaxed text-km-muted">
+          Aucune répartition remontée pour ce compteur — ni par la reprise Salesforce, ni par une
+          synchronisation. Les huit classes sont listées telles qu'elles seront remplies.
+        </p>
+      )}
+
+      <div className={cn('space-y-2', vide && 'opacity-55')}>
         {postes.map((poste) => {
           const mwh = conso[poste]
           const kva = puissances[poste]
