@@ -1412,8 +1412,26 @@ function DialogSignatureContrat({
  * d'accord avec lui. La deuxième existe parce que la première peut mentir sans le savoir.
  */
 function BlocEnvoiSignature({ contrat, signaler }: { contrat: Contrat; signaler: (m: string) => void }) {
+  const navigate = useNavigate()
   const [etat, setEtat] = useState<EtatEnveloppe | null>(null)
   const [enCours, setEnCours] = useState(false)
+  /* ══ POURQUOI MICHEL ÉTAIT LE SEUL À VOIR « ENVOYÉ » ═══════════════════════════════════════════
+
+     Naoëlle, 03/09/2026 : « pourquoi sur ce contrat Michel est le seul à ne pas voir le statut
+     signé, pour lui c'est encore envoyé » — puis « pourtant Matthieu et moi on voit bien signé ».
+
+     LA CAUSE : la vérification ci-dessous part À L'OUVERTURE DE LA FICHE, et elle exige une session
+     DocuSign. Sept personnes en ont une (Matthieu, Fabien, Naoëlle, Guillaume, William, Thomas,
+     Marie) ; Michel n'en a pas. Ils lisent donc l'état RÉEL, lu chez DocuSign ; lui lit l'état
+     stocké, celui qu'a laissé la dernière notification reçue. Deux sources, deux réponses, aucun
+     bug — et rien à l'écran pour le dire.
+
+     C'EST CE SILENCE QUI ÉTAIT LE DÉFAUT. Le `catch` était muet « volontairement », pour ne pas
+     jeter une erreur au visage de quelqu'un qui vient lire une fiche. L'intention était bonne, le
+     résultat non : un statut périmé qui a l'air normal se croit, et deux collègues finissent par se
+     contredire au téléphone sans comprendre pourquoi. On ne montre toujours pas d'erreur — on dit
+     que le statut affiché n'a pas pu être vérifié, et comment y remédier. */
+  const [verification, setVerification] = useState<'non_connecte' | 'echec' | null>(null)
 
   /* ══ ON DEMANDE À DOCUSIGN DÈS L'OUVERTURE DE LA FICHE ═══════════════════════════════════════
 
@@ -1445,11 +1463,13 @@ function BlocEnvoiSignature({ contrat, signaler }: { contrat: Contrat; signaler:
         setEtat(r)
         if (r.corrige) signaler('Statut corrigé d’après DocuSign — la notification n’était pas arrivée.')
       })
-      .catch(() => {
-        /* Silencieux VOLONTAIREMENT. Un compte DocuSign non connecté, une session expirée ou un
-           réseau coupé ne doivent pas jeter une erreur au visage de quelqu'un qui vient seulement
-           lire une fiche : le bouton « Vérifier auprès de DocuSign » est juste en dessous et, lui,
-           dira ce qui n'a pas marché. */
+      .catch((err) => {
+        /* Toujours pas d'erreur jetée au visage de quelqu'un qui vient lire une fiche — mais on
+           note que l'état affiché vient de la base et n'a pas été confronté à DocuSign. Le compte
+           non connecté se distingue du reste : c'est le seul cas que la personne peut réparer
+           elle-même, en une minute, depuis son profil. */
+        if (!vivant) return
+        setVerification(err instanceof DocusignNonConnecte ? 'non_connecte' : 'echec')
       })
     return () => {
       vivant = false
@@ -1490,6 +1510,32 @@ function BlocEnvoiSignature({ contrat, signaler }: { contrat: Contrat; signaler:
         <p className="text-km-xs font-bold uppercase tracking-wide text-km-faint">Envoi à la signature</p>
         <Badge tone={contrat.statut_signature === 'SIGNE' ? 'kiwi' : 'amber'}>{e.libelle}</Badge>
       </div>
+
+      {/* La mention ne s'affiche QUE si la confrontation a échoué : quand elle réussit, le statut
+          est à jour et l'écrire serait du bruit à chaque ouverture de fiche. */}
+      {verification && !etat && (
+        <p className="mb-2.5 rounded-km border border-km-amber-line bg-km-amber-soft px-2.5 py-1.5 text-km-label text-amber-800">
+          {verification === 'non_connecte' ? (
+            <>
+              Ce statut vient de la dernière notification reçue : il n’a pas pu être vérifié auprès
+              de DocuSign, votre compte n’étant pas connecté. Un collègue connecté peut donc voir un
+              état plus récent.{' '}
+              <button
+                type="button"
+                onClick={() => navigate('/profil')}
+                className="font-bold underline decoration-dotted"
+              >
+                Connecter mon compte DocuSign
+              </button>
+            </>
+          ) : (
+            <>
+              Ce statut vient de la dernière notification reçue : DocuSign n’a pas répondu à
+              l’ouverture de la fiche. « Vérifier auprès de DocuSign » ci-dessous dira pourquoi.
+            </>
+          )}
+        </p>
+      )}
 
       {/* ── LA FRISE DE L'ENVOI ──
           Naoëlle, 21/08/2026 : « il faudrait créer une frise de l'état de l'envoi ». Même montage
