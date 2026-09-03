@@ -271,10 +271,23 @@ export function useCompteursListe(options: {
    * part en vacances, pas le point de livraison.
    */
   sites?: string[] | null
+  /**
+   * N'afficher qu'une énergie — le code de `types_energies` : ELECTRICITE ou GAZ. `null` = les deux.
+   *
+   * Naoëlle, 03/09/2026 : « sur la vue des compteurs, il faudrait que sur le titre Énergie il y ait
+   * une petite option discrète pour afficher ou juste gaz ou juste électricité. »
+   *
+   * IL DESCEND EN BASE, comme les six filtres d'échéance juste en dessous, et pas dans le
+   * navigateur : la liste s'arrête à une tranche de 100 lignes, donc filtrer après coup ne
+   * montrerait que les compteurs gaz DE CETTE TRANCHE, et le total du pied de liste annoncerait un
+   * nombre que la liste ne montre pas. 4 820 compteurs sont électriques, 3 096 au gaz : le filtre
+   * doit porter sur les 7 916.
+   */
+  energie?: 'ELECTRICITE' | 'GAZ' | null
 }) {
-  const { recherche, filtre, tri, sens, limite, sites } = options
+  const { recherche, filtre, tri, sens, limite, sites, energie } = options
   return useQuery({
-    queryKey: ['compteurs', 'liste', recherche, filtre, tri, sens, limite, sites ? sites.length : null],
+    queryKey: ['compteurs', 'liste', recherche, filtre, tri, sens, limite, sites ? sites.length : null, energie ?? null],
     queryFn: async (): Promise<LigneCompteur[]> => {
       const comptesVisibles = await fetchComptesVisibles()
       const sitesVisibles = await fetchSitesVisiblesIds(comptesVisibles)
@@ -309,6 +322,8 @@ export function useCompteursListe(options: {
         q = q.in('site_id', sites)
       }
 
+      if (energie) q = q.eq('type_energie_code', energie)
+
       // Les deux cas de la diapositive 7 — « absentes ou dépassées » — plus ce qui arrive.
       if (filtre === 'absente') q = q.eq('nature_echeance', 'ABSENTE')
       if (filtre === 'depassee') q = q.lt('date_echeance', jourIso())
@@ -335,6 +350,10 @@ export function useCompteursListe(options: {
           .select('id, numero_point, site_id, date_echeance, consommation_annuelle_mwh, localisation_site, types_energies(code), sites(nom)', { count: 'exact' })
           .eq('actif', true)
         if (sitesVisibles !== null) t = t.in('site_id', sitesVisibles)
+        /* LE REPLI NE SAIT PAS FILTRER L'ÉNERGIE : sur la table, elle est derrière une jointure, et
+           PostgREST ne filtre pas sur une table jointe sans la déclarer. Ce chemin ne sert que le
+           temps qu'une migration soit appliquée — mieux vaut alors rendre la liste entière que rien
+           du tout, et le filtre reviendra avec la vue. */
         if (filtre === 'absente') t = t.is('date_echeance', null)
         if (filtre === 'depassee') t = t.lt('date_echeance', jourIso())
         if (filtre === 'six_mois') t = t.gte('date_echeance', jourIso()).lte('date_echeance', jourIso(6))

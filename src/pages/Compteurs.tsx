@@ -56,6 +56,18 @@ import { natureEcheance, type EcheanceCompteur } from '@/lib/echeance'
 import { cn } from '@/lib/utils'
 import { Tableau, TableauTete, TableauCorps } from '@/components/ui/tableau'
 
+/**
+ * Les deux énergies, pour la bascule posée sur l'en-tête de la colonne.
+ *
+ * Les icônes et les couleurs sont celles d'`IconeEnergie` — l'ambre du gaz, le bleu de
+ * l'électricité, employés partout ailleurs pour ces deux énergies. Reprendre les mêmes évite qu'un
+ * filtre et une ligne de tableau désignent la même chose de deux façons.
+ */
+const ENERGIES = [
+  { cle: 'ELECTRICITE' as const, Icone: Zap, libelle: 'l’électricité', actif: 'text-km-blue' },
+  { cle: 'GAZ' as const, Icone: Flame, libelle: 'le gaz', actif: 'text-km-amber' },
+]
+
 const TRANCHE_INITIALE = 100
 const TRANCHE_SUIVANTE = 200
 
@@ -78,6 +90,16 @@ export default function Compteurs({ sansEntete }: { sansEntete?: boolean }) {
   const navigate = useNavigate()
   const [query, setQuery] = useState('')
   const [filtre, setFiltre] = useState<FiltreEcheance>('tous')
+  /* ══ LE FILTRE D'ÉNERGIE VIT DANS SON EN-TÊTE DE COLONNE ══════════════════════════════════════
+
+     Naoëlle, 03/09/2026 : « sur la vue des compteurs, il faudrait que sur le titre Énergie il y ait
+     une petite option discrète pour afficher ou juste gaz ou juste électricité. »
+
+     DANS L'EN-TÊTE ET PAS DANS LA BARRE D'OUTILS, et c'est ce que « discrète » veut dire ici : la
+     barre du haut porte déjà la recherche, le périmètre et les six filtres d'échéance. Un septième
+     y serait un contrôle de plus à balayer ; posé sur sa colonne, il se trouve là où l'œil va
+     naturellement quand on se demande « et si je ne voulais que le gaz ? ». */
+  const [energie, setEnergie] = useState<'ELECTRICITE' | 'GAZ' | null>(null)
   const [tri, setTri] = useState<TriCompteurs>('date_echeance')
   const [sens, setSens] = useState<'asc' | 'desc'>('asc')
   const [limite, setLimite] = useState(TRANCHE_INITIALE)
@@ -89,12 +111,12 @@ export default function Compteurs({ sansEntete }: { sansEntete?: boolean }) {
   // recherche redemanderait les 500 lignes chargées pour la précédente.
   useEffect(() => {
     setLimite(TRANCHE_INITIALE)
-  }, [recherche, filtre, tri, sens])
+  }, [recherche, filtre, tri, sens, energie])
 
   const { perimetre, setPerimetre } = usePerimetre('compteurs')
   const { data: portefeuille } = useMonPortefeuille()
   const liste = useCompteursListe({
-    recherche, filtre, tri, sens, limite,
+    recherche, filtre, tri, sens, limite, energie,
     sites: perimetre === 'moi' ? (portefeuille?.sites ?? []) : null,
   })
   const { data: nombres } = useComptesEcheances()
@@ -181,7 +203,30 @@ export default function Compteurs({ sansEntete }: { sansEntete?: boolean }) {
               <tr>
                 <SortableTh label="Point de livraison" sortKey="numero_point" activeKey={tri} dir={sens} onSort={trierPar} />
                 <th className="font-medium">Site</th>
-                <th className="font-medium">Énergie</th>
+                <th className="font-medium">
+                  <span className="flex items-center gap-1.5">
+                    Énergie
+                    {/* DEUX BASCULES, PAS UN MENU. Il n'y a que deux énergies : un menu déroulant
+                        demanderait deux clics et une lecture pour ce qu'une icône dit d'un coup.
+                        Recliquer sur celle qui est active revient à « les deux » — c'est le geste
+                        attendu, et il évite un troisième bouton « Tous » qui n'apprendrait rien. */}
+                    {ENERGIES.map(({ cle, Icone, libelle, actif }) => (
+                      <button
+                        key={cle}
+                        type="button"
+                        onClick={() => setEnergie((e) => (e === cle ? null : cle))}
+                        title={energie === cle ? `Afficher les deux énergies` : `N’afficher que ${libelle}`}
+                        aria-pressed={energie === cle}
+                        className={cn(
+                          'rounded-km-sm p-0.5 transition-colors',
+                          energie === cle ? actif : 'text-km-faint/45 hover:text-km-muted',
+                        )}
+                      >
+                        <Icone className="h-3.5 w-3.5" />
+                      </button>
+                    ))}
+                  </span>
+                </th>
                 <SortableTh label="Échéance" sortKey="date_echeance" activeKey={tri} dir={sens} onSort={trierPar} />
                 <th className="font-medium">Nature</th>
                 <SortableTh label="Consommation" sortKey="consommation_annuelle_mwh" activeKey={tri} dir={sens} onSort={trierPar} />
