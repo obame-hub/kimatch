@@ -5,6 +5,7 @@ import { Topbar } from '@/components/layout/Topbar'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Card } from '@/components/ui/card'
+import { FriseStatut } from '@/components/opportunite/FriseStatut'
 import { EntityLink } from '@/components/ui/entity-link'
 import { InlineField } from '@/components/ui/inline-field'
 import { ActivityFeed } from '@/components/site/ActivityFeed'
@@ -34,6 +35,21 @@ import { cn } from '@/lib/utils'
  * veiller à la double signature, ouvrir le renouvellement. Les cinq autres arrivent seules. Un
  * sélecteur libre aurait laissé n'importe qui poser « Terminé » sur un contrat qui court encore.
  */
+
+/**
+ * Les sept jalons du parcours. CLOTURE n'en fait pas partie : c'est la sortie, et son libellé
+ * « Terminé ou résilié » dit lui-même qu'elle recouvre deux fins différentes — la frise la porte
+ * en finalité, avec le mot juste.
+ */
+const JALONS_SUIVI = [
+  'A_PREPARER',
+  'RESILIATION_A_CONFIRMER',
+  'EN_ATTENTE_ACTIVATION',
+  'CONTRAT_ACTIF',
+  'SUIVI_CLIENT',
+  'RENOUVELLEMENT_A_ANTICIPER',
+  'EN_RENOUVELLEMENT',
+] as const
 
 const ETAPES_ORDRE = [
   'A_PREPARER',
@@ -127,11 +143,12 @@ export default function SuiviContratDetail() {
         <div className="min-w-0 flex-1">
           <div className="flex flex-wrap items-center gap-2">
             <p className="truncate text-km-title font-bold text-km-text">{suivi.compte_nom ?? 'Compte inconnu'}</p>
-            <Badge tone="neutral">{suivi.etape_libelle}</Badge>
-            {/* La santé porte toujours son libellé : « la couleur seule ne porte jamais
-                l'information » (§ 11). */}
+            {/* LA PASTILLE D'ÉTAPE EST PARTIE, la frise ci-dessous la dit mieux (Naoëlle,
+                03/09/2026). LA SANTÉ RESTE : ce n'est pas une étape du parcours mais un jugement
+                porté dessus — un suivi « en renouvellement » peut être sain ou en souffrance, et
+                c'est justement quand les deux divergent qu'il faut le voir. Elle porte toujours son
+                libellé : « la couleur seule ne porte jamais l'information » (§ 11). */}
             <Badge tone={SANTE_TONE[suivi.sante] ?? 'neutral'}>{SANTE_LIBELLE[suivi.sante] ?? suivi.sante}</Badge>
-            {suivi.finalite && <Badge tone="neutral">{suivi.finalite === 'RESILIE' ? 'Résilié' : 'Terminé'}</Badge>}
           </div>
           {/* Ce que l'étape sert à obtenir, mot pour mot le § 7. Sans elle, « À préparer » ne dit
               rien de ce qu'il y a à préparer. */}
@@ -160,28 +177,56 @@ export default function SuiviContratDetail() {
         )}
       </div>
 
-      {/* ══ LE PARCOURS ══ */}
-      <div className="flex flex-none items-center gap-1 overflow-x-auto border-b border-km-line bg-km-bg/60 px-4 py-2 sm:px-6">
-        {ETAPES_ORDRE.map((code, i) => {
-          const e = (etapes ?? []).find((x) => x.code === code)
-          const passee = rang >= 0 && i < rang
-          const actuelle = i === rang
-          return (
-            <div key={code} className="flex shrink-0 items-center gap-1">
-              <span
-                className={cn(
-                  'whitespace-nowrap rounded-km px-2 py-1 text-km-label',
-                  actuelle && 'bg-ink-800 font-bold text-white',
-                  passee && 'text-km-faint',
-                  !actuelle && !passee && 'text-km-muted',
-                )}
-              >
-                {e?.libelle ?? code}
-              </span>
-              {i < ETAPES_ORDRE.length - 1 && <span className="text-km-faint">›</span>}
-            </div>
-          )
-        })}
+      {/* ══ LE PARCOURS ══════════════════════════════════════════════════════════════════════════
+
+          C'était une bande de huit libellés séparés par des chevrons, le courant sur fond noir. Elle
+          disait l'étape, pas le chemin : rien n'indiquait ce qui restait à franchir, et elle n'était
+          pas animée. Naoëlle, 03/09/2026 : « garde les frises animées de statut, c'est plus parlant
+          pour nous ; les objets où on n'a pas encore mis de frise, mets-le ».
+
+          SEPT JALONS, PAS HUIT. « Terminé ou résilié » (CLOTURE) n'est pas une huitième étape, c'est
+          la sortie — et son libellé dit lui-même qu'elle recouvre deux fins différentes. Elle ferme
+          donc la frise en portant la finalité réelle, résilié ou terminé, ce que la bande précédente
+          ne savait pas montrer.
+
+          CLIQUABLE SUR TOUT LE PARCOURS. Le bouton « étape suivante » de l'en-tête ne permettait
+          d'avancer que d'un cran à la fois et jamais de revenir — or un suivi rouvert après une
+          résiliation annulée existe. */}
+      <div className="flex-none border-b border-km-line bg-km-bg/60 px-4 pb-1 sm:px-6">
+        <FriseStatut
+          teinte="recommandation"
+          jalons={JALONS_SUIVI.map((code) => ({
+            code,
+            libelle: (etapes ?? []).find((x) => x.code === code)?.libelle ?? code,
+          }))}
+          courant={clos ? JALONS_SUIVI[JALONS_SUIVI.length - 1] : suivi.etape}
+          finalite={
+            clos
+              ? {
+                  libelle: suivi.finalite === 'RESILIE' ? 'Résilié' : 'Terminé',
+                  perdue: suivi.finalite === 'RESILIE',
+                  neutre: suivi.finalite !== 'RESILIE',
+                }
+              : null
+          }
+          onJalon={
+            canManage
+              ? (code: string) => {
+                  const cible = (etapes ?? []).find((x) => x.code === code)
+                  if (!cible || cible.code === suivi.etape) return
+                  majEtape
+                    .mutateAsync({ id: suivi.id, etape_id: cible.id, cloture: false, finalite: null })
+                    .then(() => signaler(`→ ${cible.libelle}`))
+                    .catch((e) => signaler(e instanceof Error ? e.message : 'Enregistrement impossible'))
+                }
+              : undefined
+          }
+          issues={
+            canManage && !clos
+              ? [{ code: 'CLOTURE', libelle: (etapes ?? []).find((x) => x.code === 'CLOTURE')?.libelle ?? 'Terminé ou résilié' }]
+              : undefined
+          }
+        />
       </div>
 
       <div className="flex flex-none items-center gap-0.5 border-b border-km-line bg-white px-4 pt-2.5 sm:px-6">
