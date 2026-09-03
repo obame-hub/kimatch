@@ -251,7 +251,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       signataire: signataire ? { nom: signataire.name, email: signataire.email, statut: signataire.status, recuLe: signataire.deliveredDateTime ?? null } : null,
       // Le lien vers l'enveloppe dans DocuSign, construit depuis la région du compte plutôt que
       // devine : `eu.docusign.net` cote API correspond a `apps-eu.docusign.com` cote site.
-      lien: lienVersEnveloppe(ctx.baseUri, contrat.docusign_envelope_id),
+      lien: lienVersEnveloppe(session.base_uri, contrat.docusign_envelope_id),
       statutConnuAvant: statutConnu,
       corrige,
     })

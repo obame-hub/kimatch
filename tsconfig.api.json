@@ -1,0 +1,41 @@
+{
+  /*
+   * ══ LE CODE SERVEUR N'ÉTAIT TYPECHECKÉ PAR RIEN ═══════════════════════════════════════════════
+   *
+   * Trouvé le 03/09/2026, sur une erreur que Naoëlle a reçue en cliquant « Vérifier auprès de
+   * DocuSign » : « ctx is not defined ». J'avais remplacé une variable dans
+   * `api/docusign/etat-enveloppe.ts` en laissant une référence à l'ancienne — et RIEN ne l'a vu.
+   *
+   * `tsconfig.app.json` n'inclut que `src`, `tsconfig.node.json` que `vite.config.ts`. Les
+   * dix-neuf fichiers d'`api/` — les endpoints DocuSign, les crons, l'archivage — n'entraient dans
+   * aucun projet : `npm run build` passait au vert avec du code serveur cassé. Vercel les
+   * transpile sans les vérifier, donc l'erreur n'apparaissait qu'au clic, en production.
+   *
+   * D'où ce troisième projet, référencé par `tsconfig.json` : `npm run build` le compile désormais
+   * avec les deux autres.
+   *
+   * ══ POURQUOI IL NE COPIE PAS `tsconfig.node.json` ══
+   *
+   * Le code d'`api/` tourne sous Node, pas dans un bundler : ses imports portent l'extension `.js`
+   * (`'./_oauth.js'`) comme l'exige ESM à l'exécution. `moduleResolution: "Bundler"` refuse cette
+   * forme, et `allowImportingTsExtensions` n'a pas de sens ici. On prend donc la résolution
+   * `NodeNext`, celle sous laquelle ce code s'exécute vraiment.
+   */
+  "compilerOptions": {
+    "tsBuildInfoFile": "./node_modules/.tmp/tsconfig.api.tsbuildinfo",
+    "target": "ES2022",
+    "lib": ["ES2023"],
+    "module": "NodeNext",
+    "moduleResolution": "NodeNext",
+    "types": ["node"],
+    "skipLibCheck": true,
+    "resolveJsonModule": true,
+    "noEmit": true,
+
+    "strict": true,
+    "noUnusedLocals": true,
+    "noUnusedParameters": true,
+    "noFallthroughCasesInSwitch": true
+  },
+  "include": ["api"]
+}

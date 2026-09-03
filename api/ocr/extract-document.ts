@@ -94,7 +94,12 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       }),
     })
 
-    const data = await resp.json()
+    /* La réponse d'Anthropic, typée au minimum de ce qu'on en lit : `resp.json()` rend `unknown`,
+       et laisser le compilateur nous croire sur parole ici reviendrait à ne pas le brancher. */
+    const data = (await resp.json()) as {
+      error?: { message?: string }
+      content?: { text?: string }[]
+    }
     if (!resp.ok) {
       const message = data?.error?.message ?? `Erreur Anthropic (${resp.status})`
       res.status(200).json({ success: false, error: message })

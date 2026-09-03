@@ -1,6 +1,6 @@
 import { createHmac } from 'crypto'
 import { describe, expect, it } from 'vitest'
-import { doitEcrire, statutPourEnveloppe, verifierSignature } from '../_decision'
+import { doitEcrire, statutPourEnveloppe, verifierSignature } from '../_decision.js'
 
 const SECRET = 'un-secret-de-test-sans-valeur'
 const signer = (corps: string) => createHmac('sha256', SECRET).update(corps, 'utf8').digest('base64')

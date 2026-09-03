@@ -80,7 +80,11 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     .from('mandats')
     .select('id, docusign_envelope_id, statut:statuts_mandats(code)')
     .not('docusign_envelope_id', 'is', null)
-  for (const m of (mandats ?? []) as { id: string; docusign_envelope_id: string; statut: { code: string } | null }[]) {
+  /* `unknown` D'ABORD : PostgREST type une jointure comme un TABLEAU, alors qu'une clé étrangère
+     simple n'en rend qu'un. Le cast direct est refusé par TypeScript — à juste titre, les deux
+     formes ne se recouvrent pas — mais la forme réelle est bien l'objet seul, vérifiée à
+     l'exécution par le `?.` juste en dessous. */
+  for (const m of (mandats ?? []) as unknown as { id: string; docusign_envelope_id: string; statut: { code: string } | null }[]) {
     const code = m.statut?.code ?? ''
     // Les etats terminaux de `statuts_mandats`, verifies dans la table : SIGNE, ACTIF, EXPIRE,
     // REFUSE, ANNULE. `A_PREPARER`, `ENVOYE` et `EN_SIGNATURE` sont des attentes — et « En
