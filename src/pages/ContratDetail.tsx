@@ -6,6 +6,8 @@ import { Topbar } from '@/components/layout/Topbar'
 import { Button } from '@/components/ui/button'
 import { ZoneDepotFichiers } from '@/components/ui/zone-depot-fichiers'
 import { Badge } from '@/components/ui/badge'
+import { Card } from '@/components/ui/card'
+import { FriseStatut } from '@/components/opportunite/FriseStatut'
 import { EntityLink } from '@/components/ui/entity-link'
 import { useSuiviDuContrat, SANTE_LIBELLE } from '@/lib/data/suivisContrats'
 import { Dialog } from '@/components/ui/dialog'
@@ -29,7 +31,7 @@ import { useReferenceTable } from '@/lib/data/referenceTables'
 import { useFormulesTarifaires, useTarifsByContratCompteurs, useCreateTarif, useDeleteTarif } from '@/lib/data/tarifs'
 import { useCanManage, useIsAdmin, useProfilsAdmin } from '@/lib/data/roles'
 import { useSuppression } from '@/lib/useSuppression'
-import { FALLBACK_STATUTS_CONTRATS, STATUT_CONTRAT_TONE, FALLBACK_TYPES_DOCUMENTS } from '@/lib/referenceFallbacks'
+import { FALLBACK_STATUTS_CONTRATS, FALLBACK_TYPES_DOCUMENTS } from '@/lib/referenceFallbacks'
 import { useGoBack } from '@/lib/useGoBack'
 import { useRaccourcisOnglets } from '@/lib/useRaccourcisOnglets'
 import { cn } from '@/lib/utils'
@@ -330,6 +332,21 @@ function AddTarifDialog({
   )
 }
 
+/**
+ * ══ LE CHEMIN D'UN CONTRAT, EN SIX JALONS ══════════════════════════════════════════════════════
+ *
+ * `statuts_contrats` en porte neuf, ordonnés de 5 à 80. Les six retenus sont la progression ; les
+ * trois autres n'en font pas partie :
+ *
+ *   · NOUVEAU (4 contrats) est fondu dans « En préparation » — c'est le même moment vu deux fois,
+ *     et deux premiers jalons qui disent la même chose n'apprennent rien.
+ *   · RESILIE et ANNULE sont des SORTIES, pas des étapes : un contrat résilié n'est pas « plus
+ *     avancé » qu'un contrat actif. La frise sait fermer sur une issue, c'est fait pour ça.
+ *
+ * L'ordre est celui de la colonne `ordre` en base, donc celui que le métier a posé.
+ */
+const JALONS_CONTRAT = ['EN_PREPARATION', 'A_SIGNER', 'SIGNE', 'A_VENIR', 'ACTIF', 'TERMINE'] as const
+
 export default function ContratDetail() {
   const { id } = useParams()
   const navigate = useNavigate()
@@ -343,6 +360,20 @@ export default function ContratDetail() {
   const { data: documents } = useDocuments()
   const { data: statutsRef } = useReferenceTable('statuts_contrats')
   const statuts = statutsRef && statutsRef.length > 0 ? statutsRef : FALLBACK_STATUTS_CONTRATS
+  /* ══ OÙ EN EST LE CONTRAT, POUR LA FRISE ══
+     NOUVEAU se lit « En préparation » (même moment, deux noms), et un statut inconnu — une ligne
+     de référence ajoutée demain — retombe sur le premier jalon plutôt que de vider la frise. */
+  const statutContrat = contrat?.statut ?? ''
+  const courantContrat = statutContrat === 'NOUVEAU' ? 'EN_PREPARATION' : statutContrat
+  /* Résilié et annulé ferment la frise. Résilié est une PERTE — le client est parti avant terme ;
+     annulé est neutre — le contrat n'a jamais commencé, il n'y a rien à regretter. */
+  const finaliteContrat =
+    statutContrat === 'RESILIE'
+      ? { libelle: 'Résilié', perdue: true }
+      : statutContrat === 'ANNULE'
+        ? { libelle: 'Annulé', perdue: false, neutre: true }
+        : null
+
   const site = sites?.find((s) => s.id === contrat?.site_id)
   const compte = comptes?.find((c) => c.id === site?.compte_id)
   const fournisseur = comptes?.find((c) => c.id === contrat?.fournisseur_compte_id)
@@ -459,19 +490,24 @@ export default function ContratDetail() {
           <Icon className="h-[18px] w-[18px]" />
         </span>
         <div className="min-w-0 flex-1">
-          <div className="flex flex-wrap items-center gap-2">
-            <p className="truncate text-xl font-bold tracking-tight text-km-text">{contrat.fournisseur_nom}</p>
-            <Badge tone={STATUT_CONTRAT_TONE[contrat.statut] ?? 'neutral'}>{statuts.find((s) => s.code === contrat.statut)?.libelle ?? contrat.statut}</Badge>
-            {/* L'ÉTAT DE LA SIGNATURE, quand il y en a un. Il vaut la place qu'il prend : c'est lui
-                qui dit si le contrat est parti, revenu signé, ou refusé. */}
-            {contrat.statut_signature && (
-              <span title={etatSignature(contrat).detail}>
-                <Badge tone={contrat.statut_signature === 'SIGNE' ? 'kiwi' : 'amber'}>
-                  {etatSignature(contrat).libelle}
-                </Badge>
-              </span>
-            )}
-          </div>
+          {/* ══ LES DEUX PASTILLES SONT PARTIES, UNE FRISE LES REMPLACE ═══════════════════════
+
+              Naoëlle, 03/09/2026 : « c'est quoi ces deux statuts à côté du nom ? c'est
+              incompréhensible pourquoi y a deux statuts et pourquoi aucun des deux n'est signé si
+              le contrat est vraiment signé. »
+
+              ELLE A RAISON SUR LES DEUX POINTS. Il y avait « À signer » (le statut du contrat) et
+              « Envoyé à signer » (celui de l'enveloppe DocuSign) posés côte à côte, sans rien qui
+              dise lequel prime ni pourquoi ils diffèrent. Or ils ne sont PAS deux dimensions : les
+              neuf statuts de `statuts_contrats` forment un seul chemin ordonné — Nouveau, En
+              préparation, À signer, Signé, À venir, Actif, Terminé — dont « À signer » et « Signé »
+              recouvrent exactement ce que disait la seconde pastille.
+
+              Deux étiquettes pour une seule progression demandent au lecteur de faire la synthèse.
+              La frise la fait : elle montre le chemin, où l'on est, et ce qui reste. Le détail de
+              l'enveloppe — envoyée à qui, ouverte quand — reste sous « Envoi à la signature », qui
+              existe déjà et qui est le bon endroit pour ce niveau de zoom. */}
+          <p className="truncate text-xl font-bold tracking-tight text-km-text">{contrat.fournisseur_nom}</p>
           {/* NOTRE NUMÉRO, JUSTE SOUS LE NOM DU FOURNISSEUR. Naoëlle, 03/09/2026 : « il faut donner
               un numéro généré à nos contrats pour les retrouver facilement ». C'est ce qu'on lit à
               voix haute au téléphone — donc en tête, en chasse fixe, et pas noyé dans le détail
@@ -623,6 +659,17 @@ export default function ContratDetail() {
 
           {tab === 'contrat' && (
             <div className="flex flex-col gap-3.5">
+              <Card className="px-4 pb-1 pt-1">
+                <FriseStatut
+                  teinte="contrat"
+                  jalons={JALONS_CONTRAT.map((code) => ({
+                    code,
+                    libelle: statuts.find((s) => s.code === code)?.libelle ?? code,
+                  }))}
+                  courant={courantContrat}
+                  finalite={finaliteContrat}
+                />
+              </Card>
               {contrat.date_debut && (
                 <CycleDeVieCard dateDebut={contrat.date_debut} dateFin={contrat.date_fin} />
               )}
