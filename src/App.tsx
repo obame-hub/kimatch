@@ -54,6 +54,7 @@ const Parametres = lazy(() => import('@/pages/Parametres'))
 const Administration = lazy(() => import('@/pages/Administration'))
 const MonProfil = lazy(() => import('@/pages/MonProfil'))
 const Support = lazy(() => import('@/pages/Support'))
+const Nouveautes = lazy(() => import('@/pages/Nouveautes'))
 const Pricing = lazy(() => import('@/pages/Pricing'))
 
 function App() {
@@ -111,6 +112,7 @@ function App() {
           <Route path="/administration" element={<Administration />} />
           <Route path="/profil" element={<MonProfil />} />
           <Route path="/support" element={<Support />} />
+          <Route path="/nouveautes" element={<Nouveautes />} />
         </Route>
       </Route>
       </Routes>

@@ -17,6 +17,7 @@ import {
   Folder,
   MessageSquare,
   Layers,
+  Megaphone,
 } from 'lucide-react'
 import type { LucideIcon } from 'lucide-react'
 
@@ -141,8 +142,14 @@ export const navItemsMasques: NavItem[] = [
 ]
 
 // Support et réglages : pas des objets métier, affichés en bas du rail juste au-dessus du profil.
+//
+// NOUVEAUTÉS EST LA SEULE ENTRÉE QUI N'OUVRE PAS SA PAGE. Le rail la dessine en bouton et non en
+// lien : le clic ouvre la fenêtre de rattrapage, d'où l'on va à la page complète (voir `Sidebar`).
+// Elle garde malgré tout son adresse ici, parce que la page existe pour de bon — c'est elle que la
+// recherche ⌘K doit trouver, et c'est là que mène « Voir toutes les modifications ».
 export const bottomNavItems: NavItem[] = [
   { to: '/support', label: 'Support', icon: LifeBuoy },
+  { to: '/nouveautes', label: 'Nouveautés', icon: Megaphone },
   { to: '/parametres', label: 'Paramètres', icon: Settings },
 ]
 

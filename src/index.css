@@ -478,3 +478,152 @@ html body span[data-allo-c2c][data-allo-c2c-style="1"] > .allo-copy-btn {
      n'est pas touche d'un pixel. */
   @page { size: A4 landscape; margin: 0; }
 }
+
+/* ════════════════════════════════════════════════════════════════════════════════════════════════
+   LE CONTENU RICHE D'UNE NOUVEAUTÉ — la même feuille pour l'éditeur et pour la lecture.
+
+   UNE SEULE CLASSE POUR LES DEUX, et c'est la condition pour que « ce que j'écris » soit « ce que
+   l'équipe verra ». Deux jeux de règles séparés se ressemblent le premier jour, puis l'éditeur
+   affiche des titres de 20 px quand la publication les rend en 24, et on ne s'en aperçoit qu'après
+   avoir publié.
+
+   Tailwind remet à zéro les marges, les puces et les tailles de titre (preflight) : sans ces
+   règles, un <h2> et un <p> se ressemblent trait pour trait, et une liste à puces perd ses puces.
+   Le plugin `typography` n'est pas installé et ne le sera pas pour un seul écran — ce sont
+   soixante règles pour du contenu que nous ne maîtrisons pas, alors que les nôtres tiennent ici.
+   ════════════════════════════════════════════════════════════════════════════════════════════════ */
+.contenu-riche {
+  color: rgb(var(--km-text));
+  font-size: 14px;
+  line-height: 1.65;
+  word-break: break-word;
+}
+.contenu-riche > *:first-child { margin-top: 0; }
+.contenu-riche > *:last-child { margin-bottom: 0; }
+
+.contenu-riche p { margin: 0.6em 0; }
+.contenu-riche h1 { margin: 1.1em 0 0.45em; font-size: 22px; font-weight: 650; line-height: 1.25; }
+.contenu-riche h2 { margin: 1em 0 0.4em; font-size: 18px; font-weight: 650; line-height: 1.3; }
+.contenu-riche h3 { margin: 0.9em 0 0.35em; font-size: 15px; font-weight: 650; line-height: 1.35; }
+
+/* `list-style-position: outside` avec un retrait : à l'intérieur, la deuxième ligne d'une puce
+   revient sous la puce elle-même au lieu de s'aligner sur le texte. */
+.contenu-riche ul,
+.contenu-riche ol { margin: 0.6em 0; padding-left: 1.35em; }
+.contenu-riche ul { list-style: disc outside; }
+.contenu-riche ol { list-style: decimal outside; }
+.contenu-riche ul ul { list-style: circle outside; }
+.contenu-riche li { margin: 0.2em 0; }
+.contenu-riche li > p { margin: 0; }
+
+.contenu-riche blockquote {
+  margin: 0.8em 0;
+  border-left: 3px solid rgb(var(--km-green));
+  padding: 0.15em 0 0.15em 0.9em;
+  color: rgb(var(--km-muted));
+  font-style: italic;
+}
+
+.contenu-riche a {
+  color: rgb(var(--km-green));
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+.contenu-riche a:hover { text-decoration-thickness: 2px; }
+/* Une pièce jointe se signale comme telle : c'est un fichier qui va s'ouvrir, pas une page. */
+.contenu-riche a[data-chemin]::before { content: '📎 '; }
+
+.contenu-riche img {
+  margin: 0.8em 0;
+  max-width: 100%;
+  height: auto;
+  border-radius: 10px;
+  border: 1px solid rgb(var(--km-line));
+}
+
+.contenu-riche hr {
+  margin: 1.2em 0;
+  border: 0;
+  border-top: 1px solid rgb(var(--km-line));
+}
+
+.contenu-riche code {
+  border-radius: 4px;
+  background: rgb(var(--km-soft));
+  padding: 0.1em 0.35em;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 0.9em;
+}
+.contenu-riche pre {
+  margin: 0.8em 0;
+  overflow-x: auto;
+  border-radius: 8px;
+  background: rgb(var(--km-soft));
+  padding: 0.7em 0.9em;
+}
+.contenu-riche pre code { background: none; padding: 0; }
+
+/* Le tableau garde ses colonnes telles qu'elles ont été tirées : `fixed` est ce que ProseMirror
+   attend pour que les largeurs qu'il écrit soient respectées. */
+.contenu-riche table {
+  margin: 0.9em 0;
+  width: 100%;
+  table-layout: fixed;
+  border-collapse: collapse;
+  overflow: hidden;
+}
+.contenu-riche th,
+.contenu-riche td {
+  position: relative;
+  border: 1px solid rgb(var(--km-line));
+  padding: 6px 9px;
+  vertical-align: top;
+  text-align: left;
+}
+.contenu-riche th {
+  background: rgb(var(--km-soft));
+  font-weight: 600;
+}
+.contenu-riche .selectedCell::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: rgb(var(--km-green) / 0.12);
+  pointer-events: none;
+}
+.contenu-riche .column-resize-handle {
+  position: absolute;
+  right: -2px;
+  top: 0;
+  bottom: 0;
+  width: 4px;
+  background: rgb(var(--km-green));
+  cursor: col-resize;
+}
+
+/* La vidéo occupe la largeur disponible sans déborder, quel que soit le format donné par TipTap. */
+.contenu-riche iframe {
+  margin: 0.8em 0;
+  aspect-ratio: 16 / 9;
+  width: 100%;
+  height: auto;
+  max-width: 100%;
+  border: 0;
+  border-radius: 10px;
+}
+
+/* L'invite de l'éditeur vide. Elle est peinte en `::before` sur le premier paragraphe : un vrai
+   texte pré-rempli devrait être effacé à la main avant d'écrire. */
+.contenu-riche p.is-editor-empty:first-child::before,
+.contenu-riche p.is-empty:first-child::before {
+  content: attr(data-placeholder);
+  float: left;
+  height: 0;
+  pointer-events: none;
+  color: rgb(var(--km-faint));
+}
+
+.contenu-riche .ProseMirror-selectednode {
+  outline: 2px solid rgb(var(--km-green));
+  outline-offset: 2px;
+}

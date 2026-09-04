@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
-import { NavLink } from 'react-router-dom'
+import { NavLink, useLocation } from 'react-router-dom'
 import { X, ShieldCheck } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import kiweePicto from '@/assets/kiwee-picto.png'
@@ -9,6 +9,8 @@ import { useAuth } from '@/lib/auth'
 import { navItems, cycleNavItems, productionNavItems, bottomNavItems } from '@/lib/navItems'
 import type { NavItem } from '@/lib/navItems'
 import { getImpersonationInfo } from '@/lib/data/impersonation'
+import { PopupNouveautes } from '@/components/nouveautes/PopupNouveautes'
+import { useNouveautesNonLues } from '@/lib/data/publications'
 
 
 /**
@@ -33,6 +35,19 @@ function Rubrique({ children }: { children: string }) {
   )
 }
 
+/**
+ * L'HABILLAGE D'UNE LIGNE DU RAIL, écrit une fois.
+ *
+ * Il était inscrit dans `SidebarLink` seul, ce qui allait tant que toutes les entrées étaient des
+ * liens. « Nouveautés » n'en est pas un — elle ouvre une fenêtre — et recopier ces classes dans un
+ * second composant aurait fait diverger les deux au premier ajustement d'interligne, sur deux
+ * lignes voisines du même rail.
+ */
+const LIGNE_RAIL =
+  'group relative flex items-center gap-2.5 rounded-km py-2 pl-2 pr-2.5 text-km-body transition-colors md:px-2.5'
+const LIGNE_RAIL_ACTIVE = 'bg-kiwi-300/20 font-semibold text-km-side-text'
+const LIGNE_RAIL_REPOS = 'text-km-side-muted hover:bg-white/[0.055] hover:text-km-side-text'
+
 function SidebarLink({ to, label, icon: Icon, end, onClick }: NavItem & { onClick: () => void }) {
   return (
     <NavLink
@@ -44,8 +59,7 @@ function SidebarLink({ to, label, icon: Icon, end, onClick }: NavItem & { onClic
           /* La police des entrées descend de 14 à 13 px (« réduis leur police un peu »), et le
              rembourrage vertical monte de 7 à 8 px : c'est ce couple qui aère. Réduire seule la
              police aurait resserré la liste au lieu de la détendre. */
-          'group relative flex items-center gap-2.5 rounded-km py-2 pl-2 pr-2.5 text-km-body transition-colors',
-          'md:px-2.5',
+          LIGNE_RAIL,
           /* LA BARRE PASSE DU SOMBRE AU CLAIR — maquette de Michel du 31/08/2026. C'etait le
              changement le plus visible de sa refonte : le rail `ink-950` devient un fond
              `km-side` en degrade, et l'entree active n'est plus un pave vert mais un fond
@@ -65,9 +79,7 @@ function SidebarLink({ to, label, icon: Icon, end, onClick }: NavItem & { onClic
              `kiwi-300` #5FAE8F à 20 % rend rgb(46,66,58) — écart 1,42, franchement visible — et le
              libellé y garde un contraste de 9,3. L'icône passe au vert clair : deux signaux, dont
              un seul est une couleur de fond. */
-          isActive
-            ? 'bg-kiwi-300/20 font-semibold text-km-side-text'
-            : 'text-km-side-muted hover:bg-white/[0.055] hover:text-km-side-text',
+          isActive ? LIGNE_RAIL_ACTIVE : LIGNE_RAIL_REPOS,
         )
       }
     >
@@ -91,8 +103,58 @@ function SidebarLink({ to, label, icon: Icon, end, onClick }: NavItem & { onClic
   )
 }
 
+/**
+ * « NOUVEAUTÉS » OUVRE UNE FENÊTRE, PAS UNE PAGE — et porte le compte de ce qui n'est pas lu.
+ *
+ * LA PASTILLE EST UN NOMBRE, PAS UN POINT. Un point dit « il s'est passé quelque chose » ; le
+ * nombre dit s'il faut cinq secondes ou cinq minutes. C'est la différence entre une notification
+ * qu'on ouvre et une notification qu'on remet à plus tard indéfiniment.
+ *
+ * Elle s'éteint dès l'ouverture de la fenêtre, sans attendre sa fermeture : la lecture est
+ * enregistrée à ce moment-là, et le rail lit le même compte que la fenêtre.
+ */
+function BoutonNouveautes({
+  label,
+  icon: Icon,
+  onOuvrir,
+}: {
+  label: string
+  icon: NavItem['icon']
+  onOuvrir: () => void
+}) {
+  const { pathname } = useLocation()
+  const nonLues = useNouveautesNonLues()
+  // La page d'historique existe : quand on y est, l'entrée s'allume comme n'importe quelle autre.
+  const actif = pathname === '/nouveautes'
+
+  return (
+    <button
+      type="button"
+      onClick={onOuvrir}
+      className={cn(LIGNE_RAIL, 'w-full text-left', actif ? LIGNE_RAIL_ACTIVE : LIGNE_RAIL_REPOS)}
+    >
+      <span className="flex w-[17px] shrink-0 items-center justify-center">
+        <Icon className={cn('h-4 w-4', actif ? 'text-kiwi-300' : 'text-km-side-faint')} />
+      </span>
+      <span className="min-w-0 flex-1 truncate whitespace-nowrap">{label}</span>
+      {nonLues.length > 0 && (
+        <span
+          /* Le vert CLAIR de la palette, pas le vert de marque : sur ce rail anthracite, #0D7A5F
+             rend une pastille qu'on ne distingue pas du fond — c'est le calcul fait pour l'entrée
+             active, quelques lignes plus haut. Texte sombre sur fond clair, l'inverse du reste. */
+          className="flex h-[18px] min-w-[18px] shrink-0 items-center justify-center rounded-km-pill bg-kiwi-300 px-1 text-km-tiny font-bold tabular-nums text-ink-950"
+          aria-label={`${nonLues.length} nouveauté${nonLues.length > 1 ? 's' : ''} non lue${nonLues.length > 1 ? 's' : ''}`}
+        >
+          {nonLues.length > 9 ? '9+' : nonLues.length}
+        </span>
+      )}
+    </button>
+  )
+}
+
 export function Sidebar() {
   const { open, close } = useSidebar()
+  const [popupNouveautes, setPopupNouveautes] = useState(false)
   const isAdmin = useIsAdmin()
   const { session } = useAuth()
   const { data: profil } = useMonProfil()
@@ -213,9 +275,21 @@ export function Sidebar() {
         </div>
 
         <nav className="space-y-0.5 border-t border-km-side-line px-2.5 py-2.5">
-          {bottomItems.map((item) => (
-            <SidebarLink key={item.to} {...item} onClick={close} />
-          ))}
+          {bottomItems.map((item) =>
+            item.to === '/nouveautes' ? (
+              <BoutonNouveautes
+                key={item.to}
+                label={item.label}
+                icon={item.icon}
+                onOuvrir={() => {
+                  close()
+                  setPopupNouveautes(true)
+                }}
+              />
+            ) : (
+              <SidebarLink key={item.to} {...item} onClick={close} />
+            ),
+          )}
         </nav>
 
         <NavLink
@@ -236,6 +310,8 @@ export function Sidebar() {
 
         </NavLink>
       </aside>
+
+      <PopupNouveautes open={popupNouveautes} onClose={() => setPopupNouveautes(false)} />
     </>
   )
 }
