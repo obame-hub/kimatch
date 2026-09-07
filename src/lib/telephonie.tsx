@@ -18,6 +18,21 @@ import type { ReactNode } from 'react'
  * l'extension sur le Chrome de chaque commercial — une tâche de poste de travail, pas de dépôt. Le
  * dire est plus utile que de livrer un bouton qui ferait semblant.
  *
+ * ══ CORRECTION DU 07/09/2026 : ON PEUT FAIRE MIEUX QUE COPIER ══
+ *
+ * La conclusion ci-dessus tenait sur une phrase de Lovable : « son API REST ne sait qu'ajouter un
+ * numéro à la file du Power Dialer, pas lancer un appel ». La première moitié est vraie — vérifié
+ * dans la documentation, Allo n'expose AUCUN endpoint de composition. La seconde passait à côté de
+ * l'essentiel : la file du Power Dialer est précisément l'outil avec lequel un commercial passe ses
+ * appels. Y déposer le numéro depuis la fiche, c'est lui éviter de le recopier.
+ *
+ * Le bouton pousse donc le numéro dans la file d'appel DE LA PERSONNE CONNECTÉE — `append-numbers`
+ * accepte un `email` pour viser la file d'un coéquipier — avec le nom et la société du
+ * correspondant. Il ne reste plus qu'à cliquer « appeler » dans Allo, où la fiche est déjà remplie.
+ *
+ * IL RETOMBE SUR LA COPIE quand la file refuse : clé sans la portée `DIALING_QUEUE_READ_WRITE`,
+ * réseau coupé, Allo indisponible. Un bouton qui ne fait rien serait pire que l'ancien.
+ *
  * ══ CE QUE LE CODE PEUT FAIRE, ET QUI COMPTE VRAIMENT ══
  *
  * L'extension ne décore que ce qu'elle VOIT. Un bouton « Appeler » avec une icône de téléphone et le
@@ -101,9 +116,24 @@ export function numeroLisible(brut: string | null | undefined): string {
   return m ? m[1] + ' ' + (m[2].match(/.{1,2}/g) ?? []).join(' ') : e164
 }
 
+/**
+ * Qui l'on appelle, quand l'écran le sait.
+ *
+ * Facultatif : les boutons d'appel sont posés à des dizaines d'endroits qui ne connaissent que le
+ * numéro. Transmis, il arrive dans Allo avant le décrochage — et l'IA d'Allo, qui extrait déjà la
+ * fiche du correspondant depuis la conversation, part avec la bonne identité plutôt que de la
+ * déduire.
+ */
+export interface Correspondant {
+  prenom?: string | null
+  nom?: string | null
+  societe?: string | null
+  fonction?: string | null
+}
+
 interface Telephonie {
   /** Prépare l'appel. Rend le message affiché — il y a toujours quelque chose à dire. */
-  appeler: (numero: string | null | undefined) => Promise<string>
+  appeler: (numero: string | null | undefined, qui?: Correspondant) => Promise<string>
 }
 
 const Contexte = createContext<Telephonie | null>(null)
@@ -116,11 +146,16 @@ const Contexte = createContext<Telephonie | null>(null)
  * porteur et à y ajouter un appel qui n'a rien à y faire. Le téléphone, lui, est unique dans
  * l'application : ce n'est pas un état qui varie d'un endroit à l'autre, c'est un périphérique.
  */
-let appelerCourant: ((numero: string | null | undefined) => Promise<string>) | null = null
+let appelerCourant:
+  | ((numero: string | null | undefined, qui?: Correspondant) => Promise<string>)
+  | null = null
 
-export function appelerNumero(numero: string | null | undefined): Promise<string> {
+export function appelerNumero(
+  numero: string | null | undefined,
+  qui?: Correspondant,
+): Promise<string> {
   if (!appelerCourant) return Promise.resolve('Le téléphone n’est pas prêt : rechargez la page.')
-  return appelerCourant(numero)
+  return appelerCourant(numero, qui)
 }
 
 export function TelephonieProvider({ children }: { children: ReactNode }) {
@@ -128,7 +163,10 @@ export function TelephonieProvider({ children }: { children: ReactNode }) {
   // à annoncer — un bandeau « appel lancé » serait du bruit.
   const [message, setMessage] = useState<string | null>(null)
 
-  const appeler = useCallback(async (numero: string | null | undefined): Promise<string> => {
+  const appeler = useCallback(async (
+    numero: string | null | undefined,
+    qui?: Correspondant,
+  ): Promise<string> => {
     const e164 = numeroInternational(numero)
     if (!e164) {
       const m = 'Ce numéro n’est pas exploitable : il manque l’indicatif ou des chiffres.'
@@ -153,6 +191,26 @@ export function TelephonieProvider({ children }: { children: ReactNode }) {
       return e164
     }
 
+    /* ── LA FILE D'APPEL ALLO, D'ABORD ──
+       Le numéro part dans la file du Power Dialer de la personne connectée, avec le nom et la
+       société. Il n'y a plus qu'à cliquer « appeler » dans Allo. */
+    const file = await poserDansLaFileAllo(e164, qui)
+    if (file.ok) {
+      const m = file.position != null
+        ? `${numeroLisible(e164)} ajouté à ta file d’appel Allo, en position ${file.position}.`
+        : `${numeroLisible(e164)} ajouté à ta file d’appel Allo.`
+      setMessage(m)
+      return m
+    }
+    if (file.dejaDansLaFile) {
+      const m = `${numeroLisible(e164)} est déjà dans ta file d’appel Allo.`
+      setMessage(m)
+      return m
+    }
+
+    /* ── LE REPLI : la copie, comme avant ──
+       Clé sans la portée `DIALING_QUEUE_READ_WRITE`, réseau coupé, Allo indisponible : on ne laisse
+       pas le commercial devant un bouton muet. Le message dit ce qui bloque, une fois. */
     let copie = false
     try {
       await navigator.clipboard?.writeText(e164)
@@ -161,9 +219,10 @@ export function TelephonieProvider({ children }: { children: ReactNode }) {
       copie = false
     }
 
+    const raison = file.erreur ? ` (${file.erreur})` : ''
     const m = copie
-      ? `${e164} copié — pour appeler, cliquez l’icône Allo à côté du numéro.`
-      : `Pour appeler ${e164}, cliquez l’icône Allo à côté du numéro.`
+      ? `${e164} copié — pour appeler, cliquez l’icône Allo à côté du numéro.${raison}`
+      : `Pour appeler ${e164}, cliquez l’icône Allo à côté du numéro.${raison}`
     setMessage(m)
     return m
   }, [])
@@ -198,4 +257,59 @@ export function useTelephonie(): Telephonie {
   const c = useContext(Contexte)
   if (!c) throw new Error('useTelephonie hors de TelephonieProvider')
   return c
+}
+
+
+/**
+ * ══ POSER LE NUMÉRO DANS LA FILE D'APPEL ALLO ══
+ *
+ * Passe par `/api/allo/appeler` et jamais directement par Allo : la clé API donne accès à tout le
+ * compte — lecture des appels, des enregistrements, des transcriptions — elle n'a rien à faire dans
+ * un navigateur, et le dépôt de Kimatch est public.
+ *
+ * NE LÈVE JAMAIS. L'appelant décide quoi afficher, et il a un repli. Une exception ici ferait perdre
+ * la copie du numéro, c'est-à-dire le seul comportement dont on est sûr.
+ */
+async function poserDansLaFileAllo(
+  e164: string,
+  qui?: Correspondant,
+): Promise<{ ok: boolean; position?: number | null; dejaDansLaFile?: boolean; erreur?: string }> {
+  try {
+    const { supabase } = await import('@/lib/supabase')
+    const { data } = await supabase.auth.getSession()
+    const token = data.session?.access_token
+    if (!token) return { ok: false, erreur: 'session expirée' }
+
+    const res = await fetch('/api/allo/appeler', {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ numero: e164, ...qui }),
+    })
+    const corps = (await res.json()) as {
+      ok?: boolean
+      position?: number | null
+      ignore?: string | null
+      error?: string
+      code?: string
+    }
+
+    if (!res.ok) {
+      // La portée manquante se dit en clair : sinon on cherche un bug alors qu'il suffit de cocher
+      // une case dans les réglages d'Allo.
+      return {
+        ok: false,
+        erreur: corps.code === 'portee_manquante'
+          ? 'Allo : droit d’écriture manquant sur la file d’appel'
+          : corps.error,
+      }
+    }
+    if (corps.ok) return { ok: true, position: corps.position ?? null }
+    // Allo écarte un numéro déjà en attente : ce n'est pas un échec, c'est une information.
+    if (corps.ignore && /duplicate|already|exist/i.test(corps.ignore)) {
+      return { ok: false, dejaDansLaFile: true }
+    }
+    return { ok: false, erreur: corps.ignore ?? undefined }
+  } catch {
+    return { ok: false, erreur: 'Allo injoignable' }
+  }
 }

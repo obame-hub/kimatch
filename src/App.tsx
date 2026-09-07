@@ -2,6 +2,8 @@ import { lazy, Suspense } from 'react'
 import { Routes, Route } from 'react-router-dom'
 import { AppLayout } from '@/components/layout/AppLayout'
 import { SandboxBanner } from '@/components/layout/SandboxBanner'
+import { VoletEmailProvider } from '@/lib/voletEmail'
+import { VoletEmail } from '@/components/email/VoletEmail'
 import { ProtectedRoute } from '@/components/ProtectedRoute'
 import Login from '@/pages/Login'
 
@@ -59,8 +61,13 @@ const Pricing = lazy(() => import('@/pages/Pricing'))
 
 function App() {
   return (
-    <>
+    <VoletEmailProvider>
       <SandboxBanner />
+      {/* LE VOLET D'ÉCRITURE DE MAIL, MONTÉ UNE SEULE FOIS, hors des routes.
+          C'est ce qui fait qu'un brouillon réduit survit à la navigation : monté dans une route, il
+          disparaîtrait au premier changement d'écran — c'est-à-dire exactement quand on va chercher
+          l'information pour laquelle on l'avait réduit. */}
+      <VoletEmail />
       {/* La frontiere d'attente des ecrans differes. Volontairement VIDE plutot qu'un
           « Chargement… » : le fichier d'un ecran pese quelques dizaines de kilo-octets et
           arrive en une fraction de seconde. Un texte qui apparait et disparait aussitot se
@@ -117,7 +124,7 @@ function App() {
       </Route>
       </Routes>
       </Suspense>
-    </>
+    </VoletEmailProvider>
   )
 }
 

@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
+import { useVoletEmail } from '@/lib/voletEmail'
 import { Phone, Mail, Copy, Check } from 'lucide-react'
 import { numeroInternational, numeroLisible, useTelephonie } from '@/lib/telephonie'
 import { cn } from '@/lib/utils'
@@ -26,6 +27,7 @@ function ContactPopover({
   actionLabel,
   actionHref,
   onAction,
+  onClicPrincipal,
   ActionIcon,
 }: {
   value: string
@@ -36,6 +38,14 @@ function ContactPopover({
   actionHref?: string
   /** Action a executer — l'appel Aircall. */
   onAction?: () => void
+  /**
+   * L'action du CLIC SUR L'ADRESSE elle-même, quand il y en a une.
+   *
+   * Naoëlle, 07/09/2026 : « quand on clique sur un mail dans Kimatch, ça ouvre un volet pour écrire
+   * le mail dans Kimatch. » Un clic, pas deux : sans ça il faudrait cliquer l'adresse pour ouvrir la
+   * bulle, puis « Envoyer un email » dedans. La bulle reste au survol, pour copier.
+   */
+  onClicPrincipal?: () => void
   ActionIcon: typeof Phone
 }) {
   const { open, setOpen, ref } = usePopover()
@@ -46,8 +56,14 @@ function ContactPopover({
         type="button"
         onClick={(e) => {
           e.stopPropagation()
+          if (onClicPrincipal) {
+            setOpen(false)
+            onClicPrincipal()
+            return
+          }
           setOpen((v) => !v)
         }}
+        title={onClicPrincipal ? actionLabel : undefined}
         className={cn('cursor-pointer text-left underline decoration-navy-200 decoration-dashed underline-offset-2 hover:text-km-green hover:decoration-kiwi-400', monospace && 'font-mono', className)}
       >
         {value}
@@ -169,7 +185,69 @@ export function PhoneLink({ value, className }: { value: string; className?: str
   )
 }
 
-/** Email affiché n'importe où dans l'app : au survol (web) / au clic (mobile), propose d'envoyer un mail ou de copier. */
-export function EmailLink({ value, className }: { value: string; className?: string }) {
-  return <ContactPopover value={value} className={className} actionLabel="Envoyer un email" actionHref={`mailto:${value}`} ActionIcon={Mail} />
+/**
+ * ══ UNE ADRESSE EMAIL, CLIQUABLE POUR ÉCRIRE DANS KIMATCH ══
+ *
+ * Naoëlle, 07/09/2026 : « quand on clique sur un mail dans Kimatch, ça ouvre un volet pour écrire le
+ * mail dans Kimatch comme dans Cockpit, connecté au Gmail. »
+ *
+ * Le clic ouvre donc le volet d'écriture. Le mail partira du Gmail de la personne connectée, avec sa
+ * signature, et sera consigné sur la fiche du contact.
+ *
+ * ── LE REPLI SUR `mailto:` RESTE ──
+ *
+ * Hors du fournisseur — le document comparatif imprimé, par exemple, rendu en isolation — le volet
+ * n'existe pas. Le lien retombe alors sur le client de messagerie du poste, comme avant, plutôt que
+ * de ne rien faire.
+ *
+ * ── LE CONTEXTE EST OPTIONNEL ──
+ *
+ * Ce composant est posé à des dizaines d'endroits qui ne connaissent que l'adresse. Quand l'écran en
+ * sait plus — quel contact, quel compte, quel contrat — il le transmet, et l'interaction consignée
+ * se rattache au bon objet. Sinon le serveur retrouve le contact par son adresse.
+ */
+export function EmailLink({
+  value,
+  className,
+  nom,
+  contexte,
+}: {
+  value: string
+  className?: string
+  /** Le nom de la personne, pour l'en-tête du volet et la pastille du brouillon réduit. */
+  nom?: string | null
+  contexte?: {
+    contactId?: string
+    compteId?: string
+    siteId?: string
+    recommandationId?: string
+    mandatId?: string
+    contratId?: string
+  }
+}) {
+  const volet = useVoletEmail()
+
+  const ouvrir = volet
+    ? () => {
+        const ok = volet.ouvrir({ a: value, nom, ...contexte })
+        if (ok) return
+        // UN BROUILLON ÉCRIT NE S'ÉCRASE PAS EN SILENCE : on demande, parce que « sans perdre le
+        // mail déjà écrit » est la moitié de la demande.
+        if (window.confirm('Un mail est déjà en cours d’écriture. L’abandonner et écrire à ' + (nom || value) + ' ?')) {
+          volet.ouvrirEnRemplacant({ a: value, nom, ...contexte })
+        }
+      }
+    : undefined
+
+  return (
+    <ContactPopover
+      value={value}
+      className={className}
+      actionLabel="Écrire un mail"
+      actionHref={`mailto:${value}`}
+      onClicPrincipal={ouvrir}
+      onAction={ouvrir}
+      ActionIcon={Mail}
+    />
+  )
 }

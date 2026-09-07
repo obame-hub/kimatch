@@ -242,3 +242,56 @@ export function utilisateurs(): Promise<unknown> {
 export function cleConfiguree(): boolean {
   return Boolean(process.env[VARIABLE_CLE])
 }
+
+/* ══════════════════════════════ LA FILE D'APPEL DU POWER DIALER ══════════════════════════════ */
+
+export interface PoserDansLaFile {
+  /** L'adresse Allo de la personne dont on remplit la file — celle de l'utilisateur connecté. */
+  emailUtilisateur: string
+  /** En E.164. */
+  numero: string
+  nom?: string | null
+  prenom?: string | null
+  societe?: string | null
+  fonction?: string | null
+}
+
+/**
+ * Dépose un numéro dans la file du Power Dialer d'un coéquipier.
+ *
+ * C'EST LE PLUS PRÈS QU'ON PUISSE ALLER D'UN « CLIC POUR APPELER ». Vérifié dans la documentation le
+ * 07/09/2026 : Allo n'expose aucun endpoint de composition. En revanche `append-numbers` accepte un
+ * `email` pour viser la file d'une personne précise — sans quoi les dix commerciaux pousseraient
+ * leurs numéros dans la même file, celle du propriétaire de la clé.
+ *
+ * `skipped` N'EST PAS UNE ERREUR. Allo écarte un numéro déjà dans la file, ou invalide, et le dit
+ * dans la réponse avec sa raison. Le traiter comme un échec ferait afficher « appel impossible »
+ * alors que le numéro est déjà en attente — ce qui est le cas le plus fréquent quand on reclique.
+ */
+export async function poserDansLaFileDAppel(
+  entree: PoserDansLaFile,
+): Promise<{ position: number | null; ignore: string | null }> {
+  const reponse = await requete<{
+    data: {
+      added: { number_to: string; position: number }[]
+      skipped: { number: string; reason: string }[]
+    }
+  }>('/v2/api/dialing-queues/append-numbers', {
+    methode: 'POST',
+    corps: {
+      email: entree.emailUtilisateur,
+      numbers: [{
+        number: entree.numero,
+        name: entree.prenom || null,
+        last_name: entree.nom || null,
+        company: entree.societe || null,
+        job_title: entree.fonction || null,
+      }],
+    },
+  })
+
+  const ajoute = reponse.data?.added?.[0]
+  if (ajoute) return { position: ajoute.position ?? null, ignore: null }
+  const ecarte = reponse.data?.skipped?.[0]
+  return { position: null, ignore: ecarte?.reason ?? 'raison inconnue' }
+}
