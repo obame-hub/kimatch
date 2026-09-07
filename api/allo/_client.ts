@@ -48,9 +48,26 @@ export class RateLimitAllo extends Error {
   }
 }
 
+/**
+ * ══ LES ERREURS « RETRYABLE » SONT RÉESSAYÉES ══
+ *
+ * Constaté le 07/09/2026 : au milieu d'une lecture des 10 528 appels, Allo a répondu un 500
+ * `INTERNAL_SERVER_ERROR` marqué `retryable: true`, et le parcours s'est arrêté net à la page 30.
+ * Une reprise d'historique qui fait cent requêtes à la suite rencontrera cela régulièrement : sans
+ * reprise, elle échouerait plus souvent qu'elle ne réussirait.
+ *
+ * Trois tentatives, en attendant 1 s puis 3 s puis 9 s. Au-delà, ce n'est plus un incident.
+ */
+const TENTATIVES = 3
+
+function dormir(ms: number) {
+  return new Promise((r) => setTimeout(r, ms))
+}
+
 async function requete<T>(
   chemin: string,
   options: { methode?: 'GET' | 'POST'; corps?: unknown } = {},
+  tentative = 1,
 ): Promise<T> {
   const reponse = await fetch(`${BASE_URL}${chemin}`, {
     method: options.methode ?? 'GET',
@@ -63,6 +80,11 @@ async function requete<T>(
 
   if (reponse.status === 429) {
     const reset = Number(reponse.headers.get('X-RateLimit-Reset'))
+    // La limite de débit se réessaie elle aussi, mais en attendant EXACTEMENT ce qu'Allo demande.
+    if (tentative < TENTATIVES) {
+      await dormir((Number.isFinite(reset) && reset > 0 ? reset : 1) * 1000)
+      return requete<T>(chemin, options, tentative + 1)
+    }
     throw new RateLimitAllo(Number.isFinite(reset) && reset > 0 ? reset : 1)
   }
 
@@ -70,7 +92,20 @@ async function requete<T>(
     // LE CORPS DE L'ERREUR EST REMONTÉ, TRONQUÉ. Un « 400 » nu ne dit pas quel champ est refusé, et
     // c'est toujours un champ. Tronqué parce qu'une erreur peut renvoyer une page entière.
     const texte = await reponse.text().catch(() => '')
-    throw new Error(`Allo ${reponse.status} sur ${chemin}${texte ? ` — ${texte.slice(0, 300)}` : ''}`)
+
+    // ALLO DIT LUI-MÊME SI L'ERREUR VAUT UNE SECONDE CHANCE : son corps porte `retryable`. On lit
+    // sa réponse plutôt que de deviner d'après le code HTTP — un 500 est parfois définitif.
+    const rejouable = /"retryable"\s*:\s*true/.test(texte) || reponse.status >= 502
+    if (rejouable && tentative < TENTATIVES) {
+      await dormir(3 ** (tentative - 1) * 1000)
+      return requete<T>(chemin, options, tentative + 1)
+    }
+
+    throw new Error(
+      `Allo ${reponse.status} sur ${chemin}`
+      + `${tentative > 1 ? ` après ${tentative} tentatives` : ''}`
+      + `${texte ? ` — ${texte.slice(0, 300)}` : ''}`,
+    )
   }
 
   return (await reponse.json()) as T
