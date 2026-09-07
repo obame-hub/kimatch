@@ -25,7 +25,9 @@ export function AppLayout() {
       {/* La colonne en h-screen englobe le bandeau : sans elle, bandeau + zone applicative en
           h-screen depasseraient la hauteur de la fenetre et feraient apparaitre un second
           ascenseur, celui de la page, en plus de celui du contenu. */}
-      <div className="flex h-screen w-full flex-col">
+      {/* `flex-1` et non plus `h-screen` : la colonne pleine hauteur est montée dans `App`,
+          bandeau compris. Reprendre `h-screen` ici rendrait les 28 px de débordement. */}
+      <div className="flex min-h-0 w-full flex-1 flex-col">
         <DocusignBanner />
         {/* Le fond de page passe au `km-bg` de Michel : #FCFCFB, presque blanc. */}
         <div className="flex min-h-0 flex-1 bg-km-bg">

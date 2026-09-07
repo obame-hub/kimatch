@@ -397,6 +397,8 @@ export interface ActionItem {
   recommandation_id: string | null
   recommandation_titre: string
   proprietaire_id: string | null
+  /** Qui a créé la tâche. Sert à savoir si l'on a le droit de la supprimer (07/09/2026). */
+  cree_par_id: string | null
 }
 
 export interface Mandat {
@@ -645,6 +647,9 @@ export interface Interaction {
   resume: string | null
   resultat: string | null
   auteur: string
+  /** L'identifiant de l'auteur, quand le nom ne suffit pas : le droit de supprimer sa propre
+   *  note se teste sur lui (07/09/2026). */
+  auteur_profil_id: string | null
   compte_id: string | null
   compte_nom: string
   site_id: string | null

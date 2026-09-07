@@ -173,7 +173,11 @@ export default function ContactDetail() {
     .sort((a, b) => new Date(b.date_interaction).getTime() - new Date(a.date_interaction).getTime())[0]
 
   return (
-    <div>
+    /* LA SEULE FICHE QUI N'AVAIT PAS DE HAUTEUR BORNÉE : sa racine était un `<div>` nu, et sa
+       grille n'avait ni `min-h-0` ni `flex-1`. La page défilait donc d'un bloc, et le volet
+       d'activité grandissait avec son contenu au lieu de tenir dans l'écran. Elle rejoint le
+       gabarit des sept autres (William, 07/09/2026 : « pixel perfect comme sur Recommandation »). */
+    <div className="flex h-full flex-col overflow-hidden">
       <Topbar crumb="Contacts" title={`${contact.prenom} ${contact.nom}`} />
 
       {/* Bandeau contact */}
@@ -252,7 +256,8 @@ export default function ContactDetail() {
       </div>
 
       {/* Onglets */}
-      <div className="flex gap-1.5 overflow-x-auto border-b border-km-line bg-white px-4 pt-2.5 lg:gap-0.5 lg:pt-0 sm:px-6">
+      <div className="grid flex-none grid-cols-1 border-b border-km-line bg-white lg:grid-cols-fiche-activite">
+        <div className="flex min-w-0 gap-1.5 overflow-x-auto px-4 pt-2.5 lg:gap-0.5 lg:pt-0 sm:px-6">
         {TABS.map((t) => {
           const isActive = tab === t.key
           return (
@@ -276,11 +281,17 @@ export default function ContactDetail() {
             </button>
           )
         })}
+        </div>
+        <div className="hidden items-center border-b-2 border-navy-800 px-3 lg:flex">
+          <span className="truncate text-km-label font-bold uppercase tracking-[0.08em] text-km-faint">
+            Activité · contact
+          </span>
+        </div>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-[minmax(0,1fr)_304px]">
+      <div className="grid min-h-0 flex-1 grid-cols-1 overflow-hidden lg:grid-cols-fiche-activite">
         {/* Centre */}
-        <div className="bg-km-bg p-4 sm:p-5">
+        <div className="min-h-0 overflow-y-auto bg-km-bg p-4 sm:p-5">
           {tab === 'contact' && (
             <div className="flex flex-col gap-3.5">
               <div className="rounded-xl border border-km-line bg-white p-4">
@@ -538,17 +549,14 @@ export default function ContactDetail() {
         </div>
 
         {/* Colonne droite — Activité persistante (desktop uniquement) */}
-        <div className="hidden flex-col border-l border-km-line bg-white lg:flex">
-          <div className="flex items-center gap-2 px-3.5 py-3">
-            <span className="text-km-xs font-bold uppercase tracking-wide text-km-faint">Activité</span>
-          </div>
-          <div className="min-h-0 flex-1 overflow-hidden px-3.5 pb-3.5">
+        <div className="hidden min-h-0 flex-col border-l border-km-line bg-km-bg lg:flex">
+          <div className="min-h-0 flex-1 overflow-hidden px-3 pb-3 pt-4 sm:pt-5">
             <ActivityFeed
               compteId={contact.compte_id}
               compteNom={contact.compte_nom}
               interactions={interactionsDuContact}
               actions={tachesDuContact}
-              documents={[]}
+              documents={documentsDuContact}
             />
           </div>
         </div>

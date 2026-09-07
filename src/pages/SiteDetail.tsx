@@ -48,7 +48,8 @@ import { cn } from '@/lib/utils'
 import { useGoBack } from '@/lib/useGoBack'
 import { useRaccourcisOnglets } from '@/lib/useRaccourcisOnglets'
 import type { Compte, Contact } from '@/types/domain'
-import { appelerNumero, numeroLisible } from '@/lib/telephonie'
+import { appelerNumero, numeroLisible } from '@/lib/telephonie'
+
 import { contactsDuCompte as contactsRattaches } from '@/lib/contactsDuCompte'
 
 type TabKey = 'synthese' | 'contacts' | 'contrats' | 'compteurs' | 'recommandations' | 'mandats' | 'fichiers' | 'historique' | 'activite'
@@ -274,7 +275,8 @@ export default function SiteDetail() {
       </div>
 
       {/* Onglets — pilules sur mobile, soulignés sur desktop, comme chez William */}
-      <div className="flex gap-1.5 overflow-x-auto border-b border-km-line bg-white px-4 pt-2.5 lg:gap-0.5 lg:pt-0 sm:px-6">
+      <div className="grid flex-none grid-cols-1 border-b border-km-line bg-white lg:grid-cols-fiche-activite">
+        <div className="flex min-w-0 gap-1.5 overflow-x-auto px-4 pt-2.5 lg:gap-0.5 lg:pt-0 sm:px-6">
         {TABS.map((t) => {
           const isActive = tab === t.key
           const badgeTone = t.key === 'mandats' ? 'bg-amber-200 text-amber-700' : 'bg-km-soft text-km-muted'
@@ -301,10 +303,16 @@ export default function SiteDetail() {
             </button>
           )
         })}
+        </div>
+        <div className="hidden items-center border-b-2 border-navy-800 px-3 lg:flex">
+          <span className="truncate text-km-label font-bold uppercase tracking-[0.08em] text-km-faint">
+            Activité · site
+          </span>
+        </div>
       </div>
 
       {/* 3 zones */}
-      <div className="grid min-h-0 flex-1 grid-cols-1 overflow-hidden lg:grid-cols-[minmax(0,1fr)_340px]">
+      <div className="grid min-h-0 flex-1 grid-cols-1 overflow-hidden lg:grid-cols-fiche-activite">
         {/* Compte et contacts sont présentés dans leurs onglets, sans volet gauche permanent. */}
         {/* Centre — contenu de l'onglet */}
         <div className="min-h-0 overflow-y-auto bg-km-bg p-4 sm:p-5">
@@ -722,11 +730,8 @@ export default function SiteDetail() {
         </div>
 
         {/* Colonne droite — Activité persistante (desktop uniquement) */}
-        <div className="hidden min-h-0 flex-col border-l border-km-line bg-white lg:flex">
-          <div className="flex flex-none items-center gap-2 px-3.5 py-3">
-            <span className="text-km-xs font-bold uppercase tracking-wide text-km-faint">Activité</span>
-          </div>
-          <div className="min-h-0 flex-1 overflow-hidden px-3.5 pb-3.5">
+        <div className="hidden min-h-0 flex-col border-l border-km-line bg-km-bg lg:flex">
+          <div className="min-h-0 flex-1 overflow-hidden px-3 pb-3 pt-4 sm:pt-5">
             <ActivityFeed
               siteId={site.id}
               siteNom={site.nom}

@@ -229,7 +229,11 @@ export default function SuiviContratDetail() {
         />
       </div>
 
-      <div className="flex flex-none items-center gap-0.5 border-b border-km-line bg-white px-4 pt-2.5 sm:px-6">
+      {/* La barre d'onglets reprend la grille du contenu : la seconde cellule commence exactement
+          là où commence le volet, et son filet gauche tombe au pixel sur le sien. Même forme que la
+          fiche Recommandation, qui sert de référence depuis le 07/09/2026. */}
+      <div className="grid flex-none grid-cols-1 border-b border-km-line bg-white lg:grid-cols-fiche-activite">
+        <div className="flex min-w-0 items-center gap-0.5 overflow-x-auto px-4 pt-2.5 sm:px-6">
         {([
           { cle: 'suivi' as const, libelle: 'Suivi' },
           { cle: 'rattachements' as const, libelle: 'Rattachements' },
@@ -248,9 +252,15 @@ export default function SuiviContratDetail() {
             {item.libelle}
           </button>
         ))}
+        </div>
+        <div className="hidden items-center border-b-2 border-km-green px-3 lg:flex">
+          <span className="truncate text-km-label font-bold uppercase tracking-[0.08em] text-km-faint">
+            Activité · suivi de contrat
+          </span>
+        </div>
       </div>
 
-      <div className="grid min-h-0 flex-1 grid-cols-1 overflow-hidden lg:grid-cols-[minmax(0,1fr)_340px]">
+      <div className="grid min-h-0 flex-1 grid-cols-1 overflow-hidden lg:grid-cols-fiche-activite">
         {/* Contenu de l'onglet Rattachements. */}
         <div className={cn('col-start-1 row-start-1 flex min-h-0 flex-col gap-3 overflow-y-auto bg-km-bg/60 p-4 sm:p-5', onglet !== 'rattachements' && 'hidden')}>
           <Card className="p-3.5">
@@ -431,8 +441,8 @@ export default function SuiviContratDetail() {
         </div>
 
         {/* ══ DROITE : LE FLUX (§ 11) ══ */}
-        <div className="hidden min-h-0 flex-col border-l border-km-line bg-white lg:flex">
-          <div className="min-h-0 flex-1 overflow-y-auto p-3">
+        <div className="hidden min-h-0 flex-col border-l border-km-line bg-km-bg lg:flex">
+          <div className="min-h-0 flex-1 overflow-hidden px-3 pb-3 pt-4 sm:pt-5">
             <ActivityFeed
               compteId={suivi.compte_id ?? ''}
               compteNom={suivi.compte_nom ?? ''}
@@ -442,6 +452,19 @@ export default function SuiviContratDetail() {
               actions={actions ?? []}
               documents={documentsDuSuivi}
               suiviContratId={suivi.id}
+              rattachementTache={
+                canManage
+                  ? {
+                      suivi_contrat_id: suivi.id,
+                      site_id: suivi.site_id,
+                      site_nom: suivi.site_nom ?? '',
+                      contact_id: suivi.contact_principal_id,
+                      contact_nom: suivi.contact_principal_nom,
+                      compte_id: suivi.compte_id ?? null,
+                      objet_nom: suivi.compte_nom ?? '',
+                    }
+                  : undefined
+              }
             />
           </div>
         </div>
@@ -458,7 +481,8 @@ export default function SuiviContratDetail() {
             site_nom: suivi.site_nom ?? '',
             contact_id: suivi.contact_principal_id,
             contact_nom: suivi.contact_principal_nom,
-            libelle_cible: `le suivi du contrat ${suivi.compte_nom ?? ''}`.trim(),
+            compte_id: suivi.compte_id ?? null,
+            objet_nom: suivi.compte_nom ?? '',
           }}
         />
       )}

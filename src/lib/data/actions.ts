@@ -16,6 +16,7 @@ interface RawAction {
   priorite: number
   commentaire: string | null
   proprietaire_id: string | null
+  cree_par_id: string | null
   responsable_profil_id: string | null
   type_action: { libelle: string } | null
   statut: { code: string } | null
@@ -45,12 +46,13 @@ async function fetchActions(
   opportuniteId?: string,
   pisteId?: string,
   suiviContratId?: string,
+  requeteId?: string,
 ): Promise<ActionItem[]> {
   try {
     if (siteIds && siteIds.length === 0) return []
     const data = await fetchAllRows<RawAction>(
       'actions',
-      'id, titre, site_id, contact_id, recommandation_id, opportunite_id, piste_id, suivi_contrat_id, date_creation, date_prevue, date_realisation, priorite, commentaire, proprietaire_id, responsable_profil_id, type_action:types_actions(libelle), statut:statuts_actions(code), responsable:profils!actions_responsable_profil_id_fkey(prenom, nom), site:sites(nom), contact:contacts(prenom, nom), recommandation:recommandations!recommandation_id(nom)',
+      'id, titre, site_id, contact_id, recommandation_id, opportunite_id, piste_id, suivi_contrat_id, date_creation, date_prevue, date_realisation, priorite, commentaire, proprietaire_id, cree_par_id, responsable_profil_id, type_action:types_actions(libelle), statut:statuts_actions(code), responsable:profils!actions_responsable_profil_id_fkey(prenom, nom), site:sites(nom), contact:contacts(prenom, nom), recommandation:recommandations!recommandation_id(nom)',
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       (q: any) => {
         if (actionId) return q.eq('id', actionId)
@@ -58,6 +60,7 @@ async function fetchActions(
         if (opportuniteId) return q.eq('opportunite_id', opportuniteId).order('date_prevue')
         if (pisteId) return q.eq('piste_id', pisteId).order('date_prevue')
         if (suiviContratId) return q.eq('suivi_contrat_id', suiviContratId).order('date_prevue')
+        if (requeteId) return q.eq('requete_id', requeteId).order('date_prevue')
         return (siteIds ? q.in('site_id', siteIds) : q).order('date_prevue')
       },
     )
@@ -88,6 +91,7 @@ async function fetchActions(
       recommandation_id: a.recommandation_id,
       recommandation_titre: a.recommandation?.nom ?? '',
       proprietaire_id: a.proprietaire_id ?? null,
+      cree_par_id: a.cree_par_id ?? null,
     }))
   } catch (error) {
     console.error('fetchActions', error)
@@ -155,6 +159,15 @@ export function useActionsParPiste(pisteId: string | undefined) {
   })
 }
 
+/** Les tâches d'une requête. La colonne `requete_id` date de la migration 20260907300000. */
+export function useActionsParRequete(requeteId: string | undefined) {
+  return useQuery({
+    queryKey: ['actions', 'requete', requeteId],
+    queryFn: () => fetchActions(undefined, undefined, undefined, undefined, undefined, undefined, requeteId as string),
+    enabled: !!requeteId,
+  })
+}
+
 /** Tâches d'un périmètre de sites, filtrées côté serveur. À préférer sur toute fiche. */
 export function useActionsParSites(siteIds: string[] | undefined) {
   const cle = [...(siteIds ?? [])].sort()
@@ -184,6 +197,8 @@ interface CreateActionInput {
   /** Opportunité ou piste d'origine — même rôle que `recommandation_id` (Michel, 31/08/2026). */
   opportunite_id?: string | null
   piste_id?: string | null
+  /** Requête d'origine. Colonne ajoutée par la migration 20260907300000. */
+  requete_id?: string | null
   /** Suivi de contrat — le cinquième rattachement possible d'une tâche. */
   suivi_contrat_id?: string | null
 }
@@ -201,6 +216,9 @@ export function useCreateAction() {
       let persisted = false
       let action: ActionItem = {
         id: `local-${Date.now()}`,
+        // Rempli par le déclencheur d'audit à l'écriture réelle ; le temps de l'aller-retour, la
+        // ligne locale n'a pas encore de créateur.
+        cree_par_id: null,
         titre: input.titre,
         type_action: input.type_action_libelle,
         statut: 'A_FAIRE',
@@ -253,6 +271,7 @@ export function useCreateAction() {
           ...(input.opportunite_id ? { opportunite_id: input.opportunite_id } : {}),
           ...(input.piste_id ? { piste_id: input.piste_id } : {}),
           ...(input.suivi_contrat_id ? { suivi_contrat_id: input.suivi_contrat_id } : {}),
+          ...(input.requete_id ? { requete_id: input.requete_id } : {}),
           ...(input.type_action_id ? { type_action_id: input.type_action_id } : {}),
           ...(input.statut_id ? { statut_id: input.statut_id } : {}),
         })
@@ -350,13 +369,59 @@ interface CompleteActionResult {
   persisted: boolean
 }
 
+/**
+ * L'IDENTIFIANT D'UN STATUT DE TÂCHE, RÉSOLU UNE FOIS PAR SESSION.
+ *
+ * Le référentiel `statuts_actions` compte cinq lignes qui ne changent jamais en cours d'usage : les
+ * relire à chaque case cochée serait un aller-retour réseau pour une valeur constante. En cas
+ * d'échec on renvoie `null`, et l'appelant écrit alors la date sans le statut — c'est le
+ * comportement d'avant le 07/09/2026, donc jamais pire que ce qui existait.
+ */
+const idsStatutsActions = new Map<string, string | null>()
+
+async function idStatutAction(code: string): Promise<string | null> {
+  const connu = idsStatutsActions.get(code)
+  if (connu !== undefined) return connu
+  const { data, error } = await supabase
+    .from('statuts_actions')
+    .select('id')
+    .eq('code', code)
+    .maybeSingle()
+  const id = error || !data ? null : (data as { id: string }).id
+  if (error) console.error('idStatutAction', code, error)
+  idsStatutsActions.set(code, id)
+  return id
+}
+
+/**
+ * COCHER UNE TÂCHE ÉCRIT LE STATUT, PAS SEULEMENT LA DATE.
+ *
+ * Ce qui se passait avant le 07/09/2026 : seul `date_realisation` partait en base, et le statut
+ * n'était corrigé que dans le cache de React Query — donc jusqu'au rechargement de la page.
+ *
+ * LES DEUX ÉCRANS SE CONTREDISAIENT, et c'est ce qui rendait le défaut coûteux. Le volet d'activité
+ * lit la date et annonçait « Terminée » ; la page Tâches lit le statut et gardait la tâche parmi les
+ * ouvertes. Une tâche faite restait éternellement sur la liste des choses à faire du commercial.
+ * Mesuré le 07/09/2026 avant correction : 12 tâches réalisées, 12 encore au statut « À faire ».
+ *
+ * Les 12 lignes ont été alignées par la migration 20260907310000 ; ceci empêche que ça revienne.
+ */
 export function useCompleteAction() {
   const queryClient = useQueryClient()
 
   return useMutation({
     mutationFn: async (actionId: string): Promise<CompleteActionResult> => {
       const now = new Date().toISOString()
-      const { error } = await supabase.from('actions').update({ date_realisation: now }).eq('id', actionId)
+      const statutTermine = await idStatutAction('TERMINEE')
+      const { error } = await supabase
+        .from('actions')
+        .update({
+          date_realisation: now,
+          // Le statut ne part que s'il a pu être résolu : mieux vaut la date seule — l'état d'avant
+          // — qu'une écriture qui échoue et laisse la tâche ni faite ni à faire.
+          ...(statutTermine ? { statut_id: statutTermine } : {}),
+        })
+        .eq('id', actionId)
       const persisted = !error
       queryClient.setQueryData<ActionItem[]>(['actions'], (old) =>
         old?.map((a) => (a.id === actionId ? { ...a, statut: 'TERMINEE', date_realisation: now } : a)),
@@ -370,6 +435,67 @@ export function useCompleteAction() {
       // couvre toutes, y compris celles que personne n'a encore écrites.
       queryClient.invalidateQueries({ queryKey: ['actions'] })
       return { persisted }
+    },
+  })
+}
+
+/**
+ * DÉCOCHER UNE TÂCHE — le retour en arrière des cinq secondes qui suivent.
+ *
+ * William, 07/09/2026, a retenu l'annulation parmi les options : un clic malheureux sur une case ne
+ * doit pas obliger à rouvrir la tâche depuis la page Tâches pour la remettre en état.
+ *
+ * L'OPÉRATION EST EXACTEMENT L'INVERSE DE LA COMPLÉTION, les deux champs compris. Ne remettre que
+ * `date_realisation` à NULL laisserait le statut sur « Terminée », c'est-à-dire recréerait
+ * l'incohérence que la migration 20260907310000 vient de réparer, mais dans l'autre sens.
+ */
+export function useReouvrirAction() {
+  const queryClient = useQueryClient()
+
+  return useMutation({
+    mutationFn: async (actionId: string) => {
+      const statutAFaire = await idStatutAction('A_FAIRE')
+      const { error } = await supabase
+        .from('actions')
+        .update({
+          date_realisation: null,
+          ...(statutAFaire ? { statut_id: statutAFaire } : {}),
+        })
+        .eq('id', actionId)
+      if (error) throw new Error(error.message)
+    },
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: ['actions'] })
+      void queryClient.invalidateQueries({ queryKey: ['tableau-de-bord', 'mes-actions'] })
+    },
+  })
+}
+
+/**
+ * REPORTER UNE TÂCHE À PLUS TARD, en un geste.
+ *
+ * C'est la fonction la plus utilisée des CRM après la complétion, et pour une raison simple : la
+ * plupart des tâches en retard ne sont pas oubliées, elles sont décalées. Sans report en un clic, un
+ * commercial a le choix entre laisser dix lignes rouges qu'il sait fausses — et donc cesser de
+ * regarder la couleur — ou ouvrir un formulaire dix fois.
+ *
+ * `date_prevue` EST LA SEULE COLONNE TOUCHÉE : reporter n'est pas réaliser. Le statut reste « À
+ * faire », et la tâche demeure dans la section du haut, simplement plus loin dans la file.
+ */
+export function useReporterAction() {
+  const queryClient = useQueryClient()
+
+  return useMutation({
+    mutationFn: async ({ actionId, echeance }: { actionId: string; echeance: string }) => {
+      const { error } = await supabase
+        .from('actions')
+        .update({ date_prevue: echeance })
+        .eq('id', actionId)
+      if (error) throw new Error(error.message)
+    },
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: ['actions'] })
+      void queryClient.invalidateQueries({ queryKey: ['tableau-de-bord', 'mes-actions'] })
     },
   })
 }

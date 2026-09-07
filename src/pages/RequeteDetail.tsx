@@ -9,11 +9,13 @@ import { InlineField } from '@/components/ui/inline-field'
 import { MenuChoix } from '@/components/ui/menu-choix'
 import { HistoriqueDiscret } from '@/components/ui/historique-discret'
 import { OngletFichiers } from '@/components/compte/OngletFichiers'
-import { FluxActualite } from '@/components/opportunite/FluxActualite'
 import { FriseStatut } from '@/components/opportunite/FriseStatut'
 import { RattachementsRequete } from '@/components/requete/RattachementsRequete'
 import { useCanManage } from '@/lib/data/roles'
 import { useDocumentsParEntites, useTeleverserDocuments } from '@/lib/data/documents'
+import { useInteractionsParRequete } from '@/lib/data/interactions'
+import { useActionsParRequete } from '@/lib/data/actions'
+import { ActivityFeed } from '@/components/site/ActivityFeed'
 import { useReferenceTable } from '@/lib/data/referenceTables'
 import { dateRelative, tonDate } from '@/lib/dateRelative'
 import {
@@ -102,6 +104,10 @@ export default function RequeteDetail() {
   const { data: statuts } = useStatutsRequetes()
   const { data: types } = useTypesRequetes()
   const { data: documents } = useDocumentsParEntites(id ? [id] : undefined)
+  // Ni les échanges ni les tâches n'étaient lus sur cette fiche : les colonnes `requete_id`
+  // n'existaient pas avant la migration 20260907300000.
+  const { data: interactions } = useInteractionsParRequete(id)
+  const { data: actions } = useActionsParRequete(id)
   const { data: typesDocumentsRef } = useReferenceTable('types_documents')
   const maj = useMajRequete()
   const televerser = useTeleverserDocuments()
@@ -255,7 +261,8 @@ export default function RequeteDetail() {
       </div>
 
       {/* ══ ONGLETS ══ Requête · Rattachements · Fichiers · Historique, comme l'opportunité. */}
-      <div className="flex flex-none gap-1 border-b border-km-line bg-white px-4 sm:px-6">
+      <div className="grid flex-none grid-cols-1 border-b border-km-line bg-white lg:grid-cols-fiche-activite">
+        <div className="flex min-w-0 gap-1 overflow-x-auto px-4 sm:px-6">
         {ONGLETS.map((o) => (
           <button
             key={o.cle}
@@ -276,9 +283,15 @@ export default function RequeteDetail() {
             )}
           </button>
         ))}
+        </div>
+        <div className="hidden items-center border-b-2 border-km-green px-3 lg:flex">
+          <span className="truncate text-km-label font-bold uppercase tracking-[0.08em] text-km-faint">
+            Activité · requête
+          </span>
+        </div>
       </div>
 
-      <div className="grid min-h-0 flex-1 grid-cols-1 overflow-hidden lg:grid-cols-[minmax(0,1fr)_300px]">
+      <div className="grid min-h-0 flex-1 grid-cols-1 overflow-hidden lg:grid-cols-fiche-activite">
         <div className="min-h-0 overflow-y-auto bg-km-bg p-3.5 lg:px-5">
           {onglet === 'requete' && (
             <div className="flex max-w-[760px] flex-col gap-3.5 animate-km-fade-slide">
@@ -549,12 +562,38 @@ export default function RequeteDetail() {
           )}
         </div>
 
-        <div className="hidden min-h-0 overflow-y-auto border-l border-km-line bg-white lg:block">
-          <FluxActualite
-            tableNom="requetes"
-            ligneId={requete.id}
-            dateCreation={requete.date_creation}
-          />
+        {/* LE VOLET NE DÉFILE PAS, SON CONTENU DÉFILE. L'ascenseur était posé sur le volet lui-même,
+            si bien que le panneau entier glissait sous le bandeau. Sa hauteur est désormais bornée,
+            et c'est `ActivityFeed` qui gère son propre défilement — condition pour que les deux
+            boutons de création restent au-dessus de la ligne de flottaison.
+
+            CETTE FICHE EST LA DERNIÈRE À AVOIR REÇU LE FIL D'ACTIVITÉ, le 07/09/2026, parce qu'elle
+            était la seule dont la table `interactions` n'avait aucune colonne : voir la migration
+            20260907300000, qui ajoute `requete_id` sur `interactions` et sur `actions`. */}
+        <div className="hidden min-h-0 flex-col border-l border-km-line bg-km-bg lg:flex">
+          <div className="min-h-0 flex-1 overflow-hidden px-3 pb-3 pt-3.5">
+            <ActivityFeed
+              compteId={requete.compte_id ?? ''}
+              compteNom={requete.compte_nom ?? ''}
+              siteId={requete.site_id}
+              interactions={interactions ?? []}
+              actions={actions ?? []}
+              documents={documentsDeLaRequete}
+              requeteId={requete.id}
+              rattachementTache={
+                canManage
+                  ? {
+                      requete_id: requete.id,
+                      site_id: requete.site_id ?? null,
+                      contact_id: requete.contact_id ?? null,
+                      contact_nom: requete.contact_nom ?? '',
+                      compte_id: requete.compte_id ?? null,
+                      objet_nom: requete.compte_nom ?? '',
+                    }
+                  : undefined
+              }
+            />
+          </div>
         </div>
       </div>
 

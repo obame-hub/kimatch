@@ -62,7 +62,21 @@ const Pricing = lazy(() => import('@/pages/Pricing'))
 
 function App() {
   return (
+    /* ══ LE BANDEAU ENTRE DANS LA COLONNE, ET L'APPLICATION RETROUVE 28 PX ══
+       William, 07/09/2026 : « les boutons sont encore coupés en bas, je ne veux pas avoir à
+       scroller ». Ils l'étaient sur toutes les pages, pas seulement là.
+
+       LA CAUSE : `AppLayout` occupe `h-screen`, soit 100 % de la hauteur de fenêtre — mais le
+       bandeau était rendu AU-DESSUS, hors de lui. Total : 100 % + 28 px, et les 28 derniers pixels
+       de chaque écran passaient sous la ligne de flottaison. Le bandeau DocuSign avait déjà été
+       placé à l'intérieur pour cette raison exacte, et son commentaire l'explique dans `AppLayout` ;
+       celui-ci était resté dehors.
+
+       La colonne ci-dessous fait ce que ce commentaire décrit : elle englobe le bandeau, et ce qui
+       suit se partage ce qui reste. Le décalage ne se voyait qu'en local et sur la sandbox — en
+       production le bandeau ne s'affiche pas — mais il faussait toutes les validations visuelles. */
     <VoletEmailProvider>
+      <div className="flex h-screen flex-col">
       <SandboxBanner />
       {/* LE VOLET D'ÉCRITURE DE MAIL, MONTÉ UNE SEULE FOIS, hors des routes.
           C'est ce qui fait qu'un brouillon réduit survit à la navigation : monté dans une route, il
@@ -128,6 +142,7 @@ function App() {
       </Route>
       </Routes>
       </Suspense>
+      </div>
     </VoletEmailProvider>
   )
 }

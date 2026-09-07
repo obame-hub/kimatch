@@ -450,7 +450,8 @@ export default function CompteDetail() {
       </div>
 
       {/* Onglets */}
-      <div className="flex items-center gap-0.5 overflow-x-auto border-b border-km-line bg-km-surface px-4 pt-2.5 sm:px-[22px]">
+      <div className="grid flex-none grid-cols-1 border-b border-km-line bg-km-surface lg:grid-cols-fiche-activite">
+        <div className="flex min-w-0 items-center gap-0.5 overflow-x-auto px-4 pt-2.5 sm:px-[22px]">
         {TABS.map((t) => {
           const isActive = tab === t.key
           return (
@@ -474,12 +475,16 @@ export default function CompteDetail() {
             </button>
           )
         })}
-        <div className="flex-1" />
-        <span className="hidden pr-1 font-mono text-km-label text-km-faint lg:inline">1–8 pour naviguer</span>
+        </div>
+        <div className="hidden items-center border-b-2 border-km-text px-3 lg:flex">
+          <span className="truncate text-km-label font-bold uppercase tracking-[0.08em] text-km-faint">
+            Activité · portefeuille
+          </span>
+        </div>
       </div>
 
       {/* 3 zones */}
-      <div className="grid min-h-0 flex-1 grid-cols-1 overflow-hidden lg:grid-cols-[minmax(0,1fr)_340px]">
+      <div className="grid min-h-0 flex-1 grid-cols-1 overflow-hidden lg:grid-cols-fiche-activite">
         {/* Centre — contenu de l'onglet */}
         <div className="min-h-0 overflow-y-auto bg-km-bg p-4 sm:p-5">
           {tab === 'contacts' && <ContactsPanel contacts={contactsDuCompte} compteId={compte.id} />}
@@ -702,24 +707,19 @@ export default function CompteDetail() {
               interactions={interactionsDuCompte}
               actions={actionsDuCompte}
               documents={documentsDuCompte}
-              filterDimension="site"
             />
           )}
         </div>
 
         {/* Colonne droite — Activité persistante (desktop uniquement) */}
-        <div className="hidden min-h-0 flex-col border-l border-km-line bg-white lg:flex">
-          <div className="flex items-center gap-2 px-3.5 py-3">
-            <span className="text-km-xs font-bold uppercase tracking-wide text-km-faint">Activité · portefeuille</span>
-          </div>
-          <div className="min-h-0 flex-1 overflow-hidden px-3.5 pb-3.5">
+        <div className="hidden min-h-0 flex-col border-l border-km-line bg-km-bg lg:flex">
+          <div className="min-h-0 flex-1 overflow-hidden px-3 pb-3 pt-4 sm:pt-5">
             <ActivityFeed
               compteId={compte.id}
               compteNom={compte.nom}
               interactions={interactionsDuCompte}
               actions={actionsDuCompte}
               documents={documentsDuCompte}
-              filterDimension="site"
             />
           </div>
         </div>

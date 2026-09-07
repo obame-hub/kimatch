@@ -10,11 +10,13 @@ import { InlineField } from '@/components/ui/inline-field'
 import { OngletFichiers } from '@/components/compte/OngletFichiers'
 import { DialogConversionPiste } from '@/components/prospection/DialogConversionPiste'
 import { DialogNouvelleTache } from '@/components/tache/DialogNouvelleTache'
-import { FluxActualite } from '@/components/opportunite/FluxActualite'
 import { FriseStatut } from '@/components/opportunite/FriseStatut'
+import { ActivityFeed } from '@/components/site/ActivityFeed'
+import { HistoriqueDiscret } from '@/components/ui/historique-discret'
 import { useGoBack } from '@/lib/useGoBack'
 import { useCanManage } from '@/lib/data/roles'
 import { useActionsParPiste, useCompleteAction } from '@/lib/data/actions'
+import { useInteractionsParPiste } from '@/lib/data/interactions'
 import { useDocumentsParEntites, useTeleverserDocuments } from '@/lib/data/documents'
 import { useReferenceTable } from '@/lib/data/referenceTables'
 import { useStatutsOpportunites } from '@/lib/data/opportunites'
@@ -80,6 +82,9 @@ export default function PisteDetail() {
 
   const { data: piste, isLoading } = usePiste(id)
   const { data: actions } = useActionsParPiste(id)
+  // 8 942 interactions sont rattachées à des pistes depuis l'import des leads du 01/09/2026,
+  // et aucun écran ne les montrait : le flux recevait `interactions={[]}` en dur.
+  const { data: interactions } = useInteractionsParPiste(id)
   const { data: documents } = useDocumentsParEntites(id ? [id] : undefined)
   const { data: typesDocumentsRef } = useReferenceTable('types_documents')
   const { data: statuts } = useStatutsOpportunites()
@@ -205,7 +210,8 @@ export default function PisteDetail() {
       </div>
 
       {/* ══ LES ONGLETS ══ */}
-      <div className="flex flex-none items-center gap-0.5 overflow-x-auto border-b border-km-line bg-km-surface px-4 pt-2.5 sm:px-6">
+      <div className="grid flex-none grid-cols-1 border-b border-km-line bg-km-surface lg:grid-cols-fiche-activite">
+        <div className="flex min-w-0 items-center gap-0.5 overflow-x-auto px-4 pt-2.5 sm:px-6">
         {ONGLETS.map((o) => (
           <button
             key={o.cle}
@@ -226,13 +232,19 @@ export default function PisteDetail() {
             )}
           </button>
         ))}
+        </div>
+        <div className="hidden items-center border-b-2 border-km-green px-3 lg:flex">
+          <span className="truncate text-km-label font-bold uppercase tracking-[0.08em] text-km-faint">
+            Activité · piste
+          </span>
+        </div>
       </div>
 
       {/* DEUX COLONNES, LE GABARIT DE L'OPPORTUNITE.
           Naoelle, 01/09/2026 : « affiche-la dans le style de l'objet opportunite avec le flux
           d'actualite a droite ». Le flux mele l'historique des modifications et les taches dans
           l'ordre du temps : sur une piste, il raconte qui a verifie quoi et quand. */}
-      <div className="grid min-h-0 flex-1 grid-cols-1 overflow-hidden lg:grid-cols-[minmax(0,1fr)_300px]">
+      <div className="grid min-h-0 flex-1 grid-cols-1 overflow-hidden lg:grid-cols-fiche-activite">
         <div className="min-h-0 overflow-y-auto bg-km-bg p-4 sm:p-5">
         {onglet === 'piste' && (
           <div className="flex flex-col gap-3.5">
@@ -543,6 +555,12 @@ export default function PisteDetail() {
                 </div>
               )}
             </Card>
+            {/* L'HISTORIQUE DES MODIFICATIONS REPREND SA PLACE ICI. Il vivait dans le flux
+                d'actualité du volet, remplacé le 07/09/2026 par le fil d'activité — lequel montre
+                les échanges, pas les changements de champs. Les fiches Compte, Site, Contact,
+                Opportunité et Requête le proposent déjà sous cette forme discrète ; la piste était
+                la seule à ne l'avoir nulle part ailleurs. */}
+            <HistoriqueDiscret tableNom="pistes" ligneId={piste.id} />
           </div>
         )}
 
@@ -599,24 +617,33 @@ export default function PisteDetail() {
         )}
         </div>
 
-        {/* LE FLUX D'ACTUALITÉ, À DROITE — comme sur l'opportunité.
-            Il mêle l'historique des modifications de la piste et ses tâches dans l'ordre du temps.
-            Les INTERACTIONS n'y figurent pas : `interactions` n'a pas de colonne `piste_id`, une
-            piste n'étant pas encore un contact au sens de la table. Passer une liste vide est
-            honnête — le jour où le lien existera, il suffira de la remplir. */}
-        <div className="hidden min-h-0 flex-col border-l border-km-line bg-white lg:flex">
-          <div className="flex-none border-b border-km-line px-3.5 py-2.5">
-            <p className="text-km-label font-bold uppercase tracking-[0.08em] text-km-faint">
-              Flux d’actualité
-            </p>
-          </div>
-          <div className="min-h-0 flex-1 overflow-y-auto p-3">
-            <FluxActualite
-              tableNom="pistes"
-              ligneId={piste.id}
-              dateCreation={piste.date_creation}
-              interactions={[]}
+        {/* ══ LE VOLET D'ACTIVITÉ, AU MODÈLE DE LA FICHE RECOMMANDATION ══
+            William, 07/09/2026 : « les fiches Opportunité, Piste, Requête et Suivi de contrat
+            doivent avoir exactement les mêmes fonctionnalités et la même logique ».
+
+            `FluxActualite` montrait l'historique des modifications de la piste ; `ActivityFeed`
+            montre ses ÉCHANGES, ses tâches et ses documents — et les 8 942 interactions rattachées
+            aux pistes, qui n'apparaissaient nulle part. L'historique des modifications n'est pas
+            perdu : il reprend sa place sous l'onglet Piste, par le contrôle discret. */}
+        <div className="hidden min-h-0 flex-col border-l border-km-line bg-km-bg lg:flex">
+          <div className="min-h-0 flex-1 overflow-hidden px-3 pb-3 pt-4 sm:pt-5">
+            <ActivityFeed
+              compteId={piste.compte_id ?? ''}
+              compteNom={piste.societe ?? ''}
+              interactions={interactions ?? []}
               actions={actions ?? []}
+              documents={documentsDeLaPiste}
+              pisteId={piste.id}
+              rattachementTache={
+                canManage
+                  ? {
+                      piste_id: piste.id,
+                      contact_nom: piste.contact_nom ?? '',
+                      compte_id: piste.compte_id ?? null,
+                      objet_nom: (piste.societe || piste.contact_nom || '').trim(),
+                    }
+                  : undefined
+              }
             />
           </div>
         </div>
@@ -630,7 +657,7 @@ export default function PisteDetail() {
           rattachement={{
             piste_id: piste.id,
             contact_nom: piste.contact_nom ?? '',
-            libelle_cible: `la piste ${piste.societe || piste.contact_nom || ''}`.trim(),
+            objet_nom: (piste.societe || piste.contact_nom || '').trim(),
           }}
         />
       )}

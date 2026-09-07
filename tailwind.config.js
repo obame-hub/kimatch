@@ -224,6 +224,17 @@ export default {
           '50%': { boxShadow: '0 0 0 12px rgba(168,49,127,0)' },
         },
         'km-stripe': { to: { backgroundPosition: '36px 0' } },
+        /**
+         * LE PANNEAU DE CRÉATION QUI MONTE DU BAS DU VOLET D'ACTIVITÉ.
+         *
+         * William, 07/09/2026 : « ça pourrait être sympa que ce soit un formulaire qui sort du bas
+         * de l'écran et vient se positionner au-dessus du volet de droite ».
+         *
+         * `translateY(100%)` et non une distance en pixels : le panneau part exactement de sous son
+         * propre bord bas, quelle que soit sa hauteur. Une valeur fixe l'aurait fait apparaître
+         * déjà à moitié monté sur un grand écran, et surgir de trop loin sur un petit.
+         */
+        'km-monte': { from: { transform: 'translateY(100%)' }, to: { transform: 'none' } },
       },
       animation: {
         'fade-up': 'fade-up 0.35s ease-out both',
@@ -245,6 +256,9 @@ export default {
         'km-hero-rise': 'km-hero-rise .4s cubic-bezier(.3,1.1,.4,1) both',
         'km-glow-pulse': 'km-glow-pulse 5s ease-in-out infinite',
         'km-live-pulse': 'km-live-pulse 2.2s ease-in-out infinite',
+        // 200 ms, et une courbe qui décélère franchement : assez pour qu'on voie d'où le panneau
+        // vient, assez court pour ne pas se mettre entre l'intention et la saisie.
+        'km-monte': 'km-monte .2s cubic-bezier(.22,1,.36,1) both',
       },
       boxShadow: {
         card: '0 1px 2px 0 rgb(15 23 42 / 0.04), 0 1px 3px 0 rgb(15 23 42 / 0.06)',
@@ -368,6 +382,21 @@ export default {
         'kw-13': '21px', 'kw-14': '22px', 'kw-15': '26px', 'kw-16': '30px',
         'kw-navbar': '56px', 'kw-left-panel': '300px', 'kw-activity-panel': '340px',
         'kw-topbar': '44px', 'kw-tabbar': '38px', 'kw-touch': '44px',
+      },
+      /**
+       * LA GRILLE D'UNE FICHE : son contenu, puis son volet d'activite.
+       *
+       * UNE SEULE DEFINITION POUR LES HUIT FICHES. Elle en avait quatre — 292, 300, 304 et 340 px
+       * selon la page, pour le meme objet — parce que la largeur etait ecrite dans chaque fichier :
+       * corriger l'une ne corrigeait pas les autres, et personne ne voit jamais les huit ecrans cote
+       * a cote. C'est la meme raison qui a fait extraire `CONTROLE_BARRE` de la barre de travail.
+       *
+       * 25 % ET NON `25vw` : la grille vit dans un `<main>` deja decale de 215 px par le rail de
+       * gauche, donc sa largeur EST la zone de travail. William, 07/09/2026 : « je veux que ca
+       * represente 25 % de la zone de travail ».
+       */
+      gridTemplateColumns: {
+        'fiche-activite': 'minmax(0,1fr) 25%',
       },
     },
   },

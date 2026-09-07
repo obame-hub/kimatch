@@ -11,15 +11,13 @@ import { FormField, Select, Textarea } from '@/components/ui/form'
 import { InlineField } from '@/components/ui/inline-field'
 import { EntityLink } from '@/components/ui/entity-link'
 import { HistoriqueDiscret } from '@/components/ui/historique-discret'
+import { ActivityFeed } from '@/components/site/ActivityFeed'
 import { OngletFichiers } from '@/components/compte/OngletFichiers'
 import { useDocumentsParEntites, useTeleverserDocuments } from '@/lib/data/documents'
 import { useReferenceTable } from '@/lib/data/referenceTables'
 import { FriseStatut } from '@/components/opportunite/FriseStatut'
-import { FluxActualite } from '@/components/opportunite/FluxActualite'
-import { ActionsRapides, type ActionRapide } from '@/components/opportunite/ActionsRapides'
-import { useInteractionsParOpportunite, useCreateInteraction } from '@/lib/data/interactions'
+import { useInteractionsParOpportunite } from '@/lib/data/interactions'
 import { useActionsParOpportunite } from '@/lib/data/actions'
-import { DialogNouvelleTache } from '@/components/tache/DialogNouvelleTache'
 import {
   prerequisOpportunite,
   statutDerive,
@@ -34,6 +32,7 @@ import {
 } from '@/lib/data/opportunites'
 import { useSitesParCompte } from '@/lib/data/sites'
 import { useCompteurs } from '@/lib/data/compteurs'
+import { useCanManage } from '@/lib/data/roles'
 import { useContacts } from '@/lib/data/contacts'
 import { useMandats } from '@/lib/data/mandats'
 import { MandatWizard } from '@/components/mandat/MandatWizard'
@@ -64,6 +63,7 @@ export default function OpportuniteDetail() {
   const navigate = useNavigate()
   const { data: opportunite, isLoading } = useOpportunite(id)
   const { data: statuts } = useStatutsOpportunites()
+  const canManage = useCanManage()
   const { data: contacts } = useContacts()
   const { data: compteurs } = useCompteurs()
   const { data: mandats } = useMandats()
@@ -83,17 +83,12 @@ export default function OpportuniteDetail() {
   const [hubOuvert, setHubOuvert] = useState(false)
   // L'action qu'on est en train de consigner : la maquette dit « chaque action est consignée dans le
   // flux », et une ligne sans un mot d'explication n'apprendrait rien à celui qui la relira.
-  const [noteAction, setNoteAction] = useState<ActionRapide | null>(null)
   /* Le formulaire de tâche. `echeance` prérempli quand on arrive par « Planifier un rappel » :
      un rappel EST une tâche datée, inutile d'en faire un objet à part. */
-  const [tacheOuverte, setTacheOuverte] = useState<{ titre: string; echeance?: string } | null>(null)
-  const [actionEnCours, setActionEnCours] = useState<string | null>(null)
   const { data: interactionsOpp } = useInteractionsParOpportunite(id)
   /* Les tâches de cette opportunité. La colonne `actions.opportunite_id` existait depuis toujours,
      rien ne la lisait — donc une tâche prise sur une opportunité disparaissait de sa fiche. */
   const { data: actionsOpp } = useActionsParOpportunite(id)
-  const { data: typesInteractionsRef } = useReferenceTable('types_interactions')
-  const creerInteraction = useCreateInteraction()
   const { data: documents } = useDocumentsParEntites(id ? [id] : undefined)
   const { data: typesDocumentsRef } = useReferenceTable('types_documents')
   const typesDocuments = typesDocumentsRef ?? []
@@ -170,12 +165,6 @@ export default function OpportuniteDetail() {
   )
   const compteursParSite = (siteId: string) => compteursDuPerimetre.filter((c) => c.site_id === siteId)
 
-  // Une échéance dépassée et non faite : c'est ce qui fait passer la carte au rouge.
-  const enRetard = Boolean(
-    opportunite?.prochaine_action_echeance &&
-      !opportunite.prochaine_action_faite_le &&
-      new Date(opportunite.prochaine_action_echeance) < new Date(),
-  )
 
   async function retirer(table: 'sites' | 'compteurs', cible: string, libelle: string) {
     if (!opportunite) return
@@ -189,7 +178,7 @@ export default function OpportuniteDetail() {
 
   if (isLoading) {
     return (
-      <div className="flex min-h-0 flex-1 flex-col">
+      <div className="flex h-full flex-col overflow-hidden">
         <Topbar title="Opportunité" />
         <div className="p-6 text-sm text-km-faint">Chargement…</div>
       </div>
@@ -197,7 +186,7 @@ export default function OpportuniteDetail() {
   }
   if (!opportunite) {
     return (
-      <div className="flex min-h-0 flex-1 flex-col">
+      <div className="flex h-full flex-col overflow-hidden">
         <Topbar title="Opportunité" />
         <div className="p-6">
           <p className="text-sm text-km-muted">Cette opportunité n'existe pas ou n'est pas visible.</p>
@@ -213,7 +202,7 @@ export default function OpportuniteDetail() {
   const contact = (contacts ?? []).find((c) => c.id === opportunite.contact_id)
 
   return (
-    <div className="flex min-h-0 flex-1 flex-col">
+    <div className="flex h-full flex-col overflow-hidden">
       <Topbar title="Opportunité" crumb={opportunite.compte_nom || 'Opportunité'} />
 
       {/* ══ BANDEAU D'IDENTITÉ ══
@@ -367,7 +356,11 @@ export default function OpportuniteDetail() {
       </div>
 
       {/* ══ ONGLETS ══ Opportunité · Fichiers · Historique, comme la maquette. */}
-      <div className="flex flex-none items-center gap-0.5 border-b border-km-line bg-white px-4 pt-2.5 lg:px-6">
+      {/* La barre d'onglets reprend la grille du contenu : la seconde cellule commence exactement
+          là où commence le volet. Le liseré sous le titre reprend la couleur de l'onglet actif de
+          cette fiche — c'est un repère de section, pas un onglet cliquable. */}
+      <div className="grid flex-none grid-cols-1 border-b border-km-line bg-white lg:grid-cols-fiche-activite">
+        <div className="flex min-w-0 items-center gap-0.5 overflow-x-auto px-4 pt-2.5 lg:px-6">
         {ONGLETS.map((o) => (
           <button
             key={o.cle}
@@ -388,12 +381,17 @@ export default function OpportuniteDetail() {
             )}
           </button>
         ))}
-        <span className="ml-auto hidden font-mono text-km-xs text-km-faint sm:block">1–3 pour naviguer</span>
+        </div>
+        <div className="hidden items-center border-b-2 border-opp-500 px-3 lg:flex">
+          <span className="truncate text-km-label font-bold uppercase tracking-[0.08em] text-km-faint">
+            Activité · opportunité
+          </span>
+        </div>
       </div>
 
       {/* Le volet des objets liés est désormais un onglet : le plan de travail garde toute la
           largeur disponible, à côté du flux d'activité permanent. */}
-      <div className="grid min-h-0 flex-1 grid-cols-1 overflow-hidden lg:grid-cols-[minmax(0,1fr)_300px]">
+      <div className="grid min-h-0 flex-1 grid-cols-1 overflow-hidden lg:grid-cols-fiche-activite">
 
         {/* Contenu de l'onglet Rattachements. */}
         <div className={cn('col-start-1 row-start-1 min-h-0 space-y-3 overflow-y-auto bg-km-soft p-3.5 lg:px-5', onglet !== 'rattachements' && 'hidden')}>
@@ -563,27 +561,6 @@ export default function OpportuniteDetail() {
           {onglet === 'opportunite' && (
             <div className="flex animate-km-fade-slide flex-col gap-3.5">
 
-              {/* BANDEAU INCOMPLET — les manquants en pastilles tiretées, comme la maquette. */}
-              {manquants.length > 0 && (
-                <div className="flex items-center gap-3 rounded-xl border-[1.5px] border-amber-200 border-l-4 border-l-amber-500 bg-gradient-to-r from-amber-50 to-white px-3.5 py-2.5">
-                  <span className="flex h-[26px] w-[26px] shrink-0 items-center justify-center rounded-lg bg-km-amber-soft p-1 text-amber-700">
-                    <AlertTriangle className="h-3.5 w-3.5" />
-                  </span>
-                  <div className="min-w-0 flex-1">
-                    <p className="text-xs font-bold text-km-amber">Opportunité incomplète</p>
-                    <div className="mt-1 flex flex-wrap items-center gap-1.5">
-                      {manquants.map((m) => (
-                        <span
-                          key={m.cle}
-                          className="rounded-md border border-dashed border-amber-300 bg-white px-2 py-0.5 text-km-xs font-bold text-amber-700"
-                        >
-                          {m.libelle}
-                        </span>
-                      ))}
-                    </div>
-                  </div>
-                </div>
-              )}
 
               {/* LA FRISE DE STATUT */}
               <Card className="px-4 pb-2.5 pt-3">
@@ -683,88 +660,6 @@ export default function OpportuniteDetail() {
                 )}
               </Card>
 
-              {/* LA PROCHAINE ACTION — carte dédiée, avec l'échéance en pastille et les deux
-                  boutons de la maquette. */}
-              <Card className={cn('p-4', enRetard && 'border-red-200 bg-km-red-soft/40')}>
-                <div className="mb-2.5 flex items-center gap-2">
-                  <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-md bg-km-amber-soft text-amber-700">
-                    <Check className="h-3 w-3" />
-                  </span>
-                  <p className="text-km-xs font-bold uppercase tracking-[0.08em] text-km-faint">Prochaine action</p>
-                  <span className="flex-1" />
-                  {opportunite.prochaine_action_echeance && (
-                    <span
-                      className={cn(
-                        'rounded-md border px-2 py-0.5 font-mono text-km-xs font-bold',
-                        enRetard
-                          ? 'border-red-200 bg-red-100 text-red-700'
-                          : 'border-amber-200 bg-amber-50 text-amber-700',
-                      )}
-                    >
-                      échéance {new Date(opportunite.prochaine_action_echeance).toLocaleDateString('fr-FR')}
-                    </span>
-                  )}
-                </div>
-                <div className="flex flex-col gap-2">
-                  <LigneAction libelle="Action">
-                    <InlineField
-                      variant="text"
-                      label=""
-                      emptyLabel="aucune action prévue"
-                      value={opportunite.prochaine_action ?? ''}
-                      onCommit={(v) => majOpp({ prochaine_action: v.trim() || null, prochaine_action_faite_le: null })}
-                      {...retourInline}
-                    />
-                  </LigneAction>
-                  <LigneAction libelle="Échéance">
-                    <InlineField
-                      variant="date"
-                      label=""
-                      emptyLabel="sans échéance"
-                      value={opportunite.prochaine_action_echeance?.slice(0, 10) ?? null}
-                      onCommit={(v) => majOpp({ prochaine_action_echeance: v || null })}
-                      {...retourInline}
-                    />
-                  </LigneAction>
-                  <LigneAction libelle="Responsable">
-                    <span className="text-xs text-km-text">{opportunite.proprietaire_nom || '—'}</span>
-                  </LigneAction>
-                </div>
-                {opportunite.prochaine_action && (
-                  <div className="mt-3 flex flex-wrap gap-2 border-t border-km-line pt-2.5">
-                    <Button
-                      size="sm"
-                      onClick={async () => {
-                        await majOpp({ prochaine_action_faite_le: new Date().toISOString() })
-                        signaler('✓ Action marquée faite')
-                      }}
-                    >
-                      <Check className="h-3.5 w-3.5" /> Marquer fait
-                    </Button>
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      onClick={async () => {
-                        // Reprogrammer, c'est repousser d'une semaine : le geste le plus courant, et
-                        // celui que la maquette met derrière ce bouton.
-                        const base = opportunite.prochaine_action_echeance
-                          ? new Date(opportunite.prochaine_action_echeance)
-                          : new Date()
-                        base.setDate(base.getDate() + 7)
-                        await majOpp({ prochaine_action_echeance: base.toISOString().slice(0, 10), prochaine_action_faite_le: null })
-                        signaler('✓ Reportée d’une semaine')
-                      }}
-                    >
-                      ↻ Reprogrammer
-                    </Button>
-                  </div>
-                )}
-                {opportunite.prochaine_action_faite_le && (
-                  <p className="mt-2 text-km-xs text-km-green">
-                    Faite le {new Date(opportunite.prochaine_action_faite_le).toLocaleDateString('fr-FR')}.
-                  </p>
-                )}
-              </Card>
 
               {/* LES RECOMMANDATIONS LIÉES, ET LA RÈGLE DE CONVERSION */}
               <Card className="p-4">
@@ -829,68 +724,44 @@ export default function OpportuniteDetail() {
                 )}
               </Card>
 
-              <ActionsRapides
-                enCours={actionEnCours}
-                onAction={async (a) => {
-                  // Les deux actions de la famille « Décision » changent l'état du dossier : elles
-                  // sont déléguées aux mécanismes qui existent déjà, plutôt que consignées.
-                  if (a.cle === 'recommandation') {
-                    // On ouvre le dialogue ICI. Renvoyer sur la liste des recommandations faisait
-                    // perdre le lien à l'opportunité : la recommandation créée là-bas n'y revenait
-                    // jamais, donc l'opportunité restait éternellement « Prête à convertir ».
-                    if (peutConvertir) setRecoOuverte(true)
-                    else if (manquants.length > 0) {
-                      signaler(`Il reste à rassembler : ${manquants.map((m) => m.libelle.toLowerCase()).join(', ')}.`)
-                    } else {
-                      signaler('Cette opportunité est fermée : elle ne peut plus produire de recommandation.')
-                    }
-                    return
-                  }
-                  if (a.cle === 'ecarter') {
-                    setClotureOuverte(true)
-                    return
-                  }
-                  // ══ « CRÉER UNE TÂCHE » CRÉE UNE TÂCHE ══
-                  //
-                  // Ces deux boutons écrivaient une NOTE_INTERNE dans `interactions` : l'écran
-                  // confirmait, la note apparaissait dans le flux, et aucune tâche n'existait. Mesuré
-                  // le 31/08/2026 : zéro tâche sur une opportunité, sur 11 en base.
-                  //
-                  // Un rappel est une tâche datée à demain 9 h — même formulaire, échéance
-                  // préremplie. Deux mécanismes pour deux objets identiques auraient fini par
-                  // diverger.
-                  if (a.cle === 'tache' || a.cle === 'rappel') {
-                    if (a.cle === 'rappel') {
-                      const demain = new Date()
-                      demain.setDate(demain.getDate() + 1)
-                      demain.setHours(9, 0, 0, 0)
-                      setTacheOuverte({
-                        titre: `Rappeler ${opportunite.compte_nom || 'le client'}`,
-                        // Décalage local retiré : `toISOString` renverrait 07:00 UTC, et le
-                        // formulaire afficherait 07:00 au lieu de 09:00.
-                        echeance: new Date(demain.getTime() - demain.getTimezoneOffset() * 60000)
-                          .toISOString()
-                          .slice(0, 16),
-                      })
-                    } else {
-                      setTacheOuverte({ titre: '' })
-                    }
-                    return
-                  }
-                  setNoteAction(a)
-                }}
-              />
 
+              {/* L'ORIGINE DE L'OPPORTUNITÉ, DESCENDUE DU VOLET.
+                  Elle y était épinglée au-dessus du flux et repoussait vers le bas les deux boutons
+                  de création. Ce n'est pas une activité mais une propriété du dossier : sa place est
+                  parmi les autres propriétés, dans cet onglet. */}
+              <Card className="relative overflow-hidden border-[1.5px] border-opp-200 bg-gradient-to-br from-opp-50 to-white px-3 py-2.5">
+                <span className="absolute -right-3.5 -top-3.5 h-[52px] w-[52px] rounded-full bg-[radial-gradient(circle,rgba(168,49,127,.13),transparent_70%)]" />
+                <p className="mb-1.5 text-km-tiny font-extrabold uppercase tracking-[0.07em] text-opp-500">
+                  📌 Origine de l'opportunité
+                </p>
+                <div className="flex items-start gap-2">
+                  <span className="flex h-[26px] w-[26px] shrink-0 items-center justify-center rounded-lg bg-gradient-to-br from-opp-600 to-opp-400 p-1 text-white">
+                    <Target className="h-3 w-3" />
+                  </span>
+                  <div className="min-w-0">
+                    <p className="text-km-label font-bold leading-snug text-km-text">
+                      {opportunite.signal_libelle || origine?.libelle || 'Origine à préciser'}
+                    </p>
+                    <p className="mt-0.5 font-mono text-km-tiny text-km-faint">
+                      {new Date(opportunite.date_creation).toLocaleDateString('fr-FR')} ·{' '}
+                      {new Date(opportunite.date_creation).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })}
+                    </p>
+                  </div>
+                </div>
+              </Card>
+
+              {/* Le fil sur petit écran, où la troisième colonne n'a pas la place d'exister. */}
               <Card className="p-4 lg:hidden">
                 <p className="mb-2 text-km-xs font-bold uppercase tracking-[0.08em] text-km-faint">
-                  Flux d'actualité
+                  Activité · opportunité
                 </p>
-                <FluxActualite
-                  tableNom="opportunites"
-                  ligneId={opportunite.id}
-                  dateCreation={opportunite.date_creation}
+                <ActivityFeed
+                  compteId={opportunite.compte_id ?? ''}
+                  compteNom={opportunite.compte_nom ?? ''}
                   interactions={interactionsOpp ?? []}
                   actions={actionsOpp ?? []}
+                  documents={documentsDeLOpportunite}
+                  opportuniteId={opportunite.id}
                 />
               </Card>
 
@@ -957,41 +828,38 @@ export default function OpportuniteDetail() {
           )}
         </div>
 
-        {/* ── COLONNE DROITE : le flux d'actualité ── */}
-        <div className="hidden min-h-0 flex-col border-l border-km-line bg-white lg:flex">
-          <div className="flex flex-none items-center gap-2 px-4 pb-2 pt-3">
-            <p className="text-km-xs font-bold uppercase tracking-[0.08em] text-km-faint">Flux d'actualité</p>
-          </div>
+        {/* ══ LE VOLET D'ACTIVITÉ, AU MODÈLE DE LA FICHE RECOMMANDATION ══
+            William, 07/09/2026 : « les fiches Opportunité, Piste, Requête et Suivi de contrat
+            doivent avoir exactement les mêmes fonctionnalités et la même logique ».
 
-          {/* L'ORIGINE ÉPINGLÉE, avec le halo magenta de la maquette. */}
-          <div className="relative mx-3 mb-2.5 flex-none overflow-hidden rounded-xl border-[1.5px] border-opp-200 bg-gradient-to-br from-opp-50 to-white px-3 py-2.5">
-            <span className="absolute -right-3.5 -top-3.5 h-[52px] w-[52px] rounded-full bg-[radial-gradient(circle,rgba(168,49,127,.13),transparent_70%)]" />
-            <p className="mb-1.5 text-km-tiny font-extrabold uppercase tracking-[0.07em] text-opp-500">
-              📌 Origine de l'opportunité
-            </p>
-            <div className="flex items-start gap-2">
-              <span className="flex h-[26px] w-[26px] shrink-0 items-center justify-center rounded-lg bg-gradient-to-br from-opp-600 to-opp-400 p-1 text-white">
-                <Target className="h-3 w-3" />
-              </span>
-              <div className="min-w-0">
-                <p className="text-km-label font-bold leading-snug text-km-text">
-                  {opportunite.signal_libelle || origine?.libelle || 'Origine à préciser'}
-                </p>
-                <p className="mt-0.5 font-mono text-km-tiny text-km-faint">
-                  {new Date(opportunite.date_creation).toLocaleDateString('fr-FR')} ·{' '}
-                  {new Date(opportunite.date_creation).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })}
-                </p>
-              </div>
-            </div>
-          </div>
+            DEUX CHOSES QUITTENT CE VOLET. Son en-tête, dont le titre est monté sur la ligne des
+            onglets. Et le bloc « Origine de l'opportunité », qui poussait vers le bas les deux
+            boutons de création alors qu'il ne décrit pas une activité mais une propriété du
+            dossier : il reprend sa place dans l'onglet Opportunité. `FluxActualite` cède la place à
+            `ActivityFeed` — l'historique des modifications reste sous l'onglet Historique.
 
-          <div className="min-h-0 flex-1 overflow-y-auto px-3 pb-3">
-            <FluxActualite
-              tableNom="opportunites"
-              ligneId={opportunite.id}
-              dateCreation={opportunite.date_creation}
+            Le fond est celui de la page, comme la colonne de gauche : c'est ce qui rend visible
+            l'espace sous la barre d'onglets, blanc sur blanc ne se voyant pas. */}
+        <div className="hidden min-h-0 flex-col border-l border-km-line bg-km-bg lg:flex">
+          <div className="min-h-0 flex-1 overflow-hidden px-3 pb-3 pt-3.5">
+            <ActivityFeed
+              compteId={opportunite.compte_id ?? ''}
+              compteNom={opportunite.compte_nom ?? ''}
               interactions={interactionsOpp ?? []}
               actions={actionsOpp ?? []}
+              documents={documentsDeLOpportunite}
+              opportuniteId={opportunite.id}
+              rattachementTache={
+                canManage
+                  ? {
+                      opportunite_id: opportunite.id,
+                      contact_id: opportunite.contact_id ?? null,
+                      contact_nom: contact ? `${contact.prenom} ${contact.nom}` : '',
+                      compte_id: opportunite.compte_id ?? null,
+                      objet_nom: opportunite.compte_nom || '',
+                    }
+                  : undefined
+              }
             />
           </div>
         </div>
@@ -1053,68 +921,7 @@ export default function OpportuniteDetail() {
         )}
       </Dialog>
 
-      {/* CONSIGNER UNE ACTION. Le type d'interaction est celui de l'action (un appel est un APPEL),
-          l'objet est son libellé, et le résumé est ce que la personne écrit. L'interaction porte
-          `opportunite_id` : c'est ce qui la fait revenir dans le flux de cette fiche. */}
-      {noteAction && (
-        <Dialog
-          open
-          onClose={() => setNoteAction(null)}
-          title={noteAction.libelle}
-          description="Ce que vous notez ici apparaîtra dans le flux d'actualité de l'opportunité. Le statut, lui, ne change pas."
-        >
-          <FormulaireNoteAction
-            enCours={actionEnCours === noteAction.cle}
-            onAnnuler={() => setNoteAction(null)}
-            onValider={async (resume) => {
-              const action = noteAction
-              setActionEnCours(action.cle)
-              try {
-                const type = (typesInteractionsRef ?? []).find((t) => t.code === action.typeInteraction)
-                await creerInteraction.mutateAsync({
-                  type_interaction_id: type?.id ?? null,
-                  type_interaction_libelle: type?.libelle ?? action.libelle,
-                  date_interaction: new Date().toISOString(),
-                  sens: null,
-                  objet: action.libelle,
-                  resume: resume.trim() || null,
-                  resultat: null,
-                  compte_id: opportunite.compte_id,
-                  compte_nom: opportunite.compte_nom,
-                  site_id: null,
-                  site_nom: '',
-                  contact_id: opportunite.contact_id,
-                  contact_nom: contact ? `${contact.prenom} ${contact.nom}` : '',
-                  issue_interaction_id: null,
-                  opportunite_id: opportunite.id,
-                })
-                setNoteAction(null)
-                signaler('✓ ' + action.libelle + ' — consigné dans le flux')
-              } catch (e) {
-                signaler(e instanceof Error ? e.message : 'Enregistrement impossible')
-              } finally {
-                setActionEnCours(null)
-              }
-            }}
-          />
-        </Dialog>
-      )}
 
-      {tacheOuverte && (
-        <DialogNouvelleTache
-          open
-          onClose={() => setTacheOuverte(null)}
-          titrePrerempli={tacheOuverte.titre}
-          echeanceParDefaut={tacheOuverte.echeance}
-          signaler={signaler}
-          rattachement={{
-            opportunite_id: opportunite.id,
-            contact_id: opportunite.contact_id,
-            contact_nom: contact ? `${contact.prenom} ${contact.nom}` : '',
-            libelle_cible: `l'opportunité ${opportunite.compte_nom || ''}`.trim(),
-          }}
-        />
-      )}
 
       {ajoutOuvert && opportunite.compte_id && (
         <DialogAjoutPerimetre
@@ -1265,16 +1072,6 @@ function AnneauMaturite({ valides, total }: { valides: number; total: number }) 
 }
 
 /** Une ligne de la carte « prochaine action » : intitulé fixe à gauche, valeur modifiable à droite. */
-function LigneAction({ libelle, children }: { libelle: string; children: React.ReactNode }) {
-  return (
-    <div className="flex items-start gap-2.5">
-      <span className="w-[74px] shrink-0 pt-1 text-km-tiny font-extrabold uppercase tracking-[0.06em] text-km-faint">
-        {libelle}
-      </span>
-      <div className="min-w-0 flex-1">{children}</div>
-    </div>
-  )
-}
 
 /** Les trois onglets de la maquette. */
 const ONGLETS = [
@@ -1288,32 +1085,6 @@ const ONGLETS = [
  * La note qui accompagne une action rapide. Un champ, deux boutons : tout ce qu'il faut pour que
  * l'action laisse une trace utile plutôt qu'une ligne muette.
  */
-function FormulaireNoteAction({ onValider, onAnnuler, enCours }: {
-  onValider: (resume: string) => Promise<void>
-  onAnnuler: () => void
-  enCours: boolean
-}) {
-  const [resume, setResume] = useState('')
-  return (
-    <div className="space-y-3">
-      <FormField label="Ce qui s'est passé">
-        <Textarea
-          value={resume}
-          onChange={(e) => setResume(e.target.value)}
-          rows={3}
-          placeholder="Ce qui a été dit, demandé, constaté…"
-          autoFocus
-        />
-      </FormField>
-      <div className="flex justify-end gap-2 pt-1">
-        <Button type="button" variant="ghost" onClick={onAnnuler}>Annuler</Button>
-        <Button type="button" disabled={enCours} onClick={() => void onValider(resume)}>
-          {enCours ? 'Enregistrement…' : 'Consigner'}
-        </Button>
-      </div>
-    </div>
-  )
-}
 
 function DialogCloture({ opportunite, statutClotureId, onFermer, onValide, majOpp }: {
   opportunite: Opportunite

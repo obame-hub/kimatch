@@ -89,7 +89,7 @@ export default function Login() {
   }
 
   return (
-    <div className="relative flex min-h-screen items-center justify-center overflow-hidden bg-ink-950 px-4">
+    <div className="relative flex min-h-0 flex-1 items-center justify-center overflow-hidden bg-ink-950 px-4">
       <div className="pointer-events-none absolute -left-24 -top-24 h-72 w-72 rounded-full bg-kiwi-500/20 blur-3xl" />
       <div className="pointer-events-none absolute -bottom-24 -right-24 h-72 w-72 rounded-full bg-kiwi-400/10 blur-3xl" />
 

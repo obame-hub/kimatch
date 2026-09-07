@@ -24,6 +24,7 @@ interface RawInteraction {
   signal: { type_signal: { libelle: string } | null } | null
   issue: { libelle: string; couleur: string | null } | null
   proprietaire_id: string | null
+  auteur_profil_id: string | null
   duree_appel_secondes: number | null
   appel_manque: boolean | null
   messagerie_vocale: boolean | null
@@ -36,7 +37,7 @@ interface RawInteraction {
 // plus d'une relation possible entre elles, un embed non qualifié renvoie une erreur PostgREST
 // PGRST201 (relation ambiguë) qui faisait échouer tout le chargement des interactions.
 const INTERACTIONS_SELECT =
-  'id, date_interaction, sens, objet, resume, resultat, compte_id, site_id, contact_id, recommandation_id, signal_id, type_interaction:types_interactions(libelle), auteur:profils!interactions_auteur_profil_id_fkey(prenom, nom), compte:comptes(nom), site:sites(nom), contact:contacts(prenom, nom), recommandation:recommandations!recommandation_id(nom), signal:signaux!signal_id(type_signal:types_signaux(libelle)), issue:issues_interactions(libelle, couleur), proprietaire_id, duree_appel_secondes, appel_manque, messagerie_vocale, numero_correspondant, decroche_par, enregistrement_url'
+  'id, date_interaction, sens, objet, resume, resultat, compte_id, site_id, contact_id, recommandation_id, signal_id, type_interaction:types_interactions(libelle), auteur:profils!interactions_auteur_profil_id_fkey(prenom, nom), compte:comptes(nom), site:sites(nom), contact:contacts(prenom, nom), recommandation:recommandations!recommandation_id(nom), signal:signaux!signal_id(type_signal:types_signaux(libelle)), issue:issues_interactions(libelle, couleur), proprietaire_id, auteur_profil_id, duree_appel_secondes, appel_manque, messagerie_vocale, numero_correspondant, decroche_par, enregistrement_url'
 
 async function fetchInteractionsPage(from: number, pageSize: number, attempt = 0): Promise<RawInteraction[]> {
   const { data, error } = await supabase
@@ -124,6 +125,7 @@ function mapRawInteraction(i: RawInteraction): Interaction {
     resume: i.resume,
     resultat: i.resultat,
     auteur: i.auteur ? `${i.auteur.prenom} ${i.auteur.nom}` : '',
+    auteur_profil_id: i.auteur_profil_id ?? null,
     compte_id: i.compte_id,
     compte_nom: i.compte?.nom ?? '',
     site_id: i.site_id,
@@ -196,7 +198,10 @@ export function useInteractionsForCompte(compteId: string | undefined, siteIds: 
   })
 }
 
-async function fetchInteractionsByColumn(column: 'contact_id' | 'site_id' | 'recommandation_id' | 'opportunite_id' | 'suivi_contrat_id', value: string): Promise<Interaction[]> {
+/** Les colonnes de contexte lisibles ici. `piste_id` et `requete_id` complètent la liste depuis
+ *  les migrations 20260901220000 et 20260907300000 — sans elles, les fiches Piste et Requête
+ *  affichaient un fil vide. */
+async function fetchInteractionsByColumn(column: 'contact_id' | 'site_id' | 'recommandation_id' | 'opportunite_id' | 'suivi_contrat_id' | 'piste_id' | 'requete_id', value: string): Promise<Interaction[]> {
   const { data, error } = await supabase
     .from('interactions')
     .select(INTERACTIONS_SELECT)
@@ -268,6 +273,27 @@ export function useInteractionsParOpportunite(opportuniteId: string | undefined)
   })
 }
 
+/**
+ * LES ÉCHANGES D'UNE PISTE. 8 942 interactions y sont rattachées depuis l'import des leads du
+ * 01/09/2026, et aucun écran ne les montrait : la fiche Piste passait `interactions={[]}` en dur.
+ */
+export function useInteractionsParPiste(pisteId: string | undefined) {
+  return useQuery({
+    queryKey: ['interactions', 'piste', pisteId],
+    queryFn: () => fetchInteractionsByColumn('piste_id', pisteId as string),
+    enabled: !!pisteId,
+  })
+}
+
+/** Les échanges d'une requête. La colonne `requete_id` date de la migration 20260907300000. */
+export function useInteractionsParRequete(requeteId: string | undefined) {
+  return useQuery({
+    queryKey: ['interactions', 'requete', requeteId],
+    queryFn: () => fetchInteractionsByColumn('requete_id', requeteId as string),
+    enabled: !!requeteId,
+  })
+}
+
 export function useInteractions() {
   return useQuery({ queryKey: ['interactions'], queryFn: () => fetchInteractions(null) })
 }
@@ -303,6 +329,10 @@ interface CreateInteractionInput {
    *  flux d'actualité. */
   opportunite_id?: string | null
   suivi_contrat_id?: string | null
+  /** Piste et requête d'origine, même raison que les deux ci-dessus. Leurs colonnes viennent des
+   *  migrations 20260901220000 et 20260907300000. */
+  piste_id?: string | null
+  requete_id?: string | null
 }
 
 interface CreateInteractionResult {
@@ -318,6 +348,7 @@ export function useCreateInteraction() {
       let persisted = false
       let interaction: Interaction = {
         id: `local-${Date.now()}`,
+        auteur_profil_id: null,
         type_interaction: input.type_interaction_libelle,
         date_interaction: input.date_interaction,
         sens: input.sens,
@@ -357,6 +388,8 @@ export function useCreateInteraction() {
           ...(input.recommandation_id ? { recommandation_id: input.recommandation_id } : {}),
           ...(input.opportunite_id ? { opportunite_id: input.opportunite_id } : {}),
           ...(input.suivi_contrat_id ? { suivi_contrat_id: input.suivi_contrat_id } : {}),
+          ...(input.piste_id ? { piste_id: input.piste_id } : {}),
+          ...(input.requete_id ? { requete_id: input.requete_id } : {}),
           ...(auteurId ? { auteur_profil_id: auteurId, proprietaire_id: auteurId } : {}),
           ...(input.type_interaction_id ? { type_interaction_id: input.type_interaction_id } : {}),
           ...(input.issue_interaction_id ? { issue_interaction_id: input.issue_interaction_id } : {}),

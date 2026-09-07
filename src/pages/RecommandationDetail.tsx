@@ -11,7 +11,6 @@ import {
   Copy,
   FilePlus2,
   Clock,
-  Phone,
   ArrowLeftRight,
 } from 'lucide-react'
 import { Topbar } from '@/components/layout/Topbar'
@@ -59,8 +58,7 @@ import { useContactsParCompte } from '@/lib/data/contacts'
 import { useCompte } from '@/lib/data/comptes'
 import { useCompteurs } from '@/lib/data/compteurs'
 import { useInteractionsParRecommandation } from '@/lib/data/interactions'
-import { useActionsParRecommandation, useCreateAction } from '@/lib/data/actions'
-import { DialogNouvelleTache } from '@/components/tache/DialogNouvelleTache'
+import { useActionsParRecommandation } from '@/lib/data/actions'
 import { useDocumentsParEntites, useTeleverserDocuments } from '@/lib/data/documents'
 import { useCreateInteraction } from '@/lib/data/interactions'
 import { useCanManage, useIsAdmin, useProfilsAdmin } from '@/lib/data/roles'
@@ -71,7 +69,6 @@ import {
   FALLBACK_ETAPES_RECOMMANDATION,
   FALLBACK_STATUTS_VERSIONS,
   FALLBACK_TYPES_DOCUMENTS,
-  FALLBACK_TYPES_ACTIONS,
   FALLBACK_TYPES_INTERACTIONS,
 } from '@/lib/referenceFallbacks'
 import type { VersionRecommandation, Optimisation } from '@/types/domain'
@@ -115,9 +112,7 @@ export default function RecommandationDetail() {
   const { data: etapesRef } = useReferenceTable('etapes_recommandation')
   const { data: statutsVersionsRef } = useReferenceTable('statuts_versions_recommandation')
   const { data: typesDocumentsRef } = useReferenceTable('types_documents')
-  const { data: typesActionsRef } = useReferenceTable('types_actions')
   const { data: typesInteractionsRef } = useReferenceTable('types_interactions')
-  const { data: statutsActionsRef } = useReferenceTable('statuts_actions')
   const { data: statutsConsultationRef } = useReferenceTable('statuts_consultations_fournisseurs')
   const { data: contacts } = useContactsParCompte(reco?.compte_id)
   const { data: compte } = useCompte(reco?.compte_id)
@@ -152,7 +147,6 @@ export default function RecommandationDetail() {
   const deleteVersion = useDeleteVersion()
   const changerStatutConsultation = useChangerStatutConsultation()
   const televerser = useTeleverserDocuments()
-  const createAction = useCreateAction()
   const createInteraction = useCreateInteraction()
   const suppression = useSuppression()
   const goBack = useGoBack('/recommandations')
@@ -177,7 +171,6 @@ export default function RecommandationDetail() {
   const [confirmDelete, setConfirmDelete] = useState(false)
   const [versionASupprimer, setVersionASupprimer] = useState<VersionRecommandation | null>(null)
   /* Le formulaire de tâche, partagé avec l'opportunité et la piste (Michel, 31/08/2026). */
-  const [tacheOuverte, setTacheOuverte] = useState(false)
   const [coutOuvert, setCoutOuvert] = useState(false)
   const [coutBrouillon, setCoutBrouillon] = useState('')
   const [toast, setToast] = useState<string | null>(null)
@@ -436,37 +429,6 @@ export default function RecommandationDetail() {
     )
   }
 
-  /** « Rappel » du fil d'activité : une tâche à demain 9 h, rattachée à la recommandation. */
-  async function planifierRappel() {
-    if (!reco) return
-    const types = typesActionsRef && typesActionsRef.length > 0 ? typesActionsRef : FALLBACK_TYPES_ACTIONS
-    const type = types.find((t) => t.code === 'RELANCE') ?? types.find((t) => t.code === 'APPEL') ?? types[0]
-    const statut = (statutsActionsRef ?? []).find((s) => s.code === 'A_FAIRE') ?? (statutsActionsRef ?? [])[0]
-    const demain = new Date()
-    demain.setDate(demain.getDate() + 1)
-    demain.setHours(9, 0, 0, 0)
-    try {
-      await createAction.mutateAsync({
-        titre: `Suivre la recommandation ${reco.titre}`,
-        type_action_id: type?.id ?? null,
-        type_action_libelle: type?.libelle ?? 'Relance',
-        site_id: reco.sites[0]?.id ?? null,
-        site_nom: reco.sites[0]?.nom ?? '',
-        contact_id: contactPrincipal?.id ?? null,
-        contact_nom: contactPrincipal ? `${contactPrincipal.prenom} ${contactPrincipal.nom}` : '',
-        priorite: reco.priorite,
-        echeance: demain.toISOString(),
-        commentaire: 'Rappel planifié depuis la fiche Recommandation.',
-        statut_id: statut?.id ?? null,
-        recommandation_id: reco.id,
-        recommandation_titre: reco.titre,
-      })
-      signaler('⏰ Rappel planifié demain 09:00')
-    } catch (e) {
-      signaler(`Erreur : ${e instanceof Error ? e.message : String(e)}`)
-    }
-  }
-
   /**
    * CONSIGNER LA RELANCE. « Fin du game » (Michel) : Kimatch ne relance pas, il enregistre que le
    * commercial l'a fait. L'échange rejoint le fil de la recommandation, et la date de la relance sert
@@ -497,36 +459,6 @@ export default function RecommandationDetail() {
         recommandation_nom: reco.titre,
       })
       signaler('✓ relance consignée — complétez le compte rendu depuis le fil')
-    } catch (e) {
-      signaler(`Erreur : ${e instanceof Error ? e.message : String(e)}`)
-    }
-  }
-
-  /** « Loguer un appel » : une interaction d'appel sortant sur la recommandation. */
-  async function loguerAppel() {
-    if (!reco) return
-    const types = typesInteractionsRef && typesInteractionsRef.length > 0 ? typesInteractionsRef : FALLBACK_TYPES_INTERACTIONS
-    const type = types.find((t) => t.code === 'APPEL') ?? types[0]
-    try {
-      await createInteraction.mutateAsync({
-        type_interaction_id: type?.id ?? null,
-        type_interaction_libelle: type?.libelle ?? 'Appel',
-        date_interaction: new Date().toISOString(),
-        sens: 'sortant',
-        objet: contactPrincipal ? `Appel — ${contactPrincipal.prenom} ${contactPrincipal.nom}` : 'Appel sortant',
-        resume: null,
-        resultat: null,
-        compte_id: reco.compte_id || null,
-        compte_nom: reco.compte_nom,
-        site_id: reco.sites[0]?.id ?? null,
-        site_nom: reco.sites[0]?.nom ?? '',
-        contact_id: contactPrincipal?.id ?? null,
-        contact_nom: contactPrincipal ? `${contactPrincipal.prenom} ${contactPrincipal.nom}` : '',
-        issue_interaction_id: null,
-        recommandation_id: reco.id,
-        recommandation_nom: reco.titre,
-      })
-      signaler('📞 Appel loggé — complétez le compte rendu depuis le fil')
     } catch (e) {
       signaler(`Erreur : ${e instanceof Error ? e.message : String(e)}`)
     }
@@ -567,6 +499,26 @@ export default function RecommandationDetail() {
   }
 
   const coutSuggere = coutPrestationEstime(versionAffichee?.gains_estimes)
+
+  /**
+   * DEUX GESTES AU PIED DU FIL, PLUS TROIS.
+   *
+   * William, 07/09/2026 : « il faudrait limiter à 2 boutons (Nouvelle tâche + nouvelle note) ».
+   *
+   * CE QUI DISPARAÎT, ET POURQUOI CE N'EST PAS UNE PERTE :
+   *
+   * · « RAPPEL » écrivait une tâche figée — demain 9 h, titre imposé, type Relance. Le formulaire de
+   *   tâche fait la même chose en laissant choisir ces trois valeurs. Le raccourci économisait trois
+   *   clics sur un seul scénario, et coûtait un tiers de la barre en permanence.
+   * · « LOGUER UN APPEL » consignait un appel sortant à la main. Depuis l'intégration Allo du
+   *   07/09/2026, les appels arrivent d'eux-mêmes dans le fil, et `ContactLink` permet d'appeler
+   *   depuis la fiche. Enregistrer à la main ce qui s'enregistre tout seul produit des doublons, pas
+   *   de la trace.
+   *
+   * La note, elle, n'est pas nouvelle : son champ existait déjà, ouvert en permanence sous le fil.
+   * Il passe derrière son bouton, ce qui rend deux lignes au fil et met les deux gestes sur le même
+   * plan — voir `ActivityFeed`.
+   */
   const filActivite = (
     <ActivityFeed
       compteId={reco.compte_id}
@@ -578,38 +530,19 @@ export default function RecommandationDetail() {
       documents={documents ?? []}
       recommandationId={reco.id}
       recommandationNom={reco.titre}
-      actionsRapides={
-        canManage ? (
-          <>
-            <button
-              type="button"
-              onClick={planifierRappel}
-              disabled={createAction.isPending}
-              className="inline-flex flex-1 items-center justify-center gap-1.5 rounded-km border border-km-line bg-white px-1 py-[7px] text-km-body font-bold text-km-amber hover:border-[#e0c48a] hover:bg-km-amber-soft disabled:opacity-60"
-            >
-              <Clock className="h-[11px] w-[11px]" /> Rappel
-            </button>
-            {/* LE RAPPEL RESTE UN RACCOURCI, LA TÂCHE EST LE CAS GÉNÉRAL. Le bouton « Rappel » écrit
-                une tâche figée — demain 9 h, titre imposé ; celui-ci ouvre le formulaire, avec son
-                titre, son type et son échéance. Michel, 31/08/2026 : « créer et suivre des actions
-                dans les recommandations ». Un raccourci ne remplace pas la création. */}
-            <button
-              type="button"
-              onClick={() => setTacheOuverte(true)}
-              className="inline-flex flex-1 items-center justify-center gap-1.5 rounded-km border border-km-line bg-white px-1 py-[7px] text-km-body font-bold text-indigo-600 hover:border-indigo-200 hover:bg-indigo-50"
-            >
-              <Clock className="h-[11px] w-[11px]" /> Tâche
-            </button>
-            <button
-              type="button"
-              onClick={loguerAppel}
-              disabled={createInteraction.isPending}
-              className="inline-flex flex-1 items-center justify-center gap-1.5 rounded-km border border-km-line bg-white px-1 py-[7px] text-km-body font-bold text-km-green hover:border-[#c4ddd3] hover:bg-km-green-tint disabled:opacity-60"
-            >
-              <Phone className="h-[11px] w-[11px]" /> Loguer un appel
-            </button>
-          </>
-        ) : undefined
+      rattachementTache={
+        canManage
+          ? {
+              recommandation_id: reco.id,
+              recommandation_titre: reco.titre,
+              site_id: reco.sites[0]?.id ?? null,
+              site_nom: reco.sites[0]?.nom ?? '',
+              contact_id: contactPrincipal?.id ?? null,
+              contact_nom: contactPrincipal ? `${contactPrincipal.prenom} ${contactPrincipal.nom}` : '',
+              compte_id: reco.compte_id,
+              objet_nom: reco.titre,
+            }
+          : undefined
       }
     />
   )
@@ -786,7 +719,22 @@ export default function RecommandationDetail() {
       </div>
 
       {/* ── Onglets ── */}
-      <div className="flex flex-none gap-0.5 overflow-x-auto border-b border-km-line bg-white px-4 pt-2.5 sm:px-6">
+      {/* ══ LA BARRE D'ONGLETS PARTAGE LA GRILLE DU CONTENU ══
+          Idée de William, 07/09/2026 : « fais passer le titre Activité · Recommandation à la même
+          hauteur que les onglets », puis « fais concorder la petite barre verticale avec celle du
+          volet de droite ».
+
+          C'EST LA MÊME GRILLE QUI LE GARANTIT, pas un calcul de marge. En reprenant
+          `grid-cols-fiche-activite` — le jeton du contenu, un quart de la zone de travail — la
+          seconde colonne commence exactement là où commence le volet, et son filet gauche tombe au
+          pixel sur le sien. Aligner à la main aurait demandé de retrancher les rembourrages de la
+          barre, et l'accord se serait défait au premier changement de largeur.
+
+          LE RACCOURCI « 1–3 POUR NAVIGUER » DISPARAÎT : « personne n'utilisera cette logique »
+          (William). Les touches, elles, fonctionnent toujours — c'est l'affiche qui partait, pas la
+          fonction, et elle occupait la place que le titre prend désormais. */}
+      <div className="grid flex-none grid-cols-1 border-b border-km-line bg-white lg:grid-cols-fiche-activite">
+        <div className="flex min-w-0 gap-0.5 overflow-x-auto px-4 pt-2.5 sm:px-6">
         {onglets.map((o) => {
           const actif = onglet === o.cle
           return (
@@ -813,15 +761,30 @@ export default function RecommandationDetail() {
             </button>
           )
         })}
-        <div className="flex-1" />
-        <span className="hidden self-center font-mono text-km-label text-km-faint lg:inline">
-          1–{onglets.length} pour naviguer
-        </span>
+        </div>
+        <div className="hidden items-center border-b-2 border-[#8a4b2a] px-3 lg:flex">
+          <span className="truncate text-km-label font-bold uppercase tracking-[0.08em] text-km-faint">
+            Activité · recommandation
+          </span>
+        </div>
       </div>
 
       {/* Deux colonnes : contenu de l'onglet courant et activité. L'ancien volet gauche devient
           le contenu de l'onglet Rattachements sans perdre ses actions ni ses informations. */}
-      <div className="grid min-h-0 flex-1 grid-cols-1 overflow-hidden lg:grid-cols-[minmax(0,1fr)_292px]">
+      {/* ══ LE VOLET FAIT UN QUART DE LA ZONE DE TRAVAIL, ET S'AJUSTE AVEC ELLE ══
+          William, 07/09/2026 : « je veux que ça représente 25 % de la zone de travail ».
+
+          `25%` DIT EXACTEMENT ÇA, sans calcul : cette grille vit dans un `<main>` déjà décalé de
+          215 px par le rail de gauche, donc sa largeur EST la zone de travail, et un pourcentage y
+          mesure ce qui a été demandé. Ne pas écrire `25vw` ici — ce serait le quart de l'écran
+          ENTIER, rail compris, soit 32 % de la zone utile sur un portable, et l'écart se creuserait
+          à mesure que l'écran grandit.
+
+          Il faisait 292 px figés : le fil restait aussi étroit sur un 27 pouces que sur un portable,
+          alors qu'il y avait la place. Le prix est à l'autre bout de l'échelle — sous 1400 px de
+          fenêtre le volet devient plus étroit qu'avant, et c'est ce qui a décidé du repli des deux
+          boutons sur deux lignes dans `ActivityFeed`. */}
+      <div className="grid min-h-0 flex-1 grid-cols-1 overflow-hidden lg:grid-cols-fiche-activite">
         <div className={cn('col-start-1 row-start-1 min-h-0 overflow-y-auto', onglet !== 'rattachements' && 'hidden')}>
           <RattachementsReco
             reco={reco}
@@ -1319,13 +1282,8 @@ export default function RecommandationDetail() {
         </div>
 
         {/* Fil d'activité */}
-        <div className="hidden min-h-0 flex-col border-l border-km-line bg-white lg:flex">
-          <div className="flex flex-none items-center gap-2 px-4 pb-2 pt-3">
-            <span className="text-km-label font-bold uppercase tracking-[0.08em] text-km-faint">
-              Activité · recommandation
-            </span>
-          </div>
-          <div className="min-h-0 flex-1 overflow-hidden px-3 pb-3">{filActivite}</div>
+        <div className="hidden min-h-0 flex-col border-l border-km-line bg-km-bg lg:flex">
+          <div className="min-h-0 flex-1 overflow-hidden px-3 pb-3 pt-4">{filActivite}</div>
         </div>
       </div>
 
@@ -1381,22 +1339,6 @@ export default function RecommandationDetail() {
         optimisation={ajouterFournisseurFor}
       />
 
-      {tacheOuverte && (
-        <DialogNouvelleTache
-          open
-          onClose={() => setTacheOuverte(false)}
-          signaler={signaler}
-          rattachement={{
-            recommandation_id: reco.id,
-            recommandation_titre: reco.titre,
-            site_id: reco.sites[0]?.id ?? null,
-            site_nom: reco.sites[0]?.nom ?? '',
-            contact_id: contactPrincipal?.id ?? null,
-            contact_nom: contactPrincipal ? `${contactPrincipal.prenom} ${contactPrincipal.nom}` : '',
-            libelle_cible: `la recommandation ${reco.titre}`,
-          }}
-        />
-      )}
 
       {/* Fixer le coût de prestation. Un dialogue et non une saisie en place : le montant facturé
           est la contrepartie de la prestation, il se pose une fois et se relit dans l'historique. */}
