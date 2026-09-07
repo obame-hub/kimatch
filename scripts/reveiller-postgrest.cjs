@@ -161,14 +161,22 @@ async function main() {
   if (!postgrestSeulEnPanne) {
     console.log('\n══ CE QUE ÇA VEUT DIRE ══\n')
     if (rest.ok && auth.ok) {
-      console.log('  Les deux services répondent : la panne n’est pas côté Supabase.')
-      console.log('  Regardez le déploiement Vercel, puis la console du navigateur.')
-      if (!baseSaine) console.log('  (La base montre des signes de charge — voir ci-dessus.)')
+      // DEUX MESSAGES TRÈS DIFFÉRENTS SELON LA RAISON DE L'APPEL. Lancé par précaution après une
+      // migration, « la panne n'est pas côté Supabase » laissait croire qu'il y avait une panne.
+      if (baseSaine) {
+        console.log('  ✓ Tout répond normalement : auth, API et base.')
+        console.log('    Si quelqu’un voit encore un écran bloqué, c’est son navigateur — un')
+        console.log('    rechargement forcé (Ctrl+Maj+R) suffit après un déploiement.')
+      } else {
+        console.log('  Les deux services répondent, mais la base montre des signes de charge —')
+        console.log('  voir ci-dessus. Si l’application est lente sans être bloquée, c’est là.')
+      }
     } else if (!auth.ok) {
       console.log('  L’auth ne répond pas non plus : c’est la plateforme entière.')
       console.log('  Tableau de bord Supabase, puis status.supabase.com.')
     }
-    console.log('\n  Si des statistiques ont décroché : node scripts/reanalyser.cjs --faire')
+    // Le conseil ne s'affiche que s'il sert : le rappeler quand tout va bien fait douter.
+    if (!baseSaine) console.log('\n  Statistiques décrochées : node scripts/reanalyser.cjs --faire')
   }
   console.log('')
 }
