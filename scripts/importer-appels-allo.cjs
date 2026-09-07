@@ -365,7 +365,11 @@ async function main() {
 
     /* 4. L'écriture, par lots, dans une seule transaction. */
     const COLONNES = Object.keys(aEcrire[0] ?? {})
-    if (aEcrire.length === 0) { console.log('\nRien à insérer.'); return }
+    // LA SORTIE ANTICIPÉE REGARDE LES DEUX LISTES, et c'est un défaut que la seconde exécution a
+    // révélé : il peut n'y avoir aucune interaction à créer et 3 897 appels à mettre en file.
+    // Ne tester que `aEcrire` faisait sortir avant d'avoir rempli la file, en annonçant
+    // « rien à insérer » alors qu'il y avait tout à insérer.
+    if (aEcrire.length === 0 && enFile.length === 0) { console.log('\nRien à insérer.'); return }
 
     await client.query('begin')
     const LOT = 200
@@ -378,19 +382,63 @@ async function main() {
         valeurs.push(...COLONNES.map((c) => ligne[c]))
         return `(${params.join(',')})`
       })
-      // `on conflict do nothing` sur l'identifiant Allo : deux exécutions simultanées ne
-      // dupliqueraient rien. L'index unique n'existe pas, donc la garde reste `dejaLa` — mais la
-      // transaction garantit qu'un échec en cours de route ne laisse pas un import à moitié fait.
+      // ══ `ON CONFLICT`, ET C'EST LA BASE QUI M'A CORRIGÉE ══
+      //
+      // Le commentaire précédent affirmait que l'index unique n'existait pas, et s'en remettait à
+      // la garde `dejaLa` lue en mémoire. Faux : `interactions_source_externe_id_idx` est un index
+      // UNIQUE partiel sur `source_externe_id where source_externe_id is not null`. La deuxième
+      // exécution a donc échoué sur deux identifiants, et tout l'import a été annulé.
+      //
+      // Une garde lue en mémoire ne peut pas tenir : entre le moment où on lit la liste des déjà
+      // importés et celui où l'on écrit, Allo a pu renvoyer un appel de plus — le total est passé
+      // de 10 533 à 10 537 pendant cette seule matinée. La contrainte en base, elle, tient toujours.
+      //
+      // La clause reprend le prédicat de l'index partiel : sans `where`, Postgres ne reconnaît pas
+      // l'index et refuse la clause.
       await client.query(
-        `insert into interactions (${COLONNES.join(',')}) values ${place.join(',')}`,
+        `insert into interactions (${COLONNES.join(',')}) values ${place.join(',')} `
+        + `on conflict (source_externe_id) where source_externe_id is not null do nothing`,
         valeurs,
       )
       ecrits += lot.length
-      process.stdout.write(`\r  écrits : ${ecrits} / ${aEcrire.length}`)
+      process.stdout.write(`\r  interactions : ${ecrits} / ${aEcrire.length}`)
     }
+    if (aEcrire.length > 0) process.stdout.write('\n')
+
+    // ── LA FILE : les appels dont le numéro n'est sur aucune fiche ──
+    //
+    // Ils ne peuvent pas être des interactions — `interactions_contexte_check` exige un objet de
+    // rattachement — et c'est la bonne règle : une consignation qui n'apparaît sur aucune fiche ne
+    // consigne rien. Ils attendent donc dans `appels_non_rattaches`, où l'écran « Appels non
+    // rattachés » permet de leur trouver leur fiche.
+    let misEnFile = 0
+    if (enFile.length > 0) {
+      const COLS = Object.keys(enFile[0])
+      for (let i = 0; i < enFile.length; i += LOT) {
+        const lot = enFile.slice(i, i + LOT)
+        const valeurs = []
+        const place = lot.map((ligne, j) => {
+          const params = COLS.map((_, k) => `$${j * COLS.length + k + 1}`)
+          valeurs.push(...COLS.map((c) => ligne[c]))
+          return `(${params.join(',')})`
+        })
+        // `source_externe_id` est unique sur cette table : la clause rend la reprise rejouable, y
+        // compris si le même appel apparaît deux fois dans la pagination d'Allo.
+        await client.query(
+          `insert into appels_non_rattaches (${COLS.join(',')}) values ${place.join(',')} `
+          + `on conflict (source_externe_id) do nothing`,
+          valeurs,
+        )
+        misEnFile += lot.length
+        process.stdout.write(`\r  mis en file  : ${misEnFile} / ${enFile.length}`)
+      }
+      process.stdout.write('\n')
+    }
+
     await client.query('commit')
-    console.log(`\n\n${ecrits} appels importés.`)
+    console.log(`\n${ecrits} appel(s) consigné(s) sur une fiche, ${misEnFile} mis en file d'attente.`)
     console.log('Retour arrière : delete from interactions where source_externe_id like \'cll-%\';')
+    console.log('                 delete from appels_non_rattaches;')
   } catch (e) {
     await client.query('rollback').catch(() => {})
     throw e
