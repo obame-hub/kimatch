@@ -1,4 +1,4 @@
-import { AlertTriangle, Link2Off, Trash2, Ban } from 'lucide-react'
+import { Link2Off, Trash2, Ban, RotateCcw } from 'lucide-react'
 import { Dialog } from '@/components/ui/dialog'
 import { Button } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
@@ -127,7 +127,7 @@ export function DialogSuppression({
               </ul>
               <p className="mt-2 border-t border-km-red-line pt-2 text-km-label font-semibold text-km-red">
                 {inventaire.detruits.toLocaleString('fr-FR')} enregistrement
-                {inventaire.detruits > 1 ? 's' : ''} au total, sans retour possible et sans trace.
+                {inventaire.detruits > 1 ? 's' : ''} au total.
               </p>
             </div>
           ) : (
@@ -193,11 +193,16 @@ export function DialogSuppression({
         </Button>
       </div>
 
+      {/* ══ CETTE MENTION DISAIT LE CONTRAIRE, ET ELLE ÉTAIT VRAIE LE MATIN MÊME ══
+          Elle annonçait « Kimatch ne journalise pas les suppressions ». C'était exact quand la
+          fenêtre a été écrite, et faux deux heures plus tard : la corbeille a été posée le
+          07/09/2026. Une mise en garde périmée est pire qu'aucune — elle fait renoncer à une
+          suppression légitime, et fait douter du reste de la fenêtre. */}
       {!bloque && !error && (
         <p className="flex items-start gap-1.5 pt-2 text-km-label leading-snug text-km-faint">
-          <AlertTriangle className="mt-0.5 h-3 w-3 shrink-0" />
-          Kimatch ne journalise pas les suppressions : rien ne permettra de savoir ensuite ce qui a
-          été supprimé, ni par qui.
+          <RotateCcw className="mt-0.5 h-3 w-3 shrink-0" />
+          Cette suppression sera enregistrée dans la corbeille : un administrateur pourra la
+          remettre en place depuis <span className="font-semibold">Administration → Corbeille</span>.
         </p>
       )}
     </Dialog>

@@ -81,6 +81,51 @@ async function compter(table: string, colonne: string, valeur: string | string[]
   return count ?? 0
 }
 
+/**
+ * ══ LES DIX LIENS D'UNE INTERACTION ══
+ *
+ * `interactions_contexte_check` exige qu'au moins un soit rempli. Et les dix clés étrangères
+ * correspondantes sont en `set null`. Les deux règles se contredisent quand une interaction n'a
+ * qu'UN seul lien : le vider viole la contrainte, et la suppression échoue.
+ */
+const LIENS_INTERACTION = [
+  'compte_id', 'contact_id', 'site_id', 'signal_id', 'mandat_id', 'recommandation_id',
+  'version_recommandation_id', 'action_id', 'opportunite_id', 'suivi_contrat_id', 'piste_id',
+] as const
+
+/**
+ * ══ LES INTERACTIONS QUI EMPÊCHENT LA SUPPRESSION ══
+ *
+ * Constaté à l'écran le 07/09/2026 sur le compte « S D G I DES E T PRALOGNAN LA VANOISE » :
+ * la fenêtre annonçait « 19 interactions seront conservées mais perdront leur lien », et la
+ * suppression échouait sur `new row for relation "interactions" violates check constraint
+ * "interactions_contexte_check"`.
+ *
+ * LES DEUX RÈGLES DU SCHÉMA SE CONTREDISENT. `interactions.compte_id` est en `set null` : supprimer
+ * le compte doit vider la colonne. Mais `interactions_contexte_check` exige qu'une interaction garde
+ * au moins un rattachement. Une interaction dont le compte était le SEUL lien ne peut donc ni
+ * survivre détachée, ni être supprimée : elle bloque.
+ *
+ * MESURÉ : 928 interactions sur 480 comptes sont dans ce cas. Ce n'est pas un cas limite, c'est un
+ * compte sur six.
+ *
+ * On les compte donc à part, et on les annonce comme BLOQUANTES — dire « elles seront conservées »
+ * était faux dans les deux sens : elles ne le seront pas, et rien ne le sera puisque la suppression
+ * échouera.
+ */
+async function interactionsBloquantes(colonne: string, valeur: string | string[]): Promise<number> {
+  if (Array.isArray(valeur) && valeur.length === 0) return 0
+  let r = supabase.from('interactions').select('id', { count: 'exact', head: true })
+  r = Array.isArray(valeur) ? r.in(colonne, valeur) : r.eq(colonne, valeur)
+  // Tous les autres liens à null : c'est ce qui fait de celui-ci le seul.
+  for (const lien of LIENS_INTERACTION) {
+    if (lien !== colonne) r = r.is(lien, null)
+  }
+  const { count, error } = await r
+  if (error) throw new Error(`Impossible de compter les interactions bloquantes : ${error.message}`)
+  return count ?? 0
+}
+
 /** Les identifiants des sites d'un compte : la cascade passe par eux pour les compteurs et contrats. */
 async function sitesDuCompte(compteId: string): Promise<string[]> {
   const { data, error } = await supabase.from('sites').select('id').eq('compte_id', compteId)
@@ -102,13 +147,14 @@ async function inventaireCompte(id: string): Promise<LigneInventaire[]> {
   const compteurIds = await compteursDesSites(siteIds)
 
   const [contacts, mandats, contratsSites, signaux, consommations, interactions,
-    opportunites, pistes, requetes, recommandations, acces] = await Promise.all([
+    interactionsSeules, opportunites, pistes, requetes, recommandations, acces] = await Promise.all([
     compter('contacts', 'compte_id', id),
     compter('mandats', 'compte_id', id),
     compter('contrats', 'site_id', siteIds),
     compter('signaux', 'site_id', siteIds),
     compter('consommations', 'compteur_id', compteurIds),
     compter('interactions', 'compte_id', id),
+    interactionsBloquantes('compte_id', id),
     compter('opportunites', 'compte_id', id),
     compter('pistes', 'compte_id', id),
     compter('requetes', 'compte_id', id),
@@ -120,6 +166,11 @@ async function inventaireCompte(id: string): Promise<LigneInventaire[]> {
   return [
     { libelle: 'recommandation', nombre: recommandations, regime: 'bloque',
       detail: 'Une recommandation interdit la suppression du compte. Il faut la supprimer d’abord, ou renoncer.' },
+    /* CES INTERACTIONS BLOQUENT, elles ne se détachent pas : ce compte est leur SEUL rattachement,
+       et une interaction sans aucun lien est refusée par la base. */
+    { libelle: 'interaction rattachée à ce seul compte', nombre: interactionsSeules, regime: 'bloque',
+      detail: 'Ces interactions n’ont aucun autre rattachement : elles ne peuvent ni survivre détachées, '
+        + 'ni disparaître. Rattachez-les à un contact ou un site, ou supprimez-les, avant de supprimer le compte.' },
     { libelle: 'contact', nombre: contacts, regime: 'detruit' },
     { libelle: 'site', nombre: siteIds.length, regime: 'detruit',
       detail: siteIds.length > 0 ? 'avec leurs compteurs, contrats et signaux' : undefined },
@@ -130,7 +181,9 @@ async function inventaireCompte(id: string): Promise<LigneInventaire[]> {
     { libelle: 'signal', nombre: signaux, regime: 'detruit' },
     { libelle: 'relevé de consommation', nombre: consommations, regime: 'detruit' },
     { libelle: 'partage d’accès', nombre: acces, regime: 'detruit' },
-    { libelle: 'interaction', nombre: interactions, regime: 'detache' },
+    // Celles qui ont un AUTRE rattachement se détachent vraiment : on retire les bloquantes du
+    // compte, sinon la même ligne apparaîtrait dans les deux listes.
+    { libelle: 'interaction', nombre: Math.max(0, interactions - interactionsSeules), regime: 'detache' },
     { libelle: 'opportunité', nombre: opportunites, regime: 'detache' },
     { libelle: 'piste', nombre: pistes, regime: 'detache' },
     { libelle: 'requête', nombre: requetes, regime: 'detache' },
@@ -139,14 +192,16 @@ async function inventaireCompte(id: string): Promise<LigneInventaire[]> {
 
 async function inventaireSite(id: string): Promise<LigneInventaire[]> {
   const compteurIds = await compteursDesSites([id])
-  const [contrats, signaux, consommations, interactions, requetes, contactsLies] = await Promise.all([
-    compter('contrats', 'site_id', id),
-    compter('signaux', 'site_id', id),
-    compter('consommations', 'compteur_id', compteurIds),
-    compter('interactions', 'site_id', id),
-    compter('requetes', 'site_id', id),
-    compter('contacts_sites', 'site_id', id),
-  ])
+  const [contrats, signaux, consommations, interactions, interactionsSeules, requetes, contactsLies] =
+    await Promise.all([
+      compter('contrats', 'site_id', id),
+      compter('signaux', 'site_id', id),
+      compter('consommations', 'compteur_id', compteurIds),
+      compter('interactions', 'site_id', id),
+      interactionsBloquantes('site_id', id),
+      compter('requetes', 'site_id', id),
+      compter('contacts_sites', 'site_id', id),
+    ])
   return [
     { libelle: 'compteur', nombre: compteurIds.length, regime: 'detruit',
       detail: compteurIds.length > 0 ? 'avec leurs relevés et leurs liens d’offre' : undefined },
@@ -155,7 +210,10 @@ async function inventaireSite(id: string): Promise<LigneInventaire[]> {
     { libelle: 'relevé de consommation', nombre: consommations, regime: 'detruit' },
     { libelle: 'contact rattaché à ce site', nombre: contactsLies, regime: 'detruit',
       detail: contactsLies > 0 ? 'seul le rattachement disparaît, pas le contact' : undefined },
-    { libelle: 'interaction', nombre: interactions, regime: 'detache' },
+    { libelle: 'interaction rattachée à ce seul site', nombre: interactionsSeules, regime: 'bloque',
+      detail: 'Ces interactions n’ont aucun autre rattachement : elles ne peuvent ni survivre détachées, '
+        + 'ni disparaître. Rattachez-les ailleurs, ou supprimez-les, avant de continuer.' },
+    { libelle: 'interaction', nombre: Math.max(0, interactions - interactionsSeules), regime: 'detache' },
     { libelle: 'requête', nombre: requetes, regime: 'detache' },
   ]
 }
@@ -184,11 +242,12 @@ async function inventaireCompteur(id: string): Promise<LigneInventaire[]> {
 }
 
 async function inventaireContact(id: string): Promise<LigneInventaire[]> {
-  const [comptesLies, sitesLies, interactions, actions, opportunites, requetes, signaux, pistes] =
+  const [comptesLies, sitesLies, interactions, interactionsSeules, actions, opportunites, requetes, signaux, pistes] =
     await Promise.all([
       compter('contacts_comptes', 'contact_id', id),
       compter('contacts_sites', 'contact_id', id),
       compter('interactions', 'contact_id', id),
+      interactionsBloquantes('contact_id', id),
       compter('actions', 'contact_id', id),
       compter('opportunites', 'contact_id', id),
       compter('requetes', 'contact_id', id),
@@ -199,7 +258,10 @@ async function inventaireContact(id: string): Promise<LigneInventaire[]> {
     { libelle: 'rattachement à un compte', nombre: comptesLies, regime: 'detruit',
       detail: comptesLies > 0 ? 'le compte lui-même n’est pas touché' : undefined },
     { libelle: 'rattachement à un site', nombre: sitesLies, regime: 'detruit' },
-    { libelle: 'interaction', nombre: interactions, regime: 'detache' },
+    { libelle: 'interaction rattachée à ce seul contact', nombre: interactionsSeules, regime: 'bloque',
+      detail: 'Ces interactions n’ont aucun autre rattachement : elles ne peuvent ni survivre détachées, '
+        + 'ni disparaître. Rattachez-les ailleurs, ou supprimez-les, avant de continuer.' },
+    { libelle: 'interaction', nombre: Math.max(0, interactions - interactionsSeules), regime: 'detache' },
     { libelle: 'tâche', nombre: actions, regime: 'detache' },
     { libelle: 'opportunité', nombre: opportunites, regime: 'detache' },
     { libelle: 'requête', nombre: requetes, regime: 'detache' },
@@ -227,12 +289,13 @@ async function inventaireContrat(id: string): Promise<LigneInventaire[]> {
 }
 
 async function inventaireMandat(id: string): Promise<LigneInventaire[]> {
-  const [compteurs, courtiers, recos, actions, interactions] = await Promise.all([
+  const [compteurs, courtiers, recos, actions, interactions, interactionsSeules] = await Promise.all([
     compter('mandats_compteurs', 'mandat_id', id),
     compter('mandats_courtiers', 'mandat_id', id),
     compter('recommandations_mandats', 'mandat_id', id),
     compter('actions', 'mandat_id', id),
     compter('interactions', 'mandat_id', id),
+    interactionsBloquantes('mandat_id', id),
   ])
   return [
     { libelle: 'point de livraison mandaté', nombre: compteurs, regime: 'detruit',
@@ -240,12 +303,15 @@ async function inventaireMandat(id: string): Promise<LigneInventaire[]> {
     { libelle: 'courtier rattaché', nombre: courtiers, regime: 'detruit' },
     { libelle: 'lien à une recommandation', nombre: recos, regime: 'detruit' },
     { libelle: 'tâche', nombre: actions, regime: 'detruit' },
-    { libelle: 'interaction', nombre: interactions, regime: 'detache' },
+    { libelle: 'interaction rattachée à ce seul mandat', nombre: interactionsSeules, regime: 'bloque',
+      detail: 'Ces interactions n’ont aucun autre rattachement : elles ne peuvent ni survivre détachées, '
+        + 'ni disparaître. Rattachez-les ailleurs, ou supprimez-les, avant de continuer.' },
+    { libelle: 'interaction', nombre: Math.max(0, interactions - interactionsSeules), regime: 'detache' },
   ]
 }
 
 async function inventaireRecommandation(id: string): Promise<LigneInventaire[]> {
-  const [compteurs, mandats, objectifs, sites, contrats, suivis, remunerations, interactions, partages] =
+  const [compteurs, mandats, objectifs, sites, contrats, suivis, remunerations, interactions, interactionsSeules, partages] =
     await Promise.all([
       compter('recommandations_compteurs', 'recommandation_id', id),
       compter('recommandations_mandats', 'recommandation_id', id),
@@ -255,6 +321,7 @@ async function inventaireRecommandation(id: string): Promise<LigneInventaire[]> 
       compter('suivis_contrats', 'recommandation_id', id),
       compter('remunerations', 'recommandation_id', id),
       compter('interactions', 'recommandation_id', id),
+      interactionsBloquantes('recommandation_id', id),
       compter('partages_etude_client', 'recommandation_id', id),
     ])
   return [
@@ -266,7 +333,10 @@ async function inventaireRecommandation(id: string): Promise<LigneInventaire[]> 
     { libelle: 'contrat issu de cette recommandation', nombre: contrats, regime: 'detache' },
     { libelle: 'suivi de contrat', nombre: suivis, regime: 'detache' },
     { libelle: 'rémunération', nombre: remunerations, regime: 'detache' },
-    { libelle: 'interaction', nombre: interactions, regime: 'detache' },
+    { libelle: 'interaction rattachée à cette seule recommandation', nombre: interactionsSeules, regime: 'bloque',
+      detail: 'Ces interactions n’ont aucun autre rattachement : elles ne peuvent ni survivre détachées, '
+        + 'ni disparaître. Rattachez-les ailleurs, ou supprimez-les, avant de continuer.' },
+    { libelle: 'interaction', nombre: Math.max(0, interactions - interactionsSeules), regime: 'detache' },
   ]
 }
 
