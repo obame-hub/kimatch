@@ -98,6 +98,11 @@
        Plus clair que `km-green-soft`, qui sert aux pastilles et aux sélections. */
     --km-green-tint: 244 250 247; /* #F4FAF7 */
     --km-amber-line: 240 228 205; /* #F0E4CD */
+    /* LE ROUGE MANQUAIT, et six ecrans ecrits le 07/09/2026 l'appelaient deja :
+       `border-km-red-line` ne generait aucune classe, donc aucune bordure. Un bloc
+       d'avertissement au fond rose sans son trait flotte exactement comme le disait le
+       commentaire ci-dessus. */
+    --km-red-line: 242 205 199;   /* #F2CDC7 */
 
     /* ══ LES DEUX ÉNERGIES ══
      * Charte des maquettes, rappelée dans `EnergyTimeline` : ÉLECTRICITÉ DORÉE, GAZ BLEUTÉ.

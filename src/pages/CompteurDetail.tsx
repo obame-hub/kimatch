@@ -7,6 +7,7 @@ import { ZoneDepotFichiers } from '@/components/ui/zone-depot-fichiers'
 import { Badge } from '@/components/ui/badge'
 import { Dialog } from '@/components/ui/dialog'
 import { DialogSuppression } from '@/components/ui/dialog-suppression'
+import { DialogDeplacerCompteur } from '@/components/compteur/DialogDeplacerCompteur'
 import { FormField, Input, Select } from '@/components/ui/form'
 import { HistoriqueDiscret } from '@/components/ui/historique-discret'
 import { EntityLink } from '@/components/ui/entity-link'
@@ -501,6 +502,7 @@ export default function CompteurDetail() {
   const [tab, setTab] = useState<TabKey>('apercu')
   const [showAdd, setShowAdd] = useState(false)
   const [confirmDelete, setConfirmDelete] = useState(false)
+  const [deplacer, setDeplacer] = useState(false)
 
   const televerser = useTeleverserDocuments()
 
@@ -698,7 +700,22 @@ export default function CompteurDetail() {
           {tab === 'rattachements' && (
             <div className="flex max-w-[560px] flex-col gap-3.5">
         <div className="rounded-xl border border-km-line bg-white p-3.5">
-          <p className="mb-2 text-km-xs font-bold uppercase tracking-wide text-km-faint">Hiérarchie</p>
+          <div className="mb-2 flex items-center justify-between gap-2">
+            <p className="text-km-xs font-bold uppercase tracking-wide text-km-faint">Hiérarchie</p>
+            {/* L'ACTION EST A COTE DE LA REPONSE QU'ELLE CHANGE. Cette carte dit a quoi le compteur
+                est accroche ; « Deplacer » est le seul geste qui modifie cela, et le chercher dans
+                un menu d'en-tete serait le cacher. Demande par Naoelle le 07/09/2026 : « donne la
+                possibilite dans le compteur de changer le compte de ce compteur ». */}
+            {canManage && site && (
+              <button
+                type="button"
+                onClick={() => setDeplacer(true)}
+                className="shrink-0 text-km-label font-semibold text-km-green hover:underline"
+              >
+                Déplacer
+              </button>
+            )}
+          </div>
           <div className="flex flex-col gap-0.5">
             {compte && (
               <button type="button" onClick={() => navigate(`/comptes/${compte.id}`)} className="flex items-center gap-2 rounded-lg px-1.5 py-1.5 text-left hover:bg-km-bg">
@@ -1120,6 +1137,18 @@ export default function CompteurDetail() {
       </div>
 
       <AddConsommationDialog compteurId={compteur.id} open={showAdd} onClose={() => setShowAdd(false)} />
+      {site && (
+        <DialogDeplacerCompteur
+          ouvert={deplacer}
+          onFermer={() => setDeplacer(false)}
+          compteurId={compteur.id}
+          numeroPdl={compteur.numero_pdl}
+          compteActuelId={site.compte_id}
+          compteActuelNom={compte?.nom ?? site.compte_nom}
+          siteActuelId={site.id}
+          siteActuelNom={site.nom}
+        />
+      )}
       <DialogSuppression
         ouvert={confirmDelete}
         onFermer={() => { suppression.reinitialiser(); setConfirmDelete(false) }}

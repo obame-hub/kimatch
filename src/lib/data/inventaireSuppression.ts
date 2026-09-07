@@ -224,7 +224,7 @@ async function inventaireSite(id: string): Promise<LigneInventaire[]> {
 }
 
 async function inventaireCompteur(id: string): Promise<LigneInventaire[]> {
-  const [consommations, contrats, recos, versions, opportunites, signaux, requetes] = await Promise.all([
+  const [consommations, contrats, recos, versions, opportunites, signaux, requetes, mandats] = await Promise.all([
     compter('consommations', 'compteur_id', id),
     compter('contrats_compteurs', 'compteur_id', id),
     compter('recommandations_compteurs', 'compteur_id', id),
@@ -232,8 +232,21 @@ async function inventaireCompteur(id: string): Promise<LigneInventaire[]> {
     compter('opportunites_compteurs', 'compteur_id', id),
     compter('signaux', 'compteur_id', id),
     compter('requetes', 'compteur_id', id),
+    compter('mandats_compteurs', 'compteur_id', id),
   ])
   return [
+    /* ══ LE MANDAT BLOQUE, ET LA FENÊTRE NE LE DISAIT PAS ══
+       `mandats_compteurs.compteur_id` est la SEULE clé étrangère vers `compteurs` en
+       `on delete restrict` : les dix autres sont en cascade ou en set null. Postgres refuse donc
+       la suppression, et l'inventaire ne comptait pas cette table — la fenêtre annonçait
+       tranquillement ce qui allait disparaître, puis l'utilisateur recevait une erreur brute.
+       Mesuré le 07/09/2026 : 2 214 compteurs sur 7 919 sont sous mandat, soit plus d'un sur
+       quatre. Même famille de défaut que les 928 interactions bloquantes du matin, trouvée en
+       relisant les cascades pour le déplacement de compteur. */
+    { libelle: 'rattachement à un mandat', nombre: mandats, regime: 'bloque',
+      detail: mandats > 0
+        ? 'Un mandat est signé : Kimatch refuse de supprimer un compteur qu’il couvre. Retirez-le du mandat, ou déplacez le compteur.'
+        : undefined },
     { libelle: 'relevé de consommation', nombre: consommations, regime: 'detruit' },
     { libelle: 'rattachement à un contrat', nombre: contrats, regime: 'detruit',
       detail: contrats > 0 ? 'avec les tarifs saisis dessus' : undefined },

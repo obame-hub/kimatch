@@ -42,6 +42,7 @@ export default {
           'amber-soft': 'rgb(var(--km-amber-soft) / <alpha-value>)',
           red: 'rgb(var(--km-red) / <alpha-value>)',
           'red-soft': 'rgb(var(--km-red-soft) / <alpha-value>)',
+          'red-line': 'rgb(var(--km-red-line) / <alpha-value>)',
         },
         // Neutre principal — remappé sur la palette KiWee (chaud, quasi-noir) fournie par William.
         // Valeurs pilotées par variables CSS (voir index.css) pour basculer en mode sombre.
