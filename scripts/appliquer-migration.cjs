@@ -107,6 +107,11 @@ async function connecter(essais = 5) {
     const client = new Client({ connectionString: dbUrl, ssl: { rejectUnauthorized: false } })
     try {
       await client.connect()
+      // LES NOTICES SONT LE RESULTAT, PAS DU BRUIT. Nos migrations annoncent par `raise notice` le
+      // verdict de leur garde-fou -- « Garde-fou passe : ... » -- et c'est la seule preuve qu'elles
+      // ont verifie leur propre travail. node-postgres ne les imprime pas sans qu'on les ecoute :
+      // elles etaient donc avalees, y compris quand elles disaient l'essentiel.
+      client.on('notice', (n) => { if (n.message) console.log('notice    : ' + n.message) })
       return client
     } catch (e) {
       await client.end().catch(() => {})
@@ -158,7 +163,15 @@ async function main() {
   } catch (e) {
     console.log('resultat  : ECHEC — rien n a ete applique (la transaction a ete annulee)')
     console.log('erreur    : ' + e.code + ' — ' + e.message)
-    if (e.position) console.log('position  : caractere ' + e.position)
+    // `position` est un decalage en caracteres : inutilisable tel quel. Traduit en numero de
+    // ligne, il pointe l'endroit du fichier ou aller regarder.
+    if (e.position) {
+      const ligne = sql.slice(0, Number(e.position)).split('
+').length
+      console.log('position  : ' + path.basename(fichier) + ':' + ligne)
+    }
+    if (e.detail) console.log('detail    : ' + e.detail)
+    if (e.hint) console.log('piste     : ' + e.hint)
     process.exitCode = 1
   } finally {
     await client.end()
