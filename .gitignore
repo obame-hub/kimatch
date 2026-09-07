@@ -30,3 +30,7 @@ dist-ssr
 # aucun modele a remplir. C est ce qui l a laisse deriver a 3 variables sur 28.
 !.env.example
 !.env.sandbox.example
+
+# Les sondes et mesures jetables (integrations, audits) : elles lisent .env.local et ne sont pas
+# du code de production. Gardees sur le poste, jamais dans un depot public.
+scripts_scratch/
