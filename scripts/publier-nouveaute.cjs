@@ -28,11 +28,22 @@
 //   {
 //     "type": "CORRECTION",
 //     "titre": "Le signataire peut venir d'un autre compte",
-//     "corps": "<p>Texte…</p><ul><li>…</li></ul>"
+//     "corps": "<p>Texte…</p><ul><li>…</li></ul>",
+//     "date": "2026-09-03 18:32:05"
 //   }
 //
-// Sans `--brouillon`, la publication paraît immédiatement (`date_publication = now()`) et apparaît
-// dans la popup de tous ceux qui ne l'ont pas lue.
+// Sans `--brouillon`, la publication paraît immédiatement et apparaît dans la popup de tous ceux
+// qui ne l'ont pas lue.
+//
+// ── LA DATE EST CELLE DE LA LIVRAISON, PAS CELLE DE LA PUBLICATION ──
+//
+// Naoëlle, 07/09/2026 : « il faut mettre les vraies dates de quand on a fait les modifs, car tout
+// est à aujourd'hui. » Quand on rattrape plusieurs jours de travail d'un coup, tout dater du jour
+// écrase la chronologie : la frise de la page Nouveautés sert justement à revenir chercher « c'était
+// quand, le changement sur les mandats ? », et huit publications empilées à la même minute ne
+// répondent plus. La date se prend dans `git log` du commit correspondant.
+//
+// Champ `date` optionnel, au format `YYYY-MM-DD HH:MM:SS`. Absent, c'est maintenant.
 //
 // ── LES QUATRE FAMILLES ──
 //
@@ -143,6 +154,14 @@ async function main() {
       if (p.titre.length > 120) throw new Error(`${ou} : titre de ${p.titre.length} caractères, 120 au maximum.`)
       if (!p.corps || !p.corps.trim()) throw new Error(`${ou} : corps vide.`)
       verifierHtml(p.corps, ou)
+      if (p.date) {
+        const d = new Date(p.date.replace(' ', 'T'))
+        if (Number.isNaN(d.getTime())) throw new Error(`${ou} : date « ${p.date} » illisible.`)
+        // UNE DATE FUTURE EST UNE FAUTE DE FRAPPE, pas une intention : une publication datée de
+        // demain resterait invisible dans une frise triée par date.
+        if (d.getTime() > Date.now() + 60_000) throw new Error(`${ou} : date dans le futur (${p.date}).`)
+        p._date = d.toISOString()
+      }
     }
 
     await client.query('begin')
@@ -152,9 +171,10 @@ async function main() {
         `insert into publications (titre, type_publication_id, contenu_html, auteur_id, cree_par_id, date_publication)
          values ($1, $2, $3, $4, $4, $5) returning id`,
         [p.titre.trim(), type.id, p.corps.trim(), p.auteur_id || AUTEUR_PAR_DEFAUT,
-          brouillon ? null : new Date().toISOString()],
+          brouillon ? null : (p._date ?? new Date().toISOString())],
       )
-      console.log(`${brouillon ? 'Brouillon' : 'Publié'} — [${type.libelle}] ${p.titre}  (${rows[0].id})`)
+      const quand = p._date ? new Date(p._date).toLocaleString('fr-FR') : 'maintenant'
+      console.log(`${brouillon ? 'Brouillon' : 'Publié'} — [${type.libelle}] ${p.titre}  (${quand})`)
     }
     await client.query('commit')
 
