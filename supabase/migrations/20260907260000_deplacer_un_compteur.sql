@@ -200,15 +200,26 @@ begin
   -- INSERT, UPDATE, DELETE et CHANGEMENT_STATUT, et changer une contrainte de la table d'historique
   -- pour un mot coûterait un verrou sur la production. C'est `champs_modifies = {compte_id}` sur
   -- `entite_type = 'sites'` qui identifie un déplacement.
+  -- `compte_id` RESTE VIDE, ET CE N'EST PAS UN OUBLI.
+  --
+  -- `historiques_entites_compte_id_fkey` pointe vers `comptes` sans clause `on delete` : une ligne
+  -- de journal qui remplit cette colonne EMPÊCHE de supprimer le compte qu'elle désigne. Le premier
+  -- essai de cette migration a échoué là-dessus, sur son propre garde-fou (23503), et le défaut
+  -- aurait été bien plus vicieux en production : un compte ayant reçu un site n'aurait plus jamais
+  -- pu être supprimé, sans que rien ne dise pourquoi.
+  --
+  -- Le journal de suppression posé ce matin laisse la colonne vide pour la même raison — 0 des 7
+  -- lignes existantes la remplissent. Les deux comptes sont de toute façon dans `ancienne_valeur` et
+  -- `nouvelle_valeur`, avec leur nom en clair.
   insert into historiques_entites (
     entite_type, entite_id, operation, ancienne_valeur, nouvelle_valeur, champs_modifies,
-    motif, auteur_profil_id, source, correlation_id, compte_id
+    motif, auteur_profil_id, source, correlation_id
   ) values (
     'sites', p_site_id, 'UPDATE',
     jsonb_build_object('compte_id', v_compte_origine, 'compte_nom', v_nom_origine, 'site_nom', v_nom_site),
     jsonb_build_object('compte_id', p_compte_destination_id, 'compte_nom', v_nom_dest, 'site_nom', v_nom_site),
     array['compte_id'],
-    p_motif, auth.uid(), 'APPLICATION', v_correlation, p_compte_destination_id
+    p_motif, auth.uid(), 'APPLICATION', v_correlation
   );
 
   return jsonb_build_object(
@@ -340,15 +351,17 @@ begin
   end if;
 
   -- ── 5. LA TRACE ─────────────────────────────────────────────────────────────────────────────
+  -- `compte_id` reste vide : voir l'explication dans `fn_deplacer_site`. Remplir cette colonne
+  -- rendrait le compte de destination indéboulonnable.
   insert into historiques_entites (
     entite_type, entite_id, operation, ancienne_valeur, nouvelle_valeur, champs_modifies,
-    motif, auteur_profil_id, source, correlation_id, compte_id
+    motif, auteur_profil_id, source, correlation_id
   ) values (
     'compteurs', p_compteur_id, 'UPDATE',
     jsonb_build_object('site_id', v_site_origine, 'site_nom', v_nom_origine, 'compte_id', v_compte_origine),
     jsonb_build_object('site_id', p_site_destination_id, 'site_nom', v_nom_dest, 'compte_id', v_compte_dest),
     array['site_id'],
-    p_motif, auth.uid(), 'APPLICATION', v_correlation, v_compte_dest
+    p_motif, auth.uid(), 'APPLICATION', v_correlation
   );
 
   return jsonb_build_object(
@@ -459,7 +472,13 @@ begin
     raise exception 'Le second compteur a bougé alors que seul le premier était visé.';
   end if;
 
-  -- On efface la trace du test : ni la corbeille ni l'historique n'ont à la garder.
+  -- ── ON EFFACE LA TRACE DU TEST ──────────────────────────────────────────────────────────────
+  --
+  -- DEUX HISTORIQUES À NETTOYER, ET NON UN. `fn_audit_trace` a écrit dans `historique_modifications`
+  -- une ligne par colonne modifiée par les deux déplacements — c'est ce qui fera apparaître le
+  -- changement sur les vraies fiches, et ici c'est du bruit sur des objets qui n'existeront plus.
+  -- `fn_journaliser_suppression` écrira dans `historiques_entites` en réponse aux suppressions
+  -- ci-dessous : ce nettoyage vient donc APRÈS elles.
   delete from requetes where id = v_requete;
   delete from signaux where id = v_signal;
   delete from compteurs where id in (v_pdl_1, v_pdl_2);
@@ -467,6 +486,8 @@ begin
   delete from comptes where id in (v_compte_a, v_compte_b);
   delete from historiques_entites
    where entite_id in (v_pdl_1, v_pdl_2, v_signal, v_requete, v_site_a, v_site_b, v_compte_a, v_compte_b);
+  delete from historique_modifications
+   where ligne_id in (v_pdl_1, v_pdl_2, v_signal, v_requete, v_site_a, v_site_b, v_compte_a, v_compte_b);
 
   raise notice 'Garde-fou passé : le site emmène ses deux compteurs, et un compteur seul emmène son signal.';
 end $$;
