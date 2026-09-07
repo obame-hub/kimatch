@@ -109,9 +109,15 @@ const LIENS_INTERACTION = [
  * MESURÉ : 928 interactions sur 480 comptes sont dans ce cas. Ce n'est pas un cas limite, c'est un
  * compte sur six.
  *
- * On les compte donc à part, et on les annonce comme BLOQUANTES — dire « elles seront conservées »
- * était faux dans les deux sens : elles ne le seront pas, et rien ne le sera puisque la suppression
- * échouera.
+ * ══ ELLES NE BLOQUENT PLUS : ELLES PARTENT (migration 20260907240000) ══
+ *
+ * Naoëlle a tranché le 07/09/2026 : « une interaction dont le seul lien est un compte qu'on supprime
+ * volontairement n'a plus de raison d'exister. » Un déclencheur BEFORE DELETE les supprime donc avec
+ * leur objet, avant que la contrainte ne puisse s'y opposer — et elles rejoignent la corbeille avec
+ * lui, dans la même transaction, donc une restauration les ramène toutes ensemble.
+ *
+ * Elles sont donc comptées dans les DÉTRUITES, et nommées séparément des autres interactions : la
+ * distinction compte pour le lecteur, puisque les unes disparaissent et les autres se détachent.
  */
 async function interactionsBloquantes(colonne: string, valeur: string | string[]): Promise<number> {
   if (Array.isArray(valeur) && valeur.length === 0) return 0
@@ -166,11 +172,11 @@ async function inventaireCompte(id: string): Promise<LigneInventaire[]> {
   return [
     { libelle: 'recommandation', nombre: recommandations, regime: 'bloque',
       detail: 'Une recommandation interdit la suppression du compte. Il faut la supprimer d’abord, ou renoncer.' },
-    /* CES INTERACTIONS BLOQUENT, elles ne se détachent pas : ce compte est leur SEUL rattachement,
-       et une interaction sans aucun lien est refusée par la base. */
-    { libelle: 'interaction rattachée à ce seul compte', nombre: interactionsSeules, regime: 'bloque',
-      detail: 'Ces interactions n’ont aucun autre rattachement : elles ne peuvent ni survivre détachées, '
-        + 'ni disparaître. Rattachez-les à un contact ou un site, ou supprimez-les, avant de supprimer le compte.' },
+    /* ELLES PARTENT AVEC LE COMPTE : c'est leur seul rattachement, et une interaction sans aucun
+       lien est refusée par la base. Le déclencheur de 20260907240000 les supprime avant que la
+       contrainte ne puisse s'y opposer. */
+    { libelle: 'interaction rattachée à ce seul compte', nombre: interactionsSeules, regime: 'detruit',
+      detail: 'Elles n’ont aucun autre rattachement : elles partent avec le compte, et se retrouvent dans la corbeille.' },
     { libelle: 'contact', nombre: contacts, regime: 'detruit' },
     { libelle: 'site', nombre: siteIds.length, regime: 'detruit',
       detail: siteIds.length > 0 ? 'avec leurs compteurs, contrats et signaux' : undefined },
@@ -210,9 +216,8 @@ async function inventaireSite(id: string): Promise<LigneInventaire[]> {
     { libelle: 'relevé de consommation', nombre: consommations, regime: 'detruit' },
     { libelle: 'contact rattaché à ce site', nombre: contactsLies, regime: 'detruit',
       detail: contactsLies > 0 ? 'seul le rattachement disparaît, pas le contact' : undefined },
-    { libelle: 'interaction rattachée à ce seul site', nombre: interactionsSeules, regime: 'bloque',
-      detail: 'Ces interactions n’ont aucun autre rattachement : elles ne peuvent ni survivre détachées, '
-        + 'ni disparaître. Rattachez-les ailleurs, ou supprimez-les, avant de continuer.' },
+    { libelle: 'interaction rattachée à ce seul site', nombre: interactionsSeules, regime: 'detruit',
+      detail: 'Elles n’ont aucun autre rattachement : elles partent avec lui, et se retrouvent dans la corbeille.' },
     { libelle: 'interaction', nombre: Math.max(0, interactions - interactionsSeules), regime: 'detache' },
     { libelle: 'requête', nombre: requetes, regime: 'detache' },
   ]
@@ -258,9 +263,8 @@ async function inventaireContact(id: string): Promise<LigneInventaire[]> {
     { libelle: 'rattachement à un compte', nombre: comptesLies, regime: 'detruit',
       detail: comptesLies > 0 ? 'le compte lui-même n’est pas touché' : undefined },
     { libelle: 'rattachement à un site', nombre: sitesLies, regime: 'detruit' },
-    { libelle: 'interaction rattachée à ce seul contact', nombre: interactionsSeules, regime: 'bloque',
-      detail: 'Ces interactions n’ont aucun autre rattachement : elles ne peuvent ni survivre détachées, '
-        + 'ni disparaître. Rattachez-les ailleurs, ou supprimez-les, avant de continuer.' },
+    { libelle: 'interaction rattachée à ce seul contact', nombre: interactionsSeules, regime: 'detruit',
+      detail: 'Elles n’ont aucun autre rattachement : elles partent avec lui, et se retrouvent dans la corbeille.' },
     { libelle: 'interaction', nombre: Math.max(0, interactions - interactionsSeules), regime: 'detache' },
     { libelle: 'tâche', nombre: actions, regime: 'detache' },
     { libelle: 'opportunité', nombre: opportunites, regime: 'detache' },
@@ -303,9 +307,8 @@ async function inventaireMandat(id: string): Promise<LigneInventaire[]> {
     { libelle: 'courtier rattaché', nombre: courtiers, regime: 'detruit' },
     { libelle: 'lien à une recommandation', nombre: recos, regime: 'detruit' },
     { libelle: 'tâche', nombre: actions, regime: 'detruit' },
-    { libelle: 'interaction rattachée à ce seul mandat', nombre: interactionsSeules, regime: 'bloque',
-      detail: 'Ces interactions n’ont aucun autre rattachement : elles ne peuvent ni survivre détachées, '
-        + 'ni disparaître. Rattachez-les ailleurs, ou supprimez-les, avant de continuer.' },
+    { libelle: 'interaction rattachée à ce seul mandat', nombre: interactionsSeules, regime: 'detruit',
+      detail: 'Elles n’ont aucun autre rattachement : elles partent avec lui, et se retrouvent dans la corbeille.' },
     { libelle: 'interaction', nombre: Math.max(0, interactions - interactionsSeules), regime: 'detache' },
   ]
 }
@@ -333,9 +336,8 @@ async function inventaireRecommandation(id: string): Promise<LigneInventaire[]> 
     { libelle: 'contrat issu de cette recommandation', nombre: contrats, regime: 'detache' },
     { libelle: 'suivi de contrat', nombre: suivis, regime: 'detache' },
     { libelle: 'rémunération', nombre: remunerations, regime: 'detache' },
-    { libelle: 'interaction rattachée à cette seule recommandation', nombre: interactionsSeules, regime: 'bloque',
-      detail: 'Ces interactions n’ont aucun autre rattachement : elles ne peuvent ni survivre détachées, '
-        + 'ni disparaître. Rattachez-les ailleurs, ou supprimez-les, avant de continuer.' },
+    { libelle: 'interaction rattachée à cette seule recommandation', nombre: interactionsSeules, regime: 'detruit',
+      detail: 'Elles n’ont aucun autre rattachement : elles partent avec lui, et se retrouvent dans la corbeille.' },
     { libelle: 'interaction', nombre: Math.max(0, interactions - interactionsSeules), regime: 'detache' },
   ]
 }
