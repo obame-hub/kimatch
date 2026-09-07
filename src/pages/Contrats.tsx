@@ -26,7 +26,8 @@ import { useListControls } from '@/lib/useListControls'
 import { usePerimetreListe, BasculePerimetre } from '@/lib/perimetre'
 import { ExtractDocumentButton } from '@/components/ui/document-extraction'
 import { cn } from '@/lib/utils'
-import { useOuvrirCreation } from '@/lib/ouvrirCreation'
+import { useOuvrirCreation } from '@/lib/ouvrirCreation'
+import { contactsDuCompte as contactsRattaches } from '@/lib/contactsDuCompte'
 
 // Fournisseurs pour lesquels Tools recommande la renégociation anticipée (ContratWizard.tsx,
 // SPECIAL_SUPPLIERS) -- juste un indice visuel ici, la case reste éditable pour tous (contrairement
@@ -116,7 +117,8 @@ function CreateContratDialog({ open, onClose }: { open: boolean; onClose: () => 
   const fournisseurs = comptes?.filter((c) => c.type_compte === 'fournisseur') ?? []
   const compteursDuSite = compteurs?.filter((c) => c.site_id === siteId) ?? []
   const compteDuSite = sites?.find((s) => s.id === siteId)?.compte_id
-  const contactsDuSite = contacts?.filter((c) => c.compte_id === compteDuSite) ?? []
+  // Tous les contacts du compte, rattachements indirects compris (William, 07/09/2026).
+  const contactsDuSite = contactsRattaches(contacts, compteDuSite)
   const energieChoisie = energies.find((e) => e.id === typeEnergieId)
   const estGaz = (energieChoisie?.code ?? '').toLowerCase() === 'gaz'
   // Électricité : "Marché" est la seule option (pas un vrai choix) -- Gaz : Fixe/Indexé, un vrai

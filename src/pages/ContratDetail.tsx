@@ -19,6 +19,7 @@ import { useContrat, useUpdateContratPartiel, useDeleteContrat, type PatchContra
 import { useSites } from '@/lib/data/sites'
 import { useComptes } from '@/lib/data/comptes'
 import { useContacts } from '@/lib/data/contacts'
+import { contactsDuCompte as contactsRattaches, libelleContactPourCompte, peutRecevoirUneSignature } from '@/lib/contactsDuCompte'
 import { useDocuments, useTeleverserDocuments } from '@/lib/data/documents'
 import {
   sendContratForSignature,
@@ -386,11 +387,26 @@ export default function ContratDetail() {
   const isAdmin = useIsAdmin()
   const { data: profilsAdmin } = useProfilsAdmin()
   const { data: tousContacts } = useContacts()
-  // Les contacts qui peuvent signer : ceux du compte porteur du contrat, et seulement s'ils ont une
-  // adresse — DocuSign envoie par email, un contact sans email ne peut rien recevoir.
+
+  /* ══ TOUS LES CONTACTS DU COMPTE, PAS SEULEMENT CEUX DONT C'EST LE COMPTE PRINCIPAL ══
+
+     William, 07/09/2026, sur ce contrat précis : « on ne peut sélectionner que Christian, pas Arnaud
+     qui est lui lié via MEMPHIS LENS 2. Guillaume voulait envoyer à Arnaud à la base mais il pouvait
+     pas le sélectionner. » Le filtre lisait `contacts.compte_id`, qui ne porte que le rattachement
+     PRINCIPAL ; les rattachements multiples vivent dans `contacts_comptes` depuis le 13/08/2026.
+
+     Mesuré : 233 contrats gagnent des signataires, dont 68 qui n'en avaient aucun. */
   const contactsDuCompte = useMemo(
-    () => (tousContacts ?? []).filter((c) => c.compte_id === contrat?.compte_id && !!c.email),
+    () => contactsRattaches(tousContacts, contrat?.compte_id),
     [tousContacts, contrat?.compte_id],
+  )
+
+  /* CEUX QUI PEUVENT VRAIMENT RECEVOIR : DocuSign envoie par email. Les autres ne disparaissent plus
+     de la liste, ils s'y affichent désactivés — sur CT-01606, le seul contact proposé n'avait pas
+     d'email et la modale se contentait d'être vide, sans dire lequel ni pourquoi. */
+  const contactsSignataires = useMemo(
+    () => contactsDuCompte.filter(peutRecevoirUneSignature),
+    [contactsDuCompte],
   )
   const deleteContrat = useDeleteContrat()
 
@@ -771,9 +787,13 @@ export default function ContratDetail() {
                       value={contrat.contact_signataire_id ?? ''}
                       // Restreint aux contacts du compte du contrat : proposer les 3000 contacts
                       // du CRM ferait choisir un signataire qui n'a rien a voir avec le client.
-                      options={(tousContacts ?? [])
-                        .filter((c) => c.compte_id === compte?.id)
-                        .map((c) => ({ value: c.id, label: `${c.prenom ?? ''} ${c.nom ?? ''}`.trim() }))}
+                      // Mais TOUS ceux du compte, y compris rattaches via un autre compte principal
+                      // (demande de William, 07/09/2026) -- avec leur societe d'origine en clair,
+                      // sinon on ne sait pas pourquoi cette personne est proposee.
+                      options={contactsDuCompte.map((c) => ({
+                        value: c.id,
+                        label: libelleContactPourCompte(c, compte?.id),
+                      }))}
                       onCommit={(v) => majContrat({ contact_signataire_id: v || null })}
                       {...retourInline}
                     />
@@ -1179,7 +1199,8 @@ export default function ContratDetail() {
         onFermer={() => setSignatureOuverte(false)}
         contrat={contrat}
         documents={documentsDuContrat}
-        contacts={contactsDuCompte}
+        contacts={contactsSignataires}
+        contactsSansEmail={contactsDuCompte.filter((c) => !peutRecevoirUneSignature(c))}
         signaler={showToast}
       />
 
@@ -1309,13 +1330,24 @@ function DialogSignatureContrat({
   contrat,
   documents,
   contacts,
+  contactsSansEmail,
   signaler,
 }: {
   ouvert: boolean
   onFermer: () => void
   contrat: Contrat
   documents: DocumentItem[]
+  /** Ceux qui peuvent recevoir : rattachés au compte ET porteurs d'une adresse email. */
   contacts: Contact[]
+  /**
+   * Ceux qui sont rattachés au compte mais SANS adresse email.
+   *
+   * Ils ne sont pas proposés — DocuSign envoie par email — mais ils s'affichent, nommés, avec la
+   * raison. Sur le contrat CT-01606 le seul contact du compte était dans ce cas : la modale
+   * annonçait « aucun contact du compte n'a d'adresse email » sans dire lequel, et il a fallu aller
+   * chercher dans la base pour comprendre que c'était Christian SCHROTTER.
+   */
+  contactsSansEmail: Contact[]
   signaler: (message: string) => void
 }) {
   const [documentId, setDocumentId] = useState('')
@@ -1371,10 +1403,40 @@ function DialogSignatureContrat({
           c'est ce document-là qui part à la signature.
         </p>
       ) : contacts.length === 0 ? (
-        <p className="text-xs text-km-muted">
-          Aucun contact du compte n'a d'adresse email. DocuSign envoie par email : renseignez-en une
-          sur le contact qui doit signer.
-        </p>
+        <div className="rounded-km border border-km-amber-line bg-km-amber-soft px-3 py-2.5">
+          <p className="text-km-body font-bold text-km-amber">Personne ne peut recevoir ce contrat</p>
+          {contactsSansEmail.length === 0 ? (
+            <p className="mt-1 text-km-label leading-snug text-km-text">
+              Aucun contact n'est rattaché au compte de ce contrat. Rattachez la personne qui doit
+              signer depuis sa fiche, ou depuis l'onglet Contacts du compte.
+            </p>
+          ) : (
+            <>
+              <p className="mt-1 text-km-label leading-snug text-km-text">
+                DocuSign envoie par email. {contactsSansEmail.length > 1 ? 'Ces contacts sont' : 'Ce contact est'}{' '}
+                rattaché{contactsSansEmail.length > 1 ? 's' : ''} au compte mais n'{contactsSansEmail.length > 1 ? 'ont' : 'a'} pas
+                d'adresse :
+              </p>
+              <ul className="mt-1.5 flex flex-col gap-1">
+                {contactsSansEmail.map((c) => (
+                  <li key={c.id} className="text-km-body text-km-text">
+                    <EntityLink to={`/contacts/${c.id}`} className="font-semibold">
+                      {`${c.prenom ?? ''} ${c.nom ?? ''}`.trim()}
+                    </EntityLink>
+                    {c.compte_nom && c.compte_id !== contrat.compte_id && (
+                      <span className="text-km-muted"> — {c.compte_nom}</span>
+                    )}
+                    <span className="text-km-faint"> · pas d'email</span>
+                  </li>
+                ))}
+              </ul>
+              <p className="mt-1.5 text-km-label leading-snug text-km-muted">
+                Renseignez une adresse sur la fiche de celui qui doit signer, ou rattachez au compte
+                une personne qui en a une.
+              </p>
+            </>
+          )}
+        </div>
       ) : (
         <div className="space-y-3">
           {/* LE FICHIER SE CHOISIT D'UN CLIC, pas dans un déroulant. Naoëlle, 21/08/2026 : « fais en
@@ -1445,10 +1507,30 @@ function DialogSignatureContrat({
           <FormField label="Signataire">
             <Select value={contactRetenu?.id ?? ''} onChange={(e) => setContactId(e.target.value)}>
               <option value="">Choisir…</option>
+              {/* LA SOCIÉTÉ D'ORIGINE FIGURE quand ce n'est pas celle du contrat : depuis le
+                  07/09/2026 la liste couvre les contacts rattachés via un autre compte principal
+                  (demande de William), et sans cette mention on ne saurait pas pourquoi cette
+                  personne est proposée. */}
               {contacts.map((c) => (
-                <option key={c.id} value={c.id}>{c.prenom} {c.nom} — {c.email}</option>
+                <option key={c.id} value={c.id}>
+                  {`${c.prenom ?? ''} ${c.nom ?? ''}`.trim()}
+                  {c.compte_nom && c.compte_id !== contrat.compte_id ? ` (${c.compte_nom})` : ''}
+                  {` — ${c.email}`}
+                </option>
               ))}
             </Select>
+            {/* CEUX QU'ON NE PEUT PAS PROPOSER SE DISENT QUAND MÊME. Un contact absent de la liste
+                sans explication envoie chercher pourquoi ailleurs — c'est exactement ce qui s'est
+                passé sur CT-01606. */}
+            {contactsSansEmail.length > 0 && (
+              <p className="mt-1 text-km-label leading-snug text-km-faint">
+                Non proposé{contactsSansEmail.length > 1 ? 's' : ''}, faute d'adresse email :{' '}
+                {contactsSansEmail
+                  .map((c) => `${c.prenom ?? ''} ${c.nom ?? ''}`.trim())
+                  .join(', ')}
+                .
+              </p>
+            )}
           </FormField>
           <p className="text-km-xs leading-snug text-km-faint">
             Un contrat vient du fournisseur : il ne porte pas nos repères de signature. C'est pourquoi

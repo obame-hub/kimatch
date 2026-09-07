@@ -48,7 +48,8 @@ import { cn } from '@/lib/utils'
 import { useGoBack } from '@/lib/useGoBack'
 import { useRaccourcisOnglets } from '@/lib/useRaccourcisOnglets'
 import type { Compte, Contact } from '@/types/domain'
-import { appelerNumero, numeroLisible } from '@/lib/telephonie'
+import { appelerNumero, numeroLisible } from '@/lib/telephonie'
+import { contactsDuCompte as contactsRattaches } from '@/lib/contactsDuCompte'
 
 type TabKey = 'synthese' | 'contacts' | 'contrats' | 'compteurs' | 'recommandations' | 'mandats' | 'fichiers' | 'historique' | 'activite'
 
@@ -853,7 +854,8 @@ function AddCompteurDialog({
   const [createdCompteurs, setCreatedCompteurs] = useState<ChainedCompteur[] | null>(null)
 
   const fournisseurs = (comptes ?? []).filter((c) => c.type_compte === 'fournisseur')
-  const contactsDuCompte = (contacts ?? []).filter((c) => c.compte_id === compteId)
+  // Tous les contacts du compte, rattachements indirects compris (William, 07/09/2026).
+  const contactsDuCompte = contactsRattaches(contacts, compteId)
   const compteDuSite = comptes?.find((c) => c.id === compteId)
 
   // Un brouillon non encore créé auquel il manque un champ requis bloque l'enregistrement (Tools).

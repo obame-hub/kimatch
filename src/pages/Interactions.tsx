@@ -19,7 +19,8 @@ import { FALLBACK_TYPES_INTERACTIONS, FALLBACK_ISSUES_INTERACTIONS } from '@/lib
 import { ListToolbar } from '@/components/ui/list-toolbar'
 import { useListControls } from '@/lib/useListControls'
 import { usePerimetreListe, BasculePerimetre } from '@/lib/perimetre'
-import { useOuvrirCreation } from '@/lib/ouvrirCreation'
+import { useOuvrirCreation } from '@/lib/ouvrirCreation'
+import { contactsDuCompte as contactsRattaches } from '@/lib/contactsDuCompte'
 
 const SENS_OPTIONS = [
   { value: '', label: '—' },
@@ -49,7 +50,8 @@ function CreateInteractionDialog({ open, onClose }: { open: boolean; onClose: ()
   const [feedback, setFeedback] = useState<string | null>(null)
 
   const sitesDuCompte = sites?.filter((s) => s.compte_id === compteId) ?? []
-  const contactsDuCompte = contacts?.filter((c) => c.compte_id === compteId) ?? []
+  // Tous les contacts du compte, rattachements indirects compris (William, 07/09/2026).
+  const contactsDuCompte = contactsRattaches(contacts, compteId)
 
   function reset() {
     setTypeId('')

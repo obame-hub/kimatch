@@ -22,7 +22,8 @@ import { useCompteurs, useCreateCompteur } from '@/lib/data/compteurs'
 import { useCreateSite, normalizeTexte } from '@/lib/data/sites'
 import { FALLBACK_TYPES_ENERGIES } from '@/lib/referenceFallbacks'
 import type { Compte, Site } from '@/types/domain'
-import type { PdlMethode } from '@/components/compteur/PdlMethodSheet'
+import type { PdlMethode } from '@/components/compteur/PdlMethodSheet'
+import { contactsDuCompte as contactsRattaches } from '@/lib/contactsDuCompte'
 
 export function CreationCompteurDialog({
   open,
@@ -71,7 +72,8 @@ export function CreationCompteurDialog({
   const [champsFacture, setChampsFacture] = useState<Record<string, ExtractedField> | null>(null)
 
   const fournisseurs = (comptes ?? []).filter((c) => c.type_compte === 'fournisseur')
-  const contactsDuCompte = (contacts ?? []).filter((c) => c.compte_id === compte?.id)
+  // Tous les contacts du compte, rattachements indirects compris (William, 07/09/2026).
+  const contactsDuCompte = contactsRattaches(contacts, compte?.id)
 
   /** Extraction depuis une facture : remplit l'adresse (étape en cours) et mémorise le reste pour
    * pré-remplir le brouillon PDL. On ne remplace jamais ce que l'utilisateur a déjà saisi. */

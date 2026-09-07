@@ -63,7 +63,8 @@ import { FALLBACK_ETAPES_RECOMMANDATION, FALLBACK_TYPES_ORIGINES, FALLBACK_TYPES
 import { trouverParCode } from '@/lib/codeReferentiel'
 import { cn } from '@/lib/utils'
 import type { Compteur } from '@/types/domain'
-import { appelerNumero } from '@/lib/telephonie'
+import { appelerNumero } from '@/lib/telephonie'
+import { contactsDuCompte as contactsRattaches } from '@/lib/contactsDuCompte'
 
 const PRIORITE_OPTIONS = [
   { value: 1, label: 'Haute' },
@@ -298,7 +299,8 @@ export function CreateRecommandationDialog({
     [compteursEligibles, compteurIds],
   )
 
-  const contactsDuCompte = contacts?.filter((c) => c.compte_id === compteId) ?? []
+  // Tous les contacts du compte, rattachements indirects compris (William, 07/09/2026).
+  const contactsDuCompte = contactsRattaches(contacts, compteId)
 
   // Mix client/prospect : blocage dur, exactement comme `mixError` dans Tools.
   const contratsParCompteurId = useMemo(() => {

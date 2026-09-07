@@ -395,6 +395,15 @@ export type PatchMandat = Partial<{
   proprietaire_id: string | null
   /** Le statut, changé depuis la frise du cycle (Naoëlle, 03/09/2026). */
   statut_id: string | null
+  /**
+   * Le signataire, changé depuis la fiche (Naoëlle, 07/09/2026 : « il faudrait que quand on veut
+   * changer le signataire d'un contrat ou d'un mandat, on puisse sélectionner un contact qui n'a pas
+   * forcément le compte du mandat ou du contrat en principal »).
+   *
+   * Il n'était modifiable NULLE PART : le mandat le recevait à sa création par le wizard, et la
+   * fiche se contentait de l'afficher. Se tromper de signataire imposait donc de refaire le mandat.
+   */
+  contact_signataire_id: string | null
 }>
 
 /** Mise à jour d'un seul champ. Ne pas passer par `useUpdateMandat` pour ça : il écrit les deux

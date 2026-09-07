@@ -14,6 +14,7 @@ import { HistoriqueDiscret } from '@/components/ui/historique-discret'
 import { InlineField } from '@/components/ui/inline-field'
 import { useMandat, useMarkMandatEnvoye, useUpdateMandatPartiel, useDeleteMandat, type PatchMandat } from '@/lib/data/mandats'
 import { useContacts } from '@/lib/data/contacts'
+import { contactsDuCompte as contactsRattaches, libelleContactPourCompte } from '@/lib/contactsDuCompte'
 import { useComptes } from '@/lib/data/comptes'
 import { useSites } from '@/lib/data/sites'
 import { useCompteurs } from '@/lib/data/compteurs'
@@ -484,6 +485,13 @@ export default function MandatDetail() {
 
   // Edition en place : la modale « Modifier » disparait.
   const updateMandatPartiel = useUpdateMandatPartiel()
+
+  /* Tous les contacts du compte du mandat : le rattachement principal ET les rattachements
+     multiples de `contacts_comptes`. Voir `@/lib/contactsDuCompte`. */
+  const contactsPourSignature = useMemo(
+    () => contactsRattaches(contacts, mandat?.compte_id),
+    [contacts, mandat?.compte_id],
+  )
   const majMandat = async (patch: PatchMandat) => {
     await updateMandatPartiel.mutateAsync({ id: id as string, patch })
   }
@@ -732,6 +740,37 @@ export default function MandatDetail() {
                     onCommit={(v) => majMandat({ proprietaire_id: v || null })}
                     {...retourInline}
                   />
+                )}
+                {/* ══ LE SIGNATAIRE SE CHANGE ICI ══
+
+                    Naoëlle, 07/09/2026 : « il faudrait que quand on veut changer le signataire d'un
+                    contrat ou d'un mandat, on puisse sélectionner un contact qui n'a pas forcément
+                    le compte du mandat ou du contrat en principal. »
+
+                    Il n'était modifiable nulle part : le wizard le posait à la création, la fiche ne
+                    faisait que l'afficher. Se tromper de signataire imposait de refaire le mandat.
+
+                    ET LA LISTE COUVRE LES DEUX RATTACHEMENTS. C'est le cas de William sur le contrat
+                    CT-01606, transposé : la bonne personne était rattachée au compte, mais via un
+                    autre compte principal, donc invisible. */}
+                {canManage ? (
+                  <InlineField
+                    variant="select"
+                    label="Signataire"
+                    emptyLabel="choisir un signataire"
+                    value={mandat.contact_signataire_id ?? ''}
+                    options={contactsPourSignature.map((c) => ({
+                      value: c.id,
+                      label: libelleContactPourCompte(c, mandat.compte_id),
+                    }))}
+                    onCommit={(v) => majMandat({ contact_signataire_id: v || null })}
+                    {...retourInline}
+                  />
+                ) : (
+                  <div>
+                    <p className="mb-0.5 text-km-xs uppercase tracking-wide text-km-faint">Signataire</p>
+                    <p className="text-xs font-semibold text-km-text">{mandat.contact_signataire_nom ?? '—'}</p>
+                  </div>
                 )}
                 <div>
                   <p className="mb-0.5 text-km-xs uppercase tracking-wide text-km-faint">Sites couverts</p>
