@@ -30,16 +30,27 @@
 -- statique de la décoration, là où le texte nu reçoit la vraie — celle sur laquelle on clique pour
 -- appeler.
 --
--- ══ POURQUOI ON LA CONSTRUIT AU LIEU DE LA STOCKER À LA MAIN ══
+-- ══ DEUX MODES, ET LES DEUX SONT DEMANDÉS ══
 --
--- La version du matin stockait un bloc HTML libre, modifiable dans un éditeur. Dix personnes, dix
--- blocs modifiés séparément : au troisième mois les signatures ne se ressemblent plus, l'une a perdu
--- le filet vert, l'autre a un nom d'entreprise en minuscules. C'est exactement ce qui arrive à toutes
--- les signatures d'entreprise laissées en édition libre.
+-- Naoëlle, 07/09/2026 : « les signatures sont un bloc HTML, faudrait qu'on puisse dans nos profils
+-- les personnaliser dans un bloc HTML ou texte avec les options gras, italique, URL, lien, etc. Faut
+-- les deux options, et que dans le volet on puisse choisir cette signature. »
 --
--- Les champs sont donc STRUCTURÉS — fonction, fixe, mobile — et `corps_html` est REGÉNÉRÉ par un
--- déclencheur à chaque modification. Personne n'écrit de HTML, et le gabarit ne peut pas dériver :
--- le changer, c'est changer une fonction, une fois, pour tout le monde.
+-- D'où `mode` :
+--
+--   GABARIT  Construite à partir de champs structurés — fonction, fixe, mobile. Le nom, l'adresse et
+--            la photo viennent du profil, la mise en page du gabarit ci-dessous. C'est le défaut, et
+--            c'est ce qui garantit que dix signatures se ressemblent : laissées en édition libre,
+--            au troisième mois l'une a perdu le filet vert et l'autre écrit « Kiwee » en minuscules.
+--
+--   LIBRE    Le bloc HTML de la personne, écrit ou collé depuis sa signature Gmail existante. Parce
+--            qu'imposer un gabarit à quelqu'un qui a déjà la sienne, sur mesure, serait la lui faire
+--            perdre — et parce que certaines signatures portent des choses que le gabarit ne
+--            prévoit pas.
+--
+-- `corps_html` est la RÉSULTANTE des deux : regénérée depuis les champs en mode GABARIT, recopiée
+-- depuis `corps_html_libre` en mode LIBRE. Le reste de l'application ne lit que `corps_html` et
+-- n'a pas à connaître le mode — y compris l'envoi, qui la relit en base.
 --
 -- ══ EN TABLEAU ET EN STYLES EN LIGNE, ET C'EST OBLIGATOIRE ══
 --
@@ -71,13 +82,28 @@ begin;
 alter table public.profils_signatures_email
   add column if not exists fonction         text,
   add column if not exists telephone_fixe   text,
-  add column if not exists telephone_mobile text;
+  add column if not exists telephone_mobile text,
+  add column if not exists mode             text not null default 'GABARIT',
+  -- Le bloc écrit ou collé par la personne, gardé MÊME en mode gabarit : basculer d'un mode à
+  -- l'autre et revenir ne doit pas effacer ce qu'on avait écrit.
+  add column if not exists corps_html_libre text;
+
+do $$
+begin
+  if not exists (select 1 from pg_constraint where conname = 'signature_mode_check') then
+    alter table public.profils_signatures_email
+      add constraint signature_mode_check check (mode in ('GABARIT', 'LIBRE'));
+  end if;
+end $$;
 
 comment on column public.profils_signatures_email.fonction is
   'Le titre affiché sous le nom. Absent, la signature affiche un appel à le compléter.';
 comment on column public.profils_signatures_email.corps_html is
-  'GÉNÉRÉ, ne pas écrire à la main : `fn_signature_html` le reconstruit à chaque modification des '
-  'champs structurés. Une édition directe serait écrasée à la modification suivante.';
+  'RÉSULTANTE, ne pas écrire à la main : regénérée depuis les champs structurés en mode GABARIT, '
+  'recopiée depuis corps_html_libre en mode LIBRE. Une édition directe serait écrasée à la '
+  'modification suivante. C''est la seule colonne que lit l''envoi.';
+comment on column public.profils_signatures_email.mode is
+  'GABARIT : construite depuis fonction/fixe/mobile. LIBRE : le bloc HTML de la personne.';
 
 -- ═══════════════════════════════════════════════════════════════════════════════════════════════
 -- LE GABARIT
@@ -170,10 +196,16 @@ begin
     return new;
   end if;
 
-  new.corps_html := fn_signature_html(
-    p.prenom, p.nom, p.email, p.photo_url,
-    new.fonction, new.telephone_fixe, new.telephone_mobile
-  );
+  if new.mode = 'LIBRE' then
+    -- LE BLOC DE LA PERSONNE, TEL QUEL. On ne le nettoie pas : c'est sa signature, elle en répond,
+    -- et un assainissement silencieux enlèverait justement ce qu'elle a voulu mettre.
+    new.corps_html := coalesce(new.corps_html_libre, '');
+  else
+    new.corps_html := fn_signature_html(
+      p.prenom, p.nom, p.email, p.photo_url,
+      new.fonction, new.telephone_fixe, new.telephone_mobile
+    );
+  end if;
   new.date_modification := now();
   return new;
 end;
@@ -181,7 +213,7 @@ $$;
 
 drop trigger if exists trg_regenerer_signature on public.profils_signatures_email;
 create trigger trg_regenerer_signature
-  before insert or update of fonction, telephone_fixe, telephone_mobile
+  before insert or update of fonction, telephone_fixe, telephone_mobile, mode, corps_html_libre
   on public.profils_signatures_email
   for each row execute function public.fn_regenerer_signature();
 
@@ -197,8 +229,9 @@ drop trigger if exists trg_signature_date_modification on public.profils_signatu
 -- toutes les regénérer sans écraser de travail. Si l'une l'avait été, ses champs structurés sont
 -- vides et le gabarit affichera l'appel à compléter : rien n'est perdu, tout est à ressaisir dans un
 -- formulaire au lieu d'un bloc HTML.
+-- On force le passage du déclencheur en écrivant une colonne qu'il surveille.
 update public.profils_signatures_email
-   set fonction = fonction
+   set mode = coalesce(mode, 'GABARIT')
  where true;
 
 -- ── GARDE-FOU ─────────────────────────────────────────────────────────────────────────────────

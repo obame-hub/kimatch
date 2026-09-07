@@ -27,9 +27,18 @@ export interface SignatureEmail {
    */
   corps_html: string
   active_par_defaut: boolean
+  /**
+   * GABARIT : construite depuis les champs ci-dessous. LIBRE : le bloc écrit par la personne.
+   *
+   * Naoëlle, 07/09/2026 : « faut les deux options ». Le gabarit garde dix signatures identiques ;
+   * le mode libre permet de coller celle qu'on avait déjà dans Gmail.
+   */
+  mode: 'GABARIT' | 'LIBRE'
   fonction: string | null
   telephone_fixe: string | null
   telephone_mobile: string | null
+  /** Gardé même en mode gabarit : basculer et revenir n'efface pas ce qu'on avait écrit. */
+  corps_html_libre: string | null
 }
 
 const ABSENTE = /does not exist|schema cache|404/i
@@ -45,7 +54,7 @@ export function useSignatureEmail() {
       if (!userData.user) return null
       const { data, error } = await supabase
         .from('profils_signatures_email')
-        .select('corps_html, active_par_defaut, fonction, telephone_fixe, telephone_mobile')
+        .select('corps_html, active_par_defaut, mode, fonction, telephone_fixe, telephone_mobile, corps_html_libre')
         .eq('profil_id', userData.user.id)
         .maybeSingle()
       if (error) {

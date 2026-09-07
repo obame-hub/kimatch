@@ -275,19 +275,33 @@ export function VoletEmail() {
             )}
           />
 
-          {/* ── La signature, en aperçu ── */}
+          {/* ══ LA SIGNATURE : ON CHOISIT AU MOMENT D'ÉCRIRE ══
+
+              Naoëlle, 07/09/2026 : « que dans le volet on puisse choisir cette signature. » Le mode
+              se règle une fois dans Mon profil ; ici on décide juste, pour CE mail, si elle part.
+              Un mail interne de deux lignes n'a pas besoin d'un bloc de signature. */}
           <div className="rounded-km border border-dashed border-km-line bg-km-soft px-3 py-2.5">
-            <label className="flex cursor-pointer items-center gap-2">
-              <input
-                type="checkbox"
-                checked={brouillon.avecSignature}
-                onChange={(e) => maj({ avecSignature: e.target.checked })}
-                className="h-3.5 w-3.5 accent-km-green"
-              />
-              <span className="text-km-label font-bold uppercase tracking-[0.06em] text-km-muted">
-                Ajouter ma signature
-              </span>
-            </label>
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <label className="flex cursor-pointer items-center gap-2">
+                <input
+                  type="checkbox"
+                  checked={brouillon.avecSignature}
+                  onChange={(e) => maj({ avecSignature: e.target.checked })}
+                  className="h-3.5 w-3.5 accent-km-green"
+                />
+                <span className="text-km-label font-bold uppercase tracking-[0.06em] text-km-muted">
+                  Ajouter ma signature
+                </span>
+              </label>
+              {signature && (
+                <span className="flex items-center gap-2 text-km-label text-km-faint">
+                  {signature.mode === 'LIBRE' ? 'ma signature à moi' : 'gabarit KiWee'}
+                  <a href="/profil" className="font-semibold text-km-green hover:underline">
+                    changer
+                  </a>
+                </span>
+              )}
+            </div>
             {brouillon.avecSignature && (
               signature?.corps_html?.trim() ? (
                 <div
