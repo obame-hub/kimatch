@@ -28,7 +28,7 @@
  */
 import { lazy, Suspense } from 'react'
 import { useSearchParams } from 'react-router-dom'
-import { Building2, Users, MapPin, Gauge, FileCheck2, FileSignature, Files, TrendingUp } from 'lucide-react'
+import { Building2, Users, MapPin, Gauge, FileCheck2, FileSignature, Files, TrendingUp, MessageSquare } from 'lucide-react'
 import { Topbar } from '@/components/layout/Topbar'
 import { cn } from '@/lib/utils'
 
@@ -40,6 +40,7 @@ const Mandats = lazy(() => import('@/pages/Mandats'))
 const Contrats = lazy(() => import('@/pages/Contrats'))
 const QualitePortefeuille = lazy(() => import('@/pages/QualitePortefeuille'))
 const Documents = lazy(() => import('@/pages/Documents'))
+const Activite = lazy(() => import('@/pages/Activite'))
 
 /** L'ordre est celui de sa diapositive : du compte jusqu'au compteur, puis ce qui l'engage. */
 const OBJETS = [
@@ -80,6 +81,20 @@ const OBJETS = [
      qui engage. Un contrat vient après le mandat qu'il a fallu faire signer pour l'obtenir. */
   { cle: 'contrats', libelle: 'Contrats', icone: FileSignature, sens: 'Ce qui engage le client', Page: Contrats },
   { cle: 'documents', libelle: 'Documents', icone: Files, sens: 'Les pièces justificatives', Page: Documents },
+  /* ══ ACTIVITÉ, LE 07/09/2026 ══
+
+     Naoëlle : « où est Appels non rattachés, je ne vois pas l'écran ? Il faudrait le mettre dans un
+     onglet dans Patrimoine qui recense un peu toutes les activités, tout ce qui concerne les mails
+     et appels, et mettre ça dedans. »
+
+     L'écran existait et fonctionnait, mais je l'avais inscrit dans `pagesRecherchables` et non dans
+     le menu : il n'était donc accessible qu'en le cherchant, c'est-à-dire en sachant déjà qu'il
+     existe. Une fonctionnalité qu'on ne trouve pas n'existe pas.
+
+     SA PLACE EST À LA FIN, et pour la même raison que les autres onglets suivent la chaîne du
+     travail : l'activité n'est pas un objet du patrimoine, c'est ce qui s'y est passé. On la
+     consulte après avoir regardé de quoi on parle. */
+  { cle: 'activite', libelle: 'Activité', icone: MessageSquare, sens: 'Les mails et les appels, consignés ou à rattacher', Page: Activite },
 ] as const
 
 type CleObjet = (typeof OBJETS)[number]['cle']

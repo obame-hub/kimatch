@@ -43,7 +43,32 @@ import {
  * comprises — et ajoute le numéro à la fiche, pour que les appels suivants tombent directement au
  * bon endroit. Sans ce second effet, on rattacherait le même prospect chaque semaine.
  */
+/**
+ * La page autonome, pour l'adresse directe et la recherche. Le chemin normal passe par l'onglet
+ * Activité de Patrimoine, qui monte `FileAppelsContenu` à côté des mails et des appels consignés.
+ */
 export default function FileAppels() {
+  return (
+    <div className="min-h-screen bg-km-bg">
+      <Topbar crumb="Patrimoine" title="Appels non rattachés" />
+      <div className="mx-auto max-w-[1100px] px-4 py-5">
+        <PageHeader
+          title="Appels non rattachés"
+          description="Les appels Allo dont le numéro n’est encore sur aucune fiche"
+        />
+        <FileAppelsContenu />
+      </div>
+    </div>
+  )
+}
+
+/**
+ * Le contenu seul, sans en-tête de page.
+ *
+ * Séparé pour être monté dans l'onglet Activité de Patrimoine, où l'en-tête est déjà celui de
+ * l'onglet : deux titres empilés feraient croire à deux écrans imbriqués.
+ */
+export function FileAppelsContenu() {
   const { data: file, isLoading } = useFileAppels()
   const [ouvert, setOuvert] = useState<string | null>(null)
   const [message, setMessage] = useState<string | null>(null)
@@ -71,14 +96,8 @@ export default function FileAppels() {
   }
 
   return (
-    <div className="min-h-screen bg-km-bg">
-      <Topbar crumb="Interactions" title="Appels non rattachés" />
-      <div className="mx-auto max-w-[1100px] px-4 py-5">
-        <PageHeader
-          title="Appels non rattachés"
-          description="Les appels Allo dont le numéro n’est encore sur aucune fiche"
-        />
-
+    <>
+      <div>
         <div className="mb-3 rounded-km-md border border-km-line bg-km-soft px-3.5 py-3">
           <p className="max-w-[70ch] text-km-label leading-relaxed text-km-muted">
             Rattacher un numéro consigne <strong>tous ses appels d’un coup</strong> — résumés et
@@ -166,7 +185,7 @@ node scripts/importer-appels-allo.cjs --ecrire
           </>
         )}
       </div>
-    </div>
+    </>
   )
 }
 

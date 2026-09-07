@@ -182,8 +182,9 @@ export const pagesRecherchables: NavItem[] = [
   { to: '/taches', label: 'Tâches', icon: CheckSquare },
   { to: '/documents', label: 'Documents', icon: Folder },
   { to: '/interactions', label: 'Interactions', icon: MessageSquare },
-  // La file des appels Allo dont le numéro n'est encore sur aucune fiche : une boîte de
-  // réception, pas un historique. Rangée juste après Interactions, dont elle est l'antichambre.
-  { to: '/appels-non-rattaches', label: 'Appels non rattachés', icon: PhoneOff },
+  // La file des appels Allo dont le numéro n'est encore sur aucune fiche. Elle vit dans l'onglet
+  // Activité de Patrimoine ; l'adresse directe reste recherchable, parce qu'on la cherche par son
+  // nom plutôt que par l'onglet qui la contient.
+  { to: '/patrimoine?objet=activite', label: 'Appels non rattachés', icon: PhoneOff },
   { to: '/versions', label: 'Versions', icon: Layers },
 ]
