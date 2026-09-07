@@ -101,7 +101,12 @@ function connexion() {
 async function lister(client) {
   const { rows } = await client.query(`
     select t.code, p.titre,
-           to_char(coalesce(p.date_publication, p.date_creation), 'DD/MM/YYYY HH24:MI') as quand,
+           -- À L'HEURE DE PARIS, ET NON CELLE DE LA BASE. La session Postgres est en UTC : sans
+           -- cette conversion, la liste affichait 18:03 pour une nouveauté que la page montre à
+           -- 20:03, et on doutait de la date au lieu de la lire. C'est ce qui m'a fait vérifier
+           -- l'heure de trois publications le 07/09/2026 — elles étaient justes, la liste non.
+           to_char(coalesce(p.date_publication, p.date_creation) at time zone 'Europe/Paris',
+                   'DD/MM/YYYY HH24:MI') as quand,
            p.date_publication is not null as parue
     from publications p
     left join types_publications t on t.id = p.type_publication_id
