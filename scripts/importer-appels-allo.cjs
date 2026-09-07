@@ -437,8 +437,39 @@ async function main() {
 
     await client.query('commit')
     console.log(`\n${ecrits} appel(s) consigné(s) sur une fiche, ${misEnFile} mis en file d'attente.`)
+
+    // ════════════════════════════════════════════════════════════════════════════════════════════
+    // RÉANALYSER, ET CE N'EST PAS OPTIONNEL
+    // ════════════════════════════════════════════════════════════════════════════════════════════
+    //
+    // LE 07/09/2026, CET OUBLI A MIS TOUTE L'ÉQUIPE À L'ARRÊT. L'import a ajouté 10 539
+    // interactions à une table qui en comptait 74 047. Mais les statistiques dont PostgreSQL se sert
+    // pour choisir un plan d'exécution datent de la dernière analyse : le 1er septembre, avec 6 654
+    // modifications non prises en compte depuis.
+    //
+    // Le moteur croyait donc la table à sa taille d'une semaine plus tôt, et parcourait la table
+    // entière au lieu d'utiliser ses index. Chaque lecture d'interactions est passée de quelques
+    // millisecondes à 2,3 secondes — mesuré dans `pg_stat_statements` : 17 664 appels, 40 578
+    // secondes de base consommées. Ces requêtes partant en rafale sur chaque fiche, elles ont
+    // saturé le pool de connexions : les écrans restaient sur « Chargement… », non parce que les
+    // requêtes échouaient, mais parce qu'elles faisaient la queue.
+    //
+    // Un `count(*)` sur la table dépassait 30 secondes. Après `analyze`, moins de 3.
+    //
+    // HORS TRANSACTION, APRÈS LE COMMIT : `analyze` prend ses propres verrous légers et n'a pas à
+    // retenir ceux de l'insertion. Il tourne une minute sur cette table — c'est le prix, et il est
+    // sans comparaison avec une application à l'arrêt.
+    if (ecrits > 0 || misEnFile > 0) {
+      process.stdout.write('réanalyse des tables (le planificateur a besoin des nouvelles tailles)…')
+      const debut = Date.now()
+      await client.query('analyze interactions')
+      if (fileExiste) await client.query('analyze appels_non_rattaches')
+      console.log(` fait en ${Math.round((Date.now() - debut) / 1000)} s.`)
+    }
+
     console.log('Retour arrière : delete from interactions where source_externe_id like \'cll-%\';')
     console.log('                 delete from appels_non_rattaches;')
+    console.log('                 puis relancer : analyze interactions;')
   } catch (e) {
     await client.query('rollback').catch(() => {})
     throw e
