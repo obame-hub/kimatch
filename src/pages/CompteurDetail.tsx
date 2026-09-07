@@ -6,6 +6,7 @@ import { Button } from '@/components/ui/button'
 import { ZoneDepotFichiers } from '@/components/ui/zone-depot-fichiers'
 import { Badge } from '@/components/ui/badge'
 import { Dialog } from '@/components/ui/dialog'
+import { DialogSuppression } from '@/components/ui/dialog-suppression'
 import { FormField, Input, Select } from '@/components/ui/form'
 import { HistoriqueDiscret } from '@/components/ui/historique-discret'
 import { EntityLink } from '@/components/ui/entity-link'
@@ -1119,22 +1120,16 @@ export default function CompteurDetail() {
       </div>
 
       <AddConsommationDialog compteurId={compteur.id} open={showAdd} onClose={() => setShowAdd(false)} />
-      <Dialog
-        open={confirmDelete}
-        onClose={() => setConfirmDelete(false)}
-        title="Supprimer ce compteur ?"
-        description="Cette action est irréversible. L'historique de consommation et les contrats rattachés ne seront pas supprimés mais perdront leur lien à ce compteur."
-      >
-        {suppression.erreur && (
-          <p className="rounded-lg border border-red-200 bg-km-red-soft px-3 py-2 text-xs text-red-700">{suppression.erreur}</p>
-        )}
-        <div className="flex justify-end gap-2 pt-2">
-          <Button type="button" variant="ghost" onClick={() => { suppression.reinitialiser(); setConfirmDelete(false) }}>Annuler</Button>
-          <Button type="button" variant="outline" className="border-red-200 text-km-red hover:bg-km-red-soft" disabled={suppression.enCours} onClick={handleDelete}>
-                {suppression.enCours ? 'Suppression…' : 'Supprimer définitivement'}
-              </Button>
-        </div>
-      </Dialog>
+      <DialogSuppression
+        ouvert={confirmDelete}
+        onFermer={() => { suppression.reinitialiser(); setConfirmDelete(false) }}
+        type="compteur"
+        id={compteur.id}
+        nom={compteur.numero_pdl}
+        onConfirmer={handleDelete}
+        enCours={suppression.enCours}
+        erreur={suppression.erreur}
+      />
       {toast && (
         <div className="fixed bottom-6 left-1/2 z-50 -translate-x-1/2 whitespace-nowrap rounded-lg bg-ink-800 px-4 py-2.5 text-xs font-semibold text-white shadow-lg">
           {toast}

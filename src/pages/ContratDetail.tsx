@@ -11,6 +11,7 @@ import { FriseStatut } from '@/components/opportunite/FriseStatut'
 import { EntityLink } from '@/components/ui/entity-link'
 import { useSuiviDuContrat, SANTE_LIBELLE } from '@/lib/data/suivisContrats'
 import { Dialog } from '@/components/ui/dialog'
+import { DialogSuppression } from '@/components/ui/dialog-suppression'
 import { FormField, Input, Select } from '@/components/ui/form'
 import { HistoriqueDiscret } from '@/components/ui/historique-discret'
 import { InlineField } from '@/components/ui/inline-field'
@@ -1162,22 +1163,16 @@ export default function ContratDetail() {
         />
       )}
 
-      <Dialog
-        open={confirmDelete}
-        onClose={() => setConfirmDelete(false)}
-        title="Supprimer ce contrat ?"
-        description="Cette action est irréversible. Les compteurs rattachés ne seront pas supprimés mais perdront leur lien à ce contrat."
-      >
-        {suppression.erreur && (
-          <p className="rounded-lg border border-red-200 bg-km-red-soft px-3 py-2 text-xs text-red-700">{suppression.erreur}</p>
-        )}
-        <div className="flex justify-end gap-2 pt-2">
-          <Button type="button" variant="ghost" onClick={() => { suppression.reinitialiser(); setConfirmDelete(false) }}>Annuler</Button>
-          <Button type="button" variant="outline" className="border-red-200 text-km-red hover:bg-km-red-soft" disabled={suppression.enCours} onClick={handleDelete}>
-                {suppression.enCours ? 'Suppression…' : 'Supprimer définitivement'}
-              </Button>
-        </div>
-      </Dialog>
+      <DialogSuppression
+        ouvert={confirmDelete}
+        onFermer={() => { suppression.reinitialiser(); setConfirmDelete(false) }}
+        type="contrat"
+        id={contrat.id}
+        nom={contrat.fournisseur_nom}
+        onConfirmer={handleDelete}
+        enCours={suppression.enCours}
+        erreur={suppression.erreur}
+      />
 
       <DialogSignatureContrat
         ouvert={signatureOuverte}

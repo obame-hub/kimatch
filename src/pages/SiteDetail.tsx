@@ -8,6 +8,7 @@ import { Badge } from '@/components/ui/badge'
 import { EntityLink } from '@/components/ui/entity-link'
 import { PhoneLink, EmailLink } from '@/components/ui/contact-link'
 import { Dialog } from '@/components/ui/dialog'
+import { DialogSuppression } from '@/components/ui/dialog-suppression'
 import { HistoriqueDiscret } from '@/components/ui/historique-discret'
 import { InlineField } from '@/components/ui/inline-field'
 import { PdlDraftRows, emptyPdlDraft, buildDraftCharacteristics, champsPdlManquants, applyExtractionToDraft, type PdlDraft, type ExtractedField } from '@/components/compteur/PdlDraftRows'
@@ -811,19 +812,15 @@ export default function SiteDetail() {
         />
       )}
 
-      <Dialog
-        open={confirmDelete}
-        onClose={() => setConfirmDelete(false)}
-        title="Supprimer ce site ?"
-        description="Cette action est irréversible. Les compteurs, contrats et recommandations rattachés ne seront pas supprimés mais perdront leur lien à ce site."
-      >
-        <div className="flex justify-end gap-2 pt-2">
-          <Button type="button" variant="ghost" onClick={() => setConfirmDelete(false)}>Annuler</Button>
-          <Button type="button" variant="outline" className="border-red-200 text-km-red hover:bg-km-red-soft" disabled={deleteSite.isPending} onClick={handleDelete}>
-            Supprimer définitivement
-          </Button>
-        </div>
-      </Dialog>
+      <DialogSuppression
+        ouvert={confirmDelete}
+        onFermer={() => setConfirmDelete(false)}
+        type="site"
+        id={site.id}
+        nom={site.nom}
+        onConfirmer={handleDelete}
+        enCours={deleteSite.isPending}
+      />
     </div>
   )
 }

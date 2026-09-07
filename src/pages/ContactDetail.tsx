@@ -10,6 +10,7 @@ import { InlineField } from '@/components/ui/inline-field'
 import { RattachementsContact } from '@/components/contact/RattachementsContact'
 import { PhoneLink, EmailLink } from '@/components/ui/contact-link'
 import { Dialog } from '@/components/ui/dialog'
+import { DialogSuppression } from '@/components/ui/dialog-suppression'
 import { FormField, Input, Select, Textarea } from '@/components/ui/form'
 import { HistoriqueDiscret } from '@/components/ui/historique-discret'
 import { ActivityFeed } from '@/components/site/ActivityFeed'
@@ -555,22 +556,16 @@ export default function ContactDetail() {
 
       {editOpen && <EditContactDialog open={editOpen} onClose={() => setEditOpen(false)} contact={contact} compteSegment={compte?.segment ?? null} />}
 
-      <Dialog
-        open={confirmDelete}
-        onClose={() => setConfirmDelete(false)}
-        title="Supprimer ce contact ?"
-        description="Cette action est irréversible."
-      >
-        {suppression.erreur && (
-          <p className="rounded-lg border border-red-200 bg-km-red-soft px-3 py-2 text-xs text-red-700">{suppression.erreur}</p>
-        )}
-        <div className="flex justify-end gap-2 pt-2">
-          <Button type="button" variant="ghost" onClick={() => { suppression.reinitialiser(); setConfirmDelete(false) }}>Annuler</Button>
-          <Button type="button" variant="outline" className="border-red-200 text-km-red hover:bg-km-red-soft" disabled={suppression.enCours} onClick={handleDelete}>
-                {suppression.enCours ? 'Suppression…' : 'Supprimer définitivement'}
-              </Button>
-        </div>
-      </Dialog>
+      <DialogSuppression
+        ouvert={confirmDelete}
+        onFermer={() => { suppression.reinitialiser(); setConfirmDelete(false) }}
+        type="contact"
+        id={contact.id}
+        nom={`${contact.prenom} ${contact.nom}`.trim()}
+        onConfirmer={handleDelete}
+        enCours={suppression.enCours}
+        erreur={suppression.erreur}
+      />
       {toast && (
         <div className="fixed bottom-6 left-1/2 z-50 -translate-x-1/2 whitespace-nowrap rounded-lg bg-ink-800 px-4 py-2.5 text-xs font-semibold text-white shadow-lg">
           {toast}

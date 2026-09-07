@@ -1,0 +1,315 @@
+import { useQuery } from '@tanstack/react-query'
+import { supabase } from '@/lib/supabase'
+
+/**
+ * ══ CE QU'UNE SUPPRESSION VA VRAIMENT EMPORTER ══
+ *
+ * Naoëlle, 07/09/2026, après que Guillaume a supprimé un compte : « il faudrait que quand on
+ * supprime un compte et n'importe quel objet, on ait une pop-up qui montre tous les objets liés qui
+ * vont être supprimés. »
+ *
+ * ══ POURQUOI CE FICHIER EXISTE : LA POPUP DISAIT LE CONTRAIRE DE LA VÉRITÉ ══
+ *
+ * Le texte affiché avant ce jour, mot pour mot : « Cette action est irréversible. Les sites,
+ * contacts et contrats rattachés NE SERONT PAS SUPPRIMÉS mais perdront leur lien à ce compte. »
+ *
+ * Les trois affirmations sont fausses. Relevé dans le schéma le 07/09/2026 : `contacts.compte_id`,
+ * `sites.compte_id` et `mandats.compte_id` sont tous en `on delete cascade`, et la cascade continue
+ * sur six niveaux — les sites emportent les compteurs, les compteurs emportent les consommations,
+ * les liens de recommandation, les offres et leurs prix par point de livraison. Une trentaine de
+ * tables au total.
+ *
+ * Une phrase rassurante devant une action destructrice est pire que pas de phrase du tout : elle
+ * fait cliquer.
+ *
+ * ══ TROIS RÉGIMES, ET ILS NE SE RESSEMBLENT PAS ══
+ *
+ *   DÉTRUIT   `cascade` — la ligne disparaît. C'est irréversible et il n'existe aucune trace :
+ *             `historiques_entites` est vide et le déclencheur d'audit ne couvre que l'insertion
+ *             et la modification.
+ *   DÉTACHÉ   `set null` — la ligne survit mais perd son lien, donc n'apparaît plus sur aucune
+ *             fiche. Elle n'est pas perdue, elle est introuvable, ce qui se voit encore moins.
+ *   BLOQUE    `restrict` / `no action` — Postgres refuse la suppression. Une recommandation
+ *             protège ainsi son compte, et c'est le seul garde-fou existant aujourd'hui.
+ *
+ * La popup doit distinguer les trois, sinon elle ment à son tour : annoncer « 4 interactions
+ * supprimées » quand elles sont détachées est un mensonge dans l'autre sens.
+ *
+ * ══ POURQUOI DÉCLARÉ À LA MAIN PLUTÔT QUE LU DANS LE SCHÉMA ══
+ *
+ * Postgres connaît l'arbre exact, et une fonction en base le rendrait sans risque d'oubli. Mais
+ * cela demande une migration, donc une intervention manuelle sur la production, alors que ce
+ * correctif est urgent : cette liste-ci se déploie au push. Elle porte donc ce qu'un utilisateur a
+ * besoin de voir — pas les 30 tables techniques, mais les objets qu'il reconnaît.
+ *
+ * SI ON AJOUTE UNE TABLE LIÉE, IL FAUT L'AJOUTER ICI. C'est le défaut de la méthode, assumé : voir
+ * `verifier-cascades.sql` dans supabase/verifications, qui compare cette liste au schéma réel.
+ */
+
+/** Ce que devient une famille d'objets liés quand on supprime le parent. */
+export type Regime = 'detruit' | 'detache' | 'bloque'
+
+export interface LigneInventaire {
+  /** Le nom que l'utilisateur reconnaît, au singulier. Le pluriel est déduit. */
+  libelle: string
+  nombre: number
+  regime: Regime
+  /** Précision affichée sous la ligne quand elle aide — ce que la destruction emporte à son tour. */
+  detail?: string
+}
+
+export interface Inventaire {
+  lignes: LigneInventaire[]
+  detruits: number
+  detaches: number
+  /** Non vide ⇒ Postgres refusera. Autant le dire avant le clic que montrer une erreur après. */
+  bloquants: LigneInventaire[]
+}
+
+/** Les objets que Kimatch sait supprimer depuis une fiche. */
+export type TypeObjet = 'compte' | 'site' | 'compteur' | 'contact' | 'contrat' | 'mandat' | 'recommandation'
+
+/** Un comptage, sans ramener les lignes : `head: true` ne transfère que le total. */
+async function compter(table: string, colonne: string, valeur: string | string[]): Promise<number> {
+  if (Array.isArray(valeur) && valeur.length === 0) return 0
+  let r = supabase.from(table).select('id', { count: 'exact', head: true })
+  r = Array.isArray(valeur) ? r.in(colonne, valeur) : r.eq(colonne, valeur)
+  const { count, error } = await r
+  // UN COMPTAGE QUI ÉCHOUE NE VAUT PAS ZÉRO. Rendre 0 ferait afficher « rien ne sera supprimé »
+  // sur une table qu'on n'a pas pu lire — exactement le mensonge qu'on corrige.
+  if (error) throw new Error(`Impossible de compter ${table} : ${error.message}`)
+  return count ?? 0
+}
+
+/** Les identifiants des sites d'un compte : la cascade passe par eux pour les compteurs et contrats. */
+async function sitesDuCompte(compteId: string): Promise<string[]> {
+  const { data, error } = await supabase.from('sites').select('id').eq('compte_id', compteId)
+  if (error) throw new Error(error.message)
+  return (data ?? []).map((s) => s.id as string)
+}
+
+async function compteursDesSites(siteIds: string[]): Promise<string[]> {
+  if (siteIds.length === 0) return []
+  const { data, error } = await supabase.from('compteurs').select('id').in('site_id', siteIds)
+  if (error) throw new Error(error.message)
+  return (data ?? []).map((c) => c.id as string)
+}
+
+/* ════════════════════════════════════ L'INVENTAIRE PAR OBJET ════════════════════════════════════ */
+
+async function inventaireCompte(id: string): Promise<LigneInventaire[]> {
+  const siteIds = await sitesDuCompte(id)
+  const compteurIds = await compteursDesSites(siteIds)
+
+  const [contacts, mandats, contratsSites, signaux, consommations, interactions,
+    opportunites, pistes, requetes, recommandations, acces] = await Promise.all([
+    compter('contacts', 'compte_id', id),
+    compter('mandats', 'compte_id', id),
+    compter('contrats', 'site_id', siteIds),
+    compter('signaux', 'site_id', siteIds),
+    compter('consommations', 'compteur_id', compteurIds),
+    compter('interactions', 'compte_id', id),
+    compter('opportunites', 'compte_id', id),
+    compter('pistes', 'compte_id', id),
+    compter('requetes', 'compte_id', id),
+    // RESTRICT : celui-là ne se supprime pas, il refuse.
+    compter('recommandations', 'compte_id', id),
+    compter('perimetres_acces', 'compte_id', id),
+  ])
+
+  return [
+    { libelle: 'recommandation', nombre: recommandations, regime: 'bloque',
+      detail: 'Une recommandation interdit la suppression du compte. Il faut la supprimer d’abord, ou renoncer.' },
+    { libelle: 'contact', nombre: contacts, regime: 'detruit' },
+    { libelle: 'site', nombre: siteIds.length, regime: 'detruit',
+      detail: siteIds.length > 0 ? 'avec leurs compteurs, contrats et signaux' : undefined },
+    { libelle: 'compteur', nombre: compteurIds.length, regime: 'detruit',
+      detail: compteurIds.length > 0 ? 'rattaché aux sites ci-dessus' : undefined },
+    { libelle: 'contrat', nombre: contratsSites, regime: 'detruit' },
+    { libelle: 'mandat', nombre: mandats, regime: 'detruit' },
+    { libelle: 'signal', nombre: signaux, regime: 'detruit' },
+    { libelle: 'relevé de consommation', nombre: consommations, regime: 'detruit' },
+    { libelle: 'partage d’accès', nombre: acces, regime: 'detruit' },
+    { libelle: 'interaction', nombre: interactions, regime: 'detache' },
+    { libelle: 'opportunité', nombre: opportunites, regime: 'detache' },
+    { libelle: 'piste', nombre: pistes, regime: 'detache' },
+    { libelle: 'requête', nombre: requetes, regime: 'detache' },
+  ]
+}
+
+async function inventaireSite(id: string): Promise<LigneInventaire[]> {
+  const compteurIds = await compteursDesSites([id])
+  const [contrats, signaux, consommations, interactions, requetes, contactsLies] = await Promise.all([
+    compter('contrats', 'site_id', id),
+    compter('signaux', 'site_id', id),
+    compter('consommations', 'compteur_id', compteurIds),
+    compter('interactions', 'site_id', id),
+    compter('requetes', 'site_id', id),
+    compter('contacts_sites', 'site_id', id),
+  ])
+  return [
+    { libelle: 'compteur', nombre: compteurIds.length, regime: 'detruit',
+      detail: compteurIds.length > 0 ? 'avec leurs relevés et leurs liens d’offre' : undefined },
+    { libelle: 'contrat', nombre: contrats, regime: 'detruit' },
+    { libelle: 'signal', nombre: signaux, regime: 'detruit' },
+    { libelle: 'relevé de consommation', nombre: consommations, regime: 'detruit' },
+    { libelle: 'contact rattaché à ce site', nombre: contactsLies, regime: 'detruit',
+      detail: contactsLies > 0 ? 'seul le rattachement disparaît, pas le contact' : undefined },
+    { libelle: 'interaction', nombre: interactions, regime: 'detache' },
+    { libelle: 'requête', nombre: requetes, regime: 'detache' },
+  ]
+}
+
+async function inventaireCompteur(id: string): Promise<LigneInventaire[]> {
+  const [consommations, contrats, recos, versions, opportunites, signaux, requetes] = await Promise.all([
+    compter('consommations', 'compteur_id', id),
+    compter('contrats_compteurs', 'compteur_id', id),
+    compter('recommandations_compteurs', 'compteur_id', id),
+    compter('versions_recommandation_compteurs', 'compteur_id', id),
+    compter('opportunites_compteurs', 'compteur_id', id),
+    compter('signaux', 'compteur_id', id),
+    compter('requetes', 'compteur_id', id),
+  ])
+  return [
+    { libelle: 'relevé de consommation', nombre: consommations, regime: 'detruit' },
+    { libelle: 'rattachement à un contrat', nombre: contrats, regime: 'detruit',
+      detail: contrats > 0 ? 'avec les tarifs saisis dessus' : undefined },
+    { libelle: 'présence dans une recommandation', nombre: recos, regime: 'detruit' },
+    { libelle: 'présence dans une version de cotation', nombre: versions, regime: 'detruit',
+      detail: versions > 0 ? 'avec les prix et marges saisis par offre' : undefined },
+    { libelle: 'présence dans une opportunité', nombre: opportunites, regime: 'detruit' },
+    { libelle: 'signal', nombre: signaux, regime: 'detruit' },
+    { libelle: 'requête', nombre: requetes, regime: 'detache' },
+  ]
+}
+
+async function inventaireContact(id: string): Promise<LigneInventaire[]> {
+  const [comptesLies, sitesLies, interactions, actions, opportunites, requetes, signaux, pistes] =
+    await Promise.all([
+      compter('contacts_comptes', 'contact_id', id),
+      compter('contacts_sites', 'contact_id', id),
+      compter('interactions', 'contact_id', id),
+      compter('actions', 'contact_id', id),
+      compter('opportunites', 'contact_id', id),
+      compter('requetes', 'contact_id', id),
+      compter('signaux', 'contact_id', id),
+      compter('pistes', 'contact_id', id),
+    ])
+  return [
+    { libelle: 'rattachement à un compte', nombre: comptesLies, regime: 'detruit',
+      detail: comptesLies > 0 ? 'le compte lui-même n’est pas touché' : undefined },
+    { libelle: 'rattachement à un site', nombre: sitesLies, regime: 'detruit' },
+    { libelle: 'interaction', nombre: interactions, regime: 'detache' },
+    { libelle: 'tâche', nombre: actions, regime: 'detache' },
+    { libelle: 'opportunité', nombre: opportunites, regime: 'detache' },
+    { libelle: 'requête', nombre: requetes, regime: 'detache' },
+    { libelle: 'signal', nombre: signaux, regime: 'detache' },
+    { libelle: 'piste', nombre: pistes, regime: 'detache' },
+  ]
+}
+
+async function inventaireContrat(id: string): Promise<LigneInventaire[]> {
+  const [compteurs, suivis, remunerations, requetes, signaux] = await Promise.all([
+    compter('contrats_compteurs', 'contrat_id', id),
+    compter('suivis_contrats', 'contrat_id', id),
+    compter('remunerations', 'contrat_id', id),
+    compter('requetes', 'contrat_id', id),
+    compter('signaux', 'contrat_id', id),
+  ])
+  return [
+    { libelle: 'point de livraison rattaché', nombre: compteurs, regime: 'detruit',
+      detail: compteurs > 0 ? 'avec les tarifs saisis dessus ; les compteurs eux-mêmes restent' : undefined },
+    { libelle: 'suivi', nombre: suivis, regime: 'detache' },
+    { libelle: 'rémunération', nombre: remunerations, regime: 'detache' },
+    { libelle: 'requête', nombre: requetes, regime: 'detache' },
+    { libelle: 'signal', nombre: signaux, regime: 'detache' },
+  ]
+}
+
+async function inventaireMandat(id: string): Promise<LigneInventaire[]> {
+  const [compteurs, courtiers, recos, actions, interactions] = await Promise.all([
+    compter('mandats_compteurs', 'mandat_id', id),
+    compter('mandats_courtiers', 'mandat_id', id),
+    compter('recommandations_mandats', 'mandat_id', id),
+    compter('actions', 'mandat_id', id),
+    compter('interactions', 'mandat_id', id),
+  ])
+  return [
+    { libelle: 'point de livraison mandaté', nombre: compteurs, regime: 'detruit',
+      detail: compteurs > 0 ? 'le compteur lui-même reste' : undefined },
+    { libelle: 'courtier rattaché', nombre: courtiers, regime: 'detruit' },
+    { libelle: 'lien à une recommandation', nombre: recos, regime: 'detruit' },
+    { libelle: 'tâche', nombre: actions, regime: 'detruit' },
+    { libelle: 'interaction', nombre: interactions, regime: 'detache' },
+  ]
+}
+
+async function inventaireRecommandation(id: string): Promise<LigneInventaire[]> {
+  const [compteurs, mandats, objectifs, sites, contrats, suivis, remunerations, interactions, partages] =
+    await Promise.all([
+      compter('recommandations_compteurs', 'recommandation_id', id),
+      compter('recommandations_mandats', 'recommandation_id', id),
+      compter('recommandations_objectifs', 'recommandation_id', id),
+      compter('recommandations_sites', 'recommandation_id', id),
+      compter('contrats', 'recommandation_id', id),
+      compter('suivis_contrats', 'recommandation_id', id),
+      compter('remunerations', 'recommandation_id', id),
+      compter('interactions', 'recommandation_id', id),
+      compter('partages_etude_client', 'recommandation_id', id),
+    ])
+  return [
+    { libelle: 'point de livraison au périmètre', nombre: compteurs, regime: 'detruit' },
+    { libelle: 'lien à un mandat', nombre: mandats, regime: 'detruit' },
+    { libelle: 'objectif', nombre: objectifs, regime: 'detruit' },
+    { libelle: 'site au périmètre', nombre: sites, regime: 'detruit' },
+    { libelle: 'partage de l’étude client', nombre: partages, regime: 'detruit' },
+    { libelle: 'contrat issu de cette recommandation', nombre: contrats, regime: 'detache' },
+    { libelle: 'suivi de contrat', nombre: suivis, regime: 'detache' },
+    { libelle: 'rémunération', nombre: remunerations, regime: 'detache' },
+    { libelle: 'interaction', nombre: interactions, regime: 'detache' },
+  ]
+}
+
+const INVENTAIRES: Record<TypeObjet, (id: string) => Promise<LigneInventaire[]>> = {
+  compte: inventaireCompte,
+  site: inventaireSite,
+  compteur: inventaireCompteur,
+  contact: inventaireContact,
+  contrat: inventaireContrat,
+  mandat: inventaireMandat,
+  recommandation: inventaireRecommandation,
+}
+
+/**
+ * L'inventaire de ce que la suppression de cet objet va emporter.
+ *
+ * `enabled` sur l'ouverture de la popup et non sur le montage : compter coûte une dizaine de
+ * requêtes, inutile de les lancer sur chaque fiche ouverte au cas où quelqu'un cliquerait.
+ */
+export function useInventaireSuppression(type: TypeObjet, id: string | undefined, actif: boolean) {
+  return useQuery({
+    queryKey: ['inventaire-suppression', type, id],
+    enabled: actif && Boolean(id),
+    // Il doit refléter l'état au moment du clic, pas celui d'il y a cinq minutes.
+    staleTime: 0,
+    gcTime: 0,
+    queryFn: async (): Promise<Inventaire> => {
+      const lignes = (await INVENTAIRES[type](id!)).filter((l) => l.nombre > 0)
+      return {
+        lignes,
+        detruits: lignes.filter((l) => l.regime === 'detruit').reduce((t, l) => t + l.nombre, 0),
+        detaches: lignes.filter((l) => l.regime === 'detache').reduce((t, l) => t + l.nombre, 0),
+        bloquants: lignes.filter((l) => l.regime === 'bloque'),
+      }
+    },
+  })
+}
+
+/** « 3 contacts », « 1 site » — le pluriel sans y penser à chaque appel. */
+export function pluriel(n: number, libelle: string): string {
+  if (n <= 1) return `${n} ${libelle}`
+  // Les libellés composés se pluralisent sur leur premier mot : « 2 relevés de consommation ».
+  const [tete, ...reste] = libelle.split(' ')
+  const teteAuPluriel = /(x|s)$/.test(tete) ? tete : `${tete}s`
+  return `${n} ${[teteAuPluriel, ...reste].join(' ')}`
+}

@@ -30,6 +30,7 @@ import { OngletFichiers } from '@/components/compte/OngletFichiers'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Dialog } from '@/components/ui/dialog'
+import { DialogSuppression } from '@/components/ui/dialog-suppression'
 import { Sheet } from '@/components/ui/sheet'
 import { ContactForm } from '@/components/contact/ContactForm'
 import { PdlMethodSheet, type PdlMethode } from '@/components/compteur/PdlMethodSheet'
@@ -831,22 +832,16 @@ export default function CompteDetail() {
         <DialogCreationOpportunite onFermer={() => setAddOppOpen(false)} compteId={compte.id} />
       )}
 
-      <Dialog
-        open={confirmDelete}
-        onClose={() => setConfirmDelete(false)}
-        title="Supprimer ce compte ?"
-        description="Cette action est irréversible. Les sites, contacts et contrats rattachés ne seront pas supprimés mais perdront leur lien à ce compte."
-      >
-        {suppression.erreur && (
-          <p className="rounded-lg border border-red-200 bg-km-red-soft px-3 py-2 text-xs text-red-700">{suppression.erreur}</p>
-        )}
-        <div className="flex justify-end gap-2 pt-2">
-          <Button type="button" variant="ghost" onClick={() => { suppression.reinitialiser(); setConfirmDelete(false) }}>Annuler</Button>
-          <Button type="button" variant="outline" className="border-red-200 text-km-red hover:bg-km-red-soft" disabled={suppression.enCours} onClick={handleDelete}>
-                {suppression.enCours ? 'Suppression…' : 'Supprimer définitivement'}
-              </Button>
-        </div>
-      </Dialog>
+      <DialogSuppression
+        ouvert={confirmDelete}
+        onFermer={() => { suppression.reinitialiser(); setConfirmDelete(false) }}
+        type="compte"
+        id={compte.id}
+        nom={compte.nom}
+        onConfirmer={handleDelete}
+        enCours={suppression.enCours}
+        erreur={suppression.erreur}
+      />
     </div>
   )
 }
