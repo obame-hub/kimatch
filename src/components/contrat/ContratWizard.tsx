@@ -16,6 +16,7 @@ import { nomJourFerieFR } from '@/lib/joursFeries'
 import { cn } from '@/lib/utils'
 import type { Recommandation } from '@/types/domain'
 import { trouverParCode } from '@/lib/codeReferentiel'
+import { contactsDuCompte as contactsRattaches } from '@/lib/contactsDuCompte'
 
 const ETAPES = ['Fournisseur', 'Durée', 'Préférences', 'Signataire']
 
@@ -118,8 +119,11 @@ export function ContratWizard({
 
   const estGaz = typeEnergie === 'gaz'
   const optionsTypePrix = useMemo(() => (estGaz ? ['Fixe', 'Indexé'] : ['Marché']), [estGaz])
+  /* Tous les contacts du compte de la recommandation, rattachements indirects compris — « à partir
+     du moment où un contact est lié à un compte, il est éligible pour tous les enregistrements qui
+     en découlent » (William, 07/09/2026). */
   const contactsDuCompte = useMemo(
-    () => (contacts ?? []).filter((c) => c.compte_id === reco.compte_id),
+    () => contactsRattaches(contacts, reco.compte_id),
     [contacts, reco.compte_id],
   )
   const compteCible = comptes?.find((c) => c.id === reco.compte_id)

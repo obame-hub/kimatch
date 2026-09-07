@@ -25,6 +25,7 @@ import {
   ORIGINES_OPPORTUNITE,
 } from '@/lib/data/opportunites'
 import { useContacts } from '@/lib/data/contacts'
+import { contactsDuCompte } from '@/lib/contactsDuCompte'
 import { useMandats } from '@/lib/data/mandats'
 import { cn } from '@/lib/utils'
 import { useOuvrirCreation } from '@/lib/ouvrirCreation'
@@ -311,8 +312,18 @@ export function DialogCreationOpportunite({ onFermer, compteId: compteImpose }: 
 }) {
   const navigate = useNavigate()
   const { data: tousContacts } = useContacts()
+
+  /* ══ TOUS LES CONTACTS DU COMPTE, PAS SEULEMENT CEUX DONT C'EST LE COMPTE PRINCIPAL ══
+
+     William, 07/09/2026 : « quand Guillaume essaie de créer une opportunité, il ne peut pas choisir
+     un contact lié au compte, il peut uniquement choisir un contact DU compte. Même problème que
+     pour le contrat. À partir du moment où un contact est lié à un compte, il est éligible pour tous
+     les enregistrements qui en découlent. »
+
+     Le filtre lisait `contacts.compte_id`, qui ne porte que le rattachement PRINCIPAL. Les
+     rattachements multiples vivent dans `contacts_comptes` depuis le 13/08/2026. */
   const contacts = useMemo(
-    () => (compteImpose ? (tousContacts ?? []).filter((c) => c.compte_id === compteImpose) : tousContacts),
+    () => (compteImpose ? contactsDuCompte(tousContacts, compteImpose) : tousContacts),
     [tousContacts, compteImpose],
   )
   const { data: statuts } = useStatutsOpportunites()
@@ -400,17 +411,32 @@ export function DialogCreationOpportunite({ onFermer, compteId: compteImpose }: 
           <ChoixParRecherche
             items={contacts ?? []}
             valeur={contactId}
-            onChoisir={(c) => { setContactId(c?.id ?? ''); setCompteId(c?.compte_id ?? '') }}
+            /* ══ LE COMPTE DE L'OPPORTUNITÉ EST CELUI D'OÙ L'ON VIENT ══
+
+               Second défaut, trouvé en corrigeant le premier, et plus grave : cette ligne posait le
+               compte PRINCIPAL du contact choisi. Ouvrir la fiche de MEMPHIS BRUAY, choisir Arnaud
+               SCHROTTER — rattaché à ce compte mais dont le principal est MEMPHIS LENS 2 — aurait
+               créé l'opportunité sur MEMPHIS LENS 2. Une donnée fausse et silencieuse.
+
+               Quand on vient d'une fiche compte, c'est CE compte qui fait foi. Hors de ce cas, le
+               compte principal du contact reste la seule information disponible. */
+            onChoisir={(c) => {
+              setContactId(c?.id ?? '')
+              setCompteId(compteImpose ?? c?.compte_id ?? '')
+            }}
             placeholder="Nom, compte ou courriel…"
             principal={(c) => `${c.prenom} ${c.nom}`}
+            /* LA SOCIÉTÉ D'ORIGINE RESTE AFFICHÉE, et elle compte plus qu'avant : la liste propose
+               maintenant des personnes dont le compte principal est ailleurs, et sans cette mention
+               on ne saurait pas pourquoi elles sont là. */
             secondaire={(c) => [c.compte_nom, c.fonction].filter(Boolean).join(' · ') || null}
             filtre={(c, q) => [c.prenom, c.nom, c.compte_nom, c.email].some((v) => (v ?? '').toLowerCase().includes(q))}
             aucun={
               compteImpose
-                ? 'Aucun contact sur ce compte. Créez-le depuis l’onglet Contacts de la fiche, puis revenez ici.'
+                ? 'Aucun contact rattaché à ce compte. Créez-le depuis l’onglet Contacts de la fiche, ou rattachez-en un existant, puis revenez ici.'
                 : 'Aucun contact. Créez-le depuis Contacts, puis revenez ici.'
             }
-            totalLibelle={`${(contacts ?? []).length} contact${(contacts ?? []).length > 1 ? 's' : ''}${compteImpose ? ' sur ce compte' : ''}`}
+            totalLibelle={`${(contacts ?? []).length} contact${(contacts ?? []).length > 1 ? 's' : ''}${compteImpose ? ' rattaché(s) à ce compte' : ''}`}
           />
         </FormField>
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
