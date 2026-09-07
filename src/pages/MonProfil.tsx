@@ -8,6 +8,7 @@ import { EmailLink } from '@/components/ui/contact-link'
 import { useAuth } from '@/lib/auth'
 import { useMonProfil, useCurrentAccess, useUploadMaPhoto } from '@/lib/data/roles'
 import { useGmailConnection, useDisconnectGmail, connectGmail } from '@/lib/data/gmail'
+import { CarteSignature } from '@/components/email/CarteSignature'
 import { useDocusignConnexion, useDocusignStatus, useDisconnectDocusign, connectDocusign } from '@/lib/data/docusign'
 
 function GmailCard() {
@@ -256,6 +257,7 @@ export default function MonProfil() {
         </Card>
 
         <GmailCard />
+        <CarteSignature />
         <DocusignCard />
       </div>
     </div>
