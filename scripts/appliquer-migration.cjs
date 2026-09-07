@@ -166,8 +166,7 @@ async function main() {
     // `position` est un decalage en caracteres : inutilisable tel quel. Traduit en numero de
     // ligne, il pointe l'endroit du fichier ou aller regarder.
     if (e.position) {
-      const ligne = sql.slice(0, Number(e.position)).split('
-').length
+      const ligne = sql.slice(0, Number(e.position)).split(/\r?\n/).length
       console.log('position  : ' + path.basename(fichier) + ':' + ligne)
     }
     if (e.detail) console.log('detail    : ' + e.detail)
