@@ -155,6 +155,14 @@ function transcriptionEnTexte(lignes) {
     .join('\n')
 }
 
+/** Le résultat d'un appel en clair : c'est ce qu'un commercial lit, pas le code d'Allo. */
+function resultatLisible(r) {
+  if (r === 'ANSWERED') return 'Décroché'
+  if (r === 'VOICEMAIL') return 'Messagerie'
+  if (r === 'TRANSFERRED') return 'Transféré'
+  return 'Sans réponse'
+}
+
 /** Les valeurs qu'Allo écrit quand son IA n'a rien trouvé. Elles ne valent pas mieux qu'un vide. */
 const BOUCHE_TROUS = new Set(['NOT AVAILABLE', 'NULL', '.NULL', 'N/A', 'NONE', 'JOB_TITLE', 'COMPANY', '/', '.', '-', ''])
 
@@ -218,6 +226,16 @@ async function main() {
 
     /* 2. Les appels, page par page, avec leur transcription. */
     const aEcrire = []
+    const enFile = []
+    // La file n'existe qu'apres la migration 20260907220000. Sans elle on importe les rattaches et
+    // on dit combien attendent : ils restent chez Allo, une seconde execution les reprendra.
+    const fileExiste = (await client.query(
+      "select 1 from information_schema.tables where table_schema = 'public' and table_name = 'appels_non_rattaches'",
+    )).rows.length > 0
+    const dejaEnFile = fileExiste
+      ? new Set((await client.query('select source_externe_id from appels_non_rattaches')).rows
+          .map((r) => r.source_externe_id))
+      : new Set()
     const stats = {
       lus: 0, deja: 0, contact: 0, piste: 0, compte: 0, orphelin: 0,
       resume: 0, transcription: 0, enregistrement: 0, auteurInconnu: 0,
@@ -233,7 +251,7 @@ async function main() {
 
       for (const a of lot) {
         stats.lus += 1
-        if (dejaLa.has(a.id)) { stats.deja += 1; continue }
+        if (dejaLa.has(a.id) || dejaEnFile.has(a.id)) { stats.deja += 1; continue }
 
         const numero = normaliser(a.contact_number)
         const cible = numero ? parNumero.get(numero) : null
@@ -259,10 +277,30 @@ async function main() {
         // Salesforce avait écrite en commentaire — « une consignation qui n'apparaît sur aucune fiche
         // ne consigne rien » — et on ne desserre pas cette règle pour lui faire de la place.
         //
-        // Les 3 895 orphelins attendent donc leur propre table, `appels_non_rattaches`, qui EST la
-        // file demandée. Ils restent chez Allo entre-temps : ce script est idempotent, une seconde
-        // exécution les reprendra sans dupliquer les autres.
-        if (!cible) continue
+        // Les orphelins vont donc dans `appels_non_rattaches` (migration 20260907220000), qui EST
+        // la file demandée. Tant que la migration n'est pas passée, ils sont comptés et laissés chez
+        // Allo : ce script est idempotent, une seconde exécution les reprendra.
+        if (!cible) {
+          if (fileExiste) {
+            enFile.push({
+              source_externe_id: a.id,
+              numero: numero ?? a.contact_number ?? null,
+              date_appel: a.date,
+              sens: a.direction === 'INBOUND' ? 'ENTRANT' : 'SORTANT',
+              duree_secondes: a.duration ?? null,
+              resultat: resultatLisible(a.result),
+              decroche_par: a.user?.name?.trim() || null,
+              auteur_profil_id: auteurId,
+              resume_ia: a.summary ?? null,
+              transcription: transcriptionEnTexte(a.transcript),
+              enregistrement_url: a.recording_url ?? null,
+              societe_devinee: valeurUtile(a.extracted_data?.contact?.company),
+              personne_devinee: valeurUtile(a.extracted_data?.contact?.name),
+              fonction_devinee: valeurUtile(a.extracted_data?.contact?.job_title),
+            })
+          }
+          continue
+        }
 
         aEcrire.push({
           source_externe_id: a.id,
@@ -286,9 +324,7 @@ async function main() {
           numero_correspondant: numero ?? a.contact_number ?? null,
           decroche_par: a.user?.name?.trim() || null,
           // Le résultat en clair, plutôt que le code d'Allo : c'est ce qu'un commercial lit.
-          resultat: a.result === 'ANSWERED' ? 'Décroché'
-            : a.result === 'VOICEMAIL' ? 'Messagerie'
-              : a.result === 'TRANSFERRED' ? 'Transféré' : 'Sans réponse',
+          resultat: resultatLisible(a.result),
           // La société extraite par l'IA, gardée en prochaine étape quand elle est exploitable :
           // c'est l'indice qui permettra de rattacher les orphelins.
           prochaine_etape: cible ? null : (valeurUtile(a.extracted_data?.contact?.company)

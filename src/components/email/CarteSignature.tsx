@@ -1,68 +1,68 @@
-import { useEffect, useRef, useState } from 'react'
-import { PenLine, Bold, Italic, Link2, Loader2, Check } from 'lucide-react'
+import { useEffect, useState } from 'react'
+import { PenLine, Loader2, Check } from 'lucide-react'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
+import { Input } from '@/components/ui/form'
 import { useSignatureEmail, useEnregistrerSignatureEmail } from '@/lib/data/signatureEmail'
 
 /**
- * ══ SA SIGNATURE EMAIL, ÉCRITE PAR SOI ══
+ * ══ SA SIGNATURE EMAIL : TROIS CHAMPS, ET UN APERÇU ══
  *
- * Naoëlle, 07/09/2026 : « il faut bien la signature de chacun de nos commerciaux. »
+ * Naoëlle, 07/09/2026, captures d'écran à l'appui : « les signatures, on les a chacun comme ça, il
+ * faudrait les ajouter en HTML. Y a même le numéro chez certains commerciaux. »
  *
- * ══ POURQUOI ELLE S'ÉCRIT ICI ET NON DANS UN ÉCRAN D'ADMINISTRATION ══
+ * ══ UN FORMULAIRE, ET NON UN ÉDITEUR HTML ══
  *
- * Une signature porte un nom, une fonction, un téléphone direct : c'est une identité, et personne
- * ne la connaît mieux que son propriétaire. La faire saisir par un administrateur pour dix personnes
- * garantit dix approximations et dix allers-retours. Elle vit donc dans Mon profil, à côté de la
- * connexion Gmail dont elle dépend.
+ * La première version de cette carte offrait un éditeur libre. Dix personnes, dix blocs modifiés
+ * séparément : au troisième mois les signatures ne se ressemblent plus — l'une a perdu le filet vert,
+ * l'autre écrit « Kiwee » au lieu de « KIWEE ». C'est le sort de toutes les signatures d'entreprise
+ * laissées en édition libre.
  *
- * ══ ELLE EST DÉJÀ AMORCÉE ══
+ * On ne saisit donc que ce qui est PROPRE À LA PERSONNE : sa fonction, son fixe, son mobile. Le nom,
+ * l'adresse et la photo viennent du profil, et la mise en page vient d'un gabarit unique en base
+ * (`fn_signature_html`). Changer la présentation pour toute l'équipe, c'est changer une fonction,
+ * une fois.
  *
- * La migration 20260907200000 a écrit une première version pour chacun à partir de son nom et de son
- * adresse, avec un « [votre fonction — à compléter] » en évidence. Une page blanche aurait produit
- * dix mails sans signature, parce que personne ne va spontanément dans un écran de réglages ; un
- * texte à trous, on le corrige dès qu'on le voit.
+ * ══ L'APERÇU EST LE VRAI HTML ══
  *
- * ══ CE QU'ELLE NE PROPOSE PAS, VOLONTAIREMENT ══
- *
- * Ni image, ni tableau, ni couleur libre. Une signature part chez des clients qui la liront dans
- * Outlook, un webmail de FAI ou un téléphone : le gras, l'italique et les liens passent partout, une
- * mise en page non. Et une image insérée depuis Kimatch serait affichée comme pièce jointe par la
- * moitié des clients de messagerie.
+ * Ce n'est pas une reconstitution : c'est `corps_html`, regénéré en base par un déclencheur et relu
+ * ici. Ce qu'on voit est exactement ce que le client recevra — un aperçu approximatif ferait
+ * découvrir les écarts par les clients.
  */
 export function CarteSignature() {
   const { data: signature, isLoading } = useSignatureEmail()
   const enregistrer = useEnregistrerSignatureEmail()
 
-  const corpsRef = useRef<HTMLDivElement>(null)
-  const [brouillon, setBrouillon] = useState<string | null>(null)
+  const [fonction, setFonction] = useState('')
+  const [fixe, setFixe] = useState('')
+  const [mobile, setMobile] = useState('')
   const [enregistre, setEnregistre] = useState(false)
   const [erreur, setErreur] = useState<string | null>(null)
-  const charge = useRef(false)
+  const [charge, setCharge] = useState(false)
 
-  /* Le contenu n'est injecté qu'une fois : le réécrire à chaque rendu replacerait le curseur au
-     début à chaque lettre tapée. */
   useEffect(() => {
-    if (charge.current || isLoading) return
-    charge.current = true
-    const html = signature?.corps_html ?? ''
-    setBrouillon(html)
-    if (corpsRef.current) corpsRef.current.innerHTML = html
-  }, [isLoading, signature])
+    if (charge || isLoading) return
+    setCharge(true)
+    setFonction(signature?.fonction ?? '')
+    setFixe(signature?.telephone_fixe ?? '')
+    setMobile(signature?.telephone_mobile ?? '')
+  }, [charge, isLoading, signature])
 
-  const modifiee = brouillon !== null && brouillon !== (signature?.corps_html ?? '')
-
-  const commande = (nom: string, valeur?: string) => {
-    corpsRef.current?.focus()
-    document.execCommand(nom, false, valeur)
-    if (corpsRef.current) setBrouillon(corpsRef.current.innerHTML)
-  }
+  const modifiee =
+    fonction !== (signature?.fonction ?? '')
+    || fixe !== (signature?.telephone_fixe ?? '')
+    || mobile !== (signature?.telephone_mobile ?? '')
 
   async function sauver() {
-    if (brouillon === null) return
     setErreur(null)
     try {
-      await enregistrer.mutateAsync({ corps_html: brouillon })
+      await enregistrer.mutateAsync({
+        // Une chaîne vide vaut « pas renseigné » : la stocker ferait afficher une pastille de
+        // téléphone vide dans la signature.
+        fonction: fonction.trim() || null,
+        telephone_fixe: fixe.trim() || null,
+        telephone_mobile: mobile.trim() || null,
+      })
       setEnregistre(true)
       window.setTimeout(() => setEnregistre(false), 4000)
     } catch (e) {
@@ -80,35 +80,44 @@ export function CarteSignature() {
       </CardHeader>
       <CardContent className="space-y-3">
         <p className="text-xs leading-relaxed text-km-muted">
-          Ajoutée au bas des mails envoyés depuis Kimatch. Complétez votre fonction et votre
-          téléphone : la version de départ ne connaît que votre nom et votre adresse.
+          Ajoutée au bas des mails envoyés depuis Kimatch. Votre nom, votre adresse et votre photo
+          viennent de votre profil ; la mise en page est la même pour toute l’équipe.
         </p>
 
         {isLoading ? (
           <p className="text-xs text-km-muted">Chargement…</p>
         ) : (
           <>
-            <div className="flex items-center gap-1 rounded-km border border-km-line bg-km-soft px-2 py-1.5">
-              <Outil onClick={() => commande('bold')} titre="Gras"><Bold className="h-3.5 w-3.5" /></Outil>
-              <Outil onClick={() => commande('italic')} titre="Italique"><Italic className="h-3.5 w-3.5" /></Outil>
-              <Outil
-                onClick={() => {
-                  const url = window.prompt('Adresse du lien')
-                  if (url) commande('createLink', /^https?:\/\//i.test(url) ? url : `https://${url}`)
-                }}
-                titre="Insérer un lien"
-              >
-                <Link2 className="h-3.5 w-3.5" />
-              </Outil>
+            <div className="grid grid-cols-1 gap-2.5">
+              <label className="block">
+                <span className="mb-1 block text-km-xs font-bold uppercase tracking-wide text-km-faint">
+                  Fonction
+                </span>
+                <Input
+                  value={fonction}
+                  onChange={(e) => setFonction(e.target.value)}
+                  placeholder="Responsable Pôle Syndics"
+                />
+              </label>
+              <div className="grid grid-cols-2 gap-2.5">
+                <label className="block">
+                  <span className="mb-1 block text-km-xs font-bold uppercase tracking-wide text-km-faint">
+                    Téléphone fixe
+                  </span>
+                  <Input value={fixe} onChange={(e) => setFixe(e.target.value)} placeholder="01 76 38 15 23" />
+                </label>
+                <label className="block">
+                  <span className="mb-1 block text-km-xs font-bold uppercase tracking-wide text-km-faint">
+                    Mobile
+                  </span>
+                  <Input value={mobile} onChange={(e) => setMobile(e.target.value)} placeholder="06 44 60 18 54" />
+                </label>
+              </div>
+              <p className="text-km-xs leading-snug text-km-faint">
+                Les téléphones s’affichent en pastilles. Laissez vide ceux que vous ne voulez pas
+                communiquer.
+              </p>
             </div>
-
-            <div
-              ref={corpsRef}
-              contentEditable
-              suppressContentEditableWarning
-              onInput={(e) => setBrouillon(e.currentTarget.innerHTML)}
-              className="min-h-[110px] rounded-km border border-km-line bg-white px-3 py-2.5 text-xs leading-relaxed text-km-text focus:outline-none focus:ring-2 focus:ring-km-green/20 [&_a]:text-km-green [&_a]:underline"
-            />
 
             {erreur && (
               <p className="rounded-km border border-km-red-line bg-km-red-soft px-2.5 py-2 text-xs text-km-red">
@@ -118,7 +127,9 @@ export function CarteSignature() {
 
             <div className="flex items-center gap-2">
               <Button type="button" size="sm" disabled={!modifiee || enregistrer.isPending} onClick={() => void sauver()}>
-                {enregistrer.isPending ? <><Loader2 className="mr-1.5 h-3 w-3 animate-spin" /> Enregistrement…</> : 'Enregistrer'}
+                {enregistrer.isPending
+                  ? <><Loader2 className="mr-1.5 h-3 w-3 animate-spin" /> Enregistrement…</>
+                  : 'Enregistrer'}
               </Button>
               {enregistre && (
                 <span className="flex items-center gap-1 text-xs font-semibold text-km-green">
@@ -129,24 +140,27 @@ export function CarteSignature() {
                 <span className="text-xs text-km-faint">Modifications non enregistrées</span>
               )}
             </div>
+
+            {/* ── L'aperçu : le vrai HTML, tel qu'il partira ── */}
+            <div>
+              <p className="mb-1.5 text-km-xs font-bold uppercase tracking-wide text-km-faint">
+                Aperçu {modifiee && <span className="font-medium normal-case text-km-amber">— enregistrez pour le mettre à jour</span>}
+              </p>
+              <div className="overflow-x-auto rounded-km border border-km-line bg-white p-3">
+                {signature?.corps_html
+                  ? (
+                    <div
+                      // Sa PROPRE signature, construite par le gabarit en base et non saisie
+                      // librement : le contenu ne vient d'aucun tiers.
+                      dangerouslySetInnerHTML={{ __html: signature.corps_html }}
+                    />
+                  )
+                  : <p className="text-xs text-km-muted">Aucune signature enregistrée.</p>}
+              </div>
+            </div>
           </>
         )}
       </CardContent>
     </Card>
-  )
-}
-
-function Outil({ onClick, titre, children }: { onClick: () => void; titre: string; children: React.ReactNode }) {
-  return (
-    <button
-      type="button"
-      // Sans `preventDefault`, le clic fait perdre la sélection avant que la commande s'applique.
-      onMouseDown={(e) => e.preventDefault()}
-      onClick={onClick}
-      title={titre}
-      className="flex h-7 w-7 items-center justify-center rounded-km text-km-muted transition-colors hover:bg-white hover:text-km-text"
-    >
-      {children}
-    </button>
   )
 }

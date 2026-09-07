@@ -18,8 +18,18 @@ import { supabase } from '@/lib/supabase'
  */
 
 export interface SignatureEmail {
+  /**
+   * GÉNÉRÉ EN BASE, jamais écrit par l'écran.
+   *
+   * `fn_signature_html` le reconstruit à chaque modification des champs structurés (migration
+   * 20260907230000). L'écran n'édite que fonction et téléphones, et le gabarit reste identique pour
+   * toute l'équipe — dix blocs HTML modifiés séparément auraient divergé au troisième mois.
+   */
   corps_html: string
   active_par_defaut: boolean
+  fonction: string | null
+  telephone_fixe: string | null
+  telephone_mobile: string | null
 }
 
 const ABSENTE = /does not exist|schema cache|404/i
@@ -35,7 +45,7 @@ export function useSignatureEmail() {
       if (!userData.user) return null
       const { data, error } = await supabase
         .from('profils_signatures_email')
-        .select('corps_html, active_par_defaut')
+        .select('corps_html, active_par_defaut, fonction, telephone_fixe, telephone_mobile')
         .eq('profil_id', userData.user.id)
         .maybeSingle()
       if (error) {

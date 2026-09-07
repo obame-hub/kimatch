@@ -54,6 +54,7 @@ const Taches = lazy(() => import('@/pages/Taches'))
 const ActionDetail = lazy(() => import('@/pages/ActionDetail'))
 const Parametres = lazy(() => import('@/pages/Parametres'))
 const Administration = lazy(() => import('@/pages/Administration'))
+const FileAppels = lazy(() => import('@/pages/FileAppels'))
 const MonProfil = lazy(() => import('@/pages/MonProfil'))
 const Support = lazy(() => import('@/pages/Support'))
 const Nouveautes = lazy(() => import('@/pages/Nouveautes'))
@@ -108,6 +109,9 @@ function App() {
           <Route path="/documents" element={<Documents />} />
           <Route path="/documents/:id" element={<DocumentDetail />} />
           <Route path="/interactions" element={<Interactions />} />
+          {/* La file des appels non rattaches : une boite de reception, pas un
+              historique. Rangee sous Interactions, dont elle est l'antichambre. */}
+          <Route path="/appels-non-rattaches" element={<FileAppels />} />
           <Route path="/interactions/:id" element={<InteractionDetail />} />
           <Route path="/contrats" element={<Contrats />} />
           <Route path="/contrats/:id" element={<ContratDetail />} />

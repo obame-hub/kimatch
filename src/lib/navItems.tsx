@@ -1,4 +1,4 @@
-import {
+import { PhoneOff,
   Gauge,
   Home,
   Building2,
@@ -182,5 +182,8 @@ export const pagesRecherchables: NavItem[] = [
   { to: '/taches', label: 'Tâches', icon: CheckSquare },
   { to: '/documents', label: 'Documents', icon: Folder },
   { to: '/interactions', label: 'Interactions', icon: MessageSquare },
+  // La file des appels Allo dont le numéro n'est encore sur aucune fiche : une boîte de
+  // réception, pas un historique. Rangée juste après Interactions, dont elle est l'antichambre.
+  { to: '/appels-non-rattaches', label: 'Appels non rattachés', icon: PhoneOff },
   { to: '/versions', label: 'Versions', icon: Layers },
 ]
