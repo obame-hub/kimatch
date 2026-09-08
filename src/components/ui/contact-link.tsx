@@ -127,14 +127,22 @@ function ContactPopover({
  * extensions de ce type sautent volontairement les éléments cliquables, pour ne pas doubler une action
  * que le site a déjà posée sur le numéro.
  *
- * LE NUMÉRO REDEVIENT DONC UN SIMPLE `<span>`, et c'est ce qui rend l'appel possible : l'extension y
- * pose son icône, et cliquer cette icône lance l'appel dans Allo. C'était la demande de Michel.
+ * LE NUMÉRO RESTE DONC UN SIMPLE `<span>`, et ça ne change pas : l'extension y pose son icône, et rien
+ * de cliquable ne l'entoure. Ce qui suit s'ajoute À CÔTÉ du numéro, jamais autour.
  *
- * ET LE BOUTON « APPELER » DISPARAÎT SUR ORDINATEUR — pas par simplification, par honnêteté : aucun
- * code ne peut ouvrir Allo, donc il ne savait que copier, exactement ce que fait le bouton copier juste
- * à côté. Un bouton qui promet un appel et se contente d'une copie est un bouton qui mentait, et en
- * prime il empêchait l'extension de travailler. Sur un appareil tactile il reste : là, `tel:` compose
- * vraiment.
+ * ══ LE BOUTON « APPELER » REVIENT SUR ORDINATEUR ══
+ *
+ * Il avait été retiré, et pour une bonne raison à l'époque : « aucun code ne peut ouvrir Allo, donc il
+ * ne savait que copier — un bouton qui promet un appel et se contente d'une copie est un bouton qui
+ * mentait ». C'était juste tant que la clé Allo n'avait pas le droit d'écrire dans la file d'appel.
+ *
+ * CETTE RAISON A DISPARU LE 08/09/2026. La portée `DIALING_QUEUE_READ_WRITE` est accordée : le bouton
+ * dépose vraiment le numéro dans la file du Power Dialer de la personne connectée, avec son nom et sa
+ * société, et il ne reste qu'à lancer l'appel dans Allo. Naoëlle : « je ne vois pas le bouton
+ * appeler » — il n'existait plus, et le commentaire qui l'expliquait était devenu faux.
+ *
+ * LE REPLI TIENT TOUJOURS. Sans la portée, sans réseau, ou sans compte Allo à son nom — trois profils
+ * sur dix au 08/09/2026 — le bouton copie le numéro et dit pourquoi, au lieu de rester muet.
  */
 export function PhoneLink({ value, className }: { value: string; className?: string }) {
   const { appeler } = useTelephonie()
@@ -150,19 +158,25 @@ export function PhoneLink({ value, className }: { value: string; className?: str
       {/* Rien de cliquable autour du numéro : c'est la condition pour qu'Allo le décore. */}
       <span className={cn('font-mono', className)}>{numeroLisible(value)}</span>
 
-      {tactile ? (
-        <button
-          type="button"
-          title="Appeler"
-          onClick={(e) => {
-            e.stopPropagation()
-            void appeler(value)
-          }}
-          className="shrink-0 rounded p-0.5 text-km-green"
-        >
-          <Phone className="h-3 w-3" />
-        </button>
-      ) : (
+      {/* APPELER. Sur tactile, `tel:` compose vraiment ; sur ordinateur, le numéro part dans la file
+          du Power Dialer. L'entonnoir `appeler` tranche entre les deux et gère le repli — ce
+          composant n'a pas à savoir lequel des deux s'applique. */}
+      <button
+        type="button"
+        title="Appeler"
+        aria-label={`Appeler le ${numeroLisible(value)}`}
+        onClick={(e) => {
+          e.stopPropagation()
+          void appeler(value)
+        }}
+        className="shrink-0 rounded p-0.5 text-km-green transition-colors hover:bg-km-green-soft"
+      >
+        <Phone className="h-3 w-3" />
+      </button>
+
+      {/* LA COPIE RESTE, et discrètement : elle sert quand on veut le numéro ailleurs — un SMS, un
+          courrier, un collègue. Visible au survol seulement, pour ne pas concurrencer l'appel. */}
+      {!tactile && (
         <button
           type="button"
           title={copie ? 'Numéro copié' : 'Copier le numéro'}
