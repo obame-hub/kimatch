@@ -81,11 +81,31 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     return
   }
 
+  /* ══ L'ADRESSE ALLO, QUI N'EST PAS TOUJOURS L'ADRESSE KIMATCH ══
+   *
+   * Toujours prise du SERVEUR et jamais du corps de la requête : sinon n'importe qui pourrait
+   * remplir la file d'un collègue. Mais l'adresse de session ne suffit pas.
+   *
+   * Mesuré le 08/09/2026 contre l'API : l'espace Allo compte SEPT membres, Kimatch DIX profils
+   * actifs. La file de `n.ghouma@kiwee-energie.fr` répond 404 ASSIGNEE_NOT_FOUND, celle de
+   * `m.thonnard@kiwee-energie.fr` répond 200. Naoëlle travaillait sur le compte Allo de William :
+   * les deux systèmes n'ont pas la même identité pour la même personne.
+   *
+   * `fn_email_allo` rend donc `profils.email_allo` s'il existe, `profils.email` sinon. La lecture se
+   * fait avec la clé de service, parce que la colonne dit vers quel compte tiers on écrit — ce n'est
+   * pas une donnée qu'un utilisateur doit pouvoir choisir dans sa requête. */
+  const adminSupabase = process.env.SUPABASE_SERVICE_ROLE_KEY
+    ? createClient(supabaseUrl, process.env.SUPABASE_SERVICE_ROLE_KEY, { auth: { persistSession: false } })
+    : null
+  let emailAllo = userData.user.email
+  if (adminSupabase) {
+    const { data } = await adminSupabase.rpc('fn_email_allo', { p_profil_id: userData.user.id })
+    if (typeof data === 'string' && data.trim()) emailAllo = data.trim()
+  }
+
   try {
     const resultat = await poserDansLaFileDAppel({
-      // L'ADRESSE DE L'UTILISATEUR CONNECTÉ, prise de sa session et non du corps de la requête :
-      // sinon on pourrait remplir la file d'un collègue.
-      emailUtilisateur: userData.user.email,
+      emailUtilisateur: emailAllo,
       numero,
       nom: corps.nom ?? null,
       prenom: corps.prenom ?? null,
@@ -102,6 +122,19 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     const message = err instanceof Error ? err.message : 'Erreur Allo inconnue'
     // LA PORTÉE MANQUANTE EST LE CAS ATTENDU au premier essai, et elle se dit en clair : sinon on
     // cherche un bug dans le code alors qu'il suffit de cocher une case dans les réglages d'Allo.
+    /* LE MEMBRE INTROUVABLE, dit en clair. Sans ce message, l'utilisateur voit « Erreur Allo »
+       et cherche un bug dans Kimatch, alors que la cause est qu'il n'a pas de compte Allo — ce qui
+       est le cas de trois profils sur dix au 08/09/2026, la facturation refusée empêchant d'en
+       ajouter. */
+    if (/ASSIGNEE_NOT_FOUND/i.test(message)) {
+      res.status(502).json({
+        error: `Aucun membre Allo pour ${emailAllo}.`,
+        code: 'membre_allo_absent',
+        detail: 'Renseignez votre adresse Allo dans Mon profil si elle diffère de votre adresse Kimatch, '
+          + 'ou demandez la création de votre compte Allo.',
+      })
+      return
+    }
     if (/DIALING_QUEUE_READ_WRITE|INSUFFICIENT_SCOPE/i.test(message)) {
       res.status(502).json({
         error: 'La clé Allo n’a pas le droit d’écrire dans la file d’appel.',

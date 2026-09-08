@@ -300,14 +300,20 @@ async function poserDansLaFileAllo(
     }
 
     if (!res.ok) {
-      // La portée manquante se dit en clair : sinon on cherche un bug alors qu'il suffit de cocher
-      // une case dans les réglages d'Allo.
-      return {
-        ok: false,
-        erreur: corps.code === 'portee_manquante'
-          ? 'Allo : droit d’écriture manquant sur la file d’appel'
-          : corps.error,
+      /* LES DEUX CAUSES ATTENDUES SE DISENT EN CLAIR, parce que toutes deux se règlent ailleurs que
+         dans le code — une case à cocher dans Allo, ou une adresse à renseigner dans Mon profil.
+         Sans ça, on lit « erreur Allo » et on cherche un bug dans Kimatch. */
+      if (corps.code === 'portee_manquante') {
+        return { ok: false, erreur: 'Allo : droit d’écriture manquant sur la file d’appel' }
       }
+      if (corps.code === 'membre_allo_absent') {
+        // Mesuré le 08/09/2026 : sept membres dans l'espace Allo, dix profils actifs dans Kimatch.
+        return {
+          ok: false,
+          erreur: 'aucun compte Allo à ton nom — renseigne ton adresse Allo dans Mon profil',
+        }
+      }
+      return { ok: false, erreur: corps.error }
     }
     if (corps.ok) return { ok: true, position: corps.position ?? null }
     // Allo écarte un numéro déjà en attente : ce n'est pas un échec, c'est une information.
