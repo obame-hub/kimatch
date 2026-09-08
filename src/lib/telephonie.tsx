@@ -1,6 +1,7 @@
 import { createContext, useCallback, useContext, useEffect, useState } from 'react'
 import type { ReactNode } from 'react'
 import { CarteAppel } from '@/components/allo/CarteAppel'
+import { VoletAllo, ouvrirVoletAllo } from '@/components/allo/VoletAllo'
 
 /**
  * APPELER DEPUIS KIMATCH — un seul entonnoir, un numéro normalisé, et un numéro TOUJOURS VISIBLE.
@@ -196,6 +197,14 @@ export function TelephonieProvider({ children }: { children: ReactNode }) {
        Le numéro part dans la file du Power Dialer de la personne connectée, avec le nom et la
        société. Il n'y a plus qu'à cliquer « appeler » dans Allo. */
     const file = await poserDansLaFileAllo(e164, qui)
+    if (file.ok || file.dejaDansLaFile) {
+      /* LE VOLET ALLO S'OUVRE ICI, et c'est le geste qui manquait.
+         Naoelle, 08/09/2026 : « je ne comprends pas pourquoi ca n'ouvre pas une fenetre pour appeler
+         ce numero dans Kimatch ». Le numero etait bien deposse dans la file, mais la file est une
+         liste d'attente : rien ne compose tant que le Power Dialer n'est pas lance, et ce bouton
+         n'existe que dans l'interface d'Allo. On la met donc sous ses yeux, dans Kimatch. */
+      ouvrirVoletAllo()
+    }
     if (file.ok) {
       const m = file.position != null
         ? `${numeroLisible(e164)} ajouté à ta file d’appel Allo, en position ${file.position}.`
@@ -245,6 +254,9 @@ export function TelephonieProvider({ children }: { children: ReactNode }) {
   return (
     <Contexte.Provider value={{ appeler }}>
       {children}
+      {/* ALLO LUI-MEME, dans un volet de Kimatch. C'est la seule facon de lancer l'appel et de
+          raccrocher sans quitter l'application : leur API n'expose ni l'un ni l'autre. */}
+      <VoletAllo />
       {/* LA CARTE D'APPEL VIT ICI, et non dans la mise en page.
           Ce fournisseur est deja le porteur du telephone dans l'application : y monter la carte lui
           donne exactement la meme portee que le bouton « Appeler », sans toucher a `AppLayout`.
@@ -316,8 +328,11 @@ async function poserDansLaFileAllo(
       return { ok: false, erreur: corps.error }
     }
     if (corps.ok) return { ok: true, position: corps.position ?? null }
-    // Allo écarte un numéro déjà en attente : ce n'est pas un échec, c'est une information.
-    if (corps.ignore && /duplicate|already|exist/i.test(corps.ignore)) {
+    /* DÉJÀ EN ATTENTE : ce n'est pas un échec, c'est une information. `DEJA_DANS_LA_FILE` vient de
+       notre propre contrôle — Allo, lui, n'écarte pas les doublons, mesuré le 08/09/2026 : trois
+       clics ont fait trois lignes dans la file. Les autres motifs restent reconnus au cas où Allo
+       s'y mettrait. */
+    if (corps.ignore && /DEJA_DANS_LA_FILE|duplicate|already|exist/i.test(corps.ignore)) {
       return { ok: false, dejaDansLaFile: true }
     }
     return { ok: false, erreur: corps.ignore ?? undefined }

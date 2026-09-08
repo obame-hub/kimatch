@@ -88,10 +88,16 @@ export function CarteAppel() {
   const fichePossible = Boolean(appel.contact_id || appel.piste_id || appel.compte_id)
 
   return (
-    /* EN BAS À DROITE, AU-DESSUS DE TOUT. Le volet de rédaction d'email occupe la droite entière et
-       le message de la téléphonie le centre bas : cette carte prend le coin, le seul endroit où elle
-       ne recouvre rien de ce que la personne est en train de lire. */
-    <div className="fixed bottom-4 right-4 z-[70] w-[320px] overflow-hidden rounded-km border border-km-line bg-white shadow-km-pop">
+    /* ══ EN BAS À DROITE, MAIS JAMAIS SUR LA PASTILLE NI SUR ALLO ══
+     *
+     * `bottom-20` et non `bottom-4` : la pastille « Téléphone » occupe le coin, et la carte se posait
+     * dessus. Et `right` suit `--volet-allo`, la largeur que le volet Allo annonce quand il est
+     * ouvert — sinon la carte recouvrirait l'interface d'Allo, donc peut-être son bouton raccrocher.
+     * C'est le seul bouton de tout ce dispositif qu'il ne faut jamais masquer. */
+    <div
+      className="fixed bottom-20 z-[70] w-[320px] overflow-hidden rounded-km border border-km-line bg-white shadow-km-pop"
+      style={{ right: 'calc(1rem + var(--volet-allo, 0px))' }}
+    >
       {/* ── L'ÉTAT, en une ligne de couleur ── */}
       <div
         className={cn(

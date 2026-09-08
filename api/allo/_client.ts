@@ -264,13 +264,40 @@ export interface PoserDansLaFile {
  * `email` DANS LE CORPS pour viser la file d'une personne précise — sans quoi les dix commerciaux
  * pousseraient leurs numéros dans la même file, celle du propriétaire de la clé.
  *
- * `skipped` N'EST PAS UNE ERREUR. Allo écarte un numéro déjà dans la file, ou invalide, et le dit
- * dans la réponse avec sa raison. Le traiter comme un échec ferait afficher « appel impossible »
- * alors que le numéro est déjà en attente — ce qui est le cas le plus fréquent quand on reclique.
+ * `skipped` N'EST PAS UNE ERREUR quand Allo s'en sert : il écarte un numéro invalide et le dit dans
+ * la réponse avec sa raison.
+ *
+ * ══ MAIS ALLO N'ÉCARTE PAS LES DOUBLONS, contrairement à ce que j'avais écrit ici ══
+ *
+ * Mesuré le 08/09/2026 : Naoëlle a cliqué trois fois, et la file de William a reçu TROIS lignes du
+ * même numéro, aux positions 0, 1 et 2. `skipped` est resté vide à chaque fois. Le commentaire
+ * précédent affirmait le contraire, et c'était faux.
+ *
+ * ON VÉRIFIE DONC AVANT D'AJOUTER. Une lecture de plus par clic — à 20 lectures/seconde autorisées,
+ * c'est gratuit — contre une file qui se remplit dès qu'on reclique : un commercial qui hésite
+ * empilerait cinq fois le même appel à passer.
  */
 export async function poserDansLaFileDAppel(
   entree: PoserDansLaFile,
 ): Promise<{ position: number | null; ignore: string | null }> {
+  /* LE NUMERO EST-IL DEJA EN ATTENTE ? La comparaison porte sur les CHIFFRES SEULS : Allo rend
+     `+33782455786` la ou l'on a pu envoyer `+33 7 82 45 57 86`, et deux ecritures du meme numero ne
+     doivent pas faire deux entrees dans la file. */
+  const chiffresSeuls = (n: string) => n.replace(/[^0-9]/g, '')
+  try {
+    const file = await requete<{ data: { number_to: string; position: number }[] }>(
+      `/v2/api/dialing-queues/current?email=${encodeURIComponent(entree.emailUtilisateur)}`,
+      { methode: 'GET' },
+    )
+    const deja = (file.data ?? []).find(
+      (l) => chiffresSeuls(l.number_to) === chiffresSeuls(entree.numero),
+    )
+    if (deja) return { position: deja.position ?? null, ignore: 'DEJA_DANS_LA_FILE' }
+  } catch {
+    /* UNE LECTURE QUI ECHOUE N'EMPECHE PAS L'AJOUT. Eviter un doublon est un confort ; deposer le
+       numero est le geste utile. */
+  }
+
   const reponse = await requete<{
     data: {
       added: { number_to: string; position: number }[]
