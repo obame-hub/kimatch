@@ -1,7 +1,8 @@
 import { lazy, Suspense, useState } from 'react'
-import { MessageSquare, PhoneOff } from 'lucide-react'
+import { MessageSquare, PhoneOff, BarChart3 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { FileAppelsContenu } from '@/pages/FileAppels'
+import { KpiAppels } from '@/components/allo/KpiAppels'
 import { useFileAppels } from '@/lib/data/fileAppels'
 
 const Interactions = lazy(() => import('@/pages/Interactions'))
@@ -29,7 +30,7 @@ const Interactions = lazy(() => import('@/pages/Interactions'))
  * Le second onglet porte donc un badge. Sans lui, la file resterait invisible pour qui ne pense pas
  * à l'ouvrir, et une file qu'on n'ouvre pas ne se vide jamais.
  */
-type Vue = 'consignees' | 'file'
+type Vue = 'consignees' | 'file' | 'chiffres'
 
 export default function Activite() {
   const [vue, setVue] = useState<Vue>('consignees')
@@ -46,9 +47,18 @@ export default function Activite() {
         <SousOnglet actif={vue === 'file'} onClick={() => setVue('file')} icone={PhoneOff} badge={enAttente}>
           Appels non rattachés
         </SousOnglet>
+        {/* LES CHIFFRES EN TROISIÈME, et c'est délibéré : on vient d'abord chercher un échange
+            précis, ou vider la file. Le bilan de la semaine se consulte, il ne s'utilise pas.
+            William, réunion du 08/09/2026 : « on peut savoir tu as eu 20 personnes au téléphone
+            aujourd'hui et tu as passé 60 appels ». */}
+        <SousOnglet actif={vue === 'chiffres'} onClick={() => setVue('chiffres')} icone={BarChart3}>
+          Chiffres d’appels
+        </SousOnglet>
       </div>
 
-      {vue === 'consignees' ? (
+      {vue === 'chiffres' ? (
+        <KpiAppels />
+      ) : vue === 'consignees' ? (
         // Le montage paresseux, comme les autres onglets de Patrimoine : la liste des interactions
         // pèse quelques dizaines de kilo-octets qu'on ne charge que si on la regarde.
         <Suspense fallback={null}>
