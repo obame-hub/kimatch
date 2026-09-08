@@ -86,3 +86,31 @@ export function tonDate(iso: string | null | undefined): TonDate | null {
   if (jours <= 31) return 'proche'
   return 'loin'
 }
+
+/**
+ * L'HEURE D'UN INSTANT, EN HEURE LOCALE — « 20:03 ».
+ *
+ * Naoëlle, 07/09/2026 : « est-ce que tu peux mettre l'heure aussi dans les annonces de nouveauté ».
+ * Quatre publications sont parues dans la même journée : « il y a 2 heures » ne dit pas laquelle est
+ * venue avant l'autre, et l'ordre compte quand une correction suit la fonctionnalité qu'elle répare.
+ *
+ * `toLocaleTimeString` ET NON UN DÉCOUPAGE DE LA CHAÎNE ISO. Les publications sont des `timestamptz`
+ * rendus en UTC par PostgREST — « 2026-09-07T18:03:06Z » pour une parution de 20 h 03 à Paris. Lire
+ * les caractères de la chaîne afficherait 18:03, l'heure de la base et de personne. C'est exactement
+ * l'inverse du piège traité plus haut : ici l'instant est réel et c'est le fuseau du lecteur qui
+ * fait foi, alors qu'une colonne `date` n'a pas d'heure à convertir.
+ */
+export function heureLisible(iso: string | null | undefined): string {
+  if (!iso) return ''
+  const d = new Date(iso)
+  if (Number.isNaN(d.getTime())) return ''
+  return d.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })
+}
+
+/** La date et l'heure d'un instant — « 07/09/2026 à 20:03 ». */
+export function dateEtHeure(iso: string | null | undefined): string {
+  if (!iso) return ''
+  const d = new Date(iso)
+  if (Number.isNaN(d.getTime())) return ''
+  return `${d.toLocaleDateString('fr-FR')} à ${heureLisible(iso)}`
+}

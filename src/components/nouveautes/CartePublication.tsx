@@ -1,5 +1,5 @@
 import { Pencil, Trash2 } from 'lucide-react'
-import { dateRelative } from '@/lib/dateRelative'
+import { dateEtHeure, dateRelative } from '@/lib/dateRelative'
 import { ouvrirPieceJointe, useContenuAffichable, type Publication } from '@/lib/data/publications'
 import { cn } from '@/lib/utils'
 
@@ -59,11 +59,19 @@ export function CartePublication({
   onModifier?: (publication: Publication) => void
   onSupprimer?: (publication: Publication) => void
   className?: string
-  /** Sur la page d'historique, la date est déjà portée par la colonne de gauche de la frise. */
+  /**
+   * Sur la page d'historique, la colonne de gauche de la frise porte déjà la date — MAIS SEULEMENT
+   * À PARTIR DE `sm` : elle est en `hidden sm:block`. Cette option masque donc la date de la carte
+   * aux mêmes tailles, et non partout. Elle la retirait complètement jusqu'au 07/09/2026, si bien
+   * que sur un téléphone la page Nouveautés n'affichait AUCUNE date — ni jour, ni heure, ni
+   * distance. Constaté en ajoutant l'heure à la demande de Naoëlle.
+   */
   masquerDate?: boolean
 }) {
   const brouillon = publication.date_publication === null
-  const quand = dateRelative(publication.date_publication ?? publication.date_creation)
+  const instant = publication.date_publication ?? publication.date_creation
+  const quand = dateRelative(instant)
+  const exact = dateEtHeure(instant)
   const auteur = publication.auteur
     ? `${publication.auteur.prenom} ${publication.auteur.nom}`.trim()
     : null
@@ -75,12 +83,16 @@ export function CartePublication({
           <h3 className="font-display text-km-title font-semibold text-km-text">{publication.titre}</h3>
           <p className="mt-0.5 flex flex-wrap items-center gap-x-1.5 gap-y-0.5 text-km-label text-km-faint">
             {auteur && <span>par {auteur}</span>}
-            {auteur && quand && !masquerDate && <span aria-hidden="true">·</span>}
-            {quand && !masquerDate && (
-              <span
-                title={new Date(publication.date_publication ?? publication.date_creation).toLocaleString('fr-FR')}
-              >
-                {quand}
+            {auteur && exact && (
+              <span aria-hidden="true" className={cn(masquerDate && 'sm:hidden')}>·</span>
+            )}
+            {exact && (
+              /* LA DATE, L'HEURE, PUIS LA DISTANCE. « il y a 2 heures » seul ne départageait pas
+                 quatre publications parues le même jour, et l'ordre compte : une correction qui
+                 suit la fonctionnalité qu'elle répare ne se lit que par l'heure. */
+              <span className={cn('tabular-nums', masquerDate && 'sm:hidden')}>
+                {exact}
+                {quand && ` · ${quand}`}
               </span>
             )}
           </p>

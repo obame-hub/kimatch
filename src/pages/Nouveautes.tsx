@@ -9,7 +9,7 @@ import { MenuChoix } from '@/components/ui/menu-choix'
 import { FiltrePeriode, PERIODE_VIDE, type Periode } from '@/components/ui/filtre-periode'
 import { CartePublication } from '@/components/nouveautes/CartePublication'
 import { useListControls } from '@/lib/useListControls'
-import { dateRelative } from '@/lib/dateRelative'
+import { dateRelative, heureLisible } from '@/lib/dateRelative'
 import { useIsAdmin } from '@/lib/data/roles'
 import { usePublications, useSupprimerPublication, type Publication } from '@/lib/data/publications'
 
@@ -162,12 +162,24 @@ export default function Nouveautes() {
           <div>
             {liste.map((publication, i) => (
               <div key={publication.id} className="flex gap-3 sm:gap-4">
+                {/* LA COLONNE DE LA FRISE PORTE LA DATE, L'HEURE, PUIS LA DISTANCE.
+                    Naoëlle, 07/09/2026 : « mets l'heure aussi dans les annonces ». Quatre
+                    publications parues le même jour ne se départageaient pas — « il y a 2 heures »
+                    sur chacune. La distance reste en dessous : elle sert pour les anciennes, où le
+                    07/09 ne dit plus rien à lui seul. */}
                 <time
-                  className="hidden w-[92px] shrink-0 pt-1 text-right text-km-label text-km-faint sm:block"
+                  className="hidden w-[92px] shrink-0 pt-1 text-right sm:block"
                   dateTime={dateUtile(publication)}
-                  title={new Date(dateUtile(publication)).toLocaleString('fr-FR')}
                 >
-                  {dateRelative(dateUtile(publication))}
+                  <span className="block text-km-label font-semibold text-km-muted">
+                    {new Date(dateUtile(publication)).toLocaleDateString('fr-FR')}
+                  </span>
+                  <span className="block text-km-label tabular-nums text-km-faint">
+                    {heureLisible(dateUtile(publication))}
+                  </span>
+                  <span className="mt-0.5 block text-km-tiny text-km-faint">
+                    {dateRelative(dateUtile(publication))}
+                  </span>
                 </time>
                 {/* Le filet ne descend pas sous la dernière publication : une frise qui continue
                     dans le vide laisse croire qu'il reste quelque chose à charger. */}
