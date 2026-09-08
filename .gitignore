@@ -34,3 +34,7 @@ dist-ssr
 # Les sondes et mesures jetables (integrations, audits) : elles lisent .env.local et ne sont pas
 # du code de production. Gardees sur le poste, jamais dans un depot public.
 scripts_scratch/
+
+# La carte des donnees : schema complet et volume de chaque table.
+# Le depot est PUBLIC — la carte se regenere par `npm run carte`, elle n'y est pas deposee.
+carte-donnees/
