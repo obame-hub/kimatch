@@ -26,10 +26,11 @@
  *
  * ══ TROIS DÉCISIONS QUI TIENNENT TOUT ══
  *
- * ① LE CADRE NE SE DÉMONTE JAMAIS. Une fois ouvert, il reste monté et on le CACHE par l'attribut
- *   `hidden`. Le démonter rechargerait `web.withallo.com` — donc couperait l'appel en cours et
- *   redemanderait la connexion. C'est le seul vrai piège de ce composant : replier le volet pendant
- *   un appel ne doit pas raccrocher.
+ * ① LE CADRE NE SE DÉMONTE JAMAIS, et le repli le fait SORTIR DE L'ÉCRAN plutôt que de le cacher.
+ *   Le démonter rechargerait `web.withallo.com` — donc couperait l'appel et perdrait un numéro à
+ *   moitié tapé. Et `display: none` suspend le rendu d'un cadre, ce qui revient au même risque.
+ *   Naoëlle, 08/09/2026 : « que la réduction ne stoppe pas l'action, c'est important. » C'est le
+ *   seul vrai piège de ce composant.
  *
  * ② LE MICROPHONE EST DÉLÉGUÉ. `allow="microphone"` sur le cadre, sans quoi Allo affiche son bandeau
  *   « vous ne pouvez pas passer d'appels tant que le microphone n'est pas activé » — exactement ce
@@ -43,6 +44,8 @@
  */
 import { useEffect, useState } from 'react'
 import { Phone, Minus, X, ExternalLink, ZoomIn, ZoomOut } from 'lucide-react'
+import { cn } from '@/lib/utils'
+import { useAppelEnCours } from '@/lib/data/appelEnCours'
 
 const URL_ALLO = 'https://web.withallo.com'
 
@@ -53,21 +56,13 @@ const CLE_MEMOIRE = 'kimatch.volet-allo.ouvert'
    personne qui a justement demandé plus grand. Un suffixe suffit à repartir du bon réglage. */
 const CLE_LARGEUR = 'kimatch.volet-allo.largeur.v2'
 
-/* ══ LA LARGEUR PAR DÉFAUT EST LARGE, ET C'EST MESURÉ À L'ÉCRAN ══
+/* ══ LA LARGEUR EST LE ZOOM ══
  *
- * Naoëlle, 08/09/2026 : « ça marche, le volet s'ouvre et j'ai pu me connecter, mais l'affichage est
- * coupé, c'est bizarre. » Le volet faisait 420 px. Or `web.withallo.com` déploie une interface à
- * TROIS COLONNES — navigation, liste des discussions, conversation — pensée pour une fenêtre
- * entière. À 420 px, la troisième colonne tombe hors du cadre, et c'est justement celle où vivent
- * les commandes d'appel.
- *
- * 760 px laisse les trois colonnes respirer, et la poignée permet d'aller plus loin quand on
- * travaille dans le volet plutôt que dans la fiche. */
-/* ══ PLUS LARGE PAR DÉFAUT, PARCE QUE LA LARGEUR EST LE ZOOM ══
- *
- * Naoëlle, 08/09/2026 : « augmente un peu la police, c'est trop petit ». Il n'y a pas de réglage de
- * police à tourner : Allo est rendu à une largeur fixe puis réduit pour tenir, donc AGRANDIR LE
- * TEXTE, C'EST ÉLARGIR LE VOLET. Un faux zoom par-dessus l'échelle rognerait de nouveau les colonnes
+ * Naoëlle, 08/09/2026, trois fois de suite : « l'affichage est coupé », puis « le volet est encore
+ * coupé », puis « augmente un peu la police, c'est trop petit ». Les deux premières fois j'ai
+ * élargi, ce qui ne pouvait pas suffire — voir le bloc suivant. La troisième a donné la bonne
+ * lecture du problème : IL N'Y A PAS DE RÉGLAGE DE POLICE À TOURNER. Allo est rendu à une largeur
+ * fixe puis réduit pour tenir, donc AGRANDIR LE TEXTE, C'EST ÉLARGIR LE VOLET. Un faux zoom par-dessus l'échelle rognerait de nouveau les colonnes
  * — on serait revenu au problème de départ.
  *
  * 1040 px et une largeur logique ramenée à 1180 donnent une échelle de 0,88 au lieu de 0,64 : le
@@ -85,10 +80,9 @@ const LARGEUR_MAX = 1600
  * reflue pas en dessous. Sa troisième colonne, celle où vivent les commandes d'appel, restait rognée
  * quelle que soit la place qu'on lui donnait.
  *
- * On rend donc le cadre à sa largeur naturelle — 1280 px, le point de rupture des interfaces de
- * bureau — puis on le RÉDUIT pour qu'il tienne dans le volet. Tout est visible, plus petit. Élargir
- * le volet ne révèle plus du contenu caché : ça agrandit ce qui est déjà là, ce qui est bien plus
- * lisible comme comportement.
+ * On rend donc le cadre à sa largeur naturelle — 1180 px — puis on le RÉDUIT pour qu'il tienne dans
+ * le volet. Tout est visible, plus petit. Élargir le volet ne révèle plus du contenu caché : ça
+ * agrandit ce qui est déjà là, ce qui est bien plus lisible comme comportement.
  *
  * L'échelle ne descend pas sous 0,62 : en dessous, le texte d'Allo devient illisible et la place
  * gagnée ne sert plus à rien. À largeur minimale, le volet montre donc Allo un peu rogné — mais
@@ -115,6 +109,10 @@ export function VoletAllo() {
   const [charge, setCharge] = useState(false)
   const [ouvert, setOuvert] = useState(false)
   const [largeur, setLargeur] = useState(LARGEUR_DEFAUT)
+  /* CE QUE KIMATCH SAIT DE L'APPEL EN COURS, et qui sert à protéger le seul geste destructeur de ce
+     volet. Le hook interroge déjà pour la carte d'appel : le lire ici ne coûte rien de plus. */
+  const { data: appel } = useAppelEnCours()
+  const appelEnCours = Boolean(appel && !appel.termine_le)
   /* PENDANT LE GLISSEMENT, LE CADRE NE DOIT PLUS RECEVOIR LA SOURIS. Un iframe avale les événements
      de pointeur : sans ce drapeau, la poignée se décroche dès que le curseur passe au-dessus d'Allo,
      et le volet se figeait à mi-course. */
@@ -208,9 +206,37 @@ export function VoletAllo() {
     try { localStorage.setItem(CLE_MEMOIRE, '0') } catch { /* sans conséquence */ }
   }
 
-  /* FERMER DÉMONTE VRAIMENT, et c'est assumé : c'est le seul geste qui coupe la session du volet.
-     Il est donc distinct du repli, et son intitulé le dit. */
+  /* ÉCHAP REPLIE, comme partout ailleurs dans l'application.
+   *
+   * AVEC UNE LIMITE À DIRE : quand le curseur travaille DANS Allo, la touche part au cadre et ne nous
+   * parvient jamais — un site affiché dans un autre ne partage pas ses événements clavier. Échap
+   * sert donc quand on est revenu sur la fiche, ce qui est justement le moment où l'on veut replier. */
+  useEffect(() => {
+    if (!ouvert) return
+    const surTouche = (e: KeyboardEvent) => { if (e.key === 'Escape') replier() }
+    window.addEventListener('keydown', surTouche)
+    return () => window.removeEventListener('keydown', surTouche)
+  }, [ouvert])
+
+  /* ══ FERMER DÉMONTE VRAIMENT, ET C'EST LE SEUL GESTE QUI LE FASSE ══
+   *
+   * Il coupe la session du volet, donc l'appel en cours et tout numéro à moitié tapé. C'est
+   * légitime — il faut bien pouvoir remettre le volet à zéro — mais Naoëlle vient d'insister :
+   * « que la réduction ne stoppe pas l'action, c'est important ». Le repli ne stoppe rien ; la
+   * fermeture, elle, est à trois pixels du bouton de repli.
+   *
+   * ON DEMANDE DONC CONFIRMATION, MAIS SEULEMENT QUAND ÇA COÛTE QUELQUE CHOSE : un appel est en
+   * cours d'après ce que le webhook a écrit. Le reste du temps la croix ferme sans rien demander —
+   * confirmer un geste inoffensif apprend surtout à cliquer « oui » sans lire. */
   const fermer = () => {
+    if (appelEnCours) {
+      const message = [
+        'Un appel est en cours. Fermer le volet couperait la session Allo.',
+        '',
+        'Pour garder l’appel, utilise « replier » : le volet disparaît sans rien interrompre.',
+      ].join('\n')
+      if (!window.confirm(message)) return
+    }
     setOuvert(false)
     setCharge(false)
     try { localStorage.setItem(CLE_MEMOIRE, '0') } catch { /* sans conséquence */ }
@@ -227,9 +253,16 @@ export function VoletAllo() {
       <Phone className="h-3.5 w-3.5 text-km-green" />
       Téléphone
       {charge && (
-        // Le point vert dit que la session du volet est encore vivante derrière : rouvrir ne
-        // redemandera pas de se connecter.
-        <span className="h-1.5 w-1.5 rounded-full bg-km-green" aria-label="session Allo active" />
+        /* LE POINT DIT CE QUI VIT DERRIÈRE. Vert : la session du volet est encore là, rouvrir ne
+           redemandera pas de se connecter. Ambre et clignotant : un appel est en cours — c'est ce
+           qui rassure quand on a replié le volet au milieu d'une conversation. */
+        <span
+          className={cn(
+            'h-1.5 w-1.5 rounded-full',
+            appelEnCours ? 'animate-pulse bg-km-amber' : 'bg-km-green',
+          )}
+          aria-label={appelEnCours ? 'appel en cours' : 'session Allo active'}
+        />
       )}
     </button>
   )
@@ -238,13 +271,34 @@ export function VoletAllo() {
     <>
       {!ouvert && pastille}
 
-      {/* LE CADRE RESTE MONTÉ DÈS QU'IL A ÉTÉ CHARGÉ UNE FOIS. `hidden` le cache sans le détruire :
-          c'est ce qui permet de replier le volet pendant un appel sans le couper. */}
+      {/* ══ REPLIER NE DOIT RIEN INTERROMPRE — ET LE REPLI GLISSE, IL NE CACHE PAS ══
+       *
+       * Naoëlle, 08/09/2026 : « le raccourci réduire à côté de la croix ne fonctionne pas », puis
+       * « même si on replie le volet, il faut que le numéro saisi ou l'appel en cours soit encore
+       * là, que la réduction ne stoppe pas l'action, c'est important ».
+       *
+       * LE BOUTON NE MARCHAIT PAS, ET C'ÉTAIT DE MON FAIT : le volet porte `flex`, donc
+       * `display: flex`, qui ÉCRASE l'attribut `hidden`. Celui-ci ne vaut qu'un `display: none` de
+       * la feuille du navigateur, que n'importe quelle déclaration d'auteur bat. Le bouton appelait
+       * bien `replier`, et rien ne bougeait à l'écran.
+       *
+       * ET ON NE LE CORRIGE PAS AVEC `display: none`. Un cadre non affiché voit son rendu suspendu
+       * par le navigateur, et un numéro à moitié tapé dans un champ démonté est perdu. C'est
+       * exactement ce que Naoëlle demande d'éviter.
+       *
+       * LE VOLET SORT DONC DE L'ÉCRAN : toujours rendu, toujours audible, toujours en train de
+       * garder ce qu'on y a saisi — simplement plus visible. `pointer-events-none` l'empêche
+       * d'intercepter les clics de la fiche derrière lui, et le cadre n'est jamais démonté tant
+       * qu'on n'a pas cliqué « fermer ». */}
       {charge && (
         <div
-          hidden={!ouvert}
+          aria-hidden={!ouvert}
           style={{ width: `min(${largeur}px, 95vw)` }}
-          className="fixed bottom-0 right-0 top-0 z-[66] flex flex-col border-l border-km-line bg-white shadow-km-pop"
+          className={cn(
+            'fixed bottom-0 right-0 top-0 z-[66] flex flex-col border-l border-km-line bg-white shadow-km-pop',
+            'transition-transform duration-200 motion-reduce:transition-none',
+            ouvert ? 'translate-x-0' : 'pointer-events-none translate-x-full',
+          )}
         >
           {/* LA POIGNÉE, sur le bord gauche. Large de six pixels, elle déborde de trois de chaque
               côté du trait pour être attrapable sans viser. */}
@@ -301,7 +355,7 @@ export function VoletAllo() {
             <button
               type="button"
               onClick={replier}
-              title="Replier — l’appel continue"
+              title="Replier — l’appel et le numéro saisi restent"
               className="shrink-0 rounded p-1 text-km-faint transition-colors hover:bg-km-soft hover:text-km-text"
             >
               <Minus className="h-3.5 w-3.5" />
