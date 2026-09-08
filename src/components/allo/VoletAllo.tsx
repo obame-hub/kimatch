@@ -49,6 +49,18 @@ import { useAppelEnCours } from '@/lib/data/appelEnCours'
 
 const URL_ALLO = 'https://web.withallo.com'
 
+/* CE QUI COMPOSE VRAIMENT UN NUMÉRO D'UN CLIC, et que Kimatch ne peut pas faire à sa place.
+ *
+ * Leur documentation : « Click the icon → the extension opens a small popup showing the number.
+ * Click Call. The call starts immediately in your Allo app (web or desktop). » L'API, elle, n'a
+ * aucun endpoint de composition — d'où ce lien, plutôt qu'un bouton qui ferait semblant.
+ *
+ * L'ÉTAPE QU'ON OUBLIE : après l'installation, il faut cliquer l'icône dans la barre d'outils et
+ * S'Y CONNECTER. Installée sans connexion, l'extension ne décore rien et on conclut qu'elle ne
+ * marche pas. */
+const URL_EXTENSION =
+  'https://chromewebstore.google.com/detail/allo-click-to-call/bjjbpnjndjmamflhendfjfefdbpleclk'
+
 /** Le volet se souvient d'être ouvert entre deux pages, pas entre deux sessions. */
 const CLE_MEMOIRE = 'kimatch.volet-allo.ouvert'
 /* LA CLÉ CHANGE AVEC LE DÉFAUT. Une largeur déjà mémorisée l'emporterait sur le nouveau défaut,
@@ -411,12 +423,28 @@ export function VoletAllo() {
             />
           </div>
 
-          {/* LA SESSION SÉPARÉE, DITE UNE FOIS. Sans cette phrase, on croit à une panne : on est
-              connecté à Allo dans un onglet, et le volet redemande la connexion. */}
-          <p className="flex-none border-t border-km-line bg-km-soft px-3.5 py-2 text-km-label leading-snug text-km-muted">
-            La première fois, connecte-toi ici même — le navigateur garde la session du volet à part
-            de celle de ton onglet Allo. Ensuite, elle reste.
-          </p>
+          {/* DEUX CHOSES QU'ON NE DEVINE PAS, dites ici plutôt que découvertes en tâtonnant : la
+              session du volet est distincte de celle de l'onglet, et c'est l'extension — pas
+              Kimatch — qui sait composer un numéro d'un clic. */}
+          <div className="flex-none border-t border-km-line bg-km-soft px-3.5 py-2 text-km-label leading-snug text-km-muted">
+            <p>
+              La première fois, connecte-toi ici même — le navigateur garde la session du volet à
+              part de celle de ton onglet Allo. Ensuite, elle reste.
+            </p>
+            <p className="mt-1.5">
+              Pour appeler un numéro d’un seul clic depuis une fiche,{' '}
+              <a
+                href={URL_EXTENSION}
+                target="_blank"
+                rel="noreferrer"
+                className="font-semibold text-km-green hover:underline"
+              >
+                installe l’extension Allo
+              </a>{' '}
+              et connecte-toi dedans. Elle pose son icône à côté des numéros et lance l’appel
+              directement.
+            </p>
+          </div>
         </div>
       )}
     </>

@@ -158,13 +158,29 @@ export function PhoneLink({ value, className }: { value: string; className?: str
       {/* Rien de cliquable autour du numéro : c'est la condition pour qu'Allo le décore. */}
       <span className={cn('font-mono', className)}>{numeroLisible(value)}</span>
 
-      {/* APPELER. Sur tactile, `tel:` compose vraiment ; sur ordinateur, le numéro part dans la file
-          du Power Dialer. L'entonnoir `appeler` tranche entre les deux et gère le repli — ce
-          composant n'a pas à savoir lequel des deux s'applique. */}
+      {/* ══ CE BOUTON NE COMPOSE PAS, ET IL NE LE PROMET PLUS ══
+       *
+       * Naoëlle, 08/09/2026 : « quand je clique sur le petit logo appeler à côté d'un numéro, il
+       * faudrait que ça appelle direct le numéro, là ça m'ouvre le volet comme si j'avais appuyé sur
+       * le logo en bas de l'écran. »
+       *
+       * ELLE A RAISON DE LE SIGNALER : le bouton portait « Appeler » et déposait un numéro dans une
+       * file. Sur ordinateur, aucun code ne peut composer — l'API d'Allo n'a pas d'endpoint pour
+       * ça, vérifié sur leur table complète.
+       *
+       * CE QUI COMPOSE VRAIMENT, C'EST LEUR EXTENSION CHROME, et leur documentation le dit :
+       * « Click the icon → the extension opens a small popup. Click Call. The call starts
+       * immediately in your Allo app. » Elle décore les numéros qu'elle voit — ce qui explique
+       * pourquoi, ici, le numéro reste un `<span>` sans rien de cliquable autour.
+       *
+       * Le bouton garde donc son geste, utile, et l'annonce pour ce qu'il est : il met le numéro
+       * dans la file d'appel. Un bouton qui promet un appel et dépose une entrée dans une liste est
+       * un bouton qui mentait — c'est exactement pour cette raison qu'il avait été retiré le 26/08,
+       * et je l'ai remis ce matin en répétant la même erreur d'intitulé. */}
       <button
         type="button"
-        title="Appeler"
-        aria-label={`Appeler le ${numeroLisible(value)}`}
+        title="Mettre dans ma file d’appel Allo"
+        aria-label={`Mettre le ${numeroLisible(value)} dans ma file d’appel Allo`}
         onClick={(e) => {
           e.stopPropagation()
           void appeler(value)
