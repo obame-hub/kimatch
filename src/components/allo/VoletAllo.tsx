@@ -48,6 +48,21 @@ const URL_ALLO = 'https://web.withallo.com'
 
 /** Le volet se souvient d'être ouvert entre deux pages, pas entre deux sessions. */
 const CLE_MEMOIRE = 'kimatch.volet-allo.ouvert'
+const CLE_LARGEUR = 'kimatch.volet-allo.largeur'
+
+/* ══ LA LARGEUR PAR DÉFAUT EST LARGE, ET C'EST MESURÉ À L'ÉCRAN ══
+ *
+ * Naoëlle, 08/09/2026 : « ça marche, le volet s'ouvre et j'ai pu me connecter, mais l'affichage est
+ * coupé, c'est bizarre. » Le volet faisait 420 px. Or `web.withallo.com` déploie une interface à
+ * TROIS COLONNES — navigation, liste des discussions, conversation — pensée pour une fenêtre
+ * entière. À 420 px, la troisième colonne tombe hors du cadre, et c'est justement celle où vivent
+ * les commandes d'appel.
+ *
+ * 760 px laisse les trois colonnes respirer, et la poignée permet d'aller plus loin quand on
+ * travaille dans le volet plutôt que dans la fiche. */
+const LARGEUR_DEFAUT = 760
+const LARGEUR_MIN = 380
+const LARGEUR_MAX = 1200
 
 /**
  * La commande globale, comme pour la téléphonie.
@@ -67,6 +82,11 @@ export function VoletAllo() {
      repli, donc raccroché l'appel. */
   const [charge, setCharge] = useState(false)
   const [ouvert, setOuvert] = useState(false)
+  const [largeur, setLargeur] = useState(LARGEUR_DEFAUT)
+  /* PENDANT LE GLISSEMENT, LE CADRE NE DOIT PLUS RECEVOIR LA SOURIS. Un iframe avale les événements
+     de pointeur : sans ce drapeau, la poignée se décroche dès que le curseur passe au-dessus d'Allo,
+     et le volet se figeait à mi-course. */
+  const [glisse, setGlisse] = useState(false)
 
   useEffect(() => {
     try {
@@ -74,6 +94,8 @@ export function VoletAllo() {
         setCharge(true)
         setOuvert(true)
       }
+      const l = Number(localStorage.getItem(CLE_LARGEUR))
+      if (Number.isFinite(l) && l >= LARGEUR_MIN && l <= LARGEUR_MAX) setLargeur(l)
     } catch {
       /* Navigation privée, stockage refusé : le volet s'ouvrira au premier clic, c'est tout. */
     }
@@ -99,10 +121,41 @@ export function VoletAllo() {
    * composants restent independants, et le decalage est une affaire de mise en page, pas de logique.
    */
   useEffect(() => {
-    const largeur = ouvert ? '420px' : '0px'
-    document.documentElement.style.setProperty('--volet-allo', largeur)
+    document.documentElement.style.setProperty('--volet-allo', ouvert ? `${largeur}px` : '0px')
     return () => document.documentElement.style.setProperty('--volet-allo', '0px')
-  }, [ouvert])
+  }, [ouvert, largeur])
+
+  /* ══ LA POIGNÉE ══
+   *
+   * Les événements sont posés sur la FENÊTRE et non sur la poignée : un glissement rapide sort du
+   * trait de 6 pixels avant que le navigateur n'ait envoyé le mouvement suivant, et la poignée
+   * perdrait le curseur. */
+  useEffect(() => {
+    if (!glisse) return
+    const bouge = (e: PointerEvent) => {
+      const l = Math.min(LARGEUR_MAX, Math.max(LARGEUR_MIN, window.innerWidth - e.clientX))
+      setLargeur(l)
+    }
+    const fini = () => {
+      setGlisse(false)
+      // On n'enregistre qu'à la fin : écrire à chaque pixel remplirait le stockage pour rien.
+      setLargeur((l) => {
+        try { localStorage.setItem(CLE_LARGEUR, String(Math.round(l))) } catch { /* sans conséquence */ }
+        return l
+      })
+    }
+    window.addEventListener('pointermove', bouge)
+    window.addEventListener('pointerup', fini)
+    // Le curseur et la sélection suivent le geste, pas la page en dessous.
+    document.body.style.cursor = 'col-resize'
+    document.body.style.userSelect = 'none'
+    return () => {
+      window.removeEventListener('pointermove', bouge)
+      window.removeEventListener('pointerup', fini)
+      document.body.style.cursor = ''
+      document.body.style.userSelect = ''
+    }
+  }, [glisse])
 
   const replier = () => {
     setOuvert(false)
@@ -144,8 +197,19 @@ export function VoletAllo() {
       {charge && (
         <div
           hidden={!ouvert}
-          className="fixed bottom-0 right-0 top-0 z-[66] flex w-full max-w-[420px] flex-col border-l border-km-line bg-white shadow-km-pop"
+          style={{ width: `min(${largeur}px, 95vw)` }}
+          className="fixed bottom-0 right-0 top-0 z-[66] flex flex-col border-l border-km-line bg-white shadow-km-pop"
         >
+          {/* LA POIGNÉE, sur le bord gauche. Large de six pixels, elle déborde de trois de chaque
+              côté du trait pour être attrapable sans viser. */}
+          <div
+            onPointerDown={(e) => { e.preventDefault(); setGlisse(true) }}
+            role="separator"
+            aria-orientation="vertical"
+            aria-label="Redimensionner le volet"
+            title="Glisser pour redimensionner"
+            className="absolute inset-y-0 -left-[3px] z-10 w-1.5 cursor-col-resize bg-transparent transition-colors hover:bg-km-green/40"
+          />
           <div className="flex flex-none items-center gap-2 border-b border-km-line px-3.5 py-2.5">
             <Phone className="h-4 w-4 shrink-0 text-km-green" />
             <div className="min-w-0 flex-1">
@@ -189,6 +253,7 @@ export function VoletAllo() {
                copier des numéros. */
             allow="microphone; autoplay; clipboard-write"
             className="min-h-0 flex-1 border-0"
+            style={{ pointerEvents: glisse ? 'none' : 'auto' }}
           />
 
           {/* LA SESSION SÉPARÉE, DITE UNE FOIS. Sans cette phrase, on croit à une panne : on est
