@@ -2,7 +2,8 @@ import { useState } from 'react'
 import { AlertTriangle, CheckCircle2 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Dialog } from '@/components/ui/dialog'
-import { FormField, Select } from '@/components/ui/form'
+import { FormField } from '@/components/ui/form'
+import { ChoixParRecherche } from '@/components/ui/choix-recherche'
 import { ExtractDocumentButton } from '@/components/ui/document-extraction'
 import { MandatChainPrompt, type ChainedCompteur } from '@/components/compteur/MandatChainPrompt'
 import {
@@ -227,12 +228,21 @@ export function CreationCompteurDialog({
       className="max-w-xl"
       description="Le site est retrouvé ou créé automatiquement à partir du libellé et de l'adresse."
     >
+      {/* Recherche et non liste déroulante : voir `ChoixParRecherche`. Ce `<select>` déroulait
+          tous les comptes clients (Naoëlle, 08/09/2026 : « montrer tous les comptes c'est horrible
+          à l'affichage »). */}
       {!compteImpose && (
         <FormField label="Compte de rattachement" required>
-          <Select value={compteChoisiId} onChange={(e) => setCompteChoisiId(e.target.value)} required>
-            <option value="">Sélectionner un compte…</option>
-            {comptesClients.map((c) => <option key={c.id} value={c.id}>{c.nom}</option>)}
-          </Select>
+          <ChoixParRecherche<Compte>
+            items={comptesClients}
+            valeur={compteChoisiId}
+            onChoisir={(c) => setCompteChoisiId(c?.id ?? '')}
+            placeholder="Chercher un compte…"
+            principal={(c) => c.nom}
+            secondaire={(c) => [c.ville, c.siret ? `SIRET ${c.siret}` : null].filter(Boolean).join(' · ') || null}
+            filtre={(c, q) => c.nom.toLowerCase().includes(q) || (c.siret ?? '').includes(q) || (c.siren ?? '').includes(q)}
+            totalLibelle={`${comptesClients.length} comptes`}
+          />
         </FormField>
       )}
 

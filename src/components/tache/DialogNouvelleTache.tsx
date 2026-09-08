@@ -2,6 +2,8 @@ import { useEffect, useState } from 'react'
 import { Check, Clock, FileText, Mail, Phone, X } from 'lucide-react'
 import { Dialog } from '@/components/ui/dialog'
 import { FormField, Input, Select, Textarea } from '@/components/ui/form'
+import { ChoixParRecherche } from '@/components/ui/choix-recherche'
+import type { Contact, Site } from '@/types/domain'
 import { Button } from '@/components/ui/button'
 import { instantTache } from '@/lib/heureTache'
 import { estIdReel } from '@/lib/referenceFallbacks'
@@ -344,19 +346,40 @@ export function FormulaireTache({
         {/* LE RATTACHEMENT NE S'AFFICHE PLUS. Il tenait une ligne entière pour répéter le nom du
             dossier qu'on a sous les yeux — la fiche est ouverte derrière le panneau. La tâche y est
             toujours rattachée, c'est simplement l'écran qui cesse de le redire (William, 07/09). */}
+        {/* ══ UNE TÂCHE LIBRE CHERCHE DANS TOUT LE PARC ════════════════════════════════════════
+            Sans dossier derrière elle, ces deux champs portaient les 6 374 sites et les 3 401
+            contacts de la base — deux listes déroulantes impraticables. Voir `ChoixParRecherche`.
+            Le champ Contact du cas contraire reste un `<select>` : il est déjà restreint aux
+            contacts du compte du dossier, et une poignée de noms se lit mieux déroulée. */}
         {libre ? (
           <div className="grid gap-3 sm:grid-cols-2">
             <FormField label="Site (optionnel)">
-              <Select value={siteId} onChange={(e) => setSiteId(e.target.value)}>
-                <option value="">—</option>
-                {sites?.map((s) => <option key={s.id} value={s.id}>{s.nom}</option>)}
-              </Select>
+              <ChoixParRecherche<Site>
+                items={sites ?? []}
+                valeur={siteId}
+                onChoisir={(s) => setSiteId(s?.id ?? '')}
+                placeholder="Chercher un site…"
+                principal={(s) => s.nom}
+                secondaire={(s) => [s.compte_nom, [s.code_postal, s.ville].filter(Boolean).join(' ')].filter(Boolean).join(' · ') || null}
+                filtre={(s, q) => s.nom.toLowerCase().includes(q) || (s.ville ?? '').toLowerCase().includes(q) || (s.code_postal ?? '').includes(q) || (s.compte_nom ?? '').toLowerCase().includes(q)}
+                totalLibelle={`${(sites ?? []).length} sites`}
+              />
             </FormField>
             <FormField label="Contact (optionnel)">
-              <Select value={contactId} onChange={(e) => setContactId(e.target.value)}>
-                <option value="">—</option>
-                {contacts?.map((c) => <option key={c.id} value={c.id}>{c.prenom} {c.nom}</option>)}
-              </Select>
+              <ChoixParRecherche<Contact>
+                items={contacts ?? []}
+                valeur={contactId}
+                onChoisir={(c) => setContactId(c?.id ?? '')}
+                placeholder="Chercher un contact…"
+                principal={(c) => `${c.prenom ?? ''} ${c.nom ?? ''}`.trim() || '(sans nom)'}
+                secondaire={(c) => [c.fonction, c.compte_nom].filter(Boolean).join(' · ') || null}
+                filtre={(c, q) =>
+                  `${c.prenom ?? ''} ${c.nom ?? ''}`.toLowerCase().includes(q) ||
+                  (c.compte_nom ?? '').toLowerCase().includes(q) ||
+                  (c.email ?? '').toLowerCase().includes(q)
+                }
+                totalLibelle={`${(contacts ?? []).length} contacts`}
+              />
             </FormField>
           </div>
         ) : (

@@ -25,7 +25,8 @@ import { useSites } from '@/lib/data/sites'
 import { useCreateAction } from '@/lib/data/actions'
 import { useReferenceTable } from '@/lib/data/referenceTables'
 import { FALLBACK_STATUTS_SIGNAUX, FALLBACK_TYPES_SIGNAUX, FALLBACK_STATUTS_ACTIONS } from '@/lib/referenceFallbacks'
-import type { Signal } from '@/types/domain'
+import { ChoixParRecherche } from '@/components/ui/choix-recherche'
+import type { Signal, Site } from '@/types/domain'
 import { cn } from '@/lib/utils'
 import { estIdReel } from '@/lib/referenceFallbacks'
 import { prochaineActionSignal } from '@/lib/prochaineActionSignal'
@@ -215,11 +216,18 @@ function CreateSignalDialog({ open, onClose }: { open: boolean; onClose: () => v
   return (
     <Dialog open={open} onClose={() => { reset(); onClose() }} title="Nouveau signal" description="Signaler un événement à surveiller sur un site.">
       <form onSubmit={handleSubmit} className="space-y-3">
+        {/* Recherche et non liste déroulante : 6 374 sites. Voir `ChoixParRecherche`. */}
         <FormField label="Site">
-          <Select value={siteId} onChange={(e) => setSiteId(e.target.value)} required>
-            <option value="">Sélectionner un site…</option>
-            {sites?.map((s) => <option key={s.id} value={s.id}>{s.nom}</option>)}
-          </Select>
+          <ChoixParRecherche<Site>
+            items={sites ?? []}
+            valeur={siteId}
+            onChoisir={(s) => setSiteId(s?.id ?? '')}
+            placeholder="Chercher un site…"
+            principal={(s) => s.nom}
+            secondaire={(s) => [s.compte_nom, [s.code_postal, s.ville].filter(Boolean).join(' ')].filter(Boolean).join(' · ') || null}
+            filtre={(s, q) => s.nom.toLowerCase().includes(q) || (s.ville ?? '').toLowerCase().includes(q) || (s.code_postal ?? '').includes(q) || (s.compte_nom ?? '').toLowerCase().includes(q)}
+            totalLibelle={`${(sites ?? []).length} sites`}
+          />
         </FormField>
         <FormField label="Type de signal">
           {/* OBLIGATOIRE : `signaux.type_signal_id` est NOT NULL sans valeur par défaut. */}
@@ -234,7 +242,11 @@ function CreateSignalDialog({ open, onClose }: { open: boolean; onClose: () => v
         {feedback && <p className="text-xs text-km-muted">{feedback}</p>}
         <div className="flex justify-end gap-2 pt-2">
           <Button type="button" variant="ghost" onClick={() => { reset(); onClose() }}>Annuler</Button>
-          <Button type="submit" disabled={createSignal.isPending}>Créer le signal</Button>
+          {/* LE SITE EST OBLIGATOIRE, ET ÇA SE VOIT SUR LE BOUTON. Le champ portait `required` :
+              c'est le navigateur qui bloquait, avec son infobulle. Le champ de recherche qui l'a
+              remplacé n'a pas cette validation native, et `handleSubmit` se contentait d'un
+              `return` muet — donc un clic sans effet ni explication. */}
+          <Button type="submit" disabled={createSignal.isPending || !siteId}>Créer le signal</Button>
         </div>
       </form>
     </Dialog>

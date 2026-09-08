@@ -11,6 +11,8 @@ import { Button } from '@/components/ui/button'
 import { EntityLink } from '@/components/ui/entity-link'
 import { Dialog } from '@/components/ui/dialog'
 import { FormField, Input, Select } from '@/components/ui/form'
+import { ChoixParRecherche } from '@/components/ui/choix-recherche'
+import type { Site } from '@/types/domain'
 import { useContrats, useCreateContrat } from '@/lib/data/contrats'
 import { useSites } from '@/lib/data/sites'
 import { useComptes } from '@/lib/data/comptes'
@@ -283,11 +285,20 @@ function CreateContratDialog({ open, onClose }: { open: boolean; onClose: () => 
     <Dialog open={open} onClose={() => { reset(); onClose() }} title="Nouveau contrat" description="Contrat de fourniture d'énergie pour un site.">
       <form onSubmit={handleSubmit} className="max-h-[75vh] space-y-3 overflow-y-auto pr-1">
         <ExtractDocumentButton onExtracted={handleExtracted} />
+        {/* 6 374 sites ne se déroulent pas — voir `ChoixParRecherche`. La recherche porte sur le
+            nom, la ville, le code postal ET le compte : « Saint Baptiste » existe des dizaines de
+            fois, c'est le syndic qui distingue le bon. */}
         <FormField label="Site">
-          <Select value={siteId} onChange={(e) => { setSiteId(e.target.value); setCompteurIds([]); setContactSignataireId('') }} required>
-            <option value="">Sélectionner un site…</option>
-            {sites?.map((s) => <option key={s.id} value={s.id}>{s.nom}</option>)}
-          </Select>
+          <ChoixParRecherche<Site>
+            items={sites ?? []}
+            valeur={siteId}
+            onChoisir={(s) => { setSiteId(s?.id ?? ''); setCompteurIds([]); setContactSignataireId('') }}
+            placeholder="Chercher un site…"
+            principal={(s) => s.nom}
+            secondaire={(s) => [s.compte_nom, [s.code_postal, s.ville].filter(Boolean).join(' ')].filter(Boolean).join(' · ') || null}
+            filtre={(s, q) => s.nom.toLowerCase().includes(q) || (s.ville ?? '').toLowerCase().includes(q) || (s.code_postal ?? '').includes(q) || (s.compte_nom ?? '').toLowerCase().includes(q)}
+            totalLibelle={`${(sites ?? []).length} sites`}
+          />
         </FormField>
         <FormField label="Fournisseur">
           <Select value={fournisseurId} onChange={(e) => setFournisseurId(e.target.value)}>

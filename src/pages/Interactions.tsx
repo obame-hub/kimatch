@@ -10,6 +10,8 @@ import { Button } from '@/components/ui/button'
 import { InteractionSentence } from '@/lib/interactionSentence'
 import { Dialog } from '@/components/ui/dialog'
 import { FormField, Input, Select, Textarea } from '@/components/ui/form'
+import { ChoixParRecherche } from '@/components/ui/choix-recherche'
+import type { Compte } from '@/types/domain'
 import { useInteractionsRecentes, useCreateInteraction } from '@/lib/data/interactions'
 import { useComptes } from '@/lib/data/comptes'
 import { useSites } from '@/lib/data/sites'
@@ -114,11 +116,18 @@ function CreateInteractionDialog({ open, onClose }: { open: boolean; onClose: ()
             </Select>
           </FormField>
         </div>
+        {/* Recherche et non liste déroulante : voir `ChoixParRecherche`. */}
         <FormField label="Compte">
-          <Select value={compteId} onChange={(e) => { setCompteId(e.target.value); setSiteId(''); setContactId('') }}>
-            <option value="">Sélectionner…</option>
-            {comptes?.map((c) => <option key={c.id} value={c.id}>{c.nom}</option>)}
-          </Select>
+          <ChoixParRecherche<Compte>
+            items={comptes ?? []}
+            valeur={compteId}
+            onChoisir={(c) => { setCompteId(c?.id ?? ''); setSiteId(''); setContactId('') }}
+            placeholder="Chercher un compte…"
+            principal={(c) => c.nom}
+            secondaire={(c) => [c.ville, c.siret ? `SIRET ${c.siret}` : null].filter(Boolean).join(' · ') || null}
+            filtre={(c, q) => c.nom.toLowerCase().includes(q) || (c.siret ?? '').includes(q) || (c.siren ?? '').includes(q)}
+            totalLibelle={`${(comptes ?? []).length} comptes`}
+          />
         </FormField>
         {compteId && (
           <div className="grid grid-cols-2 gap-3">

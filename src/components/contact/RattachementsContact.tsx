@@ -3,7 +3,8 @@ import { useNavigate } from 'react-router-dom'
 import { Building2, MapPin, Plus, Repeat, Unlink } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Dialog } from '@/components/ui/dialog'
-import { FormField, Input, Select } from '@/components/ui/form'
+import { FormField, Input } from '@/components/ui/form'
+import { ChoixParRecherche } from '@/components/ui/choix-recherche'
 import type { Compte, Compteur, Contact, Site } from '@/types/domain'
 import { useLierContactCompte, useDelierContactCompte, useChangerComptePrincipal } from '@/lib/data/contacts'
 
@@ -342,16 +343,10 @@ function DialogChangerPrincipal({
   onValider: (compteId: string, conserverAncienLien: boolean) => void
 }) {
   const [compteId, setCompteId] = useState('')
-  const [recherche, setRecherche] = useState('')
   const [conserver, setConserver] = useState(false)
 
   const actuel = contact.comptes.find((c) => c.relation_directe)
-  // Même contrainte que pour le rattachement : 2 700 comptes ne tiennent pas dans une liste brute.
-  const q = recherche.trim().toLowerCase()
   const candidats = comptes.filter((c) => c.id !== contact.compte_id)
-  const filtres = q
-    ? candidats.filter((c) => c.nom.toLowerCase().includes(q)).slice(0, 50)
-    : candidats.slice(0, 50)
 
   return (
     <Dialog
@@ -361,24 +356,24 @@ function DialogChangerPrincipal({
       description={`${contact.prenom} ${contact.nom} est aujourd'hui rattaché à ${actuel?.nom ?? 'un compte'}. Le compte principal détermine où le contact apparaît et qui le voit.`}
     >
       <div className="flex flex-col gap-3">
-        <FormField label="Rechercher un compte">
-          <Input value={recherche} onChange={(e) => setRecherche(e.target.value)} placeholder="Nom du compte…" />
-        </FormField>
+        {/* ══ UNE SEULE COMMANDE, PAS DEUX ═════════════════════════════════════════════════════
+            Il y avait un champ de recherche PUIS une liste déroulante des cinquante premiers
+            résultats — donc deux gestes, et une liste qui restait longue. Naoëlle, 08/09/2026 :
+            « il faudrait que ce soit de l'autocomplétion, et que ça s'affine au fur et à mesure de
+            l'écriture. » `ChoixParRecherche` fait les deux en un champ, et la recherche porte aussi
+            sur le SIRET et le SIREN — ce qui distingue deux comptes d'un même groupe. */}
         <FormField label="Nouveau compte principal">
-          <Select value={compteId} onChange={(e) => setCompteId(e.target.value)}>
-            <option value="">Sélectionner…</option>
-            {filtres.map((c) => (
-              <option key={c.id} value={c.id}>
-                {c.nom}
-              </option>
-            ))}
-          </Select>
+          <ChoixParRecherche<Compte>
+            items={candidats}
+            valeur={compteId}
+            onChoisir={(c) => setCompteId(c?.id ?? '')}
+            placeholder="Chercher un compte…"
+            principal={(c) => c.nom}
+            secondaire={(c) => [c.ville, c.siret ? `SIRET ${c.siret}` : null].filter(Boolean).join(' · ') || null}
+            filtre={(c, q) => c.nom.toLowerCase().includes(q) || (c.siret ?? '').includes(q) || (c.siren ?? '').includes(q)}
+            totalLibelle={`${candidats.length} comptes`}
+          />
         </FormField>
-        {!q && candidats.length > 50 && (
-          <p className="text-km-xs text-km-faint">
-            50 comptes sur {candidats.length} affichés — précisez la recherche pour trouver le bon.
-          </p>
-        )}
         <label className="flex items-start gap-2 rounded-km border border-km-line bg-km-soft px-2.5 py-2">
           <input
             type="checkbox"
@@ -422,11 +417,6 @@ function DialogRattacher({
 }) {
   const [compteId, setCompteId] = useState('')
   const [fonction, setFonction] = useState('')
-  const [recherche, setRecherche] = useState('')
-
-  // Le parc dépasse 2700 comptes : une liste déroulante brute est inutilisable, on filtre d'abord.
-  const q = recherche.trim().toLowerCase()
-  const filtres = q ? candidats.filter((c) => c.nom.toLowerCase().includes(q)).slice(0, 50) : candidats.slice(0, 50)
 
   return (
     <Dialog
@@ -436,24 +426,19 @@ function DialogRattacher({
       description="Le contact apparaîtra dans les contacts de ce compte, sans changer son compte principal."
     >
       <div className="flex flex-col gap-3">
-        <FormField label="Rechercher un compte">
-          <Input value={recherche} onChange={(e) => setRecherche(e.target.value)} placeholder="Nom du compte…" />
-        </FormField>
+        {/* Une seule commande ici aussi — voir le dialogue du compte principal juste au-dessus. */}
         <FormField label="Compte">
-          <Select value={compteId} onChange={(e) => setCompteId(e.target.value)}>
-            <option value="">Sélectionner…</option>
-            {filtres.map((c) => (
-              <option key={c.id} value={c.id}>
-                {c.nom}
-              </option>
-            ))}
-          </Select>
+          <ChoixParRecherche<Compte>
+            items={candidats}
+            valeur={compteId}
+            onChoisir={(c) => setCompteId(c?.id ?? '')}
+            placeholder="Chercher un compte…"
+            principal={(c) => c.nom}
+            secondaire={(c) => [c.ville, c.siret ? `SIRET ${c.siret}` : null].filter(Boolean).join(' · ') || null}
+            filtre={(c, q) => c.nom.toLowerCase().includes(q) || (c.siret ?? '').includes(q) || (c.siren ?? '').includes(q)}
+            totalLibelle={`${candidats.length} comptes`}
+          />
         </FormField>
-        {!q && candidats.length > 50 && (
-          <p className="text-km-xs text-km-faint">
-            50 comptes sur {candidats.length} affichés — précisez la recherche pour trouver le bon.
-          </p>
-        )}
         <FormField label="Fonction sur ce compte (facultatif)">
           <Input value={fonction} onChange={(e) => setFonction(e.target.value)} placeholder="Ex. Signataire" />
         </FormField>

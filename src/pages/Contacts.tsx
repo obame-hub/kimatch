@@ -13,6 +13,7 @@ import { EntityLink } from '@/components/ui/entity-link'
 import { PhoneLink, EmailLink } from '@/components/ui/contact-link'
 import { Dialog } from '@/components/ui/dialog'
 import { FormField, Input, Select } from '@/components/ui/form'
+import { ChoixParRecherche } from '@/components/ui/choix-recherche'
 import { useContacts, useCreateContact, findContactDuplicates, type ContactDuplicate } from '@/lib/data/contacts'
 import { useComptes } from '@/lib/data/comptes'
 import { useSites } from '@/lib/data/sites'
@@ -22,7 +23,7 @@ import { useListControls } from '@/lib/useListControls'
 import { usePerimetreListe, BasculePerimetre } from '@/lib/perimetre'
 import { toUpperFR, toTitleCaseFR, formatPhoneFR, isValidPhoneFR, isValidEmail } from '@/lib/textFormat'
 import { contactRoleOptions } from '@/lib/contactRoles'
-import type { Contact } from '@/types/domain'
+import type { Compte, Contact } from '@/types/domain'
 import { useOuvrirCreation } from '@/lib/ouvrirCreation'
 
 const DUPLICATE_FIELD_LABEL: Record<ContactDuplicate['fields'][number], string> = {
@@ -193,11 +194,31 @@ function CreateContactDialog({ open, onClose, initialCompteId }: { open: boolean
     <Dialog open={open} onClose={() => { reset(); onClose() }} title={dialogTitle} description={dialogDesc}>
       {step === 'form' && (
         <form onSubmit={handleSubmit} className="max-h-[75vh] space-y-3 overflow-y-auto pr-1">
+          {/* ══ ON CHERCHE LE COMPTE, ON NE LE DÉROULE PLUS ══════════════════════════════════════
+
+              Naoëlle, 08/09/2026 : « dans toute l'app il y a des listes de recherche comme celle du
+              compte dans la création de contact, je trouve ça très fastidieux, il faudrait que ce
+              soit de l'autocomplétion, et que ça s'affine au fur et à mesure de l'écriture, car
+              montrer tous les comptes c'est horrible à l'affichage. »
+
+              Ce `<select>` déroulait les 2 765 comptes. Le composant qui répond à ce besoin existait
+              déjà — `ChoixParRecherche`, écrit le 23/08/2026 pour exactement ce reproche sur
+              l'assistant de recommandation — il n'avait simplement jamais été branché ici.
+
+              LA RECHERCHE PORTE AUSSI SUR LE SIRET ET LE SIREN, pas seulement sur le nom : deux
+              comptes d'un même groupe portent souvent le même début de nom, et c'est le numéro qui
+              les distingue. */}
           <FormField label="Compte">
-            <Select value={compteId} onChange={(e) => { setCompteId(e.target.value); setSiteIds([]); setRole('') }} required>
-              <option value="">Sélectionner un compte…</option>
-              {comptes?.map((c) => <option key={c.id} value={c.id}>{c.nom}</option>)}
-            </Select>
+            <ChoixParRecherche<Compte>
+              items={comptes ?? []}
+              valeur={compteId}
+              onChoisir={(c) => { setCompteId(c?.id ?? ''); setSiteIds([]); setRole('') }}
+              placeholder="Chercher un compte…"
+              principal={(c) => c.nom}
+              secondaire={(c) => [c.ville, c.siret ? `SIRET ${c.siret}` : null].filter(Boolean).join(' · ') || null}
+              filtre={(c, q) => c.nom.toLowerCase().includes(q) || (c.siret ?? '').includes(q) || (c.siren ?? '').includes(q)}
+              totalLibelle={`${(comptes ?? []).length} comptes`}
+            />
           </FormField>
           <FormField label="Civilité">
             <div className="flex gap-2">
