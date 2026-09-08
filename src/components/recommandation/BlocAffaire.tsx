@@ -176,15 +176,29 @@ export function BlocAffaire({ reco, peutModifier, majReco, signaler }: {
   ]
   // Un dossier vide se masquait entièrement — donc impossible à remplir. Dès qu'on peut écrire, le
   // bloc s'affiche, quitte à n'être qu'une grille de champs à compléter.
-  if (!editable && chiffres.every((v) => v == null || v === '')) return null
-
-  const economise = (reco.difference_budgetaire ?? 0) < 0
-  const apporteur = reco.marge_apporteur ?? 0
+  const masque = !editable && chiffres.every((v) => v == null || v === '')
 
   /* ══ LE MONTANT CALCULÉ ══
      La formule est en base (`v_montant_recommandation`). Ce bloc la LIT pour deux choses : proposer
-     le calcul quand le montant est vide, et expliquer d'où sort le chiffre quand il est rempli. */
-  const { data: calcul } = useMontantCalcule(reco.id)
+     le calcul quand le montant est vide, et expliquer d'où sort le chiffre quand il est rempli.
+
+     ══ CE HOOK EST APPELÉ AVANT LE `return null`, ET CE N'EST PAS UN DÉTAIL DE STYLE ══
+
+     Il était placé APRÈS, donc appelé conditionnellement : le Claude de William l'a relevé le
+     08/09/2026 comme la seule erreur de lint du dépôt. Un composant qui appelle ses hooks dans un
+     ordre variable d'un rendu à l'autre lit les états de ses voisins — React les tient dans une
+     liste positionnelle, pas dans un dictionnaire. Le bloc affichait donc juste, jusqu'au premier
+     rendu où le dossier passait de vide à rempli sans que `peutModifier` change.
+
+     L'ARGUMENT, LUI, RESTE CONDITIONNEL, et c'est permis : `useMontantCalcule` porte un
+     `enabled: Boolean(recommandationId)`. Passer `undefined` quand le bloc ne s'affichera pas
+     préserve l'ordre des hooks sans lancer une requête pour un bloc invisible. */
+  const { data: calcul } = useMontantCalcule(masque ? undefined : reco.id)
+
+  if (masque) return null
+
+  const economise = (reco.difference_budgetaire ?? 0) < 0
+  const apporteur = reco.marge_apporteur ?? 0
   const montantCalcule = calcul?.montant_calcule ?? null
   const manquesDuCalcul = montantCalcule == null ? manquesMontant(calcul) : []
 
