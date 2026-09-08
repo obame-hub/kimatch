@@ -160,6 +160,30 @@ async function main() {
     console.log(
       'resultat  : APPLIQUEE en ' + Math.round(Number(process.hrtime.bigint() - debut) / 1e6) + ' ms',
     )
+
+    /* ══ LA CARTE DES DONNEES EST CONFRONTEE AU NOUVEAU SCHEMA, ICI ET MAINTENANT ═══════════════
+       Naoelle, 08/09/2026 : « comment on fait pour la mettre a jour a chaque fois ». La reponse est
+       de ne pas avoir a y penser : le schema ne change qu'ici, donc le controle a sa place ici.
+       Une migration qui renomme ou supprime une colonne encore lue par un ecran se voit dans la
+       seconde, et non le jour ou quelqu'un ouvre la fiche.
+       ELLE N'ECHOUE JAMAIS LA MIGRATION : elle est deja appliquee et validee a ce point du script.
+       Faire echouer le processus ici ferait croire a un rollback qui n'a pas eu lieu — c'est
+       exactement le mensonge que la lecon du 07/09 interdit. On avertit, on ne pretend pas. */
+    try {
+      const { execFileSync } = require('child_process')
+      execFileSync(process.execPath, [path.join(__dirname, 'cartographier-donnees.cjs'), '--verifier'], {
+        stdio: ['ignore', 'pipe', 'pipe'],
+      })
+      console.log('carte     : le code et le schema sont d accord')
+    } catch (e) {
+      const sortie = (e.stdout ? e.stdout.toString() : '') + (e.stderr ? e.stderr.toString() : '')
+      console.log('')
+      console.log('carte     : ATTENTION — le code lit des colonnes que le schema ne porte plus')
+      for (const l of sortie.split(/\r?\n/).filter((l) => l.trim().startsWith('!'))) {
+        console.log('            ' + l.trim())
+      }
+      console.log('            La migration EST appliquee. Corrigez le code, puis `npm run carte`.')
+    }
   } catch (e) {
     console.log('resultat  : ECHEC — rien n a ete applique (la transaction a ete annulee)')
     console.log('erreur    : ' + e.code + ' — ' + e.message)
