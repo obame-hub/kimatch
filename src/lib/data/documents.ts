@@ -203,10 +203,40 @@ export function useTeleverserDocuments() {
           .replace(/[^A-Za-z0-9._-]+/g, '_')
         const chemin = `${input.entite_type}/${input.entite_id}/${Date.now()}_${nomSur}`
 
-        const { error: erreurDepot } = await supabase.storage
-          .from('documents')
-          .upload(chemin, fichier, { contentType: fichier.type || undefined, upsert: false })
-        if (erreurDepot) throw new Error(`« ${fichier.name} » : ${erreurDepot.message}`)
+        /* ══ UN ÉCHEC PASSAGER NE DOIT PAS RESSEMBLER À UN MUR ══
+         *
+         * Marie, 08/09/2026, en déposant un contrat : « Le dépôt a échoué : The connection to the
+         * database timed out ». Ce message vient du service de stockage de Supabase, pas de Postgres,
+         * et il était bien passager — vérifié en base : Matthieu avait déposé un fichier à la main
+         * trois heures plus tôt, l'automatisme des mandats a réussi deux minutes avant son essai, et
+         * la plateforme répondait normalement quand j'ai regardé.
+         *
+         * ON RÉESSAIE DONC, DEUX FOIS, avec une pause qui s'allonge. Un envoi qui échoue pour un
+         * délai dépassé réussit presque toujours au coup suivant, et demander à quelqu'un de
+         * recommencer à la main ce que le code peut refaire seul est du travail qu'on lui prend.
+         *
+         * ON NE RÉESSAIE QUE CE QUI EST RÉESSAYABLE. Un fichier trop gros, un type refusé, un chemin
+         * déjà pris : ces refus-là ne changeront pas au second essai, et insister ferait attendre
+         * trois fois plus longtemps pour la même erreur. */
+        const RETRIABLE = /timed out|timeout|network|fetch failed|502|503|504|ECONN/i
+        let erreurDepot: { message: string } | null = null
+        for (let essai = 1; essai <= 3; essai += 1) {
+          const { error } = await supabase.storage
+            .from('documents')
+            .upload(chemin, fichier, { contentType: fichier.type || undefined, upsert: false })
+          erreurDepot = error ?? null
+          if (!error) break
+          if (!RETRIABLE.test(error.message) || essai === 3) break
+          await new Promise((r) => setTimeout(r, essai * 1200))
+        }
+        if (erreurDepot) {
+          /* LE MESSAGE DIT CE QUI COMPTE : rien n'a été enregistré. Sans cette phrase, on se demande
+             si le fichier est passé à moitié, et on hésite à recommencer de peur de le dupliquer. */
+          throw new Error(
+            `« ${fichier.name} » n’a pas pu être déposé : ${erreurDepot.message}. `
+            + 'Rien n’a été enregistré — tu peux réessayer.',
+          )
+        }
 
         const publique = `${url}/storage/v1/object/public/documents/${chemin}`
         const { data, error } = await supabase
