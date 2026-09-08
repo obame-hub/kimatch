@@ -1,5 +1,6 @@
 import { createContext, useCallback, useContext, useEffect, useState } from 'react'
 import type { ReactNode } from 'react'
+import { CarteAppel } from '@/components/allo/CarteAppel'
 
 /**
  * APPELER DEPUIS KIMATCH — un seul entonnoir, un numéro normalisé, et un numéro TOUJOURS VISIBLE.
@@ -244,6 +245,11 @@ export function TelephonieProvider({ children }: { children: ReactNode }) {
   return (
     <Contexte.Provider value={{ appeler }}>
       {children}
+      {/* LA CARTE D'APPEL VIT ICI, et non dans la mise en page.
+          Ce fournisseur est deja le porteur du telephone dans l'application : y monter la carte lui
+          donne exactement la meme portee que le bouton « Appeler », sans toucher a `AppLayout`.
+          Elle rend `null` tant qu'aucun appel n'est en cours, donc son cout est nul. */}
+      <CarteAppel />
       {message && (
         <div className="fixed bottom-[70px] left-1/2 z-[60] -translate-x-1/2 rounded-km border border-km-line bg-white px-4 py-2.5 text-km-xs font-semibold text-km-text shadow-km-pop md:bottom-6">
           {message}
