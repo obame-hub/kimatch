@@ -1,3 +1,4 @@
+import { useEffect } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { supabase } from '@/lib/supabase'
 import type { Mandat } from '@/types/domain'
@@ -296,6 +297,59 @@ export function useMarkMandatEnvoye() {
       return { persisted }
     },
   })
+}
+
+/**
+ * ══ LE STATUT AVANCE SOUS LES YEUX, SANS RECHARGER ══
+ *
+ * William, 08/09/2026 : « quand je te dis immédiatement, j'attends du live ! Si je suis sur le
+ * mandat, sur la fiche, je veux voir le statut évoluer en live sans avoir besoin de refresh. »
+ *
+ * Le moment est celui d'un envoi à la signature : on reste sur la fiche, on regarde. Le client ouvre
+ * le document — « Consulté ». Il signe — « Actif ». Ces deux transitions arrivent en quelques
+ * minutes, parfois en quelques secondes, et jusqu'ici il fallait recharger pour les voir. Un écran
+ * qui ment pendant qu'on le regarde apprend à ne plus le regarder.
+ *
+ * ── POURQUOI UN WEBSOCKET ICI, ALORS QUE LES APPELS INTERROGENT TOUTES LES QUATRE SECONDES ──
+ *
+ * Naoëlle a publié `appels_en_cours` en temps réel le 08/09/2026 tout en choisissant le sondage :
+ * « introduire une première dépendance websocket la veille d'un test serait mal choisir son
+ * moment ». Le raisonnement était juste, et il portait sur le calendrier, pas sur la technique.
+ *
+ * Ici le sondage tiendrait aussi, mais il coûterait plus : la fiche mandat reste ouverte longtemps —
+ * on la garde pendant qu'on appelle le client — et interroger la base toutes les quatre secondes
+ * pendant vingt minutes pour trois changements est le mauvais côté du marché. L'abonnement, lui,
+ * ne coûte rien tant que rien ne bouge.
+ *
+ * ── CE QUI SE PASSE SI LE WEBSOCKET NE S'ÉTABLIT PAS ──
+ *
+ * Rien de visible : la fiche continue de se rafraîchir au retour sur l'onglet, comme avant. On
+ * n'affiche donc aucun indicateur de connexion — un voyant « temps réel indisponible » inquiéterait
+ * pour une fonction dont personne ne dépend.
+ *
+ * L'abonnement est filtré sur CE mandat et se ferme au démontage : une fiche ouverte, un canal.
+ */
+export function useMandatEnDirect(mandatId: string | undefined) {
+  const queryClient = useQueryClient()
+
+  useEffect(() => {
+    if (!mandatId) return
+    const canal = supabase
+      .channel(`mandat-${mandatId}`)
+      .on(
+        'postgres_changes',
+        { event: 'UPDATE', schema: 'public', table: 'mandats', filter: `id=eq.${mandatId}` },
+        () => {
+          // On ne recopie pas la charge utile reçue : elle porte les colonnes brutes, pas les
+          // jointures que `fetchMandats` assemble (compte, compteurs, statut lisible). Invalider
+          // relit la vue complète — un aller-retour, sur un événement rare.
+          void queryClient.invalidateQueries({ queryKey: ['mandats'] })
+        },
+      )
+      .subscribe()
+
+    return () => { void supabase.removeChannel(canal) }
+  }, [mandatId, queryClient])
 }
 
 /**

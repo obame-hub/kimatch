@@ -49,7 +49,9 @@ async function lireCorpsBrut(req: VercelRequest): Promise<string> {
 // indefiniment.
 const STATUT_CODE_PAR_EVENEMENT: Record<string, string> = {
   sent: 'ENVOYE',
-  delivered: 'ENVOYE',
+  // `delivered` = le destinataire a OUVERT l'enveloppe. Voir `statutPourEnveloppe`, qui porte la
+  // même table et la raison du changement du 08/09/2026.
+  delivered: 'CONSULTE',
   completed: 'SIGNE',
   declined: 'REFUSE',
   voided: 'ANNULE',

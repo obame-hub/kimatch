@@ -921,7 +921,7 @@ function buildRelationEvents(compte: Compte, mandats: Mandat[], recommandations:
   for (const m of mandats) {
     if (m.date_signature) {
       events.push({ id: `mandat-${m.id}`, date: m.date_signature, label: `Signature du mandat · ${m.nb_sites_couverts} site${m.nb_sites_couverts > 1 ? 's' : ''}`, kind: 'mandat' })
-    } else if (m.statut === 'ENVOYE' || m.statut === 'EN_SIGNATURE') {
+    } else if (m.statut === 'ENVOYE' || m.statut === 'CONSULTE') {
       events.push({ id: `mandat-avenir-${m.id}`, date: m.date_envoi ?? m.date_creation ?? new Date().toISOString(), label: `Mandat en attente de signature · ${m.nb_sites_couverts} site${m.nb_sites_couverts > 1 ? 's' : ''}`, kind: 'a_venir' })
     }
   }

@@ -86,10 +86,13 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
      l'exécution par le `?.` juste en dessous. */
   for (const m of (mandats ?? []) as unknown as { id: string; docusign_envelope_id: string; statut: { code: string } | null }[]) {
     const code = m.statut?.code ?? ''
-    // Les etats terminaux de `statuts_mandats`, verifies dans la table : SIGNE, ACTIF, EXPIRE,
-    // REFUSE, ANNULE. `A_PREPARER`, `ENVOYE` et `EN_SIGNATURE` sont des attentes — et « En
-    // signature » est precisement l'etat ou une notification perdue laisse un mandat.
-    if (['SIGNE', 'ACTIF', 'EXPIRE', 'REFUSE', 'ANNULE'].includes(code)) continue
+    // Les etats terminaux de `statuts_mandats` : ACTIF, EXPIRE, REFUSE, ANNULE. `A_PREPARER`,
+    // `ENVOYE` et `CONSULTE` sont des attentes — et « Consulté » est precisement l'etat ou une
+    // notification perdue laisse un mandat dont le client a ouvert le document.
+    //
+    // `SIGNE` a quitte cette liste le 08/09/2026 avec le jalon lui-meme : le referentiel ne le
+    // connait plus. L'y laisser n'aurait rien casse, mais aurait fait chercher un etat inexistant.
+    if (['ACTIF', 'EXPIRE', 'REFUSE', 'ANNULE'].includes(code)) continue
     enAttente.push({ objet: 'mandat', id: m.id, envelopeId: m.docusign_envelope_id, etat: code })
   }
 

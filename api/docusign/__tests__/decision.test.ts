@@ -1,6 +1,6 @@
 import { createHmac } from 'crypto'
 import { describe, expect, it } from 'vitest'
-import { doitEcrire, statutPourEnveloppe, verifierSignature } from '../_decision.js'
+import { doitEcrire, statutPourEnveloppe, verifierSignature, statutAEcrire, statutMetierContrat } from '../_decision.js'
 
 const SECRET = 'un-secret-de-test-sans-valeur'
 const signer = (corps: string) => createHmac('sha256', SECRET).update(corps, 'utf8').digest('base64')
@@ -51,10 +51,11 @@ describe('statutPourEnveloppe', () => {
     expect(statutPourEnveloppe('voided')).toBe('ANNULE')
   })
 
-  it('range « delivered » avec « envoyé » et non avec « signé »', () => {
-    // « delivered » veut dire « le destinataire a ouvert l'enveloppe ». Le traduire par SIGNE
-    // marquerait comme signés des mandats que personne n'a encore paraphés.
-    expect(statutPourEnveloppe('delivered')).toBe('ENVOYE')
+  it('traduit « delivered » par « consulté » — ni envoyé, ni signé', () => {
+    // « delivered » veut dire « le destinataire a OUVERT l'enveloppe ». Le ranger avec « envoyé »
+    // perdait le moment où une relance sert à quelque chose (William, 08/09/2026) ; le traduire par
+    // SIGNE marquerait comme signés des mandats que personne n'a encore paraphés.
+    expect(statutPourEnveloppe('delivered')).toBe('CONSULTE')
   })
 
   it('rend null sur un état inconnu plutôt que d’inventer un statut', () => {
@@ -68,10 +69,12 @@ describe('statutPourEnveloppe', () => {
 })
 
 describe('doitEcrire', () => {
-  it('refuse de ramener un contrat signé à « envoyé »', () => {
+  it('refuse de ramener un contrat signé à « envoyé » ou « consulté »', () => {
     // DocuSign rejoue ses notifications, et rien ne garantit l'ordre d'arrivée. Un « sent » rejoué
     // après le « completed » ferait repartir le mandat en attente d'une signature déjà obtenue.
     expect(doitEcrire('SIGNE', 'ENVOYE')).toBe(false)
+    // Même piège avec le nouvel état : « le client vient d'ouvrir le document » après signature.
+    expect(doitEcrire('SIGNE', 'CONSULTE')).toBe(false)
   })
 
   it('laisse passer tous les autres enchaînements', () => {
@@ -80,5 +83,42 @@ describe('doitEcrire', () => {
     expect(doitEcrire('ENVOYE', 'REFUSE')).toBe(true)
     expect(doitEcrire(null, 'ENVOYE')).toBe(true)
     expect(doitEcrire(undefined, 'SIGNE')).toBe(true)
+  })
+})
+
+describe('statutAEcrire — le mandat n’a plus d’étape « Signé »', () => {
+  const hier = new Date(Date.now() - 86_400_000).toISOString().slice(0, 10)
+  const demain = new Date(Date.now() + 86_400_000).toISOString().slice(0, 10)
+
+  it('rend ACTIF pour une signature dans sa fenêtre', () => {
+    expect(statutAEcrire('SIGNE', { debut: hier, fin: demain })).toBe('ACTIF')
+  })
+
+  it('rend ACTIF quand la fenêtre est inconnue', () => {
+    // 1 137 mandats importés de Salesforce n'ont pas de dates : sans fenêtre, un mandat signé court.
+    expect(statutAEcrire('SIGNE', { debut: null, fin: null })).toBe('ACTIF')
+  })
+
+  it('rend EXPIRE — et jamais « SIGNE » — quand la fenêtre est passée', () => {
+    // Le jalon a été supprimé du référentiel le 08/09/2026 : y renvoyer écrirait un code inconnu.
+    expect(statutAEcrire('SIGNE', { debut: '2020-01-01', fin: hier })).toBe('EXPIRE')
+  })
+
+  it('laisse passer tel quel ce qui n’est pas une signature', () => {
+    expect(statutAEcrire('CONSULTE', { debut: null, fin: null })).toBe('CONSULTE')
+    expect(statutAEcrire('REFUSE', { debut: null, fin: null })).toBe('REFUSE')
+  })
+})
+
+describe('statutMetierContrat', () => {
+  it('garde « à signer » quand le client a seulement consulté', () => {
+    // Le vocabulaire du contrat ne connaît pas « Consulté » : ouvert ou non, il reste à signer.
+    expect(statutMetierContrat('CONSULTE', { debut: null, fin: null })).toBe('A_SIGNER')
+    expect(statutMetierContrat('ENVOYE', { debut: null, fin: null })).toBe('A_SIGNER')
+  })
+
+  it('garde un « Signé » bien vivant côté contrat', () => {
+    // La suppression du jalon ne concerne QUE les mandats : les deux vocabulaires sont distincts.
+    expect(statutMetierContrat('SIGNE', { debut: null, fin: null })).toBe('SIGNE')
   })
 })

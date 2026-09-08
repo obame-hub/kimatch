@@ -36,14 +36,27 @@ export function verifierSignature(
 /**
  * L'état d'enveloppe DocuSign traduit en statut de signature Kimatch.
  *
- * `delivered` veut dire « ouverte par le destinataire », pas « livrée au sens du courrier » : côté
- * métier c'est toujours « envoyé, en attente ». Tout état non listé (`created`, `deleted`…) rend
- * `null` : on préfère ignorer une notification que d'inventer un statut.
+ * Tout état non listé (`created`, `deleted`…) rend `null` : on préfère ignorer une notification que
+ * d'inventer un statut.
  */
 export function statutPourEnveloppe(etat: string | undefined | null): string | null {
+  /**
+   * `delivered` NE VEUT PAS DIRE « REMIS », IL VEUT DIRE « OUVERT ».
+   *
+   * DocuSign l'émet quand le destinataire affiche l'enveloppe. Le traduire en « Envoyé » perdait
+   * l'information la plus utile du parcours : un client qui a ouvert le mandat sans le signer est
+   * exactement celui qu'il faut relancer, et rien ne le distinguait d'un client qui n'a pas encore
+   * regardé son courrier. William, 08/09/2026 : « à la seconde où le client a consulté le mandat,
+   * le statut passe immédiatement à Consulté ».
+   *
+   * `completed` reste traduit « SIGNE » ICI, et ce n'est pas une contradiction avec la suppression
+   * du jalon : cette fonction dit ce qu'est devenue L'ENVELOPPE, pas ce que devient l'objet. Deux
+   * objets la lisent — `statutAEcrire` pour le mandat, qui en tire « Actif » ou « Expiré », et
+   * `statutMetierContrat` pour le contrat, dont le vocabulaire garde un « Signé » bien vivant.
+   */
   const parEvenement: Record<string, string> = {
     sent: 'ENVOYE',
-    delivered: 'ENVOYE',
+    delivered: 'CONSULTE',
     completed: 'SIGNE',
     declined: 'REFUSE',
     voided: 'ANNULE',
@@ -60,8 +73,12 @@ export function statutPourEnveloppe(etat: string | undefined | null): string | n
  * un contrat signé à « envoyé » — et le mandat repartirait en attente de quelque chose qui a déjà eu
  * lieu.
  */
+const AVANT_SIGNATURE = new Set(['ENVOYE', 'CONSULTE'])
+
 export function doitEcrire(statutActuel: string | null | undefined, statutRecu: string): boolean {
-  if (statutActuel === 'SIGNE' && statutRecu === 'ENVOYE') return false
+  // « Consulté » s'ajoute à « Envoyé » le 08/09/2026 : un rejeu de `delivered` arrivé après
+  // `completed` ramènerait sinon un contrat signé à « le client vient d'ouvrir le document ».
+  if (statutActuel === 'SIGNE' && AVANT_SIGNATURE.has(statutRecu)) return false
   return true
 }
 
@@ -83,10 +100,21 @@ export function statutAEcrire(
   fenetre: { debut: string | null; fin: string | null },
 ): string {
   if (statutDocusign !== 'SIGNE') return statutDocusign
+  /**
+   * UN MANDAT SIGNÉ EST ACTIF, OU PÉRIMÉ — plus jamais « Signé ».
+   *
+   * Le jalon a été supprimé du référentiel le 08/09/2026 (migration 20260908230000) : il n'a jamais
+   * désigné une seule ligne sur les 1 466 mandats de la base, mais la frise le proposait au clic, et
+   * s'y arrêter rendait le compte invisible dans la création de recommandation. Retourner « SIGNE »
+   * ici écrirait donc un code que le référentiel ne connaît plus.
+   *
+   * HORS FENÊTRE, C'EST « EXPIRÉ ». Le cas se produit quand on enregistre après coup un mandat déjà
+   * échu — jamais sur une signature DocuSign du jour, dont le début EST la date de signature.
+   */
   const aujourdhui = new Date().toISOString().slice(0, 10)
   const commence = !fenetre.debut || fenetre.debut <= aujourdhui
   const courtEncore = !fenetre.fin || fenetre.fin >= aujourdhui
-  return commence && courtEncore ? 'ACTIF' : 'SIGNE'
+  return commence && courtEncore ? 'ACTIF' : 'EXPIRE'
 }
 
 export function statutMetierContrat(
@@ -94,7 +122,8 @@ export function statutMetierContrat(
   fenetre: { debut: string | null; fin: string | null },
 ): string | null {
   if (statutSignature === 'REFUSE' || statutSignature === 'ANNULE') return 'ANNULE'
-  if (statutSignature === 'ENVOYE') return 'A_SIGNER'
+  // « Consulté » n'existe pas dans le vocabulaire du contrat : ouvert ou non, il reste à signer.
+  if (statutSignature === 'ENVOYE' || statutSignature === 'CONSULTE') return 'A_SIGNER'
   if (statutSignature !== 'SIGNE') return null
   if (!fenetre.debut) return 'SIGNE'
   const aujourdhui = new Date().toISOString().slice(0, 10)

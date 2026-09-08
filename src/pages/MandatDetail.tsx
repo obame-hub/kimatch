@@ -12,7 +12,7 @@ import { FormField, Input } from '@/components/ui/form'
 import { EmailLink } from '@/components/ui/contact-link'
 import { HistoriqueDiscret } from '@/components/ui/historique-discret'
 import { InlineField } from '@/components/ui/inline-field'
-import { useMandat, useMarkMandatEnvoye, useUpdateMandatPartiel, useDeleteMandat, type PatchMandat } from '@/lib/data/mandats'
+import { useMandat, useMandatEnDirect, useMarkMandatEnvoye, useUpdateMandatPartiel, useDeleteMandat, type PatchMandat } from '@/lib/data/mandats'
 import { useContacts } from '@/lib/data/contacts'
 import { contactsDuCompte as contactsRattaches, libelleContactPourCompte } from '@/lib/contactsDuCompte'
 import { useComptes } from '@/lib/data/comptes'
@@ -284,8 +284,22 @@ function ValiderManuellementDialog({
  * Et il se tait quand il ne corrige rien. Une notification « rien n'a changé » à chaque ouverture
  * serait du bruit ; on ne parle que lorsqu'on a rattrapé un retard.
  */
-/** Le chemin d'un mandat, dans l'ordre de `statuts_mandats`. */
-const JALONS_MANDAT = ['A_PREPARER', 'ENVOYE', 'EN_SIGNATURE', 'SIGNE', 'ACTIF'] as const
+/**
+ * Le chemin d'un mandat, dans l'ordre de `statuts_mandats`.
+ *
+ * ══ QUATRE JALONS DEPUIS LE 08/09/2026, ET NON PLUS CINQ ══
+ *
+ * « Signé » a été supprimé du référentiel (migration 20260908230000). Il n'a jamais désigné une
+ * seule ligne sur les 1 466 mandats de la base — le retour DocuSign écrit directement « Actif » —
+ * mais cette frise le proposait au clic, et s'y arrêter rendait le compte INVISIBLE dans la création
+ * de recommandation, qui n'accepte que « Actif ». Deux fois le même incident : SENAC IMMOBILIER le
+ * 21/08, INTERSERVICES JMD le 08/09. Le geste était pourtant naturel — le mandat EST signé. C'est le
+ * jalon qui était faux.
+ *
+ * « En signature » devient « Consulté » : DocuSign émet `delivered` quand le destinataire OUVRE
+ * l'enveloppe, et c'est le moment où une relance sert à quelque chose.
+ */
+const JALONS_MANDAT = ['A_PREPARER', 'ENVOYE', 'CONSULTE', 'ACTIF'] as const
 /** Ses trois sorties : on quitte par l'une d'elles, jamais de l'une à l'autre. */
 const SORTIES_MANDAT = ['EXPIRE', 'REFUSE', 'ANNULE'] as const
 
@@ -298,7 +312,7 @@ function ConversionPathCard({ mandat, signaler, statuts, peutModifier, majStatut
 }) {
   const [verifie, setVerifie] = useState(false)
   const envelopeId = mandat.docusign_envelope_id
-  const etatFige = ['ACTIF', 'SIGNE', 'REFUSE', 'ANNULE', 'EXPIRE'].includes(mandat.statut ?? '')
+  const etatFige = ['ACTIF', 'REFUSE', 'ANNULE', 'EXPIRE'].includes(mandat.statut ?? '')
 
   useEffect(() => {
     if (!envelopeId || etatFige) return
@@ -461,6 +475,8 @@ export default function MandatDetail() {
   // Perimetre de la fiche, lu cote serveur : ces lectures parcouraient le CRM entier pour en
   // garder une ligne ou quelques-unes (meme correctif que les fiches compte et site).
   const { data: mandat } = useMandat(id)
+  // Le statut avance sous les yeux pendant la signature — voir `useMandatEnDirect`.
+  useMandatEnDirect(id)
   const { data: statutsRef } = useReferenceTable('statuts_mandats')
   const statuts = statutsRef && statutsRef.length > 0 ? statutsRef : FALLBACK_STATUTS_MANDATS
   const { data: contacts } = useContacts()
@@ -875,7 +891,7 @@ export default function MandatDetail() {
                   redemander. Il sert deux cas : les mandats signés avant le 08/09/2026, dont
                   l'archivage déposait un unique PDF combiné, et le jour où un téléchargement échoue
                   en silence. Le bouton reste discret : c'est une réparation, pas un geste courant. */}
-              {mandat.docusign_envelope_id && (mandat.statut === 'SIGNE' || mandat.statut === 'ACTIF') && (
+              {mandat.docusign_envelope_id && (mandat.statut === 'ACTIF' || mandat.statut === 'EXPIRE') && (
                 <div className="flex flex-wrap items-center gap-2 rounded-km-md border border-dashed border-km-line bg-km-bg/60 px-3 py-2">
                   <p className="mr-auto text-km-label text-km-muted">
                     Les pièces signées viennent de DocuSign — un PDF par document, plus le certificat.

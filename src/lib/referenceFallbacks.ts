@@ -116,8 +116,7 @@ export const RESULTAT_VERSION_LIBELLE: Record<string, string> = {
 export const FALLBACK_STATUTS_MANDATS: ReferenceRow[] = [
   { id: '1', code: 'A_PREPARER', libelle: 'À préparer', ordre: 10, couleur: null, icone: null },
   { id: '2', code: 'ENVOYE', libelle: 'Envoyé', ordre: 20, couleur: null, icone: null },
-  { id: '3', code: 'EN_SIGNATURE', libelle: 'En signature', ordre: 30, couleur: null, icone: null },
-  { id: '4', code: 'SIGNE', libelle: 'Signé', ordre: 40, couleur: null, icone: null },
+  { id: '3', code: 'CONSULTE', libelle: 'Consulté', ordre: 30, couleur: null, icone: null },
   { id: '5', code: 'ACTIF', libelle: 'Actif', ordre: 50, couleur: null, icone: null },
   { id: '6', code: 'EXPIRE', libelle: 'Expiré', ordre: 60, couleur: null, icone: null },
   { id: '7', code: 'ANNULE', libelle: 'Annulé', ordre: 70, couleur: null, icone: null },
@@ -148,10 +147,11 @@ export const FALLBACK_TYPES_ACTIONS: ReferenceRow[] = [
 export const STATUT_MANDAT_TONE: Record<string, 'neutral' | 'amber' | 'kiwi' | 'blue' | 'red'> = {
   A_PREPARER: 'neutral',
   ENVOYE: 'blue',
-  EN_SIGNATURE: 'amber',
-  SIGNE: 'kiwi',
+  CONSULTE: 'amber',
   ACTIF: 'kiwi',
   EXPIRE: 'red',
+  REFUSE: 'red',
+  ANNULE: 'neutral',
   REVOQUE: 'red',
 }
 
