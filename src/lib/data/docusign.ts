@@ -297,6 +297,47 @@ export async function sendMandatForSignature(input: SendMandatInput): Promise<Se
   return appelerEnvoi(input)
 }
 
+/**
+ * ══ RÉCUPÉRER À NOUVEAU LES PIÈCES SIGNÉES ══
+ *
+ * William, 08/09/2026 : « rattrape les 4 mandats déjà signés. » Ceux-là portent le PDF combiné
+ * déposé par l'ancien archivage — un seul fichier où mandat Kiwee, mandat Energix et certificat se
+ * suivent, impossible à séparer pour l'envoyer à un fournisseur.
+ *
+ * Le rattrapage planifié ne peut rien pour eux : il ne rejoue que les enveloppes restées en attente,
+ * et saute tout mandat déjà signé — voir `api/docusign/reprendre-archivage.ts` pour le détail.
+ *
+ * Le geste est rare, mais il ne l'est pas assez pour rester un script : le jour où DocuSign renvoie
+ * un document tronqué, ou où l'archivage échoue en silence, on veut pouvoir redemander depuis la
+ * fiche plutôt que d'attendre que quelqu'un ouvre un terminal.
+ */
+export function useReprendreArchivage() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: async (input: { mandatIds?: string[]; contratIds?: string[] }) => {
+      const { data } = await supabase.auth.getSession()
+      const token = data.session?.access_token
+      if (!token) throw new Error('Non authentifié.')
+
+      const res = await fetch('/api/docusign/reprendre-archivage', {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify(input),
+      })
+      const result = (await res.json()) as {
+        reussis?: number
+        total?: number
+        rapport?: { objet: string; id: string; pieces?: number; supprimes?: number; erreur?: string }[]
+        error?: string
+      }
+      if (!res.ok || result.error) throw new Error(result.error ?? 'Reprise impossible')
+      return result
+    },
+    // Les fichiers de la fiche changent : c'est tout l'objet de l'opération.
+    onSuccess: () => { void queryClient.invalidateQueries({ queryKey: ['documents'] }) },
+  })
+}
+
 /** Le corps commun des deux envois : même endpoint, même traitement des erreurs. */
 async function appelerEnvoi(input: object): Promise<SendMandatResult> {
   const { data } = await supabase.auth.getSession()

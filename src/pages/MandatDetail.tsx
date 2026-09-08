@@ -23,10 +23,11 @@ import { useReferenceTable, type ReferenceRow } from '@/lib/data/referenceTables
 import { useCanManage, useIsAdmin, useProfilsAdmin } from '@/lib/data/roles'
 import { useSuppression } from '@/lib/useSuppression'
 import { FALLBACK_STATUTS_MANDATS, FALLBACK_TYPES_DOCUMENTS } from '@/lib/referenceFallbacks'
-import { sendMandatForSignature, connectDocusign, DocusignNonConnecte, etatEnveloppeMandat } from '@/lib/data/docusign'
+import { sendMandatForSignature, connectDocusign, DocusignNonConnecte, etatEnveloppeMandat, useReprendreArchivage } from '@/lib/data/docusign'
 import { useValiderMandatManuellement } from '@/lib/data/mandats'
 import { useGoBack } from '@/lib/useGoBack'
 import { useRaccourcisOnglets } from '@/lib/useRaccourcisOnglets'
+import { jourLocalISO } from '@/lib/heureTache'
 import { cn } from '@/lib/utils'
 import type { Mandat, Contact, Compte, Compteur } from '@/types/domain'
 import { generateMandatKiweePdf, generateMandatEnergixPdf } from '@/lib/mandatPdf'
@@ -159,7 +160,7 @@ function ValiderManuellementDialog({
 }) {
   const valider = useValiderMandatManuellement()
   const aujourdHui = new Date().toISOString().slice(0, 10)
-  const [date, setDate] = useState(mandat.date_signature?.slice(0, 10) ?? aujourdHui)
+  const [date, setDate] = useState(jourLocalISO(mandat.date_signature) ?? aujourdHui)
   const [origine, setOrigine] = useState('DocuSign du partenaire')
   const [erreur, setErreur] = useState<string | null>(null)
 
@@ -477,6 +478,8 @@ export default function MandatDetail() {
 
   const typesDocs = typesDocsRef && typesDocsRef.length > 0 ? typesDocsRef : FALLBACK_TYPES_DOCUMENTS
   const [tab, setTab] = useState<TabKey>('mandat')
+  const reprendreArchivage = useReprendreArchivage()
+  const [repriseMessage, setRepriseMessage] = useState<string | null>(null)
   const canManage = useCanManage(mandat?.proprietaire_id)
   const isAdmin = useIsAdmin()
   const { data: profilsAdmin } = useProfilsAdmin()
@@ -720,7 +723,7 @@ export default function MandatDetail() {
                     variant="date"
                     label="Date de signature"
                     emptyLabel="ajouter la date de signature"
-                    value={mandat.date_signature ? mandat.date_signature.slice(0, 10) : null}
+                    value={jourLocalISO(mandat.date_signature)}
                     onCommit={(date_signature) => majMandat({ date_signature })}
                     {...retourInline}
                   />
@@ -867,6 +870,44 @@ export default function MandatDetail() {
                   })
                 }}
               />
+              {/* ══ REDEMANDER LES PIÈCES SIGNÉES À DOCUSIGN ══
+                  N'apparaît que sur un mandat signé passé par DocuSign — ailleurs, il n'y a rien à
+                  redemander. Il sert deux cas : les mandats signés avant le 08/09/2026, dont
+                  l'archivage déposait un unique PDF combiné, et le jour où un téléchargement échoue
+                  en silence. Le bouton reste discret : c'est une réparation, pas un geste courant. */}
+              {mandat.docusign_envelope_id && (mandat.statut === 'SIGNE' || mandat.statut === 'ACTIF') && (
+                <div className="flex flex-wrap items-center gap-2 rounded-km-md border border-dashed border-km-line bg-km-bg/60 px-3 py-2">
+                  <p className="mr-auto text-km-label text-km-muted">
+                    Les pièces signées viennent de DocuSign — un PDF par document, plus le certificat.
+                  </p>
+                  <button
+                    type="button"
+                    disabled={reprendreArchivage.isPending}
+                    onClick={async () => {
+                      setRepriseMessage(null)
+                      try {
+                        const r = await reprendreArchivage.mutateAsync({ mandatIds: [mandat.id] })
+                        const pieces = r.rapport?.[0]?.pieces ?? 0
+                        const echec = r.rapport?.[0]?.erreur
+                        setRepriseMessage(
+                          echec
+                            ? `Échec : ${echec}`
+                            : `${pieces} pièce${pieces > 1 ? 's' : ''} récupérée${pieces > 1 ? 's' : ''} depuis DocuSign.`,
+                        )
+                      } catch (e) {
+                        setRepriseMessage(e instanceof Error ? e.message : 'Reprise impossible')
+                      }
+                    }}
+                    className="rounded-km border border-km-line bg-km-surface px-2.5 py-1 text-km-label font-semibold text-km-muted transition-colors hover:border-km-green hover:bg-km-green-soft hover:text-km-green disabled:opacity-50"
+                  >
+                    {reprendreArchivage.isPending ? 'Récupération…' : 'Récupérer à nouveau'}
+                  </button>
+                  {repriseMessage && (
+                    <p className="w-full text-km-label font-semibold text-km-text">{repriseMessage}</p>
+                  )}
+                </div>
+              )}
+
               {documentsDuMandat.length === 0 ? (
                 <p className="text-sm text-km-faint">Aucun fichier lié à ce mandat.</p>
               ) : (

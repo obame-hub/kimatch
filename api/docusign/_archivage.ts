@@ -17,8 +17,9 @@ export interface ObjetSigne {
 }
 
 export const NOM_ENVOYE = 'Mandat envoyé'
-/** Nom de la ligne `documents` portant le mandat SIGNE. */
-export const NOM_SIGNE = 'Mandat signé'
+/* `NOM_SIGNE` a disparu le 08/09/2026 avec le PDF combiné : il n'y a plus UNE ligne « Mandat
+   signé », mais une par pièce de l'enveloppe, nommée d'après le document lui-même. Garder une
+   constante qui ne décrit plus rien aurait fait chercher ce qu'elle désigne. */
 
 /**
  * Archivage des mandats DocuSign : la version envoyee d'abord, la version signee ensuite.
@@ -112,6 +113,146 @@ export async function archiverDocumentsEnvoyes(
     if (existant) await admin.from('documents').update(ligne).eq('id', existant.id)
     else await admin.from('documents').insert(ligne)
   }
+}
+
+/**
+ * ══ CHAQUE DOCUMENT SIGNÉ REVIENT DANS SON PROPRE PDF ══
+ *
+ * William, 08/09/2026 : « il faudrait que ce soit des PDF distincts et non combinés qui soient
+ * récupérés. Exemple : je fais signer le mandat Kiwee + mandat Energix, alors je dois récupérer
+ * 3 PDF : mandat Kiwee signé, mandat Energix signé et certificat de signature. »
+ *
+ * ── CE QUI SE PASSAIT ──
+ *
+ * L'archivage appelait `/envelopes/{id}/documents/combined`. Ce point d'entrée DocuSign fait
+ * exactement ce que son nom dit : il fusionne tous les documents de l'enveloppe, certificat compris,
+ * en un seul fichier. On déposait donc un unique « Mandat signé » de plusieurs dizaines de pages,
+ * dans lequel il fallait chercher lequel des deux mandats on voulait relire — et d'où l'on ne
+ * pouvait plus extraire une pièce pour l'envoyer à un fournisseur.
+ *
+ * Le côté ENVOI, lui, archivait déjà les documents un par un (`Mandat_envoye_1`, `_2`…). Seul le
+ * retour les écrasait ensemble.
+ *
+ * ── CE QUE RENVOIE DOCUSIGN ──
+ *
+ * `GET /envelopes/{id}/documents` liste les pièces avec leur `documentId` et leur `name`. Trois
+ * natures s'y mêlent :
+ *
+ *   type « content »    les documents qu'on a fait signer, un par fichier envoyé
+ *   type « summary »    le certificat de signature, `documentId` valant « certificate »
+ *   autres              images de signature, pièces jointes du signataire — pas des documents
+ *
+ * On prend les deux premières et on écarte le reste : une image de paraphe déposée à côté du mandat
+ * ferait une ligne de plus dans la fiche sans rien apprendre à personne.
+ *
+ * ── LES NOMS VIENNENT DE DOCUSIGN, PAS D'UN COMPTEUR ──
+ *
+ * « Mandat Kiwee signé » et « Mandat Energix signé » ne se distinguent que par le nom que porte le
+ * document dans l'enveloppe. Un rang numérique (`_1`, `_2`) obligerait à ouvrir les deux pour
+ * savoir lequel est lequel — c'est le défaut qu'on est en train de corriger, en plus petit.
+ */
+interface DocumentEnveloppe {
+  documentId: string
+  nom: string
+  certificat: boolean
+}
+
+async function listerDocuments(
+  session: { base_uri: string; account_id: string; access_token: string },
+  envelopeId: string,
+): Promise<DocumentEnveloppe[]> {
+  const res = await fetch(
+    `${session.base_uri}/restapi/v2.1/accounts/${session.account_id}/envelopes/${envelopeId}/documents`,
+    { headers: { Authorization: `Bearer ${session.access_token}` } },
+  )
+  if (!res.ok) throw new Error(`liste des documents refusée (${res.status})`)
+  const corps = (await res.json()) as {
+    envelopeDocuments?: { documentId?: string; name?: string; type?: string }[]
+  }
+  const documents = corps.envelopeDocuments ?? []
+  return documents
+    .filter((d) => d.documentId && (d.type === 'content' || d.type === 'summary'))
+    .map((d) => ({
+      documentId: d.documentId as string,
+      nom: d.name?.trim() || `Document ${d.documentId}`,
+      certificat: d.type === 'summary',
+    }))
+}
+
+async function telechargerDocument(
+  session: { base_uri: string; account_id: string; access_token: string },
+  envelopeId: string,
+  documentId: string,
+): Promise<Uint8Array> {
+  const res = await fetch(
+    `${session.base_uri}/restapi/v2.1/accounts/${session.account_id}/envelopes/${envelopeId}/documents/${documentId}`,
+    { headers: { Authorization: `Bearer ${session.access_token}` } },
+  )
+  if (!res.ok) throw new Error(`téléchargement du document ${documentId} refusé (${res.status})`)
+  const pdf = new Uint8Array(await res.arrayBuffer())
+  if (!pdf.length) throw new Error(`document ${documentId} vide`)
+  return pdf
+}
+
+/**
+ * Archive les pièces signées d'une enveloppe, une ligne `documents` par PDF.
+ *
+ * IDEMPOTENT PAR NOM DE FICHIER, et c'est nécessaire : DocuSign rejoue ses notifications, et le
+ * script de rattrapage repasse sur les enveloppes manquées. On met à jour la ligne existante plutôt
+ * que d'en empiler une seconde — même règle que du côté envoi.
+ *
+ * Rend le nombre de pièces archivées, pour que l'appelant puisse le journaliser.
+ */
+export async function archiverDocumentsSignes(
+  admin: Admin,
+  session: { base_uri: string; account_id: string; access_token: string },
+  envelopeId: string,
+  objet: ObjetSigne,
+  compteNom: string,
+): Promise<number> {
+  const contrat = objet.type === 'contrat'
+  const documents = await listerDocuments(session, envelopeId)
+  if (documents.length === 0) throw new Error('enveloppe sans document exploitable')
+
+  const { data: typeDoc } = await admin
+    .from('types_documents')
+    .select('id')
+    .eq('code', contrat ? 'CONTRAT' : 'MANDAT')
+    .maybeSingle()
+
+  let archives = 0
+  for (const doc of documents) {
+    const pdf = await telechargerDocument(session, envelopeId, doc.documentId)
+
+    // Le certificat n'est pas un mandat : il porte son propre nom, celui que William emploie.
+    const libelle = doc.certificat ? 'Certificat de signature' : `${doc.nom} — signé`
+    const nomFichier = `${nomSur(doc.certificat ? `Certificat_signature_${compteNom}` : `${doc.nom}_signe`)}.pdf`
+    const chemin = `${objet.type}s/${objet.id}/${nomFichier}`
+    const url = await deposer(chemin, pdf)
+
+    const { data: existant } = await admin
+      .from('documents')
+      .select('id')
+      .eq('entite_type', objet.type)
+      .eq('entite_id', objet.id)
+      .eq('nom_fichier', nomFichier)
+      .maybeSingle()
+
+    const ligne = {
+      ...(typeDoc ? { type_document_id: typeDoc.id } : {}),
+      nom: libelle,
+      nom_fichier: nomFichier,
+      url,
+      mime_type: 'application/pdf',
+      taille_octets: pdf.length,
+      entite_type: objet.type,
+      entite_id: objet.id,
+    }
+    if (existant) await admin.from('documents').update(ligne).eq('id', existant.id)
+    else await admin.from('documents').insert(ligne)
+    archives += 1
+  }
+  return archives
 }
 
 /**

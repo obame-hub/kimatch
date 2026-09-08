@@ -17,7 +17,8 @@ import { sessionQuelconque } from './_oauth.js'
 import { runGrdSyncForMandat } from './_grdSync.js'
 import { sendMandatSignedEmail } from './_gmailNotify.js'
 import { postMessage, joinChannel } from '../slack/_client.js'
-import { NOM_SIGNE, retirerDocumentsEnvoyes } from './_archivage.js'
+import { archiverDocumentsSignes, retirerDocumentsEnvoyes } from './_archivage.js'
+import { validitePourSignature } from './_validite.js'
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type Admin = SupabaseClient<any, any, any, any, any>
@@ -172,7 +173,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     const { data: mandatConnu } = await admin
       .from('mandats')
       .select(
-        'id, cree_par_id, proprietaire_id, date_debut_validite, date_fin_validite, statut:statuts_mandats(code, ordre)',
+        'id, cree_par_id, proprietaire_id, date_debut_validite, date_fin_validite, duree_mois, statut:statuts_mandats(code, ordre)',
       )
       .eq('docusign_envelope_id', envelopeId)
       .maybeSingle()
@@ -270,7 +271,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
               .maybeSingle()
             // eslint-disable-next-line @typescript-eslint/no-explicit-any
             const compteNom = (porteur as any)?.compte?.nom ?? 'contrat'
-            await archiverContratSigne(admin, session, envelopeId, contrat.id, compteNom)
+            await archiverDocumentsSignes(admin, session, envelopeId, { type: 'contrat', id: contrat.id }, compteNom)
           } catch (docErr) {
             console.error('[docusign-webhook] archivage du contrat signé échoué', docErr)
           }
@@ -353,12 +354,34 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     // ceux de la piste d'audit DocuSign.
     const dateSignature = statutCode === 'SIGNE' ? (env.completedDateTime ?? new Date().toISOString()) : undefined
     const dateEnvoi = env.sentDateTime ?? undefined
+
+    /**
+     * ══ LA VALIDITÉ SE RECALCULE À LA SIGNATURE, ET NULLE PART AILLEURS ══
+     *
+     * William, 08/09/2026 : « la date de signature est bien le 08/09/2026, donc la période de
+     * validité ne devrait pas commencer au 07/09/2026 ».
+     *
+     * `date_debut_validite` était posée à la CRÉATION du mandat, quand aucune signature n'existe
+     * encore : elle valait donc le jour où l'on avait préparé le document. Ce webhook écrivait
+     * ensuite `date_signature` sans jamais revenir dessus — personne ne recalculait. Quatre des
+     * 1 164 mandats signés portaient l'écart, soit tous ceux passés par DocuSign.
+     *
+     * On ne touche à ces deux dates QUE sur la transition « signé ». Les 1 137 mandats importés de
+     * Salesforce portent des dates venues de leur système d'origine, parfois volontairement
+     * décalées de la signature ; les recalculer d'autorité écraserait une décision qu'on n'a pas
+     * prise. Ici, la signature DocuSign EST la source.
+     */
+    const validite = dateSignature
+      ? validitePourSignature(dateSignature, mandatConnu.duree_mois as number | null)
+      : null
+
     const { data: mandats, error } = await admin
       .from('mandats')
       .update({
         ...(statutRow && !reculerait ? { statut_id: statutRow.id } : {}),
         ...(dateSignature ? { date_signature: dateSignature } : {}),
         ...(dateEnvoi ? { date_envoi: dateEnvoi } : {}),
+        ...(validite ?? {}),
       })
       .eq('docusign_envelope_id', envelopeId)
       .select('id, compte_id, proprietaire_id, compte:comptes(nom), proprietaire:profils!mandats_proprietaire_id_fkey(email, prenom, nom)')
@@ -382,7 +405,12 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       // Best-effort : la synchro GRD + les notifications ne doivent jamais faire échouer
       // l'accusé de réception du webhook envoyé à DocuSign (sinon DocuSign réessaiera indéfiniment).
       try {
-        await archiverDocumentSigne(admin, session, envelopeId, raw.id, compteNom)
+        const pieces = await archiverDocumentsSignes(admin, session, envelopeId, { type: 'mandat', id: raw.id }, compteNom)
+        console.log('[docusign webhook] pieces signees archivees', { envelopeId, mandatId: raw.id, pieces })
+        // La version signee REMPLACE la version envoyee, elle ne s'ajoute pas a cote (regle de
+        // William). On ne retire l'envoyee qu'une fois la signee bien enregistree : si le depot
+        // precedent avait echoue, la fiche garderait au moins ce qui a ete soumis au client.
+        await retirerDocumentsEnvoyes(admin, raw.id)
       } catch (docErr) {
         console.error('[docusign-webhook] archivage du mandat signé échoué', docErr)
       }
@@ -399,135 +427,6 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   } catch (err) {
     res.status(500).json({ error: err instanceof Error ? err.message : 'Erreur inconnue' })
   }
-}
-
-/**
- * Depose le mandat signe dans les fichiers du mandat.
- *
- * Sans cela, le document signe n'existe nulle part dans Kimatch : la configuration Connect est en
- * `includeDocuments: false` (elle transporte les evenements, pas les PDF), et rien n'allait le
- * chercher. Signale le 14/08/2026 : « le mandat n'est nulle part dans le fichier ».
- *
- * On telecharge la version combinee -- tous les documents de l'enveloppe et le certificat de
- * signature en un seul PDF, c'est exactement ce qu'on veut conserver comme preuve.
- *
- * Le depot passe par la cle de service : le bucket « documents » n'accorde aucune ecriture aux
- * utilisateurs, et il n'a pas a en accorder pour cet usage puisque c'est le serveur qui archive.
- */
-/**
- * Rapatrie le contrat signé depuis DocuSign et le pose sur la fiche.
- *
- * Deux différences avec le mandat, et elles tiennent à la même cause : le PDF du fournisseur est
- * déjà sur la fiche, déposé par une personne.
- *
- * On n'archive donc AUCUNE copie à l'envoi (voir `send.ts`), et l'on ne retire rien à la signature :
- * le signé s'ajoute au document d'origine. Supprimer un fichier déposé par quelqu'un, depuis un
- * webhook, sur la foi d'une notification extérieure, n'est pas une chose à faire.
- */
-async function archiverContratSigne(
-  admin: Admin,
-  session: { base_uri: string; account_id: string; access_token: string },
-  envelopeId: string,
-  contratId: string,
-  compteNom: string,
-) {
-  const NOM = 'Contrat signé'
-  // Deja archive : le webhook peut etre rejoue plusieurs fois pour la meme enveloppe.
-  const { data: existant } = await admin
-    .from('documents')
-    .select('id')
-    .eq('entite_type', 'contrat')
-    .eq('entite_id', contratId)
-    .eq('nom', NOM)
-    .maybeSingle()
-  if (existant) return
-
-  const res = await fetch(
-    `${session.base_uri}/restapi/v2.1/accounts/${session.account_id}/envelopes/${envelopeId}/documents/combined`,
-    { headers: { Authorization: `Bearer ${session.access_token}` } },
-  )
-  if (!res.ok) throw new Error(`téléchargement du contrat signé refusé (${res.status})`)
-  const pdf = Buffer.from(await res.arrayBuffer())
-  if (!pdf.length) throw new Error('contrat signé vide')
-
-  const url = process.env.VITE_SUPABASE_URL as string
-  const cle = process.env.SUPABASE_SERVICE_ROLE_KEY as string
-  const nomFichier = `Contrat_signe_${compteNom.replace(/[^A-Za-z0-9]+/g, '_')}.pdf`
-  const chemin = `contrats/${contratId}/${nomFichier}`
-  const depot = await fetch(`${url}/storage/v1/object/documents/${chemin}`, {
-    method: 'POST',
-    headers: { Authorization: `Bearer ${cle}`, 'Content-Type': 'application/pdf', 'x-upsert': 'true' },
-    body: new Uint8Array(pdf),
-  })
-  if (!depot.ok) throw new Error(`dépôt dans le stockage refusé (${depot.status})`)
-
-  const { data: typeDoc } = await admin.from('types_documents').select('id').eq('code', 'CONTRAT').maybeSingle()
-  const { error } = await admin.from('documents').insert({
-    ...(typeDoc ? { type_document_id: typeDoc.id } : {}),
-    nom: NOM,
-    nom_fichier: nomFichier,
-    url: `${url}/storage/v1/object/public/documents/${chemin}`,
-    mime_type: 'application/pdf',
-    taille_octets: pdf.length,
-    entite_type: 'contrat',
-    entite_id: contratId,
-  })
-  if (error) throw new Error(error.message)
-}
-
-async function archiverDocumentSigne(
-  admin: Admin,
-  session: { base_uri: string; account_id: string; access_token: string },
-  envelopeId: string,
-  mandatId: string,
-  compteNom: string,
-) {
-  // Deja archive : le webhook peut etre rejoue plusieurs fois pour la meme enveloppe.
-  const { data: existant } = await admin
-    .from('documents')
-    .select('id')
-    .eq('entite_type', 'mandat')
-    .eq('entite_id', mandatId)
-    .eq('nom', NOM_SIGNE)
-    .maybeSingle()
-  if (existant) return
-
-  const res = await fetch(
-    `${session.base_uri}/restapi/v2.1/accounts/${session.account_id}/envelopes/${envelopeId}/documents/combined`,
-    { headers: { Authorization: `Bearer ${session.access_token}` } },
-  )
-  if (!res.ok) throw new Error(`téléchargement du document signé refusé (${res.status})`)
-  const pdf = Buffer.from(await res.arrayBuffer())
-  if (!pdf.length) throw new Error('document signé vide')
-
-  const url = process.env.VITE_SUPABASE_URL as string
-  const cle = process.env.SUPABASE_SERVICE_ROLE_KEY as string
-  const nomFichier = `Mandat_signe_${compteNom.replace(/[^A-Za-z0-9]+/g, '_')}.pdf`
-  const chemin = `mandats/${mandatId}/${nomFichier}`
-  const depot = await fetch(`${url}/storage/v1/object/documents/${chemin}`, {
-    method: 'POST',
-    headers: { Authorization: `Bearer ${cle}`, 'Content-Type': 'application/pdf', 'x-upsert': 'true' },
-    body: new Uint8Array(pdf),
-  })
-  if (!depot.ok) throw new Error(`dépôt dans le stockage refusé (${depot.status})`)
-
-  const { data: typeDoc } = await admin.from('types_documents').select('id').eq('code', 'MANDAT').maybeSingle()
-  const { error } = await admin.from('documents').insert({
-    ...(typeDoc ? { type_document_id: typeDoc.id } : {}),
-    nom: NOM_SIGNE,
-    nom_fichier: nomFichier,
-    url: `${url}/storage/v1/object/public/documents/${chemin}`,
-    mime_type: 'application/pdf',
-    taille_octets: pdf.length,
-    entite_type: 'mandat',
-    entite_id: mandatId,
-  })
-  if (error) throw new Error(error.message)
-
-  // La version signee REMPLACE la version envoyee, elle ne s'ajoute pas a cote (regle de William).
-  // On ne retire l'envoyee qu'une fois la signee bien enregistree : si le depot precedent avait
-  // echoue, la fiche garderait au moins ce qui a ete soumis au client.
-  await retirerDocumentsEnvoyes(admin, mandatId)
 }
 
 async function notifyMandatSigne(

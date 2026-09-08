@@ -171,10 +171,27 @@ interface CreateMandatInput {
   courtier_type_ids: string[]
 }
 
+/**
+ * Une date, plus un nombre de mois — en s'arrêtant au dernier jour du mois d'arrivée.
+ *
+ * `setMonth` DÉBORDE au lieu de s'arrêter : le 31 janvier plus un mois donne le 3 mars, parce que le
+ * 31 février n'existe pas et que JavaScript continue de compter. Sur les 36 mois de tous les mandats
+ * Kiwee, le cas ne se présente que pour un 29 février — 29/02/2028 + 36 mois n'existe pas en 2031, et
+ * le mandat se serait terminé le 1ᵉʳ mars. Un jour de validité inventé sur un document juridique.
+ *
+ * MÊME RÈGLE CÔTÉ SERVEUR, dans `api/docusign/_validite.ts`, où elle est testée. Les deux existent
+ * parce que le client et les fonctions Vercel ne partagent pas de code — si l'une change, l'autre
+ * doit suivre. C'est le serveur qui fait foi : lui recalcule à la signature, celle-ci ne pose qu'une
+ * valeur provisoire à la création, quand aucune signature n'existe encore.
+ */
 function addMonthsISO(dateISO: string, months: number): string {
-  const d = new Date(dateISO)
-  d.setMonth(d.getMonth() + months)
-  return d.toISOString().slice(0, 10)
+  const [annee, mois, jour] = dateISO.slice(0, 10).split('-').map(Number)
+  if (!annee || !mois || !jour) return dateISO.slice(0, 10)
+  // Le jour 0 du mois suivant EST le dernier jour du mois visé.
+  const dernierJour = new Date(Date.UTC(annee, mois - 1 + months + 1, 0)).getUTCDate()
+  return new Date(Date.UTC(annee, mois - 1 + months, Math.min(jour, dernierJour)))
+    .toISOString()
+    .slice(0, 10)
 }
 
 interface CreateMandatResult {

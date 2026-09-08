@@ -38,6 +38,28 @@ export function heureDe(instant: string | null | undefined): string | null {
   return `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`
 }
 
+/**
+ * LE JOUR D'UN INSTANT, TEL QU'ON LE VIT ICI — au format `AAAA-MM-JJ`.
+ *
+ * William, 08/09/2026 : « nous on travaille sur les horaires de Paris, donc si un client signe à
+ * 23 h 30, je veux que ça passe à "signé" à 23 h 30. »
+ *
+ * `instant.slice(0, 10)` découpe la chaîne ISO, donc rend le jour UTC. Une signature à 00 h 30 à
+ * Paris est enregistrée `22:30Z` la VEILLE : la fiche affichait alors le 9 septembre dans le champ
+ * modifiable et le 10 dans la ligne juste en dessous, qui passait par `toLocaleDateString`. Deux
+ * dates pour un même fait, sur le même écran.
+ *
+ * On lit donc le jour dans le fuseau du navigateur — celui de l'équipe — comme le fait déjà tout
+ * l'affichage. Le serveur applique la même règle en dur sur `Europe/Paris` (voir
+ * `api/docusign/_validite.ts`), parce qu'il n'a pas de navigateur pour le lui dire.
+ */
+export function jourLocalISO(instant: string | null | undefined): string | null {
+  if (!instant) return null
+  const d = new Date(instant)
+  if (Number.isNaN(d.getTime())) return null
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
+}
+
 /** L'échéance telle qu'on la montre : la date seule, ou la date et l'heure. */
 export function echeanceLisible(instant: string | null | undefined): string {
   if (!instant) return ''
