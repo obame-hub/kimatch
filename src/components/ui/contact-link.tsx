@@ -173,14 +173,20 @@ export function PhoneLink({ value, className }: { value: string; className?: str
        * immediately in your Allo app. » Elle décore les numéros qu'elle voit — ce qui explique
        * pourquoi, ici, le numéro reste un `<span>` sans rien de cliquable autour.
        *
-       * Le bouton garde donc son geste, utile, et l'annonce pour ce qu'il est : il met le numéro
-       * dans la file d'appel. Un bouton qui promet un appel et dépose une entrée dans une liste est
-       * un bouton qui mentait — c'est exactement pour cette raison qu'il avait été retiré le 26/08,
-       * et je l'ai remis ce matin en répétant la même erreur d'intitulé. */}
+       * ══ ET FINALEMENT, IL APPELLE VRAIMENT ══
+       *
+       * Trouvé le 08/09/2026 dans le code de leur application web : la route `/call/$number` ne fait
+       * que rediriger vers `allo://call?number=…`, un protocole que l'application de BUREAU
+       * enregistre à son installation. Le bouton le déclenche donc directement — sans extension,
+       * sans page intermédiaire. Il reprend son nom.
+       *
+       * Il dépose AUSSI le numéro dans la file, pour qui n'a pas l'application de bureau : là, le
+       * volet reste le seul chemin, et le dépôt ne coûte rien à celui qui a l'application. Voir
+       * `appeler` dans `telephonie.tsx`. */}
       <button
         type="button"
-        title="Mettre dans ma file d’appel Allo"
-        aria-label={`Mettre le ${numeroLisible(value)} dans ma file d’appel Allo`}
+        title="Appeler"
+        aria-label={`Appeler le ${numeroLisible(value)}`}
         onClick={(e) => {
           e.stopPropagation()
           void appeler(value)

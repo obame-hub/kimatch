@@ -1,7 +1,7 @@
 import { createContext, useCallback, useContext, useEffect, useState } from 'react'
 import type { ReactNode } from 'react'
 import { CarteAppel } from '@/components/allo/CarteAppel'
-import { VoletAllo, ouvrirVoletAllo } from '@/components/allo/VoletAllo'
+import { VoletAllo, ouvrirVoletAlloSiDejaUtilise } from '@/components/allo/VoletAllo'
 
 /**
  * APPELER DEPUIS KIMATCH — un seul entonnoir, un numéro normalisé, et un numéro TOUJOURS VISIBLE.
@@ -193,6 +193,38 @@ export function TelephonieProvider({ children }: { children: ReactNode }) {
       return e164
     }
 
+    /* ══ LA COMPOSITION DIRECTE : `allo://call?number=…` ══
+     *
+     * Naoëlle, 08/09/2026 : « il faudrait que quand je clique sur le petit logo appeler à côté d'un
+     * numéro, ça appelle direct le numéro », puis « sans installer l'extension ».
+     *
+     * TROUVÉ DANS LEUR PROPRE CODE. Leur application web déclare une route `/call/$number` dont le
+     * composant tient en trois lignes :
+     *
+     *     const { number } = useParams()
+     *     window.location.href = `allo://call?number=${number}`
+     *     setTimeout(() => navigate({ to: '/' }), 1500)
+     *
+     * Ce n'est donc pas un composeur web : c'est un LANCEUR vers le protocole `allo://`, que
+     * l'application de BUREAU enregistre à son installation. On peut l'appeler directement, sans
+     * passer par leur page intermédiaire ni par l'extension Chrome.
+     *
+     * ══ CE QUI SE PASSE SANS L'APPLICATION DE BUREAU ══
+     *
+     * Rien : un protocole non enregistré ne navigue pas. La première fois, Chrome demandera
+     * l'autorisation — et c'est le même dialogue que celui qui apparaissait pour `tel:`, à une
+     * différence près : cette fois il y a une application derrière. Une case « toujours autoriser »
+     * et il ne repose plus la question.
+     *
+     * C'est pour ça qu'on continue AUSSI de déposer le numéro dans la file : sans l'application de
+     * bureau, le dépôt et le volet restent le seul chemin, et ils ne coûtent rien à celui qui a
+     * l'application.
+     *
+     * `<a>` CLIQUÉ PLUTÔT QUE `location.href`, et de façon SYNCHRONE dans le geste de l'utilisateur :
+     * c'est la leçon du document de William sur Cockpit, où Safari et iOS refusent d'ouvrir une
+     * application externe depuis un appel différé. Le même réflexe s'applique ici. */
+    lancerAlloBureau(e164)
+
     /* ── LA FILE D'APPEL ALLO, D'ABORD ──
        Le numéro part dans la file du Power Dialer de la personne connectée, avec le nom et la
        société. Il n'y a plus qu'à cliquer « appeler » dans Allo. */
@@ -203,7 +235,7 @@ export function TelephonieProvider({ children }: { children: ReactNode }) {
          ce numero dans Kimatch ». Le numero etait bien deposse dans la file, mais la file est une
          liste d'attente : rien ne compose tant que le Power Dialer n'est pas lance, et ce bouton
          n'existe que dans l'interface d'Allo. On la met donc sous ses yeux, dans Kimatch. */
-      ouvrirVoletAllo()
+      ouvrirVoletAlloSiDejaUtilise()
     }
     if (file.ok) {
       const m = file.position != null
@@ -288,6 +320,28 @@ export function useTelephonie(): Telephonie {
  * NE LÈVE JAMAIS. L'appelant décide quoi afficher, et il a un repli. Une exception ici ferait perdre
  * la copie du numéro, c'est-à-dire le seul comportement dont on est sûr.
  */
+/**
+ * Demande à l'application de bureau d'Allo de composer ce numéro.
+ *
+ * Ne rend rien et ne lève jamais : on ne peut pas savoir si le protocole a été pris en charge. Le
+ * dépôt dans la file, lui, dira ce qu'il a fait — c'est lui qui porte le message affiché.
+ */
+function lancerAlloBureau(e164: string) {
+  try {
+    const a = document.createElement('a')
+    a.href = `allo://call?number=${encodeURIComponent(e164)}`
+    a.rel = 'noopener'
+    a.style.position = 'fixed'
+    a.style.left = '-9999px'
+    document.body.appendChild(a)
+    a.click()
+    // Retiré au tick suivant : l'enlever tout de suite annulerait le clic sur certains navigateurs.
+    setTimeout(() => a.remove(), 0)
+  } catch {
+    /* Un protocole refusé n'est pas une erreur à remonter : le dépôt dans la file suit. */
+  }
+}
+
 async function poserDansLaFileAllo(
   e164: string,
   qui?: Correspondant,

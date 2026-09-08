@@ -109,9 +109,25 @@ const ECHELLE_MIN = 0.62
  * qu'on remonte un contexte jusqu'à lui. Le téléphone est unique dans l'application.
  */
 let ouvrirCourant: (() => void) | null = null
+let dejaUtilise = false
 
 export function ouvrirVoletAllo() {
   ouvrirCourant?.()
+}
+
+/**
+ * Ouvre le volet SEULEMENT s'il a déjà servi dans cette session.
+ *
+ * Depuis qu'un clic sur un numéro tente `allo://call` — donc lance l'appel dans l'application de
+ * bureau quand elle est installée — faire surgir le volet à chaque appel serait du bruit pour qui
+ * téléphone depuis son application. Mais pour qui n'a pas cette application, le volet EST le
+ * téléphone : il doit continuer de s'ouvrir.
+ *
+ * La règle est donc « ouvre ce qui sert déjà » : la pastille reste là pour le premier clic, et
+ * ensuite le volet suit les appels.
+ */
+export function ouvrirVoletAlloSiDejaUtilise() {
+  if (dejaUtilise) ouvrirCourant?.()
 }
 
 export function VoletAllo() {
@@ -133,6 +149,7 @@ export function VoletAllo() {
   useEffect(() => {
     try {
       if (localStorage.getItem(CLE_MEMOIRE) === '1') {
+        dejaUtilise = true
         setCharge(true)
         setOuvert(true)
       }
@@ -145,6 +162,7 @@ export function VoletAllo() {
 
   useEffect(() => {
     ouvrirCourant = () => {
+      dejaUtilise = true
       setCharge(true)
       setOuvert(true)
       try { localStorage.setItem(CLE_MEMOIRE, '1') } catch { /* sans conséquence */ }
