@@ -482,6 +482,42 @@ export function useReouvrirAction() {
  * `date_prevue` EST LA SEULE COLONNE TOUCHÉE : reporter n'est pas réaliser. Le statut reste « À
  * faire », et la tâche demeure dans la section du haut, simplement plus loin dans la file.
  */
+/**
+ * REPORTER PLUSIEURS TÂCHES D'UN COUP — le rattrapage du retard.
+ *
+ * William, 08/09/2026, a retenu la proposition C : « 49 tâches en retard : tout reporter à
+ * demain ? ». Le nombre n'est pas une hypothèse — c'est le retard réel de Matthieu ce matin, sur
+ * 337 tâches ouvertes dans la base.
+ *
+ * ── POURQUOI UNE MUTATION À PART, ET PAS UNE BOUCLE ──
+ *
+ * Quarante-neuf appels `update` partent en quarante-neuf allers-retours, invalident le cache
+ * quarante-neuf fois, et laissent la liste à moitié reportée si le réseau lâche au milieu. Un seul
+ * `in (…)` fait le travail en une requête et échoue d'un bloc, ce qui est le seul échec dont on
+ * puisse rendre compte honnêtement.
+ *
+ * ── UNE MÊME DATE POUR TOUTES, ET C'EST VOULU ──
+ *
+ * Le report à l'unité conserve l'heure et part de l'échéance existante. Ici non : on ne déplace pas
+ * chaque tâche d'un cran, on vide une pile. Toutes atterrissent demain à 9 h, ce qui est
+ * exactement ce que « tout reporter à demain » promet — et ce qui rend le geste vérifiable.
+ */
+export function useReporterEnLot() {
+  const queryClient = useQueryClient()
+
+  return useMutation({
+    mutationFn: async ({ ids, echeance }: { ids: string[]; echeance: string }) => {
+      if (ids.length === 0) return
+      const { error } = await supabase.from('actions').update({ date_prevue: echeance }).in('id', ids)
+      if (error) throw new Error(error.message)
+    },
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: ['actions'] })
+      void queryClient.invalidateQueries({ queryKey: ['tableau-de-bord', 'mes-actions'] })
+    },
+  })
+}
+
 export function useReporterAction() {
   const queryClient = useQueryClient()
 

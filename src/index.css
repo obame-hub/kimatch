@@ -117,6 +117,32 @@
 
     /* Le violet des contacts — chaque objet a sa teinte chez William. */
     --km-violet: 124 91 176;      /* #7C5BB0 */
+
+    /* ══ LES TROIS OBJETS QUI PARTAGEAIENT LE VERT ══
+     *
+     * William, 08/09/2026 : les cartouches du bloc « Ma journée » doivent « reprendre les codes
+     * couleurs de ces objets ». Impossible en l'état : PISTE, REQUÊTE et SUIVI DE CONTRAT portaient
+     * tous les trois `km-green` sur le liseré de leur fiche. Trois cartouches identiques ne
+     * distinguent rien — autant ne pas les colorer.
+     *
+     * LES TEINTES SONT CHOISIES DANS LES TROUS DU CERCLE CHROMATIQUE, parce que la palette est déjà
+     * dense : bleu 213° pour le compte, vert 166° pour le site, violet 264° pour le contact,
+     * magenta 322° pour l'opportunité, brun 21° pour la recommandation. Restaient le cyan, l'indigo
+     * et l'olive — d'où le pétrole (192°), l'indigo (236°) et l'olive (75°). Aucune n'est à moins de
+     * 20° d'une teinte existante.
+     *
+     * CE VERT-LÀ NE DISPARAÎT PAS DES TROIS FICHES POUR AUTANT : `km-green` y est AUSSI la couleur
+     * de l'action — boutons, sélection, focus. Seul le liseré d'identité change. Repeindre le reste
+     * ferait d'un bouton « Enregistrer » un objet pétrole sur la fiche Piste et vert ailleurs. */
+    --km-piste: 28 107 122;       /* #1C6B7A — pétrole */
+    --km-piste-soft: 238 246 248; /* #EEF6F8 */
+    --km-piste-line: 207 228 233; /* #CFE4E9 */
+    --km-requete: 74 82 163;      /* #4A52A3 — indigo */
+    --km-requete-soft: 241 242 251;/* #F1F2FB */
+    --km-requete-line: 214 217 240;/* #D6D9F0 */
+    --km-suivi: 107 117 48;       /* #6B7530 — olive */
+    --km-suivi-soft: 245 247 234; /* #F5F7EA */
+    --km-suivi-line: 224 230 201; /* #E0E6C9 */
     --color-navy-50: 246 246 244;
     --color-navy-100: 231 230 226;
     --color-navy-200: 224 223 219;

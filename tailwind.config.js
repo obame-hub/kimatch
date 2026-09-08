@@ -34,6 +34,16 @@ export default {
           gaz: 'rgb(var(--km-gaz) / <alpha-value>)',
           'gaz-soft': 'rgb(var(--km-gaz-soft) / <alpha-value>)',
           violet: 'rgb(var(--km-violet) / <alpha-value>)',
+          // Les trois objets qui partageaient le vert — voir le commentaire dans index.css.
+          piste: 'rgb(var(--km-piste) / <alpha-value>)',
+          'piste-soft': 'rgb(var(--km-piste-soft) / <alpha-value>)',
+          'piste-line': 'rgb(var(--km-piste-line) / <alpha-value>)',
+          requete: 'rgb(var(--km-requete) / <alpha-value>)',
+          'requete-soft': 'rgb(var(--km-requete-soft) / <alpha-value>)',
+          'requete-line': 'rgb(var(--km-requete-line) / <alpha-value>)',
+          suivi: 'rgb(var(--km-suivi) / <alpha-value>)',
+          'suivi-soft': 'rgb(var(--km-suivi-soft) / <alpha-value>)',
+          'suivi-line': 'rgb(var(--km-suivi-line) / <alpha-value>)',
           green: 'rgb(var(--km-green) / <alpha-value>)',
           'green-soft': 'rgb(var(--km-green-soft) / <alpha-value>)',
           blue: 'rgb(var(--km-blue) / <alpha-value>)',
@@ -234,6 +244,13 @@ export default {
          * propre bord bas, quelle que soit sa hauteur. Une valeur fixe l'aurait fait apparaître
          * déjà à moitié monté sur un grand écran, et surgir de trop loin sur un petit.
          */
+        /* LE SURLIGNAGE D'ARRIVÉE — proposition A, retenue par William le 08/09/2026.
+           Deux battements plutôt qu'un fondu simple : un seul passage se rate si l'œil est encore
+           sur la barre d'adresse au moment du chargement. Le halo vert reprend `km-green`. */
+        'km-surligne': {
+          '0%, 100%': { backgroundColor: 'transparent', boxShadow: '0 0 0 0 rgb(var(--km-green) / 0)' },
+          '15%, 55%': { backgroundColor: 'rgb(var(--km-green) / 0.14)', boxShadow: '0 0 0 3px rgb(var(--km-green) / 0.22)' },
+        },
         'km-monte': { from: { transform: 'translateY(100%)' }, to: { transform: 'none' } },
       },
       animation: {
@@ -258,6 +275,7 @@ export default {
         'km-live-pulse': 'km-live-pulse 2.2s ease-in-out infinite',
         // 200 ms, et une courbe qui décélère franchement : assez pour qu'on voie d'où le panneau
         // vient, assez court pour ne pas se mettre entre l'intention et la saisie.
+        'km-surligne': 'km-surligne 2.2s ease-in-out 1 both',
         'km-monte': 'km-monte .2s cubic-bezier(.22,1,.36,1) both',
       },
       boxShadow: {

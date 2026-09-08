@@ -236,7 +236,7 @@ export default function PisteDetail() {
           </button>
         ))}
         </div>
-        <div className="hidden items-center border-b-2 border-km-green px-3 lg:flex">
+        <div className="hidden items-center border-b-2 border-km-piste px-3 lg:flex">
           <span className="truncate text-km-label font-bold uppercase tracking-[0.08em] text-km-faint">
             Activité · piste
           </span>

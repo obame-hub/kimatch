@@ -284,7 +284,7 @@ export default function RequeteDetail() {
           </button>
         ))}
         </div>
-        <div className="hidden items-center border-b-2 border-km-green px-3 lg:flex">
+        <div className="hidden items-center border-b-2 border-km-requete px-3 lg:flex">
           <span className="truncate text-km-label font-bold uppercase tracking-[0.08em] text-km-faint">
             Activité · requête
           </span>

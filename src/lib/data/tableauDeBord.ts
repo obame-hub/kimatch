@@ -1,5 +1,6 @@
 import { useQuery } from '@tanstack/react-query'
 import { supabase } from '@/lib/supabase'
+import { heureChoisie } from '@/lib/heureTache'
 
 /**
  * LES CHIFFRES DE LA MAQUETTE DE MICHEL, ET RIEN QUE CE QUE LA BASE SAIT VRAIMENT.
@@ -208,7 +209,46 @@ export function useChiffresTableauDeBord() {
   })
 }
 
-export type GroupeJournee = 'OPPORTUNITE' | 'MANDAT' | 'RECOMMANDATION' | 'AUTRE'
+/**
+ * ══ LES GROUPES SUIVENT LA CHAÎNE RÉELLE, DEPUIS LE 08/09/2026 ══
+ *
+ * Les quatre groupes d'origine — opportunité, mandat, recommandation, autres — venaient de la
+ * maquette de Michel du 25/08/2026, avant que les pistes et les suivis de contrat ne produisent des
+ * tâches. Mesuré le 08/09/2026 sur les 337 tâches ouvertes de la base :
+ *
+ *   suivi de contrat  167      → tombait dans « Autres »
+ *   piste             154      → tombait dans « Autres »
+ *   opportunité        10
+ *   recommandation      6
+ *   requête             0
+ *   mandat              0      → le bloc n'a JAMAIS rien contenu
+ *
+ * 321 tâches sur 337 s'entassaient donc sous « Autres », et le seul bloc toujours vide avait son
+ * titre. William, 08/09/2026, en demandant une cartouche d'objet sur chaque carte : une étiquette
+ * « Piste » dans un bloc « Autres » se contredit elle-même — il fallait refaire les groupes avant.
+ *
+ * MANDAT RESTE DANS LA LISTE malgré ses zéro tâches : la colonne `actions.mandat_id` existe et se
+ * remplira. Un groupe vide ne s'affiche pas, il ne coûte donc rien ; l'absence de groupe, elle,
+ * enverrait ces tâches dans « Autres » sans qu'on s'en aperçoive.
+ */
+export type GroupeJournee =
+  | 'PISTE'
+  | 'OPPORTUNITE'
+  | 'RECOMMANDATION'
+  | 'MANDAT'
+  | 'SUIVI_CONTRAT'
+  | 'REQUETE'
+  | 'AUTRE'
+
+/** L'objet d'où vient la tâche, tel que la cartouche l'annonce et tel qu'on y retourne. */
+export interface ObjetTache {
+  groupe: Exclude<GroupeJournee, 'AUTRE'>
+  id: string
+  /** Ce que la cartouche écrit : le nom de l'objet, pas son type. */
+  nom: string
+  /** La route de la fiche, avec la tâche en paramètre pour qu'elle s'y surligne. */
+  chemin: string
+}
 
 export interface ActionAFaire {
   id: string
@@ -216,29 +256,63 @@ export interface ActionAFaire {
   /** Le client ou le site concerné — la deuxième ligne de ses cartes. */
   contexte: string | null
   groupe: GroupeJournee
+  /** `null` seulement pour le groupe « Autres ». */
+  objet: ObjetTache | null
+  /** Le contact rattaché, cliquable sur la carte. 175 tâches sur 337 en ont un. */
+  contact: { id: string; nom: string } | null
   /** Fait ou non : c'est l'état de la case à cocher. */
   faite: boolean
   /** Jours restants avant l'échéance. Négatif quand elle est passée, `null` sans date. */
   joursRestants: number | null
   /** `priorite` de la base, 0 à 100. Au-delà de 70, la ligne est signalée comme prioritaire. */
   priorite: number | null
+  /** L'échéance brute, pour trier et pour reporter. */
+  echeance: string | null
+  /** L'heure, quand un humain l'a choisie — voir `heureChoisie`. `null` la plupart du temps. */
+  heure: string | null
 }
 
 /** Ce que porte le badge de droite : la couleur dit l'urgence, le texte dit pourquoi. */
 export function badgeAction(a: ActionAFaire): { texte: string; ton: 'rouge' | 'ambre' | 'neutre' } | null {
   if (a.faite) return null
   if (a.joursRestants != null && a.joursRestants < 0) return { texte: 'En retard', ton: 'rouge' }
-  if (a.joursRestants === 0) return { texte: "Aujourd'hui", ton: 'ambre' }
+  if (a.joursRestants === 0) return { texte: a.heure ? a.heure : "Aujourd'hui", ton: 'ambre' }
   if (a.priorite != null && a.priorite >= 70) return { texte: 'Prioritaire', ton: 'ambre' }
   if (a.joursRestants != null) return { texte: `${a.joursRestants} jour${a.joursRestants > 1 ? 's' : ''}`, ton: 'neutre' }
   return null
 }
 
 export const LIBELLE_GROUPE: Record<GroupeJournee, string> = {
+  PISTE: 'Pistes',
   OPPORTUNITE: 'Opportunités',
-  MANDAT: 'Mandats',
   RECOMMANDATION: 'Recommandations',
+  MANDAT: 'Mandats',
+  SUIVI_CONTRAT: 'Suivis de contrat',
+  REQUETE: 'Requêtes',
   AUTRE: 'Autres',
+}
+
+/**
+ * ══ L'ORDRE DE LA JOURNÉE ══
+ *
+ * William, 08/09/2026 : « affiche en priorité les tâches en retard, puis les tâches disposant d'une
+ * heure de rappel, puis le reste des tâches ouvertes ».
+ *
+ * Sa deuxième couche a failli être du bruit. Sur les 156 tâches qui portaient une heure le
+ * 08/09/2026, 150 étaient à midi UTC — l'import Salesforce de Naoëlle du même jour pose
+ * `ActivityDate + T12:00:00Z` pour qu'un décalage de fuseau ne fasse pas basculer l'échéance d'un
+ * jour. L'intention est juste, mais la convention de l'application est l'inverse (minuit local =
+ * pas d'heure, voir `heureTache.ts`), et ces tâches s'affichaient donc « à 13:00 » ou « à 14:00 »
+ * selon l'heure d'été. Six heures seulement, dans toute la base, avaient été choisies par quelqu'un.
+ *
+ * `heureChoisie` neutralise l'heure des tâches importées, ce qui rend la couche du milieu à nouveau
+ * informative : elle ne contient que des rendez-vous que quelqu'un a réellement posés.
+ */
+export function rangJournee(a: ActionAFaire): number {
+  if (a.joursRestants != null && a.joursRestants < 0) return 0
+  if (a.joursRestants === 0) return a.heure ? 1 : 2
+  if (a.joursRestants != null) return a.heure ? 3 : 4
+  return 5
 }
 
 /**
@@ -248,24 +322,27 @@ export const LIBELLE_GROUPE: Record<GroupeJournee, string> = {
  * avec un badge d'urgence à droite et un basculement à réaliser / réalisé / tout. C'est un plan de
  * travail, pas un emploi du temps — et c'est plus juste, parce qu'une relance n'a pas d'heure.
  *
- * SON GROUPE « OPPORTUNITÉS » EXISTE DEPUIS LE 27/08/2026. Il manquait la colonne : `actions`
- * portait un lien vers un signal, un mandat, une recommandation, une version, un site et un contact,
- * mais aucun vers une opportunité. Naoëlle a tranché — « crée les liens de tâche vers opportunité » —
- * et la migration 20260827100000 l'a ajoutée.
- *
- * L'ORDRE DES GROUPES SUIT LA CHAÎNE : opportunité, mandat, recommandation. C'est celui de son
- * pipeline, et il rend la lecture prévisible — on descend le tunnel de gauche à droite, du plus
- * amont au plus aval, comme sur la page 5 de sa présentation.
- *
  * LE GROUPE « SIGNAUX » EN TÊTE A DISPARU LE 02/09/2026 avec le reste du sujet (voir
  * `cycleNavItems`). Les tâches qui ne portent qu'un `signal_id` ne sont PAS perdues : elles
  * retombent dans « Autres » et restent cochables. Rien n'est supprimé en base, ni la colonne, ni
  * les liens.
  *
- * LA PORTÉE N'EST PAS « AUJOURD'HUI » MAIS « À FAIRE ». Ses badges disent « 3 jours », « 2 jours » :
- * il ne montre pas la journée au sens de l'agenda, il montre ce qui attend. On prend donc tout ce qui
- * n'est pas fait et qui est dû — échéance passée, aujourd'hui, ou dans les sept jours — plus les
- * actions sans date, qui sinon n'apparaîtraient jamais nulle part.
+ * ══ LA PORTÉE EST LE JOUR ET LE RETARD, ET RIEN D'AUTRE ══
+ *
+ * William, 08/09/2026 : « seules les tâches du jour et en retard sont censées apparaître dans Vue
+ * d'ensemble ». Le bloc prenait jusqu'ici tout ce qui échoyait dans les huit jours, plus les tâches
+ * sans date. Mesuré le même jour : cela remontait 168 tâches futures pour Fabien et 70 pour Matthieu
+ * — un plan de travail qui contient la semaine entière ne dit plus quoi faire ce matin.
+ *
+ * LES TÂCHES SANS ÉCHÉANCE SORTENT AVEC LE RESTE, et c'est la conséquence assumée de la règle : sans
+ * date, une tâche n'est ni du jour ni en retard. Elles sont trois dans toute la base (deux à Thomas,
+ * une à Matthieu) et restent visibles sur la page Tâches. `date_prevue < demain` les écarte de
+ * lui-même : en SQL, `null < x` ne vaut pas « vrai ».
+ *
+ * LE PLAFOND EST PASSÉ DE 60 À 300 LE 08/09/2026. Il n'avait jamais servi tant que la base comptait
+ * trois tâches ; le resserrement au jour et au retard le rend confortable, mais on le garde haut :
+ * un retard s'accumule sans prévenir, et une liste tronquée en silence est pire qu'une liste
+ * longue. Le bloc n'affiche de toute façon que dix lignes par groupe et fait défiler le reste.
  */
 export function useMesActions(profilId: string | null | undefined) {
   return useQuery({
@@ -274,11 +351,31 @@ export function useMesActions(profilId: string | null | undefined) {
     staleTime: 60 * 1000,
     queryFn: async (): Promise<ActionAFaire[]> => {
       const jour = new Date()
-      const finDeSemaine = new Date(jour.getFullYear(), jour.getMonth(), jour.getDate() + 8).toISOString()
+      // Minuit LOCAL du lendemain : une échéance à 23 h ce soir est encore « du jour ».
+      const finDuJour = new Date(jour.getFullYear(), jour.getMonth(), jour.getDate() + 1).toISOString()
       const debutDuJour = new Date(jour.getFullYear(), jour.getMonth(), jour.getDate()).toISOString()
 
+      /* Sept jointures pour sept objets possibles. C'est le prix de la cartouche : elle nomme
+         l'objet — « Piste · Groupe Solstice » — et un identifiant ne se lit pas. PostgREST les
+         résout en une seule requête, et le plafond de 300 lignes borne le coût. */
       const colonnes =
-        'id, titre, priorite, date_prevue, date_realisation, opportunite_id, mandat_id, recommandation_id, version_recommandation_id, type_action:types_actions(libelle), contact:contacts(prenom, nom), site:sites(nom)'
+        'id, titre, priorite, date_prevue, date_realisation, source_externe_id,' +
+        ' opportunite_id, mandat_id, recommandation_id, version_recommandation_id, piste_id, requete_id, suivi_contrat_id,' +
+        ' type_action:types_actions(libelle),' +
+        ' contact:contacts(id, prenom, nom),' +
+        ' site:sites(nom),' +
+        ' piste:pistes!actions_piste_id_fkey(id, societe, contact_nom, reference),' +
+        ' opportunite:opportunites!actions_opportunite_id_fkey(id, reference, compte:comptes(nom)),' +
+        ' recommandation:recommandations!actions_recommandation_id_fkey(id, nom),' +
+        ' version:versions_recommandation!actions_version_recommandation_id_fkey(id, nom, recommandation_id),' +
+        ' requete:requetes!actions_requete_id_fkey(id, objet, reference),' +
+        /* `suivis_contrats` POINTE DEUX FOIS VERS `comptes` — le client (`compte_id`) et le
+           fournisseur (`fournisseur_compte_id`). Sans le nom de la contrainte, PostgREST ne peut pas
+           choisir et refuse la requête entière : le groupe « Suivis de contrat », 167 tâches, serait
+           tombé en panne. C'est aussi pourquoi les six autres jointures nomment la leur — une
+           colonne ajoutée demain rendrait ambiguë une jointure qui ne l'est pas aujourd'hui. */
+        ' suivi:suivis_contrats!actions_suivi_contrat_id_fkey(id, reference, compte:comptes!suivis_contrats_compte_id_fkey(nom)),' +
+        ' mandat:mandats!actions_mandat_id_fkey(id, reference)'
 
       // Deux requêtes plutôt qu'un `or` : ce qui reste à faire, et ce qui a été fait aujourd'hui —
       // le basculement « Réalisé » de sa maquette montre la journée écoulée, pas tout l'historique.
@@ -289,9 +386,9 @@ export function useMesActions(profilId: string | null | undefined) {
           .eq('actif', true)
           .eq('responsable_profil_id', profilId)
           .is('date_realisation', null)
-          .or(`date_prevue.lt.${finDeSemaine},date_prevue.is.null`)
-          .order('date_prevue', { nullsFirst: false })
-          .limit(60),
+          .lt('date_prevue', finDuJour)
+          .order('date_prevue')
+          .limit(300),
         supabase
           .from('actions')
           .select(colonnes)
@@ -299,37 +396,77 @@ export function useMesActions(profilId: string | null | undefined) {
           .eq('responsable_profil_id', profilId)
           .gte('date_realisation', debutDuJour)
           .order('date_realisation', { ascending: false })
-          .limit(30),
+          .limit(50),
       ])
 
+      type Lien = { id: string } & Record<string, unknown>
       type Ligne = {
         id: string
         titre: string | null
         priorite: number | null
         date_prevue: string | null
         date_realisation: string | null
+        source_externe_id: string | null
         opportunite_id: string | null
         mandat_id: string | null
         recommandation_id: string | null
         version_recommandation_id: string | null
+        piste_id: string | null
+        requete_id: string | null
+        suivi_contrat_id: string | null
         type_action: { libelle: string } | null
-        contact: { prenom: string | null; nom: string | null } | null
+        contact: { id: string; prenom: string | null; nom: string | null } | null
         site: { nom: string | null } | null
+        piste: ({ societe: string | null; contact_nom: string | null; reference: string | null } & Lien) | null
+        opportunite: ({ reference: string | null; compte: { nom: string | null } | null } & Lien) | null
+        recommandation: ({ nom: string | null } & Lien) | null
+        version: ({ nom: string | null; recommandation_id: string | null } & Lien) | null
+        requete: ({ objet: string | null; reference: string | null } & Lien) | null
+        suivi: ({ reference: string | null; compte: { nom: string | null } | null } & Lien) | null
+        mandat: ({ reference: string | null } & Lien) | null
+      }
+
+      /**
+       * L'OBJET D'ORIGINE, NOMMÉ ET ADRESSÉ.
+       *
+       * L'ORDRE DES TESTS EST L'ORDRE DE LA CHAÎNE, et il compte : une tâche peut porter plusieurs
+       * liens — un mandat naît d'une opportunité, elle-même née d'une piste. On retient alors
+       * l'objet le plus AMONT, celui qui explique pourquoi la tâche existe, plutôt que le dernier
+       * rattaché. Aucune des 337 tâches ouvertes n'en portait deux le 08/09/2026 ; la règle vaut
+       * pour le jour où cela changera.
+       *
+       * `signal_id` n'est plus testé depuis le 02/09/2026 : une tâche qui ne porte que ce lien-là
+       * tombe dans « Autres », elle ne disparaît pas de la liste.
+       *
+       * LE PARAMÈTRE `?tache=` N'EST PAS DÉCORATIF : il fait surligner la tâche dans le volet
+       * d'activité de la fiche d'arrivée. Sans lui, on atterrit sur une fiche en se demandant où
+       * regarder — William, 08/09/2026 : « je dois pouvoir être renvoyé en un clic vers la
+       * recommandation dans laquelle la tâche s'affiche dans le flux d'activité ».
+       */
+      const objetDe = (a: Ligne): ObjetTache | null => {
+        const vers = (groupe: ObjetTache['groupe'], base: string, id: string, nom: string | null | undefined) => ({
+          groupe,
+          id,
+          nom: nom && nom.trim() ? nom.trim() : 'Sans nom',
+          chemin: `/${base}/${id}?tache=${a.id}`,
+        })
+        if (a.piste)
+          return vers('PISTE', 'pistes', a.piste.id, a.piste.societe || a.piste.contact_nom || a.piste.reference)
+        if (a.opportunite)
+          return vers('OPPORTUNITE', 'opportunites', a.opportunite.id, a.opportunite.compte?.nom || a.opportunite.reference)
+        if (a.recommandation) return vers('RECOMMANDATION', 'recommandations', a.recommandation.id, a.recommandation.nom)
+        // Une version appartient à sa recommandation : c'est la fiche mère qui porte le fil d'activité.
+        if (a.version?.recommandation_id)
+          return vers('RECOMMANDATION', 'recommandations', a.version.recommandation_id, a.version.nom)
+        if (a.mandat) return vers('MANDAT', 'mandats', a.mandat.id, a.mandat.reference)
+        if (a.suivi)
+          return vers('SUIVI_CONTRAT', 'suivis-contrats', a.suivi.id, a.suivi.compte?.nom || a.suivi.reference)
+        if (a.requete) return vers('REQUETE', 'requetes', a.requete.id, a.requete.objet || a.requete.reference)
+        return null
       }
 
       const lire = (a: Ligne): ActionAFaire => {
-        /* L'ORDRE DES TESTS EST L'ORDRE DE LA CHAÎNE, et il compte : une tâche peut porter
-           plusieurs liens — un mandat naît d'une opportunité. On retient alors l'objet le plus
-           AMONT, celui qui explique pourquoi la tâche existe, plutôt que le dernier rattaché.
-           `signal_id` n'est plus testé depuis le 02/09/2026 : une tâche qui ne porte que ce
-           lien-là tombe dans « Autres », elle ne disparaît pas de la liste. */
-        const groupe: GroupeJournee = a.opportunite_id
-          ? 'OPPORTUNITE'
-          : a.mandat_id
-            ? 'MANDAT'
-            : a.recommandation_id || a.version_recommandation_id
-              ? 'RECOMMANDATION'
-              : 'AUTRE'
+        const objet = objetDe(a)
 
         // Le nombre de jours se compte sur des jours de calendrier, pas sur des millisecondes : une
         // échéance ce soir à 18 h doit dire « aujourd'hui » et non « dans 0,3 jour ».
@@ -341,15 +478,20 @@ export function useMesActions(profilId: string | null | undefined) {
           joursRestants = Math.round((aJour - auj) / 86_400_000)
         }
 
+        const nomContact = [a.contact?.prenom, a.contact?.nom].filter(Boolean).join(' ')
+
         return {
           id: a.id,
           titre: a.titre || a.type_action?.libelle || 'Action',
-          contexte:
-            [a.contact?.prenom, a.contact?.nom].filter(Boolean).join(' ') || a.site?.nom || null,
-          groupe,
+          contexte: nomContact || a.site?.nom || null,
+          groupe: objet?.groupe ?? 'AUTRE',
+          objet,
+          contact: a.contact && nomContact ? { id: a.contact.id, nom: nomContact } : null,
           faite: !!a.date_realisation,
           joursRestants,
           priorite: a.priorite,
+          echeance: a.date_prevue,
+          heure: heureChoisie(a.date_prevue, a.source_externe_id),
         }
       }
 
@@ -357,7 +499,15 @@ export function useMesActions(profilId: string | null | undefined) {
         ...((aFaire.data ?? []) as unknown as Ligne[]),
         ...((faites.data ?? []) as unknown as Ligne[]),
       ]
-      return toutes.map(lire)
+
+      /* Le tri de William : le retard d'abord, puis les rendez-vous du jour, puis le reste. À rang
+         égal, la plus proche échéance passe devant, et à échéance égale la plus prioritaire. */
+      return toutes.map(lire).sort((x, y) => {
+        const r = rangJournee(x) - rangJournee(y)
+        if (r !== 0) return r
+        if (x.echeance && y.echeance && x.echeance !== y.echeance) return x.echeance < y.echeance ? -1 : 1
+        return (y.priorite ?? 0) - (x.priorite ?? 0)
+      })
     },
   })
 }

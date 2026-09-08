@@ -1,7 +1,9 @@
 import { useEffect, useRef, useState } from 'react'
+import { useSearchParams } from 'react-router-dom'
 import { Check, Clock, Trash2, Undo2 } from 'lucide-react'
 import { joursJusqua } from '@/lib/dateRelative'
-import { useCompleteAction, useDeleteAction, useReouvrirAction, useReporterAction } from '@/lib/data/actions'
+import { useDeleteAction } from '@/lib/data/actions'
+import { REPORTS, useGestesTache } from '@/lib/data/gestesTache'
 import { useIsAdmin, useMonProfil } from '@/lib/data/roles'
 import { cn } from '@/lib/utils'
 import type { ActionItem } from '@/types/domain'
@@ -67,54 +69,8 @@ const TON_ECHEANCE: Record<'retard' | 'aujourdhui' | 'venir', string> = {
   venir: 'text-km-faint',
 }
 
-/**
- * Les trois reports proposés.
- *
- * L'HEURE EST CONSERVÉE pour « demain » et « la semaine prochaine » : une tâche prévue à 9 h le
- * reste, décaler le jour ne doit pas décaler la matinée. « Lundi prochain » repart à 9 h, parce
- * qu'aucune heure de vendredi soir n'a de sens le lundi matin.
- */
-const REPORTS: { libelle: string; calcul: (base: Date) => Date }[] = [
-  {
-    libelle: 'Demain',
-    calcul: (base) => {
-      const d = new Date(base)
-      d.setDate(d.getDate() + 1)
-      return d
-    },
-  },
-  {
-    libelle: '+1 semaine',
-    calcul: (base) => {
-      const d = new Date(base)
-      d.setDate(d.getDate() + 7)
-      return d
-    },
-  },
-  {
-    libelle: 'Lundi',
-    calcul: (base) => {
-      const d = new Date(base)
-      // `getDay()` vaut 0 le dimanche : le reste de la division ramène toujours sur le lundi
-      // suivant, et jamais sur aujourd'hui même si l'on est déjà lundi.
-      const versLundi = ((8 - d.getDay()) % 7) || 7
-      d.setDate(d.getDate() + versLundi)
-      d.setHours(9, 0, 0, 0)
-      return d
-    },
-  },
-]
-
-/** Une tâche fraîchement cochée, gardée à l'écran le temps de pouvoir se rétracter. */
-interface Annulable {
-  id: string
-  titre: string
-}
-
 export function TachesOuvertes({ actions }: { actions: ActionItem[] }) {
-  const completer = useCompleteAction()
-  const reouvrir = useReouvrirAction()
-  const reporter = useReporterAction()
+  const { cocher, annuler, reporter, annulables, enCours } = useGestesTache()
   const supprimer = useDeleteAction()
   const { data: monProfil } = useMonProfil()
   const estAdmin = useIsAdmin()
@@ -131,18 +87,34 @@ export function TachesOuvertes({ actions }: { actions: ActionItem[] }) {
     return estAdmin || (Boolean(monProfil?.id) && action.cree_par_id === monProfil?.id)
   }
 
-  const [annulables, setAnnulables] = useState<Annulable[]>([])
   const [reportOuvert, setReportOuvert] = useState<string | null>(null)
+
+  /**
+   * ══ ARRIVER SUR LA BONNE LIGNE, PAS SEULEMENT SUR LA BONNE FICHE ══
+   *
+   * William, 08/09/2026 : « je dois pouvoir être renvoyé en un clic vers la recommandation dans
+   * laquelle la tâche s'affiche dans le flux d'activité ». Une fiche s'ouvre avec un fil de
+   * quarante lignes ; sans repère, on relit tout pour retrouver celle d'où l'on vient.
+   *
+   * « Ma journée » ajoute donc `?tache=<id>` à chaque lien d'objet. La ligne défile jusque sous les
+   * yeux et bat deux fois. LE PARAMÈTRE RESTE DANS L'ADRESSE une fois joué : c'est ce qui rend le
+   * lien partageable — « regarde cette relance » se colle dans un message.
+   */
+  const [parametres] = useSearchParams()
+  const cible = parametres.get('tache')
+  const lignes = useRef(new Map<string, HTMLDivElement>())
+
+  useEffect(() => {
+    if (!cible) return
+    // Un temps de battement : le volet peut encore être en train de se peindre quand la fiche
+    // arrive, et `scrollIntoView` sur un élément de hauteur nulle ne va nulle part.
+    const t = window.setTimeout(() => {
+      lignes.current.get(cible)?.scrollIntoView({ block: 'center', behavior: 'smooth' })
+    }, 120)
+    return () => window.clearTimeout(t)
+  }, [cible, actions])
   /** La tâche dont on vient de demander la suppression : sa ligne demande confirmation sur place. */
   const [aConfirmer, setAConfirmer] = useState<string | null>(null)
-  const minuteurs = useRef<number[]>([])
-
-  // Les minuteurs des bandeaux d'annulation meurent avec le composant : sans ce nettoyage, changer
-  // de fiche pendant les cinq secondes déclencherait un `setState` sur un composant démonté.
-  useEffect(() => {
-    const encours = minuteurs.current
-    return () => encours.forEach((t) => window.clearTimeout(t))
-  }, [])
 
   const ouvertes = actions
     // UNE TÂCHE ANNULÉE N'EST PAS UNE TÂCHE À FAIRE, et elle n'a pourtant pas de date de
@@ -160,20 +132,6 @@ export function TachesOuvertes({ actions }: { actions: ActionItem[] }) {
 
   if (ouvertes.length === 0 && annulables.length === 0) return null
 
-  function cocher(action: ActionItem) {
-    completer.mutate(action.id)
-    setAnnulables((liste) => [...liste, { id: action.id, titre: action.titre }])
-    const t = window.setTimeout(() => {
-      setAnnulables((liste) => liste.filter((x) => x.id !== action.id))
-    }, 5000)
-    minuteurs.current.push(t)
-  }
-
-  function annuler(id: string) {
-    reouvrir.mutate(id)
-    setAnnulables((liste) => liste.filter((x) => x.id !== id))
-  }
-
   return (
     <div className="shrink-0 space-y-1.5 border-b border-km-line pb-2.5">
       <p className="text-km-tiny font-bold uppercase tracking-[0.08em] text-km-faint">À faire</p>
@@ -184,9 +142,14 @@ export function TachesOuvertes({ actions }: { actions: ActionItem[] }) {
         return (
           <div
             key={action.id}
+            ref={(el) => {
+              if (el) lignes.current.set(action.id, el)
+              else lignes.current.delete(action.id)
+            }}
             className={cn(
               'rounded-km-md border px-2 py-1.5 transition-colors',
               enRetard ? 'border-km-red/25 bg-km-red-soft/40' : 'border-km-line bg-km-surface',
+              cible === action.id && 'animate-km-surligne',
             )}
           >
             <div className="flex items-start gap-2">
@@ -194,8 +157,8 @@ export function TachesOuvertes({ actions }: { actions: ActionItem[] }) {
                   nom de la tâche pour un lecteur d'écran, et la coche dessinée suit nos jetons. */}
               <button
                 type="button"
-                onClick={() => cocher(action)}
-                disabled={completer.isPending}
+                onClick={() => cocher(action.id, action.titre)}
+                disabled={enCours}
                 aria-label={`Marquer « ${action.titre} » comme terminée`}
                 className="mt-px flex h-4 w-4 shrink-0 items-center justify-center rounded-[4px] border border-km-line bg-white text-transparent transition-colors hover:border-km-green hover:bg-km-green-soft hover:text-km-green disabled:opacity-50"
               >
@@ -290,11 +253,7 @@ export function TachesOuvertes({ actions }: { actions: ActionItem[] }) {
                     key={r.libelle}
                     type="button"
                     onClick={() => {
-                      // La base de calcul est l'échéance actuelle si elle existe, sinon maintenant :
-                      // reporter « +1 semaine » une tâche déjà en retard de trois jours doit partir
-                      // de son échéance, pas d'aujourd'hui — sinon le report grignote le retard.
-                      const base = action.echeance ? new Date(action.echeance) : new Date()
-                      reporter.mutate({ actionId: action.id, echeance: r.calcul(base).toISOString() })
+                      reporter(action.id, action.echeance, r)
                       setReportOuvert(null)
                     }}
                     className="rounded-km-sm border border-km-line bg-km-surface px-2 py-0.5 text-km-tiny font-semibold text-km-muted transition-colors hover:border-km-green hover:bg-km-green-soft hover:text-km-green"
