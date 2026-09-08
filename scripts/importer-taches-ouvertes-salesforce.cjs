@@ -282,9 +282,16 @@ function echeance(activityDate) {
 
   await c.query('begin')
   try {
-    // SIGNER L'HISTORIQUE. Le déclencheur d'audit lit `auth.uid()`, nul depuis un script : sans ce
-    // réglage, les 156 lignes d'historique s'afficheraient « Auteur inconnu », ce qui se lit comme
-    // un bug alors que c'est un fait.
+    // SIGNER LA SESSION, par précaution et non pour réparer quoi que ce soit.
+    //
+    // J'avais écrit ici que ce réglage évitait « Auteur inconnu » sur 156 lignes d'historique.
+    // C'ÉTAIT FAUX, et la vérification après l'import du 08/09/2026 l'a montré : `fn_audit_trace`
+    // n'écrit dans `historique_modifications` que sur UPDATE, jamais sur INSERT. L'import a donc
+    // créé 0 ligne d'historique — mesuré, pas supposé.
+    //
+    // Le réglage reste, parce qu'il ne coûte rien et qu'il sert dès qu'une écriture de ce script
+    // deviendrait une modification (une reprise qui mettrait à jour une action existante, par
+    // exemple). Mais il ne faut pas lui prêter un effet qu'il n'a pas.
     await c.query('select set_config($1, $2, false)', ['kimatch.origine', 'import Salesforce — tâches ouvertes'])
 
     for (const e of aEcrire) {
