@@ -289,7 +289,10 @@ export function useCreateAction() {
      *  (`['actions','recommandation',…]`, `['actions','sites',…]`) que le `setQueryData` ci-dessus
      *  ne touche pas. Sans invalidation du préfixe, un rappel créé depuis une fiche n'y apparaît
      *  qu'après rechargement de la page. */
-    onSuccess: () => { void queryClient.invalidateQueries({ queryKey: ['actions'] }) },
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: ['actions'] })
+      void queryClient.invalidateQueries({ queryKey: ['tableau-de-bord', 'mes-actions'] })
+    },
   })
 }
 
@@ -350,7 +353,15 @@ export function useUpdateActionPartiel() {
       const { error } = await supabase.from('actions').update(patch).eq('id', id)
       if (error) throw new Error(error.message)
     },
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['actions'] }),
+    // ── LE TABLEAU DE BORD LIT SA PROPRE REQUÊTE ──
+    // « Ma journée » interroge la clé `['tableau-de-bord', 'mes-actions']`, pas `['actions']`.
+    // Sans cette seconde invalidation, le crayon ajouté le 08/09/2026 enregistrait bien en base
+    // mais la carte gardait l'ancien intitulé jusqu'au rechargement de la page — exactement le
+    // genre d'écart qui fait croire que rien n'a été sauvegardé, et qui fait ressaisir.
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: ['actions'] })
+      void queryClient.invalidateQueries({ queryKey: ['tableau-de-bord', 'mes-actions'] })
+    },
   })
 }
 

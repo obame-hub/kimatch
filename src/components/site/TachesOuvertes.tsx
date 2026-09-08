@@ -1,9 +1,11 @@
 import { useEffect, useRef, useState } from 'react'
 import { useSearchParams } from 'react-router-dom'
-import { Check, Clock, Trash2, Undo2 } from 'lucide-react'
+import { Check, Clock, Pencil, Trash2, Undo2 } from 'lucide-react'
 import { joursJusqua } from '@/lib/dateRelative'
 import { useDeleteAction } from '@/lib/data/actions'
-import { REPORTS, useGestesTache } from '@/lib/data/gestesTache'
+import { useGestesTache } from '@/lib/data/gestesTache'
+import { MenuReport } from '@/components/tache/MenuReport'
+import { PanneauEditionTache } from '@/components/tache/PanneauEditionTache'
 import { useIsAdmin, useMonProfil } from '@/lib/data/roles'
 import { cn } from '@/lib/utils'
 import type { ActionItem } from '@/types/domain'
@@ -69,8 +71,46 @@ const TON_ECHEANCE: Record<'retard' | 'aujourdhui' | 'venir', string> = {
   venir: 'text-km-faint',
 }
 
+/** Un bouton d'icône de carte : même taille, même comportement au survol, partout. */
+function BoutonCarte({
+  icone: Icone,
+  libelle,
+  titre,
+  actif,
+  danger,
+  onClick,
+}: {
+  icone: typeof Clock
+  libelle: string
+  titre: string
+  actif: boolean
+  danger?: boolean
+  onClick: () => void
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      aria-expanded={actif}
+      aria-label={libelle}
+      title={titre}
+      className={cn(
+        'flex h-6 w-6 shrink-0 items-center justify-center rounded-km-sm transition-all',
+        actif
+          ? cn('opacity-100', danger ? 'bg-km-red-soft text-km-red' : 'bg-km-green-soft text-km-green')
+          : cn(
+              'text-km-faint opacity-0 focus:opacity-100 group-hover/tache:opacity-100',
+              danger ? 'hover:bg-km-red-soft hover:text-km-red' : 'hover:bg-km-soft hover:text-km-text',
+            ),
+      )}
+    >
+      <Icone className="h-3.5 w-3.5" />
+    </button>
+  )
+}
+
 export function TachesOuvertes({ actions }: { actions: ActionItem[] }) {
-  const { cocher, annuler, reporter, annulables, enCours } = useGestesTache()
+  const { cocher, annuler, reporter, reporterA, annulables, enCours } = useGestesTache()
   const supprimer = useDeleteAction()
   const { data: monProfil } = useMonProfil()
   const estAdmin = useIsAdmin()
@@ -88,6 +128,17 @@ export function TachesOuvertes({ actions }: { actions: ActionItem[] }) {
   }
 
   const [reportOuvert, setReportOuvert] = useState<string | null>(null)
+  const [editionOuverte, setEditionOuverte] = useState<string | null>(null)
+
+  /**
+   * UN SEUL PANNEAU À LA FOIS. Trois volets dépliables sur une carte de 324 px de large : ouvrir le
+   * report alors que l'édition est déjà ouverte donnerait une carte plus haute que le volet.
+   */
+  function ouvrir(quel: 'report' | 'edition' | 'suppression', id: string) {
+    setReportOuvert(quel === 'report' && reportOuvert !== id ? id : null)
+    setEditionOuverte(quel === 'edition' && editionOuverte !== id ? id : null)
+    setAConfirmer(quel === 'suppression' && aConfirmer !== id ? id : null)
+  }
 
   /**
    * ══ ARRIVER SUR LA BONNE LIGNE, PAS SEULEMENT SUR LA BONNE FICHE ══
@@ -147,7 +198,7 @@ export function TachesOuvertes({ actions }: { actions: ActionItem[] }) {
               else lignes.current.delete(action.id)
             }}
             className={cn(
-              'rounded-km-md border px-2 py-1.5 transition-colors',
+              'group/tache rounded-km-md border px-2 py-1.5 transition-colors',
               enRetard ? 'border-km-red/25 bg-km-red-soft/40' : 'border-km-line bg-km-surface',
               cible === action.id && 'animate-km-surligne',
             )}
@@ -178,45 +229,68 @@ export function TachesOuvertes({ actions }: { actions: ActionItem[] }) {
                 </p>
               </div>
 
-              {peutSupprimer(action) && (
-                <button
-                  type="button"
-                  onClick={() => {
-                    setAConfirmer((v) => (v === action.id ? null : action.id))
-                    setReportOuvert(null)
-                  }}
-                  aria-label={`Supprimer « ${action.titre} »`}
-                  title="Supprimer"
-                  className={cn(
-                    'flex h-6 w-6 shrink-0 items-center justify-center rounded-km-sm transition-colors',
-                    aConfirmer === action.id
-                      ? 'bg-km-red-soft text-km-red'
-                      : 'text-km-faint hover:bg-km-red-soft hover:text-km-red',
-                  )}
-                >
-                  <Trash2 className="h-3.5 w-3.5" />
-                </button>
-              )}
+              {/* ══ TROIS GESTES, DANS L'ORDRE DE LEUR PORTÉE ══
+                  Modifier, reporter, supprimer. Le destructeur en dernier, à l'écart du geste que
+                  l'on répète — c'est la seule position qui rende le clic de trop improbable.
 
-              <button
-                type="button"
-                onClick={() => {
-                  setReportOuvert((v) => (v === action.id ? null : action.id))
-                  setAConfirmer(null)
-                }}
-                aria-expanded={reportOuvert === action.id}
-                aria-label={`Reporter « ${action.titre} »`}
-                title="Reporter"
-                className={cn(
-                  'flex h-6 w-6 shrink-0 items-center justify-center rounded-km-sm transition-colors',
-                  reportOuvert === action.id
-                    ? 'bg-km-green-soft text-km-green'
-                    : 'text-km-faint hover:bg-km-soft hover:text-km-text',
-                )}
-              >
-                <Clock className="h-3.5 w-3.5" />
-              </button>
+                  ILS N'APPARAISSENT QU'AU SURVOL. Neuf icônes permanentes sur trois tâches dans un
+                  volet de 324 px se lisent comme une barre d'outils, pas comme une liste de travail.
+                  Celui dont le panneau est ouvert reste visible, sinon il disparaîtrait sous le
+                  curseur au moment où l'on s'en sert. */}
+              <BoutonCarte
+                icone={Pencil}
+                libelle={`Modifier « ${action.titre} »`}
+                titre="Modifier"
+                actif={editionOuverte === action.id}
+                onClick={() => ouvrir('edition', action.id)}
+              />
+
+              <BoutonCarte
+                icone={Clock}
+                libelle={`Reporter « ${action.titre} »`}
+                titre="Reporter"
+                actif={reportOuvert === action.id}
+                onClick={() => ouvrir('report', action.id)}
+              />
+
+              {peutSupprimer(action) && (
+                <BoutonCarte
+                  icone={Trash2}
+                  libelle={`Supprimer « ${action.titre} »`}
+                  titre="Supprimer"
+                  actif={aConfirmer === action.id}
+                  danger
+                  onClick={() => ouvrir('suppression', action.id)}
+                />
+              )}
             </div>
+
+            {/* ══ LE COMMENTAIRE EN ENTIER, PAS EN SURVOL ══
+                William, 08/09/2026 : « si un commentaire a été noté, l'afficher dans sa totalité
+                dans la card de la tâche, en mode zone de texte ». Douze tâches en portent un
+                aujourd'hui, 107 caractères en moyenne : le coût d'affichage est nul, et c'est
+                justement ce qu'on vient chercher avant de rappeler quelqu'un.
+
+                Le cadre creux le distingue de l'intitulé sans en faire un champ de saisie : on le
+                modifie par le crayon, là où l'on voit qu'on enregistre. */}
+            {action.commentaire && action.commentaire.trim() && editionOuverte !== action.id && (
+              <p className="mt-1.5 whitespace-pre-wrap break-words rounded-km border border-km-line bg-km-soft/60 px-2 py-1.5 text-km-label leading-relaxed text-km-muted">
+                {action.commentaire}
+              </p>
+            )}
+
+            {editionOuverte === action.id && (
+              <PanneauEditionTache
+                className="mt-1.5"
+                action={{
+                  id: action.id,
+                  titre: action.titre,
+                  echeance: action.echeance || null,
+                  commentaire: action.commentaire,
+                }}
+                onFini={() => setEditionOuverte(null)}
+              />
+            )}
 
             {/* ══ LA CONFIRMATION TIENT SUR LA LIGNE ══
                 Pas de fenêtre modale : la suppression est RÉVERSIBLE — le déclencheur
@@ -247,21 +321,18 @@ export function TachesOuvertes({ actions }: { actions: ActionItem[] }) {
             )}
 
             {reportOuvert === action.id && (
-              <div className="animate-km-fade mt-1.5 flex flex-wrap gap-1 border-t border-km-line pt-1.5">
-                {REPORTS.map((r) => (
-                  <button
-                    key={r.libelle}
-                    type="button"
-                    onClick={() => {
-                      reporter(action.id, action.echeance, r)
-                      setReportOuvert(null)
-                    }}
-                    className="rounded-km-sm border border-km-line bg-km-surface px-2 py-0.5 text-km-tiny font-semibold text-km-muted transition-colors hover:border-km-green hover:bg-km-green-soft hover:text-km-green"
-                  >
-                    {r.libelle}
-                  </button>
-                ))}
-              </div>
+              <MenuReport
+                className="mt-1.5"
+                echeance={action.echeance}
+                onReporterPreset={(r) => {
+                  reporter(action.id, action.echeance, r)
+                  setReportOuvert(null)
+                }}
+                onReporterDate={(instant) => {
+                  reporterA(action.id, instant)
+                  setReportOuvert(null)
+                }}
+              />
             )}
           </div>
         )

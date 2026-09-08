@@ -26,12 +26,26 @@ export interface ReportPropose {
   calcul: (base: Date) => Date
 }
 
+/** Une échéance à minuit LOCAL n'a pas d'heure — c'est la convention de `heureTache.ts`. */
+function sansHeure(d: Date): boolean {
+  return d.getHours() === 0 && d.getMinutes() === 0
+}
+
 /**
  * Les trois reports proposés.
  *
- * L'HEURE EST CONSERVÉE pour « demain » et « +1 semaine » : une tâche prévue à 9 h le reste,
- * décaler le jour ne doit pas décaler la matinée. « Lundi » repart à 9 h, parce qu'aucune heure de
- * vendredi soir n'a de sens le lundi matin.
+ * L'HEURE EST CONSERVÉE quand il y en a une : une tâche prévue à 9 h le reste, décaler le jour ne
+ * doit pas décaler la matinée.
+ *
+ * ── ET UNE TÂCHE SANS HEURE N'EN GAGNE PAS ──
+ *
+ * « Lundi » repartait systématiquement à 9 h. L'intention était bonne pour une tâche qui portait une
+ * heure — aucune heure de vendredi soir n'a de sens le lundi matin — mais pour les 178 tâches sans
+ * heure de la base, elle en inventait une. C'est le défaut même que William a fait corriger sur
+ * l'import Salesforce le 08/09/2026 : la convention de l'application est que minuit local veut dire
+ * « pas d'heure », et un report ne doit pas transformer un à-faire en rendez-vous.
+ *
+ * Neuf heures ne s'appliquent donc plus qu'à une tâche qui avait déjà une heure.
  */
 export const REPORTS: ReportPropose[] = [
   {
@@ -54,11 +68,12 @@ export const REPORTS: ReportPropose[] = [
     libelle: 'Lundi',
     calcul: (base) => {
       const d = new Date(base)
+      const heureConnue = !sansHeure(d)
       // `getDay()` vaut 0 le dimanche : le reste de la division ramène toujours sur le lundi
       // suivant, et jamais sur aujourd'hui même si l'on est déjà lundi.
       const versLundi = ((8 - d.getDay()) % 7) || 7
       d.setDate(d.getDate() + versLundi)
-      d.setHours(9, 0, 0, 0)
+      if (heureConnue) d.setHours(9, 0, 0, 0)
       return d
     },
   },
@@ -106,16 +121,29 @@ export function useGestesTache() {
    * LA BASE DE CALCUL EST L'ÉCHÉANCE ACTUELLE, pas aujourd'hui : reporter « +1 semaine » une tâche
    * déjà en retard de trois jours doit partir de son échéance, sinon le report grignote le retard
    * au lieu de le déplacer.
+   *
+   * SANS ÉCHÉANCE, LA BASE EST MINUIT AUJOURD'HUI — et non `new Date()`, qui aurait donné à la tâche
+   * l'heure qu'il est au moment du clic. Reporter à demain une tâche sans date lui aurait posé un
+   * rendez-vous à 14 h 37.
    */
   function reporter(id: string, echeanceActuelle: string | null | undefined, report: ReportPropose) {
-    const base = echeanceActuelle ? new Date(echeanceActuelle) : new Date()
+    const maintenant = new Date()
+    const base = echeanceActuelle
+      ? new Date(echeanceActuelle)
+      : new Date(maintenant.getFullYear(), maintenant.getMonth(), maintenant.getDate())
     reporterAction.mutate({ actionId: id, echeance: report.calcul(base).toISOString() })
+  }
+
+  /** Reporter à une date choisie dans le calendrier — voir `MenuReport`. */
+  function reporterA(id: string, instant: string) {
+    reporterAction.mutate({ actionId: id, echeance: instant })
   }
 
   return {
     cocher,
     annuler,
     reporter,
+    reporterA,
     annulables,
     /** Vrai pendant l'aller-retour réseau : les cases se désactivent pour éviter le double clic. */
     enCours: completer.isPending,

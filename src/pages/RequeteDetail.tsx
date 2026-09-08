@@ -291,10 +291,19 @@ export default function RequeteDetail() {
         </div>
       </div>
 
+      {/* ══ LA COLONNE GAUCHE PREND TOUTE SA LARGEUR ══
+          William, 08/09/2026 : « sur les requêtes, onglet Requête, le volet de gauche n'est pas
+          optimisé, les blocs n'utilisent pas toute la largeur mise à leur disposition ».
+
+          Les trois onglets étaient bridés à 760 ou 900 px hérités d'une époque où cette page
+          occupait l'écran entier — une largeur de lecture confortable pour du texte courant. Depuis
+          que le volet d'activité en prend 25 %, la colonne gauche n'a plus de quoi être bridée : sur
+          un écran de 1 440 px il lui reste 1 080 px, dont 320 restaient blancs. Aucune autre fiche
+          ne pose ce plafond. */}
       <div className="grid min-h-0 flex-1 grid-cols-1 overflow-hidden lg:grid-cols-fiche-activite">
         <div className="min-h-0 overflow-y-auto bg-km-bg p-3.5 lg:px-5">
           {onglet === 'requete' && (
-            <div className="flex max-w-[760px] flex-col gap-3.5 animate-km-fade-slide">
+            <div className="flex flex-col gap-3.5 animate-km-fade-slide">
               {/* ══ LA FRISE DE STATUT, COMME SUR L'OPPORTUNITÉ ══
                   « Où est la frise de statut animée comme dans la page opportunité ? » (Naoëlle,
                   01/09/2026). Le même composant, avec la teinte de la requête.
@@ -441,7 +450,7 @@ export default function RequeteDetail() {
           )}
 
           {onglet === 'rattachements' && (
-            <div className="max-w-[760px] animate-km-fade-slide">
+            <div className="animate-km-fade-slide">
               <Card className="p-4">
                 <p className="text-km-xs font-bold uppercase tracking-[0.08em] text-km-faint">
                   Ce que la requête concerne
@@ -525,7 +534,7 @@ export default function RequeteDetail() {
           )}
 
           {onglet === 'fichiers' && (
-            <div className="max-w-[900px] animate-km-fade-slide">
+            <div className="animate-km-fade-slide">
               <OngletFichiers
                 documents={documentsDeLaRequete}
                 typesDocuments={typesDocumentsRef ?? []}

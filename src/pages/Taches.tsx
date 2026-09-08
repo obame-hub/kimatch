@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { useNavigate, Link } from 'react-router-dom'
-import { Plus, Check, Circle } from 'lucide-react'
+import { Plus, Check, Circle, Clock, Pencil } from 'lucide-react'
 import { Topbar } from '@/components/layout/Topbar'
 import { PageHeader } from '@/components/ui/page-header'
 import { Badge } from '@/components/ui/badge'
@@ -9,6 +9,9 @@ import { EntityLink } from '@/components/ui/entity-link'
 import { Select } from '@/components/ui/form'
 import { echeanceLisible } from '@/lib/heureTache'
 import { useActions, useCompleteAction } from '@/lib/data/actions'
+import { useGestesTache } from '@/lib/data/gestesTache'
+import { MenuReport } from '@/components/tache/MenuReport'
+import { PanneauEditionTache } from '@/components/tache/PanneauEditionTache'
 import { DialogNouvelleTache } from '@/components/tache/DialogNouvelleTache'
 import { useReferenceTable } from '@/lib/data/referenceTables'
 import { FALLBACK_STATUTS_ACTIONS, STATUT_ACTION_TONE } from '@/lib/referenceFallbacks'
@@ -25,6 +28,14 @@ export default function Taches() {
   const completeAction = useCompleteAction()
   const navigate = useNavigate()
   const [showCreate, setShowCreate] = useState(false)
+  /**
+   * LE REPORT ARRIVE SUR LA LISTE — William, 08/09/2026 : « que ce soit dans une liste, sur la page
+   * vue d'ensemble ou dans un fil d'activité ». C'était le seul des trois écrans à ne rien proposer :
+   * repousser une échéance depuis ici obligeait à ouvrir la fiche de la tâche.
+   */
+  const { reporter, reporterA } = useGestesTache()
+  const [reportOuvert, setReportOuvert] = useState<string | null>(null)
+  const [editionOuverte, setEditionOuverte] = useState<string | null>(null)
   // `?creer=1` ouvre ce formulaire depuis le menu « Créer » de la barre du haut.
   useOuvrirCreation(() => setShowCreate(true))
 
@@ -76,8 +87,8 @@ export default function Taches() {
 
         <div className="space-y-2.5">
           {ouvertes.map((a) => (
+            <div key={a.id}>
             <ActivityCard
-              key={a.id}
               styleKey="action"
               leading={
                 <button
@@ -112,11 +123,73 @@ export default function Taches() {
                 <span className="flex flex-col items-end gap-1">
                   <Badge tone={STATUT_ACTION_TONE[a.statut] ?? 'neutral'}>{statuts.find((s) => s.code === a.statut)?.libelle ?? a.statut}</Badge>
                   {a.echeance && <span className="text-km-faint">{echeanceLisible(a.echeance)}</span>}
+                  {/* La carte entière navigue : sans ces deux arrêts, ouvrir le report ouvrirait
+                      aussi la fiche de la tâche, et le panneau se refermerait aussitôt. */}
+                  {/* Les mêmes gestes que dans le volet d'activité, dans le même ordre — la
+                      suppression reste sur la fiche, elle n'a pas sa place dans une liste qu'on
+                      parcourt vite. */}
+                  <span className="flex items-center gap-1">
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.preventDefault()
+                        e.stopPropagation()
+                        setEditionOuverte((v) => (v === a.id ? null : a.id))
+                        setReportOuvert(null)
+                      }}
+                      aria-expanded={editionOuverte === a.id}
+                      title="Modifier"
+                      className="inline-flex items-center gap-1 rounded-km-sm px-1.5 py-0.5 text-km-tiny font-semibold text-km-faint transition-colors hover:bg-km-soft hover:text-km-text"
+                    >
+                      <Pencil className="h-3 w-3" />
+                      Modifier
+                    </button>
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.preventDefault()
+                        e.stopPropagation()
+                        setReportOuvert((v) => (v === a.id ? null : a.id))
+                        setEditionOuverte(null)
+                      }}
+                      aria-expanded={reportOuvert === a.id}
+                      title="Reporter"
+                      className="inline-flex items-center gap-1 rounded-km-sm px-1.5 py-0.5 text-km-tiny font-semibold text-km-faint transition-colors hover:bg-km-soft hover:text-km-text"
+                    >
+                      <Clock className="h-3 w-3" />
+                      Reporter
+                    </button>
+                  </span>
                 </span>
               }
+              body={a.commentaire || undefined}
               to={`/taches/${a.id}`}
               onClick={() => navigate(`/taches/${a.id}`)}
             />
+            {/* Le panneau se déplie SOUS la carte, hors de son `<a>` : un formulaire à l'intérieur
+                d'un lien se soumet au premier clic sur un champ de date. */}
+            {editionOuverte === a.id && (
+              <PanneauEditionTache
+                className="mx-2.5 mt-0"
+                action={{ id: a.id, titre: a.titre, echeance: a.echeance || null, commentaire: a.commentaire }}
+                onFini={() => setEditionOuverte(null)}
+              />
+            )}
+            {reportOuvert === a.id && (
+              <MenuReport
+                className="mx-2.5 mt-0"
+                echeance={a.echeance || null}
+                onReporterPreset={(r) => {
+                  reporter(a.id, a.echeance || null, r)
+                  setReportOuvert(null)
+                }}
+                onReporterDate={(instant) => {
+                  reporterA(a.id, instant)
+                  setReportOuvert(null)
+                }}
+              />
+            )}
+            </div>
           ))}
           {!isLoading && ouvertes.length === 0 && (
             <p className="py-8 text-center text-sm text-km-faint">Aucune tâche ouverte — tout est à jour ✓</p>

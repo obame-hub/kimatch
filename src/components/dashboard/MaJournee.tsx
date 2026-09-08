@@ -9,13 +9,16 @@ import {
   Inbox,
   LifeBuoy,
   ListChecks,
+  Pencil,
   ShieldCheck,
   Sparkle,
   Target,
   Undo2,
   User,
 } from 'lucide-react'
-import { REPORTS, useGestesTache } from '@/lib/data/gestesTache'
+import { useGestesTache, type ReportPropose } from '@/lib/data/gestesTache'
+import { MenuReport } from '@/components/tache/MenuReport'
+import { PanneauEditionTache } from '@/components/tache/PanneauEditionTache'
 import { useReporterEnLot } from '@/lib/data/actions'
 import {
   LIBELLE_GROUPE,
@@ -152,10 +155,11 @@ export function MaJournee({
   /** Sert à expliquer un bloc vide : les tâches sont-elles ailleurs, ou nulle part ? */
   profilId?: string | null
 }) {
-  const { cocher, annuler, reporter, annulables, enCours } = useGestesTache()
+  const { cocher, annuler, reporter, reporterA, annulables, enCours } = useGestesTache()
   const reporterEnLot = useReporterEnLot()
   const [portee, setPortee] = useState<Portee>('a_faire')
   const [reportOuvert, setReportOuvert] = useState<string | null>(null)
+  const [editionOuverte, setEditionOuverte] = useState<string | null>(null)
   const [lotConfirme, setLotConfirme] = useState(false)
 
   const toutes = actions ?? []
@@ -259,14 +263,16 @@ export function MaJournee({
           </span>
           {lotConfirme ? (
             <>
-              <span className="text-km-label text-km-muted">Toutes les reporter à demain 9 h ?</span>
+              <span className="text-km-label text-km-muted">Toutes les reporter à demain ?</span>
               <button
                 type="button"
                 disabled={reporterEnLot.isPending}
                 onClick={() => {
-                  const demain = new Date()
-                  demain.setDate(demain.getDate() + 1)
-                  demain.setHours(9, 0, 0, 0)
+                  // Minuit LOCAL demain, donc SANS heure : un report de masse ne doit pas poser
+                  // 48 rendez-vous à 9 h que personne n'a fixés. Même règle que l'import Salesforce,
+                  // corrigée le 08/09/2026 — voir `REPORTS` et la migration 20260908200000.
+                  const maintenant = new Date()
+                  const demain = new Date(maintenant.getFullYear(), maintenant.getMonth(), maintenant.getDate() + 1)
                   reporterEnLot.mutate({ ids: enRetard.map((a) => a.id), echeance: demain.toISOString() })
                   setLotConfirme(false)
                 }}
@@ -365,10 +371,23 @@ export function MaJournee({
                         premiere={i === 0}
                         enCours={enCours}
                         reportOuvert={reportOuvert === a.id}
+                        editionOuverte={editionOuverte === a.id}
+                        onBasculerEdition={() => {
+                          setEditionOuverte((v) => (v === a.id ? null : a.id))
+                          setReportOuvert(null)
+                        }}
+                        onFinEdition={() => setEditionOuverte(null)}
                         onCocher={() => cocher(a.id, a.titre)}
-                        onBasculerReport={() => setReportOuvert((v) => (v === a.id ? null : a.id))}
+                        onBasculerReport={() => {
+                          setReportOuvert((v) => (v === a.id ? null : a.id))
+                          setEditionOuverte(null)
+                        }}
                         onReporter={(r) => {
                           reporter(a.id, a.echeance, r)
+                          setReportOuvert(null)
+                        }}
+                        onReporterDate={(instant) => {
+                          reporterA(a.id, instant)
                           setReportOuvert(null)
                         }}
                       />
@@ -425,17 +444,25 @@ function LigneAction({
   premiere,
   enCours,
   reportOuvert,
+  editionOuverte,
   onCocher,
   onBasculerReport,
+  onBasculerEdition,
+  onFinEdition,
   onReporter,
+  onReporterDate,
 }: {
   action: ActionAFaire
   premiere: boolean
   enCours: boolean
   reportOuvert: boolean
+  editionOuverte: boolean
   onCocher: () => void
   onBasculerReport: () => void
-  onReporter: (report: (typeof REPORTS)[number]) => void
+  onBasculerEdition: () => void
+  onFinEdition: () => void
+  onReporter: (report: ReportPropose) => void
+  onReporterDate: (instant: string) => void
 }) {
   const badge = badgeAction(action)
   const style = STYLE_OBJET[action.groupe]
@@ -516,8 +543,27 @@ function LigneAction({
           </span>
         )}
 
-        {/* Le report et la flèche n'apparaissent qu'au survol ou sous le curseur clavier : trois
-            commandes permanentes sur chaque ligne feraient un tableau de bord de boutons. */}
+        {/* Les commandes n'apparaissent qu'au survol : trois icônes permanentes sur chaque ligne
+            feraient un tableau de bord de boutons. Même ordre que dans le volet d'activité —
+            modifier, puis reporter. */}
+        {!action.faite && (
+          <button
+            type="button"
+            onClick={onBasculerEdition}
+            aria-expanded={editionOuverte}
+            aria-label={`Modifier « ${action.titre} »`}
+            title="Modifier"
+            className={cn(
+              'mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-km-sm transition-all',
+              editionOuverte
+                ? 'bg-km-green-soft text-km-green opacity-100'
+                : 'text-km-faint opacity-0 hover:bg-km-soft hover:text-km-text focus:opacity-100 group-hover/ligne:opacity-100',
+            )}
+          >
+            <Pencil className="h-3.5 w-3.5" />
+          </button>
+        )}
+
         {!action.faite && (
           <button
             type="button"
@@ -551,19 +597,34 @@ function LigneAction({
         )}
       </div>
 
+      {/* Le commentaire en entier — même règle que dans le volet d'activité. Masqué pendant
+          l'édition, où il est déjà dans son champ. */}
+      {action.commentaire && action.commentaire.trim() && !editionOuverte && (
+        <p className="mt-1.5 whitespace-pre-wrap break-words rounded-km border border-km-line bg-km-soft/60 px-2 py-1.5 text-km-label leading-relaxed text-km-muted">
+          {action.commentaire}
+        </p>
+      )}
+
+      {editionOuverte && (
+        <PanneauEditionTache
+          className="mt-1.5"
+          action={{
+            id: action.id,
+            titre: action.titre,
+            echeance: action.echeance,
+            commentaire: action.commentaire,
+          }}
+          onFini={onFinEdition}
+        />
+      )}
+
       {reportOuvert && (
-        <div className="animate-km-fade mt-1.5 flex flex-wrap gap-1 border-t border-km-line pt-1.5">
-          {REPORTS.map((r) => (
-            <button
-              key={r.libelle}
-              type="button"
-              onClick={() => onReporter(r)}
-              className="rounded-km-sm border border-km-line bg-km-surface px-2 py-0.5 text-km-tiny font-semibold text-km-muted transition-colors hover:border-km-green hover:bg-km-green-soft hover:text-km-green"
-            >
-              {r.libelle}
-            </button>
-          ))}
-        </div>
+        <MenuReport
+          className="mt-1.5"
+          echeance={action.echeance}
+          onReporterPreset={onReporter}
+          onReporterDate={onReporterDate}
+        />
       )}
     </div>
   )

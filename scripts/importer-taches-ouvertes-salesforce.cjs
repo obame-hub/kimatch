@@ -159,15 +159,41 @@ function titreEtCommentaire(sujet) {
 }
 
 /**
- * L'échéance, à midi.
+ * L'échéance, à minuit — à PARIS.
  *
  * `ActivityDate` n'a que le jour. Envoyée telle quelle, Postgres la lit à minuit UTC — soit la
- * veille au soir dans un fuseau à l'ouest, et la tâche s'affiche un jour trop tôt. Midi met la
- * journée entière à l'abri du décalage, dans les deux sens. Même précaution que l'import des
- * activités terminées.
+ * veille au soir dans un fuseau à l'ouest, et la tâche s'affiche un jour trop tôt. Midi mettait la
+ * journée à l'abri du décalage dans les deux sens, et c'était la bonne intention.
+ *
+ * ── POURQUOI MIDI EST QUAND MÊME PARTI (William, 08/09/2026) ──
+ *
+ * La convention de l'application est l'inverse, et elle est écrite dans `src/lib/heureTache.ts` :
+ * MINUIT LOCAL VEUT DIRE « PAS D'HEURE ». C'est ce que lit `heureDe`, c'est ce que produit le
+ * formulaire quand on laisse le champ heure vide, et c'est ce que l'affichage attend.
+ *
+ * Résultat mesuré le 08/09/2026 : 150 tâches importées annonçaient un rendez-vous « à 13:00 » ou
+ * « à 14:00 » selon l'heure d'été, alors que six heures seulement, dans toute la base, avaient été
+ * choisies par quelqu'un. La migration 20260908200000 a repris les 150 lignes déjà écrites.
+ *
+ * `+01:00` / `+02:00` NE SE DEVINE PAS, d'où `Intl` : la France passe à l'heure d'été le dernier
+ * dimanche de mars, et `ActivityDate` va jusqu'en 2029 dans le jeu importé. Coder le décalage en dur
+ * décalerait d'une heure la moitié de l'année — assez pour renvoyer une échéance la veille au soir,
+ * exactement le défaut que midi évitait.
  */
 function echeance(activityDate) {
-  return activityDate ? `${activityDate}T12:00:00Z` : null
+  if (!activityDate) return null
+  // Minuit à Paris le jour dit, exprimé en UTC.
+  const midiUtc = new Date(`${activityDate}T12:00:00Z`)
+  const partiesParis = new Intl.DateTimeFormat('en-US', {
+    timeZone: 'Europe/Paris',
+    hour12: false,
+    year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit',
+  }).formatToParts(midiUtc)
+  const heureParis = Number(partiesParis.find((p) => p.type === 'hour').value)
+  // À midi UTC il est 13 h ou 14 h à Paris : l'écart donne le décalage du jour, sans le coder en dur.
+  const decalage = heureParis - 12
+  const minuitParis = new Date(midiUtc.getTime() - (12 + decalage) * 3600 * 1000)
+  return minuitParis.toISOString()
 }
 
 ;(async () => {

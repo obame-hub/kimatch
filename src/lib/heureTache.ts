@@ -38,42 +38,6 @@ export function heureDe(instant: string | null | undefined): string | null {
   return `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`
 }
 
-/**
- * L'HEURE, QUAND UN HUMAIN L'A CHOISIE — et rien d'autre.
- *
- * William, 08/09/2026 : « neutralise l'heure de ces tâches ». Constaté le même jour sur les 337
- * tâches ouvertes de la base : 156 portaient une heure, dont **150 à midi UTC**, c'est-à-dire
- * 13:00 ou 14:00 à Paris selon l'heure d'été. Six seulement avaient été posées à la main.
- *
- * ── D'OÙ VIENT MIDI ──
- *
- * L'import Salesforce de Naoëlle (`importer-taches-ouvertes-salesforce.cjs`, 08/09/2026) écrit
- * `ActivityDate + T12:00:00Z`, et sa raison est bonne : `ActivityDate` n'a que le jour, et minuit
- * UTC bascule d'une journée dès qu'on le lit depuis un fuseau à l'ouest. Midi met la date à l'abri
- * dans les deux sens.
- *
- * Seulement la convention de CETTE application est l'inverse — minuit LOCAL veut dire « pas
- * d'heure », c'est ce que `heureDe` sait lire. Les deux conventions sont défendables ; ensemble,
- * elles font annoncer à 150 tâches un rendez-vous à 14 h que personne n'a fixé.
- *
- * ── POURQUOI `source_externe_id` PLUTÔT QU'UNE RÈGLE SUR MIDI ──
- *
- * Neutraliser « tout ce qui tombe à midi UTC » effacerait aussi le vrai rendez-vous de 14 h qu'un
- * commercial posera un jour d'été. La provenance, elle, ne se trompe pas : une tâche importée n'a
- * jamais eu d'heure à l'origine, quelle que soit celle qu'on lui a donnée en la rangeant.
- *
- * À TERME C'EST L'IMPORT QU'IL FAUT ALIGNER, pas l'affichage — la donnée restera fausse en base
- * tant que personne ne l'aura reprise avec Naoëlle. Cette fonction évite d'attendre cet arbitrage
- * pour cesser d'afficher une heure inventée.
- */
-export function heureChoisie(
-  instant: string | null | undefined,
-  sourceExterne: string | null | undefined,
-): string | null {
-  if (sourceExterne) return null
-  return heureDe(instant)
-}
-
 /** L'échéance telle qu'on la montre : la date seule, ou la date et l'heure. */
 export function echeanceLisible(instant: string | null | undefined): string {
   if (!instant) return ''

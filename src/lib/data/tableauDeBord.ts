@@ -1,6 +1,6 @@
 import { useQuery } from '@tanstack/react-query'
 import { supabase } from '@/lib/supabase'
-import { heureChoisie } from '@/lib/heureTache'
+import { heureDe } from '@/lib/heureTache'
 
 /**
  * LES CHIFFRES DE LA MAQUETTE DE MICHEL, ET RIEN QUE CE QUE LA BASE SAIT VRAIMENT.
@@ -268,7 +268,9 @@ export interface ActionAFaire {
   priorite: number | null
   /** L'échéance brute, pour trier et pour reporter. */
   echeance: string | null
-  /** L'heure, quand un humain l'a choisie — voir `heureChoisie`. `null` la plupart du temps. */
+  /** Affiché en entier sur la carte, et modifiable par le crayon (William, 08/09/2026). */
+  commentaire: string | null
+  /** L'heure de l'échéance, `null` quand elle tombe à minuit local — c'est-à-dire sans heure. */
   heure: string | null
 }
 
@@ -299,14 +301,16 @@ export const LIBELLE_GROUPE: Record<GroupeJournee, string> = {
  * heure de rappel, puis le reste des tâches ouvertes ».
  *
  * Sa deuxième couche a failli être du bruit. Sur les 156 tâches qui portaient une heure le
- * 08/09/2026, 150 étaient à midi UTC — l'import Salesforce de Naoëlle du même jour pose
- * `ActivityDate + T12:00:00Z` pour qu'un décalage de fuseau ne fasse pas basculer l'échéance d'un
- * jour. L'intention est juste, mais la convention de l'application est l'inverse (minuit local =
- * pas d'heure, voir `heureTache.ts`), et ces tâches s'affichaient donc « à 13:00 » ou « à 14:00 »
- * selon l'heure d'été. Six heures seulement, dans toute la base, avaient été choisies par quelqu'un.
+ * 08/09/2026, 150 étaient à midi UTC — l'import Salesforce posait `ActivityDate + T12:00:00Z` pour
+ * qu'un décalage de fuseau ne fasse pas basculer l'échéance d'un jour. L'intention était juste, mais
+ * la convention de l'application est l'inverse (minuit local = pas d'heure, voir `heureTache.ts`),
+ * et ces tâches annonçaient donc un rendez-vous « à 13:00 » ou « à 14:00 » que personne n'avait fixé.
  *
- * `heureChoisie` neutralise l'heure des tâches importées, ce qui rend la couche du milieu à nouveau
- * informative : elle ne contient que des rendez-vous que quelqu'un a réellement posés.
+ * L'AFFICHAGE A D'ABORD NEUTRALISÉ CES HEURES, le temps d'un arbitrage. Ce contournement est parti
+ * le jour même : William a tranché pour la source. Le script pose désormais minuit à Paris et la
+ * migration 20260908200000 a repris les 150 lignes. La couche du milieu ne contient donc plus que
+ * des rendez-vous réellement posés — et une heure saisie APRÈS l'import s'affiche, ce que le
+ * contournement, lui, aurait masquée.
  */
 export function rangJournee(a: ActionAFaire): number {
   if (a.joursRestants != null && a.joursRestants < 0) return 0
@@ -359,7 +363,7 @@ export function useMesActions(profilId: string | null | undefined) {
          l'objet — « Piste · Groupe Solstice » — et un identifiant ne se lit pas. PostgREST les
          résout en une seule requête, et le plafond de 300 lignes borne le coût. */
       const colonnes =
-        'id, titre, priorite, date_prevue, date_realisation, source_externe_id,' +
+        'id, titre, priorite, date_prevue, date_realisation, commentaire,' +
         ' opportunite_id, mandat_id, recommandation_id, version_recommandation_id, piste_id, requete_id, suivi_contrat_id,' +
         ' type_action:types_actions(libelle),' +
         ' contact:contacts(id, prenom, nom),' +
@@ -406,7 +410,7 @@ export function useMesActions(profilId: string | null | undefined) {
         priorite: number | null
         date_prevue: string | null
         date_realisation: string | null
-        source_externe_id: string | null
+        commentaire: string | null
         opportunite_id: string | null
         mandat_id: string | null
         recommandation_id: string | null
@@ -491,7 +495,8 @@ export function useMesActions(profilId: string | null | undefined) {
           joursRestants,
           priorite: a.priorite,
           echeance: a.date_prevue,
-          heure: heureChoisie(a.date_prevue, a.source_externe_id),
+          commentaire: a.commentaire,
+          heure: heureDe(a.date_prevue),
         }
       }
 
