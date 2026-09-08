@@ -496,7 +496,7 @@ export default function ContratDetail() {
 
   return (
     <div>
-      <Topbar crumb="Contrats" title={contrat.fournisseur_nom} />
+      <Topbar crumb="Contrats" title={contrat.reference ?? contrat.fournisseur_nom} />
 
       {/* Bandeau contrat */}
       <div className="flex flex-wrap items-center gap-3.5 border-b border-km-line bg-white px-4 py-3.5 sm:px-6">
@@ -524,15 +524,21 @@ export default function ContratDetail() {
               La frise la fait : elle montre le chemin, où l'on est, et ce qui reste. Le détail de
               l'enveloppe — envoyée à qui, ouverte quand — reste sous « Envoi à la signature », qui
               existe déjà et qui est le bon endroit pour ce niveau de zoom. */}
-          <p className="truncate text-xl font-bold tracking-tight text-km-text">{contrat.fournisseur_nom}</p>
-          {/* NOTRE NUMÉRO, JUSTE SOUS LE NOM DU FOURNISSEUR. Naoëlle, 03/09/2026 : « il faut donner
-              un numéro généré à nos contrats pour les retrouver facilement ». C'est ce qu'on lit à
-              voix haute au téléphone — donc en tête, en chasse fixe, et pas noyé dans le détail
-              avec la référence du fournisseur. */}
+          {/* ══ LE NUMÉRO EN GROS, LE FOURNISSEUR EN DESSOUS ══
+              Naoëlle, 08/09/2026 : « dans contrat, j'aimerais que ce qui se voit en gros ce soit le
+              numéro du contrat, pas le fournisseur, mets le fournisseur en dessous. »
+              Elle a raison, et c'est la suite logique du 03/09 — « il faut donner un numéro généré à
+              nos contrats pour les retrouver facilement ». Un numéro qu'on se donne pour se repérer
+              n'a pas sa place en petit sous le nom du fournisseur : c'est lui qu'on cherche dans une
+              liste et qu'on lit à voix haute au téléphone. Le fournisseur, lui, ne distingue pas
+              deux contrats — il y en a des dizaines chez le même. */}
+          <p className="truncate font-mono text-xl font-bold tracking-tight text-km-text">
+            {contrat.reference ?? 'Contrat sans numéro'}
+          </p>
+          <p className="truncate text-km-body font-semibold text-km-text">
+            {contrat.fournisseur_nom}
+          </p>
           <p className="truncate text-xs text-km-muted">
-            {contrat.reference && (
-              <span className="font-mono font-semibold text-km-text">{contrat.reference} · </span>
-            )}
             {contrat.type_energie === 'gaz' ? 'Gaz' : 'Électricité'} · {site?.nom ?? contrat.site_nom}
           </p>
           <p className="truncate text-km-xs text-km-faint">
