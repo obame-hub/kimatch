@@ -28,7 +28,7 @@
  * `refetchInterval` par un abonnement ici.
  * ════════════════════════════════════════════════════════════════════════════════════════════════
  */
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { supabase } from '@/lib/supabase'
 import { useMonProfil, emailAllo } from '@/lib/data/roles'
@@ -90,6 +90,7 @@ function useOngletVisible(): boolean {
 export function useAppelEnCours() {
   const { data: profil } = useMonProfil()
   const visible = useOngletVisible()
+  const queryClient = useQueryClient()
 
   /* ══ LA CARTE SUIT LE COMPTE ALLO, PAS LE PROFIL KIMATCH ══
    *
@@ -109,7 +110,7 @@ export function useAppelEnCours() {
    * `profils` produisait une carte que personne ne voyait. */
   const adresseAllo = emailAllo(profil)
 
-  return useQuery({
+  const requete = useQuery({
     queryKey: ['appel-en-cours', adresseAllo],
     enabled: Boolean(adresseAllo),
     refetchInterval: visible ? INTERVALLE_MS : false,
@@ -130,6 +131,35 @@ export function useAppelEnCours() {
       return (data?.[0] as AppelEnCours | undefined) ?? null
     },
   })
+
+  /* ══ QUAND L'APPEL SE TERMINE, LE FIL D'ACTIVITÉ SE RELIT ══
+   *
+   * Naoëlle, 08/09/2026 : « je viens d'appeler à l'instant et je ne vois pas l'appel dans
+   * l'activité. »
+   *
+   * Son appel ÉTAIT bien capté — écrit en base trois secondes après le départ. Mais l'interaction
+   * n'est écrite qu'à `call.completed`, qui arrive une trentaine de secondes après le raccrochage,
+   * et le fil d'activité de la fiche, lui, ne se relit jamais tout seul : il fallait recharger la
+   * page pour voir apparaître l'appel.
+   *
+   * On surveille donc le passage de « en cours » à « terminé » — la carte interroge déjà toutes les
+   * quatre secondes, ça ne coûte pas une requête de plus — et on invalide les interactions à ce
+   * moment-là. L'appel apparaît alors dans le fil sans que personne ne recharge.
+   *
+   * `useRef` ET NON UN ÉTAT : ce drapeau ne doit pas provoquer de rendu, sinon il déclencherait le
+   * cycle qu'il observe. */
+  const etaitTermine = useRef<string | null>(null)
+  useEffect(() => {
+    const appel = requete.data
+    if (!appel?.termine_le) return
+    // Une seule invalidation par appel, même si la carte relit dix fois la même ligne terminée.
+    if (etaitTermine.current === appel.id) return
+    etaitTermine.current = appel.id
+    void queryClient.invalidateQueries({ queryKey: ['interactions'] })
+    void queryClient.invalidateQueries({ queryKey: ['activite'] })
+  }, [requete.data, queryClient])
+
+  return requete
 }
 
 /**
