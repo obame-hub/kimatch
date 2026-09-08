@@ -42,13 +42,16 @@
  * ════════════════════════════════════════════════════════════════════════════════════════════════
  */
 import { useEffect, useState } from 'react'
-import { Phone, Minus, X, ExternalLink } from 'lucide-react'
+import { Phone, Minus, X, ExternalLink, ZoomIn, ZoomOut } from 'lucide-react'
 
 const URL_ALLO = 'https://web.withallo.com'
 
 /** Le volet se souvient d'être ouvert entre deux pages, pas entre deux sessions. */
 const CLE_MEMOIRE = 'kimatch.volet-allo.ouvert'
-const CLE_LARGEUR = 'kimatch.volet-allo.largeur'
+/* LA CLÉ CHANGE AVEC LE DÉFAUT. Une largeur déjà mémorisée l'emporterait sur le nouveau défaut,
+   et le volet resterait aussi petit qu'avant chez ceux qui ont touché la poignée — donc chez la
+   personne qui a justement demandé plus grand. Un suffixe suffit à repartir du bon réglage. */
+const CLE_LARGEUR = 'kimatch.volet-allo.largeur.v2'
 
 /* ══ LA LARGEUR PAR DÉFAUT EST LARGE, ET C'EST MESURÉ À L'ÉCRAN ══
  *
@@ -60,7 +63,18 @@ const CLE_LARGEUR = 'kimatch.volet-allo.largeur'
  *
  * 760 px laisse les trois colonnes respirer, et la poignée permet d'aller plus loin quand on
  * travaille dans le volet plutôt que dans la fiche. */
-const LARGEUR_DEFAUT = 820
+/* ══ PLUS LARGE PAR DÉFAUT, PARCE QUE LA LARGEUR EST LE ZOOM ══
+ *
+ * Naoëlle, 08/09/2026 : « augmente un peu la police, c'est trop petit ». Il n'y a pas de réglage de
+ * police à tourner : Allo est rendu à une largeur fixe puis réduit pour tenir, donc AGRANDIR LE
+ * TEXTE, C'EST ÉLARGIR LE VOLET. Un faux zoom par-dessus l'échelle rognerait de nouveau les colonnes
+ * — on serait revenu au problème de départ.
+ *
+ * 1040 px et une largeur logique ramenée à 1180 donnent une échelle de 0,88 au lieu de 0,64 : le
+ * texte grossit de près de 40 %. Et les deux boutons de l'en-tête rendent le réglage visible — la
+ * poignée sur le bord existait déjà, mais rien ne disait qu'elle était là. */
+const LARGEUR_DEFAUT = 1040
+const PAS_LARGEUR = 140
 const LARGEUR_MIN = 380
 const LARGEUR_MAX = 1600
 
@@ -79,7 +93,7 @@ const LARGEUR_MAX = 1600
  * L'échelle ne descend pas sous 0,62 : en dessous, le texte d'Allo devient illisible et la place
  * gagnée ne sert plus à rien. À largeur minimale, le volet montre donc Allo un peu rogné — mais
  * c'est un volet de 380 px, on l'a replié pour lire la fiche, pas pour téléphoner. */
-const LARGEUR_LOGIQUE = 1280
+const LARGEUR_LOGIQUE = 1180
 const ECHELLE_MIN = 0.62
 
 /**
@@ -180,6 +194,15 @@ export function VoletAllo() {
   const largeurUtile = Math.min(largeur, typeof window === 'undefined' ? largeur : window.innerWidth * 0.95)
   const echelle = Math.max(ECHELLE_MIN, Math.min(1, largeurUtile / LARGEUR_LOGIQUE))
 
+  /** Change la largeur d'un cran, et la retient. C'est le réglage de taille du texte. */
+  const regler = (delta: number) => {
+    setLargeur((l) => {
+      const n = Math.min(LARGEUR_MAX, Math.max(LARGEUR_MIN, l + delta))
+      try { localStorage.setItem(CLE_LARGEUR, String(n)) } catch { /* sans conséquence */ }
+      return n
+    })
+  }
+
   const replier = () => {
     setOuvert(false)
     try { localStorage.setItem(CLE_MEMOIRE, '0') } catch { /* sans conséquence */ }
@@ -238,6 +261,32 @@ export function VoletAllo() {
             <div className="min-w-0 flex-1">
               <p className="text-km-body font-bold text-km-text">Téléphone</p>
               <p className="truncate text-km-label text-km-faint">Allo, dans Kimatch</p>
+            </div>
+            {/* LE RÉGLAGE DE TAILLE, dit dans les termes du résultat et non du mécanisme : personne
+                n'a envie de savoir qu'il ajuste une échelle de transformation. Le pourcentage sert de
+                repère entre deux crans. */}
+            <div className="flex shrink-0 items-center gap-0.5 rounded-km border border-km-line px-0.5">
+              <button
+                type="button"
+                onClick={() => regler(-PAS_LARGEUR)}
+                disabled={largeur <= LARGEUR_MIN}
+                title="Plus petit"
+                className="rounded p-1 text-km-faint transition-colors hover:bg-km-soft hover:text-km-text disabled:opacity-30"
+              >
+                <ZoomOut className="h-3.5 w-3.5" />
+              </button>
+              <span className="min-w-[30px] text-center font-mono text-km-tiny tabular-nums text-km-faint">
+                {Math.round(echelle * 100)}%
+              </span>
+              <button
+                type="button"
+                onClick={() => regler(PAS_LARGEUR)}
+                disabled={largeur >= LARGEUR_MAX}
+                title="Plus grand"
+                className="rounded p-1 text-km-faint transition-colors hover:bg-km-soft hover:text-km-text disabled:opacity-30"
+              >
+                <ZoomIn className="h-3.5 w-3.5" />
+              </button>
             </div>
             <a
               href={URL_ALLO}
