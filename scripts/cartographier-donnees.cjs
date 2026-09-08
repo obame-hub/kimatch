@@ -40,6 +40,7 @@ const fs = require('fs')
 const path = require('path')
 const { Client } = require('pg')
 const { pageCarte } = require('./carte-page.cjs')
+const { construireLibelles } = require('./carte-libelles.cjs')
 
 const RACINE = path.resolve(__dirname, '..')
 const SORTIE = path.join(RACINE, 'carte-donnees')
@@ -567,6 +568,9 @@ async function construire() {
 
   /** clé « table.colonne » → { lue: Set<écran>, ecrite: Set<écran>, fichiers: Set } */
   const usage = new Map()
+  /* Ce que CHAQUE fichier interroge : c'est ce qui permet de dire à quelle table appartient un
+     libellé. « Nom » existe sur onze tables ; sans cette intersection, il serait attribué aux onze. */
+  const tablesDuFichier = new Map()
   const tablesVues = new Map()
   /** table → écrans qui la lisent en `select('*')`, donc sans qu'on sache quelles colonnes servent. */
   const etoiles = new Map()
@@ -581,6 +585,8 @@ async function construire() {
       if (!tablesVues.has(a.table)) tablesVues.set(a.table, { lecture: new Set(), ecriture: new Set(), fichiers: new Set() })
       const t = tablesVues.get(a.table)
       t.fichiers.add(f)
+      if (!tablesDuFichier.has(f)) tablesDuFichier.set(f, new Set())
+      tablesDuFichier.get(f).add(a.table)
       for (const e of ecransDuFichier) {
         if (a.operation === 'ecriture' || a.operation === 'suppression') t.ecriture.add(e)
         else t.lecture.add(e)
@@ -622,8 +628,45 @@ async function construire() {
     }
   }
 
+  /* ══ LE LIEN LIBELLÉ ↔ COLONNE, TRIANGULÉ ════════════════════════════════════════════════════
+     Ma première version rattachait un libellé à toute table visible depuis l'écran. `contact_id`
+     existant sur onze tables, elle recopiait « Contact référent » sur les onze — 742 liens dont un
+     sur dix tenait. Voir `carte-libelles.cjs` pour le détail de l'erreur.
+     On ne passe donc plus que L'USAGE EXACT DU FICHIER : les couples table.colonne que ce fichier
+     interroge lui-même. Un libellé voisin d'une colonne que le fichier ne touche pas est écarté. */
+  /* LE LIBELLÉ ET LA REQUÊTE NE SONT PAS DANS LE MÊME FICHIER — c'est ce que la mesure a montré :
+     exiger les deux au même endroit rendait ZÉRO lien. Les requêtes vivent dans `src/lib/data`, les
+     libellés dans les `.tsx`. Le trait d'union est donc l'ÉCRAN : un libellé de la fiche contrat
+     peut désigner n'importe quelle colonne que la fiche contrat interroge, où que soit la requête.
+     C'est plus large que le fichier, et c'est pour cela que la désambiguïsation de
+     `carte-libelles.cjs` est nécessaire : sans elle, cette largeur redevient du bruit. */
+  const usageParEcran = new Map()
+  for (const [cle, u] of usage) {
+    for (const f of u.fichiers) {
+      for (const e of ecrans.get(f) ?? []) {
+        if (!usageParEcran.has(e)) usageParEcran.set(e, new Set())
+        usageParEcran.get(e).add(cle)
+      }
+    }
+  }
+  const usageDuFichier = new Map()
+  for (const f of liste) {
+    const set = new Set()
+    for (const e of ecrans.get(f) ?? []) {
+      for (const cle of usageParEcran.get(e) ?? []) set.add(cle)
+    }
+    usageDuFichier.set(f, set)
+  }
+
+  const { liens: libelles, ambigus } = construireLibelles({
+    liste,
+    lire: (f) => sansCommentaires(fs.readFileSync(path.join(RACINE, f), 'utf8')),
+    usageDuFichier,
+    ecransDuFichier: ecrans,
+  })
+
   const nbPages = liste.filter((f) => /^src\/pages\//.test(f)).length
-  return { schema, usage, tablesVues, etoiles, angles, nbPages, fonctions: fonctions.rows.map((r) => r.nom), liste }
+  return { schema, usage, tablesVues, etoiles, angles, libelles, ambigus, nbPages, fonctions: fonctions.rows.map((r) => r.nom), liste }
 }
 
 // ── LES SORTIES ─────────────────────────────────────────────────────────────────────────────────
@@ -643,7 +686,7 @@ function main() {
   const verifier = process.argv.includes('--verifier')
 
   construire()
-    .then(({ schema, usage, tablesVues, etoiles, angles, nbPages, fonctions }) => {
+    .then(({ schema, usage, tablesVues, etoiles, angles, libelles, ambigus, nbPages, fonctions }) => {
       /* ══ « 42 ÉCRANS » N'EST PAS UNE RÉPONSE ═══════════════════════════════════════════════════
          La première carte attribuait `contrats.reference` à 42 écrans sur 46. Ce n'était pas faux —
          la recherche globale (⌘K) est montée dans la mise en page, donc elle est bien partout — mais
@@ -681,6 +724,16 @@ function main() {
 
       fs.mkdirSync(SORTIE, { recursive: true })
 
+      /* Le libellé va rejoindre la feuille par colonne : c'est là qu'on le cherche. Une colonne peut
+         porter plusieurs libellés — `contrats.date_debut` est « Début » sur la fiche et « Début de
+         période » dans un dialogue — et les deux sont vrais. On les donne tous. */
+      const libelleParColonne = new Map()
+      for (const l of libelles) {
+        const cle = `${l.table}.${l.colonne}`
+        if (!libelleParColonne.has(cle)) libelleParColonne.set(cle, new Set())
+        libelleParColonne.get(cle).add(l.certitude === 'sur' ? l.libelle : l.libelle + ' (?)')
+      }
+
       // ① PAR COLONNE — la feuille que William ouvrira.
       const parColonne = []
       for (const t of [...schema.values()].sort((a, b) => a.nom.localeCompare(b.nom))) {
@@ -704,6 +757,7 @@ function main() {
                et la carte ne créditait que les deux routes d'API qui le nomment. */
             lister(new Set([...(u ? u.lue : []), ...(etoile ?? [])])),
             u ? lister(u.ecrite) : '',
+            [...(libelleParColonne.get(`${t.nom}.${c.nom}`) ?? [])].sort().join(' · '),
             u ? [...u.fichiers].sort().join(', ') : '',
           ])
         }
@@ -711,7 +765,7 @@ function main() {
       const n1 = ecrireCsv(
         '1-par-colonne.csv',
         ['Table', 'Nature', 'Colonne', 'Type', 'Contrainte', 'Lue par l’app', 'Écrite par l’app',
-         'Écrans qui la lisent', 'Écrans qui l’écrivent', 'Fichiers'],
+         'Écrans qui la lisent', 'Écrans qui l’écrivent', 'Libellé à l’écran', 'Fichiers'],
         parColonne,
       )
 
@@ -773,6 +827,30 @@ function main() {
       ]
       const n4 = ecrireCsv('4-angles-morts.csv', ['Nature', 'Cible', 'Fichier', 'Ce que la carte ne sait pas'], trous)
 
+      // ⑤ LES LIBELLÉS — « c'est ça aussi le plus important » (Naoëlle). Le plus sûr en premier.
+      const ORDRE = { sur: 0, probable: 1, proximite: 2 }
+      const MOT = { sur: 'sûr', probable: 'probable', proximite: 'proximité' }
+      const rangeesLibelles = libelles
+        .sort(
+          (a, b) =>
+            ORDRE[a.certitude] - ORDRE[b.certitude] ||
+            a.table.localeCompare(b.table) ||
+            a.colonne.localeCompare(b.colonne),
+        )
+        .map((l) => [
+          l.table,
+          l.colonne,
+          l.libelle,
+          MOT[l.certitude],
+          lister(l.ecrans),
+          [...l.fichiers].sort().join(', '),
+        ])
+      const n5 = ecrireCsv(
+        '5-libelles.csv',
+        ['Table', 'Colonne', 'Libellé affiché', 'Certitude', 'Écrans', 'Fichiers'],
+        rangeesLibelles,
+      )
+
       // Le test porte sur le texte exact : la colonne « Remarque » porte aussi le cas `select(*)`,
       // et un `filter(l => l[9])` comptait les deux ensemble — 109 au lieu de 55.
       /* ── LA PAGE, écrite par le même passage que les CSV ──
@@ -795,6 +873,11 @@ function main() {
         + (enEtoile ? ' et ' + enEtoile + ' lues en select(*)' : ''))
       console.log('  3-par-ecran.csv      ' + n3 + ' écrans')
       console.log('  4-angles-morts.csv   ' + n4 + ' points où la carte est muette')
+      const parCertitude = (c) => libelles.filter((l) => l.certitude === c).length
+      console.log(
+        '  5-libelles.csv       ' + n5 + ' liens libellé↔colonne  (' + parCertitude('sur') + ' sûrs, '
+          + parCertitude('probable') + ' probables ; ' + ambigus.length + ' écartés par prudence)',
+      )
       console.log('  carte.html           page consultable, cherchable, à jour du même passage')
       console.log('')
       console.log('fonctions SQL du schéma : ' + fonctions.length + '  ·  appelées depuis le code : ' + angles.rpc.size)

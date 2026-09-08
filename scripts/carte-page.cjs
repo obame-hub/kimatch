@@ -46,8 +46,14 @@ function pageCarte({ colonnes, tables, trous, genereLe }) {
     }
     return indice.get(s)
   }
-
-  // [table, colonne, type, obligatoire, lecture(0|1|2), ecriture(0|1), écrans, fichiers]
+  /* LA CHAÎNE VIDE EST INTERNÉE LA PREMIÈRE, ET C'EST UNE NÉCESSITÉ, PAS UN DÉTAIL.
+     Le commentaire précédent affirmait qu'elle l'était « d'office » et fixait `DICO_VIDE = 0` sans
+     rien faire : l'indice 0 tombait sur la première liste d'écrans rencontrée, donc AUCUNE colonne
+     n'avait l'indice 0, et la tuile annonçait « 2 071 libellés retrouvés » au lieu de 90. Un
+     commentaire qui affirme ce que le code ne fait pas est plus coûteux qu'un code sans commentaire :
+     il détourne la relecture. */
+  const DICO_VIDE = interner('')
+  // [table, colonne, type, obligatoire, lecture(0|1|2), ecriture(0|1), écrans, libellé, fichiers]
   const LECTURE = { non: 0, oui: 1, 'oui (select *)': 2 }
   const lignes = colonnes.map((c) => [
     c[0], c[2], c[3], c[4] ? 1 : 0,
@@ -55,7 +61,9 @@ function pageCarte({ colonnes, tables, trous, genereLe }) {
     c[6] === 'oui' ? 1 : 0,
     interner(c[7]),
     interner(c[9]),
+    interner(c[10]),
   ])
+  const avecLibelle = lignes.filter((l) => l[7] !== DICO_VIDE).length
 
   const totalColonnes = lignes.length
   const jamais = lignes.filter((l) => l[4] === 0 && l[5] === 0).length
@@ -64,6 +72,7 @@ function pageCarte({ colonnes, tables, trous, genereLe }) {
   const tablesJamais = tables.filter((t) => t[9] === 'JAMAIS CITÉE PAR LE CODE')
 
   const payload = JSON.stringify({ dico, lignes })
+  void DICO_VIDE
 
   return `<title>Carte des données Kimatch</title>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Source+Sans+3:wght@400;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap">
@@ -127,7 +136,7 @@ function pageCarte({ colonnes, tables, trous, genereLe }) {
 
   /* ── Les quatre nombres : ce qu'on vient chercher avant de fouiller ── */
   .tuiles { display: grid; gap: 10px; grid-template-columns: repeat(2, 1fr); margin-top: 26px; }
-  @media (min-width: 720px) { .tuiles { grid-template-columns: repeat(4, 1fr); } }
+  @media (min-width: 720px) { .tuiles { grid-template-columns: repeat(5, 1fr); } }
   .tuile { background: var(--surface); border: 1px solid var(--ligne); border-radius: 5px; padding: 13px 15px; }
   .tuile { display: flex; flex-direction: column; }
   .tuile .k { font-family: "JetBrains Mono", monospace; font-size: 10.5px; letter-spacing: .07em;
@@ -183,6 +192,9 @@ function pageCarte({ colonnes, tables, trous, genereLe }) {
   }
   td.col { font-family: "JetBrains Mono", monospace; font-size: 13.5px; font-weight: 500; white-space: nowrap; }
   td.type { font-family: "JetBrains Mono", monospace; font-size: 12px; color: var(--encre-pale); white-space: nowrap; }
+  /* Le libellé est du français, pas du code : il porte la fonte de texte, ce qui le distingue de la
+     colonne technique juste à sa gauche sans avoir besoin d'un séparateur. */
+  td.lib { font-size: 13.5px; font-weight: 600; }
   td.ou { font-size: 13px; color: var(--encre-douce); }
   td.fic { font-family: "JetBrains Mono", monospace; font-size: 11.5px; color: var(--encre-pale); }
   .obl { font-family: "JetBrains Mono", monospace; font-size: 10px; color: var(--flou);
@@ -241,6 +253,10 @@ function pageCarte({ colonnes, tables, trous, genereLe }) {
     <div class="tuile absent">
       <p class="k">Jamais touchées</p><p class="v">${nombre(jamais)}</p>
       <p class="d">${nombre(tablesJamais.length)} tables entières inutilisées</p>
+    </div>
+    <div class="tuile">
+      <p class="k">Libellé retrouvé</p><p class="v">${nombre(avecLibelle)}</p>
+      <p class="d">le nom du champ tel qu'il s'affiche</p>
     </div>
   </div>
 
@@ -313,7 +329,8 @@ function garde(l) {
   if (etat.f === 'ecrite' && l[5] !== 1) return false;
   if (!etat.q) return true;
   const q = etat.q;
-  return (l[0] + ' ' + l[1] + ' ' + DONNEES.dico[l[6]]).toLowerCase().includes(q);
+  // Le libellé est cherché comme le reste : « Référence fournisseur » doit trouver sa colonne.
+  return (l[0] + ' ' + l[1] + ' ' + DONNEES.dico[l[6]] + ' ' + DONNEES.dico[l[7]]).toLowerCase().includes(q);
 }
 
 const echapper = (s) => String(s).replace(/[&<>]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;' }[c]));
@@ -370,17 +387,18 @@ function rendre() {
       + '<span class="meta">' + n + ' colonne' + (n > 1 ? 's' : '')
       + (n > lignes.length ? ' \\u00b7 ' + lignes.length + ' affich\\u00e9es' : '') + '</span></h2>'
       + '<div class="cadre"><table><thead><tr>'
-      + '<th>Colonne</th><th>Type</th><th>Lecture</th><th>\\u00c9criture</th>'
+      + '<th>Colonne</th><th>Libellé à l’écran</th><th>Type</th><th>Lecture</th><th>\\u00c9criture</th>'
       + '<th>O\\u00f9 dans l\\u2019app</th><th>Fichiers</th>'
       + '</tr></thead><tbody>';
     for (const l of lignes) {
       html += '<tr>'
         + '<td class="col">' + echapper(l[1]) + (l[3] ? '<span class="obl">requis</span>' : '') + '</td>'
+        + '<td class="lib">' + echapper(DONNEES.dico[l[7]]) + '</td>'
         + '<td class="type">' + echapper(l[2]) + '</td>'
         + '<td>' + pastille(l) + '</td>'
         + '<td>' + (l[5] ? '<span class="p ecr">\\u00e9crite</span>' : '') + '</td>'
         + '<td class="ou">' + ecrans(DONNEES.dico[l[6]]) + '</td>'
-        + '<td class="fic">' + echapper(DONNEES.dico[l[7]]) + '</td>'
+        + '<td class="fic">' + echapper(DONNEES.dico[l[8]]) + '</td>'
         + '</tr>';
     }
     html += '</tbody></table></div></section>';
