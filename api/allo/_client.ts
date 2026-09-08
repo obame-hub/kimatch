@@ -260,9 +260,9 @@ export interface PoserDansLaFile {
  * Dépose un numéro dans la file du Power Dialer d'un coéquipier.
  *
  * C'EST LE PLUS PRÈS QU'ON PUISSE ALLER D'UN « CLIC POUR APPELER ». Vérifié dans la documentation le
- * 07/09/2026 : Allo n'expose aucun endpoint de composition. En revanche `append-numbers` accepte un
- * `email` pour viser la file d'une personne précise — sans quoi les dix commerciaux pousseraient
- * leurs numéros dans la même file, celle du propriétaire de la clé.
+ * 07/09/2026 : Allo n'expose aucun endpoint de composition. En revanche `current/numbers` accepte un
+ * `email` DANS LE CORPS pour viser la file d'une personne précise — sans quoi les dix commerciaux
+ * pousseraient leurs numéros dans la même file, celle du propriétaire de la clé.
  *
  * `skipped` N'EST PAS UNE ERREUR. Allo écarte un numéro déjà dans la file, ou invalide, et le dit
  * dans la réponse avec sa raison. Le traiter comme un échec ferait afficher « appel impossible »
@@ -276,7 +276,18 @@ export async function poserDansLaFileDAppel(
       added: { number_to: string; position: number }[]
       skipped: { number: string; reason: string }[]
     }
-  }>('/v2/api/dialing-queues/append-numbers', {
+    /* LE CHEMIN EST `current/numbers`, ET NON `append-numbers`.
+     *
+     * J'avais pris `append-numbers` -- qui est le nom de la PAGE de documentation, pas celui de
+     * l'endpoint. Allo repondait 405 Method Not Allowed, et le bouton se rabattait silencieusement
+     * sur la copie du numero. Constate a l'ecran par Naoelle le 08/09/2026 : « Allo 405 sur
+     * /v2/api/dialing-queues/append-numbers ».
+     *
+     * La table portee-par-endpoint de leur documentation ne connait que quatre chemins sous
+     * `dialing-queues`, tous prefixes `current` : `current` (GET, PATCH, POST) et `current/numbers`
+     * (POST, DELETE). Le nom d'une page de documentation n'est pas une URL d'API -- lecon a retenir.
+     */
+  }>('/v2/api/dialing-queues/current/numbers', {
     methode: 'POST',
     corps: {
       email: entree.emailUtilisateur,
