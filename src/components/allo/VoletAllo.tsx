@@ -60,9 +60,27 @@ const CLE_LARGEUR = 'kimatch.volet-allo.largeur'
  *
  * 760 px laisse les trois colonnes respirer, et la poignée permet d'aller plus loin quand on
  * travaille dans le volet plutôt que dans la fiche. */
-const LARGEUR_DEFAUT = 760
+const LARGEUR_DEFAUT = 820
 const LARGEUR_MIN = 380
-const LARGEUR_MAX = 1200
+const LARGEUR_MAX = 1600
+
+/* ══ ALLO NE SE REPLIE PAS : ON LE MET À L'ÉCHELLE ══
+ *
+ * Naoëlle, 08/09/2026, après l'élargissement à 760 px : « le volet est encore coupé, c'est bizarre ».
+ * Elle avait raison, et élargir ne suffisait pas — leur interface a une largeur MINIMALE et ne
+ * reflue pas en dessous. Sa troisième colonne, celle où vivent les commandes d'appel, restait rognée
+ * quelle que soit la place qu'on lui donnait.
+ *
+ * On rend donc le cadre à sa largeur naturelle — 1280 px, le point de rupture des interfaces de
+ * bureau — puis on le RÉDUIT pour qu'il tienne dans le volet. Tout est visible, plus petit. Élargir
+ * le volet ne révèle plus du contenu caché : ça agrandit ce qui est déjà là, ce qui est bien plus
+ * lisible comme comportement.
+ *
+ * L'échelle ne descend pas sous 0,62 : en dessous, le texte d'Allo devient illisible et la place
+ * gagnée ne sert plus à rien. À largeur minimale, le volet montre donc Allo un peu rogné — mais
+ * c'est un volet de 380 px, on l'a replié pour lire la fiche, pas pour téléphoner. */
+const LARGEUR_LOGIQUE = 1280
+const ECHELLE_MIN = 0.62
 
 /**
  * La commande globale, comme pour la téléphonie.
@@ -157,6 +175,11 @@ export function VoletAllo() {
     }
   }, [glisse])
 
+  /* L'ÉCHELLE SUIT LA LARGEUR RÉELLE, bornée à 1 : élargi au-delà de 1280 px, le volet n'agrandit
+     pas Allo artificiellement — il lui rend sa taille normale, et c'est là qu'il est le plus lisible. */
+  const largeurUtile = Math.min(largeur, typeof window === 'undefined' ? largeur : window.innerWidth * 0.95)
+  const echelle = Math.max(ECHELLE_MIN, Math.min(1, largeurUtile / LARGEUR_LOGIQUE))
+
   const replier = () => {
     setOuvert(false)
     try { localStorage.setItem(CLE_MEMOIRE, '0') } catch { /* sans conséquence */ }
@@ -244,17 +267,31 @@ export function VoletAllo() {
             </button>
           </div>
 
-          <iframe
-            src={URL_ALLO}
-            title="Allo"
-            /* LE MICROPHONE EST DÉLÉGUÉ AU CADRE. Sans cette permission, Allo affiche « vous ne
-               pouvez pas recevoir ou passer d'appels tant que le microphone n'est pas activé ».
-               `autoplay` pour la sonnerie et la voix, `clipboard-write` parce qu'Allo propose de
-               copier des numéros. */
-            allow="microphone; autoplay; clipboard-write"
-            className="min-h-0 flex-1 border-0"
-            style={{ pointerEvents: glisse ? 'none' : 'auto' }}
-          />
+          {/* LE CADRE VIT DANS UNE BOÎTE QUI LE ROGNE, et il est réduit pour tenir dedans.
+              `height: calc(100% / var(--zoom))` compense la réduction : sans cette division, le
+              cadre mis à l'échelle ne remplirait que les deux tiers de la hauteur du volet. */}
+          <div
+            className="relative min-h-0 flex-1 overflow-hidden"
+            style={{ ['--zoom' as string]: String(echelle) }}
+          >
+            <iframe
+              src={URL_ALLO}
+              title="Allo"
+              /* LE MICROPHONE EST DÉLÉGUÉ AU CADRE. Sans cette permission, Allo affiche « vous ne
+                 pouvez pas recevoir ou passer d'appels tant que le microphone n'est pas activé ».
+                 `autoplay` pour la sonnerie et la voix, `clipboard-write` parce qu'Allo propose de
+                 copier des numéros. */
+              allow="microphone; autoplay; clipboard-write"
+              className="absolute left-0 top-0 border-0"
+              style={{
+                width: `${LARGEUR_LOGIQUE}px`,
+                height: 'calc(100% / var(--zoom))',
+                transform: 'scale(var(--zoom))',
+                transformOrigin: 'top left',
+                pointerEvents: glisse ? 'none' : 'auto',
+              }}
+            />
+          </div>
 
           {/* LA SESSION SÉPARÉE, DITE UNE FOIS. Sans cette phrase, on croit à une panne : on est
               connecté à Allo dans un onglet, et le volet redemande la connexion. */}
