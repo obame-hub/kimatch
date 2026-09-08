@@ -242,23 +242,38 @@ export function VoletAllo() {
     try { localStorage.setItem(CLE_MEMOIRE, '0') } catch { /* sans conséquence */ }
   }
 
-  // ── LA PASTILLE, quand le volet est replié ou pas encore ouvert ──────────────────────────────
+  /* ══ LA PASTILLE : À GAUCHE DE LA ZONE PRINCIPALE, ET SANS ÉTIQUETTE ══
+   *
+   * Naoëlle, 08/09/2026 : « mets le bouton téléphone à gauche de l'écran principal et non à droite,
+   * et juste le logo du téléphone, pas besoin d'écrire téléphone. »
+   *
+   * À GAUCHE DU CONTENU, PAS DE LA FENÊTRE. La barre latérale fait 215 px et le contenu commence
+   * après — `md:pl-[215px]` sur le `<main>`. Une pastille à `left-4` se serait posée sur « Mon
+   * profil », en bas de cette barre.
+   *
+   * SUR MOBILE, elle remonte au-dessus de la barre de navigation du bas — `pb-14` sur le contenu —
+   * et revient au bord gauche, puisque la barre latérale devient un tiroir.
+   *
+   * ET L'ÉTIQUETTE PART, mais pas pour tout le monde : `aria-label` et `title` la remplacent. Un
+   * bouton réduit à une icône est muet pour un lecteur d'écran, et illisible au survol pour qui ne
+   * reconnaît pas le pictogramme. */
   const pastille = (
     <button
       type="button"
       onClick={() => ouvrirVoletAllo()}
-      title="Ouvrir Allo dans Kimatch"
-      className="fixed bottom-4 right-4 z-[65] flex items-center gap-2 rounded-full border border-km-line bg-white px-3.5 py-2.5 text-km-label font-semibold text-km-text shadow-km-pop transition-colors hover:bg-km-soft"
+      title="Ouvrir le téléphone"
+      aria-label="Ouvrir le téléphone"
+      className="fixed bottom-[4.5rem] left-4 z-[65] flex h-11 w-11 items-center justify-center rounded-full border border-km-line bg-white text-km-text shadow-km-pop transition-colors hover:bg-km-soft md:bottom-4 md:left-[231px]"
     >
-      <Phone className="h-3.5 w-3.5 text-km-green" />
-      Téléphone
+      <Phone className="h-[18px] w-[18px] text-km-green" />
       {charge && (
         /* LE POINT DIT CE QUI VIT DERRIÈRE. Vert : la session du volet est encore là, rouvrir ne
            redemandera pas de se connecter. Ambre et clignotant : un appel est en cours — c'est ce
            qui rassure quand on a replié le volet au milieu d'une conversation. */
         <span
           className={cn(
-            'h-1.5 w-1.5 rounded-full',
+            // En médaillon sur l'icône, puisqu'il n'y a plus de texte à côté de quoi se ranger.
+            'absolute -right-0.5 -top-0.5 h-2.5 w-2.5 rounded-full border-2 border-white',
             appelEnCours ? 'animate-pulse bg-km-amber' : 'bg-km-green',
           )}
           aria-label={appelEnCours ? 'appel en cours' : 'session Allo active'}

@@ -88,14 +88,16 @@ export function CarteAppel() {
   const fichePossible = Boolean(appel.contact_id || appel.piste_id || appel.compte_id)
 
   return (
-    /* ══ EN BAS À DROITE, MAIS JAMAIS SUR LA PASTILLE NI SUR ALLO ══
+    /* ══ EN BAS À DROITE, MAIS JAMAIS SUR ALLO ══
      *
-     * `bottom-20` et non `bottom-4` : la pastille « Téléphone » occupe le coin, et la carte se posait
-     * dessus. Et `right` suit `--volet-allo`, la largeur que le volet Allo annonce quand il est
-     * ouvert — sinon la carte recouvrirait l'interface d'Allo, donc peut-être son bouton raccrocher.
-     * C'est le seul bouton de tout ce dispositif qu'il ne faut jamais masquer. */
+     * `right` suit `--volet-allo`, la largeur que le volet annonce quand il est ouvert : sinon la
+     * carte recouvrirait l'interface d'Allo, donc peut-être son bouton raccrocher. C'est le seul
+     * bouton de tout ce dispositif qu'il ne faut jamais masquer.
+     *
+     * Elle est redescendue à `bottom-4` : la pastille du téléphone est passée à gauche le 08/09/2026,
+     * elle ne dispute plus ce coin. Sur mobile elle reste au-dessus de la barre du bas. */
     <div
-      className="fixed bottom-20 z-[70] w-[320px] overflow-hidden rounded-km border border-km-line bg-white shadow-km-pop"
+      className="fixed bottom-[4.5rem] z-[70] w-[320px] overflow-hidden rounded-km border border-km-line bg-white shadow-km-pop md:bottom-4"
       style={{ right: 'calc(1rem + var(--volet-allo, 0px))' }}
     >
       {/* ── L'ÉTAT, en une ligne de couleur ── */}
