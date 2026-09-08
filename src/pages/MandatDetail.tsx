@@ -1,10 +1,10 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useMemo, useState } from 'react'
 import { useParams, useNavigate, Link } from 'react-router-dom'
 import { ArrowLeft, FileCheck2, FileSignature, Trash2, Building2, MapPin, Gauge, FileText, Phone, Mail } from 'lucide-react'
 import { Topbar } from '@/components/layout/Topbar'
 import { Button } from '@/components/ui/button'
 import { ZoneDepotFichiers } from '@/components/ui/zone-depot-fichiers'
-import { Badge } from '@/components/ui/badge'
+import { Badge } from '@/components/ui/badge'
 import { FriseStatut } from '@/components/opportunite/FriseStatut'
 import { EntityLink } from '@/components/ui/entity-link'
 import { Dialog } from '@/components/ui/dialog'
@@ -23,7 +23,8 @@ import { useReferenceTable, type ReferenceRow } from '@/lib/data/referenceTables
 import { useCanManage, useIsAdmin, useProfilsAdmin } from '@/lib/data/roles'
 import { useSuppression } from '@/lib/useSuppression'
 import { FALLBACK_STATUTS_MANDATS, FALLBACK_TYPES_DOCUMENTS } from '@/lib/referenceFallbacks'
-import { sendMandatForSignature, connectDocusign, DocusignNonConnecte, etatEnveloppeMandat, useReprendreArchivage } from '@/lib/data/docusign'
+import { sendMandatForSignature, connectDocusign, DocusignNonConnecte, useReprendreArchivage } from '@/lib/data/docusign'
+import { BlocSuiviDocusign } from '@/components/docusign/BlocSuiviDocusign'
 import { useValiderMandatManuellement } from '@/lib/data/mandats'
 import { useGoBack } from '@/lib/useGoBack'
 import { useRaccourcisOnglets } from '@/lib/useRaccourcisOnglets'
@@ -310,28 +311,16 @@ function ConversionPathCard({ mandat, signaler, statuts, peutModifier, majStatut
   peutModifier: boolean
   majStatut: (statutId: string) => Promise<void>
 }) {
-  const [verifie, setVerifie] = useState(false)
-  const envelopeId = mandat.docusign_envelope_id
-  const etatFige = ['ACTIF', 'REFUSE', 'ANNULE', 'EXPIRE'].includes(mandat.statut ?? '')
+  /* ══ LE SUIVI DOCUSIGN A QUITTÉ CETTE CARTE ═══════════════════════════════════════════════════
 
-  useEffect(() => {
-    if (!envelopeId || etatFige) return
-    let vivant = true
-    void etatEnveloppeMandat(mandat.id)
-      .then((r) => {
-        if (!vivant) return
-        setVerifie(true)
-        if (r.corrige) signaler('Statut corrigé d’après DocuSign — la notification n’était pas arrivée.')
-      })
-      .catch(() => {
-        /* Silencieux volontairement : une session DocuSign absente ne doit pas jeter une erreur à
-           quelqu'un qui vient seulement lire une fiche. Le bouton, lui, dira ce qui a échoué. */
-      })
-    return () => {
-      vivant = false
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [mandat.id, envelopeId, etatFige])
+     L'interrogation de DocuSign et le bouton « Vérifier » vivaient ici. Ils sont passés dans
+     `BlocSuiviDocusign`, monté juste en dessous et partagé avec la fiche contrat : c'est ce que
+     Naoëlle a demandé le 08/09/2026 (« le même système de suivi DocuSign »), et cela répare au
+     passage la disparition du suivi sur un mandat actif.
+
+     CETTE CARTE GARDE CE QUI LUI APPARTIENT : le cycle métier du mandat, ses jalons cliquables et
+     ses trois sorties. Le cycle du mandat et l'état d'une enveloppe DocuSign ne sont pas la même
+     information — les mélanger est ce qui faisait qu'aucune des deux n'était complète. */
 
   /* ══ LA FRISE MAISON CÈDE LA PLACE À CELLE DE TOUS LES OBJETS ═════════════════════════════════
 
@@ -356,12 +345,6 @@ function ConversionPathCard({ mandat, signaler, statuts, peutModifier, majStatut
     <div className="rounded-xl border border-km-line bg-white p-4">
       <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
         <p className="text-km-xs font-bold uppercase tracking-wide text-km-faint">Cycle du mandat</p>
-        {/* LE BOUTON RESTE, même si l'appel automatique est déjà parti : c'est lui qui dit ce qui
-            n'a pas marché quand l'automatique a échoué en silence, et c'est ce qu'on cherche quand
-            on doute. Il disparaît sur un mandat dont l'état ne peut plus changer. */}
-        {envelopeId && !etatFige && (
-          <VerifierEnveloppeMandat mandatId={mandat.id} signaler={signaler} dejaVerifie={verifie} />
-        )}
       </div>
       <FriseStatut
         teinte="mandat"
@@ -400,43 +383,6 @@ function ConversionPathCard({ mandat, signaler, statuts, peutModifier, majStatut
         }
       />
     </div>
-  )
-}
-
-/** Le bouton « Vérifier auprès de DocuSign » du mandat, jumeau de celui de la fiche contrat. */
-function VerifierEnveloppeMandat({
-  mandatId,
-  signaler,
-  dejaVerifie,
-}: {
-  mandatId: string
-  signaler: (m: string) => void
-  dejaVerifie: boolean
-}) {
-  const [enCours, setEnCours] = useState(false)
-  return (
-    <button
-      type="button"
-      disabled={enCours}
-      onClick={async () => {
-        setEnCours(true)
-        try {
-          const r = await etatEnveloppeMandat(mandatId)
-          signaler(
-            r.corrige
-              ? 'Statut corrigé d’après DocuSign — la notification n’était pas arrivée.'
-              : `DocuSign confirme : ${r.statutDocusign ?? 'état inconnu'}, rien n'a changé.`,
-          )
-        } catch (err) {
-          signaler(err instanceof Error ? err.message : 'Vérification impossible')
-        } finally {
-          setEnCours(false)
-        }
-      }}
-      className="rounded-km border border-km-line bg-km-surface px-2.5 py-1 text-km-xs font-semibold text-km-text transition-colors hover:bg-km-soft disabled:opacity-60"
-    >
-      {enCours ? 'Vérification…' : dejaVerifie ? 'Revérifier auprès de DocuSign' : 'Vérifier auprès de DocuSign'}
-    </button>
   )
 }
 
@@ -724,6 +670,22 @@ export default function MandatDetail() {
                 statuts={statuts}
                 peutModifier={canManage}
                 majStatut={(statut_id) => majMandat({ statut_id })}
+              />
+              {/* ── LE SUIVI DOCUSIGN, LE MÊME QUE SUR LE CONTRAT ──
+                  Naoëlle, 08/09/2026 : « ce qu'il y avait sur mandat que je ne vois plus je sais pas
+                  pourquoi ». Il disparaissait dès que le mandat devenait ACTIF — donc sur la
+                  quasi-totalité d'entre eux — parce que l'état arrêté coupait le bloc entier et pas
+                  seulement son appel automatique. Voir `BlocSuiviDocusign`. */}
+              <BlocSuiviDocusign
+                objet="mandat"
+                id={mandat.id}
+                envelopeId={mandat.docusign_envelope_id}
+                statut={mandat.statut}
+                dateEnvoi={mandat.date_envoi}
+                dateSignature={mandat.date_signature}
+                signataireNom={mandat.contact_signataire_nom}
+                signaler={showToast}
+                versProfil={() => navigate('/profil')}
               />
               {mandat.date_fin_validite && (mandat.date_debut_validite || mandat.date_signature) && (
                 <ValiditeCard dateDebut={(mandat.date_debut_validite ?? mandat.date_signature) as string} dateFin={mandat.date_fin_validite} />

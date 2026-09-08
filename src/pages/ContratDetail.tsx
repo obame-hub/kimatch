@@ -1,7 +1,7 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useMemo, useState } from 'react'
 import { ApercuDocument } from '@/components/document/ApercuDocument'
 import { useParams, useNavigate, Link } from 'react-router-dom'
-import { ArrowLeft, Zap, Flame, Lightbulb, Trash2, Building2, MapPin, Gauge, FileText, Plus, Euro, X, Eye, PenLine, Check, ExternalLink, Send, MailOpen, FileSignature, PenTool, LifeBuoy} from 'lucide-react'
+import { ArrowLeft, Zap, Flame, Lightbulb, Trash2, Building2, MapPin, Gauge, FileText, Plus, Euro, X, Eye, PenLine, Check, LifeBuoy} from 'lucide-react'
 import { Topbar } from '@/components/layout/Topbar'
 import { Button } from '@/components/ui/button'
 import { ZoneDepotFichiers } from '@/components/ui/zone-depot-fichiers'
@@ -21,14 +21,8 @@ import { useComptes } from '@/lib/data/comptes'
 import { useContacts } from '@/lib/data/contacts'
 import { contactsDuCompte as contactsRattaches, libelleContactPourCompte, peutRecevoirUneSignature } from '@/lib/contactsDuCompte'
 import { useDocuments, useTeleverserDocuments } from '@/lib/data/documents'
-import {
-  sendContratForSignature,
-  connectDocusign,
-  etatEnveloppeContrat,
-  lienEnveloppeDocusign,
-  DocusignNonConnecte,
-  type EtatEnveloppe,
-} from '@/lib/data/docusign'
+import { sendContratForSignature, connectDocusign, DocusignNonConnecte } from '@/lib/data/docusign'
+import { BlocSuiviDocusign } from '@/components/docusign/BlocSuiviDocusign'
 import { useReferenceTable } from '@/lib/data/referenceTables'
 import { useFormulesTarifaires, useTarifsByContratCompteurs, useCreateTarif, useDeleteTarif } from '@/lib/data/tarifs'
 import { useCanManage, useIsAdmin, useProfilsAdmin } from '@/lib/data/roles'
@@ -1034,7 +1028,17 @@ export default function ContratDetail() {
                   prouve rien — si la notification n'arrive pas, elle affiche un état périmé sans le
                   savoir. D'où ce bloc, qui montre à qui et quand, et le bouton qui va le demander à
                   DocuSign plutôt que de se croire. */}
-              <BlocEnvoiSignature contrat={contrat} signaler={showToast} />
+              <BlocSuiviDocusign
+                objet="contrat"
+                id={contrat.id}
+                envelopeId={contrat.docusign_envelope_id}
+                statut={contrat.statut_signature}
+                dateEnvoi={contrat.date_envoi_signature}
+                dateSignature={contrat.date_signature}
+                signataireNom={contrat.contact_signataire_nom}
+                signaler={showToast}
+                versProfil={() => navigate('/profil')}
+              />
             </div>
           )}
 
@@ -1277,51 +1281,6 @@ function extensionFichier(nom: string): string {
   return point > 0 ? nom.slice(point + 1).toLowerCase() : 'fic'
 }
 
-/**
- * L'état de la signature, en trois mots et une infobulle.
- *
- * Le bloc de bas de page est parti (Naoëlle, 21/08/2026 : « enlève le bloc en bas de page »). Ce qu'il
- * portait d'utile — où en est la signature, et depuis quand — tient dans une pastille près du statut
- * du contrat : c'est là qu'on regarde en arrivant sur la fiche.
- */
-function etatSignature(contrat: Contrat): { libelle: string; detail: string } {
-  const jour = (d: string | null | undefined) => (d ? new Date(d).toLocaleDateString('fr-FR') : null)
-  const envoye = jour(contrat.date_envoi_signature)
-  const signe = jour(contrat.date_signature)
-  switch (contrat.statut_signature) {
-    case 'BROUILLON':
-      /* ══ CETTE PHRASE AFFIRMAIT PLUS QU'ELLE NE SAVAIT ══════════════════════════════════════
-
-         Elle disait « l'enveloppe n'a pas encore été envoyée ». C'est ce que Michel a lu le
-         31/08/2026 sur le contrat gaz de SDC 77 Joffre — alors que Marie l'avait signé.
-
-         Kimatch ne sait rien de tel. Il sait seulement qu'il n'a rien appris depuis qu'il a créé
-         l'enveloppe : l'envoi se fait DANS DocuSign, par la personne qui place les ancres, et la
-         seule chose qui nous en informe est une notification Connect qui peut ne jamais arriver —
-         elle a déjà lâché deux fois.
-
-         Une phrase qui affirme à la place de DocuSign ne ressemble pas à une panne : elle
-         ressemble à un contrat pas encore envoyé, donc personne ne va chercher. Elle dit
-         maintenant ce qu'elle sait, et où trouver la réponse. */
-      return {
-        libelle: 'Signature préparée',
-        detail:
-          "L'enveloppe est prête dans DocuSign. Nous n'avons reçu aucune nouvelle depuis : elle " +
-          "attend peut-être d'être envoyée, ou elle a bougé sans que la notification nous parvienne. " +
-          "« Vérifier auprès de DocuSign » tranche.",
-      }
-    case 'ENVOYE':
-      return { libelle: 'Envoyé à signer', detail: envoye ? `Envoyé le ${envoye}.` : 'Envoyé à la signature.' }
-    case 'SIGNE':
-      return { libelle: 'Signé', detail: signe ? `Signé le ${signe}.` : 'Signé.' }
-    case 'REFUSE':
-      return { libelle: 'Signature refusée', detail: 'Le signataire a refusé de signer.' }
-    case 'ANNULE':
-      return { libelle: 'Signature annulée', detail: "L'enveloppe a été annulée dans DocuSign." }
-    default:
-      return { libelle: contrat.statut_signature ?? '—', detail: '' }
-  }
-}
 
 /**
  * Envoyer le contrat à la signature.
@@ -1572,308 +1531,3 @@ function DialogSignatureContrat({
   )
 }
 
-/**
- * Ce qui est parti à la signature : à qui, quand, et où en est-ce.
- *
- * Le bloc ne s'affiche que s'il y a quelque chose à dire — une enveloppe existe. Sinon il n'apporte
- * rien et le bouton de l'en-tête suffit.
- *
- * DEUX SOURCES, ET C'EST VOULU. Ce qui est affiché d'emblée vient de la base, donc du webhook :
- * gratuit et immédiat. « Vérifier auprès de DocuSign » interroge DocuSign en direct et remet la base
- * d'accord avec lui. La deuxième existe parce que la première peut mentir sans le savoir.
- */
-function BlocEnvoiSignature({ contrat, signaler }: { contrat: Contrat; signaler: (m: string) => void }) {
-  const navigate = useNavigate()
-  const [etat, setEtat] = useState<EtatEnveloppe | null>(null)
-  const [enCours, setEnCours] = useState(false)
-  /* ══ POURQUOI MICHEL ÉTAIT LE SEUL À VOIR « ENVOYÉ » ═══════════════════════════════════════════
-
-     Naoëlle, 03/09/2026 : « pourquoi sur ce contrat Michel est le seul à ne pas voir le statut
-     signé, pour lui c'est encore envoyé » — puis « pourtant Matthieu et moi on voit bien signé ».
-
-     LA CAUSE ÉTAIT DANS L'API, et elle est corrigée là-bas : `etat-enveloppe` prenait la session
-     DocuSign DE L'APPELANT. Sept personnes en ont une, Michel n'en a pas — il recevait donc
-     NON_CONNECTE et restait sur le statut stocké pendant que les autres lisaient l'état réel.
-
-     « Une personne qui utilise Kimatch devrait voir les statuts à jour même si elle n'utilise pas
-     DocuSign » : l'endpoint se rabat désormais sur une autre session de l'équipe, toutes pointant
-     le même compte « KIWEE ENERGIE ». Michel voit maintenant la même chose que tout le monde.
-
-     CE BANDEAU RESTE POUR L'AUTRE MOITIÉ DU PROBLÈME : le silence. Le `catch` était muet
-     « volontairement », pour ne pas jeter une erreur au visage de quelqu'un qui vient lire une
-     fiche. L'intention était bonne, le résultat non : un statut périmé qui a l'air normal se croit,
-     et deux collègues finissent par se contredire au téléphone. Il ne se déclenche plus que si
-     PERSONNE dans l'équipe n'a de session utilisable, ou si DocuSign ne répond pas. */
-  const [verification, setVerification] = useState<'non_connecte' | 'echec' | null>(null)
-
-  /* ══ ON DEMANDE À DOCUSIGN DÈS L'OUVERTURE DE LA FICHE ═══════════════════════════════════════
-
-     Naoëlle, 31/08/2026 : « il faut que quand la personne signe le contrat ou le mandat, ça passe
-     direct au statut signé, il faut pas attendre quelques heures ». Elle a raison, et l'attente
-     n'était pas le bon compromis.
-
-     Le chemin immédiat est la notification DocuSign, et il est désormais fiable : chaque enveloppe
-     porte sa propre demande de notification (voir `demandeDeNotification` dans _client.ts), au lieu
-     de dépendre d'un réglage de compte que personne ne peut vérifier.
-
-     Ce contrôle-ci couvre l'autre moitié du problème : les enveloppes DÉJÀ parties, créées avant ce
-     changement, et le cas où la notification se perd malgré tout. Ouvrir la fiche est exactement le
-     moment où quelqu'un a besoin de la vérité — c'est même la seule raison d'ouvrir la fiche d'un
-     contrat en attente de signature.
-
-     IL NE PART QUE SI L'ÉTAT PEUT ENCORE CHANGER. Un contrat signé, refusé ou annulé ne bougera
-     plus : le redemander serait un appel DocuSign par consultation de fiche, pour rien. Et il ne
-     dit rien à l'écran quand il ne trouve aucun écart — une notification « rien n'a changé » à
-     chaque ouverture serait du bruit. Il ne parle que lorsqu'il corrige quelque chose. */
-  const envelopeId = contrat.docusign_envelope_id
-  const etatFige = ['SIGNE', 'REFUSE', 'ANNULE'].includes(contrat.statut_signature ?? '')
-  useEffect(() => {
-    if (!envelopeId || etatFige) return
-    let vivant = true
-    void etatEnveloppeContrat(contrat.id)
-      .then((r) => {
-        if (!vivant) return
-        setEtat(r)
-        if (r.corrige) signaler('Statut corrigé d’après DocuSign — la notification n’était pas arrivée.')
-      })
-      .catch((err) => {
-        /* Toujours pas d'erreur jetée au visage de quelqu'un qui vient lire une fiche — mais on
-           note que l'état affiché vient de la base et n'a pas été confronté à DocuSign. Le compte
-           non connecté se distingue du reste : c'est le seul cas que la personne peut réparer
-           elle-même, en une minute, depuis son profil. */
-        if (!vivant) return
-        setVerification(err instanceof DocusignNonConnecte ? 'non_connecte' : 'echec')
-      })
-    return () => {
-      vivant = false
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [contrat.id, envelopeId, etatFige])
-
-  if (!contrat.docusign_envelope_id) return null
-
-  const e = etatSignature(contrat)
-  const envoyeLe = etat?.envoyeLe ?? contrat.date_envoi_signature
-  const signeLe = etat?.signeLe ?? contrat.date_signature
-
-  async function verifier() {
-    setEnCours(true)
-    try {
-      const r = await etatEnveloppeContrat(contrat.id)
-      setEtat(r)
-      signaler(
-        r.corrige
-          ? 'Statut corrigé d’après DocuSign — la notification n’était pas arrivée.'
-          : 'DocuSign confirme : rien n’a changé depuis.',
-      )
-    } catch (err) {
-      if (err instanceof DocusignNonConnecte) {
-        signaler('Connectez votre compte DocuSign pour vérifier.')
-      } else {
-        signaler(err instanceof Error ? err.message : 'Vérification impossible')
-      }
-    } finally {
-      setEnCours(false)
-    }
-  }
-
-  return (
-    <div className="rounded-xl border border-km-line bg-white p-4">
-      <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
-        <p className="text-km-xs font-bold uppercase tracking-wide text-km-faint">Envoi à la signature</p>
-        <Badge tone={contrat.statut_signature === 'SIGNE' ? 'kiwi' : 'amber'}>{e.libelle}</Badge>
-      </div>
-
-      {/* La mention ne s'affiche QUE si la confrontation a échoué : quand elle réussit, le statut
-          est à jour et l'écrire serait du bruit à chaque ouverture de fiche. */}
-      {verification && !etat && (
-        <p className="mb-2.5 rounded-km border border-km-amber-line bg-km-amber-soft px-2.5 py-1.5 text-km-label text-amber-800">
-          {verification === 'non_connecte' ? (
-            <>
-              Ce statut vient de la dernière notification reçue : aucun compte DocuSign de l’équipe
-              n’est utilisable en ce moment, il n’a donc pas pu être vérifié.{' '}
-              <button
-                type="button"
-                onClick={() => navigate('/profil')}
-                className="font-bold underline decoration-dotted"
-              >
-                Reconnecter DocuSign
-              </button>
-            </>
-          ) : (
-            <>
-              Ce statut vient de la dernière notification reçue : DocuSign n’a pas répondu à
-              l’ouverture de la fiche. « Vérifier auprès de DocuSign » ci-dessous dira pourquoi.
-            </>
-          )}
-        </p>
-      )}
-
-      {/* ── LA FRISE DE L'ENVOI ──
-          Naoëlle, 21/08/2026 : « il faudrait créer une frise de l'état de l'envoi ». Même montage
-          que le « chemin de conversion » du mandat — cercles, libellés, barres de liaison — pour
-          qu'une signature se lise de la même façon sur les deux objets.
-
-          QUATRE ÉTAPES ET NON TROIS : « Ouvert » s'ajoute entre l'envoi et la signature. C'est
-          l'information qui manque le plus quand on attend : le client a-t-il au moins ouvert le
-          document ? DocuSign la connaît, elle arrive avec « Vérifier auprès de DocuSign ».
-
-          Un refus ou une annulation ne sont pas une étape de plus : ils arrêtent la frise là où elle
-          en était et la passent au rouge — ce n'est pas un avancement. */}
-      <FriseEnvoi contrat={contrat} etat={etat} />
-
-      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-        <div>
-          <p className="mb-0.5 text-km-xs uppercase tracking-wide text-km-faint">Envoyé le</p>
-          <p className="text-xs font-semibold text-km-text">
-            {envoyeLe ? new Date(envoyeLe).toLocaleString('fr-FR') : 'pas encore envoyé'}
-          </p>
-        </div>
-        <div>
-          <p className="mb-0.5 text-km-xs uppercase tracking-wide text-km-faint">Destinataire</p>
-          <p className="truncate text-xs font-semibold text-km-text">
-            {etat?.signataire?.nom
-              ? `${etat.signataire.nom}${etat.signataire.email ? ` — ${etat.signataire.email}` : ''}`
-              : contrat.contact_signataire_nom || '—'}
-          </p>
-        </div>
-        {signeLe && (
-          <div>
-            <p className="mb-0.5 text-km-xs uppercase tracking-wide text-km-faint">Signé le</p>
-            <p className="text-xs font-semibold text-km-text">{new Date(signeLe).toLocaleString('fr-FR')}</p>
-          </div>
-        )}
-        {etat?.signataire?.recuLe && (
-          <div>
-            <p className="mb-0.5 text-km-xs uppercase tracking-wide text-km-faint">Ouvert par le signataire</p>
-            <p className="text-xs font-semibold text-km-text">
-              {new Date(etat.signataire.recuLe).toLocaleString('fr-FR')}
-            </p>
-          </div>
-        )}
-      </div>
-
-      <div className="mt-3 flex flex-wrap items-center gap-2">
-        <Button type="button" size="sm" variant="outline" onClick={verifier} disabled={enCours}>
-          {enCours ? 'Vérification…' : 'Vérifier auprès de DocuSign'}
-        </Button>
-        {/* LE LIEN EST LÀ D'EMBLÉE, sans attendre la vérification : c'est quand on doute qu'on le
-            cherche, et douter n'est pas un clic de plus à mériter. */}
-        <a
-          href={etat?.lien ?? lienEnveloppeDocusign(contrat.docusign_envelope_id)}
-          target="_blank"
-          rel="noreferrer"
-          className="inline-flex items-center gap-1 text-xs font-semibold text-km-green underline decoration-dotted hover:text-km-green"
-        >
-          Voir l’enveloppe dans DocuSign
-          <ExternalLink className="h-3 w-3" />
-        </a>
-        <span className="font-mono text-km-xs text-km-faint">{contrat.docusign_envelope_id}</span>
-      </div>
-    </div>
-  )
-}
-
-/**
- * L'avancement de l'envoi, en quatre temps.
- *
- * L'étape atteinte se déduit d'abord de ce que DocuSign vient de dire, à défaut de ce que la base
- * porte. « Ouvert » ne peut venir que de DocuSign : la base ne sait pas si le client a ouvert le
- * document, et c'est pourtant ce qu'on veut savoir en attendant une signature.
- */
-function FriseEnvoi({ contrat, etat }: { contrat: Contrat; etat: EtatEnveloppe | null }) {
-  const statut = etat?.statut ?? contrat.statut_signature
-  const arrete = statut === 'REFUSE' || statut === 'ANNULE'
-  const ouvert = Boolean(etat?.signataire?.recuLe)
-
-  const atteinte =
-    statut === 'SIGNE' ? 3 : ouvert ? 2 : statut === 'ENVOYE' ? 1 : 0
-
-  const etapes = [
-    { libelle: 'Préparé', icone: PenTool },
-    { libelle: 'Envoyé', icone: Send },
-    { libelle: 'Ouvert', icone: MailOpen },
-    { libelle: 'Signé', icone: FileSignature },
-  ]
-
-  return (
-    <div>
-      <div className="flex items-center">
-        {etapes.map((s, i) => {
-          const faite = i <= atteinte
-          return (
-            <div key={s.libelle} className="flex flex-1 items-center last:flex-none">
-              <div className="flex flex-col items-center gap-1.5">
-                <span
-                  className={cn(
-                    'flex h-8 w-8 shrink-0 items-center justify-center rounded-full',
-                    !faite
-                      ? 'bg-km-soft text-km-faint'
-                      : arrete
-                        ? 'bg-gradient-to-br from-red-600 to-red-500 text-white shadow-sm'
-                        : 'bg-gradient-to-br from-kiwi-600 to-kiwi-500 text-white shadow-sm',
-                  )}
-                >
-                  <s.icone className="h-3.5 w-3.5" />
-                </span>
-                <span
-                  className={cn(
-                    'whitespace-nowrap text-km-label font-bold',
-                    faite ? (arrete ? 'text-red-700' : 'text-km-text') : 'text-km-faint',
-                  )}
-                >
-                  {s.libelle}
-                </span>
-              </div>
-              {i < etapes.length - 1 && (
-                <div
-                  /* LE SEGMENT EN COURS EST HACHURÉ ET DÉFILE, comme sur la frise de l'opportunité.
-                     Signalé par Naoëlle le 27/08 : « il faut que tous les statuts des objets aient
-                     cette animation ». Cette frise n'avait que du plein ou du gris — elle disait où
-                     l'on en était sans montrer que quelque chose était en train de se passer.
-
-                     Rien ne défile quand l'envoi est ARRÊTÉ : un refus ou une annulation ne sont pas
-                     une étape en cours, et une hachure qui avancerait derrière eux annoncerait une
-                     progression qui n'aura pas lieu. */
-                  style={
-                    !arrete && i === atteinte
-                      ? {
-                          backgroundImage:
-                            'repeating-linear-gradient(90deg,#c3ddd4 0px,#c3ddd4 7px,#eef5f2 7px,#eef5f2 14px)',
-                          backgroundSize: '36px 100%',
-                        }
-                      : undefined
-                  }
-                  className={cn(
-                    'mx-1 h-1 flex-1 rounded',
-                    i < atteinte
-                      ? arrete
-                        ? 'bg-gradient-to-r from-red-600 to-red-500'
-                        : 'bg-gradient-to-r from-kiwi-600 to-kiwi-500'
-                      : !arrete && i === atteinte
-                        ? 'animate-km-stripe motion-reduce:animate-none'
-                        : 'bg-km-soft',
-                  )}
-                />
-              )}
-            </div>
-          )
-        })}
-      </div>
-
-      {arrete && (
-        <p className="mt-2 text-km-label font-semibold text-red-700">
-          {statut === 'REFUSE'
-            ? 'Le signataire a refusé de signer : la frise s’arrête là.'
-            : 'L’enveloppe a été annulée dans DocuSign : la frise s’arrête là.'}
-        </p>
-      )}
-      {!arrete && !etat && (
-        <p className="mt-2 text-km-xs leading-snug text-km-faint">
-          « Ouvert » ne peut venir que de DocuSign : cliquez sur « Vérifier auprès de DocuSign » pour
-          savoir si le signataire a ouvert le document.
-        </p>
-      )}
-    </div>
-  )
-}

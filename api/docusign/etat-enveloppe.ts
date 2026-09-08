@@ -95,7 +95,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   /* LES DATES SONT INDISPENSABLES : les deux règles de traduction s'appuient sur la fenêtre de
      validité pour trancher entre signé, à venir, actif et terminé. */
   const colonnes = contratId
-    ? 'id, docusign_envelope_id, statut_signature, date_debut, date_fin'
+    ? 'id, docusign_envelope_id, statut_signature, date_debut, date_fin, statut:statuts_contrats(code)'
     : 'id, docusign_envelope_id, date_debut_validite, date_fin_validite, statut:statuts_mandats(code)'
   const { data: objet, error: eLecture } = await admin
     .from(table)
@@ -128,9 +128,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     : { debut: contrat.date_debut_validite ?? null, fin: contrat.date_fin_validite ?? null }
   /* L'etat connu de notre cote, pour savoir s'il faut corriger. Cote contrat c'est
      `statut_signature` ; cote mandat c'est le code de son statut metier. */
-  const statutConnu = contratId
-    ? (contrat.statut_signature ?? null)
-    : (Array.isArray(contrat.statut) ? contrat.statut[0]?.code : contrat.statut?.code) ?? null
+  const codeMetier =
+    (Array.isArray(contrat.statut) ? contrat.statut[0]?.code : contrat.statut?.code) ?? null
+  const statutConnu = contratId ? (contrat.statut_signature ?? null) : codeMetier
   if (!contrat.docusign_envelope_id) {
     res.status(200).json({ envoye: false, raison: 'Aucune enveloppe DocuSign pour ce contrat.' })
     return
@@ -186,7 +186,24 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
           : statutAEcrire(statut, fenetre)
       : null
 
-    if (statut && cible && cible !== statutConnu) {
+    /* ══ CE QU'ON COMPARE, ET POURQUOI CE N'ÉTAIT PAS LE BON ══════════════════════════════════
+
+       La condition était `cible !== statutConnu`. Côté mandat elle a du sens : les deux valeurs
+       sont des codes de `statuts_mandats`. Côté CONTRAT, non — `statutConnu` y vaut
+       `statut_signature` (SIGNE, ENVOYE…) et `cible` un code de `statuts_contrats` (A_VENIR,
+       ACTIF…). Deux vocabulaires différents, donc jamais égaux : un contrat parfaitement à jour
+       repassait par l'écriture à chaque clic et répondait « Statut corrigé » — un mensonge, et
+       celui qui use le plus vite la confiance dans un bouton de vérification.
+
+       On compare maintenant chaque valeur à SON homologue : le statut de signature au statut de
+       signature, le statut métier au statut métier. Un écart sur l'un ou l'autre suffit à écrire —
+       c'est justement le cas des contrats signés avant le 31/08/2026, dont la signature était
+       enregistrée mais dont le statut métier n'avait jamais bougé de « Nouveau ». */
+    const aCorriger = contratId
+      ? statut !== (contrat.statut_signature ?? null) || cible !== codeMetier
+      : cible !== statutConnu
+
+    if (statut && cible && aCorriger) {
       if (contratId) {
         /* Le statut métier suit la signature, par la MÊME règle que le webhook — `cible` la porte. */
         const { data: ligne } = await admin

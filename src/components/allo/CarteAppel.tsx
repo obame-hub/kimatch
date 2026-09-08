@@ -1,20 +1,25 @@
 /**
  * ════════════════════════════════════════════════════════════════════════════════════════════════
- * LA CARTE D'APPEL — CE QUI REMPLACE LE BOUTON « RACCROCHER »
+ * LA CARTE D'APPEL — L'APPEL EN COURS, SANS DÉPLIER LE VOLET
  * ════════════════════════════════════════════════════════════════════════════════════════════════
  *
  * William, réunion du 08/09/2026 : « quand tu cliquais, ça ouvrait l'application en arrière-plan et
  * ça lançait l'appel. Mais tu n'avais aucun moyen de raccrocher en dehors de l'application Allo. Il
  * faut qu'on trouve une solution pour pouvoir raccrocher depuis Kimatch, c'est important. »
  *
- * ON NE PEUT PAS. L'API d'Allo n'expose aucun contrôle d'appel — vérifié sur leur table complète
- * portée-par-endpoint, une soixantaine d'endpoints et pas un qui décroche ou raccroche. Cockpit ne
- * le faisait pas non plus.
+ * ON RACCROCHE DEPUIS KIMATCH — mais pas avec un bouton à nous. Naoëlle, 08/09/2026 : « on peut
+ * raccrocher et couper le micro depuis le volet ». C'est le volet Allo (`VoletAllo`) qui le permet :
+ * il embarque le softphone d'Allo dans Kimatch, avec ses propres commandes — raccrocher, couper le
+ * micro, transférer. Le commercial ne quitte jamais Kimatch.
  *
- * Mais le besoin derrière la demande, c'est de ne pas avoir à aller dans Allo. Cette carte y répond :
- * elle s'ouvre quand l'appel part, dit quand le correspondant décroche, et affiche le résultat quand
- * c'est fini. Le commercial ne quitte jamais Kimatch — il raccroche avec son casque, comme il l'a
- * toujours fait, et Kimatch le sait.
+ * CE QUI RESTE IMPOSSIBLE, c'est que le CODE de Kimatch raccroche de lui-même : l'API d'Allo n'expose
+ * aucun contrôle d'appel — vérifié sur leur table complète portée-par-endpoint, une soixantaine
+ * d'endpoints et pas un qui décroche ou raccroche. Cockpit ne le faisait pas non plus. La nuance
+ * compte : ce n'est pas le geste qui manque, c'est la commande automatisable.
+ *
+ * CETTE CARTE NE REMPLACE DONC PAS LE RACCROCHAGE, elle raconte l'appel : elle s'ouvre quand l'appel
+ * part, dit quand le correspondant décroche, et affiche le résultat quand c'est fini — sans qu'on
+ * ait à déplier le volet pour savoir où on en est.
  *
  * ══ UN SEUL GESTE DEMANDÉ ══
  *
