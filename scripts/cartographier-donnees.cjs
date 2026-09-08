@@ -634,6 +634,43 @@ async function construire() {
      sur dix tenait. Voir `carte-libelles.cjs` pour le détail de l'erreur.
      On ne passe donc plus que L'USAGE EXACT DU FICHIER : les couples table.colonne que ce fichier
      interroge lui-même. Un libellé voisin d'une colonne que le fichier ne touche pas est écarté. */
+  /* ══ CHAQUE HOOK DE DONNÉES, ET LA TABLE QU'IL REND ═════════════════════════════════════════
+     C'est le maillon qui manquait, et c'est lui qui supprime l'ambiguïté au lieu de la contourner.
+     `useContrat` est défini dans `lib/data/contrats.ts`, qui interroge `contrats` : une variable
+     issue de ce hook porte donc une ligne de `contrats`, et `contrat.date_debut` ne peut désigner
+     que `contrats.date_debut`. Plus besoin d'arbitrer entre les onze tables qui ont un `contact_id`.
+
+     LA TABLE EST CELLE QUE LE FICHIER INTERROGE, et quand il en interroge plusieurs, celle dont le
+     nom répond à celui du hook. `useSuiviDuContrat` vit dans le même fichier que `useContrat` et ne
+     rend pas la même chose : sans cette règle, les deux pointeraient `contrats`. */
+  const hookVersTable = new Map()
+  for (const f of liste) {
+    if (!/^src\/lib\/data\/.*\.ts$/.test(f)) continue
+    const tables = tablesDuFichier.get(f)
+    if (!tables || tables.size === 0) continue
+    const texte = sansCommentaires(fs.readFileSync(path.join(RACINE, f), 'utf8'))
+    for (const m of texte.matchAll(/export function (use[A-Za-z0-9_]+)/g)) {
+      const hook = m[1]
+      // Les mots du nom du hook, du plus significatif au moins : `useContratsParCompte` → contrats.
+      const mots = hook
+        .replace(/^use/, '')
+        .replace(/([a-z0-9])([A-Z])/g, '$1 $2')
+        .toLowerCase()
+        .split(/[^a-z]+/)
+        .filter(Boolean)
+      let choisie = null
+      for (const mot of mots) {
+        const exact = [...tables].find((t) => t === mot || t === mot + 's' || t === mot.replace(/s$/, '') + 's')
+        if (exact) {
+          choisie = exact
+          break
+        }
+      }
+      if (!choisie && tables.size === 1) choisie = [...tables][0]
+      if (choisie) hookVersTable.set(hook, choisie)
+    }
+  }
+
   /* LE LIBELLÉ ET LA REQUÊTE NE SONT PAS DANS LE MÊME FICHIER — c'est ce que la mesure a montré :
      exiger les deux au même endroit rendait ZÉRO lien. Les requêtes vivent dans `src/lib/data`, les
      libellés dans les `.tsx`. Le trait d'union est donc l'ÉCRAN : un libellé de la fiche contrat
@@ -658,10 +695,11 @@ async function construire() {
     usageDuFichier.set(f, set)
   }
 
-  const { liens: libelles, ambigus } = construireLibelles({
+  const { liens: libelles, sansTable: ambigus } = construireLibelles({
     liste,
     lire: (f) => sansCommentaires(fs.readFileSync(path.join(RACINE, f), 'utf8')),
-    usageDuFichier,
+    schema,
+    hookVersTable,
     ecransDuFichier: ecrans,
   })
 

@@ -1,112 +1,51 @@
 // ════════════════════════════════════════════════════════════════════════════════════════════════
 // DU LIBELLÉ AFFICHÉ À LA COLONNE DE LA BASE
 //
-// Naoëlle, 08/09/2026 : « oui vas-y fais le lien colonne libellé, c'est ça aussi le plus
-// important. »
+// Naoëlle, 08/09/2026 : « ce que je comprends pas c'est comment tu peux pas me sortir les libellés
+// qui correspondent aux champs des tables ? pourtant tu as accès au code source et à la database, et
+// tu sais quelle variable se remplit et où, pourquoi c'est si compliqué. »
 //
-// ── CE QUE J'AVAIS DIT, ET POURQUOI C'ÉTAIT FAUX ──
+// Elle avait raison, et ma réponse — « 18 %, c'est ce qui est honnêtement dérivable » — était une
+// mauvaise excuse. Ce n'était pas une limite du problème, c'était la limite de mon outil.
 //
-// J'avais annoncé que ce lien n'était « pas déductible du code ». C'est faux : dans les fiches, le
-// libellé et le champ sont presque toujours dans le MÊME élément JSX.
+// ══ CE QUE JE FAISAIS, ET POURQUOI ÇA PLAFONNAIT À 18 % ═════════════════════════════════════════
 //
-//   <InlineField label="Référence fournisseur" value={contrat.reference_fournisseur} … />
+// Je cherchais un nom de colonne DANS LES 300 CARACTÈRES suivant le libellé, et quand plusieurs
+// tables portaient ce nom — `contact_id` en a onze, `nom` seize — j'abandonnais. Deux défauts, tous
+// les deux évitables :
 //
-// ── MA PREMIÈRE VERSION ÉTAIT PIRE QUE RIEN, ET LA MESURE L'A DIT ──
+//   · la fenêtre coupait des paires légitimes, parce qu'un `<FormField>` de formulaire porte son
+//     libellé en haut et le nom de colonne dans l'appel de mutation, vingt lignes plus bas ;
+//   · l'ambiguïté n'était pas une ambiguïté. Le code dit de quelle table il s'agit.
 //
-// Elle rendait 742 liens. Contrôlés à la main, un sur dix tenait. Trois exemples de ce qu'elle
-// affirmait : `appels_en_cours.compte_id` → « Signataire », `comptes.code_postal` → « Site
-// (optionnel) », `actions.opportunite_id` → « Piste introuvable. »
+// ══ LA CHAÎNE QUE JE N'AVAIS PAS CONSTRUITE ════════════════════════════════════════════════════
 //
-// La cause n'était pas la lecture du JSX mais L'ATTRIBUTION À UNE TABLE. Je rattachais un libellé à
-// toute table visible depuis l'écran ; or `contact_id` existe sur onze tables et `nom` sur seize.
-// Un libellé était donc recopié sur chacune. Une carte qui dit onze choses dont une est vraie ne
-// vaut pas mieux qu'une carte vide : elle coûte le temps de la vérifier.
+//   const { data: contrat } = useContrat(id)        ← `useContrat` vient de lib/data/contrats.ts,
+//                                                     qui interroge `contrats`.
+//   <InlineField label="Début" value={contrat.date_debut} />
+//                                ↑ donc c'est `contrats.date_debut`, sans deviner.
 //
-// ── LA RÈGLE QUI REMPLACE : TRIANGULER, PAS SUPPOSER ──
+// Trois maillons, tous lisibles dans le code : l'import donne le fichier du hook, le fichier donne
+// la table, la variable donne l'objet. Il n'y a plus d'ambiguïté à trancher — il n'y en avait pas.
 //
-// Un lien n'est retenu que si LE FICHIER LUI-MÊME touche cette colonne de cette table. C'est
-// vérifiable : l'analyse des requêtes sait déjà que `ContratDetail.tsx` écrit
-// `contrats.reference_fournisseur`. Le libellé voisin ne peut donc désigner que ça.
+// Le second chemin est le même à l'envers, pour les formulaires :
 //
-// Ce que cette règle coûte : les composants qui n'interrogent pas la base eux-mêmes — un
-// `BlocSuiviDocusign` reçoit ses données de la fiche — n'ont plus de libellé rattaché. Ce qu'elle
-// évite : inventer. Le second est plus grave que le premier, parce que rien ne le contredit.
+//   <FormField label="Titre"><Input value={titre} … /></FormField>
+//   …
+//   majAction({ titre: titre.trim() })              ← la clé de l'objet EST le nom de colonne,
+//                                                     et `majAction` dit la table.
 //
-// ── DEUX SOURCES, DEUX NIVEAUX DE CERTITUDE ──
+// ══ CE QUI RESTE HORS DE PORTÉE, ET C'EST PEU ══════════════════════════════════════════════════
 //
-//   sur         le libellé et `objet.colonne` sont dans le même élément JSX, et le fichier touche
-//               réellement cette colonne. Rien à interpréter.
-//   probable    le libellé est lié à une variable d'état dont le nom, converti en tirets bas,
-//               désigne une colonne que ce fichier écrit. La convention du projet fait le lien
-//               (`compteId` → `compte_id`), et l'écriture le confirme.
-//
-// LA SOURCE « PROXIMITÉ » A ÉTÉ SUPPRIMÉE. Elle produisait 398 liens dont « Piste introuvable. » et
-// « Type : » comme libellés de colonnes. Un message d'erreur n'est pas un libellé de champ, et
-// aucune règle de distance ne sait faire la différence.
+// Un libellé dont la valeur est calculée sur place — « Ancienneté » affichant un nombre d'années
+// déduit de `date_creation` — ne désigne aucune colonne. Ce n'est pas un manque de la carte : il
+// n'y a rien à relier.
 // ════════════════════════════════════════════════════════════════════════════════════════════════
 
 /** `compteId` → `compte_id`, `dateDebut` → `date_debut`. La convention du projet, à l'envers. */
 function versSnake(nom) {
   return nom.replace(/([a-z0-9])([A-Z])/g, '$1_$2').toLowerCase()
 }
-
-/**
- * Chaque élément JSX portant un attribut `label="…"`, avec tout son contenu.
- *
- * LE CONTENU COMPTE AUTANT QUE LA BALISE. `<FormField label="Nom"><Input value={nom} /></FormField>`
- * porte le libellé dans la balise ouvrante et la valeur dans l'enfant : s'arrêter au `>` de
- * l'ouvrante faisait passer 218 libellés sur 263 pour orphelins.
- */
-function* elementsAvecLibelle(texte) {
-  for (const m of texte.matchAll(/<([A-Z][A-Za-z]*)\b/g)) {
-    const nom = m[1]
-    const i = m.index
-    let profondeur = 0
-    let j = i
-    while (j < texte.length) {
-      const c = texte[j]
-      if (c === '{') profondeur++
-      else if (c === '}') profondeur--
-      else if (c === '>' && profondeur === 0) break
-      j++
-    }
-    const ouvrante = texte.slice(i, j + 1)
-    const lab = ouvrante.match(/label="([^"]+)"/)
-    if (!lab) continue
-    if (/\/>\s*$/.test(ouvrante)) {
-      yield { libelle: lab[1], bloc: ouvrante }
-      continue
-    }
-    /* LA FENÊTRE EST COURTE, ET C'EST ELLE QUI FAIT LA PRÉCISION. Un `<FormField>` de formulaire
-       peut faire deux mille caractères ; y chercher un nom de colonne rattachait au libellé des
-       champs situés dix lignes plus bas. Le champ qui porte un libellé le suit immédiatement. */
-    // Élément à enfants : on cherche la fermeture appariée, en comptant les imbrications du même nom.
-    let prof = 1
-    let k = j + 1
-    while (k < texte.length && prof > 0) {
-      const o = texte.indexOf('<' + nom, k)
-      const c = texte.indexOf('</' + nom, k)
-      if (c === -1) break
-      if (o !== -1 && o < c) {
-        prof++
-        k = o + nom.length + 1
-      } else {
-        prof--
-        k = c + nom.length + 2
-      }
-    }
-    yield { libelle: lab[1], bloc: texte.slice(i, Math.min(k, i + FENETRE)) }
-  }
-}
-
-/**
- * La longueur de code, après le libellé, dans laquelle on accepte de chercher son champ.
- *
- * Mesurée plutôt que choisie : les formes du projet — `<InlineField label=… value={x.col} …>` et
- * `<FormField label=…><Input value={col} …>` — tiennent toutes sous 300 caractères. Au-delà, on
- * ramasse le champ suivant.
- */
-const FENETRE = 300
 
 /** Un libellé de champ, ou un message ? Un libellé ne finit pas par un point et n'est pas une phrase. */
 function ressembleAUnLibelle(libelle) {
@@ -116,72 +55,152 @@ function ressembleAUnLibelle(libelle) {
 }
 
 /**
- * Le dictionnaire libellé ↔ colonne.
+ * Les champs d'un fichier : chaque `label="…"` avec la portion de code qui lui appartient.
  *
- * @param liste             fichiers du projet, chemins relatifs
- * @param lire              (fichier) => texte, déjà débarrassé des commentaires
- * @param usageDuFichier    Map<fichier, Set<"table.colonne">> — ce que CE fichier touche vraiment
- * @param ecransDuFichier   Map<fichier, Set<écran>>
+ * LA BORNE EST LE LIBELLÉ SUIVANT, PAS UNE LONGUEUR. C'est la correction qui compte : un champ
+ * s'arrête là où le suivant commence. Une fenêtre fixe coupait les formulaires au milieu et
+ * débordait sur le champ d'après dans les fiches — les deux erreurs à la fois, selon l'écran.
  */
-/**
- * De quelle entité parle ce fichier ? `ContratDetail.tsx` → « contrat », `SiteDetail.tsx` → « site ».
- *
- * Sert d'arbitre quand plusieurs tables portent le même nom de colonne. `code_postal` existe sur
- * `comptes` et sur `sites` : sur la fiche site, c'est celle du site. Quand le nom du fichier ne
- * tranche pas, on s'abstient plutôt que de choisir la première venue.
- */
-function entiteDuFichier(fichier) {
-  const base = fichier.split('/').pop().replace(/\.tsx?$/, '')
-  const mots = base.replace(/([a-z0-9])([A-Z])/g, '$1 $2').toLowerCase().split(/[^a-z]+/)
-  return mots.filter((m) => m.length > 3 && !['detail', 'dialog', 'form', 'carte', 'bloc', 'onglet', 'volet', 'liste', 'page'].includes(m))
+const PORTEE = 600
+
+function champs(texte) {
+  const positions = [...texte.matchAll(/label="([^"]+)"/g)]
+  return positions.map((m, i) => {
+    const finSuivant = positions[i + 1] ? positions[i + 1].index : texte.length
+    return { libelle: m[1], bloc: texte.slice(m.index, Math.min(finSuivant, m.index + PORTEE)) }
+  })
 }
 
-function construireLibelles({ liste, lire, usageDuFichier, ecransDuFichier }) {
-  const RANG = { sur: 2, probable: 1 }
-  /** clé « table.colonne | libellé » → meilleure trouvaille */
+/**
+ * Parmi des candidats repérés à des distances différentes du libellé, ceux qui lui appartiennent.
+ *
+ * LE PLUS PROCHE, ET CE QUI LE TALONNE. Un champ a UNE valeur : dans
+ * `<InlineField label="Début" value={contrat.date_debut}`, `date_debut` est à quinze caractères et
+ * tout le reste à des centaines. Ratisser le bloc entier est ce qui a produit les pires liens de la
+ * version précédente — `documents.nom_fichier` → « Propriétaire », `contacts.telephone` → « Email ».
+ *
+ * On garde donc le plus proche, PLUS ce qui le suit de très près : un champ d'adresse écrit
+ * `adresse`, `code_postal` et `ville` d'un seul geste, et les trois sont vrais.
+ */
+const COUDE = 90
+
+function plusProche(candidats) {
+  if (candidats.length === 0) return []
+  const min = Math.min(...candidats.map((c) => c.distance))
+  return candidats.filter((c) => c.distance <= min + COUDE)
+}
+
+/**
+ * Les variables de ce fichier qui portent une ligne de table, et laquelle.
+ *
+ * `const { data: contrat } = useContrat(id)` et `const contrat = useContrat(id)`. Le nom du hook est
+ * résolu par les imports du fichier — donc par le fichier qui le définit — et non par ressemblance
+ * de nom : `useSuiviDuContrat` ne rend pas une ligne de `contrats`.
+ */
+function variablesDeTable(texte, hookVersTable) {
   const trouvees = new Map()
-  /** Les libellés qu'on a refusé de rattacher : comptés, pour savoir ce que la prudence coûte. */
-  const ambigus = []
+  const formes = [
+    /const\s*\{\s*data:\s*([A-Za-z_][A-Za-z0-9_]*)[^}]*\}\s*=\s*(use[A-Za-z0-9_]+)\s*\(/g,
+    /const\s+([A-Za-z_][A-Za-z0-9_]*)\s*=\s*(use[A-Za-z0-9_]+)\s*\(/g,
+  ]
+  for (const re of formes) {
+    for (const m of texte.matchAll(re)) {
+      const table = hookVersTable.get(m[2])
+      if (table) trouvees.set(m[1], table)
+    }
+  }
+  return trouvees
+}
+
+/**
+ * Les mutations appelées dans ce fichier, et la table qu'elles écrivent.
+ *
+ * `const majContrat = useUpdateContratPartiel()` ou `const { mutateAsync: majAction } = useMajAction()`.
+ * La table vient du hook, comme pour les lectures. Les clés des objets qu'on leur passe sont alors
+ * des noms de colonnes certains : c'est le code qui les envoie à PostgREST.
+ */
+function mutationsDuFichier(texte, hookVersTable) {
+  const trouvees = new Map()
+  const formes = [
+    /const\s+([A-Za-z_][A-Za-z0-9_]*)\s*=\s*(use[A-Za-z0-9_]+)\s*\(/g,
+    /const\s*\{[^}]*\b(?:mutate|mutateAsync)\s*:\s*([A-Za-z_][A-Za-z0-9_]*)[^}]*\}\s*=\s*(use[A-Za-z0-9_]+)\s*\(/g,
+  ]
+  for (const re of formes) {
+    for (const m of texte.matchAll(re)) {
+      const table = hookVersTable.get(m[2])
+      if (table) trouvees.set(m[1], table)
+    }
+  }
+  return trouvees
+}
+
+/** Les clés de premier niveau d'un objet littéral commençant à `i` (sur `{`). */
+function clesObjet(texte, i) {
+  if (texte[i] !== '{') return []
+  let p = 0
+  let j = i
+  for (; j < texte.length; j++) {
+    if (texte[j] === '{') p++
+    else if (texte[j] === '}') {
+      p--
+      if (p === 0) break
+    }
+  }
+  const corps = texte.slice(i + 1, j)
+  const cles = []
+  let prof = 0
+  let courant = ''
+  const pousser = (morceau) => {
+    const m = morceau.match(/^\s*([a-z_][a-z0-9_]*)\s*:/i) || morceau.match(/^\s*([a-z_][a-z0-9_]*)\s*$/i)
+    if (m) cles.push(m[1])
+  }
+  for (const c of corps) {
+    if ('({['.includes(c)) prof++
+    else if (')}]'.includes(c)) prof--
+    if (c === ',' && prof === 0) {
+      pousser(courant)
+      courant = ''
+    } else courant += c
+  }
+  pousser(courant)
+  return cles
+}
+
+/**
+ * Le dictionnaire libellé ↔ colonne.
+ *
+ * @param liste            fichiers du projet
+ * @param lire             (fichier) => texte sans commentaires
+ * @param schema           Map<table, { colonnes: [{ nom }] }> — la garde contre l'invention
+ * @param hookVersTable    Map<nom de hook, table>
+ * @param ecransDuFichier  Map<fichier, Set<écran>>
+ */
+function construireLibelles({ liste, lire, schema, hookVersTable, ecransDuFichier }) {
+  const colonnesDe = new Map()
+  for (const [nom, t] of schema) colonnesDe.set(nom, new Set(t.colonnes.map((c) => c.nom)))
+
+  const RANG = { sur: 2, probable: 1 }
+  const trouvees = new Map()
+  const sansTable = []
 
   for (const f of liste) {
     if (!f.endsWith('.tsx')) continue
-    const touchees = usageDuFichier.get(f)
-    if (!touchees || touchees.size === 0) continue
-    const entites = entiteDuFichier(f)
-
-    /* colonne → tables que CE FICHIER touche avec cette colonne. Quand il y en a plusieurs, on
-       s'abstient : le fichier lit `compte_id` sur trois tables, rien ne dit laquelle porte le
-       libellé. Un « ambigu » silencieux valait mieux qu'un choix au hasard répété trois fois. */
-    const parColonne = new Map()
-    for (const cle of touchees) {
-      const i = cle.indexOf('.')
-      const table = cle.slice(0, i)
-      const colonne = cle.slice(i + 1)
-      if (!parColonne.has(colonne)) parColonne.set(colonne, new Set())
-      parColonne.get(colonne).add(table)
-    }
-
     const texte = lire(f)
-    const ecrans = ecransDuFichier.get(f) ?? new Set()
+    if (!texte.includes('label="')) continue
 
-    const retenir = (colonne, libelle, certitude) => {
-      if (!ressembleAUnLibelle(libelle)) return
-      const tables = parColonne.get(colonne)
-      if (!tables || tables.size === 0) return
-      let table
-      if (tables.size === 1) {
-        table = [...tables][0]
-      } else {
-        /* PLUSIEURS TABLES PORTENT CETTE COLONNE. Le nom du fichier tranche quand il désigne l'une
-           d'elles — sur la fiche site, `code_postal` est celui du site. Sinon on s'abstient : c'est
-           exactement le cas où la première version recopiait le libellé sur les onze tables. */
-        const prefere = [...tables].filter((t) => entites.some((e) => t.startsWith(e)))
-        if (prefere.length !== 1) {
-          ambigus.push({ fichier: f, colonne, libelle, tables: [...tables].sort() })
-          return
-        }
-        table = prefere[0]
-      }
+    const variables = variablesDeTable(texte, hookVersTable)
+    const mutations = mutationsDuFichier(texte, hookVersTable)
+    const ecrans = ecransDuFichier.get(f) ?? new Set()
+    /* La table « principale » du fichier : celle de sa variable la plus utilisée. Elle sert au
+       second chemin, quand une variable d'état porte le nom d'une colonne sans qu'aucune mutation
+       ne le confirme dans la même portion de code. */
+    const principale = [...variables.values()].sort(
+      (a, b) => (texte.split(b).length - texte.split(a).length),
+    )[0]
+
+    const retenir = (table, colonne, libelle, certitude) => {
+      if (!table || !ressembleAUnLibelle(libelle)) return
+      if (!colonnesDe.get(table)?.has(colonne)) return // Inconnue de cette table : on n'invente pas.
       const cle = `${table}.${colonne}|${libelle}`
       const existant = trouvees.get(cle)
       if (existant) {
@@ -190,29 +209,46 @@ function construireLibelles({ liste, lire, usageDuFichier, ecransDuFichier }) {
         if (RANG[certitude] > RANG[existant.certitude]) existant.certitude = certitude
         return
       }
-      trouvees.set(cle, {
-        table,
-        colonne,
-        libelle,
-        certitude,
-        fichiers: new Set([f]),
-        ecrans: new Set(ecrans),
-      })
+      trouvees.set(cle, { table, colonne, libelle, certitude, fichiers: new Set([f]), ecrans: new Set(ecrans) })
     }
 
-    for (const { libelle, bloc } of elementsAvecLibelle(texte)) {
-      // ① SÛR : `objet.colonne` dans le même élément que le libellé.
-      for (const m of bloc.matchAll(/\b[a-z][A-Za-z0-9]*\.([a-z][a-z0-9]*(?:_[a-z0-9]+)+)\b/g)) {
-        retenir(m[1], libelle, 'sur')
+    for (const { libelle, bloc } of champs(texte)) {
+      const candidats = []
+
+      // ① LA VARIABLE DIT LA TABLE : `contrat.date_debut` avec `contrat` issu de `useContrat`.
+      for (const m of bloc.matchAll(/\b([A-Za-z_][A-Za-z0-9_]*)\.([a-z][a-z0-9]*(?:_[a-z0-9]+)*)\b/g)) {
+        const table = variables.get(m[1])
+        if (!table || !colonnesDe.get(table)?.has(m[2])) continue
+        candidats.push({ table, colonne: m[2], certitude: 'sur', distance: m.index })
       }
-      // ② PROBABLE : la valeur est une variable d'état dont le nom désigne une colonne du fichier.
+
+      // ② LA MUTATION DIT LA TABLE ET LA COLONNE : `majAction({ titre: … })`.
+      for (const m of bloc.matchAll(/\b([A-Za-z_][A-Za-z0-9_]*)\s*\(\s*\{/g)) {
+        const table = mutations.get(m[1])
+        if (!table) continue
+        const debut = bloc.indexOf('{', m.index + m[1].length)
+        for (const cle of clesObjet(bloc, debut)) {
+          candidats.push({ table, colonne: cle, certitude: 'sur', distance: m.index })
+        }
+      }
+
+      // ③ LA VARIABLE D'ÉTAT : `<FormField label="Titre"><Input value={titre} … `.
       for (const m of bloc.matchAll(/(?:value|checked)=\{([a-z][A-Za-z0-9]*)[\s?}]/g)) {
-        retenir(versSnake(m[1]), libelle, 'probable')
+        const colonne = versSnake(m[1])
+        const cible = [principale, ...variables.values()].find((t) => colonnesDe.get(t)?.has(colonne))
+        if (cible) candidats.push({ table: cible, colonne, certitude: 'probable', distance: m.index })
       }
+
+      /* ON NE GARDE QUE CE QUI TOUCHE LE LIBELLÉ. Les trois sources proposent, `plusProche`
+         tranche : le candidat le plus proche du libellé, et lui seul — plus ce qui le talonne à
+         moins de 90 caractères, pour le champ d'adresse qui écrit trois colonnes d'un geste. */
+      const retenus = plusProche(candidats)
+      for (const c of retenus) retenir(c.table, c.colonne, libelle, c.certitude)
+      if (retenus.length === 0) sansTable.push({ fichier: f, libelle })
     }
   }
 
-  return { liens: [...trouvees.values()], ambigus }
+  return { liens: [...trouvees.values()], sansTable }
 }
 
 module.exports = { construireLibelles, versSnake }
