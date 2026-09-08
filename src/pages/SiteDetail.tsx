@@ -127,10 +127,55 @@ export default function SiteDetail() {
 
   const compteursDuSite = useMemo(() => compteurs?.filter((c) => c.site_id === id) ?? [], [compteurs, id])
   const recommandationsDuSite = useMemo(() => recommandations?.filter((r) => r.sites.some((s) => s.id === id)) ?? [], [recommandations, id])
-  const contratsDuSite = useMemo(() => contrats?.filter((c) => c.site_id === id) ?? [], [contrats, id])
+  /* ══ UN CONTRAT COUVRE DES COMPTEURS, PAS UN SITE ═════════════════════════════════════════════
+
+     Ce filtre lisait `contrats.site_id`, une colonne qui ne peut nommer QU'UN site. Or 46 contrats
+     couvrent plusieurs sites — jusqu'a 15 — et le perimetre reel vit dans `contrats_compteurs`.
+     Mesure du 08/09/2026 : 51 contrats etaient invisibles sur la fiche d'un site dont ils couvrent
+     pourtant les compteurs, sur 101 sites.
+
+     C'EST LE MEME DEFAUT QUE CELUI D'ADRIEN ABADIE, signale par Naoelle le meme jour : un sens du
+     rattachement lit la colonne denormalisee, l'autre la table de liaison, et les deux ecrans se
+     contredisent. La fiche compteur, elle, avait raison — `contrats.filter(ct =>
+     ct.compteurs.some(...))`. Le mandat aussi : ses `site_ids` sont deduits de `mandats_compteurs`.
+
+     On garde `site_id` en plus du perimetre : un contrat sans compteur rattache (45 lignes) n'aurait
+     sinon plus aucun site, et disparaitrait d'un ecran ou il apparaissait avant. */
+  const contratsDuSite = useMemo(() => {
+    const idsCompteurs = new Set(compteursDuSite.map((c) => c.id))
+    return (
+      contrats?.filter(
+        (c) => c.site_id === id || c.compteurs.some((cc) => idsCompteurs.has(cc.id)),
+      ) ?? []
+    )
+  }, [contrats, id, compteursDuSite])
   // Fiche site : on ne charge que les interactions de ce site (pas la table entiere).
   const { data: interactionsDuSite = [] } = useInteractionsForSite(id)
-  const contactsDuSite = useMemo(() => contacts?.filter((c) => c.sites.some((s) => s.id === id)) ?? [], [contacts, id])
+  /* ══ LES CONTACTS D'UN SITE : LE DIRECT, PUIS CEUX DU COMPTE ══════════════════════════════════
+
+     Naoelle, 08/09/2026, sur Adrien Abadie : « je vois un site dans les rattachements mais quand je
+     vais sur les rattachements de ce site je ne vois pas ce contact, c'est un gros souci. »
+
+     LA CAUSE N'ETAIT PAS CE CONTACT-LA. Cet onglet ne lisait que `contacts_sites` — et cette table
+     est VIDE, zero ligne, comptee le 08/09/2026. « Aucun contact rattache a ce site » s'affichait
+     donc sur les 6 374 sites de la base, sans exception, depuis toujours. Sur 6 077 d'entre eux, le
+     compte porte pourtant au moins un contact joignable.
+
+     LA FICHE CONTACT, ELLE, AVAIT LA BONNE REGLE depuis le 13/08/2026 (consigne de William : « la
+     liste des comptes et la liste des sites avec compte ») : elle montre les sites DES COMPTES du
+     contact, en signalant ceux que `contacts_sites` rattache explicitement. Les deux ecrans
+     disaient donc deux choses differentes du meme lien — c'est l'asymetrie qu'elle a vue.
+
+     Cet onglet applique maintenant la meme regle, en miroir : les contacts du compte du site, par
+     les DEUX chemins de rattachement (`contacts.compte_id` et `contacts_comptes` — voir
+     `contactsDuCompte`), et la pastille « Rattache » sur ceux qui le sont explicitement a ce site.
+     Une seule definition de « rattache », lue dans les deux sens. */
+  const contactsDuSite = useMemo(() => {
+    const direct = contacts?.filter((c) => c.sites.some((s) => s.id === id)) ?? []
+    const duCompte = contactsRattaches(contacts, site?.compte_id)
+    const vus = new Set(direct.map((c) => c.id))
+    return [...direct, ...duCompte.filter((c) => !vus.has(c.id))]
+  }, [contacts, id, site?.compte_id])
   const actionsDuSite = useMemo(() => actions?.filter((a) => a.site_id === id) ?? [], [actions, id])
   const documentsDuSite = useMemo(() => documents?.filter((d) => d.entite_type === 'site' && d.entite_id === id) ?? [], [documents, id])
   const mandatDuSite = mandats?.find((m) => m.compte_id === site?.compte_id && m.site_ids.includes(id ?? ''))
@@ -467,12 +512,12 @@ export default function SiteDetail() {
               {/* Compte + Contacts inline sur mobile uniquement */}
               <div className="flex flex-col gap-3.5 lg:hidden">
                 <ComptePanel compte={compte} compteNom={site.compte_nom} compteId={site.compte_id} onCopy={showToast} />
-                <ContactsPanel contacts={contactsDuSite} />
+                <ContactsPanel contacts={contactsDuSite} siteId={id} />
               </div>
             </div>
           )}
 
-          {tab === 'contacts' && <ContactsPanel contacts={contactsDuSite} />}
+          {tab === 'contacts' && <ContactsPanel contacts={contactsDuSite} siteId={id} />}
 
           {tab === 'contrats' && (
             <div className="flex flex-col gap-3.5">
@@ -1087,7 +1132,19 @@ function ComptePanel({
   )
 }
 
-function ContactsPanel({ contacts }: { contacts: Contact[] | undefined }) {
+/**
+ * Les contacts joignables sur ce site.
+ *
+ * DEUX ORIGINES, DITES A L'ECRAN. Un contact explicitement rattache au site porte la pastille
+ * « Rattache » — la meme que sur la fiche contact, pour que le lien se lise pareil dans les deux
+ * sens. Les autres sont les contacts du compte : ils ne sont pas moins joignables, ils sont
+ * simplement rattaches un cran plus haut.
+ *
+ * SANS CETTE DISTINCTION, la liste mentirait dans un sens ou dans l'autre : soit elle affirmerait
+ * un rattachement au site qui n'existe pas, soit elle cacherait la seule personne qu'on peut
+ * appeler. Voir `contactsDuSite` pour ce que cet onglet montrait avant — rien, sur 6 374 sites.
+ */
+function ContactsPanel({ contacts, siteId }: { contacts: Contact[] | undefined; siteId: string | undefined }) {
   const list = contacts ?? []
   return (
     <div className="rounded-xl border border-km-line bg-white p-3.5">
@@ -1097,10 +1154,17 @@ function ContactsPanel({ contacts }: { contacts: Contact[] | undefined }) {
         </span>
         <span className="text-km-xs font-bold uppercase tracking-wide text-km-faint">Contacts</span>
       </div>
-      {list.length === 0 && <p className="text-xs text-km-faint">Aucun contact rattaché à ce site.</p>}
+      {/* LE MESSAGE VIDE DIT DESORMAIS OU CHERCHER. « Aucun contact rattache a ce site » laissait
+          croire a un site orphelin ; le compte peut n'en avoir aucun, et c'est la qu'on en ajoute. */}
+      {list.length === 0 && (
+        <p className="text-xs text-km-faint">
+          Aucun contact sur ce site ni sur son compte. Ajoutez-en un depuis la fiche du compte.
+        </p>
+      )}
       <div className="flex flex-col gap-3">
         {list.map((c) => {
           const initiales = `${c.prenom[0] ?? ''}${c.nom[0] ?? ''}`.toUpperCase()
+          const explicite = Boolean(siteId && c.sites.some((s) => s.id === siteId))
           return (
             <div key={c.id}>
               <div className="flex items-center gap-2.5">
@@ -1119,6 +1183,14 @@ function ContactsPanel({ contacts }: { contacts: Contact[] | undefined }) {
                     <p className="truncate font-mono text-km-xs text-km-muted">{numeroLisible(c.telephone)}</p>
                   )}
                 </div>
+                {explicite && (
+                  <span
+                    title="Contact explicitement rattaché à ce site"
+                    className="shrink-0 rounded bg-[#f1ecf8] px-1.5 py-px text-km-tiny font-bold uppercase tracking-wide text-[#7c5bb0]"
+                  >
+                    Rattaché
+                  </span>
+                )}
                 {c.telephone && (
                   <button
                     type="button"
