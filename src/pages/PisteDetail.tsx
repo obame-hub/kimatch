@@ -6,6 +6,7 @@ import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Card } from '@/components/ui/card'
 import { EntityLink } from '@/components/ui/entity-link'
+import { appelerNumero } from '@/lib/telephonie'
 import { InlineField } from '@/components/ui/inline-field'
 import { OngletFichiers } from '@/components/compte/OngletFichiers'
 import { DialogConversionPiste } from '@/components/prospection/DialogConversionPiste'
@@ -454,13 +455,24 @@ export default function PisteDetail() {
               </div>
               {(piste.email || piste.telephone) && (
                 <div className="mt-3 flex flex-wrap gap-1.5 border-t border-km-line pt-2.5">
+                  {/* PLUS DE `href="tel:"` ICI. C'était le dernier de l'application, et il envoyait
+                      le clic au système d'exploitation : sur un PC, Chrome ouvre « Sélectionner une
+                      application » et n'a jamais entendu parler d'Allo. Naoëlle l'a revu le
+                      08/09/2026 — « ça veut ouvrir une app sur mon PC alors que c'est pas du tout ce
+                      qu'on a dit ». Le bouton passe désormais par l'entonnoir unique, qui dépose le
+                      numéro dans la file d'appel Allo de la personne connectée et n'utilise `tel:`
+                      que sur un appareil tactile, où il compose vraiment. */}
                   {piste.telephone && (
-                    <a
-                      href={`tel:${piste.telephone}`}
+                    <button
+                      type="button"
+                      onClick={() => { void appelerNumero(piste.telephone, {
+                        nom: piste.contact_nom ?? undefined,
+                        societe: piste.societe ?? undefined,
+                      }) }}
                       className="inline-flex items-center gap-1.5 rounded-km border border-km-line bg-km-surface px-2.5 py-1.5 text-km-label font-semibold text-km-muted hover:bg-km-soft hover:text-km-text"
                     >
                       <Phone className="h-3 w-3" /> Appeler
-                    </a>
+                    </button>
                   )}
                   {piste.email && (
                     <a

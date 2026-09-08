@@ -204,7 +204,17 @@ async function profilPour(admin: Admin, email: string): Promise<string | null> {
  * `like` de fin, ce qui laisse l'index de côté ; c'est acceptable ici parce qu'un webhook d'appel
  * arrive quelques fois par minute au plus, jamais en rafale.
  */
-async function reconnaitre(admin: Admin, numero: string | null | undefined) {
+/* UN SEUL TYPE DE RETOUR, ANNOTÉ. Sans annotation, TypeScript déduit l'UNION des trois formes
+   rendues plus bas — contact, piste, ou rien — et refuse ensuite de la passer à `insert`, qui attend
+   une forme unique. L'annotation dit ce que la fonction rend vraiment : trois champs, toujours les
+   mêmes, dont certains nuls. */
+interface Reconnu {
+  contact_id: string | null
+  compte_id: string | null
+  piste_id: string | null
+}
+
+async function reconnaitre(admin: Admin, numero: string | null | undefined): Promise<Reconnu> {
   const fin = dixDerniers(numero)
   if (fin.length < 9) return { contact_id: null, compte_id: null, piste_id: null }
 
@@ -233,10 +243,66 @@ async function reconnaitre(admin: Admin, numero: string | null | undefined) {
   return { contact_id: null, compte_id: null, piste_id: null }
 }
 
-/** La carte s'ouvre. */
+/**
+ * Fenêtre de rapprochement : deux appels du même commercial vers le même numéro à moins de dix
+ * minutes d'écart sont considérés comme le même appel.
+ *
+ * Faute d'identifiant avant `call.completed`, c'est la seule façon de recoudre les événements. Dix
+ * minutes parce que `started_at` diffère d'un événement à l'autre — mesuré le 08/09/2026, deux
+ * secondes entre le `started_at` de `call.triggered` et le `start_date` de `call.completed` du même
+ * appel — et parce que rappeler le même numéro dans les dix minutes est plus rare que de recevoir
+ * deux événements du même appel.
+ */
+const FENETRE_MS = 10 * 60 * 1000
+
+/** L'appel déjà connu qui correspond à cet événement, terminé ou non. */
+async function appelDejaConnu(
+  admin: Admin, email: string, numero: string | null | undefined, quand: string,
+): Promise<{ id: string; termine: boolean } | null> {
+  const fin = dixDerniers(numero)
+  if (!fin) return null
+  const t = new Date(quand).getTime()
+  const { data } = await admin
+    .from('appels_en_cours')
+    .select('id, demarre_le, termine_le')
+    .eq('user_email', email || 'inconnu')
+    .eq('numero_normalise', fin)
+    .gte('demarre_le', new Date(t - FENETRE_MS).toISOString())
+    .lte('demarre_le', new Date(t + FENETRE_MS).toISOString())
+    .order('demarre_le', { ascending: false })
+    .limit(1)
+  const ligne = data?.[0]
+  if (!ligne) return null
+  return { id: ligne.id as string, termine: Boolean(ligne.termine_le) }
+}
+
+/**
+ * La carte s'ouvre — ou ne s'ouvre pas, si l'appel est déjà connu.
+ *
+ * ══ LES ÉVÉNEMENTS N'ARRIVENT PAS DANS L'ORDRE, ET C'EST MESURÉ ══
+ *
+ * Relevé le 08/09/2026 sur les premiers appels réels : un `call.triggered` reçu à 12:42:15 pour un
+ * appel dont le `call.completed` était arrivé à 12:20:51 — VINGT-DEUX MINUTES PLUS TÔT. Un autre
+ * `call.completed` livré 42 minutes après l'appel.
+ *
+ * C'étaient des réessais accumulés pendant que l'endpoint répondait 500, faute de secret. Mais la
+ * leçon vaut au-delà de cet incident : Allo livre « au moins une fois », sans garantir l'ordre.
+ *
+ * Ma première version insérait sans regarder, et créait donc une seconde ligne « en cours » pour un
+ * appel déjà terminé — une carte fantôme qui se serait ouverte à l'écran d'un commercial pour un
+ * appel raccroché depuis vingt minutes. C'est le genre de défaut qu'aucun test ne trouve et que le
+ * premier trafic réel révèle.
+ */
 async function ouvrir(
   admin: Admin, email: string, numero: string | null | undefined, demarre: string, sens: string,
 ) {
+  const connu = await appelDejaConnu(admin, email, numero, demarre)
+  // DÉJÀ TERMINÉ : l'événement de départ arrive en retard, il n'a plus rien à ouvrir.
+  if (connu?.termine) return
+  // DÉJÀ OUVERT : un doublon de livraison que la déduplication n'a pas vu (identifiants d'événement
+  // différents pour le même appel). On ne rouvre pas.
+  if (connu) return
+
   const reconnu = await reconnaitre(admin, numero)
   const { error } = await admin.from('appels_en_cours').insert({
     user_email: email || 'inconnu',
@@ -291,14 +357,11 @@ async function terminer(
   // Le serveur vocal qu'Allo compte comme un décroché : `ivr_result` non vide le trahit.
   const ivr = Array.isArray(d.ivr_result) && d.ivr_result.length > 0 ? d.ivr_result : null
 
-  const { data } = await admin
-    .from('appels_en_cours')
-    .select('id')
-    .eq('user_email', email || 'inconnu')
-    .eq('numero_normalise', fin || null)
-    .is('termine_le', null)
-    .order('demarre_le', { ascending: false })
-    .limit(1)
+  /* ON CHERCHE L'APPEL DANS LA FENÊTRE, TERMINÉ OU NON, et non « celui qui n'est pas terminé ».
+     Ma première version filtrait sur `termine_le is null` : un `call.completed` rejoué — ou reçu
+     après qu'un premier ait déjà clos la ligne — ne trouvait rien et créait un DOUBLON. Mesuré sur
+     le premier trafic réel : deux lignes pour le même appel vers ...1402. */
+  const connu = await appelDejaConnu(admin, email, numero, demarre)
 
   const fermeture = {
     termine_le: new Date().toISOString(),
@@ -312,13 +375,14 @@ async function terminer(
     ivr_touches: ivr,
   }
 
-  if (data && data.length > 0) {
-    await admin.from('appels_en_cours').update(fermeture).eq('id', data[0].id as string)
+  if (connu) {
+    const { error } = await admin.from('appels_en_cours').update(fermeture).eq('id', connu.id)
+    if (error) throw new Error(`fermeture : ${error.message}`)
   } else {
     // AUCUNE CARTE À FERMER. Le `call.triggered` a été perdu, ou l'appel a commencé avant la mise en
     // service du webhook. On écrit la ligne complète plutôt que de laisser tomber l'appel.
     const reconnu = await reconnaitre(admin, numero)
-    await admin.from('appels_en_cours').insert({
+    const { error } = await admin.from('appels_en_cours').insert({
       user_email: email || 'inconnu',
       profil_id: await profilPour(admin, email),
       numero: numero ?? 'inconnu',
@@ -328,6 +392,7 @@ async function terminer(
       ...reconnu,
       ...fermeture,
     })
+    if (error) throw new Error(`création à la fermeture : ${error.message}`)
   }
 
   // ── L'INTERACTION, dans l'historique de la fiche ────────────────────────────────────────────
@@ -340,27 +405,52 @@ async function terminer(
     .maybeSingle()
   if (!type?.id) return
 
-  // `upsert` sur `source_externe_id` : la même clé que l'import du 07/09/2026, donc un appel déjà
-  // importé ne se dédouble pas, et un appel déjà reçu par webhook se met simplement à jour.
-  await admin.from('interactions').upsert(
-    {
-      type_interaction_id: type.id as string,
-      source_externe_id: d.id,
-      date_interaction: demarre,
-      objet: (d.summary ? d.summary.slice(0, 200) : `Appel ${sens === 'ENTRANT' ? 'entrant' : 'sortant'}`),
-      resume_ia: d.summary ?? null,
-      transcription: d.concatenated_transcript ?? null,
-      enregistrement_url: d.recording_url ?? null,
-      sens,
-      resultat: d.result ?? null,
-      duree_appel_secondes: duree,
-      duree_minutes: duree != null ? Math.round(duree / 60) : null,
-      appel_manque: d.result !== 'ANSWERED',
-      messagerie_vocale: d.result === 'VOICEMAIL',
-      numero_correspondant: numero ?? null,
-      auteur_profil_id: await profilPour(admin, email),
-      ...reconnu,
-    },
-    { onConflict: 'source_externe_id', ignoreDuplicates: false },
-  )
+  const ligne = {
+    type_interaction_id: type.id as string,
+    source_externe_id: d.id,
+    date_interaction: demarre,
+    objet: (d.summary ? d.summary.slice(0, 200) : `Appel ${sens === 'ENTRANT' ? 'entrant' : 'sortant'}`),
+    resume_ia: d.summary ?? null,
+    transcription: d.concatenated_transcript ?? null,
+    enregistrement_url: d.recording_url ?? null,
+    sens,
+    resultat: d.result ?? null,
+    duree_appel_secondes: duree,
+    duree_minutes: duree != null ? Math.round(duree / 60) : null,
+    appel_manque: d.result !== 'ANSWERED',
+    messagerie_vocale: d.result === 'VOICEMAIL',
+    numero_correspondant: numero ?? null,
+    auteur_profil_id: await profilPour(admin, email),
+    ...reconnu,
+  }
+
+  /* ══ PAS D'`upsert` ICI, ET C'EST UNE ERREUR QUE J'AVAIS DÉJÀ FAITE ══
+   *
+   * `interactions_source_externe_id_idx` est un index unique PARTIEL — `where source_externe_id is
+   * not null`. Postgres refuse alors `on conflict (source_externe_id)` avec 42P10, « there is no
+   * unique or exclusion constraint matching the ON CONFLICT specification », parce que la clause
+   * `where` de l'index doit être répétée dans le `on conflict` — ce que PostgREST ne sait pas
+   * exprimer.
+   *
+   * C'est exactement le piège qui a fait échouer la relance de l'import Allo le 07/09/2026. Je l'ai
+   * répété ici, et il était SILENCIEUX : je ne vérifiais pas l'erreur de l'`upsert`. Résultat mesuré
+   * sur les quatre premiers appels réels — quatre appels captés, avec enregistrement, transcription
+   * et résumé, et ZÉRO interaction écrite sur les fiches.
+   *
+   * On lit donc, puis on écrit. La table de déduplication garantit qu'un même événement n'est traité
+   * qu'une fois, donc la fenêtre entre les deux ne peut pas produire de doublon. */
+  const { data: existante, error: erreurLecture } = await admin
+    .from('interactions')
+    .select('id')
+    .eq('source_externe_id', d.id)
+    .limit(1)
+  if (erreurLecture) throw new Error(`lecture interaction : ${erreurLecture.message}`)
+
+  if (existante && existante.length > 0) {
+    const { error } = await admin.from('interactions').update(ligne).eq('id', existante[0].id as string)
+    if (error) throw new Error(`mise à jour interaction : ${error.message}`)
+  } else {
+    const { error } = await admin.from('interactions').insert(ligne)
+    if (error) throw new Error(`écriture interaction : ${error.message}`)
+  }
 }
