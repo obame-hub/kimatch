@@ -20,8 +20,14 @@
  */
 import { useState } from 'react'
 import { Phone, PhoneOff, Clock, MessageSquare } from 'lucide-react'
-import { useKpiAppels, dureeCourte, pourcentage } from '@/lib/data/kpiAllo'
+import { useKpiAppels, dureeCourte, pourcentage, PERIODES, type ClePeriode } from '@/lib/data/kpiAllo'
+import { heureLisible } from '@/lib/dateRelative'
 import { cn } from '@/lib/utils'
+
+/** « 08/09 » — la borne d'une période, lue d'un coup d'œil sans son année. */
+function jourCourt(iso: string): string {
+  return `${iso.slice(8, 10)}/${iso.slice(5, 7)}`
+}
 
 /** Une tuile de chiffre. Grande, parce que c'est le chiffre qu'on vient chercher. */
 function Tuile({ libelle, valeur, precision, Icone }: {
@@ -45,8 +51,11 @@ function Tuile({ libelle, valeur, precision, Icone }: {
 }
 
 export function KpiAppels() {
-  const [jours, setJours] = useState<7 | 30>(7)
-  const { data, isLoading, error } = useKpiAppels(jours)
+  /* « CETTE SEMAINE » PAR DÉFAUT et non « aujourd'hui » : à 9 h du matin, la journée est presque
+     vide et l'écran s'ouvrirait sur des zéros. La semaine en cours est la question qu'on se pose. */
+  const [periode, setPeriode] = useState<ClePeriode>('semaine')
+  const { data, isLoading, error } = useKpiAppels(periode)
+  const libellePeriode = PERIODES.find((p) => p.cle === periode)?.libelle ?? ''
 
   return (
     <div className="mx-auto max-w-[1100px] px-4 pb-6">
@@ -55,21 +64,25 @@ export function KpiAppels() {
           <p className="font-display text-km-title font-semibold text-km-text">Chiffres d’appels</p>
           <p className="text-km-label text-km-faint">Mesurés par Allo, pas recomptés par Kimatch.</p>
         </div>
-        {/* DEUX PÉRIODES, PAS SIX. Sept jours pour la semaine en cours, trente pour la tendance. */}
-        <div className="flex overflow-hidden rounded-km border border-km-line">
-          {([7, 30] as const).map((n) => (
-            <button
-              key={n}
-              type="button"
-              onClick={() => setJours(n)}
-              className={cn(
-                'px-3 py-1.5 text-km-label font-semibold transition-colors',
-                jours === n ? 'bg-ink-800 text-white' : 'bg-white text-km-muted hover:bg-km-soft',
-              )}
-            >
-              {n} jours
-            </button>
-          ))}
+        {/* DES PÉRIODES NOMMÉES, dans l'ordre où on les regarde : le jour, la veille, puis les
+            ensembles qui les contiennent. Elles défilent sur mobile plutôt que de se replier —
+            cinq boutons courts tiennent sur une ligne dès 380 px. */}
+        <div className="-mx-1 flex max-w-full overflow-x-auto px-1">
+          <div className="flex overflow-hidden rounded-km border border-km-line">
+            {PERIODES.map((p) => (
+              <button
+                key={p.cle}
+                type="button"
+                onClick={() => setPeriode(p.cle)}
+                className={cn(
+                  'whitespace-nowrap px-3 py-1.5 text-km-label font-semibold transition-colors',
+                  periode === p.cle ? 'bg-ink-800 text-white' : 'bg-white text-km-muted hover:bg-km-soft',
+                )}
+              >
+                {p.libelle}
+              </button>
+            ))}
+          </div>
         </div>
       </div>
 
@@ -96,7 +109,7 @@ export function KpiAppels() {
             <Tuile
               libelle="Appels"
               valeur={data.resume.appels.toLocaleString('fr-FR')}
-              precision={`sur ${jours} jours`}
+              precision={libellePeriode.toLowerCase()}
               Icone={Phone}
             />
             <Tuile
@@ -198,9 +211,19 @@ export function KpiAppels() {
 
           {/* CE QUE CES CHIFFRES NE DISENT PAS, dit une fois — sinon on les lit comme la vérité de
               l'activité de l'équipe, alors qu'ils ne couvrent que les comptes Allo. */}
+          {/* ── L'HEURE DU RELEVÉ, ET CE QUE LES CHIFFRES NE DISENT PAS ──
+              Naoëlle, 08/09/2026 : « ajoute aussi cette heure-ci à tout ça. » Sur « Aujourd'hui »,
+              le nombre d'appels bouge de minute en minute et l'écran garde sa réponse cinq minutes :
+              sans l'heure de lecture, on ne sait pas ce qu'on regarde. Le bouton de période sert
+              aussi de rafraîchissement — recliquer dessus relit. */}
           <p className="mt-3 text-km-label leading-snug text-km-faint">
-            Ces chiffres viennent des sept comptes Allo de l’équipe. Un appel passé depuis un
-            téléphone personnel n’y figure pas.
+            {libellePeriode} · du {jourCourt(data.du)} au {jourCourt(data.au)} · chiffres arrêtés à{' '}
+            {heureLisible(data.luLe)}.
+          </p>
+          <p className="mt-1 text-km-label leading-snug text-km-faint">
+            Ils viennent des sept comptes Allo de l’équipe : un appel passé depuis un téléphone
+            personnel n’y figure pas. Allo ne descend pas sous la journée, il n’y a donc pas de
+            période plus fine.
           </p>
         </>
       )}

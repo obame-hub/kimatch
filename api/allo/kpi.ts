@@ -60,7 +60,13 @@ async function allo(chemin: string, corps: unknown, cle: string): Promise<Record
   return j.data ?? (j as Record<string, unknown>)
 }
 
-const jour = (d: Date) => d.toISOString().slice(0, 10)
+/** Une date au format « AAAA-MM-JJ », telle qu'Allo les attend. */
+const FORME_JOUR = /^\d{4}-\d{2}-\d{2}$/
+
+/** Le nombre de jours entre deux dates ISO, bornes incluses. */
+function etendue(du: string, au: string): number {
+  return Math.round((Date.parse(au) - Date.parse(du)) / 86400000) + 1
+}
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   if (req.method !== 'GET') {
@@ -90,12 +96,35 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     return
   }
 
-  /* LA PÉRIODE VIENT DE L'ÉCRAN, bornée ici. Sept ou trente jours : au-delà, les réponses d'Allo
-     grossissent (séries temporelles, carte de chaleur) pour un écran qui n'en montre pas plus. */
-  const jours = req.query.jours === '30' ? 30 : 7
-  const fin = new Date()
-  const debut = new Date(Date.now() - jours * 86400000)
-  const periode = { date: { from: jour(debut), to: jour(fin) }, granularity: 'DAY' }
+  /* ══ LES BORNES SONT CALCULÉES PAR L'ÉCRAN, PAS ICI ═══════════════════════════════════════════
+
+     Michel, 08/09/2026, rapporté par Naoëlle : « il aimerait qu'on mette plutôt des dates relatives
+     comme demain, aujourd'hui, cette semaine. »
+
+     « Aujourd'hui » et « cette semaine » sont des notions LOCALES. Cette fonction tourne sur un
+     serveur en UTC : y calculer « aujourd'hui » donnerait le mauvais jour chaque soir après 2 h du
+     matin heure de Paris — et « cette semaine » commencerait un dimanche si on laissait faire
+     JavaScript. Le navigateur, lui, connaît le fuseau et le calendrier de celui qui regarde. Il
+     envoie donc deux dates, et cette route ne fait que les valider.
+
+     ELLES SONT VALIDÉES, pas seulement recopiées : une borne libre est une requête libre vers Allo,
+     dont les réponses grossissent avec la période. La forme est imposée et l'étendue plafonnée. */
+  const du = typeof req.query.du === 'string' ? req.query.du : ''
+  const au = typeof req.query.au === 'string' ? req.query.au : ''
+  if (!FORME_JOUR.test(du) || !FORME_JOUR.test(au)) {
+    res.status(400).json({ error: 'Bornes attendues au format AAAA-MM-JJ (du, au)' })
+    return
+  }
+  if (du > au) {
+    res.status(400).json({ error: 'La borne de début est postérieure à la borne de fin' })
+    return
+  }
+  const jours = etendue(du, au)
+  if (jours > 400) {
+    res.status(400).json({ error: 'Période trop longue : 400 jours au maximum' })
+    return
+  }
+  const periode = { date: { from: du, to: au }, granularity: 'DAY' }
 
   try {
     // EN PARALLÈLE : deux lectures indépendantes, et la limite d'Allo est de 20 par seconde.
@@ -141,7 +170,16 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       etape('conversions', 'Conversions'),
     ]
 
-    res.status(200).json({ jours, resume, parPersonne, entonnoir })
+    /* L'HEURE DU RELEVÉ ACCOMPAGNE LES CHIFFRES. Naoëlle, 08/09/2026 : « ajoute aussi cette heure-ci
+       à tout ça. » Sur « Aujourd'hui », un nombre d'appels change d'une minute à l'autre : sans
+       l'heure à laquelle il a été lu, on ne sait pas si on regarde le compte de maintenant ou celui
+       d'il y a une demi-heure — et l'écran garde ses chiffres cinq minutes en mémoire.
+
+       ALLO NE SAIT PAS DESCENDRE SOUS LA JOURNÉE. Vérifié le 08/09/2026 en leur envoyant
+       `granularity: 'HOUR'`, puis `'HOURLY'`, puis des bornes horodatées : les trois rendent
+       exactement le même résultat que la journée entière, et la réponse ne contient aucune série
+       temporelle. C'est pourquoi il n'y a pas de période « cette heure » : elle serait fausse. */
+    res.status(200).json({ jours, du, au, luLe: new Date().toISOString(), resume, parPersonne, entonnoir })
   } catch (e) {
     const message = e instanceof Error ? e.message : 'Erreur Allo inconnue'
     /* LA PORTÉE MANQUANTE SE DIT EN CLAIR — même si `CONVERSATIONS_READ` est présente depuis le
