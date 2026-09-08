@@ -5,7 +5,6 @@ import { Topbar } from '@/components/layout/Topbar'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { EntityLink } from '@/components/ui/entity-link'
-import { HubCreation } from '@/components/compte/HubCreation'
 import { InlineField } from '@/components/ui/inline-field'
 import { RattachementsContact } from '@/components/contact/RattachementsContact'
 import { PhoneLink, EmailLink } from '@/components/ui/contact-link'
@@ -229,19 +228,11 @@ export default function ContactDetail() {
           </p>
         </div>
         <div className="flex items-center gap-1.5">
-          {/* Le hub de création, comme sur la fiche compte : « il faut également le mettre sur les
-              autres objets, parce que c'est un bouton que de n'importe où je peux venir faire
-              quelque chose » (William, 13/08/2026). */}
-          <HubCreation
-            onAction={(cle) => {
-              if (cle === 'compte') navigate('/comptes', { state: { openCreate: true } })
-              if (cle === 'site') navigate('/sites', { state: { openCreateForCompteId: contact.compte_id } })
-              if (cle === 'contact') navigate('/contacts', { state: { openCreateForCompteId: contact.compte_id } })
-              if (cle === 'compteur') navigate(`/comptes/${contact.compte_id}`)
-              if (cle === 'mandat') navigate(`/comptes/${contact.compte_id}`)
-              if (cle === 'recommandation') navigate(`/comptes/${contact.compte_id}`)
-            }}
-          />
+          {/* ══ PAS DE HUB DE CRÉATION ICI ══
+              Naoëlle, 08/09/2026 : « enlève le bouton créer dans la fiche contact, il sert à rien ».
+              Elle a raison, et c'est visible dans le code qu'il remplaçait : sur sept entrées, quatre
+              renvoyaient à la fiche du compte sans rien créer, et les trois autres ouvraient une
+              liste. Aucune ne créait quoi que ce soit depuis ce contact. */}
           {canManage && (
             <button
               type="button"
