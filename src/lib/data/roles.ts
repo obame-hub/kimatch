@@ -302,6 +302,27 @@ export interface MonProfil {
   nom: string
   email: string
   photo_url: string | null
+  /**
+   * L'adresse du compte ALLO, quand elle differe de l'adresse Kimatch.
+   *
+   * Nulle pour presque tout le monde : les six commerciaux ont la meme adresse des deux cotes.
+   * Mesure du 08/09/2026 : sept membres dans l'espace Allo, dix profils actifs dans Kimatch --
+   * Michel, Erwan et Naoelle n'ont pas de compte Allo, et la facturation refusee empeche d'en
+   * ajouter. Voir `emailAllo` ci-dessous.
+   */
+  email_allo: string | null
+}
+
+/**
+ * L'adresse a viser dans Allo pour ce profil.
+ *
+ * Le pendant navigateur de `fn_email_allo` en base. Un champ rempli d'espaces retombe sur l'adresse
+ * Kimatch : sinon effacer le champ a l'ecran casserait la carte d'appel sans raison lisible.
+ */
+export function emailAllo(profil: MonProfil | null | undefined): string | null {
+  if (!profil) return null
+  const propre = (profil.email_allo ?? '').trim()
+  return propre || profil.email || null
 }
 
 async function fetchMonProfil(): Promise<MonProfil | null> {
@@ -309,7 +330,7 @@ async function fetchMonProfil(): Promise<MonProfil | null> {
   if (!utilisateur) return null
   const { data, error } = await supabase
     .from('profils')
-    .select('id, prenom, nom, email, photo_url')
+    .select('id, prenom, nom, email, photo_url, email_allo')
     .eq('id', utilisateur.id)
     .maybeSingle()
   if (error || !data) return null

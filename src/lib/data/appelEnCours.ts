@@ -31,7 +31,7 @@
 import { useEffect, useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { supabase } from '@/lib/supabase'
-import { useMonProfil } from '@/lib/data/roles'
+import { useMonProfil, emailAllo } from '@/lib/data/roles'
 
 /** Les quatre valeurs, bornées en base par `appels_en_cours_qualification_check`. */
 export type Qualification = 'HUMAIN' | 'REPONDEUR' | 'SERVEUR_VOCAL' | 'PAS_DE_REPONSE'
@@ -90,11 +90,28 @@ function useOngletVisible(): boolean {
 export function useAppelEnCours() {
   const { data: profil } = useMonProfil()
   const visible = useOngletVisible()
-  const profilId = profil?.id as string | undefined
+
+  /* ══ LA CARTE SUIT LE COMPTE ALLO, PAS LE PROFIL KIMATCH ══
+   *
+   * Elle interrogeait `profil_id`. Naoëlle, 08/09/2026 : « je suis connectée sur le compte de
+   * Will », puis « pour le moment Will ne peut pas ajouter mon numéro, faut qu'on teste sans ».
+   *
+   * Sept membres dans l'espace Allo, dix profils actifs dans Kimatch : quelqu'un qui n'a pas de
+   * compte Allo opère celui d'un collègue. Sur `profil_id`, sa carte ne s'ouvrirait jamais — les
+   * appels sont attribués au profil du compte Allo qui les a passés.
+   *
+   * ET CE N'EST PAS UN ARRANGEMENT DE CIRCONSTANCE. La carte est une surface de travail éphémère :
+   * elle répond à « quel appel se passe sur le compte que j'opère ». L'HISTORIQUE, lui, reste
+   * attribué à `profils.email` par le webhook — un appel de William reste un appel de William, et
+   * rien n'est falsifié. Deux questions différentes, deux clés différentes.
+   *
+   * Au passage, c'est plus robuste : sur `profil_id`, un appel venu d'une adresse Allo absente de
+   * `profils` produisait une carte que personne ne voyait. */
+  const adresseAllo = emailAllo(profil)
 
   return useQuery({
-    queryKey: ['appel-en-cours', profilId],
-    enabled: Boolean(profilId),
+    queryKey: ['appel-en-cours', adresseAllo],
+    enabled: Boolean(adresseAllo),
     refetchInterval: visible ? INTERVALLE_MS : false,
     // Une carte d'appel périmée n'a aucun intérêt : on ne garde rien entre deux lectures.
     staleTime: 0,
@@ -104,7 +121,7 @@ export function useAppelEnCours() {
       const { data, error } = await supabase
         .from('appels_en_cours')
         .select('*')
-        .eq('profil_id', profilId as string)
+        .eq('user_email', adresseAllo as string)
         .is('qualification', null)
         .gte('demarre_le', ilYaDixMinutes)
         .order('demarre_le', { ascending: false })
