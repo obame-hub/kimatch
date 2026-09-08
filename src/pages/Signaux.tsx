@@ -13,7 +13,7 @@
  * (src/lib/navItems.tsx). La table `signaux` et ses 1 456 lignes sont intactes en base.
  */
 import { useState } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useNavigate, Link } from 'react-router-dom'
 import { Plus, CheckSquare } from 'lucide-react'
 import { Topbar } from '@/components/layout/Topbar'
 import { PageHeader, Indicateurs } from '@/components/ui/page-header'
@@ -98,7 +98,11 @@ function SignalCard({ signal }: { signal: Signal }) {
         <span className="mb-1.5 inline-block max-w-full truncate rounded-[3px] bg-km-soft px-1.5 py-px text-km-label font-bold uppercase tracking-[0.06em] text-km-muted">
           {signal.type_signal}
         </span>
-        <p className="truncate text-km-body font-bold text-km-text">{signal.site_nom}</p>
+        <p className="truncate text-km-body font-bold text-km-text">
+          <Link to={`/signaux/${signal.id}`} onClick={(e) => e.stopPropagation()} className="hover:underline">
+            {signal.site_nom}
+          </Link>
+        </p>
         {signal.description && (
           <p className="mt-1.5 line-clamp-2 rounded-[4px] bg-km-soft px-1.5 py-1 text-km-label leading-snug text-km-muted">
             {signal.description}

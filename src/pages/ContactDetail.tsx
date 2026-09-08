@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
-import { useParams, useNavigate } from 'react-router-dom'
+import { useParams, useNavigate, Link } from 'react-router-dom'
 import { ArrowLeft, Star, Trash2, FileCheck2, FileText, Sparkle } from 'lucide-react'
 import { Topbar } from '@/components/layout/Topbar'
 import { Button } from '@/components/ui/button'
@@ -458,7 +458,11 @@ export default function ContactDetail() {
                   className="flex cursor-pointer items-center gap-3 rounded-xl border border-km-line bg-white p-3.5 hover:bg-km-bg/60"
                 >
                   <div className="min-w-0 flex-1">
-                    <p className="truncate text-sm font-bold text-km-text">{ct.fournisseur_nom}</p>
+                    <p className="truncate text-sm font-bold text-km-text">
+                      <Link to={`/contrats/${ct.id}`} onClick={(e) => e.stopPropagation()} className="hover:underline">
+                        {ct.fournisseur_nom}
+                      </Link>
+                    </p>
                     <p className="truncate text-km-xs text-km-faint">{ct.site_nom}</p>
                   </div>
                 </div>
@@ -480,7 +484,9 @@ export default function ContactDetail() {
                   </span>
                   <div className="min-w-0 flex-1">
                     <p className="truncate text-sm font-bold text-km-text">
-                      {m.nb_sites_couverts} site{m.nb_sites_couverts > 1 ? 's' : ''} couvert{m.nb_sites_couverts > 1 ? 's' : ''}
+                      <Link to={`/mandats/${m.id}`} onClick={(e) => e.stopPropagation()} className="hover:underline">
+                        {m.nb_sites_couverts} site{m.nb_sites_couverts > 1 ? 's' : ''} couvert{m.nb_sites_couverts > 1 ? 's' : ''}
+                      </Link>
                     </p>
                     <p className="truncate text-km-xs text-km-faint">{m.contact_signataire_id === id ? 'Signataire de ce mandat' : m.contact_signataire_nom ?? '—'}</p>
                   </div>
@@ -506,7 +512,11 @@ export default function ContactDetail() {
                       <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-km-amber-soft text-amber-600">
                         <Sparkle className="h-3.5 w-3.5" />
                       </span>
-                      <p className="flex-1 truncate text-sm font-bold text-km-text">{r.titre}</p>
+                      <p className="flex-1 truncate text-sm font-bold text-km-text">
+                        <Link to={`/recommandations/${r.id}`} onClick={(e) => e.stopPropagation()} className="hover:underline">
+                          {r.titre}
+                        </Link>
+                      </p>
                       <Badge tone={ETAPE_TONE[r.etape] ?? 'amber'}>{etapes.find((e) => e.code === r.etape)?.libelle ?? r.etape}</Badge>
                     </div>
                     {derniereVersion && (
@@ -535,7 +545,11 @@ export default function ContactDetail() {
                     <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-km-soft text-km-muted">
                       <FileText className="h-3.5 w-3.5" />
                     </span>
-                    <p className="flex-1 truncate text-sm font-bold text-km-text">{d.nom}</p>
+                    <p className="flex-1 truncate text-sm font-bold text-km-text">
+                      <Link to={`/documents/${d.id}`} onClick={(e) => e.stopPropagation()} className="hover:underline">
+                        {d.nom}
+                      </Link>
+                    </p>
                     {d.type_document && <Badge tone="neutral">{d.type_document}</Badge>}
                   </div>
                   <p className="ml-9 mt-1.5 text-km-label text-km-faint">

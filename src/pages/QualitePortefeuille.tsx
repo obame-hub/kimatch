@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { Link } from 'react-router-dom'
 import {
   Bar, BarChart, Cell, Pie, PieChart, ResponsiveContainer, Tooltip, XAxis, YAxis,
 } from 'recharts'
@@ -137,7 +137,6 @@ const CADRAGES: { cle: StatutCadrage; libelle: string }[] = [
 ]
 
 export default function QualitePortefeuille() {
-  const navigate = useNavigate()
 
   /* ══ LA BASCULE DE PÉRIMÈTRE ══
      « Le toggle sera par défaut dans les données du commercial » — et c'est déjà la règle de
@@ -619,13 +618,12 @@ export default function QualitePortefeuille() {
             )
           })()}
           <div className="mt-3.5 flex justify-end">
-            <button
-              type="button"
-              onClick={() => navigate(`/compteurs/${anomalies.compteur_id}`)}
+            <Link
+              to={`/compteurs/${anomalies.compteur_id}`}
               className="rounded-km bg-km-green px-3 py-1.5 text-km-label font-semibold text-white hover:brightness-95"
             >
               Ouvrir le compteur
-            </button>
+            </Link>
           </div>
         </Dialog>
       )}

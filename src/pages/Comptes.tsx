@@ -240,7 +240,7 @@ export default function Comptes({ sansEntete }: { sansEntete?: boolean }) {
                       6 sites · 18 compteurs » se lit d'un bloc, la ou deux colonnes obligent l'oeil a
                       faire l'aller-retour pour rapprocher deux informations qui vont ensemble. */}
                   <td>
-                    <NomDeLigne precision={compte.ville || undefined}>{compte.nom}</NomDeLigne>
+                    <NomDeLigne to={`/comptes/${compte.id}`} precision={compte.ville || undefined}>{compte.nom}</NomDeLigne>
                   </td>
                   <td>
                     <Badge tone={typeMeta[compte.type_compte]?.tone ?? 'neutral'}>

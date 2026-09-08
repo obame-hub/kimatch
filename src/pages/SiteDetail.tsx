@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
-import { useParams, useNavigate } from 'react-router-dom'
+import { useParams, useNavigate, Link } from 'react-router-dom'
 import { ArrowLeft, Phone, StickyNote, Plus, Building2, Users, Zap, Flame, Sparkle, Trash2, FileCheck2, FileText, AlertTriangle } from 'lucide-react'
 import { Topbar } from '@/components/layout/Topbar'
 import { Button } from '@/components/ui/button'
@@ -508,7 +508,11 @@ export default function SiteDetail() {
                               className="flex cursor-pointer items-center gap-3 border-t border-navy-50 px-3.5 py-2.5 hover:bg-km-bg/60"
                             >
                               <Badge tone={STATUT_CONTRAT_TONE[ct.statut] ?? 'neutral'}>{statutsContrats.find((s) => s.code === ct.statut)?.libelle ?? ct.statut}</Badge>
-                              <span className="flex-1 text-xs font-medium text-km-text">{ct.fournisseur_nom}</span>
+                              <span className="flex-1 text-xs font-medium text-km-text">
+                                <Link to={`/contrats/${ct.id}`} onClick={(e) => e.stopPropagation()} className="hover:underline">
+                                  {ct.fournisseur_nom}
+                                </Link>
+                              </span>
                               <span className="font-mono text-km-xs text-km-faint">
                                 {ct.date_debut ? new Date(ct.date_debut).toLocaleDateString('fr-FR') : '—'} → {ct.date_fin ? new Date(ct.date_fin).toLocaleDateString('fr-FR') : 'sans échéance'}
                               </span>
@@ -545,7 +549,11 @@ export default function SiteDetail() {
                       <Icon className="h-4 w-4" />
                     </span>
                     <div className="min-w-0 flex-1">
-                      <p className="truncate text-sm font-bold text-km-text">{c.utilisation || c.numero_pdl}</p>
+                      <p className="truncate text-sm font-bold text-km-text">
+                        <Link to={`/compteurs/${c.id}`} onClick={(e) => e.stopPropagation()} className="hover:underline">
+                          {c.utilisation || c.numero_pdl}
+                        </Link>
+                      </p>
                       <p className="truncate font-mono text-km-xs text-km-faint">
                         {c.numero_pdl} {contratActif ? `· ${contratActif.fournisseur_nom}` : ''} {c.consommation_annuelle_mwh ? `· ${c.consommation_annuelle_mwh} MWh` : ''}
                       </p>
@@ -570,7 +578,11 @@ export default function SiteDetail() {
                     className="cursor-pointer rounded-xl border border-km-line bg-white p-3.5 hover:bg-km-bg/60"
                   >
                     <div className="flex items-center gap-2">
-                      <p className="flex-1 text-sm font-bold text-km-text">{r.titre}</p>
+                      <p className="flex-1 text-sm font-bold text-km-text">
+                        <Link to={`/recommandations/${r.id}`} onClick={(e) => e.stopPropagation()} className="hover:underline">
+                          {r.titre}
+                        </Link>
+                      </p>
                       <Badge tone={ETAPE_TONE[r.etape] ?? 'amber'}>{etapes.find((e) => e.code === r.etape)?.libelle ?? r.etape}</Badge>
                     </div>
                     {derniereVersion && (
@@ -677,7 +689,11 @@ export default function SiteDetail() {
                         <FileText className="h-4 w-4" />
                       </span>
                       <div className="min-w-0 flex-1">
-                        <p className="truncate text-sm font-bold text-km-text">{d.nom}</p>
+                        <p className="truncate text-sm font-bold text-km-text">
+                          <Link to={`/documents/${d.id}`} onClick={(e) => e.stopPropagation()} className="hover:underline">
+                            {d.nom}
+                          </Link>
+                        </p>
                         <p className="truncate text-km-xs text-km-faint">{d.auteur} · {new Date(d.date_creation).toLocaleDateString('fr-FR')}</p>
                       </div>
                       <Badge tone="neutral">{d.type_document}</Badge>
@@ -1072,7 +1088,6 @@ function ComptePanel({
 }
 
 function ContactsPanel({ contacts }: { contacts: Contact[] | undefined }) {
-  const navigate = useNavigate()
   const list = contacts ?? []
   return (
     <div className="rounded-xl border border-km-line bg-white p-3.5">
@@ -1093,9 +1108,9 @@ function ContactsPanel({ contacts }: { contacts: Contact[] | undefined }) {
                   {initiales}
                 </div>
                 <div className="min-w-0 flex-1">
-                  <button type="button" onClick={() => navigate(`/contacts/${c.id}`)} className="truncate text-left text-km-body font-bold text-km-text hover:text-violet-600">
+                  <Link to={`/contacts/${c.id}`} className="truncate text-left text-km-body font-bold text-km-text hover:text-violet-600">
                     {c.prenom} {c.nom}
-                  </button>
+                  </Link>
                   <p className="truncate text-km-xs text-km-faint">{c.fonction || '—'}</p>
                   {/* LE NUMÉRO S'AFFICHE, ET CE N'EST PAS COSMÉTIQUE. L'extension Allo décore les
                       numéros qu'elle VOIT : derrière une icône, elle n'a rien à détecter et son

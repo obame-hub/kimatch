@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
-import { useParams, useNavigate } from 'react-router-dom'
+import { useParams, useNavigate, Link } from 'react-router-dom'
 import {
   ArrowLeft,
   Trash2,
@@ -978,10 +978,9 @@ export default function RecommandationDetail() {
                   </p>
                   <div className="flex flex-col gap-1.5">
                     {contratsIssus.map((ct) => (
-                      <button
+                      <Link
                         key={ct.id}
-                        type="button"
-                        onClick={() => navigate(`/contrats/${ct.id}`)}
+                        to={`/contrats/${ct.id}`}
                         className="flex w-full items-center gap-2.5 rounded-km-md border border-km-line bg-km-soft px-3 py-2 text-left transition hover:border-km-green-line hover:bg-km-green-tint"
                       >
                         <span className="flex h-[26px] w-[26px] shrink-0 items-center justify-center rounded-lg bg-km-green-soft text-km-green">
@@ -1006,7 +1005,7 @@ export default function RecommandationDetail() {
                           </span>
                         </span>
                         <span className="shrink-0 text-km-label font-bold text-km-green">ouvrir →</span>
-                      </button>
+                      </Link>
                     ))}
                   </div>
                 </div>

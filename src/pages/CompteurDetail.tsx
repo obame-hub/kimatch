@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react'
-import { useParams, useNavigate } from 'react-router-dom'
+import { useParams, useNavigate, Link } from 'react-router-dom'
 import { ArrowLeft, Zap, Flame, Plus, Trash2, Building2, MapPin, FileCheck2, FileText, RefreshCw } from 'lucide-react'
 import { Topbar } from '@/components/layout/Topbar'
 import { Button } from '@/components/ui/button'
@@ -718,15 +718,15 @@ export default function CompteurDetail() {
           </div>
           <div className="flex flex-col gap-0.5">
             {compte && (
-              <button type="button" onClick={() => navigate(`/comptes/${compte.id}`)} className="flex items-center gap-2 rounded-lg px-1.5 py-1.5 text-left hover:bg-km-bg">
+              <Link to={`/comptes/${compte.id}`} className="flex items-center gap-2 rounded-lg px-1.5 py-1.5 text-left hover:bg-km-bg">
                 <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-md bg-sky-100 text-sky-500"><Building2 className="h-3 w-3" /></span>
                 <span className="flex-1 truncate text-xs font-semibold text-km-text">{compte.nom}</span>
                 <span className="text-km-faint">›</span>
-              </button>
+              </Link>
             )}
             <div className="ml-[22px] h-2 w-0.5 bg-km-soft" />
             {site && (
-              <button type="button" onClick={() => navigate(`/sites/${site.id}`)} className="flex items-start gap-2 rounded-lg px-1.5 py-1.5 text-left hover:bg-km-bg">
+              <Link to={`/sites/${site.id}`} className="flex items-start gap-2 rounded-lg px-1.5 py-1.5 text-left hover:bg-km-bg">
                 <span className="mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-md bg-km-green-soft text-km-green"><MapPin className="h-3 w-3" /></span>
                 <span className="min-w-0 flex-1">
                   <span className="block truncate text-xs font-semibold text-km-text">{site.nom}</span>
@@ -746,7 +746,7 @@ export default function CompteurDetail() {
                   )}
                 </span>
                 <span className="mt-0.5 text-km-faint">›</span>
-              </button>
+              </Link>
             )}
             <div className="ml-[22px] h-2 w-0.5 bg-km-soft" />
             <div className="flex items-center gap-2 rounded-lg bg-km-bg px-1.5 py-1.5">
@@ -1046,7 +1046,11 @@ export default function CompteurDetail() {
                       <CtIcon className="h-4 w-4" />
                     </span>
                     <div className="min-w-0 flex-1">
-                      <p className="truncate text-sm font-bold text-km-text">{ct.fournisseur_nom}</p>
+                      <p className="truncate text-sm font-bold text-km-text">
+                        <Link to={`/contrats/${ct.id}`} onClick={(e) => e.stopPropagation()} className="hover:underline">
+                          {ct.fournisseur_nom}
+                        </Link>
+                      </p>
                       <p className="truncate text-km-xs text-km-faint">
                         {ct.date_debut ? new Date(ct.date_debut).toLocaleDateString('fr-FR') : '—'} → {ct.date_fin ? new Date(ct.date_fin).toLocaleDateString('fr-FR') : 'sans échéance'}
                       </p>
@@ -1069,7 +1073,11 @@ export default function CompteurDetail() {
                     <FileCheck2 className="h-4 w-4" />
                   </span>
                   <div className="min-w-0 flex-1">
-                    <p className="truncate text-sm font-bold text-km-text">Mandat {mandatDuCompteur.compte_nom}</p>
+                    <p className="truncate text-sm font-bold text-km-text">
+                      <Link to={`/mandats/${mandatDuCompteur.id}`} onClick={(e) => e.stopPropagation()} className="hover:underline">
+                        Mandat {mandatDuCompteur.compte_nom}
+                      </Link>
+                    </p>
                     <p className="truncate text-km-xs text-km-faint">{mandatDuCompteur.contact_signataire_nom ?? 'Signataire non renseigné'}</p>
                   </div>
                   <Badge tone={STATUT_MANDAT_TONE[mandatDuCompteur.statut] ?? 'neutral'}>{statutsMandats.find((s) => s.code === mandatDuCompteur.statut)?.libelle ?? mandatDuCompteur.statut}</Badge>
@@ -1123,7 +1131,11 @@ export default function CompteurDetail() {
                         <FileText className="h-4 w-4" />
                       </span>
                       <div className="min-w-0 flex-1">
-                        <p className="truncate text-sm font-bold text-km-text">{d.nom}</p>
+                        <p className="truncate text-sm font-bold text-km-text">
+                          <Link to={`/documents/${d.id}`} onClick={(e) => e.stopPropagation()} className="hover:underline">
+                            {d.nom}
+                          </Link>
+                        </p>
                         <p className="truncate text-km-xs text-km-faint">{d.auteur} · {new Date(d.date_creation).toLocaleDateString('fr-FR')}</p>
                       </div>
                       <Badge tone="neutral">{d.type_document}</Badge>

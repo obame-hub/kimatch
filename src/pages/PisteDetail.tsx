@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { useNavigate, useParams } from 'react-router-dom'
+import { useNavigate, useParams, Link } from 'react-router-dom'
 import { ArrowLeft, ArrowRight, Building2, Check, Filter, Mail, Phone, Plus, User } from 'lucide-react'
 import { Topbar } from '@/components/layout/Topbar'
 import { Button } from '@/components/ui/button'
@@ -195,10 +195,12 @@ export default function PisteDetail() {
         {/* LE GESTE QUI SUIT, ET RIEN D'AUTRE. Une piste convertie mène à son opportunité ; une piste
             mûre se convertit ; une piste incomplète dit ce qui manque, plus bas. */}
         {convertie ? (
-          <Button variant="outline" onClick={() => navigate(`/opportunites/${piste.opportunite_id}`)}>
-            Ouvrir l’opportunité
-            <ArrowRight className="h-3.5 w-3.5" />
-          </Button>
+          <Link to={`/opportunites/${piste.opportunite_id}`}>
+            <Button variant="outline">
+              Ouvrir l’opportunité
+              <ArrowRight className="h-3.5 w-3.5" />
+            </Button>
+          </Link>
         ) : (
           canManage && (
             <Button disabled={!mure} onClick={() => setConversionOuverte(true)}>

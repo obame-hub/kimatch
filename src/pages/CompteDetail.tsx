@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
-import { useParams, useNavigate, useSearchParams } from 'react-router-dom'
+import { useParams, useNavigate, useSearchParams, Link } from 'react-router-dom'
 import {
   ArrowLeft,
   Phone,
@@ -670,7 +670,11 @@ export default function CompteDetail() {
                       <FileCheck2 className="h-4 w-4" />
                     </span>
                     <div className="min-w-0 flex-1">
-                      <p className="truncate text-km-body font-bold text-km-text">{m.nb_sites_couverts} site{m.nb_sites_couverts > 1 ? 's' : ''} couvert{m.nb_sites_couverts > 1 ? 's' : ''}</p>
+                      <p className="truncate text-km-body font-bold text-km-text">
+                        <Link to={`/mandats/${m.id}`} onClick={(e) => e.stopPropagation()} className="hover:underline">
+                          {m.nb_sites_couverts} site{m.nb_sites_couverts > 1 ? 's' : ''} couvert{m.nb_sites_couverts > 1 ? 's' : ''}
+                        </Link>
+                      </p>
                       <p className="truncate text-km-body text-km-muted">{m.contact_signataire_nom ?? 'Signataire non renseigné'}</p>
                     </div>
                     <Badge tone={STATUT_MANDAT_TONE[m.statut] ?? 'neutral'}>{statutsMandats.find((s) => s.code === m.statut)?.libelle ?? m.statut}</Badge>
@@ -996,7 +1000,6 @@ function RelationTimeline({ compte, mandats, recommandations }: { compte: Compte
  * décomptes.
  */
 function QualiteCompteCard({ compte }: { compte: Compte }) {
-  const navigate = useNavigate()
   const [detailOuvert, setDetailOuvert] = useState(false)
   const { data: qualite } = useQualiteCompte(compte.id)
   const { data: compteurs, isLoading: chargeCompteurs } = useQualiteCompteurs(compte.id, detailOuvert)
@@ -1041,10 +1044,9 @@ function QualiteCompteCard({ compte }: { compte: Compte }) {
             {(compteurs ?? []).map((q) => {
               const manques = manquesCompteur(q)
               return (
-                <button
+                <Link
                   key={q.compteur_id}
-                  type="button"
-                  onClick={() => navigate(`/compteurs/${q.compteur_id}`)}
+                  to={`/compteurs/${q.compteur_id}`}
                   className="flex items-center gap-3 rounded-km border border-km-line bg-km-surface px-3 py-2 text-left transition-colors hover:bg-km-soft"
                 >
                   {/* LE SCORE EN PASTILLE COLORÉE, la même échelle que le héro : on doit pouvoir
@@ -1076,7 +1078,7 @@ function QualiteCompteCard({ compte }: { compte: Compte }) {
                       <span className="text-km-green">contrat et responsable en place</span>
                     )}
                   </span>
-                </button>
+                </Link>
               )
             })}
           </div>
@@ -1477,7 +1479,11 @@ function GroupedBySite<T>({
           <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-km-green-soft text-km-green">
             <MapPin className="h-3.5 w-3.5" />
           </span>
-          <p className="min-w-0 flex-1 truncate text-km-body font-bold text-km-text">{site.nom}</p>
+          <p className="min-w-0 flex-1 truncate text-km-body font-bold text-km-text">
+            <Link to={`/sites/${site.id}`} onClick={(e) => e.stopPropagation()} className="hover:underline">
+              {site.nom}
+            </Link>
+          </p>
           <span className={cn('rounded-km-sm px-1.5 py-0.5 text-km-label font-bold uppercase', sitesClients?.get(site.id) ? 'bg-km-green-soft text-km-green' : 'bg-km-soft text-km-muted')}>
             {sitesClients?.get(site.id) ? 'Client' : 'Prospect'}
           </span>
@@ -1522,9 +1528,9 @@ function ContactsPanel({ contacts, compteId }: { contacts: Contact[]; compteId: 
                 </div>
                 <div className="min-w-0 flex-1">
                   <div className="flex items-center gap-1.5">
-                    <button type="button" onClick={() => navigate(`/contacts/${c.id}`)} className="truncate text-left text-km-body font-bold text-km-text hover:text-km-violet">
+                    <Link to={`/contacts/${c.id}`} className="truncate text-left text-km-body font-bold text-km-text hover:text-km-violet">
                       {c.prenom} {c.nom}
-                    </button>
+                    </Link>
                     {c.contact_principal && (
                       <span title="Signataire des mandats" className="flex h-[15px] w-[15px] shrink-0 items-center justify-center rounded-km-sm bg-km-amber-line">
                         <FileCheck2 className="h-2.5 w-2.5 text-km-amber" />

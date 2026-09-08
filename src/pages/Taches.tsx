@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useNavigate, Link } from 'react-router-dom'
 import { Plus, Check, Circle } from 'lucide-react'
 import { Topbar } from '@/components/layout/Topbar'
 import { PageHeader } from '@/components/ui/page-header'
@@ -114,6 +114,7 @@ export default function Taches() {
                   {a.echeance && <span className="text-km-faint">{echeanceLisible(a.echeance)}</span>}
                 </span>
               }
+              to={`/taches/${a.id}`}
               onClick={() => navigate(`/taches/${a.id}`)}
             />
           ))}
@@ -133,7 +134,11 @@ export default function Taches() {
                   className="flex cursor-pointer items-center gap-3 rounded-lg px-3 py-2 text-sm text-km-faint hover:bg-km-bg/60"
                 >
                   <Check className="h-3.5 w-3.5 text-km-green" />
-                  <span className="flex-1 line-through">{a.titre}</span>
+                  <span className="flex-1 line-through">
+                    <Link to={`/taches/${a.id}`} onClick={(e) => e.stopPropagation()} className="hover:underline">
+                      {a.titre}
+                    </Link>
+                  </span>
                   {a.site_id && <EntityLink to={`/sites/${a.site_id}`}>{a.cible_label}</EntityLink>}
                 </div>
               ))}

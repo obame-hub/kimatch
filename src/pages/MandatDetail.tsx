@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
-import { useParams, useNavigate } from 'react-router-dom'
+import { useParams, useNavigate, Link } from 'react-router-dom'
 import { ArrowLeft, FileCheck2, FileSignature, Trash2, Building2, MapPin, Gauge, FileText, Phone, Mail } from 'lucide-react'
 import { Topbar } from '@/components/layout/Topbar'
 import { Button } from '@/components/ui/button'
@@ -812,7 +812,11 @@ export default function MandatDetail() {
                           <MapPin className="h-4 w-4" />
                         </span>
                         <div className="min-w-0 flex-1">
-                          <p className="truncate text-sm font-bold text-km-text">{s.nom}</p>
+                          <p className="truncate text-sm font-bold text-km-text">
+                            <Link to={`/sites/${s.id}`} onClick={(e) => e.stopPropagation()} className="hover:underline">
+                              {s.nom}
+                            </Link>
+                          </p>
                           <p className="truncate text-km-xs text-km-faint">{s.type_site} · {s.ville}</p>
                         </div>
                         <Badge tone={s.statut === 'actif' ? 'kiwi' : 'neutral'}>{s.statut}</Badge>
@@ -825,7 +829,11 @@ export default function MandatDetail() {
                             className="flex cursor-pointer items-center gap-2 rounded-lg px-1.5 py-1 hover:bg-km-bg/60"
                           >
                             <Gauge className="h-3 w-3 shrink-0 text-km-faint" />
-                            <p className="truncate text-xs font-semibold text-km-text">{c.utilisation || c.numero_pdl}</p>
+                            <p className="truncate text-xs font-semibold text-km-text">
+                              <Link to={`/compteurs/${c.id}`} onClick={(e) => e.stopPropagation()} className="hover:underline">
+                                {c.utilisation || c.numero_pdl}
+                              </Link>
+                            </p>
                             <p className="truncate font-mono text-km-xs text-km-faint">{c.numero_pdl}</p>
                           </div>
                         ))}
@@ -873,7 +881,11 @@ export default function MandatDetail() {
                         <FileText className="h-4 w-4" />
                       </span>
                       <div className="min-w-0 flex-1">
-                        <p className="truncate text-sm font-bold text-km-text">{d.nom}</p>
+                        <p className="truncate text-sm font-bold text-km-text">
+                          <Link to={`/documents/${d.id}`} onClick={(e) => e.stopPropagation()} className="hover:underline">
+                            {d.nom}
+                          </Link>
+                        </p>
                         <p className="truncate text-km-xs text-km-faint">{d.auteur} · {new Date(d.date_creation).toLocaleDateString('fr-FR')}</p>
                       </div>
                       <Badge tone="neutral">{d.type_document}</Badge>

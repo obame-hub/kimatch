@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import { ApercuDocument } from '@/components/document/ApercuDocument'
-import { useParams, useNavigate } from 'react-router-dom'
+import { useParams, useNavigate, Link } from 'react-router-dom'
 import { ArrowLeft, Zap, Flame, Lightbulb, Trash2, Building2, MapPin, Gauge, FileText, Plus, Euro, X, Eye, PenLine, Check, ExternalLink, Send, MailOpen, FileSignature, PenTool, LifeBuoy} from 'lucide-react'
 import { Topbar } from '@/components/layout/Topbar'
 import { Button } from '@/components/ui/button'
@@ -1049,7 +1049,11 @@ export default function ContratDetail() {
                           <Gauge className="h-4 w-4" />
                         </span>
                         <div className="min-w-0 flex-1">
-                          <p className="truncate text-sm font-bold text-km-text">{c.utilisation || c.numero_pdl}</p>
+                          <p className="truncate text-sm font-bold text-km-text">
+                            <Link to={`/compteurs/${c.id}`} onClick={(e) => e.stopPropagation()} className="hover:underline">
+                              {c.utilisation || c.numero_pdl}
+                            </Link>
+                          </p>
                           <p className="truncate font-mono text-km-xs text-km-faint">{c.numero_pdl}</p>
                         </div>
                       </div>
@@ -1150,7 +1154,11 @@ export default function ContratDetail() {
                         <FileText className="h-4 w-4" />
                       </span>
                       <div className="min-w-0 flex-1">
-                        <p className="truncate text-sm font-bold text-km-text">{d.nom}</p>
+                        <p className="truncate text-sm font-bold text-km-text">
+                          <Link to={`/documents/${d.id}`} onClick={(e) => e.stopPropagation()} className="hover:underline">
+                            {d.nom}
+                          </Link>
+                        </p>
                         <p className="truncate text-km-xs text-km-faint">{d.auteur} · {new Date(d.date_creation).toLocaleDateString('fr-FR')}</p>
                       </div>
                       <Badge tone="neutral">{d.type_document}</Badge>

@@ -1,4 +1,4 @@
-import { useNavigate } from 'react-router-dom'
+import { useNavigate, Link } from 'react-router-dom'
 import { Topbar } from '@/components/layout/Topbar'
 import { PageHeader } from '@/components/ui/page-header'
 import { Card } from '@/components/ui/card'
@@ -89,7 +89,11 @@ export default function Versions() {
                   onClick={() => navigate(`/recommandations/${v.recoId}`)}
                   className="cursor-pointer"
                 >
-                  <td className="font-medium text-km-text">{v.recoTitre}</td>
+                  <td className="font-medium text-km-text">
+                    <Link to={`/recommandations/${v.recoId}`} onClick={(e) => e.stopPropagation()} className="hover:underline">
+                      {v.recoTitre}
+                    </Link>
+                  </td>
                   <td className="text-km-muted">{v.nom || '—'}</td>
                   <td className="text-km-muted">{v.motif_creation}</td>
                   <td >

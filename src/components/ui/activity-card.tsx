@@ -1,4 +1,5 @@
 import { useState, type ReactNode } from 'react'
+import { Link } from 'react-router-dom'
 import { Trash2 } from 'lucide-react'
 import type { LucideIcon } from 'lucide-react'
 import { cn } from '@/lib/utils'
@@ -39,6 +40,7 @@ export function ActivityCard({
   body,
   trailing,
   onClick,
+  to,
   href,
   className,
   onSupprimer,
@@ -66,6 +68,19 @@ export function ActivityCard({
   body?: ReactNode
   trailing?: ReactNode
   onClick?: () => void
+  /**
+   * LA DESTINATION, QUAND LA CARTE EN A UNE — et c'est le TITRE qui devient un vrai lien, pas la
+   * carte entière.
+   *
+   * William, 08/09/2026 : « quand je clique droit, on ne me propose pas d'ouvrir dans un nouvel
+   * onglet ». Envelopper toute la carte dans un `<a>` l'aurait réglé, mais son sous-titre contient
+   * déjà des `EntityLink` — un `<a>` dans un `<a>` est invalide, et le navigateur casse alors la
+   * structure de lui-même.
+   *
+   * Le titre porte donc le lien, la carte garde son clic de commodité. C'est le patron habituel des
+   * listes : on clique n'importe où pour ouvrir, on clique droit sur le nom pour choisir comment.
+   */
+  to?: string
   href?: string
   className?: string
   /**
@@ -129,7 +144,20 @@ export function ActivityCard({
           {/* Couleurs fixes (pas les classes text-navy-*) : le fond de la carte est un lavis
               pastel toujours clair, quel que soit le thème — le texte doit rester sombre dessus
               même en mode sombre (où text-km-text/500 basculeraient en clair et deviendraient illisibles). */}
-          {title && <p className="truncate text-km-label font-semibold" style={{ color: '#16181d' }}>{title}</p>}
+          {title && (
+            <p className="truncate text-km-label font-semibold" style={{ color: '#16181d' }}>
+              {to ? (
+                // `stopPropagation` seul empêcherait le clic d'atteindre le gestionnaire de la carte
+                // MAIS laisserait le navigateur suivre le `href` en rechargeant toute la page.
+                // `preventDefault` est donc indispensable ici, et la navigation est faite à la main.
+                <Link to={to} className="hover:underline" style={{ color: 'inherit' }}>
+                  {title}
+                </Link>
+              ) : (
+                title
+              )}
+            </p>
+          )}
           {subtitle && <p className={cn('line-clamp-2 text-km-label', title && 'mt-0.5')} style={{ color: '#83868f' }}>{subtitle}</p>}
           {/* EN MODE PROSE, LE TEXTE MONTE DANS L'EN-TÊTE, à côté de l'icône : sans titre au-dessus
               de lui, le laisser en bas de carte l'aurait posé sous une ligne vide. */}
@@ -148,7 +176,7 @@ export function ActivityCard({
             type="button"
             // La carte entière est cliquable : sans cet arrêt, supprimer naviguerait aussi vers la
             // fiche de l'interaction, et l'on quitterait l'écran avant d'avoir vu la confirmation.
-            onClick={(e) => { e.stopPropagation(); onSupprimer() }}
+            onClick={(e) => { e.preventDefault(); e.stopPropagation(); onSupprimer() }}
             aria-label="Supprimer"
             title="Supprimer"
             className="-mr-1 flex h-5 w-5 shrink-0 items-center justify-center rounded-km-sm text-km-faint opacity-0 transition-all hover:bg-km-red-soft hover:text-km-red focus:opacity-100 group-hover/carte:opacity-100"

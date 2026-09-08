@@ -1,3 +1,4 @@
+import { Link } from 'react-router-dom'
 import type { ReactNode } from 'react'
 import { cn } from '@/lib/utils'
 
@@ -73,11 +74,28 @@ export function TableauCorps({ children }: { children: ReactNode }) {
  * C'est le motif de sa maquette (`.km-name` + `.km-sub`) et il vaut mieux qu'une colonne de plus :
  * « Groupe Solstice / 6 sites · 18 compteurs » se lit d'un bloc, là où deux colonnes obligent l'œil
  * à faire l'aller-retour pour rapprocher deux informations qui vont ensemble.
+ *
+ * `to` EN FAIT UN VRAI LIEN, et pas seulement du texte dans une rangée cliquable. William,
+ * 08/09/2026 : « quand je clique droit, on ne me propose pas d'ouvrir dans un nouvel onglet ». Une
+ * rangée `<tr onClick>` navigue, mais n'offre ni clic droit, ni ⌘ + clic, ni adresse au survol —
+ * tout cela vient de l'attribut `href`, que seul un `<a>` porte.
  */
-export function NomDeLigne({ children, precision }: { children: ReactNode; precision?: ReactNode }) {
+export function NomDeLigne({ children, precision, to }: { children: ReactNode; precision?: ReactNode; to?: string }) {
   return (
     <>
-      <span className="text-km-name font-semibold text-km-text">{children}</span>
+      {to ? (
+        <Link
+          to={to}
+          // La rangée entière est déjà cliquable : sans cet arrêt, le clic sur le nom déclencherait
+          // AUSSI sa navigation. `preventDefault` n'est pas appelé, donc ⌘ + clic ouvre bien un onglet.
+          onClick={(e) => e.stopPropagation()}
+          className="text-km-name font-semibold text-km-text hover:underline"
+        >
+          {children}
+        </Link>
+      ) : (
+        <span className="text-km-name font-semibold text-km-text">{children}</span>
+      )}
       {precision && <span className="mt-0.5 block text-km-label text-km-muted">{precision}</span>}
     </>
   )

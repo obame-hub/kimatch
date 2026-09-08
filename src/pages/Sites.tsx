@@ -19,7 +19,7 @@
 import { useEffect, useState } from 'react'
 import { CreationCompteurDialog } from '@/components/compteur/CreationCompteurDialog'
 import { PiedDeListe } from '@/components/ui/pied-de-liste'
-import { useLocation, useNavigate } from 'react-router-dom'
+import { useLocation, useNavigate, Link } from 'react-router-dom'
 import { Plus, List, Map as MapIcon } from 'lucide-react'
 import { Topbar } from '@/components/layout/Topbar'
 import { PageHeader } from '@/components/ui/page-header'
@@ -189,7 +189,11 @@ export default function Sites({ sansEntete }: { sansEntete?: boolean }) {
                           onClick={() => navigate(`/sites/${site.id}`)}
                           className="cursor-pointer"
                         >
-                          <td className="font-medium text-km-text">{site.nom}</td>
+                          <td className="font-medium text-km-text">
+                            <Link to={`/sites/${site.id}`} onClick={(e) => e.stopPropagation()} className="hover:underline">
+                              {site.nom}
+                            </Link>
+                          </td>
                           <td className="text-km-muted">
                             <EntityLink to={`/comptes/${site.compte_id}`}>{site.compte_nom}</EntityLink>
                           </td>

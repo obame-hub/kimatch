@@ -489,6 +489,7 @@ export function ActivityFeed({
                 subtitle={row.item.subtitle}
                 body={row.item.body}
                 trailing={libelleTrailing(row.item)}
+                to={row.item.to}
                 onClick={row.item.to ? () => navigate(row.item.to!) : undefined}
                 href={row.item.href}
                 onSupprimer={
