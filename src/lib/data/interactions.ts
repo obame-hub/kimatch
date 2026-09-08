@@ -217,6 +217,60 @@ async function fetchInteractionsByColumn(column: 'contact_id' | 'site_id' | 'rec
 
 // Fiche Contact/Site : meme logique que useInteractionsForCompte -- ne charger que le perimetre
 // concerne plutot que la table entiere.
+/**
+ * ══ UNE SEULE INTERACTION, LUE PAR SON IDENTIFIANT ══
+ *
+ * Naoëlle, 08/09/2026 : « quand je clique sur l'interaction de l'appel d'avant, ça me dit
+ * interaction introuvable. Je voulais voir la transcription. »
+ *
+ * DEUX DÉFAUTS, ET LE PREMIER EST UNE ERREUR DE MÉTHODE. La fiche chargeait la LISTE et cherchait
+ * dedans (`interactions?.find((i) => i.id === id)`). Or la liste est plafonnée — la table compte
+ * 66 643 lignes et la charger entièrement coûtait trente secondes — donc toute interaction hors de
+ * la fenêtre récente était « introuvable ». C'est exactement la faute déjà corrigée sur la fiche
+ * compteur le 16/08/2026, où le site et le compte étaient cherchés dans la liste complète.
+ *
+ * LE SECOND EST UN MANQUE : `transcription` et `resume_ia` ne figurent pas dans `INTERACTIONS_SELECT`.
+ * L'import Allo et le webhook les écrivent — jusqu'à 11 561 caractères de transcription pour un seul
+ * appel — et AUCUN ÉCRAN NE LES A JAMAIS AFFICHÉS. Ils sont donc demandés ici, où l'on regarde un
+ * appel précis, et nulle part ailleurs : les tirer dans la liste chargerait des mégaoctets de texte
+ * que personne ne lit.
+ */
+const INTERACTION_DETAIL_SELECT = INTERACTIONS_SELECT
+  + ', transcription, resume_ia, duree_minutes, piste_id, opportunite_id, suivi_contrat_id'
+
+export interface InteractionDetaillee extends Interaction {
+  transcription: string | null
+  resume_ia: string | null
+  duree_minutes: number | null
+}
+
+export function useInteraction(id: string | undefined) {
+  return useQuery({
+    queryKey: ['interactions', 'une', id],
+    enabled: !!id,
+    queryFn: async (): Promise<InteractionDetaillee | null> => {
+      const { data, error } = await supabase
+        .from('interactions')
+        .select(INTERACTION_DETAIL_SELECT)
+        .eq('id', id as string)
+        .maybeSingle()
+      if (error) throw new Error(error.message)
+      if (!data) return null
+      const brut = data as unknown as RawInteraction & {
+        transcription: string | null
+        resume_ia: string | null
+        duree_minutes: number | null
+      }
+      return {
+        ...mapRawInteraction(brut),
+        transcription: brut.transcription ?? null,
+        resume_ia: brut.resume_ia ?? null,
+        duree_minutes: brut.duree_minutes ?? null,
+      }
+    },
+  })
+}
+
 export function useInteractionsForContact(contactId: string | undefined) {
   return useQuery({
     queryKey: ['interactions', 'contact', contactId],

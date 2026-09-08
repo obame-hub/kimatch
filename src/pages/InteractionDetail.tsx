@@ -9,7 +9,7 @@ import { EntityLink } from '@/components/ui/entity-link'
 import { Dialog } from '@/components/ui/dialog'
 import { HistoriqueDiscret } from '@/components/ui/historique-discret'
 import { InlineField } from '@/components/ui/inline-field'
-import { useInteractions, useUpdateInteractionPartiel, useDeleteInteraction, type PatchInteraction } from '@/lib/data/interactions'
+import { useInteraction, useUpdateInteractionPartiel, useDeleteInteraction, type PatchInteraction } from '@/lib/data/interactions'
 import { useCanManage, useIsAdmin, useProfilsAdmin } from '@/lib/data/roles'
 import { useGoBack } from '@/lib/useGoBack'
 import { useSuppression } from '@/lib/useSuppression'
@@ -24,8 +24,11 @@ const SENS_OPTIONS = [
 export default function InteractionDetail() {
   const { id } = useParams()
   const navigate = useNavigate()
-  const { data: interactions } = useInteractions()
-  const interaction = interactions?.find((i) => i.id === id)
+  /* LUE PAR SON IDENTIFIANT, ET NON CHERCHÉE DANS LA LISTE.
+     La liste est plafonnée — 66 643 lignes dans la table — donc `interactions.find(…)` rendait
+     « Interaction introuvable » pour tout ce qui sortait de la fenêtre récente. Constaté par Naoëlle
+     le 08/09/2026 sur un appel de l'après-midi. */
+  const { data: interaction, isLoading } = useInteraction(id)
   const deleteInteraction = useDeleteInteraction()
   const goBack = useGoBack('/interactions')
 
@@ -64,8 +67,12 @@ export default function InteractionDetail() {
           Retour aux interactions
         </Button>
 
+        {/* « CHARGEMENT » ET « INTROUVABLE » NE DISENT PAS LA MÊME CHOSE, et les confondre envoie
+            chercher un bug là où il n'y a qu'une requête en vol. */}
         {!interaction ? (
-          <p className="text-sm text-km-muted">Interaction introuvable.</p>
+          <p className="text-sm text-km-muted">
+            {isLoading ? 'Chargement…' : 'Interaction introuvable.'}
+          </p>
         ) : (
           <Card className="max-w-xl p-6">
             <CardHeader className="px-0 pt-0">
@@ -230,6 +237,37 @@ export default function InteractionDetail() {
                     Écouter l'appel
                   </a>
                 </p>
+              )}
+
+              {/* ══ CE QU'ALLO A ENTENDU, ENFIN VISIBLE ══
+                  Naoëlle, 08/09/2026 : « je voulais voir la transcription ». Elle est écrite depuis
+                  l'import du 07/09 — jusqu'à 11 561 caractères pour un seul appel — et aucun écran
+                  ne l'affichait. Le résumé d'Allo non plus. */}
+              {interaction.resume_ia && (
+                <div className="mt-3 rounded-km border border-km-line bg-km-soft px-3 py-2.5">
+                  <p className="text-km-xs font-bold uppercase tracking-[0.06em] text-km-faint">
+                    Résumé de l’appel, par Allo
+                  </p>
+                  <p className="mt-1 whitespace-pre-wrap text-km-body leading-relaxed text-km-text">
+                    {interaction.resume_ia}
+                  </p>
+                </div>
+              )}
+
+              {interaction.transcription && (
+                /* REPLIÉE PAR DÉFAUT. Une transcription de onze mille caractères déroulée pousse
+                   tout le reste de la fiche hors de l'écran ; on la lit quand on la cherche. */
+                <details className="mt-3 rounded-km border border-km-line bg-white">
+                  <summary className="cursor-pointer px-3 py-2.5 text-km-body font-semibold text-km-text">
+                    Transcription
+                    <span className="ml-2 font-normal text-km-faint">
+                      {interaction.transcription.length.toLocaleString('fr-FR')} caractères
+                    </span>
+                  </summary>
+                  <p className="max-h-[420px] overflow-y-auto whitespace-pre-wrap border-t border-km-line px-3 py-2.5 text-km-label leading-relaxed text-km-muted">
+                    {interaction.transcription}
+                  </p>
+                </details>
               )}
               {interaction.issue_libelle && (
                 <p><span className="text-km-faint">Motif / issue :</span> <Badge tone="amber">{interaction.issue_libelle}</Badge></p>
