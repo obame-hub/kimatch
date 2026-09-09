@@ -38,3 +38,9 @@ scripts_scratch/
 # La carte des donnees : schema complet et volume de chaque table.
 # Le depot est PUBLIC — la carte se regenere par `npm run carte`, elle n'y est pas deposee.
 carte-donnees/
+
+# LES EXTRACTIONS DE DONNÉES MÉTIER NE VONT PAS DANS UN DÉPÔT PUBLIC.
+# Même raison que `carte-donnees/` ci-dessus : ces fichiers portent des noms de clients, des
+# références de contrats et des noms de collaborateurs. Ils se régénèrent d'une requête ; les
+# publier serait irréversible.
+contrats-sans-compteur.md
