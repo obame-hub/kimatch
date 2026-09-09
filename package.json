@@ -15,7 +15,8 @@
     "carte:verifier": "node scripts/cartographier-donnees.cjs --verifier",
     "verifier:sandbox": "node scripts/verifier-liste-sandbox.cjs",
     "auditer:compteurs": "node scripts/auditer-compteurs-salesforce.cjs",
-    "dev:sandbox": "vite --mode sandbox"
+    "dev:sandbox": "vite --mode sandbox",
+    "croisement": "node scripts/verifier-croisement.cjs"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.110.6",
