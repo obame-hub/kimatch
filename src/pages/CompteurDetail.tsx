@@ -22,13 +22,14 @@ import { useCompte } from '@/lib/data/comptes'
 import { InlineField } from '@/components/ui/inline-field'
 import { useContacts } from '@/lib/data/contacts'
 import { useContrats } from '@/lib/data/contrats'
+import { HistoriqueContrats } from '@/components/compteur/HistoriqueContrats'
 import { natureEcheance } from '@/lib/echeance'
 import { BadgeEcheance } from '@/components/compteur/BadgeEcheance'
 import { useMandats } from '@/lib/data/mandats'
 import { useRecommandationsListe } from '@/lib/data/recommandations'
 import { useDocuments, useTeleverserDocuments } from '@/lib/data/documents'
 import { useReferenceTable } from '@/lib/data/referenceTables'
-import { FALLBACK_STATUTS_CONTRATS, STATUT_CONTRAT_TONE, FALLBACK_STATUTS_MANDATS, STATUT_MANDAT_TONE, FALLBACK_TYPES_DOCUMENTS } from '@/lib/referenceFallbacks'
+import { FALLBACK_STATUTS_MANDATS, STATUT_MANDAT_TONE, FALLBACK_TYPES_DOCUMENTS } from '@/lib/referenceFallbacks'
 import { useCanManageEnregistrement, useIsAdmin, useProfilsAdmin } from '@/lib/data/roles'
 import { useSuppression } from '@/lib/useSuppression'
 import { cn } from '@/lib/utils'
@@ -474,8 +475,10 @@ export default function CompteurDetail() {
   // Le score du compteur, lu dans la vue que le compte moyenne — voir `ScoreQualiteCard`.
   const { data: qualite } = useQualiteCompteur(id)
   const { data: documents } = useDocuments()
-  const { data: statutsContratsRef } = useReferenceTable('statuts_contrats')
-  const statutsContrats = statutsContratsRef && statutsContratsRef.length > 0 ? statutsContratsRef : FALLBACK_STATUTS_CONTRATS
+  /* PLUS DE RÉFÉRENTIEL `statuts_contrats` ICI. La chronologie ne lit plus la colonne mélangée :
+     elle déduit « terminé / en cours / à venir » des dates du contrat (`statutVieContrat`), comme
+     la fiche contrat depuis le 09/09/2026. Un compteur dont le dernier contrat porte encore
+     « Actif » alors que sa date de fin est passée affichait « Actif » ici aussi. */
   const { data: statutsMandatsRef } = useReferenceTable('statuts_mandats')
   const statutsMandats = statutsMandatsRef && statutsMandatsRef.length > 0 ? statutsMandatsRef : FALLBACK_STATUTS_MANDATS
   const { data: typesUtilisation } = useReferenceTable('types_utilisations_compteur')
@@ -1034,36 +1037,18 @@ export default function CompteurDetail() {
             </div>
           )}
 
-          {tab === 'contrats' && (
-            <div className="flex flex-col gap-2.5">
-              {contratsDuCompteur.length === 0 && <p className="text-sm text-km-faint">Aucun contrat ne couvre ce compteur.</p>}
-              {contratsDuCompteur.map((ct) => {
-                const CtIcon = ct.type_energie === 'gaz' ? Flame : Zap
-                return (
-                  <div
-                    key={ct.id}
-                    onClick={() => navigate(`/contrats/${ct.id}`)}
-                    className="flex cursor-pointer items-center gap-3 rounded-xl border border-km-line bg-white p-3.5 hover:bg-km-bg/60"
-                  >
-                    <span className={cn('flex h-9 w-9 shrink-0 items-center justify-center rounded-[10px]', ct.type_energie === 'gaz' ? 'bg-km-amber-soft text-amber-600' : 'bg-sky-100 text-sky-500')}>
-                      <CtIcon className="h-4 w-4" />
-                    </span>
-                    <div className="min-w-0 flex-1">
-                      <p className="truncate text-sm font-bold text-km-text">
-                        <Link to={`/contrats/${ct.id}`} onClick={(e) => e.stopPropagation()} className="hover:underline">
-                          {ct.fournisseur_nom}
-                        </Link>
-                      </p>
-                      <p className="truncate text-km-xs text-km-faint">
-                        {ct.date_debut ? new Date(ct.date_debut).toLocaleDateString('fr-FR') : '—'} → {ct.date_fin ? new Date(ct.date_fin).toLocaleDateString('fr-FR') : 'sans échéance'}
-                      </p>
-                    </div>
-                    <Badge tone={STATUT_CONTRAT_TONE[ct.statut] ?? 'neutral'}>{statutsContrats.find((s) => s.code === ct.statut)?.libelle ?? ct.statut}</Badge>
-                  </div>
-                )
-              })}
-            </div>
-          )}
+          {/* ══ L'ONGLET CONTRATS DEVIENT UNE CHRONOLOGIE ══════════════════════════════════
+
+              William, 09/09/2026, après avoir REFUSÉ la même chose sur la fiche contrat : « un
+              contrat, je n'ai pas besoin de savoir ce qui s'est passé avant ni après, la page
+              contrat se focus sur ça. Par contre un compteur, lui, il a une vie beaucoup plus
+              longue que le contrat. Donc je veux savoir ce qu'il a fait avant, où il en est
+              actuellement, et je veux même savoir s'il a déjà prévu un truc après. »
+
+              La liste plate qui était ici affichait les contrats sans ordre ni époque : sur MEMPHIS
+              BRUAY-LA-BUISSIÈRE, quatre lignes dont il fallait lire les huit dates pour
+              reconstituer 2023 → 2025 → 2026 → 2029. */}
+          {tab === 'contrats' && <HistoriqueContrats contrats={contratsDuCompteur} />}
 
           {tab === 'mandats' && (
             <div className="flex flex-col gap-2.5">
