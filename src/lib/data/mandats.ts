@@ -13,6 +13,9 @@ interface RawMandat {
   date_envoi: string | null
   date_debut_validite: string | null
   date_fin_validite: string | null
+  date_consultation: string | null
+  nb_ouvertures: number | null
+  motif_refus: string | null
   contact_signataire_id: string | null
   docusign_envelope_id: string | null
   proprietaire_id: string | null
@@ -103,6 +106,9 @@ async function fetchMandats(compteId?: string, mandatId?: string, listeSeule = f
       date_envoi: m.date_envoi,
       date_debut_validite: m.date_debut_validite,
       date_fin_validite: m.date_fin_validite,
+      date_consultation: m.date_consultation ?? null,
+      nb_ouvertures: m.nb_ouvertures ?? null,
+      motif_refus: m.motif_refus ?? null,
       nb_sites_couverts: (siteIdsParMandat.get(m.id) ?? []).length,
       site_ids: siteIdsParMandat.get(m.id) ?? [],
       compteur_ids: compteurIdsParMandat.get(m.id) ?? [],
@@ -462,6 +468,17 @@ export function useUpdateMandat() {
 
 /** Colonnes réellement modifiables de `mandats`, pour l'édition en place. */
 export type PatchMandat = Partial<{
+  /**
+   * LE COMPTE MANDANT, MODIFIABLE DEPUIS LE 08/09/2026 — la maquette pose un sélecteur ⇄ sur la
+   * carte Compte du volet.
+   *
+   * ATTENTION À CE QU'IL NE DÉPLACE PAS : les compteurs couverts restent liés au mandat par
+   * `mandats_compteurs`, et ils appartiennent aux sites du compte D'ORIGINE. Changer de compte sans
+   * reprendre le périmètre laisse un mandat rattaché au compte B qui couvre des PDL du compte A.
+   * C'est un geste de CORRECTION — le mandat a été créé sur le mauvais compte — et l'écran le dit
+   * quand le périmètre n'est pas vide.
+   */
+  compte_id: string
   date_signature: string | null
   proprietaire_id: string | null
   /** Le statut, changé depuis la frise du cycle (Naoëlle, 03/09/2026). */

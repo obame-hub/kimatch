@@ -39,6 +39,7 @@ interface RawCompteur {
   site_id: string
   numero_point: string
   libelle: string | null
+  adresse_site: string | null
   actif: boolean
   consommation_annuelle_mwh: number | null
   synchro_eneo: boolean
@@ -114,6 +115,10 @@ async function fetchCompteurs(siteIds?: string[], compteurId?: string): Promise<
         type_energie: (c.type_energie?.code?.toLowerCase() ?? 'electricite') as 'electricite' | 'gaz',
         numero_pdl: c.numero_point,
         utilisation: c.libelle ?? '',
+        /* L'ADRESSE PORTÉE PAR LE COMPTEUR LUI-MÊME, renseignée sur les 7 919 compteurs actifs.
+           À ne pas confondre avec `adresse`, la dérogation d'adresse propre au PDL, qui n'existe
+           que sur UNE ligne. C'est elle qui survivra à la suppression de l'objet Site. */
+        adresse_site: c.adresse_site ?? null,
         type_utilisation_compteur_id: c.type_utilisation_compteur_id,
         type_utilisation_compteur: c.type_utilisation?.libelle ?? null,
         statut: c.actif ? 'actif' : 'inactif',

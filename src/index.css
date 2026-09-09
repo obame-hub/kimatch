@@ -658,3 +658,16 @@ html body span[data-allo-c2c][data-allo-c2c-style="1"] > .allo-copy-btn {
   outline: 2px solid rgb(var(--km-green));
   outline-offset: 2px;
 }
+
+/* ══ LE DÉFILEMENT DES TIRETS DU CHEMIN DE CONVERSION ══
+   Seul signal d'attente du rail du mandat : la barre qui suit le dernier jalon franchi défile tant
+   que l'étape suivante n'a pas eu lieu. Le handoff de William du 08/09/2026 écarte explicitement
+   toute pulsation sur les nœuds — un point qui bat attire l'œil sans rien dire ; des tirets qui
+   avancent disent « ça court ».
+
+   Ici et non dans `tailwind.config.js` : la barre est stylée en ligne, avec les valeurs exactes de
+   la maquette, et n'utilise donc aucune classe utilitaire à laquelle rattacher l'animation. */
+@keyframes stripeMove { to { background-position: 24px 0 } }
+/* Le rail du mandat est passé à la verticale le 09/09/2026 (il partage désormais sa rangée avec les
+   trois cartes d'identité) : les tirets descendent au lieu d'avancer. */
+@keyframes stripeMoveV { to { background-position: 0 24px } }

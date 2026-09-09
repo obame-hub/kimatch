@@ -1,30 +1,42 @@
-import { useMemo, useState } from 'react'
-import { useParams, useNavigate, Link } from 'react-router-dom'
-import { ArrowLeft, FileCheck2, FileSignature, Trash2, Building2, MapPin, Gauge, FileText, Phone, Mail } from 'lucide-react'
+import { Suspense, lazy, useMemo, useState } from 'react'
+import { useParams, useNavigate } from 'react-router-dom'
+import { ArrowLeft, FileCheck2, FileSignature, Trash2 } from 'lucide-react'
 import { Topbar } from '@/components/layout/Topbar'
+import { CheminConversion } from '@/components/mandat/CheminConversion'
+import { CarteCompte, CarteSignataire, CarteTypeMandat, CarteValidite } from '@/components/mandat/CartesIdentite'
+import { PerimetreCouvert } from '@/components/mandat/PerimetreCouvert'
+import { ListeFichiers, CadreVide, fichierParDefaut } from '@/components/mandat/ListeFichiers'
+/**
+ * LA VISIONNEUSE SE CHARGE QUAND ON OUVRE UN PDF, PAS AVANT.
+ *
+ * `pdf.js` pèse 330 ko compressés. Embarqué dans le fragment de la fiche mandat, il doublait son
+ * poids — 520 ko contre 190 — et se téléchargeait même pour un mandat sans le moindre fichier.
+ * `lazy` le sort du chemin critique : la fiche s'ouvre à sa vitesse d'avant, et la visionneuse
+ * arrive pendant qu'on choisit le document.
+ */
+const VisionneusePdf = lazy(() =>
+  import('@/components/document/VisionneusePdf').then((m) => ({ default: m.VisionneusePdf })),
+)
+import { ApercuDocument } from '@/components/document/ApercuDocument'
+import { BlocSuiviDocusign } from '@/components/docusign/BlocSuiviDocusign'
+import { useContratsParCompte } from '@/lib/data/contrats'
 import { Button } from '@/components/ui/button'
 import { ZoneDepotFichiers } from '@/components/ui/zone-depot-fichiers'
-import { Badge } from '@/components/ui/badge'
-import { FriseStatut } from '@/components/opportunite/FriseStatut'
-import { EntityLink } from '@/components/ui/entity-link'
 import { Dialog } from '@/components/ui/dialog'
 import { FormField, Input } from '@/components/ui/form'
 import { EmailLink } from '@/components/ui/contact-link'
 import { HistoriqueDiscret } from '@/components/ui/historique-discret'
-import { InlineField } from '@/components/ui/inline-field'
 import { useMandat, useMandatEnDirect, useMarkMandatEnvoye, useUpdateMandatPartiel, useDeleteMandat, type PatchMandat } from '@/lib/data/mandats'
 import { useContacts } from '@/lib/data/contacts'
-import { contactsDuCompte as contactsRattaches, libelleContactPourCompte } from '@/lib/contactsDuCompte'
+import { contactsDuCompte as contactsRattaches } from '@/lib/contactsDuCompte'
 import { useComptes } from '@/lib/data/comptes'
-import { useSites } from '@/lib/data/sites'
 import { useCompteurs } from '@/lib/data/compteurs'
-import { useDocuments, useTeleverserDocuments } from '@/lib/data/documents'
+import { useDeleteDocument, useDocuments, useTeleverserDocuments } from '@/lib/data/documents'
 import { useReferenceTable, type ReferenceRow } from '@/lib/data/referenceTables'
-import { useCanManage, useIsAdmin, useProfilsAdmin } from '@/lib/data/roles'
+import { useCanManage } from '@/lib/data/roles'
 import { useSuppression } from '@/lib/useSuppression'
 import { FALLBACK_STATUTS_MANDATS, FALLBACK_TYPES_DOCUMENTS } from '@/lib/referenceFallbacks'
 import { sendMandatForSignature, connectDocusign, DocusignNonConnecte, useReprendreArchivage } from '@/lib/data/docusign'
-import { BlocSuiviDocusign } from '@/components/docusign/BlocSuiviDocusign'
 import { useValiderMandatManuellement } from '@/lib/data/mandats'
 import { useGoBack } from '@/lib/useGoBack'
 import { useRaccourcisOnglets } from '@/lib/useRaccourcisOnglets'
@@ -32,14 +44,11 @@ import { jourLocalISO } from '@/lib/heureTache'
 import { cn } from '@/lib/utils'
 import type { Mandat, Contact, Compte, Compteur } from '@/types/domain'
 import { generateMandatKiweePdf, generateMandatEnergixPdf } from '@/lib/mandatPdf'
-import { appelerNumero, numeroLisible } from '@/lib/telephonie'
 
-type TabKey = 'mandat' | 'rattachements' | 'perimetre' | 'fichiers'
+type TabKey = 'mandat' | 'fichiers'
 
 // Le code de reference reste 'KIWI' en base (cle utilisee par tout le pipeline d'import), seul
 // le libelle affiche change -- renommer le code casserait les jointures existantes pour rien.
-const COURTIER_LABEL: Record<string, string> = { KIWI: 'KIWEE', ENERGIX: 'Energix' }
-
 function EnvoyerSignatureDialog({
   open,
   onClose,
@@ -285,134 +294,11 @@ function ValiderManuellementDialog({
  * Et il se tait quand il ne corrige rien. Une notification « rien n'a changé » à chaque ouverture
  * serait du bruit ; on ne parle que lorsqu'on a rattrapé un retard.
  */
-/**
- * Le chemin d'un mandat, dans l'ordre de `statuts_mandats`.
- *
- * ══ QUATRE JALONS DEPUIS LE 08/09/2026, ET NON PLUS CINQ ══
- *
- * « Signé » a été supprimé du référentiel (migration 20260908230000). Il n'a jamais désigné une
- * seule ligne sur les 1 466 mandats de la base — le retour DocuSign écrit directement « Actif » —
- * mais cette frise le proposait au clic, et s'y arrêter rendait le compte INVISIBLE dans la création
- * de recommandation, qui n'accepte que « Actif ». Deux fois le même incident : SENAC IMMOBILIER le
- * 21/08, INTERSERVICES JMD le 08/09. Le geste était pourtant naturel — le mandat EST signé. C'est le
- * jalon qui était faux.
- *
- * « En signature » devient « Consulté » : DocuSign émet `delivered` quand le destinataire OUVRE
- * l'enveloppe, et c'est le moment où une relance sert à quelque chose.
- */
-const JALONS_MANDAT = ['A_PREPARER', 'ENVOYE', 'CONSULTE', 'ACTIF'] as const
-/** Ses trois sorties : on quitte par l'une d'elles, jamais de l'une à l'autre. */
-const SORTIES_MANDAT = ['EXPIRE', 'REFUSE', 'ANNULE'] as const
 
-function ConversionPathCard({ mandat, signaler, statuts, peutModifier, majStatut }: {
-  mandat: Mandat
-  signaler: (m: string) => void
-  statuts: { id: string; code: string; libelle: string }[]
-  peutModifier: boolean
-  majStatut: (statutId: string) => Promise<void>
-}) {
-  /* ══ LE SUIVI DOCUSIGN A QUITTÉ CETTE CARTE ═══════════════════════════════════════════════════
-
-     L'interrogation de DocuSign et le bouton « Vérifier » vivaient ici. Ils sont passés dans
-     `BlocSuiviDocusign`, monté juste en dessous et partagé avec la fiche contrat : c'est ce que
-     Naoëlle a demandé le 08/09/2026 (« le même système de suivi DocuSign »), et cela répare au
-     passage la disparition du suivi sur un mandat actif.
-
-     CETTE CARTE GARDE CE QUI LUI APPARTIENT : le cycle métier du mandat, ses jalons cliquables et
-     ses trois sorties. Le cycle du mandat et l'état d'une enveloppe DocuSign ne sont pas la même
-     information — les mélanger est ce qui faisait qu'aucune des deux n'était complète. */
-
-  /* ══ LA FRISE MAISON CÈDE LA PLACE À CELLE DE TOUS LES OBJETS ═════════════════════════════════
-
-     Naoëlle, 03/09/2026 : « enlève toutes les capsules de statut à côté des noms d'objet et garde
-     les frises animées de statut, c'est plus parlant pour nous. Les objets où on n'a pas encore mis
-     de frise, mets-le. »
-
-     Le mandat en avait une, mais faite à la main et AVANT que `FriseStatut` n'existe — c'est même
-     elle qui l'a inspirée (« même montage que le chemin de conversion du mandat »). Deux défauts
-     l'ont fait remplacer :
-
-       · ELLE LISAIT LES DATES, PAS LE STATUT. Trois étapes déduites de `date_signature` et
-         `date_envoi`, quand `statuts_mandats` en compte huit. « En signature », « Actif »,
-         « Expiré » n'y apparaissaient jamais, et la pastille à côté du nom disait autre chose que
-         la frise juste en dessous.
-       · ELLE N'ÉTAIT PAS ANIMÉE. Pas de jalon qui pulse, pas de hachures qui défilent : elle ne
-         disait pas « vous êtes ici », seulement « voici trois cases ».
-
-     Cinq jalons — À préparer, Envoyé, En signature, Signé, Actif — et trois sorties : Expiré,
-     Refusé, Annulé. Un mandat ne passe pas d'« expiré » à « refusé », il sort par l'un des trois. */
-  return (
-    <div className="rounded-xl border border-km-line bg-white p-4">
-      <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
-        <p className="text-km-xs font-bold uppercase tracking-wide text-km-faint">Cycle du mandat</p>
-      </div>
-      <FriseStatut
-        teinte="mandat"
-        jalons={JALONS_MANDAT.map((code) => ({
-          code,
-          libelle: statuts.find((s) => s.code === code)?.libelle ?? code,
-        }))}
-        courant={SORTIES_MANDAT.includes(mandat.statut as never) ? 'A_PREPARER' : mandat.statut}
-        finalite={
-          SORTIES_MANDAT.includes(mandat.statut as never)
-            ? {
-                libelle: statuts.find((s) => s.code === mandat.statut)?.libelle ?? mandat.statut,
-                perdue: mandat.statut === 'REFUSE',
-                neutre: mandat.statut !== 'REFUSE',
-              }
-            : null
-        }
-        onJalon={
-          peutModifier
-            ? (code: string) => {
-                const statut = statuts.find((s) => s.code === code)
-                if (!statut || statut.code === mandat.statut) return
-                majStatut(statut.id)
-                  .then(() => signaler(`✓ ${statut.libelle}`))
-                  .catch((e) => signaler(e instanceof Error ? `Erreur : ${e.message}` : 'Enregistrement impossible'))
-              }
-            : undefined
-        }
-        issues={
-          peutModifier
-            ? SORTIES_MANDAT.map((code) => ({
-                code,
-                libelle: statuts.find((s) => s.code === code)?.libelle ?? code,
-              }))
-            : undefined
-        }
-      />
-    </div>
-  )
-}
-
-function ValiditeCard({ dateDebut, dateFin }: { dateDebut: string; dateFin: string }) {
-  const debut = new Date(dateDebut).getTime()
-  const fin = new Date(dateFin).getTime()
-  const now = Date.now()
-  const pct = Math.min(100, Math.max(0, ((now - debut) / (fin - debut)) * 100))
-  const joursRestants = Math.round((fin - now) / 86400000)
-
-  return (
-    <div className="rounded-xl border border-km-line bg-white p-4">
-      <div className="mb-2 flex items-center gap-2">
-        <span className="text-km-xs font-bold uppercase tracking-wide text-km-faint">Validité</span>
-        <div className="flex-1" />
-        <span className={cn('text-km-label font-bold', joursRestants < 0 ? 'text-km-faint' : joursRestants < 60 ? 'text-red-500' : 'text-amber-600')}>
-          {joursRestants < 0 ? 'expiré' : `expire dans ${joursRestants} jour${joursRestants > 1 ? 's' : ''}`}
-        </span>
-      </div>
-      <div className="relative h-2.5 rounded-full bg-km-soft">
-        <div className="absolute inset-y-0 left-0 rounded-full bg-gradient-to-r from-kiwi-500 to-kiwi-400" style={{ width: `${pct}%` }} />
-        {now >= debut && now <= fin && <div className="absolute -top-0.5 h-3.5 w-0.5 rounded bg-red-500" style={{ left: `${pct}%` }} />}
-      </div>
-      <div className="mt-1.5 flex justify-between font-mono text-km-xs text-km-faint">
-        <span>{new Date(dateDebut).toLocaleDateString('fr-FR')}</span>
-        {now >= debut && now <= fin && <span className="font-bold text-red-500">aujourd'hui</span>}
-        <span>{new Date(dateFin).toLocaleDateString('fr-FR')}</span>
-      </div>
-    </div>
-  )
+/** Un PDF se reconnaît à son nom de fichier — l'adresse sert de repli pour les reprises Salesforce,
+ *  où `nom_fichier` est parfois vide. */
+function estPdf(doc: { nom_fichier?: string | null; url?: string | null }): boolean {
+  return Boolean(doc.nom_fichier?.toLowerCase().endsWith('.pdf') || doc.url?.toLowerCase().includes('.pdf'))
 }
 
 export default function MandatDetail() {
@@ -427,7 +313,6 @@ export default function MandatDetail() {
   const statuts = statutsRef && statutsRef.length > 0 ? statutsRef : FALLBACK_STATUTS_MANDATS
   const { data: contacts } = useContacts()
   const { data: comptes } = useComptes()
-  const { data: sites } = useSites()
   const { data: compteurs } = useCompteurs()
   const { data: documents } = useDocuments()
   const [showEnvoyer, setShowEnvoyer] = useState(false)
@@ -442,9 +327,12 @@ export default function MandatDetail() {
   const [tab, setTab] = useState<TabKey>('mandat')
   const reprendreArchivage = useReprendreArchivage()
   const [repriseMessage, setRepriseMessage] = useState<string | null>(null)
+  /** Le fichier ouvert dans la visionneuse. `null` = celui que `fichierParDefaut` désigne. */
+  const [documentChoisi, setDocumentChoisi] = useState<string | null>(null)
+  const supprimerDocument = useDeleteDocument()
   const canManage = useCanManage(mandat?.proprietaire_id)
-  const isAdmin = useIsAdmin()
-  const { data: profilsAdmin } = useProfilsAdmin()
+  /* Les contrats du compte, pas du CRM : le périmètre a besoin du fournisseur de chaque PDL. */
+  const { data: contratsDuCompte } = useContratsParCompte(mandat?.compte_id)
   const deleteMandat = useDeleteMandat()
   const goBack = useGoBack('/mandats')
 
@@ -465,15 +353,17 @@ export default function MandatDetail() {
     setToast(msg)
     setTimeout(() => setToast(null), 2200)
   }
-  const retourInline = {
-    onSaved: () => showToast('✓ enregistré'),
-    onError: (e: Error) => showToast(`Erreur : ${e.message}`),
-  }
   const compte = comptes?.find((c) => c.id === mandat?.compte_id)
   const contactSignataire = contacts?.find((c) => c.id === mandat?.contact_signataire_id)
-  const sitesDuMandat = useMemo(() => sites?.filter((s) => mandat?.site_ids.includes(s.id)) ?? [], [sites, mandat])
   const compteursDuMandat = useMemo(() => compteurs?.filter((c) => mandat?.compteur_ids.includes(c.id)) ?? [], [compteurs, mandat])
   const documentsDuMandat = useMemo(() => documents?.filter((d) => d.entite_type === 'mandat' && d.entite_id === mandat?.id) ?? [], [documents, mandat?.id])
+
+  /* Le mandat Kiwee signé s'ouvre de lui-même — voir `fichierParDefaut`. Le choix explicite de
+     l'utilisateur prime, et retombe sur le défaut si le fichier choisi vient d'être supprimé. */
+  const documentOuvert = useMemo(
+    () => documentsDuMandat.find((d) => d.id === documentChoisi) ?? fichierParDefaut(documentsDuMandat),
+    [documentsDuMandat, documentChoisi],
+  )
 
   const suppression = useSuppression()
 
@@ -485,12 +375,20 @@ export default function MandatDetail() {
     )
   }
 
+  /**
+   * ══ DEUX ONGLETS SUR QUATRE ONT DISPARU LE 09/09/2026 ══
+   *
+   * William : « supprime l'onglet périmètre et rattachement ».
+   *
+   * « Rattachements » ne montrait que le compte et le signataire — exactement ce que les cartes
+   * d'identité du volet Mandat affichent désormais, en mieux. « Périmètre » listait les compteurs
+   * groupés par site, en lecture seule : le groupement par site s'en va avec l'objet Site, et la
+   * liste à plat vit maintenant en bas du volet Mandat.
+   *
+   * Aucune fonction n'est perdue : les deux étaient des vues, pas des outils.
+   */
   const TABS: { key: TabKey; label: string; badge?: string }[] = [
     { key: 'mandat', label: 'Mandat' },
-    /* Le compte, le signataire, le parcours de conversion et la validité : quatre cartes qui
-       tenaient 256 px sur les trois onglets (Michel et Naoëlle, 31/08/2026). */
-    { key: 'rattachements', label: 'Rattachements' },
-    { key: 'perimetre', label: 'Périmètre', badge: compteursDuMandat.length ? String(compteursDuMandat.length) : undefined },
     { key: 'fichiers', label: 'Fichiers', badge: documentsDuMandat.length ? String(documentsDuMandat.length) : undefined },
   ]
 
@@ -603,79 +501,56 @@ export default function MandatDetail() {
         {/* Centre */}
         <div className="bg-km-bg p-4 sm:p-5">
           {/* Les objets liés et le contexte du mandat, sortis du volet gauche. */}
-          {tab === 'rattachements' && (
-            <div className="flex max-w-[560px] flex-col gap-3.5">
-        {compte && (
-          <div className="rounded-xl border border-km-line bg-white p-3.5">
-            <div className="mb-2 flex items-center gap-1.5">
-              <span className="flex h-5 w-5 items-center justify-center rounded-md bg-sky-100 text-sky-500"><Building2 className="h-2.5 w-2.5" /></span>
-              <span className="text-km-xs font-bold uppercase tracking-wide text-km-faint">Compte</span>
-              <div className="flex-1" />
-              <EntityLink to={`/comptes/${compte.id}`}>ouvrir →</EntityLink>
-            </div>
-            <p className="text-km-body font-bold text-sky-500">{compte.nom}</p>
-          </div>
-        )}
-
-        {contactSignataire && (
-          <div className="rounded-xl border border-violet-200 bg-gradient-to-br from-violet-50/60 to-white p-3.5">
-            <div className="mb-2.5 flex items-center gap-1.5">
-              <span className="text-km-xs font-bold uppercase tracking-wide text-km-faint">Signataire</span>
-              <div className="flex-1" />
-              <EntityLink to={`/contacts/${contactSignataire.id}`}>ouvrir →</EntityLink>
-            </div>
-            <div className="flex items-center gap-2.5">
-              <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-violet-500 to-violet-400 text-km-label font-bold text-white">
-                {`${contactSignataire.prenom[0] ?? ''}${contactSignataire.nom[0] ?? ''}`.toUpperCase()}
-              </div>
-              <div className="min-w-0 flex-1">
-                <p className="truncate text-km-body font-bold text-km-text">{contactSignataire.prenom} {contactSignataire.nom}</p>
-                {contactSignataire.fonction && <p className="truncate text-km-xs text-km-muted">{contactSignataire.fonction}</p>}
-                {/* LE NUMÉRO S'AFFICHE, ET CE N'EST PAS COSMÉTIQUE. L'extension Allo décore les
-                  numéros qu'elle VOIT sur la page : derrière une icône et une infobulle, elle n'a
-                  rien à détecter et l'icône Allo n'apparaît jamais. Le texte est la condition pour
-                  que l'appel dans Allo soit possible. */}
-                {contactSignataire.telephone && (
-                  <p className="truncate font-mono text-km-xs text-km-muted">{numeroLisible(contactSignataire.telephone)}</p>
-                )}
-              </div>
-            </div>
-            <div className="mt-2.5 flex gap-1.5">
-              {contactSignataire.telephone && (
-                <button
-                  type="button"
-                  onClick={() => void appelerNumero(contactSignataire.telephone)}
-                  title="Appeler"
-                  className="flex h-7 flex-1 items-center justify-center rounded-lg border border-km-line bg-white text-km-green hover:bg-kiwi-50"
-                >
-                  <Phone className="h-3 w-3" />
-                </button>
-              )}
-              {contactSignataire.email && (
-                <a href={`mailto:${contactSignataire.email}`} title="Envoyer un email" className="flex h-7 flex-1 items-center justify-center rounded-lg border border-km-line bg-white text-sky-500 hover:bg-sky-50">
-                  <Mail className="h-3 w-3" />
-                </a>
-              )}
-            </div>
-          </div>
-        )}
-            </div>
-          )}
-
           {tab === 'mandat' && (
+            /* ══ LE VOLET DU MANDAT, TROIS STRATES DE LECTURE ══
+               Maquette de William, 08/09/2026 : où en est le mandat, qui et quoi, sur quoi il porte.
+               L'ordre est délibéré et ne doit pas changer — c'est l'ordre des questions qu'on se
+               pose en ouvrant la fiche. */
             <div className="flex flex-col gap-3.5">
-              <ConversionPathCard
-                mandat={mandat}
-                signaler={showToast}
-                statuts={statuts}
-                peutModifier={canManage}
-                majStatut={(statut_id) => majMandat({ statut_id })}
-              />
-              {/* ── LE SUIVI DOCUSIGN, LE MÊME QUE SUR LE CONTRAT ──
-                  Naoëlle, 08/09/2026 : « ce qu'il y avait sur mandat que je ne vois plus je sais pas
-                  pourquoi ». Il disparaissait dès que le mandat devenait ACTIF — donc sur la
-                  quasi-totalité d'entre eux — parce que l'état arrêté coupait le bloc entier et pas
-                  seulement son appel automatique. Voir `BlocSuiviDocusign`. */}
+              <CheminConversion mandat={mandat} onCopie={showToast} />
+
+              {/* QUATRE CARTES SUR UNE RANGÉE — William, 09/09/2026 : la frise de VALIDITÉ quitte le
+                  bloc « Détail » pour rejoindre Compte, Signataire et Type de mandat. Le parcours,
+                  lui, reste en pleine largeur au-dessus : « il était parfait tout en haut ».
+                  En dessous de 1 280 px la rangée se dédouble, puis s'empile. */}
+              <div className="grid grid-cols-1 items-stretch gap-3.5 md:grid-cols-2 xl:grid-cols-4">
+                <CarteCompte
+                  compte={compte}
+                  comptes={comptes ?? []}
+                  peutModifier={canManage}
+                  onChangerCompte={(compte_id) => {
+                    void majMandat({ compte_id }).then(() => showToast('✓ compte modifié'))
+                  }}
+                  onCopie={showToast}
+                  nbPdlCouverts={compteursDuMandat.length}
+                />
+                <CarteSignataire
+                  contact={contactSignataire}
+                  contacts={contactsPourSignature}
+                  peutModifier={canManage}
+                  onChangerSignataire={(contact_signataire_id) => {
+                    void majMandat({ contact_signataire_id }).then(() => showToast('✓ signataire modifié'))
+                  }}
+                  onCopie={showToast}
+                />
+                <CarteTypeMandat mandat={mandat} />
+                <CarteValidite
+                  debut={mandat.date_debut_validite ?? mandat.date_signature}
+                  fin={mandat.date_fin_validite}
+                />
+              </div>
+
+              <PerimetreCouvert compteurs={compteursDuMandat} contrats={contratsDuCompte} />
+
+              {/* ══ LE SUIVI DOCUSIGN, LE MÊME QUE SUR LE CONTRAT ══
+                  Naoëlle, 08/09/2026 : « ce qu'il y avait sur mandat que je ne vois plus ». Le suivi
+                  disparaissait dès que le mandat devenait ACTIF — donc sur la quasi-totalité d'entre
+                  eux — parce que l'état arrêté coupait le bloc entier et pas seulement son appel
+                  automatique. Elle l'a sorti dans `BlocSuiviDocusign`, partagé avec la fiche contrat.
+
+                  J'AVAIS ÉCRIT LE MIEN EN PARALLÈLE, le 08/09 également, sans voir le sien : deux
+                  composants pour la même chose, dont l'un aurait cessé d'être relu. Le sien reste —
+                  il sert deux fiches, le mien n'en servait qu'une. */}
               <BlocSuiviDocusign
                 objet="mandat"
                 id={mandat.id}
@@ -687,231 +562,123 @@ export default function MandatDetail() {
                 signaler={showToast}
                 versProfil={() => navigate('/profil')}
               />
-              {mandat.date_fin_validite && (mandat.date_debut_validite || mandat.date_signature) && (
-                <ValiditeCard dateDebut={(mandat.date_debut_validite ?? mandat.date_signature) as string} dateFin={mandat.date_fin_validite} />
-              )}
-              <div className="rounded-xl border border-km-line bg-white p-4">
-              <p className="mb-2.5 text-km-xs font-bold uppercase tracking-wide text-km-faint">Détail du mandat</p>
-              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-                {/* Edition en place : la date de signature se saisit ici, plus dans une modale.
-                    C'est le seul champ que le mandat laisse modifier a la main -- tout le reste
-                    vient de DocuSign ou du perimetre de compteurs. */}
-                {canManage ? (
-                  <InlineField
-                    variant="date"
-                    label="Date de signature"
-                    emptyLabel="ajouter la date de signature"
-                    value={jourLocalISO(mandat.date_signature)}
-                    onCommit={(date_signature) => majMandat({ date_signature })}
-                    {...retourInline}
-                  />
-                ) : (
-                  <div>
-                    <p className="mb-0.5 text-km-xs uppercase tracking-wide text-km-faint">Date de signature</p>
-                    <p className="text-xs font-semibold text-km-text">{mandat.date_signature ? new Date(mandat.date_signature).toLocaleDateString('fr-FR') : '—'}</p>
-                  </div>
-                )}
-                {isAdmin && (
-                  <InlineField
-                    variant="select"
-                    label="Propriétaire"
-                    emptyLabel="aucun"
-                    value={mandat.proprietaire_id ?? ''}
-                    options={(profilsAdmin ?? []).map((p) => ({ value: p.id, label: `${p.prenom} ${p.nom}` }))}
-                    onCommit={(v) => majMandat({ proprietaire_id: v || null })}
-                    {...retourInline}
-                  />
-                )}
-                {/* ══ LE SIGNATAIRE SE CHANGE ICI ══
 
-                    Naoëlle, 07/09/2026 : « il faudrait que quand on veut changer le signataire d'un
-                    contrat ou d'un mandat, on puisse sélectionner un contact qui n'a pas forcément
-                    le compte du mandat ou du contrat en principal. »
-
-                    Il n'était modifiable nulle part : le wizard le posait à la création, la fiche ne
-                    faisait que l'afficher. Se tromper de signataire imposait de refaire le mandat.
-
-                    ET LA LISTE COUVRE LES DEUX RATTACHEMENTS. C'est le cas de William sur le contrat
-                    CT-01606, transposé : la bonne personne était rattachée au compte, mais via un
-                    autre compte principal, donc invisible. */}
-                {canManage ? (
-                  <InlineField
-                    variant="select"
-                    label="Signataire"
-                    emptyLabel="choisir un signataire"
-                    value={mandat.contact_signataire_id ?? ''}
-                    options={contactsPourSignature.map((c) => ({
-                      value: c.id,
-                      label: libelleContactPourCompte(c, mandat.compte_id),
-                    }))}
-                    onCommit={(v) => majMandat({ contact_signataire_id: v || null })}
-                    {...retourInline}
-                  />
-                ) : (
-                  <div>
-                    <p className="mb-0.5 text-km-xs uppercase tracking-wide text-km-faint">Signataire</p>
-                    <p className="text-xs font-semibold text-km-text">{mandat.contact_signataire_nom ?? '—'}</p>
-                  </div>
-                )}
-                <div>
-                  <p className="mb-0.5 text-km-xs uppercase tracking-wide text-km-faint">Sites couverts</p>
-                  <p className="text-xs font-semibold text-km-text">{mandat.nb_sites_couverts}</p>
-                </div>
-                <div>
-                  <p className="mb-0.5 text-km-xs uppercase tracking-wide text-km-faint">Courtiers couverts</p>
-                  <p className="text-xs font-semibold text-km-text">{mandat.courtier_codes.length > 0 ? mandat.courtier_codes.map((code) => COURTIER_LABEL[code] ?? code).join(', ') : '—'}</p>
-                </div>
-                {mandat.docusign_envelope_id && (
-                  <div className="sm:col-span-2">
-                    <p className="mb-0.5 text-km-xs uppercase tracking-wide text-km-faint">Enveloppe DocuSign</p>
-                    <p className="font-mono text-xs text-km-muted">{mandat.docusign_envelope_id}</p>
-                  </div>
-                )}
-              </div>
-              <p className="mt-3 text-km-xs italic text-km-faint">
-                Le mandat définit le périmètre de sites que KiWee est autorisé à analyser — une recommandation peut ne porter que sur une partie de ce périmètre.
-              </p>
+              {/* ══ LE BLOC « DÉTAIL » EST PARTI ══
+                  William, 09/09/2026 : « tu peux masquer le bloc détail, désormais il n'est pas
+                  utile ». La validité a rejoint la rangée du haut, le propriétaire est masqué, et la
+                  date de signature se saisit dans « Valider manuellement ». Reste l'historique des
+                  modifications, replié, qui répond à « qui a changé ça » — et n'a pas d'autre
+                  maison. */}
               <HistoriqueDiscret tableNom="mandats" ligneId={mandat.id} />
-              </div>
-            </div>
-          )}
-
-          {tab === 'perimetre' && (
-            <div className="flex flex-col gap-3.5">
-              {sitesDuMandat.length === 0 ? (
-                <p className="text-sm text-km-faint">Aucun compteur couvert par ce mandat.</p>
-              ) : (
-                sitesDuMandat.map((s) => {
-                  const compteursDuSite = compteursDuMandat.filter((c) => c.site_id === s.id)
-                  return (
-                    <div key={s.id} className="rounded-xl border border-km-line bg-white p-3.5">
-                      <div
-                        onClick={() => navigate(`/sites/${s.id}`)}
-                        className="mb-2.5 flex cursor-pointer items-center gap-3 hover:opacity-80"
-                      >
-                        <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-[10px] bg-km-green-soft text-km-green">
-                          <MapPin className="h-4 w-4" />
-                        </span>
-                        <div className="min-w-0 flex-1">
-                          <p className="truncate text-sm font-bold text-km-text">
-                            <Link to={`/sites/${s.id}`} onClick={(e) => e.stopPropagation()} className="hover:underline">
-                              {s.nom}
-                            </Link>
-                          </p>
-                          <p className="truncate text-km-xs text-km-faint">{s.type_site} · {s.ville}</p>
-                        </div>
-                        <Badge tone={s.statut === 'actif' ? 'kiwi' : 'neutral'}>{s.statut}</Badge>
-                      </div>
-                      <div className="flex flex-col gap-1.5 border-t border-navy-50 pt-2.5">
-                        {compteursDuSite.map((c) => (
-                          <div
-                            key={c.id}
-                            onClick={() => navigate(`/compteurs/${c.id}`)}
-                            className="flex cursor-pointer items-center gap-2 rounded-lg px-1.5 py-1 hover:bg-km-bg/60"
-                          >
-                            <Gauge className="h-3 w-3 shrink-0 text-km-faint" />
-                            <p className="truncate text-xs font-semibold text-km-text">
-                              <Link to={`/compteurs/${c.id}`} onClick={(e) => e.stopPropagation()} className="hover:underline">
-                                {c.utilisation || c.numero_pdl}
-                              </Link>
-                            </p>
-                            <p className="truncate font-mono text-km-xs text-km-faint">{c.numero_pdl}</p>
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-                  )
-                })
-              )}
             </div>
           )}
 
           {tab === 'fichiers' && (
-            <div className="flex flex-col gap-3.5">
-              {/* PAS DE BOUTON « Ajouter un fichier ». Naoelle, 21/08/2026 : « si on peut cliquer
-                  ou deposer c'est bon, pas besoin de bruit visuel avec un bouton », puis « fais le
-                  menage partout ». La zone juste en dessous dit les deux gestes et les accepte tous
-                  les deux ; le bouton doublait l'un d'eux. Le rattachement par lien, qui n'etait
-                  accessible que par lui, se fait desormais dans la zone — en y glissant le lien, ou
-                  en le collant. */}
-              {/* Depot reel de fichiers — possible depuis que le bucket « documents » a des
-                  politiques d'ecriture (migration 20260816130000). */}
-              <ZoneDepotFichiers
-                types={typesDocs}
-                onDeposer={async (fichiers, typeDocumentId) => {
-                  await televerser.mutateAsync({
-                    fichiers,
-                    entite_type: 'mandat',
-                    entite_id: mandat.id,
-                    type_document_id: typeDocumentId,
-                    type_document_libelle: typesDocs.find((x) => x.id === typeDocumentId)?.libelle ?? '',
-                  })
-                }}
-              />
-              {/* ══ REDEMANDER LES PIÈCES SIGNÉES À DOCUSIGN ══
-                  N'apparaît que sur un mandat signé passé par DocuSign — ailleurs, il n'y a rien à
-                  redemander. Il sert deux cas : les mandats signés avant le 08/09/2026, dont
-                  l'archivage déposait un unique PDF combiné, et le jour où un téléchargement échoue
-                  en silence. Le bouton reste discret : c'est une réparation, pas un geste courant. */}
-              {mandat.docusign_envelope_id && (mandat.statut === 'ACTIF' || mandat.statut === 'EXPIRE') && (
-                <div className="flex flex-wrap items-center gap-2 rounded-km-md border border-dashed border-km-line bg-km-bg/60 px-3 py-2">
-                  <p className="mr-auto text-km-label text-km-muted">
-                    Les pièces signées viennent de DocuSign — un PDF par document, plus le certificat.
-                  </p>
-                  <button
-                    type="button"
-                    disabled={reprendreArchivage.isPending}
-                    onClick={async () => {
-                      setRepriseMessage(null)
-                      try {
-                        const r = await reprendreArchivage.mutateAsync({ mandatIds: [mandat.id] })
-                        const pieces = r.rapport?.[0]?.pieces ?? 0
-                        const echec = r.rapport?.[0]?.erreur
-                        setRepriseMessage(
-                          echec
-                            ? `Échec : ${echec}`
-                            : `${pieces} pièce${pieces > 1 ? 's' : ''} récupérée${pieces > 1 ? 's' : ''} depuis DocuSign.`,
-                        )
-                      } catch (e) {
-                        setRepriseMessage(e instanceof Error ? e.message : 'Reprise impossible')
-                      }
-                    }}
-                    className="rounded-km border border-km-line bg-km-surface px-2.5 py-1 text-km-label font-semibold text-km-muted transition-colors hover:border-km-green hover:bg-km-green-soft hover:text-km-green disabled:opacity-50"
-                  >
-                    {reprendreArchivage.isPending ? 'Récupération…' : 'Récupérer à nouveau'}
-                  </button>
-                  {repriseMessage && (
-                    <p className="w-full text-km-label font-semibold text-km-text">{repriseMessage}</p>
-                  )}
-                </div>
-              )}
+            /* ══ UN TIERS POUR CHOISIR, DEUX TIERS POUR LIRE ══
+               William, 09/09/2026 : « dans ce volet on va le faire en 1/3 à gauche et 2/3 à droite.
+               Dans le volet de gauche la zone de drag & drop ainsi que les différents fichiers
+               uploadés, et à droite une visualisatrice de PDF hyper optimisée. »
 
-              {documentsDuMandat.length === 0 ? (
-                <p className="text-sm text-km-faint">Aucun fichier lié à ce mandat.</p>
-              ) : (
-                <div className="overflow-hidden rounded-xl border border-km-line bg-white">
-                  {documentsDuMandat.map((d) => (
-                    <div
-                      key={d.id}
-                      onClick={() => navigate(`/documents/${d.id}`)}
-                      className="flex cursor-pointer items-center gap-3 border-b border-navy-50 px-4 py-3 last:border-b-0 hover:bg-km-bg/60"
+               La hauteur est celle du volet, pas celle du contenu : la visionneuse doit occuper tout
+               ce qui reste sous la barre d'onglets, sinon elle affiche un timbre-poste au milieu
+               d'une page vide. D'où `h-full min-h-0` et deux colonnes qui défilent séparément. */
+            <div className="grid h-full min-h-0 grid-cols-1 gap-3.5 lg:grid-cols-[minmax(0,1fr)_minmax(0,2fr)]">
+              <div className="flex min-h-0 flex-col gap-3 overflow-y-auto pr-0.5">
+                {/* PAS DE BOUTON « Ajouter un fichier ». Naoëlle, 21/08/2026 : « si on peut cliquer
+                    ou déposer c'est bon, pas besoin de bruit visuel avec un bouton ». La zone dit
+                    les deux gestes et les accepte tous les deux. */}
+                <ZoneDepotFichiers
+                  types={typesDocs}
+                  onDeposer={async (fichiers, typeDocumentId) => {
+                    await televerser.mutateAsync({
+                      fichiers,
+                      entite_type: 'mandat',
+                      entite_id: mandat.id,
+                      type_document_id: typeDocumentId,
+                      type_document_libelle: typesDocs.find((x) => x.id === typeDocumentId)?.libelle ?? '',
+                    })
+                  }}
+                />
+
+                <ListeFichiers
+                  documents={documentsDuMandat}
+                  selection={documentOuvert?.id ?? null}
+                  onSelectionner={(d) => setDocumentChoisi(d.id)}
+                  peutSupprimer={canManage}
+                  onSupprimer={async (d) => {
+                    await supprimerDocument.mutateAsync(d.id)
+                    if (documentChoisi === d.id) setDocumentChoisi(null)
+                    showToast('✓ fichier supprimé')
+                  }}
+                />
+
+                {/* ══ REDEMANDER LES PIÈCES SIGNÉES À DOCUSIGN ══
+                    N'apparaît que sur un mandat signé passé par DocuSign. Il sert deux cas : les
+                    mandats signés avant le 08/09/2026, dont l'archivage déposait un unique PDF
+                    combiné, et le jour où un téléchargement échoue en silence. */}
+                {mandat.docusign_envelope_id && (mandat.statut === 'ACTIF' || mandat.statut === 'EXPIRE') && (
+                  <div className="rounded-km-md border border-dashed border-km-line bg-km-bg/60 px-3 py-2.5">
+                    <p className="text-km-label leading-relaxed text-km-muted">
+                      Les pièces signées viennent de DocuSign — un PDF par document, plus le certificat.
+                    </p>
+                    <button
+                      type="button"
+                      disabled={reprendreArchivage.isPending}
+                      onClick={async () => {
+                        setRepriseMessage(null)
+                        try {
+                          const r = await reprendreArchivage.mutateAsync({ mandatIds: [mandat.id] })
+                          const pieces = r.rapport?.[0]?.pieces ?? 0
+                          const echec = r.rapport?.[0]?.erreur
+                          setRepriseMessage(
+                            echec
+                              ? `Échec : ${echec}`
+                              : `${pieces} pièce${pieces > 1 ? 's' : ''} récupérée${pieces > 1 ? 's' : ''} depuis DocuSign.`,
+                          )
+                        } catch (e) {
+                          setRepriseMessage(e instanceof Error ? e.message : 'Reprise impossible')
+                        }
+                      }}
+                      className="mt-1.5 rounded-km border border-km-line bg-km-surface px-2.5 py-1 text-km-label font-semibold text-km-muted transition-colors hover:border-km-green hover:bg-km-green-soft hover:text-km-green disabled:opacity-50"
                     >
-                      <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-km-soft text-km-muted">
-                        <FileText className="h-4 w-4" />
-                      </span>
-                      <div className="min-w-0 flex-1">
-                        <p className="truncate text-sm font-bold text-km-text">
-                          <Link to={`/documents/${d.id}`} onClick={(e) => e.stopPropagation()} className="hover:underline">
-                            {d.nom}
-                          </Link>
-                        </p>
-                        <p className="truncate text-km-xs text-km-faint">{d.auteur} · {new Date(d.date_creation).toLocaleDateString('fr-FR')}</p>
-                      </div>
-                      <Badge tone="neutral">{d.type_document}</Badge>
-                    </div>
-                  ))}
-                </div>
-              )}
+                      {reprendreArchivage.isPending ? 'Récupération…' : 'Récupérer à nouveau'}
+                    </button>
+                    {repriseMessage && (
+                      <p className="mt-1.5 text-km-label font-semibold text-km-text">{repriseMessage}</p>
+                    )}
+                  </div>
+                )}
+              </div>
+
+              {/* ══ LA COLONNE DE LECTURE ══
+                  Un PDF passe par la visionneuse maison ; le reste — six PNG et trois DOCX dans
+                  toute la base — garde l'aperçu générique, qui sait afficher une image et proposer
+                  le téléchargement pour ce qu'il ne sait pas ouvrir. */}
+              <div className="min-h-0">
+                {!documentOuvert ? (
+                  <CadreVide>
+                    <p className="text-km-body font-bold text-km-text">Aucun fichier sélectionné</p>
+                    <p className="max-w-[38ch] text-km-label leading-relaxed text-km-muted">
+                      Choisissez un document à gauche pour le lire ici.
+                    </p>
+                  </CadreVide>
+                ) : estPdf(documentOuvert) ? (
+                  <Suspense fallback={<CadreVide><p className="text-km-label text-km-muted">Préparation de la lecture…</p></CadreVide>}>
+                    <VisionneusePdf
+                      key={documentOuvert.id}
+                      url={documentOuvert.url}
+                      nomFichier={documentOuvert.nom_fichier || documentOuvert.nom}
+                    />
+                  </Suspense>
+                ) : (
+                  <div className="h-full overflow-y-auto">
+                    <ApercuDocument
+                      url={documentOuvert.url}
+                      nomFichier={documentOuvert.nom_fichier || documentOuvert.nom}
+                    />
+                  </div>
+                )}
+              </div>
             </div>
           )}
         </div>

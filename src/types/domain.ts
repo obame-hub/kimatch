@@ -411,6 +411,12 @@ export interface Mandat {
   date_envoi: string | null
   date_debut_validite: string | null
   date_fin_validite: string | null
+  /** Première ouverture de l'enveloppe par le signataire — jalon « Consulté » du chemin. */
+  date_consultation?: string | null
+  /** Consultations relevées dans la piste d'audit DocuSign. `null` = non renseigné, jamais 0. */
+  nb_ouvertures?: number | null
+  /** Motif saisi par le signataire au moment du refus. */
+  motif_refus?: string | null
   nb_sites_couverts: number
   site_ids: string[]
   compteur_ids: string[]
@@ -576,6 +582,12 @@ export interface Compteur {
   adresse?: string | null
   code_postal?: string | null
   ville?: string | null
+  /**
+   * L'adresse du point de livraison, dénormalisée depuis son site — remplie sur 7 919 compteurs
+   * sur 7 919. C'est elle qui reste quand l'objet Site disparaît, et non `adresse` ci-dessus, qui
+   * ne sert qu'aux rares dérogations et n'est renseignée que sur une ligne.
+   */
+  adresse_site?: string | null
   /** Où le trouver sur place : « Local TGBT — Bât. A ». Distinct du commentaire libre. */
   localisation_site?: string | null
   consommation_annuelle_mwh: number | null

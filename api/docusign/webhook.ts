@@ -19,6 +19,7 @@ import { sendMandatSignedEmail } from './_gmailNotify.js'
 import { postMessage, joinChannel } from '../slack/_client.js'
 import { archiverDocumentsSignes, retirerDocumentsEnvoyes } from './_archivage.js'
 import { validitePourSignature } from './_validite.js'
+import { lireParcoursEnveloppe } from './_parcours.js'
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type Admin = SupabaseClient<any, any, any, any, any>
@@ -377,6 +378,25 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       ? validitePourSignature(dateSignature, mandatConnu.duree_mois as number | null)
       : null
 
+    /**
+     * ══ CE QUE L'ENVELOPPE RACONTE DE SON PARCOURS ══
+     *
+     * Première ouverture, nombre de consultations, motif de refus : trois valeurs que le chemin de
+     * conversion affiche sous ses jalons, et que DocuSign ne pousse pas dans sa notification. On va
+     * les chercher — mais seulement quand elles peuvent avoir changé, c'est-à-dire à l'ouverture, au
+     * refus et à la signature. Un `sent` rejoué n'a rien à nous apprendre.
+     *
+     * `lireParcoursEnveloppe` ne lève jamais : deux appels facultatifs qui enrichissent un
+     * affichage n'ont pas à faire échouer l'accusé de réception du webhook, sans quoi DocuSign
+     * réessaierait indéfiniment.
+     *
+     * ON N'ÉCRASE PAS UNE DATE DE CONSULTATION DÉJÀ CONNUE par une valeur absente : une notification
+     * rejouée dont l'appel échoue effacerait sinon l'heure de première ouverture.
+     */
+    const parcours = ['CONSULTE', 'SIGNE', 'REFUSE'].includes(statutCode)
+      ? await lireParcoursEnveloppe(session, envelopeId)
+      : null
+
     const { data: mandats, error } = await admin
       .from('mandats')
       .update({
@@ -384,6 +404,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         ...(dateSignature ? { date_signature: dateSignature } : {}),
         ...(dateEnvoi ? { date_envoi: dateEnvoi } : {}),
         ...(validite ?? {}),
+        ...(parcours?.dateConsultation ? { date_consultation: parcours.dateConsultation } : {}),
+        ...(parcours?.nbOuvertures != null ? { nb_ouvertures: parcours.nbOuvertures } : {}),
+        ...(parcours?.motifRefus ? { motif_refus: parcours.motifRefus } : {}),
       })
       .eq('docusign_envelope_id', envelopeId)
       .select('id, compte_id, proprietaire_id, compte:comptes(nom), proprietaire:profils!mandats_proprietaire_id_fkey(email, prenom, nom)')
