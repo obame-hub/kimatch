@@ -23,7 +23,8 @@ import { useCompteurs, useCreateCompteur } from '@/lib/data/compteurs'
 import { useCreateSite, normalizeTexte } from '@/lib/data/sites'
 import { FALLBACK_TYPES_ENERGIES } from '@/lib/referenceFallbacks'
 import type { Compte, Site } from '@/types/domain'
-import type { PdlMethode } from '@/components/compteur/PdlMethodSheet'
+import type { PdlMethode } from '@/components/compteur/PdlMethodSheet'
+
 import { contactsDuCompte as contactsRattaches } from '@/lib/contactsDuCompte'
 
 export function CreationCompteurDialog({
@@ -173,6 +174,8 @@ export function CreationCompteurDialog({
         const result = await createCompteur.mutateAsync({
           site_id: site.id,
           site_nom: site.nom,
+          // Le compte est connu ici : on l'écrit plutôt que de laisser le déclencheur le déduire.
+          compte_id: compte!.id,
           type_energie_id: d.typeEnergieId || null,
           type_energie: typeEnergie,
           numero_pdl: d.numeroPdl,

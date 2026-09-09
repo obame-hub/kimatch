@@ -497,6 +497,21 @@ interface GrdGazData {
 interface CreateCompteurInput {
   site_id: string
   site_nom: string
+  /**
+   * LE CLIENT DU COMPTEUR. Facultatif ici, mais JAMAIS FACULTATIF EN BASE.
+   *
+   * `compteurs.compte_id` est `not null` depuis la migration 20260909160000, et cette insertion ne
+   * l'écrivait pas — la colonne n'existait pas quand elle a été écrite. Résultat : entre le
+   * 09/09/2026 au soir et le lendemain, créer un compteur remontait
+   * « null value in column "compte_id" violates not-null constraint ». Personne ne pouvait plus
+   * créer de PDL.
+   *
+   * Le déclencheur `trg_compteur_herite_de_son_site` (migration 20260910120000) le remplit depuis
+   * le site quand il est absent, et c'est lui le filet : il couvre aussi les scripts d'import. On
+   * le passe quand on l'a quand même, pour que le code DISE ce qu'il fait au lieu de dépendre
+   * d'un mécanisme invisible.
+   */
+  compte_id?: string
   type_energie_id: string | null
   type_energie: 'electricite' | 'gaz'
   numero_pdl: string
@@ -581,6 +596,13 @@ export function useCreateCompteur() {
         .from('compteurs')
         .insert({
           site_id: input.site_id,
+          /* LE CLIENT, ET L'ADRESSE DE SITE, VIENNENT DU DÉCLENCHEUR quand ils ne sont pas fournis.
+             `trg_compteur_herite_de_son_site` remplit `compte_id`, `groupe_site_id`,
+             `libelle_site`, `ville`, `code_postal`, la géolocalisation et le département depuis le
+             site — sans jamais écraser une valeur donnée. NE PAS RETIRER CE DÉCLENCHEUR sans
+             écrire ces colonnes ici : sans lui, un compteur neuf naît sans adresse de site, donc
+             introuvable par la recherche, et absent des vues qui dérivent de `groupe_site_id`. */
+          ...(input.compte_id ? { compte_id: input.compte_id } : {}),
           // Nettoye a l'ecriture : un PDL colle depuis Excel embarque des caracteres invisibles
           // qui ressortent en tiret et virgule sur le PDF du mandat (voir nettoyerSaisie).
           numero_point: nettoyerSaisie(input.numero_pdl),

@@ -954,6 +954,9 @@ function AddCompteurDialog({
         const result = await createCompteur.mutateAsync({
           site_id: siteId,
           site_nom: siteNom,
+          // Le compte est déjà une prop de ce dialogue : on l'écrit plutôt que de laisser le
+          // déclencheur le déduire du site.
+          compte_id: compteId,
           type_energie_id: d.typeEnergieId || null,
           type_energie: typeEnergie,
           numero_pdl: d.numeroPdl,
