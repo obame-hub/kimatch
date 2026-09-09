@@ -28,13 +28,12 @@
  */
 import { lazy, Suspense } from 'react'
 import { useSearchParams } from 'react-router-dom'
-import { Building2, Users, MapPin, Gauge, FileCheck2, FileSignature, Files, TrendingUp, MessageSquare } from 'lucide-react'
+import { Building2, Users, Gauge, FileCheck2, FileSignature, Files, TrendingUp, MessageSquare } from 'lucide-react'
 import { Topbar } from '@/components/layout/Topbar'
 import { cn } from '@/lib/utils'
 
 const Comptes = lazy(() => import('@/pages/Comptes'))
 const Contacts = lazy(() => import('@/pages/Contacts'))
-const Sites = lazy(() => import('@/pages/Sites'))
 const Compteurs = lazy(() => import('@/pages/Compteurs'))
 const Mandats = lazy(() => import('@/pages/Mandats'))
 const Contrats = lazy(() => import('@/pages/Contrats'))
@@ -60,7 +59,29 @@ const OBJETS = [
   { cle: 'synthese', libelle: 'Synthèse', icone: TrendingUp, sens: 'La qualité des données du portefeuille, et les corrections à faire', Page: QualitePortefeuille },
   { cle: 'comptes', libelle: 'Comptes', icone: Building2, sens: 'L’entreprise ou l’organisation cliente', Page: Comptes },
   { cle: 'contacts', libelle: 'Contacts', icone: Users, sens: 'Les personnes et leurs rôles', Page: Contacts },
-  { cle: 'sites', libelle: 'Sites', icone: MapPin, sens: 'Les lieux de consommation', Page: Sites },
+  /* ══ SITES SORT DES ONGLETS, LE 09/09/2026 ═══════════════════════════════════════════════════
+
+     Reunion du matin. William : « l'objet site, dans l'utilisation et dans l'architecture de
+     Kimatch, m'embete plus qu'il ne me sert […] je ne vois pas la valeur ajoutee. » Michel : « bah
+     dans ce cas, ca degage. »
+
+     LE CAS QUI A DECLENCHE LA DECISION est celui de Matthieu, rapporte par William : il creait des
+     recommandations VIDES parce qu'il selectionnait des sites en croyant selectionner des
+     compteurs. Le site etait un dossier, il l'a pris pour un point de livraison.
+
+     C'EST LE MENU QUI PORTAIT LA CONFUSION. Entre « Contacts » et « Compteurs », un onglet « Sites »
+     annonce un objet de meme rang — alors que ce n'etait qu'un regroupement d'adresse. Le retirer
+     du menu suffit a ce que personne n'y arrive plus par navigation, et c'est l'essentiel du
+     benefice.
+
+     LA FICHE RESTE ATTEIGNABLE PAR LIEN, volontairement : 28 liens vers une fiche site subsistent
+     dans l'application — depuis un compteur, un contrat, une recommandation. Les couper d'un coup
+     donnerait 28 liens morts. Ils seront rediriges vers le compteur dans un second temps, et la
+     table ne partira qu'apres.
+
+     CE QUI REMPLACE LE SITE : le compteur porte desormais son libelle de site, son adresse et son
+     groupe (migration 20260909100000). L'onglet Compteurs, juste en dessous, montre donc la meme
+     information au bon niveau. */
   { cle: 'compteurs', libelle: 'Compteurs', icone: Gauge, sens: 'Les points PDL / PCE', Page: Compteurs },
   { cle: 'mandats', libelle: 'Mandats', icone: FileCheck2, sens: 'L’autorisation d’agir', Page: Mandats },
   /* ══ CONTRATS REVIENT DANS LES ONGLETS, LE 03/09/2026 ═════════════════════════════════════════

@@ -1,5 +1,5 @@
 import { NavLink } from 'react-router-dom'
-import { Home, Building2, MapPin, Sparkle, Menu } from 'lucide-react'
+import { Home, Building2, Sparkle, Menu } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { useSidebar } from '@/lib/layout'
 
@@ -12,7 +12,9 @@ import { useSidebar } from '@/lib/layout'
 const items = [
   { to: '/', label: 'Accueil', icon: Home, end: true, tint: 'text-km-text' },
   { to: '/comptes', label: 'Comptes', icon: Building2, tint: 'text-sky-500' },
-  { to: '/sites', label: 'Sites', icon: MapPin, tint: 'text-km-green' },
+  /* Sites sort de la barre le 09/09/2026, meme raison que dans les onglets du Patrimoine : il
+     annoncait un objet de premier rang alors qu'il n'etait qu'un regroupement d'adresse, et des
+     commerciaux le prenaient pour un point de livraison. Voir `Patrimoine.tsx`. */
   { to: '/recommandations', label: 'Recos', icon: Sparkle, tint: 'text-amber-500' },
 ]
 
