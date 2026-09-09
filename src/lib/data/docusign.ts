@@ -283,14 +283,29 @@ async function etatEnveloppe(cible: { contratId?: string; mandatId?: string }): 
  */
 export async function sendContratForSignature(input: {
   contratId: string
-  documentUrl: string
-  documentName?: string
+  /**
+   * LES DOCUMENTS À FAIRE SIGNER, DANS L'ORDRE OÙ ILS SERONT EMPILÉS.
+   *
+   * William, 09/09/2026 : « très souvent un contrat c'est quatre PDF différents. Quand tu fais
+   * Envoyer via DocuSign on te dit oui mais quel fichier tu veux envoyer, alors qu'en réalité je
+   * vais tout envoyer. » Faute de pouvoir, Thomas fusionnait les PDF à la main.
+   *
+   * On passe des URL et non du base64 : ces documents sont déjà stockés, les faire descendre dans
+   * le navigateur pour les remonter encodés les ferait transiter deux fois. Le serveur les
+   * récupère (voir `api/docusign/send.ts`).
+   */
+  documents: { url: string; nom: string }[]
   signerEmail: string
   signerName: string
   emailSubject?: string
   returnUrl?: string
 }): Promise<SendMandatResult> {
-  return appelerEnvoi({ ...input, draft: true })
+  const { documents, ...reste } = input
+  return appelerEnvoi({
+    ...reste,
+    documentUrls: documents.map((d) => ({ url: d.url, nom: d.nom })),
+    draft: true,
+  })
 }
 
 export async function sendMandatForSignature(input: SendMandatInput): Promise<SendMandatResult> {

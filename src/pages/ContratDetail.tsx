@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { ApercuDocument } from '@/components/document/ApercuDocument'
 import { useParams, useNavigate, Link } from 'react-router-dom'
 import { ArrowLeft, Zap, Flame, Lightbulb, Trash2, Building2, MapPin, Gauge, FileText, Plus, Euro, X, Eye, PenLine, Check, LifeBuoy} from 'lucide-react'
@@ -1324,25 +1324,48 @@ function DialogSignatureContrat({
   contactsSansEmail: Contact[]
   signaler: (message: string) => void
 }) {
-  const [documentId, setDocumentId] = useState('')
+  /* ══ PLUSIEURS DOCUMENTS, ET TOUS COCHÉS PAR DÉFAUT ══
+     William, 09/09/2026 : « très souvent un contrat c'est quatre PDF différents ou trois PDF
+     différents. Quand tu fais Envoyer via DocuSign on te dit oui mais quel fichier tu veux envoyer,
+     ALORS QU'EN RÉALITÉ JE VAIS TOUT ENVOYER. » Faute de pouvoir, Thomas fusionnait les PDF à la
+     main avant d'envoyer.
+
+     Tout est donc coché à l'ouverture : décocher l'exception coûte un clic, cocher la règle en
+     coûtait quatre. `null` tant que la modale n'a pas été ouverte, pour distinguer « pas encore
+     initialisé » de « l'utilisateur a tout décoché ». */
+  const [choisis, setChoisis] = useState<Set<string> | null>(null)
   const [contactId, setContactId] = useState('')
   const [envoiEnCours, setEnvoiEnCours] = useState(false)
   const [besoinConnexion, setBesoinConnexion] = useState(false)
 
-  // Choix par défaut : le signataire déjà désigné sur le contrat, et l'unique document s'il n'y en a
-  // qu'un. Deux clics de moins dans le cas courant.
+  useEffect(() => {
+    if (ouvert) setChoisis(new Set(documents.map((d) => d.id)))
+  }, [ouvert, documents])
+
+  // Choix par défaut du signataire : celui déjà désigné sur le contrat. Un clic de moins.
   const contactRetenu = contacts.find((c) => c.id === (contactId || contrat.contact_signataire_id)) ?? null
-  const documentRetenu = documents.find((d) => d.id === documentId) ?? (documents.length === 1 ? documents[0] : null)
+  /* L'ORDRE D'ENVOI EST CELUI DE LA LISTE AFFICHÉE, pas celui des clics : DocuSign empile les
+     documents dans l'ordre reçu, et c'est l'ordre des pages que le signataire verra défiler. */
+  const documentsRetenus = documents.filter((d) => choisis?.has(d.id))
+  const basculer = (id: string) =>
+    setChoisis((s) => {
+      const n = new Set(s ?? [])
+      if (n.has(id)) n.delete(id)
+      else n.add(id)
+      return n
+    })
 
   async function envoyer() {
-    if (!documentRetenu || !contactRetenu?.email) return
+    if (documentsRetenus.length === 0 || !contactRetenu?.email) return
     setEnvoiEnCours(true)
     setBesoinConnexion(false)
     try {
       const resultat = await sendContratForSignature({
         contratId: contrat.id,
-        documentUrl: documentRetenu.url,
-        documentName: documentRetenu.nom_fichier || documentRetenu.nom || 'Contrat.pdf',
+        documents: documentsRetenus.map((d) => ({
+          url: d.url,
+          nom: d.nom_fichier || d.nom || 'Contrat.pdf',
+        })),
         signerEmail: contactRetenu.email,
         signerName: `${contactRetenu.prenom} ${contactRetenu.nom}`,
         emailSubject: `KiWee Énergie — Contrat à signer (${contrat.compte_nom || contrat.site_nom || ''})`.trim(),
@@ -1369,7 +1392,7 @@ function DialogSignatureContrat({
       open={ouvert}
       onClose={onFermer}
       title="Envoyer via DocuSign"
-      description="Le document part en brouillon : vous placez les zones de signature dans DocuSign, puis vous envoyez."
+      description="Les documents cochés partent en une seule enveloppe, en brouillon : vous placez les zones de signature dans DocuSign, puis vous envoyez."
     >
       {documents.length === 0 ? (
         <p className="text-xs text-km-muted">
@@ -1423,9 +1446,38 @@ function DialogSignatureContrat({
               déroulant n'aurait montré que des noms de fichiers, souvent illisibles quand ils
               sortent d'un téléchargement. */}
           <div>
-            <p className="mb-1 text-km-xs font-bold uppercase tracking-wide text-km-faint">
-              Document à faire signer
-            </p>
+            {/* LE TITRE COMPTE, ET IL DIT COMBIEN. Un contrat part souvent en trois ou quatre PDF ;
+                afficher « 3 sur 4 » évite d'envoyer une enveloppe incomplète sans s'en apercevoir,
+                et le raccourci « tout / aucun » remet d'aplomb en un clic. */}
+            <div className="mb-1 flex items-baseline gap-2">
+              <p className="text-km-xs font-bold uppercase tracking-wide text-km-faint">
+                Documents à faire signer
+              </p>
+              <span className="font-mono text-km-xs text-km-muted">
+                {documentsRetenus.length} sur {documents.length}
+              </span>
+              <span className="flex-1" />
+              {documents.length > 1 && (
+                <button
+                  type="button"
+                  onClick={() =>
+                    setChoisis(
+                      documentsRetenus.length === documents.length
+                        ? new Set()
+                        : new Set(documents.map((d) => d.id)),
+                    )
+                  }
+                  className="text-km-xs font-semibold text-km-green hover:underline"
+                >
+                  {documentsRetenus.length === documents.length ? 'tout décocher' : 'tout cocher'}
+                </button>
+              )}
+            </div>
+            {documentsRetenus.length === 0 && (
+              <p className="mb-1.5 text-km-label text-km-amber">
+                Aucun document coché — l’enveloppe partirait vide.
+              </p>
+            )}
             {/* DES VIGNETTES, PAS UNE LISTE. Naoëlle, 21/08/2026 : « je veux que ce soit un genre de
                 bloc avec des icônes modernes de fichier à cliquer dessus pour sélectionner. » Une
                 vignette par fichier, en grille : la plaque d'extension porte la couleur de sa famille
@@ -1438,14 +1490,14 @@ function DialogSignatureContrat({
                 s'agissait d'autres fichiers. */}
             <div className="grid max-h-[260px] grid-cols-1 gap-2 overflow-y-auto pr-1 sm:grid-cols-2">
               {documents.map((d) => {
-                const choisi = documentRetenu?.id === d.id
+                const choisi = Boolean(choisis?.has(d.id))
                 const ext = extensionFichier(d.nom_fichier || d.nom)
                 const plaque = PLAQUES_FICHIER[ext] ?? { couleur: '#5c5f66', fond: '#f2f1ee' }
                 return (
                   <button
                     key={d.id}
                     type="button"
-                    onClick={() => setDocumentId(d.id)}
+                    onClick={() => basculer(d.id)}
                     title={d.nom_fichier || d.nom}
                     className={cn(
                       'relative flex flex-col items-start gap-2 rounded-xl border-2 p-3 text-left transition-all',
@@ -1521,7 +1573,7 @@ function DialogSignatureContrat({
             <Button
               type="button"
               onClick={envoyer}
-              disabled={envoiEnCours || !documentRetenu || !contactRetenu?.email}
+              disabled={envoiEnCours || documentsRetenus.length === 0 || !contactRetenu?.email}
             >
               {envoiEnCours ? 'Préparation…' : 'Ouvrir DocuSign'}
             </Button>

@@ -17,6 +17,24 @@ interface SendBody {
    */
   contratId?: string
   documents?: { pdfBase64: string; fileName: string }[]
+  /**
+   * ══ PLUSIEURS DOCUMENTS DÉJÀ STOCKÉS, DANS UNE SEULE ENVELOPPE ══
+   *
+   * William, 09/09/2026 : « très souvent, un contrat c'est quatre PDF différents ou trois PDF
+   * différents. Quand tu fais Envoyer via DocuSign, on te dit oui mais quel fichier tu veux
+   * envoyer, alors qu'en réalité JE VAIS TOUT ENVOYER. […] Là, vu que ça ne fonctionnait pas, il a
+   * fusionné les fichiers PDF. Mais il faut quand même que ça fonctionne. »
+   *
+   * Le mandat envoyait déjà plusieurs documents, mais par `documents` en base64 : il les GÉNÈRE
+   * dans le navigateur (jsPDF), il les a donc en mémoire. Les documents d'un contrat, eux, sont
+   * déjà stockés et n'ont qu'une URL. Les faire redescendre dans le navigateur pour les remonter
+   * encodés ferait transiter quatre PDF deux fois pour rien.
+   *
+   * D'où cette liste d'URL, récupérées côté serveur — c'est exactement ce que `documentUrl` faisait
+   * déjà pour un seul fichier, en boucle. L'ORDRE EST CELUI DE LA LISTE : DocuSign empile les
+   * documents dans l'ordre reçu, et c'est l'ordre des pages que le signataire verra.
+   */
+  documentUrls?: { url: string; nom: string }[]
   /** Repli rétro-compatible : URL d'un document déjà attaché (ancien flux manuel). */
   documentUrl?: string
   documentName?: string
@@ -60,7 +78,12 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     res.status(400).json({ error: 'mandatId ou contratId, pas les deux' })
     return
   }
-  if (!objet || !body.signerEmail || !body.signerName || (!body.documents?.length && !body.documentUrl)) {
+  if (
+    !objet ||
+    !body.signerEmail ||
+    !body.signerName ||
+    (!body.documents?.length && !body.documentUrls?.length && !body.documentUrl)
+  ) {
     res.status(400).json({
       error: 'mandatId ou contratId, signerEmail, signerName et au moins un document sont requis',
     })
@@ -69,24 +92,30 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   const estContrat = objet.type === 'contrat'
 
   try {
+    /* UNE SEULE FONCTION POUR LES TROIS ENTRÉES. `documentUrl` seul devient une liste d'un
+       élément : le chemin rétro-compatible n'est plus un cas à part qu'on oublie de corriger. */
+    async function telecharger(url: string, nomParDefaut: string) {
+      const pdfRes = await fetch(url)
+      if (!pdfRes.ok) throw new Error(`Impossible de récupérer « ${nomParDefaut} » (${pdfRes.status})`)
+      const pdfBuffer = Buffer.from(await pdfRes.arrayBuffer())
+      if (!pdfBuffer.length) throw new Error(`Le document « ${nomParDefaut} » est vide`)
+      return { pdfBase64: pdfBuffer.toString('base64'), fileName: nomParDefaut }
+    }
+
     let documents: { pdfBase64: string; fileName: string }[]
     if (body.documents?.length) {
       documents = body.documents
     } else {
-      const pdfRes = await fetch(body.documentUrl!)
-      if (!pdfRes.ok) {
-        res.status(400).json({ error: `Impossible de récupérer le document (${pdfRes.status})` })
-        return
+      const aTelecharger = body.documentUrls?.length
+        ? body.documentUrls
+        : [{ url: body.documentUrl!, nom: body.documentName ?? (estContrat ? 'Contrat.pdf' : 'Mandat.pdf') }]
+      /* EN SÉRIE, PAS EN PARALLÈLE. Quatre PDF de contrat pèsent facilement plusieurs mégaoctets
+         chacun ; les charger tous en même temps sur une fonction serverless expose à un dépassement
+         de mémoire, pour gagner une seconde sur un geste qui en prend dix. Et l'ordre est garanti. */
+      documents = []
+      for (const d of aTelecharger) {
+        documents.push(await telecharger(d.url, d.nom))
       }
-      const pdfBuffer = Buffer.from(await pdfRes.arrayBuffer())
-      if (!pdfBuffer.length) {
-        res.status(400).json({ error: 'Document vide' })
-        return
-      }
-      documents = [{
-        pdfBase64: pdfBuffer.toString('base64'),
-        fileName: body.documentName ?? (estContrat ? 'Contrat.pdf' : 'Mandat.pdf'),
-      }]
     }
 
     const ctx = await getDocusignContext(profilId)
