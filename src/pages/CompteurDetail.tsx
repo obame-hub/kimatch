@@ -535,7 +535,10 @@ export default function CompteurDetail() {
     await majChampCompteur.mutateAsync({ id: compteur.id, patch })
   }
   const deleteCompteur = useDeleteCompteur()
-  const goBack = useGoBack(compteur ? `/sites/${compteur.site_id}` : '/sites')
+  /* LE REPLI N'EST PLUS `/sites` : la liste des sites est supprimée depuis le 09/09/2026. Tant
+     qu'on connaît le compteur, le retour mène au regroupement d'adresse qui le contient ; sinon,
+     à la liste des compteurs. */
+  const goBack = useGoBack(compteur ? `/sites/${compteur.site_id}` : '/compteurs')
   const enedisFetch = useEnedisFetch()
   const syncCompteurElec = useSyncCompteurElec()
   const grdFetch = useGrdFetch()

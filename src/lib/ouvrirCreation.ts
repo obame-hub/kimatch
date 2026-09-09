@@ -58,7 +58,10 @@ export const OBJETS_CREABLES = [
      un formulaire dans un dialogue. `direct: true` dit au menu d'y aller sans ajouter `?creer=1` :
      le paramètre ne servirait à rien, l'écran EST le formulaire. */
   { cle: 'compte', libelle: 'Compte', chemin: '/comptes/nouveau', touche: 'C', direct: true },
-  { cle: 'site', libelle: 'Site', chemin: '/sites', touche: 'S' },
+  /* PLUS DE « CRÉER UN SITE ». Retiré le 09/09/2026 avec l'objet lui-même : un site n'est plus
+     quelque chose qu'on crée, c'est le regroupement d'adresse que la création d'un compteur
+     produit toute seule. Proposer « Site » ici invitait à créer un dossier vide avant d'avoir le
+     moindre point de livraison à y mettre — l'erreur exacte que la réunion voulait supprimer. */
   { cle: 'contact', libelle: 'Contact', chemin: '/contacts', touche: 'T' },
   { cle: 'piste', libelle: 'Piste', chemin: '/prospection', touche: 'P' },
   { cle: 'opportunite', libelle: 'Opportunité', chemin: '/opportunites', touche: 'O' },

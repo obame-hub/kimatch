@@ -2,7 +2,6 @@ import { PhoneOff,
   Gauge,
   Home,
   Building2,
-  MapPin,
   User,
   Target,
   Sparkle,
@@ -174,7 +173,10 @@ export const pagesRecherchables: NavItem[] = [
   ...bottomNavItems,
   // Les listes du patrimoine restent trouvables par la recherche, chacune sur son onglet.
   { to: '/comptes', label: 'Comptes', icon: Building2 },
-  { to: '/sites', label: 'Sites', icon: MapPin },
+  /* PAS DE « SITES » ICI. L'écran est supprimé (réunion du 09/09/2026) : une liste de sites dans
+     laquelle on pioche est précisément ce qui a fait créer des recommandations vides. L'onglet
+     Compteurs juste en dessous porte la même information — libellé de site, adresse — au niveau
+     où le travail se fait. */
   { to: '/contacts', label: 'Contacts', icon: User },
   { to: '/compteurs', label: 'Compteurs', icon: Gauge },
   { to: '/contrats', label: 'Contrats', icon: FileText },

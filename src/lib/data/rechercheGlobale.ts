@@ -59,9 +59,18 @@ async function chercher(query: string): Promise<SearchEntry[]> {
   const listeMots = mots(q)
   if (listeMots.length === 0) return []
 
-  const [comptes, sites, contacts, compteurs, mandats, recommandations, contrats] = await Promise.all([
+  /* ══ IL N'Y A PLUS DE FAMILLE « SITE » DANS LES RÉSULTATS ══════════════════════════════════
+     Réunion du 09/09/2026 : l'objet site est retiré. Le laisser dans la recherche rendrait le
+     retrait sans effet — c'est justement par la recherche qu'on retombait dessus, et proposer
+     « SDC Plaisance » comme un objet à part entière est exactement ce qui a fait sélectionner
+     des sites à la place des compteurs.
+
+     Taper un nom d'adresse remonte donc désormais SES COMPTEURS (famille ci-dessous), c'est-à-dire
+     les objets sur lesquels on travaille vraiment. Relevé du jour : 33 sites ne portent aucun
+     compteur et ne remonteront plus ; 28 d'entre eux sont des coquilles vides (0 contrat,
+     0 document, 0 action, 0 signal), et les 5 autres restent atteignables par leur contrat. */
+  const [comptes, contacts, compteurs, mandats, recommandations, contrats] = await Promise.all([
     appliquer(supabase.from('comptes').select('id, nom, ville, siren'), listeMots, ['nom', 'siren', 'ville']).limit(PAR_FAMILLE),
-    appliquer(supabase.from('sites').select('id, nom, ville, code_postal, adresse, compte:comptes(nom)'), listeMots, ['nom', 'ville', 'code_postal', 'adresse']).limit(PAR_FAMILLE),
     appliquer(supabase.from('contacts').select('id, prenom, nom, email, telephone, compte:comptes(nom)'), listeMots, ['nom', 'prenom', 'email', 'telephone']).limit(PAR_FAMILLE),
     /* ══ LE COMPTEUR SE CHERCHE AUSSI PAR SON SITE ════════════════════════════════════════════
        Naoëlle, 09/09/2026 : « si par exemple un commercial recherche un site qui s'appelle SDC
@@ -96,9 +105,6 @@ async function chercher(query: string): Promise<SearchEntry[]> {
   const entrees: SearchEntry[] = []
   for (const c of comptes.data ?? []) {
     entrees.push({ kind: 'compte', id: c.id, label: c.nom, sublabel: c.ville ?? '', to: `/comptes/${c.id}`, fields: [] })
-  }
-  for (const s of sites.data ?? []) {
-    entrees.push({ kind: 'site', id: s.id, label: s.nom, sublabel: [nomDe(s.compte), s.ville].filter(Boolean).join(' · '), to: `/sites/${s.id}`, fields: [] })
   }
   for (const c of contacts.data ?? []) {
     entrees.push({

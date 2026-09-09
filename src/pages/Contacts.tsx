@@ -457,7 +457,6 @@ export default function Contacts({ sansEntete }: { sansEntete?: boolean }) {
               onAction={(cle) => {
                 if (cle === 'contact') setShowCreate(true)
                 if (cle === 'compte') navigate('/comptes', { state: { openCreate: true } })
-                if (cle === 'site') navigate('/sites', { state: { openCreate: true } })
                 if (cle === 'compteur') navigate('/compteurs')
                 if (cle === 'mandat') navigate('/mandats')
                 if (cle === 'recommandation') navigate('/recommandations')

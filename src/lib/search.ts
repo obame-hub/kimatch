@@ -64,9 +64,11 @@ export function buildSearchIndex(data: SearchDatasets): SearchEntry[] {
   for (const c of data.comptes ?? []) {
     entries.push({ kind: 'compte', id: c.id, label: c.nom, sublabel: c.ville || c.segment, to: `/comptes/${c.id}`, fields: [c.nom, c.siren ?? '', c.ville] })
   }
-  for (const s of data.sites ?? []) {
-    entries.push({ kind: 'site', id: s.id, label: s.nom, sublabel: [s.compte_nom, s.ville].filter(Boolean).join(' · '), to: `/sites/${s.id}`, fields: [s.nom, s.ville, s.code_postal, s.adresse, s.compte_nom] })
-  }
+  /* PAS DE RÉSULTAT « SITE » : l'objet est retiré (réunion du 09/09/2026), et le laisser
+     cherchable rendrait le retrait sans effet. Une adresse se cherche par ses compteurs, qui
+     portent `libelle_site` et `adresse_site` depuis la migration 20260909100000. `data.sites`
+     reste dans le jeu de données parce que les autres familles s'en servent pour leur
+     sous-titre — le nom du site d'un compteur, d'un contrat, d'une tâche. */
   for (const c of data.contacts ?? []) {
     entries.push({
       kind: 'contact',

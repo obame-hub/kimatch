@@ -426,7 +426,6 @@ export default function CompteDetail() {
             }}
             onAction={(cle) => {
               if (cle === 'compte') navigate('/comptes', { state: { openCreate: true } })
-              if (cle === 'site') navigate('/sites', { state: { openCreateForCompteId: compte.id } })
               if (cle === 'contact') setAddContactOpen(true)
               if (cle === 'compteur') setPdlMethodOpen(true)
               if (cle === 'mandat') setAddMandatOpen(true)

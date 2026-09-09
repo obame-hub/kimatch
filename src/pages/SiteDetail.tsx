@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useParams, useNavigate, Link } from 'react-router-dom'
-import { ArrowLeft, Phone, StickyNote, Plus, Building2, Users, Zap, Flame, Sparkle, Trash2, FileCheck2, FileText, AlertTriangle } from 'lucide-react'
+import { ArrowLeft, Phone, StickyNote, Plus, Building2, Users, Zap, Flame, Sparkle, FileCheck2, FileText, AlertTriangle } from 'lucide-react'
 import { Topbar } from '@/components/layout/Topbar'
 import { Button } from '@/components/ui/button'
 import { ZoneDepotFichiers } from '@/components/ui/zone-depot-fichiers'
@@ -8,13 +8,12 @@ import { Badge } from '@/components/ui/badge'
 import { EntityLink } from '@/components/ui/entity-link'
 import { PhoneLink, EmailLink } from '@/components/ui/contact-link'
 import { Dialog } from '@/components/ui/dialog'
-import { DialogSuppression } from '@/components/ui/dialog-suppression'
 import { HistoriqueDiscret } from '@/components/ui/historique-discret'
 import { InlineField } from '@/components/ui/inline-field'
 import { PdlDraftRows, emptyPdlDraft, buildDraftCharacteristics, champsPdlManquants, applyExtractionToDraft, type PdlDraft, type ExtractedField } from '@/components/compteur/PdlDraftRows'
 import { ExtractDocumentButton } from '@/components/ui/document-extraction'
 import { MandatChainPrompt, type ChainedCompteur } from '@/components/compteur/MandatChainPrompt'
-import { useSite, useUpdateSitePartiel, useDeleteSite, type PatchSite } from '@/lib/data/sites'
+import { useSite, useUpdateSitePartiel, type PatchSite } from '@/lib/data/sites'
 import { useCompteursParSites } from '@/lib/data/compteurs'
 import { useCompte } from '@/lib/data/comptes'
 import { useReferenceTable } from '@/lib/data/referenceTables'
@@ -78,7 +77,6 @@ export default function SiteDetail() {
   const { data: contrats } = useContratsParCompte(site?.compte_id)
   const { data: mandats } = useMandatsParCompte(site?.compte_id)
   const { data: contacts } = useContactsParCompte(site?.compte_id)
-  const deleteSite = useDeleteSite()
   const { data: statutsContratsRef } = useReferenceTable('statuts_contrats')
   const statutsContrats = statutsContratsRef && statutsContratsRef.length > 0 ? statutsContratsRef : FALLBACK_STATUTS_CONTRATS
   const { data: statutsMandatsRef } = useReferenceTable('statuts_mandats')
@@ -91,7 +89,6 @@ export default function SiteDetail() {
   const [tab, setTab] = useState<TabKey>('synthese')
   const [toast, setToast] = useState<string | null>(null)
   const [sheetOpen, setSheetOpen] = useState(false)
-  const [confirmDelete, setConfirmDelete] = useState(false)
 
   const televerser = useTeleverserDocuments()
 
@@ -117,13 +114,10 @@ export default function SiteDetail() {
   const canManage = useCanManage(site?.proprietaire_id)
   const isAdmin = useIsAdmin()
   const { data: profilsAdmin } = useProfilsAdmin()
-  const goBack = useGoBack('/sites')
-
-  async function handleDelete() {
-    if (!site) return
-    await deleteSite.mutateAsync(site.id)
-    navigate('/sites')
-  }
+  /* LE RETOUR ARRIÈRE MÈNE AUX COMPTEURS, plus à la liste des sites : cet écran n'existe plus
+     depuis le 09/09/2026. L'onglet Compteurs est son remplaçant naturel — même information,
+     libellé de site et adresse portés par le compteur lui-même. */
+  const goBack = useGoBack('/compteurs')
 
   const compteursDuSite = useMemo(() => compteurs?.filter((c) => c.site_id === id) ?? [], [compteurs, id])
   const recommandationsDuSite = useMemo(() => recommandations?.filter((r) => r.sites.some((s) => s.id === id)) ?? [], [recommandations, id])
@@ -269,7 +263,7 @@ export default function SiteDetail() {
 
       {/* Bandeau site */}
       <div className="flex flex-none flex-wrap items-center gap-3.5 border-b border-km-line bg-white px-4 py-3.5 sm:px-6">
-        <Button variant="ghost" size="icon" onClick={goBack} title="Retour aux sites">
+        <Button variant="ghost" size="icon" onClick={goBack} title="Retour aux compteurs">
           <ArrowLeft className="h-4 w-4" />
         </Button>
         <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-[10px] bg-gradient-to-br from-kiwi-500 to-kiwi-400 text-white">
@@ -305,17 +299,27 @@ export default function SiteDetail() {
             <Plus className="h-3.5 w-3.5" />
             Recommandation
           </Button>
-          {canManage && (
-            <>
-              {/* Plus de bouton « Modifier » : les champs s'editent la ou ils s'affichent, dans le
-                  panneau Informations. Un bouton qui ouvre une modale pour retrouver les memes
-                  champs deux clics plus loin n'apportait rien. */}
-              <Button variant="outline" size="sm" onClick={() => setConfirmDelete(true)}>
-                <Trash2 className="h-3.5 w-3.5" />
-                Supprimer
-              </Button>
-            </>
-          )}
+          {/* ══ PLUS DE BOUTON « SUPPRIMER » ═══════════════════════════════════════════════════
+              Retiré le 09/09/2026, pour deux raisons qui se rejoignent.
+
+              LA PREMIÈRE : IL NE MARCHAIT PLUS. Depuis que `compteurs.site_id` est passé en
+              `on delete set null` (migration 20260909100000) alors que la colonne reste
+              `not null`, supprimer un site qui porte au moins un compteur remonte une erreur
+              PostgreSQL brute — vérifié en transaction annulée le 09/09 : 23502, « null value in
+              column "site_id" violates not-null constraint ». Ça concerne 6 341 sites sur 6 374.
+              Et 1 621 autres butaient déjà avant, sur `recommandations_sites` en RESTRICT.
+
+              LA SECONDE : IL N'A PLUS DE SENS. Un site n'est plus un objet qu'on gère, c'est le
+              regroupement d'adresse que la création d'un compteur produit. On ne supprime pas un
+              regroupement à la main — on déplace ses compteurs, et il se vide de lui-même.
+
+              Ce bouton était par ailleurs le plus dangereux de l'application : jusqu'au 09/09 la
+              clé était en CASCADE, et un clic ici pouvait emporter les compteurs du site, leurs
+              contrats, leurs signaux et leurs tâches. Les 33 sites aujourd'hui vides ne coûtent
+              rien ; ils partiront avec la table.
+
+              Plus de bouton « Modifier » non plus : les champs s'éditent là où ils s'affichent,
+              dans le panneau Informations. */}
         </div>
       </div>
 
@@ -879,15 +883,6 @@ export default function SiteDetail() {
         />
       )}
 
-      <DialogSuppression
-        ouvert={confirmDelete}
-        onFermer={() => setConfirmDelete(false)}
-        type="site"
-        id={site.id}
-        nom={site.nom}
-        onConfirmer={handleDelete}
-        enCours={deleteSite.isPending}
-      />
     </div>
   )
 }

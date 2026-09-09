@@ -89,42 +89,12 @@ export function tonDuScore(score: number): SiteHealth['tone'] {
   return score >= 80 ? 'kiwi' : score >= 50 ? 'amber' : 'red'
 }
 
-/** Une échéance proche, telle que la fonction `liste_sites` la renvoie. */
-export interface EcheanceSante {
-  libelle: string
-  jours: number
-  malus: number
-  couvert: boolean
-}
+/* ── `EcheanceSante` ET `construireSante` SONT PARTIS AVEC LA LISTE DES SITES ─────────────────
+   Ces deux exports n'existaient que pour habiller le score que la fonction SQL `liste_sites`
+   renvoyait tout calculé. L'écran de liste supprimé le 09/09/2026 et la fonction avec lui, ils
+   n'avaient plus un seul lecteur.
 
-/**
- * Santé d'un site calculée EN BASE (fonction `liste_sites`).
- *
- * Le score arrive tout fait ; il ne reste qu'à rédiger l'infobulle qui explique d'où il vient.
- * Le texte est volontairement écrit ici, mot pour mot comme dans computeSiteHealth ci-dessus :
- * la base compte, l'interface rédige. Les deux formulations doivent rester identiques, sinon un
- * même site se décrirait différemment selon qu'on le regarde dans la liste ou sur sa fiche.
- */
-export function construireSante(ligne: {
-  score_sante: number
-  malus_signaux: number
-  sous_mandat_actif: boolean
-  echeances: EcheanceSante[] | null
-}): SiteHealth {
-  const raisons: string[] = []
-
-  /* Le malus des signaux est RENDU au score : la base le retranche encore, l'interface ne
-     l'explique plus. Voir le bloc de commentaire en tête de fichier. */
-  const score = ligne.score_sante + (ligne.malus_signaux ?? 0)
-
-  if (!ligne.sous_mandat_actif) raisons.push(`Hors périmètre du mandat actif (-${MALUS_PERIMETRE})`)
-
-  for (const e of ligne.echeances ?? []) {
-    raisons.push(`Échéance ${e.libelle} dans ${Math.max(0, e.jours)} j (-${e.malus})`)
-    if (e.couvert) raisons.push(`Recommandation active sur cette échéance (+${BONUS_RECO_ACTIVE})`)
-  }
-
-  if (raisons.length === 0) raisons.push('Rien à signaler')
-
-  return { ...habiller(Math.min(100, score)), raisons }
-}
+   `computeSiteHealth` ci-dessus reste : c'est la version qui calcule le score DANS le navigateur,
+   et c'est elle que la fiche site et la carte du compte utilisent. Les deux voies existaient pour
+   que la liste et la fiche décrivent un site avec les mêmes mots ; il n'y a plus qu'une voie, donc
+   plus de risque de divergence à surveiller. */
