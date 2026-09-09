@@ -25,8 +25,6 @@ import { ComparatifVersions, coutPrestationEstime } from '@/components/recommand
 import { DocumentComparatif } from '@/components/recommandation/DocumentComparatif'
 import { RattachementsReco } from '@/components/recommandation/VoletGaucheReco'
 import { OngletCommandeClient } from '@/components/recommandation/OngletCommandeClient'
-import { OngletPerimetre } from '@/components/recommandation/OngletPerimetre'
-import { OngletDocuments } from '@/components/recommandation/OngletDocuments'
 import { DetailVersion } from '@/components/recommandation/DetailVersion'
 import { BlocAffaire } from '@/components/recommandation/BlocAffaire'
 import {
@@ -59,7 +57,7 @@ import { useCompte } from '@/lib/data/comptes'
 import { useCompteurs } from '@/lib/data/compteurs'
 import { useInteractionsParRecommandation } from '@/lib/data/interactions'
 import { useActionsParRecommandation } from '@/lib/data/actions'
-import { useDocumentsParEntites, useTeleverserDocuments } from '@/lib/data/documents'
+import { useDocumentsParEntites } from '@/lib/data/documents'
 import { useCreateInteraction } from '@/lib/data/interactions'
 import { useCanManage, useIsAdmin, useProfilsAdmin } from '@/lib/data/roles'
 import { useSuppression } from '@/lib/useSuppression'
@@ -95,7 +93,23 @@ import type { VersionRecommandation, Optimisation } from '@/types/domain'
 
 const PRIORITE_LABEL: Record<number, string> = { 1: 'Haute', 2: 'Normale', 3: 'Basse' }
 
-type CleOnglet = 'reco' | 'rattachements' | 'cmd' | 'comparatif' | 'perimetre' | 'docs'
+/* DEUX CLÉS ONT DISPARU ICI : `perimetre` et `docs`.
+   Michel, appel du 25/08/2026 : « tous les objets qui sont liés à la recommandation, je les
+   mettrais TOUJOURS SUR LA GAUCHE, comme ça on a toujours la même logique » — et pour les
+   documents il dit pourquoi l'onglet ne servait pas : « les documents sont dans les versions en
+   vérité, donc en réalité j'ai pas besoin de documents ». Les deux onglets sont devenus des CARTES
+   de l'onglet Rattachements (`VoletGaucheReco`), qui les affichent toujours.
+
+   Mais les deux clés, leurs deux branches d'affichage et les deux composants sont restés dans le
+   fichier, injoignables : `onglet` démarre à `reco` et `setOnglet` n'est jamais appelé avec l'une
+   d'elles. Du code qu'on lit, qu'on maintient, et qu'on croit vivant — le 09/09/2026 j'ai modifié
+   `OngletPerimetre` pour le chantier des sites avant de m'apercevoir qu'il ne s'affichait nulle
+   part. C'est le vrai coût d'un onglet mort : il fait travailler pour rien.
+
+   Vérifié avant de supprimer : les 22 documents de recommandation sont bien tous visibles dans la
+   carte, et aucune recommandation n'en porte plus de six — la limite d'affichage de la carte ne
+   cache donc rien. */
+type CleOnglet = 'reco' | 'rattachements' | 'cmd' | 'comparatif'
 
 /**
  * COMMANDE DU CLIENT EST MASQUÉE. Michel, 25/08/2026 : « pour le moment, commande client, je le
@@ -146,7 +160,6 @@ export default function RecommandationDetail() {
   const deleteRecommandation = useDeleteRecommandation()
   const deleteVersion = useDeleteVersion()
   const changerStatutConsultation = useChangerStatutConsultation()
-  const televerser = useTeleverserDocuments()
   const createInteraction = useCreateInteraction()
   const suppression = useSuppression()
   const goBack = useGoBack('/recommandations')
@@ -1247,28 +1260,6 @@ export default function RecommandationDetail() {
                   peutModifier={canManage}
                 />
             </div>
-          )}
-
-          {onglet === 'perimetre' && <OngletPerimetre reco={reco} compteurs={compteurs ?? []} />}
-
-          {onglet === 'docs' && (
-            <OngletDocuments
-              reco={reco}
-              documents={documents ?? []}
-              versionAfficheeId={versionAffichee?.id ?? null}
-              typesDocuments={typesDocuments}
-              peutModifier={canManage}
-              onDeposer={async (fichiers, typeDocumentId, entite) => {
-                await televerser.mutateAsync({
-                  fichiers,
-                  entite_type: entite.type,
-                  entite_id: entite.id,
-                  type_document_id: typeDocumentId,
-                  type_document_libelle: typesDocuments.find((x) => x.id === typeDocumentId)?.libelle ?? '',
-                })
-                signaler('✓ Document ajouté')
-              }}
-            />
           )}
 
           {/* Le fil d'activité sur mobile, où la troisième colonne n'a pas la place d'exister. */}
