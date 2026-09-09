@@ -192,14 +192,27 @@ async function fetchRecommandations(
 ): Promise<Recommandation[]> {
 
   try {
-    interface RawRecoSite {
-      recommandation_id: string
-      site: { id: string; nom: string } | null
-    }
+    /* ══ LE PÉRIMÈTRE EST UNE LISTE DE COMPTEURS, ET LES SITES S'EN DÉDUISENT ═══════════════════
 
+       Naoëlle, 09/09/2026 : « il faut pouvoir relier toutes les recommandations à leurs compteurs
+       vu qu'on va supprimer les sites. »
+
+       Elles l'étaient déjà. Mesuré le même jour : les 1 912 paires (recommandation, site) de
+       `recommandations_sites` sont TOUTES le site d'un compteur du périmètre — 0 écart, et aucune
+       recommandation portant un site sans compteur. La table était donc intégralement redondante.
+
+       On lit désormais le site DEPUIS le compteur, qui le porte depuis la migration
+       20260909100000. Trois conséquences :
+
+         · `recommandations_sites` n'est plus lu, donc la table pourra disparaître ;
+         · une requête de moins par chargement — le site venait d'une lecture séparée ;
+         · le défaut signalé par William en réunion cesse d'être possible. Matthieu créait des
+           recommandations vides parce qu'il sélectionnait des sites en croyant sélectionner des
+           compteurs. Un périmètre qui n'est QUE des compteurs ne peut plus être vide de compteurs. */
     interface RawRecoCompteur {
       recommandation_id: string
       compteur_id: string
+      compteur: { groupe_site_id: string | null; libelle_site: string | null } | null
     }
 
     // Lecture en quatre vagues plutot qu'un seul Promise.all de douze tables entieres.
@@ -234,9 +247,12 @@ async function fetchRecommandations(
     if (cible && recoIds.length === 0) return []
     const parReco = cible ? surColonne('recommandation_id', recoIds) : undefined
 
-    const [sitesRows, compteursRows, versionsRows] = await Promise.all([
-      fetchAllRows<RawRecoSite>('recommandations_sites', 'recommandation_id, site:sites(id, nom)', parReco),
-      fetchAllRows<RawRecoCompteur>('recommandations_compteurs', 'recommandation_id, compteur_id', parReco).catch(() => [] as RawRecoCompteur[]),
+    const [compteursRows, versionsRows] = await Promise.all([
+      fetchAllRows<RawRecoCompteur>(
+        'recommandations_compteurs',
+        'recommandation_id, compteur_id, compteur:compteurs(groupe_site_id, libelle_site)',
+        parReco,
+      ).catch(() => [] as RawRecoCompteur[]),
       fetchAllRows<RawVersion>(
         'versions_recommandation',
         'id, recommandation_id, numero_version, nom, resume, contexte_et_hypotheses, gain_estime_annuel, economie_estimee_pourcentage, niveau_confiance, version_actuelle, est_figee, date_publication, date_presentation_client, date_decision_client, date_creation, statut:statuts_versions_recommandation(code), motif:motifs_versions_recommandation(libelle), contact_id, contact:contacts(prenom, nom)',
@@ -626,19 +642,26 @@ async function fetchRecommandations(
       optimisationsParVersion.set(opt.version_recommandation_id, list)
     }
 
+    /* Les deux cartes sortent de la MÊME lecture : les compteurs du périmètre portent leur site.
+       Les sites sont dédoublonnés sur l'identifiant de regroupement — dix compteurs d'une même
+       résidence ne doivent donner qu'un site, comme le faisait `recommandations_sites`. */
     const sitesParReco = new Map<string, { id: string; nom: string }[]>()
-    for (const rs of sitesRows) {
-      if (!rs.site) continue
-      const list = sitesParReco.get(rs.recommandation_id) ?? []
-      list.push(rs.site)
-      sitesParReco.set(rs.recommandation_id, list)
-    }
-
     const compteurIdsParReco = new Map<string, string[]>()
+    const vusParReco = new Map<string, Set<string>>()
     for (const rc of compteursRows) {
-      const list = compteurIdsParReco.get(rc.recommandation_id) ?? []
-      list.push(rc.compteur_id)
-      compteurIdsParReco.set(rc.recommandation_id, list)
+      const liste = compteurIdsParReco.get(rc.recommandation_id) ?? []
+      liste.push(rc.compteur_id)
+      compteurIdsParReco.set(rc.recommandation_id, liste)
+
+      const groupe = rc.compteur?.groupe_site_id
+      if (!groupe) continue
+      const vus = vusParReco.get(rc.recommandation_id) ?? new Set<string>()
+      if (vus.has(groupe)) continue
+      vus.add(groupe)
+      vusParReco.set(rc.recommandation_id, vus)
+      const sites = sitesParReco.get(rc.recommandation_id) ?? []
+      sites.push({ id: groupe, nom: rc.compteur?.libelle_site ?? '(site sans nom)' })
+      sitesParReco.set(rc.recommandation_id, sites)
     }
 
     // Durées par version puis par compteur, + union aplatie triée (ce que consomme le fan-out
@@ -942,11 +965,16 @@ export function useCreateRecommandation() {
         await supabase
           .from('recommandations_mandats')
           .insert({ recommandation_id: recoId, mandat_id: input.mandat_id, principal: true })
-        if (sites.length > 0) {
-          await supabase
-            .from('recommandations_sites')
-            .insert(sites.map((s) => ({ recommandation_id: recoId, site_id: s.id })))
-        }
+        /* ══ ON N'ÉCRIT PLUS LE PÉRIMÈTRE EN SITES ═══════════════════════════════════════════════
+           Il était redondant : le site d'une recommandation est le site de ses compteurs, et la
+           lecture le dérive désormais de là (voir `RawRecoCompteur` plus haut). Écrire les deux
+           créerait deux vérités, dont une vieillirait au premier compteur déplacé.
+
+           EFFET DE BORD VOULU. Une recommandation créée sans compteur n'aura plus AUCUN périmètre,
+           au lieu d'en avoir un en apparence. C'est le défaut que William a rapporté en réunion le
+           09/09/2026 : Matthieu sélectionnait des sites en croyant sélectionner des compteurs, et
+           obtenait des recommandations vides sans que rien ne le signale. Le rendre visible est la
+           première étape pour l'empêcher. */
       }
 
       queryClient.setQueryData<Recommandation[]>(['recommandations'], (old) =>

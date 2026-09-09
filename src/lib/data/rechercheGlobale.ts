@@ -63,7 +63,23 @@ async function chercher(query: string): Promise<SearchEntry[]> {
     appliquer(supabase.from('comptes').select('id, nom, ville, siren'), listeMots, ['nom', 'siren', 'ville']).limit(PAR_FAMILLE),
     appliquer(supabase.from('sites').select('id, nom, ville, code_postal, adresse, compte:comptes(nom)'), listeMots, ['nom', 'ville', 'code_postal', 'adresse']).limit(PAR_FAMILLE),
     appliquer(supabase.from('contacts').select('id, prenom, nom, email, telephone, compte:comptes(nom)'), listeMots, ['nom', 'prenom', 'email', 'telephone']).limit(PAR_FAMILLE),
-    appliquer(supabase.from('compteurs').select('id, numero_point, libelle, site:sites(nom)'), listeMots, ['numero_point', 'libelle']).limit(PAR_FAMILLE),
+    /* ══ LE COMPTEUR SE CHERCHE AUSSI PAR SON SITE ════════════════════════════════════════════
+       Naoëlle, 09/09/2026 : « si par exemple un commercial recherche un site qui s'appelle SDC
+       Plaisance, il le retrouvera dans le libellé de site du compteur qui lui était attribué ? »
+
+       La réponse était NON, et c'était un trou à retardement. Le compteur ne se cherchait que par
+       son numéro de PDL et son libellé propre ; « SDC Plaisance » ne remontait que par la famille
+       « site ». Le jour où la table `sites` disparaît — décision du 09/09/2026 — cette recherche
+       serait devenue muette sans que rien ne le signale.
+
+       On cherche donc désormais dans `libelle_site` et `adresse_site`, les deux colonnes que le
+       compteur porte depuis la migration 20260909100000. Vérifié : « SDC PLAISANCE » remonte son
+       compteur, et aucun des 6 067 noms de site n'est absent des compteurs. */
+    appliquer(
+      supabase.from('compteurs').select('id, numero_point, libelle, libelle_site, adresse_site, site:sites(nom)'),
+      listeMots,
+      ['numero_point', 'libelle', 'libelle_site', 'adresse_site'],
+    ).limit(PAR_FAMILLE),
     appliquer(supabase.from('mandats').select('id, reference, compte:comptes(nom)'), listeMots, ['reference']).limit(PAR_FAMILLE),
     // `!<contrainte>` obligatoire ici : recommandations et contrats ont CHACUNE deux cles
     // etrangeres vers comptes (le compte du dossier et le fournisseur). Un embed non qualifie
@@ -95,7 +111,18 @@ async function chercher(query: string): Promise<SearchEntry[]> {
     })
   }
   for (const c of compteurs.data ?? []) {
-    entrees.push({ kind: 'compteur', id: c.id, label: c.numero_point, sublabel: [nomDe(c.site), c.libelle].filter(Boolean).join(' · '), to: `/compteurs/${c.id}`, fields: [] })
+    /* LA LIGNE SECONDAIRE MONTRE L'ADRESSE DE SITE, et non plus seulement le nom du site : c'est
+       ce qui permet de distinguer deux « SDC Plaisance » dans deux communes. `adresse_site` la
+       contient déjà (nom, code postal, ville), on retombe sur le nom du site tant que la table
+       existe encore. */
+    entrees.push({
+      kind: 'compteur',
+      id: c.id,
+      label: c.numero_point,
+      sublabel: [c.adresse_site ?? nomDe(c.site), c.libelle].filter(Boolean).join(' · '),
+      to: `/compteurs/${c.id}`,
+      fields: [],
+    })
   }
   for (const m2 of mandats.data ?? []) {
     entrees.push({ kind: 'mandat', id: m2.id, label: m2.reference ?? 'Mandat', sublabel: nomDe(m2.compte), to: `/mandats/${m2.id}`, fields: [] })
