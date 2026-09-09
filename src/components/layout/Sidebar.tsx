@@ -7,6 +7,9 @@ import { useSidebar } from '@/lib/layout'
 import { useIsAdmin, useMonProfil } from '@/lib/data/roles'
 import { useAuth } from '@/lib/auth'
 import { navItems, cycleNavItems, productionNavItems, bottomNavItems } from '@/lib/navItems'
+import { Bell } from 'lucide-react'
+import { useNotificationsNonLues } from '@/lib/data/notifications'
+import { PanneauNotifications } from '@/components/layout/PanneauNotifications'
 import type { NavItem } from '@/lib/navItems'
 import { getImpersonationInfo } from '@/lib/data/impersonation'
 import { PopupNouveautes } from '@/components/nouveautes/PopupNouveautes'
@@ -152,9 +155,47 @@ function BoutonNouveautes({
   )
 }
 
+/**
+ * ══ LA CLOCHE ══
+ *
+ * Naoëlle, 09/09/2026 : « ce serait bien d'avoir des notifs sur l'app direct, pour les principaux
+ * concernés de l'action ». Kimatch n'avertissait que par Slack et par courriel — hors de l'outil.
+ *
+ * Elle prend le même dessin que « Nouveautés » juste en dessous, et la même pastille : sur ce rail
+ * anthracite, le vert de marque #0D7A5F ne se distingue pas du fond, d'où le vert clair et le texte
+ * sombre. Une seule différence, et elle est de fond : la fenêtre Nouveautés éteint son compteur à
+ * l'ouverture, la boîte de notifications non — voir `PanneauNotifications`, une notification vue
+ * n'est pas une notification traitée.
+ */
+function BoutonNotifications({ onOuvrir }: { onOuvrir: () => void }) {
+  const nonLues = useNotificationsNonLues()
+
+  return (
+    <button
+      type="button"
+      onClick={onOuvrir}
+      className={cn(LIGNE_RAIL, 'w-full text-left', LIGNE_RAIL_REPOS)}
+    >
+      <span className="flex w-[17px] shrink-0 items-center justify-center">
+        <Bell className="h-4 w-4 text-km-side-faint" />
+      </span>
+      <span className="min-w-0 flex-1 truncate whitespace-nowrap">Notifications</span>
+      {nonLues.length > 0 && (
+        <span
+          className="flex h-[18px] min-w-[18px] shrink-0 items-center justify-center rounded-km-pill bg-kiwi-300 px-1 text-km-tiny font-bold tabular-nums text-ink-950"
+          aria-label={`${nonLues.length} notification${nonLues.length > 1 ? 's' : ''} à traiter`}
+        >
+          {nonLues.length > 9 ? '9+' : nonLues.length}
+        </span>
+      )}
+    </button>
+  )
+}
+
 export function Sidebar() {
   const { open, close } = useSidebar()
   const [popupNouveautes, setPopupNouveautes] = useState(false)
+  const [notificationsOuvertes, setNotificationsOuvertes] = useState(false)
   const isAdmin = useIsAdmin()
   const { session } = useAuth()
   const { data: profil } = useMonProfil()
@@ -275,6 +316,14 @@ export function Sidebar() {
         </div>
 
         <nav className="space-y-0.5 border-t border-km-side-line px-2.5 py-2.5">
+          {/* AU-DESSUS DU SUPPORT ET DES NOUVEAUTÉS : c'est ce qu'on vient chercher le plus souvent
+              dans ce bloc, et la pastille doit tomber sous l'œil sans le faire descendre. */}
+          <BoutonNotifications
+            onOuvrir={() => {
+              close()
+              setNotificationsOuvertes(true)
+            }}
+          />
           {bottomItems.map((item) =>
             item.to === '/nouveautes' ? (
               <BoutonNouveautes
@@ -312,6 +361,10 @@ export function Sidebar() {
       </aside>
 
       <PopupNouveautes open={popupNouveautes} onClose={() => setPopupNouveautes(false)} />
+      <PanneauNotifications
+        ouvert={notificationsOuvertes}
+        onFermer={() => setNotificationsOuvertes(false)}
+      />
     </>
   )
 }

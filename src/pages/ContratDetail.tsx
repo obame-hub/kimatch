@@ -7,6 +7,7 @@ import { Button } from '@/components/ui/button'
 import { ZoneDepotFichiers } from '@/components/ui/zone-depot-fichiers'
 import { Badge } from '@/components/ui/badge'
 import { CheminSignature } from '@/components/contrat/CheminSignature'
+import { creerNotifications, profilsDuModule } from '@/lib/data/notifications'
 import { CycleDeVie } from '@/components/contrat/CycleDeVie'
 import { EntityLink } from '@/components/ui/entity-link'
 import { useSuiviDuContrat, SANTE_LIBELLE } from '@/lib/data/suivisContrats'
@@ -700,7 +701,59 @@ export default function ContratDetail() {
                           date_validation: new Date().toISOString(),
                           valide_par_id: monProfil?.id ?? null,
                         })
-                          .then(() => showToast('✓ Contrat validé — cycle de signature clôturé'))
+                          .then(async () => {
+                            showToast('✓ Contrat validé — cycle de signature clôturé')
+
+                            /* ══ ET LE SERVICE CLIENT EST PRÉVENU ══
+                               William, 09/09/2026 : « quand je validais, ça envoyait une
+                               notification au service client. Avant c'était Agathe, maintenant
+                               c'est Fabien. Ce que j'attendais de lui, c'était qu'il fasse une
+                               DEUXIÈME LAME — parce que c'est possible que je fasse une erreur en
+                               récupérant les données d'un contrat, une erreur sur une date. Il
+                               revérifiait toutes les infos. »
+
+                               Le message dit CE QU'ON ATTEND, pas ce qui s'est passé : « à
+                               revérifier » et non « a été validé ». Une notification qui annonce
+                               sans demander se lit et s'oublie.
+
+                               APRÈS LA VALIDATION ET JAMAIS AVANT : elle est dans le `then`, donc
+                               si l'écriture échoue, personne n'est prévenu d'un contrat qui n'a pas
+                               été validé.
+
+                               ET L'ÉCHEC DE LA NOTIFICATION NE DÉFAIT PAS LA VALIDATION : le
+                               contrat EST validé, c'est un fait acquis. On le signale sans le
+                               transformer en erreur — le pire serait de laisser croire que la
+                               validation a échoué alors qu'elle est en base. */
+                            try {
+                              const destinataires = await profilsDuModule('service_client_contrat')
+                              const combien = await creerNotifications({
+                                destinataires,
+                                titre: `Contrat à revérifier — ${contrat.reference ?? 'sans numéro'}`,
+                                message: [
+                                  contrat.compte_nom,
+                                  contrat.fournisseur_nom && `chez ${contrat.fournisseur_nom}`,
+                                  'validé' + (monProfil ? ` par ${monProfil.prenom} ${monProfil.nom}` : ''),
+                                ]
+                                  .filter(Boolean)
+                                  .join(' · '),
+                                lien: `/contrats/${contrat.id}`,
+                                entiteType: 'contrat',
+                                entiteId: contrat.id,
+                                categorie: 'validation_contrat',
+                                emetteurId: monProfil?.id ?? null,
+                              })
+                              /* On ne dit rien quand il n'y a personne à prévenir : le service
+                                 client n'est peut-être pas encore désigné dans Paramètres, et ce
+                                 n'est pas au valideur de s'en occuper au moment où il valide. */
+                              if (combien > 0) showToast('✓ Service client prévenu')
+                            } catch (e) {
+                              showToast(
+                                `Contrat validé, mais le service client n'a pas pu être prévenu : ${
+                                  e instanceof Error ? e.message : 'erreur inconnue'
+                                }`,
+                              )
+                            }
+                          })
                           .catch((e) =>
                             showToast(e instanceof Error ? `Erreur : ${e.message}` : 'Validation impossible'),
                           )
