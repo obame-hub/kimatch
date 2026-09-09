@@ -227,12 +227,29 @@ export function CheminSignature({
   contrat,
   onCopie,
   onAvancer,
+  onValider,
   detail,
 }: {
   contrat: Contrat
   onCopie: (message: string) => void
   /** Absent = lecture seule. Reçoit le code d'avancement à poser. */
   onAvancer?: (code: string, libelle: string) => void
+  /**
+   * VALIDER LE CONTRAT — le geste qui clôt le cycle de signature.
+   *
+   * William, 09/09/2026 : « je passais en Signé et j'avais un bouton VALIDER LE CONTRAT. À partir
+   * de ce moment-là, ça clôturait le cycle de signature, et on passait finalement sur le cycle de
+   * vie. »
+   *
+   * Ce n'est pas une formalité, et c'est pour ça qu'il y a une confirmation : la validation atteste
+   * que le FOURNISSEUR a confirmé la prise en charge du contrat ET la commission — « on attend le
+   * retour du fournisseur, et c'est une fois qu'il nous répond oui c'est bon, on atteste qu'on a
+   * bien reçu le contrat et la marge que vous avez prise est de tant, qu'on validait ». Elle ouvre
+   * la facturation et permet de clôturer l'opportunité.
+   *
+   * Absent = pas le droit de valider.
+   */
+  onValider?: () => void
   /**
    * LE DÉTAIL QUI SE REPLIE AVEC LE CYCLE : le suivi DocuSign, ses horodatages et ses relances.
    * Dans la maquette de William il est DANS cette carte, sous la frise — pas en bas de page comme
@@ -255,6 +272,14 @@ export function CheminSignature({
      parce qu'il attend un geste de nous. */
   const clos = Boolean((contrat.date_signature || contrat.avancement === 'SIGNE') && contrat.date_validation)
   const [deplie, setDeplie] = useState(!clos)
+
+  /* LA VALIDATION SE CONFIRME EN DEUX TEMPS, sans fenêtre modale. Elle ouvre la facturation et
+     n'a pas de bouton pour revenir en arrière : un clic malheureux sur un contrat de 20 000 € ne
+     doit pas suffire. Deux clics et une phrase qui dit ce qu'on atteste suffisent — une modale pour
+     ça interromprait la lecture de la fiche pour un geste qui s'y rattache. */
+  const [confirme, setConfirme] = useState(false)
+  const signe = Boolean(contrat.date_signature || contrat.avancement === 'SIGNE')
+  const aValider = Boolean(onValider && signe && !contrat.date_validation)
   const suivante = onAvancer
     ? ETAPES_MANUELLES.find((e) => (e.depuis as readonly string[]).includes(contrat.avancement ?? ''))
     : undefined
@@ -361,6 +386,84 @@ export function CheminSignature({
       {/* LE DÉTAIL DE L'ENVELOPPE, sous la frise et dans la même carte — c'est là que la maquette le
           place, et c'est juste : la frise dit OÙ on en est, le détail dit COMMENT on y est arrivé. */}
       {detail && <div style={{ marginTop: 14 }}>{detail}</div>}
+
+      {/* ══ VALIDER LE CONTRAT ══
+          Il n'apparaît qu'entre la signature et la validation — c'est-à-dire exactement pendant la
+          fenêtre où l'on attend le retour du fournisseur. Avant la signature il n'aurait rien à
+          valider ; après, le cycle est clos. */}
+      {aValider && (
+        <div style={{ marginTop: 14, paddingTop: 12, borderTop: '1px solid #f0efec' }}>
+          {!confirme ? (
+            <div className="flex flex-wrap items-center gap-3">
+              <button
+                type="button"
+                onClick={() => setConfirme(true)}
+                className="transition-opacity hover:opacity-90"
+                style={{
+                  fontSize: 12,
+                  fontWeight: 750,
+                  color: '#fff',
+                  background: 'linear-gradient(135deg,#0d7a5fcc,#0d7a5f)',
+                  border: 'none',
+                  borderRadius: 8,
+                  padding: '7px 14px',
+                }}
+              >
+                Valider le contrat
+              </button>
+              <span style={{ fontSize: 11, color: '#83868f' }}>
+                Le client a signé. Reste à obtenir du fournisseur qu'il confirme la prise en charge
+                et la commission.
+              </span>
+            </div>
+          ) : (
+            <div>
+              <p style={{ fontSize: 11.5, color: '#5c5f66', marginBottom: 8 }}>
+                <strong style={{ color: '#16181d' }}>En validant, vous attestez</strong> que le
+                fournisseur a confirmé la prise en charge du contrat et la commission, et que les
+                données de la fiche sont exactes. Le cycle de signature se clôt, la facturation
+                s’ouvre, et l’opportunité peut être clôturée.
+              </p>
+              <div className="flex flex-wrap items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setConfirme(false)
+                    onValider?.()
+                  }}
+                  className="transition-opacity hover:opacity-90"
+                  style={{
+                    fontSize: 12,
+                    fontWeight: 750,
+                    color: '#fff',
+                    background: 'linear-gradient(135deg,#0d7a5fcc,#0d7a5f)',
+                    border: 'none',
+                    borderRadius: 8,
+                    padding: '7px 14px',
+                  }}
+                >
+                  Oui, je valide
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setConfirme(false)}
+                  className="transition-colors hover:bg-km-soft"
+                  style={{
+                    fontSize: 12,
+                    fontWeight: 600,
+                    color: '#5c5f66',
+                    border: '1px solid #e0dfdb',
+                    borderRadius: 8,
+                    padding: '6px 12px',
+                  }}
+                >
+                  Annuler
+                </button>
+              </div>
+            </div>
+          )}
+        </div>
+      )}
 
       {/* LE GESTE SUIVANT, quand c'en est un qui se fait à la main. */}
       {suivante && (

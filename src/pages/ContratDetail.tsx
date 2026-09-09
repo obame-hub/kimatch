@@ -25,7 +25,7 @@ import { sendContratForSignature, connectDocusign, DocusignNonConnecte } from '@
 import { BlocSuiviDocusign } from '@/components/docusign/BlocSuiviDocusign'
 import { useReferenceTable } from '@/lib/data/referenceTables'
 import { useFormulesTarifaires, useTarifsByContratCompteurs, useCreateTarif, useDeleteTarif } from '@/lib/data/tarifs'
-import { useCanManage, useIsAdmin, useProfilsAdmin } from '@/lib/data/roles'
+import { useCanManage, useIsAdmin, useMonProfil, useProfilsAdmin } from '@/lib/data/roles'
 import { useSuppression } from '@/lib/useSuppression'
 import { FALLBACK_STATUTS_CONTRATS, FALLBACK_TYPES_DOCUMENTS } from '@/lib/referenceFallbacks'
 import { useGoBack } from '@/lib/useGoBack'
@@ -352,6 +352,8 @@ export default function ContratDetail() {
   const canManage = useCanManage(contrat?.proprietaire_id)
   const isAdmin = useIsAdmin()
   const { data: profilsAdmin } = useProfilsAdmin()
+  // Qui valide : son identifiant est écrit sur le contrat, et son nom s'affiche sur la ligne close.
+  const { data: monProfil } = useMonProfil()
   const { data: tousContacts } = useContacts()
 
   /* ══ TOUS LES CONTACTS DU COMPTE, PAS SEULEMENT CEUX DONT C'EST LE COMPTE PRINCIPAL ══
@@ -677,6 +679,30 @@ export default function ContratDetail() {
                           .then(() => showToast(`✓ ${libelle}`))
                           .catch((e) =>
                             showToast(e instanceof Error ? `Erreur : ${e.message}` : 'Enregistrement impossible'),
+                          )
+                      }
+                    : undefined
+                }
+                /* ── QUI VALIDE, ET CE QUE ÇA ÉCRIT ──
+                   La date et l'auteur, en une écriture. `valide_par_id` n'est pas décoratif :
+                   William décrit la validation comme un engagement personnel — « je vérifiais que
+                   toutes les données étaient correctes, et vu que le fournisseur avait validé,
+                   j'appuyais sur valider » — et la ligne repliée l'affiche (« validé par Thomas M.
+                   le 21/02/2024 »). Sans le nom, elle dirait juste « validé », ce qui n'engage
+                   personne.
+
+                   Le profil peut manquer une fraction de seconde au premier rendu ; on écrit alors
+                   la date seule plutôt que de refuser le geste. */
+                onValider={
+                  canManage
+                    ? () => {
+                        majContrat({
+                          date_validation: new Date().toISOString(),
+                          valide_par_id: monProfil?.id ?? null,
+                        })
+                          .then(() => showToast('✓ Contrat validé — cycle de signature clôturé'))
+                          .catch((e) =>
+                            showToast(e instanceof Error ? `Erreur : ${e.message}` : 'Validation impossible'),
                           )
                       }
                     : undefined

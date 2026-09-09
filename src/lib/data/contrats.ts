@@ -439,6 +439,9 @@ export type PatchContrat = Partial<{
   statut_avancement_id: string | null
   /** La résiliation avant terme, seul état du cycle de vie qui ne se déduise pas des dates. */
   date_resiliation: string | null
+  /** La validation, qui clôt le cycle de signature et ouvre le cycle de vie. */
+  date_validation: string | null
+  valide_par_id: string | null
   reference_fournisseur: string | null
   date_debut: string | null
   date_fin: string | null
