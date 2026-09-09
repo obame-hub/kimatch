@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import type { Mandat } from '@/types/domain'
+import { FriseJalons, contexteDe, type Jalon } from '@/components/parcours/FriseJalons'
 import {
   PictoAnnule,
   PictoBrouillon,
@@ -12,6 +13,16 @@ import {
 
 /**
  * ══ LE CHEMIN DE CONVERSION D'UN MANDAT ══
+ *
+ * LE DESSIN DE LA FRISE A ÉTÉ EXTRAIT dans `@/components/parcours/FriseJalons` le 09/09/2026, pour
+ * que le contrat puisse l'utiliser sans le recopier — William demandait ce jour-là « inspire-toi de
+ * ce que j'ai fait sur mon mandat pour récupérer le design », et signalait par ailleurs un
+ * composant DocuSign dupliqué entre les deux objets. Une seconde copie du même dessin aurait
+ * produit la même remarque une semaine plus tard.
+ *
+ * CE FICHIER GARDE CE QUI EST PROPRE AU MANDAT : quels jalons il a, ce qui les rend franchis, son
+ * badge de vie, et son bouton de copie d'enveloppe. Rien de tout cela n'est partageable — un
+ * contrat a six jalons et les déduit d'autres colonnes.
  *
  * Maquette de William, 08/09/2026. Quatre jalons dans le cas nominal — Brouillon, Envoyé, Consulté,
  * Actif — et une cinquième, Expiré, qui n'apparaît que lorsqu'elle a un sens.
@@ -42,42 +53,6 @@ import {
  * un fait, l'heure de leur consultation n'a jamais été observée. Inventer un horodatage serait pire
  * que la ligne vide.
  */
-
-const OR_CLAIR = '#d19a44'
-const OR_FONCE = '#b57a24'
-const DEGRADE_OR = `linear-gradient(135deg,${OR_FONCE},${OR_CLAIR})`
-
-interface Jalon {
-  cle: string
-  libelle: string
-  picto: (p: { taille?: number }) => React.ReactElement
-  franchi: boolean
-  /** Couleur propre au jalon final. Absente, le jalon prend l'or du mandat. */
-  couleur?: string
-  date: string | null
-  /** Sous la date : l'heure, et ce qui s'est passé. */
-  contexte: string | null
-}
-
-function jourFr(iso: string | null | undefined): string | null {
-  if (!iso) return null
-  const d = new Date(iso)
-  return Number.isNaN(d.getTime()) ? null : d.toLocaleDateString('fr-FR')
-}
-
-function heureFr(iso: string | null | undefined): string | null {
-  if (!iso) return null
-  const d = new Date(iso)
-  if (Number.isNaN(d.getTime())) return null
-  return d.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })
-}
-
-/** L'heure, puis ce qu'on en sait — « 18:02 · ouvert 3 fois ». */
-function contexteDe(iso: string | null | undefined, complement?: string | null): string | null {
-  const h = heureFr(iso)
-  if (!h) return complement ?? null
-  return complement ? `${h} · ${complement}` : h
-}
 
 export function jalonsDuMandat(mandat: Mandat): Jalon[] {
   const statut = mandat.statut ?? ''
@@ -196,11 +171,6 @@ export function CheminConversion({
   const [copie, setCopie] = useState(false)
   const jalons = jalonsDuMandat(mandat)
   const badge = badgeVie(mandat)
-  const dernierFranchi = jalons.reduce((acc, j, i) => (j.franchi ? i : acc), 0)
-
-  /* Alternance nœud / barre. Les barres sont volontairement étroites et élastiques (`.75fr`) : ce
-     sont les libellés, sous les nœuds, qui doivent disposer de la place. */
-  const colonnes = jalons.map(() => 'minmax(0,1fr)').join(' minmax(14px,.75fr) ')
 
   return (
     <div style={{ background: '#fff', border: '1px solid #e7e6e2', borderRadius: 13, padding: '14px 24px 16px' }}>
@@ -253,125 +223,7 @@ export function CheminConversion({
         </span>
       </div>
 
-      <div
-        style={{ display: 'grid', alignItems: 'center', padding: '18px 2px 2px', gridTemplateColumns: colonnes }}
-      >
-        {/* ── Première passe : les nœuds et les barres ── */}
-        {jalons.map((jalon, i) => {
-          const Picto = jalon.picto
-          const courant = i === dernierFranchi
-          const taille = courant ? 40 : 35
-          const couleur = jalon.couleur
-          const fond = jalon.franchi
-            ? couleur
-              ? `linear-gradient(135deg,${couleur}cc,${couleur})`
-              : DEGRADE_OR
-            : '#fff'
-
-          const suivant = jalons[i + 1]
-          return (
-            <Cellules key={jalon.cle}>
-              <div className="relative flex justify-center" style={{ zIndex: 1 }}>
-                <div
-                  className="flex items-center justify-center"
-                  style={{
-                    width: taille,
-                    height: taille,
-                    borderRadius: '50%',
-                    background: fond,
-                    border: jalon.franchi ? undefined : '2px dashed #dcdad5',
-                    color: jalon.franchi ? '#fff' : '#c9cbc6',
-                    boxShadow: jalon.franchi
-                      ? courant
-                        ? `0 4px 12px ${couleur ?? OR_FONCE}4d`
-                        : '0 2px 6px rgba(181,122,36,.22)'
-                      : 'none',
-                  }}
-                >
-                  <Picto taille={courant ? 18 : 16} />
-                </div>
-              </div>
-              {suivant && <BarreDeLiaison depuis={jalon} vers={suivant} />}
-            </Cellules>
-          )
-        })}
-
-        {/* ── Seconde passe : les libellés, dans la même grille ── */}
-        {jalons.map((jalon, i) => (
-          <Cellules key={`lbl-${jalon.cle}`}>
-            <div style={{ textAlign: 'center', paddingTop: 9, minWidth: 0 }}>
-              <div
-                style={{
-                  fontSize: 12,
-                  letterSpacing: '-.01em',
-                  fontWeight: jalon.franchi ? 800 : 600,
-                  color: jalon.franchi ? jalon.couleur ?? '#16181d' : '#c0c2bd',
-                }}
-              >
-                {jalon.libelle}
-              </div>
-              <div
-                className="font-mono"
-                style={{
-                  fontSize: 10.5,
-                  fontWeight: 700,
-                  marginTop: 4,
-                  color: jalon.franchi ? jalon.couleur ?? '#5c5f66' : '#c0c2bd',
-                }}
-              >
-                {jourFr(jalon.date) ?? (jalon.franchi ? '' : 'en attente')}
-              </div>
-              {jalon.contexte && (
-                <div className="font-mono" style={{ fontSize: 9.5, color: '#a3a5a0', marginTop: 1 }}>
-                  {jalon.contexte}
-                </div>
-              )}
-            </div>
-            {i < jalons.length - 1 && <div />}
-          </Cellules>
-        ))}
-      </div>
+      <FriseJalons jalons={jalons} />
     </div>
   )
-}
-
-/** Deux cellules de grille voisines, sans conteneur : un `<div>` casserait la grille. */
-function Cellules({ children }: { children: React.ReactNode }) {
-  return <>{children}</>
-}
-
-/**
- * La barre entre deux jalons.
- *
- * TROIS ÉTATS, ET LE DEUXIÈME EST LE PLUS IMPORTANT : quand l'étape précédente est franchie et pas
- * la suivante, les tirets défilent. C'est le seul signal d'attente de tout le rail — le handoff
- * écarte explicitement toute pulsation sur les nœuds.
- */
-function BarreDeLiaison({ depuis, vers }: { depuis: Jalon; vers: Jalon }) {
-  const commun = { height: 6, borderRadius: 3, margin: '0 -10px' } as const
-
-  if (depuis.franchi && vers.franchi) {
-    /* Vers un jalon coloré, cinq paliers : un simple dégradé or → vert vire au kaki au milieu, et la
-       transition se voit comme une salissure. `backgroundSize` en pourcentage est indispensable —
-       une valeur en pixels ferait RÉPÉTER le dégradé et produirait un motif segmenté. */
-    const fond = vers.couleur
-      ? `linear-gradient(90deg,${OR_CLAIR} 0%,#c2a03f 22%,#96a055 48%,#5a9270 74%,${vers.couleur} 100%)`
-      : DEGRADE_OR
-    return <div style={{ ...commun, background: fond, backgroundSize: '100% 100%' }} />
-  }
-
-  if (depuis.franchi) {
-    return (
-      <div
-        style={{
-          ...commun,
-          background: 'repeating-linear-gradient(90deg,#e0cfa8 0 6px,#f3eee2 6px 12px)',
-          backgroundSize: '24px 100%',
-          animation: 'stripeMove 1.1s linear infinite',
-        }}
-      />
-    )
-  }
-
-  return <div style={{ ...commun, background: '#eceae6' }} />
 }

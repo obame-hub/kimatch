@@ -759,6 +759,30 @@ export interface Contrat {
   date_envoi_signature: string | null
   date_signature: string | null
   statut_signature: string | null
+  /**
+   * ══ LE CYCLE DE SIGNATURE, PREMIER DES DEUX CHEMINS DU CONTRAT ══
+   *
+   * William, appel du 09/09/2026 : « le contrat doit avoir deux chemins, c'est vraiment important
+   * qu'il ait ça. » Brouillon → Demandé → Réceptionné → Envoyé → Consulté → Signé.
+   *
+   * À NE PAS CONFONDRE AVEC `statut` ci-dessus, qui mélange encore les deux chemins et que la
+   * fiche a cessé de lire. Ni avec le cycle de VIE, qui ne se stocke pas : il se déduit des deux
+   * dates (`statutVieContrat`), sauf la résiliation qui porte la sienne.
+   */
+  avancement?: string | null
+  avancement_libelle?: string | null
+  /** Première ouverture par le signataire, rapportée par DocuSign. Jalon « Consulté ». */
+  date_consultation?: string | null
+  nb_ouvertures?: number | null
+  /**
+   * Résiliation AVANT TERME — le seul état du cycle de vie qui ne se déduise pas des dates.
+   * William : « tu peux garder résilié » ; et « annuler, ça n'a pas de sens ».
+   */
+  date_resiliation?: string | null
+  /** Qui a validé le contrat après signature, et quand : ce qui clôt le cycle de signature. */
+  date_validation?: string | null
+  valide_par_id?: string | null
+  valide_par_nom?: string | null
   date_creation?: string
   date_modification?: string
   // Clauses + pricing (fiche Contrat, handoff design William 30/07/2026) -- colonnes ajoutees

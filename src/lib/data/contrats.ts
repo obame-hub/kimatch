@@ -44,6 +44,13 @@ interface RawContrat {
   fournisseur: { nom: string } | null
   type_energie: { code: string } | null
   statut: { code: string } | null
+  avancement: { code: string; libelle: string } | null
+  date_consultation: string | null
+  nb_ouvertures: number | null
+  date_resiliation: string | null
+  date_validation: string | null
+  valide_par_id: string | null
+  valide_par: { prenom: string; nom: string } | null
   contact_signataire: { prenom: string; nom: string } | null
   interlocuteur_pricing: { prenom: string; nom: string } | null
   proprietaire: { prenom: string; nom: string } | null
@@ -61,7 +68,7 @@ async function fetchContrats(compteId?: string, contratId?: string, listeSeule =
       'contrats',
       // `*` plutôt qu'une liste de colonnes fixe : `strategie_tarifaire` vient d'être ajoutée
       // par migration et peut ne pas encore exister en prod au moment du déploiement.
-      '*, site:sites(nom), fournisseur:comptes!contrats_fournisseur_compte_id_fkey(nom), compte:comptes!contrats_compte_id_fkey(nom), type_energie:types_energies(code), statut:statuts_contrats(code), contact_signataire:contacts!contrats_contact_signataire_id_fkey(prenom, nom), interlocuteur_pricing:contacts!contrats_interlocuteur_pricing_contact_id_fkey(prenom, nom), proprietaire:profils!contrats_proprietaire_id_fkey(prenom, nom), recommandation:recommandations!contrats_recommandation_id_fkey(nom)',
+      '*, site:sites(nom), fournisseur:comptes!contrats_fournisseur_compte_id_fkey(nom), compte:comptes!contrats_compte_id_fkey(nom), type_energie:types_energies(code), statut:statuts_contrats(code), avancement:statuts_contrats_avancement(code, libelle), valide_par:profils!contrats_valide_par_id_fkey(prenom, nom), contact_signataire:contacts!contrats_contact_signataire_id_fkey(prenom, nom), interlocuteur_pricing:contacts!contrats_interlocuteur_pricing_contact_id_fkey(prenom, nom), proprietaire:profils!contrats_proprietaire_id_fkey(prenom, nom), recommandation:recommandations!contrats_recommandation_id_fkey(nom)',
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       (q: any) => {
         if (contratId) return q.eq('id', contratId)
@@ -109,6 +116,17 @@ async function fetchContrats(compteId?: string, contratId?: string, listeSeule =
       date_reception_souhaitee: c.date_reception_souhaitee ?? null,
       preavis_resiliation_jours: c.preavis_resiliation_jours,
       statut: c.statut?.code ?? '',
+      /* LES DEUX CHEMINS, SÉPARÉS. `avancement` est le cycle de signature ; le cycle de vie ne
+         figure pas ici parce qu'il ne se stocke pas — `statutVieContrat(date_debut, date_fin,
+         aujourd'hui, date_resiliation)` le déduit à la lecture. */
+      avancement: c.avancement?.code ?? null,
+      avancement_libelle: c.avancement?.libelle ?? null,
+      date_consultation: c.date_consultation ?? null,
+      nb_ouvertures: c.nb_ouvertures ?? null,
+      date_resiliation: c.date_resiliation ?? null,
+      date_validation: c.date_validation ?? null,
+      valide_par_id: c.valide_par_id ?? null,
+      valide_par_nom: c.valide_par ? `${c.valide_par.prenom} ${c.valide_par.nom}` : null,
       compteurs: compteursParContrat.get(c.id) ?? [],
       proprietaire_id: c.proprietaire_id ?? null,
       proprietaire_nom: c.proprietaire ? `${c.proprietaire.prenom} ${c.proprietaire.nom}` : null,
@@ -417,6 +435,10 @@ export function useUpdateContrat() {
  */
 export type PatchContrat = Partial<{
   statut_id: string | null
+  /** Le cycle de signature — Brouillon, Demandé, Réceptionné, Envoyé, Consulté, Signé. */
+  statut_avancement_id: string | null
+  /** La résiliation avant terme, seul état du cycle de vie qui ne se déduise pas des dates. */
+  date_resiliation: string | null
   reference_fournisseur: string | null
   date_debut: string | null
   date_fin: string | null

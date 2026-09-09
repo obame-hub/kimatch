@@ -49,3 +49,27 @@ describe('statutVieContrat', () => {
     expect(statutVieContrat('2026-08-31T00:00:00+00:00', null, JOUR)).toBe('EN_COURS')
   })
 })
+
+/**
+ * ══ LA RÉSILIATION PRIME SUR LES DATES ══
+ *
+ * William, 09/09/2026. Un contrat résilié avant son terme n'est ni « en cours » ni « à venir » :
+ * il est fini, et sa date de fin théorique ne dit plus rien de vrai. Ces trois cas épinglent
+ * l'ordre des tests dans la fonction — c'est le seul endroit où l'ordre change le résultat.
+ */
+describe('statutVieContrat — résiliation', () => {
+  const JOUR = '2026-08-31'
+
+  it('prime sur un contrat en cours', () => {
+    expect(statutVieContrat('2025-01-01', '2028-01-01', JOUR, '2026-03-12')).toBe('RESILIE')
+  })
+
+  it('prime même sur un contrat qui n’a pas encore commencé', () => {
+    expect(statutVieContrat('2027-01-01', '2029-01-01', JOUR, '2026-09-01')).toBe('RESILIE')
+  })
+
+  it('sans date de résiliation, rien ne change', () => {
+    expect(statutVieContrat('2025-01-01', '2028-01-01', JOUR, null)).toBe('EN_COURS')
+    expect(statutVieContrat('2025-01-01', '2028-01-01', JOUR)).toBe('EN_COURS')
+  })
+})

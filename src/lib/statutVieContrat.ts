@@ -16,13 +16,26 @@
  * et le cas limite du jour même, et la vue reprend le texte à l'identique.
  */
 
-export type StatutVie = 'A_VENIR' | 'EN_COURS' | 'EXPIRE'
+export type StatutVie = 'A_VENIR' | 'EN_COURS' | 'EXPIRE' | 'RESILIE'
 
 export const LIBELLE_STATUT_VIE: Record<StatutVie, string> = {
   A_VENIR: 'À venir',
   EN_COURS: 'En cours',
   EXPIRE: 'Expiré',
+  RESILIE: 'Résilié',
 }
+
+/**
+ * ══ « RÉSILIÉ » EST LE SEUL QUI NE SE DÉDUISE PAS ══
+ *
+ * William, appel du 09/09/2026 : « tu peux garder le statut résilié — est-ce que parfois on nous
+ * résilie un contrat avant son terme ? » Et sur l'autre : « annuler, ça n'a pas de sens ; à partir
+ * du moment où il a été validé, il ne peut plus être annulé. » D'où trois états déduits et un
+ * quatrième saisi, plutôt que quatre statuts stockés.
+ *
+ * Une résiliation prime sur tout : un contrat résilié le 12 mars dont la date de fin est en 2028
+ * n'est ni « en cours » ni « expiré », il est fini. C'est pour ça que le test passe en premier.
+ */
 
 /**
  * @param aujourdhui Le jour de référence, au format `AAAA-MM-JJ`. Injecté plutôt que lu dans
@@ -33,7 +46,12 @@ export function statutVieContrat(
   dateDebut: string | null | undefined,
   dateFin: string | null | undefined,
   aujourdhui: string = new Date().toISOString().slice(0, 10),
+  dateResiliation?: string | null,
 ): StatutVie | null {
+  /* AVANT TOUT LE RESTE. Une résiliation est un fait qui met fin au contrat quelles que soient ses
+     dates ; la tester après « à venir » ferait passer pour futur un contrat déjà résilié. */
+  if (dateResiliation) return 'RESILIE'
+
   // Sans date de début, le contrat n'a pas commencé à vivre : c'est le cas des 35 contrats encore
   // en phase de signature. Rendre « à venir » leur inventerait un avenir qu'aucune date ne porte.
   if (!dateDebut) return null

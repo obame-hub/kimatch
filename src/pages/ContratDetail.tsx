@@ -6,8 +6,8 @@ import { Topbar } from '@/components/layout/Topbar'
 import { Button } from '@/components/ui/button'
 import { ZoneDepotFichiers } from '@/components/ui/zone-depot-fichiers'
 import { Badge } from '@/components/ui/badge'
-import { Card } from '@/components/ui/card'
-import { FriseStatut } from '@/components/opportunite/FriseStatut'
+import { CheminSignature } from '@/components/contrat/CheminSignature'
+import { CycleDeVie } from '@/components/contrat/CycleDeVie'
 import { EntityLink } from '@/components/ui/entity-link'
 import { useSuiviDuContrat, SANTE_LIBELLE } from '@/lib/data/suivisContrats'
 import { Dialog } from '@/components/ui/dialog'
@@ -71,44 +71,15 @@ function tarifResume(t: TarifContratCompteur): string {
 
 type TabKey = 'contrat' | 'rattachements' | 'perimetre' | 'fichiers'
 
-function CycleDeVieCard({ dateDebut, dateFin }: { dateDebut: string; dateFin: string | null }) {
-  const debut = new Date(dateDebut).getTime()
-  const fin = dateFin ? new Date(dateFin).getTime() : null
-  const now = Date.now()
-  const pct = fin ? Math.min(100, Math.max(0, ((now - debut) / (fin - debut)) * 100)) : 0
-  const statutLabel = fin == null ? 'sans échéance' : now < debut ? 'à venir' : now > fin ? 'expiré' : 'en cours'
-  const joursRestants = fin != null ? Math.round((fin - now) / 86400000) : null
+/* ══ `CycleDeVieCard` EST PARTI DANS `@/components/contrat/CycleDeVie` ══
+   Il calculait lui-même « à venir / en cours / expiré » avec `Date.now()` et des millisecondes —
+   une TROISIÈME écriture de la même règle, après `src/lib/statutVieContrat.ts` (épinglé par ses
+   tests) et la vue SQL `v_contrats_liste`. Trois écritures d'une règle finissent par diverger, et
+   celle-ci divergeait déjà : elle ignorait la résiliation, qui n'existait pas encore.
 
-  return (
-    <div className="rounded-xl border border-km-line bg-white p-4">
-      <div className="mb-2 flex items-center gap-2">
-        <span className="text-km-xs font-bold uppercase tracking-wide text-km-faint">Cycle de vie</span>
-        <div className="flex-1" />
-        {joursRestants != null && joursRestants >= 0 && (
-          <span className="text-km-label font-bold text-amber-600">expire dans {joursRestants} jour{joursRestants > 1 ? 's' : ''}</span>
-        )}
-        {joursRestants != null && joursRestants < 0 && <span className="text-km-label font-bold text-km-faint">{statutLabel}</span>}
-      </div>
-      {fin != null ? (
-        <>
-          <div className="relative h-2.5 rounded-full bg-km-soft">
-            <div className="absolute inset-y-0 left-0 rounded-full bg-gradient-to-r from-kiwi-500 to-kiwi-400" style={{ width: `${pct}%` }} />
-            {now >= debut && now <= fin && (
-              <div className="absolute -top-0.5 h-3.5 w-0.5 rounded bg-red-500" style={{ left: `${pct}%` }} />
-            )}
-          </div>
-          <div className="mt-1.5 flex justify-between font-mono text-km-xs text-km-faint">
-            <span>{new Date(dateDebut).toLocaleDateString('fr-FR')}</span>
-            {now >= debut && now <= fin && <span className="font-bold text-red-500">aujourd'hui</span>}
-            <span>{new Date(fin).toLocaleDateString('fr-FR')}</span>
-          </div>
-        </>
-      ) : (
-        <p className="text-xs text-km-faint">Débuté le {new Date(dateDebut).toLocaleDateString('fr-FR')} · sans date de fin renseignée.</p>
-      )}
-    </div>
-  )
-}
+   Le composant reprend le dessin de la maquette montrée par William le 09/09/2026 — les trois
+   pastilles À venir / En cours / Expiré, la barre, le repère du jour, les jours restants — et il
+   délègue le calcul à `statutVieContrat`. */
 
 const CLAUSES: { key: keyof Pick<Contrat, 'clause_tacite_reconduction' | 'clause_renegociation_anticipee' | 'clause_engagement_consommation' | 'clause_energie_verte' | 'clause_indexation_prix' | 'clause_penalites_resiliation'>; label: string }[] = [
   { key: 'clause_tacite_reconduction', label: 'Tacite reconduction' },
@@ -341,7 +312,10 @@ function AddTarifDialog({
  *
  * L'ordre est celui de la colonne `ordre` en base, donc celui que le métier a posé.
  */
-const JALONS_CONTRAT = ['EN_PREPARATION', 'A_SIGNER', 'SIGNE', 'A_VENIR', 'ACTIF', 'TERMINE'] as const
+/* `JALONS_CONTRAT` A DISPARU AVEC LA FRISE QU'IL DÉCRIVAIT. C'était l'ordre des neuf statuts
+   mélangés — « En préparation, À signer, Signé, À venir, Actif, Terminé » — dont William disait le
+   09/09/2026 : « ça n'a rien à voir, et c'est ça le problème, je ne sais pas d'où ça vient ce
+   chemin-là ». Les deux vrais chemins vivent maintenant dans `CheminSignature` et `CycleDeVie`. */
 
 export default function ContratDetail() {
   const { id } = useParams()
@@ -356,19 +330,17 @@ export default function ContratDetail() {
   const { data: documents } = useDocuments()
   const { data: statutsRef } = useReferenceTable('statuts_contrats')
   const statuts = statutsRef && statutsRef.length > 0 ? statutsRef : FALLBACK_STATUTS_CONTRATS
-  /* ══ OÙ EN EST LE CONTRAT, POUR LA FRISE ══
-     NOUVEAU se lit « En préparation » (même moment, deux noms), et un statut inconnu — une ligne
-     de référence ajoutée demain — retombe sur le premier jalon plutôt que de vider la frise. */
-  const statutContrat = contrat?.statut ?? ''
-  const courantContrat = statutContrat === 'NOUVEAU' ? 'EN_PREPARATION' : statutContrat
-  /* Résilié et annulé ferment la frise. Résilié est une PERTE — le client est parti avant terme ;
-     annulé est neutre — le contrat n'a jamais commencé, il n'y a rien à regretter. */
-  const finaliteContrat =
-    statutContrat === 'RESILIE'
-      ? { libelle: 'Résilié', perdue: true }
-      : statutContrat === 'ANNULE'
-        ? { libelle: 'Annulé', perdue: false, neutre: true }
-        : null
+  /* LE RÉFÉRENTIEL DU CYCLE DE SIGNATURE — celui que les deux boutons manuels de la frise
+     écrivent. Pas de repli codé en dur : contrairement aux statuts mélangés, ces cinq lignes
+     existent en base depuis l'origine et la sixième (« Consulté ») depuis la migration
+     20260910180000. Sans elles, les boutons ne s'affichent simplement pas. */
+  const { data: avancementsRef } = useReferenceTable('statuts_contrats_avancement')
+  const avancements = avancementsRef ?? []
+  /* `courantContrat` ET `finaliteContrat` SONT PARTIS AVEC LA FRISE DES NEUF STATUTS.
+     Ils traduisaient le mélange en un jalon courant et une issue — « Résilié » en perte,
+     « Annulé » en neutre. William, 09/09/2026 : « annuler, ça n'a pas de sens ; à partir du moment
+     où il a été validé, il ne peut plus être annulé ». Et la résiliation est devenue une DATE sur
+     le contrat, lue par `CycleDeVie`, plutôt qu'une issue de frise. */
 
   const site = sites?.find((s) => s.id === contrat?.site_id)
   const compte = comptes?.find((c) => c.id === site?.compte_id)
@@ -676,53 +648,43 @@ export default function ContratDetail() {
 
           {tab === 'contrat' && (
             <div className="flex flex-col gap-3.5">
-              <Card className="px-4 pb-1 pt-1">
-                <FriseStatut
-                  teinte="contrat"
-                  jalons={JALONS_CONTRAT.map((code) => ({
-                    code,
-                    libelle: statuts.find((s) => s.code === code)?.libelle ?? code,
-                  }))}
-                  courant={courantContrat}
-                  finalite={finaliteContrat}
-                  /* ══ ON CLIQUE LA FRISE POUR AVANCER LE CONTRAT ═══════════════════════════════
+              {/* ══ DEUX CHEMINS, ET NON UNE SEULE FRISE ══════════════════════════════════════
 
-                     Naoëlle, 03/09/2026, une fois la frise en place : « et du coup comment je
-                     change le statut ». Il était déjà modifiable — en cliquant sa valeur sous
-                     « Statut », dans le détail plus bas — mais plus personne ne l'y cherchait :
-                     quand une frise montre le chemin en haut de page, c'est sur elle qu'on veut
-                     agir. Un contrôle qu'on ne trouve pas équivaut à un contrôle qui n'existe pas.
+                  William, appel du 09/09/2026, en regardant cette page : « brouillon, demandé,
+                  réceptionné, envoyé — et là, en préparation, à signer, signé, à venir, actif : ça
+                  n'a rien à voir. Et c'est ça le problème, je ne sais pas d'où ça vient, ce
+                  chemin-là. »
 
-                     RÉSILIÉ ET ANNULÉ SONT LÀ AUSSI, à sa demande du 03/09 — mais À CÔTÉ de la
-                     frise, pas dedans. En jalons, le dessin aurait dit « … Actif → Terminé →
-                     Résilié → Annulé », c'est-à-dire un contrat qui passerait de l'un à l'autre.
-                     On sort par l'un OU par l'autre, et depuis n'importe où. Voir `issues`. */
-                  onJalon={
-                    canManage
-                      ? (code) => {
-                          const statut = statuts.find((s) => s.code === code)
-                          if (!statut || statut.code === contrat.statut) return
-                          majContrat({ statut_id: statut.id })
-                            .then(() => showToast(`✓ ${statut.libelle}`))
-                            .catch((e) =>
-                              showToast(e instanceof Error ? `Erreur : ${e.message}` : 'Enregistrement impossible'),
-                            )
-                        }
-                      : undefined
-                  }
-                  issues={
-                    canManage
-                      ? [
-                          { code: 'RESILIE', libelle: statuts.find((s) => s.code === 'RESILIE')?.libelle ?? 'Résilié' },
-                          { code: 'ANNULE', libelle: statuts.find((s) => s.code === 'ANNULE')?.libelle ?? 'Annulé' },
-                        ]
-                      : undefined
-                  }
-                />
-              </Card>
-              {contrat.date_debut && (
-                <CycleDeVieCard dateDebut={contrat.date_debut} dateFin={contrat.date_fin} />
-              )}
+                  Il vient des neuf valeurs de `statuts_contrats`, qui mélangent deux dimensions
+                  sans le dire : où en est la SIGNATURE, et où en est la VIE du contrat. Un contrat
+                  signé qui démarre dans six mois devait choisir entre « Signé » et « À venir »,
+                  alors que les deux sont vrais. C'est ce mélange qui a produit les deux pannes du
+                  jour — deux contrats signés sur DocuSign restés « Nouveau », et 19 contrats dont
+                  le statut contredit ses propres dates.
+
+                  Sa règle de séparation : « TANT QU'IL N'EST PAS SIGNÉ, TU NE PEUX PAS LUI DONNER
+                  UN STATUT [de vie] — il est encore dans le cycle de signature. » D'où le second
+                  chemin qui ne s'affiche qu'une fois le premier clos. */}
+              <CheminSignature
+                contrat={contrat}
+                onCopie={showToast}
+                onAvancer={
+                  canManage
+                    ? (code, libelle) => {
+                        const etape = avancements.find((a) => a.code === code)
+                        if (!etape) return
+                        majContrat({ statut_avancement_id: etape.id })
+                          .then(() => showToast(`✓ ${libelle}`))
+                          .catch((e) =>
+                            showToast(e instanceof Error ? `Erreur : ${e.message}` : 'Enregistrement impossible'),
+                          )
+                      }
+                    : undefined
+                }
+              />
+              {/* LE CYCLE DE VIE N'APPARAÎT QU'UNE FOIS LE CONTRAT SIGNÉ. Avant, il n'a pas de vie
+                  à raconter — et en annoncer une ferait croire à une affaire acquise. */}
+              {(contrat.date_signature || contrat.avancement === 'SIGNE') && <CycleDeVie contrat={contrat} />}
               <div className="rounded-xl border border-km-line bg-white p-4">
               <p className="mb-2.5 text-km-xs font-bold uppercase tracking-wide text-km-faint">Détail du contrat</p>
               <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
