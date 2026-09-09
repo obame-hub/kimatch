@@ -671,3 +671,19 @@ html body span[data-allo-c2c][data-allo-c2c-style="1"] > .allo-copy-btn {
 /* Le rail du mandat est passé à la verticale le 09/09/2026 (il partage désormais sa rangée avec les
    trois cartes d'identité) : les tirets descendent au lieu d'avancer. */
 @keyframes stripeMoveV { to { background-position: 0 24px } }
+
+/* ══ LE REFLET DE LA CAPSULE « MONTANT » ══
+   William, 09/09/2026 : « bien mis en évidence dans une capsule chatoyante ». Un dégradé large
+   qu'on fait glisser : le reflet traverse la capsule au lieu de clignoter.
+
+   SIX SECONDES, ET PAS DEUX. Cette capsule vit sur une fiche qu'on garde ouverte en téléphonant ;
+   un reflet rapide deviendrait un tic nerveux dans le coin de l'œil. Lent, il dit « ce chiffre
+   compte » sans réclamer d'attention. */
+@keyframes km-chatoie { to { background-position: -260% 0 } }
+.animate-km-chatoie { animation: km-chatoie 6s linear infinite; }
+
+/* Le mouvement s'arrête pour qui l'a demandé — une animation permanente est le premier réglage que
+   coupent les personnes sensibles au mouvement. */
+@media (prefers-reduced-motion: reduce) {
+  .animate-km-chatoie { animation: none; }
+}

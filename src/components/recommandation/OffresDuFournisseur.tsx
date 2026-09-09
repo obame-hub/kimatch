@@ -5,7 +5,7 @@ import { ChampNombre } from '@/components/ui/champ-nombre'
 import { PrixParCompteur } from '@/components/recommandation/PrixParCompteur'
 import { CarteOffreEtude } from '@/components/recommandation/CarteOffreEtude'
 import { FichierOffre } from '@/components/recommandation/FichierOffre'
-import { useTauxMargeKiwee } from '@/lib/data/montantAffaire'
+import { useTauxRepartition } from '@/lib/data/montantAffaire'
 import {
   useAjouterOffre,
   useUpdateOffrePartiel,
@@ -121,7 +121,7 @@ export function OffresDuFournisseur({
      fournisseur il s'agit : une offre ne porte que le NOM du fournisseur, et se fier au nom pour
      retrouver un compte est exactement ce qui a produit les doublons de la reprise Salesforce.
      Il descend jusqu'à la modale de saisie des prix, qui affichait « ÷ 2 » en dur. */
-  const { data: tauxMargeKiwee } = useTauxMargeKiwee(fournisseur.fournisseur_compte_id)
+  const { data: tauxMargeKiwee } = useTauxRepartition(fournisseur.fournisseur_compte_id)
 
   const ajouter = useAjouterOffre()
   const majOffre = useUpdateOffrePartiel()

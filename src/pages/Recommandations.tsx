@@ -155,7 +155,7 @@ const LIBELLE_TRAVAIL: Record<string, string> = {
  * plus proche au plus lointain, un nom de A à Z.
  */
 const OPTIONS_TRI: OptionTri[] = [
-  { cle: 'marge_nette', libelle: 'marge', ascendant: false },
+  { cle: 'marge_nette', libelle: 'montant net', ascendant: false },
   /* LA DATE DE CLÔTURE, LA PLUS PROCHE D'ABORD. Sur un dossier ouvert, cette date est l'échéance
      PRÉVUE (le `CloseDate` de Salesforce) : la trier en croissant met en tête ce qui se décide
      bientôt. Sur un dossier clos, c'est la date réelle. Le tableau ordonne en `nullsFirst: false`,
@@ -437,7 +437,7 @@ export default function Recommandations() {
              cours. Un total incluant les 1 573 dossiers clos écraserait les 199 355 € du pipeline et
              on lirait l'historique de Kiwee au lieu de son plan de charge. */
           badge={margeConnue ? euros(margeTotale) : undefined}
-          badgeLibelle="Marge totale"
+          badgeLibelle="Montant net total"
           description="Le véritable produit de KiWee — jamais figée, elle évolue par versions successives."
           actions={<Button onClick={() => setShowCreate(true)}><Plus className="h-4 w-4" />Nouvelle recommandation</Button>}
         />

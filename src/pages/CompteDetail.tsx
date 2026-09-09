@@ -192,6 +192,22 @@ export default function CompteDetail() {
   /* La mutation d'un champ de compte, déjà utilisée par les cartes filles. Elle sert ici au taux
      de partage de la marge, saisi directement dans le bloc « Fournisseur ». */
   const updateField = useUpdateCompteField()
+  /* Les comptes du CRM, pour le rattachement fournisseur ↔ intermédiaire. Huit partenaires et
+     cinquante-deux fournisseurs : la liste complète est déjà en cache, aucun appel de plus. */
+  const { data: comptesTous } = useComptes()
+
+  /* ══ LES DEUX LISTES QUE LE RATTACHEMENT DEMANDE ══
+     Sur une fiche FOURNISSEUR, le sélecteur propose les comptes partenaires. Sur une fiche
+     PARTENAIRE, on montre en retour les fournisseurs qui pointent vers lui : c'est la seule façon
+     de voir d'un coup d'œil si le rattachement des 52 fournisseurs est complet. */
+  const partenaires = useMemo(
+    () => (comptesTous ?? []).filter((c) => c.type_compte === 'partenaire' && c.id !== id),
+    [comptesTous, id],
+  )
+  const fournisseursDeLIntermediaire = useMemo(
+    () => (comptesTous ?? []).filter((c) => c.intermediaire_partenaire_id === id),
+    [comptesTous, id],
+  )
 
   function showToast(msg: string) {
     setToast(msg)
@@ -567,13 +583,13 @@ export default function CompteDetail() {
                             l'offre obligerait à le ressaisir à chaque cotation, et deux offres du
                             même fournisseur finiraient par porter deux taux différents. */}
                         <p className="flex items-center gap-1.5">
-                          <span className="text-km-faint">Part KiWee dans la marge :</span>
+                          <span className="text-km-faint">Taux répartition :</span>
                           <InlineField
                             variant="number"
                             label=""
                             emptyLabel="50"
                             unit="%"
-                            value={compte.taux_marge_kiwee != null ? Math.round(compte.taux_marge_kiwee * 1000) / 10 : 50}
+                            value={compte.taux_repartition != null ? Math.round(compte.taux_repartition * 1000) / 10 : 50}
                             disabled={!canManage}
                             onCommit={(v) => {
                               /* SAISI EN POURCENTAGE, STOCKÉ EN FRACTION. Personne n'écrit « 0,45 »
@@ -581,23 +597,52 @@ export default function CompteDetail() {
                                  valeur entre 0 et 1. */
                               const pourcent = v == null ? 50 : Math.min(100, Math.max(0, v))
                               return updateField
-                                .mutateAsync({ id: compte.id, patch: { taux_marge_kiwee: pourcent / 100 } })
-                                .then(() => showToast(`✓ Part KiWee : ${pourcent} %`))
+                                .mutateAsync({ id: compte.id, patch: { taux_repartition: pourcent / 100 } })
+                                .then(() => showToast(`✓ Taux répartition : ${pourcent} %`))
                             }}
                             onSaved={() => undefined}
                             onError={(err) => showToast(`Erreur : ${err.message}`)}
                           />
                           <ExplicationCalcul
-                            titre="Part KiWee dans la marge"
+                            titre="Taux répartition"
                             resume={'La marge annoncée au fournisseur est la marge BRUTE : elle est partagée avec lui. '
                               + 'Ce taux dit quelle part nous revient, et c’est elle qui sert à calculer le montant des '
                               + 'affaires gagnées chez ce fournisseur.'}
                             etapes={[
                               { libelle: 'Marge annoncée dans la cotation', valeur: 'ex. 4 €/MWh', origine: 'saisie dans « Modifier les prix »' },
-                              { libelle: 'Part KiWee', valeur: `${compte.taux_marge_kiwee != null ? Math.round(compte.taux_marge_kiwee * 1000) / 10 : 50} %`, origine: 'ce champ' },
+                              { libelle: 'Taux répartition', valeur: `${compte.taux_repartition != null ? Math.round(compte.taux_repartition * 1000) / 10 : 50} %`, origine: 'ce champ' },
                               { libelle: 'Marge nette KiWee', valeur: 'ex. 2 €/MWh', origine: 'le produit des deux' },
                             ]}
                             manques={undefined}
+                          />
+                        </p>
+                        {/* ══ PAR QUEL INTERMÉDIAIRE PASSE-T-ON CHEZ CE FOURNISSEUR ══
+                            William, 09/09/2026 : « il existe des fournisseurs propres à
+                            l'intermédiaire OBD et à l'intermédiaire Energix ».
+
+                            LE RATTACHEMENT VIT SUR LE FOURNISSEUR, pas sur l'affaire : sinon il
+                            faudrait le ressaisir à chaque cotation, et le corriger sur trois cents
+                            recommandations le jour où un fournisseur change de camp.
+
+                            VIDE VEUT DIRE « KIWEE FACTURE EN DIRECT » — pas « on ne sait pas ». La
+                            commission d'intermédiaire vaut alors zéro, et le chiffre d'affaires
+                            égale le montant brut. */}
+                        <p className="flex items-center gap-1.5">
+                          <span className="text-km-faint">Intermédiaire pricing :</span>
+                          <InlineField
+                            variant="select"
+                            label=""
+                            emptyLabel="Kiwee en direct"
+                            value={compte.intermediaire_partenaire_id ?? ''}
+                            options={partenaires.map((p) => ({ value: p.id, label: p.nom }))}
+                            disabled={!canManage}
+                            onCommit={(v) =>
+                              updateField
+                                .mutateAsync({ id: compte.id, patch: { intermediaire_partenaire_id: v || null } })
+                                .then(() => showToast(v ? '✓ intermédiaire enregistré' : '✓ facturation directe'))
+                            }
+                            onSaved={() => undefined}
+                            onError={(err) => showToast(`Erreur : ${err.message}`)}
                           />
                         </p>
                         {compte.conditions_commerciales && <p><span className="text-km-faint">Conditions :</span> {compte.conditions_commerciales}</p>}
@@ -611,6 +656,93 @@ export default function CompteDetail() {
                         <p><span className="text-km-faint">Contact référent :</span> {compte.contact_referent_nom || '—'}</p>
                         <p><span className="text-km-faint">Statut partenariat :</span> <Badge tone="neutral">{compte.statut_partenariat || 'À qualifier'}</Badge></p>
                         <p><span className="text-km-faint">Début du partenariat :</span> {compte.date_debut_partenariat ? new Date(compte.date_debut_partenariat).toLocaleDateString('fr-FR') : '—'}</p>
+
+                        {/* ══ LES DEUX TAUX DE L'INTERMÉDIAIRE PRICING ══
+                            William, 09/09/2026. Ils ne sont pas interchangeables, et c'est tout
+                            l'intérêt de les afficher côte à côte :
+
+                            · le TAUX COMMISSIONNEMENT est ce que ce partenaire prélève réellement
+                              sur ce qu'il facture au fournisseur. Il détermine le chiffre d'affaires
+                              qui entre dans les caisses de Kiwee ;
+                            · le TAUX COMMERCIAUX sert au « Montant », la référence sur laquelle se
+                              calculent les commissions et se remplissent les objectifs. Il est
+                              volontairement plus bas — 15 % contre 25 %.
+
+                            Deux chiffres pour la même affaire, qui ne doivent jamais être confondus :
+                            c'est exactement le genre d'écart qui produit un rapport faux dont
+                            personne ne trouve la cause. */}
+                        <p className="flex items-center gap-1.5">
+                          <span className="text-km-faint">Taux commissionnement :</span>
+                          <InlineField
+                            variant="number"
+                            label=""
+                            emptyLabel="—"
+                            unit="%"
+                            value={compte.taux_commissionnement != null ? Math.round(compte.taux_commissionnement * 1000) / 10 : null}
+                            disabled={!canManage}
+                            onCommit={(v) => {
+                              // Saisi en pourcentage, stocké en fraction — la contrainte en base le borne entre 0 et 1.
+                              const pourcent = v == null ? null : Math.min(100, Math.max(0, v))
+                              return updateField
+                                .mutateAsync({ id: compte.id, patch: { taux_commissionnement: pourcent == null ? null : pourcent / 100 } })
+                                .then(() => showToast(pourcent == null ? '✓ taux retiré' : `✓ Taux commissionnement : ${pourcent} %`))
+                            }}
+                            onSaved={() => undefined}
+                            onError={(err) => showToast(`Erreur : ${err.message}`)}
+                          />
+                          <ExplicationCalcul
+                            titre="Taux commissionnement"
+                            resume={'Ce que cet intermédiaire prélève sur le montant qu’il facture à son fournisseur '
+                              + 'partenaire. C’est lui qui détermine le chiffre d’affaires réellement encaissé par Kiwee.'}
+                            etapes={[
+                              { libelle: 'Montant brut de l’affaire', valeur: 'ex. 7 500 €', origine: 'calculé depuis l’offre retenue' },
+                              { libelle: 'Taux commissionnement', valeur: `${compte.taux_commissionnement != null ? Math.round(compte.taux_commissionnement * 1000) / 10 : 25} %`, origine: 'ce champ' },
+                              { libelle: 'Commission intermédiaire', valeur: 'ex. 1 875 €', origine: 'le produit des deux' },
+                            ]}
+                            manques={undefined}
+                          />
+                        </p>
+
+                        <p className="flex items-center gap-1.5">
+                          <span className="text-km-faint">Taux commerciaux :</span>
+                          <InlineField
+                            variant="number"
+                            label=""
+                            emptyLabel="—"
+                            unit="%"
+                            value={compte.taux_commerciaux != null ? Math.round(compte.taux_commerciaux * 1000) / 10 : null}
+                            disabled={!canManage}
+                            onCommit={(v) => {
+                              const pourcent = v == null ? null : Math.min(100, Math.max(0, v))
+                              return updateField
+                                .mutateAsync({ id: compte.id, patch: { taux_commerciaux: pourcent == null ? null : pourcent / 100 } })
+                                .then(() => showToast(pourcent == null ? '✓ taux retiré' : `✓ Taux commerciaux : ${pourcent} %`))
+                            }}
+                            onSaved={() => undefined}
+                            onError={(err) => showToast(`Erreur : ${err.message}`)}
+                          />
+                          <ExplicationCalcul
+                            titre="Taux commerciaux"
+                            resume={'Le taux qui sert au « Montant », la référence des commissions commerciales et des '
+                              + 'objectifs. Volontairement différent du taux de commissionnement réel.'}
+                            etapes={[
+                              { libelle: 'Montant brut de l’affaire', valeur: 'ex. 7 500 €', origine: 'calculé depuis l’offre retenue' },
+                              { libelle: 'Taux commerciaux', valeur: `${compte.taux_commerciaux != null ? Math.round(compte.taux_commerciaux * 1000) / 10 : 15} %`, origine: 'ce champ' },
+                              { libelle: 'Montant', valeur: 'ex. 6 375 € avant commission apporteur', origine: 'le brut moins ce taux' },
+                            ]}
+                            manques={undefined}
+                          />
+                        </p>
+
+                        {/* Les fournisseurs qui passent par cet intermédiaire — la contrepartie du
+                            champ posé sur leur fiche, pour vérifier d'un coup d'œil que le
+                            rattachement est complet. */}
+                        <p>
+                          <span className="text-km-faint">Fournisseurs rattachés :</span>{' '}
+                          {fournisseursDeLIntermediaire.length === 0
+                            ? 'aucun pour l’instant'
+                            : fournisseursDeLIntermediaire.map((f) => f.nom).join(', ')}
+                        </p>
                         {compte.commentaire_partenariat && <p><span className="text-km-faint">Commentaire :</span> {compte.commentaire_partenariat}</p>}
                       </>
                     )}

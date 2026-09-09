@@ -1132,7 +1132,7 @@ function Champ({ libelle, aide, unite, valeur, onCommit, apres, compact }: {
  * « Si le partage devient un jour propre a chaque fournisseur, c'est cette constante qui devient un
  * champ », disait la note qui suivait. Ce jour est arrivé : William, 03/09/2026 — « non pas toujours
  * par 2, et certains fournisseurs on prend moins que ça ». Le taux vit sur la fiche du fournisseur
- * (`comptes.taux_marge_kiwee`), à 50 % partout pour l'instant à sa demande, et modifiable.
+ * (`comptes.taux_repartition`), à 50 % partout pour l'instant à sa demande, et modifiable.
  *
  * LA CONSTANTE RESTE, COMME REPLI : quand on ne sait pas de quel fournisseur vient l'offre, mieux
  * vaut l'ancienne règle qu'un champ vide.

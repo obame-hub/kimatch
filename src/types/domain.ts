@@ -517,7 +517,29 @@ export interface Compte {
    * 03/09/2026). À 0,5 par défaut sur tous les comptes — la règle de Michel du 21/08 — et
    * modifiable sur la fiche du fournisseur. Sert au calcul du montant des affaires.
    */
-  taux_marge_kiwee?: number | null
+  /**
+   * ══ LES TROIS TAUX D'UNE AFFAIRE ══
+   *
+   * `taux_repartition` — sur le FOURNISSEUR : la part de la marge €/MWh qui revient à Kiwee.
+   *   0,50 partout au 09/09/2026. Il s'appelait `taux_marge_kiwee` jusque-là.
+   *
+   * `taux_commissionnement` — sur le PARTENAIRE (intermédiaire pricing) : ce qu'il prélève sur ce
+   *   qu'il facture au fournisseur. Sert au chiffre d'affaires réel.
+   *
+   * `taux_commerciaux` — sur le PARTENAIRE : le taux qui sert au « Montant », la référence des
+   *   commissions commerciales. Volontairement différent du précédent — 15 % contre 25 %.
+   *
+   * Les deux derniers sont NULS hors des comptes partenaires : zéro dirait « il prélève 0 % », ce
+   * qui n'est pas la même chose que « il ne prélève pas ».
+   */
+  taux_repartition?: number | null
+  taux_commissionnement?: number | null
+  taux_commerciaux?: number | null
+  /**
+   * Sur un compte FOURNISSEUR : l'intermédiaire pricing par lequel Kiwee passe pour lui.
+   * Nul = Kiwee facture en direct, donc pas de commission d'intermédiaire sur ces affaires.
+   */
+  intermediaire_partenaire_id?: string | null
   /** Critères d'éligibilité fournisseur (Tools: table `suppliers`) -- ajoutés le 04/08/2026 pour
    * le moteur d'éligibilité du flot Cotation. */
   partnership?: string | null
