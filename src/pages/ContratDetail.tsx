@@ -681,6 +681,40 @@ export default function ContratDetail() {
                       }
                     : undefined
                 }
+                /* ── LE SUIVI DOCUSIGN REMONTE DANS LA CARTE DU CYCLE ──
+                   Naoëlle, 09/09/2026, maquette à l'appui : « où est-ce que t'as mis le bouton voir
+                   le détail qui plie et déplie le détail que Will avait mis dans la maquette ? »
+
+                   Il était en bas de la fiche, après les clauses, à trois écrans de la frise qu'il
+                   commente. Or c'est le même sujet : la frise dit OÙ en est la signature, le suivi
+                   dit COMMENT on y est arrivé — envoyé à qui, livré quand, ouvert combien de fois,
+                   quelles relances. Les séparer obligeait à faire le rapprochement de tête.
+
+                   Et c'est ce détail-là que le bouton replie : un cycle clôturé se réduit à une
+                   ligne, un cycle en cours reste ouvert. */
+                detail={
+                  /* ── CE QUI EST PARTI À LA SIGNATURE ──
+                      Naoëlle, 21/08/2026, après avoir envoyé le contrat de SDC AMPLITUDE 2 : « j'ai
+                      envoyé ce contrat mais j'ai rien qui me montre s'il a bien été envoyé. Comment je
+                      suis sûre que ça a envoyé ? »
+
+                      Elle avait la pastille de l'en-tête et rien d'autre : ni la date, ni le
+                      destinataire, ni moyen de vérifier. Or une pastille qui vient d'un webhook ne
+                      prouve rien — si la notification n'arrive pas, elle affiche un état périmé sans le
+                      savoir. D'où ce bloc, qui montre à qui et quand, et le bouton qui va le demander à
+                      DocuSign plutôt que de se croire. */
+                  <BlocSuiviDocusign
+                    objet="contrat"
+                    id={contrat.id}
+                    envelopeId={contrat.docusign_envelope_id}
+                    statut={contrat.statut_signature}
+                    dateEnvoi={contrat.date_envoi_signature}
+                    dateSignature={contrat.date_signature}
+                    signataireNom={contrat.contact_signataire_nom}
+                    signaler={showToast}
+                    versProfil={() => navigate('/profil')}
+                  />
+                }
               />
               {/* LE CYCLE DE VIE N'APPARAÎT QU'UNE FOIS LE CONTRAT SIGNÉ. Avant, il n'a pas de vie
                   à raconter — et en annoncer une ferait croire à une affaire acquise. */}
@@ -980,27 +1014,6 @@ export default function ContratDetail() {
 
               <ClausesCard contrat={contrat} />
 
-              {/* ── CE QUI EST PARTI À LA SIGNATURE ──
-                  Naoëlle, 21/08/2026, après avoir envoyé le contrat de SDC AMPLITUDE 2 : « j'ai
-                  envoyé ce contrat mais j'ai rien qui me montre s'il a bien été envoyé. Comment je
-                  suis sûre que ça a envoyé ? »
-
-                  Elle avait la pastille de l'en-tête et rien d'autre : ni la date, ni le
-                  destinataire, ni moyen de vérifier. Or une pastille qui vient d'un webhook ne
-                  prouve rien — si la notification n'arrive pas, elle affiche un état périmé sans le
-                  savoir. D'où ce bloc, qui montre à qui et quand, et le bouton qui va le demander à
-                  DocuSign plutôt que de se croire. */}
-              <BlocSuiviDocusign
-                objet="contrat"
-                id={contrat.id}
-                envelopeId={contrat.docusign_envelope_id}
-                statut={contrat.statut_signature}
-                dateEnvoi={contrat.date_envoi_signature}
-                dateSignature={contrat.date_signature}
-                signataireNom={contrat.contact_signataire_nom}
-                signaler={showToast}
-                versProfil={() => navigate('/profil')}
-              />
             </div>
           )}
 

@@ -227,18 +227,71 @@ export function CheminSignature({
   contrat,
   onCopie,
   onAvancer,
+  detail,
 }: {
   contrat: Contrat
   onCopie: (message: string) => void
   /** Absent = lecture seule. Reçoit le code d'avancement à poser. */
   onAvancer?: (code: string, libelle: string) => void
+  /**
+   * LE DÉTAIL QUI SE REPLIE AVEC LE CYCLE : le suivi DocuSign, ses horodatages et ses relances.
+   * Dans la maquette de William il est DANS cette carte, sous la frise — pas en bas de page comme
+   * il l'était jusqu'ici. C'est le même sujet : ce que l'enveloppe a fait.
+   */
+  detail?: React.ReactNode
 }) {
   const [copie, setCopie] = useState(false)
   const jalons = jalonsDuContrat(contrat)
   const badge = badgeSignature(contrat)
+
+  /* ══ UN CYCLE CLÔTURÉ SE REPLIE, UN CYCLE EN COURS RESTE OUVERT ══
+     La maquette montre les deux états : replié, une ligne — « Cycle de signature clôturé, signé le
+     20/02/2024, validé par Thomas M. le 21/02/2024 » — avec un bouton « voir le détail » ; déplié,
+     la frise entière et le suivi DocuSign.
+
+     L'état par défaut suit le sens : un cycle terminé est de l'archive et n'a pas à occuper le haut
+     de la fiche, alors qu'un cycle en cours est précisément ce qu'on vient regarder. Il ne se
+     replie donc QUE lorsqu'il est signé ET validé — signé mais pas encore validé, il reste ouvert,
+     parce qu'il attend un geste de nous. */
+  const clos = Boolean((contrat.date_signature || contrat.avancement === 'SIGNE') && contrat.date_validation)
+  const [deplie, setDeplie] = useState(!clos)
   const suivante = onAvancer
     ? ETAPES_MANUELLES.find((e) => (e.depuis as readonly string[]).includes(contrat.avancement ?? ''))
     : undefined
+
+  if (clos && !deplie) {
+    return (
+      <div
+        className="flex items-center gap-3"
+        style={{ background: '#fff', border: '1px solid #e7e6e2', borderRadius: 13, padding: '12px 16px' }}
+      >
+        <span
+          className="flex flex-none items-center justify-center"
+          style={{ width: 26, height: 26, borderRadius: '50%', background: 'linear-gradient(135deg,#0d7a5fcc,#0d7a5f)', color: '#fff' }}
+        >
+          <PictoSigne taille={14} />
+        </span>
+        <div className="min-w-0 flex-1">
+          <p style={{ fontSize: 13, fontWeight: 750, color: '#0d7a5f', letterSpacing: '-.01em' }}>
+            Cycle de signature clôturé
+          </p>
+          <p className="truncate" style={{ fontSize: 11, color: '#83868f', marginTop: 1 }}>
+            signé le {jourFr(contrat.date_signature) ?? '—'}
+            {contrat.valide_par_nom ? ` · validé par ${contrat.valide_par_nom}` : ' · validé'} le{' '}
+            {jourFr(contrat.date_validation)}
+          </p>
+        </div>
+        <button
+          type="button"
+          onClick={() => setDeplie(true)}
+          className="flex-none transition-colors hover:bg-km-soft"
+          style={{ fontSize: 11.5, fontWeight: 600, color: '#5c5f66', border: '1px solid #e0dfdb', borderRadius: 8, padding: '5px 11px' }}
+        >
+          voir le détail
+        </button>
+      </div>
+    )
+  }
 
   return (
     <div style={{ background: '#fff', border: '1px solid #e7e6e2', borderRadius: 13, padding: '14px 24px 16px' }}>
@@ -289,9 +342,25 @@ export function CheminSignature({
         >
           {badge.texte}
         </span>
+
+        {clos && (
+          <button
+            type="button"
+            onClick={() => setDeplie(false)}
+            title="Replier le cycle de signature"
+            className="transition-colors hover:bg-km-soft"
+            style={{ fontSize: 11.5, fontWeight: 600, color: '#83868f', border: '1px solid #eceae6', borderRadius: 8, padding: '3px 9px' }}
+          >
+            replier
+          </button>
+        )}
       </div>
 
       <FriseJalons jalons={jalons} />
+
+      {/* LE DÉTAIL DE L'ENVELOPPE, sous la frise et dans la même carte — c'est là que la maquette le
+          place, et c'est juste : la frise dit OÙ on en est, le détail dit COMMENT on y est arrivé. */}
+      {detail && <div style={{ marginTop: 14 }}>{detail}</div>}
 
       {/* LE GESTE SUIVANT, quand c'en est un qui se fait à la main. */}
       {suivante && (
