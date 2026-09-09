@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState, type ReactNode } from 'react'
 import { Pencil } from 'lucide-react'
+import { Link } from 'react-router-dom'
 import { cn } from '@/lib/utils'
 import { useInlineEdit } from '@/lib/useInlineEdit'
 import { AddressAutocomplete } from '@/components/ui/address-autocomplete'
@@ -43,6 +44,24 @@ interface SelectFieldProps extends InlineFieldCommonProps {
   value: string
   options: { value: string; label: string }[]
   onCommit: (value: string) => Promise<void>
+  /**
+   * OÙ MÈNE LA VALEUR CHOISIE, quand elle désigne un objet et non un simple libellé.
+   *
+   * William, 09/09/2026 : « sur les contrats, il n'y a pas de rattachement à un contact
+   * signataire (comme pour le mandat par exemple). J'ai simplement un champ mais pas de
+   * redirection ni rien. »
+   *
+   * Il avait raison, et la cause était invisible à la relecture : la fiche contrat affichait bien
+   * un lien vers le contact — mais SEULEMENT dans la branche « lecture seule ». Dès qu'on a le
+   * droit de modifier — donc pour le propriétaire du contrat et pour tout administrateur, le cas
+   * courant — le champ devenait une liste déroulante, et le lien disparaissait. Autrement dit :
+   * plus on avait de droits, moins on pouvait naviguer.
+   *
+   * Avec `lien`, la valeur redevient cliquable ET modifiable : le libellé mène à l'objet, un
+   * crayon à côté ouvre la liste. Sans `lien`, le comportement d'origine est inchangé — un
+   * `type_energie` ou un `statut` ne mène nulle part, et un lien y serait un faux affordance.
+   */
+  lien?: string
 }
 
 interface NumberFieldProps extends InlineFieldCommonProps {
@@ -371,7 +390,7 @@ function LongTextInlineField({ value, onCommit, label, emptyLabel = 'ajouter un 
   )
 }
 
-function SelectInlineField({ value, options, onCommit, label, emptyLabel = 'choisir', onSaved, onError, className, disabled }: SelectFieldProps) {
+function SelectInlineField({ value, options, onCommit, label, emptyLabel = 'choisir', onSaved, onError, className, disabled, lien }: SelectFieldProps) {
   const ref = useRef<HTMLSelectElement>(null)
   const { editing, draft, setDraft, displayValue, start, commit, cancel } = useInlineEdit({ value, onCommit, onSaved, onError })
   const currentLabel = options.find((o) => o.value === displayValue)?.label
@@ -420,6 +439,30 @@ function SelectInlineField({ value, options, onCommit, label, emptyLabel = 'choi
           )}
           {options.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
         </select>
+      ) : currentLabel && lien ? (
+        /* LE LIBELLÉ MÈNE À L'OBJET, LE CRAYON OUVRE LA LISTE. Deux gestes distincts sur la même
+           ligne, comme la carte « Signataire » du mandat : on y clique le nom pour ouvrir la fiche
+           du contact, et « Changer » pour en désigner un autre. Le crayon reste discret et ne
+           s'affiche pas quand le champ est verrouillé. */
+        <div className="flex min-w-0 items-center gap-1">
+          <Link
+            to={lien}
+            className="min-w-0 flex-1 truncate rounded-km-sm px-1.5 py-0.5 text-km-name font-semibold text-km-text underline decoration-km-line decoration-dotted underline-offset-2 transition-colors hover:bg-km-soft hover:decoration-km-text"
+          >
+            {currentLabel}
+          </Link>
+          {!disabled && (
+            <button
+              type="button"
+              onClick={start}
+              title={label ? `Changer : ${label.toLowerCase()}` : 'Changer'}
+              aria-label={label ? `Changer ${label.toLowerCase()}` : 'Changer'}
+              className="flex-none rounded-km-sm p-1 text-km-faint transition-colors hover:bg-km-soft hover:text-km-text"
+            >
+              <Pencil className="h-3 w-3" />
+            </button>
+          )}
+        </div>
       ) : currentLabel ? (
         <button type="button" disabled={disabled} onClick={start} className="block w-full truncate rounded-km-sm px-1.5 py-0.5 text-left text-km-name text-km-text transition-colors hover:bg-km-soft">
           {currentLabel}
