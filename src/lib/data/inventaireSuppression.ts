@@ -132,11 +132,24 @@ async function interactionsBloquantes(colonne: string, valeur: string | string[]
   return count ?? 0
 }
 
-/** Les identifiants des sites d'un compte : la cascade passe par eux pour les compteurs et contrats. */
+/**
+ * Les identifiants des sites d'un compte.
+ *
+ * IL N'EN RESTE QU'UN USAGE : compter les signaux, seuls à ne pendre qu'au site (`signaux.site_id`
+ * est `not null` et n'a pas d'équivalent sur le compte). Tout le reste — compteurs, contrats — se
+ * compte désormais directement par `compte_id`, depuis que l'objet site a disparu de l'application.
+ */
 async function sitesDuCompte(compteId: string): Promise<string[]> {
   const { data, error } = await supabase.from('sites').select('id').eq('compte_id', compteId)
   if (error) throw new Error(error.message)
   return (data ?? []).map((s) => s.id as string)
+}
+
+/** Les compteurs d'un compte, par le lien direct — celui que suit la cascade. */
+async function compteursDuCompte(compteId: string): Promise<string[]> {
+  const { data, error } = await supabase.from('compteurs').select('id').eq('compte_id', compteId)
+  if (error) throw new Error(error.message)
+  return (data ?? []).map((c) => c.id as string)
 }
 
 async function compteursDesSites(siteIds: string[]): Promise<string[]> {
@@ -149,14 +162,19 @@ async function compteursDesSites(siteIds: string[]): Promise<string[]> {
 /* ════════════════════════════════════ L'INVENTAIRE PAR OBJET ════════════════════════════════════ */
 
 async function inventaireCompte(id: string): Promise<LigneInventaire[]> {
+  /* ══ ON COMPTE PAR LE COMPTE, PLUS PAR LE SITE ══
+     Naoëlle, 10/09/2026 : la fenêtre annonçait « 6 contrats » puis la base refusait. Elle les
+     comptait par `site_id` — le chemin de l'objet site, disparu de l'application le matin même —
+     alors que la cascade passe par `compte_id`. Deux chemins, deux nombres, et celui qu'on
+     affichait n'était pas celui qui s'appliquait. */
   const siteIds = await sitesDuCompte(id)
-  const compteurIds = await compteursDesSites(siteIds)
+  const compteurIds = await compteursDuCompte(id)
 
   const [contacts, mandats, contratsSites, signaux, consommations, interactions,
     interactionsSeules, opportunites, pistes, requetes, recommandations, acces] = await Promise.all([
     compter('contacts', 'compte_id', id),
     compter('mandats', 'compte_id', id),
-    compter('contrats', 'site_id', siteIds),
+    compter('contrats', 'compte_id', id),
     compter('signaux', 'site_id', siteIds),
     compter('consommations', 'compteur_id', compteurIds),
     compter('interactions', 'compte_id', id),
@@ -178,10 +196,11 @@ async function inventaireCompte(id: string): Promise<LigneInventaire[]> {
     { libelle: 'interaction rattachée à ce seul compte', nombre: interactionsSeules, regime: 'detruit',
       detail: 'Elles n’ont aucun autre rattachement : elles partent avec le compte, et se retrouvent dans la corbeille.' },
     { libelle: 'contact', nombre: contacts, regime: 'detruit' },
-    { libelle: 'site', nombre: siteIds.length, regime: 'detruit',
-      detail: siteIds.length > 0 ? 'avec leurs compteurs, contrats et signaux' : undefined },
+    /* PLUS DE LIGNE « SITE ». L'objet n'existe plus pour personne : l'annoncer dans une fenêtre de
+       suppression obligerait à expliquer ce qu'il est avant d'expliquer qu'il part. Les lignes du
+       site — ses compteurs, ses contrats, ses signaux — sont comptées chacune pour elle-même. */
     { libelle: 'compteur', nombre: compteurIds.length, regime: 'detruit',
-      detail: compteurIds.length > 0 ? 'rattaché aux sites ci-dessus' : undefined },
+      detail: compteurIds.length > 0 ? 'avec leurs relevés et leurs contrats' : undefined },
     { libelle: 'contrat', nombre: contratsSites, regime: 'detruit' },
     { libelle: 'mandat', nombre: mandats, regime: 'detruit' },
     { libelle: 'signal', nombre: signaux, regime: 'detruit' },
