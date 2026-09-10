@@ -40,6 +40,7 @@ interface RawCompteur {
   numero_point: string
   libelle: string | null
   adresse_site: string | null
+  libelle_site: string | null
   actif: boolean
   consommation_annuelle_mwh: number | null
   synchro_eneo: boolean
@@ -111,7 +112,11 @@ async function fetchCompteurs(siteIds?: string[], compteurId?: string): Promise<
       return {
         id: c.id,
         site_id: c.site_id,
-        site_nom: c.site?.nom ?? '',
+        /* LE LIBELLÉ DU COMPTEUR D'ABORD, celui du site en repli. Les deux sont identiques sur
+           les 7 923 compteurs (vérifié le 10/09/2026), mais l'ordre compte : c'est celui du
+           compteur qui survivra à la table `sites`. */
+        site_nom: c.libelle_site ?? c.site?.nom ?? '',
+        libelle_site: c.libelle_site ?? null,
         type_energie: (c.type_energie?.code?.toLowerCase() ?? 'electricite') as 'electricite' | 'gaz',
         numero_pdl: c.numero_point,
         utilisation: c.libelle ?? '',

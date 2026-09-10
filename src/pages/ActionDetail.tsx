@@ -215,6 +215,11 @@ export default function ActionDetail() {
                     label="Contact"
                     emptyLabel="rattacher un contact"
                     value={action.contact_id ?? ''}
+                    /* MÊME CORRECTION QUE SUR LE COMPTEUR ET LE CONTRAT (10/09/2026) : un champ
+                       qui désigne un OBJET doit mener à sa fiche. William : « le responsable
+                       devrait vraiment être un rattachement », « je ne peux pas cliquer dessus ».
+                       Le nom devient le lien, le crayon ouvre la liste. */
+                    lien={action.contact_id ? `/contacts/${action.contact_id}` : undefined}
                     options={(contacts ?? []).map((c) => ({ value: c.id, label: `${c.prenom ?? ''} ${c.nom ?? ''}`.trim() }))}
                     onCommit={(v) => majAction({ contact_id: v || null })}
                     {...retourInline}

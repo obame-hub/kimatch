@@ -321,13 +321,11 @@ export function matchSitesPourCompteur(sites: Site[], compteId: string, ville: s
   return { kind: 'new' }
 }
 
-export function useDeleteSite() {
-  const queryClient = useQueryClient()
-  return useMutation({
-    mutationFn: async (id: string) => {
-      const { error } = await supabase.from('sites').delete().eq('id', id)
-      if (error) throw new Error(error.message)
-    },
-    onSuccess: () => { void queryClient.invalidateQueries({ queryKey: ['sites'] }) },
-  })
-}
+/* ── `useDeleteSite` EST PARTI AVEC LA FICHE SITE ────────────────────────────────────────────
+   Son seul appelant était `SiteDetail.tsx`, supprimé le 10/09/2026 quand `/sites/:id` est devenu
+   une redirection. Son bouton avait déjà été retiré de l'écran la veille : depuis que
+   `compteurs.site_id` est en `on delete set null` sur une colonne `not null`, supprimer un site
+   qui porte un compteur remonte une erreur PostgreSQL brute — 6 341 sites sur 6 378.
+
+   On ne supprime plus un regroupement d'adresse à la main. Il se vide quand on déplace ses
+   compteurs, et la table partira d'un coup. */

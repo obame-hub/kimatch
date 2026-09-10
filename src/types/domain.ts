@@ -615,6 +615,18 @@ export interface Compteur {
    * ne sert qu'aux rares dérogations et n'est renseignée que sur une ligne.
    */
   adresse_site?: string | null
+  /**
+   * ══ LE LIBELLÉ DU LIEU, PORTÉ PAR LE COMPTEUR LUI-MÊME ══
+   *
+   * William, réunion du 10/09/2026 : « il faut absolument vérifier que depuis le site, le champ
+   * libellé se retrouve sur le compteur ou sur tous les compteurs de ce site-là. Ça c'est hyper
+   * important de ne pas le perdre. C'est vraiment très très important. »
+   *
+   * Vérifié le jour même sur les 7 923 compteurs : 0 sans libellé, et 0 dont le libellé diffère de
+   * celui de son site. La donnée est là ; ce qui manquait, c'est que la fiche la LISE ici plutôt
+   * que sur `site_nom`, qui la prend encore par jointure sur la table `sites`.
+   */
+  libelle_site?: string | null
   /** Où le trouver sur place : « Local TGBT — Bât. A ». Distinct du commentaire libre. */
   localisation_site?: string | null
   consommation_annuelle_mwh: number | null

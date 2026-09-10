@@ -731,29 +731,34 @@ export default function CompteurDetail() {
               </Link>
             )}
             <div className="ml-[22px] h-2 w-0.5 bg-km-soft" />
-            {site && (
-              <Link to={`/sites/${site.id}`} className="flex items-start gap-2 rounded-lg px-1.5 py-1.5 text-left hover:bg-km-bg">
-                <span className="mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-md bg-km-green-soft text-km-green"><MapPin className="h-3 w-3" /></span>
-                <span className="min-w-0 flex-1">
-                  <span className="block truncate text-xs font-semibold text-km-text">{site.nom}</span>
-                  {/* L'adresse du point de livraison, demandee le 15/08/2026 : « faire apparaitre
-                      l'adresse sur l'objet compteur ». Elle vit sur le site, le compteur n'en
-                      porte pas — on l'affiche donc ici, sous le site auquel il est rattache.
-                      C'est aussi ce qui permet de voir d'un coup d'oeil qu'un PDL est range sous
-                      le mauvais site, comme l'etait GI155378 avant le 13/08. */}
-                  {[site.adresse, [site.code_postal, site.ville].filter(Boolean).join(' ')]
-                    .filter((p) => p && p.trim())
-                    .join(', ') && (
-                    <span className="block truncate text-km-label text-km-faint">
-                      {[site.adresse, [site.code_postal, site.ville].filter(Boolean).join(' ')]
-                        .filter((p) => p && p.trim())
-                        .join(', ')}
-                    </span>
-                  )}
+            {/* ══ L'ADRESSE VIENT DU COMPTEUR, ET NE MÈNE PLUS À UNE FICHE SITE ══════════════
+
+                Réunion du 10/09/2026. William, en regardant cette fiche : « sur le compteur il n'y
+                a pas d'adresse, il n'y a pas de champ adresse. Donc il faut créer ce champ. »
+
+                Le champ existait — plus bas, sous « Adresse du compteur ». Ce qui manquait, c'est
+                qu'il soit présenté comme L'ADRESSE. Cette ligne-ci affichait celle du SITE et
+                menait à sa fiche ; le bloc du bas s'intitulait « préciser si différente du site »
+                et concluait « c'est l'adresse du site qui fait foi ». Autrement dit la fiche
+                désignait le site comme la source et le compteur comme l'exception — exactement
+                l'inverse de ce qui est vrai depuis le retrait de l'objet site.
+
+                C'est aussi ce qui faisait tomber Guillaume sur une page de site : la ligne du
+                milieu était un lien vers `/sites/:id`.
+
+                `adresse_site` est calculée en base à partir des colonnes du compteur — remplie sur
+                les 7 923, contre 339 sites sur 6 378 côté `sites.adresse`. */}
+            <div className="flex items-start gap-2 rounded-lg px-1.5 py-1.5 text-left">
+              <span className="mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-md bg-km-green-soft text-km-green"><MapPin className="h-3 w-3" /></span>
+              <span className="min-w-0 flex-1">
+                <span className="block truncate text-xs font-semibold text-km-text">
+                  {compteur.libelle_site || compteur.site_nom || 'Lieu non renseigné'}
                 </span>
-                <span className="mt-0.5 text-km-faint">›</span>
-              </Link>
-            )}
+                {compteur.adresse_site && (
+                  <span className="block truncate text-km-label text-km-faint">{compteur.adresse_site}</span>
+                )}
+              </span>
+            </div>
             <div className="ml-[22px] h-2 w-0.5 bg-km-soft" />
             <div className="flex items-center gap-2 rounded-lg bg-km-bg px-1.5 py-1.5">
               <span className={cn('flex h-6 w-6 shrink-0 items-center justify-center rounded-md', energyClasses)}><Icon className="h-3 w-3" /></span>
@@ -762,13 +767,35 @@ export default function CompteurDetail() {
           </div>
         </div>
 
-        {/* « LOCALISATION DANS LE SITE » et « ADRESSE DU COMPTEUR » de la maquette.
-            Jusqu'ici la fiche ne pouvait afficher que l'adresse du SITE, faute de colonnes :
-            faux dès qu'une copropriété a plusieurs entrées, et c'était le cas de GI155378.
-            L'adresse du compteur reste vide par défaut — vide, celle du site fait foi, et la
-            fiche le dit plutôt que de laisser croire à un oubli. */}
+        {/* ══ LE LIEU DU COMPTEUR, ET C'EST LUI QUI FAIT FOI ══════════════════════════════════
+
+            Trois champs, dans l'ordre où on les lit : comment s'appelle l'endroit, où il est, et
+            où trouver le compteur en arrivant sur place.
+
+            LE LIBELLÉ EST ÉDITABLE ICI, et c'est nouveau. William, 10/09/2026 : « le champ
+            libellé, c'est hyper important de ne pas le perdre, c'est vraiment très très
+            important. » Il ne se perd pas — 0 compteur sans libellé sur 7 923, vérifié — mais il
+            n'était modifiable que sur la fiche du site, qui s'en va. Le corriger demandait donc
+            de passer par un écran qui ne devrait plus exister.
+
+            PLUS DE « SI DIFFÉRENTE DU SITE ». Le bloc disait « préciser si différente du site »
+            puis « non renseignée, c'est l'adresse du site qui fait foi » : deux phrases qui
+            présentaient l'adresse du compteur comme une exception facultative. Depuis que le site
+            part, elle est la seule qu'il y ait — et depuis le 10/09 elle est obligatoire à la
+            création. */}
         <div className="rounded-xl border border-km-line bg-white p-3.5">
-          <p className="mb-2 text-km-xs font-bold uppercase tracking-wide text-km-faint">Localisation dans le site</p>
+          <p className="mb-2 text-km-xs font-bold uppercase tracking-wide text-km-faint">Libellé du lieu</p>
+          <InlineField
+            variant="text"
+            value={compteur.libelle_site ?? compteur.site_nom ?? ''}
+            emptyLabel="nommer le lieu"
+            disabled={!canManage}
+            onCommit={(v) => majCompteur({ libelle_site: v.trim() || null })}
+            onSaved={() => showToast('✓ enregistré')}
+            onError={(e) => showToast(`Erreur : ${e.message}`)}
+          />
+
+          <p className="mb-2 mt-3.5 text-km-xs font-bold uppercase tracking-wide text-km-faint">Localisation sur place</p>
           <InlineField
             variant="text"
             value={compteur.localisation_site ?? ''}
@@ -779,14 +806,14 @@ export default function CompteurDetail() {
             onError={(e) => showToast(`Erreur : ${e.message}`)}
           />
 
-          <p className="mb-2 mt-3.5 text-km-xs font-bold uppercase tracking-wide text-km-faint">Adresse du compteur</p>
+          <p className="mb-2 mt-3.5 text-km-xs font-bold uppercase tracking-wide text-km-faint">Adresse</p>
           <InlineField
             variant="address"
             label=""
             rue={compteur.adresse ?? ''}
             codePostal={compteur.code_postal ?? ''}
             ville={compteur.ville ?? ''}
-            emptyLabel="préciser si différente du site"
+            emptyLabel="renseigner l’adresse"
             disabled={!canManage}
             onCommit={({ rue, codePostal, ville }) =>
               majCompteur({ adresse: rue || null, code_postal: codePostal || null, ville: ville || null })
@@ -794,9 +821,11 @@ export default function CompteurDetail() {
             onSaved={() => showToast('✓ enregistré')}
             onError={(e) => showToast(`Erreur : ${e.message}`)}
           />
+          {/* UNE ADRESSE MANQUANTE EST UN MANQUE, et la fiche le dit maintenant comme tel : c'est
+              par elle qu'on retrouve un compteur dans la recherche depuis le retrait du site. */}
           {!compteur.adresse && (
-            <p className="mt-1.5 text-km-xs italic text-km-faint">
-              Non renseignée — c'est l'adresse du site qui fait foi.
+            <p className="mt-1.5 text-km-xs italic text-km-amber">
+              Non renseignée — ce compteur ne se retrouvera pas par son adresse.
             </p>
           )}
         </div>
@@ -1201,24 +1230,44 @@ function ChampContactCompteur({
   }
 
   return (
-    <>
-      <InlineField
-        variant="select"
-        label={libelle}
-        value={contactId ?? ''}
-        options={[
-          { value: '', label: 'Aucun' },
-          ...contactsDuCompte.map((c) => ({ value: c.id, label: `${c.prenom} ${c.nom}` })),
-        ]}
-        onCommit={(v) => onCommit(v || null)}
-        onSaved={() => onToast('✓ enregistré')}
-        onError={(err) => onToast(`Erreur : ${err.message}`)}
-      />
-      {contactId && (
-        <EntityLink to={`/contacts/${contactId}`}>
-          <span className="text-km-label">ouvrir la fiche →</span>
-        </EntityLink>
-      )}
-    </>
+    /* ══ LE NOM EST LE RATTACHEMENT, PAS UN LIEN POSÉ À CÔTÉ ══
+       William, réunion du 10/09/2026, en regardant cette fiche : « il y a marqué responsable et on
+       peut choisir, mais le problème c'est que c'est un champ, un champ liste en réalité, ALORS QUE
+       LE RESPONSABLE DEVRAIT VRAIMENT ÊTRE UN RATTACHEMENT. » Puis, sur le conseil syndical : « si
+       je choisis Jacqueline Delier, je ne peux pas cliquer dessus, je n'ai pas de lien vers le
+       contact. »
+
+       Il y avait bien un lien — un « ouvrir la fiche → » en petit, POSÉ À CÔTÉ du menu déroulant.
+       Il ne l'a pas vu, et c'est normal : ce qui a l'air d'un champ de formulaire se lit comme un
+       champ de formulaire, et personne ne cherche un lien à côté d'une valeur qu'on croit inerte.
+
+       Michel voyait juste sur la conséquence : « il faudrait de toute manière mettre une référence,
+       c'est beaucoup plus pertinent ». Et William sur le pourquoi : « le fait que ce soit une
+       référence, ça veut dire qu'en base on a des membres de conseil syndical, et à partir de là on
+       peut faire des emailings, on peut les appeler, on peut suivre. Quand c'est un champ texte pur,
+       tu peux rien faire. »
+
+       LA DONNÉE ÉTAIT DÉJÀ SAINE : `responsable_contact_id` (6 745 compteurs sur 7 923) et
+       `contact_conseil_syndical_id` (435) sont des clés étrangères vers `contacts`. Il l'a
+       d'ailleurs constaté lui-même en fin de discussion : « là je peux faire ouvrir la fiche, donc
+       ça c'est la preuve. En fait ce n'est pas un problème de référence, c'est juste un problème
+       d'affichage. »
+
+       C'est donc l'affichage qu'on corrige, avec le même mécanisme que le signataire d'un contrat
+       (09/09) : le nom devient le lien, un crayon discret à côté ouvre la liste. Deux gestes
+       séparés, comme la carte « Signataire » du mandat. */
+    <InlineField
+      variant="select"
+      label={libelle}
+      value={contactId ?? ''}
+      lien={contactId ? `/contacts/${contactId}` : undefined}
+      options={[
+        { value: '', label: 'Aucun' },
+        ...contactsDuCompte.map((c) => ({ value: c.id, label: `${c.prenom} ${c.nom}` })),
+      ]}
+      onCommit={(v) => onCommit(v || null)}
+      onSaved={() => onToast('✓ enregistré')}
+      onError={(err) => onToast(`Erreur : ${err.message}`)}
+    />
   )
 }

@@ -20,7 +20,7 @@ import Login from '@/pages/Login'
  * ou l'utilisateur n'a encore rien vu.
  */
 const Dashboard = lazy(() => import('@/pages/Dashboard'))
-const SiteDetail = lazy(() => import('@/pages/SiteDetail'))
+const RedirectionSite = lazy(() => import('@/pages/RedirectionSite'))
 const Opportunites = lazy(() => import('@/pages/Opportunites'))
 const OpportuniteDetail = lazy(() => import('@/pages/OpportuniteDetail'))
 const Prospection = lazy(() => import('@/pages/Prospection'))
@@ -93,12 +93,18 @@ function App() {
       <Route element={<ProtectedRoute />}>
         <Route element={<AppLayout />}>
           <Route path="/" element={<Dashboard />} />
-          {/* PLUS DE ROUTE `/sites` : l'écran de liste est supprimé (réunion du 09/09/2026). La
-              FICHE reste, elle, parce que 26 liens contextuels y mènent depuis un compteur, un
-              contrat, un signal, une tâche — « Site : X », qui a besoin d'une destination. Ce
-              qui a créé la confusion, c'était la liste dans laquelle on pioche, pas le lien qui
-              répond à « de quelle adresse parle-t-on ». */}
-          <Route path="/sites/:id" element={<SiteDetail />} />
+          {/* ══ PLUS AUCUNE PAGE DE SITE, NI LISTE NI FICHE ═══════════════════════════════════
+
+              Le 09/09 j'avais gardé la fiche, atteignable par les 26 liens « Site : … » — les
+              couper d'un coup aurait fait 26 liens morts. Le 10/09 William constate le résultat :
+              « les sites, ils existent toujours, j'ai vu Guillaume il était sur un site ce matin,
+              vraiment la page site à l'ancienne avec la map et tout. » Michel, depuis la liste des
+              compteurs : « ils apparaissent mais ils sont introuvables. »
+
+              Le raisonnement tenait pour le code, pas pour l'équipe : on ne peut pas annoncer un
+              objet supprimé et le laisser s'ouvrir. L'adresse `/sites/:id` REDIRIGE donc, ce qui
+              garde les 26 liens vivants sans garder l'écran. Voir `RedirectionSite`. */}
+          <Route path="/sites/:id" element={<RedirectionSite />} />
           <Route path="/prospection" element={<Prospection />} />
           <Route path="/pistes/:id" element={<PisteDetail />} />
           <Route path="/opportunites" element={<Opportunites />} />
