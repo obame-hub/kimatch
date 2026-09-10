@@ -17,7 +17,9 @@
     "auditer:compteurs": "node scripts/auditer-compteurs-salesforce.cjs",
     "dev:sandbox": "vite --mode sandbox",
     "croisement": "node scripts/verifier-croisement.cjs",
-    "rattachements": "node scripts/auditer-rattachements.cjs"
+    "rattachements": "node scripts/auditer-rattachements.cjs",
+    "sf:identifiants": "node scripts/importer-identifiants-salesforce.cjs",
+    "sf:fichiers": "node scripts/importer-fichiers-salesforce.cjs"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.110.6",
