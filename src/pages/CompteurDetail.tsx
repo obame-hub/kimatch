@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react'
 import { useParams, useNavigate, Link } from 'react-router-dom'
-import { ArrowLeft, Zap, Flame, Plus, Trash2, Building2, MapPin, FileCheck2, FileText, RefreshCw } from 'lucide-react'
+import { ArrowLeft, Building2, FileCheck2, FileText, Flame, MapPin, Plus, RefreshCw, Trash2, User, Zap } from 'lucide-react'
 import { Topbar } from '@/components/layout/Topbar'
 import { Button } from '@/components/ui/button'
 import { ZoneDepotFichiers } from '@/components/ui/zone-depot-fichiers'
@@ -613,7 +613,7 @@ export default function CompteurDetail() {
   if (!compteur && id) {
     return (
       <div>
-        <Topbar crumb="Sites" title="Compteur" />
+        <Topbar crumb="Compteurs" title="Compteur" />
         <div className="p-4 sm:p-6"><p className="text-sm text-km-faint">Chargement…</p></div>
       </div>
     )
@@ -622,7 +622,7 @@ export default function CompteurDetail() {
   if (!compteur) {
     return (
       <div>
-        <Topbar crumb="Sites" title="Compteur" />
+        <Topbar crumb="Compteurs" title="Compteur" />
         <div className="p-4 sm:p-6">
           <Button variant="ghost" size="sm" className="mb-4" onClick={goBack}>
             <ArrowLeft className="h-4 w-4" />
@@ -639,7 +639,8 @@ export default function CompteurDetail() {
 
   return (
     <div>
-      <Topbar crumb="Sites" title={`Compteur ${compteur.numero_pdl}`} />
+      {/* « Compteurs » et non « Sites » : le fil d'Ariane annonçait encore la liste supprimée. */}
+      <Topbar crumb="Compteurs" title={`Compteur ${compteur.numero_pdl}`} />
 
       {/* Bandeau compteur */}
       <div className="flex flex-wrap items-center gap-3.5 border-b border-km-line bg-white px-4 py-3.5 sm:px-6">
@@ -823,10 +824,83 @@ export default function CompteurDetail() {
           />
           {/* UNE ADRESSE MANQUANTE EST UN MANQUE, et la fiche le dit maintenant comme tel : c'est
               par elle qu'on retrouve un compteur dans la recherche depuis le retrait du site. */}
-          {!compteur.adresse && (
+          {/* ══ L'AVERTISSEMENT DISAIT LE CONTRAIRE DE CE QUI S'AFFICHAIT AU-DESSUS ══
+              Naoëlle, 10/09/2026, capture à l'appui : le champ montrait « 27100 VAL-DE-REUIL » et
+              la ligne en dessous annonçait « non renseignée ». Les deux étaient vrais séparément —
+              la VILLE et le CODE POSTAL sont là, la RUE ne l'est pas — mais la phrase parlait de
+              l'adresse entière.
+
+              On distingue donc les deux manques, parce qu'ils ne coûtent pas la même chose : sans
+              rien, le compteur est introuvable ; sans rue, il se confond avec les autres de la
+              même commune — et 170 noms de lieu sont partagés dans la base. */}
+          {!compteur.adresse && !compteur.ville && !compteur.code_postal ? (
             <p className="mt-1.5 text-km-xs italic text-km-amber">
-              Non renseignée — ce compteur ne se retrouvera pas par son adresse.
+              Aucune adresse — ce compteur ne se retrouvera pas par son adresse.
             </p>
+          ) : !compteur.adresse ? (
+            <p className="mt-1.5 text-km-xs italic text-km-faint">
+              Rue non renseignée — seule la commune permet de le situer.
+            </p>
+          ) : null}
+        </div>
+
+        {/* ══ LES CONTACTS DU COMPTEUR, DANS L'ONGLET RATTACHEMENTS ═══════════════════════════
+
+            Naoëlle, 10/09/2026 : « lui il a deux compteurs rattachés, mais quand je vais sur un de
+            ces compteurs je ne vois pas son contact dans rattachements. Vérifie, parce qu'on peut
+            pas avoir toujours des erreurs. »
+
+            Elle a raison, et c'est la troisième fois que la même faute revient sous une autre
+            forme : un lien qui existe DANS UN SENS et pas dans l'autre. Le responsable et le
+            contact du conseil syndical vivaient dans l'onglet « Compteur », au milieu des
+            caractéristiques techniques — tension, tarif, profil de consommation. L'onglet
+            RATTACHEMENTS, lui, ne montrait que le compte et la couverture.
+
+            Or c'est bien un rattachement : la personne qu'on appelle pour ce point de livraison.
+            Elle est donc ici aussi, en carte cliquable, en face de ce que la fiche du contact
+            affiche depuis aujourd'hui — « responsable de 2 compteurs ». Les deux sens disent
+            maintenant la même chose.
+
+            L'ÉDITION RESTE DANS L'ONGLET COMPTEUR, une seule fois. Deux endroits pour changer la
+            même valeur, c'est deux endroits à maintenir et un doute sur lequel fait foi. */}
+        <div className="rounded-xl border border-km-line bg-white p-3.5">
+          <div className="mb-2 flex items-center justify-between gap-2">
+            <p className="text-km-xs font-bold uppercase tracking-wide text-km-faint">Contacts</p>
+            <button
+              type="button"
+              onClick={() => setTab('apercu')}
+              className="shrink-0 text-km-label font-semibold text-km-green hover:underline"
+            >
+              Modifier
+            </button>
+          </div>
+          {!compteur.responsable_contact_id && !compteur.contact_conseil_syndical_id ? (
+            <p className="text-km-label text-km-faint">
+              Aucun contact désigné sur ce compteur. Le responsable se choisit dans l{'’'}onglet Compteur.
+            </p>
+          ) : (
+            <div className="flex flex-col gap-1.5">
+              {compteur.responsable_contact_id && (
+                <CarteContactCompteur
+                  role="Responsable"
+                  contactId={compteur.responsable_contact_id}
+                  nom={compteur.responsable_contact_nom ?? 'Contact'}
+                  teinte="#4f5aa8"
+                  fond="#eef0fa"
+                  onOuvrir={() => navigate(`/contacts/${compteur.responsable_contact_id}`)}
+                />
+              )}
+              {compteur.contact_conseil_syndical_id && (
+                <CarteContactCompteur
+                  role="Conseil syndical"
+                  contactId={compteur.contact_conseil_syndical_id}
+                  nom={compteur.contact_conseil_syndical_nom ?? 'Contact'}
+                  teinte="#7c5bb0"
+                  fond="#f1ecf8"
+                  onOuvrir={() => navigate(`/contacts/${compteur.contact_conseil_syndical_id}`)}
+                />
+              )}
+            </div>
           )}
         </div>
 
@@ -1202,6 +1276,51 @@ export default function CompteurDetail() {
  * l'utilisateur en a le droit. Le lien vers la fiche est conservé à côté du sélecteur — le rendre
  * éditable sans cela ferait perdre l'accès au contact en un clic.
  */
+/**
+ * Un contact rattaché au compteur, en carte cliquable.
+ *
+ * Même dessin que les lignes de compteur sur la fiche contact (`RattachementsContact`), pour que
+ * les deux sens du rattachement se reconnaissent d'un coup d'œil. La pastille porte le rôle, parce
+ * que c'est lui qui dit à qui l'on s'adresse et pour quoi.
+ */
+function CarteContactCompteur({
+  role,
+  contactId,
+  nom,
+  teinte,
+  fond,
+  onOuvrir,
+}: {
+  role: string
+  contactId: string
+  nom: string
+  teinte: string
+  fond: string
+  onOuvrir: () => void
+}) {
+  return (
+    <div
+      key={contactId}
+      onClick={onOuvrir}
+      className="flex cursor-pointer items-center gap-3 rounded-xl border border-km-line bg-white p-2.5 transition-colors hover:bg-km-bg/60"
+    >
+      <span
+        className="flex h-8 w-8 shrink-0 items-center justify-center rounded-[9px]"
+        style={{ background: fond, color: teinte }}
+      >
+        <User className="h-3.5 w-3.5" />
+      </span>
+      <span className="min-w-0 flex-1 truncate text-sm font-bold text-km-text">{nom}</span>
+      <span
+        className="shrink-0 rounded px-1.5 py-px text-km-tiny font-bold uppercase tracking-wide"
+        style={{ background: fond, color: teinte }}
+      >
+        {role}
+      </span>
+    </div>
+  )
+}
+
 function ChampContactCompteur({
   libelle,
   contactId,

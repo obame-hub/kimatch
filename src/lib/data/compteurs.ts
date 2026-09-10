@@ -41,6 +41,7 @@ interface RawCompteur {
   libelle: string | null
   adresse_site: string | null
   libelle_site: string | null
+  compte_id: string | null
   actif: boolean
   consommation_annuelle_mwh: number | null
   synchro_eneo: boolean
@@ -117,6 +118,7 @@ async function fetchCompteurs(siteIds?: string[], compteurId?: string): Promise<
            compteur qui survivra à la table `sites`. */
         site_nom: c.libelle_site ?? c.site?.nom ?? '',
         libelle_site: c.libelle_site ?? null,
+        compte_id: c.compte_id ?? null,
         type_energie: (c.type_energie?.code?.toLowerCase() ?? 'electricite') as 'electricite' | 'gaz',
         numero_pdl: c.numero_point,
         utilisation: c.libelle ?? '',

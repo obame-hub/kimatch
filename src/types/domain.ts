@@ -627,6 +627,12 @@ export interface Compteur {
    * que sur `site_nom`, qui la prend encore par jointure sur la table `sites`.
    */
   libelle_site?: string | null
+  /**
+   * LE CLIENT DU COMPTEUR, EN DIRECT — colonne `compteurs.compte_id`, posée `not null` par la
+   * migration 20260909160000. Avant elle, le compte ne s'atteignait qu'en traversant `sites` :
+   * c'était LE chemin qui rendait le site indispensable.
+   */
+  compte_id?: string | null
   /** Où le trouver sur place : « Local TGBT — Bât. A ». Distinct du commentaire libre. */
   localisation_site?: string | null
   consommation_annuelle_mwh: number | null

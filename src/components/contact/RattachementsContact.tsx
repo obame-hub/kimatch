@@ -1,11 +1,11 @@
 import { useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { Building2, MapPin, Plus, Repeat, Unlink } from 'lucide-react'
+import { Building2, Gauge, Plus, Repeat, Unlink } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Dialog } from '@/components/ui/dialog'
 import { FormField, Input } from '@/components/ui/form'
 import { ChoixParRecherche } from '@/components/ui/choix-recherche'
-import type { Compte, Compteur, Contact, Site } from '@/types/domain'
+import type { Compte, Compteur, Contact } from '@/types/domain'
 import { useLierContactCompte, useDelierContactCompte, useChangerComptePrincipal } from '@/lib/data/contacts'
 
 /**
@@ -19,16 +19,17 @@ import { useLierContactCompte, useDelierContactCompte, useChangerComptePrincipal
 export function RattachementsContact({
   contact,
   comptes,
-  sites,
   compteurs,
   peutModifier,
   onToast,
 }: {
   contact: Contact
   comptes: Compte[]
-  /** Tous les sites : on en déduit ceux des comptes rattachés au contact. */
-  sites: Site[]
-  /** Tous les compteurs : servent à distinguer les sites où le contact est réellement responsable. */
+  /**
+   * Tous les compteurs. C'est d'eux que vient le rattachement réel du contact —
+   * `responsable_contact_id` et `contact_conseil_syndical_id` — depuis que ce bloc a cessé de
+   * passer par les sites (10/09/2026). La prop `sites` a disparu avec ce détour.
+   */
   compteurs: Compteur[]
   peutModifier: boolean
   onToast: (message: string) => void
@@ -53,61 +54,83 @@ export function RattachementsContact({
   )
 
   /**
-   * « La liste de comptes et la liste de sites avec compte » (William, 13/08/2026) : les sites
-   * affichés sont ceux des comptes auxquels le contact est rattaché, et non les seuls sites que
-   * `contacts_sites` lui associe explicitement. La distinction est décisive : Romain HEBRARD n'a
-   * aucune ligne dans contacts_sites, alors qu'il intervient sur les sites de ses 10 comptes.
+   * ══ CE BLOC LISTE DES COMPTEURS, PLUS DES SITES ══
    *
-   * Les sites explicitement rattachés sont signalés, car ils portent une information de plus —
-   * la fonction du contact sur ce site.
+   * Naoëlle, 10/09/2026 : « si on met un responsable, du coup on le voit dans le bloc rattachement
+   * du contact ? » Oui, mais à l'envers de ce qu'on attendait : le bloc listait TOUS LES SITES des
+   * comptes du contact — y compris ceux où il ne fait rien — et posait une pastille « 3 compteurs »
+   * sur ceux où il était responsable. Il disait « ce contact intervient sur ce site » là où la
+   * vérité est « ce contact est responsable de ces trois compteurs ».
+   *
+   * Le lien VENAIT DÉJÀ du compteur — `responsable_contact_id` et `contact_conseil_syndical_id` —
+   * il était juste regroupé par site pour l'affichage. On enlève ce détour, qui était aussi l'un
+   * des derniers endroits où l'objet site restait visible.
+   *
+   * ── ON NE MONTRE QUE CE QUI EST VRAI ──
+   *
+   * Avant : tous les sites des comptes rattachés, soit des dizaines de lignes pour un contact lié à
+   * dix comptes, dont l'immense majorité sans rapport avec lui. Maintenant : les compteurs dont il
+   * est RESPONSABLE ou CONTACT DU CONSEIL SYNDICAL, et rien d'autre. C'est plus court et c'est
+   * exact — 2 455 contacts sont dans ce cas, 2,7 compteurs en moyenne.
+   *
+   * ── DEUX MESURES QUI ONT DÉCIDÉ DE LA FORME ──
+   *
+   * LE PIRE CAS EST 294 COMPTEURS (Olivier Michau ; 37 contacts dépassent 20). D'où la coupe à huit
+   * par compte, avec le reste annoncé et non tu — la carte « Documents » d'une recommandation fait
+   * de même depuis le 25/08.
+   *
+   * ET 389 COMPTEURS PORTENT LA MÊME PERSONNE aux deux rôles. Une seule pastille par ligne aurait
+   * donc menti sur un cas sur vingt : les deux rôles s'affichent quand les deux sont vrais.
    */
-  const sitesParCompte = useMemo(() => {
-    const fonctionParSite = new Map(contact.sites.map((s) => [s.id, s.fonction_sur_site]))
-    const idsComptes = new Set(contact.comptes.map((c) => c.id))
-
-    // Sites où le contact est responsable d'au moins un compteur. C'est l'information la plus
-    // précise dont on dispose sur son intervention réelle : elle vient du compteur, seul endroit
-    // où Salesforce porte ce lien. Comptée ici et non stockée — dupliquer dans contacts_sites
-    // créerait une seconde source qui se désynchroniserait au premier changement de responsable.
-    const compteursParSite = new Map<string, number>()
-    for (const cp of compteurs) {
-      if (cp.responsable_contact_id !== contact.id && cp.contact_conseil_syndical_id !== contact.id) continue
-      compteursParSite.set(cp.site_id, (compteursParSite.get(cp.site_id) ?? 0) + 1)
-    }
-
+  const compteursParCompte = useMemo(() => {
     const groupes = new Map<
       string,
-      { compte: string; sites: { id: string; nom: string; fonction: string | null; explicite: boolean; nbCompteurs: number }[] }
+      {
+        compte: string
+        lignes: { id: string; lieu: string; adresse: string | null; pdl: string; responsable: boolean; conseil: boolean }[]
+      }
     >()
-    for (const site of sites) {
-      if (!site.compte_id || !idsComptes.has(site.compte_id)) continue
-      const nom = comptes.find((c) => c.id === site.compte_id)?.nom ?? ''
-      const groupe = groupes.get(site.compte_id) ?? { compte: nom, sites: [] }
-      groupe.sites.push({
-        id: site.id,
-        nom: site.nom,
-        fonction: fonctionParSite.get(site.id) ?? null,
-        explicite: fonctionParSite.has(site.id),
-        nbCompteurs: compteursParSite.get(site.id) ?? 0,
+
+    for (const cp of compteurs) {
+      const responsable = cp.responsable_contact_id === contact.id
+      const conseil = cp.contact_conseil_syndical_id === contact.id
+      if (!responsable && !conseil) continue
+
+      /* LE COMPTE VIENT DU COMPTEUR. Un compteur dont le compte n'est pas dans les rattachements du
+         contact s'affiche quand même, sous un intitulé neutre : le taire cacherait une intervention
+         réelle, et c'est précisément le genre d'asymétrie qu'on vient de corriger. */
+      const compteId = cp.compte_id ?? ''
+      const nom = comptes.find((c) => c.id === compteId)?.nom ?? 'Compte non rattaché à ce contact'
+      const groupe = groupes.get(compteId) ?? { compte: nom, lignes: [] }
+      groupe.lignes.push({
+        id: cp.id,
+        lieu: cp.libelle_site || cp.site_nom || 'Lieu non renseigné',
+        adresse: cp.adresse_site ?? null,
+        pdl: cp.numero_pdl,
+        responsable,
+        conseil,
       })
-      groupes.set(site.compte_id, groupe)
+      groupes.set(compteId, groupe)
     }
-    // Les sites où il intervient d'abord : c'est ce qu'on cherche en ouvrant cet onglet.
+
     for (const groupe of groupes.values()) {
-      groupe.sites.sort((a, b) => b.nbCompteurs - a.nbCompteurs || a.nom.localeCompare(b.nom))
+      groupe.lignes.sort((a, b) => a.lieu.localeCompare(b.lieu) || a.pdl.localeCompare(b.pdl))
     }
-    // Le compte principal en tête, comme pour la liste des comptes.
+    // Le compte principal en tête, comme pour la liste des comptes juste au-dessus.
     const principal = contact.comptes.find((c) => c.relation_directe)?.id
     return [...groupes.entries()].sort(
-      ([a], [b]) => Number(b === principal) - Number(a === principal) || (groupes.get(a)!.compte).localeCompare(groupes.get(b)!.compte),
+      ([a], [b]) =>
+        Number(b === principal) - Number(a === principal) ||
+        groupes.get(a)!.compte.localeCompare(groupes.get(b)!.compte),
     )
-  }, [contact, comptes, sites, compteurs])
+  }, [contact, comptes, compteurs])
 
-  const nbSites = sitesParCompte.reduce((n, [, g]) => n + g.sites.length, 0)
-  const nbSitesResponsable = sitesParCompte.reduce(
-    (n, [, g]) => n + g.sites.filter((s) => s.nbCompteurs > 0).length,
+  const nbCompteurs = compteursParCompte.reduce((n, [, g]) => n + g.lignes.length, 0)
+  const nbResponsable = compteursParCompte.reduce(
+    (n, [, g]) => n + g.lignes.filter((l) => l.responsable).length,
     0,
   )
+  const nbConseil = compteursParCompte.reduce((n, [, g]) => n + g.lignes.filter((l) => l.conseil).length, 0)
 
   const dejaLies = new Set(contact.comptes.map((c) => c.id))
   const candidats = comptes.filter((c) => !dejaLies.has(c.id)).sort((a, b) => a.nom.localeCompare(b.nom))
@@ -191,58 +214,87 @@ export function RattachementsContact({
         </div>
       </div>
 
-      {/* ── Sites, regroupés par compte ──────────────────────────────────────────────────────── */}
+      {/* ── Compteurs dont ce contact est responsable, regroupés par compte ──────────────── */}
       <div>
-        <div className="mb-2 flex items-center gap-2">
-          <span className="text-km-xs font-bold uppercase tracking-[.08em] text-[#a3a5a0]">Sites rattachés</span>
+        <div className="mb-2 flex flex-wrap items-center gap-x-2 gap-y-1">
+          <span className="text-km-xs font-bold uppercase tracking-[.08em] text-[#a3a5a0]">
+            Compteurs rattaches
+          </span>
           <span className="text-km-xs text-[#a3a5a0]">
-            · {nbSites} site{nbSites > 1 ? 's' : ''} sur {sitesParCompte.length} compte{sitesParCompte.length > 1 ? 's' : ''}
-            {nbSitesResponsable > 0 && ` · responsable sur ${nbSitesResponsable}`}
+            {'\u00b7'} {nbCompteurs} compteur{nbCompteurs > 1 ? 's' : ''}
+            {nbResponsable > 0 && ` ${'\u00b7'} responsable de ${nbResponsable}`}
+            {nbConseil > 0 && ` ${'\u00b7'} conseil syndical sur ${nbConseil}`}
           </span>
         </div>
 
-        {nbSites === 0 ? (
-          <p className="text-sm text-km-faint">Aucun site sur les comptes de ce contact.</p>
+        {nbCompteurs === 0 ? (
+          /* ON DIT CE QUI MANQUE, ET OÙ LE POSER. « Aucun compteur » seul laisserait croire à un
+             écran incomplet ; c'est en réalité une donnée à renseigner, et elle se saisit sur le
+             compteur, pas ici. */
+          <p className="text-sm text-km-faint">
+            Ce contact n{'\u2019'}est responsable d{'\u2019'}aucun compteur. Le rôle se désigne sur la fiche
+            d{'\u2019'}un compteur, champs « Responsable » et « Contact conseil syndical ».
+          </p>
         ) : (
           <div className="flex flex-col gap-3">
-            {sitesParCompte.map(([cle, groupe]) => (
-              <div key={cle}>
-                <div className="mb-1 text-km-xs font-semibold text-km-muted">{groupe.compte}</div>
-                <div className="flex flex-col gap-1.5">
-                  {groupe.sites.map((s) => (
-                    <div
-                      key={s.id}
-                      onClick={() => navigate(`/sites/${s.id}`)}
-                      className="flex cursor-pointer items-center gap-3 rounded-xl border border-km-line bg-white p-3 transition-colors hover:bg-km-bg/60"
-                    >
-                      <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-[9px] bg-km-green-soft text-km-green">
-                        <MapPin className="h-3.5 w-3.5" />
-                      </span>
-                      <div className="min-w-0 flex-1">
-                        <p className="truncate text-sm font-bold text-km-text">{s.nom}</p>
-                        {s.fonction && <p className="truncate text-km-xs text-km-faint">{s.fonction}</p>}
+            {compteursParCompte.map(([cle, groupe]) => {
+              /* HUIT LIGNES, PUIS LE RESTE ANNONCÉ. Voir l'en-tête du calcul : un contact peut en
+                 porter 294, et une liste de 294 cartes rendrait l'onglet illisible. */
+              const visibles = groupe.lignes.slice(0, 8)
+              const reste = groupe.lignes.length - visibles.length
+              return (
+                <div key={cle}>
+                  <div className="mb-1 text-km-xs font-semibold text-km-muted">{groupe.compte}</div>
+                  <div className="flex flex-col gap-1.5">
+                    {visibles.map((l) => (
+                      <div
+                        key={l.id}
+                        onClick={() => navigate(`/compteurs/${l.id}`)}
+                        className="flex cursor-pointer items-center gap-3 rounded-xl border border-km-line bg-white p-3 transition-colors hover:bg-km-bg/60"
+                      >
+                        <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-[9px] bg-km-green-soft text-km-green">
+                          <Gauge className="h-3.5 w-3.5" />
+                        </span>
+                        <div className="min-w-0 flex-1">
+                          <p className="truncate text-sm font-bold text-km-text">{l.lieu}</p>
+                          <p className="truncate text-km-xs text-km-faint">
+                            <span className="font-mono">{l.pdl}</span>
+                            {l.adresse && ` ${'\u00b7'} ${l.adresse}`}
+                          </p>
+                        </div>
+                        {/* LES DEUX RÔLES QUAND LES DEUX SONT VRAIS : 389 compteurs portent la
+                            même personne comme responsable ET comme conseil syndical. */}
+                        {l.responsable && (
+                          <span
+                            title="Responsable de ce compteur"
+                            className="shrink-0 rounded bg-[#eef0fa] px-1.5 py-px text-km-tiny font-bold uppercase tracking-wide text-[#4f5aa8]"
+                          >
+                            Responsable
+                          </span>
+                        )}
+                        {l.conseil && (
+                          <span
+                            title="Contact du conseil syndical pour ce compteur"
+                            className="shrink-0 rounded bg-[#f1ecf8] px-1.5 py-px text-km-tiny font-bold uppercase tracking-wide text-[#7c5bb0]"
+                          >
+                            Conseil syndical
+                          </span>
+                        )}
                       </div>
-                      {s.nbCompteurs > 0 && (
-                        <span
-                          title={`Responsable de ${s.nbCompteurs} compteur${s.nbCompteurs > 1 ? 's' : ''} sur ce site`}
-                          className="shrink-0 rounded bg-[#eef0fa] px-1.5 py-px font-mono text-km-tiny font-bold text-[#4f5aa8]"
-                        >
-                          {s.nbCompteurs} compteur{s.nbCompteurs > 1 ? 's' : ''}
-                        </span>
-                      )}
-                      {s.explicite && (
-                        <span
-                          title="Contact explicitement rattaché à ce site"
-                          className="shrink-0 rounded bg-[#f1ecf8] px-1.5 py-px text-km-tiny font-bold uppercase tracking-wide text-[#7c5bb0]"
-                        >
-                          Rattaché
-                        </span>
-                      )}
-                    </div>
-                  ))}
+                    ))}
+                    {reste > 0 && (
+                      <button
+                        type="button"
+                        onClick={() => navigate(`/comptes/${cle}`)}
+                        className="px-1 text-left text-km-xs text-km-faint hover:underline"
+                      >
+                        et {reste} autre{reste > 1 ? 's' : ''} sur ce compte {'\u2192'}
+                      </button>
+                    )}
+                  </div>
                 </div>
-              </div>
-            ))}
+              )
+            })}
           </div>
         )}
       </div>

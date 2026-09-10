@@ -15,7 +15,6 @@ import { HistoriqueDiscret } from '@/components/ui/historique-discret'
 import { ActivityFeed } from '@/components/site/ActivityFeed'
 import { useContact, useUpdateContact, useDeleteContact, useUpdateContactField } from '@/lib/data/contacts'
 import { useComptes } from '@/lib/data/comptes'
-import { useSites } from '@/lib/data/sites'
 import { useCompteurs } from '@/lib/data/compteurs'
 import { useActions } from '@/lib/data/actions'
 import { useInteractionsForContact } from '@/lib/data/interactions'
@@ -55,7 +54,10 @@ export default function ContactDetail() {
   const idsPourDocuments = useMemo(() => (id ? [id] : undefined), [id])
   const { data: documentsDuContact = [] } = useDocumentsParEntites(idsPourDocuments)
   const { data: comptes } = useComptes()
-  const { data: sites } = useSites()
+  /* PLUS DE LECTURE DES SITES ICI. L'onglet Rattachements listait les sites des comptes du
+     contact ; il liste maintenant les COMPTEURS dont il est responsable — le lien venait déjà de
+     là. Un `useSites()` de moins, c'est-à-dire 6 378 sites et 7 923 compteurs qui ne se chargent
+     plus à l'ouverture d'une fiche contact. */
   const { data: compteurs } = useCompteurs()
   const { data: actions } = useActions()
   const { data: contrats } = useContrats()
@@ -432,7 +434,6 @@ export default function ContactDetail() {
             <RattachementsContact
               contact={contact}
               comptes={comptes ?? []}
-              sites={sites ?? []}
               compteurs={compteurs ?? []}
               peutModifier={canManage}
               onToast={showToast}
