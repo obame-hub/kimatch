@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { AlertTriangle, CheckCircle2 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Dialog } from '@/components/ui/dialog'
@@ -20,7 +21,8 @@ import { useReferenceTable } from '@/lib/data/referenceTables'
 import { useComptes } from '@/lib/data/comptes'
 import { useContacts } from '@/lib/data/contacts'
 import { useCompteurs, useCreateCompteur } from '@/lib/data/compteurs'
-import { useCreateSite, normalizeTexte } from '@/lib/data/sites'
+import { useCreateSite, useUpdateSitePartiel, normalizeTexte } from '@/lib/data/sites'
+import { toUpperFR } from '@/lib/textFormat'
 import { FALLBACK_TYPES_ENERGIES } from '@/lib/referenceFallbacks'
 import type { Compte, Site } from '@/types/domain'
 import type { PdlMethode } from '@/components/compteur/PdlMethodSheet'
@@ -57,11 +59,14 @@ export function CreationCompteurDialog({
   // Depuis une fiche compte, le compte est connu. Depuis la liste des sites, l'utilisateur le
   // choisit ici — c'est la seule différence entre les deux points d'entrée.
   const [compteChoisiId, setCompteChoisiId] = useState(compteIdParDefaut ?? '')
+  const navigate = useNavigate()
   const compte = compteImpose ?? (comptes ?? []).find((c) => c.id === compteChoisiId)
   const comptesClients = (comptes ?? []).filter((c) => c.type_compte !== 'fournisseur')
   const { data: contacts } = useContacts()
   const { data: compteurs } = useCompteurs()
   const createSite = useCreateSite()
+  // Sert à compléter l'adresse d'un site retrouvé sans adresse — voir `resoudreSitePourDraft`.
+  const majSitePartiel = useUpdateSitePartiel()
   const createCompteur = useCreateCompteur()
 
   // Plus d'etape « adresse » ni d'ecran de desambiguisation : le site est un simple libelle saisi
@@ -128,6 +133,27 @@ export function CreationCompteurDialog({
 
     const existant = trouverSiteExistant(sites, compte!.id, d)
     if (existant) {
+      /* ══ L'ADRESSE SAISIE NE SE PERD PLUS QUAND LE SITE EXISTE DÉJÀ ══
+         Le site retrouvé était rendu tel quel, et l'adresse tapée partait à la poubelle. Ça vidait
+         de son sens l'obligation posée le 10/09/2026 (« faut rendre toutes les adresses
+         obligatoires ») : sur les 6 374 sites, seuls 336 portent une adresse — 5 % — donc le cas
+         courant est justement celui où le site existe SANS adresse et où la saisie aurait tout
+         résolu.
+
+         ON NE COMPLÈTE QUE LE VIDE. Jamais d'écrasement : une adresse déjà là a été vérifiée par
+         quelqu'un, et une faute de frappe dans ce formulaire ne doit pas pouvoir l'effacer. Le
+         déclencheur `trg_compteur_herite_de_son_site` la recopiera ensuite sur le compteur, donc
+         dans `adresse_site`, donc dans la recherche. */
+      const rue = d.adresse.trim()
+      if (rue && !(existant.adresse ?? '').trim()) {
+        try {
+          await majSitePartiel.mutateAsync({ id: existant.id, patch: { adresse: toUpperFR(rue) } })
+        } catch {
+          /* On n'interrompt PAS la création du compteur pour ça : le PDL est ce qu'on est venu
+             créer, l'adresse du site est un enrichissement. L'échec se verra à la relecture de la
+             fiche, pas au milieu d'une saisie de quatre PDL. */
+        }
+      }
       const site = { id: existant.id, nom: existant.nom }
       cache.set(cle, site)
       return site
@@ -210,14 +236,36 @@ export function CreationCompteurDialog({
   }
 
   if (createdCompteurs) {
+    /* LA MÊME SORTIE POUR LES DEUX GESTES : le bouton « Terminer sans créer de mandat » et la
+       croix du dialogue disent la même chose — j'ai fini. Les traiter différemment ferait qu'un
+       même utilisateur atterrit ailleurs selon qu'il a cliqué le bouton ou appuyé sur Échap. */
+    const terminer = () => {
+      const destination =
+        createdCompteurs.length === 1 ? `/compteurs/${createdCompteurs[0].id}` : `/comptes/${compte!.id}`
+      reset()
+      onClose()
+      navigate(destination)
+    }
     return (
-      <Dialog open={open} onClose={() => { reset(); onClose() }} title="PDL créé(s) avec succès" description="Que veux-tu faire ensuite ?" className="max-w-xl">
+      <Dialog open={open} onClose={terminer} title="PDL créé(s) avec succès" description="Que veux-tu faire ensuite ?" className="max-w-xl">
         <MandatChainPrompt
           compteId={compte!.id}
           compteNom={compte!.nom}
           compteurs={createdCompteurs}
           contacts={contactsDuCompte}
-          onDone={() => { reset(); onClose() }}
+          /* ══ TERMINER SANS MANDAT MÈNE AU COMPTEUR QU'ON VIENT DE CRÉER ══
+             Naoëlle, 10/09/2026 : « ce serait bien que si je ne crée pas le mandat et que j'arrête
+             après la création du compteur, ça me redirige sur la page du compteur que j'ai créé. »
+
+             Le dialogue se contentait de se refermer, et on se retrouvait sur la liste d'où l'on
+             était parti — sans savoir si le PDL était bien là, ni où le retrouver parmi 7 920. Or
+             c'est le moment où l'on veut vérifier ce qu'on vient de saisir : l'adresse, le
+             responsable, l'échéance.
+
+             UN SEUL PDL MÈNE À SA FICHE. Plusieurs mènent à la fiche du compte, qui les liste tous
+             dans son onglet Compteurs : en désigner un seul parmi quatre serait un choix
+             arbitraire, et les abandonner sur la liste générale referait le problème. */
+          onDone={terminer}
         />
       </Dialog>
     )

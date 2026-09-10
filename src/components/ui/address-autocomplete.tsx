@@ -10,11 +10,14 @@ export function AddressAutocomplete({
   onChange,
   onSelect,
   placeholder,
+  className,
 }: {
   value: string
   onChange: (value: string) => void
   onSelect: (address: BanAddress) => void
   placeholder?: string
+  /** Passe au champ lui-même — c'est ainsi que l'appelant signale un manque obligatoire. */
+  className?: string
 }) {
   const [results, setResults] = useState<BanAddress[]>([])
   const [loading, setLoading] = useState(false)
@@ -42,6 +45,7 @@ export function AddressAutocomplete({
     <div className="relative">
       <Input
         value={value}
+        className={className}
         onChange={(e) => { onChange(e.target.value); setOpen(true) }}
         onFocus={() => setOpen(true)}
         onBlur={() => { blurTimeout.current = setTimeout(() => setOpen(false), 150) }}

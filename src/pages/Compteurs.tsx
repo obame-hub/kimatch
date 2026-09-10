@@ -51,6 +51,10 @@ import {
   type LigneCompteur,
 } from '@/lib/data/compteurs'
 import { useContrats } from '@/lib/data/contrats'
+import { useSites } from '@/lib/data/sites'
+import { useOuvrirCreation } from '@/lib/ouvrirCreation'
+import { CreationCompteurDialog } from '@/components/compteur/CreationCompteurDialog'
+import { PdlMethodSheet, type PdlMethode } from '@/components/compteur/PdlMethodSheet'
 import { useFrappePosee } from '@/lib/useFrappePosee'
 import { natureEcheance, type EcheanceCompteur } from '@/lib/echeance'
 import { cn } from '@/lib/utils'
@@ -146,6 +150,30 @@ export default function Compteurs({ sansEntete }: { sansEntete?: boolean }) {
 
   const lignes = liste.data ?? []
   const total = lignes[0]?.total ?? 0
+
+  /* ══ CRÉER UN COMPTEUR DEPUIS N'IMPORTE OÙ ══
+     Naoëlle, 10/09/2026 : « remets le bouton de création de compteurs, car maintenant que site
+     n'existe plus il faut quand même créer le compteur avec son libellé de site. »
+
+     C'est cette liste qui porte le formulaire, parce que c'est l'écran de l'objet — la même
+     convention que Contacts, Mandats ou Requêtes. Le menu « + Créer » y arrive par `?creer=1`.
+
+     LE DIALOGUE SAIT DÉJÀ SE PASSER D'UN COMPTE : sans la prop `compte`, il affiche son sélecteur
+     par recherche (« montrer tous les comptes c'est horrible à l'affichage », 08/09). Il servait
+     ainsi depuis la liste des sites, supprimée hier — on récupère ce parcours intact, il ne lui
+     manquait qu'une porte. */
+  /* Même toast que les autres écrans : un état local et une bannière en bas, sans contexte
+     global — c'est la convention du dépôt, pas une préférence. */
+  const [toast, setToast] = useState<string | null>(null)
+  const showToast = (msg: string) => {
+    setToast(msg)
+    setTimeout(() => setToast(null), 2200)
+  }
+  const { data: sites } = useSites()
+  const [methodeOuverte, setMethodeOuverte] = useState(false)
+  const [creationOuverte, setCreationOuverte] = useState(false)
+  const [methode, setMethode] = useState<PdlMethode>('manuel')
+  useOuvrirCreation(() => setMethodeOuverte(true))
 
   return (
     <div>
@@ -267,6 +295,34 @@ export default function Compteurs({ sansEntete }: { sansEntete?: boolean }) {
           />
         </Card>
       </div>
+
+      {/* Le choix de la méthode d'abord — saisie à la main ou extraction d'une facture — comme
+          depuis une fiche compte. Sans compte connu, le sous-titre reste général. */}
+      <PdlMethodSheet
+        open={methodeOuverte}
+        onClose={() => setMethodeOuverte(false)}
+        compteNom="un compte à choisir"
+        onChoose={(m) => {
+          setMethode(m)
+          setMethodeOuverte(false)
+          setCreationOuverte(true)
+        }}
+      />
+      {creationOuverte && (
+        <CreationCompteurDialog
+          open
+          onClose={() => setCreationOuverte(false)}
+          sites={sites ?? []}
+          methode={methode}
+          onSaved={(message) => showToast(message)}
+        />
+      )}
+
+      {toast && (
+        <div className="fixed bottom-6 left-1/2 z-50 -translate-x-1/2 whitespace-nowrap rounded-lg bg-ink-800 px-4 py-2.5 text-xs font-semibold text-white shadow-lg">
+          {toast}
+        </div>
+      )}
     </div>
   )
 }

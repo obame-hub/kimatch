@@ -49,9 +49,12 @@ export function useOuvrirCreation(ouvrir: () => void) {
  * lieux, ses points de livraison — puis on remonte la chaîne commerciale. C'est l'ordre dans
  * lequel quelqu'un qui découvre l'application comprend ce qui dépend de quoi.
  *
- * `contrat` et `compteur` n'y sont pas : un contrat se crée depuis la fiche du site concerné, et
- * un compteur depuis celle de son site. Les proposer ici ouvrirait un formulaire qui demanderait
- * aussitôt « sur quel site ? » — la question à laquelle la fiche répond déjà.
+ * `contrat` n'y est pas : il se crée depuis la recommandation qui l'a produit, ou depuis la fiche
+ * du compte, et il exige de choisir ses compteurs — un formulaire ouvert d'ici demanderait aussitôt
+ * « sur quel dossier ? ».
+ *
+ * `compteur`, LUI, Y EST REVENU LE 10/09/2026. Voir le commentaire de son entrée ci-dessous : le
+ * retrait de l'objet site en a fait le geste qui pose l'adresse.
  */
 export const OBJETS_CREABLES = [
   /* La création d'un compte est un ÉCRAN à part entière — un parcours en plusieurs étapes — et non
@@ -61,7 +64,21 @@ export const OBJETS_CREABLES = [
   /* PLUS DE « CRÉER UN SITE ». Retiré le 09/09/2026 avec l'objet lui-même : un site n'est plus
      quelque chose qu'on crée, c'est le regroupement d'adresse que la création d'un compteur
      produit toute seule. Proposer « Site » ici invitait à créer un dossier vide avant d'avoir le
-     moindre point de livraison à y mettre — l'erreur exacte que la réunion voulait supprimer. */
+     moindre point de livraison à y mettre — l'erreur exacte que la réunion voulait supprimer.
+
+     MAIS « COMPTEUR » REVIENT, ET C'EST LA CONSÉQUENCE DIRECTE. Naoëlle, 10/09/2026 : « est-ce que
+     tu peux remettre le bouton de création de compteurs, car maintenant que site n'existe plus il
+     faut quand même créer le compteur avec son libellé de site. »
+
+     Elle a raison, et l'ancien commentaire de ce fichier disait le contraire : « un compteur se
+     crée depuis la fiche de son site ». Cette phrase est morte avec l'écran qu'elle désignait. La
+     création n'existait plus que sur la fiche d'un compte — il fallait donc déjà savoir chez quel
+     client poser le PDL, et y aller, avant de pouvoir le créer.
+
+     C'est précisément le geste que le retrait du site rend central : c'est LA création d'un
+     compteur qui pose désormais le libellé de site, l'adresse et le groupe d'adresse (déclencheur
+     `trg_compteur_herite_de_son_site`, migration 20260910140000). */
+  { cle: 'compteur', libelle: 'Compteur', chemin: '/compteurs', touche: 'L' },
   { cle: 'contact', libelle: 'Contact', chemin: '/contacts', touche: 'T' },
   { cle: 'piste', libelle: 'Piste', chemin: '/prospection', touche: 'P' },
   { cle: 'opportunite', libelle: 'Opportunité', chemin: '/opportunites', touche: 'O' },

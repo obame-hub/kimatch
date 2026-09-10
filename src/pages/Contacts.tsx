@@ -457,7 +457,10 @@ export default function Contacts({ sansEntete }: { sansEntete?: boolean }) {
               onAction={(cle) => {
                 if (cle === 'contact') setShowCreate(true)
                 if (cle === 'compte') navigate('/comptes', { state: { openCreate: true } })
-                if (cle === 'compteur') navigate('/compteurs')
+                /* `?creer=1` ET NON `/compteurs` TOUT COURT : depuis le 10/09/2026 la liste des
+                   compteurs porte le formulaire de création, et c'est ce paramètre qui l'ouvre.
+                   Sans lui, le hub déposait sur une liste sans rien proposer. */
+                if (cle === 'compteur') navigate('/compteurs?creer=1')
                 if (cle === 'mandat') navigate('/mandats')
                 if (cle === 'recommandation') navigate('/recommandations')
               }}

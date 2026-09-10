@@ -95,6 +95,18 @@ export function champsPdlManquants(d: PdlDraft, estElectricite: boolean, siteImp
   // déjà d'une fiche site -- dans ce cas il est connu et les champs ne sont même pas affichés.
   if (!siteImpose) {
     if (!d.libelleSite.trim()) manquants.add('libelleSite')
+    /* ══ L'ADRESSE EST OBLIGATOIRE DEPUIS LE 10/09/2026 ══
+       Naoëlle : « faut rendre toutes les adresses obligatoires, même adresse ». Elle était le seul
+       champ facultatif du bloc, et ça se voyait dans les données : `sites.adresse` n'était rempli
+       que sur 336 sites sur 6 374 — 5 % — et `sites.rue` sur 8.
+
+       Or depuis le retrait de l'objet site, c'est la création du compteur qui pose l'adresse : elle
+       alimente `compteurs.adresse`, donc la colonne calculée `adresse_site`, donc la RECHERCHE, qui
+       est désormais la seule façon de retrouver un lieu. Un compteur créé sans rue se cherche par
+       son seul libellé — et deux « SDC Plaisance » dans deux communes deviennent indiscernables.
+
+       Laisser ce champ facultatif revenait à laisser refabriquer le trou qu'on vient de combler. */
+    if (!d.adresse.trim()) manquants.add('adresse')
     if (!d.ville.trim()) manquants.add('ville')
     if (!d.codePostal.trim()) manquants.add('codePostal')
   }
@@ -321,9 +333,10 @@ export function PdlDraftRows({
                       className={kManque('libelleSite')}
                     />
                   </FormField>
-                  <FormField label="Adresse">
+                  <FormField label="Adresse" required>
                     <AddressAutocomplete
                       value={d.adresse}
+                      className={kManque('adresse')}
                       onChange={(v) => onChange(d.key, { adresse: v })}
                       onSelect={(a) => onChange(d.key, {
                         adresse: a.rue ?? a.label,
