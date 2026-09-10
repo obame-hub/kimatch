@@ -19,7 +19,8 @@
     "croisement": "node scripts/verifier-croisement.cjs",
     "rattachements": "node scripts/auditer-rattachements.cjs",
     "sf:identifiants": "node scripts/importer-identifiants-salesforce.cjs",
-    "sf:fichiers": "node scripts/importer-fichiers-salesforce.cjs"
+    "sf:fichiers": "node scripts/importer-fichiers-salesforce.cjs",
+    "suppressions": "node scripts/auditer-suppressions.cjs"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.110.6",

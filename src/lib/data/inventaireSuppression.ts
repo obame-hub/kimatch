@@ -187,9 +187,33 @@ async function inventaireCompte(id: string): Promise<LigneInventaire[]> {
     compter('perimetres_acces', 'compte_id', id),
   ])
 
+  /* ══ CE COMPTE EST-IL CITÉ COMME FOURNISSEUR CHEZ LES AUTRES ? ══
+
+     Audit du 10/09/2026 (`npm run suppressions`) : la suppression d'un compte échouait encore sur
+     `contrats_fournisseur_compte_id_fkey`, avec le même message opaque que celui qui avait bloqué
+     Guillaume le matin. Sauf qu'ici le refus est JUSTE — un compte fournisseur est cité sur les
+     contrats de dizaines de clients, et l'effacer les mutilerait tous.
+
+     Ce qui était faux, ce n'était pas la règle, c'était le silence. On compte donc ces renvois et
+     on les annonce AVANT le clic, avec le geste qui débloque. */
+  const [contratsFournis, compteursFournis, recosFournies, optimisations] = await Promise.all([
+    compter('contrats', 'fournisseur_compte_id', id),
+    compter('compteurs', 'fournisseur_actuel_compte_id', id),
+    compter('recommandations', 'fournisseur_compte_id', id),
+    compter('optimisations_fournisseurs', 'fournisseur_compte_id', id),
+  ])
+  const commeFournisseur = contratsFournis + compteursFournis + recosFournies + optimisations
+
   return [
     { libelle: 'recommandation', nombre: recommandations, regime: 'bloque',
       detail: 'Une recommandation interdit la suppression du compte. Il faut la supprimer d’abord, ou renoncer.' },
+    { libelle: 'objet d’un autre client qui cite ce compte comme fournisseur', nombre: commeFournisseur,
+      regime: 'bloque',
+      detail: commeFournisseur > 0
+        ? `Ce compte est un fournisseur : ${contratsFournis} contrat(s), ${compteursFournis} compteur(s), `
+          + `${recosFournies} recommandation(s) et ${optimisations} optimisation(s) le désignent, chez d’autres `
+          + 'clients. Les supprimer les mutilerait — Kimatch refuse.'
+        : undefined },
     /* ELLES PARTENT AVEC LE COMPTE : c'est leur seul rattachement, et une interaction sans aucun
        lien est refusée par la base. Le déclencheur de 20260907240000 les supprime avant que la
        contrainte ne puisse s'y opposer. */
@@ -291,7 +315,32 @@ async function inventaireContact(id: string): Promise<LigneInventaire[]> {
       compter('signaux', 'contact_id', id),
       compter('pistes', 'contact_id', id),
     ])
+
+  /* ══ LES RÔLES QU'IL TENAIT ══
+
+     Jusqu'au 10/09/2026 ces six liens étaient en `no action` : ils BLOQUAIENT la suppression, sans
+     que la fenêtre en dise un mot. Ils se vident désormais (migration 20260910300000) — l'objet
+     survit, il ne nomme plus personne. Mais se vider n'est pas rien : sur le contact le plus chargé
+     de la base, ce sont 366 compteurs et contrats qui perdent leur référent. On l'annonce. */
+  const [responsable, conseil, signataireContrat, pricing, signataireReco, versionContact] =
+    await Promise.all([
+      compter('compteurs', 'responsable_contact_id', id),
+      compter('compteurs', 'contact_conseil_syndical_id', id),
+      compter('contrats', 'contact_signataire_id', id),
+      compter('contrats', 'interlocuteur_pricing_contact_id', id),
+      compter('recommandations', 'contact_signataire_id', id),
+      compter('versions_recommandation', 'contact_id', id),
+    ])
+
   return [
+    { libelle: 'compteur dont il est le responsable', nombre: responsable, regime: 'detache',
+      detail: responsable > 0 ? 'le compteur reste, il n’aura plus de responsable' : undefined },
+    { libelle: 'compteur dont il est le conseil syndical', nombre: conseil, regime: 'detache' },
+    { libelle: 'contrat dont il est le signataire', nombre: signataireContrat, regime: 'detache',
+      detail: signataireContrat > 0 ? 'le contrat reste, la case signataire se vide' : undefined },
+    { libelle: 'contrat dont il est l’interlocuteur pricing', nombre: pricing, regime: 'detache' },
+    { libelle: 'recommandation dont il est le signataire', nombre: signataireReco, regime: 'detache' },
+    { libelle: 'version de cotation à son nom', nombre: versionContact, regime: 'detache' },
     { libelle: 'rattachement à un compte', nombre: comptesLies, regime: 'detruit',
       detail: comptesLies > 0 ? 'le compte lui-même n’est pas touché' : undefined },
     { libelle: 'rattachement à un site', nombre: sitesLies, regime: 'detruit' },
