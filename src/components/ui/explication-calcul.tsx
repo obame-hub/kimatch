@@ -52,6 +52,7 @@ export function ExplicationCalcul({
   resultat,
   manques,
   aller,
+  champ,
   className,
 }: {
   titre: string
@@ -63,6 +64,21 @@ export function ExplicationCalcul({
   manques?: string[]
   /** Où aller corriger. Un bouton, parce que comprendre sans pouvoir agir ne règle rien. */
   aller?: { libelle: string; onClick: () => void }
+  /**
+   * ══ LE NOM TECHNIQUE DU CHAMP, EN PIED D'INFOBULLE ══
+   *
+   * William, 09/09/2026 : « ce serait sympa qu'au survol du nom des champs, tu m'affiches à chaque
+   * fois les noms API en base pour que je puisse être beaucoup plus précis avec toi ».
+   *
+   * La demande vient d'un quiproquo réel : il avait décrit un mapping Salesforce en désignant les
+   * champs par leur libellé d'écran, et j'ai répondu sur les colonnes. Deux vocabulaires pour la
+   * même chose, et une demi-heure perdue à s'en apercevoir.
+   *
+   * On écrit donc `table.colonne` — ou « calculé » quand rien n'est stocké, ce qui est une
+   * information au moins aussi utile : un champ calculé ne se remplit pas, il se corrige à sa
+   * source.
+   */
+  champ?: string
   className?: string
 }) {
   const [ouvert, setOuvert] = useState(false)
@@ -215,6 +231,15 @@ export function ExplicationCalcul({
             >
               {aller.libelle}
             </button>
+          )}
+
+          {champ && (
+            <p
+              className="mt-2.5 select-all border-t border-km-line pt-1.5 font-mono text-km-tiny text-km-faint"
+              title="Nom du champ en base — sélectionnable pour être copié."
+            >
+              {champ}
+            </p>
           )}
         </div>,
         document.body,

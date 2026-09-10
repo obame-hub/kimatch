@@ -44,6 +44,9 @@ interface RawRecommandation {
   commission_interne?: number | null
   commission_nette?: number | null
   remuneration_apporteur?: number | null
+  /** Les deux montants stockables de la cascade (migration 20260909230000). */
+  commission_intermediaire?: number | null
+  chiffre_affaires?: number | null
   fournisseur_compte_id?: string | null
   /** Colonnes de la fiche Recommandation portée depuis la maquette (migration 20260816180000).
    *  Optionnelles pour la même raison que les précédentes : le select est en `*`. */
@@ -794,6 +797,8 @@ async function fetchRecommandations(
       commission_interne: r.commission_interne ?? null,
       commission_nette: r.commission_nette ?? null,
       remuneration_apporteur: r.remuneration_apporteur ?? null,
+      commission_intermediaire: r.commission_intermediaire ?? null,
+      chiffre_affaires: r.chiffre_affaires ?? null,
       fournisseur_compte_id: r.fournisseur_compte_id ?? null,
       fournisseur_nom: r.fournisseur_compte_id ? (fournisseursParId.get(r.fournisseur_compte_id) ?? null) : null,
       id_salesforce: r.id_salesforce ?? null,
@@ -860,15 +865,39 @@ export function useRecommandationsParCompte(compteId: string | undefined) {
  */
 const ETAPES_CLOSES = new Set(['CLOTUREE'])
 
+/**
+ * Quelle recommandation retient chaque compteur — et pas seulement « lesquels sont pris ».
+ *
+ * William, 09/09/2026, sur MATERA by LE GOFF : un compteur porte un mandat ACTIF, il n'apparaît pas
+ * dans la création de recommandation, et rien à l'écran ne dit pourquoi. Il avait vérifié le mandat,
+ * qui était bon. La règle, elle, faisait son travail : le PDL était déjà engagé sur « MATERA BY LE
+ * GOFF - 5HOCHE », à l'étape Active depuis le 21/08/2026.
+ *
+ * UN ENSEMBLE D'IDENTIFIANTS NE PEUT PAS EXPLIQUER UNE ABSENCE. Il dit « exclu », jamais « par
+ * qui » — et c'est exactement la question qu'on se pose devant un compteur manquant. On rend donc
+ * la recommandation qui le retient, pour que l'écran puisse y renvoyer d'un clic.
+ *
+ * Quand plusieurs recommandations ouvertes portent le même compteur — ce qui ne devrait pas
+ * arriver, mais rien ne l'interdit en base — la PREMIÈRE rencontrée gagne : en nommer une suffit à
+ * lever le doute, et l'ouvrir montrera les autres.
+ */
+export function recommandationsRetenantCompteurs(
+  recommandations: Recommandation[],
+): Map<string, { id: string; nom: string }> {
+  const parCompteur = new Map<string, { id: string; nom: string }>()
+  for (const r of recommandations) {
+    if (ETAPES_CLOSES.has(r.etape)) continue
+    for (const id of r.compteur_ids ?? []) {
+      if (!parCompteur.has(id)) parCompteur.set(id, { id: r.id, nom: r.titre })
+    }
+  }
+  return parCompteur
+}
+
 /** Compteurs déjà engagés dans une recommandation non close -- à exclure de la sélection PDL
  * d'une nouvelle opportunité (Tools : "pas déjà rattaché à une opportunité non close"). */
 export function compteursDejaEngages(recommandations: Recommandation[]): Set<string> {
-  const set = new Set<string>()
-  for (const r of recommandations) {
-    if (ETAPES_CLOSES.has(r.etape)) continue
-    for (const id of r.compteur_ids ?? []) set.add(id)
-  }
-  return set
+  return new Set(recommandationsRetenantCompteurs(recommandations).keys())
 }
 
 interface CreateRecommandationInput {
@@ -1338,6 +1367,11 @@ export type PatchRecommandation = Partial<{
   marge_nette: number | null
   marge_nette_coeff: number | null
   marge_nette_mwh: number | null
+  /* Saisissables UNIQUEMENT quand aucune offre retenue ne permet de les calculer — sur une
+     recommandation qui en porte une, c'est `v_montants_recommandation` qui fait foi et ces deux
+     colonnes ne sont ni lues ni écrites. Voir `CalculMontants`. */
+  commission_intermediaire: number | null
+  chiffre_affaires: number | null
   /**
    * Vrai quand le montant vient d'une saisie et non du calcul.
    *

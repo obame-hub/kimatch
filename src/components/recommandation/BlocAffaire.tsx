@@ -63,9 +63,13 @@ function euros(n: number): string {
  * termes autoriserait un écran qui se contredit — 100 de brute, 20 d'apporteur, 50 de nette — et
  * personne ne saurait lequel des trois croire.
  *
- * Elle est donc RECALCULÉE ET ÉCRITE à chaque fois que l'un des deux bouge. Écrite, parce que le
- * tableau de bord somme `recommandations.marge_nette` directement : la laisser en calcul d'écran
- * ferait diverger la fiche et le pilotage.
+ * Elle est donc RECALCULÉE ET ÉCRITE à chaque fois que l'un des deux bouge. Écrite, parce qu'elle
+ * est lue ailleurs qu'ici — et parce qu'un trigger la recalculait autrefois en base
+ * (`fn_calculer_marges`, supprimé le 10/09/2026 : il ignorait la commission d'intermédiaire et
+ * écrasait silencieusement les valeurs reprises de Salesforce).
+ *
+ * DEPUIS LE 10/09/2026, LE TABLEAU DE BORD NE LA SOMME PLUS : il somme `marge_nette_coeff`, le
+ * « Montant ». `marge_nette` reste une étape de la cascade, affichée sur la fiche.
  *
  * ══ UNE LIGNE VIDE RESTE VISIBLE ══
  *
@@ -130,6 +134,7 @@ export function BlocAffaire({ reco, peutModifier, majReco, signaler }: {
     reco.montant, reco.fournisseur_nom, reco.duree_mois, reco.volume_contractuel,
     reco.budget_ancienne_offre, reco.budget_nouvelle_offre, reco.difference_budgetaire,
     reco.marge_brute, reco.marge_nette, reco.marge_nette_coeff, reco.marge_apporteur, reco.marge_nette_mwh,
+    reco.commission_intermediaire, reco.chiffre_affaires,
   ]
   // Un dossier vide se masquait entièrement — donc impossible à remplir. Dès qu'on peut écrire, le
   // bloc s'affiche, quitte à n'être qu'une grille de champs à compléter.
@@ -162,7 +167,16 @@ export function BlocAffaire({ reco, peutModifier, majReco, signaler }: {
   const avecMontantNet = (patch: PatchRecommandation): PatchRecommandation => {
     const b = 'marge_brute' in patch ? (patch.marge_brute ?? 0) : (reco.marge_brute ?? 0)
     const a = 'marge_apporteur' in patch ? (patch.marge_apporteur ?? 0) : (reco.marge_apporteur ?? 0)
-    return { ...patch, marge_nette: b - a }
+    /* LA CIP ENTRE DANS LA SOUSTRACTION DEPUIS LE 09/09/2026. La règle de Michel — nette = brute −
+       apporteur — a été vérifiée sur 1 562 dossiers où la commission d'intermédiaire n'était nulle
+       part : elle valait donc zéro sans le dire. Maintenant qu'elle se saisit, l'ignorer donnerait
+       une marge nette supérieure à ce que Kiwee encaisse vraiment.
+       La colonne est vide sur les 1 732 recommandations actives au 09/09/2026 : aucun chiffre
+       existant ne bouge, la règle vérifiée par Michel continue de s'appliquer à l'identique. */
+    const c = 'commission_intermediaire' in patch
+      ? (patch.commission_intermediaire ?? 0)
+      : (reco.commission_intermediaire ?? 0)
+    return { ...patch, marge_nette: b - c - a, chiffre_affaires: b - c }
   }
 
   return (
@@ -225,11 +239,14 @@ export function BlocAffaire({ reco, peutModifier, majReco, signaler }: {
             margeBrute={reco.marge_brute ?? null}
             margeNette={reco.marge_nette ?? null}
             commissionApporteur={reco.marge_apporteur ?? null}
+            commissionIntermediaire={reco.commission_intermediaire ?? null}
+            chiffreAffaires={reco.chiffre_affaires ?? null}
             montantReference={reco.marge_nette_coeff ?? null}
             editable={editable}
             retour={retour}
             onMontantBrut={(v) => majReco!(avecMontantNet({ marge_brute: v }))}
             onCommissionApporteur={(v) => majReco!(avecMontantNet({ marge_apporteur: v }))}
+            onCommissionIntermediaire={(v) => majReco!(avecMontantNet({ commission_intermediaire: v }))}
             onMontantReference={(v) => majReco!({ marge_nette_coeff: v })}
           />
         </div>

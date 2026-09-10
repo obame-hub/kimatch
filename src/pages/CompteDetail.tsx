@@ -605,6 +605,7 @@ export default function CompteDetail() {
                           />
                           <ExplicationCalcul
                             titre="Taux répartition"
+                            champ="comptes.taux_repartition"
                             resume={'La marge annoncée au fournisseur est la marge BRUTE : elle est partagée avec lui. '
                               + 'Ce taux dit quelle part nous revient, et c’est elle qui sert à calculer le montant des '
                               + 'affaires gagnées chez ce fournisseur.'}
@@ -692,6 +693,7 @@ export default function CompteDetail() {
                           />
                           <ExplicationCalcul
                             titre="Taux commissionnement"
+                            champ="comptes.taux_commissionnement"
                             resume={'Ce que cet intermédiaire prélève sur le montant qu’il facture à son fournisseur '
                               + 'partenaire. C’est lui qui détermine le chiffre d’affaires réellement encaissé par Kiwee.'}
                             etapes={[
@@ -723,6 +725,7 @@ export default function CompteDetail() {
                           />
                           <ExplicationCalcul
                             titre="Taux commerciaux"
+                            champ="comptes.taux_commerciaux"
                             resume={'Le taux qui sert au « Montant », la référence des commissions commerciales et des '
                               + 'objectifs. Volontairement différent du taux de commissionnement réel.'}
                             etapes={[

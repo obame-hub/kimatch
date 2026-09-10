@@ -325,6 +325,11 @@ export interface Recommandation {
   marge_nette?: number | null
   marge_nette_coeff?: number | null
   marge_apporteur?: number | null
+  /** Les deux montants de la cascade qui n'avaient pas de colonne avant le 09/09/2026. Ils ne sont
+   * renseignés que sur les dossiers venus d'un autre système, où aucune offre retenue ne permet de
+   * les recalculer (Salesforce : Remuneration_partenaire__c et Montant__c). Vides au 09/09/2026. */
+  commission_intermediaire?: number | null
+  chiffre_affaires?: number | null
   /** Champs ajoutés le 04/08/2026 pour le flot Opportunité calqué sur Tools. */
   type_energie?: 'electricite' | 'gaz' | null
   date_cloture?: string | null

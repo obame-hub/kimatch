@@ -31,10 +31,29 @@ import { cn } from '@/lib/utils'
  * La commission d'apporteur se négocie : elle se saisit toujours. Le montant brut se calcule depuis
  * l'offre retenue — mais les 1 728 recommandations reprises de Salesforce n'en ont aucune, et il
  * redevient alors saisissable. Le reste découle.
+ *
+ * ── LA CIP ET LE CHIFFRE D'AFFAIRES SUIVENT LA MÊME RÈGLE DEPUIS LE 09/09/2026 ──
+ *
+ * Ils se déduisaient toujours, ce qui posait la CIP à zéro sur les 1 668 dossiers repris : sans
+ * offre, aucun taux, donc aucun prélèvement — alors que l'intermédiaire avait bel et bien prélevé.
+ * `recommandations.commission_intermediaire` et `recommandations.chiffre_affaires` accueillent
+ * désormais ces valeurs (Salesforce : Remuneration_partenaire__c et Montant__c).
+ *
+ * ELLES SONT VIDES AU 09/09/2026 et le resteront tant que l'export Salesforce n'aura pas été versé :
+ * la carte se comporte donc exactement comme avant sur tous les dossiers existants.
  */
 
+/**
+ * LES CENTIMES S'AFFICHENT, TOUJOURS.
+ *
+ * Ils étaient arrondis à l'euro, et la capsule montrait « 30 087,71 € » — venue du champ de saisie —
+ * juste sous un chiffre d'affaires à « 30 088 € ». Deux écritures du même montant sur la même carte :
+ * on cherche la différence avant de comprendre qu'il n'y en a pas (William, 09/09/2026).
+ *
+ * Sur une commission, le centime n'est pas du détail : c'est ce qui se rapproche d'un relevé.
+ */
 function euros(n: number): string {
-  return n.toLocaleString('fr-FR', { style: 'currency', currency: 'EUR', maximumFractionDigits: 0 })
+  return n.toLocaleString('fr-FR', { style: 'currency', currency: 'EUR', minimumFractionDigits: 2, maximumFractionDigits: 2 })
 }
 
 function pourcent(t: number | null | undefined): string | null {
@@ -120,10 +139,13 @@ export function CalculMontants({
   margeBrute,
   margeNette,
   commissionApporteur,
+  commissionIntermediaire,
+  chiffreAffaires: chiffreAffaires_,
   montantReference,
   editable,
   onMontantBrut,
   onCommissionApporteur,
+  onCommissionIntermediaire,
   onMontantReference,
   retour,
 }: {
@@ -132,10 +154,13 @@ export function CalculMontants({
   margeBrute: number | null
   margeNette: number | null
   commissionApporteur: number | null
+  commissionIntermediaire: number | null
+  chiffreAffaires: number | null
   montantReference: number | null
   editable: boolean
   onMontantBrut: (v: number | null) => Promise<void>
   onCommissionApporteur: (v: number | null) => Promise<void>
+  onCommissionIntermediaire: (v: number | null) => Promise<void>
   onMontantReference: (v: number | null) => Promise<void>
   retour: { onSaved: () => void; onError: (e: Error) => void }
 }) {
@@ -143,12 +168,17 @@ export function CalculMontants({
   const apporteur = commissionApporteur ?? 0
 
   const brut = calculAbouti ? montants!.montant_brut : margeBrute
-  const cip = calculAbouti ? (montants!.commission_intermediaire ?? 0) : 0
-  const chiffreAffaires = brut == null ? null : brut - cip
+  /* Faute de calcul, la valeur enregistrée ; faute des deux, zéro plutôt que rien — une CIP absente
+     et une CIP nulle produisent le même chiffre d'affaires, et afficher « — » à cette étape
+     casserait la lecture de la soustraction. La ligne dit d'où vient le zéro. */
+  const cip = calculAbouti ? (montants!.commission_intermediaire ?? 0) : (commissionIntermediaire ?? 0)
+  const chiffreAffaires = calculAbouti
+    ? montants!.chiffre_affaires
+    : (chiffreAffaires_ ?? (brut == null ? null : brut - cip))
   const montantNet = calculAbouti
     ? montants!.montant_net
-    : brut != null
-      ? brut - apporteur
+    : chiffreAffaires != null
+      ? chiffreAffaires - apporteur
       : margeNette
   const montantCalcule = calculAbouti ? montants!.montant_reference : null
   const montant = montantReference ?? montantCalcule
@@ -181,6 +211,7 @@ export function CalculMontants({
         explication={
           <ExplicationCalcul
             titre="Montant brut"
+            champ="recommandations.marge_brute"
             resume={'Ce que Kiwee — ou son intermédiaire pricing — facture au fournisseur sur toute la durée du '
               + 'contrat. Le volume annuel ramené au mois, multiplié par la durée, par la marge €/MWh et par la '
               + 'part qui revient à Kiwee.'}
@@ -200,14 +231,33 @@ export function CalculMontants({
         operateur="−"
         libelle="Commission intermédiaire pricing"
         valeur={brut == null ? null : cip}
+        enregistre={!calculAbouti && commissionIntermediaire != null}
         precision={
-          intermediaire
-            ? `${intermediaire} · ${pourcent(montants?.taux_commissionnement) ?? '—'}`
-            : 'aucun intermédiaire : Kiwee facture en direct'
+          calculAbouti
+            ? intermediaire
+              ? `${intermediaire} · ${pourcent(montants?.taux_commissionnement) ?? '—'}`
+              : 'aucun intermédiaire : Kiwee facture en direct'
+            : 'aucune offre retenue : le taux ne peut pas s’appliquer, la valeur se saisit'
+        }
+        saisie={
+          editable && !calculAbouti ? (
+            <InlineField
+              variant="number"
+              label=""
+              value={commissionIntermediaire}
+              unit="€"
+              emptyLabel="ajouter"
+              onCommit={onCommissionIntermediaire}
+              {...retour}
+            />
+          ) : undefined
         }
         explication={
           <ExplicationCalcul
             titre="Commission intermédiaire pricing"
+            champ={calculAbouti
+              ? 'v_montants_recommandation.commission_intermediaire — calculé depuis l’offre'
+              : 'recommandations.commission_intermediaire — saisi'}
             resume={'Ce que l’intermédiaire prélève sur le montant qu’il facture à son fournisseur partenaire. '
               + 'Son taux vit sur sa fiche partenaire, et le rattachement du fournisseur à un intermédiaire sur '
               + 'la fiche du fournisseur.'}
@@ -217,7 +267,13 @@ export function CalculMontants({
               { libelle: 'Taux commissionnement', valeur: pourcent(montants?.taux_commissionnement), origine: intermediaire ? `fiche de ${intermediaire}` : 'aucun' },
             ]}
             resultat={brut != null ? { libelle: 'CIP', valeur: euros(cip) } : undefined}
-            manques={intermediaire ? undefined : ['Ce fournisseur n’est rattaché à aucun intermédiaire pricing : rien n’est prélevé.']}
+            manques={
+              !calculAbouti
+                ? ['Aucune offre retenue : le taux n’a rien sur quoi s’appliquer. La valeur reprise de Salesforce se saisit ici.']
+                : intermediaire
+                  ? undefined
+                  : ['Ce fournisseur n’est rattaché à aucun intermédiaire pricing : rien n’est prélevé.']
+            }
           />
         }
       />
@@ -227,9 +283,13 @@ export function CalculMontants({
         libelle="Chiffre d’affaires"
         valeur={chiffreAffaires}
         sousTotal
+        enregistre={!calculAbouti && chiffreAffaires_ != null}
         explication={
           <ExplicationCalcul
             titre="Chiffre d’affaires"
+            champ={calculAbouti
+              ? 'v_montants_recommandation.chiffre_affaires — calculé depuis l’offre'
+              : 'recommandations.chiffre_affaires — enregistré, sinon déduit'}
             resume={'Ce qui entre réellement dans les caisses de Kiwee, avant la commission de l’apporteur '
               + 'd’affaires. Sans intermédiaire pricing, il égale le montant brut.'}
             etapes={[
@@ -262,6 +322,7 @@ export function CalculMontants({
         explication={
           <ExplicationCalcul
             titre="Commission apporteur d’affaires"
+            champ="recommandations.marge_apporteur"
             resume={'Ce que Kiwee reverse à l’apporteur qui a détecté et contractualisé l’affaire. Montant fixe, '
               + 'négocié au cas par cas. Sans apporteur sur le dossier, il n’y a pas de commission.'}
             etapes={[{ libelle: 'Apporteur sur ce dossier', valeur: apporteur === 0 ? 'aucun' : 'oui', origine: 'ce champ' }]}
@@ -279,6 +340,7 @@ export function CalculMontants({
         explication={
           <ExplicationCalcul
             titre="Montant net"
+            champ="recommandations.marge_nette"
             resume={'Ce qui reste dans les caisses de Kiwee une fois l’apporteur d’affaires payé. Sans apporteur, '
               + 'il égale le chiffre d’affaires.'}
             etapes={[
@@ -312,6 +374,7 @@ export function CalculMontants({
           {editable ? null : (
             <ExplicationCalcul
               titre="Montant"
+            champ="recommandations.marge_nette_coeff"
               resume={'La référence des commissions commerciales, des objectifs et de tous les rapports. Il se '
                 + 'calcule comme le montant net, mais avec le taux commerciaux à la place du taux de '
                 + 'commissionnement réel — 15 % contre 25 %. Deux chiffres pour la même affaire, et c’est voulu.'}
