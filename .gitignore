@@ -44,3 +44,6 @@ carte-donnees/
 # références de contrats et des noms de collaborateurs. Ils se régénèrent d'une requête ; les
 # publier serait irréversible.
 contrats-sans-compteur.md
+
+# Les mesures de la sonde : locales, elles n’ont pas leur place dans le dépôt public.
+.mesures/

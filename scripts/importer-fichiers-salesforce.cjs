@@ -169,12 +169,14 @@ const OBJETS = [
     prefixe: 'a01',
     entite: 'compteur',
     cle: 'select id, id_salesforce from compteurs where id_salesforce is not null',
+    versLeCompte: 'select Id, Compte__c from Point_de_livraison__c where Compte__c != null',
   },
   {
     nom: 'mandat',
     prefixe: 'a03',
     entite: 'mandat',
     cle: 'select id, id_salesforce from mandats where id_salesforce is not null',
+    versLeCompte: 'select Id, Compte__c from Mandat__c where Compte__c != null',
   },
   {
     nom: 'contrat',
@@ -187,12 +189,14 @@ const OBJETS = [
       const lignes = soql('select Id, ContractNumber from Contract')
       return new Map(lignes.map((x) => [x.Id.slice(0, 15), x.ContractNumber]))
     },
+    versLeCompte: 'select Id, AccountId from Contract where AccountId != null',
   },
   {
     nom: 'version de recommandation',
     prefixe: 'a07',
     entite: 'version_recommandation',
     cle: 'select id, id_salesforce from versions_recommandation where id_salesforce is not null',
+    versLeCompte: 'select Id, Account__c from Cotation__c where Account__c != null',
   },
   {
     nom: 'consultation fournisseur',
@@ -205,12 +209,15 @@ const OBJETS = [
       const lignes = soql('select Id, Cotation__c from Suivi_cotation__c where Cotation__c != null')
       return new Map(lignes.map((x) => [x.Id.slice(0, 15), x.Cotation__c]))
     },
+    versLeCompte: 'select Id, Cotation__r.Account__c from Suivi_cotation__c where Cotation__r.Account__c != null',
+    champCompte: (r) => r.Cotation__r?.Account__c,
   },
   {
     nom: 'recommandation',
     prefixe: '006',
     entite: 'recommandation',
     cle: 'select id, id_salesforce from recommandations where id_salesforce is not null',
+    versLeCompte: 'select Id, AccountId from Opportunity where AccountId != null',
   },
   {
     nom: 'compte',
@@ -229,6 +236,7 @@ const OBJETS = [
     prefixe: '00Q',
     entite: 'piste',
     cle: 'select id, id_salesforce from pistes where id_salesforce is not null',
+    versLeCompte: 'select Id, ConvertedAccountId from Lead where ConvertedAccountId != null',
   },
 ]
 
@@ -314,18 +322,58 @@ async function main() {
     const plan = []
     const sansCible = new Map()
     const orphelinsParObjet = new Map()
+
+    /* ══ LE REPLI SUR LE COMPTE ══
+       Naoëlle, 10/09/2026 : « ou même dans les fichiers du compte si tu sais pas où les mettre ».
+
+       616 fichiers pendaient à un enregistrement Salesforce jamais repris dans Kimatch : un
+       contrat de 2024, une cotation abandonnée, une piste convertie. Faute de fiche où se poser,
+       ils restaient chez Salesforce — et le jour où l'org sera coupée, ils disparaîtront.
+
+       Mais ces enregistrements-là, EUX, connaissent leur client. Mesuré avant d'écrire une ligne :
+       120 cotations sur 120, 166 pistes sur 183, 82 mandats sur 84 désignent un compte qui existe
+       dans Kimatch. La facture d'un contrat de 2024 n'a plus sa fiche, mais elle a toujours son
+       client, et c'est là qu'un commercial ira la chercher.
+
+       ON DÉPOSE DONC SUR LE COMPTE PLUTÔT QUE DE RENONCER. Un fichier rangé un cran trop haut se
+       retrouve ; un fichier resté chez Salesforce est perdu. */
+    const comptesParSf = new Map(
+      (await client.query('select id, id_salesforce from comptes where id_salesforce is not null'))
+        .rows.map((r) => [court(r.id_salesforce), r.id]))
+    let replis = 0
     for (const objet of objets) {
       const { rows } = await client.query(objet.cle)
       const parSf = new Map(rows.map((r) => [court(r.id_salesforce), r.id]))
       const traduction = objet.traduire ? await objet.traduire() : null
 
+      /* Le compte de chaque enregistrement de cet objet, s'il sait le dire. Une requête par objet,
+         pas une par fichier : neuf requêtes en tout. */
+      const compteDe = new Map()
+      if (objet.versLeCompte) {
+        const lire = objet.champCompte ?? ((r) => r[Object.keys(r).find((k) => k !== 'Id' && k !== 'attributes')])
+        for (const r of await soqlRest(objet.versLeCompte)) {
+          const c = lire(r)
+          if (c) compteDe.set(court(r.Id), court(c))
+        }
+      }
+
       let relies = 0
       let orphelins = 0
+      let replisIci = 0
       for (const l of liens) {
         if (!l.LinkedEntityId.startsWith(objet.prefixe)) continue
         const cle = traduction ? court(traduction.get(court(l.LinkedEntityId))) : court(l.LinkedEntityId)
         const cible = cle ? parSf.get(cle) : undefined
         if (!cible) {
+          /* PAS DE FICHE, MAIS PEUT-ÊTRE UN CLIENT. */
+          const compteSf = compteDe.get(court(l.LinkedEntityId))
+          const compteKimatch = compteSf ? comptesParSf.get(compteSf) : undefined
+          if (compteKimatch && !ORPHELINS) {
+            plan.push({ document: l.ContentDocumentId, entite_type: 'compte', entite_id: compteKimatch })
+            replis++
+            replisIci++
+            continue
+          }
           orphelins++
           if (ORPHELINS) {
             const liste = orphelinsParObjet.get(objet.nom) ?? new Set()
@@ -338,7 +386,8 @@ async function main() {
         relies++
       }
       if (orphelins > 0) sansCible.set(objet.nom, orphelins)
-      console.log(`   ${objet.nom.padEnd(26)} ${String(relies).padStart(5)} fichier(s) rattachable(s), ${orphelins} sans cible`)
+      console.log(`   ${objet.nom.padEnd(26)} ${String(relies).padStart(5)} fichier(s) rattachable(s)`
+        + `, ${replisIci} reporté(s) sur le compte, ${orphelins} sans cible`)
     }
 
     /* UN MÊME DOCUMENT PEUT PENDRE À PLUSIEURS OBJETS. On le dépose UNE fois dans le stockage et on
@@ -347,6 +396,9 @@ async function main() {
     const documentsUniques = new Set(plan.map((p) => p.document))
     console.log(`\n   ${plan.length} rattachement(s) pour ${documentsUniques.size} fichier(s) distinct(s)`)
     for (const [nom, n] of sansCible) console.log(`   (${n} fichier(s) « ${nom} » sans objet correspondant dans Kimatch)`)
+    if (replis > 0) {
+      console.log(`   ${replis} lien(s) déposé(s) sur le COMPTE, faute de fiche pour l'objet d'origine`)
+    }
 
     if (ORPHELINS) {
       /* SALESFORCE SAIT CE QUE SONT CES ENREGISTREMENTS — on le lui demande plutôt que de le
