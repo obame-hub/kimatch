@@ -42,6 +42,10 @@ interface RawCompteur {
   adresse_site: string | null
   libelle_site: string | null
   compte_id: string | null
+  latitude: number | null
+  longitude: number | null
+  departement_code: string | null
+  departement_nom: string | null
   actif: boolean
   consommation_annuelle_mwh: number | null
   synchro_eneo: boolean
@@ -90,11 +94,19 @@ function classeMap(elec: RawCompteurElec, prefix: 'conso' | 'puissance', suffix:
  *   direct — on passe par les sites du compte. Évite de tirer les 7884 compteurs pour en afficher
  *   quelques-uns sur une fiche.
  */
-async function fetchCompteurs(siteIds?: string[], compteurId?: string): Promise<Compteur[]> {
+/**
+ * @param siteIds   Restreindre à ces groupes d'adresse. Historique : c'était le SEUL moyen de
+ *                  trouver les compteurs d'un client, faute de `compte_id` sur la table.
+ * @param compteurId Un seul compteur.
+ * @param compteId  Tous les compteurs d'un client, EN DIRECT — depuis la migration
+ *                  20260909160000 qui a posé `compteurs.compte_id` en `not null`.
+ */
+async function fetchCompteurs(siteIds?: string[], compteurId?: string, compteId?: string): Promise<Compteur[]> {
   try {
     if (siteIds && siteIds.length === 0) return []
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const restreindre = (q: any) => (compteurId ? q.eq('id', compteurId) : siteIds ? q.in('site_id', siteIds) : q)
+    const restreindre = (q: any) =>
+      compteurId ? q.eq('id', compteurId) : compteId ? q.eq('compte_id', compteId) : siteIds ? q.in('site_id', siteIds) : q
     const data = await fetchAllRows<RawCompteur>(
       'compteurs',
       // `*` plutôt qu'une liste de colonnes fixe : `date_echeance` vient d'être ajoutée par
@@ -119,6 +131,10 @@ async function fetchCompteurs(siteIds?: string[], compteurId?: string): Promise<
         site_nom: c.libelle_site ?? c.site?.nom ?? '',
         libelle_site: c.libelle_site ?? null,
         compte_id: c.compte_id ?? null,
+        latitude: c.latitude ?? null,
+        longitude: c.longitude ?? null,
+        departement_code: c.departement_code ?? null,
+        departement_nom: c.departement_nom ?? null,
         type_energie: (c.type_energie?.code?.toLowerCase() ?? 'electricite') as 'electricite' | 'gaz',
         numero_pdl: c.numero_point,
         utilisation: c.libelle ?? '',
@@ -477,6 +493,26 @@ export function useComptesEcheances() {
 }
 
 /** Compteurs des sites donnés -- pour les fiches de détail. */
+/**
+ * ══ LES COMPTEURS D'UN CLIENT, SANS PASSER PAR SES SITES ══
+ *
+ * La fiche compte les lisait par `useCompteursParSites`, et son commentaire disait pourquoi :
+ * « les compteurs n'ayant pas de compte_id, ils passent par les sites du compte ». Ce n'est
+ * plus vrai depuis la migration 20260909160000, qui a posé `compteurs.compte_id` en `not null`
+ * sur les 7 923 lignes.
+ *
+ * Le détour coûtait DEUX lectures en chaîne — les sites d'abord, les compteurs ensuite, la
+ * seconde attendant la première — et il rendait la fiche compte dépendante d'une table qu'on
+ * supprime. Une seule requête indexée la remplace (`idx_compteurs_compte_id`).
+ */
+export function useCompteursParCompte(compteId: string | undefined) {
+  return useQuery({
+    queryKey: ['compteurs', 'compte', compteId],
+    queryFn: () => fetchCompteurs(undefined, undefined, compteId as string),
+    enabled: !!compteId,
+  })
+}
+
 export function useCompteursParSites(siteIds: string[] | undefined) {
   const cle = [...(siteIds ?? [])].sort()
   return useQuery({

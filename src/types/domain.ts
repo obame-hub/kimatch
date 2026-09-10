@@ -633,6 +633,16 @@ export interface Compteur {
    * c'était LE chemin qui rendait le site indispensable.
    */
   compte_id?: string | null
+  /**
+   * Géolocalisation et département du lieu, recopiés depuis le site par la migration
+   * 20260909100000 puis maintenus par le déclencheur `trg_compteur_herite_de_son_site`.
+   * Remplis sur 5 704 compteurs — c'est ce qui permet à la carte d'un compte de se dessiner
+   * sans lire la table `sites`.
+   */
+  latitude?: number | null
+  longitude?: number | null
+  departement_code?: string | null
+  departement_nom?: string | null
   /** Où le trouver sur place : « Local TGBT — Bât. A ». Distinct du commentaire libre. */
   localisation_site?: string | null
   consommation_annuelle_mwh: number | null

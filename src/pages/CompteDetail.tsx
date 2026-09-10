@@ -52,9 +52,8 @@ import {
   useUpdateCompteField,
   useDeleteCompte,
 } from '@/lib/data/comptes'
-import { useSitesParCompte } from '@/lib/data/sites'
 import { useContactsParCompte } from '@/lib/data/contacts'
-import { useCompteursParSites } from '@/lib/data/compteurs'
+import { useCompteursParCompte } from '@/lib/data/compteurs'
 import { useRecommandationsParCompte } from '@/lib/data/recommandations'
 import { useContratsParCompte } from '@/lib/data/contrats'
 import { useInteractionsForCompte } from '@/lib/data/interactions'
@@ -126,13 +125,20 @@ export default function CompteDetail() {
   // L'apporteur est un autre compte : on le lit par son identifiant plutot que de parcourir la
   // liste entiere pour en afficher le nom.
   const { data: apporteur } = useCompte(compte?.apporteur_partenaire_id ?? undefined)
-  // Sites, contacts et compteurs sont chargés POUR CE COMPTE seulement : la fiche n'a pas besoin
-  // des 6346 sites, 3380 contacts et 7884 compteurs du CRM pour en afficher une poignée. Les
-  // compteurs n'ayant pas de compte_id, ils passent par les sites du compte.
-  const { data: sites } = useSitesParCompte(id)
+  /* ══ LA FICHE COMPTE NE LIT PLUS LA TABLE `sites` ═══════════════════════════════════════
+
+     Elle chargeait les sites du compte, puis les compteurs DE CES SITES — deux lectures en
+     chaîne, la seconde attendant la première. Le commentaire d'alors disait pourquoi : « les
+     compteurs n'ayant pas de compte_id, ils passent par les sites du compte ». La migration
+     20260909160000 a posé ce `compte_id`, `not null` sur les 7 923 compteurs : le détour n'a
+     plus de raison d'être, et il faisait dépendre la fiche d'une table qu'on supprime.
+
+     LES GROUPES D'ADRESSE SE DÉDUISENT DES COMPTEURS (voir `groupesDAdresse` plus bas), ce qui
+     conserve à l'identique les regroupements de l'onglet Compteurs, ceux de l'onglet Contrats
+     et la carte — `groupe_site_id` reprend l'ancien `sites.id`, donc tous les `site_id`
+     stockés ailleurs continuent de correspondre. */
   const { data: contacts } = useContactsParCompte(id)
-  const siteIdsPourFiltre = useMemo(() => sites?.map((s) => s.id), [sites])
-  const { data: compteurs } = useCompteursParSites(siteIdsPourFiltre)
+  const { data: compteurs } = useCompteursParCompte(id)
   // Toutes ces lectures sont restreintes au perimetre du compte, cote serveur.
   //
   // Elles appelaient les hooks globaux (useSignaux, useRecommandations, useContrats, useMandats,
@@ -144,13 +150,19 @@ export default function CompteDetail() {
   const { data: recommandations } = useRecommandationsParCompte(id)
   const { data: contrats } = useContratsParCompte(id)
   const { data: mandats } = useMandatsParCompte(id)
-  const { data: actions } = useActionsParSites(siteIdsPourFiltre)
+  /* Les actions portent un `site_id` : on lui donne les groupes d'adresse déduits des
+     compteurs, qui sont les mêmes identifiants. */
+  const idsGroupesAdresse = useMemo(
+    () => (compteurs ? [...new Set(compteurs.map((c) => c.site_id).filter(Boolean))] : undefined),
+    [compteurs],
+  )
+  const { data: actions } = useActionsParSites(idsGroupesAdresse)
   // Les documents sont polymorphes : ceux du compte, mais aussi ceux de ses sites, compteurs et
   // mandats, que l'onglet Fichiers et le fil d'activite affichent.
   const entitesPourDocuments = useMemo(() => {
-    if (!id || !sites) return undefined
-    return [id, ...sites.map((s) => s.id), ...(compteurs ?? []).map((c) => c.id), ...(mandats ?? []).map((m) => m.id)]
-  }, [id, sites, compteurs, mandats])
+    if (!id || !compteurs) return undefined
+    return [id, ...(idsGroupesAdresse ?? []), ...compteurs.map((c) => c.id), ...(mandats ?? []).map((m) => m.id)]
+  }, [id, idsGroupesAdresse, compteurs, mandats])
   const { data: documents } = useDocumentsParEntites(entitesPourDocuments)
   const ellisphereScore = useEllisphereScore()
   const updateScore = useUpdateCompteScore()
@@ -248,7 +260,10 @@ export default function CompteDetail() {
   const canManage = useCanManage(compte?.proprietaire_id)
   const { data: historique } = useHistorique('comptes', compte?.id, tab === 'historique')
 
-  const sitesDuCompte = useMemo(() => sites?.filter((s) => s.compte_id === id) ?? [], [sites, id])
+  /* LES ADRESSES DU COMPTE, DÉDUITES DE SES COMPTEURS. Même forme qu'avant — un objet par
+     lieu, avec son identifiant, son nom et sa géolocalisation — pour que la carte et les
+     regroupements ci-dessous n'aient pas à changer. Ce qui change, c'est la source. */
+  const sitesDuCompte = useMemo(() => groupesDAdresse(compteurs ?? [], id), [compteurs, id])
   const siteIdsDuCompte = useMemo(() => new Set(sitesDuCompte.map((s) => s.id)), [sitesDuCompte])
   const siteIdsArray = useMemo(() => [...siteIdsDuCompte], [siteIdsDuCompte])
   // Fiche compte : on ne charge que les interactions de ce perimetre (pas la table entiere,
@@ -420,7 +435,10 @@ export default function CompteDetail() {
                 </span>
               )
             })()}
-            <span className="text-km-name text-km-muted"><b className="text-km-text">{sitesDuCompte.length}</b> site{sitesDuCompte.length > 1 ? 's' : ''} géré{sitesDuCompte.length > 1 ? 's' : ''}</span>
+            {/* « ADRESSES » ET NON « SITES ». Le compte de lieux reste juste et utile — c'est
+                l'étendue du client — mais le mot désignait un objet qui n'existe plus. Il est
+                désormais déduit des compteurs, pas d'une table. */}
+            <span className="text-km-name text-km-muted"><b className="text-km-text">{sitesDuCompte.length}</b> adresse{sitesDuCompte.length > 1 ? 's' : ''}</span>
           </div>
         </div>
         <div className="flex flex-wrap items-center gap-1.5">
@@ -893,7 +911,10 @@ export default function CompteDetail() {
         open
         onClose={() => setAddCompteurOpen(false)}
         compte={compte}
-        sites={sites ?? []}
+        /* LES GROUPES D'ADRESSE DU COMPTE, et non plus la table `sites` : c'est ce qui permet au
+           dialogue de retrouver une adresse déjà connue de ce client au lieu d'en créer une
+           seconde. Il ne cherchait de toute façon que parmi les siens. */
+        sites={sitesDuCompte}
         methode={pdlMethode}
         onSaved={(message) => showToast(message)}
       />
@@ -984,6 +1005,69 @@ export default function CompteDetail() {
   )
 }
 
+/**
+ * ══ LES ADRESSES D'UN COMPTE, DÉDUITES DE SES COMPTEURS ══
+ *
+ * Le retrait de l'objet site (réunion du 09/09/2026) laisse une question pratique : la fiche compte
+ * groupait ses compteurs et ses contrats PAR SITE, et dessinait une carte de ces sites. Ce
+ * regroupement reste juste — deux compteurs à la même adresse se lisent ensemble — mais il ne peut
+ * plus venir d'une table qu'on supprime.
+ *
+ * Il vient donc des compteurs eux-mêmes. `compteurs.groupe_site_id` reprend la valeur de l'ancien
+ * `sites.id` (migration 20260909100000), ce qui a une conséquence précieuse : TOUS LES `site_id`
+ * STOCKÉS AILLEURS — sur un contrat, une action, une requête — continuent de correspondre. Les
+ * regroupements existants n'ont donc pas une ligne à changer.
+ *
+ * La forme rendue est celle de `Site` pour la même raison : `CompteSitesMap`, `ContratsTabContent`
+ * et `CompteursTabContent` la consomment déjà, et les réécrire aurait été un troisième chantier
+ * sans bénéfice. Les champs qu'aucun compteur ne porte — surface, année de construction, date
+ * d'AG — valent `null` : ils étaient vides sur les 6 378 sites de toute façon.
+ */
+function groupesDAdresse(compteurs: Compteur[], compteId: string | undefined): Site[] {
+  const parGroupe = new Map<string, Site>()
+  for (const c of compteurs) {
+    const cle = c.site_id
+    if (!cle) continue
+    const existant = parGroupe.get(cle)
+    if (existant) {
+      existant.nb_compteurs += 1
+      /* LA GÉOLOCALISATION DU PREMIER COMPTEUR QUI EN A UNE. Elle est identique pour tous ceux
+         d'un même groupe — la recopie du 09/09 l'a posée depuis le site — mais un compteur créé
+         depuis peut ne pas l'avoir encore. */
+      if (existant.latitude == null && c.latitude != null) {
+        existant.latitude = c.latitude
+        existant.longitude = c.longitude ?? null
+      }
+      continue
+    }
+    parGroupe.set(cle, {
+      id: cle,
+      nom: c.libelle_site || c.site_nom || 'Lieu non renseigné',
+      compte_id: compteId ?? c.compte_id ?? '',
+      compte_nom: '',
+      type_site: '',
+      type_site_id: null,
+      adresse: c.adresse ?? '',
+      ville: c.ville ?? '',
+      code_postal: c.code_postal ?? '',
+      latitude: c.latitude ?? null,
+      longitude: c.longitude ?? null,
+      annee_construction: null,
+      surface_m2: null,
+      date_derniere_ag: null,
+      proprietaire_id: c.proprietaire_id ?? null,
+      proprietaire_nom: null,
+      rue: c.adresse ?? null,
+      departement_code: c.departement_code ?? null,
+      departement_nom: c.departement_nom ?? null,
+      nb_compteurs: 1,
+      nb_signaux_ouverts: 0,
+      statut: 'actif',
+    })
+  }
+  return [...parGroupe.values()].sort((a, b) => a.nom.localeCompare(b.nom))
+}
+
 function CompteSitesMap({
   sitesDuCompte, contrats, recommandations, mandats, compteurs,
 }: {
@@ -1009,7 +1093,7 @@ function CompteSitesMap({
       <SitesMap sites={items} />
       <div className="flex flex-wrap items-center gap-3 border-t border-km-line-soft px-3.5 py-2">
         <span className="whitespace-nowrap text-km-body font-semibold text-km-text">
-          {sitesDuCompte.length} site{sitesDuCompte.length > 1 ? 's' : ''}{villes.length > 0 ? ` · ${villes.slice(0, 2).join(', ')}` : ''}
+          {sitesDuCompte.length} adresse{sitesDuCompte.length > 1 ? 's' : ''}{villes.length > 0 ? ` · ${villes.slice(0, 2).join(', ')}` : ''}
         </span>
         <span className="flex flex-wrap gap-2.5 text-km-label text-km-muted">
           <span><span className="mr-1 inline-block h-2 w-2 rounded-full bg-km-green align-middle" />bonne santé</span>
@@ -1092,7 +1176,7 @@ function RelationTimeline({ compte, mandats, recommandations }: { compte: Compte
     <div className="rounded-xl border border-km-line bg-km-surface p-4">
       <div className="mb-3 flex items-center gap-1.5">
         <span className="text-km-label font-bold uppercase tracking-wide text-km-faint">Historique de la relation</span>
-        <span className="text-km-label text-km-faint">· tous sites confondus</span>
+        <span className="text-km-label text-km-faint">· toutes adresses confondues</span>
       </div>
       <div className="flex flex-col divide-y divide-km-line-soft">
         {visibles.map((e) => (
@@ -1446,7 +1530,7 @@ function ContratsTabContent({
         className="grid grid-cols-2 gap-px overflow-hidden rounded-[14px] border border-[#e7e6e2] bg-[#e7e6e2] md:grid-cols-[230px_1fr_1fr_1fr]"
       >
         {[
-          { key: 'all' as const, label: 'Contrats', value: total, sub: `${nbCompteurs} compteurs · ${nbSites} sites`, color: '#16181d', principal: true },
+          { key: 'all' as const, label: 'Contrats', value: total, sub: `${nbCompteurs} compteurs · ${nbSites} adresse${nbSites > 1 ? 's' : ''}`, color: '#16181d', principal: true },
           { key: 'actifs' as const, label: 'Actifs', value: actifs.length, sub: `+ ${aVenir.length} à venir · ${expires.length} expiré${expires.length > 1 ? 's' : ''}`, color: '#0d7a5f', principal: false },
           { key: 'echeances' as const, label: 'Échéances < 12 mois', value: echeances.length, sub: prochaine?.date_fin ? `prochaine : ${new Date(prochaine.date_fin).toLocaleDateString('fr-FR')}` : 'aucune dans l’année', color: '#c2452d', principal: false },
           { key: 'sans_reco' as const, label: 'Sans reco lancée', value: sansReco.length, sub: sansReco.length ? 'à couvrir' : 'tout est couvert', color: '#b57a24', principal: false },
