@@ -1,11 +1,12 @@
 import { useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { Building2, Gauge, Plus, Repeat, Unlink } from 'lucide-react'
+import { Building2, Gauge, Inbox, LifeBuoy, Plus, Repeat, Unlink } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Dialog } from '@/components/ui/dialog'
 import { FormField, Input } from '@/components/ui/form'
 import { ChoixParRecherche } from '@/components/ui/choix-recherche'
-import type { Compte, Compteur, Contact } from '@/types/domain'
+import type { Compte, Compteur, Contact, Requete } from '@/types/domain'
+import type { SuiviContrat } from '@/lib/data/suivisContrats'
 import { useLierContactCompte, useDelierContactCompte, useChangerComptePrincipal } from '@/lib/data/contacts'
 
 /**
@@ -20,6 +21,8 @@ export function RattachementsContact({
   contact,
   comptes,
   compteurs,
+  suivis,
+  requetes,
   peutModifier,
   onToast,
 }: {
@@ -31,6 +34,26 @@ export function RattachementsContact({
    * passer par les sites (10/09/2026). La prop `sites` a disparu avec ce détour.
    */
   compteurs: Compteur[]
+  /**
+   * ══ LES DEUX LIENS QUE PERSONNE NE VOYAIT DEPUIS UNE FICHE CONTACT ══
+   *
+   * L'audit du 10/09/2026 (`npm run rattachements`) a cherché les liens qu'un seul écran montre.
+   * Sur les treize relations examinées, trois manquaient vraiment — et deux d'entre elles
+   * atterrissent ici :
+   *
+   *   1 563  contact principal d'un suivi de contrat
+   *       5  contact d'une requête
+   *
+   * Le suivi et la requête nomment leur contact ; la fiche du contact, elle, ne disait rien. On
+   * pouvait donc suivre 1 563 dossiers d'accompagnement sans qu'aucune fiche de personne ne le
+   * mentionne.
+   *
+   * Les contrats, mandats et recommandations où ce contact est signataire ont déjà leurs onglets
+   * sur cette fiche — vérifié dans le code avant d'écrire ceci, après avoir affirmé le contraire
+   * une première fois.
+   */
+  suivis: SuiviContrat[]
+  requetes: Requete[]
   peutModifier: boolean
   onToast: (message: string) => void
 }) {
@@ -131,6 +154,17 @@ export function RattachementsContact({
     0,
   )
   const nbConseil = compteursParCompte.reduce((n, [, g]) => n + g.lignes.filter((l) => l.conseil).length, 0)
+
+  /* CE QUE CE CONTACT SUIT, ET CE QU'IL A DEMANDÉ. Deux listes courtes, filtrées sur lui seul :
+     un suivi de contrat dont il est le contact principal, une requête ouverte en son nom. */
+  const sesSuivis = useMemo(
+    () => suivis.filter((x) => x.contact_principal_id === contact.id),
+    [suivis, contact.id],
+  )
+  const sesRequetes = useMemo(
+    () => requetes.filter((x) => x.contact_id === contact.id),
+    [requetes, contact.id],
+  )
 
   const dejaLies = new Set(contact.comptes.map((c) => c.id))
   const candidats = comptes.filter((c) => !dejaLies.has(c.id)).sort((a, b) => a.nom.localeCompare(b.nom))
@@ -298,6 +332,78 @@ export function RattachementsContact({
           </div>
         )}
       </div>
+
+      {/* ── Suivis de contrat dont ce contact est l'interlocuteur ────────────────────────── */}
+      {sesSuivis.length > 0 && (
+        <div>
+          <div className="mb-2 flex flex-wrap items-center gap-x-2 gap-y-1">
+            <span className="text-km-xs font-bold uppercase tracking-[.08em] text-[#a3a5a0]">
+              Suivis de contrat
+            </span>
+            <span className="text-km-xs text-[#a3a5a0]">
+              {'\u00b7'} contact principal sur {sesSuivis.length}
+            </span>
+          </div>
+          <div className="flex flex-col gap-1.5">
+            {sesSuivis.slice(0, 8).map((x) => (
+              <div
+                key={x.id}
+                onClick={() => navigate(`/suivis-contrats/${x.id}`)}
+                className="flex cursor-pointer items-center gap-3 rounded-xl border border-km-line bg-white p-3 transition-colors hover:bg-km-bg/60"
+              >
+                <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-[9px] bg-km-green-soft text-km-green">
+                  <LifeBuoy className="h-3.5 w-3.5" />
+                </span>
+                <div className="min-w-0 flex-1">
+                  <p className="truncate text-sm font-bold text-km-text">
+                    {x.compte_nom || x.contrat_reference || 'Suivi de contrat'}
+                  </p>
+                  <p className="truncate text-km-xs text-km-faint">
+                    {x.etape_libelle}
+                    {x.fournisseur_nom && ` ${'\u00b7'} ${x.fournisseur_nom}`}
+                  </p>
+                </div>
+                {x.reference && <span className="shrink-0 font-mono text-km-xs text-km-faint">{x.reference}</span>}
+              </div>
+            ))}
+            {sesSuivis.length > 8 && (
+              <span className="px-1 text-km-xs text-km-faint">
+                et {sesSuivis.length - 8} autre{sesSuivis.length - 8 > 1 ? 's' : ''}
+              </span>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* ── Requêtes ouvertes en son nom ──────────────────────────────────────────────────── */}
+      {sesRequetes.length > 0 && (
+        <div>
+          <div className="mb-2 flex flex-wrap items-center gap-x-2 gap-y-1">
+            <span className="text-km-xs font-bold uppercase tracking-[.08em] text-[#a3a5a0]">Requêtes</span>
+            <span className="text-km-xs text-[#a3a5a0]">
+              {'\u00b7'} {sesRequetes.length} ouverte{sesRequetes.length > 1 ? 's' : ''} en son nom
+            </span>
+          </div>
+          <div className="flex flex-col gap-1.5">
+            {sesRequetes.map((x) => (
+              <div
+                key={x.id}
+                onClick={() => navigate(`/requetes/${x.id}`)}
+                className="flex cursor-pointer items-center gap-3 rounded-xl border border-km-line bg-white p-3 transition-colors hover:bg-km-bg/60"
+              >
+                <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-[9px] bg-km-amber-soft text-amber-600">
+                  <Inbox className="h-3.5 w-3.5" />
+                </span>
+                <div className="min-w-0 flex-1">
+                  <p className="truncate text-sm font-bold text-km-text">{x.objet || 'Requête'}</p>
+                  <p className="truncate text-km-xs text-km-faint">{x.compte_nom}</p>
+                </div>
+                {x.reference && <span className="shrink-0 font-mono text-km-xs text-km-faint">{x.reference}</span>}
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
 
       <DialogRattacher
         ouvert={ajoutOuvert}

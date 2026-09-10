@@ -16,6 +16,8 @@ import { ActivityFeed } from '@/components/site/ActivityFeed'
 import { useContact, useUpdateContact, useDeleteContact, useUpdateContactField } from '@/lib/data/contacts'
 import { useComptes } from '@/lib/data/comptes'
 import { useCompteurs } from '@/lib/data/compteurs'
+import { useSuivisContrats } from '@/lib/data/suivisContrats'
+import { useRequetes } from '@/lib/data/requetes'
 import { useActions } from '@/lib/data/actions'
 import { useInteractionsForContact } from '@/lib/data/interactions'
 import { useContrats } from '@/lib/data/contrats'
@@ -59,6 +61,10 @@ export default function ContactDetail() {
      là. Un `useSites()` de moins, c'est-à-dire 6 378 sites et 7 923 compteurs qui ne se chargent
      plus à l'ouverture d'une fiche contact. */
   const { data: compteurs } = useCompteurs()
+  /* LES DEUX LIENS QUE L'AUDIT DU 10/09/2026 A TROUVÉS SANS RÉCIPROQUE : 1 563 suivis de contrat
+     et 5 requêtes nomment leur contact, la fiche du contact n'en disait rien. */
+  const { data: suivis } = useSuivisContrats()
+  const { data: requetes } = useRequetes()
   const { data: actions } = useActions()
   const { data: contrats } = useContrats()
   const { data: mandats } = useMandats()
@@ -435,6 +441,8 @@ export default function ContactDetail() {
               contact={contact}
               comptes={comptes ?? []}
               compteurs={compteurs ?? []}
+              suivis={suivis ?? []}
+              requetes={requetes ?? []}
               peutModifier={canManage}
               onToast={showToast}
             />

@@ -50,9 +50,20 @@ function connexion() {
 /**
  * LES RATTACHEMENTS QUE L'APPLICATION MONTRE, un par onglet « Rattachements ».
  *
- * `de` et `vers` nomment les deux fiches ; `sql` compte les liens réels. Chaque entrée dit aussi
- * OÙ chacun des deux côtés est censé s'afficher, pour que le rapport puisse pointer l'écran à
- * relire plutôt qu'un nom de table.
+ * `sql` compte les liens réels — ça, c'est mesuré. `ecranA` et `ecranB` disent où chaque côté
+ * s'affiche — ça, c'est ÉCRIT À LA MAIN, et c'est la partie fragile.
+ *
+ * ── UNE LEÇON PAYÉE LE JOUR MÊME ──
+ *
+ * À la première rédaction de ce fichier, j'ai annoté « AUCUN ÉCRAN NE LE MONTRE » sur le
+ * signataire d'un contrat (1 588 liens) et sur celui d'un mandat (1 430) — de mémoire, sans
+ * ouvrir les fichiers. C'était FAUX : `ContactDetail` porte un onglet Contrats et un onglet
+ * Mandats qui les affichent, et Naoëlle l'a vu sur sa propre capture d'écran avant moi.
+ *
+ * Un audit qui invente ses conclusions est pire que pas d'audit : il donne l'assurance sans la
+ * vérification. Chaque `ecranB` est donc désormais soit une référence RELUE dans le code, datée,
+ * soit un « AUCUN ÉCRAN » lui aussi vérifié par recherche. Quand on ajoute une ligne ici, on
+ * ouvre le fichier avant d'écrire l'annotation.
  */
 const LIENS = [
   {
@@ -136,7 +147,7 @@ const LIENS = [
     nom: 'contrat ↔ signataire',
     colonne: 'contrats.contact_signataire_id',
     ecranA: 'ContratDetail · champ Signataire (lien vers le contact)',
-    ecranB: 'ContactDetail — AUCUN ÉCRAN NE LE MONTRE',
+    ecranB: 'ContactDetail · onglet Contrats (relu le 10/09/2026)',
     sql: `select count(*)::int as liens,
                  count(*) filter (where ct.id is null)::int as pointe_dans_le_vide
             from contrats c
@@ -147,7 +158,7 @@ const LIENS = [
     nom: 'mandat ↔ signataire',
     colonne: 'mandats.contact_signataire_id',
     ecranA: 'MandatDetail · carte Signataire (lien vers le contact)',
-    ecranB: 'ContactDetail — AUCUN ÉCRAN NE LE MONTRE',
+    ecranB: 'ContactDetail · onglet Mandats (relu le 10/09/2026)',
     sql: `select count(*)::int as liens,
                  count(*) filter (where ct.id is null)::int as pointe_dans_le_vide
             from mandats m
