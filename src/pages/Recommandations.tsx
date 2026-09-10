@@ -48,6 +48,22 @@ interface LigneReco {
   /** Ajoutées à la vue le 26/08/2026 pour le bandeau de la page 6. */
   marge_nette: number | null
   montant: number | null
+  /**
+   * LE MONTANT D'UNE RECOMMANDATION, ET LE SEUL QUE CETTE PAGE MONTRE.
+   *
+   * William, 10/09/2026 : « partout dans Kimatch où on marque le montant d'une recommandation,
+   * c'est le champ marge_nette_coeff qui doit être pris en compte ». C'est la référence des
+   * commissions commerciales et des objectifs — pas `marge_nette`, qui est une étape intermédiaire
+   * de la cascade.
+   *
+   * CE CHOIX RÈGLE 80 % DE L'ÉCART SALESFORCE. La page sommait `marge_nette` (venue de
+   * Montant_commission_nette_kiwee__c) là où le rapport Salesforce sommait
+   * Montant_commission_interne__c : 901 629,51 € contre 1 038 667,57 € sur les mêmes 459 lignes.
+   * Ce n'était pas un bug, c'étaient deux indicateurs différents. William a tranché lequel affiche.
+   *
+   * Ajoutée à `v_recommandations_liste` le 10/09/2026 — elle n'y était pas.
+   */
+  marge_nette_coeff: number | null
   /** L'énergie du dossier — elle portait l'emoji du nom jusqu'au 31/08/2026. */
   type_energie: string | null
   /** La `CloseDate` reprise de Salesforce : date réelle si le dossier est clos, prévue sinon. */
@@ -155,7 +171,7 @@ const LIBELLE_TRAVAIL: Record<string, string> = {
  * plus proche au plus lointain, un nom de A à Z.
  */
 const OPTIONS_TRI: OptionTri[] = [
-  { cle: 'marge_nette', libelle: 'montant net', ascendant: false },
+  { cle: 'marge_nette_coeff', libelle: 'montant', ascendant: false },
   /* LA DATE DE CLÔTURE, LA PLUS PROCHE D'ABORD. Sur un dossier ouvert, cette date est l'échéance
      PRÉVUE (le `CloseDate` de Salesforce) : la trier en croissant met en tête ce qui se décide
      bientôt. Sur un dossier clos, c'est la date réelle. Le tableau ordonne en `nullsFirst: false`,
@@ -376,7 +392,7 @@ export default function Recommandations() {
      * acceptées. La somme suit les mêmes filtres que les colonnes — recherche, propriétaire et
      * période comprises — sans quoi le bandeau démentirait le tableau juste en dessous.
      */
-    colonneSomme: 'marge_nette',
+    colonneSomme: 'marge_nette_coeff',
     /* LE TRI PART EN BASE. Seules cinquante cartes par colonne sont chargées : trier à l'arrivée
        réordonnerait un échantillon, et la plus grosse marge resterait invisible parce que
        cinquante-et-unième. */
@@ -398,7 +414,8 @@ export default function Recommandations() {
   const nbDossiers = colonnes.reduce((n, c) => n + c.total, 0)
   const margeConnue = colonnes.some((c) => c.somme != null)
 
-  const euros = (v: number) => v.toLocaleString('fr-FR', { maximumFractionDigits: 0 }) + ' €'
+  const euros = (v: number) =>
+    v.toLocaleString('fr-FR', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + ' €'
 
   /**
    * LES QUATRE MESURES SORTENT DES TOTAUX DÉJÀ CALCULÉS PAR LA BASE, colonne par colonne.
@@ -597,8 +614,8 @@ export default function Recommandations() {
                     return [num, fin].filter(Boolean).join(' · ')
                   })(),
                   mention:
-                    r.marge_nette != null
-                      ? euros(r.marge_nette)
+                    r.marge_nette_coeff != null
+                      ? euros(r.marge_nette_coeff)
                       : r.nb_versions > 1
                         ? `${r.nb_versions} versions`
                         : undefined,

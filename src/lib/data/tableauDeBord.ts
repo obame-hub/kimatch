@@ -126,10 +126,15 @@ export function useChiffresTableauDeBord() {
         .map((c) => statutsOpp[c])
         .filter(Boolean)
 
+      /* LE MONTANT D'UNE RECOMMANDATION, C'EST `marge_nette_coeff`.
+         William, 10/09/2026 : « partout dans Kimatch où on marque le montant d'une recommandation,
+         c'est le champ marge_nette_coeff qui doit être pris en compte ». Le tableau de bord sommait
+         `marge_nette`, une étape intermédiaire de la cascade — d'où un chiffre plus faible ici que
+         sur la fiche et que dans le rapport Salesforce. */
       const acceptees = (debut: string, fin: string) =>
         supabase
           .from('recommandations')
-          .select('marge_nette')
+          .select('marge_nette_coeff')
           .eq('actif', true)
           .eq('etape_id', etapes.ACCEPTEE)
           .gte('date_cloture', debut)
@@ -176,12 +181,12 @@ export function useChiffresTableauDeBord() {
           .gte('date_creation', ilYAJours(7)),
       ])
 
-      const lignesMois = (rMois.data ?? []) as { marge_nette: number | null }[]
-      const lignesPrecedent = (rPrecedent.data ?? []) as { marge_nette: number | null }[]
+      const lignesMois = (rMois.data ?? []) as { marge_nette_coeff: number | null }[]
+      const lignesPrecedent = (rPrecedent.data ?? []) as { marge_nette_coeff: number | null }[]
       const lignesPipe = (rPipe.data ?? []) as { montant: number | null }[]
 
-      const margeMois = somme(lignesMois, 'marge_nette')
-      const margeMoisPrecedent = somme(lignesPrecedent, 'marge_nette')
+      const margeMois = somme(lignesMois, 'marge_nette_coeff')
+      const margeMoisPrecedent = somme(lignesPrecedent, 'marge_nette_coeff')
       const nbAcceptees = lignesMois.length
       const nbRefusees = rRefusees.count ?? 0
       const nbAbandonnees = rAbandonnees.count ?? 0
@@ -571,19 +576,19 @@ export function useMaPerformance(profilId: string | null | undefined) {
       const decidees = [etapes.ACCEPTEE, etapes.REFUSEE, etapes.ABANDONNEE].filter(Boolean)
 
       const [mes, mesDecidees, equipe] = await Promise.all([
-        surLeMois('marge_nette').eq('proprietaire_id', profilId).eq('etape_id', etapes.ACCEPTEE),
+        surLeMois('marge_nette_coeff').eq('proprietaire_id', profilId).eq('etape_id', etapes.ACCEPTEE),
         surLeMois('id').eq('proprietaire_id', profilId).in('etape_id', decidees),
         // La moyenne de l'équipe : toutes les affaires acceptées du mois, tous propriétaires.
-        surLeMois('marge_nette').eq('etape_id', etapes.ACCEPTEE),
+        surLeMois('marge_nette_coeff').eq('etape_id', etapes.ACCEPTEE),
       ])
 
-      const lignes = (mes.data ?? []) as unknown as { marge_nette: number | null }[]
-      const lignesEquipe = (equipe.data ?? []) as unknown as { marge_nette: number | null }[]
+      const lignes = (mes.data ?? []) as unknown as { marge_nette_coeff: number | null }[]
+      const lignesEquipe = (equipe.data ?? []) as unknown as { marge_nette_coeff: number | null }[]
 
-      const margeMois = somme(lignes, 'marge_nette')
+      const margeMois = somme(lignes, 'marge_nette_coeff')
       const nbAcceptees = lignes.length
       const nbDecidees = ((mesDecidees.data ?? []) as unknown[]).length
-      const margeEquipe = somme(lignesEquipe, 'marge_nette')
+      const margeEquipe = somme(lignesEquipe, 'marge_nette_coeff')
 
       return {
         margeMois,

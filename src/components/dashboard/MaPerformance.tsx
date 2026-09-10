@@ -20,7 +20,11 @@ import { cn } from '@/lib/utils'
  * la pire espèce.
  */
 
-const euros = (v: number) => v.toLocaleString('fr-FR', { maximumFractionDigits: 0 }) + ' €'
+/* LES CENTIMES S'AFFICHENT, TOUJOURS — William, 10/09/2026 : « tu ne dois jamais arrondir les prix,
+   ils doivent être rendus au centime près, peu importe le champ ». Un montant est une commission,
+   pas un ordre de grandeur : il doit pouvoir se rapprocher d'un relevé. */
+const euros = (v: number) =>
+  v.toLocaleString('fr-FR', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + ' €'
 
 function Tuile({
   icone: Icone,

@@ -508,7 +508,7 @@ export function usePoidsOpportunites() {
           .select('opportunite_id, compteurs(consommation_annuelle_mwh)'),
         supabase
           .from('recommandations')
-          .select('opportunite_id, marge_nette')
+          .select('opportunite_id, marge_nette_coeff')
           .eq('actif', true)
           .not('opportunite_id', 'is', null),
       ])
@@ -524,11 +524,15 @@ export function usePoidsOpportunites() {
         p.mwh = (p.mwh ?? 0) + v
       }
 
-      type Reco = { opportunite_id: string; marge_nette: number | null }
+      /* LE POIDS D'UNE OPPORTUNITÉ SE MESURE AU « MONTANT » DE SES RECOMMANDATIONS.
+         William, 10/09/2026 : `marge_nette_coeff` est LE montant d'une recommandation partout dans
+         Kimatch. `marge_nette` en est une étape intermédiaire — la sommer ici donnait un poids plus
+         faible que celui affiché sur les recommandations elles-mêmes. */
+      type Reco = { opportunite_id: string; marge_nette_coeff: number | null }
       for (const r of (recos.data ?? []) as unknown as Reco[]) {
-        if (typeof r.marge_nette !== 'number') continue
+        if (typeof r.marge_nette_coeff !== 'number') continue
         const p = poser(r.opportunite_id)
-        p.margeNette = (p.margeNette ?? 0) + r.marge_nette
+        p.margeNette = (p.margeNette ?? 0) + r.marge_nette_coeff
       }
 
       return out

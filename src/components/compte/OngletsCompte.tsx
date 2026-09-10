@@ -181,12 +181,15 @@ export function OngletRecommandations({ recommandations }: { recommandations: Re
                 {r.type_energie ? ` · ${r.type_energie}` : ''}
               </div>
             </div>
-            {/* La commission n'apparaît que sur une reco acceptée : c'est la seule où KiWee perçoit. */}
-            {r.finalite_cloture === 'ACCEPTEE' && r.marge_nette != null && (
+            {/* La commission n'apparaît que sur une reco acceptée : c'est la seule où KiWee perçoit.
+                LE MONTANT LU EST `marge_nette_coeff` — William, 10/09/2026 : c'est LE montant d'une
+                recommandation partout dans Kimatch. `marge_nette` n'est qu'une étape de la cascade.
+                Et il s'affiche au centime : une commission se rapproche d'un relevé. */}
+            {r.finalite_cloture === 'ACCEPTEE' && r.marge_nette_coeff != null && (
               <span title="Commission KiWee perçue" className="flex flex-none flex-col items-end gap-px">
                 <span className="text-km-micro font-extrabold uppercase tracking-[.06em] text-[#0d7a5f]">Commission</span>
                 <span className="font-mono text-km-body font-extrabold tracking-[-.02em] text-[#0d7a5f]">
-                  {Math.round(r.marge_nette).toLocaleString('fr-FR')} €
+                  {r.marge_nette_coeff.toLocaleString('fr-FR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} €
                 </span>
               </span>
             )}

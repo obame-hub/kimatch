@@ -17,8 +17,11 @@ import type { ChiffresTableauDeBord } from '@/lib/data/tableauDeBord'
  * mois — là où une barre 60/40 sur deux colonnes de sens incertain aurait été une invention.
  */
 
+/* LES CENTIMES S'AFFICHENT, TOUJOURS — William, 10/09/2026 : « tu ne dois jamais arrondir les prix,
+   ils doivent être rendus au centime près, peu importe le champ ». Un montant est une commission,
+   pas un ordre de grandeur : il doit pouvoir se rapprocher d'un relevé. */
 const euros = (v: number) =>
-  v.toLocaleString('fr-FR', { maximumFractionDigits: 0 }) + ' €'
+  v.toLocaleString('fr-FR', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + ' €'
 
 function Grandeur({
   couleur,
