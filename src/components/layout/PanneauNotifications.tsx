@@ -1,11 +1,18 @@
 import { useEffect } from 'react'
 import { Link } from 'react-router-dom'
-import { CheckCheck } from 'lucide-react'
+import { CheckCheck, X } from 'lucide-react'
 import { useMarquerLue, useNotifications, type Notification } from '@/lib/data/notifications'
 import { cn } from '@/lib/utils'
 
 /**
- * ══ LA BOÎTE DE RÉCEPTION, QUAND ON CLIQUE LA CLOCHE ══
+ * ══ LE VOLET DES NOTIFICATIONS, À DROITE ══
+ *
+ * Naoëlle, 10/09/2026 : « quand je clique dessus ça ouvre un volet à droite avec toutes les
+ * notifs ». C'était une boîte flottante posée au-dessus de la barre latérale, en bas à gauche —
+ * elle recouvrait la fiche qu'on était en train de lire, à l'endroit précis où l'on venait de
+ * cliquer. Un volet à droite se range du côté opposé au geste, laisse la fiche lisible, et prend
+ * la même place que le volet Allo : deux tiroirs, un seul bord.
+ *
  *
  * Naoëlle, 09/09/2026 : « ce serait bien d'avoir des notifs sur l'app direct, pour les principaux
  * concernés de l'action ».
@@ -65,12 +72,12 @@ export function PanneauNotifications({ ouvert, onFermer }: { ouvert: boolean; on
   return (
     <>
       {/* Le voile ferme au clic à côté. `z` sous le panneau, au-dessus du reste. */}
-      <div className="fixed inset-0 z-40" onClick={onFermer} aria-hidden="true" />
+      <div className="fixed inset-0 z-[66] bg-ink-950/10" onClick={onFermer} aria-hidden="true" />
 
       <div
         role="dialog"
         aria-label="Notifications"
-        className="fixed bottom-3 left-3 z-50 flex max-h-[70vh] w-[min(23rem,calc(100vw-1.5rem))] flex-col overflow-hidden rounded-[13px] border border-km-line bg-white shadow-xl sm:left-[calc(var(--largeur-rail,15rem)+0.5rem)]"
+        className="fixed bottom-0 right-0 top-0 z-[67] flex w-[min(24rem,100vw)] flex-col border-l border-km-line bg-white shadow-km-pop animate-km-slide-in-r"
       >
         <div className="flex items-center gap-2 border-b border-km-line px-3.5 py-2.5">
           <p className="text-km-xs font-bold uppercase tracking-wide text-km-faint">Notifications</p>
@@ -88,6 +95,18 @@ export function PanneauNotifications({ ouvert, onFermer }: { ouvert: boolean; on
               tout marquer comme lu
             </button>
           )}
+          {/* UN VOLET SE FERME PAR UNE CROIX. La boîte flottante se fermait au clic à côté, ce qui
+              se devine quand elle flotte au milieu ; collée au bord de l'écran, plus personne ne
+              l'essaie. Le voile continue de fermer, la croix le dit. */}
+          <button
+            type="button"
+            onClick={onFermer}
+            title="Fermer"
+            aria-label="Fermer les notifications"
+            className="-mr-1 flex h-7 w-7 items-center justify-center rounded-km-sm text-km-faint transition-colors hover:bg-km-soft hover:text-km-text"
+          >
+            <X className="h-4 w-4" />
+          </button>
         </div>
 
         <div className="min-h-0 flex-1 overflow-y-auto">

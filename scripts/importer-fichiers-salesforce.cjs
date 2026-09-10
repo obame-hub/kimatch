@@ -63,6 +63,11 @@ const { Client } = require('pg')
 
 const RACINE = path.resolve(__dirname, '..')
 const SIMULATION = process.argv.includes('--simulation')
+/* `--orphelins` NE RAPPORTE QUE CE QUI N'A NULLE PART OÙ SE POSER.
+   616 fichiers Salesforce pendent à un enregistrement qui n'existe pas dans Kimatch. Compter ne
+   suffit pas : tant qu'on ne sait pas SI ce sont des brouillons Salesforce ou de vrais dossiers
+   jamais repris, on ne peut ni les importer ni les écarter. Ce mode les nomme. */
+const ORPHELINS = process.argv.includes('--orphelins')
 const OBJET_DEMANDE = (() => {
   const i = process.argv.indexOf('--objet')
   return i === -1 ? null : process.argv[i + 1]
@@ -72,7 +77,11 @@ function env(cle) {
   const chemin = path.join(RACINE, '.env.local')
   if (!fs.existsSync(chemin)) throw new Error('.env.local introuvable : ' + chemin)
   const m = fs.readFileSync(chemin, 'utf8').match(new RegExp('^' + cle + '=(.+)$', 'm'))
-  return m ? m[1].trim() : null
+  if (!m) return null
+  /* ON RETIRE LES CHEVRONS ET LES GUILLEMETS. Une clé collée depuis un exemple garde souvent le
+     `<…>` du gabarit ; Supabase répond alors « JWS Protected Header is invalid », un message qui
+     ne dit pas du tout que la valeur est simplement entourée de deux caractères en trop. */
+  return m[1].trim().replace(/^[<"']+|[>"']+$/g, '')
 }
 
 function connexion() {
@@ -83,8 +92,59 @@ function connexion() {
   })
 }
 
-/** Une requête SOQL, rendue en objets. Voir `importer-identifiants-salesforce.cjs` pour le
- *  guillemetage, obligatoire sous Windows où `sf` est un `.cmd`. */
+/**
+ * ══ L'ACCÈS SALESFORCE, LU UNE SEULE FOIS ══
+ *
+ * `sf org display` coûte cinq secondes ; on ne l'appelle donc qu'au démarrage et on garde
+ * l'instance et le jeton pour tout le reste.
+ */
+let ACCES = null
+function accesSalesforce() {
+  if (ACCES) return ACCES
+  const brut = execFileSync('sf', ['org', 'display', '-o', 'KiweeOrg', '--json'], {
+    encoding: 'utf8',
+    maxBuffer: 8 * 1024 * 1024,
+    shell: true,
+  })
+  const r = JSON.parse(brut)
+  if (r.status !== 0) throw new Error('Impossible de lire l’accès Salesforce.')
+  ACCES = { instance: r.result.instanceUrl, jeton: r.result.accessToken }
+  return ACCES
+}
+
+/**
+ * ══ UNE REQUÊTE SOQL PAR L'API REST, ET NON PAR LA LIGNE DE COMMANDE ══
+ *
+ * La première version lançait `sf data query` — donc un processus Node complet, son
+ * authentification et son démarrage — POUR CHAQUE DOCUMENT. Mesuré sur les 30 premiers fichiers :
+ * 6,9 secondes l'unité, soit VINGT-QUATRE HEURES pour les 12 355. Le travail utile, lui, tient en
+ * un appel HTTP de 300 millisecondes.
+ *
+ * L'API REST supprime ce coût d'un facteur cent, et lève au passage deux limites de la ligne de
+ * commande : la longueur maximale d'une commande Windows — 8 191 caractères, atteinte dès 400
+ * identifiants dans un `in (…)` — et le guillemetage du shell.
+ *
+ * LA PAGINATION EST SUIVIE JUSQU'AU BOUT. Salesforce rend 2 000 lignes par page ; s'arrêter à la
+ * première rendrait 2 000 liens sur 30 047 sans le dire. C'est la même faute que le `limit 200`
+ * du premier inventaire, et elle se paie de la même façon : une conclusion fausse.
+ */
+async function soqlRest(requete) {
+  const { instance, jeton } = accesSalesforce()
+  const enTetes = { Authorization: `Bearer ${jeton}`, Accept: 'application/json' }
+  let url = `${instance}/services/data/v60.0/query?q=${encodeURIComponent(requete)}`
+  const tout = []
+  for (;;) {
+    const r = await fetch(url, { headers: enTetes })
+    if (!r.ok) throw new Error(`SOQL HTTP ${r.status} : ${(await r.text()).slice(0, 200)}`)
+    const page = await r.json()
+    tout.push(...page.records)
+    if (page.done || !page.nextRecordsUrl) break
+    url = instance + page.nextRecordsUrl
+  }
+  return tout
+}
+
+/** Version synchrone conservée pour les rares appels au démarrage. */
 function soql(requete) {
   const cite = '"' + requete.replace(/"/g, '\\"') + '"'
   const brut = execFileSync('sf', ['data', 'query', '-o', 'KiweeOrg', '-q', cite, '--json'], {
@@ -95,18 +155,6 @@ function soql(requete) {
   const rendu = JSON.parse(brut)
   if (rendu.status !== 0) throw new Error('SOQL en échec : ' + (rendu.message ?? 'raison inconnue'))
   return rendu.result.records
-}
-
-/** L'URL de l'instance Salesforce et son jeton, pour télécharger les corps de fichier. */
-function accesSalesforce() {
-  const brut = execFileSync('sf', ['org', 'display', '-o', 'KiweeOrg', '--json'], {
-    encoding: 'utf8',
-    maxBuffer: 8 * 1024 * 1024,
-    shell: true,
-  })
-  const r = JSON.parse(brut)
-  if (r.status !== 0) throw new Error('Impossible de lire l’accès Salesforce.')
-  return { instance: r.result.instanceUrl, jeton: r.result.accessToken }
 }
 
 /**
@@ -184,6 +232,29 @@ const OBJETS = [
   },
 ]
 
+/**
+ * ══ DE QUEL TYPE EST CE DOCUMENT ══
+ *
+ * `documents.type_document_id` est `not null` : il faut trancher pour chacun des 12 355. Le nom du
+ * fichier le dit mieux que l'objet auquel il pend — une facture déposée sur un mandat reste une
+ * facture — donc on le lit d'abord, et on retombe sur la nature de l'objet ensuite.
+ *
+ * « Autre » en dernier recours, et c'est volontaire : inventer « Contrat » pour un fichier dont on
+ * ne sait rien salirait un classement que l'équipe utilise pour filtrer.
+ */
+function typeDocument(nom, entite) {
+  const n = (nom || '').toLowerCase()
+  if (/factur/.test(n)) return 'FACTURE'
+  if (/mandat/.test(n)) return 'MANDAT'
+  if (/contrat|contract/.test(n)) return 'CONTRAT'
+  if (/avenant|annexe|cgv|conditions/.test(n)) return 'ANNEXE'
+  if (/offre|cotation|budget|appel/.test(n)) return 'RECOMMANDATION'
+  if (entite === 'mandat') return 'MANDAT'
+  if (entite === 'contrat') return 'CONTRAT'
+  if (entite === 'version_recommandation' || entite === 'recommandation') return 'RECOMMANDATION'
+  return 'AUTRE'
+}
+
 /** Un nom de fichier sûr pour un chemin de stockage — même règle que le dépôt depuis l'interface. */
 function nomSur(nom) {
   return (nom || 'fichier')
@@ -228,7 +299,7 @@ async function main() {
        objet métier. Il y en a 13 140. Une limite sur une requête d'inventaire ne tronque pas le
        résultat, elle tronque la conclusion. */
     console.log('\nLecture des liens de fichiers…')
-    const liens = soql(
+    const liens = await soqlRest(
       'select ContentDocumentId, LinkedEntityId from ContentDocumentLink '
       + 'where ContentDocumentId in (select Id from ContentDocument)',
     )
@@ -242,6 +313,7 @@ async function main() {
     // ── LE PLAN : quel document va sur quel objet Kimatch ───────────────────────────────────────
     const plan = []
     const sansCible = new Map()
+    const orphelinsParObjet = new Map()
     for (const objet of objets) {
       const { rows } = await client.query(objet.cle)
       const parSf = new Map(rows.map((r) => [court(r.id_salesforce), r.id]))
@@ -255,6 +327,11 @@ async function main() {
         const cible = cle ? parSf.get(cle) : undefined
         if (!cible) {
           orphelins++
+          if (ORPHELINS) {
+            const liste = orphelinsParObjet.get(objet.nom) ?? new Set()
+            liste.add(l.LinkedEntityId)
+            orphelinsParObjet.set(objet.nom, liste)
+          }
           continue
         }
         plan.push({ document: l.ContentDocumentId, entite_type: objet.entite, entite_id: cible })
@@ -270,6 +347,52 @@ async function main() {
     const documentsUniques = new Set(plan.map((p) => p.document))
     console.log(`\n   ${plan.length} rattachement(s) pour ${documentsUniques.size} fichier(s) distinct(s)`)
     for (const [nom, n] of sansCible) console.log(`   (${n} fichier(s) « ${nom} » sans objet correspondant dans Kimatch)`)
+
+    if (ORPHELINS) {
+      /* SALESFORCE SAIT CE QUE SONT CES ENREGISTREMENTS — on le lui demande plutôt que de le
+         déduire du préfixe. Le nom et la date de création disent tout de suite si c'est un
+         brouillon abandonné de 2019 ou un dossier de cette année qu'on a laissé derrière. */
+      const OBJET_SF = {
+        compteur: 'Point_de_livraison__c',
+        mandat: 'Mandat__c',
+        contrat: 'Contract',
+        'version de recommandation': 'Cotation__c',
+        'consultation fournisseur': 'Suivi_cotation__c',
+        recommandation: 'Opportunity',
+        compte: 'Account',
+        contact: 'Contact',
+        piste: 'Lead',
+      }
+      for (const [nom, ids] of orphelinsParObjet) {
+        const sfObjet = OBJET_SF[nom]
+        const champNom = sfObjet === 'Contract' ? 'ContractNumber' : 'Name'
+        console.log(`
+══ ${nom.toUpperCase()} — ${ids.size} enregistrement(s) Salesforce absent(s) de Kimatch`)
+        const tous = []
+        const tableau = [...ids]
+        for (let i = 0; i < tableau.length; i += 150) {
+          const lot = tableau.slice(i, i + 150)
+          const r = await soqlRest(
+            `select Id, ${champNom}, CreatedDate from ${sfObjet} where Id in ('${lot.join("','")}')`,
+          ).catch((e) => { console.log(`   (lecture impossible : ${e.message})`); return [] })
+          tous.push(...r)
+        }
+        const parAnnee = new Map()
+        for (const r of tous) {
+          const an = String(r.CreatedDate ?? '').slice(0, 4)
+          parAnnee.set(an, (parAnnee.get(an) ?? 0) + 1)
+        }
+        console.log('   par année de création : '
+          + [...parAnnee.entries()].sort().map(([a2, n2]) => `${a2} → ${n2}`).join(', '))
+        console.log(`   ${tous.length} lisible(s) sur ${ids.size}`)
+        for (const r of tous.slice(0, 10)) {
+          console.log(`   ${r.Id}  ${String(r[champNom] ?? '(sans nom)').slice(0, 60).padEnd(60)}  ${String(r.CreatedDate ?? '').slice(0, 10)}`)
+        }
+        if (tous.length > 10) console.log(`   … et ${tous.length - 10} autre(s)`)
+      }
+      await client.end()
+      return
+    }
 
     // ── CE QUI EST DÉJÀ LÀ ──────────────────────────────────────────────────────────────────────
     /* LE SCRIPT DOIT POUVOIR SE RELANCER. Un import de 13 000 fichiers s'interrompt — réseau,
@@ -289,33 +412,83 @@ async function main() {
 
     // ── LE TÉLÉCHARGEMENT ET LE DÉPÔT ───────────────────────────────────────────────────────────
     const { instance, jeton } = accesSalesforce()
+    /* LES TYPES, LUS UNE FOIS. Douze mille lectures du référentiel pour six lignes seraient douze
+       mille allers-retours de trop. */
+    const { rows: typesRows } = await client.query('select id, code from types_documents')
+    const typeParCode = new Map(typesRows.map((t) => [t.code, t.id]))
     const parDocument = new Map()
     for (const p of aFaire) {
       if (!parDocument.has(p.document)) parDocument.set(p.document, [])
       parDocument.get(p.document).push(p)
     }
 
+    /* ══ TOUTES LES MÉTADONNÉES D'ABORD, PAR PAQUETS DE DEUX CENTS ══
+       On ne peut pas les demander d'un coup : `select … from ContentVersion` sans filtre est
+       rendu filtré par le partage — 87 lignes sur 16 908, le piège qui a faussé le premier
+       inventaire. Avec des identifiants EXPLICITES, Salesforce les rend toutes.
+
+       Deux cents par paquet : au-delà, la requête dépasse ce que l'URL accepte confortablement,
+       et en dessous on multiplie les allers-retours pour rien. */
+    console.log('\nLecture des métadonnées de fichier…')
+    const idsDocuments = [...parDocument.keys()]
+    const metaParDocument = new Map()
+    for (let i = 0; i < idsDocuments.length; i += 200) {
+      const lot = idsDocuments.slice(i, i + 200)
+      const versions = await soqlRest(
+        'select Id, ContentDocumentId, Title, FileExtension, ContentSize, VersionData '
+        + `from ContentVersion where IsLatest = true and ContentDocumentId in ('${lot.join("','")}')`,
+      )
+      for (const v of versions) metaParDocument.set(v.ContentDocumentId, v)
+      if ((i / 200) % 10 === 0) console.log(`   … ${Math.min(i + 200, idsDocuments.length)} / ${idsDocuments.length}`)
+    }
+    console.log(`   ${metaParDocument.size} métadonnée(s) sur ${idsDocuments.length} document(s)`)
+
     let deposes = 0
     let lignes = 0
     let echecs = 0
     let n = 0
-    for (const [documentId, rattachements] of parDocument) {
+    /* LES RAISONS D'ÉCHEC, COMPTÉES ET NOMMÉES. Un `catch` muet a déjà coûté deux fausses
+       conclusions aujourd'hui : le rapport doit dire POURQUOI, pas seulement COMBIEN. */
+    const raisons = new Map()
+    const noter = (r) => raisons.set(r, (raisons.get(r) ?? 0) + 1)
+    /* ══ HUIT FICHIERS À LA FOIS, ET PAS UN DE PLUS ══
+       En séquentiel, chaque fichier attend son téléchargement depuis Salesforce PUIS son dépôt
+       chez Supabase : trois secondes de latence réseau pendant lesquelles la machine ne fait
+       rien. Mesuré sur les 250 premiers : 0,3 fichier par seconde, soit dix heures pour les
+       12 000.
+
+       Huit en parallèle, parce que c'est le point où le gain s'arrête : au-delà, ce sont les
+       limites d'API de Salesforce et la bande passante qui plafonnent, et l'on ne gagne plus que
+       des erreurs 503 à réessayer. Les écritures en base, elles, restent sérialisées d'office —
+       une seule connexion `pg`, qui met les requêtes en file. */
+    const PARALLELE = 8
+    const file = [...parDocument.entries()]
+    let curseur = 0
+
+    async function travailleur() {
+      for (;;) {
+        const i = curseur++
+        if (i >= file.length) return
+        const [documentId, rattachements] = file[i]
+        await traiter(documentId, rattachements)
+      }
+    }
+
+    async function traiter(documentId, rattachements) {
       n += 1
       if (n % 100 === 0) console.log(`   … ${n} / ${parDocument.size} fichiers`)
       try {
-        const versions = soql(
-          `select Id, Title, FileExtension, ContentSize, VersionData from ContentVersion `
-          + `where ContentDocumentId = '${documentId}' and IsLatest = true`,
-        )
-        if (versions.length === 0) {
+        const v = metaParDocument.get(documentId)
+        if (!v) {
+          noter('ContentVersion introuvable (partage Salesforce)')
           echecs++
-          continue
+          return
         }
-        const v = versions[0]
         const reponse = await fetch(instance + v.VersionData, { headers: { Authorization: `Bearer ${jeton}` } })
         if (!reponse.ok) {
+          noter(`téléchargement Salesforce HTTP ${reponse.status}`)
           echecs++
-          continue
+          return
         }
         const corps = Buffer.from(await reponse.arrayBuffer())
         const nom = `${v.Title}${v.FileExtension ? '.' + v.FileExtension : ''}`
@@ -333,8 +506,10 @@ async function main() {
           body: corps,
         })
         if (!depot.ok) {
+          const detail = await depot.text().catch(() => '')
+          noter(`dépôt Supabase HTTP ${depot.status} : ${detail.slice(0, 120)}`)
           echecs++
-          continue
+          return
         }
         deposes++
 
@@ -342,8 +517,8 @@ async function main() {
         for (const r of rattachements) {
           await client.query(
             `insert into documents (reference, nom, nom_fichier, url, mime_type, taille_octets,
-                                    entite_type, entite_id, date_creation)
-             values ($1,$2,$3,$4,$5,$6,$7,$8,$9)
+                                    entite_type, entite_id, date_creation, type_document_id)
+             values ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)
              on conflict do nothing`,
             [
               `SF-${documentId}-${r.entite_id}`,
@@ -355,17 +530,31 @@ async function main() {
               r.entite_type,
               r.entite_id,
               new Date().toISOString(),
+              typeParCode.get(typeDocument(nom, r.entite_type)) ?? typeParCode.get('AUTRE'),
             ],
           )
           lignes++
         }
-      } catch {
+      } catch (e) {
+        noter(String(e && e.message ? e.message : e).slice(0, 140))
         echecs++
       }
     }
 
+    const debut = Date.now()
+    await Promise.all(Array.from({ length: PARALLELE }, () => travailleur()))
+    const duree = Math.round((Date.now() - debut) / 1000)
+
     console.log('\n── BILAN ──')
     console.log(`   ${deposes} fichier(s) déposé(s), ${lignes} rattachement(s) créé(s), ${echecs} échec(s)`)
+    console.log(`   en ${Math.floor(duree / 60)} min ${duree % 60} s`)
+    if (raisons.size > 0) {
+      console.log('')
+      console.log('   POURQUOI ILS ONT ÉCHOUÉ :')
+      for (const [r, n2] of [...raisons.entries()].sort((a, b) => b[1] - a[1])) {
+        console.log(`   ${String(n2).padStart(6)}  ${r}`)
+      }
+    }
   } finally {
     await client.end()
   }
