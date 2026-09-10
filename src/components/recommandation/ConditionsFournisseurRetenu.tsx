@@ -1,6 +1,7 @@
 import { useState, type ReactNode } from 'react'
 import { budgetGazDecompose, TAUX_TVA_GAZ } from '@/lib/calculs/budgetGaz'
 import type { PrixOffreGaz } from '@/types/domain'
+import { eurosOu } from '@/lib/euros'
 
 /**
  * LES CONDITIONS DÉTAILLÉES DU FOURNISSEUR RETENU.
@@ -76,10 +77,7 @@ import type { PrixOffreGaz } from '@/types/domain'
  * document qu'aucun fournisseur n'a envoyé — l'appelant retombe alors sur les lignes essentielles.
  */
 
-const euros = (v: number | null | undefined) =>
-  v == null
-    ? 'à vérifier'
-    : `${v.toLocaleString('fr-FR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} €`
+const euros = (v: number | null | undefined) => eurosOu(v, 'à vérifier')
 
 const parMwh = (v: number | null | undefined) =>
   v == null ? 'à vérifier' : `${v.toLocaleString('fr-FR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} €/MWh`

@@ -13,6 +13,7 @@ import {
 import type { ReferenceRow } from '@/lib/data/referenceTables'
 import type { Recommandation, VersionRecommandation, Contact, Compte } from '@/types/domain'
 import { appelerNumero, numeroLisible } from '@/lib/telephonie'
+import { euros } from '@/lib/euros'
 
 /**
  * Volet gauche de la fiche Recommandation — les cinq cartes de la maquette de William :
@@ -61,9 +62,6 @@ function initiales(nom: string): string {
     .toUpperCase()
 }
 
-function euros(n: number): string {
-  return `${Math.round(n).toLocaleString('fr-FR')} €`
-}
 
 /**
  * Sélecteur « ⇄ » du design : une recherche, cinq résultats, et c'est tout.

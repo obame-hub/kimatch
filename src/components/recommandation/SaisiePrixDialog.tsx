@@ -15,6 +15,7 @@ import {
 } from '@/lib/calculs/prixOffre'
 import type { PrixParCompteur as PrixSaisi } from '@/lib/data/recommandations'
 import type { Compteur, OffreFournisseurCompteur, PrixOffreElectricite } from '@/types/domain'
+import { montantAvecUnite } from '@/lib/euros'
 
 /**
  * Le formulaire de saisie des prix d'une offre sur UN point de livraison.
@@ -313,7 +314,7 @@ export function SaisiePrixDialog({
   // la base — et non le seul brouillon : quelqu'un qui ne corrige qu'un chiffre doit relire l'offre
   // entière avant d'enregistrer, pas sa dernière frappe.
   const euros = (v: number | null, unite: string) =>
-    v == null ? null : `${v.toLocaleString('fr-FR', { maximumFractionDigits: 2 })} ${unite}`
+    v == null ? null : montantAvecUnite(v, unite)
   const recapitulatif = (gaz
     ? [
         { libelle: 'Molécule P0', valeur: euros(p0, '€/MWh') },
@@ -693,7 +694,7 @@ export function SaisiePrixDialog({
                 />
                 {turpeDetaille != null ? (
                   <p className="rounded-km-sm bg-km-amber-soft px-2 py-1 text-km-body leading-snug text-km-amber">
-                    TURPE total : {Math.round(turpeDetaille).toLocaleString('fr-FR')} € / an — la somme
+                    TURPE total : {montantAvecUnite(turpeDetaille, '€ / an')} — la somme
                     des quatre parts. Le champ global ci-dessous est ignoré tant qu’elles sont saisies.
                   </p>
                 ) : (
@@ -812,7 +813,7 @@ export function SaisiePrixDialog({
             <div className="flex items-baseline justify-between gap-2">
               <span className="text-km-name font-extrabold">Budget total</span>
               <span className={`text-km-name font-extrabold tabular-nums ${budgets.total == null ?'text-km-faint' : 'text-km-text'}`}>
-                {budgets.total == null ? '— €' : `${Math.round(budgets.total).toLocaleString('fr-FR')} €`}
+                {budgets.total == null ? '— €' : montantAvecUnite(budgets.total, '€')}
               </span>
             </div>
             <p className="mt-0.5 text-km-label leading-snug text-km-faint">

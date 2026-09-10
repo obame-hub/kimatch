@@ -4,6 +4,7 @@ import type { PatchRecommandation } from '@/lib/data/recommandations'
 import { useMontantsRecommandation } from '@/lib/data/montantAffaire'
 import { CalculMontants } from '@/components/recommandation/CalculMontants'
 import { cn } from '@/lib/utils'
+import { euros } from '@/lib/euros'
 
 /**
  * « L'affaire » — les chiffres portés par la recommandation elle-même.
@@ -45,9 +46,6 @@ import { cn } from '@/lib/utils'
  * comme trace de la reprise.
  */
 
-function euros(n: number): string {
-  return `${n.toLocaleString('fr-FR', { maximumFractionDigits: 2 })} €`
-}
 
 /**
  * ══ LES CHIFFRES SE SAISISSENT ICI ═══════════════════════════════════════════════════════════

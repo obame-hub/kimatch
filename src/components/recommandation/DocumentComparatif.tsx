@@ -74,10 +74,7 @@ import type {
  */
 const HEURE_DECISION = '15 h'
 
-function euros(v: number | null | undefined): string {
-  if (v == null) return 'à vérifier'
-  return v.toLocaleString('fr-FR', { maximumFractionDigits: 0 }) + ' €'
-}
+const euros = (v: number | null | undefined) => eurosOu(v, 'à vérifier')
 
 function dateFr(iso: string | null | undefined): string {
   if (!iso) return 'à confirmer'
@@ -106,6 +103,7 @@ function composantes(offre: OffreFournisseur) {
 }
 
 import { ConditionsFournisseurRetenu } from '@/components/recommandation/ConditionsFournisseurRetenu'
+import { eurosOu } from '@/lib/euros'
 
 export function DocumentComparatif({
   ouvert,

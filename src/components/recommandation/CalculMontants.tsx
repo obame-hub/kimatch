@@ -2,6 +2,7 @@ import { InlineField } from '@/components/ui/inline-field'
 import { ExplicationCalcul } from '@/components/ui/explication-calcul'
 import type { MontantsRecommandation } from '@/lib/data/montantAffaire'
 import { cn } from '@/lib/utils'
+import { euros } from '@/lib/euros'
 
 /**
  * ══ LA CALCULATRICE DES MONTANTS D'UNE AFFAIRE ══
@@ -52,9 +53,6 @@ import { cn } from '@/lib/utils'
  *
  * Sur une commission, le centime n'est pas du détail : c'est ce qui se rapproche d'un relevé.
  */
-function euros(n: number): string {
-  return n.toLocaleString('fr-FR', { style: 'currency', currency: 'EUR', minimumFractionDigits: 2, maximumFractionDigits: 2 })
-}
 
 function pourcent(t: number | null | undefined): string | null {
   return t == null ? null : `${(t * 100).toLocaleString('fr-FR', { maximumFractionDigits: 2 })} %`

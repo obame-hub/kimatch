@@ -1,6 +1,7 @@
 import { Euro, CheckSquare, TrendingUp, Percent } from 'lucide-react'
 import type { MaPerformance as Chiffres } from '@/lib/data/tableauDeBord'
 import { cn } from '@/lib/utils'
+import { euros } from '@/lib/euros'
 
 /**
  * « MA PERFORMANCE » — le second bloc de la maquette révisée de Michel du 25/08/2026.
@@ -23,8 +24,6 @@ import { cn } from '@/lib/utils'
 /* LES CENTIMES S'AFFICHENT, TOUJOURS — William, 10/09/2026 : « tu ne dois jamais arrondir les prix,
    ils doivent être rendus au centime près, peu importe le champ ». Un montant est une commission,
    pas un ordre de grandeur : il doit pouvoir se rapprocher d'un relevé. */
-const euros = (v: number) =>
-  v.toLocaleString('fr-FR', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + ' €'
 
 function Tuile({
   icone: Icone,

@@ -21,6 +21,7 @@ import { ZONE_ORDER_COTATION, ZONE_LABEL_COTATION, zoneDuFournisseur } from '@/l
 import { computeEstimatedCommission } from '@/lib/commission'
 import { trouverParCode } from '@/lib/codeReferentiel'
 import type { Recommandation, VersionRecommandation, Optimisation } from '@/types/domain'
+import { euros } from '@/lib/euros'
 
 /**
  * Dialogues de la fiche Recommandation.
@@ -243,7 +244,7 @@ export function CotationWizard({
       ),
       types_prix: typesPrix,
       date_souhaitee: dateSouhaitee || null,
-      resume: `Durée${durees.length > 1 ? 's' : ''} ${durees.join('/')} mois — ${typesPrix.join(', ')} — ${fournisseurIds.length} fournisseur${fournisseurIds.length > 1 ? 's' : ''} consulté${fournisseurIds.length > 1 ? 's' : ''} — commission estimée ${Math.round(commissionEstimee).toLocaleString('fr-FR')} €`,
+      resume: `Durée${durees.length > 1 ? 's' : ''} ${durees.join('/')} mois — ${typesPrix.join(', ')} — ${fournisseurIds.length} fournisseur${fournisseurIds.length > 1 ? 's' : ''} consulté${fournisseurIds.length > 1 ? 's' : ''} — commission estimée ${euros(commissionEstimee)}`,
       contexte_et_hypotheses: dateSouhaitee ? `Date souhaitée : ${new Date(dateSouhaitee).toLocaleDateString('fr-FR')}` : null,
       // Toujours null : le dossier passe en « Active » par déclencheur en base dès qu'une version
       // existe. Le champ reste dans l'entrée de la mutation pour ne pas casser ses autres appels.
@@ -412,7 +413,7 @@ export function CotationWizard({
           )}
         </div>
         <p className="rounded-lg border border-km-line bg-km-bg px-3 py-2 text-xs text-km-muted">
-          Commission estimée : <span className="font-medium text-km-text">{commissionEstimee.toLocaleString('fr-FR', { maximumFractionDigits: 0 })} €</span>
+          Commission estimée : <span className="font-medium text-km-text">{euros(commissionEstimee)}</span>
           <span className="text-km-faint"> (C5 : forfait 140 €/PDL · autres : conso/12 × durée max × 3)</span>
         </p>
         <FormField label="Type de prix">

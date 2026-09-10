@@ -3,6 +3,7 @@ import { cn } from '@/lib/utils'
 import type { Recommandation, VersionRecommandation, OffreFournisseur } from '@/types/domain'
 import { prixMoyenMWh } from '@/lib/prixOffre'
 import { budgetAnnuelDeLOffre } from '@/components/recommandation/CarteOffreEtude'
+import { euros, montantAvecUnite } from '@/lib/euros'
 
 /**
  * Comparatif des versions — le tableau central de l'onglet Recommandation.
@@ -73,9 +74,6 @@ function fournisseursConsultes(version: VersionRecommandation): string[] {
   return [...new Set(noms.filter(Boolean))]
 }
 
-function euros(n: number): string {
-  return `${Math.round(n).toLocaleString('fr-FR')} €`
-}
 
 interface Ligne {
   cle: string
@@ -398,7 +396,7 @@ export function ComparatifVersions({
                         <span
                           className={cn('font-mono text-km-xs font-extrabold', active ? 'text-km-green' : 'text-km-faint')}
                         >
-                          −{Math.round(c.gain).toLocaleString('fr-FR')} €/an
+                          −{montantAvecUnite(c.gain, '€/an')}
                         </span>
                       )}
                     </div>

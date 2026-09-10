@@ -5,6 +5,7 @@ import { LIBELLE_CLASSE, ORDRE_CLASSES, somme } from '@/lib/calculs/prixOffre'
 import { libelleOffre, natureDeLOffre } from '@/lib/data/recommandations'
 import { initialesFournisseur, logoFournisseur } from '@/lib/logosFournisseurs'
 import type { Compteur, OffreFournisseur } from '@/types/domain'
+import { euros } from '@/lib/euros'
 
 /**
  * Une offre présentée à la façon de l'étude client de William.
@@ -145,18 +146,18 @@ export function CarteOffreEtude({
         offre.montant_annuel_ht != null
           ? [{
               libelle: 'Montant annuel de l’offre',
-              valeur: `${Math.round(offre.montant_annuel_ht).toLocaleString('fr-FR')} €`,
+              valeur: `${euros(offre.montant_annuel_ht)}`,
               origine: b.total != null && Math.abs(b.total - offre.montant_annuel_ht) > 1
-                ? `saisi sur l’offre — la somme des points de livraison donne ${Math.round(b.total).toLocaleString('fr-FR')} €`
+                ? `saisi sur l’offre — la somme des points de livraison donne ${euros(b.total)}`
                 : 'saisi sur l’offre',
             }]
           : [
-              { libelle: 'Abonnement', valeur: abonnementAPart && b.abonnement != null ? `${Math.round(b.abonnement).toLocaleString('fr-FR')} €` : null, origine: abonnementAPart ? 'gaz : compté à part' : 'électricité : déjà compris dans l’énergie' },
-              { libelle: 'Énergie', valeur: b.energie != null ? `${Math.round(b.energie).toLocaleString('fr-FR')} €` : null, origine: 'prix du fournisseur × volume' },
-              { libelle: 'Réseau et taxes', valeur: b.contributions != null ? `${Math.round(b.contributions).toLocaleString('fr-FR')} €` : null, origine: 'acheminement, accises, CTA' },
+              { libelle: 'Abonnement', valeur: abonnementAPart && b.abonnement != null ? `${euros(b.abonnement)}` : null, origine: abonnementAPart ? 'gaz : compté à part' : 'électricité : déjà compris dans l’énergie' },
+              { libelle: 'Énergie', valeur: b.energie != null ? `${euros(b.energie)}` : null, origine: 'prix du fournisseur × volume' },
+              { libelle: 'Réseau et taxes', valeur: b.contributions != null ? `${euros(b.contributions)}` : null, origine: 'acheminement, accises, CTA' },
             ]
       }
-      resultat={total != null ? { libelle: 'Budget HT / an', valeur: `${Math.round(total).toLocaleString('fr-FR')} €` } : undefined}
+      resultat={total != null ? { libelle: 'Budget HT / an', valeur: `${euros(total)}` } : undefined}
       manques={
         total == null
           ? [
@@ -182,16 +183,16 @@ export function CarteOffreEtude({
               + 'référence de la cotation — la même pour toutes les offres, tous fournisseurs confondus.'
       }
       etapes={reference == null ? undefined : [
-        { libelle: 'Budget de cette offre', valeur: total != null ? `${Math.round(total).toLocaleString('fr-FR')} €` : null, origine: 'colonne de gauche' },
+        { libelle: 'Budget de cette offre', valeur: total != null ? `${euros(total)}` : null, origine: 'colonne de gauche' },
         {
           libelle: `Budget de la référence${reference.fournisseur_nom ? ` (${reference.fournisseur_nom})` : ''}`,
-          valeur: totalReference != null ? `${Math.round(totalReference).toLocaleString('fr-FR')} €` : null,
+          valeur: totalReference != null ? `${euros(totalReference)}` : null,
           origine: reference.montant_annuel_ht != null ? 'montant annuel saisi sur l’offre' : 'somme de ses points de livraison',
         },
       ]}
       resultat={ecart != null ? {
         libelle: ecart > 0 ? 'Plus chère de' : 'Moins chère de',
-        valeur: `${Math.abs(Math.round(ecart)).toLocaleString('fr-FR')} €`,
+        valeur: `${euros(Math.abs(ecart))}`,
       } : undefined}
       manques={
         estLeRepere || ecart != null
@@ -399,7 +400,7 @@ export function CarteOffreEtude({
                 {parts.map((p) => (
                   <span
                     key={p.cle}
-                    title={`${p.libelle} · ${Math.round(p.valeur!).toLocaleString('fr-FR')} € (${Math.round((p.valeur! / sommeParts) * 100)} %)`}
+                    title={`${p.libelle} · ${euros(p.valeur!)} (${Math.round((p.valeur! / sommeParts) * 100)} %)`}
                     className={cn(p.couleur, 'cursor-help')}
                     style={{ width: `${(p.valeur! / sommeParts) * 100}%` }}
                   />
@@ -530,7 +531,7 @@ export function CarteOffreEtude({
                 <span>{ecart > 0 ? '▲' : '▼'}</span>
                 <span>
                   {ecart > 0 ? '+' : '−'}
-                  {Math.abs(Math.round(ecart)).toLocaleString('fr-FR')} €
+                  {euros(Math.abs(ecart))}
                 </span>
                 {ecartPct != null && (
                   <span className="font-normal">
@@ -650,7 +651,7 @@ export function CarteOffreEtude({
                           <span className="block text-km-label font-extrabold tabular-nums text-km-green">
                             {(() => {
                               const t = totalDeLaLigne(d)
-                              return t == null ? '—' : `${Math.round(t).toLocaleString('fr-FR')} €`
+                              return t == null ? '—' : `${euros(t)}`
                             })()}
                           </span>
                         </span>
@@ -903,7 +904,7 @@ function BlocCompose({ couleur, titre, aide, total, lignes }: {
         <span className={cn('text-km-micro font-bold uppercase tracking-[0.06em]', teintes.texte)}>{titre}</span>
         <span className="flex-1" />
         <span className={cn('text-km-label font-extrabold tabular-nums', teintes.texte)}>
-          {total == null ? '—' : `${Math.round(total).toLocaleString('fr-FR')} €`}
+          {total == null ? '—' : `${euros(total)}`}
         </span>
       </div>
       <p className="px-3 pt-1.5 text-km-micro leading-snug text-km-faint">{aide}</p>
@@ -928,7 +929,7 @@ function BlocCompose({ couleur, titre, aide, total, lignes }: {
                     {x.vol != null ? `${x.vol.toLocaleString('fr-FR', { maximumFractionDigits: 2 })} MWh` : '—'}
                   </span>
                   <span className="text-right font-bold tabular-nums">
-                    {montant == null ? <span className="text-km-faint">—</span> : `${Math.round(montant).toLocaleString('fr-FR')} €`}
+                    {montant == null ? <span className="text-km-faint">—</span> : `${euros(montant)}`}
                   </span>
                 </div>
               )

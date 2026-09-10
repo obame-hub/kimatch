@@ -8,6 +8,7 @@ import { useKanbanServeur } from '@/lib/useKanbanServeur'
 import { useTriKanban, SelecteurTri } from '@/lib/triKanban'
 import { usePerimetre, BasculePerimetre } from '@/lib/perimetre'
 import { useMonProfil } from '@/lib/data/roles'
+import { euros } from '@/lib/euros'
 
 /**
  * PRICING — page 7 du dossier UX du 26/08/2026.
@@ -192,7 +193,6 @@ const COLONNES = [
   { code: 'DISPONIBLE', libelle: 'Demande disponible' },
 ] as const
 
-const euros = (v: number) => v.toLocaleString('fr-FR', { maximumFractionDigits: 0 }) + ' €'
 
 /**
  * LE GROUPE D'ÉCHÉANCE D'UNE CONSULTATION, écrit ENTRE les tuiles.

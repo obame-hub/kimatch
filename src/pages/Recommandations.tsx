@@ -17,6 +17,7 @@ import { TableauKanban } from '@/components/dashboard/TableauKanban'
 import { IconeEnergie } from '@/components/ui/icone-energie'
 import { CreateRecommandationDialog } from '@/components/opportunite/CreationRecommandationWizard'
 import { useOuvrirCreation } from '@/lib/ouvrirCreation'
+import { euros } from '@/lib/euros'
 
 /** Le formulaire de création vit désormais dans son propre fichier, réécrit le 15/08/2026 en
  *  parcours à quatre étapes calqué sur l'OpportuniteWizard de Tools. Il reste réexporté ici :
@@ -414,8 +415,6 @@ export default function Recommandations() {
   const nbDossiers = colonnes.reduce((n, c) => n + c.total, 0)
   const margeConnue = colonnes.some((c) => c.somme != null)
 
-  const euros = (v: number) =>
-    v.toLocaleString('fr-FR', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + ' €'
 
   /**
    * LES QUATRE MESURES SORTENT DES TOTAUX DÉJÀ CALCULÉS PAR LA BASE, colonne par colonne.

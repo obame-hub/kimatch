@@ -20,6 +20,7 @@ import { useComptes } from '@/lib/data/comptes'
 import { useContrats } from '@/lib/data/contrats'
 import { cn } from '@/lib/utils'
 import type { Remuneration } from '@/types/domain'
+import { eurosOu } from '@/lib/euros'
 
 /**
  * Les rémunérations : le bout de la chaîne.
@@ -41,8 +42,7 @@ const TON_STATUT: Record<string, 'kiwi' | 'amber' | 'neutral'> = {
   ANNULEE: 'neutral',
 }
 
-const euros = (v: number | null) =>
-  v == null ? '—' : `${Math.round(v).toLocaleString('fr-FR')} €`
+const euros = (v: number | null) => eurosOu(v)
 
 export default function Remunerations() {
   const { data: remunerations } = useRemunerations()
@@ -245,7 +245,7 @@ function LigneRemuneration({ remuneration: r, onStatut, onPercu }: {
 
       {ecart != null && Math.abs(ecart) >= 1 && (
         <Badge tone={ecart > 0 ? 'kiwi' : 'amber'}>
-          {ecart > 0 ? '+' : '−'}{Math.abs(Math.round(ecart)).toLocaleString('fr-FR')} €
+          {ecart > 0 ? '+' : '−'}{euros(Math.abs(ecart))}
         </Badge>
       )}
 

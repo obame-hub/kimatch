@@ -12,6 +12,7 @@ import {
   useObjectifsDuMois,
 } from '@/lib/data/tableauDeBord'
 import { useMonProfil } from '@/lib/data/roles'
+import { euros } from '@/lib/euros'
 
 /**
  * LA MAQUETTE DE MICHEL DU 25/08/2026, PORTÉE TELLE QUELLE.
@@ -222,11 +223,10 @@ export default function Dashboard() {
             icone={TrendingUp}
             teinte="bg-km-green-soft text-km-green"
             badge={chiffres ? `${chiffres.pipeRenseigne}/${chiffres.recosOuvertes} chiffrées` : null}
-            valeur={
-              chiffresEnCours || !chiffres
-                ? '—'
-                : Math.round(chiffres.montantPipe / 1000).toLocaleString('fr-FR') + ' k€'
-            }
+            /* LE PIPE S'AFFICHAIT EN MILLIERS D'EUROS, arrondis. William, 10/09/2026 : « tu ne dois
+               jamais arrondir les prix, peu importe le champ ». « 3 681 k€ » cache jusqu'à 500 € et
+               ne se rapproche d'aucun relevé. La tuile porte donc le montant entier. */
+            valeur={chiffresEnCours || !chiffres ? '—' : euros(chiffres.montantPipe)}
             libelle="Montant du pipe"
             definition="Somme des montants d’affaire des recommandations ouvertes. Le badge dit combien d’entre elles portent un montant : le pipe est partiel tant qu’elles ne sont pas toutes chiffrées."
             onClick={() => navigate('/recommandations')}
