@@ -1308,6 +1308,24 @@ function QualiteCompteCard({ compte }: { compte: Compte }) {
 
 function IdentiteCard({ compte, onToast }: { compte: Compte; onToast: (msg: string) => void }) {
   const updateField = useUpdateCompteField()
+  /* ══ LE PARTENAIRE D'ORIGINE REMONTE DANS L'IDENTITÉ ══
+
+     Michel, relayé le 10/09/2026 : « ajouter dans l'objet compte le champ partenaire origine, si
+     c'est un compte partenaire, et l'ajouter au formulaire de création des comptes partenaire ».
+
+     La COLONNE existait déjà — `apporteur_partenaire_id` — et se modifiait dans le dialogue
+     « Détails client », derrière un bouton. Résultat mesuré le 10/09 : 0 compte sur 2 779 rempli,
+     pour 8 comptes partenaires en base. Un champ qu'il faut aller chercher dans un dialogue ne se
+     remplit pas ; celui-ci n'a jamais servi une seule fois.
+
+     Il rejoint donc l'identité, à côté du type de compte, éditable d'un clic comme ses voisins. Et
+     le libellé mène à la fiche du partenaire : savoir QUI a apporté un client sans pouvoir aller
+     voir ce qu'il a apporté d'autre ne sert qu'à moitié. */
+  const { data: tousLesComptes } = useComptes()
+  const partenaires = useMemo(
+    () => (tousLesComptes ?? []).filter((c) => c.type_compte === 'partenaire'),
+    [tousLesComptes],
+  )
   const [editingAddress, setEditingAddress] = useState(false)
   const [addrDraft, setAddrDraft] = useState({ rue: compte.rue ?? '', code_postal: compte.code_postal ?? '', ville: compte.ville ?? '' })
 
@@ -1348,6 +1366,22 @@ function IdentiteCard({ compte, onToast }: { compte: Compte; onToast: (msg: stri
       <div className="grid grid-cols-2 gap-4">
         <InlineField variant="select" label="Type de compte" value={compte.type_compte} options={[{ value: 'client', label: 'Consommateur' }, { value: 'fournisseur', label: 'Fournisseur' }, { value: 'partenaire', label: 'Partenaire' }, { value: 'kiwee', label: 'KiWee' }]} onCommit={(v) => commit({ type_compte: v as TypeCompte })} onSaved={() => onToast('✓ enregistré')} />
         <InlineField variant="text" label="Typologie" value={compte.segment || ''} emptyLabel="ajouter" onCommit={(v) => commit({ segment: v })} onSaved={() => onToast('✓ enregistré')} />
+        {/* PAS DE PARTENAIRE EN BASE, PAS DE CHAMP. Une liste déroulante vide invite à un clic qui
+            ne mène nulle part ; mieux vaut que le champ n'existe pas tant qu'il n'y a personne à
+            désigner. Il apparaît dès la création du premier compte partenaire. */}
+        {partenaires.length > 0 && (
+          <InlineField
+            variant="select"
+            label="Partenaire d'origine"
+            value={compte.apporteur_partenaire_id ?? ''}
+            options={[{ value: '', label: 'aucun' },
+              ...partenaires.map((p) => ({ value: p.id, label: p.nom }))]}
+            lien={compte.apporteur_partenaire_id ? `/comptes/${compte.apporteur_partenaire_id}` : undefined}
+            emptyLabel="désigner"
+            onCommit={(v) => commit({ apporteur_partenaire_id: v || null })}
+            onSaved={() => onToast('✓ enregistré')}
+          />
+        )}
         {statutClient !== null && (
           <div>
             <div className="mb-0.5 text-km-label font-semibold uppercase tracking-wide text-km-faint">Statut</div>

@@ -231,6 +231,11 @@ export interface CreateCompteInput {
   libelleApe?: string | null
   scoreEllipro?: string | null
   scoreElliproScale?: string | null
+  /** LE PARTENAIRE QUI A APPORTÉ CE COMPTE, désigné à la création.
+   *  Il se saisissait jusqu'ici dans le dialogue « Détails client », après coup — donc jamais :
+   *  0 compte sur 2 779 renseigné au 10/09/2026. L'apporteur se sait au moment où l'on crée le
+   *  compte, et se perd dès qu'on passe à autre chose. */
+  apporteurPartenaireId?: string | null
 }
 
 interface CreateCompteResult {
@@ -288,6 +293,7 @@ export function useCreateCompte() {
         score_ellipro_scale: input.scoreElliproScale ?? null,
         score_ellipro_maj: input.scoreEllipro ? new Date().toISOString() : null,
         ...(input.typeCompteId ? { type_compte_id: input.typeCompteId } : {}),
+        ...(input.apporteurPartenaireId ? { apporteur_partenaire_id: input.apporteurPartenaireId } : {}),
       }
 
       let persisted = false

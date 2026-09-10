@@ -5,6 +5,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import './index.css'
 import App from './App.tsx'
 import { AuthProvider } from '@/lib/auth'
+import { surveillerLesMorceauxManquants } from '@/lib/chargerPage'
 
 // staleTime élevé + pas de refetch au focus : si une insertion échoue côté Supabase (colonne
 // manquante, policy RLS trop stricte), un refetch-on-mount par défaut effacerait silencieusement
@@ -18,6 +19,11 @@ const queryClient = new QueryClient({
     },
   },
 })
+
+/* AVANT LE PREMIER RENDU : un morceau demandé à la demande — visionneuse PDF, génération de
+   mandat — peut manquer après une mise en ligne, et l'écran resterait blanc sans que personne
+   sache pourquoi. Voir `src/lib/chargerPage.ts`. */
+surveillerLesMorceauxManquants()
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>

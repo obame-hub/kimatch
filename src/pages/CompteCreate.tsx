@@ -9,11 +9,12 @@ import { Input, Label } from '@/components/ui/form'
 import { Sheet } from '@/components/ui/sheet'
 import { ContactForm } from '@/components/contact/ContactForm'
 import { PdlMethodSheet } from '@/components/compteur/PdlMethodSheet'
+import { Select } from '@/components/ui/form'
 import { toUpperFR } from '@/lib/textFormat'
 import { searchRnic, type RnicResult } from '@/lib/rnic'
 import { searchCompanies, type CompanyResult } from '@/lib/companyDirectory'
 import { useEllisphereScore, type EllisphereScore } from '@/lib/data/ellisphere'
-import { useCreateCompte, findCompteBySiret } from '@/lib/data/comptes'
+import { useCreateCompte, findCompteBySiret, useComptes } from '@/lib/data/comptes'
 import { useReferenceTable } from '@/lib/data/referenceTables'
 import { FALLBACK_TYPES_COMPTES } from '@/lib/referenceFallbacks'
 import type { TypeCompte, Contact } from '@/types/domain'
@@ -47,6 +48,13 @@ export default function CompteCreate() {
   const { data: typesComptesRef } = useReferenceTable('types_comptes')
   const typesComptes = typesComptesRef && typesComptesRef.length > 0 ? typesComptesRef : FALLBACK_TYPES_COMPTES
   const createCompte = useCreateCompte()
+  /* ══ QUI NOUS A APPORTÉ CE COMPTE ══
+     Michel, relayé le 10/09/2026. Le champ existait en base et dans un dialogue de la fiche —
+     jamais rempli, parce qu'on ne retourne pas dans un dialogue pour consigner ce qu'on savait
+     à la création. Il se demande donc ICI, à l'étape où l'on confirme. */
+  const { data: tousLesComptes } = useComptes()
+  const partenaires = (tousLesComptes ?? []).filter((c) => c.type_compte === 'partenaire')
+  const [apporteurId, setApporteurId] = useState('')
   const score = useEllisphereScore()
 
   const [step, setStep] = useState(1)
@@ -98,6 +106,7 @@ export default function CompteCreate() {
           segment,
           typeCompte,
           typeCompteId,
+          apporteurPartenaireId: apporteurId || null,
           nom: rnicPick.nom,
           rue: rnicPick.adresse,
           codePostal: rnicPick.codePostal,
@@ -109,6 +118,7 @@ export default function CompteCreate() {
           segment,
           typeCompte,
           typeCompteId,
+          apporteurPartenaireId: apporteurId || null,
           nom: companyPick.raisonSociale || companyPick.nomComplet,
           rue: companyPick.street,
           codePostal: companyPick.postalCode,
@@ -205,6 +215,26 @@ export default function CompteCreate() {
 
         {step === 2 && segment !== 'Syndic non professionnel' && segment !== '' && (
           <CompanySearchStep picked={companyPick} checkingSiret={checkingSiret} siretError={siretError} onPick={handlePickCompany} onClear={() => { setCompanyPick(null); setSiretError(null) }} score={score.data ?? null} segment={segment} />
+        )}
+
+        {/* ══ LE PARTENAIRE D'ORIGINE, À L'ÉTAPE OÙ ON CONFIRME ══
+            Posé au-dessus du récapitulatif et non dedans : `ConfirmStep` récapitule ce qu'on a
+            trouvé dans les annuaires, et cette information-là ne vient pas d'un annuaire, elle
+            vient de celui qui crée le compte. Facultatif, et absent tant qu'aucun compte
+            partenaire n'existe. */}
+        {step === 3 && segment && partenaires.length > 0 && (
+          <div className="mb-5 rounded-xl border border-km-line bg-km-surface p-4">
+            <label htmlFor="apporteur" className="mb-1 block text-km-label font-semibold uppercase tracking-wide text-km-faint">
+              Partenaire d'origine
+            </label>
+            <p className="mb-2 text-xs text-km-muted">
+              Qui nous a apporté ce compte ? À renseigner maintenant : après, personne n'y revient.
+            </p>
+            <Select id="apporteur" value={apporteurId} onChange={(e) => setApporteurId(e.target.value)}>
+              <option value="">Aucun — trouvé par nos propres moyens</option>
+              {partenaires.map((p) => <option key={p.id} value={p.id}>{p.nom}</option>)}
+            </Select>
+          </div>
         )}
 
         {step === 3 && segment && (
