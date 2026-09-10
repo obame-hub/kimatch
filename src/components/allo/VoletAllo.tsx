@@ -293,9 +293,9 @@ export function VoletAllo() {
       onClick={() => ouvrirVoletAllo()}
       title="Ouvrir le téléphone"
       aria-label="Ouvrir le téléphone"
-      className="fixed bottom-[4.5rem] left-4 z-[65] flex h-11 w-11 items-center justify-center rounded-full border border-km-line bg-white text-km-text shadow-km-pop transition-colors hover:bg-km-soft md:bottom-4 md:left-[231px]"
+      className="fixed bottom-[4.5rem] left-4 z-[65] flex h-11 w-11 items-center justify-center rounded-full bg-kiwi-gradient text-white shadow-km-green transition-opacity hover:opacity-90 md:bottom-4 md:left-[231px]"
     >
-      <Phone className="h-[18px] w-[18px] text-km-green" />
+      <Phone className="h-[18px] w-[18px] text-white" />
       {charge && (
         /* LE POINT DIT CE QUI VIT DERRIÈRE. Vert : la session du volet est encore là, rouvrir ne
            redemandera pas de se connecter. Ambre et clignotant : un appel est en cours — c'est ce
@@ -303,8 +303,13 @@ export function VoletAllo() {
         <span
           className={cn(
             // En médaillon sur l'icône, puisqu'il n'y a plus de texte à côté de quoi se ranger.
-            'absolute -right-0.5 -top-0.5 h-2.5 w-2.5 rounded-full border-2 border-white',
-            appelEnCours ? 'animate-pulse bg-km-amber' : 'bg-km-green',
+            /* SUR FOND VERT, LE POINT VERT DISPARAÎT. Naoëlle, 10/09/2026 : « il faudrait changer
+               la couleur des icônes d'appel et de notification car blanc sur blanc ce n'est pas
+               visible. » En passant la pastille au vert plein, le médaillon devait suivre : blanc
+               pour la session vivante, ambre pour l'appel en cours — les deux se détachent du vert,
+               ce que ni le vert ni le blanc ne faisaient sur leur propre fond. */
+            'absolute -right-0.5 -top-0.5 h-2.5 w-2.5 rounded-full border-2 border-km-green',
+            appelEnCours ? 'animate-pulse bg-km-amber' : 'bg-white',
           )}
           aria-label={appelEnCours ? 'appel en cours' : 'session Allo active'}
         />

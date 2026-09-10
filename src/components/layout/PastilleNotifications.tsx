@@ -42,14 +42,14 @@ export function PastilleNotifications() {
             ? `Notifications, ${nonLues.length} à traiter`
             : 'Notifications, rien à traiter'
         }
-        className="fixed bottom-[4.5rem] left-[4.25rem] z-[65] flex h-11 w-11 items-center justify-center rounded-full border border-km-line bg-white text-km-text shadow-km-pop transition-colors hover:bg-km-soft md:bottom-4 md:left-[283px]"
+        className="fixed bottom-[4.5rem] left-[4.25rem] z-[65] flex h-11 w-11 items-center justify-center rounded-full bg-kiwi-gradient text-white shadow-km-green transition-opacity hover:opacity-90 md:bottom-4 md:left-[283px]"
       >
-        <Bell className="h-[18px] w-[18px] text-km-green" />
+        <Bell className="h-[18px] w-[18px] text-white" />
         {nonLues.length > 0 && (
           /* LE COMPTEUR EN MÉDAILLON, comme le point de session sur le téléphone — sauf qu'ici il
              porte un nombre : « il y a quelque chose » ne suffit pas à décider si on s'arrête. */
           <span
-            className="absolute -right-1 -top-1 flex h-[18px] min-w-[18px] items-center justify-center rounded-km-pill border-2 border-white bg-km-green px-1 text-km-tiny font-bold tabular-nums text-white"
+            className="absolute -right-1 -top-1 flex h-[18px] min-w-[18px] items-center justify-center rounded-km-pill border-2 border-km-green bg-white px-1 text-km-tiny font-bold tabular-nums text-km-green"
             aria-hidden="true"
           >
             {nonLues.length > 9 ? '9+' : nonLues.length}
