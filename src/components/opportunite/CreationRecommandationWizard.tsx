@@ -39,9 +39,10 @@
  *   dans Kimatch. Les supprimer serait une perte : ils sont regroupés en fin de parcours, repliés.
  */
 import { useEffect, useMemo, useState } from 'react'
+import { Link } from 'react-router-dom'
 import {
   AlertTriangle, Briefcase, Check, ChevronLeft, ChevronRight, Flame, Info,
-  Loader2, Mail, MapPin, Phone, Search, Zap,
+  Loader2, Lock, Mail, MapPin, Phone, Search, Zap,
 } from 'lucide-react'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
@@ -51,7 +52,7 @@ import { FormField, Input, Select, Textarea } from '@/components/ui/form'
 import { WizardConnectionGate } from '@/components/ui/connection-gate'
 import { ContactPicker } from '@/components/contact/ContactPicker'
 import { EllisphereScoreCard } from '@/components/opportunite/EllisphereScoreCard'
-import { useRecommandationsListe, useCreateRecommandation, compteursDejaEngages } from '@/lib/data/recommandations'
+import { useRecommandationsListe, useCreateRecommandation, recommandationsRetenantCompteurs } from '@/lib/data/recommandations'
 import { useMandats } from '@/lib/data/mandats'
 import { useCompteurs } from '@/lib/data/compteurs'
 import { useContacts } from '@/lib/data/contacts'
@@ -212,7 +213,7 @@ export function CreateRecommandationDialog({
   const typeEnergie = (energies.find((e) => e.id === typeEnergieId)?.code?.toLowerCase() === 'gaz' ? 'gaz' : 'electricite') as 'electricite' | 'gaz'
   const compteCible = comptes?.find((c) => c.id === compteId)
   const { data: sitesDuCompte } = useSitesParCompte(compteId || undefined)
-  const engages = useMemo(() => compteursDejaEngages(recommandations ?? []), [recommandations])
+  const retenus = useMemo(() => recommandationsRetenantCompteurs(recommandations ?? []), [recommandations])
 
   /**
    * PDL éligibles — la règle de Tools, transposée.
@@ -233,12 +234,31 @@ export function CreateRecommandationDialog({
     return ids
   }, [mandatsActifsDuCompte])
 
-  const compteursEligibles = useMemo(() => {
+  /* Les deux premiers filtres décident ce que l'utilisateur POUVAIT espérer voir : son compteur
+     porte un mandat actif, et il est de la bonne énergie. Le troisième seul l'écarte — et c'est
+     celui-là qu'il faut savoir expliquer. */
+  const compteursDuPerimetre = useMemo(() => {
     if (!compteId || !typeEnergieId) return []
     return (compteurs ?? []).filter(
-      (c) => compteursSousMandat.has(c.id) && c.type_energie === typeEnergie && !engages.has(c.id),
+      (c) => compteursSousMandat.has(c.id) && c.type_energie === typeEnergie,
     )
-  }, [compteId, typeEnergieId, typeEnergie, compteurs, compteursSousMandat, engages])
+  }, [compteId, typeEnergieId, typeEnergie, compteurs, compteursSousMandat])
+
+  const compteursEligibles = useMemo(
+    () => compteursDuPerimetre.filter((c) => !retenus.has(c.id)),
+    [compteursDuPerimetre, retenus],
+  )
+
+  /* ══ CE QUI EST ÉCARTÉ SE MONTRE, AVEC SA RAISON ══
+     Un compteur qui disparaît sans un mot envoie chercher le défaut du côté du mandat — c'est ce
+     qui est arrivé à William le 09/09/2026 sur MATERA by LE GOFF. Voir
+     `recommandationsRetenantCompteurs`. */
+  const compteursEcartes = useMemo(
+    () => compteursDuPerimetre
+      .filter((c) => retenus.has(c.id))
+      .map((c) => ({ compteur: c, reco: retenus.get(c.id)! })),
+    [compteursDuPerimetre, retenus],
+  )
 
   // LES COMPTES OUVRANT DROIT À UNE RECOMMANDATION : ceux qui portent au moins un mandat actif.
   // Même règle qu'avant, seule la présentation change.
@@ -641,7 +661,12 @@ export function CreateRecommandationDialog({
                 <div className="space-y-1">
                   <h4 className="text-base font-semibold text-km-text">Points de livraison éligibles</h4>
                   <p className="text-sm text-km-muted">
-                    {compteursEligibles.length} PDL avec un mandat actif pour {typeEnergie === 'gaz' ? 'le gaz' : "l'électricité"} (hors opportunités en cours)
+                    {compteursEligibles.length} PDL avec un mandat actif pour {typeEnergie === 'gaz' ? 'le gaz' : "l'électricité"}
+                    {compteursEcartes.length > 0 && (
+                      <> · <span className="text-km-faint">
+                        {compteursEcartes.length} écarté{compteursEcartes.length > 1 ? 's' : ''}, déjà sur une recommandation en cours
+                      </span></>
+                    )}
                   </p>
                 </div>
 
@@ -714,6 +739,40 @@ export function CreateRecommandationDialog({
                     })
                   )}
                 </div>
+
+                {/* ══ LES ÉCARTÉS ══
+                    Ils ne sont pas cliquables : la règle de Tools est une règle, pas une
+                    suggestion. Mais ils sont LISIBLES, et chacun porte le lien vers la
+                    recommandation qui le retient — ouvert dans un onglet, pour ne pas perdre la
+                    saisie en cours. Sans cette liste, un compteur sous mandat actif s'évapore et
+                    on va chercher le défaut dans le mandat. */}
+                {compteursEcartes.length > 0 && (
+                  <details className="rounded-lg border border-km-line bg-km-bg/50">
+                    <summary className="cursor-pointer select-none px-3 py-2 text-xs text-km-muted">
+                      {compteursEcartes.length} PDL sous mandat actif {compteursEcartes.length > 1 ? 'sont écartés' : 'est écarté'} : déjà engagé{compteursEcartes.length > 1 ? 's' : ''} sur une recommandation en cours
+                    </summary>
+                    <div className="max-h-[180px] space-y-1 overflow-y-auto border-t border-km-line px-3 py-2">
+                      {compteursEcartes.map(({ compteur: c, reco }) => (
+                        <div key={c.id} className="flex items-center gap-2.5 py-1 text-xs">
+                          <Lock className="h-3.5 w-3.5 shrink-0 text-km-faint" />
+                          <span className="min-w-0 flex-1 truncate text-km-muted">
+                            <span className="font-mono">{c.numero_pdl}</span>
+                            {(c.utilisation || c.site_nom) && <> · {c.utilisation || c.site_nom}</>}
+                          </span>
+                          <Link
+                            to={`/recommandations/${reco.id}`}
+                            target="_blank"
+                            rel="noreferrer"
+                            className="shrink-0 truncate text-km-green hover:underline"
+                            title={`Ouvrir « ${reco.nom} » dans un nouvel onglet`}
+                          >
+                            {reco.nom}
+                          </Link>
+                        </div>
+                      ))}
+                    </div>
+                  </details>
+                )}
               </div>
             )}
 
