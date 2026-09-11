@@ -457,7 +457,14 @@ async function inventaireOpportunite(id: string): Promise<LigneInventaire[]> {
       detail: recos > 0 ? 'elle survit, mais on ne saura plus d’où elle vient' : undefined },
     { libelle: 'piste convertie en cette opportunité', nombre: pistes, regime: 'detache',
       detail: pistes > 0 ? 'elle repassera pour non convertie dans la prospection' : undefined },
-    { libelle: 'tâche', nombre: actions, regime: 'detache' },
+    /* DÉTRUITE, ET NON DÉTACHÉE. La première version annonçait « détachée », en lisant la clé
+       étrangère qui était alors en SET NULL. C'était faux deux fois : la base le refusait — le
+       contrôle `actions_contexte_check` exige qu'une tâche garde un rattachement, et une tâche
+       d'opportunité n'en a jamais d'autre — et ce n'est pas ce qu'on veut. « Relancer sur le
+       mandat non signé » n'a aucun sens une fois l'opportunité disparue. Voir la migration
+       `20260911110000`. */
+    { libelle: 'tâche', nombre: actions, regime: 'detruit',
+      detail: actions > 0 ? 'elles n’ont pas d’autre rattachement : elles partent avec elle' : undefined },
     { libelle: 'interaction rattachée à cette seule opportunité', nombre: interactionsSeules, regime: 'detruit',
       detail: 'Elles n’ont aucun autre rattachement : elles partent avec elle, et se retrouvent dans la corbeille.' },
     { libelle: 'interaction', nombre: Math.max(0, interactions - interactionsSeules), regime: 'detache' },

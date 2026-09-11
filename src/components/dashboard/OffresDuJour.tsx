@@ -359,6 +359,33 @@ export function OffresDuJour({
 
   const statutIsole = isole ? STATUTS.find((s) => s.cle === isole)! : null
 
+  /**
+   * ══ RIEN À TRAITER : LA ZONE SE VIDE, ELLE NE SE REMPLIT PAS DE ZÉROS ══
+   *
+   * William, 11/09/2026 : « quand je n'ai ni offres en retard, ni offres prêtes à être envoyées,
+   * ni offre que je dois recevoir aujourd'hui, c'est tout le bloc qui doit disparaître afin que
+   * l'utilisateur se concentre sur sa prospection. Et la phrase s'affiche à la place du bloc — tu
+   * gardes le fond du bloc et le titre en revanche. »
+   *
+   * C'est le bon arbitrage, et il va plus loin qu'un message d'état vide. Trois cartes à zéro et
+   * un tableau vide occupent 260 px pour dire « rien ». Pire : ils gardent l'apparence du travail
+   * à faire, donc l'œil s'y arrête et les lit avant de comprendre qu'il n'y a rien à y lire.
+   *
+   * LE FOND ET LE TITRE RESTENT, et c'est ce qui distingue cet état d'une panne : la zone existe
+   * toujours, elle est simplement vide aujourd'hui. Une section qui disparaîtrait entièrement
+   * laisserait croire à un écran cassé, ou ferait oublier qu'il y a habituellement quelque chose
+   * là.
+   */
+  const zoneVide = !chargement && toutes.length === 0
+
+  if (zoneVide) {
+    return (
+      <p className="px-6 py-11 text-center text-km-lead text-km-muted">
+        Aucune offre à envoyer aujourd’hui, profites-en pour prospecter et mettre à jour ta data ;)
+      </p>
+    )
+  }
+
   return (
     <div
       className="grid gap-2.5 lg:grid-cols-[176px_minmax(0,1fr)]"
@@ -438,10 +465,13 @@ export function OffresDuJour({
                  filtré passe avant la générale : dire « aucune offre à envoyer » quand on vient de
                  cliquer « À envoyer » est une réponse ; dire « rien à traiter » en serait une à
                  côté de la question. */
+              /* Ici, la liste n'est vide QUE parce qu'un statut est isolé : le cas « rien du
+                 tout » est traité plus haut, la zone entière ayant alors cédé la place à sa
+                 phrase. */
               <p className="mx-auto max-w-[46ch] px-6 py-12 text-center text-km-lead text-km-muted">
                 {statutIsole
                   ? statutIsole.vide
-                  : 'Aucune étude à traiter aujourd’hui, profites-en pour prospecter et mettre à jour ta data ;)'}
+                  : 'Aucune offre à envoyer aujourd’hui, profites-en pour prospecter et mettre à jour ta data ;)'}
               </p>
             ) : (
               affichees.map((l, i) => {
