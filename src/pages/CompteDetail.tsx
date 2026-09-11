@@ -20,6 +20,8 @@ import {
 import { Topbar } from '@/components/layout/Topbar'
 import { HubCreation } from '@/components/compte/HubCreation'
 import { ZoneATraiter } from '@/components/compte/ZoneATraiter'
+import { ZoneEnCours } from '@/components/compte/ZoneEnCours'
+import { ZonePortefeuille } from '@/components/compte/ZonePortefeuille'
 import { MandatWizard } from '@/components/mandat/MandatWizard'
 import { WizardConnectionGate } from '@/components/ui/connection-gate'
 import { HeroQualiteCompte, HeroScoreEllipro, type FaitEllipro } from '@/components/compte/HerosCompte'
@@ -564,8 +566,6 @@ export default function CompteDetail() {
                   La zone ne s'affiche que si elle a quelque chose à dire : 4 comptes sur 5 n'ont
                   aucune échéance en souffrance, et un cadre vide use le signal — on finit par ne
                   plus regarder une zone qu'on a vue vide vingt fois. Voir `ZoneATraiter`. */}
-              <ZoneATraiter compteId={compte.id} onCreerOpportunite={() => setAddOppOpen(true)} />
-
               <div className="grid gap-3" style={{ gridTemplateColumns: 'repeat(auto-fit,minmax(min(240px,100%),1fr))' }}>
                 {/* LA QUALITÉ NE CONCERNE QUE LES CONSOMMATEURS. Trouvé le 02/09/2026 en listant
                     les comptes sans propriétaire : les vingt étaient des fournisseurs d'énergie.
@@ -582,6 +582,22 @@ export default function CompteDetail() {
                   onActualiser={compte.siren && !ellisphereScore.isPending ? handleScoreClick : undefined}
                 />
               </div>
+
+              {/* ══ L'ORDRE DES TROIS ZONES EST CELUI DE L'URGENCE ══
+                  À TRAITER    ce qu'on est en train de perdre — rien n'est lancé
+                  EN COURS     ce qui avance, et ce qui n'avance plus
+                  PORTEFEUILLE ce qui arrive, sur deux ans
+
+                  Chacune ne s'affiche que si elle a quelque chose à dire. Un compte tranquille
+                  montre sa frise et rien d'autre ; un compte chargé déroule les trois. */}
+              <ZoneATraiter compteId={compte.id} onCreerOpportunite={() => setAddOppOpen(true)} />
+              <ZoneEnCours compteId={compte.id} />
+              <ZonePortefeuille
+                compteId={compte.id}
+                nbCompteurs={compteursDuCompte.length}
+                nbContrats={contratsDuCompte.length}
+              />
+
 
 
               {/* ══ CE QUI RESTE DE L'ANCIEN BLOC « DERNIÈRE INTERROGATION » ══
