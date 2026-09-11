@@ -58,8 +58,13 @@ export interface LigneOffre {
  * LES DEUX SE MESURENT EN `marge_nette_coeff`, le montant qui fait foi pour une recommandation.
  * L'ancien pipe lisait `versions_recommandation.gain_estime_annuel` — une colonne NULLE sur les
  * 1 565 versions actuelles de la base. Il affichait donc 0,00 € à tout le monde, et un zéro se lit
- * comme « je n'ai rien en cours », jamais comme « la colonne est vide ». Voir la migration
- * `20260911120000`.
+ * comme « je n'ai rien en cours », jamais comme « la colonne est vide ».
+ *
+ * LE PÉRIMÈTRE EST CELUI DE LA PAGE RECOMMANDATIONS, à la lettre : `colonne_travail` vaut
+ * `EN_DECISION`. Ce n'est pas la même chose que « la version actuelle est en décision » — un
+ * dossier dont le contrat est parti à la signature bascule en « En cours de contractualisation »,
+ * et il n'a plus sa place dans une espérance puisque le client a dit oui. Quatre dossiers séparent
+ * les deux définitions. Voir la migration `20260911130000`.
  */
 export interface TotauxOffres {
   /** La somme des marges nettes de mes études actuellement chez le client. */
