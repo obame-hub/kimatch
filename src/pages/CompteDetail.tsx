@@ -22,7 +22,7 @@ import { HubCreation } from '@/components/compte/HubCreation'
 import { MandatWizard } from '@/components/mandat/MandatWizard'
 import { WizardConnectionGate } from '@/components/ui/connection-gate'
 import { HeroQualiteCompte, HeroScoreEllipro, type FaitEllipro } from '@/components/compte/HerosCompte'
-import { useQualiteCompte, useQualiteCompteurs, useStatutCommercialSites, manquesCompteur } from '@/lib/data/qualiteCompte'
+import { useQualiteCompte, useEvolutionQualite, useQualiteCompteurs, useStatutCommercialSites, manquesCompteur } from '@/lib/data/qualiteCompte'
 import { pastilleScore } from '@/lib/niveauScore'
 import { OngletRecommandations } from '@/components/compte/OngletsCompte'
 import { OngletHistorique } from '@/components/compte/OngletHistorique'
@@ -37,7 +37,6 @@ import { PdlMethodSheet, type PdlMethode } from '@/components/compteur/PdlMethod
 import { CreateRecommandationDialog } from '@/pages/Recommandations'
 import { DialogCreationOpportunite } from '@/pages/Opportunites'
 import { FormField, Input, Select, Textarea } from '@/components/ui/form'
-import { HistoriqueDiscret } from '@/components/ui/historique-discret'
 import { InlineField } from '@/components/ui/inline-field'
 import { ExplicationCalcul } from '@/components/ui/explication-calcul'
 import { CreationCompteurDialog } from '@/components/compteur/CreationCompteurDialog'
@@ -122,9 +121,10 @@ export default function CompteDetail() {
   const navigate = useNavigate()
   const [searchParams, setSearchParams] = useSearchParams()
   const { data: compte, isLoading: compteEnCours } = useCompte(id)
-  // L'apporteur est un autre compte : on le lit par son identifiant plutot que de parcourir la
-  // liste entiere pour en afficher le nom.
-  const { data: apporteur } = useCompte(compte?.apporteur_partenaire_id ?? undefined)
+  /* L'APPORTEUR N'EST PLUS LU ICI. Il n'était affiché que dans « Détails consommateur », retiré le
+     11/09/2026 : garder la requête reviendrait à charger un second compte entier à chaque ouverture
+     de fiche pour un nom que plus rien n'affiche. Le champ reste en base, et le formulaire de
+     modification du sous-type le lit pour son propre compte. */
   /* ══ LA FICHE COMPTE NE LIT PLUS LA TABLE `sites` ═══════════════════════════════════════
 
      Elle chargeait les sites du compte, puis les compteurs DE CES SITES — deux lectures en
@@ -246,8 +246,14 @@ export default function CompteDetail() {
   // défaillance. Seul le dernier est dérivable de ce que Kimatch possède. `limite_ellipro` porte
   // un nom d'encours mais ne va que de 0 à 7 sur 26 comptes : ce n'est pas un montant, l'afficher
   // en euros serait faux. Les incidents de paiement ne sont pas repris du tout.
+  /* LA DÉPENDANCE EST LA CHAÎNE, PAS L'OBJET `Date`. Un `new Date(...)` construit un nouvel objet à
+     chaque rendu : passé en dépendance d'un `useMemo`, il le ferait recalculer à chaque fois — ce
+     que l'outil de vérification des crochets signale à juste titre. La chaîne, elle, est stable. */
+  const majEllipro = compte?.score_ellipro_maj ?? null
+
   const faitsEllipro: FaitEllipro[] = useMemo(() => {
     if (noteEllipro === null) return []
+    const maj = majEllipro ? new Date(majEllipro) : null
     return [
       {
         libelle: 'Risque de défaillance',
@@ -255,8 +261,25 @@ export default function CompteDetail() {
         valeur: noteEllipro >= 7 ? 'Faible' : noteEllipro >= 4 ? 'Modéré' : 'Élevé',
       },
       { libelle: 'Note', aide: 'Note Ellisphere sur 10', valeur: `${noteEllipro} / 10` },
+      /* ══ LA DATE DE LA NOTE EST DANS LA CARTE, PAS SOUS ELLE ══
+         William, 11/09/2026 : « ajouter la date de la dernière MAJ de la note ». Elle existait —
+         sous l'intitulé « Dernière interrogation », dans un bloc gris deux cartes plus bas. Une
+         note de solvabilité sans sa date ne veut rien dire : un 5/10 relevé ce matin et un 5/10
+         relevé il y a huit mois n'engagent pas du tout au même niveau de confiance. Elle appartient
+         donc à la carte qui porte la note.
+
+         LA DATE SEULE, SANS L'HEURE. Le bloc supprimé écrivait « 11/09/2026 10:28:15 » : la seconde
+         d'une interrogation Ellisphere n'a jamais servi à personne, et elle coûtait la moitié de la
+         largeur du pied de carte. */
+      ...(maj
+        ? [{
+            libelle: 'Mise à jour',
+            aide: `Dernière interrogation d'Ellisphere le ${maj.toLocaleString('fr-FR')}`,
+            valeur: maj.toLocaleDateString('fr-FR'),
+          }]
+        : []),
     ]
-  }, [noteEllipro])
+  }, [noteEllipro, majEllipro])
   const canManage = useCanManage(compte?.proprietaire_id)
   const { data: historique } = useHistorique('comptes', compte?.id, tab === 'historique')
 
@@ -546,26 +569,48 @@ export default function CompteDetail() {
 
               <IdentiteCard compte={compte} onToast={showToast} />
 
-              {/* Ce qui n'a pas sa place dans le héro : l'absence de SIREN qui empêche toute
-                  interrogation, les erreurs, et la date de dernière interrogation. */}
-              <div className="rounded-xl border border-km-line bg-km-surface p-4">
-                {!compte.siren && (
-                  <p className="text-xs text-km-faint">Aucun SIREN renseigné — impossible d'interroger Ellisphere.</p>
-                )}
-                {compte.score_ellipro_maj && (
-                  <p className="text-km-xs text-km-faint">Dernière interrogation : {new Date(compte.score_ellipro_maj).toLocaleString('fr-FR')}</p>
-                )}
-                {ellisphereScore.isPending && <p className="text-xs text-km-faint">Interrogation d'Ellisphere…</p>}
-                {ellisphereScore.isError && <p className="text-xs text-km-red">{(ellisphereScore.error as Error).message}</p>}
-                {updateScore.isSuccess && (
-                  <p className="text-km-xs text-km-faint">
-                    {updateScore.data.changed ? 'Score mis à jour.' : 'Score inchangé depuis la dernière interrogation.'}
-                  </p>
-                )}
-                <HistoriqueDiscret tableNom="comptes" ligneId={compte.id} />
-              </div>
+              {/* ══ CE QUI RESTE DE L'ANCIEN BLOC « DERNIÈRE INTERROGATION » ══
+                  William, 11/09/2026 : « supprimer les blocs Dernière interrogation, Détails
+                  consommateur et Historique de la relation ».
 
-              {compte.type_compte !== 'kiwee' && (
+                  Le bloc portait quatre choses, et trois avaient une meilleure place :
+                    · la DATE de la note est montée dans la carte Ellipro, à côté de la note ;
+                    · l'ABSENCE DE SIREN et les ERREURS D'INTERROGATION répondent au bouton
+                      d'actualisation, qui est sur cette carte : elles restent, juste en dessous,
+                      et elles ne s'affichent QUE s'il y a quelque chose à dire ;
+                    · l'HISTORIQUE DES MODIFICATIONS a déjà son onglet, tout en haut de la fiche.
+
+                  Ce qui reste ici n'occupe donc plus rien tant que tout va bien — et c'était le
+                  reproche : un cadre permanent pour une ligne grise qu'on ne lisait jamais. */}
+              {(!compte.siren || ellisphereScore.isPending || ellisphereScore.isError || updateScore.isSuccess) && (
+                <div className="rounded-xl border border-km-line bg-km-surface px-4 py-2.5">
+                  {!compte.siren && (
+                    <p className="text-xs text-km-faint">Aucun SIREN renseigné — impossible d'interroger Ellisphere.</p>
+                  )}
+                  {ellisphereScore.isPending && <p className="text-xs text-km-faint">Interrogation d'Ellisphere…</p>}
+                  {ellisphereScore.isError && <p className="text-xs text-km-red">{(ellisphereScore.error as Error).message}</p>}
+                  {updateScore.isSuccess && (
+                    <p className="text-km-xs text-km-faint">
+                      {updateScore.data.changed ? 'Score mis à jour.' : 'Score inchangé depuis la dernière interrogation.'}
+                    </p>
+                  )}
+                </div>
+              )}
+
+              {/* ══ « DÉTAILS CONSOMMATEUR » A ÉTÉ RETIRÉ, PAS LE BLOC ══
+                  William, 11/09/2026 : « supprimer les blocs Dernière interrogation, Détails
+                  consommateurs et Historique de la relation ».
+
+                  LE BLOC SERVAIT TROIS TYPES DE COMPTE. Le supprimer entièrement aurait emporté les
+                  détails FOURNISSEUR — dont le taux de répartition de la marge, qui ne se saisit
+                  nulle part ailleurs — et les détails PARTENAIRE. Seule la variante consommateur
+                  part ; les deux autres restent intactes.
+
+                  CE QUI DISPARAÎT DE LA FICHE D'UN CONSOMMATEUR : segment, conseiller référent,
+                  origine d'acquisition, mandat-cadre actif, apporteur d'affaires et note interne.
+                  Les données restent en base et le formulaire de modification les édite toujours —
+                  c'est l'affichage permanent qui s'arrête. */}
+              {compte.type_compte !== 'kiwee' && compte.type_compte !== 'client' && (
                 <div className="rounded-xl border border-km-line bg-white p-4">
                   <div className="mb-3 flex items-center justify-between">
                     {/* Même garde : sans type, l'intitulé dit « Détails » tout court plutôt que de planter. */}
@@ -575,16 +620,6 @@ export default function CompteDetail() {
                     </Button>
                   </div>
                   <div className="space-y-1.5 text-xs text-km-text">
-                    {compte.type_compte === 'client' && (
-                      <>
-                        <p><span className="text-km-faint">Segment compte :</span> {compte.segment_compte_libelle || '—'}</p>
-                        <p><span className="text-km-faint">Conseiller référent :</span> {compte.conseiller_referent_nom || '—'}</p>
-                        <p><span className="text-km-faint">Origine d'acquisition :</span> {compte.origine_acquisition || '—'}</p>
-                        <p><span className="text-km-faint">Mandat-cadre actif :</span> {compte.mandat_cadre_actif ? 'Oui' : 'Non'}</p>
-                        <p><span className="text-km-faint">Apporteur d'affaires :</span> {apporteur?.nom || '—'}</p>
-                        {compte.note_interne && <p><span className="text-km-faint">Note interne :</span> {compte.note_interne}</p>}
-                      </>
-                    )}
                     {compte.type_compte === 'fournisseur' && (
                       <>
                         <p><span className="text-km-faint">Fournit :</span> {[compte.fournit_electricite && 'Électricité', compte.fournit_gaz && 'Gaz'].filter(Boolean).join(', ') || '—'}</p>
@@ -781,7 +816,6 @@ export default function CompteDetail() {
                 compteurs={compteursDuCompte}
               />
 
-              <RelationTimeline compte={compte} mandats={mandatsDuCompte} recommandations={recommandationsDuCompte} />
             </div>
           )}
 
@@ -1107,119 +1141,73 @@ function CompteSitesMap({
   )
 }
 
-type RelationEventKind = 'mandat' | 'gagne' | 'perdu' | 'litige' | 'a_venir'
-
-interface RelationEvent {
-  id: string
-  date: string
-  label: string
-  kind: RelationEventKind
-}
-
-const RELATION_EVENT_STYLE: Record<RelationEventKind, { badge: string; text: string }> = {
-  mandat: { badge: 'Mandat', text: 'bg-km-amber-soft text-km-amber' },
-  gagne: { badge: 'Gagné', text: 'bg-km-green-soft text-km-green' },
-  perdu: { badge: 'Perdu', text: 'bg-km-soft text-km-muted' },
-  litige: { badge: 'Litige', text: 'bg-km-red-soft text-km-red' },
-  a_venir: { badge: 'À venir', text: 'bg-km-amber-soft text-km-amber' },
-}
-
-// Frise "Historique de la relation" -- présente dans la référence design (William) mais absente
-// jusqu'ici. Dérivée des données déjà chargées (mandats, recommandations) : première
-// passe raisonnable, PAS validée avec William/Michel sur le choix exact des jalons ni leurs
-// libellés (voir tâche de suivi) -- à corriger si le classement Gagné/Perdu/Litige ne correspond
-// pas à la réalité métier.
-function buildRelationEvents(compte: Compte, mandats: Mandat[], recommandations: Recommandation[]): RelationEvent[] {
-  const events: RelationEvent[] = []
-
-  if (compte.date_creation) {
-    events.push({ id: `debut-${compte.id}`, date: compte.date_creation, label: 'Début de la relation', kind: 'mandat' })
-  }
-
-  for (const m of mandats) {
-    if (m.date_signature) {
-      events.push({ id: `mandat-${m.id}`, date: m.date_signature, label: `Signature du mandat · ${m.nb_sites_couverts} site${m.nb_sites_couverts > 1 ? 's' : ''}`, kind: 'mandat' })
-    } else if (m.statut === 'ENVOYE' || m.statut === 'CONSULTE') {
-      events.push({ id: `mandat-avenir-${m.id}`, date: m.date_envoi ?? m.date_creation ?? new Date().toISOString(), label: `Mandat en attente de signature · ${m.nb_sites_couverts} site${m.nb_sites_couverts > 1 ? 's' : ''}`, kind: 'a_venir' })
-    }
-  }
-
-  for (const r of recommandations) {
-    // versions[0] est la plus récente : la liste est triée décroissant depuis le 12/08/2026.
-    const derniere = r.versions[0]
-    if (r.etape === 'ACCEPTEE') {
-      const date = derniere?.date_decision_client ?? derniere?.date_creation ?? r.date_creation
-      const gain = derniere?.gains_estimes ? ` · ${derniere.gains_estimes.toLocaleString('fr-FR')} €/an` : ''
-      events.push({ id: `reco-gagne-${r.id}`, date, label: `${r.titre}${gain}`, kind: 'gagne' })
-    } else if (r.etape === 'REFUSEE') {
-      const date = derniere?.date_decision_client ?? derniere?.date_creation ?? r.date_creation
-      events.push({ id: `reco-perdu-${r.id}`, date, label: r.titre, kind: 'perdu' })
-    }
-  }
-
-  /* Les signaux de type « litige » alimentaient une quatrième catégorie de jalons ; ils sont sortis
-     de la frise le 02/09/2026 avec le sujet (voir `cycleNavItems`). Le genre `litige` reste défini :
-     c'est le seul endroit qui saurait le remplir si un autre objet vient le porter. */
-
-  return events.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
-}
-
-function RelationTimeline({ compte, mandats, recommandations }: { compte: Compte; mandats: Mandat[]; recommandations: Recommandation[] }) {
-  const events = useMemo(() => buildRelationEvents(compte, mandats, recommandations), [compte, mandats, recommandations])
-  const [expanded, setExpanded] = useState(false)
-  const CAP = 8
-  const visibles = expanded ? events : events.slice(0, CAP)
-
-  if (events.length === 0) return null
-
-  return (
-    <div className="rounded-xl border border-km-line bg-km-surface p-4">
-      <div className="mb-3 flex items-center gap-1.5">
-        <span className="text-km-label font-bold uppercase tracking-wide text-km-faint">Historique de la relation</span>
-        <span className="text-km-label text-km-faint">· toutes adresses confondues</span>
-      </div>
-      <div className="flex flex-col divide-y divide-km-line-soft">
-        {visibles.map((e) => (
-          <div key={e.id} className="flex items-center gap-3 py-2 first:pt-0 last:pb-0">
-            <span className="w-20 shrink-0 font-mono text-km-body text-km-muted">{new Date(e.date).toLocaleDateString('fr-FR')}</span>
-            <p className="min-w-0 flex-1 truncate text-km-name text-km-muted">{e.label}</p>
-            <span className={cn('shrink-0 rounded px-1.5 py-0.5 text-km-label font-bold uppercase', RELATION_EVENT_STYLE[e.kind].text)}>
-              {RELATION_EVENT_STYLE[e.kind].badge}
-            </span>
-          </div>
-        ))}
-      </div>
-      {events.length > CAP && (
-        <button type="button" onClick={() => setExpanded((v) => !v)} className="mt-2.5 text-km-body font-semibold text-km-blue hover:underline">
-          {expanded ? '← Réduire' : `Voir les ${events.length} événements →`}
-        </button>
-      )}
-    </div>
-  )
-}
-
 /**
- * ══ LA QUALITÉ DU COMPTE, ET SES COMPTEURS AU CLIC ══
+ * ══ LE PIED DE LA CARTE DE QUALITÉ ══
  *
- * Naoëlle, 02/09/2026 : la carte « Valeur du compte » cède la place à la qualité, « et du coup quand
- * on clique dessus on verra tous les compteurs concernés ».
+ * William, 11/09/2026 : « reprendre le même design de bas de card que celle Ellipro — ligne de
+ * démarcation et infos en dessous » avec « l'évolution du score par rapport au dernier score
+ * enregistré » et « la tendance d'évolution ».
  *
- * CE QUI PART. `ValeurCompteCard` calculait un score à partir de l'ancienneté de la relation, de la
- * part de sites clients et du nombre de prospects convertibles, avec des coefficients que la maquette
- * de William laissait « à valider avec lui » et qui ne l'ont jamais été. Le chiffre était une opinion
- * sans source ; personne ne pouvait dire pourquoi un compte valait 50 plutôt que 65.
+ * ── UN SCORE SANS SON MOUVEMENT NE DIT QUE LA MOITIÉ ──
  *
- * CE QUI ARRIVE se lit ligne à ligne : chaque compteur vaut 0, 30, 50, 70, 80 ou 100 selon trois
- * faits vérifiables — contrat en cours, échéance à venir, responsable désigné — et le compte prend la
- * moyenne. Le détail ci-dessous montre exactement quel compteur coûte quoi.
+ * 60/100 ne se lit pas pareil selon qu'on vient de 40 ou de 85. Le premier cas est un compte qu'on
+ * est en train de reprendre en main, le second un compte qui se dégrade — même chiffre, deux
+ * conduites opposées.
  *
- * LE DÉTAIL NE SE CHARGE QU'À L'OUVERTURE. Un cabinet comme MICHAU porte trois cents compteurs : les
- * lire pour afficher un anneau serait du gâchis, et la vue par compte rend déjà le score et les trois
- * décomptes.
+ * ── DEUX LIGNES, PARCE QUE CE SONT DEUX QUESTIONS ──
+ *
+ *   ÉVOLUTION  l'écart avec le dernier score DIFFÉRENT — « qu'est-ce qui vient de se passer ? »
+ *   TENDANCE   le sens sur les trois derniers relevés — « dans quel sens ça va ? »
+ *
+ * Voir `useEvolutionQualite` : sur deux points seulement, les deux diraient la même chose.
+ *
+ * ── LA COULEUR N'EST PAS LE SEUL SIGNAL ──
+ *
+ * Un écart porte son signe (`+6`, `−4`) et une tendance sa flèche (`↗`, `↘`). La teinte ne fait que
+ * confirmer : elle est illisible pour une partie des utilisateurs, et invisible à l'impression.
  */
+function piedQualite(evolution: ReturnType<typeof useEvolutionQualite>['data']): FaitEllipro[] {
+  if (!evolution || evolution.scorePrecedent === null || evolution.evolution === null) {
+    /* PAS D'HISTORIQUE, PAS DE CHIFFRE INVENTÉ. La mémoire des scores commence le 11/09/2026 ;
+       avant le premier relevé d'un compte, on le dit plutôt que d'afficher un « 0 » qui se lirait
+       comme « rien n'a bougé ». */
+    return [{ libelle: 'Évolution', aide: 'Aucun relevé antérieur : la mémoire des scores démarre au premier passage de la tâche de nuit', valeur: '—' }]
+  }
+
+  const e = evolution.evolution
+  const depuis = evolution.releveLe
+    ? new Date(evolution.releveLe).toLocaleDateString('fr-FR', { day: '2-digit', month: '2-digit' })
+    : null
+
+  const TENDANCES: Record<string, { texte: string; couleur?: string }> = {
+    HAUSSE:   { texte: '↗ en hausse', couleur: '#BDF3DE' },
+    BAISSE:   { texte: '↘ en baisse', couleur: '#FFD4CC' },
+    STABLE:   { texte: '→ stable' },
+    INCONNUE: { texte: '—' },
+  }
+  const t = TENDANCES[evolution.tendance] ?? TENDANCES.INCONNUE
+
+  return [
+    {
+      libelle: 'Évolution',
+      aide: depuis
+        ? `Écart avec le dernier score enregistré, le ${depuis}`
+        : 'Écart avec le dernier score enregistré',
+      // Le signe est explicite, y compris pour zéro : « = » dit « mesuré et inchangé », là où un
+      // « 0 » se confond avec une absence de mesure.
+      valeur: e === 0
+        ? `=${depuis ? ` dep. ${depuis}` : ''}`
+        : `${e > 0 ? '+' : '−'}${Math.abs(e)}${depuis ? ` dep. ${depuis}` : ''}`,
+      couleur: e > 0 ? '#BDF3DE' : e < 0 ? '#FFD4CC' : undefined,
+    },
+    { libelle: 'Tendance', aide: 'Sens du score sur les trois derniers relevés', valeur: t.texte, couleur: t.couleur },
+  ]
+}
+
 function QualiteCompteCard({ compte }: { compte: Compte }) {
   const [detailOuvert, setDetailOuvert] = useState(false)
   const { data: qualite } = useQualiteCompte(compte.id)
+  const { data: evolution } = useEvolutionQualite(compte.id)
   const { data: compteurs, isLoading: chargeCompteurs } = useQualiteCompteurs(compte.id, detailOuvert)
 
   /* TANT QUE LA VUE N'A RIEN RENDU, ON AFFICHE ZÉRO ET « aucun compteur ». C'est la réponse voulue
@@ -1238,6 +1226,7 @@ function QualiteCompteCard({ compte }: { compte: Compte }) {
         echeanceARevoir={qualite?.echeance_a_revoir ?? 0}
         sansResponsable={qualite?.sans_responsable ?? 0}
         parfaits={qualite?.parfaits ?? 0}
+        faits={piedQualite(evolution)}
         /* Sans compteur, il n'y a rien à ouvrir : la carte ne fait pas semblant d'être cliquable. */
         onVoirCompteurs={nbCompteurs > 0 ? () => setDetailOuvert(true) : undefined}
       />

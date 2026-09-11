@@ -24,6 +24,10 @@
       "schedule": "15 3 * * *"
     },
     {
+      "path": "/api/comptes/photographier-qualite",
+      "schedule": "30 3 * * *"
+    },
+    {
       "path": "/api/contrats/reevaluer-statuts",
       "schedule": "45 3 * * *"
     },

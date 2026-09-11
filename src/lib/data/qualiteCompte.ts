@@ -82,6 +82,70 @@ export function useQualiteCompte(compteId: string | undefined) {
 }
 
 /**
+ * ══ L'ÉVOLUTION DU SCORE, ET SA TENDANCE ══
+ *
+ * William, 11/09/2026 : « ajouter l'évolution du score par rapport au dernier score enregistré, et
+ * la tendance d'évolution — le score est-il en train d'augmenter ou de diminuer ».
+ *
+ * LE SCORE N'ÉTAIT GARDÉ NULLE PART. `v_qualite_compte` est une vue : il se recalcule à chaque
+ * lecture. La table `historiques_qualite_compte` est la mémoire créée pour répondre à cette
+ * question, alimentée chaque nuit et UNIQUEMENT QUAND LE SCORE CHANGE — voir la migration
+ * `20260911140000`.
+ *
+ * ── LES DEUX CHIFFRES NE DISENT PAS LA MÊME CHOSE ──
+ *
+ *   ÉVOLUTION  l'écart avec le dernier score différent — « qu'est-ce qui vient de se passer ? »
+ *   TENDANCE   le sens sur les trois derniers relevés — « dans quel sens ça va ? »
+ *
+ * Un compte qui perd 5 puis regagne 8 a un écart POSITIF et une tendance HAUSSIÈRE. Un compte qui
+ * gagne 2 après en avoir perdu 20 a un écart positif et une tendance BAISSIÈRE. Sur deux points
+ * seulement, les deux lignes diraient la même chose et l'une serait du remplissage.
+ *
+ * ── LA MÉMOIRE COMMENCE LE 11/09/2026 ──
+ *
+ * Avant cette date, il n'y a rien à comparer : l'écart vaut zéro et la tendance est stable pour
+ * tout le monde. C'est la limite honnête de l'indicateur, et elle se comble d'elle-même.
+ */
+export type TendanceQualite = 'HAUSSE' | 'BAISSE' | 'STABLE' | 'INCONNUE'
+
+export interface EvolutionQualite {
+  scoreActuel: number
+  /** Le dernier score DIFFÉRENT enregistré. `null` tant qu'aucun relevé n'existe. */
+  scorePrecedent: number | null
+  /** Quand ce score-là a été relevé. */
+  releveLe: string | null
+  /** L'écart entre le score actuel et le précédent. */
+  evolution: number | null
+  tendance: TendanceQualite
+}
+
+export function useEvolutionQualite(compteId: string | undefined) {
+  return useQuery({
+    queryKey: ['evolution-qualite', compteId],
+    enabled: Boolean(compteId),
+    /* La fonction est absente entre le push et l'application de la migration : on rend « inconnue »
+       plutôt que de faire blanchir la carte. Même garde que sur le tableau de bord. */
+    retry: false,
+    queryFn: async (): Promise<EvolutionQualite | null> => {
+      const { data, error } = await supabase.rpc('lire_tendance_qualite', { p_compte_id: compteId })
+      if (error) {
+        if (/does not exist|schema cache|404/i.test(error.message)) return null
+        throw new Error(error.message)
+      }
+      const l = (Array.isArray(data) ? data[0] : data) as Record<string, unknown> | null
+      if (!l) return null
+      return {
+        scoreActuel: Number(l.score_actuel ?? 0),
+        scorePrecedent: l.score_precedent == null ? null : Number(l.score_precedent),
+        releveLe: (l.releve_le as string | null) ?? null,
+        evolution: l.evolution == null ? null : Number(l.evolution),
+        tendance: (l.tendance as TendanceQualite) ?? 'INCONNUE',
+      }
+    },
+  })
+}
+
+/**
  * Les compteurs d'un compte, du moins bon au meilleur.
  *
  * L'ORDRE EST CELUI DU TRAVAIL : le score croissant met en tête ce qui manque, puis la consommation

@@ -153,6 +153,7 @@ export function HeroQualiteCompte({
   echeanceARevoir,
   sansResponsable,
   parfaits,
+  faits = [],
   onVoirCompteurs,
 }: {
   score: number
@@ -161,6 +162,8 @@ export function HeroQualiteCompte({
   echeanceARevoir: number
   sansResponsable: number
   parfaits: number
+  /** L'évolution et la tendance, posées sous le filet — voir `PiedDeCarte`. */
+  faits?: FaitEllipro[]
   onVoirCompteurs?: () => void
 }) {
   const t = teinteScore(score)
@@ -282,16 +285,52 @@ export function HeroQualiteCompte({
           </span>
         )}
       </div>
+
+      <PiedDeCarte faits={faits} />
     </div>
   )
 }
 
-/** Un fait de la fiche Ellisphere : son intitulé, son explication au survol, sa valeur. */
+/** Un fait posé en pied de carte : son intitulé, son explication au survol, sa valeur. */
 export interface FaitEllipro {
   libelle: string
   /** Explication affichée au survol du libellé. */
   aide: string
   valeur: string
+  /** Une teinte pour la valeur — un écart positif en clair, négatif en rose pâle. */
+  couleur?: string
+}
+
+/**
+ * ══ LE PIED DE CARTE, PARTAGÉ PAR LES DEUX HÉROS ══
+ *
+ * William, 11/09/2026, sur la carte du score du compte : « reprendre le même design de bas de card
+ * que celle Ellipro — ligne de démarcation et infos en dessous ».
+ *
+ * Il existait sur la carte Ellipro et nulle part ailleurs : les deux cartes se ressemblaient en
+ * haut et divergeaient en bas, la qualité entassant ses précisions dans la ligne sous son titre
+ * pendant que l'Ellipro les rangeait sous un filet. Deux cartes côte à côte, de même taille et de
+ * même langage, doivent se lire de la même façon jusqu'en bas.
+ *
+ * LE FILET EST À 14 % DE BLANC, pas plus : sur un aplat coloré, un séparateur trop net découpe la
+ * carte en deux objets au lieu de séparer deux niveaux de lecture.
+ */
+function PiedDeCarte({ faits }: { faits: FaitEllipro[] }) {
+  if (faits.length === 0) return null
+  return (
+    <div className="relative mt-[11px] flex flex-wrap gap-x-4 gap-y-1.5 border-t border-white/[.14] pt-[9px]">
+      {faits.map((f) => (
+        <span key={f.libelle} className="flex items-baseline gap-1.5">
+          <span title={f.aide} className="cursor-help text-km-tiny font-semibold text-white/[.6]">
+            {f.libelle}
+          </span>
+          <span className="font-mono text-km-xs font-bold" style={f.couleur ? { color: f.couleur } : undefined}>
+            {f.valeur}
+          </span>
+        </span>
+      ))}
+    </div>
+  )
 }
 
 export function HeroScoreEllipro({
@@ -384,16 +423,7 @@ export function HeroScoreEllipro({
         )}
       </div>
 
-      <div className="relative mt-[11px] flex flex-wrap gap-x-4 gap-y-1.5 border-t border-white/[.14] pt-[9px]">
-        {faits.map((f) => (
-          <span key={f.libelle} className="flex items-baseline gap-1.5">
-            <span title={f.aide} className="cursor-help text-km-tiny font-semibold text-white/[.6]">
-              {f.libelle}
-            </span>
-            <span className="font-mono text-km-xs font-bold">{f.valeur}</span>
-          </span>
-        ))}
-      </div>
+      <PiedDeCarte faits={faits} />
     </div>
   )
 }
