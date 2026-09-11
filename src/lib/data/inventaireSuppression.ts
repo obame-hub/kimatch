@@ -67,7 +67,7 @@ export interface Inventaire {
 }
 
 /** Les objets que Kimatch sait supprimer depuis une fiche. */
-export type TypeObjet = 'compte' | 'site' | 'compteur' | 'contact' | 'contrat' | 'mandat' | 'recommandation'
+export type TypeObjet = 'compte' | 'site' | 'compteur' | 'contact' | 'contrat' | 'mandat' | 'recommandation' | 'opportunite'
 
 /** Un comptage, sans ramener les lignes : `head: true` ne transfère que le total. */
 async function compter(table: string, colonne: string, valeur: string | string[]): Promise<number> {
@@ -423,6 +423,47 @@ async function inventaireRecommandation(id: string): Promise<LigneInventaire[]> 
   ]
 }
 
+/**
+ * Ce qu'emporte la suppression d'une opportunité.
+ *
+ * RELEVÉ DANS LE SCHÉMA LE 10/09/2026, pas deviné : deux liens en `cascade`
+ * (`opportunites_compteurs`, `opportunites_sites`) et quatre en `set null` (`actions`,
+ * `interactions`, `pistes`, `recommandations`). Aucune contrainte bloquante — une opportunité se
+ * supprime toujours, même convertie.
+ *
+ * LA RECOMMANDATION DÉTACHÉE EST LE CAS QUI COMPTE. Elle survit, mais elle perd le lien qui la
+ * rattachait à l'opportunité d'origine : l'opportunité disparaît de la fiche, et surtout
+ * `recommandation_ids` étant ce qui fait avancer le palier d'une opportunité, plus rien ne dira
+ * d'où venait l'affaire. C'est le genre de perte qui ne se voit pas le jour même.
+ *
+ * LA PISTE AUSSI, et elle revient alors à l'état « non convertie » du point de vue de l'écran de
+ * prospection : elle réapparaîtra dans les listes de pistes à traiter.
+ */
+async function inventaireOpportunite(id: string): Promise<LigneInventaire[]> {
+  const [compteurs, sites, actions, recos, pistes, interactions, interactionsSeules] = await Promise.all([
+    compter('opportunites_compteurs', 'opportunite_id', id),
+    compter('opportunites_sites', 'opportunite_id', id),
+    compter('actions', 'opportunite_id', id),
+    compter('recommandations', 'opportunite_id', id),
+    compter('pistes', 'opportunite_id', id),
+    compter('interactions', 'opportunite_id', id),
+    interactionsBloquantes('opportunite_id', id),
+  ])
+  return [
+    { libelle: 'point de livraison au périmètre', nombre: compteurs, regime: 'detruit',
+      detail: compteurs > 0 ? 'le compteur lui-même reste' : undefined },
+    { libelle: 'immeuble au périmètre', nombre: sites, regime: 'detruit' },
+    { libelle: 'recommandation issue de cette opportunité', nombre: recos, regime: 'detache',
+      detail: recos > 0 ? 'elle survit, mais on ne saura plus d’où elle vient' : undefined },
+    { libelle: 'piste convertie en cette opportunité', nombre: pistes, regime: 'detache',
+      detail: pistes > 0 ? 'elle repassera pour non convertie dans la prospection' : undefined },
+    { libelle: 'tâche', nombre: actions, regime: 'detache' },
+    { libelle: 'interaction rattachée à cette seule opportunité', nombre: interactionsSeules, regime: 'detruit',
+      detail: 'Elles n’ont aucun autre rattachement : elles partent avec elle, et se retrouvent dans la corbeille.' },
+    { libelle: 'interaction', nombre: Math.max(0, interactions - interactionsSeules), regime: 'detache' },
+  ]
+}
+
 const INVENTAIRES: Record<TypeObjet, (id: string) => Promise<LigneInventaire[]>> = {
   compte: inventaireCompte,
   site: inventaireSite,
@@ -431,6 +472,7 @@ const INVENTAIRES: Record<TypeObjet, (id: string) => Promise<LigneInventaire[]>>
   contrat: inventaireContrat,
   mandat: inventaireMandat,
   recommandation: inventaireRecommandation,
+  opportunite: inventaireOpportunite,
 }
 
 /**

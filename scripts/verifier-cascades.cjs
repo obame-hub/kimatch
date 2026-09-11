@@ -64,6 +64,10 @@ const ENFANTS_DE = {
   versions_recommandation: ['offres_fournisseurs', 'optimisations'],
   contacts: ['interactions', 'actions', 'requetes'],
   mandats: ['recommandations'],
+  // Ajouté le 10/09/2026 avec le bouton de suppression d'une opportunité. Ses quatre enfants
+  // métier sont en `set null` et doivent le rester : supprimer une opportunité ne doit jamais
+  // emporter la recommandation qui en est née, ni renvoyer la piste au néant.
+  opportunites: ['recommandations', 'pistes', 'actions', 'interactions'],
 }
 
 /** Toutes les paires interdites, aplaties : « si <parent> casca­de vers <enfant>, c'est une erreur ». */

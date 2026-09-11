@@ -450,6 +450,46 @@ export function useMajPerimetreOpportunite() {
 }
 
 /**
+ * SUPPRIMER UNE OPPORTUNITÉ.
+ *
+ * William, 10/09/2026 : « ajoute la possibilité pour les utilisateurs de supprimer une opportunité,
+ * avec un bouton prévu à cet effet ». C'était le seul objet principal de Kimatch qui n'en avait
+ * pas — comptes, contacts, compteurs, contrats, mandats et recommandations en ont un.
+ *
+ * ── UNE VRAIE SUPPRESSION, PAS UN `actif = false` ──
+ *
+ * Même geste que les six autres fiches. La table porte bien une colonne `actif`, mais l'employer
+ * ici aurait créé une deuxième sorte de suppression dans l'application : l'utilisateur ne verrait
+ * aucune différence, et la ligne resterait à peser dans les comptages qui oublient le filtre.
+ *
+ * ── CE QUE LA BASE FAIT DERRIÈRE, ET QUE LA POPUP ANNONCE ──
+ *
+ * Le périmètre part en cascade (`opportunites_compteurs`, `opportunites_sites`). Les tâches,
+ * interactions, pistes et recommandations survivent en perdant leur lien (`set null`). Rien ne
+ * bloque. `inventaireOpportunite` compte tout cela AVANT de laisser confirmer.
+ *
+ * ── ON INVALIDE AUSSI LES PISTES ET LES RECOMMANDATIONS ──
+ *
+ * Elles portent la référence qu'on vient d'effacer. Sans cela, la prospection continuerait
+ * d'afficher une piste « convertie » vers une opportunité qui n'existe plus, jusqu'au prochain
+ * rechargement — et c'est précisément l'écran où l'on va après avoir supprimé.
+ */
+export function useDeleteOpportunite() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: async (id: string) => {
+      const { error } = await supabase.from('opportunites').delete().eq('id', id)
+      if (error) throw new Error(messageDErreur(error.message))
+    },
+    onSuccess: () => {
+      void qc.invalidateQueries({ queryKey: ['opportunites'] })
+      void qc.invalidateQueries({ queryKey: ['pistes'] })
+      void qc.invalidateQueries({ queryKey: ['recommandations'] })
+    },
+  })
+}
+
+/**
  * Traduit un refus de PostgREST en phrase actionnable.
  *
  * Même motif que sur les prix et les dépôts de fichiers : tant que la migration 20260823100000

@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
-import { ArrowLeft, Target, Plus, Check, AlertTriangle, Building2, User, MapPin, Gauge, FileSignature } from 'lucide-react'
+import { ArrowLeft, Target, Plus, Check, AlertTriangle, Building2, User, MapPin, Gauge, FileSignature, Trash2 } from 'lucide-react'
 import { Topbar } from '@/components/layout/Topbar'
 import { Card } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
@@ -25,6 +25,7 @@ import {
   useOpportunite,
   useMajOpportunite,
   useMajPerimetreOpportunite,
+  useDeleteOpportunite,
   useStatutsOpportunites,
   ORIGINES_OPPORTUNITE,
   QUALIFICATIONS_FIN,
@@ -33,6 +34,8 @@ import {
 import { useSitesParCompte } from '@/lib/data/sites'
 import { useCompteurs } from '@/lib/data/compteurs'
 import { useCanManage } from '@/lib/data/roles'
+import { DialogSuppression } from '@/components/ui/dialog-suppression'
+import { useSuppression } from '@/lib/useSuppression'
 import { useContacts } from '@/lib/data/contacts'
 import { useMandats } from '@/lib/data/mandats'
 import { MandatWizard } from '@/components/mandat/MandatWizard'
@@ -64,6 +67,9 @@ export default function OpportuniteDetail() {
   const { data: opportunite, isLoading } = useOpportunite(id)
   const { data: statuts } = useStatutsOpportunites()
   const canManage = useCanManage()
+  const deleteOpportunite = useDeleteOpportunite()
+  const suppression = useSuppression()
+  const [confirmerSuppression, setConfirmerSuppression] = useState(false)
   const { data: contacts } = useContacts()
   const { data: compteurs } = useCompteurs()
   const { data: mandats } = useMandats()
@@ -269,6 +275,22 @@ export default function OpportuniteDetail() {
             </span>
           </div>
         </div>
+
+        {/* SUPPRIMER — le geste destructeur se tient À GAUCHE de l'action principale et en
+            variante discrète. William, 10/09/2026 : l'opportunité était le seul objet principal
+            sans bouton de suppression. Il n'efface rien lui-même : il ouvre la popup qui inventorie
+            ce que la base va vraiment emporter, et c'est elle qui laisse confirmer. */}
+        {canManage && (
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => setConfirmerSuppression(true)}
+            title="Supprimer cette opportunité"
+          >
+            <Trash2 className="h-3.5 w-3.5" />
+            Supprimer
+          </Button>
+        )}
 
         {/* LE BOUTON « + CRÉER » DE LA MAQUETTE, et il ouvre vraiment quelque chose : les quatre
             gestes qui font avancer cette opportunité, chacun déjà implémenté ailleurs sur l'écran.
@@ -930,6 +952,22 @@ export default function OpportuniteDetail() {
           onAjoute={(m) => signaler(m)}
         />
       )}
+
+      {/* ON NE NAVIGUE QU'EN CAS DE SUCCÈS, et sans attendre les invalidations : `useSuppression`
+          s'en charge, et affiche un message lisible si la base refuse. */}
+      <DialogSuppression
+        ouvert={confirmerSuppression}
+        onFermer={() => { suppression.reinitialiser(); setConfirmerSuppression(false) }}
+        type="opportunite"
+        id={opportunite.id}
+        nom={opportunite.reference || opportunite.compte_nom || 'Opportunité'}
+        onConfirmer={() => suppression.supprimer(
+          () => deleteOpportunite.mutateAsync(opportunite.id),
+          () => navigate('/opportunites'),
+        )}
+        enCours={suppression.enCours}
+        erreur={suppression.erreur}
+      />
 
       {toast && (
         <div className="fixed bottom-[70px] left-1/2 z-50 -translate-x-1/2 whitespace-nowrap rounded-lg bg-ink-800 px-4 py-2.5 text-xs font-semibold text-white shadow-lg lg:bottom-6">

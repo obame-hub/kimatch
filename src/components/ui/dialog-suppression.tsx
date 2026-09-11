@@ -218,4 +218,5 @@ const LIBELLE: Record<TypeObjet, string> = {
   contrat: 'le contrat',
   mandat: 'le mandat',
   recommandation: 'la recommandation',
+  opportunite: 'l’opportunité',
 }
