@@ -252,6 +252,27 @@ export default {
           '15%, 55%': { backgroundColor: 'rgb(var(--km-green) / 0.14)', boxShadow: '0 0 0 3px rgb(var(--km-green) / 0.22)' },
         },
         'km-monte': { from: { transform: 'translateY(100%)' }, to: { transform: 'none' } },
+        /**
+         * LE SURSAUT D'UN COMPTEUR QUI VIENT DE PERDRE UNE UNITÉ (tableau de bord, 10/09/2026).
+         *
+         * `CompteurAnime` fait descendre le nombre en 900 ms ; ce sursaut dit qu'il SE PASSE quelque
+         * chose, au cas où l'œil serait ailleurs. Un très léger grossissement suivi d'un retour, et
+         * une lueur qui s'écarte puis s'éteint — pas un clignotement, qui appellerait une action
+         * alors qu'il n'y a rien à faire : la tâche vient justement d'être terminée.
+         *
+         * La lueur est en `currentColor` pour que chaque carte l'habille de sa propre teinte.
+         */
+        'km-compteur-bond': {
+          '0%':   { transform: 'none' },
+          '28%':  { transform: 'scale(1.07)' },
+          '100%': { transform: 'none' },
+        },
+        /* La respiration très lente d'un halo de fond. 9 s : on ne la remarque pas, on la ressent —
+           c'est ce qui empêche une carte colorée d'avoir l'air d'une image fixe. */
+        'km-aura': {
+          '0%, 100%': { opacity: '.55', transform: 'scale(1)' },
+          '50%':      { opacity: '.85', transform: 'scale(1.14)' },
+        },
       },
       animation: {
         'fade-up': 'fade-up 0.35s ease-out both',
@@ -277,6 +298,8 @@ export default {
         // vient, assez court pour ne pas se mettre entre l'intention et la saisie.
         'km-surligne': 'km-surligne 2.2s ease-in-out 1 both',
         'km-monte': 'km-monte .2s cubic-bezier(.22,1,.36,1) both',
+        'km-compteur-bond': 'km-compteur-bond .9s cubic-bezier(.22,1,.36,1) 1',
+        'km-aura': 'km-aura 9s ease-in-out infinite',
       },
       boxShadow: {
         card: '0 1px 2px 0 rgb(15 23 42 / 0.04), 0 1px 3px 0 rgb(15 23 42 / 0.06)',

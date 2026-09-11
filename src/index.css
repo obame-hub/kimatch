@@ -687,3 +687,206 @@ html body span[data-allo-c2c][data-allo-c2c-style="1"] > .allo-copy-btn {
 @media (prefers-reduced-motion: reduce) {
   .animate-km-chatoie { animation: none; }
 }
+
+/* ══════════════════════════════════════════════════════════════════════════════════════════════
+   « MOUVEMENT RÉDUIT » S'APPLIQUE À TOUTE L'APPLICATION, PLUS À UNE SEULE CLASSE
+   ══════════════════════════════════════════════════════════════════════════════════════════════
+
+   Le bloc ci-dessus ne coupait que `km-chatoie`. Les trente-deux autres animations de
+   `tailwind.config.js` continuaient de tourner — dont quatre EN BOUCLE INFINIE sur le tableau de
+   bord : l'aura des cartes, le reflet, la pulsation des points d'état, les rayures de chargement.
+
+   C'est précisément ce que le réglage système veut éteindre : ce ne sont pas les transitions de
+   200 ms au survol qui gênent, ce sont les mouvements permanents dans le champ périphérique.
+
+   ── CE QU'ON COUPE, ET CE QU'ON GARDE ──
+
+   On coupe les ANIMATIONS (`@keyframes`), qui jouent sans qu'on ait rien demandé. On garde les
+   TRANSITIONS courtes, qui répondent à un geste : supprimer le retour visuel d'un survol ou d'un
+   clic n'aide personne, et l'accessibilité y perdrait plus qu'elle n'y gagne.
+
+   ── LE `both` DES ANIMATIONS D'ENTRÉE OBLIGE À UNE PRÉCAUTION ──
+
+   Presque toutes nos animations d'entrée sont déclarées `both` : elles appliquent leur image de
+   DÉPART avant de commencer — souvent `opacity: 0`. Poser `animation: none` sans plus les
+   laisserait à cette image de départ, et la moitié du tableau de bord serait invisible pour qui a
+   coché « réduire les animations ». D'où le `opacity: 1` et le `transform: none` forcés : on
+   supprime le trajet, on garde l'arrivée.
+   ══════════════════════════════════════════════════════════════════════════════════════════════ */
+@media (prefers-reduced-motion: reduce) {
+  [class*='animate-km-'],
+  [class*='animate-fade-'],
+  .animate-pulse {
+    animation: none !important;
+    opacity: 1 !important;
+    transform: none !important;
+  }
+
+  /* Les jauges de la matrice de charge montent en `transition`, pas en `animation` : elles se
+     posent directement à leur hauteur. */
+  [data-mouvement='jauge'] {
+    transition: none !important;
+  }
+}
+
+/* ══════════════════════════════════════════════════════════════════════════════════════════════
+   LE TABLEAU DE BORD — V3 : UN FOND, DES CHAPITRES, ET DU MOUVEMENT QUI A UN SENS
+   ══════════════════════════════════════════════════════════════════════════════════════════════
+
+   William, 11/09/2026 : « retravailler le zoning, un fond plus graphique. Il y a 3 zones […] mais
+   aujourd'hui il n'y a pas vraiment de délimitation graphique, il y a juste un espace. »
+
+   Il a mis le doigt sur le vrai défaut. Les trois zones ne se distinguaient QUE par 20 px de vide,
+   et le vide ne dit rien : il sépare aussi bien deux paragraphes d'un même sujet que deux sujets
+   différents. Une page qui enchaîne cinq cartes, un tableau, un second tableau sans jamais dire
+   « ici commence autre chose » se lit comme une liste de composants, pas comme un document.
+
+   Trois moyens sont employés ici, du plus discret au plus visible, et ils se cumulent.
+   ══════════════════════════════════════════════════════════════════════════════════════════════ */
+
+/* ── 1. LE FOND : DEUX LUEURS ET UNE TRAME ────────────────────────────────────────────────────
+   Le fond était #FCFCFB, un blanc cassé parfaitement plat. Une surface blanche posée dessus ne
+   pouvait donc RIEN faire : sans écart entre le fond et la carte, il n'y a pas de relief, et tous
+   les blocs flottent au même niveau.
+
+   Trois couches, toutes sous le contenu et toutes `pointer-events: none` :
+
+     LES DEUX LUEURS, vert Kiwee en haut à droite et bleu en bas à gauche, à 5 % d'alpha au plus
+     fort et étalées sur 60 % de la page. Elles ne se voient pas — c'est le but. Elles donnent au
+     blanc une température qui varie très lentement d'un coin à l'autre, et c'est cette variation
+     qui fait exister les surfaces blanches posées par-dessus.
+
+     LA TRAME DE POINTS, un point d'un pixel toutes les 24 px, à 4 % de noir. Même principe qu'un
+     papier à grain : invisible à la lecture, mais l'œil sait qu'il y a une matière. Elle donne
+     aussi une unité de mesure implicite à la page.
+
+   LES DEUX SONT FIXES (`background-attachment` implicite via un élément en `position: fixed`) :
+   attachées au contenu, elles défileraient avec lui et le fond redeviendrait un motif qui bouge,
+   ce qui est exactement le genre de détail qui fatigue sans qu'on sache pourquoi. */
+/* LE CANEVAS EST PLUS SOMBRE QUE LES CARTES, ET C'EST TOUTE LA QUESTION.
+   Première tentative : les lueurs et la trame posées sur le `#FCFCFB` d'origine. Rien ne se voyait,
+   et pour une raison arithmétique — une carte blanche sur un fond à 99 % de blanc, cela fait un
+   écart de luminance de 1 %. Aucun relief ne peut naître d'un écart pareil, quelles que soient les
+   ombres qu'on empile par-dessus.
+
+   Le canevas descend donc à `--km-soft` (#F3F5F2), soit environ 4 % sous le blanc. C'est peu dit
+   comme ça, et c'est pourtant la différence entre « des blocs blancs sur du blanc » et « des cartes
+   posées sur une table ». Le jeton est celui de l'application et suit le mode sombre tout seul. */
+.km-canevas { background-color: rgb(var(--km-soft)); }
+
+.km-canevas::before,
+.km-canevas::after {
+  content: '';
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 0;
+}
+
+.km-canevas::before {
+  background:
+    radial-gradient(58% 46% at 88% -6%,  rgb(var(--km-green) / .085) 0%, transparent 68%),
+    radial-gradient(52% 42% at 4% 104%,  rgb(var(--km-blue)  / .07)  0%, transparent 70%);
+}
+
+.km-canevas::after {
+  background-image: radial-gradient(rgb(var(--km-text) / .06) 1px, transparent 0);
+  background-size: 24px 24px;
+  /* Le dégradé de masque éteint la trame en haut et en bas : une trame qui court jusqu'au bord se
+     voit, une trame qui s'efface se devine. */
+  -webkit-mask-image: linear-gradient(180deg, transparent 0, #000 140px, #000 calc(100% - 60px), transparent 100%);
+  mask-image: linear-gradient(180deg, transparent 0, #000 140px, #000 calc(100% - 60px), transparent 100%);
+}
+
+/* Le contenu passe au-dessus des deux couches. */
+.km-canevas > * { position: relative; z-index: 1; }
+
+/* ── 2. LE PANNEAU DE ZONE : DU VERRE SUR LE FOND ─────────────────────────────────────────────
+   Chaque zone est posée sur un panneau translucide. C'est ce qui crée les TROIS NIVEAUX qui
+   manquaient :
+
+     le CANEVAS teinté et texturé (le fond ci-dessus)
+     le PANNEAU translucide, qui laisse passer la teinte du fond — c'est la délimitation de zone
+     la CARTE blanche opaque à l'intérieur, qui porte la donnée
+
+   Sans le niveau du milieu, une carte blanche sur un fond blanc n'a que sa bordure d'un pixel pour
+   exister. Avec lui, chaque zone est un objet qu'on peut montrer du doigt.
+
+   `backdrop-filter` plutôt qu'un blanc opaque : c'est la translucidité qui fait le verre. Un aplat
+   blanc à 75 % donnerait la même couleur moyenne et aucune profondeur. */
+.km-panneau {
+  /* ── PAS DE `backdrop-filter`, ET C'EST UN ARBITRAGE ASSUMÉ ──
+     La première version floutait le fond (`blur(16px)`). C'est le réflexe « verre dépoli », et il
+     est ici mal placé : trois surfaces floutées de 1 100 px de large qui DÉFILENT obligent le GPU
+     à refaire le flou à chaque image, et c'est l'une des causes les plus courantes de défilement
+     saccadé sur une machine à carte graphique intégrée.
+
+     Le gain était par ailleurs minime : un flou ne se voit que sur un fond CHARGÉ. Derrière ces
+     panneaux il n'y a qu'un aplat, un dégradé très doux et une trame de points à 6 % — flouter
+     cela revient à peu près à ne rien faire.
+
+     On garde donc la TRANSLUCIDITÉ, qui fait tout le travail : la teinte du canevas monte à
+     travers le panneau, la trame se devine, et le coût est nul.
+
+     (Mesure impossible en navigateur automatisé — un onglet d'arrière-plan ne rend aucune image,
+     donc aucun chronométrage d'animation n'y est fiable. L'arbitrage est fait sur le risque, pas
+     sur un relevé ; si la machine suit, remettre le flou tient en une ligne.) */
+  background: rgb(255 255 255 / .8);
+  /* La bordure est plus claire EN HAUT qu'en bas : c'est le reflet d'une surface vitrée éclairée
+     du dessus, et c'est ce détail d'un pixel qui fait la différence entre « un rectangle avec un
+     contour » et « une plaque de verre ». */
+  border: 1px solid rgb(255 255 255 / .9);
+  border-bottom-color: rgb(255 255 255 / .5);
+  /* Deux ombres : une très large et très douce qui décolle le panneau du fond, une très fine juste
+     dessous qui pose son bord. Une seule ombre donne toujours l'un ou l'autre, jamais les deux. */
+  box-shadow:
+    0 18px 44px -22px rgb(20 40 32 / .18),
+    0 1px 2px rgb(20 40 32 / .04);
+}
+
+/* ── 3. L'APPARITION AU DÉFILEMENT ────────────────────────────────────────────────────────────
+   Chaque zone se révèle quand elle entre dans la fenêtre : 14 px de montée et une ouverture en
+   fondu, 520 ms. C'est ce qui transforme une page en un document qui SE DÉROULE.
+
+   L'AMPLITUDE EST VOLONTAIREMENT FAIBLE. Au-delà d'une quinzaine de pixels, le mouvement se lit
+   comme un glissement et l'on attend qu'il finisse avant de lire. À 14 px, on perçoit que quelque
+   chose est arrivé sans jamais attendre.
+
+   L'ÉTAT DE DÉPART EST POSÉ PAR LE JAVASCRIPT, pas par le CSS : si le script ne s'exécute pas, la
+   classe `.km-revele` n'est jamais ajoutée — mais `.km-a-reveler` non plus, et tout reste visible.
+   Une zone invisible par défaut est un contenu perdu au moindre incident. */
+.km-a-reveler {
+  opacity: 0;
+  transform: translateY(14px);
+}
+
+.km-revele {
+  opacity: 1;
+  transform: none;
+  transition: opacity .52s cubic-bezier(.22,1,.36,1), transform .52s cubic-bezier(.22,1,.36,1);
+}
+
+/* ── 5. LE POINT « EN DIRECT » ────────────────────────────────────────────────────────────────
+   Les trois zones sont abonnées au temps réel : un collègue qui coche une tâche fait bouger les
+   chiffres sous les yeux. Rien ne le disait. Un point qui respire très lentement (2,8 s) le dit
+   sans occuper de place — et c'est la seule animation permanente de la page, assumée parce
+   qu'elle porte une information qu'aucun texte ne porterait aussi bien. */
+@keyframes km-battement {
+  0%, 100% { box-shadow: 0 0 0 0 rgb(var(--km-green) / .45); opacity: 1 }
+  55%      { box-shadow: 0 0 0 5px rgb(var(--km-green) / 0);  opacity: .55 }
+}
+.km-en-direct { animation: km-battement 2.8s ease-in-out infinite; }
+
+/* ── 6. CE QUE « MOUVEMENT RÉDUIT » COUPE ICI ─────────────────────────────────────────────────
+   Le bloc général plus haut n'éteint que les `animation`. L'apparition au défilement est une
+   `transition` : il faut la neutraliser à part, et surtout REMETTRE l'opacité à 1 — sinon les
+   trois zones resteraient à leur état de départ, c'est-à-dire invisibles. */
+@media (prefers-reduced-motion: reduce) {
+  .km-a-reveler,
+  .km-revele {
+    opacity: 1 !important;
+    transform: none !important;
+    transition: none !important;
+  }
+  .km-canevas::before, .km-canevas::after { animation: none !important; }
+}

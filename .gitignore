@@ -47,3 +47,6 @@ contrats-sans-compteur.md
 
 # Les mesures de la sonde : locales, elles n’ont pas leur place dans le dépôt public.
 .mesures/
+
+# Les brouillons de message à l'équipe : ils citent des dossiers et des noms de collaborateurs.
+message-naoelle-*.md
