@@ -19,6 +19,7 @@ import {
 } from 'lucide-react'
 import { Topbar } from '@/components/layout/Topbar'
 import { HubCreation } from '@/components/compte/HubCreation'
+import { ZoneATraiter } from '@/components/compte/ZoneATraiter'
 import { MandatWizard } from '@/components/mandat/MandatWizard'
 import { WizardConnectionGate } from '@/components/ui/connection-gate'
 import { HeroQualiteCompte, HeroScoreEllipro, type FaitEllipro } from '@/components/compte/HerosCompte'
@@ -73,9 +74,7 @@ import { ActivityFeed } from '@/components/site/ActivityFeed'
 import { cn } from '@/lib/utils'
 import { useGoBack } from '@/lib/useGoBack'
 import { useRaccourcisOnglets } from '@/lib/useRaccourcisOnglets'
-import type { Compte, Contact, Site, TypeCompte, Contrat, Mandat, Compteur, Recommandation } from '@/types/domain'
-import { SitesMap, type SitesMapItem } from '@/components/site/SitesMap'
-import { computeSiteHealth } from '@/lib/siteHealth'
+import type { Compte, Contact, Site, TypeCompte, Contrat, Compteur, Recommandation } from '@/types/domain'
 import { appelerNumero } from '@/lib/telephonie'
 
 const typeMeta: Record<TypeCompte, { label: string; tone: 'kiwi' | 'blue' | 'amber' | 'neutral' }> = {
@@ -108,7 +107,7 @@ const TYPE_BADGE_STYLE: Record<TypeCompte, { bg: string; border: string; text: s
   kiwee: { bg: 'bg-km-soft', border: 'border-km-line', text: 'text-km-muted', dot: 'bg-km-faint', icone: Leaf },
 }
 
-type TabKey = 'synthese' | 'contacts' | 'contrats' | 'compteurs' | 'recommandations' | 'mandats' | 'fichiers' | 'historique' | 'activite'
+type TabKey = 'synthese' | 'detail' | 'contacts' | 'contrats' | 'compteurs' | 'recommandations' | 'mandats' | 'fichiers' | 'historique' | 'activite'
 
 function copyToClipboard(text: string, onDone: (msg: string) => void) {
   if (!text) return
@@ -327,6 +326,15 @@ export default function CompteDetail() {
 
   const TABS: { key: TabKey; label: string; labelMobile?: string; badge?: string; mobileOnly?: boolean }[] = [
     { key: 'synthese', label: 'Compte' },
+    /* ══ « DÉTAIL » PREND LA FICHE SIGNALÉTIQUE ══
+       William, 11/09/2026 : « créer un nouvel onglet nommé Détail et mets-y pour le moment le bloc
+       Identité ».
+
+       Le premier onglet répondait à deux questions à la fois — « qui est ce compte ? » et « qu'y
+       a-t-il à y faire ? » — et la première prenait la place de la seconde. SIREN, code NAF et
+       typologie se consultent une fois, à la prise en main du dossier ; ce qu'il y a à traiter se
+       regarde chaque semaine. Les séparer met le travail devant. */
+    { key: 'detail', label: 'Détail' },
     /* Les contacts sortent du volet gauche pour rejoindre les autres objets liés (Michel et
        Naoëlle, 31/08/2026). Ils occupaient 300 px en permanence sur les huit onglets, y compris
        ceux où l'on ne travaille pas sur les personnes. */
@@ -550,6 +558,12 @@ export default function CompteDetail() {
               {/* Les deux héros, dans la grille de la maquette : ils se répartissent la largeur et
                   passent l'un sous l'autre en dessous de 240px chacun. */}
               <CommentaireCard compte={compte} />
+              {/* ══ CE QU'IL Y A À FAIRE PASSE AVANT CE QU'ON EST ══
+                  La zone ne s'affiche que si elle a quelque chose à dire : 4 comptes sur 5 n'ont
+                  aucune échéance en souffrance, et un cadre vide use le signal — on finit par ne
+                  plus regarder une zone qu'on a vue vide vingt fois. Voir `ZoneATraiter`. */}
+              <ZoneATraiter compteId={compte.id} onCreerOpportunite={() => setAddOppOpen(true)} />
+
               <div className="grid gap-3" style={{ gridTemplateColumns: 'repeat(auto-fit,minmax(min(240px,100%),1fr))' }}>
                 {/* LA QUALITÉ NE CONCERNE QUE LES CONSOMMATEURS. Trouvé le 02/09/2026 en listant
                     les comptes sans propriétaire : les vingt étaient des fournisseurs d'énergie.
@@ -567,7 +581,6 @@ export default function CompteDetail() {
                 />
               </div>
 
-              <IdentiteCard compte={compte} onToast={showToast} />
 
               {/* ══ CE QUI RESTE DE L'ANCIEN BLOC « DERNIÈRE INTERROGATION » ══
                   William, 11/09/2026 : « supprimer les blocs Dernière interrogation, Détails
@@ -806,16 +819,25 @@ export default function CompteDetail() {
                 </div>
               )}
 
-              {/* Carte multi-pins -- remplace l'ancienne liste "Sites rattachés" (anomalie QA
-                  William du 30/07 : les sites ne doivent pas être listés dans l'onglet Compte). */}
-              <CompteSitesMap
-                sitesDuCompte={sitesDuCompte}
-                contrats={contratsDuCompte}
-                recommandations={recommandationsDuCompte}
-                mandats={mandatsDuCompte}
-                compteurs={compteursDuCompte}
-              />
+              {/* ══ LA CARTE EST RETIRÉE DE CET ONGLET ══
+                  William, 11/09/2026 : « tu peux également masquer la map pour le moment, elle
+                  n'apporte rien de très important ».
 
+                  Elle montrait OÙ sont les immeubles — une information que l'adresse donne déjà, et
+                  qui ne dit rien de ce qu'il faut faire. Sur un compte sans coordonnées, elle
+                  affichait même « aucun site n'a de coordonnées enregistrées » sur 300 px de haut.
+
+                  LE COMPOSANT EST SUPPRIMÉ, PAS MIS DE CÔTÉ. Le garder sans appelant ferait
+                  échouer la compilation à chaque passage (TS6133) ; il se retrouve dans
+                  l'historique du dépôt si la carte doit revenir. `SitesMap`, lui, reste employé par
+                  la page Patrimoine. */}
+
+            </div>
+          )}
+
+          {tab === 'detail' && (
+            <div className="animate-km-fade-slide space-y-3 p-4 sm:p-[22px]">
+              <IdentiteCard compte={compte} onToast={showToast} />
             </div>
           )}
 
@@ -1100,45 +1122,6 @@ function groupesDAdresse(compteurs: Compteur[], compteId: string | undefined): S
     })
   }
   return [...parGroupe.values()].sort((a, b) => a.nom.localeCompare(b.nom))
-}
-
-function CompteSitesMap({
-  sitesDuCompte, contrats, recommandations, mandats, compteurs,
-}: {
-  sitesDuCompte: Site[]
-  contrats: Contrat[]
-  recommandations: Recommandation[]
-  mandats: Mandat[]
-  compteurs: Compteur[]
-}) {
-  const items: SitesMapItem[] = sitesDuCompte.map((site) => {
-    const health = computeSiteHealth({
-      contrats: contrats.filter((c) => c.site_id === site.id),
-      recommandations: recommandations.filter((r) => r.sites?.some((s) => s.id === site.id)),
-      mandat: mandats.find((m) => m.site_ids?.includes(site.id)),
-      compteurs: compteurs.filter((c) => c.site_id === site.id),
-    })
-    return { id: site.id, nom: site.nom, ville: site.ville, compte_nom: site.compte_nom, latitude: site.latitude, longitude: site.longitude, tone: health.tone }
-  })
-  const villes = [...new Set(sitesDuCompte.map((s) => s.ville).filter(Boolean))]
-
-  return (
-    <div className="overflow-hidden rounded-xl border border-km-line bg-km-surface">
-      <SitesMap sites={items} />
-      <div className="flex flex-wrap items-center gap-3 border-t border-km-line-soft px-3.5 py-2">
-        <span className="whitespace-nowrap text-km-body font-semibold text-km-text">
-          {sitesDuCompte.length} adresse{sitesDuCompte.length > 1 ? 's' : ''}{villes.length > 0 ? ` · ${villes.slice(0, 2).join(', ')}` : ''}
-        </span>
-        <span className="flex flex-wrap gap-2.5 text-km-label text-km-muted">
-          <span><span className="mr-1 inline-block h-2 w-2 rounded-full bg-km-green align-middle" />bonne santé</span>
-          <span><span className="mr-1 inline-block h-2 w-2 rounded-full bg-[#e0a83c] align-middle" />attention</span>
-          <span><span className="mr-1 inline-block h-2 w-2 rounded-full bg-km-red align-middle" />critique</span>
-        </span>
-        <div className="flex-1" />
-        <span className="text-km-label text-km-faint">clic sur un pin → fiche Site</span>
-      </div>
-    </div>
-  )
 }
 
 /**
