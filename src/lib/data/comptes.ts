@@ -157,6 +157,59 @@ export function useComptes() {
 }
 
 /**
+ * ══ LES COMPTES QU'UNE FICHE PEUT AVOIR À RATTACHER — VERSION LÉGÈRE ══
+ *
+ * Trois endroits de la fiche compte avaient besoin de la liste des PARTENAIRES (huit en base) et
+ * des FOURNISSEURS rattachés à un intermédiaire (cinquante-deux). Les trois appelaient
+ * `useComptes()`.
+ *
+ * ── CE QUE ÇA COÛTAIT ──
+ *
+ * `useComptes()` lit la table ENTIÈRE — 2 782 comptes au 12/09/2026 — avec quatre sous-requêtes
+ * imbriquées (clients, fournisseurs, partenaires, propriétaire) et une pagination à mille lignes,
+ * donc trois allers-retours. Tout ça pour alimenter deux listes déroulantes de soixante entrées.
+ *
+ * Mesuré en production sur une fiche compte : la table `comptes` était interrogée HUIT fois, pour
+ * 2,8 s cumulées — le premier poste de la page.
+ *
+ * ── CE QUE CETTE VERSION LIT ──
+ *
+ * Quatre colonnes, deux types de compte, aucune jointure. Soixante lignes au lieu de 2 782, et une
+ * seule requête au lieu de trois.
+ *
+ * ── ELLE NE REMPLACE PAS `useComptes()` PARTOUT ──
+ *
+ * La liste complète reste nécessaire là où l'on affiche vraiment tous les comptes — la page
+ * Comptes, la recherche. Ce crochet-ci ne sert qu'aux rattachements, et c'est pour cela qu'il porte
+ * un nom qui dit son périmètre plutôt qu'un `useComptesLight` qui inviterait à s'en servir partout.
+ */
+export interface CompteLie {
+  id: string
+  nom: string
+  type_compte: string
+  intermediaire_partenaire_id: string | null
+}
+
+export function useComptesRattachables() {
+  return useQuery({
+    queryKey: ['comptes', 'rattachables'],
+    // Huit partenaires et cinquante-deux fournisseurs : la liste bouge à peine, inutile de la
+    // redemander au moindre retour d'onglet.
+    staleTime: 10 * 60 * 1000,
+    queryFn: async (): Promise<CompteLie[]> => {
+      const { data, error } = await supabase
+        .from('comptes')
+        .select('id, nom, type_compte, intermediaire_partenaire_id')
+        .in('type_compte', ['partenaire', 'fournisseur'])
+        .eq('actif', true)
+        .order('nom')
+      if (error) throw new Error(error.message)
+      return (data ?? []) as CompteLie[]
+    },
+  })
+}
+
+/**
  * Un seul compte, lu par son identifiant.
  *
  * Renvoie `undefined` tant que la lecture court, `null` si le compte n'existe pas ou sort du

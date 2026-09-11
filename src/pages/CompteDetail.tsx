@@ -43,7 +43,7 @@ import { ExplicationCalcul } from '@/components/ui/explication-calcul'
 import { CreationCompteurDialog } from '@/components/compteur/CreationCompteurDialog'
 import {
   useCompte,
-  useComptes,
+  useComptesRattachables,
   useUpdateCompteScore,
   useUpdateCompteClient,
   useUpdateCompteFournisseur,
@@ -204,8 +204,10 @@ export default function CompteDetail() {
      de partage de la marge, saisi directement dans le bloc « Fournisseur ». */
   const updateField = useUpdateCompteField()
   /* Les comptes du CRM, pour le rattachement fournisseur ↔ intermédiaire. Huit partenaires et
-     cinquante-deux fournisseurs : la liste complète est déjà en cache, aucun appel de plus. */
-  const { data: comptesTous } = useComptes()
+     cinquante-deux fournisseurs — lus par `useComptesRattachables`, qui ne rapporte que ces
+     soixante lignes et quatre colonnes. `useComptes()` rapportait les 2 782 comptes avec leurs
+     quatre jointures, en trois allers-retours. */
+  const { data: comptesTous } = useComptesRattachables()
 
   /* ══ LES DEUX LISTES QUE LE RATTACHEMENT DEMANDE ══
      Sur une fiche FOURNISSEUR, le sélecteur propose les comptes partenaires. Sur une fiche
@@ -1293,7 +1295,7 @@ function IdentiteCard({ compte, onToast }: { compte: Compte; onToast: (msg: stri
      Il rejoint donc l'identité, à côté du type de compte, éditable d'un clic comme ses voisins. Et
      le libellé mène à la fiche du partenaire : savoir QUI a apporté un client sans pouvoir aller
      voir ce qu'il a apporté d'autre ne sert qu'à moitié. */
-  const { data: tousLesComptes } = useComptes()
+  const { data: tousLesComptes } = useComptesRattachables()
   const partenaires = useMemo(
     () => (tousLesComptes ?? []).filter((c) => c.type_compte === 'partenaire'),
     [tousLesComptes],
@@ -1903,9 +1905,9 @@ function CommentaireCard({ compte }: { compte: Compte }) {
 
 
 function EditCompteClientDialog({ compte, open, onClose }: { compte: Compte; open: boolean; onClose: () => void }) {
-  // Charge ici, et non par la fiche : le selecteur d'apporteur a besoin de tous les partenaires,
-  // mais seulement quand quelqu'un ouvre ce dialogue.
-  const { data: comptes } = useComptes()
+  // Charge ici, et non par la fiche : le selecteur d'apporteur a besoin des partenaires, mais
+  // seulement quand quelqu'un ouvre ce dialogue.
+  const { data: comptes } = useComptesRattachables()
   const { data: segmentsRef } = useReferenceTable('segments_comptes')
   const update = useUpdateCompteClient()
   const [segmentId, setSegmentId] = useState(compte.segment_compte_id ?? '')

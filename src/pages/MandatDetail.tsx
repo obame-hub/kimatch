@@ -43,7 +43,6 @@ import { useRaccourcisOnglets } from '@/lib/useRaccourcisOnglets'
 import { jourLocalISO } from '@/lib/heureTache'
 import { cn } from '@/lib/utils'
 import type { Mandat, Contact, Compte, Compteur } from '@/types/domain'
-import { generateMandatKiweePdf, generateMandatEnergixPdf } from '@/lib/mandatPdf'
 
 type TabKey = 'mandat' | 'fichiers'
 
@@ -77,6 +76,9 @@ function EnvoyerSignatureDialog({
     setSending(true)
     setFeedback(null)
     try {
+      // Même raison que dans `MandatWizard` : `jspdf` ne se télécharge qu'au moment où l'on
+      // fabrique réellement le document.
+      const { generateMandatKiweePdf, generateMandatEnergixPdf } = await import('@/lib/mandatPdf')
       const kiwee = await generateMandatKiweePdf({ compte, contact, compteurs, dureeMois })
       const documents = [kiwee]
       if (inclutEnergix) {
