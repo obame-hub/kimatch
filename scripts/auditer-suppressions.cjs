@@ -45,7 +45,7 @@ const fs = require('fs')
 
 /** Les tables que l'application propose de supprimer — relevé des `.delete()` de `src/lib/data`. */
 const SUPPRIMABLES = [
-  'comptes', 'contacts', 'compteurs', 'contrats', 'mandats', 'recommandations',
+  'comptes', 'contacts', 'compteurs', 'contrats', 'mandats', 'recommandations', 'opportunites',
   'versions_recommandation', 'signaux', 'actions', 'interactions', 'consommations',
   'documents', 'offres_fournisseurs', 'contrats_compteurs_tarifs',
 ]
