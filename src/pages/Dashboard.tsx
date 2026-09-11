@@ -238,11 +238,7 @@ export default function Dashboard() {
             <div className="grid auto-rows-min grid-cols-1 gap-2.5 sm:grid-cols-2 lg:grid-cols-6">
               {/* La grande tuile ouvre la grille : deux colonnes, deux rangées. Les quatre
                   compteurs et la bande des opportunités se placent ensuite autour d'elle. */}
-              <TuileArgent
-                totaux={totaux}
-                nbOffres={offres?.length ?? 0}
-                chargement={totauxEnCours || offresEnCours}
-              />
+              <TuileArgent totaux={totaux} chargement={totauxEnCours} />
               <TuilesJournee nombres={cartes} chargement={cartesEnCours} />
             </div>
           </Zone>

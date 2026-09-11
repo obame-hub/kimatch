@@ -48,8 +48,25 @@ export interface LigneOffre {
   compte_nom: string | null
 }
 
+/**
+ * ══ LES DEUX MONTANTS DE LA TUILE D'ARGENT ══
+ *
+ * William, 11/09/2026 : « le pipe ouvert […] uniquement les recommandations avec en propriétaire
+ * l'utilisateur qui affiche le dashboard, et uniquement au statut "En décision". Ça s'appellerait
+ * désormais Pipe en décision. »
+ *
+ * LES DEUX SE MESURENT EN `marge_nette_coeff`, le montant qui fait foi pour une recommandation.
+ * L'ancien pipe lisait `versions_recommandation.gain_estime_annuel` — une colonne NULLE sur les
+ * 1 565 versions actuelles de la base. Il affichait donc 0,00 € à tout le monde, et un zéro se lit
+ * comme « je n'ai rien en cours », jamais comme « la colonne est vide ». Voir la migration
+ * `20260911120000`.
+ */
 export interface TotauxOffres {
-  pipeOuvert: number
+  /** La somme des marges nettes de mes études actuellement chez le client. */
+  pipeEnDecision: number
+  /** Combien d'études composent cette somme — voir la migration : deux chiffres voisins doivent
+   *  parler du même ensemble. */
+  nbEnDecision: number
   montantSigne: number
 }
 
@@ -112,12 +129,13 @@ export function useTotauxOffres() {
     queryFn: async (): Promise<TotauxOffres> => {
       const { data, error } = await supabase.rpc('compter_totaux_offres')
       if (error) {
-        if (absente(error.message)) return { pipeOuvert: 0, montantSigne: 0 }
+        if (absente(error.message)) return { pipeEnDecision: 0, nbEnDecision: 0, montantSigne: 0 }
         throw new Error(error.message)
       }
       const l = (Array.isArray(data) ? data[0] : data) as Record<string, number> | null
       return {
-        pipeOuvert: Number(l?.pipe_ouvert ?? 0),
+        pipeEnDecision: Number(l?.pipe_en_decision ?? 0),
+        nbEnDecision: Number(l?.nb_en_decision ?? 0),
         montantSigne: Number(l?.montant_signe ?? 0),
       }
     },

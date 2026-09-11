@@ -96,23 +96,22 @@ function useSursaut(valeur: number) {
  * Ils étaient deux cartes jumelles, donc deux choses de même poids. Elles ne le sont pas :
  *
  *   LE MONTANT SIGNÉ EST UN FAIT. De l'argent acquis aujourd'hui, vérifiable.
- *   LE PIPE OUVERT EST UNE ESPÉRANCE. Une somme d'études dont une partie ne se signera jamais.
+ *   LE PIPE EN DÉCISION EST UNE ESPÉRANCE. Les études parties chez le client, dont une partie ne
+ *   se signera jamais.
  *
  * Les réunir dans une tuile, séparés par un filet, avec un rapport de taille de 32 à 18 px, dit
  * exactement cela : la même famille — de l'argent — deux statuts différents.
  */
 export function TuileArgent({
   totaux,
-  nbOffres,
   chargement,
 }: {
   totaux: TotauxOffres | undefined
-  /** Le nombre d'études ouvertes, qui donne sa mesure au pipe. */
-  nbOffres: number
   chargement: boolean
 }) {
   const signe = totaux?.montantSigne ?? 0
-  const pipe = totaux?.pipeOuvert ?? 0
+  const pipe = totaux?.pipeEnDecision ?? 0
+  const nb = totaux?.nbEnDecision ?? 0
   const sursaut = useSursaut(signe)
 
   return (
@@ -148,7 +147,7 @@ export function TuileArgent({
       <span aria-hidden className="mt-auto block h-px bg-white/20" />
 
       <span className="mt-3 truncate text-km-label font-bold uppercase tracking-[.1em] text-white/65">
-        Pipe ouvert
+        Pipe en décision
       </span>
       <span className="mt-1.5 flex items-center">
         {chargement ? (
@@ -163,8 +162,12 @@ export function TuileArgent({
           />
         )}
       </span>
+      {/* LE DÉCOMPTE VIENT DE LA MÊME REQUÊTE QUE LA SOMME. Il affichait auparavant le nombre
+          d'offres DU JOUR — donc un autre ensemble que le montant juste au-dessus. Deux chiffres
+          côte à côte qui ne parlent pas du même périmètre finissent par être lus comme s'ils le
+          faisaient. */}
       <span className="mt-0.5 truncate text-km-label text-white/60">
-        {chargement ? '—' : `${nbOffres} étude${nbOffres > 1 ? 's' : ''} en cours`}
+        {chargement ? '—' : `${nb} étude${nb > 1 ? 's' : ''} chez le client`}
       </span>
     </div>
   )
