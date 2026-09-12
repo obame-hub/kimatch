@@ -49,6 +49,7 @@ interface RawLien {
   opportunite_id: string
   site_id?: string
   compteur_id?: string
+  ecarte?: boolean
 }
 
 async function fetchOpportunites(opportuniteId?: string): Promise<Opportunite[]> {
@@ -70,7 +71,7 @@ async function fetchOpportunites(opportuniteId?: string): Promise<Opportunite[]>
       fetchAllRows<RawLien>('opportunites_sites', 'opportunite_id, site_id',
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         (q: any) => q.in('opportunite_id', ids)),
-      fetchAllRows<RawLien>('opportunites_compteurs', 'opportunite_id, compteur_id',
+      fetchAllRows<RawLien>('opportunites_compteurs', 'opportunite_id, compteur_id, ecarte',
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         (q: any) => q.in('opportunite_id', ids)),
       fetchAllRows<{ id: string; opportunite_id: string | null }>('recommandations', 'id, opportunite_id',
@@ -89,10 +90,41 @@ async function fetchOpportunites(opportuniteId?: string): Promise<Opportunite[]>
     }
     const sitesParOpp = parOpp(sites, 'site_id')
     const compteursParOpp = parOpp(compteurs, 'compteur_id')
+    /* ÉCARTÉ RESTE DANS LE PÉRIMÈTRE. On ne le retire pas de `compteur_ids` : il en fait partie,
+       c'est son sort à la conversion qui diffère. L'enlever ferait disparaître de l'écran un
+       compteur qu'on a délibérément mis de côté — et l'on ne saurait plus qu'on l'a fait. */
+    const ecartesParOpp = new Map<string, string[]>()
+    for (const l of compteurs) {
+      if (!l.ecarte || !l.compteur_id) continue
+      ecartesParOpp.set(l.opportunite_id, [...(ecartesParOpp.get(l.opportunite_id) ?? []), l.compteur_id])
+    }
     const recosParOpp = new Map<string, string[]>()
     for (const r of recos) {
       if (!r.opportunite_id) continue
       recosParOpp.set(r.opportunite_id, [...(recosParOpp.get(r.opportunite_id) ?? []), r.id])
+    }
+
+    /* ══ CE QUI EST DÉJÀ PLACÉ ══
+       Un compteur est « placé » quand il appartient à une recommandation issue de CETTE
+       opportunité. C'est ce décompte qui dit s'il reste du périmètre à traiter — et donc si la
+       conversion est finie ou à moitié faite.
+
+       Une requête de plus, et seulement s'il existe des recommandations : une opportunité qui n'en
+       a produit aucune n'a rien à placer. */
+    const idsRecos = [...recosParOpp.values()].flat()
+    const placesParOpp = new Map<string, string[]>()
+    if (idsRecos.length > 0) {
+      const liens = await fetchAllRows<{ recommandation_id: string; compteur_id: string }>(
+        'recommandations_compteurs', 'recommandation_id, compteur_id',
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        (q: any) => q.in('recommandation_id', idsRecos))
+      const oppDeLaReco = new Map<string, string>()
+      for (const [opp, listeRecos] of recosParOpp) for (const r of listeRecos) oppDeLaReco.set(r, opp)
+      for (const l of liens) {
+        const opp = oppDeLaReco.get(l.recommandation_id)
+        if (!opp) continue
+        placesParOpp.set(opp, [...(placesParOpp.get(opp) ?? []), l.compteur_id])
+      }
     }
 
     const comptesVisibles = await fetchComptesVisibles()
@@ -131,6 +163,8 @@ async function fetchOpportunites(opportuniteId?: string): Promise<Opportunite[]>
       site_ids: sitesParOpp.get(o.id) ?? [],
       compteur_ids: compteursParOpp.get(o.id) ?? [],
       recommandation_ids: recosParOpp.get(o.id) ?? [],
+      compteurs_ecartes: ecartesParOpp.get(o.id) ?? [],
+      compteurs_places: placesParOpp.get(o.id) ?? [],
     }))
   } catch (error) {
     console.error('fetchOpportunites', error)
@@ -249,10 +283,35 @@ export function statutDerive(o: Opportunite, mandats: MandatPourCouverture[]) {
   const { liste } = prerequisOpportunite(o, mandats)
   const ok = (cle: string) => liste.find((p) => p.cle === cle)?.ok ?? false
 
-  // « Convertie — recommandations par périmètre » : une opportunité qui a produit au moins une
-  // recommandation a abouti, quoi qu'il manque par ailleurs.
-  if (o.recommandation_ids.length > 0) {
+  /* ══ CONVERTIE QUAND TOUT LE PÉRIMÈTRE EST PLACÉ, ET PAS AVANT ══
+
+     Cette règle disait : « une opportunité qui a produit AU MOINS UNE recommandation a abouti,
+     quoi qu'il manque par ailleurs ». Sur un périmètre de quatre compteurs dont deux seulement
+     étaient partis en recommandation, Kimatch affichait « Convertie » — et plus rien ne rappelait
+     qu'il en restait deux.
+
+     Michel, 11/09/2026 : « à la fin il faut que tous les compteurs soient dans une ou des
+     recommandations, ou sinon que j'aie fait exprès d'écarter un compteur ». La conversion est
+     donc un ÉTAT DU PÉRIMÈTRE, pas un compteur de recommandations : chaque compteur finit placé
+     ou écarté, et tant qu'il en reste un, le travail n'est pas fini.
+
+     Le reste se dit en clair — « 2 compteurs sur 4 encore à placer » — parce qu'une opportunité
+     bloquée à mi-conversion sans explication est exactement ce qu'on vient de corriger. */
+  const perimetre = o.compteur_ids
+  const traites = new Set([...(o.compteurs_places ?? []), ...(o.compteurs_ecartes ?? [])])
+  const restants = perimetre.filter((c) => !traites.has(c))
+
+  if (o.recommandation_ids.length > 0 && restants.length === 0) {
     return { code: 'CONVERTIE', libelle: 'Convertie', tache: 'Recommandations créées.' }
+  }
+  if (o.recommandation_ids.length > 0) {
+    /* CONVERSION COMMENCÉE, PAS FINIE. Elle reste au palier « Prête à convertir » : le travail qui
+       reste est bien une conversion à terminer, et non une qualification à reprendre. */
+    return {
+      code: 'PRETE_A_CONVERTIR',
+      libelle: 'Prête à convertir',
+      tache: `Conversion en cours — ${restants.length} compteur${restants.length > 1 ? 's' : ''} sur ${perimetre.length} encore à placer.`,
+    }
   }
   // « Abandonnée — fermée avec un motif ». Une qualification finale autre que CONVERTIE ferme le
   // dossier : perdue, non qualifiée, reportée ou annulée.
@@ -360,6 +419,42 @@ export function useMajOpportunite() {
       if (error) throw new Error(messageDErreur(error.message))
     },
     onSuccess: () => { qc.invalidateQueries({ queryKey: ['opportunites'] }) },
+  })
+}
+
+/**
+ * ÉCARTER DES COMPTEURS DU PÉRIMÈTRE, À LA CONVERSION.
+ *
+ * Michel, 11/09/2026 : « ah bah finalement j'écarte ce compteur […] en écartant, ça valide le fait
+ * que j'ai deux recommandations […] et l'autre qui a été écarté, fin du gain. »
+ *
+ * C'est ce qui permet à une conversion de se terminer quand un compteur du périmètre ne mérite
+ * aucune recommandation. Sans cette sortie, l'opportunité resterait à moitié convertie pour
+ * toujours — et personne ne saurait si le compteur a été oublié ou laissé de côté exprès.
+ *
+ * La date de l'écart est posée par la base (déclencheur `trg_dater_l_ecart_du_compteur`) : une
+ * date venue du navigateur suit l'horloge du poste.
+ */
+export function useEcarterDuPerimetre() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: async ({ opportuniteId, compteurs }: {
+      opportuniteId: string
+      compteurs: { compteurId: string; motif: string | null }[]
+    }) => {
+      /* Un `update` par compteur, parce que chacun porte son propre motif. Ils se comptent sur les
+         doigts d'une main — un périmètre de plus de cinq compteurs écartés d'un coup n'existe pas
+         dans les données du jour, et l'optimiser prématurément coûterait la lisibilité. */
+      for (const c of compteurs) {
+        const { error } = await supabase
+          .from('opportunites_compteurs')
+          .update({ ecarte: true, motif_ecart: c.motif })
+          .eq('opportunite_id', opportuniteId)
+          .eq('compteur_id', c.compteurId)
+        if (error) throw new Error(messageDErreur(error.message))
+      }
+    },
+    onSuccess: () => { void qc.invalidateQueries({ queryKey: ['opportunites'] }) },
   })
 }
 

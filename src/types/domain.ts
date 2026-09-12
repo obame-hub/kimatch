@@ -887,6 +887,19 @@ export interface TarifContratCompteur {
  * pricing.
  */
 export interface Opportunite {
+  /**
+   * LES COMPTEURS DU PÉRIMÈTRE ÉCARTÉS À LA CONVERSION.
+   *
+   * Michel, 11/09/2026 : « en écartant, ça valide le fait que j'ai deux recommandations […] et
+   * l'autre qui a été écarté, fin du gain ». Écarter est une décision, pas un oubli — et sans la
+   * distinguer, « pas encore traité » et « volontairement laissé de côté » se ressemblent.
+   */
+  compteurs_ecartes?: string[]
+  /**
+   * LES COMPTEURS DU PÉRIMÈTRE DÉJÀ PLACÉS DANS UNE RECOMMANDATION issue de cette opportunité.
+   * C'est ce qui permet de dire combien il en reste à traiter, et donc si la conversion est finie.
+   */
+  compteurs_places?: string[]
   id: string
   reference: string | null
   /** PISTE | PORTEFEUILLE | DEMANDE_ENTRANTE | PARTENAIRE */

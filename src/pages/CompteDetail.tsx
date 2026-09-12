@@ -16,6 +16,8 @@ import {
   Handshake,
   Leaf,
   type LucideIcon,
+
+  Target,
 } from 'lucide-react'
 import { Topbar } from '@/components/layout/Topbar'
 import { HubCreation } from '@/components/compte/HubCreation'
@@ -26,6 +28,7 @@ import { MandatWizard } from '@/components/mandat/MandatWizard'
 import { WizardConnectionGate } from '@/components/ui/connection-gate'
 import { HeroQualiteCompte, HeroScoreEllipro, type FaitEllipro } from '@/components/compte/HerosCompte'
 import { useQualiteCompte, useEvolutionQualite, useQualiteCompteurs, useStatutCommercialSites, manquesCompteur } from '@/lib/data/qualiteCompte'
+import { useOpportunites } from '@/lib/data/opportunites'
 import { pastilleScore } from '@/lib/niveauScore'
 import { OngletRecommandations } from '@/components/compte/OngletsCompte'
 import { OngletHistorique } from '@/components/compte/OngletHistorique'
@@ -109,7 +112,7 @@ const TYPE_BADGE_STYLE: Record<TypeCompte, { bg: string; border: string; text: s
   kiwee: { bg: 'bg-km-soft', border: 'border-km-line', text: 'text-km-muted', dot: 'bg-km-faint', icone: Leaf },
 }
 
-type TabKey = 'synthese' | 'detail' | 'contacts' | 'contrats' | 'compteurs' | 'recommandations' | 'mandats' | 'fichiers' | 'historique' | 'activite'
+type TabKey = 'synthese' | 'detail' | 'contacts' | 'contrats' | 'compteurs' | 'opportunites' | 'recommandations' | 'mandats' | 'fichiers' | 'historique' | 'activite'
 
 function copyToClipboard(text: string, onDone: (msg: string) => void) {
   if (!text) return
@@ -307,6 +310,16 @@ export default function CompteDetail() {
   // reste visible meme si ses compteurs ont change de cabinet entre-temps.
   const contratsDuCompte = useMemo(() => contrats?.filter((c) => c.compte_id === id) ?? [], [contrats, id])
   const recommandationsDuCompte = useMemo(() => recommandations?.filter((r) => r.compte_id === id) ?? [], [recommandations, id])
+  /* ══ LES OPPORTUNITÉS DU COMPTE ══
+     Naoëlle, 12/09/2026 : « quand je suis sur un compte je ne vois pas son onglet opportunité ».
+     Il n'existait pas — huit onglets couvraient le contrat, le compteur, la recommandation et le
+     mandat, mais pas l'objet qui les précède tous. On voyait donc le résultat d'une affaire sans
+     jamais voir l'affaire elle-même. */
+  const { data: toutesOpportunites } = useOpportunites()
+  const opportunitesDuCompte = useMemo(
+    () => (toutesOpportunites ?? []).filter((o) => o.compte_id === id),
+    [toutesOpportunites, id],
+  )
   const mandatsDuCompte = useMemo(() => mandats?.filter((m) => m.compte_id === id) ?? [], [mandats, id])
   const actionsDuCompte = useMemo(() => actions?.filter((a) => siteIdsDuCompte.has(a.site_id ?? '')) ?? [], [actions, siteIdsDuCompte])
   const documentsDuCompte = useMemo(() => documents?.filter((d) => d.entite_type === 'compte' && d.entite_id === id) ?? [], [documents, id])
@@ -345,6 +358,9 @@ export default function CompteDetail() {
     { key: 'contacts', label: 'Contacts', badge: contactsDuCompte.length ? String(contactsDuCompte.length) : undefined },
     { key: 'contrats', label: 'Contrats', badge: contratsDuCompte.length ? String(contratsDuCompte.length) : undefined },
     { key: 'compteurs', label: 'Compteurs', badge: compteursDuCompte.length ? String(compteursDuCompte.length) : undefined },
+    /* AVANT les recommandations, parce que c'est l'ordre du parcours : l'opportunité se convertit
+       EN recommandations. Les lire dans l'autre sens ferait chercher la cause après l'effet. */
+    { key: 'opportunites', label: 'Opportunités', labelMobile: 'Oppos', badge: opportunitesDuCompte.length ? String(opportunitesDuCompte.length) : undefined },
     { key: 'recommandations', label: 'Recommandations', labelMobile: 'Recos', badge: recommandationsDuCompte.length ? String(recommandationsDuCompte.length) : undefined },
     { key: 'mandats', label: 'Mandats', badge: mandatsDuCompte.length ? String(mandatsDuCompte.length) : undefined },
     { key: 'fichiers', label: 'Fichiers', badge: documentsDuCompte.length ? String(documentsDuCompte.length) : undefined },
@@ -870,6 +886,52 @@ export default function CompteDetail() {
 
           {tab === 'compteurs' && (
             <CompteursTabContent sites={sitesDuCompte} compteId={compte.id} compteurs={compteursDuCompte} />
+          )}
+
+          {tab === 'opportunites' && (
+            <div className="flex flex-col gap-2.5">
+              {opportunitesDuCompte.length === 0 ? (
+                <div className="rounded-xl border border-dashed border-km-line p-4">
+                  <p className="text-km-name font-bold text-km-text">Aucune opportunité sur ce compte</p>
+                  <p className="mt-1 text-km-label text-km-muted">
+                    Une opportunité réunit un contact, un périmètre de compteurs et un mandat, puis se
+                    convertit en recommandations.
+                  </p>
+                  <Button size="sm" className="mt-2.5" onClick={() => navigate('/opportunites')}>
+                    <Plus className="h-3.5 w-3.5" />
+                    Voir les opportunités
+                  </Button>
+                </div>
+              ) : (
+                opportunitesDuCompte.map((o) => (
+                  <button
+                    key={o.id}
+                    type="button"
+                    onClick={() => navigate(`/opportunites/${o.id}`)}
+                    className="flex items-center gap-3 rounded-xl border border-km-line bg-km-surface px-3.5 py-3 text-left transition-colors hover:border-opp-200 hover:bg-opp-100/30"
+                  >
+                    <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-[9px] bg-gradient-to-br from-opp-600 to-opp-400 text-white">
+                      <Target className="h-4 w-4" />
+                    </span>
+                    <div className="min-w-0 flex-1">
+                      <p className="font-mono text-km-body font-bold text-km-text">
+                        {o.reference || 'Sans référence'}
+                      </p>
+                      <p className="truncate text-km-label text-km-muted">
+                        {o.compteur_ids.length} compteur{o.compteur_ids.length > 1 ? 's' : ''}
+                        {o.type_opportunite ? ` · ${o.type_opportunite}` : ''}
+                        {o.recommandation_ids.length > 0
+                          ? ` · ${o.recommandation_ids.length} recommandation${o.recommandation_ids.length > 1 ? 's' : ''}`
+                          : ''}
+                      </p>
+                    </div>
+                    <Badge tone={o.qualification_fin === 'CONVERTIE' ? 'kiwi' : 'neutral'}>
+                      {o.statut_libelle}
+                    </Badge>
+                  </button>
+                ))
+              )}
+            </div>
           )}
 
           {tab === 'recommandations' && <OngletRecommandations recommandations={recommandationsDuCompte} />}

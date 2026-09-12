@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
-import { ArrowLeft, Target, Plus, Check, AlertTriangle, Building2, User, MapPin, Gauge, FileSignature, Trash2 } from 'lucide-react'
+import { ArrowLeft, Target, Plus, Check, AlertTriangle, Building2, User, MapPin, Gauge, FileSignature, Trash2, Layers } from 'lucide-react'
 import { Topbar } from '@/components/layout/Topbar'
 import { Card } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
@@ -40,6 +40,7 @@ import { useContacts } from '@/lib/data/contacts'
 import { useMandats } from '@/lib/data/mandats'
 import { MandatWizard } from '@/components/mandat/MandatWizard'
 import { CreateRecommandationDialog } from '@/components/opportunite/CreationRecommandationWizard'
+import { DialogConversionOpportunite } from '@/components/opportunite/DialogConversionOpportunite'
 import { useRecommandationsListe } from '@/lib/data/recommandations'
 import { cn } from '@/lib/utils'
 import type { Opportunite } from '@/types/domain'
@@ -80,6 +81,7 @@ export default function OpportuniteDetail() {
 
   const [toast, setToast] = useState<string | null>(null)
   const [clotureOuverte, setClotureOuverte] = useState(false)
+  const [conversionOuverte, setConversionOuverte] = useState(false)
   const [ajoutOuvert, setAjoutOuvert] = useState(false)
   // « On peut lancer la demande de mandat depuis l'opportunité » (Michel, 23/08/2026). Le bouton
   // renvoyait sur la fiche compte, ce qui faisait perdre le périmètre qu'on vient d'établir.
@@ -275,6 +277,25 @@ export default function OpportuniteDetail() {
             </span>
           </div>
         </div>
+
+        {/* ══ CONVERTIR — LE GESTE QUI CLÔT L'OPPORTUNITÉ ══
+            Michel, 11/09/2026 : « c'est quand tu mets convertir cette opportunité que les
+            recommandations se créent », et « ça se fait manuellement », dit deux fois.
+
+            Il n'apparaît que si le périmètre existe : convertir un périmètre vide ne produirait
+            aucune recommandation, et proposer le geste ferait chercher ce qui manque ailleurs. */}
+        {canManage && opportunite.compteur_ids.length > 0 && !convertie && (
+          <Button
+            variant="outline"
+            size="sm"
+            className="flex-none border-opp-200 text-opp-600 hover:bg-opp-100"
+            onClick={() => setConversionOuverte(true)}
+            title="Découper le périmètre en recommandations"
+          >
+            <Layers className="h-3.5 w-3.5" />
+            Convertir
+          </Button>
+        )}
 
         {/* SUPPRIMER — le geste destructeur se tient À GAUCHE de l'action principale et en
             variante discrète. William, 10/09/2026 : l'opportunité était le seul objet principal
@@ -967,6 +988,18 @@ export default function OpportuniteDetail() {
         )}
         enCours={suppression.enCours}
         erreur={suppression.erreur}
+      />
+
+      {/* Le découpage du périmètre en lots : rien n'est créé tant qu'on n'a pas confirmé, et l'on
+          ne peut pas confirmer tant qu'un compteur n'est ni placé ni écarté. */}
+      <DialogConversionOpportunite
+        opportunite={opportunite}
+        ouvert={conversionOuverte}
+        onFermer={() => setConversionOuverte(false)}
+        onConverti={(n) => {
+          setConversionOuverte(false)
+          setToast(`${n} recommandation${n > 1 ? 's' : ''} créée${n > 1 ? 's' : ''}`)
+        }}
       />
 
       {toast && (

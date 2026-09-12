@@ -69,7 +69,7 @@ async function chercher(query: string): Promise<SearchEntry[]> {
      les objets sur lesquels on travaille vraiment. Relevé du jour : 33 sites ne portent aucun
      compteur et ne remonteront plus ; 28 d'entre eux sont des coquilles vides (0 contrat,
      0 document, 0 action, 0 signal), et les 5 autres restent atteignables par leur contrat. */
-  const [comptes, contacts, compteurs, mandats, recommandations, contrats] = await Promise.all([
+  const [comptes, contacts, compteurs, mandats, opportunites, recommandations, contrats] = await Promise.all([
     appliquer(supabase.from('comptes').select('id, nom, ville, siren'), listeMots, ['nom', 'siren', 'ville']).limit(PAR_FAMILLE),
     appliquer(supabase.from('contacts').select('id, prenom, nom, email, telephone, compte:comptes(nom)'), listeMots, ['nom', 'prenom', 'email', 'telephone']).limit(PAR_FAMILLE),
     /* ══ LE COMPTEUR SE CHERCHE AUSSI PAR SON SITE ════════════════════════════════════════════
@@ -90,6 +90,12 @@ async function chercher(query: string): Promise<SearchEntry[]> {
       ['numero_point', 'libelle', 'libelle_site', 'adresse_site'],
     ).limit(PAR_FAMILLE),
     appliquer(supabase.from('mandats').select('id, reference, compte:comptes(nom)'), listeMots, ['reference']).limit(PAR_FAMILLE),
+    /* L'OPPORTUNITÉ MANQUAIT, ET SA RÉFÉRENCE EST FAITE POUR ÊTRE TAPÉE.
+       Naoëlle, 12/09/2026 : elle cherche « OPP-2026-018 » et la barre répond « aucun résultat ».
+       Neuf familles y étaient, pas celle-là — alors que c'est le seul objet dont on se transmet la
+       référence à l'oral pour se retrouver. On cherche aussi sur le type, qui est le seul autre
+       texte libre qu'elle porte. */
+    appliquer(supabase.from('opportunites').select('id, reference, type_opportunite, compte:comptes(nom)'), listeMots, ['reference', 'type_opportunite']).limit(PAR_FAMILLE),
     // `!<contrainte>` obligatoire ici : recommandations et contrats ont CHACUNE deux cles
     // etrangeres vers comptes (le compte du dossier et le fournisseur). Un embed non qualifie
     // rend PGRST201 « relation ambigue » et fait echouer toute la famille de resultats.
@@ -132,6 +138,16 @@ async function chercher(query: string): Promise<SearchEntry[]> {
   }
   for (const m2 of mandats.data ?? []) {
     entrees.push({ kind: 'mandat', id: m2.id, label: m2.reference ?? 'Mandat', sublabel: nomDe(m2.compte), to: `/mandats/${m2.id}`, fields: [] })
+  }
+  for (const o of opportunites.data ?? []) {
+    entrees.push({
+      kind: 'opportunite',
+      id: o.id,
+      label: o.reference ?? 'Opportunité',
+      sublabel: [nomDe(o.compte), o.type_opportunite].filter(Boolean).join(' · '),
+      to: `/opportunites/${o.id}`,
+      fields: [],
+    })
   }
   for (const r of recommandations.data ?? []) {
     entrees.push({ kind: 'recommandation', id: r.id, label: r.nom, sublabel: nomDe(r.compte), to: `/recommandations/${r.id}`, fields: [] })

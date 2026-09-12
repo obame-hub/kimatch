@@ -37,6 +37,30 @@ export function Dialog({ open, onClose, title, description, children, className 
     return () => window.removeEventListener('keydown', onKeyDown)
   }, [open, onClose])
 
+  /* ══ LE DOCUMENT SAIT QU'UNE FENÊTRE EST OUVERTE ══
+     Naoëlle, 12/09/2026 : « les deux logos d'appel et de notifications ne devraient pas être en
+     premier plan quand une modale s'ouvre ». Les deux pastilles flottantes sont en `z-65`, le voile
+     en `z-50` : elles passaient au-dessus de TOUTES les fenêtres de l'application, pas seulement
+     celle-là.
+
+     Monter le voile ne réglerait qu'un cas et relancerait la surenchère de niveaux à chaque nouvel
+     élément flottant. On marque donc le document, et ce qui flotte se retire de lui-même — la règle
+     vit à un seul endroit (`index.css`) et vaut pour toute fenêtre, présente ou à venir.
+
+     UN COMPTEUR ET NON UN BOOLÉEN : deux fenêtres peuvent se superposer — la confirmation de
+     suppression par-dessus le détail — et la première qui se ferme effacerait la marque alors que
+     la seconde est encore là. */
+  useEffect(() => {
+    if (!open) return
+    const n = Number(document.body.dataset.modalesOuvertes ?? '0') + 1
+    document.body.dataset.modalesOuvertes = String(n)
+    return () => {
+      const reste = Number(document.body.dataset.modalesOuvertes ?? '1') - 1
+      if (reste > 0) document.body.dataset.modalesOuvertes = String(reste)
+      else delete document.body.dataset.modalesOuvertes
+    }
+  }, [open])
+
   if (!open) return null
 
   return createPortal(

@@ -17,6 +17,7 @@ export type SearchKind =
   | 'contact'
   | 'compteur'
   | 'mandat'
+  | 'opportunite'
   | 'recommandation'
   | 'contrat'
   | 'document'
@@ -29,6 +30,7 @@ export const SEARCH_KIND_LABEL: Record<SearchKind, string> = {
   contact: 'Contacts',
   compteur: 'Compteurs',
   mandat: 'Mandats',
+  opportunite: 'Opportunités',
   recommandation: 'Recommandations',
   contrat: 'Contrats',
   document: 'Documents',

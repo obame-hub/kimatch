@@ -890,3 +890,23 @@ html body span[data-allo-c2c][data-allo-c2c-style="1"] > .allo-copy-btn {
   }
   .km-canevas::before, .km-canevas::after { animation: none !important; }
 }
+
+/* ══ CE QUI FLOTTE S'EFFACE DEVANT UNE FENÊTRE MODALE ══
+ *
+ * Naoëlle, 12/09/2026 : les pastilles du téléphone et des notifications restaient en premier plan
+ * par-dessus une fenêtre ouverte, voile compris. Elles sont en `z-65`, le voile en `z-50` — et
+ * remonter le voile n'aurait réglé que ce cas-là, en relançant la surenchère au prochain élément
+ * flottant.
+ *
+ * `Dialog` marque `document.body` tant qu'une fenêtre est ouverte ; tout ce qui porte
+ * `.pastille-flottante` disparaît alors. Une seule règle, vraie pour toutes les fenêtres, y compris
+ * celles qui n'existent pas encore.
+ *
+ * `pointer-events: none` en plus de l'invisibilité : un élément seulement transparent continuerait
+ * d'intercepter les clics à l'endroit où il se trouvait.
+ */
+body[data-modales-ouvertes] .pastille-flottante {
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity .12s ease;
+}

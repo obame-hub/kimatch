@@ -293,7 +293,7 @@ export function VoletAllo() {
       onClick={() => ouvrirVoletAllo()}
       title="Ouvrir le téléphone"
       aria-label="Ouvrir le téléphone"
-      className="fixed bottom-[4.5rem] left-4 z-[65] flex h-11 w-11 items-center justify-center rounded-full bg-kiwi-gradient text-white shadow-km-green transition-opacity hover:opacity-90 md:bottom-4 md:left-[231px]"
+      className="pastille-flottante fixed bottom-[4.5rem] left-4 z-[65] flex h-11 w-11 items-center justify-center rounded-full bg-kiwi-gradient text-white shadow-km-green transition-opacity hover:opacity-90 md:bottom-4 md:left-[231px]"
     >
       <Phone className="h-[18px] w-[18px] text-white" />
       {charge && (

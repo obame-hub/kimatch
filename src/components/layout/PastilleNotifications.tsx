@@ -42,7 +42,7 @@ export function PastilleNotifications() {
             ? `Notifications, ${nonLues.length} à traiter`
             : 'Notifications, rien à traiter'
         }
-        className="fixed bottom-[4.5rem] left-[4.25rem] z-[65] flex h-11 w-11 items-center justify-center rounded-full bg-kiwi-gradient text-white shadow-km-green transition-opacity hover:opacity-90 md:bottom-4 md:left-[283px]"
+        className="pastille-flottante fixed bottom-[4.5rem] left-[4.25rem] z-[65] flex h-11 w-11 items-center justify-center rounded-full bg-kiwi-gradient text-white shadow-km-green transition-opacity hover:opacity-90 md:bottom-4 md:left-[283px]"
       >
         <Bell className="h-[18px] w-[18px] text-white" />
         {nonLues.length > 0 && (

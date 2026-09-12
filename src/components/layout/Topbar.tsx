@@ -13,6 +13,8 @@ import {
   FileText,
   CheckSquare,
   MessageSquare,
+
+  Target,
 } from 'lucide-react'
 import { useAuth } from '@/lib/auth'
 import { pagesRecherchables } from '@/lib/navItems'
@@ -28,6 +30,7 @@ const KIND_ICON: Record<SearchKind, typeof Building2> = {
   contact: User,
   compteur: Gauge,
   mandat: FileCheck2,
+  opportunite: Target,
   recommandation: Sparkle,
   contrat: FileSignature,
   document: FileText,
@@ -40,6 +43,7 @@ const KIND_TINT: Record<SearchKind, string> = {
   site: 'text-km-green',
   contact: 'text-violet-500',
   compteur: 'text-km-muted',
+  opportunite: 'text-opp-500',
   mandat: 'text-amber-600',
   recommandation: 'text-amber-500',
   contrat: 'text-sky-500',

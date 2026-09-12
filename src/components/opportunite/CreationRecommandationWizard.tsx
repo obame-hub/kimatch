@@ -129,7 +129,14 @@ function normalizeAccents(s: string): string {
  * `IconeEnergie`, en trait fin et à la couleur de l'application. C'est sa place : une information
  * dans une colonne, une icône dans une vue.
  */
-function buildTitre(
+/**
+ * Le titre d'une recommandation, à l'identique partout.
+ *
+ * Exporté le 11/09/2026 pour le dialogue de conversion : deux recommandations nées du même
+ * périmètre, l'une par l'assistant et l'autre par la conversion, doivent porter le même genre de
+ * nom. Recopier la règle aurait suffi aujourd'hui et divergé au premier changement.
+ */
+export function buildTitre(
   compteNom: string,
   siteNom: string | null | undefined,
   pdlCount: number,
@@ -143,6 +150,41 @@ function buildTitre(
       : `SANS COMPTE${site}`
   }
   return `MULTISITE - ${dateCloture} - ${acc}`
+}
+
+/**
+ * LA DATE DE CLÔTURE SUGGÉRÉE : la plus proche des échéances du lot, diminuée du préavis réel du
+ * contrat en cours — et non d'un préavis forfaitaire, qui ferait rater la fenêtre de résiliation
+ * sur les fournisseurs qui exigent plus que les 30 jours habituels.
+ *
+ * Sortie de son composant le 11/09/2026 : la conversion d'une opportunité crée plusieurs
+ * recommandations d'un coup, chacune sur son propre lot de compteurs, donc chacune avec sa propre
+ * date. La règle ne pouvait plus vivre dans l'état d'un seul formulaire.
+ *
+ * Chaîne vide si aucun compteur du lot ne porte d'échéance : mieux vaut un champ à remplir qu'une
+ * date inventée — voir la règle des dates bouche-trou.
+ */
+export function dateClotureSuggereePour(
+  compteurs: { id: string; date_echeance?: string | null }[],
+  /* Décrit par sa forme et non par le type `Contrat` complet : cette fonction n'a besoin que de
+     trois champs, et s'attacher au type entier la rendrait solidaire de ses cinquante autres. */
+  contrats: { date_fin: string | null; preavis_resiliation_jours?: number | null; compteurs: { id: string }[] }[],
+): string {
+  if (compteurs.length === 0) return ''
+  const dates = compteurs
+    .map((c) => {
+      if (!c.date_echeance) return null
+      const contratActuel = contrats.find(
+        (ct) => contratEnCours(ct) && ct.compteurs.some((cpt) => cpt.id === c.id),
+      )
+      const preavis = contratActuel?.preavis_resiliation_jours ?? PREAVIS_DEFAUT_JOURS
+      const d = new Date(c.date_echeance)
+      d.setDate(d.getDate() - preavis)
+      return d
+    })
+    .filter((d): d is Date => d != null)
+  if (dates.length === 0) return ''
+  return dates.reduce((a, b) => (a < b ? a : b)).toISOString().slice(0, 10)
 }
 
 export function CreateRecommandationDialog({
@@ -343,24 +385,10 @@ export function CreateRecommandationDialog({
   const responsablesDesPdl = new Set(compteursChoisis.map((c) => c.responsable_contact_id).filter(Boolean))
   const contactHorsResponsables = !!contactEffectifId && responsablesDesPdl.size > 0 && !responsablesDesPdl.has(contactEffectifId)
 
-  // Seuil de préavis : la plus proche des échéances, diminuée du préavis réel du contrat en cours.
-  const dateClotureSuggeree = useMemo(() => {
-    if (compteursChoisis.length === 0) return ''
-    const dates = compteursChoisis
-      .map((c) => {
-        if (!c.date_echeance) return null
-        const contratActuel = (contrats ?? []).find(
-          (ct) => contratEnCours(ct) && ct.compteurs.some((cpt) => cpt.id === c.id),
-        )
-        const preavis = contratActuel?.preavis_resiliation_jours ?? PREAVIS_DEFAUT_JOURS
-        const d = new Date(c.date_echeance)
-        d.setDate(d.getDate() - preavis)
-        return d
-      })
-      .filter((d): d is Date => d != null)
-    if (dates.length === 0) return ''
-    return dates.reduce((a, b) => (a < b ? a : b)).toISOString().slice(0, 10)
-  }, [compteursChoisis, contrats])
+  const dateClotureSuggeree = useMemo(
+    () => dateClotureSuggereePour(compteursChoisis, contrats ?? []),
+    [compteursChoisis, contrats],
+  )
   const dateCloture = dateClotureManuelle || dateClotureSuggeree
 
   const titre = compteCible && compteursChoisis.length > 0
