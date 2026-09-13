@@ -88,6 +88,12 @@ export interface MoisDEcheance {
   mwh: number
   /** Combien, parmi eux, n'ont ni opportunité ouverte ni recommandation en cours. */
   sans_suite: number
+  /** Échéance PROUVÉE par un contrat en base : on tient le compteur. */
+  compteurs_client: number
+  mwh_client: number
+  /** Échéance seulement DÉCLARÉE : on ne le tient pas encore. */
+  compteurs_prospect: number
+  mwh_prospect: number
 }
 
 export function useChargeEcheances(compteId: string | undefined) {
@@ -106,6 +112,10 @@ export function useChargeEcheances(compteId: string | undefined) {
         compteurs: Number(l.compteurs ?? 0),
         mwh: Number(l.mwh ?? 0),
         sans_suite: Number(l.sans_suite ?? 0),
+        compteurs_client: Number(l.compteurs_client ?? 0),
+        mwh_client: Number(l.mwh_client ?? 0),
+        compteurs_prospect: Number(l.compteurs_prospect ?? 0),
+        mwh_prospect: Number(l.mwh_prospect ?? 0),
       }))
     },
   })

@@ -112,6 +112,16 @@ const TYPE_BADGE_STYLE: Record<TypeCompte, { bg: string; border: string; text: s
   kiwee: { bg: 'bg-km-soft', border: 'border-km-line', text: 'text-km-muted', dot: 'bg-km-faint', icone: Leaf },
 }
 
+/**
+ * Le bloc « Commentaire » de l'onglet Compte, masqué le 13/09/2026 à la demande de William.
+ *
+ * ANNOTÉ `boolean` ET NON LAISSÉ À `false` : au type littéral, TypeScript considère la branche comme
+ * morte et cesse d'y appliquer le rétrécissement de types — `compte` y redevient `Compte | undefined`
+ * et la compilation échoue. Au type `boolean`, la branche reste vivante pour le vérificateur, ce qui
+ * est exactement ce qu'on veut d'un interrupteur qu'on rallumera peut-être.
+ */
+const AFFICHER_COMMENTAIRE: boolean = false
+
 type TabKey = 'synthese' | 'detail' | 'contacts' | 'contrats' | 'compteurs' | 'opportunites' | 'recommandations' | 'mandats' | 'fichiers' | 'historique' | 'activite'
 
 function copyToClipboard(text: string, onDone: (msg: string) => void) {
@@ -577,7 +587,18 @@ export default function CompteDetail() {
             <div className="flex flex-col gap-3.5">
               {/* Les deux héros, dans la grille de la maquette : ils se répartissent la largeur et
                   passent l'un sous l'autre en dessous de 240px chacun. */}
-              <CommentaireCard compte={compte} />
+              {/* ══ LE COMMENTAIRE EST MASQUÉ, PAS SUPPRIMÉ ══
+                  William, 13/09/2026 : « masque le champ commentaire (ne le supprime pas) ».
+
+                  Il occupait la première ligne de l'onglet — la place qui revient maintenant à ce
+                  qu'il y a à faire sur le compte. Le champ existe toujours en base, `CommentaireCard`
+                  aussi, et les commentaires déjà saisis sont intacts : il suffit de retirer le
+                  `false &&` pour que le bloc revienne.
+
+                  UN INTERRUPTEUR PLUTÔT QU'UNE LIGNE COMMENTÉE : TypeScript continue de vérifier
+                  le composant et ses props. Une ligne mise en commentaire se périme en silence, et
+                  l'on s'en aperçoit le jour où on la réactive. */}
+              {AFFICHER_COMMENTAIRE && <CommentaireCard compte={compte} />}
               {/* ══ CE QU'IL Y A À FAIRE PASSE AVANT CE QU'ON EST ══
                   La zone ne s'affiche que si elle a quelque chose à dire : 4 comptes sur 5 n'ont
                   aucune échéance en souffrance, et un cadre vide use le signal — on finit par ne
