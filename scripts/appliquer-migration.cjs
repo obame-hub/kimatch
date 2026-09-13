@@ -43,6 +43,68 @@ function resoudreFichier(arg) {
   process.exit(1)
 }
 
+/**
+ * Decoupe un fichier SQL en instructions, pour les envoyer une par une.
+ *
+ * N'EST UTILISE QUE POUR LES MIGRATIONS SANS TRANSACTION, et c'est ce qui rend ce decoupage sur
+ * `;` acceptable : le garde-fou a deja verifie qu'un tel fichier ne fait que poser des index et
+ * reanalyser. On gere quand meme les chaines et les blocs `$$…$$`, parce qu'un decoupage naif qui
+ * marche aujourd'hui est un piege pour le fichier de demain.
+ */
+function decouperInstructions(texte) {
+  const instructions = []
+  let courante = ''
+  let i = 0
+  while (i < texte.length) {
+    const c = texte[i]
+
+    // Commentaire de ligne : jusqu'au saut de ligne.
+    if (c === '-' && texte[i + 1] === '-') {
+      const fin = texte.indexOf('\n', i)
+      i = fin === -1 ? texte.length : fin + 1
+      continue
+    }
+    // Commentaire de bloc.
+    if (c === '/' && texte[i + 1] === '*') {
+      const fin = texte.indexOf('*/', i + 2)
+      i = fin === -1 ? texte.length : fin + 2
+      continue
+    }
+    // Chaine litterale : le `;` qu'elle contiendrait ne decoupe rien.
+    if (c === "'") {
+      const debut = i
+      i += 1
+      while (i < texte.length && !(texte[i] === "'" && texte[i + 1] !== "'")) {
+        i += texte[i] === "'" && texte[i + 1] === "'" ? 2 : 1
+      }
+      i += 1
+      courante += texte.slice(debut, i)
+      continue
+    }
+    // Bloc `$$ … $$` ou `$nom$ … $nom$` (corps de fonction).
+    if (c === '$') {
+      const marque = /^\$[A-Za-z_]*\$/.exec(texte.slice(i))
+      if (marque) {
+        const fin = texte.indexOf(marque[0], i + marque[0].length)
+        const stop = fin === -1 ? texte.length : fin + marque[0].length
+        courante += texte.slice(i, stop)
+        i = stop
+        continue
+      }
+    }
+    if (c === ';') {
+      if (courante.trim()) instructions.push(courante.trim())
+      courante = ''
+      i += 1
+      continue
+    }
+    courante += c
+    i += 1
+  }
+  if (courante.trim()) instructions.push(courante.trim())
+  return instructions
+}
+
 const argv = process.argv.slice(2)
 const simulation = argv.includes('--simulation')
 const fichier = resoudreFichier(argv.find((a) => !a.startsWith('--')))
@@ -209,7 +271,47 @@ async function main() {
       'kimatch.origine',
       'migration ' + path.basename(fichier, '.sql'),
     ])
-    await client.query(sql)
+    if (exception) {
+      // ══ UNE INSTRUCTION A LA FOIS, ET C'EST TOUT LE POINT ═══════════════════════════════════
+      //
+      // Le pilote `pg` envoie un fichier multi-instructions en UNE seule « simple query », et
+      // PostgreSQL enveloppe implicitement ce lot dans une transaction. D'ou l'echec observe le
+      // 13/09/2026 en appliquant la migration des index :
+      //
+      //     erreur : 25001 - CREATE INDEX CONCURRENTLY cannot run inside a transaction block
+      //
+      // Le garde-fou avait bien reconnu l'exception, mais l'EXECUTION restait transactionnelle :
+      // declarer ne suffit pas, il faut aussi executer autrement. Envoyer les instructions une par
+      // une les met en autocommit, ce que `create index concurrently` exige.
+      //
+      // RIEN N'AVAIT ETE APPLIQUE lors de cet echec : la transaction implicite a ete annulee, et
+      // le script l'a dit. C'est le comportement voulu -- une erreur bruyante plutot qu'un demi-
+      // travail silencieux.
+      const instructions = decouperInstructions(sql)
+      console.log('instructions : ' + instructions.length + ' (une par une, hors transaction)')
+      for (let i = 0; i < instructions.length; i++) {
+        const debutUne = process.hrtime.bigint()
+        const apercu = instructions[i].replace(/\s+/g, ' ').slice(0, 70)
+        try {
+          await client.query(instructions[i])
+        } catch (e) {
+          // PAS DE ROLLBACK POSSIBLE, et le dire est le minimum : les instructions precedentes
+          // sont passees et le restent. Le fichier est rejouable (`if not exists`), donc la
+          // reprise consiste a le relancer une fois la cause levee.
+          console.error('')
+          console.error('  ECHEC a l instruction ' + (i + 1) + '/' + instructions.length + ' : ' + apercu)
+          console.error('  ' + (e.code ? e.code + ' - ' : '') + e.message)
+          console.error('')
+          console.error('  Les ' + i + ' instructions precedentes SONT APPLIQUEES (pas de rollback hors')
+          console.error('  transaction). Ce fichier est rejouable : corriger la cause, puis relancer.')
+          throw e
+        }
+        const ms = Math.round(Number(process.hrtime.bigint() - debutUne) / 1e6)
+        console.log('  ' + String(i + 1).padStart(2) + '/' + instructions.length + '  ' + String(ms).padStart(6) + ' ms  ' + apercu)
+      }
+    } else {
+      await client.query(sql)
+    }
     console.log(
       'resultat  : APPLIQUEE en ' + Math.round(Number(process.hrtime.bigint() - debut) / 1e6) + ' ms',
     )
