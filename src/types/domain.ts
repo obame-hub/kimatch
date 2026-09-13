@@ -2,6 +2,8 @@
 // Token de Naoëlle). Les statuts/étapes/types sont des codes texte pilotés par les vraies
 // tables de référence (statuts_signaux, etapes_recommandation, etc.) — voir useReferenceTable.
 
+import type { RoleContact } from '@/lib/contactRoles'
+
 export interface Site {
   id: string
   nom: string
@@ -466,8 +468,11 @@ export interface Contact {
   telephone: string | null
   telephone_mobile: string | null
   email: string | null
-  /** Décisionnaire | Administratif | Conseil syndical (syndics uniquement) — voir contactRoles.ts. */
+  /** ANCIENNE colonne, valeur unique. Reste lue par les écrans non basculés — voir `roles`. */
   role: string | null
+  /** Rôles cumulables : un contact est souvent décisionnaire ET signataire (526 cas au 13/09/2026).
+   *  Codes et règles dans contactRoles.ts. Distinct de `fonction`, qui est l'intitulé de poste. */
+  roles: RoleContact[]
   contact_principal: boolean
   actif: boolean
   /** `compte_id` sert à regrouper les sites par compte dans l'onglet Rattachements : un

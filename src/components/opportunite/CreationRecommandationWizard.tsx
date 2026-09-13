@@ -39,6 +39,7 @@
  *   dans Kimatch. Les supprimer serait une perte : ils sont regroupés en fin de parcours, repliés.
  */
 import { useEffect, useMemo, useState } from 'react'
+import { useOuvrirEmail } from '@/lib/voletEmail'
 import { Link } from 'react-router-dom'
 import {
   AlertTriangle, Briefcase, Check, ChevronLeft, ChevronRight, Flame, Info,
@@ -209,6 +210,7 @@ export function CreateRecommandationDialog({
    *  geste de découper en plusieurs recommandations. */
   initialCompteurIds?: string[]
 }) {
+  const ouvrirEmail = useOuvrirEmail()
   const { data: mandats } = useMandats()
   const { data: compteurs } = useCompteurs()
   const { data: contacts } = useContacts()
@@ -839,7 +841,13 @@ export function CreateRecommandationDialog({
                           {ct.email && (
                             <p className="flex items-center gap-1.5 text-xs text-km-muted">
                               <Mail className="h-3 w-3" />
-                              <a href={`mailto:${ct.email}`} className="truncate hover:text-km-text">{ct.email}</a>
+                              <button
+                                type="button"
+                                onClick={() => ouvrirEmail?.({ a: ct.email!, nom: `${ct.prenom} ${ct.nom}`, contactId: ct.id })}
+                                className="truncate hover:text-km-text"
+                              >
+                                {ct.email}
+                              </button>
                             </p>
                           )}
                           {ct.telephone && (

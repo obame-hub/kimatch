@@ -1,4 +1,5 @@
 import { useMemo, useState } from 'react'
+import { CouvertureNationale } from '@/components/qualite/CouvertureNationale'
 import { Link } from 'react-router-dom'
 import {
   Bar, BarChart, Cell, Pie, PieChart, ResponsiveContainer, Tooltip, XAxis, YAxis,
@@ -416,6 +417,12 @@ export default function QualitePortefeuille() {
         <CamembertScore titre="Répartition des comptes" parts={partsComptes} unite="comptes" />
         <CamembertScore titre="Répartition des compteurs" parts={partsCompteurs} unite="compteurs" />
       </div>
+
+      {/* ══ 1 bis. LA CONTINUITÉ ══
+          Les camemberts disent la qualité de la donnée ; celle-ci dit ce qu'il en resterait si un
+          cabinet perdait sa copropriété. C'est la seule mesure de la page qui parle d'un risque
+          plutôt que d'un manque. */}
+      <CouvertureNationale proprietaireId={filtreProprietaire} />
 
       {/* ══ 2. LES TROIS FILTRES ══ */}
       <Card className="p-3.5">

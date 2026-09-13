@@ -30,7 +30,8 @@ import { useDocumentsParEntites } from '@/lib/data/documents'
 import { useRaccourcisOnglets } from '@/lib/useRaccourcisOnglets'
 import { useReferenceTable } from '@/lib/data/referenceTables'
 import { formatPhoneFR } from '@/lib/textFormat'
-import { contactRoleOptions } from '@/lib/contactRoles'
+import { LIBELLE_ROLE, ancienRoleDepuisRoles, type RoleContact } from '@/lib/contactRoles'
+import { SelecteurRoles } from '@/components/contact/SelecteurRoles'
 import {
   STATUT_MANDAT_TONE,
   FALLBACK_STATUTS_MANDATS,
@@ -355,20 +356,25 @@ export default function ContactDetail() {
                       onSaved={() => showToast('✓ enregistré')}
                       onError={(err) => showToast(`Erreur : ${err.message}`)}
                     />
-                    <InlineField
-                      variant="select"
-                      label="Rôle"
-                      value={contact.role ?? ''}
-                      options={[
-                        { value: '', label: '—' },
-                        { value: 'Décisionnaire', label: 'Décisionnaire' },
-                        { value: 'Administratif', label: 'Administratif' },
-                        { value: 'Conseil syndical', label: 'Conseil syndical' },
-                      ]}
-                      onCommit={(v) => majChamp({ role: v || null })}
-                      onSaved={() => showToast('✓ enregistré')}
-                      onError={(err) => showToast(`Erreur : ${err.message}`)}
-                    />
+                    {/* ══ LES RÔLES NE S'ÉDITENT PLUS AU CLIC ══
+                        L'édition en place tient un champ à une valeur ; les rôles en portent
+                        jusqu'à quatre, avec une règle d'entraînement en syndic bénévole. Un
+                        `select` la trahirait en silence. Le bloc s'affiche donc, et l'édition
+                        passe par « Modifier », où le sélecteur applique la règle. */}
+                    <div className="py-1.5">
+                      <p className="text-km-label font-semibold text-km-faint">Rôles</p>
+                      <div className="mt-1 flex flex-wrap gap-1">
+                        {contact.roles.length === 0 ? (
+                          <span className="text-km-body text-km-faint">Aucun rôle — ce contact n’apparaît dans aucune zone de la fiche compte</span>
+                        ) : (
+                          contact.roles.map((r) => (
+                            <Badge key={r} tone={r === 'SIGNATAIRE' ? 'amber' : r === 'DECISIONNAIRE' ? 'kiwi' : 'neutral'}>
+                              {LIBELLE_ROLE[r]}
+                            </Badge>
+                          ))
+                        )}
+                      </div>
+                    </div>
                     <InlineField
                       variant="text"
                       label="Fonction"
@@ -413,7 +419,16 @@ export default function ContactDetail() {
                   </div>
                 ) : (
                 <div className="space-y-2 text-sm">
-                  {contact.role && <p><span className="text-km-faint">Rôle :</span> <Badge tone={contact.role === 'Décisionnaire' ? 'kiwi' : 'neutral'}>{contact.role}</Badge></p>}
+                  {contact.roles.length > 0 && (
+                    <p className="flex flex-wrap items-center gap-1">
+                      <span className="text-km-faint">Rôles :</span>
+                      {contact.roles.map((r) => (
+                        <Badge key={r} tone={r === 'SIGNATAIRE' ? 'amber' : r === 'DECISIONNAIRE' ? 'kiwi' : 'neutral'}>
+                          {LIBELLE_ROLE[r]}
+                        </Badge>
+                      ))}
+                    </p>
+                  )}
                   <p><span className="text-km-faint">Téléphone :</span> {contact.telephone ? <PhoneLink value={contact.telephone} /> : '—'}</p>
                   <p><span className="text-km-faint">Mobile :</span> {contact.telephone_mobile ? <PhoneLink value={contact.telephone_mobile} /> : '—'}</p>
                   <p><span className="text-km-faint">Email :</span> {contact.email ? <EmailLink value={contact.email} /> : '—'}</p>
@@ -609,8 +624,7 @@ function EditContactDialog({ open, onClose, contact, compteSegment }: { open: bo
   const [telephone, setTelephone] = useState(contact.telephone ?? '')
   const [telephoneMobile, setTelephoneMobile] = useState(contact.telephone_mobile ?? '')
   const [email, setEmail] = useState(contact.email ?? '')
-  const [role, setRole] = useState(contact.role ?? '')
-  const roleOptions = contactRoleOptions(compteSegment)
+  const [roles, setRoles] = useState<RoleContact[]>(contact.roles)
   const [actif, setActif] = useState(contact.actif)
   const [proprietaireId, setProprietaireId] = useState(contact.proprietaire_id ?? '')
   const [linkedinUrl, setLinkedinUrl] = useState(contact.linkedin_url ?? '')
@@ -628,7 +642,7 @@ function EditContactDialog({ open, onClose, contact, compteSegment }: { open: bo
     setTelephone(contact.telephone ?? '')
     setTelephoneMobile(contact.telephone_mobile ?? '')
     setEmail(contact.email ?? '')
-    setRole(contact.role ?? '')
+    setRoles(contact.roles)
     setActif(contact.actif)
     setProprietaireId(contact.proprietaire_id ?? '')
     setLinkedinUrl(contact.linkedin_url ?? '')
@@ -649,8 +663,12 @@ function EditContactDialog({ open, onClose, contact, compteSegment }: { open: bo
         telephone: telephone || null,
         telephone_mobile: telephoneMobile || null,
         email: email || null,
-        role: role || null,
-        contact_principal: role === 'Décisionnaire',
+        role: ancienRoleDepuisRoles(roles),
+        roles,
+        // `contact_principal` suit DÉCISIONNAIRE et non signataire : son seul usage fonctionnel est
+        // le destinataire par défaut de l'offre et des tâches sur la fiche recommandation. Une
+        // offre s'envoie à qui la tranche ; le mandat, lui, va au signataire, choisi à la main.
+        contact_principal: roles.includes('DECISIONNAIRE'),
         actif,
         proprietaire_id: proprietaireId || null,
         linkedin_url: linkedinUrl || null,
@@ -683,11 +701,8 @@ function EditContactDialog({ open, onClose, contact, compteSegment }: { open: bo
         <FormField label="Fonction">
           <Input value={fonction} onChange={(e) => setFonction(e.target.value)} placeholder="Ex. Directeur technique" />
         </FormField>
-        <FormField label="Rôle">
-          <Select value={role} onChange={(e) => setRole(e.target.value)}>
-            <option value="">—</option>
-            {roleOptions.map((r) => <option key={r} value={r}>{r}</option>)}
-          </Select>
+        <FormField label="Rôles">
+          <SelecteurRoles roles={roles} segment={compteSegment} onChange={setRoles} />
         </FormField>
         <div className="grid grid-cols-2 gap-3">
           <FormField label="Téléphone fixe">

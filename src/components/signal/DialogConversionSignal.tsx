@@ -1,4 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
+import { LIBELLE_ROLE } from '@/lib/contactRoles'
+import type { Contact } from '@/types/domain'
 import { useNavigate } from 'react-router-dom'
 import { ArrowRight, Radio } from 'lucide-react'
 import { Dialog } from '@/components/ui/dialog'
@@ -78,9 +80,12 @@ export function DialogConversionSignal({
     if (!contacts) return []
     // Le décisionnaire d'abord : c'est lui qui engage, et c'est le contact que le commercial veut
     // presque toujours. Les autres restent proposés, on ne les cache pas.
+    // Le rang se lit désormais sur `roles` : un contact peut être décisionnaire ET signataire, et
+    // c'est le rôle le plus engageant qui décide de sa place dans la liste.
     return [...contacts].sort((a, b) => {
-      const rang = (r: string | null) => (r === 'Décisionnaire' ? 0 : r === 'Administratif' ? 1 : 2)
-      return rang(a.role) - rang(b.role) || a.nom.localeCompare(b.nom)
+      const rang = (c: Contact) =>
+        c.roles.includes('DECISIONNAIRE') ? 0 : c.roles.includes('SIGNATAIRE') ? 1 : c.roles.includes('ADMINISTRATIF') ? 2 : 3
+      return rang(a) - rang(b) || a.nom.localeCompare(b.nom)
     })
   }, [contacts])
 
@@ -156,7 +161,7 @@ export function DialogConversionSignal({
               {decisionnaires.map((c) => (
                 <option key={c.id} value={c.id}>
                   {[c.prenom, c.nom].filter(Boolean).join(' ')}
-                  {c.role ? ` — ${c.role}` : ''}
+                  {c.roles.length > 0 ? ` — ${c.roles.map((r) => LIBELLE_ROLE[r]).join(', ')}` : ''}
                   {c.fonction ? ` (${c.fonction})` : ''}
                 </option>
               ))}

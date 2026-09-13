@@ -25,7 +25,7 @@
  * ════════════════════════════════════════════════════════════════════════════════════════════════
  */
 import { useEffect, useMemo, useState } from 'react'
-import { AlertTriangle, ArrowRight, Building2, Gauge, MapPin, MoveRight, UserX } from 'lucide-react'
+import { AlertTriangle, ArrowRight, Building2, Gauge, MapPin, MoveRight, UserCheck, UserX } from 'lucide-react'
 import { Dialog } from '@/components/ui/dialog'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/form'
@@ -157,7 +157,18 @@ export function DialogDeplacerCompteur({
   const chargement = geste === 'emmener' ? invSite.isLoading : invCompteur.isLoading
   const echecLecture = geste === 'emmener' ? invSite.error : invCompteur.error
   const inventaire = geste === 'emmener' ? invSite.data : invCompteur.data
-  const contactsEtrangers = (invCompteur.data?.contacts ?? []).filter((c) => !c.rattacheALaDestination)
+  // ══ LE RELAIS N'EST PLUS UN CONTACT « ÉTRANGER » ══
+  //
+  // William, 13/09/2026 : le relais de conseil syndical « se lie au nouveau compte obligatoirement,
+  // mais il reste avant tout toujours lié au compteur ». Il n'est JAMAIS rattaché au cabinet
+  // d'arrivée — par construction, puisqu'il appartient à la copropriété. Le ranger parmi les
+  // contacts à retirer proposait donc de l'effacer au moment précis où il devient notre seul fil
+  // vers la résidence. `fn_deplacer_compteur` ne le détache plus (migration 20260913160000) ; la
+  // fenêtre cesse de le proposer.
+  const contactsEtrangers = (invCompteur.data?.contacts ?? []).filter(
+    (c) => !c.rattacheALaDestination && c.role !== 'Conseil syndical',
+  )
+  const relais = (invCompteur.data?.contacts ?? []).find((c) => c.role === 'Conseil syndical')
 
   const pret =
     Boolean(compteCible) &&
@@ -434,6 +445,25 @@ export function DialogDeplacerCompteur({
               </div>
 
               <BlocRestes restes={invCompteur.data} compteNom={compteActuelNom} />
+
+              {/* ══ LE RELAIS, LUI, SUIT LE COMPTEUR ══
+                  Le dire est le but de ce bloc : sans lui, on croirait le conseil syndical perdu
+                  avec le reste, et c'est justement ce qu'on vient de corriger. */}
+              {relais && (
+                <div className="rounded-km border border-km-piste-line bg-km-piste-soft px-3 py-2.5">
+                  <p className="flex items-center gap-1.5 text-km-label font-bold uppercase tracking-[0.06em] text-km-piste">
+                    <UserCheck className="h-3.5 w-3.5" /> Le relais suit
+                  </p>
+                  <p className="mt-1.5 text-km-body leading-snug text-km-text">
+                    <span className="font-semibold">{relais.nom}</span>
+                    <span className="text-km-muted">
+                      {' '}reste le relais de conseil syndical de ce compteur et sera rattaché à la
+                      société de destination. Une tâche sera créée pour lui demander quel est le
+                      nouveau cabinet de syndic.
+                    </span>
+                  </p>
+                </div>
+              )}
 
               {/* ══ LES CONTACTS QUI DEVIENNENT ÉTRANGERS ══ */}
               {contactsEtrangers.length > 0 && (
