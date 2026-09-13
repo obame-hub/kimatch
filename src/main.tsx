@@ -6,6 +6,7 @@ import './index.css'
 import App from './App.tsx'
 import { AuthProvider } from '@/lib/auth'
 import { surveillerLesMorceauxManquants } from '@/lib/chargerPage'
+import { surveillerLesErreursNonRattrapees } from '@/lib/signalerErreur'
 
 // staleTime élevé + pas de refetch au focus : si une insertion échoue côté Supabase (colonne
 // manquante, policy RLS trop stricte), un refetch-on-mount par défaut effacerait silencieusement
@@ -24,6 +25,11 @@ const queryClient = new QueryClient({
    mandat — peut manquer après une mise en ligne, et l'écran resterait blanc sans que personne
    sache pourquoi. Voir `src/lib/chargerPage.ts`. */
 surveillerLesMorceauxManquants()
+
+/* AVANT LE PREMIER RENDU AUSSI : les promesses rejetées que personne n'attend et les erreurs levées
+   hors du rendu n'atteignent aucune frontière React et disparaissaient sans laisser de trace.
+   Audit du 13/09/2026, constat OBS-01. Voir `src/lib/signalerErreur.ts`. */
+surveillerLesErreursNonRattrapees()
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
