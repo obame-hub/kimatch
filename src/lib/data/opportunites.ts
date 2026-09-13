@@ -53,7 +53,20 @@ interface RawLien {
   ecarte?: boolean
 }
 
-async function fetchOpportunites(opportuniteId?: string): Promise<Opportunite[]> {
+/**
+ * @param opportuniteId Une seule opportunité, pour sa fiche.
+ * @param compteId      Toutes les opportunités d'un compte — filtrées PAR LA BASE.
+ *
+ * Le second paramètre est né de l'audit du 13/09/2026, constat BCK-02. La fiche compte appelait
+ * `useOpportunites()`, qui lit la table ENTIÈRE avec ses quatre jointures, puis jetait tout sauf
+ * les lignes d'un seul compte (`CompteDetail.tsx:326`). Et ce n'était pas la seule dépense : les
+ * trois requêtes de périmètre qui suivent partent sur les identifiants ainsi lus, donc sur toutes
+ * les opportunités de la base au lieu de la poignée affichée.
+ *
+ * Le coût ne dépendait pas de ce qu'on regardait, mais de la taille du CRM — chaque import
+ * Salesforce ralentissait toutes les fiches, y compris celles qui n'avaient rien reçu.
+ */
+async function fetchOpportunites(opportuniteId?: string, compteId?: string): Promise<Opportunite[]> {
   try {
     const lignes = await fetchAllRows<RawOpportunite>(
       'opportunites',
@@ -62,7 +75,11 @@ async function fetchOpportunites(opportuniteId?: string): Promise<Opportunite[]>
       // renvoie 400 et fait échouer le chargement de TOUTES les opportunités.
       '*, statut:statuts_opportunites(code, libelle), compte:comptes(nom), contact:contacts(prenom, nom), proprietaire:profils!opportunites_proprietaire_id_fkey(prenom, nom)',
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      (q: any) => (opportuniteId ? q.eq('id', opportuniteId) : q.order('date_creation', { ascending: false })),
+      (q: any) => {
+        if (opportuniteId) return q.eq('id', opportuniteId)
+        const filtre = compteId ? q.eq('compte_id', compteId) : q
+        return filtre.order('date_creation', { ascending: false })
+      },
     )
     if (lignes.length === 0) return []
 
@@ -179,6 +196,21 @@ async function fetchOpportunites(opportuniteId?: string): Promise<Opportunite[]>
 
 export function useOpportunites() {
   return useQuery({ queryKey: ['opportunites'], queryFn: () => fetchOpportunites() })
+}
+
+/**
+ * Les opportunités d'UN compte, filtrées par la base.
+ *
+ * Même motif que `useContratsParCompte`, `useMandatsParCompte` et `useContactsParCompte`, qui
+ * existaient déjà : c'est l'opportunité qui manquait à la série. La fiche compte s'en servait de
+ * la manière la plus coûteuse possible — tout lire, puis filtrer en mémoire.
+ */
+export function useOpportunitesParCompte(compteId: string | undefined) {
+  return useQuery({
+    queryKey: ['opportunites', 'compte', compteId],
+    queryFn: () => fetchOpportunites(undefined, compteId as string),
+    enabled: !!compteId,
+  })
 }
 
 export function useOpportunite(id: string | undefined) {

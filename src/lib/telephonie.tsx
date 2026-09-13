@@ -1,4 +1,4 @@
-import { createContext, useCallback, useContext, useEffect, useState } from 'react'
+import { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react'
 import type { ReactNode } from 'react'
 import { CarteAppel } from '@/components/allo/CarteAppel'
 import { VoletAllo, ouvrirVoletAlloSiDejaUtilise } from '@/components/allo/VoletAllo'
@@ -283,8 +283,20 @@ export function TelephonieProvider({ children }: { children: ReactNode }) {
     return () => clearTimeout(t)
   }, [message])
 
+  /* ══ LA VALEUR EST MÉMORISÉE ══
+   *
+   * Audit du 13/09/2026, constat FRT-03. L'objet `{ appeler }` était reconstruit à chaque rendu de
+   * ce provider — qui enveloppe TOUT `AppLayout`.
+   *
+   * CE QUI LE FAISAIT RENDRE, ET C'EST LÀ QUE ÇA COÛTE : l'état `message` juste au-dessus, effacé
+   * par un `setTimeout` de six secondes. Chaque apparition ET chaque disparition de ce petit
+   * bandeau de confirmation re-rendait donc l'application entière, deux fois par appel passé.
+   *
+   * `appeler` est déjà stable (`useCallback` plus haut) : il n'y avait que l'enveloppe à figer. */
+  const valeur = useMemo(() => ({ appeler }), [appeler])
+
   return (
-    <Contexte.Provider value={{ appeler }}>
+    <Contexte.Provider value={valeur}>
       {children}
       {/* ALLO LUI-MEME, dans un volet de Kimatch. C'est la seule facon de lancer l'appel et de
           raccrocher sans quitter l'application : leur API n'expose ni l'un ni l'autre. */}

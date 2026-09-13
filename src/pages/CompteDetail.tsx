@@ -25,7 +25,7 @@ import { MandatWizard } from '@/components/mandat/MandatWizard'
 import { WizardConnectionGate } from '@/components/ui/connection-gate'
 import { HeroQualiteCompte, HeroScoreEllipro, type FaitEllipro } from '@/components/compte/HerosCompte'
 import { useQualiteCompte, useEvolutionQualite, useQualiteCompteurs, useStatutCommercialSites, manquesCompteur } from '@/lib/data/qualiteCompte'
-import { useOpportunites } from '@/lib/data/opportunites'
+import { useOpportunitesParCompte } from '@/lib/data/opportunites'
 import { pastilleScore } from '@/lib/niveauScore'
 import { OngletRecommandations } from '@/components/compte/OngletsCompte'
 import { OngletHistorique } from '@/components/compte/OngletHistorique'
@@ -322,11 +322,11 @@ export default function CompteDetail() {
      Il n'existait pas — huit onglets couvraient le contrat, le compteur, la recommandation et le
      mandat, mais pas l'objet qui les précède tous. On voyait donc le résultat d'une affaire sans
      jamais voir l'affaire elle-même. */
-  const { data: toutesOpportunites } = useOpportunites()
-  const opportunitesDuCompte = useMemo(
-    () => (toutesOpportunites ?? []).filter((o) => o.compte_id === id),
-    [toutesOpportunites, id],
-  )
+  /* LA BASE FILTRE, PLUS LE NAVIGATEUR. Audit du 13/09/2026, constat BCK-02 : `useOpportunites()`
+     lisait la table ENTIÈRE avec ses quatre jointures, plus trois requêtes de périmètre sur tous
+     les identifiants ainsi lus — pour n'en garder que les lignes d'un seul compte. Le coût de la
+     fiche ne dépendait pas du compte ouvert, mais de la taille du CRM. */
+  const { data: opportunitesDuCompte = [] } = useOpportunitesParCompte(id)
   const mandatsDuCompte = useMemo(() => mandats?.filter((m) => m.compte_id === id) ?? [], [mandats, id])
   const actionsDuCompte = useMemo(() => actions?.filter((a) => siteIdsDuCompte.has(a.site_id ?? '')) ?? [], [actions, siteIdsDuCompte])
   const documentsDuCompte = useMemo(() => documents?.filter((d) => d.entite_type === 'compte' && d.entite_id === id) ?? [], [documents, id])
