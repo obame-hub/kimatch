@@ -72,10 +72,63 @@ const sql = fs.readFileSync(fichier, 'utf8')
 // annule le lot entier et la base reste dans son état d'avant. Un fichier qui en manque s'appliquerait
 // instruction par instruction et pourrait rester à moitié fait — on refuse plutôt que de le découvrir
 // après coup.
-if (!/^\s*begin\s*;/im.test(sql) || !/^\s*commit\s*;/im.test(sql)) {
+//
+// ══ LA SEULE EXCEPTION, ET ELLE SE DÉCLARE ══════════════════════════════════════════════════════
+//
+// `create index concurrently` NE PEUT PAS s'exécuter dans une transaction : Postgres le refuse avec
+// « CREATE INDEX CONCURRENTLY cannot run inside a transaction block ». En échange, il ne pose aucun
+// verrou d'écriture — c'est ce qui permet d'indexer une table de 222 000 lignes en pleine journée
+// sans arrêter l'équipe. Un `create index` ordinaire, lui, verrouille la table pendant toute la
+// construction.
+//
+// Un fichier peut donc réclamer l'exception, en portant cette ligne EXACTE en tête :
+//
+//     -- MIGRATION-SANS-TRANSACTION: <la raison, en clair>
+//
+// ON NE FAIT PAS SAUTER LE GARDE-FOU, ON LE DÉPLACE. Le fichier qui se déclare ainsi accepte une
+// contrainte que les autres n'ont pas : CHAQUE INSTRUCTION DOIT ÊTRE INDÉPENDANTE ET REJOUABLE.
+// Concrètement, `create index concurrently IF NOT EXISTS` et rien qui modifie des données. Une
+// interruption laisse alors un travail à moitié fait mais COHÉRENT : on relance le fichier, il
+// reprend où il s'était arrêté.
+//
+// C'est le contraire d'une migration ordinaire, où l'atomicité fait tout le travail. D'où
+// l'obligation d'écrire la raison : elle force à se demander si le cas la mérite vraiment, et le
+// prochain à lire le fichier saura pourquoi il est différent.
+const exception = sql.match(/^\s*--\s*MIGRATION-SANS-TRANSACTION\s*:\s*(.+)$/im)
+if (!exception && (!/^\s*begin\s*;/im.test(sql) || !/^\s*commit\s*;/im.test(sql))) {
   console.error("Ce fichier n'a pas de begin;/commit; : il pourrait s'appliquer à moitié.")
   console.error('Refusé. Encadrer la migration par begin; ... commit; puis relancer.')
+  console.error('')
+  console.error("Si c'est délibéré (create index concurrently), déclarer l'exception en tête :")
+  console.error('  -- MIGRATION-SANS-TRANSACTION: <la raison>')
   process.exit(1)
+}
+if (exception) {
+  // Une migration hors transaction qui écrirait des données pourrait laisser la base à moitié
+  // modifiée sans moyen de revenir en arrière. On vérifie donc que le fichier ne fait que ce pour
+  // quoi l'exception existe. Les commentaires sont retirés d'abord, sinon la phrase qui explique
+  // pourquoi on n'écrit pas de données déclencherait le refus.
+  const instructions = sql
+    .replace(/^\s*--.*$/gm, '')
+    .replace(/\/\*[\s\S]*?\*\//g, '')
+  // `update\s+[\w."]+\s+set` et non `update\b` : la seconde forme laissait passer
+  // `update comptes set …` parce que le `\b` final tombait au milieu du nom de table. Vérifié en
+  // écrivant ce contrôle — un garde-fou qu'on ne met pas à l'épreuve ne garde rien.
+  const interdits = instructions.match(
+    /\b(insert\s+into|update\s+[\w."]+\s+set|delete\s+from|drop\s+table|truncate)/i,
+  )
+  if (interdits) {
+    console.error('Ce fichier se déclare sans transaction, mais il écrit des données :')
+    console.error('  « ' + interdits[0] + ' »')
+    console.error('')
+    console.error("Hors transaction, une interruption laisserait la base a moitié modifiée sans")
+    console.error('retour possible. Séparer : les index dans ce fichier, les données dans un autre,')
+    console.error('celui-là avec begin;/commit;.')
+    process.exit(1)
+  }
+  console.log('SANS TRANSACTION — raison déclarée : ' + exception[1].trim())
+  console.log('Chaque instruction doit être rejouable. En cas d’arrêt, relancer ce même fichier.')
+  console.log('')
 }
 
 if (simulation) {
