@@ -4,6 +4,7 @@ import type { Contact, LienCompteContact } from '@/types/domain'
 import { fetchComptesVisibles } from '@/lib/data/visibility'
 import { fetchAllRows } from '@/lib/data/paginatedFetch'
 import { toUpperFR, toTitleCaseFR, formatPhoneFR } from '@/lib/textFormat'
+import { ROLES_CONTACT, ancienRoleDepuisRoles, type RoleContact } from '@/lib/contactRoles'
 
 interface RawContact {
   id: string
@@ -16,6 +17,7 @@ interface RawContact {
   telephone_mobile: string | null
   email: string | null
   role: string | null
+  roles: string[] | null
   contact_principal: boolean
   actif: boolean
   compte: { nom: string } | null
@@ -164,6 +166,9 @@ async function fetchContacts(compteId?: string, contactId?: string): Promise<Con
       telephone_mobile: c.telephone_mobile ?? null,
       email: c.email,
       role: c.role ?? null,
+      // `roles` est arrivé par migration le 13/09/2026 : un contact lu avant son déploiement n'a
+      // pas la colonne, d'où le repli sur le tableau vide plutôt que sur `undefined`.
+      roles: (c.roles ?? []).filter((r): r is RoleContact => (ROLES_CONTACT as readonly string[]).includes(r)),
       contact_principal: c.contact_principal,
       actif: c.actif,
       sites: sitesParContact.get(c.id) ?? [],
@@ -219,10 +224,17 @@ interface CreateContactInput {
   telephone: string | null
   telephone_mobile: string | null
   email: string | null
-  /** Décisionnaire | Administratif | Conseil syndical -- `contact_principal` est dérivé de ce
-   * champ (role === 'Décisionnaire'), jamais saisi séparément, pour rester synchronisé (même
-   * logique que Role__c/D_cisionnaire__c dans Tools). */
-  role: string | null
+  /**
+   * Les rôles, cumulables — voir contactRoles.ts. `contact_principal` en est dérivé et n'est
+   * jamais saisi seul, pour rester synchronisé (même logique que Role__c/D_cisionnaire__c dans
+   * Tools).
+   *
+   * IL SUIT DÉCISIONNAIRE, PAS SIGNATAIRE. Vérifié le 13/09/2026 : le seul usage fonctionnel de
+   * `contact_principal` est la fiche recommandation, où il désigne le destinataire par défaut de
+   * l'offre et des tâches. Une offre s'envoie à qui la tranche ; c'est le mandat qui va au
+   * signataire, et lui se choisit à la main dans son parcours.
+   */
+  roles: RoleContact[]
   site_ids: string[]
   sites: { id: string; nom: string; fonction_sur_site: string | null }[]
 }
@@ -270,7 +282,7 @@ export function useCreateContact() {
   return useMutation({
     mutationFn: async (input: CreateContactInput): Promise<CreateContactResult> => {
       const nom = toUpperFR(input.nom) || input.nom
-      const contactPrincipal = input.role === 'Décisionnaire'
+      const contactPrincipal = input.roles.includes('DECISIONNAIRE')
 
       let persisted = false
       let contact: Contact = {
@@ -285,7 +297,8 @@ export function useCreateContact() {
         telephone: input.telephone ? formatPhoneFR(input.telephone) : null,
         telephone_mobile: input.telephone_mobile ? formatPhoneFR(input.telephone_mobile) : null,
         email: input.email,
-        role: input.role,
+        role: ancienRoleDepuisRoles(input.roles),
+        roles: input.roles,
         contact_principal: contactPrincipal,
         actif: true,
         // Les sites choisis à la création appartiennent au compte du contact : on le renseigne
@@ -309,7 +322,11 @@ export function useCreateContact() {
           telephone: contact.telephone,
           telephone_mobile: contact.telephone_mobile,
           email: input.email,
-          role: input.role,
+          // LES DEUX COLONNES SONT ÉCRITES le temps de la bascule : `role` fait encore tourner la
+          // conversion de piste, la conversion de signal et la liste des contacts. Écrire la
+          // nouvelle sans l'ancienne ferait disparaître le contact de ces trois écrans.
+          role: ancienRoleDepuisRoles(input.roles),
+          roles: input.roles,
           contact_principal: contactPrincipal,
         })
         .select('id')
@@ -349,7 +366,9 @@ export interface UpdateContactInput {
   telephone: string | null
   telephone_mobile: string | null
   email: string | null
+  /** Écrite le temps de la bascule, dérivée de `roles` — voir ancienRoleDepuisRoles. */
   role: string | null
+  roles: RoleContact[]
   contact_principal: boolean
   actif: boolean
   proprietaire_id: string | null
@@ -373,6 +392,7 @@ export function useUpdateContact() {
           telephone_mobile: input.telephone_mobile ? formatPhoneFR(input.telephone_mobile) : null,
           email: input.email,
           role: input.role,
+          roles: input.roles,
           contact_principal: input.contact_principal,
           actif: input.actif,
           proprietaire_id: input.proprietaire_id,
@@ -520,8 +540,14 @@ export function useUpdateContactField() {
         normalise.telephone_mobile = patch.telephone_mobile ? formatPhoneFR(patch.telephone_mobile) : null
       if (typeof patch.nom === 'string') normalise.nom = toUpperFR(patch.nom) || patch.nom
       if (typeof patch.prenom === 'string') normalise.prenom = toTitleCaseFR(patch.prenom) || patch.prenom
-      // `contact_principal` est dérivé du rôle et jamais saisi seul, même règle que dans Tools.
-      if (typeof patch.role === 'string') normalise.contact_principal = patch.role === 'Décisionnaire'
+      // `contact_principal` et l'ancienne colonne `role` sont dérivés des rôles et jamais saisis
+      // seuls : les laisser diverger ferait qu'un contact changerait de zone sans changer d'étoile.
+      if (Array.isArray(patch.roles)) {
+        normalise.role = ancienRoleDepuisRoles(patch.roles)
+        normalise.contact_principal = patch.roles.includes('DECISIONNAIRE')
+      } else if (typeof patch.role === 'string') {
+        normalise.contact_principal = patch.role === 'Décisionnaire'
+      }
       // Champs calculés à la lecture : les envoyer ferait échouer la requête sur une colonne absente.
       delete normalise.comptes
       delete normalise.sites

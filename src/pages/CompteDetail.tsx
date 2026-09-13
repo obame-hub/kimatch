@@ -2,11 +2,8 @@ import { useEffect, useMemo, useState } from 'react'
 import { useParams, useNavigate, useSearchParams, Link } from 'react-router-dom'
 import {
   ArrowLeft,
-  Phone,
-  Mail,
   Plus,
   Building2,
-  Users,
   Pencil,
   Trash2,
   FileCheck2,
@@ -79,8 +76,8 @@ import { ActivityFeed } from '@/components/site/ActivityFeed'
 import { cn } from '@/lib/utils'
 import { useGoBack } from '@/lib/useGoBack'
 import { useRaccourcisOnglets } from '@/lib/useRaccourcisOnglets'
-import type { Compte, Contact, Site, TypeCompte, Contrat, Compteur, Recommandation } from '@/types/domain'
-import { appelerNumero } from '@/lib/telephonie'
+import type { Compte, Site, TypeCompte, Contrat, Compteur, Recommandation } from '@/types/domain'
+import { OngletContacts } from '@/components/compte/OngletContacts'
 
 const typeMeta: Record<TypeCompte, { label: string; tone: 'kiwi' | 'blue' | 'amber' | 'neutral' }> = {
   client: { label: 'Consommateur', tone: 'kiwi' },
@@ -581,7 +578,15 @@ export default function CompteDetail() {
       <div className="grid min-h-0 flex-1 grid-cols-1 overflow-hidden lg:grid-cols-fiche-activite">
         {/* Centre — contenu de l'onglet */}
         <div className="min-h-0 overflow-y-auto bg-km-bg p-4 sm:p-5">
-          {tab === 'contacts' && <ContactsPanel contacts={contactsDuCompte} compteId={compte.id} />}
+          {tab === 'contacts' && (
+            <OngletContacts
+              contacts={contactsDuCompte}
+              compteId={compte.id}
+              compteNom={compte.nom}
+              segment={compte.segment ?? null}
+              onNouveauContact={() => navigate('/contacts', { state: { openCreateForCompteId: compte.id } })}
+            />
+          )}
 
           {tab === 'synthese' && (
             <div className="flex flex-col gap-3.5">
@@ -1824,93 +1829,6 @@ function GroupedBySite<T>({
           <p className="min-w-0 flex-1 truncate text-km-body font-bold text-km-text">Sans site rattaché (historique)</p>
           <span className="shrink-0 text-km-body text-km-muted">{renderSummary(orphans)}</span>
         </div>
-      )}
-    </div>
-  )
-}
-
-function ContactsPanel({ contacts, compteId }: { contacts: Contact[]; compteId: string }) {
-  const navigate = useNavigate()
-  const [expanded, setExpanded] = useState(false)
-  const visibles = expanded ? contacts : contacts.slice(0, 3)
-  return (
-    <div className="rounded-km-md border border-km-line bg-km-surface p-3.5">
-      <div className="mb-2.5 flex items-center gap-1.5">
-        <span className="flex h-5 w-5 items-center justify-center rounded-km-sm bg-km-violet/15 text-km-violet"><Users className="h-2.5 w-2.5" /></span>
-        <span className="text-km-label font-bold uppercase tracking-wide text-km-faint">Contacts</span>
-        <div className="flex-1" />
-        <button type="button" onClick={() => navigate('/contacts', { state: { openCreateForCompteId: compteId } })} className="text-km-body font-semibold text-km-violet">＋</button>
-      </div>
-      {contacts.length === 0 && <p className="text-km-name text-km-faint">Aucun contact enregistré pour ce compte.</p>}
-      <div className="flex flex-col gap-2">
-        {visibles.map((c) => {
-          const initiales = `${c.prenom[0] ?? ''}${c.nom[0] ?? ''}`.toUpperCase()
-          return (
-            <div key={c.id} className="rounded-km-lg border border-km-line bg-km-soft p-2.5">
-              <div className="flex items-center gap-2.5">
-                <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full border-[1.5px] border-km-violet/30 bg-km-violet/10 text-km-name font-bold text-km-violet">
-                  {initiales}
-                </div>
-                <div className="min-w-0 flex-1">
-                  <div className="flex items-center gap-1.5">
-                    <Link to={`/contacts/${c.id}`} className="truncate text-left text-km-body font-bold text-km-text hover:text-km-violet">
-                      {c.prenom} {c.nom}
-                    </Link>
-                    {c.contact_principal && (
-                      <span title="Signataire des mandats" className="flex h-[15px] w-[15px] shrink-0 items-center justify-center rounded-km-sm bg-km-amber-line">
-                        <FileCheck2 className="h-2.5 w-2.5 text-km-amber" />
-                      </span>
-                    )}
-                  </div>
-                  <p className="truncate text-km-name text-km-muted">{c.fonction || '—'}{c.sites.length > 0 ? ` · ${c.sites.length} site${c.sites.length > 1 ? 's' : ''}` : ''}</p>
-                  {/* Un contact peut être rattaché à plusieurs comptes. Quand celui-ci n'est pas
-                      son compte principal, on le dit : sans cette mention on croirait qu'il
-                      appartient au compte affiché, et on ne saurait pas où le modifier. */}
-                  {c.compte_id !== compteId && (
-                    <button
-                      type="button"
-                      onClick={(e) => {
-                        e.stopPropagation()
-                        navigate(`/comptes/${c.compte_id}`)
-                      }}
-                      title={`Rattaché à ${c.compte_nom} — ouvrir cette fiche`}
-                      className="mt-0.5 inline-flex max-w-full items-center gap-1 rounded bg-km-blue-soft px-1.5 py-px text-km-xs font-semibold text-km-blue transition-colors hover:bg-km-blue/20"
-                    >
-                      <span className="truncate">via {c.compte_nom}</span>
-                    </button>
-                  )}
-                </div>
-              </div>
-              <div className="mt-2 flex gap-1.5">
-                <button
-                  type="button"
-                  onClick={() => c.telephone && void appelerNumero(c.telephone)}
-                  disabled={!c.telephone}
-                  className={cn(
-                    'flex flex-1 items-center justify-center gap-1.5 rounded-km border border-km-line bg-km-surface py-1.5 text-km-body font-semibold text-km-muted transition-colors',
-                    c.telephone ? 'hover:border-km-green-line hover:bg-km-green-soft hover:text-km-green' : 'pointer-events-none opacity-40',
-                  )}
-                >
-                  <Phone className="h-2.5 w-2.5" /> Appeler
-                </button>
-                <a
-                  href={c.email ? `mailto:${c.email}` : undefined}
-                  className={cn(
-                    'flex flex-1 items-center justify-center gap-1.5 rounded-km border border-km-line bg-km-surface py-1.5 text-km-body font-semibold text-km-muted transition-colors',
-                    c.email ? 'hover:border-km-blue-soft hover:bg-km-blue-soft hover:text-km-blue' : 'pointer-events-none opacity-40',
-                  )}
-                >
-                  <Mail className="h-2.5 w-2.5" /> Email
-                </a>
-              </div>
-            </div>
-          )
-        })}
-      </div>
-      {contacts.length > 3 && (
-        <button type="button" onClick={() => setExpanded((v) => !v)} className="mt-2.5 block text-km-body font-semibold text-km-violet hover:underline">
-          {expanded ? '← Réduire' : `Voir les ${contacts.length} contacts →`}
-        </button>
       )}
     </div>
   )

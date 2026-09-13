@@ -1,14 +1,12 @@
 import { useMemo, useState } from 'react'
-import {
-  AlertTriangle, Briefcase, Check, ClipboardList, Crown, Loader2, Mail, Phone, ShieldCheck,
-  Smartphone, Sparkles, User, UserCircle2, UserRound, Users,
-} from 'lucide-react'
+import { AlertTriangle, Briefcase, Check, Loader2, Mail, Phone, ShieldCheck, Smartphone, Sparkles, User, UserCircle2, UserRound } from 'lucide-react'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Input, Label } from '@/components/ui/form'
 import { useContacts, useCreateContact, findContactDuplicates, type ContactDuplicate } from '@/lib/data/contacts'
 import { toUpperFR, toTitleCaseFR, formatPhoneFR, isValidPhoneFR, isValidEmail } from '@/lib/textFormat'
-import { contactRoleOptions } from '@/lib/contactRoles'
+import type { RoleContact } from '@/lib/contactRoles'
+import { SelecteurRoles } from '@/components/contact/SelecteurRoles'
 import { cn } from '@/lib/utils'
 import type { Contact } from '@/types/domain'
 
@@ -17,12 +15,6 @@ const DUPLICATE_FIELD_LABEL: Record<ContactDuplicate['fields'][number], string> 
   phone: 'Tél fixe',
   mobile: 'Mobile',
   fullName: 'Prénom + Nom',
-}
-
-const ROLE_META: Record<string, { icon: typeof Crown; desc: string; active: string }> = {
-  Décisionnaire: { icon: Crown, desc: 'Signe et valide les contrats', active: 'border-amber-400/60 bg-amber-50 text-amber-700' },
-  Administratif: { icon: ClipboardList, desc: 'Gère les démarches & documents', active: 'border-sky-400/60 bg-sky-50 text-sky-700' },
-  'Conseil syndical': { icon: Users, desc: 'Représente les copropriétaires', active: 'border-violet-400/60 bg-violet-50 text-violet-700' },
 }
 
 /** Encadré de section, calqué sur les Card de Tools (ContactCreationForm) : en-tête icône +
@@ -81,9 +73,7 @@ export function ContactForm({
   const [telephoneMobile, setTelephoneMobile] = useState('')
   const [email, setEmail] = useState('')
   const [emailTouched, setEmailTouched] = useState(false)
-  const [role, setRole] = useState('')
-
-  const roleOptions = contactRoleOptions(segment)
+  const [roles, setRoles] = useState<RoleContact[]>([])
 
   const hasSignal =
     (prenom.trim().length >= 2 && nom.trim().length >= 2) ||
@@ -110,7 +100,7 @@ export function ContactForm({
   const emailError = emailInvalid ? "Format d'email invalide" : null
   const telError = telephone && !isValidPhoneFR(telephone) ? 'Format invalide (attendu : +33…)' : null
   const mobError = telephoneMobile && !isValidPhoneFR(telephoneMobile) ? 'Format invalide (attendu : +33…)' : null
-  const canSubmit = nom.trim().length > 0 && !!role && !emailError && !telError && !mobError
+  const canSubmit = nom.trim().length > 0 && roles.length > 0 && !emailError && !telError && !mobError
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
@@ -125,7 +115,7 @@ export function ContactForm({
       telephone: telephone || null,
       telephone_mobile: telephoneMobile || null,
       email: email || null,
-      role,
+      roles,
       site_ids: [],
       sites: [],
     })
@@ -316,39 +306,12 @@ export function ContactForm({
         </div>
         <div>
           <Label>Rôle dans le compte <span className="text-red-500">*</span></Label>
-          <div className="mt-1 grid grid-cols-1 gap-2 sm:grid-cols-3">
-            {roleOptions.map((r) => {
-              const meta = ROLE_META[r]
-              const Icon = meta?.icon ?? User
-              const active = role === r
-              return (
-                <button
-                  key={r}
-                  type="button"
-                  aria-pressed={active}
-                  onClick={() => setRole(active ? '' : r)}
-                  className={cn(
-                    'relative flex items-center gap-3 rounded-xl border-2 p-3 text-left transition-all sm:block',
-                    active ? cn(meta?.active ?? 'border-km-green bg-kiwi-50 text-km-green', 'shadow-sm') : 'border-km-line bg-white hover:border-kiwi-300',
-                  )}
-                >
-                  <span className={cn('flex h-9 w-9 shrink-0 items-center justify-center rounded-lg sm:mb-2', active ? 'bg-white/70' : 'bg-km-bg text-km-faint')}>
-                    <Icon className="h-4 w-4" />
-                  </span>
-                  <span className="min-w-0 flex-1">
-                    <span className={cn('block text-sm font-semibold leading-tight', !active && 'text-km-text')}>{r}</span>
-                    {meta?.desc && <span className="mt-0.5 block text-km-label leading-snug text-km-muted">{meta.desc}</span>}
-                  </span>
-                  {active && <Check className="h-4 w-4 shrink-0 sm:absolute sm:right-3 sm:top-3" />}
-                </button>
-              )
-            })}
+          {/* PLUSIEURS RÔLES, ET C'EST LA NORME plutôt que l'exception : 526 contacts sur 3 416
+              sont à la fois décisionnaires et signataires. L'ancien choix unique obligeait à en
+              taire un. */}
+          <div className="mt-1">
+            <SelecteurRoles roles={roles} segment={segment} onChange={setRoles} />
           </div>
-          {role === 'Décisionnaire' && (
-            <p className="mt-2 flex items-center gap-1 text-km-label text-km-green">
-              <Check className="h-3 w-3 shrink-0" /> Ce contact sera marqué comme décisionnaire — tu pourras l'affecter à des points de livraison juste après.
-            </p>
-          )}
         </div>
       </Section>
 

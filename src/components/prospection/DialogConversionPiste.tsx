@@ -173,8 +173,10 @@ export function DialogConversionPiste({ piste, onFermer, onValide }: {
         telephone_mobile: telephone.trim() || null,
         email: email.trim() || null,
         // La cinquième validation de la piste est « responsable ou décisionnaire des contrats
-        // d'énergie » : le rôle n'est donc pas deviné, il est déjà établi.
-        role: 'Décisionnaire',
+        // d'énergie » : le rôle n'est donc pas deviné, il est déjà établi. SIGNATAIRE N'EN FAIT
+        // PAS PARTIE — la validation porte sur qui décide, pas sur qui paraphe, et l'inventer ici
+        // ferait mentir le décompte des signataires de l'onglet Contacts.
+        roles: ['DECISIONNAIRE'],
         site_ids: [],
         sites: [],
       })

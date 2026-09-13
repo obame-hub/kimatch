@@ -1,0 +1,31 @@
+-- ════════════════════════════════════════════════════════════════════════════════════════════════
+-- UN COMPTEUR QUI CHANGE DE COMPTE EMMÈNE SON RELAIS
+-- ════════════════════════════════════════════════════════════════════════════════════════════════
+--
+-- William, 13/09/2026 : « il se lie au nouveau compte obligatoirement, mais il reste avant tout
+-- toujours lié au compteur (le décisionnaire doit changer en revanche). »
+--
+-- ══ LE MOMENT OÙ LE RELAIS SERT ÉTAIT EXACTEMENT CELUI OÙ ON L'EFFAÇAIT ══
+--
+-- Déplacer un compteur vers une autre société, c'est le geste par lequel une copropriété change de
+-- cabinet de syndic. Or `p_detacher_contacts` traitait les deux fentes de la même façon : cochée,
+-- elle détachait le responsable ET le relais dès qu'ils n'étaient pas rattachés au compte
+-- d'arrivée. Le conseil syndical, lui, n'est JAMAIS rattaché au nouveau cabinet — il venait donc
+-- d'être effacé au moment précis où il devenait notre seul fil vers la résidence.
+--
+-- Désormais :
+--   · le RESPONSABLE suit l'ancienne règle — il appartient au cabinet qu'on quitte, il se détache ;
+--   · le RELAIS reste sur le compteur, et se rattache au compte de destination ;
+--   · et une tâche naît, portant son nom.
+--
+-- ATTENTION EN RELECTURE : le corps posé par CETTE migration contenait deux fautes, corrigées par
+-- la migration 20260913160000 qui suit immédiatement — colonne `description` inexistante, et code
+-- de type d'action erroné. Les deux fichiers sont conservés tels quels pour que le dépôt rejoue la
+-- production dans l'ordre où elle a été construite. LE CORPS QUI FAIT FOI EST CELUI DE 160000.
+-- ════════════════════════════════════════════════════════════════════════════════════════════════
+
+-- Corps intentionnellement non rejoué : il est intégralement remplacé quelques secondes plus tard
+-- par 20260913160000, qui porte la version corrigée et vérifiée en essai à blanc. Le rejouer ici
+-- ferait échouer une base neuve sur la colonne `actions.description`, qui n'existe pas.
+
+select 'voir 20260913160000_la_tache_du_relais_se_cree_vraiment_et_ne_se_tait_plus.sql' as remarque;

@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from 'react'
 import { useTranchesAffichage } from '@/lib/useTranchesAffichage'
 import { PiedDeListe } from '@/components/ui/pied-de-liste'
 import { useNavigate, useSearchParams } from 'react-router-dom'
-import { Plus, User, Star, AlertTriangle, CheckCircle2, UserCircle2, UserRound, Crown, ClipboardList, Users, ExternalLink, Check } from 'lucide-react'
+import { Plus, User, Star, AlertTriangle, CheckCircle2, UserCircle2, UserRound, ExternalLink, Check } from 'lucide-react'
 import { Topbar } from '@/components/layout/Topbar'
 import { PageHeader } from '@/components/ui/page-header'
 import { HubCreation } from '@/components/compte/HubCreation'
@@ -22,7 +22,8 @@ import { ListToolbar } from '@/components/ui/list-toolbar'
 import { useListControls } from '@/lib/useListControls'
 import { usePerimetreListe, BasculePerimetre } from '@/lib/perimetre'
 import { toUpperFR, toTitleCaseFR, formatPhoneFR, isValidPhoneFR, isValidEmail } from '@/lib/textFormat'
-import { contactRoleOptions } from '@/lib/contactRoles'
+import { LIBELLE_ROLE, type RoleContact } from '@/lib/contactRoles'
+import { SelecteurRoles } from '@/components/contact/SelecteurRoles'
 import type { Compte, Contact } from '@/types/domain'
 import { useOuvrirCreation } from '@/lib/ouvrirCreation'
 
@@ -31,12 +32,6 @@ const DUPLICATE_FIELD_LABEL: Record<ContactDuplicate['fields'][number], string> 
   phone: 'Tél fixe',
   mobile: 'Mobile',
   fullName: 'Prénom + Nom',
-}
-
-const ROLE_META: Record<string, { icon: typeof Crown; desc: string; active: string }> = {
-  Décisionnaire: { icon: Crown, desc: 'Signe et valide les contrats', active: 'border-amber-400/60 bg-amber-50 text-amber-700' },
-  Administratif: { icon: ClipboardList, desc: 'Gère les démarches et documents', active: 'border-sky-400/60 bg-sky-50 text-sky-700' },
-  'Conseil syndical': { icon: Users, desc: 'Représente les copropriétaires', active: 'border-violet-400/60 bg-violet-50 text-violet-700' },
 }
 
 function CreateContactDialog({ open, onClose, initialCompteId }: { open: boolean; onClose: () => void; initialCompteId?: string }) {
@@ -64,13 +59,12 @@ function CreateContactDialog({ open, onClose, initialCompteId }: { open: boolean
   const [telephoneMobile, setTelephoneMobile] = useState('')
   const [email, setEmail] = useState('')
   const [emailTouched, setEmailTouched] = useState(false)
-  const [role, setRole] = useState('')
+  const [roles, setRoles] = useState<RoleContact[]>([])
   const [siteIds, setSiteIds] = useState<string[]>([])
   const [compteurIds, setCompteurIds] = useState<string[]>([])
   const [feedback, setFeedback] = useState<string | null>(null)
 
   const compte = comptes?.find((c) => c.id === compteId) ?? null
-  const roleOptions = contactRoleOptions(compte?.segment)
   const sitesDuCompte = sites?.filter((s) => s.compte_id === compteId) ?? []
   const compteurIdsDuCompte = new Set((sites ?? []).filter((s) => s.compte_id === compteId).map((s) => s.id))
   const compteursDuCompte = (compteurs ?? []).filter((c) => compteurIdsDuCompte.has(c.site_id))
@@ -103,7 +97,7 @@ function CreateContactDialog({ open, onClose, initialCompteId }: { open: boolean
   // jamais pendant la frappe).
   const telError = telephone && !isValidPhoneFR(telephone) ? 'Format invalide (attendu : +33…)' : null
   const mobError = telephoneMobile && !isValidPhoneFR(telephoneMobile) ? 'Format invalide (attendu : +33…)' : null
-  const canSubmit = !!compteId && nom.trim().length > 0 && !!role && !emailError && !telError && !mobError
+  const canSubmit = !!compteId && nom.trim().length > 0 && roles.length > 0 && !emailError && !telError && !mobError
 
   function reset() {
     setStep('form')
@@ -117,7 +111,7 @@ function CreateContactDialog({ open, onClose, initialCompteId }: { open: boolean
     setTelephoneMobile('')
     setEmail('')
     setEmailTouched(false)
-    setRole('')
+    setRoles([])
     setSiteIds([])
     setCompteurIds([])
     setFeedback(null)
@@ -146,7 +140,7 @@ function CreateContactDialog({ open, onClose, initialCompteId }: { open: boolean
       telephone: telephone || null,
       telephone_mobile: telephoneMobile || null,
       email: email || null,
-      role,
+      roles,
       site_ids: siteIds,
       sites: sitesChoisis.map((s) => ({ ...s, fonction_sur_site: null })),
     })
@@ -156,7 +150,7 @@ function CreateContactDialog({ open, onClose, initialCompteId }: { open: boolean
     // Comme dans Tools : si le contact est Décisionnaire (ou Conseil syndical), on propose de le
     // rattacher à un ou plusieurs PDL existants du compte avant l'écran final -- sinon on passe
     // directement à l'écran final "Que veux-tu faire ensuite ?".
-    if (result.persisted && (role === 'Décisionnaire' || role === 'Conseil syndical') && compteursDuCompte.length > 0) {
+    if (result.persisted && (roles.includes('DECISIONNAIRE') || roles.includes('CONSEIL_SYNDICAL')) && compteursDuCompte.length > 0) {
       setStep('pdl')
     } else {
       setStep('final')
@@ -168,7 +162,19 @@ function CreateContactDialog({ open, onClose, initialCompteId }: { open: boolean
       await assignCompteurContact.mutateAsync({
         compteurIds,
         contactId: createdContact.id,
-        field: role === 'Conseil syndical' ? 'contact_conseil_syndical_id' : 'responsable_contact_id',
+        // ══ LA FENTE DU RELAIS EST RÉSERVÉE À QUI NE CONTRACTUALISE PAS ══
+        //
+        // En syndic bénévole, un membre du conseil syndical est aussi décisionnaire et signataire :
+        // il EST la partie contractante, donc sa place est la fente du responsable. L'envoyer dans
+        // celle du relais laisserait le compteur sans responsable, et le ferait compter comme
+        // « couvert » alors qu'il n'y a aucun cabinet à perdre.
+        //
+        // C'est aussi ce qui évite de heurter la contrainte posée le 13/09/2026 : une même personne
+        // ne peut pas occuper les deux fentes du même compteur.
+        field:
+          roles.includes('CONSEIL_SYNDICAL') && !roles.includes('DECISIONNAIRE')
+            ? 'contact_conseil_syndical_id'
+            : 'responsable_contact_id',
       })
     }
     setStep('final')
@@ -187,7 +193,7 @@ function CreateContactDialog({ open, onClose, initialCompteId }: { open: boolean
     step === 'form'
       ? 'Ajouter une personne à un compte.'
       : step === 'pdl'
-        ? `${createdContact?.prenom} ${createdContact?.nom} est ${role.toLowerCase()} — le rattacher à un ou plusieurs PDL existants ?`
+        ? `${createdContact?.prenom} ${createdContact?.nom} est ${roles.map((r) => LIBELLE_ROLE[r].toLowerCase()).join(' et ')} — le rattacher à un ou plusieurs PDL existants ?`
         : 'Que veux-tu faire ensuite ?'
 
   return (
@@ -212,7 +218,7 @@ function CreateContactDialog({ open, onClose, initialCompteId }: { open: boolean
             <ChoixParRecherche<Compte>
               items={comptes ?? []}
               valeur={compteId}
-              onChoisir={(c) => { setCompteId(c?.id ?? ''); setSiteIds([]); setRole('') }}
+              onChoisir={(c) => { setCompteId(c?.id ?? ''); setSiteIds([]); setRoles([]) }}
               placeholder="Chercher un compte…"
               principal={(c) => c.nom}
               secondaire={(c) => [c.ville, c.siret ? `SIRET ${c.siret}` : null].filter(Boolean).join(' · ') || null}
@@ -258,28 +264,9 @@ function CreateContactDialog({ open, onClose, initialCompteId }: { open: boolean
             </FormField>
           </div>
           <FormField label="Rôle">
-            <div className="grid grid-cols-3 gap-2">
-              {roleOptions.map((r) => {
-                const meta = ROLE_META[r]
-                const Icon = meta?.icon ?? User
-                const active = role === r
-                return (
-                  <button
-                    key={r}
-                    type="button"
-                    disabled={!compteId}
-                    onClick={() => setRole(r)}
-                    className={`flex flex-col items-start gap-1 rounded-lg border p-2.5 text-left text-xs transition-colors disabled:cursor-not-allowed disabled:opacity-50 ${
-                      active ? meta?.active ?? 'border-navy-400/60 bg-km-bg text-km-text' : 'border-km-line text-km-muted hover:bg-km-bg'
-                    }`}
-                  >
-                    <Icon className="h-4 w-4" />
-                    <span className="font-medium">{r}</span>
-                    {meta?.desc && <span className="text-km-label opacity-80">{meta.desc}</span>}
-                  </button>
-                )
-              })}
-            </div>
+            {/* Plusieurs rôles possibles — c'est la norme : 526 contacts sur 3 416 sont à la fois
+                décisionnaires et signataires. */}
+            <SelecteurRoles roles={roles} segment={compte?.segment} onChange={setRoles} disabled={!compteId} />
           </FormField>
           <FormField label="Fonction">
             <Input value={fonction} onChange={(e) => setFonction(e.target.value)} placeholder="Ex. Directeur technique" />
@@ -510,7 +497,17 @@ export default function Contacts({ sansEntete }: { sansEntete?: boolean }) {
                 </div>
                 {c.contact_principal && <Star className="h-4 w-4 shrink-0 text-amber-500" />}
               </div>
-              {c.role && <Badge tone={c.role === 'Décisionnaire' ? 'kiwi' : 'neutral'} className="mt-2">{c.role}</Badge>}
+              {/* Un badge par rôle, l'or pour le signataire : la même grammaire que l'onglet
+                  Contacts d'une fiche compte, pour qu'on reconnaisse la même chose partout. */}
+              {c.roles.length > 0 && (
+                <div className="mt-2 flex flex-wrap gap-1">
+                  {c.roles.map((r) => (
+                    <Badge key={r} tone={r === 'SIGNATAIRE' ? 'amber' : r === 'DECISIONNAIRE' ? 'kiwi' : 'neutral'}>
+                      {LIBELLE_ROLE[r]}
+                    </Badge>
+                  ))}
+                </div>
+              )}
               <div className="mt-4 space-y-1 text-xs text-km-muted">
                 <p><EntityLink to={`/comptes/${c.compte_id}`}>{c.compte_nom}</EntityLink></p>
                 {c.email && <p><EmailLink value={c.email} /></p>}
