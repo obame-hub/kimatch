@@ -130,7 +130,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
    * défaut qu'on corrige ici. */
   const valeur = useMemo(
     () => ({ session, loading, erreurSession, signInWithMagicLink, signOut }),
-    // eslint-disable-next-line react-hooks/exhaustive-deps
     [session, loading, erreurSession],
   )
 
