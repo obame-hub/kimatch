@@ -8,7 +8,9 @@ import { SandboxBanner } from '@/components/layout/SandboxBanner'
 import { VoletEmailProvider } from '@/lib/voletEmail'
 import { VoletEmail } from '@/components/email/VoletEmail'
 import { ProtectedRoute } from '@/components/ProtectedRoute'
+import { FrontiereErreur } from '@/components/FrontiereErreur'
 import Login from '@/pages/Login'
+import PageIntrouvable from '@/pages/PageIntrouvable'
 
 /**
  * LES TRENTE-SIX AUTRES ECRANS SE CHARGENT QUAND ON Y VA.
@@ -85,6 +87,22 @@ function App() {
           disparaîtrait au premier changement d'écran — c'est-à-dire exactement quand on va chercher
           l'information pour laquelle on l'avait réduit. */}
       <VoletEmail />
+      {/* ══ LA FRONTIÈRE D'ERREUR, AUTOUR DE TOUT CE QUI S'AFFICHE ══════════════════════════════
+
+          Audit du 13/09/2026, constat ERR-01. Avant elle, une exception de rendu dans n'importe
+          lequel des 299 fichiers démontait l'arbre React entier : écran blanc définitif, sans
+          message, sans bouton. C'était la première cause des pages blanches.
+
+          ELLE EST DEHORS, LE `Suspense` EST DEDANS, et cet ordre compte. Un écran différé qui
+          n'arrive pas lève son erreur pendant que `Suspense` attend : si la frontière était à
+          l'intérieur, elle serait démontée en même temps que ce qu'elle protège et ne verrait
+          rien. Dehors, elle rattrape aussi bien l'échec de rendu que l'échec de chargement.
+
+          ELLE NE REMPLACE PAS `chargerPage`, elle le complète : `chargerPage` recharge une fois
+          quand un morceau manque après une mise en ligne, ce qui est le bon remède dans ce cas
+          précis. La frontière prend la suite quand ce remède ne suffit pas — et jusqu'ici, il n'y
+          avait rien derrière. */}
+      <FrontiereErreur perimetre="Cet écran">
       {/* La frontiere d'attente des ecrans differes. Volontairement VIDE plutot qu'un
           « Chargement… » : le fichier d'un ecran pese quelques dizaines de kilo-octets et
           arrive en une fraction de seconde. Un texte qui apparait et disparait aussitot se
@@ -150,10 +168,23 @@ function App() {
           <Route path="/profil" element={<MonProfil />} />
           <Route path="/support" element={<Support />} />
           <Route path="/nouveautes" element={<Nouveautes />} />
+          {/* ══ TOUTE ADRESSE INCONNUE ABOUTIT QUELQUE PART ══════════════════════════════════
+
+              Audit du 13/09/2026, constat RTG-01. Il n'y avait aucune route de repli : une adresse
+              hors de cette liste traversait `ProtectedRoute`, montait `AppLayout`, et laissait
+              l'`Outlet` VIDE. On voyait la barre latérale, l'en-tête, et un grand rectangle blanc
+              — rien ne disait que l'adresse n'existait pas.
+
+              Le cas se produit pour de vrai : les deux routes des signaux ont été retirées le
+              02/09, celles des sites le 09/09, et un favori vers une ancienne adresse suffit.
+
+              ELLE EST DANS `AppLayout`, pas dehors : on garde le menu, donc on peut repartir. */}
+          <Route path="*" element={<PageIntrouvable />} />
         </Route>
       </Route>
       </Routes>
       </Suspense>
+      </FrontiereErreur>
       </div>
     </VoletEmailProvider>
   )
