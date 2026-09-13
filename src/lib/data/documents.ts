@@ -1,7 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { supabase } from '@/lib/supabase'
 import type { DocumentItem } from '@/types/domain'
-import { fetchAllRows } from '@/lib/data/paginatedFetch'
+import { fetchAllRows, fetchAllRowsParLots } from '@/lib/data/paginatedFetch'
 
 interface RawDocument {
   id: string
@@ -39,18 +39,51 @@ const ENTITE_LABELS: Record<string, string> = {
  *  ses compteurs, ses mandats. Le rattachement d'un document est polymorphe (entite_type +
  *  entite_id), donc on filtre sur les identifiants : deux entités de types différents ne partagent
  *  jamais un UUID, il n'y a donc pas de faux positif à craindre. */
+const SELECT_DOCUMENTS =
+  'id, nom, nom_fichier, url, entite_type, entite_id, date_creation, proprietaire_id, type_document:types_documents(libelle), auteur:profils!documents_auteur_profil_id_fkey(prenom, nom)'
+
+/** Le plus récent d'abord — le même ordre que le `.order()` posé côté base, à appliquer quand la
+ *  lecture a été découpée en plusieurs requêtes. Voir `fetchAllRowsParLots`. */
+const PLUS_RECENT_DABORD = (a: RawDocument, b: RawDocument) =>
+  (b.date_creation ?? '').localeCompare(a.date_creation ?? '')
+
 async function fetchDocuments(entiteIds?: string[], documentId?: string): Promise<DocumentItem[]> {
   try {
     if (entiteIds && entiteIds.length === 0) return []
-    const data = await fetchAllRows<RawDocument>(
-      'documents',
-      'id, nom, nom_fichier, url, entite_type, entite_id, date_creation, proprietaire_id, type_document:types_documents(libelle), auteur:profils!documents_auteur_profil_id_fkey(prenom, nom)',
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      (q: any) => {
-        if (documentId) return q.eq('id', documentId)
-        return (entiteIds ? q.in('entite_id', entiteIds) : q).order('date_creation', { ascending: false })
-      },
-    )
+
+    /* ══ LE FILTRE EST DÉCOUPÉ EN LOTS ══
+     *
+     * Audit du 13/09/2026, constat ARC-02. `CompteDetail.tsx:166` passe ici la liste de TOUTES les
+     * entités du compte : le compte, ses groupes d'adresse, ses compteurs, ses mandats. Pour un
+     * syndic à 1 677 sites et environ 2 000 compteurs, cela fait près de 3 700 UUID — plus de
+     * 140 Ko d'URL, très au-delà de ce qu'accepte un serveur HTTP.
+     *
+     * La requête échouait donc à coup sûr, et le `catch` plus bas renvoyait une liste vide :
+     * l'onglet Fichiers s'affichait VIDE, sans un mot. Le compte le plus gros était celui dont on
+     * voyait le moins. */
+    const data = documentId
+      ? await fetchAllRows<RawDocument>(
+          'documents',
+          SELECT_DOCUMENTS,
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          (q: any) => q.eq('id', documentId),
+        )
+      : entiteIds
+        ? await fetchAllRowsParLots<RawDocument>(
+            'documents',
+            SELECT_DOCUMENTS,
+            'entite_id',
+            entiteIds,
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            (q: any) => q.order('date_creation', { ascending: false }),
+            PLUS_RECENT_DABORD,
+          )
+        : await fetchAllRows<RawDocument>(
+            'documents',
+            SELECT_DOCUMENTS,
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            (q: any) => q.order('date_creation', { ascending: false }),
+          )
 
     return data.map((d) => ({
       id: d.id,

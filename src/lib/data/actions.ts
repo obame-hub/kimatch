@@ -2,7 +2,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { supabase } from '@/lib/supabase'
 import type { ActionItem } from '@/types/domain'
 import { fetchComptesVisibles, fetchSitesVisiblesIds } from '@/lib/data/visibility'
-import { fetchAllRows } from '@/lib/data/paginatedFetch'
+import { fetchAllRows, fetchAllRowsParLots } from '@/lib/data/paginatedFetch'
 
 interface RawAction {
   id: string
@@ -24,6 +24,18 @@ interface RawAction {
   site: { nom: string } | null
   contact: { prenom: string; nom: string } | null
   recommandation: { nom: string } | null
+}
+
+const SELECT_ACTIONS =
+  'id, titre, site_id, contact_id, recommandation_id, opportunite_id, piste_id, suivi_contrat_id, date_creation, date_prevue, date_realisation, priorite, commentaire, proprietaire_id, cree_par_id, responsable_profil_id, type_action:types_actions(libelle), statut:statuts_actions(code), responsable:profils!actions_responsable_profil_id_fkey(prenom, nom), site:sites(nom), contact:contacts(prenom, nom), recommandation:recommandations!recommandation_id(nom)'
+
+/** Le même ordre que le `.order('date_prevue')` posé côté base, à réappliquer quand la lecture a
+ *  été découpée en plusieurs requêtes. Voir `fetchAllRowsParLots`. Les tâches sans date passent en
+ *  dernier, comme le fait PostgreSQL par défaut en ordre croissant. */
+const PAR_DATE_PREVUE = (a: RawAction, b: RawAction) => {
+  if (!a.date_prevue) return b.date_prevue ? 1 : 0
+  if (!b.date_prevue) return -1
+  return a.date_prevue.localeCompare(b.date_prevue)
 }
 
 /** `siteIds` restreint la lecture aux tâches d'un périmètre de sites. Les tâches sans site
@@ -50,20 +62,41 @@ async function fetchActions(
 ): Promise<ActionItem[]> {
   try {
     if (siteIds && siteIds.length === 0) return []
-    const data = await fetchAllRows<RawAction>(
-      'actions',
-      'id, titre, site_id, contact_id, recommandation_id, opportunite_id, piste_id, suivi_contrat_id, date_creation, date_prevue, date_realisation, priorite, commentaire, proprietaire_id, cree_par_id, responsable_profil_id, type_action:types_actions(libelle), statut:statuts_actions(code), responsable:profils!actions_responsable_profil_id_fkey(prenom, nom), site:sites(nom), contact:contacts(prenom, nom), recommandation:recommandations!recommandation_id(nom)',
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      (q: any) => {
-        if (actionId) return q.eq('id', actionId)
-        if (recommandationId) return q.eq('recommandation_id', recommandationId).order('date_prevue')
-        if (opportuniteId) return q.eq('opportunite_id', opportuniteId).order('date_prevue')
-        if (pisteId) return q.eq('piste_id', pisteId).order('date_prevue')
-        if (suiviContratId) return q.eq('suivi_contrat_id', suiviContratId).order('date_prevue')
-        if (requeteId) return q.eq('requete_id', requeteId).order('date_prevue')
-        return (siteIds ? q.in('site_id', siteIds) : q).order('date_prevue')
-      },
-    )
+
+    /* ══ LE FILTRE PAR SITES EST DÉCOUPÉ EN LOTS ══
+     *
+     * Audit du 13/09/2026, constat ARC-02. `CompteDetail.tsx:163` passe ici tous les groupes
+     * d'adresse du compte. Pour un syndic, c'est plus de mille identifiants dans l'URL — au-delà
+     * d'environ cent cinquante, PostgREST échoue entièrement, et le `catch` plus bas transformait
+     * cet échec en liste d'actions vide.
+     *
+     * Les autres branches filtrent sur UN identifiant : elles ne courent aucun risque et gardent
+     * le chemin direct. */
+    const data =
+      siteIds && !actionId && !recommandationId && !opportuniteId && !pisteId && !suiviContratId && !requeteId
+        ? await fetchAllRowsParLots<RawAction>(
+            'actions',
+            SELECT_ACTIONS,
+            'site_id',
+            siteIds,
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            (q: any) => q.order('date_prevue'),
+            PAR_DATE_PREVUE,
+          )
+        : await fetchAllRows<RawAction>(
+            'actions',
+            SELECT_ACTIONS,
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            (q: any) => {
+              if (actionId) return q.eq('id', actionId)
+              if (recommandationId) return q.eq('recommandation_id', recommandationId).order('date_prevue')
+              if (opportuniteId) return q.eq('opportunite_id', opportuniteId).order('date_prevue')
+              if (pisteId) return q.eq('piste_id', pisteId).order('date_prevue')
+              if (suiviContratId) return q.eq('suivi_contrat_id', suiviContratId).order('date_prevue')
+              if (requeteId) return q.eq('requete_id', requeteId).order('date_prevue')
+              return q.order('date_prevue')
+            },
+          )
 
     const comptesVisibles = await fetchComptesVisibles()
     const sitesVisibles = await fetchSitesVisiblesIds(comptesVisibles)

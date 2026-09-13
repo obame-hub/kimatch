@@ -46,3 +46,107 @@ export async function fetchAllRows<T>(table: string, selectString: string, confi
   }
   return tout
 }
+
+/**
+ * ══ LE SECOND PLAFOND DE POSTGREST : LA LONGUEUR DE L'URL ══
+ *
+ * Audit du 13/09/2026, constat ARC-02.
+ *
+ * `fetchAllRows` franchit le plafond des mille lignes. Il en reste un autre, et il frappe à
+ * l'autre bout : un `.in()` porte CHAQUE valeur dans l'URL de la requête. Au-delà d'environ
+ * cent cinquante identifiants, l'URL dépasse ce qu'un serveur HTTP accepte et la requête échoue
+ * ENTIÈREMENT — pas de troncature, pas de résultat partiel : une erreur.
+ *
+ * ── LE CORRECTIF EXISTAIT DÉJÀ, À UN SEUL ENDROIT ──
+ *
+ * `visibility.ts` porte une fonction `idsParLots` depuis le 13/08/2026, écrite après que les deux
+ * plafonds réunis ont fait disparaître 677 sites du périmètre de Marie Thonnard. Son commentaire
+ * disait déjà l'essentiel : « le motif s'était déjà répété à trois endroits ».
+ *
+ * Il s'est répété encore. Six appels le manquaient au 13/09/2026 :
+ *
+ *     documents.ts:51        .in('entite_id', entiteIds)
+ *     actions.ts:64          .in('site_id', siteIds)
+ *     opportunites.ts:73,76,79   .in('opportunite_id', ids)
+ *     recommandations.ts:268,307,344
+ *
+ * ── CE QUE ÇA PRODUISAIT, ET POURQUOI PERSONNE NE LE VOYAIT ──
+ *
+ * Dans `CompteDetail.tsx:166`, la liste passée aux documents vaut :
+ *
+ *     [compte, …groupesAdresse, …tousLesCompteurs, …tousLesMandats]
+ *
+ * Pour un syndic à 1 677 sites et environ 2 000 compteurs, cela fait près de 3 700 UUID, soit plus
+ * de 140 Ko d'URL. La requête échouait à coup sûr — et comme `fetchDocuments` se termine par
+ * `catch { return [] }`, l'onglet Fichiers s'affichait VIDE, sans un mot. Le compte le plus gros
+ * était celui dont on voyait le moins.
+ *
+ * ── POURQUOI ELLE VIT ICI ET NON DANS `visibility.ts` ──
+ *
+ * `idsParLots` ne sait ramener qu'une colonne d'identifiants, ce qui suffit à son usage. Les six
+ * appels ci-dessus veulent des LIGNES, avec leurs jointures. Plutôt que d'élargir une fonction de
+ * visibilité à des besoins qui n'ont rien à voir, la version générale rejoint `fetchAllRows`,
+ * dont elle est la suite logique — et `idsParLots` s'appuie désormais dessus.
+ */
+const LOT_IN = 150
+
+export async function fetchAllRowsParLots<T>(
+  table: string,
+  selectString: string,
+  colonneFiltre: string,
+  valeurs: string[],
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  configure?: (query: any) => any,
+  /**
+   * ══ LE PIÈGE DU DÉCOUPAGE, ET POURQUOI CE PARAMÈTRE N'EST PAS FACULTATIF EN PRATIQUE ══
+   *
+   * PostgreSQL trie CHAQUE requête, pas l'ensemble des requêtes. Dès qu'il y a plus d'un lot, le
+   * résultat concaténé vaut « lot 1 trié, puis lot 2 trié » — ce qui n'est PAS trié.
+   *
+   * C'est exactement le genre de régression que ce correctif est censé empêcher : invisible sur
+   * les petits comptes (un seul lot, l'ordre est juste), fausse sur les gros — donc découverte
+   * trois semaines plus tard par quelqu'un qui cherchera pourquoi ses documents récents sont au
+   * milieu de la liste.
+   *
+   * Tout appelant qui pose un `.order()` dans `configure` DOIT donner ici le comparateur
+   * équivalent. Le tri final n'est appliqué que s'il y a eu plusieurs lots : sur un seul, celui
+   * de la base fait déjà foi.
+   */
+  trierApres?: (a: T, b: T) => number,
+): Promise<T[]> {
+  /* Une liste vide ne veut pas dire « pas de filtre » : elle veut dire « aucune valeur ne peut
+     correspondre ». Sans ce cas, un `.in()` vide laisserait passer la table entière — l'inverse
+     exact de ce qui est demandé. */
+  if (valeurs.length === 0) return []
+
+  /* Le cas courant, et de loin : moins de 150 valeurs, donc une seule requête. On ne paie le
+     découpage que quand il sert. */
+  if (valeurs.length <= LOT_IN) {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    return fetchAllRows<T>(table, selectString, (q: any) => {
+      const filtre = q.in(colonneFiltre, valeurs)
+      return configure ? configure(filtre) : filtre
+    })
+  }
+
+  const lots: string[][] = []
+  for (let i = 0; i < valeurs.length; i += LOT_IN) lots.push(valeurs.slice(i, i + LOT_IN))
+
+  /* EN SÉRIE, PAS EN PARALLÈLE. `fetchAllRows` lance déjà jusqu'à quatre requêtes de front pour
+     paginer ; multiplier cela par le nombre de lots enverrait des dizaines de requêtes lourdes
+     simultanées. Le commentaire de `fetchAllRows` dit ce que Supabase en fait : « 500/503 quand
+     trop de requêtes lourdes partent en même temps ». Un compte à 3 700 entités ferait 25 lots ;
+     en parallèle, c'est un moyen sûr de faire tomber ce qu'on essaie de réparer. */
+  const tout: T[] = []
+  for (const lot of lots) {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const lignes = await fetchAllRows<T>(table, selectString, (q: any) => {
+      const filtre = q.in(colonneFiltre, lot)
+      return configure ? configure(filtre) : filtre
+    })
+    tout.push(...lignes)
+  }
+
+  /* Voir le commentaire du paramètre : chaque lot est trié par la base, l'ensemble ne l'est pas. */
+  return trierApres ? tout.sort(trierApres) : tout
+}

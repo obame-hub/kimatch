@@ -1,6 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { supabase } from '@/lib/supabase'
-import { fetchAllRows } from '@/lib/data/paginatedFetch'
+import { fetchAllRows, fetchAllRowsParLots } from '@/lib/data/paginatedFetch'
 import { fetchComptesVisibles, filterVisibles } from '@/lib/data/visibility'
 import type { Opportunite } from '@/types/domain'
 
@@ -66,17 +66,20 @@ async function fetchOpportunites(opportuniteId?: string): Promise<Opportunite[]>
     if (lignes.length === 0) return []
 
     const ids = lignes.map((o) => o.id)
-    // Le périmètre et les recommandations, en trois requêtes plutôt qu'une par opportunité.
+    /* Le périmètre et les recommandations, en trois requêtes plutôt qu'une par opportunité.
+     *
+     * DÉCOUPÉES EN LOTS DEPUIS LE 13/09/2026 (audit, ARC-02). `ids` porte ici TOUTES les
+     * opportunités lues — la table entière quand l'appel n'est pas ciblé sur une seule, ce qui est
+     * le cas depuis `useOpportunites()`. Passé environ cent cinquante identifiants, l'URL dépasse
+     * ce qu'accepte un serveur HTTP et la requête échoue en bloc ; le `catch` plus bas rendait
+     * alors une liste vide, donc un écran Opportunités désert sans aucun message.
+     *
+     * Aucun de ces trois appels n'ordonne quoi que ce soit : ils alimentent des `Map` juste en
+     * dessous, où l'ordre n'a aucun sens. Pas de comparateur à fournir. */
     const [sites, compteurs, recos] = await Promise.all([
-      fetchAllRows<RawLien>('opportunites_sites', 'opportunite_id, site_id',
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        (q: any) => q.in('opportunite_id', ids)),
-      fetchAllRows<RawLien>('opportunites_compteurs', 'opportunite_id, compteur_id, ecarte',
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        (q: any) => q.in('opportunite_id', ids)),
-      fetchAllRows<{ id: string; opportunite_id: string | null }>('recommandations', 'id, opportunite_id',
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        (q: any) => q.in('opportunite_id', ids)),
+      fetchAllRowsParLots<RawLien>('opportunites_sites', 'opportunite_id, site_id', 'opportunite_id', ids),
+      fetchAllRowsParLots<RawLien>('opportunites_compteurs', 'opportunite_id, compteur_id, ecarte', 'opportunite_id', ids),
+      fetchAllRowsParLots<{ id: string; opportunite_id: string | null }>('recommandations', 'id, opportunite_id', 'opportunite_id', ids),
     ])
 
     const parOpp = <T extends RawLien>(liste: T[], cle: 'site_id' | 'compteur_id') => {
@@ -114,10 +117,10 @@ async function fetchOpportunites(opportuniteId?: string): Promise<Opportunite[]>
     const idsRecos = [...recosParOpp.values()].flat()
     const placesParOpp = new Map<string, string[]>()
     if (idsRecos.length > 0) {
-      const liens = await fetchAllRows<{ recommandation_id: string; compteur_id: string }>(
-        'recommandations_compteurs', 'recommandation_id, compteur_id',
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        (q: any) => q.in('recommandation_id', idsRecos))
+      /* Même découpage que plus haut (ARC-02) : `idsRecos` porte toutes les recommandations de
+         toutes les opportunités lues, ce qui dépasse largement la centaine. */
+      const liens = await fetchAllRowsParLots<{ recommandation_id: string; compteur_id: string }>(
+        'recommandations_compteurs', 'recommandation_id, compteur_id', 'recommandation_id', idsRecos)
       const oppDeLaReco = new Map<string, string>()
       for (const [opp, listeRecos] of recosParOpp) for (const r of listeRecos) oppDeLaReco.set(r, opp)
       for (const l of liens) {

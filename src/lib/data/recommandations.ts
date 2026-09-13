@@ -10,7 +10,7 @@ import type {
   SuiviConsultationFournisseur,
 } from '@/types/domain'
 import { fetchComptesVisibles, fetchMesComptes, filterVisibles } from '@/lib/data/visibility'
-import { fetchAllRows } from '@/lib/data/paginatedFetch'
+import { fetchAllRows, fetchAllRowsParLots } from '@/lib/data/paginatedFetch'
 
 interface RawRecommandation {
   id: string
@@ -101,6 +101,8 @@ interface VersionExtra {
 interface RawOptimisation {
   id: string
   version_recommandation_id: string
+  /** Lu uniquement pour pouvoir rétablir le tri quand la lecture est découpée en lots. */
+  ordre: number | null
   nom: string | null
   description: string | null
   resultat_attendu: string | null
@@ -229,8 +231,55 @@ async function fetchRecommandations(
     // recommandations d'une fiche compte telechargeait ces douze tables en entier, soit a lui seul
     // pres de la moitie des 56 requetes de la page. Les vagues coutent trois allers-retours de plus
     // qu'un Promise.all, sur des volumes sans commune mesure.
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const surColonne = (colonne: string, valeurs: string[]) => (q: any) => q.in(colonne, valeurs)
+    /**
+     * ══ CHAQUE FILTRE PAR LISTE EST DÉCOUPÉ EN LOTS ══
+     *
+     * Audit du 13/09/2026, constat ARC-02. `surColonne` posait un `.in()` d'un seul tenant, et
+     * PostgREST porte chaque valeur dans l'URL : au-delà d'environ cent cinquante identifiants,
+     * elle dépasse ce qu'accepte un serveur HTTP et la requête échoue ENTIÈREMENT.
+     *
+     * LE RISQUE ÉTAIT RÉEL ICI, et pas seulement théorique. `cible` vaut vrai quand on lit les
+     * recommandations d'UN compte — mais un gros syndic en porte des dizaines, dont chacune a ses
+     * versions, chaque version ses optimisations, chaque optimisation ses offres. La liste passée
+     * aux derniers appels (`offre_fournisseur_id`, `optimisation_fournisseur_id`,
+     * `offre_compteur_id`) est le produit de toute cette cascade : elle franchit la centaine bien
+     * avant les autres.
+     *
+     * Et le `catch` en bas de cette fonction transformait l'échec en liste vide : le compte le
+     * plus fourni était celui dont on voyait le moins d'offres, sans un message.
+     *
+     * LA SIGNATURE NE CHANGE PAS pour les appelants qui recevaient un configurateur — ils
+     * continuent d'en recevoir un. Ce qui change est le nombre de requêtes derrière.
+     */
+    const lireParLots = <T,>(
+      table: string,
+      select: string,
+      colonne: string,
+      valeurs: string[],
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      suite?: (q: any) => any,
+      trierApres?: (a: T, b: T) => number,
+    ) => fetchAllRowsParLots<T>(table, select, colonne, valeurs, suite, trierApres)
+
+    /**
+     * La forme qu'avaient tous les appels de cette fonction : filtrée sur une liste quand on cible
+     * un compte ou une recommandation, complète sinon (la page de liste).
+     *
+     * `trierApres` DOIT être fourni dès que `suite` pose un `.order()` — sans quoi le résultat vaut
+     * « lot 1 trié, puis lot 2 trié », ce qui n'est pas trié. Voir `fetchAllRowsParLots`.
+     */
+    const lireSelonCible = <T,>(
+      table: string,
+      select: string,
+      colonne: string,
+      valeurs: string[],
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      suite?: (q: any) => any,
+      trierApres?: (a: T, b: T) => number,
+    ) =>
+      cible
+        ? lireParLots<T>(table, select, colonne, valeurs, suite, trierApres)
+        : fetchAllRows<T>(table, select, suite)
 
     const recos = await fetchAllRows<RawRecommandation>(
       'recommandations',
@@ -248,25 +297,53 @@ async function fetchRecommandations(
     const recoIds = recos.map((r) => r.id)
     const cible = Boolean(compteId || recoId)
     if (cible && recoIds.length === 0) return []
-    const parReco = cible ? surColonne('recommandation_id', recoIds) : undefined
+
+    const SELECT_VERSIONS =
+      'id, recommandation_id, numero_version, nom, resume, contexte_et_hypotheses, gain_estime_annuel, economie_estimee_pourcentage, niveau_confiance, version_actuelle, est_figee, date_publication, date_presentation_client, date_decision_client, date_creation, statut:statuts_versions_recommandation(code), motif:motifs_versions_recommandation(libelle), contact_id, contact:contacts(prenom, nom)'
+
+    // « Les versions doivent s'afficher du plus recent au plus ancien » (reunion du
+    // 12/08/2026). Le tri porte sur numero_version, qui EST le rang metier de la version,
+    // plutot que sur la date qui n'en est qu'un indice : rien n'interdit de reprendre une
+    // version anterieure ni d'en creer deux le meme jour. 318 recommandations ont plusieurs
+    // versions, l'ordre s'y voit donc vraiment. date_creation ne sert qu'a departager.
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const ordreVersions = (q: any) =>
+      q.order('numero_version', { ascending: false, nullsFirst: false }).order('date_creation', { ascending: false })
+
+    /* Le même ordre, réappliqué quand la lecture a été découpée : chaque lot est trié par la base,
+       l'ensemble ne l'est pas. Les versions sans numéro passent en dernier, comme `nullsFirst:
+       false` le fait côté PostgreSQL. */
+    const ordreVersionsEnMemoire = (a: RawVersion, b: RawVersion) => {
+      const na = a.numero_version, nb = b.numero_version
+      if (na == null && nb != null) return 1
+      if (nb == null && na != null) return -1
+      if (na != null && nb != null && na !== nb) return nb - na
+      return (b.date_creation ?? '').localeCompare(a.date_creation ?? '')
+    }
 
     const [compteursRows, versionsRows] = await Promise.all([
-      fetchAllRows<RawRecoCompteur>(
-        'recommandations_compteurs',
-        'recommandation_id, compteur_id, compteur:compteurs(groupe_site_id, libelle_site)',
-        parReco,
+      (cible
+        ? lireParLots<RawRecoCompteur>(
+            'recommandations_compteurs',
+            'recommandation_id, compteur_id, compteur:compteurs(groupe_site_id, libelle_site)',
+            'recommandation_id',
+            recoIds,
+          )
+        : fetchAllRows<RawRecoCompteur>(
+            'recommandations_compteurs',
+            'recommandation_id, compteur_id, compteur:compteurs(groupe_site_id, libelle_site)',
+          )
       ).catch(() => [] as RawRecoCompteur[]),
-      fetchAllRows<RawVersion>(
-        'versions_recommandation',
-        'id, recommandation_id, numero_version, nom, resume, contexte_et_hypotheses, gain_estime_annuel, economie_estimee_pourcentage, niveau_confiance, version_actuelle, est_figee, date_publication, date_presentation_client, date_decision_client, date_creation, statut:statuts_versions_recommandation(code), motif:motifs_versions_recommandation(libelle), contact_id, contact:contacts(prenom, nom)',
-        // « Les versions doivent s'afficher du plus recent au plus ancien » (reunion du
-        // 12/08/2026). Le tri porte sur numero_version, qui EST le rang metier de la version,
-        // plutot que sur la date qui n'en est qu'un indice : rien n'interdit de reprendre une
-        // version anterieure ni d'en creer deux le meme jour. 318 recommandations ont plusieurs
-        // versions, l'ordre s'y voit donc vraiment. date_creation ne sert qu'a departager.
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        (q: any) => (cible ? q.in('recommandation_id', recoIds) : q).order('numero_version', { ascending: false, nullsFirst: false }).order('date_creation', { ascending: false }),
-      ),
+      cible
+        ? lireParLots<RawVersion>(
+            'versions_recommandation',
+            SELECT_VERSIONS,
+            'recommandation_id',
+            recoIds,
+            ordreVersions,
+            ordreVersionsEnMemoire,
+          )
+        : fetchAllRows<RawVersion>('versions_recommandation', SELECT_VERSIONS, ordreVersions),
     ])
 
     // Les pages de liste n'affichent qu'un en-tete : titre, compte, etape, sites, nombre de
@@ -274,74 +351,94 @@ async function fetchRecommandations(
     // offres fournisseurs, suivis de consultation -- ne servent qu'a la fiche detaillee.
     const aucune = <T,>(): Promise<T[]> => Promise.resolve([])
 
+    /* Le `.order('ordre')` de la requête, rétabli après un découpage en lots. Croissant, les nuls
+       en dernier — le comportement par défaut de PostgreSQL en ordre croissant. */
+    const ordreOptimisations = (a: RawOptimisation, b: RawOptimisation) => {
+      if (a.ordre == null) return b.ordre == null ? 0 : 1
+      if (b.ordre == null) return -1
+      return a.ordre - b.ordre
+    }
+
     const versionIds = versionsRows.map((v) => v.id)
-    const parVersion = cible ? surColonne('version_recommandation_id', versionIds) : undefined
 
     const [versionsCompteursRows, dureesRows, versionsExtraRows, optimisationsRows] = await Promise.all([
-      listeSeule ? aucune<{ id: string; version_recommandation_id: string; compteur_id: string; compteur: { numero_point: string; libelle: string | null } | null }>() : fetchAllRows<{ id: string; version_recommandation_id: string; compteur_id: string; compteur: { numero_point: string; libelle: string | null } | null }>(
+      listeSeule ? aucune<{ id: string; version_recommandation_id: string; compteur_id: string; compteur: { numero_point: string; libelle: string | null } | null }>() : lireSelonCible<{ id: string; version_recommandation_id: string; compteur_id: string; compteur: { numero_point: string; libelle: string | null } | null }>(
         'versions_recommandation_compteurs',
         'id, version_recommandation_id, compteur_id, compteur:compteurs(numero_point, libelle)',
-        parVersion,
+        'version_recommandation_id',
+        versionIds,
       ),
       // Durees par PDL + type de prix + date souhaitee : requetes SEPAREES et tolerantes, comme
       // recommandations_compteurs plus haut. La table et les colonnes datent du 06/08/2026 et
       // peuvent manquer sur un environnement pas encore migre -- un select nomme les incluant
       // ferait echouer le chargement de TOUTES les versions (400).
-      listeSeule ? aucune<{ version_recommandation_id: string; compteur_id: string; duree_mois: number }>() : fetchAllRows<{ version_recommandation_id: string; compteur_id: string; duree_mois: number }>(
+      listeSeule ? aucune<{ version_recommandation_id: string; compteur_id: string; duree_mois: number }>() : lireSelonCible<{ version_recommandation_id: string; compteur_id: string; duree_mois: number }>(
         'versions_recommandation_durees',
         'version_recommandation_id, compteur_id, duree_mois',
-        parVersion,
+        'version_recommandation_id',
+        versionIds,
       ).catch(() => [] as { version_recommandation_id: string; compteur_id: string; duree_mois: number }[]),
       // `lien_eneo` et `id_salesforce` rejoignent cette requête tolérante (migration 20260817170000)
       // pour la même raison : tant qu'elle n'est pas appliquée, le `.catch` renvoie une liste vide et
       // la fiche s'affiche sans le lien, au lieu de perdre toutes les versions.
-      listeSeule ? aucune<VersionExtra>() : fetchAllRows<VersionExtra>(
+      listeSeule ? aucune<VersionExtra>() : lireSelonCible<VersionExtra>(
         'versions_recommandation',
         'id, types_prix, date_souhaitee, lien_eneo, id_salesforce',
-        cible ? surColonne('id', versionIds) : undefined,
+        'id',
+        versionIds,
       ).catch(() => [] as VersionExtra[]),
-      listeSeule ? aucune<RawOptimisation>() : fetchAllRows<RawOptimisation>(
+      listeSeule ? aucune<RawOptimisation>() : lireSelonCible<RawOptimisation>(
         'optimisations',
-        'id, version_recommandation_id, nom, description, resultat_attendu, gain_estime_annuel, cout_estime, roi_mois, priorite, est_retenue, type_optimisation:types_optimisations(code, libelle)',
+        /* `ordre` REJOINT LE SELECT POUR QUE LE TRI SURVIVE AU DÉCOUPAGE. La requête trie dessus,
+           mais la colonne n'était pas lue : impossible alors de rétablir l'ordre après plusieurs
+           lots. On la demande donc, et `ordreOptimisations` s'en sert. */
+        'id, version_recommandation_id, nom, description, resultat_attendu, gain_estime_annuel, cout_estime, roi_mois, priorite, est_retenue, ordre, type_optimisation:types_optimisations(code, libelle)',
+        'version_recommandation_id',
+        versionIds,
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        (q: any) => (cible ? q.in('version_recommandation_id', versionIds) : q).order('ordre'),
+        (q: any) => q.order('ordre'),
+        ordreOptimisations,
       ),
     ])
 
     const optimisationIds = optimisationsRows.map((o) => o.id)
-    const parOptimisation = cible ? surColonne('optimisation_id', optimisationIds) : undefined
-
     const [offresRows, fournisseursConsultesRows] = await Promise.all([
-      listeSeule ? aucune<RawOffreFournisseur>() : fetchAllRows<RawOffreFournisseur>(
+      listeSeule ? aucune<RawOffreFournisseur>() : lireSelonCible<RawOffreFournisseur>(
         'offres_fournisseurs',
         // `*` et non une liste nommée : `type_prix` et `prix_moyen_mwh` viennent de la migration
         // 20260817140000 et peuvent ne pas encore exister. Un select qui les nomme sur une colonne
         // absente renvoie 400 et fait échouer le chargement de TOUTES les offres — même piège que
         // sur `recommandations`.
         '*, compte_fournisseur:comptes_fournisseurs(compte:comptes(nom))',
-        parOptimisation,
+        'optimisation_id',
+        optimisationIds,
       ),
-      listeSeule ? aucune<RawFournisseurConsulte>() : fetchAllRows<RawFournisseurConsulte>(
+      listeSeule ? aucune<RawFournisseurConsulte>() : lireSelonCible<RawFournisseurConsulte>(
         'optimisations_fournisseurs',
         'id, optimisation_id, fournisseur_compte_id, date_creation, fournisseur:comptes(nom)',
-        parOptimisation,
+        'optimisation_id',
+        optimisationIds,
       ),
     ])
 
     const [offresCompteursRows, suivisConsultationRows] = await Promise.all([
-      listeSeule ? aucune<RawOffreFournisseurCompteur>() : fetchAllRows<RawOffreFournisseurCompteur>(
+      listeSeule ? aucune<RawOffreFournisseurCompteur>() : lireSelonCible<RawOffreFournisseurCompteur>(
         'offres_fournisseurs_compteurs',
         // `*` : les colonnes de marge arrivent par migrations successives — 20260818140000 pour la
         // retenue et la réelle (appliquée), 20260819120000 pour l'ajustable (en attente). Un select
         // qui nomme une colonne absente renvoie 400 et fait perdre TOUS les détails.
         '*',
-        cible ? surColonne('offre_fournisseur_id', offresRows.map((o) => o.id)) : undefined,
+        'offre_fournisseur_id',
+        offresRows.map((o) => o.id),
       ),
-      listeSeule ? aucune<RawSuiviConsultation>() : fetchAllRows<RawSuiviConsultation>(
+      listeSeule ? aucune<RawSuiviConsultation>() : lireSelonCible<RawSuiviConsultation>(
         'suivis_consultations_fournisseurs',
         'id, optimisation_fournisseur_id, date_evenement, commentaire, statut:statuts_consultations_fournisseurs(libelle), auteur:profils(prenom, nom)',
+        'optimisation_fournisseur_id',
+        fournisseursConsultesRows.map((f) => f.id),
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        (q: any) => (cible ? q.in('optimisation_fournisseur_id', fournisseursConsultesRows.map((f) => f.id)) : q).order('date_evenement'),
+        (q: any) => q.order('date_evenement'),
+        (a, b) => (a.date_evenement ?? '').localeCompare(b.date_evenement ?? ''),
       ),
     ])
 
@@ -412,20 +509,22 @@ async function fetchRecommandations(
     const [prixElecRows, prixGazRows] = idsDetails.length === 0
       ? [[] as RawPrixElec[], [] as RawPrixGaz[]]
       : await Promise.all([
-          fetchAllRows<RawPrixElec>(
+          fetchAllRowsParLots<RawPrixElec>(
             'offres_compteurs_electricite',
             // `*` et non la liste nommée : les huit colonnes P0 viennent de la migration
             // 20260819160000, et un select qui nomme une colonne absente renvoie 400 — tous les prix
             // électricité seraient perdus. Même prudence que pour le gaz.
             '*',
-            surColonne('offre_compteur_id', idsDetails),
+            'offre_compteur_id',
+            idsDetails,
           ).catch(() => [] as RawPrixElec[]),
-          fetchAllRows<RawPrixGaz>(
+          fetchAllRowsParLots<RawPrixGaz>(
             'offres_compteurs_gaz',
             // `*` : la décomposition (CEE, CPB, ATRD, AGN, CTA) vient de la migration 20260819100000.
             // La nommer avant qu'elle soit appliquée ferait perdre TOUS les prix gaz.
             '*',
-            surColonne('offre_compteur_id', idsDetails),
+            'offre_compteur_id',
+            idsDetails,
           ).catch(() => [] as RawPrixGaz[]),
         ])
 
@@ -532,10 +631,11 @@ async function fetchRecommandations(
     const idsFournisseursConsultes = [...new Set(fournisseursConsultesRows.map((f) => f.fournisseur_compte_id))]
     const modesRows = idsFournisseursConsultes.length === 0 || listeSeule
       ? []
-      : await fetchAllRows<RawModeFournisseur>(
+      : await fetchAllRowsParLots<RawModeFournisseur>(
           'comptes_fournisseurs',
           'compte_id, mode_consultation, url_outil_consultation',
-          surColonne('compte_id', idsFournisseursConsultes),
+          'compte_id',
+          idsFournisseursConsultes,
         ).catch(() => [] as RawModeFournisseur[])
     const modeParFournisseur = new Map(modesRows.map((m) => [m.compte_id, m]))
 

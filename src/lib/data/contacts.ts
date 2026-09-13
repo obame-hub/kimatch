@@ -2,7 +2,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { supabase } from '@/lib/supabase'
 import type { Contact, LienCompteContact } from '@/types/domain'
 import { fetchComptesVisibles } from '@/lib/data/visibility'
-import { fetchAllRows } from '@/lib/data/paginatedFetch'
+import { fetchAllRows, fetchAllRowsParLots } from '@/lib/data/paginatedFetch'
 import { toUpperFR, toTitleCaseFR, formatPhoneFR } from '@/lib/textFormat'
 
 interface RawContact {
@@ -65,9 +65,12 @@ async function fetchContacts(compteId?: string, contactId?: string): Promise<Con
         fetchAllRows<{ id: string }>('sites', 'id', (q: any) => q.eq('compte_id', compteId)),
       ])
       const siteIds = sitesDuCompte.map((s) => s.id)
+      /* Découpé en lots depuis le 13/09/2026 (audit, ARC-02) : un syndic porte jusqu'à 1 677 sites,
+         et PostgREST met chaque identifiant dans l'URL. Au-delà d'environ cent cinquante, elle
+         devient trop longue et la requête échoue entièrement — les contacts rattachés par le site
+         disparaissaient alors de la fiche, sans message. */
       const liensSites = siteIds.length
-        ? // eslint-disable-next-line @typescript-eslint/no-explicit-any
-          await fetchAllRows<{ contact_id: string }>('contacts_sites', 'contact_id', (q: any) => q.in('site_id', siteIds))
+        ? await fetchAllRowsParLots<{ contact_id: string }>('contacts_sites', 'contact_id', 'site_id', siteIds)
         : []
       idsRetenus = [...new Set([...liensComptes.map((l) => l.contact_id), ...liensSites.map((l) => l.contact_id)])]
     }

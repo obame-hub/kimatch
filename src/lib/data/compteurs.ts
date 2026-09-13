@@ -2,7 +2,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { supabase } from '@/lib/supabase'
 import type { Compteur } from '@/types/domain'
 import { fetchComptesVisibles, fetchSitesVisiblesIds, filterVisibles } from '@/lib/data/visibility'
-import { fetchAllRows } from '@/lib/data/paginatedFetch'
+import { fetchAllRows, fetchAllRowsParLots } from '@/lib/data/paginatedFetch'
 import { nettoyerSaisie } from '@/lib/utils'
 
 interface RawCompteurElec {
@@ -104,17 +104,30 @@ function classeMap(elec: RawCompteurElec, prefix: 'conso' | 'puissance', suffix:
 async function fetchCompteurs(siteIds?: string[], compteurId?: string, compteId?: string): Promise<Compteur[]> {
   try {
     if (siteIds && siteIds.length === 0) return []
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const restreindre = (q: any) =>
-      compteurId ? q.eq('id', compteurId) : compteId ? q.eq('compte_id', compteId) : siteIds ? q.in('site_id', siteIds) : q
-    const data = await fetchAllRows<RawCompteur>(
-      'compteurs',
-      // `*` plutôt qu'une liste de colonnes fixe : `date_echeance` vient d'être ajoutée par
-      // migration et peut ne pas encore exister en prod au moment du déploiement -- un select
-      // nommé sur une colonne absente ferait échouer la requête (400) pour TOUS les compteurs.
-      '*, type_energie:types_energies(code), type_utilisation:types_utilisations_compteur(libelle), site:sites(nom), compteurs_electricite(*), compteurs_gaz(*), proprietaire:profils!compteurs_proprietaire_id_fkey(prenom, nom), fournisseur_actuel:comptes!compteurs_fournisseur_actuel_compte_id_fkey(nom), responsable_contact:contacts!compteurs_responsable_contact_id_fkey(prenom, nom), contact_conseil_syndical:contacts!compteurs_contact_conseil_syndical_id_fkey(prenom, nom)',
-      restreindre,
-    )
+    // `*` plutôt qu'une liste de colonnes fixe : `date_echeance` vient d'être ajoutée par
+    // migration et peut ne pas encore exister en prod au moment du déploiement -- un select
+    // nommé sur une colonne absente ferait échouer la requête (400) pour TOUS les compteurs.
+    const SELECT =
+      '*, type_energie:types_energies(code), type_utilisation:types_utilisations_compteur(libelle), site:sites(nom), compteurs_electricite(*), compteurs_gaz(*), proprietaire:profils!compteurs_proprietaire_id_fkey(prenom, nom), fournisseur_actuel:comptes!compteurs_fournisseur_actuel_compte_id_fkey(nom), responsable_contact:contacts!compteurs_responsable_contact_id_fkey(prenom, nom), contact_conseil_syndical:contacts!compteurs_contact_conseil_syndical_id_fkey(prenom, nom)'
+
+    /* ══ LE FILTRE PAR SITES EST DÉCOUPÉ ══
+     *
+     * Audit du 13/09/2026, constat ARC-02. `siteIds` peut porter tous les groupes d'adresse d'un
+     * compte — 1 677 pour le portefeuille de Marie Thonnard, relevé le 13/08/2026. Au-delà d'une
+     * centaine cinquante d'identifiants, PostgREST les porte dans une URL qu'aucun serveur HTTP
+     * n'accepte, et la requête échoue en bloc.
+     *
+     * Les deux autres branches filtrent sur UN identifiant : aucun risque, chemin direct. Aucune
+     * des trois n'ordonne quoi que ce soit, donc pas de tri à rétablir après découpage. */
+    const data =
+      siteIds && !compteurId && !compteId
+        ? await fetchAllRowsParLots<RawCompteur>('compteurs', SELECT, 'site_id', siteIds)
+        : await fetchAllRows<RawCompteur>(
+            'compteurs',
+            SELECT,
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            (q: any) => (compteurId ? q.eq('id', compteurId) : compteId ? q.eq('compte_id', compteId) : q),
+          )
 
     const comptesVisibles = await fetchComptesVisibles()
     const sitesVisibles = await fetchSitesVisiblesIds(comptesVisibles)
