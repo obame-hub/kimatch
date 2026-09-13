@@ -5,6 +5,7 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/form'
 import { cn } from '@/lib/utils'
 import { useSignatureEmail, useEnregistrerSignatureEmail } from '@/lib/data/signatureEmail'
+import { nettoyerSignature } from '@/lib/htmlSignature'
 
 /**
  * ══ SA SIGNATURE EMAIL, AU CHOIX ══
@@ -242,8 +243,11 @@ export function CarteSignature() {
                 )}
               </p>
               <div className="overflow-x-auto rounded-km border border-km-line bg-white p-3">
+                {/* Nettoyé avant affichage (audit 13/09/2026, SEC-03) : le mode LIBRE existe pour
+                    coller une signature venue d'ailleurs, et un administrateur peut afficher celle
+                    d'un autre. Voir `src/lib/htmlSignature.ts`. */}
                 {signature?.corps_html
-                  ? <div dangerouslySetInnerHTML={{ __html: signature.corps_html }} />
+                  ? <div dangerouslySetInnerHTML={{ __html: nettoyerSignature(signature.corps_html) }} />
                   : <p className="text-xs text-km-muted">Aucune signature enregistrée.</p>}
               </div>
             </div>

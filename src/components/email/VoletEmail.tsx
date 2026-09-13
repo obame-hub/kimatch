@@ -8,6 +8,7 @@ import { cn } from '@/lib/utils'
 import { useVoletEmail, type BrouillonEmail } from '@/lib/voletEmail'
 import { useSignatureEmail, envoyerEmail, GmailNonConnecte } from '@/lib/data/signatureEmail'
 import { useGmailConnection, connectGmail } from '@/lib/data/gmail'
+import { nettoyerSignature } from '@/lib/htmlSignature'
 
 /**
  * ══ ÉCRIRE UN MAIL SANS QUITTER KIMATCH ══
@@ -308,7 +309,13 @@ export function VoletEmail() {
                   className="mt-2 rounded-km bg-white px-2.5 py-2 text-km-label text-km-text"
                   // L'aperçu de sa PROPRE signature, écrite par soi et relue par le serveur avant
                   // envoi : le contenu ne vient pas d'un tiers.
-                  dangerouslySetInnerHTML={{ __html: signature.corps_html }}
+                  //
+                  // CET ARGUMENT NE SUFFIT PLUS DEPUIS LE 13/09/2026 (audit, SEC-03). Il tient
+                  // pour le mode GABARIT, construit en base par `fn_signature_html`. Il ne tient
+                  // pas pour le mode LIBRE, qui existe précisément pour coller ce qu'on avait
+                  // déjà dans Gmail — donc du HTML qu'on n'a pas écrit. Et un administrateur lit
+                  // toutes les signatures pour dépanner : celle d'un autre peut s'afficher ici.
+                  dangerouslySetInnerHTML={{ __html: nettoyerSignature(signature.corps_html) }}
                 />
               ) : (
                 <p className="mt-1.5 flex items-start gap-1.5 text-km-label leading-snug text-km-amber">
