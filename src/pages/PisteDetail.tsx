@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { useOuvrirEmail } from '@/lib/voletEmail'
 import { useNavigate, useParams, Link } from 'react-router-dom'
 import { ArrowLeft, ArrowRight, Building2, Check, Filter, Mail, Phone, Plus, User } from 'lucide-react'
 import { Topbar } from '@/components/layout/Topbar'
@@ -77,6 +78,7 @@ type CleOnglet = 'piste' | 'rattachements' | 'fichiers'
 
 export default function PisteDetail() {
   const { id } = useParams<{ id: string }>()
+  const ouvrirEmail = useOuvrirEmail()
   const navigate = useNavigate()
   const goBack = useGoBack('/prospection')
   const canManage = useCanManage()
@@ -474,13 +476,19 @@ export default function PisteDetail() {
                       <Phone className="h-3 w-3" /> Appeler
                     </button>
                   )}
+                  {/* Le mail s'écrit dans le volet de Kimatch, pas dans le client de messagerie
+                      du poste (William, 13/09/2026). Le volet ne connaît pas encore la piste parmi
+                      ses rattachements possibles — `ContexteEmail` n'a pas de `pisteId` — donc
+                      l'échange se consigne sur l'adresse seule, comme partout où l'appelant ne sait
+                      que le mail. À compléter le jour où on voudra retrouver le fil depuis ici. */}
                   {piste.email && (
-                    <a
-                      href={`mailto:${piste.email}`}
+                    <button
+                      type="button"
+                      onClick={() => ouvrirEmail?.({ a: piste.email!, nom: piste.contact_nom })}
                       className="inline-flex items-center gap-1.5 rounded-km border border-km-line bg-km-surface px-2.5 py-1.5 text-km-label font-semibold text-km-muted hover:bg-km-soft hover:text-km-text"
                     >
                       <Mail className="h-3 w-3" /> Écrire
-                    </a>
+                    </button>
                   )}
                 </div>
               )}

@@ -163,3 +163,30 @@ export function VoletEmailProvider({ children }: { children: React.ReactNode }) 
 export function useVoletEmail(): ApiVolet | null {
   return useContext(Contexte)
 }
+
+/**
+ * Ouvrir le volet depuis n'importe quel bouton, sans recopier la règle du brouillon.
+ *
+ * `EmailLink` portait cette logique dans son corps, ce qui allait tant qu'il était le seul point
+ * d'entrée. Les cartes de l'onglet Contacts ont leur propre bouton, dessiné autrement : les laisser
+ * refaire le `confirm` aurait donné deux formulations de la même question, et la certitude qu'un
+ * jour l'une des deux écraserait un brouillon sans demander.
+ *
+ * Rend `null` hors du fournisseur — l'appelant retombe alors sur `mailto:`, qui reste le
+ * comportement correct là où le volet n'existe pas.
+ */
+export function useOuvrirEmail(): ((contexte: ContexteEmail) => void) | null {
+  const volet = useContext(Contexte)
+  return useMemo(() => {
+    if (!volet) return null
+    return (contexte: ContexteEmail) => {
+      if (volet.ouvrir(contexte)) return
+      // UN BROUILLON ÉCRIT NE S'ÉCRASE PAS EN SILENCE : on demande, parce que « sans perdre le mail
+      // déjà écrit » est la moitié de la demande de Naoëlle du 07/09/2026.
+      const qui = contexte.nom || contexte.a
+      if (window.confirm('Un mail est déjà en cours d’écriture. L’abandonner et écrire à ' + qui + ' ?')) {
+        volet.ouvrirEnRemplacant(contexte)
+      }
+    }
+  }, [volet])
+}

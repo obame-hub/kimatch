@@ -1,4 +1,5 @@
 import { useState, type ReactNode } from 'react'
+import { useOuvrirEmail } from '@/lib/voletEmail'
 import { Building2, User, History, Coins, Send, Phone, Mail, RotateCcw, Search, Check, ExternalLink, Copy, Gauge, Folder } from 'lucide-react'
 import { EntityLink } from '@/components/ui/entity-link'
 import { cn } from '@/lib/utils'
@@ -194,6 +195,7 @@ export function RattachementsReco({
   peutModifier: boolean
   signaler: (message: string) => void
 }) {
+  const ouvrirEmail = useOuvrirEmail()
   const [selecteurOuvert, setSelecteurOuvert] = useState<'contact' | null>(null)
   const { data: partage } = usePartageEtudeClient(reco.id)
   const envoyerEtude = useEnvoyerEtudeClient()
@@ -328,17 +330,22 @@ export function RattachementsReco({
               >
                 <Phone className="h-3 w-3" />
               </button>
-              <a
-                href={contactPrincipal.email ? `mailto:${contactPrincipal.email}` : undefined}
+              <button
+                type="button"
+                onClick={() => contactPrincipal.email && ouvrirEmail?.({
+                  a: contactPrincipal.email,
+                  nom: `${contactPrincipal.prenom} ${contactPrincipal.nom}`,
+                  contactId: contactPrincipal.id,
+                })}
                 title={contactPrincipal.email || 'Aucun email'}
-                aria-disabled={!contactPrincipal.email}
+                disabled={!contactPrincipal.email}
                 className={cn(
                   'flex h-7 flex-1 items-center justify-center rounded-km-sm border border-km-line bg-white text-km-blue',
                   contactPrincipal.email ? 'hover:bg-km-blue-soft' : 'pointer-events-none opacity-40',
                 )}
               >
                 <Mail className="h-3 w-3" />
-              </a>
+              </button>
             </div>
           </>
         ) : (

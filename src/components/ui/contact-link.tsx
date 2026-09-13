@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
-import { useVoletEmail } from '@/lib/voletEmail'
+import { useOuvrirEmail } from '@/lib/voletEmail'
 import { Phone, Mail, Copy, Check } from 'lucide-react'
 import { numeroInternational, numeroLisible, useTelephonie } from '@/lib/telephonie'
 import { cn } from '@/lib/utils'
@@ -261,19 +261,10 @@ export function EmailLink({
     contratId?: string
   }
 }) {
-  const volet = useVoletEmail()
-
-  const ouvrir = volet
-    ? () => {
-        const ok = volet.ouvrir({ a: value, nom, ...contexte })
-        if (ok) return
-        // UN BROUILLON ÉCRIT NE S'ÉCRASE PAS EN SILENCE : on demande, parce que « sans perdre le
-        // mail déjà écrit » est la moitié de la demande.
-        if (window.confirm('Un mail est déjà en cours d’écriture. L’abandonner et écrire à ' + (nom || value) + ' ?')) {
-          volet.ouvrirEnRemplacant({ a: value, nom, ...contexte })
-        }
-      }
-    : undefined
+  // La règle du brouillon vit dans `useOuvrirEmail`, partagée avec les boutons qui ont leur propre
+  // dessin — les cartes de l'onglet Contacts, notamment.
+  const ouvrirVolet = useOuvrirEmail()
+  const ouvrir = ouvrirVolet ? () => ouvrirVolet({ a: value, nom, ...contexte }) : undefined
 
   return (
     <ContactPopover

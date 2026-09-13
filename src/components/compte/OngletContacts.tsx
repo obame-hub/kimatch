@@ -4,6 +4,7 @@ import { AlertTriangle, Flame, Mail, PenLine, Phone, Plus, ShieldCheck, UserPlus
 import type { Contact } from '@/types/domain'
 import { cn } from '@/lib/utils'
 import { appelerNumero } from '@/lib/telephonie'
+import { useOuvrirEmail } from '@/lib/voletEmail'
 import { LIBELLE_ROLE, SEGMENT_SYNDIC_BENEVOLE, estSyndic, type RoleContact } from '@/lib/contactRoles'
 import { useCouvertureConseilSyndical, type CompteurRelais } from '@/lib/data/relaisConseilSyndical'
 import { libelleFraicheur, useFraicheurContacts, type Fraicheur } from '@/lib/data/fraicheurContacts'
@@ -110,6 +111,7 @@ function FicheContact({
   fraicheur: Fraicheur | undefined
 }) {
   const navigate = useNavigate()
+  const ouvrirEmail = useOuvrirEmail()
   const tel = contact.telephone || contact.telephone_mobile
 
   return (
@@ -177,15 +179,32 @@ function FicheContact({
         >
           <Phone className="h-3 w-3" /> Appeler
         </button>
-        <a
-          href={contact.email ? `mailto:${contact.email}` : undefined}
+        {/* ══ LE MAIL S'ÉCRIT DANS KIMATCH ══
+            William, 13/09/2026 : « il faudrait que ça ouvre le volet latéral d'envoi mail intégré
+            dans Kimatch et non une application de l'ordinateur ».
+
+            `mailto:` sortait de l'outil — il ouvrait le client de messagerie du poste, et l'échange
+            n'était consigné nulle part. Le volet, lui, rattache l'interaction au contact et au
+            compte, ce qui est précisément ce que la pastille de fraîcheur au-dessus mesure : sans
+            ce changement, elle resterait grise même après trois mails envoyés.
+
+            Le repli sur `mailto:` est conservé si le volet n'est pas monté : mieux vaut un client
+            externe qu'un bouton mort. */}
+        <button
+          type="button"
+          onClick={() => {
+            if (!contact.email) return
+            if (ouvrirEmail) ouvrirEmail({ a: contact.email, nom: `${contact.prenom} ${contact.nom}`, contactId: contact.id, compteId })
+            else window.location.href = `mailto:${contact.email}`
+          }}
+          disabled={!contact.email}
           className={cn(
             'flex flex-1 items-center justify-center gap-1.5 rounded-km border border-km-line bg-km-surface py-1 text-km-label font-semibold text-km-muted transition-colors',
             contact.email ? 'hover:border-km-blue-soft hover:bg-km-blue-soft hover:text-km-blue' : 'pointer-events-none opacity-40',
           )}
         >
           <Mail className="h-3 w-3" /> E-mail
-        </a>
+        </button>
       </div>
     </div>
   )

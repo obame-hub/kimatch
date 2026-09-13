@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
+import { useOuvrirEmail } from '@/lib/voletEmail'
 import { Link } from 'react-router-dom'
 import type { Compte, Contact, Mandat } from '@/types/domain'
 import { PictoCompte, PictoContact, PictoEnveloppe, PictoLoupe, PictoMandat, PictoTelephone, PictoValidite } from './pictos'
@@ -289,6 +290,7 @@ export function CarteSignataire({
 }) {
   const [ouvert, setOuvert] = useState(false)
   const nom = contact ? `${contact.prenom} ${contact.nom}`.trim() : ''
+  const ouvrirEmail = useOuvrirEmail()
   const mobile = contact?.telephone_mobile || contact?.telephone
 
   return (
@@ -360,15 +362,18 @@ export function CarteSignataire({
             >
               <PictoTelephone taille={13} />
             </a>
-            <a
-              href={contact?.email ? `mailto:${contact.email}` : undefined}
+            {/* Le mail s'écrit dans Kimatch, pas dans le client de messagerie du poste — sinon
+                l'échange n'est consigné nulle part (William, 13/09/2026). */}
+            <button
+              type="button"
+              onClick={() => contact?.email && ouvrirEmail?.({ a: contact.email, nom, contactId: contact.id })}
               title={contact?.email ? `Écrire à ${nom}` : 'Aucune adresse'}
-              aria-disabled={!contact?.email}
+              disabled={!contact?.email}
               className={`flex items-center justify-center bg-white transition-colors ${contact?.email ? 'text-[#3b5f8a] hover:border-[#cfd8e4] hover:bg-[#eef0f4]' : 'pointer-events-none text-[#c9cbc6]'}`}
               style={{ width: 27, height: 27, border: '1px solid #e0dfdb', borderRadius: 8 }}
             >
               <PictoEnveloppe taille={13} />
-            </a>
+            </button>
           </div>
         </div>
 
