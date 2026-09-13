@@ -2,6 +2,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { supabase } from '@/lib/supabase'
 import { fetchAllRows } from '@/lib/data/paginatedFetch'
 import type { LigneListe, Piste } from '@/types/domain'
+import { replierOuRelancer } from '@/lib/data/erreurLecture'
 
 /**
  * Le haut de l'entonnoir : la Liste, puis la Piste.
@@ -79,8 +80,9 @@ export function useListes() {
           (q: any) => q.order('date_creation', { ascending: false }))
         return lignes
       } catch (error) {
-        console.error('useListes', error)
-        return []
+        /* Audit 13/09/2026, ERR-02 : un échec ne se déguise plus en absence de données.
+           Seul un schéma pas encore migré rend un résultat vide ; le reste remonte. */
+        return replierOuRelancer(error, { ou: 'useListes' }, [])
       }
     },
   })
@@ -143,8 +145,9 @@ export function usePistes() {
           // eslint-disable-next-line @typescript-eslint/no-explicit-any
           (q: any) => q.order('date_creation', { ascending: false }))
       } catch (error) {
-        console.error('usePistes', error)
-        return []
+        /* Audit 13/09/2026, ERR-02 : un échec ne se déguise plus en absence de données.
+           Seul un schéma pas encore migré rend un résultat vide ; le reste remonte. */
+        return replierOuRelancer(error, { ou: 'usePistes' }, [])
       }
     },
   })

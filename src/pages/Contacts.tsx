@@ -25,6 +25,7 @@ import { toUpperFR, toTitleCaseFR, formatPhoneFR, isValidPhoneFR, isValidEmail }
 import { contactRoleOptions } from '@/lib/contactRoles'
 import type { Compte, Contact } from '@/types/domain'
 import { useOuvrirCreation } from '@/lib/ouvrirCreation'
+import { EtatErreur } from '@/components/ui/etat-erreur'
 
 const DUPLICATE_FIELD_LABEL: Record<ContactDuplicate['fields'][number], string> = {
   email: 'Email',
@@ -407,7 +408,7 @@ function CreateContactDialog({ open, onClose, initialCompteId }: { open: boolean
  * reste : il porte le bouton de création et la phrase qui dit ce qu'est l'objet.
  */
 export default function Contacts({ sansEntete }: { sansEntete?: boolean }) {
-  const { data: contacts, isLoading } = useContacts()
+  const { data: contacts, isLoading, isError, error, refetch } = useContacts()
   const navigate = useNavigate()
   const [searchParams, setSearchParams] = useSearchParams()
   const compteFromUrl = searchParams.get('compte')
@@ -482,7 +483,18 @@ export default function Contacts({ sansEntete }: { sansEntete?: boolean }) {
           </Select>
         </ListToolbar>
 
-        {!isLoading && contacts?.length === 0 && (
+        {/* ══ « LA LECTURE A ÉCHOUÉ » ET « IL N'Y A AUCUN CONTACT » NE SE DISENT PLUS PAREIL ══
+            Audit du 13/09/2026, ERR-02. `fetchContacts` rendait une liste vide sur n'importe quel
+            échec : l'écran affichait alors le message d'invitation ci-dessous, qui affirme qu'il
+            n'y a aucun contact — sur une base qui en compte 3 401. */}
+        {isError && (
+          <EtatErreur
+            quoi="Les contacts"
+            message={error instanceof Error ? error.message : 'Erreur inconnue'}
+            reessayer={() => { void refetch() }}
+          />
+        )}
+        {!isLoading && !isError && contacts?.length === 0 && (
           <p className="mb-4 text-sm text-km-faint">
             Aucun contact pour l'instant — un contact est une personne chez un compte (signataire, gestionnaire, interlocuteur technique…). Utilise « Créer » pour en ajouter un.
           </p>

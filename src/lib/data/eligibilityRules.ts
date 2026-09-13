@@ -1,5 +1,6 @@
 import { useQuery } from '@tanstack/react-query'
 import { supabase } from '@/lib/supabase'
+import { replierOuRelancer } from '@/lib/data/erreurLecture'
 
 export interface EligibilityRule {
   id: string
@@ -21,8 +22,9 @@ async function fetchEligibilityRules(): Promise<EligibilityRule[]> {
     if (error) throw error
     return (data ?? []) as EligibilityRule[]
   } catch (error) {
-    console.error('fetchEligibilityRules', error)
-    return []
+    /* Audit 13/09/2026, ERR-02 : un échec ne se déguise plus en absence de données.
+       Seul un schéma pas encore migré rend un résultat vide ; le reste remonte. */
+    return replierOuRelancer(error, { ou: 'fetchEligibilityRules' }, [])
   }
 }
 

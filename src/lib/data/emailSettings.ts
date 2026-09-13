@@ -1,6 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { supabase } from '@/lib/supabase'
 import { sendEmail } from '@/lib/data/gmail'
+import { replierOuRelancer } from '@/lib/data/erreurLecture'
 
 export type EmailModule = 'contrat' | 'cotation'
 
@@ -22,8 +23,9 @@ async function fetchEmailSettings(): Promise<EmailSetting[]> {
     if (error) throw error
     return (data ?? []) as EmailSetting[]
   } catch (error) {
-    console.error('fetchEmailSettings', error)
-    return []
+    /* Audit 13/09/2026, ERR-02 : un échec ne se déguise plus en absence de données.
+       Seul un schéma pas encore migré rend un résultat vide ; le reste remonte. */
+    return replierOuRelancer(error, { ou: 'fetchEmailSettings' }, [])
   }
 }
 

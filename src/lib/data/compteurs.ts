@@ -4,6 +4,7 @@ import type { Compteur } from '@/types/domain'
 import { fetchComptesVisibles, fetchSitesVisiblesIds, filterVisibles } from '@/lib/data/visibility'
 import { fetchAllRows, fetchAllRowsParLots } from '@/lib/data/paginatedFetch'
 import { nettoyerSaisie } from '@/lib/utils'
+import { replierOuRelancer } from '@/lib/data/erreurLecture'
 
 interface RawCompteurElec {
   segment: string | null
@@ -196,8 +197,9 @@ async function fetchCompteurs(siteIds?: string[], compteurId?: string, compteId?
       }
     })
   } catch (error) {
-    console.error('fetchCompteurs', error)
-    return []
+    /* Audit 13/09/2026, ERR-02 : un échec ne se déguise plus en absence de données.
+       Seul un schéma pas encore migré rend un résultat vide ; le reste remonte. */
+    return replierOuRelancer(error, { ou: 'fetchCompteurs' }, [])
   }
 }
 

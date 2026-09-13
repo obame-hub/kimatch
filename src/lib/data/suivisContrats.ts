@@ -2,6 +2,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { supabase } from '@/lib/supabase'
 import { fetchAllRows } from '@/lib/data/paginatedFetch'
 import { fetchComptesVisibles, filterVisibles } from '@/lib/data/visibility'
+import { replierOuRelancer } from '@/lib/data/erreurLecture'
 
 /**
  * LE SUIVI DE CONTRAT — le dernier objet de la chaîne.
@@ -119,8 +120,9 @@ export function useSuivisContrats() {
            Mesuré le 31/08/2026 : 0 suivi sans compte, mais la règle protège le jour où il y en a. */
         return filterVisibles(lignes, comptesVisibles, (s) => s.compte_id ?? '')
       } catch (error) {
-        console.error('useSuivisContrats', error)
-        return []
+        /* Audit 13/09/2026, ERR-02 : un échec ne se déguise plus en absence de données.
+           Seul un schéma pas encore migré rend un résultat vide ; le reste remonte. */
+        return replierOuRelancer(error, { ou: 'useSuivisContrats' }, [])
       }
     },
   })

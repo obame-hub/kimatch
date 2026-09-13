@@ -18,6 +18,7 @@ import { IconeEnergie } from '@/components/ui/icone-energie'
 import { CreateRecommandationDialog } from '@/components/opportunite/CreationRecommandationWizard'
 import { useOuvrirCreation } from '@/lib/ouvrirCreation'
 import { euros } from '@/lib/euros'
+import { EtatErreur } from '@/components/ui/etat-erreur'
 
 /** Le formulaire de création vit désormais dans son propre fichier, réécrit le 15/08/2026 en
  *  parcours à quatre étapes calqué sur l'OpportuniteWizard de Tools. Il reste réexporté ici :
@@ -569,6 +570,13 @@ export default function Recommandations() {
 
         </ListToolbar>
 
+        {tableau.isError && (
+          <EtatErreur
+            quoi="Les dossiers"
+            message={tableau.error instanceof Error ? tableau.error.message : 'Erreur inconnue'}
+            reessayer={() => { void tableau.refetch() }}
+          />
+        )}
         <TableauKanban
             /* LA MARGE PAR STATUT, EN PASTILLE DE COLONNE — règle n° 6 du dossier UX du 26/08 :
                « afficher la marge par statut près du titre de chaque colonne et la marge totale près

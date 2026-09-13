@@ -20,9 +20,10 @@ import { useListControls } from '@/lib/useListControls'
 import { usePerimetreListe, BasculePerimetre } from '@/lib/perimetre'
 import { ActivityCard } from '@/components/ui/activity-card'
 import { useOuvrirCreation } from '@/lib/ouvrirCreation'
+import { EtatErreur } from '@/components/ui/etat-erreur'
 
 export default function Taches() {
-  const { data: actions, isLoading } = useActions()
+  const { data: actions, isLoading, isError, error, refetch } = useActions()
   const { data: statutsRef } = useReferenceTable('statuts_actions')
   const statuts = statutsRef && statutsRef.length > 0 ? statutsRef : FALLBACK_STATUTS_ACTIONS
   const completeAction = useCompleteAction()
@@ -83,6 +84,14 @@ export default function Taches() {
           </Select>
         </ListToolbar>
 
+        {/* Audit 13/09/2026, ERR-02 : une lecture qui échoue ne se déguise plus en liste vide. */}
+        {isError && (
+          <EtatErreur
+            quoi="Les tâches"
+            message={error instanceof Error ? error.message : 'Erreur inconnue'}
+            reessayer={() => { void refetch() }}
+          />
+        )}
         {isLoading && <p className="text-sm text-km-faint">Chargement…</p>}
 
         <div className="space-y-2.5">

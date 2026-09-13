@@ -18,6 +18,7 @@ import {
 } from '@/lib/data/support'
 import { useMonProfil, useIsAdmin, useProfilsAdmin } from '@/lib/data/roles'
 import { sendEmail } from '@/lib/data/gmail'
+import { EtatErreur } from '@/components/ui/etat-erreur'
 
 const TYPE_META: Record<TypeDemandeSupport, { label: string; icon: typeof Bug; tone: 'red' | 'amber' }> = {
   bug: { label: 'Bug', icon: Bug, tone: 'red' },
@@ -102,7 +103,7 @@ function CreateDemandeDialog({ open, onClose }: { open: boolean; onClose: () => 
 }
 
 export default function Support() {
-  const { data: demandes, isLoading } = useDemandesSupport()
+  const { data: demandes, isLoading, isError, error, refetch } = useDemandesSupport()
   const isAdmin = useIsAdmin()
   const updateStatut = useUpdateStatutDemandeSupport()
   const [showCreate, setShowCreate] = useState(false)
@@ -143,6 +144,14 @@ export default function Support() {
           </Select>
         </ListToolbar>
 
+        {/* Audit 13/09/2026, ERR-02 : une lecture qui échoue ne se déguise plus en liste vide. */}
+        {isError && (
+          <EtatErreur
+            quoi="Les demandes"
+            message={error instanceof Error ? error.message : 'Erreur inconnue'}
+            reessayer={() => { void refetch() }}
+          />
+        )}
         {isLoading && <p className="text-sm text-km-faint">Chargement…</p>}
         {!isLoading && demandes?.length === 0 && (
           <div className="flex flex-col items-center gap-2 py-16 text-km-faint">

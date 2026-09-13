@@ -3,6 +3,7 @@ import { supabase } from '@/lib/supabase'
 import { fetchAllRows } from '@/lib/data/paginatedFetch'
 import { fetchComptesVisibles, filterVisibles } from '@/lib/data/visibility'
 import type { Remuneration } from '@/types/domain'
+import { replierOuRelancer } from '@/lib/data/erreurLecture'
 
 /**
  * La RÉMUNÉRATION : le bout de la chaîne.
@@ -86,8 +87,9 @@ export function useRemunerations() {
           date_creation: r.date_creation,
         }))
       } catch (error) {
-        console.error('useRemunerations', error)
-        return []
+        /* Audit 13/09/2026, ERR-02 : un échec ne se déguise plus en absence de données.
+           Seul un schéma pas encore migré rend un résultat vide ; le reste remonte. */
+        return replierOuRelancer(error, { ou: 'useRemunerations' }, [])
       }
     },
   })

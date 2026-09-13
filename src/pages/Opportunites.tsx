@@ -29,6 +29,7 @@ import { contactsDuCompte } from '@/lib/contactsDuCompte'
 import { useMandats } from '@/lib/data/mandats'
 import { cn } from '@/lib/utils'
 import { useOuvrirCreation } from '@/lib/ouvrirCreation'
+import { EtatErreur } from '@/components/ui/etat-erreur'
 
 /**
  * Les signaux positifs, tels que Michel les énumère : « échéance connue à moins de 2 ans, demande
@@ -60,7 +61,7 @@ const SIGNAUX_EXEMPLES = [
 
 
 export default function Opportunites() {
-  const { data: opportunites, isLoading } = useOpportunites()
+  const { data: opportunites, isLoading, isError, error, refetch } = useOpportunites()
   const { data: poids } = usePoidsOpportunites()
   // Les mandats disent si le périmètre est couvert, donc où se situe chaque opportunité dans le
   // pipeline. Le même hook alimente les fiches : la requête est le plus souvent déjà en cache.
@@ -209,6 +210,14 @@ export default function Opportunites() {
         <div className="mb-3">
         </div>
 
+        {/* Audit 13/09/2026, ERR-02 : une lecture qui échoue ne se déguise plus en liste vide. */}
+        {isError && (
+          <EtatErreur
+            quoi="Les opportunités"
+            message={error instanceof Error ? error.message : 'Erreur inconnue'}
+            reessayer={() => { void refetch() }}
+          />
+        )}
         {isLoading ? (
           <p className="mt-4 text-sm text-km-faint">Chargement…</p>
         ) : vivantes.length > 0 ? (
@@ -267,6 +276,10 @@ export default function Opportunites() {
               siVide="Aucune opportunité ne correspond."
             />
           </div>
+        ) : isError ? (
+          /* Sans cette branche, un échec de lecture affichait l'invitation « Aucune opportunité …
+             Créez-en une pour commencer », qui affirme le contraire de ce qui s'est passé. */
+          null
         ) : (
           <Card className="mt-4 flex flex-col items-center gap-2 p-8 text-center">
             <Target className="h-6 w-6 text-km-faint" />

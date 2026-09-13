@@ -28,8 +28,9 @@ import { useListControls } from '@/lib/useListControls'
 import { usePerimetreListe, BasculePerimetre } from '@/lib/perimetre'
 import { ExtractDocumentButton } from '@/components/ui/document-extraction'
 import { cn } from '@/lib/utils'
-import { useOuvrirCreation } from '@/lib/ouvrirCreation'
+import { useOuvrirCreation } from '@/lib/ouvrirCreation'
 import { contactsDuCompte as contactsRattaches } from '@/lib/contactsDuCompte'
+import { EtatErreur } from '@/components/ui/etat-erreur'
 
 // Fournisseurs pour lesquels Tools recommande la renégociation anticipée (ContratWizard.tsx,
 // SPECIAL_SUPPLIERS) -- juste un indice visuel ici, la case reste éditable pour tous (contrairement
@@ -422,7 +423,7 @@ function CreateContratDialog({ open, onClose }: { open: boolean; onClose: () => 
  * reste : il porte le bouton de création et la phrase qui dit ce qu'est l'objet.
  */
 export default function Contrats({ sansEntete }: { sansEntete?: boolean }) {
-  const { data: contrats, isLoading } = useContrats()
+  const { data: contrats, isLoading, isError, error, refetch } = useContrats()
   const [showCreate, setShowCreate] = useState(false)
   // `?creer=1` ouvre ce formulaire depuis le menu « Créer » de la barre du haut.
   useOuvrirCreation(() => setShowCreate(true))
@@ -586,6 +587,14 @@ export default function Contrats({ sansEntete }: { sansEntete?: boolean }) {
           </Select>
         </ListToolbar>
 
+        {/* Audit 13/09/2026, ERR-02 : une lecture qui échoue ne se déguise plus en liste vide. */}
+        {isError && (
+          <EtatErreur
+            quoi="Les contrats"
+            message={error instanceof Error ? error.message : 'Erreur inconnue'}
+            reessayer={() => { void refetch() }}
+          />
+        )}
         {!isLoading && contrats && contrats.length > 0 && filteredContrats?.length === 0 && (
           <p className="mb-4 text-sm text-km-faint">Aucun contrat ne correspond à la recherche.</p>
         )}

@@ -2,6 +2,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { supabase } from '@/lib/supabase'
 import type { Interaction } from '@/types/domain'
 import { fetchComptesVisibles, fetchSitesVisiblesIds } from '@/lib/data/visibility'
+import { replierOuRelancer } from '@/lib/data/erreurLecture'
 
 interface RawInteraction {
   id: string
@@ -110,8 +111,9 @@ async function fetchInteractions(limite: number | null = null): Promise<Interact
 
     return (visibles as unknown as RawInteraction[]).map(mapRawInteraction)
   } catch (error) {
-    console.error('fetchInteractions', error)
-    return []
+    /* Audit 13/09/2026, ERR-02 : un échec ne se déguise plus en absence de données.
+       Seul un schéma pas encore migré rend un résultat vide ; le reste remonte. */
+    return replierOuRelancer(error, { ou: 'fetchInteractions' }, [])
   }
 }
 

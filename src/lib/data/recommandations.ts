@@ -11,6 +11,7 @@ import type {
 } from '@/types/domain'
 import { fetchComptesVisibles, fetchMesComptes, filterVisibles } from '@/lib/data/visibility'
 import { fetchAllRows, fetchAllRowsParLots } from '@/lib/data/paginatedFetch'
+import { replierOuRelancer } from '@/lib/data/erreurLecture'
 
 interface RawRecommandation {
   id: string
@@ -908,8 +909,9 @@ async function fetchRecommandations(
       cout_prestation_reel: r.cout_prestation_reel ?? null,
     }))
   } catch (error) {
-    console.error('fetchRecommandations', error)
-    return []
+    /* Audit 13/09/2026, ERR-02 : un échec ne se déguise plus en absence de données.
+       Seul un schéma pas encore migré rend un résultat vide ; le reste remonte. */
+    return replierOuRelancer(error, { ou: 'fetchRecommandations' }, [])
   }
 }
 

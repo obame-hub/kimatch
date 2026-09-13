@@ -21,8 +21,9 @@ import { FALLBACK_TYPES_INTERACTIONS, FALLBACK_ISSUES_INTERACTIONS } from '@/lib
 import { ListToolbar } from '@/components/ui/list-toolbar'
 import { useListControls } from '@/lib/useListControls'
 import { usePerimetreListe, BasculePerimetre } from '@/lib/perimetre'
-import { useOuvrirCreation } from '@/lib/ouvrirCreation'
+import { useOuvrirCreation } from '@/lib/ouvrirCreation'
 import { contactsDuCompte as contactsRattaches } from '@/lib/contactsDuCompte'
+import { EtatErreur } from '@/components/ui/etat-erreur'
 
 const SENS_OPTIONS = [
   { value: '', label: '—' },
@@ -171,7 +172,7 @@ function CreateInteractionDialog({ open, onClose }: { open: boolean; onClose: ()
 }
 
 export default function Interactions() {
-  const { data: interactions, isLoading } = useInteractionsRecentes()
+  const { data: interactions, isLoading, isError, error, refetch } = useInteractionsRecentes()
   const [showCreate, setShowCreate] = useState(false)
   // `?creer=1` ouvre ce formulaire depuis le menu « Créer » de la barre du haut.
   useOuvrirCreation(() => setShowCreate(true))
@@ -263,6 +264,14 @@ export default function Interactions() {
         {/* La table compte plus de 66 000 interactions : les charger toutes prenait 30 secondes.
             On s'arrête aux 2000 plus récentes, et on le dit plutôt que de laisser croire que la
             recherche porte sur tout l'historique. */}
+        {/* Audit 13/09/2026, ERR-02 : une lecture qui échoue ne se déguise plus en liste vide. */}
+        {isError && (
+          <EtatErreur
+            quoi="Les échanges"
+            message={error instanceof Error ? error.message : 'Erreur inconnue'}
+            reessayer={() => { void refetch() }}
+          />
+        )}
         {!isLoading && !aVenir && interactions && interactions.length >= 2000 && (
           <p className="mb-2.5 text-km-label text-km-faint">
             Les 2000 interactions les plus récentes sont chargées — la recherche ci-dessus porte sur celles-ci.

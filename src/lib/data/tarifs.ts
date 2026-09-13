@@ -1,6 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { supabase } from '@/lib/supabase'
 import type { TarifContratCompteur } from '@/types/domain'
+import { replierOuRelancer } from '@/lib/data/erreurLecture'
 
 export interface FormuleTarifaire {
   id: string
@@ -20,8 +21,9 @@ async function fetchFormulesTarifaires(): Promise<FormuleTarifaire[]> {
     if (error) throw error
     return (data ?? []) as unknown as FormuleTarifaire[]
   } catch (error) {
-    console.error('fetchFormulesTarifaires', error)
-    return []
+    /* Audit 13/09/2026, ERR-02 : un échec ne se déguise plus en absence de données.
+       Seul un schéma pas encore migré rend un résultat vide ; le reste remonte. */
+    return replierOuRelancer(error, { ou: 'fetchFormulesTarifaires' }, [])
   }
 }
 
@@ -90,8 +92,9 @@ async function fetchTarifsByContratCompteurIds(contratCompteurIds: string[]): Pr
     if (error) throw error
     return ((data ?? []) as unknown as RawTarif[]).map(mapTarif)
   } catch (error) {
-    console.error('fetchTarifsByContratCompteurIds', error)
-    return []
+    /* Audit 13/09/2026, ERR-02 : un échec ne se déguise plus en absence de données.
+       Seul un schéma pas encore migré rend un résultat vide ; le reste remonte. */
+    return replierOuRelancer(error, { ou: 'fetchTarifsByContratCompteurIds' }, [])
   }
 }
 

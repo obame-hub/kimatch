@@ -3,6 +3,7 @@ import { supabase } from '@/lib/supabase'
 import { fetchAllRows, fetchAllRowsParLots } from '@/lib/data/paginatedFetch'
 import { fetchComptesVisibles, filterVisibles } from '@/lib/data/visibility'
 import type { Opportunite } from '@/types/domain'
+import { replierOuRelancer } from '@/lib/data/erreurLecture'
 
 /**
  * L'opportunité, entre le patrimoine et la recommandation.
@@ -170,8 +171,9 @@ async function fetchOpportunites(opportuniteId?: string): Promise<Opportunite[]>
       compteurs_places: placesParOpp.get(o.id) ?? [],
     }))
   } catch (error) {
-    console.error('fetchOpportunites', error)
-    return []
+    /* Audit 13/09/2026, ERR-02 : un échec ne se déguise plus en absence de données.
+       Seul un schéma pas encore migré rend un résultat vide ; le reste remonte. */
+    return replierOuRelancer(error, { ou: 'fetchOpportunites' }, [])
   }
 }
 

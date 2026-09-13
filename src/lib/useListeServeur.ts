@@ -131,6 +131,10 @@ export function useListeServeur<T>(options: OptionsListeServeur) {
     reste: Math.max(0, total - lignes.length),
     isLoading: resultat.isLoading,
     erreur: resultat.error instanceof Error ? resultat.error.message : null,
+    /* Audit 13/09/2026, ERR-02 : afficher l'échec ne suffit pas, il faut pouvoir en sortir. La
+       plupart de ces erreurs sont passagères — un 503 sous charge, une coupure d'une seconde —
+       et un nouvel essai les règle sans recharger la page ni perdre les filtres en cours. */
+    reessayer: () => { void resultat.refetch() },
     query,
     setQuery,
     tri,

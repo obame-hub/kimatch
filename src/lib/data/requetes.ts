@@ -3,6 +3,7 @@ import { supabase } from '@/lib/supabase'
 import { fetchAllRows } from '@/lib/data/paginatedFetch'
 import { fetchComptesVisibles, filterVisibles } from '@/lib/data/visibility'
 import type { Requete } from '@/types/domain'
+import { replierOuRelancer } from '@/lib/data/erreurLecture'
 
 /**
  * La REQUÊTE : « un autre objet actif mais parallèle à la chaîne commerciale ».
@@ -127,8 +128,9 @@ export function useRequetes() {
           date_creation: r.date_creation,
         }))
       } catch (error) {
-        console.error('useRequetes', error)
-        return []
+        /* Audit 13/09/2026, ERR-02 : un échec ne se déguise plus en absence de données.
+           Seul un schéma pas encore migré rend un résultat vide ; le reste remonte. */
+        return replierOuRelancer(error, { ou: 'useRequetes' }, [])
       }
     },
   })

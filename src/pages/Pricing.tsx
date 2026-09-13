@@ -9,6 +9,7 @@ import { useTriKanban, SelecteurTri } from '@/lib/triKanban'
 import { usePerimetre, BasculePerimetre } from '@/lib/perimetre'
 import { useMonProfil } from '@/lib/data/roles'
 import { euros } from '@/lib/euros'
+import { EtatErreur } from '@/components/ui/etat-erreur'
 
 /**
  * PRICING — page 7 du dossier UX du 26/08/2026.
@@ -398,6 +399,13 @@ export default function Pricing({ sansEntete }: { sansEntete?: boolean }) {
           <BasculeOption actif={avecRefusees} onChange={setAvecRefusees} libelle="Inclure les demandes refusées" />
         </ListToolbar>
 
+        {tableau.isError && (
+          <EtatErreur
+            quoi="Les dossiers"
+            message={tableau.error instanceof Error ? tableau.error.message : 'Erreur inconnue'}
+            reessayer={() => { void tableau.refetch() }}
+          />
+        )}
         <TableauKanban
           colonnes={lignes.map((c) => ({
             code: c.code,

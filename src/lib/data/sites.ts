@@ -4,6 +4,7 @@ import type { Site } from '@/types/domain'
 import { fetchComptesVisibles, filterVisibles } from '@/lib/data/visibility'
 import { fetchAllRows } from '@/lib/data/paginatedFetch'
 import { toUpperFR } from '@/lib/textFormat'
+import { replierOuRelancer } from '@/lib/data/erreurLecture'
 
 interface RawSite {
   id: string
@@ -129,8 +130,9 @@ async function fetchSites(compteId?: string, siteIds?: string[]): Promise<Site[]
       }
     })
   } catch (error) {
-    console.error('fetchSites', error)
-    return []
+    /* Audit 13/09/2026, ERR-02 : un échec ne se déguise plus en absence de données.
+       Seul un schéma pas encore migré rend un résultat vide ; le reste remonte. */
+    return replierOuRelancer(error, { ou: 'fetchSites' }, [])
   }
 }
 

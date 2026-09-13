@@ -11,9 +11,10 @@ import { ListToolbar } from '@/components/ui/list-toolbar'
 import { SortableTh } from '@/components/ui/sortable-th'
 import { useListControls } from '@/lib/useListControls'
 import { Tableau, TableauTete, TableauCorps } from '@/components/ui/tableau'
+import { EtatErreur } from '@/components/ui/etat-erreur'
 
 export default function Versions() {
-  const { data: recommandations, isLoading } = useRecommandationsListe()
+  const { data: recommandations, isLoading, isError, error, refetch } = useRecommandationsListe()
   const { data: statutsRef } = useReferenceTable('statuts_versions_recommandation')
   const statuts = statutsRef && statutsRef.length > 0 ? statutsRef : FALLBACK_STATUTS_VERSIONS
   const navigate = useNavigate()
@@ -76,7 +77,20 @@ export default function Versions() {
                   <td colSpan={6} className="px-5 py-6 text-center text-km-faint">Chargement…</td>
                 </tr>
               )}
-              {versions.length === 0 && !isLoading && (
+              {/* Audit 13/09/2026, ERR-02 : sans cette ligne, un échec de lecture affichait
+                  « Aucune version pour le moment » — sur une table qui en compte 2 054. */}
+              {isError && (
+                <tr>
+                  <td colSpan={6} className="px-5 py-6 text-center">
+                    <EtatErreur
+                      quoi="Les versions"
+                      message={error instanceof Error ? error.message : 'Erreur inconnue'}
+                      reessayer={() => { void refetch() }}
+                    />
+                  </td>
+                </tr>
+              )}
+              {versions.length === 0 && !isLoading && !isError && (
                 <tr>
                   <td colSpan={6} className="px-5 py-6 text-center text-km-faint">
                     {versionsBrutes.length === 0 ? 'Aucune version pour le moment.' : 'Aucune version ne correspond à la recherche.'}
