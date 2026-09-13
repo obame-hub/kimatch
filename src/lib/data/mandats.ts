@@ -280,6 +280,12 @@ export function useCreateMandat() {
       queryClient.setQueryData<Mandat[]>(['mandats'], (old) => (old ? [mandat, ...old] : [mandat]))
       return { mandat, persisted }
     },
+    /* Audit 13/09/2026, CAC-01 : le patch ci-dessus ne touche que la clé de LISTE, alors que
+       les fiches lisent une clé dérivée (['mandats', 'compte', id] et compagnie). Sans cette
+       ligne, ce qu'on vient de créer n'apparaissait qu'après un rechargement complet — le
+       staleTime est à cinq minutes et le rafraîchissement au focus est coupé. Invalider le
+       PRÉFIXE atteint la liste et toutes ses dérivées d'un coup. */
+    onSuccess: () => { void queryClient.invalidateQueries({ queryKey: ['mandats'] }) },
   })
 }
 
@@ -302,6 +308,12 @@ export function useMarkMandatEnvoye() {
       )
       return { persisted }
     },
+    /* Audit 13/09/2026, CAC-01 : le patch ci-dessus ne touche que la clé de LISTE, alors que
+       les fiches lisent une clé dérivée (['mandats', 'compte', id] et compagnie). Sans cette
+       ligne, ce qu'on vient de créer n'apparaissait qu'après un rechargement complet — le
+       staleTime est à cinq minutes et le rafraîchissement au focus est coupé. Invalider le
+       PRÉFIXE atteint la liste et toutes ses dérivées d'un coup. */
+    onSuccess: () => { void queryClient.invalidateQueries({ queryKey: ['mandats'] }) },
   })
 }
 

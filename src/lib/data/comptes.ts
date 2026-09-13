@@ -265,6 +265,21 @@ export function useUpdateCompteScore() {
 
       return { persisted, changed }
     },
+    /* ══ LE PATCH LOCAL NE SUFFIT PAS, ET C'EST TOUT LE DÉFAUT ══
+     *
+     * Audit du 13/09/2026, constat CAC-01. Le `setQueryData` ci-dessus ne touche QUE la clé
+     * `['comptes']` — la liste complète. La fiche compte, elle, lit `['comptes', 'un', id]`
+     * (voir `useCompte`). Le patch n'atteignait donc jamais l'écran qui affiche le score.
+     *
+     * Et rien ne venait derrière : `staleTime` est à cinq minutes et `refetchOnWindowFocus` est
+     * désactivé (`main.tsx`). Ni le changement d'onglet ni le retour sur la fenêtre ne
+     * relisaient. Il fallait recharger la page pour voir son propre travail.
+     *
+     * `invalidateQueries` sur le PRÉFIXE atteint toutes les clés dérivées d'un coup —
+     * `['comptes']`, `['comptes','un',id]`, `['comptes','rattachables']`. C'est ce que font déjà
+     * `useUpdateCompte`, `useUpdateCompteField` et `useDeleteCompte` plus bas ; les cinq autres
+     * mutations de ce fichier ne le faisaient pas. */
+    onSuccess: () => { void queryClient.invalidateQueries({ queryKey: ['comptes'] }) },
   })
 }
 
@@ -390,6 +405,9 @@ export function useCreateCompte() {
 
       return { compte, persisted }
     },
+    /* Même raison qu'au-dessus (CAC-01) : un compte créé depuis un dialogue n'apparaissait pas
+       dans les listes déroulantes des autres écrans avant un rechargement. */
+    onSuccess: () => { void queryClient.invalidateQueries({ queryKey: ['comptes'] }) },
   })
 }
 
@@ -397,7 +415,32 @@ interface UpdateResult {
   persisted: boolean
 }
 
-function applyLocalUpdate(queryClient: ReturnType<typeof useQueryClient>, compteId: string, patch: Partial<Compte>) {
+/**
+ * ══ ON NE PATCHE PLUS LE CACHE QUAND L'ÉCRITURE A ÉCHOUÉ ══
+ *
+ * Audit du 13/09/2026, constat CAC-02. Les trois mutations ci-dessous calculaient `persisted`,
+ * puis appelaient cette fonction DANS TOUS LES CAS — succès comme échec. Le commentaire d'origine
+ * l'assumait : « on met à jour le cache local même si l'écriture Supabase a échoué faute de
+ * colonnes existantes côté vraie base ».
+ *
+ * C'était sans doute nécessaire pendant la migration du schéma, quand une colonne pouvait manquer
+ * en base sans que ce soit une anomalie. Ça ne l'est plus, et l'effet de bord est devenu le
+ * problème : l'écran affichait une valeur QUE LA BASE N'AVAIT PAS, et ce mensonge durait jusqu'au
+ * rechargement — cinq minutes de `staleTime`, sans rafraîchissement au focus.
+ *
+ * Le pire de ce comportement n'est pas l'affichage faux, c'est qu'il est INDISCERNABLE d'un
+ * enregistrement réussi. La personne referme la fiche, confiante.
+ *
+ * `persisted` remonte déjà à l'appelant : les écrans qui veulent signaler l'échec ont de quoi le
+ * faire. Ce qu'on retire ici, c'est seulement l'illusion.
+ */
+function applyLocalUpdate(
+  queryClient: ReturnType<typeof useQueryClient>,
+  compteId: string,
+  patch: Partial<Compte>,
+  persisted: boolean,
+) {
+  if (!persisted) return
   queryClient.setQueryData<Compte[]>(['comptes'], (old) => old?.map((c) => (c.id === compteId ? { ...c, ...patch } : c)))
 }
 
@@ -429,9 +472,12 @@ export function useUpdateCompteClient() {
         supabase.from('comptes').update({ apporteur_partenaire_id: input.apporteur_partenaire_id }).eq('id', input.compteId),
       ])
       const persisted = !clientError && !compteError
-      applyLocalUpdate(queryClient, input.compteId, input)
+      applyLocalUpdate(queryClient, input.compteId, input, persisted)
       return { persisted }
     },
+    /* CAC-01 : le patch ci-dessus ne touche que ['comptes'] ; la fiche lit ['comptes','un',id].
+       L'invalidation par préfixe atteint les deux. */
+    onSuccess: () => { void queryClient.invalidateQueries({ queryKey: ['comptes'] }) },
   })
 }
 
@@ -464,9 +510,12 @@ export function useUpdateCompteFournisseur() {
         supabase.from('comptes').update({ limite_ellipro: input.limite_ellipro }).eq('id', input.compteId),
       ])
       const persisted = !fournisseurError && !compteError
-      applyLocalUpdate(queryClient, input.compteId, input)
+      applyLocalUpdate(queryClient, input.compteId, input, persisted)
       return { persisted }
     },
+    /* CAC-01 : le patch ci-dessus ne touche que ['comptes'] ; la fiche lit ['comptes','un',id].
+       L'invalidation par préfixe atteint les deux. */
+    onSuccess: () => { void queryClient.invalidateQueries({ queryKey: ['comptes'] }) },
   })
 }
 
@@ -495,9 +544,12 @@ export function useUpdateComptePartenaire() {
         commentaire: input.commentaire_partenariat,
       })
       const persisted = !error
-      applyLocalUpdate(queryClient, input.compteId, input)
+      applyLocalUpdate(queryClient, input.compteId, input, persisted)
       return { persisted }
     },
+    /* CAC-01 : le patch ci-dessus ne touche que ['comptes'] ; la fiche lit ['comptes','un',id].
+       L'invalidation par préfixe atteint les deux. */
+    onSuccess: () => { void queryClient.invalidateQueries({ queryKey: ['comptes'] }) },
   })
 }
 

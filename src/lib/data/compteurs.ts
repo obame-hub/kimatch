@@ -692,6 +692,12 @@ export function useCreateCompteur() {
       queryClient.setQueryData<Compteur[]>(['compteurs'], (old) => (old ? [...old, compteur] : [compteur]))
       return { compteur, persisted }
     },
+    /* Audit 13/09/2026, CAC-01 : le patch ci-dessus ne touche que la clé de LISTE, alors que
+       les fiches lisent une clé dérivée (['compteurs', 'compte', id] et compagnie). Sans cette
+       ligne, ce qu'on vient de créer n'apparaissait qu'après un rechargement complet — le
+       staleTime est à cinq minutes et le rafraîchissement au focus est coupé. Invalider le
+       PRÉFIXE atteint la liste et toutes ses dérivées d'un coup. */
+    onSuccess: () => { void queryClient.invalidateQueries({ queryKey: ['compteurs'] }) },
   })
 }
 
