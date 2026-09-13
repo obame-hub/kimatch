@@ -1,6 +1,7 @@
 import { useEffect } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { supabase } from '@/lib/supabase'
+import { amortir } from '@/lib/amortir'
 import { estJourOuvreFR } from '@/lib/joursFeries'
 
 /**
@@ -96,16 +97,17 @@ export function useTachesDuJour() {
   /* Une tâche cochée fait bouger le tableau ET la matrice : les deux requêtes s'invalident
      ensemble, sinon la charge de demain resterait fausse jusqu'au rechargement. */
   useEffect(() => {
-    const rafraichir = () => {
+    /* Amorti : un import en lot emet un evenement par ligne inseree. Voir src/lib/amortir.ts. */
+    const rafraichir = amortir(() => {
       void queryClient.invalidateQueries({ queryKey: ['taches-du-jour'] })
       void queryClient.invalidateQueries({ queryKey: ['charge-a-venir'] })
-    }
+    })
     const canal = supabase
       .channel('taches-du-jour')
       .on('postgres_changes', { event: '*', schema: 'public', table: 'actions' }, rafraichir)
       .subscribe()
 
-    return () => { void supabase.removeChannel(canal) }
+    return () => { rafraichir.annuler(); void supabase.removeChannel(canal) }
   }, [queryClient])
 
   return requete

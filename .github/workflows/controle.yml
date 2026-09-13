@@ -1,0 +1,55 @@
+# ══════════════════════════════════════════════════════════════════════════════════════════════
+# CE QUI DOIT PASSER AVANT QU'UNE MODIFICATION N'ATTEIGNE L'ÉQUIPE
+#
+# Audit du 13/09/2026, constat BLD-02. Il n'existait aucune intégration continue : `npm run lint`,
+# `npm run build` et `npm test` ne s'exécutaient qu'à la main, sur le poste de qui y pensait.
+#
+# CE QUE ÇA LAISSAIT PASSER. Vercel compile à chaque poussée sur `master` et déploie si la
+# compilation réussit. Un test en échec ou une règle ESLint violée ne l'arrêtait pas : seule une
+# erreur TypeScript le faisait. Or deux dépôts distants sont configurés et les poussées directes
+# sur `master` sont courantes — c'est exactement le moment où un garde-fou automatique coûte le
+# moins cher.
+#
+# POURQUOI `npm run build` ET NON `tsc --noEmit`. Le projet a trois configurations TypeScript
+# référencées (`app`, `node`, `api`) : `tsc --noEmit` seul ne couvre pas `src/`, et laisse donc
+# passer un build cassé. `npm run build` lance `tsc -b` sur les trois puis Vite. C'est le seul
+# contrôle qui vaut.
+#
+# `npm ci` ET NON `npm install` : la première respecte `package-lock.json` à la lettre et échoue
+# s'il diverge de `package.json`. On contrôle ce qui sera réellement installé, pas une résolution
+# de dépendances recalculée au vol.
+# ══════════════════════════════════════════════════════════════════════════════════════════════
+name: Contrôle
+
+on:
+  push:
+    branches: ['**']
+  pull_request:
+
+jobs:
+  controle:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          # Le cache npm évite de retélécharger les 300 Mo de node_modules à chaque poussée.
+          cache: 'npm'
+
+      - name: Installer les dépendances
+        run: npm ci
+
+      # ESLint ne casse le contrôle que sur une ERREUR. Le dépôt porte une quarantaine
+      # d'avertissements connus (react-refresh, surtout) : les traiter comme des erreurs ferait
+      # échouer toutes les poussées dès aujourd'hui, ce qui apprendrait à l'équipe à ignorer ce
+      # contrôle — le pire résultat possible pour un garde-fou.
+      - name: Lint
+        run: npm run lint
+
+      - name: Build complet
+        run: npm run build
+
+      - name: Tests
+        run: npm test

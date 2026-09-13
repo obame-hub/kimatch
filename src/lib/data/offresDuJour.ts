@@ -1,6 +1,7 @@
 import { useEffect } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { supabase } from '@/lib/supabase'
+import { amortir } from '@/lib/amortir'
 
 /**
  * ══ LES OFFRES DU JOUR ══
@@ -109,17 +110,18 @@ export function useOffresDuJour() {
    * de la version, ni le statut lisible, ni le compte, ni le contact.
    */
   useEffect(() => {
-    const rafraichir = () => {
+    /* Amorti : un import en lot emet un evenement par ligne inseree. Voir src/lib/amortir.ts. */
+    const rafraichir = amortir(() => {
       void queryClient.invalidateQueries({ queryKey: ['offres-du-jour'] })
       void queryClient.invalidateQueries({ queryKey: ['totaux-offres'] })
-    }
+    })
     const canal = supabase
       .channel('offres-du-jour')
       .on('postgres_changes', { event: '*', schema: 'public', table: 'versions_recommandation' }, rafraichir)
       .on('postgres_changes', { event: '*', schema: 'public', table: 'recommandations' }, rafraichir)
       .subscribe()
 
-    return () => { void supabase.removeChannel(canal) }
+    return () => { rafraichir.annuler(); void supabase.removeChannel(canal) }
   }, [queryClient])
 
   return requete

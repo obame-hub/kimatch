@@ -1,6 +1,7 @@
 import { useEffect } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { supabase } from '@/lib/supabase'
+import { amortir } from '@/lib/amortir'
 
 /**
  * ══ LES SEPT NOMBRES DE LA PREMIÈRE LIGNE DU TABLEAU DE BORD ══
@@ -126,7 +127,8 @@ export function useCartesDuJour() {
    * triplerait les connexions sans rien changer à l'affichage.
    */
   useEffect(() => {
-    const rafraichir = () => { void queryClient.invalidateQueries({ queryKey: ['cartes-du-jour'] }) }
+    /* Amorti : un import en lot emet un evenement par ligne inseree. Voir src/lib/amortir.ts. */
+    const rafraichir = amortir(() => { void queryClient.invalidateQueries({ queryKey: ['cartes-du-jour'] }) })
 
     const canal = supabase
       .channel('cartes-du-jour')
@@ -135,7 +137,7 @@ export function useCartesDuJour() {
       .on('postgres_changes', { event: '*', schema: 'public', table: 'pistes' }, rafraichir)
       .subscribe()
 
-    return () => { void supabase.removeChannel(canal) }
+    return () => { rafraichir.annuler(); void supabase.removeChannel(canal) }
   }, [queryClient])
 
   return requete
