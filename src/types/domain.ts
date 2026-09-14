@@ -410,6 +410,9 @@ export interface ActionItem {
 
 export interface Mandat {
   id: string
+  /** `MDT-2026-0042`, posée par `fn_reference_chaine` (14/09/2026). Reste `null` le temps qu'une
+   *  version sans la migration tourne encore — d'où l'affichage qui retombe sur `id_salesforce`. */
+  reference: string | null
   id_salesforce: string | null
   compte_id: string
   compte_nom: string

@@ -111,6 +111,9 @@ interface LigneMandat {
   id: string
   compte_id: string
   compte_nom: string | null
+  /** `MDT-2026-0042`. La liste la cherchait déjà (`colonnesRecherche`) sans jamais l'afficher —
+   *  et pour cause : les 1 483 mandats n'en avaient aucune avant le 14/09/2026. */
+  reference: string | null
   id_salesforce: string | null
   statut: string
   date_signature: string | null
@@ -186,7 +189,7 @@ export default function Mandats({ sansEntete }: { sansEntete?: boolean }) {
           actions={sansEntete ? undefined : <Button onClick={() => setShowCreate(true)}><Plus className="h-4 w-4" />Nouveau mandat</Button>}
         />
 
-        <ListToolbar query={liste.query} onQueryChange={liste.setQuery} placeholder="Rechercher un compte…" count={liste.total}>
+        <ListToolbar query={liste.query} onQueryChange={liste.setQuery} placeholder="Rechercher un compte ou une référence…" count={liste.total}>
           <BasculePerimetre valeur={perimetre} onChange={setPerimetre} libelleMien="Mes mandats" libelleTous="Tous les mandats" />
           <Select value={statutFilter} onChange={(e) => setStatutFilter(e.target.value)} className="w-auto">
             <option value="">Tous les statuts</option>
@@ -223,7 +226,11 @@ export default function Mandats({ sansEntete }: { sansEntete?: boolean }) {
                       <FileCheck2 className="h-4 w-4" />
                     </span>
                     <div>
-                      {m.id_salesforce && <p className="font-mono text-km-label text-km-faint">{m.id_salesforce}</p>}
+                      {/* La référence d'abord : c'est celle qu'on se dit au téléphone. Le nom
+                          Salesforce ne reste que pour les mandats qui n'en ont pas encore. */}
+                      {(m.reference || m.id_salesforce) && (
+                        <p className="font-mono text-km-label text-km-faint">{m.reference ?? m.id_salesforce}</p>
+                      )}
                       <p className="font-display font-medium text-km-text">
                         <EntityLink to={`/comptes/${m.compte_id}`}>{m.compte_nom}</EntityLink>
                       </p>
