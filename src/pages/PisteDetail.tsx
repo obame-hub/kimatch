@@ -18,6 +18,7 @@ import { HistoriqueDiscret } from '@/components/ui/historique-discret'
 import { useGoBack } from '@/lib/useGoBack'
 import { useCanManage, useProfilsAdmin } from '@/lib/data/roles'
 import { DetailsPiste } from '@/components/prospection/DetailsPiste'
+import { InlineIdentite } from '@/components/ui/inline-identite'
 import { useActionsParPiste, useCompleteAction } from '@/lib/data/actions'
 import { useInteractionsParPiste } from '@/lib/data/interactions'
 import { useDocumentsParEntites, useTeleverserDocuments } from '@/lib/data/documents'
@@ -442,10 +443,27 @@ export default function PisteDetail() {
                   onSaved={() => signaler('✓ enregistré')}
                   onError={(e: Error) => signaler(`Erreur : ${e.message}`)}
                 />
-                <InlineField
-                  variant="text" label="Contact" emptyLabel="ajouter"
-                  value={piste.contact_nom ?? ''} disabled={!canManage}
-                  onCommit={(v: string) => maj.mutateAsync({ id: piste.id, patch: { contact_nom: v.trim() || null } })}
+                {/* LE NOM SE LIT ENTIER ET SE MODIFIE EN TROIS (Naoëlle, 14/09/2026). Un champ
+                    unique redonnait « Evelyne Tixier » à corriger d'un seul tenant : on recollait
+                    ce qu'on venait de séparer, et la civilité se perdait au passage.
+
+                    `contact_nom` SUIT LES TROIS ET NE SE SAISIT PLUS. La colonne reste — elle porte
+                    le `Name` de Salesforce sur les 5 139 pistes reprises, et la recherche, les
+                    cartes du kanban et la conversion la lisent encore. La laisser diverger des trois
+                    champs ferait afficher un nom ici et un autre dans la liste. */}
+                <InlineIdentite
+                  label="Contact"
+                  valeur={{ civilite: piste.civilite, prenom: piste.prenom, nom: piste.nom }}
+                  disabled={!canManage}
+                  onCommit={(v) => maj.mutateAsync({
+                    id: piste.id,
+                    patch: {
+                      civilite: v.civilite,
+                      prenom: v.prenom,
+                      nom: v.nom,
+                      contact_nom: [v.prenom, v.nom].filter(Boolean).join(' ') || null,
+                    },
+                  })}
                   onSaved={() => signaler('✓ enregistré')}
                   onError={(e: Error) => signaler(`Erreur : ${e.message}`)}
                 />

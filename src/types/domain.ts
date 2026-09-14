@@ -1047,6 +1047,11 @@ export interface Piste {
    *  5 131 pistes reprises — donc toute statistique par mois doit lire CELLE-CI. */
   date_creation_salesforce: string | null
   date_modification_salesforce: string | null
+  /** Qui l'a créée dans Salesforce, par jointure — le « Créé par » du bloc Informations système. */
+  createur_nom: string | null
+  /** Qui l'a modifiée en dernier DANS SALESFORCE. Distinct de `modifie_par_id`, que l'audit repose
+   *  à chaque écriture parce qu'il répond à la même question pour Kimatch. */
+  modifie_par_salesforce_nom: string | null
   proprietaire_id: string | null
   /** Le nom du propriétaire, par jointure. Les 5 131 pistes reprises de Salesforce ont toutes gardé
    *  leur `OwnerId` — la répartition est identique à l'org (Thomas 1 688, Matthieu 1 496, Marie

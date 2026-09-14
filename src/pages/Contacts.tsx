@@ -26,6 +26,7 @@ import { LIBELLE_ROLE, type RoleContact } from '@/lib/contactRoles'
 import { SelecteurRoles } from '@/components/contact/SelecteurRoles'
 import type { Compte, Contact } from '@/types/domain'
 import { useOuvrirCreation } from '@/lib/ouvrirCreation'
+import { CIVILITES } from '@/lib/civilite'
 
 const DUPLICATE_FIELD_LABEL: Record<ContactDuplicate['fields'][number], string> = {
   email: 'Email',
@@ -51,7 +52,9 @@ function CreateContactDialog({ open, onClose, initialCompteId }: { open: boolean
     if (open && initialCompteId) setCompteId(initialCompteId)
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open, initialCompteId])
-  const [civilite, setCivilite] = useState('M.')
+  /* « Monsieur » et non « M. » : c'est ce que la base écrit depuis la migration 20260914180000.
+     Un formulaire qui propose autre chose rend le bouton inactif dès la relecture du contact. */
+  const [civilite, setCivilite] = useState<string>('Monsieur')
   const [prenom, setPrenom] = useState('')
   const [nom, setNom] = useState('')
   const [fonction, setFonction] = useState('')
@@ -228,8 +231,8 @@ function CreateContactDialog({ open, onClose, initialCompteId }: { open: boolean
           </FormField>
           <FormField label="Civilité">
             <div className="flex gap-2">
-              {(['M.', 'Mme'] as const).map((c) => {
-                const Icon = c === 'M.' ? UserCircle2 : UserRound
+              {CIVILITES.map((c) => {
+                const Icon = c === 'Monsieur' ? UserCircle2 : UserRound
                 return (
                   <button
                     key={c}
@@ -367,7 +370,7 @@ function CreateContactDialog({ open, onClose, initialCompteId }: { open: boolean
             <Check className="mt-0.5 h-4 w-4 shrink-0" />
             <p>
               <span className="font-medium">{createdContact.civilite ? `${createdContact.civilite} ` : ''}{createdContact.prenom} {createdContact.nom}</span> a bien été
-              ajouté{createdContact.civilite === 'Mme' ? 'e' : ''} à {compte?.nom}.
+              ajouté{createdContact.civilite === 'Madame' ? 'e' : ''} à {compte?.nom}.
             </p>
           </div>
           <div className="grid grid-cols-2 gap-2">

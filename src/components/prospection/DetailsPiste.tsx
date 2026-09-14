@@ -110,8 +110,13 @@ function groupesDe(piste: Piste): Groupe[] {
         /* LA VRAIE DATE, et elle mérite son étiquette : `date_creation` porte le 01/09/2026 pour
            les 5 131 pistes reprises — la date de l'import. Celle-ci les échelonne de 2025 à
            aujourd'hui, et c'est elle qu'une statistique par mois doit lire. */
+        /* Le bloc « Informations système » de Salesforce, rendu tel quel : qui a créé, qui a
+           modifié en dernier, et quand. « Modifié par » vient d'une colonne à part —
+           `modifie_par_id` répond à la même question pour Kimatch et l'audit la repose. */
         { libelle: 'Créée dans Salesforce le', valeur: date(piste.date_creation_salesforce) },
+        { libelle: 'Créée par', valeur: texte(piste.createur_nom) },
         { libelle: 'Modifiée dans Salesforce le', valeur: date(piste.date_modification_salesforce) },
+        { libelle: 'Modifiée par', valeur: texte(piste.modifie_par_salesforce_nom) },
         { libelle: 'Dernière activité', valeur: date(piste.date_derniere_activite) },
         { libelle: 'Premier appel', valeur: date(piste.date_premier_appel) },
         { libelle: 'Premier e-mail', valeur: date(piste.date_premier_email) },

@@ -173,7 +173,7 @@ function OngletListes({ lignes, signaler }: { lignes: LigneListe[]; signaler: (m
 
   return (
     <>
-      <ListToolbar query={recherche} onQueryChange={setRecherche} placeholder="Société, contact, email…" count={filtrees.length}>
+      <ListToolbar query={recherche} onQueryChange={setRecherche} placeholder="Société, nom, e-mail, téléphone, référence…" count={filtrees.length}>
         {converties > 0 && (
           <Button size="sm" variant={aQualifier ? 'default' : 'outline'} onClick={() => setAQualifier((v) => !v)}>
             {aQualifier ? 'À qualifier seulement' : 'Toutes'}
@@ -327,9 +327,34 @@ function OngletPistes({ pistes }: { pistes: Piste[] }) {
   ] as const
   const colonneDe = (p: Piste) =>
     p.opportunite_id ? 'CONVERTIE' : pisteQualifiee(p) ? 'PRETE' : 'A_COMPLETER'
+  /**
+   * ══ LA RECHERCHE CHERCHE MOT À MOT, ET DANS TOUT CE QUI IDENTIFIE UNE PISTE ══
+   *
+   * Naoëlle, 14/09/2026 : « pourquoi par exemple elle je la trouve pas » — « Madame A VEDRENNE »
+   * ne rendait rien alors que la piste PST-2026-10102 existe, avec civilité Madame, prénom A et
+   * nom VEDRENNE.
+   *
+   * DEUX CAUSES, ET LA SECONDE EST LA PLUS TRAÎTRE. On ne regardait que `societe`, `contact_nom`
+   * et `email` — ni la civilité, ni le nom séparé, ni la référence, ni le téléphone. Et surtout on
+   * cherchait LA CHAÎNE ENTIÈRE : `contact_nom` vaut « A VEDRENNE », donc « Madame A VEDRENNE »
+   * n'y était pas contenu. Taper ce qu'on lit à l'écran ne trouvait pas ce qu'on lisait.
+   *
+   * Chaque mot doit maintenant se retrouver quelque part dans la piste, dans n'importe quel ordre
+   * et dans n'importe quel champ — la même règle que la recherche de sites (migration
+   * 20260815180000). Les accents sont ôtés des deux côtés : « Mégane » se trouve en tapant
+   * « megane », ce qu'on fait toujours quand on va vite.
+   */
+  const sansAccent = (v: string) =>
+    v.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase()
   const correspond = (p: Piste) => {
-    const q = recherche.trim().toLowerCase()
-    return !q || [p.societe, p.contact_nom, p.email].filter(Boolean).some((v) => String(v).toLowerCase().includes(q))
+    const mots = sansAccent(recherche.trim()).split(/\s+/).filter(Boolean)
+    if (mots.length === 0) return true
+    const foin = sansAccent([
+      p.societe, p.contact_nom, p.civilite, p.prenom, p.nom, p.email,
+      p.telephone, p.telephone_mobile, p.reference, p.ville, p.code_postal,
+      p.siren, p.siret, p.segment,
+    ].filter(Boolean).join(' '))
+    return mots.every((m) => foin.includes(m))
   }
 
   return (

@@ -170,7 +170,7 @@ export function usePiste(id: string | undefined) {
          réseau à chaque ouverture de fiche. */
       const { data, error } = await supabase
         .from('pistes')
-        .select('*, statut:statuts_pistes(code, libelle, est_cloture), proprietaire:profils!pistes_proprietaire_id_fkey(prenom, nom)')
+        .select('*, statut:statuts_pistes(code, libelle, est_cloture), proprietaire:profils!pistes_proprietaire_id_fkey(prenom, nom), createur:profils!pistes_cree_par_id_fkey(prenom, nom), modificateur_sf:profils!pistes_modifie_par_salesforce_id_fkey(prenom, nom)')
         .eq('id', id as string)
         .maybeSingle()
       if (error) throw new Error(error.message)
@@ -178,6 +178,8 @@ export function usePiste(id: string | undefined) {
       const brut = data as Record<string, unknown> & {
         statut?: { code: string; libelle: string; est_cloture: boolean } | null
         proprietaire?: { prenom: string; nom: string } | null
+        createur?: { prenom: string; nom: string } | null
+        modificateur_sf?: { prenom: string; nom: string } | null
       }
       return {
         ...(brut as unknown as Piste),
@@ -186,6 +188,10 @@ export function usePiste(id: string | undefined) {
         statut_clos: Boolean(brut.statut?.est_cloture),
         proprietaire_nom: brut.proprietaire
           ? `${brut.proprietaire.prenom} ${brut.proprietaire.nom}`
+          : null,
+        createur_nom: brut.createur ? `${brut.createur.prenom} ${brut.createur.nom}` : null,
+        modifie_par_salesforce_nom: brut.modificateur_sf
+          ? `${brut.modificateur_sf.prenom} ${brut.modificateur_sf.nom}`
           : null,
       }
     },
@@ -210,6 +216,12 @@ export type PatchPiste = Partial<{
   motif_disqualification: string | null
   /** Une piste se reprend quand son propriétaire est absent — même règle que partout ailleurs. */
   proprietaire_id: string | null
+  /* L'IDENTITÉ EN TROIS MORCEAUX, et `contact_nom` qui les suit. La colonne d'origine reste lue
+     par la recherche, les cartes du kanban et la conversion : la laisser diverger des trois champs
+     ferait afficher un nom sur la fiche et un autre dans la liste. */
+  civilite: string | null
+  prenom: string | null
+  nom: string | null
 }>
 
 export function useMajPiste() {

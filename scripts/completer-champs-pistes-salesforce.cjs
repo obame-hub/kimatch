@@ -35,7 +35,8 @@
 //         Site_internet__c, Website, LinkedIn__c, Nombres_coproprietes__c, Liste_copros__c,
 //         Echeance_actuelle__c, Industry, Role__c, Rating, LastActivityDate, FirstCallDateTime,
 //         FirstEmailDateTime, EmailBouncedDate, EmailBouncedReason, IsUnreadByOwner,
-//         IsPriorityRecord, CreatedDate, LastModifiedDate FROM Lead WHERE IsConverted = false"
+//         IsPriorityRecord, CreatedDate, LastModifiedDate, CreatedBy.Name, LastModifiedBy.Name
+//         FROM Lead WHERE IsConverted = false"
 //         > leads-complet.json
 //
 // SANS `--appliquer`, RIEN N'EST ÉCRIT.
@@ -84,6 +85,10 @@ function civiliteLisible(s) {
   return t
 }
 
+/** « Thomas LE GUEN » et « Thomas Le Guen » doivent se rejoindre : casse, accents et ponctuation ôtés. */
+const normal = (s) => (s || '').normalize('NFD').replace(/[̀-ͯ]/g, '')
+  .replace(/[^\p{L}\p{N}]+/gu, ' ').trim().toUpperCase()
+
 const entier = (v) => (v === null || v === undefined ? null : Math.round(Number(v)))
 const texte = (v) => { const t = (v ?? '').toString().trim(); return t || null }
 
@@ -97,6 +102,12 @@ const texte = (v) => { const t = (v ?? '').toString().trim(); return t || null }
   const pistes = new Map((await c.query(
     `select id, id_salesforce from public.pistes where id_salesforce is not null`))
     .rows.map((r) => [r.id_salesforce.slice(0, 15), r.id]))
+
+  /* QUI A CRÉÉ, QUI A MODIFIÉ. Le bloc « Informations système » de Salesforce les montre, et ils
+     étaient vides ici : 0 créateur sur 5 139, 3 modificateurs. On rapproche sur prénom + nom
+     normalisés, comme partout ailleurs — les sept auteurs de l'org sont tous dans `profils`. */
+  const profils = new Map((await c.query(`select id, prenom, nom from public.profils`))
+    .rows.map((r) => [normal(`${r.prenom} ${r.nom}`), r.id]))
 
   const aEcrire = [], sansPiste = []
   for (const l of leads) {
@@ -129,6 +140,12 @@ const texte = (v) => { const t = (v ?? '').toString().trim(); return t || null }
       prioritaire: l.IsPriorityRecord ?? null,
       date_creation_salesforce: l.CreatedDate || null,
       date_modification_salesforce: l.LastModifiedDate || null,
+      cree_par_id: (l.CreatedBy && profils.get(normal(l.CreatedBy.Name))) || null,
+      /* PAS `modifie_par_id` : `fn_audit_trace` le repose à `auth.uid()` — nul en connexion
+         directe — à chaque écriture. Et il a raison : cette colonne répond à « qui a touché la
+         piste DANS KIMATCH ». Le fait Salesforce a sa colonne (migration 20260914190000). */
+      modifie_par_salesforce_id:
+        (l.LastModifiedBy && profils.get(normal(l.LastModifiedBy.Name))) || null,
     })
   }
 
@@ -166,6 +183,8 @@ const texte = (v) => { const t = (v ?? '').toString().trim(); return t || null }
       email_rejete_le: 'timestamptz',
       non_lu_par_proprietaire: 'boolean',
       prioritaire: 'boolean',
+      cree_par_id: 'uuid',
+      modifie_par_salesforce_id: 'uuid',
       date_creation_salesforce: 'timestamptz',
       date_modification_salesforce: 'timestamptz',
     }
@@ -191,7 +210,9 @@ const texte = (v) => { const t = (v ?? '').toString().trim(); return t || null }
               count(*) filter (where civilite is not null)::int as avec_civilite,
               count(*) filter (where date_creation_salesforce is not null)::int as avec_date_sf,
               count(*) filter (where date_creation_salesforce > now())::int as date_sf_future,
-              count(*) filter (where echeance_actuelle is not null)::int as avec_echeance
+              count(*) filter (where echeance_actuelle is not null)::int as avec_echeance,
+              count(*) filter (where cree_par_id is not null)::int as avec_createur,
+              count(*) filter (where modifie_par_salesforce_id is not null)::int as avec_modificateur
          from public.pistes where id_salesforce is not null`)).rows[0]
     if (k.nom_mal_casse > 0) {
       throw new Error(`${k.nom_mal_casse} nom(s) ne sont pas en majuscules : la mise en forme n'a pas pris`)
@@ -206,7 +227,8 @@ const texte = (v) => { const t = (v ?? '').toString().trim(); return t || null }
     await c.query('commit')
     console.log(`\n✓ ${aEcrire.length} pistes complétées.`)
     console.log(`  ${k.avec_nom} noms en majuscules, ${k.avec_civilite} civilités, ${k.avec_echeance} échéances,`)
-    console.log(`  ${k.avec_date_sf} vraies dates de création Salesforce.`)
+    console.log(`  ${k.avec_date_sf} vraies dates de création Salesforce,`)
+    console.log(`  ${k.avec_createur} créateurs et ${k.avec_modificateur} derniers modificateurs Salesforce.`)
   } catch (e) {
     await c.query('rollback')
     console.error('\n✗ Rien n\'a été écrit : ' + e.message)
