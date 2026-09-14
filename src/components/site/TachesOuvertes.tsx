@@ -184,9 +184,32 @@ export function TachesOuvertes({ actions }: { actions: ActionItem[] }) {
   if (ouvertes.length === 0 && annulables.length === 0) return null
 
   return (
-    <div className="shrink-0 space-y-1.5 border-b border-km-line pb-2.5">
-      <p className="text-km-tiny font-bold uppercase tracking-[0.08em] text-km-faint">À faire</p>
+    /* ══ « À FAIRE » NE PEUT PLUS MANGER LE VOLET ══
+     *
+     * William, 15/09/2026 : « le contenu est coupé net en bas, il continue mais tu ne peux pas
+     * l'atteindre » — dans le volet d'activité de la fiche compte.
+     *
+     * CE BLOC ÉTAIT `shrink-0` SANS PLAFOND. Épinglé au-dessus du fil, il ne cédait jamais un
+     * pixel : avec deux ou trois tâches ouvertes il tenait dans le volet, et le comportement était
+     * juste. Le 14/09/2026, l'import des 265 tâches encore ouvertes de Salesforce a fait monter
+     * certains comptes à TREIZE tâches — CABINET MOLINIER, DUHAMEL LOGISTIQUE. Le bloc dépassait
+     * alors la hauteur du volet, écrasait le fil à zéro, et c'est l'`overflow-hidden` du parent qui
+     * coupait : aucune barre de défilement nulle part, donc rien à attraper.
+     *
+     * LE PLAFOND EST UNE PROPORTION, PAS UNE HAUTEUR FIXE. Sur un petit écran, 260 px de tâches ne
+     * laisseraient rien au fil ; à 45 % le partage tient à toutes les tailles. Le bloc garde son
+     * `shrink-0` — il reste épinglé — mais il défile chez lui quand il déborde.
+     *
+     * L'INTITULÉ RESTE HORS DU DÉFILEMENT : une liste qui défile sous son propre titre perd le
+     * titre dès la première tâche.
+     *
+     * LES LIGNES D'ANNULATION SONT DANS LA MÊME ZONE que les tâches : une ligne qu'on coche se
+     * change en confirmation à sa place, et la laisser hors du cadre la ferait sauter hors de vue
+     * au moment précis où on la regarde. */
+    <div className="flex max-h-[45%] shrink-0 flex-col gap-1.5 border-b border-km-line pb-2.5">
+      <p className="shrink-0 text-km-tiny font-bold uppercase tracking-[0.08em] text-km-faint">À faire</p>
 
+      <div className="min-h-0 space-y-1.5 overflow-y-auto pr-0.5">
       {ouvertes.map((action) => {
         const echeance = echeanceLisible(action.echeance)
         const enRetard = echeance.ton === 'retard'
@@ -361,6 +384,7 @@ export function TachesOuvertes({ actions }: { actions: ActionItem[] }) {
           </button>
         </div>
       ))}
+      </div>
     </div>
   )
 }
