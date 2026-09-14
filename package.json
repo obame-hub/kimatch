@@ -23,7 +23,8 @@
     "suppressions": "node scripts/auditer-suppressions.cjs",
     "sonde": "node scripts/sonder-la-base.cjs",
     "sf:requetes": "node scripts/importer-requetes-salesforce.cjs",
-    "sf:taches": "node scripts/importer-taches-salesforce.cjs"
+    "sf:taches": "node scripts/importer-taches-salesforce.cjs",
+    "lien": "node scripts/lien-de-connexion.cjs"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.110.6",

@@ -47,8 +47,15 @@
 const CLE = 'kimatch:dernier-rechargement-morceau'
 const DELAI_ANTI_BOUCLE = 10_000
 
-/** Le rechargement est-il un remède raisonnable, ou est-on en train de tourner en rond ? */
-function peutRecharger(): boolean {
+/**
+ * Le rechargement est-il un remède raisonnable, ou est-on en train de tourner en rond ?
+ *
+ * Exporté le 14/09/2026 : le même arbitrage vaut pour une clé d'accès refusée (`supabase.ts`).
+ * Dans les deux cas le remède est identique — recharger va chercher la version à jour — et le
+ * danger aussi : si le serveur est réellement cassé, recharger en boucle est pire que l'erreur,
+ * puisqu'on ne peut même plus lire le message.
+ */
+export function peutRecharger(): boolean {
   try {
     const dernier = Number(sessionStorage.getItem(CLE) ?? 0)
     if (Date.now() - dernier < DELAI_ANTI_BOUCLE) return false
