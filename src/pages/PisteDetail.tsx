@@ -517,14 +517,20 @@ export default function PisteDetail() {
                     </button>
                   )}
                   {/* Le mail s'écrit dans le volet de Kimatch, pas dans le client de messagerie
-                      du poste (William, 13/09/2026). Le volet ne connaît pas encore la piste parmi
-                      ses rattachements possibles — `ContexteEmail` n'a pas de `pisteId` — donc
-                      l'échange se consigne sur l'adresse seule, comme partout où l'appelant ne sait
-                      que le mail. À compléter le jour où on voudra retrouver le fil depuis ici. */}
+                      du poste (William, 13/09/2026). Il notait ici que le volet ne connaissait pas
+                      la piste : `ContexteEmail` n'avait pas de `pisteId`, et l'échange se consignait
+                      donc sur la seule adresse — invisible depuis la fiche d'où on venait de
+                      l'écrire. C'est comblé le 14/09 : la piste part avec le mail, et le fil Gmail
+                      est enregistré au retour, si bien que l'envoi rejoint la conversation. */}
                   {piste.email && (
                     <button
                       type="button"
-                      onClick={() => ouvrirEmail?.({ a: piste.email!, nom: piste.contact_nom })}
+                      onClick={() => ouvrirEmail?.({
+                        a: piste.email!,
+                        nom: piste.contact_nom,
+                        pisteId: piste.id,
+                        compteId: piste.compte_id ?? undefined,
+                      })}
                       className="inline-flex items-center gap-1.5 rounded-km border border-km-line bg-km-surface px-2.5 py-1.5 text-km-label font-semibold text-km-muted hover:bg-km-soft hover:text-km-text"
                     >
                       <Mail className="h-3 w-3" /> Écrire

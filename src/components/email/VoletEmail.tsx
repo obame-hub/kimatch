@@ -203,6 +203,7 @@ export function VoletEmail() {
         threadId: etat.contexte.threadId,
         contactId: etat.contexte.contactId,
         compteId: etat.contexte.compteId,
+        pisteId: etat.contexte.pisteId,
         siteId: etat.contexte.siteId,
         recommandationId: etat.contexte.recommandationId,
         mandatId: etat.contexte.mandatId,

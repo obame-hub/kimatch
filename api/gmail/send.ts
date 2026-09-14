@@ -48,6 +48,9 @@ interface SendBody {
   /** Le contexte Kimatch, quand l'écran le connaît. Sinon on retrouve le contact par son adresse. */
   contactId?: string
   compteId?: string
+  /** La piste. Elle manquait : un mail écrit depuis une fiche piste se consignait sur l'adresse
+   *  seule, et n'apparaissait donc pas dans l'activité de la piste d'où on venait de l'écrire. */
+  pisteId?: string
   siteId?: string
   recommandationId?: string
   mandatId?: string
@@ -310,6 +313,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       cree_par_id: profilId,
       contact_id: contactId,
       compte_id: compteId,
+      piste_id: body.pisteId ?? null,
       site_id: body.siteId ?? null,
       recommandation_id: body.recommandationId ?? null,
       mandat_id: body.mandatId ?? null,
@@ -321,6 +325,13 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       // L'identifiant Gmail sert de clé : il rend la consignation idempotente si un jour on
       // rapatrie les messages, et permet de retrouver le mail dans la boîte de l'expéditeur.
       source_externe_id: envoi.id,
+      /* ══ LE FIL, QUE GMAIL NOUS DONNAIT DÉJÀ ══
+         `envoi.threadId` revenait de l'API et repartait au navigateur sans jamais être enregistré.
+         Résultat : un mail envoyé depuis Kimatch restait une ligne isolée dans l'activité, là où
+         les 1 341 mails repris de Salesforce se replient en conversations depuis le 14/09.
+         C'est la même clé des deux côtés — l'identifiant de conversation — donc une réponse
+         rapatriée plus tard rejoindra le bon fil sans rien d'autre à écrire. */
+      fil_discussion: envoi.threadId ?? null,
     })
     consigne = !erreurTrace
   } catch {

@@ -95,6 +95,8 @@ export interface EnvoiEmail {
   threadId?: string
   contactId?: string
   compteId?: string
+  /** La piste d'où part le mail — sans elle, l'envoi se consigne sur l'adresse seule. */
+  pisteId?: string
   siteId?: string
   recommandationId?: string
   mandatId?: string

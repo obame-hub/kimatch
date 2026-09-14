@@ -59,6 +59,9 @@ export interface ContexteEmail {
   objet?: string
   contactId?: string
   compteId?: string
+  /** La piste, quand le mail part d'une fiche piste. Elle manquait, et l'échange se consignait
+   *  alors sur la seule adresse — donc nulle part de consultable depuis la piste. */
+  pisteId?: string
   siteId?: string
   recommandationId?: string
   mandatId?: string
