@@ -756,6 +756,10 @@ export interface Interaction {
   numero_correspondant?: string | null
   decroche_par?: string | null
   enregistrement_url?: string | null
+  /** LE FIL DE CONVERSATION (migration 20260914160000). Le `ThreadIdentifier` de Salesforce pour un
+   *  mail repris, le `Message-ID` pour un mail parti de Kimatch. Les interactions qui le partagent
+   *  sont un seul échange, et le flux d'activité les replie en une carte. Nul hors des mails. */
+  fil_discussion?: string | null
 }
 
 export interface Contrat {

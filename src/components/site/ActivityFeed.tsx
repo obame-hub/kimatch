@@ -33,6 +33,10 @@ interface ActivityItem {
   interaction?: Interaction
   /** Renseigné sur les notes seulement : leur signature va à côté de l'heure, pas dans une phrase. */
   auteur?: string
+  /** Nombre de messages du fil de mails replié. Absent sur tout ce qui n'est pas une conversation. */
+  filCompte?: number
+  /** Combien de ces messages viennent du client — ce qui distingue un échange d'une relance sans réponse. */
+  filEntrants?: number
 }
 
 /* ══ LES SIGNAUX NE SONT PLUS DANS LE FIL ═══════════════════════════════════════════════════════
@@ -46,8 +50,79 @@ interface ActivityItem {
    base : la table `signaux` garde ses lignes, et remettre le fil en état demande de rétablir cette
    fonction, la prop, et les quatre appelants — voir `cycleNavItems` (src/lib/navItems.tsx). */
 
+/**
+ * ══ UN ÉCHANGE DE MAILS SE REPLIE EN UNE CARTE ══════════════════════════════════════════════════
+ *
+ * William, 14/09/2026 : « avoir le fil de la conversation de mail dans Kimatch ».
+ *
+ * Les messages d'un même échange arrivaient dans le fil comme des lignes indépendantes, triées par
+ * date au milieu des appels et des notes. Une conversation de six messages occupait six cartes, et
+ * lire la réponse demandait de retrouver la question plus bas.
+ *
+ * `fil_discussion` (migration 20260914160000) porte l'identifiant de conversation — le
+ * `ThreadIdentifier` de Salesforce. Les messages qui le partagent deviennent UNE carte, datée du
+ * dernier message, titrée par son objet, avec le compte des échanges et la conversation entière
+ * dans le corps — que `ActivityCard` déplie déjà toute seule au-delà de 180 caractères.
+ *
+ * UN MESSAGE SEUL RESTE UN MESSAGE SEUL. Un fil d'un élément n'est pas un fil : le replier ne
+ * gagnerait rien et ajouterait « 1 message » sur la moitié des cartes du fil.
+ */
+function replierLesFils(interactions: Interaction[]): { seules: Interaction[]; fils: Interaction[][] } {
+  const parFil = new Map<string, Interaction[]>()
+  const seules: Interaction[] = []
+  for (const i of interactions) {
+    const fil = i.fil_discussion?.trim()
+    if (!fil) { seules.push(i); continue }
+    const l = parFil.get(fil) ?? []
+    l.push(i)
+    parFil.set(fil, l)
+  }
+  const fils: Interaction[][] = []
+  for (const l of parFil.values()) {
+    if (l.length === 1) seules.push(l[0])
+    /* Du plus récent au plus ancien : c'est le sens de lecture du fil d'activité, et la réponse
+       la plus fraîche est ce qu'on cherche en ouvrant la carte. */
+    else fils.push([...l].sort((a, b) => new Date(b.date_interaction).getTime() - new Date(a.date_interaction).getTime()))
+  }
+  return { seules, fils }
+}
+
+/** Une ligne d'en-tête par message : le sens, la date, et l'objet quand il change en cours de fil. */
+function messageEnTexte(i: Interaction, objetDuFil: string): string {
+  const fleche = i.sens === 'ENTRANT' ? '←' : '→'
+  const quand = new Date(i.date_interaction).toLocaleDateString('fr-FR', {
+    day: '2-digit', month: '2-digit', year: '2-digit', hour: '2-digit', minute: '2-digit',
+  })
+  const objet = i.objet && i.objet !== objetDuFil ? ` · ${i.objet}` : ''
+  const corps = (i.resume?.trim() || i.resultat?.trim() || '(message vide)')
+  return `${fleche} ${quand}${objet}\n${corps}`
+}
+
+function filEnActivite(fil: Interaction[]): ActivityItem {
+  const dernier = fil[0]
+  const objet = dernier.objet || 'Échange de mails'
+  const entrants = fil.filter((i) => i.sens === 'ENTRANT').length
+  return {
+    id: `fil-${dernier.id}`,
+    date: dernier.date_interaction,
+    kind: 'interaction' as const,
+    title: objet,
+    subtitle: <InteractionSentence interaction={dernier} />,
+    body: fil.map((i) => messageEnTexte(i, objet)).join('\n\n'),
+    to: `/interactions/${dernier.id}`,
+    siteNom: dernier.site_nom || undefined,
+    contactNom: dernier.contact_nom || undefined,
+    interaction: dernier,
+    /* Le compte dit d'un coup d'œil qu'il y a une conversation, et combien le client a répondu —
+       un fil où rien ne revient ne raconte pas la même chose qu'un fil à quatre allers-retours. */
+    filCompte: fil.length,
+    filEntrants: entrants,
+  }
+}
+
 function fromInteractions(interactions: Interaction[]): ActivityItem[] {
-  return interactions.map((i) => {
+  const { seules, fils } = replierLesFils(interactions)
+  return [...fils.map(filEnActivite), ...seules.map((i) => {
     /**
      * UNE NOTE N'EST PAS UN ÉVÉNEMENT, C'EST UN TEXTE.
      *
@@ -97,7 +172,7 @@ function fromInteractions(interactions: Interaction[]): ActivityItem[] {
       contactNom: i.contact_nom || undefined,
       interaction: i,
     }
-  })
+  })]
 }
 
 /**
@@ -203,6 +278,13 @@ function heureEvenement(dateStr: string): string | null {
  */
 function libelleTrailing(item: ActivityItem): string | null {
   const heure = heureEvenement(item.date)
+  /* UN FIL ANNONCE SA LONGUEUR, et combien de fois le client a répondu. « 6 messages · 2 reçus »
+     ne dit pas la même chose que « 6 messages » : le premier est un échange, le second peut être
+     six relances sans réponse. L'heure reste — c'est celle du dernier message. */
+  if (item.filCompte) {
+    const recus = item.filEntrants ? ` · ${item.filEntrants} reçu${item.filEntrants > 1 ? 's' : ''}` : ''
+    return `${item.filCompte} messages${recus}${heure ? ` · ${heure}` : ''}`
+  }
   if (!item.auteur) return heure
   const prenom = item.auteur.trim().split(/\s+/)[0]
   return heure ? `${prenom} · ${heure}` : prenom
