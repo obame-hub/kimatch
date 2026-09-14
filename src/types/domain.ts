@@ -760,6 +760,11 @@ export interface Interaction {
      Combien de fois le pixel du mail a été demandé, et quand. INDICE ET NON PREUVE : Gmail
      précharge les images, un client qui les bloque ne comptera jamais, et l'expéditeur qui relit
      son envoi compte aussi. L'écran doit le dire. */
+  /** CE MESSAGE PORTE-T-IL UN PIXEL DE SUIVI ? Vrai sur les seuls mails HTML partis de Kimatch.
+   *  C'est la SEULE condition qui autorise à afficher « ouvert » : `nb_ouvertures` est NOT NULL
+   *  DEFAULT 0, donc il vaut 0 sur les 20 731 appels comme sur un mail jamais ouvert. S'y fier
+   *  affichait « pas encore ouvert » sur des appels sortants (vu le 14/09/2026). */
+  ouverture_suivie?: boolean | null
   nb_ouvertures?: number | null
   premiere_ouverture_le?: string | null
   derniere_ouverture_le?: string | null
