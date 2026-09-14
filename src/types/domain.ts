@@ -756,6 +756,13 @@ export interface Interaction {
   numero_correspondant?: string | null
   decroche_par?: string | null
   enregistrement_url?: string | null
+  /* ══ LE SUIVI D'OUVERTURE (migrations 20260914210000 / 220000) ══
+     Combien de fois le pixel du mail a été demandé, et quand. INDICE ET NON PREUVE : Gmail
+     précharge les images, un client qui les bloque ne comptera jamais, et l'expéditeur qui relit
+     son envoi compte aussi. L'écran doit le dire. */
+  nb_ouvertures?: number | null
+  premiere_ouverture_le?: string | null
+  derniere_ouverture_le?: string | null
   /** LE FIL DE CONVERSATION (migration 20260914160000). Le `ThreadIdentifier` de Salesforce pour un
    *  mail repris, le `Message-ID` pour un mail parti de Kimatch. Les interactions qui le partagent
    *  sont un seul échange, et le flux d'activité les replie en une carte. Nul hors des mails. */

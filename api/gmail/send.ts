@@ -1,4 +1,5 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node'
+import { randomUUID } from 'node:crypto'
 import { createClient } from '@supabase/supabase-js'
 import { refreshAccessToken, sendGmailMessage } from './_client.js'
 
@@ -204,12 +205,31 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     })
   }
 
+  /* ══ LE PIXEL DE SUIVI ══════════════════════════════════════════════════════════════════════
+     William, 14/09/2026 : « tracker quand ils lisent l'email, quand ils ouvrent nos emails ».
+
+     Une image d'un pixel, transparente, dont l'adresse porte un jeton propre à cet envoi. Quand le
+     client de messagerie l'affiche, il la demande, et `/api/gmail/ouvert` compte l'ouverture.
+
+     IL N'ENTRE QUE DANS LES MAILS EN HTML. Un mail en texte seul ne peut pas porter d'image, et
+     lui coller une adresse visible serait pire que de ne rien savoir.
+
+     CE QUE ÇA VAUT : Gmail recopie les images sur ses serveurs et les précharge parfois avant que
+     la personne ouvre ; un client qui bloque les images ne comptera jamais ; l'expéditeur qui
+     relit son envoi compte aussi. C'est un indice, pas une preuve, et l'écran le dit. */
+  const jetonOuverture = randomUUID()
+  const baseSuivi = (process.env.APP_URL || 'https://kimatch.fr').replace(/\/+$/, '')
+  const pixelSuivi =
+    `<img src="${baseSuivi}/api/gmail/ouvert?j=${jetonOuverture}" width="1" height="1" `
+    + 'alt="" style="display:block;width:1px;height:1px;border:0;" />'
+
   // Le mail complet. Une police et une couleur explicites : sans elles, chaque client applique la
   // sienne et le mail ne ressemble pas à ce que le commercial a écrit.
   const htmlComplet = corpsHtml
     ? '<div style="font-family:Arial,Helvetica,sans-serif;font-size:14px;line-height:1.55;color:#1f2937;">'
       + corpsHtml
       + (signatureHtml ? `<br/><div style="color:#6b7280;font-size:13px;">${signatureHtml}</div>` : '')
+      + pixelSuivi
       + '</div>'
     : null
 
@@ -332,6 +352,10 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
          C'est la même clé des deux côtés — l'identifiant de conversation — donc une réponse
          rapatriée plus tard rejoindra le bon fil sans rien d'autre à écrire. */
       fil_discussion: envoi.threadId ?? null,
+      /* Le jeton n'est posé QUE si le mail est parti en HTML : sans corps HTML il n'y a pas de
+         pixel, donc jamais d'ouverture à compter, et un jeton qui ne sera jamais appelé ferait
+         croire à un suivi qui n'existe pas. */
+      jeton_ouverture: htmlComplet ? jetonOuverture : null,
     })
     consigne = !erreurTrace
   } catch {

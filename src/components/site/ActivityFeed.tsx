@@ -231,8 +231,40 @@ function heureEvenement(dateStr: string): string | null {
  * dans la place que la carte réserve déjà à l'heure. Le prénom seul suffit à treize : « William »
  * se lit, « William Goupil » pousse l'heure à la ligne dans un volet de 320 px.
  */
+/**
+ * ══ UN MAIL ENVOYÉ DIT S'IL A ÉTÉ OUVERT ══
+ *
+ * William, 14/09/2026 : « tracker quand ils lisent l'email ». Le pixel de suivi compte les
+ * ouvertures (migration 20260914210000) ; voici ce qu'on en montre.
+ *
+ * ON ÉCRIT « OUVERT », PAS « LU », et la nuance n'est pas de la coquetterie. Gmail recopie les
+ * images sur ses serveurs et les précharge parfois avant que la personne ouvre le message ; un
+ * client qui bloque les images ne comptera jamais, même après lecture ; et l'expéditeur qui relit
+ * son propre envoi compte aussi. Dire « lu » ferait prendre un indice pour une preuve, et c'est
+ * sur ce genre de certitude qu'on relance un client qui n'a rien vu.
+ *
+ * ET « PAS ENCORE OUVERT » N'EST PAS « IGNORÉ » : l'absence ne prouve rien du tout. On l'affiche
+ * quand même, parce qu'un envoi sans nouvelle depuis huit jours est une information — mais en gris,
+ * sans alarme.
+ */
+function mentionOuverture(i: Interaction | undefined): string | null {
+  if (!i || i.sens !== 'SORTANT') return null
+  // `nb_ouvertures` vaut 0 sur un mail suivi jamais ouvert, et `null` sur tout ce qui n'est pas suivi.
+  if (i.nb_ouvertures === null || i.nb_ouvertures === undefined) return null
+  if (i.nb_ouvertures === 0) return 'pas encore ouvert'
+  const quand = i.derniere_ouverture_le
+    ? new Date(i.derniere_ouverture_le).toLocaleDateString('fr-FR')
+    : null
+  const fois = i.nb_ouvertures > 1 ? `ouvert ${i.nb_ouvertures} fois` : 'ouvert'
+  return quand ? `${fois}, le ${quand}` : fois
+}
+
 function libelleTrailing(item: ActivityItem): string | null {
   const heure = heureEvenement(item.date)
+  const ouverture = mentionOuverture(item.interaction)
+  if (ouverture && !item.filCompte) {
+    return heure ? `${ouverture} · ${heure}` : ouverture
+  }
   /* UN FIL ANNONCE SA LONGUEUR, et combien de fois le client a répondu. « 6 messages · 2 reçus »
      ne dit pas la même chose que « 6 messages » : le premier est un échange, le second peut être
      six relances sans réponse. L'heure reste — c'est celle du dernier message. */

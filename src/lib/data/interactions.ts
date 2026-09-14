@@ -32,13 +32,16 @@ interface RawInteraction {
   decroche_par: string | null
   enregistrement_url: string | null
   fil_discussion: string | null
+  nb_ouvertures: number | null
+  premiere_ouverture_le: string | null
+  derniere_ouverture_le: string | null
 }
 
 // `!recommandation_id`/`!signal_id` : hints de FK explicites -- recommandations et signaux ont
 // plus d'une relation possible entre elles, un embed non qualifié renvoie une erreur PostgREST
 // PGRST201 (relation ambiguë) qui faisait échouer tout le chargement des interactions.
 const INTERACTIONS_SELECT =
-  'id, date_interaction, sens, objet, resume, resultat, compte_id, site_id, contact_id, recommandation_id, signal_id, type_interaction:types_interactions(libelle), auteur:profils!interactions_auteur_profil_id_fkey(prenom, nom), compte:comptes(nom), site:sites(nom), contact:contacts(prenom, nom), recommandation:recommandations!recommandation_id(nom), signal:signaux!signal_id(type_signal:types_signaux(libelle)), issue:issues_interactions(libelle, couleur), proprietaire_id, auteur_profil_id, duree_appel_secondes, appel_manque, messagerie_vocale, numero_correspondant, decroche_par, enregistrement_url, fil_discussion'
+  'id, date_interaction, sens, objet, resume, resultat, compte_id, site_id, contact_id, recommandation_id, signal_id, type_interaction:types_interactions(libelle), auteur:profils!interactions_auteur_profil_id_fkey(prenom, nom), compte:comptes(nom), site:sites(nom), contact:contacts(prenom, nom), recommandation:recommandations!recommandation_id(nom), signal:signaux!signal_id(type_signal:types_signaux(libelle)), issue:issues_interactions(libelle, couleur), proprietaire_id, auteur_profil_id, duree_appel_secondes, appel_manque, messagerie_vocale, numero_correspondant, decroche_par, enregistrement_url, fil_discussion, nb_ouvertures, premiere_ouverture_le, derniere_ouverture_le'
 
 async function fetchInteractionsPage(from: number, pageSize: number, attempt = 0): Promise<RawInteraction[]> {
   const { data, error } = await supabase
@@ -145,6 +148,9 @@ function mapRawInteraction(i: RawInteraction): Interaction {
     messagerie_vocale: i.messagerie_vocale,
     numero_correspondant: i.numero_correspondant,
     fil_discussion: i.fil_discussion ?? null,
+    nb_ouvertures: i.nb_ouvertures ?? null,
+    premiere_ouverture_le: i.premiere_ouverture_le ?? null,
+    derniere_ouverture_le: i.derniere_ouverture_le ?? null,
     decroche_par: i.decroche_par,
     enregistrement_url: i.enregistrement_url,
   }

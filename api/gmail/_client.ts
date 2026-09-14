@@ -9,7 +9,24 @@ const REDIRECT_URI = 'https://kiwee-os.vercel.app/api/gmail/callback'
 // connecté via /oauth2/v2/userinfo, qui refuse l'appel sans ce scope. Sans lui la connexion échoue
 // systématiquement sur « Impossible de récupérer l'adresse Gmail connectée ». Mêmes scopes que la
 // fonction gmail-auth de Tools.
-const SCOPE = 'https://www.googleapis.com/auth/gmail.send https://www.googleapis.com/auth/userinfo.email'
+/* ══ `gmail.readonly` EN PLUS, DEPUIS LE 14/09/2026 ══
+   William : « il faut un tracking sur les mails qu'on envoie ET REÇOIT ». La réponse d'un client
+   arrive dans la boîte de l'expéditeur ; pour la ramener dans Kimatch il faut un droit de lecture,
+   et l'accord précédent ne portait que l'envoi.
+
+   GOOGLE N'OFFRE PAS PLUS FIN : il n'existe pas de droit « lire seulement les conversations que
+   cette application a ouvertes ». C'est toute la boîte ou rien. La restriction est donc dans notre
+   code — `api/gmail/rapatrier.ts` ne demande que les fils dont Kimatch connaît l'identifiant — et
+   non dans l'autorisation. C'est une discipline, il faut la dire plutôt que la sous-entendre.
+
+   CONSÉQUENCE : les 9 personnes déjà connectées doivent refaire la connexion. Un jeton ne gagne
+   pas un droit après coup. En attendant, leurs envois partent normalement ; seules leurs réponses
+   ne rentrent pas, et `profils_gmail_tokens.lecture_autorisee` retient laquelle en est où. */
+const SCOPE = [
+  'https://www.googleapis.com/auth/gmail.send',
+  'https://www.googleapis.com/auth/gmail.readonly',
+  'https://www.googleapis.com/auth/userinfo.email',
+].join(' ')
 
 /** Origines autorisées à recevoir la redirection finale du flot OAuth. Allowlist volontaire : le
  * `state` transite par Google et revient côté client, on ne redirige donc jamais vers une origine
@@ -273,4 +290,155 @@ export async function sendGmailMessage(
     throw new Error(`Envoi Gmail échoué: ${data.error?.message ?? res.status}`)
   }
   return { id: data.id, threadId: data.threadId ?? null }
+}
+
+/* ════════════════════════════════════════════════════════════════════════════════════════════════
+   LIRE UN FIL DE CONVERSATION
+   ════════════════════════════════════════════════════════════════════════════════════════════════
+
+   Ajouté le 14/09/2026 pour rapatrier les réponses. On ne demande QUE des fils dont Kimatch
+   connaît l'identifiant — ceux qu'il a lui-même ouverts en envoyant un mail. Google ne sait pas
+   restreindre un jeton à cela ; c'est donc une discipline de ce code, et le point d'entrée unique
+   ci-dessous est ce qui la rend vérifiable d'un coup d'œil. */
+
+export interface MessageGmail {
+  id: string
+  threadId: string
+  /** Vrai quand le message vient de l'extérieur : c'est une réponse, pas notre propre envoi. */
+  entrant: boolean
+  date: string
+  objet: string
+  de: string
+  a: string
+  /** Le texte du message, sans les citations du fil précédent quand on sait les couper. */
+  texte: string
+}
+
+/** `404` = fil supprimé chez la personne, `403` = droit de lecture non accordé. Les deux se
+ *  distinguent parce qu'ils appellent des suites opposées : oublier le fil, ou demander un accord. */
+export class ErreurLectureGmail extends Error {
+  constructor(public readonly statut: number, message: string) {
+    super(message)
+    this.name = 'ErreurLectureGmail'
+  }
+}
+
+function enTete(entetes: { name: string; value: string }[] | undefined, nom: string): string {
+  const t = (entetes ?? []).find((h) => h.name.toLowerCase() === nom.toLowerCase())
+  return t?.value ?? ''
+}
+
+/**
+ * Le texte lisible d'un message, en descendant les parties MIME.
+ *
+ * On préfère `text/plain` : l'HTML d'un mail traîne des tableaux de mise en page et des styles qui
+ * n'apprennent rien à qui relit un échange. À défaut on déshabille l'HTML, ce qui est grossier mais
+ * reste lisible — et c'est mieux qu'une ligne vide.
+ */
+function texteDuMessage(charge: Record<string, unknown> | undefined): string {
+  if (!charge) return ''
+  const partie = charge as {
+    mimeType?: string
+    body?: { data?: string }
+    parts?: Record<string, unknown>[]
+  }
+  const decode = (d?: string) => (d ? Buffer.from(d.replace(/-/g, '+').replace(/_/g, '/'), 'base64').toString('utf-8') : '')
+
+  if (partie.mimeType === 'text/plain' && partie.body?.data) return decode(partie.body.data)
+  if (partie.parts) {
+    for (const p of partie.parts) {
+      const t = texteDuMessage(p)
+      if (t) return t
+    }
+  }
+  if (partie.mimeType === 'text/html' && partie.body?.data) {
+    return decode(partie.body.data)
+      .replace(/<br\s*\/?>/gi, '\n')
+      .replace(/<\/(p|div|tr|li|h[1-6])>/gi, '\n')
+      .replace(/<[^>]+>/g, '')
+      .replace(/&nbsp;/g, ' ').replace(/&amp;/g, '&').replace(/&lt;/g, '<').replace(/&gt;/g, '>')
+      .replace(/\n{3,}/g, '\n\n')
+      .trim()
+  }
+  return ''
+}
+
+/**
+ * LES CITATIONS DU FIL PRÉCÉDENT SONT COUPÉES.
+ *
+ * Une réponse de trois lignes traîne l'échange entier en dessous. Les garder ferait que chaque
+ * message d'un fil de six contienne les cinq précédents — l'activité deviendrait illisible, et la
+ * même phrase apparaîtrait six fois dans une carte qui les empile déjà.
+ *
+ * On coupe sur les marqueurs que Gmail et Outlook posent en français comme en anglais. Ce qui passe
+ * au travers reste tronqué à 8 000 caractères plus loin : on ne cherche pas la perfection, on
+ * cherche à ce que la première lecture montre la réponse et pas l'historique.
+ */
+const MARQUEURS_CITATION = [
+  /^\s*Le .+ a écrit\s*:/m,
+  /^\s*On .+ wrote\s*:/m,
+  /^\s*-{2,}\s*Message d'origine\s*-{2,}/mi,
+  /^\s*-{2,}\s*Original Message\s*-{2,}/mi,
+  /^\s*De\s*:.*\n\s*Envoyé\s*:/mi,
+  /^\s*From\s*:.*\n\s*Sent\s*:/mi,
+  /^\s*_{10,}\s*$/m,
+]
+
+export function sansCitation(texte: string): string {
+  let fin = texte.length
+  for (const m of MARQUEURS_CITATION) {
+    const trouve = texte.search(m)
+    if (trouve >= 0 && trouve < fin) fin = trouve
+  }
+  /* Un message QUI N'EST QUE citation garde son texte entier : couper à zéro rendrait une carte
+     vide, et mieux vaut trop que rien quand on relit un échange. */
+  const coupe = texte.slice(0, fin).trim()
+  return coupe.length > 0 ? coupe : texte.trim()
+}
+
+/** Les messages d'un fil, du plus ancien au plus récent, tels que Gmail les connaît. */
+export async function lireFilGmail(
+  accessToken: string,
+  threadId: string,
+  adressePropre: string,
+): Promise<MessageGmail[]> {
+  const res = await fetch(
+    `https://gmail.googleapis.com/gmail/v1/users/me/threads/${encodeURIComponent(threadId)}?format=full`,
+    { headers: { Authorization: `Bearer ${accessToken}` } },
+  )
+  if (!res.ok) {
+    const corps = await res.text().catch(() => '')
+    throw new ErreurLectureGmail(res.status, `Gmail ${res.status} — ${corps.slice(0, 300)}`)
+  }
+  const fil = (await res.json()) as {
+    messages?: {
+      id: string
+      threadId: string
+      internalDate?: string
+      payload?: { headers?: { name: string; value: string }[] } & Record<string, unknown>
+    }[]
+  }
+
+  const propre = adressePropre.trim().toLowerCase()
+  return (fil.messages ?? []).map((m) => {
+    const entetes = m.payload?.headers
+    const de = enTete(entetes, 'From')
+    /* ENTRANT = CE QUI NE VIENT PAS DE NOUS. On compare sur l'adresse, pas sur le libellé :
+       « Fabien DUBARRY <f.dubarry@kiwee-energie.fr> » et « f.dubarry@kiwee-energie.fr » sont la
+       même personne, et seule la seconde forme est stable. */
+    const entrant = !de.toLowerCase().includes(propre)
+    const brut = texteDuMessage(m.payload)
+    return {
+      id: m.id,
+      threadId: m.threadId,
+      entrant,
+      date: m.internalDate
+        ? new Date(Number(m.internalDate)).toISOString()
+        : new Date().toISOString(),
+      objet: enTete(entetes, 'Subject'),
+      de,
+      a: enTete(entetes, 'To'),
+      texte: sansCitation(brut),
+    }
+  })
 }
