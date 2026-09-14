@@ -331,14 +331,21 @@ function echeance(activityDate) {
           e.proprietaire, e.proprietaire, e.id])
     }
 
+    /* LE CONTRÔLE PORTE SUR LES LIGNES DE CE SCRIPT, ET SUR ELLES SEULES.
+       Il regardait « toute action portant un `source_externe_id` », ce qui était exact tant que ce
+       script était le seul à en écrire. Depuis, `importer-taches-salesforce.cjs` a posé 264 tâches
+       sur des COMPTES — sans piste, et c'est leur place. Le 14/09/2026 le garde-fou a donc refusé
+       trois tâches parfaitement saines à cause de 264 lignes qu'il n'avait pas écrites. Un contrôle
+       qui accuse le script d'à côté est un contrôle qu'on finit par contourner. */
+    const idsEcrits = aEcrire.map((e) => e.id)
     const controle = await c.query(`
-      select count(*) filter (where source_externe_id is not null)::int as importees,
-             count(*) filter (where source_externe_id is not null and piste_id is null)::int as sans_piste,
-             count(*) filter (where source_externe_id is not null and titre is null)::int as sans_titre
-        from public.actions`)
+      select count(*) filter (where source_externe_id = any($1))::int as importees,
+             count(*) filter (where source_externe_id = any($1) and piste_id is null)::int as sans_piste,
+             count(*) filter (where source_externe_id = any($1) and titre is null)::int as sans_titre
+        from public.actions`, [idsEcrits])
     const k = controle.rows[0]
     if (k.sans_piste > 0 || k.sans_titre > 0) {
-      throw new Error(`${k.sans_piste} action(s) importée(s) sans piste et ${k.sans_titre} sans titre.`)
+      throw new Error(`${k.sans_piste} action(s) écrite(s) sans piste et ${k.sans_titre} sans titre.`)
     }
 
     await c.query('commit')
