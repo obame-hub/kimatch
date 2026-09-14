@@ -60,7 +60,8 @@ import { useRecommandationsParCompte } from '@/lib/data/recommandations'
 import { useContratsParCompte } from '@/lib/data/contrats'
 import { useInteractionsForCompte } from '@/lib/data/interactions'
 import { useMandatsParCompte } from '@/lib/data/mandats'
-import { useActionsParSites } from '@/lib/data/actions'
+import { useActionsParSites, useActionsParCompte } from '@/lib/data/actions'
+import type { ActionItem } from '@/types/domain'
 import { useDocumentsParEntites, useTeleverserDocuments } from '@/lib/data/documents'
 import { useHistorique } from '@/lib/data/historique'
 import { useEllisphereScore } from '@/lib/data/ellisphere'
@@ -167,7 +168,20 @@ export default function CompteDetail() {
     () => (compteurs ? [...new Set(compteurs.map((c) => c.site_id).filter(Boolean))] : undefined),
     [compteurs],
   )
-  const { data: actions } = useActionsParSites(idsGroupesAdresse)
+  /* ══ DEUX SOURCES, UNE SEULE LISTE ══
+     Une tâche peut viser une adresse du client (`site_id`) ou le client lui-même (`compte_id`).
+     La fiche ne lisait que la première : les 258 tâches reprises de Salesforce le 14/09/2026, qui
+     ne portent qu'un compte, n'apparaissaient nulle part.
+
+     On déduplique par identifiant : une tâche qui porte les deux liens — c'est le cas de celles
+     qu'on crée depuis la fiche — remonterait sinon deux fois. */
+  const { data: actionsDesAdresses } = useActionsParSites(idsGroupesAdresse)
+  const { data: actionsPortantLeCompte } = useActionsParCompte(id)
+  const actions = useMemo(() => {
+    const parId = new Map<string, ActionItem>()
+    for (const a of [...(actionsDesAdresses ?? []), ...(actionsPortantLeCompte ?? [])]) parId.set(a.id, a)
+    return [...parId.values()]
+  }, [actionsDesAdresses, actionsPortantLeCompte])
   // Les documents sont polymorphes : ceux du compte, mais aussi ceux de ses sites, compteurs et
   // mandats, que l'onglet Fichiers et le fil d'activite affichent.
   const entitesPourDocuments = useMemo(() => {
@@ -328,7 +342,13 @@ export default function CompteDetail() {
     [toutesOpportunites, id],
   )
   const mandatsDuCompte = useMemo(() => mandats?.filter((m) => m.compte_id === id) ?? [], [mandats, id])
-  const actionsDuCompte = useMemo(() => actions?.filter((a) => siteIdsDuCompte.has(a.site_id ?? '')) ?? [], [actions, siteIdsDuCompte])
+  /* UNE TÂCHE DU CLIENT PASSE PAR L'UNE OU L'AUTRE PORTE. Ce filtre ne gardait que celles dont le
+     SITE appartient au compte — les 258 tâches reprises de Salesforce le 14/09/2026 n'ont pas de
+     site, elles étaient lues puis rejetées ici. Le rattachement direct au compte compte autant. */
+  const actionsDuCompte = useMemo(
+    () => actions.filter((a) => siteIdsDuCompte.has(a.site_id ?? '') || a.compte_id === id),
+    [actions, siteIdsDuCompte, id],
+  )
   const documentsDuCompte = useMemo(() => documents?.filter((d) => d.entite_type === 'compte' && d.entite_id === id) ?? [], [documents, id])
 
 

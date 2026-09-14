@@ -5,6 +5,7 @@ import { fetchComptesVisibles, fetchSitesVisiblesIds } from '@/lib/data/visibili
 import { fetchAllRows } from '@/lib/data/paginatedFetch'
 
 interface RawAction {
+  compte_id?: string | null
   id: string
   titre: string
   site_id: string | null
@@ -47,12 +48,13 @@ async function fetchActions(
   pisteId?: string,
   suiviContratId?: string,
   requeteId?: string,
+  compteId?: string,
 ): Promise<ActionItem[]> {
   try {
     if (siteIds && siteIds.length === 0) return []
     const data = await fetchAllRows<RawAction>(
       'actions',
-      'id, titre, site_id, contact_id, recommandation_id, opportunite_id, piste_id, suivi_contrat_id, date_creation, date_prevue, date_realisation, priorite, commentaire, proprietaire_id, cree_par_id, responsable_profil_id, type_action:types_actions(libelle), statut:statuts_actions(code), responsable:profils!actions_responsable_profil_id_fkey(prenom, nom), site:sites(nom), contact:contacts(prenom, nom), recommandation:recommandations!recommandation_id(nom)',
+      'id, titre, site_id, compte_id, contact_id, recommandation_id, opportunite_id, piste_id, suivi_contrat_id, date_creation, date_prevue, date_realisation, priorite, commentaire, proprietaire_id, cree_par_id, responsable_profil_id, type_action:types_actions(libelle), statut:statuts_actions(code), responsable:profils!actions_responsable_profil_id_fkey(prenom, nom), site:sites(nom), contact:contacts(prenom, nom), recommandation:recommandations!recommandation_id(nom)',
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       (q: any) => {
         if (actionId) return q.eq('id', actionId)
@@ -61,6 +63,7 @@ async function fetchActions(
         if (pisteId) return q.eq('piste_id', pisteId).order('date_prevue')
         if (suiviContratId) return q.eq('suivi_contrat_id', suiviContratId).order('date_prevue')
         if (requeteId) return q.eq('requete_id', requeteId).order('date_prevue')
+        if (compteId) return q.eq('compte_id', compteId).order('date_prevue')
         return (siteIds ? q.in('site_id', siteIds) : q).order('date_prevue')
       },
     )
@@ -86,6 +89,10 @@ async function fetchActions(
       commentaire: a.commentaire,
       cible_label: a.site?.nom ?? '',
       site_id: a.site_id,
+      /* AJOUTÉ À LA SÉLECTION SANS ÊTRE RENDU, le champ serait resté indéfini et tout filtre
+         `a.compte_id === id` aurait été faux en silence — les 258 tâches de compte importées le
+         14/09/2026 seraient restées invisibles après qu'on ait cru les rendre visibles. */
+      compte_id: a.compte_id ?? null,
       contact_id: a.contact_id,
       contact_nom: a.contact ? `${a.contact.prenom} ${a.contact.nom}` : '',
       recommandation_id: a.recommandation_id,
@@ -175,6 +182,25 @@ export function useActionsParSites(siteIds: string[] | undefined) {
     queryKey: ['actions', 'sites', cle],
     queryFn: () => fetchActions(cle),
     enabled: !!siteIds,
+  })
+}
+
+/**
+ * LES TÂCHES QUI PENDENT À UN CLIENT, ET À RIEN D'AUTRE.
+ *
+ * Naoëlle, 14/09/2026 : « commence les tâches Salesforce ». 258 des 265 tâches reprises ce jour-là
+ * ne visent ni une personne ni un dossier — « rappeler première semaine 2028, engagé gaz et élec
+ * jusqu'au 31/12 », « contrôler facture ». Elles ne portent qu'un compte.
+ *
+ * SANS CE HOOK, ELLES SERAIENT ENTRÉES INVISIBLES. La fiche compte lisait ses tâches par
+ * `site_id` : les 258 n'en ont pas, elles n'auraient figuré sur aucun écran. Importer du travail
+ * que personne ne voit, c'est exactement ce que l'import était censé corriger.
+ */
+export function useActionsParCompte(compteId: string | undefined) {
+  return useQuery({
+    queryKey: ['actions', 'compte', compteId],
+    queryFn: () => fetchActions(undefined, undefined, undefined, undefined, undefined, undefined, undefined, compteId),
+    enabled: !!compteId,
   })
 }
 

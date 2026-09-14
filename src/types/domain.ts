@@ -386,6 +386,14 @@ export interface Recommandation {
 }
 
 export interface ActionItem {
+  /**
+   * LE CLIENT CONCERNÉ, quand la tâche ne vise ni une adresse ni un dossier précis.
+   *
+   * 258 des 265 tâches reprises de Salesforce le 14/09/2026 n'ont que ce rattachement — « rappeler
+   * première semaine 2028 », « contrôler facture ». Sans ce champ, la fiche compte les lisait puis
+   * les rejetait, faute de pouvoir reconnaître qu'elles lui appartenaient.
+   */
+  compte_id?: string | null
   id: string
   titre: string
   type_action: string
