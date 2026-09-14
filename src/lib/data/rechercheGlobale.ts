@@ -69,8 +69,22 @@ async function chercher(query: string): Promise<SearchEntry[]> {
      les objets sur lesquels on travaille vraiment. Relevé du jour : 33 sites ne portent aucun
      compteur et ne remonteront plus ; 28 d'entre eux sont des coquilles vides (0 contrat,
      0 document, 0 action, 0 signal), et les 5 autres restent atteignables par leur contrat. */
-  const [comptes, contacts, compteurs, mandats, opportunites, recommandations, contrats] = await Promise.all([
+  const [comptes, pistes, contacts, compteurs, mandats, opportunites, recommandations, contrats] = await Promise.all([
     appliquer(supabase.from('comptes').select('id, nom, ville, siren'), listeMots, ['nom', 'siren', 'ville']).limit(PAR_FAMILLE),
+    /* ══ LA PISTE MANQUAIT TOUT ENTIÈRE ════════════════════════════════════════════════════════
+       Naoëlle, 14/09/2026 : elle cherche « VEDRENNE » et la barre répond « aucun résultat », alors
+       que la piste PST-2026-10102 existe, avec le nom VEDRENNE en toutes lettres. Sept familles y
+       étaient ; `pistes` n'en faisait pas partie — les 5 145 lignes du premier écran du cycle
+       commercial étaient introuvables autrement qu'en ouvrant la page et en refiltrant à la main.
+
+       ON CHERCHE SUR LES TROIS CHAMPS D'IDENTITÉ ET PAS SEULEMENT SUR `contact_nom` : depuis la
+       reprise du 14/09, le nom vit en civilité + prénom + nom, et `contact_nom` garde la forme
+       Salesforce. Chercher l'un sans les autres redonnerait le trou d'à côté. */
+    appliquer(
+      supabase.from('pistes').select('id, reference, societe, contact_nom, prenom, nom, email, telephone'),
+      listeMots,
+      ['reference', 'societe', 'contact_nom', 'prenom', 'nom', 'email', 'telephone'],
+    ).limit(PAR_FAMILLE),
     appliquer(supabase.from('contacts').select('id, prenom, nom, email, telephone, compte:comptes(nom)'), listeMots, ['nom', 'prenom', 'email', 'telephone']).limit(PAR_FAMILLE),
     /* ══ LE COMPTEUR SE CHERCHE AUSSI PAR SON SITE ════════════════════════════════════════════
        Naoëlle, 09/09/2026 : « si par exemple un commercial recherche un site qui s'appelle SDC
@@ -111,6 +125,22 @@ async function chercher(query: string): Promise<SearchEntry[]> {
   const entrees: SearchEntry[] = []
   for (const c of comptes.data ?? []) {
     entrees.push({ kind: 'compte', id: c.id, label: c.nom, sublabel: c.ville ?? '', to: `/comptes/${c.id}`, fields: [] })
+  }
+  for (const p of pistes.data ?? []) {
+    /* LA SOCIÉTÉ EN TITRE, LA PERSONNE EN SOUS-TITRE : c'est l'ordre des cartes du kanban, et
+       c'est par la société qu'on cherche neuf fois sur dix. La référence complète la ligne pour
+       les fois où c'est elle qu'on se transmet. */
+    entrees.push({
+      kind: 'piste',
+      id: p.id,
+      label: p.societe || [p.prenom, p.nom].filter(Boolean).join(' ') || p.contact_nom || 'Piste',
+      sublabel: [
+        [p.prenom, p.nom].filter(Boolean).join(' ') || p.contact_nom,
+        p.reference,
+      ].filter(Boolean).join(' · '),
+      to: `/pistes/${p.id}`,
+      fields: [],
+    })
   }
   for (const c of contacts.data ?? []) {
     entrees.push({

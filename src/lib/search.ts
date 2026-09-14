@@ -13,6 +13,7 @@ import type {
 
 export type SearchKind =
   | 'compte'
+  | 'piste'
   | 'site'
   | 'contact'
   | 'compteur'
@@ -26,6 +27,7 @@ export type SearchKind =
 
 export const SEARCH_KIND_LABEL: Record<SearchKind, string> = {
   compte: 'Comptes',
+  piste: 'Pistes',
   site: 'Sites',
   contact: 'Contacts',
   compteur: 'Compteurs',

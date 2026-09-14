@@ -4,6 +4,7 @@ import {
   LogOut,
   Search,
   Building2,
+  Filter,
   MapPin,
   User,
   Gauge,
@@ -26,6 +27,10 @@ import { SEARCH_KIND_LABEL, type SearchKind } from '@/lib/search'
 
 const KIND_ICON: Record<SearchKind, typeof Building2> = {
   compte: Building2,
+  /* `Filter` : la même icône que la fiche piste et que le rail de gauche. Une famille de résultats
+     qui ne se reconnaît pas d'un coup d'œil oblige à lire l'intitulé, et c'est tout ce que la
+     colonne d'icônes sert à éviter. */
+  piste: Filter,
   site: MapPin,
   contact: User,
   compteur: Gauge,
@@ -40,6 +45,7 @@ const KIND_ICON: Record<SearchKind, typeof Building2> = {
 
 const KIND_TINT: Record<SearchKind, string> = {
   compte: 'text-sky-500',
+  piste: 'text-indigo-500',
   site: 'text-km-green',
   contact: 'text-violet-500',
   compteur: 'text-km-muted',
