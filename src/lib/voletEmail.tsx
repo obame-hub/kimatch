@@ -1,4 +1,5 @@
 import { createContext, useCallback, useContext, useMemo, useState } from 'react'
+import type { PieceJointe } from '@/lib/data/signatureEmail'
 
 /**
  * ══ LE VOLET D'ÉCRITURE DE MAIL, ET SON BROUILLON QUI SURVIT ══
@@ -35,6 +36,13 @@ export interface BrouillonEmail {
   objet: string
   corpsHtml: string
   avecSignature: boolean
+  /**
+   * Les pièces jointes déjà déposées. Elles sont DANS le brouillon et non dans un état local du
+   * volet : « il faut que le volet soit rétractable […] sans perdre le mail déjà écrit » (Naoëlle,
+   * 07/09/2026) vaut aussi pour les fichiers — les reperdre à chaque réduction obligerait à les
+   * redéposer, et le téléversement est ce qui coûte le plus cher dans la manœuvre.
+   */
+  piecesJointes: PieceJointe[]
 }
 
 /**
@@ -81,6 +89,7 @@ interface ApiVolet {
 }
 
 const BROUILLON_VIDE: BrouillonEmail = {
+  piecesJointes: [],
   a: '',
   copie: '',
   copieCachee: '',
@@ -100,7 +109,10 @@ export function VoletEmailProvider({ children }: { children: React.ReactNode }) 
   const aDuContenu = useMemo(() => {
     if (!etat) return false
     const b = etat.brouillon
-    return Boolean(b.corpsHtml.replace(/<[^>]*>/g, '').trim() || b.objet.trim())
+    // UNE PIÈCE JOINTE COMPTE COMME DU CONTENU. Sans ça, ouvrir un mail pour un autre destinataire
+    // écraserait en silence un brouillon où l'on vient de déposer trois fichiers — le travail le
+    // plus long de la manœuvre, et le seul qui ne se voit pas dans le corps du message.
+    return Boolean(b.corpsHtml.replace(/<[^>]*>/g, '').trim() || b.objet.trim() || b.piecesJointes.length > 0)
   }, [etat])
 
   const ouvrirEnRemplacant = useCallback((contexte: ContexteEmail) => {
@@ -118,7 +130,8 @@ export function VoletEmailProvider({ children }: { children: React.ReactNode }) 
       const memeDestinataire = precedent?.contexte.a === contexte.a
       const contenu = precedent
         ? Boolean(precedent.brouillon.corpsHtml.replace(/<[^>]*>/g, '').trim()
-          || precedent.brouillon.objet.trim())
+          || precedent.brouillon.objet.trim()
+          || precedent.brouillon.piecesJointes.length > 0)
         : false
 
       if (precedent && contenu && !memeDestinataire) {

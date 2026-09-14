@@ -99,6 +99,16 @@ export interface EnvoiEmail {
   recommandationId?: string
   mandatId?: string
   contratId?: string
+  /** Les pièces jointes, déjà déposées dans le stockage — on n'envoie que leur adresse. */
+  piecesJointes?: PieceJointe[]
+}
+
+/** Un fichier joint au brouillon : déposé dans le stockage dès la sélection, envoyé par adresse. */
+export interface PieceJointe {
+  nom: string
+  url: string
+  type: string
+  taille: number
 }
 
 export interface ResultatEnvoi {

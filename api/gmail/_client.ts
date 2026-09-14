@@ -131,6 +131,13 @@ export interface SendGmailInput {
    * découpe en messages isolés — le contraire de ce qu'on attend d'une réponse.
    */
   threadId?: string | null
+  /**
+   * Les pièces jointes, déjà téléchargées et encodées par l'appelant.
+   *
+   * `contenu` est du base64 BRUT, sans retour à la ligne : c'est ici qu'on le replie à 76
+   * caractères, comme le reste du message.
+   */
+  attachments?: { filename: string; mimeType: string; contenu: string }[]
 }
 
 /**
@@ -174,36 +181,83 @@ export async function sendGmailMessage(
   const enBase64 = (contenu: string) =>
     Buffer.from(contenu, 'utf-8').toString('base64').replace(/(.{76})/g, '$1\r\n')
 
-  let message: string
-  if (input.html && input.html.trim()) {
-    // Une frontière improbable dans un corps de mail : Gmail refuse le message si elle y apparaît.
-    const limite = `----kimatch-${Date.now().toString(36)}`
-    message = [
-      ...enTetes,
-      `Content-Type: multipart/alternative; boundary="${limite}"`,
-      '',
-      `--${limite}`,
+  /**
+   * ══ LE CORPS, ET SEULEMENT LE CORPS ══
+   *
+   * `multipart/alternative` porte les deux lectures du même texte — le client choisit. Il ne peut
+   * pas porter de fichier : une pièce jointe n'est pas une variante du message, c'est autre chose
+   * à côté. D'où l'emboîtement plus bas, qui reste sans effet quand il n'y a rien à joindre.
+   */
+  const corpsDuMessage = (): string[] => {
+    if (input.html && input.html.trim()) {
+      // Une frontière improbable dans un corps de mail : Gmail refuse le message si elle y apparaît.
+      const limite = `----kimatch-alt-${Date.now().toString(36)}`
+      return [
+        `Content-Type: multipart/alternative; boundary="${limite}"`,
+        '',
+        `--${limite}`,
+        'Content-Type: text/plain; charset="UTF-8"',
+        'Content-Transfer-Encoding: base64',
+        '',
+        enBase64(input.text),
+        '',
+        `--${limite}`,
+        'Content-Type: text/html; charset="UTF-8"',
+        'Content-Transfer-Encoding: base64',
+        '',
+        enBase64(input.html),
+        '',
+        `--${limite}--`,
+      ]
+    }
+    return [
       'Content-Type: text/plain; charset="UTF-8"',
       'Content-Transfer-Encoding: base64',
       '',
       enBase64(input.text),
+    ]
+  }
+
+  const pieces = input.attachments ?? []
+
+  let message: string
+  if (pieces.length > 0) {
+    /* ══ AVEC PIÈCES JOINTES : `multipart/mixed` ENVELOPPE LE RESTE ══
+     *
+     * La structure est imbriquée et l'ordre compte : le corps EN PREMIER, les fichiers ensuite.
+     * Un client qui trouve un fichier avant le texte affiche le mail comme une pièce jointe sans
+     * message.
+     *
+     * `Content-Disposition: attachment` plutôt qu'`inline` : sans lui, une image se colle au milieu
+     * du texte au lieu de rester un fichier à télécharger — ce n'est pas ce qu'on a demandé en
+     * cliquant sur le trombone.
+     *
+     * Le nom de fichier est encodé en base64 UTF-8 comme l'objet : « Mandat Kiwee — Résidence
+     * Béranger.pdf » arriverait autrement en « Mandat Kiwee ? R?sidence B?ranger.pdf ».
+     */
+    const limite = `----kimatch-mix-${Date.now().toString(36)}`
+    message = [
+      ...enTetes,
+      `Content-Type: multipart/mixed; boundary="${limite}"`,
       '',
       `--${limite}`,
-      'Content-Type: text/html; charset="UTF-8"',
-      'Content-Transfer-Encoding: base64',
+      ...corpsDuMessage(),
       '',
-      enBase64(input.html),
-      '',
+      ...pieces.flatMap((p) => [
+        `--${limite}`,
+        `Content-Type: ${p.mimeType}; name="=?UTF-8?B?${Buffer.from(p.filename, 'utf-8').toString('base64')}?="`,
+        `Content-Disposition: attachment; filename="=?UTF-8?B?${Buffer.from(p.filename, 'utf-8').toString('base64')}?="`,
+        'Content-Transfer-Encoding: base64',
+        '',
+        p.contenu.replace(/(.{76})/g, '$1\r\n'),
+        '',
+      ]),
       `--${limite}--`,
     ].join('\r\n')
+  } else if (input.html && input.html.trim()) {
+    message = [...enTetes, ...corpsDuMessage()].join('\r\n')
   } else {
-    message = [
-      ...enTetes,
-      'Content-Type: text/plain; charset="UTF-8"',
-      'Content-Transfer-Encoding: base64',
-      '',
-      enBase64(input.text),
-    ].join('\r\n')
+    message = [...enTetes, ...corpsDuMessage()].join('\r\n')
   }
 
   const corps: Record<string, unknown> = { raw: base64url(message) }

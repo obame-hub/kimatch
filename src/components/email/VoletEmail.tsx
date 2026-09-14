@@ -1,12 +1,16 @@
 import { useEffect, useRef, useState } from 'react'
-import {
-  Mail, X, Minus, Send, Bold, Italic, Underline, List, ListOrdered, Link2,
-  AlertTriangle, PenLine, Loader2,
-} from 'lucide-react'
+import { AlertTriangle, Bold, Italic, Link2, List, ListOrdered, Loader2, Mail, Minus, Paperclip, PenLine, Send, Underline, X } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
 import { useVoletEmail, type BrouillonEmail } from '@/lib/voletEmail'
-import { useSignatureEmail, envoyerEmail, GmailNonConnecte } from '@/lib/data/signatureEmail'
+import { useSignatureEmail, envoyerEmail, GmailNonConnecte, type PieceJointe } from '@/lib/data/signatureEmail'
+import { supabase } from '@/lib/supabase'
+import {
+  LIMITE_PIECES_JOINTES,
+  deposerPieceJointe,
+  formaterTaille,
+  retirerPieceJointe,
+} from '@/lib/data/piecesJointesEmail'
 import { useGmailConnection, connectGmail } from '@/lib/data/gmail'
 
 /**
@@ -49,6 +53,8 @@ export function VoletEmail() {
   const [erreur, setErreur] = useState<string | null>(null)
   const [besoinGmail, setBesoinGmail] = useState(false)
   const [succes, setSucces] = useState<string | null>(null)
+  const [depotEnCours, setDepotEnCours] = useState(0)
+  const fichierRef = useRef<HTMLInputElement>(null)
 
   const corpsRef = useRef<HTMLDivElement>(null)
   /** L'identité du brouillon dont l'éditeur porte déjà le contenu, pour ne pas le réécrire à chaque frappe. */
@@ -89,7 +95,14 @@ export function VoletEmail() {
 
   const nomAffiche = etat.contexte.nom || etat.contexte.a
   const texteBrut = brouillon.corpsHtml.replace(/<[^>]*>/g, '').trim()
-  const peutEnvoyer = Boolean(brouillon.a.trim() && brouillon.objet.trim() && texteBrut) && !envoiEnCours
+  const pieces = brouillon?.piecesJointes ?? []
+  const totalPieces = pieces.reduce((t, p) => t + p.taille, 0)
+  const tropLourd = totalPieces > LIMITE_PIECES_JOINTES
+
+  // UN DÉPÔT EN COURS BLOQUE L'ENVOI. Sans ça, envoyer pendant un téléversement ferait partir le
+  // mail sans la pièce qu'on croyait y avoir mise — une perte silencieuse, la pire espèce.
+  const peutEnvoyer = Boolean(brouillon.a.trim() && brouillon.objet.trim() && texteBrut)
+    && !envoiEnCours && depotEnCours === 0 && !tropLourd
 
   /* ── La pastille, quand le volet est réduit ── */
   if (etat.reduit) {
@@ -133,6 +146,45 @@ export function VoletEmail() {
     commande('createLink', /^https?:\/\//i.test(url) ? url : `https://${url}`)
   }
 
+  /**
+   * LE DÉPÔT COMMENCE À LA SÉLECTION, pas à l'envoi : il occupe le temps pendant lequel on écrit.
+   * Chaque fichier est déposé séparément pour qu'un refus n'emporte pas les autres — choisir cinq
+   * pièces dont une trop lourde doit en joindre quatre, pas zéro.
+   */
+  async function ajouterFichiers(fichiers: FileList | null) {
+    if (!fichiers || fichiers.length === 0 || !volet || !brouillon) return
+    setErreur(null)
+    const { data } = await supabase.auth.getUser()
+    const profilId = data.user?.id
+    if (!profilId) {
+      setErreur('Session expirée — reconnecte-toi pour joindre un fichier.')
+      return
+    }
+    setDepotEnCours((n) => n + fichiers.length)
+    const echecs: string[] = []
+    for (const fichier of Array.from(fichiers)) {
+      try {
+        const piece = await deposerPieceJointe(fichier, profilId)
+        // On relit l'état à chaque tour : deux dépôts qui se terminent en même temps écraseraient
+        // l'un l'autre en partant d'une copie figée du brouillon.
+        const courant = volet.etat?.brouillon
+        if (courant) volet.majBrouillon({ ...courant, piecesJointes: [...courant.piecesJointes, piece] })
+      } catch (e) {
+        echecs.push(e instanceof Error ? e.message : String(e))
+      } finally {
+        setDepotEnCours((n) => n - 1)
+      }
+    }
+    if (echecs.length > 0) setErreur(echecs.join(' '))
+  }
+
+  function retirer(piece: PieceJointe) {
+    if (!volet || !brouillon) return
+    volet.majBrouillon({ ...brouillon, piecesJointes: brouillon.piecesJointes.filter((p) => p.url !== piece.url) })
+    // Le fichier part du stockage sans qu'on attende : l'écran a déjà répondu.
+    void retirerPieceJointe(piece)
+  }
+
   async function envoyer() {
     // La garde rend surtout le narrowing possible : `envoyer` est déclarée avant le retour anticipé
     // du composant, donc TypeScript ne sait pas encore que le brouillon existe.
@@ -155,6 +207,7 @@ export function VoletEmail() {
         recommandationId: etat.contexte.recommandationId,
         mandatId: etat.contexte.mandatId,
         contratId: etat.contexte.contratId,
+        piecesJointes: brouillon.piecesJointes,
       })
       volet.fermer()
       // LA TRACE MANQUANTE SE DIT. Le mail est bien parti — refuser de le reconnaître serait faux —
@@ -317,6 +370,74 @@ export function VoletEmail() {
                   depuis <strong>Mon profil</strong>.
                 </p>
               )
+            )}
+          </div>
+
+          {/* ══ LES PIÈCES JOINTES ══
+              Le trombone et la liste vivent SOUS le corps du message, à l'endroit où on les
+              cherche après avoir écrit — et non dans la barre d'outils de l'éditeur, qui met en
+              forme le texte et ne parle pas de fichiers. */}
+          <div className="rounded-km border border-km-line bg-km-soft px-3 py-2.5">
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                onClick={() => fichierRef.current?.click()}
+                className="inline-flex items-center gap-1.5 rounded-km border border-km-line bg-km-surface px-2.5 py-1 text-km-label font-semibold text-km-text hover:bg-km-bg"
+              >
+                <Paperclip className="h-3.5 w-3.5" /> Joindre un fichier
+              </button>
+              <input
+                ref={fichierRef}
+                type="file"
+                multiple
+                className="hidden"
+                onChange={(e) => {
+                  void ajouterFichiers(e.target.files)
+                  // Le champ est vidé pour que rechoisir LE MÊME fichier déclenche un événement.
+                  e.target.value = ''
+                }}
+              />
+              {depotEnCours > 0 && (
+                <span className="flex items-center gap-1.5 text-km-label text-km-muted">
+                  <Loader2 className="h-3 w-3 animate-spin" />
+                  {depotEnCours} fichier{depotEnCours > 1 ? 's' : ''} en cours d’ajout…
+                </span>
+              )}
+              {pieces.length > 0 && depotEnCours === 0 && (
+                <span className={cn('text-km-label tabular-nums', tropLourd ? 'font-semibold text-km-red' : 'text-km-faint')}>
+                  {pieces.length} pièce{pieces.length > 1 ? 's' : ''} · {formaterTaille(totalPieces)}
+                </span>
+              )}
+            </div>
+
+            {pieces.length > 0 && (
+              <ul className="mt-2 flex flex-col gap-1">
+                {pieces.map((p) => (
+                  <li key={p.url} className="flex items-center gap-2 rounded-km bg-km-surface px-2 py-1.5">
+                    <Paperclip className="h-3 w-3 shrink-0 text-km-faint" />
+                    <span className="min-w-0 flex-1 truncate text-km-label text-km-text">{p.nom}</span>
+                    <span className="shrink-0 text-km-label tabular-nums text-km-faint">{formaterTaille(p.taille)}</span>
+                    <button
+                      type="button"
+                      onClick={() => retirer(p)}
+                      title={`Retirer ${p.nom}`}
+                      className="shrink-0 rounded p-0.5 text-km-faint hover:bg-km-red-soft hover:text-km-red"
+                    >
+                      <X className="h-3.5 w-3.5" />
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            )}
+
+            {/* LA LIMITE SE DIT AVANT L'ENVOI, pas après. Un refus qui arrive une fois le message
+                écrit et le bouton cliqué fait perdre le travail de confiance en plus du temps. */}
+            {tropLourd && (
+              <p className="mt-2 flex items-start gap-1.5 text-km-label leading-snug text-km-red">
+                <AlertTriangle className="mt-0.5 h-3 w-3 shrink-0" />
+                {formaterTaille(totalPieces)} au total — Gmail n’accepte pas plus de 25 Mo. Retire une
+                pièce ou envoie un lien de téléchargement à la place.
+              </p>
             )}
           </div>
 

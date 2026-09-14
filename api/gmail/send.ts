@@ -52,6 +52,11 @@ interface SendBody {
   recommandationId?: string
   mandatId?: string
   contratId?: string
+  /**
+   * Les fichiers à joindre, désignés par leur adresse dans le stockage — jamais par leur contenu.
+   * Voir le commentaire de la boucle de téléchargement plus bas pour la raison.
+   */
+  piecesJointes?: { nom: string; url: string; type: string }[]
 }
 
 /** Le texte d'un corps HTML, pour la version alternative et le résumé de l'interaction. */
@@ -139,6 +144,63 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     signatureHtml = ((sig?.corps_html as string | null) ?? '').trim()
   }
 
+  /* ══════════════════════════════════════════════════════════════════════════════════════════════
+   * LES PIÈCES JOINTES SONT RAPATRIÉES ICI, PAS ENVOYÉES PAR LE NAVIGATEUR
+   * ══════════════════════════════════════════════════════════════════════════════════════════════
+   *
+   * William, 14/09/2026 : « il faut absolument avoir la possibilité d'ajouter une ou plusieurs
+   * pièces jointes ».
+   *
+   * LE NAVIGATEUR N'ENVOIE QUE DES ADRESSES. Faire transiter les fichiers en base64 dans le corps
+   * JSON était la solution la plus courte, et elle aurait cassé une fois sur vingt : une fonction
+   * Vercel refuse les requêtes au-delà de 4,5 Mo, soit environ 3,3 Mo de fichier réel une fois
+   * l'inflation du base64 déduite. Or sur les 19 509 documents de la base, LE 95ᵉ CENTILE PÈSE
+   * 3,7 Mo et 1 062 dépassent 3 Mo. L'échec serait arrivé au moment de l'envoi, après la
+   * rédaction — le pire moment.
+   *
+   * Le fichier est donc déposé dans le stockage par le navigateur, et cette fonction le relit.
+   *
+   * ══ ON NE TÉLÉCHARGE QUE CHEZ SOI ══
+   *
+   * L'adresse vient du navigateur : accepter n'importe laquelle ferait de cette fonction un relais
+   * pour aller chercher ce qu'on veut, où on veut, avec la carte d'identité du serveur. Le préfixe
+   * du stockage du projet est donc vérifié, et rien d'autre n'est suivi.
+   *
+   * ══ LA LIMITE DE GMAIL EST DITE ICI AUSSI ══
+   *
+   * 25 Mo, message compris. L'écran l'annonce avant l'envoi, mais l'écran peut être contourné et
+   * les tailles annoncées peuvent mentir : on recompte sur ce qu'on a réellement téléchargé.
+   */
+  const prefixeStockage = `${supabaseUrl}/storage/v1/object/public/documents/`
+  const LIMITE_GMAIL = 25 * 1024 * 1024
+  const piecesJointes: { filename: string; mimeType: string; contenu: string }[] = []
+  let totalOctets = 0
+
+  for (const p of body.piecesJointes ?? []) {
+    if (!p?.url || !p.url.startsWith(prefixeStockage)) {
+      res.status(400).json({ error: `Pièce jointe refusée : « ${p?.nom ?? '?'} » ne vient pas du stockage de Kimatch.` })
+      return
+    }
+    const reponse = await fetch(p.url)
+    if (!reponse.ok) {
+      res.status(502).json({ error: `Pièce jointe « ${p.nom} » introuvable (${reponse.status}). Rien n'a été envoyé.` })
+      return
+    }
+    const octets = Buffer.from(await reponse.arrayBuffer())
+    totalOctets += octets.length
+    if (totalOctets > LIMITE_GMAIL) {
+      res.status(413).json({
+        error: 'Les pièces jointes dépassent 25 Mo au total, la limite de Gmail. Rien n’a été envoyé.',
+      })
+      return
+    }
+    piecesJointes.push({
+      filename: p.nom,
+      mimeType: p.type || 'application/octet-stream',
+      contenu: octets.toString('base64'),
+    })
+  }
+
   // Le mail complet. Une police et une couleur explicites : sans elles, chaque client applique la
   // sienne et le mail ne ressemble pas à ce que le commercial a écrit.
   const htmlComplet = corpsHtml
@@ -179,10 +241,33 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       text: texteComplet,
       html: htmlComplet,
       threadId: body.threadId || null,
+      attachments: piecesJointes,
     })
   } catch (err) {
     res.status(502).json({ error: err instanceof Error ? err.message : 'Erreur Gmail inconnue' })
     return
+  }
+
+  /* ══ LE STOCKAGE N'EST PAS UNE BOÎTE D'ENVOI ══
+   *
+   * Les fichiers déposés pour un mail ne servent qu'à cet envoi : Gmail en garde une copie, le
+   * destinataire aussi. Les laisser dans le seau `documents`, qui est PUBLIC, les rendrait lisibles
+   * par quiconque connaît l'adresse, indéfiniment, pour un fichier dont plus personne ne sait qu'il
+   * est là.
+   *
+   * Le ménage se fait après l'envoi et sans bloquer : le mail est parti, et un fichier qui survit à
+   * son nettoyage est un désagrément, pas une panne. Seuls les fichiers du dossier `emails/` sont
+   * concernés — un document de la fiche, lui, a sa propre vie.
+   */
+  const aNettoyer = (body.piecesJointes ?? [])
+    .map((p) => p.url.slice(prefixeStockage.length))
+    .filter((chemin) => chemin.startsWith('emails/'))
+  if (aNettoyer.length > 0) {
+    try {
+      await supabase.storage.from('documents').remove(aNettoyer)
+    } catch {
+      // Sans conséquence pour l'expéditeur : on n'en fait pas une erreur d'envoi.
+    }
   }
 
   // ── La trace dans Kimatch ──
