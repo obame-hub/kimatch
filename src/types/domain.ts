@@ -1006,6 +1006,9 @@ export interface Piste {
      l'interface, TypeScript refusait de les lire, et aucun écran ne pouvait les afficher. C'est la
      cause exacte du « les champs n'ont pas été importés » de William : ils l'étaient, et bien
      remplis (segment 5 073, SIREN 4 909, SIRET 4 921, origine 4 954), simplement inatteignables. */
+  /** La référence portée avant la renumérotation chronologique du 14/09/2026. Cherchée comme la
+   *  référence courante : qui a noté « PST-2026-10102 » doit encore trouver sa piste. */
+  reference_precedente: string | null
   siret: string | null
   siren: string | null
   ville: string | null

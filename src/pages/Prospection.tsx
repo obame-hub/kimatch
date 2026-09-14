@@ -353,6 +353,9 @@ function OngletPistes({ pistes }: { pistes: Piste[] }) {
       p.societe, p.contact_nom, p.civilite, p.prenom, p.nom, p.email,
       p.telephone, p.telephone_mobile, p.reference, p.ville, p.code_postal,
       p.siren, p.siret, p.segment,
+      /* L'ancienne référence : la renumérotation du 14/09/2026 en a changé 5 144, et un numéro
+         noté avant doit encore mener quelque part. */
+      p.reference_precedente,
     ].filter(Boolean).join(' '))
     return mots.every((m) => foin.includes(m))
   }

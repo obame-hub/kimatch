@@ -81,9 +81,14 @@ async function chercher(query: string): Promise<SearchEntry[]> {
        reprise du 14/09, le nom vit en civilité + prénom + nom, et `contact_nom` garde la forme
        Salesforce. Chercher l'un sans les autres redonnerait le trou d'à côté. */
     appliquer(
-      supabase.from('pistes').select('id, reference, societe, contact_nom, prenom, nom, email, telephone'),
+      supabase.from('pistes').select('id, reference, reference_precedente, societe, contact_nom, prenom, nom, email, telephone'),
       listeMots,
-      ['reference', 'societe', 'contact_nom', 'prenom', 'nom', 'email', 'telephone'],
+      /* `reference_precedente` EST LÀ POUR UNE RAISON PRÉCISE. La renumérotation chronologique du
+         14/09/2026 a changé 5 144 références : qui a noté « PST-2026-10102 » sur un carnet tape
+         aujourd'hui un numéro qui ne désigne plus rien. La colonne garde l'ancienne, et la barre
+         la cherche comme la nouvelle — sinon la décision de renuméroter coûterait à tout le monde
+         pendant des semaines. */
+      ['reference', 'reference_precedente', 'societe', 'contact_nom', 'prenom', 'nom', 'email', 'telephone'],
     ).limit(PAR_FAMILLE),
     appliquer(supabase.from('contacts').select('id, prenom, nom, email, telephone, compte:comptes(nom)'), listeMots, ['nom', 'prenom', 'email', 'telephone']).limit(PAR_FAMILLE),
     /* ══ LE COMPTEUR SE CHERCHE AUSSI PAR SON SITE ════════════════════════════════════════════
@@ -126,6 +131,14 @@ async function chercher(query: string): Promise<SearchEntry[]> {
   for (const c of comptes.data ?? []) {
     entrees.push({ kind: 'compte', id: c.id, label: c.nom, sublabel: c.ville ?? '', to: `/comptes/${c.id}`, fields: [] })
   }
+  /** La saisie tombe-t-elle sur l'ANCIENNE référence, et pas sur la nouvelle ? */
+  const trouveeParSonAncienNumero = (p: { reference?: string | null; reference_precedente?: string | null }) => {
+    const ancienne = (p.reference_precedente ?? '').toLowerCase()
+    if (!ancienne) return false
+    const courante = (p.reference ?? '').toLowerCase()
+    return listeMots.some((m) => ancienne.includes(m.toLowerCase()) && !courante.includes(m.toLowerCase()))
+  }
+
   for (const p of pistes.data ?? []) {
     /* LA SOCIÉTÉ EN TITRE, LA PERSONNE EN SOUS-TITRE : c'est l'ordre des cartes du kanban, et
        c'est par la société qu'on cherche neuf fois sur dix. La référence complète la ligne pour
@@ -137,6 +150,11 @@ async function chercher(query: string): Promise<SearchEntry[]> {
       sublabel: [
         [p.prenom, p.nom].filter(Boolean).join(' ') || p.contact_nom,
         p.reference,
+        /* ON DIT POURQUOI ÇA A MATCHÉ. 485 anciens numéros sont aujourd'hui la référence COURANTE
+           d'une autre piste : taper l'un d'eux rend donc deux résultats. Sans cette mention, les
+           deux se ressemblent et l'on choisit au hasard ; avec elle, on voit lequel répond à ce
+           qu'on a noté et lequel porte le numéro aujourd'hui. */
+        trouveeParSonAncienNumero(p) ? `ancienne réf. ${p.reference_precedente}` : null,
       ].filter(Boolean).join(' · '),
       to: `/pistes/${p.id}`,
       fields: [],
