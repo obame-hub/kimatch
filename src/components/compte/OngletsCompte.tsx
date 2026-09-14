@@ -1,4 +1,5 @@
 import { useMemo, useState } from 'react'
+import { cn } from '@/lib/utils'
 import { useNavigate } from 'react-router-dom'
 import { ChevronRight, Sparkle } from 'lucide-react'
 import type { Recommandation } from '@/types/domain'
@@ -53,6 +54,7 @@ export function TitreSection({ children, precision }: { children: React.ReactNod
 // ══ RECOMMANDATIONS ═══════════════════════════════════════════════════════════════════════════
 
 export function OngletRecommandations({ recommandations }: { recommandations: Recommandation[] }) {
+  const [historiqueOuvert, setHistoriqueOuvert] = useState(false)
   const navigate = useNavigate()
   const [filtre, setFiltre] = useState<'tous' | CleFinalite>('tous')
 
@@ -121,89 +123,113 @@ export function OngletRecommandations({ recommandations }: { recommandations: Re
         )
       })}
 
-      <div className="mt-2.5 flex items-center gap-2.5">
+      {/* ══ L'HISTORIQUE EST REPLIÉ PAR DÉFAUT ══
+          William, 14/09/2026 : « l'historique doit être replié par défaut, ne s'affiche que
+          lorsqu'on clique dessus ».
+
+          Il occupait le bas de l'onglet avec ses filtres et toutes les recommandations closes — sur
+          un compte suivi depuis deux ans, cela repoussait les recommandations EN COURS, celles sur
+          lesquelles on travaille, au-dessus de la ligne de flottaison. L'historique répond à « qu'a
+          -t-on déjà fait », une question qu'on se pose une fois par dossier ; les recos actives
+          répondent à « où j'en suis », qu'on se pose chaque jour.
+
+          LE DÉCOMPTE RESTE VISIBLE REPLIÉ : sans lui, on ne saurait pas s'il y a quelque chose
+          dedans, et un titre qui ne promet rien ne se clique pas. */}
+      <button
+        type="button"
+        onClick={() => setHistoriqueOuvert((v) => !v)}
+        aria-expanded={historiqueOuvert}
+        className="mt-2.5 flex items-center gap-2.5 text-left"
+      >
+        <ChevronRight className={cn('h-3.5 w-3.5 flex-none text-[#a3a5a0] transition-transform', historiqueOuvert && 'rotate-90')} />
         <span className="text-km-xs font-bold uppercase tracking-[.08em] text-[#a3a5a0]">Historique du compte</span>
         <div className="h-px flex-1 bg-[#e7e6e2]" />
-        <span className="text-km-xs text-[#83868f]">{affichees.length} affichée{affichees.length > 1 ? 's' : ''}</span>
-      </div>
+        <span className="text-km-xs text-[#83868f]">
+          {historique.length} clôturée{historique.length > 1 ? 's' : ''}
+        </span>
+      </button>
 
-      <div className="flex flex-wrap gap-[7px]">
-        {filtres.map(([cle, label, couleur, n]) => {
-          const actif = filtre === cle
+      {historiqueOuvert && (
+        <>
+        <div className="flex flex-wrap gap-[7px]">
+          {filtres.map(([cle, label, couleur, n]) => {
+            const actif = filtre === cle
+            return (
+              <button
+                key={cle}
+                type="button"
+                onClick={() => setFiltre(cle)}
+                className="inline-flex cursor-pointer select-none items-center gap-[7px] rounded-lg border px-[11px] py-[5px] text-km-label font-bold transition-all duration-[130ms]"
+                style={{
+                  color: actif ? '#fff' : '#5c5f66',
+                  background: actif ? couleur : '#fff',
+                  borderColor: actif ? couleur : '#e0dfdb',
+                }}
+              >
+                <span
+                  className="h-[7px] w-[7px] flex-none rounded-full"
+                  style={{ background: actif ? 'rgba(255,255,255,.85)' : couleur }}
+                />
+                {label}
+                <span
+                  className="font-mono text-km-tiny font-extrabold"
+                  style={{ color: actif ? 'rgba(255,255,255,.8)' : '#a3a5a0' }}
+                >
+                  {n}
+                </span>
+              </button>
+            )
+          })}
+        </div>
+
+        {affichees.map((r) => {
+          const finalite = r.finalite_cloture ? FINALITES_RECOMMANDATION[r.finalite_cloture] : FINALITES_RECOMMANDATION.EXPIREE
+          // versions[0] est la plus récente : la liste est triée décroissant depuis le 12/08/2026.
+          const derniere = r.versions[0]
           return (
-            <button
-              key={cle}
-              type="button"
-              onClick={() => setFiltre(cle)}
-              className="inline-flex cursor-pointer select-none items-center gap-[7px] rounded-lg border px-[11px] py-[5px] text-km-label font-bold transition-all duration-[130ms]"
-              style={{
-                color: actif ? '#fff' : '#5c5f66',
-                background: actif ? couleur : '#fff',
-                borderColor: actif ? couleur : '#e0dfdb',
-              }}
+            <div
+              key={r.id}
+              onClick={() => navigate(`/recommandations/${r.id}`)}
+              className="flex cursor-pointer items-center gap-3 rounded-[11px] border border-[#e7e6e2] bg-white px-[15px] py-[11px] transition-colors hover:bg-[#fbfbfa]"
             >
               <span
-                className="h-[7px] w-[7px] flex-none rounded-full"
-                style={{ background: actif ? 'rgba(255,255,255,.85)' : couleur }}
-              />
-              {label}
-              <span
-                className="font-mono text-km-tiny font-extrabold"
-                style={{ color: actif ? 'rgba(255,255,255,.8)' : '#a3a5a0' }}
+                className="w-[68px] flex-none rounded-[5px] py-1 text-center text-km-tiny font-extrabold uppercase tracking-[.05em]"
+                style={{ color: finalite.couleur, background: finalite.fond }}
               >
-                {n}
+                {finalite.libelle}
               </span>
-            </button>
+              <div className="min-w-0 flex-1">
+                <div className="truncate text-xs font-semibold">{r.titre}</div>
+                <div className="truncate text-km-xs text-[#83868f]">
+                  {derniere?.nom || 'Aucune version'}
+                  {r.type_energie ? ` · ${r.type_energie}` : ''}
+                </div>
+              </div>
+              {/* La commission n'apparaît que sur une reco acceptée : c'est la seule où KiWee perçoit.
+                  LE MONTANT LU EST `marge_nette_coeff` — William, 10/09/2026 : c'est LE montant d'une
+                  recommandation partout dans Kimatch. `marge_nette` n'est qu'une étape de la cascade.
+                  Et il s'affiche au centime : une commission se rapproche d'un relevé. */}
+              {r.finalite_cloture === 'ACCEPTEE' && r.marge_nette_coeff != null && (
+                <span title="Commission KiWee perçue" className="flex flex-none flex-col items-end gap-px">
+                  <span className="text-km-micro font-extrabold uppercase tracking-[.06em] text-[#0d7a5f]">Commission</span>
+                  <span className="font-mono text-km-body font-extrabold tracking-[-.02em] text-[#0d7a5f]">
+                    {r.marge_nette_coeff.toLocaleString('fr-FR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} €
+                  </span>
+                </span>
+              )}
+              <span className="w-[52px] flex-none text-right font-mono text-km-xs text-[#a3a5a0]">
+                {r.date_cloture ? new Date(r.date_cloture).toLocaleDateString('fr-FR', { month: '2-digit', year: '2-digit' }) : '—'}
+              </span>
+            </div>
           )
         })}
-      </div>
 
-      {affichees.map((r) => {
-        const finalite = r.finalite_cloture ? FINALITES_RECOMMANDATION[r.finalite_cloture] : FINALITES_RECOMMANDATION.EXPIREE
-        // versions[0] est la plus récente : la liste est triée décroissant depuis le 12/08/2026.
-        const derniere = r.versions[0]
-        return (
-          <div
-            key={r.id}
-            onClick={() => navigate(`/recommandations/${r.id}`)}
-            className="flex cursor-pointer items-center gap-3 rounded-[11px] border border-[#e7e6e2] bg-white px-[15px] py-[11px] transition-colors hover:bg-[#fbfbfa]"
-          >
-            <span
-              className="w-[68px] flex-none rounded-[5px] py-1 text-center text-km-tiny font-extrabold uppercase tracking-[.05em]"
-              style={{ color: finalite.couleur, background: finalite.fond }}
-            >
-              {finalite.libelle}
-            </span>
-            <div className="min-w-0 flex-1">
-              <div className="truncate text-xs font-semibold">{r.titre}</div>
-              <div className="truncate text-km-xs text-[#83868f]">
-                {derniere?.nom || 'Aucune version'}
-                {r.type_energie ? ` · ${r.type_energie}` : ''}
-              </div>
-            </div>
-            {/* La commission n'apparaît que sur une reco acceptée : c'est la seule où KiWee perçoit.
-                LE MONTANT LU EST `marge_nette_coeff` — William, 10/09/2026 : c'est LE montant d'une
-                recommandation partout dans Kimatch. `marge_nette` n'est qu'une étape de la cascade.
-                Et il s'affiche au centime : une commission se rapproche d'un relevé. */}
-            {r.finalite_cloture === 'ACCEPTEE' && r.marge_nette_coeff != null && (
-              <span title="Commission KiWee perçue" className="flex flex-none flex-col items-end gap-px">
-                <span className="text-km-micro font-extrabold uppercase tracking-[.06em] text-[#0d7a5f]">Commission</span>
-                <span className="font-mono text-km-body font-extrabold tracking-[-.02em] text-[#0d7a5f]">
-                  {r.marge_nette_coeff.toLocaleString('fr-FR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} €
-                </span>
-              </span>
-            )}
-            <span className="w-[52px] flex-none text-right font-mono text-km-xs text-[#a3a5a0]">
-              {r.date_cloture ? new Date(r.date_cloture).toLocaleDateString('fr-FR', { month: '2-digit', year: '2-digit' }) : '—'}
-            </span>
+        {affichees.length === 0 && (
+          <div className="rounded-[11px] border border-dashed border-[#e0dfdb] bg-white p-[22px] text-center text-xs text-[#83868f]">
+            Aucune recommandation {filtre === 'tous' ? '' : `${FINALITES_RECOMMANDATION[filtre as CleFinalite]?.libelle.toLowerCase() ?? ''} `}sur ce compte
           </div>
-        )
-      })}
-
-      {affichees.length === 0 && (
-        <div className="rounded-[11px] border border-dashed border-[#e0dfdb] bg-white p-[22px] text-center text-xs text-[#83868f]">
-          Aucune recommandation {filtre === 'tous' ? '' : `${FINALITES_RECOMMANDATION[filtre as CleFinalite]?.libelle.toLowerCase() ?? ''} `}sur ce compte
-        </div>
+        )}
+        </>
       )}
     </div>
   )
