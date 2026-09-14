@@ -107,13 +107,17 @@ function groupesDe(piste: Piste): Groupe[] {
         { libelle: 'Origine', valeur: texte(piste.source) },
         { libelle: 'Statut Salesforce', valeur: texte(piste.statut_salesforce) },
         { libelle: 'Cote', valeur: texte(piste.cote) },
-        /* LA VRAIE DATE, et elle mérite son étiquette : `date_creation` porte le 01/09/2026 pour
-           les 5 131 pistes reprises — la date de l'import. Celle-ci les échelonne de 2025 à
-           aujourd'hui, et c'est elle qu'une statistique par mois doit lire. */
         /* Le bloc « Informations système » de Salesforce, rendu tel quel : qui a créé, qui a
-           modifié en dernier, et quand. « Modifié par » vient d'une colonne à part —
-           `modifie_par_id` répond à la même question pour Kimatch et l'audit la repose. */
-        { libelle: 'Créée dans Salesforce le', valeur: date(piste.date_creation_salesforce) },
+           modifié en dernier, et quand. « Modifiée par » vient d'une colonne à part —
+           `modifie_par_id` répond à la même question pour Kimatch et l'audit la repose.
+
+           LA LIGNE « CRÉÉE DANS SALESFORCE LE » A DISPARU, et c'est un progrès. Elle existait
+           parce que `date_creation` portait le 01/09/2026 sur les 5 131 pistes reprises — la date
+           de l'import — et qu'il fallait bien montrer la vraie quelque part. Depuis la bascule du
+           14/09 (migration 20260914240000), `date_creation` EST la vraie : 454 pistes en 2025,
+           4 685 en 2026. Afficher les deux montrerait deux fois le même jour en laissant croire
+           qu'ils peuvent différer. `date_creation_salesforce` reste en base — elle dit d'où vient
+           la valeur et permet de revenir en arrière — mais elle n'a plus rien à dire à l'écran. */
         { libelle: 'Créée par', valeur: texte(piste.createur_nom) },
         { libelle: 'Modifiée dans Salesforce le', valeur: date(piste.date_modification_salesforce) },
         { libelle: 'Modifiée par', valeur: texte(piste.modifie_par_salesforce_nom) },

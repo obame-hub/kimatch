@@ -1050,8 +1050,9 @@ export interface Piste {
   email_rejete_motif: string | null
   non_lu_par_proprietaire: boolean | null
   prioritaire: boolean | null
-  /** LA VRAIE date de création. `date_creation` porte celle de l'import — le 01/09/2026 pour les
-   *  5 131 pistes reprises — donc toute statistique par mois doit lire CELLE-CI. */
+  /** La date de création telle que Salesforce la connaît. Depuis la bascule du 14/09/2026
+   *  (migration 20260914240000), `date_creation` porte la même valeur : celle-ci ne sert plus qu'à
+   *  dire d'où vient la date et à pouvoir revenir en arrière. Elle ne s'affiche plus. */
   date_creation_salesforce: string | null
   date_modification_salesforce: string | null
   /** Qui l'a créée dans Salesforce, par jointure — le « Créé par » du bloc Informations système. */
