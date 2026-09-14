@@ -986,6 +986,59 @@ export interface Piste {
   statut_clos: boolean
   /** Pourquoi la piste a été écartée. Renseigné avec le statut Disqualifiée, jamais sans. */
   motif_disqualification: string | null
+  /* ══ CE QUI ÉTAIT EN BASE DEPUIS LE 01/09 ET QUE LE TYPE NE DÉCLARAIT PAS ══
+     `usePiste` lit `select('*')`, donc ces colonnes arrivaient bien du serveur — mais absentes de
+     l'interface, TypeScript refusait de les lire, et aucun écran ne pouvait les afficher. C'est la
+     cause exacte du « les champs n'ont pas été importés » de William : ils l'étaient, et bien
+     remplis (segment 5 073, SIREN 4 909, SIRET 4 921, origine 4 954), simplement inatteignables. */
+  siret: string | null
+  siren: string | null
+  ville: string | null
+  code_postal: string | null
+  segment: string | null
+  /** L'origine de la piste — `LeadSource` de Salesforce. */
+  source: string | null
+  fonction: string | null
+  activite: string | null
+  nombre_de_lots: number | null
+  statut_salesforce: string | null
+
+  /* ══ CE QUE SALESFORCE SAIT DE LA PISTE (migration 20260914170000) ══
+     William, 14/09/2026 : « récupérez tout sans exception, on fera le tri dans Kimatch ». Les 44
+     champs renseignés de l'objet Lead sont en base ; les chiffres en commentaire sont le nombre de
+     pistes qui portent une valeur sur 5 139, mesuré le 14/09. */
+  /** Monsieur / Madame — 3 590. Avec `prenom` et `nom`, remplace le `contact_nom` d'un seul tenant. */
+  civilite: string | null
+  /** En Capitale : « jean-pierre » entre en « Jean-Pierre » — 4 042. */
+  prenom: string | null
+  /** EN MAJUSCULES, pour qu'un rapport ne compte pas « Dupont » et « DUPONT » deux fois — 5 139. */
+  nom: string | null
+  rue: string | null
+  region: string | null
+  pays: string | null
+  /** 56 pistes n'ont qu'un mobile ; il passait pour un fixe dans `telephone`. */
+  telephone_mobile: string | null
+  site_internet: string | null
+  site_web: string | null
+  linkedin: string | null
+  nombre_coproprietes: number | null
+  liste_coproprietes: string | null
+  /** L'échéance du contrat actuel du prospect — 40 seulement : la source est presque vide. */
+  echeance_actuelle: string | null
+  secteur_activite: string | null
+  role_contact: string | null
+  cote: string | null
+  date_derniere_activite: string | null
+  date_premier_appel: string | null
+  date_premier_email: string | null
+  email_rejete_le: string | null
+  email_rejete_motif: string | null
+  non_lu_par_proprietaire: boolean | null
+  prioritaire: boolean | null
+  /** LA VRAIE date de création. `date_creation` porte celle de l'import — le 01/09/2026 pour les
+   *  5 131 pistes reprises — donc toute statistique par mois doit lire CELLE-CI. */
+  date_creation_salesforce: string | null
+  date_modification_salesforce: string | null
   proprietaire_id: string | null
   /** Le nom du propriétaire, par jointure. Les 5 131 pistes reprises de Salesforce ont toutes gardé
    *  leur `OwnerId` — la répartition est identique à l'org (Thomas 1 688, Matthieu 1 496, Marie

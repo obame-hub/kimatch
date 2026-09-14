@@ -39,10 +39,14 @@ import {
   FALLBACK_ETAPES_RECOMMANDATION,
   FALLBACK_STATUTS_VERSIONS,
 } from '@/lib/referenceFallbacks'
+import { optionsCivilite } from '@/lib/civilite'
 import { cn } from '@/lib/utils'
 import type { Contact } from '@/types/domain'
 
-const CIVILITE_OPTIONS = ['M.', 'Mme', 'Autre']
+/* LES CIVILITÉS VIENNENT DE `@/lib/civilite`, et non d'une liste écrite ici.
+   La base range en « Monsieur » / « Madame » depuis la migration 20260914180000 ; cette liste
+   proposait « M. », « Mme », « Autre ». Un contact repris se serait affiché avec un menu vide —
+   aucune option ne correspondant à sa valeur — et le premier enregistrement l'aurait effacée. */
 
 type TabKey = 'contact' | 'rattachements' | 'contrats' | 'mandats' | 'recommandations' | 'documents'
 
@@ -325,7 +329,7 @@ export default function ContactDetail() {
                       value={contact.civilite ?? ''}
                       options={[
                         { value: '', label: '—' },
-                        ...CIVILITE_OPTIONS.map((c) => ({ value: c, label: c })),
+                        ...optionsCivilite(contact.civilite).map((c) => ({ value: c, label: c })),
                       ]}
                       onCommit={(v) => majChamp({ civilite: v || null })}
                       onSaved={() => showToast('✓ enregistré')}
@@ -688,7 +692,7 @@ function EditContactDialog({ open, onClose, contact, compteSegment }: { open: bo
           <FormField label="Civilité">
             <Select value={civilite} onChange={(e) => setCivilite(e.target.value)}>
               <option value="">—</option>
-              {CIVILITE_OPTIONS.map((c) => <option key={c} value={c}>{c}</option>)}
+              {optionsCivilite(civilite).map((c) => <option key={c} value={c}>{c}</option>)}
             </Select>
           </FormField>
           <FormField label="Prénom">

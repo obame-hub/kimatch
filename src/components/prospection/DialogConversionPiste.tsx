@@ -3,6 +3,7 @@ import { Building, Loader2, Search, UserPlus } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Dialog } from '@/components/ui/dialog'
 import { FormField, Input, Select, Textarea } from '@/components/ui/form'
+import { optionsCivilite } from '@/lib/civilite'
 import { ChoixParRecherche } from '@/components/ui/choix-recherche'
 import { useComptes, useCreateCompte } from '@/lib/data/comptes'
 import { useContacts, useCreateContact } from '@/lib/data/contacts'
@@ -90,9 +91,15 @@ export function DialogConversionPiste({ piste, onFermer, onValide }: {
   const [chercheEnCours, setChercheEnCours] = useState(false)
   const [entreprise, setEntreprise] = useState<CompanyResult | null>(null)
 
+  /* ON NE DEVINE PLUS LE DÉCOUPAGE QUAND SALESFORCE LE DONNE.
+     `separerNom` coupe « Jean Pierre De La Tour » au premier espace et se trompe sur les prénoms
+     composés comme sur les particules. Depuis la migration 20260914170000, la piste porte les
+     vrais `civilite`, `prenom` et `nom` repris de l'objet Lead — 5 139 noms, 4 042 prénoms, 3 590
+     civilités. On ne retombe sur la devinette que pour les pistes saisies à la main ici. */
   const nomSepare = useMemo(() => separerNom(piste.contact_nom), [piste.contact_nom])
-  const [prenom, setPrenom] = useState(nomSepare.prenom)
-  const [nom, setNom] = useState(nomSepare.nom)
+  const [civilite, setCivilite] = useState(piste.civilite ?? '')
+  const [prenom, setPrenom] = useState(piste.prenom ?? nomSepare.prenom)
+  const [nom, setNom] = useState(piste.nom ?? nomSepare.nom)
   const [email, setEmail] = useState(piste.email ?? '')
   const [telephone, setTelephone] = useState(piste.telephone ?? '')
 
@@ -165,7 +172,7 @@ export function DialogConversionPiste({ piste, onFermer, onValide }: {
       const resultatContact = await creerContact.mutateAsync({
         compte_id: idCompte,
         compte_nom: nomCompte,
-        civilite: null,
+        civilite: civilite.trim() || null,
         prenom: prenom.trim(),
         nom: nom.trim(),
         fonction: null,
@@ -383,7 +390,15 @@ export function DialogConversionPiste({ piste, onFermer, onValide }: {
               </div>
 
               {/* Puis le contact lui-même, pré-rempli avec ce que la piste porte. */}
-              <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+              <div className="grid grid-cols-1 gap-2 sm:grid-cols-3">
+                {/* LES TROIS CHAMPS, partout où l'on saisit une personne (demande du 14/09/2026).
+                    La base les remet en forme à l'écriture ; ici on montre juste ce qu'elle gardera. */}
+                <FormField label="Civilité">
+                  <Select value={civilite} onChange={(e) => setCivilite(e.target.value)}>
+                    <option value="">—</option>
+                    {optionsCivilite(civilite).map((c) => <option key={c} value={c}>{c}</option>)}
+                  </Select>
+                </FormField>
                 <FormField label="Prénom">
                   <Input value={prenom} onChange={(e) => setPrenom(e.target.value)} />
                 </FormField>
