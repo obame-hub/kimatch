@@ -17,6 +17,7 @@ import { ActivityFeed } from '@/components/site/ActivityFeed'
 import { HistoriqueDiscret } from '@/components/ui/historique-discret'
 import { useGoBack } from '@/lib/useGoBack'
 import { useCanManage, useProfilsAdmin } from '@/lib/data/roles'
+import { DetailsPiste } from '@/components/prospection/DetailsPiste'
 import { useActionsParPiste, useCompleteAction } from '@/lib/data/actions'
 import { useInteractionsParPiste } from '@/lib/data/interactions'
 import { useDocumentsParEntites, useTeleverserDocuments } from '@/lib/data/documents'
@@ -514,6 +515,12 @@ export default function PisteDetail() {
                 </div>
               )}
             </Card>
+
+            {/* TOUT CE QUE SALESFORCE SAIT, sous les coordonnées. William, 14/09/2026 : « récupérez
+                tout sans exception, on fera le tri dans Kimatch ». La moitié de ces champs était
+                déjà en base et invisible — segment, SIREN, SIRET, origine, activité — l'autre
+                moitié est arrivée avec la migration 20260914170000. */}
+            <DetailsPiste piste={piste} />
 
             <Card className="p-4">
               <p className="mb-2 text-km-label font-bold uppercase tracking-[0.08em] text-km-faint">

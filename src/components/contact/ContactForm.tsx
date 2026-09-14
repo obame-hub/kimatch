@@ -7,6 +7,7 @@ import { useContacts, useCreateContact, findContactDuplicates, type ContactDupli
 import { toUpperFR, toTitleCaseFR, formatPhoneFR, isValidPhoneFR, isValidEmail } from '@/lib/textFormat'
 import type { RoleContact } from '@/lib/contactRoles'
 import { SelecteurRoles } from '@/components/contact/SelecteurRoles'
+import { CIVILITES } from '@/lib/civilite'
 import { cn } from '@/lib/utils'
 import type { Contact } from '@/types/domain'
 
@@ -65,7 +66,9 @@ export function ContactForm({
   const { data: allContacts, isLoading: contactsLoading } = useContacts()
   const createContact = useCreateContact()
 
-  const [civilite, setCivilite] = useState('M.')
+  /* « Monsieur » et non « M. » : c'est ce que la base écrit depuis la migration 20260914180000,
+     et un formulaire qui propose autre chose rend le bouton inactif dès la relecture. */
+  const [civilite, setCivilite] = useState<string>('Monsieur')
   const [prenom, setPrenom] = useState('')
   const [nom, setNom] = useState('')
   const [fonction, setFonction] = useState('')
@@ -170,8 +173,8 @@ export function ContactForm({
         <div>
           <Label>Civilité <span className="text-red-500">*</span></Label>
           <div className="mt-1 grid grid-cols-2 gap-2">
-            {(['M.', 'Mme'] as const).map((c) => {
-              const Icon = c === 'M.' ? UserCircle2 : UserRound
+            {CIVILITES.map((c) => {
+              const Icon = c === 'Monsieur' ? UserCircle2 : UserRound
               const active = civilite === c
               return (
                 <button
