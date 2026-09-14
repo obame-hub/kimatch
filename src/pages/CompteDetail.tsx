@@ -79,6 +79,7 @@ import { useGoBack } from '@/lib/useGoBack'
 import { useRaccourcisOnglets } from '@/lib/useRaccourcisOnglets'
 import type { Compte, Site, TypeCompte, Contrat, Compteur, Recommandation } from '@/types/domain'
 import { OngletContacts } from '@/components/compte/OngletContacts'
+import { useOptionsTypologie } from '@/lib/data/segmentsComptes'
 
 const typeMeta: Record<TypeCompte, { label: string; tone: 'kiwi' | 'blue' | 'amber' | 'neutral' }> = {
   client: { label: 'Consommateur', tone: 'kiwi' },
@@ -1405,6 +1406,7 @@ function QualiteCompteCard({ compte }: { compte: Compte }) {
 }
 
 function IdentiteCard({ compte, onToast }: { compte: Compte; onToast: (msg: string) => void }) {
+  const optionsTypologie = useOptionsTypologie(compte.type_compte, compte.segment)
   const updateField = useUpdateCompteField()
   /* ══ LE PARTENAIRE D'ORIGINE REMONTE DANS L'IDENTITÉ ══
 
@@ -1463,7 +1465,22 @@ function IdentiteCard({ compte, onToast }: { compte: Compte; onToast: (msg: stri
       </div>
       <div className="grid grid-cols-2 gap-4">
         <InlineField variant="select" label="Type de compte" value={compte.type_compte} options={[{ value: 'client', label: 'Consommateur' }, { value: 'fournisseur', label: 'Fournisseur' }, { value: 'partenaire', label: 'Partenaire' }, { value: 'kiwee', label: 'KiWee' }]} onCommit={(v) => commit({ type_compte: v as TypeCompte })} onSaved={() => onToast('✓ enregistré')} />
-        <InlineField variant="text" label="Typologie" value={compte.segment || ''} emptyLabel="ajouter" onCommit={(v) => commit({ segment: v })} onSaved={() => onToast('✓ enregistré')} />
+        {/* ══ LA TYPOLOGIE SE CHOISIT, ELLE NE SE TAPE PLUS ══
+            William, 14/09/2026. C'était un champ libre alors que la table `segments_comptes`
+            existait — mais elle avait divergé : une seule de ses six valeurs correspondait au réel,
+            et brancher le menu tel quel aurait rendu 533 syndics professionnels inqualifiables.
+            La liste a été réalignée le jour même ; les options suivent le TYPE DE COMPTE, parce que
+            « Fournisseur » et « Partenaire » sont des redites du type et n'ont rien à faire dans le
+            menu d'un client. Une valeur hors liste reste proposée : voir useOptionsTypologie. */}
+        <InlineField
+          variant="select"
+          label="Typologie"
+          value={compte.segment || ''}
+          options={optionsTypologie}
+          emptyLabel="choisir"
+          onCommit={(v) => commit({ segment: v })}
+          onSaved={() => onToast('✓ enregistré')}
+        />
         {/* PAS DE PARTENAIRE EN BASE, PAS DE CHAMP. Une liste déroulante vide invite à un clic qui
             ne mène nulle part ; mieux vaut que le champ n'existe pas tant qu'il n'y a personne à
             désigner. Il apparaît dès la création du premier compte partenaire. */}
