@@ -232,7 +232,7 @@ function CreateContactDialog({ open, onClose, initialCompteId }: { open: boolean
           <FormField label="Civilité">
             <div className="flex gap-2">
               {CIVILITES.map((c) => {
-                const Icon = c === 'Monsieur' ? UserCircle2 : UserRound
+                const Icon = c === CIVILITES[0] ? UserCircle2 : UserRound
                 return (
                   <button
                     key={c}

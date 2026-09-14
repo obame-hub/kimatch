@@ -174,7 +174,7 @@ export function ContactForm({
           <Label>Civilité <span className="text-red-500">*</span></Label>
           <div className="mt-1 grid grid-cols-2 gap-2">
             {CIVILITES.map((c) => {
-              const Icon = c === 'Monsieur' ? UserCircle2 : UserRound
+              const Icon = c === CIVILITES[0] ? UserCircle2 : UserRound
               const active = civilite === c
               return (
                 <button

@@ -5,19 +5,29 @@
  * première lettre en majuscule. C'est très très important pour plus tard, quand on fera des
  * rapports, des stats. »
  *
+ * ══ LA FORME RETENUE A CHANGÉ LE MÊME JOUR ══
+ *
+ * William, 14/09/2026, après avoir eu les deux options et la raison de Naoëlle sous les yeux :
+ * « Go option B » — la civilité s'écrit « M. » et « Mme ».
+ *
+ * CE QUI COMPTAIT DANS SON ARGUMENT EST PRÉSERVÉ : la civilité reste normalisée à UNE SEULE
+ * écriture, par le déclencheur, avec le même jeu de synonymes reconnus. Un rapport ne comptera pas
+ * « M. », « Mr » et « Monsieur » comme trois lignes. Seule la forme canonique diffère.
+ * Migration 20260914... « la_civilite_s_ecrit_m_point_et_mme ».
+ *
  * La règle vit en base — `fn_formater_identite_contact`, migration 20260914180000, appliquée à
  * chaque écriture quelle qu'en soit l'origine. Ce fichier ne la réimplémente pas : il donne à
  * l'interface les MÊMES valeurs, pour qu'un menu déroulant ne propose pas « M. » là où la base
  * écrira « Monsieur ».
  *
- * C'EST EXACTEMENT LE DÉFAUT QU'ON ÉVITE ICI. Les écrans offraient `['M.', 'Mme', 'Autre']` ; la
- * base range désormais en « Monsieur » / « Madame ». Un contact repris se serait affiché avec un
- * menu vide — aucune option ne correspondant à sa valeur — et le premier enregistrement l'aurait
- * effacée sans que personne ne le demande.
+ * C'EST EXACTEMENT LE DÉFAUT QU'ON ÉVITE ICI, et il a failli se reproduire en sens inverse : un
+ * interrupteur « M. / Mme » posé sur une base qui rangeait en « Monsieur » n'aurait allumé aucun
+ * des deux boutons, et le premier enregistrement aurait effacé la valeur sans que personne ne le
+ * demande. Les deux doivent dire la même chose, toujours.
  */
 
 /** Les deux seules valeurs que la base écrit d'elle-même. */
-export const CIVILITES = ['Monsieur', 'Madame'] as const
+export const CIVILITES = ['M.', 'Mme'] as const
 export type Civilite = (typeof CIVILITES)[number]
 
 /**
@@ -33,7 +43,7 @@ export function optionsCivilite(valeurActuelle?: string | null): string[] {
   return v && !base.includes(v) ? [...base, v] : base
 }
 
-/** Le nom qu'on lit : « Monsieur Jean DUPONT ». La civilité est facultative, le reste non. */
+/** Le nom qu'on lit : « M. Jean DUPONT ». La civilité est facultative, le reste non. */
 export function nomComplet(p: {
   civilite?: string | null
   prenom?: string | null
