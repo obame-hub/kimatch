@@ -170,19 +170,23 @@ export function usePiste(id: string | undefined) {
          réseau à chaque ouverture de fiche. */
       const { data, error } = await supabase
         .from('pistes')
-        .select('*, statut:statuts_pistes(code, libelle, est_cloture)')
+        .select('*, statut:statuts_pistes(code, libelle, est_cloture), proprietaire:profils!pistes_proprietaire_id_fkey(prenom, nom)')
         .eq('id', id as string)
         .maybeSingle()
       if (error) throw new Error(error.message)
       if (!data) return null
       const brut = data as Record<string, unknown> & {
         statut?: { code: string; libelle: string; est_cloture: boolean } | null
+        proprietaire?: { prenom: string; nom: string } | null
       }
       return {
         ...(brut as unknown as Piste),
         statut_code: brut.statut?.code ?? null,
         statut_libelle: brut.statut?.libelle ?? null,
         statut_clos: Boolean(brut.statut?.est_cloture),
+        proprietaire_nom: brut.proprietaire
+          ? `${brut.proprietaire.prenom} ${brut.proprietaire.nom}`
+          : null,
       }
     },
   })
@@ -204,6 +208,8 @@ export type PatchPiste = Partial<{
   opportunite_id: string | null
   statut_id: string | null
   motif_disqualification: string | null
+  /** Une piste se reprend quand son propriétaire est absent — même règle que partout ailleurs. */
+  proprietaire_id: string | null
 }>
 
 export function useMajPiste() {

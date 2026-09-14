@@ -991,6 +991,11 @@ export interface Piste {
   /** Pourquoi la piste a été écartée. Renseigné avec le statut Disqualifiée, jamais sans. */
   motif_disqualification: string | null
   proprietaire_id: string | null
+  /** Le nom du propriétaire, par jointure. Les 5 131 pistes reprises de Salesforce ont toutes gardé
+   *  leur `OwnerId` — la répartition est identique à l'org (Thomas 1 688, Matthieu 1 496, Marie
+   *  1 010, Fabien 936) — mais AUCUN écran ne l'affichait, d'où « les pistes n'ont pas de
+   *  propriétaire » (William, 14/09/2026). C'était un défaut d'affichage, pas de reprise. */
+  proprietaire_nom: string | null
   date_creation: string
 }
 

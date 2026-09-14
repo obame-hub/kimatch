@@ -16,7 +16,7 @@ import { FriseStatut } from '@/components/opportunite/FriseStatut'
 import { ActivityFeed } from '@/components/site/ActivityFeed'
 import { HistoriqueDiscret } from '@/components/ui/historique-discret'
 import { useGoBack } from '@/lib/useGoBack'
-import { useCanManage } from '@/lib/data/roles'
+import { useCanManage, useProfilsAdmin } from '@/lib/data/roles'
 import { useActionsParPiste, useCompleteAction } from '@/lib/data/actions'
 import { useInteractionsParPiste } from '@/lib/data/interactions'
 import { useDocumentsParEntites, useTeleverserDocuments } from '@/lib/data/documents'
@@ -92,6 +92,7 @@ export default function PisteDetail() {
   const { data: typesDocumentsRef } = useReferenceTable('types_documents')
   const { data: statuts } = useStatutsOpportunites()
   const { data: statutsPistes } = useStatutsPistes()
+  const { data: profils } = useProfilsAdmin()
   const maj = useMajPiste()
   const cocher = useCompleteAction()
   const televerser = useTeleverserDocuments()
@@ -155,6 +156,13 @@ export default function PisteDetail() {
           <p className="truncate text-km-body text-km-muted">
             {piste.reference && <span className="font-mono text-km-faint">{piste.reference} · </span>}
             {piste.contact_nom || 'Contact inconnu'}
+          </p>
+          {/* LE PROPRIÉTAIRE S'AFFICHE ENFIN. William, 14/09/2026 : « il faut que les pistes
+              récupèrent leur propriétaire car actuellement il n'y en a pas ». Vérifié : les 5 131
+              pistes reprises ont toutes le leur, à l'identique de Salesforce — aucun écran ne le
+              montrait, voilà tout. Il se lit ici, et se reprend depuis l'onglet Piste. */}
+          <p className="truncate text-km-xs text-km-faint">
+            Propriétaire : {piste.proprietaire_nom || 'Aucun'}
           </p>
         </div>
 
@@ -451,6 +459,19 @@ export default function PisteDetail() {
                   variant="text" label="Téléphone" emptyLabel="ajouter"
                   value={piste.telephone ?? ''} disabled={!canManage}
                   onCommit={(v: string) => maj.mutateAsync({ id: piste.id, patch: { telephone: v.trim() || null } })}
+                  onSaved={() => signaler('✓ enregistré')}
+                  onError={(e: Error) => signaler(`Erreur : ${e.message}`)}
+                />
+                {/* LA PISTE SE REPREND, comme un compte ou un contrat : un commercial en vacances
+                    ne doit pas immobiliser ses 1 688 pistes. Même geste que partout ailleurs. */}
+                <InlineField
+                  variant="select" label="Propriétaire" emptyLabel="aucun"
+                  value={piste.proprietaire_id ?? ''} disabled={!canManage}
+                  options={[
+                    { value: '', label: 'Aucun' },
+                    ...(profils ?? []).map((p) => ({ value: p.id, label: `${p.prenom} ${p.nom}` })),
+                  ]}
+                  onCommit={(v: string) => maj.mutateAsync({ id: piste.id, patch: { proprietaire_id: v || null } })}
                   onSaved={() => signaler('✓ enregistré')}
                   onError={(e: Error) => signaler(`Erreur : ${e.message}`)}
                 />
