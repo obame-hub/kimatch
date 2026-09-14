@@ -1,21 +1,6 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useState, useRef } from 'react'
 import { useParams, useNavigate, useSearchParams, Link } from 'react-router-dom'
-import {
-  ArrowLeft,
-  Plus,
-  Building2,
-  Pencil,
-  Trash2,
-  FileCheck2,
-  MapPin,
-  Search,
-  Factory,
-  Handshake,
-  Leaf,
-  type LucideIcon,
-
-  Target,
-} from 'lucide-react'
+import { ArrowLeft, BadgeCheck, Building2, ChevronDown, FileCheck2, MapPin, Pencil, Plus, Search, Target } from 'lucide-react'
 import { Topbar } from '@/components/layout/Topbar'
 import { HubCreation } from '@/components/compte/HubCreation'
 import { ZoneATraiter } from '@/components/compte/ZoneATraiter'
@@ -79,6 +64,9 @@ import { useGoBack } from '@/lib/useGoBack'
 import { useRaccourcisOnglets } from '@/lib/useRaccourcisOnglets'
 import type { Compte, Site, TypeCompte, Contrat, Compteur, Recommandation } from '@/types/domain'
 import { OngletContacts } from '@/components/compte/OngletContacts'
+import { OngletCompteurs } from '@/components/compte/OngletCompteurs'
+import { BandeauCompte } from '@/components/compte/BandeauCompte'
+import { useMesuresDuParc } from '@/lib/data/parcDuCompte'
 import { useOptionsTypologie } from '@/lib/data/segmentsComptes'
 
 const typeMeta: Record<TypeCompte, { label: string; tone: 'kiwi' | 'blue' | 'amber' | 'neutral' }> = {
@@ -95,23 +83,6 @@ const typeMeta: Record<TypeCompte, { label: string; tone: 'kiwi' | 'blue' | 'amb
 // visuellement). L'icône "compte" (dalle bleue Building2) ne varie pas : c'est la couleur de
 // l'objet, pas du sous-type, cf. charte iconographique du handoff.
 /**
- * Distinction graphique des types de compte.
- *
- * Le brief de William demande « une distinction franche entre Client / Partenaire / Fournisseur,
- * reconnaissable au premier coup d'œil ». Les couleurs étaient là ; l'icône manquait, or c'est
- * elle qui se lit sans lire — une pastille de couleur seule oblige à se souvenir du code.
- *
- * Rappel métier porté par le brief : « compte client » est une TYPOLOGIE. Cela ne veut pas dire
- * que le compte est prospect — un compte client détient au moins un compteur client.
- */
-const TYPE_BADGE_STYLE: Record<TypeCompte, { bg: string; border: string; text: string; dot: string; icone: LucideIcon }> = {
-  client: { bg: 'bg-km-green-soft', border: 'border-km-green-line', text: 'text-km-green', dot: 'bg-km-green', icone: Building2 },
-  fournisseur: { bg: 'bg-km-blue-soft', border: 'border-sky-200', text: 'text-km-blue', dot: 'bg-km-blue', icone: Factory },
-  partenaire: { bg: 'bg-km-amber-soft', border: 'border-km-amber-line', text: 'text-km-amber', dot: 'bg-km-amber', icone: Handshake },
-  kiwee: { bg: 'bg-km-soft', border: 'border-km-line', text: 'text-km-muted', dot: 'bg-km-faint', icone: Leaf },
-}
-
-/**
  * Le bloc « Commentaire » de l'onglet Compte, masqué le 13/09/2026 à la demande de William.
  *
  * ANNOTÉ `boolean` ET NON LAISSÉ À `false` : au type littéral, TypeScript considère la branche comme
@@ -120,6 +91,19 @@ const TYPE_BADGE_STYLE: Record<TypeCompte, { bg: string; border: string; text: s
  * est exactement ce qu'on veut d'un interrupteur qu'on rallumera peut-être.
  */
 const AFFICHER_COMMENTAIRE: boolean = false
+
+/**
+ * Les onglets « Contrats » et « Mandats », masqués le 14/09/2026 à la demande de William.
+ *
+ * MASQUÉS, PAS SUPPRIMÉS : leur contenu, leurs requêtes et leurs badges restent en place, et une
+ * seule valeur les fait revenir. Retirer le code aurait coûté une reconstruction le jour où la
+ * question se repose — et elle se reposera, ces deux objets étant au cœur du métier.
+ *
+ * ANNOTÉ `boolean` ET NON LAISSÉ AU LITTÉRAL `false` : au type littéral, TypeScript considère les
+ * branches comme mortes et cesse d'y appliquer le rétrécissement de types — `compte` y redevient
+ * `Compte | undefined` et la compilation échoue. Même raison qu'au-dessus.
+ */
+const AFFICHER_CONTRATS_ET_MANDATS: boolean = false
 
 type TabKey = 'synthese' | 'detail' | 'contacts' | 'contrats' | 'compteurs' | 'opportunites' | 'recommandations' | 'mandats' | 'fichiers' | 'historique' | 'activite'
 
@@ -199,6 +183,19 @@ export default function CompteDetail() {
   const { data: statutsMandatsRef } = useReferenceTable('statuts_mandats')
   const statutsMandats = statutsMandatsRef && statutsMandatsRef.length > 0 ? statutsMandatsRef : FALLBACK_STATUTS_MANDATS
 
+  /**
+   * ══ L'ONGLET PEUT VENIR DE L'ADRESSE ══
+   *
+   * `?tab=compteurs` était déjà écrit dans le lien « Tout voir dans Compteurs » de la zone
+   * « À traiter » — sans que personne ne le lise. Le lien ramenait donc sur l'onglet Compte, ce qui
+   * ressemble à un bouton cassé. C'est ma faute, du 13/09 ; elle se voit aujourd'hui parce qu'on
+   * masque des onglets et que j'ai regardé qui pointait vers eux.
+   *
+   * LA VALEUR EST VÉRIFIÉE CONTRE LES ONGLETS RÉELLEMENT VISIBLES : un lien vers un onglet masqué —
+   * ou une adresse inventée — ouvrirait sinon une page vide, sans barre active et sans rien dedans.
+   * On reste alors sur « Compte », qui existe toujours.
+   */
+  const [parametres] = useSearchParams()
   const [tab, setTab] = useState<TabKey>('synthese')
   const [toast, setToast] = useState<string | null>(null)
   const [showEditSubtype, setShowEditSubtype] = useState(false)
@@ -309,7 +306,14 @@ export default function CompteDetail() {
     ]
   }, [noteEllipro, majEllipro])
   const canManage = useCanManage(compte?.proprietaire_id)
-  const { data: historique } = useHistorique('comptes', compte?.id, tab === 'historique')
+  /* L'HISTORIQUE N'EST PLUS UN ONGLET. William, 14/09/2026 : « je préfère en faire un bouton
+     permettant d'afficher une popup avec tout l'historique de modification de champs ». Il occupait
+     une place permanente dans la barre pour une consultation rare — et surtout, on n'y va jamais
+     « pour voir l'historique », on y va quand on se demande qui a changé une valeur. La question
+     naît ailleurs ; la réponse doit venir par-dessus, pas en quittant l'onglet où on travaille.
+     La lecture ne part qu'à l'ouverture de la fenêtre. */
+  const [historiqueOuvert, setHistoriqueOuvert] = useState(false)
+  const { data: historique } = useHistorique('comptes', compte?.id, historiqueOuvert)
 
   /* LES ADRESSES DU COMPTE, DÉDUITES DE SES COMPTEURS. Même forme qu'avant — un objet par
      lieu, avec son identifiant, son nom et sa géolocalisation — pour que la carte et les
@@ -384,20 +388,40 @@ export default function CompteDetail() {
        Naoëlle, 31/08/2026). Ils occupaient 300 px en permanence sur les huit onglets, y compris
        ceux où l'on ne travaille pas sur les personnes. */
     { key: 'contacts', label: 'Contacts', badge: contactsDuCompte.length ? String(contactsDuCompte.length) : undefined },
-    { key: 'contrats', label: 'Contrats', badge: contratsDuCompte.length ? String(contratsDuCompte.length) : undefined },
+    ...(AFFICHER_CONTRATS_ET_MANDATS
+      ? [{ key: 'contrats' as const, label: 'Contrats', badge: contratsDuCompte.length ? String(contratsDuCompte.length) : undefined }]
+      : []),
     { key: 'compteurs', label: 'Compteurs', badge: compteursDuCompte.length ? String(compteursDuCompte.length) : undefined },
     /* AVANT les recommandations, parce que c'est l'ordre du parcours : l'opportunité se convertit
        EN recommandations. Les lire dans l'autre sens ferait chercher la cause après l'effet. */
     { key: 'opportunites', label: 'Opportunités', labelMobile: 'Oppos', badge: opportunitesDuCompte.length ? String(opportunitesDuCompte.length) : undefined },
     { key: 'recommandations', label: 'Recommandations', labelMobile: 'Recos', badge: recommandationsDuCompte.length ? String(recommandationsDuCompte.length) : undefined },
-    { key: 'mandats', label: 'Mandats', badge: mandatsDuCompte.length ? String(mandatsDuCompte.length) : undefined },
+    ...(AFFICHER_CONTRATS_ET_MANDATS
+      ? [{ key: 'mandats' as const, label: 'Mandats', badge: mandatsDuCompte.length ? String(mandatsDuCompte.length) : undefined }]
+      : []),
     { key: 'fichiers', label: 'Fichiers', badge: documentsDuCompte.length ? String(documentsDuCompte.length) : undefined },
-    { key: 'historique', label: 'Historique' },
     { key: 'activite', label: 'Activité', mobileOnly: true },
   ]
 
+  /* Les quatre mesures du bandeau. Elles étaient en héros de l'onglet Compteurs ; les remonter les
+     rend visibles depuis tous les onglets, et les afficher aux deux endroits aurait fait lire deux
+     fois le même chiffre. */
+  const mesuresDuParc = useMesuresDuParc(compte?.id, compteursDuCompte)
+
   // « 1–5 pour naviguer » : le raccourci annonce par la maquette dans la barre d'onglets.
   const clesOnglets = TABS.filter((t) => !t.mobileOnly).map((t) => t.key)
+
+  // Une seule fois, à l'ouverture : revenir sur la page ne doit pas ramener l'onglet de l'adresse
+  // par-dessus celui qu'on vient de choisir à la main.
+  const ongletDeLAdresse = parametres.get('tab')
+  const ongletsVisibles = useRef<TabKey[]>([])
+  ongletsVisibles.current = TABS.map((o) => o.key)
+  const adresseAppliquee = useRef(false)
+  useEffect(() => {
+    if (adresseAppliquee.current || !ongletDeLAdresse) return
+    adresseAppliquee.current = true
+    if (ongletsVisibles.current.includes(ongletDeLAdresse as TabKey)) setTab(ongletDeLAdresse as TabKey)
+  }, [ongletDeLAdresse])
   useRaccourcisOnglets(clesOnglets, setTab)
 
   useEffect(() => {
@@ -452,83 +476,62 @@ export default function CompteDetail() {
     <div className="flex h-full flex-col overflow-hidden">
       <Topbar crumb="Comptes" title={compte.nom} />
 
-      {/* Bandeau compte */}
-      <div className="flex flex-none flex-wrap items-start gap-4 bg-km-surface px-4 pt-3.5 sm:px-[22px]">
-        <Button variant="ghost" size="icon" onClick={goBack} title="Retour aux comptes" className="mt-1">
-          <ArrowLeft className="h-4 w-4" />
-        </Button>
-        {/* Icône = objet "compte" au sens de la charte iconographique (bleu #3b5f8a, Building2,
-            identique partout dans le CRM) -- ne varie PAS avec le sous-type Client/Fournisseur/
-            Partenaire, c'est le badge à pastille juste à côté qui porte cette distinction. */}
-        <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-km-lg bg-gradient-to-br from-km-blue to-[#4f78ab] text-white">
-          <Building2 className="h-[18px] w-[18px]" />
-        </span>
-        <div className="flex min-w-0 flex-1 flex-col gap-1.5">
-          {/* Titre en 28px et non plus 20 : « nom du compte trop petit » (William, 15/08/2026).
-              C'est le titre de la fiche, il doit se lire d'un coup d'œil. */}
-          <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
-            {canManage ? (
-              <InlineField
-                variant="text"
-                value={compte.nom}
-                onCommit={(nom) => updateCompte.mutateAsync({ id: compte.id, nom, ville: compte.ville, segment: compte.segment, proprietaire_id: compte.proprietaire_id ?? null })}
-                onSaved={() => showToast('✓ enregistré')}
-                onError={(err) => showToast(`Erreur : ${err.message}`)}
-                className="text-km-h1 font-bold leading-tight tracking-tight text-km-text"
-              />
-            ) : (
-              <span className="text-km-h1 font-bold leading-tight tracking-tight text-km-text">{compte.nom}</span>
-            )}
+      {/* ══ LE BANDEAU ══ voir BandeauCompte.tsx pour le raisonnement de la refonte. */}
+      <BandeauCompte
+        mesures={mesuresDuParc}
+        canManage={canManage}
+        onRetour={goBack}
+        onModifier={() => setEditOpen(true)}
+        onSupprimer={() => setConfirmDelete(true)}
+        onHistorique={() => setHistoriqueOuvert(true)}
+        titre={
+          canManage ? (
+            <InlineField
+              variant="text"
+              value={compte.nom}
+              onCommit={(nom) => updateCompte.mutateAsync({ id: compte.id, nom, ville: compte.ville, segment: compte.segment, proprietaire_id: compte.proprietaire_id ?? null })}
+              onSaved={() => showToast('✓ enregistré')}
+              onError={(err) => showToast(`Erreur : ${err.message}`)}
+              className="text-[19px] font-bold leading-tight tracking-[-.02em] text-km-text"
+            />
+          ) : (
+            compte.nom
+          )
+        }
+        pastilles={
+          <>
+            {/* LES DEUX CARTOUCHES REMONTENT EN TAILLE. William, 14/09/2026 : ils étaient en
+                `text-km-tiny`, ce qui les faisait lire comme des annotations alors qu'ils portent
+                ce que le compte EST — sa typologie et sa nature. Un cran de police, un peu d'air
+                autour, et ils se lisent à hauteur du nom sans le concurrencer. */}
             {compte.segment && (
-              <span className="rounded-lg bg-km-blue-soft px-2 py-0.5 text-km-xs font-medium text-km-blue">{compte.segment}</span>
+              <span className="rounded-km bg-km-blue-soft px-2 py-0.5 text-km-label font-semibold text-km-blue">{compte.segment}</span>
             )}
-            {(() => {
-              /* ══ CE BLOC PLANTAIT LA FICHE ENTIÈRE ══
-                 Naoëlle, 01/09/2026 : « j'ai ce problème quand je clique sur un contact OHAYON
-                 NISSIM ». Son compte — « M. OHAYON NISSIM (CPIDF IMMOBILIER) » — a un
-                 `type_compte` NUL. `TYPE_BADGE_STYLE[null]` rend `undefined`, et lire `.icone`
-                 dessus lève une TypeError pendant le rendu : React démonte l'arbre et l'écran
-                 devient blanc. Trois comptes sur 2 769 sont dans ce cas.
+            {/* ══ CLIENT OU PROSPECT, PAS « CONSOMMATEUR » ══
+                William, 14/09/2026 : « remplace la cartouche Consommateur par la cartouche statut
+                (client/prospect) ». « Consommateur » redisait le type de compte, que la fiche porte
+                déjà partout ailleurs ; le statut, lui, dit s'il y a du chiffre d'affaires en cours.
 
-                 LA LISTE DES COMPTES, ELLE, NE PLANTAIT PAS : elle écrit déjà
-                 `typeMeta[type]?.label ?? type`. La fiche indexait en direct. Le même défaut à
-                 deux endroits, protégé d'un côté et pas de l'autre — c'est exactement ce qui fait
-                 qu'un bogue reste invisible jusqu'au mauvais clic.
-
-                 UN TYPE INCONNU N'EST PAS UNE ERREUR À CACHER : la pastille s'affiche en neutre
-                 avec la valeur brute, ou disparaît si le type est absent. Le reste de la fiche
-                 s'ouvre. */
-              const style = TYPE_BADGE_STYLE[compte.type_compte]
-              if (!style) {
-                return compte.type_compte ? (
-                  <span className="inline-flex items-center gap-1 rounded-lg border border-km-line bg-km-soft px-2 py-0.5 text-km-xs font-medium text-km-muted">
-                    {compte.type_compte}
-                  </span>
-                ) : null
-              }
-              const IconeType = style.icone
-              return (
-                <span className={cn('inline-flex items-center gap-1 rounded-lg border px-2 py-0.5 text-km-xs font-medium', style.bg, style.border, style.text)}>
-                  <IconeType className="h-3 w-3" strokeWidth={2} />
-                  {typeMeta[compte.type_compte]?.label ?? compte.type_compte}
+                IL SE DÉDUIT DU PARC, comme au niveau du compteur : est client un compte dont au
+                moins un compteur est couvert par un contrat actif et non échu. Aucune saisie, donc
+                aucune dérive possible entre l'étiquette et la réalité. */}
+            {mesuresDuParc.total > 0 && (
+              mesuresDuParc.clients > 0 ? (
+                <span className="inline-flex items-center gap-1.5 rounded-km border border-km-green-line bg-km-green-soft px-2 py-0.5 text-km-label font-semibold text-km-green">
+                  <BadgeCheck className="h-3 w-3" strokeWidth={2.2} /> Client
+                </span>
+              ) : (
+                <span className="inline-flex items-center gap-1.5 rounded-km border border-km-line bg-km-soft px-2 py-0.5 text-km-label font-semibold text-km-muted">
+                  <Target className="h-3 w-3" strokeWidth={2.2} /> Prospect
                 </span>
               )
-            })()}
-            {/* « ADRESSES » ET NON « SITES ». Le compte de lieux reste juste et utile — c'est
-                l'étendue du client — mais le mot désignait un objet qui n'existe plus. Il est
-                désormais déduit des compteurs, pas d'une table. */}
-            <span className="text-km-name text-km-muted"><b className="text-km-text">{sitesDuCompte.length}</b> adresse{sitesDuCompte.length > 1 ? 's' : ''}</span>
-          </div>
-        </div>
-        <div className="flex flex-wrap items-center gap-1.5">
-          {/* « Note » et « Relance » ont ete retires du bandeau le 16/08/2026 (demande de Naoelle :
-              « enlever les boutons Note et Relance partout ou c'est affiche »). La note s'ecrit
-              dans l'onglet Activite, ou le champ est deja sous les yeux ; une relance se cree comme
-              n'importe quelle tache. */}
-
-          {/* Les six créations passent dans le hub, comme dans la maquette. Les conditions d'accès
-              sont conservées et deviennent des infobulles sur la ligne concernée, plutôt que des
-              boutons grisés dont on ne devinait pas la raison. */}
+            )}
+          </>
+        }
+        proprietaire={<RecordMetaCard compte={compte} canManage={canManage} onToast={showToast} />}
+        actionCreer={
+          /* Les six créations passent par le hub. Les conditions d'accès deviennent des infobulles
+             sur la ligne concernée, plutôt que des boutons grisés dont on ne devinait pas la raison. */
           <HubCreation
             onOuvertChange={setHubOuvert}
             indisponibles={{
@@ -546,57 +549,60 @@ export default function CompteDetail() {
               if (cle === 'recommandation') setAddRecoOpen(true)
             }}
           />
+        }
+        onglets={
+          <div className="grid grid-cols-1 border-b border-km-line lg:grid-cols-fiche-activite">
+            <div className="flex min-w-0 items-center gap-0.5 overflow-x-auto px-4 pt-1.5 sm:px-[22px]">
+              {TABS.map((o) => {
+                const isActive = tab === o.key
+                return (
+                  <button
+                    key={o.key}
+                    type="button"
+                    onClick={() => setTab(o.key)}
+                    className={cn(
+                      'inline-flex shrink-0 items-center gap-1.5 whitespace-nowrap border-b-2 px-[13px] py-[9px] text-km-name transition-colors',
+                      o.mobileOnly && 'lg:hidden',
+                      isActive ? 'border-km-text font-semibold text-km-text' : 'border-transparent font-normal text-km-muted hover:text-km-text',
+                    )}
+                  >
+                    <span className="lg:hidden">{o.labelMobile ?? o.label}</span>
+                    <span className="hidden lg:inline">{o.label}</span>
+                    {o.badge && (
+                      <span className="rounded-km-sm bg-km-soft px-[5px] py-px text-km-tiny font-bold text-km-muted">{o.badge}</span>
+                    )}
+                  </button>
+                )
+              })}
+            </div>
+            <div className="hidden items-center border-b-2 border-km-text px-3 lg:flex">
+              <span className="truncate text-km-label font-bold uppercase tracking-[0.08em] text-km-faint">
+                Activité · portefeuille
+              </span>
+            </div>
+          </div>
+        }
+      />
 
-          {canManage && (
-            <button
-              type="button"
-              onClick={() => setConfirmDelete(true)}
-              title="Supprimer ce compte"
-              className="inline-flex cursor-pointer items-center gap-1.5 rounded-[9px] border border-[#e0dfdb] bg-white px-3 py-2 text-km-label font-semibold text-[#5c5f66] transition-all duration-[140ms] hover:border-[#f0c8bd] hover:bg-[#fbeae5] hover:text-[#c2452d]"
-            >
-              <Trash2 className="h-3 w-3" /> Supprimer
-            </button>
-          )}
-        </div>
-        <RecordMetaCard compte={compte} canManage={canManage} onToast={showToast} />
-      </div>
+      {/* ══ LES ZONES — ET LA RANGÉE QUI LES CONTIENT ══
+          William, 15/09/2026 : « le contenu est coupé net en bas, il continue mais tu ne peux pas
+          l'atteindre » — dans le volet d'activité de droite.
 
-      {/* Onglets */}
-      <div className="grid flex-none grid-cols-1 border-b border-km-line bg-km-surface lg:grid-cols-fiche-activite">
-        <div className="flex min-w-0 items-center gap-0.5 overflow-x-auto px-4 pt-2.5 sm:px-[22px]">
-        {TABS.map((t) => {
-          const isActive = tab === t.key
-          return (
-            <button
-              key={t.key}
-              type="button"
-              onClick={() => setTab(t.key)}
-              className={cn(
-                'inline-flex shrink-0 items-center gap-1.5 whitespace-nowrap border-b-2 px-[13px] py-[9px] text-km-name transition-colors',
-                t.mobileOnly && 'lg:hidden',
-                isActive ? 'border-km-text font-semibold text-km-text' : 'border-transparent font-normal text-km-muted hover:text-km-text',
-              )}
-            >
-              <span className="lg:hidden">{t.labelMobile ?? t.label}</span>
-              <span className="hidden lg:inline">{t.label}</span>
-              {t.badge && (
-                <span className="rounded-km-sm bg-km-soft px-[5px] py-px text-km-tiny font-bold text-km-muted">
-                  {t.badge}
-                </span>
-              )}
-            </button>
-          )
-        })}
-        </div>
-        <div className="hidden items-center border-b-2 border-km-text px-3 lg:flex">
-          <span className="truncate text-km-label font-bold uppercase tracking-[0.08em] text-km-faint">
-            Activité · portefeuille
-          </span>
-        </div>
-      </div>
+          LA CAUSE N'ÉTAIT PAS DANS LES COLONNES, ELLE ÉTAIT DANS LA RANGÉE. Les deux colonnes
+          avaient bien leur chaîne de `min-h-0` et leur `overflow-y-auto` au bon endroit. Mais cette
+          grille n'a qu'une rangée IMPLICITE, donc dimensionnée en `auto` — c'est-à-dire à la
+          hauteur de son contenu le plus haut. Quand le fil d'activité dépasse la fenêtre, la rangée
+          grandit avec lui, les colonnes s'étirent à cette hauteur-là, et plus personne n'a besoin
+          de défiler : chaque boîte contient exactement son contenu. C'est l'`overflow-hidden` de la
+          grille qui coupe, tout en bas, sans barre de défilement.
 
-      {/* 3 zones */}
-      <div className="grid min-h-0 flex-1 grid-cols-1 overflow-hidden lg:grid-cols-fiche-activite">
+          `minmax(0, 1fr)` FORCE LA RANGÉE À LA HAUTEUR DISPONIBLE et l'autorise à descendre sous la
+          taille de son contenu — les deux moitiés comptent. Sans le `minmax(0, …)`, un `1fr` garde
+          un minimum automatique égal au contenu, et le défaut reste entier.
+
+          Le défaut était latent : il ne se voyait que lorsque le fil dépassait la hauteur de
+          l'écran, ce qui dépend du compte ouvert et de la taille de la fenêtre. */}
+      <div className="grid min-h-0 flex-1 grid-cols-1 grid-rows-[minmax(0,1fr)] overflow-hidden lg:grid-cols-fiche-activite">
         {/* Centre — contenu de l'onglet */}
         <div className="min-h-0 overflow-y-auto bg-km-bg p-4 sm:p-5">
           {tab === 'contacts' && (
@@ -922,7 +928,7 @@ export default function CompteDetail() {
             </div>
           )}
 
-          {tab === 'contrats' && (
+          {AFFICHER_CONTRATS_ET_MANDATS && tab === 'contrats' && (
             <ContratsTabContent
               sites={sitesDuCompte}
               compteId={compte.id}
@@ -931,9 +937,7 @@ export default function CompteDetail() {
             />
           )}
 
-          {tab === 'compteurs' && (
-            <CompteursTabContent sites={sitesDuCompte} compteId={compte.id} compteurs={compteursDuCompte} />
-          )}
+          {tab === 'compteurs' && <OngletCompteurs compteId={compte.id} compteurs={compteursDuCompte} />}
 
           {tab === 'opportunites' && (
             <div className="flex flex-col gap-2.5">
@@ -984,7 +988,7 @@ export default function CompteDetail() {
           {tab === 'recommandations' && <OngletRecommandations recommandations={recommandationsDuCompte} />}
 
 
-          {tab === 'mandats' && (
+          {AFFICHER_CONTRATS_ET_MANDATS && tab === 'mandats' && (
             <div className="flex flex-col gap-2.5">
               {mandatsDuCompte.length === 0 ? (
                 <div className="rounded-xl border border-dashed border-km-amber-line bg-km-amber-soft p-4">
@@ -1037,8 +1041,6 @@ export default function CompteDetail() {
             />
           )}
 
-          {tab === 'historique' && <OngletHistorique entrees={historique} />}
-
           {tab === 'activite' && (
             <ActivityFeed
               compteId={compte.id}
@@ -1084,6 +1086,20 @@ export default function CompteDetail() {
       )}
 
       <EditCompteDialog compte={compte} open={editOpen} onClose={() => setEditOpen(false)} />
+
+      <Dialog
+        open={historiqueOuvert}
+        onClose={() => setHistoriqueOuvert(false)}
+        title="Historique des modifications"
+        description={compte.nom}
+        className="max-w-4xl"
+      >
+        {/* La hauteur est bornée et le contenu défile : un compte suivi depuis deux ans a des
+            centaines de lignes, et une fenêtre qui grandit sans fin sort de l'écran. */}
+        <div className="max-h-[70vh] overflow-y-auto">
+          <OngletHistorique entrees={historique} />
+        </div>
+      </Dialog>
 
       {/* Monté seulement à l'ouverture : ce dialogue charge TOUS les contacts et TOUS les
           compteurs (il doit détecter un PDL déjà existant ailleurs dans le CRM). Monté en
@@ -1591,23 +1607,37 @@ function RecordMetaCard({ compte, canManage, onToast }: { compte: Compte; canMan
     }
   }
 
+  /* ══ LE PROPRIÉTAIRE N'EST PLUS UNE CARTE ══
+   *
+   * William, 14/09/2026 : « le rendu est complètement différent de ce que tu m'as mis dans ton
+   * design, notamment concernant la card du propriétaire ». Il a raison, et c'est ma faute : la
+   * maquette de la direction C montrait une pastille en ligne — une initiale, un nom — et j'ai
+   * branché sans y toucher l'ancienne carte encadrée, avec son fond gris et ses deux dates.
+   *
+   * Une carte dans une ligne d'identité fait un objet de plus à la même altitude que le nom, ce que
+   * cette refonte vise précisément à supprimer. Le propriétaire redevient une mention.
+   *
+   * LES DEUX DATES SORTENT DU BANDEAU. « Créé le… · Modifié le… » sur deux lignes, en permanence,
+   * pour une information qu'on consulte une fois par dossier : elles passent en infobulle, et
+   * restent lisibles dans l'onglet Historique qui existe pour ça. */
+  const dates = [
+    compte.date_creation ? `Créé le ${new Date(compte.date_creation).toLocaleDateString('fr-FR')}` : null,
+    compte.date_modification ? `modifié le ${new Date(compte.date_modification).toLocaleDateString('fr-FR')}` : null,
+  ].filter(Boolean).join(' · ')
+
   return (
-    <div className="relative flex shrink-0 flex-col items-start gap-0.5 rounded-km-lg border border-km-line-soft bg-km-soft px-2.5 py-1.5">
+    <div className="relative shrink-0">
       <button
         type="button"
         disabled={!canManage}
         onClick={() => setOpen((v) => !v)}
-        title="Propriétaire — cliquer pour réattribuer"
-        className="flex items-center gap-1.5 disabled:cursor-default"
+        title={[canManage ? 'Propriétaire — cliquer pour réattribuer' : 'Propriétaire', dates].filter(Boolean).join(' — ')}
+        className="flex h-8 items-center gap-1.5 rounded-km px-1.5 transition-colors enabled:hover:bg-km-soft disabled:cursor-default"
       >
-        <span className="flex h-4 w-4 items-center justify-center rounded-full bg-[#e4ded2] text-km-micro font-bold text-[#6b6355]">{initiales}</span>
-        <span className="text-km-label font-bold text-km-muted">{compte.proprietaire_nom || 'Aucun propriétaire'}</span>
-        {canManage && <span className="text-km-faint">▾</span>}
+        <span className="flex h-5 w-5 items-center justify-center rounded-full bg-km-soft text-km-tiny font-bold text-km-muted">{initiales}</span>
+        <span className="hidden text-km-label font-semibold text-km-muted lg:inline">{compte.proprietaire_nom || 'Sans propriétaire'}</span>
+        {canManage && <ChevronDown className="h-3 w-3 text-km-faint" />}
       </button>
-      <span className="whitespace-nowrap text-km-label text-km-faint">
-        {compte.date_creation && <>Créé {new Date(compte.date_creation).toLocaleDateString('fr-FR')} · </>}
-        Modifié {compte.date_modification ? new Date(compte.date_modification).toLocaleDateString('fr-FR') : '—'}
-      </span>
       {open && (
         <div className="absolute right-0 top-full z-30 mt-1 max-h-64 w-52 overflow-y-auto rounded-km-md border border-km-line bg-km-surface py-1 shadow-km-pop">
           <button type="button" onClick={() => reassign('')} className="block w-full px-3 py-1.5 text-left text-km-name text-km-muted hover:bg-km-soft">Aucun</button>
@@ -1748,46 +1778,6 @@ function ContratsTabContent({
   )
 }
 
-function CompteursTabContent({ sites, compteId, compteurs }: { sites: Site[]; compteId: string; compteurs: Compteur[] }) {
-  const [recherche, setRecherche] = useState('')
-  const q = recherche.trim().toLowerCase()
-  const compteursAffiches = q
-    ? compteurs.filter((c) => {
-        const site = sites.find((s) => s.id === c.site_id)
-        return (c.numero_pdl ?? '').toLowerCase().includes(q) || (c.utilisation ?? '').toLowerCase().includes(q) || (site?.nom ?? '').toLowerCase().includes(q)
-      })
-    : compteurs
-
-  if (compteurs.length === 0) return <p className="text-km-name text-km-faint">Aucun compteur pour ce compte.</p>
-
-  return (
-    <div className="flex flex-col gap-3">
-      <SiteSearchBox
-        value={recherche}
-        onChange={setRecherche}
-        placeholder="Rechercher un site, un numéro de PDL/PCE…"
-        total={compteursAffiches.length}
-        unit="compteur"
-      />
-      <GroupedBySite
-        sites={sites}
-        compteId={compteId}
-        itemsBySiteId={(siteId) => compteursAffiches.filter((c) => c.site_id === siteId)}
-        orphanItems={compteursAffiches.filter((c) => !sites.some((s) => s.id === c.site_id))}
-        renderSummary={(items) => {
-          const elec = items.filter((c) => c.type_energie !== 'gaz').length
-          const gaz = items.filter((c) => c.type_energie === 'gaz').length
-          const parts = [elec > 0 && `${elec} élec.`, gaz > 0 && `${gaz} gaz`].filter(Boolean)
-          return parts.join(' · ')
-        }}
-        emptyLabel="Aucun compteur pour ce filtre."
-      />
-    </div>
-  )
-}
-
-// Barre de recherche générique réutilisée par les onglets Contrats/Compteurs (retour William :
-// « faut que tu mettes une recherche »). Filtre côté appelant, cette fonction ne fait que l'UI.
 function SiteSearchBox({ value, onChange, placeholder, total, unit }: { value: string; onChange: (v: string) => void; placeholder: string; total: number; unit: string }) {
   return (
     <div className="flex items-center gap-2 rounded-km border border-km-line bg-km-surface px-3 py-2">
