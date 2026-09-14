@@ -43,6 +43,8 @@ import type { CompteurRelais } from '@/lib/data/relaisConseilSyndical'
 
 export function DialogDesignerRelais({
   compteur,
+  compteurs,
+  onChangerCompteur,
   compteId,
   compteNom,
   contacts,
@@ -51,6 +53,16 @@ export function DialogDesignerRelais({
 }: {
   /** Le compteur à couvrir. `null` ferme la fenêtre. */
   compteur: CompteurRelais | null
+  /**
+   * Tous les compteurs du compte.
+   *
+   * LE CHOIX DU COMPTEUR EST ENTRÉ DANS LA FENÊTRE le 14/09/2026, quand la liste de couverture est
+   * sortie de la zone. Il se faisait jusque-là en cliquant « Désigner » sur la bonne ligne ; sans
+   * liste, il n'y avait plus d'endroit pour le faire — et une fenêtre ouverte sur un compteur qu'on
+   * ne peut pas changer aurait couvert le mauvais PDL une fois sur deux.
+   */
+  compteurs: CompteurRelais[]
+  onChangerCompteur: (c: CompteurRelais) => void
   compteId: string
   compteNom: string
   /** Les contacts du compte, pour le choix parmi l'existant. */
@@ -70,6 +82,12 @@ export function DialogDesignerRelais({
   const creer = useCreateContact()
   const assigner = useAssignCompteurContact()
   const enCours = creer.isPending || assigner.isPending
+
+  /** Les découverts en tête : c'est ce qu'on vient couvrir. */
+  const compteursTries = useMemo(
+    () => [...compteurs].sort((a, b) => Number(!!a.relais_contact_id) - Number(!!b.relais_contact_id)),
+    [compteurs],
+  )
 
   // Le responsable du compteur ne peut pas être son propre relais — voir l'en-tête.
   const candidats = useMemo(
@@ -152,6 +170,23 @@ export function DialogDesignerRelais({
       className="max-w-lg"
     >
       <div className="flex flex-col gap-3">
+        {/* LES DÉCOUVERTS D'ABORD, ET LE COMPTE LE DIT. On vient ici pour couvrir ce qui ne l'est
+            pas ; les compteurs déjà pourvus restent accessibles, en fin de liste, pour changer un
+            relais. */}
+        <label className="flex flex-col gap-1">
+          <span className="text-km-label font-semibold text-km-faint">Compteur à couvrir</span>
+          <ChoixParRecherche
+            items={compteursTries}
+            valeur={compteur?.id ?? ''}
+            onChoisir={(c) => c && onChangerCompteur(c)}
+            placeholder="Rechercher un compteur…"
+            principal={(c) => `${c.libelle || c.adresse || 'Sans libellé'} — ${c.numero_pdl}`}
+            secondaire={(c) => (c.relais_contact_id ? 'déjà couvert' : c.sous_contrat ? 'sous contrat' : null)}
+            filtre={(c, q) => `${c.libelle ?? ''} ${c.adresse ?? ''} ${c.numero_pdl}`.toLowerCase().includes(q)}
+            totalLibelle={`${compteursTries.length} compteur${compteursTries.length > 1 ? 's' : ''}`}
+          />
+        </label>
+
         <div className="flex gap-1.5">
           {([
             { cle: 'existant' as const, icone: Users, libelle: 'Un contact existant' },
