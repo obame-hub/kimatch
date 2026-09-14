@@ -67,14 +67,18 @@ Réversible d'une instruction — l'ancien identifiant est gardé dans `fil_orig
 
 ---
 
-## Une décision qui t'attend
+## La bascule des dates — faite
 
-Les 5 131 pistes reprises sont **toutes datées du 01/09/2026** dans `date_creation` — le jour de
-l'import. La vraie date est dans `date_creation_salesforce` (454 en 2025, 4 685 en 2026) et
-s'affiche dans Détails.
+Tu as tranché : `date_creation` porte maintenant la vraie date Salesforce. Du 24/02/2025 à
+aujourd'hui, avec **4 539 pistes en juin 2026** (le gros lot de prospection), 250 en octobre 2025.
 
-Basculer `date_creation` dessus changerait l'ordre de toutes les listes et les anciennetés.
-C'est une décision, pas un effet de bord : **dis-moi si je la fais.**
+Les 5 139 changements sont tracés dans l'historique, signés du nom de la migration.
+Les six pistes saisies à la main gardent leur date — elles n'ont jamais existé dans Salesforce.
+
+**Les références PST ne bougent pas**, et c'est délibéré : elles ont été attribuées dans l'ordre
+de l'ancienne date, donc sans rapport avec la chronologie. Les renuméroter changerait des
+identifiants que des gens ont pu noter depuis ce matin. Si tu veux les remettre dans l'ordre réel,
+c'est une seconde décision — dis-le.
 
 ---
 
