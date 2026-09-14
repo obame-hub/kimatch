@@ -173,7 +173,7 @@ function OngletListes({ lignes, signaler }: { lignes: LigneListe[]; signaler: (m
 
   return (
     <>
-      <ListToolbar query={recherche} onQueryChange={setRecherche} placeholder="Société, nom, e-mail, téléphone, référence…" count={filtrees.length}>
+      <ListToolbar query={recherche} onQueryChange={setRecherche} placeholder="Société, contact, e-mail, téléphone…" count={filtrees.length}>
         {converties > 0 && (
           <Button size="sm" variant={aQualifier ? 'default' : 'outline'} onClick={() => setAQualifier((v) => !v)}>
             {aQualifier ? 'À qualifier seulement' : 'Toutes'}
@@ -364,7 +364,11 @@ function OngletPistes({ pistes }: { pistes: Piste[] }) {
     <>
       <Indicateurs mesures={mesures} />
 
-      <ListToolbar query={recherche} onQueryChange={setRecherche} placeholder="Société, contact, email…" count={filtrees.length}>
+      {/* CET ÉCRAN A DEUX BARRES DE RECHERCHE, et le premier correctif s'est trompé de barre : il a
+          renommé celle des LISTES, plus haut, qui cherche sur quatre champs. Celle-ci est celle des
+          PISTES, et c'est elle que `correspond` sert — quatorze champs, mot à mot. Le libellé doit
+          suivre ce que la recherche fait, sinon il promet autre chose. */}
+      <ListToolbar query={recherche} onQueryChange={setRecherche} placeholder="Société, nom, e-mail, téléphone, référence…" count={filtrees.length}>
         <BasculePerimetre
           valeur={perimetre}
           onChange={setPerimetre}
