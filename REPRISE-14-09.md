@@ -67,18 +67,33 @@ Réversible d'une instruction — l'ancien identifiant est gardé dans `fil_orig
 
 ---
 
-## La bascule des dates — faite
+## Les dates et les références — sujet clos
 
-Tu as tranché : `date_creation` porte maintenant la vraie date Salesforce. Du 24/02/2025 à
-aujourd'hui, avec **4 539 pistes en juin 2026** (le gros lot de prospection), 250 en octobre 2025.
+`date_creation` porte la vraie date Salesforce : du 24/02/2025 à aujourd'hui, avec **4 539 pistes
+en juin 2026** (le gros lot de prospection), 250 en octobre 2025. Les six pistes saisies à la main
+gardent la leur.
 
-Les 5 139 changements sont tracés dans l'historique, signés du nom de la migration.
-Les six pistes saisies à la main gardent leur date — elles n'ont jamais existé dans Salesforce.
+Les références suivent maintenant cette chronologie, avec la bonne année :
 
-**Les références PST ne bougent pas**, et c'est délibéré : elles ont été attribuées dans l'ordre
-de l'ancienne date, donc sans rapport avec la chronologie. Les renuméroter changerait des
-identifiants que des gens ont pu noter depuis ce matin. Si tu veux les remettre dans l'ordre réel,
-c'est une seconde décision — dis-le.
+```
+PST-2025-001   SCI LA JARRIE                24/02/2025   la plus ancienne
+…
+PST-2026-5145  FONCIA MONTPELIER            14/09/2026   la plus récente
+```
+
+**Une ancienne référence mène encore à sa piste.** `PST-2026-10102` trouve `PST-2026-3887`,
+IMMOBILIER GESTION CONSULTANT. Le résultat porte la mention « ancienne réf. » pour qu'on sache
+pourquoi il sort — 485 anciens numéros sont aujourd'hui la référence courante d'une autre piste,
+donc la recherche en rend parfois deux, et la mention dit laquelle répond à la note.
+
+**Vérifié sur tout le CRM, aucun doublon nulle part :**
+
+```
+pistes 5 145 · mandats 1 489 · opportunités 114 · requêtes 884     0 doublon
+ordre chronologique respecté sur les trois objets numérotés
+```
+
+Rien ne reste ouvert sur ce sujet.
 
 ---
 
