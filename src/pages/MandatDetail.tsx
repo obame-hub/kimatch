@@ -437,7 +437,12 @@ export default function MandatDetail() {
         <div className="min-w-0 flex-1">
           {/* La pastille de statut est partie : la frise « Cycle du mandat » la dit mieux, et la
               garder en aurait fait deux endroits à tenir d'accord (Naoëlle, 03/09/2026). */}
-          <p className="truncate text-xl font-bold tracking-tight text-km-text">Mandat {mandat.compte_nom}</p>
+          <p className="truncate text-xl font-bold tracking-tight text-km-text">
+            Mandat {mandat.compte_nom}
+            {mandat.reference && (
+              <span className="ml-2 font-mono text-sm font-normal text-km-faint">{mandat.reference}</span>
+            )}
+          </p>
           <p className="truncate text-xs text-km-muted">{mandat.nb_sites_couverts} site{mandat.nb_sites_couverts > 1 ? 's' : ''} couvert{mandat.nb_sites_couverts > 1 ? 's' : ''}</p>
           <p className="truncate text-km-xs text-km-faint">
             {/* C'est le créateur qu'on affiche, pas un propriétaire : Mandat__c n'a pas d'OwnerId

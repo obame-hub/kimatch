@@ -7,6 +7,7 @@ import { fetchAllRows } from '@/lib/data/paginatedFetch'
 
 interface RawMandat {
   id: string
+  reference: string | null
   id_salesforce: string | null
   compte_id: string
   date_signature: string | null
@@ -98,6 +99,7 @@ async function fetchMandats(compteId?: string, mandatId?: string, listeSeule = f
 
     return filterVisibles(mandats, comptesVisibles, (m) => m.compte_id).map((m) => ({
       id: m.id,
+      reference: m.reference ?? null,
       id_salesforce: m.id_salesforce,
       compte_id: m.compte_id,
       compte_nom: m.compte?.nom ?? '',
@@ -217,6 +219,9 @@ export function useCreateMandat() {
       const dateFin = addMonthsISO(dateDebut, input.duree_mois)
       let mandat: Mandat = {
         id: `local-${Date.now()}`,
+        // Pas encore de référence : c'est la base qui la pose à l'insertion, et on la relit juste
+        // après. L'inventer ici donnerait un numéro que personne d'autre ne connaîtrait.
+        reference: null,
         id_salesforce: null,
         compte_id: input.compte_id,
         compte_nom: input.compte_nom,
@@ -259,11 +264,13 @@ export function useCreateMandat() {
           ...(statutId ? { statut_id: statutId } : {}),
           ...(input.contact_signataire_id ? { contact_signataire_id: input.contact_signataire_id } : {}),
         })
-        .select('id')
+        // On relit la référence que le déclencheur vient de poser : sans elle, le mandat créé
+        // s'afficherait sans numéro jusqu'au prochain rechargement de la liste.
+        .select('id, reference')
         .single()
       if (!error && data) {
-        const mandatId = (data as { id: string }).id
-        mandat = { ...mandat, id: mandatId }
+        const { id: mandatId, reference } = data as { id: string; reference: string | null }
+        mandat = { ...mandat, id: mandatId, reference }
         persisted = true
         if (input.compteur_ids.length > 0) {
           await supabase
