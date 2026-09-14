@@ -55,14 +55,41 @@ function GmailCard() {
         {isLoading ? (
           <p className="text-sm text-km-faint">Chargement…</p>
         ) : connection ? (
-          <div className="flex items-center justify-between rounded-lg border border-km-line p-4">
-            <div className="flex items-center gap-2 text-sm text-km-text">
-              <CheckCircle2 className="h-4 w-4 text-km-green" />
-              Connecté en tant que <span className="font-medium">{connection.email_gmail}</span>
+          <div className="flex flex-col gap-3">
+            <div className="flex items-center justify-between rounded-lg border border-km-line p-4">
+              <div className="flex items-center gap-2 text-sm text-km-text">
+                <CheckCircle2 className="h-4 w-4 text-km-green" />
+                Connecté en tant que <span className="font-medium">{connection.email_gmail}</span>
+              </div>
+              <Button size="sm" variant="ghost" onClick={() => disconnect.mutate()} disabled={disconnect.isPending}>
+                Déconnecter
+              </Button>
             </div>
-            <Button size="sm" variant="ghost" onClick={() => disconnect.mutate()} disabled={disconnect.isPending}>
-              Déconnecter
-            </Button>
+
+            {/* ══ LA RECONNEXION NE SE DEVINE PAS, ELLE SE DEMANDE ══
+                Depuis le 14/09/2026 Kimatch va chercher les réponses des clients dans la
+                conversation Gmail, ce qui demande un droit de LECTURE que les connexions
+                antérieures n'accordaient pas — elles ne portaient que l'envoi, et un jeton ne
+                gagne pas un droit après coup.
+
+                Sans ce bandeau, la personne ne voit qu'un « Connecté » vert et croit que tout
+                marche, pendant que les réponses de ses clients n'arrivent jamais. C'est le pire
+                des deux mondes : une fonctionnalité annoncée, muette, et personne pour le dire. */}
+            {connection.lecture_autorisee === false && (
+              <div className="rounded-km-md border border-km-amber-line bg-km-amber-soft p-4 text-sm">
+                <p className="font-semibold text-km-text">
+                  Les réponses de vos clients n’arrivent pas encore dans Kimatch
+                </p>
+                <p className="mt-1 text-km-muted">
+                  Votre connexion Gmail date d’avant le suivi des réponses : elle autorise l’envoi,
+                  pas la lecture. Reconnectez-vous une fois — Google vous redemandera votre accord —
+                  et les réponses à vos mails apparaîtront dans l’activité du client.
+                </p>
+                <Button size="sm" className="mt-2.5" onClick={handleConnect} disabled={connecting}>
+                  Reconnecter mon compte Gmail
+                </Button>
+              </div>
+            )}
           </div>
         ) : (
           <div className="rounded-lg border border-km-line p-4">

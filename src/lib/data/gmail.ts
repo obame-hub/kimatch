@@ -4,6 +4,16 @@ import { supabase } from '@/lib/supabase'
 interface GmailConnection {
   email_gmail: string
   date_connexion: string
+  /**
+   * Ce compte permet-il de LIRE les réponses, ou seulement d'envoyer ?
+   *
+   * `null` = on n'a pas encore essayé (la tâche de rapatriement passe toutes les heures ouvrées).
+   * `false` = Google a refusé : la connexion date d'avant le 14/09/2026, quand Kimatch ne
+   * demandait que le droit d'envoyer. Un jeton ne gagne pas un droit après coup — il faut refaire
+   * la connexion, et c'est ce que l'écran doit dire au lieu de laisser croire que tout va bien.
+   */
+  lecture_autorisee: boolean | null
+  date_dernier_rapatriement: string | null
 }
 
 async function fetchGmailConnection(): Promise<GmailConnection | null> {
@@ -11,7 +21,7 @@ async function fetchGmailConnection(): Promise<GmailConnection | null> {
   if (!userData.user) return null
   const { data, error } = await supabase
     .from('profils_gmail_tokens')
-    .select('email_gmail, date_connexion')
+    .select('email_gmail, date_connexion, lecture_autorisee, date_dernier_rapatriement')
     .eq('profil_id', userData.user.id)
     .maybeSingle()
   if (error) return null
