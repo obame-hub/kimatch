@@ -5,7 +5,7 @@ import { Dialog } from '@/components/ui/dialog'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/form'
 import { ChoixParRecherche } from '@/components/ui/choix-recherche'
-import { useCreateContact, useUpdateContactField } from '@/lib/data/contacts'
+import { useCreateContact } from '@/lib/data/contacts'
 import { useAssignCompteurContact } from '@/lib/data/compteurs'
 import type { Contact } from '@/types/domain'
 import { cn } from '@/lib/utils'
@@ -68,9 +68,8 @@ export function DialogDesignerRelais({
 
   const queryClient = useQueryClient()
   const creer = useCreateContact()
-  const majContact = useUpdateContactField()
   const assigner = useAssignCompteurContact()
-  const enCours = creer.isPending || assigner.isPending || majContact.isPending
+  const enCours = creer.isPending || assigner.isPending
 
   // Le responsable du compteur ne peut pas être son propre relais — voir l'en-tête.
   const candidats = useMemo(
@@ -119,11 +118,10 @@ export function DialogDesignerRelais({
       } else {
         const contact = candidats.find((c) => c.id === choisi)
         if (!contact) return
-        // Désigner quelqu'un comme relais, c'est lui donner le rôle : sans ça, il serait relais sur
-        // un compteur sans apparaître dans la zone qui les compte.
-        if (!contact.roles.includes('CONSEIL_SYNDICAL')) {
-          await majContact.mutateAsync({ id: contact.id, patch: { roles: [...contact.roles, 'CONSEIL_SYNDICAL'] } })
-        }
+        // LE RÔLE N'EST PLUS POSÉ ICI. Depuis la migration du 14/09/2026, « Conseil syndical » se
+        // déduit du lien compteur : le déclencheur `trg_roles_depuis_compteurs` l'ajoute au moment
+        // où la désignation est écrite. L'écrire aussi depuis le navigateur ferait deux écritures
+        // concurrentes pour le même résultat, et la seconde pourrait partir d'un état périmé.
       }
 
       await assigner.mutateAsync({

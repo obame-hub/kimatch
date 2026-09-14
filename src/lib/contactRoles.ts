@@ -11,8 +11,18 @@
 // la personne PEUT FAIRE dans notre processus, et il se compte : 526 contacts sont à la fois
 // décisionnaires et signataires, ce qui interdisait la colonne unique qui existait jusqu'ici.
 //
-// `role` (singulier) est l'ancienne colonne, encore lue par les écrans qui n'ont pas basculé.
-// `roles` (tableau) est la nouvelle. Les deux cohabitent le temps de la bascule.
+// `role` (singulier) est l'ancienne colonne, encore écrite mais plus lue par aucun écran.
+// `roles` (tableau) est la nouvelle.
+//
+// DEPUIS LE 14/09/2026, TROIS RÔLES SUR QUATRE NE SE SAISISSENT PLUS. La base les déduit des faits
+// (`fn_roles_contact`) : décisionnaire si un compteur le désigne responsable, signataire si un
+// mandat ou un contrat porte son nom, conseil syndical si un compteur le désigne relais. Seul
+// ADMINISTRATIF reste un choix, et il ne survit à aucun fait contraire.
+//
+// La règle du syndic bénévole — « un membre CS y est forcément décisionnaire et signataire » — a
+// disparu d'ici pour la même raison : elle est désormais VRAIE PAR CONSTRUCTION. Dans une
+// copropriété qui se gère elle-même, le conseil syndical porte les compteurs et signe les contrats,
+// donc les faits lui donnent les deux rôles sans qu'on ait à les forcer.
 // ════════════════════════════════════════════════════════════════════════════════════════════════
 
 export const ROLES_CONTACT = ['DECISIONNAIRE', 'SIGNATAIRE', 'ADMINISTRATIF', 'CONSEIL_SYNDICAL'] as const
@@ -40,62 +50,6 @@ export const SEGMENT_SYNDIC_BENEVOLE = 'Syndic non professionnel'
 
 export function estSyndic(segment: string | null | undefined): boolean {
   return !!segment && SEGMENTS_SYNDIC.has(segment)
-}
-
-/**
- * Les rôles proposés pour un compte. « Conseil syndical » n'a de sens que chez un syndic : sur une
- * entreprise, le proposer inviterait à créer la donnée absurde qu'on vient de nettoyer — 388 des
- * 389 recopies de conseil syndical trouvées le 13/09/2026 étaient posées sur des entreprises.
- */
-export function rolesDisponibles(segment: string | null | undefined): readonly RoleContact[] {
-  return estSyndic(segment)
-    ? ROLES_CONTACT
-    : (['DECISIONNAIRE', 'SIGNATAIRE', 'ADMINISTRATIF'] as const)
-}
-
-/**
- * En syndic bénévole, cocher « Conseil syndical » entraîne les deux autres.
- *
- * William, 13/09/2026 : « un membre CS est forcément décisionnaire et signataire puisque par
- * définition il n'y a pas de cabinet de syndic, donc pas de gestionnaire. » Ce n'est pas une
- * exception à la règle « un membre CS ne contractualise jamais » — c'est l'absence d'intermédiaire :
- * sans cabinet entre la copropriété et Kiwee, le conseil syndical EST la partie contractante.
- *
- * La règle est appliquée ICI, à la saisie, et non par un déclencheur en base : un trigger
- * modifierait en silence ce que la personne vient de cocher. Le formulaire, lui, coche, verrouille
- * et explique.
- */
-export function rolesEntraines(roles: readonly string[], segment: string | null | undefined): RoleContact[] {
-  if (segment !== SEGMENT_SYNDIC_BENEVOLE || !roles.includes('CONSEIL_SYNDICAL')) {
-    return roles.filter((r): r is RoleContact => (ROLES_CONTACT as readonly string[]).includes(r))
-  }
-  const complet = new Set<RoleContact>(
-    roles.filter((r): r is RoleContact => (ROLES_CONTACT as readonly string[]).includes(r)),
-  )
-  complet.add('DECISIONNAIRE')
-  complet.add('SIGNATAIRE')
-  return ROLES_CONTACT.filter((r) => complet.has(r))
-}
-
-/** Les rôles qu'on ne peut pas décocher, parce qu'un autre choix les impose. */
-export function rolesVerrouilles(roles: readonly string[], segment: string | null | undefined): RoleContact[] {
-  return segment === SEGMENT_SYNDIC_BENEVOLE && roles.includes('CONSEIL_SYNDICAL')
-    ? ['DECISIONNAIRE', 'SIGNATAIRE']
-    : []
-}
-
-/**
- * Le cas qui mérite un avertissement sans être interdit : un membre de conseil syndical qui signe
- * chez un syndic PROFESSIONNEL. Six contacts étaient dans ce cas le 13/09/2026 ; trois relevaient du
- * syndic bénévole (légitimes), trois étaient de vraies anomalies de reprise. D'où l'alerte à
- * l'écran plutôt que la contrainte en base, qui aurait effacé les trois premiers.
- */
-export function conseilSyndicalQuiSigne(roles: readonly string[], segment: string | null | undefined): boolean {
-  return (
-    segment !== SEGMENT_SYNDIC_BENEVOLE &&
-    roles.includes('CONSEIL_SYNDICAL') &&
-    roles.includes('SIGNATAIRE')
-  )
 }
 
 // ══ ANCIENNE COLONNE `role`, encore lue par les écrans non bascules ══
