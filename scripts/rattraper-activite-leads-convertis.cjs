@@ -41,11 +41,15 @@ const fs = require('fs')
 const path = require('path')
 const { Client } = require(path.join(process.cwd(), 'node_modules', 'pg'))
 
+/* ON NE CHERCHE QUE PARMI LES `.json`, et c'est une précaution payée : `process.argv[1]` est le
+   chemin de CE fichier, `rattraper-activite-leads-convertis.cjs`, qui contient « leads-convertis ».
+   Sans le filtre, le script s'auto-désignait comme export et tentait de parser son propre code. */
+const args = process.argv.filter((a) => a.endsWith('.json'))
 const f = {
-  convertis: process.argv.find((a) => a.includes('leads-convertis')),
-  activites: process.argv.find((a) => a.includes('activites-leads')),
-  relations: process.argv.find((a) => a.includes('emr-leads')),
-  mails: process.argv.find((a) => a.includes('mails-pistes')),
+  convertis: args.find((a) => a.includes('leads-convertis')),
+  activites: args.find((a) => a.includes('activites-leads')),
+  relations: args.find((a) => a.includes('emr-leads')),
+  mails: args.find((a) => a.includes('mails-pistes')),
 }
 if (!f.convertis || !f.activites || !f.relations || !f.mails) {
   console.error('Usage : node scripts/rattraper-activite-leads-convertis.cjs \\')
