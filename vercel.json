@@ -2,13 +2,21 @@
   "redirects": [
     {
       "source": "/((?!api/).*)",
-      "has": [{ "type": "host", "value": "kiwee-os.vercel.app" }],
+      "has": [
+        {
+          "type": "host",
+          "value": "kiwee-os.vercel.app"
+        }
+      ],
       "destination": "https://kimatch.fr/$1",
       "permanent": false
     }
   ],
   "rewrites": [
-    { "source": "/((?!api/).*)", "destination": "/index.html" }
+    {
+      "source": "/((?!api/).*)",
+      "destination": "/index.html"
+    }
   ],
   "crons": [
     {
@@ -34,6 +42,10 @@
     {
       "path": "/api/signaux/echeances",
       "schedule": "30 3 * * *"
+    },
+    {
+      "path": "/api/sonde/mesurer",
+      "schedule": "30 4 * * *"
     }
   ]
 }

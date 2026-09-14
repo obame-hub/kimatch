@@ -54,6 +54,12 @@ const SENS_DES_TACHES: Record<string, { titre: string; sens: string; fichier: st
       'Fait passer à « Actif » les contrats dont la date de début est arrivée. Une seule transition, délibérément : « Actif » → « Terminé » attend la réponse de Michel sur la tacite reconduction, car dans l’énergie un contrat reconduit court au-delà de sa date de fin d’origine. Mesuré le 08/09/2026 : 19 contrats affichaient un statut que leurs propres dates contredisaient, 20 le lendemain — la dérive était en cours, à environ un contrat par jour.',
     fichier: 'api/contrats/reevaluer-statuts.ts',
   },
+  '/api/sonde/mesurer': {
+    titre: 'Sonde de vitesse',
+    sens:
+      'Chronomètre chaque nuit un calcul pur dans la base — trois millions d’entiers, aucune table lue — et enregistre le résultat. C’est le seul chiffre qui distingue « la base est lente » de « la base est bridée » : le 10/09/2026, l’équipe était à l’arrêt et la sonde disait 9 414 ms contre 200 à 400 sur une machine saine, pendant que le tableau de bord Supabase affichait « CPU 17 % ». À 4 h 30, après les autres tâches pour ne pas mesurer la charge qu’elles créent, et avant l’arrivée de l’équipe.',
+    fichier: 'api/sonde/mesurer.ts',
+  },
   '/api/signaux/echeances': {
     titre: 'Signaux d’échéance',
     sens:
