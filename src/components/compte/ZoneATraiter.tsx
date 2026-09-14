@@ -33,9 +33,6 @@ import { cn } from '@/lib/utils'
  * devient difficile de consulter, négocier et signer avant la bascule.
  */
 
-/** Au-delà, on compte en tête plutôt que d'allonger la liste — le détail est dans l'onglet. */
-const LIGNES_VISIBLES = 5
-
 /** Le seuil où une échéance cesse d'être un plan de charge pour devenir une urgence. */
 const JOURS_URGENCE = 92
 
@@ -90,8 +87,6 @@ export function ZoneATraiter({
 
   const volume = echeances.reduce((t, e) => t + (e.consommation ?? 0), 0)
   const premiere = echeances[0]
-  const visibles = echeances.slice(0, LIGNES_VISIBLES)
-  const reste = echeances.length - visibles.length
 
   return (
     <section
@@ -149,7 +144,15 @@ export function ZoneATraiter({
             )}
           </div>
 
-          <div className="overflow-x-auto">
+          {/* ══ LA LISTE DÉFILE, ELLE N'EST PLUS TRONQUÉE ══
+              William, 14/09/2026. Elle s'arrêtait à cinq lignes avec un « + 17 autres » qui
+              renvoyait dans l'onglet Compteurs — c'est-à-dire hors de la zone, et sans le tri par
+              urgence qui fait justement l'intérêt de celle-ci. On voit tout, ici, en défilant.
+
+              LA HAUTEUR RESTE PLAFONNÉE : la zone dit ce qui presse, elle n'est pas un second
+              onglet Compteurs. Au-delà d'une dizaine de lignes, elle repousserait « En cours » et
+              « Le portefeuille » sous la ligne de flottaison. */}
+          <div className="max-h-[420px] overflow-auto overscroll-contain">
             {/* `table-fixed` ET DES LARGEURS EN POURCENTAGE, sans quoi le navigateur distribue la
                 place au prorata du contenu : le numéro de PDL, long et sans espace, mangeait la
                 colonne du site, qui s'affichait « SDC … ». Un site tronqué à trois caractères ne
@@ -163,7 +166,9 @@ export function ZoneATraiter({
                 <col style={{ width: '15%' }} />
               </colgroup>
               <thead>
-                <tr className="border-b border-km-line bg-km-bg text-km-tiny font-bold uppercase tracking-[.08em] text-km-faint">
+                {/* COLLÉ EN HAUT : sans ça, les intitulés partent dès la deuxième ligne et on lit
+                    cinq colonnes sans savoir laquelle porte l'échéance. */}
+                <tr className="sticky top-0 z-10 border-b border-km-line bg-km-bg text-km-tiny font-bold uppercase tracking-[.08em] text-km-faint">
                   <th className="px-3 py-2 text-left font-bold">Point de livraison</th>
                   <th className="px-3 py-2 text-left font-bold">Site</th>
                   <th className="px-3 py-2 text-left font-bold">Énergie</th>
@@ -172,7 +177,7 @@ export function ZoneATraiter({
                 </tr>
               </thead>
               <tbody>
-                {visibles.map((e) => (
+                {echeances.map((e) => (
                   <tr
                     key={e.compteur_id}
                     /* LE LISERÉ DIT L'URGENCE AU BORD DE LA LIGNE, là où l'œil y entre — même
@@ -203,21 +208,19 @@ export function ZoneATraiter({
             </table>
           </div>
 
-          {/* LE RESTE N'EST PAS MASQUÉ, IL EST COMPTÉ. Dérouler vingt-deux lignes ici ferait de la
-              zone d'alerte un second onglet Compteurs ; les cinq premières suffisent à décider
-              d'agir, et le lien mène à la liste entière. */}
-          {reste > 0 && (
-            <div className="flex items-center gap-1.5 border-t border-km-line px-4 py-2 text-km-label text-km-muted">
-              + {reste} autre{reste > 1 ? 's' : ''}
-              <Link
-                to={`/comptes/${compteId}?tab=compteurs`}
-                className="ml-auto inline-flex items-center gap-1 font-semibold text-km-green hover:underline"
-              >
-                Tout voir dans Compteurs
-                <ArrowRight className="h-3.5 w-3.5" strokeWidth={2.4} />
-              </Link>
-            </div>
-          )}
+          {/* LE LIEN RESTE, LE DÉCOMPTE PART. Tout est visible ici désormais ; mais l'onglet
+              Compteurs offre le tri, les filtres et la vue d'ensemble — on y va par choix, plus
+              parce qu'on nous cachait quelque chose. */}
+          <div className="flex items-center gap-1.5 border-t border-km-line px-4 py-2 text-km-label text-km-muted">
+            {echeances.length} compteur{echeances.length > 1 ? 's' : ''}
+            <Link
+              to={`/comptes/${compteId}?tab=compteurs`}
+              className="ml-auto inline-flex items-center gap-1 font-semibold text-km-green hover:underline"
+            >
+              Tout voir dans Compteurs
+              <ArrowRight className="h-3.5 w-3.5" strokeWidth={2.4} />
+            </Link>
+          </div>
         </div>
       </div>
     </section>
