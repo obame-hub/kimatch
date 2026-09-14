@@ -12,6 +12,9 @@ import { Dialog } from '@/components/ui/dialog'
 import { useReferenceTable } from '@/lib/data/referenceTables'
 import { FALLBACK_TYPES_INTERACTIONS } from '@/lib/referenceFallbacks'
 import { InteractionSentence, classifyInteraction } from '@/lib/interactionSentence'
+/* Le regroupement des mails en conversations vit dans `@/lib/filDiscussion` : c'est la seule
+   partie qui se prouve, et elle a ses tests. Ici on n'en fait que des cartes. */
+import { replierLesFils, messageEnTexte } from '@/lib/filDiscussion'
 import { cn } from '@/lib/utils'
 import type { Interaction, ActionItem, DocumentItem } from '@/types/domain'
 
@@ -49,54 +52,6 @@ interface ActivityItem {
    La fonction `fromSignaux` est retirée avec la prop `signaux` du composant. Rien n'est supprimé en
    base : la table `signaux` garde ses lignes, et remettre le fil en état demande de rétablir cette
    fonction, la prop, et les quatre appelants — voir `cycleNavItems` (src/lib/navItems.tsx). */
-
-/**
- * ══ UN ÉCHANGE DE MAILS SE REPLIE EN UNE CARTE ══════════════════════════════════════════════════
- *
- * William, 14/09/2026 : « avoir le fil de la conversation de mail dans Kimatch ».
- *
- * Les messages d'un même échange arrivaient dans le fil comme des lignes indépendantes, triées par
- * date au milieu des appels et des notes. Une conversation de six messages occupait six cartes, et
- * lire la réponse demandait de retrouver la question plus bas.
- *
- * `fil_discussion` (migration 20260914160000) porte l'identifiant de conversation — le
- * `ThreadIdentifier` de Salesforce. Les messages qui le partagent deviennent UNE carte, datée du
- * dernier message, titrée par son objet, avec le compte des échanges et la conversation entière
- * dans le corps — que `ActivityCard` déplie déjà toute seule au-delà de 180 caractères.
- *
- * UN MESSAGE SEUL RESTE UN MESSAGE SEUL. Un fil d'un élément n'est pas un fil : le replier ne
- * gagnerait rien et ajouterait « 1 message » sur la moitié des cartes du fil.
- */
-function replierLesFils(interactions: Interaction[]): { seules: Interaction[]; fils: Interaction[][] } {
-  const parFil = new Map<string, Interaction[]>()
-  const seules: Interaction[] = []
-  for (const i of interactions) {
-    const fil = i.fil_discussion?.trim()
-    if (!fil) { seules.push(i); continue }
-    const l = parFil.get(fil) ?? []
-    l.push(i)
-    parFil.set(fil, l)
-  }
-  const fils: Interaction[][] = []
-  for (const l of parFil.values()) {
-    if (l.length === 1) seules.push(l[0])
-    /* Du plus récent au plus ancien : c'est le sens de lecture du fil d'activité, et la réponse
-       la plus fraîche est ce qu'on cherche en ouvrant la carte. */
-    else fils.push([...l].sort((a, b) => new Date(b.date_interaction).getTime() - new Date(a.date_interaction).getTime()))
-  }
-  return { seules, fils }
-}
-
-/** Une ligne d'en-tête par message : le sens, la date, et l'objet quand il change en cours de fil. */
-function messageEnTexte(i: Interaction, objetDuFil: string): string {
-  const fleche = i.sens === 'ENTRANT' ? '←' : '→'
-  const quand = new Date(i.date_interaction).toLocaleDateString('fr-FR', {
-    day: '2-digit', month: '2-digit', year: '2-digit', hour: '2-digit', minute: '2-digit',
-  })
-  const objet = i.objet && i.objet !== objetDuFil ? ` · ${i.objet}` : ''
-  const corps = (i.resume?.trim() || i.resultat?.trim() || '(message vide)')
-  return `${fleche} ${quand}${objet}\n${corps}`
-}
 
 function filEnActivite(fil: Interaction[]): ActivityItem {
   const dernier = fil[0]
