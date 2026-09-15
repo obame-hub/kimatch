@@ -46,7 +46,7 @@ import { useEffect, useState } from 'react'
 import { Phone, Minus, X, ExternalLink, ZoomIn, ZoomOut, Maximize2, Minimize2, Move } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { useAppelEnCours } from '@/lib/data/appelEnCours'
-import { brancherLePont } from '@/lib/pontAllo'
+import { brancherLePont, etatDuPont, observerLePont } from '@/lib/pontAllo'
 
 const URL_ALLO = 'https://web.withallo.com'
 
@@ -170,13 +170,13 @@ const CADRAGE_DEFAUT = {
  * LA BARRE PREND TOUTE LA LARGEUR, environ 40 px de haut. À l'échelle 1 elle ne tiendrait pas dans
  * un petit carré — d'où 50 %, où les icônes restent reconnaissables et le nom lisible. 620 px de
  * large montrent 1240 px de leur écran, soit la rangée entière, raccrocher compris. */
-const HUBLOT_L_INITIAL = 620
-const HUBLOT_H_INITIAL = 70
+const HUBLOT_L_INITIAL = 380
+const HUBLOT_H_INITIAL = 560
 const ZOOM_INITIAL = 0.5
 
 const CLE_HUBLOT = 'kimatch.volet-allo.hublot'
 const CLE_CADRAGE = 'kimatch.volet-allo.cadrage.v2'
-const CLE_TAILLE_HUBLOT = 'kimatch.volet-allo.hublot.taille.v2'
+const CLE_TAILLE_HUBLOT = 'kimatch.volet-allo.hublot.taille.v3'
 const CLE_ZOOM_HUBLOT = 'kimatch.volet-allo.hublot.zoom.v2'
 const ZOOM_MIN = 0.3
 const ZOOM_MAX = 1.6
@@ -274,6 +274,15 @@ export function VoletAllo() {
      à l'échelle 1 elle ne tient pas dans un petit carré, et réduite de trop elle devient illisible.
      Le bon réglage ne se devine pas depuis le code — il se trouve devant un vrai appel. */
   const [zoomHublot, setZoomHublot] = useState(ZOOM_INITIAL)
+  /* ══ LE MODE WIDGET CHANGE TOUT ══
+     Quand la poignée de main aboutit, Allo ne rend plus son application complète mais son COMPOSEUR
+     EMBARQUÉ — l'interface compacte qu'il réserve à un CRM qui l'héberge (constaté le 15/09/2026 :
+     un pavé de touches à droite, et du blanc partout ailleurs).
+     Il n'y a alors plus rien à recadrer : il suffit de donner au cadre la taille du hublot, et le
+     widget la remplit. Le découpage ne sert qu'au cas où le pont ne s'établit pas. */
+  const [pont, setPont] = useState(etatDuPont)
+  useEffect(() => observerLePont(setPont), [])
+  const modeWidget = pont === 'pret'
   const [glisseCadrage, setGlisseCadrage] = useState<{ x: number; y: number; ox: number; oy: number } | null>(null)
   const [glisseTaille, setGlisseTaille] = useState<{ x: number; y: number; l: number; h: number } | null>(null)
 
@@ -679,10 +688,11 @@ export function VoletAllo() {
             <button
               type="button"
               onClick={() => setRecadre((r) => !r)}
+              disabled={modeWidget}
               title={recadre ? 'Terminer le recadrage' : 'Recadrer — glisser pour choisir ce qu’on voit'}
               className={cn(
                 'shrink-0 rounded p-1 transition-colors',
-                !hublot && 'hidden',
+                (!hublot || modeWidget) && 'hidden',
                 recadre ? 'bg-km-green text-white' : 'text-km-faint hover:bg-km-soft hover:text-km-text',
               )}
             >
@@ -702,10 +712,10 @@ export function VoletAllo() {
             {/* LE RÉGLAGE DE TAILLE, dit dans les termes du résultat et non du mécanisme : personne
                 n'a envie de savoir qu'il ajuste une échelle de transformation. Le pourcentage sert de
                 repère entre deux crans. */}
-            <div className="flex shrink-0 items-center gap-0.5 rounded-km border border-km-line px-0.5">
+            <div className={cn('flex shrink-0 items-center gap-0.5 rounded-km border border-km-line px-0.5', hublot && modeWidget && 'hidden')}>
               <button
                 type="button"
-                onClick={() => (hublot ? reglerZoom(-PAS_ZOOM) : regler(-PAS_LARGEUR))}
+                onClick={() => (hublot && !modeWidget ? reglerZoom(-PAS_ZOOM) : regler(-PAS_LARGEUR))}
                 disabled={hublot ? zoomHublot <= ZOOM_MIN : largeur <= LARGEUR_MIN}
                 title="Plus petit"
                 className="rounded p-1 text-km-faint transition-colors hover:bg-km-soft hover:text-km-text disabled:opacity-30"
@@ -717,7 +727,7 @@ export function VoletAllo() {
               </span>
               <button
                 type="button"
-                onClick={() => (hublot ? reglerZoom(PAS_ZOOM) : regler(PAS_LARGEUR))}
+                onClick={() => (hublot && !modeWidget ? reglerZoom(PAS_ZOOM) : regler(PAS_LARGEUR))}
                 disabled={hublot ? zoomHublot >= ZOOM_MAX : largeur >= LARGEUR_MAX}
                 title="Plus grand"
                 className="rounded p-1 text-km-faint transition-colors hover:bg-km-soft hover:text-km-text disabled:opacity-30"
@@ -784,7 +794,16 @@ export function VoletAllo() {
                  visible est donc un morceau d'Allo à l'échelle 1, lisible.
                  EN VOLET : tout Allo, réduit pour tenir. Deux mises en page, un seul cadre. */
               style={
-                hublot
+                hublot && modeWidget
+                  ? {
+                      /* LE WIDGET SE MET À LA TAILLE QU'ON LUI DONNE : ni échelle, ni décalage. */
+                      left: 0,
+                      top: 0,
+                      width: '100%',
+                      height: '100%',
+                      pointerEvents: glisseTaille ? 'none' : 'auto',
+                    }
+                  : hublot
                   ? {
                       /* LE DÉCALAGE EST EN PIXELS D'ÉCRAN, donc multiplié par le zoom : le cadrage se
                          raisonne dans les coordonnées d'Allo, l'affichage dans celles de la page.
