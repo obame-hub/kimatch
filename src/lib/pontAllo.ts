@@ -28,14 +28,31 @@
  * entre deux domaines, et il demande le consentement des deux côtés : on ne force rien, on parle un
  * protocole qu'Allo écoute déjà.
  *
- * ══ CE QUE LE PONT NE FERA PAS ══
+ * ══ CE QUE LE PONT FAIT, ET CE QU'IL NE FAIT PAS ══
  *
- * LE TRANSFERT N'EXISTE PAS dans ce protocole : la liste des messages tient en dix-huit types, et
- * aucun ne transfère. Le bouton de transfert reste celui d'Allo, dans le hublot.
+ * IL FAIT BASCULER ALLO EN COMPOSEUR EMBARQUÉ, et c'est déjà beaucoup : dès que la poignée de main
+ * aboutit, leur page n'affiche plus l'application complète — quatre colonnes, discussions, réglages
+ * — mais l'interface compacte réservée à un CRM qui l'héberge. C'est exactement le petit bloc
+ * demandé, et il vient d'eux : rien n'est découpé, rien ne cassera quand ils déplaceront un bouton.
  *
- * ET RIEN DE TOUT CECI N'EST DOCUMENTÉ PAR ALLO. C'est leur implémentation d'aujourd'hui, lue dans
- * un fichier qu'ils peuvent changer demain. Le pont dit donc toujours s'il est établi, et tout
- * appelant doit savoir se replier — voir `composer`, qui rend `false` plutôt que de laisser croire.
+ * IL NE COMPOSE PAS, ET NE RACCROCHE PAS. Première version : on envoyait `DIAL_NUMBER`, l'écran
+ * disait « Appel en cours », et il ne se passait rien. Vérifié dans leur code le 15/09/2026 :
+ *
+ *   `onDialNumber` fait `this.emit("dialNumber", n)` — et « dialNumber » n'apparaît que DEUX fois
+ *   dans tout leur paquet, les deux comme émetteur, jamais comme abonné.
+ *   `onEndCall` fait `this.emit("endCall", n)` — même chose : les six autres occurrences de
+ *   « endCall » sont des traductions (« Raccrocher », « Fin d'appel »).
+ *
+ * Autrement dit, leur intégration HubSpot est CÂBLÉE CÔTÉ RÉCEPTION ET BRANCHÉE SUR RIEN. Les
+ * messages arrivent, un événement part, personne ne l'écoute. Ce n'est pas une erreur de notre
+ * format : c'est un chantier inachevé chez eux.
+ *
+ * On ne garde donc que la poignée de main. Envoyer des ordres qu'on sait ignorés produirait un
+ * bouton qui ment — et un bouton qui ment est pire que pas de bouton.
+ *
+ * C'EST LA DEMANDE PRÉCISE À LEUR FAIRE : « votre application web embarque le calling-extensions-sdk
+ * et accepte le SYNC, mais rien n'écoute onDialNumber ni onEndCall. Pouvez-vous le finir ? » Le jour
+ * où ils branchent ces deux événements, `composer` et `raccrocher` reviennent en dix lignes.
  * ════════════════════════════════════════════════════════════════════════════════════════════════
  */
 
@@ -47,8 +64,6 @@ export const ORIGINE_ALLO = 'https://web.withallo.com'
 const SYNC = 'SYNC'
 const SYNC_ACK = 'SYNC_ACK'
 const READY = 'READY'
-const DIAL_NUMBER = 'DIAL_NUMBER'
-const END_CALL = 'END_CALL'
 
 interface MessageAllo {
   type?: string
@@ -165,22 +180,7 @@ export function relancerLaPoignee(): void {
   }, 1000)
 }
 
-/**
- * Compose un numéro dans Allo. Rend `false` si le pont n'est pas établi — l'appelant doit alors se
- * replier sur la file d'appel, et surtout ne pas laisser croire que ça sonne.
- */
-export function composer(e164: string): boolean {
-  if (etat !== 'pret') {
-    /* ON EN PROFITE POUR RESALUER : si le pont dormait, le prochain clic marchera. Mieux vaut ça
-       qu'un utilisateur qui reclique dix fois sans que rien ne change jamais. */
-    relancerLaPoignee()
-    return false
-  }
-  return envoyer({ type: DIAL_NUMBER, data: { phoneNumber: e164 } })
-}
-
-/** Raccroche l'appel en cours dans Allo. Même règle : `false` quand on ne peut pas. */
-export function raccrocher(): boolean {
-  if (etat !== 'pret') return false
-  return envoyer({ type: END_CALL, data: {} })
-}
+/* `composer` et `raccrocher` ont été retirés le 15/09/2026, le jour de leur écriture : Allo reçoit
+   `DIAL_NUMBER` et `END_CALL` mais n'y a branché aucun traitement (voir l'en-tête). Ils revenaient à
+   afficher « Appel en cours » sur un appel qui n'existait pas. Le protocole est écrit là-haut pour
+   le jour où Allo finira son intégration. */

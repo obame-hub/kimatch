@@ -40,7 +40,6 @@
  */
 import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { etatDuPont, observerLePont, raccrocher } from '@/lib/pontAllo'
 import { PhoneCall, PhoneIncoming, Voicemail, Bot, PhoneOff, User, X, Play } from 'lucide-react'
 import {
   useAppelEnCours,
@@ -70,13 +69,6 @@ export function CarteAppel() {
   const ecarter = useEcarterAppel()
   const navigate = useNavigate()
   const { data: identite } = useIdentiteAppel(appel)
-
-  /* ══ LE PONT VERS ALLO ══
-     Il n'est ouvert que si le volet est chargé et que leur application a répondu à notre poignée de
-     main. On n'affiche donc « Raccrocher » que lorsqu'on peut vraiment raccrocher : un bouton qui
-     ne fait rien est pire que pas de bouton. */
-  const [pont, setPont] = useState(etatDuPont)
-  useEffect(() => observerLePont(setPont), [])
 
   /* LE CHRONOMÈTRE EST UN ÉTAT LOCAL, pas une relecture. La carte se rafraîchit toutes les quatre
      secondes ; un chronomètre qui n'avancerait qu'à ce rythme sauterait de quatre en quatre et se
@@ -137,21 +129,11 @@ export function CarteAppel() {
         <span className="shrink-0 font-mono text-km-label tabular-nums">
           {secondes == null ? '—' : dureeLisible(secondes)}
         </span>
-        {/* ══ RACCROCHER, POUR DE VRAI ══
-            Trouvé dans leur code le 15/09/2026 : leur application web écoute `END_CALL` par
-            `postMessage`. C'est le seul moyen — leur API REST n'a aucun contrôle d'appel. Le bouton
-            n'apparaît que quand le pont répond et que l'appel n'est pas déjà fini. */}
-        {pont === 'pret' && etat !== 'termine' && (
-          <button
-            type="button"
-            onClick={() => raccrocher()}
-            title="Raccrocher"
-            className="flex shrink-0 items-center gap-1 rounded-full bg-km-red px-2 py-1 text-km-tiny font-bold text-white transition-opacity hover:opacity-90"
-          >
-            <PhoneOff className="h-3 w-3" />
-            Raccrocher
-          </button>
-        )}
+        {/* PAS DE BOUTON « RACCROCHER » ICI. On l'a écrit, puis retiré le jour même : Allo reçoit
+            `END_CALL` par `postMessage` mais n'y a branché aucun traitement — « endCall » n'apparaît
+            chez eux qu'une fois comme émetteur, et six fois dans leurs traductions. Un bouton qui
+            ne raccroche pas est pire que pas de bouton. On raccroche dans le composeur d'Allo, qui
+            est juste à côté. */}
         <button
           type="button"
           onClick={() => ecarter.mutate(appel.id)}

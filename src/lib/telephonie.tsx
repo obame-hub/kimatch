@@ -2,7 +2,6 @@ import { createContext, useCallback, useContext, useEffect, useState } from 'rea
 import type { ReactNode } from 'react'
 import { CarteAppel } from '@/components/allo/CarteAppel'
 import { VoletAllo, ouvrirVoletAllo, ouvrirVoletAlloSiDejaUtilise, appelDansLeVolet } from '@/components/allo/VoletAllo'
-import { composer as composerViaAllo } from '@/lib/pontAllo'
 
 /**
  * APPELER DEPUIS KIMATCH — un seul entonnoir, un numéro normalisé, et un numéro TOUJOURS VISIBLE.
@@ -255,22 +254,19 @@ export function TelephonieProvider({ children }: { children: ReactNode }) {
      * On ouvre donc d'abord, on dépose ensuite. */
     if (dansLeVolet) ouvrirVoletAllo()
 
-    /* ══ ON COMPOSE DIRECTEMENT, QUAND LE PONT EST OUVERT ══
+    /* ══ POURQUOI ON NE COMPOSE PAS DIRECTEMENT ══
      *
-     * Naoëlle, 15/09 : « je veux que quand je clique sur le téléphone ça appelle direct ». Le volet
-     * déposait le numéro dans la file, et il restait un clic « Appeler » chez Allo.
+     * Naoëlle, 15/09 : « je veux que quand je clique sur le téléphone ça appelle direct ». On a
+     * essayé : leur application web embarque le `calling-extensions-sdk` de HubSpot, accepte notre
+     * poignée de main, et reçoit bien `DIAL_NUMBER`. Puis rien.
      *
-     * Leur application web écoute `DIAL_NUMBER` — voir `pontAllo.ts` pour la preuve. Si la poignée
-     * de main a abouti, le numéro part tout seul. Sinon on ne prétend rien et on retombe sur la
-     * file, qui marche toujours. */
-    if (dansLeVolet && composerViaAllo(e164)) {
-      const m = `Appel en cours vers ${numeroLisible(e164)}.`
-      setMessage(m)
-      /* LA FILE EST QUAND MÊME ALIMENTÉE, en arrière-plan : elle porte le nom et la société, que le
-         pont ne transmet pas, et c'est elle qui garde la trace si l'appel est rejoué plus tard. */
-      void poserDansLaFileAllo(e164, qui)
-      return m
-    }
+     * Vérifié dans leur paquet : `onDialNumber` émet un événement interne auquel PERSONNE n'est
+     * abonné — « dialNumber » n'y apparaît que deux fois, les deux comme émetteur. Leur intégration
+     * est câblée côté réception et branchée sur rien.
+     *
+     * On reste donc sur la file d'appel, qui marche. Le numéro y est déposé avec le nom et la
+     * société, et il n'y a plus qu'à cliquer « Appeler » dans le composeur. Voir `pontAllo.ts` : le
+     * jour où Allo branche ces deux événements, le clic direct revient en dix lignes. */
 
     /* ── LA FILE D'APPEL ALLO, D'ABORD ──
        Le numéro part dans la file du Power Dialer de la personne connectée, avec le nom et la
