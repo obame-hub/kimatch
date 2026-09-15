@@ -32,6 +32,21 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     const supabase = createClient(supabaseUrl, serviceRoleKey)
 
     const expiresAt = new Date(Date.now() + tokens.expires_in * 1000).toISOString()
+
+    /* ══ ON ENREGISTRE CE QUE GOOGLE VIENT D'ACCORDER, TOUT DE SUITE ══
+       Naoëlle, 15/09/2026 : « j'ai reconnecté mais ça me renvoie sur la page avec le même bandeau
+       jaune ». Elle avait raison de le signaler : la reconnexion marchait, mais cet `upsert` ne
+       touchait pas `lecture_autorisee`. La valeur restait donc `null` — ou pire, gardait le `false`
+       d'avant — et le bandeau accusait une connexion qui venait d'être refaite correctement.
+
+       Il ne se serait tu qu'au prochain passage de la tâche horaire, et seulement pour quelqu'un
+       ayant des mails à relire. Autrement dit : reconnecter ne suffisait pas à faire disparaître le
+       reproche, ce qui est la meilleure façon d'apprendre à ignorer un bandeau.
+
+       GOOGLE DIT DANS SA RÉPONSE CE QU'IL A ACCORDÉ. C'est le moment exact où on le sait, et le
+       seul où on le sait sans rien redemander. */
+    const lectureAccordee = (tokens.scope ?? '').includes('gmail.readonly')
+
     const { error: upsertError } = await supabase.from('profils_gmail_tokens').upsert({
       profil_id: profilId,
       email_gmail: email,
@@ -39,6 +54,10 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       access_token: tokens.access_token,
       access_token_expires_at: expiresAt,
       date_connexion: new Date().toISOString(),
+      lecture_autorisee: lectureAccordee,
+      /* L'ÉCHEC PRÉCÉDENT NE VAUT PLUS : il portait sur le jeton qu'on vient de remplacer. Le
+         laisser afficherait une panne réglée. */
+      dernier_echec_rapatriement: null,
     })
     if (upsertError) throw new Error(upsertError.message)
 

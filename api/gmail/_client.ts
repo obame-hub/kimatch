@@ -71,6 +71,10 @@ interface GoogleTokens {
   access_token: string
   refresh_token?: string
   expires_in: number
+  /* CE QUE GOOGLE A RÉELLEMENT ACCORDÉ, séparé par des espaces. Ce n'est pas forcément ce qu'on a
+     demandé : l'écran de consentement laisse décocher une case, et un compte d'entreprise peut
+     restreindre un droit. La seule source de vérité est donc cette réponse-là. */
+  scope?: string
 }
 
 export async function exchangeCodeForTokens(code: string): Promise<GoogleTokens> {
