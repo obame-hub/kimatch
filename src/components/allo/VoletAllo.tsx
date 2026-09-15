@@ -46,6 +46,7 @@ import { useEffect, useState } from 'react'
 import { Phone, Minus, X, ExternalLink, ZoomIn, ZoomOut, Maximize2, Minimize2, Move } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { useAppelEnCours } from '@/lib/data/appelEnCours'
+import { brancherLePont } from '@/lib/pontAllo'
 
 const URL_ALLO = 'https://web.withallo.com'
 
@@ -775,6 +776,9 @@ export function VoletAllo() {
                  `autoplay` pour la sonnerie et la voix, `clipboard-write` parce qu'Allo propose de
                  copier des numéros. */
               allow="microphone; autoplay; clipboard-write"
+              /* LE PONT S'OUVRE AU CHARGEMENT DU CADRE, et se referme quand il disparaît. Leur
+                 application redémarre à chaque chargement : la poignée de main aussi. */
+              ref={brancherLePont}
               className="absolute border-0"
               /* EN HUBLOT : taille naturelle, décalée de la position du cadrage — le rectangle
                  visible est donc un morceau d'Allo à l'échelle 1, lisible.
