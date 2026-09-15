@@ -50,6 +50,10 @@
     {
       "path": "/api/gmail/rapatrier",
       "schedule": "20 7-20 * * *"
+    },
+    {
+      "path": "/api/slack/rattraper-leads",
+      "schedule": "50 4 * * *"
     }
   ]
 }
