@@ -202,24 +202,32 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     return
   }
 
-  /* ON RÉPOND D'ABORD. Slack rejoue tout envoi resté sans réponse au bout de trois secondes ; une
-     création de piste peut dépasser ce délai. Le rejeu ne duplique rien — l'horodatage du message
-     est unique en base — mais autant ne pas le provoquer. */
-  res.status(200).json({ ok: true })
+  /* ══ ON TRAVAILLE AVANT DE RÉPONDRE ══
+     La version précédente répondait `200` d'abord « pour ne pas faire patienter Slack ». Sur Vercel,
+     une fonction peut être gelée À L'INSTANT où elle répond : tout ce qui suit ne s'exécute pas. La
+     piste n'était donc jamais créée — et comme Slack recevait un `200`, il ne rejouait rien, ce qui
+     rendait la panne parfaitement silencieuse.
 
-  const e = corps?.event
-  tracer({ issue: 'accepté', type: e?.type, canal: e?.channel, slack: signeParSlack })
-  if (!e || e.type !== 'message') return
-  if (e.channel !== CANAL_LEADS) return
-  /* Les modifications, suppressions et arrivées de membres passent par le même événement, avec un
-     `subtype`. Seul `bot_message` nous intéresse en plus du message nu : c'est celui de l'app. */
-  if (e.subtype && e.subtype !== 'bot_message') return
+     C'EST LA MÊME ERREUR QUE `api/gmail/ouvert.ts`, où elle avait déjà été corrigée de cette façon :
+     on écrit d'abord, on répond dans le `finally`. Elle n'avait pas été reportée ici.
 
-  const texte = (e.text && e.text.trim()) || texteDesBlocs(e.blocks)
-  if (!texte || !e.ts) return
-
+     Slack veut une réponse en moins de trois secondes ; la création tourne autour de la
+     demi-seconde, on tient largement. Et si un jour elle traînait, Slack rejouerait — sans créer de
+     doublon, `source_externe_id` étant unique. Un rejeu coûte moins cher qu'un lead perdu. */
   try {
+    const e = corps?.event
+    tracer({ issue: 'accepté', type: e?.type, canal: e?.channel, slack: signeParSlack })
+    if (!e || e.type !== 'message') return
+    if (e.channel !== CANAL_LEADS) return
+    /* Les modifications, suppressions et arrivées de membres passent par le même événement, avec un
+       `subtype`. Seul `bot_message` nous intéresse en plus du message nu : c'est celui de l'app. */
+    if (e.subtype && e.subtype !== 'bot_message') return
+
+    const texte = (e.text && e.text.trim()) || texteDesBlocs(e.blocks)
+    if (!texte || !e.ts) return
+
     const resultat = await creerPisteDepuisLead(clientService(), texte, e.ts)
+    tracer({ issue: `lead ${resultat.etat}`, type: e.type, canal: e.channel, slack: signeParSlack })
     switch (resultat.etat) {
       case 'cree':
         console.log(`[slack/evenements] piste ${resultat.reference} créée`)
@@ -231,7 +239,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         /* LE SEUL CAS QUI DOIT CRIER : le format du message a changé et l'analyse ne suit plus.
            Sans cette ligne, les leads cesseraient d'arriver en silence. */
         console.error(
-          `[slack/evenements] LEAD ILLISIBLE — champs manquants : ${resultat.manques.join(', ')}\n` +
+          `[slack/evenements] LEAD ILLISIBLE — champs manquants : ${resultat.manques.join(', ')}
+` +
           `message : ${texte.slice(0, 400)}`,
         )
         break
@@ -239,7 +248,12 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         break
     }
   } catch (err) {
+    tracer({ issue: 'erreur de création', slack: signeParSlack })
     console.error('[slack/evenements] création impossible :',
       err instanceof Error ? err.message : err)
+  } finally {
+    /* DANS LE `finally` : quoi qu'il arrive au-dessus, Slack reçoit sa réponse. Sans elle il rejoue
+       trois fois puis considère notre point d'entrée en panne. */
+    res.status(200).json({ ok: true })
   }
 }
