@@ -132,6 +132,21 @@ function texteDesBlocs(blocs: unknown): string {
 }
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
+  /* ══ UN GET DIT SI LE POINT D'ENTRÉE EST PRÊT ══
+     Naoëlle, 15/09 : « je peux pas envoyer des messages indéfiniment, c'est chiant pour les
+     autres ». Chaque test lui coûte une notification à toute l'équipe. Ceci permet de vérifier la
+     configuration SANS rien poster : si une variable manque, on le sait avant, pas après.
+     ON NE REND QUE DES OUI/NON — jamais la valeur d'un secret, ce point d'entrée est public. */
+  if (req.method === 'GET') {
+    const secret = Boolean(process.env.SLACK_SIGNING_SECRET)
+    const base = Boolean(
+      (process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL) &&
+      process.env.SUPABASE_SERVICE_ROLE_KEY,
+    )
+    res.status(200).json({ pret: secret && base, signature: secret, base, canal: CANAL_LEADS })
+    return
+  }
+
   if (req.method !== 'POST') {
     res.status(405).json({ error: 'Méthode non autorisée' })
     return
