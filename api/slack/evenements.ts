@@ -44,22 +44,23 @@ function clientService() {
 }
 
 /**
- * La requête vient-elle vraiment de Slack ?
+ * La requête vient-elle vraiment de Slack ? Rend `null` si oui, sinon la raison du refus.
  *
  * Signature `v0=HMAC-SHA256("v0:<horodatage>:<corps brut>")` avec le Signing Secret de l'app. On
  * compare en temps constant : une comparaison ordinaire s'arrête au premier caractère faux et
  * laisse deviner la signature attendue octet par octet.
  */
-function signatureValide(req: VercelRequest, corpsBrut: string): boolean {
+function signatureValide(req: VercelRequest, corpsBrut: string): string | null {
   const secret = process.env.SLACK_SIGNING_SECRET
-  if (!secret) return false
+  if (!secret) return 'SLACK_SIGNING_SECRET absente de Vercel'
 
   const horodatage = req.headers['x-slack-request-timestamp'] as string | undefined
   const signature = req.headers['x-slack-signature'] as string | undefined
-  if (!horodatage || !signature) return false
+  if (!horodatage || !signature) return 'en-têtes de signature absents'
 
   // Cinq minutes : au-delà, on refuse même une signature juste — c'est un rejeu.
-  if (Math.abs(Date.now() / 1000 - Number(horodatage)) > 300) return false
+  const age = Date.now() / 1000 - Number(horodatage)
+  if (Math.abs(age) > 300) return `requête vieille de ${Math.round(age)} s`
 
   const attendue = 'v0=' + createHmac('sha256', secret)
     .update(`v0:${horodatage}:${corpsBrut}`)
@@ -67,7 +68,10 @@ function signatureValide(req: VercelRequest, corpsBrut: string): boolean {
 
   const a = Buffer.from(attendue)
   const b = Buffer.from(signature)
-  return a.length === b.length && timingSafeEqual(a, b)
+  if (a.length !== b.length || !timingSafeEqual(a, b)) {
+    return `empreinte différente (corps de ${corpsBrut.length} octets)`
+  }
+  return null
 }
 
 /**
@@ -149,8 +153,12 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     return
   }
 
-  if (!signatureValide(req, brut)) {
-    console.warn('[slack/evenements] signature refusée')
+  const refus = signatureValide(req, brut)
+  if (refus) {
+    /* ON DIT LEQUEL DES QUATRE CONTRÔLES A CÉDÉ. Sans ça, un secret mal collé dans Vercel et des
+       octets mal lus donnent le même 401 muet, et on cherche du mauvais côté pendant une journée —
+       ce qui est exactement ce qui vient d'arriver. */
+    console.warn(`[slack/evenements] signature refusée : ${refus}`)
     res.status(401).json({ error: 'Signature Slack invalide' })
     return
   }
