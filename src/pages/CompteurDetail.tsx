@@ -496,7 +496,30 @@ export default function CompteurDetail() {
   const site = siteDuCompteur ?? undefined
   const compte = compteDuCompteur ?? undefined
   const contratsDuCompteur = useMemo(() => contrats?.filter((ct) => ct.compteurs.some((cc) => cc.id === id)) ?? [], [contrats, id])
-  const mandatDuCompteur = mandats?.find((m) => compteur && m.site_ids.includes(compteur.site_id))
+  /* ══ DEUX QUESTIONS DIFFÉRENTES, ET UNE SEULE RÉPONSE JUSQU'ICI ══
+   *
+   * « Quels mandats ont porté ce compteur ? » et « ce compteur est-il couvert AUJOURD'HUI ? » ne se
+   * répondent pas pareil, et la fiche les confondait dans une seule ligne.
+   *
+   * ELLE CHERCHAIT PAR SITE — `m.site_ids.includes(compteur.site_id)`. Un mandat couvrant le
+   * compteur VOISIN du même immeuble faisait donc passer celui-ci pour couvert : 105 compteurs sont
+   * dans ce cas, et sur chacun d'eux la fiche autorisait une consultation qu'aucun mandat ne couvre.
+   * On cherche maintenant par compteur, ce que `compteur_ids` permet.
+   *
+   * ET LE PÉRIMÈTRE CADUQUE NE DOIT PAS FAIRE DISPARAÎTRE LE MANDAT. William, 15/09/2026, sur le
+   * compteur qu'on venait de rattacher à DIMOTRANS : « pourquoi je ne vois rien dans l'onglet
+   * mandat ? » Son mandat était devenu caduc, donc absent de `compteur_ids` — et l'onglet, qui ne
+   * lisait que celui-là, s'est vidé. C'est ma faute, du jour même : un document signé doit rester
+   * visible sur le compteur qu'il a couvert, avec sa caducité écrite dessus. */
+  const mandatsDuCompteur = useMemo(
+    () =>
+      (mandats ?? [])
+        .filter((m) => compteur && (m.compteur_ids.includes(compteur.id) || m.compteur_ids_caducs.includes(compteur.id)))
+        .map((m) => ({ mandat: m, caduc: Boolean(compteur && m.compteur_ids_caducs.includes(compteur.id)) })),
+    [mandats, compteur],
+  )
+  /** Celui qui COUVRE, au sens où l'on peut consulter des fournisseurs : lien vivant, statut actif. */
+  const mandatDuCompteur = mandatsDuCompteur.find((x) => !x.caduc && x.mandat.statut === 'ACTIF')?.mandat
   const documentsDuCompteur = useMemo(() => documents?.filter((d) => d.entite_type === 'compteur' && d.entite_id === id) ?? [], [documents, id])
   // Prouvée ou estimée : diapositive 6 de Michel. La preuve est le contrat rattaché, donc elle se
   // déduit ici et ne se stocke nulle part — voir src/lib/echeance.ts.
@@ -608,6 +631,8 @@ export default function CompteurDetail() {
        question — à quoi ce compteur est-il accroché (Michel et Naoëlle, 31/08/2026). */
     { key: 'rattachements', label: 'Rattachements' },
     { key: 'contrats', label: 'Contrats', badge: contratsDuCompteur.length ? String(contratsDuCompteur.length) : undefined },
+    /* LE BADGE « ! » DIT L'ABSENCE DE COUVERTURE, pas l'absence de mandat : un compteur dont le
+       mandat est devenu caduc est découvert, et c'est justement là qu'il faut le signaler. */
     { key: 'mandats', label: 'Mandats', badge: mandatDuCompteur ? undefined : '!' },
     { key: 'fichiers', label: 'Fichiers', badge: documentsDuCompteur.length ? String(documentsDuCompteur.length) : undefined },
   ]
@@ -1058,25 +1083,50 @@ export default function CompteurDetail() {
 
           {tab === 'mandats' && (
             <div className="flex flex-col gap-2.5">
-              {mandatDuCompteur ? (
+              {/* TOUS LES MANDATS QUI ONT PORTÉ CE COMPTEUR, le caduc compris. Ne montrer que celui
+                  qui couvre ferait disparaître l'historique au moment précis où il devient utile :
+                  quand on cherche pourquoi ce PDL n'est plus couvert. */}
+              {mandatsDuCompteur.map(({ mandat: m, caduc }) => (
                 <div
-                  onClick={() => navigate(`/mandats/${mandatDuCompteur.id}`)}
-                  className="flex cursor-pointer items-center gap-3 rounded-xl border border-km-line bg-white p-3.5 hover:bg-km-bg/60"
+                  key={m.id}
+                  onClick={() => navigate(`/mandats/${m.id}`)}
+                  className={cn(
+                    'flex cursor-pointer items-center gap-3 rounded-xl border p-3.5 transition-colors',
+                    caduc ? 'border-km-red-line bg-km-red-soft/40 hover:bg-km-red-soft' : 'border-km-line bg-white hover:bg-km-bg/60',
+                  )}
                 >
-                  <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-[10px] bg-km-amber-soft text-amber-600">
+                  <span
+                    className={cn(
+                      'flex h-9 w-9 shrink-0 items-center justify-center rounded-[10px]',
+                      caduc ? 'bg-white text-km-red' : 'bg-km-amber-soft text-amber-600',
+                    )}
+                  >
                     <FileCheck2 className="h-4 w-4" />
                   </span>
                   <div className="min-w-0 flex-1">
                     <p className="truncate text-sm font-bold text-km-text">
-                      <Link to={`/mandats/${mandatDuCompteur.id}`} onClick={(e) => e.stopPropagation()} className="hover:underline">
-                        Mandat {mandatDuCompteur.compte_nom}
+                      <Link to={`/mandats/${m.id}`} onClick={(e) => e.stopPropagation()} className="hover:underline">
+                        {m.reference ?? `Mandat ${m.compte_nom}`}
                       </Link>
+                      <span className="font-normal text-km-faint"> · {m.compte_nom}</span>
                     </p>
-                    <p className="truncate text-km-xs text-km-faint">{mandatDuCompteur.contact_signataire_nom ?? 'Signataire non renseigné'}</p>
+                    {caduc ? (
+                      /* LA PHRASE DIT LE GESTE SUIVANT, pas seulement l'état : « caduc » sans la
+                         suite laisserait chercher ce qu'il faut faire. */
+                      <p className="truncate text-km-xs text-km-red">
+                        Ne couvre plus ce compteur depuis son passage chez {compte?.nom ?? 'une autre société'} — un nouveau mandat est nécessaire.
+                      </p>
+                    ) : (
+                      <p className="truncate text-km-xs text-km-faint">{m.contact_signataire_nom ?? 'Signataire non renseigné'}</p>
+                    )}
                   </div>
-                  <Badge tone={STATUT_MANDAT_TONE[mandatDuCompteur.statut] ?? 'neutral'}>{statutsMandats.find((s) => s.code === mandatDuCompteur.statut)?.libelle ?? mandatDuCompteur.statut}</Badge>
+                  <Badge tone={STATUT_MANDAT_TONE[m.statut] ?? 'neutral'}>{statutsMandats.find((s) => s.code === m.statut)?.libelle ?? m.statut}</Badge>
                 </div>
-              ) : (
+              ))}
+
+              {/* L'APPEL À L'ACTION SUIT LA COUVERTURE, PAS LA LISTE : un compteur qui porte un
+                  mandat caduc a bien quelque chose à montrer, et n'en est pas moins découvert. */}
+              {!mandatDuCompteur && (
                 <div className="rounded-xl border border-dashed border-amber-200 bg-amber-50/60 p-4">
                   <p className="text-sm font-bold text-amber-700">Aucun mandat actif ne couvre ce compteur</p>
                   <p className="mt-1 text-xs text-amber-600">Impossible de lancer une consultation tant qu'un mandat signé ne couvre pas ce PDL.</p>
