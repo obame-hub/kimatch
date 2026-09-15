@@ -74,8 +74,14 @@ function GmailCard() {
 
                 Sans ce bandeau, la personne ne voit qu'un « Connecté » vert et croit que tout
                 marche, pendant que les réponses de ses clients n'arrivent jamais. C'est le pire
-                des deux mondes : une fonctionnalité annoncée, muette, et personne pour le dire. */}
-            {connection.lecture_autorisee === false && (
+                des deux mondes : une fonctionnalité annoncée, muette, et personne pour le dire.
+
+                `!== true` ET NON `=== false` : `null` veut dire « jamais vérifié », parce que la
+                tâche horaire ne passe que sur les comptes qui ont des mails à relire. Six personnes
+                sur neuf étaient dans ce cas le 15/09 — elles ne voyaient donc aucun rappel, tout en
+                ayant besoin de le refaire. Prendre l'absence de preuve pour une preuve laissait
+                sans rappel exactement ceux qui n'avaient jamais rien rapatrié. */}
+            {connection.lecture_autorisee !== true && (
               <div className="rounded-km-md border border-km-amber-line bg-km-amber-soft p-4 text-sm">
                 <p className="font-semibold text-km-text">
                   Les réponses de vos clients n’arrivent pas encore dans Kimatch

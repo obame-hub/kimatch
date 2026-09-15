@@ -7,6 +7,7 @@ import { OffresDuJour } from '@/components/dashboard/OffresDuJour'
 import { useOffresDuJour, useTotauxOffres, DEFAUT_PERIODE, PERIODES_MONTANT, type PeriodeMontant } from '@/lib/data/offresDuJour'
 import { TachesDuJour } from '@/components/dashboard/TachesDuJour'
 import { useTachesDuJour, useChargeAVenir, depuisIso, PLAFOND_JOURNALIER } from '@/lib/data/tachesDuJour'
+import { BandeauGmail } from '@/components/dashboard/BandeauGmail'
 import { cn } from '@/lib/utils'
 
 /**
@@ -239,6 +240,10 @@ export default function Dashboard() {
             {dateDuJour}
           </p>
         </div>
+
+        {/* LE RAPPEL DE CONNEXION GMAIL PASSE AVANT LES BANDES, pas dedans : il ne parle pas du
+            travail du jour mais de l'outil qui le porte, et il disparaît dès qu'on l'a traité. */}
+        <BandeauGmail />
 
         {/* L'ÉCART ENTRE DEUX BANDES EST DE 14 PX, CELUI ENTRE DEUX TUILES DE 10. Le rapport n'a
             pas besoin d'être spectaculaire : la bande porte déjà la frontière, l'espacement ne
