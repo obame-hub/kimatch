@@ -163,6 +163,24 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       (process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL) &&
       process.env.SUPABASE_SERVICE_ROLE_KEY,
     )
+
+    /* LE JETON DU BOT SE VÉRIFIE EN L'UTILISANT, pas en constatant qu'il est renseigné. Réinstaller
+       l'app Slack en émet un neuf et révoque l'ancien ; une variable pleine d'un jeton mort a
+       exactement l'air d'une variable correcte. Ce jeton ne sert pas au temps réel mais au filet de
+       nuit (`rattraper-leads`), dont on ne verrait l'échec qu'au petit matin. */
+    let jeton = 'absent'
+    if (process.env.SLACK_BOT_TOKEN) {
+      try {
+        const r = await fetch('https://slack.com/api/auth.test', {
+          method: 'POST',
+          headers: { Authorization: `Bearer ${process.env.SLACK_BOT_TOKEN}` },
+        })
+        const j = (await r.json()) as { ok?: boolean; error?: string; team?: string; user?: string }
+        jeton = j.ok ? `valide (${j.team} / ${j.user})` : `refusé : ${j.error}`
+      } catch {
+        jeton = 'Slack injoignable'
+      }
+    }
     /* LE COMMIT DÉPLOYÉ. Vercel le pose lui-même dans l'environnement. Sans lui, « est-ce que ma
        correction est en ligne ? » ne se répond que par déduction — et on l'a fait trois fois
        aujourd'hui. */
@@ -172,6 +190,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       base,
       canal: CANAL_LEADS,
       version: process.env.VERCEL_GIT_COMMIT_SHA?.slice(0, 7) ?? 'inconnue',
+      jeton,
       traces,
     })
     return
