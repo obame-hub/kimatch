@@ -78,9 +78,18 @@ function adresseDuCompteur(compteur: Compteur): string | null {
 
 export function PerimetreCouvert({
   compteurs,
+  compteursCaducs = [],
   contrats,
 }: {
   compteurs: Compteur[]
+  /**
+   * LE PÉRIMÈTRE CADUQUE — les compteurs que ce mandat couvrait et qui ont changé de société.
+   *
+   * William, 15/09/2026 : « le compteur doit être ajouté dans un nouvel endroit, le périmètre
+   * caduque ». Ils ne sont pas retirés du mandat : un document signé garde la trace de ce qu'il
+   * couvrait, et savoir qu'un PDL EST PARTI vaut mieux que de le voir disparaître sans explication.
+   */
+  compteursCaducs?: Compteur[]
   contrats: Contrat[] | undefined
 }) {
   return (
@@ -195,6 +204,39 @@ export function PerimetreCouvert({
               )
             })}
           </div>
+        </div>
+      )}
+
+      {/* ══ LE PÉRIMÈTRE CADUQUE ══
+          Séparé et non mêlé aux autres : un PDL encore couvert et un PDL parti n'autorisent pas les
+          mêmes gestes, et les afficher dans la même liste ferait négocier sans mandat. */}
+      {compteursCaducs.length > 0 && (
+        <div
+          style={{ background: '#fbe9e6', border: '1px solid #f2cdc7', borderRadius: 13, padding: '11px 13px' }}
+        >
+          <p className="flex items-center gap-1.5 text-[11px] font-extrabold uppercase tracking-[.07em]" style={{ color: '#b85145' }}>
+            <span
+              className="inline-flex flex-none items-center justify-center"
+              style={{ width: 18, height: 18, borderRadius: 5, background: '#fff', color: '#b85145' }}
+            >
+              <PictoCompteur taille={10} />
+            </span>
+            Sortis du périmètre — {compteursCaducs.length} PDL
+          </p>
+          <ul className="mt-1.5 flex flex-col gap-0.5">
+            {compteursCaducs.map((c) => (
+              <li key={c.id} className="text-[12px]">
+                <Link to={`/compteurs/${c.id}`} className="hover:underline" style={{ color: '#16181d' }}>
+                  {c.utilisation && <span className="font-bold">{c.utilisation} </span>}
+                  <span className="font-mono text-[10.5px]" style={{ color: '#83868f' }}>{c.numero_pdl}</span>
+                </Link>
+              </li>
+            ))}
+          </ul>
+          <p className="mt-1.5 text-[11.5px] leading-snug" style={{ color: '#5c5f66' }}>
+            Ces points de livraison ont changé de société : ce mandat ne les couvre plus. Il faut un
+            nouveau mandat, signé par leur société actuelle, avant toute recommandation.
+          </p>
         </div>
       )}
     </>

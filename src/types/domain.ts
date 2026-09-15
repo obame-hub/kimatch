@@ -437,7 +437,19 @@ export interface Mandat {
   motif_refus?: string | null
   nb_sites_couverts: number
   site_ids: string[]
+  /**
+   * Les compteurs ENCORE COUVERTS. Une dizaine d'écrans lisent ce champ pour décider si un PDL peut
+   * entrer dans une recommandation ; il ne doit donc jamais contenir un compteur sorti du périmètre.
+   */
   compteur_ids: string[]
+  /**
+   * LE PÉRIMÈTRE CADUQUE — les compteurs que ce mandat couvrait, et qui ont changé de compte.
+   *
+   * William, 15/09/2026 : « le compteur doit être ajouté dans un nouvel endroit, le périmètre
+   * caduque. Ce n'est pas le mandat qui est caduque dans son entièreté, c'est le compteur qui n'est
+   * plus couvert par ce mandat. » Ils restent listés, parce qu'un document signé ne se réécrit pas.
+   */
+  compteur_ids_caducs: string[]
   contact_signataire_id?: string | null
   contact_signataire_nom?: string
   docusign_envelope_id?: string | null

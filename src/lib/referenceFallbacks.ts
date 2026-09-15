@@ -121,6 +121,9 @@ export const FALLBACK_STATUTS_MANDATS: ReferenceRow[] = [
   { id: '6', code: 'EXPIRE', libelle: 'Expiré', ordre: 60, couleur: null, icone: null },
   { id: '7', code: 'ANNULE', libelle: 'Annulé', ordre: 70, couleur: null, icone: null },
   { id: '8', code: 'REFUSE', libelle: 'Refusé', ordre: 65, couleur: null, icone: null },
+  // Le compteur a changé de société : le mandat ne porte plus sur rien. Ce n'est ni « expiré »
+  // (le temps a passé) ni « annulé » (une décision) — voir migration 20260915110000.
+  { id: '9', code: 'CADUQUE', libelle: 'Caduque', ordre: 62, couleur: null, icone: null },
 ]
 
 export const FALLBACK_TYPES_COURTIERS_MANDAT: ReferenceRow[] = [
@@ -152,6 +155,7 @@ export const STATUT_MANDAT_TONE: Record<string, 'neutral' | 'amber' | 'kiwi' | '
   EXPIRE: 'red',
   REFUSE: 'red',
   ANNULE: 'neutral',
+  CADUQUE: 'red',
   REVOQUE: 'red',
 }
 

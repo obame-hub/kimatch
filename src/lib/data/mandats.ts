@@ -67,17 +67,35 @@ async function fetchMandats(compteId?: string, mandatId?: string, listeSeule = f
     const [compteursRows, courtiersRows] = await Promise.all([
       // Le tableau de bord ne lit ni les PDL ni les courtiers d'un mandat : voir useMandatsListe.
       listeSeule
-        ? Promise.resolve([] as { mandat_id: string; compteur: { id: string; site_id: string } | null }[])
-        : fetchAllRows<{ mandat_id: string; compteur: { id: string; site_id: string } | null }>('mandats_compteurs', 'mandat_id, compteur:compteurs(id, site_id)', surCesMandats),
+        ? Promise.resolve([] as { mandat_id: string; caduc_depuis: string | null; compteur: { id: string; site_id: string } | null }[])
+        : fetchAllRows<{ mandat_id: string; caduc_depuis: string | null; compteur: { id: string; site_id: string } | null }>('mandats_compteurs', 'mandat_id, caduc_depuis, compteur:compteurs(id, site_id)', surCesMandats),
       listeSeule
         ? Promise.resolve([] as { mandat_id: string; type_courtier: { code: string } | null }[])
         : fetchAllRows<{ mandat_id: string; type_courtier: { code: string } | null }>('mandats_courtiers', 'mandat_id, type_courtier:types_courtiers_mandat(code)', surCesMandats),
     ])
 
+    /* ══ LE PÉRIMÈTRE SE LIT EN DEUX LISTES ══
+       William, 15/09/2026 : un compteur qui change de compte « n'est plus couvert par ce mandat »,
+       mais il reste inscrit dessus — « le périmètre caduque ».
+
+       `compteur_ids` NE GARDE QUE CE QUI EST ENCORE COUVERT, et c'est délibéré : une dizaine
+       d'écrans lisent ce champ pour décider si un PDL peut entrer dans une recommandation ou s'il
+       faut un nouveau mandat. Y laisser un compteur sorti du périmètre ferait négocier sans
+       mandat — la faute exacte que la caducité sert à empêcher.
+
+       LES SITES SE COMPTENT SUR LE PÉRIMÈTRE VIVANT pour la même raison : `nb_sites_couverts`
+       annonce ce que le mandat couvre aujourd'hui. */
     const compteurIdsParMandat = new Map<string, string[]>()
+    const compteurIdsCaducsParMandat = new Map<string, string[]>()
     const siteIdsParMandat = new Map<string, string[]>()
     for (const mc of compteursRows) {
       if (!mc.compteur) continue
+      if (mc.caduc_depuis) {
+        const caducs = compteurIdsCaducsParMandat.get(mc.mandat_id) ?? []
+        caducs.push(mc.compteur.id)
+        compteurIdsCaducsParMandat.set(mc.mandat_id, caducs)
+        continue
+      }
       const compteurList = compteurIdsParMandat.get(mc.mandat_id) ?? []
       compteurList.push(mc.compteur.id)
       compteurIdsParMandat.set(mc.mandat_id, compteurList)
@@ -114,6 +132,7 @@ async function fetchMandats(compteId?: string, mandatId?: string, listeSeule = f
       nb_sites_couverts: (siteIdsParMandat.get(m.id) ?? []).length,
       site_ids: siteIdsParMandat.get(m.id) ?? [],
       compteur_ids: compteurIdsParMandat.get(m.id) ?? [],
+      compteur_ids_caducs: compteurIdsCaducsParMandat.get(m.id) ?? [],
       contact_signataire_id: m.contact_signataire_id,
       contact_signataire_nom: m.contact_signataire ? `${m.contact_signataire.prenom} ${m.contact_signataire.nom}` : undefined,
       docusign_envelope_id: m.docusign_envelope_id,
@@ -233,6 +252,8 @@ export function useCreateMandat() {
         nb_sites_couverts: siteIds.length,
         site_ids: siteIds,
         compteur_ids: input.compteur_ids,
+        // Un mandat qu'on vient de créer ne peut rien avoir de caduc : il n'a encore rien vécu.
+        compteur_ids_caducs: [],
         contact_signataire_id: input.contact_signataire_id,
         contact_signataire_nom: input.contact_signataire_nom,
         proprietaire_id: null,

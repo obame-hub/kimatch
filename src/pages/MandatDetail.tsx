@@ -358,6 +358,13 @@ export default function MandatDetail() {
   const compte = comptes?.find((c) => c.id === mandat?.compte_id)
   const contactSignataire = contacts?.find((c) => c.id === mandat?.contact_signataire_id)
   const compteursDuMandat = useMemo(() => compteurs?.filter((c) => mandat?.compteur_ids.includes(c.id)) ?? [], [compteurs, mandat])
+  /* LE PÉRIMÈTRE CADUQUE — les PDL que ce mandat couvrait avant qu'ils ne changent de société. Ils
+     sont exclus de `compteur_ids` pour que rien ne les croie couverts, et listés à part pour que la
+     fiche ne les fasse pas disparaître sans explication (migration 20260915110000). */
+  const compteursCaducs = useMemo(
+    () => compteurs?.filter((c) => mandat?.compteur_ids_caducs.includes(c.id)) ?? [],
+    [compteurs, mandat],
+  )
   const documentsDuMandat = useMemo(() => documents?.filter((d) => d.entite_type === 'mandat' && d.entite_id === mandat?.id) ?? [], [documents, mandat?.id])
 
   /* Le mandat Kiwee signé s'ouvre de lui-même — voir `fichierParDefaut`. Le choix explicite de
@@ -547,7 +554,7 @@ export default function MandatDetail() {
                 />
               </div>
 
-              <PerimetreCouvert compteurs={compteursDuMandat} contrats={contratsDuCompte} />
+              <PerimetreCouvert compteurs={compteursDuMandat} compteursCaducs={compteursCaducs} contrats={contratsDuCompte} />
 
               {/* ══ LE SUIVI DOCUSIGN, LE MÊME QUE SUR LE CONTRAT ══
                   Naoëlle, 08/09/2026 : « ce qu'il y avait sur mandat que je ne vois plus ». Le suivi

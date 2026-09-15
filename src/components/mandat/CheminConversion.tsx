@@ -4,6 +4,7 @@ import { FriseJalons, contexteDe, type Jalon } from '@/components/parcours/Frise
 import {
   PictoAnnule,
   PictoBrouillon,
+  PictoCaduque,
   PictoConsulte,
   PictoEnvoye,
   PictoExpire,
@@ -56,10 +57,12 @@ import {
 
 export function jalonsDuMandat(mandat: Mandat): Jalon[] {
   const statut = mandat.statut ?? ''
-  const finies = ['ACTIF', 'EXPIRE', 'REFUSE', 'ANNULE']
+  // CADUQUE est dans les issues « finies » : le mandat a forcément été signé pour y arriver — c'est
+  // la règle de William, « possible seulement si le mandat était Actif au préalable ».
+  const finies = ['ACTIF', 'EXPIRE', 'REFUSE', 'ANNULE', 'CADUQUE']
   const envoye = Boolean(mandat.date_envoi) || ['ENVOYE', 'CONSULTE', ...finies].includes(statut)
   // Une consultation ne se déduit pas d'un refus : le signataire peut refuser sans ouvrir.
-  const consulte = Boolean(mandat.date_consultation) || ['CONSULTE', 'ACTIF', 'EXPIRE'].includes(statut)
+  const consulte = Boolean(mandat.date_consultation) || ['CONSULTE', 'ACTIF', 'EXPIRE', 'CADUQUE'].includes(statut)
 
   const jalons: Jalon[] = [
     {
@@ -127,11 +130,26 @@ export function jalonsDuMandat(mandat: Mandat): Jalon[] {
       contexte: contexteDe(mandat.date_signature, 'signature du mandat'),
     })
 
-    /* EXPIRÉ N'EST PAS UNE ISSUE, C'EST UNE SUITE : le mandat a bien été actif, l'étape a eu lieu.
-       Elle n'apparaît donc qu'après elle, et « Actif » reste vert. */
+    /* CADUQUE EST UNE SUITE, COMME EXPIRÉ, mais pour une autre cause : le compteur a changé de
+       société, et le mandat qui l'autorisait ne porte plus sur rien. « Actif » reste donc vert —
+       le mandat a bien vécu — et l'étape s'ajoute après lui.
+
+       ELLE PASSE AVANT L'EXPIRATION dans ce test : un mandat rendu caduc dont la date de fin est
+       aussi dépassée afficherait sinon « Expiré », ce qui ferait croire qu'il suffit de le
+       renouveler auprès du même client. C'est justement la confusion que le statut sert à éviter. */
     const fin = mandat.date_fin_validite
     const perime = Boolean(fin) && (fin as string) < new Date().toISOString().slice(0, 10)
-    if (statut === 'EXPIRE' || (statut === 'ACTIF' && perime)) {
+    if (statut === 'CADUQUE') {
+      jalons.push({
+        cle: 'caduque',
+        libelle: 'Caduque',
+        picto: PictoCaduque,
+        franchi: true,
+        couleur: '#b91c1c',
+        date: null,
+        contexte: 'le compteur a changé de société',
+      })
+    } else if (statut === 'EXPIRE' || (statut === 'ACTIF' && perime)) {
       jalons.push({
         cle: 'expire',
         libelle: 'Expiré',
@@ -150,6 +168,10 @@ export function jalonsDuMandat(mandat: Mandat): Jalon[] {
 /** Le badge de vie — calculé, jamais saisi. */
 export function badgeVie(mandat: Mandat): { texte: string; couleur: string; fond: string; bordure: string } {
   const statut = mandat.statut ?? ''
+  /* CADUQUE PASSE EN PREMIER, avant même le test d'expiration : un mandat caduc dont la validité est
+     par ailleurs dépassée doit dire « caduc », parce que c'est ce qui commande le geste suivant —
+     refaire signer par une AUTRE société, et non renouveler auprès de la même. */
+  if (statut === 'CADUQUE') return { texte: 'CADUQUE', couleur: '#b91c1c', fond: '#fbe9e6', bordure: '#f2cdc7' }
   if (statut === 'REFUSE') return { texte: 'REFUSÉ', couleur: '#c2452d', fond: '#fbeae5', bordure: '#eed7cd' }
   if (statut === 'ANNULE') return { texte: 'ANNULÉ', couleur: '#5c5f66', fond: '#f0efec', bordure: '#e0dfdb' }
   const fin = mandat.date_fin_validite

@@ -141,6 +141,23 @@ export function PictoExpire(p: ProprietesPicto) {
 /** La validité se lit comme une horloge — le même dessin que le jalon « Expiré », par cohérence. */
 export const PictoValidite = PictoExpire
 
+/**
+ * CADUQUE : un maillon rompu, et non une horloge.
+ *
+ * « Expiré » est une horloge parce que c'est le TEMPS qui a agi. Caduque, c'est le LIEN entre la
+ * société et son point de livraison qui s'est défait — le mandat était encore valide la veille.
+ * Deux causes différentes doivent se distinguer d'un coup d'œil dans la frise.
+ */
+export function PictoCaduque(p: ProprietesPicto) {
+  return (
+    <Picto {...p} epaisseur={2.4}>
+      <path d="M9.2 14.8 6.7 17.3a3.6 3.6 0 0 1-5.1-5.1l2.5-2.5" />
+      <path d="M14.8 9.2l2.5-2.5a3.6 3.6 0 0 1 5.1 5.1l-2.5 2.5" />
+      <path d="M8.5 3.4v2.2M3.4 8.5h2.2M15.5 20.6v-2.2M20.6 15.5h-2.2" />
+    </Picto>
+  )
+}
+
 export function PictoTelephone(p: ProprietesPicto) {
   return (
     <Picto {...p} epaisseur={2}>
