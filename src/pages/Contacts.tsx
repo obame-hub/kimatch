@@ -52,9 +52,9 @@ function CreateContactDialog({ open, onClose, initialCompteId }: { open: boolean
     if (open && initialCompteId) setCompteId(initialCompteId)
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open, initialCompteId])
-  /* « Monsieur » et non « M. » : c'est ce que la base écrit depuis la migration 20260914180000.
-     Un formulaire qui propose autre chose rend le bouton inactif dès la relecture du contact. */
-  const [civilite, setCivilite] = useState<string>('Monsieur')
+  /* « M. » : la forme que la base écrit depuis la migration 20260915110000. Un formulaire qui
+     proposerait autre chose rendrait le bouton inactif dès la relecture du contact. */
+  const [civilite, setCivilite] = useState<string>('M.')
   const [prenom, setPrenom] = useState('')
   const [nom, setNom] = useState('')
   const [fonction, setFonction] = useState('')
@@ -370,7 +370,7 @@ function CreateContactDialog({ open, onClose, initialCompteId }: { open: boolean
             <Check className="mt-0.5 h-4 w-4 shrink-0" />
             <p>
               <span className="font-medium">{createdContact.civilite ? `${createdContact.civilite} ` : ''}{createdContact.prenom} {createdContact.nom}</span> a bien été
-              ajouté{createdContact.civilite === 'Madame' ? 'e' : ''} à {compte?.nom}.
+              ajouté{createdContact.civilite === 'Mme' ? 'e' : ''} à {compte?.nom}.
             </p>
           </div>
           <div className="grid grid-cols-2 gap-2">

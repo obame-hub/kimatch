@@ -92,14 +92,14 @@ const url = fs.readFileSync('.env.local', 'utf8').split('\n')
     const k = (await c.query(
       `select count(*) filter (where id = any($1) and civilite is not null)::int as posees,
               count(*) filter (where id = any($1)
-                               and civilite not in ('Monsieur', 'Madame'))::int as non_normalisees,
+                               and civilite not in ('M.', 'Mme'))::int as non_normalisees,
               count(*) filter (where civilite is not null)::int as total_avec_civilite
          from public.contacts`, [ids])).rows[0]
     if (k.posees < aEcrire.length) {
       throw new Error(`${k.posees} civilités posées pour ${aEcrire.length} attendues`)
     }
     if (k.non_normalisees > 0) {
-      throw new Error(`${k.non_normalisees} civilité(s) ne valent ni « Monsieur » ni « Madame » : le déclencheur ne s'applique pas`)
+      throw new Error(`${k.non_normalisees} civilité(s) ne valent ni « M. » ni « Mme » : le déclencheur ne s'applique pas`)
     }
 
     await c.query('commit')

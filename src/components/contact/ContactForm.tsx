@@ -66,9 +66,9 @@ export function ContactForm({
   const { data: allContacts, isLoading: contactsLoading } = useContacts()
   const createContact = useCreateContact()
 
-  /* « Monsieur » et non « M. » : c'est ce que la base écrit depuis la migration 20260914180000,
-     et un formulaire qui propose autre chose rend le bouton inactif dès la relecture. */
-  const [civilite, setCivilite] = useState<string>('Monsieur')
+  /* « M. » : la forme que la base écrit depuis la migration 20260915110000. Un formulaire qui
+     proposerait autre chose rendrait le bouton inactif dès la relecture du contact. */
+  const [civilite, setCivilite] = useState<string>('M.')
   const [prenom, setPrenom] = useState('')
   const [nom, setNom] = useState('')
   const [fonction, setFonction] = useState('')

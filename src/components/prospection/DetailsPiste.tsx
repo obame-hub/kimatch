@@ -19,14 +19,24 @@
  * du premier appel et le lien LinkedIn dans la même colonne : on lit une fiche pour répondre à une
  * question — qui est-ce, où, que gère-t-il, qu'a-t-on déjà fait — et chaque groupe répond à une.
  *
- * ══ CE QUI EST VIDE NE S'AFFICHE PAS ══
+ * ══ TOUT S'AFFICHE, MÊME CE QUI EST VIDE ══
  *
- * Sur 5 139 pistes, la région est renseignée 11 fois, le secteur 3 fois, la cote 25 fois. Afficher
- * « Région : — » sur les 5 128 autres remplirait la fiche de tirets et noierait les six champs qui
- * portent quelque chose. Un groupe entièrement vide disparaît avec son titre.
+ * Premier jet : les champs vides disparaissaient. Le raisonnement était qu'afficher « Région : — »
+ * sur 5 128 pistes remplirait la fiche de tirets et noierait les six lignes utiles.
+ *
+ * Naoëlle, 15/09/2026 : « affiche tous les champs dans le détail, même ceux qui sont null ».
+ *
+ * ELLE A UNE RAISON QUE JE N'AVAIS PAS VUE. Une fiche qui masque ce qui manque ne permet pas de
+ * voir CE QUI MANQUE — et c'est justement la question qu'on se pose devant une piste à qualifier.
+ * Un tiret dit « on ne sait pas », et c'est une information ; l'absence de ligne laisse croire que
+ * le champ n'existe pas. Le jour où l'on veut savoir pourquoi une piste n'avance pas, la liste des
+ * tirets est la réponse.
+ *
+ * Le tiret est donc écrit en gris pâle : présent pour qui le cherche, effacé pour qui lit le reste.
  */
 import type { ReactNode } from 'react'
 import { Card } from '@/components/ui/card'
+import { cn } from '@/lib/utils'
 import type { Piste } from '@/types/domain'
 
 /** Une valeur affichable, ou rien du tout — c'est ce `null` qui fait disparaître la ligne. */
@@ -135,11 +145,8 @@ function groupesDe(piste: Piste): Groupe[] {
 }
 
 export function DetailsPiste({ piste }: { piste: Piste }) {
+  // Plus aucun filtre : chaque champ a sa ligne, renseigné ou non (demande du 15/09/2026).
   const groupes = groupesDe(piste)
-    .map((g) => ({ ...g, lignes: g.lignes.filter((l) => l.valeur !== null) }))
-    .filter((g) => g.lignes.length > 0)
-
-  if (groupes.length === 0) return null
 
   return (
     <Card className="p-4">
@@ -158,8 +165,12 @@ export function DetailsPiste({ piste }: { piste: Piste }) {
                   <dt className="shrink-0 text-km-xs text-km-faint">{l.libelle}</dt>
                   {/* `break-words` : la liste des copropriétés fait parfois plusieurs centaines de
                       caractères, et sans lui elle pousserait la colonne hors de la carte. */}
-                  <dd className="min-w-0 break-words text-right text-km-label font-medium text-km-text">
-                    {l.valeur}
+                  <dd className={cn(
+                    'min-w-0 break-words text-right text-km-label',
+                    // Le tiret ne crie pas : il attend qu'on le cherche.
+                    l.valeur === null ? 'text-km-faint' : 'font-medium text-km-text',
+                  )}>
+                    {l.valeur ?? '—'}
                   </dd>
                 </div>
               ))}

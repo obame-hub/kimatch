@@ -77,9 +77,12 @@ function civiliteLisible(s) {
   const t = (s || '').trim()
   if (!t) return null
   const n = t.toLowerCase().replace(/\./g, '')
-  if (['m', 'mr', 'monsieur'].includes(n)) return 'Monsieur'
-  if (['mme', 'mrs', 'ms', 'madame'].includes(n)) return 'Madame'
-  if (['mlle', 'miss', 'mademoiselle'].includes(n)) return 'Madame'
+  /* « M. » et « Mme » : la forme retenue le 15/09/2026 — « c'est mieux et plus compact ». La
+     civilité s'affiche collée au nom dans des listes et des colonnes de tableau ; la forme longue
+     y pousse le nom hors de sa colonne. Même règle que `fn_formater_identite_contact` en base. */
+  if (['m', 'mr', 'monsieur'].includes(n)) return 'M.'
+  if (['mme', 'mrs', 'ms', 'madame'].includes(n)) return 'Mme'
+  if (['mlle', 'miss', 'mademoiselle'].includes(n)) return 'Mme'
   /* Une civilité qu'on ne reconnaît pas se garde telle quelle : « Dr », « Me », « Prof » existent,
      et les effacer perdrait une information juste au motif qu'elle sort de la liste. */
   return t
