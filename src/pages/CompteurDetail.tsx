@@ -1,13 +1,13 @@
 import { useMemo, useState } from 'react'
 import { useParams, useNavigate, Link } from 'react-router-dom'
-import { ArrowLeft, Building2, FileCheck2, FileText, Flame, MapPin, Plus, RefreshCw, Trash2, User, Zap } from 'lucide-react'
+import { ArrowLeft, FileCheck2, FileText, Flame, Plus, RefreshCw, Trash2, Zap } from 'lucide-react'
 import { Topbar } from '@/components/layout/Topbar'
 import { Button } from '@/components/ui/button'
 import { ZoneDepotFichiers } from '@/components/ui/zone-depot-fichiers'
 import { Badge } from '@/components/ui/badge'
 import { Dialog } from '@/components/ui/dialog'
 import { DialogSuppression } from '@/components/ui/dialog-suppression'
-import { DialogDeplacerCompteur } from '@/components/compteur/DialogDeplacerCompteur'
+import { CartesRattachement } from '@/components/compteur/CartesRattachement'
 import { FormField, Input, Select } from '@/components/ui/form'
 import { HistoriqueDiscret } from '@/components/ui/historique-discret'
 import { EntityLink } from '@/components/ui/entity-link'
@@ -468,7 +468,14 @@ export default function CompteurDetail() {
   // d'Ariane ; sur un poste lent la hierarchie restait vide le temps que tout arrive, et on
   // voyait un compteur sans compte ni site au-dessus (constate en production le 16/08/2026).
   const { data: siteDuCompteur } = useSite(compteur?.site_id)
-  const { data: compteDuCompteur } = useCompte(siteDuCompteur?.compte_id)
+  /* ══ LE COMPTE SE LIT SUR LE COMPTEUR ══
+     Il se lisait `siteDuCompteur?.compte_id`, c'est-à-dire À TRAVERS LE SITE. Or c'est
+     `compteurs.compte_id` qui fait foi partout ailleurs — l'onglet Compteurs du compte, les listes,
+     la recherche. Les deux ont divergé sur les deux seuls déplacements jamais effectués : la fiche
+     affichait la nouvelle société pendant que le compteur restait dans le portefeuille de
+     l'ancienne, ce qui a rendu la panne invisible pendant cinq jours.
+     Le repli sur le site ne sert que le temps du chargement du compteur. */
+  const { data: compteDuCompteur } = useCompte(compteur?.compte_id ?? siteDuCompteur?.compte_id)
   const { data: contrats } = useContrats()
   const { data: mandats } = useMandats()
   const { data: recommandations } = useRecommandationsListe()
@@ -505,7 +512,6 @@ export default function CompteurDetail() {
   const [tab, setTab] = useState<TabKey>('apercu')
   const [showAdd, setShowAdd] = useState(false)
   const [confirmDelete, setConfirmDelete] = useState(false)
-  const [deplacer, setDeplacer] = useState(false)
 
   const televerser = useTeleverserDocuments()
 
@@ -706,67 +712,24 @@ export default function CompteurDetail() {
           {/* La hiérarchie et les rattachements, sortis du volet gauche. */}
           {tab === 'rattachements' && (
             <div className="flex max-w-[560px] flex-col gap-3.5">
-        <div className="rounded-xl border border-km-line bg-white p-3.5">
-          <div className="mb-2 flex items-center justify-between gap-2">
-            <p className="text-km-xs font-bold uppercase tracking-wide text-km-faint">Hiérarchie</p>
-            {/* L'ACTION EST A COTE DE LA REPONSE QU'ELLE CHANGE. Cette carte dit a quoi le compteur
-                est accroche ; « Deplacer » est le seul geste qui modifie cela, et le chercher dans
-                un menu d'en-tete serait le cacher. Demande par Naoelle le 07/09/2026 : « donne la
-                possibilite dans le compteur de changer le compte de ce compteur ». */}
-            {canManage && site && (
-              <button
-                type="button"
-                onClick={() => setDeplacer(true)}
-                className="shrink-0 text-km-label font-semibold text-km-green hover:underline"
-              >
-                Déplacer
-              </button>
-            )}
-          </div>
-          <div className="flex flex-col gap-0.5">
-            {compte && (
-              <Link to={`/comptes/${compte.id}`} className="flex items-center gap-2 rounded-lg px-1.5 py-1.5 text-left hover:bg-km-bg">
-                <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-md bg-sky-100 text-sky-500"><Building2 className="h-3 w-3" /></span>
-                <span className="flex-1 truncate text-xs font-semibold text-km-text">{compte.nom}</span>
-                <span className="text-km-faint">›</span>
-              </Link>
-            )}
-            <div className="ml-[22px] h-2 w-0.5 bg-km-soft" />
-            {/* ══ L'ADRESSE VIENT DU COMPTEUR, ET NE MÈNE PLUS À UNE FICHE SITE ══════════════
+        {/* ══ LES TROIS RATTACHEMENTS, EN CARDS ══════════════════════════════════════════════
 
-                Réunion du 10/09/2026. William, en regardant cette fiche : « sur le compteur il n'y
-                a pas d'adresse, il n'y a pas de champ adresse. Donc il faut créer ce champ. »
+            William, 15/09/2026, maquette validée : « afficher les enregistrements rattachés
+            (compte, contact principal (responsable), contact CS) sous forme de card. Très important
+            de pouvoir changer rapidement de rattachement. »
 
-                Le champ existait — plus bas, sous « Adresse du compteur ». Ce qui manquait, c'est
-                qu'il soit présenté comme L'ADRESSE. Cette ligne-ci affichait celle du SITE et
-                menait à sa fiche ; le bloc du bas s'intitulait « préciser si différente du site »
-                et concluait « c'est l'adresse du site qui fait foi ». Autrement dit la fiche
-                désignait le site comme la source et le compteur comme l'exception — exactement
-                l'inverse de ce qui est vrai depuis le retrait de l'objet site.
-
-                C'est aussi ce qui faisait tomber Guillaume sur une page de site : la ligne du
-                milieu était un lien vers `/sites/:id`.
-
-                `adresse_site` est calculée en base à partir des colonnes du compteur — remplie sur
-                les 7 923, contre 339 sites sur 6 378 côté `sites.adresse`. */}
-            <div className="flex items-start gap-2 rounded-lg px-1.5 py-1.5 text-left">
-              <span className="mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-md bg-km-green-soft text-km-green"><MapPin className="h-3 w-3" /></span>
-              <span className="min-w-0 flex-1">
-                <span className="block truncate text-xs font-semibold text-km-text">
-                  {compteur.libelle_site || compteur.site_nom || 'Lieu non renseigné'}
-                </span>
-                {compteur.adresse_site && (
-                  <span className="block truncate text-km-label text-km-faint">{compteur.adresse_site}</span>
-                )}
-              </span>
-            </div>
-            <div className="ml-[22px] h-2 w-0.5 bg-km-soft" />
-            <div className="flex items-center gap-2 rounded-lg bg-km-bg px-1.5 py-1.5">
-              <span className={cn('flex h-6 w-6 shrink-0 items-center justify-center rounded-md', energyClasses)}><Icon className="h-3 w-3" /></span>
-              <span className="flex-1 truncate text-xs font-bold text-km-text">{compteur.utilisation || compteur.numero_pdl}</span>
-            </div>
-          </div>
-        </div>
+            CE QUI ÉTAIT LÀ : un arbre « compte › lieu › compteur » qui décrivait une STRUCTURE,
+            avec un bouton « Déplacer » ouvrant une fenêtre où l'on choisissait un SITE d'une autre
+            société. On ne pouvait donc pas rattacher un compteur à une société qui n'en a aucun —
+            et le geste ne changeait pas `compteurs.compte_id`, ce qui laissait le compteur dans le
+            portefeuille de l'ancienne société. Voir CartesRattachement.tsx et la migration
+            20260915100000. */}
+        <CartesRattachement
+          compteur={compteur}
+          compte={compte}
+          canManage={canManage}
+          onModifierContacts={() => setTab('apercu')}
+        />
 
         {/* ══ LE LIEU DU COMPTEUR, ET C'EST LUI QUI FAIT FOI ══════════════════════════════════
 
@@ -842,66 +805,6 @@ export default function CompteurDetail() {
               Rue non renseignée — seule la commune permet de le situer.
             </p>
           ) : null}
-        </div>
-
-        {/* ══ LES CONTACTS DU COMPTEUR, DANS L'ONGLET RATTACHEMENTS ═══════════════════════════
-
-            Naoëlle, 10/09/2026 : « lui il a deux compteurs rattachés, mais quand je vais sur un de
-            ces compteurs je ne vois pas son contact dans rattachements. Vérifie, parce qu'on peut
-            pas avoir toujours des erreurs. »
-
-            Elle a raison, et c'est la troisième fois que la même faute revient sous une autre
-            forme : un lien qui existe DANS UN SENS et pas dans l'autre. Le responsable et le
-            contact du conseil syndical vivaient dans l'onglet « Compteur », au milieu des
-            caractéristiques techniques — tension, tarif, profil de consommation. L'onglet
-            RATTACHEMENTS, lui, ne montrait que le compte et la couverture.
-
-            Or c'est bien un rattachement : la personne qu'on appelle pour ce point de livraison.
-            Elle est donc ici aussi, en carte cliquable, en face de ce que la fiche du contact
-            affiche depuis aujourd'hui — « responsable de 2 compteurs ». Les deux sens disent
-            maintenant la même chose.
-
-            L'ÉDITION RESTE DANS L'ONGLET COMPTEUR, une seule fois. Deux endroits pour changer la
-            même valeur, c'est deux endroits à maintenir et un doute sur lequel fait foi. */}
-        <div className="rounded-xl border border-km-line bg-white p-3.5">
-          <div className="mb-2 flex items-center justify-between gap-2">
-            <p className="text-km-xs font-bold uppercase tracking-wide text-km-faint">Contacts</p>
-            <button
-              type="button"
-              onClick={() => setTab('apercu')}
-              className="shrink-0 text-km-label font-semibold text-km-green hover:underline"
-            >
-              Modifier
-            </button>
-          </div>
-          {!compteur.responsable_contact_id && !compteur.contact_conseil_syndical_id ? (
-            <p className="text-km-label text-km-faint">
-              Aucun contact désigné sur ce compteur. Le responsable se choisit dans l{'’'}onglet Compteur.
-            </p>
-          ) : (
-            <div className="flex flex-col gap-1.5">
-              {compteur.responsable_contact_id && (
-                <CarteContactCompteur
-                  role="Responsable"
-                  contactId={compteur.responsable_contact_id}
-                  nom={compteur.responsable_contact_nom ?? 'Contact'}
-                  teinte="#4f5aa8"
-                  fond="#eef0fa"
-                  onOuvrir={() => navigate(`/contacts/${compteur.responsable_contact_id}`)}
-                />
-              )}
-              {compteur.contact_conseil_syndical_id && (
-                <CarteContactCompteur
-                  role="Conseil syndical"
-                  contactId={compteur.contact_conseil_syndical_id}
-                  nom={compteur.contact_conseil_syndical_nom ?? 'Contact'}
-                  teinte="#7c5bb0"
-                  fond="#f1ecf8"
-                  onOuvrir={() => navigate(`/contacts/${compteur.contact_conseil_syndical_id}`)}
-                />
-              )}
-            </div>
-          )}
         </div>
 
         <CouvertureCard
@@ -1240,18 +1143,6 @@ export default function CompteurDetail() {
       </div>
 
       <AddConsommationDialog compteurId={compteur.id} open={showAdd} onClose={() => setShowAdd(false)} />
-      {site && (
-        <DialogDeplacerCompteur
-          ouvert={deplacer}
-          onFermer={() => setDeplacer(false)}
-          compteurId={compteur.id}
-          numeroPdl={compteur.numero_pdl}
-          compteActuelId={site.compte_id}
-          compteActuelNom={compte?.nom ?? site.compte_nom}
-          siteActuelId={site.id}
-          siteActuelNom={site.nom}
-        />
-      )}
       <DialogSuppression
         ouvert={confirmDelete}
         onFermer={() => { suppression.reinitialiser(); setConfirmDelete(false) }}
@@ -1276,51 +1167,6 @@ export default function CompteurDetail() {
  * l'utilisateur en a le droit. Le lien vers la fiche est conservé à côté du sélecteur — le rendre
  * éditable sans cela ferait perdre l'accès au contact en un clic.
  */
-/**
- * Un contact rattaché au compteur, en carte cliquable.
- *
- * Même dessin que les lignes de compteur sur la fiche contact (`RattachementsContact`), pour que
- * les deux sens du rattachement se reconnaissent d'un coup d'œil. La pastille porte le rôle, parce
- * que c'est lui qui dit à qui l'on s'adresse et pour quoi.
- */
-function CarteContactCompteur({
-  role,
-  contactId,
-  nom,
-  teinte,
-  fond,
-  onOuvrir,
-}: {
-  role: string
-  contactId: string
-  nom: string
-  teinte: string
-  fond: string
-  onOuvrir: () => void
-}) {
-  return (
-    <div
-      key={contactId}
-      onClick={onOuvrir}
-      className="flex cursor-pointer items-center gap-3 rounded-xl border border-km-line bg-white p-2.5 transition-colors hover:bg-km-bg/60"
-    >
-      <span
-        className="flex h-8 w-8 shrink-0 items-center justify-center rounded-[9px]"
-        style={{ background: fond, color: teinte }}
-      >
-        <User className="h-3.5 w-3.5" />
-      </span>
-      <span className="min-w-0 flex-1 truncate text-sm font-bold text-km-text">{nom}</span>
-      <span
-        className="shrink-0 rounded px-1.5 py-px text-km-tiny font-bold uppercase tracking-wide"
-        style={{ background: fond, color: teinte }}
-      >
-        {role}
-      </span>
-    </div>
-  )
-}
-
 function ChampContactCompteur({
   libelle,
   contactId,
