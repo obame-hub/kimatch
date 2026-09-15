@@ -32,7 +32,26 @@ export function AppLayout() {
         {/* Le fond de page passe au `km-bg` de Michel : #FCFCFB, presque blanc. */}
         <div className="flex min-h-0 flex-1 bg-km-bg">
           <Sidebar />
-          <main className={cn('min-w-0 flex-1 overflow-y-auto pb-14 md:pb-0 md:pl-[215px]', impersonating && 'pt-7')}>
+          {/* ══ LA MARGE BASSE EST CELLE DES PASTILLES FLOTTANTES ══
+
+              Naoëlle, 15/09/2026, capture à l'appui : « je ne peux pas déplier à cause des widgets
+              de téléphone et de notification ». Le bouton « voir le reste » d'une colonne du kanban
+              se trouve en bas ; les deux pastilles y flottent en permanence et le recouvrent. Le
+              contenu n'était pas seulement caché — il devenait INCLIQUABLE, et rien ne le disait.
+
+              Le calcul, pour qu'il se refasse le jour où les pastilles bougent :
+
+                ordinateur   `md:bottom-4` (16 px) + `h-11` (44 px)      = 60 px occupés
+                mobile       `bottom-[4.5rem]` (72 px) + 44 px           = 116 px occupés
+
+              D'où `pb-32` (128 px) sur mobile — la barre du bas y ajoutait déjà 56 px, ce qui ne
+              suffisait pas — et `md:pb-20` (80 px) sur ordinateur. Dans les deux cas une marge de
+              plus que le strict nécessaire, pour qu'un clic près du bord ne tombe pas à un pixel
+              de la pastille.
+
+              ICI ET PAS DANS CHAQUE ÉCRAN : `main` est le seul conteneur qui défile, donc la seule
+              correction qui vaille pour les pages d'aujourd'hui comme pour celles de demain. */}
+          <main className={cn('min-w-0 flex-1 overflow-y-auto pb-32 md:pb-20 md:pl-[215px]', impersonating && 'pt-7')}>
             <Outlet />
           </main>
         </div>
