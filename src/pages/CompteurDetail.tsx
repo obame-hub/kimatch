@@ -748,7 +748,7 @@ export default function CompteurDetail() {
             société. On ne pouvait donc pas rattacher un compteur à une société qui n'en a aucun —
             et le geste ne changeait pas `compteurs.compte_id`, ce qui laissait le compteur dans le
             portefeuille de l'ancienne société. Voir CartesRattachement.tsx et la migration
-            20260915100000. */}
+            20260915084931. */}
         <CartesRattachement
           compteur={compteur}
           compte={compte}

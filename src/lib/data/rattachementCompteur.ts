@@ -29,7 +29,7 @@
  *
  * ══ L'ÉCRITURE EST EN BASE, EN UN SEUL APPEL ══
  *
- * `fn_rattacher_compteur` (migration 20260915100000) touche quatre à six tables. Un enchaînement
+ * `fn_rattacher_compteur` (migration 20260915084931) touche quatre à six tables. Un enchaînement
  * d'appels depuis le navigateur peut s'appliquer à moitié, et fabriquer l'incohérence exacte que cet
  * écran sert à réparer — c'est d'ailleurs ce qui est arrivé aux deux seuls déplacements jamais
  * effectués, restés à cheval entre deux sociétés.
@@ -363,7 +363,7 @@ export interface ResultatRattachement {
 /** Le message quand la migration n'est pas encore passée : un message brut ferait chercher ailleurs. */
 function erreurLisible(message: string): string {
   if (message.includes('fn_rattacher_compteur')) {
-    return 'Le rattachement n’est pas encore disponible : la migration 20260915100000 n’a pas été appliquée.'
+    return 'Le rattachement n’est pas encore disponible : la migration 20260915084931 n’a pas été appliquée.'
   }
   return message
 }

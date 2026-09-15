@@ -360,7 +360,7 @@ export default function MandatDetail() {
   const compteursDuMandat = useMemo(() => compteurs?.filter((c) => mandat?.compteur_ids.includes(c.id)) ?? [], [compteurs, mandat])
   /* LE PÉRIMÈTRE CADUQUE — les PDL que ce mandat couvrait avant qu'ils ne changent de société. Ils
      sont exclus de `compteur_ids` pour que rien ne les croie couverts, et listés à part pour que la
-     fiche ne les fasse pas disparaître sans explication (migration 20260915110000). */
+     fiche ne les fasse pas disparaître sans explication (migration 20260915085015). */
   const compteursCaducs = useMemo(
     () => compteurs?.filter((c) => mandat?.compteur_ids_caducs.includes(c.id)) ?? [],
     [compteurs, mandat],
