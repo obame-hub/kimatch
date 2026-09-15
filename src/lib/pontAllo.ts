@@ -137,12 +137,25 @@ export function brancherLePont(element: HTMLIFrameElement | null): void {
     window.addEventListener('message', surMessage)
     ecoute = true
   }
-  changer('attente')
+  relancerLaPoignee()
+}
+
+/**
+ * Relance la poignée de main.
+ *
+ * APPELÉE AUSSI AU CHARGEMENT DU CADRE, et c'est ce qui manquait : `ref` se déclenche quand
+ * l'élément est posé dans la page, bien avant que leur application ait démarré. Les premières
+ * salutations tombaient donc dans le vide, et la fenêtre de rattrapage se fermait au bout de vingt
+ * secondes — un clic plus tard, le pont n'était jamais établi et on retombait sur la file.
+ */
+export function relancerLaPoignee(): void {
+  if (!cadre) return
+  if (etat !== 'pret') changer('attente')
   saluer()
   if (relances) clearInterval(relances)
-  /* Vingt tentatives à une seconde : au-delà, leur page ne répondra plus, et insister coûterait un
-     message par seconde pour rien. */
-  let reste = 20
+  /* Soixante tentatives à une seconde. Un message par seconde pendant une minute ne coûte rien, et
+     couvre un démarrage lent, une session à reconnecter, ou un réseau qui traîne. */
+  let reste = 60
   relances = setInterval(() => {
     if (etat === 'pret' || reste-- <= 0) {
       if (relances) { clearInterval(relances); relances = null }
@@ -157,7 +170,12 @@ export function brancherLePont(element: HTMLIFrameElement | null): void {
  * replier sur la file d'appel, et surtout ne pas laisser croire que ça sonne.
  */
 export function composer(e164: string): boolean {
-  if (etat !== 'pret') return false
+  if (etat !== 'pret') {
+    /* ON EN PROFITE POUR RESALUER : si le pont dormait, le prochain clic marchera. Mieux vaut ça
+       qu'un utilisateur qui reclique dix fois sans que rien ne change jamais. */
+    relancerLaPoignee()
+    return false
+  }
   return envoyer({ type: DIAL_NUMBER, data: { phoneNumber: e164 } })
 }
 

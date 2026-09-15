@@ -46,7 +46,7 @@ import { useEffect, useState } from 'react'
 import { Phone, Minus, X, ExternalLink, ZoomIn, ZoomOut, Maximize2, Minimize2, Move } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { useAppelEnCours } from '@/lib/data/appelEnCours'
-import { brancherLePont, etatDuPont, observerLePont } from '@/lib/pontAllo'
+import { brancherLePont, etatDuPont, observerLePont, relancerLaPoignee } from '@/lib/pontAllo'
 
 const URL_ALLO = 'https://web.withallo.com'
 
@@ -667,6 +667,25 @@ export function VoletAllo() {
             )}
           >
             <Phone className={cn('shrink-0 text-km-green', hublot ? 'h-3.5 w-3.5' : 'h-4 w-4')} />
+            {/* ══ L'ÉTAT DU PONT, VISIBLE ══
+                Sans lui, « ça n'appelle pas direct » et « le pont n'est pas encore prêt » se
+                ressemblent exactement, et on cherche du mauvais côté. Vert : Kimatch peut composer
+                et raccrocher. Ambre : la poignée de main est en cours. */}
+            <span
+              title={
+                pont === 'pret'
+                  ? 'Kimatch peut composer et raccrocher dans Allo'
+                  : pont === 'attente'
+                    ? 'Connexion à Allo en cours…'
+                    : 'Téléphone non chargé'
+              }
+              className={cn(
+                'h-1.5 w-1.5 shrink-0 rounded-full',
+                pont === 'pret' && 'bg-km-green',
+                pont === 'attente' && 'animate-pulse bg-km-amber',
+                pont === 'absent' && 'bg-km-line',
+              )}
+            />
             <div className="min-w-0 flex-1">
               {hublot ? (
                 /* EN HUBLOT, LE TITRE DIT L'APPEL, PAS L'OUTIL. La place est comptée, et « Téléphone
@@ -789,6 +808,10 @@ export function VoletAllo() {
               /* LE PONT S'OUVRE AU CHARGEMENT DU CADRE, et se referme quand il disparaît. Leur
                  application redémarre à chaque chargement : la poignée de main aussi. */
               ref={brancherLePont}
+              /* LA POIGNÉE DE MAIN SE REJOUE QUAND LEUR PAGE A FINI DE CHARGER. `ref` se déclenche
+                 quand le cadre est posé, bien avant qu'Allo ait démarré : sans ce second essai, les
+                 salutations tombaient dans le vide. */
+              onLoad={relancerLaPoignee}
               className="absolute border-0"
               /* EN HUBLOT : taille naturelle, décalée de la position du cadrage — le rectangle
                  visible est donc un morceau d'Allo à l'échelle 1, lisible.
