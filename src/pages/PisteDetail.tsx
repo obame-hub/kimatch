@@ -26,7 +26,6 @@ import { useReferenceTable } from '@/lib/data/referenceTables'
 import { useStatutsOpportunites } from '@/lib/data/opportunites'
 import {
   usePiste, useMajPiste, useConvertirPisteEnOpportunite, useStatutsPistes,
-  VALIDATIONS_PISTE, pisteQualifiee,
 } from '@/lib/data/prospection'
 import { MenuChoix } from '@/components/ui/menu-choix'
 import { Dialog } from '@/components/ui/dialog'
@@ -37,16 +36,23 @@ import { cn } from '@/lib/utils'
 /**
  * LES TONS DES QUATRE STATUTS DE `statuts_pistes`.
  *
- * DISQUALIFIÉE N'EST PAS ROUGE. Écarter une piste est un travail fait, pas un échec : sur cinq mille
- * pistes importées, en écarter est l'issue normale de la majorité. Le rouge est réservé à ce qui
- * appelle une action ; ici il n'y a plus rien à faire. Convertie est verte parce qu'elle a produit
- * une affaire.
+ * DISQUALIFIÉE EST ROUGE, ET CE N'EST PLUS MON CHOIX. Elle était grise, avec cet argument : écarter
+ * une piste est un travail fait, pas un échec — sur cinq mille pistes importées, en écarter est
+ * l'issue normale de la majorité, et le rouge devrait se réserver à ce qui appelle une action.
+ *
+ * William, 15/09/2026, a tranché l'inverse : « Convertie (vert) ou Disqualifiée (rouge) ». L'ancien
+ * argument reste écrit ici pour qu'on sache ce qu'on a changé et pourquoi on pourrait y revenir,
+ * mais la sémiotique du portefeuille lui appartient, pas à moi. Convertie reste verte : elle a
+ * produit une affaire.
  */
-const TON_STATUT_PISTE: Record<string, 'kiwi' | 'amber' | 'neutral'> = {
+const TON_STATUT_PISTE: Record<string, 'kiwi' | 'amber' | 'neutral' | 'red'> = {
   NOUVELLE: 'amber',
   EN_QUALIFICATION: 'amber',
+  // Le temps d'attente du prospect : la piste est vivante, elle ne dort pas. Même ambre que les
+  // deux étapes précédentes, parce que c'est la même nature — du travail en cours.
+  EN_ATTENTE_FACTURE: 'amber',
   CONVERTIE: 'kiwi',
-  DISQUALIFIEE: 'neutral',
+  DISQUALIFIEE: 'red',
 }
 
 /**
@@ -115,8 +121,6 @@ export default function PisteDetail() {
   if (isLoading) return <div className="p-6 text-km-body text-km-faint">Chargement…</div>
   if (!piste) return <div className="p-6 text-km-body text-km-faint">Piste introuvable.</div>
 
-  const mure = pisteQualifiee(piste)
-  const faites = VALIDATIONS_PISTE.filter((v) => Boolean(piste[v.cle])).length
   const convertie = Boolean(piste.opportunite_id)
   const documentsDeLaPiste = (documents ?? []).filter((d) => d.entite_type === 'piste')
 
@@ -151,9 +155,6 @@ export default function PisteDetail() {
             <Badge tone={TON_STATUT_PISTE[piste.statut_code ?? ''] ?? 'neutral'}>
               {piste.statut_libelle ?? 'Sans statut'}
             </Badge>
-            {!piste.statut_clos && (
-              <Badge tone={mure ? 'kiwi' : 'amber'}>{faites}/5 vérifications</Badge>
-            )}
           </div>
           <p className="truncate text-km-body text-km-muted">
             {piste.reference && <span className="font-mono text-km-faint">{piste.reference} · </span>}
@@ -216,7 +217,7 @@ export default function PisteDetail() {
           </Link>
         ) : (
           canManage && (
-            <Button disabled={!mure} onClick={() => setConversionOuverte(true)}>
+            <Button onClick={() => setConversionOuverte(true)}>
               Créer l’opportunité
               <ArrowRight className="h-3.5 w-3.5" />
             </Button>
@@ -275,11 +276,16 @@ export default function PisteDetail() {
                 Le STATUT de la piste, lui, en est un vrai, et c'est justement ce qu'une frise sait
                 dire. J'avais retiré la frise sans la remettre là où elle avait sa place.
 
-                DEUX JALONS, DEUX ISSUES. `statuts_pistes` porte quatre lignes dont deux clôturent.
-                Les deux états de travail — Nouvelle, En qualification — font les jalons ; l'issue
-                ferme la frise, verte si convertie, GRISE si disqualifiée. Pas rouge : écarter une
-                piste est un travail fait, c'est l'issue de la plupart des cinq mille importées, et
-                le rouge est réservé à ce qui appelle une action.
+                TROIS JALONS, DEUX ISSUES. `statuts_pistes` porte cinq lignes dont deux clôturent.
+                Les trois états de travail — Nouvelle, En cours de qualification, En attente de
+                facture — font les jalons ; l'issue ferme la frise, verte si convertie, rouge si
+                disqualifiée (William, 15/09/2026 — voir l'en-tête du fichier, il renverse un choix
+                antérieur).
+
+                LES JALONS NE SONT PAS ÉCRITS EN DUR : la frise lit `statuts_pistes` et prend tout ce
+                qui ne clôture pas, dans l'ordre du référentiel. « En attente de facture » y est
+                apparue sans qu'une ligne de ce fichier la nomme — c'est ce qui permettra d'en
+                intercaler une autre sans repasser ici.
 
                 CLIQUABLE, comme sur la fiche Requête. Mais « Convertie » ne s'atteint pas d'un
                 clic — elle se gagne en créant l'opportunité, et le déclencheur l'écrit — et
@@ -297,12 +303,15 @@ export default function PisteDetail() {
                       ? (statutsPistes.find((st) => !st.est_cloture)?.code ?? 'NOUVELLE')
                       : piste.statut_code ?? 'NOUVELLE'
                   }
+                  /* L'ISSUE FERME LA FRISE : verte si convertie, ROUGE si disqualifiée — « perdue »
+                     au sens de la frise. Elle était rendue neutre ; voir l'en-tête du fichier pour
+                     l'argument d'origine et la décision de William du 15/09/2026 qui le renverse. */
                   finalite={
                     piste.statut_clos
                       ? {
                           libelle: piste.statut_libelle ?? 'Clôturée',
-                          perdue: false,
-                          neutre: piste.statut_code === 'DISQUALIFIEE',
+                          perdue: piste.statut_code === 'DISQUALIFIEE',
+                          neutre: false,
                         }
                       : null
                   }
@@ -326,108 +335,21 @@ export default function PisteDetail() {
                 />
               </Card>
             )}
-            {/* ══ LES CINQ VÉRIFICATIONS ══
-                Elles se figent après conversion : décocher une case après coup ne déferait rien et
-                laisserait deux objets qui se contredisent. */}
-            {/* ══ LES CINQ VÉRIFICATIONS, EN LISTE DE COCHES ══
-                Naoëlle, 02/09/2026 : « les 5 points de vérification avant de lancer une opportunité,
-                faut les transformer en une liste de coches, car en mode frise on dirait des
-                statuts ».
+            {/* ══ LES CINQ VÉRIFICATIONS SONT PARTIES, ET LE VERROU AVEC ══
 
-                ELLE A RAISON, ET C'EST MOI QUI AVAIS MAL LU. Elle avait demandé le 01/09 « une frise
-                de statut animée », puis corrigé le même jour : « qu'il puisse cocher dans n'importe
-                quel ordre, pas forcément une frise chronologique, mais une ligne avec des coches ».
-                J'ai gardé la frise en lui ajoutant un état par jalon — techniquement juste, visuellement
-                faux. Une frise DESSINE un parcours : des pastilles alignées reliées par des segments
-                se lisent comme des étapes qui se succèdent, et le lecteur cherche laquelle vient
-                après. Ces cinq contrôles n'ont pas d'ordre : on vérifie l'e-mail avant ou après le
-                portable, selon ce que le client dit au téléphone.
+                William, 15/09/2026 : « supprime le bloc "Avant de lancer l'opportunité" ». Puis, mis
+                devant la conséquence — c'était le SEUL endroit où cocher les cinq contrôles, et le
+                bouton « Créer l'opportunité » restait grisé tant qu'ils n'étaient pas faits :
+                « supprimer le verrou aussi ».
 
-                UNE LISTE DE COCHES NE PROMET AUCUN ORDRE. Cinq lignes, cinq cases, chacune
-                indépendante — c'est exactement ce que les données disent : cinq booléens sans
-                relation entre eux. La coche s'anime au clic et la barre de progression donne
-                l'élan qu'elle voulait, sans mentir sur la nature de la chose. */}
-            <Card className="p-4">
-              <div className="mb-2.5 flex items-center justify-between">
-                <p className="text-km-label font-bold uppercase tracking-[0.08em] text-km-faint">
-                  Avant de lancer l’opportunité
-                </p>
-                <span className={cn('text-km-label font-bold tabular-nums', mure ? 'text-km-green' : 'text-km-amber')}>
-                  {faites}/5
-                </span>
-              </div>
+                LES DEUX PARTENT ENSEMBLE OU AUCUN. Retirer la carte en laissant le verrou aurait
+                rendu la conversion impossible depuis cette page, sans que rien ne dise pourquoi le
+                bouton reste gris — la panne la plus coûteuse à diagnostiquer, celle qui ressemble à
+                un écran normal.
 
-              {/* LA BARRE PORTE L'ÉLAN, PAS LES COCHES. C'est ce que la frise apportait vraiment —
-                  « ça rendra bien et ça motivera les commerciaux » — et une barre le fait sans
-                  suggérer un ordre entre les cinq contrôles. */}
-              <div className="mb-3 h-1.5 overflow-hidden rounded-full bg-km-soft">
-                <div
-                  className={cn(
-                    'h-full rounded-full transition-[width] duration-500 ease-out',
-                    mure ? 'bg-km-green' : 'bg-km-amber',
-                  )}
-                  style={{ width: `${(faites / VALIDATIONS_PISTE.length) * 100}%` }}
-                />
-              </div>
-
-              <div className="flex flex-col gap-0.5">
-                {VALIDATIONS_PISTE.map((v) => {
-                  const coche = Boolean(piste[v.cle])
-                  const figee = convertie || !canManage
-                  return (
-                    <button
-                      key={v.cle}
-                      type="button"
-                      disabled={figee}
-                      onClick={() => {
-                        maj
-                          .mutateAsync({ id: piste.id, patch: { [v.cle]: !coche } })
-                          .catch((e) => signaler(e instanceof Error ? e.message : 'Enregistrement impossible'))
-                      }}
-                      className={cn(
-                        'flex items-center gap-2.5 rounded-km px-1.5 py-2 text-left transition-colors',
-                        figee ? 'cursor-default' : 'hover:bg-km-soft',
-                      )}
-                    >
-                      {/* LA CASE S'ANIME AU CLIC : le fond se remplit et la coche apparaît. C'est le
-                          « coches animées » de sa demande du 01/09, qui vaut toujours. */}
-                      <span
-                        className={cn(
-                          'flex h-5 w-5 shrink-0 items-center justify-center rounded-[6px] border transition-all duration-200',
-                          coche
-                            ? 'scale-100 border-km-green bg-km-green text-white'
-                            : 'border-km-line bg-km-surface text-transparent',
-                        )}
-                      >
-                        <Check className={cn('h-3.5 w-3.5 transition-transform duration-200', coche ? 'scale-100' : 'scale-50')} />
-                      </span>
-                      <span
-                        className={cn(
-                          'text-km-body transition-colors',
-                          coche ? 'font-medium text-km-text' : 'text-km-muted',
-                        )}
-                      >
-                        {v.libelle}
-                      </span>
-                    </button>
-                  )
-                })}
-              </div>
-
-              {!mure && !convertie && (
-                <p className="mt-2.5 border-t border-km-line pt-2.5 text-km-label leading-snug text-km-faint">
-                  Cochez dans l’ordre que vous voulez : ces cinq points n’en ont pas. Les cinq doivent
-                  être faits — sans eux, on ouvrirait une affaire sur un contact qu’on ne sait pas
-                  joindre.
-                </p>
-              )}
-              {convertie && (
-                <p className="mt-2.5 border-t border-km-line pt-2.5 text-km-label text-km-faint">
-                  Les vérifications sont figées : la piste a produit son opportunité.
-                </p>
-              )}
-            </Card>
-
+                CE QUI SURVIT : les cinq colonnes restent en base, et la liste Prospection continue
+                de les lire pour dire ce qui manque sur une piste. Ce n'est plus une barrière, c'est
+                une information. */}
             {/* ══ LES COORDONNÉES, MODIFIABLES ══
                 Le panneau ne les montrait qu'en lecture. Une piste se corrige pendant l'appel — un
                 e-mail mal orthographié est justement ce que les cinq vérifications cherchent. */}
