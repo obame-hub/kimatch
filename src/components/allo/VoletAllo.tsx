@@ -128,8 +128,6 @@ const ECHELLE_MIN = 0.62
  * le rendre réparable en cinq secondes plutôt qu'en un déploiement : le bouton « recadrer » laisse
  * glisser Allo derrière le hublot, et la position est retenue. Personne n'attend une correction.
  */
-const HUBLOT_L_DEFAUT = 420
-const HUBLOT_H_DEFAUT = 170
 const HUBLOT_MIN = 180
 const HUBLOT_MAX_L = 900
 const HUBLOT_MAX_H = 700
@@ -145,10 +143,35 @@ const HAUTEUR_LOGIQUE = 860
  * en appel on veut ses touches — raccrocher, muet, transfert. Un cadrage unique obligerait à
  * recadrer à chaque décrochage, donc pendant qu'on parle à un client. Kimatch sait déjà s'il y a un
  * appel en cours (c'est ce qui fait clignoter la pastille) : il choisit le cadrage tout seul. */
+/* ══ LE REPÈRE VERTICAL PART DU BAS, PAS DU HAUT ══
+ *
+ * Premier essai, compté depuis le haut : le cadrage tombait sur le champ « ajoutez une note
+ * interne », juste au-dessus de la barre. Et c'était structurel, pas un mauvais chiffre — la hauteur
+ * à laquelle on rend Allo est une valeur qu'on choisit, donc tout repère pris depuis le haut se
+ * décale dès qu'on la change.
+ *
+ * La barre de composition et les touches d'appel vivent en BAS de leur écran. On aligne donc le bas
+ * du hublot sur le bas d'Allo : `y` devient une distance AU-DESSUS du bas, et `0` montre exactement
+ * la barre. Ce repère-là ne bouge plus.
+ */
 const CADRAGE_DEFAUT = {
-  repos: { x: 596, y: 700 },
-  appel: { x: 596, y: 700 },
+  repos: { x: 0, y: 0 },
+  appel: { x: 0, y: 0 },
 }
+/* ══ LES VALEURS SONT CELLES DE LA VRAIE BARRE D'ALLO ══
+ *
+ * Capture de Naoëlle, 15/09/2026 : pendant un appel, Allo affiche UNE SEULE RANGÉE tout en bas —
+ * nom et numéro à gauche, puis muet, haut-parleur, clavier, étiquette, transfert, note, incrustation,
+ * l'état (« Sonnerie en cours… »), et raccrocher en rouge à l'extrémité droite.
+ *
+ * C'est le cas favorable : une rangée se cadre, des boutons éparpillés ne se cadrent pas.
+ *
+ * LA BARRE PREND TOUTE LA LARGEUR, environ 40 px de haut. À l'échelle 1 elle ne tiendrait pas dans
+ * un petit carré — d'où 50 %, où les icônes restent reconnaissables et le nom lisible. 620 px de
+ * large montrent 1240 px de leur écran, soit la rangée entière, raccrocher compris. */
+const HUBLOT_L_INITIAL = 620
+const HUBLOT_H_INITIAL = 70
+const ZOOM_INITIAL = 0.5
 
 const CLE_HUBLOT = 'kimatch.volet-allo.hublot'
 const CLE_CADRAGE = 'kimatch.volet-allo.cadrage'
@@ -244,12 +267,12 @@ export function VoletAllo() {
      en train de le déplacer, donc le cadre ne doit plus recevoir la souris. */
   const [hublot, setHublot] = useState(true)
   const [cadrages, setCadrages] = useState(CADRAGE_DEFAUT)
-  const [tailleHublot, setTailleHublot] = useState({ l: HUBLOT_L_DEFAUT, h: HUBLOT_H_DEFAUT })
+  const [tailleHublot, setTailleHublot] = useState({ l: HUBLOT_L_INITIAL, h: HUBLOT_H_INITIAL })
   const [recadre, setRecadre] = useState(false)
   /* LE ZOOM DU HUBLOT, indépendant de l'échelle du volet entier. La barre d'appel d'Allo est large :
      à l'échelle 1 elle ne tient pas dans un petit carré, et réduite de trop elle devient illisible.
      Le bon réglage ne se devine pas depuis le code — il se trouve devant un vrai appel. */
-  const [zoomHublot, setZoomHublot] = useState(1)
+  const [zoomHublot, setZoomHublot] = useState(ZOOM_INITIAL)
   const [glisseCadrage, setGlisseCadrage] = useState<{ x: number; y: number; ox: number; oy: number } | null>(null)
   const [glisseTaille, setGlisseTaille] = useState<{ x: number; y: number; l: number; h: number } | null>(null)
 
@@ -353,7 +376,9 @@ export function VoletAllo() {
         ...c,
         [modeCadrage]: {
           x: Math.min(LARGEUR_LOGIQUE - 60, Math.max(0, glisseCadrage.ox - (e.clientX - glisseCadrage.x) / z)),
-          y: Math.min(HAUTEUR_LOGIQUE - 60, Math.max(0, glisseCadrage.oy - (e.clientY - glisseCadrage.y) / z)),
+          /* `+` ET NON `-` sur l'axe vertical : `y` se compte vers le HAUT depuis le bas d'Allo, donc
+             tirer le contenu vers le bas revient à monter dans leur écran. */
+          y: Math.min(HAUTEUR_LOGIQUE - 60, Math.max(0, glisseCadrage.oy + (e.clientY - glisseCadrage.y) / z)),
         },
       }))
     }
@@ -758,9 +783,11 @@ export function VoletAllo() {
                 hublot
                   ? {
                       /* LE DÉCALAGE EST EN PIXELS D'ÉCRAN, donc multiplié par le zoom : le cadrage se
-                         raisonne dans les coordonnées d'Allo, l'affichage dans celles de la page. */
+                         raisonne dans les coordonnées d'Allo, l'affichage dans celles de la page.
+                         `bottom` et non `top` : c'est le bas d'Allo qu'on aligne sur le bas du
+                         hublot, parce que c'est là que vivent ses touches. */
                       left: `${-cadrage.x * zoomHublot}px`,
-                      top: `${-cadrage.y * zoomHublot}px`,
+                      bottom: `${-cadrage.y * zoomHublot}px`,
                       width: `${LARGEUR_LOGIQUE}px`,
                       height: `${HAUTEUR_LOGIQUE}px`,
                       transform: `scale(${zoomHublot})`,
@@ -801,6 +828,7 @@ export function VoletAllo() {
                 cadrage {Math.round(cadrage.x)}, {Math.round(cadrage.y)}
                 {'  ·  '}hublot {Math.round(tailleHublot.l)} × {Math.round(tailleHublot.h)}
                 {'  ·  '}zoom {Math.round(zoomHublot * 100)}%
+                {'  ·  '}(y compté depuis le bas)
               </p>
             </div>
           )}

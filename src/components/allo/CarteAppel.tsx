@@ -201,7 +201,12 @@ export function CarteAppel() {
           </a>
         )}
 
-        {/* ── LE SEUL GESTE DEMANDÉ ── */}
+        {/* ══ ON NE DEMANDE PAS « QUI AS-TU EU ? » PENDANT QUE ÇA SONNE ══
+            Capture de Naoëlle, 15/09/2026 : la carte posait la question alors que l'appel sonnait
+            encore. Personne ne peut y répondre à ce moment-là, et une question posée trop tôt
+            s'apprend à ignorer — puis on l'ignore aussi quand elle devient pertinente. */}
+        {etat === 'termine' && (
+          <>
         <p className="mt-3 text-km-xs font-bold uppercase tracking-[0.06em] text-km-faint">
           Qui as-tu eu ?
         </p>
@@ -226,6 +231,8 @@ export function CarteAppel() {
         <p className="mt-2 text-km-label leading-snug text-km-faint">
           Le résumé et la transcription ne sont conservés que si tu as eu quelqu’un.
         </p>
+          </>
+        )}
 
         {qualifier.isError && (
           <p className="mt-2 text-km-label text-km-red">
