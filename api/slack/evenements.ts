@@ -71,19 +71,27 @@ function signatureValide(req: VercelRequest, corpsBrut: string): boolean {
 }
 
 /**
- * Le corps brut, tel que Slack l'a envoyé.
+ * ══ ON COUPE L'ANALYSE AUTOMATIQUE DU CORPS ══
  *
- * LA SIGNATURE PORTE SUR LES OCTETS EXACTS, pas sur l'objet. Vercel analyse le JSON avant de nous
- * le donner ; le ré-encoder avec `JSON.stringify` change l'ordre des clés et les espaces, et la
- * signature ne correspond plus. On demande donc le corps brut quand il est disponible, et on
- * retombe sur le ré-encodage seulement à défaut — en sachant que ce cas échouera à la vérification,
- * ce qui est le bon comportement : mieux vaut refuser que d'accepter sans vérifier.
+ * LA SIGNATURE PORTE SUR LES OCTETS EXACTS que Slack a envoyés, pas sur l'objet qu'ils décrivent.
+ * Vercel analyse le JSON avant de nous le remettre et n'expose pas l'original ; le ré-encoder avec
+ * `JSON.stringify` change l'ordre des clés et les espaces, et l'empreinte ne correspond plus.
+ *
+ * LA PREMIÈRE VERSION FAISAIT EXACTEMENT ÇA, avec en commentaire « ce cas échouera à la
+ * vérification, ce qui est le bon comportement ». C'était une rationalisation : le point d'entrée
+ * répondait 401 à TOUS les événements, et le test de Naoëlle du 15/09 n'a rien créé. Refuser tout
+ * n'est pas « sûr », c'est en panne.
+ *
+ * On lit donc le flux nous-mêmes, et on analyse le JSON après avoir signé sur les vrais octets.
  */
-function corpsBrutDe(req: VercelRequest): string {
-  const brut = (req as unknown as { rawBody?: Buffer | string }).rawBody
-  if (typeof brut === 'string') return brut
-  if (Buffer.isBuffer(brut)) return brut.toString('utf8')
-  return typeof req.body === 'string' ? req.body : JSON.stringify(req.body ?? {})
+export const config = { api: { bodyParser: false } }
+
+async function corpsBrutDe(req: VercelRequest): Promise<string> {
+  const morceaux: Buffer[] = []
+  for await (const m of req as unknown as AsyncIterable<Buffer | string>) {
+    morceaux.push(typeof m === 'string' ? Buffer.from(m) : m)
+  }
+  return Buffer.concat(morceaux).toString('utf8')
 }
 
 interface EvenementSlack {
@@ -125,7 +133,14 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     return
   }
 
-  const corps = (typeof req.body === 'string' ? JSON.parse(req.body) : req.body) as EvenementSlack
+  const brut = await corpsBrutDe(req)
+  let corps: EvenementSlack
+  try {
+    corps = JSON.parse(brut || '{}') as EvenementSlack
+  } catch {
+    res.status(400).json({ error: 'Corps illisible' })
+    return
+  }
 
   /* LA VÉRIFICATION D'ADRESSE SE RÉPOND AVANT TOUT CONTRÔLE DE SIGNATURE — Slack l'envoie
      justement pour établir la confiance, et elle ne porte aucune donnée. */
@@ -134,7 +149,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     return
   }
 
-  if (!signatureValide(req, corpsBrutDe(req))) {
+  if (!signatureValide(req, brut)) {
     console.warn('[slack/evenements] signature refusée')
     res.status(401).json({ error: 'Signature Slack invalide' })
     return
