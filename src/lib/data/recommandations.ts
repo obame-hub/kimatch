@@ -1799,6 +1799,83 @@ export function useUpdateVersionPartiel() {
  * n'a plus de version de référence et où le badge « EN COURS · V… ACTIVE » n'affiche plus rien. On
  * promeut donc la plus haute version restante.
  */
+/**
+ * ════════════════════════════════════════════════════════════════════════════════════════════════
+ * CLÔTURER UNE VERSION — LA SORTIR DU TRAVAIL SANS L'EFFACER
+ * ════════════════════════════════════════════════════════════════════════════════════════════════
+ *
+ * William, 15/09/2026 : « possibilité de supprimer ou clôturer une version. Dans ce cas, cette
+ * version ne doit plus apparaître dans les offres à recevoir ou en retard — c'est comme si elle
+ * n'existait plus. »
+ *
+ * ══ CE QUI EXISTAIT DÉJÀ, ET CE QUI MANQUAIT VRAIMENT ══
+ *
+ * La disparition, elle, était acquise : le tableau de bord (`lister_offres_du_jour`) ne retient que
+ * les versions « en construction » et « disponible », et le Pricing filtre sur `version_vivante`.
+ * Une version clôturée quitte donc les deux écrans d'elle-même. La suppression existait aussi, avec
+ * sa fenêtre qui annonce ce qu'on perd.
+ *
+ * CE QUI MANQUAIT, C'ÉTAIT LE GESTE. Clôturer une version n'était possible que par le menu
+ * « Corriger le statut » — un outil de rattrapage d'import Salesforce, qui ne dit pas qu'on peut
+ * s'en servir pour sortir un dossier du travail, et qui n'enregistre AUCUN motif. Résultat : 22
+ * versions clôturées sans résultat, et 34 versions vivantes dont la date souhaitée est dépassée,
+ * la plus ancienne du 12 mars — six mois à encombrer « en retard » faute d'un bouton pour les
+ * ranger.
+ *
+ * ══ LE RÉSULTAT EST OBLIGATOIRE, ET C'EST TOUTE LA DIFFÉRENCE AVEC LA CORRECTION ══
+ *
+ * « Clôturée » sans résultat ne dit pas si le client a refusé ou si l'affaire s'est éteinte. Les
+ * deux se comptent différemment dans un bilan, et la colonne existe déjà — 1 245 expirées, 717
+ * acceptées, 1 refusée. On la remplit.
+ *
+ * ON N'OFFRE PAS « ACCEPTÉE » ICI. Gagner une affaire passe par la clôture du DOSSIER, qui pose la
+ * date, la finalité et le montant. Proposer le même mot à deux endroits donnerait deux chemins pour
+ * gagner, dont un qui oublierait la moitié des écritures.
+ *
+ * ══ `version_actuelle` NE BOUGE PAS ══
+ *
+ * La tentation serait de la passer à faux pour « sortir » la version. Ce serait une erreur : sur une
+ * recommandation qui n'a qu'une version — le cas courant — plus aucune version ne serait actuelle,
+ * et `v_recommandations_liste` comme la fiche perdraient la seule chose qu'elles ont à montrer. Le
+ * statut suffit à faire disparaître la version des files de travail ; c'est déjà ce sur quoi tous
+ * les écrans filtrent.
+ */
+export type ResultatCloture = 'EXPIREE' | 'REFUSEE'
+
+export function useCloturerVersion() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: async (input: { versionId: string; resultat: ResultatCloture }) => {
+      const { data: statut, error: eStatut } = await supabase
+        .from('statuts_versions_recommandation')
+        .select('id')
+        .eq('code', 'CLOTUREE')
+        .maybeSingle()
+      if (eStatut) throw new Error(eStatut.message)
+      if (!statut) throw new Error('Statut « Clôturée » introuvable — rechargez la page.')
+
+      const { error } = await supabase
+        .from('versions_recommandation')
+        .update({
+          statut_version_id: (statut as { id: string }).id,
+          resultat: input.resultat,
+          date_modification: new Date().toISOString(),
+        })
+        .eq('id', input.versionId)
+      if (error) throw new Error(error.message)
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['recommandations'] })
+      // Les trois écrans qui cessent de la voir. Sans ces relectures, la version resterait « en
+      // retard » sur le tableau de bord jusqu'au prochain rechargement complet — c'est-à-dire que
+      // le geste paraîtrait sans effet, ce qui est exactement ce qu'on vient de corriger.
+      queryClient.invalidateQueries({ queryKey: ['kanban-serveur'] })
+      queryClient.invalidateQueries({ queryKey: ['offres-du-jour'] })
+      queryClient.invalidateQueries({ queryKey: ['totaux-offres'] })
+    },
+  })
+}
+
 export function useDeleteVersion() {
   const queryClient = useQueryClient()
   return useMutation({

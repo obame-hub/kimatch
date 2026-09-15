@@ -1,5 +1,6 @@
+import { useState } from 'react'
 import { Mail, Lock, Trash2, ExternalLink, ChevronDown } from 'lucide-react'
-import { useMajStatutVersion } from '@/lib/data/recommandations'
+import { useCloturerVersion, useMajStatutVersion, type ResultatCloture } from '@/lib/data/recommandations'
 import { Badge } from '@/components/ui/badge'
 import { EntityLink } from '@/components/ui/entity-link'
 import { OffresDuFournisseur } from '@/components/recommandation/OffresDuFournisseur'
@@ -97,6 +98,31 @@ export function DetailVersion({
      le rattraper. Voir useMajStatutVersion. */
   const majStatut = useMajStatutVersion()
 
+  /* ══ CLÔTURER CETTE VERSION ══
+     William, 15/09/2026 : « possibilité de supprimer ou clôturer une version. Dans ce cas, elle ne
+     doit plus apparaître dans les offres à recevoir ou en retard. »
+
+     LE GESTE EXISTAIT SANS LE MOT : on pouvait déjà poser « Clôturée » par le menu « Corriger le
+     statut » — un outil de rattrapage d'import, qui ne dit pas qu'il sert aussi à ranger un dossier
+     mort, et qui n'enregistre aucun motif. 34 versions traînent aujourd'hui dans « en retard », la
+     plus ancienne depuis six mois, faute d'un bouton qui le dise.
+
+     LE CHOIX DU RÉSULTAT SE FAIT SUR PLACE, pas dans une fenêtre : deux boutons, une phrase. Une
+     modale pour deux mots interromprait la lecture de la version qu'on est en train de juger. */
+  const cloturer = useCloturerVersion()
+  const [clotureOuverte, setClotureOuverte] = useState(false)
+  const estClose = version.statut === 'CLOTUREE'
+
+  const cloturerAvec = async (resultat: ResultatCloture, libelle: string) => {
+    try {
+      await cloturer.mutateAsync({ versionId: version.id, resultat })
+      setClotureOuverte(false)
+      signaler(`✓ Version clôturée — ${libelle}`)
+    } catch (e) {
+      signaler(`Erreur : ${e instanceof Error ? e.message : String(e)}`)
+    }
+  }
+
   const changerStatutVersion = async (code: string) => {
     const cible = statutsVersions.find((st) => st.code === code)
     // Les tables de référence ont un repli local dont les identifiants ne sont PAS des UUID ('1',
@@ -169,6 +195,19 @@ export function DetailVersion({
             </select>
           </span>
         ) : null}
+        {/* CLÔTURER PLUTÔT QUE SUPPRIMER, et c'est pour ça qu'il est AVANT la corbeille : dans la
+            plupart des cas on veut sortir la version du travail, pas effacer les offres reçues et
+            le travail du fournisseur. Le geste destructeur reste au bout, en dernier recours. */}
+        {peutModifier && !estClose && (
+          <button
+            type="button"
+            onClick={() => setClotureOuverte((ouvert: boolean) => !ouvert)}
+            title="Clôturer cette version : elle quitte les offres à recevoir et les retards"
+            className="rounded-km-sm px-1.5 py-0.5 text-km-label font-bold text-km-faint transition-colors hover:bg-km-soft hover:text-km-muted"
+          >
+            Clôturer
+          </button>
+        )}
         {/* Supprimer une version créée par erreur (demande de la réunion du 17/08/2026). Discret et
             à droite : c'est un geste de rattrapage, pas une action courante. */}
         {peutModifier && (
@@ -182,6 +221,44 @@ export function DetailVersion({
           </button>
         )}
       </div>
+
+      {clotureOuverte && !estClose && (
+        <div className="animate-km-fade-slide border-b border-km-line-soft bg-km-amber-soft px-[17px] py-3">
+          <p className="text-km-body text-km-text">
+            Cette version quittera les offres à recevoir, les retards et le Pricing.{' '}
+            <span className="text-km-muted">Les offres déjà reçues sont conservées.</span>
+          </p>
+          <div className="mt-2 flex flex-wrap items-center gap-2">
+            {/* DEUX RÉSULTATS, PAS TROIS. « Acceptée » passe par la clôture du DOSSIER, qui pose
+                aussi la date et le montant : l'offrir ici donnerait deux chemins pour gagner une
+                affaire, dont un qui oublierait la moitié des écritures. */}
+            <button
+              type="button"
+              disabled={cloturer.isPending}
+              onClick={() => cloturerAvec('EXPIREE', 'abandonnée')}
+              className="rounded-km-sm border border-km-line bg-white px-2.5 py-1 text-km-body font-semibold text-km-text hover:bg-km-bg disabled:opacity-60"
+            >
+              Abandonnée
+            </button>
+            <button
+              type="button"
+              disabled={cloturer.isPending}
+              onClick={() => cloturerAvec('REFUSEE', 'refusée par le client')}
+              className="rounded-km-sm border border-km-line bg-white px-2.5 py-1 text-km-body font-semibold text-km-text hover:bg-km-bg disabled:opacity-60"
+            >
+              Refusée par le client
+            </button>
+            <button
+              type="button"
+              onClick={() => setClotureOuverte(false)}
+              className="text-km-label font-semibold text-km-muted hover:underline"
+            >
+              Annuler
+            </button>
+            {cloturer.isPending && <span className="text-km-label text-km-muted">Clôture…</span>}
+          </div>
+        </div>
+      )}
 
       <div className="space-y-3 px-[17px] py-3.5">
         <div>
