@@ -791,7 +791,12 @@ export function VoletAllo() {
                       width: `${LARGEUR_LOGIQUE}px`,
                       height: `${HAUTEUR_LOGIQUE}px`,
                       transform: `scale(${zoomHublot})`,
-                      transformOrigin: 'top left',
+                      /* ══ L'ORIGINE DE LA RÉDUCTION DOIT SUIVRE L'ANCRAGE ══
+                         On ancre par le bas (`bottom`), donc on réduit à partir du BAS. Avec
+                         `top left`, le cadre rétrécissait vers son coin haut-gauche : ses 860 px
+                         de contenu remontaient loin au-dessus du hublot, qui ne montrait plus que
+                         du blanc. C'est ce que Naoëlle a vu — « quand je réduis je ne vois rien ». */
+                      transformOrigin: 'bottom left',
                       /* PENDANT LE RECADRAGE, LE CADRE NE PREND PLUS LA SOURIS : un iframe avale les
                          événements de pointeur, et le glissement se figerait au premier pixel. */
                       pointerEvents: recadre || glisseCadrage || glisseTaille ? 'none' : 'auto',
