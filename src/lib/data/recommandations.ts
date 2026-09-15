@@ -1876,6 +1876,23 @@ export interface PatchOffre {
  * une offre sans durée est une offre qui n'existe pas. (Vérifié le 27/08/2026 : aucune des offres en
  * base n'avait de durée nulle, la lecture est donc sans ambiguïté rétroactive.)
  */
+/**
+ * ══ LA DURÉE MAXIMALE D'UNE OFFRE, EN MOIS ══
+ *
+ * William, 15/09/2026 : « augmente la durée limite d'offre max à 100 mois ».
+ *
+ * Elle valait 60, reprise de Tools, et vivait en QUATRE littéraux — deux dans la création de
+ * version, deux dans la saisie des offres du fournisseur, chacun doublé entre l'attribut `max` du
+ * champ et le test qui refuse la valeur. Les quatre devaient bouger ensemble : en oublier un aurait
+ * laissé saisir 84 mois dans un écran pour se le faire refuser dans l'autre.
+ *
+ * ELLE RESTE UNE BORNE D'ÉCRAN, pas une règle métier : la base ne porte aucune contrainte sur
+ * `duree_mois`, et la plus longue offre enregistrée fait 60 mois. Ce garde-fou existe pour attraper
+ * la faute de frappe — « 360 » pour « 36 » — pas pour dire ce qu'un fournisseur a le droit de
+ * proposer.
+ */
+export const DUREE_OFFRE_MAX_MOIS = 100
+
 export function libelleOffre(duree: number | null | undefined, typePrix: string | null | undefined): string {
   if (duree == null) return 'Indisponible'
   return [`${duree} mois`, typePrix].filter(Boolean).join(' — ')

@@ -13,6 +13,7 @@ import {
   useRetenirOffre,
   useDesignerOffreReference,
   libelleOffre,
+  DUREE_OFFRE_MAX_MOIS,
   STATUTS_OFFRE,
   NATURES_OFFRE,
   natureDeLOffre,
@@ -500,7 +501,7 @@ export function OffresDuFournisseur({
             <input
               type="number"
               min={1}
-              max={60}
+              max={DUREE_OFFRE_MAX_MOIS}
               value={indisponible ? '' : nouvelleDuree}
               disabled={indisponible}
               onChange={(e) => setNouvelleDuree(e.target.value.replace(/\D/g, ''))}
@@ -576,7 +577,9 @@ export function OffresDuFournisseur({
                 }
 
                 const duree = Number(nouvelleDuree)
-                if (!Number.isFinite(duree) || duree < 1 || duree > 60) return signaler('Durée attendue entre 1 et 60 mois')
+                if (!Number.isFinite(duree) || duree < 1 || duree > DUREE_OFFRE_MAX_MOIS) {
+                  return signaler(`Durée attendue entre 1 et ${DUREE_OFFRE_MAX_MOIS} mois`)
+                }
                 // Doublon : deux offres identiques du même fournisseur ne veulent rien dire, et la
                 // base ne l'interdit pas — c'est ici que ça se joue.
                 if (offres.some((o) => o.duree_mois === duree && (o.type_prix ?? null) === nouveauType)) {

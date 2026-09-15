@@ -6,6 +6,7 @@ import { Dialog } from '@/components/ui/dialog'
 import { FormField, Input, Select, Textarea } from '@/components/ui/form'
 import { WizardConnectionGate } from '@/components/ui/connection-gate'
 import {
+  DUREE_OFFRE_MAX_MOIS,
   useAjouterFournisseurConsulte,
   useCreateVersion,
 } from '@/lib/data/recommandations'
@@ -140,11 +141,11 @@ export function CotationWizard({
   }
 
   // Saisie libre « Autre » + bouton « + » -- mêmes règles que `addCustomDuration` de Tools
-  // (StepCharacteristics) : entier 1-60, refusé si déjà présent ou si les 3 durées sont prises,
-  // saisie filtrée aux chiffres, validation à la touche Entrée.
+  // (StepCharacteristics) : entier de 1 à `DUREE_OFFRE_MAX_MOIS`, refusé si déjà présent ou si les
+  // 3 durées sont prises, saisie filtrée aux chiffres, validation à la touche Entrée.
   function ajouterDureeLibre(compteurId: string) {
     const num = parseInt(dureeLibre[compteurId] ?? '', 10)
-    if (!num || num < 1 || num > 60) return
+    if (!num || num < 1 || num > DUREE_OFFRE_MAX_MOIS) return
     const courant = dureesParCompteur[compteurId] ?? []
     if (courant.includes(num) || courant.length >= 3) return
     setDureesParCompteur((prev) => ({ ...prev, [compteurId]: [...courant, num].sort((a, b) => a - b) }))
@@ -368,7 +369,7 @@ export function CotationWizard({
                     <input
                       type="number"
                       min={1}
-                      max={60}
+                      max={DUREE_OFFRE_MAX_MOIS}
                       step={1}
                       placeholder="Autre"
                       value={saisie}
