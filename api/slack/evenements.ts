@@ -131,6 +131,26 @@ function texteDesBlocs(blocs: unknown): string {
   return morceaux.join('\n').trim()
 }
 
+/**
+ * ══ LE TRACEUR : SAVOIR SI SLACK APPELLE, TOUT COURT ══
+ *
+ * 15/09, 14 h 38 : Naoëlle poste un lead, aucune piste. Deux causes possibles et indiscernables de
+ * l'extérieur — Slack appelle et on refuse, ou Slack n'appelle pas. Sans les journaux Vercel, rien
+ * ne les sépare, et chaque hypothèse coûte un message de plus dans un canal que toute l'équipe lit.
+ *
+ * On garde donc en mémoire les dix derniers appels reçus, que le GET rend. Ça survit tant que
+ * l'instance reste chaude — quelques minutes, ce qui suffit à regarder juste après un test.
+ *
+ * ON N'Y MET AUCUN CONTENU : ni le texte du message, ni un nom, ni un e-mail. Ce point d'entrée est
+ * public. Seulement de quoi répondre à « est-ce que Slack a appelé, et qu'a-t-on répondu ».
+ */
+interface Trace { a: string; issue: string; type?: string; canal?: string; slack: boolean }
+const traces: Trace[] = []
+function tracer(t: Omit<Trace, 'a'>): void {
+  traces.unshift({ a: new Date().toISOString(), ...t })
+  if (traces.length > 10) traces.pop()
+}
+
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   /* ══ UN GET DIT SI LE POINT D'ENTRÉE EST PRÊT ══
      Naoëlle, 15/09 : « je peux pas envoyer des messages indéfiniment, c'est chiant pour les
@@ -143,7 +163,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       (process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL) &&
       process.env.SUPABASE_SERVICE_ROLE_KEY,
     )
-    res.status(200).json({ pret: secret && base, signature: secret, base, canal: CANAL_LEADS })
+    res.status(200).json({ pret: secret && base, signature: secret, base, canal: CANAL_LEADS, traces })
     return
   }
 
@@ -152,11 +172,13 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     return
   }
 
+  const signeParSlack = Boolean(req.headers['x-slack-signature'])
   const brut = await corpsBrutDe(req)
   let corps: EvenementSlack
   try {
     corps = JSON.parse(brut || '{}') as EvenementSlack
   } catch {
+    tracer({ issue: 'corps illisible', slack: signeParSlack })
     res.status(400).json({ error: 'Corps illisible' })
     return
   }
@@ -164,6 +186,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   /* LA VÉRIFICATION D'ADRESSE SE RÉPOND AVANT TOUT CONTRÔLE DE SIGNATURE — Slack l'envoie
      justement pour établir la confiance, et elle ne porte aucune donnée. */
   if (corps?.type === 'url_verification' && corps.challenge) {
+    tracer({ issue: 'vérification d’adresse', slack: signeParSlack })
     res.status(200).send(corps.challenge)
     return
   }
@@ -173,6 +196,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     /* ON DIT LEQUEL DES QUATRE CONTRÔLES A CÉDÉ. Sans ça, un secret mal collé dans Vercel et des
        octets mal lus donnent le même 401 muet, et on cherche du mauvais côté pendant une journée —
        ce qui est exactement ce qui vient d'arriver. */
+    tracer({ issue: `refusé : ${refus}`, slack: signeParSlack })
     console.warn(`[slack/evenements] signature refusée : ${refus}`)
     res.status(401).json({ error: 'Signature Slack invalide' })
     return
@@ -184,6 +208,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   res.status(200).json({ ok: true })
 
   const e = corps?.event
+  tracer({ issue: 'accepté', type: e?.type, canal: e?.channel, slack: signeParSlack })
   if (!e || e.type !== 'message') return
   if (e.channel !== CANAL_LEADS) return
   /* Les modifications, suppressions et arrivées de membres passent par le même événement, avec un
