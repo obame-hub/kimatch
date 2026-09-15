@@ -6,6 +6,7 @@ import { buildContratCreatedBlocks } from '@/lib/slackTemplates'
 import { notifyEmail } from '@/lib/data/emailSettings'
 import { fetchComptesVisibles, filterVisibles } from '@/lib/data/visibility'
 import { fetchAllRows } from '@/lib/data/paginatedFetch'
+import { mentionSignatureManuelle, statutMetierApresSignature } from '@/lib/signatureManuelleContrat'
 
 interface RawContrat {
   id: string
@@ -48,6 +49,7 @@ interface RawContrat {
   date_consultation: string | null
   nb_ouvertures: number | null
   date_resiliation: string | null
+  commentaire: string | null
   date_validation: string | null
   valide_par_id: string | null
   valide_par: { prenom: string; nom: string } | null
@@ -124,6 +126,9 @@ async function fetchContrats(compteId?: string, contratId?: string, listeSeule =
       date_consultation: c.date_consultation ?? null,
       nb_ouvertures: c.nb_ouvertures ?? null,
       date_resiliation: c.date_resiliation ?? null,
+      // Lu parce que la signature enregistrée à la main y AJOUTE sa mention plutôt que de
+      // l'écraser : il faut donc savoir ce qu'il contient déjà.
+      commentaire: c.commentaire ?? null,
       date_validation: c.date_validation ?? null,
       valide_par_id: c.valide_par_id ?? null,
       valide_par_nom: c.valide_par ? `${c.valide_par.prenom} ${c.valide_par.nom}` : null,
@@ -474,5 +479,96 @@ export function useDeleteContrat() {
       if (error) throw new Error(error.message)
     },
     onSuccess: () => { void queryClient.invalidateQueries({ queryKey: ['contrats'] }) },
+  })
+}
+
+/**
+ * ════════════════════════════════════════════════════════════════════════════════════════════════
+ * ENREGISTRER UNE SIGNATURE QUI N'EST PAS PASSÉE PAR DOCUSIGN
+ * ════════════════════════════════════════════════════════════════════════════════════════════════
+ *
+ * William, 15/09/2026 : « ajoute la possibilité de le passer au statut signé à la main (quand
+ * exceptionnellement on l'a pas envoyé via DocuSign) ».
+ *
+ * ══ « EXCEPTIONNELLEMENT » EST UN EUPHÉMISME, ET LES CHIFFRES LE DISENT ══
+ *
+ * 1 571 contrats sont à « Signé », et CINQ portent une enveloppe DocuSign. La signature hors
+ * DocuSign n'est pas le cas rare, c'est le cas ordinaire — la reprise Salesforce l'a simplement
+ * rendue invisible en important les statuts tout faits.
+ *
+ * Le trou se voyait sur les contrats nés dans Kimatch : 28 ne sont pas signés, dont 24 sans
+ * enveloppe. Ceux-là ne pouvaient PAS l'être. Le cycle de signature ne proposait que deux pas
+ * manuels — « Demandé au fournisseur » puis « Contrat réceptionné » — et laissait la suite à
+ * DocuSign. Sans enveloppe, aucun événement n'arrivera jamais : le contrat restait bloqué à
+ * « Réceptionné » ou « Envoyé », et le bouton « Valider le contrat », qui ouvre la facturation,
+ * restait hors d'atteinte.
+ *
+ * ══ CE QUI EST ÉCRIT, ET POURQUOI CHACUN ══
+ *
+ *   date_signature        la date SAISIE, pas celle du jour — voir plus bas.
+ *   statut_avancement_id  « Signé » : c'est ce que le cycle de signature affiche.
+ *   statut_id             le statut métier, par la même règle que le webhook DocuSign.
+ *   statut_signature      « SIGNE », pour que la colonne miroir de DocuSign dise la même chose que
+ *                         le reste — sans quoi un contrat signé afficherait « en attente » dans le
+ *                         bloc de suivi le jour où quelqu'un lui rattache une enveloppe.
+ *   commentaire           d'où vient la signature, ajouté à l'existant.
+ *
+ * LA DATE NE VAUT PAS FORCÉMENT AUJOURD'HUI. Un contrat signé sur papier il y a trois semaines se
+ * saisit avec sa vraie date : c'est elle qui décide si le contrat est « à venir », « actif » ou déjà
+ * « terminé », et la poser au jour de la saisie fausserait le statut.
+ *
+ * ON NE TOUCHE NI À `date_debut` NI À `date_fin`. Contrairement au mandat, dont la validité se
+ * calcule depuis la signature, les dates de fourniture d'un contrat sont NÉGOCIÉES : elles figurent
+ * dans le document, et la signature ne les décide pas. Les 28 contrats non signés les portent
+ * d'ailleurs tous.
+ */
+export function useSignerContratManuellement() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: async (input: {
+      contratId: string
+      /** `AAAA-MM-JJ`. */
+      dateSignature: string
+      /** Où la signature a eu lieu — la seule trace, faute d'enveloppe à consulter. */
+      origine: string
+      commentaireExistant: string | null
+      dateDebut: string | null
+      dateFin: string | null
+      /** Résolus par l'écran : les codes des tables de référence ne sont pas des identifiants. */
+      avancementSigneId: string | null
+      statutsMetier: { code: string; id: string }[]
+    }) => {
+      if (!input.avancementSigneId) {
+        throw new Error('Statut d’avancement « Signé » introuvable — rechargez la page.')
+      }
+
+      const codeMetier = statutMetierApresSignature(input.dateDebut, input.dateFin)
+      const statutMetierId = input.statutsMetier.find((s) => s.code === codeMetier)?.id ?? null
+
+      const { error } = await supabase
+        .from('contrats')
+        .update({
+          date_signature: input.dateSignature,
+          statut_avancement_id: input.avancementSigneId,
+          statut_signature: 'SIGNE',
+          ...(statutMetierId ? { statut_id: statutMetierId } : {}),
+          commentaire: mentionSignatureManuelle(
+            input.commentaireExistant,
+            input.origine,
+            input.dateSignature,
+          ),
+        })
+        .eq('id', input.contratId)
+      if (error) throw new Error(error.message)
+
+      return { codeMetier }
+    },
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: ['contrats'] })
+      // La santé d'un compteur et le périmètre d'un compte lisent l'état des contrats : sans cette
+      // invalidation, la fiche d'à côté continue d'annoncer un contrat en attente de signature.
+      void queryClient.invalidateQueries({ queryKey: ['compteurs'] })
+      void queryClient.invalidateQueries({ queryKey: ['comptes'] })
+    },
   })
 }

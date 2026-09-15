@@ -228,6 +228,7 @@ export function CheminSignature({
   onCopie,
   onAvancer,
   onValider,
+  onSignerManuellement,
   detail,
 }: {
   contrat: Contrat
@@ -250,6 +251,20 @@ export function CheminSignature({
    * Absent = pas le droit de valider.
    */
   onValider?: () => void
+  /**
+   * ENREGISTRER UNE SIGNATURE FAITE HORS DE KIMATCH.
+   *
+   * William, 15/09/2026 : « ajoute la possibilité de le passer au statut signé à la main (quand
+   * exceptionnellement on l'a pas envoyé via DocuSign) ».
+   *
+   * Le cycle ne proposait que deux pas manuels — « Demandé au fournisseur », « Contrat
+   * réceptionné » — et laissait la suite à DocuSign. Sans enveloppe, aucun événement n'arrive
+   * jamais : le contrat restait bloqué avant « Signé », et « Valider le contrat », qui ouvre la
+   * facturation, hors d'atteinte. 24 des 28 contrats non signés sont dans ce cas.
+   *
+   * Absent = pas le droit de le faire.
+   */
+  onSignerManuellement?: () => void
   /**
    * LE DÉTAIL QUI SE REPLIE AVEC LE CYCLE : le suivi DocuSign, ses horodatages et ses relances.
    * Dans la maquette de William il est DANS cette carte, sous la frise — pas en bas de page comme
@@ -283,6 +298,16 @@ export function CheminSignature({
   const suivante = onAvancer
     ? ETAPES_MANUELLES.find((e) => (e.depuis as readonly string[]).includes(contrat.avancement ?? ''))
     : undefined
+
+  /* ══ QUAND « SIGNÉ À LA MAIN » A UN SENS ══
+     Tant que le contrat n'est pas signé, et quel que soit l'endroit du parcours où il se trouve :
+     une signature papier peut arriver sur un brouillon comme sur un contrat déjà envoyé.
+
+     ELLE RESTE OFFERTE MÊME AVEC UNE ENVELOPPE DOCUSIGN — 3 des 19 contrats « envoyés » en ont une,
+     et une enveloppe peut rester sans réponse pendant que le client signe sur papier. La fenêtre
+     avertit alors du risque plutôt que de masquer le bouton : cacher le geste obligerait à
+     supprimer l'enveloppe pour le retrouver, ce qui est pire. */
+  const signeManuellementPossible = Boolean(onSignerManuellement) && !signe
 
   if (clos && !deplie) {
     return (
@@ -465,25 +490,56 @@ export function CheminSignature({
         </div>
       )}
 
-      {/* LE GESTE SUIVANT, quand c'en est un qui se fait à la main. */}
-      {suivante && (
-        <div style={{ marginTop: 12, paddingTop: 10, borderTop: '1px solid #f0efec' }}>
-          <button
-            type="button"
-            onClick={() => onAvancer?.(suivante.code, suivante.libelle)}
-            className="transition-colors"
-            style={{
-              fontSize: 11.5,
-              fontWeight: 700,
-              color: '#b57a24',
-              background: '#fdf9f0',
-              border: '1px solid #f0e4cd',
-              borderRadius: 8,
-              padding: '5px 12px',
-            }}
-          >
-            {suivante.libelle} →
-          </button>
+      {/* ══ LES GESTES MANUELS ══
+          Le pas suivant du parcours, et la sortie de secours quand la signature s'est faite
+          ailleurs. Les deux sur la même ligne, parce qu'ils répondent à la même question — « et
+          maintenant ? » — et que les séparer ferait chercher la seconde.
+
+          « SIGNÉ À LA MAIN » EST EN RETRAIT, en gris et non en ambre : c'est l'exception, et elle ne
+          doit pas se présenter comme le chemin normal. Mais elle reste visible sans repli ni menu,
+          parce qu'un geste qu'on ne trouve pas est un geste qui n'existe pas. */}
+      {(suivante || signeManuellementPossible) && (
+        <div
+          className="flex flex-wrap items-center gap-2"
+          style={{ marginTop: 12, paddingTop: 10, borderTop: '1px solid #f0efec' }}
+        >
+          {suivante && (
+            <button
+              type="button"
+              onClick={() => onAvancer?.(suivante.code, suivante.libelle)}
+              className="transition-colors"
+              style={{
+                fontSize: 11.5,
+                fontWeight: 700,
+                color: '#b57a24',
+                background: '#fdf9f0',
+                border: '1px solid #f0e4cd',
+                borderRadius: 8,
+                padding: '5px 12px',
+              }}
+            >
+              {suivante.libelle} →
+            </button>
+          )}
+          {signeManuellementPossible && (
+            <button
+              type="button"
+              onClick={onSignerManuellement}
+              title="À utiliser quand la signature s'est faite hors de Kimatch"
+              className="transition-colors hover:bg-km-soft"
+              style={{
+                fontSize: 11.5,
+                fontWeight: 650,
+                color: '#5c5f66',
+                background: '#fff',
+                border: '1px solid #e0dfdb',
+                borderRadius: 8,
+                padding: '5px 12px',
+              }}
+            >
+              Signé à la main…
+            </button>
+          )}
         </div>
       )}
 

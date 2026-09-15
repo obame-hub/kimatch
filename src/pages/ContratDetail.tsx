@@ -16,7 +16,8 @@ import { DialogSuppression } from '@/components/ui/dialog-suppression'
 import { FormField, Input, Select } from '@/components/ui/form'
 import { HistoriqueDiscret } from '@/components/ui/historique-discret'
 import { InlineField } from '@/components/ui/inline-field'
-import { useContrat, useUpdateContratPartiel, useDeleteContrat, type PatchContrat } from '@/lib/data/contrats'
+import { useContrat, useUpdateContratPartiel, useDeleteContrat, useSignerContratManuellement, type PatchContrat } from '@/lib/data/contrats'
+import { statutMetierApresSignature } from '@/lib/signatureManuelleContrat'
 import { useSites } from '@/lib/data/sites'
 import { useComptes } from '@/lib/data/comptes'
 import { useContacts } from '@/lib/data/contacts'
@@ -24,7 +25,7 @@ import { contactsDuCompte as contactsRattaches, libelleContactPourCompte, peutRe
 import { useDocuments, useTeleverserDocuments } from '@/lib/data/documents'
 import { sendContratForSignature, connectDocusign, DocusignNonConnecte } from '@/lib/data/docusign'
 import { BlocSuiviDocusign } from '@/components/docusign/BlocSuiviDocusign'
-import { useReferenceTable } from '@/lib/data/referenceTables'
+import { useReferenceTable, type ReferenceRow } from '@/lib/data/referenceTables'
 import { useFormulesTarifaires, useTarifsByContratCompteurs, useCreateTarif, useDeleteTarif } from '@/lib/data/tarifs'
 import { useCanManage, useIsAdmin, useMonProfil, useProfilsAdmin } from '@/lib/data/roles'
 import { useSuppression } from '@/lib/useSuppression'
@@ -33,6 +34,150 @@ import { useGoBack } from '@/lib/useGoBack'
 import { useRaccourcisOnglets } from '@/lib/useRaccourcisOnglets'
 import { cn } from '@/lib/utils'
 import type { Contact, Contrat, DocumentItem, TarifContratCompteur } from '@/types/domain'
+
+/**
+ * ══ ENREGISTRER UNE SIGNATURE FAITE HORS DE KIMATCH ══
+ *
+ * William, 15/09/2026 : « ajoute la possibilité de le passer au statut signé à la main (quand
+ * exceptionnellement on l'a pas envoyé via DocuSign) ».
+ *
+ * DEUX CHAMPS, PAS PLUS — la date, et d'où vient la signature. Le reste se déduit : voir
+ * `useSignerContratManuellement` pour les statuts, et `statutMetierApresSignature` pour la règle,
+ * qui est celle du webhook DocuSign.
+ *
+ * LA DATE NE VAUT PAS FORCÉMENT AUJOURD'HUI, et c'est le point à ne pas rater : c'est elle, croisée
+ * avec les dates de fourniture, qui décide si le contrat devient « à venir », « actif » ou déjà
+ * « terminé ». La poser au jour de la saisie fausserait le statut d'un contrat signé il y a trois
+ * semaines.
+ *
+ * CE QUI SERA ÉCRIT EST MONTRÉ AVANT LE CLIC. Un statut qu'on découvre après coup est un statut
+ * qu'on n'a pas choisi — même raison que sur la validation manuelle d'un mandat.
+ */
+function SignerManuellementDialog({
+  open,
+  onClose,
+  contrat,
+  avancements,
+  statuts,
+  signaler,
+}: {
+  open: boolean
+  onClose: () => void
+  contrat: Contrat
+  avancements: ReferenceRow[]
+  statuts: ReferenceRow[]
+  signaler: (message: string) => void
+}) {
+  const signer = useSignerContratManuellement()
+  const aujourdHui = new Date().toISOString().slice(0, 10)
+  const [date, setDate] = useState(contrat.date_signature?.slice(0, 10) ?? aujourdHui)
+  const [origine, setOrigine] = useState('Signature papier')
+  const [erreur, setErreur] = useState<string | null>(null)
+
+  const avancementSigne = avancements.find((a) => a.code === 'SIGNE')
+  // Les tables de référence ont un repli local dont les identifiants ne sont PAS des UUID : écrire
+  // avec l'un d'eux échoue en base tout en paraissant réussir. On le refuse explicitement.
+  const estUuid = (v: string | undefined) => !!v && /^[0-9a-f-]{36}$/i.test(v)
+  const utilisable = estUuid(avancementSigne?.id)
+
+  const codeMetier = statutMetierApresSignature(contrat.date_debut, contrat.date_fin)
+  const libelleMetier = statuts.find((st) => st.code === codeMetier)?.libelle ?? codeMetier
+
+  return (
+    <Dialog
+      open={open}
+      onClose={onClose}
+      title="Enregistrer une signature faite à la main"
+      description="À utiliser quand le contrat n'est pas passé par DocuSign — signature papier, ou outil du fournisseur."
+    >
+      <div className="space-y-3">
+        <FormField label="Date de signature" required>
+          <Input
+            type="date"
+            value={date}
+            max={aujourdHui}
+            onChange={(e: React.ChangeEvent<HTMLInputElement>) => setDate(e.target.value)}
+          />
+        </FormField>
+
+        <FormField label="Où la signature a eu lieu">
+          <Input
+            value={origine}
+            onChange={(e: React.ChangeEvent<HTMLInputElement>) => setOrigine(e.target.value)}
+            placeholder="Signature papier, DocuSign du fournisseur…"
+          />
+        </FormField>
+        <p className="text-km-xs text-km-faint">
+          Cette mention est ajoutée au commentaire du contrat : sans enveloppe DocuSign à consulter,
+          c'est la seule trace de l'endroit où la signature a été recueillie.
+        </p>
+
+        <div className="rounded-lg border border-km-line bg-km-bg px-3 py-2">
+          <p className="text-km-xs uppercase tracking-wide text-km-faint">Ce qui sera enregistré</p>
+          <p className="mt-1 text-xs text-km-text">
+            Cycle de signature <strong>Signé</strong> · statut <strong>{libelleMetier}</strong>
+            {contrat.date_debut
+              ? ` (fourniture du ${new Date(contrat.date_debut + 'T12:00:00').toLocaleDateString('fr-FR')}${
+                  contrat.date_fin ? ` au ${new Date(contrat.date_fin + 'T12:00:00').toLocaleDateString('fr-FR')}` : ''
+                })`
+              : ' (aucune date de fourniture)'}
+          </p>
+          <p className="mt-1 text-km-xs text-km-faint">
+            Les dates de fourniture ne changent pas : elles sont négociées, la signature ne les
+            décide pas. Le bouton « Valider le contrat » deviendra disponible.
+          </p>
+        </div>
+
+        {/* L'ENVELOPPE EXISTANTE EST UN AVERTISSEMENT, PAS UN BLOCAGE. Une enveloppe partie et
+            restée sans réponse pendant que le client signait sur papier est un cas réel ; masquer
+            le bouton obligerait à supprimer l'enveloppe pour le retrouver. */}
+        {contrat.docusign_envelope_id && (
+          <p className="rounded-lg border border-km-amber-line bg-km-amber-soft px-3 py-2 text-km-xs leading-snug text-km-text">
+            Ce contrat porte déjà une enveloppe DocuSign. Si elle revient signée plus tard, le
+            webhook écrasera la date que vous saisissez ici par celle de DocuSign.
+          </p>
+        )}
+
+        {!utilisable && (
+          <p className="text-xs text-km-red">
+            Référentiel du cycle de signature indisponible — rechargez la page avant d'enregistrer.
+          </p>
+        )}
+        {erreur && <p className="text-xs text-km-red">{erreur}</p>}
+
+        <div className="flex justify-end gap-2 border-t border-km-line pt-3">
+          <Button variant="ghost" onClick={onClose} disabled={signer.isPending}>
+            Annuler
+          </Button>
+          <Button
+            disabled={!date || !utilisable || signer.isPending}
+            onClick={() => {
+              setErreur(null)
+              signer
+                .mutateAsync({
+                  contratId: contrat.id,
+                  dateSignature: date,
+                  origine,
+                  commentaireExistant: contrat.commentaire ?? null,
+                  dateDebut: contrat.date_debut ?? null,
+                  dateFin: contrat.date_fin ?? null,
+                  avancementSigneId: avancementSigne?.id ?? null,
+                  statutsMetier: statuts.map((st) => ({ code: st.code, id: st.id })),
+                })
+                .then(() => {
+                  signaler('✓ Signature enregistrée')
+                  onClose()
+                })
+                .catch((e) => setErreur(e instanceof Error ? e.message : 'Enregistrement impossible'))
+            }}
+          >
+            {signer.isPending ? 'Enregistrement…' : 'Enregistrer la signature'}
+          </Button>
+        </div>
+      </div>
+    </Dialog>
+  )
+}
 
 const FORMULE_CHAMPS: Record<string, { key: string; label: string }[]> = {
   BASE: [{ key: 'prix_base_eur_mwh', label: 'Prix Base (€/MWh)' }],
@@ -349,6 +494,8 @@ export default function ContratDetail() {
   // Aperçu d'un fichier sans quitter la fiche contrat (demande d'Agathe, 07/08/2026).
   const [apercu, setApercu] = useState<{ url: string; nom: string; nomFichier: string } | null>(null)
   const [signatureOuverte, setSignatureOuverte] = useState(false)
+  /* La signature enregistrée à la main — quand le contrat n'est pas passé par DocuSign. */
+  const [signerManuellement, setSignerManuellement] = useState(false)
   const documentsDuContrat = useMemo(() => documents?.filter((d) => d.entite_type === 'contrat' && d.entite_id === id) ?? [], [documents, id])
   const canManage = useCanManage(contrat?.proprietaire_id)
   const isAdmin = useIsAdmin()
@@ -694,6 +841,7 @@ export default function ContratDetail() {
 
                    Le profil peut manquer une fraction de seconde au premier rendu ; on écrit alors
                    la date seule plutôt que de refuser le geste. */
+                onSignerManuellement={canManage ? () => setSignerManuellement(true) : undefined}
                 onValider={
                   canManage
                     ? () => {
@@ -1254,6 +1402,15 @@ export default function ContratDetail() {
           typeEnergie={contrat.type_energie}
         />
       )}
+
+      <SignerManuellementDialog
+        open={signerManuellement}
+        onClose={() => setSignerManuellement(false)}
+        contrat={contrat}
+        avancements={avancements}
+        statuts={statuts}
+        signaler={showToast}
+      />
 
       <DialogSuppression
         ouvert={confirmDelete}

@@ -856,6 +856,8 @@ export interface Contrat {
    * William : « tu peux garder résilié » ; et « annuler, ça n'a pas de sens ».
    */
   date_resiliation?: string | null
+  /** Notes libres. La signature enregistrée à la main y ajoute sa mention d'origine. */
+  commentaire?: string | null
   /** Qui a validé le contrat après signature, et quand : ce qui clôt le cycle de signature. */
   date_validation?: string | null
   valide_par_id?: string | null
