@@ -4,6 +4,7 @@ import { BottomNav } from '@/components/layout/BottomNav'
 import { InstallPrompt } from '@/components/layout/InstallPrompt'
 import { ImpersonationBanner } from '@/components/layout/ImpersonationBanner'
 import { DocusignBanner } from '@/components/layout/DocusignBanner'
+import { GmailBanner } from '@/components/layout/GmailBanner'
 import { SidebarProvider } from '@/lib/layout'
 import { TelephonieProvider } from '@/lib/telephonie'
 import { getImpersonationInfo } from '@/lib/data/impersonation'
@@ -29,6 +30,9 @@ export function AppLayout() {
           bandeau compris. Reprendre `h-screen` ici rendrait les 28 px de débordement. */}
       <div className="flex min-h-0 w-full flex-1 flex-col">
         <DocusignBanner />
+        {/* MÊME PLACE, MÊME FORME QUE DOCUSIGN. Les deux peuvent s'afficher ensemble : ils se
+            posent l'un sous l'autre et poussent le contenu, aucun ne recouvre l'autre. */}
+        <GmailBanner />
         {/* Le fond de page passe au `km-bg` de Michel : #FCFCFB, presque blanc. */}
         <div className="flex min-h-0 flex-1 bg-km-bg">
           <Sidebar />
