@@ -174,9 +174,9 @@ const HUBLOT_H_INITIAL = 70
 const ZOOM_INITIAL = 0.5
 
 const CLE_HUBLOT = 'kimatch.volet-allo.hublot'
-const CLE_CADRAGE = 'kimatch.volet-allo.cadrage'
-const CLE_TAILLE_HUBLOT = 'kimatch.volet-allo.hublot.taille'
-const CLE_ZOOM_HUBLOT = 'kimatch.volet-allo.hublot.zoom'
+const CLE_CADRAGE = 'kimatch.volet-allo.cadrage.v2'
+const CLE_TAILLE_HUBLOT = 'kimatch.volet-allo.hublot.taille.v2'
+const CLE_ZOOM_HUBLOT = 'kimatch.volet-allo.hublot.zoom.v2'
 const ZOOM_MIN = 0.3
 const ZOOM_MAX = 1.6
 const PAS_ZOOM = 0.1
