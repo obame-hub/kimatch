@@ -163,7 +163,17 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       (process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL) &&
       process.env.SUPABASE_SERVICE_ROLE_KEY,
     )
-    res.status(200).json({ pret: secret && base, signature: secret, base, canal: CANAL_LEADS, traces })
+    /* LE COMMIT DÉPLOYÉ. Vercel le pose lui-même dans l'environnement. Sans lui, « est-ce que ma
+       correction est en ligne ? » ne se répond que par déduction — et on l'a fait trois fois
+       aujourd'hui. */
+    res.status(200).json({
+      pret: secret && base,
+      signature: secret,
+      base,
+      canal: CANAL_LEADS,
+      version: process.env.VERCEL_GIT_COMMIT_SHA?.slice(0, 7) ?? 'inconnue',
+      traces,
+    })
     return
   }
 
