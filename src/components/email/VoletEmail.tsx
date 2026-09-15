@@ -151,8 +151,11 @@ export function VoletEmail() {
    * Chaque fichier est déposé séparément pour qu'un refus n'emporte pas les autres — choisir cinq
    * pièces dont une trop lourde doit en joindre quatre, pas zéro.
    */
-  async function ajouterFichiers(fichiers: FileList | null) {
-    if (!fichiers || fichiers.length === 0 || !volet || !brouillon) return
+  async function ajouterFichiers(fichiers: File[]) {
+    // UN TABLEAU ET NON UNE `FileList` : celle-ci est vivante et se vide avec le champ qui la porte.
+    // Le type dit désormais l'invariant, pour que le défaut ne puisse pas revenir par une autre
+    // porte.
+    if (fichiers.length === 0 || !volet || !brouillon) return
     setErreur(null)
     const { data } = await supabase.auth.getUser()
     const profilId = data.user?.id
@@ -162,13 +165,21 @@ export function VoletEmail() {
     }
     setDepotEnCours((n) => n + fichiers.length)
     const echecs: string[] = []
-    for (const fichier of Array.from(fichiers)) {
+    for (const fichier of fichiers) {
       try {
         const piece = await deposerPieceJointe(fichier, profilId)
         // On relit l'état à chaque tour : deux dépôts qui se terminent en même temps écraseraient
         // l'un l'autre en partant d'une copie figée du brouillon.
         const courant = volet.etat?.brouillon
         if (courant) volet.majBrouillon({ ...courant, piecesJointes: [...courant.piecesJointes, piece] })
+        // LE BROUILLON A DISPARU PENDANT LE DÉPÔT — volet fermé entre-temps. Le fichier est déjà
+        // dans le stockage : on le retire plutôt que de le laisser traîner dans un seau public,
+        // et on le dit, parce qu'un dépôt qui s'évapore en silence est le défaut qu'on vient de
+        // corriger juste à côté.
+        else {
+          void retirerPieceJointe(piece)
+          echecs.push(`« ${fichier.name} » n’a pas pu être joint : le brouillon a été fermé.`)
+        }
       } catch (e) {
         echecs.push(e instanceof Error ? e.message : String(e))
       } finally {
@@ -393,9 +404,26 @@ export function VoletEmail() {
                 multiple
                 className="hidden"
                 onChange={(e) => {
-                  void ajouterFichiers(e.target.files)
+                  /* ══ LES FICHIERS SONT COPIÉS AVANT QUE LE CHAMP SOIT VIDÉ ══
+                     Fabien, 15/09/2026 : le fichier ne s'ajoutait pas, sans message d'erreur, et le
+                     mail partait sans pièce jointe.
+
+                     `e.target.files` est une `FileList` VIVANTE, attachée au champ. `ajouterFichiers`
+                     est asynchrone : elle rendait la main à son premier `await`, la ligne suivante
+                     vidait le champ, et la liste se vidait AVEC LUI. La fonction reprenait ensuite sur
+                     une liste à zéro élément — donc aucune boucle, aucun dépôt, et surtout aucune
+                     erreur à afficher puisque rien n'avait échoué.
+
+                     C'est aussi pourquoi le défaut ne se voyait pas partout : selon le navigateur, la
+                     `FileList` est vidée sur place ou simplement remplacée, et dans le second cas la
+                     référence déjà prise gardait ses fichiers. Testé chez l'un, cassé chez l'autre.
+
+                     `Array.from` fige le contenu : ce qu'on a choisi ne dépend plus de ce que devient
+                     le champ. */
+                  const choisis = Array.from(e.target.files ?? [])
                   // Le champ est vidé pour que rechoisir LE MÊME fichier déclenche un événement.
                   e.target.value = ''
+                  void ajouterFichiers(choisis)
                 }}
               />
               {depotEnCours > 0 && (
