@@ -104,15 +104,13 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
           .in('nom', LIBELLES_COMBINES)
 
         const url = process.env.VITE_SUPABASE_URL as string
-        const cle = process.env.SUPABASE_SERVICE_ROLE_KEY as string
         const prefixe = `${url}/storage/v1/object/public/documents/`
         let supprimes = 0
         for (const doc of (anciens ?? []) as { id: string; url: string | null }[]) {
           if (doc.url?.startsWith(prefixe)) {
-            await fetch(`${url}/storage/v1/object/documents/${doc.url.slice(prefixe.length)}`, {
-              method: 'DELETE',
-              headers: { Authorization: `Bearer ${cle}` },
-            }).catch(() => { /* le fichier a pu disparaitre autrement : la ligne part quand meme */ })
+            // Par le client, comme le dépôt : un `fetch` à la main ne pose que `Authorization`, que
+            // le stockage refuse depuis le passage aux clés de nouvelle génération.
+            await admin.storage.from('documents').remove([doc.url.slice(prefixe.length)])
           }
           await admin.from('documents').delete().eq('id', doc.id)
           supprimes += 1

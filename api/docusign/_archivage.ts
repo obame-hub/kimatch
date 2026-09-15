@@ -50,18 +50,44 @@ function nomSur(nom: string): string {
     || 'document.pdf'
 }
 
-async function deposer(chemin: string, pdf: Uint8Array): Promise<string> {
-  const url = process.env.VITE_SUPABASE_URL as string
-  const cle = process.env.SUPABASE_SERVICE_ROLE_KEY as string
-  // `x-upsert` : c'est lui qui permet a la version signee d'ecraser la version envoyee deposee
-  // au meme chemin, plutot que d'empiler deux fichiers.
-  const depot = await fetch(`${url}/storage/v1/object/documents/${chemin}`, {
-    method: 'POST',
-    headers: { Authorization: `Bearer ${cle}`, 'Content-Type': 'application/pdf', 'x-upsert': 'true' },
-    body: pdf,
-  })
-  if (!depot.ok) throw new Error(`dépôt dans le stockage refusé (${depot.status})`)
-  return `${url}/storage/v1/object/public/documents/${chemin}`
+/**
+ * ══ LE DÉPÔT PASSE PAR LE CLIENT SUPABASE, PLUS PAR UN `fetch` À LA MAIN ══
+ *
+ * William, 15/09/2026, sur MDT-2026-1485 : « Échec : dépôt dans le stockage refusé (400) ». Six
+ * mandats signés depuis le 14/09 n'avaient plus aucun PDF archivé, alors que leur statut, leurs
+ * dates et leur synchro passaient normalement.
+ *
+ * ── CE QUI SE PASSAIT ──
+ *
+ * Cette fonction posait UN SEUL en-tête, `Authorization: Bearer <clé de service>`. C'est suffisant
+ * tant que la clé est un JWT — le format historique de Supabase, `eyJ…`. Le projet est passé aux
+ * clés de nouvelle génération (`sb_publishable_…` côté navigateur le 13/09) : celles-ci ne sont PAS
+ * des JWT, et le service de stockage, qui tente de décoder le porteur, répond « 400 jwt malformed »
+ * au lieu d'un franc 401. D'où un code d'erreur qui ne ressemblait à rien.
+ *
+ * ── POURQUOI LA BASE, ELLE, CONTINUAIT D'ÉCRIRE ──
+ *
+ * `createClient()` envoie DEUX en-têtes — `apikey` ET `Authorization` — et PostgREST se contente du
+ * premier. Le webhook écrivait donc le statut sans difficulté pendant que le dépôt échouait : la
+ * panne était invisible partout sauf sur l'onglet Fichiers.
+ *
+ * ── LA CORRECTION ──
+ *
+ * On passe par `admin.storage`, qui pose les deux en-têtes quel que soit le format de la clé. Ce
+ * n'est pas seulement un correctif : c'est la fin d'une réimplémentation à la main d'un client qui
+ * existe déjà, et qui suivra les prochains changements de Supabase sans qu'on ait à y penser.
+ *
+ * L'ERREUR PORTE MAINTENANT SON MESSAGE. « refusé (400) » a coûté une demi-journée d'enquête parce
+ * que le corps de la réponse — celui qui dit « jwt malformed » — était jeté.
+ */
+async function deposer(admin: Admin, chemin: string, pdf: Uint8Array): Promise<string> {
+  // `upsert` : c'est lui qui permet a la version signee d'ecraser la version envoyee deposee au
+  // meme chemin, plutot que d'empiler deux fichiers.
+  const { error } = await admin.storage
+    .from('documents')
+    .upload(chemin, pdf, { contentType: 'application/pdf', upsert: true })
+  if (error) throw new Error(`dépôt dans le stockage refusé : ${error.message}`)
+  return admin.storage.from('documents').getPublicUrl(chemin).data.publicUrl
 }
 
 /**
@@ -89,7 +115,7 @@ export async function archiverDocumentsEnvoyes(
     // precedente au lieu d'accumuler des fichiers a chaque tentative.
     const nomFichier = `${contrat ? 'Contrat' : 'Mandat'}_envoye_${i + 1}_${nomSur(compteNom)}.pdf`
     const chemin = `${objet.type}s/${objet.id}/${nomFichier}`
-    const url = await deposer(chemin, new Uint8Array(pdf))
+    const url = await deposer(admin, chemin, new Uint8Array(pdf))
 
     // Idempotent : renvoyer le mandat ne cree pas une seconde ligne pour le meme rang.
     const { data: existant } = await admin
@@ -228,7 +254,7 @@ export async function archiverDocumentsSignes(
     const libelle = doc.certificat ? 'Certificat de signature' : `${doc.nom} — signé`
     const nomFichier = `${nomSur(doc.certificat ? `Certificat_signature_${compteNom}` : `${doc.nom}_signe`)}.pdf`
     const chemin = `${objet.type}s/${objet.id}/${nomFichier}`
-    const url = await deposer(chemin, pdf)
+    const url = await deposer(admin, chemin, pdf)
 
     const { data: existant } = await admin
       .from('documents')
@@ -273,16 +299,15 @@ export async function retirerDocumentsEnvoyes(admin: Admin, mandatId: string): P
   if (!envoyes?.length) return
 
   const url = process.env.VITE_SUPABASE_URL as string
-  const cle = process.env.SUPABASE_SERVICE_ROLE_KEY as string
   const prefixe = `${url}/storage/v1/object/public/documents/`
 
   for (const doc of envoyes as { id: string; url: string | null }[]) {
     if (doc.url?.startsWith(prefixe)) {
-      const chemin = doc.url.slice(prefixe.length)
-      await fetch(`${url}/storage/v1/object/documents/${chemin}`, {
-        method: 'DELETE',
-        headers: { Authorization: `Bearer ${cle}` },
-      }).catch(() => { /* le fichier a pu disparaitre autrement : la ligne part quand meme */ })
+      // MÊME RAISON QUE POUR LE DÉPÔT : un `fetch` à la main ne pose que l'en-tête `Authorization`,
+      // que le stockage refuse depuis le passage aux clés de nouvelle génération. Ici l'échec était
+      // encore plus silencieux — il était avalé par un `.catch()` — et laissait des PDF orphelins
+      // dans le seau.
+      await admin.storage.from('documents').remove([doc.url.slice(prefixe.length)])
     }
     await admin.from('documents').delete().eq('id', doc.id)
   }
