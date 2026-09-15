@@ -47,7 +47,8 @@ import {
   useEcarterAppel,
   etatDeLAppel,
   aRencontreUnServeurVocal,
-  secondesEcoulees,
+  useIdentiteAppel,
+  secondesDepuisDecroche,
   dureeLisible,
   type Qualification,
 } from '@/lib/data/appelEnCours'
@@ -67,6 +68,7 @@ export function CarteAppel() {
   const qualifier = useQualifierAppel()
   const ecarter = useEcarterAppel()
   const navigate = useNavigate()
+  const { data: identite } = useIdentiteAppel(appel)
 
   /* LE CHRONOMÈTRE EST UN ÉTAT LOCAL, pas une relecture. La carte se rafraîchit toutes les quatre
      secondes ; un chronomètre qui n'avancerait qu'à ce rythme sauterait de quatre en quatre et se
@@ -82,7 +84,9 @@ export function CarteAppel() {
 
   const etat = etatDeLAppel(appel)
   const serveurVocal = aRencontreUnServeurVocal(appel)
-  const secondes = appel.duree_secondes ?? secondesEcoulees(appel, maintenant)
+  /* LA DURÉE D'ALLO FAIT FOI QUAND ELLE EXISTE — elle arrive à la fin de l'appel. Avant, notre
+     chronomètre, qui ne part qu'au décroché. Pendant la sonnerie : rien, et l'état le dit. */
+  const secondes = appel.duree_secondes ?? secondesDepuisDecroche(appel, maintenant)
   const entrant = appel.sens === 'ENTRANT'
 
   const versLaFiche = () => {
@@ -120,7 +124,11 @@ export function CarteAppel() {
           {etat === 'en_ligne' && 'En ligne'}
           {etat === 'termine' && 'Appel terminé'}
         </span>
-        <span className="shrink-0 font-mono text-km-label tabular-nums">{dureeLisible(secondes)}</span>
+        {/* PAS DE COMPTEUR TANT QUE ÇA SONNE. Un nombre qui défile pendant la sonnerie se lit comme
+            une durée de conversation, puis repart de zéro au décroché — on ne le croit plus. */}
+        <span className="shrink-0 font-mono text-km-label tabular-nums">
+          {secondes == null ? '—' : dureeLisible(secondes)}
+        </span>
         <button
           type="button"
           onClick={() => ecarter.mutate(appel.id)}
@@ -135,7 +143,26 @@ export function CarteAppel() {
         {/* ── QUI EST AU BOUT DU FIL ──
             Le numéro EN TEXTE NU : l'extension Allo décore les numéros qu'elle voit, et elle ne voit
             que du texte. L'emballer dans un bouton lui retirerait ce qu'elle sait faire. */}
-        <p className="font-mono text-km-name font-semibold text-km-text">{numeroLisible(appel.numero)}</p>
+        {/* LE NOM D'ABORD QUAND ON L'A, le numéro sinon — demande de William, 15/09/2026. Le numéro
+            reste affiché en dessous : c'est lui qu'on dicte à un collègue, et lui que l'extension
+            Allo décore. En TEXTE NU pour cette raison : l'emballer dans un bouton la rendrait
+            aveugle. */}
+        {identite?.nom ? (
+          <>
+            <p className="text-km-name font-semibold text-km-text">{identite.nom}</p>
+            {identite.societe && (
+              <p className="truncate text-km-label text-km-muted">{identite.societe}</p>
+            )}
+            <p className="mt-0.5 font-mono text-km-label text-km-faint">{numeroLisible(appel.numero)}</p>
+          </>
+        ) : identite?.societe ? (
+          <>
+            <p className="text-km-name font-semibold text-km-text">{identite.societe}</p>
+            <p className="mt-0.5 font-mono text-km-label text-km-faint">{numeroLisible(appel.numero)}</p>
+          </>
+        ) : (
+          <p className="font-mono text-km-name font-semibold text-km-text">{numeroLisible(appel.numero)}</p>
+        )}
         {fichePossible ? (
           <button
             type="button"

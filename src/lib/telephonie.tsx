@@ -1,7 +1,7 @@
 import { createContext, useCallback, useContext, useEffect, useState } from 'react'
 import type { ReactNode } from 'react'
 import { CarteAppel } from '@/components/allo/CarteAppel'
-import { VoletAllo, ouvrirVoletAlloSiDejaUtilise } from '@/components/allo/VoletAllo'
+import { VoletAllo, ouvrirVoletAllo, ouvrirVoletAlloSiDejaUtilise, appelDansLeVolet } from '@/components/allo/VoletAllo'
 
 /**
  * APPELER DEPUIS KIMATCH — un seul entonnoir, un numéro normalisé, et un numéro TOUJOURS VISIBLE.
@@ -223,7 +223,36 @@ export function TelephonieProvider({ children }: { children: ReactNode }) {
      * `<a>` CLIQUÉ PLUTÔT QUE `location.href`, et de façon SYNCHRONE dans le geste de l'utilisateur :
      * c'est la leçon du document de William sur Cockpit, où Safari et iOS refusent d'ouvrir une
      * application externe depuis un appel différé. Le même réflexe s'applique ici. */
-    lancerAlloBureau(e164)
+    /* ══ SAUF SI L'APPEL DOIT VIVRE DANS LE VOLET ══
+     *
+     * Naoëlle, 15/09/2026, capture à l'appui : « j'ai essayé d'appeler et ça me fait ça, ça veut
+     * ouvrir Allo, ça n'ouvre pas le petit bloc ».
+     *
+     * Elle a raison, et les deux chemins s'excluent. Vérifié ce jour-là : l'API d'Allo n'a AUCUN
+     * contrôle d'appel — 16 familles de ressources, les appels en lecture seule, et nos 21 portées
+     * n'en touchent aucune. Raccrocher et transférer n'existent QUE dans l'interface d'Allo. Donc :
+     *
+     *   appel dans l'application de bureau → Kimatch n'a plus prise, ni raccrocher ni transférer
+     *   appel dans le volet                → les boutons d'Allo sont là, dans Kimatch
+     *
+     * Lancer `allo://` par-dessus ouvrait l'application de bureau et vidait le volet de sa raison
+     * d'être. On ne le fait donc plus quand le volet est en service. */
+    const dansLeVolet = appelDansLeVolet()
+    if (!dansLeVolet) lancerAlloBureau(e164)
+
+    /* ══ LE VOLET S'OUVRE AVANT TOUTE REQUÊTE, ET SANS CONDITION ══
+     *
+     * Naoëlle, 15/09 : « ça me copie juste le numéro quand je clique sur le logo téléphone vert ».
+     * Le message disait la cause — « Allo injoignable » — mais la faute était ailleurs : le volet
+     * ne s'ouvrait QUE SI le dépôt dans la file avait réussi.
+     *
+     * Or le dépôt n'est qu'un confort : il pré-remplit le Power Dialer. Ce qui compte, quand l'appel
+     * doit vivre dans le volet, c'est que le volet soit là. Le faire dépendre d'une requête réseau,
+     * c'est promettre un téléphone qui n'apparaît pas dès qu'Allo tousse — ou, en développement
+     * local, jamais : `npm run dev` ne sert que l'interface, les fonctions `api/` n'y existent pas.
+     *
+     * On ouvre donc d'abord, on dépose ensuite. */
+    if (dansLeVolet) ouvrirVoletAllo()
 
     /* ── LA FILE D'APPEL ALLO, D'ABORD ──
        Le numéro part dans la file du Power Dialer de la personne connectée, avec le nom et la
@@ -235,9 +264,16 @@ export function TelephonieProvider({ children }: { children: ReactNode }) {
          ce numero dans Kimatch ». Le numero etait bien deposse dans la file, mais la file est une
          liste d'attente : rien ne compose tant que le Power Dialer n'est pas lance, et ce bouton
          n'existe que dans l'interface d'Allo. On la met donc sous ses yeux, dans Kimatch. */
-      ouvrirVoletAlloSiDejaUtilise()
+      if (!dansLeVolet) ouvrirVoletAlloSiDejaUtilise()
     }
     if (file.ok) {
+      /* LE MESSAGE DIT LE GESTE QUI RESTE, pas l'état du système : la file est une liste d'attente,
+         seul le bouton d'Allo compose. */
+      if (dansLeVolet) {
+        const m = `${numeroLisible(e164)} est prêt — clique « Appeler » dans le téléphone, en bas à droite.`
+        setMessage(m)
+        return m
+      }
       const m = file.position != null
         ? `${numeroLisible(e164)} ajouté à ta file d’appel Allo, en position ${file.position}.`
         : `${numeroLisible(e164)} ajouté à ta file d’appel Allo.`
@@ -262,9 +298,16 @@ export function TelephonieProvider({ children }: { children: ReactNode }) {
     }
 
     const raison = file.erreur ? ` (${file.erreur})` : ''
-    const m = copie
-      ? `${e164} copié — pour appeler, cliquez l’icône Allo à côté du numéro.${raison}`
-      : `Pour appeler ${e164}, cliquez l’icône Allo à côté du numéro.${raison}`
+    /* LE REPLI DOIT DÉSIGNER CE QUI EST SOUS LES YEUX. Le volet est ouvert : renvoyer vers « l'icône
+       Allo à côté du numéro » — celle de l'extension Chrome — envoie chercher ailleurs ce qui est
+       déjà là. */
+    const m = dansLeVolet
+      ? copie
+        ? `${numeroLisible(e164)} copié — colle-le dans le téléphone, en bas à droite, et appelle.${raison}`
+        : `Compose ${numeroLisible(e164)} dans le téléphone, en bas à droite.${raison}`
+      : copie
+        ? `${e164} copié — pour appeler, cliquez l’icône Allo à côté du numéro.${raison}`
+        : `Pour appeler ${e164}, cliquez l’icône Allo à côté du numéro.${raison}`
     setMessage(m)
     return m
   }, [])

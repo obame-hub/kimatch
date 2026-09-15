@@ -231,15 +231,80 @@ export function etatDeLAppel(a: AppelEnCours): EtatAppel {
   return 'sonne'
 }
 
+/**
+ * ══ QUI EST AU BOUT DU FIL ══
+ *
+ * William : « savoir qui on appelle, le nom de la personne, si on a son nom, sinon son numéro en
+ * brut ». Le webhook rattache déjà l'appel à un contact, un compte ou une piste par les neuf
+ * derniers chiffres ; il ne restait plus qu'à aller chercher le nom.
+ *
+ * TROIS SOURCES, DANS L'ORDRE DE PRÉCISION : un contact nomme une personne, une piste nomme une
+ * personne pas encore convertie, un compte ne nomme qu'une société. En l'absence des trois, on ne
+ * met rien — l'écran affiche le numéro, qui est toujours là.
+ */
+export function useIdentiteAppel(appel: AppelEnCours | null | undefined) {
+  const cle = appel ? [appel.contact_id, appel.piste_id, appel.compte_id].join('|') : 'aucun'
+  return useQuery({
+    queryKey: ['identite-appel', cle],
+    enabled: Boolean(appel && (appel.contact_id || appel.piste_id || appel.compte_id)),
+    staleTime: 5 * 60 * 1000,
+    queryFn: async (): Promise<{ nom: string | null; societe: string | null }> => {
+      if (!appel) return { nom: null, societe: null }
+
+      if (appel.contact_id) {
+        const { data } = await supabase
+          .from('contacts').select('civilite, prenom, nom, compte:comptes(nom)')
+          .eq('id', appel.contact_id).maybeSingle()
+        if (data) {
+          const d = data as unknown as { civilite: string | null; prenom: string | null; nom: string | null; compte: { nom: string } | { nom: string }[] | null }
+          const compte = Array.isArray(d.compte) ? d.compte[0] : d.compte
+          const nom = [d.civilite, d.prenom, d.nom].filter(Boolean).join(' ').trim()
+          return { nom: nom || null, societe: compte?.nom ?? null }
+        }
+      }
+
+      if (appel.piste_id) {
+        const { data } = await supabase
+          .from('pistes').select('contact_nom, societe').eq('id', appel.piste_id).maybeSingle()
+        if (data) {
+          const d = data as unknown as { contact_nom: string | null; societe: string | null }
+          return { nom: d.contact_nom || null, societe: d.societe || null }
+        }
+      }
+
+      if (appel.compte_id) {
+        const { data } = await supabase
+          .from('comptes').select('nom').eq('id', appel.compte_id).maybeSingle()
+        if (data) return { nom: null, societe: (data as unknown as { nom: string }).nom }
+      }
+
+      return { nom: null, societe: null }
+    },
+  })
+}
+
 /** Le serveur vocal qu'Allo compte comme un décroché — voir `ivr_touches`. */
 export function aRencontreUnServeurVocal(a: AppelEnCours): boolean {
   return Array.isArray(a.ivr_touches) && a.ivr_touches.length > 0
 }
 
-/** Les secondes écoulées depuis le décroché, ou depuis le départ si ça sonne encore. */
-export function secondesEcoulees(a: AppelEnCours, maintenant: number): number {
-  const depuis = a.decroche_le ?? a.demarre_le
-  return Math.max(0, Math.floor((maintenant - new Date(depuis).getTime()) / 1000))
+/**
+ * ══ LE COMPTEUR NE PART QU'AU DÉCROCHÉ ══
+ *
+ * William, 15/09/2026 : « il faudrait que le compteur de secondes commence quand ça a décroché —
+ * que ce soit un répondeur, un serveur vocal ou une personne, mais seulement quand la tonalité
+ * s'est arrêtée ».
+ *
+ * L'ANCIENNE VERSION COMPTAIT DEPUIS LA COMPOSITION tant que le décroché n'était pas connu, puis
+ * repartait de zéro : le chiffre affiché RECULAIT au moment où quelqu'un répondait. Une durée
+ * d'appel qui diminue, c'est une durée à laquelle on n'accorde plus jamais crédit.
+ *
+ * `null` pendant la sonnerie — et l'écran montre alors l'état, pas un nombre. Le webhook
+ * `call.answered` d'Allo remplit `decroche_le` ; c'est lui, et lui seul, qui démarre le compte.
+ */
+export function secondesDepuisDecroche(a: AppelEnCours, maintenant: number): number | null {
+  if (!a.decroche_le) return null
+  return Math.max(0, Math.floor((maintenant - new Date(a.decroche_le).getTime()) / 1000))
 }
 
 /** « 2 min 14 s ». */

@@ -43,7 +43,7 @@
  * ════════════════════════════════════════════════════════════════════════════════════════════════
  */
 import { useEffect, useState } from 'react'
-import { Phone, Minus, X, ExternalLink, ZoomIn, ZoomOut } from 'lucide-react'
+import { Phone, Minus, X, ExternalLink, ZoomIn, ZoomOut, Maximize2, Minimize2, Move } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { useAppelEnCours } from '@/lib/data/appelEnCours'
 
@@ -102,6 +102,62 @@ const LARGEUR_MAX = 1600
 const LARGEUR_LOGIQUE = 1180
 const ECHELLE_MIN = 0.62
 
+/* ══════════════════════════════════════════════════════════════════════════════════════════════
+ * LE HUBLOT — VOIR LA BARRE D'APPEL D'ALLO, ET RIEN D'AUTRE
+ * ══════════════════════════════════════════════════════════════════════════════════════════════
+ *
+ * Naoëlle, 15/09/2026, capture à l'appui : « en gros je ne veux pas voir tout ça, juste le petit
+ * bloc qui concerne l'appel en cours, c'est tout ». Et William : un petit carré avec le nom de la
+ * personne, transférer, raccrocher — pas un gros volet.
+ *
+ * ── POURQUOI UN RECADRAGE ET NON UNE INTERFACE À NOUS ──
+ *
+ * L'API d'Allo n'a AUCUN contrôle d'appel : vérifié le 15/09 sur leur référence (16 familles de
+ * ressources, les appels en lecture seule), sur leur page de transfert (depuis leur application
+ * uniquement), et sur notre propre clé (21 portées, aucune ne touche un appel en cours). Raccrocher
+ * et transférer n'existent QUE dans l'interface d'Allo.
+ *
+ * Or cette interface est ici, dans le cadre. Un site ne peut ni restyler ni découper un site
+ * étranger qu'il affiche — même origine oblige. La seule chose qu'on maîtrise, c'est la FENÊTRE
+ * par laquelle on le regarde. On garde donc Allo rendu à sa taille naturelle et on n'en montre
+ * qu'un rectangle : celui de la barre d'appel.
+ *
+ * ── CE QUE ÇA COÛTE, ET COMMENT ON LE PAIE ──
+ *
+ * Le jour où Allo déplace ses boutons, le cadrage tombe à côté. On ne peut pas l'empêcher ; on peut
+ * le rendre réparable en cinq secondes plutôt qu'en un déploiement : le bouton « recadrer » laisse
+ * glisser Allo derrière le hublot, et la position est retenue. Personne n'attend une correction.
+ */
+const HUBLOT_L_DEFAUT = 420
+const HUBLOT_H_DEFAUT = 170
+const HUBLOT_MIN = 180
+const HUBLOT_MAX_L = 900
+const HUBLOT_MAX_H = 700
+/* LA HAUTEUR À LAQUELLE ON REND ALLO. Leur mise en page dépend de la hauteur de la fenêtre : un
+   cadre de 170 px leur ferait produire une disposition d'écran minuscule, pas le haut de la leur. */
+const HAUTEUR_LOGIQUE = 860
+/* LE CADRAGE PAR DÉFAUT vise la colonne de droite, celle où vivent les commandes d'appel — constaté
+   le 08/09 quand elle restait rognée quelle que soit la largeur du volet. C'est un point de départ,
+   pas une vérité : le premier appel servira à le régler pour de bon. */
+/* ══ DEUX CADRAGES, PAS UN ══
+ *
+ * L'écran d'Allo n'est pas le même au repos et en ligne : au repos on veut sa barre de composition,
+ * en appel on veut ses touches — raccrocher, muet, transfert. Un cadrage unique obligerait à
+ * recadrer à chaque décrochage, donc pendant qu'on parle à un client. Kimatch sait déjà s'il y a un
+ * appel en cours (c'est ce qui fait clignoter la pastille) : il choisit le cadrage tout seul. */
+const CADRAGE_DEFAUT = {
+  repos: { x: 596, y: 700 },
+  appel: { x: 596, y: 700 },
+}
+
+const CLE_HUBLOT = 'kimatch.volet-allo.hublot'
+const CLE_CADRAGE = 'kimatch.volet-allo.cadrage'
+const CLE_TAILLE_HUBLOT = 'kimatch.volet-allo.hublot.taille'
+const CLE_ZOOM_HUBLOT = 'kimatch.volet-allo.hublot.zoom'
+const ZOOM_MIN = 0.3
+const ZOOM_MAX = 1.6
+const PAS_ZOOM = 0.1
+
 /**
  * La commande globale, comme pour la téléphonie.
  *
@@ -110,6 +166,43 @@ const ECHELLE_MIN = 0.62
  */
 let ouvrirCourant: (() => void) | null = null
 let dejaUtilise = false
+
+/**
+ * L'APPEL DOIT-IL VIVRE DANS LE HUBLOT PLUTÔT QUE DANS L'APPLICATION DE BUREAU ?
+ *
+ * Les deux s'excluent, et c'est la découverte du 15/09 : raccrocher et transférer n'existent que
+ * dans l'interface d'Allo. Si l'appel part dans l'application de bureau, Kimatch n'a plus aucune
+ * prise dessus — l'API d'Allo n'offre aucun contrôle d'appel. Si l'appel part dans le hublot, les
+ * boutons d'Allo sont là, sous les yeux, dans Kimatch.
+ *
+ * Lancer `allo://` EN PLUS du dépôt dans la file avait du sens tant que le volet n'était qu'un
+ * dépannage. Depuis qu'on choisit le hublot, c'est le contraire : le protocole ouvre l'application
+ * de bureau par-dessus, l'appel s'y déroule, et le hublot reste vide.
+ *
+ * ── LE VOLET EST LE DÉFAUT, ET NE DÉPEND PAS DE SON ÉTAT D'OUVERTURE ──
+ *
+ * Première version fausse, 15/09 : je n'écartais `allo://` que si le volet était DÉJÀ OUVERT.
+ * Naoëlle avait le sien fermé — Chrome lui a redemandé d'ouvrir l'application de bureau, et le
+ * hublot est resté vide. L'ouverture du volet est une conséquence de l'appel, pas sa condition :
+ * s'en servir comme test inversait la cause et l'effet.
+ *
+ * On lit donc une PRÉFÉRENCE, distincte de l'état d'ouverture, et dont le défaut est le volet.
+ * Seul quelqu'un qui a explicitement choisi l'application de bureau retrouve le protocole.
+ *
+ * On lit le stockage et non un état React : `appeler()` vit dans le fournisseur de téléphonie, qui
+ * ne connaît pas ce composant. Une fonction, pas un contexte de plus.
+ */
+const CLE_PREFERENCE_BUREAU = 'kimatch.appel.application-bureau'
+
+export function appelDansLeVolet(): boolean {
+  try {
+    return localStorage.getItem(CLE_PREFERENCE_BUREAU) !== '1'
+  } catch {
+    /* Stockage refusé : on garde le volet, qui marche partout, plutôt qu'un protocole qui suppose
+       une application installée. */
+    return true
+  }
+}
 
 export function ouvrirVoletAllo() {
   ouvrirCourant?.()
@@ -146,6 +239,20 @@ export function VoletAllo() {
      et le volet se figeait à mi-course. */
   const [glisse, setGlisse] = useState(false)
 
+  /* ══ LE HUBLOT ══
+     `hublot` : on ne montre qu'un rectangle d'Allo. `cadrage` : quel rectangle. `recadre` : on est
+     en train de le déplacer, donc le cadre ne doit plus recevoir la souris. */
+  const [hublot, setHublot] = useState(true)
+  const [cadrages, setCadrages] = useState(CADRAGE_DEFAUT)
+  const [tailleHublot, setTailleHublot] = useState({ l: HUBLOT_L_DEFAUT, h: HUBLOT_H_DEFAUT })
+  const [recadre, setRecadre] = useState(false)
+  /* LE ZOOM DU HUBLOT, indépendant de l'échelle du volet entier. La barre d'appel d'Allo est large :
+     à l'échelle 1 elle ne tient pas dans un petit carré, et réduite de trop elle devient illisible.
+     Le bon réglage ne se devine pas depuis le code — il se trouve devant un vrai appel. */
+  const [zoomHublot, setZoomHublot] = useState(1)
+  const [glisseCadrage, setGlisseCadrage] = useState<{ x: number; y: number; ox: number; oy: number } | null>(null)
+  const [glisseTaille, setGlisseTaille] = useState<{ x: number; y: number; l: number; h: number } | null>(null)
+
   useEffect(() => {
     try {
       if (localStorage.getItem(CLE_MEMOIRE) === '1') {
@@ -155,6 +262,36 @@ export function VoletAllo() {
       }
       const l = Number(localStorage.getItem(CLE_LARGEUR))
       if (Number.isFinite(l) && l >= LARGEUR_MIN && l <= LARGEUR_MAX) setLargeur(l)
+
+      /* LE HUBLOT EST LE DÉFAUT. Seul un « 0 » explicite rend le volet entier : quelqu'un qui n'a
+         jamais rien réglé doit voir le petit carré, pas les quatre colonnes d'Allo. */
+      if (localStorage.getItem(CLE_HUBLOT) === '0') setHublot(false)
+
+      const c = localStorage.getItem(CLE_CADRAGE)
+      if (c) {
+        /* `x,y,x,y` : repos puis appel. Une ancienne valeur à deux nombres vaut pour les deux —
+           personne ne perd son réglage parce qu'on en a ajouté un second. */
+        const n = c.split(',').map(Number)
+        if (n.length >= 2 && n.every(Number.isFinite)) {
+          setCadrages({
+            repos: { x: n[0], y: n[1] },
+            appel: n.length >= 4 ? { x: n[2], y: n[3] } : { x: n[0], y: n[1] },
+          })
+        }
+      }
+      const z = Number(localStorage.getItem(CLE_ZOOM_HUBLOT))
+      if (Number.isFinite(z) && z >= ZOOM_MIN && z <= ZOOM_MAX) setZoomHublot(z)
+
+      const t = localStorage.getItem(CLE_TAILLE_HUBLOT)
+      if (t) {
+        const [tl, th] = t.split(',').map(Number)
+        if (Number.isFinite(tl) && Number.isFinite(th)) {
+          setTailleHublot({
+            l: Math.min(HUBLOT_MAX_L, Math.max(HUBLOT_MIN, tl)),
+            h: Math.min(HUBLOT_MAX_H, Math.max(HUBLOT_MIN, th)),
+          })
+        }
+      }
     } catch {
       /* Navigation privée, stockage refusé : le volet s'ouvrira au premier clic, c'est tout. */
     }
@@ -181,9 +318,100 @@ export function VoletAllo() {
    * composants restent independants, et le decalage est une affaire de mise en page, pas de logique.
    */
   useEffect(() => {
-    document.documentElement.style.setProperty('--volet-allo', ouvert ? `${largeur}px` : '0px')
+    const occupe = hublot ? tailleHublot.l : largeur
+    document.documentElement.style.setProperty('--volet-allo', ouvert ? `${occupe}px` : '0px')
     return () => document.documentElement.style.setProperty('--volet-allo', '0px')
-  }, [ouvert, largeur])
+  }, [ouvert, largeur, hublot, tailleHublot.l])
+
+  /* LE CADRAGE ACTIF. `appelEnCours` vient déjà du hook lu plus haut pour protéger la fermeture. */
+  const modeCadrage: 'repos' | 'appel' = appelEnCours ? 'appel' : 'repos'
+  const cadrage = cadrages[modeCadrage]
+
+  /** Enregistre les deux cadrages sous la forme `repos.x,repos.y,appel.x,appel.y`. */
+  const retenirCadrages = (c: typeof CADRAGE_DEFAUT) => {
+    try {
+      localStorage.setItem(
+        CLE_CADRAGE,
+        [c.repos.x, c.repos.y, c.appel.x, c.appel.y].map(Math.round).join(','),
+      )
+    } catch { /* sans conséquence */ }
+  }
+
+  /* ══ DÉPLACER LE CADRAGE ══
+     On glisse le hublot SUR Allo : tirer vers la droite doit faire apparaître ce qui est à droite,
+     donc le cadre recule d'autant. Les bornes empêchent de sortir du rendu et de ne montrer que du
+     vide — le seul état d'où l'on ne saurait pas revenir. */
+  useEffect(() => {
+    if (!glisseCadrage) return
+    const bouge = (e: PointerEvent) => {
+      /* ON DIVISE PAR LE ZOOM : un déplacement de 100 px à l'écran vaut 200 px d'Allo quand tout est
+         réduit de moitié. Sans ça, le cadrage file deux fois trop vite ou deux fois trop lentement. */
+      const z = zoomHublot || 1
+      /* ON NE TOUCHE QUE LE CADRAGE DU MOMENT : régler pendant un appel ne doit pas défaire celui du
+         repos, et inversement. */
+      setCadrages((c) => ({
+        ...c,
+        [modeCadrage]: {
+          x: Math.min(LARGEUR_LOGIQUE - 60, Math.max(0, glisseCadrage.ox - (e.clientX - glisseCadrage.x) / z)),
+          y: Math.min(HAUTEUR_LOGIQUE - 60, Math.max(0, glisseCadrage.oy - (e.clientY - glisseCadrage.y) / z)),
+        },
+      }))
+    }
+    const fini = () => {
+      setGlisseCadrage(null)
+      setCadrages((c) => { retenirCadrages(c); return c })
+    }
+    window.addEventListener('pointermove', bouge)
+    window.addEventListener('pointerup', fini)
+    document.body.style.cursor = 'grabbing'
+    document.body.style.userSelect = 'none'
+    return () => {
+      window.removeEventListener('pointermove', bouge)
+      window.removeEventListener('pointerup', fini)
+      document.body.style.cursor = ''
+      document.body.style.userSelect = ''
+    }
+  }, [glisseCadrage, zoomHublot, modeCadrage])
+
+  /* ══ REDIMENSIONNER LE HUBLOT ══
+     Par le coin haut-gauche : le hublot est ancré en bas à droite, c'est donc ce coin-là qui bouge
+     quand on l'agrandit. */
+  useEffect(() => {
+    if (!glisseTaille) return
+    const bouge = (e: PointerEvent) => {
+      setTailleHublot({
+        l: Math.min(HUBLOT_MAX_L, Math.max(HUBLOT_MIN, glisseTaille.l - (e.clientX - glisseTaille.x))),
+        h: Math.min(HUBLOT_MAX_H, Math.max(HUBLOT_MIN, glisseTaille.h - (e.clientY - glisseTaille.y))),
+      })
+    }
+    const fini = () => {
+      setGlisseTaille(null)
+      setTailleHublot((t) => {
+        try { localStorage.setItem(CLE_TAILLE_HUBLOT, `${Math.round(t.l)},${Math.round(t.h)}`) } catch { /* sans conséquence */ }
+        return t
+      })
+    }
+    window.addEventListener('pointermove', bouge)
+    window.addEventListener('pointerup', fini)
+    document.body.style.cursor = 'nwse-resize'
+    document.body.style.userSelect = 'none'
+    return () => {
+      window.removeEventListener('pointermove', bouge)
+      window.removeEventListener('pointerup', fini)
+      document.body.style.cursor = ''
+      document.body.style.userSelect = ''
+    }
+  }, [glisseTaille])
+
+  /** Passe du hublot au volet entier, et retient le choix. */
+  const basculerHublot = () => {
+    setHublot((h) => {
+      const n = !h
+      if (n) setRecadre(false)
+      try { localStorage.setItem(CLE_HUBLOT, n ? '1' : '0') } catch { /* sans conséquence */ }
+      return n
+    })
+  }
 
   /* ══ LA POIGNÉE ══
    *
@@ -227,6 +455,15 @@ export function VoletAllo() {
     setLargeur((l) => {
       const n = Math.min(LARGEUR_MAX, Math.max(LARGEUR_MIN, l + delta))
       try { localStorage.setItem(CLE_LARGEUR, String(n)) } catch { /* sans conséquence */ }
+      return n
+    })
+  }
+
+  /** En hublot, les mêmes boutons règlent le zoom : la largeur, elle, se tire par le coin. */
+  const reglerZoom = (delta: number) => {
+    setZoomHublot((z) => {
+      const n = Math.round(Math.min(ZOOM_MAX, Math.max(ZOOM_MIN, z + delta)) * 100) / 100
+      try { localStorage.setItem(CLE_ZOOM_HUBLOT, String(n)) } catch { /* sans conséquence */ }
       return n
     })
   }
@@ -343,10 +580,19 @@ export function VoletAllo() {
       {charge && (
         <div
           aria-hidden={!ouvert}
-          style={{ width: `min(${largeur}px, 95vw)` }}
+          /* LE MÊME ÉLÉMENT DANS LES DEUX MODES, et c'est vital : déplacer le cadre dans l'arbre le
+             remonterait, et remonter le cadre RACCROCHE L'APPEL. On ne change que des classes. */
+          style={
+            hublot
+              ? { width: `min(${tailleHublot.l}px, 95vw)`, height: `min(${tailleHublot.h}px, 80vh)` }
+              : { width: `min(${largeur}px, 95vw)` }
+          }
           className={cn(
-            'fixed bottom-0 right-0 top-0 z-[66] flex flex-col border-l border-km-line bg-white shadow-km-pop',
+            'fixed z-[66] flex flex-col border-km-line bg-white shadow-km-pop',
             'transition-transform duration-200 motion-reduce:transition-none',
+            hublot
+              ? 'bottom-4 right-4 overflow-hidden rounded-km-md border'
+              : 'bottom-0 right-0 top-0 border-l',
             ouvert ? 'translate-x-0' : 'pointer-events-none translate-x-full',
           )}
         >
@@ -358,34 +604,95 @@ export function VoletAllo() {
             aria-orientation="vertical"
             aria-label="Redimensionner le volet"
             title="Glisser pour redimensionner"
-            className="absolute inset-y-0 -left-[3px] z-10 w-1.5 cursor-col-resize bg-transparent transition-colors hover:bg-km-green/40"
+            className={cn(
+              'absolute inset-y-0 -left-[3px] z-10 w-1.5 cursor-col-resize bg-transparent transition-colors hover:bg-km-green/40',
+              hublot && 'hidden',
+            )}
           />
-          <div className="flex flex-none items-center gap-2 border-b border-km-line px-3.5 py-2.5">
-            <Phone className="h-4 w-4 shrink-0 text-km-green" />
+
+          {/* LE COIN DU HUBLOT. Il est ancré en bas à droite : c'est donc son coin haut-gauche qui
+              s'écarte quand on l'agrandit. */}
+          <div
+            onPointerDown={(e) => {
+              e.preventDefault()
+              setGlisseTaille({ x: e.clientX, y: e.clientY, l: tailleHublot.l, h: tailleHublot.h })
+            }}
+            role="separator"
+            aria-label="Redimensionner le hublot"
+            title="Glisser pour agrandir"
+            className={cn(
+              'absolute left-0 top-0 z-20 h-3 w-3 cursor-nwse-resize',
+              !hublot && 'hidden',
+            )}
+          />
+          <div
+            className={cn(
+              'flex flex-none items-center gap-2 border-b border-km-line',
+              hublot ? 'px-2 py-1' : 'px-3.5 py-2.5',
+            )}
+          >
+            <Phone className={cn('shrink-0 text-km-green', hublot ? 'h-3.5 w-3.5' : 'h-4 w-4')} />
             <div className="min-w-0 flex-1">
-              <p className="text-km-body font-bold text-km-text">Téléphone</p>
-              <p className="truncate text-km-label text-km-faint">Allo, dans Kimatch</p>
+              {hublot ? (
+                /* EN HUBLOT, LE TITRE DIT L'APPEL, PAS L'OUTIL. La place est comptée, et « Téléphone
+                   / Allo, dans Kimatch » n'apprend rien à quelqu'un qui a déjà quelqu'un en ligne. */
+                <p className="truncate text-km-label font-semibold text-km-text">
+                  {appelEnCours ? 'Appel en cours' : 'Téléphone'}
+                </p>
+              ) : (
+                <>
+                  <p className="text-km-body font-bold text-km-text">Téléphone</p>
+                  <p className="truncate text-km-label text-km-faint">Allo, dans Kimatch</p>
+                </>
+              )}
             </div>
+
+            {/* RECADRER — visible seulement en hublot. C'est la réparation de cinq secondes le jour
+                où Allo déplace ses boutons : on tire Allo derrière la fenêtre jusqu'à retrouver la
+                barre d'appel, et la position est retenue. */}
+            <button
+              type="button"
+              onClick={() => setRecadre((r) => !r)}
+              title={recadre ? 'Terminer le recadrage' : 'Recadrer — glisser pour choisir ce qu’on voit'}
+              className={cn(
+                'shrink-0 rounded p-1 transition-colors',
+                !hublot && 'hidden',
+                recadre ? 'bg-km-green text-white' : 'text-km-faint hover:bg-km-soft hover:text-km-text',
+              )}
+            >
+              <Move className="h-3.5 w-3.5" />
+            </button>
+
+            {/* AGRANDIR / RÉDUIRE. Le volet entier reste accessible : c'est là que vivent les
+                discussions, les résumés et le Power Dialer, dont le hublot ne montre rien. */}
+            <button
+              type="button"
+              onClick={basculerHublot}
+              title={hublot ? 'Voir tout Allo' : 'Ne garder que la barre d’appel'}
+              className="shrink-0 rounded p-1 text-km-faint transition-colors hover:bg-km-soft hover:text-km-text"
+            >
+              {hublot ? <Maximize2 className="h-3.5 w-3.5" /> : <Minimize2 className="h-3.5 w-3.5" />}
+            </button>
             {/* LE RÉGLAGE DE TAILLE, dit dans les termes du résultat et non du mécanisme : personne
                 n'a envie de savoir qu'il ajuste une échelle de transformation. Le pourcentage sert de
                 repère entre deux crans. */}
             <div className="flex shrink-0 items-center gap-0.5 rounded-km border border-km-line px-0.5">
               <button
                 type="button"
-                onClick={() => regler(-PAS_LARGEUR)}
-                disabled={largeur <= LARGEUR_MIN}
+                onClick={() => (hublot ? reglerZoom(-PAS_ZOOM) : regler(-PAS_LARGEUR))}
+                disabled={hublot ? zoomHublot <= ZOOM_MIN : largeur <= LARGEUR_MIN}
                 title="Plus petit"
                 className="rounded p-1 text-km-faint transition-colors hover:bg-km-soft hover:text-km-text disabled:opacity-30"
               >
                 <ZoomOut className="h-3.5 w-3.5" />
               </button>
               <span className="min-w-[30px] text-center font-mono text-km-tiny tabular-nums text-km-faint">
-                {Math.round(echelle * 100)}%
+                {Math.round((hublot ? zoomHublot : echelle) * 100)}%
               </span>
               <button
                 type="button"
-                onClick={() => regler(PAS_LARGEUR)}
-                disabled={largeur >= LARGEUR_MAX}
+                onClick={() => (hublot ? reglerZoom(PAS_ZOOM) : regler(PAS_LARGEUR))}
+                disabled={hublot ? zoomHublot >= ZOOM_MAX : largeur >= LARGEUR_MAX}
                 title="Plus grand"
                 className="rounded p-1 text-km-faint transition-colors hover:bg-km-soft hover:text-km-text disabled:opacity-30"
               >
@@ -397,7 +704,7 @@ export function VoletAllo() {
               target="_blank"
               rel="noreferrer"
               title="Ouvrir Allo dans un onglet"
-              className="shrink-0 rounded p-1 text-km-faint transition-colors hover:bg-km-soft hover:text-km-text"
+              className={cn('shrink-0 rounded p-1 text-km-faint transition-colors hover:bg-km-soft hover:text-km-text', hublot && 'hidden')}
             >
               <ExternalLink className="h-3.5 w-3.5" />
             </a>
@@ -424,8 +731,16 @@ export function VoletAllo() {
               `height: calc(100% / var(--zoom))` compense la réduction : sans cette division, le
               cadre mis à l'échelle ne remplirait que les deux tiers de la hauteur du volet. */}
           <div
-            className="relative min-h-0 flex-1 overflow-hidden"
-            style={{ ['--zoom' as string]: String(echelle) }}
+            onPointerDown={(e) => {
+              if (!hublot || !recadre) return
+              e.preventDefault()
+              setGlisseCadrage({ x: e.clientX, y: e.clientY, ox: cadrage.x, oy: cadrage.y })
+            }}
+            className={cn(
+              'relative min-h-0 flex-1 overflow-hidden',
+              hublot && recadre && 'cursor-grab ring-2 ring-inset ring-km-green',
+            )}
+            style={{ ['--zoom' as string]: String(hublot ? 1 : echelle) }}
           >
             <iframe
               src={URL_ALLO}
@@ -435,21 +750,65 @@ export function VoletAllo() {
                  `autoplay` pour la sonnerie et la voix, `clipboard-write` parce qu'Allo propose de
                  copier des numéros. */
               allow="microphone; autoplay; clipboard-write"
-              className="absolute left-0 top-0 border-0"
-              style={{
-                width: `${LARGEUR_LOGIQUE}px`,
-                height: 'calc(100% / var(--zoom))',
-                transform: 'scale(var(--zoom))',
-                transformOrigin: 'top left',
-                pointerEvents: glisse ? 'none' : 'auto',
-              }}
+              className="absolute border-0"
+              /* EN HUBLOT : taille naturelle, décalée de la position du cadrage — le rectangle
+                 visible est donc un morceau d'Allo à l'échelle 1, lisible.
+                 EN VOLET : tout Allo, réduit pour tenir. Deux mises en page, un seul cadre. */
+              style={
+                hublot
+                  ? {
+                      /* LE DÉCALAGE EST EN PIXELS D'ÉCRAN, donc multiplié par le zoom : le cadrage se
+                         raisonne dans les coordonnées d'Allo, l'affichage dans celles de la page. */
+                      left: `${-cadrage.x * zoomHublot}px`,
+                      top: `${-cadrage.y * zoomHublot}px`,
+                      width: `${LARGEUR_LOGIQUE}px`,
+                      height: `${HAUTEUR_LOGIQUE}px`,
+                      transform: `scale(${zoomHublot})`,
+                      transformOrigin: 'top left',
+                      /* PENDANT LE RECADRAGE, LE CADRE NE PREND PLUS LA SOURIS : un iframe avale les
+                         événements de pointeur, et le glissement se figerait au premier pixel. */
+                      pointerEvents: recadre || glisseCadrage || glisseTaille ? 'none' : 'auto',
+                    }
+                  : {
+                      left: 0,
+                      top: 0,
+                      width: `${LARGEUR_LOGIQUE}px`,
+                      height: 'calc(100% / var(--zoom))',
+                      transform: 'scale(var(--zoom))',
+                      transformOrigin: 'top left',
+                      pointerEvents: glisse ? 'none' : 'auto',
+                    }
+              }
             />
           </div>
+
+          {/* CE QU'IL FAUT SAVOIR PENDANT QU'ON RECADRE, et seulement à ce moment-là. */}
+          {hublot && recadre && (
+            <div className="flex-none border-t border-km-line bg-km-green/10 px-2 py-1 text-km-tiny leading-tight text-km-text">
+              <p>
+                {modeCadrage === 'appel'
+                  ? 'Glisse jusqu’à voir les touches d’appel, puis reclique sur l’icône.'
+                  : 'Glisse jusqu’à voir la barre de composition, puis reclique sur l’icône.'}
+              </p>
+              <p className="text-km-muted">
+                Réglage « {modeCadrage === 'appel' ? 'pendant un appel' : 'au repos'} » — l’autre est
+                conservé.
+              </p>
+              {/* LES CHIFFRES SONT AFFICHÉS POUR POUVOIR ÊTRE RAPPORTÉS. Le réglage est retenu dans
+                  CE navigateur ; le lire permet d'en faire le défaut de toute l'équipe, pour que
+                  personne d'autre n'ait à recommencer. */}
+              <p className="mt-0.5 font-mono tabular-nums text-km-muted">
+                cadrage {Math.round(cadrage.x)}, {Math.round(cadrage.y)}
+                {'  ·  '}hublot {Math.round(tailleHublot.l)} × {Math.round(tailleHublot.h)}
+                {'  ·  '}zoom {Math.round(zoomHublot * 100)}%
+              </p>
+            </div>
+          )}
 
           {/* DEUX CHOSES QU'ON NE DEVINE PAS, dites ici plutôt que découvertes en tâtonnant : la
               session du volet est distincte de celle de l'onglet, et c'est l'extension — pas
               Kimatch — qui sait composer un numéro d'un clic. */}
-          <div className="flex-none border-t border-km-line bg-km-soft px-3.5 py-2 text-km-label leading-snug text-km-muted">
+          <div className={cn('flex-none border-t border-km-line bg-km-soft px-3.5 py-2 text-km-label leading-snug text-km-muted', hublot && 'hidden')}>
             <p>
               La première fois, connecte-toi ici même — le navigateur garde la session du volet à
               part de celle de ton onglet Allo. Ensuite, elle reste.
