@@ -31,7 +31,7 @@ import {
 import { MenuChoix } from '@/components/ui/menu-choix'
 import { Dialog } from '@/components/ui/dialog'
 import { Textarea } from '@/components/ui/form'
-import { echeanceLisible } from '@/lib/heureTache'
+import { echeanceLisible, estEnRetard } from '@/lib/heureTache'
 import { cn } from '@/lib/utils'
 
 /**
@@ -588,7 +588,7 @@ export default function PisteDetail() {
                        code de statut reste A_FAIRE en base. */
                     const faite = Boolean(t.date_realisation)
                     const enRetard =
-                      !faite && t.echeance && t.echeance.slice(0, 10) < new Date().toISOString().slice(0, 10)
+                      !faite && t.echeance && estEnRetard(t.echeance)
                     return (
                       <div key={t.id} className="flex items-start gap-2 rounded-km px-1 py-1 hover:bg-km-soft">
                         <button

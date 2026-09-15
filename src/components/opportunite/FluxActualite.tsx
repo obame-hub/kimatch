@@ -1,5 +1,6 @@
 import { Pencil, Sparkle, MessageSquare } from 'lucide-react'
 import { useHistorique, type HistoriqueEntry } from '@/lib/data/historique'
+import { estEnRetard } from '@/lib/heureTache'
 import { cn } from '@/lib/utils'
 
 /**
@@ -175,7 +176,7 @@ export function FluxActualite({ tableNom, ligneId, dateCreation, interactions = 
             <span className="ml-1.5 text-km-faint">— faite</span>
           ) : a.statut === 'ANNULEE' ? (
             <span className="ml-1.5 text-km-faint">— annulée</span>
-          ) : a.echeance && a.echeance.slice(0, 10) < new Date().toISOString().slice(0, 10) ? (
+          ) : a.echeance && estEnRetard(a.echeance) ? (
             <span className="ml-1.5 font-semibold text-km-red">— en retard</span>
           ) : (
             <span className="ml-1.5 text-km-faint">— {a.statut === 'EN_COURS' ? 'en cours' : 'à faire'}</span>

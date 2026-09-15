@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { Input, Label, Textarea } from '@/components/ui/form'
 import { useUpdateActionPartiel } from '@/lib/data/actions'
-import { heureDe, instantTache } from '@/lib/heureTache'
+import { heureDe, instantTache, jourLocalISO } from '@/lib/heureTache'
 import { cn } from '@/lib/utils'
 
 /**
@@ -49,7 +49,18 @@ export function PanneauEditionTache({
 }) {
   const majAction = useUpdateActionPartiel()
   const [titre, setTitre] = useState(action.titre)
-  const [date, setDate] = useState(action.echeance ? action.echeance.slice(0, 10) : '')
+  /* ══ LE JOUR SE LIT DANS LE FUSEAU OÙ ON TRAVAILLE ══
+     William, 15/09/2026, capture à l'appui : « j'ai modifié la date au 18/09 mais quand je demande
+     de remodifier c'est la date du 17/09 qui est enregistrée ».
+
+     L'écriture et la lecture n'utilisaient pas la même horloge. `instantTache` compose l'instant
+     depuis l'heure LOCALE — une échéance au 18/09 sans heure vaut minuit à Paris, soit 22 h UTC le
+     17. `.slice(0, 10)` découpait ensuite la chaîne ISO, donc rendait le jour UTC : le 17.
+
+     Ce n'était pas un cas limite. 519 des 803 tâches qui portent une échéance sont dans ce cas —
+     toutes celles saisies sans heure. `jourLocalISO` existe depuis le 08/09 pour cette famille de
+     défaut ; il manquait ici. */
+  const [date, setDate] = useState(jourLocalISO(action.echeance) ?? '')
   const [heure, setHeure] = useState(() => heureDe(action.echeance) ?? '')
   const [commentaire, setCommentaire] = useState(action.commentaire ?? '')
   const [erreur, setErreur] = useState<string | null>(null)

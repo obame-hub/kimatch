@@ -69,3 +69,25 @@ export function echeanceLisible(instant: string | null | undefined): string {
   const h = heureDe(instant)
   return h ? `${jour} à ${h}` : jour
 }
+
+/**
+ * UNE ÉCHÉANCE EST-ELLE DÉPASSÉE ? Jugée sur le jour vécu ici, pas sur le jour UTC.
+ *
+ * William, 15/09/2026, en signalant le décalage du panneau d'édition. La même comparaison se faisait
+ * à deux endroits — le fil d'une opportunité et les tâches d'une piste — sous la forme
+ * `echeance.slice(0, 10) < new Date().toISOString().slice(0, 10)`.
+ *
+ * LES DEUX CÔTÉS ÉTAIENT EN UTC, donc la comparaison paraissait cohérente. Elle ne l'était pas : une
+ * échéance saisie sans heure vaut minuit LOCAL, soit 22 h UTC LA VEILLE. Une tâche due le 18 se
+ * lisait « 17 » et passait donc en retard dès le matin du 18 — le jour même où elle est à faire.
+ *
+ * 519 des 803 tâches qui portent une échéance sont concernées : toutes celles saisies sans heure.
+ *
+ * UNE ÉCHÉANCE AVEC HEURE RESTE JUGÉE À LA JOURNÉE, et c'est voulu : « à faire aujourd'hui à 9 h 30 »
+ * n'est pas en retard à 10 h, elle est en cours. Le retard commence le lendemain.
+ */
+export function estEnRetard(echeance: string | null | undefined, maintenant: Date = new Date()): boolean {
+  const jour = jourLocalISO(echeance)
+  if (!jour) return false
+  return jour < jourLocalISO(maintenant.toISOString())!
+}

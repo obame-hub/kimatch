@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
-import { heureDe, instantTache } from '@/lib/heureTache'
+import { heureDe, instantTache, jourLocalISO } from '@/lib/heureTache'
 import { ArrowLeft, CheckSquare, Check, Trash2 } from 'lucide-react'
 import { Topbar } from '@/components/layout/Topbar'
 import { Button } from '@/components/ui/button'
@@ -194,7 +194,10 @@ export default function ActionDetail() {
                     variant="date"
                     label="Échéance"
                     emptyLabel="ajouter une échéance"
-                    value={action.echeance ? action.echeance.slice(0, 10) : null}
+                    /* LE JOUR SE LIT EN LOCAL, comme il s'écrit : `slice(0, 10)` rendait le jour
+                       UTC, décalé d'un jour sur toute échéance sans heure. Voir
+                       PanneauEditionTache.tsx. */
+                    value={jourLocalISO(action.echeance)}
                     /* MODIFIER LA DATE NE DOIT PAS EFFACER L'HEURE. Le champ en ligne ne rend
                        qu'une date ; envoyée telle quelle, elle remplaçait un instant « 26/08 à
                        09:30 » par minuit UTC. On recompose donc l'instant en gardant l'heure. */
