@@ -2,7 +2,12 @@ import { useEffect, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { CompteurAnime } from '@/components/dashboard/CompteurAnime'
 import type { CartesDuJour as Nombres } from '@/lib/data/cartesDuJour'
-import type { TotauxOffres } from '@/lib/data/offresDuJour'
+import {
+  LIBELLE_PERIODE,
+  PERIODES_MONTANT,
+  type PeriodeMontant,
+  type TotauxOffres,
+} from '@/lib/data/offresDuJour'
 import { cn } from '@/lib/utils'
 
 /**
@@ -105,9 +110,14 @@ function useSursaut(valeur: number) {
 export function TuileArgent({
   totaux,
   chargement,
+  periode,
+  onPeriode,
 }: {
   totaux: TotauxOffres | undefined
   chargement: boolean
+  /** La période du MONTANT SIGNÉ seulement — le pipe est un encours et l'ignore. */
+  periode: PeriodeMontant
+  onPeriode: (p: PeriodeMontant) => void
 }) {
   const signe = totaux?.montantSigne ?? 0
   const pipe = totaux?.pipeEnDecision ?? 0
@@ -119,9 +129,45 @@ export function TuileArgent({
       className="animate-km-card-rise relative flex flex-col overflow-hidden rounded-[20px] px-[18px] py-4 text-white shadow-[0_14px_34px_-20px_rgba(13,122,95,.55)] sm:col-span-2 lg:row-span-2"
       style={{ background: 'linear-gradient(152deg,#199b78 0%,#0d7a5f 55%,#0a5F4A 100%)' }}
     >
-      <span className="truncate text-km-label font-bold uppercase tracking-[.1em] text-white/75">
-        Montant signé
-      </span>
+      {/* ══ LE TITRE ET LE CHOIX DE PÉRIODE SUR LA MÊME LIGNE ══
+          William, 15/09/2026 : les filtres « dans la partie supérieure droite » de la tuile. C'est
+          l'endroit juste : le choix qualifie le chiffre qui suit, on le lit avant lui.
+
+          UN SEUL SEGMENT ACTIF, PAS DES CASES À COCHER : les quatre périodes s'emboîtent — le jour
+          est dans le mois, le mois dans le trimestre — donc les cumuler n'aurait aucun sens. */}
+      {/* `flex-wrap` PLUTÔT QU'UN TITRE TRONQUÉ : « Montant signé » et quatre segments dont
+          « Trimestre » tiennent sur une ligne au-delà d'environ 360 px, et se serrent en dessous.
+          Sans repli, c'est le titre qui serait rogné — « Monta… » au-dessus d'un montant, c'est
+          perdre ce que le montant désigne. Avec, le groupe passe sous le titre et tout reste
+          lisible. */}
+      <div className="flex flex-wrap items-center gap-x-2 gap-y-1.5">
+        <span className="text-km-label font-bold uppercase tracking-[.1em] text-white/75">
+          Montant signé
+        </span>
+        <div
+          role="group"
+          aria-label="Période du montant signé"
+          className="ml-auto flex shrink-0 items-center gap-0.5 rounded-full bg-black/15 p-0.5"
+        >
+          {PERIODES_MONTANT.map((p) => {
+            const actif = p === periode
+            return (
+              <button
+                key={p}
+                type="button"
+                aria-pressed={actif}
+                onClick={() => onPeriode(p)}
+                className={cn(
+                  'rounded-full px-2 py-[3px] text-km-tiny font-bold transition-colors',
+                  actif ? 'bg-white text-[#0d7a5f] shadow-sm' : 'text-white/70 hover:bg-white/10 hover:text-white',
+                )}
+              >
+                {LIBELLE_PERIODE[p].onglet}
+              </button>
+            )
+          })}
+        </div>
+      </div>
 
       <span
         className={cn('mt-3 flex items-center', sursaut && 'animate-km-compteur-bond')}
@@ -139,7 +185,7 @@ export function TuileArgent({
           />
         )}
       </span>
-      <span className="mt-1 text-km-body text-white/75">mes affaires acceptées aujourd’hui</span>
+      <span className="mt-1 text-km-body text-white/75">{LIBELLE_PERIODE[periode].phrase}</span>
 
       {/* LE FILET SÉPARE DEUX NATURES, PAS DEUX CHIFFRES. Au-dessus le fait, en dessous
           l'espérance — voir l'en-tête. `mt-auto` le pousse au bas de la tuile quelle que soit la

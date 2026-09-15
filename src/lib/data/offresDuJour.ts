@@ -111,6 +111,7 @@ export function useOffresDuJour() {
   useEffect(() => {
     const rafraichir = () => {
       void queryClient.invalidateQueries({ queryKey: ['offres-du-jour'] })
+      // Sans période : React Query invalide alors les quatre variantes d'un coup.
       void queryClient.invalidateQueries({ queryKey: ['totaux-offres'] })
     }
     const canal = supabase
@@ -125,14 +126,52 @@ export function useOffresDuJour() {
   return requete
 }
 
-export function useTotauxOffres() {
+/**
+ * ══ LA PÉRIODE DU MONTANT SIGNÉ ══
+ *
+ * William, 15/09/2026 : « ajoute des filtres Jour / Mois / Trimestre / Année. Ne touche pas à la
+ * valeur du pipe en décision situé en dessous. »
+ *
+ * Les périodes sont EN COURS et non glissantes — du 1er du mois à aujourd'hui, pas les trente
+ * derniers jours. C'est la lecture d'un commercial : les objectifs se tiennent au mois et au
+ * trimestre. Voir la migration 20260915140000 pour le détail.
+ */
+export const PERIODES_MONTANT = ['JOUR', 'MOIS', 'TRIMESTRE', 'ANNEE'] as const
+export type PeriodeMontant = (typeof PERIODES_MONTANT)[number]
+
+/**
+ * CE QU'ON VOIT EN ARRIVANT, TANT QU'ON N'A RIEN CHOISI.
+ *
+ * William, 15/09/2026 : « mets Mois par défaut ». La tuile affichait la journée, et une journée
+ * sans signature — le cas de la plupart des jours — montre 0,00 € à l'ouverture du tableau de bord.
+ * Le mois en cours dit quelque chose tous les jours du mois.
+ *
+ * Le choix de chacun reste retenu par son navigateur : ce défaut ne s'applique qu'à la première
+ * visite, ou quand le stockage local est refusé.
+ */
+export const DEFAUT_PERIODE: PeriodeMontant = 'MOIS'
+
+/** L'intitulé sous le montant : il doit dire la période, sinon le chiffre est ambigu. */
+export const LIBELLE_PERIODE: Record<PeriodeMontant, { onglet: string; phrase: string }> = {
+  JOUR: { onglet: 'Jour', phrase: 'mes affaires acceptées aujourd’hui' },
+  MOIS: { onglet: 'Mois', phrase: 'mes affaires acceptées ce mois-ci' },
+  TRIMESTRE: { onglet: 'Trimestre', phrase: 'mes affaires acceptées ce trimestre' },
+  ANNEE: { onglet: 'Année', phrase: 'mes affaires acceptées cette année' },
+}
+
+export function useTotauxOffres(periode: PeriodeMontant = DEFAUT_PERIODE) {
   const requete = useQuery({
-    queryKey: ['totaux-offres'],
+    // LA PÉRIODE ENTRE DANS LA CLÉ : sans elle, passer de « Mois » à « Année » rendrait le montant
+    // du mois depuis le cache, et l'écran annoncerait l'année en montrant autre chose.
+    queryKey: ['totaux-offres', periode],
     staleTime: 5 * 60 * 1000,
     refetchOnWindowFocus: false,
     retry: false,
+    // Le montant précédent reste affiché pendant que le nouveau arrive : sans cela, chaque clic
+    // ferait clignoter un squelette gris sur un chiffre qu'on vient de lire.
+    placeholderData: (precedent) => precedent,
     queryFn: async (): Promise<TotauxOffres> => {
-      const { data, error } = await supabase.rpc('compter_totaux_offres')
+      const { data, error } = await supabase.rpc('compter_totaux_offres', { p_periode: periode })
       if (error) {
         if (absente(error.message)) return { pipeEnDecision: 0, nbEnDecision: 0, montantSigne: 0 }
         throw new Error(error.message)

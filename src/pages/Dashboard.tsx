@@ -1,10 +1,10 @@
-import { useMemo } from 'react'
+import { useMemo, useState } from 'react'
 import { Topbar } from '@/components/layout/Topbar'
 import { TuileArgent, TuilesJournee } from '@/components/dashboard/TuilesDuJour'
 import { useMonProfil } from '@/lib/data/roles'
 import { useCartesDuJour } from '@/lib/data/cartesDuJour'
 import { OffresDuJour } from '@/components/dashboard/OffresDuJour'
-import { useOffresDuJour, useTotauxOffres } from '@/lib/data/offresDuJour'
+import { useOffresDuJour, useTotauxOffres, DEFAUT_PERIODE, PERIODES_MONTANT, type PeriodeMontant } from '@/lib/data/offresDuJour'
 import { TachesDuJour } from '@/components/dashboard/TachesDuJour'
 import { useTachesDuJour, useChargeAVenir, depuisIso, PLAFOND_JOURNALIER } from '@/lib/data/tachesDuJour'
 import { cn } from '@/lib/utils'
@@ -137,7 +137,29 @@ export default function Dashboard() {
   const { data: monProfil } = useMonProfil()
   const { data: cartes, isLoading: cartesEnCours } = useCartesDuJour()
   const { data: offres, isLoading: offresEnCours } = useOffresDuJour()
-  const { data: totaux, isLoading: totauxEnCours } = useTotauxOffres()
+  /* ══ LA PÉRIODE DU MONTANT SIGNÉ, RETENUE D'UNE VISITE À L'AUTRE ══
+     William, 15/09/2026 : « je veux que ce soit fluide et pratique ». Quelqu'un qui pilote au mois
+     le choisit une fois, pas à chaque ouverture du tableau de bord. Le choix est propre au
+     navigateur : c'est une préférence d'affichage, pas une donnée de l'entreprise.
+
+     LA VALEUR RELUE EST VÉRIFIÉE : un `localStorage` se modifie à la main et survit aux versions.
+     Une valeur devenue inconnue ferait échouer l'appel — la fonction en base refuse ce qu'elle ne
+     connaît pas — au lieu de simplement repartir sur le jour. */
+  const [periode, setPeriode] = useState<PeriodeMontant>(() => {
+    try {
+      const garde = localStorage.getItem('km-periode-montant-signe')
+      return PERIODES_MONTANT.includes(garde as PeriodeMontant) ? (garde as PeriodeMontant) : DEFAUT_PERIODE
+    } catch {
+      return DEFAUT_PERIODE
+    }
+  })
+  const choisirPeriode = (p: PeriodeMontant) => {
+    setPeriode(p)
+    // Le stockage local peut être refusé (navigation privée, réglage d'entreprise) : l'écran doit
+    // continuer de fonctionner, simplement sans mémoire.
+    try { localStorage.setItem('km-periode-montant-signe', p) } catch { /* sans mémoire, tant pis */ }
+  }
+  const { data: totaux, isLoading: totauxEnCours } = useTotauxOffres(periode)
   const { data: taches, isLoading: tachesEnCours } = useTachesDuJour()
   const { data: charge, isLoading: chargeEnCours } = useChargeAVenir()
 
@@ -238,7 +260,7 @@ export default function Dashboard() {
             <div className="grid auto-rows-min grid-cols-1 gap-2.5 sm:grid-cols-2 lg:grid-cols-6">
               {/* La grande tuile ouvre la grille : deux colonnes, deux rangées. Les quatre
                   compteurs et la bande des opportunités se placent ensuite autour d'elle. */}
-              <TuileArgent totaux={totaux} chargement={totauxEnCours} />
+              <TuileArgent totaux={totaux} chargement={totauxEnCours} periode={periode} onPeriode={choisirPeriode} />
               <TuilesJournee nombres={cartes} chargement={cartesEnCours} />
             </div>
           </Zone>
