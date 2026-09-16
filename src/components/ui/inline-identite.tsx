@@ -21,7 +21,7 @@
  * garantie, et le commentaire est là pour que personne ne s'y trompe.
  */
 import { useEffect, useRef, useState } from 'react'
-import { Pencil } from 'lucide-react'
+import { Check, Copy, Pencil } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { optionsCivilite, nomComplet, nomEnMajuscules, prenomEnCapitale } from '@/lib/civilite'
 
@@ -58,6 +58,7 @@ export function InlineIdentite({
   const [prenom, setPrenom] = useState(valeur.prenom ?? '')
   const [nom, setNom] = useState(valeur.nom ?? '')
   const [enCours, setEnCours] = useState(false)
+  const [copie, setCopie] = useState(false)
   const premierRef = useRef<HTMLSelectElement>(null)
 
   /* La valeur peut changer sous nos pieds — un autre onglet, un rafraîchissement. On ne recopie
@@ -173,16 +174,40 @@ export function InlineIdentite({
           </div>
         </div>
       ) : affiche ? (
-        <button
-          type="button"
-          disabled={disabled}
-          onClick={() => setEditing(true)}
-          title={`Modifier ${label.toLocaleLowerCase('fr-FR')}`}
-          className="flex w-full min-w-0 items-center gap-1.5 rounded-km-sm px-1.5 py-0.5 text-left text-km-name text-km-text transition-colors hover:bg-km-soft"
-        >
-          <span className="min-w-0 truncate">{affiche}</span>
-          <Pencil className="h-3 w-3 shrink-0 text-km-faint" />
-        </button>
+        /* LE NOM SE COPIE COMME TOUT AUTRE CHAMP (William, 16/09/2026). Il est recomposé de trois
+           colonnes, mais ce qu'on colle dans un mail ou un annuaire, c'est la ligne entière. */
+        <div className="group/champ flex min-w-0 items-center">
+          <button
+            type="button"
+            disabled={disabled}
+            onClick={() => setEditing(true)}
+            title={`Modifier ${label.toLocaleLowerCase('fr-FR')}`}
+            className="flex min-w-0 flex-1 items-center gap-1.5 rounded-km-sm px-1.5 py-0.5 text-left text-km-name text-km-text transition-colors hover:bg-km-soft"
+          >
+            <span className="min-w-0 truncate">{affiche}</span>
+            <Pencil className="h-3 w-3 shrink-0 text-km-faint" />
+          </button>
+          <button
+            type="button"
+            title="Copier"
+            aria-label={`Copier : ${affiche}`}
+            onClick={(e) => {
+              e.stopPropagation()
+              e.preventDefault()
+              navigator.clipboard?.writeText(affiche).catch(() => {})
+              setCopie(true)
+              window.setTimeout(() => setCopie(false), 1200)
+            }}
+            className={cn(
+              'ml-1 shrink-0 rounded-km-sm p-1 transition-all focus:opacity-100 focus:outline-none',
+              copie
+                ? 'text-km-green opacity-100'
+                : 'text-km-faint opacity-0 hover:bg-km-soft hover:text-km-text group-hover/champ:opacity-100',
+            )}
+          >
+            {copie ? <Check className="h-3 w-3" /> : <Copy className="h-3 w-3" />}
+          </button>
+        </div>
       ) : (
         <button
           type="button"

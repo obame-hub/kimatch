@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState, type ReactNode } from 'react'
-import { Pencil } from 'lucide-react'
+import { Check, Copy, Pencil } from 'lucide-react'
 import { Link } from 'react-router-dom'
 import { cn } from '@/lib/utils'
 import { useInlineEdit } from '@/lib/useInlineEdit'
@@ -113,6 +113,80 @@ export type InlineFieldProps =
 const inputBase =
   'w-full rounded-km-sm border border-km-green bg-km-surface px-1.5 py-0.5 text-km-name text-km-text outline-none focus:ring-1 focus:ring-km-green'
 
+/**
+ * ════════════════════════════════════════════════════════════════════════════════════════════════
+ * COPIER UN CHAMP — AU SURVOL, SANS OUVRIR L'ÉDITION
+ * ════════════════════════════════════════════════════════════════════════════════════════════════
+ *
+ * William, 16/09/2026 : « sur tous les champs, au survol je dois avoir un bouton copier permettant
+ * de copier la totalité du champ ».
+ *
+ * ══ POURQUOI ICI, ET DONC PARTOUT ══
+ *
+ * `InlineField` est LE champ de Kimatch : il sert les fiches compte, contact, site, compteur,
+ * mandat, contrat, opportunité, recommandation et piste. Poser la copie ici la donne aux neuf d'un
+ * coup, avec un seul geste à apprendre. L'écrire dans la seule fiche piste aurait produit un champ
+ * qui se copie ici et pas là — la pire des deux situations.
+ *
+ * ══ IL EST À CÔTÉ DU CHAMP, PAS DEDANS ══
+ *
+ * La valeur est déjà un bouton : cliquer dessus ouvre l'édition. Un bouton dans un bouton n'existe
+ * pas en HTML, et un clic sur l'icône aurait de toute façon déclenché les deux. Le bouton de copie
+ * est donc un frère, posé à droite, révélé par le survol du groupe.
+ *
+ * IL RESTE VISIBLE AU CLAVIER (`focus:opacity-100`) : une icône qui n'apparaît qu'à la souris est
+ * inatteignable pour qui navigue en tabulation.
+ *
+ * ══ CE QU'IL COPIE ══
+ *
+ * La valeur ENTIÈRE, même quand l'affichage la tronque — c'est tout l'intérêt sur une liste de
+ * copropriétés de six cents caractères ou une URL coupée à mi-chemin. Et la valeur BRUTE d'un
+ * nombre, sans son espace des milliers : « 15500 » se recolle dans un tableur, « 15 500 » non.
+ * ════════════════════════════════════════════════════════════════════════════════════════════════
+ */
+function BoutonCopier({ texte }: { texte: string }) {
+  const [copie, setCopie] = useState(false)
+  if (!texte) return null
+  return (
+    <button
+      type="button"
+      title="Copier"
+      aria-label={`Copier : ${texte.length > 60 ? `${texte.slice(0, 60)}…` : texte}`}
+      onClick={(e) => {
+        /* La valeur est cliquable pour l'édition : sans ça, copier ouvrirait aussi le champ. */
+        e.stopPropagation()
+        e.preventDefault()
+        navigator.clipboard?.writeText(texte).catch(() => {})
+        setCopie(true)
+        window.setTimeout(() => setCopie(false), 1200)
+      }}
+      className={cn(
+        'ml-1 mt-px shrink-0 rounded-km-sm p-1 transition-all focus:opacity-100 focus:outline-none focus-visible:ring-1 focus-visible:ring-km-green',
+        copie
+          ? 'text-km-green opacity-100'
+          : 'text-km-faint opacity-0 hover:bg-km-soft hover:text-km-text group-hover/champ:opacity-100',
+      )}
+    >
+      {copie ? <Check className="h-3 w-3" /> : <Copy className="h-3 w-3" />}
+    </button>
+  )
+}
+
+/**
+ * La valeur et son bouton de copie, sur une rangée.
+ *
+ * `items-start` et non `items-center` : sur un commentaire de dix lignes, une icône centrée
+ * verticalement se retrouverait au milieu du paragraphe, loin de tout.
+ */
+function AvecCopie({ texte, children }: { texte: string; children: ReactNode }) {
+  return (
+    <div className="group/champ flex min-w-0 items-start">
+      <div className="min-w-0 flex-1">{children}</div>
+      <BoutonCopier texte={texte} />
+    </div>
+  )
+}
+
 function EmptyPlaceholder({ label, onClick }: { label: string; onClick: () => void }) {
   return (
     <button
@@ -177,14 +251,16 @@ function DateInlineField({ value, onCommit, label, emptyLabel = 'ajouter une dat
           className={cn(inputBase, 'font-mono')}
         />
       ) : value ? (
-        <button
-          type="button"
-          disabled={disabled}
-          onClick={start}
-          className="rounded-km-sm px-1.5 py-0.5 text-left font-mono text-km-name text-km-text transition-colors hover:bg-km-soft"
-        >
-          {new Date(value).toLocaleDateString('fr-FR')}
-        </button>
+        <AvecCopie texte={new Date(value).toLocaleDateString('fr-FR')}>
+          <button
+            type="button"
+            disabled={disabled}
+            onClick={start}
+            className="rounded-km-sm px-1.5 py-0.5 text-left font-mono text-km-name text-km-text transition-colors hover:bg-km-soft"
+          >
+            {new Date(value).toLocaleDateString('fr-FR')}
+          </button>
+        </AvecCopie>
       ) : (
         <EmptyPlaceholder label={emptyLabel} onClick={start} />
       )}
@@ -233,14 +309,16 @@ function AddressInlineField({
       <div className={cn('min-w-0', className)}>
         {label && <div className="mb-0.5 text-km-label font-semibold uppercase tracking-wide text-km-faint">{label}</div>}
         {concatenee ? (
-          <button
-            type="button"
-            disabled={disabled}
-            onClick={start}
-            className="block w-full rounded-km-sm px-1.5 py-0.5 text-left text-km-name text-km-text transition-colors hover:bg-km-soft"
-          >
-            {concatenee}
-          </button>
+          <AvecCopie texte={concatenee}>
+            <button
+              type="button"
+              disabled={disabled}
+              onClick={start}
+              className="block w-full rounded-km-sm px-1.5 py-0.5 text-left text-km-name text-km-text transition-colors hover:bg-km-soft"
+            >
+              {concatenee}
+            </button>
+          </AvecCopie>
         ) : (
           <EmptyPlaceholder label={emptyLabel} onClick={start} />
         )}
@@ -341,14 +419,16 @@ function TextInlineField({ value, onCommit, label, emptyLabel = 'ajouter', onSav
           </button>
         </div>
       ) : displayValue ? (
-        <button
-          type="button"
-          disabled={disabled}
-          onClick={start}
-          className={cn('block w-full truncate rounded-km-sm px-1.5 py-0.5 text-left text-km-name text-km-text transition-colors hover:bg-km-soft', mono && 'font-mono')}
-        >
-          {displayValue}
-        </button>
+        <AvecCopie texte={String(displayValue)}>
+          <button
+            type="button"
+            disabled={disabled}
+            onClick={start}
+            className={cn('block w-full truncate rounded-km-sm px-1.5 py-0.5 text-left text-km-name text-km-text transition-colors hover:bg-km-soft', mono && 'font-mono')}
+          >
+            {displayValue}
+          </button>
+        </AvecCopie>
       ) : (
         <EmptyPlaceholder label={emptyLabel} onClick={start} />
       )}
@@ -380,9 +460,11 @@ function LongTextInlineField({ value, onCommit, label, emptyLabel = 'ajouter un 
           className={cn(inputBase, 'resize-none leading-relaxed')}
         />
       ) : displayValue ? (
-        <p onClick={start} className="cursor-pointer whitespace-pre-wrap rounded-km-sm p-1 text-km-name leading-relaxed text-km-muted hover:bg-km-soft">
-          {displayValue}
-        </p>
+        <AvecCopie texte={String(displayValue)}>
+          <p onClick={start} className="cursor-pointer whitespace-pre-wrap rounded-km-sm p-1 text-km-name leading-relaxed text-km-muted hover:bg-km-soft">
+            {displayValue}
+          </p>
+        </AvecCopie>
       ) : (
         <EmptyPlaceholder label={emptyLabel} onClick={start} />
       )}
@@ -464,9 +546,11 @@ function SelectInlineField({ value, options, onCommit, label, emptyLabel = 'choi
           )}
         </div>
       ) : currentLabel ? (
-        <button type="button" disabled={disabled} onClick={start} className="block w-full truncate rounded-km-sm px-1.5 py-0.5 text-left text-km-name text-km-text transition-colors hover:bg-km-soft">
-          {currentLabel}
-        </button>
+        <AvecCopie texte={currentLabel}>
+          <button type="button" disabled={disabled} onClick={start} className="block w-full truncate rounded-km-sm px-1.5 py-0.5 text-left text-km-name text-km-text transition-colors hover:bg-km-soft">
+            {currentLabel}
+          </button>
+        </AvecCopie>
       ) : (
         <EmptyPlaceholder label={emptyLabel} onClick={start} />
       )}
@@ -517,9 +601,12 @@ function NumberInlineField({ value, unit, onCommit, label, emptyLabel = 'ajouter
           <span className="text-km-body text-km-muted">{unit}</span>
         </div>
       ) : displayValue != null ? (
-        <button type="button" disabled={disabled} onClick={start} className="rounded-km-sm px-1.5 py-0.5 text-left font-mono text-km-name text-km-text transition-colors hover:bg-km-soft">
-          {displayValue.toLocaleString('fr-FR')} <span className="text-km-muted">{unit}</span>
-        </button>
+        /* LA VALEUR BRUTE, sans l'espace des milliers : « 15500 » se recolle dans un tableur. */
+        <AvecCopie texte={String(displayValue)}>
+          <button type="button" disabled={disabled} onClick={start} className="rounded-km-sm px-1.5 py-0.5 text-left font-mono text-km-name text-km-text transition-colors hover:bg-km-soft">
+            {displayValue.toLocaleString('fr-FR')} <span className="text-km-muted">{unit}</span>
+          </button>
+        </AvecCopie>
       ) : (
         <EmptyPlaceholder label={emptyLabel} onClick={start} />
       )}
