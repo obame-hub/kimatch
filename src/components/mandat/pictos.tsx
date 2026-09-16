@@ -158,6 +158,37 @@ export function PictoCaduque(p: ProprietesPicto) {
   )
 }
 
+/**
+ * LA FACTURE ATTENDUE — un document et ses lignes de montants.
+ *
+ * Distinct de `PictoBrouillon`, qui est la page vierge du mandat qu'on vient d'ouvrir : ici le
+ * document EXISTE quelque part, c'est nous qui l'attendons. Les trois traits intérieurs sont ce qui
+ * les sépare à 35 px.
+ */
+export function PictoFacture(p: ProprietesPicto) {
+  return (
+    <Picto {...p} epaisseur={2.2}>
+      <path d="M6 2.5h9l3.5 3.5v15a1 1 0 0 1-1 1H6a1 1 0 0 1-1-1v-17a1 1 0 0 1 1-1z" />
+      <path d="M8.5 11h7M8.5 14.5h7M8.5 18h4" />
+    </Picto>
+  )
+}
+
+/**
+ * LA COCHE SEULE — l'exact pendant de `PictoRefuse`, à la même épaisseur.
+ *
+ * Les deux issues d'un parcours doivent se lire comme une paire : une croix, une coche, même trait,
+ * même encombrement. `PictoMandat` porte aussi une coche, mais dans un bouclier — c'est la marque
+ * de l'objet mandat, jamais réattribuée.
+ */
+export function PictoValide(p: ProprietesPicto) {
+  return (
+    <Picto {...p} epaisseur={2.6}>
+      <path d="m5 12.5 4.5 4.5L19 7" />
+    </Picto>
+  )
+}
+
 export function PictoTelephone(p: ProprietesPicto) {
   return (
     <Picto {...p} epaisseur={2}>
@@ -171,6 +202,55 @@ export function PictoEnveloppe(p: ProprietesPicto) {
     <Picto {...p} epaisseur={2}>
       <path d="M4 5.5A1.5 1.5 0 0 1 5.5 4h13A1.5 1.5 0 0 1 20 5.5v13a1.5 1.5 0 0 1-1.5 1.5h-13A1.5 1.5 0 0 1 4 18.5z" />
       <path d="m20 7-8 5-8-5" />
+    </Picto>
+  )
+}
+
+/* ══ LES QUATRE PICTOS DES ZONES DE LA FICHE PISTE (16/09/2026) ══
+   Ils rejoignent cette planche plutôt qu'un fichier à part : c'est ici que vit l'épaisseur de trait
+   commune, et deux planches divergeraient au premier ajustement. */
+
+/** Le commentaire — une bulle. Rien d'autre ne dit « ce que quelqu'un a noté ». */
+export function PictoBulle(p: ProprietesPicto) {
+  return (
+    <Picto {...p} epaisseur={2.2}>
+      <path d="M21 15a2 2 0 0 1-2 2H8l-4 4V5a2 2 0 0 1 2-2h13a2 2 0 0 1 2 2z" />
+    </Picto>
+  )
+}
+
+/**
+ * L'immeuble en copropriété — distinct de `PictoCompte`, qui est la façade de l'entreprise.
+ *
+ * Les fenêtres font la différence à 24 px : un syndic gère des LOGEMENTS, et c'est le bloc qui dit
+ * si l'affaire vaut l'appel.
+ */
+export function PictoImmeuble(p: ProprietesPicto) {
+  return (
+    <Picto {...p} epaisseur={2.1}>
+      <path d="M3 21h18" />
+      <path d="M5 21V6l7-3 7 3v15" />
+      <path d="M9.5 10h.6M13.9 10h.6M9.5 14h.6M13.9 14h.6" />
+    </Picto>
+  )
+}
+
+/** Le mobile — un combiné, pas un téléphone de bureau : les deux numéros ne s'appellent pas pareil. */
+export function PictoMobile(p: ProprietesPicto) {
+  return (
+    <Picto {...p} epaisseur={2.2}>
+      <rect x="6.5" y="2.5" width="11" height="19" rx="2.5" />
+      <path d="M11 18.5h2" />
+    </Picto>
+  )
+}
+
+/** LinkedIn — le « in » dans son carré, en trait, pour rester dans la famille. */
+export function PictoLinkedin(p: ProprietesPicto) {
+  return (
+    <Picto {...p} epaisseur={2.1}>
+      <rect x="3" y="3" width="18" height="18" rx="3" />
+      <path d="M7.5 10.5v6M7.5 7.6v.1M11.5 16.5v-6M11.5 13a2.5 2.5 0 0 1 5 0v3.5" />
     </Picto>
   )
 }

@@ -214,6 +214,8 @@ export type PatchPiste = Partial<{
   opportunite_id: string | null
   statut_id: string | null
   motif_disqualification: string | null
+  /** L'origine, choisie dans `origines_pistes` mais stockée en texte — voir la migration 20260916160000. */
+  source: string | null
   /** Une piste se reprend quand son propriétaire est absent — même règle que partout ailleurs. */
   proprietaire_id: string | null
   /* L'IDENTITÉ EN TROIS MORCEAUX, et `contact_nom` qui les suit. La colonne d'origine reste lue
@@ -222,6 +224,26 @@ export type PatchPiste = Partial<{
   civilite: string | null
   prenom: string | null
   nom: string | null
+  /* ══ LES CHAMPS DES QUATRE ZONES (refonte du 16/09/2026) ══
+     Ils étaient en base et lus par la fiche, mais en LECTURE SEULE : le patch ne les déclarait pas,
+     donc rien ne pouvait les corriger. C'est ce qui rendait l'ancien bloc « tout ce que Salesforce
+     sait » inerte — on voyait une faute de frappe sans pouvoir la réparer. */
+  fonction: string | null
+  telephone_mobile: string | null
+  linkedin: string | null
+  segment: string | null
+  code_naf: string | null
+  activite: string | null
+  siren: string | null
+  siret: string | null
+  site_internet: string | null
+  rue: string | null
+  code_postal: string | null
+  ville: string | null
+  nombre_coproprietes: number | null
+  nombre_de_lots: number | null
+  liste_coproprietes: string | null
+  echeance_actuelle: string | null
 }>
 
 export function useMajPiste() {
@@ -323,4 +345,46 @@ function messageDErreur(brut: string): string {
     return `Colonne absente : la migration 20260823100000 reste à appliquer. (${brut})`
   }
   return brut
+}
+
+/**
+ * ════════════════════════════════════════════════════════════════════════════════════════════════
+ * SUPPRIMER UNE PISTE
+ * ════════════════════════════════════════════════════════════════════════════════════════════════
+ *
+ * William, 16/09/2026, en demandant le bandeau de la fiche piste : « dans les boutons je veux un
+ * bouton Modifier, supprimer et Convertir ». Le geste n'existait nulle part — ni sur la fiche, ni
+ * dans la liste.
+ *
+ * LA LECTURE DES LIGNES EFFACÉES N'EST PAS UNE PRÉCAUTION DE STYLE. `pistes` portait jusqu'à
+ * aujourd'hui une politique réservant la suppression aux administrateurs (levée par la migration
+ * 20260916100000). Sans `.select()`, un refus de droit aurait produit exactement ce que Matthieu a
+ * vécu sur les opportunités ce matin : un écran qui annonce « supprimée » sur une ligne encore là,
+ * parce que supprimer zéro ligne est une instruction valide.
+ *
+ * UNE PISTE CONVERTIE NE SE SUPPRIME PAS ICI. Elle a produit une opportunité qui la cite ; l'effacer
+ * laisserait cette opportunité sans origine. L'écran le dit plutôt que de laisser la base refuser
+ * sur une clé étrangère, message que personne ne sait lire.
+ */
+export function useSupprimerPiste() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: async (input: { id: string; opportuniteId: string | null }) => {
+      if (input.opportuniteId) {
+        throw new Error(
+          'Cette piste a produit une opportunité : la supprimer laisserait celle-ci sans origine. '
+          + 'Supprimez d’abord l’opportunité si c’est bien ce que vous voulez.',
+        )
+      }
+      const { data, error } = await supabase.from('pistes').delete().eq('id', input.id).select('id')
+      if (error) throw new Error(error.message)
+      if (!data || data.length === 0) {
+        throw new Error('Rien n’a été supprimé : cette piste n’existe plus, ou vos droits ne le permettent pas.')
+      }
+    },
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: ['pistes'] })
+      void queryClient.invalidateQueries({ queryKey: ['kanban-serveur'] })
+    },
+  })
 }

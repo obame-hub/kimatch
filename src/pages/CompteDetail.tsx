@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState, useRef } from 'react'
 import { useParams, useNavigate, useSearchParams, Link } from 'react-router-dom'
-import { ArrowLeft, BadgeCheck, Building2, ChevronDown, FileCheck2, MapPin, Pencil, Plus, Search, Target } from 'lucide-react'
+import { ArrowLeft, BadgeCheck, Building2, FileCheck2, MapPin, Pencil, Plus, Search, Target } from 'lucide-react'
 import { Topbar } from '@/components/layout/Topbar'
 import { HubCreation } from '@/components/compte/HubCreation'
 import { ZoneATraiter } from '@/components/compte/ZoneATraiter'
@@ -66,6 +66,7 @@ import type { Compte, Site, TypeCompte, Contrat, Compteur, Recommandation } from
 import { OngletContacts } from '@/components/compte/OngletContacts'
 import { OngletCompteurs } from '@/components/compte/OngletCompteurs'
 import { BandeauCompte } from '@/components/compte/BandeauCompte'
+import { MentionProprietaire } from '@/components/ui/mention-proprietaire'
 import { useMesuresDuParc } from '@/lib/data/parcDuCompte'
 import { useOptionsTypologie } from '@/lib/data/segmentsComptes'
 
@@ -1592,63 +1593,38 @@ function InfoFieldKw({ label, value, onCopy, mono }: { label: string; value: str
 function RecordMetaCard({ compte, canManage, onToast }: { compte: Compte; canManage: boolean; onToast: (msg: string) => void }) {
   const updateCompte = useUpdateCompte()
   const { data: profilsAdmin } = useProfilsAdmin()
-  const [open, setOpen] = useState(false)
 
-  const initiales = compte.proprietaire_nom ? compte.proprietaire_nom.split(' ').map((p) => p[0]).slice(0, 2).join('').toUpperCase() : '—'
+  /* ══ LE DESSIN A ÉTÉ EXTRAIT, LE 16/09/2026 ══
+   *
+   * William demandait le même propriétaire modifiable sur la fiche piste. La pastille, sa liste et
+   * son infobulle vivent désormais dans `MentionProprietaire` ; ce qui reste ici est ce qui ne se
+   * partage pas — quoi écrire en base, et quelles dates un compte a à montrer.
+   *
+   * LES DEUX DATES SONT EN INFOBULLE. « Créé le… · Modifié le… » sur deux lignes, en permanence,
+   * pour une information qu'on consulte une fois par dossier : elles restent lisibles dans l'onglet
+   * Historique, qui existe pour ça. */
+  const dates = [
+    compte.date_creation ? `Créé le ${new Date(compte.date_creation).toLocaleDateString('fr-FR')}` : null,
+    compte.date_modification ? `modifié le ${new Date(compte.date_modification).toLocaleDateString('fr-FR')}` : null,
+  ].filter(Boolean).join(' · ')
 
-  async function reassign(profilId: string) {
-    setOpen(false)
+  async function reassigner(profilId: string | null) {
     const profil = profilsAdmin?.find((p) => p.id === profilId)
     try {
-      await updateCompte.mutateAsync({ id: compte.id, nom: compte.nom, ville: compte.ville, segment: compte.segment, proprietaire_id: profilId || null })
+      await updateCompte.mutateAsync({ id: compte.id, nom: compte.nom, ville: compte.ville, segment: compte.segment, proprietaire_id: profilId })
       onToast(`✓ Propriétaire : ${profil ? `${profil.prenom} ${profil.nom}` : 'Aucun'}`)
     } catch (err) {
       onToast(`Erreur : ${err instanceof Error ? err.message : 'inconnue'}`)
     }
   }
 
-  /* ══ LE PROPRIÉTAIRE N'EST PLUS UNE CARTE ══
-   *
-   * William, 14/09/2026 : « le rendu est complètement différent de ce que tu m'as mis dans ton
-   * design, notamment concernant la card du propriétaire ». Il a raison, et c'est ma faute : la
-   * maquette de la direction C montrait une pastille en ligne — une initiale, un nom — et j'ai
-   * branché sans y toucher l'ancienne carte encadrée, avec son fond gris et ses deux dates.
-   *
-   * Une carte dans une ligne d'identité fait un objet de plus à la même altitude que le nom, ce que
-   * cette refonte vise précisément à supprimer. Le propriétaire redevient une mention.
-   *
-   * LES DEUX DATES SORTENT DU BANDEAU. « Créé le… · Modifié le… » sur deux lignes, en permanence,
-   * pour une information qu'on consulte une fois par dossier : elles passent en infobulle, et
-   * restent lisibles dans l'onglet Historique qui existe pour ça. */
-  const dates = [
-    compte.date_creation ? `Créé le ${new Date(compte.date_creation).toLocaleDateString('fr-FR')}` : null,
-    compte.date_modification ? `modifié le ${new Date(compte.date_modification).toLocaleDateString('fr-FR')}` : null,
-  ].filter(Boolean).join(' · ')
-
   return (
-    <div className="relative shrink-0">
-      <button
-        type="button"
-        disabled={!canManage}
-        onClick={() => setOpen((v) => !v)}
-        title={[canManage ? 'Propriétaire — cliquer pour réattribuer' : 'Propriétaire', dates].filter(Boolean).join(' — ')}
-        className="flex h-8 items-center gap-1.5 rounded-km px-1.5 transition-colors enabled:hover:bg-km-soft disabled:cursor-default"
-      >
-        <span className="flex h-5 w-5 items-center justify-center rounded-full bg-km-soft text-km-tiny font-bold text-km-muted">{initiales}</span>
-        <span className="hidden text-km-label font-semibold text-km-muted lg:inline">{compte.proprietaire_nom || 'Sans propriétaire'}</span>
-        {canManage && <ChevronDown className="h-3 w-3 text-km-faint" />}
-      </button>
-      {open && (
-        <div className="absolute right-0 top-full z-30 mt-1 max-h-64 w-52 overflow-y-auto rounded-km-md border border-km-line bg-km-surface py-1 shadow-km-pop">
-          <button type="button" onClick={() => reassign('')} className="block w-full px-3 py-1.5 text-left text-km-name text-km-muted hover:bg-km-soft">Aucun</button>
-          {profilsAdmin?.map((p) => (
-            <button key={p.id} type="button" onClick={() => reassign(p.id)} className="block w-full px-3 py-1.5 text-left text-km-name text-km-muted hover:bg-km-soft">
-              {p.prenom} {p.nom}
-            </button>
-          ))}
-        </div>
-      )}
-    </div>
+    <MentionProprietaire
+      nom={compte.proprietaire_nom ?? null}
+      dates={dates}
+      canManage={canManage}
+      onChoisir={reassigner}
+    />
   )
 }
 

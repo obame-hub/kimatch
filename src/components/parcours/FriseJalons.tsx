@@ -52,6 +52,19 @@ export interface Jalon {
   date: string | null
   /** Sous la date : l'heure, et ce qui s'est passé. */
   contexte: string | null
+  /**
+   * ══ UN JALON QUI SE CLIQUE ══
+   *
+   * Absent partout sauf sur la piste, et c'est voulu : un jalon de mandat CONSTATE ce que DocuSign a
+   * fait — on ne « met » pas un mandat à Consulté. Le statut d'une piste, lui, est déclaré par la
+   * personne qui travaille, et se corrige quand on s'est trompé d'étape.
+   *
+   * Présent, le nœud devient un bouton. Le dessin ne change pas d'un pixel — seuls le curseur et le
+   * relief au survol disent qu'on peut agir.
+   */
+  onChoisir?: () => void
+  /** L'infobulle du nœud, utile surtout quand il se clique. */
+  titre?: string
 }
 
 export function jourFr(iso: string | null | undefined): string | null {
@@ -122,7 +135,28 @@ function BarreDeLiaison({ depuis, vers }: { depuis: Jalon; vers: Jalon }) {
  * libellé « Réceptionné » et le nœud au-dessus partagent exactement le même axe, quelle que soit
  * la largeur du texte.
  */
-export function FriseJalons({ jalons }: { jalons: Jalon[] }) {
+export function FriseJalons({ jalons, compact }: {
+  jalons: Jalon[]
+  /**
+   * ══ LA VARIANTE BASSE, POUR LES PARCOURS QU'ON SURVOLE ══
+   *
+   * William, 16/09/2026, sur la piste : « optimise sa hauteur, notamment en mettant sur la même
+   * ligne la date et l'heure de passage à l'étape ».
+   *
+   * La date et son contexte occupaient deux lignes empilées ; réunis par un point médian, ils en
+   * font une — c'est la ligne la plus facile à rendre, parce que « 16/09/2026 » et « 14:32 » se
+   * lisent naturellement ensemble. Avec la respiration resserrée autour, la frise perd un bon quart
+   * de sa hauteur.
+   *
+   * ELLE NE PORTE PLUS SA PROPRE MARGE VERTICALE : sans intitulé au-dessus, c'est le creux de la
+ * carte qui centre la frise, et une marge interne asymétrique l'aurait fait flotter vers le bas.
+ *
+ * LE MANDAT ET LE CONTRAT N'Y TOUCHENT PAS. Leurs jalons portent des contextes plus longs
+   * — « 18:02 · ouvert 3 fois », un motif de refus — qui ont besoin de leur ligne, et leur frise est
+   * en tête de volet, là où la hauteur n'est pas disputée.
+   */
+  compact?: boolean
+}) {
   const dernierFranchi = jalons.reduce((acc, j, i) => (j.franchi ? i : acc), 0)
 
   /* Alternance nœud / barre. Les barres sont volontairement étroites et élastiques (`.75fr`) : ce
@@ -130,7 +164,7 @@ export function FriseJalons({ jalons }: { jalons: Jalon[] }) {
   const colonnes = jalons.map(() => 'minmax(0,1fr)').join(' minmax(14px,.75fr) ')
 
   return (
-    <div style={{ display: 'grid', alignItems: 'center', padding: '18px 2px 2px', gridTemplateColumns: colonnes }}>
+    <div style={{ display: 'grid', alignItems: 'center', padding: compact ? '0 2px' : '18px 2px 2px', gridTemplateColumns: colonnes }}>
       {/* ── Première passe : les nœuds et les barres ── */}
       {jalons.map((jalon, i) => {
         const Picto = jalon.picto
@@ -144,11 +178,19 @@ export function FriseJalons({ jalons }: { jalons: Jalon[] }) {
           : '#fff'
 
         const suivant = jalons[i + 1]
+        /* Bouton quand le jalon se clique, `div` sinon : un `<button disabled>` partout aurait
+           changé la couleur héritée du texte et le comportement au clavier de trois autres fiches. */
+        const Noeud = jalon.onChoisir ? 'button' : 'div'
         return (
           <Cellules key={jalon.cle}>
             <div className="relative flex justify-center" style={{ zIndex: 1 }}>
-              <div
-                className="flex items-center justify-center"
+              <Noeud
+                type={jalon.onChoisir ? 'button' : undefined}
+                onClick={jalon.onChoisir}
+                title={jalon.titre}
+                className={jalon.onChoisir
+                  ? 'flex items-center justify-center transition-transform hover:scale-[1.06]'
+                  : 'flex items-center justify-center'}
                 style={{
                   width: taille,
                   height: taille,
@@ -164,7 +206,7 @@ export function FriseJalons({ jalons }: { jalons: Jalon[] }) {
                 }}
               >
                 <Picto taille={courant ? 18 : 16} />
-              </div>
+              </Noeud>
             </div>
             {suivant && <BarreDeLiaison depuis={jalon} vers={suivant} />}
           </Cellules>
@@ -174,7 +216,14 @@ export function FriseJalons({ jalons }: { jalons: Jalon[] }) {
       {/* ── Seconde passe : les libellés, dans la même grille ── */}
       {jalons.map((jalon, i) => (
         <Cellules key={`lbl-${jalon.cle}`}>
-          <div style={{ textAlign: 'center', paddingTop: 9, minWidth: 0 }}>
+          {/* LE LIBELLÉ CLIQUE AUSSI quand le jalon le fait : viser un disque de 35 px à la souris
+              est inutilement exigeant, alors que « En cours de qualification » offre dix fois la
+              cible. Les deux déclenchent la même chose. */}
+          <div
+            onClick={jalon.onChoisir}
+            title={jalon.onChoisir ? jalon.titre : undefined}
+            style={{ textAlign: 'center', paddingTop: compact ? 6 : 9, minWidth: 0, cursor: jalon.onChoisir ? 'pointer' : undefined }}
+          >
             <div
               style={{
                 fontSize: 12,
@@ -185,21 +234,41 @@ export function FriseJalons({ jalons }: { jalons: Jalon[] }) {
             >
               {jalon.libelle}
             </div>
-            <div
-              className="font-mono"
-              style={{
-                fontSize: 10.5,
-                fontWeight: 700,
-                marginTop: 4,
-                color: jalon.franchi ? jalon.couleur ?? '#5c5f66' : '#c0c2bd',
-              }}
-            >
-              {jourFr(jalon.date) ?? (jalon.franchi ? '' : 'en attente')}
-            </div>
-            {jalon.contexte && (
-              <div className="font-mono" style={{ fontSize: 9.5, color: '#a3a5a0', marginTop: 1 }}>
-                {jalon.contexte}
+            {/* EN COMPACT, LES DEUX LIGNES N'EN FONT QU'UNE : « 16/09/2026 · 14:32 ». Le point
+                médian est le même séparateur que celui qui joint déjà l'heure et son complément à
+                l'intérieur du contexte, donc rien de nouveau à lire. */}
+            {compact ? (
+              <div
+                className="font-mono"
+                style={{
+                  fontSize: 10,
+                  fontWeight: 700,
+                  marginTop: 3,
+                  color: jalon.franchi ? jalon.couleur ?? '#5c5f66' : '#c0c2bd',
+                }}
+              >
+                {[jourFr(jalon.date), jalon.contexte].filter(Boolean).join(' · ')
+                  || (jalon.franchi ? '' : 'en attente')}
               </div>
+            ) : (
+              <>
+                <div
+                  className="font-mono"
+                  style={{
+                    fontSize: 10.5,
+                    fontWeight: 700,
+                    marginTop: 4,
+                    color: jalon.franchi ? jalon.couleur ?? '#5c5f66' : '#c0c2bd',
+                  }}
+                >
+                  {jourFr(jalon.date) ?? (jalon.franchi ? '' : 'en attente')}
+                </div>
+                {jalon.contexte && (
+                  <div className="font-mono" style={{ fontSize: 9.5, color: '#a3a5a0', marginTop: 1 }}>
+                    {jalon.contexte}
+                  </div>
+                )}
+              </>
             )}
           </div>
           {i < jalons.length - 1 && <div />}

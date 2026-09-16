@@ -1,59 +1,34 @@
 import { useState } from 'react'
 import { useOuvrirEmail } from '@/lib/voletEmail'
-import { useNavigate, useParams, Link } from 'react-router-dom'
-import { ArrowLeft, ArrowRight, Building2, Check, Filter, Mail, Phone, Plus, User } from 'lucide-react'
+import { useNavigate, useParams } from 'react-router-dom'
 import { Topbar } from '@/components/layout/Topbar'
 import { Button } from '@/components/ui/button'
-import { Badge } from '@/components/ui/badge'
-import { Card } from '@/components/ui/card'
-import { EntityLink } from '@/components/ui/entity-link'
-import { appelerNumero } from '@/lib/telephonie'
-import { InlineField } from '@/components/ui/inline-field'
 import { OngletFichiers } from '@/components/compte/OngletFichiers'
 import { DialogConversionPiste } from '@/components/prospection/DialogConversionPiste'
-import { DialogNouvelleTache } from '@/components/tache/DialogNouvelleTache'
-import { FriseStatut } from '@/components/opportunite/FriseStatut'
 import { ActivityFeed } from '@/components/site/ActivityFeed'
 import { HistoriqueDiscret } from '@/components/ui/historique-discret'
 import { useGoBack } from '@/lib/useGoBack'
 import { useCanManage, useProfilsAdmin } from '@/lib/data/roles'
-import { DetailsPiste } from '@/components/prospection/DetailsPiste'
 import { InlineIdentite } from '@/components/ui/inline-identite'
-import { useActionsParPiste, useCompleteAction } from '@/lib/data/actions'
+import { useActionsParPiste } from '@/lib/data/actions'
 import { useInteractionsParPiste } from '@/lib/data/interactions'
 import { useDocumentsParEntites, useTeleverserDocuments } from '@/lib/data/documents'
 import { useReferenceTable } from '@/lib/data/referenceTables'
 import { useStatutsOpportunites } from '@/lib/data/opportunites'
 import {
-  usePiste, useMajPiste, useConvertirPisteEnOpportunite, useStatutsPistes,
+  usePiste, useMajPiste, useConvertirPisteEnOpportunite, useStatutsPistes, useSupprimerPiste,
 } from '@/lib/data/prospection'
-import { MenuChoix } from '@/components/ui/menu-choix'
+import { BandeauPiste } from '@/components/prospection/BandeauPiste'
+import { ZonesPiste } from '@/components/prospection/ZonesPiste'
+import { MentionProprietaire } from '@/components/ui/mention-proprietaire'
+import { CartoucheChoix } from '@/components/ui/cartouche-choix'
+import { CheminPiste } from '@/components/prospection/CheminPiste'
+import { nomComplet } from '@/lib/civilite'
+import { useHistorique } from '@/lib/data/historique'
+import { OngletHistorique } from '@/components/compte/OngletHistorique'
 import { Dialog } from '@/components/ui/dialog'
 import { Textarea } from '@/components/ui/form'
-import { echeanceLisible, estEnRetard } from '@/lib/heureTache'
 import { cn } from '@/lib/utils'
-
-/**
- * LES TONS DES QUATRE STATUTS DE `statuts_pistes`.
- *
- * DISQUALIFIÉE EST ROUGE, ET CE N'EST PLUS MON CHOIX. Elle était grise, avec cet argument : écarter
- * une piste est un travail fait, pas un échec — sur cinq mille pistes importées, en écarter est
- * l'issue normale de la majorité, et le rouge devrait se réserver à ce qui appelle une action.
- *
- * William, 15/09/2026, a tranché l'inverse : « Convertie (vert) ou Disqualifiée (rouge) ». L'ancien
- * argument reste écrit ici pour qu'on sache ce qu'on a changé et pourquoi on pourrait y revenir,
- * mais la sémiotique du portefeuille lui appartient, pas à moi. Convertie reste verte : elle a
- * produit une affaire.
- */
-const TON_STATUT_PISTE: Record<string, 'kiwi' | 'amber' | 'neutral' | 'red'> = {
-  NOUVELLE: 'amber',
-  EN_QUALIFICATION: 'amber',
-  // Le temps d'attente du prospect : la piste est vivante, elle ne dort pas. Même ambre que les
-  // deux étapes précédentes, parce que c'est la même nature — du travail en cours.
-  EN_ATTENTE_FACTURE: 'amber',
-  CONVERTIE: 'kiwi',
-  DISQUALIFIEE: 'red',
-}
 
 /**
  * FICHE PISTE.
@@ -82,7 +57,7 @@ const TON_STATUT_PISTE: Record<string, 'kiwi' | 'amber' | 'neutral' | 'red'> = {
  * Le bandeau porte l'état et le geste qui suit, au-dessus de tout onglet.
  */
 
-type CleOnglet = 'piste' | 'rattachements' | 'fichiers'
+type CleOnglet = 'piste' | 'fichiers'
 
 export default function PisteDetail() {
   const { id } = useParams<{ id: string }>()
@@ -101,14 +76,20 @@ export default function PisteDetail() {
   const { data: statuts } = useStatutsOpportunites()
   const { data: statutsPistes } = useStatutsPistes()
   const { data: profils } = useProfilsAdmin()
+  const { data: origines } = useReferenceTable('origines_pistes')
   const maj = useMajPiste()
-  const cocher = useCompleteAction()
   const televerser = useTeleverserDocuments()
   const convertir = useConvertirPisteEnOpportunite()
 
   const [onglet, setOnglet] = useState<CleOnglet>('piste')
-  const [tacheOuverte, setTacheOuverte] = useState(false)
   const [conversionOuverte, setConversionOuverte] = useState(false)
+  const [suppressionOuverte, setSuppressionOuverte] = useState(false)
+  /* L'historique ne se lit qu'à l'ouverture de la fenêtre : même règle que la fiche compte, une
+     piste peut porter des centaines de lignes de modification et personne ne les regarde en
+     arrivant. */
+  const [historiqueOuvert, setHistoriqueOuvert] = useState(false)
+  const supprimerPiste = useSupprimerPiste()
+  const { data: historique } = useHistorique('pistes', id, historiqueOuvert)
   /* Le motif attend d'être saisi : `null` quand la boîte est fermée, une chaîne (même vide) quand
      elle est ouverte. Distinguer les deux évite de rouvrir la boîte à chaque rendu. */
   const [disqualification, setDisqualification] = useState<string | null>(null)
@@ -126,7 +107,6 @@ export default function PisteDetail() {
 
   const ONGLETS: { cle: CleOnglet; libelle: string; badge?: string }[] = [
     { cle: 'piste', libelle: 'Piste' },
-    { cle: 'rattachements', libelle: 'Rattachements' },
     { cle: 'fichiers', libelle: 'Fichiers', badge: documentsDeLaPiste.length ? String(documentsDeLaPiste.length) : undefined },
   ]
 
@@ -134,96 +114,116 @@ export default function PisteDetail() {
     <div className="flex h-full flex-col overflow-hidden">
       <Topbar crumb="Pistes" title={piste.societe || piste.contact_nom || 'Piste'} />
 
-      {/* ══ LE BANDEAU : L'ÉTAT ET LE GESTE QUI SUIT ══ */}
-      <div className="flex flex-none flex-wrap items-center gap-3 border-b border-km-line bg-white px-4 py-3 sm:px-6">
-        <Button variant="ghost" size="icon" onClick={goBack} title="Retour aux pistes">
-          <ArrowLeft className="h-4 w-4" />
-        </Button>
-        <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-[10px] bg-indigo-50 text-indigo-600">
-          <Filter className="h-[18px] w-[18px]" />
-        </span>
-        <div className="min-w-0 flex-1">
-          <div className="flex flex-wrap items-center gap-2">
-            <p className="truncate text-km-title font-bold text-km-text">
-              {piste.societe || 'Société inconnue'}
-            </p>
-            {/* LE STATUT D'ABORD, LES VÉRIFICATIONS ENSUITE. Naoëlle, 02/09/2026 : « pour les
-                pistes, il faudrait leur mettre leur statut ». La pastille ne portait que le compte
-                des cinq contrôles — utile, mais ce n'est pas un statut : une piste peut être
-                disqualifiée avec cinq coches, ou nouvelle avec zéro. Les deux se lisent maintenant
-                côte à côte, et ils ne disent pas la même chose. */}
-            <Badge tone={TON_STATUT_PISTE[piste.statut_code ?? ''] ?? 'neutral'}>
-              {piste.statut_libelle ?? 'Sans statut'}
-            </Badge>
-          </div>
-          <p className="truncate text-km-body text-km-muted">
-            {piste.reference && <span className="font-mono text-km-faint">{piste.reference} · </span>}
-            {piste.contact_nom || 'Contact inconnu'}
-          </p>
-          {/* LE PROPRIÉTAIRE S'AFFICHE ENFIN. William, 14/09/2026 : « il faut que les pistes
-              récupèrent leur propriétaire car actuellement il n'y en a pas ». Vérifié : les 5 131
-              pistes reprises ont toutes le leur, à l'identique de Salesforce — aucun écran ne le
-              montrait, voilà tout. Il se lit ici, et se reprend depuis l'onglet Piste. */}
-          <p className="truncate text-km-xs text-km-faint">
-            Propriétaire : {piste.proprietaire_nom || 'Aucun'}
-          </p>
-        </div>
+      {/* ══ LE BANDEAU, REPRIS DE LA FICHE COMPTE ══
+          William, 16/09/2026 : « reprends le graphique du header de la fiche compte et adapte-le à
+          la fiche piste ». Voir BandeauPiste.tsx pour ce qui est repris à l'identique et ce qui
+          change — le titre est la PERSONNE, la société passe en seconde ligne, et « Convertir »
+          remplace le hub de création. */}
+      <BandeauPiste
+        canManage={canManage}
+        convertie={convertie}
+        onRetour={goBack}
+        /* « MODIFIER » MÈNE À L'ONGLET OÙ L'ON MODIFIE. Une piste n'a pas de fenêtre d'édition :
+           ses champs se corrigent en place dans l'onglet Piste, un par un. Le bouton y conduit
+           plutôt que d'ouvrir un formulaire qui dirait deux fois la même chose. */
+        onModifier={() => setOnglet('piste')}
+        onSupprimer={() => setSuppressionOuverte(true)}
+        onConvertir={() => setConversionOuverte(true)}
+        onDisqualifier={
+          piste.statut_clos ? undefined : () => setDisqualification(piste.motif_disqualification ?? '')
+        }
+        onHistorique={() => setHistoriqueOuvert(true)}
+        lienOpportunite={piste.opportunite_id ? `/opportunites/${piste.opportunite_id}` : undefined}
+        titre={
+          /* LE NOM COMPLET DU CONTACT, civilité comprise, ET MODIFIABLE EN PLACE — le compte fait
+             pareil avec `InlineField`. Ici c'est `InlineIdentite`, parce qu'un nom de personne
+             s'ouvre sur trois champs : corriger « Monsieur Jean DUPONT » d'un seul tenant recollerait
+             ce que la base sépare, et perdrait la civilité (Naoëlle, 14/09/2026).
 
-        {/* ══ LE STATUT SE CHANGE ICI ══
-            CONVERTIE NE S'OFFRE PAS DANS LA LISTE : elle se gagne en créant l'opportunité, et le
-            déclencheur `trg_piste_convertie_statut` l'écrit alors tout seul. La proposer au menu
-            laisserait marquer « convertie » une piste qui n'a produit aucune opportunité — un statut
-            qui affirme un fait qui n'existe pas.
-            DISQUALIFIÉE DEMANDE SON MOTIF, et c'est la demande de Naoëlle : « mettre un commentaire
-            pour disqualifié ». Écarter une piste sans dire pourquoi perd l'information qui servira à
-            ne pas la rappeler dans six mois. */}
-        {canManage && !convertie && (
-          <MenuChoix
-            valeur={piste.statut_id ?? ''}
-            onChange={(id) => {
-              const cible = statutsPistes?.find((st) => st.id === id)
-              if (!cible) return
-              if (cible.code === 'DISQUALIFIEE') {
-                setDisqualification(piste.motif_disqualification ?? '')
-                return
-              }
+             MÊME HABILLAGE QUE LE TITRE DU COMPTE, à la classe près : 19 px, gras, `-.02em`.
+
+             `contact_nom` existe sur les 4 946 pistes et dit la même chose que prénom + nom à la
+             casse près sur 4 938 d'entre elles — mais il ne porte pas la civilité, et il est resté
+             en majuscules sur une partie de la reprise Salesforce. On ne retombe donc sur lui que
+             s'il ne reste rien à recomposer. */
+          canManage ? (
+            <InlineIdentite
+              label=""
+              valeur={{ civilite: piste.civilite, prenom: piste.prenom, nom: piste.nom }}
+              onCommit={(v) => maj.mutateAsync({
+                id: piste.id,
+                patch: {
+                  civilite: v.civilite,
+                  prenom: v.prenom,
+                  nom: v.nom,
+                  contact_nom: [v.prenom, v.nom].filter(Boolean).join(' ') || null,
+                },
+              })}
+              onSaved={() => signaler('✓ enregistré')}
+              onError={(err) => signaler(`Erreur : ${err.message}`)}
+              className="text-[19px] font-bold leading-tight tracking-[-.02em] text-km-text"
+            />
+          ) : (
+            nomComplet({ civilite: piste.civilite, prenom: piste.prenom, nom: piste.nom })
+            || piste.contact_nom
+            || 'Contact inconnu'
+          )
+        }
+        societe={piste.societe || 'Société inconnue'}
+        pastilles={
+          <>
+            {/* LE SEGMENT EST DÉJÀ LÀ, et il porte exactement les deux valeurs demandées :
+                4 007 « Syndic professionnel », 893 « Entreprise », 46 vides. Aucun champ à créer. */}
+            {piste.segment && (
+              <span className="rounded-km bg-km-blue-soft px-2 py-0.5 text-km-label font-semibold text-km-blue">
+                {piste.segment}
+              </span>
+            )}
+            {/* ══ L'ORIGINE, EN SECONDE CARTOUCHE ET MODIFIABLE AU CLIC ══
+                William, 16/09/2026. Elle est en gris et non dans la couleur de l'objet : le segment
+                dit ce que la piste EST, l'origine dit d'où elle vient. Deux cartouches de même
+                teinte se liraient comme un seul couple, et on chercherait ce qui les relie.
+
+                La liste vient de `origines_pistes` (migration 20260916160000) : dix libellés figés,
+                parce que dix personnes qui retapent « Google Ads sans facture (Inbound) »
+                produisent dix variantes, et la question « d'où viennent nos affaires » perd sa
+                réponse. */}
+            <CartoucheChoix
+              titre="Origine de la piste"
+              vide="origine inconnue"
+              valeur={piste.source}
+              options={(origines ?? []).map((o) => o.libelle)}
+              peutModifier={canManage}
+              onChoisir={(v) => {
+                maj
+                  .mutateAsync({ id: piste.id, patch: { source: v } })
+                  .then(() => signaler(v ? `✓ Origine : ${v}` : '✓ Origine retirée'))
+                  .catch((e) => signaler(e instanceof Error ? e.message : 'Enregistrement impossible'))
+              }}
+            />
+          </>
+        }
+        proprietaire={
+          /* LA MÊME MENTION QUE SUR LE COMPTE — William, 16/09/2026 : « le système de propriétaire
+             doit également être le même, c'est-à-dire que c'est un champ modifiable en liste ». Elle
+             était en texte mort ici. Le dessin vit dans `MentionProprietaire`, partagé avec la fiche
+             compte pour qu'il n'y ait qu'un endroit à retoucher. */
+          <MentionProprietaire
+            nom={piste.proprietaire_nom ?? null}
+            dates={[
+              piste.date_creation ? `Créé le ${new Date(piste.date_creation).toLocaleDateString('fr-FR')}` : null,
+            ].filter(Boolean).join(' · ')}
+            canManage={canManage}
+            onChoisir={(profilId) => {
+              const profil = profils?.find((pr) => pr.id === profilId)
               maj
-                .mutateAsync({
-                  id: piste.id,
-                  /* SORTIR DE DISQUALIFIÉE EFFACE LE MOTIF : il décrivait une mise à l'écart qui
-                     n'a plus lieu. Le laisser ferait lire « disqualifiée pour… » sur une piste
-                     redevenue à travailler — le défaut exact des recommandations rouvertes qui
-                     gardaient leur finalité. */
-                  patch: { statut_id: id, motif_disqualification: null },
-                })
-                .then(() => signaler(`✓ ${cible.libelle}`))
+                .mutateAsync({ id: piste.id, patch: { proprietaire_id: profilId } })
+                .then(() => signaler(`✓ Propriétaire : ${profil ? `${profil.prenom} ${profil.nom}` : 'Aucun'}`))
                 .catch((e) => signaler(e instanceof Error ? e.message : 'Enregistrement impossible'))
             }}
-            ariaLabel="Changer le statut de la piste"
-            choix={(statutsPistes ?? [])
-              .filter((st) => st.code !== 'CONVERTIE')
-              .map((st) => ({ valeur: st.id, libelle: st.libelle }))}
           />
-        )}
-
-        {/* LE GESTE QUI SUIT, ET RIEN D'AUTRE. Une piste convertie mène à son opportunité ; une piste
-            mûre se convertit ; une piste incomplète dit ce qui manque, plus bas. */}
-        {convertie ? (
-          <Link to={`/opportunites/${piste.opportunite_id}`}>
-            <Button variant="outline">
-              Ouvrir l’opportunité
-              <ArrowRight className="h-3.5 w-3.5" />
-            </Button>
-          </Link>
-        ) : (
-          canManage && (
-            <Button onClick={() => setConversionOuverte(true)}>
-              Créer l’opportunité
-              <ArrowRight className="h-3.5 w-3.5" />
-            </Button>
-          )
-        )}
-      </div>
+        }
+      />
 
       {/* ══ LES ONGLETS ══ */}
       <div className="grid flex-none grid-cols-1 border-b border-km-line bg-km-surface lg:grid-cols-fiche-activite">
@@ -264,77 +264,25 @@ export default function PisteDetail() {
         <div className="min-h-0 overflow-y-auto bg-km-bg p-4 sm:p-5">
         {onglet === 'piste' && (
           <div className="flex flex-col gap-3.5">
-            {/* ══ LA FRISE DE STATUT ══════════════════════════════════════════════════════════════
+            {/* ══ LE CHEMIN, EN TÊTE DE VOLET COMME SUR LE MANDAT ══
+                William, 16/09/2026 : « le chemin doit être dans le volet de gauche, pas dans le
+                header ». Il est la première chose du volet, avant les coordonnées — c'est l'ordre du
+                mandat, et l'ordre des questions qu'on se pose en ouvrant la fiche : où on en est,
+                puis qui c'est. Voir CheminPiste.tsx. */}
+            <CheminPiste
+              piste={piste}
+              peutModifier={canManage}
+              enCours={maj.isPending}
+              onChoisir={(code) => {
+                const cible = statutsPistes?.find((st) => st.code === code)
+                if (!cible) return
+                maj
+                  .mutateAsync({ id: piste.id, patch: { statut_id: cible.id, motif_disqualification: null } })
+                  .then(() => signaler(`✓ ${cible.libelle}`))
+                  .catch((e) => signaler(e instanceof Error ? e.message : 'Enregistrement impossible'))
+              }}
+            />
 
-                Naoëlle, 02/09/2026 : « où est la frise animée de statut dans la page piste, je
-                t'avais dit de la mettre ».
-
-                ELLE NE SE CONTREDIT PAS AVEC SA DEMANDE DU MATIN, et c'est moi qui avais confondu
-                les deux objets. « Les 5 points de vérification, faut les transformer en une liste
-                de coches, car en mode frise on dirait des statuts » : les cinq contrôles ne sont
-                pas des statuts, donc pas de frise pour eux — ils sont devenus des coches, plus bas.
-                Le STATUT de la piste, lui, en est un vrai, et c'est justement ce qu'une frise sait
-                dire. J'avais retiré la frise sans la remettre là où elle avait sa place.
-
-                TROIS JALONS, DEUX ISSUES. `statuts_pistes` porte cinq lignes dont deux clôturent.
-                Les trois états de travail — Nouvelle, En cours de qualification, En attente de
-                facture — font les jalons ; l'issue ferme la frise, verte si convertie, rouge si
-                disqualifiée (William, 15/09/2026 — voir l'en-tête du fichier, il renverse un choix
-                antérieur).
-
-                LES JALONS NE SONT PAS ÉCRITS EN DUR : la frise lit `statuts_pistes` et prend tout ce
-                qui ne clôture pas, dans l'ordre du référentiel. « En attente de facture » y est
-                apparue sans qu'une ligne de ce fichier la nomme — c'est ce qui permettra d'en
-                intercaler une autre sans repasser ici.
-
-                CLIQUABLE, comme sur la fiche Requête. Mais « Convertie » ne s'atteint pas d'un
-                clic — elle se gagne en créant l'opportunité, et le déclencheur l'écrit — et
-                « Disqualifiée » passe par le menu, qui réclame son motif. La frise ne commande donc
-                que les deux jalons de travail : ce qu'on peut décider seul. */}
-            {statutsPistes && statutsPistes.length > 0 && (
-              <Card className="px-4 pb-1 pt-1">
-                <FriseStatut
-                  teinte="piste"
-                  jalons={statutsPistes
-                    .filter((st) => !st.est_cloture)
-                    .map((st) => ({ code: st.code, libelle: st.libelle }))}
-                  courant={
-                    piste.statut_clos
-                      ? (statutsPistes.find((st) => !st.est_cloture)?.code ?? 'NOUVELLE')
-                      : piste.statut_code ?? 'NOUVELLE'
-                  }
-                  /* L'ISSUE FERME LA FRISE : verte si convertie, ROUGE si disqualifiée — « perdue »
-                     au sens de la frise. Elle était rendue neutre ; voir l'en-tête du fichier pour
-                     l'argument d'origine et la décision de William du 15/09/2026 qui le renverse. */
-                  finalite={
-                    piste.statut_clos
-                      ? {
-                          libelle: piste.statut_libelle ?? 'Clôturée',
-                          perdue: piste.statut_code === 'DISQUALIFIEE',
-                          neutre: false,
-                        }
-                      : null
-                  }
-                  onJalon={
-                    canManage && !convertie && !piste.statut_clos
-                      ? (code) => {
-                          const cible = statutsPistes.find((st) => st.code === code)
-                          if (!cible || cible.code === piste.statut_code) return
-                          maj
-                            .mutateAsync({
-                              id: piste.id,
-                              patch: { statut_id: cible.id, motif_disqualification: null },
-                            })
-                            .then(() => signaler(`✓ ${cible.libelle}`))
-                            .catch((e) =>
-                              signaler(e instanceof Error ? e.message : 'Enregistrement impossible'),
-                            )
-                        }
-                      : undefined
-                  }
-                />
-              </Card>
-            )}
             {/* ══ LES CINQ VÉRIFICATIONS SONT PARTIES, ET LE VERROU AVEC ══
 
                 William, 15/09/2026 : « supprime le bloc "Avant de lancer l'opportunité" ». Puis, mis
@@ -342,215 +290,42 @@ export default function PisteDetail() {
                 bouton « Créer l'opportunité » restait grisé tant qu'ils n'étaient pas faits :
                 « supprimer le verrou aussi ».
 
-                LES DEUX PARTENT ENSEMBLE OU AUCUN. Retirer la carte en laissant le verrou aurait
-                rendu la conversion impossible depuis cette page, sans que rien ne dise pourquoi le
-                bouton reste gris — la panne la plus coûteuse à diagnostiquer, celle qui ressemble à
-                un écran normal.
-
                 CE QUI SURVIT : les cinq colonnes restent en base, et la liste Prospection continue
                 de les lire pour dire ce qui manque sur une piste. Ce n'est plus une barrière, c'est
                 une information. */}
-            {/* ══ LES COORDONNÉES, MODIFIABLES ══
-                Le panneau ne les montrait qu'en lecture. Une piste se corrige pendant l'appel — un
-                e-mail mal orthographié est justement ce que les cinq vérifications cherchent. */}
-            <Card className="p-4">
-              <p className="mb-2.5 text-km-label font-bold uppercase tracking-[0.08em] text-km-faint">
-                Coordonnées
-              </p>
-              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-                <InlineField
-                  variant="text" label="Société" emptyLabel="ajouter"
-                  value={piste.societe ?? ''} disabled={!canManage}
-                  onCommit={(v: string) => maj.mutateAsync({ id: piste.id, patch: { societe: v.trim() || null } })}
-                  onSaved={() => signaler('✓ enregistré')}
-                  onError={(e: Error) => signaler(`Erreur : ${e.message}`)}
-                />
-                {/* LE NOM SE LIT ENTIER ET SE MODIFIE EN TROIS (Naoëlle, 14/09/2026). Un champ
-                    unique redonnait « Evelyne Tixier » à corriger d'un seul tenant : on recollait
-                    ce qu'on venait de séparer, et la civilité se perdait au passage.
 
-                    `contact_nom` SUIT LES TROIS ET NE SE SAISIT PLUS. La colonne reste — elle porte
-                    le `Name` de Salesforce sur les 5 139 pistes reprises, et la recherche, les
-                    cartes du kanban et la conversion la lisent encore. La laisser diverger des trois
-                    champs ferait afficher un nom ici et un autre dans la liste. */}
-                <InlineIdentite
-                  label="Contact"
-                  valeur={{ civilite: piste.civilite, prenom: piste.prenom, nom: piste.nom }}
-                  disabled={!canManage}
-                  onCommit={(v) => maj.mutateAsync({
-                    id: piste.id,
-                    patch: {
-                      civilite: v.civilite,
-                      prenom: v.prenom,
-                      nom: v.nom,
-                      contact_nom: [v.prenom, v.nom].filter(Boolean).join(' ') || null,
-                    },
-                  })}
-                  onSaved={() => signaler('✓ enregistré')}
-                  onError={(e: Error) => signaler(`Erreur : ${e.message}`)}
-                />
-                <InlineField
-                  variant="text" label="E-mail" emptyLabel="ajouter"
-                  value={piste.email ?? ''} disabled={!canManage}
-                  onCommit={(v: string) => maj.mutateAsync({ id: piste.id, patch: { email: v.trim() || null } })}
-                  onSaved={() => signaler('✓ enregistré')}
-                  onError={(e: Error) => signaler(`Erreur : ${e.message}`)}
-                />
-                <InlineField
-                  variant="text" label="Téléphone" emptyLabel="ajouter"
-                  value={piste.telephone ?? ''} disabled={!canManage}
-                  onCommit={(v: string) => maj.mutateAsync({ id: piste.id, patch: { telephone: v.trim() || null } })}
-                  onSaved={() => signaler('✓ enregistré')}
-                  onError={(e: Error) => signaler(`Erreur : ${e.message}`)}
-                />
-                {/* LA PISTE SE REPREND, comme un compte ou un contrat : un commercial en vacances
-                    ne doit pas immobiliser ses 1 688 pistes. Même geste que partout ailleurs. */}
-                <InlineField
-                  variant="select" label="Propriétaire" emptyLabel="aucun"
-                  value={piste.proprietaire_id ?? ''} disabled={!canManage}
-                  options={[
-                    { value: '', label: 'Aucun' },
-                    ...(profils ?? []).map((p) => ({ value: p.id, label: `${p.prenom} ${p.nom}` })),
-                  ]}
-                  onCommit={(v: string) => maj.mutateAsync({ id: piste.id, patch: { proprietaire_id: v || null } })}
-                  onSaved={() => signaler('✓ enregistré')}
-                  onError={(e: Error) => signaler(`Erreur : ${e.message}`)}
-                />
-              </div>
-              {(piste.email || piste.telephone) && (
-                <div className="mt-3 flex flex-wrap gap-1.5 border-t border-km-line pt-2.5">
-                  {/* PLUS DE `href="tel:"` ICI. C'était le dernier de l'application, et il envoyait
-                      le clic au système d'exploitation : sur un PC, Chrome ouvre « Sélectionner une
-                      application » et n'a jamais entendu parler d'Allo. Naoëlle l'a revu le
-                      08/09/2026 — « ça veut ouvrir une app sur mon PC alors que c'est pas du tout ce
-                      qu'on a dit ». Le bouton passe désormais par l'entonnoir unique, qui dépose le
-                      numéro dans la file d'appel Allo de la personne connectée et n'utilise `tel:`
-                      que sur un appareil tactile, où il compose vraiment. */}
-                  {piste.telephone && (
-                    <button
-                      type="button"
-                      onClick={() => { void appelerNumero(piste.telephone, {
-                        nom: piste.contact_nom ?? undefined,
-                        societe: piste.societe ?? undefined,
-                      }) }}
-                      className="inline-flex items-center gap-1.5 rounded-km border border-km-line bg-km-surface px-2.5 py-1.5 text-km-label font-semibold text-km-muted hover:bg-km-soft hover:text-km-text"
-                    >
-                      <Phone className="h-3 w-3" /> Appeler
-                    </button>
-                  )}
-                  {/* Le mail s'écrit dans le volet de Kimatch, pas dans le client de messagerie
-                      du poste (William, 13/09/2026). Il notait ici que le volet ne connaissait pas
-                      la piste : `ContexteEmail` n'avait pas de `pisteId`, et l'échange se consignait
-                      donc sur la seule adresse — invisible depuis la fiche d'où on venait de
-                      l'écrire. C'est comblé le 14/09 : la piste part avec le mail, et le fil Gmail
-                      est enregistré au retour, si bien que l'envoi rejoint la conversation. */}
-                  {piste.email && (
-                    <button
-                      type="button"
-                      onClick={() => ouvrirEmail?.({
-                        a: piste.email!,
-                        nom: piste.contact_nom,
-                        pisteId: piste.id,
-                        compteId: piste.compte_id ?? undefined,
-                      })}
-                      className="inline-flex items-center gap-1.5 rounded-km border border-km-line bg-km-surface px-2.5 py-1.5 text-km-label font-semibold text-km-muted hover:bg-km-soft hover:text-km-text"
-                    >
-                      <Mail className="h-3 w-3" /> Écrire
-                    </button>
-                  )}
-                </div>
-              )}
-            </Card>
+            {/* ══ LES QUATRE ZONES ══
+                William, 16/09/2026 : « les champs doivent être groupés dans 4 zones différentes ».
+                Elles remplacent la carte « Coordonnées », le pavé Salesforce en lecture seule et le
+                commentaire de bas de page. Voir ZonesPiste.tsx pour l'ordre, les deux teintes et le
+                traitement des champs vides. */}
+            <ZonesPiste
+              piste={piste}
+              canManage={canManage}
+              signaler={signaler}
+              ouvrirEmail={ouvrirEmail}
+              maj={(patch) => maj.mutateAsync({ id: piste.id, patch })}
+            />
 
-            {/* TOUT CE QUE SALESFORCE SAIT, sous les coordonnées. William, 14/09/2026 : « récupérez
-                tout sans exception, on fera le tri dans Kimatch ». La moitié de ces champs était
-                déjà en base et invisible — segment, SIREN, SIRET, origine, activité — l'autre
-                moitié est arrivée avec la migration 20260914170000. */}
-            <DetailsPiste piste={piste} />
+            {/* ══ DEUX BLOCS SONT PARTIS LE 16/09/2026 ══
+                William : « supprime les blocs "Tout ce que Salesforce sait" et "Tâches" ».
 
-            <Card className="p-4">
-              <p className="mb-2 text-km-label font-bold uppercase tracking-[0.08em] text-km-faint">
-                Commentaire
-              </p>
-              <InlineField
-                variant="longtext" label="" emptyLabel="aucun"
-                value={piste.commentaire ?? ''} disabled={!canManage}
-                onCommit={(v: string) => maj.mutateAsync({ id: piste.id, patch: { commentaire: v.trim() || null } })}
-                onSaved={() => signaler('✓ enregistré')}
-                onError={(e: Error) => signaler(`Erreur : ${e.message}`)}
-              />
-            </Card>
+                LE PAVÉ SALESFORCE. Il portait région, pays, statut d'origine, cote, dates de
+                reprise — trente lignes qu'on ne lit jamais en travaillant, sous quatre zones qui
+                portent désormais tout ce qui sert. Les colonnes restent en base, et l'onglet
+                Historique continue de dire qui a changé quoi.
 
-            {/* ══ LES TÂCHES ══
-                Elles existent depuis le 31/08/2026 (`actions.piste_id`). C'est précisément ce qui
-                justifiait de donner une adresse à la piste : une tâche renvoie ici. */}
-            <Card className="p-4">
-              <div className="mb-2 flex items-center justify-between">
-                <p className="text-km-label font-bold uppercase tracking-[0.08em] text-km-faint">
-                  Tâches{actions && actions.length > 0 ? ` (${actions.length})` : ''}
-                </p>
-                {canManage && (
-                  <button
-                    type="button"
-                    onClick={() => setTacheOuverte(true)}
-                    className="inline-flex items-center gap-1 text-km-label font-bold text-indigo-600 hover:underline"
-                  >
-                    <Plus className="h-3 w-3" /> Nouvelle tâche
-                  </button>
-                )}
-              </div>
-              {!actions || actions.length === 0 ? (
-                <p className="text-km-label text-km-faint">
-                  Aucune tâche. Un rappel à poser avant de relancer ce contact se note ici.
-                </p>
-              ) : (
-                <div className="flex flex-col gap-0.5">
-                  {actions.map((t) => {
-                    /* « Faite » se lit sur `date_realisation` : cocher n'écrit que cette date, le
-                       code de statut reste A_FAIRE en base. */
-                    const faite = Boolean(t.date_realisation)
-                    const enRetard =
-                      !faite && t.echeance && estEnRetard(t.echeance)
-                    return (
-                      <div key={t.id} className="flex items-start gap-2 rounded-km px-1 py-1 hover:bg-km-soft">
-                        <button
-                          type="button"
-                          disabled={faite || cocher.isPending || !canManage}
-                          onClick={async () => {
-                            try {
-                              await cocher.mutateAsync(t.id)
-                              signaler('✓ Tâche terminée')
-                            } catch (e) {
-                              signaler(e instanceof Error ? e.message : 'Enregistrement impossible')
-                            }
-                          }}
-                          title={faite ? 'Tâche terminée' : 'Marquer comme faite'}
-                          className={cn(
-                            'mt-0.5 flex h-4 w-4 shrink-0 items-center justify-center rounded',
-                            faite ? 'bg-km-green text-white' : 'border border-km-line bg-white hover:border-km-green',
-                          )}
-                        >
-                          {faite && <Check className="h-2.5 w-2.5" />}
-                        </button>
-                        <div className="min-w-0 flex-1">
-                          <p className={cn('truncate text-km-body', faite ? 'text-km-faint line-through' : 'text-km-text')}>
-                            {t.titre}
-                          </p>
-                          <p className="truncate text-km-label text-km-faint">
-                            {t.type_action}
-                            {t.echeance && (
-                              <span className={cn(enRetard && 'font-bold text-km-red')}>
-                                {' · '}{echeanceLisible(t.echeance)}
-                              </span>
-                            )}
-                          </p>
-                        </div>
-                      </div>
-                    )
-                  })}
-                </div>
-              )}
-            </Card>
+                LES TÂCHES. Le volet de droite les montre déjà, dans le fil d'activité, mêlées aux
+                échanges et dans l'ordre du temps — c'est là qu'on les lit. Les afficher aussi ici
+                donnait deux listes de la même chose à deux mètres l'une de l'autre.
+
+                LA CRÉATION N'EST PAS PERDUE POUR AUTANT, et elle n'a eu besoin de rien : le volet
+                de droite porte déjà sa barre « Nouvelle tâche / Nouvelle note ». Je l'avais rajoutée
+                dans le menu « ⋯ » du bandeau par prudence ; William, 16/09/2026 : « nouvelle tâche
+                existe déjà dans le volet de droite, donc inutile de le remettre ». Le geste avait
+                donc DEUX entrées, ce qui est précisément le défaut qu'on venait de corriger sur les
+                tâches elles-mêmes. */}
+
             {/* L'HISTORIQUE DES MODIFICATIONS REPREND SA PLACE ICI. Il vivait dans le flux
                 d'actualité du volet, remplacé le 07/09/2026 par le fil d'activité — lequel montre
                 les échanges, pas les changements de champs. Les fiches Compte, Site, Contact,
@@ -560,35 +335,15 @@ export default function PisteDetail() {
           </div>
         )}
 
-        {onglet === 'rattachements' && (
-          <div className="flex max-w-[560px] flex-col gap-3.5">
-            <Card className="p-4">
-              <p className="mb-2 text-km-label font-bold uppercase tracking-[0.08em] text-km-faint">
-                Ce à quoi cette piste est rattachée
-              </p>
-              {/* Une piste NAÎT sans rattachement : c'est un contact qu'on ne connaît pas encore.
-                  Le compte et le contact apparaissent à la conversion, quand le dialogue les crée ou
-                  les retrouve. Dire « pas encore » vaut mieux qu'une ligne vide. */}
-              <div className="flex flex-col divide-y divide-km-line-soft">
-                <Rattachement
-                  icone={Building2} libelle="Compte"
-                  valeur={piste.compte_id ? 'ouvrir le compte' : null}
-                  to={piste.compte_id ? `/comptes/${piste.compte_id}` : undefined}
-                />
-                <Rattachement
-                  icone={User} libelle="Contact"
-                  valeur={piste.contact_id ? 'ouvrir le contact' : null}
-                  to={piste.contact_id ? `/contacts/${piste.contact_id}` : undefined}
-                />
-                <Rattachement
-                  icone={ArrowRight} libelle="Opportunité issue de cette piste"
-                  valeur={piste.opportunite_id ? 'ouvrir l’opportunité' : null}
-                  to={piste.opportunite_id ? `/opportunites/${piste.opportunite_id}` : undefined}
-                />
-              </div>
-            </Card>
-          </div>
-        )}
+        {/* ══ L'ONGLET « RATTACHEMENTS » A ÉTÉ SUPPRIMÉ LE 16/09/2026 ══
+            William : « supprime l'onglet Rattachements (inutile) ». Il avait raison sur le fond :
+            il portait trois lignes, et sur l'immense majorité des pistes les trois disaient
+            « pas encore » — une piste naît sans compte, sans contact et sans opportunité.
+
+            LE SEUL LIEN QUI COMPTAIT A REJOINT LE BANDEAU. Sur une piste convertie, « ouvrir
+            l'opportunité » est le geste qu'on vient faire ; il prend maintenant la place exacte du
+            bouton « Convertir », qui n'a plus lieu d'être à ce moment-là. Le compte et le contact,
+            eux, se retrouvent depuis l'opportunité. */}
 
         {onglet === 'fichiers' && (
           <div className="max-w-[900px]">
@@ -645,18 +400,6 @@ export default function PisteDetail() {
         </div>
       </div>
 
-      {tacheOuverte && (
-        <DialogNouvelleTache
-          open
-          onClose={() => setTacheOuverte(false)}
-          signaler={signaler}
-          rattachement={{
-            piste_id: piste.id,
-            contact_nom: piste.contact_nom ?? '',
-            objet_nom: (piste.societe || piste.contact_nom || '').trim(),
-          }}
-        />
-      )}
 
       {/* ══ LE MOTIF DE DISQUALIFICATION ══
           Une seule zone de texte et deux boutons : le motif est obligatoire pour valider, parce que
@@ -698,6 +441,58 @@ export default function PisteDetail() {
         </Dialog>
       )}
 
+      {/* ══ L'HISTORIQUE, EN FENÊTRE ══ Même choix que la fiche compte : on ne vient pas « voir
+          l'historique », on s'y rend quand on se demande qui a changé une valeur. La réponse doit
+          arriver par-dessus, sans quitter l'onglet où l'on travaille. */}
+      <Dialog
+        open={historiqueOuvert}
+        onClose={() => setHistoriqueOuvert(false)}
+        title="Historique des modifications"
+        description={piste.societe ?? undefined}
+        className="max-w-4xl"
+      >
+        <div className="max-h-[70vh] overflow-y-auto">
+          <OngletHistorique entrees={historique} />
+        </div>
+      </Dialog>
+
+      {/* ══ LA SUPPRESSION ══ Une confirmation sobre plutôt que l'inventaire des fiches compte : une
+          piste n'emporte rien avec elle — ni compteurs, ni contrats, ni historique d'échanges. Ce
+          qu'il faut dire, c'est que le geste est sans retour. */}
+      <Dialog
+        open={suppressionOuverte}
+        onClose={() => setSuppressionOuverte(false)}
+        title="Supprimer cette piste ?"
+        description={nomComplet({ civilite: piste.civilite, prenom: piste.prenom, nom: piste.nom }) || piste.contact_nom || undefined}
+      >
+        <div className="space-y-3">
+          <p className="text-km-body leading-snug text-km-text">
+            La piste et ses informations de contact seront effacées. Les tâches et les échanges qui
+            la citent restent, mais ne mèneront plus nulle part.
+          </p>
+          <p className="text-km-label text-km-muted">Cette action est sans retour.</p>
+          <div className="flex justify-end gap-2 border-t border-km-line pt-3">
+            <Button variant="ghost" onClick={() => setSuppressionOuverte(false)} disabled={supprimerPiste.isPending}>
+              Annuler
+            </Button>
+            <Button
+              disabled={supprimerPiste.isPending}
+              onClick={() => {
+                supprimerPiste
+                  .mutateAsync({ id: piste.id, opportuniteId: piste.opportunite_id ?? null })
+                  .then(() => navigate('/prospection'))
+                  .catch((e) => {
+                    setSuppressionOuverte(false)
+                    signaler(e instanceof Error ? e.message : 'Suppression impossible')
+                  })
+              }}
+            >
+              {supprimerPiste.isPending ? 'Suppression…' : 'Supprimer'}
+            </Button>
+          </div>
+        </div>
+      </Dialog>
+
       {conversionOuverte && (
         <DialogConversionPiste
           piste={piste}
@@ -730,25 +525,3 @@ export default function PisteDetail() {
 }
 
 /** Une ligne de l'onglet Rattachements, avec navigation directe vers l'objet. */
-function Rattachement({ icone: Icone, libelle, valeur, to }: {
-  icone: typeof Building2
-  libelle: string
-  valeur: string | null
-  to?: string
-}) {
-  return (
-    <div className="flex items-start gap-2.5 py-2">
-      <span className="mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-md bg-km-soft text-km-muted">
-        <Icone className="h-3 w-3" />
-      </span>
-      <div className="min-w-0 flex-1">
-        <p className="text-km-label uppercase tracking-wide text-km-faint">{libelle}</p>
-        {valeur && to ? (
-          <EntityLink to={to}>{valeur}</EntityLink>
-        ) : (
-          <p className="text-km-body text-km-faint">pas encore rattaché</p>
-        )}
-      </div>
-    </div>
-  )
-}
