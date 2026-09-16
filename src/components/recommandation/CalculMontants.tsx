@@ -387,7 +387,22 @@ export function CalculMontants({
         </span>
         <span className="flex-1" />
         {editable ? (
-          <span className="[&_*]:!text-white">
+          /* ══ LE BLANC EST POUR CE QU'ON LIT, PAS POUR CE QU'ON TAPE ══
+             William, 16/09/2026 : « quand je renseigne le montant, ce dernier est écrit en blanc sur
+             fond blanc, je ne vois pas ce que j'écris ».
+
+             La règle forçait TOUT descendant en blanc — sans le « :not(input) » ci-dessous — pour
+             que la valeur ressorte sur la bande verte. Elle attrapait aussi le champ de saisie, qui
+             porte son propre fond blanc : d'où un texte blanc sur blanc dès qu'on cliquait pour
+             écrire.
+
+             (L'ancienne classe n'est pas recopiée ici telle quelle : Tailwind lit aussi les
+             commentaires, et l'y laisser régénérerait une règle CSS que plus rien n'applique.)
+
+             `:not(input)` rend la couleur au seul élément qui a un fond à lui. Le montant affiché
+             reste blanc sur le vert ; pendant la frappe, le champ redevient sombre sur blanc, ce
+             qu'il est partout ailleurs dans l'application. */
+          <span className="[&_*:not(input)]:!text-white">
             <InlineField
               variant="number"
               label=""
