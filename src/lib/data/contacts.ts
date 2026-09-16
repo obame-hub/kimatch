@@ -561,3 +561,35 @@ export function useUpdateContactField() {
     onSuccess: () => { void queryClient.invalidateQueries({ queryKey: ['contacts'] }) },
   })
 }
+
+/**
+ * ══ CONVERTIR UN ADMINISTRATIF EN DÉCISIONNAIRE POTENTIEL ══
+ *
+ * William, 15/09/2026 : « C'est un choix du commercial et donc un bouton de conversion sur chaque
+ * card contact ADMINISTRATIF. »
+ *
+ * ON REMPLACE, ON N'AJOUTE PAS. Les deux rôles s'excluent — c'est la règle du 14/09 qui a supprimé
+ * 598 contacts affichés dans deux bandes à la fois, et la base la tient aussi de son côté
+ * (`fn_roles_contact`, migration 20260915090000). Écrire les deux serait donc annulé au premier
+ * recalcul, après avoir brièvement menti à l'écran.
+ *
+ * LES RÔLES DÉDUITS NE SONT PAS RECOPIÉS, et surtout pas préservés « au cas où » : la base les
+ * reconstruit depuis les faits. Les figer ici reviendrait à graver un constat qui change.
+ */
+export function useConvertirEnDecisionnairePotentiel() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: async (contactId: string) => {
+      const { error } = await supabase
+        .from('contacts')
+        .update({ roles: ['DECISIONNAIRE_POTENTIEL'] })
+        .eq('id', contactId)
+      if (error) throw new Error(error.message)
+    },
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: ['contacts'] })
+      void queryClient.invalidateQueries({ queryKey: ['contacts-du-compte'] })
+      void queryClient.invalidateQueries({ queryKey: ['cockpit'] })
+    },
+  })
+}

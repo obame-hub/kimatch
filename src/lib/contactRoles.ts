@@ -25,7 +25,27 @@
 // donc les faits lui donnent les deux rôles sans qu'on ait à les forcer.
 // ════════════════════════════════════════════════════════════════════════════════════════════════
 
-export const ROLES_CONTACT = ['DECISIONNAIRE', 'SIGNATAIRE', 'ADMINISTRATIF', 'CONSEIL_SYNDICAL'] as const
+/**
+ * ══ LE CINQUIÈME RÔLE, ET LE SECOND CHOIX HUMAIN ══
+ *
+ * William, 15/09/2026 : « tous les contacts que le commercial identifie comme un potentiel
+ * décisionnaire mais pour lequel nous ne disposons actuellement d'aucun périmètre ».
+ *
+ * DÉCISIONNAIRE POTENTIEL EST EXCLUSIF D'ADMINISTRATIF, comme Administratif l'est des faits : la
+ * conversion remplace, elle n'ajoute pas. Cumuler les deux ferait réapparaître le contact dans deux
+ * bandes de l'onglet Contacts — le défaut même que la règle du 14/09 a supprimé.
+ *
+ * ET IL NE SURVIT PAS AU FAIT QU'IL ANNONÇAIT : dès qu'un compteur désigne ce contact responsable,
+ * la base le passe DECISIONNAIRE et efface le potentiel (`fn_roles_contact`, migration
+ * 20260915090000). Un potentiel réalisé n'a plus à être annoncé.
+ */
+export const ROLES_CONTACT = [
+  'DECISIONNAIRE',
+  'SIGNATAIRE',
+  'ADMINISTRATIF',
+  'DECISIONNAIRE_POTENTIEL',
+  'CONSEIL_SYNDICAL',
+] as const
 
 export type RoleContact = (typeof ROLES_CONTACT)[number]
 
@@ -33,6 +53,7 @@ export const LIBELLE_ROLE: Record<RoleContact, string> = {
   DECISIONNAIRE: 'Décisionnaire',
   SIGNATAIRE: 'Signataire',
   ADMINISTRATIF: 'Administratif',
+  DECISIONNAIRE_POTENTIEL: 'Décisionnaire potentiel',
   CONSEIL_SYNDICAL: 'Conseil syndical',
 }
 
@@ -40,6 +61,7 @@ export const AIDE_ROLE: Record<RoleContact, string> = {
   DECISIONNAIRE: 'Tranche et engage le compte',
   SIGNATAIRE: 'Signe les mandats et les contrats',
   ADMINISTRATIF: 'Technique, juridique, comptabilité, assistanat',
+  DECISIONNAIRE_POTENTIEL: 'Décide probablement, mais aucun périmètre ne le prouve encore',
   CONSEIL_SYNDICAL: 'Représente les copropriétaires — ne contractualise pas',
 }
 

@@ -1,4 +1,4 @@
-import { AlertTriangle, Check, ClipboardList, Crown, Gauge, Lock, PenLine, Users } from 'lucide-react'
+import { AlertTriangle, Check, ClipboardList, Crown, Gauge, Lock, PenLine, Sparkle, Users } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { AIDE_ROLE, LIBELLE_ROLE, ROLES_CONTACT, estSyndic, type RoleContact } from '@/lib/contactRoles'
 
@@ -31,6 +31,7 @@ const ICONE: Record<RoleContact, typeof Crown> = {
   DECISIONNAIRE: Gauge,
   SIGNATAIRE: PenLine,
   ADMINISTRATIF: ClipboardList,
+  DECISIONNAIRE_POTENTIEL: Sparkle,
   CONSEIL_SYNDICAL: Users,
 }
 
@@ -38,11 +39,12 @@ const TEINTE: Record<RoleContact, string> = {
   DECISIONNAIRE: 'border-km-green bg-km-green-soft text-km-green',
   SIGNATAIRE: 'border-km-amber bg-km-amber-soft text-km-amber',
   ADMINISTRATIF: 'border-km-blue bg-km-blue-soft text-km-blue',
+  DECISIONNAIRE_POTENTIEL: 'border-km-violet bg-km-soft text-km-violet',
   CONSEIL_SYNDICAL: 'border-km-piste bg-km-piste-soft text-km-piste',
 }
 
 /** Ce qui fonde un rôle déduit — affiché à la place de la case à cocher. */
-const FONDEMENT: Record<Exclude<RoleContact, 'ADMINISTRATIF'>, string> = {
+const FONDEMENT: Record<Exclude<RoleContact, 'ADMINISTRATIF' | 'DECISIONNAIRE_POTENTIEL'>, string> = {
   DECISIONNAIRE: 'Responsable d’au moins un compteur',
   SIGNATAIRE: 'Nommé sur un mandat ou un contrat',
   CONSEIL_SYNDICAL: 'Désigné relais sur au moins un compteur',
@@ -60,15 +62,24 @@ export function SelecteurRoles({
   onChange: (roles: RoleContact[]) => void
   disabled?: boolean
 }) {
+  /* Les deux rôles CHOISIS sortent des déduits : ni l'un ni l'autre ne se constate. */
   const deduits = ROLES_CONTACT.filter(
-    (r) => r !== 'ADMINISTRATIF' && roles.includes(r) && (r !== 'CONSEIL_SYNDICAL' || estSyndic(segment)),
+    (r) =>
+      r !== 'ADMINISTRATIF' &&
+      r !== 'DECISIONNAIRE_POTENTIEL' &&
+      roles.includes(r) &&
+      (r !== 'CONSEIL_SYNDICAL' || estSyndic(segment)),
   )
   const empeche = deduits.length > 0
   const administratif = roles.includes('ADMINISTRATIF')
+  const potentiel = roles.includes('DECISIONNAIRE_POTENTIEL')
 
-  function basculerAdministratif() {
+  /* LES DEUX CHOIX S'EXCLUENT : cocher l'un décoche l'autre, ici comme en base. */
+  function choisir(role: 'ADMINISTRATIF' | 'DECISIONNAIRE_POTENTIEL') {
     if (disabled || empeche) return
-    onChange(administratif ? roles.filter((r) => r !== 'ADMINISTRATIF') : [...roles, 'ADMINISTRATIF'])
+    const deja = roles.includes(role)
+    const sansLesDeux = roles.filter((r) => r !== 'ADMINISTRATIF' && r !== 'DECISIONNAIRE_POTENTIEL')
+    onChange(deja ? sansLesDeux : [...sansLesDeux, role])
   }
 
   return (
@@ -84,7 +95,7 @@ export function SelecteurRoles({
             <span className="min-w-0 flex-1">
               <span className="block text-km-body font-semibold leading-tight">{LIBELLE_ROLE[r]}</span>
               <span className="mt-0.5 block text-km-label leading-snug text-km-muted">
-                {FONDEMENT[r as Exclude<RoleContact, 'ADMINISTRATIF'>]}
+                {FONDEMENT[r as keyof typeof FONDEMENT]}
               </span>
             </span>
             {/* Le cadenas dit « constaté », pas « verrouillé par erreur ». */}
@@ -93,11 +104,11 @@ export function SelecteurRoles({
         )
       })}
 
-      {/* ══ LE SEUL CHOIX QUI RESTE ══ */}
+      {/* ══ LES DEUX CHOIX QUI RESTENT ══ */}
       <button
         type="button"
         aria-pressed={administratif}
-        onClick={basculerAdministratif}
+        onClick={() => choisir('ADMINISTRATIF')}
         disabled={disabled || empeche}
         className={cn(
           'flex items-start gap-2.5 rounded-xl border-2 p-2.5 text-left transition-all',
@@ -117,6 +128,32 @@ export function SelecteurRoles({
         {administratif && <Check className="mt-0.5 h-4 w-4 shrink-0" />}
       </button>
 
+      {/* LE POTENTIEL : le commercial le pose, les faits l'effaceront s'ils le dépassent. */}
+      <button
+        type="button"
+        aria-pressed={potentiel}
+        onClick={() => choisir('DECISIONNAIRE_POTENTIEL')}
+        disabled={disabled || empeche}
+        className={cn(
+          'flex items-start gap-2.5 rounded-xl border-2 p-2.5 text-left transition-all',
+          potentiel ? cn(TEINTE.DECISIONNAIRE_POTENTIEL, 'shadow-sm') : 'border-km-line bg-km-surface hover:border-km-green-line',
+          (disabled || empeche) && 'cursor-default opacity-60 hover:border-km-line',
+        )}
+      >
+        <span className={cn('flex h-8 w-8 shrink-0 items-center justify-center rounded-lg', potentiel ? 'bg-white/70' : 'bg-km-soft text-km-faint')}>
+          <Sparkle className="h-4 w-4" strokeWidth={2.2} />
+        </span>
+        <span className="min-w-0 flex-1">
+          <span className={cn('block text-km-body font-semibold leading-tight', !potentiel && 'text-km-text')}>
+            {LIBELLE_ROLE.DECISIONNAIRE_POTENTIEL}
+          </span>
+          <span className="mt-0.5 block text-km-label leading-snug text-km-muted">
+            {AIDE_ROLE.DECISIONNAIRE_POTENTIEL}
+          </span>
+        </span>
+        {potentiel && <Check className="mt-0.5 h-4 w-4 shrink-0" />}
+      </button>
+
       {empeche && (
         <p className="flex items-start gap-1.5 text-km-label leading-snug text-km-amber">
           <AlertTriangle className="mt-px h-3 w-3 shrink-0" />
@@ -125,7 +162,7 @@ export function SelecteurRoles({
         </p>
       )}
 
-      {deduits.length === 0 && !administratif && (
+      {deduits.length === 0 && !administratif && !potentiel && (
         <p className="text-km-label leading-snug text-km-faint">
           Les autres rôles se constatent : ils apparaîtront dès que ce contact portera un compteur ou
           signera un mandat.

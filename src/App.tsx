@@ -26,6 +26,7 @@ const Dashboard = lazy(() => chargerPage(() => import('@/pages/Dashboard')))
 const RedirectionSite = lazy(() => chargerPage(() => import('@/pages/RedirectionSite')))
 const Opportunites = lazy(() => chargerPage(() => import('@/pages/Opportunites')))
 const OpportuniteDetail = lazy(() => chargerPage(() => import('@/pages/OpportuniteDetail')))
+const Cockpit = lazy(() => chargerPage(() => import('@/pages/Cockpit')))
 const Prospection = lazy(() => chargerPage(() => import('@/pages/Prospection')))
 const PisteDetail = lazy(() => chargerPage(() => import('@/pages/PisteDetail')))
 const Requetes = lazy(() => chargerPage(() => import('@/pages/Requetes')))
@@ -108,6 +109,7 @@ function App() {
               objet supprimé et le laisser s'ouvrir. L'adresse `/sites/:id` REDIRIGE donc, ce qui
               garde les 26 liens vivants sans garder l'écran. Voir `RedirectionSite`. */}
           <Route path="/sites/:id" element={<RedirectionSite />} />
+          <Route path="/cockpit" element={<Cockpit />} />
           <Route path="/prospection" element={<Prospection />} />
           <Route path="/pistes/:id" element={<PisteDetail />} />
           <Route path="/opportunites" element={<Opportunites />} />

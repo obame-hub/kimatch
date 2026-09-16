@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
-import { AlertTriangle, Loader2, Mail, PenLine, Pencil, Phone, Plus, ShieldCheck, UserPlus } from 'lucide-react'
+import { AlertTriangle, Loader2, Mail, PenLine, Pencil, Phone, Plus, ShieldCheck, UserPlus, Sparkle } from 'lucide-react'
 import type { Contact } from '@/types/domain'
 import { cn } from '@/lib/utils'
 import { appelerNumero } from '@/lib/telephonie'
@@ -13,6 +13,7 @@ import { isValidEmail } from '@/lib/textFormat'
    « FL », et on reconnaît quelqu'un à ses initiales, pas à son genre. */
 import { CIVILITES, nomComplet } from '@/lib/civilite'
 import { useUpdateContactField } from '@/lib/data/contacts'
+import { useConvertirEnDecisionnairePotentiel } from '@/lib/data/contacts'
 import { useOuvrirEmail } from '@/lib/voletEmail'
 import { LIBELLE_ROLE, SEGMENT_SYNDIC_BENEVOLE, estSyndic, type RoleContact } from '@/lib/contactRoles'
 import { useCouvertureConseilSyndical, type CompteurRelais } from '@/lib/data/relaisConseilSyndical'
@@ -139,6 +140,7 @@ function FicheContact({
 }) {
   const navigate = useNavigate()
   const ouvrirEmail = useOuvrirEmail()
+  const convertir = useConvertirEnDecisionnairePotentiel()
   const [edition, setEdition] = useState(false)
   const tel = contact.telephone || contact.telephone_mobile
 
@@ -235,6 +237,23 @@ function FicheContact({
             {libelleFraicheur(fraicheur)}
           </span>
         </p>
+
+        {/* ══ LA CONVERSION EN DÉCISIONNAIRE POTENTIEL ══
+            William, 15/09/2026 : un bouton sur chaque carte de contact administratif. Il n'apparaît
+            que là — pour un contact qui porte déjà un compteur ou une signature, le rôle serait
+            effacé par la base au premier recalcul, et proposer le geste serait mentir. */}
+        {contact.roles.includes('ADMINISTRATIF') && (
+          <button
+            type="button"
+            onClick={() => void convertir.mutateAsync(contact.id)}
+            disabled={convertir.isPending}
+            title="Ce contact décide probablement, sans qu'aucun compteur ne le prouve encore. Il entrera dans le vivier du Cockpit."
+            className="hidden shrink-0 items-center gap-1 rounded-km-sm border border-km-violet/40 bg-km-soft px-2 py-1 text-km-tiny font-bold uppercase tracking-[0.04em] text-km-violet hover:bg-km-violet/10 disabled:opacity-50 lg:inline-flex"
+          >
+            <Sparkle className="h-2.5 w-2.5 shrink-0" strokeWidth={2.6} />
+            Potentiel
+          </button>
+        )}
 
         {/* ══ LES GESTES ══
             Les intitulés ne s'affichent qu'à partir de `xl` : en dessous, l'icône seule suffit et
@@ -524,7 +543,14 @@ export function OngletContacts({
     const aQualifier: Contact[] = []
     for (const c of contacts) {
       const estRelais = c.roles.includes('CONSEIL_SYNDICAL')
-      const decide = c.roles.includes('DECISIONNAIRE') || c.roles.includes('SIGNATAIRE')
+      /* LE POTENTIEL REJOINT « QUI DÉCIDE », et c'est la zone qui répond à sa question : à qui
+         parler pour obtenir une décision. Le laisser dans « À qualifier » ferait descendre la
+         carte au moment où le commercial vient d'affirmer le contraire. La puce, elle, dit
+         « potentiel » — la bande ne prétend donc jamais que le fait est prouvé. */
+      const decide =
+        c.roles.includes('DECISIONNAIRE') ||
+        c.roles.includes('SIGNATAIRE') ||
+        c.roles.includes('DECISIONNAIRE_POTENTIEL')
       const administre = c.roles.includes('ADMINISTRATIF')
       // UN CONTACT PEUT TENIR DEUX ZONES, et c'est voulu : 526 contacts sont à la fois
       // décisionnaires et signataires, et en syndic bénévole le conseil syndical décide et signe.
@@ -583,6 +609,8 @@ export function OngletContacts({
     ?? (couverture?.compteurs ?? [])[0]
 
   const signataires = decident.filter((c) => c.roles.includes('SIGNATAIRE')).length
+  /* Compté à part : un potentiel ne doit pas grossir le nombre de décisionnaires prouvés. */
+  const potentiels = decident.filter((c) => c.roles.includes('DECISIONNAIRE_POTENTIEL')).length
 
   if (contacts.length === 0) {
     return (
@@ -600,7 +628,11 @@ export function OngletContacts({
         synthese={
           decident.length === 0
             ? 'Personne n’est identifié comme décisionnaire ou signataire'
-            : `${decident.length} contact${decident.length > 1 ? 's' : ''} · ${signataires} signataire${signataires > 1 ? 's' : ''}`
+            : [
+                `${decident.length} contact${decident.length > 1 ? 's' : ''}`,
+                `${signataires} signataire${signataires > 1 ? 's' : ''}`,
+                potentiels > 0 ? `${potentiels} potentiel${potentiels > 1 ? 's' : ''}` : null,
+              ].filter(Boolean).join(' · ')
         }
         action={{ libelle: 'Contact', onClick: onNouveauContact }}
       >

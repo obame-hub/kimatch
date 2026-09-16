@@ -13,7 +13,7 @@ import { DialogSuppression } from '@/components/ui/dialog-suppression'
 import { FormField, Input, Select, Textarea } from '@/components/ui/form'
 import { HistoriqueDiscret } from '@/components/ui/historique-discret'
 import { ActivityFeed } from '@/components/site/ActivityFeed'
-import { useContact, useUpdateContact, useDeleteContact, useUpdateContactField } from '@/lib/data/contacts'
+import { useContact, useUpdateContact, useDeleteContact, useUpdateContactField, useConvertirEnDecisionnairePotentiel } from '@/lib/data/contacts'
 import { useComptes } from '@/lib/data/comptes'
 import { useCompteurs } from '@/lib/data/compteurs'
 import { useSuivisContrats } from '@/lib/data/suivisContrats'
@@ -51,6 +51,7 @@ import type { Contact } from '@/types/domain'
 type TabKey = 'contact' | 'rattachements' | 'contrats' | 'mandats' | 'recommandations' | 'documents'
 
 export default function ContactDetail() {
+  const convertirEnPotentiel = useConvertirEnDecisionnairePotentiel()
   const { id } = useParams()
   const navigate = useNavigate()
   // Perimetre de la fiche, lu cote serveur : ces lectures parcouraient le CRM entier pour en
@@ -378,6 +379,29 @@ export default function ContactDetail() {
                           ))
                         )}
                       </div>
+                      {/* ══ LA CONVERSION EN UN CLIC ══
+                          William, 15/09/2026 : le geste doit être là aussi, pas seulement sur les
+                          cartes de la fiche compte. Il n'apparaît que sur un contact administratif :
+                          ailleurs, la base effacerait le rôle au premier recalcul et le bouton
+                          n'aurait fait que mentir une seconde. */}
+                      {contact.roles.includes('ADMINISTRATIF') && (
+                        <button
+                          type="button"
+                          onClick={() => void convertirEnPotentiel.mutateAsync(contact.id)}
+                          disabled={convertirEnPotentiel.isPending}
+                          className="mt-2 inline-flex items-center gap-1.5 rounded-km border border-km-violet/40 bg-km-soft px-2.5 py-1.5 text-km-label font-medium text-km-violet hover:bg-km-violet/10 disabled:opacity-50"
+                        >
+                          <Sparkle className="h-3.5 w-3.5 shrink-0" strokeWidth={2.4} />
+                          En faire un décisionnaire potentiel
+                        </button>
+                      )}
+                      {contact.roles.includes('DECISIONNAIRE_POTENTIEL') && (
+                        <p className="mt-2 text-km-label leading-snug text-km-muted">
+                          Identifié comme décisionnaire par un commercial, sans périmètre pour le
+                          prouver. Il est dans le vivier du Cockpit, et le rôle s’effacera de
+                          lui-même dès qu’un compteur le désignera responsable.
+                        </p>
+                      )}
                     </div>
                     <InlineField
                       variant="text"

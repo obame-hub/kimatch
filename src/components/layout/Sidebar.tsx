@@ -6,7 +6,7 @@ import kiweePicto from '@/assets/kiwee-picto.png'
 import { useSidebar } from '@/lib/layout'
 import { useIsAdmin, useMonProfil } from '@/lib/data/roles'
 import { useAuth } from '@/lib/auth'
-import { navItems, cycleNavItems, productionNavItems, bottomNavItems } from '@/lib/navItems'
+import { navItems, cycleNavItems, productionNavItems, cockpitNavItems, bottomNavItems } from '@/lib/navItems'
 import { PastilleNotifications } from '@/components/layout/PastilleNotifications'
 import type { NavItem } from '@/lib/navItems'
 import { getImpersonationInfo } from '@/lib/data/impersonation'
@@ -267,6 +267,12 @@ export function Sidebar() {
             <div className="h-4" aria-hidden="true" />
             <Rubrique>Production</Rubrique>
             {productionNavItems.map((item) => (
+              <SidebarLink key={item.to} {...item} onClick={close} />
+            ))}
+            {/* LE COCKPIT, DERNIÈRE ENTRÉE DU RAIL, sans rubrique et détaché des autres : ce n'est
+                pas un objet de plus, c'est une façon de passer sa journée (voir `cockpitNavItems`). */}
+            <div className="h-4" aria-hidden="true" />
+            {cockpitNavItems.map((item) => (
               <SidebarLink key={item.to} {...item} onClick={close} />
             ))}
           </nav>

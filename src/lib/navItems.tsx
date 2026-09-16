@@ -1,4 +1,5 @@
 import { PhoneOff,
+  Headphones,
   Gauge,
   Home,
   Building2,
@@ -140,6 +141,25 @@ export const navItemsMasques: NavItem[] = [
   { to: '/remunerations', label: 'Rémunérations', icon: Euro },
 ]
 
+/**
+ * ══ LE COCKPIT FERME LE RAIL, JUSTE AU-DESSUS DE LA LIGNE ══
+ *
+ * William, 16/09/2026 : « L'onglet Cockpit dans le menu doit être juste au-dessus de Support,
+ * au-dessus de la ligne de démarcation horizontale. »
+ *
+ * Il était d'abord en tête du cycle commercial, ce qui se défendait — c'est le seul écran d'où
+ * l'on appelle. Mais le cycle décrit des OBJETS qui mûrissent, de la piste à la recommandation, et
+ * le Cockpit n'est pas un objet : c'est une façon de passer sa journée. Le poser en dernière
+ * entrée du rail, seul et détaché, dit exactement cela.
+ *
+ * SA PROPRE LISTE, ET NON UNE LIGNE AJOUTÉE À « PRODUCTION » : la rubrique Production réunit ce
+ * qui se passe après la signature (Pricing, Requêtes, Suivis de contrats). Le Cockpit y serait
+ * faux, et une rubrique d'une seule entrée pèserait plus lourd que l'entrée elle-même.
+ */
+export const cockpitNavItems: NavItem[] = [
+  { to: '/cockpit', label: 'Cockpit', icon: Headphones },
+]
+
 // Support et réglages : pas des objets métier, affichés en bas du rail juste au-dessus du profil.
 //
 // NOUVEAUTÉS EST LA SEULE ENTRÉE QUI N'OUVRE PAS SA PAGE. Le rail la dessine en bouton et non en
@@ -169,6 +189,7 @@ export const pagesRecherchables: NavItem[] = [
   ...cycleNavItems,
   // Retirées du rail le 25/08, mais toujours atteignables : masquer n'est pas supprimer.
   ...productionNavItems,
+  ...cockpitNavItems,
   ...navItemsMasques,
   ...bottomNavItems,
   // Les listes du patrimoine restent trouvables par la recherche, chacune sur son onglet.
