@@ -1036,7 +1036,10 @@ export interface Piste {
   /** L'origine de la piste — `LeadSource` de Salesforce. */
   source: string | null
   fonction: string | null
+  /** Le libellé APE de l'activité — recopié depuis `code_naf` par l'enrichissement Sirene. */
   activite: string | null
+  /** Le code NAF de l'unité légale, format « 68.32A » (migration 20260916150000). */
+  code_naf: string | null
   nombre_de_lots: number | null
   statut_salesforce: string | null
 

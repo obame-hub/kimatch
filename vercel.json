@@ -54,6 +54,10 @@
     {
       "path": "/api/slack/rattraper-leads",
       "schedule": "50 4 * * *"
+    },
+    {
+      "path": "/api/pistes/enrichir-naf",
+      "schedule": "40 * * * *"
     }
   ]
 }
