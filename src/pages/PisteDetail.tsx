@@ -111,7 +111,10 @@ export default function PisteDetail() {
   ]
 
   return (
-    <div className="flex h-full flex-col overflow-hidden">
+    /* `data-pleine-hauteur` : cette page ne défile pas dans `main`, elle prend toute la hauteur et
+       fait défiler ses volets. L'attribut annule la marge basse de `AppLayout` — voir son
+       commentaire — qui, ici, raccourcissait la page de 80 px au lieu de protéger quoi que ce soit. */
+    <div data-pleine-hauteur className="flex h-full flex-col overflow-hidden">
       <Topbar crumb="Pistes" title={piste.societe || piste.contact_nom || 'Piste'} />
 
       {/* ══ LE BANDEAU, REPRIS DE LA FICHE COMPTE ══
@@ -278,7 +281,11 @@ export default function PisteDetail() {
           Les quatre zones du 16/09 l'ont rendu systématique — avant, l'onglet Piste tenait presque
           toujours dans la fenêtre. */}
       <div className="grid min-h-0 flex-1 grid-cols-1 grid-rows-[minmax(0,1fr)] overflow-hidden lg:grid-cols-fiche-activite">
-        <div className="min-h-0 overflow-y-auto bg-km-bg p-4 sm:p-5">
+        {/* LA PLACE DES PASTILLES EST RÉSERVÉE ICI, dans le volet qui défile, et non au-dessus de
+            lui. C'est ce qui permet d'amener la dernière carte au-dessus du téléphone et de la
+            cloche en défilant, au lieu de l'arrêter derrière eux. Le calcul est celui d'`AppLayout` :
+            44 px de pastille plus son décalage, arrondi au cran supérieur. */}
+        <div className="min-h-0 overflow-y-auto bg-km-bg p-4 pb-32 sm:p-5 sm:pb-32 md:pb-20">
         {onglet === 'piste' && (
           <div className="flex flex-col gap-3.5">
             {/* ══ LE CHEMIN, EN TÊTE DE VOLET COMME SUR LE MANDAT ══

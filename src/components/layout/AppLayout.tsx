@@ -53,9 +53,30 @@ export function AppLayout() {
               plus que le strict nécessaire, pour qu'un clic près du bord ne tombe pas à un pixel
               de la pastille.
 
-              ICI ET PAS DANS CHAQUE ÉCRAN : `main` est le seul conteneur qui défile, donc la seule
-              correction qui vaille pour les pages d'aujourd'hui comme pour celles de demain. */}
-          <main className={cn('min-w-0 flex-1 overflow-y-auto pb-32 md:pb-20 md:pl-[215px]', impersonating && 'pt-7')}>
+              ICI ET PAS DANS CHAQUE ÉCRAN : `main` est le seul conteneur qui défile — SAUF pour
+              les fiches, et c'est tout le sujet du paragraphe suivant.
+
+              ══ SAUF SUR UNE PAGE QUI GÈRE SA PROPRE HAUTEUR ══
+
+              William, 16/09/2026, capture à l'appui : « c'est toujours coupé… c'est comme s'il y
+              avait un bandeau où est disposée la pastille de notification et d'appel ». Il décrit
+              exactement cette marge.
+
+              Une fiche (`data-pleine-hauteur`) ne défile PAS dans `main` : elle prend toute la
+              hauteur et fait défiler ses volets à l'intérieur. La marge basse ne repousse alors
+              rien du tout — elle RACCOURCIT la page de 80 px, et le volet s'arrête au-dessus du bas
+              de la fenêtre. La dernière carte est tranchée net sur une bande vide où flottent les
+              deux pastilles : la description est littérale.
+
+              La marge est donc annulée sur ces pages, et reportée À L'INTÉRIEUR du volet qui
+              défile — voir la colonne de gauche de la fiche. Le contenu retrouve toute la hauteur,
+              et la dernière carte peut être amenée au-dessus des pastilles en défilant. Les deux
+              intentions sont servies, au lieu d'une contre l'autre.
+
+              `has-[[data-pleine-hauteur]]` PLUTÔT QU'UNE LISTE DE ROUTES : la règle suit ce que la
+              page déclare, et une fiche créée demain en hérite sans qu'on ait rien à tenir à jour
+              ici. */}
+          <main className={cn('min-w-0 flex-1 overflow-y-auto pb-32 md:pb-20 md:pl-[215px] has-[[data-pleine-hauteur]]:pb-0', impersonating && 'pt-7')}>
             <Outlet />
           </main>
         </div>
