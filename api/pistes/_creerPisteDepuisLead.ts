@@ -37,6 +37,73 @@ export type Resultat =
  * changé, et le seul cas où l'on veut que ça crie — une piste à moitié remplie qu'on croirait
  * complète serait pire qu'un message d'erreur.
  */
+/** Ce qui suffit à reconnaître deux fois la même personne. Exporté pour être testable seul. */
+export interface PisteConnue {
+  id: string
+  reference: string
+  email: string | null
+  telephone: string | null
+  contact_nom: string | null
+  societe: string | null
+  source_externe_id: string | null
+}
+
+const neufDerniers = (t: string | null | undefined): string => (t ?? '').replace(/\D/g, '').slice(-9)
+const pareil = (a: string | null | undefined, b: string | null | undefined): boolean => {
+  const x = (a ?? '').trim().toLowerCase()
+  return x.length > 0 && x === (b ?? '').trim().toLowerCase()
+}
+
+/**
+ * ══ EST-CE QUELQU'UN QU'ON CONNAÎT DÉJÀ ? ══
+ *
+ * L'E-MAIL SUFFIT. Deux personnes ne partagent pas une adresse ; si elle correspond, c'est la même.
+ *
+ * LE TÉLÉPHONE NE SUFFIT PAS, et la vérification du 16/09 l'a prouvé : deux leads d'essai portaient
+ * tous deux `06 12 34 56 78`, avec des noms et des sociétés différents. Les confondre aurait fait
+ * REFUSER un vrai lead en croyant le connaître — une piste jamais créée ne se remarque pas, ce qui
+ * est pire qu'un doublon. On exige donc, pour un appariement par téléphone, que le nom du contact
+ * ou la société concorde aussi. Un standard de syndic partagé par dix copropriétés ne suffit pas.
+ *
+ * LE FILTRE FINAL SE FAIT ICI, pas dans la requête : PostgREST ne sait pas exprimer « ceci OU (cela
+ * ET (ceci OU cela)) » sans devenir illisible. On rapatrie une poignée de candidats et on tranche
+ * dans du code qu'un test peut lire.
+ */
+export function choisirLaMemePersonne(
+  candidats: PisteConnue[],
+  lead: { email: string | null; telephone: string | null; contactNom: string | null; societe: string | null },
+): PisteConnue | null {
+  const tel = neufDerniers(lead.telephone)
+  for (const c of candidats) {
+    if (pareil(c.email, lead.email)) return c
+    if (tel.length === 9 && neufDerniers(c.telephone) === tel
+        && (pareil(c.contact_nom, lead.contactNom) || pareil(c.societe, lead.societe))) {
+      return c
+    }
+  }
+  return null
+}
+
+async function chercherLaMemePersonne(
+  admin: SupabaseClient,
+  lead: { email: string | null; telephone: string | null; contactNom: string | null; societe: string | null },
+): Promise<PisteConnue | null> {
+  const tel = neufDerniers(lead.telephone)
+  const critere = [
+    lead.email ? `email.ilike.${lead.email}` : null,
+    tel.length === 9 ? `telephone.ilike.%${tel}` : null,
+  ].filter(Boolean).join(',')
+  if (!critere) return null
+
+  const { data } = await admin
+    .from('pistes')
+    .select('id, reference, email, telephone, contact_nom, societe, source_externe_id')
+    .or(critere)
+    .order('date_creation', { ascending: true })
+    .limit(10)
+  return choisirLaMemePersonne((data ?? []) as unknown as PisteConnue[], lead)
+}
+
 export async function creerPisteDepuisLead(
   admin: SupabaseClient,
   texte: string,
@@ -68,26 +135,12 @@ export async function creerPisteDepuisLead(
    * ET ON MARQUE LA PISTE TROUVÉE avec l'horodatage du message. Sans ça, la relecture de demain
    * retrouverait le même message, referait la même recherche, et le canal serait relu en pure perte
    * chaque nuit. */
-  const dixDerniers = (lead.telephone ?? '').replace(/\D/g, '').slice(-9)
-  const critere = [
-    lead.email ? `email.ilike.${lead.email}` : null,
-    dixDerniers.length === 9 ? `telephone.ilike.%${dixDerniers}` : null,
-  ].filter(Boolean).join(',')
-
-  if (critere) {
-    const { data: memePersonne } = await admin
-      .from('pistes').select('id, reference, source_externe_id').or(critere)
-      .order('date_creation', { ascending: true }).limit(1).maybeSingle()
-    if (memePersonne) {
-      if (!memePersonne.source_externe_id) {
-        await admin.from('pistes').update({ source_externe_id: ts }).eq('id', memePersonne.id)
-      }
-      return {
-        etat: 'deja',
-        id: memePersonne.id as string,
-        reference: memePersonne.reference as string,
-      }
+  const memePersonne = await chercherLaMemePersonne(admin, lead)
+  if (memePersonne) {
+    if (!memePersonne.source_externe_id) {
+      await admin.from('pistes').update({ source_externe_id: ts }).eq('id', memePersonne.id)
     }
+    return { etat: 'deja', id: memePersonne.id, reference: memePersonne.reference }
   }
 
   const [{ data: proprietaire }, { data: statut }] = await Promise.all([

@@ -43,10 +43,18 @@ const PAIRES = `
      and a.date_creation < n.date_creation
      and (
        (n.email is not null and a.email is not null and lower(a.email) = lower(n.email))
+       /* UN TÉLÉPHONE IDENTIQUE NE SUFFIT PAS À LUI SEUL, et la vérification l'a montré : deux
+          leads d'essai portaient tous deux le faux numéro 06 12 34 56 78, avec des noms et des
+          sociétés différents. Les apparier aurait supprimé le mauvais. On exige donc, pour un
+          appariement par téléphone, que le nom du contact OU la société concorde aussi. */
        or (n.telephone is not null and a.telephone is not null
            and length(regexp_replace(n.telephone,'\\D','','g')) >= 9
            and right(regexp_replace(a.telephone,'\\D','','g'), 9)
-             = right(regexp_replace(n.telephone,'\\D','','g'), 9))
+             = right(regexp_replace(n.telephone,'\\D','','g'), 9)
+           and (
+             lower(btrim(coalesce(a.contact_nom,''))) = lower(btrim(coalesce(n.contact_nom,'')))
+             or lower(btrim(coalesce(a.societe,'')))  = lower(btrim(coalesce(n.societe,'')))
+           ))
      )
    where n.source_externe_id is not null
      and n.date_creation >= '2026-09-16'
@@ -71,13 +79,18 @@ const PAIRES = `
   try {
     let reportes = 0
     for (const r of rows) {
+      /* ══ SUPPRIMER D'ABORD, MARQUER ENSUITE ══
+         Premier essai, annulé par la base : `idx_pistes_source_externe_id` est UNIQUE, et
+         l'horodatage qu'on voulait poser sur l'origine était encore porté par le doublon. Poser
+         avant de supprimer, c'était demander à deux lignes de partager une clé unique.
+         L'index a fait son travail — et comme tout tenait dans une transaction, rien n'a bougé. */
+      await c.query('delete from public.pistes where id = $1', [r.doublon_id])
       // Le marquage n'écrase jamais un horodatage déjà posé sur l'origine.
       if (!r.origine_ts) {
         await c.query('update public.pistes set source_externe_id = $1 where id = $2 and source_externe_id is null',
           [r.source_externe_id, r.origine_id])
         reportes++
       }
-      await c.query('delete from public.pistes where id = $1', [r.doublon_id])
     }
 
     // GARDE-FOU : on vérifie que les ORIGINES sont toujours là. Supprimer le mauvais côté de la
