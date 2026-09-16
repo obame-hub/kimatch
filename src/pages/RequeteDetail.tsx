@@ -300,7 +300,12 @@ export default function RequeteDetail() {
           que le volet d'activité en prend 25 %, la colonne gauche n'a plus de quoi être bridée : sur
           un écran de 1 440 px il lui reste 1 080 px, dont 320 restaient blancs. Aucune autre fiche
           ne pose ce plafond. */}
-      <div className="grid min-h-0 flex-1 grid-cols-1 overflow-hidden lg:grid-cols-fiche-activite">
+      {/* `grid-rows-[minmax(0,1fr)]` : sans lui, la rangée implicite de cette grille se dimensionne
+          en `auto`, donc à la hauteur de son contenu. Le volet qui dépasse la fenêtre étire la
+          rangée au lieu de défiler, et l'`overflow-hidden` coupe net en bas. Même défaut corrigé
+          sur la fiche compte le 15/09/2026 et sur la fiche piste le 16/09 — voir leur commentaire
+          pour le raisonnement complet. Latent ici tant que le contenu tient dans l'écran. */}
+      <div className="grid min-h-0 flex-1 grid-cols-1 grid-rows-[minmax(0,1fr)] overflow-hidden lg:grid-cols-fiche-activite">
         <div className="min-h-0 overflow-y-auto bg-km-bg p-3.5 lg:px-5">
           {onglet === 'requete' && (
             <div className="flex flex-col gap-3.5 animate-km-fade-slide">

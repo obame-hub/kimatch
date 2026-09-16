@@ -434,7 +434,12 @@ export default function OpportuniteDetail() {
 
       {/* Le volet des objets liés est désormais un onglet : le plan de travail garde toute la
           largeur disponible, à côté du flux d'activité permanent. */}
-      <div className="grid min-h-0 flex-1 grid-cols-1 overflow-hidden lg:grid-cols-fiche-activite">
+      {/* `grid-rows-[minmax(0,1fr)]` : sans lui, la rangée implicite de cette grille se dimensionne
+          en `auto`, donc à la hauteur de son contenu. Le volet qui dépasse la fenêtre étire la
+          rangée au lieu de défiler, et l'`overflow-hidden` coupe net en bas. Même défaut corrigé
+          sur la fiche compte le 15/09/2026 et sur la fiche piste le 16/09 — voir leur commentaire
+          pour le raisonnement complet. Latent ici tant que le contenu tient dans l'écran. */}
+      <div className="grid min-h-0 flex-1 grid-cols-1 grid-rows-[minmax(0,1fr)] overflow-hidden lg:grid-cols-fiche-activite">
 
         {/* Contenu de l'onglet Rattachements. */}
         <div className={cn('col-start-1 row-start-1 min-h-0 space-y-3 overflow-y-auto bg-km-soft p-3.5 lg:px-5', onglet !== 'rattachements' && 'hidden')}>

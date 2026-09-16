@@ -260,7 +260,24 @@ export default function PisteDetail() {
           Naoelle, 01/09/2026 : « affiche-la dans le style de l'objet opportunite avec le flux
           d'actualite a droite ». Le flux mele l'historique des modifications et les taches dans
           l'ordre du temps : sur une piste, il raconte qui a verifie quoi et quand. */}
-      <div className="grid min-h-0 flex-1 grid-cols-1 overflow-hidden lg:grid-cols-fiche-activite">
+      {/* ══ LA RANGÉE DOIT ÊTRE CONTRAINTE, PAS SEULEMENT LES COLONNES ══
+          William, 16/09/2026 : « l'écran est coupé en bas… ça ne devrait pas ». C'est exactement le
+          défaut qu'il avait signalé sur la fiche compte le 15/09, corrigé là-bas et laissé ici :
+          les deux volets avaient bien leur chaîne de `min-h-0` et leur `overflow-y-auto` au bon
+          endroit, mais cette grille n'a qu'une rangée IMPLICITE, donc dimensionnée en `auto` —
+          c'est-à-dire à la hauteur de son contenu le plus haut. Quand le volet dépasse la fenêtre,
+          la rangée grandit avec lui, les colonnes s'étirent à cette hauteur-là, et plus personne
+          n'a besoin de défiler : chaque boîte contient exactement son contenu. C'est
+          l'`overflow-hidden` de la grille qui coupe, tout en bas, sans barre de défilement.
+
+          `grid-rows-[minmax(0,1fr)]` FORCE LA RANGÉE À LA HAUTEUR DISPONIBLE et l'autorise à
+          descendre sous la taille de son contenu — les deux comptent. Sans le `minmax(0, …)`, un
+          `1fr` garde un minimum automatique égal au contenu, et le défaut reste entier.
+
+          IL ÉTAIT LATENT : il ne se voyait que lorsque le volet dépassait la hauteur de l'écran.
+          Les quatre zones du 16/09 l'ont rendu systématique — avant, l'onglet Piste tenait presque
+          toujours dans la fenêtre. */}
+      <div className="grid min-h-0 flex-1 grid-cols-1 grid-rows-[minmax(0,1fr)] overflow-hidden lg:grid-cols-fiche-activite">
         <div className="min-h-0 overflow-y-auto bg-km-bg p-4 sm:p-5">
         {onglet === 'piste' && (
           <div className="flex flex-col gap-3.5">

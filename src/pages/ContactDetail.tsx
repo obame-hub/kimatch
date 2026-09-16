@@ -294,7 +294,12 @@ export default function ContactDetail() {
         </div>
       </div>
 
-      <div className="grid min-h-0 flex-1 grid-cols-1 overflow-hidden lg:grid-cols-fiche-activite">
+      {/* `grid-rows-[minmax(0,1fr)]` : sans lui, la rangée implicite de cette grille se dimensionne
+          en `auto`, donc à la hauteur de son contenu. Le volet qui dépasse la fenêtre étire la
+          rangée au lieu de défiler, et l'`overflow-hidden` coupe net en bas. Même défaut corrigé
+          sur la fiche compte le 15/09/2026 et sur la fiche piste le 16/09 — voir leur commentaire
+          pour le raisonnement complet. Latent ici tant que le contenu tient dans l'écran. */}
+      <div className="grid min-h-0 flex-1 grid-cols-1 grid-rows-[minmax(0,1fr)] overflow-hidden lg:grid-cols-fiche-activite">
         {/* Centre */}
         <div className="min-h-0 overflow-y-auto bg-km-bg p-4 sm:p-5">
           {tab === 'contact' && (
