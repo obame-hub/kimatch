@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react'
-import { Search, KeyRound, Link2, Shield, ShieldOff, Hash, AlertTriangle } from 'lucide-react'
+import { Search, KeyRound, Link2, Shield, ShieldOff, Hash, AlertTriangle, X, Copy, Check } from 'lucide-react'
 import { useCatalogue, OBJETS_PRINCIPAUX, estTechnique, type TableCatalogue, type ChampCatalogue } from '@/lib/data/catalogue'
 import { cn } from '@/lib/utils'
 
@@ -55,9 +55,24 @@ function Etiquette({ children, ton = 'neutre' }: { children: React.ReactNode; to
   )
 }
 
-function LigneChamp({ champ, surTable }: { champ: ChampCatalogue; surTable: (t: string) => void }) {
+function LigneChamp({
+  champ, surTable, surChamp, choisi,
+}: {
+  champ: ChampCatalogue
+  surTable: (t: string) => void
+  surChamp: (c: ChampCatalogue) => void
+  choisi: boolean
+}) {
   return (
-    <tr className="border-t border-km-line align-top">
+    /* TOUTE LA LIGNE OUVRE LA FICHE, sauf les liens qu'elle contient : viser un nom de champ haut
+       de huit pixels pour ouvrir un panneau serait une cible ridicule. */
+    <tr
+      onClick={() => surChamp(champ)}
+      className={cn(
+        'cursor-pointer border-t border-km-line align-top transition-colors',
+        choisi ? 'bg-km-green-soft' : 'hover:bg-km-soft',
+      )}
+    >
       <td className="py-2 pr-3">
         <div className="flex items-center gap-1.5">
           {champ.cle_primaire && <KeyRound className="h-3 w-3 shrink-0 text-km-green" aria-label="Clé primaire" />}
@@ -84,7 +99,7 @@ function LigneChamp({ champ, surTable }: { champ: ChampCatalogue; surTable: (t: 
         {champ.reference ? (
           <button
             type="button"
-            onClick={() => surTable(champ.reference!.table)}
+            onClick={(e) => { e.stopPropagation(); surTable(champ.reference!.table) }}
             className="inline-flex items-center gap-1 text-km-label font-semibold text-km-green hover:underline"
           >
             <Link2 className="h-3 w-3" />
@@ -108,7 +123,159 @@ function LigneChamp({ champ, surTable }: { champ: ChampCatalogue; surTable: (t: 
   )
 }
 
-function DetailTable({ table, surTable }: { table: TableCatalogue; surTable: (t: string) => void }) {
+/**
+ * ══ LA FICHE D'UN CHAMP ══
+ *
+ * Naoëlle, 16/09/2026 : « on ne peut pas cliquer sur un champ et le gérer ».
+ *
+ * Ce panneau répond d'abord à ce qu'elle demandait au départ : « leurs liens de colonne Supabase
+ * […] les ID ». Le nom qualifié complet — `public.comptes.telephone` — se copie d'un clic, parce
+ * que c'est exactement ce qu'on colle dans une requête, un script, ou un message à Michel.
+ *
+ * CE QU'ON NE PEUT PAS FAIRE Y EST ÉCRIT, au lieu d'être laissé à deviner devant des boutons
+ * absents. Un écran d'administration qui tait ses limites se fait accuser d'être cassé, et on
+ * cherche le bouton pendant dix minutes.
+ */
+function FicheChamp({
+  table, champ, surTable, fermer,
+}: {
+  table: TableCatalogue
+  champ: ChampCatalogue
+  surTable: (t: string) => void
+  fermer: () => void
+}) {
+  const [copie, setCopie] = useState(false)
+  const qualifie = `public.${table.nom}.${champ.nom}`
+
+  const copier = async () => {
+    try {
+      await navigator.clipboard.writeText(qualifie)
+      setCopie(true)
+      setTimeout(() => setCopie(false), 1500)
+    } catch {
+      /* Presse-papier refusé : le nom reste affiché et sélectionnable à la main. */
+    }
+  }
+
+  const Ligne = ({ cle, children }: { cle: string; children: React.ReactNode }) => (
+    <div className="flex gap-2 border-t border-km-line py-1.5 first:border-t-0">
+      <span className="w-[108px] shrink-0 text-km-label text-km-faint">{cle}</span>
+      <span className="min-w-0 flex-1 text-km-label text-km-text">{children}</span>
+    </div>
+  )
+
+  return (
+    <aside className="w-[330px] shrink-0 overflow-y-auto rounded-km border border-km-line bg-white p-3.5">
+      <div className="mb-2 flex items-start gap-2">
+        <div className="min-w-0 flex-1">
+          <p className="font-mono text-km-name font-semibold text-km-text">{champ.nom}</p>
+          <p className="truncate font-mono text-km-tiny text-km-faint">{table.nom}</p>
+        </div>
+        <button
+          type="button"
+          onClick={fermer}
+          title="Fermer"
+          className="shrink-0 rounded p-1 text-km-faint transition-colors hover:bg-km-soft hover:text-km-text"
+        >
+          <X className="h-3.5 w-3.5" />
+        </button>
+      </div>
+
+      <button
+        type="button"
+        onClick={copier}
+        className="mb-3 flex w-full items-center justify-between gap-2 rounded-km border border-km-line px-2 py-1.5 text-left transition-colors hover:border-km-green hover:bg-km-green-soft"
+      >
+        <span className="min-w-0 truncate font-mono text-km-tiny text-km-text">{qualifie}</span>
+        {copie
+          ? <Check className="h-3.5 w-3.5 shrink-0 text-km-green" />
+          : <Copy className="h-3.5 w-3.5 shrink-0 text-km-faint" />}
+      </button>
+
+      {champ.commentaire && (
+        <p className="mb-3 rounded-km bg-km-soft px-2 py-1.5 text-km-label leading-snug text-km-muted">
+          {champ.commentaire}
+        </p>
+      )}
+
+      <Ligne cle="Type"><span className="font-mono">{champ.type}</span></Ligne>
+      <Ligne cle="Saisie">{champ.obligatoire ? 'Obligatoire' : 'Facultative'}</Ligne>
+      <Ligne cle="Par défaut">
+        {champ.defaut ? <span className="break-all font-mono text-km-tiny">{champ.defaut}</span> : 'aucune'}
+      </Ligne>
+      <Ligne cle="Clés & index">
+        <div className="flex flex-wrap gap-1">
+          {champ.cle_primaire && <Etiquette ton="vert">clé primaire</Etiquette>}
+          {champ.unique && <Etiquette ton="vert">unique</Etiquette>}
+          {champ.indexee && <Etiquette>indexée</Etiquette>}
+          {champ.genere && <Etiquette>calculée</Etiquette>}
+          {!champ.cle_primaire && !champ.unique && !champ.indexee && !champ.genere && (
+            <span className="text-km-faint">aucun</span>
+          )}
+        </div>
+      </Ligne>
+
+      {champ.reference && (
+        <Ligne cle="Pointe vers">
+          <button
+            type="button"
+            onClick={() => surTable(champ.reference!.table)}
+            className="font-mono font-semibold text-km-green hover:underline"
+          >
+            {champ.reference.table}.{champ.reference.colonne}
+          </button>
+          {champ.reference.a_la_suppression && (
+            <p className="mt-0.5 text-km-tiny text-km-faint">
+              Si la ligne visée est supprimée : {champ.reference.a_la_suppression}.
+            </p>
+          )}
+        </Ligne>
+      )}
+
+      {champ.cle_primaire && table.referencee_par.length > 0 && (
+        <Ligne cle="Référencée par">
+          <div className="flex flex-wrap gap-1">
+            {table.referencee_par.map((r) => (
+              <button
+                key={`${r.table}.${r.colonne}`}
+                type="button"
+                onClick={() => surTable(r.table)}
+                className="rounded-km border border-km-line px-1.5 py-0.5 font-mono text-km-tiny text-km-text hover:border-km-green"
+              >
+                {r.table}.{r.colonne}
+              </button>
+            ))}
+          </div>
+        </Ligne>
+      )}
+
+      {/* ══ POURQUOI IL N'Y A PAS DE BOUTON « MODIFIER » ══
+          Dit ici, à l'endroit exact où l'on s'attend à en trouver un. */}
+      <div className="mt-3 rounded-km border border-km-line bg-km-soft px-2 py-2">
+        <p className="text-km-label font-semibold text-km-text">Ce champ ne se modifie pas d’ici</p>
+        <p className="mt-1 text-km-tiny leading-snug text-km-muted">
+          C’est une vraie colonne PostgreSQL, que le code de Kimatch nomme en toutes lettres. La
+          renommer casserait les écrans qui s’en servent à la seconde suivante, et la supprimer
+          emporterait ses données sans corbeille. Ces changements passent par une migration, relue
+          et tracée.
+        </p>
+        <p className="mt-1.5 text-km-tiny leading-snug text-km-muted">
+          Les champs <strong>ajoutés</strong>, eux, se créeront bien ici : ils vivront à part et ne
+          pourront rien casser.
+        </p>
+      </div>
+    </aside>
+  )
+}
+
+function DetailTable({
+  table, surTable, surChamp, champChoisi,
+}: {
+  table: TableCatalogue
+  surTable: (t: string) => void
+  surChamp: (c: ChampCatalogue) => void
+  champChoisi: string | null
+}) {
   return (
     <div className="min-w-0">
       <div className="mb-3">
@@ -156,7 +323,13 @@ function DetailTable({ table, surTable }: { table: TableCatalogue; surTable: (t:
           </thead>
           <tbody>
             {table.colonnes.map((c) => (
-              <LigneChamp key={c.nom} champ={c} surTable={surTable} />
+              <LigneChamp
+                key={c.nom}
+                champ={c}
+                surTable={surTable}
+                surChamp={surChamp}
+                choisi={champChoisi === c.nom}
+              />
             ))}
           </tbody>
         </table>
@@ -192,6 +365,10 @@ export function GestionnaireObjets() {
   const { data, isLoading, error } = useCatalogue()
   const [recherche, setRecherche] = useState('')
   const [choisie, setChoisie] = useState<string | null>(null)
+  /* LE CHAMP CHOISI SE PERD QUAND ON CHANGE DE TABLE : garder « telephone » sélectionné en passant
+     de comptes à contrats ouvrirait la fiche d'un champ qui n'existe pas là. */
+  const [champChoisi, setChampChoisi] = useState<string | null>(null)
+  const choisirTable = (t: string) => { setChoisie(t); setChampChoisi(null) }
 
   const tables = data?.tables ?? []
 
@@ -228,7 +405,7 @@ export function GestionnaireObjets() {
           <button
             key={t.nom}
             type="button"
-            onClick={() => setChoisie(t.nom)}
+            onClick={() => choisirTable(t.nom)}
             className={cn(
               'flex w-full items-center justify-between gap-2 rounded-km px-2 py-1.5 text-left font-mono text-km-label transition-colors',
               table?.nom === t.nom ? 'bg-km-green-soft text-km-green' : 'text-km-text hover:bg-km-soft',
@@ -267,8 +444,30 @@ export function GestionnaireObjets() {
         </div>
 
         <div className="min-w-0 flex-1 overflow-y-auto rounded-km border border-km-line bg-white p-4">
-          {table ? <DetailTable table={table} surTable={setChoisie} /> : null}
+          {table ? (
+            <DetailTable
+              table={table}
+              surTable={choisirTable}
+              surChamp={(c) => setChampChoisi(c.nom)}
+              champChoisi={champChoisi}
+            />
+          ) : null}
         </div>
+
+        {/* LA FICHE S'OUVRE À CÔTÉ, PAS PAR-DESSUS : on compare presque toujours un champ à ses
+            voisins — « lequel des deux porte la référence ? » — et une fenêtre modale masquerait
+            justement la liste qu'on est en train de lire. */}
+        {table && champChoisi && (() => {
+          const champ = table.colonnes.find((c) => c.nom === champChoisi)
+          return champ ? (
+            <FicheChamp
+              table={table}
+              champ={champ}
+              surTable={choisirTable}
+              fermer={() => setChampChoisi(null)}
+            />
+          ) : null
+        })()}
       </div>
     </div>
   )
