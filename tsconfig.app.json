@@ -19,6 +19,9 @@
     "paths": {
       "@/*": ["src/*"]
     },
+    /* LE RELEVÉ DES MOTS DU CODE EST UN JSON IMPORTÉ À LA DEMANDE. Sans cette option, l'import
+       dynamique de `src/generated/mots-du-code.json` ne compile pas. */
+    "resolveJsonModule": true,
 
     /* Linting */
     "strict": true,

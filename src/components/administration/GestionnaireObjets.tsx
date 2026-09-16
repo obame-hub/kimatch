@@ -1,6 +1,7 @@
 import { useMemo, useState } from 'react'
 import { Search, KeyRound, Link2, Shield, ShieldOff, Hash, AlertTriangle, X, Copy, Check } from 'lucide-react'
 import { useCatalogue, OBJETS_PRINCIPAUX, estTechnique, type TableCatalogue, type ChampCatalogue } from '@/lib/data/catalogue'
+import { ActionsChamp, BoutonAjouterChamp } from '@/components/administration/ActionsChamp'
 import { cn } from '@/lib/utils'
 
 /**
@@ -249,21 +250,7 @@ function FicheChamp({
         </Ligne>
       )}
 
-      {/* ══ POURQUOI IL N'Y A PAS DE BOUTON « MODIFIER » ══
-          Dit ici, à l'endroit exact où l'on s'attend à en trouver un. */}
-      <div className="mt-3 rounded-km border border-km-line bg-km-soft px-2 py-2">
-        <p className="text-km-label font-semibold text-km-text">Ce champ ne se modifie pas d’ici</p>
-        <p className="mt-1 text-km-tiny leading-snug text-km-muted">
-          C’est une vraie colonne PostgreSQL, que le code de Kimatch nomme en toutes lettres. La
-          renommer casserait les écrans qui s’en servent à la seconde suivante, et la supprimer
-          emporterait ses données sans corbeille. Ces changements passent par une migration, relue
-          et tracée.
-        </p>
-        <p className="mt-1.5 text-km-tiny leading-snug text-km-muted">
-          Les champs <strong>ajoutés</strong>, eux, se créeront bien ici : ils vivront à part et ne
-          pourront rien casser.
-        </p>
-      </div>
+      <ActionsChamp table={table} champ={champ} />
     </aside>
   )
 }
@@ -297,6 +284,9 @@ function DetailTable({
           )}
         </div>
         {table.commentaire && <p className="mt-1 text-km-body text-km-muted">{table.commentaire}</p>}
+        <div className="mt-2">
+          <BoutonAjouterChamp table={table} />
+        </div>
         {/* UNE TABLE AVEC RLS ET ZÉRO POLITIQUE NE LAISSE PASSER PERSONNE. C'est arrivé en juillet
             sur 44 tables d'un coup : l'application semblait vide sans qu'aucune erreur ne s'affiche.
             Autant que ça saute aux yeux ici. */}
