@@ -532,12 +532,37 @@ export function useMajPerimetreOpportunite() {
         // contient déjà cette cible.
         if (error && !/duplicate key/i.test(error.message)) throw new Error(messageDErreur(error.message))
       } else {
-        const { error } = await supabase
+        /* ══ RETIRER SANS RIEN RETIRER, C'EST CE QUI A FAIT « RÉAPPARAÎTRE » UN COMPTEUR ══
+         *
+         * William, 16/09/2026 : « Matthieu ne peut pas supprimer les compteurs du périmètre, il
+         * aimerait supprimer le GI085392 mais il réapparaît tout le temps. »
+         *
+         * MÊME CAUSE QUE LA SUPPRESSION D'UNE OPPORTUNITÉ : `opportunites_compteurs` portait une
+         * politique restrictive réservant le DELETE aux administrateurs. Pour un conseiller, la
+         * ligne était invisible en écriture, donc zéro ligne effacée — et zéro ligne effacée est un
+         * succès pour Postgres. L'écran retirait la ligne de son affichage, relisait le périmètre
+         * juste après, et le compteur revenait. D'où « il réapparaît tout le temps » : ce n'était
+         * pas un retour, il n'était jamais parti.
+         *
+         * Les droits sont ouverts depuis la migration 20260916100000. CE CONTRÔLE RESTE quand même :
+         * il ne parle pas des droits, il garantit que l'écran ne dise jamais « retiré » sur une
+         * ligne encore là. La cause peut changer — une règle qui revient, une ligne déjà supprimée
+         * ailleurs — le symptôme, lui, doit cesser d'être muet.
+         */
+        const { data, error } = await supabase
           .from(table)
           .delete()
           .eq('opportunite_id', input.opportuniteId)
           .eq(colonne, input.cibleId)
+          .select('opportunite_id')
         if (error) throw new Error(messageDErreur(error.message))
+        if (!data || data.length === 0) {
+          throw new Error(
+            input.table === 'sites'
+              ? 'Ce site n’a pas pu être retiré du périmètre : il n’y était plus, ou vos droits ne le permettent pas.'
+              : 'Ce compteur n’a pas pu être retiré du périmètre : il n’y était plus, ou vos droits ne le permettent pas.',
+          )
+        }
       }
     },
     onSuccess: () => { qc.invalidateQueries({ queryKey: ['opportunites'] }) },
@@ -573,8 +598,33 @@ export function useDeleteOpportunite() {
   const qc = useQueryClient()
   return useMutation({
     mutationFn: async (id: string) => {
-      const { error } = await supabase.from('opportunites').delete().eq('id', id)
+      /* ══ UNE SUPPRESSION QUI N'EFFACE RIEN N'EST PAS UNE RÉUSSITE ══
+       *
+       * William, 16/09/2026 : « Matthieu m'indique qu'il ne peut pas supprimer une opportunité.
+       * Rien ne le bloque mais l'opportunité ne se supprime pas. »
+       *
+       * `opportunites` porte une politique RESTRICTIVE qui réserve la suppression aux profils
+       * SUPER_ADMIN et ADMIN. Matthieu est CONSEILLER : sa ligne lui est invisible en écriture, donc
+       * le DELETE ne trouve AUCUNE ligne à effacer.
+       *
+       * ET C'EST UN SUCCÈS AUX YEUX DE POSTGRES. Supprimer zéro ligne est une instruction valide :
+       * PostgREST ne renvoie pas d'erreur, `error` vaut nul, l'écran annonce « supprimée » et la
+       * fiche reste là. Le refus de droit et le succès étaient rigoureusement indiscernables.
+       *
+       * `.select('id')` FAIT TOUTE LA DIFFÉRENCE : il rend les lignes réellement effacées. Zéro
+       * ligne devient alors un fait qu'on peut nommer, au lieu d'un silence.
+       */
+      const { data, error } = await supabase.from('opportunites').delete().eq('id', id).select('id')
       if (error) throw new Error(messageDErreur(error.message))
+      /* LE FILET RESTE APRÈS L'OUVERTURE DES DROITS (migration 20260916100000), et c'est voulu :
+         ce n'est pas un message sur les droits, c'est la garantie que l'écran ne dira jamais
+         « supprimée » sur une ligne encore là. Une règle de sécurité peut revenir, une ligne peut
+         disparaître entre l'affichage et le clic — dans les deux cas on préfère le dire. */
+      if (!data || data.length === 0) {
+        throw new Error(
+          'Rien n’a été supprimé : cette opportunité n’existe plus, ou vos droits ne le permettent pas.',
+        )
+      }
     },
     onSuccess: () => {
       void qc.invalidateQueries({ queryKey: ['opportunites'] })
