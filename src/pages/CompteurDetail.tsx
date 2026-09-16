@@ -26,6 +26,7 @@ import { HistoriqueContrats } from '@/components/compteur/HistoriqueContrats'
 import { natureEcheance } from '@/lib/echeance'
 import { BadgeEcheance } from '@/components/compteur/BadgeEcheance'
 import { useMandats } from '@/lib/data/mandats'
+import { OpportunitesDuCompteur } from '@/components/compteur/OpportunitesDuCompteur'
 import { useRecommandationsListe } from '@/lib/data/recommandations'
 import { useDocuments, useTeleverserDocuments } from '@/lib/data/documents'
 import { useReferenceTable } from '@/lib/data/referenceTables'
@@ -755,6 +756,13 @@ export default function CompteurDetail() {
           canManage={canManage}
           onModifierContacts={() => setTab('apercu')}
         />
+
+        {/* ══ LE LIEN QUI NE SE LISAIT QUE D'UN CÔTÉ ══
+            L'audit des rattachements le signalait depuis le 10/09 : « opportunité ↔ compteur —
+            CompteurDetail : AUCUN ÉCRAN NE LE MONTRE ». Les 54 liens existaient en base, mais
+            depuis un compteur on ignorait qu'une affaire le concernait. C'est pourtant la question
+            qu'on se pose en décrochant : a-t-on déjà quelque chose en cours ici ? */}
+        <OpportunitesDuCompteur compteurId={compteur?.id} />
 
         {/* ══ LE LIEU DU COMPTEUR, ET C'EST LUI QUI FAIT FOI ══════════════════════════════════
 

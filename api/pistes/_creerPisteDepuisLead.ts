@@ -51,6 +51,45 @@ export async function creerPisteDepuisLead(
     .from('pistes').select('id, reference').eq('source_externe_id', ts).maybeSingle()
   if (deja) return { etat: 'deja', id: deja.id as string, reference: deja.reference as string }
 
+  /* ══ LA MÊME PERSONNE EXISTE-T-ELLE DÉJÀ, VENUE D'AILLEURS ? ══
+   *
+   * 16/09/2026, 4 h 50 : la relecture du canal a créé 93 pistes, dont 64 doublaient une piste déjà
+   * présente — les mêmes prospects, arrivés par l'import Salesforce. Des commerciaux allaient
+   * rappeler des gens déjà en cours.
+   *
+   * LA CAUSE ÉTAIT ICI. `source_externe_id` rend l'opération idempotente pour UN MESSAGE SLACK —
+   * rejouer le même message ne crée rien deux fois. Mais les pistes venues de Salesforce n'ont pas
+   * d'horodatage Slack : pour cette clé, elles n'existaient pas. Une clé d'idempotence ne protège
+   * que des rejeux de sa propre source ; elle ne dit rien de ce qui est entré par une autre porte.
+   *
+   * ON COMPARE DONC AUSSI LA PERSONNE : e-mail identique, ou neuf derniers chiffres du téléphone —
+   * la même règle que le webhook Allo, qui doit reconnaître un numéro écrit de six façons.
+   *
+   * ET ON MARQUE LA PISTE TROUVÉE avec l'horodatage du message. Sans ça, la relecture de demain
+   * retrouverait le même message, referait la même recherche, et le canal serait relu en pure perte
+   * chaque nuit. */
+  const dixDerniers = (lead.telephone ?? '').replace(/\D/g, '').slice(-9)
+  const critere = [
+    lead.email ? `email.ilike.${lead.email}` : null,
+    dixDerniers.length === 9 ? `telephone.ilike.%${dixDerniers}` : null,
+  ].filter(Boolean).join(',')
+
+  if (critere) {
+    const { data: memePersonne } = await admin
+      .from('pistes').select('id, reference, source_externe_id').or(critere)
+      .order('date_creation', { ascending: true }).limit(1).maybeSingle()
+    if (memePersonne) {
+      if (!memePersonne.source_externe_id) {
+        await admin.from('pistes').update({ source_externe_id: ts }).eq('id', memePersonne.id)
+      }
+      return {
+        etat: 'deja',
+        id: memePersonne.id as string,
+        reference: memePersonne.reference as string,
+      }
+    }
+  }
+
   const [{ data: proprietaire }, { data: statut }] = await Promise.all([
     admin.from('profils').select('id').eq('email', PROPRIETAIRE_PAR_DEFAUT_EMAIL).maybeSingle(),
     admin.from('statuts_pistes').select('id').eq('code', 'NOUVELLE').maybeSingle(),
