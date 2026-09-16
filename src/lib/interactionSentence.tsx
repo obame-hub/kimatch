@@ -94,7 +94,17 @@ export function InteractionSentence({ interaction }: { interaction: Interaction 
           la durée d'Allo colle à l'intervalle depuis le DÉCROCHÉ dans 40 cas sur 40, jamais à celui
           depuis la composition. La sonnerie n'y est pas comptée. */}
       {cat === 'appel' && dureeAppel(interaction) && (
-        <span className="text-km-faint"> · {dureeAppel(interaction)}</span>
+        /* ON DIT « EN LIGNE », PAS « DURÉE ». Naoëlle, 15/09/2026 : « précise bien que c'est le temps
+           depuis le décroché, pour que ça se comprenne que la tonalité du début n'est pas dedans ».
+           « Durée » laisse croire qu'on compte depuis le moment où l'on a cliqué ; « en ligne » ne
+           peut désigner que le temps où quelqu'un était au bout du fil. L'infobulle le dit en
+           toutes lettres pour qui en doute. */
+        <span
+          className="text-km-faint"
+          title="Temps passé en ligne, à partir du décroché — la sonnerie n’est pas comptée."
+        >
+          {' · '}{dureeAppel(interaction)} en ligne
+        </span>
       )}
     </span>
   )

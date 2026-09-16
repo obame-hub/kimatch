@@ -222,7 +222,13 @@ export default function InteractionDetail() {
                 </p>
               )}
               {interaction.duree_appel_secondes != null && (
-                <p><span className="text-km-faint">Durée :</span> {Math.floor(interaction.duree_appel_secondes / 60)} min {interaction.duree_appel_secondes % 60}s</p>
+                /* « EN LIGNE » ET NON « DURÉE » : le décompte part du décroché, la sonnerie n'y est
+                   pas. Mesuré le 15/09/2026 sur 40 appels — la durée d'Allo colle à l'intervalle
+                   depuis le décroché dans 40 cas sur 40. */
+                <p title="À partir du décroché — la sonnerie n’est pas comptée.">
+                  <span className="text-km-faint">En ligne :</span>{' '}
+                  {Math.floor(interaction.duree_appel_secondes / 60)} min {interaction.duree_appel_secondes % 60}s
+                </p>
               )}
               {interaction.numero_correspondant && (
                 <p><span className="text-km-faint">Numéro :</span> {interaction.numero_correspondant}</p>
