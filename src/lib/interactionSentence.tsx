@@ -52,6 +52,15 @@ function relatedEntity(i: Interaction): { to: string; label: string } | null {
 }
 
 /** Phrase complète, cliquable, du meme type que le fil d'activite Salesforce. */
+/** « 2 min 14 s », ou « 43 s ». Rien du tout quand la durée manque ou vaut zéro : un appel à
+    « 0 s » se lit comme une anomalie, alors que c'est simplement un appel jamais décroché. */
+function dureeAppel(i: Interaction): string | null {
+  const s = i.duree_appel_secondes
+  if (typeof s !== 'number' || s <= 0) return null
+  const m = Math.floor(s / 60)
+  return m > 0 ? `${m} min ${String(s % 60).padStart(2, '0')} s` : `${s} s`
+}
+
 export function InteractionSentence({ interaction }: { interaction: Interaction }) {
   const cat = classifyInteraction(interaction)
   const future = new Date(interaction.date_interaction).getTime() > Date.now()
@@ -75,6 +84,17 @@ export function InteractionSentence({ interaction }: { interaction: Interaction 
           {' '}
           {relConn} <EntityLink to={related.to}>{related.label}</EntityLink>
         </>
+      )}
+      {/* ══ LA DURÉE DE L'APPEL, DANS LE FIL ══
+          Naoëlle, 15/09/2026 : « où est-ce que je vois l'info du temps depuis décroché ? ». Elle
+          n'existait que dans le détail d'un échange — il fallait ouvrir la ligne pour l'obtenir,
+          donc on ne la voyait jamais en parcourant une fiche.
+
+          C'EST BIEN UN TEMPS DE CONVERSATION. Mesuré le 15/09 sur les 40 derniers appels décrochés :
+          la durée d'Allo colle à l'intervalle depuis le DÉCROCHÉ dans 40 cas sur 40, jamais à celui
+          depuis la composition. La sonnerie n'y est pas comptée. */}
+      {cat === 'appel' && dureeAppel(interaction) && (
+        <span className="text-km-faint"> · {dureeAppel(interaction)}</span>
       )}
     </span>
   )
