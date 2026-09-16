@@ -465,7 +465,8 @@ export function CreateRecommandationDialog({
 
     const result = await createRecommandation.mutateAsync({
       titre,
-      mandat_id: mandatRetenu.id,
+      // L'assistant travaille sous un mandat unique, choisi plus haut : une liste d'un seul élément.
+      mandat_ids: [mandatRetenu.id],
       compte_id: compteCible.id,
       compte_nom: compteCible.nom,
       type_energie_id: typeEnergieId || null,

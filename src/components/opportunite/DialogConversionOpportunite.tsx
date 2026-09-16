@@ -139,22 +139,49 @@ export function DialogConversionOpportunite({
 
   const choisis = restants.filter((c) => selection.has(c.id))
 
-  /* ── CE QU'UN LOT NE PEUT PAS MÉLANGER ──
-     Une recommandation porte UNE énergie et UN mandat. Ce ne sont pas des règles de confort : le
-     comparatif se fait à énergie constante, et le mandat est l'autorisation de consulter. Un lot
-     qui mélange se refuse ici plutôt qu'à l'enregistrement, où l'erreur serait illisible. */
+  /* ══ CE QU'UN LOT NE PEUT PAS MÉLANGER — ET CE QU'IL PEUT ══
+   *
+   * L'ÉNERGIE RESTE UNE : le comparatif se fait à énergie constante, mélanger gaz et électricité
+   * n'a pas de sens.
+   *
+   * LE MANDAT, LUI, N'A PLUS À ÊTRE UNIQUE. William, 16/09/2026, sur l'opportunité aux douze
+   * compteurs : « le plus important c'est que tous les compteurs soient couverts, peu importe si
+   * c'est 2 mandats différents. » Ce qui compte est l'autorisation de consulter, et elle est acquise
+   * dès qu'un mandat actif couvre le compteur — qu'il couvre aussi ses voisins est sans effet sur ce
+   * droit.
+   *
+   * ══ ET L'ANCIENNE RÈGLE SE TROMPAIT MÊME SUR SES PROPRES TERMES ══
+   *
+   * Elle ne cherchait pas un mandat COMMUN : elle prenait le premier mandat couvrant le PREMIER
+   * compteur choisi, puis vérifiait que les autres y étaient. Un mandat étroit rencontré en tête
+   * faisait donc échouer un lot qu'un mandat plus large couvrait entièrement.
+   *
+   * C'est exactement ce qui est arrivé : les douze compteurs sont tous couverts par MDT-2026-916,
+   * mais le premier de la liste porte aussi MDT-2025-259, qui ne couvre que lui. L'écran annonçait
+   * « faites-en deux lots » devant un lot parfaitement légitime.
+   *
+   * ══ CE QU'ON INSCRIT ══
+   *
+   * TOUS les mandats qui couvrent le lot, le plus couvrant en tête comme principal. Sans quoi la
+   * recommandation ne porterait qu'une partie de son autorisation, et la question « de quoi ce
+   * dossier tire-t-il son droit de consulter » resterait sans réponse complète. */
   const energies = new Set(choisis.map((c) => c.type_energie))
-  const mandatDuLot = choisis.length > 0
-    ? mandatsActifs.find((m) => m.compteur_ids.includes(choisis[0].id)) ?? null
-    : null
-  const tousSousLeMemeMandat = choisis.length > 0 && !!mandatDuLot
-    && choisis.every((c) => mandatDuLot.compteur_ids.includes(c.id))
+
+  /** Les compteurs du lot qu'aucun mandat actif ne couvre. Ce sont eux qui bloquent, nommément. */
+  const nonCouverts = choisis.filter(
+    (c) => !mandatsActifs.some((m) => m.compteur_ids.includes(c.id)),
+  )
 
   const empechement = (() => {
     if (choisis.length === 0) return 'Choisissez au moins un compteur.'
     if (energies.size > 1) return 'Un lot ne peut pas mélanger gaz et électricité : une recommandation porte une seule énergie.'
-    if (!mandatDuLot) return 'Aucun mandat actif ne couvre ce compteur — la recommandation n’aurait pas d’autorisation de consulter.'
-    if (!tousSousLeMemeMandat) return 'Ces compteurs ne sont pas couverts par le même mandat : faites-en deux lots.'
+    if (nonCouverts.length > 0) {
+      const nommes = nonCouverts.slice(0, 3).map((c) => c.numero_pdl).join(', ')
+      const reste = nonCouverts.length > 3 ? ` et ${nonCouverts.length - 3} autre${nonCouverts.length - 3 > 1 ? 's' : ''}` : ''
+      return nonCouverts.length === 1
+        ? `${nommes} n’est couvert par aucun mandat actif — retirez-le du lot, ou faites signer un mandat.`
+        : `${nonCouverts.length} compteurs ne sont couverts par aucun mandat actif (${nommes}${reste}) — retirez-les du lot, ou faites signer un mandat.`
+    }
     return null
   })()
 
@@ -210,14 +237,30 @@ export function DialogConversionOpportunite({
     try {
       for (const lot of lots) {
         const compteursDuLot = compteursDuPerimetre.filter((c) => lot.compteurIds.includes(c.id))
-        const mandat = mandatsActifs.find((m) => m.compteur_ids.includes(compteursDuLot[0].id))
-        if (!mandat) throw new Error(`Le lot « ${lot.titre} » n’a plus de mandat actif.`)
+        /* Tous les mandats qui couvrent au moins un compteur du lot, LE PLUS COUVRANT EN TÊTE : il
+           devient le principal, ce qui est le choix le plus défendable quand il y en a plusieurs.
+           Le contrôle est refait ici et pas seulement à l'écran : un mandat peut expirer entre la
+           composition du lot et l'enregistrement. */
+        const mandatsDuLot = mandatsActifs
+          .map((m) => ({ m, couverts: compteursDuLot.filter((c) => m.compteur_ids.includes(c.id)).length }))
+          .filter((x) => x.couverts > 0)
+          .sort((a, b) => b.couverts - a.couverts)
+          .map((x) => x.m)
+        const orphelins = compteursDuLot.filter(
+          (c) => !mandatsDuLot.some((m) => m.compteur_ids.includes(c.id)),
+        )
+        if (orphelins.length > 0) {
+          throw new Error(
+            `Le lot « ${lot.titre} » contient ${orphelins.length} compteur(s) sans mandat actif : `
+            + orphelins.map((c) => c.numero_pdl).join(', '),
+          )
+        }
         const client = (c: Compteur) => (contrats ?? []).some(
           (ct) => (!ct.date_fin || new Date(ct.date_fin) >= new Date()) && ct.compteurs.some((x) => x.id === c.id),
         )
         await creerRecommandation.mutateAsync({
           titre: lot.titre,
-          mandat_id: mandat.id,
+          mandat_ids: mandatsDuLot.map((m) => m.id),
           compte_id: opportunite.compte_id ?? '',
           compte_nom: opportunite.compte_nom,
           type_energie_id: null,

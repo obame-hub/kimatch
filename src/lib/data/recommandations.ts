@@ -902,7 +902,19 @@ export function compteursDejaEngages(recommandations: Recommandation[]): Set<str
 
 interface CreateRecommandationInput {
   titre: string
-  mandat_id: string
+  /**
+   * LES MANDATS QUI AUTORISENT CETTE RECOMMANDATION, le principal en tête.
+   *
+   * William, 16/09/2026 : « le plus important c'est que tous les compteurs soient couverts, peu
+   * importe si c'est 2 mandats différents. » Un lot peut donc s'appuyer sur plusieurs mandats, et
+   * les inscrire tous est le seul moyen de pouvoir répondre plus tard à « de quoi ce dossier
+   * tire-t-il son autorisation ».
+   *
+   * `recommandations_mandats` était fait pour ça depuis l'origine — clé unique sur le couple, et un
+   * drapeau `principal`. Elle n'avait simplement jamais reçu plus d'une ligne par dossier : 92
+   * liens pour 92 recommandations, tous principaux.
+   */
+  mandat_ids: string[]
   compte_id: string
   compte_nom: string
   type_energie_id: string | null
@@ -991,9 +1003,18 @@ export function useCreateRecommandation() {
             .from('recommandations_compteurs')
             .insert(input.compteurs.map((c) => ({ recommandation_id: recoId, compteur_id: c.id })))
         }
-        await supabase
-          .from('recommandations_mandats')
-          .insert({ recommandation_id: recoId, mandat_id: input.mandat_id, principal: true })
+        // Le premier est le principal ; `distinct` parce qu'un même mandat couvre souvent plusieurs
+        // compteurs du lot et que la clé unique refuserait le doublon.
+        const mandatsDuLot = [...new Set(input.mandat_ids)].filter(Boolean)
+        if (mandatsDuLot.length > 0) {
+          await supabase
+            .from('recommandations_mandats')
+            .insert(mandatsDuLot.map((id, i) => ({
+              recommandation_id: recoId,
+              mandat_id: id,
+              principal: i === 0,
+            })))
+        }
         /* ══ ON N'ÉCRIT PLUS LE PÉRIMÈTRE EN SITES ═══════════════════════════════════════════════
            Il était redondant : le site d'une recommandation est le site de ses compteurs, et la
            lecture le dérive désormais de là (voir `RawRecoCompteur` plus haut). Écrire les deux
