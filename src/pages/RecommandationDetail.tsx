@@ -682,7 +682,28 @@ export default function RecommandationDetail() {
               Nouvelle version
             </Button>
           )}
-          {canManage && reco.versions.length > 0 && (
+          {/* ══ LA DEMANDE DE CONTRAT NE DÉPEND PLUS D'UNE VERSION ══
+
+              William, 16/09/2026 : « il est impossible de clôturer une recommandation en "Acceptée"
+              si aucune version n'a été créée. On doit quand même pouvoir le faire. »
+
+              CE N'EST PAS LA CLÔTURE QUI BLOQUAIT, C'EST CE BOUTON. « Acceptée » exige un contrat
+              signé — règle de Michel, 31/08/2026 : « tant que je n'ai pas le contrat valide, je ne
+              peux pas la clôturer en gagné ». Elle tient toujours. Mais ce bouton, seul chemin pour
+              obtenir ce contrat depuis la fiche, disparaissait sans version : le dossier était
+              enfermé, sans que rien ne dise pourquoi.
+
+              William, mis devant le choix, a refusé d'affaiblir la règle et demandé l'autre porte :
+              « laisser la possibilité de demander un contrat sans version ». C'est elle.
+
+              L'ASSISTANT ÉTAIT DÉJÀ PRÊT : il rattache la version actuelle « si elle existe »
+              (`?? null`) et, faute de cotation, propose tous les fournisseurs actifs au lieu des
+              seuls consultés. Seule la condition d'affichage était fausse.
+
+              ET LES DONNÉES LUI DONNENT RAISON : 1 585 des 1 600 contrats actifs n'ont aucune
+              version rattachée, dont 693 tiennent pourtant à une recommandation. Un contrat sans
+              version n'est pas l'exception, c'est le cas ordinaire. */}
+          {canManage && (
             <Button variant="outline" size="sm" onClick={() => setShowContratWizard(true)}>
               <FileText className="h-3.5 w-3.5" />
               Demande de contrat
