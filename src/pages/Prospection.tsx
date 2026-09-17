@@ -252,7 +252,7 @@ function OngletPistes({ pistes }: { pistes: Piste[] }) {
   /* UNE PISTE EST UN PROSPECT : elle n'a le plus souvent pas encore de compte, donc pas de
      portefeuille auquel se rattacher. « Mes pistes » veut dire celles que J'AI OUVERTES — c'est le
      propriétaire qui répond, et il est renseigné sur les quatre. */
-  const { perimetre, setPerimetre, visibles: pistesDuPerimetre } = usePerimetreListe(
+  const { perimetre, setPerimetre, visibles: pistesDuPerimetre, nbMiens, nbTous } = usePerimetreListe(
     'pistes', pistes, { proprietaireId: (p) => p.proprietaire_id, compteId: (p) => p.compte_id },
   )
 
@@ -300,16 +300,6 @@ function OngletPistes({ pistes }: { pistes: Piste[] }) {
     { cle: 'contact_nom', libelle: 'contact' },
   ])
 
-  const filtrees = useMemo(() => {
-    const q = recherche.trim().toLowerCase()
-    const retenues = (pistesDuPerimetre ?? []).filter((p) => !q || [p.societe, p.contact_nom, p.email].filter(Boolean)
-      .some((v) => String(v).toLowerCase().includes(q)))
-    /* `localeCompare` et non `<` : « Élan » se range avant « Zenith » en français, et apres en
-       ordre d'octets. Une liste de societes triee a l'octet met tous les accents a la fin. */
-    const sens = ascendant ? 1 : -1
-    return [...retenues].sort((a, b) => sens * String(a[tri as keyof typeof a] ?? '')
-      .localeCompare(String(b[tri as keyof typeof b] ?? ''), 'fr'))
-  }, [pistesDuPerimetre, recherche, tri, ascendant])
 
 
   /**
@@ -360,6 +350,35 @@ function OngletPistes({ pistes }: { pistes: Piste[] }) {
     return mots.every((m) => foin.includes(m))
   }
 
+  /**
+   * ══ UNE SEULE LISTE, ET C'EST ELLE QU'ON VOIT ══
+   *
+   * Naoëlle, 17/09/2026 : « quand on met le filtre Mes pistes, on continue tous de voir les pistes
+   * de tout le monde ; il n'y a pas de différence entre Mes pistes et Toutes les pistes ».
+   *
+   * IL Y AVAIT DEUX LISTES, ET L'ÉCRAN N'EN MONTRAIT PAS LA BONNE. Le kanban partait de `pistes` —
+   * la liste brute — tandis que le périmètre, la recherche et le tri s'appliquaient à une seconde
+   * liste qui ne servait qu'à afficher un nombre dans la barre. Le compteur suivait donc la
+   * bascule, les cartes non : exactement ce qu'elle décrit.
+   *
+   * Deux autres réglages étaient muets pour la même raison. LE TRI ne triait rien — le sélecteur
+   * changeait sa valeur, les cartes restaient dans l'ordre d'arrivée. Et LA RECHERCHE avait deux
+   * implémentations qui ne cherchaient pas dans les mêmes champs : trois pour le compteur, quatorze
+   * pour les cartes. Le nombre annoncé ne pouvait donc pas correspondre à ce qu'on voyait.
+   *
+   * Une liste unique supprime les trois d'un coup : ce qui est compté est ce qui est affiché.
+   */
+  const pistesVisibles = useMemo(() => {
+    const retenues = (pistesDuPerimetre ?? []).filter(correspond)
+    /* `localeCompare` et non `<` : « Élan » se range avant « Zenith » en français, et après en
+       ordre d'octets. Une liste de sociétés triée à l'octet met tous les accents à la fin. */
+    const sens = ascendant ? 1 : -1
+    return [...retenues].sort((a, b) => sens * String(a[tri as keyof typeof a] ?? '')
+      .localeCompare(String(b[tri as keyof typeof b] ?? ''), 'fr'))
+    // `correspond` est réécrite à chaque rendu ; c'est `recherche` qui en décide le résultat.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [pistesDuPerimetre, recherche, tri, ascendant])
+
   return (
     <>
       <Indicateurs mesures={mesures} />
@@ -368,12 +387,17 @@ function OngletPistes({ pistes }: { pistes: Piste[] }) {
           renommé celle des LISTES, plus haut, qui cherche sur quatre champs. Celle-ci est celle des
           PISTES, et c'est elle que `correspond` sert — quatorze champs, mot à mot. Le libellé doit
           suivre ce que la recherche fait, sinon il promet autre chose. */}
-      <ListToolbar query={recherche} onQueryChange={setRecherche} placeholder="Société, nom, e-mail, téléphone, référence…" count={filtrees.length}>
+      <ListToolbar query={recherche} onQueryChange={setRecherche} placeholder="Société, nom, e-mail, téléphone, référence…" count={pistesVisibles.length}>
+        {/* LES DEUX NOMBRES SUR LA BASCULE. Sans eux, une bascule qui ne filtre plus rien passe
+            inaperçue — c'est précisément comme ça que le défaut a vécu : le compteur de la barre
+            bougeait, les cartes non, et rien ne rapprochait les deux chiffres. */}
         <BasculePerimetre
           valeur={perimetre}
           onChange={setPerimetre}
           libelleMien="Mes pistes"
           libelleTous="Toutes les pistes"
+          compteMien={nbMiens}
+          compteTous={nbTous}
         />
         <SelecteurTri valeur={tri} onChange={setTri} options={optionsTri} />
         {/* PLUS DE BASCULEMENT, PLUS DE FILTRE « OUVERTES SEULEMENT ». Naoëlle, 25/08/2026 :
@@ -395,7 +419,7 @@ function OngletPistes({ pistes }: { pistes: Piste[] }) {
           cartes={Object.fromEntries(
             COLONNES_PISTE.map((c) => [
               c.code,
-              pistes.filter((p) => colonneDe(p) === c.code).filter(correspond).map((p) => {
+              pistesVisibles.filter((p) => colonneDe(p) === c.code).map((p) => {
                 const validees = VALIDATIONS_PISTE.filter((v) => Boolean(p[v.cle]))
                 const manquantes = VALIDATIONS_PISTE.filter((v) => !p[v.cle])
                 return {
