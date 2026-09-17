@@ -446,3 +446,38 @@ export async function lireFilGmail(
     }
   })
 }
+
+/**
+ * ══ RETROUVER LA CONVERSATION D'UN MESSAGE ══
+ *
+ * Les mails repris de Salesforce portent un `Message-ID` RFC — `<CAGtyFLx…@mail.gmail.com>` —
+ * c'est-à-dire l'identifiant d'UN MESSAGE. Gmail, lui, ne sait lire que des CONVERSATIONS, par un
+ * identifiant hexadécimal. Ces deux identifiants ne se déduisent pas l'un de l'autre : il faut
+ * demander.
+ *
+ * `rfc822msgid:` est la seule passerelle. C'est une RECHERCHE, donc elle exige `gmail.readonly` —
+ * le droit que les connexions antérieures au 14/09/2026 n'accordaient pas.
+ *
+ * LES CHEVRONS SE RETIRENT. Avec eux, la recherche ne rend rien — silencieusement, sans erreur,
+ * ce qui est la pire façon d'échouer.
+ *
+ * Rend `null` quand le message est introuvable : il peut avoir été supprimé, ou vivre dans une
+ * autre boîte que celle qu'on interroge. Ce n'est pas une panne, c'est une réponse.
+ */
+export async function filGmailDuMessageId(
+  accessToken: string,
+  messageId: string,
+): Promise<string | null> {
+  const propre = messageId.replace(/^</, '').replace(/>$/, '')
+  const q = encodeURIComponent(`rfc822msgid:${propre}`)
+  const res = await fetch(
+    `https://gmail.googleapis.com/gmail/v1/users/me/messages?q=${q}&maxResults=1`,
+    { headers: { Authorization: `Bearer ${accessToken}` } },
+  )
+  if (!res.ok) {
+    const corps = await res.text().catch(() => '')
+    throw new ErreurLectureGmail(res.status, `Gmail ${res.status} — ${corps.slice(0, 300)}`)
+  }
+  const data = (await res.json()) as { messages?: { id: string; threadId: string }[] }
+  return data.messages?.[0]?.threadId ?? null
+}

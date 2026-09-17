@@ -1,6 +1,7 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node'
 import { createClient } from '@supabase/supabase-js'
 import { refreshAccessToken, lireFilGmail, ErreurLectureGmail } from './_client.js'
+import { traduireQuelquesFils } from './_fils.js'
 
 /**
  * ══ LES RÉPONSES DES CLIENTS REVIENNENT DANS KIMATCH ══
@@ -87,6 +88,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     filsRelus: 0,
     reponsesEcrites: 0,
     filsDisparus: 0,
+    filsTraduits: 0,
+    filsIntrouvables: 0,
     erreurs: [] as string[],
   }
 
@@ -132,7 +135,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         })
       }
     }
-    if (parFil.size === 0) continue
+    /* ON NE SAUTE PLUS CETTE PERSONNE QUAND ELLE N'A RIEN À RELIRE : il lui reste peut-être des
+       fils Salesforce à traduire, et c'est justement le cas de ceux qui n'ont encore aucune
+       conversation au format Gmail. */
 
     // ── Le jeton d'accès, rafraîchi si besoin ──
     let accessToken = jeton.access_token
@@ -155,6 +160,24 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         continue
       }
     }
+
+    /* ══ LA TRADUCTION DES FILS REPRIS DE SALESFORCE ══
+       Greffée ici plutôt que dans une tâche à part : le jeton vient d'être rafraîchi, la boucle
+       passe déjà sur chaque boîte, et il n'y aura rien à arrêter le jour où tout sera traduit.
+       Voir `_fils.ts`. */
+    {
+      const t = await traduireQuelquesFils(admin, accessToken!, jeton.profil_id,
+        (m) => bilan.erreurs.push(`${jeton.email_gmail} · fil : ${m}`))
+      bilan.filsTraduits += t.traduits
+      bilan.filsIntrouvables += t.introuvables
+      if (t.droitRefuse) {
+        /* Le droit de lecture manque : le rapatriement échouera pour la même raison. On le laisse
+           suivre son cours, qui sait le dire et l'enregistrer. */
+        bilan.erreurs.push(`${jeton.email_gmail} : lecture refusée sur la recherche de fils`)
+      }
+    }
+
+    if (parFil.size === 0) continue
 
     const dejaVus = new Set<string>()
     {
