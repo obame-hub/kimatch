@@ -1401,6 +1401,18 @@ export type PatchRecommandation = Partial<{
    * règle ne tiendrait que jusqu'au passage suivant du calcul.
    */
   montant_saisi_manuellement: boolean
+  /* ══ LA DATE DE CLÔTURE, MODIFIABLE EN PLACE ══
+     Naoëlle, 17/09/2026 : « donne la possibilité de modifier le champ date de clôture en inline ».
+
+     C'EST BIEN `date_cloture` ET NON `date_cloture_manuelle`. La première est la date affichée sur
+     l'en-tête — prévue tant que le dossier est ouvert, réelle une fois clos. La seconde enregistre
+     l'instant où quelqu'un a cliqué « Clôturer », et c'est ELLE qui ferme un dossier : la modifier
+     depuis un champ en place clôturerait par inadvertance.
+
+     Vérifié avant d'ouvrir l'écriture : aucun déclencheur ne réagit à `date_cloture`
+     (`trg_propager_cloture_vers_statut` n'écoute que `date_cloture_manuelle` et
+     `finalite_cloture`). Changer la date prévue ne change donc pas l'état du dossier. */
+  date_cloture: string | null
 }>
 
 /**

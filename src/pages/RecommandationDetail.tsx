@@ -657,21 +657,34 @@ export default function RecommandationDetail() {
                 sur un dossier ouvert c'est la date PRÉVUE. Mesuré : 126 de nos dossiers sont encore
                 ouverts dans l'org. Écrire « clôturée le » sur ceux-là annoncerait une fin qui n'a
                 pas eu lieu. */}
-            {reco.date_cloture && (
-              <>
-                {' · '}
-                {/* LE LIBELLÉ SUIT LA FINALITÉ, PAS L'ÉTAPE — corrigé le 31/08/2026 après que
-                    Naoëlle a vu « clôture prévue le 21/04/2026 » sur un dossier gagné et signé.
-                    L'étape d'un dossier redevient « Active » dès qu'une version est vivante, même
-                    s'il a été clôturé avant : 24 dossiers sont dans ce cas. La FINALITÉ, elle, ne
-                    s'écrit qu'au moment d'une clôture réelle — c'est donc elle qui dit si la date
-                    est une fin ou une prévision. */}
-                {reco.finalite_cloture ? 'clôturée' : 'clôture prévue'} le{' '}
-                <span className="font-semibold text-km-muted">
-                  {new Date(reco.date_cloture).toLocaleDateString('fr-FR')}
-                </span>
-              </>
-            )}
+            <>
+              {' · '}
+              {/* LE LIBELLÉ SUIT LA FINALITÉ, PAS L'ÉTAPE — corrigé le 31/08/2026 après que
+                  Naoëlle a vu « clôture prévue le 21/04/2026 » sur un dossier gagné et signé.
+                  L'étape d'un dossier redevient « Active » dès qu'une version est vivante, même
+                  s'il a été clôturé avant : 24 dossiers sont dans ce cas. La FINALITÉ, elle, ne
+                  s'écrit qu'au moment d'une clôture réelle — c'est donc elle qui dit si la date
+                  est une fin ou une prévision. */}
+              {reco.finalite_cloture ? 'clôturée' : 'clôture prévue'} le{' '}
+              {/* ══ MODIFIABLE EN PLACE ══
+                  Naoëlle, 17/09/2026. La condition d'affichage a sauté avec : tant qu'elle
+                  dépendait de `reco.date_cloture`, un dossier sans date n'affichait rien — donc
+                  aucun endroit où cliquer pour en poser une. Un champ qu'on ne peut remplir que
+                  s'il est déjà rempli ne sert à personne.
+
+                  L'HISTORIQUE SUIT TOUT SEUL : `trg_audit_trace` est posé sur `recommandations` et
+                  enregistre chaque changement de valeur avec son auteur. Rien à écrire ici. */}
+              <InlineField
+                variant="date"
+                label=""
+                emptyLabel="à définir"
+                className="inline-flex font-semibold text-km-muted"
+                value={reco.date_cloture ? String(reco.date_cloture).slice(0, 10) : null}
+                onCommit={(v) => majReco({ date_cloture: v })}
+                disabled={!canManage}
+                {...retourInline}
+              />
+            </>
           </p>
         </div>
 
