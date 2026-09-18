@@ -288,7 +288,31 @@ export function VoletEmail() {
           </button>
         </div>
 
-        <div className="flex min-h-0 flex-1 flex-col gap-2.5 overflow-y-auto px-4 py-3">
+        {/* ══ AUCUN ENFANT DE CETTE COLONNE NE SE LAISSE ÉCRASER ══
+            William, 18/09/2026 : « lors de l'édition d'un mail, si ce dernier est plus long que la
+            fenêtre d'édition, il est impossible de scroller afin de voir la totalité du mail ».
+
+            LA CAUSE N'ÉTAIT PAS L'ABSENCE DE DÉFILEMENT — cette colonne a bien son `overflow-y-auto`
+            et son `min-h-0`. C'est que dans un conteneur flex, un enfant porte `flex-shrink: 1` par
+            DÉFAUT : il se laisse comprimer sous la taille de son contenu pour tenir dans la place
+            disponible. Le corps du mail débordait donc d'une boîte qui, elle, ne grandissait pas, et
+            le parent n'avait rien de plus à faire défiler.
+
+            Mesuré sur un montage isolé reproduisant cette colonne, avec soixante lignes de texte :
+
+              flex-shrink par défaut   boîte 398 px, contenu 1 548 px — 1 150 px inatteignables
+              flex-1 (le code d'avant) boîte 398 px, contenu 1 548 px — strictement identique
+              flex-shrink: 0           boîte 1 562 px, contenu 1 560 px — rien n'est coupé
+
+            LA RÈGLE EST SUR LE PARENT ET NON SUR LE SEUL CORPS. Les autres enfants — destinataires,
+            pièces jointes, signature — portaient le même défaut, latent parce qu'ils sont courts. Un
+            `shrink-0` posé sur le seul bloc fautif aurait laissé le piège intact pour le suivant.
+
+            `flex-1` A DISPARU DU CORPS au passage, et son départ ne change rien : il lui donnait une
+            base de 0 et le laissait grandir dans la place libre, ce que `min-h-[220px]` fait déjà —
+            mais il n'empêchait pas la compression, qui est le vrai sujet. Le garder aurait laissé
+            croire que la hauteur était gérée. */}
+        <div className="flex min-h-0 flex-1 flex-col gap-2.5 overflow-y-auto px-4 py-3 [&>*]:shrink-0">
           {/* ── Destinataires ── */}
           <Champ libelle="À" valeur={brouillon.a} onChange={(a) => maj({ a })} placeholder="prenom.nom@societe.fr" />
           {brouillon.afficherCopie && (
@@ -332,7 +356,7 @@ export function VoletEmail() {
             onInput={(e) => maj({ corpsHtml: e.currentTarget.innerHTML })}
             data-vide={texteBrut.length === 0}
             className={cn(
-              'min-h-[220px] flex-1 rounded-km border border-km-line bg-white px-3.5 py-3 text-km-body leading-relaxed text-km-text',
+              'min-h-[220px] rounded-km border border-km-line bg-white px-3.5 py-3 text-km-body leading-relaxed text-km-text',
               'focus:outline-none focus:ring-2 focus:ring-km-green/20',
               '[&_ul]:list-disc [&_ul]:pl-5 [&_ol]:list-decimal [&_ol]:pl-5 [&_a]:text-km-green [&_a]:underline',
               // Le repère de saisie, en CSS : un `placeholder` n'existe pas sur un contentEditable.
