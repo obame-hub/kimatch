@@ -93,6 +93,11 @@ interface Lot {
   compteurIds: string[]
   titre: string
   dateCloture: string
+  /* ══ UN MONTANT PAR LOT, ET NON UN POUR L'OPPORTUNITÉ ══
+     Un lot devient UNE recommandation : c'est donc au lot de porter son montant, comme il porte
+     déjà son titre et sa date. Un montant unique réparti entre trois lots serait une moyenne que
+     personne n'a estimée. */
+  montant: string
 }
 
 export function DialogConversionOpportunite({
@@ -201,6 +206,7 @@ export function DialogConversionOpportunite({
       compteurIds: choisis.map((c) => c.id),
       titre: buildTitre(opportunite.compte_nom, choisis[0].site_nom, choisis.length, dateCloture),
       dateCloture,
+      montant: '',
     }])
     setSelection(new Set())
   }
@@ -227,6 +233,8 @@ export function DialogConversionOpportunite({
      d'échec au milieu, on s'arrête et on le dit : les lots déjà créés existent, le dialogue reste
      ouvert sur ce qui reste. Rouvrir le reprendra là où il s'est arrêté, puisque « déjà placé » se
      lit en base et non dans cet écran. */
+  const lotsSansMontant = lots.filter((l) => l.montant.trim() === '').length
+
   async function confirmer() {
     if (restants.length > 0 || lots.length === 0 || enCours) return
     setEnCours(true)
@@ -276,6 +284,7 @@ export function DialogConversionOpportunite({
           priorite: 2,
           description: '',
           commentaire_interne: '',
+          montant: lot.montant.trim() === '' ? null : Number(lot.montant.replace(/\s/g, '').replace(',', '.')),
         })
         crees += 1
       }
@@ -481,6 +490,17 @@ export function DialogConversionOpportunite({
                       className="h-8 w-36 text-km-label"
                       title="Date de clôture visée"
                     />
+                    {/* LE MONTANT DU LOT. Même raison que dans l'assistant de création : sans lui, un
+                        dossier naît sans le chiffre que toute la chaîne commerciale lit ensuite. */}
+                    <Input
+                      type="text"
+                      inputMode="decimal"
+                      value={lot.montant}
+                      onChange={(e) => setLots((l) => l.map((x) => x.cle === lot.cle ? { ...x, montant: e.target.value } : x))}
+                      className="h-8 w-24 text-right font-mono text-km-label"
+                      placeholder="Montant €"
+                      title="Montant estimé de l'affaire, en euros"
+                    />
                     <button
                       type="button"
                       onClick={() => defaireLeLot(lot.cle)}
@@ -551,7 +571,14 @@ export function DialogConversionOpportunite({
           <Button variant="ghost" onClick={() => { reinitialiser(); onFermer() }} disabled={enCours}>
             Annuler
           </Button>
-          <Button onClick={confirmer} disabled={restants.length > 0 || lots.length === 0 || enCours}>
+          {/* Le montant manquant bloque, et se nomme : un bouton gris sans explication ressemble à
+              un écran normal — c'est la panne la plus coûteuse à diagnostiquer. */}
+          {lotsSansMontant > 0 && (
+            <span className="mr-auto text-km-label text-km-muted">
+              {lotsSansMontant === 1 ? 'Il manque le montant d’un lot.' : `Il manque le montant de ${lotsSansMontant} lots.`}
+            </span>
+          )}
+          <Button onClick={confirmer} disabled={restants.length > 0 || lots.length === 0 || enCours || lotsSansMontant > 0}>
             {enCours
               ? 'Création…'
               : lots.length > 0

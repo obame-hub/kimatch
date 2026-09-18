@@ -238,6 +238,7 @@ export function CreateRecommandationDialog({
   const [compteurIds, setCompteurIds] = useState<string[]>(initialCompteurIds ?? [])
   const [contactId, setContactId] = useState('')
   const [dateClotureManuelle, setDateClotureManuelle] = useState('')
+  const [montant, setMontant] = useState('')
   const [rechercheP, setRechercheP] = useState('')
   const [rechercheC, setRechercheC] = useState('')
   const [origineId, setOrigineId] = useState('')
@@ -453,7 +454,7 @@ export function CreateRecommandationDialog({
     if (etape === iContact) return !!contactEffectifId
     // Sans mandat retenu, `recommandations_mandats` recevrait un identifiant vide : l'insertion
     // échouerait sans que rien ne le signale, et la recommandation naîtrait détachée de son mandat.
-    if (etape === iDate) return !!dateCloture && !!mandatRetenu
+    if (etape === iDate) return !!dateCloture && !!mandatRetenu && montant.trim() !== ''
     return false
   })()
 
@@ -482,6 +483,9 @@ export function CreateRecommandationDialog({
       priorite,
       description,
       commentaire_interne: commentaireInterne,
+      /* LE MONTANT NE S'ARRONDIT PAS. La virgule décimale française est acceptée à la frappe et
+         convertie ici : `Number('1 362,50')` rend `NaN`, ce qui aurait effacé la saisie en silence. */
+      montant: montant.trim() === '' ? null : Number(montant.replace(/\s/g, '').replace(',', '.')),
     })
 
     setFeedback(result.persisted ? 'Recommandation créée.' : 'Recommandation ajoutée localement (non synchronisée avec Supabase).')
@@ -891,6 +895,36 @@ export function CreateRecommandationDialog({
                       Passé le <strong className="text-km-text">{new Date(dateClotureSuggeree).toLocaleDateString('fr-FR')}</strong>, le préavis de résiliation risque d'être dépassé et la signature compromise.
                     </p>
                   )}
+                </FormField>
+
+                {/* ══ LE MONTANT, ANNONCÉ À LA CRÉATION ══
+                    William, 18/09/2026 : « j'aimerais que le montant soit indiqué par le commercial
+                    lors de la création de la recommandation ».
+
+                    LA MESURE QUI L'A DÉCIDÉ : 1 574 dossiers sur 1 782 portent un montant, et les
+                    1 574 viennent de Salesforce. Aucun dossier né dans Kimatch n'en a jamais porté.
+                    Le chiffre le plus visible du CRM était un héritage qui s'éteignait tout seul.
+
+                    IL EST OBLIGATOIRE, pour la même raison que la date souhaitée d'une version : un
+                    champ facultatif sur lequel on compte finit vide, et il n'existait aucun moyen de
+                    le poser après coup. C'est une ESTIMATION, le mot est dans l'aide — elle se
+                    corrige ensuite sur la fiche, elle n'engage rien. */}
+                <FormField label="Montant estimé de l'affaire *">
+                  <div className="relative">
+                    <Input
+                      type="text"
+                      inputMode="decimal"
+                      value={montant}
+                      onChange={(e) => setMontant(e.target.value)}
+                      placeholder="1 362"
+                      className="pr-7 font-mono"
+                    />
+                    <span className="pointer-events-none absolute right-2.5 top-1/2 -translate-y-1/2 text-xs text-km-faint">€</span>
+                  </div>
+                  <p className="mt-1 text-xs text-km-faint">
+                    Ce que l'affaire rapporte à KiWee, au mieux de ce qu'on en sait aujourd'hui. Il se corrige
+                    ensuite depuis la fiche, et sera recalculé le jour où les prix des offres seront saisis.
+                  </p>
                 </FormField>
 
                 {dateClotureSuggeree && dateCloture > dateClotureSuggeree && (
