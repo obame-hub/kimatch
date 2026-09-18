@@ -1,387 +1,199 @@
-import { useState } from 'react'
-import {  } from 'lucide-react'
+import { useMemo, useState } from 'react'
+import { Link } from 'react-router-dom'
+import { CalendarClock, ChevronRight, Flame, Zap } from 'lucide-react'
 import { TitreOnglet } from '@/components/layout/TitreOnglet'
 import { PageHeader, Indicateurs } from '@/components/ui/page-header'
-import { ListToolbar, BasculeOption } from '@/components/ui/list-toolbar'
-import { TableauKanban } from '@/components/dashboard/TableauKanban'
-import { useKanbanServeur } from '@/lib/useKanbanServeur'
-import { useTriKanban, SelecteurTri } from '@/lib/triKanban'
+import { ListToolbar } from '@/components/ui/list-toolbar'
 import { usePerimetre, BasculePerimetre } from '@/lib/perimetre'
 import { useMonProfil } from '@/lib/data/roles'
-import { euros } from '@/lib/euros'
+import { useVersionsPricing, type VersionPricing } from '@/lib/data/pricingVersions'
+import { cn } from '@/lib/utils'
 
 /**
- * PRICING — page 7 du dossier UX du 26/08/2026.
+ * ════════════════════════════════════════════════════════════════════════════════════════════════
+ * PRICING — DEUX COLONNES, DES VERSIONS, ET LEURS FOURNISSEURS AU CLIC
+ * ════════════════════════════════════════════════════════════════════════════════════════════════
  *
- * Sa règle : « Gérer les offres fournisseurs par statut : à demander, en attente fournisseur, offres
- * reçues et validées. » Et pendant l'appel du 26/08, la même idée dans ses mots : « une page dédiée,
- * pour savoir si on a bien envoyé l'offre, si on ne l'a pas envoyée, où on en est ».
+ * William, 18/09/2026 : « j'aimerais complètement repenser la page Pricing avec la nouvelle
+ * articulation que l'on a mise au point pour les versions sur la page recommandation.
  *
- * ══ RIEN N'A ÉTÉ CRÉÉ EN BASE, ET C'EST LE POINT ══
+ *   · uniquement 2 colonnes, En construction et Disponible ;
+ *   · le numéro de la version mais surtout le nom de la recommandation liée pour s'y retrouver ;
+ *   · au sein des colonnes, un zoning en fonction de la date de livraison souhaitée ;
+ *   · au clic sur la version, se déroulent les fournisseurs avec pour chacun leur statut. »
  *
- * Avant d'écrire une table, j'ai regardé : `suivis_consultations_fournisseurs` porte 5 409 événements
- * horodatés sur 3 487 consultations, avec huit statuts déjà définis. C'est exactement le suivi que sa
- * page décrit, et il tourne depuis la reprise Salesforce. La vue `v_pricing_consultations` en rend
- * l'état courant ; créer un second mécanisme aurait produit deux vérités sur le même fait.
+ * ══ CE QUE CETTE PAGE ÉTAIT, ET POURQUOI ELLE NE POUVAIT PAS TENIR ══
  *
- * ══ CE QUE LA PAGE MONTRE, ET CE QU'ELLE NE PEUT PAS MONTRER ══
+ * Elle affichait UNE CARTE PAR FOURNISSEUR CONSULTÉ, réparties dans quatre colonnes selon
+ * l'avancement de chacun. Une version consultée chez quatre fournisseurs se retrouvait donc éclatée
+ * sur toute la largeur de l'écran — une carte en « À traiter », deux en « Demande envoyée », une en
+ * « Proposition reçue » — et rien ne disait qu'elles appartenaient au même dossier.
  *
- * ══ SEULES LES RECOMMANDATIONS EN COURS ══
+ * On ne pouvait pas répondre à la seule question qui compte ici : QUELLES DEMANDES SONT PRÊTES À
+ * PARTIR CHEZ LE CLIENT. Il fallait rassembler mentalement des cartes qu'on ne voyait jamais côte à
+ * côte, et le nom du compte revenait quatre fois sans qu'on sache si c'était le même dossier ou
+ * quatre dossiers du même client.
  *
- * Naoëlle, 27/08/2026 : « filtre juste les recos en cours, le pricing n'a besoin de voir que ça — là
- * il y a tout et c'est pas ce qu'on veut. »
+ * ══ LA VERSION EST L'UNITÉ DE TRAVAIL ══
  *
- * Mesuré avant de filtrer : sur les 3 469 consultations affichées, 3 217 appartenaient à une
- * recommandation déjà tranchée (1 548 acceptées, 763 refusées, 906 abandonnées). 93 % de l'écran
- * portait donc sur des dossiers où personne n'a plus rien à demander à un fournisseur — et ces lignes
- * noyaient les 153 demandes réellement en attente, qui sont le seul vrai sujet de cette page.
+ * C'est elle qui porte la date de livraison souhaitée, c'est elle qui devient « Disponible », et
+ * c'est elle qu'Erwan livre. Les fournisseurs sont son DÉTAIL : on les regarde pour savoir pourquoi
+ * une version n'avance pas, pas pour les suivre un par un. D'où le repli — ils se déroulent au clic,
+ * et la colonne reste lisible.
  *
- * « En cours » n'est pas redéfini ici : la vue reprend les trois étapes closes que l'application
- * connaît déjà (acceptée, refusée, abandonnée — Michel, 26/08/2026).
+ * Les statuts de fournisseur n'ont pas disparu : chaque carte annonce en permanence combien de
+ * propositions sont arrivées sur combien attendues, et la barre de progression le montre sans lire.
+ * Ce qui change, c'est qu'ils ne commandent plus la géographie de l'écran.
  *
- * ══ ET SEULEMENT LA VERSION COURANTE ══
+ * ══ DEUX COLONNES, ET LA TROISIÈME QU'ON NE VERRA PAS ══
  *
- * Michel a trouvé qu'il restait « encore trop d'éléments », et Naoëlle a mis le doigt sur ce qui
- * manquait (27/08) : « tu as filtré seulement sur les recommandations, il faut aussi qu'on filtre sur
- * les versions actives, sinon c'est pas logique ».
+ * « En construction » et « Disponible » sont deux des trois statuts de version arrêtés le
+ * 18/09/2026. Le troisième — « Clôturée » — n'a pas sa place ici : une version close n'attend plus
+ * rien d'un fournisseur, et c'est exactement la question de cette page. La vue les écarte donc en
+ * amont, plutôt que de les charger pour les cacher.
  *
- * Le défaut était dans la vue depuis le début : la jointure ne regardait pas `version_actuelle`. Une
- * recommandation reprise trois fois affichait les consultations de ses TROIS versions — on demandait
- * donc au pricing de relancer un fournisseur sur une offre qui n'existe plus. 321 recommandations
- * portent plus d'une version.
- *
- * La page passe de 306 à 191 lignes : 20 à demander, 111 en attente, 60 offres reçues.
- *
- * ══ ET SEULEMENT LES VERSIONS AU STATUT VIVANT ══
- *
- * J'avais laissé les versions au statut « expirée » en suspens : 96 consultations avaient une
- * recommandation à l'étape CONSULTATION et une version dite EXPIREE, ce qui est une contradiction,
- * et 1 171 des 1 242 versions expirées venaient de la reprise Salesforce. Je ne voulais pas faire
- * disparaître 135 lignes sur la foi d'un statut dont j'ignorais le sens d'origine.
- *
- * Michel a tranché le 27/08 : on les retire, et il faut rendre les statuts de version modifiables à
- * la main « car il y a eu trop de bugs à l'import Salesforce ». Sa réponse règle les deux
- * questions — le statut est bien terminal, et les cas faux se corrigeront à la main.
- *
- * La page passe donc de 191 à 55 lignes : 18 à demander, 34 en attente, 3 offres reçues.
- * (J'avais annoncé 57 : le bon chiffre est 55, mon estimation ne retirait pas ACCEPTEE ni REFUSEE.)
- *
- * ══ LA DATE DE COTATION SOUHAITÉE SUR LES TUILES ══
- *
- * « Afficher dans les tuiles la date de cotation souhaitée, comme ça c'est visible sans cliquer
- * dessus, et trier avec des dates relatives — en retard, aujourd'hui, dans 3 jours — sachant que les
- * en retard et les dates proches sont les premiers visibles. »
- *
- * Les 55 consultations conservées portent toutes cette date, donc aucune tuile ne reste muette. Sur
- * la colonne « à demander » aujourd'hui : 9 en retard, 5 pour aujourd'hui, 4 à venir.
- *
- * DEUX ENDROITS, DEUX RÔLES (Naoëlle, 27/08). Le RELATIF va ENTRE les tuiles, en intertitre —
- * « En retard d'1 jour », puis toutes les tuiles concernées dessous. L'ABSOLU va SUR la tuile, juste
- * sous « Demande envoyée ». Une pastille répétée sur huit tuiles consécutives écrit huit fois la
- * même chose et vole la place du fournisseur ; un intertitre l'écrit une fois et dit en plus COMBIEN
- * de dossiers partagent l'urgence.
- *
- * LE REGROUPEMENT SORT SUR TOUTES LES COLONNES depuis le 01/09/2026 : « il faut mettre en interligne
- * des dates relatives sur tout le kanban de pricing, par exemple en retard de x, demain, dans
- * 3 jours » (Naoëlle). Il ne sortait que sur « Aucun traitement ».
- *
- * MAIS LE MOT CHANGE SELON LA COLONNE, parce que le fait change. Tant que la demande est en cours —
- * aucun traitement, envoyée, acceptée — la date souhaitée est une CIBLE : la manquer est un retard,
- * et « en retard de 28 jours » est exact. Une fois la réponse arrivée — demande disponible, demande
- * refusée — il n'y a plus rien à rattraper : le même intertitre y annoncerait un retard qui n'existe
- * plus, et une fausse alerte coûte plus cher qu'une information absente parce qu'elle apprend à
- * ignorer les vraies. Sur ces colonnes, l'intertitre dit donc l'ANCIENNETÉ : « souhaitée il y a
- * 8 jours ». C'est utile et vrai — un prix d'énergie chiffré pour une date passée depuis huit jours
- * n'a plus la même valeur.
- *
- * LE REGROUPEMENT N'APPARAÎT QUE SOUS LE TRI PAR ÉCHÉANCE. `TableauKanban` écrit l'intertitre quand
- * la clé change d'une carte à la suivante : il ne trie pas, il suit l'ordre reçu. Trié par montant ou
- * par fournisseur, « Demain » ressortirait trois fois dans la même colonne. Le tri part en base et
- * l'écran sait lequel est actif : les groupes se taisent quand ce n'est pas celui-là.
- *
- * ══ « VALIDÉES » A ÉTÉ RETIRÉE ══
- *
- * « Enlève la colonne validée, elle ne sert à rien ici » (Naoëlle, même message) — et c'est juste :
- * une offre retenue est une décision de Kiwee, pas une étape du traitement d'une demande fournisseur.
- * Elle n'avait rien à faire dans un tableau qui suit « où en est ma demande ».
- *
- * Ses 2 lignes n'ont pas disparu pour autant : la branche correspondante a été retirée de la vue, et
- * elles ont rejoint la colonne de leur suivi réel (« Demande acceptée » → en attente fournisseur).
- * Retirer la colonne sans toucher à la vue les aurait fait s'évaporer sans trace.
- *
- * MAIS LE MONTANT MANQUE PRESQUE PARTOUT, et ce n'est pas le champ qui est vide — CE SONT LES OFFRES
- * QUI N'EXISTENT PAS. Mesuré le 27/08/2026 : `offres_fournisseurs` compte 55 lignes pour 3 526
- * consultations, dont 6 portent un montant. Sur les 120 consultations en cours marquées « offre
- * reçue », 120 n'ont AUCUNE ligne d'offre.
- *
- * DEUX CAUSES DISTINCTES, et il faut les séparer :
- *
- *  1. La reprise Salesforce n'a importé aucune offre par fournisseur — les 55 lignes ont toutes été
- *     créées en août 2026, dans Kimatch. Salesforce ne portait le montant qu'au niveau de l'affaire
- *     (`recommandations.budget_nouvelle_offre`, renseigné sur 289 dossiers, TOUS clos) : le chiffre
- *     final d'une affaire gagnée, jamais « l'offre du fournisseur X ». Il n'y a donc rien à afficher
- *     pour les dossiers repris, et rien ne le fera apparaître.
- *
- *  2. Sur les dossiers vivants, changer le suivi en « offre reçue » est UN CLIC dans une liste
- *     déroulante, tandis que saisir l'offre est un formulaire à part (« Ajouter une offre de … »).
- *     Le premier geste est fait, le second non. Le statut avance donc sans le prix.
- *
- * La carte affiche le montant quand il existe et se tait sinon, au lieu d'un zéro qui ferait croire à
- * une offre gratuite. Rendre la saisie obligatoire au passage en « offre reçue » relève d'une décision
- * de Michel, pas d'un correctif d'affichage.
- *
- * « DEMANDE REFUSÉE » SORT DU TABLEAU. Un fournisseur qui refuse de coter n'est plus dans le
- * pipeline ; l'y laisser gonflerait « en attente » de 57 dossiers morts. La case « inclure les
- * refusées » les ramène quand on cherche pourquoi une consultation n'a rien donné.
+ * Mesuré au moment d'écrire : 74 versions en construction, 28 disponibles.
+ * ════════════════════════════════════════════════════════════════════════════════════════════════
  */
 
-interface LignePricing {
-  consultation_id: string
-  recommandation_id: string
-  recommandation_nom: string | null
-  compte_nom: string | null
-  fournisseur_nom: string | null
-  type_energie: string | null
-  statut_libelle: string | null
-  date_evenement: string | null
-  nb_offres: number
-  montant_annuel_ht: number | null
-  prix_moyen_mwh: number | null
-  colonne: string
-  recommandation_etape: string | null
-  reco_en_cours: boolean
-  version_id: string | null
-  numero_version: number | null
-  version_courante: boolean
-  version_statut: string | null
-  version_vivante: boolean
-  date_cotation_souhaitee: string | null
-  jours_avant_cotation: number | null
-}
-
-/**
- * LES COLONNES PORTENT LES LIBELLÉS EXACTS DES STATUTS, et non un titre plus parlant.
- *
- * Naoëlle, 28/08/2026 : « peux-tu utiliser les termes de nos réels statuts pour ne pas s'embrouiller ».
- * Les colonnes s'appelaient « À demander », « En attente fournisseur », « Offres reçues » alors que
- * les statuts s'appellent « Aucun traitement », « Demande envoyée », « Demande acceptée ». Deux
- * vocabulaires pour la même chose obligeaient à traduire de tête à chaque lecture — et c'est
- * exactement ce que Michel a demandé de supprimer en simplifiant les statuts.
- *
- * CE PRIX A ÉTÉ PAYÉ, PUIS REMBOURSÉ. Le commentaire notait ici qu'on perdait en clarté
- * d'intention : « Aucun traitement » disait moins que « À demander » sur ce qu'il faut faire. Le
- * statut ayant été renommé « À traiter » le 18/09/2026, le vocabulaire est désormais unique ET
- * parlant — on ne choisit plus entre les deux.
- *
- * Les trois étapes du traitement d'une demande fournisseur. « Demande refusée » n'apparaît que sur
- * demande.
- *
- * Son dossier UX en annonçait quatre, « validées » comprise ; elle a été retirée le 27/08/2026 sur
- * demande de Naoëlle. Les trois qui restent ont ceci en commun qu'elles décrivent TOUTES un état de
- * la demande — pas envoyée, partie, revenue — là où « validée » décrivait une décision interne prise
- * après coup.
- */
 const COLONNES = [
-  /* ══ « À TRAITER », ET NON PLUS « AUCUN TRAITEMENT » ══
-     William, 18/09/2026 : « dans Pricing, la première colonne doit être renommée À traiter, et je
-     veux que tu bouges toutes les versions à ce statut dans cette colonne ».
-
-     Le renommage n'est pas cosmétique, il RÉPARE. En créant le statut « À traiter » la veille, j'ai
-     laissé un trou dans la vue `v_pricing_consultations` : sa table de correspondance ne connaissait
-     pas ce code, et son `ELSE` envoyait tout inconnu vers « Demande envoyée ». Une consultation
-     qu'Erwan aurait explicitement mise à « À traiter » serait donc allée s'asseoir dans la colonne
-     des demandes parties — exactement le contraire de ce qu'il aurait dit.
-
-     La colonne réunit maintenant les deux populations, qui n'en font qu'une : celles dont personne
-     n'a encore rien dit (aucune ligne de suivi) et celles qu'on a remises à traiter à la main.
-     C'est la règle de Naoëlle du 28/08/2026 — « utilise les termes de nos réels statuts pour ne pas
-     s'embrouiller » — enfin tenue : le statut s'appelle « À traiter », la colonne aussi. */
-  { code: 'A_TRAITER', libelle: 'À traiter' },
-  { code: 'EN_ATTENTE', libelle: 'Demande envoyée' },
-  { code: 'RECUE', libelle: 'Demande acceptée' },
-  /* ══ « DEMANDE DISPONIBLE », CALCULÉE PAR LA BASE ══
-     Naoëlle, 01/09/2026 : une consultation devient disponible quand plus aucune de ses offres n'est
-     en attente et qu'au moins une est disponible — le mélange disponible + indisponible compte,
-     un fournisseur qui répond sur deux sites sur trois a répondu.
-     APRÈS « acceptée » et non avant : la demande reste acceptée tant que des offres sont attendues,
-     donc une consultation qui apparaîtrait à gauche reculerait sur le tableau à leur arrivée. */
-  /* « PROPOSITION REÇUE » depuis le 18/09/2026 — le libellé suit celui du référentiel, renommé le
-     même jour. « Disponible » vivait aux trois étages de la consultation avec trois sens
-     différents ; celui-ci dit ce qui s'est passé plutôt qu'un état abstrait. */
-  { code: 'DISPONIBLE', libelle: 'Proposition reçue' },
-] as const
-
+  {
+    code: 'EN_CONSTRUCTION' as const,
+    libelle: 'En construction',
+    phrase: 'La consultation est en cours — on attend des fournisseurs.',
+  },
+  {
+    code: 'DISPONIBLE' as const,
+    libelle: 'Disponible',
+    phrase: 'Tout est revenu — la version peut partir chez le client.',
+  },
+]
 
 /**
- * LE GROUPE D'ÉCHÉANCE D'UNE CONSULTATION, écrit ENTRE les tuiles.
+ * ══════════ LE ZONAGE PAR ÉCHÉANCE ══════════
  *
- * Naoëlle, 27/08/2026 : « je veux pas que les instructions en retard etc. soient sur les tuiles, je
- * veux que ce soit indiqué entre les tuiles — c'est écrit "en retard de 1 jour" et il y a toutes les
- * tuiles en retard de 1 jour en dessous ». La date exacte, elle, va sur la tuile.
+ * William, 18/09/2026 : « au sein des colonnes, tu appliqueras un zoning en fonction de la date de
+ * livraison souhaitée ».
  *
- * UN GROUPE PAR JOUR, ET NON PAR TRANCHE. Regrouper « en retard de 1 à 7 jours » aurait donné des
- * paquets plus courts, mais aurait effacé l'ordre à l'intérieur : entre un retard de 6 jours et un
- * retard d'un jour, ce n'est pas le même appel. La clé est donc le nombre de jours lui-même, ce qui
- * garantit aussi que l'intertitre ne mente jamais sur son contenu.
+ * CINQ ZONES, PAS UN GROUPE PAR JOUR. L'ancienne page groupait par nombre de jours exact — une
+ * demande de Naoëlle du 27/08/2026, juste pour une colonne de consultations triée par échéance, où
+ * chaque groupe réunissait plusieurs cartes. Ici, 74 versions réparties sur autant de dates
+ * produiraient une trentaine d'intertitres pour une ou deux cartes chacun : ce ne serait plus un
+ * zonage, ce serait une liste avec des titres.
  *
- * LE NOMBRE DE JOURS EST CALCULÉ EN BASE, pas ici : `jours_avant_cotation` vaut
- * `date_souhaitee - current_date`. C'est la même valeur qui sert au tri serveur, et c'est
- * volontaire — un décompte calculé deux fois, une fois en SQL pour ordonner et une fois en
- * JavaScript pour afficher, finit par se contredire un jour de changement d'heure ou sur un
- * navigateur réglé sur un autre fuseau. Un intertitre « aujourd'hui » posé au-dessus d'une carte de
- * demain n'est pas un détail d'affichage : c'est le tri qui devient faux aux yeux du lecteur.
+ * LES ZONES SUIVENT L'ACTION, PAS LE CALENDRIER. En retard : à rattraper. Aujourd'hui : à livrer
+ * maintenant. Cette semaine : à planifier. Plus tard : un repère. Sans date : une saisie qui manque.
+ * À l'intérieur de chaque zone, l'ordre reste chronologique — entre un retard de six jours et un
+ * retard d'un jour, ce n'est pas le même appel.
  *
- * LE TON MONTE PAR PALIERS PARCE QUE L'ACTION CHANGE : passé la date, la demande n'est plus à
- * envoyer mais à rattraper ; le jour même, elle est à envoyer maintenant ; à trois jours, elle est
- * à planifier. Au-delà d'une semaine, la date n'est plus qu'un repère, d'où le ton neutre.
+ * « SANS DATE » EST UNE ZONE ET NON UN OUBLI. 28 versions n'en portent aucune, toutes nées avant que
+ * la date devienne obligatoire à la création (18/09/2026). Les ranger en bas sans les nommer les
+ * aurait fait passer pour les moins urgentes, alors qu'on ne sait simplement pas.
  */
-function groupeEcheance(
-  jours: number | null,
-  /** Vrai sur les colonnes où le fournisseur a répondu : plus rien n'y est en retard. */
-  aboutie: boolean,
-): { cle: string; texte: string; ton: 'retard' | 'jour' | 'proche' | 'loin' } | undefined {
-  // Sans date, aucun groupe : un intertitre « sans date » créerait une section pour une absence de
-  // saisie. Les 55 consultations affichées portent toutes la leur — la clause est là pour demain.
-  if (jours == null) return undefined
-  const cle = String(jours)
+const ZONES = [
+  { cle: 'retard', titre: 'En retard', ton: 'retard' as const },
+  { cle: 'jour', titre: "Aujourd'hui", ton: 'jour' as const },
+  { cle: 'semaine', titre: 'Cette semaine', ton: 'proche' as const },
+  { cle: 'plus_tard', titre: 'Plus tard', ton: 'loin' as const },
+  { cle: 'sans_date', titre: 'Sans date souhaitée', ton: 'muet' as const },
+]
 
-  /* ── La réponse est arrivée : on parle d'ancienneté, jamais de retard ──
-     Le ton reste neutre sur toute la colonne. Peindre en ambre une date passée alors que l'offre est
-     là serait précisément la fausse alerte qu'on cherche à éviter. */
-  if (aboutie) {
-    if (jours === 0) return { cle, texte: 'Souhaitée aujourd’hui', ton: 'loin' }
-    if (jours < 0) {
-      const n = Math.abs(jours)
-      return { cle, texte: n === 1 ? 'Souhaitée hier' : `Souhaitée il y a ${n} jours`, ton: 'loin' }
-    }
-    return {
-      cle,
-      texte: jours === 1 ? 'Souhaitée demain' : `Souhaitée dans ${jours} jours`,
-      ton: 'loin',
-    }
-  }
-
-  // ── La demande est encore en cours : la date est une cible, la manquer est un retard ──
-  if (jours < 0) {
-    const n = Math.abs(jours)
-    return { cle, texte: n === 1 ? 'En retard d’1 jour' : `En retard de ${n} jours`, ton: 'retard' }
-  }
-  if (jours === 0) return { cle, texte: 'Aujourd’hui', ton: 'jour' }
-  if (jours === 1) return { cle, texte: 'Demain', ton: 'proche' }
-  if (jours <= 7) return { cle, texte: `Dans ${jours} jours`, ton: 'proche' }
-  return { cle, texte: `Dans ${jours} jours`, ton: 'loin' }
+function zoneDe(jours: number | null): string {
+  if (jours == null) return 'sans_date'
+  if (jours < 0) return 'retard'
+  if (jours === 0) return 'jour'
+  if (jours <= 7) return 'semaine'
+  return 'plus_tard'
 }
 
-/**
- * LES COLONNES OÙ LE FOURNISSEUR A RÉPONDU.
- *
- * « Demande disponible » porte au moins une offre reçue, « demande refusée » porte un non : dans les
- * deux cas l'attente est finie. Les trois autres — aucun traitement, demande envoyée, demande
- * acceptée — attendent encore quelque chose du fournisseur.
- */
-const COLONNES_ABOUTIES = new Set(['DISPONIBLE', 'REFUSEE'])
+const TONS_ZONE: Record<string, string> = {
+  retard: 'border-km-red-line bg-km-red-soft text-km-red',
+  jour: 'border-km-amber/40 bg-km-amber-soft text-km-amber',
+  proche: 'border-km-blue/30 bg-km-blue-soft text-km-blue',
+  loin: 'border-km-line bg-km-soft text-km-muted',
+  muet: 'border-dashed border-km-line bg-white text-km-faint',
+}
 
-/** La date de cotation souhaitée, telle qu'elle s'écrit sur la tuile. */
-const dateCourte = (iso: string) => new Date(iso).toLocaleDateString('fr-FR')
+/** Le délai, dit en français. Le décompte vient de la base — voir la vue. */
+function delaiLisible(jours: number | null): string | null {
+  if (jours == null) return null
+  if (jours === 0) return "aujourd'hui"
+  if (jours === 1) return 'demain'
+  if (jours === -1) return 'hier'
+  if (jours > 1) return `dans ${jours} jours`
+  return `en retard de ${-jours} jours`
+}
+
+/** Les cinq statuts de fournisseur consulté, avec la couleur arrêtée sur la fiche recommandation. */
+const TONS_STATUT: Record<string, string> = {
+  A_TRAITER: 'border-km-line bg-km-soft text-km-muted',
+  ENVOYEE: 'border-km-blue/30 bg-km-blue-soft text-km-blue',
+  ACCEPTEE: 'border-km-amber/40 bg-km-amber-soft text-km-amber',
+  DISPONIBLE: 'border-km-green-line bg-km-green-soft text-km-green',
+  REFUSEE: 'border-km-red-line bg-km-red-soft text-km-red',
+}
 
 export default function Pricing({ sansEntete }: { sansEntete?: boolean }) {
   const [recherche, setRecherche] = useState('')
-  const [avecRefusees, setAvecRefusees] = useState(false)
+  const [deroulees, setDeroulees] = useState<Set<string>>(new Set())
   const { data: monProfil } = useMonProfil()
   const { perimetre, setPerimetre } = usePerimetre('pricing')
+  const { data: versions, isLoading } = useVersionsPricing()
 
-  const colonnes = avecRefusees
-    ? [...COLONNES, { code: 'REFUSEE', libelle: 'Demande refusée' } as const]
-    : [...COLONNES]
-
-  /* « ECHEANCE » EN PREMIER, ET CROISSANTE : c'est la demande de Michel du 27/08 — les retards
-     d'abord. Les trois autres axes repondent aux autres questions qu'on se pose ici : combien ca
-     pese, chez qui ca traine, pour quel client. */
-  const { tri, ascendant, setTri, options: optionsTri } = useTriKanban('pricing', [
-    { cle: 'date_cotation_souhaitee', libelle: 'échéance' },
-    { cle: 'montant_annuel_ht', libelle: 'montant', ascendant: false },
-    { cle: 'fournisseur_nom', libelle: 'fournisseur' },
-    { cle: 'compte_nom', libelle: 'compte' },
-  ])
-
-  /* Les intertitres suivent l'ordre reçu sans le recalculer : ils ne veulent rien dire sous un autre
-     tri que celui des dates. Le nom de la colonne triée est la seule chose à vérifier. */
-  const groupesVisibles = tri === 'date_cotation_souhaitee'
-
-  const tableau = useKanbanServeur<LignePricing>({
-    vue: 'v_pricing_consultations',
-    colonneStatut: 'colonne',
-    colonnes: colonnes.map((c) => ({ code: c.code, libelle: c.libelle })),
-    colonnesRecherche: ['fournisseur_nom', 'compte_nom', 'recommandation_nom'],
-    recherche,
-    // LES DEUX FILTRES DE LA PAGE, appliqués à toutes les colonnes ET aux sommes : le bandeau
-    // chiffré doit additionner la même population que le tableau, sinon l'un démentira l'autre.
-    // LE FILTRE DESCEND EN BASE avec les autres. Ce tableau est pagine ET somme par la base : dix
-    // cartes par colonne, un montant total calcule sur l'ensemble. Filtrer a l'arrivee n'aurait
-    // touche que les dix cartes visibles, et le bandeau chiffre aurait continue de compter tout le
-    // monde — les deux se seraient dementis a l'ecran.
-    filtres: {
-      reco_en_cours: true,
-      version_courante: true,
-      version_vivante: true,
-      /* LES VERSIONS PARTIES EN DÉCISION SORTENT DE L'ÉCRAN. Naoëlle, 02/09/2026 : « ne pas
-         afficher les versions en décision, car ça veut dire qu'Erwan a déjà traité et il va les
-         voir ». Cet écran répond à « qu'est-ce que j'attends d'un fournisseur » : une version
-         présentée au client n'attend plus rien d'eux, et la garder demande de relire chaque jour
-         des lignes sur lesquelles il n'y a plus rien à faire.
-         Onze consultations sur les cinquante-et-une affichées étaient dans ce cas. */
-      version_en_decision: false,
-      compte_proprietaire_id: perimetre === 'moi' && monProfil?.id ? monProfil.id : null,
-    },
-    // LES RETARDS EN PREMIER (Michel, 27/08/2026) — c'est le tri par défaut, et il reste le
-    // premier de la liste. Le tri part en base : on ne demande que dix cartes par colonne, donc
-    // trier à l'arrivée remettrait dans l'ordre un échantillon pris au hasard et la plus en retard
-    // resterait invisible parce qu'onzième.
-    ordre: { colonne: tri, ascendant },
-    // Le montant se somme par colonne : c'est ce qui attend chez chaque fournisseur.
-    colonneSomme: 'montant_annuel_ht',
-    actif: true,
-  })
-
-  const lignes = tableau.data ?? []
-  const nbTotal = lignes.reduce((n, c) => n + c.total, 0)
-  const montantTotal = lignes.reduce((t, c) => t + (c.somme ?? 0), 0)
-  const montantConnu = lignes.some((c) => (c.somme ?? 0) > 0)
+  function basculer(id: string) {
+    setDeroulees((precedent) => {
+      const suivant = new Set(precedent)
+      if (suivant.has(id)) suivant.delete(id)
+      else suivant.add(id)
+      return suivant
+    })
+  }
 
   /**
-   * SES QUATRE MESURES PORTENT LA DISTINCTION QUI FAIT TOUT CET ÉCRAN.
+   * LE FILTRE ET LE TRI SE FONT ICI, PAS EN BASE, et c'est le corollaire du chargement complet :
+   * cent deux lignes se filtrent en une fraction de milliseconde, et la zone « en retard » annonce
+   * alors TOUT ce qui est en retard — ce qu'une page de dix cartes ne pourrait pas promettre.
    *
-   * Son dossier y insiste : « acceptée ne veut pas dire disponible. Une offre disponible possède
-   * les prix et montants nécessaires à la comparaison. » On compte donc séparément ce qui ATTEND
-   * une offre et ce qui en a une — c'est la seule façon de voir le trou, et il est béant : 21
-   * versions « En décision » sur 22 n'ont aucune offre saisie.
+   * LE PÉRIMÈTRE REGARDE LES DEUX PROPRIÉTAIRES. Une recommandation a le sien, et son compte aussi ;
+   * l'ancienne page ne filtrait que sur celui du compte. Un commercial qui reprend un dossier sur un
+   * compte qui n'est pas le sien disparaissait donc de « mes versions ».
    */
-  const totalDe = (code: string) => lignes.find((c) => c.code === code)?.total ?? 0
-  /*
-   * LES INDICATEURS PORTENT LES LIBELLÉS DES COLONNES, MOT POUR MOT.
-   *
-   * Ils disaient « À envoyer », « En attente », « Offres reçues » — trois formulations pour les trois
-   * colonnes « Aucun traitement », « Demande envoyée », « Demande acceptée » qui s'affichent juste en
-   * dessous. Sur un même écran, deux vocabulaires pour les mêmes trois piles obligent à faire la
-   * traduction de tête à chaque lecture, et c'est exactement ce dont Michel se plaint : « on s'y perd
-   * de fou ».
-   *
-   * `COLONNES` est la source : ajouter un statut ne laissera pas les indicateurs en arrière.
-   */
-  const libelleDe = (code: string) =>
-    COLONNES.find((c) => c.code === code)?.libelle ?? code
+  const visibles = useMemo(() => {
+    const terme = recherche.trim().toLowerCase()
+    return (versions ?? [])
+      .filter((v) => {
+        if (perimetre === 'moi' && monProfil?.id) {
+          const mien = v.recommandation_proprietaire_id === monProfil.id
+            || v.compte_proprietaire_id === monProfil.id
+          if (!mien) return false
+        }
+        if (!terme) return true
+        return `${v.recommandation_nom} ${v.compte_nom ?? ''} ${v.fournisseurs.map((f) => f.fournisseur_nom).join(' ')}`
+          .toLowerCase()
+          .includes(terme)
+      })
+      /* LES PLUS URGENTES D'ABORD, sans date en dernier. `Infinity` range les sans-date au bout sans
+         cas particulier dans le tri — elles ne sont ni en avance ni en retard, elles sont ailleurs. */
+      .sort((a, b) => (a.jours_avant_livraison ?? Infinity) - (b.jours_avant_livraison ?? Infinity))
+  }, [versions, recherche, perimetre, monProfil?.id])
+
+  const parColonne = useMemo(() => {
+    const m = new Map<string, VersionPricing[]>()
+    for (const c of COLONNES) m.set(c.code, [])
+    for (const v of visibles) m.get(v.version_statut)?.push(v)
+    return m
+  }, [visibles])
+
+  const enConstruction = parColonne.get('EN_CONSTRUCTION') ?? []
+  const disponibles = parColonne.get('DISPONIBLE') ?? []
+  const enRetard = visibles.filter((v) => (v.jours_avant_livraison ?? 0) < 0).length
+  const attendus = enConstruction.reduce((n, v) => n + v.nb_attendus, 0)
+
   const mesures = [
-    { libelle: 'Consultations', valeur: String(nbTotal), precision: 'Versions en cours' },
-    { libelle: libelleDe('A_TRAITER'), valeur: String(totalDe('A_TRAITER')), precision: 'Action attendue' },
-    { libelle: libelleDe('EN_ATTENTE'), valeur: String(totalDe('EN_ATTENTE')), precision: 'Chez le fournisseur' },
-    {
-      /* L'indicateur suit la colonne qui porte l'information utile : ce qu'on peut comparer
-         MAINTENANT, c'est-à-dire les consultations dont les offres sont arrivées. « Acceptée » ne
-         dit que l'attente. */
-      libelle: libelleDe('DISPONIBLE'),
-      valeur: String(totalDe('DISPONIBLE')),
-      precision: montantConnu ? euros(montantTotal) + ' chiffrés' : 'Aucun prix saisi',
-    },
+    { libelle: 'Versions suivies', valeur: String(visibles.length), precision: 'Dossiers ouverts, version en cours' },
+    { libelle: 'En construction', valeur: String(enConstruction.length), precision: `${attendus} réponses attendues` },
+    { libelle: 'Disponibles', valeur: String(disponibles.length), precision: 'Prêtes à partir au client' },
+    { libelle: 'En retard', valeur: String(enRetard), precision: 'Date de livraison dépassée' },
   ]
 
   return (
@@ -390,9 +202,7 @@ export default function Pricing({ sansEntete }: { sansEntete?: boolean }) {
       <div className="p-4 sm:p-6">
         <PageHeader
           title="Pricing"
-          badge={montantConnu ? euros(montantTotal) : undefined}
-          badgeLibelle="Montant chiffré"
-          description="Suivez les offres fournisseurs à chaque étape de leur traitement. Seule la version en cours des recommandations ouvertes apparaît."
+          description="Les versions en cours de consultation, rangées par statut et par date de livraison souhaitée. Cliquez une version pour voir où en est chaque fournisseur."
         />
 
         <Indicateurs mesures={mesures} />
@@ -400,109 +210,267 @@ export default function Pricing({ sansEntete }: { sansEntete?: boolean }) {
         <ListToolbar
           query={recherche}
           onQueryChange={setRecherche}
-          placeholder="Rechercher un fournisseur, un compte…"
-          count={nbTotal}
+          placeholder="Rechercher une recommandation, un compte, un fournisseur…"
+          count={visibles.length}
         >
-          {/* MÊME GESTE QUE « INCLURE LES DOSSIERS CLOS » AILLEURS : la règle reste la règle, la case
-              est l'exception. Un refus se consulte quand on cherche pourquoi une consultation n'a rien
-              donné — pas tous les jours. */}
           <BasculePerimetre
             valeur={perimetre}
             onChange={setPerimetre}
-            libelleMien="Mes consultations"
-            libelleTous="Toutes les consultations"
+            libelleMien="Mes versions"
+            libelleTous="Toutes les versions"
           />
-          <SelecteurTri valeur={tri} onChange={setTri} options={optionsTri} />
-          <BasculeOption actif={avecRefusees} onChange={setAvecRefusees} libelle="Inclure les demandes refusées" />
         </ListToolbar>
 
-        <TableauKanban
-          colonnes={lignes.map((c) => ({
-            code: c.code,
-            libelle: c.libelle,
-            total: c.somme && c.somme > 0 ? euros(c.somme) : null,
-          }))}
-          cartes={Object.fromEntries(
-            lignes.map((c) => [
-              c.code,
-              c.lignes.map((l) => {
-                const chiffres: { libelle: string; valeur: string }[] = []
-                /* LA DATE DE COTATION SOUHAITÉE EN TÊTE : les chiffres se rendent juste sous le
-                   motif (« Demande envoyée — 29/06/2026 »), qui est exactement l'endroit demandé.
-                   Elle passe devant le budget parce qu'elle décide de QUAND agir, là où le budget ne
-                   décide de rien sur cette page. */
-                if (l.date_cotation_souhaitee) {
-                  chiffres.push({
-                    libelle: 'Cotation souhaitée',
-                    valeur: dateCourte(l.date_cotation_souhaitee),
-                  })
-                }
-                if (l.montant_annuel_ht != null) {
-                  chiffres.push({ libelle: 'Budget annuel', valeur: euros(l.montant_annuel_ht) })
-                }
-                if (l.prix_moyen_mwh != null) {
-                  chiffres.push({
-                    libelle: 'Prix moyen',
-                    valeur:
-                      l.prix_moyen_mwh.toLocaleString('fr-FR', { maximumFractionDigits: 2 }) + ' €/MWh',
-                  })
-                }
-                return {
-                  id: l.consultation_id,
-                  /* L'INTERTITRE SUR TOUTES LES COLONNES, avec le mot qui convient à chacune —
-                     « en retard de 28 jours » tant qu'on attend le fournisseur, « souhaitée il y a
-                     28 jours » quand il a répondu. Voir `groupeEcheance` et l'en-tête du fichier.
-                     Et seulement sous le tri par échéance : le tableau écrit l'intertitre quand la
-                     clé change d'une carte à la suivante, donc trié par montant il répéterait
-                     « Demain » à chaque fois que la date revient. */
-                  groupe: groupesVisibles
-                    ? groupeEcheance(l.jours_avant_cotation, COLONNES_ABOUTIES.has(c.code))
-                    : undefined,
-                  /* LE FOURNISSEUR EN TITRE, LE CLIENT EN SOUS-TITRE. Sur cette page on travaille
-                     fournisseur par fournisseur — « qui ne m'a pas répondu » — là où les autres
-                     kanbans partent du client. */
-                  titre: l.fournisseur_nom || 'Fournisseur inconnu',
-                  sousTitre: l.compte_nom ?? undefined,
-                  nature: l.type_energie === 'GAZ' ? 'Gaz' : l.type_energie ? 'Électricité' : undefined,
-                  /* LE MOTIF DIT OÙ ON EN EST, avec la date du dernier événement : sur 2 060 demandes
-                     en attente, ce qui compte est depuis QUAND. */
-                  motif:
-                    l.statut_libelle && l.date_evenement
-                      ? `${l.statut_libelle} — ${new Date(l.date_evenement).toLocaleDateString('fr-FR')}`
-                      /* LE MEME MOT QUE LA COLONNE. La colonne s'intitule « Aucun traitement »
-                         — le libelle du statut de reference — et ses cartes annoncaient « Demande
-                         non envoyee ». Deux noms pour un seul etat, sur le meme ecran, a trois
-                         centimetres l'un de l'autre. */
-                      : (l.statut_libelle ?? 'Aucun traitement'),
-                  chiffres: chiffres.length > 0 ? chiffres : undefined,
-                  mention: l.recommandation_nom ?? undefined,
-                  to: `/recommandations/${l.recommandation_id}`,
-                }
-              }),
-            ]),
-          )}
-          totaux={Object.fromEntries(lignes.map((c) => [c.code, c.total]))}
-          /* PAS DE GESTIONNAIRE DE CLIC ICI : chaque tuile porte deja son adresse (`to`, plus
-              haut), et un gestionnaire qui se contente de naviguer la ramenerait a l etat de
-              bouton — sans clic du milieu ni Ctrl+clic. Celui d avant faisait exactement ce que
-              `to` fait : retrouver la consultation pour en tirer l identifiant de recommandation. */
-          siVide={
-            tableau.isLoading
-              ? 'Chargement…'
-              : 'Aucune consultation fournisseur ne correspond.'
-          }
-        />
+        {isLoading ? (
+          <p className="text-km-body text-km-faint">Chargement…</p>
+        ) : (
+          <div className="grid grid-cols-1 gap-3.5 lg:grid-cols-2">
+            {COLONNES.map((colonne) => {
+              const cartes = parColonne.get(colonne.code) ?? []
+              return (
+                <section
+                  key={colonne.code}
+                  className="flex min-w-0 flex-col overflow-hidden rounded-km-lg border border-km-line bg-km-bg"
+                >
+                  <header className="flex flex-wrap items-baseline gap-2 border-b border-km-line bg-gradient-to-b from-km-soft to-white px-4 py-3">
+                    <h2 className="text-km-name font-extrabold text-km-text">{colonne.libelle}</h2>
+                    <span
+                      className={cn(
+                        'rounded-km-pill border px-2 py-[2px] text-km-label font-extrabold tabular-nums',
+                        colonne.code === 'DISPONIBLE'
+                          ? 'border-km-green-line bg-km-green-soft text-km-green'
+                          : 'border-km-line bg-km-soft text-km-muted',
+                      )}
+                    >
+                      {cartes.length}
+                    </span>
+                    <p className="min-w-0 flex-1 truncate text-km-label text-km-faint">{colonne.phrase}</p>
+                  </header>
 
-        {/* CE QUE LA PAGE NE PEUT PAS DIRE, dit à l'écran : le suivi avance d'un clic, la saisie de
-            l'offre est un formulaire séparé que personne ne remplit. Voir l'en-tête. */}
-        <p className="mt-3 max-w-[95ch] text-km-label leading-relaxed text-km-faint">
-          Seules les consultations encore vivantes apparaissent : la recommandation est ouverte, la
-          version est celle sur laquelle on travaille, et son statut n’est pas terminal. Les cartes
-          sont classées par date de cotation souhaitée, les retards en premier. Le budget, lui,
-          n’apparaît que sur les consultations dont l’offre a été saisie — une offre reçue mais non
-          chiffrée reste dans sa colonne, sans montant.
-        </p>
+                  <div className="flex flex-col gap-3 p-3">
+                    {cartes.length === 0 ? (
+                      <p className="px-1 py-2 text-km-body text-km-faint">
+                        {recherche ? 'Aucune version ne correspond.' : 'Aucune version à ce statut.'}
+                      </p>
+                    ) : (
+                      ZONES.map((zone) => {
+                        const deLaZone = cartes.filter((v) => zoneDe(v.jours_avant_livraison) === zone.cle)
+                        if (deLaZone.length === 0) return null
+                        return (
+                          <div key={zone.cle} className="flex flex-col gap-2">
+                            <div className="flex items-center gap-2">
+                              <span
+                                className={cn(
+                                  'rounded-km-pill border px-2 py-[2px] text-km-tiny font-extrabold uppercase tracking-[0.06em]',
+                                  TONS_ZONE[zone.ton],
+                                )}
+                              >
+                                {zone.titre}
+                              </span>
+                              <span className="text-km-tiny font-bold tabular-nums text-km-faint">
+                                {deLaZone.length}
+                              </span>
+                              <span className="h-px flex-1 bg-km-line" />
+                            </div>
+                            {deLaZone.map((v) => (
+                              <CarteVersion
+                                key={v.version_id}
+                                version={v}
+                                ouverte={deroulees.has(v.version_id)}
+                                onBasculer={() => basculer(v.version_id)}
+                              />
+                            ))}
+                          </div>
+                        )
+                      })
+                    )}
+                  </div>
+                </section>
+              )
+            })}
+          </div>
+        )}
       </div>
     </div>
+  )
+}
+
+/**
+ * Une version : son dossier, son numéro, son échéance, et ses fournisseurs au clic.
+ *
+ * LE NOM DE LA RECOMMANDATION EST LE TITRE, pas le numéro de version. « surtout le nom de la
+ * recommandation liée pour s'y retrouver » (William) : « V2 » ne désigne rien tout seul, alors que
+ * « CABINET MOLINIER — SDC LE FONTENAY » se reconnaît d'un regard. Le numéro reste, en pastille, là
+ * où il répond à « laquelle ? » une fois le dossier identifié.
+ */
+function CarteVersion({
+  version,
+  ouverte,
+  onBasculer,
+}: {
+  version: VersionPricing
+  ouverte: boolean
+  onBasculer: () => void
+}) {
+  const delai = delaiLisible(version.jours_avant_livraison)
+  const enRetard = (version.jours_avant_livraison ?? 0) < 0
+  const repondu = version.nb_recues + version.nb_refusees
+
+  return (
+    <article className="overflow-hidden rounded-km-md border border-km-line bg-white">
+      {/* ══════════ DEUX GESTES, DEUX ZONES ══════════
+
+          William, 18/09/2026 : « il doit y avoir 2 clics possibles : un clic sur le titre doit
+          renvoyer vers la recommandation en question ; un clic en bas doit permettre de dérouler la
+          card avec les fournisseurs ».
+
+          LA CARTE ÉTAIT UN SEUL BOUTON, et c'était un défaut de fond : le titre d'une carte est ce
+          qu'on vise pour aller à l'objet — c'est le geste de toutes les listes de Kimatch. Le rendre
+          inerte, ou pire lui faire faire autre chose, oblige à apprendre une exception.
+
+          ET CE N'EST PAS QU'UNE QUESTION D'USAGE : un `<a>` à l'intérieur d'un `<button>` est du
+          HTML invalide, que les navigateurs réparent chacun à leur façon. La carte se sépare donc en
+          deux éléments voisins — un lien en haut, un bouton en bas — plutôt qu'en un imbriqué dans
+          l'autre. Chacun garde son clavier, son focus et son menu contextuel : sur le titre, « ouvrir
+          dans un nouvel onglet » fonctionne, ce qu'un bouton ne saura jamais faire. */}
+      <Link
+        to={`/recommandations/${version.recommandation_id}`}
+        className="flex items-start gap-2 px-3 pb-1.5 pt-2.5 transition-colors hover:bg-km-bg"
+      >
+        <span className="min-w-0 flex-1">
+          <span className="block truncate text-km-body font-extrabold leading-tight text-km-text">
+            {version.recommandation_nom}
+          </span>
+          {version.compte_nom && version.compte_nom !== version.recommandation_nom && (
+            <span className="block truncate text-km-label text-km-faint">{version.compte_nom}</span>
+          )}
+        </span>
+        {version.type_energie && (
+          <span
+            className={cn(
+              'inline-flex shrink-0 items-center gap-1 rounded-km-pill border px-1.5 py-[2px] text-km-tiny font-extrabold',
+              version.type_energie === 'gaz'
+                ? 'border-[#c9dcea] bg-km-gaz-soft text-km-gaz'
+                : 'border-[#f2dd96] bg-km-elec-soft text-km-elec',
+            )}
+          >
+            {version.type_energie === 'gaz' ? <Flame className="h-[9px] w-[9px]" /> : <Zap className="h-[9px] w-[9px]" />}
+            {version.type_energie === 'gaz' ? 'GAZ' : 'ÉLEC'}
+          </span>
+        )}
+        <span className="shrink-0 rounded-km-pill bg-km-amber-soft px-1.5 py-[2px] text-km-tiny font-extrabold text-[#8a4b2a]">
+          V{version.numero_version ?? '?'}
+        </span>
+      </Link>
+
+      {/* LA ZONE BASSE DÉROULE. Elle porte l'échéance, l'avancement et la barre : ce qui décrit
+          l'état de la consultation, donc précisément ce que le détail vient expliquer. */}
+      <button
+        type="button"
+        onClick={onBasculer}
+        aria-expanded={ouverte}
+        title={ouverte ? 'Replier les fournisseurs' : 'Voir les fournisseurs consultés'}
+        className="flex w-full flex-col gap-2 px-3 pb-2.5 pt-1 text-left transition-colors hover:bg-km-bg"
+      >
+        <div className="flex flex-wrap items-center gap-x-2.5 gap-y-1">
+          <span
+            className={cn(
+              'inline-flex items-center gap-1 text-km-label font-semibold',
+              enRetard ? 'text-km-red' : 'text-km-muted',
+            )}
+          >
+            <CalendarClock className="h-3 w-3" />
+            {version.date_souhaitee
+              ? `${new Date(version.date_souhaitee).toLocaleDateString('fr-FR')}${delai ? ` · ${delai}` : ''}`
+              : 'date souhaitée à définir'}
+          </span>
+          <span className="flex-1" />
+          {/* CE QUE LA CARTE DIT SANS QU'ON L'OUVRE : combien ont répondu sur combien. C'est la
+              seule chose qu'on regarde vingt fois par jour ; le détail par fournisseur, une fois. */}
+          <span className="shrink-0 text-km-label tabular-nums text-km-muted">
+            {version.nb_fournisseurs === 0 ? (
+              <span className="text-km-faint">aucun fournisseur consulté</span>
+            ) : (
+              <>
+                <b className={version.nb_recues > 0 ? 'text-km-green' : 'text-km-muted'}>{version.nb_recues}</b>
+                {' '}reçue{version.nb_recues > 1 ? 's' : ''} / {version.nb_fournisseurs}
+              </>
+            )}
+          </span>
+          <ChevronRight
+            className={cn('h-3.5 w-3.5 shrink-0 text-km-faint transition-transform', ouverte && 'rotate-90')}
+          />
+        </div>
+
+        {/* La barre : une part par fournisseur, verte quand la proposition est arrivée, rouge sur un
+            refus, creuse tant qu'on attend. Elle dit l'avancement sans qu'on lise un chiffre. */}
+        {version.nb_fournisseurs > 0 && (
+          <div className="flex gap-[3px]" aria-hidden="true">
+            {version.fournisseurs.map((f) => (
+              <span
+                key={f.id}
+                className={cn(
+                  'h-[3px] flex-1 rounded-full',
+                  f.statut_code === 'DISPONIBLE'
+                    ? 'bg-km-green'
+                    : f.statut_code === 'REFUSEE'
+                      ? 'bg-km-red/50'
+                      : f.statut_code === 'A_TRAITER'
+                        ? 'bg-km-line'
+                        : 'bg-km-amber/60',
+                )}
+              />
+            ))}
+          </div>
+        )}
+      </button>
+
+      {ouverte && (
+        <div className="animate-km-fade-slide border-t border-km-line-soft bg-km-bg/60 px-3 py-2.5">
+          {version.fournisseurs.length === 0 ? (
+            <p className="text-km-label text-km-faint">
+              Aucun fournisseur n'a encore été consulté sur cette version.
+            </p>
+          ) : (
+            <ul className="flex flex-col gap-1.5">
+              {version.fournisseurs.map((f) => (
+                <li key={f.id} className="flex items-center gap-2">
+                  <span className="min-w-0 flex-1 truncate text-km-body font-semibold text-km-text">
+                    {f.fournisseur_nom}
+                  </span>
+                  {/* Un fournisseur à outil en ligne n'attend aucun mail : Erwan va lire les prix
+                      chez lui. Le dire évite de le compter comme une relance à faire. */}
+                  {f.mode_consultation === 'OUTIL_EN_LIGNE' && (
+                    <span className="shrink-0 text-km-tiny font-bold uppercase tracking-[0.05em] text-km-blue">
+                      outil en ligne
+                    </span>
+                  )}
+                  <span
+                    className={cn(
+                      'shrink-0 rounded-km-pill border px-2 py-[2px] text-km-label font-bold',
+                      TONS_STATUT[f.statut_code] ?? TONS_STATUT.A_TRAITER,
+                    )}
+                  >
+                    {f.statut_libelle}
+                  </span>
+                </li>
+              ))}
+            </ul>
+          )}
+          {/* LE LIEN VERS LA FICHE A QUITTÉ CE PIED : le titre de la carte le porte désormais, et
+              deux chemins vers le même endroit sur la même carte font hésiter au lieu d'aider.
+
+              LE STATUT, LUI, SE CHANGE SUR LA FICHE ET PAS ICI. Le poser demanderait de recopier la
+              mutation, ses cinq statuts et sa règle « outil en ligne n'a pas d'envoi » — soit une
+              seconde implémentation d'un geste qui en a déjà une, à un clic d'ici. */}
+          {version.nb_fournisseurs > 0 && (
+            <p className="mt-2.5 border-t border-km-line-soft pt-2 text-km-tiny text-km-faint">
+              {repondu} réponse{repondu > 1 ? 's' : ''} sur {version.nb_fournisseurs}
+              {version.nb_refusees > 0 && `, dont ${version.nb_refusees} refus`}
+            </p>
+          )}
+        </div>
+      )}
+    </article>
   )
 }
