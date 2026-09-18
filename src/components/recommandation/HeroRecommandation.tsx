@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import { Link } from 'react-router-dom'
-import { Building2, ChevronRight, Mail, Phone, User } from 'lucide-react'
+import { AlertTriangle, Building2, ChevronRight, Mail, Phone, User } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { RattachementModifiable } from '@/components/ui/rattachement-modifiable'
 import { appelerNumero, numeroLisible } from '@/lib/telephonie'
@@ -60,6 +60,7 @@ export function HeroRecommandation({
   compte,
   contacts,
   contactSignataire,
+  responsablesCompteurs,
   contrats,
   peutModifier,
   signaler,
@@ -70,6 +71,11 @@ export function HeroRecommandation({
   compte: { id: string; nom: string; ville?: string | null; type_compte?: string | null } | null | undefined
   contacts: Contact[]
   contactSignataire: Contact | null | undefined
+  /**
+   * Les contacts désignés responsables SUR LES COMPTEURS du périmètre, avec le nombre de points de
+   * livraison que chacun couvre. Sert à détecter l'écart avec le signataire — voir l'alerte.
+   */
+  responsablesCompteurs: { id: string; nom: string; compteurs: number }[]
   /** Les contrats nés de ce dossier. Vide, la cellule « Contrat » ne s'affiche pas du tout. */
   contrats: ContratDuHero[]
   peutModifier: boolean
@@ -109,6 +115,44 @@ export function HeroRecommandation({
 
   /* Le hero du contrat n'existe que si une demande a été faite — voir `HeroContrat`. */
   const avecContrat = contrats.length > 0
+
+  /**
+   * ══════════ QUAND LE SIGNATAIRE N'EST PAS CELUI QUI GÈRE LES COMPTEURS ══════════
+   *
+   * William, 18/09/2026 : « si tu te rends compte que le contact principal de la recommandation est
+   * différent du contact responsable renseigné sur le ou les compteurs, il serait très important de
+   * mettre une alerte sur la card contact ».
+   *
+   * ══ POURQUOI C'EST GRAVE MALGRÉ SA RARETÉ ══
+   *
+   * Mesuré le 18/09/2026 : l'écart existe sur 178 dossiers, dont 6 encore ouverts. C'est peu — et
+   * c'est précisément ce qui le rend dangereux. Une anomalie fréquente, on apprend à la voir ; une
+   * anomalie qui touche un dossier sur trente passe inaperçue jusqu'au jour où la proposition part
+   * chez quelqu'un qui n'a pas la main sur les compteurs concernés. Le contact signataire est celui
+   * à qui « Envoyer au client » adresse le PDF : se tromper là, c'est envoyer l'offre à la mauvaise
+   * personne, et l'apprendre par son silence.
+   *
+   * ══ L'ALERTE PORTE SON CORRECTIF ══
+   *
+   * Signaler sans offrir de réparer laisserait chercher où changer le contact. Le bouton « le
+   * désigner » bascule le signataire sur le responsable des compteurs, en un clic — c'est le même
+   * geste que le sélecteur juste au-dessus, mais pré-rempli avec la bonne réponse.
+   *
+   * ══ DEUX CAS, DEUX PHRASES ══
+   *
+   * Un signataire DIFFÉRENT du responsable, et un signataire ABSENT alors qu'un responsable est
+   * connu (106 dossiers). Le second n'est pas une contradiction mais une lacune évitable : la
+   * réponse est déjà en base, il suffit de la reprendre.
+   *
+   * ON NE DIT RIEN quand aucun compteur ne porte de responsable — c'est le cas de neuf dossiers
+   * actifs sur cent deux, et l'absence de donnée n'est pas un désaccord.
+   */
+  const responsablePrincipal = [...responsablesCompteurs]
+    .sort((a, b) => b.compteurs - a.compteurs)[0] ?? null
+  const ecartResponsable =
+    responsablePrincipal && responsablePrincipal.id !== contactSignataire?.id
+      ? responsablePrincipal
+      : null
 
   useEffect(() => {
     if (montantEnEdition) champMontant.current?.select()
@@ -308,6 +352,36 @@ export function HeroRecommandation({
               </div>
             )}
           </RattachementModifiable>
+
+          {ecartResponsable && (
+            <div className="flex flex-wrap items-start gap-1.5 rounded-km-sm border border-km-amber/40 bg-km-amber-soft px-2 py-1.5">
+              <AlertTriangle className="mt-px h-3 w-3 shrink-0 text-km-amber" />
+              <p className="min-w-0 flex-1 text-km-label text-km-amber">
+                {contactSignataire ? (
+                  <>
+                    <b>{ecartResponsable.nom}</b> est responsable
+                    {ecartResponsable.compteurs > 1 ? ` des ${ecartResponsable.compteurs} compteurs` : ' du compteur'}
+                    {' '}du périmètre — pas le signataire ci-dessus.
+                  </>
+                ) : (
+                  <>
+                    Aucun signataire, alors que <b>{ecartResponsable.nom}</b> est responsable
+                    {ecartResponsable.compteurs > 1 ? ` des ${ecartResponsable.compteurs} compteurs` : ' du compteur'}
+                    {' '}du périmètre.
+                  </>
+                )}
+              </p>
+              {peutModifier && (
+                <button
+                  type="button"
+                  onClick={() => onMajContactSignataire(ecartResponsable.id)}
+                  className="shrink-0 rounded-km-sm border border-km-amber/50 bg-white px-2 py-[2px] text-km-label font-bold text-km-amber hover:brightness-[.97]"
+                >
+                  le désigner
+                </button>
+              )}
+            </div>
+          )}
 
           <div className="grid grid-cols-2 gap-1.5">
             <button

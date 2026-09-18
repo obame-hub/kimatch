@@ -245,6 +245,29 @@ export default function RecommandationDetail() {
     return (compteurs ?? []).filter((c) => ids.has(c.id))
   }, [compteurs, reco?.compteur_ids])
 
+  /**
+   * LES RESPONSABLES DÉSIGNÉS SUR LES COMPTEURS DU PÉRIMÈTRE, et combien de points chacun couvre.
+   *
+   * Sert à l'alerte du hero : le signataire d'une recommandation devrait être celui qui a la main
+   * sur les compteurs qu'elle concerne. Mesuré le 18/09/2026, ce n'est pas le cas sur 178 dossiers,
+   * dont 6 encore ouverts — voir `HeroRecommandation` pour pourquoi une anomalie rare est plus
+   * dangereuse qu'une anomalie fréquente.
+   */
+  const responsablesCompteurs = useMemo(() => {
+    const parContact = new Map<string, { id: string; nom: string; compteurs: number }>()
+    for (const c of compteursDuPerimetre) {
+      if (!c.responsable_contact_id) continue
+      const deja = parContact.get(c.responsable_contact_id)
+      if (deja) deja.compteurs += 1
+      else parContact.set(c.responsable_contact_id, {
+        id: c.responsable_contact_id,
+        nom: c.responsable_contact_nom || 'Contact sans nom',
+        compteurs: 1,
+      })
+    }
+    return [...parContact.values()]
+  }, [compteursDuPerimetre])
+
   /* ══ « CLOS » SE LIT SUR L'ÉTAPE, PLUS SUR LA FINALITÉ ══
      C'était l'inverse jusqu'au 28/08/2026, et ça produisait un mensonge à l'écran : le dossier
      ARPAJE - SIEGE affichait « ACCEPTÉE » alors que sa version 2 était en construction. Sa finalité
@@ -1017,6 +1040,7 @@ export default function RecommandationDetail() {
                 compte={compte}
                 contacts={contacts ?? []}
                 contactSignataire={contactPrincipal}
+                responsablesCompteurs={responsablesCompteurs}
                 contrats={contratsIssus ?? []}
                 peutModifier={canManage}
                 signaler={signaler}
