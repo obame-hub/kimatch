@@ -205,7 +205,10 @@ const COLONNES = [
      un fournisseur qui répond sur deux sites sur trois a répondu.
      APRÈS « acceptée » et non avant : la demande reste acceptée tant que des offres sont attendues,
      donc une consultation qui apparaîtrait à gauche reculerait sur le tableau à leur arrivée. */
-  { code: 'DISPONIBLE', libelle: 'Demande disponible' },
+  /* « PROPOSITION REÇUE » depuis le 18/09/2026 — le libellé suit celui du référentiel, renommé le
+     même jour. « Disponible » vivait aux trois étages de la consultation avec trois sens
+     différents ; celui-ci dit ce qui s'est passé plutôt qu'un état abstrait. */
+  { code: 'DISPONIBLE', libelle: 'Proposition reçue' },
 ] as const
 
 

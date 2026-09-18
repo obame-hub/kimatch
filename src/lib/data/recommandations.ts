@@ -930,6 +930,23 @@ interface CreateRecommandationInput {
   description: string
   commentaire_interne: string
   /**
+   * ══ LE MONTANT DE L'AFFAIRE, ANNONCÉ PAR LE COMMERCIAL ══
+   *
+   * William, 18/09/2026 : « j'aimerais que le montant soit indiqué par le commercial lors de la
+   * création de la recommandation ».
+   *
+   * LA DÉCISION VIENT D'UNE MESURE QUI A SURPRIS TOUT LE MONDE. 1 574 dossiers sur 1 782 portent un
+   * montant — et les 1 574 viennent de Salesforce. AUCUN dossier né dans Kimatch n'en a jamais
+   * porté, et `montant_saisi_manuellement` valait `false` partout : personne ne l'avait jamais posé
+   * à la main non plus. Le chiffre le plus visible du CRM était un héritage figé, condamné à
+   * disparaître à mesure que les dossiers repris se clôturent.
+   *
+   * IL EST MARQUÉ COMME SAISI. `montant_saisi_manuellement` passe à `true` : le jour où les prix des
+   * offres alimenteront un calcul, il faudra savoir lequel des deux fait foi, et une valeur déclarée
+   * ne doit pas être écrasée en silence par une valeur calculée.
+   */
+  montant: number | null
+  /**
    * L'opportunité dont cette recommandation est la conversion.
    *
    * Diapositive 10 : « Conversion par périmètre — une opportunité convertie peut créer PLUSIEURS
@@ -985,6 +1002,7 @@ export function useCreateRecommandation() {
           commentaire_interne: input.commentaire_interne,
           date_ouverture: now,
           date_cloture: input.date_cloture,
+          ...(input.montant != null ? { montant: input.montant, montant_saisi_manuellement: true } : {}),
           type_opportunite: input.type_opportunite,
           ...(input.contact_signataire_id ? { contact_signataire_id: input.contact_signataire_id } : {}),
           ...(input.type_energie_id ? { type_energie_id: input.type_energie_id } : {}),
