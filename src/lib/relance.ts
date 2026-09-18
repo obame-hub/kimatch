@@ -24,21 +24,36 @@
  * dossiers, dont 303 déjà acceptés et 267 refusés ou abandonnés. Une suggestion qui crie sur des
  * dossiers clos n'est pas une aide, c'est du bruit qu'on apprend à ignorer.
  *
- * LA RECOMMANDATION DOIT ÊTRE À L'ÉTAPE « PRÉSENTÉE ». Question posée à Michel le 24/08/2026, et
- * tranchée le 25/08 : sa diapositive 11 dit « Consultation = solliciter les fournisseurs ». Un
- * dossier à ce palier attend une réponse de FOURNISSEUR, pas de client — lui suggérer de relancer le
- * client serait un contresens. Et sa règle « le statut évolue, il ne régresse jamais » tranche le cas
- * ambigu : si l'étape dit Consultation, la présentation appartient au tour précédent.
+ * ══ ELLE N'A JAMAIS FONCTIONNÉ, ET ON PEUT DATER LA CASSE (18/09/2026) ══
  *
- * L'effet est mesuré, et il est brutal : de 91 dossiers à 3. Les 76 en consultation et les 12 à
- * d'autres étapes portent une version présentée sans décision, mais ce sont des écarts de la reprise
- * Salesforce — l'étape et la date de présentation s'y contredisent. Trois suggestions justes valent
- * mieux que quatre-vingt-onze dont on apprend à ignorer le bandeau ; et la règle sera exacte pour
- * tout ce qui sera présenté depuis Kimatch.
+ * Écrite les 24-25/08, elle s'appuyait sur une étape de DOSSIER appelée « Présentée ». Le 28/08,
+ * Michel a déplacé cette notion de l'étape vers le statut de la VERSION, sous le nom « En décision ».
+ * Le commentaire de ce fichier l'a noté — mais l'appel, lui, a continué de passer `reco.etape`.
+ *
+ * La comparaison était donc « ACTIVE » ou « CLÔTURÉE » contre « EN_DECISION » : fausse pour tous les
+ * dossiers, depuis trois semaines, sans qu'aucune erreur ne se produise jamais. Le pire genre de
+ * panne — celle qui ressemble à « personne n'a besoin d'être relancé ».
+ *
+ * Et « En décision » a disparu à son tour le 18/09, la version n'ayant plus que trois statuts.
+ *
+ * ══ ELLE S'APPUIE DÉSORMAIS SUR UN FAIT, PLUS SUR UN STATUT ══
+ *
+ * `date_presentation_client` dit ce qui s'est réellement passé : l'offre est partie chez le client.
+ * C'est indiscutable, ça ne se renomme pas, et aucune refonte de référentiel ne peut le casser — la
+ * leçon des trois semaines précédentes.
+ *
+ * L'ÉTAPE NE SERT PLUS QU'À ÉCARTER LES DOSSIERS CLOS, ce qu'elle sait faire. Mesuré le 18/09 : la
+ * règle proposerait UNE relance aujourd'hui. Pas 91, pas 760 — une. C'est l'esprit d'origine, où
+ * Michel préférait trois suggestions justes à quatre-vingt-onze dont on apprend à ignorer le
+ * bandeau.
+ *
+ * Le chiffre est bas parce que personne ne remplit cette date à la main. Elle se posera désormais
+ * toute seule au moment d'envoyer la proposition au client depuis la fiche : envoyer démarre le
+ * compteur, et la suggestion arrive deux jours ouvrés plus tard.
  *
  * Quatre conditions, donc :
- *   1. la recommandation est encore ouverte — ni acceptée, ni refusée, ni abandonnée ;
- *   2. elle est à l'étape « Présentée » : c'est le seul palier où l'on attend le client ;
+ *   1. la recommandation est à l'étape « Active » — un dossier clos n'attend plus rien ;
+ *   2. la version porte une DATE DE PRÉSENTATION : l'offre est partie chez le client ;
  *   3. c'est la version ACTUELLE qui a été présentée — une version remplacée par une plus récente
  *      n'attend plus de réponse ;
  *   4. deux jours ouvrés sont passés.
@@ -49,18 +64,44 @@
  * suggestion — le commercial décide.
  */
 
-/** Les étapes terminales de la diapositive 13 : au-delà, plus rien à relancer. */
-const ETAPES_FERMEES = ['ACCEPTEE', 'REFUSEE', 'ABANDONNEE']
+/**
+ * ══ ON NOMME LES ÉTAPES OÙ L'ON RELANCE, PAS CELLES OÙ L'ON S'ARRÊTE ══
+ *
+ * Ce fichier listait trois étapes « fermées » — ACCEPTEE, REFUSEE, ABANDONNEE — tirées de la
+ * diapositive 13 de Michel. Vérifié le 18/09/2026 : ces trois codes existent bien dans
+ * `etapes_recommandation`, mais ils y sont DÉSACTIVÉS et ne portent AUCUN dossier. Les quatre codes
+ * réellement utilisés sont Clôturée (1 623), Active (103), À réactiver (55) et Brouillon (1).
+ *
+ * Le filtre ne filtrait donc rien, et `CLOTUREE` — de loin le plus fréquent — passait au travers.
+ * Recâbler la suggestion sans corriger cela l'aurait fait crier sur des dossiers terminés.
+ *
+ * LA LISTE EST INVERSÉE, ET C'EST LE VRAI CORRECTIF. Énumérer les étapes où l'on s'arrête oblige à
+ * penser à chaque nouvelle étape ; énumérer celle où l'on relance fait qu'une étape inconnue ne
+ * déclenche RIEN par défaut. Entre une suggestion oubliée et une suggestion sur un dossier clos, le
+ * silence est le bon défaut.
+ *
+ * « À réactiver » n'y est pas : un dossier dormant n'attend pas la réponse du client à une offre, il
+ * attend qu'on le reprenne. C'est un autre geste.
+ */
+const ETAPES_OU_L_ON_RELANCE = ['ACTIVE']
 
 /**
- * Le seul état où l'on attend le client.
+ * ══ CE FILTRE EST LE SEUL ARRÊT DE LA RELANCE, ET C'EST VOULU ══
  *
- * C'ÉTAIT UNE ÉTAPE DE DOSSIER, C'EST DEVENU UN STATUT DE VERSION (Michel, 28/08/2026). « Présentée »
- * a disparu des étapes de recommandation ; le fait « l'offre est partie, la balle est chez le
- * décisionnaire » vit maintenant sur la version, sous le nom « En décision ». C'est plus juste : ce
- * qu'on présente au client est une version, pas un dossier.
+ * La condition « le client n'a pas encore répondu » s'appuie sur `date_decision_client`. Mesuré le
+ * 18/09/2026 : cette colonne est VIDE sur les 2 106 versions, et aucun écran ne l'écrit.
+ *
+ * Ce n'est pas un oubli. William, 18/09/2026 : « c'est la clôture de la recommandation qui arrête
+ * la relance ». Un commercial ne va pas cocher « le client a répondu » puis clôturer le dossier —
+ * il clôture, point, et ce geste-là existe déjà, il est obligatoire et il porte un motif.
+ *
+ * LA CONDITION SUR `date_decision_client` RESTE quand même, un cran plus bas : elle ne coûte rien,
+ * elle dit juste ce qu'elle veut dire, et le jour où une décision client se consignera vraiment
+ * elle fonctionnera sans qu'on ait à y revenir. Mais elle ne porte rien aujourd'hui — NE PAS la
+ * « réparer » en câblant un bouton « le client a répondu » : ce serait ajouter un geste pour
+ * obtenir ce que la clôture donne déjà.
  */
-const ETAPE_QUI_ATTEND_LE_CLIENT = 'EN_DECISION'
+
 
 const SEUIL_JOURS_OUVRES = 2
 
@@ -114,9 +155,7 @@ export function suggestionRelance(
   maintenant: Date = new Date(),
 ): SuggestionRelance | null {
   if (!version) return null
-  if (ETAPES_FERMEES.includes(etape)) return null
-  // Avant « Présentée », on attend les fournisseurs, pas le client.
-  if (etape !== ETAPE_QUI_ATTEND_LE_CLIENT) return null
+  if (!ETAPES_OU_L_ON_RELANCE.includes(etape)) return null
   if (version.version_actuelle === false) return null
   if (!version.date_presentation_client) return null
   if (version.date_decision_client) return null
