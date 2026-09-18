@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
-import { useParams, useNavigate, Link } from 'react-router-dom'
+import { useParams, useNavigate } from 'react-router-dom'
 import {
   ArrowLeft,
   Trash2,
@@ -1137,60 +1137,20 @@ export default function RecommandationDetail() {
                 </div>
               )}
 
-              {/* ══════════ CE QUE CETTE RECOMMANDATION A PRODUIT ══════════
+              {/* ══════════ « CE QUE CETTE RECOMMANDATION A PRODUIT » EST RETIRÉ ══════════
 
-                  Le lien contrat → recommandation dormait : la colonne existait, mais la reprise
-                  Salesforce ne l'avait pas importée (3 contrats renseignés sur 1 598). Rétabli le
-                  27/08/2026 sur 697 contrats depuis `Contract.Opportunit__c`, avec le compte des deux
-                  côtés comme garde-fou — zéro discordance sur 694 rapprochements.
+                  William, 18/09/2026 : « du coup le bloc "Contrat issu de cette recommandation" est
+                  inutile vu que le hero existe. »
 
-                  Ce bloc est la moitié utile du lien. Sans lui, un commercial qui ouvre une
-                  recommandation acceptée ne voit pas le contrat qu'elle a donné, et ne peut donc pas
-                  vérifier que les conditions signées sont bien celles qu'il avait proposées.
+                  IL DISAIT LA MÊME CHOSE EN MOINS BIEN. Le hero le montre plus haut, avec l'état de
+                  signature interrogé auprès de DocuSign — ce que ce bloc ne faisait pas : il listait
+                  un fournisseur, une référence et deux dates, sans jamais dire si le contrat était
+                  signé. Et il fallait faire défiler pour le trouver.
 
-                  Il se tait quand il n'y a rien : sur une recommandation encore en cours, une carte
-                  « aucun contrat » n'apprendrait rien qu'on ne sache déjà en lisant l'étape. */}
-              {contratsIssus && contratsIssus.length > 0 && (
-                <div className="rounded-km-lg border border-km-line bg-white p-3.5">
-                  <p className="mb-2.5 text-km-label font-bold uppercase tracking-[0.06em] text-km-faint">
-                    {contratsIssus.length > 1
-                      ? `Les ${contratsIssus.length} contrats issus de cette recommandation`
-                      : 'Le contrat issu de cette recommandation'}
-                  </p>
-                  <div className="flex flex-col gap-1.5">
-                    {contratsIssus.map((ct) => (
-                      <Link
-                        key={ct.id}
-                        to={`/contrats/${ct.id}`}
-                        className="flex w-full items-center gap-2.5 rounded-km-md border border-km-line bg-km-soft px-3 py-2 text-left transition hover:border-km-green-line hover:bg-km-green-tint"
-                      >
-                        <span className="flex h-[26px] w-[26px] shrink-0 items-center justify-center rounded-lg bg-km-green-soft text-km-green">
-                          <FileText className="h-3.5 w-3.5" />
-                        </span>
-                        <span className="min-w-0 flex-1">
-                          <span className="block truncate text-km-body font-bold text-km-text">
-                            {ct.fournisseur_nom || 'Fournisseur non renseigné'}
-                          </span>
-                          <span className="block truncate text-km-label text-km-faint">
-                            {[
-                              ct.reference_fournisseur,
-                              ct.date_debut
-                                ? `du ${new Date(ct.date_debut).toLocaleDateString('fr-FR')}`
-                                : null,
-                              ct.date_fin
-                                ? `au ${new Date(ct.date_fin).toLocaleDateString('fr-FR')}`
-                                : null,
-                            ]
-                              .filter(Boolean)
-                              .join(' · ') || 'Aucune date renseignée'}
-                          </span>
-                        </span>
-                        <span className="shrink-0 text-km-label font-bold text-km-green">ouvrir →</span>
-                      </Link>
-                    ))}
-                  </div>
-                </div>
-              )}
+                  LE LIEN LUI-MÊME N'EST PAS PERDU — c'est le travail de la reprise du 27/08/2026,
+                  qui a rétabli 697 contrats depuis `Contract.Opportunit__c` avec le compte des deux
+                  côtés comme garde-fou. Il vit désormais dans le hero, et les rares dossiers à
+                  plusieurs contrats y sont annoncés. */}
 
               {/* ══════════ LA RELANCE APRÈS DEUX JOURS OUVRÉS ══════════
                   « Kimatch va juste lui dire : voilà ce que tu devrais faire. À lui de décider de le
