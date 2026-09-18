@@ -1,6 +1,7 @@
-import { useMemo, useState } from 'react'
+import { useMemo, useState, type ReactNode } from 'react'
+import { FileText } from 'lucide-react'
 import { cn } from '@/lib/utils'
-import type { Recommandation, VersionRecommandation, OffreFournisseur } from '@/types/domain'
+import type { DocumentItem, Recommandation, VersionRecommandation, OffreFournisseur } from '@/types/domain'
 import { prixMoyenMWh } from '@/lib/prixOffre'
 import { budgetAnnuelDeLOffre } from '@/components/recommandation/CarteOffreEtude'
 import { euros, montantAvecUnite } from '@/lib/euros'
@@ -87,6 +88,15 @@ interface Ligne {
   /** Pourquoi la case est vide, quand elle l'est. */
   raisonVide: string
   modifiable?: boolean
+  /**
+   * Un rendu libre à la place du texte, quand la cellule doit porter autre chose qu'une chaîne.
+   *
+   * Une seule ligne s'en sert : la proposition commerciale, dont le nom de fichier doit être un
+   * LIEN. Le tableau n'affichait que du texte, ce qui convient à un montant ou à un nom de
+   * fournisseur, mais pas à un document — un PDF qu'on lit sans pouvoir l'ouvrir n'est pas une
+   * information, c'est une frustration.
+   */
+  rendu?: (v: VersionRecommandation) => ReactNode
 }
 
 export function ComparatifVersions({
@@ -95,19 +105,66 @@ export function ComparatifVersions({
   onChoisirVersion,
   onMajEconomies,
   peutModifier,
+  documents,
 }: {
   reco: Recommandation
   versionAffichee: VersionRecommandation | null
   onChoisirVersion: (v: VersionRecommandation) => void
   onMajEconomies: (versionId: string, economies: number | null) => void
   peutModifier: boolean
+  /** Les documents du dossier et de ses versions — le comparatif n'y cherche que les propositions. */
+  documents: DocumentItem[]
 }) {
   const versions = reco.versions
   const [enEdition, setEnEdition] = useState<string | null>(null)
   const [brouillon, setBrouillon] = useState('')
 
+  /**
+   * ══════════ L'HISTORIQUE DES PROPOSITIONS COMMERCIALES ══════════
+   *
+   * William, 18/09/2026 : « tu gardes cette proposition au format PDF dans l'historique, par exemple
+   * dans le comparatif de version ».
+   *
+   * C'EST LA CONTREPARTIE DE CE QUI DISPARAÎT DU HERO. Là-haut, une version clôturée cesse d'offrir
+   * sa proposition : on ne doit pas pouvoir envoyer au client une offre qui n'a plus cours. Mais le
+   * document, lui, ne s'efface pas — il reste attaché à SA version, et c'est ici qu'on le relit.
+   *
+   * ET LE COMPARATIF EST LE BON ENDROIT, pas un onglet « Fichiers ». Une proposition ne se lit pas
+   * seule : elle se lit en face de la version qui l'a produite, de son fournisseur et de sa durée.
+   * Rangée dans une liste de fichiers, elle perdrait ce qui lui donne son sens — savoir CE QU'ON a
+   * proposé le 18/09 exige de savoir laquelle des trois versions on avait sous la main.
+   */
+  const propositionDe = (v: VersionRecommandation) =>
+    documents
+      .filter((d) => d.entite_id === v.id && d.type_document === 'Recommandation')
+      .sort((a, b) => b.date_creation.localeCompare(a.date_creation))[0] ?? null
+
   const lignes: Ligne[] = useMemo(
     () => [
+      {
+        cle: 'proposition',
+        libelle: 'Proposition commerciale',
+        meilleur: null,
+        valeur: () => null,
+        texte: (v) => (propositionDe(v) ? (propositionDe(v)!.nom_fichier || propositionDe(v)!.nom) : '—'),
+        raisonVide: 'Aucune proposition commerciale jointe à cette version.',
+        rendu: (v) => {
+          const doc = propositionDe(v)
+          if (!doc) return null
+          return (
+            <a
+              href={doc.url}
+              target="_blank"
+              rel="noreferrer"
+              title={`Ouvrir ${doc.nom_fichier || doc.nom} — déposée le ${new Date(doc.date_creation).toLocaleDateString('fr-FR')}`}
+              className="inline-flex max-w-full items-center gap-1 truncate text-km-label font-bold text-km-green hover:underline"
+            >
+              <FileText className="h-3 w-3 shrink-0" />
+              <span className="truncate">{doc.nom_fichier || doc.nom}</span>
+            </a>
+          )
+        },
+      },
       {
         cle: 'economies',
         libelle: 'Économies estimées',
@@ -310,7 +367,9 @@ export function ComparatifVersions({
                         !active ? 'bg-transparent' : i === gagnant ? 'bg-[#f9f3e8]' : 'bg-[#fdf9f0]',
                       )}
                     >
-                      {enEdition === idEdition ? (
+                      {ligne.rendu && ligne.rendu(v) ? (
+                        ligne.rendu(v)
+                      ) : enEdition === idEdition ? (
                         <input
                           autoFocus
                           value={brouillon}

@@ -1,22 +1,73 @@
 import { useState } from 'react'
-import { CalendarClock, Mail, Lock, Trash2, ExternalLink, ChevronDown } from 'lucide-react'
+import { Lock, Trash2, ExternalLink, ChevronDown } from 'lucide-react'
 import {
   STATUT_CONSULTATION_PAR_DEFAUT,
   useCloturerVersion,
   useMajDateSouhaitee,
   useMajStatutVersion,
+  libelleOffre,
   type ResultatCloture,
 } from '@/lib/data/recommandations'
 import { InlineField } from '@/components/ui/inline-field'
-import { Badge } from '@/components/ui/badge'
-import { EntityLink } from '@/components/ui/entity-link'
 import { OffresDuFournisseur } from '@/components/recommandation/OffresDuFournisseur'
+import { PropositionsFournisseur } from '@/components/recommandation/PropositionsFournisseur'
+import { PropositionCommerciale } from '@/components/recommandation/PropositionCommerciale'
 import { budgetAnnuelDeLOffre } from '@/components/recommandation/CarteOffreEtude'
 import { cn } from '@/lib/utils'
 import type { ReferenceRow } from '@/lib/data/referenceTables'
-import type { VersionRecommandation, Optimisation, FournisseurConsulte, Compteur, OffreFournisseur } from '@/types/domain'
+import type { Contact, Recommandation, VersionRecommandation, Optimisation, FournisseurConsulte, Compteur, OffreFournisseur } from '@/types/domain'
 
 const MISE_EN_CONCURRENCE = 'MISE_EN_CONCURRENCE'
+
+/**
+ * ══════════ LE DÉTAIL DES PRIX EST MASQUÉ, PAS SUPPRIMÉ ══════════
+ *
+ * William, 18/09/2026 : « tous les champs ou prix actuellement présents sur Kimatch doivent être
+ * masqués », et plus tôt le même jour : « il est impossible de connaître le montant d'une offre
+ * […] le but ici est surtout de savoir ce qui est disponible, ce qui est en attente, ce qui ne
+ * l'est pas encore ».
+ *
+ * LES CHIFFRES LUI DONNENT RAISON : 10 offres chiffrées sur 291, 11 lignes de prix dans toute la
+ * base. Ce qui s'affichait ici était vide 97 fois sur 100.
+ *
+ * MAIS C'EST UN INTERRUPTEUR ET NON UNE SUPPRESSION, pour la raison qu'il a donnée lui-même :
+ * « l'objet offre sera utile lorsqu'on aura câblé les fonctionnalités permettant d'intégrer les
+ * prix directement dans Kimatch ». `OffresDuFournisseur` est l'écran de saisie d'Erwan — 619 lignes
+ * qui gèrent les prix au MWh, l'abonnement, le TURPE, l'acheminement et la désignation de l'offre
+ * retenue. Le supprimer pour coller au dessin ferait perdre une fonction, pas un ornement ; le jour
+ * où les prix arrivent, ce mot repasse à `true` et tout revient tel quel.
+ *
+ * CE QUI EST PERDU EN ATTENDANT, ET QU'IL FAUT SAVOIR : c'était le seul chemin depuis la fiche pour
+ * saisir un prix ou désigner l'offre retenue. Les deux restent possibles depuis le comparatif.
+ */
+const AFFICHER_LE_DETAIL_DES_PRIX = false
+
+/**
+ * ══════════ LES CINQ ÉTATS D'UN FOURNISSEUR CONSULTÉ, EN COULEUR ══════════
+ *
+ * William, 18/09/2026, a arrêté la liste : « À traiter · Demande envoyée · Demande acceptée ·
+ * Proposition reçue · Demande refusée ».
+ *
+ * LA COULEUR DIT L'ATTENTE, PAS LA HIÉRARCHIE. Gris : rien n'a encore été fait. Bleu : la balle est
+ * chez le fournisseur. Ambre : il a accepté, on attend son prix — c'est le seul état où le temps
+ * compte contre nous. Vert : sa proposition est là. Rouge : il ne répondra pas, et c'est une
+ * réponse aussi, qui libère de l'attente.
+ *
+ * Erwan lit cette grille vingt fois par jour ; les couleurs lui évitent de lire cinq libellés.
+ */
+const TONS_STATUT_VERSION: Record<string, string> = {
+  EN_CONSTRUCTION: 'border-km-line bg-km-soft text-km-muted',
+  DISPONIBLE: 'border-km-green-line bg-km-green-soft text-km-green',
+  CLOTUREE: 'border-km-line bg-white text-km-faint',
+}
+
+const TONS_STATUT_CONSULTATION: Record<string, string> = {
+  A_TRAITER: 'border-km-line bg-km-soft text-km-muted',
+  ENVOYEE: 'border-km-blue/30 bg-km-blue-soft text-km-blue',
+  ACCEPTEE: 'border-km-amber/40 bg-km-amber-soft text-km-amber',
+  DISPONIBLE: 'border-km-green-line bg-km-green-soft text-km-green',
+  REFUSEE: 'border-km-red-line bg-km-red-soft text-km-red',
+}
 
 /**
  * L'OFFRE À LAQUELLE TOUTES LES AUTRES SE COMPARENT, sur l'ensemble de la cotation.
@@ -69,9 +120,9 @@ function repereDeLaCotation(optimisation: Optimisation): OffreFournisseur | null
  * unes sous les autres comme avant le portage.
  */
 export function DetailVersion({
+  reco,
   version,
   statutsVersions,
-  onEnvoyerEmail,
   onAjouterFournisseur,
   onChangerStatut,
   statutsConsultation,
@@ -80,10 +131,14 @@ export function DetailVersion({
   peutModifier,
   signaler,
   onSupprimer,
+  contactSignataire,
+  typeDocumentPropositionId,
+  onPresentationEnvoyee,
 }: {
+  /** Le dossier, pour l'e-mail au client : son compte, son nom, son identifiant. */
+  reco: Recommandation
   version: VersionRecommandation
   statutsVersions: ReferenceRow[]
-  onEnvoyerEmail: () => void
   onAjouterFournisseur: (optimisation: Optimisation) => void
   /** Change le statut de la demande, en enregistrant un événement de suivi daté. */
   onChangerStatut: (fc: FournisseurConsulte, statutId: string) => void
@@ -95,6 +150,11 @@ export function DetailVersion({
   signaler: (message: string) => void
   /** Ouvre la confirmation de suppression, tenue par la fiche : elle sait ce qui va être perdu. */
   onSupprimer: () => void
+  /** Le destinataire de la proposition commerciale. */
+  contactSignataire: Contact | null | undefined
+  typeDocumentPropositionId: string | null
+  /** Date la présentation au client quand la proposition part — voir `PropositionCommerciale`. */
+  onPresentationEnvoyee: () => void
 }) {
   const statutLabel = statutsVersions.find((s) => s.code === version.statut)?.libelle ?? version.statut
 
@@ -120,6 +180,48 @@ export function DetailVersion({
   const cloturer = useCloturerVersion()
   const [clotureOuverte, setClotureOuverte] = useState(false)
   const estClose = version.statut === 'CLOTUREE'
+
+  /**
+   * ══════════ « TOUT EST LÀ — ON PASSE EN DISPONIBLE ? » ══════════
+   *
+   * William, 18/09/2026 : « c'est la version qui est "Disponible" une fois que toutes les offres
+   * sont reçues ».
+   *
+   * IL A DEMANDÉ QUE CE SOIT PROPOSÉ, PAS IMPOSÉ — sa réponse à la question posée le même jour. Le
+   * basculement automatique aurait été plus simple à écrire et faux : une version peut n'attendre
+   * que deux fournisseurs sur cinq, les trois autres ayant refusé, et c'est Erwan qui sait si la
+   * consultation est finie. Kimatch constate, Erwan décide.
+   *
+   * CE QUI COMPTE COMME « FINI » : plus aucun fournisseur en attente. Un refus est une réponse — il
+   * libère de l'attente au même titre qu'une proposition reçue, sinon un seul fournisseur muet
+   * empêcherait à jamais l'invite d'apparaître. Mais il faut au moins une proposition : une version
+   * dont tous les fournisseurs ont refusé n'a rien à rendre disponible.
+   */
+  /**
+   * Le délai jusqu'à la livraison souhaitée, dit en français.
+   *
+   * MIDI PLUTÔT QUE MINUIT pour comparer : une date ISO se lit à 00:00 UTC, donc en France une
+   * livraison « aujourd'hui » se trouvait déjà dans le passé dès 2 h du matin — et s'affichait
+   * « en retard d'un jour » alors qu'on avait la journée devant soi.
+   */
+  const delaiLivraison = (() => {
+    if (!version.date_souhaitee) return null
+    const cible = new Date(String(version.date_souhaitee).slice(0, 10) + 'T12:00:00')
+    const aujourdhui = new Date()
+    aujourdhui.setHours(12, 0, 0, 0)
+    const jours = Math.round((cible.getTime() - aujourdhui.getTime()) / 86_400_000)
+    if (jours === 0) return "aujourd'hui"
+    if (jours === 1) return 'demain'
+    if (jours > 1) return `dans ${jours} jours`
+    if (jours === -1) return 'hier'
+    return `en retard de ${-jours} jours`
+  })()
+
+  const consultes = version.optimisations.flatMap((o) => o.fournisseurs_consultes)
+  const enAttente = consultes.filter((fc) => fc.statut_code !== 'DISPONIBLE' && fc.statut_code !== 'REFUSEE')
+  const recues = consultes.filter((fc) => fc.statut_code === 'DISPONIBLE')
+  const proposerDisponible =
+    peutModifier && version.statut === 'EN_CONSTRUCTION' && enAttente.length === 0 && recues.length > 0
 
   const cloturerAvec = async (resultat: ResultatCloture, libelle: string) => {
     try {
@@ -150,9 +252,23 @@ export function DetailVersion({
 
   return (
     <div className="rounded-[13px] border border-km-line bg-white">
-      <div className="flex flex-wrap items-center gap-2 border-b border-km-line-soft px-[17px] py-3">
-        <span className="text-km-label font-bold uppercase tracking-[0.08em] text-km-faint">
-          Détail de {version.nom || `la version ${version.numero_version ?? ''}`}
+      {/* ══════════════════════════════════════════════════════════════════════════════════════
+          L'EN-TÊTE DE LA VERSION, TEL QUE LA MAQUETTE L'ARRÊTE
+
+          William, 18/09/2026 : « je veux un bloc version exactement comme sur ta maquette, tous les
+          champs ou prix actuellement présents sur Kimatch doivent être masqués ».
+
+          CINQ CHOSES SEULEMENT : quel numéro, si c'est celle sur laquelle on travaille, où elle en
+          est, et pour quand elle est attendue. Ce qui est parti — « Détail de version 2 », le badge
+          « Actuelle » en double du mot « active », l'icône de calendrier — nommait le bloc au lieu
+          de renseigner. Un en-tête qui commence par dire ce qu'il est prend la place de ce qu'il dit.
+          ══════════════════════════════════════════════════════════════════════════════════════ */}
+      <div className="flex flex-wrap items-center gap-2.5 border-b border-km-line-soft px-[17px] py-3">
+        <span className="rounded-km-pill bg-km-amber-soft px-2 py-[2px] text-km-label font-extrabold text-[#8a4b2a]">
+          Version {version.numero_version ?? ''}
+        </span>
+        <span className="text-km-body font-extrabold text-km-text">
+          {version.version_actuelle ? 'Version active' : 'Version archivée'}
         </span>
         {version.est_figee && (
           <span title="Version figée">
@@ -160,67 +276,41 @@ export function DetailVersion({
           </span>
         )}
 
-        {/* ══ LA DATE DE LIVRAISON SOUHAITÉE, MODIFIABLE ══
-            William, 18/09/2026 : « elle doit être modifiable, même lorsque la version est déjà
-            créée ». Elle ne se saisissait qu'au formulaire de création, où elle est facultative —
-            une date oubliée était donc perdue pour toujours, et 153 versions sur 2 104 n'en portent
-            aucune.
+        {/* ══ LE STATUT DE LA VERSION EST LE BOUTON ══
 
-            ELLE S'AFFICHE MÊME QUAND ELLE EST VIDE, en pointillés : c'est la condition pour qu'on
-            puisse la poser. Un champ qu'on ne peut remplir que s'il est déjà rempli ne sert à
-            personne — la leçon de la date de clôture, huit jours plus tôt.
+            Il s'écrivait « Corriger le statut », en gris et en petit : un outil de rattrapage
+            d'import, pas un état. C'était juste tant que le rail du cycle de vie portait le statut
+            en tête de fiche — le répéter ici « embrouillait », disaient Michel et Naoëlle le
+            28/08/2026.
 
-            L'HISTORIQUE SUIT TOUT SEUL : l'audit est posé sur la table et enregistre chaque
-            changement avec son auteur. */}
-        <span className="inline-flex items-center gap-1 text-km-label text-km-faint">
-          <CalendarClock className="h-3 w-3" />
-          Livraison souhaitée
-          <InlineField
-            variant="date"
-            label=""
-            emptyLabel="à définir"
-            className="inline-flex font-semibold text-km-muted"
-            value={version.date_souhaitee ? String(version.date_souhaitee).slice(0, 10) : null}
-            disabled={!peutModifier}
-            onCommit={(v) => majDateSouhaitee.mutateAsync({ versionId: version.id, date: v })}
-            onSaved={() => signaler('✓ enregistré')}
-            onError={(e: Error) => signaler(`Erreur : ${e.message}`)}
-          />
-        </span>
+            LE RAIL EST PARTI le 18/09/2026 (« le cycle de recommandation est calculé
+            automatiquement il doit donc être masqué »). Leur objection tombe avec lui : il n'y a
+            plus de doublon, il y a un seul endroit — et c'est le bon, puisque le statut de version
+            est le seul des deux qui se pose à la main.
 
-        <span className="flex-1" />
-        {version.version_actuelle && <Badge tone="kiwi">Actuelle</Badge>}
-        {/* ══ LE STATUT NE S'AFFICHE PLUS ICI ══
-            Michel et Naoëlle, appel du 28/08/2026 à 16 h : « c'est la même chose qu'il y a au-dessus
-            donc on peut l'enlever » — « parce que sinon ça embrouille trop, il y a trop de statut ».
-            Le rail du cycle de vie porte déjà le statut de cette version, en gros et avec le mot
-            « actuel ». Le répéter en badge deux lignes plus bas leur a fait croire à une
-            désynchronisation entre les deux.
-
-            MAIS LA CORRECTION RESTE, et c'est délibéré : Michel avait demandé la veille de pouvoir
-            reprendre un statut à la main, « car il y a eu trop de bugs à l'import Salesforce ». Le
-            rail ne sait qu'avancer et clôturer — il ne revient jamais en arrière. Sans ce point de
-            reprise, un statut faux hérité de la reprise serait définitif.
-
-            Ce n'est donc plus un second affichage du statut, c'est une action de rattrapage : elle
-            porte le mot « corriger » et rien d'autre. */}
+            TROIS STATUTS, PAS TREIZE. Le repli garde quand même le statut courant en tête de liste
+            pour les versions d'avant qui en portent un autre : sans lui, la liste s'ouvrirait sur
+            une autre valeur et le premier clic écraserait le statut sans que personne l'ait
+            demandé. */}
         {peutModifier ? (
-          <span className="relative inline-flex items-center rounded-km-sm px-1.5 py-0.5 text-km-label font-bold text-km-faint transition-colors hover:bg-km-soft hover:text-km-muted focus-within:bg-km-soft focus-within:text-km-muted">
+          <span
+            className={cn(
+              'relative inline-flex items-center gap-1 rounded-km-pill border px-2.5 py-[3px] text-km-body font-bold transition-colors',
+              TONS_STATUT_VERSION[version.statut ?? ''] ?? 'border-km-line bg-km-soft text-km-muted',
+              !majStatut.isPending && 'cursor-pointer hover:brightness-[.97]',
+            )}
+          >
             <span className="inline-flex items-center gap-1">
-              {majStatut.isPending ? 'Enregistrement…' : 'Corriger le statut'}
+              {majStatut.isPending ? 'Enregistrement…' : statutLabel}
               <ChevronDown className="h-2.5 w-2.5 opacity-70" />
             </span>
             <select
-              aria-label="Corriger le statut de cette version"
-              title="Corriger le statut de cette version"
+              aria-label="Statut de cette version"
               value={version.statut ?? ''}
               disabled={majStatut.isPending}
               onChange={(e) => changerStatutVersion(e.target.value)}
               className="absolute inset-0 w-full cursor-pointer opacity-0"
             >
-              {/* Le statut courant reste en tête même s'il a disparu de la table de référence :
-                  sinon la liste s'ouvrirait sur une autre valeur et le premier clic écraserait le
-                  statut sans que personne l'ait demandé. */}
               {!statutsVersions.some((st) => st.code === version.statut) && version.statut && (
                 <option value={version.statut}>{statutLabel}</option>
               )}
@@ -231,7 +321,56 @@ export function DetailVersion({
               ))}
             </select>
           </span>
-        ) : null}
+        ) : (
+          <span
+            className={cn(
+              'inline-flex items-center rounded-km-pill border px-2.5 py-[3px] text-km-body font-bold',
+              TONS_STATUT_VERSION[version.statut ?? ''] ?? 'border-km-line bg-km-soft text-km-muted',
+            )}
+          >
+            {statutLabel}
+          </span>
+        )}
+
+        <span className="flex-1" />
+
+        {/* ══ LA LIVRAISON SOUHAITÉE, AVEC SON DÉLAI ══
+
+            La date seule oblige à compter mentalement — et c'est justement cette date qui décide de
+            l'ordre du travail d'Erwan. « dans 3 jours » et « en retard de 5 jours » se lisent sans
+            calcul ; la date reste devant pour qui veut la donner au téléphone.
+
+            ══ ET ELLE SE MODIFIE ══
+            William, 18/09/2026 : « elle doit être modifiable, même lorsque la version est déjà
+            créée ». Elle ne se saisissait qu'au formulaire de création, où elle était facultative :
+            une date oubliée était perdue pour toujours, et 153 versions sur 2 104 n'en portent
+            aucune. Elle s'affiche donc même vide, en pointillés — un champ qu'on ne peut remplir que
+            s'il est déjà rempli ne sert à personne. */}
+        <span className="text-km-tiny font-extrabold uppercase tracking-[0.09em] text-km-faint">
+          Livraison souhaitée
+        </span>
+        <span
+          className={cn(
+            'inline-flex items-center gap-1 rounded-km-pill border px-2 py-[2px] text-km-label font-bold',
+            version.date_souhaitee
+              ? 'border-km-amber/40 bg-km-amber-soft text-[#8a4b2a]'
+              : 'border-dashed border-km-line text-km-faint',
+          )}
+        >
+          <InlineField
+            variant="date"
+            label=""
+            emptyLabel="à définir"
+            className="inline-flex"
+            value={version.date_souhaitee ? String(version.date_souhaitee).slice(0, 10) : null}
+            disabled={!peutModifier}
+            onCommit={(v) => majDateSouhaitee.mutateAsync({ versionId: version.id, date: v })}
+            onSaved={() => signaler('✓ enregistré')}
+            onError={(e: Error) => signaler(`Erreur : ${e.message}`)}
+          />
+          {delaiLivraison && <span className="whitespace-nowrap">· {delaiLivraison}</span>}
+        </span>
+
         {/* CLÔTURER PLUTÔT QUE SUPPRIMER, et c'est pour ça qu'il est AVANT la corbeille : dans la
             plupart des cas on veut sortir la version du travail, pas effacer les offres reçues et
             le travail du fournisseur. Le geste destructeur reste au bout, en dernier recours. */}
@@ -258,6 +397,24 @@ export function DetailVersion({
           </button>
         )}
       </div>
+
+      {proposerDisponible && (
+        <div className="mx-[15px] mt-3 flex flex-wrap items-center gap-2.5 rounded-km border border-km-green-line bg-km-green-soft px-3 py-2">
+          <span className="min-w-[200px] flex-1 text-km-body font-semibold text-km-green">
+            Les {recues.length} proposition{recues.length > 1 ? 's sont' : ' est'} arrivée
+            {recues.length > 1 ? 's' : ''} et plus personne n'est attendu — passer la version en
+            « Disponible » ?
+          </span>
+          <button
+            type="button"
+            onClick={() => changerStatutVersion('DISPONIBLE')}
+            disabled={majStatut.isPending}
+            className="shrink-0 rounded-km-sm bg-km-green px-3 py-1.5 text-km-body font-bold text-white hover:brightness-110 disabled:opacity-60"
+          >
+            Passer en Disponible
+          </button>
+        </div>
+      )}
 
       {clotureOuverte && !estClose && (
         <div className="animate-km-fade-slide border-b border-km-line-soft bg-km-amber-soft px-[17px] py-3">
@@ -297,277 +454,273 @@ export function DetailVersion({
         </div>
       )}
 
-      <div className="space-y-3 px-[17px] py-3.5">
-        <div>
-          <p className="text-km-name text-km-muted">{version.resume || 'Aucun résumé.'}</p>
-          {version.contexte_et_hypotheses && (
-            <p className="mt-1 text-km-body text-km-muted">{version.contexte_et_hypotheses}</p>
-          )}
-        </div>
+      {/* ══════════════════════════════════════════════════════════════════════════════════════
+          LA VERSION SE LIT EN UNE GRILLE DE FOURNISSEURS
 
-        <div className="flex flex-wrap gap-3 text-km-body text-km-faint">
-          <span>Motif : {version.motif_creation || '—'}</span>
-          {version.economie_pourcentage !== null && (
-            <span>Économie : <span className="font-medium text-km-green">{version.economie_pourcentage} %</span></span>
-          )}
-          {version.niveau_confiance !== null && <span>Confiance : {version.niveau_confiance} %</span>}
-          {version.date_presentation_client && (
-            <span>Présentée le {new Date(version.date_presentation_client).toLocaleDateString('fr-FR')}</span>
-          )}
-          {version.date_decision_client && (
-            <span>Décision le {new Date(version.date_decision_client).toLocaleDateString('fr-FR')}</span>
-          )}
-          {version.types_prix.length > 0 && <span>Type de prix : {version.types_prix.join(', ')}</span>}
-          {version.contact_id && (
-            <span>
-              Contact de la version :{' '}
-              <EntityLink to={`/contacts/${version.contact_id}`}>{version.contact_nom}</EntityLink>
-            </span>
-          )}
-        </div>
+          William, 18/09/2026 : « le but ici est surtout de savoir ce qui est disponible, ce qui est
+          en attente, ce qui ne l'est pas encore ».
 
+          ══ CE QUI ÉTAIT EMPILÉ ICI, ET POURQUOI C'ÉTAIT ILLISIBLE ══
+
+          Une liste verticale : l'optimisation, son gain estimé, puis chaque fournisseur sur toute
+          la largeur avec en dessous le détail de ses offres, leurs budgets, leurs prix au MWh.
+          Quatre fournisseurs remplissaient deux écrans, et répondre à « qui manque ? » demandait de
+          faire défiler en retenant les statuts au passage.
+
+          En grille, quatre cartes tiennent côte à côte et la réponse se lit d'un coup d'œil : les
+          vertes sont arrivées, les autres non.
+
+          ══ LES PRIX NE SONT PAS SUPPRIMÉS, ILS SONT REPLIÉS ══
+
+          « Il est impossible de connaître le montant d'une offre » — et les chiffres lui donnent
+          raison : 10 offres chiffrées sur 291, 11 lignes de prix dans toute la base. Les afficher en
+          permanence, c'était donner la première place à une colonne vide dans 97 % des cas.
+
+          Mais la saisie existe et Erwan s'en sert : `OffresDuFournisseur` reste entier, derrière un
+          repli par fournisseur. William l'a dit lui-même — « l'objet offre sera utile lorsqu'on aura
+          câblé les fonctionnalités permettant d'intégrer les prix directement dans Kimatch ». On
+          range, on ne détruit pas.
+          ══════════════════════════════════════════════════════════════════════════════════════ */}
+      {/* ══════════════════════════════════════════════════════════════════════════════════════
+          LE CORPS DE LA VERSION : SES FOURNISSEURS, ET RIEN D'AUTRE
+
+          William, 18/09/2026 : « tous les champs ou prix actuellement présents sur Kimatch doivent
+          être masqués ». Ce bloc en portait sept avant celui-ci, et voici ce que chacun devient.
+
+          ══ CE QUI EST MASQUÉ, ET POURQUOI CHACUN LE MÉRITAIT ══
+
+          · LE RÉSUMÉ. Il contenait « Durées 24/36 mois — Fixe — 2 fournisseurs consultés —
+            commission estimée 8 600,76 € ». Les trois premiers faits sont déjà lisibles sur les
+            cartes ci-dessous, et le quatrième est UN PRIX au milieu d'une fiche où il ne doit plus
+            y en avoir. C'est un texte figé écrit à la création : il ne se met pas à jour quand un
+            fournisseur est ajouté, donc il vieillit faux.
+          · LE CONTEXTE ET HYPOTHÈSES, qui répétait « Date souhaitée : 21/09/2026 » — déjà dans
+            l'en-tête, en plus lisible et, lui, modifiable.
+          · LE MOTIF et LE TYPE DE PRIX : le premier ne sert qu'au moment de créer la version, le
+            second se lit sur chaque pastille de combinaison.
+          · LE NOM DE L'OPTIMISATION et LE COMPTE DE FOURNISSEURS : la grille les montre.
+          · LE GAIN ESTIMÉ de l'optimisation et LES MONTANTS des offres orphelines : des prix.
+          · ÉCONOMIE, CONFIANCE, DATE DE DÉCISION, CONTACT DE LA VERSION : nuls sur la TOTALITÉ des
+            2 106 versions (mesuré le 18/09/2026). Ils n'ont jamais rien affiché.
+
+          Rien n'est supprimé en base. Ce sont des colonnes qu'on cesse de montrer, pas des données
+          qu'on efface — la distinction que Naoëlle avait demandé de tenir le 25/08/2026.
+          ══════════════════════════════════════════════════════════════════════════════════════ */}
+      <div className="px-[17px] py-3.5">
         {version.optimisations.length === 0 ? (
-          <p className="text-km-body text-km-faint">Aucune optimisation sur cette version.</p>
+          <p className="text-km-body text-km-faint">Aucun fournisseur consulté sur cette version.</p>
         ) : (
-          <div className="space-y-2.5 border-t border-km-line pt-3">
-            {version.optimisations.map((optimisation) => (
-              <div key={optimisation.id}>
-                <div className="flex items-center justify-between gap-2">
-                  <p className="text-km-body font-semibold text-km-muted">
-                    {optimisation.type_optimisation || optimisation.nom}
-                  </p>
-                  {optimisation.est_retenue && <Badge tone="kiwi">Retenue</Badge>}
-                </div>
-                {optimisation.gain_estime_annuel !== null && (
-                  <p className="text-km-body text-km-muted">
-                    Gain estimé : {optimisation.gain_estime_annuel.toLocaleString('fr-FR')} €/an
-                    {optimisation.roi_mois !== null ? ` · ROI ${optimisation.roi_mois} mois` : ''}
-                  </p>
-                )}
+          version.optimisations.map((optimisation) => (
+            <div key={optimisation.id} className="grid gap-2.5 [grid-template-columns:repeat(auto-fill,minmax(258px,1fr))]">
+              {optimisation.fournisseurs_consultes.map((fc) => {
+                const recue = fc.statut_code === 'DISPONIBLE'
+                const refusee = fc.statut_code === 'REFUSEE'
+                /* UNE COMBINAISON EST « EN JEU » DÈS QUE LA DEMANDE EST PARTIE. Avant ça — à
+                   traiter — ou après un refus, elle reste ce qu'on a demandé, pas ce qu'on
+                   attend : la maquette la dessine en pointillés et en italique, et c'est cette
+                   nuance qui distingue une consultation commencée d'une consultation prévue. */
+                const enJeu = !refusee && fc.statut_code != null && fc.statut_code !== 'A_TRAITER'
+                return (
+                  <div
+                    key={fc.id}
+                    className={cn(
+                      'flex flex-col rounded-km-md border px-3 py-2.5',
+                      recue ? 'border-km-green-line bg-km-green-tint' : 'border-km-line bg-white',
+                    )}
+                  >
+                    <div className="flex items-start gap-2">
+                      <span className="min-w-0 flex-1 text-km-name font-extrabold leading-tight text-km-text">
+                        {fc.fournisseur_nom}
+                      </span>
+                      {/* ══ LE STATUT EST LE BOUTON ══
+                          William, 18/09/2026 : le statut doit être « changeable par Erwan en un
+                          clic ». Il y en avait deux — lire la pastille, puis ouvrir un menu
+                          « Changer… » posé à côté : deux objets pour une seule idée, et le second ne
+                          disait pas de quoi il partait. Le menu est désormais SOUS la pastille,
+                          transparent et étendu à toute sa surface : on clique ce qu'on lit.
 
-                {/*
-                  Fournisseurs consultés, et SOUS CHACUN ses offres.
-                  « Il faut qu'on voie sous chaque fournisseur consulté la ou les offres
-                  différentes, sinon la version ne sert à rien » (Michel, 17/08/2026). Les offres
-                  étaient listées à plat sous l'optimisation, sans qu'on sache laquelle venait de
-                  qui, et sans pouvoir en comparer deux d'un même fournisseur.
-                */}
-                {(optimisation.type_optimisation_code === MISE_EN_CONCURRENCE
-                  || optimisation.fournisseurs_consultes.length > 0) && (
-                  <div className="mt-2 border-t border-km-line pt-2">
-                    <div className="flex items-center justify-between">
-                      <p className="text-km-body font-bold uppercase tracking-wide text-km-faint">
-                        Fournisseurs consultés et offres reçues
-                      </p>
-                      {peutModifier && (
-                        <button
-                          type="button"
-                          onClick={() => onAjouterFournisseur(optimisation)}
-                          className="text-km-body font-semibold text-km-green hover:underline"
-                        >
-                          + Consulter un fournisseur
-                        </button>
-                      )}
-                    </div>
-                    {optimisation.fournisseurs_consultes.length === 0 ? (
-                      <p className="pl-2 text-km-body text-km-faint">Aucun fournisseur consulté pour l'instant.</p>
-                    ) : (
-                      <div className="mt-1.5 space-y-2">
-                        {optimisation.fournisseurs_consultes.map((fc) => {
-                          const retenue = fc.offres.find((o) => o.est_offre_recommandee)
-                          const chiffrees = fc.offres.filter((o) => o.montant_annuel_ht != null || o.prix_moyen_mwh != null)
-                          return (
-                            <div
-                              key={fc.id}
-                              className={cn(
-                                'rounded-km-md border px-2.5 py-2',
-                                retenue ? 'border-[#dcc39c] bg-[#fdf9f0]/60' : 'border-km-line bg-km-soft',
-                              )}
+                          L'INFOBULLE MENTAIT ET ELLE EST PARTIE. Elle promettait « le statut se
+                          recalcule automatiquement d'après les offres » — vrai jusqu'au 18/09/2026,
+                          date à laquelle William a fait retirer cette automatisation : « ce sera à
+                          Erwan de faire évoluer le statut manuellement ». Le déclencheur n'existe
+                          plus ; laisser la phrase aurait fait attendre un effet qui ne viendra pas. */}
+                      <span
+                        className={cn(
+                          'relative inline-flex shrink-0 items-center gap-1 rounded-km-pill border px-2 py-[2px] text-km-label font-bold',
+                          TONS_STATUT_CONSULTATION[fc.statut_code ?? ''] ?? TONS_STATUT_CONSULTATION.A_TRAITER,
+                          peutModifier && 'cursor-pointer hover:brightness-[.97]',
+                        )}
+                      >
+                        {fc.statut_actuel || STATUT_CONSULTATION_PAR_DEFAUT}
+                        {peutModifier && (
+                          <>
+                            <ChevronDown className="h-2.5 w-2.5 opacity-70" />
+                            <select
+                              aria-label={`Statut de ${fc.fournisseur_nom}`}
+                              value=""
+                              onChange={(e) => { if (e.target.value) onChangerStatut(fc, e.target.value) }}
+                              className="absolute inset-0 w-full cursor-pointer opacity-0"
                             >
-                              <div className="flex flex-wrap items-center gap-2">
-                                <p className="text-km-body font-bold text-km-text">{fc.fournisseur_nom}</p>
-                                {/* Ce que ce fournisseur a répondu, d'un coup d'œil. */}
-                                {/*
-                                  Le circuit de ce fournisseur. « Outil en ligne » veut dire qu'aucune
-                                  demande ne part : Erwan va lire les prix chez le fournisseur, et le
-                                  suivi démarre directement à « Demande acceptée » (réunion du
-                                  17/08/2026, 23:49).
-                                */}
-                                {fc.mode_consultation === 'OUTIL_EN_LIGNE' ? (
-                                  fc.url_outil_consultation ? (
-                                    <a
-                                      href={fc.url_outil_consultation}
-                                      target="_blank"
-                                      rel="noreferrer"
-                                      title="Ouvrir l'outil de pricing du fournisseur"
-                                      className="inline-flex items-center gap-1 rounded-km-sm bg-km-blue-soft px-1.5 py-0.5 text-km-label font-extrabold uppercase tracking-[0.05em] text-km-blue hover:underline"
-                                    >
-                                      Outil en ligne <ExternalLink className="h-2.5 w-2.5" />
-                                    </a>
-                                  ) : (
-                                    <span
-                                      title="Les prix se consultent directement chez le fournisseur — aucune demande à envoyer. L'adresse de l'outil n'est pas renseignée."
-                                      className="rounded-km-sm bg-km-blue-soft px-1.5 py-0.5 text-km-label font-extrabold uppercase tracking-[0.05em] text-km-blue"
-                                    >
-                                      Outil en ligne
-                                    </span>
-                                  )
-                                ) : (
-                                  <span
-                                    title="La demande d'offre part par email, puis on attend l'accusé de réception"
-                                    className="rounded-km-sm bg-km-soft px-1.5 py-0.5 text-km-label font-extrabold uppercase tracking-[0.05em] text-km-muted"
-                                  >
-                                    Par email
-                                  </span>
-                                )}
-                                <span className="text-km-body text-km-muted">
-                                  {fc.offres.length === 0
-                                    ? 'aucune offre suivie'
-                                    : `${chiffrees.length}/${fc.offres.length} offre${fc.offres.length > 1 ? 's' : ''} chiffrée${chiffrees.length > 1 ? 's' : ''}`}
-                                </span>
-                                {/* ══ ELLE NE POUVAIT JAMAIS S'AFFICHER ══
-                                    La condition cherchait des offres au statut REFUSEE ou ACCEPTEE.
-                                    Or une offre n'a que trois statuts — EN_ATTENTE, DISPONIBLE,
-                                    INDISPONIBLE : la pastille était morte depuis la refonte du
-                                    28/08/2026, avec le statut « acceptée partiellement » qu'elle
-                                    accompagnait.
+                              <option value="">Changer…</option>
+                              {statutsConsultation
+                                // Le statut deja en cours n'a pas a etre reproposé : le choisir
+                                // ajouterait un evenement de suivi identique au precedent.
+                                .filter((st) => st.libelle !== (fc.statut_actuel || STATUT_CONSULTATION_PAR_DEFAUT))
+                                // Chez un fournisseur a outil en ligne, « Demande envoyee » ne veut
+                                // rien dire : rien n'est jamais envoye. Le suivi demarre a
+                                // « Demande acceptee ».
+                                .filter((st) => fc.mode_consultation !== 'OUTIL_EN_LIGNE' || st.code !== 'ENVOYEE')
+                                .map((st) => (
+                                  <option key={st.id} value={st.id}>{st.libelle}</option>
+                                ))}
+                            </select>
+                          </>
+                        )}
+                      </span>
+                    </div>
 
-                                    SON INTENTION RESTE JUSTE, et redevient même possible : un
-                                    fournisseur qui répond sur deux sites et pas sur le troisième
-                                    produit désormais un vrai mélange, depuis que la propagation qui
-                                    aplatissait les offres a été retirée. On la rebranche sur les
-                                    statuts réels. */}
-                                {fc.offres.some((o) => o.statut === 'INDISPONIBLE') && fc.offres.some((o) => o.statut === 'DISPONIBLE') && (
-                                  <span
-                                    title="Ce fournisseur a répondu sur une partie du périmètre seulement."
-                                    className="rounded-km-sm bg-km-amber-soft px-1.5 py-0.5 text-km-label font-extrabold uppercase tracking-[0.05em] text-km-amber"
-                                  >
-                                    partiellement disponible
-                                  </span>
-                                )}
-                                <span className="flex-1" />
-                                {/*
-                                  Le statut de la DEMANDE, au niveau du fournisseur consulté : elle
-                                  porte sur toutes ses offres à la fois. Chaque changement ajoute une
-                                  ligne datée dans l'historique — c'est un objet d'activité, pas un
-                                  champ (réunion du 17/08/2026). « Offre reçue » fait basculer en
-                                  reçues les seules offres acceptées.
-                                */}
-                                {/* Le statut courant se lit sur le badge, le menu ne sert qu'à le
-                                    changer. L'invite du menu ne répète donc pas le statut en cours —
-                                    elle le faisait, et « Demande envoyée » apparaissait deux fois. */}
-                                {/* ══ « À TRAITER » QUAND RIEN N'A ENCORE ÉTÉ DIT ══
-                                    Le badge disparaissait quand la consultation ne portait aucune
-                                    ligne de suivi : un fournisseur sans statut se lisait comme un
-                                    fournisseur qu'on avait oublié de renseigner, alors que c'est
-                                    l'état de départ normal de toute consultation.
-
-                                    L'état par défaut n'est pas écrit en base — un statut que
-                                    personne n'a posé n'est pas un événement. Il est affiché. */}
-                                <Badge tone="neutral">{fc.statut_actuel || STATUT_CONSULTATION_PAR_DEFAUT}</Badge>
-                                {peutModifier && (
-                                  <select
-                                    value=""
-                                    onChange={(e) => { if (e.target.value) onChangerStatut(fc, e.target.value) }}
-                                    /* LE STATUT SE RECALCULE, ET LE MENU LE DIT. Depuis le
-                                       01/09/2026 il se déduit des offres : au moins une en attente
-                                       → acceptée, aucune disponible → refusée, sinon disponible. Un
-                                       choix manuel reste possible et prime jusqu'au fait suivant —
-                                       mais sans cette phrase, le voir changer tout seul après avoir
-                                       saisi une offre passerait pour un bogue. */
-                                    title="Le statut se recalcule automatiquement d'après les offres du fournisseur. Un choix manuel tient jusqu'au prochain changement d'offre."
-                                    className="rounded-km-sm border border-km-line bg-white px-1.5 py-0.5 text-km-body font-semibold text-km-muted outline-none"
-                                  >
-                                    <option value="">Changer…</option>
-                                    {statutsConsultation
-                                      // Le statut deja en cours n'a pas a etre reproposé : le choisir
-                                      // ajouterait un evenement de suivi identique au precedent.
-                                      .filter((st) => st.libelle !== (fc.statut_actuel || STATUT_CONSULTATION_PAR_DEFAUT))
-                                      // Chez un fournisseur a outil en ligne, « Demande envoyee » ne
-                                      // veut rien dire : rien n'est jamais envoye. Le suivi demarre
-                                      // a « Demande acceptee ».
-                                      .filter((st) => fc.mode_consultation !== 'OUTIL_EN_LIGNE' || st.code !== 'ENVOYEE')
-                                      .map((st) => (
-                                        <option key={st.id} value={st.id}>{st.libelle}</option>
-                                      ))}
-                                  </select>
-                                )}
-                              </div>
-
-                              {fc.historique.length > 0 && (
-                                <details className="mt-1">
-                                  <summary className="cursor-pointer text-km-body text-km-faint hover:text-km-muted">
-                                    Historique de consultation ({fc.historique.length})
-                                  </summary>
-                                  <div className="mt-1 space-y-0.5 border-t border-km-line pt-1">
-                                    {fc.historique.map((h) => (
-                                      <p key={h.id} className="text-km-body text-km-muted">
-                                        {new Date(h.date_evenement).toLocaleDateString('fr-FR')} — {h.statut}
-                                        {h.commentaire ? ` · ${h.commentaire}` : ''}
-                                      </p>
-                                    ))}
-                                  </div>
-                                </details>
-                              )}
-
-                              <OffresDuFournisseur
-                                fournisseur={fc}
-                                optimisationId={optimisation.id}
-                                repere={repereDeLaCotation(optimisation)}
-                                version={version}
-                                compteurs={compteurs}
-                                typeDocumentOffreId={typeDocumentOffreId}
-                                dureesDemandees={version.durees}
-                                typesPrixDemandes={version.types_prix}
-                                peutModifier={peutModifier}
-                                signaler={signaler}
-                              />
-                            </div>
-                          )
-                        })}
+                    {/* Ce qu'on lui a demandé : une pastille par combinaison durée × type de prix.
+                        C'est la seule chose qui distingue deux lignes d'un même fournisseur, et elle
+                        se lit sans prix. */}
+                    {fc.offres.length > 0 && (
+                      <div className="mt-2 flex flex-wrap gap-1.5">
+                        {fc.offres.map((offre) => (
+                          <span
+                            key={offre.id}
+                            className={cn(
+                              'rounded-km-sm border px-2 py-[2px] text-km-label font-semibold',
+                              enJeu
+                                ? 'border-km-line bg-white text-km-text'
+                                : 'border-dashed border-km-line italic text-km-faint',
+                            )}
+                          >
+                            {libelleOffre(offre.duree_mois, offre.type_prix)}
+                          </span>
+                        ))}
                       </div>
                     )}
-                  </div>
-                )}
 
-                {/* Offres sans fournisseur consulté : les 0 ligne actuelles n'en produiront pas, mais
-                    une offre orpheline ne doit pas devenir invisible sous prétexte qu'elle ne se
-                    range nulle part. */}
-                {optimisation.offres.some((o) => !o.optimisation_fournisseur_id) && (
-                  <div className="mt-2 border-t border-km-line pt-2">
-                    <p className="text-km-body font-bold uppercase tracking-wide text-km-faint">
-                      Offres non rattachées à un fournisseur consulté
-                    </p>
-                    {optimisation.offres
-                      .filter((o) => !o.optimisation_fournisseur_id)
-                      .map((offre) => (
-                        <div key={offre.id} className="mt-1 flex items-center justify-between gap-2 rounded-km bg-km-bg px-2.5 py-1.5">
-                          <span className="truncate text-km-body font-semibold text-km-text">
-                            {offre.fournisseur_nom} · {offre.nom || offre.reference_offre || 'Offre'}
-                          </span>
-                          <span className="shrink-0 font-mono text-km-body text-km-muted">
-                            {offre.montant_annuel_ht != null ? `${offre.montant_annuel_ht.toLocaleString('fr-FR')} €/an` : '—'}
-                          </span>
-                        </div>
-                      ))}
+                    {/* Un fournisseur à outil en ligne n'attend aucun mail : Erwan va lire les prix
+                        chez lui. Le dire évite de le compter comme une relance à faire. */}
+                    {fc.mode_consultation === 'OUTIL_EN_LIGNE' && fc.url_outil_consultation && (
+                      <a
+                        href={fc.url_outil_consultation}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="mt-2 inline-flex w-fit items-center gap-1 text-km-label font-bold text-km-blue hover:underline"
+                      >
+                        Outil en ligne <ExternalLink className="h-2.5 w-2.5" />
+                      </a>
+                    )}
+
+                    {AFFICHER_LE_DETAIL_DES_PRIX && (
+                      <div className="mt-2">
+                        <details>
+                          <summary className="cursor-pointer text-km-label font-semibold text-km-faint hover:text-km-muted">
+                            Détail des offres et des prix
+                          </summary>
+                          <OffresDuFournisseur
+                            fournisseur={fc}
+                            optimisationId={optimisation.id}
+                            repere={repereDeLaCotation(optimisation)}
+                            version={version}
+                            compteurs={compteurs}
+                            typeDocumentOffreId={typeDocumentOffreId}
+                            dureesDemandees={version.durees}
+                            typesPrixDemandes={version.types_prix}
+                            peutModifier={peutModifier}
+                            signaler={signaler}
+                          />
+                        </details>
+                        {fc.historique.length > 0 && (
+                          <details>
+                            <summary className="cursor-pointer text-km-label font-semibold text-km-faint hover:text-km-muted">
+                              Historique de consultation ({fc.historique.length})
+                            </summary>
+                            <div className="mt-1 space-y-0.5 border-t border-km-line-soft pt-1">
+                              {fc.historique.map((h) => (
+                                <p key={h.id} className="text-km-label text-km-muted">
+                                  {new Date(h.date_evenement).toLocaleDateString('fr-FR')} — {h.statut}
+                                  {h.commentaire ? ` · ${h.commentaire}` : ''}
+                                </p>
+                              ))}
+                            </div>
+                          </details>
+                        )}
+                      </div>
+                    )}
+
+                    <div className="mt-auto pt-2">
+                      {refusee ? (
+                        /* UN REFUS EST UNE RÉPONSE. Proposer d'y déposer une proposition
+                           inviterait à attendre ce qui ne viendra pas — la carte le dit, et elle
+                           libère l'attente au lieu de la prolonger. */
+                        <p className="border-t border-km-line-soft pt-2 text-km-label text-km-faint">
+                          aucune proposition attendue
+                        </p>
+                      ) : (
+                        <PropositionsFournisseur
+                          consultationId={fc.id}
+                          fournisseurNom={fc.fournisseur_nom}
+                          typeDocumentId={typeDocumentOffreId}
+                          peutModifier={peutModifier}
+                          signaler={signaler}
+                        />
+                      )}
+                    </div>
                   </div>
-                )}
-              </div>
-            ))}
-          </div>
+                )
+              })}
+
+              {/* CONSULTER UN FOURNISSEUR DE PLUS : une carte creuse à la fin de la grille plutôt
+                  qu'un bouton dans un en-tête. La maquette n'en montre pas — elle dessine une
+                  version déjà constituée — mais la retirer supprimerait le seul chemin pour ajouter
+                  un fournisseur à une version en cours. À la place d'une carte, elle ne pèse rien
+                  et se trouve là où on la cherche : au bout de la rangée. */}
+              {peutModifier && !estClose && (optimisation.type_optimisation_code === MISE_EN_CONCURRENCE
+                || optimisation.fournisseurs_consultes.length > 0) && (
+                <button
+                  type="button"
+                  onClick={() => onAjouterFournisseur(optimisation)}
+                  className="flex min-h-[92px] items-center justify-center gap-1.5 rounded-km-md border border-dashed border-km-line px-3 py-2.5 text-km-body font-bold text-km-faint transition-colors hover:border-km-green hover:bg-km-green-soft hover:text-km-green"
+                >
+                  + Consulter un fournisseur
+                </button>
+              )}
+
+              {optimisation.fournisseurs_consultes.length === 0 && !peutModifier && (
+                <p className="text-km-body text-km-faint">Aucun fournisseur consulté pour l'instant.</p>
+              )}
+            </div>
+          ))
         )}
 
-        <div className="border-t border-km-line pt-2.5">
-          <button
-            type="button"
-            onClick={onEnvoyerEmail}
-            className="inline-flex items-center gap-1.5 text-km-body font-semibold text-km-green hover:underline"
-          >
-            <Mail className="h-3.5 w-3.5" />
-            Envoyer cette version par email
-          </button>
-        </div>
+        {/* ══ « ENVOYER CETTE VERSION PAR EMAIL » EST RETIRÉ (William, 18/09/2026) ══
+
+            « Supprime le "Envoyer cette version par mail" et utilise cette place gagnée pour aérer
+            le contenu. »
+
+            IL FAISAIT DOUBLON AVEC LE GESTE QUI COMPTE. Depuis le hero, « Envoyer au client » ouvre
+            le volet d'e-mail avec l'adresse du signataire ET la proposition commerciale en pièce
+            jointe, puis date la présentation — donc alimente la relance. Ce bouton-ci ouvrait un
+            formulaire de demande fournisseur, sans destinataire évident depuis la fiche, et sans
+            rien dater. Deux boutons « envoyer » dans le même écran pour deux destinataires
+            différents : le risque n'était pas l'encombrement, c'était l'erreur d'envoi. */}
       </div>
+
+      {/* ══ LA PROPOSITION COMMERCIALE CLÔT LE BLOC ══
+          Une version se lit en trois temps : ce qu'on a demandé, qui a répondu, ce qu'on envoie.
+          La proposition est le troisième — elle SYNTHÉTISE les cartes du dessus, donc elle les suit.
+          Voir `PropositionCommerciale` pour le reste du raisonnement. */}
+      <PropositionCommerciale
+        reco={reco}
+        version={version}
+        contactSignataire={contactSignataire}
+        typeDocumentPropositionId={typeDocumentPropositionId}
+        peutModifier={peutModifier}
+        signaler={signaler}
+        onPresentationEnvoyee={onPresentationEnvoyee}
+      />
     </div>
   )
 }

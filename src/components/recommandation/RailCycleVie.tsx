@@ -1,3 +1,18 @@
+/* ══════════════════════════════════════════════════════════════════════════════════════════════
+   CE COMPOSANT N'EST PLUS BRANCHÉ DEPUIS LE 18/09/2026.
+
+   William : « le cycle de recommandation est calculé automatiquement il doit donc être masqué. La
+   clôture doit se faire via un bouton prévu à cet effet. »
+
+   Il avait raison : le statut du DOSSIER est recalculé en base dès qu'une version change
+   (déclencheur du 28/08/2026). Personne ne le pose, donc personne n'avait besoin de le voir défiler
+   en tête de fiche. Ce qui vivait ici est parti à deux endroits — le statut de VERSION, lui bien
+   manuel, dans l'en-tête de la version (`DetailVersion`), et la clôture dans le bandeau de la fiche.
+
+   LE FICHIER EST GARDÉ TANT QUE WILLIAM N'A PAS VU LA NOUVELLE FICHE EN VRAI. Le remettre est une
+   ligne d'import ; le réécrire serait 460 lignes. Il se supprime au premier « c'est bon ».
+   ══════════════════════════════════════════════════════════════════════════════════════════════ */
+
 import { ExternalLink, Send, Check, Shield } from 'lucide-react'
 import type { LucideIcon } from 'lucide-react'
 import { cn } from '@/lib/utils'

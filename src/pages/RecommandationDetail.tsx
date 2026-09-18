@@ -12,6 +12,8 @@ import {
   FilePlus2,
   Clock,
   ArrowLeftRight,
+  CheckCheck,
+  RotateCcw,
 } from 'lucide-react'
 import { TitreOnglet } from '@/components/layout/TitreOnglet'
 import { Button } from '@/components/ui/button'
@@ -19,11 +21,11 @@ import { Dialog } from '@/components/ui/dialog'
 import { HistoriqueDiscret } from '@/components/ui/historique-discret'
 import { InlineField } from '@/components/ui/inline-field'
 import { ActivityFeed } from '@/components/site/ActivityFeed'
-import { RailCycleVie } from '@/components/recommandation/RailCycleVie'
+import { CheminRecommandation } from '@/components/recommandation/CheminRecommandation'
+import { HeroRecommandation } from '@/components/recommandation/HeroRecommandation'
+import { OngletPerimetre } from '@/components/recommandation/OngletPerimetre'
 import { suggestionRelance } from '@/lib/relance'
 import { ComparatifVersions, coutPrestationEstime } from '@/components/recommandation/ComparatifVersions'
-import { DocumentComparatif } from '@/components/recommandation/DocumentComparatif'
-import { RattachementsReco } from '@/components/recommandation/VoletGaucheReco'
 import { OngletCommandeClient } from '@/components/recommandation/OngletCommandeClient'
 import { DetailVersion } from '@/components/recommandation/DetailVersion'
 import { BlocAffaire } from '@/components/recommandation/BlocAffaire'
@@ -43,7 +45,6 @@ import {
   useUpdateVersionPartiel,
   useCloturerRecommandation,
   useRouvrirRecommandation,
-  useMajStatutVersion,
   useDeleteRecommandation,
   useDeleteVersion,
   useChangerStatutConsultation,
@@ -63,7 +64,6 @@ import { useCanManage, useIsAdmin, useProfilsAdmin } from '@/lib/data/roles'
 import { useSuppression } from '@/lib/useSuppression'
 import { useGoBack } from '@/lib/useGoBack'
 import {
-  FALLBACK_ETAPES_RECOMMANDATION,
   FALLBACK_STATUTS_VERSIONS,
   FALLBACK_TYPES_DOCUMENTS,
   FALLBACK_TYPES_INTERACTIONS,
@@ -109,7 +109,7 @@ const PRIORITE_LABEL: Record<number, string> = { 1: 'Haute', 2: 'Normale', 3: 'B
    Vérifié avant de supprimer : les 22 documents de recommandation sont bien tous visibles dans la
    carte, et aucune recommandation n'en porte plus de six — la limite d'affichage de la carte ne
    cache donc rien. */
-type CleOnglet = 'reco' | 'rattachements' | 'cmd' | 'comparatif'
+type CleOnglet = 'reco' | 'perimetre' | 'cmd' | 'comparatif'
 
 /**
  * COMMANDE DU CLIENT EST MASQUÉE. Michel, 25/08/2026 : « pour le moment, commande client, je le
@@ -133,7 +133,6 @@ export default function RecommandationDetail() {
     sousLibelle: reco ? reco.compte_nom : null,
     chemin: `/recommandations/${id}`,
   })
-  const { data: etapesRef } = useReferenceTable('etapes_recommandation')
   const { data: statutsVersionsRef } = useReferenceTable('statuts_versions_recommandation')
   const { data: typesDocumentsRef } = useReferenceTable('types_documents')
   const { data: typesInteractionsRef } = useReferenceTable('types_interactions')
@@ -154,7 +153,6 @@ export default function RecommandationDetail() {
   )
   const { data: documents } = useDocumentsParEntites(entitesDocuments)
 
-  const etapes = etapesRef && etapesRef.length > 0 ? etapesRef : FALLBACK_ETAPES_RECOMMANDATION
   const statutsVersions = statutsVersionsRef && statutsVersionsRef.length > 0 ? statutsVersionsRef : FALLBACK_STATUTS_VERSIONS
   const typesDocuments = typesDocumentsRef && typesDocumentsRef.length > 0 ? typesDocumentsRef : FALLBACK_TYPES_DOCUMENTS
 
@@ -166,7 +164,6 @@ export default function RecommandationDetail() {
   const updateVersion = useUpdateVersionPartiel()
   const cloturerReco = useCloturerRecommandation()
   const rouvrirReco = useRouvrirRecommandation()
-  const majStatutVersion = useMajStatutVersion()
   const deleteRecommandation = useDeleteRecommandation()
   const deleteVersion = useDeleteVersion()
   const changerStatutConsultation = useChangerStatutConsultation()
@@ -186,7 +183,6 @@ export default function RecommandationDetail() {
   const [dateClotureBrouillon, setDateClotureBrouillon] = useState('')
   const [reactivationBrouillon, setReactivationBrouillon] = useState('')
   const [nouvelleVersionOuverte, setNouvelleVersionOuverte] = useState(false)
-  const [documentOuvert, setDocumentOuvert] = useState(false)
   const [wizardCotation, setWizardCotation] = useState<{ prefill: PrefillCotation | null } | null>(null)
   const [showContratWizard, setShowContratWizard] = useState(false)
   const [emailDialogVersion, setEmailDialogVersion] = useState<VersionRecommandation | null>(null)
@@ -210,6 +206,29 @@ export default function RecommandationDetail() {
 
   const majReco = async (patch: PatchRecommandation) => {
     await updateRecoPartiel.mutateAsync({ id: id as string, patch })
+  }
+
+  /**
+   * ══ ENVOYER LA PROPOSITION, C'EST DATER LA PRÉSENTATION ══
+   *
+   * `date_presentation_client` est le fait dont dépend la suggestion de relance. Tant qu'il fallait
+   * aller le poser à la main quelque part, il restait vide — et Kimatch ne savait jamais qu'un
+   * dossier attendait une réponse.
+   *
+   * ON NE REDATE PAS UNE PRÉSENTATION DÉJÀ FAITE : renvoyer le même document une seconde fois
+   * remettrait le compteur des deux jours ouvrés à zéro, ce qui repousserait la relance au lieu de
+   * la rapprocher — l'inverse exact de ce qu'un second envoi signifie.
+   */
+  async function datePresentationClient() {
+    if (!versionAffichee || versionAffichee.date_presentation_client) return
+    try {
+      await updateVersion.mutateAsync({
+        versionId: versionAffichee.id,
+        patch: { date_presentation_client: new Date().toISOString().slice(0, 10) },
+      })
+    } catch (e) {
+      signaler(`Erreur : ${e instanceof Error ? e.message : String(e)}`)
+    }
   }
 
   /**
@@ -293,13 +312,15 @@ export default function RecommandationDetail() {
     // reste masquée provisoirement sans suppression de ses données.
     return [
       { cle: 'reco' as CleOnglet, libelle: 'Recommandation', badge: reco && reco.versions.length > 0 ? `${reco.versions.length} vers.` : undefined },
-      { cle: 'rattachements' as CleOnglet, libelle: 'Rattachements' },
+      /* LE PÉRIMÈTRE A SON ONGLET (William, 18/09/2026). Il se lit à un autre moment que
+         l'avancement de la consultation — voir OngletPerimetre. */
+      { cle: 'perimetre' as CleOnglet, libelle: 'Périmètre', badge: compteursDuPerimetre.length > 0 ? String(compteursDuPerimetre.length) : undefined },
       { cle: 'comparatif' as CleOnglet, libelle: 'Comparatif', badge: reco && reco.versions.length > 1 ? `${reco.versions.length} vers.` : undefined },
       ...(AFFICHER_COMMANDE_CLIENT
         ? [{ cle: 'cmd' as CleOnglet, libelle: 'Commande du client', badge: (objectifs ?? []).length > 0 ? `${(objectifs ?? []).length} obj.` : undefined }]
         : []),
     ]
-  }, [objectifs, reco])
+  }, [objectifs, reco, compteursDuPerimetre.length])
 
   // L'onglet par défaut suit la même règle que l'ordre : au Diagnostic, on ouvre sur la commande.
   useEffect(() => {
@@ -412,32 +433,6 @@ export default function RecommandationDetail() {
     }
   }
 
-  /**
-   * ON CLIQUE LE STATUT VOULU SUR LA FRISE, PLUS « ÉTAPE SUIVANTE ».
-   *
-   * Naoëlle, 31/08/2026 : « on pourra modifier les statuts en cliquant sur les statuts direct de la
-   * frise ».
-   *
-   * Ce que ça remplace, et pourquoi c'est mieux : « Étape suivante » n'avançait que d'un cran et
-   * jamais en arrière, ce qui obligeait à un second chemin — le menu « Corriger le statut » de la
-   * carte de version — pour revenir. Deux commandes pour un même changement, et il fallait savoir
-   * laquelle choisir selon le sens. Un clic sur le cran visé fait les deux, et se lit sans mode
-   * d'emploi : on montre où on veut aller.
-   *
-   * Le statut du DOSSIER n'est pas touché ici : un déclencheur en base le recalcule dès que la
-   * version change (migration 20260828120000). L'écrire aussi depuis l'écran serait dire deux fois
-   * la même chose — et c'est exactement le désordre que Michel a demandé de supprimer.
-   */
-  async function choisirStatutVersion(statutVersionId: string) {
-    if (!versionAffichee) return
-    const cible = statutsVersions.find((s) => s.id === statutVersionId)
-    try {
-      await majStatutVersion.mutateAsync({ versionId: versionAffichee.id, statutVersionId })
-      signaler(`→ Version ${versionAffichee.numero_version ?? ''} : ${cible?.libelle ?? 'statut mis à jour'}`)
-    } catch (e) {
-      signaler(`Erreur : ${e instanceof Error ? e.message : String(e)}`)
-    }
-  }
 
   function handleDelete() {
     if (!reco) return
@@ -512,8 +507,31 @@ export default function RecommandationDetail() {
       setWizardCotation({ prefill: null })
       return
     }
-    setOnglet('reco')
     setNouvelleVersionOuverte((v) => !v)
+  }
+
+  /**
+   * Dupliquer la version active : on reprend les paramètres de la demande, pas son échéance.
+   *
+   * LA DATE N'EST PAS REPRISE (William, 18/09/2026) : « la duplication ne doit pas reprendre la date
+   * de la version de base, puisque par définition, ce que je souhaite dupliquer, c'est les
+   * paramètres de la demande, mais forcément, si je duplique une version, c'est pour la demander à
+   * une nouvelle date. » Le formulaire la réclame, elle est obligatoire depuis le même jour.
+   */
+  function dupliquerVersionActive() {
+    if (!versionActive) return
+    setWizardCotation({
+      prefill: {
+        dureesParCompteur: versionActive.durees_par_compteur ?? {},
+        typesPrix: versionActive.types_prix ?? [],
+        // Les fournisseurs déjà consultés sur la version reprise : la duplication sert justement à
+        // relancer les mêmes.
+        fournisseurIds: versionActive.optimisations.flatMap((o) =>
+          o.fournisseurs_consultes.map((f) => f.fournisseur_compte_id),
+        ),
+      },
+    })
+    setNouvelleVersionOuverte(false)
   }
 
   const coutSuggere = coutPrestationEstime(versionAffichee?.gains_estimes)
@@ -694,12 +712,109 @@ export default function RecommandationDetail() {
         </div>
 
         <div className="hidden items-center gap-1.5 lg:flex">
+            {/* ══ LE CHOIX SE FAIT SOUS LE BOUTON, PAS DANS LA FICHE ══
+
+                William, 18/09/2026 : « lors du clic, 2 options (duplication ou vierge) mais pas un
+                bloc qui s'affiche dans la fiche ».
+
+                Le panneau d'avant se dépliait au milieu du contenu et poussait la version vers le
+                bas pour poser une question à deux réponses — un choix de deux secondes traité comme
+                une étape de travail. Ici la fiche ne bouge pas : le choix s'ouvre où le geste a
+                commencé, et se referme au clic dehors ou à Échap.
+
+                SANS AUCUNE VERSION, IL N'Y A PAS DE CHOIX : `ouvrirNouvelleVersion` va droit au
+                formulaire, puisqu'il n'y a rien à dupliquer. */}
           {canManage && (
-            <Button size="sm" onClick={ouvrirNouvelleVersion}>
-              <Plus className="h-3.5 w-3.5" />
-              Nouvelle version
-            </Button>
+            <div className="relative">
+              <Button size="sm" onClick={ouvrirNouvelleVersion}>
+                <Plus className="h-3.5 w-3.5" />
+                Nouvelle version
+              </Button>
+              {nouvelleVersionOuverte && versionActive && (
+                <>
+                  {/* Le voile invisible ferme au clic dehors sans qu'on ait à écouter le document :
+                      un seul menu à la fois sur cette fiche, il ne coûte rien. */}
+                  <button
+                    type="button"
+                    aria-label="Fermer"
+                    onClick={() => setNouvelleVersionOuverte(false)}
+                    className="fixed inset-0 z-40 cursor-default"
+                  />
+                  <div className="absolute right-0 top-full z-50 mt-1.5 w-[290px] animate-km-hub-pop overflow-hidden rounded-km-md border border-km-line bg-white p-1 shadow-km-pop">
+                    <button
+                      type="button"
+                      onClick={dupliquerVersionActive}
+                      className="flex w-full items-start gap-2.5 rounded-km-sm px-2.5 py-2 text-left hover:bg-km-amber-soft"
+                    >
+                      <Copy className="mt-[3px] h-3.5 w-3.5 shrink-0 text-[#8a4b2a]" />
+                      <span className="min-w-0">
+                        <span className="block text-km-body font-bold text-km-text">
+                          Dupliquer {versionActive.nom || `V${versionActive.numero_version ?? ''}`}
+                        </span>
+                        <span className="block text-km-label text-km-faint">
+                          Mêmes durées, mêmes types de prix, mêmes fournisseurs — nouvelle date.
+                        </span>
+                      </span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => { setWizardCotation({ prefill: null }); setNouvelleVersionOuverte(false) }}
+                      className="flex w-full items-start gap-2.5 rounded-km-sm px-2.5 py-2 text-left hover:bg-km-bg"
+                    >
+                      <FilePlus2 className="mt-[3px] h-3.5 w-3.5 shrink-0 text-km-muted" />
+                      <span className="min-w-0">
+                        <span className="block text-km-body font-bold text-km-text">Créer vierge</span>
+                        <span className="block text-km-label text-km-faint">
+                          Tout est à choisir : durées, types de prix, fournisseurs.
+                        </span>
+                      </span>
+                    </button>
+                    {/* CE QUE LA CRÉATION VA FAIRE À LA VERSION EN COURS, dit avant le clic et non
+                        après : elle passe en Clôturée, résultat Expirée. C'est la phrase que portait
+                        l'ancien panneau, et la seule qu'il fallait garder. */}
+                    <p className="border-t border-km-line-soft px-2.5 pb-1 pt-2 text-km-label text-km-faint">
+                      Dans les deux cas,{' '}
+                      <b className="text-km-muted">{versionActive.nom || `V${versionActive.numero_version ?? ''}`}</b>{' '}
+                      passe en <b className="text-km-muted">Clôturée · Expirée</b>.
+                    </p>
+                  </div>
+                </>
+              )}
+            </div>
           )}
+          {/* ══ LA CLÔTURE A SON PROPRE BOUTON ══
+
+              William, 18/09/2026 : « le cycle de recommandation est calculé automatiquement il doit
+              donc être masqué. La clôture doit se faire via un bouton prévu à cet effet. »
+
+              LE RAIL DU CYCLE DE VIE EST PARTI AVEC, et il emportait la seule porte vers la clôture
+              — c'est lui qui portait « Clôturer » au bout de sa frise. Sans ce bouton, masquer le
+              rail aurait enfermé 103 dossiers actifs sans aucun moyen de les clore.
+
+              IL DIT CE QU'IL FAIT SELON L'ÉTAT : sur un dossier clos, il rouvre. Deux libellés pour
+              un bouton plutôt que deux boutons dont un inerte. */}
+          {canManage && (estClose ? (
+            <Button variant="outline" size="sm" onClick={rouvrir}>
+              <RotateCcw className="h-3.5 w-3.5" />
+              Rouvrir
+            </Button>
+          ) : (
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => {
+                setOnglet('reco')
+                setClotureOuverte((v) => !v)
+                setFinaliteChoisie(null)
+                setMotifBrouillon('')
+                setDateClotureBrouillon(new Date().toISOString().slice(0, 10))
+              }}
+            >
+              <CheckCheck className="h-3.5 w-3.5" />
+              Clôturer
+            </Button>
+          ))}
+
           {/* ══ LA DEMANDE DE CONTRAT NE DÉPEND PLUS D'UNE VERSION ══
 
               William, 16/09/2026 : « il est impossible de clôturer une recommandation en "Acceptée"
@@ -842,176 +957,185 @@ export default function RecommandationDetail() {
           sur la fiche compte le 15/09/2026 et sur la fiche piste le 16/09 — voir leur commentaire
           pour le raisonnement complet. Latent ici tant que le contenu tient dans l'écran. */}
       <div className="grid min-h-0 flex-1 grid-cols-1 grid-rows-[minmax(0,1fr)] overflow-hidden lg:grid-cols-fiche-activite">
-        <div className={cn('col-start-1 row-start-1 min-h-0 overflow-y-auto', onglet !== 'rattachements' && 'hidden')}>
-          <RattachementsReco
-            reco={reco}
-            compte={compte}
-            contacts={contacts ?? []}
-            compteurs={compteursDuPerimetre}
-            documents={(documents ?? []).map((d) => ({ id: d.id, nom: d.nom, type_document: d.type_document ?? null }))}
-            contactPrincipal={contactPrincipal}
-            versionAffichee={versionAffichee}
-            statutsVersions={statutsVersions}
-            onChoisirVersion={(v) => { setVersionAfficheeId(v.id); setOnglet('reco') }}
-            onMajContactSignataire={async (contactId) => {
-              try {
-                await majReco({ contact_signataire_id: contactId })
-                signaler('✓ Contact principal mis à jour')
-              } catch (e) {
-                signaler(`Erreur : ${e instanceof Error ? e.message : String(e)}`)
-              }
-            }}
-            coutEstimeSuggere={coutSuggere}
-            onFixerCout={() => {
-              setCoutBrouillon(
-                reco.cout_prestation_reel != null
-                  ? String(reco.cout_prestation_reel)
-                  : reco.cout_prestation_estime != null
-                    ? String(reco.cout_prestation_estime)
-                    : coutSuggere != null
-                      ? String(coutSuggere)
-                      : '',
-              )
-              setCoutOuvert(true)
-            }}
-            onDefinirEstime={async (montant) => {
-              try {
-                await majReco({ cout_prestation_estime: montant })
-                signaler(`✓ Coût estimé : ${montant.toLocaleString('fr-FR')} €`)
-              } catch (e) {
-                signaler(`Erreur : ${e instanceof Error ? e.message : String(e)}`)
-              }
-            }}
-            peutModifier={canManage}
-            signaler={signaler}
-          />
-        </div>
+        {/* ══════════ L'ONGLET RATTACHEMENTS EST RETIRÉ (William, 18/09/2026) ══════════
+
+            « L'onglet rattachement devient inutile. »
+
+            IL EST DEVENU INUTILE PARCE QUE LA FICHE A PRIS SON TRAVAIL. Il était né le 07/09/2026
+            de l'ancien volet de gauche : compte, contact, périmètre, documents, versions, coût de
+            prestation. Trois semaines plus tard, chacun de ces éléments a trouvé sa place là où on
+            le cherche vraiment —
+
+             · le compte et le contact signataire sont dans le hero, avec leurs gestes ;
+             · le périmètre a son propre onglet depuis ce matin ;
+             · les versions se choisissent dans le comparatif ;
+             · le coût de prestation est masqué depuis le 25/08/2026 (Michel).
+
+            Ce qui restait était un doublon de la fiche, et un doublon coûte plus qu'il ne rend :
+            deux endroits pour changer un contact, c'est un endroit où l'on croit l'avoir changé.
+
+            `VoletGaucheReco` reste sur le disque, entier. Le remonter tiendrait en trois lignes
+            si un de ses blocs venait à manquer. */}
 
         {/* Centre */}
-        <div className={cn('col-start-1 row-start-1 min-h-0 overflow-y-auto bg-km-bg px-4 py-4 sm:px-5', onglet === 'rattachements' && 'hidden')}>
+        <div className="col-start-1 row-start-1 min-h-0 overflow-y-auto bg-km-bg px-4 py-4 sm:px-5">
           {onglet === 'reco' && (
             <div className="flex animate-km-fade-slide flex-col gap-3.5">
-              <RailCycleVie
-                etapes={statutsVersions}
-                /* LA FRISE DU HAUT : les quatre statuts du dossier, tels que la base les calcule.
-                   Ce sont deux tables différentes — `etapes_recommandation` pour le dossier,
-                   `statuts_versions_recommandation` pour la version — et c'est précisément ce que
-                   les deux frises rendent visible. */
-                etapesDossier={etapes}
-                codeDossier={reco.etape ?? ''}
-                codeCourant={versionAffichee?.statut ?? ''}
-                numeroVersion={versionAffichee?.numero_version ?? null}
-                finalite={estClose ? finalite : null}
+              {/* ══════════ LE CHEMIN DU DOSSIER, AU-DESSUS DE TOUT ══════════
+
+                  William, 18/09/2026 : « je ne vois plus le chemin de la recommandation !! Il faut
+                  absolument le rajouter au-dessus des hero montant etc. »
+
+                  IL NE CONTREDIT PAS SA DEMANDE DU MATIN — « le cycle de recommandation est calculé
+                  automatiquement il doit donc être masqué » — il la précise. Ce qui devait partir,
+                  c'était le rail où l'on AGISSAIT sur un statut que la base calcule seule. Ce qui
+                  revient, c'est le fait de VOIR où en est le dossier et depuis quand, en lecture
+                  seule, dans la frise du mandat. Voir `CheminRecommandation`. */}
+              <CheminRecommandation reco={reco} />
+
+              {/* ══════════ LE HERO : LE MONTANT, LA PROPOSITION, LE CLIENT ══════════
+
+                  William, 18/09/2026, dans l'ordre exact : « à partir de la gauche : le montant en
+                  premier, la proposition en 2ème, le compte + contact en troisième ».
+
+                  ══ CE QUI ÉTAIT LÀ AVANT, ET POURQUOI IL EST PARTI ══
+
+                  Le rail du cycle de vie occupait cette place : quatre crans de statut de version,
+                  quatre crans de statut de dossier, et la clôture au bout. « Le cycle de
+                  recommandation est calculé automatiquement il doit donc être masqué. »
+
+                  Il avait raison sur le fond : le statut du dossier est RECALCULÉ EN BASE dès qu'une
+                  version change (déclencheur du 28/08/2026). Personne ne le pose, donc personne
+                  n'avait besoin de le voir défiler en tête de fiche — il occupait le premier regard
+                  pour annoncer une conséquence. Le statut de la VERSION, lui, se pose à la main : il
+                  reste, mais là où il se décide, dans l'en-tête de la version.
+
+                  Ce que la fiche montre désormais en premier, ce sont les trois choses qu'on cherche
+                  en l'ouvrant : combien, quoi envoyer, à qui. */}
+              <HeroRecommandation
+                reco={reco}
+                compte={compte}
+                contacts={contacts ?? []}
+                contactSignataire={contactPrincipal}
+                contrats={contratsIssus ?? []}
                 peutModifier={canManage}
-                onOuvrirCloture={() => {
-                  setClotureOuverte((v) => !v)
-                  setFinaliteChoisie(null)
-                  setMotifBrouillon('')
-                  setDateClotureBrouillon(new Date().toISOString().slice(0, 10))
+                signaler={signaler}
+                onMajContactSignataire={async (contactId) => {
+                  try {
+                    await majReco({ contact_signataire_id: contactId })
+                    signaler('✓ Contact signataire mis à jour')
+                  } catch (e) {
+                    signaler(`Erreur : ${e instanceof Error ? e.message : String(e)}`)
+                  }
                 }}
-                onChoisirStatutVersion={choisirStatutVersion}
-                onRouvrir={rouvrir}
-                avanceEnCours={majStatutVersion.isPending}
-              >
-                {clotureOuverte && !estClose && (
-                  <div className="mt-2.5 animate-km-fade-slide rounded-km-lg border-[1.5px] border-[#dcc39c] bg-km-amber-soft px-[13px] py-[11px]">
-                    <div className="mb-2 flex flex-wrap items-center gap-2">
-                      {/* « Quelle clôture a eu lieu ? » suivi de trois boutons donnait à croire
-                          qu'on choisissait un statut de clôture. On choisit un RÉSULTAT : le statut,
-                          lui, sera Clôturée quel que soit le bouton. */}
-                      <span className="min-w-[160px] flex-1 self-center text-km-body text-km-muted">
-                        Résultat de ce dossier ?
-                      </span>
-                      {/* Les trois finalités de la base, pas les cinq du dessin : remapper aurait
-                          réinterprété 1573 recommandations closes (décision du 16/08/2026). */}
-                      {CLES_FINALITES.map((cle) => {
-                        const f = FINALITES_RECOMMANDATION[cle]
-                        const actif = finaliteChoisie === cle
-                        /* « Acceptée » reste visible mais inerte sans contrat signé : la masquer
-                           laisserait croire que la finalité n'existe pas, alors que le problème est
-                           qu'il manque une pièce — et l'infobulle dit laquelle. */
-                        const interdit = cle === 'ACCEPTEE' && !contratValide
-                        return (
-                          <button
-                            key={cle}
-                            type="button"
-                            disabled={interdit}
-                            title={interdit ? 'Il faut un contrat signé pour clôturer en « Acceptée ».' : undefined}
-                            onClick={() => setFinaliteChoisie(cle)}
-                            className={cn(
-                              'rounded-km px-3.5 py-2 text-km-body font-bold transition-colors',
-                              interdit && 'cursor-not-allowed opacity-45',
-                            )}
-                            style={{
-                              color: actif ? '#fff' : f.couleur,
-                              background: actif ? f.couleur : '#fff',
-                              border: `1.5px solid ${f.bordure}`,
-                              boxShadow: actif ? `0 3px 9px ${f.couleur}4d` : 'none',
-                            }}
-                          >
-                            {cle === 'ACCEPTEE' ? '✓ ' : cle === 'REFUSEE' ? '✗ ' : '— '}
-                            {f.libelle}
-                          </button>
-                        )
-                      })}
-                    </div>
-                    {!contratValide && (
-                      <p className="mb-2 text-km-label text-km-muted">
-                        « Acceptée » demande un contrat signé sur ce dossier — il n'y en a pas encore.
-                      </p>
-                    )}
-                    <label className="mb-1 block text-km-label font-bold uppercase tracking-wide text-km-faint" htmlFor="motif-cloture">
-                      Motif <span className="text-km-red">*</span>
+                onMajMontant={async (montant) => {
+                  /* ══ LE DRAPEAU PART AVEC LE CHIFFRE ══
+                     `montant_saisi_manuellement` dit que ce montant vient d'une main et non d'un
+                     calcul. Sans lui, la saisie ne survivrait pas au premier recalcul — c'est la
+                     règle posée le 03/09/2026 : « la version modifiée à la main écrase le calcul ».
+                     Il retombe à `false` quand on efface : il n'y a plus de saisie à protéger. */
+                  await majReco({ montant, montant_saisi_manuellement: montant != null })
+                }}
+              />
+
+              {clotureOuverte && !estClose && (
+                <div className="mt-2.5 animate-km-fade-slide rounded-km-lg border-[1.5px] border-[#dcc39c] bg-km-amber-soft px-[13px] py-[11px]">
+                  <div className="mb-2 flex flex-wrap items-center gap-2">
+                    {/* « Quelle clôture a eu lieu ? » suivi de trois boutons donnait à croire
+                        qu'on choisissait un statut de clôture. On choisit un RÉSULTAT : le statut,
+                        lui, sera Clôturée quel que soit le bouton. */}
+                    <span className="min-w-[160px] flex-1 self-center text-km-body text-km-muted">
+                      Résultat de ce dossier ?
+                    </span>
+                    {/* Les trois finalités de la base, pas les cinq du dessin : remapper aurait
+                        réinterprété 1573 recommandations closes (décision du 16/08/2026). */}
+                    {CLES_FINALITES.map((cle) => {
+                      const f = FINALITES_RECOMMANDATION[cle]
+                      const actif = finaliteChoisie === cle
+                      /* « Acceptée » reste visible mais inerte sans contrat signé : la masquer
+                         laisserait croire que la finalité n'existe pas, alors que le problème est
+                         qu'il manque une pièce — et l'infobulle dit laquelle. */
+                      const interdit = cle === 'ACCEPTEE' && !contratValide
+                      return (
+                        <button
+                          key={cle}
+                          type="button"
+                          disabled={interdit}
+                          title={interdit ? 'Il faut un contrat signé pour clôturer en « Acceptée ».' : undefined}
+                          onClick={() => setFinaliteChoisie(cle)}
+                          className={cn(
+                            'rounded-km px-3.5 py-2 text-km-body font-bold transition-colors',
+                            interdit && 'cursor-not-allowed opacity-45',
+                          )}
+                          style={{
+                            color: actif ? '#fff' : f.couleur,
+                            background: actif ? f.couleur : '#fff',
+                            border: `1.5px solid ${f.bordure}`,
+                            boxShadow: actif ? `0 3px 9px ${f.couleur}4d` : 'none',
+                          }}
+                        >
+                          {cle === 'ACCEPTEE' ? '✓ ' : cle === 'REFUSEE' ? '✗ ' : '— '}
+                          {f.libelle}
+                        </button>
+                      )
+                    })}
+                  </div>
+                  {!contratValide && (
+                    <p className="mb-2 text-km-label text-km-muted">
+                      « Acceptée » demande un contrat signé sur ce dossier — il n'y en a pas encore.
+                    </p>
+                  )}
+                  <label className="mb-1 block text-km-label font-bold uppercase tracking-wide text-km-faint" htmlFor="motif-cloture">
+                    Motif <span className="text-km-red">*</span>
+                  </label>
+                  <textarea
+                    id="motif-cloture"
+                    rows={2}
+                    value={motifBrouillon}
+                    onChange={(e) => setMotifBrouillon(e.target.value)}
+                    placeholder="Pourquoi cette recommandation est-elle close ?"
+                    className="w-full rounded-km border border-km-line bg-white px-2.5 py-1.5 text-km-name text-km-text outline-none focus:ring-1 focus:ring-km-green"
+                  />
+                  <div className="mt-2">
+                    <label className="mb-1 block text-km-label font-bold uppercase tracking-wide text-km-faint" htmlFor="date-cloture">
+                      Date de clôture <span className="text-km-red">*</span>
                     </label>
-                    <textarea
-                      id="motif-cloture"
-                      rows={2}
-                      value={motifBrouillon}
-                      onChange={(e) => setMotifBrouillon(e.target.value)}
-                      placeholder="Pourquoi cette recommandation est-elle close ?"
-                      className="w-full rounded-km border border-km-line bg-white px-2.5 py-1.5 text-km-name text-km-text outline-none focus:ring-1 focus:ring-km-green"
+                    <input
+                      id="date-cloture"
+                      type="date"
+                      value={dateClotureBrouillon}
+                      onChange={(e) => setDateClotureBrouillon(e.target.value)}
+                      className="rounded-km border border-km-line bg-white px-2.5 py-1.5 font-mono text-km-name text-km-text outline-none focus:ring-1 focus:ring-km-green"
                     />
+                    <p className="mt-1 text-km-label text-km-faint">Préremplie avec aujourd’hui ; modifiez-la si la décision a eu lieu un autre jour.</p>
+                  </div>
+                  {/* La date de réactivation n'apparaît que si la finalité l'exige. Aucune des
+                      trois valeurs actuelles ne le fait ; le champ est prêt pour le jour où une
+                      finalité de report sera ajoutée. */}
+                  {finaliteChoisie && exigeDateReactivation(finaliteChoisie) && (
                     <div className="mt-2">
-                      <label className="mb-1 block text-km-label font-bold uppercase tracking-wide text-km-faint" htmlFor="date-cloture">
-                        Date de clôture <span className="text-km-red">*</span>
+                      <label className="mb-1 block text-km-label font-bold uppercase tracking-wide text-km-faint" htmlFor="date-reactivation">
+                        Date de réactivation <span className="text-km-red">*</span>
                       </label>
                       <input
-                        id="date-cloture"
+                        id="date-reactivation"
                         type="date"
-                        value={dateClotureBrouillon}
-                        onChange={(e) => setDateClotureBrouillon(e.target.value)}
+                        value={reactivationBrouillon}
+                        onChange={(e) => setReactivationBrouillon(e.target.value)}
                         className="rounded-km border border-km-line bg-white px-2.5 py-1.5 font-mono text-km-name text-km-text outline-none focus:ring-1 focus:ring-km-green"
                       />
-                      <p className="mt-1 text-km-label text-km-faint">Préremplie avec aujourd’hui ; modifiez-la si la décision a eu lieu un autre jour.</p>
                     </div>
-                    {/* La date de réactivation n'apparaît que si la finalité l'exige. Aucune des
-                        trois valeurs actuelles ne le fait ; le champ est prêt pour le jour où une
-                        finalité de report sera ajoutée. */}
-                    {finaliteChoisie && exigeDateReactivation(finaliteChoisie) && (
-                      <div className="mt-2">
-                        <label className="mb-1 block text-km-label font-bold uppercase tracking-wide text-km-faint" htmlFor="date-reactivation">
-                          Date de réactivation <span className="text-km-red">*</span>
-                        </label>
-                        <input
-                          id="date-reactivation"
-                          type="date"
-                          value={reactivationBrouillon}
-                          onChange={(e) => setReactivationBrouillon(e.target.value)}
-                          className="rounded-km border border-km-line bg-white px-2.5 py-1.5 font-mono text-km-name text-km-text outline-none focus:ring-1 focus:ring-km-green"
-                        />
-                      </div>
-                    )}
-                    <div className="mt-2.5 flex items-center justify-end gap-2">
-                      <Button type="button" variant="ghost" size="sm" onClick={() => setClotureOuverte(false)}>
-                        Annuler
-                      </Button>
-                      <Button type="button" size="sm" onClick={confirmerCloture} disabled={!clotureValide || cloturerReco.isPending}>
-                        {cloturerReco.isPending ? 'Clôture…' : 'Confirmer la clôture'}
-                      </Button>
-                    </div>
+                  )}
+                  <div className="mt-2.5 flex items-center justify-end gap-2">
+                    <Button type="button" variant="ghost" size="sm" onClick={() => setClotureOuverte(false)}>
+                      Annuler
+                    </Button>
+                    <Button type="button" size="sm" onClick={confirmerCloture} disabled={!clotureValide || cloturerReco.isPending}>
+                      {cloturerReco.isPending ? 'Clôture…' : 'Confirmer la clôture'}
+                    </Button>
                   </div>
-                )}
-              </RailCycleVie>
+                </div>
+              )}
 
               {/* ══════════ CE QUE CETTE RECOMMANDATION A PRODUIT ══════════
 
@@ -1136,91 +1260,37 @@ export default function RecommandationDetail() {
                   commentaire de style JSX est une erreur de syntaxe. C'est la deuxième fois que je
                   m'y reprends — et écrire la séquence fermante dans le texte referme le commentaire
                   par surprise, ce qui fut ma faute suivante. */}
-              {reco.versions.length > 0 && (
-                <div className="flex flex-wrap items-center gap-2">
-                  <span className="flex-1" />
-                  {/* LE LIBELLÉ DIT CE QU'ON VOIT, PAS CE QU'ON FABRIQUE. Michel, 20/08/2026 : « si
-                      je mets document comparatif, j'ai l'impression que je vais générer un document
-                      que je ne génère pas tout de suite — je peux juste voir. […] Il faut que le
-                      verbatim du bouton t'indique ce que tu vas avoir. » D'où « Voir le résumé de la
-                      version » : l'écran s'ouvre, et c'est de là qu'on imprime si on le décide. */}
-                  <button
-                    type="button"
-                    onClick={() => setDocumentOuvert(true)}
-                    className="inline-flex items-center gap-1.5 rounded-km-md border-[1.5px] border-km-line bg-white px-[13px] py-[7px] text-km-body font-bold text-km-muted hover:bg-km-soft"
-                  >
-                    <FileText className="h-3 w-3" /> Voir le résumé de la version
-                  </button>
-                  {canManage && (
-                    <button
-                      type="button"
-                      onClick={() => setNouvelleVersionOuverte((v) => !v)}
-                      className="inline-flex items-center gap-1.5 rounded-km-md border-[1.5px] border-dashed border-[#dcc39c] bg-white px-[13px] py-[7px] text-km-body font-bold text-[#8a4b2a] hover:bg-km-amber-soft"
-                    >
-                      <Plus className="h-3 w-3" /> Créer une nouvelle version
-                    </button>
-                  )}
-                </div>
-              )}
+              {/* ══════════ DEUX BOUTONS RETIRÉS DE LA PAGE (William, 18/09/2026) ══════════
 
-              {/* Panneau « nouvelle version » — les deux gestes du design. */}
-              {nouvelleVersionOuverte && canManage && (
-                <div className="flex animate-km-fade-slide flex-wrap gap-2.5 rounded-[13px] border-[1.5px] border-[#dcc39c] bg-white px-[15px] py-[13px]">
-                  <div className="min-w-[200px] flex-1 self-center text-km-body text-km-muted">
-                    {versionActive ? (
-                      <>
-                        La création d'une nouvelle version passe automatiquement{' '}
-                        <b className="text-km-text">{versionActive.nom || `V${versionActive.numero_version ?? ''}`}</b> au
-                        statut <b className="text-km-muted">Clôturée</b>, avec le résultat
-                        <b className="text-km-muted"> Expirée</b>.
-                      </>
-                    ) : (
-                      <>Première version de la recommandation : durées par PDL, type de prix, puis fournisseurs à consulter.</>
-                    )}
-                  </div>
-                  {versionActive && (
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setWizardCotation({
-                          prefill: {
-                            dureesParCompteur: versionActive.durees_par_compteur ?? {},
-                            typesPrix: versionActive.types_prix ?? [],
-                            // Les fournisseurs déjà consultés sur la version reprise : la
-                            // duplication sert justement à relancer les mêmes.
-                            fournisseurIds: versionActive.optimisations.flatMap((o) =>
-                              o.fournisseurs_consultes.map((f) => f.fournisseur_compte_id),
-                            ),
-                            // LA DATE N'EST PAS REPRISE (William, 18/09/2026) : on duplique les
-                            // paramètres de la demande, pas son échéance. Dupliquer, c'est
-                            // redemander — donc pour une nouvelle date, que le formulaire réclame.
-                          },
-                        })
-                        setNouvelleVersionOuverte(false)
-                      }}
-                      className="inline-flex items-center gap-[7px] rounded-km-md px-[15px] py-[9px] text-km-body font-bold text-white shadow-[0_3px_10px_rgba(176,118,60,.3)]"
-                      style={{ background: 'linear-gradient(135deg,#8a4b2a,#cf9a5e)' }}
-                    >
-                      <Copy className="h-3.5 w-3.5" />
-                      Dupliquer {versionActive.nom || `V${versionActive.numero_version ?? ''}`}
-                    </button>
-                  )}
-                  <button
-                    type="button"
-                    onClick={() => { setWizardCotation({ prefill: null }); setNouvelleVersionOuverte(false) }}
-                    className="inline-flex items-center gap-[7px] rounded-km-md border border-km-line bg-white px-[15px] py-[9px] text-km-body font-bold text-km-text hover:bg-km-bg"
-                  >
-                    <FilePlus2 className="h-3.5 w-3.5" />
-                    {versionActive ? 'Créer vierge' : 'Créer la version'}
-                  </button>
-                </div>
-              )}
+                  « Supprime également le "Voir le résumé de la version", jamais utilisé et inutile.
+                  Supprime le bouton "Créer une nouvelle version" présent dans la page, il y a déjà
+                  ce bouton dans le header. Et lors du clic, 2 options (duplication ou vierge) mais
+                  pas un bloc qui s'affiche dans la fiche. »
+
+                  ── LE RÉSUMÉ ──
+                  Il ouvrait `DocumentComparatif`, un récapitulatif imprimable de la version. Michel
+                  l'avait voulu le 20/08/2026 et avait même fait réécrire son libellé — « il faut que
+                  le verbatim du bouton t'indique ce que tu vas avoir ». Un mois plus tard, personne
+                  ne s'en sert. L'écran reste monté et atteignable depuis le comparatif ; c'est la
+                  porte d'entrée de la fiche qui part.
+
+                  ── LA CRÉATION ──
+                  Le bouton doublait celui du bandeau, et son clic dépliait un panneau DANS la fiche
+                  pour poser une question à deux réponses. Un panneau qui pousse le contenu vers le
+                  bas pour demander « dupliquer ou vierge ? » traite un choix de deux secondes comme
+                  une étape de travail. Le choix se fait maintenant sous le bouton du bandeau, et la
+                  fiche ne bouge pas. */}
 
               {versionAffichee && (
                 <DetailVersion
+                  reco={reco}
                   version={versionAffichee}
+                  contactSignataire={contactPrincipal}
+                  typeDocumentPropositionId={
+                    typesDocuments.find((t) => /recommandation/i.test(t.libelle))?.id ?? null
+                  }
+                  onPresentationEnvoyee={datePresentationClient}
                   statutsVersions={statutsVersions}
-                  onEnvoyerEmail={() => setEmailDialogVersion(versionAffichee)}
                   onAjouterFournisseur={setAjouterFournisseurFor}
                   peutModifier={canManage}
                   signaler={signaler}
@@ -1276,6 +1346,8 @@ export default function RecommandationDetail() {
             </div>
           )}
 
+          {onglet === 'perimetre' && <OngletPerimetre compteurs={compteursDuPerimetre} />}
+
           {onglet === 'cmd' && (
             <OngletCommandeClient
               reco={reco}
@@ -1294,6 +1366,7 @@ export default function RecommandationDetail() {
                 <ComparatifVersions
                   reco={reco}
                   versionAffichee={versionAffichee}
+                  documents={documents ?? []}
                   onChoisirVersion={(v) => setVersionAfficheeId(v.id)}
                   onMajEconomies={async (versionId, economies) => {
                     try {
@@ -1324,21 +1397,9 @@ export default function RecommandationDetail() {
       </div>
 
       {/* ── Dialogues ── */}
-      {versionAffichee && (
-        <DocumentComparatif
-          ouvert={documentOuvert}
-          onFermer={() => setDocumentOuvert(false)}
-          reco={reco}
-          version={versionAffichee}
-          compte={compte}
-          compteurs={compteurs ?? []}
-          contactClient={contactPrincipal ?? null}
-          conseiller={(() => {
-            const p = (profilsAdmin ?? []).find((x) => x.id === reco.proprietaire_id)
-            return p ? { nom: `${p.prenom} ${p.nom}`, email: p.email } : null
-          })()}
-        />
-      )}
+      {/* `DocumentComparatif` n'est plus monté ici : son unique bouton d'ouverture est parti le
+          18/09/2026 (voir plus haut). Le composant existe toujours — 605 lignes de récapitulatif
+          imprimable — et se remonte le jour où on lui redonne une porte. */}
 
       {emailDialogVersion && (
         <EnvoyerEmailDialog

@@ -206,7 +206,7 @@ export function useContratsDeRecommandation(recoId: string | undefined) {
     queryFn: async () => {
       const { data, error } = await supabase
         .from('contrats')
-        .select('id, reference_fournisseur, date_debut, date_fin, date_signature, statut_signature, fournisseur:comptes!contrats_fournisseur_compte_id_fkey(nom), statut:statuts_contrats(code)')
+        .select('id, reference_fournisseur, date_debut, date_fin, date_signature, date_envoi_signature, statut_signature, docusign_envelope_id, date_creation, fournisseur:comptes!contrats_fournisseur_compte_id_fkey(nom), statut:statuts_contrats(code)')
         .eq('recommandation_id', recoId as string)
         .eq('actif', true)
         .order('date_debut', { ascending: false })
@@ -221,6 +221,12 @@ export function useContratsDeRecommandation(recoId: string | undefined) {
         date_debut: (c.date_debut ?? null) as string | null,
         date_fin: (c.date_fin ?? null) as string | null,
         date_signature: (c.date_signature ?? null) as string | null,
+        /* LE SUIVI DE SIGNATURE EN DIRECT : le hero de la fiche recommandation interroge DocuSign
+           avec ces trois-là — l'enveloppe pour savoir s'il y a quelque chose à demander, les deux
+           dates pour dire depuis quand. Ajoutés le 18/09/2026. */
+        date_envoi_signature: (c.date_envoi_signature ?? null) as string | null,
+        docusign_envelope_id: (c.docusign_envelope_id ?? null) as string | null,
+        date_creation: (c.date_creation ?? null) as string | null,
         statut_signature: (c.statut_signature ?? null) as string | null,
         fournisseur_nom: (c.fournisseur?.nom ?? '') as string,
         statut: (c.statut?.code ?? '') as string,

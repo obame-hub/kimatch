@@ -68,6 +68,20 @@ export interface ContexteEmail {
   contratId?: string
   /** Le fil Gmail, quand on répond à une conversation existante. */
   threadId?: string
+  /**
+   * Des pièces déjà déposées, jointes d'office à l'ouverture.
+   *
+   * ══ POURQUOI UN DOCUMENT DE FICHE PEUT SE JOINDRE SANS ÊTRE RETÉLÉVERSÉ ══
+   *
+   * Une pièce jointe n'est qu'un nom et une adresse publique. Un document de fiche vit déjà dans
+   * le seau `documents`, à une adresse publique : il se joint tel quel, sans repasser par le
+   * navigateur. C'est ce qui rend « Envoyer au client » instantané sur une proposition de 840 Ko.
+   *
+   * ET IL SURVIT À L'ENVOI : `api/gmail/send.ts` ne nettoie que les fichiers du dossier `emails/`,
+   * ceux qui n'existent que pour un message. Un document rangé sous `version_recommandation/`
+   * n'est pas touché — sans ce filtre, envoyer une proposition l'effacerait de la fiche.
+   */
+  piecesJointes?: PieceJointe[]
 }
 
 interface EtatVolet {
@@ -121,7 +135,12 @@ export function VoletEmailProvider({ children }: { children: React.ReactNode }) 
   const ouvrirEnRemplacant = useCallback((contexte: ContexteEmail) => {
     setEtat({
       contexte,
-      brouillon: { ...BROUILLON_VIDE, a: contexte.a, objet: contexte.objet ?? '' },
+      brouillon: {
+        ...BROUILLON_VIDE,
+        a: contexte.a,
+        objet: contexte.objet ?? '',
+        piecesJointes: contexte.piecesJointes ?? [],
+      },
       reduit: false,
     })
   }, [])
@@ -143,10 +162,30 @@ export function VoletEmailProvider({ children }: { children: React.ReactNode }) 
         remplace = false
         return precedent
       }
-      if (precedent && memeDestinataire) return { ...precedent, reduit: false }
+      if (precedent && memeDestinataire) {
+        /* MÊME DESTINATAIRE, MAIS PEUT-ÊTRE UNE PIÈCE EN PLUS. On restaure le brouillon en cours
+           — c'est ce qu'on veut, le texte déjà écrit reste — mais sans ajouter la pièce demandée,
+           « Envoyer au client » ouvrirait un mail sans la proposition, en silence, et personne ne
+           s'en apercevrait avant le client. On fusionne donc par adresse, sans doublon. */
+        const deja = new Set(precedent.brouillon.piecesJointes.map((p) => p.url))
+        const ajout = (contexte.piecesJointes ?? []).filter((p) => !deja.has(p.url))
+        return {
+          ...precedent,
+          contexte,
+          brouillon: ajout.length
+            ? { ...precedent.brouillon, piecesJointes: [...precedent.brouillon.piecesJointes, ...ajout] }
+            : precedent.brouillon,
+          reduit: false,
+        }
+      }
       return {
         contexte,
-        brouillon: { ...BROUILLON_VIDE, a: contexte.a, objet: contexte.objet ?? '' },
+        brouillon: {
+          ...BROUILLON_VIDE,
+          a: contexte.a,
+          objet: contexte.objet ?? '',
+          piecesJointes: contexte.piecesJointes ?? [],
+        },
         reduit: false,
       }
     })

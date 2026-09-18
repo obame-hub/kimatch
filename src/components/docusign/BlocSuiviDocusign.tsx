@@ -71,8 +71,14 @@ function statutSignatureDuMandat(statutMandat: string | null): string | null {
   }
 }
 
-/** Ce que dit un statut de signature, en trois mots et une explication. */
-function etatSignature(
+/**
+ * Ce que dit un statut de signature, en trois mots et une explication.
+ *
+ * EXPORTÉ DEPUIS LE 18/09/2026 : le hero de la fiche recommandation affiche le même état, et deux
+ * traductions du même code auraient fini par diverger — c'est exactement ce qui était arrivé aux
+ * deux suivis DocuSign avant qu'ils ne soient réunis dans ce fichier.
+ */
+export function etatSignature(
   statutSignature: string | null,
   dateEnvoi: string | null,
   dateSignature: string | null,

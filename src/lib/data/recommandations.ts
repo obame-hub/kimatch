@@ -132,7 +132,7 @@ interface RawSuiviConsultation {
   optimisation_fournisseur_id: string
   date_evenement: string
   commentaire: string | null
-  statut: { libelle: string } | null
+  statut: { code: string; libelle: string } | null
   auteur: { prenom: string; nom: string } | null
 }
 
@@ -339,7 +339,7 @@ async function fetchRecommandations(
       ),
       listeSeule ? aucune<RawSuiviConsultation>() : fetchAllRows<RawSuiviConsultation>(
         'suivis_consultations_fournisseurs',
-        'id, optimisation_fournisseur_id, date_evenement, commentaire, statut:statuts_consultations_fournisseurs(libelle), auteur:profils(prenom, nom)',
+        'id, optimisation_fournisseur_id, date_evenement, commentaire, statut:statuts_consultations_fournisseurs(code, libelle), auteur:profils(prenom, nom)',
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         (q: any) => (cible ? q.in('optimisation_fournisseur_id', fournisseursConsultesRows.map((f) => f.id)) : q).order('date_evenement'),
       ),
@@ -545,6 +545,11 @@ async function fetchRecommandations(
       list.push({
         id: s.id,
         statut: s.statut?.libelle ?? '',
+        /* LE CODE EN PLUS DU LIBELLÉ. L'écran colore le statut, et une couleur ne se choisit pas
+           sur un libellé : « Demande disponible » est devenu « Proposition reçue » le 18/09/2026
+           sans que son code change, et un `switch` sur le texte aurait perdu sa couleur ce jour-là
+           en silence. Le code est le seul identifiant stable de la liste. */
+        statut_code: s.statut?.code ?? null,
         date_evenement: s.date_evenement,
         commentaire: s.commentaire,
         auteur_nom: s.auteur ? `${s.auteur.prenom} ${s.auteur.nom}` : null,
@@ -612,6 +617,7 @@ async function fetchRecommandations(
         fournisseur_nom: f.fournisseur?.nom ?? '',
         date_creation: f.date_creation,
         statut_actuel: historique.length > 0 ? historique[historique.length - 1].statut : null,
+        statut_code: historique.length > 0 ? historique[historique.length - 1].statut_code : null,
         historique,
         offres: offresParFournisseurConsulte.get(f.id) ?? [],
         // `EMAIL` par défaut, comme la colonne : c'est le circuit de presque tous les fournisseurs,
@@ -1887,6 +1893,9 @@ export function useUpdateVersionPartiel() {
         economie_estimee_pourcentage: number | null
         niveau_confiance: number | null
         date_expiration: string | null
+        /* Le jour où la proposition est partie chez le client. C'est le fait sur lequel repose la
+           suggestion de relance — voir `src/lib/relance.ts`. Écrit par « Envoyer au client ». */
+        date_presentation_client: string | null
       }>
     }) => {
       const { error } = await supabase

@@ -252,6 +252,8 @@ export interface OffreFournisseur {
 export interface SuiviConsultationFournisseur {
   id: string
   statut: string
+  /** Le code du statut, stable quand son libellé change — voir recommandations.ts. */
+  statut_code: string | null
   date_evenement: string
   commentaire: string | null
   auteur_nom: string | null
@@ -263,6 +265,8 @@ export interface FournisseurConsulte {
   fournisseur_nom: string
   date_creation: string
   statut_actuel: string | null
+  /** Le code du dernier statut posé : c'est lui qui décide de la couleur affichée. */
+  statut_code: string | null
   historique: SuiviConsultationFournisseur[]
   /**
    * Les offres de CE fournisseur : celle qu'il a envoyée, ou les plusieurs qu'il propose (24 et
