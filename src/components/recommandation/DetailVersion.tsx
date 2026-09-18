@@ -1,6 +1,5 @@
 import { Lock, Trash2, ExternalLink, ChevronDown } from 'lucide-react'
 import {
-  STATUT_CONSULTATION_PAR_DEFAUT,
   useMajDateSouhaitee,
   useMajStatutVersion,
   libelleOffre,
@@ -9,6 +8,7 @@ import { InlineField } from '@/components/ui/inline-field'
 import { OffresDuFournisseur } from '@/components/recommandation/OffresDuFournisseur'
 import { PropositionsFournisseur } from '@/components/recommandation/PropositionsFournisseur'
 import { PropositionCommerciale } from '@/components/recommandation/PropositionCommerciale'
+import { PastilleStatutConsultation } from '@/components/recommandation/PastilleStatutConsultation'
 import { budgetAnnuelDeLOffre } from '@/components/recommandation/CarteOffreEtude'
 import { cn } from '@/lib/utils'
 import type { ReferenceRow } from '@/lib/data/referenceTables'
@@ -39,31 +39,10 @@ const MISE_EN_CONCURRENCE = 'MISE_EN_CONCURRENCE'
  */
 const AFFICHER_LE_DETAIL_DES_PRIX = false
 
-/**
- * ══════════ LES CINQ ÉTATS D'UN FOURNISSEUR CONSULTÉ, EN COULEUR ══════════
- *
- * William, 18/09/2026, a arrêté la liste : « À traiter · Demande envoyée · Demande acceptée ·
- * Proposition reçue · Demande refusée ».
- *
- * LA COULEUR DIT L'ATTENTE, PAS LA HIÉRARCHIE. Gris : rien n'a encore été fait. Bleu : la balle est
- * chez le fournisseur. Ambre : il a accepté, on attend son prix — c'est le seul état où le temps
- * compte contre nous. Vert : sa proposition est là. Rouge : il ne répondra pas, et c'est une
- * réponse aussi, qui libère de l'attente.
- *
- * Erwan lit cette grille vingt fois par jour ; les couleurs lui évitent de lire cinq libellés.
- */
 const TONS_STATUT_VERSION: Record<string, string> = {
   EN_CONSTRUCTION: 'border-km-line bg-km-soft text-km-muted',
   DISPONIBLE: 'border-km-green-line bg-km-green-soft text-km-green',
   CLOTUREE: 'border-km-line bg-white text-km-faint',
-}
-
-const TONS_STATUT_CONSULTATION: Record<string, string> = {
-  A_TRAITER: 'border-km-line bg-km-soft text-km-muted',
-  ENVOYEE: 'border-km-blue/30 bg-km-blue-soft text-km-blue',
-  ACCEPTEE: 'border-km-amber/40 bg-km-amber-soft text-km-amber',
-  DISPONIBLE: 'border-km-green-line bg-km-green-soft text-km-green',
-  REFUSEE: 'border-km-red-line bg-km-red-soft text-km-red',
 }
 
 /**
@@ -487,51 +466,22 @@ export function DetailVersion({
                       <span className="min-w-0 flex-1 text-km-name font-extrabold leading-tight text-km-text">
                         {fc.fournisseur_nom}
                       </span>
-                      {/* ══ LE STATUT EST LE BOUTON ══
-                          William, 18/09/2026 : le statut doit être « changeable par Erwan en un
-                          clic ». Il y en avait deux — lire la pastille, puis ouvrir un menu
-                          « Changer… » posé à côté : deux objets pour une seule idée, et le second ne
-                          disait pas de quoi il partait. Le menu est désormais SOUS la pastille,
-                          transparent et étendu à toute sa surface : on clique ce qu'on lit.
-
-                          L'INFOBULLE MENTAIT ET ELLE EST PARTIE. Elle promettait « le statut se
-                          recalcule automatiquement d'après les offres » — vrai jusqu'au 18/09/2026,
-                          date à laquelle William a fait retirer cette automatisation : « ce sera à
-                          Erwan de faire évoluer le statut manuellement ». Le déclencheur n'existe
-                          plus ; laisser la phrase aurait fait attendre un effet qui ne viendra pas. */}
-                      <span
-                        className={cn(
-                          'relative inline-flex shrink-0 items-center gap-1 rounded-km-pill border px-2 py-[2px] text-km-label font-bold',
-                          TONS_STATUT_CONSULTATION[fc.statut_code ?? ''] ?? TONS_STATUT_CONSULTATION.A_TRAITER,
-                          peutModifier && 'cursor-pointer hover:brightness-[.97]',
-                        )}
-                      >
-                        {fc.statut_actuel || STATUT_CONSULTATION_PAR_DEFAUT}
-                        {peutModifier && (
-                          <>
-                            <ChevronDown className="h-2.5 w-2.5 opacity-70" />
-                            <select
-                              aria-label={`Statut de ${fc.fournisseur_nom}`}
-                              value=""
-                              onChange={(e) => { if (e.target.value) onChangerStatut(fc, e.target.value) }}
-                              className="absolute inset-0 w-full cursor-pointer opacity-0"
-                            >
-                              <option value="">Changer…</option>
-                              {statutsConsultation
-                                // Le statut deja en cours n'a pas a etre reproposé : le choisir
-                                // ajouterait un evenement de suivi identique au precedent.
-                                .filter((st) => st.libelle !== (fc.statut_actuel || STATUT_CONSULTATION_PAR_DEFAUT))
-                                // Chez un fournisseur a outil en ligne, « Demande envoyee » ne veut
-                                // rien dire : rien n'est jamais envoye. Le suivi demarre a
-                                // « Demande acceptee ».
-                                .filter((st) => fc.mode_consultation !== 'OUTIL_EN_LIGNE' || st.code !== 'ENVOYEE')
-                                .map((st) => (
-                                  <option key={st.id} value={st.id}>{st.libelle}</option>
-                                ))}
-                            </select>
-                          </>
-                        )}
-                      </span>
+                      {/* Le statut EST le bouton : on clique ce qu'on lit. Ses trois règles —
+                          ne pas reproposer le statut courant, masquer « Demande envoyée » chez un
+                          fournisseur à outil en ligne, et la couleur qui dit l'attente — vivent
+                          dans `PastilleStatutConsultation`, partagé avec le Pricing depuis le
+                          18/09/2026. Les recopier ici aurait donné deux endroits à corriger le jour
+                          où un sixième statut apparaît, et l'expérience de cette base est qu'on
+                          n'en corrige qu'un. */}
+                      <PastilleStatutConsultation
+                        statutCode={fc.statut_code}
+                        statutLibelle={fc.statut_actuel}
+                        modeConsultation={fc.mode_consultation}
+                        statuts={statutsConsultation}
+                        onChoisir={(st) => onChangerStatut(fc, st.id)}
+                        peutModifier={peutModifier}
+                        nomFournisseur={fc.fournisseur_nom}
+                      />
                     </div>
 
                     {/* Ce qu'on lui a demandé : une pastille par combinaison durée × type de prix.

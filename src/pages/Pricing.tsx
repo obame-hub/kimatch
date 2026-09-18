@@ -7,6 +7,9 @@ import { ListToolbar } from '@/components/ui/list-toolbar'
 import { usePerimetre, BasculePerimetre } from '@/lib/perimetre'
 import { useMonProfil } from '@/lib/data/roles'
 import { useVersionsPricing, type VersionPricing } from '@/lib/data/pricingVersions'
+import { PastilleStatutConsultation } from '@/components/recommandation/PastilleStatutConsultation'
+import { CODES_STATUT_CONSULTATION_PROPOSES, useChangerStatutConsultation } from '@/lib/data/recommandations'
+import { useReferenceTable, type ReferenceRow } from '@/lib/data/referenceTables'
 import { cn } from '@/lib/utils'
 
 /**
@@ -124,21 +127,60 @@ function delaiLisible(jours: number | null): string | null {
   return `en retard de ${-jours} jours`
 }
 
-/** Les cinq statuts de fournisseur consulté, avec la couleur arrêtée sur la fiche recommandation. */
-const TONS_STATUT: Record<string, string> = {
-  A_TRAITER: 'border-km-line bg-km-soft text-km-muted',
-  ENVOYEE: 'border-km-blue/30 bg-km-blue-soft text-km-blue',
-  ACCEPTEE: 'border-km-amber/40 bg-km-amber-soft text-km-amber',
-  DISPONIBLE: 'border-km-green-line bg-km-green-soft text-km-green',
-  REFUSEE: 'border-km-red-line bg-km-red-soft text-km-red',
-}
-
 export default function Pricing({ sansEntete }: { sansEntete?: boolean }) {
   const [recherche, setRecherche] = useState('')
   const [deroulees, setDeroulees] = useState<Set<string>>(new Set())
   const { data: monProfil } = useMonProfil()
   const { perimetre, setPerimetre } = usePerimetre('pricing')
   const { data: versions, isLoading } = useVersionsPricing()
+  const { data: statutsRef } = useReferenceTable('statuts_consultations_fournisseurs')
+  const changerStatut = useChangerStatutConsultation()
+  const [toast, setToast] = useState<string | null>(null)
+  /* L'ÉCRITURE EN COURS EST NOMMÉE, PAS GLOBALE. `changerStatut.isPending` est vrai pour la page
+     entière : s'en servir aurait fait dire « Enregistrement… » aux quarante-neuf pastilles à la fois
+     pendant qu'une seule s'écrit. On retient donc LAQUELLE. */
+  const [enEcriture, setEnEcriture] = useState<string | null>(null)
+
+  /**
+   * ══════════ ERWAN CHANGE LE STATUT SANS QUITTER LE PRICING ══════════
+   *
+   * William, 18/09/2026 : « oui câble-le, c'est son geste quotidien ».
+   *
+   * IL LE FAISAIT DÉJÀ, mais en trois écrans : ouvrir la recommandation, retrouver la version,
+   * cliquer la pastille, revenir. Sur une trentaine de consultations par jour, c'est une centaine de
+   * navigations pour un geste qui tient en un clic — et surtout, on perd la colonne qu'on était en
+   * train de dépiler, donc l'endroit où l'on en était.
+   *
+   * C'EST LA MÊME MUTATION QUE LA FICHE, et la même pastille : `useChangerStatutConsultation` écrit
+   * un événement daté dans le journal de suivi, et `PastilleStatutConsultation` porte les trois
+   * règles du choix. Rien n'est réécrit ici — c'est la condition pour que les deux écrans ne
+   * divergent jamais.
+   *
+   * LA LISTE SE RAFRAÎCHIT TOUTE SEULE : la mutation invalide désormais la clef `pricing` en plus de
+   * `recommandations`. Sans cet ajout, la carte aurait affiché l'ancien statut juste après le
+   * changement — les deux écrans lisent le même fait par deux portes différentes.
+   */
+  const statutsProposables = useMemo(
+    () => (statutsRef ?? []).filter((s) => (CODES_STATUT_CONSULTATION_PROPOSES as readonly string[]).includes(s.code ?? '')),
+    [statutsRef],
+  )
+
+  async function poserStatut(consultationId: string, fournisseurNom: string, statut: ReferenceRow) {
+    setEnEcriture(consultationId)
+    try {
+      await changerStatut.mutateAsync({
+        optimisationFournisseurId: consultationId,
+        statutId: statut.id,
+        statutCode: statut.code ?? '',
+      })
+      setToast(`✓ ${fournisseurNom} : ${statut.libelle}`)
+    } catch (e) {
+      setToast(`Erreur : ${e instanceof Error ? e.message : String(e)}`)
+    } finally {
+      setEnEcriture(null)
+    }
+    window.setTimeout(() => setToast(null), 2600)
+  }
 
   function basculer(id: string) {
     setDeroulees((precedent) => {
@@ -278,6 +320,9 @@ export default function Pricing({ sansEntete }: { sansEntete?: boolean }) {
                                 version={v}
                                 ouverte={deroulees.has(v.version_id)}
                                 onBasculer={() => basculer(v.version_id)}
+                                statuts={statutsProposables}
+                                onChangerStatut={poserStatut}
+                                enEcriture={enEcriture}
                               />
                             ))}
                           </div>
@@ -291,6 +336,15 @@ export default function Pricing({ sansEntete }: { sansEntete?: boolean }) {
           </div>
         )}
       </div>
+
+      {/* Le même retour visuel que sur la fiche : une phrase qui confirme et s'efface. Sur un écran
+          où l'on enchaîne les changements, une confirmation à valider serait une friction par
+          geste — ici, on lit et on continue. */}
+      {toast && (
+        <div className="fixed bottom-6 left-1/2 z-50 -translate-x-1/2 animate-km-toast-in whitespace-nowrap rounded-km-md bg-ink-900 px-4 py-2.5 text-km-name font-semibold text-white shadow-km-pop">
+          {toast}
+        </div>
+      )}
     </div>
   )
 }
@@ -307,10 +361,17 @@ function CarteVersion({
   version,
   ouverte,
   onBasculer,
+  statuts,
+  onChangerStatut,
+  enEcriture,
 }: {
   version: VersionPricing
   ouverte: boolean
   onBasculer: () => void
+  statuts: ReferenceRow[]
+  onChangerStatut: (consultationId: string, fournisseurNom: string, statut: ReferenceRow) => void
+  /** L'identifiant de la consultation en cours d'écriture, s'il y en a une. */
+  enEcriture: string | null
 }) {
   const delai = delaiLisible(version.jours_avant_livraison)
   const enRetard = (version.jours_avant_livraison ?? 0) < 0
@@ -445,14 +506,16 @@ function CarteVersion({
                       outil en ligne
                     </span>
                   )}
-                  <span
-                    className={cn(
-                      'shrink-0 rounded-km-pill border px-2 py-[2px] text-km-label font-bold',
-                      TONS_STATUT[f.statut_code] ?? TONS_STATUT.A_TRAITER,
-                    )}
-                  >
-                    {f.statut_libelle}
-                  </span>
+                  <PastilleStatutConsultation
+                    statutCode={f.statut_code}
+                    statutLibelle={f.statut_libelle}
+                    modeConsultation={f.mode_consultation}
+                    statuts={statuts}
+                    onChoisir={(st) => onChangerStatut(f.id, f.fournisseur_nom, st)}
+                    peutModifier={statuts.length > 0}
+                    nomFournisseur={f.fournisseur_nom}
+                    enCours={enEcriture === f.id}
+                  />
                 </li>
               ))}
             </ul>

@@ -1754,7 +1754,15 @@ export function useChangerStatutConsultation() {
          moindre changement. Écrire les offres depuis la consultation reviendrait à écraser la donnée
          qu'on vient de dire faisant foi — et les deux se répondraient en boucle. */
     },
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['recommandations'] }),
+    /* LE PRICING LIT LE MÊME FAIT PAR UNE AUTRE PORTE. Depuis le 18/09/2026, Erwan change ces
+       statuts depuis `/pricing`, qui interroge `v_pricing_versions` et non `recommandations` :
+       n'invalider que la première clef laissait sa propre carte afficher l'ancien statut juste
+       après qu'il l'a changé. Les deux écrans regardent le même événement de suivi, ils doivent
+       donc se rafraîchir ensemble. */
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: ['recommandations'] })
+      void queryClient.invalidateQueries({ queryKey: ['pricing'] })
+    },
   })
 }
 
