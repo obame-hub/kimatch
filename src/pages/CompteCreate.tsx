@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { Building, Users, Briefcase, Handshake, Scale, Zap, Search, Loader2, ArrowRight, ArrowLeft, PencilLine, Award, MapPin, CheckCircle2, UserPlus, ExternalLink } from 'lucide-react'
-import { Topbar } from '@/components/layout/Topbar'
+import { TitreOnglet } from '@/components/layout/TitreOnglet'
 import { Card } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
@@ -153,7 +153,7 @@ export default function CompteCreate() {
   if (createdCompte) {
     return (
       <div>
-        <Topbar crumb="Comptes" title="Nouveau compte" />
+        <TitreOnglet crumb="Comptes" title="Nouveau compte" />
         <div className="mx-auto max-w-3xl p-4 sm:p-8">
           <NextStepScreen compte={createdCompte} navigate={navigate} onFinish={() => persistCreatedCompte(null)} />
         </div>
@@ -163,7 +163,7 @@ export default function CompteCreate() {
 
   return (
     <div>
-      <Topbar crumb="Comptes" title="Nouveau compte" />
+      <TitreOnglet crumb="Comptes" title="Nouveau compte" />
       <div className="mx-auto max-w-3xl p-4 sm:p-8">
         <div className="mb-8">
           <div className="mb-3 flex items-center justify-between">

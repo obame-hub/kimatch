@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { heureDe, instantTache, jourLocalISO } from '@/lib/heureTache'
 import { ArrowLeft, CheckSquare, Check, Trash2 } from 'lucide-react'
-import { Topbar } from '@/components/layout/Topbar'
+import { TitreOnglet } from '@/components/layout/TitreOnglet'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { EntityLink } from '@/components/ui/entity-link'
@@ -70,7 +70,7 @@ export default function ActionDetail() {
 
   return (
     <div>
-      <Topbar crumb="Tâches" title={action?.titre ?? 'Tâche'} />
+      <TitreOnglet crumb="Tâches" title={action?.titre ?? 'Tâche'} />
       <div className="p-4 sm:p-6">
         <Button variant="ghost" size="sm" className="mb-4" onClick={goBack}>
           <ArrowLeft className="h-4 w-4" />

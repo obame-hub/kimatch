@@ -1,11 +1,12 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { NavLink, useLocation } from 'react-router-dom'
-import { X, ShieldCheck } from 'lucide-react'
+import { ChevronUp, LogOut, Search, ShieldCheck, User, X } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import kiweePicto from '@/assets/kiwee-picto.png'
 import { useSidebar } from '@/lib/layout'
 import { useIsAdmin, useMonProfil } from '@/lib/data/roles'
 import { useAuth } from '@/lib/auth'
+import { raccourci } from '@/lib/raccourci'
 import { navItems, cycleNavItems, productionNavItems, cockpitNavItems, bottomNavItems } from '@/lib/navItems'
 import { PastilleNotifications } from '@/components/layout/PastilleNotifications'
 import type { NavItem } from '@/lib/navItems'
@@ -153,8 +154,10 @@ function BoutonNouveautes({
   )
 }
 
-export function Sidebar() {
+export function Sidebar({ onRechercher }: { onRechercher: () => void }) {
   const { open, close } = useSidebar()
+  const { signOut } = useAuth()
+  const [menuProfil, setMenuProfil] = useState(false)
   const [popupNouveautes, setPopupNouveautes] = useState(false)
   const isAdmin = useIsAdmin()
   const { session } = useAuth()
@@ -256,6 +259,32 @@ export function Sidebar() {
             onScroll={majDegrades}
             className="h-full space-y-0.5 overflow-y-auto overflow-x-hidden px-2.5 py-1"
           >
+            {/* ══ LA RECHERCHE OUVRE LE RAIL ══
+                La barre du haut a été supprimée le 16/09/2026 : elle coûtait 52 px de hauteur sur
+                42 écrans pour un fil d'Ariane qui doublait déjà le bandeau des fiches. La loupe
+                descend ici, où la largeur est DÉJÀ payée — le rail fait 215 px quoi qu'il arrive,
+                alors qu'une barre horizontale prend de la hauteur sur toute la page.
+
+                ELLE EST EN PREMIÈRE POSITION, au-dessus de PILOTAGE : c'est le geste le plus
+                fréquent de la journée, et il n'appartient à aucune rubrique. Elle annonce le
+                raccourci, parce qu'une entrée de menu est justement l'endroit où l'on apprend qu'il
+                y a plus rapide. */}
+            <button
+              type="button"
+              onClick={() => { close(); onRechercher() }}
+              className={cn(LIGNE_RAIL, LIGNE_RAIL_REPOS, 'w-full')}
+            >
+              <span className="flex h-7 w-7 shrink-0 items-center justify-center">
+                <Search className="h-4 w-4 text-km-side-faint" />
+              </span>
+              <span className="min-w-0 flex-1 truncate whitespace-nowrap text-left">Rechercher</span>
+              <span className="shrink-0 rounded-km-sm border border-km-side-line px-1 font-mono text-km-tiny text-km-side-faint">
+                {raccourci('K')}
+              </span>
+            </button>
+
+            <div className="my-1.5 h-px bg-km-side-line" />
+
             {/* PILOTAGE réunit le portefeuille ET le cycle commercial. L'intitulé « Cycle
                 commercial » a été retiré le 31/08/2026 : sur onze entrées, trois titres donnaient
                 un rythme d'un titre pour trois lignes, et le rail se lisait comme une table des
@@ -299,23 +328,55 @@ export function Sidebar() {
           )}
         </nav>
 
-        <NavLink
-          to="/profil"
-          onClick={close}
-          className="group relative flex items-center gap-2.5 border-t border-km-side-line px-3 py-3 transition-colors hover:bg-white/[0.045]"
-        >
-          {profil?.photo_url ? (
-            <img src={profil.photo_url} alt="" className="h-7 w-7 shrink-0 rounded-full object-cover" />
-          ) : (
-            <div className="flex h-[27px] w-[27px] shrink-0 items-center justify-center rounded-full bg-km-green/20 text-km-label font-bold text-kiwi-300">
-              {initiales}
+        {/* ══ LA DÉCONNEXION EST SOUS LE PROFIL ══
+            William, 16/09/2026 : « Déconnexion doit s'afficher quand on clique sur son profil (tout
+            en bas à gauche) ». Elle était dans la barre du haut, en permanence, à côté du bouton de
+            création — c'est-à-dire qu'un geste qu'on fait une fois par jour occupait la même
+            altitude qu'un geste qu'on fait quarante fois.
+
+            LE BLOC DEVIENT UN BOUTON ET NON PLUS UN LIEN. « Mon profil » reste la première ligne du
+            menu : on ne perd pas l'accès, on le déplace d'un cran. */}
+        <div className="relative border-t border-km-side-line">
+          <button
+            type="button"
+            onClick={() => setMenuProfil((v) => !v)}
+            aria-expanded={menuProfil}
+            className="group relative flex w-full items-center gap-2.5 px-3 py-3 text-left transition-colors hover:bg-white/[0.045]"
+          >
+            {profil?.photo_url ? (
+              <img src={profil.photo_url} alt="" className="h-7 w-7 shrink-0 rounded-full object-cover" />
+            ) : (
+              <div className="flex h-[27px] w-[27px] shrink-0 items-center justify-center rounded-full bg-km-green/20 text-km-label font-bold text-kiwi-300">
+                {initiales}
+              </div>
+            )}
+            <p className="min-w-0 flex-1 truncate whitespace-nowrap text-km-label text-km-side-muted">
+              {profil ? `${profil.prenom} ${profil.nom}`.trim() || 'Mon profil' : 'Mon profil'}
+            </p>
+            <ChevronUp className={cn('h-3.5 w-3.5 shrink-0 text-km-side-faint transition-transform', menuProfil ? '' : 'rotate-180')} />
+          </button>
+
+          {menuProfil && (
+            /* Il s'ouvre VERS LE HAUT : le bloc est collé au bas de l'écran, un menu vers le bas
+               sortirait de la fenêtre. */
+            <div className="absolute inset-x-2 bottom-full z-30 mb-1 overflow-hidden rounded-km-md border border-km-side-line bg-km-side py-1 shadow-kw-panel">
+              <NavLink
+                to="/profil"
+                onClick={() => { setMenuProfil(false); close() }}
+                className="flex items-center gap-2.5 px-3 py-2 text-km-label text-km-side-muted transition-colors hover:bg-white/[0.055] hover:text-km-side-text"
+              >
+                <User className="h-3.5 w-3.5" /> Mon profil
+              </NavLink>
+              <button
+                type="button"
+                onClick={() => { setMenuProfil(false); void signOut() }}
+                className="flex w-full items-center gap-2.5 px-3 py-2 text-left text-km-label text-km-side-muted transition-colors hover:bg-white/[0.055] hover:text-km-side-text"
+              >
+                <LogOut className="h-3.5 w-3.5" /> Déconnexion
+              </button>
             </div>
           )}
-          <p className="min-w-0 flex-1 truncate whitespace-nowrap text-km-label text-km-side-muted">
-            Mon profil
-          </p>
-
-        </NavLink>
+        </div>
       </aside>
 
       <PopupNouveautes open={popupNouveautes} onClose={() => setPopupNouveautes(false)} />

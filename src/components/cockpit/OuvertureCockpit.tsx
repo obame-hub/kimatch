@@ -1,5 +1,5 @@
 import { HardHat } from 'lucide-react'
-import { Topbar } from '@/components/layout/Topbar'
+import { TitreOnglet } from '@/components/layout/TitreOnglet'
 
 /**
  * ════════════════════════════════════════════════════════════════════════════════════════════════
@@ -46,7 +46,7 @@ import { Topbar } from '@/components/layout/Topbar'
 export function CockpitEnConstruction() {
   return (
     <div className="flex min-h-screen flex-col">
-      <Topbar title="Cockpit" />
+      <TitreOnglet title="Cockpit" />
       <div className="flex flex-1 flex-col justify-center gap-7 bg-km-side px-5 py-14 text-km-side-text sm:px-10">
         <span className="inline-flex items-center gap-2.5 self-start rounded-km bg-km-amber/15 px-3 py-1.5 font-mono text-km-label uppercase tracking-[0.16em] text-km-amber">
           <HardHat className="h-3.5 w-3.5 shrink-0" aria-hidden="true" />

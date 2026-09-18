@@ -1,6 +1,6 @@
 import { lazy, Suspense, useMemo, useState } from 'react'
 import { Megaphone, Plus } from 'lucide-react'
-import { Topbar } from '@/components/layout/Topbar'
+import { TitreOnglet } from '@/components/layout/TitreOnglet'
 import { PageHeader } from '@/components/ui/page-header'
 import { Button } from '@/components/ui/button'
 import { Dialog } from '@/components/ui/dialog'
@@ -104,7 +104,7 @@ export default function Nouveautes() {
 
   return (
     <div>
-      <Topbar title="Nouveautés" />
+      <TitreOnglet title="Nouveautés" />
       <div className="p-4 sm:p-6">
         <PageHeader
           title="Nouveautés"

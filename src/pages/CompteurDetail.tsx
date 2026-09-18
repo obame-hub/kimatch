@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react'
 import { useParams, useNavigate, Link } from 'react-router-dom'
 import { ArrowLeft, FileCheck2, FileText, Flame, Plus, RefreshCw, Trash2, Zap } from 'lucide-react'
-import { Topbar } from '@/components/layout/Topbar'
+import { TitreOnglet } from '@/components/layout/TitreOnglet'
 import { Button } from '@/components/ui/button'
 import { ZoneDepotFichiers } from '@/components/ui/zone-depot-fichiers'
 import { Badge } from '@/components/ui/badge'
@@ -35,8 +35,9 @@ import { useCanManageEnregistrement, useIsAdmin, useProfilsAdmin } from '@/lib/d
 import { useSuppression } from '@/lib/useSuppression'
 import { cn } from '@/lib/utils'
 import { useGoBack } from '@/lib/useGoBack'
-import { useRaccourcisOnglets } from '@/lib/useRaccourcisOnglets'
 import type { Compteur, Consommation } from '@/types/domain'
+import { useNoterConsultation } from '@/lib/data/consultationsRecentes'
+import { MenuCreer } from '@/components/layout/MenuCreer'
 
 const POSTE_OPTIONS = ['TOTAL', 'HP', 'HC', 'POINTE', 'HPH', 'HCH', 'HPE', 'HCE']
 const TYPE_VALEUR_OPTIONS = ['MESUREE', 'ESTIMEE', 'CORRIGEE']
@@ -463,6 +464,16 @@ export default function CompteurDetail() {
   // Perimetre de la fiche, lu cote serveur : ces lectures parcouraient le CRM entier pour en
   // garder une ligne ou quelques-unes (meme correctif que les fiches compte et site).
   const { data: compteur } = useCompteur(id)
+
+  /* La fiche signale son ouverture : c'est ce qui alimente les « Récents » de la palette.
+     L'écriture part en arrière-plan et attend que le nom soit chargé — voir consultationsRecentes.ts. */
+  useNoterConsultation({
+    type: 'compteur',
+    id: compteur?.id,
+    libelle: compteur ? compteur.numero_pdl : null,
+    sousLibelle: compteur ? [compteur.site_nom, compteur.ville].filter(Boolean).join(' · ') : null,
+    chemin: `/compteurs/${id}`,
+  })
   const { data: consommations } = useConsommations()
   // Le site et le compte sont lus PAR IDENTIFIANT, pas cherches dans la liste complete.
   // La fiche telechargeait les 6356 sites et les 2762 comptes pour afficher deux lignes de fil
@@ -638,14 +649,11 @@ export default function CompteurDetail() {
     { key: 'fichiers', label: 'Fichiers', badge: documentsDuCompteur.length ? String(documentsDuCompteur.length) : undefined },
   ]
 
-  // « 1–5 pour naviguer » : le raccourci annonce par la maquette dans la barre d'onglets.
-  const clesOnglets = TABS.map((t) => t.key)
-  useRaccourcisOnglets(clesOnglets, setTab)
 
   if (!compteur && id) {
     return (
       <div>
-        <Topbar crumb="Compteurs" title="Compteur" />
+        <TitreOnglet crumb="Compteurs" title="Compteur" />
         <div className="p-4 sm:p-6"><p className="text-sm text-km-faint">Chargement…</p></div>
       </div>
     )
@@ -654,7 +662,7 @@ export default function CompteurDetail() {
   if (!compteur) {
     return (
       <div>
-        <Topbar crumb="Compteurs" title="Compteur" />
+        <TitreOnglet crumb="Compteurs" title="Compteur" />
         <div className="p-4 sm:p-6">
           <Button variant="ghost" size="sm" className="mb-4" onClick={goBack}>
             <ArrowLeft className="h-4 w-4" />
@@ -672,7 +680,7 @@ export default function CompteurDetail() {
   return (
     <div>
       {/* « Compteurs » et non « Sites » : le fil d'Ariane annonçait encore la liste supprimée. */}
-      <Topbar crumb="Compteurs" title={`Compteur ${compteur.numero_pdl}`} />
+      <TitreOnglet crumb="Compteurs" title={`Compteur ${compteur.numero_pdl}`} />
 
       {/* Bandeau compteur */}
       <div className="flex flex-wrap items-center gap-3.5 border-b border-km-line bg-white px-4 py-3.5 sm:px-6">
@@ -695,6 +703,12 @@ export default function CompteurDetail() {
         </div>
         {canManage && (
           <div className="flex gap-1.5">
+            {/* ══ « CRÉER » DESCEND DE LA BARRE SUPPRIMÉE ══
+                William, 16/09/2026 : « Créer existe déjà en tant que bouton dans le header des fiches,
+                ajoute-le simplement aux headers des fiches qui ne l'ont pas encore ». La fiche compte
+                a son hub de création depuis le 14/09 ; celle-ci n'avait rien, et la barre du haut était
+                son seul accès. */}
+            <MenuCreer />
             {/* Plus de bouton « Modifier » : les champs s'editent dans « Détail du compteur ». */}
             <Button variant="outline" size="sm" onClick={() => setConfirmDelete(true)}>
               <Trash2 className="h-3.5 w-3.5" />

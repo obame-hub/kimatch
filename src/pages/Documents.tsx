@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { useListeServeur } from '@/lib/useListeServeur'
 import { PiedDeListe } from '@/components/ui/pied-de-liste'
 import { FileText, Plus } from 'lucide-react'
-import { Topbar } from '@/components/layout/Topbar'
+import { TitreOnglet } from '@/components/layout/TitreOnglet'
 import { PageHeader } from '@/components/ui/page-header'
 import { Card } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
@@ -197,7 +197,7 @@ export default function Documents({ sansEntete }: { sansEntete?: boolean }) {
 
   return (
     <div>
-      {!sansEntete && <Topbar title="Documents" />}
+      {!sansEntete && <TitreOnglet title="Documents" />}
       <div className="p-4 sm:p-6">
         <PageHeader
           titreMasque={sansEntete}

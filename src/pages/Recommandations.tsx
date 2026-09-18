@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { Plus } from 'lucide-react'
-import { Topbar } from '@/components/layout/Topbar'
+import { TitreOnglet } from '@/components/layout/TitreOnglet'
 import { PageHeader, Indicateurs } from '@/components/ui/page-header'
 import { Button } from '@/components/ui/button'
 import { useMonProfil } from '@/lib/data/roles'
@@ -444,7 +444,7 @@ export default function Recommandations() {
 
   return (
     <div>
-      <Topbar title="Recommandations" />
+      <TitreOnglet title="Recommandations" />
       <div className="p-4 sm:p-6">
         <PageHeader
           title="Recommandations"

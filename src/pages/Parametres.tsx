@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { RefreshCw, Hash, MessageSquare, Mail } from 'lucide-react'
-import { Topbar } from '@/components/layout/Topbar'
+import { TitreOnglet } from '@/components/layout/TitreOnglet'
 import { PageHeader } from '@/components/ui/page-header'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
@@ -187,7 +187,7 @@ function SlackModuleCard({ module }: { module: SlackModule }) {
 export default function Parametres() {
   return (
     <div>
-      <Topbar title="Paramètres" />
+      <TitreOnglet title="Paramètres" />
       <div className="p-4 sm:p-6 space-y-4">
         <PageHeader title="Paramètres" description="Intégrations et notifications de l'application. Vos préférences personnelles (profil, Gmail) se gèrent depuis Mon profil." />
 

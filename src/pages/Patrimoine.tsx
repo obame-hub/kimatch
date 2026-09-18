@@ -29,7 +29,7 @@
 import { lazy, Suspense } from 'react'
 import { useSearchParams } from 'react-router-dom'
 import { Building2, Users, Gauge, FileCheck2, FileSignature, Files, TrendingUp, MessageSquare } from 'lucide-react'
-import { Topbar } from '@/components/layout/Topbar'
+import { TitreOnglet } from '@/components/layout/TitreOnglet'
 import { cn } from '@/lib/utils'
 
 const Comptes = lazy(() => import('@/pages/Comptes'))
@@ -129,7 +129,7 @@ export default function Patrimoine() {
 
   return (
     <div>
-      <Topbar title="Patrimoine" />
+      <TitreOnglet title="Patrimoine" />
 
       {/* La barre d'onglets défile horizontalement plutôt que de se replier : sept objets ne tiennent
           pas sur un téléphone, et un menu déroulant cacherait la structure que Michel veut montrer. */}

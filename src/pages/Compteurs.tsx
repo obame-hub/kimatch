@@ -33,7 +33,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { Zap, Flame } from 'lucide-react'
-import { Topbar } from '@/components/layout/Topbar'
+import { TitreOnglet } from '@/components/layout/TitreOnglet'
 import { PageHeader } from '@/components/ui/page-header'
 import { Card } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
@@ -177,7 +177,7 @@ export default function Compteurs({ sansEntete }: { sansEntete?: boolean }) {
 
   return (
     <div>
-      {!sansEntete && <Topbar title="Compteurs" />}
+      {!sansEntete && <TitreOnglet title="Compteurs" />}
       <div className={sansEntete ? '' : 'p-4 sm:p-6'}>
         <PageHeader
           titreMasque={sansEntete}

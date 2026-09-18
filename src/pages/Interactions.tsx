@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { useTranchesAffichage } from '@/lib/useTranchesAffichage'
 import { PiedDeListe } from '@/components/ui/pied-de-liste'
 import { MessageSquare, Plus } from 'lucide-react'
-import { Topbar } from '@/components/layout/Topbar'
+import { TitreOnglet } from '@/components/layout/TitreOnglet'
 import { PageHeader } from '@/components/ui/page-header'
 import { Card } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
@@ -221,7 +221,7 @@ export default function Interactions() {
 
   return (
     <div>
-      <Topbar title="Interactions" />
+      <TitreOnglet title="Interactions" />
       <div className="p-4 sm:p-6">
         <PageHeader
           title="Interactions"

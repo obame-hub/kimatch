@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from 'react'
 import { ApercuDocument } from '@/components/document/ApercuDocument'
 import { useParams, useNavigate, Link } from 'react-router-dom'
 import { ArrowLeft, Zap, Flame, Lightbulb, Trash2, Building2, MapPin, Gauge, FileText, Plus, Euro, X, Eye, PenLine, Check, LifeBuoy} from 'lucide-react'
-import { Topbar } from '@/components/layout/Topbar'
+import { TitreOnglet } from '@/components/layout/TitreOnglet'
 import { Button } from '@/components/ui/button'
 import { ZoneDepotFichiers } from '@/components/ui/zone-depot-fichiers'
 import { Badge } from '@/components/ui/badge'
@@ -31,9 +31,10 @@ import { useCanManage, useIsAdmin, useMonProfil, useProfilsAdmin } from '@/lib/d
 import { useSuppression } from '@/lib/useSuppression'
 import { FALLBACK_STATUTS_CONTRATS, FALLBACK_TYPES_DOCUMENTS } from '@/lib/referenceFallbacks'
 import { useGoBack } from '@/lib/useGoBack'
-import { useRaccourcisOnglets } from '@/lib/useRaccourcisOnglets'
 import { cn } from '@/lib/utils'
 import type { Contact, Contrat, DocumentItem, TarifContratCompteur } from '@/types/domain'
+import { useNoterConsultation } from '@/lib/data/consultationsRecentes'
+import { MenuCreer } from '@/components/layout/MenuCreer'
 
 /**
  * ══ ENREGISTRER UNE SIGNATURE FAITE HORS DE KIMATCH ══
@@ -469,6 +470,16 @@ export default function ContratDetail() {
   // Perimetre de la fiche, lu cote serveur : ces lectures parcouraient le CRM entier pour en
   // garder une ligne ou quelques-unes (meme correctif que les fiches compte et site).
   const { data: contrat } = useContrat(id)
+
+  /* La fiche signale son ouverture : c'est ce qui alimente les « Récents » de la palette.
+     L'écriture part en arrière-plan et attend que le nom soit chargé — voir consultationsRecentes.ts. */
+  useNoterConsultation({
+    type: 'contrat',
+    id: contrat?.id,
+    libelle: contrat ? contrat.reference : null,
+    sousLibelle: contrat ? contrat.compte_nom : null,
+    chemin: `/contrats/${id}`,
+  })
   /* Le suivi ouvert à la signature de ce contrat, s'il existe (objet créé le 31/08/2026). */
   const { data: suivi } = useSuiviDuContrat(id)
   const { data: sites } = useSites()
@@ -579,14 +590,11 @@ export default function ContratDetail() {
     { key: 'fichiers', label: 'Fichiers', badge: documentsDuContrat.length ? String(documentsDuContrat.length) : undefined },
   ]
 
-  // « 1–5 pour naviguer » : le raccourci annonce par la maquette dans la barre d'onglets.
-  const clesOnglets = TABS.map((t) => t.key)
-  useRaccourcisOnglets(clesOnglets, setTab)
 
   if (!contrat && id) {
     return (
       <div>
-        <Topbar crumb="Contrats" title="Contrat" />
+        <TitreOnglet crumb="Contrats" title="Contrat" />
         <div className="p-4 sm:p-6"><p className="text-sm text-km-faint">Chargement…</p></div>
       </div>
     )
@@ -595,7 +603,7 @@ export default function ContratDetail() {
   if (!contrat) {
     return (
       <div>
-        <Topbar crumb="Contrats" title="Contrat" />
+        <TitreOnglet crumb="Contrats" title="Contrat" />
         <div className="p-4 sm:p-6">
           <Button variant="ghost" size="sm" className="mb-4" onClick={goBack}>
             <ArrowLeft className="h-4 w-4" />
@@ -612,7 +620,7 @@ export default function ContratDetail() {
 
   return (
     <div>
-      <Topbar crumb="Contrats" title={contrat.reference ?? contrat.fournisseur_nom} />
+      <TitreOnglet crumb="Contrats" title={contrat.reference ?? contrat.fournisseur_nom} />
 
       {/* Bandeau contrat */}
       <div className="flex flex-wrap items-center gap-3.5 border-b border-km-line bg-white px-4 py-3.5 sm:px-6">
@@ -665,6 +673,12 @@ export default function ContratDetail() {
         </div>
         {canManage && (
           <div className="flex gap-1.5">
+            {/* ══ « CRÉER » DESCEND DE LA BARRE SUPPRIMÉE ══
+                William, 16/09/2026 : « Créer existe déjà en tant que bouton dans le header des fiches,
+                ajoute-le simplement aux headers des fiches qui ne l'ont pas encore ». La fiche compte
+                a son hub de création depuis le 14/09 ; celle-ci n'avait rien, et la barre du haut était
+                son seul accès. */}
+            <MenuCreer />
             {/* Plus de bouton « Modifier » : les champs s'editent dans « Détail du contrat ». */}
             <Button size="sm" onClick={() => setSignatureOuverte(true)}>
               <PenLine className="h-3.5 w-3.5" />

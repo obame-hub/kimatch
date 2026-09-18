@@ -145,26 +145,25 @@ export function SprintCockpit({
     avancer()
   }, [fiche, suite, issue, commentaire, typesActions, statutsActions, creerAction, onSortir, avancer])
 
-  /* Le clavier fait tout le sprint : la souris n'y sert qu'à choisir une issue. */
+  /* ══ LE SPRINT SE MÈNE À LA SOURIS (16/09/2026) ══
+     Ce panneau était pensé clavier d'abord : F pour « appel terminé », P pour « pas joignable »,
+     A pour composer, flèche droite pour passer, Entrée pour clore. William : « oublie les
+     raccourcis clavier, même pour le Cockpit et pour tout le reste de l'app qui reste à coder. La
+     navigation se fera au clic uniquement. »
+
+     RIEN N'EST DEVENU INATTEIGNABLE, et c'est ce qui a rendu la décision applicable sans rien
+     réécrire : chacune de ces cinq touches doublait un bouton déjà présent à l'écran. Les pastilles
+     qui les annonçaient partent avec elles — une aide qui désigne une touche morte est pire que pas
+     d'aide.
+
+     ÉCHAP RESTE : sortir d'un panneau plein écran n'est pas un raccourci, c'est la porte. */
   useEffect(() => {
-    function auClavier(e: KeyboardEvent) {
-      const cible = e.target as HTMLElement | null
-      if (cible && /input|textarea/i.test(cible.tagName)) return
-      if (e.key === 'Escape') { onFermer(); return }
-      if (phase === 'appel') {
-        if (e.key === 'f' || e.key === 'F') { setPhase('clore'); setAppels((n) => n + 1); setAboutis((n) => n + 1) }
-        if (e.key === 'p' || e.key === 'P') { setPhase('clore'); setAppels((n) => n + 1); setIssue('Pas de réponse') }
-        if (e.key === 'ArrowRight') avancer()
-        if (e.key === 'a' || e.key === 'A') {
-          if (fiche?.telephone) void appelerNumero(fiche.telephone, { nom: fiche.nom_complet, societe: fiche.compte_nom, fonction: fiche.fonction })
-        }
-      } else if (e.key === 'Enter' && issue && suite !== null) {
-        clore()
-      }
+    function surEchap(e: KeyboardEvent) {
+      if (e.key === 'Escape') onFermer()
     }
-    window.addEventListener('keydown', auClavier)
-    return () => window.removeEventListener('keydown', auClavier)
-  }, [phase, issue, suite, fiche, clore, avancer, onFermer])
+    window.addEventListener('keydown', surEchap)
+    return () => window.removeEventListener('keydown', surEchap)
+  }, [onFermer])
 
   if (!fiche) {
     return (
@@ -286,13 +285,13 @@ export function SprintCockpit({
                   onClick={() => { setPhase('clore'); setAppels((n) => n + 1); setAboutis((n) => n + 1) }}
                   className="inline-flex items-center gap-2 rounded-km bg-km-green px-5 py-3 text-km-body font-semibold text-white hover:bg-[#0a6650]"
                 >
-                  Appel terminé <kbd className="rounded border border-white/50 px-1.5 font-mono text-km-tiny opacity-70">F</kbd>
+                  Appel terminé
                 </button>
                 <button
                   onClick={() => { setPhase('clore'); setAppels((n) => n + 1); setIssue('Pas de réponse') }}
                   className="inline-flex items-center gap-2 rounded-km border border-km-side-line px-5 py-3 text-km-body hover:border-km-side-muted"
                 >
-                  Pas joignable <kbd className="rounded border border-current px-1.5 font-mono text-km-tiny opacity-55">P</kbd>
+                  Pas joignable
                 </button>
                 <button
                   onClick={() => { onSortir(fiche.ligne_id, 'REPORTE'); setPhase('clore') }}
@@ -310,7 +309,7 @@ export function SprintCockpit({
                   onClick={avancer}
                   className="rounded-km px-5 py-3 text-km-body text-km-side-muted hover:text-km-side-text"
                 >
-                  Passer <kbd className="rounded border border-current px-1.5 font-mono text-km-tiny opacity-60">→</kbd>
+                  Passer
                 </button>
               </>
             ) : (
@@ -466,7 +465,6 @@ export function SprintCockpit({
                 )}
               >
                 <span>{issue && suite !== null ? 'Enregistrer et fiche suivante' : 'Choisissez une issue et une suite'}</span>
-                <kbd className="rounded border border-current px-1.5 font-mono text-km-tiny opacity-60">Entrée</kbd>
               </button>
               <p className="text-km-micro text-km-side-muted">
                 Sans prochaine action, la fiche ne quitte pas l’écran. C’est ce qui empêche une

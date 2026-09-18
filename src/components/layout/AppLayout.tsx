@@ -1,3 +1,4 @@
+import { useEffect, useState } from 'react'
 import { Outlet } from 'react-router-dom'
 import { Sidebar } from '@/components/layout/Sidebar'
 import { BottomNav } from '@/components/layout/BottomNav'
@@ -8,10 +9,47 @@ import { GmailBanner } from '@/components/layout/GmailBanner'
 import { SidebarProvider } from '@/lib/layout'
 import { TelephonieProvider } from '@/lib/telephonie'
 import { getImpersonationInfo } from '@/lib/data/impersonation'
+import { PaletteCommandes } from '@/components/layout/PaletteCommandes'
+import { estUneSaisie, ouvertureDemandee } from '@/lib/raccourci'
 import { cn } from '@/lib/utils'
 
 export function AppLayout() {
   const impersonating = Boolean(getImpersonationInfo())
+
+  /* ══ LA PALETTE EST MONTÉE ICI, ET UNE SEULE FOIS ══
+     Elle vivait dans la barre du haut, supprimée le 16/09/2026. `AppLayout` est ce qui reste de
+     commun à tous les écrans — c'est donc lui qui écoute le clavier et qui porte le panneau.
+
+     LE MONTAGE UNIQUE N'EST PAS UN DÉTAIL : monté par chaque page, l'écouteur se serait attaché
+     autant de fois qu'il y a d'écrans empilés, et une frappe aurait ouvert plusieurs palettes. */
+  const [palette, setPalette] = useState(false)
+  const [saisieInitiale, setSaisieInitiale] = useState<string | undefined>(undefined)
+
+  function ouvrirPalette(saisie?: string) {
+    setSaisieInitiale(saisie)
+    setPalette(true)
+  }
+
+  useEffect(() => {
+    function auClavier(e: KeyboardEvent) {
+      if (palette) return
+      /* La décision vit dans `raccourci.ts`, où elle est testée cas par cas : c'est la logique la
+         plus facile à casser sans s'en apercevoir, parce qu'une régression n'y lève aucune erreur. */
+      const quoi = ouvertureDemandee({
+        key: e.key,
+        metaKey: e.metaKey,
+        ctrlKey: e.ctrlKey,
+        altKey: e.altKey,
+        dansUneSaisie: estUneSaisie(e.target),
+        panneauOuvert: Boolean(document.querySelector('[role="dialog"], [aria-modal="true"]')),
+      })
+      if (!quoi) return
+      e.preventDefault()
+      ouvrirPalette(quoi === 'frappe' ? e.key : undefined)
+    }
+    window.addEventListener('keydown', auClavier)
+    return () => window.removeEventListener('keydown', auClavier)
+  }, [palette])
 
   return (
     <SidebarProvider>
@@ -35,7 +73,7 @@ export function AppLayout() {
         <GmailBanner />
         {/* Le fond de page passe au `km-bg` de Michel : #FCFCFB, presque blanc. */}
         <div className="flex min-h-0 flex-1 bg-km-bg">
-          <Sidebar />
+          <Sidebar onRechercher={() => ouvrirPalette()} />
           {/* ══ LA MARGE BASSE EST CELLE DES PASTILLES FLOTTANTES ══
 
               Naoëlle, 15/09/2026, capture à l'appui : « je ne peux pas déplier à cause des widgets
@@ -81,6 +119,11 @@ export function AppLayout() {
           </main>
         </div>
       </div>
+      <PaletteCommandes
+        ouverte={palette}
+        saisieInitiale={saisieInitiale}
+        onFermer={() => { setPalette(false); setSaisieInitiale(undefined) }}
+      />
       <BottomNav />
       <InstallPrompt />
       </TelephonieProvider>

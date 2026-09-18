@@ -13,7 +13,7 @@ import {
   Clock,
   ArrowLeftRight,
 } from 'lucide-react'
-import { Topbar } from '@/components/layout/Topbar'
+import { TitreOnglet } from '@/components/layout/TitreOnglet'
 import { Button } from '@/components/ui/button'
 import { Dialog } from '@/components/ui/dialog'
 import { HistoriqueDiscret } from '@/components/ui/historique-discret'
@@ -62,7 +62,6 @@ import { useCreateInteraction } from '@/lib/data/interactions'
 import { useCanManage, useIsAdmin, useProfilsAdmin } from '@/lib/data/roles'
 import { useSuppression } from '@/lib/useSuppression'
 import { useGoBack } from '@/lib/useGoBack'
-import { useRaccourcisOnglets } from '@/lib/useRaccourcisOnglets'
 import {
   FALLBACK_ETAPES_RECOMMANDATION,
   FALLBACK_STATUTS_VERSIONS,
@@ -70,6 +69,7 @@ import {
   FALLBACK_TYPES_INTERACTIONS,
 } from '@/lib/referenceFallbacks'
 import type { VersionRecommandation, Optimisation } from '@/types/domain'
+import { useNoterConsultation } from '@/lib/data/consultationsRecentes'
 
 /**
  * Fiche Recommandation — portage de la maquette « Fiche Recommandation.dc.html » de William.
@@ -123,6 +123,16 @@ export default function RecommandationDetail() {
   const { id } = useParams()
   const navigate = useNavigate()
   const { data: reco } = useRecommandation(id)
+
+  /* La fiche signale son ouverture : c'est ce qui alimente les « Récents » de la palette.
+     L'écriture part en arrière-plan et attend que le nom soit chargé — voir consultationsRecentes.ts. */
+  useNoterConsultation({
+    type: 'recommandation',
+    id: reco?.id,
+    libelle: reco ? reco.reference : null,
+    sousLibelle: reco ? reco.compte_nom : null,
+    chemin: `/recommandations/${id}`,
+  })
   const { data: etapesRef } = useReferenceTable('etapes_recommandation')
   const { data: statutsVersionsRef } = useReferenceTable('statuts_versions_recommandation')
   const { data: typesDocumentsRef } = useReferenceTable('types_documents')
@@ -290,11 +300,6 @@ export default function RecommandationDetail() {
         : []),
     ]
   }, [objectifs, reco])
-
-  useRaccourcisOnglets(
-    useMemo(() => onglets.map((o) => o.cle), [onglets]),
-    setOnglet,
-  )
 
   // L'onglet par défaut suit la même règle que l'ordre : au Diagnostic, on ouvre sur la commande.
   useEffect(() => {
@@ -480,7 +485,7 @@ export default function RecommandationDetail() {
   if (!reco) {
     return (
       <div>
-        <Topbar crumb="Recommandations" title="Recommandation" />
+        <TitreOnglet crumb="Recommandations" title="Recommandation" />
         <div className="p-4 sm:p-6">
           <Button variant="ghost" size="sm" className="mb-4" onClick={goBack}>
             <ArrowLeft className="h-4 w-4" />
@@ -562,7 +567,7 @@ export default function RecommandationDetail() {
 
   return (
     <div className="flex h-full flex-col overflow-hidden">
-      <Topbar crumb="Recommandations" title={reco.titre} />
+      <TitreOnglet crumb="Recommandations" title={reco.titre} />
 
       {/* ── Bandeau ── */}
       <div className="flex flex-none flex-wrap items-center gap-3.5 border-b border-km-line bg-white px-4 py-3 sm:px-6">

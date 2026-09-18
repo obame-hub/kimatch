@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { Topbar } from '@/components/layout/Topbar'
+import { TitreOnglet } from '@/components/layout/TitreOnglet'
 import { PageHeader, Indicateurs } from '@/components/ui/page-header'
 import { ListToolbar, BasculeOption } from '@/components/ui/list-toolbar'
 import { TableauKanban } from '@/components/dashboard/TableauKanban'
@@ -131,7 +131,7 @@ export default function SuivisContrats() {
 
   return (
     <div>
-      <Topbar title="Suivis de contrats" />
+      <TitreOnglet title="Suivis de contrats" />
       <div className="p-4 sm:p-6">
         <PageHeader
           title="Suivis de contrats"

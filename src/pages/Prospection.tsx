@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react'
 import { Plus, ArrowRight, Users } from 'lucide-react'
-import { Topbar } from '@/components/layout/Topbar'
+import { TitreOnglet } from '@/components/layout/TitreOnglet'
 import { PageHeader } from '@/components/ui/page-header'
 import { Card } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
@@ -76,7 +76,7 @@ export default function Prospection() {
 
            L'onglet Listes est desactive (AFFICHER_LES_LISTES) : il ne reste que les pistes, donc le
            titre generique n'a plus rien a couvrir. */}
-      <Topbar title="Pistes" />
+      <TitreOnglet title="Pistes" />
       <div className="min-h-0 flex-1 overflow-y-auto px-4 py-4 lg:px-6">
         <PageHeader
           title="Pistes"

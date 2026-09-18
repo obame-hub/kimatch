@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react'
 import { ArrowRight, GripVertical, Phone, Zap } from 'lucide-react'
-import { Topbar } from '@/components/layout/Topbar'
+import { TitreOnglet } from '@/components/layout/TitreOnglet'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { EntityLink } from '@/components/ui/entity-link'
@@ -266,7 +266,7 @@ function CockpitOuvert() {
   if (temps === 'seuil') {
     return (
       <div className="flex min-h-screen flex-col">
-        <Topbar title="Cockpit" />
+        <TitreOnglet title="Cockpit" />
         {/* LES DEUX DÉGRADÉS DE LA MAQUETTE. Ils ne décorent pas : ils donnent au seuil une
             profondeur que le plan n'a pas, et c'est ce qui fait qu'on sent le changement de lieu
             avant d'avoir lu un mot. */}
@@ -373,7 +373,7 @@ function CockpitOuvert() {
   /* ══════════════ LE PLAN DU JOUR ══════════════ */
   return (
     <div className="flex min-h-screen flex-col">
-      <Topbar title="Cockpit" crumb="Plan du jour" />
+      <TitreOnglet title="Cockpit" crumb="Plan du jour" />
 
       <div className="sticky top-0 z-10 flex flex-wrap items-center gap-x-5 gap-y-3 border-b border-km-line bg-km-surface px-4 py-2.5 sm:px-6">
         <Button variant="ghost" onClick={() => setTemps('seuil')} className="px-2.5 py-1.5">

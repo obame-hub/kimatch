@@ -1,6 +1,6 @@
 import { Fragment, useState } from 'react'
 import { ShieldCheck, Users, Mail, Trash2, Plus, UserCog, Building2, Cog, Database } from 'lucide-react'
-import { Topbar } from '@/components/layout/Topbar'
+import { TitreOnglet } from '@/components/layout/TitreOnglet'
 import { PageHeader } from '@/components/ui/page-header'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Automatismes } from '@/components/administration/Automatismes'
@@ -537,7 +537,7 @@ export default function Administration() {
   if (!isAdmin) {
     return (
       <div>
-        <Topbar title="Administration" />
+        <TitreOnglet title="Administration" />
         <div className="p-4 sm:p-6">
           <PageHeader title="Administration" description="Gestion des utilisateurs, rôles et permissions de Kimatch." />
           <p className="text-sm text-km-muted">Accès réservé aux administrateurs.</p>
@@ -548,7 +548,7 @@ export default function Administration() {
 
   return (
     <div>
-      <Topbar title="Administration" />
+      <TitreOnglet title="Administration" />
       <div className="p-4 sm:p-6">
         <PageHeader title="Administration" description="Gestion des utilisateurs, rôles, permissions et automatismes de Kimatch." />
 

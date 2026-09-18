@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { ArrowLeft, MessageSquare, Trash2 } from 'lucide-react'
-import { Topbar } from '@/components/layout/Topbar'
+import { TitreOnglet } from '@/components/layout/TitreOnglet'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
@@ -60,7 +60,7 @@ export default function InteractionDetail() {
 
   return (
     <div>
-      <Topbar crumb="Interactions" title={interaction?.objet || interaction?.type_interaction || 'Interaction'} />
+      <TitreOnglet crumb="Interactions" title={interaction?.objet || interaction?.type_interaction || 'Interaction'} />
       <div className="p-4 sm:p-6">
         <Button variant="ghost" size="sm" className="mb-4" onClick={goBack}>
           <ArrowLeft className="h-4 w-4" />

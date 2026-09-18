@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react'
-import { Topbar } from '@/components/layout/Topbar'
+import { TitreOnglet } from '@/components/layout/TitreOnglet'
 import { TuileArgent, TuilesJournee } from '@/components/dashboard/TuilesDuJour'
 import { useMonProfil } from '@/lib/data/roles'
 import { useCartesDuJour } from '@/lib/data/cartesDuJour'
@@ -221,7 +221,7 @@ export default function Dashboard() {
 
   return (
     <div className="flex min-h-0 flex-1 flex-col">
-      <Topbar title="Tableau de bord" />
+      <TitreOnglet title="Tableau de bord" />
 
       {/* `km-canevas` POSE LE FOND : un gris-vert légèrement sous le blanc, deux lueurs très
           faibles et une trame de points, toutes fixes. C'est lui qui fait exister les bandes

@@ -4,7 +4,7 @@ import { PiedDeListe } from '@/components/ui/pied-de-liste'
 import { MandatWizard } from '@/components/mandat/MandatWizard'
 import { useSearchParams } from 'react-router-dom'
 import { Plus, FileCheck2 } from 'lucide-react'
-import { Topbar } from '@/components/layout/Topbar'
+import { TitreOnglet } from '@/components/layout/TitreOnglet'
 import { PageHeader } from '@/components/ui/page-header'
 import { Card } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
@@ -180,7 +180,7 @@ export default function Mandats({ sansEntete }: { sansEntete?: boolean }) {
 
   return (
     <div>
-      {!sansEntete && <Topbar title="Mandats" />}
+      {!sansEntete && <TitreOnglet title="Mandats" />}
       <div className="p-4 sm:p-6">
         <PageHeader
           titreMasque={sansEntete}

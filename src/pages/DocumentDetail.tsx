@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { ApercuDocument } from '@/components/document/ApercuDocument'
 import { useParams, useNavigate } from 'react-router-dom'
 import { ArrowLeft, FileText, Trash2 } from 'lucide-react'
-import { Topbar } from '@/components/layout/Topbar'
+import { TitreOnglet } from '@/components/layout/TitreOnglet'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
@@ -53,7 +53,7 @@ export default function DocumentDetail() {
 
   return (
     <div>
-      <Topbar crumb="Documents" title={doc?.nom ?? 'Document'} />
+      <TitreOnglet crumb="Documents" title={doc?.nom ?? 'Document'} />
       <div className="p-4 sm:p-6">
         <Button variant="ghost" size="sm" className="mb-4" onClick={goBack}>
           <ArrowLeft className="h-4 w-4" />

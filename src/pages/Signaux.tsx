@@ -15,7 +15,7 @@
 import { useState } from 'react'
 import { useNavigate, Link } from 'react-router-dom'
 import { Plus, CheckSquare } from 'lucide-react'
-import { Topbar } from '@/components/layout/Topbar'
+import { TitreOnglet } from '@/components/layout/TitreOnglet'
 import { PageHeader, Indicateurs } from '@/components/ui/page-header'
 import { Button } from '@/components/ui/button'
 import { Dialog } from '@/components/ui/dialog'
@@ -363,7 +363,7 @@ export default function Signaux() {
 
   return (
     <div>
-      <Topbar title="Signaux" />
+      <TitreOnglet title="Signaux" />
       <div className="p-4 sm:p-6">
         <PageHeader
           title="Signaux"

@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { Plus, LifeBuoy, Check } from 'lucide-react'
-import { Topbar } from '@/components/layout/Topbar'
+import { TitreOnglet } from '@/components/layout/TitreOnglet'
 import { PageHeader, Indicateurs } from '@/components/ui/page-header'
 import { Card } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
@@ -152,7 +152,7 @@ export default function Requetes() {
 
   return (
     <div className="flex min-h-0 flex-1 flex-col">
-      <Topbar title="Requêtes" />
+      <TitreOnglet title="Requêtes" />
       <div className="min-h-0 flex-1 overflow-y-auto px-4 py-4 lg:px-6">
         <PageHeader
           title="Requêtes"

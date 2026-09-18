@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import { ShieldCheck, Mail, CheckCircle2, Camera, FileSignature } from 'lucide-react'
-import { Topbar } from '@/components/layout/Topbar'
+import { TitreOnglet } from '@/components/layout/TitreOnglet'
 import { PageHeader } from '@/components/ui/page-header'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
@@ -236,7 +236,7 @@ export default function MonProfil() {
 
   return (
     <div>
-      <Topbar title="Mon profil" />
+      <TitreOnglet title="Mon profil" />
       <div className="space-y-4 p-4 sm:p-6">
         <PageHeader title="Mon profil" description="Vos informations et l'accès associé à votre compte." />
 

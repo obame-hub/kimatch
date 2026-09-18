@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { ArrowLeft, Target, Plus, Check, AlertTriangle, Building2, User, MapPin, Gauge, FileSignature, Trash2, Layers } from 'lucide-react'
-import { Topbar } from '@/components/layout/Topbar'
+import { TitreOnglet } from '@/components/layout/TitreOnglet'
 import { Card } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
@@ -44,6 +44,7 @@ import { DialogConversionOpportunite } from '@/components/opportunite/DialogConv
 import { useRecommandationsListe } from '@/lib/data/recommandations'
 import { cn } from '@/lib/utils'
 import type { Opportunite } from '@/types/domain'
+import { useNoterConsultation } from '@/lib/data/consultationsRecentes'
 
 /**
  * La fiche Opportunité, d'après la maquette « Fiche Opportunite » du 23/08/2026.
@@ -66,6 +67,16 @@ export default function OpportuniteDetail() {
   const { id } = useParams<{ id: string }>()
   const navigate = useNavigate()
   const { data: opportunite, isLoading } = useOpportunite(id)
+
+  /* La fiche signale son ouverture : c'est ce qui alimente les « Récents » de la palette.
+     L'écriture part en arrière-plan et attend que le nom soit chargé — voir consultationsRecentes.ts. */
+  useNoterConsultation({
+    type: 'opportunite',
+    id: opportunite?.id,
+    libelle: opportunite ? (opportunite.reference ?? opportunite.compte_nom) : null,
+    sousLibelle: opportunite ? opportunite.compte_nom : null,
+    chemin: `/opportunites/${id}`,
+  })
   const { data: statuts } = useStatutsOpportunites()
   const canManage = useCanManage()
   const deleteOpportunite = useDeleteOpportunite()
@@ -187,7 +198,7 @@ export default function OpportuniteDetail() {
   if (isLoading) {
     return (
       <div className="flex h-full flex-col overflow-hidden">
-        <Topbar title="Opportunité" />
+        <TitreOnglet title="Opportunité" />
         <div className="p-6 text-sm text-km-faint">Chargement…</div>
       </div>
     )
@@ -195,7 +206,7 @@ export default function OpportuniteDetail() {
   if (!opportunite) {
     return (
       <div className="flex h-full flex-col overflow-hidden">
-        <Topbar title="Opportunité" />
+        <TitreOnglet title="Opportunité" />
         <div className="p-6">
           <p className="text-sm text-km-muted">Cette opportunité n'existe pas ou n'est pas visible.</p>
           <Button size="sm" variant="outline" className="mt-3" onClick={() => navigate('/opportunites')}>
@@ -211,7 +222,7 @@ export default function OpportuniteDetail() {
 
   return (
     <div className="flex h-full flex-col overflow-hidden">
-      <Topbar title="Opportunité" crumb={opportunite.compte_nom || 'Opportunité'} />
+      <TitreOnglet title="Opportunité" crumb={opportunite.compte_nom || 'Opportunité'} />
 
       {/* ══ BANDEAU D'IDENTITÉ ══
           Relevé dans le fichier source de William : pastille de 40 px au dégradé magenta, référence

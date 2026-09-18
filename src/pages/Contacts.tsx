@@ -3,7 +3,7 @@ import { useTranchesAffichage } from '@/lib/useTranchesAffichage'
 import { PiedDeListe } from '@/components/ui/pied-de-liste'
 import { useNavigate, useSearchParams } from 'react-router-dom'
 import { Plus, User, Star, AlertTriangle, CheckCircle2, UserCircle2, UserRound, ExternalLink, Check } from 'lucide-react'
-import { Topbar } from '@/components/layout/Topbar'
+import { TitreOnglet } from '@/components/layout/TitreOnglet'
 import { PageHeader } from '@/components/ui/page-header'
 import { HubCreation } from '@/components/compte/HubCreation'
 import { Card } from '@/components/ui/card'
@@ -431,7 +431,7 @@ export default function Contacts({ sansEntete }: { sansEntete?: boolean }) {
 
   return (
     <div>
-      {!sansEntete && <Topbar title="Contacts" />}
+      {!sansEntete && <TitreOnglet title="Contacts" />}
       <div className="p-4 sm:p-6">
         <PageHeader
           titreMasque={sansEntete}

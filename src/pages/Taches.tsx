@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { useNavigate, Link } from 'react-router-dom'
 import { Plus, Check, Circle, Clock, Pencil } from 'lucide-react'
-import { Topbar } from '@/components/layout/Topbar'
+import { TitreOnglet } from '@/components/layout/TitreOnglet'
 import { PageHeader } from '@/components/ui/page-header'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
@@ -61,7 +61,7 @@ export default function Taches() {
 
   return (
     <div>
-      <Topbar title="Tâches" />
+      <TitreOnglet title="Tâches" />
       <div className="p-4 sm:p-6">
         <PageHeader
           title="Tâches"

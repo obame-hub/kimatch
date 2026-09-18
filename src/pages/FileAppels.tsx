@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react'
 import { ChevronRight, Link2, X, AlertTriangle, Check, Loader2, Building2 } from 'lucide-react'
-import { Topbar } from '@/components/layout/Topbar'
+import { TitreOnglet } from '@/components/layout/TitreOnglet'
 import { PageHeader } from '@/components/ui/page-header'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/form'
@@ -50,7 +50,7 @@ import {
 export default function FileAppels() {
   return (
     <div className="min-h-screen bg-km-bg">
-      <Topbar crumb="Patrimoine" title="Appels non rattachés" />
+      <TitreOnglet crumb="Patrimoine" title="Appels non rattachés" />
       <div className="mx-auto max-w-[1100px] px-4 py-5">
         <PageHeader
           title="Appels non rattachés"

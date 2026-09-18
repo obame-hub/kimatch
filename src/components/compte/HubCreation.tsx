@@ -20,7 +20,6 @@ const ACTIONS = [
     cle: 'compte',
     label: 'Nouveau compte',
     indice: 'Cabinet, entreprise, bailleur',
-    touche: 'A',
     couleur: '#3b5f8a',
     fond: '#e9eff6',
     d: 'M3 21h18M5 21V7l7-4 7 4v14M9 21v-4h6v4M9 11h.01M15 11h.01',
@@ -29,7 +28,6 @@ const ACTIONS = [
     cle: 'site',
     label: 'Nouveau site',
     indice: 'Copropriété, siège, usine',
-    touche: 'S',
     couleur: '#0d7a5f',
     fond: '#eaf4f0',
     d: 'M12 21s-7-4.8-7-10.7a7 7 0 0 1 14 0C19 16.2 12 21 12 21zM12 12.5a2.5 2.5 0 1 0 0-5 2.5 2.5 0 0 0 0 5z',
@@ -38,7 +36,6 @@ const ACTIONS = [
     cle: 'contact',
     label: 'Nouveau contact',
     indice: 'Gestionnaire, conseil syndical',
-    touche: 'T',
     couleur: '#7c5bb0',
     fond: '#f1ecf8',
     d: 'M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2M12 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8z',
@@ -47,7 +44,6 @@ const ACTIONS = [
     cle: 'compteur',
     label: 'Nouveau compteur',
     indice: 'PDL électricité ou gaz',
-    touche: 'M',
     couleur: '#4f5aa8',
     fond: '#eef0fa',
     d: 'M4 4h16v13H4zM8 21h8M12 17v4M9 12l2.5-4v3h3L12 15v-3z',
@@ -67,7 +63,6 @@ const ACTIONS = [
     cle: 'opportunite',
     label: 'Nouvelle opportunité',
     indice: 'Un signal positif et un contact',
-    touche: 'O',
     couleur: '#a8317f',
     fond: '#fbeef6',
     d: 'M12 3l9 6-9 6-9-6zM3 15l9 6 9-6',
@@ -76,7 +71,6 @@ const ACTIONS = [
     cle: 'recommandation',
     label: 'Nouvelle recommandation',
     indice: 'Diagnostic et consultation',
-    touche: 'R',
     couleur: '#8a4b2a',
     fond: '#f7ece3',
     d: 'M12 3l2.3 7.7L22 13l-7.7 2.3L12 23l-2.3-7.7L2 13l7.7-2.3z',
@@ -85,7 +79,6 @@ const ACTIONS = [
     cle: 'mandat',
     label: 'Nouveau mandat',
     indice: 'Périmètre à faire signer',
-    touche: 'D',
     couleur: '#9a7a0d',
     fond: '#faf0cd',
     d: 'M12 3l7 2.5V11c0 4.6-3 8.6-7 10-4-1.4-7-5.4-7-10V5.5zM9 12l2 2 4-4',
@@ -98,62 +91,38 @@ export function HubCreation({
   onAction,
   /** Actions momentanément impossibles, avec la raison affichée en infobulle. */
   indisponibles = {},
-  /**
-   * Signale l'ouverture au parent. Indispensable et non décoratif : la fiche compte écoute « R »
-   * pour la relance en permanence, et le hub écoute « R » pour la recommandation. Sans cet état
-   * partagé, une frappe hub ouvert déclencherait les deux actions à la fois. Deux écouteurs sur
-   * `window` ne peuvent pas s'arbitrer par stopPropagation — l'ordre d'attachement décide.
-   */
-  onOuvertChange,
 }: {
   onAction: (cle: CleAction) => void
   indisponibles?: Partial<Record<CleAction, string>>
-  onOuvertChange?: (ouvert: boolean) => void
 }) {
   const [ouvert, setOuvert] = useState(false)
-
-  useEffect(() => {
-    onOuvertChange?.(ouvert)
-  }, [ouvert, onOuvertChange])
   const conteneur = useRef<HTMLDivElement>(null)
 
-  // « C » ouvre le hub, puis la touche de chaque ligne la déclenche — exactement comme la maquette,
-  // où le raccourci n'est actif que hub ouvert. On ignore la frappe quand l'utilisateur est dans un
-  // champ, sinon écrire « Cabinet » dans un formulaire ouvrirait le menu.
+  /* ══ LES TOUCHES DU HUB SONT PARTIES (16/09/2026) ══
+     William : « oublie les raccourcis clavier […] la navigation se fera au clic uniquement ».
+     « C » ouvrait ce menu, puis A/S/T/M/O/R/D déclenchaient ses sept lignes. Jamais utilisées en
+     production, et coûteuses : c'est à cause de « R », partagé avec la relance de la fiche compte,
+     qu'il fallait faire remonter l'état d'ouverture au parent (`onOuvertChange`) pour arbitrer deux
+     écouteurs sur `window` — deux écouteurs ne peuvent pas s'arbitrer autrement que par leur ordre
+     d'attachement. Ce fil de dépendances disparaît avec les touches.
+
+     ÉCHAP RESTE, et ce n'est pas un raccourci : c'est la sortie d'un panneau ouvert, au même titre
+     que le clic à l'extérieur. Les sept créations rejoindront la palette de recherche. */
   useEffect(() => {
-    function surTouche(e: KeyboardEvent) {
-      const cible = e.target as HTMLElement | null
-      if (cible && (cible.isContentEditable || /^(INPUT|TEXTAREA|SELECT)$/.test(cible.tagName))) return
-      if (e.metaKey || e.ctrlKey || e.altKey) return
-
-      if (!ouvert && e.key.toLowerCase() === 'c') {
-        e.preventDefault()
-        setOuvert(true)
-        return
-      }
-      if (!ouvert) return
-
-      if (e.key === 'Escape') {
-        setOuvert(false)
-        return
-      }
-      const trouve = ACTIONS.find((a) => a.touche.toLowerCase() === e.key.toLowerCase())
-      if (trouve && !indisponibles[trouve.cle]) {
-        e.preventDefault()
-        setOuvert(false)
-        onAction(trouve.cle)
-      }
+    if (!ouvert) return
+    function surEchap(e: KeyboardEvent) {
+      if (e.key === 'Escape') setOuvert(false)
     }
-    window.addEventListener('keydown', surTouche)
-    return () => window.removeEventListener('keydown', surTouche)
-  }, [ouvert, onAction, indisponibles])
+    window.addEventListener('keydown', surEchap)
+    return () => window.removeEventListener('keydown', surEchap)
+  }, [ouvert])
 
   return (
     <div ref={conteneur} className="relative flex items-center gap-[7px]">
       <button
         type="button"
         onClick={() => setOuvert((o) => !o)}
-        title="Créer un enregistrement (C)"
+        title="Créer un enregistrement"
         aria-expanded={ouvert}
         className="inline-flex cursor-pointer select-none items-center gap-[7px] rounded-[10px] px-4 py-[9px] text-xs font-bold tracking-[-.01em] text-white transition-all duration-[160ms]"
         style={{
@@ -222,9 +191,6 @@ export function HubCreation({
                   <span className="min-w-0 flex-1">
                     <span className="block text-km-body font-[650] tracking-[-.01em]">{action.label}</span>
                     <span className="mt-px block text-km-xs text-[#a3a5a0]">{action.indice}</span>
-                  </span>
-                  <span className="flex-none rounded-[5px] border border-[#eceae6] bg-[#f6f6f4] px-1.5 py-0.5 font-mono text-km-tiny font-bold text-[#b6b8b3]">
-                    {action.touche}
                   </span>
                 </div>
               )

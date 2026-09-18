@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { Bug, Lightbulb, Plus, LifeBuoy } from 'lucide-react'
-import { Topbar } from '@/components/layout/Topbar'
+import { TitreOnglet } from '@/components/layout/TitreOnglet'
 import { PageHeader } from '@/components/ui/page-header'
 import { Card } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
@@ -122,7 +122,7 @@ export default function Support() {
 
   return (
     <div>
-      <Topbar title="Support" />
+      <TitreOnglet title="Support" />
       <div className="p-4 sm:p-6">
         <PageHeader
           title="Support"

@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useParams, useNavigate, Link } from 'react-router-dom'
 import { ArrowLeft, Star, Trash2, FileCheck2, FileText, Sparkle } from 'lucide-react'
-import { Topbar } from '@/components/layout/Topbar'
+import { TitreOnglet } from '@/components/layout/TitreOnglet'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { EntityLink } from '@/components/ui/entity-link'
@@ -27,7 +27,6 @@ import { useCanManageEnregistrement, useIsAdmin, useProfilsAdmin } from '@/lib/d
 import { useSuppression } from '@/lib/useSuppression'
 import { useGoBack } from '@/lib/useGoBack'
 import { useDocumentsParEntites } from '@/lib/data/documents'
-import { useRaccourcisOnglets } from '@/lib/useRaccourcisOnglets'
 import { useReferenceTable } from '@/lib/data/referenceTables'
 import { formatPhoneFR } from '@/lib/textFormat'
 import { LIBELLE_ROLE, ancienRoleDepuisRoles, type RoleContact } from '@/lib/contactRoles'
@@ -42,6 +41,7 @@ import {
 import { optionsCivilite } from '@/lib/civilite'
 import { cn } from '@/lib/utils'
 import type { Contact } from '@/types/domain'
+import { useNoterConsultation } from '@/lib/data/consultationsRecentes'
 
 /* LES CIVILITÉS VIENNENT DE `@/lib/civilite`, et non d'une liste écrite ici.
    La base range en « Monsieur » / « Madame » depuis la migration 20260914180000 ; cette liste
@@ -57,6 +57,16 @@ export default function ContactDetail() {
   // Perimetre de la fiche, lu cote serveur : ces lectures parcouraient le CRM entier pour en
   // garder une ligne ou quelques-unes (meme correctif que les fiches compte et site).
   const { data: contact } = useContact(id)
+
+  /* La fiche signale son ouverture : c'est ce qui alimente les « Récents » de la palette.
+     L'écriture part en arrière-plan et attend que le nom soit chargé — voir consultationsRecentes.ts. */
+  useNoterConsultation({
+    type: 'contact',
+    id: contact?.id,
+    libelle: contact ? [contact.prenom, contact.nom].filter(Boolean).join(' ') : null,
+    sousLibelle: contact ? [contact.fonction, contact.compte_nom].filter(Boolean).join(' · ') : null,
+    chemin: `/contacts/${id}`,
+  })
   // Pieces rattachees a CE contact, lues a son perimetre : `useDocumentsParEntites` filtre
   // cote serveur sur l'identifiant, il ne charge pas la table entiere.
   const idsPourDocuments = useMemo(() => (id ? [id] : undefined), [id])
@@ -152,14 +162,11 @@ export default function ContactDetail() {
     { key: 'documents', label: 'Documents', badge: documentsDuContact.length ? String(documentsDuContact.length) : undefined },
   ]
 
-  // « 1–5 pour naviguer » : le raccourci annonce par la maquette dans la barre d'onglets.
-  const clesOnglets = TABS.map((t) => t.key)
-  useRaccourcisOnglets(clesOnglets, setTab)
 
   if (!contact && id) {
     return (
       <div>
-        <Topbar crumb="Contacts" title="Contact" />
+        <TitreOnglet crumb="Contacts" title="Contact" />
         <div className="p-4 sm:p-6"><p className="text-sm text-km-faint">Chargement…</p></div>
       </div>
     )
@@ -168,7 +175,7 @@ export default function ContactDetail() {
   if (!contact) {
     return (
       <div>
-        <Topbar crumb="Contacts" title="Contact" />
+        <TitreOnglet crumb="Contacts" title="Contact" />
         <div className="p-4 sm:p-6">
           <Button variant="ghost" size="sm" className="mb-4" onClick={goBack}>
             <ArrowLeft className="h-4 w-4" />
@@ -191,7 +198,7 @@ export default function ContactDetail() {
        d'activité grandissait avec son contenu au lieu de tenir dans l'écran. Elle rejoint le
        gabarit des sept autres (William, 07/09/2026 : « pixel perfect comme sur Recommandation »). */
     <div className="flex h-full flex-col overflow-hidden">
-      <Topbar crumb="Contacts" title={`${contact.prenom} ${contact.nom}`} />
+      <TitreOnglet crumb="Contacts" title={`${contact.prenom} ${contact.nom}`} />
 
       {/* Bandeau contact */}
       <div className="flex flex-wrap items-center gap-3.5 border-b border-km-line bg-white px-4 py-3.5 sm:px-6">

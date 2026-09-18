@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { useOuvrirEmail } from '@/lib/voletEmail'
 import { useNavigate, useParams } from 'react-router-dom'
-import { Topbar } from '@/components/layout/Topbar'
+import { TitreOnglet } from '@/components/layout/TitreOnglet'
 import { Button } from '@/components/ui/button'
 import { OngletFichiers } from '@/components/compte/OngletFichiers'
 import { DialogConversionPiste } from '@/components/prospection/DialogConversionPiste'
@@ -29,6 +29,7 @@ import { OngletHistorique } from '@/components/compte/OngletHistorique'
 import { Dialog } from '@/components/ui/dialog'
 import { Textarea } from '@/components/ui/form'
 import { cn } from '@/lib/utils'
+import { useNoterConsultation } from '@/lib/data/consultationsRecentes'
 
 /**
  * FICHE PISTE.
@@ -67,6 +68,16 @@ export default function PisteDetail() {
   const canManage = useCanManage()
 
   const { data: piste, isLoading } = usePiste(id)
+
+  /* La fiche signale son ouverture : c'est ce qui alimente les « Récents » de la palette.
+     L'écriture part en arrière-plan et attend que le nom soit chargé — voir consultationsRecentes.ts. */
+  useNoterConsultation({
+    type: 'piste',
+    id: piste?.id,
+    libelle: piste ? piste.societe : null,
+    sousLibelle: piste ? [piste.contact_nom, piste.ville].filter(Boolean).join(' · ') : null,
+    chemin: `/pistes/${id}`,
+  })
   const { data: actions } = useActionsParPiste(id)
   // 8 942 interactions sont rattachées à des pistes depuis l'import des leads du 01/09/2026,
   // et aucun écran ne les montrait : le flux recevait `interactions={[]}` en dur.
@@ -115,7 +126,7 @@ export default function PisteDetail() {
        fait défiler ses volets. L'attribut annule la marge basse de `AppLayout` — voir son
        commentaire — qui, ici, raccourcissait la page de 80 px au lieu de protéger quoi que ce soit. */
     <div data-pleine-hauteur className="flex h-full flex-col overflow-hidden">
-      <Topbar crumb="Pistes" title={piste.societe || piste.contact_nom || 'Piste'} />
+      <TitreOnglet crumb="Pistes" title={piste.societe || piste.contact_nom || 'Piste'} />
 
       {/* ══ LE BANDEAU, REPRIS DE LA FICHE COMPTE ══
           William, 16/09/2026 : « reprends le graphique du header de la fiche compte et adapte-le à

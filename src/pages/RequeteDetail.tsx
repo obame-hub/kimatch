@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { ArrowLeft, LifeBuoy } from 'lucide-react'
-import { Topbar } from '@/components/layout/Topbar'
+import { TitreOnglet } from '@/components/layout/TitreOnglet'
 import { Badge } from '@/components/ui/badge'
 import { Card } from '@/components/ui/card'
 import { EntityLink } from '@/components/ui/entity-link'
@@ -163,7 +163,7 @@ export default function RequeteDetail() {
 
   return (
     <div className="flex h-full flex-col overflow-hidden">
-      <Topbar title="Requête" crumb={requete.objet || 'Requête'} />
+      <TitreOnglet title="Requête" crumb={requete.objet || 'Requête'} />
 
       {/* ══ BANDEAU D'IDENTITÉ, le gabarit de l'opportunité ══
           La référence en gros chiffres tabulaires, les pastilles d'état à côté, le compte et la

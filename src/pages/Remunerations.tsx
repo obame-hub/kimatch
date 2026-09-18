@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react'
 import { Plus, Euro, AlertTriangle } from 'lucide-react'
-import { Topbar } from '@/components/layout/Topbar'
+import { TitreOnglet } from '@/components/layout/TitreOnglet'
 import { PageHeader } from '@/components/ui/page-header'
 import { Card } from '@/components/ui/card'
 import { ChoixParRecherche } from '@/components/ui/choix-recherche'
@@ -74,7 +74,7 @@ export default function Remunerations() {
 
   return (
     <div className="flex min-h-0 flex-1 flex-col">
-      <Topbar title="Rémunérations" />
+      <TitreOnglet title="Rémunérations" />
       <div className="min-h-0 flex-1 overflow-y-auto px-4 py-4 lg:px-6">
         <PageHeader
           title="Rémunérations"

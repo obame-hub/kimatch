@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState, useRef } from 'react'
 import { useParams, useNavigate, useSearchParams, Link } from 'react-router-dom'
 import { ArrowLeft, BadgeCheck, Building2, FileCheck2, MapPin, Pencil, Plus, Search, Target } from 'lucide-react'
-import { Topbar } from '@/components/layout/Topbar'
+import { TitreOnglet } from '@/components/layout/TitreOnglet'
 import { HubCreation } from '@/components/compte/HubCreation'
 import { ZoneATraiter } from '@/components/compte/ZoneATraiter'
 import { ZoneEnCours } from '@/components/compte/ZoneEnCours'
@@ -61,7 +61,6 @@ import { useSuppression } from '@/lib/useSuppression'
 import { ActivityFeed } from '@/components/site/ActivityFeed'
 import { cn } from '@/lib/utils'
 import { useGoBack } from '@/lib/useGoBack'
-import { useRaccourcisOnglets } from '@/lib/useRaccourcisOnglets'
 import type { Compte, Site, TypeCompte, Contrat, Compteur, Recommandation } from '@/types/domain'
 import { OngletContacts } from '@/components/compte/OngletContacts'
 import { OngletCompteurs } from '@/components/compte/OngletCompteurs'
@@ -69,6 +68,7 @@ import { BandeauCompte } from '@/components/compte/BandeauCompte'
 import { MentionProprietaire } from '@/components/ui/mention-proprietaire'
 import { useMesuresDuParc } from '@/lib/data/parcDuCompte'
 import { useOptionsTypologie } from '@/lib/data/segmentsComptes'
+import { useNoterConsultation } from '@/lib/data/consultationsRecentes'
 
 const typeMeta: Record<TypeCompte, { label: string; tone: 'kiwi' | 'blue' | 'amber' | 'neutral' }> = {
   client: { label: 'Consommateur', tone: 'kiwi' },
@@ -119,6 +119,16 @@ export default function CompteDetail() {
   const navigate = useNavigate()
   const [searchParams, setSearchParams] = useSearchParams()
   const { data: compte, isLoading: compteEnCours } = useCompte(id)
+
+  /* La fiche signale son ouverture : c'est ce qui alimente les « Récents » de la palette.
+     L'écriture part en arrière-plan et attend que le nom soit chargé — voir consultationsRecentes.ts. */
+  useNoterConsultation({
+    type: 'compte',
+    id: compte?.id,
+    libelle: compte ? compte.nom : null,
+    sousLibelle: compte ? compte.ville ?? compte.segment : null,
+    chemin: `/comptes/${id}`,
+  })
   /* L'APPORTEUR N'EST PLUS LU ICI. Il n'était affiché que dans « Détails consommateur », retiré le
      11/09/2026 : garder la requête reviendrait à charger un second compte entier à chaque ouverture
      de fiche pour un nom que plus rien n'affiche. Le champ reste en base, et le formulaire de
@@ -203,7 +213,6 @@ export default function CompteDetail() {
   const [editOpen, setEditOpen] = useState(false)
   const [confirmDelete, setConfirmDelete] = useState(false)
   // Voir HubCreation : le hub s'approprie le clavier quand il est ouvert, « R » notamment.
-  const [hubOuvert, setHubOuvert] = useState(false)
   const televerser = useTeleverserDocuments()
   const { data: typesDocumentsRef } = useReferenceTable('types_documents')
   const typesDocuments = typesDocumentsRef && typesDocumentsRef.length > 0 ? typesDocumentsRef : FALLBACK_TYPES_DOCUMENTS
@@ -409,8 +418,6 @@ export default function CompteDetail() {
      fois le même chiffre. */
   const mesuresDuParc = useMesuresDuParc(compte?.id, compteursDuCompte)
 
-  // « 1–5 pour naviguer » : le raccourci annonce par la maquette dans la barre d'onglets.
-  const clesOnglets = TABS.filter((t) => !t.mobileOnly).map((t) => t.key)
 
   // Une seule fois, à l'ouverture : revenir sur la page ne doit pas ramener l'onglet de l'adresse
   // par-dessus celui qu'on vient de choisir à la main.
@@ -423,29 +430,24 @@ export default function CompteDetail() {
     adresseAppliquee.current = true
     if (ongletsVisibles.current.includes(ongletDeLAdresse as TabKey)) setTab(ongletDeLAdresse as TabKey)
   }, [ongletDeLAdresse])
-  useRaccourcisOnglets(clesOnglets, setTab)
 
-  useEffect(() => {
-    function onKeyDown(e: KeyboardEvent) {
-      const target = e.target as HTMLElement
-      if (target && (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA')) return
-      // Le hub s'approprie le clavier quand il est ouvert : ses touches (A/S/T/M/R/D) recouvrent
-      // celles de la fiche, « R » en particulier.
-      if (hubOuvert) return
-      const map: Record<string, TabKey> = { '1': 'synthese', '2': 'contrats', '3': 'compteurs', '4': 'recommandations', '5': 'mandats', '6': 'fichiers', '7': 'historique' }
-      if (map[e.key]) setTab(map[e.key])
-      // N et R sont partis avec les boutons « Note » et « Relance » le 16/08/2026. R en
-      // particulier CREAIT une tache de relance en base : sans bouton pour l'annoncer, une frappe
-      // malencontreuse l'aurait declenchee sans que personne comprenne d'ou venait la tache.
-    }
-    window.addEventListener('keydown', onKeyDown)
-    return () => window.removeEventListener('keydown', onKeyDown)
-  }, [compte?.id, hubOuvert])
+  /* ══ LES RACCOURCIS À UNE TOUCHE SONT PARTIS (16/09/2026) ══
+     William : « oublie les raccourcis clavier, même pour le Cockpit et pour tout le reste de l'app
+     qui reste à coder. La navigation se fera au clic uniquement. » Ils n'ont jamais servi en
+     production.
+
+     CETTE FICHE EN AVAIT DEUX, et personne ne l'avait vu — précisément parce que personne ne s'en
+     servait : `useRaccourcisOnglets` lisait 1 à 9, et cet écouteur-ci relisait 1 à 7 pour son propre
+     compte, avec sa propre table d'onglets à tenir d'accord avec la première.
+
+     Seule l'ouverture de la RECHERCHE garde une entrée au clavier — c'est la seule exception que
+     William a retenue, et elle n'agit sur rien : elle ouvre un panneau qui n'exécute qu'à Entrée. */
+
 
   if (compteEnCours) {
     return (
       <div>
-        <Topbar crumb="Comptes" title="Compte" />
+        <TitreOnglet crumb="Comptes" title="Compte" />
         <div className="p-4 sm:p-6"><p className="text-sm text-km-faint">Chargement…</p></div>
       </div>
     )
@@ -454,7 +456,7 @@ export default function CompteDetail() {
   if (!compte) {
     return (
       <div>
-        <Topbar crumb="Comptes" title="Compte" />
+        <TitreOnglet crumb="Comptes" title="Compte" />
         <div className="p-4 sm:p-6">
           <Button variant="ghost" size="sm" className="mb-4" onClick={goBack}>
             <ArrowLeft className="h-4 w-4" />
@@ -475,7 +477,7 @@ export default function CompteDetail() {
 
   return (
     <div className="flex h-full flex-col overflow-hidden">
-      <Topbar crumb="Comptes" title={compte.nom} />
+      <TitreOnglet crumb="Comptes" title={compte.nom} />
 
       {/* ══ LE BANDEAU ══ voir BandeauCompte.tsx pour le raisonnement de la refonte. */}
       <BandeauCompte
@@ -534,7 +536,6 @@ export default function CompteDetail() {
           /* Les six créations passent par le hub. Les conditions d'accès deviennent des infobulles
              sur la ligne concernée, plutôt que des boutons grisés dont on ne devinait pas la raison. */
           <HubCreation
-            onOuvertChange={setHubOuvert}
             indisponibles={{
               mandat: compteursDuCompte.length === 0 ? 'Aucun compteur sur ce compte — un mandat couvre des PDL' : undefined,
               recommandation: !mandatsDuCompte.some((m) => m.statut === 'ACTIF')

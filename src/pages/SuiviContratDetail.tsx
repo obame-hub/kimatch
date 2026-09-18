@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { ArrowLeft, ArrowRight, Building2, FileText, Gauge, LifeBuoy, MapPin, Plus, ShieldCheck, User } from 'lucide-react'
-import { Topbar } from '@/components/layout/Topbar'
+import { TitreOnglet } from '@/components/layout/TitreOnglet'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Card } from '@/components/ui/card'
@@ -130,7 +130,7 @@ export default function SuiviContratDetail() {
 
   return (
     <div className="flex h-full flex-col overflow-hidden">
-      <Topbar crumb="Suivis de contrats" title={suivi.compte_nom ?? 'Suivi de contrat'} />
+      <TitreOnglet crumb="Suivis de contrats" title={suivi.compte_nom ?? 'Suivi de contrat'} />
 
       {/* ══ LE BANDEAU : STATUT, PROCHAIN GESTE, BLOCAGE — sans ouvrir d'onglet (§ 1 et § 11) ══ */}
       <div className="flex flex-none flex-wrap items-center gap-3 border-b border-km-line bg-white px-4 py-3 sm:px-6">

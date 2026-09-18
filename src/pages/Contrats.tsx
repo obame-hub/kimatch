@@ -3,7 +3,7 @@ import { useTranchesAffichage } from '@/lib/useTranchesAffichage'
 import { PiedDeListe } from '@/components/ui/pied-de-liste'
 import { addMonths, format, isValid } from 'date-fns'
 import { FileSignature, Zap, Flame, Plus, FileText } from 'lucide-react'
-import { Topbar } from '@/components/layout/Topbar'
+import { TitreOnglet } from '@/components/layout/TitreOnglet'
 import { PageHeader } from '@/components/ui/page-header'
 import { Card } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
@@ -508,7 +508,7 @@ export default function Contrats({ sansEntete }: { sansEntete?: boolean }) {
 
   return (
     <div>
-      {!sansEntete && <Topbar title="Contrats" />}
+      {!sansEntete && <TitreOnglet title="Contrats" />}
       <div className="p-4 sm:p-6">
         <PageHeader
           title="Contrats"

@@ -1,7 +1,7 @@
 import { Suspense, lazy, useMemo, useState } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { ArrowLeft, FileCheck2, FileSignature, Trash2 } from 'lucide-react'
-import { Topbar } from '@/components/layout/Topbar'
+import { TitreOnglet } from '@/components/layout/TitreOnglet'
 import { CheminConversion } from '@/components/mandat/CheminConversion'
 import { CarteCompte, CarteSignataire, CarteTypeMandat, CarteValidite } from '@/components/mandat/CartesIdentite'
 import { PerimetreCouvert } from '@/components/mandat/PerimetreCouvert'
@@ -39,10 +39,11 @@ import { FALLBACK_STATUTS_MANDATS, FALLBACK_TYPES_DOCUMENTS } from '@/lib/refere
 import { sendMandatForSignature, connectDocusign, DocusignNonConnecte, useReprendreArchivage } from '@/lib/data/docusign'
 import { useValiderMandatManuellement } from '@/lib/data/mandats'
 import { useGoBack } from '@/lib/useGoBack'
-import { useRaccourcisOnglets } from '@/lib/useRaccourcisOnglets'
 import { jourLocalISO } from '@/lib/heureTache'
 import { cn } from '@/lib/utils'
 import type { Mandat, Contact, Compte, Compteur } from '@/types/domain'
+import { useNoterConsultation } from '@/lib/data/consultationsRecentes'
+import { MenuCreer } from '@/components/layout/MenuCreer'
 
 type TabKey = 'mandat' | 'fichiers'
 
@@ -309,6 +310,16 @@ export default function MandatDetail() {
   // Perimetre de la fiche, lu cote serveur : ces lectures parcouraient le CRM entier pour en
   // garder une ligne ou quelques-unes (meme correctif que les fiches compte et site).
   const { data: mandat } = useMandat(id)
+
+  /* La fiche signale son ouverture : c'est ce qui alimente les « Récents » de la palette.
+     L'écriture part en arrière-plan et attend que le nom soit chargé — voir consultationsRecentes.ts. */
+  useNoterConsultation({
+    type: 'mandat',
+    id: mandat?.id,
+    libelle: mandat ? mandat.reference : null,
+    sousLibelle: mandat ? mandat.compte_nom : null,
+    chemin: `/mandats/${id}`,
+  })
   // Le statut avance sous les yeux pendant la signature — voir `useMandatEnDirect`.
   useMandatEnDirect(id)
   const { data: statutsRef } = useReferenceTable('statuts_mandats')
@@ -401,14 +412,11 @@ export default function MandatDetail() {
     { key: 'fichiers', label: 'Fichiers', badge: documentsDuMandat.length ? String(documentsDuMandat.length) : undefined },
   ]
 
-  // « 1–5 pour naviguer » : le raccourci annonce par la maquette dans la barre d'onglets.
-  const clesOnglets = TABS.map((t) => t.key)
-  useRaccourcisOnglets(clesOnglets, setTab)
 
   if (!mandat && id) {
     return (
       <div>
-        <Topbar crumb="Mandats" title="Mandat" />
+        <TitreOnglet crumb="Mandats" title="Mandat" />
         <div className="p-4 sm:p-6"><p className="text-sm text-km-faint">Chargement…</p></div>
       </div>
     )
@@ -417,7 +425,7 @@ export default function MandatDetail() {
   if (!mandat) {
     return (
       <div>
-        <Topbar crumb="Mandats" title="Mandat" />
+        <TitreOnglet crumb="Mandats" title="Mandat" />
         <div className="p-4 sm:p-6">
           <Button variant="ghost" size="sm" className="mb-4" onClick={goBack}>
             <ArrowLeft className="h-4 w-4" />
@@ -431,7 +439,7 @@ export default function MandatDetail() {
 
   return (
     <div>
-      <Topbar crumb="Mandats" title={`Mandat — ${mandat.compte_nom}`} />
+      <TitreOnglet crumb="Mandats" title={`Mandat — ${mandat.compte_nom}`} />
 
       {/* Bandeau mandat */}
       <div className="flex flex-wrap items-center gap-3.5 border-b border-km-line bg-white px-4 py-3.5 sm:px-6">
@@ -460,6 +468,12 @@ export default function MandatDetail() {
           </p>
         </div>
         <div className="flex gap-1.5">
+          {/* ══ « CRÉER » DESCEND DE LA BARRE SUPPRIMÉE ══
+              William, 16/09/2026 : « Créer existe déjà en tant que bouton dans le header des fiches,
+              ajoute-le simplement aux headers des fiches qui ne l'ont pas encore ». La fiche compte
+              a son hub de création depuis le 14/09 ; celle-ci n'avait rien, et la barre du haut était
+              son seul accès. */}
+          <MenuCreer />
           <Button size="sm" onClick={() => setShowEnvoyer(true)}>
             <FileSignature className="h-3.5 w-3.5" />
             Envoyer pour signature

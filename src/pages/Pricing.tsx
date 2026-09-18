@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import {  } from 'lucide-react'
-import { Topbar } from '@/components/layout/Topbar'
+import { TitreOnglet } from '@/components/layout/TitreOnglet'
 import { PageHeader, Indicateurs } from '@/components/ui/page-header'
 import { ListToolbar, BasculeOption } from '@/components/ui/list-toolbar'
 import { TableauKanban } from '@/components/dashboard/TableauKanban'
@@ -368,7 +368,7 @@ export default function Pricing({ sansEntete }: { sansEntete?: boolean }) {
 
   return (
     <div>
-      {!sansEntete && <Topbar title="Pricing" />}
+      {!sansEntete && <TitreOnglet title="Pricing" />}
       <div className="p-4 sm:p-6">
         <PageHeader
           title="Pricing"
