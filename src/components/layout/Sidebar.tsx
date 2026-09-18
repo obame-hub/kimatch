@@ -1,12 +1,11 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { NavLink, useLocation } from 'react-router-dom'
-import { ChevronUp, LogOut, Search, ShieldCheck, User, X } from 'lucide-react'
+import { ChevronUp, LogOut, ShieldCheck, User, X } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import kiweePicto from '@/assets/kiwee-picto.png'
 import { useSidebar } from '@/lib/layout'
 import { useIsAdmin, useMonProfil } from '@/lib/data/roles'
 import { useAuth } from '@/lib/auth'
-import { raccourci } from '@/lib/raccourci'
 import { navItems, cycleNavItems, productionNavItems, cockpitNavItems, bottomNavItems } from '@/lib/navItems'
 import { PastilleNotifications } from '@/components/layout/PastilleNotifications'
 import type { NavItem } from '@/lib/navItems'
@@ -154,7 +153,7 @@ function BoutonNouveautes({
   )
 }
 
-export function Sidebar({ onRechercher }: { onRechercher: () => void }) {
+export function Sidebar() {
   const { open, close } = useSidebar()
   const { signOut } = useAuth()
   const [menuProfil, setMenuProfil] = useState(false)
@@ -164,9 +163,19 @@ export function Sidebar({ onRechercher }: { onRechercher: () => void }) {
   const { data: profil } = useMonProfil()
   // Support/Paramètres (et Administration pour les admins) sont séparés des objets métier
   // ci-dessus : regroupés en bas du rail, juste au-dessus du profil.
-  const bottomItems: NavItem[] = isAdmin
-    ? [...bottomNavItems, { to: '/administration', label: 'Administration', icon: ShieldCheck }]
-    : bottomNavItems
+  /* ══ CE QUI DESCEND SOUS LE NOM, ET CE QUI RESTE VISIBLE ══
+     William, 16/09/2026 : « Support, Paramètres et Administration doivent également être mis lors
+     du clic sur mon nom en bas à gauche ». Ce sont trois endroits où l'on va une fois par semaine ;
+     ils occupaient trois lignes permanentes au-dessus du profil.
+
+     NOUVEAUTÉS RESTE DANS LE RAIL, et c'est le seul écart que je fais à la consigne. Cette entrée
+     porte le NOMBRE de publications non lues — un six sur pastille verte. Une notification qu'il
+     faut ouvrir un menu pour voir n'est plus une notification : elle ne dit plus « va voir », elle
+     attend qu'on la trouve. Les trois autres n'annoncent rien et se rangent sans rien perdre. */
+  const menuProfilItems: NavItem[] = isAdmin
+    ? [...bottomNavItems.filter((i) => i.to !== '/nouveautes'), { to: '/administration', label: 'Administration', icon: ShieldCheck }]
+    : bottomNavItems.filter((i) => i.to !== '/nouveautes')
+  const bottomItems: NavItem[] = bottomNavItems.filter((i) => i.to === '/nouveautes')
   // Les deux dégradés ne s'affichent que s'il reste quelque chose à voir de ce côté-là. Recalculés
   // au défilement, au redimensionnement, et quand le nombre d'entrées change — c'est ce dernier cas
   // qui compte : ajouter un objet ne doit rien casser.
@@ -259,31 +268,11 @@ export function Sidebar({ onRechercher }: { onRechercher: () => void }) {
             onScroll={majDegrades}
             className="h-full space-y-0.5 overflow-y-auto overflow-x-hidden px-2.5 py-1"
           >
-            {/* ══ LA RECHERCHE OUVRE LE RAIL ══
-                La barre du haut a été supprimée le 16/09/2026 : elle coûtait 52 px de hauteur sur
-                42 écrans pour un fil d'Ariane qui doublait déjà le bandeau des fiches. La loupe
-                descend ici, où la largeur est DÉJÀ payée — le rail fait 215 px quoi qu'il arrive,
-                alors qu'une barre horizontale prend de la hauteur sur toute la page.
-
-                ELLE EST EN PREMIÈRE POSITION, au-dessus de PILOTAGE : c'est le geste le plus
-                fréquent de la journée, et il n'appartient à aucune rubrique. Elle annonce le
-                raccourci, parce qu'une entrée de menu est justement l'endroit où l'on apprend qu'il
-                y a plus rapide. */}
-            <button
-              type="button"
-              onClick={() => { close(); onRechercher() }}
-              className={cn(LIGNE_RAIL, LIGNE_RAIL_REPOS, 'w-full')}
-            >
-              <span className="flex h-7 w-7 shrink-0 items-center justify-center">
-                <Search className="h-4 w-4 text-km-side-faint" />
-              </span>
-              <span className="min-w-0 flex-1 truncate whitespace-nowrap text-left">Rechercher</span>
-              <span className="shrink-0 rounded-km-sm border border-km-side-line px-1 font-mono text-km-tiny text-km-side-faint">
-                {raccourci('K')}
-              </span>
-            </button>
-
-            <div className="my-1.5 h-px bg-km-side-line" />
+            {/* ══ LA RECHERCHE N'A PLUS D'ENTRÉE ICI ══
+                Elle y était descendue avec la suppression de la barre du haut ; William, 16/09/2026 :
+                « supprime la barre recherche dans le menu à gauche ». La palette garde ses deux
+                portes clavier — taper une lettre, et ⌘K / Ctrl K — et le rail revient à ce qu'il
+                est : une liste d'endroits où aller, pas une barre d'outils. */}
 
             {/* PILOTAGE réunit le portefeuille ET le cycle commercial. L'intitulé « Cycle
                 commercial » a été retiré le 31/08/2026 : sur onze entrées, trois titres donnaient
@@ -367,6 +356,21 @@ export function Sidebar({ onRechercher }: { onRechercher: () => void }) {
               >
                 <User className="h-3.5 w-3.5" /> Mon profil
               </NavLink>
+
+              {menuProfilItems.map((item) => (
+                <NavLink
+                  key={item.to}
+                  to={item.to}
+                  onClick={() => { setMenuProfil(false); close() }}
+                  className="flex items-center gap-2.5 px-3 py-2 text-km-label text-km-side-muted transition-colors hover:bg-white/[0.055] hover:text-km-side-text"
+                >
+                  <item.icon className="h-3.5 w-3.5" /> {item.label}
+                </NavLink>
+              ))}
+
+              {/* La déconnexion est séparée : c'est la seule ligne du menu qui ne mène pas à un
+                  écran mais qui met fin à la séance. */}
+              <div className="my-1 h-px bg-km-side-line" />
               <button
                 type="button"
                 onClick={() => { setMenuProfil(false); void signOut() }}

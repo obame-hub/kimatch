@@ -73,7 +73,7 @@ export function AppLayout() {
         <GmailBanner />
         {/* Le fond de page passe au `km-bg` de Michel : #FCFCFB, presque blanc. */}
         <div className="flex min-h-0 flex-1 bg-km-bg">
-          <Sidebar onRechercher={() => ouvrirPalette()} />
+          <Sidebar />
           {/* ══ LA MARGE BASSE EST CELLE DES PASTILLES FLOTTANTES ══
 
               Naoëlle, 15/09/2026, capture à l'appui : « je ne peux pas déplier à cause des widgets
