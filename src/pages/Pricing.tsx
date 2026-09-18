@@ -168,9 +168,10 @@ interface LignePricing {
  * vocabulaires pour la même chose obligeaient à traduire de tête à chaque lecture — et c'est
  * exactement ce que Michel a demandé de supprimer en simplifiant les statuts.
  *
- * ON PERD UN PEU EN CLARTÉ D'INTENTION : « Aucun traitement » dit moins que « À demander » sur ce
- * qu'il faut faire. C'est le prix assumé d'un seul vocabulaire, et la colonne « Aucun traitement »
- * porte de toute façon les intertitres de retard, qui disent l'urgence mieux qu'un titre.
+ * CE PRIX A ÉTÉ PAYÉ, PUIS REMBOURSÉ. Le commentaire notait ici qu'on perdait en clarté
+ * d'intention : « Aucun traitement » disait moins que « À demander » sur ce qu'il faut faire. Le
+ * statut ayant été renommé « À traiter » le 18/09/2026, le vocabulaire est désormais unique ET
+ * parlant — on ne choisit plus entre les deux.
  *
  * Les trois étapes du traitement d'une demande fournisseur. « Demande refusée » n'apparaît que sur
  * demande.
@@ -181,7 +182,21 @@ interface LignePricing {
  * après coup.
  */
 const COLONNES = [
-  { code: 'A_DEMANDER', libelle: 'Aucun traitement' },
+  /* ══ « À TRAITER », ET NON PLUS « AUCUN TRAITEMENT » ══
+     William, 18/09/2026 : « dans Pricing, la première colonne doit être renommée À traiter, et je
+     veux que tu bouges toutes les versions à ce statut dans cette colonne ».
+
+     Le renommage n'est pas cosmétique, il RÉPARE. En créant le statut « À traiter » la veille, j'ai
+     laissé un trou dans la vue `v_pricing_consultations` : sa table de correspondance ne connaissait
+     pas ce code, et son `ELSE` envoyait tout inconnu vers « Demande envoyée ». Une consultation
+     qu'Erwan aurait explicitement mise à « À traiter » serait donc allée s'asseoir dans la colonne
+     des demandes parties — exactement le contraire de ce qu'il aurait dit.
+
+     La colonne réunit maintenant les deux populations, qui n'en font qu'une : celles dont personne
+     n'a encore rien dit (aucune ligne de suivi) et celles qu'on a remises à traiter à la main.
+     C'est la règle de Naoëlle du 28/08/2026 — « utilise les termes de nos réels statuts pour ne pas
+     s'embrouiller » — enfin tenue : le statut s'appelle « À traiter », la colonne aussi. */
+  { code: 'A_TRAITER', libelle: 'À traiter' },
   { code: 'EN_ATTENTE', libelle: 'Demande envoyée' },
   { code: 'RECUE', libelle: 'Demande acceptée' },
   /* ══ « DEMANDE DISPONIBLE », CALCULÉE PAR LA BASE ══
@@ -354,7 +369,7 @@ export default function Pricing({ sansEntete }: { sansEntete?: boolean }) {
     COLONNES.find((c) => c.code === code)?.libelle ?? code
   const mesures = [
     { libelle: 'Consultations', valeur: String(nbTotal), precision: 'Versions en cours' },
-    { libelle: libelleDe('A_DEMANDER'), valeur: String(totalDe('A_DEMANDER')), precision: 'Action attendue' },
+    { libelle: libelleDe('A_TRAITER'), valeur: String(totalDe('A_TRAITER')), precision: 'Action attendue' },
     { libelle: libelleDe('EN_ATTENTE'), valeur: String(totalDe('EN_ATTENTE')), precision: 'Chez le fournisseur' },
     {
       /* L'indicateur suit la colonne qui porte l'information utile : ce qu'on peut comparer
