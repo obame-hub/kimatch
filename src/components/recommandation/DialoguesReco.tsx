@@ -38,11 +38,24 @@ const MISE_EN_CONCURRENCE = 'MISE_EN_CONCURRENCE'
 const DUREES_PRESETS = [12, 24, 36, 48, 60]
 
 /** Reprise d'une version existante, pour « Dupliquer V2 ». */
+/**
+ * Ce qu'une duplication reprend de la version d'origine.
+ *
+ * ══ LA DATE SOUHAITÉE N'EN FAIT PAS PARTIE ══
+ *
+ * William, 18/09/2026 : « la duplication ne doit pas reprendre la date de la version de base,
+ * puisque par définition, ce que je souhaite dupliquer c'est les paramètres de la demande, mais
+ * forcément, si je duplique une version, c'est pour la demander à une nouvelle date. »
+ *
+ * Elle était recopiée, et c'était un contresens doublé d'un piège : une date déjà passée arrivait
+ * pré-remplie dans le formulaire, donc valide au regard du champ obligatoire, et la nouvelle demande
+ * naissait en retard sans que personne l'ait voulu. Le champ repart vide, et il est obligatoire :
+ * dupliquer oblige désormais à dire pour quand.
+ */
 export interface PrefillCotation {
   dureesParCompteur: Record<string, number[]>
   typesPrix: string[]
   fournisseurIds: string[]
-  dateSouhaitee: string
 }
 
 export function CotationWizard({
@@ -121,7 +134,6 @@ export function CotationWizard({
   useEffect(() => {
     if (!open || !prefill) return
     if (prefill.typesPrix.length > 0) setTypesPrix(prefill.typesPrix)
-    if (prefill.dateSouhaitee) setDateSouhaitee(prefill.dateSouhaitee)
     if (prefill.fournisseurIds.length > 0) setFournisseurIds(prefill.fournisseurIds)
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open])
@@ -217,6 +229,13 @@ export function CotationWizard({
     setFournisseurIds([])
     setFeedback(null)
   }
+
+  /* Ce qui reste à renseigner, dans l'ordre où l'écran le demande. */
+  const manquants = [
+    durees.length === 0 || !toutesDureesRenseignees ? 'les durées à consulter' : null,
+    !dateSouhaitee ? 'la date souhaitée' : null,
+    fournisseurIds.length === 0 ? 'au moins un fournisseur' : null,
+  ].filter(Boolean) as string[]
 
   async function handleValider() {
     // La toute première cotation est une « Création initiale », pas une actualisation -- c'est
@@ -426,8 +445,25 @@ export function CotationWizard({
             ))}
           </div>
         </FormField>
-        <FormField label="Date souhaitée">
-          <Input type="date" value={dateSouhaitee} onChange={(e) => setDateSouhaitee(e.target.value)} />
+        {/* ══ OBLIGATOIRE DEPUIS LE 18/09/2026 ══
+            William : « ça doit être impossible à l'avenir, donc le champ Date souhaitée dans le
+            process de création d'une version doit être OBLIGATOIRE ».
+
+            Il était facultatif, et 153 versions sur 2 104 n'en portent aucune — 30 % de celles
+            créées depuis septembre. C'est la date à laquelle le commercial attend l'offre du service
+            pricing : sans elle, la version n'a pas d'échéance, donc elle ne peut être ni en retard
+            ni à l'heure, et elle sort des tableaux qui trient là-dessus.
+
+            LA CONTRAINTE EST ICI ET NON EN BASE. Une colonne `not null` aurait rejeté les 153 lignes
+            existantes, qu'on ne peut pas inventer : on ferme la porte aux nouvelles sans réécrire le
+            passé. La date reste modifiable ensuite depuis l'en-tête de la version. */}
+        <FormField label="Date souhaitée" required>
+          <Input
+            type="date"
+            required
+            value={dateSouhaitee}
+            onChange={(e) => setDateSouhaitee(e.target.value)}
+          />
         </FormField>
 
         <div>
@@ -497,9 +533,21 @@ export function CotationWizard({
         </div>
 
         {feedback && <p className="text-xs text-km-muted">{feedback}</p>}
+
+        {/* ══ UN BOUTON GRIS DIT POURQUOI ══
+            Quatre conditions verrouillent la création — les durées, au moins un fournisseur, et
+            depuis le 18/09/2026 la date souhaitée. Sans cette ligne, le bouton est simplement gris
+            et rien ne dit laquelle manque : c'est la panne la plus coûteuse à diagnostiquer, celle
+            qui ressemble à un écran normal. On nomme donc ce qui reste à faire, et rien d'autre. */}
+        {manquants.length > 0 && (
+          <p className="text-xs text-km-muted">
+            Pour créer la version, il manque {manquants.join(', ')}.
+          </p>
+        )}
+
         <div className="flex justify-end gap-2 border-t border-km-line pt-3">
           <Button type="button" variant="ghost" onClick={() => { reset(); onClose() }}>Annuler</Button>
-          <Button type="button" onClick={handleValider} disabled={createVersion.isPending || !toutesDureesRenseignees || durees.length === 0 || fournisseurIds.length === 0}>
+          <Button type="button" onClick={handleValider} disabled={createVersion.isPending || !toutesDureesRenseignees || durees.length === 0 || fournisseurIds.length === 0 || !dateSouhaitee}>
             Créer la version
           </Button>
         </div>

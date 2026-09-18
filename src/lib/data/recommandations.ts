@@ -1627,9 +1627,16 @@ export const STATUTS_OFFRE = [
  * ══ MISE À JOUR DU 01/09/2026 ══
  *
  * `DISPONIBLE` s'ajoute. Naoëlle : « affiche-le dans Changer au cas où on veut le changer à la main,
- * mais garde le calcul ». Les deux tiennent ensemble sans conflit : un choix manuel écrit un
- * événement de suivi, et le déclencheur recalculera au prochain changement d'offre. La main passe
- * devant jusqu'au fait suivant — c'est le bon ordre, l'humain sait des choses que la base ignore.
+ * mais garde le calcul ».
+ *
+ * ══ MISE À JOUR DU 18/09/2026 : IL N'Y A PLUS DE CALCUL ══
+ *
+ * `A_TRAITER` s'ajoute en tête, et le déclencheur qui posait les statuts tout seul est supprimé.
+ * William : « ce sera à Erwan, le chargé de pricing, de faire évoluer le statut manuellement ».
+ *
+ * Le calcul ne se contentait pas d'être inutile : il écrivait « Demande acceptée » deux dixièmes de
+ * seconde après la création de la version, avant tout envoi, parce que sa règle confondait « on
+ * attend leur offre » et « ils ont accepté de coter ». Voir la migration 20260918100000.
  *
  * `ACCEPTEE_PARTIELLEMENT` s'en va. Naoëlle, 28/08/2026 : « partiellement acceptée n'existe plus ».
  * Le code est désactivé en base et ne porte AUCUNE ligne de suivi — vérifié ce jour. Le laisser dans
@@ -1641,11 +1648,21 @@ export const STATUTS_OFFRE = [
  * 28/08/2026 les a tous remappés. Ces quatre codes portent zéro ligne aujourd'hui.
  */
 export const CODES_STATUT_CONSULTATION_PROPOSES = [
+  'A_TRAITER',
   'ENVOYEE',
   'ACCEPTEE',
   'DISPONIBLE',
   'REFUSEE',
 ] as const
+
+/**
+ * L'état d'une consultation dont personne n'a encore rien dit.
+ *
+ * Il n'est PAS écrit en base à la création d'une version — voir la migration 20260918100000 : un
+ * statut que personne n'a posé n'est pas un événement, et cette table est un journal d'événements.
+ * L'écran l'affiche quand une consultation ne porte aucune ligne de suivi.
+ */
+export const STATUT_CONSULTATION_PAR_DEFAUT = 'À traiter'
 
 /**
  * Statut d'un FOURNISSEUR CONSULTÉ, enregistré comme un événement de suivi.
@@ -1767,6 +1784,52 @@ export function useAvancerEtapeRecommandation() {
  * rattraper des états incohérents, et une garde de cohérence empêcherait précisément de sortir d'une
  * incohérence. Le libellé à l'écran dit que c'est une correction, et l'historique conserve la trace.
  */
+/**
+ * ════════════════════════════════════════════════════════════════════════════════════════════════
+ * LA DATE DE LIVRAISON SOUHAITÉE, MODIFIABLE APRÈS COUP
+ * ════════════════════════════════════════════════════════════════════════════════════════════════
+ *
+ * William, 18/09/2026 : « la date de livraison souhaitée doit être modifiable, même lorsque la
+ * version est déjà créée ».
+ *
+ * ══ C'EST AUSSI LA RÉPONSE À SA PREMIÈRE QUESTION ══
+ *
+ * Il demandait le même jour pourquoi la date ne s'affiche pas sur certaines versions. Elle n'est pas
+ * masquée : elle est VIDE. Le champ est facultatif au formulaire de création, et 153 versions sur
+ * 2 104 n'en portent aucune.
+ *
+ * Le détail est plus parlant que le total : sur les 96 versions créées depuis septembre, 29 n'en ont
+ * pas — 30 %, contre 7 % sur l'ensemble. Le taux se dégrade, et il ne pouvait que se dégrader :
+ * jusqu'à aujourd'hui, une date oubliée à la création était perdue POUR TOUJOURS, aucun écran ne
+ * permettant de la poser ensuite. On ne corrigeait donc jamais, on accumulait.
+ *
+ * ══ POURQUOI UNE MUTATION À PART ET NON UN PATCH GÉNÉRIQUE ══
+ *
+ * `versions_recommandation` porte trente colonnes, dont `est_figee`, `version_actuelle` et
+ * `date_publication` qui gouvernent le comportement de l'écran. Une mutation qui accepterait
+ * n'importe laquelle ouvrirait ces trois-là à l'édition en place par simple oubli. Celle-ci n'écrit
+ * qu'une colonne, et son nom le dit.
+ */
+export function useMajDateSouhaitee() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: async (input: { versionId: string; date: string | null }) => {
+      const { error } = await supabase
+        .from('versions_recommandation')
+        .update({ date_souhaitee: input.date })
+        .eq('id', input.versionId)
+      if (error) throw new Error(error.message)
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['recommandations'] })
+      // Le tableau « offres à recevoir » se trie sur cette date : sans cette invalidation, une
+      // version corrigée resterait à sa place d'avant jusqu'au prochain rechargement complet.
+      queryClient.invalidateQueries({ queryKey: ['offres-du-jour'] })
+      queryClient.invalidateQueries({ queryKey: ['kanban-serveur'] })
+    },
+  })
+}
+
 export function useMajStatutVersion() {
   const queryClient = useQueryClient()
   return useMutation({

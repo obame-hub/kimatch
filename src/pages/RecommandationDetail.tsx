@@ -1191,7 +1191,9 @@ export default function RecommandationDetail() {
                             fournisseurIds: versionActive.optimisations.flatMap((o) =>
                               o.fournisseurs_consultes.map((f) => f.fournisseur_compte_id),
                             ),
-                            dateSouhaitee: versionActive.date_souhaitee?.slice(0, 10) ?? '',
+                            // LA DATE N'EST PAS REPRISE (William, 18/09/2026) : on duplique les
+                            // paramètres de la demande, pas son échéance. Dupliquer, c'est
+                            // redemander — donc pour une nouvelle date, que le formulaire réclame.
                           },
                         })
                         setNouvelleVersionOuverte(false)

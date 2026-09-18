@@ -1,6 +1,13 @@
 import { useState } from 'react'
-import { Mail, Lock, Trash2, ExternalLink, ChevronDown } from 'lucide-react'
-import { useCloturerVersion, useMajStatutVersion, type ResultatCloture } from '@/lib/data/recommandations'
+import { CalendarClock, Mail, Lock, Trash2, ExternalLink, ChevronDown } from 'lucide-react'
+import {
+  STATUT_CONSULTATION_PAR_DEFAUT,
+  useCloturerVersion,
+  useMajDateSouhaitee,
+  useMajStatutVersion,
+  type ResultatCloture,
+} from '@/lib/data/recommandations'
+import { InlineField } from '@/components/ui/inline-field'
 import { Badge } from '@/components/ui/badge'
 import { EntityLink } from '@/components/ui/entity-link'
 import { OffresDuFournisseur } from '@/components/recommandation/OffresDuFournisseur'
@@ -97,6 +104,7 @@ export function DetailVersion({
      faux hérité de la reprise fait disparaître une consultation de l'écran — il faut donc pouvoir
      le rattraper. Voir useMajStatutVersion. */
   const majStatut = useMajStatutVersion()
+  const majDateSouhaitee = useMajDateSouhaitee()
 
   /* ══ CLÔTURER CETTE VERSION ══
      William, 15/09/2026 : « possibilité de supprimer ou clôturer une version. Dans ce cas, elle ne
@@ -151,6 +159,35 @@ export function DetailVersion({
             <Lock className="h-3 w-3 text-km-faint" />
           </span>
         )}
+
+        {/* ══ LA DATE DE LIVRAISON SOUHAITÉE, MODIFIABLE ══
+            William, 18/09/2026 : « elle doit être modifiable, même lorsque la version est déjà
+            créée ». Elle ne se saisissait qu'au formulaire de création, où elle est facultative —
+            une date oubliée était donc perdue pour toujours, et 153 versions sur 2 104 n'en portent
+            aucune.
+
+            ELLE S'AFFICHE MÊME QUAND ELLE EST VIDE, en pointillés : c'est la condition pour qu'on
+            puisse la poser. Un champ qu'on ne peut remplir que s'il est déjà rempli ne sert à
+            personne — la leçon de la date de clôture, huit jours plus tôt.
+
+            L'HISTORIQUE SUIT TOUT SEUL : l'audit est posé sur la table et enregistre chaque
+            changement avec son auteur. */}
+        <span className="inline-flex items-center gap-1 text-km-label text-km-faint">
+          <CalendarClock className="h-3 w-3" />
+          Livraison souhaitée
+          <InlineField
+            variant="date"
+            label=""
+            emptyLabel="à définir"
+            className="inline-flex font-semibold text-km-muted"
+            value={version.date_souhaitee ? String(version.date_souhaitee).slice(0, 10) : null}
+            disabled={!peutModifier}
+            onCommit={(v) => majDateSouhaitee.mutateAsync({ versionId: version.id, date: v })}
+            onSaved={() => signaler('✓ enregistré')}
+            onError={(e: Error) => signaler(`Erreur : ${e.message}`)}
+          />
+        </span>
+
         <span className="flex-1" />
         {version.version_actuelle && <Badge tone="kiwi">Actuelle</Badge>}
         {/* ══ LE STATUT NE S'AFFICHE PLUS ICI ══
@@ -419,7 +456,15 @@ export function DetailVersion({
                                 {/* Le statut courant se lit sur le badge, le menu ne sert qu'à le
                                     changer. L'invite du menu ne répète donc pas le statut en cours —
                                     elle le faisait, et « Demande envoyée » apparaissait deux fois. */}
-                                {fc.statut_actuel && <Badge tone="neutral">{fc.statut_actuel}</Badge>}
+                                {/* ══ « À TRAITER » QUAND RIEN N'A ENCORE ÉTÉ DIT ══
+                                    Le badge disparaissait quand la consultation ne portait aucune
+                                    ligne de suivi : un fournisseur sans statut se lisait comme un
+                                    fournisseur qu'on avait oublié de renseigner, alors que c'est
+                                    l'état de départ normal de toute consultation.
+
+                                    L'état par défaut n'est pas écrit en base — un statut que
+                                    personne n'a posé n'est pas un événement. Il est affiché. */}
+                                <Badge tone="neutral">{fc.statut_actuel || STATUT_CONSULTATION_PAR_DEFAUT}</Badge>
                                 {peutModifier && (
                                   <select
                                     value=""
@@ -433,11 +478,11 @@ export function DetailVersion({
                                     title="Le statut se recalcule automatiquement d'après les offres du fournisseur. Un choix manuel tient jusqu'au prochain changement d'offre."
                                     className="rounded-km-sm border border-km-line bg-white px-1.5 py-0.5 text-km-body font-semibold text-km-muted outline-none"
                                   >
-                                    <option value="">{fc.statut_actuel ? 'Changer…' : 'Statut de la demande…'}</option>
+                                    <option value="">Changer…</option>
                                     {statutsConsultation
                                       // Le statut deja en cours n'a pas a etre reproposé : le choisir
                                       // ajouterait un evenement de suivi identique au precedent.
-                                      .filter((st) => st.libelle !== fc.statut_actuel)
+                                      .filter((st) => st.libelle !== (fc.statut_actuel || STATUT_CONSULTATION_PAR_DEFAUT))
                                       // Chez un fournisseur a outil en ligne, « Demande envoyee » ne
                                       // veut rien dire : rien n'est jamais envoye. Le suivi demarre
                                       // a « Demande acceptee ».
