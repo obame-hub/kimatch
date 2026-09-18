@@ -114,7 +114,23 @@ export function AppLayout() {
               `has-[[data-pleine-hauteur]]` PLUTÔT QU'UNE LISTE DE ROUTES : la règle suit ce que la
               page déclare, et une fiche créée demain en hérite sans qu'on ait rien à tenir à jour
               ici. */}
-          <main className={cn('min-w-0 flex-1 overflow-y-auto pb-32 md:pb-20 md:pl-[215px] has-[[data-pleine-hauteur]]:pb-0', impersonating && 'pt-7')}>
+          {/* ══ LA BANDE DU BAS EST PARTIE AVEC LES DEUX PASTILLES (William, 18/09/2026) ══
+
+              `md:pb-20` réservait 80 px sous chaque page pour que la dernière carte ne passe pas
+              sous la pastille d'appel et la cloche. Les deux ont quitté le bas de l'écran le
+              18/09 — l'appel parce qu'« un commercial va cliquer sur un numéro, jamais ouvrir le
+              téléphone pour composer », les notifications parce qu'elles sont redevenues une ligne
+              du menu. Il ne reste rien à éviter : la marge est donc du vide pur, et c'est
+              exactement la bande que William a signalée deux fois comme « l'écran est coupé en bas ».
+
+              `pb-32` RESTE SUR MOBILE, et pour une autre raison : `BottomNav` y est une vraie barre
+              fixée, en `md:hidden`. Sans cette marge, la dernière ligne d'une liste passerait
+              dessous. Le `md:pb-0` annule donc la seule moitié qui n'a plus d'objet.
+
+              `has-[[data-pleine-hauteur]]:pb-0` survit pour le mobile, pour la raison du
+              15/09/2026 : une fiche ne défile pas dans `main`, elle prend toute la hauteur et fait
+              défiler ses volets — une marge basse la RACCOURCIT au lieu de la protéger. */}
+          <main className={cn('min-w-0 flex-1 overflow-y-auto pb-32 md:pb-0 md:pl-[215px] has-[[data-pleine-hauteur]]:pb-0', impersonating && 'pt-7')}>
             <Outlet />
           </main>
         </div>

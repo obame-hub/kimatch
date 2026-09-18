@@ -218,6 +218,18 @@ let dejaUtilise = false
  */
 const CLE_PREFERENCE_BUREAU = 'kimatch.appel.application-bureau'
 
+/**
+ * ══════════ LA PASTILLE D'APPEL FLOTTANTE EST RETIRÉE ══════════
+ *
+ * William, 18/09/2026 : « un commercial va cliquer sur un numéro de téléphone ou sur un bouton
+ * "Appeler", mais jamais ouvrir le téléphone pour composer un numéro ».
+ *
+ * Voir le commentaire de `pastille`, plus bas, pour le raisonnement complet et ce que son départ
+ * libère au bas de chaque page. Un interrupteur plutôt qu'une suppression : le bouton porte aussi
+ * le point de session et le témoin d'appel en cours, qu'il faudrait réécrire.
+ */
+const AFFICHER_LA_PASTILLE_D_APPEL = false
+
 export function appelDansLeVolet(): boolean {
   try {
     return localStorage.getItem(CLE_PREFERENCE_BUREAU) !== '1'
@@ -559,6 +571,27 @@ export function VoletAllo() {
    * ET L'ÉTIQUETTE PART, mais pas pour tout le monde : `aria-label` et `title` la remplacent. Un
    * bouton réduit à une icône est muet pour un lecteur d'écran, et illisible au survol pour qui ne
    * reconnaît pas le pictogramme. */
+  /**
+   * ══════════ LA PASTILLE D'APPEL EST RETIRÉE ══════════
+   *
+   * William, 18/09/2026 : « je pense que tu peux masquer la pastille d'appel… dans l'utilité, un
+   * commercial va cliquer sur un numéro de téléphone ou sur un bouton "Appeler", mais jamais ouvrir
+   * le téléphone pour composer un numéro. C'est donc inutile d'avoir cette pastille qui flotte. »
+   *
+   * IL DÉCRIT LE VRAI CHEMIN. Kimatch connaît déjà le numéro : il est sur la fiche contact, sur la
+   * carte du signataire, dans le hero d'une recommandation, au bout de chaque ligne de liste — et
+   * partout `appelerNumero()` ouvre ce volet avec le numéro DÉJÀ COMPOSÉ. La pastille servait le
+   * seul cas où l'on connaîtrait un numéro que Kimatch ignore, c'est-à-dire presque jamais.
+   *
+   * ELLE COÛTAIT PLUS QU'ELLE NE SERVAIT : deux pastilles flottantes imposaient une bande de 80 px
+   * réservée au bas de chaque page (`md:pb-20` sur le `<main>`), et c'est cette bande que William a
+   * signalée deux fois comme « l'écran est coupé en bas ». Les deux pastilles parties, la bande part
+   * avec elles et chaque page regagne sa hauteur.
+   *
+   * LE VOLET, LUI, EST INTACT. `ouvrirVoletAllo()` continue de l'ouvrir depuis n'importe quel numéro
+   * cliqué, avec sa session, son appel en cours et son repli. Ce qui disparaît est la porte d'entrée
+   * sans numéro, pas le téléphone. Remettre la pastille tient dans une ligne, plus bas.
+   */
   const pastille = (
     <button
       type="button"
@@ -591,7 +624,9 @@ export function VoletAllo() {
 
   return (
     <>
-      {!ouvert && pastille}
+      {/* LA PASTILLE NE S'AFFICHE PLUS (William, 18/09/2026) — voir le commentaire de `pastille`.
+          L'interrupteur repasse à `true` pour la faire revenir telle quelle. */}
+      {AFFICHER_LA_PASTILLE_D_APPEL && !ouvert && pastille}
 
       {/* ══ REPLIER NE DOIT RIEN INTERROMPRE — ET LE REPLI GLISSE, IL NE CACHE PAS ══
        *

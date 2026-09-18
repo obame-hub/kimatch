@@ -7,7 +7,9 @@ import { useSidebar } from '@/lib/layout'
 import { useIsAdmin, useMonProfil } from '@/lib/data/roles'
 import { useAuth } from '@/lib/auth'
 import { navItems, cycleNavItems, productionNavItems, cockpitNavItems, bottomNavItems } from '@/lib/navItems'
-import { PastilleNotifications } from '@/components/layout/PastilleNotifications'
+import { PanneauNotifications } from '@/components/layout/PanneauNotifications'
+import { useNotificationsNonLues } from '@/lib/data/notifications'
+import { Bell } from 'lucide-react'
 import type { NavItem } from '@/lib/navItems'
 import { getImpersonationInfo } from '@/lib/data/impersonation'
 import { PopupNouveautes } from '@/components/nouveautes/PopupNouveautes'
@@ -153,11 +155,70 @@ function BoutonNouveautes({
   )
 }
 
+/**
+ * ══════════ LES NOTIFICATIONS REVIENNENT DANS LE MENU ══════════
+ *
+ * William, 18/09/2026 : « la pastille notification doit être transformée en item du menu en dessous
+ * de Nouveautés, avec toujours des pastilles rouges informant des notifications non lues ».
+ *
+ * ══ ELLE EN ÉTAIT PARTIE LE 10/09, ET L'ARGUMENT D'ALORS NE TIENT PLUS ══
+ *
+ * Naoëlle avait demandé l'inverse : « pour notification j'aimerais que ce soit une petite cloche à
+ * côté du logo téléphone en bas à gauche et non dans le menu ». Son raisonnement était juste — le
+ * rail est une navigation, la cloche interrompt — mais il reposait sur un fait qui a disparu : la
+ * cloche AVAIT un voisin, la pastille d'appel, et les deux formaient une paire lisible.
+ *
+ * Cette paire n'existe plus. William fait retirer la pastille d'appel le 18/09 (« un commercial va
+ * cliquer sur un numéro de téléphone ou sur un bouton Appeler, mais jamais ouvrir le téléphone pour
+ * composer un numéro »), et une cloche seule au milieu d'une bande vide n'est plus une paire : c'est
+ * un bouton qui flotte, et la bande de 80 px réservée sous chaque page n'a plus rien à porter.
+ *
+ * ══ ROUGE, ET PAS VERT COMME LES NOUVEAUTÉS ══
+ *
+ * Les deux compteurs se touchent, donc ils doivent se distinguer. Une nouveauté non lue est une
+ * information : on la lit quand on veut. Une notification non lue attend un geste — c'est le mot
+ * même de William : « informant des notifications non lues ». Le vert dit « il y a du neuf », le
+ * rouge dit « quelque chose t'attend ». Sur le rail anthracite, les deux ressortent également.
+ *
+ * ELLE N'EMMÈNE NULLE PART, comme Nouveautés juste au-dessus : le rail dessine ces deux-là en
+ * boutons et non en liens, et le clic ouvre un volet. C'est déjà la règle de la ligne du dessus.
+ */
+function BoutonNotifications({ onOuvrir }: { onOuvrir: () => void }) {
+  const nonLues = useNotificationsNonLues()
+
+  return (
+    <button
+      type="button"
+      onClick={onOuvrir}
+      className={cn(LIGNE_RAIL, 'w-full text-left', LIGNE_RAIL_REPOS)}
+      aria-label={
+        nonLues.length > 0
+          ? `Notifications, ${nonLues.length} à traiter`
+          : 'Notifications, rien à traiter'
+      }
+    >
+      <span className="flex w-[17px] shrink-0 items-center justify-center">
+        <Bell className="h-4 w-4 text-km-side-faint" />
+      </span>
+      <span className="min-w-0 flex-1 truncate whitespace-nowrap">Notifications</span>
+      {nonLues.length > 0 && (
+        <span
+          className="flex h-[18px] min-w-[18px] shrink-0 items-center justify-center rounded-km-pill bg-km-red px-1 text-km-tiny font-bold tabular-nums text-white"
+          aria-hidden="true"
+        >
+          {nonLues.length > 9 ? '9+' : nonLues.length}
+        </span>
+      )}
+    </button>
+  )
+}
+
 export function Sidebar() {
   const { open, close } = useSidebar()
   const { signOut } = useAuth()
   const [menuProfil, setMenuProfil] = useState(false)
   const [popupNouveautes, setPopupNouveautes] = useState(false)
+  const [voletNotifications, setVoletNotifications] = useState(false)
   const isAdmin = useIsAdmin()
   const { session } = useAuth()
   const { data: profil } = useMonProfil()
@@ -315,6 +376,9 @@ export function Sidebar() {
               <SidebarLink key={item.to} {...item} onClick={close} />
             ),
           )}
+          {/* SOUS NOUVEAUTÉS, comme demandé — et c'est le bon voisinage : deux lignes qui n'emmènent
+              nulle part, qui ouvrent chacune un volet, et qui portent chacune son compte de non-lus. */}
+          <BoutonNotifications onOuvrir={() => { close(); setVoletNotifications(true) }} />
         </nav>
 
         {/* ══ LA DÉCONNEXION EST SOUS LE PROFIL ══
@@ -384,9 +448,7 @@ export function Sidebar() {
       </aside>
 
       <PopupNouveautes open={popupNouveautes} onClose={() => setPopupNouveautes(false)} />
-      {/* LA CLOCHE N'EST PLUS UNE LIGNE DE MENU — elle est posée à côté du téléphone, en bas à
-          gauche, et s'ouvre en volet à droite. Voir `PastilleNotifications`. */}
-      <PastilleNotifications />
+      <PanneauNotifications ouvert={voletNotifications} onFermer={() => setVoletNotifications(false)} />
     </>
   )
 }
