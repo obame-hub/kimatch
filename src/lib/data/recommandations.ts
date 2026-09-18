@@ -1965,6 +1965,21 @@ export function useUpdateVersionPartiel() {
  */
 export type ResultatCloture = 'EXPIREE' | 'REFUSEE'
 
+/**
+ * ══ PLUS AUCUN ÉCRAN N'APPELLE CETTE MUTATION DEPUIS LE 18/09/2026 ══
+ *
+ * Le bouton « Clôturer » de l'en-tête de version était son seul appelant. William l'a fait retirer :
+ * « inutile d'avoir le bouton Clôturer puisque le changement de statut permet de faire la même
+ * chose » — et depuis le matin même, le statut de version se pose d'un clic sur sa pastille.
+ *
+ * ELLE FAIT POURTANT UNE CHOSE DE PLUS que le changement de statut : elle enregistre un RÉSULTAT
+ * (expirée, refusée par le client) en même temps que le statut. Ce résultat n'était affiché nulle
+ * part, et le seul endroit où il est réellement renseigné est la création d'une nouvelle version,
+ * qui le pose elle-même sur celle qu'elle remplace — par un autre chemin que celui-ci.
+ *
+ * GARDÉE PLUTÔT QUE SUPPRIMÉE tant que ce résultat n'est pas tranché : le jour où on décidera de
+ * l'afficher, il faudra un geste qui le demande, et ce sera celui-ci.
+ */
 export function useCloturerVersion() {
   const queryClient = useQueryClient()
   return useMutation({

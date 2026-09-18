@@ -53,6 +53,21 @@ export interface Jalon {
   /** Sous la date : l'heure, et ce qui s'est passé. */
   contexte: string | null
   /**
+   * ══ UNE PRÉCISION QUI TIENT SUR LA LIGNE DU LIBELLÉ ══
+   *
+   * William, 18/09/2026, sur le chemin d'une recommandation : « indique la proposition format "V3"
+   * par exemple À CÔTÉ de "Proposée" et non pas en dessous. En conclusion, je veux au maximum
+   * 2 lignes et non pas 3. »
+   *
+   * La frise n'avait que deux emplacements : le libellé, et la ligne de date où le contexte vient
+   * se coller après un point médian. Y mettre « V3 » allongeait cette ligne jusqu'au repli, et la
+   * troisième ligne apparaissait — celle qu'il ne veut pas.
+   *
+   * Le marqueur est donc une TROISIÈME place, sur la ligne du libellé et non sous elle : une
+   * pastille discrète qui répond à « laquelle ? » sans coûter de hauteur. Absent, rien ne change.
+   */
+  marqueur?: string | null
+  /**
    * ══ UN JALON QUI SE CLIQUE ══
    *
    * Absent partout sauf sur la piste, et c'est voulu : un jalon de mandat CONSTATE ce que DocuSign a
@@ -233,6 +248,23 @@ export function FriseJalons({ jalons, compact }: {
               }}
             >
               {jalon.libelle}
+              {jalon.marqueur && (
+                <span
+                  style={{
+                    marginLeft: 5,
+                    fontSize: 9.5,
+                    fontWeight: 800,
+                    letterSpacing: '.02em',
+                    padding: '1px 5px',
+                    borderRadius: 999,
+                    verticalAlign: 'middle',
+                    background: jalon.franchi ? 'rgba(181,122,36,.12)' : '#f0efec',
+                    color: jalon.franchi ? jalon.couleur ?? '#8a5f22' : '#c0c2bd',
+                  }}
+                >
+                  {jalon.marqueur}
+                </span>
+              )}
             </div>
             {/* EN COMPACT, LES DEUX LIGNES N'EN FONT QU'UNE : « 16/09/2026 · 14:32 ». Le point
                 médian est le même séparateur que celui qui joint déjà l'heure et son complément à

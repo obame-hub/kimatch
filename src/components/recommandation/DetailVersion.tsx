@@ -1,12 +1,9 @@
-import { useState } from 'react'
 import { Lock, Trash2, ExternalLink, ChevronDown } from 'lucide-react'
 import {
   STATUT_CONSULTATION_PAR_DEFAUT,
-  useCloturerVersion,
   useMajDateSouhaitee,
   useMajStatutVersion,
   libelleOffre,
-  type ResultatCloture,
 } from '@/lib/data/recommandations'
 import { InlineField } from '@/components/ui/inline-field'
 import { OffresDuFournisseur } from '@/components/recommandation/OffresDuFournisseur'
@@ -166,37 +163,8 @@ export function DetailVersion({
   const majStatut = useMajStatutVersion()
   const majDateSouhaitee = useMajDateSouhaitee()
 
-  /* ══ CLÔTURER CETTE VERSION ══
-     William, 15/09/2026 : « possibilité de supprimer ou clôturer une version. Dans ce cas, elle ne
-     doit plus apparaître dans les offres à recevoir ou en retard. »
-
-     LE GESTE EXISTAIT SANS LE MOT : on pouvait déjà poser « Clôturée » par le menu « Corriger le
-     statut » — un outil de rattrapage d'import, qui ne dit pas qu'il sert aussi à ranger un dossier
-     mort, et qui n'enregistre aucun motif. 34 versions traînent aujourd'hui dans « en retard », la
-     plus ancienne depuis six mois, faute d'un bouton qui le dise.
-
-     LE CHOIX DU RÉSULTAT SE FAIT SUR PLACE, pas dans une fenêtre : deux boutons, une phrase. Une
-     modale pour deux mots interromprait la lecture de la version qu'on est en train de juger. */
-  const cloturer = useCloturerVersion()
-  const [clotureOuverte, setClotureOuverte] = useState(false)
   const estClose = version.statut === 'CLOTUREE'
 
-  /**
-   * ══════════ « TOUT EST LÀ — ON PASSE EN DISPONIBLE ? » ══════════
-   *
-   * William, 18/09/2026 : « c'est la version qui est "Disponible" une fois que toutes les offres
-   * sont reçues ».
-   *
-   * IL A DEMANDÉ QUE CE SOIT PROPOSÉ, PAS IMPOSÉ — sa réponse à la question posée le même jour. Le
-   * basculement automatique aurait été plus simple à écrire et faux : une version peut n'attendre
-   * que deux fournisseurs sur cinq, les trois autres ayant refusé, et c'est Erwan qui sait si la
-   * consultation est finie. Kimatch constate, Erwan décide.
-   *
-   * CE QUI COMPTE COMME « FINI » : plus aucun fournisseur en attente. Un refus est une réponse — il
-   * libère de l'attente au même titre qu'une proposition reçue, sinon un seul fournisseur muet
-   * empêcherait à jamais l'invite d'apparaître. Mais il faut au moins une proposition : une version
-   * dont tous les fournisseurs ont refusé n'a rien à rendre disponible.
-   */
   /**
    * Le délai jusqu'à la livraison souhaitée, dit en français.
    *
@@ -217,21 +185,27 @@ export function DetailVersion({
     return `en retard de ${-jours} jours`
   })()
 
+  /**
+   * ══════════ « TOUT EST LÀ — ON PASSE EN DISPONIBLE ? » ══════════
+   *
+   * William, 18/09/2026 : « c'est la version qui est "Disponible" une fois que toutes les offres
+   * sont reçues ».
+   *
+   * IL A DEMANDÉ QUE CE SOIT PROPOSÉ, PAS IMPOSÉ — sa réponse à la question posée le même jour. Le
+   * basculement automatique aurait été plus simple à écrire et faux : une version peut n'attendre
+   * que deux fournisseurs sur cinq, les trois autres ayant refusé, et c'est Erwan qui sait si la
+   * consultation est finie. Kimatch constate, Erwan décide.
+   *
+   * CE QUI COMPTE COMME « FINI » : plus aucun fournisseur en attente. Un refus est une réponse — il
+   * libère de l'attente au même titre qu'une proposition reçue, sinon un seul fournisseur muet
+   * empêcherait à jamais l'invite d'apparaître. Mais il faut au moins une proposition : une version
+   * dont tous les fournisseurs ont refusé n'a rien à rendre disponible.
+   */
   const consultes = version.optimisations.flatMap((o) => o.fournisseurs_consultes)
   const enAttente = consultes.filter((fc) => fc.statut_code !== 'DISPONIBLE' && fc.statut_code !== 'REFUSEE')
   const recues = consultes.filter((fc) => fc.statut_code === 'DISPONIBLE')
   const proposerDisponible =
     peutModifier && version.statut === 'EN_CONSTRUCTION' && enAttente.length === 0 && recues.length > 0
-
-  const cloturerAvec = async (resultat: ResultatCloture, libelle: string) => {
-    try {
-      await cloturer.mutateAsync({ versionId: version.id, resultat })
-      setClotureOuverte(false)
-      signaler(`✓ Version clôturée — ${libelle}`)
-    } catch (e) {
-      signaler(`Erreur : ${e instanceof Error ? e.message : String(e)}`)
-    }
-  }
 
   const changerStatutVersion = async (code: string) => {
     const cible = statutsVersions.find((st) => st.code === code)
@@ -263,7 +237,19 @@ export function DetailVersion({
           « Actuelle » en double du mot « active », l'icône de calendrier — nommait le bloc au lieu
           de renseigner. Un en-tête qui commence par dire ce qu'il est prend la place de ce qu'il dit.
           ══════════════════════════════════════════════════════════════════════════════════════ */}
-      <div className="flex flex-wrap items-center gap-2.5 border-b border-km-line-soft px-[17px] py-3">
+      {/* ══ UN FOND POUR DÉTACHER L'EN-TÊTE DU RESTE DE LA FICHE ══
+          William, 18/09/2026 : « j'ajouterai un fond à l'en-tête du bloc version afin qu'il se
+          dissocie bien du reste de la fiche ».
+
+          LA FICHE EST DEVENUE UNE SUITE DE CARTES BLANCHES sur fond clair — le chemin, le hero, la
+          version. Toutes de la même matière, elles se lisaient comme une seule surface, et l'en-tête
+          de la version ne signalait plus qu'on entrait dans autre chose.
+
+          LE FOND VA D'UN GRIS À DU BLANC, pas d'un gris plein : un aplat aurait pesé autant que la
+          grille des fournisseurs qu'il annonce. Le dégradé donne un bord franc en haut, là où la
+          carte commence, et se dissout vers le bas, là où le contenu prend la main. Le filet
+          inférieur ferme la bande. */}
+      <div className="flex flex-wrap items-center gap-2.5 rounded-t-[13px] border-b border-km-line bg-gradient-to-b from-km-soft to-white px-[17px] py-3">
         <span className="rounded-km-pill bg-km-amber-soft px-2 py-[2px] text-km-label font-extrabold text-[#8a4b2a]">
           Version {version.numero_version ?? ''}
         </span>
@@ -371,19 +357,26 @@ export function DetailVersion({
           {delaiLivraison && <span className="whitespace-nowrap">· {delaiLivraison}</span>}
         </span>
 
-        {/* CLÔTURER PLUTÔT QUE SUPPRIMER, et c'est pour ça qu'il est AVANT la corbeille : dans la
-            plupart des cas on veut sortir la version du travail, pas effacer les offres reçues et
-            le travail du fournisseur. Le geste destructeur reste au bout, en dernier recours. */}
-        {peutModifier && !estClose && (
-          <button
-            type="button"
-            onClick={() => setClotureOuverte((ouvert: boolean) => !ouvert)}
-            title="Clôturer cette version : elle quitte les offres à recevoir et les retards"
-            className="rounded-km-sm px-1.5 py-0.5 text-km-label font-bold text-km-faint transition-colors hover:bg-km-soft hover:text-km-muted"
-          >
-            Clôturer
-          </button>
-        )}
+        {/* ══ LE BOUTON « CLÔTURER » EST RETIRÉ (William, 18/09/2026) ══
+
+            « Inutile d'avoir le bouton Clôturer puisque le changement de statut permet de faire la
+            même chose. »
+
+            IL A RAISON DEPUIS CE MATIN, ET PAS AVANT. Quand ce bouton est né le 15/09/2026, le
+            statut de version ne s'atteignait que par un menu « Corriger le statut » — un outil de
+            rattrapage d'import, écrit en gris, qui ne disait pas qu'il servait aussi à ranger une
+            version morte. Le bouton était la seule porte qui le disait.
+
+            Le statut est devenu la pastille de l'en-tête, en couleur et en un clic : poser
+            « Clôturée » se voit et se fait au même endroit que les deux autres statuts. Deux gestes
+            pour un même changement, c'est un de trop — et c'est l'argument que Naoëlle avait déjà
+            opposé à « Étape suivante » le 31/08/2026.
+
+            CE QU'ON PERD, ET POURQUOI C'EST ACCEPTABLE : `useCloturerVersion` enregistrait un
+            RÉSULTAT (expirée, remplacée) que le simple changement de statut ne pose pas. Ce résultat
+            n'était affiché nulle part, et la création d'une nouvelle version continue de le poser
+            elle-même sur la version qu'elle remplace — le seul chemin par lequel il était vraiment
+            renseigné. */}
         {/* Supprimer une version créée par erreur (demande de la réunion du 17/08/2026). Discret et
             à droite : c'est un geste de rattrapage, pas une action courante. */}
         {peutModifier && (
@@ -413,44 +406,6 @@ export function DetailVersion({
           >
             Passer en Disponible
           </button>
-        </div>
-      )}
-
-      {clotureOuverte && !estClose && (
-        <div className="animate-km-fade-slide border-b border-km-line-soft bg-km-amber-soft px-[17px] py-3">
-          <p className="text-km-body text-km-text">
-            Cette version quittera les offres à recevoir, les retards et le Pricing.{' '}
-            <span className="text-km-muted">Les offres déjà reçues sont conservées.</span>
-          </p>
-          <div className="mt-2 flex flex-wrap items-center gap-2">
-            {/* DEUX RÉSULTATS, PAS TROIS. « Acceptée » passe par la clôture du DOSSIER, qui pose
-                aussi la date et le montant : l'offrir ici donnerait deux chemins pour gagner une
-                affaire, dont un qui oublierait la moitié des écritures. */}
-            <button
-              type="button"
-              disabled={cloturer.isPending}
-              onClick={() => cloturerAvec('EXPIREE', 'abandonnée')}
-              className="rounded-km-sm border border-km-line bg-white px-2.5 py-1 text-km-body font-semibold text-km-text hover:bg-km-bg disabled:opacity-60"
-            >
-              Abandonnée
-            </button>
-            <button
-              type="button"
-              disabled={cloturer.isPending}
-              onClick={() => cloturerAvec('REFUSEE', 'refusée par le client')}
-              className="rounded-km-sm border border-km-line bg-white px-2.5 py-1 text-km-body font-semibold text-km-text hover:bg-km-bg disabled:opacity-60"
-            >
-              Refusée par le client
-            </button>
-            <button
-              type="button"
-              onClick={() => setClotureOuverte(false)}
-              className="text-km-label font-semibold text-km-muted hover:underline"
-            >
-              Annuler
-            </button>
-            {cloturer.isPending && <span className="text-km-label text-km-muted">Clôture…</span>}
-          </div>
         </div>
       )}
 

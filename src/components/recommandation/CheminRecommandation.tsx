@@ -68,11 +68,25 @@ export function CheminRecommandation({ reco }: { reco: Recommandation }) {
 
   /* La présentation au client, prise sur la version actuelle puis, à défaut, sur n'importe laquelle :
      un dossier dont la version présentée a été remplacée est TOUT DE MÊME passé par là. */
-  const versionActuelle = reco.versions.find((v) => v.version_actuelle) ?? null
-  const datePresentation =
-    versionActuelle?.date_presentation_client
-    ?? reco.versions.map((v) => v.date_presentation_client).filter(Boolean).sort()[0]
-    ?? null
+  /**
+   * ══ QUELLE VERSION EST PARTIE CHEZ LE CLIENT ══
+   *
+   * William, 18/09/2026 : « à côté du statut proposé, indique la version qui a été proposée (donc la
+   * dernière version envoyée) ».
+   *
+   * C'EST LA QUESTION QUE LE JALON LAISSAIT OUVERTE. « Proposée le 16/09 » sur un dossier à trois
+   * versions ne dit pas laquelle : celle qu'on a sous les yeux, ou une précédente remplacée depuis ?
+   * L'écart change tout — si la version affichée n'est pas celle qui est partie, le client répondra
+   * sur autre chose que ce qu'on regarde.
+   *
+   * ON PREND LA DERNIÈRE ENVOYÉE, pas la version actuelle : une version présentée puis remplacée
+   * reste ce que le client a reçu. Le tri se fait sur la date de présentation — c'est l'ordre des
+   * envois, et il ne suit pas toujours le numéro de version.
+   */
+  const derniereProposee = reco.versions
+    .filter((v) => v.date_presentation_client)
+    .sort((a, b) => String(b.date_presentation_client).localeCompare(String(a.date_presentation_client)))[0] ?? null
+  const datePresentation = derniereProposee?.date_presentation_client ?? null
 
   const issue = finalite ? FINALITES_RECOMMANDATION[finalite] : null
 
@@ -83,7 +97,11 @@ export function CheminRecommandation({ reco }: { reco: Recommandation }) {
       picto: PictoBrouillon,
       franchi: true,
       date: reco.date_creation,
-      contexte: contexteDe(reco.date_creation, reco.conseiller || null),
+      /* L'AUTEUR N'EST PLUS ÉCRIT ICI. William, 18/09/2026 : « inutile de noter qui a créé, ça prend
+         de la place verticalement pour rien ». Il a raison sur les deux termes : le nom pousse la
+         ligne de contexte sur deux hauteurs quand il est long, et il ne décide de rien — le
+         propriétaire du dossier se lit dans le bandeau, et l'historique dit qui a fait quoi. */
+      contexte: contexteDe(reco.date_creation),
     },
     {
       cle: 'consultation',
@@ -91,16 +109,21 @@ export function CheminRecommandation({ reco }: { reco: Recommandation }) {
       picto: PictoLoupe,
       franchi: reco.versions.length > 0,
       date: premiereVersion?.date_creation ?? null,
-      contexte: contexteDe(
-        premiereVersion?.date_creation,
-        reco.versions.length > 1 ? `${reco.versions.length} versions` : null,
-      ),
+      /* LE NOMBRE DE VERSIONS N'EST PLUS ÉCRIT (William, 18/09/2026). Il allongeait la ligne de date
+         jusqu'au repli — donc une troisième ligne — pour un chiffre qui ne dit rien du chemin : on
+         ne travaille jamais sur « trois versions », on travaille sur la dernière. */
+      contexte: contexteDe(premiereVersion?.date_creation),
     },
     {
       cle: 'proposee',
       libelle: 'Proposée',
       picto: PictoEnveloppe,
       franchi: datePresentation != null,
+      /* « À CÔTÉ de Proposée et non pas en dessous » (William, 18/09/2026) : la version part sur la
+         ligne du libellé, où elle ne coûte pas de hauteur. Voir `marqueur` dans `FriseJalons`. */
+      marqueur: derniereProposee
+        ? (derniereProposee.numero_version != null ? `V${derniereProposee.numero_version}` : derniereProposee.nom)
+        : null,
       date: datePresentation,
       contexte: contexteDe(datePresentation),
     },
@@ -111,9 +134,11 @@ export function CheminRecommandation({ reco }: { reco: Recommandation }) {
       franchi: estClose,
       couleur: issue?.couleur,
       date: estClose ? (reco.date_cloture ?? null) : null,
-      /* LE MOTIF EST OBLIGATOIRE À LA SAISIE depuis le 16/08/2026, mais NULL sur les dossiers clos
-         avant. On l'affiche s'il existe, tronqué par la frise, et rien sinon. */
-      contexte: estClose ? contexteDe(reco.date_cloture, reco.motif_cloture ?? null) : null,
+      /* LE MOTIF NE S'ÉCRIT PLUS ICI. Obligatoire à la saisie depuis le 16/08/2026, il fait souvent
+         une phrase entière — collé à la ligne de date, il la faisait déborder sur une troisième
+         ligne, celle que William ne veut pas. Il reste entier dans la carte de clôture, plus bas
+         sur la fiche, où il a la largeur pour se lire. */
+      contexte: estClose ? contexteDe(reco.date_cloture) : null,
     },
   ]
 
