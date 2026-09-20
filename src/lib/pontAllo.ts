@@ -143,6 +143,27 @@
  * maintenant » qui réinitialise, et « ajouter à ma file » qui se contente d'ajouter.
  *
  * IL FAUT UNE CLÉ API Allo portant le droit `DIALING_QUEUE_READ_WRITE`, en en-tête `Authorization`.
+ *
+ * ══ ET RACCROCHER ? NON, ET CE N'EST PAS UN OUBLI ══
+ *
+ * Question de Naoëlle, 20/09/2026. Les trois chemins ont été regardés, aucun ne le permet :
+ *
+ *   · l'API publique n'a aucun point d'entrée de raccrochage sur ses 64 chemins ;
+ *   · leur API interne non plus — les seules actions sur un appel EN COURS sont
+ *     `/v1/call/{n}/whisper`, `/v1/call/conference/add-call`, `/v1/call/conference/merge-calls`,
+ *     `/v1/call/hold-music` et `/v1/call/ongoing/tag`. Chuchoter, mettre en conférence, poser une
+ *     musique, étiqueter. Pas raccrocher ;
+ *   · le SDK HubSpot a bien `END_CALL`, mais `on("endCall")` compte zéro abonné : c'est le chemin
+ *     mort déjà constaté.
+ *
+ * La raison est structurelle et non un manque : l'appel est une session WebRTC entre l'appareil du
+ * conseiller et leur infrastructure. Raccrocher est une action LOCALE sur cette session ; un
+ * serveur tiers n'a rien à couper. Les 143 « hangup » de leur paquet sont des noms de composants,
+ * des événements de mesure et des libellés de statistiques — jamais une requête.
+ *
+ * Allo l'a d'ailleurs écrit : « le raccrochage se fait depuis Allo ». Sur ce point précis, leur
+ * réponse est exacte. À noter tout de même : le volet reste DANS Kimatch, donc on raccroche sans
+ * changer d'écran — simplement par leur bouton et non par le nôtre.
  * ════════════════════════════════════════════════════════════════════════════════════════════════
  */
 
