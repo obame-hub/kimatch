@@ -1,4 +1,5 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node'
+import { cleService } from '../_cleService.js'
 import { createClient, type SupabaseClient } from '@supabase/supabase-js'
 
 // Rafraichit la sandbox avec les dernieres donnees de prod -- declenche depuis l'admin de la
@@ -158,7 +159,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
   const ownUrl = process.env.VITE_SUPABASE_URL
   const ownAnonKey = process.env.VITE_SUPABASE_ANON_KEY
-  const ownServiceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY
+  /* NOTRE clé bascule sur la nouvelle génération ; celle du bac à sable reste la sienne — ce
+     sont deux bases différentes, et les confondre écrirait dans la mauvaise. */
+  const ownServiceRoleKey = cleService()
   const sandboxUrl = process.env.SANDBOX_SUPABASE_URL
   const sandboxServiceRoleKey = process.env.SANDBOX_SUPABASE_SERVICE_ROLE_KEY
   if (!ownUrl || !ownAnonKey || !ownServiceRoleKey || !sandboxUrl || !sandboxServiceRoleKey) {

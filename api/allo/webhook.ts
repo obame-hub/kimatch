@@ -1,4 +1,5 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node'
+import { cleService } from '../_cleService.js'
 import { createClient } from '@supabase/supabase-js'
 /* L'EXTENSION `.js` EST OBLIGATOIRE : le projet est en `"type": "module"`, et Node resout les
    imports relatifs en ESM strict. Son absence a coupe DocuSign pendant des heures -- la fonction ne
@@ -111,8 +112,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
   const secret = process.env.ALLO_WEBHOOK_SECRET
   const url = process.env.VITE_SUPABASE_URL
-  const cleService = process.env.SUPABASE_SERVICE_ROLE_KEY
-  if (!secret || !url || !cleService) {
+  const cle = cleService()
+  if (!secret || !url || !cle) {
     // 500 ET NON 200 : Allo réessaiera, et une configuration manquante ne doit pas faire perdre des
     // appels en silence pendant qu'on s'en aperçoit.
     res.status(500).json({ error: 'Webhook Allo non configuré côté serveur' })
@@ -135,7 +136,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
   const topic = enveloppe.topic ?? ''
   const d = enveloppe.data ?? {}
-  const admin = createClient(url, cleService, { auth: { persistSession: false } })
+  const admin = createClient(url, cle, { auth: { persistSession: false } })
 
   // ── LA DÉDUPLICATION, AVANT TOUT TRAITEMENT ─────────────────────────────────────────────────
   //

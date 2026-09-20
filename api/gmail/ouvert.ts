@@ -1,4 +1,5 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node'
+import { cleService } from '../_cleService.js'
 import { createClient } from '@supabase/supabase-js'
 
 /**
@@ -65,7 +66,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     if (!EST_UUID.test(jeton)) return
 
     const url = process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL
-    const cle = process.env.SUPABASE_SERVICE_ROLE_KEY
+    const cle = cleService()
     if (!url || !cle) return
     const admin = createClient(url, cle, { auth: { persistSession: false } })
 

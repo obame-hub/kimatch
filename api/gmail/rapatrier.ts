@@ -1,4 +1,5 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node'
+import { cleService } from '../_cleService.js'
 import { createClient } from '@supabase/supabase-js'
 import { refreshAccessToken, lireFilGmail, ErreurLectureGmail } from './_client.js'
 import { traduireQuelquesFils } from './_fils.js'
@@ -38,8 +39,8 @@ const FILS_PAR_PASSAGE = 200
 
 function clientService() {
   const url = process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL
-  const cle = process.env.SUPABASE_SERVICE_ROLE_KEY
-  if (!url || !cle) throw new Error('SUPABASE_URL / SUPABASE_SERVICE_ROLE_KEY non configurées')
+  const cle = cleService()
+  if (!url || !cle) throw new Error('SUPABASE_URL / SUPABASE_SECRET_KEY non configurées')
   return createClient(url, cle, { auth: { persistSession: false } })
 }
 

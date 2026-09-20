@@ -282,11 +282,11 @@ function nomSur(nom) {
 const court = (id) => (id ?? '').slice(0, 15)
 
 async function main() {
-  const service = env('SUPABASE_SERVICE_ROLE_KEY')
+  const service = env('SUPABASE_SECRET_KEY') || env('SUPABASE_SERVICE_ROLE_KEY')
   const urlSupabase = env('VITE_SUPABASE_URL') || env('SUPABASE_URL')
   if (!service && !SIMULATION) {
     console.error('')
-    console.error('SUPABASE_SERVICE_ROLE_KEY manque dans .env.local.')
+    console.error('SUPABASE_SECRET_KEY (ou SUPABASE_SERVICE_ROLE_KEY) manque dans .env.local.')
     console.error('Le bucket `documents` n’accepte le dépôt que d’un utilisateur authentifié')
     console.error('(politique `documents_authenticated_insert`), ce qu’un script n’est pas.')
     console.error('À prendre dans Supabase → Project Settings → API → service_role.')

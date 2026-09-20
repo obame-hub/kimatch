@@ -1,4 +1,5 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node'
+import { cleService } from '../_cleService.js'
 import { randomUUID } from 'node:crypto'
 import { createClient } from '@supabase/supabase-js'
 import { refreshAccessToken, sendGmailMessage } from './_client.js'
@@ -102,7 +103,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
   const supabaseUrl = process.env.VITE_SUPABASE_URL
   const supabaseAnonKey = process.env.VITE_SUPABASE_ANON_KEY
-  const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY
+  const serviceRoleKey = cleService()
   if (!supabaseUrl || !supabaseAnonKey || !serviceRoleKey) {
     res.status(500).json({ error: 'Supabase non configuré côté serveur' })
     return

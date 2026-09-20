@@ -1,4 +1,5 @@
 import { createHmac, timingSafeEqual } from 'crypto'
+import { cleService } from '../_cleService.js'
 import { createClient, type SupabaseClient } from '@supabase/supabase-js'
 
 /**
@@ -185,7 +186,11 @@ export async function lireIdentite(accessToken: string): Promise<IdentiteDocusig
  *  accessible que par le serveur. */
 export function clientService(): SupabaseClient {
   const url = requireEnv('VITE_SUPABASE_URL')
-  const cle = requireEnv('SUPABASE_SERVICE_ROLE_KEY')
+  /* LA NOUVELLE CLÉ D'ABORD, l'ancienne en secours — voir `api/_cleService.ts`. `requireEnv` ne
+     prend qu'un nom, et lui en apprendre deux pour ce seul appel compliquerait une fonction que
+     tout le dossier utilise. */
+  const cle = cleService()
+  if (!cle) throw new Error('SUPABASE_SECRET_KEY ou SUPABASE_SERVICE_ROLE_KEY non configurée')
   return createClient(url, cle)
 }
 

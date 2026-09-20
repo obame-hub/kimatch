@@ -1,4 +1,5 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node'
+import { cleService } from '../_cleService.js'
 import { createClient } from '@supabase/supabase-js'
 import { poserDansLaFileDAppel } from './_client.js'
 
@@ -94,8 +95,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
    * `fn_email_allo` rend donc `profils.email_allo` s'il existe, `profils.email` sinon. La lecture se
    * fait avec la clé de service, parce que la colonne dit vers quel compte tiers on écrit — ce n'est
    * pas une donnée qu'un utilisateur doit pouvoir choisir dans sa requête. */
-  const adminSupabase = process.env.SUPABASE_SERVICE_ROLE_KEY
-    ? createClient(supabaseUrl, process.env.SUPABASE_SERVICE_ROLE_KEY, { auth: { persistSession: false } })
+  const cleAdmin = cleService()
+  const adminSupabase = cleAdmin
+    ? createClient(supabaseUrl, cleAdmin, { auth: { persistSession: false } })
     : null
   let emailAllo = userData.user.email
   if (adminSupabase) {

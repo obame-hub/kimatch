@@ -1,4 +1,5 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node'
+import { cleService } from '../_cleService.js'
 import { createClient, type SupabaseClient } from '@supabase/supabase-js'
 
 /**
@@ -155,7 +156,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   }
 
   const url = process.env.VITE_SUPABASE_URL
-  const cle = process.env.SUPABASE_SERVICE_ROLE_KEY
+  const cle = cleService()
   if (!url || !cle) {
     res.status(500).json({ error: 'Supabase (service role) non configuré côté serveur' })
     return

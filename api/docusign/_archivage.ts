@@ -1,4 +1,5 @@
 import { createClient, type SupabaseClient } from '@supabase/supabase-js'
+import { cleService } from '../_cleService.js'
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type Admin = SupabaseClient<any, any, any, any, any>
@@ -34,7 +35,7 @@ export const NOM_ENVOYE = 'Mandat envoyé'
  */
 export function clientAdmin(): Admin | null {
   const url = process.env.VITE_SUPABASE_URL
-  const cle = process.env.SUPABASE_SERVICE_ROLE_KEY
+  const cle = cleService()
   if (!url || !cle) return null
   return createClient(url, cle)
 }

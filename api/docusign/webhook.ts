@@ -1,4 +1,5 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node'
+import { cleService } from '../_cleService.js'
 /* L'EXTENSION `.js` EST OBLIGATOIRE ICI, et son absence a coupé DocuSign.
  *
  * Le projet est en `"type": "module"` : Node résout les imports relatifs en ESM strict, où un chemin
@@ -162,7 +163,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   }
 
   const supabaseUrl = process.env.VITE_SUPABASE_URL
-  const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY
+  const serviceRoleKey = cleService()
   if (!supabaseUrl || !serviceRoleKey) {
     res.status(500).json({ error: 'Supabase (service role) non configuré côté serveur' })
     return

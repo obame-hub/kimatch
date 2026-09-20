@@ -1,4 +1,5 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node'
+import { cleService } from '../_cleService.js'
 import { createClient } from '@supabase/supabase-js'
 import { exchangeCodeForTokens, getGoogleUserEmail, decodeState } from './_client.js'
 
@@ -27,7 +28,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     const email = await getGoogleUserEmail(tokens.access_token)
 
     const supabaseUrl = process.env.VITE_SUPABASE_URL
-    const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY
+    const serviceRoleKey = cleService()
     if (!supabaseUrl || !serviceRoleKey) throw new Error('Supabase service role non configuré')
     const supabase = createClient(supabaseUrl, serviceRoleKey)
 
