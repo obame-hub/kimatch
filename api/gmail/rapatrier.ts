@@ -99,11 +99,16 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
     /* LES FILS DE CETTE PERSONNE, ET D'ELLE SEULE. Deux commerciaux peuvent écrire au même client ;
        chacun ne peut lire que les conversations parties de SA boîte, et son jeton ne donnerait
-       rien sur celles de l'autre. */
+       rien sur celles de l'autre.
+
+       AUTEUR OU PROPRIÉTAIRE, depuis le 20/09/2026. Les fils repris de Salesforce qui n'ont aucun
+       auteur ne seraient relus par personne : `_fils.ts` pose donc le propriétaire sur ceux qu'il
+       retrouve, et c'est ce rattachement-là qui les fait entrer ici. Sans cette seconde branche,
+       les traduire n'aurait servi à rien. */
     const { data: fils } = await admin
       .from('interactions')
       .select('fil_discussion, piste_id, contact_id, compte_id')
-      .eq('auteur_profil_id', jeton.profil_id)
+      .or(`auteur_profil_id.eq.${jeton.profil_id},proprietaire_id.eq.${jeton.profil_id}`)
       .not('fil_discussion', 'is', null)
       /* ══ SEULS LES FILS GMAIL, ET C'EST UN PIÈGE QU'IL A FALLU VOIR ══
          `fil_discussion` porte deux choses de forme différente. Les 1 593 mails repris de
