@@ -53,6 +53,28 @@
  * C'EST LA DEMANDE PRÉCISE À LEUR FAIRE : « votre application web embarque le calling-extensions-sdk
  * et accepte le SYNC, mais rien n'écoute onDialNumber ni onEndCall. Pouvez-vous le finir ? » Le jour
  * où ils branchent ces deux événements, `composer` et `raccrocher` reviennent en dix lignes.
+ *
+ * ══ REVÉRIFIÉ LE 20/09/2026, APRÈS LEUR RÉPONSE ══
+ *
+ * Allo répond : « nous utilisons que les évènements nécessaires pour lancer l'appel dans Allo, le
+ * raccrochage se fait depuis Allo. Nous n'avons pas besoin d'intégrer d'autres évènements, ça
+ * marche parfaitement comme ça. »
+ *
+ * Leur paquet a changé depuis — `index-MhbreOCW.js` remplace `index-DzKTdSAs.js` — donc le constat
+ * a été refait sur le code en ligne ce jour-là, et il est inchangé. Compté dans le nouveau paquet :
+ *
+ *   `on("ready"`      → 1 abonné
+ *   `on("dialNumber"` → 0
+ *   `on("endCall"`    → 0
+ *
+ * C'est la mesure qui tranche, et elle ne dépend d'aucune interprétation : leur mécanisme
+ * d'abonnement existe et sert pour `ready`. Ces deux événements-là partent donc bien dans le vide.
+ * `dialNumber` n'apparaît toujours que deux fois dans tout le paquet, les deux comme ÉMETTEUR — le
+ * handler HubSpot, et un second dans leur connecteur Salesforce.
+ *
+ * Leur réponse décrit sans doute l'usage inverse, où l'appel part d'Allo et l'information descend
+ * vers le CRM : celui-là marche, et c'est ce qu'on reçoit déjà. Ce qui manque est le sens CRM →
+ * téléphone, qui est précisément ce que `DIAL_NUMBER` sert à faire.
  * ════════════════════════════════════════════════════════════════════════════════════════════════
  */
 
