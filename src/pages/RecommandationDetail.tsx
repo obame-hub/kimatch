@@ -56,6 +56,7 @@ import { useObjectifsRecommandation } from '@/lib/data/objectifsClient'
 import { useReferenceTable } from '@/lib/data/referenceTables'
 import { useContactsParCompte } from '@/lib/data/contacts'
 import { useCompte, useComptesRattachables } from '@/lib/data/comptes'
+import { ChoixParRecherche } from '@/components/ui/choix-recherche'
 import { useCompteurs } from '@/lib/data/compteurs'
 import { useInteractionsParRecommandation } from '@/lib/data/interactions'
 import { useActionsParRecommandation } from '@/lib/data/actions'
@@ -178,6 +179,10 @@ export default function RecommandationDetail() {
   /* La liste des fournisseurs, pour dire chez qui le client est parti quand on le suit malgre une
      cloture perdue. Le hook rend aussi les partenaires : on filtre a l affichage. */
   const { data: comptesRattachables } = useComptesRattachables()
+  const fournisseurs = useMemo(
+    () => (comptesRattachables ?? []).filter((c) => c.type_compte === 'fournisseur'),
+    [comptesRattachables],
+  )
 
   const [onglet, setOnglet] = useState<CleOnglet>('reco')
   const [versionAfficheeId, setVersionAfficheeId] = useState<string | null>(null)
@@ -1214,23 +1219,26 @@ export default function RecommandationDetail() {
                                 className="rounded-km border border-km-line bg-white px-2.5 py-1.5 font-mono text-km-name text-km-text outline-none focus:ring-1 focus:ring-km-green"
                               />
                             </div>
-                            <div className="min-w-[200px] flex-1">
-                              <label className="mb-1 block text-km-label font-bold uppercase tracking-wide text-km-faint" htmlFor="suivi-fournisseur">
+                            <div className="min-w-[220px] flex-1">
+                              <label className="mb-1 block text-km-label font-bold uppercase tracking-wide text-km-faint">
                                 Nouveau fournisseur
                               </label>
-                              <select
-                                id="suivi-fournisseur"
-                                value={nouveauFournisseurBrouillon}
-                                onChange={(e) => setNouveauFournisseurBrouillon(e.target.value)}
-                                className="w-full rounded-km border border-km-line bg-white px-2.5 py-1.5 text-km-name text-km-text outline-none focus:ring-1 focus:ring-km-green"
-                              >
-                                <option value="">— inchangé —</option>
-                                {(comptesRattachables ?? [])
-                                  .filter((c) => c.type_compte === 'fournisseur')
-                                  .map((c) => (
-                                    <option key={c.id} value={c.id}>{c.nom}</option>
-                                  ))}
-                              </select>
+                              {/* PAS DE LISTE DÉROULANTE. Naoëlle, 21/08/2026 puis 20/09/2026 :
+                                  « c'est encore une liste de sélection déroulante ». Cinquante-deux
+                                  fournisseurs dans un `<select>` natif ouvrent un panneau qui
+                                  déborde l'écran, sans recherche possible. `ChoixParRecherche` est
+                                  le motif déjà en place partout ailleurs — on le réemploie plutôt
+                                  que d'en inventer un troisième. */}
+                              <ChoixParRecherche
+                                items={fournisseurs}
+                                valeur={nouveauFournisseurBrouillon}
+                                onChoisir={(f) => setNouveauFournisseurBrouillon(f?.id ?? '')}
+                                placeholder="Chercher un fournisseur…"
+                                principal={(f) => f.nom}
+                                filtre={(f, q) => f.nom.toLowerCase().includes(q)}
+                                aucun="Aucun fournisseur à ce nom."
+                                totalLibelle={`${fournisseurs.length} fournisseurs`}
+                              />
                             </div>
                           </div>
                           {/* LA RÈGLE DES DOUZE MOIS, ANNONCÉE AVANT LE CLIC. Elle se voit ici ou
