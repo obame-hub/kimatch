@@ -75,6 +75,29 @@
  * Leur réponse décrit sans doute l'usage inverse, où l'appel part d'Allo et l'information descend
  * vers le CRM : celui-là marche, et c'est ce qu'on reçoit déjà. Ce qui manque est le sens CRM →
  * téléphone, qui est précisément ce que `DIAL_NUMBER` sert à faire.
+ *
+ * ══ LA CAPACITÉ EXISTE CHEZ EUX, SUR UN AUTRE CHEMIN ══
+ *
+ * Le même paquet contient un connecteur FRESHSALES complet, avec `startOutboundCall(numéro)`,
+ * `endCall()`, `currentCall` et ses journaux (« [Freshsales Provider] Starting outbound call
+ * for: »). Composer depuis un CRM n'est donc pas un manque de leur produit : c'est le chemin
+ * HubSpot, celui que nous empruntons, qui n'a pas été terminé. C'est l'argument à leur opposer,
+ * plutôt que de répéter le constat qu'ils ont déjà écarté.
+ *
+ * ══ ET IL N'Y A PAS DE CONTOURNEMENT — CHERCHÉ LE 20/09/2026 ══
+ *
+ * Avant de leur réécrire, on a cherché une autre porte d'entrée dans le paquet du jour. Il n'y en
+ * a pas :
+ *
+ *   · les cinq `addEventListener("message")` sont Sentry, New Relic, le canal multi-onglets de
+ *     Supabase, et le SDK HubSpot. Aucun protocole propriétaire à emprunter ;
+ *   · aucun paramètre d'URL du genre `?number=`, et la route `/call/$number` charge le chunk
+ *     `call-flow._number` — c'est la configuration d'un numéro, pas un composeur ;
+ *   · aucun lien profond : `registerProtocolHandler` et `allo://` sont absents, et les quatre
+ *     `tel:` viennent de libphonenumber ;
+ *   · `https://api.withallo.com/v1/call` n'est lu qu'en GET (liste des appels).
+ *
+ * Donc pas de solution de notre côté. Brancher `dialNumber` chez eux reste la seule voie.
  * ════════════════════════════════════════════════════════════════════════════════════════════════
  */
 
