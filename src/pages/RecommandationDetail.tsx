@@ -49,12 +49,13 @@ import {
   useDeleteVersion,
   useChangerStatutConsultation,
   CODES_STATUT_CONSULTATION_PROPOSES,
+  echeanceDansLAnnee,
   type PatchRecommandation,
 } from '@/lib/data/recommandations'
 import { useObjectifsRecommandation } from '@/lib/data/objectifsClient'
 import { useReferenceTable } from '@/lib/data/referenceTables'
 import { useContactsParCompte } from '@/lib/data/contacts'
-import { useCompte } from '@/lib/data/comptes'
+import { useCompte, useComptesRattachables } from '@/lib/data/comptes'
 import { useCompteurs } from '@/lib/data/compteurs'
 import { useInteractionsParRecommandation } from '@/lib/data/interactions'
 import { useActionsParRecommandation } from '@/lib/data/actions'
@@ -174,6 +175,9 @@ export default function RecommandationDetail() {
   // Les contrats nés de cette recommandation — voir le bloc « Ce que cette recommandation a produit ».
 
   const { data: contratsIssus } = useContratsDeRecommandation(reco?.id)
+  /* La liste des fournisseurs, pour dire chez qui le client est parti quand on le suit malgre une
+     cloture perdue. Le hook rend aussi les partenaires : on filtre a l affichage. */
+  const { data: comptesRattachables } = useComptesRattachables()
 
   const [onglet, setOnglet] = useState<CleOnglet>('reco')
   const [versionAfficheeId, setVersionAfficheeId] = useState<string | null>(null)
@@ -182,6 +186,12 @@ export default function RecommandationDetail() {
   const [motifBrouillon, setMotifBrouillon] = useState('')
   const [dateClotureBrouillon, setDateClotureBrouillon] = useState('')
   const [reactivationBrouillon, setReactivationBrouillon] = useState('')
+  /* « Voulez-vous suivre le client ? » (Michel, 20/09/2026). `null` tant que personne n'a répondu :
+     on distingue « pas encore répondu » de « répondu non », sans quoi le bouton de clôture partirait
+     sur un choix que le commercial n'a pas fait. */
+  const [suivreClient, setSuivreClient] = useState<boolean | null>(null)
+  const [nouvelleEcheanceBrouillon, setNouvelleEcheanceBrouillon] = useState('')
+  const [nouveauFournisseurBrouillon, setNouveauFournisseurBrouillon] = useState('')
   const [nouvelleVersionOuverte, setNouvelleVersionOuverte] = useState(false)
   const [wizardCotation, setWizardCotation] = useState<{ prefill: PrefillCotation | null } | null>(null)
   const [showContratWizard, setShowContratWizard] = useState(false)
@@ -385,8 +395,22 @@ export default function RecommandationDetail() {
     && motifBrouillon.trim()
     && dateClotureBrouillon
     && (finaliteChoisie !== 'ACCEPTEE' || contratValide)
-    && (!exigeDateReactivation(finaliteChoisie) || reactivationBrouillon.trim()),
+    && (!exigeDateReactivation(finaliteChoisie) || reactivationBrouillon.trim())
+    /* Une clôture perdue ne part pas tant que la question n'a pas de réponse : c'est tout l'objet
+       de la demande de Michel, et un défaut silencieux ferait perdre des clients sans que personne
+       ne s'en aperçoive. */
+    && (finaliteChoisie !== 'REFUSEE' || suivreClient !== null),
   )
+
+  /* CE QU'ON ENVERRA EN CAS DE SUIVI. Les deux champs sont facultatifs : « oui sans rien changer »
+     est le premier cas de Michel — le client ne s'est pas encore décidé. */
+  const suiviAEnvoyer =
+    finaliteChoisie === 'REFUSEE' && suivreClient
+      ? {
+          nouvelleEcheance: nouvelleEcheanceBrouillon || null,
+          nouveauFournisseurId: nouveauFournisseurBrouillon || null,
+        }
+      : null
 
   async function confirmerCloture() {
     if (!reco || !finaliteChoisie) return signaler('Choisissez une qualification finale')
@@ -399,8 +423,11 @@ export default function RecommandationDetail() {
     if (exigeDateReactivation(finaliteChoisie) && !reactivationBrouillon.trim()) {
       return signaler('La date de réactivation est obligatoire')
     }
+    if (finaliteChoisie === 'REFUSEE' && suivreClient === null) {
+      return signaler('Dites si vous voulez suivre ce client')
+    }
     try {
-      await cloturerReco.mutateAsync({
+      const resultat = await cloturerReco.mutateAsync({
         id: reco.id,
         finalite: finaliteChoisie,
         motif: motifBrouillon,
@@ -422,14 +449,22 @@ export default function RecommandationDetail() {
            déjà quand une version ou un contrat bouge. Un seul auteur, donc plus de contradiction
            possible entre la fiche et la liste. */
         etapeClotureId: null,
+        suivi: suiviAEnvoyer,
       })
       setClotureOuverte(false)
+      /* ON DIT CE QUI S'EST PASSÉ, Y COMPRIS QUAND RIEN N'A ÉTÉ CRÉÉ. Un commercial qui répond
+         « oui, je veux le suivre » et ne voit rien se produire croira à une panne, alors que la
+         règle des douze mois a simplement joué. */
       signaler(
         finaliteChoisie === 'ACCEPTEE'
           ? '✓ Recommandation acceptée'
-          : finaliteChoisie === 'REFUSEE'
-            ? '✗ Recommandation refusée'
-            : '— Recommandation expirée',
+          : finaliteChoisie === 'EXPIREE'
+            ? '— Recommandation expirée'
+            : resultat?.opportuniteId
+              ? '✗ Refusée — une opportunité de suivi a été créée'
+              : suiviAEnvoyer
+                ? '✗ Refusée — échéance au-delà d’un an, pas d’opportunité créée'
+                : '✗ Recommandation refusée',
       )
     } catch (e) {
       signaler(`Erreur : ${e instanceof Error ? e.message : String(e)}`)
@@ -1133,6 +1168,83 @@ export default function RecommandationDetail() {
                     />
                     <p className="mt-1 text-km-label text-km-faint">Préremplie avec aujourd’hui ; modifiez-la si la décision a eu lieu un autre jour.</p>
                   </div>
+                  {/* ══ « VOULEZ-VOUS SUIVRE LE CLIENT ? » (Michel, 20/09/2026) ══
+                      Perdre une consultation n'est pas perdre un client. La question ne se pose
+                      qu'à la clôture REFUSÉE : une recommandation acceptée n'a personne à suivre,
+                      et une expirée n'a pas de décision du client à enregistrer. */}
+                  {finaliteChoisie === 'REFUSEE' && (
+                    <div className="mt-2.5 rounded-km border border-km-line bg-white px-2.5 py-2">
+                      <div className="flex flex-wrap items-center gap-2">
+                        <span className="min-w-[180px] flex-1 text-km-body font-bold text-km-text">
+                          Voulez-vous suivre ce client ?
+                        </span>
+                        {([['oui', true], ['non', false]] as const).map(([libelle, valeur]) => (
+                          <button
+                            key={libelle}
+                            type="button"
+                            onClick={() => setSuivreClient(valeur)}
+                            className={cn(
+                              'rounded-km border px-3.5 py-1.5 text-km-body font-bold transition-colors',
+                              suivreClient === valeur
+                                ? 'border-km-green bg-km-green text-white'
+                                : 'border-km-line bg-white text-km-muted hover:border-km-green',
+                            )}
+                          >
+                            {libelle === 'oui' ? 'Oui' : 'Non'}
+                          </button>
+                        ))}
+                      </div>
+
+                      {suivreClient === true && (
+                        <div className="mt-2.5 border-t border-km-line pt-2.5">
+                          <p className="mb-2 text-km-label text-km-muted">
+                            S’il a signé ailleurs, dites où et jusqu’à quand — c’est ce qui permettra
+                            de le rappeler au bon moment. Laissez vide s’il ne s’est pas encore décidé.
+                          </p>
+                          <div className="flex flex-wrap gap-3">
+                            <div>
+                              <label className="mb-1 block text-km-label font-bold uppercase tracking-wide text-km-faint" htmlFor="suivi-echeance">
+                                Nouvelle échéance
+                              </label>
+                              <input
+                                id="suivi-echeance"
+                                type="date"
+                                value={nouvelleEcheanceBrouillon}
+                                onChange={(e) => setNouvelleEcheanceBrouillon(e.target.value)}
+                                className="rounded-km border border-km-line bg-white px-2.5 py-1.5 font-mono text-km-name text-km-text outline-none focus:ring-1 focus:ring-km-green"
+                              />
+                            </div>
+                            <div className="min-w-[200px] flex-1">
+                              <label className="mb-1 block text-km-label font-bold uppercase tracking-wide text-km-faint" htmlFor="suivi-fournisseur">
+                                Nouveau fournisseur
+                              </label>
+                              <select
+                                id="suivi-fournisseur"
+                                value={nouveauFournisseurBrouillon}
+                                onChange={(e) => setNouveauFournisseurBrouillon(e.target.value)}
+                                className="w-full rounded-km border border-km-line bg-white px-2.5 py-1.5 text-km-name text-km-text outline-none focus:ring-1 focus:ring-km-green"
+                              >
+                                <option value="">— inchangé —</option>
+                                {(comptesRattachables ?? [])
+                                  .filter((c) => c.type_compte === 'fournisseur')
+                                  .map((c) => (
+                                    <option key={c.id} value={c.id}>{c.nom}</option>
+                                  ))}
+                              </select>
+                            </div>
+                          </div>
+                          {/* LA RÈGLE DES DOUZE MOIS, ANNONCÉE AVANT LE CLIC. Elle se voit ici ou
+                              elle se découvre après coup, quand rien ne s'est produit. */}
+                          <p className="mt-2 text-km-label text-km-faint">
+                            {nouvelleEcheanceBrouillon && !echeanceDansLAnnee(nouvelleEcheanceBrouillon)
+                              ? 'Cette échéance dépasse un an : le dossier sera clôturé avec ces informations, sans créer d’opportunité.'
+                              : 'Une opportunité de suivi sera créée si l’échéance tombe dans les douze mois.'}
+                          </p>
+                        </div>
+                      )}
+                    </div>
+                  )}
+
                   {/* La date de réactivation n'apparaît que si la finalité l'exige. Aucune des
                       trois valeurs actuelles ne le fait ; le champ est prêt pour le jour où une
                       finalité de report sera ajoutée. */}

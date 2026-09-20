@@ -1440,6 +1440,140 @@ export type PatchRecommandation = Partial<{
 }>
 
 /**
+ * ════════════════════════════════════════════════════════════════════════════════════════════════
+ * SUIVRE LE CLIENT MALGRÉ UNE CLÔTURE PERDUE
+ * ════════════════════════════════════════════════════════════════════════════════════════════════
+ *
+ * Michel, 20/09/2026 : une recommandation clôturée en « Refusée » demande au commercial s'il veut
+ * suivre le client. Perdre une consultation n'est pas perdre un client — il n'a pas dit non pour
+ * toujours, il a dit non pour cette fois.
+ *
+ *   · il ne s'est pas encore décidé : rien ne change, on garde la main ;
+ *   · il a signé chez un autre courtier : on note SON échéance et SON fournisseur, et on le
+ *     rappellera vers la fin de ce contrat-là.
+ *
+ * ══ LA RÈGLE DE L'ANNÉE ══
+ *
+ * Une opportunité naît seulement si l'échéance tombe dans les douze mois. Au-delà, elle serait
+ * créée pour dormir deux ans dans les listes de tout le monde ; le dossier se retrouvera en
+ * ressortant les affaires perdues, le moment venu. Mais on écrit quand même la nouvelle échéance et
+ * le nouveau fournisseur : ce sont des faits appris, ils ne dépendent pas de ce qu'on en fait.
+ *
+ * ÉCHÉANCE INCONNUE = ON CRÉE. Le commercial vient de dire explicitement qu'il veut suivre ce
+ * client ; une échéance absente n'est pas une échéance lointaine, et refuser sur un vide reviendrait
+ * à lui répondre non sans le lui dire.
+ *
+ * ══ CE QU'ON ÉCRASE, ET CE QU'ON GARDE ══
+ *
+ * L'échéance et le fournisseur vivent sur le COMPTEUR, pas sur la recommandation. On les écrit donc
+ * là, sur tous les compteurs du périmètre — et l'ancienne valeur part dans
+ * `date_echeance_precedente` / `fournisseur_precedent_compte_id` avant d'être remplacée.
+ *
+ * ON NE TOUCHE QU'À CE QUI CHANGE VRAIMENT. Réécrire une valeur identique décalerait la trace d'un
+ * cran et ferait perdre la vraie valeur précédente, pour rien.
+ * ════════════════════════════════════════════════════════════════════════════════════════════════
+ */
+export interface SuiviApresPerte {
+  /** La nouvelle échéance du client (AAAA-MM-JJ), ou null si elle ne change pas. */
+  nouvelleEcheance: string | null
+  /** Le fournisseur chez qui il est parti, ou null s'il ne change pas. */
+  nouveauFournisseurId: string | null
+}
+
+/** Douze mois. Au-delà, pas d'opportunité — voir le commentaire ci-dessus. */
+export function echeanceDansLAnnee(echeance: string): boolean {
+  const limite = new Date()
+  limite.setFullYear(limite.getFullYear() + 1)
+  return new Date(echeance).getTime() <= limite.getTime()
+}
+
+/**
+ * Applique le suivi décidé à la clôture : met les compteurs à jour et crée l'opportunité quand
+ * l'échéance le justifie. Rend l'identifiant de l'opportunité créée, ou null.
+ *
+ * Séparée de la mutation parce qu'elle fait un travail distinct : la clôture est un fait, le suivi
+ * est une décision. L'une ne doit pas échouer parce que l'autre a buté.
+ */
+async function appliquerSuiviApresPerte(recommandationId: string, suivi: SuiviApresPerte): Promise<string | null> {
+  const { data: reco } = await supabase
+    .from('recommandations')
+    .select('compte_id, contact_principal_id, contact_signataire_id, nom, proprietaire_id')
+    .eq('id', recommandationId)
+    .maybeSingle()
+
+  const { data: liens } = await supabase
+    .from('recommandations_compteurs')
+    .select('compteur_id')
+    .eq('recommandation_id', recommandationId)
+  const compteurIds = (liens ?? []).map((l) => l.compteur_id as string)
+
+  const { data: compteurs } = compteurIds.length
+    ? await supabase
+        .from('compteurs')
+        .select('id, date_echeance, fournisseur_actuel_compte_id')
+        .in('id', compteurIds)
+    : { data: [] as { id: string; date_echeance: string | null; fournisseur_actuel_compte_id: string | null }[] }
+
+  // ── Ce que le commercial vient d'apprendre, écrit là où ça vit ──
+  for (const c of compteurs ?? []) {
+    const maj: Record<string, unknown> = {}
+    if (suivi.nouvelleEcheance && suivi.nouvelleEcheance !== c.date_echeance) {
+      maj.date_echeance_precedente = c.date_echeance
+      maj.date_echeance = suivi.nouvelleEcheance
+    }
+    if (suivi.nouveauFournisseurId && suivi.nouveauFournisseurId !== c.fournisseur_actuel_compte_id) {
+      maj.fournisseur_precedent_compte_id = c.fournisseur_actuel_compte_id
+      maj.fournisseur_actuel_compte_id = suivi.nouveauFournisseurId
+    }
+    if (Object.keys(maj).length > 0) {
+      await supabase.from('compteurs').update(maj).eq('id', c.id)
+    }
+  }
+
+  /* L'ÉCHÉANCE QUI DÉCIDE : celle que le commercial vient de saisir, sinon la plus PROCHE du
+     périmètre. La plus proche et non la plus lointaine : c'est elle qui dira quand rappeler, et
+     c'est le premier compteur qui se libère qui rouvre la porte. */
+  const echeances = (compteurs ?? [])
+    .map((c) => (suivi.nouvelleEcheance ? suivi.nouvelleEcheance : c.date_echeance))
+    .filter((d): d is string => Boolean(d))
+    .sort()
+  const echeanceRetenue = suivi.nouvelleEcheance ?? echeances[0] ?? null
+
+  if (echeanceRetenue && !echeanceDansLAnnee(echeanceRetenue)) return null
+
+  const { data: statutNouvelle } = await supabase
+    .from('statuts_opportunites').select('id').eq('code', 'NOUVELLE').maybeSingle()
+
+  /* PAS DE `date_reactivation` : « vers la fin de l'échéance » n'est pas encore chiffré (Naoëlle,
+     20/09/2026 : « le délai de relance je ne sais pas pour le moment »). On laisse le champ vide
+     plutôt que d'inventer un délai — une date métier fabriquée est plus nuisible qu'une absente. */
+  const { data: creee, error } = await supabase
+    .from('opportunites')
+    .insert({
+      compte_id: reco?.compte_id ?? null,
+      contact_id: reco?.contact_principal_id ?? reco?.contact_signataire_id ?? null,
+      origine: 'PORTEFEUILLE',
+      type_opportunite: 'Renouvellement',
+      ...(statutNouvelle ? { statut_id: statutNouvelle.id } : {}),
+      ...(reco?.proprietaire_id ? { proprietaire_id: reco.proprietaire_id } : {}),
+      recommandation_origine_id: recommandationId,
+      commentaire: `Suivi après la recommandation perdue « ${reco?.nom ?? ''} »`
+        + (echeanceRetenue ? ` — échéance au ${echeanceRetenue}` : ' — échéance inconnue'),
+    })
+    .select('id')
+    .single()
+  if (error) throw new Error(error.message)
+
+  const opportuniteId = (creee as { id: string }).id
+  if (compteurIds.length > 0) {
+    await supabase
+      .from('opportunites_compteurs')
+      .insert(compteurIds.map((k) => ({ opportunite_id: opportuniteId, compteur_id: k })))
+  }
+  return opportuniteId
+}
+
+/**
  * Clôture d'une recommandation — le geste de la maquette « Fiche Opportunité ».
  *
  * Trois écritures d'un coup, et c'est justement pourquoi ça ne passe pas par l'édition en place :
@@ -1460,6 +1594,9 @@ export function useCloturerRecommandation() {
       dateCloture: string
       dateReactivation?: string | null
       etapeClotureId: string | null
+      /** Renseigné quand le commercial a répondu OUI à « voulez-vous suivre le client ? ».
+       *  `null` ou absent, la clôture est sèche — c'est le troisième cas de Michel. */
+      suivi?: SuiviApresPerte | null
     }) => {
       const motif = input.motif.trim()
       if (motif === '') throw new Error('Le motif est obligatoire.')
@@ -1491,8 +1628,21 @@ export function useCloturerRecommandation() {
         })
         .eq('id', input.id)
       if (error) throw new Error(error.message)
+
+      /* LE SUIVI VIENT APRÈS, ET SÉPARÉMENT. La clôture est un fait acquis dès qu'elle est
+         écrite ; si la création de l'opportunité échoue, on ne veut surtout pas que le commercial
+         reclique sur « clôturer » — il refermerait un dossier déjà fermé. On remonte l'erreur pour
+         qu'elle s'affiche, la clôture reste faite. */
+      if (input.suivi) {
+        return { opportuniteId: await appliquerSuiviApresPerte(input.id, input.suivi) }
+      }
+      return { opportuniteId: null }
     },
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['recommandations'] }),
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: ['recommandations'] })
+      void queryClient.invalidateQueries({ queryKey: ['opportunites'] })
+      void queryClient.invalidateQueries({ queryKey: ['compteurs'] })
+    },
   })
 }
 
