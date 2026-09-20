@@ -1514,15 +1514,27 @@ async function appliquerSuiviApresPerte(recommandationId: string, suivi: SuiviAp
         .in('id', compteurIds)
     : { data: [] as { id: string; date_echeance: string | null; fournisseur_actuel_compte_id: string | null }[] }
 
-  // ── Ce que le commercial vient d'apprendre, écrit là où ça vit ──
+  /* ══ CE QUE LE COMMERCIAL VIENT D'APPRENDRE, ÉCRIT LÀ OÙ ÇA VIT ══
+     `date_echeance` est un timestamp en base alors que l'écran rend « AAAA-MM-JJ ». Comparer les
+     deux tels quels les déclare toujours différents — éprouvé le 20/09/2026 sur un jeu d'essai :
+     l'échéance était réécrite à l'identique et `date_echeance_precedente` recopiait la valeur
+     courante, ce qui aurait effacé la vraie valeur d'avant à la première clôture. On compare donc
+     sur le jour, qui est la maille de la saisie. */
+  const jour = (v: string | null) => (v ? String(v).slice(0, 10) : null)
+
   for (const c of compteurs ?? []) {
     const maj: Record<string, unknown> = {}
-    if (suivi.nouvelleEcheance && suivi.nouvelleEcheance !== c.date_echeance) {
-      maj.date_echeance_precedente = c.date_echeance
+    if (suivi.nouvelleEcheance && suivi.nouvelleEcheance !== jour(c.date_echeance)) {
+      maj.date_echeance_precedente = jour(c.date_echeance)
       maj.date_echeance = suivi.nouvelleEcheance
     }
     if (suivi.nouveauFournisseurId && suivi.nouveauFournisseurId !== c.fournisseur_actuel_compte_id) {
-      maj.fournisseur_precedent_compte_id = c.fournisseur_actuel_compte_id
+      /* LA TRACE N'EST POSÉE QUE S'IL Y AVAIT QUELQUE CHOSE À TRACER. Un compteur sans fournisseur
+         connu qui en reçoit un n'a pas de « précédent » : écrire null ferait croire à une valeur
+         effacée là où il n'y en a jamais eu. */
+      if (c.fournisseur_actuel_compte_id) {
+        maj.fournisseur_precedent_compte_id = c.fournisseur_actuel_compte_id
+      }
       maj.fournisseur_actuel_compte_id = suivi.nouveauFournisseurId
     }
     if (Object.keys(maj).length > 0) {
@@ -1534,7 +1546,7 @@ async function appliquerSuiviApresPerte(recommandationId: string, suivi: SuiviAp
      périmètre. La plus proche et non la plus lointaine : c'est elle qui dira quand rappeler, et
      c'est le premier compteur qui se libère qui rouvre la porte. */
   const echeances = (compteurs ?? [])
-    .map((c) => (suivi.nouvelleEcheance ? suivi.nouvelleEcheance : c.date_echeance))
+    .map((c) => (suivi.nouvelleEcheance ? suivi.nouvelleEcheance : jour(c.date_echeance)))
     .filter((d): d is string => Boolean(d))
     .sort()
   const echeanceRetenue = suivi.nouvelleEcheance ?? echeances[0] ?? null
