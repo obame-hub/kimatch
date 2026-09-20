@@ -25,11 +25,32 @@ import { Badge } from '@/components/ui/badge'
  * compteur, alors que quelqu'un l'a examiné et mis de côté.
  */
 
+/**
+ * ══ LES VRAIS NOMS DE COLONNES, ET COMMENT JE M'EN ÉTAIS PASSÉ ══
+ *
+ * Première version : je lisais `nom` et `statut` sur `opportunites`. Ni l'une ni l'autre n'existe —
+ * une opportunité porte une `reference`, un `type_opportunite`, une `origine`, et un `statut_id`
+ * qui pointe vers `statuts_opportunites`. La requête échouait donc toujours, et la carte ne
+ * s'affichait jamais : elle se cache quand la liste est vide, ce qui rendait la panne invisible.
+ *
+ * `npm run carte` l'a dit le 20/09 — « le code lit des colonnes que le schéma ne porte plus ». Je
+ * n'avais pas lancé le contrôle après avoir écrit ce composant.
+ */
 interface LienOpportunite {
   ecarte: boolean | null
   motif_ecart: string | null
-  opportunite: { id: string; reference: string | null; nom: string | null; statut: string | null } | null
+  opportunite: {
+    id: string
+    reference: string | null
+    type_opportunite: string | null
+    origine: string | null
+    statut: { libelle: string | null } | { libelle: string | null }[] | null
+  } | null
 }
+
+/** PostgREST rend une relation soit en objet, soit en tableau d'un élément selon la cardinalité. */
+const libelleStatut = (s: LienOpportunite['opportunite'] extends null ? never : NonNullable<LienOpportunite['opportunite']>['statut']): string | null =>
+  (Array.isArray(s) ? s[0]?.libelle : s?.libelle) ?? null
 
 function useOpportunitesDuCompteur(compteurId: string | undefined) {
   return useQuery({
@@ -39,7 +60,7 @@ function useOpportunitesDuCompteur(compteurId: string | undefined) {
     queryFn: async (): Promise<LienOpportunite[]> => {
       const { data, error } = await supabase
         .from('opportunites_compteurs')
-        .select('ecarte, motif_ecart, opportunite:opportunites(id, reference, nom, statut)')
+        .select('ecarte, motif_ecart, opportunite:opportunites(id, reference, type_opportunite, origine, statut:statuts_opportunites(libelle))')
         .eq('compteur_id', compteurId as string)
       if (error) throw new Error(error.message)
       return (data as unknown as LienOpportunite[]).filter((l) => l.opportunite)
@@ -71,10 +92,16 @@ export function OpportunitesDuCompteur({ compteurId }: { compteurId: string | un
             >
               {l.opportunite!.reference ?? 'sans référence'}
             </Link>
+            {/* UNE OPPORTUNITÉ N'A PAS DE NOM — elle se désigne par sa référence, et se décrit par
+                son type et son origine. « Captation · depuis une piste » dit ce qu'un nom aurait
+                dit, sans inventer un champ qui n'existe pas. */}
             <span className="min-w-0 flex-1 truncate text-km-label text-km-text">
-              {l.opportunite!.nom ?? '—'}
+              {[l.opportunite!.type_opportunite, l.opportunite!.origine?.toLowerCase()]
+                .filter(Boolean).join(' · ') || '—'}
             </span>
-            {l.opportunite!.statut && <Badge tone="neutral">{l.opportunite!.statut}</Badge>}
+            {libelleStatut(l.opportunite!.statut) && (
+              <Badge tone="neutral">{libelleStatut(l.opportunite!.statut)}</Badge>
+            )}
             {l.ecarte && (
               <Badge tone="amber" title={l.motif_ecart ?? undefined}>
                 écarté
