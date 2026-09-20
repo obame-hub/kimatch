@@ -97,7 +97,40 @@
  *     `tel:` viennent de libphonenumber ;
  *   · `https://api.withallo.com/v1/call` n'est lu qu'en GET (liste des appels).
  *
- * Donc pas de solution de notre côté. Brancher `dialNumber` chez eux reste la seule voie.
+ * Donc pas de solution de notre côté — dans LEUR APPLICATION WEB. La suite corrige cette phrase.
+ *
+ * ══ IL Y AVAIT UNE AUTRE PORTE, ET ELLE N'EST PAS DANS L'IFRAME — 20/09/2026 ══
+ *
+ * Cherché dans leur documentation publique plutôt que dans leur paquet, et c'est là que ça se
+ * jouait. Deux trouvailles, l'une utile, l'autre décisive.
+ *
+ *   1. LEUR API NE COMPOSE PAS, C'EST CONFIRMÉ À LA SOURCE. L'OpenAPI de `api.withallo.com`
+ *      (`help.withallo.com/openapi.json`, 64 chemins) n'a aucun point d'entrée pour lancer un
+ *      appel : `/v1/api/calls` est en GET, et `/v2/api/conversations/{n}/action` ne connaît que
+ *      READ, UNREAD, ARCHIVE, UNARCHIVE. William avait raison.
+ *
+ *      En revanche `POST /v2/api/dialing-queues/current/numbers` remplit la file du Power Dialer,
+ *      et son corps accepte `email` — celui d'un coéquipier. Depuis Kimatch on peut donc pousser
+ *      une liste de numéros dans la file d'un conseiller nommé. Ce n'est pas l'appel d'un clic,
+ *      c'est mieux pour la prospection en série : quarante pistes poussées d'un coup, le conseiller
+ *      lance son composeur et enchaîne.
+ *
+ *   2. L'EXTENSION CHROME REND LE PONT INUTILE POUR COMPOSER. Allo publie « Allo - Click to Call »
+ *      (`bjjbpnjndjmamflhendfjfefdbpleclk`). Son manifeste, lu en v1.2.7, dit tout :
+ *
+ *        content_scripts.matches = ["<all_urls>"]      ← toutes les pages, pas une liste de CRM
+ *        host_permissions        = ["https://*.withallo.com/*"]
+ *
+ *      et elle embarque `findPhoneNumbersInText` bâti sur libphonenumber : la détection se fait sur
+ *      le TEXTE de la page, sans rien savoir du site. Kimatch est donc couvert comme n'importe
+ *      quelle page, sans une ligne de code chez nous. Leur propre page produit le dit :
+ *      « The Allo browser extension turns any phone number on a web page into a click-to-call
+ *      link ».
+ *
+ * C'EST SANS DOUTE CE QU'ILS VOULAIENT DIRE par « ça marche parfaitement comme ça » : ils pensaient
+ * extension, nous pensions SDK. Reste à vérifier sur un poste que nos numéros affichés — souvent au
+ * format français sans indicatif — sont bien reconnus ; libphonenumber dépend alors du pays par
+ * défaut, et ça, aucune lecture de code ne le dira à notre place.
  * ════════════════════════════════════════════════════════════════════════════════════════════════
  */
 
