@@ -115,22 +115,34 @@
  *      c'est mieux pour la prospection en série : quarante pistes poussées d'un coup, le conseiller
  *      lance son composeur et enchaîne.
  *
- *   2. L'EXTENSION CHROME REND LE PONT INUTILE POUR COMPOSER. Allo publie « Allo - Click to Call »
- *      (`bjjbpnjndjmamflhendfjfefdbpleclk`). Son manifeste, lu en v1.2.7, dit tout :
+ *   2. LEUR PROPRE EXTENSION NE COMPOSE PAS NON PLUS, ET C'EST LA PREUVE QUI CLÔT LA QUESTION.
+ *      « Allo - Click to Call » (`bjjbpnjndjmamflhendfjfefdbpleclk`) a été téléchargée et ouverte
+ *      en v1.2.7. Elle s'injecte partout — `content_scripts.matches = ["<all_urls>"]` — et détecte
+ *      les numéros avec libphonenumber sur le texte de la page. Mais le SEUL chemin d'API qu'elle
+ *      appelle est `/v2/api/dialing-queues/current/numbers`.
  *
- *        content_scripts.matches = ["<all_urls>"]      ← toutes les pages, pas une liste de CRM
- *        host_permissions        = ["https://*.withallo.com/*"]
+ *      Autrement dit, « click to call » veut dire chez eux « envoyer vers le Power Dialer ».
+ *      Personne ne peut déclencher un appel à distance chez Allo, pas même Allo. Il n'y a donc
+ *      aucun endpoint caché à découvrir, et l'extension n'aurait de toute façon rien résolu :
+ *      Naoëlle a rappelé le 20/09 que tout doit marcher depuis Kimatch, sans navigateur imposé ni
+ *      poste particulier — le mobile compte autant.
  *
- *      et elle embarque `findPhoneNumbersInText` bâti sur libphonenumber : la détection se fait sur
- *      le TEXTE de la page, sans rien savoir du site. Kimatch est donc couvert comme n'importe
- *      quelle page, sans une ligne de code chez nous. Leur propre page produit le dit :
- *      « The Allo browser extension turns any phone number on a web page into a click-to-call
- *      link ».
+ * ══ CE QUI EST DONC POSSIBLE, ET C'EST LE MAXIMUM ══
  *
- * C'EST SANS DOUTE CE QU'ILS VOULAIENT DIRE par « ça marche parfaitement comme ça » : ils pensaient
- * extension, nous pensions SDK. Reste à vérifier sur un poste que nos numéros affichés — souvent au
- * format français sans indicatif — sont bien reconnus ; libphonenumber dépend alors du pays par
- * défaut, et ça, aucune lecture de code ne le dira à notre place.
+ * Le geste que Kimatch peut faire, côté serveur, pour n'importe quel conseiller et depuis n'importe
+ * quel appareil, sans rien installer :
+ *
+ *   POST /v2/api/dialing-queues/current          { email }            → une file neuve et vide
+ *   POST /v2/api/dialing-queues/current/numbers  { numbers, email }   → le numéro, seul, en tête
+ *
+ * Le conseiller ouvre Allo — mobile ou bureau, le plus souvent déjà ouvert — et le numéro l'attend
+ * en première position avec le nom et la société. Deux temps au lieu d'un, mais identiques partout.
+ *
+ * ATTENTION AU `reset` : il remplace la file en cours. Si quelqu'un est en pleine session de
+ * prospection, on lui écrase son travail. D'où deux gestes distincts à prévoir — « appeler
+ * maintenant » qui réinitialise, et « ajouter à ma file » qui se contente d'ajouter.
+ *
+ * IL FAUT UNE CLÉ API Allo portant le droit `DIALING_QUEUE_READ_WRITE`, en en-tête `Authorization`.
  * ════════════════════════════════════════════════════════════════════════════════════════════════
  */
 
