@@ -110,7 +110,12 @@ async function lienDeConnexion(adresse) {
   })
   const page = await contexte.newPage()
   const soucis = []
-  page.on('console', (m) => { if (m.type() === 'error') soucis.push(m.text().slice(0, 160)) })
+  page.on('console', (m) => { if (m.type() === 'error') soucis.push(m.text().slice(0, 200)) })
+  /* Les requetes refusees par le serveur : c'est la qu'on voit pourquoi une liste est vide alors
+     que la base est pleine. */
+  page.on('response', (r) => {
+    if (r.status() >= 400 && !r.url().startsWith('chrome')) soucis.push(`HTTP ${r.status()} ${r.url().slice(0, 150)}`)
+  })
 
   /* ══ LA SESSION SE POSE À LA MAIN, ET C'EST VOULU ══
      Suivre le lien et laisser l'application faire aurait été plus court, mais ça dépend de la liste
@@ -152,7 +157,10 @@ async function lienDeConnexion(adresse) {
     [`sb-${ref}-auth-token`, JSON.stringify(session)])
 
   await page.goto(`${BASE}${chemin}`, { waitUntil: 'domcontentloaded', timeout: 60000 })
-  await page.waitForTimeout(6000)
+  /* `--attendre N` pour les ecrans lents : une capture prise trop tot montre une page blanche et
+     ferait croire a une panne la ou il n'y a qu'une liste qui charge. */
+  const iAtt = process.argv.indexOf('--attendre')
+  await page.waitForTimeout(iAtt > -1 && process.argv[iAtt + 1] ? Number(process.argv[iAtt + 1]) * 1000 : 6000)
 
   /* GESTES OPTIONNELS, pour atteindre un panneau qui ne s'ouvre pas tout seul. Chaque entree est
      un libelle de bouton a cliquer, dans l'ordre : --clic "Cloturer" --clic "Refusee". */
