@@ -1,6 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { supabase } from '@/lib/supabase'
 import { sendEmail } from '@/lib/data/gmail'
+import { relancer } from '@/lib/data/erreurLecture'
 
 export type EmailModule = 'contrat' | 'cotation'
 
@@ -22,8 +23,7 @@ async function fetchEmailSettings(): Promise<EmailSetting[]> {
     if (error) throw error
     return (data ?? []) as EmailSetting[]
   } catch (error) {
-    console.error('fetchEmailSettings', error)
-    return []
+    relancer('fetchEmailSettings', error)
   }
 }
 

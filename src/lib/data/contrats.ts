@@ -7,6 +7,7 @@ import { notifyEmail } from '@/lib/data/emailSettings'
 import { fetchComptesVisibles, filterVisibles } from '@/lib/data/visibility'
 import { fetchAllRows } from '@/lib/data/paginatedFetch'
 import { mentionSignatureManuelle, statutMetierApresSignature } from '@/lib/signatureManuelleContrat'
+import { relancer } from '@/lib/data/erreurLecture'
 
 interface RawContrat {
   id: string
@@ -160,8 +161,7 @@ async function fetchContrats(compteId?: string, contratId?: string, listeSeule =
       clause_penalites_resiliation: c.clause_penalites_resiliation,
     }))
   } catch (error) {
-    console.error('fetchContrats', error)
-    return []
+    relancer('fetchContrats', error)
   }
 }
 

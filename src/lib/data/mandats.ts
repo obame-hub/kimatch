@@ -4,6 +4,7 @@ import { supabase } from '@/lib/supabase'
 import type { Mandat } from '@/types/domain'
 import { fetchComptesVisibles, filterVisibles } from '@/lib/data/visibility'
 import { fetchAllRows } from '@/lib/data/paginatedFetch'
+import { relancer } from '@/lib/data/erreurLecture'
 
 interface RawMandat {
   id: string
@@ -149,8 +150,7 @@ async function fetchMandats(compteId?: string, mandatId?: string, listeSeule = f
       date_modification: m.date_modification,
     }))
   } catch (error) {
-    console.error('fetchMandats', error)
-    return []
+    relancer('fetchMandats', error)
   }
 }
 

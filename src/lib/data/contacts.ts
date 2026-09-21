@@ -5,6 +5,7 @@ import { fetchComptesVisibles } from '@/lib/data/visibility'
 import { fetchAllRows } from '@/lib/data/paginatedFetch'
 import { toUpperFR, toTitleCaseFR, formatPhoneFR } from '@/lib/textFormat'
 import { ROLES_CONTACT, ancienRoleDepuisRoles, type RoleContact } from '@/lib/contactRoles'
+import { relancer } from '@/lib/data/erreurLecture'
 
 interface RawContact {
   id: string
@@ -182,8 +183,7 @@ async function fetchContacts(compteId?: string, contactId?: string): Promise<Con
       date_modification: c.date_modification,
     }))
   } catch (error) {
-    console.error('fetchContacts', error)
-    return []
+    relancer('fetchContacts', error)
   }
 }
 

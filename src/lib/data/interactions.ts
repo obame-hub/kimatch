@@ -2,6 +2,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { supabase } from '@/lib/supabase'
 import type { Interaction } from '@/types/domain'
 import { fetchComptesVisibles, fetchSitesVisiblesIds } from '@/lib/data/visibility'
+import { relancer } from '@/lib/data/erreurLecture'
 
 interface RawInteraction {
   id: string
@@ -115,8 +116,7 @@ async function fetchInteractions(limite: number | null = null): Promise<Interact
 
     return (visibles as unknown as RawInteraction[]).map(mapRawInteraction)
   } catch (error) {
-    console.error('fetchInteractions', error)
-    return []
+    relancer('fetchInteractions', error)
   }
 }
 

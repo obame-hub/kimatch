@@ -1,6 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { supabase } from '@/lib/supabase'
 import type { TarifContratCompteur } from '@/types/domain'
+import { relancer } from '@/lib/data/erreurLecture'
 
 export interface FormuleTarifaire {
   id: string
@@ -20,8 +21,7 @@ async function fetchFormulesTarifaires(): Promise<FormuleTarifaire[]> {
     if (error) throw error
     return (data ?? []) as unknown as FormuleTarifaire[]
   } catch (error) {
-    console.error('fetchFormulesTarifaires', error)
-    return []
+    relancer('fetchFormulesTarifaires', error)
   }
 }
 
@@ -90,8 +90,7 @@ async function fetchTarifsByContratCompteurIds(contratCompteurIds: string[]): Pr
     if (error) throw error
     return ((data ?? []) as unknown as RawTarif[]).map(mapTarif)
   } catch (error) {
-    console.error('fetchTarifsByContratCompteurIds', error)
-    return []
+    relancer('fetchTarifsByContratCompteurIds', error)
   }
 }
 

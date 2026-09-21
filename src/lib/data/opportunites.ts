@@ -3,6 +3,7 @@ import { supabase } from '@/lib/supabase'
 import { fetchAllRows } from '@/lib/data/paginatedFetch'
 import { fetchComptesVisibles, filterVisibles } from '@/lib/data/visibility'
 import type { Opportunite } from '@/types/domain'
+import { relancer } from '@/lib/data/erreurLecture'
 
 /**
  * L'opportunité, entre le patrimoine et la recommandation.
@@ -167,8 +168,7 @@ async function fetchOpportunites(opportuniteId?: string): Promise<Opportunite[]>
       compteurs_places: placesParOpp.get(o.id) ?? [],
     }))
   } catch (error) {
-    console.error('fetchOpportunites', error)
-    return []
+    relancer('fetchOpportunites', error)
   }
 }
 

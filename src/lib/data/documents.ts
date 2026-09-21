@@ -2,6 +2,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { supabase } from '@/lib/supabase'
 import type { DocumentItem } from '@/types/domain'
 import { fetchAllRows } from '@/lib/data/paginatedFetch'
+import { relancer } from '@/lib/data/erreurLecture'
 
 interface RawDocument {
   id: string
@@ -66,8 +67,7 @@ async function fetchDocuments(entiteIds?: string[], documentId?: string): Promis
       proprietaire_id: d.proprietaire_id ?? null,
     }))
   } catch (error) {
-    console.error('fetchDocuments', error)
-    return []
+    relancer('fetchDocuments', error)
   }
 }
 

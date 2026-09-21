@@ -3,6 +3,7 @@ import { supabase } from '@/lib/supabase'
 import type { ActionItem } from '@/types/domain'
 import { fetchComptesVisibles, fetchSitesVisiblesIds } from '@/lib/data/visibility'
 import { fetchAllRows } from '@/lib/data/paginatedFetch'
+import { relancer } from '@/lib/data/erreurLecture'
 
 interface RawAction {
   compte_id?: string | null
@@ -101,8 +102,7 @@ async function fetchActions(
       cree_par_id: a.cree_par_id ?? null,
     }))
   } catch (error) {
-    console.error('fetchActions', error)
-    return []
+    relancer('fetchActions', error)
   }
 }
 

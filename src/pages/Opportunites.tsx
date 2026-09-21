@@ -12,7 +12,7 @@ import { Dialog } from '@/components/ui/dialog'
 import { FormField, Input, Select, Textarea } from '@/components/ui/form'
 import { ListToolbar, BasculeOption } from '@/components/ui/list-toolbar'
 import { useListControls } from '@/lib/useListControls'
-import { usePerimetreListe, BasculePerimetre, ListeVide } from '@/lib/perimetre'
+import { usePerimetreListe, BasculePerimetre, ListeVide, ListeEnEchec } from '@/lib/perimetre'
 import { SelecteurTri } from '@/lib/triKanban'
 import {
   statutDerive,
@@ -59,7 +59,7 @@ const SIGNAUX_EXEMPLES = [
 
 
 export default function Opportunites() {
-  const { data: opportunites, isLoading } = useOpportunites()
+  const { data: opportunites, isLoading, isError, error, refetch } = useOpportunites()
   const { data: poids } = usePoidsOpportunites()
   // Les mandats disent si le périmètre est couvert, donc où se situe chaque opportunité dans le
   // pipeline. Le même hook alimente les fiches : la requête est le plus souvent déjà en cache.
@@ -208,7 +208,9 @@ export default function Opportunites() {
         <div className="mb-3">
         </div>
 
-        {isLoading ? (
+        {isError ? (
+          <div className="mt-4"><ListeEnEchec onReessayer={() => void refetch()} erreur={error} /></div>
+        ) : isLoading ? (
           <p className="mt-4 text-sm text-km-faint">Chargement…</p>
         ) : vivantes.length > 0 ? (
           /* LES SIX PALIERS DE SA DIAPOSITIVE 13, colonnes terminales comprises : sur la page d'un

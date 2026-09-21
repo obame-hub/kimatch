@@ -8,7 +8,7 @@ import { Badge } from '@/components/ui/badge'
 import { Dialog } from '@/components/ui/dialog'
 import { FormField, Input, Select } from '@/components/ui/form'
 import { ListToolbar } from '@/components/ui/list-toolbar'
-import { usePerimetreListe, BasculePerimetre, ListeVide } from '@/lib/perimetre'
+import { usePerimetreListe, BasculePerimetre, ListeVide, ListeEnEchec } from '@/lib/perimetre'
 import { Indicateurs } from '@/components/ui/page-header'
 import { useTriKanban, SelecteurTri } from '@/lib/triKanban'
 import {
@@ -50,7 +50,7 @@ const AFFICHER_LES_LISTES = false
 export default function Prospection() {
   const [onglet, setOnglet] = useState<'listes' | 'pistes'>(AFFICHER_LES_LISTES ? 'listes' : 'pistes')
   const { data: listes } = useListes()
-  const { data: pistes } = usePistes()
+  const { data: pistes, isError, error, refetch } = usePistes()
   const [creation, setCreation] = useState<null | 'liste' | 'piste'>(null)
   /* `?creer=1` ouvre le formulaire de PISTE et non celui de liste : l'onglet des listes est
      désactivé (AFFICHER_LES_LISTES), et le menu « Créer » ne propose que la piste. */
@@ -136,7 +136,7 @@ export default function Prospection() {
 
         {onglet === 'listes' && AFFICHER_LES_LISTES
           ? <OngletListes lignes={listes ?? []} signaler={signaler} />
-          : <OngletPistes pistes={pistes ?? []} />}
+          : <OngletPistes pistes={pistes ?? []} enEchec={isError} erreur={error} onReessayer={() => void refetch()} />}
       </div>
 
       {creation === 'liste' && <DialogLigne onFermer={() => setCreation(null)} signaler={signaler} />}
@@ -240,7 +240,14 @@ function OngletListes({ lignes, signaler }: { lignes: LigneListe[]; signaler: (m
 /* L'onglet ne garde plus que le tableau : conversion, fichiers et vérifications sont passés sur la
    fiche de la piste (Michel, 01/09/2026). Il n'a donc plus besoin de `signaler` — plus rien ne
    s'enregistre depuis ici. */
-function OngletPistes({ pistes }: { pistes: Piste[] }) {
+function OngletPistes({ pistes, enEchec, erreur, onReessayer }: {
+  pistes: Piste[]
+  /* L'ÉCHEC DE LECTURE VIENT DU PARENT, qui tient la requête : sans lui, cet onglet afficherait
+     « vous n'avez aucune piste » pendant une panne, en annonçant un total qu'il n'a pas pu lire. */
+  enEchec: boolean
+  erreur: unknown
+  onReessayer: () => void
+}) {
   const [recherche, setRecherche] = useState('')
   // Même règle que pour les listes : l'onglet compte les pistes encore ouvertes, la liste montre
   // les mêmes.
@@ -417,7 +424,9 @@ function OngletPistes({ pistes }: { pistes: Piste[] }) {
         {/* L'ÉCRAN VIDE DIT POURQUOI. Sans ça, « Aucune piste ne correspond » s'affichait pendant
             que la bascule annonçait 5 181 justes à côté — cinq personnes sur dix voient cet écran,
             Erwan six fois sur sept. Voir `ListeVide`. */}
-        {pistesVisibles.length === 0 ? (
+        {enEchec ? (
+          <ListeEnEchec onReessayer={onReessayer} erreur={erreur} />
+        ) : pistesVisibles.length === 0 ? (
           <ListeVide
             perimetre={perimetre}
             onChange={setPerimetre}

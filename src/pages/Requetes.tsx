@@ -8,7 +8,7 @@ import { Badge } from '@/components/ui/badge'
 import { Dialog } from '@/components/ui/dialog'
 import { FormField, Input, Select, Textarea } from '@/components/ui/form'
 import { ListToolbar } from '@/components/ui/list-toolbar'
-import { usePerimetreListe, BasculePerimetre, ListeVide } from '@/lib/perimetre'
+import { usePerimetreListe, BasculePerimetre, ListeVide, ListeEnEchec } from '@/lib/perimetre'
 import { EntityLink } from '@/components/ui/entity-link'
 import {
   useRequetes,
@@ -84,7 +84,7 @@ const COULEUR_STATUT: Record<string, string> = {
 
 export default function Requetes() {
   const navigate = useNavigate()
-  const { data: requetes } = useRequetes()
+  const { data: requetes, isError, error, refetch } = useRequetes()
   const { data: statuts } = useStatutsRequetes()
   const maj = useMajRequete()
   const [recherche, setRecherche] = useState('')
@@ -185,7 +185,9 @@ export default function Requetes() {
           </Button>
         </ListToolbar>
 
-        {filtrees.length === 0 ? (
+        {isError ? (
+          <ListeEnEchec onReessayer={() => void refetch()} erreur={error} />
+        ) : filtrees.length === 0 ? (
           /* L'ÉCRAN VIDE DIT POURQUOI : six personnes sur dix n'ont aucune requête à leur nom, et
              voyaient « Aucune requête » sans savoir que 886 existent. Voir `ListeVide`. */
           <ListeVide

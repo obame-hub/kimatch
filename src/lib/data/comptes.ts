@@ -8,6 +8,7 @@ import { fetchComptesVisibles, filterVisibles } from '@/lib/data/visibility'
 import { fetchAllRows } from '@/lib/data/paginatedFetch'
 import { toUpperFR } from '@/lib/textFormat'
 import { departementFromCodePostal } from '@/lib/departements'
+import { relancer } from '@/lib/data/erreurLecture'
 
 interface RawCompteClient {
   segment_compte_id: string | null
@@ -144,8 +145,7 @@ async function fetchComptes(compteId?: string): Promise<Compte[]> {
       }
     })
   } catch (error) {
-    console.error('fetchComptes', error)
-    return []
+    relancer('fetchComptes', error)
   }
 }
 

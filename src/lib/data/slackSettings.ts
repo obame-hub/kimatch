@@ -1,6 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { supabase } from '@/lib/supabase'
 import { authHeader } from '@/lib/data/authHeader'
+import { relancer } from '@/lib/data/erreurLecture'
 
 export type SlackModule = 'compte' | 'contrat' | 'mandat'
 
@@ -23,8 +24,7 @@ async function fetchSlackSettings(): Promise<SlackSetting[]> {
     if (error) throw error
     return (data ?? []) as SlackSetting[]
   } catch (error) {
-    console.error('fetchSlackSettings', error)
-    return []
+    relancer('fetchSlackSettings', error)
   }
 }
 

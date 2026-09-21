@@ -205,6 +205,42 @@ export function BasculePerimetre({
  * bascule, et on lui laisse un bouton. S'il n'y a rien non plus de l'autre côté, on ne propose rien
  * — proposer une porte qui ne mène nulle part est pire que se taire.
  */
+/**
+ * ══ « JE N'AI PAS RÉUSSI À LIRE » N'EST PAS « IL N'Y A RIEN » ══
+ *
+ * L'autre moitié de la correction du 21/09/2026. Les lectures relancent désormais leur erreur au
+ * lieu de rendre une liste vide (voir `lib/data/erreurLecture.ts`) — encore faut-il que l'écran la
+ * montre, sinon on aurait seulement déplacé le silence.
+ *
+ * LE BOUTON RÉESSAYER EST L'ESSENTIEL. La plupart de ces échecs sont passagers : un réseau qui
+ * cligne, une session à rafraîchir. Sans bouton, la seule issue connue est de recharger toute
+ * l'application et de perdre où l'on en était.
+ */
+export function ListeEnEchec({ onReessayer, erreur }: { onReessayer: () => void; erreur?: unknown }) {
+  const detail = erreur instanceof Error ? erreur.message : null
+
+  return (
+    <div className="rounded-km-md border border-dashed border-km-red bg-km-red-soft px-4 py-5 text-center">
+      <p className="text-km-body font-semibold text-km-text">
+        Cette liste n’a pas pu être chargée.
+      </p>
+      <p className="mt-1 text-km-label text-km-muted">
+        Ce n’est pas que vos données ont disparu : Kimatch n’a pas réussi à les lire.
+      </p>
+      {detail && (
+        <code className="mt-2 block truncate font-mono text-km-tiny text-km-faint">{detail}</code>
+      )}
+      <button
+        type="button"
+        onClick={onReessayer}
+        className="mt-3 rounded-km border border-km-red bg-white px-3.5 py-1.5 text-km-label font-bold text-km-red transition-colors hover:bg-km-red hover:text-white"
+      >
+        Réessayer
+      </button>
+    </div>
+  )
+}
+
 export function ListeVide({
   perimetre,
   onChange,

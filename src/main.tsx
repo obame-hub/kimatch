@@ -16,6 +16,17 @@ const queryClient = new QueryClient({
     queries: {
       staleTime: 5 * 60 * 1000,
       refetchOnWindowFocus: false,
+      /* ══ UN ÉCHEC DOIT FINIR PAR SE DIRE ══
+         Mesuré le 21/09/2026 en coupant la lecture des pistes : la requête est partie VINGT-TROIS
+         fois avant que l'écran ne renonce. `fetchAllRows` réessaie déjà trois fois par page, et
+         React Query relançait trois fois par-dessus, chaque tour avec une attente plus longue. Le
+         commercial restait donc plusieurs minutes devant une liste vide sans le moindre message —
+         le silence qu'on vient justement de corriger dans `lib/data`.
+
+         Une tentative de reprise suffit : les deux essais internes ont déjà absorbé le hoquet
+         passager. Au-delà, c'est une panne, et une panne s'annonce. Le bouton « Réessayer » de
+         `ListeEnEchec` rend la main à qui veut insister. */
+      retry: 1,
     },
   },
 })

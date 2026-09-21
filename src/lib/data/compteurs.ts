@@ -4,6 +4,7 @@ import type { Compteur } from '@/types/domain'
 import { fetchComptesVisibles, fetchSitesVisiblesIds, filterVisibles } from '@/lib/data/visibility'
 import { fetchAllRows } from '@/lib/data/paginatedFetch'
 import { nettoyerSaisie } from '@/lib/utils'
+import { relancer } from '@/lib/data/erreurLecture'
 
 interface RawCompteurElec {
   segment: string | null
@@ -183,8 +184,7 @@ async function fetchCompteurs(siteIds?: string[], compteurId?: string, compteId?
       }
     })
   } catch (error) {
-    console.error('fetchCompteurs', error)
-    return []
+    relancer('fetchCompteurs', error)
   }
 }
 

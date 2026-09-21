@@ -3,6 +3,7 @@ import { supabase } from '@/lib/supabase'
 import type { Signal } from '@/types/domain'
 import { fetchComptesVisibles, fetchSitesVisiblesIds, filterVisibles } from '@/lib/data/visibility'
 import { fetchAllRows } from '@/lib/data/paginatedFetch'
+import { relancer } from '@/lib/data/erreurLecture'
 
 interface RawSignal {
   id: string
@@ -70,8 +71,7 @@ async function fetchSignaux(siteIds?: string[], signalId?: string, recommandatio
       recommandation_nom: s.recommandation?.nom ?? null,
     }))
   } catch (error) {
-    console.error('fetchSignaux', error)
-    return []
+    relancer('fetchSignaux', error)
   }
 }
 

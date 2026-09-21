@@ -1,5 +1,6 @@
 import { useQuery } from '@tanstack/react-query'
 import { supabase } from '@/lib/supabase'
+import { relancer } from '@/lib/data/erreurLecture'
 
 export interface EligibilityRule {
   id: string
@@ -21,8 +22,7 @@ async function fetchEligibilityRules(): Promise<EligibilityRule[]> {
     if (error) throw error
     return (data ?? []) as EligibilityRule[]
   } catch (error) {
-    console.error('fetchEligibilityRules', error)
-    return []
+    relancer('fetchEligibilityRules', error)
   }
 }
 

@@ -116,6 +116,12 @@ async function lienDeConnexion(adresse) {
   page.on('response', (r) => {
     if (r.status() >= 400 && !r.url().startsWith('chrome')) soucis.push(`HTTP ${r.status()} ${r.url().slice(0, 150)}`)
   })
+  /* `--tracer "motif"` liste les requetes qui partent : indispensable pour savoir quoi couper. */
+  const iTrace = process.argv.indexOf('--tracer')
+  if (iTrace > -1 && process.argv[iTrace + 1]) {
+    const m = process.argv[iTrace + 1]
+    page.on('request', (r) => { if (r.url().includes(m)) console.log('  ->', r.url().slice(0, 160)) })
+  }
 
   /* ══ LA SESSION SE POSE À LA MAIN, ET C'EST VOULU ══
      Suivre le lien et laisser l'application faire aurait été plus court, mais ça dépend de la liste
@@ -155,6 +161,18 @@ async function lienDeConnexion(adresse) {
   await page.goto(`${BASE}/`, { waitUntil: 'domcontentloaded', timeout: 60000 })
   await page.evaluate(([cle, valeur]) => window.localStorage.setItem(cle, valeur),
     [`sb-${ref}-auth-token`, JSON.stringify(session)])
+
+  /* `--couper "motif"` fait echouer les requetes dont l'URL contient ce motif : c'est la seule
+     facon de verifier qu'un ecran sait DIRE qu'il n'a pas pu lire, au lieu de se declarer vide. */
+  const iCoupe = process.argv.indexOf('--couper')
+  if (iCoupe > -1 && process.argv[iCoupe + 1]) {
+    const motif = process.argv[iCoupe + 1]
+    await page.route((u) => u.href.includes(motif), (route) => route.abort())
+    /* LA COUPURE SE POSE AVANT LE PREMIER CHARGEMENT DE L'ECRAN, sinon React Query sert le cache
+       et la panne ne se voit pas — eprouve le 21/09/2026 : la premiere tentative montrait un ecran
+       parfaitement normal, ce qui aurait fait croire que la correction ne servait a rien. */
+    console.log(`Requetes coupees : ${motif}`)
+  }
 
   await page.goto(`${BASE}${chemin}`, { waitUntil: 'domcontentloaded', timeout: 60000 })
   /* `--attendre N` pour les ecrans lents : une capture prise trop tot montre une page blanche et
@@ -201,6 +219,16 @@ async function lienDeConnexion(adresse) {
   }
 
   console.log(`URL finale : ${page.url().replace(BASE, '')}`)
+  /* Ce que l'ecran AFFICHE vraiment, pour trancher entre « vide » et « en echec » sans avoir a
+     interpreter une image. */
+  const vu = await page.evaluate(() => {
+    const t = document.body.innerText
+    return {
+      echec: t.includes('n’a pas pu être chargée') || t.includes("n'a pas pu être chargée"),
+      vide: t.includes('ne correspond') || t.includes('à votre nom'),
+    }
+  }).catch(() => null)
+  if (vu) console.log(`Ecran : ${vu.echec ? 'ECHEC annonce' : vu.vide ? 'VIDE annonce' : 'contenu normal'}`)
   await page.screenshot({ path: sortie, fullPage: entier })
   console.log(`Capture : ${sortie}`)
   if (soucis.length) console.log('Erreurs console :\n  ' + soucis.slice(0, 5).join('\n  '))

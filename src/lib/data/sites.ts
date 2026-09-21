@@ -4,6 +4,7 @@ import type { Site } from '@/types/domain'
 import { fetchComptesVisibles, filterVisibles } from '@/lib/data/visibility'
 import { fetchAllRows } from '@/lib/data/paginatedFetch'
 import { toUpperFR } from '@/lib/textFormat'
+import { relancer } from '@/lib/data/erreurLecture'
 
 interface RawSite {
   id: string
@@ -129,8 +130,7 @@ async function fetchSites(compteId?: string, siteIds?: string[]): Promise<Site[]
       }
     })
   } catch (error) {
-    console.error('fetchSites', error)
-    return []
+    relancer('fetchSites', error)
   }
 }
 

@@ -1,6 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { supabase } from '@/lib/supabase'
 import type { Consommation } from '@/types/domain'
+import { relancer } from '@/lib/data/erreurLecture'
 
 async function fetchConsommations(): Promise<Consommation[]> {
   try {
@@ -11,8 +12,7 @@ async function fetchConsommations(): Promise<Consommation[]> {
     if (error) throw error
     return (data ?? []) as unknown as Consommation[]
   } catch (error) {
-    console.error('fetchConsommations', error)
-    return []
+    relancer('fetchConsommations', error)
   }
 }
 

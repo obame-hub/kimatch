@@ -1,5 +1,6 @@
 import { useQuery } from '@tanstack/react-query'
 import { supabase } from '@/lib/supabase'
+import { relancer } from '@/lib/data/erreurLecture'
 
 export interface MappingRule {
   id: string
@@ -26,8 +27,7 @@ async function fetchMappingRules(): Promise<MappingRule[]> {
     if (error) throw error
     return (data ?? []) as MappingRule[]
   } catch (error) {
-    console.error('fetchMappingRules', error)
-    return []
+    relancer('fetchMappingRules', error)
   }
 }
 

@@ -2,6 +2,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { supabase } from '@/lib/supabase'
 import { fetchAllRows } from '@/lib/data/paginatedFetch'
 import type { LigneListe, Piste } from '@/types/domain'
+import { relancer } from '@/lib/data/erreurLecture'
 
 /**
  * Le haut de l'entonnoir : la Liste, puis la Piste.
@@ -79,8 +80,7 @@ export function useListes() {
           (q: any) => q.order('date_creation', { ascending: false }))
         return lignes
       } catch (error) {
-        console.error('useListes', error)
-        return []
+        relancer('useListes', error)
       }
     },
   })
@@ -143,8 +143,7 @@ export function usePistes() {
           // eslint-disable-next-line @typescript-eslint/no-explicit-any
           (q: any) => q.order('date_creation', { ascending: false }))
       } catch (error) {
-        console.error('usePistes', error)
-        return []
+        relancer('usePistes', error)
       }
     },
   })
