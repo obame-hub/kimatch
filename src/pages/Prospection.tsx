@@ -107,7 +107,10 @@ export default function Prospection() {
         <div className="mb-4 flex flex-wrap items-center gap-0.5 border-b border-km-line">
           {([
             ...(AFFICHER_LES_LISTES ? [{ cle: 'listes' as const, titre: 'Listes', compte: nonConverties.length }] : []),
-            { cle: 'pistes' as const, titre: 'Pistes', compte: pistesOuvertes.length },
+            /* PAS DE « 0 » SUR L'ONGLET PENDANT UNE PANNE, pour la même raison que les mesures et
+               la bascule : `null` fait disparaître la pastille plutôt que d'annoncer un décompte
+               qu'on n'a pas pu lire. */
+            { cle: 'pistes' as const, titre: 'Pistes', compte: isError ? null : pistesOuvertes.length },
           ]).map((o) => (
             <button
               key={o.cle}
@@ -121,12 +124,17 @@ export default function Prospection() {
               )}
             >
               {o.titre}
-              <span className={cn(
-                'rounded-md px-1.5 py-0.5 text-km-tiny font-extrabold',
-                onglet === o.cle ? 'bg-indigo-50 text-indigo-600' : 'bg-km-bg text-km-faint',
-              )}>
-                {o.compte}
-              </span>
+              {/* LA PASTILLE DISPARAÎT QUAND LE NOMBRE EST INCONNU. Laissée vide, elle resterait
+                  une pastille grise sans chiffre — ce qui se lit comme un défaut d'affichage, pas
+                  comme « on n'a pas pu lire ». */}
+              {o.compte != null && (
+                <span className={cn(
+                  'rounded-md px-1.5 py-0.5 text-km-tiny font-extrabold',
+                  onglet === o.cle ? 'bg-indigo-50 text-indigo-600' : 'bg-km-bg text-km-faint',
+                )}>
+                  {o.compte}
+                </span>
+              )}
             </button>
           ))}
           <span className="ml-auto hidden items-center gap-1 px-2 pb-2 text-km-xs text-km-faint sm:flex">
@@ -279,25 +287,36 @@ function OngletPistes({ pistes, enEchec, erreur, onReessayer }: {
    * chantier a part, et ces mesures comptent ce qui existe aujourd'hui, sans l'annoncer autrement.
    */
   const toutes = pistes
+  /* ══ ZÉRO EST UN MENSONGE QUAND ON N'A PAS PU LIRE ══
+   *
+   * Trouvé par capture le 21/09/2026, en coupant la lecture des pistes : l'encadré rouge disait
+   * bien « cette liste n'a pas pu être chargée », et JUSTE AU-DESSUS les quatre mesures affichaient
+   * « 0 », « 0 », « 0 », « 0 ». On venait de corriger le mensonge dans la liste, et il restait
+   * intact dans le bandeau — un pas plus haut, en plus gros caractères.
+   *
+   * C'est la même faute que « Aucune piste » : un tableau vide parce qu'on n'a rien reçu se lit
+   * exactement comme un tableau vide parce qu'il n'y a rien. Un tiret ne prétend rien. */
+  const mesure = (calcul: (p: Piste) => boolean) =>
+    enEchec ? '—' : String(toutes.filter(calcul).length)
   const mesures = [
     {
       libelle: 'A completer',
-      valeur: String(toutes.filter((p) => !p.opportunite_id && !pisteQualifiee(p)).length),
+      valeur: mesure((p) => !p.opportunite_id && !pisteQualifiee(p)),
       precision: 'Validations manquantes',
     },
     {
       libelle: 'Pretes a convertir',
-      valeur: String(toutes.filter((p) => !p.opportunite_id && pisteQualifiee(p)).length),
+      valeur: mesure((p) => !p.opportunite_id && pisteQualifiee(p)),
       precision: 'Toutes les validations',
     },
     {
       libelle: 'Converties',
-      valeur: String(toutes.filter((p) => p.opportunite_id).length),
+      valeur: mesure((p) => Boolean(p.opportunite_id)),
       precision: 'Une opportunite a suivi',
     },
     {
       libelle: 'Sans contact',
-      valeur: String(toutes.filter((p) => !p.opportunite_id && !p.contact_id).length),
+      valeur: mesure((p) => !p.opportunite_id && !p.contact_id),
       precision: 'Prerequis de conversion',
     },
   ]
@@ -403,8 +422,11 @@ function OngletPistes({ pistes, enEchec, erreur, onReessayer }: {
           onChange={setPerimetre}
           libelleMien="Mes pistes"
           libelleTous="Toutes les pistes"
-          compteMien={nbMiens}
-          compteTous={nbTous}
+          /* MÊME RÈGLE QUE LES MESURES : pendant une panne, ces deux nombres valent 0 et
+             annonceraient « tu n'as aucune piste, et il n'en existe aucune » au-dessus d'un
+             encadré qui dit le contraire. `undefined` fait disparaître la pastille. */
+          compteMien={enEchec ? undefined : nbMiens}
+          compteTous={enEchec ? undefined : nbTous}
         />
         <SelecteurTri valeur={tri} onChange={setTri} options={optionsTri} />
         {/* PLUS DE BASCULEMENT, PLUS DE FILTRE « OUVERTES SEULEMENT ». Naoëlle, 25/08/2026 :
