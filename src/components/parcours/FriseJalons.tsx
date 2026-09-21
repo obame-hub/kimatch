@@ -47,6 +47,25 @@ export interface Jalon {
   libelle: string
   picto: (p: { taille?: number }) => ReactElement
   franchi: boolean
+  /**
+   * ══ NI FRANCHI, NI À VENIR : DÉPASSÉ ══
+   *
+   * William, 21/09/2026 : « quand je clôture une recommandation, il faut que tout le process se
+   * complète, pas que je me retrouve avec un chemin qui n'a que quelques étapes de complétées ».
+   *
+   * LA FRISE N'AVAIT QUE DEUX ÉTATS, et c'est ce qui produisait le chemin troué. Un dossier clos
+   * sans proposition datée affichait « Proposée » en nœud pointillé, précédé de la barre à tirets
+   * DÉFILANTS — le signal d'attente. Sur un dossier mort, l'écran disait donc « on attend encore »,
+   * ce qui est faux deux fois : on n'attend plus, et personne n'a rien à faire.
+   *
+   * Ce troisième état dit l'exacte vérité : l'étape est DERRIÈRE nous, et elle n'a pas eu lieu.
+   * Le nœud se remplit de gris plein — le parcours est passé par là — mais il ne prend ni l'or ni
+   * la date d'un jalon franchi, parce qu'inventer un horodatage serait pire que la ligne vide.
+   *
+   * SUR PRODUCTION : 1 152 recommandations closes sur 1 625 (71 %) affichaient un chemin troué,
+   * dont 871 acceptées dont seulement 219 avaient une présentation datée.
+   */
+  depasse?: boolean
   /** Couleur propre au jalon final. Absente, le jalon prend l'or du parcours. */
   couleur?: string
   date: string | null
@@ -117,6 +136,10 @@ function Cellules({ children }: { children: ReactNode }) {
 function BarreDeLiaison({ depuis, vers }: { depuis: Jalon; vers: Jalon }) {
   const commun = { height: 6, borderRadius: 3, margin: '0 -10px' } as const
 
+  /* Un jalon dépassé est derrière nous au même titre qu'un jalon franchi : la barre qui y mène ne
+     doit plus attendre. C'est tout l'objet du troisième état. */
+  const derriere = (j: Jalon) => j.franchi || j.depasse === true
+
   if (depuis.franchi && vers.franchi) {
     /* Vers un jalon coloré, cinq paliers : un simple dégradé or → vert vire au kaki au milieu, et la
        transition se voit comme une salissure. `backgroundSize` en pourcentage est indispensable —
@@ -125,6 +148,12 @@ function BarreDeLiaison({ depuis, vers }: { depuis: Jalon; vers: Jalon }) {
       ? `linear-gradient(90deg,${OR_CLAIR} 0%,#c2a03f 22%,#96a055 48%,#5a9270 74%,${vers.couleur} 100%)`
       : DEGRADE_OR
     return <div style={{ ...commun, background: fond, backgroundSize: '100% 100%' }} />
+  }
+
+  /* Le parcours a franchi ce segment, mais l'un des deux bouts n'a pas eu lieu : barre pleine et
+     sourde. Pleine parce qu'on est passé ; sourde parce qu'il n'y a rien à fêter. */
+  if (derriere(depuis) && derriere(vers)) {
+    return <div style={{ ...commun, background: '#ddd9d1' }} />
   }
 
   if (depuis.franchi) {
@@ -190,7 +219,9 @@ export function FriseJalons({ jalons, compact }: {
           ? couleur
             ? `linear-gradient(135deg,${couleur}cc,${couleur})`
             : DEGRADE_OR
-          : '#fff'
+          : jalon.depasse
+            ? '#e6e3dd'
+            : '#fff'
 
         const suivant = jalons[i + 1]
         /* Bouton quand le jalon se clique, `div` sinon : un `<button disabled>` partout aurait
@@ -211,8 +242,10 @@ export function FriseJalons({ jalons, compact }: {
                   height: taille,
                   borderRadius: '50%',
                   background: fond,
-                  border: jalon.franchi ? undefined : '2px dashed #dcdad5',
-                  color: jalon.franchi ? '#fff' : '#c9cbc6',
+                  /* Le pointillé signifie « pas encore ». Un jalon dépassé prend donc le trait
+                     plein, comme un jalon franchi — c'est la couleur seule qui les sépare. */
+                  border: jalon.franchi || jalon.depasse ? undefined : '2px dashed #dcdad5',
+                  color: jalon.franchi ? '#fff' : jalon.depasse ? '#8d8f8a' : '#c9cbc6',
                   boxShadow: jalon.franchi
                     ? courant
                       ? `0 4px 12px ${couleur ?? OR_FONCE}4d`
@@ -244,7 +277,7 @@ export function FriseJalons({ jalons, compact }: {
                 fontSize: 12,
                 letterSpacing: '-.01em',
                 fontWeight: jalon.franchi ? 800 : 600,
-                color: jalon.franchi ? jalon.couleur ?? '#16181d' : '#c0c2bd',
+                color: jalon.franchi ? jalon.couleur ?? '#16181d' : jalon.depasse ? '#8d8f8a' : '#c0c2bd',
               }}
             >
               {jalon.libelle}

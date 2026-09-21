@@ -94,6 +94,29 @@ import type { Recommandation } from '@/types/domain'
  *     écrire « Acceptée » serait un mensonge.
  *
  * Un jalon franchi sans date s'affiche en gras, sans ligne de date — la frise sait déjà le faire.
+ *
+ * ══════════ UN DOSSIER CLOS N'ATTEND PLUS RIEN ══════════
+ *
+ * William, 21/09/2026 : « quand je clôture une recommandation, il faut que tout le process se
+ * complète, pas que je me retrouve avec un chemin qui n'a que quelques étapes de complétées ».
+ *
+ * CE QU'IL VOYAIT, ET IL AVAIT RAISON DE LE TROUVER FAUX : sur un dossier clos sans proposition
+ * datée, « En consultation » et « Proposée » restaient en nœuds pointillés, reliés par la barre à
+ * tirets DÉFILANTS — le seul signal d'attente de toute la frise. L'écran annonçait donc un travail
+ * en cours sur un dossier mort. Ce n'est pas un détail d'affichage : c'est le contraire de la
+ * vérité, sur 1 152 recommandations closes sur 1 625 (71 %).
+ *
+ * CE QUE JE N'AI PAS FAIT, ET POURQUOI. « Compléter le process » pourrait s'entendre comme : à la
+ * clôture, écrire les dates manquantes. Je m'y refuse, et ce n'est pas de la timidité —
+ * `date_presentation_client` est la SEULE source de la relance et de la mention « V3 » du jalon.
+ * La remplir à la clôture inventerait un envoi qui n'a peut-être jamais eu lieu, et corromprait
+ * la donnée sur laquelle repose un autre écran. La règle du dépôt est constante : « inventer un
+ * horodatage serait pire que la ligne vide ».
+ *
+ * CE QUE J'AI FAIT : la frise reçoit un troisième état, `depasse` — ni franchi, ni à venir. Le
+ * parcours est passé par là sans que l'étape ait lieu. Nœud plein et sourd, barre pleine et sourde,
+ * plus aucune animation. Le chemin se lit d'un bout à l'autre, et il ne ment sur rien : on distingue
+ * toujours ce qui a eu lieu de ce qui n'a pas eu lieu.
  * ════════════════════════════════════════════════════════════════════════════════════════════════
  */
 export function CheminRecommandation({
@@ -173,11 +196,16 @@ export function CheminRecommandation({
       libelle: 'En consultation',
       picto: PictoLoupe,
       franchi: reco.versions.length > 0,
+      /* 186 dossiers clos n'ont aucune version : ils sont morts à l'état d'intention. Le jalon est
+         derrière eux sans avoir eu lieu — c'est exactement ce que `depasse` dit. */
+      depasse: estClose && reco.versions.length === 0,
       onChoisir: cliquable('ACTIVE', () => onChoisirEtape?.('ACTIVE')),
       titre: reco.etape === 'ACTIVE'
         ? 'Le dossier est actif'
         : estClose
-          ? 'Rouvrir le dossier — il repasse en Active, et ce choix tiendra'
+          ? reco.versions.length === 0
+            ? 'Clos sans qu’aucune version n’ait été créée — rouvrir le dossier'
+            : 'Rouvrir le dossier — il repasse en Active, et ce choix tiendra'
           : 'Rendre le dossier actif — ce choix tiendra',
       date: premiereVersion?.date_creation ?? null,
       /* LE NOMBRE DE VERSIONS N'EST PLUS ÉCRIT (William, 18/09/2026). Il allongeait la ligne de date
@@ -190,6 +218,10 @@ export function CheminRecommandation({
       libelle: 'Proposée',
       picto: PictoEnveloppe,
       franchi: datePresentation != null,
+      /* 966 dossiers clos portent des versions dont AUCUNE n'a de date de présentation. Souvent la
+         proposition est partie de la boîte mail du commercial, sans passer par « Envoyer au
+         client » : le fait a eu lieu, sa date n'a jamais été observée. On ne l'invente pas. */
+      depasse: estClose && datePresentation == null,
       /* Une seule fois : redater une présentation déjà faite remettrait le compteur des deux jours
          ouvrés à zéro et REPOUSSERAIT la relance au lieu de la rapprocher. */
       onChoisir:
@@ -200,7 +232,9 @@ export function CheminRecommandation({
         ? `Proposition envoyée le ${new Date(datePresentation).toLocaleDateString('fr-FR')}`
         : reco.versions.length === 0
           ? 'Aucune version : il n’y a rien à proposer au client'
-          : 'Marquer la proposition comme envoyée au client — c’est cette date qui déclenche la relance',
+          : estClose
+            ? 'Clos sans présentation datée — dater après coup si la proposition est bien partie'
+            : 'Marquer la proposition comme envoyée au client — c’est cette date qui déclenche la relance',
       /* « À CÔTÉ de Proposée et non pas en dessous » (William, 18/09/2026) : la version part sur la
          ligne du libellé, où elle ne coûte pas de hauteur. Voir `marqueur` dans `FriseJalons`. */
       marqueur: derniereProposee
