@@ -34,11 +34,36 @@
  *      à LEUR session. `startOutboundCall` n'existe que dans leur connecteur Freshsales, et il ne
  *      fait qu'écrire un objet en mémoire. Rien à emprunter.
  *
+ * ══ LA CINQUIÈME PORTE ÉTAIT FAUSSE AUSSI — MESURÉ LE 21/09/2026 AU SOIR ══
+ *
+ * La première version de cette fenêtre disait « le numéro attend dans le téléphone, appuie sur
+ * Appeler ». Deux choses l'ont démentie le soir même :
+ *
+ *   · LA CAPTURE DE NAOËLLE : le clavier d'Allo est VIDE et il n'y a AUCUN bouton « Appeler ».
+ *     Juste un champ « Entrez un nom ou un numéro » et une pastille verte sous les touches. On
+ *     envoyait chercher un bouton qui n'existe pas.
+ *
+ *   · LEUR API, INTERROGÉE DIRECTEMENT : son numéro était dans la file depuis le 8 SEPTEMBRE,
+ *     position 0, `sync_status: NOT_SYNCED`. Treize jours sans qu'un seul appel parte. La file
+ *     n'est pas « un clic de plus », c'est un cul-de-sac : elle alimente le Power Dialer, que ce
+ *     clavier n'affiche même pas.
+ *
+ * ══ ET LA VRAIE CAUSE RACINE EST DANS WINDOWS, PAS DANS ALLO ══
+ *
+ * Relevé dans le registre du poste le 21/09 : l'application Allo (Microsoft Store,
+ * `Mobile-First.All_3.44.0.0`) DÉCLARE bien les protocoles `tel`, `callto` et `allo` dans son
+ * manifeste — mais son paquet n'est PAS ENREGISTRÉ pour la session de l'utilisateur. Les clés
+ * `HKCU\Software\Classes\tel` et `…\allo` existent, vides, sans `shell\open\command`.
+ *
+ * Donc quand le navigateur rencontre `allo://call?number=…`, il cherche quoi lancer, ne trouve
+ * rien, et NE FAIT RIEN, sans message. C'est l'explication de tout : du click-to-call d'Allo, de
+ * leur extension Chrome, et de notre tentative par leur route `/call/`.
+ *
  * ══ CE QUI RESTE, ET QUI MARCHE VRAIMENT ══
  *
- * La file du Power Dialer. C'est le SEUL mécanisme d'Allo qui accepte un numéro venu de l'extérieur,
- * et le seul geste qui reste au commercial est d'appuyer sur « Appeler » dans le volet — où le
- * numéro l'attend déjà, en PREMIÈRE position, avec le nom et la société.
+ * Coller. Le numéro est copié dès l'ouverture de cette fenêtre : il n'y a plus qu'à se placer dans
+ * le champ d'Allo, faire Ctrl+V, et appuyer sur le bouton vert. Ce n'est pas « ça appelle direct »,
+ * et cette fenêtre ne le prétend plus.
  *
  * ══ POURQUOI UNE FENÊTRE À NOUS PLUTÔT QU'UN BANDEAU ══
  *
@@ -47,8 +72,8 @@
  * fallait cliquer trois fois, et le message partait avant qu'on ait fini de lire.
  *
  * Cette fenêtre-ci répond aux trois : elle NE PART PAS toute seule, elle dit QUI on appelle — pas
- * seulement un numéro —, et elle met le numéro en tête de file pour qu'il n'y ait plus qu'un bouton
- * à presser. Elle se ferme quand l'appel démarre : à ce moment `CarteAppel` prend le relais, avec le
+ * seulement un numéro —, et elle copie le numéro pour qu'il n'y ait plus qu'à le coller. Elle se
+ * ferme quand l'appel démarre : à ce moment `CarteAppel` prend le relais, avec le
  * chronomètre et la qualification.
  * ════════════════════════════════════════════════════════════════════════════════════════════════
  */
@@ -100,8 +125,21 @@ export function FenetreAppel() {
       setAppel(a)
       setFile({ phase: 'en_cours' })
       setCopie(false)
-      /* LE VOLET S'OUVRE AVEC LA FENÊTRE, et sans condition. C'est là que se trouve le bouton qui
-         compose : une fenêtre qui dit « appuie sur Appeler » sans montrer où serait une énigme. */
+      /* ══ ON COPIE TOUT DE SUITE, SANS ATTENDRE UN SECOND CLIC ══
+       *
+       * Puisque le seul chemin qui marche est « coller dans le clavier d'Allo », autant que le
+       * numéro y soit déjà. Le commercial clique « Appeler », se place dans le champ d'Allo, fait
+       * Ctrl+V, appuie sur le vert. Trois gestes au lieu de cinq.
+       *
+       * LA COPIE PART DU CLIC DE L'UTILISATEUR, et c'est indispensable : les navigateurs refusent
+       * l'accès au presse-papiers hors d'un geste. Ici on est bien dans la pile d'appels du clic
+       * sur « Appeler », donc l'autorisation est acquise. */
+      void navigator.clipboard?.writeText(a.e164).then(
+        () => setCopie(true),
+        () => { /* Presse-papiers refusé : le bouton copier reste là, et le numéro est affiché. */ },
+      )
+      /* LE VOLET S’OUVRE AVEC LA FENÊTRE, et sans condition. C'est là qu'on colle le numéro : une
+         fenêtre qui dit « colle dans le téléphone » sans le montrer serait une énigme. */
       ouvrirVoletAllo()
     }
     majFileCourante = setFile
@@ -145,7 +183,7 @@ export function FenetreAppel() {
     >
       <div className="flex items-center gap-2 bg-km-green-soft px-3.5 py-2.5 text-km-green">
         <Phone className="h-4 w-4 shrink-0" />
-        <span className="flex-1 text-km-xs font-semibold">Appel à lancer</span>
+        <span className="flex-1 text-km-xs font-semibold">Appeler ce numéro</span>
         <button
           type="button"
           onClick={() => setAppel(null)}
@@ -183,25 +221,33 @@ export function FenetreAppel() {
           {file.phase === 'en_cours' && (
             <p className="flex items-center gap-2 text-km-xs text-km-muted">
               <Loader2 className="h-3.5 w-3.5 shrink-0 animate-spin" />
-              Préparation de l’appel dans Allo…
+              Préparation du numéro…
             </p>
           )}
 
           {file.phase === 'pret' && (
             <>
+              {/* ══ ON DÉCRIT CE QUI EST À L'ÉCRAN, ET RIEN D'AUTRE — 21/09/2026 ══
+               *
+               * Cette fenêtre disait « Le numéro attend dans le téléphone. Appuie sur Appeler dans
+               * le téléphone, à droite. » Capture de Naoëlle : le clavier d'Allo était VIDE, et il
+               * n'y a AUCUN bouton « Appeler » — juste un champ « Entrez un nom ou un numéro » et
+               * une pastille verte sous les touches. On donnait une instruction impossible à
+               * suivre, ce qui est pire qu'un silence : on fait chercher un bouton qui n'existe pas.
+               *
+               * ET LE DÉPÔT DANS LA FILE NE REMPLIT PAS CE CHAMP. Vérifié le 21/09 contre leur API :
+               * le numéro de Naoëlle était dans la file depuis le 8 septembre, position 0,
+               * `sync_status: NOT_SYNCED`. TREIZE JOURS sans qu'un appel parte. La file est une
+               * liste pour le Power Dialer, que ce clavier n'affiche même pas.
+               *
+               * On décrit donc le seul chemin qui marche vraiment : coller et appuyer sur le vert.
+               * C'est moins beau qu'un « ça appelle tout seul », mais c'est faisable. */}
               <p className="text-km-xs font-semibold text-km-text">
-                Le numéro attend dans le téléphone.
+                Colle le numéro dans le téléphone, puis appuie sur le bouton vert.
               </p>
-              {/* ON DIT LE GESTE, PAS L'ÉTAT DU SYSTÈME. « Position 0 » ne veut rien dire pour un
-                  commercial ; « appuie sur Appeler » est une instruction qu'on peut suivre. */}
               <p className="mt-1 text-km-xs text-km-muted">
-                Appuie sur <strong className="text-km-text">Appeler</strong> dans le téléphone, à
-                droite.
-                {file.position != null && file.position > 0 && (
-                  <>
-                    {' '}Il est en position {file.position + 1} de ta file.
-                  </>
-                )}
+                Le bouton <strong className="text-km-text">copier</strong> est juste au-dessus, à
+                côté du numéro.
               </p>
             </>
           )}
