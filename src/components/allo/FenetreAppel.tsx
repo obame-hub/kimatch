@@ -242,12 +242,21 @@ export function FenetreAppel() {
                *
                * On décrit donc le seul chemin qui marche vraiment : coller et appuyer sur le vert.
                * C'est moins beau qu'un « ça appelle tout seul », mais c'est faisable. */}
+              {/* ══ ON N'AFFIRME PAS QUE ÇA SONNE, ET ON NE DIT PAS NON PLUS QUE NON ══
+               *
+               * Kimatch lance `allo://call?number=…`, qui ouvre l'application de bureau et compose.
+               * Mais RIEN NE REVIENT : un protocole ne rend pas de réponse, et on ne peut pas
+               * savoir s'il a abouti. Écrire « l'appel part » serait une promesse invérifiable —
+               * la faute commise deux fois de suite les 20 et 21/09.
+               *
+               * On décrit donc ce qui vient d'être tenté, puis le repli, dans cet ordre : celui
+               * pour qui ça a marché lit la première ligne et ne lit pas la suite. */}
               <p className="text-km-xs font-semibold text-km-text">
-                Colle le numéro dans le téléphone, puis appuie sur le bouton vert.
+                L’appel part dans l’application Allo.
               </p>
               <p className="mt-1 text-km-xs text-km-muted">
-                Le bouton <strong className="text-km-text">copier</strong> est juste au-dessus, à
-                côté du numéro.
+                Si rien ne se passe, le numéro est déjà copié : colle-le dans le téléphone à droite,
+                puis appuie sur le bouton vert.
               </p>
             </>
           )}

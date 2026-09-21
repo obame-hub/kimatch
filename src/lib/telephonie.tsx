@@ -252,7 +252,28 @@ export function TelephonieProvider({ children }: { children: ReactNode }) {
      * Lancer `allo://` par-dessus ouvrait l'application de bureau et vidait le volet de sa raison
      * d'être. On ne le fait donc plus quand le volet est en service. */
     const dansLeVolet = appelDansLeVolet()
-    if (!dansLeVolet) lancerAlloBureau(e164)
+
+    /* ══ ON TENTE `allo://` DANS TOUS LES CAS — 21/09/2026 AU SOIR ══
+     *
+     * Jusqu'ici ce protocole n'était lancé QUE si l'on avait choisi l'application de bureau, parce
+     * qu'il ouvrait cette application par-dessus et vidait le volet de sa raison d'être.
+     *
+     * DEUX MESURES DU SOIR RETOURNENT LA DÉCISION :
+     *
+     *   · LA FILE NE COMPOSE RIEN. Le numéro de Naoëlle y était depuis le 8 septembre, position 0,
+     *     `NOT_SYNCED`. Treize jours, aucun appel. Le chemin « volet seul » ne mène donc nulle
+     *     part : on ne protège plus rien en s'abstenant.
+     *
+     *   · `allo://` RÉPOND. Éprouvé sur le poste : `Start-Process "allo://call?number=…"` est
+     *     accepté par Windows et routé vers l'application. Les clés de registre paraissent vides
+     *     parce qu'une application du Store passe par un mécanisme que le registre classique
+     *     n'expose pas — c'est ce qui m'avait fait conclure trop vite qu'il n'y avait personne
+     *     derrière le protocole.
+     *
+     * Le lancer coûte RIEN quand il n'aboutit pas : un protocole sans gestionnaire ne navigue pas,
+     * et la fenêtre d'appel reste là avec le numéro déjà copié. Il fait gagner l'appel entier quand
+     * il aboutit. On le tente donc toujours, et le volet demeure pour raccrocher. */
+    lancerAlloBureau(e164)
 
     /* ══ LE VOLET S'OUVRE AVANT TOUTE REQUÊTE, ET SANS CONDITION ══
      *
