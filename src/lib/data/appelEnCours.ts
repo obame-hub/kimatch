@@ -117,7 +117,37 @@ export function useAppelEnCours() {
     // Une carte d'appel périmée n'a aucun intérêt : on ne garde rien entre deux lectures.
     staleTime: 0,
     gcTime: 0,
+    /* ══ L'APPEL EN COURS PASSE DEVANT CELUI QU'ON N'A PAS QUALIFIÉ ══
+     *
+     * Thomas, 21/09/2026 : « quand je finis un appel, j'ai le petit encadré en bas qui s'affiche
+     * comme quoi je suis toujours en ligne alors que je suis déjà reparti sur un autre appel ».
+     *
+     * LA RÈGLE D'AVANT SUPPOSAIT QU'ON QUALIFIE AVANT D'ENCHAÎNER. Elle prenait « le dernier appel
+     * non qualifié des dix dernières minutes » : l'appel précédent, resté sans réponse, occupait
+     * donc la carte tant que le nouveau n'était pas écrit en base par le webhook d'Allo.
+     *
+     * Or l'équipe enchaîne toutes les DEUX MINUTES TRENTE-HUIT en moyenne, mesuré sur 231
+     * enchaînements — pour une fenêtre de dix minutes. La carte était structurellement en retard
+     * d'un appel pendant toute une session de prospection, et Thomas la fermait sans répondre : 262
+     * appels non qualifiés en trente jours.
+     *
+     * On demande donc D'ABORD l'appel qui n'est pas terminé. Un appel en cours est unique et ne se
+     * discute pas — c'est celui qu'on est en train de passer. À défaut seulement, on reprend le
+     * dernier appel terminé et non qualifié, parce que `call.completed` arrive une trentaine de
+     * secondes après le raccrochage et qu'il faut laisser le temps de répondre.
+     */
     queryFn: async (): Promise<AppelEnCours | null> => {
+      const enCours = await supabase
+        .from('appels_en_cours')
+        .select('*')
+        .eq('user_email', adresseAllo as string)
+        .is('qualification', null)
+        .is('termine_le', null)
+        .order('demarre_le', { ascending: false })
+        .limit(1)
+      if (enCours.error) throw new Error(enCours.error.message)
+      if (enCours.data?.[0]) return enCours.data[0] as AppelEnCours
+
       const ilYaDixMinutes = new Date(Date.now() - 10 * 60 * 1000).toISOString()
       const { data, error } = await supabase
         .from('appels_en_cours')
@@ -243,10 +273,15 @@ export function etatDeLAppel(a: AppelEnCours): EtatAppel {
  * met rien — l'écran affiche le numéro, qui est toujours là.
  */
 export function useIdentiteAppel(appel: AppelEnCours | null | undefined) {
-  const cle = appel ? [appel.contact_id, appel.piste_id, appel.compte_id].join('|') : 'aucun'
+  const cle = appel ? [appel.contact_id, appel.piste_id, appel.compte_id, appel.numero].join('|') : 'aucun'
   return useQuery({
     queryKey: ['identite-appel', cle],
-    enabled: Boolean(appel && (appel.contact_id || appel.piste_id || appel.compte_id)),
+    /* ON CHERCHE MÊME SANS RATTACHEMENT, et c'est le cœur du problème de Thomas : sur 262 appels
+       non qualifiés, 199 ne portaient QUE le numéro. La carte lui demandait « avez-vous eu
+       quelqu'un ? » sans lui dire qui il appelait — impossible à renseigner de bonne foi.
+       `qui_appelle` retrouve le propriétaire du numéro même quand le webhook n'a rien rattaché,
+       parce qu'il comparait les chaînes brutes au lieu des chiffres. */
+    enabled: Boolean(appel && (appel.contact_id || appel.piste_id || appel.compte_id || appel.numero)),
     staleTime: 5 * 60 * 1000,
     queryFn: async (): Promise<{ nom: string | null; societe: string | null }> => {
       if (!appel) return { nom: null, societe: null }
@@ -276,6 +311,24 @@ export function useIdentiteAppel(appel: AppelEnCours | null | undefined) {
         const { data } = await supabase
           .from('comptes').select('nom').eq('id', appel.compte_id).maybeSingle()
         if (data) return { nom: null, societe: (data as unknown as { nom: string }).nom }
+      }
+
+      /* ══ RIEN N'ÉTAIT RATTACHÉ : ON CHERCHE PAR LE NUMÉRO ══
+         C'est le cas de 199 appels sur 262. Le webhook n'avait rien trouvé parce qu'il comparait
+         `telephone like '%612345678'` sur la chaîne brute, ce qui rate les 1 319 numéros écrits
+         avec des espaces. `qui_appelle` compare les chiffres seuls (migration 20260921160000). */
+      if (appel.numero) {
+        const { data } = await supabase.rpc('qui_appelle', { p_numero: appel.numero })
+        const ligne = (data as { nom: string | null; compte_id: string | null }[] | null)?.[0]
+        if (ligne?.nom) {
+          let societe: string | null = null
+          if (ligne.compte_id) {
+            const { data: c } = await supabase
+              .from('comptes').select('nom').eq('id', ligne.compte_id).maybeSingle()
+            societe = (c as unknown as { nom: string } | null)?.nom ?? null
+          }
+          return { nom: ligne.nom, societe }
+        }
       }
 
       return { nom: null, societe: null }

@@ -215,30 +215,35 @@ interface Reconnu {
   piste_id: string | null
 }
 
+/**
+ * ══ QUI APPELLE ? LA COMPARAISON SE FAIT SUR LES CHIFFRES, PAS SUR LA CHAÎNE ══
+ *
+ * Thomas, 21/09/2026 : « comme ça m'affiche que le numéro de téléphone, je sais même pas à qui ça
+ * correspond ». Sur 262 appels non qualifiés, 199 ne portaient que le numéro.
+ *
+ * L'INTENTION ÉTAIT BONNE, LE MOYEN NON. Cette fonction comparait déjà les neuf derniers chiffres —
+ * mais par `telephone like '%612345678'`, donc sur la CHAÎNE BRUTE. Or 1 319 numéros sont écrits
+ * avec des espaces ou des points : « 06 12 34 56 78 » ne finit pas par « 612345678 », il finit par
+ * « 56 78 ». Le motif ne pouvait pas les atteindre.
+ *
+ * Mesuré sur les 85 numéros orphelins : l'ancienne méthode en reconnaissait 3, celle-ci 18.
+ *
+ * `fin_numero` vit en base (migration 20260921160000) et porte un index : la reconnaissance reste
+ * instantanée pendant que le téléphone sonne, et la règle est la même ici, sur la carte d'appel et
+ * au clic-pour-appeler — trois endroits qui divergeraient s'ils l'écrivaient chacun.
+ */
 async function reconnaitre(admin: Admin, numero: string | null | undefined): Promise<Reconnu> {
   const fin = dixDerniers(numero)
   if (fin.length < 9) return { contact_id: null, compte_id: null, piste_id: null }
 
-  const { data: contacts } = await admin
-    .from('contacts')
-    .select('id, compte_id, telephone, telephone_mobile')
-    .or(`telephone.like.%${fin},telephone_mobile.like.%${fin}`)
-    .limit(1)
-  if (contacts && contacts.length > 0) {
+  const { data: trouve } = await admin.rpc('qui_appelle', { p_numero: fin })
+  const ligne = (trouve as { contact_id: string | null; compte_id: string | null; piste_id: string | null }[] | null)?.[0]
+  if (ligne) {
     return {
-      contact_id: contacts[0].id as string,
-      compte_id: (contacts[0].compte_id as string | null) ?? null,
-      piste_id: null,
+      contact_id: ligne.contact_id ?? null,
+      compte_id: ligne.compte_id ?? null,
+      piste_id: ligne.piste_id ?? null,
     }
-  }
-
-  const { data: pistes } = await admin
-    .from('pistes')
-    .select('id, telephone')
-    .like('telephone', `%${fin}`)
-    .limit(1)
-  if (pistes && pistes.length > 0) {
-    return { contact_id: null, compte_id: null, piste_id: pistes[0].id as string }
   }
 
   return { contact_id: null, compte_id: null, piste_id: null }
