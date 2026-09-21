@@ -1,5 +1,6 @@
 import { FriseJalons, contexteDe, type Jalon } from '@/components/parcours/FriseJalons'
 import { FINALITES_RECOMMANDATION, type CleFinalite } from '@/lib/finalitesRecommandation'
+import { Lock } from 'lucide-react'
 import {
   PictoBrouillon,
   PictoEnveloppe,
@@ -39,6 +40,37 @@ import type { Recommandation } from '@/types/domain'
  * par exemple… là c'est une toute nouvelle frise et c'est pas ce que je veux ». La règle vaut ici :
  * ce fichier ne dessine rien, il dit seulement QUELS jalons une recommandation a.
  *
+ * ══════════ LE CHEMIN SE CLIQUE — ET SEULEMENT LÀ OÙ IL Y A QUELQUE CHOSE À POSER ══════════
+ *
+ * William, 21/09/2026 : « laisse la possibilité à un commercial, dans le chemin du haut de la page,
+ * de passer d'une étape à une autre à la main, en cliquant sur l'étape en question ».
+ *
+ * CELA REVIENT SUR SA DEMANDE DU 18/09 — « le cycle est calculé automatiquement, il doit être
+ * masqué » — et c'est cohérent : ce qu'il faisait retirer, c'était le rail où l'on posait un statut
+ * de VERSION en double du reste de la fiche. Ce qui revient, c'est la main sur l'ÉTAPE du dossier,
+ * quand le calcul de la base se trompe.
+ *
+ * ══ DEUX JALONS SUR QUATRE SE CLIQUENT, ET LE TROISIÈME OUVRE LA CLÔTURE ══
+ *
+ *  · « Créée » pose Brouillon, « En consultation » pose Active — ce sont deux étapes réelles, et
+ *    cliquer « En consultation » est le geste qui ROUVRE un dossier endormi.
+ *  · « L'issue » ne s'écrit pas d'un clic : clôturer réclame une finalité et un motif obligatoire
+ *    (règle du 16/08/2026). Le nœud ouvre donc le panneau de clôture, comme le bouton du bandeau.
+ *  · « Proposée » reste INERTE, et c'est voulu : ce n'est pas une étape mais un FAIT — la date où
+ *    la proposition est partie chez le client. Un nœud qui promettrait de la poser mentirait, et
+ *    la date se pose en envoyant la proposition, pas en cliquant un rond.
+ *
+ * ══ UN CHOIX MANUEL TIENT TOUJOURS ══
+ *
+ * William, 21/09/2026. `recalculer_statut_recommandation` reprenait l'étape à chaque mouvement de
+ * version : un dossier remis en Active rebasculait tout seul, sans que personne comprenne pourquoi.
+ * Depuis la migration du même jour, poser une étape à la main écrit `date_etape_manuelle`, et le
+ * calcul s'arrête net tant qu'elle existe.
+ *
+ * LA MAIN REND LA MAIN, et ça se voit : un dossier figé le dit sous le chemin, avec le geste qui le
+ * rend au calcul. Sans cette sortie, un dossier figé par erreur le resterait pour toujours — une
+ * règle qui « tient toujours » a besoin d'une porte, sinon c'est un piège.
+ *
  * ══ QUATRE JALONS, ET DES DATES QU'ON N'INVENTE PAS ══
  *
  * `recommandations` ne date pas ses changements d'étape — `date_ouverture` et `date_creation` sont
@@ -57,7 +89,22 @@ import type { Recommandation } from '@/types/domain'
  * Un jalon franchi sans date s'affiche en gras, sans ligne de date — la frise sait déjà le faire.
  * ════════════════════════════════════════════════════════════════════════════════════════════════
  */
-export function CheminRecommandation({ reco }: { reco: Recommandation }) {
+export function CheminRecommandation({
+  reco,
+  peutModifier,
+  onChoisirEtape,
+  onOuvrirCloture,
+  onRendreAuCalcul,
+}: {
+  reco: Recommandation
+  peutModifier?: boolean
+  /** Pose une étape à la main. Voir le commentaire « LE CHEMIN SE CLIQUE » ci-dessous. */
+  onChoisirEtape?: (code: 'BROUILLON' | 'ACTIVE') => void
+  /** La clôture passe par son panneau : elle réclame une finalité et un motif. */
+  onOuvrirCloture?: () => void
+  /** Rend le dossier au calcul automatique — l'échappatoire du choix manuel. */
+  onRendreAuCalcul?: () => void
+}) {
   const finalite = (reco.finalite_cloture ?? null) as CleFinalite | null
   const estClose = reco.etape === 'CLOTUREE'
 
@@ -90,12 +137,20 @@ export function CheminRecommandation({ reco }: { reco: Recommandation }) {
 
   const issue = finalite ? FINALITES_RECOMMANDATION[finalite] : null
 
+  /* Un clic ne se propose que si l'on peut écrire, et jamais pour poser l'étape déjà en cours. */
+  const cliquable = (code: string, action: () => void) =>
+    peutModifier && reco.etape !== code ? action : undefined
+
   const jalons: Jalon[] = [
     {
       cle: 'creee',
       libelle: 'Créée',
       picto: PictoBrouillon,
       franchi: true,
+      onChoisir: cliquable('BROUILLON', () => onChoisirEtape?.('BROUILLON')),
+      titre: reco.etape === 'BROUILLON'
+        ? 'Le dossier est au brouillon'
+        : 'Remettre le dossier au brouillon — ce choix tiendra',
       date: reco.date_creation,
       /* L'AUTEUR N'EST PLUS ÉCRIT ICI. William, 18/09/2026 : « inutile de noter qui a créé, ça prend
          de la place verticalement pour rien ». Il a raison sur les deux termes : le nom pousse la
@@ -108,6 +163,12 @@ export function CheminRecommandation({ reco }: { reco: Recommandation }) {
       libelle: 'En consultation',
       picto: PictoLoupe,
       franchi: reco.versions.length > 0,
+      onChoisir: cliquable('ACTIVE', () => onChoisirEtape?.('ACTIVE')),
+      titre: reco.etape === 'ACTIVE'
+        ? 'Le dossier est actif'
+        : estClose
+          ? 'Rouvrir le dossier — il repasse en Active, et ce choix tiendra'
+          : 'Rendre le dossier actif — ce choix tiendra',
       date: premiereVersion?.date_creation ?? null,
       /* LE NOMBRE DE VERSIONS N'EST PLUS ÉCRIT (William, 18/09/2026). Il allongeait la ligne de date
          jusqu'au repli — donc une troisième ligne — pour un chiffre qui ne dit rien du chemin : on
@@ -132,6 +193,10 @@ export function CheminRecommandation({ reco }: { reco: Recommandation }) {
       libelle: issue?.libelle ?? 'Clôturée',
       picto: finalite === 'ACCEPTEE' ? PictoValide : finalite === 'REFUSEE' ? PictoRefuse : PictoExpire,
       franchi: estClose,
+      /* La clôture ne s'écrit pas d'un clic : elle réclame une finalité et un motif. Le nœud ouvre
+         le même panneau que le bouton du bandeau plutôt que d'en proposer un second chemin. */
+      onChoisir: peutModifier && !estClose && onOuvrirCloture ? onOuvrirCloture : undefined,
+      titre: estClose ? 'Dossier clos' : 'Clôturer le dossier — une finalité et un motif sont demandés',
       couleur: issue?.couleur,
       date: estClose ? (reco.date_cloture ?? null) : null,
       /* LE MOTIF NE S'ÉCRIT PLUS ICI. Obligatoire à la saisie depuis le 16/08/2026, il fait souvent
@@ -142,9 +207,33 @@ export function CheminRecommandation({ reco }: { reco: Recommandation }) {
     },
   ]
 
+  const fige = Boolean(reco.date_etape_manuelle)
+
   return (
     <div className="rounded-km-lg border border-km-line bg-white px-4 py-3">
       <FriseJalons jalons={jalons} compact />
+
+      {fige && (
+        <div className="mt-2.5 flex flex-wrap items-center gap-2 border-t border-km-line-soft pt-2.5">
+          <Lock className="h-3 w-3 shrink-0 text-km-faint" />
+          <span className="min-w-0 flex-1 text-km-label text-km-muted">
+            Étape posée à la main
+            {reco.date_etape_manuelle
+              ? ` le ${new Date(reco.date_etape_manuelle).toLocaleDateString('fr-FR')}`
+              : ''}{' '}
+            — Kimatch ne la recalcule plus.
+          </span>
+          {peutModifier && onRendreAuCalcul && (
+            <button
+              type="button"
+              onClick={onRendreAuCalcul}
+              className="shrink-0 rounded-km-sm border border-km-line px-2 py-[2px] text-km-label font-bold text-km-muted hover:border-km-green-line hover:bg-km-green-soft hover:text-km-green"
+            >
+              Laisser Kimatch décider
+            </button>
+          )}
+        </div>
+      )}
     </div>
   )
 }

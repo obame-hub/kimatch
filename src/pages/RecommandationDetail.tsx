@@ -43,6 +43,8 @@ import {
   useRecommandation,
   useUpdateRecommandationPartiel,
   useUpdateVersionPartiel,
+  useAvancerEtapeRecommandation,
+  useRendreEtapeAuCalcul,
   useCloturerRecommandation,
   useRouvrirRecommandation,
   useDeleteRecommandation,
@@ -135,6 +137,7 @@ export default function RecommandationDetail() {
     sousLibelle: reco ? reco.compte_nom : null,
     chemin: `/recommandations/${id}`,
   })
+  const { data: etapesRef } = useReferenceTable('etapes_recommandation')
   const { data: statutsVersionsRef } = useReferenceTable('statuts_versions_recommandation')
   const { data: typesDocumentsRef } = useReferenceTable('types_documents')
   const { data: typesInteractionsRef } = useReferenceTable('types_interactions')
@@ -164,6 +167,8 @@ export default function RecommandationDetail() {
 
   const updateRecoPartiel = useUpdateRecommandationPartiel()
   const updateVersion = useUpdateVersionPartiel()
+  const avancerEtape = useAvancerEtapeRecommandation()
+  const rendreAuCalcul = useRendreEtapeAuCalcul()
   const cloturerReco = useCloturerRecommandation()
   const rouvrirReco = useRouvrirRecommandation()
   const deleteRecommandation = useDeleteRecommandation()
@@ -496,6 +501,33 @@ export default function RecommandationDetail() {
     }
   }
 
+
+  /**
+   * ══════════ POSER UNE ÉTAPE À LA MAIN ══════════
+   *
+   * William, 21/09/2026 : « laisse la possibilité à un commercial, dans le chemin du haut de la
+   * page, de passer d'une étape à une autre à la main, en cliquant sur l'étape en question ».
+   *
+   * CE QUE LA BASE PEUT DÉFAIRE, ET QUE LE MESSAGE DIT. `recalculer_statut_recommandation` reprend
+   * l'étape à chaque mouvement de version : un passage manuel en Brouillon ou en Active tient
+   * jusqu'au prochain. Sur un dossier dormant — le cas où l'on s'en sert — rien ne bouge, donc il
+   * tient. Le taire laisserait croire à un bogue le jour où le calcul reprend la main.
+   */
+  async function choisirEtape(code: 'BROUILLON' | 'ACTIVE') {
+    const cible = (etapesRef ?? []).find((e) => e.code === code)
+    /* Les tables de référence ont un repli local dont les identifiants ne sont pas des UUID :
+       écrire avec l'un d'eux échoue en base tout en paraissant réussir à l'écran. */
+    if (!reco || !cible || !/^[0-9a-f-]{36}$/i.test(cible.id)) {
+      signaler('Étapes indisponibles — rechargez la page avant de changer d’étape.')
+      return
+    }
+    try {
+      await avancerEtape.mutateAsync({ id: reco.id, etapeSuivanteId: cible.id })
+      signaler(`→ Dossier ${cible.libelle.toLowerCase()} — ce choix tiendra, Kimatch ne le recalcule plus`)
+    } catch (e) {
+      signaler(`Erreur : ${e instanceof Error ? e.message : String(e)}`)
+    }
+  }
 
   function handleDelete() {
     if (!reco) return
@@ -1054,7 +1086,25 @@ export default function RecommandationDetail() {
                   c'était le rail où l'on AGISSAIT sur un statut que la base calcule seule. Ce qui
                   revient, c'est le fait de VOIR où en est le dossier et depuis quand, en lecture
                   seule, dans la frise du mandat. Voir `CheminRecommandation`. */}
-              <CheminRecommandation reco={reco} />
+              <CheminRecommandation
+                reco={reco}
+                peutModifier={canManage}
+                onChoisirEtape={choisirEtape}
+                onRendreAuCalcul={async () => {
+                  try {
+                    await rendreAuCalcul.mutateAsync(reco.id)
+                    signaler('✓ Étape rendue au calcul automatique')
+                  } catch (e) {
+                    signaler(`Erreur : ${e instanceof Error ? e.message : String(e)}`)
+                  }
+                }}
+                onOuvrirCloture={() => {
+                  setClotureOuverte(true)
+                  setFinaliteChoisie(null)
+                  setMotifBrouillon('')
+                  setDateClotureBrouillon(new Date().toISOString().slice(0, 10))
+                }}
+              />
 
               {/* ══════════ LE HERO : LE MONTANT, LA PROPOSITION, LE CLIENT ══════════
 

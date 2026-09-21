@@ -339,6 +339,13 @@ export interface Recommandation {
   /** Champs ajoutés le 04/08/2026 pour le flot Opportunité calqué sur Tools. */
   type_energie?: 'electricite' | 'gaz' | null
   date_cloture?: string | null
+  /**
+   * Quand quelqu'un a posé l'étape à la main depuis le chemin de la fiche (21/09/2026).
+   *
+   * Tant qu'elle est renseignée, `recalculer_statut_recommandation` ne touche plus à l'étape :
+   * « je veux qu'un choix manuel tienne toujours » (William). L'effacer rend le dossier au calcul.
+   */
+  date_etape_manuelle?: string | null
   /** Sous-statut de l'étape Clôture : ACCEPTEE, REFUSEE ou EXPIREE. Colonne ajoutée par la
    *  migration des cycles de vie du 12/08/2026 ; nulle tant que la reco n'est pas clôturée. */
   finalite_cloture?: 'ACCEPTEE' | 'REFUSEE' | 'EXPIREE' | null
