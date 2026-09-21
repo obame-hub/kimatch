@@ -1,7 +1,8 @@
 import { createContext, useCallback, useContext, useEffect, useState } from 'react'
 import type { ReactNode } from 'react'
 import { CarteAppel } from '@/components/allo/CarteAppel'
-import { VoletAllo, ouvrirVoletAlloSiDejaUtilise, appelDansLeVolet, composerDansLeVolet } from '@/components/allo/VoletAllo'
+import { VoletAllo, ouvrirVoletAlloSiDejaUtilise, appelDansLeVolet } from '@/components/allo/VoletAllo'
+import { FenetreAppel, ouvrirFenetreAppel, signalerEtatFile } from '@/components/allo/FenetreAppel'
 
 /**
  * APPELER DEPUIS KIMATCH — un seul entonnoir, un numéro normalisé, et un numéro TOUJOURS VISIBLE.
@@ -133,6 +134,19 @@ export interface Correspondant {
   fonction?: string | null
 }
 
+/**
+ * Le nom tel qu'on l'affiche : prénom puis nom, et rien quand on ne sait pas.
+ *
+ * REND `null` PLUTÔT QU'UNE CHAÎNE VIDE, pour que la fenêtre d'appel sache ne rien afficher au lieu
+ * d'afficher une ligne vide au-dessus du numéro. Les boutons d'appel sont posés à des dizaines
+ * d'endroits, dont beaucoup ne connaissent que le numéro : l'absence de nom est le cas normal.
+ */
+function nomLisible(qui?: Correspondant): string | null {
+  if (!qui) return null
+  const n = [qui.prenom, qui.nom].filter(Boolean).join(' ').trim()
+  return n || null
+}
+
 interface Telephonie {
   /** Prépare l'appel. Rend le message affiché — il y a toujours quelque chose à dire. */
   appeler: (numero: string | null | undefined, qui?: Correspondant) => Promise<string>
@@ -253,16 +267,22 @@ export function TelephonieProvider({ children }: { children: ReactNode }) {
      *
      * On ouvre donc d'abord, on dépose ensuite.
      *
-     * ══ ET ON COMPOSE, AU LIEU D'OUVRIR À VIDE — 21/09/2026 ══
+     * ══ ET C'EST NOTRE FENÊTRE QUI S'OUVRE — 21/09/2026 ══
      *
      * Naoëlle : « leur click-to-call marche pas : quand on appelle, ça appelle pas, juste ça ouvre
-     * le volet sans rien, ni le numéro dans le clavier. Il faut le copier-coller, donc ça n'a aucun
-     * intérêt pour nous. »
+     * le volet sans rien, ni le numéro dans le clavier. » Puis, après un essai raté par leur route
+     * `/call/<numéro>` : « triche comme tu veux, même s'il faut créer notre propre fenêtre d'appel. »
      *
-     * `composerDansLeVolet` charge le cadre sur LEUR route `/call/<numéro>`, dont le composant ne
-     * fait qu'une chose : `window.location.href = 'allo://call?number=…'`. Le numéro part donc pour
-     * de bon, sans copier-coller et sans extension. */
-    if (dansLeVolet) composerDansLeVolet(e164)
+     * L'ESSAI RATÉ MÉRITE D'ÊTRE DIT, parce qu'il ferme une porte pour de bon : leur route ne fait
+     * que `window.location.href = 'allo://call?…'`, et `allo://` n'est associé à aucune application
+     * sur les postes de l'équipe — Windows a donné `tel:` à Chrome et n'a rien enregistré pour
+     * `allo`. Le navigateur n'avait rien à lancer. Pire, recharger le cadre pour y arriver aurait
+     * RACCROCHÉ l'appel en cours. Les deux fautes sont corrigées dans `VoletAllo`.
+     *
+     * `ouvrirFenetreAppel` ouvre donc NOTRE fenêtre, tout de suite et avant toute requête : elle dit
+     * qui on appelle, montre le numéro en grand, et suit le dépôt dans la file. Voir
+     * `FenetreAppel.tsx` pour les quatre portes essayées et refermées. */
+    if (dansLeVolet) ouvrirFenetreAppel({ e164, nom: nomLisible(qui), societe: qui?.societe ?? null })
 
     /* ══ POURQUOI ON NE COMPOSE PAS DIRECTEMENT ══
      *
@@ -294,9 +314,10 @@ export function TelephonieProvider({ children }: { children: ReactNode }) {
       /* LE MESSAGE DIT LE GESTE QUI RESTE, pas l'état du système : la file est une liste d'attente,
          seul le bouton d'Allo compose. */
       if (dansLeVolet) {
-        const m = `Appel de ${numeroLisible(e164)}…`
-        setMessage(m)
-        return m
+        /* LA FENÊTRE PORTE LE MESSAGE, PAS LE BANDEAU. Celui-ci s'effaçait au bout de six secondes —
+           avant qu'on ait fini de lire, et bien avant que l'appel soit passé. */
+        signalerEtatFile({ phase: 'pret', position: file.position ?? null })
+        return `Appel de ${numeroLisible(e164)}…`
       }
       const m = file.position != null
         ? `${numeroLisible(e164)} ajouté à ta file d’appel Allo, en position ${file.position}.`
@@ -305,6 +326,12 @@ export function TelephonieProvider({ children }: { children: ReactNode }) {
       return m
     }
     if (file.dejaDansLaFile) {
+      /* DÉJÀ EN ATTENTE N'EST PAS UN ÉCHEC : le numéro est là, le geste qui reste est le même. La
+         fenêtre dit donc « prêt », avec la position où Allo l'a rangé. */
+      if (dansLeVolet) {
+        signalerEtatFile({ phase: 'pret', position: file.position ?? null })
+        return `${numeroLisible(e164)} est déjà dans ta file d’appel Allo.`
+      }
       const m = `${numeroLisible(e164)} est déjà dans ta file d’appel Allo.`
       setMessage(m)
       return m
@@ -319,6 +346,17 @@ export function TelephonieProvider({ children }: { children: ReactNode }) {
       copie = true
     } catch {
       copie = false
+    }
+
+    /* L'ÉCHEC SE DIT DANS LA FENÊTRE, avec sa cause : les deux motifs fréquents — droit manquant
+       sur la file, adresse Allo absente — se règlent ailleurs que dans le code, et les taire fait
+       chercher un bug dans Kimatch. Le numéro reste affiché en grand et copiable juste au-dessus. */
+    if (dansLeVolet) {
+      signalerEtatFile({
+        phase: 'echec',
+        raison: file.erreur ?? 'Allo n’a pas répondu.',
+      })
+      return `Compose ${numeroLisible(e164)} dans le téléphone.`
     }
 
     const raison = file.erreur ? ` (${file.erreur})` : ''
@@ -361,6 +399,9 @@ export function TelephonieProvider({ children }: { children: ReactNode }) {
           donne exactement la meme portee que le bouton « Appeler », sans toucher a `AppLayout`.
           Elle rend `null` tant qu'aucun appel n'est en cours, donc son cout est nul. */}
       <CarteAppel />
+      {/* NOTRE FENÊTRE D'APPEL : ce qui se passe entre le clic et la sonnerie. Elle s'efface d'
+          elle-même dès que l'appel démarre, et `CarteAppel` prend le relais. */}
+      <FenetreAppel />
       {message && (
         <div className="fixed bottom-[70px] left-1/2 z-[60] -translate-x-1/2 rounded-km border border-km-line bg-white px-4 py-2.5 text-km-xs font-semibold text-km-text shadow-km-pop md:bottom-6">
           {message}

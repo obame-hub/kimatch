@@ -306,8 +306,6 @@ export function VoletAllo() {
   const [pont, setPont] = useState(etatDuPont)
   useEffect(() => observerLePont(setPont), [])
   const modeWidget = pont === 'pret'
-  /* Le numéro à composer au prochain chargement du cadre. Voir `ouvrirCourant`. */
-  const [numeroAComposer, setNumeroAComposer] = useState<string | null>(null)
   const [glisseCadrage, setGlisseCadrage] = useState<{ x: number; y: number; ox: number; oy: number } | null>(null)
   const [glisseTaille, setGlisseTaille] = useState<{ x: number; y: number; l: number; h: number } | null>(null)
 
@@ -358,28 +356,11 @@ export function VoletAllo() {
   useEffect(() => {
     ouvrirCourant = (numero?: string) => {
       dejaUtilise = true
-      /* ══ ON CHARGE LEUR ROUTE D'APPEL, PAS LEUR ACCUEIL ══
-         Naoëlle, 21/09/2026 : « leur click-to-call marche pas, quand on appelle ça appelle pas,
-         juste ça ouvre le volet sans rien, ni le numéro dans le clavier ». Elle a raison : déposer
-         le numéro dans la file du Power Dialer ne compose RIEN, il faut encore cliquer dans Allo.
-
-         Leur propre application expose `/call/<numéro>`, et son composant — téléchargé et lu le
-         21/09 — ne fait qu'une chose :
-
-             window.location.href = `allo://call?${new URLSearchParams({ number })}`
-
-         …sauf s'il tourne DÉJÀ dans l'application de bureau. Depuis un cadre navigateur, cette
-         route compose donc pour de bon. On charge le volet dessus au lieu de leur accueil : c'est
-         le même domaine, le même écran, et le numéro part sans copier-coller.
-
-         LE NUMÉRO EST REMIS À NULL APRÈS COUP, sinon rouvrir le volet plus tard rappellerait le
-         dernier correspondant — un appel qu'on n'a pas demandé. */
-      if (numero) {
-        setNumeroAComposer(numero)
-        /* Leur route renavigue vers l'accueil au bout d'1,5 s ; on oublie le numéro un peu après,
-           pour que le cadre ne reparte pas dessus au prochain rendu. */
-        setTimeout(() => setNumeroAComposer(null), 4000)
-      }
+      /* LE NUMÉRO N'EST PLUS UTILISÉ ICI, et la signature le garde exprès : les dizaines d'appels
+         à `composerDansLeVolet(e164)` répartis dans l'application continuent de le transmettre, et
+         c'est `FenetreAppel` qui s'en sert désormais. Le cadre, lui, ne doit jamais renaviguer —
+         voir le bloc `<iframe>` plus bas. */
+      void numero
       setCharge(true)
       setOuvert(true)
       try { localStorage.setItem(CLE_MEMOIRE, '1') } catch { /* sans conséquence */ }
@@ -868,10 +849,27 @@ export function VoletAllo() {
             style={{ ['--zoom' as string]: String(hublot ? 1 : echelle) }}
           >
             <iframe
-              /* `key` FORCE LE RECHARGEMENT : changer `src` sur un cadre déjà monté ne le renavigue
-                 pas toujours, et on veut que chaque appel reparte de leur route de composition. */
-              key={numeroAComposer ?? 'accueil'}
-              src={numeroAComposer ? `${URL_ALLO}/call/${encodeURIComponent(numeroAComposer)}` : URL_ALLO}
+              /* ══ NI `key`, NI `src` QUI CHANGE — ET C'EST LA RÈGLE N°1 DE CE FICHIER ══
+               *
+               * Le 21/09/2026 j'ai posé ici `key={numeroAComposer}` pour recharger le cadre sur
+               * leur route `/call/<numéro>`. Deux fautes en une ligne :
+               *
+               *   ① ÇA NE COMPOSAIT RIEN. Leur route ne fait que `window.location.href =
+               *     'allo://call?…'`, or `allo://` n'est associé à aucune application sur les
+               *     postes de l'équipe — l'application Allo vient du Microsoft Store, elle déclare
+               *     bien le protocole, mais Windows a attribué `tel:` à Chrome et n'a enregistré
+               *     aucun choix pour `allo`. Le navigateur n'avait donc rien à lancer, et Naoëlle
+               *     a vu ce qu'elle a vu : un clavier vide.
+               *
+               *   ② ÇA RACCROCHAIT. Changer la `key` d'un élément le REMONTE, et l'en-tête de ce
+               *     fichier le dit depuis le premier jour : remonter le cadre coupe la session
+               *     Allo, donc l'appel en cours. Le geste censé lancer un appel aurait coupé le
+               *     précédent.
+               *
+               * Le cadre reste donc sur leur accueil, monté une fois pour toutes. Ce qui compose,
+               * c'est la file du Power Dialer — le seul mécanisme qui existe réellement chez eux —
+               * et c'est `FenetreAppel` qui le pilote. */
+              src={URL_ALLO}
               title="Allo"
               /* LE MICROPHONE EST DÉLÉGUÉ AU CADRE. Sans cette permission, Allo affiche « vous ne
                  pouvez pas recevoir ou passer d'appels tant que le microphone n'est pas activé ».
