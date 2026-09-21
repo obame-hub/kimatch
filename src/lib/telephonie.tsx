@@ -1,7 +1,7 @@
 import { createContext, useCallback, useContext, useEffect, useState } from 'react'
 import type { ReactNode } from 'react'
 import { CarteAppel } from '@/components/allo/CarteAppel'
-import { VoletAllo, ouvrirVoletAllo, ouvrirVoletAlloSiDejaUtilise, appelDansLeVolet } from '@/components/allo/VoletAllo'
+import { VoletAllo, ouvrirVoletAlloSiDejaUtilise, appelDansLeVolet, composerDansLeVolet } from '@/components/allo/VoletAllo'
 
 /**
  * APPELER DEPUIS KIMATCH — un seul entonnoir, un numéro normalisé, et un numéro TOUJOURS VISIBLE.
@@ -251,8 +251,18 @@ export function TelephonieProvider({ children }: { children: ReactNode }) {
      * c'est promettre un téléphone qui n'apparaît pas dès qu'Allo tousse — ou, en développement
      * local, jamais : `npm run dev` ne sert que l'interface, les fonctions `api/` n'y existent pas.
      *
-     * On ouvre donc d'abord, on dépose ensuite. */
-    if (dansLeVolet) ouvrirVoletAllo()
+     * On ouvre donc d'abord, on dépose ensuite.
+     *
+     * ══ ET ON COMPOSE, AU LIEU D'OUVRIR À VIDE — 21/09/2026 ══
+     *
+     * Naoëlle : « leur click-to-call marche pas : quand on appelle, ça appelle pas, juste ça ouvre
+     * le volet sans rien, ni le numéro dans le clavier. Il faut le copier-coller, donc ça n'a aucun
+     * intérêt pour nous. »
+     *
+     * `composerDansLeVolet` charge le cadre sur LEUR route `/call/<numéro>`, dont le composant ne
+     * fait qu'une chose : `window.location.href = 'allo://call?number=…'`. Le numéro part donc pour
+     * de bon, sans copier-coller et sans extension. */
+    if (dansLeVolet) composerDansLeVolet(e164)
 
     /* ══ POURQUOI ON NE COMPOSE PAS DIRECTEMENT ══
      *
@@ -284,7 +294,7 @@ export function TelephonieProvider({ children }: { children: ReactNode }) {
       /* LE MESSAGE DIT LE GESTE QUI RESTE, pas l'état du système : la file est une liste d'attente,
          seul le bouton d'Allo compose. */
       if (dansLeVolet) {
-        const m = `${numeroLisible(e164)} est prêt — clique « Appeler » dans le téléphone, en bas à droite.`
+        const m = `Appel de ${numeroLisible(e164)}…`
         setMessage(m)
         return m
       }

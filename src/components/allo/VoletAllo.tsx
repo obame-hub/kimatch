@@ -188,7 +188,7 @@ const PAS_ZOOM = 0.1
  * Le bouton « Appeler » vit au fond de listes imbriquées ; il doit pouvoir ouvrir ce volet sans
  * qu'on remonte un contexte jusqu'à lui. Le téléphone est unique dans l'application.
  */
-let ouvrirCourant: (() => void) | null = null
+let ouvrirCourant: ((numero?: string) => void) | null = null
 let dejaUtilise = false
 
 /**
@@ -245,6 +245,17 @@ export function ouvrirVoletAllo() {
 }
 
 /**
+ * Ouvre le volet ET COMPOSE, en chargeant la route d'appel d'Allo.
+ *
+ * C'est ce que « appeler depuis Kimatch » veut dire : un clic, ça sonne. Déposer le numéro dans la
+ * file du Power Dialer ne composait rien — il fallait encore aller cliquer dans Allo, ce que
+ * Naoëlle a signalé le 21/09/2026 comme « sans aucun intérêt pour nous ».
+ */
+export function composerDansLeVolet(e164: string) {
+  ouvrirCourant?.(e164)
+}
+
+/**
  * Ouvre le volet SEULEMENT s'il a déjà servi dans cette session.
  *
  * Depuis qu'un clic sur un numéro tente `allo://call` — donc lance l'appel dans l'application de
@@ -295,6 +306,8 @@ export function VoletAllo() {
   const [pont, setPont] = useState(etatDuPont)
   useEffect(() => observerLePont(setPont), [])
   const modeWidget = pont === 'pret'
+  /* Le numéro à composer au prochain chargement du cadre. Voir `ouvrirCourant`. */
+  const [numeroAComposer, setNumeroAComposer] = useState<string | null>(null)
   const [glisseCadrage, setGlisseCadrage] = useState<{ x: number; y: number; ox: number; oy: number } | null>(null)
   const [glisseTaille, setGlisseTaille] = useState<{ x: number; y: number; l: number; h: number } | null>(null)
 
@@ -343,8 +356,30 @@ export function VoletAllo() {
   }, [])
 
   useEffect(() => {
-    ouvrirCourant = () => {
+    ouvrirCourant = (numero?: string) => {
       dejaUtilise = true
+      /* ══ ON CHARGE LEUR ROUTE D'APPEL, PAS LEUR ACCUEIL ══
+         Naoëlle, 21/09/2026 : « leur click-to-call marche pas, quand on appelle ça appelle pas,
+         juste ça ouvre le volet sans rien, ni le numéro dans le clavier ». Elle a raison : déposer
+         le numéro dans la file du Power Dialer ne compose RIEN, il faut encore cliquer dans Allo.
+
+         Leur propre application expose `/call/<numéro>`, et son composant — téléchargé et lu le
+         21/09 — ne fait qu'une chose :
+
+             window.location.href = `allo://call?${new URLSearchParams({ number })}`
+
+         …sauf s'il tourne DÉJÀ dans l'application de bureau. Depuis un cadre navigateur, cette
+         route compose donc pour de bon. On charge le volet dessus au lieu de leur accueil : c'est
+         le même domaine, le même écran, et le numéro part sans copier-coller.
+
+         LE NUMÉRO EST REMIS À NULL APRÈS COUP, sinon rouvrir le volet plus tard rappellerait le
+         dernier correspondant — un appel qu'on n'a pas demandé. */
+      if (numero) {
+        setNumeroAComposer(numero)
+        /* Leur route renavigue vers l'accueil au bout d'1,5 s ; on oublie le numéro un peu après,
+           pour que le cadre ne reparte pas dessus au prochain rendu. */
+        setTimeout(() => setNumeroAComposer(null), 4000)
+      }
       setCharge(true)
       setOuvert(true)
       try { localStorage.setItem(CLE_MEMOIRE, '1') } catch { /* sans conséquence */ }
@@ -833,7 +868,10 @@ export function VoletAllo() {
             style={{ ['--zoom' as string]: String(hublot ? 1 : echelle) }}
           >
             <iframe
-              src={URL_ALLO}
+              /* `key` FORCE LE RECHARGEMENT : changer `src` sur un cadre déjà monté ne le renavigue
+                 pas toujours, et on veut que chaque appel reparte de leur route de composition. */
+              key={numeroAComposer ?? 'accueil'}
+              src={numeroAComposer ? `${URL_ALLO}/call/${encodeURIComponent(numeroAComposer)}` : URL_ALLO}
               title="Allo"
               /* LE MICROPHONE EST DÉLÉGUÉ AU CADRE. Sans cette permission, Allo affiche « vous ne
                  pouvez pas recevoir ou passer d'appels tant que le microphone n'est pas activé ».
