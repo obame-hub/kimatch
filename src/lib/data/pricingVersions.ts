@@ -21,13 +21,40 @@ import { supabase } from '@/lib/supabase'
  * n'annoncerait que les dix premiers retards mentirait sur ce qui reste à rattraper.
  */
 
+/**
+ * Ce qu'on a demandé à un fournisseur : une ligne par durée × type de prix.
+ *
+ * William, 18/09/2026 : « il faudrait ajouter sur la ligne des fournisseurs les mois demandés ainsi
+ * que le type de prix ». C'est ce qui distingue deux réponses d'un même fournisseur — « Demande
+ * acceptée » ne dit pas si l'accord porte sur une durée ou sur trois.
+ *
+ * `statut` est celui de l'OFFRE et non de la consultation : EN_ATTENTE, DISPONIBLE ou INDISPONIBLE.
+ * Une combinaison indisponible se barre à l'écran plutôt que de disparaître — l'effacer ferait
+ * croire qu'on ne l'avait jamais demandée.
+ */
+export interface CombinaisonDemandee {
+  id: string
+  duree_mois: number | null
+  type_prix: string | null
+  statut: string | null
+}
+
 export interface FournisseurConsulteLite {
   id: string
+  /** Le COMPTE du fournisseur : c'est par lui qu'on retrouve ses contacts pour écrire la demande. */
+  fournisseur_compte_id: string | null
   fournisseur_nom: string
   statut_code: string
   statut_libelle: string
   date_evenement: string | null
   mode_consultation: 'EMAIL' | 'OUTIL_EN_LIGNE'
+  /**
+   * Comment ce fournisseur répond : MAIL et TRADEO reçoivent une demande dès la création de la
+   * version, PLATEFORME et GRILLE se relèvent le jour de la livraison souhaitée. NULL quand le
+   * fournisseur n'a jamais été qualifié — l'écran le dit plutôt que d'inventer un circuit.
+   */
+  mode_reponse: 'MAIL' | 'TRADEO' | 'PLATEFORME' | 'GRILLE' | null
+  combinaisons: CombinaisonDemandee[]
 }
 
 export interface VersionPricing {
@@ -40,6 +67,8 @@ export interface VersionPricing {
   /** `date_souhaitee - current_date`, calculé en base — voir la migration. */
   jours_avant_livraison: number | null
   date_presentation_client: string | null
+  /** Le jour où la version a été créée : c'est de là que part le délai d'envoi des demandes. */
+  version_date_creation: string | null
   recommandation_id: string
   recommandation_nom: string
   montant: number | null

@@ -7,8 +7,10 @@ import { ListToolbar } from '@/components/ui/list-toolbar'
 import { usePerimetre, BasculePerimetre } from '@/lib/perimetre'
 import { useMonProfil } from '@/lib/data/roles'
 import { useVersionsPricing, type VersionPricing } from '@/lib/data/pricingVersions'
+import { useContratsPricing } from '@/lib/data/pricingContrats'
+import { MaJournee } from '@/components/pricing/MaJournee'
 import { PastilleStatutConsultation } from '@/components/recommandation/PastilleStatutConsultation'
-import { CODES_STATUT_CONSULTATION_PROPOSES, useChangerStatutConsultation } from '@/lib/data/recommandations'
+import { CODES_STATUT_CONSULTATION_PROPOSES, libelleOffre, useChangerStatutConsultation } from '@/lib/data/recommandations'
 import { useReferenceTable, type ReferenceRow } from '@/lib/data/referenceTables'
 import { cn } from '@/lib/utils'
 
@@ -133,6 +135,34 @@ export default function Pricing({ sansEntete }: { sansEntete?: boolean }) {
   const { data: monProfil } = useMonProfil()
   const { perimetre, setPerimetre } = usePerimetre('pricing')
   const { data: versions, isLoading } = useVersionsPricing()
+  const { data: contrats, isLoading: chargeContrats } = useContratsPricing()
+
+  /**
+   * ══════════ DEUX VUES, ET C'EST L'USAGE QUI TRANCHERA ══════════
+   *
+   * William, 18/09/2026 : « garde ce qui existe actuellement, et implémente en plus la maquette A
+   * comme une option d'affichage — on verra à l'utilisation ce qui est le plus pratique pour Erwan. »
+   *
+   * Les deux répondent à des questions différentes : « Ma journée » dit l'ORDRE DES GESTES, « Les
+   * versions » montre l'ÉTAT du portefeuille. Laisser le choix évite de trancher à la place de celui
+   * qui s'en sert tous les jours — et le jour où l'une des deux ne sert plus, elle se retire d'un
+   * mot plutôt que de se réécrire.
+   *
+   * LE CHOIX TIENT DANS LE NAVIGATEUR et non en base : c'est une préférence d'affichage, elle ne
+   * regarde que cette personne sur cette machine, et la perdre au changement de poste ne coûte rien.
+   */
+  const [vue, setVue] = useState<'journee' | 'versions'>(() => {
+    try {
+      return localStorage.getItem('pricing:vue') === 'journee' ? 'journee' : 'versions'
+    } catch {
+      return 'versions'
+    }
+  })
+
+  function choisirVue(v: 'journee' | 'versions') {
+    setVue(v)
+    try { localStorage.setItem('pricing:vue', v) } catch { /* navigation privée : tant pis */ }
+  }
   const { data: statutsRef } = useReferenceTable('statuts_consultations_fournisseurs')
   const changerStatut = useChangerStatutConsultation()
   const [toast, setToast] = useState<string | null>(null)
@@ -219,6 +249,24 @@ export default function Pricing({ sansEntete }: { sansEntete?: boolean }) {
       .sort((a, b) => (a.jours_avant_livraison ?? Infinity) - (b.jours_avant_livraison ?? Infinity))
   }, [versions, recherche, perimetre, monProfil?.id])
 
+  /* LE MÊME PÉRIMÈTRE QUE LES VERSIONS : un contrat suit le propriétaire de sa recommandation ou de
+     son compte. Sans ce filtre, « Mes versions » aurait laissé passer les contrats de tout le monde
+     dans la journée d'Erwan. */
+  const contratsVisibles = useMemo(() => {
+    const terme = recherche.trim().toLowerCase()
+    return (contrats ?? []).filter((c) => {
+      if (perimetre === 'moi' && monProfil?.id) {
+        const mien = c.recommandation_proprietaire_id === monProfil.id
+          || c.compte_proprietaire_id === monProfil.id
+        if (!mien) return false
+      }
+      if (!terme) return true
+      return `${c.compte_nom ?? ''} ${c.recommandation_nom ?? ''} ${c.fournisseur_nom ?? ''}`
+        .toLowerCase()
+        .includes(terme)
+    })
+  }, [contrats, recherche, perimetre, monProfil?.id])
+
   const parColonne = useMemo(() => {
     const m = new Map<string, VersionPricing[]>()
     for (const c of COLONNES) m.set(c.code, [])
@@ -244,7 +292,9 @@ export default function Pricing({ sansEntete }: { sansEntete?: boolean }) {
       <div className="p-4 sm:p-6">
         <PageHeader
           title="Pricing"
-          description="Les versions en cours de consultation, rangées par statut et par date de livraison souhaitée. Cliquez une version pour voir où en est chaque fournisseur."
+          description={vue === 'journee'
+            ? "Ce qu'il y a à faire aujourd'hui, dans l'ordre : demandes à envoyer, prix à relever, relances à passer, propositions à éditer. Le calendrier dit ce qui arrive."
+            : 'Les versions en cours de consultation, rangées par statut et par date de livraison souhaitée. Cliquez une version pour voir où en est chaque fournisseur.'}
         />
 
         <Indicateurs mesures={mesures} />
@@ -255,6 +305,27 @@ export default function Pricing({ sansEntete }: { sansEntete?: boolean }) {
           placeholder="Rechercher une recommandation, un compte, un fournisseur…"
           count={visibles.length}
         >
+          {/* La bascule de vue en tête des commandes : c'est elle qui décide de ce que les autres
+              filtrent. */}
+          <div className="inline-flex items-center gap-0.5 rounded-km-md border border-km-line bg-white p-0.5">
+            {([
+              { cle: 'journee' as const, libelle: 'Ma journée' },
+              { cle: 'versions' as const, libelle: 'Les versions' },
+            ]).map((o) => (
+              <button
+                key={o.cle}
+                type="button"
+                onClick={() => choisirVue(o.cle)}
+                aria-pressed={vue === o.cle}
+                className={cn(
+                  'rounded-km-sm px-3 py-1 text-km-body font-bold transition-colors',
+                  vue === o.cle ? 'bg-km-green text-white' : 'text-km-muted hover:bg-km-bg',
+                )}
+              >
+                {o.libelle}
+              </button>
+            ))}
+          </div>
           <BasculePerimetre
             valeur={perimetre}
             onChange={setPerimetre}
@@ -263,7 +334,14 @@ export default function Pricing({ sansEntete }: { sansEntete?: boolean }) {
           />
         </ListToolbar>
 
-        {isLoading ? (
+        {vue === 'journee' ? (
+          <MaJournee
+            versions={visibles}
+            contrats={contratsVisibles}
+            chargement={isLoading || chargeContrats}
+            signaler={(m) => { setToast(m); window.setTimeout(() => setToast(null), 2600) }}
+          />
+        ) : isLoading ? (
           <p className="text-km-body text-km-faint">Chargement…</p>
         ) : (
           <div className="grid grid-cols-1 gap-3.5 lg:grid-cols-2">
@@ -495,10 +573,36 @@ function CarteVersion({
           ) : (
             <ul className="flex flex-col gap-1.5">
               {version.fournisseurs.map((f) => (
-                <li key={f.id} className="flex items-center gap-2">
+                <li key={f.id} className="flex flex-wrap items-center gap-x-2 gap-y-1">
                   <span className="min-w-0 flex-1 truncate text-km-body font-semibold text-km-text">
                     {f.fournisseur_nom}
                   </span>
+                  {/* ══ CE QU'ON LUI A DEMANDÉ ══
+                      William, 18/09/2026 : « ajoute sur la ligne des fournisseurs les mois demandés
+                      ainsi que le type de prix ». C'est la seule chose qui distingue deux réponses
+                      d'un même fournisseur : « Demande acceptée » ne dit pas si l'accord porte sur
+                      une durée ou sur trois, alors que c'est exactement la question quand une
+                      proposition partielle arrive.
+
+                      LA COMBINAISON INDISPONIBLE SE BARRE au lieu de disparaître : un fournisseur
+                      qui a répondu sur 24 mois et refusé les 36 a répondu à ce qu'on lui demandait,
+                      et effacer la ligne refusée ferait croire qu'on ne la lui avait jamais
+                      demandée. */}
+                  {f.combinaisons.map((c) => (
+                    <span
+                      key={c.id}
+                      className={cn(
+                        'shrink-0 rounded-km-sm border px-1.5 py-px text-km-tiny font-semibold',
+                        c.statut === 'INDISPONIBLE'
+                          ? 'border-dashed border-km-line text-km-faint line-through'
+                          : c.statut === 'DISPONIBLE'
+                            ? 'border-km-green-line bg-km-green-soft text-km-green'
+                            : 'border-km-line bg-white text-km-muted',
+                      )}
+                    >
+                      {libelleOffre(c.duree_mois, c.type_prix)}
+                    </span>
+                  ))}
                   {/* Un fournisseur à outil en ligne n'attend aucun mail : Erwan va lire les prix
                       chez lui. Le dire évite de le compter comme une relance à faire. */}
                   {f.mode_consultation === 'OUTIL_EN_LIGNE' && (
