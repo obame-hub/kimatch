@@ -344,7 +344,7 @@ export function TuilesJournee({
         teinte={ROSE} rang={3}
         valeur={n.pistesAProspecter} libelle="Pistes" precision="à relancer"
         titre="Mes pistes portant une tâche en retard ou due aujourd’hui."
-        onClick={() => navigate('/prospection')} chargement={chargement}
+        onClick={() => navigate('/pistes')} chargement={chargement}
       />
 
       {/* LA TUILE LARGE : quatre colonnes pour trois mesures, posées à l'horizontale. En pile,

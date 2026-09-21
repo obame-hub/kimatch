@@ -2,7 +2,7 @@ import { lazy, Suspense } from 'react'
 /* Tous les écrans passent par `chargerPage` : après une mise en ligne, un onglet resté ouvert
    demande un morceau qui n'existe plus et reste blanc. Voir `src/lib/chargerPage.ts`. */
 import { chargerPage } from '@/lib/chargerPage'
-import { Routes, Route } from 'react-router-dom'
+import { Routes, Route, Navigate } from 'react-router-dom'
 import { AppLayout } from '@/components/layout/AppLayout'
 import { SandboxBanner } from '@/components/layout/SandboxBanner'
 import { VoletEmailProvider } from '@/lib/voletEmail'
@@ -24,6 +24,7 @@ import Login from '@/pages/Login'
  */
 const Dashboard = lazy(() => chargerPage(() => import('@/pages/Dashboard')))
 const RedirectionSite = lazy(() => chargerPage(() => import('@/pages/RedirectionSite')))
+const PageIntrouvable = lazy(() => chargerPage(() => import('@/pages/PageIntrouvable')))
 const Opportunites = lazy(() => chargerPage(() => import('@/pages/Opportunites')))
 const OpportuniteDetail = lazy(() => chargerPage(() => import('@/pages/OpportuniteDetail')))
 const Cockpit = lazy(() => chargerPage(() => import('@/pages/Cockpit')))
@@ -110,7 +111,18 @@ function App() {
               garde les 26 liens vivants sans garder l'écran. Voir `RedirectionSite`. */}
           <Route path="/sites/:id" element={<RedirectionSite />} />
           <Route path="/cockpit" element={<Cockpit />} />
-          <Route path="/prospection" element={<Prospection />} />
+          {/* ══ LA LISTE DES PISTES S'ADRESSE « /pistes » ══
+              Naoëlle, 21/09/2026 : « je veux que l'onglet Pistes renvoie sur l'url /pistes et non
+              prospection, par souci de cohérence du site ». L'onglet s'appelle Pistes, la fiche est
+              en `/pistes/:id` — seule la liste portait un autre mot, et c'est elle qu'on ouvre en
+              tapant l'adresse de mémoire. C'est d'ailleurs comme ça que la page blanche a été
+              trouvée : `/pistes` n'existait pas.
+
+              L'ANCIENNE ADRESSE REDIRIGE, elle ne disparaît pas : des liens `/prospection` sont
+              déjà partis dans Slack et posés en favoris. `replace` pour que le bouton « précédent »
+              ne ramène pas sur la redirection, ce qui bouclerait. */}
+          <Route path="/pistes" element={<Prospection />} />
+          <Route path="/prospection" element={<Navigate to="/pistes" replace />} />
           <Route path="/pistes/:id" element={<PisteDetail />} />
           <Route path="/opportunites" element={<Opportunites />} />
           <Route path="/opportunites/:id" element={<OpportuniteDetail />} />
@@ -152,6 +164,10 @@ function App() {
           <Route path="/profil" element={<MonProfil />} />
           <Route path="/support" element={<Support />} />
           <Route path="/nouveautes" element={<Nouveautes />} />
+          {/* EN DERNIER, ET DANS LA MISE EN PAGE : une adresse inconnue rendait un écran blanc.
+              Placée ici, la page d'erreur garde le rail de navigation — on repart d'un clic au lieu
+              de devoir retaper une adresse. */}
+          <Route path="*" element={<PageIntrouvable />} />
         </Route>
       </Route>
       </Routes>

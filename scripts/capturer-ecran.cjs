@@ -200,6 +200,7 @@ async function lienDeConnexion(adresse) {
     await page.waitForTimeout(1200)
   }
 
+  console.log(`URL finale : ${page.url().replace(BASE, '')}`)
   await page.screenshot({ path: sortie, fullPage: entier })
   console.log(`Capture : ${sortie}`)
   if (soucis.length) console.log('Erreurs console :\n  ' + soucis.slice(0, 5).join('\n  '))

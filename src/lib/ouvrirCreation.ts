@@ -80,7 +80,7 @@ export const OBJETS_CREABLES = [
      `trg_compteur_herite_de_son_site`, migration 20260910140000). */
   { cle: 'compteur', libelle: 'Compteur', chemin: '/compteurs', touche: 'L' },
   { cle: 'contact', libelle: 'Contact', chemin: '/contacts', touche: 'T' },
-  { cle: 'piste', libelle: 'Piste', chemin: '/prospection', touche: 'P' },
+  { cle: 'piste', libelle: 'Piste', chemin: '/pistes', touche: 'P' },
   { cle: 'opportunite', libelle: 'Opportunité', chemin: '/opportunites', touche: 'O' },
   { cle: 'recommandation', libelle: 'Recommandation', chemin: '/recommandations', touche: 'R' },
   { cle: 'mandat', libelle: 'Mandat', chemin: '/mandats', touche: 'M' },

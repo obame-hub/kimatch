@@ -116,7 +116,7 @@ export const navItems: NavItem[] = [
    tuiles d'accueil et les fils d'activité. Le jour où le sujet est repris, c'est ce commentaire
    qu'il faut suivre à rebours : `git log -S"/signaux"` retrouve chaque point de branchement. */
 export const cycleNavItems: NavItem[] = [
-  { to: '/prospection', label: 'Pistes', icon: Filter },
+  { to: '/pistes', label: 'Pistes', icon: Filter },
   { to: '/opportunites', label: 'Opportunités', icon: Target },
   { to: '/recommandations', label: 'Recommandations', icon: Sparkle },
 ]

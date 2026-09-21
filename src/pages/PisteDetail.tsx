@@ -64,7 +64,7 @@ export default function PisteDetail() {
   const { id } = useParams<{ id: string }>()
   const ouvrirEmail = useOuvrirEmail()
   const navigate = useNavigate()
-  const goBack = useGoBack('/prospection')
+  const goBack = useGoBack('/pistes')
   const canManage = useCanManage()
 
   const { data: piste, isLoading } = usePiste(id)
@@ -515,7 +515,7 @@ export default function PisteDetail() {
               onClick={() => {
                 supprimerPiste
                   .mutateAsync({ id: piste.id, opportuniteId: piste.opportunite_id ?? null })
-                  .then(() => navigate('/prospection'))
+                  .then(() => navigate('/pistes'))
                   .catch((e) => {
                     setSuppressionOuverte(false)
                     signaler(e instanceof Error ? e.message : 'Suppression impossible')
