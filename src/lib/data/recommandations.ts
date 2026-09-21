@@ -26,6 +26,8 @@ interface RawRecommandation {
   marge_nette_coeff: number | null
   marge_apporteur: number | null
   date_cloture?: string | null
+  /** Voir la migration du 21/09/2026 : tant quelle existe, letape ne se recalcule plus. */
+  date_etape_manuelle?: string | null
   finalite_cloture?: 'ACCEPTEE' | 'REFUSEE' | 'EXPIREE' | null
   motif_cloture?: string | null
   date_reactivation?: string | null
@@ -784,6 +786,9 @@ async function fetchRecommandations(
       marge_apporteur: r.marge_apporteur,
       type_energie: (r.type_energie?.code?.toLowerCase() as 'electricite' | 'gaz' | undefined) ?? null,
       date_cloture: r.date_cloture ?? null,
+      /* Posée quand quelqu'un a choisi l'étape à la main : tant qu'elle existe, le calcul de la
+         base ne touche plus à l'étape, et la fiche le dit sous le chemin. */
+      date_etape_manuelle: r.date_etape_manuelle ?? null,
       finalite_cloture: r.finalite_cloture ?? null,
       motif_cloture: r.motif_cloture ?? null,
       date_reactivation: r.date_reactivation ?? null,
@@ -1109,22 +1114,56 @@ export function useCreateVersion() {
         0,
         ...(versionsExistantes ?? []).map((v) => (v as { numero_version?: number }).numero_version ?? 0),
       ) + 1
-      // On ne touche pas à une version DÉJÀ clôturée : son résultat est un fait acquis — accepté,
-      // refusé — et le réécrire en « expirée » effacerait la décision du client.
-      const aTraiter = (versionsExistantes ?? []).filter((v) => {
-        const code = (v.statut as { code: string } | { code: string }[] | null)
-        const c = Array.isArray(code) ? code[0]?.code : code?.code
-        return v.version_actuelle && c !== 'CLOTUREE'
-      })
-      if (aTraiter.length > 0 && statutCloturee) {
-        await supabase
+      /**
+       * ══════════ CÉDER LA PLACE, C'EST DEUX CHOSES DIFFÉRENTES ══════════
+       *
+       * Marie, 21/09/2026, sur « GSI — SDC LES MOULLINS DE L'ILETTE CHELLES » : elle renseigne tout,
+       * le bouton est cliquable, et au clic RIEN ne se passe — aucune version, aucun message.
+       *
+       * ══ CE QUI SE PASSAIT VRAIMENT ══
+       *
+       * `uq_versions_recommandation_actuelle` impose UNE SEULE version actuelle par dossier. Ce code
+       * dégradait bien la précédente… sauf quand elle était déjà clôturée : la condition
+       * `c !== 'CLOTUREE'` l'excluait du lot, elle gardait son drapeau `version_actuelle`, et
+       * l'insertion de la suivante violait l'index unique. Erreur 23505, jamais affichée.
+       *
+       * L'INTENTION DU FILTRE ÉTAIT JUSTE, SON PÉRIMÈTRE NON. Il protégeait le RÉSULTAT d'une
+       * version close — accepté, refusé — qu'on n'a pas le droit de réécrire en « expirée » : ce
+       * serait effacer la décision du client. Mais il protégeait du même coup son drapeau
+       * `version_actuelle`, qui n'est pas une décision, juste un pointeur vers celle sur laquelle on
+       * travaille.
+       *
+       * LES DEUX ÉCRITURES SONT DONC SÉPARÉES. Toutes les versions courantes perdent le drapeau ;
+       * seules celles qui n'étaient pas closes reçoivent en plus le statut et le résultat.
+       *
+       * ══ COMBIEN DE DOSSIERS ÉTAIENT MUETS ══
+       *
+       * Mesuré le 21/09/2026 : 1 478 dossiers portaient une version à la fois courante et clôturée,
+       * dont 56 à l'étape « À réactiver » — précisément ceux qu'un commercial rouvre pour redemander
+       * une offre. Chacun refusait en silence toute nouvelle version.
+       */
+      const courantes = (versionsExistantes ?? []).filter((v) => v.version_actuelle)
+      if (courantes.length > 0) {
+        const { error: erreurDrapeau } = await supabase
           .from('versions_recommandation')
-          .update({
-            version_actuelle: false,
-            statut_version_id: statutCloturee.id,
-            resultat: 'EXPIREE',
-          })
-          .in('id', aTraiter.map((v) => v.id))
+          .update({ version_actuelle: false })
+          .in('id', courantes.map((v) => v.id))
+        // SANS CE CONTRÔLE, l'insertion suivante échouait sur l'index unique sans qu'on sache
+        // pourquoi : l'erreur venait d'une écriture dont personne ne lisait le retour.
+        if (erreurDrapeau) throw new Error(erreurDrapeau.message)
+
+        const aCloturer = courantes.filter((v) => {
+          const code = (v.statut as { code: string } | { code: string }[] | null)
+          const c = Array.isArray(code) ? code[0]?.code : code?.code
+          return c !== 'CLOTUREE'
+        })
+        if (aCloturer.length > 0 && statutCloturee) {
+          const { error: erreurCloture } = await supabase
+            .from('versions_recommandation')
+            .update({ statut_version_id: statutCloturee.id, resultat: 'EXPIREE' })
+            .in('id', aCloturer.map((v) => v.id))
+          if (erreurCloture) throw new Error(erreurCloture.message)
+        }
       }
 
       const { data: version, error } = await supabase
@@ -1678,6 +1717,10 @@ export function useRouvrirRecommandation() {
           /* ROUVRIR EFFACE LA CLÔTURE MANUELLE, sinon le calcul de statut refermerait le dossier
              au premier recalcul : cette branche gagne sur tout, version vivante comprise. */
           date_cloture_manuelle: null,
+          /* ET L'ÉTAPE POSÉE À LA MAIN, pour la même raison : rouvrir, c'est rendre un dossier à sa
+             vie normale, donc au calcul qui la décrit. Le laisser figé ferait de la réouverture un
+             geste à moitié fait (William, 21/09/2026). */
+          date_etape_manuelle: null,
           ...(input.etapeReouvertureId ? { etape_id: input.etapeReouvertureId } : {}),
         })
         .eq('id', input.id)
@@ -1950,8 +1993,41 @@ export function useAvancerEtapeRecommandation() {
     mutationFn: async (input: { id: string; etapeSuivanteId: string }) => {
       const { error } = await supabase
         .from('recommandations')
-        .update({ etape_id: input.etapeSuivanteId })
+        .update({
+          etape_id: input.etapeSuivanteId,
+          /* ══ UN CHOIX MANUEL TIENT TOUJOURS (William, 21/09/2026) ══
+             Sans cette date, `recalculer_statut_recommandation` reprenait l'étape au premier
+             mouvement de version : le dossier rebougeait tout seul, sans que personne comprenne.
+             Tant qu'elle est posée, le calcul s'arrête net — voir la migration du 21/09/2026. */
+          date_etape_manuelle: new Date().toISOString(),
+          /* ET LA CLÔTURE MANUELLE S'EFFACE. Deux marques de décision qui se contredisent — « clos
+             à la main » d'un côté, « actif à la main » de l'autre — laisseraient le dossier dire
+             deux choses. Poser une étape à la main est la décision la plus récente : c'est elle
+             qui vaut. La finalité et le motif restent, eux : ce sont des faits d'histoire. */
+          date_cloture_manuelle: null,
+        })
         .eq('id', input.id)
+      if (error) throw new Error(error.message)
+    },
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['recommandations'] }),
+  })
+}
+
+/**
+ * Rendre le dossier au calcul automatique.
+ *
+ * L'ÉCHAPPATOIRE DE LA RÈGLE PRÉCÉDENTE. « Un choix manuel tient toujours » serait une impasse sans
+ * un geste pour le défaire : un dossier figé par erreur le resterait pour toujours. Effacer la date
+ * suffit — le calcul reprend au mouvement de version suivant, et la fiche le dit.
+ */
+export function useRendreEtapeAuCalcul() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: async (id: string) => {
+      const { error } = await supabase
+        .from('recommandations')
+        .update({ date_etape_manuelle: null })
+        .eq('id', id)
       if (error) throw new Error(error.message)
     },
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ['recommandations'] }),

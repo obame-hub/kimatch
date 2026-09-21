@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
+import { cn } from '@/lib/utils'
 import { AlertTriangle, CheckCircle2, X } from 'lucide-react'
 import { IconeEnergie } from '@/components/ui/icone-energie'
 import { Button } from '@/components/ui/button'
@@ -92,6 +93,10 @@ export function CotationWizard({
   const [dateSouhaitee, setDateSouhaitee] = useState('')
   const [fournisseurIds, setFournisseurIds] = useState<string[]>([])
   const [feedback, setFeedback] = useState<string | null>(null)
+  /* UN ÉCHEC NE SE LIT PAS COMME UNE RÉUSSITE. Le même paragraphe gris servait aux deux : une
+     version créée et une version refusée s'écrivaient dans la même police discrète, sous le bouton.
+     C'est ce qui a permis au silence de durer. */
+  const [echec, setEchec] = useState(false)
   const [toast, setToast] = useState<string | null>(null)
   // Recherche dans la liste des fournisseurs -- réclamée par William : 52 fournisseurs répartis en
   // zones, retrouver le bon à l'œil est pénible.
@@ -228,6 +233,7 @@ export function CotationWizard({
     setDateSouhaitee('')
     setFournisseurIds([])
     setFeedback(null)
+    setEchec(false)
   }
 
   /* Ce qui reste à renseigner, dans l'ordre où l'écran le demande. */
@@ -237,7 +243,36 @@ export function CotationWizard({
     fournisseurIds.length === 0 ? 'au moins un fournisseur' : null,
   ].filter(Boolean) as string[]
 
+  /**
+   * ══════════ UN ÉCHEC NE DOIT JAMAIS ÊTRE MUET ══════════
+   *
+   * Marie, 21/09/2026 : « le bouton est cliquable mais au clic rien ne se passe ». La cause était
+   * une violation d'index unique — mais ce qu'elle décrit, c'est l'ABSENCE DE MESSAGE : cette
+   * fonction n'avait aucun `try/catch`, donc la promesse partait en rejet non capturé et l'écran
+   * restait exactement comme avant le clic.
+   *
+   * C'est le plus grave des deux défauts. Une erreur affichée se signale et se corrige ; une erreur
+   * silencieuse fait douter de son propre geste — Marie a refait la saisie plusieurs fois avant
+   * d'appeler. Le `catch` reste même après le correctif de la cause : la prochaine sera dite.
+   */
   async function handleValider() {
+    setEchec(false)
+    try {
+      await creerLaVersion()
+    } catch (e) {
+      const message = e instanceof Error ? e.message : String(e)
+      setEchec(true)
+      setFeedback(
+        /* LE CAS CONNU EST TRADUIT. « duplicate key value violates unique constraint » ne veut rien
+           dire pour un commercial, alors que la phrase qu'il remplace dit quoi faire. */
+        /uq_versions_recommandation_actuelle|duplicate key/i.test(message)
+          ? 'La version précédente est restée marquée « actuelle » : rechargez la page et réessayez. Si cela persiste, signalez ce dossier.'
+          : `La version n'a pas pu être créée : ${message}`,
+      )
+    }
+  }
+
+  async function creerLaVersion() {
     // La toute première cotation est une « Création initiale », pas une actualisation -- c'est
     // d'ailleurs ce que porte tout l'historique repris de Salesforce.
     const codeMotif = estActualisation ? 'ACTUALISATION_MARCHE' : 'CREATION_INITIALE'
@@ -532,7 +567,19 @@ export function CotationWizard({
           </div>
         </div>
 
-        {feedback && <p className="text-xs text-km-muted">{feedback}</p>}
+        {feedback && (
+          <p
+            role={echec ? 'alert' : undefined}
+            className={cn(
+              'text-xs',
+              echec
+                ? 'rounded-km-sm border border-km-red-line bg-km-red-soft px-2.5 py-2 font-semibold text-km-red'
+                : 'text-km-muted',
+            )}
+          >
+            {feedback}
+          </p>
+        )}
 
         {/* ══ UN BOUTON GRIS DIT POURQUOI ══
             Quatre conditions verrouillent la création — les durées, au moins un fournisseur, et
