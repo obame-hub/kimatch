@@ -566,7 +566,11 @@ export function OngletCompteurs({ compteId, compteurs }: { compteId: string; com
                     {c.date_echeance ? (
                       <>
                         <span className={cn('font-semibold', urgent ? 'text-km-red' : 'text-km-text')}>
-                          {new Date(c.date_echeance).toLocaleDateString('fr-FR', { month: '2-digit', year: 'numeric' })}
+                          {/* LE JOUR COMPTE (William, 21/09/2026). En « MM/AAAA », deux échéances du
+                              même mois se lisaient identiques — or un contrat qui finit le 2 et un
+                              autre le 30 ne se consultent pas au même moment, et c'est cette date
+                              qui décide de la date de livraison souhaitée d'une version. */}
+                          {new Date(c.date_echeance).toLocaleDateString('fr-FR', { day: '2-digit', month: '2-digit', year: 'numeric' })}
                         </span>
                         {jours !== null && (
                           <span className="ml-1 text-km-tiny text-km-faint">
