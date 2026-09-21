@@ -1,19 +1,18 @@
 import { useMemo, useState } from 'react'
 import { useSearchParams } from 'react-router-dom'
 import { useNavigate } from 'react-router-dom'
-import { Plus, Target } from 'lucide-react'
+import { Plus } from 'lucide-react'
 import { TableauKanban } from '@/components/dashboard/TableauKanban'
 import { volumeLisible } from '@/lib/volume'
 import { TitreOnglet } from '@/components/layout/TitreOnglet'
 import { PageHeader, Indicateurs } from '@/components/ui/page-header'
-import { Card } from '@/components/ui/card'
 import { ChoixParRecherche } from '@/components/ui/choix-recherche'
 import { Button } from '@/components/ui/button'
 import { Dialog } from '@/components/ui/dialog'
 import { FormField, Input, Select, Textarea } from '@/components/ui/form'
 import { ListToolbar, BasculeOption } from '@/components/ui/list-toolbar'
 import { useListControls } from '@/lib/useListControls'
-import { usePerimetreListe, BasculePerimetre } from '@/lib/perimetre'
+import { usePerimetreListe, BasculePerimetre, ListeVide } from '@/lib/perimetre'
 import { SelecteurTri } from '@/lib/triKanban'
 import {
   statutDerive,
@@ -75,7 +74,7 @@ export default function Opportunites() {
   useOuvrirCreation(() => setCreation(true))
   const [avecClos, setAvecClos] = useState(false)
 
-  const { perimetre, setPerimetre, visibles: opportunitesDuPerimetre } = usePerimetreListe(
+  const { perimetre, setPerimetre, visibles: opportunitesDuPerimetre, nbTous } = usePerimetreListe(
     'opportunites', opportunites,
     { proprietaireId: (o) => o.proprietaire_id, compteId: (o) => o.compte_id },
   )
@@ -268,15 +267,19 @@ export default function Opportunites() {
             />
           </div>
         ) : (
-          <Card className="mt-4 flex flex-col items-center gap-2 p-8 text-center">
-            <Target className="h-6 w-6 text-km-faint" />
-            <p className="text-sm font-medium text-km-text">Aucune opportunité</p>
-            <p className="max-w-md text-xs text-km-faint">
-              Une opportunité naît d'une piste convertie, d'un signal sur le portefeuille, d'une
-              demande entrante ou d'un partenaire. Créez-en une pour commencer à rassembler ses
-              prérequis.
-            </p>
-          </Card>
+          /* L'ÉCRAN VIDE DIT POURQUOI : quatre personnes sur dix n'ont aucune opportunité à leur
+             nom — Michel et Erwan les premiers — et voyaient « Aucune opportunité » sans savoir
+             que 129 existent. Voir `ListeVide`. */
+          <div className="mt-4">
+            <ListeVide
+              perimetre={perimetre}
+              onChange={setPerimetre}
+              nbTous={nbTous}
+              nom={{ aucun: 'aucune opportunité', pluriel: 'opportunités existent' }}
+              libelleTous="Toutes les opportunités"
+              siRienNulePart="Aucune opportunité. Une opportunité naît d’une piste convertie, d’une demande entrante ou d’un partenaire."
+            />
+          </div>
         )}
       </div>
 

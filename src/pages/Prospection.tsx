@@ -8,7 +8,7 @@ import { Badge } from '@/components/ui/badge'
 import { Dialog } from '@/components/ui/dialog'
 import { FormField, Input, Select } from '@/components/ui/form'
 import { ListToolbar } from '@/components/ui/list-toolbar'
-import { usePerimetreListe, BasculePerimetre } from '@/lib/perimetre'
+import { usePerimetreListe, BasculePerimetre, ListeVide } from '@/lib/perimetre'
 import { Indicateurs } from '@/components/ui/page-header'
 import { useTriKanban, SelecteurTri } from '@/lib/triKanban'
 import {
@@ -414,6 +414,19 @@ function OngletPistes({ pistes }: { pistes: Piste[] }) {
             Les accolades manquaient. En JSX, un commentaire de style C posé nu dans le rendu n'est
             pas un commentaire : c'est du texte. Celui-ci s'affichait donc en production, entre la
             barre de recherche et le tableau — trouvé par l'audit du 28/08/2026 en ouvrant l'écran. */}
+        {/* L'ÉCRAN VIDE DIT POURQUOI. Sans ça, « Aucune piste ne correspond » s'affichait pendant
+            que la bascule annonçait 5 181 justes à côté — cinq personnes sur dix voient cet écran,
+            Erwan six fois sur sept. Voir `ListeVide`. */}
+        {pistesVisibles.length === 0 ? (
+          <ListeVide
+            perimetre={perimetre}
+            onChange={setPerimetre}
+            nbTous={nbTous}
+            nom={{ aucun: 'aucune piste', pluriel: 'pistes existent' }}
+            libelleTous="Toutes les pistes"
+            siRienNulePart="Aucune piste ne correspond."
+          />
+        ) : (
         <TableauKanban
           colonnes={COLONNES_PISTE.map((c) => ({ code: c.code, libelle: c.libelle }))}
           cartes={Object.fromEntries(
@@ -455,6 +468,7 @@ function OngletPistes({ pistes }: { pistes: Piste[] }) {
           )}
           siVide="Aucune piste ne correspond."
         />
+        )}
 
       {/* ══ TOUT LE TRAVAIL D'UNE PISTE A DÉMÉNAGÉ SUR SA FICHE ══
           Michel, 01/09/2026 : « une page dédiée à la piste ». Les cinq vérifications, la conversion

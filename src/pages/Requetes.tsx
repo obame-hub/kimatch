@@ -3,13 +3,12 @@ import { useNavigate } from 'react-router-dom'
 import { Plus, LifeBuoy, Check } from 'lucide-react'
 import { TitreOnglet } from '@/components/layout/TitreOnglet'
 import { PageHeader, Indicateurs } from '@/components/ui/page-header'
-import { Card } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Dialog } from '@/components/ui/dialog'
 import { FormField, Input, Select, Textarea } from '@/components/ui/form'
 import { ListToolbar } from '@/components/ui/list-toolbar'
-import { usePerimetreListe, BasculePerimetre } from '@/lib/perimetre'
+import { usePerimetreListe, BasculePerimetre, ListeVide } from '@/lib/perimetre'
 import { EntityLink } from '@/components/ui/entity-link'
 import {
   useRequetes,
@@ -135,7 +134,7 @@ export default function Requetes() {
     { libelle: 'Sans responsable', valeur: String(compteurs.sansResponsable), precision: 'À attribuer' },
   ]
 
-  const { perimetre, setPerimetre, visibles: requetesDuPerimetre } = usePerimetreListe(
+  const { perimetre, setPerimetre, visibles: requetesDuPerimetre, nbTous } = usePerimetreListe(
     'requetes', requetes,
     { proprietaireId: (r) => r.proprietaire_id, compteId: (r) => r.compte_id, siteId: (r) => r.site_id },
   )
@@ -187,16 +186,18 @@ export default function Requetes() {
         </ListToolbar>
 
         {filtrees.length === 0 ? (
-          <Card className="flex flex-col items-center gap-2 p-8 text-center">
-            <LifeBuoy className="h-6 w-6 text-km-faint" />
-            <p className="text-sm font-medium text-km-text">
-              {ouvertes ? 'Rien à traiter' : 'Aucune requête'}
-            </p>
-            <p className="max-w-md text-xs text-km-faint">
-              Une requête naît d'un problème : une facture contestée, un contrat introuvable, un
-              compteur qui ne remonte rien.
-            </p>
-          </Card>
+          /* L'ÉCRAN VIDE DIT POURQUOI : six personnes sur dix n'ont aucune requête à leur nom, et
+             voyaient « Aucune requête » sans savoir que 886 existent. Voir `ListeVide`. */
+          <ListeVide
+            perimetre={perimetre}
+            onChange={setPerimetre}
+            nbTous={nbTous}
+            nom={{ aucun: 'aucune requête', pluriel: 'requêtes existent' }}
+            libelleTous="Toutes les requêtes"
+            siRienNulePart={ouvertes
+              ? 'Rien à traiter. Une requête naît d’un problème : une facture contestée, un contrat introuvable, un compteur qui ne remonte rien.'
+              : 'Aucune requête. Une requête naît d’un problème : une facture contestée, un contrat introuvable, un compteur qui ne remonte rien.'}
+          />
         ) : (
           /* ══════ TROIS COLONNES, ET NON QUATRE STATUTS ══════
              Règle n° 8 du dossier UX du 26/08 : « les statuts sont Nouveau, En cours de traitement et

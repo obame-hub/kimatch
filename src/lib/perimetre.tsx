@@ -176,3 +176,79 @@ export function BasculePerimetre({
     </div>
   )
 }
+
+/**
+ * ════════════════════════════════════════════════════════════════════════════════════════════════
+ * UN ÉCRAN VIDE DIT POURQUOI, ET COMMENT EN SORTIR
+ * ════════════════════════════════════════════════════════════════════════════════════════════════
+ *
+ * Relevé le 21/09/2026 en ouvrant les écrans un par un : la page Pistes affiche « Aucune piste ne
+ * correspond » et « 0 résultat » pendant que la bascule, à trois centimètres, annonce 5 181. L'écran
+ * se contredit dans la même vue, et on en conclut que Kimatch a perdu les pistes.
+ *
+ * LA CAUSE N'EST PAS UN DÉFAUT, C'EST LE RÉGLAGE PAR DÉFAUT. La bascule ouvre sur « les miens », et
+ * cinq personnes sur dix n'ont rien à leur nom sur au moins trois écrans :
+ *
+ *   Erwan Ozimo      6 écrans vides sur 7   — il travaille le Pricing des dossiers des autres
+ *   Naoëlle GHOUMA   4 / 7
+ *   Agathe Boccone   4 / 7
+ *   Michel OBAME     3 / 7                  — il arbitre, il ne possède pas de dossiers
+ *   Guillaume Gilles 3 / 7                  — 513 recommandations, mais zéro piste
+ *
+ * ══ POURQUOI ON NE BASCULE PAS AUTOMATIQUEMENT ══
+ *
+ * C'était la correction tentante, et elle est fausse. L'écran Pistes de Guillaume EST légitimement
+ * vide : il ne prospecte pas, il travaille l'aval. Basculer à sa place lui imposerait 5 181 lignes
+ * qui ne le concernent pas, et lui ferait perdre le réglage qu'il a choisi.
+ *
+ * On ne décide donc pas à sa place : on lui dit ce qu'il y a derrière l'autre position de la
+ * bascule, et on lui laisse un bouton. S'il n'y a rien non plus de l'autre côté, on ne propose rien
+ * — proposer une porte qui ne mène nulle part est pire que se taire.
+ */
+export function ListeVide({
+  perimetre,
+  onChange,
+  nbTous,
+  nom,
+  libelleTous,
+  siRienNulePart,
+}: {
+  perimetre: Perimetre
+  onChange: (v: Perimetre) => void
+  /** Ce que contient « tous », pour savoir s'il y a une sortie à proposer. */
+  nbTous: number | undefined
+  /** Le mot de l'écran AU SINGULIER, avec son article : « aucune piste », « aucun contrat ».
+   *  L'accord se fait ici et non par une règle automatique : « aucunes pistes » est sorti d'une
+   *  première version qui devinait le genre sur le « s » final, et se lisait à l'écran. */
+  nom: { aucun: string; pluriel: string }
+  /** L'intitulé exact du second segment, pour que la phrase désigne un bouton qu'on voit. */
+  libelleTous: string
+  /** Ce qu'on dit quand il n'y a vraiment rien, ni à soi ni ailleurs. */
+  siRienNulePart: string
+}) {
+  const ailleurs = perimetre === 'moi' && (nbTous ?? 0) > 0
+
+  return (
+    <div className="rounded-km-md border border-dashed border-km-line bg-km-soft px-4 py-5 text-center">
+      {ailleurs ? (
+        <>
+          <p className="text-km-body font-semibold text-km-text">
+            Vous n’avez {nom.aucun} à votre nom.
+          </p>
+          <p className="mt-1 text-km-label text-km-muted">
+            {nbTous?.toLocaleString('fr-FR')} {nom.pluriel} dans Kimatch.
+          </p>
+          <button
+            type="button"
+            onClick={() => onChange('tous')}
+            className="mt-3 rounded-km border border-km-green bg-white px-3.5 py-1.5 text-km-label font-bold text-km-green transition-colors hover:bg-km-green hover:text-white"
+          >
+            Voir {libelleTous.toLowerCase()}
+          </button>
+        </>
+      ) : (
+        <p className="text-km-label text-km-muted">{siRienNulePart}</p>
+      )}
+    </div>
+  )
+}
