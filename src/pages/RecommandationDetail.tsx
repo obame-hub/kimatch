@@ -239,13 +239,19 @@ export default function RecommandationDetail() {
    * remettrait le compteur des deux jours ouvrés à zéro, ce qui repousserait la relance au lieu de
    * la rapprocher — l'inverse exact de ce qu'un second envoi signifie.
    */
-  async function datePresentationClient() {
-    if (!versionAffichee || versionAffichee.date_presentation_client) return
+  async function datePresentationClient(avecMessage = false) {
+    /* LA VERSION ACTUELLE, pas celle qu'on regarde : le chemin parle du dossier, et c'est la
+       version vivante qui part chez le client. Depuis le hero, les deux coïncident. */
+    const cible = versionActive ?? versionAffichee
+    if (!cible || cible.date_presentation_client) return
     try {
       await updateVersion.mutateAsync({
-        versionId: versionAffichee.id,
+        versionId: cible.id,
         patch: { date_presentation_client: new Date().toISOString().slice(0, 10) },
       })
+      if (avecMessage) {
+        signaler(`✓ Proposition marquée envoyée — la relance partira dans deux jours ouvrés`)
+      }
     } catch (e) {
       signaler(`Erreur : ${e instanceof Error ? e.message : String(e)}`)
     }
@@ -1090,6 +1096,7 @@ export default function RecommandationDetail() {
                 reco={reco}
                 peutModifier={canManage}
                 onChoisirEtape={choisirEtape}
+                onMarquerProposee={() => void datePresentationClient(true)}
                 onRendreAuCalcul={async () => {
                   try {
                     await rendreAuCalcul.mutateAsync(reco.id)
@@ -1443,7 +1450,7 @@ export default function RecommandationDetail() {
                   typeDocumentPropositionId={
                     typesDocuments.find((t) => /recommandation/i.test(t.libelle))?.id ?? null
                   }
-                  onPresentationEnvoyee={datePresentationClient}
+                  onPresentationEnvoyee={() => void datePresentationClient()}
                   statutsVersions={statutsVersions}
                   onAjouterFournisseur={setAjouterFournisseurFor}
                   peutModifier={canManage}

@@ -56,9 +56,16 @@ import type { Recommandation } from '@/types/domain'
  *    cliquer « En consultation » est le geste qui ROUVRE un dossier endormi.
  *  · « L'issue » ne s'écrit pas d'un clic : clôturer réclame une finalité et un motif obligatoire
  *    (règle du 16/08/2026). Le nœud ouvre donc le panneau de clôture, comme le bouton du bandeau.
- *  · « Proposée » reste INERTE, et c'est voulu : ce n'est pas une étape mais un FAIT — la date où
- *    la proposition est partie chez le client. Un nœud qui promettrait de la poser mentirait, et
- *    la date se pose en envoyant la proposition, pas en cliquant un rond.
+ *  · « Proposée » SE CLIQUE AUSSI, et j'avais eu tort de la laisser inerte. Je l'avais exclue parce
+ *    que ce n'est pas une étape mais un FAIT — la date où la proposition est partie chez le client.
+ *    William, 21/09/2026 : « pourquoi je ne peux pas cliquer sur Proposée ? C'est l'évolution que je
+ *    t'ai demandée. »
+ *
+ *    IL A RAISON, ET POUR UNE RAISON QUE MA DISTINCTION MASQUAIT : une proposition envoyée depuis
+ *    la boîte mail du commercial, sans passer par « Envoyer au client », n'est datée nulle part. Le
+ *    dossier reste alors éternellement « en consultation », et surtout LA RELANCE NE PART JAMAIS —
+ *    elle repose entièrement sur cette date. Le clic n'invente pas un statut : il consigne un fait
+ *    qui a eu lieu ailleurs, ce que Kimatch ne peut pas deviner.
  *
  * ══ UN CHOIX MANUEL TIENT TOUJOURS ══
  *
@@ -93,6 +100,7 @@ export function CheminRecommandation({
   reco,
   peutModifier,
   onChoisirEtape,
+  onMarquerProposee,
   onOuvrirCloture,
   onRendreAuCalcul,
 }: {
@@ -100,6 +108,8 @@ export function CheminRecommandation({
   peutModifier?: boolean
   /** Pose une étape à la main. Voir le commentaire « LE CHEMIN SE CLIQUE » ci-dessous. */
   onChoisirEtape?: (code: 'BROUILLON' | 'ACTIVE') => void
+  /** Date la présentation au client à la main, quand la proposition est partie hors de Kimatch. */
+  onMarquerProposee?: () => void
   /** La clôture passe par son panneau : elle réclame une finalité et un motif. */
   onOuvrirCloture?: () => void
   /** Rend le dossier au calcul automatique — l'échappatoire du choix manuel. */
@@ -180,6 +190,17 @@ export function CheminRecommandation({
       libelle: 'Proposée',
       picto: PictoEnveloppe,
       franchi: datePresentation != null,
+      /* Une seule fois : redater une présentation déjà faite remettrait le compteur des deux jours
+         ouvrés à zéro et REPOUSSERAIT la relance au lieu de la rapprocher. */
+      onChoisir:
+        peutModifier && datePresentation == null && reco.versions.length > 0 && onMarquerProposee
+          ? onMarquerProposee
+          : undefined,
+      titre: datePresentation
+        ? `Proposition envoyée le ${new Date(datePresentation).toLocaleDateString('fr-FR')}`
+        : reco.versions.length === 0
+          ? 'Aucune version : il n’y a rien à proposer au client'
+          : 'Marquer la proposition comme envoyée au client — c’est cette date qui déclenche la relance',
       /* « À CÔTÉ de Proposée et non pas en dessous » (William, 18/09/2026) : la version part sur la
          ligne du libellé, où elle ne coûte pas de hauteur. Voir `marqueur` dans `FriseJalons`. */
       marqueur: derniereProposee
