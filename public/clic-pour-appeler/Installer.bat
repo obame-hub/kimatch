@@ -1,19 +1,22 @@
 @echo off
 setlocal
 
-REM ==============================================================================================
+REM ==========================================================================================
 REM  KIMATCH - CLIC POUR APPELER - installation sur un poste
-REM ==============================================================================================
-REM  Naoelle, 22/09/2026 : "tout le monde ne sait pas utiliser PowerShell et je suis a distance,
-REM  je peux pas l'installer pour eux."
+REM ==========================================================================================
+REM  Naoelle, 22/09/2026 : tout le monde ne sait pas utiliser PowerShell, et je suis a distance.
 REM
-REM  CE FICHIER EST AUTONOME. Il se telecharge depuis Kimatch (Administration > Clic pour appeler),
-REM  s'ouvre d'un double-clic, et va chercher lui-meme les deux scripts dont il a besoin. Pas de
-REM  depot a cloner, pas de commande a taper, pas de droits administrateur.
+REM  CE FICHIER EST AUTONOME : telecharge depuis Kimatch (Mon profil), ouvert d un double-clic,
+REM  il va chercher le reste tout seul. Pas de depot, pas de commande, pas de droits admin.
 REM
-REM  PAS DE CARACTERE ACCENTUE NI DE DEUX-POINTS dans les commentaires ni dans les echo : cmd.exe
-REM  les interprete et affiche des erreurs rouges qui font croire a un echec. Constate le 22/09.
-REM ==============================================================================================
+REM  TROIS PIEGES RENCONTRES LE 22/09, ET EVITES ICI :
+REM   1. ASCII SANS BOM obligatoire. En UTF-8 avec BOM, cmd lit les trois premiers octets comme
+REM      du texte et setlocal devient tlocal.
+REM   2. Pas d accent ni de deux-points dans les REM et les echo : cmd les interprete et affiche
+REM      des erreurs rouges qui font croire a un echec.
+REM   3. On telecharge le script DANS UN FICHIER avant de l executer. Un iwr | iex affichait des
+REM      centaines de codes numeriques : le contenu arrivait en octets, parcourus un par un.
+REM ==========================================================================================
 
 title Kimatch - Clic pour appeler
 
@@ -25,11 +28,25 @@ echo.
 echo   Installation en cours, quelques secondes...
 echo.
 
-powershell -NoProfile -ExecutionPolicy Bypass -Command "iwr 'https://kimatch.fr/clic-pour-appeler/installer.ps1' -UseBasicParsing | select -ExpandProperty Content | iex"
+set "PS=%TEMP%\kimatch-installer.ps1"
+powershell -NoProfile -ExecutionPolicy Bypass -Command "Invoke-WebRequest 'https://kimatch.fr/clic-pour-appeler/installer.ps1' -OutFile $env:TEMP\kimatch-installer.ps1 -UseBasicParsing"
 
-if errorlevel 1 (
+if not exist "%PS%" (
   echo.
-  echo   L'INSTALLATION A ECHOUE.
+  echo   ECHEC - impossible de telecharger l installateur.
+  echo   Verifiez votre connexion internet, puis relancez ce fichier.
+  echo.
+  pause
+  exit /b 1
+)
+
+powershell -NoProfile -ExecutionPolicy Bypass -File "%PS%"
+set CODE=%errorlevel%
+del "%PS%" >nul 2>&1
+
+if not "%CODE%"=="0" (
+  echo.
+  echo   L INSTALLATION A ECHOUE.
   echo   Faites une capture de cette fenetre et envoyez-la a Naoelle.
   echo.
   pause
@@ -39,10 +56,10 @@ if errorlevel 1 (
 echo.
 echo   --------------------------------------------------------
 echo.
-echo   Termine. Pour verifier, dans l'ordre
+echo   Termine. Pour verifier, dans l ordre
 echo.
-echo     1. Ouvrez l'application Allo et laissez-la ouverte
-echo     2. Dans Kimatch, cliquez sur le telephone a cote d'un numero
+echo     1. Ouvrez l application Allo et laissez-la ouverte
+echo     2. Dans Kimatch, cliquez sur le telephone a cote d un numero
 echo     3. Ca doit appeler directement
 echo.
 echo   Si rien ne se passe, envoyez a Naoelle le fichier
