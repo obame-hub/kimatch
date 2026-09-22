@@ -100,9 +100,10 @@ export function CarteAppel() {
   return (
     /* ══ EN BAS À DROITE, MAIS JAMAIS SUR ALLO ══
      *
-     * `right` suit `--volet-allo`, la largeur que le volet annonce quand il est ouvert : sinon la
-     * carte recouvrirait l'interface d'Allo, donc peut-être son bouton raccrocher. C'est le seul
-     * bouton de tout ce dispositif qu'il ne faut jamais masquer.
+     * `right` suivait `--volet-allo`, la largeur que le volet annonçait quand il était ouvert, pour
+     * ne pas recouvrir son bouton raccrocher. LE VOLET EST RETIRÉ DEPUIS LE 22/09/2026 (voir
+     * `telephonie.tsx`) : plus personne ne pose cette variable, et le repli `0px` s'applique. On la
+     * garde parce qu'elle ne coûte rien et que le volet peut revenir — le fichier est toujours là.
      *
      * Elle est redescendue à `bottom-4` : la pastille du téléphone est passée à gauche le 08/09/2026,
      * elle ne dispute plus ce coin. Sur mobile elle reste au-dessus de la barre du bas. */

@@ -1,7 +1,6 @@
 import { createContext, useCallback, useContext, useEffect, useState } from 'react'
 import type { ReactNode } from 'react'
 import { CarteAppel } from '@/components/allo/CarteAppel'
-import { VoletAllo } from '@/components/allo/VoletAllo'
 import { lancerAlloBureau, composerSurLePoste } from '@/lib/alloBureau'
 import { signalerAppelLance } from '@/lib/data/appelEnCours'
 
@@ -319,9 +318,26 @@ export function TelephonieProvider({ children }: { children: ReactNode }) {
   return (
     <Contexte.Provider value={{ appeler }}>
       {children}
-      {/* ALLO LUI-MEME, dans un volet de Kimatch. C'est la seule facon de lancer l'appel et de
-          raccrocher sans quitter l'application : leur API n'expose ni l'un ni l'autre. */}
-      <VoletAllo />
+      {/* ══ LE VOLET ALLO EST RETIRÉ — 22/09/2026 ══
+       *
+       * Naoëlle, capture à l'appui : « pourquoi je vois encore ce clavier ? »
+       *
+       * IL AVAIT UNE RAISON D'ÊTRE, et elle a disparu ce matin. Il embarquait le softphone d'Allo
+       * dans Kimatch parce que c'était le SEUL endroit d'où l'on pouvait raccrocher sans quitter
+       * l'application — demande de William du 08/09. Depuis que le clic compose dans l'application
+       * de bureau, c'est là qu'on parle et c'est là qu'on raccroche.
+       *
+       * ET PERSONNE NE S'EN SERVAIT POUR ÇA. Mesuré sur 610 appels terminés en quatorze jours :
+       * 495 raccrochés par Allo, 115 marqués « COMMERCIAL » — et ces 115 sont TOUS en
+       * `PAS_DE_REPONSE`, c'est-à-dire la signature du bouton « fermer la carte », pas d'un
+       * raccrochage depuis le volet. Aucun raccrochage depuis Kimatch en deux semaines.
+       *
+       * IL COÛTAIT, LUI. Un cadre `web.withallo.com` monté en permanence, une session à ouvrir à
+       * part, un clavier qui occupait un tiers de l'écran — et qui restait affiché après coup,
+       * puisqu'il se souvenait d'avoir été ouvert.
+       *
+       * LE FICHIER RESTE DANS LE DÉPÔT : le jour où Allo branche `END_CALL`, le remettre est une
+       * ligne. Voir `components/allo/VoletAllo.tsx` et `lib/pontAllo.ts`. */}
       {/* LA CARTE D'APPEL VIT ICI, et non dans la mise en page.
           Ce fournisseur est deja le porteur du telephone dans l'application : y monter la carte lui
           donne exactement la meme portee que le bouton « Appeler », sans toucher a `AppLayout`.
