@@ -34,10 +34,73 @@
  * mentirait, on donne le seul test fiable : appeler quelqu'un et regarder.
  * ════════════════════════════════════════════════════════════════════════════════════════════════
  */
+import { useQuery } from '@tanstack/react-query'
 import { Download, Phone } from 'lucide-react'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { supabase } from '@/lib/supabase'
+import { useMonProfil, emailAllo } from '@/lib/data/roles'
 
+/**
+ * Ce compte téléphone-t-il ?
+ *
+ * On regarde s'il porte au moins un appel — entrant ou sortant, à n'importe quelle date. C'est la
+ * seule trace qui distingue un commercial d'un profil qui n'a pas de compte Allo, et elle ne
+ * demande aucune saisie : elle se met à jour toute seule au premier appel.
+ *
+ * RÉSULTAT GARDÉ DIX MINUTES : la réponse ne change qu'une fois dans la vie d'un compte, et ce
+ * n'est pas une question à reposer à chaque ouverture du profil.
+ */
+function useCeCompteTelephone() {
+  const { data: profil } = useMonProfil()
+  const adresse = emailAllo(profil)
+
+  return useQuery({
+    queryKey: ['ce-compte-telephone', adresse],
+    enabled: Boolean(adresse),
+    staleTime: 10 * 60 * 1000,
+    queryFn: async (): Promise<boolean> => {
+      const { count, error } = await supabase
+        .from('appels_en_cours')
+        .select('id', { count: 'exact', head: true })
+        .eq('user_email', adresse as string)
+      if (error) throw new Error(error.message)
+      return (count ?? 0) > 0
+    },
+  })
+}
+
+/**
+ * ══ CE BLOC S'ADRESSE À CEUX QUI TÉLÉPHONENT ══
+ *
+ * Naoëlle, 22/09/2026 : « Erwan et Michel n'ont pas d'Allo, car pas besoin. »
+ *
+ * Leur montrer une installation qui ne leur servira jamais, c'est leur promettre un
+ * clic-pour-appeler qui ne partira pas : Allo refuse de composer pour un compte qu'il ne connaît
+ * pas, et le script dirait « une ligne est peut-être déjà en communication » — un message trompeur,
+ * sur un geste qu'ils n'avaient pas à faire.
+ *
+ * ══ ON SE FIE AUX APPELS DÉJÀ PASSÉS, PAS À UNE LISTE ÉCRITE ICI ══
+ *
+ * Les sept membres d'Allo sont connus aujourd'hui, mais les inscrire dans le code les figerait : le
+ * jour où quelqu'un arrive, il faudrait un déploiement pour qu'il voie le bloc, et le jour où
+ * quelqu'un part, personne ne penserait à l'en retirer.
+ *
+ * `useAppelsDejaPasses` demande simplement si ce compte a déjà un appel à son nom dans
+ * `appels_en_cours`. C'est vrai pour les sept, faux pour Erwan et Michel — et ça suit tout seul.
+ *
+ * LE DOUTE PROFITE À L'AFFICHAGE : quelqu'un qui vient d'obtenir son compte Allo n'a encore aucun
+ * appel, et doit pouvoir installer. On ne masque donc que si l'on SAIT qu'il n'y en a aucun ET que
+ * la personne figure parmi celles qui n'ont pas de compte — voir la requête.
+ */
 export function InstallerClicPourAppeler() {
+  const { data: profil } = useMonProfil()
+  const { data: telephone, isLoading } = useCeCompteTelephone()
+
+  /* TANT QU'ON NE SAIT PAS, ON N'AFFICHE RIEN : un bloc qui apparaît puis disparaît au chargement
+     se lit comme un défaut d'affichage. */
+  if (!profil || isLoading) return null
+  if (telephone === false) return null
+
   return (
     /* ══ TOUTE LA LARGEUR, ET TROIS COLONNES PLUTÔT QU'UNE PILE ══
      *
