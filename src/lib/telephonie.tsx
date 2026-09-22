@@ -3,7 +3,7 @@ import type { ReactNode } from 'react'
 import { CarteAppel } from '@/components/allo/CarteAppel'
 import { VoletAllo, ouvrirVoletAlloSiDejaUtilise, appelDansLeVolet } from '@/components/allo/VoletAllo'
 import { FenetreAppel, ouvrirFenetreAppel, signalerEtatFile } from '@/components/allo/FenetreAppel'
-import { lancerAlloBureau } from '@/lib/alloBureau'
+import { lancerAlloBureau, composerSurLePoste } from '@/lib/alloBureau'
 
 /**
  * APPELER DEPUIS KIMATCH — un seul entonnoir, un numéro normalisé, et un numéro TOUJOURS VISIBLE.
@@ -275,6 +275,25 @@ export function TelephonieProvider({ children }: { children: ReactNode }) {
      * et la fenêtre d'appel reste là avec le numéro déjà copié. Il fait gagner l'appel entier quand
      * il aboutit. On le tente donc toujours, et le volet demeure pour raccrocher. */
     lancerAlloBureau(e164)
+
+    /* ══ ET NOTRE PROPRE PROTOCOLE, CELUI QUI MARCHE — 22/09/2026 ══
+     *
+     * Naoëlle : « ils ne veulent pas répondre, faut qu'on le fasse nous-mêmes de n'importe quelle
+     * manière. »
+     *
+     * `kimatch://appeler?numero=…` demande au poste de composer dans Allo : écrire le numéro dans
+     * leur champ, RELIRE pour vérifier, puis actionner leur bouton « Appeler ». Voir
+     * `scripts/appeler-depuis-kimatch.ps1`, et `alloBureau.ts` pour pourquoi ce n'est pas de la
+     * simulation de clic à l'aveugle.
+     *
+     * ON LANCE LES DEUX, dans cet ordre. `allo://` est le chemin officiel — leur code le documente
+     * pour les CRM sous Windows — et le jour où ils le réparent, on en profite sans rien changer
+     * ici. `kimatch://` est celui qui marche aujourd'hui.
+     *
+     * SUR UN POSTE SANS NOTRE INSTALLATION, OU SUR MOBILE, il ne se passe rien : un protocole non
+     * enregistré ne navigue pas et ne lève pas. Le comportement y reste exactement celui d'avant —
+     * le numéro copié, le volet ouvert. On ne dégrade donc personne en tentant. */
+    composerSurLePoste(e164)
 
     /* ══ LE VOLET S'OUVRE AVANT TOUTE REQUÊTE, ET SANS CONDITION ══
      *
