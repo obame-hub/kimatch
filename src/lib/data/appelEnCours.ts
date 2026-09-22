@@ -137,11 +137,19 @@ export function useAppelEnCours() {
      * secondes après le raccrochage et qu'il faut laisser le temps de répondre.
      */
     queryFn: async (): Promise<AppelEnCours | null> => {
+      /* ══ UN APPEL EN COURS RESTE AFFICHÉ, MÊME QUALIFIÉ — 22/09/2026 ══
+       *
+       * Depuis que la qualification est offerte dès le décroché (voir `CarteAppel`), ce filtre
+       * `.is('qualification', null)` faisait DISPARAÎTRE la carte au moment du clic : on répondait
+       * « quelqu'un » et le chronomètre s'évanouissait alors qu'on était encore en ligne.
+       *
+       * Qualifier n'est pas raccrocher. Tant que `termine_le` est nul, l'appel se passe, et la
+       * carte doit rester — c'est elle qui dit depuis combien de temps on parle. Elle se fermera
+       * quand Allo annoncera la fin. */
       const enCours = await supabase
         .from('appels_en_cours')
         .select('*')
         .eq('user_email', adresseAllo as string)
-        .is('qualification', null)
         .is('termine_le', null)
         .order('demarre_le', { ascending: false })
         .limit(1)
@@ -219,7 +227,21 @@ export function useQualifierAppel() {
         .eq('id', id)
       if (error) throw new Error(error.message)
     },
-    onSuccess: () => {
+    /* ══ LE CHOIX SE VOIT AVANT MÊME QUE LA BASE RÉPONDE ══
+     *
+     * Naoëlle, 22/09/2026, sur la prospection en chaîne : « il faut que ça apparaisse tout de suite
+     * et que ça parte tout de suite ». Un commercial qui enchaîne ne doit pas attendre un
+     * aller-retour réseau pour savoir que son clic est pris — sinon il reclique, ou il doute.
+     *
+     * On peint donc le cache tout de suite. `onSettled` relit ensuite : si l'écriture a échoué, la
+     * relecture remet la vérité, et le bouton reprend son état. */
+    onMutate: ({ id, qualification }) => {
+      queryClient.setQueriesData<AppelEnCours | null>(
+        { queryKey: ['appel-en-cours'] },
+        (ancien) => (ancien && ancien.id === id ? { ...ancien, qualification } : ancien),
+      )
+    },
+    onSettled: () => {
       void queryClient.invalidateQueries({ queryKey: ['appel-en-cours'] })
       // L'appel qualifié rejoint l'historique de la fiche : ces listes-là doivent se relire.
       void queryClient.invalidateQueries({ queryKey: ['interactions'] })

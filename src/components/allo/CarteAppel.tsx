@@ -209,25 +209,64 @@ export function CarteAppel() {
         {/* ══ ON NE DEMANDE PAS « QUI AS-TU EU ? » PENDANT QUE ÇA SONNE ══
             Capture de Naoëlle, 15/09/2026 : la carte posait la question alors que l'appel sonnait
             encore. Personne ne peut y répondre à ce moment-là, et une question posée trop tôt
-            s'apprend à ignorer — puis on l'ignore aussi quand elle devient pertinente. */}
-        {etat === 'termine' && (
+            s'apprend à ignorer — puis on l'ignore aussi quand elle devient pertinente.
+
+            ══ MAIS ON NE L'ATTEND PLUS NON PLUS — 22/09/2026 ══
+
+            Naoëlle : « je l'ai pas vu tout de suite après avoir raccroché, ça vient quelque temps
+            après, et c'est très problématique parce que si on doit appeler à la chaîne en
+            prospection, il faut que ça apparaisse tout de suite. C'est le problème qu'a rencontré
+            Thomas hier. »
+
+            LA CONDITION ÉTAIT `etat === 'termine'`, c'est-à-dire `termine_le` renseigné — donc
+            l'arrivée de `call.completed` chez Allo. Kimatch ne PEUT PAS savoir que le commercial a
+            raccroché avant qu'Allo le lui dise : mesuré sur 390 appels de la semaine, la médiane
+            est de 3 min 33 de conversation, pendant lesquelles la carte n'offrait rien du tout.
+
+            Le commercial qui raccroche et enchaîne n'avait donc aucune fenêtre pour répondre, et
+            quand les boutons paraissaient enfin il était déjà sur l'appel suivant — il ne savait
+            plus de qui on parlait. C'est exactement ce que raconte Thomas, et c'est la cause des
+            262 appels non qualifiés en trente jours.
+
+            ON OFFRE DONC LA QUALIFICATION DÈS LE DÉCROCHÉ. Elle est juste, à ce moment : dès qu'on
+            entend une voix on sait si c'est quelqu'un, un répondeur ou un serveur vocal. Et
+            qualifier n'interrompt pas l'appel — c'est une note, pas un raccrochage.
+
+            PENDANT LA SONNERIE, TOUJOURS RIEN : on ne sait pas encore, et une question sans réponse
+            possible est une question qu'on apprend à ignorer. */}
+        {(etat === 'termine' || etat === 'en_ligne') && (
           <>
+        {/* LE LIBELLÉ SUIT LE MOMENT. « Qui as-tu eu ? » au passé, posé pendant qu'on est encore en
+            ligne, se lit comme une erreur d'affichage — et fait douter que le clic soit pris en
+            compte. Au présent, la question est celle qu'on se pose vraiment en entendant décrocher. */}
         <p className="mt-3 text-km-xs font-bold uppercase tracking-[0.06em] text-km-faint">
-          Qui as-tu eu ?
+          {etat === 'en_ligne' ? 'Qui as-tu au bout du fil ?' : 'Qui as-tu eu ?'}
         </p>
         <div className="mt-1.5 grid grid-cols-2 gap-1.5">
-          {CHOIX.map(({ valeur, libelle, Icone }) => (
-            <button
-              key={valeur}
-              type="button"
-              disabled={qualifier.isPending}
-              onClick={() => qualifier.mutate({ id: appel.id, qualification: valeur })}
-              className="flex items-center gap-1.5 rounded-km border border-km-line bg-white px-2 py-2 text-left text-km-label font-semibold text-km-text transition-colors hover:border-km-green hover:bg-km-green-soft disabled:opacity-50"
-            >
-              <Icone className="h-3.5 w-3.5 shrink-0 text-km-faint" />
-              <span className="truncate">{libelle}</span>
-            </button>
-          ))}
+          {CHOIX.map(({ valeur, libelle, Icone }) => {
+            /* LE CHOIX RETENU SE VOIT, et c'est nouveau depuis que l'on peut répondre en cours
+               d'appel : la carte ne disparaît plus au clic, donc rien ne disait que la réponse
+               était prise. Sans ce retour, on reclique — ou on doute, ce qui est pire. */
+            const retenu = appel.qualification === valeur
+            return (
+              <button
+                key={valeur}
+                type="button"
+                disabled={qualifier.isPending}
+                aria-pressed={retenu}
+                onClick={() => qualifier.mutate({ id: appel.id, qualification: valeur })}
+                className={cn(
+                  'flex items-center gap-1.5 rounded-km border px-2 py-2 text-left text-km-label font-semibold transition-colors disabled:opacity-50',
+                  retenu
+                    ? 'border-km-green bg-km-green-soft text-km-green'
+                    : 'border-km-line bg-white text-km-text hover:border-km-green hover:bg-km-green-soft',
+                )}
+              >
+                <Icone className={cn('h-3.5 w-3.5 shrink-0', retenu ? 'text-km-green' : 'text-km-faint')} />
+                <span className="truncate">{libelle}</span>
+              </button>
+            )
+          })}
         </div>
 
         {/* CE QUE LE CLIC DÉCLENCHE, dit une fois. « Quelqu'un » est la seule réponse qui fasse
