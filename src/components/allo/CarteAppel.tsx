@@ -97,19 +97,38 @@ export function CarteAppel() {
   }
   const fichePossible = Boolean(appel.contact_id || appel.piste_id || appel.compte_id)
 
-  return (
-    /* ══ EN BAS À DROITE, MAIS JAMAIS SUR ALLO ══
+  /* ══ QUAND L'APPEL EST FINI, LA QUESTION S'IMPOSE AU CENTRE ══
+   *
+   * Naoëlle, 22/09/2026, quatre fois de suite : « le petit bloc où ça demande si j'ai eu quelqu'un
+   * n'apparaît toujours pas », puis « au pire crée-le toi avec l'overlay, on fait un truc custom ».
+   *
+   * MESURÉ SUR SES CINQ DERNIERS APPELS : aucune vraie réponse. `qualifie_le` est nul partout — la
+   * question n'a jamais été vue, ou jamais assez tôt pour qu'on y réponde. Une carte de 320 px dans
+   * un coin, pendant qu'on regarde la fenêtre d'Allo posée par-dessus, se rate.
+   *
+   * L'OVERLAY NE SE RATE PAS. Il s'affiche au centre, sur un voile, et il ne se ferme qu'au clic.
+   * C'est le seul moment où l'interruption est justifiée : l'appel est FINI, il n'y a plus rien à
+   * faire d'autre, et la réponse ne coûte qu'un clic.
+   *
+   * PENDANT L'APPEL, ON RESTE DANS LE COIN. Recouvrir l'écran pendant qu'on parle à un client
+   * serait insupportable — on prend des notes, on ouvre la fiche, on cherche un contrat. */
+  const enOverlay = etat === 'termine' && appel.id !== ID_APPEL_PRESUME
+
+  const carte = (
+    /* ══ EN BAS À DROITE PENDANT L'APPEL ══
      *
      * `right` suivait `--volet-allo`, la largeur que le volet annonçait quand il était ouvert, pour
      * ne pas recouvrir son bouton raccrocher. LE VOLET EST RETIRÉ DEPUIS LE 22/09/2026 (voir
      * `telephonie.tsx`) : plus personne ne pose cette variable, et le repli `0px` s'applique. On la
-     * garde parce qu'elle ne coûte rien et que le volet peut revenir — le fichier est toujours là.
-     *
-     * Elle est redescendue à `bottom-4` : la pastille du téléphone est passée à gauche le 08/09/2026,
-     * elle ne dispute plus ce coin. Sur mobile elle reste au-dessus de la barre du bas. */
+     * garde parce qu'elle ne coûte rien et que le volet peut revenir — le fichier est toujours là. */
     <div
-      className="fixed bottom-[4.5rem] z-[70] w-[320px] overflow-hidden rounded-km border border-km-line bg-white shadow-km-pop md:bottom-4"
-      style={{ right: 'calc(1rem + var(--volet-allo, 0px))' }}
+      className={cn(
+        'overflow-hidden rounded-km border border-km-line bg-white shadow-km-pop',
+        enOverlay
+          ? 'w-[min(380px,calc(100vw-2rem))]'
+          : 'fixed bottom-[4.5rem] z-[70] w-[320px] md:bottom-4',
+      )}
+      style={enOverlay ? undefined : { right: 'calc(1rem + var(--volet-allo, 0px))' }}
     >
       {/* ── L'ÉTAT, en une ligne de couleur ── */}
       <div
@@ -295,6 +314,26 @@ export function CarteAppel() {
           </p>
         )}
       </div>
+    </div>
+  )
+
+  if (!enOverlay) return carte
+
+  return (
+    /* LE VOILE NE SE FERME PAS AU CLIC À CÔTÉ, et c'est délibéré : la question tient en un clic sur
+       l'un des quatre boutons, et la croix de l'en-tête reste là pour qui ne veut pas répondre. Un
+       voile qui se ferme au moindre clic à côté ferait disparaître la question par accident —
+       exactement ce qu'on essaie d'empêcher depuis ce matin.
+
+       `z-[80]` passe au-dessus de tout, y compris des panneaux latéraux. En dessous, la fiche reste
+       lisible : on voit qui on vient d'appeler pendant qu'on répond. */
+    <div
+      className="fixed inset-0 z-[80] flex items-center justify-center bg-km-text/25 p-4"
+      role="dialog"
+      aria-modal="true"
+      aria-label="Qui as-tu eu au téléphone ?"
+    >
+      {carte}
     </div>
   )
 }
