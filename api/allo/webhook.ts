@@ -97,6 +97,9 @@ interface DonneesAppel {
   recording_url?: string | null
   summary?: string | null
   concatenated_transcript?: string | null
+  /* Les étiquettes de contenu produites par leur modèle. `unknown` et non `string[]` : c'est une
+     charge utile distante, et le message peut très bien nous envoyer autre chose qu'un tableau. */
+  tags?: unknown
   ivr_result?: unknown
   person?: Personne | null
 }
@@ -363,6 +366,19 @@ async function terminer(
   // Le serveur vocal qu'Allo compte comme un décroché : `ivr_result` non vide le trahit.
   const ivr = Array.isArray(d.ivr_result) && d.ivr_result.length > 0 ? d.ivr_result : null
 
+  /* ══ LES ÉTIQUETTES DE CONTENU — CE QU'ALLÔ A COMPRIS DE L'ÉCHANGE ══
+   *
+   * `interested`, `not_interested`, `to_call_back`, `follow_up_later`, `meeting_booked` : leur
+   * modèle les tire de la transcription, et c'est la SEULE donnée de tout le message qui dise si
+   * l'appel s'est bien ou mal passé. On les jetait.
+   *
+   * ON NE FILTRE PAS SUR UNE LISTE CONNUE. Allô peut en ajouter demain ; refuser une étiquette
+   * inconnue reviendrait à perdre en silence exactement l'information qu'on vient de décider de
+   * garder. On ne retient que la forme — des chaînes non vides. */
+  const etiquettes = Array.isArray(d.tags)
+    ? d.tags.filter((t: unknown): t is string => typeof t === 'string' && t.trim().length > 0)
+    : null
+
   /* ON CHERCHE L'APPEL DANS LA FENÊTRE, TERMINÉ OU NON, et non « celui qui n'est pas terminé ».
      Ma première version filtrait sur `termine_le is null` : un `call.completed` rejoué — ou reçu
      après qu'un premier ait déjà clos la ligne — ne trouvait rien et créait un DOUBLON. Mesuré sur
@@ -379,6 +395,7 @@ async function terminer(
     transcription: d.concatenated_transcript ?? null,
     resume_allo: d.summary ?? null,
     ivr_touches: ivr,
+    etiquettes_allo: etiquettes && etiquettes.length > 0 ? etiquettes : null,
   }
 
   if (connu) {
