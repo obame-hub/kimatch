@@ -14,7 +14,7 @@
   ],
   "rewrites": [
     {
-      "source": "/((?!api/).*)",
+      "source": "/((?!api/|clic-pour-appeler/).*)",
       "destination": "/index.html"
     }
   ],
