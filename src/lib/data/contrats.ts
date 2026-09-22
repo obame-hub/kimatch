@@ -206,7 +206,7 @@ export function useContratsDeRecommandation(recoId: string | undefined) {
     queryFn: async () => {
       const { data, error } = await supabase
         .from('contrats')
-        .select('id, reference_fournisseur, date_debut, date_fin, date_signature, date_envoi_signature, statut_signature, docusign_envelope_id, date_creation, fournisseur:comptes!contrats_fournisseur_compte_id_fkey(nom), statut:statuts_contrats(code)')
+        .select('id, reference_fournisseur, date_debut, date_fin, date_signature, date_envoi_signature, statut_signature, docusign_envelope_id, date_creation, duree_mois, type_prix, fournisseur:comptes!contrats_fournisseur_compte_id_fkey(nom), statut:statuts_contrats(code)')
         .eq('recommandation_id', recoId as string)
         .eq('actif', true)
         .order('date_debut', { ascending: false })
@@ -228,6 +228,15 @@ export function useContratsDeRecommandation(recoId: string | undefined) {
         docusign_envelope_id: (c.docusign_envelope_id ?? null) as string | null,
         date_creation: (c.date_creation ?? null) as string | null,
         statut_signature: (c.statut_signature ?? null) as string | null,
+        /* CE QUE LE HERO DIT DU CONTRAT, au-delà de sa signature (William, 22/09/2026 : « utilise
+           la zone blanche pour indiquer la durée, le fournisseur et le type de prix »).
+
+           `duree_mois` EST PRESQUE TOUJOURS VIDE — 23 des 716 contrats issus d'une recommandation
+           le portent, soit 3 %. Les deux dates, elles, sont remplies sur les 716. La durée se
+           calcule donc, et ne se lit qu'en dernier recours : afficher la colonne stockée aurait
+           laissé la case vide 97 fois sur 100. */
+        duree_mois: (c.duree_mois ?? null) as number | null,
+        type_prix: (c.type_prix ?? null) as string | null,
         fournisseur_nom: (c.fournisseur?.nom ?? '') as string,
         statut: (c.statut?.code ?? '') as string,
       }))

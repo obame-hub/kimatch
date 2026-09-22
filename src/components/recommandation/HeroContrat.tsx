@@ -56,6 +56,34 @@ import { cn } from '@/lib/utils'
  * ════════════════════════════════════════════════════════════════════════════════════════════════
  */
 
+/**
+ * ══ LA DURÉE SE CALCULE, ELLE NE SE LIT PAS ══
+ *
+ * `contrats.duree_mois` existe, et il est vide : 23 des 716 contrats issus d'une recommandation le
+ * portent, soit 3 %. Les deux dates, elles, sont remplies sur les 716 — sans exception. Afficher la
+ * colonne stockée aurait donc laissé la case vide 97 fois sur 100, pour une information que les
+ * dates donnent à coup sûr.
+ *
+ * LE CALCUL PASSE PAR LES JOURS, pas par la différence de mois : un contrat du 01/01 au 31/12 fait
+ * douze mois, mais `12 × (annéeFin − annéeDébut) + (moisFin − moisDébut)` en compte onze, parce que
+ * le dernier jour n'est pas le premier du mois suivant. 364 jours divisés par la longueur moyenne
+ * d'un mois donnent 11,96, qui s'arrondit juste.
+ *
+ * La colonne stockée reste le dernier recours, pour le cas — jamais observé — d'un contrat sans
+ * dates.
+ */
+function dureeEnMois(debut: string | null, fin: string | null, stockee: number | null): number | null {
+  if (debut && fin) {
+    const d = new Date(debut).getTime()
+    const f = new Date(fin).getTime()
+    if (!Number.isNaN(d) && !Number.isNaN(f) && f > d) {
+      const mois = Math.round((f - d) / 86_400_000 / 30.436_875)
+      if (mois > 0) return mois
+    }
+  }
+  return stockee ?? null
+}
+
 /** Les quatre temps d'une signature, dans l'ordre. L'index sert à remplir le parcours. */
 const PARCOURS = ['BROUILLON', 'ENVOYE', 'CONSULTE', 'SIGNE'] as const
 
@@ -91,6 +119,10 @@ export interface ContratDuHero {
   id: string
   fournisseur_nom: string
   reference_fournisseur: string | null
+  date_debut: string | null
+  date_fin: string | null
+  duree_mois: number | null
+  type_prix: string | null
   statut_signature: string | null
   date_envoi_signature: string | null
   date_signature: string | null
@@ -129,6 +161,8 @@ export function HeroContrat({ contrats }: { contrats: ContratDuHero[] }) {
 
   const statut = statutVivant ?? statutBase
   const e = etatSignature(statut, contrat.date_envoi_signature, signeLeVivant ?? contrat.date_signature)
+  const mois = dureeEnMois(contrat.date_debut, contrat.date_fin, contrat.duree_mois)
+  const typePrix = contrat.type_prix?.trim() || null
   const t = TEINTES[famille(statut)]
 
   /* Jusqu'où le parcours est rempli. Un statut inconnu — ou absent, ce qui est le cas de 1 591
@@ -159,6 +193,49 @@ export function HeroContrat({ contrats }: { contrats: ContratDuHero[] }) {
         </span>
         <ArrowUpRight className="h-3.5 w-3.5 shrink-0 text-km-faint transition-colors group-hover/contrat:text-km-green" />
       </div>
+
+      {/* ══════════ CE QU'ON A SIGNÉ, ET POUR COMBIEN DE TEMPS ══════════
+
+          William, 22/09/2026 : « dans le hero du contrat, il y a encore une large zone blanche.
+          Utilise-la pour indiquer la durée, le fournisseur et le type de prix. »
+
+          LE FOURNISSEUR N'EST PAS RÉPÉTÉ ICI : il est déjà le titre de la cellule, en gras, sous
+          l'intitulé « Contrat » — c'est le nom du contrat, et le redire dix pixels plus bas ferait
+          lire deux fois la même chose dans un cadre qui en fait 132 de haut. Restent les deux
+          faits qui manquaient vraiment.
+
+          DEUX COLONNES ET NON TROIS, pour la même raison, et un filet au-dessus : la bande se lit
+          comme un pied de cartouche, pas comme une suite du titre.
+
+          AUCUN PRIX N'Y FIGURE, et ce n'est pas un oubli : « ne jamais afficher de prix sur la
+          recommandation » (William, 18/09/2026). Le TYPE de prix — Fixe, Marché, Indexé, ARENH —
+          dit la nature du contrat sans en donner le montant. `contrats.prix_molecule_eur_mwh`
+          existe à côté ; il reste dans la fiche contrat.
+
+          CHAQUE CASE DIT « — » QUAND ELLE NE SAIT PAS, plutôt que de disparaître : 245 des 716
+          contrats issus d'une recommandation n'ont pas de type de prix renseigné, et une bande qui
+          change de forme d'une fiche à l'autre se relit à chaque ouverture. */}
+      <dl className="flex items-stretch gap-3 border-t border-km-line-soft pt-2">
+        <div className="min-w-0 flex-1">
+          <dt className="text-km-tiny font-extrabold uppercase tracking-[0.09em] text-km-faint">Durée</dt>
+          <dd
+            className="mt-px truncate font-mono text-km-body font-bold tabular-nums text-km-text"
+            title={
+              contrat.date_debut && contrat.date_fin
+                ? `Du ${new Date(contrat.date_debut).toLocaleDateString('fr-FR')} au ${new Date(contrat.date_fin).toLocaleDateString('fr-FR')}`
+                : undefined
+            }
+          >
+            {mois != null ? `${mois} mois` : <span className="font-sans font-medium text-km-faint">—</span>}
+          </dd>
+        </div>
+        <div className="min-w-0 flex-1 border-l border-km-line-soft pl-3">
+          <dt className="text-km-tiny font-extrabold uppercase tracking-[0.09em] text-km-faint">Type de prix</dt>
+          <dd className="mt-px truncate text-km-body font-bold text-km-text" title={typePrix ?? undefined}>
+            {typePrix ?? <span className="font-medium text-km-faint">—</span>}
+          </dd>
+        </div>
+      </dl>
 
       {/* ══ LE PARCOURS DE SIGNATURE ══
           Quatre segments plutôt qu'une étiquette : un contrat ne se lit pas « il est à ENVOYÉ », il
