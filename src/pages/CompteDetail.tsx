@@ -38,6 +38,7 @@ import {
   useUpdateCompte,
   useUpdateCompteField,
   useDeleteCompte,
+  findCompteBySiret,
 } from '@/lib/data/comptes'
 import { useContactsParCompte } from '@/lib/data/contacts'
 import { useCompteursParCompte } from '@/lib/data/compteurs'
@@ -108,11 +109,9 @@ const AFFICHER_CONTRATS_ET_MANDATS: boolean = false
 
 type TabKey = 'synthese' | 'detail' | 'contacts' | 'contrats' | 'compteurs' | 'opportunites' | 'recommandations' | 'mandats' | 'fichiers' | 'historique' | 'activite'
 
-function copyToClipboard(text: string, onDone: (msg: string) => void) {
-  if (!text) return
-  navigator.clipboard?.writeText(text).catch(() => {})
-  onDone(`⧉ Copié — ${text}`)
-}
+/* `copyToClipboard` est parti avec `InfoFieldKw`, son dernier appelant (22/09/2026). La copie
+   n'est pas perdue pour autant : `InlineField`, qui prend la relève sur le SIRET et le SIREN,
+   la porte déjà. */
 
 export default function CompteDetail() {
   const { id } = useParams()
@@ -1447,6 +1446,38 @@ function IdentiteCard({ compte, onToast }: { compte: Compte; onToast: (msg: stri
   const [editingAddress, setEditingAddress] = useState(false)
   const [addrDraft, setAddrDraft] = useState({ rue: compte.rue ?? '', code_postal: compte.code_postal ?? '', ville: compte.ville ?? '' })
 
+  /** Ne garde que les chiffres — « 123 456 789 00012 » devient « 12345678900012 ». Vide → `null`. */
+  function chiffresSeuls(v: string): string | null {
+    const n = v.replace(/\D/g, '')
+    return n || null
+  }
+
+  /**
+   * ══ LE SIRET SE VÉRIFIE AVANT D'ÊTRE ÉCRIT ══
+   *
+   * La création bloque déjà les doublons de SIRET (`creerCompte`, 26/08/2026) : « un compte avec
+   * ce SIRET existe déjà, création bloquée ». Laisser la MODIFICATION y échapper aurait ouvert par
+   * la fenêtre ce que la porte refuse — il aurait suffi de créer un compte sans SIRET puis de
+   * l'ajouter ensuite.
+   *
+   * ET LE SIREN SUIT LE SIRET QUAND IL MANQUE. Les neuf premiers chiffres d'un SIRET SONT le
+   * SIREN : ce n'est pas une déduction, c'est la définition. Le déduire évite qu'un compte
+   * renseigné au SIRET reste sans note Ellipro faute des neuf chiffres qu'il porte déjà.
+   */
+  async function commitSiret(brut: string) {
+    const siret = chiffresSeuls(brut)
+    if (siret) {
+      const existant = await findCompteBySiret(siret)
+      if (existant && existant.id !== compte.id) {
+        onToast(`Ce SIRET est déjà celui de « ${existant.nom} » — deux comptes ne peuvent pas le partager.`)
+        return
+      }
+    }
+    const patch: Partial<Compte> = { siret }
+    if (siret && siret.length >= 9 && !compte.siren) patch.siren = siret.slice(0, 9)
+    await commit(patch)
+  }
+
   function commit(patch: Partial<Compte>) {
     return updateField.mutateAsync({ id: compte.id, patch }).then(() => onToast('✓ enregistré')).catch((err) => onToast(`Erreur : ${err.message}`))
   }
@@ -1530,8 +1561,42 @@ function IdentiteCard({ compte, onToast }: { compte: Compte; onToast: (msg: stri
             </span>
           </div>
         )}
-        {compte.siret && <InfoFieldKw label="SIRET" value={compte.siret} onCopy={onToast} mono />}
-        {compte.siren && <InfoFieldKw label="SIREN" value={compte.siren} onCopy={onToast} mono />}
+        {/* ══════════ SIRET ET SIREN SE MODIFIENT — ET SE CRÉENT ══════════
+
+            William, 22/09/2026 : « sur une fiche compte, je n'ai pas la possibilité de modifier
+            certains champs comme SIRET et SIREN ».
+
+            DEUX DÉFAUTS EN UN, et le second était le plus gênant : ils étaient en lecture seule
+            (`InfoFieldKw` ne fait que copier), ET ils n'apparaissaient QUE s'ils étaient déjà
+            remplis. Un compte sans SIREN n'affichait donc aucune ligne SIREN — il n'y avait même
+            pas où cliquer pour en ajouter un. Les deux lignes existent maintenant toujours, comme
+            le code NAF juste en dessous.
+
+            LE SIREN N'EST PAS UN DÉTAIL D'ÉTAT CIVIL : c'est lui qui interroge Ellipro, et le
+            bandeau de notation reste muet sans lui. Ne pas pouvoir le saisir, c'était condamner la
+            note du compte.
+
+            ON NE GARDE QUE LES CHIFFRES, à la saisie comme à la recherche de doublon : les gens
+            collent « 123 456 789 00012 » depuis l'annuaire, et `findCompteBySiret` compare des
+            chaînes nettoyées. Sans ce nettoyage, le doublon passerait au travers. */}
+        <InlineField
+          variant="text"
+          label="SIRET"
+          mono
+          value={compte.siret || ''}
+          emptyLabel="ajouter"
+          onCommit={(v) => commitSiret(v)}
+          onSaved={() => onToast('✓ enregistré')}
+        />
+        <InlineField
+          variant="text"
+          label="SIREN"
+          mono
+          value={compte.siren || ''}
+          emptyLabel="ajouter"
+          onCommit={(v) => commit({ siren: chiffresSeuls(v) })}
+          onSaved={() => onToast('✓ enregistré')}
+        />
         <InlineField variant="text" label="Code NAF" mono value={compte.code_naf || ''} emptyLabel="ajouter" onCommit={(v) => commit({ code_naf: v || null })} onSaved={() => onToast('✓ enregistré')} />
         <InlineField variant="text" label="Libellé APE" value={compte.libelle_ape || ''} emptyLabel="ajouter" onCommit={(v) => commit({ libelle_ape: v || null })} onSaved={() => onToast('✓ enregistré')} />
         {compte.score_ellipro && (
@@ -1578,18 +1643,9 @@ function IdentiteCard({ compte, onToast }: { compte: Compte; onToast: (msg: stri
   )
 }
 
-function InfoFieldKw({ label, value, onCopy, mono }: { label: string; value: string; onCopy: (msg: string) => void; mono?: boolean }) {
-  return (
-    <div>
-      <div className="mb-0.5 text-km-label font-semibold uppercase tracking-wide text-km-faint">{label}</div>
-      <div className="flex items-center gap-1.5">
-        <button type="button" onClick={() => copyToClipboard(value, onCopy)} title="Cliquer pour copier" className={cn('truncate text-km-name font-semibold text-km-text hover:text-km-blue', mono && 'font-mono')}>
-          {value}
-        </button>
-      </div>
-    </div>
-  )
-}
+/* `InfoFieldKw` est parti avec ses deux derniers usages (22/09/2026). Il ne servait plus qu'au
+   SIRET et au SIREN, en lecture seule ; ils sont désormais modifiables comme le reste de la carte
+   d'identité. Le reste de la fiche passe par `InlineField`, qui copie aussi. */
 
 function RecordMetaCard({ compte, canManage, onToast }: { compte: Compte; canManage: boolean; onToast: (msg: string) => void }) {
   const updateCompte = useUpdateCompte()
