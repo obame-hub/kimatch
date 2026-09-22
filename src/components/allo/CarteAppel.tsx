@@ -81,9 +81,20 @@ export function CarteAppel() {
     return () => clearInterval(t)
   }, [appel])
 
+  /* ══ MASQUER N'EST PAS ÉCARTER ══
+   *
+   * L'identifiant de l'appel qu'on a masqué PENDANT qu'il sonnait. Rien n'est écrit en base : la
+   * carte réapparaît d'elle-même quand l'appel se termine, avec sa question. Voir la croix, plus
+   * bas, pour ce que ça corrige. */
+  const [masque, setMasque] = useState<string | null>(null)
+
   if (!appel) return null
 
   const etat = etatDeLAppel(appel)
+
+  /* LE MASQUE NE TIENT QUE TANT QUE L'APPEL DURE. Dès qu'il se termine, la carte revient avec sa
+     question — c'est tout l'intérêt de distinguer « masquer » de « écarter ». */
+  if (masque === appel.id && etat !== 'termine') return null
   const serveurVocal = aRencontreUnServeurVocal(appel)
   /* LA DURÉE D'ALLO FAIT FOI QUAND ELLE EXISTE — elle arrive à la fin de l'appel. Avant, notre
      chronomètre, qui ne part qu'au décroché. Pendant la sonnerie : rien, et l'état le dit. */
@@ -97,38 +108,26 @@ export function CarteAppel() {
   }
   const fichePossible = Boolean(appel.contact_id || appel.piste_id || appel.compte_id)
 
-  /* ══ QUAND L'APPEL EST FINI, LA QUESTION S'IMPOSE AU CENTRE ══
+  /* ══ PAS D'OVERLAY CENTRÉ, ET C'EST UN RETOUR EN ARRIÈRE ASSUMÉ — 22/09/2026 ══
    *
-   * Naoëlle, 22/09/2026, quatre fois de suite : « le petit bloc où ça demande si j'ai eu quelqu'un
-   * n'apparaît toujours pas », puis « au pire crée-le toi avec l'overlay, on fait un truc custom ».
+   * J'avais fait passer la carte au centre sur un voile à la fin de l'appel, pour qu'elle ne se
+   * rate pas. Naoëlle a tranché en montrant l'écran qu'elle veut : LA CARTE DANS LE COIN, celle-ci,
+   * du début à la fin. « C'est ce bloc que je veux qu'il apparaisse dès qu'on lance l'appel et
+   * qu'il reste jusqu'à ce que le commercial l'enlève de lui-même. »
    *
-   * MESURÉ SUR SES CINQ DERNIERS APPELS : aucune vraie réponse. `qualifie_le` est nul partout — la
-   * question n'a jamais été vue, ou jamais assez tôt pour qu'on y réponde. Une carte de 320 px dans
-   * un coin, pendant qu'on regarde la fenêtre d'Allo posée par-dessus, se rate.
-   *
-   * L'OVERLAY NE SE RATE PAS. Il s'affiche au centre, sur un voile, et il ne se ferme qu'au clic.
-   * C'est le seul moment où l'interruption est justifiée : l'appel est FINI, il n'y a plus rien à
-   * faire d'autre, et la réponse ne coûte qu'un clic.
-   *
-   * PENDANT L'APPEL, ON RESTE DANS LE COIN. Recouvrir l'écran pendant qu'on parle à un client
-   * serait insupportable — on prend des notes, on ouvre la fiche, on cherche un contrat. */
-  const enOverlay = etat === 'termine' && appel.id !== ID_APPEL_PRESUME
-
-  const carte = (
-    /* ══ EN BAS À DROITE PENDANT L'APPEL ══
+   * Elle a raison sur le fond : un voile qui recouvre l'écran à chaque fin d'appel interromprait
+   * une prospection en chaîne quarante fois par jour. Et la carte se voit assez si elle est là TOUT
+   * LE TEMPS — ce qui est le cas depuis que les boutons ne sont plus réservés au décroché. */
+  return (
+    /* ══ EN BAS À DROITE, DU DÉBUT À LA FIN ══
      *
      * `right` suivait `--volet-allo`, la largeur que le volet annonçait quand il était ouvert, pour
      * ne pas recouvrir son bouton raccrocher. LE VOLET EST RETIRÉ DEPUIS LE 22/09/2026 (voir
      * `telephonie.tsx`) : plus personne ne pose cette variable, et le repli `0px` s'applique. On la
      * garde parce qu'elle ne coûte rien et que le volet peut revenir — le fichier est toujours là. */
     <div
-      className={cn(
-        'overflow-hidden rounded-km border border-km-line bg-white shadow-km-pop',
-        enOverlay
-          ? 'w-[min(380px,calc(100vw-2rem))]'
-          : 'fixed bottom-[4.5rem] z-[70] w-[320px] md:bottom-4',
-      )}
-      style={enOverlay ? undefined : { right: 'calc(1rem + var(--volet-allo, 0px))' }}
+      className="fixed bottom-[4.5rem] z-[70] w-[320px] overflow-hidden rounded-km border border-km-line bg-white shadow-km-pop md:bottom-4"
+      style={{ right: 'calc(1rem + var(--volet-allo, 0px))' }}
     >
       {/* ── L'ÉTAT, en une ligne de couleur ── */}
       <div
@@ -155,10 +154,28 @@ export function CarteAppel() {
             chez eux qu'une fois comme émetteur, et six fois dans leurs traductions. Un bouton qui
             ne raccroche pas est pire que pas de bouton. On raccroche dans le composeur d'Allo, qui
             est juste à côté. */}
+        {/* ══ PENDANT L'APPEL, LA CROIX MASQUE SEULEMENT — CORRIGÉ LE 22/09/2026 ══
+         *
+         * Naoëlle : « j'appelle mais y a rien qui s'affiche de nouveau. » Relevé en base sur son
+         * appel de 12:35 : `ecarte_le` à 12:35:53, `termine_le` à 12:36:03. Elle avait fermé la
+         * carte DIX SECONDES AVANT la fin de l'appel — sur l'état « ça sonne », quand la carte
+         * n'avait encore aucune question à poser.
+         *
+         * L'écart était alors définitif : la requête exclut les cartes écartées, donc la question
+         * n'est jamais revenue une fois l'appel terminé. Fermer une carte muette faisait perdre la
+         * question utile qui devait suivre.
+         *
+         * ON DISTINGUE DONC LES DEUX MOMENTS. Tant que l'appel n'est pas fini, la croix masque
+         * LOCALEMENT, sans rien écrire : la carte revient d'elle-même à la fin, avec ses boutons.
+         * Une fois l'appel terminé, la croix écarte pour de bon — c'est le refus de répondre, et il
+         * doit être respecté. */}
         <button
           type="button"
-          onClick={() => ecarter.mutate(appel.id)}
-          title="Fermer sans qualifier"
+          onClick={() => {
+            if (etat === 'termine') ecarter.mutate(appel.id)
+            else setMasque(appel.id)
+          }}
+          title={etat === 'termine' ? 'Fermer sans répondre' : 'Masquer — la question reviendra à la fin de l’appel'}
           className="shrink-0 rounded p-0.5 opacity-60 transition-opacity hover:opacity-100"
         >
           <X className="h-3.5 w-3.5" />
@@ -264,13 +281,30 @@ export function CarteAppel() {
           </p>
         )}
 
-        {appel.id !== ID_APPEL_PRESUME && (etat === 'termine' || etat === 'en_ligne') && (
+        {/* ══ LES BOUTONS SONT LÀ DÈS LE DÉPART — 22/09/2026 ══
+         *
+         * Naoëlle, capture à l'appui : « c'est ce bloc que je veux qu'il apparaisse dès qu'on lance
+         * l'appel et qu'il reste jusqu'à la fin, jusqu'à ce que le commercial l'enlève de lui-même ».
+         *
+         * ON LES RÉSERVAIT AU DÉCROCHÉ, pour ne pas poser une question sans réponse possible
+         * pendant la sonnerie (capture du 15/09). Le raisonnement tenait tant que la carte ne
+         * portait rien d'autre ; il ne tient plus face aux chiffres du jour : sur 180 appels
+         * terminés, 100 N'ONT JAMAIS ÉTÉ DÉCROCHÉS. Dans ces cas-là les boutons n'apparaissaient
+         * jamais — et « pas de réponse » est justement la réponse qu'il fallait pouvoir donner.
+         *
+         * Le libellé, lui, continue de suivre le moment : au présent en ligne, au passé après. */}
+        {appel.id !== ID_APPEL_PRESUME && (
           <>
         {/* LE LIBELLÉ SUIT LE MOMENT. « Qui as-tu eu ? » au passé, posé pendant qu'on est encore en
             ligne, se lit comme une erreur d'affichage — et fait douter que le clic soit pris en
             compte. Au présent, la question est celle qu'on se pose vraiment en entendant décrocher. */}
         <p className="mt-3 text-km-xs font-bold uppercase tracking-[0.06em] text-km-faint">
-          {etat === 'en_ligne' ? 'Qui as-tu au bout du fil ?' : 'Qui as-tu eu ?'}
+          {/* LE LIBELLÉ SUIT LE MOMENT, et pendant la sonnerie il ne demande rien au passé : la
+              question ne se pose vraiment qu'au décroché, mais les boutons restent là pour qu'on
+              puisse répondre « pas de réponse » sans attendre. */}
+          {etat === 'sonne' ? 'Dès que ça décroche…'
+            : etat === 'en_ligne' ? 'Qui as-tu au bout du fil ?'
+            : 'Qui as-tu eu ?'}
         </p>
         <div className="mt-1.5 grid grid-cols-2 gap-1.5">
           {CHOIX.map(({ valeur, libelle, Icone }) => {
@@ -314,26 +348,6 @@ export function CarteAppel() {
           </p>
         )}
       </div>
-    </div>
-  )
-
-  if (!enOverlay) return carte
-
-  return (
-    /* LE VOILE NE SE FERME PAS AU CLIC À CÔTÉ, et c'est délibéré : la question tient en un clic sur
-       l'un des quatre boutons, et la croix de l'en-tête reste là pour qui ne veut pas répondre. Un
-       voile qui se ferme au moindre clic à côté ferait disparaître la question par accident —
-       exactement ce qu'on essaie d'empêcher depuis ce matin.
-
-       `z-[80]` passe au-dessus de tout, y compris des panneaux latéraux. En dessous, la fiche reste
-       lisible : on voit qui on vient d'appeler pendant qu'on répond. */
-    <div
-      className="fixed inset-0 z-[80] flex items-center justify-center bg-km-text/25 p-4"
-      role="dialog"
-      aria-modal="true"
-      aria-label="Qui as-tu eu au téléphone ?"
-    >
-      {carte}
     </div>
   )
 }

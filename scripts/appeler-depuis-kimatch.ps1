@@ -182,16 +182,41 @@ $bouton.GetCurrentPattern([System.Windows.Automation.InvokePattern]::Pattern).In
 # Une exception ici signifie donc que le clavier a disparu, c'est-a-dire que l'appel est lance. On
 # la traite comme un succes plutot que comme une panne — et le script ne meurt plus au moment
 # precis ou il reussit.
-Start-Sleep -Milliseconds 2000
-$apres = $null
-try {
-  $apres = $champ.GetCurrentPattern([System.Windows.Automation.ValuePattern]::Pattern).Current.Value
-} catch {
-  $apres = $null
+#
+# ══ ON CHERCHE LA PREUVE QU'UN APPEL EST EN COURS, PAS L'ABSENCE D'INDICE ══
+#
+# Deuxieme version de ce controle, et la premiere etait trop indulgente : elle concluait au succes
+# des que la relecture du champ levait une exception, en supposant qu'Allo avait change d'ecran.
+#
+# MESURE LE 22/09/2026 A 12:41 ET 12:43 : le journal disait 'OK' deux fois, et AUCUN appel n'est
+# arrive en base. Le champ avait bien disparu — Allo se redessine pour d'autres raisons — et le
+# script prenait cette disparition pour une reussite. Il confondait encore 'je n'ai pas vu
+# d'echec' avec 'ca a marche'.
+#
+# ON EXIGE DONC UN SIGNE POSITIF : quand un appel part, l'interface d'Allo affiche son etat
+# (sonnerie, en communication) et son bouton raccrocher. Si rien de tout cela n'apparait dans les
+# six secondes, l'appel n'est pas parti — et on le dit.
+$lance = $false
+for ($i = 0; $i -lt 12 -and -not $lance; $i++) {
+  Start-Sleep -Milliseconds 500
+  try {
+    $maintenant = $racine.FindAll(
+      [System.Windows.Automation.TreeScope]::Descendants,
+      [System.Windows.Automation.Condition]::TrueCondition)
+    foreach ($e in $maintenant) {
+      $n = $e.Current.Name
+      if ($n -match '(?i)raccrocher|hang ?up|end call|sonnerie|ringing|en communication|in call') {
+        $lance = $true
+        break
+      }
+    }
+  } catch {
+    # L'arbre peut etre en cours de redessin : on retente au tour suivant plutot que de conclure.
+  }
 }
 
-if ($null -ne $apres -and $apres -match [regex]::Escape($Numero.TrimStart('+'))) {
-  Write-Output "ECHEC: Allo n'a pas compose $Numero - une ligne est peut-etre deja en communication."
+if (-not $lance) {
+  Write-Output "ECHEC: Allo n'a pas compose $Numero - ligne occupee, ou le bouton n'a pas repondu."
   exit 1
 }
 
