@@ -55,6 +55,8 @@ export interface AppelEnCours {
   resume_allo: string | null
   ivr_touches: unknown[] | null
   qualification: Qualification | null
+  /** Quand la carte a ete fermee sans repondre. Voir migration 20260922123000. */
+  ecarte_le: string | null
 }
 
 /** Quatre secondes : assez pour que la carte paraisse instantanée, assez peu pour ne rien coûter. */
@@ -193,10 +195,24 @@ export function useAppelEnCours() {
         .select('*')
         .eq('user_email', adresseAllo as string)
         .is('termine_le', null)
+        .is('ecarte_le', null)
         .order('demarre_le', { ascending: false })
         .limit(1)
       if (enCours.error) throw new Error(enCours.error.message)
-      if (enCours.data?.[0]) return enCours.data[0] as AppelEnCours
+      if (enCours.data?.[0]) {
+        /* LE PROVISOIRE S'EFFACE ICI AUSSI — CORRIGÉ LE 22/09/2026.
+         *
+         * Naoëlle : « le petit bloc où ça demande si j'ai eu quelqu'un n'apparaît toujours pas ».
+         * Capture à l'appui : la carte affichait « ÇA SONNE » et « numéro inconnu » alors que le
+         * vrai appel était déjà en base, décroché, visible dans le fil d'activité.
+         *
+         * Cette sortie anticipée rendait l'appel réel SANS oublier le provisoire. Au rendu suivant,
+         * la fonction repassait par le début, retrouvait `appelPresume` encore posé, et réaffichait
+         * la carte sans identité ni boutons. Le provisoire survivait donc à ce qu'il remplaçait,
+         * pendant ses deux minutes entières. */
+        appelPresume = null
+        return enCours.data[0] as AppelEnCours
+      }
 
       /* ══ LA CARTE NE PART PAS D'ELLE-MÊME — 22/09/2026 ══
        *
@@ -221,6 +237,7 @@ export function useAppelEnCours() {
         .eq('user_email', adresseAllo as string)
         .is('qualification', null)
         .gte('demarre_le', ilYaDeuxHeures)
+        .is('ecarte_le', null)
         .order('demarre_le', { ascending: false })
         .limit(1)
       if (error) throw new Error(error.message)
@@ -242,6 +259,34 @@ export function useAppelEnCours() {
         // Le vrai appel est arrivé : le provisoire a fini son office.
         appelPresume = null
         return reel
+      }
+
+      /* ══ ET SI LE VRAI APPEL EST DÉJÀ QUALIFIÉ, LE PROVISOIRE DOIT PARTIR AUSSI ══
+       *
+       * Le cas de la capture du 22/09 : l'appel de 12:03 était terminé ET qualifié, donc écarté par
+       * les deux requêtes ci-dessus — toutes deux ne veulent que du non qualifié. `reel` valait
+       * donc `null`, aucune bascule ne se déclenchait, et la carte provisoire restait affichée
+       * deux minutes en disant « ça sonne » sur un appel déjà fini.
+       *
+       * On regarde donc explicitement si CE numéro a produit un appel depuis le clic, qualifié ou
+       * non. S'il existe, notre provisoire n'a plus lieu d'être : soit on affiche l'appel réel,
+       * soit il a déjà été traité et la carte n'a rien à dire. */
+      const { data: memeNumero } = await supabase
+        .from('appels_en_cours')
+        .select('*')
+        .eq('user_email', adresseAllo as string)
+        .gte('demarre_le', new Date(appelPresume.depuis - 30 * 1000).toISOString())
+        .order('demarre_le', { ascending: false })
+        .limit(5)
+
+      const correspondant = (memeNumero as AppelEnCours[] | null)?.find((a) =>
+        chiffres(a.numero).endsWith(chiffres(appelPresume!.numero).slice(-9)),
+      )
+      if (correspondant) {
+        appelPresume = null
+        /* QUALIFIÉ : la carte n'a plus rien à demander, elle se ferme. NON QUALIFIÉ : c'est lui
+           qu'on montre, avec son identité et ses boutons. */
+        return correspondant.qualification ? null : correspondant
       }
       if (reel && new Date(reel.demarre_le).getTime() > appelPresume.depuis) return reel
 
@@ -267,6 +312,7 @@ export function useAppelEnCours() {
         resume_allo: null,
         ivr_touches: null,
         qualification: null,
+        ecarte_le: null,
       } as AppelEnCours
     },
   })
@@ -376,13 +422,30 @@ export function useEcarterAppel() {
         appelPresume = null
         return
       }
+      /* ══ FERMER LA CARTE N'EST PAS DIRE « PAS DE RÉPONSE » — CORRIGÉ LE 22/09/2026 ══
+       *
+       * Naoëlle : « le petit bloc où ça demande si j'ai eu quelqu'un n'apparaît toujours pas. »
+       *
+       * LA CROIX ÉCRIVAIT `PAS_DE_REPONSE`. Mesuré en base : 115 appels portent cette valeur avec
+       * `qualifie_le` À NULL — personne n'a répondu à la question. Et plusieurs ont un
+       * `decroche_le` renseigné et un `resultat` « ANSWERED » : on a donc enregistré « ça a sonné
+       * dans le vide » sur des appels DÉCROCHÉS.
+       *
+       * C'est faux deux fois : ça salit les chiffres de prospection, et ça empêche la carte de
+       * reparaître — les deux requêtes ne proposent que les appels non qualifiés, donc un appel
+       * ferme par la croix ne redemande plus jamais rien.
+       *
+       * LA CROIX NE FAIT DONC PLUS QU'ÉCARTER : on note qu'on ne veut plus voir cette carte, sans
+       * rien affirmer sur ce qui s'est passé au téléphone. `ecarte_le` existe pour ça — un fait
+       * d'interface, pas un résultat commercial.
+       *
+       * ET ELLE NE POSE PLUS `termine_le`. Elle le faisait, ce qui revenait à déclarer l'appel fini
+       * alors qu'il pouvait être en cours : Kimatch se croyait libre et la carte du vrai appel
+       * suivant se superposait. Allo dit quand un appel se termine ; ce n'est pas à un bouton de
+       * fermeture de le décider. */
       const { error } = await supabase
         .from('appels_en_cours')
-        .update({
-          qualification: 'PAS_DE_REPONSE',
-          termine_le: new Date().toISOString(),
-          termine_par: 'COMMERCIAL',
-        })
+        .update({ ecarte_le: new Date().toISOString() })
         .eq('id', id)
       if (error) throw new Error(error.message)
     },
