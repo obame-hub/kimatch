@@ -60,6 +60,48 @@ export interface AppelEnCours {
 /** Quatre secondes : assez pour que la carte paraisse instantanée, assez peu pour ne rien coûter. */
 const INTERVALLE_MS = 4000
 
+/* ══════════════════════════════════════════════════════════════════════════════════════════════
+ * L'APPEL QU'ON VIENT DE LANCER, AVANT QU'ALLO NE LE CONFIRME
+ * ══════════════════════════════════════════════════════════════════════════════════════════════
+ *
+ * Naoëlle, 22/09/2026 : « je veux qu'il apparaisse au moment de l'appel directement ».
+ *
+ * MESURÉ SUR LES APPELS DU JOUR : le webhook d'Allo écrit l'appel en 2 secondes… ou en 88, ou en
+ * 170, ou en 372. Plus de six minutes dans le pire cas relevé. On ne peut pas accélérer Allo.
+ *
+ * MAIS KIMATCH SAIT QU'IL VIENT DE LANCER L'APPEL : c'est lui qui a cliqué. Il n'a donc aucune
+ * raison d'attendre qu'on le lui raconte. On garde le numéro composé, et la carte s'affiche
+ * immédiatement avec ce qu'on sait déjà — le numéro et l'heure de départ.
+ *
+ * DÈS QUE LE VRAI APPEL ARRIVE EN BASE, IL REMPLACE CELUI-CI. Le provisoire ne sert qu'à combler
+ * l'attente : il n'est jamais écrit nulle part, ne porte pas d'identifiant réel, et disparaît au
+ * premier appel authentique du même numéro.
+ *
+ * ON L'OUBLIE AU BOUT DE DEUX MINUTES. Si le webhook n'est toujours pas passé, c'est que l'appel
+ * n'est pas parti — le protocole a pu échouer sur un poste sans notre installation. Laisser une
+ * carte fantôme indéfiniment ferait croire à un appel qui n'a pas eu lieu.
+ */
+const OUBLI_PROVISOIRE_MS = 2 * 60 * 1000
+
+let appelPresume: { numero: string; depuis: number } | null = null
+let prevenirPresume: (() => void) | null = null
+
+/** L'identifiant d'un appel présumé : reconnaissable, et impossible à confondre avec un vrai. */
+export const ID_APPEL_PRESUME = 'presume'
+
+/**
+ * Kimatch vient de composer : la carte doit paraître maintenant.
+ *
+ * Appelée par `telephonie.tsx` au clic, avant même que le protocole ne parte.
+ */
+export function signalerAppelLance(numero: string) {
+  appelPresume = { numero, depuis: Date.now() }
+  prevenirPresume?.()
+}
+
+/** Le numéro comparé sur ses chiffres seuls : `+33 6…` et `+336…` sont le même correspondant. */
+const chiffres = (n: string) => n.replace(/[^0-9]/g, '')
+
 /**
  * L'onglet est-il regardé ?
  *
@@ -156,19 +198,87 @@ export function useAppelEnCours() {
       if (enCours.error) throw new Error(enCours.error.message)
       if (enCours.data?.[0]) return enCours.data[0] as AppelEnCours
 
-      const ilYaDixMinutes = new Date(Date.now() - 10 * 60 * 1000).toISOString()
+      /* ══ LA CARTE NE PART PAS D'ELLE-MÊME — 22/09/2026 ══
+       *
+       * Naoëlle : « je veux qu'il apparaisse au moment de l'appel directement et que ça reste
+       * jusqu'à ce qu'une personne clique sur quelque chose. »
+       *
+       * La fenêtre était de DIX MINUTES : passé ce délai, un appel non qualifié cessait d'être
+       * proposé et la carte disparaissait sans que personne n'ait répondu. L'appel rejoignait
+       * silencieusement les 262 non qualifiés du mois — exactement ce qu'on essaie de corriger.
+       *
+       * ON REMONTE À DEUX HEURES, et ce n'est pas un chiffre rond pris au hasard : c'est plus long
+       * qu'une session de prospection ininterrompue, donc la carte survit à la pause café qui suit
+       * le dernier appel. Au-delà, la question « qui as-tu eu ? » ne se répond plus de mémoire, et
+       * une carte qui traîne d'un jour sur l'autre se ferme sans être lue.
+       *
+       * ON NE MET PAS « SANS LIMITE » pour cette raison précise : une carte éternelle deviendrait
+       * du décor, et le décor, on l'ignore. */
+      const ilYaDeuxHeures = new Date(Date.now() - 2 * 60 * 60 * 1000).toISOString()
       const { data, error } = await supabase
         .from('appels_en_cours')
         .select('*')
         .eq('user_email', adresseAllo as string)
         .is('qualification', null)
-        .gte('demarre_le', ilYaDixMinutes)
+        .gte('demarre_le', ilYaDeuxHeures)
         .order('demarre_le', { ascending: false })
         .limit(1)
       if (error) throw new Error(error.message)
-      return (data?.[0] as AppelEnCours | undefined) ?? null
+      const reel = (data?.[0] as AppelEnCours | undefined) ?? null
+
+      /* ══ LE PROVISOIRE NE SERT QUE TANT QUE LE VRAI N'EST PAS LÀ ══
+       *
+       * Trois conditions pour qu'il paraisse, et chacune évite une carte mensongère :
+       *   · il est récent (voir `OUBLI_PROVISOIRE_MS`) ;
+       *   · aucun appel réel du MÊME numéro n'est déjà revenu — sinon on afficherait deux fois le
+       *     même appel, l'un sans chronomètre ;
+       *   · aucun appel réel plus récent n'occupe la carte. */
+      if (!appelPresume) return reel
+      if (Date.now() - appelPresume.depuis > OUBLI_PROVISOIRE_MS) {
+        appelPresume = null
+        return reel
+      }
+      if (reel && chiffres(reel.numero).endsWith(chiffres(appelPresume.numero).slice(-9))) {
+        // Le vrai appel est arrivé : le provisoire a fini son office.
+        appelPresume = null
+        return reel
+      }
+      if (reel && new Date(reel.demarre_le).getTime() > appelPresume.depuis) return reel
+
+      return {
+        id: ID_APPEL_PRESUME,
+        user_email: adresseAllo as string,
+        numero: appelPresume.numero,
+        sens: 'SORTANT',
+        contact_id: null,
+        compte_id: null,
+        piste_id: null,
+        demarre_le: new Date(appelPresume.depuis).toISOString(),
+        /* PAS DE `decroche_le` : on ne sait pas si ça a décroché, et le prétendre afficherait un
+           chronomètre qui ne correspond à rien. La carte dira « Ça sonne ». */
+        decroche_le: null,
+        termine_le: null,
+        termine_par: null,
+        source_externe_id: null,
+        resultat: null,
+        duree_secondes: null,
+        enregistrement_url: null,
+        transcription: null,
+        resume_allo: null,
+        ivr_touches: null,
+        qualification: null,
+      } as AppelEnCours
     },
   })
+
+  /* LA CARTE PARAÎT AU CLIC, SANS ATTENDRE LE PROCHAIN SONDAGE. Sans ce rappel, elle mettrait
+     jusqu'à quatre secondes à s'afficher — alors que Kimatch sait déjà tout ce qu'il lui faut. */
+  useEffect(() => {
+    prevenirPresume = () => {
+      void queryClient.invalidateQueries({ queryKey: ['appel-en-cours'] })
+    }
+    return () => { prevenirPresume = null }
+  }, [queryClient])
 
   /* ══ QUAND L'APPEL SE TERMINE, LE FIL D'ACTIVITÉ SE RELIT ══
    *
@@ -217,6 +327,12 @@ export function useQualifierAppel() {
 
   return useMutation({
     mutationFn: async ({ id, qualification }: { id: string; qualification: Qualification }) => {
+      /* ON N'ÉCRIT PAS SUR UN APPEL PRÉSUMÉ : son identifiant n'existe pas en base, et l'update
+         porterait sur zéro ligne — un silence qui se lirait comme un succès. Le clic est donc
+         ignoré tant qu'Allo n'a pas confirmé l'appel, ce qui prend quelques secondes. */
+      if (id === ID_APPEL_PRESUME) {
+        throw new Error('L’appel n’est pas encore enregistré — réessaie dans un instant.')
+      }
       const { error } = await supabase
         .from('appels_en_cours')
         .update({
@@ -254,6 +370,12 @@ export function useEcarterAppel() {
   const queryClient = useQueryClient()
   return useMutation({
     mutationFn: async (id: string) => {
+      /* FERMER UN APPEL PRÉSUMÉ N'ÉCRIT RIEN : il n'existe qu'en mémoire. On l'oublie, la carte
+         disparaît, et le vrai appel reprendra sa place quand Allo l'aura confirmé. */
+      if (id === ID_APPEL_PRESUME) {
+        appelPresume = null
+        return
+      }
       const { error } = await supabase
         .from('appels_en_cours')
         .update({

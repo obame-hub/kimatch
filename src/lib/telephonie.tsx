@@ -1,64 +1,54 @@
 import { createContext, useCallback, useContext, useEffect, useState } from 'react'
 import type { ReactNode } from 'react'
 import { CarteAppel } from '@/components/allo/CarteAppel'
-import { VoletAllo, ouvrirVoletAlloSiDejaUtilise, appelDansLeVolet } from '@/components/allo/VoletAllo'
-import { FenetreAppel, ouvrirFenetreAppel, signalerEtatFile } from '@/components/allo/FenetreAppel'
+import { VoletAllo } from '@/components/allo/VoletAllo'
 import { lancerAlloBureau, composerSurLePoste } from '@/lib/alloBureau'
+import { signalerAppelLance } from '@/lib/data/appelEnCours'
 
 /**
- * APPELER DEPUIS KIMATCH — un seul entonnoir, un numéro normalisé, et un numéro TOUJOURS VISIBLE.
+ * ════════════════════════════════════════════════════════════════════════════════════════════════
+ * APPELER DEPUIS KIMATCH — UN CLIC, ÇA SONNE
+ * ════════════════════════════════════════════════════════════════════════════════════════════════
  *
- * Michel, 26/08/2026 : « quand les commerciaux cliquent sur appeler ça leur ouvre l'app de leur ordi,
- * alors qu'il veut que ça ouvre l'application Allo directement sur Kimatch, comme dans Tools ».
+ * Michel, 26/08/2026, puis Naoëlle pendant tout le mois : « je veux que quand je clique sur le
+ * téléphone, ça appelle direct ». Depuis le 22/09/2026, c'est le cas.
  *
- * ══ COMMENT ALLO MARCHE VRAIMENT — réponse de Lovable, qui a construit Tools ══
+ * ══ CE QUE FAIT UN CLIC, DANS L'ORDRE ══
  *
- * « Ce n'est ni un SDK ni une API appelée par Tools. C'est L'EXTENSION CHROME ALLO qui détecte les
- * numéros affichés sur la page, ajoute une icône Allo à côté et ouvre un popup. Cliquer sur Call lance
- * l'appel dans l'application Allo. » Allo n'expose aucune URL de composition ; son API REST ne sait
- * qu'ajouter un numéro à la file du Power Dialer, pas lancer un appel.
+ *   · sur un appareil TACTILE : `tel:`, et le téléphone compose. C'est le bon geste là-bas.
+ *   · sur ORDINATEUR : `allo://call?number=…` puis `kimatch://appeler?numero=…`.
  *
- * DONC AUCUN CODE NE PEUT OUVRIR ALLO. Ce qui répond à la demande de Michel, c'est l'installation de
- * l'extension sur le Chrome de chaque commercial — une tâche de poste de travail, pas de dépôt. Le
- * dire est plus utile que de livrer un bouton qui ferait semblant.
+ * LE SECOND EST LE NÔTRE, et c'est lui qui marche. Voir `lib/alloBureau.ts` pour le détail, et
+ * `scripts/appeler-depuis-kimatch.ps1` pour ce qu'il déclenche : Kimatch demande au poste d'écrire
+ * le numéro dans le champ d'Allo, de RELIRE pour vérifier, puis d'actionner leur bouton « Appeler ».
  *
- * ══ CORRECTION DU 07/09/2026 : ON PEUT FAIRE MIEUX QUE COPIER ══
+ * ON LANCE LES DEUX exprès. `allo://` est le chemin officiel — leur propre code le documente pour
+ * les CRM sous Windows — et le jour où ils le réparent, on en profite sans rien changer ici.
  *
- * La conclusion ci-dessus tenait sur une phrase de Lovable : « son API REST ne sait qu'ajouter un
- * numéro à la file du Power Dialer, pas lancer un appel ». La première moitié est vraie — vérifié
- * dans la documentation, Allo n'expose AUCUN endpoint de composition. La seconde passait à côté de
- * l'essentiel : la file du Power Dialer est précisément l'outil avec lequel un commercial passe ses
- * appels. Y déposer le numéro depuis la fiche, c'est lui éviter de le recopier.
+ * ══ CE QUI A ÉTÉ RETIRÉ LE 22/09/2026, ET POURQUOI ══
  *
- * Le bouton pousse donc le numéro dans la file d'appel DE LA PERSONNE CONNECTÉE — `append-numbers`
- * accepte un `email` pour viser la file d'un coéquipier — avec le nom et la société du
- * correspondant. Il ne reste plus qu'à cliquer « appeler » dans Allo, où la fiche est déjà remplie.
+ * Naoëlle : « est-ce que tu peux enlever le Power Dialer et le petit bloc qui ne servent plus à
+ * rien ». Deux choses sont parties avec cette phrase :
  *
- * IL RETOMBE SUR LA COPIE quand la file refuse : clé sans la portée `DIALING_QUEUE_READ_WRITE`,
- * réseau coupé, Allo indisponible. Un bouton qui ne fait rien serait pire que l'ancien.
+ *   ① LA FILE DU POWER DIALER. On y déposait le numéro faute de mieux, en disant « il n'y a plus
+ *      qu'à cliquer Appeler dans Allo ». C'était faux : mesuré contre leur API, un numéro y est
+ *      resté TREIZE JOURS, position 0, `NOT_SYNCED`, sans qu'un seul appel parte. La file alimente
+ *      un composeur qui ne démarre que depuis leur interface — un cul-de-sac, pas un raccourci.
  *
- * ══ CE QUE LE CODE PEUT FAIRE, ET QUI COMPTE VRAIMENT ══
+ *   ② LA FENÊTRE « APPELER CE NUMÉRO ». Elle expliquait quoi faire à la main — coller le numéro,
+ *      appuyer sur le bouton vert — parce que rien ne composait. Depuis que le clic compose, elle
+ *      n'ajoute qu'un écran entre le geste et l'appel. `CarteAppel` suffit : elle s'ouvre quand ça
+ *      sonne, et demande qui on a eu dès le décroché.
  *
- * L'extension ne décore que ce qu'elle VOIT. Un bouton « Appeler » avec une icône de téléphone et le
- * numéro caché dans une infobulle ne lui donne rien à détecter — l'icône Allo n'apparaît jamais, et le
- * commercial conclut que ça ne marche pas. LA VRAIE CONDITION EST DONC D'AFFICHER LE NUMÉRO EN TEXTE,
- * à côté de chaque bouton d'appel. C'est le seul point que Lovable n'a pas mentionné, et c'est celui
- * qui décide si l'extension sert à quelque chose.
+ * ══ CE QUI RESTE VRAI, ET QU'IL NE FAUT PAS DÉFAIRE ══
  *
- * `tel:` NE RESTE QUE SUR MOBILE, et c'est une correction constatée à l'écran. Lovable indiquait que
- * l'extension intercepte aussi les liens `tel:` ; sur le poste de Naoëlle, extension installée, elle ne
- * le fait pas — Chrome affiche « Ouvrir Sélectionner une application ? », exactement le symptôme que
- * Michel a signalé. Le lien `tel:` est donc réservé aux appareils tactiles, où il est le bon
- * comportement : le téléphone compose.
+ * LE NUMÉRO S'AFFICHE EN TEXTE à côté de chaque bouton d'appel. Ça a d'abord servi l'extension
+ * Chrome d'Allo, qui ne décorait que ce qu'elle voyait ; l'extension n'est plus notre chemin, mais
+ * la règle tient pour une autre raison — c'est le numéro qu'on dicte à un collègue, qu'on compare à
+ * une facture, et qu'on copie quand on appelle depuis son mobile.
  *
- * SUR ORDINATEUR, LE BOUTON NE NAVIGUE PLUS. Il copie le numéro et dit quoi faire. L'appel se lance en
- * cliquant l'icône que l'extension Allo pose à côté du NUMÉRO AFFICHÉ — pas depuis un bouton de
- * Kimatch, puisque aucun code ne peut ouvrir Allo. Un bouton qui rouvrirait la boîte de dialogue du
- * système serait un bouton qui ment.
- *
- * CE QUE CET ENTONNOIR APPORTE MALGRÉ TOUT : le numéro part au format international. `tel:+33612345678`
- * est composable partout, `tel:06 12 34 56 78` ne l'est pas hors de France — et c'est une seule
- * fonction à changer si Allo publie un jour de quoi déclencher un appel.
+ * LE NUMÉRO PART EN E.164. `+33612345678` est composable partout, `06 12 34 56 78` ne l'est pas hors
+ * de France, et notre reprise Salesforce contient les deux écritures mélangées.
  */
 
 /**
@@ -133,19 +123,6 @@ export interface Correspondant {
   nom?: string | null
   societe?: string | null
   fonction?: string | null
-}
-
-/**
- * Le nom tel qu'on l'affiche : prénom puis nom, et rien quand on ne sait pas.
- *
- * REND `null` PLUTÔT QU'UNE CHAÎNE VIDE, pour que la fenêtre d'appel sache ne rien afficher au lieu
- * d'afficher une ligne vide au-dessus du numéro. Les boutons d'appel sont posés à des dizaines
- * d'endroits, dont beaucoup ne connaissent que le numéro : l'absence de nom est le cas normal.
- */
-function nomLisible(qui?: Correspondant): string | null {
-  if (!qui) return null
-  const n = [qui.prenom, qui.nom].filter(Boolean).join(' ').trim()
-  return n || null
 }
 
 interface Telephonie {
@@ -238,22 +215,6 @@ export function TelephonieProvider({ children }: { children: ReactNode }) {
      * `<a>` CLIQUÉ PLUTÔT QUE `location.href`, et de façon SYNCHRONE dans le geste de l'utilisateur :
      * c'est la leçon du document de William sur Cockpit, où Safari et iOS refusent d'ouvrir une
      * application externe depuis un appel différé. Le même réflexe s'applique ici. */
-    /* ══ SAUF SI L'APPEL DOIT VIVRE DANS LE VOLET ══
-     *
-     * Naoëlle, 15/09/2026, capture à l'appui : « j'ai essayé d'appeler et ça me fait ça, ça veut
-     * ouvrir Allo, ça n'ouvre pas le petit bloc ».
-     *
-     * Elle a raison, et les deux chemins s'excluent. Vérifié ce jour-là : l'API d'Allo n'a AUCUN
-     * contrôle d'appel — 16 familles de ressources, les appels en lecture seule, et nos 21 portées
-     * n'en touchent aucune. Raccrocher et transférer n'existent QUE dans l'interface d'Allo. Donc :
-     *
-     *   appel dans l'application de bureau → Kimatch n'a plus prise, ni raccrocher ni transférer
-     *   appel dans le volet                → les boutons d'Allo sont là, dans Kimatch
-     *
-     * Lancer `allo://` par-dessus ouvrait l'application de bureau et vidait le volet de sa raison
-     * d'être. On ne le fait donc plus quand le volet est en service. */
-    const dansLeVolet = appelDansLeVolet()
-
     /* ══ ON TENTE `allo://` DANS TOUS LES CAS — 21/09/2026 AU SOIR ══
      *
      * Jusqu'ici ce protocole n'était lancé QUE si l'on avait choisi l'application de bureau, parce
@@ -274,6 +235,16 @@ export function TelephonieProvider({ children }: { children: ReactNode }) {
      * Le lancer coûte RIEN quand il n'aboutit pas : un protocole sans gestionnaire ne navigue pas,
      * et la fenêtre d'appel reste là avec le numéro déjà copié. Il fait gagner l'appel entier quand
      * il aboutit. On le tente donc toujours, et le volet demeure pour raccrocher. */
+    /* ══ LA CARTE PARAÎT MAINTENANT, PAS QUAND ALLO VOUDRA BIEN ══
+     *
+     * Naoëlle, 22/09/2026 : « je veux qu'il apparaisse au moment de l'appel directement ».
+     *
+     * Mesuré sur les appels du jour : le webhook d'Allo écrit l'appel en 2 secondes… ou en 88, ou
+     * en 372. Plus de six minutes dans le pire cas. Kimatch, lui, sait déjà qu'il compose — c'est
+     * lui qui clique. Voir `signalerAppelLance` : la carte s'affiche avec le numéro, et cède la
+     * place au vrai appel dès qu'il arrive. */
+    signalerAppelLance(e164)
+
     lancerAlloBureau(e164)
 
     /* ══ ET NOTRE PROPRE PROTOCOLE, CELUI QUI MARCHE — 22/09/2026 ══
@@ -323,115 +294,13 @@ export function TelephonieProvider({ children }: { children: ReactNode }) {
      * `ouvrirFenetreAppel` ouvre donc NOTRE fenêtre, tout de suite et avant toute requête : elle dit
      * qui on appelle, montre le numéro en grand, et suit le dépôt dans la file. Voir
      * `FenetreAppel.tsx` pour les quatre portes essayées et refermées. */
-    if (dansLeVolet) ouvrirFenetreAppel({ e164, nom: nomLisible(qui), societe: qui?.societe ?? null })
-
-    /* ══ POURQUOI ON NE COMPOSE PAS DIRECTEMENT ══
-     *
-     * Naoëlle, 15/09 : « je veux que quand je clique sur le téléphone ça appelle direct ». On a
-     * essayé : leur application web embarque le `calling-extensions-sdk` de HubSpot, accepte notre
-     * poignée de main, et reçoit bien `DIAL_NUMBER`. Puis rien.
-     *
-     * Vérifié dans leur paquet : `onDialNumber` émet un événement interne auquel PERSONNE n'est
-     * abonné — « dialNumber » n'y apparaît que deux fois, les deux comme émetteur. Leur intégration
-     * est câblée côté réception et branchée sur rien.
-     *
-     * On reste donc sur la file d'appel, qui marche. Le numéro y est déposé avec le nom et la
-     * société, et il n'y a plus qu'à cliquer « Appeler » dans le composeur. Voir `pontAllo.ts` : le
-     * jour où Allo branche ces deux événements, le clic direct revient en dix lignes. */
-
-    /* ── LA FILE D'APPEL ALLO, D'ABORD ──
-       Le numéro part dans la file du Power Dialer de la personne connectée, avec le nom et la
-       société. Il n'y a plus qu'à cliquer « appeler » dans Allo. */
-    /* ══ LA FENÊTRE NE DOIT JAMAIS RESTER SUR « PRÉPARATION » ══
-     *
-     * Naoëlle, 22/09/2026 : « quand je clique, ça met préparation du numéro, ça charge, et ça
-     * n'appelle pas, rien ne se passe. »
-     *
-     * Elle décrit un état qui NE SE TERMINE PAS. `poserDansLaFileAllo` charge Supabase puis demande
-     * la session avant même de partir en réseau : si l'une des deux ne rend pas la main — session
-     * expirée qui déclenche un rafraîchissement, fonction `api/` absente en `npm run dev`, Allo
-     * injoignable — la fenêtre reste sur son message d'attente pour toujours.
-     *
-     * UN DÉLAI MAXIMUM TRANCHE, et c'est la seule façon honnête de s'en sortir : au bout de huit
-     * secondes on renonce à la file et on dit ce qui reste faisable. Le numéro est déjà copié, le
-     * volet est ouvert — l'essentiel ne dépendait pas de cette requête. */
-    const file = await Promise.race([
-      poserDansLaFileAllo(e164, qui),
-      new Promise<Awaited<ReturnType<typeof poserDansLaFileAllo>>>((r) =>
-        setTimeout(() => r({ ok: false, erreur: 'Allo n’a pas répondu à temps' }), 8000),
-      ),
-    ])
-    if (file.ok || file.dejaDansLaFile) {
-      /* LE VOLET ALLO S'OUVRE ICI, et c'est le geste qui manquait.
-         Naoelle, 08/09/2026 : « je ne comprends pas pourquoi ca n'ouvre pas une fenetre pour appeler
-         ce numero dans Kimatch ». Le numero etait bien deposse dans la file, mais la file est une
-         liste d'attente : rien ne compose tant que le Power Dialer n'est pas lance, et ce bouton
-         n'existe que dans l'interface d'Allo. On la met donc sous ses yeux, dans Kimatch. */
-      if (!dansLeVolet) ouvrirVoletAlloSiDejaUtilise()
-    }
-    if (file.ok) {
-      /* LE MESSAGE DIT LE GESTE QUI RESTE, pas l'état du système : la file est une liste d'attente,
-         seul le bouton d'Allo compose. */
-      if (dansLeVolet) {
-        /* LA FENÊTRE PORTE LE MESSAGE, PAS LE BANDEAU. Celui-ci s'effaçait au bout de six secondes —
-           avant qu'on ait fini de lire, et bien avant que l'appel soit passé. */
-        signalerEtatFile({ phase: 'pret', position: file.position ?? null })
-        return `Appel de ${numeroLisible(e164)}…`
-      }
-      const m = file.position != null
-        ? `${numeroLisible(e164)} ajouté à ta file d’appel Allo, en position ${file.position}.`
-        : `${numeroLisible(e164)} ajouté à ta file d’appel Allo.`
-      setMessage(m)
-      return m
-    }
-    if (file.dejaDansLaFile) {
-      /* DÉJÀ EN ATTENTE N'EST PAS UN ÉCHEC : le numéro est là, le geste qui reste est le même. La
-         fenêtre dit donc « prêt », avec la position où Allo l'a rangé. */
-      if (dansLeVolet) {
-        signalerEtatFile({ phase: 'pret', position: file.position ?? null })
-        return `${numeroLisible(e164)} est déjà dans ta file d’appel Allo.`
-      }
-      const m = `${numeroLisible(e164)} est déjà dans ta file d’appel Allo.`
-      setMessage(m)
-      return m
-    }
-
-    /* ── LE REPLI : la copie, comme avant ──
-       Clé sans la portée `DIALING_QUEUE_READ_WRITE`, réseau coupé, Allo indisponible : on ne laisse
-       pas le commercial devant un bouton muet. Le message dit ce qui bloque, une fois. */
-    let copie = false
-    try {
-      await navigator.clipboard?.writeText(e164)
-      copie = true
-    } catch {
-      copie = false
-    }
-
-    /* L'ÉCHEC SE DIT DANS LA FENÊTRE, avec sa cause : les deux motifs fréquents — droit manquant
-       sur la file, adresse Allo absente — se règlent ailleurs que dans le code, et les taire fait
-       chercher un bug dans Kimatch. Le numéro reste affiché en grand et copiable juste au-dessus. */
-    if (dansLeVolet) {
-      signalerEtatFile({
-        phase: 'echec',
-        raison: file.erreur ?? 'Allo n’a pas répondu.',
-      })
-      return `Compose ${numeroLisible(e164)} dans le téléphone.`
-    }
-
-    const raison = file.erreur ? ` (${file.erreur})` : ''
-    /* LE REPLI DOIT DÉSIGNER CE QUI EST SOUS LES YEUX. Le volet est ouvert : renvoyer vers « l'icône
-       Allo à côté du numéro » — celle de l'extension Chrome — envoie chercher ailleurs ce qui est
-       déjà là. */
-    const m = dansLeVolet
-      ? copie
-        ? `${numeroLisible(e164)} copié — colle-le dans le téléphone, en bas à droite, et appelle.${raison}`
-        : `Compose ${numeroLisible(e164)} dans le téléphone, en bas à droite.${raison}`
-      : copie
-        ? `${e164} copié — pour appeler, cliquez l’icône Allo à côté du numéro.${raison}`
-        : `Pour appeler ${e164}, cliquez l’icône Allo à côté du numéro.${raison}`
-    setMessage(m)
-    return m
+    /* `qui` n'est plus transmis à personne : il servait à pré-remplir la fiche du correspondant
+       dans la file du Power Dialer, qui vient d'être retirée. On garde le paramètre — des dizaines
+       d'appelants le passent, et il redeviendra utile le jour où l'on écrira nous-mêmes l'appel. */
+    void qui
+    return `Appel de ${numeroLisible(e164)}…`
   }, [])
+
 
   useEffect(() => {
     appelerCourant = appeler
@@ -458,9 +327,12 @@ export function TelephonieProvider({ children }: { children: ReactNode }) {
           donne exactement la meme portee que le bouton « Appeler », sans toucher a `AppLayout`.
           Elle rend `null` tant qu'aucun appel n'est en cours, donc son cout est nul. */}
       <CarteAppel />
-      {/* NOTRE FENÊTRE D'APPEL : ce qui se passe entre le clic et la sonnerie. Elle s'efface d'
-          elle-même dès que l'appel démarre, et `CarteAppel` prend le relais. */}
-      <FenetreAppel />
+      {/* ══ LA FENÊTRE « APPELER CE NUMÉRO » EST RETIRÉE — 22/09/2026 ══
+          Naoëlle : « est-ce que tu peux enlever le Power Dialer et le petit bloc qui ne servent
+          plus à rien ». Elle a raison : cette fenêtre disait quoi faire à la main — coller le
+          numéro, appuyer sur le vert — parce que rien ne composait. Depuis que le clic compose
+          pour de bon, elle ne fait qu'ajouter un écran entre le geste et l'appel. `CarteAppel`
+          suffit : elle s'ouvre quand ça sonne. */}
       {message && (
         <div className="fixed bottom-[70px] left-1/2 z-[60] -translate-x-1/2 rounded-km border border-km-line bg-white px-4 py-2.5 text-km-xs font-semibold text-km-text shadow-km-pop md:bottom-6">
           {message}
@@ -476,66 +348,3 @@ export function useTelephonie(): Telephonie {
   return c
 }
 
-
-/**
- * ══ POSER LE NUMÉRO DANS LA FILE D'APPEL ALLO ══
- *
- * Passe par `/api/allo/appeler` et jamais directement par Allo : la clé API donne accès à tout le
- * compte — lecture des appels, des enregistrements, des transcriptions — elle n'a rien à faire dans
- * un navigateur, et le dépôt de Kimatch est public.
- *
- * NE LÈVE JAMAIS. L'appelant décide quoi afficher, et il a un repli. Une exception ici ferait perdre
- * la copie du numéro, c'est-à-dire le seul comportement dont on est sûr.
- */
-async function poserDansLaFileAllo(
-  e164: string,
-  qui?: Correspondant,
-): Promise<{ ok: boolean; position?: number | null; dejaDansLaFile?: boolean; erreur?: string }> {
-  try {
-    const { supabase } = await import('@/lib/supabase')
-    const { data } = await supabase.auth.getSession()
-    const token = data.session?.access_token
-    if (!token) return { ok: false, erreur: 'session expirée' }
-
-    const res = await fetch('/api/allo/appeler', {
-      method: 'POST',
-      headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
-      body: JSON.stringify({ numero: e164, ...qui }),
-    })
-    const corps = (await res.json()) as {
-      ok?: boolean
-      position?: number | null
-      ignore?: string | null
-      error?: string
-      code?: string
-    }
-
-    if (!res.ok) {
-      /* LES DEUX CAUSES ATTENDUES SE DISENT EN CLAIR, parce que toutes deux se règlent ailleurs que
-         dans le code — une case à cocher dans Allo, ou une adresse à renseigner dans Mon profil.
-         Sans ça, on lit « erreur Allo » et on cherche un bug dans Kimatch. */
-      if (corps.code === 'portee_manquante') {
-        return { ok: false, erreur: 'Allo : droit d’écriture manquant sur la file d’appel' }
-      }
-      if (corps.code === 'membre_allo_absent') {
-        // Mesuré le 08/09/2026 : sept membres dans l'espace Allo, dix profils actifs dans Kimatch.
-        return {
-          ok: false,
-          erreur: 'aucun compte Allo à ton nom — renseigne ton adresse Allo dans Mon profil',
-        }
-      }
-      return { ok: false, erreur: corps.error }
-    }
-    if (corps.ok) return { ok: true, position: corps.position ?? null }
-    /* DÉJÀ EN ATTENTE : ce n'est pas un échec, c'est une information. `DEJA_DANS_LA_FILE` vient de
-       notre propre contrôle — Allo, lui, n'écarte pas les doublons, mesuré le 08/09/2026 : trois
-       clics ont fait trois lignes dans la file. Les autres motifs restent reconnus au cas où Allo
-       s'y mettrait. */
-    if (corps.ignore && /DEJA_DANS_LA_FILE|duplicate|already|exist/i.test(corps.ignore)) {
-      return { ok: false, dejaDansLaFile: true }
-    }
-    return { ok: false, erreur: corps.ignore ?? undefined }
-  } catch {
-    return { ok: false, erreur: 'Allo injoignable' }
-  }
-}
