@@ -22,6 +22,14 @@ export default {
           'side-text': 'rgb(var(--km-side-text) / <alpha-value>)',
           'side-muted': 'rgb(var(--km-side-muted) / <alpha-value>)',
           'side-faint': 'rgb(var(--km-side-faint) / <alpha-value>)',
+          /* Le vert lisible sur l'anthracite : voir le commentaire de `--km-side-green`. */
+          'side-green': 'rgb(var(--km-side-green) / <alpha-value>)',
+          /* Le rouge lisible sur l'anthracite : voir le commentaire de `--km-side-red`. */
+          'side-red': 'rgb(var(--km-side-red) / <alpha-value>)',
+          /* Le bleu des mails et l'ambre des notes dans le fil d'activité. Contrastes mesurés sur
+             les deux fonds du volet — voir `--km-side-blue` dans `index.css`. */
+          'side-blue': 'rgb(var(--km-side-blue) / <alpha-value>)',
+          'side-amber': 'rgb(var(--km-side-amber) / <alpha-value>)',
           surface: 'rgb(var(--km-surface) / <alpha-value>)',
           soft: 'rgb(var(--km-soft) / <alpha-value>)',
           line: 'rgb(var(--km-line) / <alpha-value>)',
@@ -220,6 +228,19 @@ export default {
         // Tableau de bord (maquette William, 11/08/2026) : montee des cartes, reflet qui balaie
         // les tuiles d'indicateurs, et pastille « en direct » du fil du portefeuille.
         'km-card-rise': { from: { opacity: '0', transform: 'translateY(9px)' }, to: { opacity: '1', transform: 'none' } },
+        /* ══ LA FENÊTRE D'APPEL QUI S'OUVRE ══
+           Elle monte depuis le bas en se dépliant : `grid-template-rows` de 0 à 1 fait pousser le
+           contenu sans hauteur codée en dur — on ne connaît pas la hauteur d'une fenêtre dont le
+           chrono et l'état changent. Un `max-height` arbitraire aurait saccadé la fin du mouvement. */
+        'km-appel-ouvre': {
+          from: { opacity: '0', gridTemplateRows: '0fr', transform: 'translateY(10px) scale(.985)' },
+          to: { opacity: '1', gridTemplateRows: '1fr', transform: 'none' },
+        },
+        /* Le halo du point « Live » : il bat, sans jamais bouger la mise en page. */
+        'km-live': {
+          '0%, 100%': { boxShadow: '0 0 0 0 rgba(233,115,106,.6)' },
+          '70%': { boxShadow: '0 0 0 7px rgba(233,115,106,0)' },
+        },
         'km-sheen': { '0%': { transform: 'translateX(-130%) skewX(-18deg)' }, '60%, 100%': { transform: 'translateX(340%) skewX(-18deg)' } },
         'km-live-pulse': { '0%, 100%': { boxShadow: '0 0 0 3px rgba(13,122,95,.14)' }, '50%': { boxShadow: '0 0 0 5px rgba(13,122,95,.05)' } },
         'km-hub-pop': { from: { opacity: '0', transform: 'translateY(-7px) scale(.965)' }, to: { opacity: '1', transform: 'none' } },
@@ -286,6 +307,8 @@ export default {
         'km-toast-in': 'km-toast-in .2s ease both',
         'km-soft-pulse': 'km-soft-pulse 1.6s ease infinite',
         'km-card-rise': 'km-card-rise .4s ease-out both',
+        'km-appel-ouvre': 'km-appel-ouvre .34s cubic-bezier(.22,1,.36,1) both',
+        'km-live': 'km-live 1.5s ease-out infinite',
         'km-opp-pulse': 'km-opp-pulse 2s ease-out infinite',
         'km-stripe': 'km-stripe 1.1s linear infinite',
         'km-sheen': 'km-sheen 5.5s ease-in-out infinite',
@@ -415,6 +438,37 @@ export default {
            Les valeurs chiffrees etaient ecrites en 18, 19, 20, 22, 25 et 27 px selon l'ecran : six
            tailles pour deux roles. Elles se rangent en deux niveaux, km-metric et celui-ci. */
         'km-metric-lg': ['26px', { lineHeight: '30px', letterSpacing: '-0.022em' }],
+        /* ══════════ LES TAILLES DU PLEIN ÉCRAN — FLUIDES, PAS FIGÉES ══════════
+           Le sprint n'est pas une page, c'est un écran qu'on regarde à un mètre en décrochant le
+           téléphone. `km-title` (16 px) y disparaît. Ces trois tailles ne servent QUE là : les
+           employer dans une fiche ordinaire écraserait tout le reste.
+
+           ══ POURQUOI `clamp`, ET POURQUOI EN `cqw` ET NON EN `vw` ══
+
+           William, 22/09/2026 : « adapte les polices d'affichage à la taille de l'écran, car
+           autrement, sur un écran plus petit, presque tous les champs sont coupés par les cards ».
+           Puis, capture d'un MacBook 13 pouces à l'appui : « c'est trop gros, les textes sont
+           coupés ».
+
+           MA PREMIÈRE VERSION MESURAIT LA FENÊTRE (`vw`), ET C'ÉTAIT LA MAUVAISE RÉFÉRENCE. Ce qui
+           rogne un numéro, ce n'est pas l'écran : c'est la CARTE, qui fait un tiers d'une colonne
+           qui fait elle-même la moitié de l'écran — et rien de tout ça n'est proportionnel à la
+           fenêtre. Une fenêtre à demi réduite, un écran secondaire, un zoom navigateur : trois
+           façons de faire mentir `vw`, et la capture de William en montrait une.
+
+           `cqw` MESURE LA COLONNE ELLE-MÊME (la déclaration `container-type: inline-size` est posée
+           sur elle dans `SprintCockpit`). La taille du texte suit donc exactement ce qui le
+           contient. Les coefficients se lisent alors comme des fractions de colonne : à 2,2 % de
+           large, un numéro de dix chiffres occupe un peu moins du tiers d'une carte.
+
+           LES INTERLIGNES SONT SANS UNITÉ : un `lineHeight` en pixels reste figé pendant que la
+           police rétrécit, et le texte finit par flotter dans une ligne trop haute.
+
+           LES PLANCHERS SONT BAS EXPRÈS : sur une colonne étroite, mieux vaut un numéro entier en
+           13 px qu'un numéro coupé en 20. Un numéro tronqué ne se compose pas. */
+        'km-sprint-val': ['clamp(0.8125rem, 2.1cqw, 1.125rem)', { lineHeight: '1.3', letterSpacing: '-0.01em' }],
+        'km-sprint':     ['clamp(1.0625rem, 3.4cqw, 1.75rem)',  { lineHeight: '1.15', letterSpacing: '-0.022em' }],
+        'km-sprint-xl':  ['clamp(1.5rem, 4.4cqw, 2.5rem)',      { lineHeight: '1.05', letterSpacing: '-0.028em' }],
         'km-h1':    ['24px',  { lineHeight: '30px', letterSpacing: '-0.022em' }], /* titre de page */
       },
       spacing: {

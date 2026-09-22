@@ -1,13 +1,17 @@
 import { useMemo, useState } from 'react'
-import { ChevronDown, GripVertical, Mail, Phone, Zap } from 'lucide-react'
+import { Link } from 'react-router-dom'
+import { ArrowUpRight, CalendarClock, CalendarX, ChevronDown, GripVertical, Mail, Phone, Zap } from 'lucide-react'
 import { TitreOnglet } from '@/components/layout/TitreOnglet'
 import { Badge } from '@/components/ui/badge'
-import { Button } from '@/components/ui/button'
+import { Button, buttonVariants } from '@/components/ui/button'
 import { EntityLink } from '@/components/ui/entity-link'
 import { IconeEnergie } from '@/components/ui/icone-energie'
 import { cn } from '@/lib/utils'
 import { appelerNumero } from '@/lib/telephonie'
 import { useOuvrirEmail } from '@/lib/voletEmail'
+import { MenuReport } from '@/components/tache/MenuReport'
+import { useGestesTache } from '@/lib/data/gestesTache'
+import { echeanceLisible, estEnRetard } from '@/lib/heureTache'
 import { SprintCockpit } from '@/components/cockpit/SprintCockpit'
 import { CockpitEnConstruction } from '@/components/cockpit/OuvertureCockpit'
 import { cockpitOuvert } from '@/lib/cockpitOuvert'
@@ -1093,10 +1097,7 @@ function CockpitOuvert() {
             l'écran — et c'est le bouton qu'on vient chercher. */}
         <aside className="flex min-h-0 flex-col overflow-hidden border-t border-km-line bg-km-surface lg:border-l lg:border-t-0">
           {zone === 'pipe' && laFiche ? (
-            <VoletFiche
-              fiche={laFiche}
-              onSortir={(motif) => void sortir.mutateAsync({ ligne: laFiche.ligne_id, motif })}
-            />
+            <VoletFiche fiche={laFiche} />
           ) : zone === 'pipe' ? (
             <p className="p-4 text-km-body text-km-muted">Choisissez une ligne pour voir son détail.</p>
           ) : zone === 'pistes' ? (
@@ -1294,12 +1295,23 @@ function Filet() {
   return <div className="-mx-4 my-1 h-px bg-km-line" />
 }
 
-/** Une ligne « libellé → valeur » du bloc compte. */
-function Ligne({ libelle, valeur }: { libelle: string; valeur: React.ReactNode }) {
+/**
+ * UN CHAMP DU CADRE COMPTE — libellé à gauche, valeur à droite, sur sa propre rangée.
+ *
+ * Il remplace `Ligne`, qui posait la même paire à même le fond du volet (William, 22/09/2026 :
+ * « les champs semblent flotter »). Trois choses changent, et les trois tiennent la zone ensemble :
+ * les rangées sont séparées par un filet, elles respirent du même padding que l'en-tête, et une
+ * valeur absente s'écrit « — » au lieu de faire disparaître la rangée. Une zone dont le nombre de
+ * lignes change d'une fiche à l'autre se relit à chaque ouverture.
+ */
+function ChampCompte({ libelle, valeur, mono }: { libelle: string; valeur: React.ReactNode; mono?: boolean }) {
+  const vide = valeur == null || valeur === ''
   return (
-    <div className="flex items-baseline justify-between gap-3 py-[3px]">
-      <span className="shrink-0 font-mono text-km-micro uppercase tracking-[0.1em] text-km-muted">{libelle}</span>
-      <span className="min-w-0 text-right text-km-body">{valeur}</span>
+    <div className="flex items-baseline justify-between gap-3 px-3 py-1.5">
+      <dt className="shrink-0 font-mono text-km-micro uppercase tracking-[0.1em] text-km-muted">{libelle}</dt>
+      <dd className={cn('min-w-0 text-right text-km-body', mono && !vide && 'font-mono tabular-nums')}>
+        {vide ? <span className="text-km-faint">—</span> : valeur}
+      </dd>
     </div>
   )
 }
@@ -1492,9 +1504,18 @@ function CompteursEligibles({ contact }: { contact: LigneVivier }) {
   )
 }
 
-function VoletFiche({ fiche, onSortir }: { fiche: LignePipe; onSortir: (m: 'APPELE' | 'REPORTE' | 'ECARTE') => void }) {
+/* `onSortir` A DISPARU DE CE VOLET (22/09/2026). Il ne servait qu'à « Reporter » et « Écarter » :
+   le premier déplace maintenant l'échéance de la tâche — ce qui fait sortir la ligne tout seul,
+   puisque le plan du jour se construit sur les tâches — et le second est supprimé. Le sprint,
+   lui, continue de sortir des lignes : la mutation reste. */
+function VoletFiche({ fiche }: { fiche: LignePipe }) {
   const { data: detail, isLoading } = useFichePipe(fiche)
   const ouvrirEmail = useOuvrirEmail()
+  const { reporter, reporterA } = useGestesTache()
+  /* Le panneau de report ne s'ouvre qu'à la demande : il pousse le contenu du pied, et l'avoir
+     déplié en permanence coûterait la moitié de la hauteur du volet pour un geste qu'on ne fait
+     pas à chaque appel. */
+  const [reportOuvert, setReportOuvert] = useState(false)
 
   const estPiste = fiche.cible_type === 'PISTE'
   const segment = detail?.segment ?? detail?.compte?.segment ?? fiche.segment
@@ -1517,6 +1538,11 @@ function VoletFiche({ fiche, onSortir }: { fiche: LignePipe; onSortir: (m: 'APPE
       ? 'Mobile'
       : 'Ligne fixe',
   )
+
+  /* L'échéance du CONTRAT, jamais celle de la tâche. Sur une piste c'est `echeance_actuelle` ; sur
+     une opportunité c'est la plus proche de son périmètre, que la ligne du pipe porte déjà —
+     `detail.echeance` y vaut `prochaine_action_echeance`, qui est une tout autre information. */
+  const echeanceContrat = estPiste ? (detail?.echeance ?? fiche.echeance) : fiche.echeance
 
   const adresse = [detail?.compte?.rue, [detail?.compte?.code_postal, detail?.compte?.ville].filter(Boolean).join(' ')]
     .filter(Boolean)
@@ -1568,43 +1594,118 @@ function VoletFiche({ fiche, onSortir }: { fiche: LignePipe; onSortir: (m: 'APPE
         })}
       />
 
+      {/* ══════════ CE QU'ON EST CENSÉ FAIRE AUJOURD'HUI ══════════
+
+          William, 22/09/2026 : « ajoute la tâche qui est censée être faite ce jour. Je veux que tu
+          m'affiches le libellé ainsi que l'échéance. »
+
+          ELLE EST LA RAISON D'ÊTRE DE LA LIGNE. Depuis la garantie posée en base le 21/09, aucune
+          fiche n'entre dans le plan du jour sans porter une tâche ouverte due aujourd'hui ou en
+          retard — la zone n'est donc jamais vide sur une ligne normale, et son absence signale un
+          vrai défaut plutôt qu'un manque de données.
+
+          ELLE EST EN TÊTE DU VOLET, avant le compte et le périmètre : c'est la première chose
+          qu'on lit avant de décrocher, et la seule qui dise POURQUOI cette fiche est là
+          aujourd'hui. */}
+      {detail?.tache ? (
+        <div
+          className={cn(
+            'rounded-km border px-3 py-2.5',
+            estEnRetard(detail.tache.date_prevue) ? 'border-km-amber-line bg-km-amber-soft' : 'border-km-line bg-km-bg',
+          )}
+        >
+          <div className="flex items-center gap-1.5">
+            <CalendarClock
+              className={cn('h-3 w-3 shrink-0', estEnRetard(detail.tache.date_prevue) ? 'text-km-amber' : 'text-km-muted')}
+              aria-hidden="true"
+            />
+            <h4 className="font-mono text-km-micro uppercase tracking-[0.14em] text-km-muted">À faire aujourd’hui</h4>
+          </div>
+          <p className="mt-1 text-km-body font-medium leading-tight text-km-text">{detail.tache.titre}</p>
+          <p className="mt-1 flex flex-wrap items-baseline gap-x-2 gap-y-0.5 text-km-label">
+            <span
+              className={cn(
+                'font-medium',
+                estEnRetard(detail.tache.date_prevue) ? 'text-km-amber' : 'text-km-muted',
+              )}
+            >
+              {/* `echeanceLisible` n'écrit l'heure que s'il y en a une : minuit local veut dire
+                  « pas d'heure », c'est la convention de toute l'application. */}
+              {echeanceLisible(detail.tache.date_prevue) || 'sans échéance'}
+              {estEnRetard(detail.tache.date_prevue) ? ' — en retard' : ''}
+            </span>
+            {detail.tache.type ? <span className="text-km-faint">{detail.tache.type}</span> : null}
+          </p>
+        </div>
+      ) : isLoading ? null : (
+        <p className="rounded-km border border-km-line bg-km-bg px-3 py-2.5 text-km-label text-km-muted">
+          Aucune tâche ouverte pour aujourd’hui sur cette fiche.
+        </p>
+      )}
+
       <Filet />
 
-      {/* ── OÙ ── */}
-      <div>
-        <h4 className="mb-1 font-mono text-km-micro uppercase tracking-[0.14em] text-km-muted">Le compte</h4>
+      {/* ══════════ OÙ — LE COMPTE, DANS UN CADRE ET NON EN VRAC ══════════
+
+          William, 22/09/2026 : « améliorer la zone compte de la fiche aperçue, les champs semblent
+          flotter. Un fonctionnement par zone serait préférable. »
+
+          IL A RAISON, ET LA CAUSE EST STRUCTURELLE : le nom, le SIREN, l'adresse et le NAF étaient
+          quatre lignes posées sur le fond du volet, au même niveau que le contact au-dessus et le
+          commentaire en dessous. Rien ne disait où le compte commençait ni où il finissait —
+          l'œil lisait une colonne de valeurs sans regroupement, et un intitulé en petites capitales
+          ne suffit pas à tenir quatre lignes ensemble.
+
+          LE CADRE FAIT LE TRAVAIL : une bordure, un fond légèrement teinté, un en-tête qui porte le
+          nom du compte, et les champs rangés dessous sur un fond plus clair. Les lignes ne flottent
+          plus, elles appartiennent à quelque chose.
+
+          LE NOM MONTE DANS L'EN-TÊTE plutôt que de rester une ligne parmi les autres : c'est le
+          titre de la zone, pas un champ. Et il devient cliquable — depuis cette fiche on va souvent
+          voir le compte. */}
+      <div className="overflow-hidden rounded-km border border-km-line">
+        <div className="flex items-baseline gap-2 border-b border-km-line bg-km-bg px-3 py-2">
+          <h4 className="shrink-0 font-mono text-km-micro uppercase tracking-[0.14em] text-km-muted">Compte</h4>
+          <span className="min-w-0 flex-1 truncate text-right text-km-body font-medium text-km-text">
+            {detail?.compte
+              ? (detail.compte.id
+                ? <EntityLink to={`/comptes/${detail.compte.id}`}>{detail.compte.nom}</EntityLink>
+                : detail.compte.nom)
+              : <span className="text-km-faint">aucun</span>}
+          </span>
+        </div>
+
         {detail?.compte ? (
-          <>
-            <p className="text-km-lead font-medium leading-tight">{detail.compte.nom}</p>
-            <div className="mt-1.5">
-              <Ligne libelle="SIREN" valeur={detail.compte.siren ?? <span className="text-km-faint">—</span>} />
-              <Ligne libelle="Adresse" valeur={adresse || <span className="text-km-faint">—</span>} />
-              {detail.compte.code_naf ? (
-                <Ligne
-                  libelle="NAF"
-                  valeur={<>{detail.compte.code_naf}{detail.compte.libelle_ape ? ` · ${detail.compte.libelle_ape}` : ''}</>}
-                />
-              ) : null}
-              {/* LE PARC DÉCLARÉ, pour un syndic seulement : « nb copros + lots moyens » (William).
-                  La moyenne se calcule, elle n'est pas stockée — et elle ne s'affiche que si les
-                  deux nombres existent, sinon elle vaudrait zéro sans le dire. */}
-              {estSyndic && detail.nombre_coproprietes ? (
-                <Ligne
-                  libelle="Parc"
-                  valeur={
-                    <>
-                      {detail.nombre_coproprietes} copropriété{detail.nombre_coproprietes > 1 ? 's' : ''}
-                      {detail.nombre_de_lots
+          <dl className="divide-y divide-km-line-soft">
+            <ChampCompte libelle="SIREN" valeur={detail.compte.siren} mono />
+            <ChampCompte libelle="Adresse" valeur={adresse} />
+            <ChampCompte
+              libelle="NAF"
+              valeur={
+                detail.compte.code_naf
+                  ? `${detail.compte.code_naf}${detail.compte.libelle_ape ? ` · ${detail.compte.libelle_ape}` : ''}`
+                  : null
+              }
+            />
+            {/* LE PARC DÉCLARÉ, pour un syndic seulement : « nb copros + lots moyens » (William).
+                La moyenne se calcule, elle n'est pas stockée — et elle ne s'affiche que si les deux
+                nombres existent, sinon elle vaudrait zéro sans le dire. */}
+            {estSyndic ? (
+              <ChampCompte
+                libelle="Parc"
+                valeur={
+                  detail.nombre_coproprietes
+                    ? `${detail.nombre_coproprietes} copropriété${detail.nombre_coproprietes > 1 ? 's' : ''}`
+                      + (detail.nombre_de_lots
                         ? ` · ${Math.round(detail.nombre_de_lots / detail.nombre_coproprietes)} lots en moyenne`
-                        : ''}
-                    </>
-                  }
-                />
-              ) : null}
-            </div>
-          </>
+                        : '')
+                    : null
+                }
+              />
+            ) : null}
+          </dl>
         ) : (
-          <p className="text-km-body text-km-muted">
+          <p className="px-3 py-2.5 text-km-body text-km-muted">
             {isLoading ? 'Chargement…' : 'Aucun compte rattaché — la piste n’a pas encore été qualifiée.'}
           </p>
         )}
@@ -1612,21 +1713,32 @@ function VoletFiche({ fiche, onSortir }: { fiche: LignePipe; onSortir: (m: 'APPE
 
       <Filet />
 
-      {/* ── QUOI ── */}
+      {/* ══ QUOI — LE COMMENTAIRE, ET L'ÉCHÉANCE DU CONTRAT ══
+
+          DEUX ÉCHÉANCES VIVAIENT SOUS LE MÊME MOT, et le volet en montrait une seule, la mauvaise
+          selon les cas. Sur une opportunité, `prochaine_action_echeance` est la date de la
+          PROCHAINE TÂCHE ; sur une piste, `echeance_actuelle` est la fin du CONTRAT en place. Deux
+          faits sans rapport, affichés sous l'intitulé « Échéance ».
+
+          Depuis que la zone « À faire aujourd'hui » porte la tâche et sa date, celle-ci n'a plus à
+          être répétée ici — et la répéter aurait été pire que redondant : les deux dates peuvent
+          diverger, et l'écran aurait affiché deux échéances contradictoires à dix centimètres
+          d'écart. Ne reste donc que l'échéance du contrat, celle qui dit QUAND il faudra
+          renégocier, et qui est nommée pour ce qu'elle est. */}
       <div>
-        <h4 className="mb-1 font-mono text-km-micro uppercase tracking-[0.14em] text-km-muted">Commentaire et échéance</h4>
+        <h4 className="mb-1 font-mono text-km-micro uppercase tracking-[0.14em] text-km-muted">Commentaire</h4>
         <p className="text-km-body">
           {detail?.commentaire || fiche.commentaire || <span className="text-km-faint">Aucun commentaire</span>}
         </p>
-        <div className="mt-1.5">
-          <Ligne
-            libelle="Échéance"
-            valeur={
-              detail?.echeance || fiche.echeance
-                ? <span className={fiche.en_retard ? 'font-medium text-km-amber' : ''}>{detail?.echeance ?? fiche.echeance}</span>
-                : <span className="text-km-faint">inconnue</span>
-            }
-          />
+        <div className="mt-2 flex items-baseline justify-between gap-3 border-t border-km-line-soft pt-1.5">
+          <span className="shrink-0 font-mono text-km-micro uppercase tracking-[0.1em] text-km-muted">
+            Échéance contrat
+          </span>
+          <span className="min-w-0 text-right text-km-body">
+            {echeanceContrat
+              ? new Date(echeanceContrat).toLocaleDateString('fr-FR')
+              : <span className="text-km-faint">inconnue</span>}
+          </span>
         </div>
       </div>
 
@@ -1670,17 +1782,95 @@ function VoletFiche({ fiche, onSortir }: { fiche: LignePipe; onSortir: (m: 'APPE
 
       </div>
 
-      {/* LES TROIS GESTES RESTENT AU PIED, hors du défilement : une fiche à quarante compteurs les
-          poussait hors de l'écran, et ce sont eux qui closent l'appel. */}
-      <div className="flex flex-wrap items-center gap-2 border-t border-km-line bg-km-surface p-4">
-        <Button className="flex-1" onClick={() => onSortir('REPORTE')}>Reporter</Button>
-        <Button variant="danger" className="flex-1" onClick={() => onSortir('ECARTE')}>Écarter</Button>
-        <EntityLink
-          to={estPiste ? `/pistes/${fiche.cible_id}` : `/opportunites/${fiche.cible_id}`}
-          className="w-full text-center"
-        >
-          Ouvrir la fiche
-        </EntityLink>
+      {/* ══════════ LE PIED : REPORTER, ET OUVRIR LA FICHE ══════════
+
+          William, 22/09/2026 : « au clic sur le bouton Reporter, on te propose de modifier
+          l'échéance de la tâche prévue et on te demande une nouvelle date. Garde aussi un bouton
+          Ouvrir la fiche mais supprime le bouton Écarter. »
+
+          ══ REPORTER DÉPLACE LA TÂCHE, IL NE SORT PLUS LA LIGNE ══
+
+          Le bouton appelait `sortir_du_pipe` avec le motif REPORTE : la ligne quittait l'écran et
+          la tâche, elle, restait due aujourd'hui. On se retrouvait donc le lendemain avec la même
+          tâche en retard, sans trace du report. Reporter veut dire déplacer l'échéance — et comme
+          le plan du jour se construit désormais sur les tâches, déplacer l'échéance fait sortir la
+          ligne de lui-même.
+
+          ══ ATTENTION AU FUSEAU, ET C'EST DÉJÀ RÉGLÉ ══
+
+          « On m'a fait remonter de nouveau des problèmes de tâches avec des dates enregistrées de
+          J-1. » Le piège est connu : une chaîne `2026-09-22` envoyée telle quelle devient minuit
+          UTC, et une lecture en UTC d'un minuit parisien rend la veille. `MenuReport` et
+          `useGestesTache` composent l'instant avec `instantTache`, qui part de l'heure LOCALE —
+          c'est le chemin déjà éprouvé de la page Tâches et de « Ma journée ». Rien n'est
+          réimplémenté ici, précisément pour ne pas rouvrir le trou.
+
+          ══ « ÉCARTER » EST SUPPRIMÉ ══
+
+          Il sortait la ligne sans rien décider : la tâche restait due, le dossier revenait le
+          lendemain. Il donnait l'illusion d'un classement sans en être un. */}
+      <div className="shrink-0 border-t border-km-line bg-km-surface p-4">
+        {reportOuvert && detail?.tache ? (
+          <MenuReport
+            className="mb-2.5 border-t-0 pt-0"
+            echeance={detail.tache.date_prevue}
+            onReporterPreset={(r) => {
+              reporter(detail.tache!.id, detail.tache!.date_prevue, r)
+              setReportOuvert(false)
+            }}
+            onReporterDate={(instant) => {
+              reporterA(detail.tache!.id, instant)
+              setReportOuvert(false)
+            }}
+          />
+        ) : null}
+
+        {/* ══ DEUX VRAIS BOUTONS, DE MÊME POIDS ══
+
+            William, 22/09/2026 : « je veux de vrais boutons en bas avec un design associé, par
+            exemple "Ouvrir la fiche" est juste un texte souligné ».
+
+            `EntityLink` dessine un lien de navigation — souligné, sans hauteur ni fond. Placé à
+            côté d'un bouton, il ne se lisait pas comme une action mais comme une note de bas de
+            page, alors que c'est l'un des deux gestes qui closent l'appel.
+
+            IL RESTE UN LIEN DANS LE HTML, et c'est délibéré : on ouvre souvent la fiche dans un
+            nouvel onglet, au clic milieu ou au ctrl-clic, et un `<button>` qui navigue casserait
+            les deux. Ce sont les CLASSES du bouton qui lui sont appliquées, via `buttonVariants`.
+
+            AUCUN DES DEUX N'EST VERT : « Appeler » l'est, juste au-dessus, et c'est l'action
+            principale du volet. Deux verts de plus et le vert ne dirait plus rien. Ils prennent
+            donc la variante neutre, en `lg` — 36 px de haut, la taille d'un pied de volet — et
+            chacun son icône pour se distinguer d'un coup d'œil.
+
+            LE REPORT OUVERT CHANGE LE BOUTON, pas seulement son libellé : fond vert pâle, bordure
+            verte, icône barrée — on voit d'où vient le panneau déplié au-dessus. La BORDURE EST
+            CONSERVÉE dans cet état, contrairement à la variante `subtle` : sans elle, le bouton
+            perdait son contour pendant que son voisin gardait le sien, et la paire se déséquilibrait
+            au moment précis où l'on regarde le pied. */}
+        <div className="grid grid-cols-2 gap-2">
+          <Button
+            size="lg"
+            className={cn(reportOuvert && 'border-km-green-line bg-km-green-soft text-km-green hover:bg-km-green-soft')}
+            aria-expanded={reportOuvert}
+            disabled={!detail?.tache}
+            title={detail?.tache
+              ? 'Choisir une nouvelle échéance pour la tâche du jour'
+              : 'Aucune tâche à reporter sur cette fiche'}
+            onClick={() => setReportOuvert((v) => !v)}
+          >
+            {reportOuvert
+              ? <><CalendarX className="h-4 w-4" aria-hidden="true" />Annuler</>
+              : <><CalendarClock className="h-4 w-4" aria-hidden="true" />Reporter</>}
+          </Button>
+          <Link
+            to={estPiste ? `/pistes/${fiche.cible_id}` : `/opportunites/${fiche.cible_id}`}
+            className={cn(buttonVariants({ size: 'lg' }), 'w-full')}
+          >
+            <ArrowUpRight className="h-4 w-4" aria-hidden="true" />
+            Ouvrir la fiche
+          </Link>
+        </div>
       </div>
     </>
   )

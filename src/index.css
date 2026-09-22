@@ -60,6 +60,39 @@
     /* Éclairci après mesure : à #747F79 le contraste tombait à 3,6 sur l'anthracite, en dessous
        du 4,5 exigé pour du petit texte. #86918B le porte à 4,6 sans changer de teinte. */
     --km-side-faint: 134 145 139; /* #86918B — les intitulés de rubrique */
+    /* ══ LE VERT DU FOND SOMBRE, ET POURQUOI IL EN FAUT UN SECOND ══
+     *
+     * William, 22/09/2026, sur le mode sprint : « le vert est trop foncé pour ressortir
+     * correctement par rapport au fond ».
+     *
+     * C'EST MESURABLE, ET IL A RAISON : `--km-green` (#0D7A5F) sur `--km-side` (#222825) donne un
+     * contraste de 2,85:1. Le seuil pour du texte est 4,5. Le vert d'action de la page, pensé pour
+     * du blanc, devient presque invisible sur l'anthracite — il se lit comme une nuance du fond.
+     *
+     * #2FCB9E est le MÊME VERT, éclairci : teinte 163° contre 165°, donc la marque ne change pas
+     * de couleur, elle change de luminosité. Contraste 7,3:1 sur l'anthracite.
+     *
+     * IL NE SERT QUE SUR FOND SOMBRE. Sur du blanc il tomberait à 2,1:1 — c'est exactement le même
+     * piège dans l'autre sens. La règle est donc : `km-green` sur la page, `km-side-green` sur le
+     * rail et le sprint. */
+    --km-side-green: 47 203 158;   /* #2FCB9E — 7,3:1 sur l'anthracite */
+    --km-side-green-soft: 47 203 158; /* même teinte, employée en fond translucide */
+    /* LE ROUGE A EXACTEMENT LE MÊME DÉFAUT QUE LE VERT sur fond sombre : `--km-red` (#B85145) n'y
+     * donne que 3,08:1, en dessous des 4,5 exigés pour du texte. #E9736A est le même rouge éclairci
+     * — teinte 4° contre 6° — et monte à 5,1:1. Un texte sombre posé dessus donne 6,1:1, comme sur
+     * le vert vif : les deux boutons vifs du sprint se lisent donc de la même façon. */
+    --km-side-red: 233 115 106;   /* #E9736A — 5,1:1 sur l'anthracite */
+    /* ══ DEUX TEINTES DE PLUS, POUR DISTINGUER LES NATURES DU FIL D'ACTIVITÉ ══
+       William, 22/09/2026 : « les mails doivent avoir un code couleur très différenciant, et les
+       notes également ; c'est trop fade et indifférencié ».
+
+       ELLES SONT MESURÉES, PAS CHOISIES À L'ŒIL. Le contraste a été calculé sur les deux fonds du
+       volet (#222825 et #191E1B) avant d'être retenu — c'est ce qui a révélé au passage que
+       `--km-amber` (#A06B19), employé jusqu'ici dans le sprint, n'y tient que 3,3:1 : il échoue au
+       niveau AA. Il vient de la palette du thème clair, où il est juste ; posé sur l'anthracite, il
+       ne l'est plus. */
+    --km-side-blue: 111 179 232;  /* #6FB3E8 — 6,6:1 sur l'anthracite — les mails */
+    --km-side-amber: 227 176 75;  /* #E3B04B — 7,6:1 sur l'anthracite — les notes, les alertes */
     --km-surface: 255 255 255;  /* #FFFFFF — carte, tableau */
     --km-soft: 243 245 242;     /* #F3F5F2 — en-tête de tableau, survol */
     --km-line: 224 229 225;     /* #E0E5E1 — bordures */

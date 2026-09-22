@@ -36,6 +36,42 @@ import { useMonProfil, emailAllo } from '@/lib/data/roles'
 /** Les quatre valeurs, bornées en base par `appels_en_cours_qualification_check`. */
 export type Qualification = 'HUMAIN' | 'REPONDEUR' | 'SERVEUR_VOCAL' | 'PAS_DE_REPONSE'
 
+/** À qui l'on a parlé, quand quelqu'un a décroché. */
+export type Interlocuteur = 'CONTACT' | 'AUTRE'
+
+/**
+ * CE QUE L'APPEL DONNE. L'ordre est celui de la liste de William, du plus positif au plus négatif —
+ * c'est aussi celui dans lequel les boutons s'affichent, pour que la main aille toujours au même
+ * endroit chercher la même réponse.
+ */
+export type IssueAppel =
+  | 'FACTURES' | 'INTERESSE' | 'INDIFFERENT' | 'PAS_LE_BON_MOMENT' | 'DEJA_RENEGOCIE' | 'REFUS'
+
+/**
+ * Ce que chaque code veut dire à l'écran.
+ *
+ * IL VIT ICI ET NULLE PART AILLEURS. La base ne stocke que des codes (contrainte
+ * `appels_en_cours_issue_check`) ; deux écrans les traduisaient déjà, et un troisième — le fil
+ * d'activité — allait le faire à son tour. Trois tables de correspondance finissent par diverger,
+ * et c'est toujours celle qu'on ne regarde pas qui se trompe.
+ */
+export const LIBELLE_ISSUE: Record<IssueAppel, string> = {
+  FACTURES: 'OK pour envoyer ses factures',
+  INTERESSE: 'Intéressé',
+  INDIFFERENT: 'Indifférent',
+  PAS_LE_BON_MOMENT: 'Pas le bon moment',
+  DEJA_RENEGOCIE: 'A déjà renégocié',
+  REFUS: 'Refus clair',
+}
+
+/** Qui a décroché, en toutes lettres. */
+export const LIBELLE_QUALIFICATION: Record<Qualification, string> = {
+  HUMAIN: 'Quelqu’un a répondu',
+  REPONDEUR: 'Tombé sur le répondeur',
+  SERVEUR_VOCAL: 'Serveur vocal',
+  PAS_DE_REPONSE: 'Sans réponse',
+}
+
 export interface AppelEnCours {
   id: string
   user_email: string
@@ -57,6 +93,11 @@ export interface AppelEnCours {
   qualification: Qualification | null
   /** Quand la carte a ete fermee sans repondre. Voir migration 20260922123000. */
   ecarte_le: string | null
+  /* ── LES QUATRE FAITS DE LA QUALIFICATION (migration du 22/09/2026) ── */
+  interlocuteur: Interlocuteur | null
+  interlocuteur_nom: string | null
+  aura: number | null
+  issue: IssueAppel | null
 }
 
 /** Quatre secondes : assez pour que la carte paraisse instantanée, assez peu pour ne rien coûter. */
@@ -258,14 +299,34 @@ export function useQualifierAppel() {
   const { data: profil } = useMonProfil()
 
   return useMutation({
-    mutationFn: async ({ id, qualification }: { id: string; qualification: Qualification }) => {
+    /**
+     * ══ UN PATCH PARTIEL, ENVOYÉ À CHAQUE CLIC ══
+     *
+     * Le parcours de qualification se fait pendant ou juste après l'appel, et il peut s'interrompre
+     * à tout moment : le téléphone resonne, la fiche suivante s'ouvre, l'onglet se ferme. Chaque
+     * réponse part donc seule, dès qu'elle est donnée. Attendre la fin du parcours pour tout écrire
+     * perdrait les trois premiers clics quand le quatrième n'arrive pas — et c'est le cas le plus
+     * fréquent, pas le cas rare.
+     *
+     * `qualifie_le` NE S'ÉCRIT QU'AVEC LA QUALIFICATION elle-même : c'est elle qui marque l'appel
+     * comme traité. Une aura posée seule ne doit pas faire croire que le reste a été rempli.
+     */
+    mutationFn: async ({ id, ...patch }: {
+      id: string
+      qualification?: Qualification
+      interlocuteur?: Interlocuteur | null
+      interlocuteur_nom?: string | null
+      aura?: number | null
+      issue?: IssueAppel | null
+    }) => {
+      const champs: Record<string, unknown> = { ...patch }
+      if (patch.qualification) {
+        champs.qualifie_le = new Date().toISOString()
+        champs.qualifie_par = (profil?.id as string | undefined) ?? null
+      }
       const { error } = await supabase
         .from('appels_en_cours')
-        .update({
-          qualification,
-          qualifie_le: new Date().toISOString(),
-          qualifie_par: (profil?.id as string | undefined) ?? null,
-        })
+        .update(champs)
         .eq('id', id)
       if (error) throw new Error(error.message)
     },
@@ -277,10 +338,14 @@ export function useQualifierAppel() {
      *
      * On peint donc le cache tout de suite. `onSettled` relit ensuite : si l'écriture a échoué, la
      * relecture remet la vérité, et le bouton reprend son état. */
-    onMutate: ({ id, qualification }) => {
+    onMutate: ({ id, ...patch }) => {
+      /* ON NE PEINT QUE CE QUI EST DIT. Depuis que le patch est partiel, un clic peut ne porter que
+         l'aura ou l'issue : recopier `qualification` telle quelle y écrirait alors `undefined` et
+         effacerait du cache une réponse déjà donnée. On fusionne donc les seules clés présentes —
+         ce qui peint aussi bien l'aura et l'issue, que Naoëlle voyait arriver en différé. */
       queryClient.setQueriesData<AppelEnCours | null>(
         { queryKey: ['appel-en-cours'] },
-        (ancien) => (ancien && ancien.id === id ? { ...ancien, qualification } : ancien),
+        (ancien) => (ancien && ancien.id === id ? { ...ancien, ...patch } : ancien),
       )
     },
     onSettled: () => {

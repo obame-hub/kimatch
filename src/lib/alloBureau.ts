@@ -117,3 +117,69 @@ function ouvrirProtocole(url: string) {
        copié, qui est le seul comportement dont on soit sûr. */
   }
 }
+
+/**
+ * ════════════════════════════════════════════════════════════════════════════════════════════════
+ * LE LANCEUR DU SPRINT — DEUX PROTOCOLES, DANS LE GESTE DU CLIC, SANS LE VOLET
+ * ════════════════════════════════════════════════════════════════════════════════════════════════
+ *
+ * William, 22/09/2026 : « je ne veux pas utiliser la fenêtre Allô ou quoi que ce soit, je veux
+ * utiliser l'application desktop de Allô installée sur mon ordinateur. »
+ *
+ * ══ CE QUE SA SPÉCIFICATION LOVABLE APPREND, ET QUE NOUS AVIONS ÉCARTÉ ══
+ *
+ * Il a fourni le même jour la spécification d'une application d'appel qui MARCHAIT avec Allô. Son
+ * lanceur n'utilise pas `allo://` : il utilise **`tel:`**, et il le fait deux fois — un `<a>`
+ * inséré dans le DOM puis cliqué, PUIS `window.location.href`, parce que certains navigateurs
+ * ignorent l'un ou l'autre.
+ *
+ * Kimatch réservait `tel:` aux appareils tactiles depuis le 26/08/2026, après que Chrome eut
+ * ouvert « Sélectionner une application » sur le poste de Naoëlle. Cette observation reste vraie —
+ * mais elle dit que SON poste n'avait pas Allô enregistré pour `tel:`, pas que le chemin est
+ * mauvais. C'est un réglage de système d'exploitation, pas une propriété du code.
+ *
+ * ══ UN SEUL PROTOCOLE, ET C'EST `tel:` — CORRIGÉ LE 22/09/2026 ══
+ *
+ * J'avais d'abord déclenché `allo://` PUIS `tel:`, en me disant qu'aucun ne coûtait rien. C'était
+ * une erreur de raisonnement : trois navigations de protocole enchaînées dans le même geste ne
+ * sont pas gratuites, le navigateur peut n'en honorer qu'une — et rien ne dit laquelle. La
+ * spécification de William n'en déclenche qu'un, et c'est celle qui marchait.
+ *
+ * `tel:` EST AUSSI LE MEILLEUR CHEMIN DANS LEUR CODE, lu ce jour dans l'application installée
+ * (`/Applications/Allo.app`, version 3.47.0). Les deux protocoles n'aboutissent pas au même
+ * endroit : `allo://call` émet `open-url/alloCall`, consommé par un seul composant du routeur ;
+ * `tel:` émet `open-url/tel`, qui est lu à deux endroits et qui, à plusieurs lignes, ouvre une
+ * invite de choix ET RAMÈNE LA FENÊTRE AU PREMIER PLAN (`showMainWindow`). C'est le chemin le
+ * plus visible, donc le plus sûr.
+ *
+ * TOUT EST SYNCHRONE, et c'est le piège numéro un de sa liste : « `tel:` après un `await` → Allô
+ * ne s'ouvre pas sur Safari/macOS/iOS. Le déclenchement doit être la première instruction du
+ * gestionnaire de clic. »
+ */
+export function lancerAppelBureau(e164: string) {
+  ouvrirProtocole(`tel:${e164}`)
+  try {
+    window.location.href = `tel:${e164}`
+  } catch {
+    /* Ignoré : certains navigateurs refusent l'affectation, le `<a>` cliqué a déjà fait le travail. */
+  }
+}
+
+/**
+ * Ramène l'application de bureau au premier plan, sans composer.
+ *
+ * William, 22/09/2026 : « je sais que je ne peux pas raccrocher depuis Kimatch, mais au moins je
+ * veux que quand je clique sur "Raccrocher", ça ouvre l'application Allô afin de me permettre de
+ * raccrocher depuis l'app. »
+ *
+ * C'est le seul geste honnête que le code puisse rendre ici : leur API n'a aucun contrôle d'appel
+ * — revérifié ce jour avec notre clé, onze routes, toutes en lecture. Un protocole sans paramètre
+ * ACTIVE l'application enregistrée sans rien lui demander d'autre ; le bouton rouge de Kimatch
+ * amène donc le raccroché sous la souris au lieu de le promettre.
+ */
+export function ouvrirAlloBureau() {
+  ouvrirProtocole('allo://')
+}
+
+/* `ouvrirProtocole` vit plus haut : il existait déjà dans ce fichier, j'en avais écrit un second
+   sans le voir. Une seule forme du `<a>` cliqué, pour tout le monde. */

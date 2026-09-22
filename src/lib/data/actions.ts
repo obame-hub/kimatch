@@ -227,6 +227,16 @@ interface CreateActionInput {
   requete_id?: string | null
   /** Suivi de contrat — le cinquième rattachement possible d'une tâche. */
   suivi_contrat_id?: string | null
+  /**
+   * Le responsable, quand il n'est pas le créateur.
+   *
+   * William, 22/09/2026 : « toutes les tâches doivent avoir le propriétaire de l'enregistrement
+   * comme responsable ». Le Cockpit le passe donc explicitement : une tâche créée pendant un sprint
+   * appartient au portefeuille de celui qui suit la fiche, pas à celui qui a décroché ce jour-là.
+   * Absent, on retombe sur le créateur — c'est la règle d'origine, et elle reste juste partout
+   * ailleurs.
+   */
+  responsable_profil_id?: string | null
 }
 
 interface CreateActionResult {
@@ -292,7 +302,8 @@ export function useCreateAction() {
           priorite: input.priorite,
           date_prevue: input.echeance,
           commentaire: input.commentaire,
-          ...(moi ? { responsable_profil_id: moi, proprietaire_id: moi } : {}),
+          ...(moi ? { proprietaire_id: moi } : {}),
+          ...(input.responsable_profil_id ?? moi ? { responsable_profil_id: input.responsable_profil_id ?? moi } : {}),
           ...(input.recommandation_id ? { recommandation_id: input.recommandation_id } : {}),
           ...(input.opportunite_id ? { opportunite_id: input.opportunite_id } : {}),
           ...(input.piste_id ? { piste_id: input.piste_id } : {}),

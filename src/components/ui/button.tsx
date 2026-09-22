@@ -23,7 +23,17 @@ import { cn } from '@/lib/utils'
  * `focus-visible` et non `focus` : l'anneau apparaît à la tabulation, pas au clic à la souris —
  * où il ressemble à un défaut d'affichage.
  */
-const buttonVariants = cva(
+/**
+ * LES CLASSES DU BOUTON, EXPORTÉES POUR CE QUI N'EST PAS UN `<button>`.
+ *
+ * Un lien de navigation qui doit AVOIR L'AIR d'un bouton doit rester un `<a>` : le clic milieu,
+ * « ouvrir dans un nouvel onglet » et l'aperçu de l'URL en bas de l'écran en dépendent. Lui coller
+ * un `onClick={() => navigate(...)}` sur un vrai `<button>` supprimerait les trois.
+ *
+ * On applique donc les mêmes classes à un `<Link>` — c'est ce qui permet à « Ouvrir la fiche » de
+ * peser exactement autant que « Reporter » à côté de lui, sans dupliquer la palette.
+ */
+export const buttonVariants = cva(
   'inline-flex items-center justify-center gap-1.5 whitespace-nowrap rounded-km font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-km-green focus-visible:ring-offset-1 disabled:pointer-events-none disabled:opacity-45',
   {
     variants: {

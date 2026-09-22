@@ -1,6 +1,9 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { supabase } from '@/lib/supabase'
+import { authHeaderJson } from '@/lib/data/authHeader'
 import { useMonProfil } from '@/lib/data/roles'
+import type { Valence } from '@/lib/santeRelation'
+import type { Interlocuteur, IssueAppel, Qualification } from '@/lib/data/appelEnCours'
 
 /**
  * ════════════════════════════════════════════════════════════════════════════════════════════════
@@ -55,6 +58,8 @@ export interface LignePipe {
   segment: string | null
   telephone: string | null
   telephone_mobile: string | null
+  /** L'adresse du contact — celle de la piste, ou celle du contact rattaché à l'opportunité. */
+  email: string | null
   /** `null` veut dire « pas d'heure » : une tâche à minuit n'en a pas (voir `heureTache.ts`). */
   heure: string | null
   en_retard: boolean
@@ -70,6 +75,16 @@ export interface LignePipe {
   dernier_echange: string | null
   /** Ce qui s'est dit : le résumé du commercial, ou celui d'Allo à défaut. */
   dernier_resume: string | null
+  /**
+   * LA TÂCHE QUI A FAIT ENTRER CETTE LIGNE, en toutes lettres (migration du 22/09/2026).
+   *
+   * `taches_ouvertes` en donnait le NOMBRE, et « 1 tâche ouverte » ne dit pas quoi faire. C'est
+   * pourtant la seule chose qu'on a besoin de savoir avant de décrocher, et le sprint devait
+   * ouvrir la fiche pour l'obtenir.
+   */
+  tache_titre: string | null
+  /** L'instant complet, pas une date : `heureTache.ts` sait dire s'il porte une heure. */
+  tache_echeance: string | null
 }
 
 export type SourcePipe =
@@ -465,6 +480,10 @@ export function useMesPistes(avecCloses = false) {
  */
 export interface FicheDetaillee {
   statut: string | null
+  /** Le CODE du statut, pas son libellé : c'est lui qui commande le parcours de prospection. */
+  statut_code: string | null
+  /** Le propriétaire de l'enregistrement — c'est lui qui devient responsable des tâches créées. */
+  proprietaire_id: string | null
   civilite: string | null
   prenom: string | null
   nom: string | null
@@ -479,6 +498,10 @@ export interface FicheDetaillee {
     id: string
     nom: string
     siren: string | null
+    /* Demandé nommément par William pour l'onglet Société : le SIREN identifie l'entreprise, le
+       SIRET l'établissement. Sur un syndic multi-agences, c'est le second qui dit lequel. */
+    siret: string | null
+    site_web: string | null
     rue: string | null
     code_postal: string | null
     ville: string | null
@@ -492,8 +515,39 @@ export interface FicheDetaillee {
   nombre_coproprietes: number | null
   nombre_de_lots: number | null
   liste_coproprietes: string | null
-  /** Opportunité : les points de livraison de son périmètre. */
-  compteurs: { id: string; numero_point: string; libelle: string | null; consommation: number | null }[]
+  /**
+   * Opportunité : les points de livraison de son périmètre.
+   *
+   * William, 22/09/2026, sur l'onglet Périmètre : « des cards pour chaque compteur avec le
+   * libellé, le numéro, l'énergie, la consommation annuelle, client ou prospect, l'échéance et le
+   * fournisseur ». `est_client` se lit sur la nature de l'échéance — même définition que le vivier
+   * et que l'onglet Périmètre d'une recommandation : PROUVEE veut dire qu'un contrat Kiwee actif
+   * couvre ce point.
+   */
+  compteurs: {
+    id: string
+    numero_point: string
+    libelle: string | null
+    energie: string | null
+    consommation: number | null
+    est_client: boolean
+    date_echeance: string | null
+    fournisseur: string | null
+  }[]
+  /**
+   * ══ LA TÂCHE QUI A MIS CETTE LIGNE DANS LE PLAN DU JOUR ══
+   *
+   * William, 22/09/2026 : « ajoute la tâche qui est censée être faite ce jour. Je veux que tu
+   * m'affiches le libellé ainsi que l'échéance. »
+   *
+   * C'EST EXACTEMENT LA MÊME RÈGLE QUE `lister_pipe_du_jour` : ouverte, à moi ou à personne, prévue
+   * aujourd'hui ou en retard, la plus ancienne d'abord. Depuis la migration du 21/09/2026, aucune
+   * ligne du pipe n'existe sans elle — c'est ce qui rend l'affichage fiable plutôt que décoratif.
+   *
+   * La comparaison de jour se fait EN HEURE LOCALE, jamais sur la chaîne ISO : une échéance sans
+   * heure vaut minuit à Paris, donc 22 h UTC la veille, et `slice(0, 10)` la daterait de J-1.
+   */
+  tache: { id: string; titre: string; date_prevue: string | null; type: string | null } | null
 }
 
 export function useFichePipe(ligne: LignePipe | null) {
@@ -505,10 +559,11 @@ export function useFichePipe(ligne: LignePipe | null) {
       if (!ligne) return null
 
       const vide = {
-        statut: null, civilite: null, prenom: null, nom: null, fonction: null, email: null,
+        statut: null, statut_code: null, proprietaire_id: null,
+        civilite: null, prenom: null, nom: null, fonction: null, email: null,
         telephone: null, telephone_mobile: null, commentaire: null, echeance: null, compte: null,
         segment: null, nombre_coproprietes: null, nombre_de_lots: null, liste_coproprietes: null,
-        compteurs: [],
+        compteurs: [], tache: null,
       } as FicheDetaillee
 
       let base: FicheDetaillee = vide
@@ -519,9 +574,10 @@ export function useFichePipe(ligne: LignePipe | null) {
           .from('pistes')
           .select(
             'civilite, prenom, nom, contact_nom, fonction, email, telephone, telephone_mobile,'
-            + ' commentaire, echeance_actuelle, segment, siren, rue, code_postal, ville, code_naf,'
-            + ' nombre_coproprietes, nombre_de_lots, liste_coproprietes, compte_id,'
-            + ' statut:statuts_pistes(libelle)',
+            + ' commentaire, echeance_actuelle, segment, societe, siren, siret, site_internet,'
+            + ' site_web, rue, code_postal, ville, code_naf,'
+            + ' nombre_coproprietes, nombre_de_lots, liste_coproprietes, compte_id, proprietaire_id,'
+            + ' statut:statuts_pistes(code, libelle)',
           )
           .eq('id', ligne.cible_id)
           .maybeSingle()
@@ -532,6 +588,8 @@ export function useFichePipe(ligne: LignePipe | null) {
         base = {
           ...vide,
           statut: p.statut?.libelle ?? null,
+          statut_code: p.statut?.code ?? null,
+          proprietaire_id: p.proprietaire_id ?? null,
           civilite: p.civilite ?? null,
           /* `contact_nom` EST LE REPLI : 4 490 pistes viennent d'imports qui n'ont jamais séparé le
              prénom du nom. Afficher « — » là où le nom existe en un seul morceau serait absurde. */
@@ -549,9 +607,10 @@ export function useFichePipe(ligne: LignePipe | null) {
           liste_coproprietes: p.liste_coproprietes ?? null,
           /* SANS COMPTE, LA PISTE PORTE ELLE-MÊME SON ADRESSE ET SON SIREN : c'est le cas ordinaire,
              une piste vit avant que le compte n'existe. On les présente au même endroit. */
-          compte: p.compte_id ? null : (p.siren || p.rue || p.ville || p.code_naf)
+          compte: p.compte_id ? null : (p.societe || p.siren || p.siret || p.rue || p.ville || p.code_naf)
             ? {
-              id: '', nom: '—', siren: p.siren ?? null, rue: p.rue ?? null,
+              id: '', nom: p.societe ?? '—', siren: p.siren ?? null, siret: p.siret ?? null,
+              site_web: p.site_internet ?? p.site_web ?? null, rue: p.rue ?? null,
               code_postal: p.code_postal ?? null, ville: p.ville ?? null,
               code_naf: p.code_naf ?? null, libelle_ape: null, segment: p.segment ?? null,
             }
@@ -561,8 +620,8 @@ export function useFichePipe(ligne: LignePipe | null) {
         const { data } = await supabase
           .from('opportunites')
           .select(
-            'commentaire, prochaine_action_echeance, compte_id, contact_id,'
-            + ' statut:statuts_opportunites(libelle),'
+            'commentaire, prochaine_action_echeance, compte_id, contact_id, proprietaire_id,'
+            + ' statut:statuts_opportunites(code, libelle),'
             + ' contact:contacts(civilite, prenom, nom, fonction, email, telephone, telephone_mobile)',
           )
           .eq('id', ligne.cible_id)
@@ -574,6 +633,8 @@ export function useFichePipe(ligne: LignePipe | null) {
         base = {
           ...vide,
           statut: o.statut?.libelle ?? null,
+          statut_code: o.statut?.code ?? null,
+          proprietaire_id: o.proprietaire_id ?? null,
           civilite: o.contact?.civilite ?? null,
           prenom: o.contact?.prenom ?? null,
           nom: o.contact?.nom ?? null,
@@ -585,32 +646,103 @@ export function useFichePipe(ligne: LignePipe | null) {
           echeance: o.prochaine_action_echeance ?? ligne.echeance,
         }
 
-        /* LE PÉRIMÈTRE, à la demande de William. Il ne se lit que sur l'opportunité : une piste n'a
-           pas de compteurs, elle n'a pas encore de parc connu. */
-        const { data: pdl } = await supabase
+        /* ── LE PÉRIMÈTRE, COMPTEUR PAR COMPTEUR ──
+
+           Il ne se lit que sur l'opportunité : une piste n'a pas de compteurs, elle n'a pas encore
+           de parc connu — c'est même la raison d'être du cockpit sur une piste, obtenir la facture
+           qui le fera exister.
+
+           ON PASSE PAR `v_echeances_a_traiter` ET NON PAR `compteurs` : la vue porte déjà le code
+           énergie, l'échéance retenue et surtout SA NATURE, d'où se déduit client ou prospect. La
+           calculer ici en aurait fait une seconde définition, qui aurait fini par diverger de celle
+           du vivier et de l'onglet Périmètre d'une recommandation. Le fournisseur sortant, lui, vit
+           sur `compteurs` et demande la seconde lecture (voir `useCompteursEligibles`). */
+        const { data: liaisons } = await supabase
           .from('opportunites_compteurs')
-          .select('compteur:compteurs(id, numero_point, localisation_site, libelle_site, consommation_annuelle_mwh)')
+          .select('compteur_id')
           .eq('opportunite_id', ligne.cible_id)
           .limit(60)
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        base.compteurs = ((pdl ?? []) as any[])
-          .map((l) => l.compteur)
+        const idsCompteurs = ((liaisons ?? []) as { compteur_id: string }[])
+          .map((l) => l.compteur_id)
           .filter(Boolean)
-          .map((c: Record<string, unknown>) => ({
-            id: c.id as string,
-            numero_point: (c.numero_point as string) ?? '—',
-            libelle: (c.localisation_site as string) ?? (c.libelle_site as string) ?? null,
-            consommation: (c.consommation_annuelle_mwh as number) ?? null,
-          }))
+
+        if (idsCompteurs.length > 0) {
+          const [{ data: pdl }, { data: sortants }] = await Promise.all([
+            supabase
+              .from('v_echeances_a_traiter')
+              .select('compteur_id, numero_point, site_nom, type_energie_code, consommation_annuelle_mwh, date_echeance, nature_echeance')
+              .in('compteur_id', idsCompteurs),
+            supabase
+              .from('compteurs')
+              .select('id, libelle, fournisseur:comptes!compteurs_fournisseur_actuel_compte_id_fkey(nom)')
+              .in('id', idsCompteurs),
+          ])
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          const annexe = new Map(((sortants ?? []) as any[]).map((c) => [
+            c.id as string,
+            { libelle: (c.libelle ?? null) as string | null, fournisseur: (c.fournisseur?.nom ?? null) as string | null },
+          ]))
+
+          base.compteurs = ((pdl ?? []) as Record<string, unknown>[])
+            .map((c) => {
+              const plus = annexe.get(c.compteur_id as string)
+              return {
+                id: c.compteur_id as string,
+                numero_point: (c.numero_point as string) ?? '—',
+                libelle: (c.site_nom as string) ?? plus?.libelle ?? null,
+                energie: (c.type_energie_code as string) ?? null,
+                consommation: (c.consommation_annuelle_mwh as number) ?? null,
+                est_client: c.nature_echeance === 'PROUVEE',
+                date_echeance: (c.date_echeance as string) ?? null,
+                fournisseur: plus?.fournisseur ?? null,
+              }
+            })
+            /* L'ÉCHÉANCE LA PLUS PROCHE D'ABORD : c'est elle qui décide de l'urgence du périmètre.
+               Celles qu'on ignore ferment la marche — elles ne pressent pas, elles manquent. */
+            .sort((a, b) => (a.date_echeance ?? '9999').localeCompare(b.date_echeance ?? '9999'))
+        }
       }
 
       if (compteId) {
         const { data: cp } = await supabase
           .from('comptes')
-          .select('id, nom, siren, rue, code_postal, ville, code_naf, libelle_ape, segment')
+          .select('id, nom, siren, siret, site_web, rue, code_postal, ville, code_naf, libelle_ape, segment')
           .eq('id', compteId)
           .maybeSingle()
         if (cp) base.compte = cp as FicheDetaillee['compte']
+      }
+
+      /* ── LA TÂCHE DU JOUR ──
+         `moi` sert à écarter la tâche d'un collègue : le plan du jour est personnel. Une tâche sans
+         responsable compte pour tout le monde — 276 des 762 tâches ouvertes sont dans ce cas, les
+         ignorer aurait laissé la zone vide sur un tiers des lignes. */
+      const moi = (await supabase.auth.getUser()).data.user?.id ?? null
+      const colonne = ligne.cible_type === 'PISTE' ? 'piste_id' : 'opportunite_id'
+      const { data: taches } = await supabase
+        .from('actions')
+        .select('id, titre, date_prevue, responsable_profil_id, type_action:types_actions(libelle), statut:statuts_actions(code)')
+        .eq(colonne, ligne.cible_id)
+        .eq('actif', true)
+        .not('date_prevue', 'is', null)
+        .order('date_prevue', { ascending: true })
+        .limit(20)
+
+      const finDuJour = new Date()
+      finDuJour.setHours(23, 59, 59, 999)
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const retenue = ((taches ?? []) as any[]).find(
+        (t) =>
+          !['TERMINEE', 'ANNULEE'].includes(t.statut?.code ?? '')
+          && (t.responsable_profil_id == null || t.responsable_profil_id === moi)
+          && new Date(t.date_prevue).getTime() <= finDuJour.getTime(),
+      )
+      if (retenue) {
+        base.tache = {
+          id: retenue.id as string,
+          titre: (retenue.titre as string) ?? 'Tâche sans titre',
+          date_prevue: (retenue.date_prevue as string) ?? null,
+          type: (retenue.type_action?.libelle as string) ?? null,
+        }
       }
 
       return base
@@ -727,6 +859,512 @@ export function useAjouterPistesAuPipe() {
     },
     onSuccess: () => {
       void qc.invalidateQueries({ queryKey: ['cockpit'] })
+    },
+  })
+}
+
+/**
+ * ════════════════════════════════════════════════════════════════════════════════════════════════
+ * CORRIGER UNE FICHE SANS QUITTER LE SPRINT
+ * ════════════════════════════════════════════════════════════════════════════════════════════════
+ *
+ * William, 22/09/2026 : « dans Cockpit, depuis le sprint, tous les champs doivent être
+ * modifiables ! »
+ *
+ * C'EST LE MOMENT OÙ L'ON APPREND LA VÉRITÉ. Au téléphone, l'interlocuteur corrige son prénom,
+ * donne son mail, dit qu'il a changé de fonction. Si Kimatch n'accepte pas la correction là,
+ * maintenant, elle ne sera jamais faite : ouvrir la fiche dans un autre onglet pendant qu'on parle
+ * n'arrive pas. C'est la même règle que les rattachements modifiables partout, appliquée à
+ * l'écran où la donnée se vérifie pour de bon.
+ *
+ * ══ DEUX TABLES DERRIÈRE UN SEUL GESTE ══
+ *
+ * Une piste porte son identité en propre ; une opportunité la tient de son CONTACT rattaché. Le
+ * même champ « fonction » s'écrit donc dans `pistes` ou dans `contacts` selon la ligne. L'écran
+ * n'a pas à le savoir — il dit quel champ, cette fonction dit où.
+ *
+ * `societe` N'A PAS D'ÉQUIVALENT SUR UNE OPPORTUNITÉ : le nom affiché y est celui du COMPTE, et un
+ * compte n'est pas un champ de la fiche — le renommer depuis un écran d'appel renommerait le
+ * client pour toute l'entreprise. Il reste donc en lecture sur les opportunités, et modifiable sur
+ * les pistes, où il n'est qu'une déclaration de l'interlocuteur.
+ */
+export type ChampFicheSprint =
+  | 'nom_complet' | 'fonction' | 'email'
+  | 'telephone' | 'telephone_mobile' | 'societe' | 'commentaire'
+  /* Écrits par les gestes d'après-appel, pas par un champ modifiable de l'écran. */
+  | 'motif_disqualification' | 'echeance_actuelle'
+
+/** Les civilités qu'on reconnaît en tête d'un nom saisi. Comparaison sans accent ni point. */
+const CIVILITES = ['m', 'mr', 'monsieur', 'mme', 'madame', 'mlle', 'mademoiselle', 'dr', 'me']
+
+/**
+ * ══ LE NOM COMPLET EST TROIS COLONNES, PAS UNE ══
+ *
+ * `lister_pipe_du_jour` rend `trim(concat_ws(' ', civilite, prenom, nom))`. Écrire « Anne-Françoise
+ * Dos Santos » dans le seul `nom` d'une fiche qui porte déjà `prenom = 'Anne-Françoise'` afficherait
+ * « Anne-Françoise Anne-Françoise Dos Santos » à la seconde suivante — et le rendrait pire à chaque
+ * correction.
+ *
+ * ON REDÉCOUPE DONC CE QUI A ÉTÉ TAPÉ, et on réécrit les TROIS colonnes : une civilité reconnue en
+ * tête, le premier mot restant en prénom, tout le reste en nom. « Dos Santos », « De La Vaissière »
+ * restent donc entiers, ce qu'un découpage sur le dernier espace aurait cassé.
+ *
+ * VIDER LES COLONNES NON RENSEIGNÉES est indispensable : sans ça, retirer un prénom laisserait
+ * l'ancien en base et il réapparaîtrait à l'écran.
+ */
+export function decouperNomComplet(saisi: string): { civilite: string | null; prenom: string | null; nom: string | null } {
+  const mots = saisi.trim().split(/\s+/).filter(Boolean)
+  if (mots.length === 0) return { civilite: null, prenom: null, nom: null }
+
+  let civilite: string | null = null
+  const sansAccent = (m: string) => m.toLowerCase().replace(/\./g, '').normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+  if (mots.length > 1 && CIVILITES.includes(sansAccent(mots[0]))) civilite = mots.shift() ?? null
+
+  if (mots.length === 1) return { civilite, prenom: null, nom: mots[0] }
+  return { civilite, prenom: mots[0], nom: mots.slice(1).join(' ') }
+}
+
+export function useMajFicheSprint() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: async ({
+      ligne, champ, valeur,
+    }: { ligne: LignePipe; champ: ChampFicheSprint; valeur: string }) => {
+      const v = valeur.trim() || null
+      const quand = new Date().toISOString()
+      /* Le nom se répartit sur trois colonnes ; tous les autres champs vont dans la leur. */
+      const colonnes: Record<string, unknown> =
+        champ === 'nom_complet' ? { ...decouperNomComplet(valeur) } : { [champ]: v }
+
+      if (ligne.cible_type === 'PISTE') {
+        /* `contact_nom` PORTE LE NOM DES IMPORTS qui n'ont jamais séparé prénom et nom — 4 490
+           pistes. Le laisser en place après une correction ferait réapparaître l'ancienne
+           orthographe partout où il sert de repli. */
+        if (champ === 'nom_complet') colonnes.contact_nom = null
+        const { error } = await supabase
+          .from('pistes')
+          .update({ ...colonnes, date_modification: quand })
+          .eq('id', ligne.cible_id)
+        if (error) throw new Error(error.message)
+        return
+      }
+
+      /* LE COMMENTAIRE EST LE SEUL CHAMP QUI VIT SUR L'OPPORTUNITÉ elle-même : c'est la note du
+         dossier, pas une propriété de la personne. Tout le reste appartient au contact. */
+      if (champ === 'commentaire') {
+        const { error } = await supabase
+          .from('opportunites')
+          .update({ commentaire: v, date_modification: quand })
+          .eq('id', ligne.cible_id)
+        if (error) throw new Error(error.message)
+        return
+      }
+
+      if (champ === 'societe' || champ === 'motif_disqualification' || champ === 'echeance_actuelle') {
+        throw new Error('Ce champ n’existe que sur une piste.')
+      }
+      if (!ligne.contact_id) throw new Error('Aucun contact rattaché : la correction n’a pas où s’écrire.')
+
+      const { error } = await supabase
+        .from('contacts')
+        .update({ ...colonnes, date_modification: quand })
+        .eq('id', ligne.contact_id)
+      if (error) throw new Error(error.message)
+    },
+    /* LE PIPE SE RELIT, ET LA FICHE AUSSI : le sprint affiche les deux — le nom et les numéros
+       viennent de `lister_pipe_du_jour`, le reste de `useFichePipe`. N'en invalider qu'une
+       laisserait la moitié de l'écran sur l'ancienne valeur. */
+    onSuccess: () => {
+      void qc.invalidateQueries({ queryKey: ['cockpit'] })
+      void qc.invalidateQueries({ queryKey: ['pistes'] })
+      void qc.invalidateQueries({ queryKey: ['contacts'] })
+    },
+  })
+}
+
+/**
+ * ════════════════════════════════════════════════════════════════════════════════════════════════
+ * LE FIL D'ACTIVITÉ — TOUT CE QU'ON S'EST DIT, DU PLUS RÉCENT AU PLUS ANCIEN
+ * ════════════════════════════════════════════════════════════════════════════════════════════════
+ *
+ * William, 22/09/2026 : « l'historique complet (appels, mails, notes avec la capacité d'en
+ * écrire), trois traitements visuellement distincts, en date décroissante ».
+ *
+ * ══ TROIS CLÉS, PARCE QU'UNE PISTE DEVIENT UNE OPPORTUNITÉ ══
+ *
+ * « La piste est forcément antérieure à l'opportunité » (William, 22/09/2026). Un fil qui ne lirait
+ * que `opportunite_id` commencerait donc le jour de la conversion et perdrait tout le travail qui
+ * l'a rendue possible — c'est-à-dire précisément ce qu'on cherche avant de rappeler. On lit donc :
+ *
+ *   `opportunite_id`  ce qui a été fait SUR l'opportunité
+ *   `contact_id`      ce qui a été fait AVEC la personne, quel que soit l'objet
+ *   `piste_id`        ce qui a été fait sur la ou les pistes dont l'opportunité est née
+ *
+ * L'union peut ramener deux fois la même ligne : on déduplique sur l'identifiant.
+ *
+ * ══ LA QUALIFICATION D'UN APPEL N'EST PAS DANS `interactions` ══
+ *
+ * Qui a décroché, l'aura et l'issue sont saisis dans la fenêtre d'appel et vivent sur
+ * `appels_en_cours` (migration 20260922120000). On les rapproche par `source_externe_id`,
+ * l'identifiant d'Allô, qui est le seul point commun des deux tables.
+ */
+export type NatureEvenement = 'APPEL' | 'MAIL' | 'NOTE'
+
+export interface EvenementFil {
+  id: string
+  nature: NatureEvenement
+  quand: string
+  /** ENTRANT ou SORTANT : c'est ce qui distingue une réponse d'une relance. */
+  sens: string | null
+  objet: string | null
+  resume: string | null
+  auteur: string | null
+  /* ── Propre aux appels ── */
+  duree_secondes: number | null
+  enregistrement_url: string | null
+  manque: boolean
+  messagerie: boolean
+  /** Ce qu'Allô a compris de l'appel, rattrapé sur tout l'historique. */
+  etiquettes: string[]
+  /* ── SAISI DANS LA FENÊTRE D'APPEL (`appels_en_cours`, migration 20260922120000) ──
+     DEUX COLONNES, DEUX QUESTIONS, et je les avais confondues en écrivant ce fil :
+       `qualification` QUI a décroché — HUMAIN, REPONDEUR, SERVEUR_VOCAL, PAS_DE_REPONSE
+       `interlocuteur` LEQUEL, quand c'est un humain — CONTACT ou AUTRE
+     Les contraintes de la base l'imposent ; lire l'une pour l'autre rendait `null` en silence, donc
+     un appel abouti sans qualification et un score qui ne bougeait jamais. */
+  qualification: Qualification | null
+  interlocuteur: Interlocuteur | null
+  interlocuteur_nom: string | null
+  aura: number | null
+  /** Un CODE, pas un libellé : `LIBELLE_ISSUE` le traduit à l'affichage. */
+  issue: IssueAppel | null
+  /* ── LE SENS DE L'ÉCHANGE (migration 20260922140000) ──
+     POSITIF / NEUTRE / NEGATIF, avec sa source et la phrase qui le justifie. C'est cette valence,
+     et non le fait qu'un échange ait eu lieu, qui fait bouger le score de santé. */
+  sentiment: Valence | null
+  sentiment_source: 'IA' | 'HUMAIN' | null
+  sentiment_motif: string | null
+}
+
+const CODES_FIL: Record<string, NatureEvenement> = {
+  APPEL: 'APPEL',
+  EMAIL: 'MAIL',
+  NOTE_INTERNE: 'NOTE',
+  AUTRE: 'NOTE',
+  RENDEZ_VOUS: 'NOTE',
+  COURRIER: 'NOTE',
+  VISITE_SITE: 'NOTE',
+  VISIO: 'NOTE',
+  SMS: 'NOTE',
+  WHATSAPP: 'NOTE',
+}
+
+export function useFilActivite(ligne: LignePipe | null) {
+  return useQuery({
+    queryKey: ['cockpit', 'fil', ligne?.cible_type, ligne?.cible_id, ligne?.contact_id],
+    enabled: Boolean(ligne),
+    staleTime: 60 * 1000,
+    queryFn: async (): Promise<EvenementFil[]> => {
+      if (!ligne) return []
+
+      /* LES PISTES D'ORIGINE, quand on est sur une opportunité. Une opportunité peut en avoir
+         plusieurs : deux contacts d'un même syndic démarchés séparément, puis réunis. */
+      let pistesOrigine: string[] = []
+      if (ligne.cible_type === 'OPPORTUNITE') {
+        const { data } = await supabase
+          .from('pistes')
+          .select('id')
+          .eq('opportunite_id', ligne.cible_id)
+          .limit(20)
+        pistesOrigine = ((data ?? []) as { id: string }[]).map((p) => p.id)
+      } else {
+        pistesOrigine = [ligne.cible_id]
+      }
+
+      const clauses: string[] = []
+      if (ligne.cible_type === 'OPPORTUNITE') clauses.push(`opportunite_id.eq.${ligne.cible_id}`)
+      if (ligne.contact_id) clauses.push(`contact_id.eq.${ligne.contact_id}`)
+      if (pistesOrigine.length > 0) clauses.push(`piste_id.in.(${pistesOrigine.join(',')})`)
+      if (clauses.length === 0) return []
+
+      const { data, error } = await supabase
+        .from('interactions')
+        .select(
+          'id, date_interaction, sens, objet, resume, resume_ia, duree_appel_secondes,'
+          + ' enregistrement_url, appel_manque, messagerie_vocale, etiquettes_allo,'
+          + ' sentiment, sentiment_source, sentiment_motif,'
+          + ' source_externe_id, type:types_interactions(code), auteur:profils!interactions_auteur_profil_id_fkey(prenom, nom)',
+        )
+        .or(clauses.join(','))
+        .eq('actif', true)
+        .order('date_interaction', { ascending: false })
+        .limit(80)
+      if (error) throw new Error(error.message)
+
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const brutes = (data ?? []) as any[]
+      if (brutes.length === 0) return []
+
+      /* LA QUALIFICATION SAISIE À LA MAIN, pour les appels qui en ont une. */
+      const refs = brutes.map((i) => i.source_externe_id).filter(Boolean) as string[]
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      let qualifs: any[] = []
+      if (refs.length > 0) {
+        const { data: q } = await supabase
+          .from('appels_en_cours')
+          .select('source_externe_id, qualification, interlocuteur, interlocuteur_nom, aura, issue')
+          .in('source_externe_id', refs)
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        qualifs = (q ?? []) as any[]
+      }
+      const parRef = new Map(qualifs.map((q) => [q.source_externe_id as string, q]))
+
+      const vus = new Set<string>()
+      return brutes
+        .filter((i) => (vus.has(i.id) ? false : (vus.add(i.id), true)))
+        .map((i) => {
+          const q = i.source_externe_id ? parRef.get(i.source_externe_id) : undefined
+          return {
+            id: i.id as string,
+            nature: CODES_FIL[i.type?.code ?? ''] ?? 'NOTE',
+            quand: i.date_interaction as string,
+            sens: (i.sens as string) ?? null,
+            objet: (i.objet as string) ?? null,
+            /* LE RÉSUMÉ DU COMMERCIAL PRIME SUR CELUI D'ALLÔ : quand quelqu'un a pris la peine de
+               réécrire, c'est qu'il avait quelque chose à corriger. */
+            resume: (i.resume as string) ?? (i.resume_ia as string) ?? null,
+            auteur: [i.auteur?.prenom, i.auteur?.nom].filter(Boolean).join(' ') || null,
+            duree_secondes: (i.duree_appel_secondes as number) ?? null,
+            enregistrement_url: (i.enregistrement_url as string) ?? null,
+            manque: Boolean(i.appel_manque),
+            messagerie: Boolean(i.messagerie_vocale),
+            etiquettes: Array.isArray(i.etiquettes_allo) ? (i.etiquettes_allo as string[]) : [],
+            qualification: (q?.qualification as Qualification) ?? null,
+            interlocuteur: (q?.interlocuteur as Interlocuteur) ?? null,
+            interlocuteur_nom: (q?.interlocuteur_nom as string) ?? null,
+            aura: (q?.aura as number) ?? null,
+            issue: (q?.issue as IssueAppel) ?? null,
+            sentiment: (i.sentiment as Valence) ?? null,
+            sentiment_source: (i.sentiment_source as 'IA' | 'HUMAIN') ?? null,
+            sentiment_motif: (i.sentiment_motif as string) ?? null,
+          }
+        })
+    },
+  })
+}
+
+/**
+ * Écrire une note depuis le sprint.
+ *
+ * ELLE S'ACCROCHE À L'OBJET ET AU CONTACT À LA FOIS : rattachée au seul contact, elle
+ * disparaîtrait de l'opportunité ; rattachée à la seule opportunité, elle ne suivrait pas la
+ * personne sur son prochain dossier. Le fil relit les deux clés, la note doit porter les deux.
+ */
+export function useEcrireNote() {
+  const qc = useQueryClient()
+  const { data: profil } = useMonProfil()
+  return useMutation({
+    mutationFn: async ({ ligne, texte }: { ligne: LignePipe; texte: string }) => {
+      const propre = texte.trim()
+      if (!propre) throw new Error('Une note vide ne s’écrit pas.')
+
+      /* `type_interaction_id` EST OBLIGATOIRE EN BASE. On le lit plutôt que de le coder en dur —
+         les tables de référence portent des identifiants différents d'un environnement à l'autre —
+         et on refuse proprement s'il manque, au lieu de laisser remonter une violation de
+         contrainte que personne ne saurait lire. */
+      const { data: type } = await supabase
+        .from('types_interactions')
+        .select('id')
+        .eq('code', 'NOTE_INTERNE')
+        .maybeSingle()
+      const typeId = (type as { id: string } | null)?.id
+      if (!typeId) throw new Error('Le type « Note interne » est absent des tables de référence.')
+
+      const { error } = await supabase.from('interactions').insert({
+        type_interaction_id: typeId,
+        auteur_profil_id: profil?.id ?? null,
+        contact_id: ligne.contact_id,
+        compte_id: ligne.compte_id,
+        opportunite_id: ligne.cible_type === 'OPPORTUNITE' ? ligne.cible_id : null,
+        piste_id: ligne.cible_type === 'PISTE' ? ligne.cible_id : null,
+        date_interaction: new Date().toISOString(),
+        sens: 'INTERNE',
+        resume: propre,
+        actif: true,
+      })
+      if (error) throw new Error(error.message)
+    },
+    onSuccess: () => {
+      void qc.invalidateQueries({ queryKey: ['cockpit', 'fil'] })
+    },
+  })
+}
+
+/**
+ * ════════════════════════════════════════════════════════════════════════════════════════════════
+ * CORRIGER LE SENS D'UN ÉCHANGE, D'UN CLIC
+ * ════════════════════════════════════════════════════════════════════════════════════════════════
+ *
+ * Un score qui ne se corrige pas dérive. L'analyse se trompera — sur une ironie, sur un « on verra »
+ * qui voulait dire non — et c'est le commercial qui était au téléphone qui le sait.
+ *
+ * LA CORRECTION EST DÉFINITIVE : elle pose `sentiment_source = 'HUMAIN'`, et l'analyse ne repasse
+ * jamais dessus (voir `api/cockpit/conseil.ts`).
+ */
+export function usePoserValence() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: async ({ interaction, valence }: { interaction: string; valence: Valence | null }) => {
+      const { error } = await supabase
+        .from('interactions')
+        .update({
+          sentiment: valence,
+          sentiment_source: valence ? 'HUMAIN' : null,
+          /* LE MOTIF DE L'IA SAUTE AVEC SA VALENCE : garder « ton agacé » sous un POSITIF corrigé à
+             la main donnerait une ligne qui se contredit elle-même. */
+          sentiment_motif: null,
+          date_modification: new Date().toISOString(),
+        })
+        .eq('id', interaction)
+      if (error) throw new Error(error.message)
+    },
+    onSuccess: () => {
+      void qc.invalidateQueries({ queryKey: ['cockpit', 'fil'] })
+    },
+  })
+}
+
+/**
+ * ════════════════════════════════════════════════════════════════════════════════════════════════
+ * L'AVIS DE KIMATCH — RENDU DÈS QUE LA FICHE S'AFFICHE
+ * ════════════════════════════════════════════════════════════════════════════════════════════════
+ *
+ * William, 22/09/2026 : « je veux que cet avis soit évalué en temps réel, ou quand la fiche
+ * s'affiche dans le sprint, je veux pas avoir besoin de cliquer ».
+ *
+ * J'AVAIS MIS UN BOUTON POUR ÉCONOMISER DES APPELS. C'était un mauvais arbitrage : dans un sprint,
+ * on enchaîne les fiches le combiné en main, et un conseil qui demande un clic arrive après la
+ * décision qu'il devait éclairer. Il part donc avec la fiche.
+ *
+ * ══ CE QUI EMPÊCHE LA FACTURE DE S'EMBALLER ══
+ *
+ * `staleTime: Infinity` : revenir sur une fiche déjà lue ne redemande rien de la séance. La clé
+ * porte le NOMBRE d'échanges — pas la liste : le fil se relit après chaque analyse (les valences
+ * viennent d'être écrites), et une clé dépendant du contenu relancerait l'analyse en boucle.
+ *
+ * `retry: false` : un refus d'Anthropic se lit à l'écran, il ne se retente pas trois fois.
+ *
+ * Une fiche sans aucun échange ne déclenche rien : il n'y aurait rien à lire.
+ */
+export interface AvisFiche {
+  titre: string
+  texte: string
+  risque: string | null
+}
+
+export interface EntreeAvis {
+  fiche: { type: string; nom: string | null; societe: string | null; statut: string | null; perimetre: string | null; tache: string | null }
+  echanges: unknown[]
+}
+
+export function useAvisFiche(ligne: LignePipe | null, entree: EntreeAvis | null) {
+  return useQuery({
+    queryKey: ['cockpit', 'avis', ligne?.cible_type, ligne?.cible_id, entree?.echanges.length ?? 0],
+    enabled: Boolean(ligne && entree && entree.echanges.length > 0),
+    staleTime: Infinity,
+    gcTime: 60 * 60 * 1000,
+    retry: false,
+    refetchOnWindowFocus: false,
+    queryFn: async (): Promise<AvisFiche | null> => {
+      const res = await fetch('/api/cockpit/conseil', {
+        method: 'POST',
+        headers: await authHeaderJson(),
+        body: JSON.stringify(entree),
+      })
+
+      /* SI `api/` N'EST PAS SERVI, le repli du SPA rend l'index HTML — ou rien du tout — et
+         `res.json()` échouerait sur « Unexpected token < ». Le dire en toutes lettres évite dix
+         minutes à chercher une panne qui n'existe pas. Depuis le 22/09/2026, `vite.config.ts` sert
+         `api/` en local : ce message ne devrait plus apparaître qu'en cas de vrai incident. */
+      const texte = await res.text()
+      let data: { success?: boolean; error?: string; conseil?: AvisFiche }
+      try {
+        data = JSON.parse(texte)
+      } catch {
+        throw new Error(
+          res.status === 404 || texte.trimStart().startsWith('<')
+            ? 'Les fonctions serveur ne répondent pas ici.'
+            : `Réponse illisible du serveur (${res.status}).`,
+        )
+      }
+      if (!res.ok || !data.success) throw new Error(data.error ?? `Erreur ${res.status}`)
+      return data.conseil ?? null
+    },
+  })
+}
+
+/**
+ * ════════════════════════════════════════════════════════════════════════════════════════════════
+ * LE PARCOURS D'UNE PISTE, TEL QUE LE COCKPIT LE FAIT AVANCER
+ * ════════════════════════════════════════════════════════════════════════════════════════════════
+ *
+ * William, 22/09/2026 :
+ *
+ *   « Dès que je lance une action de prospection dans cockpit (appel), la piste au statut nouvelle
+ *     passe à "En cours de qualification". Si elle est déjà à ce statut, elle reste à ce statut.
+ *     Le passage à "En attente de facture" n'est possible (depuis cockpit) qu'avec le bouton
+ *     d'action "Demande de facture". Ce statut indique qu'on est désormais en attente de réception.
+ *     La conversion se fait lors du clic sur le bouton et n'est possible que lorsque j'ai reçu une
+ *     facture. »
+ *
+ * ══ LA GARDE EST DANS LA REQUÊTE, PAS DANS UN `if` ══
+ *
+ * « Si elle est déjà à ce statut, elle reste à ce statut » — et, plus largement, on ne fait jamais
+ * RECULER une piste. Un commercial qui rappelle une piste déjà en attente de facture ne doit pas la
+ * ramener en qualification. La condition est donc posée en base, sur le statut de départ : deux
+ * onglets ouverts sur la même fiche ne peuvent pas se contredire, là où un test lu en JavaScript
+ * aurait travaillé sur une valeur vieille de quelques secondes.
+ */
+export type StatutPiste = 'NOUVELLE' | 'EN_QUALIFICATION' | 'EN_ATTENTE_FACTURE' | 'CONVERTIE' | 'DISQUALIFIEE'
+
+async function idStatutPiste(code: StatutPiste): Promise<string | null> {
+  const { data } = await supabase.from('statuts_pistes').select('id').eq('code', code).maybeSingle()
+  return (data as { id: string } | null)?.id ?? null
+}
+
+export function useAvancerStatutPiste() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: async ({ piste, vers, depuis }: {
+      piste: string
+      vers: StatutPiste
+      /** Les statuts de départ acceptés. Vide : on avance quel que soit le point de départ. */
+      depuis?: StatutPiste[]
+    }) => {
+      const cible = await idStatutPiste(vers)
+      if (!cible) throw new Error(`Le statut « ${vers} » est absent des tables de référence.`)
+
+      let requete = supabase
+        .from('pistes')
+        .update({ statut_id: cible, date_modification: new Date().toISOString() })
+        .eq('id', piste)
+
+      if (depuis && depuis.length > 0) {
+        const ids: string[] = []
+        for (const code of depuis) {
+          const id = await idStatutPiste(code)
+          if (id) ids.push(id)
+        }
+        if (ids.length === 0) return
+        requete = requete.in('statut_id', ids)
+      }
+
+      const { error } = await requete
+      if (error) throw new Error(error.message)
+    },
+    onSuccess: () => {
+      void qc.invalidateQueries({ queryKey: ['cockpit'] })
+      void qc.invalidateQueries({ queryKey: ['pistes'] })
     },
   })
 }
