@@ -101,8 +101,22 @@ if ($numero -notmatch '^\+[0-9]{8,15}$') { Noter "rejet: format invalide ($numer
 
 $script = Join-Path $PSScriptRoot 'appeler-depuis-kimatch.ps1'
 Noter "appel de $numero"
-$sortie = & powershell -NoProfile -ExecutionPolicy Bypass -File $script -Numero $numero 2>&1
-Noter "resultat: $sortie"
+
+# LA SORTIE DU SOUS-PROCESSUS SE RECUPERE PAR UN FICHIER, PAS PAR LA VARIABLE.
+#
+# `$sortie = & powershell ... 2>&1` rendait une chaine VIDE : le journal affichait « resultat: »
+# suivi de rien, et on ne savait pas si l'appel etait parti. Constate le 22/09/2026 sur trois
+# tentatives d'affilee, pendant que le meme script lance a la main affichait bien son message.
+#
+# On redirige donc vers un fichier temporaire et on le relit. C'est plus lourd, mais le journal
+# redevient fiable — et un journal auquel on ne peut pas se fier ne sert a rien.
+$tmp = Join-Path $env:TEMP ('kimatch-appel-' + [guid]::NewGuid().ToString('N') + '.txt')
+& powershell -NoProfile -ExecutionPolicy Bypass -File $script -Numero $numero *> $tmp
+$code = $LASTEXITCODE
+$sortie = (Get-Content $tmp -Raw -ErrorAction SilentlyContinue)
+Remove-Item $tmp -Force -ErrorAction SilentlyContinue
+if ($null -eq $sortie -or $sortie.Trim() -eq '') { $sortie = "(aucune sortie, code $code)" }
+Noter ("resultat: " + $sortie.Trim())
 '@
 
 $cheminLanceur = Join-Path $dossier 'lanceur.ps1'

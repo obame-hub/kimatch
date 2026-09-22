@@ -2,8 +2,8 @@
 # APPELER DEPUIS KIMATCH — ON COMPOSE DANS ALLO À LA PLACE DU COMMERCIAL
 # ════════════════════════════════════════════════════════════════════════════════════════════════
 #
-# Naoëlle, 22/09/2026 : « ils ne veulent pas répondre, faut qu'on le fasse nous-mêmes de n'importe
-# quelle manière, on peut pas créer un truc custom je sais pas, simuler les clics quelque chose. »
+# Naoëlle, 22/09/2026 : ' ils ne veulent pas répondre, faut qu'on le fasse nous-mêmes de n'importe
+# quelle manière, on peut pas créer un truc custom je sais pas, simuler les clics quelque chose. '
 #
 # ══ POURQUOI UN PROGRAMME LOCAL, ET NON DU CODE DANS KIMATCH ══
 #
@@ -15,20 +15,20 @@
 #
 # Première version, abandonnée : déplacer la souris à des coordonnées calculées, cliquer, coller au
 # clavier. Fragile par nature — un déplacement de fenêtre, une notification qui passe devant, et le
-# numéro atterrit ailleurs. Impossible à vérifier, aussi : le script disait « OK » sans savoir.
+# numéro atterrit ailleurs. Impossible à vérifier, aussi : le script disait ' OK ' sans savoir.
 #
 # ALLO EST UNE APPLICATION ELECTRON, DONC UNE PAGE WEB, ET WINDOWS SAIT LA LIRE. Mesuré le
 # 22/09/2026 : son arbre d'accessibilité expose 266 éléments, dont exactement les deux qu'il nous
 # faut —
 #
-#   · le champ « Entrez un nom ou un numéro... », qui supporte `ValuePattern` (on y ÉCRIT) ;
-#   · le bouton « Appeler », qui supporte `InvokePattern` (on l'ACTIONNE).
+#   · le champ ' Entrez un nom ou un numéro... ', qui supporte `ValuePattern` (on y ÉCRIT) ;
+#   · le bouton ' Appeler ', qui supporte `InvokePattern` (on l'ACTIONNE).
 #
 # C'est le même mécanisme qu'utilise un lecteur d'écran. On ne détourne rien : on se sert de
 # l'interface d'accessibilité qu'Electron publie, et qui est faite pour être pilotée.
 #
 # ET ON PEUT VÉRIFIER, ce qui change tout : après écriture, on relit la valeur du champ. Le script
-# ne dit plus « OK » par optimisme, il le dit parce qu'il a relu.
+# ne dit plus ' OK ' par optimisme, il le dit parce qu'il a relu.
 #
 # ══ CE QU'ON A ESSAYÉ AVANT, ET QUI EST FERMÉ ══
 #
@@ -46,7 +46,7 @@
 #
 # ══ USAGE ══
 #
-#   powershell -ExecutionPolicy Bypass -File appeler-depuis-kimatch.ps1 -Numero "+33612345678"
+#   powershell -ExecutionPolicy Bypass -File appeler-depuis-kimatch.ps1 -Numero '+33612345678'
 #   …            -SansValider     écrit le numéro sans lancer l'appel (pour éprouver le tir)
 #
 # Rend 0 si le numéro a été écrit ET relu, 1 sinon.
@@ -60,7 +60,7 @@ $ErrorActionPreference = 'Stop'
 Add-Type -AssemblyName UIAutomationClient, UIAutomationTypes
 
 # ── LA FENÊTRE D'ALLO ──────────────────────────────────────────────────────────────────────────
-# Plusieurs processus portent le nom « Allo » — Electron en lance un par processus de rendu. On ne
+# Plusieurs processus portent le nom ' Allo ' — Electron en lance un par processus de rendu. On ne
 # garde que celui qui porte une fenêtre, le seul dont l'arbre d'accessibilité contienne l'interface.
 $allo = Get-Process -Name 'Allo*' -ErrorAction SilentlyContinue |
         Where-Object { $_.MainWindowTitle -ne '' } | Select-Object -First 1
@@ -79,12 +79,12 @@ $tous = $racine.FindAll(
 # On les retrouve par leur LIBELLÉ et non par leur position dans l'arbre : une position changerait
 # au premier remaniement de leur interface, alors qu'un libellé visible se repère et se corrige.
 #
-# LE BOUTON PORTE PARFOIS UNE ESPACE EN TÊTE (« Appeler » / « ␣Appeler ») selon qu'il est rendu avec
+# LE BOUTON PORTE PARFOIS UNE ESPACE EN TÊTE (' Appeler ' / ' ␣Appeler ') selon qu'il est rendu avec
 # son icône : on compare donc sur la valeur ajustée, sinon la recherche échoue une fois sur deux.
 #
 # ══ LE LIBELLÉ DU CHAMP DISPARAÎT DÈS QU'ON Y ÉCRIT — CORRIGÉ LE 22/09/2026 ══
 #
-# Première version : on cherchait le champ par son nom, « Entrez un nom ou un numéro... ». Ça a
+# Première version : on cherchait le champ par son nom, ' Entrez un nom ou un numéro... '. Ça a
 # marché une fois, puis échoué : ce texte est l'INVITE, pas une étiquette. Une fois un numéro
 # saisi, le champ s'appelle autrement et la recherche ne le trouvait plus — le script refusait
 # d'appeler parce qu'il avait réussi au coup précédent.
@@ -111,7 +111,7 @@ if (-not $champ) {
 # ── ÉCRIRE LE NUMÉRO ───────────────────────────────────────────────────────────────────────────
 # `SetValue` remplace le contenu d'un coup : pas de concaténation possible avec un numéro déjà
 # présent, qui appellerait un correspondant qui n'existe pas. C'est le risque qu'avait la version
-# « coller au clavier », et il disparaît ici.
+# ' coller au clavier ', et il disparaît ici.
 $valeur = $champ.GetCurrentPattern([System.Windows.Automation.ValuePattern]::Pattern)
 if ($valeur.Current.IsReadOnly) {
   Write-Output "ECHEC: le champ de composition refuse l'ecriture."
@@ -122,7 +122,7 @@ Start-Sleep -Milliseconds 600
 
 # ── RELIRE, AVANT DE RIEN AFFIRMER ─────────────────────────────────────────────────────────────
 # Tout l'intérêt de cette méthode par rapport à la frappe simulée : on SAIT si c'est écrit. Un
-# script qui annonce « composé » sans relire est exactement ce qui nous a fait tourner en rond
+# script qui annonce ' composé ' sans relire est exactement ce qui nous a fait tourner en rond
 # pendant deux jours.
 $relu = $champ.GetCurrentPattern([System.Windows.Automation.ValuePattern]::Pattern).Current.Value
 if ($relu -notmatch [regex]::Escape($Numero.TrimStart('+'))) {
@@ -156,5 +156,44 @@ if (-not $bouton.Current.IsEnabled) {
 }
 
 $bouton.GetCurrentPattern([System.Windows.Automation.InvokePattern]::Pattern).Invoke()
+
+# ══ ON VERIFIE QU'ALLO A OBEI, PAS SEULEMENT QU'ON A CLIQUE ══
+#
+# Naoelle, 22/09/2026 : ' ca n'appelle plus ? pourquoi ? ' Le journal disait ' OK ' a chaque fois, et
+# pourtant aucun appel ne partait.
+#
+# LA CAUSE : une autre ligne etait deja en communication — le compte Allo est partage, et un
+# collegue telephonait. Allo refuse alors de composer, sans rien dire. Notre script, lui, annoncait
+# ' OK ' parce qu'il avait clique : il confondait ' j'ai appuye ' avec ' ca appelle '.
+#
+# C'est la meme faute que les listes qui se disaient vides quand elles n'avaient pas pu lire. Un
+# composant qui ne verifie pas son effet ne peut pas etre repare — on cherche ailleurs pendant des
+# heures.
+#
+# COMMENT ON LE SAIT : quand l'appel part, Allo VIDE son champ de composition. S'il contient encore
+# le numero deux secondes apres, c'est qu'il ne s'est rien passe.
+#
+# LA RELECTURE PEUT ELLE-MEME ECHOUER, ET C'EST BON SIGNE.
+#
+# Premiere version de ce controle, le 22/09/2026 : elle relisait le champ sans precaution et le
+# script mourait sur 'Modele non pris en charge'. La cause est justement ce qu'on cherchait a
+# constater : QUAND L'APPEL PART, ALLO CHANGE D'ECRAN, et l'element qu'on tenait n'existe plus.
+#
+# Une exception ici signifie donc que le clavier a disparu, c'est-a-dire que l'appel est lance. On
+# la traite comme un succes plutot que comme une panne — et le script ne meurt plus au moment
+# precis ou il reussit.
+Start-Sleep -Milliseconds 2000
+$apres = $null
+try {
+  $apres = $champ.GetCurrentPattern([System.Windows.Automation.ValuePattern]::Pattern).Current.Value
+} catch {
+  $apres = $null
+}
+
+if ($null -ne $apres -and $apres -match [regex]::Escape($Numero.TrimStart('+'))) {
+  Write-Output "ECHEC: Allo n'a pas compose $Numero - une ligne est peut-etre deja en communication."
+  exit 1
+}
+
 Write-Output "OK: appel lance vers $Numero."
 exit 0

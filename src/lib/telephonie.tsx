@@ -1,7 +1,7 @@
 import { createContext, useCallback, useContext, useEffect, useState } from 'react'
 import type { ReactNode } from 'react'
 import { CarteAppel } from '@/components/allo/CarteAppel'
-import { lancerAlloBureau, composerSurLePoste } from '@/lib/alloBureau'
+import { composerSurLePoste } from '@/lib/alloBureau'
 import { signalerAppelLance } from '@/lib/data/appelEnCours'
 
 /**
@@ -15,14 +15,22 @@ import { signalerAppelLance } from '@/lib/data/appelEnCours'
  * ══ CE QUE FAIT UN CLIC, DANS L'ORDRE ══
  *
  *   · sur un appareil TACTILE : `tel:`, et le téléphone compose. C'est le bon geste là-bas.
- *   · sur ORDINATEUR : `allo://call?number=…` puis `kimatch://appeler?numero=…`.
+ *   · sur ORDINATEUR : `kimatch://appeler?numero=…`, notre protocole.
  *
- * LE SECOND EST LE NÔTRE, et c'est lui qui marche. Voir `lib/alloBureau.ts` pour le détail, et
- * `scripts/appeler-depuis-kimatch.ps1` pour ce qu'il déclenche : Kimatch demande au poste d'écrire
- * le numéro dans le champ d'Allo, de RELIRE pour vérifier, puis d'actionner leur bouton « Appeler ».
+ * Voir `lib/alloBureau.ts` pour le détail, et `scripts/appeler-depuis-kimatch.ps1` pour ce qu'il
+ * déclenche : Kimatch demande au poste d'écrire le numéro dans le champ d'Allo, de RELIRE pour
+ * vérifier, puis d'actionner leur bouton « Appeler ».
  *
- * ON LANCE LES DEUX exprès. `allo://` est le chemin officiel — leur propre code le documente pour
- * les CRM sous Windows — et le jour où ils le réparent, on en profite sans rien changer ici.
+ * ══ UN SEUL PROTOCOLE, ET C'EST UNE CORRECTION DU 22/09/2026 ══
+ *
+ * On lançait AUSSI `allo://call?number=…`, leur chemin officiel, « au cas où ils le réparent ».
+ * C'était une erreur, et elle a cassé les appels pendant une heure : `allo://` OUVRE
+ * L'APPLICATION ET LUI DONNE LE FOCUS. Notre script arrivait une fraction de seconde plus tard,
+ * pendant qu'Allo se réveillait, et son écriture tombait à côté du champ.
+ *
+ * Les essais isolés réussissaient donc tous, et seul le clic depuis Kimatch échouait — c'était le
+ * seul cas où les deux partaient ensemble. `lancerAlloBureau` reste exporté pour le jour où Allo
+ * corrigera, mais plus personne ne l'appelle.
  *
  * ══ CE QUI A ÉTÉ RETIRÉ LE 22/09/2026, ET POURQUOI ══
  *
@@ -244,7 +252,24 @@ export function TelephonieProvider({ children }: { children: ReactNode }) {
      * place au vrai appel dès qu'il arrive. */
     signalerAppelLance(e164)
 
-    lancerAlloBureau(e164)
+    /* ══ ON NE LANCE PLUS `allo://` — ET C'EST LUI QUI CASSAIT TOUT ══
+     *
+     * Naoëlle, 22/09/2026 : « ça n'appelle plus ? pourquoi ? » Le journal du poste le confirme :
+     * aucune trace du clic, alors que le protocole `kimatch://` était intact et que les essais
+     * directs marchaient tous.
+     *
+     * LA FAUTE EST L'ORDRE, ET ELLE EST DE MOI. `allo://` partait juste avant `kimatch://`. Or il
+     * OUVRE L'APPLICATION ALLO ET LUI DONNE LE FOCUS. Quand notre script arrivait, une fraction de
+     * seconde plus tard, Allo était en train de se réveiller ou affichait autre chose que son
+     * clavier : l'écriture tombait à côté.
+     *
+     * C'est pour ça que les essais isolés réussissaient et que le clic depuis Kimatch échouait —
+     * les deux protocoles ne partaient ensemble que dans le second cas.
+     *
+     * ET ON NE PERD RIEN. `allo://` ne compose pas : éprouvé plusieurs fois le 21 et le 22/09, il
+     * ouvre l'application et s'arrête là. C'est un défaut chez eux, sur un chemin que leur propre
+     * code documente pour les CRM. On le laisse donc de côté ; `lancerAlloBureau` reste exporté
+     * dans `alloBureau.ts` pour le jour où ils le répareront. */
 
     /* ══ ET NOTRE PROPRE PROTOCOLE, CELUI QUI MARCHE — 22/09/2026 ══
      *
