@@ -48,7 +48,6 @@ import {
   etatDeLAppel,
   aRencontreUnServeurVocal,
   useIdentiteAppel,
-  ID_APPEL_PRESUME,
   secondesDepuisDecroche,
   dureeLisible,
   type Qualification,
@@ -272,15 +271,6 @@ export function CarteAppel() {
 
             PENDANT LA SONNERIE, TOUJOURS RIEN : on ne sait pas encore, et une question sans réponse
             possible est une question qu'on apprend à ignorer. */}
-        {/* L'APPEL PRÉSUMÉ N'OFFRE PAS ENCORE LES BOUTONS : il n'existe qu'en mémoire, une
-            qualification ne s'écrirait nulle part. Il dure quelques secondes, le temps qu'Allo
-            confirme — et la ligne ci-dessous dit pourquoi, plutôt que de laisser un vide. */}
-        {appel.id === ID_APPEL_PRESUME && (
-          <p className="mt-3 text-km-label leading-snug text-km-faint">
-            Dès qu’Allo confirme l’appel, tu pourras dire qui tu as eu.
-          </p>
-        )}
-
         {/* ══ LES BOUTONS SONT LÀ DÈS LE DÉPART — 22/09/2026 ══
          *
          * Naoëlle, capture à l'appui : « c'est ce bloc que je veux qu'il apparaisse dès qu'on lance
@@ -293,7 +283,7 @@ export function CarteAppel() {
          * jamais — et « pas de réponse » est justement la réponse qu'il fallait pouvoir donner.
          *
          * Le libellé, lui, continue de suivre le moment : au présent en ligne, au passé après. */}
-        {appel.id !== ID_APPEL_PRESUME && (
+        {(
           <>
         {/* LE LIBELLÉ SUIT LE MOMENT. « Qui as-tu eu ? » au passé, posé pendant qu'on est encore en
             ligne, se lit comme une erreur d'affichage — et fait douter que le clic soit pris en

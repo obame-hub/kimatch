@@ -2,7 +2,6 @@ import { createContext, useCallback, useContext, useEffect, useState } from 'rea
 import type { ReactNode } from 'react'
 import { CarteAppel } from '@/components/allo/CarteAppel'
 import { composerSurLePoste } from '@/lib/alloBureau'
-import { signalerAppelLance } from '@/lib/data/appelEnCours'
 
 /**
  * ════════════════════════════════════════════════════════════════════════════════════════════════
@@ -242,16 +241,6 @@ export function TelephonieProvider({ children }: { children: ReactNode }) {
      * Le lancer coûte RIEN quand il n'aboutit pas : un protocole sans gestionnaire ne navigue pas,
      * et la fenêtre d'appel reste là avec le numéro déjà copié. Il fait gagner l'appel entier quand
      * il aboutit. On le tente donc toujours, et le volet demeure pour raccrocher. */
-    /* ══ LA CARTE PARAÎT MAINTENANT, PAS QUAND ALLO VOUDRA BIEN ══
-     *
-     * Naoëlle, 22/09/2026 : « je veux qu'il apparaisse au moment de l'appel directement ».
-     *
-     * Mesuré sur les appels du jour : le webhook d'Allo écrit l'appel en 2 secondes… ou en 88, ou
-     * en 372. Plus de six minutes dans le pire cas. Kimatch, lui, sait déjà qu'il compose — c'est
-     * lui qui clique. Voir `signalerAppelLance` : la carte s'affiche avec le numéro, et cède la
-     * place au vrai appel dès qu'il arrive. */
-    signalerAppelLance(e164)
-
     /* ══ ON NE LANCE PLUS `allo://` — ET C'EST LUI QUI CASSAIT TOUT ══
      *
      * Naoëlle, 22/09/2026 : « ça n'appelle plus ? pourquoi ? » Le journal du poste le confirme :
@@ -289,6 +278,26 @@ export function TelephonieProvider({ children }: { children: ReactNode }) {
      * enregistré ne navigue pas et ne lève pas. Le comportement y reste exactement celui d'avant —
      * le numéro copié, le volet ouvert. On ne dégrade donc personne en tentant. */
     composerSurLePoste(e164)
+
+    /* ══ ON OUVRE LA CARTE NOUS-MÊMES, SANS ATTENDRE ALLO ══
+     *
+     * Naoëlle, 22/09/2026 : « je vois le bloc une fois sur deux, surtout quand je lance un appel
+     * direct après. Au pire créons-en un custom à nous, comme ça on est sûr qu'il apparaisse tout
+     * le temps. »
+     *
+     * MESURÉ CE JOUR-LÀ : le webhook d'Allo n'arrive pas toujours. Plusieurs appels ont sonné —
+     * constaté à l'écran, « Sonnerie en cours » chez eux — sans qu'aucune ligne n'apparaisse en
+     * base. Pas de ligne, pas de carte, et aucune correction d'interface n'y pouvait rien. Quand il
+     * arrive, il met de 2 à 372 secondes.
+     *
+     * KIMATCH SAIT QU'IL LANCE L'APPEL : il écrit donc la ligne lui-même. Le `call.triggered`
+     * d'Allo la retrouvera par les neuf derniers chiffres et l'enrichira au lieu d'en créer une
+     * seconde — voir `api/allo/ouvrir-appel.ts`.
+     *
+     * ON N'ATTEND PAS LA RÉPONSE : la carte sonde toutes les quatre secondes et verra la ligne
+     * d'elle-même. Bloquer le clic sur un aller-retour réseau ferait revenir le « ça charge » que
+     * Naoëlle a signalé ce matin. */
+    void ouvrirLaCarteDAppel(e164)
 
     /* ══ LE VOLET S'OUVRE AVANT TOUTE REQUÊTE, ET SANS CONDITION ══
      *
@@ -387,5 +396,30 @@ export function useTelephonie(): Telephonie {
   const c = useContext(Contexte)
   if (!c) throw new Error('useTelephonie hors de TelephonieProvider')
   return c
+}
+
+/**
+ * Demande au serveur d'ouvrir la carte d'appel pour ce numéro.
+ *
+ * NE LÈVE JAMAIS, et ne rend rien : la carte est un confort, pas une condition de l'appel. Si cette
+ * requête échoue — session expirée, réseau coupé, fonction absente en `npm run dev` — le téléphone
+ * sonne quand même, et la carte paraîtra quand le webhook d'Allo arrivera. On ne fait donc dépendre
+ * aucun message de sa réussite : c'est la faute commise ce matin avec « préparation du numéro… »,
+ * qui tournait indéfiniment quand la requête ne répondait pas.
+ */
+async function ouvrirLaCarteDAppel(e164: string): Promise<void> {
+  try {
+    const { supabase } = await import('@/lib/supabase')
+    const { data } = await supabase.auth.getSession()
+    const token = data.session?.access_token
+    if (!token) return
+    await fetch('/api/allo/ouvrir-appel', {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ numero: e164 }),
+    })
+  } catch {
+    /* Sans conséquence : voir le commentaire ci-dessus. */
+  }
 }
 
